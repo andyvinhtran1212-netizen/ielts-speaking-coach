@@ -9,7 +9,7 @@ in_/or_ (batch join + text filter) — không đụng DB.
 
 from __future__ import annotations
 
-from namespace_query_double import source_rows
+from namespace_query_double import source_rows, source_table
 
 import asyncio
 from uuid import uuid4
@@ -68,7 +68,7 @@ class _Q:
         return self._or_match(r)
 
     def execute(self):
-        if self.name in self.fake.fail_tables:
+        if self.name in self.fake.fail_tables or source_table(self.name) in self.fake.fail_tables:
             raise RuntimeError(f"forced lookup failure: {self.name}")
         rows = [r for r in source_rows(self.fake.tables, self.name) if self._match(r)]
         total = len(rows)
@@ -115,7 +115,7 @@ def _seed(fake, *, status="submitted", score=8, gd_n=10, user_id="u1", test_id=N
     test_id = test_id or str(uuid4())
     if not any(t["id"] == test_id for t in fake.tables["listening_tests"]):
         fake.tables["listening_tests"].append({
-            "id": test_id, "test_id": "ILR-LIS-LSN-L01",
+            "id": test_id, "test_id": "ILR-LIS-LSN-L01", "restricted": False,
             "title": "Lesson 01", "test_type": "mini",
         })
     if not any(u["id"] == user_id for u in fake.tables["users"]):
@@ -123,7 +123,7 @@ def _seed(fake, *, status="submitted", score=8, gd_n=10, user_id="u1", test_id=N
             "id": user_id, "email": f"{user_id}@ex.com", "display_name": "Học Viên A",
         })
     row = {
-        "id": str(uuid4()), "user_id": user_id, "test_id": test_id,
+        "id": str(uuid4()), "user_id": user_id, "test_id": test_id, "restricted": False,
         "status": status, "score": (score if status == "submitted" else None),
         "grading_details": [
             {"q_num": i + 1, "correct": i < score, "user_answer": "x",
@@ -327,11 +327,11 @@ def test_detail_exposes_test_lookup_failure(fake):
     row = _seed(fake)
     fake.fail_tables.add("listening_tests")
 
-    # Classification is an authorization boundary (FR-027): no work can be
-    # returned when the source identity cannot be established.
-    with pytest.raises(HTTPException) as error:
-        _run(listening_router.admin_get_listening_attempt(row["id"], authorization="Bearer x"))
-    assert error.value.status_code == 503
+    # The attempt's persisted flag owns authorization, independent of today's
+    # catalog. A failed title join still has to be visible to the administrator.
+    out = _run(listening_router.admin_get_listening_attempt(row["id"], authorization="Bearer x"))
+    assert out["association_lookup_failed"] is True
+    assert out["association_lookup_failures"] == ["listening_tests"]
 
 
 def test_detail_404_on_unknown_id(fake):

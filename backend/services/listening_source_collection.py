@@ -10,6 +10,7 @@ from models.listening_source_collection import (
     SourceStudyBlock, SourceExplanation, SourcePosition, SourceResponseField,
 )
 from services.listening_package_import import PackageValidationError
+from services.content_visibility import public_tests, public_programmes
 
 GROUP_TITLES = {
     "short_practice": "Bài nghe ngắn · Day 1–50",
@@ -26,7 +27,7 @@ UNOPENED_STUDY_INSTRUCTION = "Đây là tài liệu tự học; mở nội dung 
 
 
 def published_package(db: Any) -> dict:
-    rows = (db.table("listening_content_packages")
+    rows = (public_programmes(db, db.table("listening_content_packages"))
             .select("id,package_id,manifest_sha256,title,validation_summary")
             .eq("programme_id", SOURCE_PROGRAMME).eq("status", "published").execute().data or [])
     if not rows:
@@ -43,7 +44,7 @@ def source_lessons(db: Any, package: dict, day: int | None = None, *, summary: b
             f"{key}:metadata->source_book->{key}" for key in
             ("source_contract", "group", "availability", "source_position_count", "source_only_count")
         )
-    query = (db.table("listening_lessons")
+    query = (public_programmes(db, db.table("listening_lessons"))
              .select(fields)
              .eq("package_id", package["id"]).eq("programme_id", SOURCE_PROGRAMME)
              .eq("status", "published"))
@@ -60,7 +61,7 @@ def source_lessons(db: Any, package: dict, day: int | None = None, *, summary: b
 
 def source_forms(db: Any, package: dict, *, summary: bool = False, lesson_id: str | None = None) -> list[dict]:
     fields = "id,listening_lesson_id,source_item_count" if summary else "id,source_form_id,title,listening_lesson_id,source_item_count,full_audio_duration_seconds,metadata"
-    query = (db.table("listening_tests")
+    query = (public_tests(db)
             .select(fields)
             .eq("content_package_id", package["id"]).eq("programme_id", SOURCE_PROGRAMME)
             .eq("status", "published").eq("is_public", True).eq("scoring_policy", "report_only"))

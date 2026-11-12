@@ -620,12 +620,14 @@ def known_course_levels_with_failures() -> tuple[list[str], list[str]]:
     free text on purpose (a CHECK would need a migration per new course), so the
     suggestion list is derived, never enumerated in code. Report partial reads
     separately from the content-page total, which may still be exact."""
+    from services.content_visibility import public_tests
     seen: set = set()
     failed: list[str] = []
     for kind, (table, _) in _KINDS.items():
         try:
             rows = _paged(
-                lambda t=table: supabase_admin.table(t).select("course_level").order("id")
+                lambda t=table: (public_tests(supabase_admin) if t == "listening_tests"
+                                 else supabase_admin.table(t)).select("course_level").order("id")
             )
         except Exception:  # noqa: BLE001
             logger.warning("[exam-content] level scan failed for %s", table)

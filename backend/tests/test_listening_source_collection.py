@@ -639,7 +639,12 @@ def test_collection_summary_reads_only_card_fields_and_keeps_the_same_day_card()
             row.update({key: book[key] for key in ('source_contract', 'group', 'availability', 'source_position_count', 'source_only_count')})
             return SimpleNamespace(data=[row])
     class DB:
-        def table(self, name): assert name == 'listening_lessons'; return Query()
+        def table(self, name):
+            if name == 'content_access_namespaces':
+                from test_listening_overview import _FakeSB
+                return _FakeSB({}).table(name)
+            assert name == 'listening_lessons'
+            return Query()
     summary = service.source_lessons(DB(), {'id': 'package'}, summary=True)[0]
     assert 'metadata->source_book->source_position_count' in selected[0]
     assert selected[0].split(',').count('metadata') == 0
@@ -660,7 +665,7 @@ def test_source_day_reads_only_its_own_forms_and_summary_omits_form_metadata():
             return self
         def execute(self): return SimpleNamespace(data=[row for row in rows if self.lesson is None or row['listening_lesson_id'] == self.lesson])
     class DB:
-        def table(self, name): assert name == 'listening_tests'; return Query()
+        def table(self, name): assert name == 'v_listening_tests_public'; return Query()
     assert [row['id'] for row in service.source_forms(DB(), {'id': 'package'}, lesson_id='day1')] == ['one']
     service.source_forms(DB(), {'id': 'package'}, summary=True)
     assert 'metadata' not in selected[-1]

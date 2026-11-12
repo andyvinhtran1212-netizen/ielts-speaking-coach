@@ -72,7 +72,8 @@ class _DB:
         if table in ("reading_test_attempts", "listening_test_attempts"):
             return _R([self._attempt] if self._attempt else [])
         if table in ("reading_tests", "listening_tests"):
-            return _R([{"test_id": self._test_id}] if self._test_id else [])
+            return _R([{"id": filters.get("id"), "test_id": self._test_id,
+                        "restricted": False}] if self._test_id else [])
         if table == "reading_passages":
             return _R([{"id": "p-uuid"}] if self._passage_exists else [])
         if table == "listening_content":

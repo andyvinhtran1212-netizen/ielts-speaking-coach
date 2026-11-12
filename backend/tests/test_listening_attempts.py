@@ -186,7 +186,8 @@ class _FakeTableQuery:
     def execute(self):
         if self._insert is not None:
             return _FakeRes([self._insert])
-        rows = list(self._parent.canned.get(self._table, []))
+        from namespace_query_double import source_rows
+        rows = list(source_rows(self._parent.canned, self._table))
         from blackeye_query_double import matches_blackeye_filter
         for expression in getattr(self, "blackeye_filters", []):
             rows = [r for r in rows if matches_blackeye_filter(r, expression)]

@@ -46,7 +46,7 @@ from models.listening_blackeye import (
     BlackEyeUnitPublic, BlackEyeSaveAck, BlackEyeInProgress,
 )
 from services import listening_blackeye as blackeye
-from services.content_visibility import public_tests, public_content, public_attempts, public_dictation
+from services.content_visibility import public_programmes, public_tests, public_content, public_attempts, public_dictation
 from starlette.concurrency import run_in_threadpool
 
 from config import settings
@@ -5389,7 +5389,7 @@ def _programme_attempt_time(attempt: dict, preferred_field: str) -> float:
 def _load_programme_overview(user_id: str) -> tuple[list[dict], dict | None, list[dict], bool]:
     try:
         packages = (
-            supabase_admin.table("listening_content_packages")
+            public_programmes(supabase_admin, supabase_admin.table("listening_content_packages"))
             .select("id,programme_id,title")
             .eq("status", "published")
             .execute().data or []
@@ -5399,7 +5399,7 @@ def _load_programme_overview(user_id: str) -> tuple[list[dict], dict | None, lis
         if not programme_ids:
             return [], None, [], False
         lessons = (
-            supabase_admin.table("listening_lessons")
+            public_programmes(supabase_admin, supabase_admin.table("listening_lessons"))
             .select("id,programme_id")
             .eq("status", "published")
             .in_("programme_id", programme_ids)
@@ -5691,8 +5691,10 @@ async def list_listening_programme_lessons(
         raise HTTPException(404, "Listening programme not found")
     if progress not in {"all", "new", "in_progress", "completed"}:
         raise HTTPException(422, "progress must be all, new, in_progress or completed")
+    lesson_query = await run_in_threadpool(
+        public_programmes, supabase_admin, supabase_admin.table("listening_lessons"))
     lessons_response = (
-        supabase_admin.table("listening_lessons")
+        lesson_query
         .select("id,source_lesson_id,title,instructions,outcomes,sequence_num", count="exact")
         .eq("programme_id", programme_id)
         .eq("status", "published")
@@ -5766,8 +5768,10 @@ async def get_listening_programme_lesson(
     authorization: str | None = Header(default=None),
 ):
     user = await _require_auth(authorization)
+    lesson_query = await run_in_threadpool(
+        public_programmes, supabase_admin, supabase_admin.table("listening_lessons"))
     rows = (
-        supabase_admin.table("listening_lessons")
+        lesson_query
         .select("id,programme_id,source_lesson_id,title,instructions,outcomes")
         .eq("id", str(lesson_id))
         .eq("status", "published")
@@ -7281,7 +7285,7 @@ async def get_listening_dictation_session(
     """Re-read a dictation session report (owner only)."""
     user = await _require_auth(authorization)
     res = (
-        supabase_admin.table("dictation_sessions").select("*")
+        public_dictation(supabase_admin).select("*")
         .eq("id", session_id).limit(1).execute()
     )
     if not res.data:
@@ -7597,8 +7601,10 @@ def _rows_by_id(
     uniq = sorted({i for i in ids if i})
     for i in range(0, len(uniq), 100):
         try:
-            res = (supabase_admin.table(table).select(cols)
-                   .in_("id", uniq[i:i + 100]).execute())
+            builders = {"listening_tests": public_tests, "listening_content": public_content,
+                        "listening_test_attempts": public_attempts, "dictation_sessions": public_dictation}
+            query = builders[table](supabase_admin) if table in builders else supabase_admin.table(table)
+            res = (query.select(cols).in_("id", uniq[i:i + 100]).execute())
         except Exception as exc:  # noqa: BLE001 — join lỗi không được 500 cả list
             logger.warning("[listening] admin join %s failed: %s", table, exc)
             if lookup_failures is not None:

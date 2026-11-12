@@ -28,3 +28,25 @@ def public_dictation(db):
 def is_restricted(row: Mapping | None) -> bool:
     """Only an explicit database boolean false permits generic access."""
     return not isinstance(row, Mapping) or row.get("restricted") is not False
+
+
+def restricted_programmes(db) -> frozenset[str]:
+    """Registry-only programme identities; propagate errors to fail closed."""
+    programmes = set()
+    offset = 0
+    while True:
+        rows = (db.table("content_access_namespaces").select("programme_id")
+                .eq("scope", "assignment_only").order("programme_id")
+                .range(offset, offset + 999).execute().data or [])
+        programmes.update(str(row["programme_id"]) for row in rows)
+        if len(rows) < 1000:
+            return frozenset(programmes)
+        offset += 1000
+
+
+def public_programmes(db, query):
+    """Apply the registry boundary before package/lesson count and projection."""
+    programmes = restricted_programmes(db)
+    if programmes:
+        query = query.not_.in_("programme_id", sorted(programmes))
+    return query

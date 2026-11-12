@@ -18,6 +18,7 @@ from models.listening_blackeye import (
     BlackEyeRevisionBinding, BlackEyeReviewItem, BlackEyePublicItem,
 )
 from services.active_player_lifecycle import require_resume_active
+from services.content_visibility import is_restricted, restricted_programmes
 
 UNAVAILABLE = "Black Eye frozen contract unavailable."
 ASSIGNMENT_UNAVAILABLE = "Black Eye assignment contract unavailable."
@@ -474,44 +475,41 @@ def teacher_review(db, actor_id, cohort_id, assignment_id, item_id):
         unavailable()
 
 
-# Identity-only exclusion runs before generic reads/counts/joins or mutations.
-# Never fetch learner rows/snapshots to decide who may see Black Eye data.
-def hidden_test_ids(db):
-    ids, offset = [], 0
+# Assignment pages probe only the test IDs present on that page. Never build a
+# full-library hidden-ID list or read a test payload to decide visibility.
+def _assignment_config_restricted(assignment, programmes):
+    config = assignment.get("content_config")
+    if config is None:
+        return False
+    if not isinstance(config, dict):
+        return True
+    return config.get("programme_id") in programmes or "blackeye" in config
+
+
+def generic_assignments(db, rows):
     try:
-        while True:
-            rows = db.table("listening_tests").select("id,programme_id,metadata").or_(
-                f"programme_id.eq.{PROGRAMME},metadata->blackeye.not.is.null"
-            ).order("id").range(offset, offset + 999).execute().data or []
-            ids.extend(str(r["id"]) for r in rows if is_blackeye(r))
-            if len(rows) < 1000:
-                return ids
-            offset += 1000
+        programmes = restricted_programmes(db)
+        ids = sorted({str(row["content_id"]) for row in rows
+                      if row.get("skill") == "listening" and row.get("content_id")})
+        public_ids = set()
+        for start in range(0, len(ids), 100):
+            identities = db.table("listening_tests").select("id,restricted").in_(
+                "id", ids[start:start + 100]).execute().data or []
+            public_ids.update(str(row["id"]) for row in identities if not is_restricted(row))
+        return [row for row in rows
+                if not _assignment_config_restricted(row, programmes)
+                and (row.get("skill") != "listening" or not row.get("content_id")
+                     or str(row["content_id"]) in public_ids)]
+    except HTTPException:
+        raise
     except Exception:
         unavailable()
 
 
-def exclude_tests(db, query, *, key="test_id"):
-    ids = hidden_test_ids(db)
-    for offset in range(0, len(ids), 100):
-        query = query.or_(f"{key}.is.null,{key}.not.in.({','.join(ids[offset:offset + 100])})")
-    return query
-
-
 def assignment_is_blackeye(db, assignment):
-    config = assignment.get("content_config") or {}
-    if config.get("programme_id") == PROGRAMME or "blackeye" in config:
-        return True
-    return (assignment.get("skill") == "listening" and assignment.get("content_id")
-            and is_blackeye(test_identity(db, assignment["content_id"], missing_status=None)))
-
-
-def generic_assignments(db, rows):
-    candidates = [r for r in rows if r.get("skill") == "listening" and r.get("content_id")]
-    hidden = set(hidden_test_ids(db)) if candidates else set()
-    return [r for r in rows if str(r.get("content_id")) not in hidden
-            and (r.get("content_config") or {}).get("programme_id") != PROGRAMME
-            and "blackeye" not in (r.get("content_config") or {})]
+    # Compatibility name used by the assignment seam; flags cover every
+    # assignment-only namespace, including an orphaned or unresolved target.
+    return not generic_assignments(db, [assignment])
 
 
 def guard_generic_assignment(db, assignment_id, cohort_id=None):
@@ -538,79 +536,73 @@ def guard_generic_target(db, *, test_id=None, content_id=None, exercise_id=None,
         raise HTTPException(denied_status, "Black Eye resource unavailable.",
                             headers={"Cache-Control": "private, no-store"})
 
+    def identity(table, value):
+        rows = db.table(table).select("id,restricted").eq("id", str(value)).limit(1).execute().data or []
+        return rows[0] if len(rows) == 1 else None
+
     try:
-        # Path and query identities are additive, including repeated query keys.
-        # An optional lookup must never replace an already supplied target.
-        candidates = {str(value) for value in values(drill_id)}
-        exercise_candidates = set()
-        for value in values(test_id):
+        # These are independent persisted flags, not links to today's catalog.
+        # An orphaned attempt/content/session keeps its restriction after delete.
+        for target, table in ((attempt_id, "listening_test_attempts"),
+                              (session_id, "dictation_sessions"),
+                              (content_id, "listening_content")):
+            for value in values(target):
+                if is_restricted(identity(table, value)):
+                    deny()
+        for value in values(exercise_id):
+            try:
+                rows = db.table("listening_exercises").select("id,content_id").eq(
+                    "id", str(value)).limit(1).execute().data or []
+                if (len(rows) != 1 or not rows[0].get("content_id")
+                        or is_restricted(identity("listening_content", rows[0]["content_id"]))):
+                    deny()
+            except Exception:
+                deny()
+        for value in [*values(test_id), *values(drill_id)]:
+            matched = False
             if external_test_code:
-                # A UUID can also be an external code belonging to another test.
                 offset = 0
                 while True:
-                    rows = db.table("listening_tests").select("id").eq(
-                        "test_id", value).order("id").range(offset, offset + 999).execute().data or []
-                    candidates.update(str(row["id"]) for row in rows)
+                    rows = db.table("listening_tests").select("id,restricted").eq(
+                        "test_id", str(value)).order("id").range(offset, offset + 999).execute().data or []
+                    if any(is_restricted(row) for row in rows):
+                        deny()
+                    matched = matched or bool(rows)
                     if len(rows) < 1000:
                         break
                     offset += 1000
                 try:
                     UUID(str(value))
                 except ValueError:
+                    if not matched:
+                        deny()
                     continue
-            candidates.add(str(value))
-        for target, table in ((attempt_id, "listening_test_attempts"),
-                              (session_id, "dictation_sessions"),
-                              (content_id, "listening_content")):
-            for value in values(target):
-                rows = db.table(table).select("id,test_id").eq("id", value).limit(1).execute().data or []
-                candidates.update(str(row["test_id"]) for row in rows if row.get("test_id"))
-        for value in values(exercise_id):
-            try:
-                rows = db.table("listening_exercises").select("id,content_id").eq("id", value).limit(1).execute().data or []
-                if not rows:
-                    deny()
-                exercise = rows[0]
-                if not exercise.get("content_id"):
-                    deny()
-                # Content has metadata; exercises have no namespace columns.
-                contents = db.table("listening_content").select("id,test_id,metadata").eq(
-                    "id", exercise["content_id"]).limit(1).execute().data or []
-                if not contents or "test_id" not in contents[0] or is_blackeye(contents[0]):
-                    deny()
-                # A confirmed standalone row skips only this exercise's parent;
-                # every other supplied identity must still be checked.
-                if contents[0]["test_id"] is not None:
-                    exercise_candidates.add(str(contents[0]["test_id"]))
-            except Exception:
+            row = identity("listening_tests", value)
+            # UUID-shaped external codes check both interpretations. A missing
+            # primary-key interpretation adds no row when the code resolved.
+            if (row is not None or not matched) and is_restricted(row):
                 deny()
-        candidates.update(exercise_candidates)
         for value in values(package_id):
-            # Packages currently have no metadata column; '*' also honors an
-            # optional metadata namespace without requiring a schema change.
+            programmes = restricted_programmes(db)
+            # Packages have no restricted/metadata columns. The registry owns
+            # programme exclusion; '*' preserves optional legacy metadata.
             packages = db.table("listening_content_packages").select("*").eq(
                 "package_id", value).limit(1).execute().data or []
+            if not packages:
+                deny()
             for package in packages:
-                if is_blackeye(package):
+                if (package.get("programme_id") in programmes
+                        or is_blackeye(package)):
                     assignment_seam()
                 offset = 0
                 while True:
-                    rows = db.table("listening_tests").select("id,programme_id,metadata").eq(
+                    rows = db.table("listening_tests").select("id,restricted").eq(
                         "content_package_id", package["id"]).order("id").range(offset, offset + 999).execute().data or []
-                    if any(is_blackeye(row) for row in rows):
+                    if any(is_restricted(row) for row in rows):
                         assignment_seam()
                     if len(rows) < 1000:
                         break
                     offset += 1000
-        for candidate in candidates:
-            try:
-                identity = test_identity(db, candidate, missing_status=None)
-            except HTTPException:
-                if candidate in exercise_candidates:
-                    deny()
-                raise
-            if (not identity and candidate in exercise_candidates) or is_blackeye(identity):
-                deny()
     except HTTPException:
         raise
     except Exception:
@@ -619,7 +611,6 @@ def guard_generic_target(db, *, test_id=None, content_id=None, exercise_id=None,
 
 def hidden_assignment_ids(db, *, cohort_id=None):
     ids, offset = [], 0
-    hidden = set(hidden_test_ids(db))
     try:
         while True:
             query = db.table("class_assignments").select("id,skill,content_id,content_config").eq(
@@ -627,9 +618,8 @@ def hidden_assignment_ids(db, *, cohort_id=None):
             if cohort_id is not None:
                 query = query.eq("cohort_id", cohort_id)
             rows = query.order("id").range(offset, offset + 999).execute().data or []
-            ids.extend(str(r["id"]) for r in rows if str(r.get("content_id")) in hidden
-                       or (r.get("content_config") or {}).get("programme_id") == PROGRAMME
-                       or "blackeye" in (r.get("content_config") or {}))
+            visible = {str(row["id"]) for row in generic_assignments(db, rows)}
+            ids.extend(str(row["id"]) for row in rows if str(row["id"]) not in visible)
             if len(rows) < 1000:
                 return ids
             offset += 1000

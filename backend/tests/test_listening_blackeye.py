@@ -57,6 +57,7 @@ class Query:
     def select(self, cols, **kwargs): self.cols = cols; return self
     def range(self, start, end): self.maximum = end + 1; return self
     def eq(self, key, value): self.filters.append((key, value, "eq")); return self
+    def in_(self, key, values): self.filters.append((key, values, "in")); return self
     def is_(self, key, value): self.filters.append((key, None if value == "null" else value, "eq")); return self
     def gt(self, key, value): self.filters.append((key, value, "gt")); return self
     def limit(self, maximum): self.maximum = maximum; return self
@@ -78,6 +79,7 @@ class Query:
                     if not matches_blackeye_filter(row, key): return False
                     continue
                 actual = row.get(key)
+                if op == "in" and str(actual) not in {str(v) for v in value}: return False
                 if op == "eq" and str(actual) != str(value): return False
                 if op == "gt" and (actual is None or actual <= value): return False
             return True
@@ -98,11 +100,15 @@ class FakeDB:
     """Models IO only; deliberately does not claim to execute migration376."""
     def __init__(self, p):
         self.calls, self.rpcs, self.lose_cas, self.rpc_error = [], [], False, None
+        self.queries = []
         self.user = str(uuid4())
         p["restricted"] = True
-        self.rows = dict(listening_tests=[p], listening_content_packages=[dict(id="fixture-package", status="published", programme_id=PROGRAMME)],
+        self.rows = dict(content_access_namespaces=[dict(programme_id=PROGRAMME, scope="assignment_only")], listening_tests=[p], listening_content_packages=[dict(id="fixture-package", status="published", programme_id=PROGRAMME)],
             listening_test_attempts=[], mock_paper_attempt_snapshots=[], class_assignments=[], class_assignment_items=[], students=[])
-    def table(self, name): return Query(self, name)
+    def table(self, name):
+        query = Query(self, name)
+        self.queries.append(query)
+        return query
     def freeze(self, p):
         now = datetime.now(timezone.utc)
         a = dict(id=str(uuid4()), user_id=self.user, test_id=p["id"], status="in_progress", answers=[],

@@ -35,7 +35,7 @@ import logging
 from typing import Any, Dict, Iterable, List, Optional, Set
 
 from services.class_membership_service import active_students_for_cohort
-from services.content_visibility import public_attempts, public_dictation
+from services.content_visibility import public_tests, public_content, public_attempts, public_dictation
 
 from services.class_assignment_service import (
     reconcile_ledger_from_sessions,
@@ -63,6 +63,10 @@ def _paged(db, table: str, columns: str, apply_filters) -> List[Dict[str, Any]]:
         selected = columns
         if table == "class_assignments" and columns != "*":
             selected += ",skill,content_id,content_config"
+        if table == "listening_tests":
+            return public_tests(db).select(selected)
+        if table == "listening_content":
+            return public_content(db).select(selected)
         if table == "listening_test_attempts":
             return public_attempts(db).select(selected)
         if table == "dictation_sessions":

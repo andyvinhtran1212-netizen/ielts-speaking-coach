@@ -17,7 +17,7 @@ def admin_env(env, monkeypatch):
     monkeypatch.setattr(lr, "_staff_admin_guard", admin_class_assignments.require_admin)
     env.app.include_router(lr.admin_router)
     env.actor["admin"] = True
-    normal = dict(id=str(uuid4()), programme_id="ielts-listening-practice", metadata={})
+    normal = dict(id=str(uuid4()), restricted=False, programme_id="ielts-listening-practice", metadata={})
     env.db.rows["listening_tests"].append(normal)
     env.db.rows["listening_content"] = []
     env.db.rows["listening_exercises"] = []
@@ -43,18 +43,18 @@ def test_admin_test_path_and_query_are_independent(admin_env, key, target, path_
     elif target != "missing":
         table = {"content_id": "listening_content", "attempt_id": "listening_test_attempts",
                  "exercise_id": "listening_exercises"}[key]
-        row = dict(id=value, test_id=query_test["id"])
+        row = dict(id=value, test_id=query_test["id"], restricted=query_test["restricted"])
         if key == "exercise_id":
             row = dict(id=value, content_id=str(uuid4()))
-            e.db.rows["listening_content"].append(dict(id=row["content_id"], test_id=query_test["id"]))
+            e.db.rows["listening_content"].append(dict(id=row["content_id"], test_id=query_test["id"], restricted=query_test["restricted"]))
         e.db.rows[table].append(row)
     # Keep the positive detail path free of children: query identities may
-    # belong to another ordinary test and must retain legacy behavior.
+    # belong to another ordinary test; unresolved identities fail closed.
     path_test = e.p if path_hidden else dict(e.normal, id=str(uuid4()))
     if not path_hidden:
         e.db.rows["listening_tests"].append(path_test)
     response = e.client.get(f'/admin/listening/tests/{path_test["id"]}', params={key: value})
-    if path_hidden or target == "blackeye" or (key == "exercise_id" and target == "missing"):
+    if path_hidden or target == "blackeye" or target == "missing":
         denied(response)
         assert not any(cols == "*" for _, cols, _ in e.db.calls)
     else:
@@ -93,7 +93,8 @@ def test_existing_exercise_with_unresolved_parent_denied(admin_env, parent):
 
 
 def standalone_exercise(e, metadata=None):
-    content = dict(id=str(uuid4()), test_id=None, metadata=metadata or {})
+    content = dict(id=str(uuid4()), test_id=None, metadata=metadata or {},
+                   restricted="blackeye" in (metadata or {}))
     exercise = dict(id=str(uuid4()), content_id=content["id"], status="published")
     e.db.rows["listening_content"] = [content]
     e.db.rows["listening_exercises"] = [exercise]
@@ -108,7 +109,7 @@ def test_standalone_ordinary_exercise_allowed_after_both_rows_read(admin_env):
     assert exercise["status"] == "archived"
     reads = [(table, cols) for table, cols, patch in e.db.calls if not patch]
     assert ("listening_exercises", "id,content_id") in reads
-    assert ("listening_content", "id,test_id,metadata") in reads
+    assert ("listening_content", "id,restricted") in reads
 
 
 @pytest.mark.parametrize("metadata", [{"blackeye": None}, {"blackeye": {}}, {"blackeye": False}])
@@ -155,9 +156,16 @@ def test_exercise_identity_lookup_errors_are_private_404(admin_env, monkeypatch,
             query.execute = fail
         return query
     monkeypatch.setattr(e.db, "table", failing)
-    denied(e.client.delete(f'/admin/listening/exercises/{exercise["id"]}'))
-    assert exercise["status"] == "published"
-    assert all(cols != "*" and not patch for _, cols, patch in e.db.calls)
+    response = e.client.delete(f'/admin/listening/exercises/{exercise["id"]}')
+    if table == "listening_tests":
+        # Content's persisted flag is authoritative; no catalog re-inference.
+        assert response.status_code == 200, response.text
+        assert exercise["status"] == "archived"
+        assert all(t != "listening_tests" for t, _, _ in e.db.calls)
+    else:
+        denied(response)
+        assert exercise["status"] == "published"
+        assert all(cols != "*" and not patch for _, cols, patch in e.db.calls)
 
 
 @pytest.mark.parametrize("identity", ["package_metadata", "child_programme", "child_metadata"])
@@ -290,7 +298,7 @@ def test_assigned_blackeye_playback_denied_before_assignment_or_write(env, monke
                                      "not_drill", "rpc_inactive", "rpc_scope", "missing"])
 @pytest.mark.parametrize("stage", ["listening", "dictation"])
 def test_generic_playback_preserves_success_and_no_store_errors(env, monkeypatch, stage, failure):
-    test = dict(id=str(uuid4()), programme_id="ielts-listening-practice", metadata={})
+    test = dict(id=str(uuid4()), restricted=False, programme_id="ielts-listening-practice", metadata={})
     env.db.rows["listening_tests"] = [test]
     attempt = dict(id=str(uuid4()), user_id=env.actor["id"], test_id=test["id"],
                    status="submitted" if failure == "ended" else "in_progress",

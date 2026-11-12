@@ -103,7 +103,7 @@ def test_generic_admin_detail_never_reads_blackeye_work(env, monkeypatch, role):
 def test_admin_list_and_aggregator_queries_exclude_before_joins(env):
     from services import cohort_progress_aggregator as agg, class_assignment_service as assignments
     generic = paper(activity="U1-A02")
-    generic.update(programme_id="ielts", metadata={})
+    generic.update(programme_id="ielts", metadata={}, restricted=False)
     env.db.rows["listening_tests"].append(generic)
     blackeye = env.db.freeze(env.p)
     normal = deepcopy(blackeye)
@@ -114,7 +114,8 @@ def test_admin_list_and_aggregator_queries_exclude_before_joins(env):
         rows = paged(env.db, "listening_test_attempts", "id,user_id,test_id,status", lambda q: q)
         assert [r["id"] for r in rows] == [normal["id"]]
         assert not any(t == "mock_paper_attempt_snapshots" for t, _, _ in env.db.calls)
-    q = svc.exclude_tests(env.db, env.db.table("listening_test_attempts").select("id,test_id"))
+    from services.content_visibility import public_attempts
+    q = public_attempts(env.db).select("id,test_id")
     assert [r["id"] for r in q.execute().data] == [normal["id"]]
     env.db.rows["class_assignments"] = [
         dict(id="hidden", skill="listening", content_id=env.p["id"]),
@@ -371,7 +372,7 @@ def test_student_profile_summary_excludes_blackeye_counts(env, monkeypatch):
     from services import student_service
     from test_student_service import _LisFake
     generic = paper(activity="U1-A02")
-    generic.update(programme_id="ielts", metadata={})
+    generic.update(programme_id="ielts", metadata={}, restricted=False)
     rows = [dict(id="hidden", test_id=env.p["id"], restricted=True, status="submitted", created_at="2026-11-10"),
             dict(id="shown", test_id=generic["id"], status="in_progress", created_at="2026-11-09")]
     db = _LisFake(dict(listening_tests=[env.p, generic], listening_test_attempts=rows))
@@ -487,6 +488,7 @@ def test_dictation_report_test_filter_resolves_external_identity(env, monkeypatc
     test['test_id'] = 'C19-T1'
     if not hidden or target == 'external_metadata_blackeye':
         test['programme_id'] = 'ielts'
+    test["restricted"] = hidden
     if not hidden:
         test['metadata'] = {}
     env.db.rows['listening_tests'] = [] if unknown else [test]
@@ -504,8 +506,9 @@ def test_dictation_report_test_filter_resolves_external_identity(env, monkeypatc
     if not unknown:
         env.db.rows['dictation_sessions'].append(matching)
     response = env.client.get('/admin/listening/dictation-reports' + suffix, params={'test_id': value})
-    assert response.status_code == (404 if hidden else 200), response.text
-    if hidden:
+    assert response.status_code == (404 if hidden or unknown else 200), response.text
+    if hidden or unknown:
+        assert response.headers['cache-control'] == 'private, no-store'
         assert not any(table == 'dictation_sessions' for table, _, _ in env.db.calls)
     elif suffix:
         assert response.json()['session_count'] == (0 if unknown else 1)
@@ -536,9 +539,10 @@ def test_hidden_assignment_scan_constant_calls_and_cohort_scope(env, count):
     env.db.rows['class_assignments'] = [dict(id=f'a-{i}', skill='listening', cohort_id='target',
         content_id=env.p['id'] if i % 2 else 'generic') for i in range(count)] + [
         dict(id='other', skill='listening', cohort_id='other', content_id=env.p['id'])]
+    env.db.rows['listening_tests'].append(dict(id='generic', restricted=False))
     ids = svc.hidden_assignment_ids(env.db, cohort_id='target')
     assert set(ids) == {f'a-{i}' for i in range(count) if i % 2}
-    assert [t for t, _, _ in env.db.calls] == ['listening_tests', 'class_assignments']
+    assert [t for t, _, _ in env.db.calls] == ['class_assignments', 'content_access_namespaces', 'listening_tests']
 
 
 @pytest.mark.parametrize('method,suffix,body', [
@@ -569,7 +573,7 @@ def test_core_evidence_denied_before_history_or_status(env, monkeypatch):
     attempt = env.db.freeze(env.p)
     response = env.client.get(f'/admin/core-attempt-evidence/listening_test/{attempt["id"]}')
     assert response.status_code == 503, response.text
-    assert [t for t, _, _ in env.db.calls] == ['listening_test_attempts', 'listening_tests']
+    assert [t for t, _, _ in env.db.calls] == ['listening_test_attempts']
     assert all(cols != '*' for _, cols, _ in env.db.calls)
     assert env.db.rpcs == []
 

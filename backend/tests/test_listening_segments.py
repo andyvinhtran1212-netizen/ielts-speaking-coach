@@ -278,7 +278,7 @@ class _FakeAdminClient:
     def __init__(self, canned=None):
         self.canned = canned or {}
         self.canned.setdefault("listening_tests", [
-            {"id": ORDINARY_TEST, "programme_id": "ielts", "metadata": {}},
+            {"id": ORDINARY_TEST, "programme_id": "ielts", "metadata": {}, "restricted": False},
         ])
         self.inserts: list[tuple] = []
         self.updates: list[tuple] = []
@@ -320,6 +320,7 @@ def _run(coro): return asyncio.run(coro)
 def _content_row(content_id="c1", duration=15, test_id=None):
     return {
         "id": content_id,
+        "restricted": False,
         "test_id": test_id,
         "status": "published",
         "audio_duration_seconds": duration,
