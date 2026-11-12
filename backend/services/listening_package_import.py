@@ -1383,8 +1383,42 @@ def _ensure_immutable_object(bucket: Any, path: str, data: bytes, content_type: 
     return "created"
 
 
+def import_plan_is_blackeye(plan) -> bool:
+    """Use the same definition for every row projected by the 295 import RPC."""
+    from services.listening_blackeye import is_blackeye
+
+    rows = [plan.package, *plan.forms]
+    # 295 persists form metadata on tests and content_metadata on content.
+    rows.extend({"metadata": form.get("content_metadata")} for form in plan.forms)
+    return any(is_blackeye(row) for row in rows)
+
+
+def require_import_namespace_ready(plan, db=None):
+    """Read-only M-A catalog capability probe; absence/errors never open import.
+
+    M-A must supply fn_content_namespace_ready() backed by its catalog checks.
+    This PR deliberately creates neither that RPC nor the namespace schema.
+    Pure projection is still available; every dry-run/commit entry checks here.
+    """
+    from config import settings
+    from services.listening_blackeye import unavailable
+
+    if not import_plan_is_blackeye(plan):
+        return
+    if not settings.RESTRICTED_NAMESPACE_READY or db is None:
+        unavailable()
+    try:
+        ready = db.rpc("fn_content_namespace_ready", {}).execute().data
+    except Exception:
+        # Includes PGRST202 / 42883 (M-A absent), transport and lookup failures.
+        unavailable()
+    if ready is not True:
+        unavailable()
+
+
 def commit_import_plan(plan: ImportPlan, db: Any, *, bucket_name: str) -> dict[str, Any]:
     """Upload immutable assets, then transactionally persist the whole package."""
+    require_import_namespace_ready(plan, db)
     if (plan.report.get("editorial_source_package_id")
             and plan.package.get("validation_summary", {}).get("revision_source_invariants_verified") is not True):
         raise PackageValidationError("Revision chưa qua so sánh bất biến với source v1.0")
