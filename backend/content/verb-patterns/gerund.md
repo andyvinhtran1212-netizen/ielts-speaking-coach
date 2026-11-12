@@ -72,11 +72,13 @@ Gerund là **động từ + -ing** dùng như **danh từ** — nó *trông* gi�
 ## Tại sao quan trọng
 
 Gerund xuất hiện ở khắp nơi trong tiếng Anh tự nhiên:
+
 - Sau nhiều động từ thông dụng: *enjoy, avoid, consider, suggest, finish, mind, keep*
 - Sau mọi giới từ: *interested **in** learning*, *good **at** speaking*, *instead **of** worrying*
 - Làm chủ ngữ câu: ***Learning** a language takes time.*
 
 Trong IELTS Speaking:
+
 - **Part 1:** "I enjoy *reading* in the evenings."
 - **Part 2:** "One thing I really appreciate is *spending* time with my family."
 - **Part 3:** "Avoiding *using* single-use plastic is becoming more common."
@@ -88,6 +90,7 @@ Người học Việt Nam hay gặp lỗi ở đây vì tiếng Việt không ph
 **Gerund** = Động từ + **-ing**, hoạt động như **danh từ**.
 
 So sánh nhanh:
+
 - **Present Continuous:** She **is reading**. → *Cô ấy đang đọc* (hành động xảy ra lúc này)
 - **Gerund:** **Reading** is fun. → *Đọc sách thật vui* (tên gọi của hoạt động, làm chủ ngữ)
 
@@ -124,6 +127,7 @@ V-ing + verb phrase...
 - **Eating** well is one of the best things you can do for your health.
 
 **Lưu ý:** Gerund làm chủ ngữ luôn đi với động từ chia theo ngôi thứ ba số ít:
+
 - **Reading** books **is** my favourite hobby. *(không phải "are")*
 
 ### 2. Gerund làm tân ngữ (Object) — sau động từ
@@ -302,9 +306,11 @@ Khi nào cần dùng gerund:
 ## Lưu ý cho người học Việt Nam
 
 Trong tiếng Việt, bạn có thể nói:
+
 - "Tôi **học** rất thú vị." (Học = danh từ, không cần thay đổi hình thức)
 
 Trong tiếng Anh, khi động từ đóng vai trò danh từ, bạn cần dùng **gerund**:
+
 - "**Learning** is very interesting."
 
 **Mẹo quyết định nhanh:**
@@ -320,15 +326,18 @@ Trong tiếng Anh, khi động từ đóng vai trò danh từ, bạn cần dùng
 ### IELTS Speaking — Mẫu câu hữu ích
 
 **Nói về sở thích:**
+
 - "I'm passionate about **travelling** and **discovering** new cultures."
 - "One of my favourite things is **spending** time outdoors."
 - "I'm not very good at **sitting** still — I prefer **doing** something active."
 
 **Nói về thói quen:**
+
 - "Instead of **watching** TV in the evenings, I usually read."
 - "I find that **exercising** in the morning helps me focus for the rest of the day."
 
 **Nói về ý kiến và quan điểm:**
+
 - "I think **reducing** screen time is important, especially for children."
 - "There's no point **worrying** about things you can't control."
 - "It's worth **considering** all the options before making a decision."
@@ -369,6 +378,7 @@ Trong tiếng Anh, khi động từ đóng vai trò danh từ, bạn cần dùng
 ### Đáp án
 
 **Điền đúng dạng:**
+
 1. **reading** (sau enjoy → gerund)
 2. **to visit** (sau want → infinitive)
 3. **solving** (sau at → giới từ → gerund)
@@ -379,6 +389,7 @@ Trong tiếng Anh, khi động từ đóng vai trò danh từ, bạn cần dùng
 8. **seeing** (sau "look forward to" → to = giới từ → gerund)
 
 **Sửa lỗi:**
+
 1. interested in **learning**
 2. without **saying**
 3. Swimming **is** great exercise

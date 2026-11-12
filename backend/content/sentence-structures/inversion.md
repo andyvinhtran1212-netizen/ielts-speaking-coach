@@ -319,6 +319,7 @@ Inversion là cấu trúc nhấn mạnh — dùng có chừng mực. Không bắ
 ### Đáp án
 
 **Viết lại:**
+
 1. Never have I seen such a talented student.
 2. Had the government invested earlier, the outcome would have been different.
 3. Hardly had she sat down when her boss called.
@@ -326,6 +327,7 @@ Inversion là cấu trúc nhấn mạnh — dùng có chừng mực. Không bắ
 5. Should you have any queries, do not hesitate to contact us.
 
 **Sửa lỗi:**
+
 1. **Never have I** encountered such resistance.
 2. **Hardly had** she **arrived** when the ceremony began.
 3. Not only **is** she intelligent, but she also works hard.
@@ -333,6 +335,7 @@ Inversion là cấu trúc nhấn mạnh — dùng có chừng mực. Không bắ
 5. No sooner had he started **than** problems began.
 
 **Cấu trúc nhấn mạnh:**
+
 1. It is **education** that is the most important factor.
 2. What governments need to do is **invest more**.
 3. The situation is **by no means** simple.
@@ -350,6 +353,7 @@ Inversion là cấu trúc nhấn mạnh — dùng có chừng mực. Không bắ
 | So...that | So + adj + be + S + that | So severe was the drought that... |
 
 **Trợ động từ dùng trong inversion:**
+
 - Câu có trợ động từ: đảo trợ động từ lên (have I / was she / can we)
 - Câu không có trợ động từ: thêm do/does/did (Rarely **do** scientists...)
 

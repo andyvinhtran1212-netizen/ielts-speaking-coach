@@ -110,6 +110,7 @@ In spite of + noun/noun phrase/gerund, [main clause]
 - **In spite of** her nervousness, she gave an excellent presentation. ✅
 
 Hoặc đặt ở cuối câu:
+
 - She gave an excellent presentation, **despite** her nervousness.
 - He passed the exam **in spite of** studying very little.
 
@@ -296,9 +297,11 @@ Dùng "although/even though" thay cho "despite":
 ### Đáp án
 
 **Chọn cấu trúc:**
+
 1. Despite | 2. Although | 3. despite | 4. in spite of | 5. Despite | 6. Although
 
 **Viết lại:**
+
 1. Despite her exhaustion, she finished the marathon.
    / In spite of being exhausted, she finished the marathon.
 2. Despite the risk, they decided to proceed.
@@ -321,6 +324,7 @@ Dùng "although/even though" thay cho "despite":
 | **Thay thế giữ cấu trúc** | in spite of | despite | although/though; however/nevertheless cần đổi cú pháp và dấu câu |
 
 **Quy tắc vàng:**
+
 - **Despite / In spite of** + danh từ → *despite the rain*, *in spite of her effort*
 - **Although / Even though** thường + mệnh đề đầy đủ; có dạng rút gọn như “Although tired, she continued” khi chủ ngữ được hiểu đúng. “Although it rained, we played” → “It rained; however, we played”.
 - **Không bao giờ viết "despite of"** — đây là lỗi cực kỳ phổ biến

@@ -93,6 +93,7 @@ anchors:
 
 
 Discourse markers là những từ, cụm từ dùng để:
+
 - **Kết nối ý** trong câu và giữa các câu/đoạn
 - **Tổ chức thông tin** theo trình tự, tương phản, nguyên nhân-kết quả...
 - **Báo hiệu** cho người đọc/nghe biết ý nào sắp được nói đến
@@ -176,6 +177,7 @@ Giới thiệu quan điểm đối lập hoặc ngoại lệ:
 ##### "But" + cụm thay thế để tránh lặp:
 
 Thay vì luôn dùng "but", xen kẽ với:
+
 - **yet** *(formal but)*: The plan is expensive, **yet** many argue it is necessary.
 - **still**: It's a long commute. She **still** prefers to live outside the city, though.
 - **even so**: The risks are clear. **Even so**, many people choose to proceed.
@@ -205,6 +207,7 @@ Thay vì luôn dùng "but", xen kẽ với:
 ##### Vị trí linh hoạt của "however":
 
 "However" cũng có thể đứng giữa hoặc cuối câu để nhấn mạnh khác:
+
 - "The solution is not, **however**, as simple as it might appear."
 - "This approach has achieved some success. The results, **however**, are far from consistent."
 
@@ -681,16 +684,19 @@ IELTS WRITING TIP:
 ### Lỗi 4: Dấu phẩy sau discourse marker
 
 Hầu hết discourse markers đứng đầu câu **cần dấu phẩy:**
+
 - **However,** prices have risen. ✅
 - **In addition,** the policy has side effects. ✅
 - **As a result,** unemployment fell. ✅
 
 Nhưng "also" và "so" thường **không** cần dấu phẩy:
+
 - She **also** mentioned the environmental impact. ✅
 
 ### Lỗi 5: Nhầm "However" với "But"
 
 Cả hai đều diễn tả tương phản, nhưng:
+
 - **But** nối hai mệnh đề trong cùng một câu: *I like it **but** it's expensive.*
 - **However** nối hai câu riêng biệt, đứng đầu câu sau: *It is beneficial. **However**, there are risks.*
 
@@ -734,6 +740,7 @@ Sắp xếp các câu dưới đây thành đoạn văn mạch lạc, thêm disc
 ### Đáp án — Tổng hợp
 
 **Điền discourse marker:**
+
 1. However / Nevertheless / That said
 2. Firstly / In addition / Furthermore / Secondly
 3. As a result / Consequently / Therefore
@@ -759,6 +766,7 @@ Từ nối không tự tạo ra quan hệ nhân quả: chỉ dùng as a result/c
 | **Nhượng bộ** | admittedly, to some extent, while this may be true |
 
 **Quy tắc vàng:**
+
 - Đặt dấu phẩy sau discourse marker khi đứng đầu câu
 - Tránh lặp đi lặp lại cùng một từ — dùng đa dạng
 - Discourse markers phải phản ánh đúng mối quan hệ logic giữa các ý
@@ -775,6 +783,7 @@ Từ nối không tự tạo ra quan hệ nhân quả: chỉ dùng as a result/c
 ✅ "I went to the market. **First**, I bought food. **After that**, I came home **to** cook dinner **for** my family. **Once we'd eaten**, we watched TV..."
 
 **Bài luyện tùy chọn:** Khi rà lại bản ghi âm, chọn một chỗ lặp không cần thiết để thay hoặc lược bỏ theo chức năng. Không buộc ngừng 0.5 giây trước mỗi từ nối:
+
 - and → also / what's more / in addition / next / after that
 - but → however / on the other hand / although / yet
 - so → therefore / as a result / which is why / consequently (formal); that's why / so that's how (informal)

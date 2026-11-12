@@ -91,6 +91,7 @@ many + countable noun (plural)
 ```
 
 **Với danh từ đếm được:**
+
 - **Many** students struggle with time management.
 - She has **many** responsibilities at work.
 - There are **many** reasons why this policy may fail.
@@ -98,6 +99,7 @@ many + countable noun (plural)
 - How **many** people attended the event?
 
 **Vị trí trong câu:**
+
 - Câu khẳng định: "There are **many** advantages."
 - Câu phủ định: "There aren't **many** options left."
 - Câu hỏi: "How **many** times have you visited?"
@@ -113,6 +115,7 @@ much + uncountable noun
 ```
 
 **Với danh từ không đếm được:**
+
 - She doesn't have **much** time to prepare.
 - There isn't **much** water left in the bottle.
 - He showed **much** patience throughout the process.
@@ -135,14 +138,17 @@ a lot of / lots of + countable (plural) OR uncountable noun
 ```
 
 **Với đếm được:**
+
 - **A lot of** students are applying for the scholarship.
 - She has **lots of** ideas for the project.
 
 **Với không đếm được:**
+
 - He spends **a lot of** time on social media.
 - There is **lots of** information available online.
 
 **A lot of vs. Lots of:**
+
 - Về nghĩa: tương đương nhau
 - "Lots of" hơi informal hơn "a lot of" một chút
 - Cả hai thích hợp cho speaking và informal writing, **tránh trong IELTS Task 2**
@@ -278,6 +284,7 @@ Trong IELTS Writing Task 2 và academic writing, dùng nhiều biến thể phon
 ### Lỗi 5: "So much/many" ở văn học thuật
 
 "So much/many" nghe informal nếu dùng trong academic writing mà không có mệnh đề kết quả:
+
 - Informal: "There is **so much** inequality in the world."
 - Formal: "**Significant** inequality persists across many societies."
 

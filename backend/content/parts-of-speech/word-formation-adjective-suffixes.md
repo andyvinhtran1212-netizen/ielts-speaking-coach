@@ -129,12 +129,14 @@ Responsible = có trách nhiệm, sensible = hợp lý, possible = có thể; h�
 **TOEIC Part 5 / THPT:** trước danh từ hoặc sau *be/seem/become/look* → chọn dạng có hậu tố tính từ. Cẩn thận cặp *interested/interesting*.
 
 **Ví dụ IELTS:**
+
 - *Public transport should be **affordable** and **reliable**.*
 - *Social media can be **harmful** to teenagers' mental health.*
 
 ## Bài tập luyện
 
 Chuyển sang tính từ:
+
 1. danger → ?
 2. rely → ?
 3. nature → ?

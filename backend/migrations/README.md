@@ -20,11 +20,12 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-11-11 the highest is `379`, used by PC-J562
-for the 0037 FR-008 Listening import source skip (assigned by the Leader), so the
-next new migration is `380` (ask the Leader before taking it). 370–378 without a
-file here are reserved in the migration register (376–378: BLACKEYE-0052,
-#2281/#2282): none may be reused. `369` is PC-J620, the 339
+sequence is dense. As of 2026-11-12 the highest is `380` (Skill Drill homework,
+#2294), so the next new migration is `381`, subject to the shared migration
+register (ask the Leader before taking it). `379` is PC-J562, the 0037 FR-008
+Listening import source skip (assigned by the Leader). 376–378 without a file
+here are pending/reserved for BLACKEYE-0052 (376 #2281, 377/378 #2282), and
+`370` was already reserved: none may be reused. `369` is PC-J620, the 339
 grammar_quiz definer search paths.
 `368` is PC-J619 (#2242); `367` is PC-J612 (#2243); `366` is PC-J611, #2241;
 `365` is PC-J603, #2238; `363` is PC-J538, `361` is PC-J358, #2180; `360` is

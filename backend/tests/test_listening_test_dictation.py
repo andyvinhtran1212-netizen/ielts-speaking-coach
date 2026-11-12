@@ -187,6 +187,7 @@ class _Q:
     def upsert(self, p, **_kw): self._mode = "upsert"; self._payload = p; return self
     def update(self, p): self._mode = "update"; self._payload = p; return self
     def eq(self, c, v): self._eq.append((c, v)); return self
+    def is_(self, c, v): self._eq.append((c, None if v == "null" else v)); return self
     def gt(self, c, v): self._gt.append((c, v)); return self
     def in_(self, c, vals):
         values = list(vals)
@@ -1107,3 +1108,81 @@ def test_admin_dictation_reports_requires_admin(monkeypatch):
         _run(listening_router.admin_list_dictation_reports(
             test_id=None, user_query=None, limit=30, offset=0, authorization=authz))
     assert e.value.status_code == 403
+
+
+def test_skill_drill_dictation_keeps_public_and_both_class_attempts_separate(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    _seed_section(fake, test["id"], 1, "Hello there.")
+    monkeypatch.setattr(listening_router, "_class_drill_dictation_config",
+                        lambda *_: {"sections": [1], "dictation_required": True})
+
+    attempts = {}
+    for item in (None, "course-one-item", "course-two-item"):
+        attempt = _run(listening_router.start_dictation_attempt(
+            test["id"], 1, authorization=authz, class_item=item))
+        attempts[item] = attempt["attempt_id"]
+    assert len(set(attempts.values())) == 3
+
+    for item, attempt_id in attempts.items():
+        resume = _run(listening_router.get_in_progress_dictation_attempt(
+            test["id"], 1, authorization=authz, class_item=item))
+        assert resume["attempt"]["attempt_id"] == attempt_id
+
+
+def test_public_dictation_resume_before_skill_drill_migration(monkeypatch):
+    from postgrest.exceptions import APIError
+
+    fake, _ = _patch(monkeypatch)
+    fake.tables["dictation_attempts"] = [
+        {"id": "legacy", "user_id": "user-1", "test_id": "test", "section_num": 1,
+         "status": "in_progress"},
+    ]
+    original = _Q.execute
+
+    def execute(query):
+        if any(column == "class_assignment_item_id" for column, _ in query._eq):
+            raise APIError({"code": "42703", "message": "column dictation_attempts.class_assignment_item_id does not exist"})
+        return original(query)
+
+    monkeypatch.setattr(_Q, "execute", execute)
+    lookup = listening_router._find_latest_in_progress_dictation_attempt
+    assert lookup("user-1", "test", 1)["id"] == "legacy"
+    with pytest.raises(APIError):
+        lookup("user-1", "test", 1, "class-item")
+
+
+
+def test_skill_drill_checkpoint_throttle_uses_authenticated_user_bucket(monkeypatch):
+    monkeypatch.setattr(listening_router, "_drill_checkpoint_requests", {})
+    monkeypatch.setattr(listening_router.time, "monotonic", lambda: 123.0)
+    for _ in range(60):
+        listening_router._limit_drill_checkpoint_requests("first")
+    with pytest.raises(HTTPException) as err:
+        listening_router._limit_drill_checkpoint_requests("first")
+    assert err.value.status_code == 429
+    listening_router._limit_drill_checkpoint_requests("second")
+
+
+@pytest.mark.parametrize("stage,table", [
+    ("listening", "listening_test_attempts"),
+    ("dictation", "dictation_attempts"),
+])
+def test_drill_checkpoint_hides_foreign_attempt_and_rejects_finished_attempt(monkeypatch, stage, table):
+    fake, _ = _patch(monkeypatch)
+    fake.tables[table] = [
+        {"id": "foreign", "user_id": "someone-else", "status": "in_progress",
+         "class_assignment_item_id": "item-1"},
+        {"id": "finished", "user_id": "user-1", "status": "completed",
+         "class_assignment_item_id": "item-1"},
+    ]
+    body = listening_router.DrillPlaybackCheckpoint(
+        stage=stage, page_id=uuid4(), plays=1, played_ms=1000)
+    errors = []
+    for attempt_id in ("foreign", "missing", "finished"):
+        with pytest.raises(HTTPException) as error:
+            listening_router._record_skill_drill_playback(attempt_id, body, "user-1")
+        errors.append((error.value.status_code, error.value.detail))
+    assert errors[0] == errors[1]
+    assert errors[0][0] == 404
+    assert errors[2][0] == 409

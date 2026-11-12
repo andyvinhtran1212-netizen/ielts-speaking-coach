@@ -25,7 +25,7 @@ export function normalizeTally(value) {
     return {
       student_id: id, name: text(row.name), student_code: nullableText(row.student_code),
       status: text(row.status) || 'pending', submitted_at: nullableText(row.submitted_at),
-      score: finite(row.score), flags: Array.isArray(row.flags) ? row.flags.map((flag) => {
+      score: finite(row.score), ...(row.skill_drill ? { skill_drill: row.skill_drill } : {}), flags: Array.isArray(row.flags) ? row.flags.map((flag) => {
         const f = object(flag);
         return { code: text(f.code), severity: text(f.severity), label: text(f.label), why: text(f.why), action: text(f.action) };
       }) : [], flag_level: nullableText(row.flag_level), passed_at: nullableText(row.passed_at),

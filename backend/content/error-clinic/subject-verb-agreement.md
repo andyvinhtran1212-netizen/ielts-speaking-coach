@@ -83,6 +83,7 @@ learning_blocks:
 Quy tắc cơ bản: **Chủ ngữ số ít → động từ số ít; Chủ ngữ số nhiều → động từ số nhiều**.
 
 Trong Present Simple:
+
 - She **works** at a hospital. (she = số ít → works)
 - They **work** at a hospital. (they = số nhiều → work)
 
@@ -133,14 +134,17 @@ Khi có cụm giới từ (prepositional phrase) nằm giữa chủ ngữ và đ
 Danh từ chỉ một nhóm: team, family, government, committee, staff, audience, class, jury...
 
 **Tiếng Anh Anh (British English):** chọn số ít khi xem nhóm là đơn vị, số nhiều khi nhấn thành viên
+
 - The team **are** playing well. (British)
 
 **Tiếng Anh Mỹ (American English):** thường dùng **số ít**
+
 - The team **is** playing well. (American)
 
 **Trong IELTS:** cả hai đều được chấp nhận — nhưng phải **nhất quán** trong cả bài.
 
 Các ví dụ nhìn nhóm như đơn vị dùng **số ít** (không phải danh sách luôn số ít):
+
 - The government **is** considering new policies.
 - The committee **has** made its decision.
 - The company **was** founded in 1990.
@@ -152,6 +156,7 @@ Các ví dụ nhìn nhóm như đơn vị dùng **số ít** (không phải danh
 | everyone, everyone, anybody, nobody, someone, no one, each, every, either, neither, one | both, few, many, others, several | all, some, most, any, none (tuỳ theo danh từ đi kèm) |
 
 **Số ít — hay bị nhầm:**
+
 - **Everyone is** welcome. ✅ (không phải "are")
 - **Nobody was** at home. ✅
 - **Each student has** their own locker. ✅
@@ -159,6 +164,7 @@ Các ví dụ nhìn nhóm như đơn vị dùng **số ít** (không phải danh
 - **Neither answer is** correct. ✅
 
 **Số ít hoặc số nhiều (tuỳ danh từ):**
+
 - **All** the information **is** correct. (information = uncountable → singular)
 - **All** the students **are** here. (students = countable plural → plural)
 - **Some** of the milk **has** gone bad. (milk = uncountable → singular)
@@ -176,6 +182,7 @@ Chia theo danh từ đứng sau, không phải "there":
 - **There are** a few problems we need to address. (a few problems = số nhiều)
 
 Khi có danh sách, chia theo danh từ **đầu tiên:**
+
 - **There is** a pen and two books on the desk. (pen → is) ✅
 - **There are** two books and a pen on the desk. (books → are) ✅
 
@@ -201,15 +208,18 @@ Mệnh đề làm chủ ngữ thường dùng số ít; what-clause trong cấu 
 ### Bẫy 7: Các biểu thức đặc biệt
 
 **"One of the + plural noun" → động từ số ít** (chủ ngữ là "one"):
+
 - **One of the** students **is** absent today. ✅ (không phải "are")
 - **One of the** main reasons **is** a lack of funding.
 
 **"The majority of / A variety of / A range of" + plural noun → thường số nhiều:**
+
 - The **majority of** students **prefer** online learning.
 - A **variety of** options **are** available.
 - A **range of** issues **have** been identified.
 
 **Danh từ kết thúc -s nhưng là số ít:**
+
 - Mathematics **is** a challenging subject. (không phải "are")
 - Economics **has** changed significantly.
 - News **is** reported differently across channels.
@@ -217,10 +227,12 @@ Mệnh đề làm chủ ngữ thường dùng số ít; what-clause trong cấu 
 - The United States **is** a federal republic. (tên quốc gia → số ít)
 
 **Danh từ luôn số nhiều (không có dạng số ít):**
+
 - These trousers **are** too long. (trousers, scissors, glasses, jeans → plural)
 - The scissors **are** on the table.
 
 **Số lượng và đơn vị đo:**
+
 - **Five kilometres** **is** a long distance to run. (số lượng + đơn vị → số ít)
 - **Twenty dollars** **is** not enough.
 - **Three months** **is** too long to wait.
@@ -301,9 +313,11 @@ Mệnh đề làm chủ ngữ thường dùng số ít; what-clause trong cấu 
 ### Đáp án
 
 **Chọn động từ:**
+
 1. is | 2. have | 3. were | 4. knows | 5. is | 6. is | 7. is | 8. was | 9. is | 10. supports (hoặc "support" nếu dùng British English)
 
 **Sửa lỗi:**
+
 1. Each of the students **has** their own textbook.
 2. The number of tourists visiting the city **has** increased dramatically.
 3. Nobody **was** present at the meeting.

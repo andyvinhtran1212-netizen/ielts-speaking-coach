@@ -111,6 +111,7 @@ at  → điểm cụ thể: at home, at work, at the corner, at 10 Main Street
 > - **IN** = khoảng thời gian lớn (tháng, năm, mùa)
 
 **Ngoại lệ quan trọng:**
+
 - **at night** nói ban đêm nói chung; **in the night** có thể nói trong một đêm cụ thể: "I woke up in the night."
 - at the weekend / on the weekend (cả hai đều được — British vs American)
 - in the morning / afternoon / evening ✅
@@ -264,14 +265,17 @@ Giới từ + danh từ tạo thành cụm giới từ, đóng vai trò là tr�
 ## Ứng dụng trong IELTS
 
 **IELTS Speaking Part 1 — mô tả nơi ở:**
+
 - I live **in** a house **in** the suburbs, about 10 km **from** the city centre.
 - There's a park **next to** my building, which I love walking **through in** the evenings.
 
 **IELTS Speaking Part 2 — mô tả sự vật:**
+
 - It's made **of** natural materials and decorated **with** traditional patterns.
 - I've been interested **in** photography **since** I was fifteen.
 
 **IELTS Writing Task 2 — kết hợp giới từ học thuật:**
+
 - **Despite** the challenges, many countries have succeeded **in** reducing pollution.
 - **Due to** advances **in** technology, the world has changed significantly **over** the past decade.
 - People **in** rural areas have less access **to** quality education **than** those in urban areas.
@@ -305,12 +309,15 @@ Giới từ + danh từ tạo thành cụm giới từ, đóng vai trò là tr�
 ### Đáp án
 
 **Điền in/on/at/since:**
+
 1. in | 2. on | 3. at | 4. at | 5. since (since + mốc bắt đầu 2018, khoảng thời gian kéo dài đến nay; khác in 2018 chỉ thời điểm xảy ra sự việc)
 
 **Điền giới từ:**
+
 1. in | 2. at / of | 3. for | 4. of / about | 5. because of / due to
 
 **Sửa lỗi:**
+
 1. arrived **in** Tokyo (thành phố → in)
 2. interested **in** this topic
 3. working here **for** three years (khoảng thời gian → for, không phải since)
@@ -320,11 +327,13 @@ Giới từ + danh từ tạo thành cụm giới từ, đóng vai trò là tr�
 ## Tóm tắt nhanh
 
 **Vị trí:**
+
 - **in** = bên trong (phòng, thành phố, quốc gia)
 - **on** = trên bề mặt (bàn, đường phố, tầng)
 - **at** = tại điểm cụ thể (trường, nhà ga, địa chỉ)
 
 **Thời gian:**
+
 - **at** = giờ (at 8 AM, at night, at noon)
 - **on** = ngày / thứ (on Monday, on 5 March)
 - **in** = tháng / năm / mùa / buổi (in April, in 2024, in the morning)
@@ -332,6 +341,7 @@ Giới từ + danh từ tạo thành cụm giới từ, đóng vai trò là tr�
 **Chuyển động:** to (đến) / into (vào trong) / from (từ) / through (xuyên qua)
 
 **Quan trọng:**
+
 - arrive **in** (thành phố/quốc gia) / arrive **at** (địa điểm cụ thể); arrive to + động từ nguyên mẫu là cấu trúc khác
 - Không tự thêm giới từ trước tân ngữ trực tiếp: discuss the plan, reach the station, enter the room, resemble her mother. Các cụm như discuss with colleagues / enter into an agreement vẫn hợp lệ.
 - Không dùng giới từ trước: next, last, this, every, yesterday, tomorrow

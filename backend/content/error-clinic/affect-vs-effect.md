@@ -109,6 +109,7 @@ affect + noun phrase
 - These policies **affect** the most vulnerable members of society.
 
 **Các dạng chia:**
+
 - Present: affects / affect
 - Past: affected
 - Perfect: has/have affected
@@ -116,6 +117,7 @@ affect + noun phrase
 - Passive: is/are affected (by)
 
 **Thể bị động:**
+
 - Millions of people **are affected** by poverty.
 - The environment **has been adversely affected** by industrial waste.
 - Rural communities **were disproportionately affected** by the closure.
@@ -185,11 +187,13 @@ effect + change / reform / solution
 ### Kiểm tra từ loại:
 
 **Bước 1:** Nhìn vào vị trí trong câu và từ đứng trước.
+
 - Có mạo từ (a/an/the) đứng trước → **effect** (danh từ)
 - Có tính từ sở hữu (its/their/the) đứng trước → **effect** (danh từ)
 - Có chủ ngữ đứng trước + muốn diễn đạt hành động → **affect** (động từ)
 
 **Bước 2:** Thử thay thế.
+
 - Nếu thay được bằng "influence" (v) → dùng **affect**
 - Nếu thay được bằng "result" hoặc "impact" (n) → dùng **effect**
 
@@ -255,9 +259,11 @@ effect + change / reform / solution
 ### Từ vựng liên quan — đa dạng hóa diễn đạt:
 
 **Thay thế cho "affect" (động từ):**
+
 - influence/impact: tác động; shape/alter/transform: thêm ý định hình/thay đổi; damage/harm/undermine: tác động tiêu cực; improve/enhance: tích cực. Không thay tất cả cho affect nếu phải giữ nhận định nguồn.
 
 **Thay thế cho "effect" (danh từ):**
+
 - impact (n), consequence, result, outcome, repercussion, implication, influence
 
 **Ví dụ IELTS Writing Task 2:**
