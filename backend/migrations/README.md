@@ -25,6 +25,7 @@ sequence is dense. As of 2026-11-12 the highest is `380` (Skill Drill homework,
 register (ask the Leader before taking it). `379` is PC-J562, the 0037 FR-008
 Listening import source skip (assigned by the Leader). 377/378 are reserved for
 BLACKEYE-0052 (#2282); 376 is the admission migration from #2281.
+377 is reserved for Black Eye PR2.
 `370` was already reserved: none may be reused. `369` is PC-J620, the 339
 grammar_quiz definer search paths.
 Migration 376 is unexecuted in this PR and requires separate SA review and owner
