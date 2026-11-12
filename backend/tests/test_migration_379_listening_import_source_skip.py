@@ -76,6 +76,16 @@ def _body(sql: str) -> str:
     return _code(sql).strip()[len("BEGIN;"):-len("COMMIT;")]
 
 
+def _transaction_body(sql: str) -> str:
+    """The statements between BEGIN; and COMMIT;, byte-identical (function
+    bodies keep their comment lines, as psql installs them), so the rollback's
+    prosrc hashes see what production sees."""
+    _, begin, rest = sql.partition("\nBEGIN;\n")
+    body, commit, tail = rest.rpartition("\nCOMMIT;")
+    assert begin and commit and not tail.strip()
+    return body
+
+
 # ── Static contract ─────────────────────────────────────────────────────────
 
 def test_one_transaction_that_only_replaces_the_source_guard():
@@ -112,16 +122,54 @@ def test_source_guard_is_353_plus_only_the_fr008_import_skip():
     assert set(re.findall(r"current_setting\('([^']+)'", new)) == {"app.listening_package_import"}
 
 
+def _prosrc_sha256(sql: str) -> str:
+    """sha256 of the source guard's dollar-quoted body, i.e. pg_proc.prosrc."""
+    function = _function(sql, SOURCE)
+    start = function.index("$$") + 2
+    return hashlib.sha256(function[start:function.index("$$", start)].encode()).hexdigest()
+
+
 def test_rollback_restores_the_exact_353_body_and_nothing_else():
     assert not list(MIGRATIONS.glob("379_*rollback*"))  # outside the forward glob
     code = _code(ROLLBACK_SQL).strip()
     assert code.startswith("BEGIN;") and code.endswith("COMMIT;")
     source = _function(m353.SQL, SOURCE)
     assert ROLLBACK_SQL.count(source) == 1
-    rest = _code(ROLLBACK_SQL.replace(source, "")).strip()
-    assert re.sub(r"\s+", " ", rest).strip() == (
-        "BEGIN; SET LOCAL lock_timeout = '5s'; SET LOCAL search_path = pg_catalog, pg_temp; COMMIT;")
+    rest = _code(ROLLBACK_SQL.replace(source, ""))
+    outside = re.sub(r"\$(\w*)\$.*?\$\1\$", "", rest, flags=re.S)
+    assert re.sub(r"\s+", " ", outside).strip() == (
+        "BEGIN; SET LOCAL lock_timeout = '5s'; SET LOCAL search_path = pg_catalog, pg_temp; "
+        "DO ; "
+        "REVOKE ALL ON FUNCTION public.fn_guard_mock_paper_source() FROM PUBLIC, anon, authenticated; "
+        "GRANT EXECUTE ON FUNCTION public.fn_guard_mock_paper_source() TO service_role; "
+        "DO ; COMMIT;")
     assert f"DELETE FROM public._schema_migrations WHERE filename='{NAME}';" in ROLLBACK_SQL
+
+
+def test_rollback_is_fail_closed_on_the_installed_body_acl_and_triggers():
+    """SA-2284-F1: refuses unless 379's exact body is installed, and verifies
+    353's exact body, definer, pinned path, ACL and every 306 trigger after."""
+    code = _code(ROLLBACK_SQL)
+    pre = code[code.index("DO $precondition$"):code.index("$precondition$;")]
+    post = code[code.index("DO $postcondition$"):code.index("$postcondition$;")]
+    assert code.index("$precondition$;") < code.index(SOURCE) < code.index("DO $postcondition$")
+    assert f"<> '{_prosrc_sha256(SQL)}' THEN" in pre
+    assert f"<> '{_prosrc_sha256(m353.SQL)}'" in post
+    assert _prosrc_sha256(SQL) != _prosrc_sha256(m353.SQL) == _prosrc_sha256(ROLLBACK_SQL)
+    raises = re.findall(r"RAISE EXCEPTION '(\w+)' USING ERRCODE = '(\w+)';", code)
+    assert raises == [("rollback_379_not_installed", "55000"), ("rollback_379_function_shape", "55000"),
+                      ("rollback_379_source_guard_client_execute", "55000"),
+                      ("rollback_379_source_trigger_missing", "55000")]
+    assert code.count("RAISE") == len(raises)
+    assert f"pinned CONSTANT TEXT[] := ARRAY['search_path={m353.PIN}'];" in post
+    assert "OR NOT (SELECT prosecdef FROM pg_proc WHERE oid = source)" in post
+    assert "(acl.grantee = 0 OR r.rolname IN ('anon', 'authenticated'))" in post
+    # Every table 306 puts trg_mock_paper_source on.
+    [loop] = re.findall(r"FOREACH name IN ARRAY ARRAY\[([^\]]+)\] LOOP\s+EXECUTE format\('DROP TRIGGER IF EXISTS "
+                        r"trg_mock_paper_source", (MIGRATIONS / "306_mock_paper_policy_and_admission.sql").read_text())
+    tables = re.findall(r"'(\w+)'", loop)
+    assert re.findall(r"'public\.(\w+)'", post[post.index("tables CONSTANT"):post.index("installed TEXT;")]) == tables
+    assert "t.tgfoid = source AND t.tgenabled = 'O' AND NOT t.tgisinternal" in post
 
 
 def test_forward_policy_holds_379_in_its_own_feature_group():
@@ -532,7 +580,7 @@ def test_rollback_restores_the_353_body_and_the_import_failure(import_probe):
     package, _, args = _new_package(import_probe, 'rollback')
 
     async def steps(connection):
-        await connection.execute(_body(migrated_353(s, ROLLBACK)))
+        await connection.execute(_transaction_body(migrated_353(s, ROLLBACK)))
         source = await connection.fetchval(
             f"SELECT prosrc FROM pg_proc WHERE oid = '{s}.fn_guard_mock_paper_source()'::regprocedure")
         assert "import_skip" not in source and "status_only" in source
@@ -551,6 +599,81 @@ def test_rollback_restores_the_353_body_and_the_import_failure(import_probe):
     assert "import_skip" in query(
         f"SELECT prosrc FROM pg_proc WHERE oid = '{s}.fn_guard_mock_paper_source()'::regprocedure")[0]['prosrc']
     assert not query(f"SELECT 1 FROM {s}.listening_content_packages WHERE package_id=$1", package['package_id'])
+
+
+async def _source(connection, s):
+    return await connection.fetchrow(
+        f"SELECT prosrc, proconfig, prosecdef, proacl::TEXT[] acl FROM pg_proc "
+        f"WHERE oid = '{s}.fn_guard_mock_paper_source()'::regprocedure")
+
+
+async def _refused(connection, sql, message):
+    with pytest.raises(asyncpg.PostgresError, match=message) as raised:
+        async with connection.transaction():
+            await connection.execute(sql)
+    assert raised.value.sqlstate == '55000'
+
+
+def test_rollback_on_379_holds_its_postconditions(import_probe):
+    s = import_probe['schema']
+
+    async def steps(connection):
+        await connection.execute(_transaction_body(migrated_353(s, ROLLBACK)))
+        source = await _source(connection, s)
+        assert source['prosrc'] == _function(migrated_353(s), SOURCE.replace("public.", f"{s}.")).split("$$")[1]
+        assert source['prosecdef'] and source['proconfig'] == [f'search_path=pg_catalog, {s}, pg_temp']
+        assert await connection.fetchval(
+            f"SELECT has_function_privilege('service_role', '{s}.fn_guard_mock_paper_source()', 'EXECUTE')")
+        for role in ('public', 'anon', 'authenticated'):
+            assert not await connection.fetchval(
+                "SELECT bool_or(acl.privilege_type = 'EXECUTE') FROM pg_proc p "
+                "CROSS JOIN LATERAL aclexplode(COALESCE(p.proacl, acldefault('f', p.proowner))) acl "
+                f"WHERE p.oid = '{s}.fn_guard_mock_paper_source()'::regprocedure "
+                "AND acl.grantee = CASE WHEN $1 = 'public' THEN 0 ELSE to_regrole($1)::OID END", role)
+        assert await connection.fetchval(
+            f"SELECT count(*) FROM pg_trigger WHERE tgname = 'trg_mock_paper_source' AND tgenabled = 'O' "
+            f"AND tgfoid = '{s}.fn_guard_mock_paper_source()'::regprocedure") == 5
+        # Not re-runnable: the second run finds 353's body, not 379's.
+        await _refused(connection, _transaction_body(migrated_353(s, ROLLBACK)), 'rollback_379_not_installed')
+        assert await _source(connection, s) == source
+
+    asyncio.run(_rolled_back(steps))
+
+
+@pytest.mark.parametrize('installed', ['353', '306', 'foreign'])
+def test_rollback_refuses_unless_379_is_installed(import_probe, installed):
+    s = import_probe['schema']
+
+    async def steps(connection):
+        if installed == '353':
+            await connection.execute(_transaction_body(migrated_353(s)))
+        elif installed == '306':
+            await connection.execute(_transaction_body(migrated_353(s, m353.ROLLBACK)))
+        else:  # 379's body with one byte changed
+            body = _function(migrated_379(s), SOURCE.replace("public.", f"{s}."))
+            await connection.execute(body.replace("import_skip:=FALSE;", "import_skip:=FALSE; "))
+        before = await _source(connection, s)
+        await _refused(connection, _transaction_body(migrated_353(s, ROLLBACK)), 'rollback_379_not_installed')
+        assert await _source(connection, s) == before
+
+    asyncio.run(_rolled_back(steps))
+
+
+@pytest.mark.parametrize('table', ['listening_content', 'web_explanation_objects'])
+@pytest.mark.parametrize('broken', ['disabled', 'dropped'])
+def test_rollback_aborts_when_a_source_trigger_is_not_enabled(import_probe, table, broken):
+    s = import_probe['schema']
+
+    async def steps(connection):
+        if broken == 'disabled':
+            await connection.execute(f"ALTER TABLE {s}.{table} DISABLE TRIGGER trg_mock_paper_source")
+        else:
+            await connection.execute(f"DROP TRIGGER trg_mock_paper_source ON {s}.{table}")
+        before = await _source(connection, s)
+        await _refused(connection, _transaction_body(migrated_353(s, ROLLBACK)), 'rollback_379_source_trigger_missing')
+        assert "import_skip" in (await _source(connection, s))['prosrc'] and await _source(connection, s) == before
+
+    asyncio.run(_rolled_back(steps))
 
 
 def test_refuses_over_the_306_body_without_353(import_probe):
@@ -580,6 +703,23 @@ def test_refuses_without_the_source_guard():
     try:
         with pytest.raises(asyncpg.RaiseError, match='listening_package_379_requires_353'):
             query(migrated_379(s))
+        assert query("SELECT count(*) n FROM pg_proc WHERE pronamespace = to_regnamespace($1)", s)[0]['n'] == 0
+    finally:
+        query(f"DROP SCHEMA {s} CASCADE")
+
+
+def test_rollback_refuses_without_the_source_guard():
+    parsed = urlparse(DB)
+    if parsed.scheme not in {"postgres", "postgresql"} or parsed.hostname not in {"localhost", "127.0.0.1", "::1"} or parsed.query:
+        if os.environ.get("REQUIRE_PG") == "1":
+            pytest.fail("379 requires an explicitly LOCAL disposable PostgreSQL URL")
+        pytest.skip("Local PostgreSQL unavailable")
+    s = "mig379_rollback_empty_" + uuid4().hex
+    query(f"CREATE SCHEMA {s}")
+    try:
+        with pytest.raises(asyncpg.PostgresError, match='rollback_379_not_installed') as raised:
+            query(migrated_353(s, ROLLBACK))
+        assert raised.value.sqlstate == '55000'
         assert query("SELECT count(*) n FROM pg_proc WHERE pronamespace = to_regnamespace($1)", s)[0]['n'] == 0
     finally:
         query(f"DROP SCHEMA {s} CASCADE")
