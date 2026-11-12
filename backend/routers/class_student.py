@@ -738,7 +738,7 @@ async def start_assignment(
         raise HTTPException(404, "Bài tập không còn mở")
     assignment = a_rows[0]
     from services import listening_blackeye as blackeye
-    if blackeye.assignment_is_blackeye(supabase_admin, assignment):
+    if await asyncio.to_thread(blackeye.assignment_is_blackeye, supabase_admin, assignment):
         blackeye.assignment_seam()
     skill = assignment.get("skill")
     cfg = assignment.get("content_config") or {}
