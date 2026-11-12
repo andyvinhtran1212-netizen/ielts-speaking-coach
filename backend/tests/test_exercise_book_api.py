@@ -55,6 +55,22 @@ class DBError(Exception):
 
 
 class D1DB(FakeDB):
+    def table(self, name):
+        query = super().table(name)
+        if name == "class_assignment_activities":
+            # Actual 378 columns. A made-up item FK must fail the double too.
+            original_eq, original_in = query.eq, query.in_
+            columns = {"id", "assignment_id", "test_id", "position", "programme_id",
+                       "activity_key", "binding", "request_fingerprint", "created_at"}
+            def eq(key, value):
+                assert key in columns, key
+                return original_eq(key, value)
+            def in_(key, values):
+                assert key in columns, key
+                return original_in(key, values)
+            query.eq, query.in_ = eq, in_
+        return query
+
     def __init__(self, p):
         super().__init__(p)
         self.errors = []
@@ -186,10 +202,11 @@ def book(env, monkeypatch):
         recipient_ids=[S], due_at=(datetime.now(timezone.utc)+timedelta(days=2)).isoformat(),
         deadline_timezone="Asia/Ho_Chi_Minh", replay_policy="allowed", completion_denominator=1,
         status="published", created_at=now())
+    db.rows["exercise_book_grant_owners"] = [dict(user_id=db.user)]
     db.rows["class_assignments"] = [dict(id=A, cohort_id=C, skill="listening", status="published", due_at=db.receipt["due_at"], created_at=db.receipt["created_at"], title="Synthetic book", content_config={"programme_id": dto.PROGRAMME})]
     db.rows["class_assignment_items"] = [dict(id=I, assignment_id=A, student_id=S, state="assigned", submitted_at=None)]
     db.rows["students"] = [dict(id=S, user_id=db.user, full_name="Tên giả", is_active=True, archived_at=None, cohort_id=C)]
-    db.rows["class_assignment_activities"] = [dict(id=CH, class_assignment_item_id=I, test_id=env.p["id"], position=1, binding=deepcopy(db.receipt["activities"][0]))]
+    db.rows["class_assignment_activities"] = [dict(id=CH, assignment_id=A, test_id=env.p["id"], position=1, binding=deepcopy(db.receipt["activities"][0]))]
     db.progress = dict(assignment_id=A, cohort_id=C,
         activities=[dict(activity_key="U1-A03", test_id=env.p["id"], position=1)],
         students=[dict(student_id=S, display_name="Tên giả", item_id=I)],
@@ -315,7 +332,8 @@ def test_grant_step_up_enforced_when_global_flag_false(book, monkeypatch, method
     assert r.status_code == 403 and r.json() == expected, r.text
     dto.ExerciseBookError.model_validate(r.json())
     assert r.headers["cache-control"] == "private, no-store"
-    assert not book.db.rpcs and not book.db.calls and not book.db.mutations
+    assert not book.db.rpcs and not book.db.mutations
+    assert book.db.calls == [("exercise_book_grant_owners", "user_id", None)]
 
 
 @pytest.mark.parametrize("method,suffix", [("get", ""), ("get", "/log"), ("post", "")])
@@ -465,7 +483,8 @@ def test_grant_rpc_refusal_mapping_preserves_db_decision(book, caplog, method, s
     assert r.status_code == status and r.json() == dict(detail=svc.MESSAGES[status], code=code)
     assert r.headers["cache-control"] == "private, no-store"
     assert len(book.db.rpcs) == 1 and book.db.rpcs[0][0] == rpc_name
-    assert not book.db.calls and not book.db.mutations
+    assert book.db.calls == [("exercise_book_grant_owners", "user_id", None)]
+    assert not book.db.mutations
     assert all(secret not in r.text + caplog.text for secret in (G, "PRIVATE_REASON", "PRIVATE_ROLE_ERROR"))
 
 
@@ -592,6 +611,49 @@ def test_assigned_missing_sequence_or_submit_body_never_mutates(book):
     r = book.client.post(path + "/submit")
     assert r.status_code == 422
     assert not book.db.mutations
+
+
+@pytest.mark.parametrize("body", [{}, {"expected_answers": "bad"},
+    {"expected_answers": [], "confirm_blank": "yes"},
+    {"expected_answers": [], "answer_key": "SENTINEL"}])
+def test_assigned_submit_bad_body_rejected_without_mutation(book, body):
+    state = start_assigned(book)
+    before = deepcopy(book.db.rows)
+    book.db.mutations.clear()
+    response = book.client.post(f'{BASE}/tests/attempts/{state["attempt_id"]}/submit', json=body)
+    assert response.status_code == 422 and response.json()["code"] == "validation"
+    assert book.db.rows == before and not book.db.mutations
+    assert "SENTINEL" not in response.text
+
+
+def test_assigned_context_cannot_borrow_another_assignments_activity(book):
+    book.db.rows["class_assignment_activities"][0]["assignment_id"] = G
+    with pytest.raises(HTTPException) as exc:
+        svc.assigned_context(book.db, book.actor["id"], I, book.p["id"])
+    assert exc.value.status_code == 404 and not book.db.mutations
+    assert not any(table == "mock_paper_attempt_snapshots" for table, _, _ in book.db.calls)
+
+
+def test_assigned_playback_updates_only_metadata_and_keeps_parent_immutable(book):
+    state = start_assigned(book)
+    parent = deepcopy(book.db.rows["class_assignment_items"])
+    book.db.calls.clear()
+    path = f'{BASE}/tests/attempts/{state["attempt_id"]}/playback-started'
+    first = book.client.post(path, json={"playback_claim_id": CH})
+    assert first.status_code == 200, first.text
+    again = book.client.post(path, json={"playback_claim_id": CH})
+    assert again.status_code == 200 and again.json() == first.json()
+    patches = [(table, patch) for table, _, patch in book.db.calls if patch]
+    assert len(patches) == 1 and patches[0][0] == "listening_test_attempts"
+    assert set(patches[0][1]) == {"playback_started_at"}
+    assert book.db.rows["class_assignment_items"] == parent
+
+
+def test_grant_window_is_600_seconds_with_tighter_global_setting(book, monkeypatch):
+    monkeypatch.setattr(staff_guard.settings, "ADMIN_STEP_UP_MINUTES", 1)
+    book.claims["amr"][0]["timestamp"] -= 120
+    response = book.client.get(ADMIN + "/exercise-book-grants")
+    assert response.status_code == 200, response.text
 
 
 def test_teacher_review_selects_activity_and_checks_actual_student_owner(book):
@@ -743,15 +805,13 @@ def test_multi_activity_receipt_never_uses_parent_artifact_or_one_test(book):
     book.db.rows["class_assignment_items"].append(dict(id=item2, assignment_id=A, student_id=student2))
     first_child = book.db.rows["class_assignment_activities"][0]
     book.db.rows["class_assignment_activities"] = [
-        first_child, dict(id=str(UUID(int=103)), class_assignment_item_id=I, test_id=p2["id"], position=2, binding=b2),
-        dict(first_child, id=str(UUID(int=104)), class_assignment_item_id=item2),
-        dict(id=str(UUID(int=105)), class_assignment_item_id=item2, test_id=p2["id"], position=2, binding=b2),
+        first_child, dict(id=str(UUID(int=103)), assignment_id=A, test_id=p2["id"], position=2, binding=b2),
     ]
     r = book.client.get(ADMIN + f"/listening-source-assignments/{A}")
     assert r.status_code == 200, r.text
     assert len(r.json()["activities"]) == r.json()["completion_denominator"] == 2
     assert set(r.json()["recipient_ids"]) == {S, student2}
-    assert len(book.db.calls) == 3  # assignment, recipients, batched children
+    assert len(book.db.calls) == 3  # assignment, recipients, shared activities
     book.db.rows["class_assignment_activities"][-1]["binding"] = deepcopy(first_child["binding"])
     r = book.client.get(ADMIN + f"/listening-source-assignments/{A}")
     assert r.status_code == 503
@@ -879,3 +939,42 @@ def test_malformed_assigned_item_is_validation_before_rpc(book):
     r = book.client.post(f'{BASE}/tests/{book.p["id"]}/attempts?class_item=PRIVATE_INVALID', json={"blackeye_binding": visible(book.p)})
     assert r.status_code == 422 and r.json()["code"] == "validation"
     assert "PRIVATE_INVALID" not in r.text and not book.db.rpcs
+
+
+@pytest.mark.parametrize("method,suffix", [("get", ""), ("get", "/log"), ("post", "")])
+def test_grant_nonowner_precedes_stale_mfa(book, monkeypatch, method, suffix):
+    book.db.rows["exercise_book_grant_owners"] = []
+    book.claims["amr"][0]["timestamp"] -= 601
+    def no_step_up(*args, **kwargs):
+        pytest.fail("non-owner must be denied before step-up")
+    monkeypatch.setattr(ar, "require_recent_mfa", no_step_up)
+    body = dict(grantee_id=G, role="assigner", action="grant", reason="Synthetic", request_id=A)
+    r = getattr(book.client, method)(ADMIN + "/exercise-book-grants" + suffix,
+        **({"json": body} if method == "post" else {}))
+    assert r.status_code == 403 and r.json() == dict(detail=svc.MESSAGES[403], code="not_owner")
+    assert r.headers["cache-control"] == "private, no-store"
+    assert not book.db.rpcs and not book.db.mutations
+    assert book.db.calls == [("exercise_book_grant_owners", "user_id", None)]
+
+
+@pytest.mark.parametrize("config", [{}, {"programme_id": "other"}, {"programme_id": None}])
+def test_book_reads_pin_parent_programme(book, config):
+    book.db.rows["class_assignments"][0]["content_config"] = config
+    for read in (
+        lambda: svc.assignment(book.db, C, A),
+        lambda: svc.assigned_context(book.db, book.db.user, I, book.p["id"]),
+    ):
+        book.db.calls.clear()
+        with pytest.raises(HTTPException) as exc:
+            read()
+        assert exc.value.status_code == 404 and exc.value.detail["code"] == "not_found"
+        assert not any(t == "class_assignment_activities" for t, _, _ in book.db.calls)
+    assert not book.db.rpcs and not book.db.mutations
+
+
+def test_null_content_book_parent_stays_out_of_generic_routes(book):
+    parent = book.db.rows["class_assignments"][0]
+    parent["content_id"] = None
+    assert svc.book_parent(parent)
+    assert be.assignment_is_blackeye(book.db, parent)
+    assert be.generic_assignments(book.db, [parent]) == []

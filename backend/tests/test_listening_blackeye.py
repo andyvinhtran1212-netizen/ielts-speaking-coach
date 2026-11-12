@@ -373,9 +373,9 @@ def test_n2_t08_exact_teacher_scope_and_no_answer_identity(env, monkeypatch):
     cohort, assignment, item, student = [str(uuid4()) for _ in range(4)]
     a=env.db.freeze(env.p)
     a.update(class_assignment_item_id=item,attempt_purpose="assigned_practice")
-    env.db.rows["class_assignments"]=[dict(id=assignment,cohort_id=cohort,skill="listening",status="published")]
+    env.db.rows["class_assignments"]=[dict(id=assignment,cohort_id=cohort,skill="listening",status="published",content_config={"programme_id": PROGRAMME})]
     env.db.rows["class_assignment_items"]=[dict(id=item,assignment_id=assignment,student_id=student)]
-    env.db.rows["class_assignment_activities"]=[dict(id=str(uuid4()),class_assignment_item_id=item,test_id=a["test_id"],position=1,binding=deepcopy(env.p["metadata"]["blackeye"]["binding"]))]
+    env.db.rows["class_assignment_activities"]=[dict(id=str(uuid4()),assignment_id=assignment,test_id=a["test_id"],position=1,binding=deepcopy(env.p["metadata"]["blackeye"]["binding"]))]
     env.db.rows["students"]=[dict(id=student,user_id=env.db.user)]
     def access_rpc(name, params):
         assert name == "fn_exercise_book_actor_access"

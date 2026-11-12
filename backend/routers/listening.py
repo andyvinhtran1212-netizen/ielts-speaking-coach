@@ -38,7 +38,7 @@ from fastapi import (
     UploadFile,
 )
 from postgrest.exceptions import APIError
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from fastapi.routing import APIRoute
 from fastapi.exceptions import RequestValidationError
 from services import exercise_book_api as books
@@ -146,11 +146,14 @@ class _ListeningRoute(APIRoute):
                         for e in errors]}, 422)
                 # Default Pydantic errors echo rejected values, creating an N2
                 # answer-set oracle. Never echo nested Black Eye inputs.
-                if ("/tests/" in self.path or "exercise-book" in self.path
+                if ("exercise-book" in self.path
                         or any("blackeye_binding" in error.get("loc", ()) for error in exc.errors())):
                     return _exercise_book_error(422, "validation")
                 raise
             except HTTPException as exc:
+                # Before authorization there is no safe way to distinguish a
+                # book ID from a generic ID. Keep the common private denial;
+                # only book-specific payload validation loses diagnostics.
                 if exc.status_code in {401, 404} and ("/tests/" in self.path or "exercise-book" in self.path):
                     return _exercise_book_error(exc.status_code, "unauthorized" if exc.status_code == 401 else "not_found")
                 if isinstance(exc.detail, dict) and "code" in exc.detail and "detail" in exc.detail:
@@ -8178,6 +8181,7 @@ def _record_skill_drill_playback(attempt_id: str, body: DrillPlaybackCheckpoint,
     if not item_id:
         raise HTTPException(404, "Lượt làm không thuộc bài luyện kỹ năng được giao.", headers={"Cache-Control": "private, no-store"})
     if body.stage == "listening":
+        blackeye.guard_generic_target(supabase_admin, test_id=attempt.get("test_id"), denied_status=404)
         if blackeye.attempt_is_blackeye(supabase_admin, attempt):
             raise HTTPException(404, "Black Eye resource unavailable.", headers={"Cache-Control": "private, no-store"})
     else:
@@ -8852,7 +8856,7 @@ async def check_listening_practice_answer(
 async def submit_listening_test_attempt(
     attempt_id: str,
     authorization: str | None = Header(default=None),
-    body: book_dto.BlackEyeSubmitRequest | None = None,
+    body: dict[str, Any] | None = None,
 ):
     """Finalize a student attempt: load the test's answer key, grade
     each user answer, roll up trap analytics, write the grading
@@ -8868,6 +8872,13 @@ async def submit_listening_test_attempt(
     if await run_in_threadpool(blackeye.attempt_is_blackeye, supabase_admin, attempt):
         from fastapi.encoders import jsonable_encoder
         from starlette.responses import JSONResponse
+        if attempt.get("class_assignment_item_id"):
+            # The shared legacy submit accepts {}. Only assigned books use
+            # the strict answer-CAS body in contract §4/§8.6.
+            try:
+                body = book_dto.BlackEyeSubmitRequest.model_validate(body)
+            except ValidationError:
+                books.fail(422, "validation")
         if body is None:
             result = await run_in_threadpool(blackeye.submit, supabase_admin, attempt, user["id"])
         else:

@@ -15645,16 +15645,6 @@ export interface components {
             /** Lookup Errors */
             lookup_errors: string[];
         };
-        /** BlackEyeSubmitRequest */
-        BlackEyeSubmitRequest: {
-            /** Expected Answers */
-            expected_answers: components["schemas"]["BlackEyeAnswer"][];
-            /**
-             * Confirm Blank
-             * @default false
-             */
-            confirm_blank: boolean;
-        };
         /** BlackEyeTranscript */
         BlackEyeTranscript: {
             /** Text */
@@ -39314,7 +39304,9 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": components["schemas"]["BlackEyeSubmitRequest"] | null;
+                "application/json": {
+                    [key: string]: unknown;
+                } | null;
             };
         };
         responses: {

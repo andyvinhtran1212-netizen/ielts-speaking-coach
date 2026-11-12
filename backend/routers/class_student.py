@@ -27,6 +27,7 @@ from urllib.parse import quote
 from typing import Any, Dict, Literal, Optional, Union
 
 from fastapi import APIRouter, Header, HTTPException
+from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
 from database import supabase_admin
@@ -45,6 +46,7 @@ from services.class_assignment_service import (
     reconcile_test_attempts,
 )
 from services.active_player_lifecycle import is_resume_active
+from services import listening_blackeye as blackeye
 from services.cohort_assignment_service import parse_deadline
 from services.writing_give_status import (
     RETURNED,
@@ -585,7 +587,7 @@ def _visible_assignments(student: Dict[str, Any], now: datetime,
             # The cohort filter keeps historical items from a membership that
             # has ended out of the active to-do list while allowing two active
             # classes at the same time.
-            if is_assignment_open(a, now=now):
+            if is_assignment_open(a, now=now) and not blackeye.assignment_is_blackeye(supabase_admin, a):
                 by_id[a["id"]] = a
 
     # Record any Reading/Listening hand-in before deciding what this student
@@ -737,6 +739,10 @@ async def start_assignment(
     if not a_rows or not is_assignment_open(a_rows[0]):
         raise HTTPException(404, "Bài tập không còn mở")
     assignment = a_rows[0]
+    # Book parents are immutable recipient records. Their activity runner owns
+    # progress; generic start and reconciliation must never open the parent.
+    if await run_in_threadpool(blackeye.assignment_is_blackeye, supabase_admin, assignment):
+        raise HTTPException(400, "Mở bài tập này từ trang sách bài tập.")
     skill = assignment.get("skill")
     cfg = assignment.get("content_config") or {}
 
@@ -908,12 +914,20 @@ async def start_assignment(
     if skill not in ("speaking", "reading", "listening", "course", "grammar"):
         raise HTTPException(400, "Bài tập này chưa hỗ trợ mở trực tiếp.")
 
+    timer = assignment_timer_state(item, assignment)
+    if skill == "course" and timer.get("invalid"):
+        raise HTTPException(409, "Cấu hình thời gian của bài không hợp lệ.")
+    if skill in ("reading", "listening") and not assignment.get("content_id"):
+        raise HTTPException(400, "Bài tập này chưa gắn đề.")
+
     # A timed Course clock starts together with the first canonical quiz
     # session (quiz_service.start_session).  Starting it on this navigation
     # endpoint can strand a learner who closes the tab before the player has
     # created any session to submit at time-out.
     timed_course = skill == "course" and cfg.get("time_limit_minutes") is not None
-    if item.get("state") == "assigned" and not timed_course:
+    def mark_opened():
+        if item.get("state") != "assigned" or timed_course:
+            return
         try:
             supabase_admin.table("class_assignment_items").update({
                 "state": "opened",
@@ -922,10 +936,8 @@ async def start_assignment(
         except Exception as exc:
             logger.warning("[class] could not mark item opened item=%s: %s", item_id, exc)
 
-    timer = assignment_timer_state(item, assignment)
-    if skill == "course" and timer.get("invalid"):
-        raise HTTPException(409, "Cấu hình thời gian của bài không hợp lệ.")
     if skill == "course":
+        await run_in_threadpool(mark_opened)
         # Bài tập theo buổi mở thẳng bằng id bank — không có phiên nào phải dựng
         # trước. Chính bài giao này là thứ cho phép `get_bank_for_play` mở bank
         # ấy ra (bank giáo trình không xuất bản và không nằm trong danh sách tự
@@ -943,6 +955,7 @@ async def start_assignment(
         }
 
     if skill == "speaking":
+        await run_in_threadpool(mark_opened)
         # The client posts these to /sessions — which owns quota, the daily cap
         # and permissions — then lands on the practice page by session_id.
         return {
@@ -958,6 +971,7 @@ async def start_assignment(
         }
 
     if skill == "grammar":
+        await run_in_threadpool(mark_opened)
         if cfg.get("assignment_type") == "grammar_lesson":
             return {
                 "item_id": item_id,
@@ -1012,6 +1026,7 @@ async def start_assignment(
                                .eq("test_id", test_uuid).eq("status", "submitted").limit(1))
             listening_submitted = (await asyncio.to_thread(submitted_query.execute)).data
             if listening_submitted:
+                await run_in_threadpool(mark_opened)
                 return {
                     "item_id": item_id, "assignment_id": assignment["id"], "skill": skill,
                     "player_surface": "listening_dictation",
@@ -1047,6 +1062,7 @@ async def start_assignment(
         player_query = {"test_id": str(code), "class_item": item_id}
         url = (f"/core-player/launch?surface={player_surface}"
                f"&test_id={quote(code)}&class_item={quote(item_id)}")
+    await run_in_threadpool(mark_opened)
     return {
         "item_id":       item_id,
         "assignment_id": assignment["id"],

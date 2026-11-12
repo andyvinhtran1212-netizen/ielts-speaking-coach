@@ -120,9 +120,25 @@ def _all_rows(db, table, columns, configure):
         offset += 1000
 
 
+def require_grant_owner(db, actor_id):
+    # require_admin already checked the canonical active admin. Check the
+    # global 377 owner before requesting fresh MFA; grant RPCs recheck both.
+    rows = _rows(db.table("exercise_book_grant_owners").select("user_id").eq(
+        "user_id", actor_id).limit(1))
+    if len(rows) != 1:
+        fail(403, "not_owner")
+
+
+def book_parent(row):
+    # D1 378 persists this exact marker even with content_id=NULL (§8.4).
+    # Do not admit a generic assignment into the private book read paths.
+    return (row.get("skill") == "listening"
+            and (row.get("content_config") or {}).get("programme_id") == dto.PROGRAMME)
+
+
 def assignment(db, cohort_id, assignment_id):
     rows = _rows(db.table("class_assignments").select("*").eq("id", assignment_id).eq("cohort_id", cohort_id).limit(1))
-    if len(rows) != 1 or rows[0].get("skill") != "listening":
+    if len(rows) != 1 or not book_parent(rows[0]):
         fail(404, "not_found")
     return rows[0]
 
@@ -141,10 +157,10 @@ def assigned_context(db, user_id, item_id, test_id, *, full_binding=None):
     if len(owners) != 1:
         fail(404, "not_found")
     parents = _rows(db.table("class_assignments").select("*").eq("id", item["assignment_id"]).limit(1))
-    if len(parents) != 1 or parents[0].get("skill") != "listening":
+    if len(parents) != 1 or not book_parent(parents[0]):
         fail(404, "not_found")
     children = _rows(db.table("class_assignment_activities").select("*").eq(
-        "class_assignment_item_id", item_id).eq("test_id", test_id).limit(2))
+        "assignment_id", item["assignment_id"]).eq("test_id", test_id).limit(2))
     if len(children) != 1:
         fail(404, "not_found")
     child = children[0]
@@ -173,26 +189,17 @@ def receipt(db, actor_id, cohort_id, assignment_id):
     access(db, actor_id, cohort_id)
     parent = assignment(db, cohort_id, assignment_id)
     items = _all_rows(db, "class_assignment_items", "id,student_id", lambda q: q.eq("assignment_id", assignment_id))
-    # Read all recipients in bounded batches. Child rows are private and are
-    # projected into a strict receipt only after cohort authorization.
-    children = []
-    for offset in range(0, len(items), 100):
-        ids = [i["id"] for i in items[offset:offset + 100]]
-        children.extend(_all_rows(db, "class_assignment_activities", "*", lambda q: q.in_("class_assignment_item_id", ids)))
-    if not children:
+    # 378 stores one activity per assignment, shared by every recipient item.
+    children = _all_rows(db, "class_assignment_activities", "*",
+                         lambda q: q.eq("assignment_id", assignment_id))
+    if not items or not children:
         fail(404, "not_found")
-    by_item = {}
-    for child in children:
-        by_item.setdefault(child["class_assignment_item_id"], []).append(child)
-    bindings = None
-    for item in items:
-        selected = sorted(by_item.get(item["id"], []), key=lambda r: r["position"])
-        current = [model(dto.BlackEyeRevisionBinding, r.get("binding")) for r in selected]
-        if not current or [r["position"] for r in selected] != list(range(1, len(selected) + 1)):
-            fail()
-        if bindings is not None and current != bindings:
-            fail()
-        bindings = current
+    selected = sorted(children, key=lambda r: r["position"])
+    bindings = [model(dto.BlackEyeRevisionBinding, r.get("binding")) for r in selected]
+    if ([r["position"] for r in selected] != list(range(1, len(selected) + 1))
+            or len({r["test_id"] for r in selected}) != len(selected)
+            or len({b.activity_id for b in bindings}) != len(bindings)):
+        fail()
     return model(dto.BlackEyeAssignmentReceipt, dict(assignment_id=assignment_id, request_id=assignment_id,
         cohort_id=cohort_id, activities=bindings, recipient_ids=sorted(i["student_id"] for i in items),
         due_at=parent.get("due_at"), deadline_timezone="Asia/Ho_Chi_Minh", replay_policy="allowed",

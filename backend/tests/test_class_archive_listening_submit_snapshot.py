@@ -143,6 +143,50 @@ def _wire(monkeypatch, db, policy):
                         lambda *_a, **_k: False)
 
 
+@pytest.mark.parametrize("scope", ["regular", "practice", "mock", "report_only"])
+@pytest.mark.parametrize("send_body", [True, False])
+def test_shared_submit_http_empty_body_uses_server_key(monkeypatch, scope, send_body):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    policy = "report_only" if scope == "report_only" else "diagnostic"
+    db = _DB(_attempt(policy))
+    _wire(monkeypatch, db, policy)
+    if scope == "practice":
+        monkeypatch.setattr(listening, "_attempt_test_type", lambda _: "practice")
+    if scope == "mock":
+        db.row["sitting_id"] = "sitting-1"
+        monkeypatch.setattr(listening, "_mock_sealed", lambda _: True)
+    app = FastAPI()
+    app.include_router(listening.user_router)
+    with TestClient(app) as client:
+        response = client.post("/api/listening/tests/attempts/att-1/submit",
+                               **({"json": {}} if send_body else {}))
+    assert response.status_code == 200, response.text
+    assert db.row["status"] == "submitted"
+    if scope == "mock":
+        assert response.json()["sealed"] is True
+    elif scope == "report_only":
+        assert response.json()["status"] == "submitted"
+    else:
+        assert response.json()["score"] == 1
+        assert len(response.json()["per_question"]) == 2
+
+
+@pytest.mark.parametrize("body", [[], "invalid", 42])
+def test_shared_submit_http_rejects_nonobject_body_before_io(monkeypatch, body):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    auth = AsyncMock(side_effect=AssertionError("must validate first"))
+    monkeypatch.setattr(listening, "_require_auth", auth)
+    app = FastAPI()
+    app.include_router(listening.user_router)
+    with TestClient(app) as client:
+        response = client.post("/api/listening/tests/attempts/att-1/submit", json=body)
+    assert response.status_code == 422
+    assert isinstance(response.json()["detail"], list)
+    auth.assert_not_awaited()
+
+
 def _park_first_gate(monkeypatch):
     """Park the first archive-gate call (the submit's) until released."""
     real = archive.require_class_attempt_accepts_work

@@ -492,7 +492,7 @@ def teacher_review(db, actor_id, cohort_id, assignment_id, item_id, activity_id)
     if len(items) != 1:
         books.fail(404, "not_found")
     children = books._rows(db.table("class_assignment_activities").select("*").eq(
-        "class_assignment_item_id", item_id))
+        "assignment_id", assignment_id))
     children = [r for r in children if books.model(BlackEyeRevisionBinding, r.get("binding")).activity_id == activity_id]
     if len(children) != 1:
         books.fail(404, "not_found")

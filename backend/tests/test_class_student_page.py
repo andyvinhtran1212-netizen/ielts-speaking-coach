@@ -466,6 +466,7 @@ def _start_db(*, skill, content_id, tables=None):
     base.update(tables or {})
     db = type("DB", (), {})()
     db.table = lambda name: _StartTable(base.get(name, []), store)
+    db.writes = store
     return db
 
 
@@ -476,6 +477,54 @@ async def _start(db):
          patch.object(mod, "is_assignment_open", return_value=True), \
          patch.object(mod, "supabase_admin", db):
         return await mod.start_assignment("item-1", None)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("book", [True, False])
+async def test_invalid_start_never_marks_parent_opened(book):
+    config = {"programme_id": "blackeye-v5-upper-listening", "exercise_book": True} if book else {}
+    db = _start_db(skill="listening", content_id=None, tables={"class_assignments": [
+        dict(id="a1", cohort_id="c1", skill="listening", status="published",
+             content_id=None, content_config=config, due_at=None)]})
+    with pytest.raises(mod.HTTPException) as exc:
+        await _start(db)
+    assert exc.value.status_code == 400
+    assert db.writes == []
+
+
+@pytest.mark.asyncio
+async def test_unavailable_listening_paper_does_not_mark_opened():
+    db = _start_db(skill="listening", content_id="uuid-xyz", tables={"listening_tests": []})
+    with pytest.raises(mod.HTTPException) as exc:
+        await _start(db)
+    assert exc.value.status_code == 409
+    assert db.writes == []
+
+
+@pytest.mark.asyncio
+async def test_successful_listening_start_marks_opened():
+    db = _start_db(skill="listening", content_id="uuid-xyz")
+    assert (await _start(db))["player_surface"] == "listening_test"
+    assert len(db.writes) == 1 and db.writes[0]["state"] == "opened"
+
+
+def test_generic_homework_excludes_book_before_reconciliation(monkeypatch):
+    book = dict(id="book", cohort_id="c1", skill="listening", status="published",
+        content_id=None, content_config={"programme_id": "blackeye-v5-upper-listening", "exercise_book": True})
+    item = dict(id="book-item", student_id="s1", assignment_id="book", state="assigned", submitted_at=None)
+    class DB:
+        def table(self, name):
+            return _Table({"class_assignment_items": [], "class_assignments": [book]}.get(name, []), False)
+    monkeypatch.setattr(mod, "supabase_admin", DB())
+    monkeypatch.setattr(mod, "_visible_writing_gives", lambda *a: ([], False))
+    monkeypatch.setattr(mod, "_paged_items", lambda *a: [item])
+    monkeypatch.setattr(mod, "_paged_items_of", lambda *a: [])
+    def reconcile(_db, ids, *a, **kw):
+        assert "book" not in ids
+    monkeypatch.setattr(mod, "reconcile_test_attempts", reconcile)
+    monkeypatch.setattr(mod, "reconcile_course_items", reconcile)
+    rows, stale = mod._visible_assignments({"id": "s1", "cohort_id": "c1"}, NOW)
+    assert rows == [] and stale is False
 
 
 @pytest.mark.asyncio

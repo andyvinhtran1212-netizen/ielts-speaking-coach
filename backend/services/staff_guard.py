@@ -429,8 +429,7 @@ def require_recent_mfa(auth_user: dict, authorization: str | None, *,
     The inventory test (tests/test_staff_guard_inventory.py) pins every route
     that calls this."""
     enforce = step_up_enforcement_enabled() if enforce is None else enforce
-    max_age = step_up_max_age_seconds() if max_age_seconds is None else min(
-        step_up_max_age_seconds(), max_age_seconds)
+    max_age = step_up_max_age_seconds() if max_age_seconds is None else max_age_seconds
     user_id = str(auth_user.get("id") or "") if isinstance(auth_user, dict) else ""
     now = time.time()
     try:

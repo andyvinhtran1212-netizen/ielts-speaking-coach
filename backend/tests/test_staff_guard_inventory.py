@@ -16,7 +16,9 @@
    ``ADMIN_STEP_UP_ENFORCE=true`` with no database call. Amendment 2 adds the
    conditional ``CONDITIONAL_STEP_UP_ROUTES`` (role-granting access codes,
    guarded only when the normalized ``grants_role`` is non-null) and the
-   24-hour new-factor cool-off on every one of them (FR-020a).
+   24-hour new-factor cool-off on every one of them (FR-020a). The three
+   exercise-book grant routes require exactly one canonical owner read before
+   step-up (SA-2289-R2-F1); all domain reads/writes still follow step-up.
 """
 
 from __future__ import annotations
@@ -38,6 +40,8 @@ import routers.auth as auth_module
 from config import settings
 from services import activation_gate, staff_guard
 from services.activation_gate import is_staff_path
+from routers import admin_class_assignments as assignments_module
+from types import SimpleNamespace
 
 from tests.test_staff_guard import (  # shared fakes
     TOKENS,
@@ -391,9 +395,44 @@ def test_routes_that_use_require_recent_mfa_are_exactly_the_step_up_routes():
     assert set(callers) == handlers and len(callers) == len(ALL_STEP_UP_ROUTES)
 
 
+# SA-2289-R2-F1: only these grant routes check canonical ownership before MFA.
+OWNER_BEFORE_STEP_UP_ROUTES = frozenset({
+    ("GET", "/admin/cohorts/{cohort_id}/exercise-book-grants"),
+    ("POST", "/admin/cohorts/{cohort_id}/exercise-book-grants"),
+    ("GET", "/admin/cohorts/{cohort_id}/exercise-book-grants/log"),
+})
+
+
+@pytest.fixture
+def grant_owner_lookup(monkeypatch):
+    reads = []
+    class OwnerQuery:
+        def select(self, columns):
+            assert columns == "user_id"
+            return self
+        def eq(self, column, value):
+            assert (column, value) == ("user_id", "admin-active")
+            return self
+        def limit(self, count):
+            assert count == 1
+            return self
+        def execute(self):
+            reads.append("owner")
+            return SimpleNamespace(data=[{"user_id": "admin-active"}])
+    class OwnerDB:
+        def table(self, name):
+            assert name == "exercise_book_grant_owners", "domain read before step-up"
+            return OwnerQuery()
+        def rpc(self, *args, **kwargs):
+            pytest.fail("grant RPC before step-up")
+    monkeypatch.setattr(assignments_module, "supabase_admin", OwnerDB())
+    return reads
+
+
 def test_step_up_is_the_statement_right_after_the_guard():
     cache: dict = {}
     offenders = []
+    assert OWNER_BEFORE_STEP_UP_ROUTES <= STEP_UP_ROUTES
     for method, path, route in ROUTES:
         if (method, path) not in STEP_UP_ROUTES:
             continue
@@ -401,7 +440,11 @@ def test_step_up_is_the_statement_right_after_the_guard():
         body = list(fn.body)
         if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant):
             body = body[1:]
-        guard, step_up = body[0], body[1] if len(body) > 1 else None
+        if (method, path) in OWNER_BEFORE_STEP_UP_ROUTES:
+            assert ast.unparse(body[1]) == "await run_in_threadpool(books.require_grant_owner, supabase_admin, actor['id'])"
+            guard, step_up = body[0], body[2]
+        else:
+            guard, step_up = body[0], body[1] if len(body) > 1 else None
         call = _awaited_call(guard)
         ok = (
             call is not None and _call_name(call) == "require_admin"
@@ -449,7 +492,7 @@ def test_conditional_step_up_follows_the_guard_and_its_pure_normalization():
     assert set(seen) == set(CONDITIONAL_STEP_UP_ROUTES)
 
 
-def test_every_step_up_route_refuses_a_stale_totp_before_any_db_call(live_activation_gate, monkeypatch):
+def test_every_step_up_route_refuses_a_stale_totp_before_domain_db_call(live_activation_gate, monkeypatch, grant_owner_lookup):
     TOKENS.clear()
     db = _DB()
     for module in (admin_module, activation_gate):
@@ -473,6 +516,7 @@ def test_every_step_up_route_refuses_a_stale_totp_before_any_db_call(live_activa
         assert set(refused) == ALL_STEP_UP_ROUTES
         assert all("reason" not in detail for detail in refused.values())  # old factor: stale TOTP only
         assert db.touched == [] and db.inserts == [] and engine_calls == []
+        assert grant_owner_lookup == ["owner"] * len(OWNER_BEFORE_STEP_UP_ROUTES)
     finally:
         TOKENS.clear()
 
@@ -513,7 +557,7 @@ def step_up_db(live_activation_gate, monkeypatch):
     TOKENS.clear()
 
 
-def test_every_step_up_route_refuses_a_recent_factor_with_a_fresh_totp_before_any_db_call(step_up_db):
+def test_every_step_up_route_refuses_a_recent_factor_with_a_fresh_totp_before_domain_db_call(step_up_db, grant_owner_lookup):
     # FR-020a: a factor verified an hour ago (next to an old backup) refuses
     # step-up however fresh the TOTP; FR-001 itself still passes.
     db, engine_calls = step_up_db
@@ -525,6 +569,7 @@ def test_every_step_up_route_refuses_a_recent_factor_with_a_fresh_totp_before_an
     assert set(refused) == ALL_STEP_UP_ROUTES
     assert all(d["reason"] == "new_factor_cooloff" for d in refused.values()), refused
     assert db.touched == [] and db.inserts == [] and engine_calls == []
+    assert grant_owner_lookup == ["owner"] * len(OWNER_BEFORE_STEP_UP_ROUTES)
 
 
 def test_ordinary_branch_of_a_conditional_route_takes_no_step_up(step_up_db, monkeypatch):

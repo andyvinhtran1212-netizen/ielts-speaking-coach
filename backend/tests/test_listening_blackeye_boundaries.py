@@ -99,6 +99,19 @@ def test_generic_admin_detail_never_reads_blackeye_work(env, monkeypatch, role):
     assert env.db.rpcs == []
 
 
+@pytest.mark.parametrize("suffix", ["", "/audio/signed-urls"])
+def test_unrelated_query_cannot_replace_blackeye_admin_target(env, monkeypatch, suffix):
+    monkeypatch.setattr(lr, "_staff_admin_guard", __import__("routers.admin_class_assignments", fromlist=["require_admin"]).require_admin)
+    env.actor.update(admin=True)
+    env.db.rows["listening_content"] = []
+    env.app.include_router(lr.admin_router)
+    response = env.client.get(f'/admin/listening/tests/{env.p["id"]}{suffix}',
+                              params={"content_id": str(uuid4())})
+    assert response.status_code == 404, response.text
+    assert not any("marking_rows" in cols or patch for _, cols, patch in env.db.calls)
+    assert env.db.rpcs == []
+
+
 def test_admin_list_and_aggregator_queries_exclude_before_joins(env):
     from services import cohort_progress_aggregator as agg, class_assignment_service as assignments
     generic = paper(activity="U1-A02")
@@ -376,6 +389,8 @@ async def test_backend_crash_capture_discards_private_exception(env, monkeypatch
     assert response.status_code == 500
     assert captured and sentinel not in json.dumps(captured)
     assert sentinel not in caplog.text
+    if private_path.startswith("/admin/classes/"):
+        assert captured[0]["message"] == "Request failed"
 
 
 @pytest.mark.parametrize("admin", [False, True])

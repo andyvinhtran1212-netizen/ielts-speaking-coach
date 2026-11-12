@@ -702,7 +702,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     if private_listening:
         # A failed DB/client call may quote complete learner/content rows.
         # Keep only a fixed diagnostic envelope; no free text or traceback.
-        message, stack = "Listening request failed", ""
+        message, stack = "Request failed", ""
         mark_sentry_handled(exc)
     # The Sentry SDK reports this exception itself, with its stack trace;
     # sentry_skip keeps this line from becoming a second, trace-less event.
@@ -831,7 +831,7 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     import uuid as _uuid
     request_id = getattr(request.state, "request_id", None) or str(_uuid.uuid4())
     from services.private_learning import is_private_learning_url
-    detail = safe_detail(exc.status_code, "Listening request failed" if is_private_learning_url(request.url.path) and exc.status_code >= 500 and not (isinstance(exc.detail, dict) and "error_code" in exc.detail) else exc.detail, ref=request_id)
+    detail = safe_detail(exc.status_code, "Request failed" if is_private_learning_url(request.url.path) and exc.status_code >= 500 and not (isinstance(exc.detail, dict) and "error_code" in exc.detail) else exc.detail, ref=request_id)
     if exc.status_code >= 500:
         # PC-J92 — persist handled 5xx to error_logs like the unhandled handler
         # (fire-and-forget, never raises). Only the error_code, route template,

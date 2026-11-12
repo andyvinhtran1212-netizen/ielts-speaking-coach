@@ -355,7 +355,7 @@ routers/class_student.py::my_class::routers.class_student._paged_items_of	1	G0	E
 routers/class_student.py::my_class::routers.class_student._student_for_user	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
 routers/class_student.py::my_class::routers.class_student._visible_assignments	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
 routers/class_student.py::my_class::services.class_membership_service.active_cohort_ids_for_student	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
-routers/class_student.py::start_assignment::db.execute	5	G0	Existing inline sync DB execution; offload in G0.
+routers/class_student.py::start_assignment::db.execute	4	G0	Existing inline sync DB execution; offload in G0.
 routers/class_student.py::start_assignment::routers.class_student._existing_speaking_session	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
 routers/class_student.py::start_assignment::routers.class_student._student_for_user	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
 routers/class_student.py::start_assignment::services.class_membership_service.student_is_active_in_cohort	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.

@@ -91,6 +91,8 @@ _book_actor = ContextVar("exercise_book_admin_actor", default=None)
 
 
 async def require_admin(authorization):
+    # Request-local only: the private wrapper sets this from the same header
+    # after the canonical guard and resets it in finally, including on errors.
     cached = _book_actor.get()
     if cached is not None:
         return cached
@@ -3295,6 +3297,7 @@ async def blackeye_teacher_review(cohort_id: str, assignment_id: str, item_id: s
 @router.get("/{cohort_id}/exercise-book-grants", response_model=book_dto.ExerciseBookGrantList, responses=BOOK_ERRORS)
 async def exercise_book_grants(cohort_id: str, authorization: str | None = Header(default=None)):
     actor = await require_admin(authorization)
+    await run_in_threadpool(books.require_grant_owner, supabase_admin, actor["id"])
     require_recent_mfa(actor, authorization, enforce=True, max_age_seconds=600)
     at, _ = books.grant_context(actor, authorization)
     return _book_response(await run_in_threadpool(books.grants, supabase_admin, actor["id"], books.checked_uuid(cohort_id), at))
@@ -3305,6 +3308,7 @@ async def exercise_book_grants(cohort_id: str, authorization: str | None = Heade
 async def exercise_book_record_grant(cohort_id: str, body: book_dto.ExerciseBookGrantCreate,
     authorization: str | None = Header(default=None)):
     actor = await require_admin(authorization)
+    await run_in_threadpool(books.require_grant_owner, supabase_admin, actor["id"])
     require_recent_mfa(actor, authorization, enforce=True, max_age_seconds=600)
     at, session_id = books.grant_context(actor, authorization)
     value, status_code = await run_in_threadpool(books.record_grant, supabase_admin, actor["id"], books.checked_uuid(cohort_id), at, session_id, body)
@@ -3315,6 +3319,7 @@ async def exercise_book_record_grant(cohort_id: str, body: book_dto.ExerciseBook
 async def exercise_book_grant_log(cohort_id: str, limit: int = Query(50, ge=1, le=200), cursor: str | None = None,
     authorization: str | None = Header(default=None)):
     actor = await require_admin(authorization)
+    await run_in_threadpool(books.require_grant_owner, supabase_admin, actor["id"])
     require_recent_mfa(actor, authorization, enforce=True, max_age_seconds=600)
     at, _ = books.grant_context(actor, authorization)
     return _book_response(await run_in_threadpool(books.grant_log, supabase_admin, actor["id"], books.checked_uuid(cohort_id), at, limit, cursor))
