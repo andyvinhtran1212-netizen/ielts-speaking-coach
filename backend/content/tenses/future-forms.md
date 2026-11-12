@@ -102,6 +102,7 @@ Người học Việt Nam thường dùng **will** cho mọi tình huống tươ
 - ✅ "I**'m meeting** my friend tomorrow at 6." *(Lịch trình đã xếp — dùng Present Continuous)*
 
 Trong IELTS Speaking:
+
 - **Part 1:** "What are your plans for the weekend?" → Cần *be going to* hoặc Present Continuous, không phải *will*
 - **Part 2:** Nói về kế hoạch tương lai → phân biệt giữa dự định và lịch trình
 - **Part 3:** Dự đoán xu hướng → *will* là lựa chọn tự nhiên
@@ -277,10 +278,12 @@ Khi bạn **đã sắp xếp cụ thể** với người khác — có lịch, c
 ### Lỗi 2: Nhầm giữa quyết định bộc phát và kế hoạch có sẵn
 
 **Tình huống:** Bạn của bạn vừa nói sẽ dọn nhà và bạn quyết định đến giúp:
+
 - ❌ SAI: "I**'m going to help** you." *(Ngụ ý bạn đã có kế hoạch này từ trước)*
 - ✅ ĐÚNG: "I**'ll help** you." *(Quyết định ngay lúc nghe — will)*
 
 **Tình huống:** Bạn đã có kế hoạch từ tuần trước:
+
 - ❌ SAI: "I**'ll go** to the gym tomorrow." *(Ngụ ý vừa quyết định bây giờ)*
 - ✅ ĐÚNG: "I**'m going to go** to the gym tomorrow." *(Đã có kế hoạch)*
 
@@ -332,6 +335,7 @@ Người học VN coi "sẽ" = "will" mặc định. Kết quả: dùng "will" c
 ✅ "I'm meeting Sarah at 6pm tomorrow."
 
 **"Will" thực sự đúng khi:**
+
 - Quyết định ngay tại thời điểm nói: *(phone rings)* "I'll get it."
 - Prediction không có evidence cụ thể: "I think it will be cold next week."
 - Promises, offers, threats: "I'll help you with that."
@@ -354,10 +358,12 @@ Người học VN coi "sẽ" = "will" mặc định. Kết quả: dùng "will" c
 ### Khi nào hai dạng thay thế nhau được
 
 **will & be going to:** Đôi khi hoán đổi được trong câu dự đoán (will là tự nhiên hơn cho dự đoán không có bằng chứng trực tiếp):
+
 - "I think it **will rain** later." *(will — dự đoán chung)*
 - "Look at those clouds — it**'s going to rain**." *(going to — có bằng chứng)*
 
 **be going to & Present Continuous:** Đôi khi hoán đổi được cho kế hoạch đã xác nhận:
+
 - "I**'m going to see** him tomorrow." *(dự định)*
 - "I**'m seeing** him tomorrow at noon." *(lịch trình cụ thể — tự nhiên hơn với thời gian cụ thể)*
 
@@ -389,17 +395,20 @@ Tiếng Anh phân biệt rõ dựa trên **quá trình quyết định**:
 ### IELTS Speaking — Mẫu câu hữu ích
 
 **Nói về kế hoạch cá nhân (Part 1 & 2):**
+
 - "I**'m planning to** / I**'m going to** take a gap year after graduation."
 - "I**'ve been thinking about** changing careers, and I**'m going to** start taking evening classes."
 - "As for this weekend, I**'m visiting** my family — we**'re celebrating** my mother's birthday."
 
 **Đưa ra dự đoán (Part 3):**
+
 - "I think remote work **will become** increasingly common over the next decade."
 - "It**'s likely that** technology **will replace** many routine jobs."
 - "I believe attitudes **will gradually shift** as the next generation grows up."
 - "Whether or not this **will happen** depends largely on government policy."
 
 **Nói về quyết định bộc phát (tự nhiên trong hội thoại):**
+
 - "Actually, that**'s** a great point — I**'ll think** about that more carefully."
 - "I hadn't considered that — I**'ll look** into it."
 
@@ -439,6 +448,7 @@ Tiếng Anh phân biệt rõ dựa trên **quá trình quyết định**:
 ### Đáp án
 
 **Chọn đúng dạng:**
+
 1. **I'll go** (quyết định bộc phát)
 2. **I'm going to study** (kế hoạch đã có)
 3. **It's going to crash** (bằng chứng trực tiếp)
@@ -448,6 +458,7 @@ Tiếng Anh phân biệt rõ dựa trên **quá trình quyết định**:
 7. **are you going to do** (hỏi kế hoạch đã có)
 
 **Sửa lỗi:**
+
 1. "Tomorrow I**'m meeting** my dentist at 9." (lịch trình đã xác nhận)
 2. "When I **arrive**, I'll call you." (mệnh đề "when" → Present Simple)
 3. "She**'s going to** start a new job." (going to, không phải go to)
@@ -455,6 +466,7 @@ Tiếng Anh phân biệt rõ dựa trên **quá trình quyết định**:
 5. "I**'m going to go** to the gym tomorrow." (kế hoạch đã có → going to tự nhiên hơn)
 
 **Trả lời:**
+
 1. "I'm going to look for a job in marketing — I've already sent out a few applications."
 2. "Yes, look at that clear blue sky — it's going to be lovely."
 3. "Sure, I'll help you!"

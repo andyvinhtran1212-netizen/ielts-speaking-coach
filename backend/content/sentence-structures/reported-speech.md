@@ -298,6 +298,7 @@ Thay vì chỉ dùng "say" và "tell", dùng đa dạng reporting verbs:
 ### Đáp án
 
 **Reported Speech:**
+
 1. She said (that) she was very happy that day.
 2. The teacher asked me if I had finished my homework.
 3. The supervisor told us not to touch the equipment.
@@ -305,6 +306,7 @@ Thay vì chỉ dùng "say" và "tell", dùng đa dạng reporting verbs:
 5. He asked her why she had left early.
 
 **Sửa lỗi:**
+
 1. She **told me** (that) she was tired. / She **said** (that) she was tired.
 2. He asked where **she lived**. (không đảo ngữ)
 3. They **said** (that) they would return the following week. (say không cần tân ngữ người)
@@ -323,12 +325,14 @@ Thay vì chỉ dùng "say" và "tell", dùng đa dạng reporting verbs:
 | Đề xuất | suggest | suggested + V-ing / that S (should) V |
 
 **Backshift nhanh:**
+
 - Present Simple → Past Simple
 - will → would | can → could | must → had to
 - Present Perfect → Past Perfect
 - Past Simple → Past Perfect
 
 **Quy tắc vàng:**
+
 - **say** (that): không cần tân ngữ người
 - **tell** + NGƯỜI + (that): luôn cần tân ngữ người
 - Câu hỏi tường thuật: **KHÔNG đảo ngữ**

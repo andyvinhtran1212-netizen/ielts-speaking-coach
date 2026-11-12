@@ -92,11 +92,13 @@ learning_blocks:
 ## Tại sao quan trọng
 
 Compound sentences là công cụ cơ bản để:
+
 - **Kết nối ý liên quan** mà không cần hai câu ngắn rời rạc
 - **Thể hiện mối quan hệ logic** giữa hai ý (tương phản, nguyên nhân-kết quả, bổ sung)
 - **Tăng điểm Coherence and Cohesion** trong IELTS Writing và tính lưu loát trong Speaking
 
 Trong IELTS Writing:
+
 - Hai câu đơn đúng: "Air pollution is a serious problem. Governments should act immediately."
 - Một câu ghép làm rõ kết quả: "Air pollution is a serious problem, **so** governments should act immediately."
 
@@ -106,6 +108,7 @@ IELTS xét phạm vi cấu trúc, độ linh hoạt, độ chính xác và tác 
 
 ### Independent Clause (nhắc lại)
 Nhóm từ có **đủ chủ ngữ + vị ngữ**, có thể đứng thành câu hoàn chỉnh:
+
 - *She studies hard.*
 - *The economy grew.*
 - *Many people disagree.*
@@ -143,6 +146,7 @@ Dấu phẩy thường đặt **trước** conjunction nối hai mệnh đề đ
 **[Independent Clause]; [Independent Clause]**
 
 Dùng khi hai ý liên quan chặt chẽ và cân bằng nhau:
+
 - *She studies hard; she always gets top marks.*
 - *The problem is complex; simple solutions rarely work.*
 
@@ -177,20 +181,25 @@ Semicolon thường nối các mệnh đề độc lập không có coordinating
 Chọn conjunction/adverb phù hợp với mối quan hệ thực sự giữa hai ý:
 
 **Bổ sung (Addition):** *and, moreover, furthermore, in addition*
+
 - *Technology improves our lives, **and** it creates new challenges.*
 
 **Tương phản (Contrast):** *but, yet, however, nevertheless, nonetheless*
+
 - *The economy grew, **but** inequality increased.*
 - *The plan was ambitious; **however**, it lacked funding.*
 
 **Nguyên nhân-Kết quả (Cause-Effect):** *so, therefore, consequently, thus, for*
+
 - *Pollution levels rose, **so** the government imposed stricter regulations.*
 - *Demand fell; **consequently**, many factories closed.*
 
 **Lựa chọn (Alternative):** *or, otherwise*
+
 - *We can invest in renewable energy, **or** we can face an energy crisis.*
 
 **Phủ định bổ sung (Negative addition):** *nor*
+
 - *He didn't apologise, **nor** did he acknowledge the mistake.*
 
 ### 2. Tránh câu ngắn đơn điệu
@@ -204,12 +213,14 @@ Kết hợp bằng compound sentence:
 ### 3. Punctuation (Dấu câu)
 
 **Với FANBOYS:**
+
 - Hai mệnh đề độc lập (nhất là khi dài): dùng dấu phẩy trước conjunction
   - *She studied for months, and she finally passed the exam.*
 - Hai vế rất ngắn: có thể bỏ dấu phẩy
   - *She studied and she passed.* (chấp nhận được, nhưng ít phổ biến trong writing)
 
 **Với semicolon:**
+
 - Với câu ngắn, ưu tiên *She studied hard, but she failed*. Semicolon trước coordinating conjunction có thể phù hợp với các vế dài/phức tạp, không phải lệnh cấm mọi trường hợp.
 - Có thể dùng kèm conjunctive adverb: ✅ *She studied hard; however, she failed.*
 
@@ -217,12 +228,14 @@ Kết hợp bằng compound sentence:
 ## Dấu hiệu nhận biết
 
 Nhận ra compound sentence khi thấy:
+
 1. **Hai chủ ngữ + động từ riêng biệt**, nối với nhau
 2. **FANBOYS** đứng giữa hai clauses (với dấu phẩy trước)
 3. **Semicolon** nối hai clauses
 4. **Conjunctive adverb** sau semicolon
 
 **Phân biệt compound vs. simple sentence với "and":**
+
 - *She and her friend studied hard.* → **Simple** (một chủ ngữ ghép, một vị ngữ)
 - *She studied hard, and her friend did too.* → **Compound** (hai independent clauses)
 
@@ -312,10 +325,12 @@ Phân tích: Câu 1 dùng *yet* (tương phản); Câu 2 dùng *so* (kết quả
 | **Vai trò** | Nêu một ý | Phối hợp các ý | Làm rõ quan hệ chính phụ |
 
 **Compound vs. Complex sentence — sự khác biệt quan trọng:**
+
 - Compound: **hai ý bình đẳng**, cùng quan trọng như nhau
 - Complex: **một ý chính + một ý phụ**, ý phụ hỗ trợ ý chính
 
 So sánh:
+
 - *She studied hard, **and** she passed.* → Compound (hai ý ngang nhau)
 - ***Because** she studied hard, she passed.* → Complex (lý do phụ trợ cho kết quả chính)
 
@@ -328,6 +343,7 @@ Tiếng Việt có nhiều cách nối câu tương tự: "và", "nhưng", "vì 
   - Phải dùng: *"She studied hard; therefore, she passed."* hoặc *"She studied hard, so she passed."*
 
 **Quy tắc đơn giản để nhớ:**
+
 - *and, but, or, so, yet, for, nor* → dấu **phẩy** trước
 - *however, therefore, moreover* → dấu **chấm phẩy** hoặc **dấu chấm** trước, dấu phẩy sau
 
@@ -336,6 +352,7 @@ Tiếng Việt có nhiều cách nối câu tương tự: "và", "nhưng", "vì 
 ### IELTS Speaking — Compound sentences tạo sự lưu loát
 
 Thay vì dừng lại sau mỗi ý ngắn, nối mượt mà:
+
 - "I enjoy reading books, **and** I try to read at least one book a month."
 - "Social media can be addictive, **but** it also helps people stay connected."
 - "I used to dislike exercising; **however**, I've developed a love for it recently."
@@ -372,6 +389,7 @@ Dùng conjunction hoặc dấu câu phù hợp:
 ### Đáp án
 
 **Nối câu:**
+
 1. *The traffic was heavy, **yet** she arrived on time.*
 2. *The government raised taxes, **and** public spending was cut.*
 3. *He didn't study, **nor** did he ask for help.*
@@ -379,6 +397,7 @@ Dùng conjunction hoặc dấu câu phù hợp:
 5. *She worked hard; **therefore**, she deserved the promotion.* hoặc *She worked hard, **so** she deserved the promotion.*
 
 **Sửa lỗi:**
+
 1. → *Technology is advancing rapidly**; however**, many people are left behind.* (semicolon trước *however*)
 2. → *She loves travelling, **and** she has visited 20 countries.* (run-on → thêm conjunction)
 3. → *The plan failed; **however**, it succeeded later.* (for = vì/bởi vì, không phải tương phản)

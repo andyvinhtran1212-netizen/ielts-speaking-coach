@@ -87,11 +87,13 @@ some + uncountable noun
 ```
 
 **Số nhiều:**
+
 - There are **some** students waiting outside.
 - I bought **some** books at the market.
 - She has **some** interesting ideas.
 
 **Không đếm được:**
+
 - Can you give me **some** advice?
 - I need **some** time to think.
 - There is **some** water in the bottle.
@@ -106,6 +108,7 @@ Khi **mời mọc** hoặc **đề nghị**, dùng "some" dù đó là câu hỏ
 - Could you lend me **some** money? *(kỳ vọng đồng ý)*
 
 So sánh:
+
 - "Do you have **any** milk?" *(hỏi thật — không biết có không)*
 - "Would you like **some** milk?" *(mời — giả định có)*
 
@@ -169,6 +172,7 @@ no + noun (verb is positive) = not any + noun (verb is negative)
 > **Lưu ý quan trọng:** "No" đứng trước danh từ — **không đứng sau động từ** một mình. ❌ "I have not no money." ✅ "I have no money."
 
 **Ví dụ thêm:**
+
 - There is **no** evidence to support this claim.
 - **No** students passed the test. *(không một học sinh nào)*
 - I had **no** idea what was happening.

@@ -1097,7 +1097,7 @@ def validate_class_item_for_session(
 
 
 def validate_class_item_for_test(db, user_id: str, item_id: str,
-                                 *, skill: str, test_id: str) -> None:
+                                 *, skill: str, test_id: str) -> dict:
     """Check the caller may hand this paper in as that homework. Raises.
 
     Runs BEFORE the attempt row is written, because the link it authorises is
@@ -1160,6 +1160,7 @@ def validate_class_item_for_test(db, user_id: str, item_id: str,
 
     if str(assignment.get("content_id") or "") != str(test_id):
         raise TaskMismatchError("Đề đang làm không phải đề được giao.")
+    return assignment
 
 
 def attach_session_to_class_item(db, session_id: str, user_id: str, item_id: str) -> bool:
@@ -1320,6 +1321,9 @@ def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
 
     Idempotent: `mark_item_submitted` only writes while `submitted_at IS NULL`.
     """
+    from services.listening_drill_homework import completed_at, drill_config, evidence_by_item
+
+    drill_by_assignment = {a["id"]: a for a in assignments if drill_config(a) is not None}
     item_ids = []
     seen = set()
     for a in assignments:
@@ -1339,6 +1343,11 @@ def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
     if not items:
         return 0
 
+    drill_by_item = {i["id"]: drill_by_assignment[i["assignment_id"]]
+                     for i in items if i["assignment_id"] in drill_by_assignment}
+    dictation_by_item = evidence_by_item(db, [
+        item_id for item_id, a in drill_by_item.items() if drill_config(a).get("dictation_required")
+    ])
     pending = {i["id"] for i in items}
     ids = list(pending)
     due_of_assignment = {a["id"]: _at(a.get("due_at")) for a in assignments}
@@ -1370,12 +1379,17 @@ def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
                 best[key] = at
 
         for item_id, at in best.items():
+            when_value = at["submitted_at"]
+            if item_id in drill_by_item:
+                when_value = completed_at(drill_by_item[item_id], when_value, dictation_by_item.get(item_id, []))
+                if not when_value:
+                    continue
             # HẠN NỘP LÀ TUYỆT ĐỐI, KỂ CẢ Ở ĐƯỜNG VÁ SỔ. Nếu không, chốt kia chỉ
             # là một cái cổng mở hé: em ấy bắt đầu trước hạn, nộp sau hạn, và
             # lần đọc tiếp theo của giáo viên sẽ ghi nhận giúp. Bảng tổng kết
             # đứng yên được là nhờ CẢ hai chỗ cùng từ chối.
             due = due_by_item.get(item_id)
-            submitted = _at(at.get("submitted_at"))
+            submitted = _at(when_value)
             if due and submitted and submitted > due:
                 logger.info("[class] repair skipped, past deadline item=%s", item_id)
                 continue
@@ -1387,7 +1401,7 @@ def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
                 logger.info("[class] repair skipped, class archived item=%s", item_id)
                 continue
             try:
-                when = datetime.fromisoformat(at["submitted_at"])
+                when = datetime.fromisoformat(when_value)
             except (ValueError, TypeError):
                 # Stamp nothing rather than stamping now: "now" would make a
                 # hand-in that met the deadline read as late.

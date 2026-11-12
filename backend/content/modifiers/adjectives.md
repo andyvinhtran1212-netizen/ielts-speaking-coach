@@ -56,6 +56,7 @@ Adjective là từ **mô tả tính chất của danh từ** — nó trả lời
 ## Tại sao quan trọng
 
 Adjectives là nền tảng của ngôn ngữ mô tả. Trong IELTS Speaking:
+
 - **Part 1:** "My hometown is a *fairly large* and *vibrant* city." (không chỉ "it's a city")
 - **Part 2:** Mô tả người/nơi chốn/đồ vật → cần adjectives để câu không khô khan
 - **Part 3:** "This is a *complex* issue with *significant* implications."
@@ -63,6 +64,7 @@ Adjectives là nền tảng của ngôn ngữ mô tả. Trong IELTS Speaking:
 Không có adjectives, bạn chỉ có thể nói *"It's a city"* — với adjectives, bạn nói *"It's a **bustling, modern** city with a **rich** cultural heritage."*
 
 Người học Việt Nam hay mắc hai lỗi chính:
+
 1. Nhầm adjective với adverb: *"She sings **beautiful**"* thay vì *"She sings **beautifully**"*
 2. Đặt adjective sai vị trí (ảnh hưởng từ cấu trúc tiếng Việt: *nhà đẹp* → *beautiful house* chứ không phải *house beautiful*)
 
@@ -75,6 +77,7 @@ Người học Việt Nam hay mắc hai lỗi chính:
 - *The **old** man smiled.* — old mô tả "man"
 
 Adjective **không thay đổi** theo số ít / số nhiều trong tiếng Anh:
+
 - a **tall** tree → two **tall** trees *(không phải "talls")*
 
 ## Cấu trúc
@@ -104,6 +107,7 @@ Adjective + Noun
 | 8 | Purpose / Mục đích | writing (desk), sleeping (bag) |
 
 **Ví dụ:**
+
 - a **lovely old** French farmhouse *(opinion → age → origin)*
 - a **small round** table *(size → shape)*
 - a **beautiful young** Vietnamese woman *(opinion → age → origin)*
@@ -139,15 +143,18 @@ Subject + Linking Verb + Adjective
 ### 1. Mô tả con người
 
 **Ngoại hình (Appearance):**
+
 - *tall, short, slim, overweight, muscular, petite*
 - *young, middle-aged, elderly*
 - *dark-haired, fair-skinned, well-dressed*
 
 **Tính cách (Personality):**
+
 - *kind, generous, ambitious, stubborn, outgoing, reserved*
 - *hardworking, creative, patient, confident, humble*
 
 **Ví dụ IELTS Part 2 — mô tả người:**
+
 - "She's a **warm, generous** person who always makes everyone feel **welcome**."
 - "He's quite **reserved** and **thoughtful** — he never says anything without thinking it through first."
 
@@ -159,6 +166,7 @@ Subject + Linking Verb + Adjective
 - *breathtaking, stunning, picturesque, unremarkable*
 
 **Ví dụ:**
+
 - "My hometown is a **mid-sized, fairly modern** city in the north of Vietnam."
 - "The old quarter is incredibly **charming** and **atmospheric**, with **narrow** streets lined with **ancient** buildings."
 
@@ -170,6 +178,7 @@ Subject + Linking Verb + Adjective
 - *simple, complex, innovative, traditional*
 
 **Ví dụ:**
+
 - "Smartphones have become an **indispensable** part of **modern** life."
 - "It was a **simple** wooden box, but to me it was **priceless**."
 
@@ -184,6 +193,7 @@ Subject + Linking Verb + Adjective
 *-ing* tả tính chất gây ra cảm xúc (boring, exciting).
 
 **Ví dụ:**
+
 - "I felt **incredibly nervous** but also **excited** before my first IELTS exam."
 - "It was an **eye-opening** experience that made me much more **appreciative** of what I have."
 
@@ -199,6 +209,7 @@ Khi nào bạn đang dùng adjective (không phải adverb)?
 | She sings...? | ✗ | **beautifully** *(mô tả sings — verb)* |
 
 **Quy tắc nhanh:**
+
 - Mô tả **noun/pronoun** → **Adjective**
 - Mô tả **verb/adjective/adverb** → **Adverb** (thường thêm -ly)
 
@@ -289,6 +300,7 @@ Khi nào bạn đang dùng adjective (không phải adverb)?
 | | The food **tastes** good | He **cooks** well |
 
 **Ngoại lệ cần nhớ:** Một số từ có cùng hình thức adjective và adverb:
+
 - *fast* (adj): a **fast** car / (adv): She runs **fast**.
 - *hard* (adj): **hard** work / (adv): He works **hard**. *(Chú ý: "hardly" nghĩa khác — gần như không)*
 - *late* (adj): a **late** flight / (adv): She arrived **late**. *(Chú ý: "lately" = recently)*
@@ -312,14 +324,17 @@ Khi nào bạn đang dùng adjective (không phải adverb)?
 Tiếng Việt và tiếng Anh có hai khác biệt lớn về tính từ:
 
 **1. Vị trí:**
+
 - Tiếng Việt: danh từ + tính từ → *"phim hay"*, *"người tốt"*
 - Tiếng Anh: adjective + noun → *"a good film"*, *"a kind person"*
 
 **2. Không phân biệt adjective/adverb:**
+
 - Tiếng Việt: "đẹp" dùng cho cả hai: *"cô ấy đẹp"* và *"hát đẹp"*
 - Tiếng Anh: "beautiful" (adj) vs. "beautifully" (adv) — khác hẳn nhau
 
 **Mẹo quyết định:**
+
 1. Từ mô tả **danh từ** (người, vật, nơi chốn)? → **Adjective** → đặt **trước** noun
 2. Đang mô tả chủ ngữ sau **linking verb**? → Có thể dùng adjective: "She looks tired." Không suy mọi từ sau be/look là adjective: "She is a doctor" dùng noun phrase; "She looked carefully" dùng adverb chỉ hành động nhìn.
 3. Từ mô tả **động từ** (cách thức thực hiện)? → **Adverb** (thêm -ly)
@@ -330,6 +345,7 @@ Tiếng Việt và tiếng Anh có hai khác biệt lớn về tính từ:
 ### IELTS Speaking — Nâng band bằng adjectives phong phú
 
 **Thay vì nói đơn giản:**
+
 - "It was good." → "It was **absolutely fascinating**."
 - "The place is nice." → "The place is **breathtakingly beautiful** and **remarkably peaceful**."
 - "It was hard." → "It was **incredibly challenging** but also deeply **rewarding**."
@@ -375,6 +391,7 @@ Tiếng Việt và tiếng Anh có hai khác biệt lớn về tính từ:
 ### Mô tả bằng 3 adjectives
 
 Dùng 3 adjectives để mô tả:
+
 1. Your bedroom
 2. Your best friend
 3. Your ideal holiday
@@ -382,6 +399,7 @@ Dùng 3 adjectives để mô tả:
 ### Đáp án
 
 **Chọn Adjective / Adverb:**
+
 1. **beautiful** (sau sounds = linking verb → adjective)
 2. **beautifully** (mô tả plays = verb → adverb)
 3. **hard** (hard vừa là adj vừa là adv; "hardly" nghĩa khác)
@@ -392,6 +410,7 @@ Dùng 3 adjectives để mô tả:
 8. **good** (sau is = linking verb → adjective)
 
 **Sửa lỗi:**
+
 1. My city is a **beautiful** city in the north. *(adjective trước noun)*
 2. She felt **nervous** before the exam. *(sau felt → adjective)*
 3. He speaks very **quickly** and it's hard to follow. *(mô tả speaks → adverb)*
@@ -399,6 +418,7 @@ Dùng 3 adjectives để mô tả:
 5. I have a **beautiful old Vietnamese** vase. *(opinion → age → origin)*
 
 **Mô tả bằng 3 adjectives (gợi ý):**
+
 1. My bedroom is **small**, **cosy** and **bright**.
 2. My best friend is **loyal**, **funny** and **hardworking**.
 3. My ideal holiday would be **relaxing**, **sunny** and **peaceful**.

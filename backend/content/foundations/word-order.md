@@ -98,6 +98,7 @@ Chủ ngữ → Động từ → Tân ngữ / Bổ ngữ → (Trạng ngữ)
 | Adverbial | every day / carefully / in the morning |
 
 **Ví dụ:**
+
 - She **eats** rice **every day**. ✅
 - Every day she **eats** rice. ✅ (trạng ngữ thời gian có thể đứng đầu câu)
 - She **eats** every day rice. ❌
@@ -122,6 +123,7 @@ Opinion → Size → Age → Shape → Colour → Origin → Material → Purpos
 | Purpose | cooking, sleeping |
 
 **Ví dụ:**
+
 - a **beautiful old French** painting ✅ (opinion → age → origin)
 - a **big red** ball ✅ (size → colour)
 - a red big ball ❌
@@ -227,6 +229,7 @@ Trong Speaking, trật tự từ tự nhiên sẽ giúp điểm Grammatical Rang
 3. Trong câu hỏi: Hỏi lại examiner bằng cách đảo trợ động từ đúng chỗ.
 
 **IELTS Speaking examples:**
+
 - I **usually spend** my weekends at coffee shops in District 1.
 - I'm **always looking** for ways to improve my English.
 - **Could you** repeat the question, please?
@@ -247,12 +250,14 @@ Trong Speaking, trật tự từ tự nhiên sẽ giúp điểm Grammatical Rang
 
 ### Đáp án
 **Sắp xếp:**
+
 1. She always eats breakfast at home.
 2. She bought a beautiful old silver ring.
 3. Where do you live?
 4. They played football in the park yesterday.
 
 **Sửa lỗi:**
+
 1. He **never goes** to the gym.
 2. I have a **big brown** bag.
 3. **Can** you drive? là dạng trung tính; You can drive? vẫn dùng được để xác nhận điều gây bất ngờ.
@@ -303,11 +308,13 @@ Nếu lỡ nói sai thứ tự — examiner vẫn hiểu, nhưng tính vào "occ
 <!-- anchor: word-order.adverb-placement -->
 
 Adverbs of frequency (always, usually, often, sometimes, rarely, never) đứng:
+
 - **Trước verb chính:** "I usually drink coffee."
 - **Sau be:** "She is always late."
 - **Giữa auxiliary và main verb:** "I have never been to Japan."
 
 Adverbs of manner (well, badly, quickly, slowly) thường đứng cuối câu hoặc sau verb:
+
 - "She speaks English fluently."
 - "He drove the car carefully."
 

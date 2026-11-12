@@ -1,5 +1,6 @@
 'use client';
 
+import { useListeningDrillPlayback } from '@/lib/listening-drill-playback';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
@@ -359,9 +360,12 @@ function Exercise({ exercise, answers, saveStates, onAnswer }: {
   </section>;
 }
 
-function ResultView({ result, attempt, test, from, sittingId }: {
-  result: any; attempt: Attempt | null; test: ListeningTest; from: string | null; sittingId: string | null;
+function ResultView({ result, attempt, test, from, sittingId, classItem }: {
+  result: any; attempt: Attempt | null; test: ListeningTest; from: string | null; sittingId: string | null; classItem?: string | null;
 }) {
+  const drill = classItem ? test.skill_drill_homework : null;
+  const drillDictationHref = drill?.sections?.length
+    ? `/listening/dictation/session?test_id=${encodeURIComponent(test.id)}&class_item=${encodeURIComponent(classItem!)}` : null;
   const rows = Array.isArray(result?.per_question) ? result.per_question : [];
   const maxScore = Number(result?.max_score ?? rows.length) || rows.length;
   const score = Number.isFinite(Number(result?.score)) ? Number(result.score) : rows.filter((row: any) => row.correct).length;
@@ -370,7 +374,7 @@ function ResultView({ result, attempt, test, from, sittingId }: {
   const sections = Object.entries(result?.section_breakdown || {});
   return <main className="exam-result-shell listening-next-result">
     <section className="exam-result-page" aria-labelledby="listening-result-title">
-      <header className="exam-result-heading"><div><p className="exam-result-eyebrow">LISTENING · FULL TEST COMPLETE</p><h1 id="listening-result-title">Test results</h1><p>{test.title}</p></div><span className="exam-result-status">Submitted</span></header>
+      <header className="exam-result-heading"><div><p className="exam-result-eyebrow">LISTENING · FULL TEST COMPLETE</p><h1 id="listening-result-title">Test results</h1><p>{test.title}</p></div><span className="exam-result-status">{drill?.dictation_required ? "Đã nộp phần nghe · Còn chép chính tả" : "Submitted"}</span></header>
 
       <section className="exam-result-hero" aria-label="Results overview">
         <div className="exam-result-band"><span>Estimated band</span><strong>{result?.band_estimate == null ? '<4.0' : Number(result.band_estimate).toFixed(1)}</strong><small>Practice result</small></div>
@@ -394,7 +398,7 @@ function ResultView({ result, attempt, test, from, sittingId }: {
         return <span className={empty ? 'is-empty' : row.correct ? 'is-correct' : 'is-wrong'} aria-label={`Question ${row.q_num}: ${empty ? 'unanswered' : row.correct ? 'correct' : 'incorrect'}`} key={row.q_num}>{row.q_num}</span>;
       })}</div></section>
 
-      <section className="exam-result-next-step"><div><p className="exam-result-eyebrow">NEXT STEP</p><h2>{examResultNextStepTitle(outcomes, 'Review the transcript and explanations')}</h2><p>Replay the relevant audio and compare the transcript and explanations for each question.</p></div><div className="exam-result-actions">{attempt ? <a className="ft-control-btn" href={listeningReviewHref(attempt.attempt_id, from)}>Review answers <span aria-hidden="true">→</span></a> : null}<a className="ft-control-btn ghost" href={listeningDictationHref(test.id)}>Dictation practice</a><a className="ft-control-btn ghost" href={listeningLibraryHref(from, sittingId)}>Back to tests</a></div></section>
+      <section className="exam-result-next-step"><div><p className="exam-result-eyebrow">NEXT STEP</p><h2>{examResultNextStepTitle(outcomes, 'Review the transcript and explanations')}</h2><p>Replay the relevant audio and compare the transcript and explanations for each question.</p></div><div className="exam-result-actions">{attempt ? <a className="ft-control-btn" href={listeningReviewHref(attempt.attempt_id, from)}>Review answers <span aria-hidden="true">→</span></a> : null}{drillDictationHref ? <a className="ft-control-btn" href={drillDictationHref}>{drill.dictation_required ? 'Làm phần chép chính tả bắt buộc' : 'Chép chính tả (tùy chọn)'}</a> : !drill && <a className="ft-control-btn ghost" href={listeningDictationHref(test.id)}>Dictation practice</a>}<a className="ft-control-btn ghost" href={listeningLibraryHref(from, sittingId)}>Back to tests</a></div></section>
     </section>
   </main>;
 }
@@ -428,6 +432,11 @@ export function ListeningTestSession() {
   const [audioReloadKey, setAudioReloadKey] = useState(0);
   const [resumeOffset, setResumeOffset] = useState<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const drillPlayback = useListeningDrillPlayback(
+    testData?.skill_drill_homework ? attempt?.attempt_id : undefined,
+    'listening', ['inprogress', 'submitting'].includes(phase), () => audioRef.current,
+    `${testData?.audio_url || ''}:${audioReloadKey}`,
+  );
   const coordinatorRef = useRef<any>(null);
   const collectionFrozenRef = useRef(false);
   const bootKeyRef = useRef<string | null>(null);
@@ -677,6 +686,10 @@ export function ListeningTestSession() {
       return;
     }
     try {
+      if (testData?.skill_drill_homework) {
+        audioRef.current?.pause();
+        await drillPlayback.current().catch(() => {});
+      }
       const path = `/api/listening/tests/attempts/${encodeURIComponent(attempt.attempt_id)}/submit`;
       // This endpoint reads saved answers and has no body. Include the local
       // answer snapshot in the hint identity so edited work is not a retry of
@@ -698,7 +711,7 @@ export function ListeningTestSession() {
       }
       setResult(response); setPhase('results');
     } catch (caught: any) { setError("Unable to submit Listening answers. Check your connection and try again."); setPhase('error'); }
-  }, [attempt, flagApi.flush, params?.mockEmbed, phase, user?.id]);
+  }, [attempt, drillPlayback, flagApi.flush, params?.mockEmbed, phase, testData?.skill_drill_homework, user?.id]);
 
   useEffect(() => {
     if (!params?.mockEmbed) return undefined;
@@ -848,7 +861,7 @@ export function ListeningTestSession() {
     return () => document.body.classList.remove('listening-next-testing');
   }, [phase]);
 
-  if (phase === 'results' && testData) return <ResultView result={result} attempt={attempt} test={testData} from={params?.from || null} sittingId={params?.sittingId || null} />;
+  if (phase === 'results' && testData) return <ResultView result={result} attempt={attempt} test={testData} from={params?.from || null} sittingId={params?.sittingId || null} classItem={params?.classItem} />;
   if (phase === 'capture' && result) return <MockPostTestCapture
     skill="listening"
     envelope={result}
