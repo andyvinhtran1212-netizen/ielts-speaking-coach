@@ -226,6 +226,24 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation, 
       }
       return;
     }
+    if (draft.kind === 'daily' && draft.skill === 'listening' && draft.listeningLibrary === 'drill') {
+      try {
+        const payload = await window.api.get<{ items: Array<{ id: string; title: string; code: string; group: string | null; ready: boolean; dictation_ready: boolean }> }>(
+          `/admin/cohorts/${encodeURIComponent(cohortId)}/listening-skill-drills`,
+        );
+        if (requestId === catalogSequence.current) setCatalog(payload.items.map((row) => ({
+          ...row, category: row.group, part: null, lesson_no: null, already_given: false,
+          exam_only: false, cohort_ids: [], reason: row.ready ? null : 'Thiếu audio',
+          explanation_ready: false, explanation_state: 'none', explanation_count: null,
+          explanation_ready_count: null, runtime: null, is_published: true, single_attempt_ready: false,
+        })));
+      } catch (caught) {
+        if (requestId === catalogSequence.current) setCatalogError(messageOf(caught));
+      } finally {
+        if (requestId === catalogSequence.current) setCatalogLoading(false);
+      }
+      return;
+    }
     let path = '';
     let kind = '';
     if (draft.kind === 'lesson') {
@@ -255,7 +273,7 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation, 
     if (!editor) return;
     setQuestions([]); setQuestionsPerGive(1);
     void loadCatalog(editor);
-  }, [editor?.kind, editor?.skill, editor?.part, Boolean(editor), loadCatalog]);
+  }, [editor?.kind, editor?.skill, editor?.part, editor?.listeningLibrary, Boolean(editor), loadCatalog]);
 
   const loadQuestions = useCallback(async (draft: HomeworkDraft) => {
     if (!draft.contentId) { setQuestions([]); return; }
@@ -304,6 +322,10 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation, 
     () => catalog.find((item) => item.id === editor?.contentId) || null,
     [catalog, editor?.contentId],
   );
+  const editingDrill = editor?.skill === 'listening' && editor.listeningLibrary === 'drill';
+  const drillGroups = editingDrill ? [...new Set(catalog.flatMap((item) => item.category ? [item.category] : []))].sort() : [];
+  const visibleCatalog = editingDrill && editor?.drillGroup
+    ? catalog.filter((item) => item.category === editor.drillGroup) : catalog;
   const previewQuestion = coursePreview?.questions[coursePreviewIndex] || null;
 
   useEffect(() => {
@@ -512,7 +534,25 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation, 
           <div className="ach-kind" role="radiogroup" aria-label="Loại bài"><label><input type="radio" name="ach-homework-kind" checked={editor?.kind === 'daily'} onChange={() => editor && setEditor({ ...editor, kind: 'daily', contentId: '', questionIds: [], error: '' })} />Bài hằng ngày</label><label><input type="radio" name="ach-homework-kind" checked={editor?.kind === 'lesson'} onChange={() => editor && setEditor({ ...editor, kind: 'lesson', skill: 'speaking', contentId: '', questionIds: [], error: '' })} />Bài sau buổi học</label></div>
           {editor?.kind === 'daily' && <Field label="Kỹ năng"><select value={editor.skill} onChange={(event) => setEditor({ ...editor, skill: event.target.value as HomeworkDraft['skill'], contentId: '', questionIds: [], error: '' })}><option value="speaking">Speaking</option><option value="reading">Reading</option><option value="listening">Listening</option><option value="course">Bài tập theo buổi</option><option value="grammar">Grammar Diagnostic</option><option value="grammar_lesson">Grammar lesson B01–B30</option></select></Field>}
           {editor?.skill === 'speaking' && editor.kind === 'daily' && <div className="acx-form-row"><Field label="Kiểu luyện"><select value={editor.mode} onChange={(event) => setEditor({ ...editor, mode: event.target.value as HomeworkDraft['mode'], error: '' })}><option value="practice">Luyện tập</option><option value="test_part">Luyện từng Part</option></select></Field><Field label="Part"><select value={editor.part} onChange={(event) => setEditor({ ...editor, part: event.target.value as HomeworkDraft['part'], contentId: '', questionIds: [], error: '' })}><option value="1">Part 1</option><option value="2">Part 2</option><option value="3">Part 3</option></select></Field></div>}
-          <Field label={editor?.kind === 'lesson' ? 'Bộ đề của buổi' : editor?.skill === 'course' ? 'Bộ bài tập' : editor?.skill === 'speaking' ? 'Chủ đề' : editor?.skill === 'grammar_lesson' ? 'Bài Grammar' : 'Đề'} hint={catalogError || undefined}><select value={editor?.contentId || ''} onChange={(event) => { if (!editor) return; coursePreviewSequence.current += 1; setCoursePreviewLoading(false); setEditor({ ...editor, contentId: event.target.value, questionIds: [], passPct: '', retakeSize: '', completionMode: 'mastery', timeLimitMinutes: '', error: '' }); }} disabled={catalogLoading || Boolean(catalogError)}><option value="">{catalogLoading ? 'Đang tải…' : 'Chọn nội dung'}</option>{catalog.map((item) => <option key={item.id} value={item.id} disabled={!item.ready || item.already_given}>{editor?.skill === 'grammar_lesson' ? '' : item.lesson_no != null ? `Buổi ${item.lesson_no} · ` : ''}{item.code ? `${item.code} · ` : ''}{item.title}{item.category ? ` · ${item.category}` : ''}{item.reason ? ` · ${item.reason}` : ''}</option>)}</select></Field>
+          {editor?.skill === 'listening' && <Field label="Kho Listening">
+            <select value={editor.listeningLibrary || 'exam'} onChange={(event) => setEditor({
+              ...editor, listeningLibrary: event.target.value as 'exam' | 'drill', drillGroup: '',
+              dictationRequired: false, contentId: '', deliveryMode: 'standard', webExplanationMode: 'disabled', error: '',
+            })}><option value="exam">Kho đề Listening</option><option value="drill">Luyện kỹ năng</option></select>
+          </Field>}
+          {editingDrill && editor && drillGroups.length > 0 && <Field label="Dạng kỹ năng">
+            <select value={editor.drillGroup || ''} onChange={(event) => setEditor({
+              ...editor, drillGroup: event.target.value, contentId: '', dictationRequired: false, error: '',
+            })}><option value="">Tất cả dạng</option>{drillGroups.map((group) => <option key={group}>{group}</option>)}</select>
+          </Field>}
+          <Field label={editor?.kind === 'lesson' ? 'Bộ đề của buổi' : editor?.skill === 'course' ? 'Bộ bài tập' : editor?.skill === 'speaking' ? 'Chủ đề' : editor?.skill === 'grammar_lesson' ? 'Bài Grammar' : 'Đề'} hint={catalogError || undefined}><select value={editor?.contentId || ''} onChange={(event) => { if (!editor) return; coursePreviewSequence.current += 1; setCoursePreviewLoading(false); setEditor({ ...editor, contentId: event.target.value, dictationRequired: false, questionIds: [], passPct: '', retakeSize: '', completionMode: 'mastery', timeLimitMinutes: '', error: '' }); }} disabled={catalogLoading || Boolean(catalogError)}><option value="">{catalogLoading ? 'Đang tải…' : 'Chọn nội dung'}</option>{visibleCatalog.map((item) => <option key={item.id} value={item.id} disabled={!item.ready || item.already_given}>{editor?.skill === 'grammar_lesson' ? '' : item.lesson_no != null ? `Buổi ${item.lesson_no} · ` : ''}{item.code ? `${item.code} · ` : ''}{item.title}{item.category ? ` · ${item.category}` : ''}{item.reason ? ` · ${item.reason}` : ''}</option>)}</select></Field>
+          {editingDrill && editor && <div className="ach-correction-policy">
+            <label><input type="checkbox" checked={editor.dictationRequired === true} disabled={!selectedCatalogItem?.dictation_ready}
+              onChange={(event) => setEditor({ ...editor, dictationRequired: event.target.checked, error: '' })} /> Bắt buộc chép chính tả</label>
+            <p className="acd-muted">{selectedCatalogItem && !selectedCatalogItem.dictation_ready
+              ? 'Bài chưa đủ transcript để bắt buộc chép chính tả.'
+              : 'Học viên chép chính tả sau khi nộp phần nghe. Bài vẫn mở trong thư viện chung.'}</p>
+          </div>}
           {editor?.skill === 'grammar_lesson' && selectedCatalogItem && <div className="acd-warning"><strong>{selectedCatalogItem.practice_kind === 'full_original_bank' ? `${selectedCatalogItem.question_count} câu: ${selectedCatalogItem.objective_count} trắc nghiệm + ${selectedCatalogItem.writing_count} câu viết${selectedCatalogItem.supplementary_count ? ` (gồm ${selectedCatalogItem.supplementary_count} câu viết bổ sung)` : ''}.` : `${selectedCatalogItem.question_count} câu luyện tập ngắn.`}</strong> {selectedCatalogItem.focus}{selectedCatalogItem.article && <> · <a href={`/grammar/${encodeURIComponent(selectedCatalogItem.article.category)}/${encodeURIComponent(selectedCatalogItem.article.slug)}`} target="_blank" rel="noopener noreferrer">Xem bài học</a></>}</div>}
           {editor?.skill === 'course' && editor.contentId && selectedCatalogItem?.runtime !== 'advanced_vocab' && <section className="ach-course-preview" aria-label="Xem trước bộ bài tập">
             <div className="ach-course-preview__head"><div><strong>Kiểm tra nội dung trước khi giao</strong><span>{coursePreview ? `${coursePreview.summary.question_count} câu · phiên bản ${coursePreview.revision.slice(0, 8)}` : 'Xem đúng đề, đáp án và giải thích đang lưu trên hệ thống.'}</span></div><button className="adm-btn-secondary" type="button" onClick={() => void loadCoursePreview()} disabled={coursePreviewLoading}>{coursePreviewLoading ? 'Đang tải…' : coursePreview ? 'Tải lại đề' : 'Xem trước đề'}</button></div>
@@ -522,9 +562,9 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation, 
               <article className="ach-course-preview__question"><div className="ach-course-preview__meta"><span>Câu {coursePreviewIndex + 1}/{coursePreview.questions.length}</span><span>{previewQuestion.item_key || previewQuestion.type}</span>{previewQuestion.counts_toward_mastery && <span>Được tính điểm</span>}</div><p>{previewQuestion.prompt}</p>{previewQuestion.audio_url && <audio controls preload="none" src={previewQuestion.audio_url}>Trình duyệt không phát được audio.</audio>}<div className="ach-course-preview__options">{(previewQuestion.options || []).map((option, index) => <div key={`${previewQuestion.qid}-${index}`} className={previewOptionIsCorrect(previewQuestion, option, index) ? 'is-correct' : ''}><b>{OPTION_KEYS[index] || index + 1}</b><span>{option}</span>{previewOptionIsCorrect(previewQuestion, option, index) && <em>Đáp án</em>}</div>)}</div><div className="ach-course-preview__solution"><strong>Đáp án chuẩn</strong><span>{previewAnswer(previewQuestion)}</span>{previewQuestion.explanation && <p>{previewQuestion.explanation}</p>}</div>{Object.keys(previewQuestion.why_wrong || {}).length > 0 && <details className="ach-course-preview__distractors"><summary>Giải thích các phương án sai</summary>{Object.entries(previewQuestion.why_wrong || {}).map(([key, value]) => <p key={key}><b>{OPTION_KEYS[Number(key)] || key}</b><span>{value}</span></p>)}</details>}</article>
             </div>}
           </section>}
-          {(editor?.skill === 'reading' || editor?.skill === 'listening') && <p className="acd-muted">Đề draft hoặc chưa sẵn sàng được giữ khóa tại đây. <a href="/admin/mock-exams#test-library">Mở kho đề tập trung để xem lý do, thi thử, publish và giao bài</a>.</p>}
+          {!editingDrill && (editor?.skill === 'reading' || editor?.skill === 'listening') && <p className="acd-muted">Đề draft hoặc chưa sẵn sàng được giữ khóa tại đây. <a href="/admin/mock-exams#test-library">Mở kho đề tập trung để xem lý do, thi thử, publish và giao bài</a>.</p>}
           {editor?.skill === 'grammar' && <div className="acd-warning"><strong>Tự chấm phần trắc nghiệm.</strong> Báo cáo Grammar Readiness xuất hiện ngay khi hoàn tất; không quy đổi thành band IELTS. Bài tạo câu được giao và chấm riêng bởi giáo viên.</div>}
-          {(editor?.skill === 'reading' || editor?.skill === 'listening') && <div className="ach-correction-policy">
+          {!editingDrill && (editor?.skill === 'reading' || editor?.skill === 'listening') && <div className="ach-correction-policy">
             <fieldset className="ach-policy-group">
               <legend>Ai được mở đề?</legend>
               <label className="ach-policy-card"><input type="radio" name="ach-delivery-mode" checked={editor.deliveryMode === 'standard'} onChange={() => setEditor({ ...editor, deliveryMode: 'standard', error: '' })} /><span><b>Đề đã mở trong thư viện chung</b><small>Bài giao trỏ tới đề mà học viên vốn đã có quyền luyện. Không cấp quyền cho đề Cambridge đang khóa.</small></span></label>

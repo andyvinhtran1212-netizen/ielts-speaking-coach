@@ -184,6 +184,13 @@ export function validateHomeworkDraft(draft, catalog = [], questions = [], quest
     instructions: nullableText(draft.instructions),
     student_ids: draft.recipientScope === 'subset' ? [...draft.studentIds] : null,
   };
+  if (draft.kind === 'daily' && draft.skill === 'listening' && draft.listeningLibrary === 'drill') {
+    if (draft.dictationRequired && !selected.dictation_ready) {
+      return { ok: false, error: 'Bài này chưa đủ transcript để giao chép chính tả bắt buộc.' };
+    }
+    body.listening_skill_drill = true;
+    body.dictation_required = draft.dictationRequired === true;
+  }
   if (draft.kind === 'lesson') {
     body.mode = draft.mode;
     body.due_days = Number(draft.dueDays);

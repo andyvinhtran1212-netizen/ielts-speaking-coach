@@ -20,8 +20,9 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-11-11 the highest is `378`; the next new
-migration is `379` (reserved separately for IMPORT-a; check the shared register).
+sequence is dense. As of 2026-11-12 the highest is `380`
+(Skill Drill homework); the next new migration is `381`, subject to the shared
+migration register. `379` remains reserved for PC-J562.
 377 is reserved for Black Eye PR2, renamed `377_exercise_book_cohort_grants.sql`.
 `378_exercise_book_assignments.sql` supplies immutable activity children, service
 RPCs and the narrow resolver branch. No shared assignment UNIQUE or request table.
