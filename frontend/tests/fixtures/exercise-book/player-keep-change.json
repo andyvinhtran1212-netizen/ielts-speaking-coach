@@ -1,0 +1,59 @@
+{
+  "activity": {
+    "binding": {
+      "programme_id": "blackeye-v5-upper-listening",
+      "collection_id": "blackeye-v5-upper",
+      "source_contract": "blackeye_u1_v1",
+      "unit_id": "U1",
+      "activity_id": "U1-A03",
+      "content_revision": "blackeye-u1-content-v1-000000000003",
+      "policy_revision": "selfcheck-v1",
+      "answer_set_revision": "SENTINEL_ANSWER_SET"
+    },
+    "test_id": "00000000-0000-4000-8000-000000000033",
+    "title": "Keep or change: lecture notes",
+    "order": 3,
+    "readiness": "ready",
+    "readiness_reasons": [],
+    "selectable": true,
+    "response_cell_count": 2,
+    "scoring_policy": "report_only",
+    "items": [
+      {
+        "source_item_id": "A03-c1",
+        "q_num": 1,
+        "source_display_number": "01",
+        "interaction": "keep_change",
+        "prompt": "Ghi chú giả 1: the meeting starts at nine",
+        "instruction": "Giữ nguyên (KEEP) hoặc sửa (CHANGE) theo audio.",
+        "givens": [
+          "Synthetic given line"
+        ],
+        "group_id": "notes",
+        "row_id": "r1",
+        "column_id": null
+      },
+      {
+        "source_item_id": "A03-c2",
+        "q_num": 2,
+        "source_display_number": "02",
+        "interaction": "keep_change",
+        "prompt": "Ghi chú giả 2: the meeting starts at nine",
+        "instruction": "Giữ nguyên (KEEP) hoặc sửa (CHANGE) theo audio.",
+        "givens": [
+          "Synthetic given line"
+        ],
+        "group_id": "notes",
+        "row_id": "r2",
+        "column_id": null
+      }
+    ]
+  },
+  "attempt": null,
+  "replay_policy": "allowed",
+  "audio": {
+    "url": "https://audio.invalid/synthetic/u1-a03.mp3?token=synthetic",
+    "granularity": "whole_activity",
+    "expires_in": 7200
+  }
+}
