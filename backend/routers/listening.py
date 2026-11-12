@@ -1830,6 +1830,11 @@ async def admin_upsert_listening_exercise(
     existing attempt rows keep referencing the same exercise.
     """
     await require_admin(authorization)
+    if body.exercise_id:
+        try:
+            uuid.UUID(body.exercise_id)
+        except (TypeError, ValueError, AttributeError):
+            raise HTTPException(422, "exercise_id must be a valid UUID") from None
     await run_in_threadpool(blackeye.guard_generic_target, supabase_admin,
                             content_id=body.content_id, exercise_id=body.exercise_id)
 
@@ -1885,10 +1890,6 @@ async def admin_upsert_listening_exercise(
     if body.expected_absent and "order_num" not in body.model_fields_set:
         raise HTTPException(422, "order_num is required with expected_absent")
     if body.exercise_id:
-        try:
-            uuid.UUID(body.exercise_id)
-        except (TypeError, ValueError, AttributeError):
-            raise HTTPException(422, "exercise_id must be a valid UUID") from None
         if body.expected_absent:
             raise HTTPException(422, "exercise_id cannot be combined with expected_absent")
         if not body.expected_updated_at:

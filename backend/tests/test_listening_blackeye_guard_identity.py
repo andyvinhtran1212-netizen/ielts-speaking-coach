@@ -54,7 +54,7 @@ def test_admin_test_path_and_query_are_independent(admin_env, key, target, path_
     if not path_hidden:
         e.db.rows["listening_tests"].append(path_test)
     response = e.client.get(f'/admin/listening/tests/{path_test["id"]}', params={key: value})
-    if path_hidden or target == "blackeye":
+    if path_hidden or target == "blackeye" or (key == "exercise_id" and target == "missing"):
         denied(response)
         assert not any(cols == "*" for _, cols, _ in e.db.calls)
     else:
@@ -79,17 +79,85 @@ def test_repeated_query_identity_cannot_mask_hidden_test(admin_env, hidden_first
     denied(e.client.get(f'/admin/listening/tests/{e.normal["id"]}', params=[("test_id", i) for i in ids]))
 
 
-@pytest.mark.parametrize("parent", [None, "missing", "unlinked", "missing_test"])
+@pytest.mark.parametrize("parent", [None, "missing", "missing_test_id", "missing_test"])
 def test_existing_exercise_with_unresolved_parent_denied(admin_env, parent):
     e = admin_env
     exercise_id = str(uuid4())
     e.db.rows["listening_exercises"] = [dict(id=exercise_id, content_id=parent)]
-    if parent == "unlinked":
-        e.db.rows["listening_content"] = [dict(id=parent, test_id=None)]
+    if parent == "missing_test_id":
+        e.db.rows["listening_content"] = [dict(id=parent)]
     elif parent == "missing_test":
         e.db.rows["listening_content"] = [dict(id=parent, test_id=str(uuid4()))]
     denied(e.client.get(f'/admin/listening/tests/{e.normal["id"]}', params={"exercise_id": exercise_id}))
     assert not any(cols == "*" for _, cols, _ in e.db.calls)
+
+
+def standalone_exercise(e, metadata=None):
+    content = dict(id=str(uuid4()), test_id=None, metadata=metadata or {})
+    exercise = dict(id=str(uuid4()), content_id=content["id"], status="published")
+    e.db.rows["listening_content"] = [content]
+    e.db.rows["listening_exercises"] = [exercise]
+    return exercise
+
+
+def test_standalone_ordinary_exercise_allowed_after_both_rows_read(admin_env):
+    e = admin_env
+    exercise = standalone_exercise(e)
+    response = e.client.delete(f'/admin/listening/exercises/{exercise["id"]}')
+    assert response.status_code == 200, response.text
+    assert exercise["status"] == "archived"
+    reads = [(table, cols) for table, cols, patch in e.db.calls if not patch]
+    assert ("listening_exercises", "id,content_id") in reads
+    assert ("listening_content", "id,test_id,metadata") in reads
+
+
+@pytest.mark.parametrize("metadata", [{"blackeye": None}, {"blackeye": {}}, {"blackeye": False}])
+def test_standalone_blackeye_content_denied(admin_env, metadata):
+    e = admin_env
+    exercise = standalone_exercise(e, metadata)
+    denied(e.client.delete(f'/admin/listening/exercises/{exercise["id"]}'))
+    assert exercise["status"] == "published"
+    assert all(cols != "*" and not patch for _, cols, patch in e.db.calls)
+
+
+def test_nonexistent_exercise_denied_before_protected_reads(admin_env):
+    e = admin_env
+    denied(e.client.delete(f'/admin/listening/exercises/{uuid4()}'))
+    assert all(table == "listening_exercises" and cols == "id,content_id" and not patch
+               for table, cols, patch in e.db.calls)
+
+
+@pytest.mark.parametrize("key", ["test_id", "content_id", "attempt_id"])
+def test_standalone_exercise_never_clears_other_hidden_identity(admin_env, key):
+    e = admin_env
+    exercise = standalone_exercise(e)
+    value = e.p["id"]
+    if key != "test_id":
+        value = str(uuid4())
+        table = "listening_content" if key == "content_id" else "listening_test_attempts"
+        e.db.rows[table].append(dict(id=value, test_id=e.p["id"]))
+    denied(e.client.get(f'/admin/listening/tests/{value if key == "test_id" else e.normal["id"]}',
+                        params={"exercise_id": exercise["id"], key: value}))
+    assert all(cols != "*" and not patch for _, cols, patch in e.db.calls)
+
+
+@pytest.mark.parametrize("table", ["listening_exercises", "listening_content", "listening_tests"])
+def test_exercise_identity_lookup_errors_are_private_404(admin_env, monkeypatch, table):
+    e = admin_env
+    exercise = standalone_exercise(e)
+    e.db.rows["listening_content"][0]["test_id"] = e.normal["id"]
+    original = e.db.table
+    def failing(name):
+        query = original(name)
+        if name == table:
+            def fail():
+                raise RuntimeError("Synthetic identity lookup failure")
+            query.execute = fail
+        return query
+    monkeypatch.setattr(e.db, "table", failing)
+    denied(e.client.delete(f'/admin/listening/exercises/{exercise["id"]}'))
+    assert exercise["status"] == "published"
+    assert all(cols != "*" and not patch for _, cols, patch in e.db.calls)
 
 
 @pytest.mark.parametrize("identity", ["package_metadata", "child_programme", "child_metadata"])

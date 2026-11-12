@@ -566,17 +566,24 @@ def guard_generic_target(db, *, test_id=None, content_id=None, exercise_id=None,
                 rows = db.table(table).select("id,test_id").eq("id", value).limit(1).execute().data or []
                 candidates.update(str(row["test_id"]) for row in rows if row.get("test_id"))
         for value in values(exercise_id):
-            rows = db.table("listening_exercises").select("id,content_id").eq("id", value).limit(1).execute().data or []
-            for exercise in rows:
-                # An existing exercise with a broken parent cannot be classified
-                # as generic. Deny before its payload can be read or changed.
+            try:
+                rows = db.table("listening_exercises").select("id,content_id").eq("id", value).limit(1).execute().data or []
+                if not rows:
+                    deny()
+                exercise = rows[0]
                 if not exercise.get("content_id"):
                     deny()
-                contents = db.table("listening_content").select("id,test_id").eq(
+                # Content has metadata; exercises have no namespace columns.
+                contents = db.table("listening_content").select("id,test_id,metadata").eq(
                     "id", exercise["content_id"]).limit(1).execute().data or []
-                if not contents or not contents[0].get("test_id"):
+                if not contents or "test_id" not in contents[0] or is_blackeye(contents[0]):
                     deny()
-                exercise_candidates.add(str(contents[0]["test_id"]))
+                # A confirmed standalone row skips only this exercise's parent;
+                # every other supplied identity must still be checked.
+                if contents[0]["test_id"] is not None:
+                    exercise_candidates.add(str(contents[0]["test_id"]))
+            except Exception:
+                deny()
         candidates.update(exercise_candidates)
         for value in values(package_id):
             # Packages currently have no metadata column; '*' also honors an
@@ -596,7 +603,12 @@ def guard_generic_target(db, *, test_id=None, content_id=None, exercise_id=None,
                         break
                     offset += 1000
         for candidate in candidates:
-            identity = test_identity(db, candidate, missing_status=None)
+            try:
+                identity = test_identity(db, candidate, missing_status=None)
+            except HTTPException:
+                if candidate in exercise_candidates:
+                    deny()
+                raise
             if (not identity and candidate in exercise_candidates) or is_blackeye(identity):
                 deny()
     except HTTPException:
