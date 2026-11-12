@@ -63,6 +63,21 @@ def test_generic_side_route_denials_precede_private_io(env, monkeypatch, method,
     assert not any(patch or "marking_rows" in cols or (t == "mock_paper_attempt_snapshots" and cols == "*") for t, cols, patch in env.db.calls)
 
 
+@pytest.mark.parametrize('foreign_owner', [False, True])
+def test_skill_drill_playback_cannot_record_blackeye_attempt(env, foreign_owner):
+    attempt = env.db.freeze(env.p)
+    if foreign_owner:
+        env.actor['id'] = str(uuid4())
+    response = env.client.post(f'{BASE}/skill-drill-playback/{attempt["id"]}', json={
+        'stage': 'listening', 'page_id': str(uuid4()), 'plays': 1, 'played_ms': 1000,
+    })
+    assert response.status_code == 404, response.text
+    if foreign_owner:
+        assert response.headers['cache-control'] == 'private, no-store'
+    assert env.db.rpcs == []
+    assert not any(t == 'mock_paper_attempt_snapshots' or patch for t, _, patch in env.db.calls)
+
+
 def test_windows_programme_and_in_progress_seams(env):
     for path in [f'/tests/{env.p["id"]}/practice-windows', f'/programmes/{svc.PROGRAMME}/lessons', f'/tests/{env.p["id"]}/attempts/in-progress?class_item=synthetic']:
         r = env.client.get(BASE + path)
@@ -262,6 +277,7 @@ POST /admin/listening/drills/{drill_id}/sync
 POST /admin/listening/packages/{package_id}/archive
 POST /admin/listening/packages/{package_id}/publish
 POST /api/listening/source-collections/80-days/days/{day_number}/study
+POST /api/listening/skill-drill-playback/{attempt_id}
 DELETE /admin/listening/exercises/{exercise_id}
 DELETE /admin/listening/exercises/{exercise_id}/map-image
 DELETE /admin/listening/tests/{test_id}
