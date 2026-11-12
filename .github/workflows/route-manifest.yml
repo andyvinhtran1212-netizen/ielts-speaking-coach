@@ -90,6 +90,17 @@ jobs:
       - name: Verify route ownership against the compiled manifest
         run: node tooling/route-ownership-check.mjs --manifest
 
+      # PR #2285 CR P3-5 — the exercise-book mock and its fixtures are bound only
+      # in `next dev` (lib/exercise-book/client.ts). Dead-code elimination is the
+      # only thing keeping them out of production, so check the output itself:
+      # the pre-submit sentinel and the fake names must not appear in it.
+      - name: Exercise-book fixtures stay out of the production build
+        run: |
+          if grep -rlF --exclude-dir=cache -e SENTINEL_ANSWER_SET -e 'Học viên Giả' .next; then
+            echo "::error::exercise-book fixture strings found in .next — the dev-only mock reached the production build"
+            exit 1
+          fi
+
       # DEBT-2026-07-29-K — chunk của CHÍNH Next từng chứa `static{` (Safari
       # 16.4+) và làm iOS ≤16.3 không hydrate được trên mọi route. Chỉ nhìn
       # source không thấy: thứ vượt sàn nằm trong output build.

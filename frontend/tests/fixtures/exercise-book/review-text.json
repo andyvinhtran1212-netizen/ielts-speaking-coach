@@ -1,0 +1,113 @@
+{
+  "attempt": {
+    "attempt_id": "00000000-0000-4000-8000-000000000061",
+    "test_id": "00000000-0000-4000-8000-000000000031",
+    "binding": {
+      "programme_id": "blackeye-v5-upper-listening",
+      "collection_id": "blackeye-v5-upper",
+      "source_contract": "blackeye_u1_v1",
+      "unit_id": "U1",
+      "activity_id": "U1-A01",
+      "content_revision": "blackeye-u1-content-v1-000000000001",
+      "policy_revision": "selfcheck-v1"
+    },
+    "context": {
+      "kind": "assigned",
+      "class_assignment_item_id": "00000000-0000-4000-8000-000000000021",
+      "assignment_id": "00000000-0000-4000-8000-000000000002",
+      "cohort_id": "00000000-0000-4000-8000-000000000001"
+    },
+    "status": "submitted",
+    "answers": [
+      {
+        "q_num": 1,
+        "source_item_id": "A01-c1",
+        "user_answer": "double room"
+      },
+      {
+        "q_num": 2,
+        "source_item_id": "A01-c2",
+        "user_answer": "Friday"
+      },
+      {
+        "q_num": 3,
+        "source_item_id": "A01-c3",
+        "user_answer": ""
+      }
+    ],
+    "submitted_at": "2026-11-12T08:15:00+07:00",
+    "result_summary": {
+      "submitted": true,
+      "item_count": 3,
+      "blank_count": 1,
+      "unscored_count": 3,
+      "objective_denominator": 0,
+      "score": null,
+      "band_estimate": null
+    }
+  },
+  "items": [
+    {
+      "source_item_id": "A01-c1",
+      "q_num": 1,
+      "saved_response": "double room",
+      "blank": false,
+      "source_status": "CONFIRMED",
+      "scoring_mode": "SELF-CHECK",
+      "academic_verdict": "CONFIRMED",
+      "reference": "double room",
+      "reference_provenance": "literal_key",
+      "explanation_vi": "Người nói nhắc lại \"double\" hai lần trước khi xác nhận.",
+      "limitation_vi": null,
+      "evidence_pointer": "transcript:12.4"
+    },
+    {
+      "source_item_id": "A01-c2",
+      "q_num": 2,
+      "saved_response": "Friday",
+      "blank": false,
+      "source_status": "DISAGREEMENT",
+      "scoring_mode": "SELF-CHECK",
+      "academic_verdict": "AMBIGUOUS",
+      "reference": [
+        "Thursday",
+        "Thu"
+      ],
+      "reference_provenance": "derived",
+      "explanation_vi": "Bản gốc và audio khác nhau; xem lại đoạn đổi lịch.",
+      "limitation_vi": "Nguồn đáp án chưa thống nhất.",
+      "evidence_pointer": null
+    },
+    {
+      "source_item_id": "A01-c3",
+      "q_num": 3,
+      "saved_response": "",
+      "blank": true,
+      "source_status": "UNRESOLVED",
+      "scoring_mode": "SELF-CHECK",
+      "academic_verdict": "UNRESOLVED",
+      "reference": null,
+      "reference_provenance": "editorial",
+      "explanation_vi": null,
+      "limitation_vi": "Chưa có đáp án tham chiếu được duyệt.",
+      "evidence_pointer": null
+    }
+  ],
+  "transcript": [
+    {
+      "text": "Synthetic transcript line one.",
+      "start": 0.0,
+      "end": 3.2
+    },
+    {
+      "text": "Synthetic transcript line two.",
+      "start": 3.2,
+      "end": 7.9
+    }
+  ],
+  "audio": {
+    "url": "https://audio.invalid/synthetic/u1-a01.mp3?token=synthetic",
+    "granularity": "whole_activity",
+    "expires_in": 7200
+  }
+}
