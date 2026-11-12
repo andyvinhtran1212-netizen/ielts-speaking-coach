@@ -23,7 +23,8 @@ Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
 sequence is dense. As of 2026-11-12 the highest is `380` (Skill Drill homework,
 #2294), so the next new migration is `381`, subject to the shared migration
 register (ask the Leader before taking it). `379` is PC-J562, the 0037 FR-008
-Listening import source skip (assigned by the Leader). 377/378 are pending/reserved for BLACKEYE-0052 (376 #2281, 377/378 #2282), and
+Listening import source skip (assigned by the Leader). 377/378 are reserved for
+BLACKEYE-0052 (#2282); 376 is the admission migration from #2281.
 `370` was already reserved: none may be reused. `369` is PC-J620, the 339
 grammar_quiz definer search paths.
 Migration 376 is unexecuted in this PR and requires separate SA review and owner

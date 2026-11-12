@@ -1,4 +1,4 @@
-"""D2 HTTP/service contract tests on strict §8 v1.3.1 query doubles.
+"""D2 HTTP/service contract tests on strict §8 v1.3.2 query doubles.
 
 These do not claim PG atomicity/RLS proof; D1 integration remains a merge gate.
 """
@@ -29,7 +29,9 @@ G = "00000000-0000-4000-8000-000000000005"
 CH = "00000000-0000-4000-8000-000000000006"
 ADMIN = f"/admin/cohorts/{C}"
 
-# Exact ordered names from FD §8. Unknown/extra/missing params fail tests.
+# Exact ordered names from FD §8 v1.3.2 (no signature delta from v1.3.1).
+# Contract sha256: d03552008ffdacd0a340551b75cab6bcf2f21c52b6c14e9279888c916dc5276d
+# Unknown/extra/missing params fail tests.
 SIGNATURES = {
     "fn_exercise_book_actor_access": "p_actor_id p_cohort_id p_programme_id",
     "fn_record_cohort_grant": "p_actor_id p_step_up_at p_cohort_id p_programme_id p_grantee_id p_role p_action p_reason p_request_id p_auth_session_id",
@@ -341,18 +343,40 @@ def test_book_exception_copies_only_safe_mfa_fields(code, fields, kept):
         **(kept if code != "not_owner" else {}))
 
 
-@pytest.mark.parametrize("session_id", [None, G, "s" * 64, "s" * 65, 123, {"id": G}])
-def test_grant_session_id_n6_validation(book, session_id):
+@pytest.mark.parametrize("session_id,forwarded", [
+    (None, None), (G, G), ("s" * 64, "s" * 64), ("Az09._:-", "Az09._:-"),
+    ("s" * 65, None), (123, None), ({"id": G}, None), ("", None),
+    ("private space", None), ("private\n", None), ("private\t", None),
+    ("private/claim", None), ("privateé", None),
+])
+def test_grant_session_id_f1_filters_optional_verified_claim(book, caplog, session_id, forwarded):
     book.claims["session_id"] = session_id
     r = book.client.post(ADMIN + "/exercise-book-grants", json=dict(grantee_id=G,
         role="assigner", action="grant", reason="Mục đích giả", request_id=A))
-    valid = session_id is None or isinstance(session_id, str) and len(session_id) <= 64
-    if valid:
-        assert r.status_code == 201, r.text
-        assert book.db.rpcs[-1][1]["p_auth_session_id"] == session_id
-    else:
-        assert r.status_code == 422 and r.json() == dict(detail=svc.MESSAGES[422], code="validation")
-        assert not book.db.rpcs and not book.db.mutations
+    assert r.status_code == 201, r.text
+    assert book.db.rpcs[-1][1]["p_auth_session_id"] == forwarded
+    assert not [record for record in caplog.records if record.name == svc.__name__]
+    assert "private" not in r.text
+
+
+@pytest.mark.parametrize("session_id", ["", "s" * 65, "private space", "private\n", 123])
+def test_record_grant_rejects_invalid_internal_session_before_rpc(book, session_id):
+    body = dto.ExerciseBookGrantCreate(grantee_id=G, role="assigner", action="grant", reason="Mục đích giả", request_id=A)
+    with pytest.raises(HTTPException) as raised:
+        svc.record_grant(book.db, book.actor["id"], C, now(), session_id, body)
+    assert raised.value.status_code == 422 and raised.value.detail["code"] == "validation"
+    assert not book.db.rpcs and not book.db.mutations
+
+
+def test_grant_missing_session_claim_and_refresh_replay(book):
+    book.claims.pop("session_id")
+    body = dict(grantee_id=G, role="assigner", action="grant", reason="Mục đích giả", request_id=A)
+    first = book.client.post(ADMIN + "/exercise-book-grants", json=body)
+    assert first.status_code == 201 and book.db.rpcs[-1][1]["p_auth_session_id"] is None
+    book.claims["session_id"] = G
+    again = book.client.post(ADMIN + "/exercise-book-grants", json=body)
+    assert again.status_code == 200 and again.json() == first.json()
+    assert book.db.rpcs[-1][1]["p_auth_session_id"] == G
 
 
 @pytest.mark.parametrize("method,suffix,rpc_name", [
@@ -393,6 +417,69 @@ def test_grant_db_clock_refusal_logs_no_identity_or_body(book, caplog, method, s
     for secret in (G, book.actor["id"], "SENTINEL_REASON", "SECRET_DB"):
         assert secret not in r.text + caplog.text
     assert not book.db.mutations
+
+
+@pytest.mark.parametrize("method,suffix", [("get", ""), ("get", "/log"), ("post", "")])
+@pytest.mark.parametrize("account_role", ["instructor", "teacher", "student"])
+def test_teacher_accounts_cannot_access_cohort_grants(book, monkeypatch, method, suffix, account_role):
+    # Exercise the production admin guard, including its canonical role read.
+    # A cohort teacher permission or token metadata never replaces users.role.
+    from routers import admin as admin_routes
+    async def accepted_user(auth):
+        return {"id": book.actor["id"], "user_metadata": {"role": "admin"}}
+    async def role_row(user_id):
+        assert user_id == book.actor["id"]
+        return SimpleNamespace(data=[{"role": account_role}])
+    monkeypatch.setattr(ar, "_staff_admin_guard", admin_routes.require_admin)
+    monkeypatch.setattr(admin_routes, "get_supabase_user", accepted_user)
+    monkeypatch.setattr(admin_routes, "_staff_role_row", role_row)
+    book.db.roles = ["teacher", "assigner"]
+    body = dict(grantee_id=G, role="assigner", action="grant", reason="Mục đích giả", request_id=A)
+    r = getattr(book.client, method)(ADMIN + "/exercise-book-grants" + suffix,
+        **({"json": body} if method == "post" else {}))
+    assert r.status_code == 403 and r.json() == dict(detail=svc.MESSAGES[403], code="not_granted")
+    assert r.headers["cache-control"] == "private, no-store"
+    assert not book.db.rpcs and not book.db.calls and not book.db.mutations
+
+
+@pytest.mark.parametrize("method,suffix,rpc_name", [
+    ("get", "", "fn_list_cohort_grants"),
+    ("get", "/log", "fn_read_cohort_grant_log"),
+    ("post", "", "fn_record_cohort_grant"),
+])
+@pytest.mark.parametrize("state,message,status,code", [
+    ("42501", "PRIVATE_ROLE_ERROR", 503, "unavailable"),
+    ("EB403", "not_owner", 403, "not_owner"),
+    ("EB403", "step_up_required", 403, "step_up_required"),
+    ("EB404", "not_found", 404, "not_found"),
+    ("EB422", "validation", 422, "validation"),
+])
+def test_grant_rpc_refusal_mapping_preserves_db_decision(book, caplog, method, suffix, rpc_name, state, message, status, code):
+    # §8.15-F2 precedence belongs to D1. D2 forwards the verified context and
+    # maps the first refusal unchanged, without retrying or querying for a
+    # different error. In particular, F4's instructor-grantee refusal is 422.
+    book.db.errors = [DBError(state, message)]
+    body = dict(grantee_id=G, role="assigner", action="grant", reason="PRIVATE_REASON", request_id=A)
+    r = getattr(book.client, method)(ADMIN + "/exercise-book-grants" + suffix,
+        **({"json": body} if method == "post" else {}))
+    assert r.status_code == status and r.json() == dict(detail=svc.MESSAGES[status], code=code)
+    assert r.headers["cache-control"] == "private, no-store"
+    assert len(book.db.rpcs) == 1 and book.db.rpcs[0][0] == rpc_name
+    assert not book.db.calls and not book.db.mutations
+    assert all(secret not in r.text + caplog.text for secret in (G, "PRIVATE_REASON", "PRIVATE_ROLE_ERROR"))
+
+
+@pytest.mark.parametrize("suffix", [
+    f"/listening-source-assignments/{G}",
+    f"/assignments/{G}/items/{I}/listening-review?activity_id=U1-A03",
+])
+def test_cohort_access_precedes_missing_assignment_reads(book, suffix):
+    book.db.roles = []
+    book.db.is_owner = False
+    r = book.client.get(ADMIN + suffix)
+    assert r.status_code == 403 and r.json()["code"] == "not_granted"
+    assert [name for name, _ in book.db.rpcs] == ["fn_exercise_book_actor_access"]
+    assert not book.db.calls and not book.db.mutations and not book.db.signed
 
 
 def test_owner_has_only_implicit_assigner_access(book):
@@ -450,6 +537,22 @@ def test_failure_logs_function_and_sqlstate_only(book, caplog, state):
     assert records == [f'fn_record_cohort_grant SQLSTATE={state if state in {"42501", "42883", "42P01"} else "unknown"}']
     for secret in ("SENTINEL_REASON", G, "SECRET_DB", book.actor["id"]):
         assert secret not in r.text + caplog.text
+
+
+@pytest.mark.parametrize("cross_owner", [False, True])
+def test_skill_drill_playback_never_writes_blackeye_attempts(book, cross_owner):
+    book.db.rows["cohorts"] = [dict(id=C, is_active=True)]
+    state = start_assigned(book)
+    if cross_owner:
+        book.actor["id"] = G
+    book.db.rpcs.clear()
+    book.db.calls.clear()
+    book.db.mutations.clear()
+    r = book.client.post(f'{BASE}/skill-drill-playback/{state["attempt_id"]}',
+        json=dict(stage="listening", page_id=G, plays=1, played_ms=1000))
+    assert r.status_code == 404, r.text
+    assert not book.db.rpcs and not book.db.mutations and not book.db.signed
+    assert not any(patch or table == "mock_paper_attempt_snapshots" for table, _, patch in book.db.calls)
 
 
 def test_assigned_sequence_submit_retry_review_and_snapshot_unchanged(book):

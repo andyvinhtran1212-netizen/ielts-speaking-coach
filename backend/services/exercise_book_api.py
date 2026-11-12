@@ -1,4 +1,4 @@
-"""Exercise-book HTTP adapter for FD's D↔E contract §8 (v1.3.1).
+"""Exercise-book HTTP adapter for FD's D↔E contract §8 (v1.3.2).
 
 All RPC identities are supplied by authenticated route handlers. No generic
 assignment writers, client-supplied actors, or private payload logging.
@@ -8,6 +8,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import re
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -327,7 +328,12 @@ def grant_context(actor, authorization):
     at = _totp_verified_at(claims)
     if at is None:
         fail(403, "step_up_required")
-    return datetime.fromtimestamp(at, timezone.utc).isoformat(), claims.get("session_id")
+    # §8.15-F1: an optional audit claim must never block the request. Only
+    # forward safe values from the already accepted token; never log the claim.
+    session_id = claims.get("session_id")
+    if not isinstance(session_id, str) or re.fullmatch(r"[A-Za-z0-9._:-]{1,64}", session_id) is None:
+        session_id = None
+    return datetime.fromtimestamp(at, timezone.utc).isoformat(), session_id
 
 
 def grants(db, actor_id, cohort_id, step_up_at):
@@ -337,7 +343,7 @@ def grants(db, actor_id, cohort_id, step_up_at):
 
 
 def record_grant(db, actor_id, cohort_id, step_up_at, session_id, body):
-    if session_id is not None and (not isinstance(session_id, str) or len(session_id) > 64):
+    if session_id is not None and (not isinstance(session_id, str) or re.fullmatch(r"[A-Za-z0-9._:-]{1,64}", session_id) is None):
         fail(422, "validation")
     value = object_result(rpc(db, "fn_record_cohort_grant", {
         "p_actor_id": actor_id, "p_step_up_at": step_up_at, "p_cohort_id": cohort_id,

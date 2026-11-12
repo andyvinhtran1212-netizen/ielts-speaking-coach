@@ -260,6 +260,7 @@ def test_drill_publish_denies_blackeye_before_private_io(env, monkeypatch):
 
 
 ROUTE_INVENTORY = """GET /api/listening/exercise-book-assignments
+POST /api/listening/skill-drill-playback/{attempt_id}
 GET /admin/cohorts/{cohort_id}/listening-source-catalog
 POST /admin/cohorts/{cohort_id}/listening-source-assignments
 GET /admin/cohorts/{cohort_id}/listening-source-assignments
