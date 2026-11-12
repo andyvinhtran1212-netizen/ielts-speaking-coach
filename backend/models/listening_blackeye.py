@@ -250,7 +250,7 @@ class BlackEyeAssignmentCreate(BlackEyeModel):
 
     @model_validator(mode='after')
     def frozen_selection(self):
-        from datetime import datetime, timedelta, timezone
+        from datetime import datetime
         from uuid import UUID
         self.request_id = str(UUID(self.request_id))
         self.recipient_ids = [str(UUID(recipient)) for recipient in self.recipient_ids]
@@ -263,9 +263,8 @@ class BlackEyeAssignmentCreate(BlackEyeModel):
         deadline = datetime.fromisoformat(self.due_at.replace('Z', '+00:00'))
         if deadline.tzinfo is None:
             raise ValueError('deadline offset required')
-        now = datetime.now(timezone.utc)
-        if not now < deadline <= now + timedelta(days=180):
-            raise ValueError("deadline out of range")
+        # The create RPC owns deadline freshness after resolving request_id:
+        # a lost response must remain recoverable after the deadline passes.
         if len(self.activities) * len(self.recipient_ids) > 8500:
             raise ValueError("selection too large")
         return self

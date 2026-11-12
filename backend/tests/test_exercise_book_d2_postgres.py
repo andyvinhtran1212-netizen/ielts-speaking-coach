@@ -6,6 +6,8 @@ schema, owner, nonowner, teacher, cohort, assignment, item, user, test UUIDs).
 The assignment must be published, due in the future, with two ready synthetic
 activities and an untouched recipient. Use a disposable fixture: grant/attempt
 RPCs intentionally persist changes. No staging/production connections accepted.
+Set REQUIRE_EXERCISE_BOOK_PG=1 only when that specific fixture is required;
+generic REQUIRE_PG used by other CI suites does not provision this fixture.
 """
 import asyncio
 import json
@@ -107,7 +109,7 @@ class LocalQuery:
 def pg_book(book, monkeypatch):
     url, manifest = os.environ.get('TEST_PG_URL'), os.environ.get('EXERCISE_BOOK_TEST_MANIFEST')
     if not url or not manifest:
-        if os.environ.get('REQUIRE_PG') == '1':
+        if os.environ.get('REQUIRE_EXERCISE_BOOK_PG') == '1':
             pytest.fail('Pre-provisioned local 377/378 fixture and manifest required')
         pytest.skip('NOT RUN: authorized pre-provisioned local 377/378 fixture unavailable')
     parsed = urlparse(url)

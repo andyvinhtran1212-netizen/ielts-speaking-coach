@@ -86,6 +86,8 @@ class D1DB(FakeDB):
         self.receipt = None
         self.progress = None
         self.mutations = []
+        self.assignment_requests = {}
+        self.clock = lambda: datetime.now(timezone.utc)
         self.storage = SimpleNamespace(from_=lambda bucket: SimpleNamespace(create_signed_url=self.sign))
         self.signed = []
 
@@ -106,8 +108,17 @@ class D1DB(FakeDB):
             if name == "fn_exercise_book_actor_access":
                 return SimpleNamespace(data=[dict(is_owner=self.is_owner, roles=self.roles)])
             if name == "fn_create_exercise_book_assignment":
+                request_id = params["p_request_id"]
+                if request_id in self.assignment_requests:
+                    if self.assignment_requests[request_id] != params:
+                        raise DBError("EB409", "idempotency_conflict")
+                    return SimpleNamespace(data={**deepcopy(self.receipt), "replayed": True})
+                deadline = datetime.fromisoformat(params["p_due_at"].replace("Z", "+00:00"))
+                if not self.clock() < deadline <= self.clock() + timedelta(days=180):
+                    raise DBError("EB422", "validation")
+                self.assignment_requests[request_id] = deepcopy(params)
                 self.mutations.append(name)
-                return SimpleNamespace(data={**deepcopy(self.receipt), "replayed": len(self.mutations) > 1})
+                return SimpleNamespace(data={**deepcopy(self.receipt), "replayed": False})
             if name == "fn_close_exercise_book_assignment":
                 self.mutations.append(name)
                 self.receipt["status"] = "archived"
@@ -243,6 +254,41 @@ def test_create_replay_close_receipt_and_single_auth(book):
     assert params["p_actor_id"] == book.actor["id"] and params["p_programme_id"] == dto.PROGRAMME
     assert "replayed" not in first.json()
     assert all(patch is None for _, _, patch in book.db.calls)
+
+
+def test_create_identical_replay_after_deadline_returns_original_receipt(book, monkeypatch):
+    clock = [datetime.now(timezone.utc)]
+
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return clock[0].astimezone(tz)
+
+    # Also advance the DTO's local datetime import: this catches an HTTP
+    # freshness check that prevents the retry from reaching the canonical RPC.
+    monkeypatch.setattr("datetime.datetime", Clock)
+    book.db.clock = lambda: clock[0]
+    body = create_body(book)
+    first = book.client.post(ADMIN + "/listening-source-assignments", json=body)
+    assert first.status_code == 201, first.text
+    original_rows = deepcopy(book.db.rows)
+    clock[0] = datetime.fromisoformat(body["due_at"]) + timedelta(seconds=1)
+    again = book.client.post(ADMIN + "/listening-source-assignments", json=body)
+    assert again.status_code == 200 and again.json() == first.json(), again.text
+    assert book.db.mutations == ["fn_create_exercise_book_assignment"]
+    assert book.db.rows == original_rows
+    requests = [p for n, p in book.db.rpcs if n == "fn_create_exercise_book_assignment"]
+    assert len(requests) == 2 and requests[0] == requests[1]
+    # An expired retry with changed inputs still conflicts; a new request with
+    # that same expired deadline must fail validation without another write.
+    changed = book.client.post(ADMIN + "/listening-source-assignments",
+        json={**body, "recipient_ids": [G]})
+    assert changed.status_code == 409 and changed.json()["code"] == "idempotency_conflict"
+    new = book.client.post(ADMIN + "/listening-source-assignments",
+        json={**body, "request_id": G})
+    assert new.status_code == 422 and new.json()["code"] == "validation"
+    assert book.db.mutations == ["fn_create_exercise_book_assignment"]
+    assert book.db.rows == original_rows
 
 
 def test_grant_based_first_assignment_catalog_and_denial(book, monkeypatch):
@@ -708,8 +754,8 @@ def test_player_signs_only_owner_snapshot_audio(book):
 
 
 @pytest.mark.parametrize("patch", [
-    {"recipient_ids": ["SECRET_INVALID_UUID"]}, {"due_at": "2020-01-01T00:00:00Z"},
-    {"due_at": "2099-01-01T00:00:00Z"}, {"due_at": "2026-11-15"},
+    {"recipient_ids": ["SECRET_INVALID_UUID"]}, {"due_at": "2026-11-15"},
+    {"due_at": "invalid"}, {"due_at": "2026-11-15T12:00:00"},
     {"request_id": "-" * 36}, {"actor_id": G}, {"recipient_ids": [S, S]},
 ])
 def test_create_invalid_inputs_never_rpc_or_echo(book, patch):
@@ -718,6 +764,15 @@ def test_create_invalid_inputs_never_rpc_or_echo(book, patch):
     assert r.status_code == 422 and r.json()["code"] == "validation", r.text
     assert not book.db.rpcs
     assert "SECRET_INVALID_UUID" not in r.text
+
+
+@pytest.mark.parametrize("due_at", ["2020-01-01T00:00:00Z", "2099-01-01T00:00:00Z"])
+def test_create_new_deadline_window_rejected_by_rpc_without_mutation(book, due_at):
+    body = {**create_body(book), "due_at": due_at}
+    response = book.client.post(ADMIN + "/listening-source-assignments", json=body)
+    assert response.status_code == 422 and response.json()["code"] == "validation", response.text
+    assert [name for name, _ in book.db.rpcs] == ["fn_create_exercise_book_assignment"]
+    assert not book.db.mutations and not book.db.assignment_requests
 
 
 @pytest.mark.parametrize("template", ["listening-source-catalog", "listening-source-assignments", "exercise-book-grants", "exercise-book-grants/log"])
