@@ -59,7 +59,7 @@ export const CORE_PLAYER_AFFINITY_POLICY = Object.freeze({
       // attempts to Next while claimed attempts stay sticky.
       admit_new: 'next',
       identity_query_any_of: Object.freeze(['test_id']),
-      allowed_query: Object.freeze(['test_id', 'section']),
+      allowed_query: Object.freeze(['test_id', 'section', 'class_item']),
       legacy: Object.freeze({ path: '/pages/listening-test-dictation.html', route_ready: true }),
       // Native App Router owns the complete flow, including durable completion
       // reconciliation. Legacy remains available for persisted affinity.
