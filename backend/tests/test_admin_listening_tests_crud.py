@@ -10,6 +10,8 @@ Pins:
 
 from __future__ import annotations
 
+from namespace_query_double import source_rows, source_table
+
 import asyncio
 from copy import deepcopy
 import json
@@ -120,7 +122,8 @@ class _Query:
         return True
 
     def execute(self):
-        rows = self.fake.tables.setdefault(self.name, [])
+        rows = source_rows(self.fake.tables, self.name)
+        self.fake.tables.setdefault(source_table(self.name), [])
         if self._mode == "insert":
             payloads = (
                 self._payload if isinstance(self._payload, list) else [self._payload]

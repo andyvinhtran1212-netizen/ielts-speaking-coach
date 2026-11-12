@@ -8,6 +8,8 @@ class is a mistake nobody notices until the exam is under way.
 
 from __future__ import annotations
 
+from namespace_query_double import source_rows, source_table
+
 import copy
 import json
 import re
@@ -103,7 +105,8 @@ class _Q:
         return True
 
     def execute(self):
-        rows = self.db.t.setdefault(self.table_name, [])
+        rows = source_rows(self.db.t, self.table_name)
+        self.db.t.setdefault(source_table(self.table_name), [])
         if self.op == "insert":
             items = self.payload if isinstance(self.payload, list) else [self.payload]
             for it in items:
@@ -236,7 +239,7 @@ class _DB:
             query = (params.get("p_query") or "").lower()
             attention = params["p_attention"]
             rows = []
-            for row in self.t.get(table, []):
+            for row in source_rows(self.t, "v_listening_tests_public" if kind == "listening" else table):
                 cid = str(row["id"])
                 links = [link for link in self.t.get("exam_content_cohorts", [])
                          if link["content_kind"] == kind and str(link["content_id"]) == cid]
@@ -666,6 +669,43 @@ def test_catalog_page_crosses_kind_boundaries_without_scanning_source_rows(db, m
     assert all(0 <= call["p_limit"] <= 2 for call in db.page_calls)
 
 
+def test_restricted_listening_catalog_page_never_hydrates_the_library(db, monkeypatch):
+    _seed_three(db)
+    ordinary = copy.deepcopy(db.t["listening_tests"][0])
+    db.t["listening_tests"] = [
+        dict(ordinary, id="hidden-programme", test_id="A-00", restricted=True,
+             programme_id="blackeye-v5-upper-listening"),
+        dict(ordinary, id="hidden-metadata", test_id="A-01", restricted=True,
+             programme_id="ordinary", metadata={"blackeye": None}),
+        dict(ordinary, restricted=False),
+        dict(ordinary, id="l2", test_id="L-02", restricted=False),
+    ]
+    enriched = []
+
+    def enrich(kind, ids):
+        enriched.append((kind, list(ids)))
+        return {}
+
+    monkeypatch.setattr(svc, "explanation_readiness_for", enrich)
+    monkeypatch.setattr(svc, "_paged", lambda *_a, **_k: pytest.fail("full-library scan"))
+    monkeypatch.setattr(svc, "cohorts_for", lambda *_a: pytest.fail("post-page cohort scan"))
+    monkeypatch.setattr(svc, "_mock_refs_for", lambda *_a: pytest.fail("post-page mock scan"))
+    original_table = db.table
+
+    def no_catalog_scan(name):
+        assert name not in {"listening_tests", "v_listening_tests_public"}, name
+        return original_table(name)
+
+    monkeypatch.setattr(db, "table", no_catalog_scan)
+    page = svc.list_exam_content(kind="listening", limit=1, offset=1)
+    assert page["failed_kinds"] == []
+    assert page["total"] == 2
+    assert [row["id"] for row in page["items"]] == ["l2"]
+    assert enriched == [("listening", ["l2"])]
+    assert len(db.page_calls) == 1
+    assert db.page_calls[0]["p_limit"] == db.page_calls[0]["p_offset"] == 1
+
+
 @pytest.mark.parametrize("suffix, expected_limit, expected_status", [
     ("", 25, 200), ("?limit=100", 100, 200), ("?limit=101", None, 422),
 ])
@@ -981,7 +1021,7 @@ def test_one_broken_library_does_not_blank_the_whole_screen(db, monkeypatch):
     real = db.table
 
     def flaky(name):
-        if name == "listening_tests":
+        if name == "v_listening_tests_public":
             raise RuntimeError("postgrest down")
         return real(name)
 
@@ -1127,7 +1167,7 @@ def test_a_failed_library_is_reported_to_the_caller(db, monkeypatch):
     real = db.table
 
     def flaky(name):
-        if name == "listening_tests":
+        if name == "v_listening_tests_public":
             raise RuntimeError("postgrest down")
         return real(name)
 

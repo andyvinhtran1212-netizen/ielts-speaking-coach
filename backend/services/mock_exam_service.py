@@ -40,6 +40,7 @@ from uuid import UUID
 
 from database import supabase_admin
 from services.errors import clip_user_value
+from services.content_visibility import public_tests
 
 logger = logging.getLogger(__name__)
 
@@ -4709,7 +4710,8 @@ def admin_exam_picker_page(kind: str, search: str, limit: int, offset: int) -> d
         table, columns = "writing_prompts", "id,title,task_type"
         search_columns = ["title"]
 
-    query = supabase_admin.table(table).select(columns, count="exact")
+    source = public_tests(supabase_admin) if kind == "listening" else supabase_admin.table(table)
+    query = source.select(columns, count="exact")
     if kind == "reading":
         query = query.eq("status", "published").eq("test_type", "full")
     elif kind == "listening":

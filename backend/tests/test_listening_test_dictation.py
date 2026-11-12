@@ -10,6 +10,8 @@ Covers:
 
 from __future__ import annotations
 
+from namespace_query_double import source_rows, source_table
+
 import asyncio
 from uuid import UUID, uuid4
 
@@ -225,12 +227,13 @@ class _Q:
         return True
 
     def execute(self):
-        if self.name in self.fake.fail_tables:
+        if self.name in self.fake.fail_tables or source_table(self.name) in self.fake.fail_tables:
             raise RuntimeError(f"forced lookup failure: {self.name}")
         if self._range is not None:
             self.fake.range_orderings.append(
                 (self.name, tuple(self._orders), self._range))
-        rows = self.fake.tables.setdefault(self.name, [])
+        self.fake.tables.setdefault(source_table(self.name), [])
+        rows = source_rows(self.fake.tables, self.name)
         if self._mode == "insert":
             payloads = self._payload if isinstance(self._payload, list) else [self._payload]
             for p in payloads:
@@ -1077,11 +1080,11 @@ def test_admin_dictation_user_filter_pages_past_old_200_user_cap(monkeypatch):
     assert listed["total"] == 1001
     assert len(listed["items"]) == 30
     session_batches = [size for table, column, size in fake.in_filter_sizes
-                       if table == "dictation_sessions" and column == "user_id"]
+                       if table == "v_dictation_sessions_public" and column == "user_id"]
     assert len(session_batches) == 11
     assert max(session_batches) <= listening_router._DICTATION_USER_FILTER_BATCH_SIZE
     paged_orders = [orders for table, orders, _range in fake.range_orderings
-                    if table in {"users", "dictation_sessions"}]
+                    if table in {"users", "v_dictation_sessions_public"}]
     assert paged_orders and all(orders for orders in paged_orders)
 
     fake.in_filter_sizes.clear()
@@ -1090,12 +1093,40 @@ def test_admin_dictation_user_filter_pages_past_old_200_user_cap(monkeypatch):
         test_id=None, user_query="@ex.com", authorization=authz))
     assert aggregate["session_count"] == 1001
     session_batches = [size for table, column, size in fake.in_filter_sizes
-                       if table == "dictation_sessions" and column == "user_id"]
+                       if table == "v_dictation_sessions_public" and column == "user_id"]
     assert len(session_batches) == 11
     assert max(session_batches) <= listening_router._DICTATION_USER_FILTER_BATCH_SIZE
     aggregate_orders = [orders for table, orders, _range in fake.range_orderings
-                        if table in {"users", "dictation_sessions"}]
+                        if table in {"users", "v_dictation_sessions_public"}]
     assert aggregate_orders and all(orders for orders in aggregate_orders)
+
+
+@pytest.mark.parametrize("user_query", [None, "@ex.com"])
+def test_namespace_dictation_lists_and_aggregates_use_persisted_flags(monkeypatch, user_query):
+    fake, authz = _patch(monkeypatch)
+    fake.tables["users"] = [
+        {"id": "ordinary-user", "email": "ordinary@ex.com", "display_name": "Ordinary"},
+        {"id": "private-user", "email": "private@ex.com", "display_name": "Private"},
+    ]
+    ordinary = {
+        "id": "ordinary-session", "user_id": "ordinary-user", "restricted": False,
+        "test_id_external": "C19-T1", "section_num": 1, "total_sentences": 1,
+        "correct_count": 1, "accuracy": 1.0, "created_at": "2026-08-14T00:00:00Z",
+    }
+    fake.tables["dictation_sessions"] = [
+        dict(ordinary, id="hidden-session", user_id="private-user", restricted=True,
+             test_id=None, test_id_external="deleted-or-ambiguous", accuracy=0.0),
+        ordinary,
+    ]
+    listed = _run(listening_router.admin_list_dictation_reports(
+        test_id=None, user_query=user_query, limit=1, offset=0, authorization=authz))
+    assert listed["total"] == 1
+    assert [row["id"] for row in listed["items"]] == [ordinary["id"]]
+    assert "private-user" not in str(listed)
+    aggregate = _run(listening_router.admin_dictation_reports_aggregate(
+        test_id=None, user_query=user_query, authorization=authz))
+    assert aggregate["session_count"] == 1
+    assert aggregate["mean_accuracy"] == 1.0
 
 
 def test_admin_dictation_reports_requires_admin(monkeypatch):

@@ -42,6 +42,8 @@ import logging
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Optional
 
+from services.content_visibility import public_attempts
+
 logger = logging.getLogger(__name__)
 
 
@@ -565,7 +567,7 @@ def _build_listening(sb, user_id: str) -> Dict[str, Any]:
     # Cambridge IELTS full-test attempts (migration 068). These carry a
     # band_estimate and are the promoted entry point on /pages/listening.html.
     test_res = (
-        sb.table("listening_test_attempts")
+        public_attempts(sb)
         .select("submitted_at, band_estimate", count="exact")
         .eq("user_id", user_id)
         .eq("status", "submitted")
@@ -633,7 +635,7 @@ def _build_streak(sb, user_id: str) -> Dict[str, Any]:
     for table, ts_col in sources:
         try:
             res = (
-                sb.table(table)
+                (public_attempts(sb) if table == "listening_test_attempts" else sb.table(table))
                 .select(ts_col)
                 .eq("user_id", user_id)
                 .gte(ts_col, cutoff)

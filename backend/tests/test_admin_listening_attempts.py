@@ -9,6 +9,8 @@ in_/or_ (batch join + text filter) — không đụng DB.
 
 from __future__ import annotations
 
+from namespace_query_double import source_rows
+
 import asyncio
 from uuid import uuid4
 
@@ -68,7 +70,7 @@ class _Q:
     def execute(self):
         if self.name in self.fake.fail_tables:
             raise RuntimeError(f"forced lookup failure: {self.name}")
-        rows = [r for r in self.fake.tables.get(self.name, []) if self._match(r)]
+        rows = [r for r in source_rows(self.fake.tables, self.name) if self._match(r)]
         total = len(rows)
         if self._range:
             s, e = self._range
@@ -157,6 +159,20 @@ def test_list_joins_identity_and_computes_duration_accuracy(fake):
     assert "grading_details" not in it              # list KHÔNG mang payload nặng
 
 
+def test_namespace_filter_precedes_page_count_and_user_joins(fake):
+    hidden = _seed(fake, user_id="hidden-user")
+    hidden.update(restricted=True, test_id=None)
+    first = _seed(fake, user_id="ordinary-one")
+    second = _seed(fake, user_id="ordinary-two")
+    first["restricted"] = second["restricted"] = False
+    page = _list(limit=1, offset=1)
+    assert page["total"] == 2
+    assert [row["id"] for row in page["items"]] == [second["id"]]
+    assert page["items"][0]["user"]["email"] == "ordinary-two@ex.com"
+    assert "hidden-user" not in str(page)
+    assert not any(table == "listening_test_attempts" for table, _ in fake.selections)
+
+
 def test_list_accuracy_uses_python_four_decimal_rounding(fake):
     _seed(fake, score=1, gd_n=32)
     out = _list()
@@ -200,7 +216,7 @@ def test_admin_report_only_uses_frozen_policy_without_inventing_a_score(fake):
         assert detail['grading_details'][0]['self_review'] == row['grading_details'][0]['self_review']
         assert detail['grading_details'][2]['expected'] == ['A', 'B']
         assert detail['grading_details'][2]['correct'] is True
-    assert any(table == 'listening_test_attempts' and 'scoring_policy' in columns
+    assert any(table == 'v_listening_attempts_public' and 'scoring_policy' in columns
                for table, columns in fake.selections)
 
 

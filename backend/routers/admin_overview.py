@@ -40,7 +40,7 @@ activity (PC-J155: a 42703 on `sessions.created_at` blanked Speaking from
 
 from __future__ import annotations
 
-from services import listening_blackeye as blackeye
+from services.content_visibility import public_attempts, public_dictation, public_content
 
 import logging
 from collections import Counter
@@ -304,12 +304,12 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
     # Listening attempts (last 30d for activity + avg) + total count.
     # Nguồn: listening_test_attempts — nơi lesson/mini + drill + full test
     # thật sự ghi (audit 2026-07-17; listening_attempts cũ đã chết từ 05/2026).
-    # Identity lookup failures must omit Listening data, never read unfiltered rows.
+    # Namespace views exclude restricted data before reads/counts and learner joins.
     try:
         listening_recent = _safe_select(
-            (await run_in_threadpool(blackeye.exclude_tests, supabase_admin, supabase_admin.table("listening_test_attempts")
+            public_attempts(supabase_admin)
             .select("id, user_id, test_id, status, score, grading_details, "
-                    "created_at, submitted_at")))
+                    "created_at, submitted_at")
             .gte("created_at", iso_30d),
             "listening_recent", partial_failures,
         )
@@ -318,8 +318,7 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
         listening_recent = []
     try:
         listening_total = _safe_count(
-            (await run_in_threadpool(blackeye.exclude_tests, supabase_admin, supabase_admin.table("listening_test_attempts")
-            .select("id", count="exact", head=True))),
+            public_attempts(supabase_admin).select("id", count="exact", head=True),
             "listening_total", partial_failures,
         )
     except Exception as exc:
@@ -332,17 +331,17 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
         "reading_total", partial_failures,
     )
     dictation_recent = _safe_select(
-        supabase_admin.table("dictation_sessions")
+        public_dictation(supabase_admin)
         .select("id, user_id, accuracy, section_title, test_id_external, completed_at, created_at")
         .gte("created_at", iso_30d),
         "dictation_recent", partial_failures,
     )
     dictation_total = _safe_count(
-        supabase_admin.table("dictation_sessions").select("id", count="exact", head=True),
+        public_dictation(supabase_admin).select("id", count="exact", head=True),
         "dictation_total", partial_failures,
     )
     listening_content_count = _safe_count(
-        supabase_admin.table("listening_content")
+        public_content(supabase_admin)
         .select("id", count="exact", head=True)
         .eq("status", "published"),
         "listening_content_count", partial_failures,

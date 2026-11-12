@@ -13,6 +13,8 @@ Covers:
 
 from __future__ import annotations
 
+from namespace_query_double import source_rows, source_table
+
 import asyncio
 import json
 from datetime import datetime, timezone
@@ -272,10 +274,11 @@ class _Q:
         if self.name == "listening_public_practice_catalog":
             # Migration 306's service-only view excludes non-public papers
             # before count/range. These fixtures have no protected mock refs.
-            rows = [row for row in self.fake.tables["listening_tests"]
+            rows = [row for row in source_rows(self.fake.tables, "v_listening_tests_public")
                     if row.get("status") == "published" and row.get("is_public") is True]
         else:
-            rows = self.fake.tables.setdefault(self.name, [])
+            self.fake.tables.setdefault(source_table(self.name), [])
+            rows = source_rows(self.fake.tables, self.name)
         if self._mode == "insert":
             payload = self._payload
             payloads = payload if isinstance(payload, list) else [payload]

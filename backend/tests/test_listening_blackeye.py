@@ -10,6 +10,8 @@ import json
 from types import SimpleNamespace
 from uuid import uuid4
 
+from namespace_query_double import source_rows, source_table
+
 import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
@@ -66,8 +68,8 @@ class Query:
         return self
     def execute(self):
         self.db.calls.append((self.table, self.cols, self.patch))
-        if self.table not in self.db.rows: raise AssertionError(f"Unexpected/private table {self.table}")
-        rows = self.db.rows[self.table]
+        if source_table(self.table) not in self.db.rows: raise AssertionError(f"Unexpected/private table {self.table}")
+        rows = source_rows(self.db.rows, self.table)
         def match(row):
             for key, value, op in self.filters:
                 if key == "answers" and isinstance(value, str): value = json.loads(value)
@@ -97,13 +99,14 @@ class FakeDB:
     def __init__(self, p):
         self.calls, self.rpcs, self.lose_cas, self.rpc_error = [], [], False, None
         self.user = str(uuid4())
+        p["restricted"] = True
         self.rows = dict(listening_tests=[p], listening_content_packages=[dict(id="fixture-package", status="published", programme_id=PROGRAMME)],
             listening_test_attempts=[], mock_paper_attempt_snapshots=[], class_assignments=[], class_assignment_items=[], students=[])
     def table(self, name): return Query(self, name)
     def freeze(self, p):
         now = datetime.now(timezone.utc)
         a = dict(id=str(uuid4()), user_id=self.user, test_id=p["id"], status="in_progress", answers=[],
-            scoring_policy="report_only", paper_revision=973821, policy_revision=973822,
+            scoring_policy="report_only", paper_revision=973821, policy_revision=973822, restricted=True,
             class_assignment_item_id=None, sitting_id=None, attempt_purpose="practice",
             resume_expires_at=(now+timedelta(hours=1)).isoformat(), created_at=now.isoformat(),
             submitted_at=None, result_summary=None)
@@ -122,6 +125,12 @@ class FakeDB:
         self.rpcs.append((name, deepcopy(params)))
         def execute():
             if self.rpc_error: raise RuntimeError(self.rpc_error)
+            if name == "fn_admin_exam_content_page_ids":
+                # The namespace replacement counts/pages visible rows inside
+                # SQL. This fixture contains only a restricted source paper.
+                assert params["p_kind"] == "listening"
+                assert source_rows(self.rows, "v_listening_tests_public") == []
+                return SimpleNamespace(data={"ids": [], "rows": [], "total": 0})
             if name == "fn_acquire_blackeye_attempt":
                 assert "answer_set_revision" not in params["p_binding"]
                 rows = self.rows["listening_test_attempts"]

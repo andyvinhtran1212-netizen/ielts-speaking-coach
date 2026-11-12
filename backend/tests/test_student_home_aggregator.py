@@ -104,7 +104,14 @@ class _TableQuery:
         return _NotProxy(self)
 
     def execute(self):
-        rows = self.fake.tables.get(self.table_name, [])
+        table = self.table_name
+        if table == "v_listening_attempts_public":
+            # Existing synthetic rows model the migration's DEFAULT false.
+            # Filter before exact count and limit, just like the real view.
+            rows = [r for r in self.fake.tables.get("listening_test_attempts", [])
+                    if r.get("restricted", False) is False]
+        else:
+            rows = self.fake.tables.get(table, [])
         matched = [r for r in rows if self._matches(r)]
         # Capture full count BEFORE limiting — `.select(count="exact")` returns
         # the unfiltered total post-eq filters. Mirrors PostgREST.
@@ -642,6 +649,31 @@ def test_listening_full_tests_included_in_attempts_count(fake_db, aggregator):
     listening = payload["skills"]["listening"]
     assert listening["attempts_count"] == 2   # 1 full test + 1 exercise
     assert listening["last_band"] == 7.5
+
+
+@pytest.mark.parametrize("ordinary", [False, True])
+def test_listening_namespace_precedes_count_latest_and_streak(fake_db, aggregator, ordinary):
+    user_id = str(uuid4())
+    ordinary_time = _days_ago_iso(3)
+    # The hidden attempt keeps its stamp after the catalogue test is deleted.
+    # It is the newest row and must affect neither the count nor the last band.
+    fake_db.tables["listening_test_attempts"] = [{
+        "id": str(uuid4()), "user_id": user_id, "test_id": None,
+        "restricted": True, "submitted_at": _today_iso(),
+        "status": "submitted", "band_estimate": 9.0,
+    }]
+    if ordinary:
+        fake_db.tables["listening_test_attempts"].append({
+            "id": str(uuid4()), "user_id": user_id, "test_id": str(uuid4()),
+            "restricted": False, "submitted_at": ordinary_time,
+            "status": "submitted", "band_estimate": 6.0,
+        })
+    payload = aggregator.get_home_summary(fake_db, user_id, name="X", email="x@x.com")
+    listening = payload["skills"]["listening"]
+    assert listening["attempts_count"] == int(ordinary)
+    assert listening["last_band"] == (6.0 if ordinary else None)
+    assert listening["last_activity_at"] == (ordinary_time if ordinary else None)
+    assert aggregator._build_streak(fake_db, user_id)["current_days"] == 0
 
 
 def test_reading_and_listening_count_toward_streak(fake_db, aggregator):

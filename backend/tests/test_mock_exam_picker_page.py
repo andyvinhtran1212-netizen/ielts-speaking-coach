@@ -10,7 +10,7 @@ from services import mock_exam_service as service
 
 @pytest.mark.parametrize("kind,table,field,value", [
     ("reading", "reading_tests", "test_type", "full"),
-    ("listening", "listening_tests", "test_type", "full"),
+    ("listening", "v_listening_tests_public", "test_type", "full"),
     ("writing-task1", "writing_prompts", "is_active", True),
     ("writing-task2", "writing_prompts", "task_type", "task2"),
 ])

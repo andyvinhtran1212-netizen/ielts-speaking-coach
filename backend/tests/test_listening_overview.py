@@ -16,6 +16,8 @@ endpoints use — eq / in_ / not_.in_ / or_ / range / count="exact".
 """
 from __future__ import annotations
 
+from namespace_query_double import source_rows
+
 import asyncio
 import re
 import sys
@@ -136,7 +138,7 @@ class _FakeSB:
     def table(self, name):
         if name == "listening_public_practice_catalog":
             rows = []
-            for paper in self.tables.get("listening_tests", []):
+            for paper in source_rows(self.tables, "v_listening_tests_public"):
                 if paper.get("status") != "published" or paper.get("is_public") is not True:
                     continue
                 references = [{
@@ -156,7 +158,7 @@ class _FakeSB:
                     continue
                 rows.append(paper)
             return _Query(rows)
-        return _Query(self.tables.get(name, []))
+        return _Query(source_rows(self.tables, name))
 
 
 def _test_row(i, kind, **over):

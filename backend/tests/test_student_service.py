@@ -7,6 +7,8 @@ test_admin_students.py.
 
 from __future__ import annotations
 
+from namespace_query_double import source_rows
+
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -200,7 +202,7 @@ class _LisQ:
 
 class _LisFake:
     def __init__(self, tables): self.tables = tables
-    def table(self, name): return _LisQ(self.tables.get(name, []))
+    def table(self, name): return _LisQ(source_rows(self.tables, name))
 
 
 def _lis_att(test_id, status, score, total, created, dur=None):

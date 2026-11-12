@@ -21,6 +21,8 @@ Coverage:
 
 from __future__ import annotations
 
+from namespace_query_double import source_rows
+
 import asyncio
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
@@ -218,7 +220,7 @@ class _FakeTableQuery:
             return _FakeRes([self._insert])
         if self._update is not None:
             return _FakeRes([self._update])
-        rows = list(self._parent.canned.get(self._table, []))
+        rows = list(source_rows(self._parent.canned, self._table))
         for op, col, val in self._filters:
             if op == "eq":
                 rows = [r for r in rows if r.get(col) == val]

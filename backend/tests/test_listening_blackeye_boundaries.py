@@ -107,7 +107,7 @@ def test_admin_list_and_aggregator_queries_exclude_before_joins(env):
     env.db.rows["listening_tests"].append(generic)
     blackeye = env.db.freeze(env.p)
     normal = deepcopy(blackeye)
-    normal.update(id=str(uuid4()), test_id=generic["id"])
+    normal.update(id=str(uuid4()), test_id=generic["id"], restricted=False)
     env.db.rows["listening_test_attempts"].append(normal)
     for paged in (agg._paged, assignments._paged):
         env.db.calls.clear()
@@ -372,7 +372,7 @@ def test_student_profile_summary_excludes_blackeye_counts(env, monkeypatch):
     from test_student_service import _LisFake
     generic = paper(activity="U1-A02")
     generic.update(programme_id="ielts", metadata={})
-    rows = [dict(id="hidden", test_id=env.p["id"], status="submitted", created_at="2026-11-10"),
+    rows = [dict(id="hidden", test_id=env.p["id"], restricted=True, status="submitted", created_at="2026-11-10"),
             dict(id="shown", test_id=generic["id"], status="in_progress", created_at="2026-11-09")]
     db = _LisFake(dict(listening_tests=[env.p, generic], listening_test_attempts=rows))
     monkeypatch.setattr(student_service, "supabase_admin", db)
@@ -584,7 +584,12 @@ def test_exam_content_list_excludes_before_hydration(env, monkeypatch, limit):
     result = exam.list_exam_content('listening', limit=limit)
     assert result == {'items': [], 'total': 0, 'failed_kinds': []}
     assert not any(t in {'exam_content_cohorts','mock_exams','mock_paper_attempt_snapshots'} for t,_,_ in env.db.calls)
-    assert env.db.rpcs == []
+    assert env.db.rpcs == ([] if limit is None else [(
+        'fn_admin_exam_content_page_ids', {
+            'p_kind': 'listening', 'p_course_level': None, 'p_cohort_id': None,
+            'p_exam_only': None, 'p_is_public': None, 'p_query': None,
+            'p_attention': 'all', 'p_limit': 25, 'p_offset': 0,
+        })])
 
 
 @pytest.mark.parametrize('admin', [False, True])

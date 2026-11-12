@@ -46,6 +46,7 @@ from models.listening_blackeye import (
     BlackEyeUnitPublic, BlackEyeSaveAck, BlackEyeInProgress,
 )
 from services import listening_blackeye as blackeye
+from services.content_visibility import public_tests, public_content, public_attempts, public_dictation
 from starlette.concurrency import run_in_threadpool
 
 from config import settings
@@ -1585,7 +1586,7 @@ async def admin_list_listening_content(
         )
 
     q = (
-        supabase_admin.table("listening_content")
+        public_content(supabase_admin)
         .select("*", count="exact")
         .order("created_at", desc=True)
         .range(offset, offset + limit - 1)
@@ -1593,7 +1594,6 @@ async def admin_list_listening_content(
     if status != "all":
         q = q.eq("status", status)
 
-    q = await run_in_threadpool(blackeye.exclude_tests, supabase_admin, q, key="test_id")
     res = q.execute()
     return {
         "items":  res.data or [],
@@ -2210,7 +2210,7 @@ async def list_listening_content(
         return {"items": [], "total": total, "limit": limit, "offset": offset,
                 "modes_lookup_failed": modes_lookup_failed, "practice_lookup_failed": False}
     q = (
-        supabase_admin.table("listening_content")
+        public_content(supabase_admin)
         .select(
             "id,title,description,accent_tag,cefr_level,ielts_section,"
             "topic_tags,audio_duration_seconds,is_premium,created_at,test_id",
@@ -2300,7 +2300,7 @@ async def get_listening_analytics(
         cutoff = None
 
     q = (
-        supabase_admin.table("listening_test_attempts")
+        public_attempts(supabase_admin)
         .select(
             "id,test_id,status,score,grading_details,created_at,submitted_at,"
             "scoring_policy,result_summary"
@@ -2524,7 +2524,7 @@ async def admin_list_listening_tests(
             422, f"test_type must be one of {sorted(_ADMIN_TYPE_FILTERS)}")
 
     q = (
-        supabase_admin.table("listening_tests")
+        public_tests(supabase_admin)
         .select("*", count="exact")
         .order("created_at", desc=True)
         .order("id", desc=True)
@@ -2539,7 +2539,6 @@ async def admin_list_listening_tests(
     if search.strip():
         q = q.ilike("test_id", f"%{search.strip()}%")
 
-    q = await run_in_threadpool(blackeye.exclude_tests, supabase_admin, q, key="id")
     res = q.execute()
     total = getattr(res, "count", None)
     if not isinstance(total, int) or isinstance(total, bool) or total < 0:
@@ -2553,7 +2552,7 @@ async def admin_list_listening_tests(
     section_counts: dict[str, int] = {}
     if test_ids:
         sections = (
-            supabase_admin.table("listening_content")
+            public_content(supabase_admin)
             .select("test_id,audio_storage_path")
             .in_("test_id", test_ids)
             .execute()
@@ -5250,7 +5249,7 @@ def _published_content_rows(*, accent_tag: str | None = None, cefr_level: str | 
     start, step = 0, 1000
     while True:
         query = (
-            supabase_admin.table("listening_content")
+            public_content(supabase_admin)
             .select("id,test_id,audio_storage_path")
             .eq("status", "published")
             .neq("source_type", "programme_form")
@@ -5331,7 +5330,7 @@ def _programme_attempt_state(user_id: str, test_rows: list[dict]) -> tuple[dict,
         return {}, False
     try:
         response = (
-            supabase_admin.table("listening_test_attempts")
+            public_attempts(supabase_admin)
             .select(
                 "id,test_id,status,answers,result_summary,started_at,submitted_at,"
                 "resume_expires_at,created_at,class_assignment_item_id,sitting_id"
@@ -5974,7 +5973,7 @@ async def list_published_listening_tests(
     if test_ids:
         try:
             attempt_query = (
-                supabase_admin.table("listening_test_attempts")
+                public_attempts(supabase_admin)
                 .select("test_id,score,status")
                 .eq("user_id", user["id"])
                 .in_("test_id", test_ids)
@@ -7007,7 +7006,7 @@ async def grade_and_save_dictation_attempt_sentence(
 
 def _dictation_session_by_request(user_id: str, request_id: uuid.UUID) -> dict | None:
     res = (
-        supabase_admin.table("dictation_sessions").select("*")
+        public_dictation(supabase_admin).select("*")
         .eq("user_id", user_id).eq("client_request_id", str(request_id))
         .limit(1).execute()
     )
@@ -7016,7 +7015,7 @@ def _dictation_session_by_request(user_id: str, request_id: uuid.UUID) -> dict |
 
 def _dictation_session_by_attempt(user_id: str, attempt_id: uuid.UUID) -> dict | None:
     res = (
-        supabase_admin.table("dictation_sessions").select("*")
+        public_dictation(supabase_admin).select("*")
         .eq("user_id", user_id).eq("attempt_id", str(attempt_id))
         .limit(1).execute()
     )
@@ -7388,7 +7387,7 @@ def _dictation_list_rows_for_users(
         batch_total: int | None = None
         while remaining > 0:
             take = min(page_size, remaining)
-            q = supabase_admin.table("dictation_sessions").select(select_fields, count="exact")
+            q = public_dictation(supabase_admin).select(select_fields, count="exact")
             if test_id:
                 q = q.eq("test_id_external", test_id)
             response = (q.in_("user_id", user_batch)
@@ -7438,7 +7437,7 @@ async def admin_list_dictation_reports(
         )
         items = matching_rows[offset:offset + limit]
     else:
-        q = supabase_admin.table("dictation_sessions").select(select_fields, count="exact")
+        q = public_dictation(supabase_admin).select(select_fields, count="exact")
         if test_id:
             q = q.eq("test_id_external", test_id)
         res = (q.order("created_at", desc=True).order("id", desc=True)
@@ -7466,7 +7465,7 @@ def _all_dictation_aggregate_rows(test_id: str | None, user_ids: list | None) ->
     for user_batch in _dictation_user_batches(user_ids):
         offset = 0
         while True:
-            q = supabase_admin.table("dictation_sessions").select(
+            q = public_dictation(supabase_admin).select(
                 "test_id_external,section_num,accuracy,total_sentences,error_trends,grading_version,reference_sha256")
             if test_id:
                 q = q.eq("test_id_external", test_id)
@@ -7686,7 +7685,7 @@ async def admin_list_listening_attempts(
 
     test_ids: list | None = None
     if test_query or test_type:
-        t_q = supabase_admin.table("listening_tests").select("id")
+        t_q = public_tests(supabase_admin).select("id")
         if test_query:
             t_q = t_q.or_(ilike_or_filter(["test_id", "title"], test_query.strip()))
         if test_type:
@@ -7700,7 +7699,7 @@ async def admin_list_listening_attempts(
                 "association_lookup_failures": [],
             }
 
-    q = (supabase_admin.table("listening_test_attempts")
+    q = (public_attempts(supabase_admin)
          .select("id,user_id,test_id,status,score,grading_details,started_at,"
                  "submitted_at,created_at,scoring_policy", count="exact"))
     if status:
@@ -7709,7 +7708,6 @@ async def admin_list_listening_attempts(
         q = q.in_("user_id", user_ids)
     if test_ids is not None:
         q = q.in_("test_id", test_ids)
-    q = await run_in_threadpool(blackeye.exclude_tests, supabase_admin, q, key="test_id")
     res = q.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
     rows = res.data or []
 

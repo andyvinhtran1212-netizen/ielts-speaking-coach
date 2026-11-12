@@ -58,6 +58,7 @@ from services.class_archive_service import (
     require_cohort_accepts_work,
 )
 from services.errors import clip_user_value
+from services.content_visibility import public_attempts, public_dictation
 
 logger = logging.getLogger(__name__)
 
@@ -129,10 +130,11 @@ def _paged(db, table: str, columns: str, apply_filters) -> List[Dict[str, Any]]:
         selected = columns
         if table == "class_assignments" and columns != "*":
             selected += ",skill,content_id,content_config"
-        q = db.table(table).select(selected)
         if table == "listening_test_attempts":
-            return blackeye.exclude_tests(db, q)
-        return q
+            return public_attempts(db).select(selected)
+        if table == "dictation_sessions":
+            return public_dictation(db).select(selected)
+        return db.table(table).select(selected)
 
     rows: List[Dict[str, Any]] = []
     start = 0

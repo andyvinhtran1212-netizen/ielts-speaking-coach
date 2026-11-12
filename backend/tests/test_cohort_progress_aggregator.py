@@ -20,6 +20,8 @@ Four properties, each one the code can be silently wrong about:
 
 from __future__ import annotations
 
+from namespace_query_double import source_rows, source_table
+
 import pytest
 
 from services.cohort_progress_aggregator import cohort_progress
@@ -104,7 +106,8 @@ class _DB:
         self.in_sizes: list[int] = []
 
     def table(self, name):
-        return _Query(self, name, self.tables.get(name, []), raises=name in self.fail)
+        return _Query(self, name, source_rows(self.tables, name),
+                      raises=name in self.fail or source_table(name) in self.fail)
 
 
 def _tables(*, students, sessions=(), essays=(), reading=(), listening=()):
@@ -136,7 +139,7 @@ def test_one_query_per_skill_regardless_of_class_size():
     cohort_progress(db, COHORT)
 
     for table in ("sessions", "writing_essays",
-                  "reading_test_attempts", "listening_test_attempts"):
+                  "reading_test_attempts", "v_listening_attempts_public"):
         assert db.queries.count(table) == 1, (
             f"{table} was queried {db.queries.count(table)}× for 30 students"
         )
@@ -742,7 +745,7 @@ def test_a_student_with_no_attempts_gets_an_empty_strip_not_a_missing_key():
 
 def test_blackeye_never_enters_generic_cohort_progress():
     tables = _tables(students=[_student("s1", "u1")], listening=[
-        {"id": "be-attempt", "user_id": "u1", "test_id": "be", "status": "submitted", "submitted_at": "2026-11-10T00:00:00Z"},
+        {"id": "be-attempt", "user_id": "u1", "test_id": "be", "restricted": True, "status": "submitted", "submitted_at": "2026-11-10T00:00:00Z"},
         {"id": "plain-attempt", "user_id": "u1", "test_id": "plain", "status": "submitted", "submitted_at": "2026-11-09T00:00:00Z"},
     ])
     tables["listening_tests"] = [

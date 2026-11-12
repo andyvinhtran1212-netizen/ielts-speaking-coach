@@ -24,6 +24,8 @@ Four properties, each one a thing the code can be silently wrong about:
 
 from __future__ import annotations
 
+from namespace_query_double import source_rows, source_table
+
 from datetime import datetime, timezone
 
 import pytest
@@ -221,7 +223,9 @@ class _DB:
         self.tables, self.fail, self.store = tables, fail, {}
 
     def table(self, name):
-        return _Query(self.store, name, self.tables.setdefault(name, []), raises=name in self.fail)
+        self.tables.setdefault(source_table(name), [])
+        return _Query(self.store, name, source_rows(self.tables, name),
+                      raises=name in self.fail or source_table(name) in self.fail)
 
     def rpc(self, name, params):
         return _RPC(self, name, params)

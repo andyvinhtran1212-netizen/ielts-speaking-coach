@@ -21,6 +21,8 @@ Surfaces under test:
 
 from __future__ import annotations
 
+from namespace_query_double import source_rows, source_table
+
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 from unittest.mock import AsyncMock, patch
@@ -156,16 +158,17 @@ class _TableQuery:
         return self
 
     def execute(self):
-        if self.table_name in self.fake.failing:
-            raise self.fake.failing[self.table_name]
-        known = _TABLE_COLUMNS.get(self.table_name)
+        table = source_table(self.table_name)
+        if self.table_name in self.fake.failing or table in self.fake.failing:
+            raise self.fake.failing.get(self.table_name, self.fake.failing.get(table))
+        known = _TABLE_COLUMNS.get(table)
         if known is not None:
             used = [c for c in getattr(self, "selected", []) if c != "*"]
             used += [field for field, _op, _value in self.filters]
             for column in used:
                 if column not in known:
                     raise _undefined_column(self.table_name, column)
-        rows = self.fake.tables.get(self.table_name, [])
+        rows = source_rows(self.fake.tables, self.table_name)
         from blackeye_query_double import matches_blackeye_filter
         for expression in getattr(self, "blackeye_filters", []):
             rows = [r for r in rows if matches_blackeye_filter(r, expression)]
@@ -727,8 +730,8 @@ class TestPartialFailures:
         assert body["partial_failures"] == []
 
 
-def test_blackeye_lookup_failure_is_partial_and_never_reads_attempts(client, fake_db, caplog):
-    fake_db.failing["listening_tests"] = RuntimeError("connection reset")
+def test_namespace_view_failure_is_partial_and_never_reads_base_attempts(client, fake_db, caplog):
+    fake_db.failing["v_listening_attempts_public"] = RuntimeError("connection reset")
     fake_db.tables["listening_test_attempts"] = [
         {"id": "private-attempt", "user_id": "private-learner", "test_id": "be",
          "status": "submitted", "score": 1, "grading_details": [{"q_num": 1}],
@@ -777,7 +780,7 @@ def test_blackeye_admin_overview_excludes_activity_counts_and_identity(client, f
     ]
     fake_db.tables["users"] = [{"id": "private-learner", "email": "private@example.invalid"}]
     fake_db.tables["listening_test_attempts"] = [
-        {"id": "private-attempt", "user_id": "private-learner", "test_id": "be", "status": "submitted", "created_at": _iso(-1)},
+        {"id": "private-attempt", "user_id": "private-learner", "test_id": "be", "restricted": True, "status": "submitted", "created_at": _iso(-1)},
         {"id": "ordinary-attempt", "user_id": "ordinary-learner", "test_id": "plain", "status": "in_progress", "created_at": _iso(-2)},
     ]
     r = client.get("/admin/overview", headers=_ADMIN_AUTH)

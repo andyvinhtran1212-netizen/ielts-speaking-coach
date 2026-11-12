@@ -1,6 +1,8 @@
 """Exercise the inventory endpoint across timestamp ties and exact-count failures."""
 from __future__ import annotations
 
+from namespace_query_double import source_rows
+
 import asyncio
 from types import SimpleNamespace
 
@@ -45,7 +47,7 @@ class Query:
         return self
 
     def execute(self):
-        rows = [dict(row) for row in self.store.tables[self.table]
+        rows = [dict(row) for row in source_rows(self.store.tables, self.table)
                 if all(predicate(row) for predicate in self.filters)]
         # SQL does not promise an order for equal keys. Vary the input order on
         # each page so a single timestamp ordering reproduces the missing/dupe.
