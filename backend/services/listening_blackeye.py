@@ -528,32 +528,77 @@ def guard_generic_assignment(db, assignment_id, cohort_id=None):
         unavailable()
 
 
-def guard_generic_target(db, *, test_id=None, content_id=None, exercise_id=None, attempt_id=None, package_id=None, denied_status=404, external_test_code=False):
+def guard_generic_target(db, *, test_id=None, content_id=None, exercise_id=None,
+                         attempt_id=None, package_id=None, drill_id=None, session_id=None,
+                         denied_status=404, external_test_code=False):
+    def values(target):
+        return target if isinstance(target, (list, tuple, set)) else [target] if target else []
+
+    def deny():
+        raise HTTPException(denied_status, "Black Eye resource unavailable.",
+                            headers={"Cache-Control": "private, no-store"})
+
     try:
-        if package_id:
-            rows = db.table("listening_content_packages").select("id,programme_id").eq("package_id", package_id).limit(1).execute().data or []
-            if rows and rows[0].get("programme_id") == PROGRAMME:
-                assignment_seam()
-        if attempt_id:
-            rows = db.table("listening_test_attempts").select("id,test_id").eq("id", attempt_id).limit(1).execute().data or []
-            test_id = rows[0].get("test_id") if rows else None
-        if exercise_id:
-            rows = db.table("listening_exercises").select("id,content_id").eq("id", exercise_id).limit(1).execute().data or []
-            if rows and rows[0].get("content_id"):
-                guard_generic_target(db, content_id=rows[0]["content_id"], denied_status=denied_status)
-        if content_id:
-            rows = db.table("listening_content").select("id,test_id").eq("id", content_id).limit(1).execute().data or []
-            test_id = rows[0].get("test_id") if rows else None
-        if test_id and external_test_code:
-            try:
-                UUID(str(test_id))
-            except ValueError:
-                # Dictation reports filter by the external listening_tests.test_id,
-                # while the identity guard requires the UUID primary key.
-                rows = db.table("listening_tests").select("id").eq("test_id", test_id).limit(1).execute().data or []
-                test_id = rows[0]["id"] if rows else None
-        if test_id and is_blackeye(test_identity(db, test_id, missing_status=None)):
-            raise HTTPException(denied_status, "Black Eye resource unavailable.")
+        # Path and query identities are additive, including repeated query keys.
+        # An optional lookup must never replace an already supplied target.
+        candidates = {str(value) for value in values(drill_id)}
+        exercise_candidates = set()
+        for value in values(test_id):
+            if external_test_code:
+                # A UUID can also be an external code belonging to another test.
+                offset = 0
+                while True:
+                    rows = db.table("listening_tests").select("id").eq(
+                        "test_id", value).order("id").range(offset, offset + 999).execute().data or []
+                    candidates.update(str(row["id"]) for row in rows)
+                    if len(rows) < 1000:
+                        break
+                    offset += 1000
+                try:
+                    UUID(str(value))
+                except ValueError:
+                    continue
+            candidates.add(str(value))
+        for target, table in ((attempt_id, "listening_test_attempts"),
+                              (session_id, "dictation_sessions"),
+                              (content_id, "listening_content")):
+            for value in values(target):
+                rows = db.table(table).select("id,test_id").eq("id", value).limit(1).execute().data or []
+                candidates.update(str(row["test_id"]) for row in rows if row.get("test_id"))
+        for value in values(exercise_id):
+            rows = db.table("listening_exercises").select("id,content_id").eq("id", value).limit(1).execute().data or []
+            for exercise in rows:
+                # An existing exercise with a broken parent cannot be classified
+                # as generic. Deny before its payload can be read or changed.
+                if not exercise.get("content_id"):
+                    deny()
+                contents = db.table("listening_content").select("id,test_id").eq(
+                    "id", exercise["content_id"]).limit(1).execute().data or []
+                if not contents or not contents[0].get("test_id"):
+                    deny()
+                exercise_candidates.add(str(contents[0]["test_id"]))
+        candidates.update(exercise_candidates)
+        for value in values(package_id):
+            # Packages currently have no metadata column; '*' also honors an
+            # optional metadata namespace without requiring a schema change.
+            packages = db.table("listening_content_packages").select("*").eq(
+                "package_id", value).limit(1).execute().data or []
+            for package in packages:
+                if is_blackeye(package):
+                    assignment_seam()
+                offset = 0
+                while True:
+                    rows = db.table("listening_tests").select("id,programme_id,metadata").eq(
+                        "content_package_id", package["id"]).order("id").range(offset, offset + 999).execute().data or []
+                    if any(is_blackeye(row) for row in rows):
+                        assignment_seam()
+                    if len(rows) < 1000:
+                        break
+                    offset += 1000
+        for candidate in candidates:
+            identity = test_identity(db, candidate, missing_status=None)
+            if (not identity and candidate in exercise_candidates) or is_blackeye(identity):
+                deny()
     except HTTPException:
         raise
     except Exception:
