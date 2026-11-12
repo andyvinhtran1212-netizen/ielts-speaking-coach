@@ -100,6 +100,7 @@ Không đếm được trực tiếp bằng số:
 - *water, rice, advice, information, money, traffic, luggage*
 
 **Không có dạng số nhiều.** Dùng đo lường để đếm:
+
 - a cup of water. Khi gọi đồ, **a water** có thể nghĩa một chai/cốc/suất nước; không phải mọi cách dùng có a đều sai.
 - two pieces of advice (không phải "two advices")
 
@@ -110,6 +111,7 @@ Chỉ ý niệm, cảm xúc, trạng thái — không sờ được:
 - *love, freedom, education, knowledge, happiness, time*
 
 Thường là uncountable, nhưng không phải luôn:
+
 - We believe in **freedom**.
 - They achieved many **freedoms** during the revolution. (số nhiều được)
 
@@ -120,6 +122,7 @@ Chỉ một nhóm gồm nhiều thành phần:
 - *team, family, government, audience, staff*
 
 Trong tiếng Anh Anh, collective nouns có thể hòa hợp số ít khi nhìn cả nhóm như một đơn vị, hoặc số nhiều khi nhìn các thành viên:
+
 - The team **are** playing well. (chủ yếu Anh Anh)
 - The team **is** playing well. (cả Anh Anh và Anh Mỹ)
 
@@ -235,10 +238,12 @@ Thêm **'s** để thể hiện sở hữu:
 ## Ứng dụng trong IELTS
 
 **IELTS Speaking:**
+
 - Dùng danh từ trừu tượng để nói về ý kiến: *freedom, inequality, development, education*
 - Kết hợp danh từ + tính từ để mô tả chi tiết hơn
 
 **IELTS Writing Task 2:**
+
 - Danh từ ghép học thuật thường gặp: *climate change, economic growth, social media, health care*
 - Tránh dùng lặp đi lặp lại cùng một danh từ — thay bằng từ đồng nghĩa hoặc paraphrase
 
@@ -263,6 +268,7 @@ Thêm **'s** để thể hiện sở hữu:
 **Phân loại:** U / C / U / C / U / C
 
 **Sửa lỗi:**
+
 1. advice (bỏ -s)
 2. There is a lot of **furniture** in the room.
 3. some information (bỏ "an", đây là uncountable)

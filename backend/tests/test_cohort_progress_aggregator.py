@@ -753,3 +753,48 @@ def test_blackeye_never_enters_generic_cohort_progress():
     listening = result["students"][0]["skills"]["listening"]
     assert listening["attempts"] == 1
     assert listening["last_activity"] == "2026-11-09T00:00:00Z"
+
+
+def test_progress_reconciles_required_dictation_only_after_all_sections(monkeypatch):
+    # Honor PostgREST projection on assignments so omitting content_config
+    # reproduces the premature hand-in even though the fixture stores it.
+    original = _Query.execute
+
+    def select(query, fields, **_kwargs):
+        query.fields = fields
+        return query
+
+    def execute(query):
+        out = original(query)
+        if query.name == "class_assignments" and getattr(query, "fields", "*") != "*":
+            fields = {field.strip() for field in query.fields.split(",")}
+            return _Resp([{key: value for key, value in row.items() if key in fields}
+                          for row in out.data])
+        return out
+
+    monkeypatch.setattr(_Query, "select", select)
+    monkeypatch.setattr(_Query, "execute", execute)
+    item = {"id": "i1", "assignment_id": "a1", "student_id": "s1",
+            "submitted_at": None, "state": "assigned"}
+    db = _hw_db(assignments=[{
+        "id": "a1", "due_at": None, "status": "published", "cohort_id": COHORT,
+        "skill": "listening", "content_config": {"skill_drill": {
+            "dictation_required": True, "sections": [1, 2],
+        }},
+    }], items=[item])
+    db.tables["listening_test_attempts"] = [{
+        "id": "l1", "class_assignment_item_id": "i1", "user_id": "u1",
+        "status": "submitted", "submitted_at": "2026-08-01T10:00:00+00:00",
+    }]
+    db.tables["dictation_sessions"] = [{
+        "id": "d1", "class_assignment_item_id": "i1", "section_num": 1,
+        "completed_at": "2026-08-01T10:05:00+00:00",
+    }]
+    assert cohort_progress(db, COHORT)["students"][0]["homework"]["submitted"] == 0
+    assert item["submitted_at"] is None
+    db.tables["dictation_sessions"].append({
+        "id": "d2", "class_assignment_item_id": "i1", "section_num": 2,
+        "completed_at": "2026-08-01T10:10:00+00:00",
+    })
+    assert cohort_progress(db, COHORT)["students"][0]["homework"]["submitted"] == 1
+    assert item["submitted_at"] == "2026-08-01T10:10:00+00:00"

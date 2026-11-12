@@ -20,9 +20,11 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-11-10 the highest is `376`, reserved by Leader for
-BLACKEYE-0052 admission; the next new migration is `378`, after checking the shared
-register (377 is reserved for Black Eye PR2). Migration 376 is unexecuted in this PR and requires
+sequence is dense. As of 2026-11-12 the highest file on staging is `380`
+(Skill Drill homework); the next new migration is `381`, subject to the shared
+migration register. Migrations 376–379 remain pending/reserved: `376` for
+BLACKEYE-0052 admission, `377`/`378` for Black Eye PR2, and `379` for PC-J562.
+Migration 376 is unexecuted in this PR and requires
 separate SA review and owner approval to run. Its manual rollback is under
 `rollback/376_blackeye_admission.sql`: it keeps the trigger as a deny-all Black Eye
 guard and removes the two RPCs, retaining data, widened CHECKs and the ledger row.

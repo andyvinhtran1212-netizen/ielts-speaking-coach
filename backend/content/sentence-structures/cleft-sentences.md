@@ -257,12 +257,14 @@ It-cleft phù hợp nhất khi người đọc đã biết phần còn lại c�
 ### Đáp án
 
 **It-cleft:**
+
 1. It is **technology** that is transforming the education sector.
 2. It was **poor management** that caused the project to fail.
 3. It was **in 2010** that the company first expanded overseas.
 4. It was **she** who discovered the error.
 
 **Wh-cleft:**
+
 1. What we need is better infrastructure.
 2. What the government must address is inequality.
 3. What the research showed **was** that diet affects cognition.
@@ -277,6 +279,7 @@ It-cleft phù hợp nhất khi người đọc đã biết phần còn lại c�
 | **Reversed:** X is what S V | Đảo chiều, nhấn mạnh X | More time is what we need. |
 
 **Quy tắc vàng:**
+
 - It-cleft: that thông dụng; who cho người, which có thể cho danh ngữ chỉ vật
 - Who không chỉ dành cho người làm chủ ngữ của mệnh đề lồng
 - Wh-cleft: chọn is/was theo thời điểm nhìn nhận; không buộc mọi thì trong câu giống nhau
@@ -295,6 +298,7 @@ Cleft đúng (what-cleft): "**What** I want to do is thank her."
 Active đơn giản: "I want to thank her." (cũng tốt; cleft thêm emphasis nhưng không bắt buộc)
 
 **Khi nào DÙNG cleft trong IELTS Speaking:**
+
 1. Khi muốn làm nổi bật thông tin chính (cao trào bài Part 2): "**What** really stood out about that trip was the food."
 2. Khi sửa một hiểu lầm: "**It was** my brother, not me, who said that."
 3. Khi nhấn mạnh trong Part 3: "**The thing that** worries me most about social media is..."

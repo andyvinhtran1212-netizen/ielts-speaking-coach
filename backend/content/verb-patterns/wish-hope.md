@@ -283,9 +283,11 @@ Dùng khi muốn ai đó (khác chủ ngữ) thay đổi hành vi — thường 
 ### Đáp án
 
 **Hope hoặc wish:**
+
 1. hope | 2. wish | 3. wishes | 4. hope | 5. wish
 
 **Chia động từ:**
+
 1. were | 2. hadn't said | 3. had studied | 4. moved / would move (mong hiện trạng khác / mong thay đổi) | 5. had chosen
 
 ## Tóm tắt nhanh
@@ -299,6 +301,7 @@ Dùng khi muốn ai đó (khác chủ ngữ) thay đổi hành vi — thường 
 | **If only** | if only + past/perfect | Nhấn mạnh tiếc nuối | If only I had known! |
 
 **Quy tắc vàng:**
+
 - **Hope** = thực tế, có thể xảy ra → dùng present/future
 - **Wish** = không thực / tiếc nuối → dùng past simple / past perfect
 - **Wish + would** = phàn nàn về hành vi của người khác (không dùng cho cùng chủ ngữ)

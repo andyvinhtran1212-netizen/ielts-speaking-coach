@@ -208,6 +208,7 @@ Adverbs giới hạn phạm vi của nhận định mà không thay đổi cấu
 | **possibly / perhaps** | Thấp |
 
 **Ví dụ:**
+
 - The situation is **largely** the result of poor planning at the governmental level.
 - Social inequality is **predominantly** an economic issue.
 - This **arguably** represents the most significant shift in the labour market in decades.

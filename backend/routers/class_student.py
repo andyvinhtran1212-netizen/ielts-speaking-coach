@@ -1005,6 +1005,20 @@ async def start_assignment(
         if not (rows[0].get("assembled_audio_storage_path")
                 or rows[0].get("full_audio_storage_path")):
             raise HTTPException(409, "Đề nghe này chưa có audio sẵn sàng.")
+        drill = cfg.get("skill_drill") or {}
+        if drill.get("dictation_required"):
+            submitted_query = (supabase_admin.table("listening_test_attempts").select("id")
+                               .eq("class_assignment_item_id", item_id).eq("user_id", auth_user["id"])
+                               .eq("test_id", test_uuid).eq("status", "submitted").limit(1))
+            listening_submitted = (await asyncio.to_thread(submitted_query.execute)).data
+            if listening_submitted:
+                return {
+                    "item_id": item_id, "assignment_id": assignment["id"], "skill": skill,
+                    "player_surface": "listening_dictation",
+                    "player_query": {"test_id": str(test_uuid), "class_item": item_id},
+                    "open_url": (f"/core-player/launch?surface=listening_dictation"
+                                 f"&test_id={quote(test_uuid)}&class_item={quote(item_id)}"),
+                }
         # Listening uses the row id at both ends — one identifier throughout.
         player_surface = "listening_test"
         player_query = {"id": str(test_uuid), "class_item": item_id}

@@ -83,6 +83,7 @@ anchors:
 ## Tại sao quan trọng
 
 Người Việt học tiếng Anh thường mắc một trong hai lỗi:
+
 - Thêm "the" vào danh từ mang nghĩa chung: ❌ "**The** dogs are loyal animals."
 - Thêm mạo từ vào cụm thành ngữ cố định: ❌ "go to **the** school" (khi nói về chức năng, không địa điểm cụ thể)
 
@@ -158,10 +159,12 @@ have/eat/after/before/skip + ∅ breakfast/lunch/dinner/supper/brunch
 - What did you have for **∅ lunch**?
 
 **Ngoại lệ — dùng "a" khi mô tả đặc biệt:**
+
 - We had **a** wonderful **dinner** last night. (mô tả cụ thể)
 - She cooked **a** delicious **breakfast**.
 
 **Ngoại lệ — dùng "the" khi xác định cụ thể:**
+
 - **The dinner** we had at that restaurant was overpriced. (cụ thể)
 
 ---
@@ -190,12 +193,14 @@ be good at/study/major in + ∅ subject
 ```
 
 **Ngôn ngữ:**
+
 - She speaks **∅ Mandarin** and **∅ French** fluently.
 - He's been learning **∅ Japanese** for three years.
 - **∅ English** is the global language of business.
 - The document was written in **∅ Arabic**.
 
 **Môn học:**
+
 - I studied **∅ economics** and **∅ philosophy** at university.
 - She is passionate about **∅ biology**.
 - He majored in **∅ computer science**.
@@ -222,6 +227,7 @@ Những danh từ này mang ý nghĩa **chức năng** (không phải địa đi
 | in **∅ bed** | đang trên giường (ngủ/nghỉ) | in **the** bed (cái giường cụ thể) |
 
 **Ví dụ:**
+
 - She's been in **∅ hospital** for a week. (nhập viện)
 - He was sent to **∅ prison** for fraud. (bị tù)
 - She goes to **∅ school** by bus. (đi học)
@@ -233,15 +239,18 @@ Những danh từ này mang ý nghĩa **chức năng** (không phải địa đi
 ## TRƯỜNG HỢP 7: Tên người, ngày, tháng, mùa
 
 **Tên người:** Không dùng mạo từ:
+
 - **∅ John** called yesterday.
 - I met **∅ Professor Smith** at the conference.
 
 **Ngày trong tuần và tháng:**
+
 - The meeting is on **∅ Monday**.
 - She was born in **∅ March**.
 - We'll finish in **∅ June**.
 
 **Mùa** (thường dùng zero article, nhưng cũng có thể dùng "the"):
+
 - **∅ Summer** is my favourite season. (zero article — chung)
 - **The summer** of 2020 was unusually hot. (the — cụ thể)
 

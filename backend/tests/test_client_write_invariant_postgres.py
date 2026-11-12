@@ -148,6 +148,20 @@ def _pre_320() -> str:
     helper_revokes = "\n".join(re.findall(
         r"^REVOKE EXECUTE ON FUNCTION public.is_current_user_(?:admin|instructor)\(\)[^;]*;",
         (MIGRATIONS / "108_security_hardening.sql").read_text(encoding="utf-8"), re.M))
+    # 380 extends the existing Listening/Dictation evidence tables. Keep their
+    # original definitions (and 220's public-practice uniqueness) in this shape.
+    drill_tables = (
+        ("068_listening_test_attempts.sql", "listening_test_attempts"),
+        ("138_dictation_sessions.sql", "dictation_sessions"),
+        ("220_dictation_attempt_affinity.sql", "dictation_attempts"),
+    )
+    drill_schema = "\n".join(re.search(
+        rf"CREATE TABLE IF NOT EXISTS (?:public\.)?{table} \(.*?^\);",
+        (MIGRATIONS / filename).read_text(encoding="utf-8"), re.S | re.M)[0]
+        for filename, table in drill_tables)
+    dictation_active_index = re.search(
+        r"CREATE UNIQUE INDEX IF NOT EXISTS uq_dictation_attempts_one_active_section\b[^;]*;",
+        (MIGRATIONS / "220_dictation_attempt_affinity.sql").read_text(encoding="utf-8"))[0]
     return f"""
         SET search_path = public, pg_temp;
         CREATE TABLE _schema_migrations (filename text PRIMARY KEY,
@@ -273,6 +287,7 @@ def _pre_320() -> str:
         CREATE TABLE class_assignments (
             id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
             cohort_id uuid NOT NULL REFERENCES cohorts(id) ON DELETE CASCADE,
+            content_config jsonb NOT NULL DEFAULT '{{}}'::jsonb,
             title text NOT NULL DEFAULT 'work', status text NOT NULL DEFAULT 'published');
         CREATE TABLE class_assignment_items (
             id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -321,11 +336,17 @@ def _pre_320() -> str:
             CONSTRAINT listening_lessons_programme_id_check CHECK (programme_id IN ('general-listening-practice','ielts-listening-practice','ielts-80-days-listening')));
         ALTER TABLE listening_tests ADD COLUMN programme_id text,
             ADD CONSTRAINT listening_tests_programme_id_check CHECK (programme_id IN ('ielts','general-listening-practice','ielts-listening-practice','ielts-80-days-listening'));
-        CREATE TABLE listening_test_attempts (id uuid PRIMARY KEY, test_id uuid, user_id uuid,
-            status text, answers jsonb, resume_expires_at timestamptz, submitted_at timestamptz,
-            result_summary jsonb, score integer, band_estimate numeric, grading_details jsonb,
-            trap_analytics jsonb, paper_revision bigint, policy_revision bigint,
-            class_assignment_item_id uuid, sitting_id uuid, attempt_purpose text, scoring_policy text);
+        {drill_schema}
+        {dictation_active_index}
+        -- 181 links Listening attempts to class work before 380 is applied.
+        ALTER TABLE listening_test_attempts ADD COLUMN class_assignment_item_id uuid
+            REFERENCES class_assignment_items(id) ON DELETE SET NULL;
+        -- 306/376 frozen-attempt columns extend 068's original attempt shape.
+        ALTER TABLE listening_test_attempts
+            ADD COLUMN resume_expires_at timestamptz, ADD COLUMN result_summary jsonb,
+            ADD COLUMN paper_revision bigint, ADD COLUMN policy_revision bigint,
+            ADD COLUMN sitting_id uuid, ADD COLUMN attempt_purpose text,
+            ADD COLUMN scoring_policy text;
         CREATE TRIGGER trg_mock_paper_policy BEFORE UPDATE OR DELETE ON reading_tests
             FOR EACH ROW EXECUTE FUNCTION fn_stub_paper_trigger();
         CREATE TRIGGER trg_mock_paper_policy BEFORE UPDATE OR DELETE ON listening_tests
@@ -385,6 +406,7 @@ def _pre_320() -> str:
                  for table in ("access_codes", "cohorts", "students", "writing_assignments",
                                "writing_drafts", "writing_essays", "writing_feedback",
                                "class_assignments", "class_assignment_items",
+                               *(table for _, table in drill_tables),
                                *(table for _, table in admin_tables)))}
     """
 

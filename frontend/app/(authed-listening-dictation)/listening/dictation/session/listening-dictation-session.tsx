@@ -1,5 +1,6 @@
 'use client';
 
+import { useListeningDrillPlayback } from '@/lib/listening-drill-playback';
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useSearchParams } from 'next/navigation';
 import type { components } from '@/types/api';
@@ -33,7 +34,7 @@ import {
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 type Phase = 'loading' | 'error' | 'picker' | 'ready' | 'complete';
-type AudioPlayerElement = HTMLElement & { pause?: () => void };
+type AudioPlayerElement = HTMLElement & { pause?: () => void; mediaElement?: HTMLMediaElement };
 type Result = {
   score: number | null; is_correct: boolean | null; correct_words: number | null; total_words: number | null;
   diff: any[]; user_text: string; listen_count: number | null; time_seconds: number | null;
@@ -131,6 +132,16 @@ export function ListeningDictationSession() {
   const [flagging, setFlagging] = useState(false);
   const [flagged, setFlagged] = useState<Set<number>>(new Set());
   const audioRef = useRef<AudioPlayerElement | null>(null);
+  const [audioReady, setAudioReady] = useState(false);
+  const attachAudio = useCallback((element: AudioPlayerElement | null) => {
+    audioRef.current = element;
+    setAudioReady(Boolean(element?.mediaElement));
+    if (element && !element.mediaElement) {
+      void customElements.whenDefined('audio-player').then(() => {
+        if (audioRef.current === element) setAudioReady(Boolean(element.mediaElement));
+      });
+    }
+  }, []);
   const startedAtRef = useRef<number | null>(null);
   const sentenceStartedAtRef = useRef<number | null>(null);
   const listenCountRef = useRef(0);
@@ -145,15 +156,23 @@ export function ListeningDictationSession() {
     catch { return null; }
   }, [searchParams]);
 
+  const classItem = params?.classItem;
+  const classQuery = classItem ? `&class_item=${encodeURIComponent(classItem)}` : '';
+  const drillPlayback = useListeningDrillPlayback(
+    classItem ? attempt?.attempt_id : undefined, 'dictation', phase === 'ready' && audioReady,
+    () => audioRef.current?.mediaElement,
+  );
+  const assignedDictationPath = classItem && params?.testId
+    ? `/listening/dictation/session?test_id=${encodeURIComponent(params.testId)}${classQuery}` : null;
   const receiptIdentity = useCallback((selected: any) => ({
-    accountId: user?.id || '', testId: params?.testId || '', sectionNum: selected.section_num,
-  }), [params?.testId, user?.id]);
+    accountId: user?.id || '', testId: params?.testId || '', sectionNum: selected.section_num, classItem,
+  }), [classItem, params?.testId, user?.id]);
 
   const readReceipt = useCallback((selected: any) => {
     if (!user?.id || !params) return null;
     const identity = receiptIdentity(selected);
     try {
-      const key = dictationReceiptKey(identity.accountId, identity.testId, identity.sectionNum);
+      const key = dictationReceiptKey(identity.accountId, identity.testId, identity.sectionNum, identity.classItem);
       const stored = localStorage.getItem(key);
       if (!stored) return null;
       const receipt = normalizeDictationReceipt(JSON.parse(stored), identity);
@@ -164,12 +183,12 @@ export function ListeningDictationSession() {
 
   const clearReceipt = useCallback((selected: any) => {
     if (!user?.id || !params) return;
-    try { localStorage.removeItem(dictationReceiptKey(user.id, params.testId, selected.section_num)); }
+    try { localStorage.removeItem(dictationReceiptKey(user.id, params.testId, selected.section_num, params.classItem)); }
     catch {}
   }, [params, user?.id]);
 
   const persistReceipt = useCallback((receipt: any, selected: any) => {
-    const key = dictationReceiptKey(receipt.accountId, receipt.testId, selected.section_num);
+    const key = dictationReceiptKey(receipt.accountId, receipt.testId, selected.section_num, receipt.classItem);
     const serialized = JSON.stringify(receipt);
     const existingRaw = localStorage.getItem(key);
     if (existingRaw) {
@@ -184,7 +203,7 @@ export function ListeningDictationSession() {
 
   const clearConfirmedReceipt = useCallback((receipt: any) => {
     try {
-      const key = dictationReceiptKey(receipt.accountId, receipt.testId, receipt.sectionNum);
+      const key = dictationReceiptKey(receipt.accountId, receipt.testId, receipt.sectionNum, receipt.classItem);
       const raw = localStorage.getItem(key);
       if (!raw) return;
       const current = normalizeDictationReceipt(JSON.parse(raw), receipt);
@@ -224,7 +243,7 @@ export function ListeningDictationSession() {
     if (!testId || !Number.isInteger(sectionNum) || sectionNum < 1) {
       throw new Error('Không đủ thông tin để khôi phục kết quả đã lưu.');
     }
-    const query = `section_num=${encodeURIComponent(sectionNum)}`;
+    const query = `section_num=${encodeURIComponent(sectionNum)}${receipt.classItem ? `&class_item=${encodeURIComponent(receipt.classItem)}` : ''}`;
     const canonicalAttempt = normalizeDictationAttempt(await window.api.get(
       `/api/listening/tests/${encodeURIComponent(testId)}/dictation/attempts/in-progress?${query}`,
     ));
@@ -310,7 +329,7 @@ export function ListeningDictationSession() {
     try {
       const testId = params?.testId;
       if (!testId) throw new Error('Thiếu mã bài chép chính tả.');
-      const query = `section_num=${encodeURIComponent(selected.section_num)}`;
+      const query = `section_num=${encodeURIComponent(selected.section_num)}${classQuery}`;
       const inProgress = normalizeDictationAttempt(await window.api.get(
         `/api/listening/tests/${encodeURIComponent(testId)}/dictation/attempts/in-progress?${query}`,
       ));
@@ -354,7 +373,7 @@ export function ListeningDictationSession() {
       if (!['legacy', 'next'].includes(affinity)) throw new Error('Renderer của lượt làm bài không hợp lệ.');
       if (affinity !== 'next') {
         if (canonicalAttempt.grading_version === LEXICAL_DICTATION_POLICY) throw new Error('Phiên chấm v2 cần giao diện tương thích; chưa xác nhận renderer.');
-        window.location.replace(dictationRendererHref(affinity, `?test_id=${encodeURIComponent(testId)}&section=${selected.section_num}`));
+        window.location.replace(dictationRendererHref(affinity, `?test_id=${encodeURIComponent(testId)}&section=${selected.section_num}${classQuery}`));
         return;
       }
       const pinnedSection = {
@@ -382,7 +401,7 @@ export function ListeningDictationSession() {
       setError(`Không khôi phục được tiến độ chép chính tả. ${dictationErrorMessage(caught)}`);
       setPhase('error');
     }
-  }, [params?.testId, readReceipt, reconcile, user?.id]);
+  }, [classQuery, params?.testId, readReceipt, reconcile, user?.id]);
 
   const boot = useCallback(async (sequence: number, accountId: string) => {
     if (!params) throw new Error('Đường dẫn bài hoặc báo cáo không hợp lệ: mã thiếu, sai hoặc bị lặp.');
@@ -403,13 +422,18 @@ export function ListeningDictationSession() {
       return;
     }
     const normalized = normalizeDictationBundle(await window.api.get(
-      `/api/listening/tests/${encodeURIComponent(params.testId)}/dictation`,
+      `/api/listening/tests/${encodeURIComponent(params.testId)}/dictation${params.classItem ? `?class_item=${encodeURIComponent(params.classItem)}` : ''}`,
     ));
     if (bootSequenceRef.current !== sequence || accountRef.current !== accountId) return;
     setBundle(normalized);
     const wanted = params.section == null ? null : normalized.sections.find((item: any) => item.section_num === params.section);
     if (params.section != null && !wanted) throw new Error('Section được chọn không có transcript.');
-    if (wanted || normalized.sections.length === 1) await selectSection(wanted || normalized.sections[0]);
+    const target = wanted || (normalized.sections.length === 1 && !params.classItem ? normalized.sections[0] : null);
+    if (target && normalized.completed_sections?.[target.section_num]) {
+      const url = new URL(window.location.href);
+      url.searchParams.set('session_id', normalized.completed_sections[target.section_num]);
+      window.location.replace(url.toString());
+    } else if (target) await selectSection(target);
     else setPhase('picker');
   }, [params, selectSection]);
 
@@ -496,6 +520,10 @@ export function ListeningDictationSession() {
 
   const complete = useCallback(async () => {
     if (!section || !attempt || !user?.id || !params) return;
+    if (classItem) {
+      audioRef.current?.pause?.();
+      await drillPlayback.current().catch(() => {});
+    }
     const totalTime = startedAtRef.current ? Math.max(0, Math.round((Date.now() - startedAtRef.current) / 1000)) : null;
     const requestId = dictationRequestId();
     const submission = {
@@ -518,7 +546,7 @@ export function ListeningDictationSession() {
       ...dictationPolicyAcknowledgement(attempt),
     } : null);
     const receipt = {
-      requestId, accountId: user.id, testId: params.testId,
+      requestId, accountId: user.id, testId: params.testId, ...(classItem ? { classItem } : {}),
       sectionNum: section.section_num, createdAt: new Date().toISOString(), submission,
       localResults: compactResults, localReport: local,
     };
@@ -531,7 +559,7 @@ export function ListeningDictationSession() {
       return;
     }
     await reconcile(receipt, section);
-  }, [attempt, params, persistReceipt, reconcile, results, section, user?.id]);
+  }, [classItem, drillPlayback, attempt, params, persistReceipt, reconcile, results, section, user?.id]);
 
   const advance = useCallback(() => {
     if (!section || !currentResult) return;
@@ -587,19 +615,23 @@ export function ListeningDictationSession() {
 
   return <main className="dict-next-shell">
     <header className="dict-next-hero">
-      <a href="/listening">← Quay lại Listening</a><p className="dict-next-eyebrow">LUYỆN NGHE CHỦ ĐỘNG</p>
+      <a href={classItem ? "/my-class" : "/listening"}>{classItem ? "← Về lớp của tôi" : "← Quay lại Listening"}</a><p className="dict-next-eyebrow">LUYỆN NGHE CHỦ ĐỘNG</p>
       <h1>Chép chính tả <span>·</span> {bundle?.title || 'Bài nghe'}</h1>
       <p>Nghe và gõ lại từng câu, sau đó đối chiếu từng từ với transcript. Bạn có thể tua và nghe lại tự do.</p>
       {phase !== 'picker' ? <p data-dictation-policy={policyVersion}>{dictationPolicyLabel(policyVersion)}</p> : null}
       <ol aria-label="Ba bước luyện tập"><li>1 · Nghe</li><li>2 · Gõ lại</li><li>3 · Đối chiếu</li></ol>
     </header>
 
-    {phase === 'picker' ? <section className="dict-next-picker" aria-labelledby="pick-title"><h2 id="pick-title">Chọn section</h2><p>Mỗi section được lưu thành một phiên riêng.</p><div>{bundle.sections.map((item: any) => <button type="button" key={item.section_num} onClick={() => selectSection(item)}><strong>{item.title}</strong><span>{item.sentences.length} câu{item.cue_start != null ? ` · từ ${cue(item.cue_start)}` : ''}</span></button>)}</div></section> : null}
+    {phase === 'picker' ? <section className="dict-next-picker" aria-labelledby="pick-title"><h2 id="pick-title">Chọn section</h2><p>Mỗi section được lưu thành một phiên riêng.</p><div>{bundle.sections.map((item: any) => <button type="button" key={item.section_num} onClick={() => {
+        const reportId = bundle.completed_sections?.[item.section_num];
+        if (reportId && assignedDictationPath) window.location.assign(`${assignedDictationPath}&session_id=${encodeURIComponent(reportId)}`);
+        else void selectSection(item);
+      }}><strong>{item.title}{bundle.completed_sections?.[item.section_num] ? " · Đã nộp" : ""}</strong><span>{item.sentences.length} câu{item.cue_start != null ? ` · từ ${cue(item.cue_start)}` : ''}</span></button>)}</div></section> : null}
 
     {phase === 'ready' && section ? <section className="dict-next-workspace" aria-label="Không gian chép chính tả">
       <div className="dict-next-progress"><div><strong>{section.title}</strong><span>Câu {sentenceIndex + 1} / {section.sentences.length}</span></div><div className="dict-next-dots" role="list" aria-label="Tiến độ câu">{section.sentences.map((_: string, index: number) => <span role="listitem" aria-label={`Câu ${index + 1}`} className={`${index === sentenceIndex ? 'is-current' : ''} ${results[index] ? ((results[index]!.score ?? -1) >= 1 ? 'is-perfect' : (results[index]!.score ?? -1) >= .5 ? 'is-partial' : 'is-low') : ''}`} key={index} />)}</div></div>
       <div className="dict-next-stage is-listen"><div className="dict-next-stage-head"><b>1</b><div><h2>Nghe câu</h2><p>{timing ? 'Audio tự lặp đúng đoạn của câu hiện tại.' : section.cue_start != null ? `Section bắt đầu khoảng ${cue(section.cue_start)}.` : 'Dùng thanh audio để tua và nghe lại.'}</p></div></div>
-        <audio-player ref={audioRef as any} src={bundle.audio_url} duration-hint={bundle.audio_duration_seconds} segment-start={timing?.start} segment-end={timing?.end} auto-loop={timing ? 'true' : undefined} />
+        <audio-player ref={attachAudio as any} src={bundle.audio_url} duration-hint={bundle.audio_duration_seconds} segment-start={timing?.start} segment-end={timing?.end} auto-loop={timing ? 'true' : undefined} />
         {hints.length ? <div className="dict-next-hints"><span>Tên riêng</span>{hints.map((hint: string) => <b key={hint}>{hint}</b>)}</div> : null}
       </div>
       <div className="dict-next-stage"><div className="dict-next-stage-head"><b>2</b><div><h2>Gõ lại</h2><p>Viết đúng những gì bạn nghe được.</p></div></div>
@@ -617,7 +649,11 @@ export function ListeningDictationSession() {
       <div className="dict-next-stats"><article><span>Độ chính xác</span><strong>{percentage(visibleReport.accuracy)}</strong></article><article><span>Câu đúng hoàn toàn</span><strong>{visibleReport.correct_count ?? '—'}/{visibleReport.total_sentences ?? '—'}</strong></article><article><span>{policyVersion === LEXICAL_DICTATION_POLICY ? 'Từ đúng' : 'Token đúng theo cách chấm cũ'}</span><strong>{visibleReport.correct_words ?? '—'}/{visibleReport.total_words ?? '—'}</strong></article><article><span>Thời gian</span><strong>{formatDictationTime(visibleReport.total_time_seconds)}</strong></article></div>
       <div className="dict-next-trends"><h3>Mẫu lỗi</h3><div><span>Thiếu <b>{opCounts.miss ?? '—'}</b></span><span>Sai <b>{opCounts.wrong ?? '—'}</b></span><span>Thừa <b>{opCounts.extra ?? '—'}</b></span></div>{topDictationWords(visibleReport.error_trends?.missed).length ? <p>Từ hay thiếu: {topDictationWords(visibleReport.error_trends.missed).map((item: any) => `${item.word} (${item.count})`).join(', ')}</p> : null}</div>
       <div className="dict-next-review"><h3>Đối chiếu từng câu</h3>{section.sentences.map((sentence: string, index: number) => { const result = results[index] as any; return <article key={index}><header><strong>Câu {index + 1}</strong><span>{result ? `${percentage(result.score)} · ${result.correct_words ?? '—'}/${result.total_words ?? '—'}` : params?.sessionId ? 'Không có bằng chứng câu trong bản lưu' : 'Đang khôi phục từ máy chủ'}</span><button type="button" disabled={!flagContext(index) || flagged.has(index)} title={!flagContext(index) ? "Bản lưu thiếu thông tin nguồn để gửi báo lỗi cho câu này." : undefined} onClick={() => { setFlagIndex(index); setFlagCategory(''); setFlagNote(''); setFlagError(''); }}>{flagged.has(index) ? '✓ Đã báo lỗi' : '⚑ Báo lỗi'}</button></header>{result?.grading_version === LEXICAL_DICTATION_POLICY ? result.reference_segments ? <DictationComparison grade={result} /> : <p>Đang xác nhận nguyên văn và đối chiếu đã lưu từ máy chủ.</p> : <><p className="dict-next-reference"><span>Transcript</span>{sentence ?? 'Nguyên văn transcript không có trong bản lưu.'}</p>{result ? <><p className="dict-next-user-answer"><span>Bạn đã gõ</span>{result.user_text || '—'}</p><DictationComparison grade={result} /></> : null}</>}</article>; })}</div>
-      <div className="dict-next-actions"><button type="button" disabled={!canRestartSection || (!params?.testId && !report?.test_id)} onClick={() => { if (!canRestartSection) return; clearReceipt(section); if (params?.sessionId) { const url = new URL(window.location.href); url.searchParams.delete('session_id'); if (report?.test_id) url.searchParams.set('test_id', report.test_id); if (section.section_num) url.searchParams.set('section', String(section.section_num)); window.location.assign(url); } else selectSection(section); }}>Làm lại section</button>{bundle.sections.length > 1 ? <button type="button" onClick={() => setPhase('picker')}>Chọn section khác</button> : null}<a href="/listening">Về Listening</a></div>
+      {assignedDictationPath && saveState === 'saved' ? <div className="dict-next-actions">
+        <a href="/my-class">Về lớp của tôi</a>
+        <a href={assignedDictationPath}>Xem các phần chép chính tả</a>
+      </div> : null}
+      {!classItem ? <div className="dict-next-actions"><button type="button" disabled={!canRestartSection || (!params?.testId && !report?.test_id)} onClick={() => { if (!canRestartSection) return; clearReceipt(section); if (params?.sessionId) { const url = new URL(window.location.href); url.searchParams.delete('session_id'); if (report?.test_id) url.searchParams.set('test_id', report.test_id); if (section.section_num) url.searchParams.set('section', String(section.section_num)); window.location.assign(url); } else selectSection(section); }}>Làm lại section</button>{bundle.sections.length > 1 ? <button type="button" onClick={() => setPhase('picker')}>Chọn section khác</button> : null}<a href="/listening">Về Listening</a></div> : null}
     </section> : null}
 
     {flagIndex != null ? <div className="dict-next-modal" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setFlagIndex(null); }}><section role="dialog" aria-modal="true" aria-labelledby="flag-title"><h2 id="flag-title">Báo lỗi — câu {flagIndex + 1}</h2><p>Chọn loại lỗi hoặc mô tả cụ thể để đội nội dung kiểm tra.</p><p className="dict-next-reference"><span>Transcript đã lưu</span>{flagContext(flagIndex)?.reference}</p><div className="dict-next-flag-options">{[['audio_unclear', 'Audio khó nghe'], ['transcript_wrong', 'Transcript sai'], ['timing_wrong', 'Cắt đoạn sai']].map(([value, label]) => <button className={flagCategory === value ? 'is-selected' : ''} type="button" onClick={() => setFlagCategory(value)} key={value}>{label}</button>)}</div><textarea autoFocus aria-label="Mô tả lỗi" value={flagNote} onChange={(event) => setFlagNote(event.target.value)} placeholder="Mô tả thêm…" />{flagError ? <p role="alert" className="dict-next-inline-error">{flagError}</p> : null}<div className="dict-next-actions"><button type="button" onClick={() => setFlagIndex(null)}>Hủy</button><button className="is-primary" type="button" disabled={flagging} onClick={() => void submitFlag()}>{flagging ? 'Đang gửi…' : 'Gửi báo lỗi'}</button></div></section></div> : null}
