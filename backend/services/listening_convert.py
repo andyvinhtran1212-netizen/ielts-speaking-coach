@@ -562,6 +562,7 @@ _INSTRUCTION_HINTS: list[tuple[re.Pattern[str], str, str]] = [
 # the regex hints still classify. Map extended as render lands per type
 # (P2 flow_chart + the existing kinds; P3 matching; P4 mcq_multi).
 _MARKER_TO_TYPE: dict[str, tuple[str, str]] = {
+    "keep_change":           ("keep_change",             "keep_change"),
     "flow_chart":            ("dictation_gap_fill",     "flow_chart_completion"),
     "flow_chart_completion": ("dictation_gap_fill",     "flow_chart_completion"),
     "form_completion":       ("dictation_gap_fill",     "form_completion"),
@@ -636,6 +637,12 @@ _TABLE_CELL_GAP_RE = re.compile(
 _NUM_DOT_PROMPT_RE = re.compile(
     r"^\s*\*\*(\d{1,2})\.\*\*\s+(.+?)\s*$",
     re.MULTILINE,
+)
+
+# Printed values must be on the numbered line; an empty item cannot consume
+# the next line as its value through the shared prompt pattern's whitespace.
+_KEEP_CHANGE_ITEM_RE = re.compile(
+    r"^[ \t]*\*\*(\d{1,2})\.\*\*[ \t]+(\S[^\n]*?)[ \t]*$", re.MULTILINE,
 )
 
 # MCQ nested option line: "   - **A** option text." / "- **B** ..."
@@ -1233,6 +1240,11 @@ def _extract_questions(
         return _extract_plan_label(body, in_range)
     if q_type == "dictation_short_answer":
         return _extract_short_answer(body, in_range)
+    if q_type == "keep_change":
+        return [{"q_num": int(m.group(1)), "prompt": m.group(2).strip(),
+                 "printed_value": m.group(2).strip(), "q_type": "keep_change"}
+                for m in _KEEP_CHANGE_ITEM_RE.finditer(body)
+                if in_range(int(m.group(1)))]
     # All gap_fill variants — try multiple shapes (form bullet, table
     # cell, plain numeric, inline-summary).
     return _extract_gap_fill(body, in_range)
@@ -1469,6 +1481,7 @@ def _parse_answer_table(table_text: str) -> list[dict[str, Any]]:
 
 
 _Q_TYPE_TO_EXERCISE: dict[str, str] = {
+    "keep_change":            "dictation",
     "dictation_gap_fill":     "dictation",
     "dictation_short_answer": "dictation",
     "mcq_3option":            "mcq",
@@ -1503,6 +1516,8 @@ def build_exercises(
                 entry["options"] = q["options"]
             if q.get("variant"):
                 entry["variant"] = q["variant"]
+            if "printed_value" in q:
+                entry["printed_value"] = q["printed_value"]
             payload_questions.append(entry)
             if q["q_num"] in answer_by_q:
                 payload_answers.append(answer_by_q[q["q_num"]])

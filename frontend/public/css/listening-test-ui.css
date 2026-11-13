@@ -170,3 +170,18 @@
   .ft-sticky,
   .ft-control-btn { scroll-behavior: auto; transition: none; }
 }
+.listening-keep-change fieldset {
+  min-width: 0;
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid var(--av-border-default);
+  border-radius: 0.5rem;
+  overflow-wrap: anywhere;
+}
+.listening-keep-change legend { max-width: 100%; }
+.listening-keep-change-choices { display: flex; flex-wrap: wrap; gap: 1rem; }
+.listening-keep-change-choices label { display: flex; align-items: center; min-height: 44px; gap: 0.5rem; cursor: pointer; }
+.listening-keep-change input[type="radio"] { accent-color: var(--av-primary); }
+.listening-keep-change input[type="text"],
+.listening-keep-change input:not([type]) { display: block; width: 100%; max-width: 100%; min-width: 0; min-height: 44px; box-sizing: border-box; }
+.listening-keep-change input:disabled { opacity: 0.5; }

@@ -15,6 +15,7 @@ import {
   listeningDictationHref,
   listeningInlineTokens,
   listeningInstructionParts,
+  listeningKeepChangeAnswer,
   listeningLibraryHref,
   listeningQuestions,
   listeningRendererHref,
@@ -322,6 +323,27 @@ function FlowChartTemplate({ payload, answers, onAnswer }: {
   </div>;
 }
 
+function KeepChangeTemplate({ questions, answers, onAnswer }: {
+  questions: any[]; answers: AnswerMap; onAnswer(q: number, v: string): void;
+}) {
+  return <div className="listening-keep-change">{questions.map((question) => {
+    const qNum = Number(question.q_num);
+    const answer = listeningKeepChangeAnswer(answers.get(qNum));
+    return <fieldset key={qNum} id={`q-${qNum}`} data-q-num={qNum}>
+      <legend><span className="ielts-question-num">{qNum}</span> <InlineText text={question.printed_value ?? question.prompt} /></legend>
+      <div className="listening-keep-change-choices">{['KEEP', 'CHANGE'].map((choice) => <label key={choice}>
+        <input type="radio" name={`keep-change-${qNum}`} value={choice} checked={answer.choice === choice}
+          aria-label={`${choice} — Question ${qNum}`}
+          onChange={() => onAnswer(qNum, choice === 'KEEP' ? 'KEEP' : 'CHANGE: ')} /> {choice}
+      </label>)}</div>
+      <label htmlFor={`keep-change-text-${qNum}`}>Corrected value — Question {qNum}</label>
+      <input type="text" id={`keep-change-text-${qNum}`} className="ft-q-input" data-q-num={qNum}
+        autoComplete="off" spellCheck={false} disabled={answer.choice !== 'CHANGE'} required={answer.choice === 'CHANGE'}
+        value={answer.text} onChange={(event) => onAnswer(qNum, `CHANGE: ${event.target.value}`)} />
+    </fieldset>;
+  })}</div>;
+}
+
 function Exercise({ exercise, answers, saveStates, onAnswer }: {
   exercise: any; answers: AnswerMap; saveStates: SaveMap; onAnswer(q: number, v: string): void;
 }) {
@@ -332,7 +354,8 @@ function Exercise({ exercise, answers, saveStates, onAnswer }: {
   const first = Number(questions[0]?.q_num || 0);
   const last = Number(questions.at(-1)?.q_num || first);
   let content: ReactNode;
-  if (kind === 'form_completion' && Array.isArray(template.rows)) content = <FormTemplate template={template} answers={answers} onAnswer={onAnswer} />;
+  if (kind === 'keep_change') content = <KeepChangeTemplate questions={questions} answers={answers} onAnswer={onAnswer} />;
+  else if (kind === 'form_completion' && Array.isArray(template.rows)) content = <FormTemplate template={template} answers={answers} onAnswer={onAnswer} />;
   else if (kind === 'table_completion' && Array.isArray(template.rows)) content = <TableTemplate template={template} answers={answers} onAnswer={onAnswer} />;
   else if (kind === 'notes_completion' && Array.isArray(template.groups)) content = <NotesTemplate template={template} answers={answers} onAnswer={onAnswer} />;
   else if (kind === 'summary_completion') content = <SummaryTemplate template={template} questions={questions} answers={answers} onAnswer={onAnswer} />;
