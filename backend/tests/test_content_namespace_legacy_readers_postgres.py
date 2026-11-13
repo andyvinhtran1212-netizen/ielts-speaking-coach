@@ -109,6 +109,22 @@ UPDATE public.mock_exams SET listening_test_id=NULL WHERE code='historical-hidde
 DO $$ BEGIN
     PERFORM pg_temp.assert_true((SELECT listening_test_id IS NULL FROM public.mock_exams WHERE code='historical-hidden'), 'historical unlink preserved');
 END $$;
+CREATE OR REPLACE FUNCTION public.fn_mock_admission_contract_active() RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public,pg_temp AS 'SELECT true';
+DO $$ BEGIN
+    PERFORM pg_temp.expect_state($s$INSERT INTO public.mock_exams(code,listening_test_id)
+        VALUES('blocked-active','00000000-0000-0000-0000-000000000001')$s$, 'P0001');
+END $$;
+INSERT INTO public.mock_exams(id,code,listening_test_id,status,active_section,listening_started_at) VALUES
+ ('20000000-0000-0000-0000-000000000002','ordinary-live','00000000-0000-0000-0000-000000000002','published','listening',now());
+INSERT INTO public.mock_exam_sittings(id,mock_exam_id,user_id) VALUES
+ ('30000000-0000-0000-0000-000000000002','20000000-0000-0000-0000-000000000002','90000000-0000-0000-0000-000000000002');
+DO $$ DECLARE receipt jsonb; BEGIN
+    receipt := public.fn_admit_mock_paper_attempt('listening','00000000-0000-0000-0000-000000000002',
+        '90000000-0000-0000-0000-000000000002','30000000-0000-0000-0000-000000000002');
+    PERFORM pg_temp.assert_true(receipt->>'mock_sitting_id'='30000000-0000-0000-0000-000000000002'
+        AND receipt->>'attempt_purpose'='mock_delivery' AND receipt->>'attempt_id' IS NOT NULL, 'ordinary mock admission preserved');
+END $$;
 """)
 
 
@@ -140,5 +156,75 @@ DO $$ DECLARE f regprocedure; BEGIN
             AND NOT has_function_privilege('authenticated',f,'EXECUTE'), 'writer client ACL');
         PERFORM pg_temp.expect_state('SELECT '||f::text, '0A000');
     END LOOP;
+END $$;
+""")
+
+
+def test_additional_reader_rollback_refuses_config_and_acl_drift_atomically():
+    down = migration("rollback/" + MB).replace("BEGIN;", "", 1).rsplit("COMMIT;", 1)[0]
+    with local_pg17("legacy-rollback-drift") as pg:
+        pg.psql(bootstrap() + migration(MA) + migration(MB) + """
+DO $probe$ DECLARE routine regprocedure; BEGIN
+    FOREACH routine IN ARRAY ARRAY[
+        'public.fn_mock_public_practice_allowed(text,uuid)'::regprocedure,
+        'public.fn_admit_mock_paper_attempt(text,uuid,uuid,uuid,text)'::regprocedure,
+        'public.fn_guard_owned_mock_attempt(text,jsonb,text)'::regprocedure,
+        'public.fn_inspect_mock_paper_policy(text,uuid)'::regprocedure,
+        'public.fn_guard_mock_paper_reference()'::regprocedure] LOOP
+        EXECUTE format('ALTER FUNCTION %s SET search_path=public,pg_temp',routine);
+        PERFORM pg_temp.expect_state($down$""" + down + """$down$, '55000');
+        EXECUTE format('ALTER FUNCTION %s SET search_path=pg_catalog,pg_temp',routine);
+        EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO authenticated',routine);
+        PERFORM pg_temp.expect_state($down$""" + down + """$down$, '55000');
+        EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM authenticated',routine);
+        PERFORM pg_temp.assert_true(public.fn_content_namespace_ready(), 'failed rollback kept namespace catalog intact');
+        PERFORM pg_temp.assert_true((SELECT proconfig=ARRAY['search_path=pg_catalog, pg_temp'] FROM pg_proc
+            WHERE oid='public.fn_admin_exam_content_levels(text)'::regprocedure), 'failed rollback kept other functions installed');
+    END LOOP;
+END $probe$;
+""")
+
+
+def test_reader_namespace_checks_hold_the_canonical_paper_lock():
+    # A runtime spy fails if classification occurs before the same advisory
+    # lock that serializes paper changes. Each probe is its own transaction.
+    with local_pg17("legacy-reader-locks") as pg:
+        pg.psql(bootstrap() + migration(MA) + migration(MB) + """
+INSERT INTO public.listening_tests(id,test_id,metadata) VALUES
+ ('00000000-0000-0000-0000-000000000001','locked-hidden','{"blackeye":{}}');
+INSERT INTO public.listening_test_attempts(id,test_id,status) VALUES
+ ('10000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001','submitted');
+CREATE OR REPLACE FUNCTION public.fn_content_is_restricted(p_kind text,p_id uuid)
+RETURNS boolean LANGUAGE plpgsql STABLE SECURITY INVOKER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE paper_id uuid; flag boolean; lock_key bigint;
+BEGIN
+    IF p_kind='attempt' THEN
+        SELECT a.test_id,a.restricted INTO paper_id,flag FROM public.listening_test_attempts a WHERE a.id=p_id;
+    ELSE
+        SELECT t.id,t.restricted INTO paper_id,flag FROM public.listening_tests t WHERE t.id=p_id;
+    END IF;
+    lock_key := pg_catalog.hashtextextended('mock-paper:listening:'||paper_id::text,0);
+    IF NOT EXISTS(SELECT 1 FROM pg_catalog.pg_locks WHERE pid=pg_catalog.pg_backend_pid() AND locktype='advisory'
+        AND classid::bigint=((lock_key >> 32) & 4294967295) AND objid::bigint=(lock_key & 4294967295)
+        AND objsubid=1 AND granted AND mode='ExclusiveLock') THEN
+        RAISE EXCEPTION 'namespace guard checked without the canonical paper lock' USING ERRCODE='55000';
+    END IF;
+    RETURN COALESCE(flag,true);
+END $$;
+DO $$ BEGIN
+    PERFORM pg_temp.assert_true(NOT public.fn_mock_public_practice_allowed('listening','00000000-0000-0000-0000-000000000001'), 'practice flag checked under lock');
+END $$;
+DO $$ BEGIN
+    PERFORM pg_temp.expect_state($s$SELECT public.fn_admit_mock_paper_attempt('listening','00000000-0000-0000-0000-000000000001',NULL,NULL)$s$, 'P0001');
+END $$;
+DO $$ BEGIN
+    PERFORM pg_temp.expect_state($s$SELECT public.fn_inspect_mock_paper_policy('listening','00000000-0000-0000-0000-000000000001')$s$, 'P0001');
+END $$;
+DO $$ DECLARE attempt jsonb; BEGIN
+    SELECT to_jsonb(a) INTO attempt FROM public.listening_test_attempts a WHERE id='10000000-0000-0000-0000-000000000001';
+    PERFORM pg_temp.expect_state(format('SELECT public.fn_guard_owned_mock_attempt(''listening'',%L,''review'')',attempt), 'P0001');
+END $$;
+DO $$ BEGIN
+    PERFORM pg_temp.expect_state($s$INSERT INTO public.mock_exams(code,listening_test_id) VALUES('blocked-lock','00000000-0000-0000-0000-000000000001')$s$, 'P0001');
 END $$;
 """)

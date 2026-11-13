@@ -43,7 +43,7 @@ $$;
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc AS p WHERE p.oid = 'public.fn_mock_public_practice_allowed(text,uuid)'::pg_catalog.regprocedure
-        AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc, 'UTF8')), 'hex') = '5f37c19a6ce55310a86def0e6ebed917dcc584f9e65b2e80a0598f0a15291366'
+        AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc, 'UTF8')), 'hex') = '98bbc1f0a9c78f1ac967c38c3f91f1aa6cff9b2689896d87fdb3d7f4386cc31b'
         AND p.proowner = 'postgres'::pg_catalog.regrole AND p.prosecdef AND p.provolatile = 'v'
         AND p.proconfig = ARRAY['search_path=pg_catalog, pg_temp']
         AND pg_catalog.has_function_privilege('service_role', p.oid, 'EXECUTE'))
@@ -88,7 +88,7 @@ $$;
 
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc AS p WHERE p.oid = 'public.fn_admit_mock_paper_attempt(text,uuid,uuid,uuid,text)'::pg_catalog.regprocedure
-        AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc, 'UTF8')), 'hex') = '3cdb099823a0611d30de6456de4f8c73071d770f5cfb61a3fd19090831dfd4f4'
+        AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc, 'UTF8')), 'hex') = '1e7e76b8cb8f97e8632035abc24c9b3af5b41e6b99bb108a21deb19507e670fb'
         AND p.proowner = 'postgres'::pg_catalog.regrole AND p.prosecdef AND p.provolatile = 'v'
         AND p.proconfig = ARRAY['search_path=pg_catalog, pg_temp']
         AND pg_catalog.has_function_privilege('service_role', p.oid, 'EXECUTE'))
@@ -167,7 +167,7 @@ END $$;
 
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc AS p WHERE p.oid = 'public.fn_guard_owned_mock_attempt(text,jsonb,text)'::pg_catalog.regprocedure
-        AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc, 'UTF8')), 'hex') = '92e5c36eff07bc5c16af4ad433c8dac9f264a9a61a2fbce18b2d1b22ede1ef4f'
+        AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc, 'UTF8')), 'hex') = '39558bf96d9b4884b8a2d6671cbde95c37327bfd21965ded30b0aaecec2609f2'
         AND p.proowner = 'postgres'::pg_catalog.regrole AND p.prosecdef AND p.provolatile = 'v'
         AND p.proconfig = ARRAY['search_path=pg_catalog, pg_temp']
         AND pg_catalog.has_function_privilege('service_role', p.oid, 'EXECUTE'))
@@ -253,7 +253,7 @@ END $$;
 
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc AS p WHERE p.oid = 'public.fn_inspect_mock_paper_policy(text,uuid)'::pg_catalog.regprocedure
-        AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc, 'UTF8')), 'hex') = 'db0224be91ba9fd21e033ac5df34aa3a458edd441d4847e5bc05e250268b9d63'
+        AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc, 'UTF8')), 'hex') = '76259f20732efed24c10514a4dfa96dcb55b3fb08a276878dd99031f6a4cc3c5'
         AND p.proowner = 'postgres'::pg_catalog.regrole AND p.prosecdef AND p.provolatile = 'v'
         AND p.proconfig = ARRAY['search_path=pg_catalog, pg_temp']
         AND pg_catalog.has_function_privilege('service_role', p.oid, 'EXECUTE'))
@@ -298,7 +298,7 @@ END $$;
 
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc AS p WHERE p.oid = 'public.fn_guard_mock_paper_reference()'::pg_catalog.regprocedure
-        AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc, 'UTF8')), 'hex') = 'a35f2041784c40c44fadd9640473f16222197fd910e0c49b24c851e887c33a96'
+        AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc, 'UTF8')), 'hex') = 'c6562fdbd02536c045bd1baa85bfb39cee129e31be166f79e0b0261a82e89d77'
         AND p.proowner = 'postgres'::pg_catalog.regrole AND p.prosecdef AND p.provolatile = 'v'
         AND p.proconfig = ARRAY['search_path=pg_catalog, pg_temp']
         AND pg_catalog.has_function_privilege('service_role', p.oid, 'EXECUTE'))

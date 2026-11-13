@@ -250,10 +250,10 @@ CREATE OR REPLACE FUNCTION public.fn_admit_mock_paper_attempt(
 RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, pg_temp AS $$
 DECLARE paper JSONB; sitting JSONB; exam JSONB; attempt JSONB; v_id UUID; existing UUID; v_started TIMESTAMPTZ;
 BEGIN
+    PERFORM public.fn_lock_mock_paper(p_skill,p_test_id);
     IF p_skill = 'listening' AND public.fn_content_is_restricted('listening', p_test_id) THEN
         PERFORM public.fn_mock_paper_error('admission','paper_not_ready',p_skill,p_test_id,NULL);
     END IF;
-    PERFORM public.fn_lock_mock_paper(p_skill,p_test_id);
     paper:=public.fn_mock_paper_row(p_skill,p_test_id);
     SELECT to_jsonb(s) INTO sitting FROM public.mock_exam_sittings s WHERE id=p_sitting_id AND user_id=p_user_id FOR UPDATE NOWAIT;
     SELECT to_jsonb(m) INTO exam FROM public.mock_exams m WHERE id=(sitting->>'mock_exam_id')::UUID FOR UPDATE NOWAIT;
@@ -300,7 +300,7 @@ EXCEPTION WHEN deadlock_detected OR lock_not_available THEN
 END $$;
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc AS p WHERE p.oid = 'public.fn_admit_mock_paper_attempt(text,uuid,uuid,uuid,text)'::pg_catalog.regprocedure
-        AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc, 'UTF8')), 'hex') = '3cdb099823a0611d30de6456de4f8c73071d770f5cfb61a3fd19090831dfd4f4'
+        AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc, 'UTF8')), 'hex') = '1e7e76b8cb8f97e8632035abc24c9b3af5b41e6b99bb108a21deb19507e670fb'
         AND p.proowner = 'postgres'::pg_catalog.regrole AND p.prosecdef AND p.provolatile = 'v'
         AND p.proconfig = ARRAY['search_path=pg_catalog, pg_temp']
         AND pg_catalog.has_function_privilege('service_role', p.oid, 'EXECUTE'))
@@ -332,10 +332,10 @@ CREATE OR REPLACE FUNCTION public.fn_guard_owned_mock_attempt(p_skill TEXT,p_att
 RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, pg_temp AS $$
 DECLARE v JSONB; d JSONB; decision JSONB; sitting JSONB; exam JSONB; pinned JSONB; live_refs JSONB; pinned_refs JSONB;
 BEGIN
+    PERFORM public.fn_lock_mock_paper(p_skill,(p_attempt->>'test_id')::UUID);
     IF p_skill = 'listening' AND public.fn_content_is_restricted('attempt', (p_attempt->>'id')::UUID) THEN
         PERFORM public.fn_mock_paper_error(p_purpose,'invalid_resume',p_skill,(p_attempt->>'test_id')::UUID,NULL);
     END IF;
-    PERFORM public.fn_lock_mock_paper(p_skill,(p_attempt->>'test_id')::UUID);
     IF p_attempt->>'status'='submitted' AND p_purpose IN ('flags_read','review') THEN
         RETURN jsonb_build_object('allowed',TRUE);
     END IF;
@@ -390,7 +390,7 @@ BEGIN
 END $$;
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc AS p WHERE p.oid = 'public.fn_guard_owned_mock_attempt(text,jsonb,text)'::pg_catalog.regprocedure
-        AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc, 'UTF8')), 'hex') = '92e5c36eff07bc5c16af4ad433c8dac9f264a9a61a2fbce18b2d1b22ede1ef4f'
+        AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc, 'UTF8')), 'hex') = '39558bf96d9b4884b8a2d6671cbde95c37327bfd21965ded30b0aaecec2609f2'
         AND p.proowner = 'postgres'::pg_catalog.regrole AND p.prosecdef AND p.provolatile = 'v'
         AND p.proconfig = ARRAY['search_path=pg_catalog, pg_temp']
         AND pg_catalog.has_function_privilege('service_role', p.oid, 'EXECUTE'))
@@ -422,10 +422,10 @@ CREATE OR REPLACE FUNCTION public.fn_inspect_mock_paper_policy(p_skill TEXT,p_te
 RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, pg_temp AS $$
 DECLARE v JSONB; d JSONB; snapshots JSONB;
 BEGIN
+    PERFORM public.fn_lock_mock_paper(p_skill,p_test_id);
     IF p_skill = 'listening' AND public.fn_content_is_restricted('listening', p_test_id) THEN
         RAISE EXCEPTION 'public_test_not_found';
     END IF;
-    PERFORM public.fn_lock_mock_paper(p_skill,p_test_id);
     v:=public.fn_mock_paper_row(p_skill,p_test_id);
     IF v IS NULL THEN RAISE EXCEPTION 'public_test_not_found'; END IF;
     d:=public.fn_mock_paper_dependencies(p_skill,p_test_id);
@@ -439,7 +439,7 @@ BEGIN
 END $$;
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc AS p WHERE p.oid = 'public.fn_inspect_mock_paper_policy(text,uuid)'::pg_catalog.regprocedure
-        AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc, 'UTF8')), 'hex') = 'db0224be91ba9fd21e033ac5df34aa3a458edd441d4847e5bc05e250268b9d63'
+        AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc, 'UTF8')), 'hex') = '76259f20732efed24c10514a4dfa96dcb55b3fb08a276878dd99031f6a4cc3c5'
         AND p.proowner = 'postgres'::pg_catalog.regrole AND p.prosecdef AND p.provolatile = 'v'
         AND p.proconfig = ARRAY['search_path=pg_catalog, pg_temp']
         AND pg_catalog.has_function_privilege('service_role', p.oid, 'EXECUTE'))
@@ -473,6 +473,27 @@ DECLARE old_row JSONB:=CASE WHEN TG_OP='INSERT' THEN '{}'::JSONB ELSE to_jsonb(O
         new_row JSONB:=CASE WHEN TG_OP='DELETE' THEN '{}'::JSONB ELSE to_jsonb(NEW) END;
         refs JSONB:='[]'; x RECORD; paper JSONB; parent JSONB; v_new BOOLEAN; v_protected BOOLEAN;
 BEGIN
+    IF TG_TABLE_NAME IN ('mock_exams','mock_exam_sittings','mock_exam_assignments') THEN
+        IF TG_TABLE_NAME='mock_exams' THEN
+            refs:=jsonb_build_array(jsonb_build_object('kind','reading','id',old_row->>'reading_test_id'),
+                jsonb_build_object('kind','listening','id',old_row->>'listening_test_id'),
+                jsonb_build_object('kind','reading','id',new_row->>'reading_test_id'),
+                jsonb_build_object('kind','listening','id',new_row->>'listening_test_id'));
+        ELSE
+            FOR x IN SELECT to_jsonb(m) row FROM public.mock_exams m
+                WHERE m.id IN (NULLIF(old_row->>CASE WHEN TG_TABLE_NAME='mock_exam_sittings' THEN 'mock_exam_id' ELSE 'exam_id' END,'')::UUID,
+                               NULLIF(new_row->>CASE WHEN TG_TABLE_NAME='mock_exam_sittings' THEN 'mock_exam_id' ELSE 'exam_id' END,'')::UUID) LOOP
+                refs:=refs||jsonb_build_array(jsonb_build_object('kind','reading','id',x.row->>'reading_test_id'),
+                    jsonb_build_object('kind','listening','id',x.row->>'listening_test_id'));
+            END LOOP;
+        END IF;
+    ELSIF TG_TABLE_NAME='class_assignments' THEN
+        refs:=jsonb_build_array(jsonb_build_object('kind',old_row->>'skill','id',old_row->>'content_id'),
+            jsonb_build_object('kind',new_row->>'skill','id',new_row->>'content_id'));
+    END IF;
+    FOR x IN SELECT DISTINCT item->>'kind' kind,item->>'id' id FROM jsonb_array_elements(refs) item
+        WHERE item->>'kind' IN ('reading','listening') AND item->>'id' IS NOT NULL
+        ORDER BY kind,id LOOP PERFORM public.fn_lock_mock_paper(x.kind,x.id::UUID); END LOOP;
     -- Namespace binding is enforced even in the additive 306 phase. Existing
     -- references may still be finalized/unlinked; only new bindings are denied.
     IF TG_OP <> 'DELETE' THEN
@@ -503,27 +524,6 @@ BEGIN
         IF TG_OP='DELETE' THEN RETURN OLD; END IF;
         RETURN NEW;
     END IF;
-    IF TG_TABLE_NAME IN ('mock_exams','mock_exam_sittings','mock_exam_assignments') THEN
-        IF TG_TABLE_NAME='mock_exams' THEN
-            refs:=jsonb_build_array(jsonb_build_object('kind','reading','id',old_row->>'reading_test_id'),
-                jsonb_build_object('kind','listening','id',old_row->>'listening_test_id'),
-                jsonb_build_object('kind','reading','id',new_row->>'reading_test_id'),
-                jsonb_build_object('kind','listening','id',new_row->>'listening_test_id'));
-        ELSE
-            FOR x IN SELECT to_jsonb(m) row FROM public.mock_exams m
-                WHERE m.id IN (NULLIF(old_row->>CASE WHEN TG_TABLE_NAME='mock_exam_sittings' THEN 'mock_exam_id' ELSE 'exam_id' END,'')::UUID,
-                               NULLIF(new_row->>CASE WHEN TG_TABLE_NAME='mock_exam_sittings' THEN 'mock_exam_id' ELSE 'exam_id' END,'')::UUID) LOOP
-                refs:=refs||jsonb_build_array(jsonb_build_object('kind','reading','id',x.row->>'reading_test_id'),
-                    jsonb_build_object('kind','listening','id',x.row->>'listening_test_id'));
-            END LOOP;
-        END IF;
-    ELSIF TG_TABLE_NAME='class_assignments' THEN
-        refs:=jsonb_build_array(jsonb_build_object('kind',old_row->>'skill','id',old_row->>'content_id'),
-            jsonb_build_object('kind',new_row->>'skill','id',new_row->>'content_id'));
-    END IF;
-    FOR x IN SELECT DISTINCT item->>'kind' kind,item->>'id' id FROM jsonb_array_elements(refs) item
-        WHERE item->>'kind' IN ('reading','listening') AND item->>'id' IS NOT NULL
-        ORDER BY kind,id LOOP PERFORM public.fn_lock_mock_paper(x.kind,x.id::UUID); END LOOP;
     IF TG_TABLE_NAME='mock_exam_sittings' AND TG_OP='UPDATE' THEN
         IF (old_row->>'reading_attempt_id' IS NOT NULL AND new_row->>'reading_attempt_id' IS DISTINCT FROM old_row->>'reading_attempt_id')
            OR (old_row->>'listening_attempt_id' IS NOT NULL AND new_row->>'listening_attempt_id' IS DISTINCT FROM old_row->>'listening_attempt_id') THEN
@@ -575,7 +575,7 @@ BEGIN
 END $$;
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc AS p WHERE p.oid = 'public.fn_guard_mock_paper_reference()'::pg_catalog.regprocedure
-        AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc, 'UTF8')), 'hex') = 'a35f2041784c40c44fadd9640473f16222197fd910e0c49b24c851e887c33a96'
+        AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc, 'UTF8')), 'hex') = 'c6562fdbd02536c045bd1baa85bfb39cee129e31be166f79e0b0261a82e89d77'
         AND p.proowner = 'postgres'::pg_catalog.regrole AND p.prosecdef AND p.provolatile = 'v'
         AND p.proconfig = ARRAY['search_path=pg_catalog, pg_temp']
         AND pg_catalog.has_function_privilege('service_role', p.oid, 'EXECUTE'))
@@ -613,8 +613,9 @@ DECLARE v JSONB; d JSONB;
 BEGIN
     -- This predicate is generic practice only. Dedicated 376 admission keeps
     -- using fn_mock_paper_row and its own identity/binding checks unchanged.
-    IF p_skill = 'listening' AND public.fn_content_is_restricted('listening', p_id) THEN RETURN FALSE; END IF;
+    IF p_skill = 'listening' AND p_id IS NULL THEN RETURN FALSE; END IF;
     PERFORM public.fn_lock_mock_paper(p_skill,p_id);
+    IF p_skill = 'listening' AND public.fn_content_is_restricted('listening', p_id) THEN RETURN FALSE; END IF;
     v:=public.fn_mock_paper_row(p_skill,p_id);
     IF v IS NULL OR v->>'status'<>'published' OR NOT COALESCE((v->>'is_public')::BOOLEAN,FALSE) THEN RETURN FALSE; END IF;
     d:=public.fn_mock_paper_dependencies(p_skill,p_id);
@@ -625,7 +626,7 @@ END $$;
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc AS p WHERE p.oid = 'public.fn_mock_public_practice_allowed(text,uuid)'::pg_catalog.regprocedure
-        AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc, 'UTF8')), 'hex') = '5f37c19a6ce55310a86def0e6ebed917dcc584f9e65b2e80a0598f0a15291366'
+        AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc, 'UTF8')), 'hex') = '98bbc1f0a9c78f1ac967c38c3f91f1aa6cff9b2689896d87fdb3d7f4386cc31b'
         AND p.proowner = 'postgres'::pg_catalog.regrole AND p.prosecdef AND p.provolatile = 'v'
         AND p.proconfig = ARRAY['search_path=pg_catalog, pg_temp']
         AND pg_catalog.has_function_privilege('service_role', p.oid, 'EXECUTE'))
