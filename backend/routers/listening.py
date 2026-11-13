@@ -9305,6 +9305,8 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
             "expected":      g.get("expected") or "",
             "question_type": type_by_q.get(q),
             "prompt":        prompt_by_q.get(q),
+            **({"printed_value": (source_questions_by_q.get(q) or {}).get("printed_value", prompt_by_q.get(q))}
+               if type_by_q.get(q) == "keep_change" else {}),
             "audio_window":  win,                       # {start,end,section} — absolute (full) / section-relative (mini)
             "section":       (win or {}).get("section"),
             "transcript_anchor": anchors_by_q.get(solution_q),

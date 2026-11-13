@@ -455,6 +455,7 @@ function restoreAnswersIntoPaper() {
     });
   }
   restoreMultiSelectGroups();
+  document.querySelectorAll('.listening-keep-change fieldset').forEach(syncKeepChangeControls);
   updateAnsweredCount();
   renderProgressTracker();
 }
@@ -738,6 +739,8 @@ function onProgressSquareClick(qNum, sectionNum) {
   // the hidden→visible toggle has flushed.
   setTimeout(() => {
     const input = document.querySelector(
+      `#ft-paper [data-kc-q="${qNum}"] input[type="radio"]`,
+    ) || document.querySelector(
       `#ft-paper .ft-q-input[data-q-num="${qNum}"]`,
     );
     if (!input) return;
@@ -797,6 +800,7 @@ function renderExercise(ex) {
       // is a prompt + text gap (graded as text via answer_matches, unchanged).
       case 'flow_chart_completion': return renderShortAnswer(questions);
       case 'short_answer':        return renderShortAnswer(questions);
+      case 'keep_change':         return renderKeepChange(questions);
       case 'mcq_3option':         return renderMCQ(questions);
       case 'mcq_multi':           return renderMultiSelect(payload, questions);
       case 'matching':            return renderMatching(payload, questions);
@@ -1259,6 +1263,28 @@ function gapInput(qNum) {
                  autocomplete="off" spellcheck="false" />`;
 }
 
+function renderKeepChange(questions) {
+  return `<div class="listening-keep-change">${questions.map((q) => `
+    <fieldset data-kc-q="${esc(q.q_num)}"><legend>${esc(q.q_num)}. ${mdInline(q.printed_value ?? q.prompt)}</legend>
+      <input type="hidden" class="ft-q-input" data-q-num="${esc(q.q_num)}" />
+      <div class="listening-keep-change-choices">${['KEEP', 'CHANGE'].map((choice) => `
+        <label><input type="radio" name="keep-change-${esc(q.q_num)}" value="${choice}" aria-label="${choice} — Question ${esc(q.q_num)}" /> ${choice}</label>`).join('')}</div>
+      <label for="keep-change-text-${esc(q.q_num)}">Corrected value — Question ${esc(q.q_num)}</label>
+      <input type="text" id="keep-change-text-${esc(q.q_num)}" data-kc-text disabled autocomplete="off" spellcheck="false" />
+    </fieldset>`).join('')}</div>`;
+}
+
+function syncKeepChangeControls(group) {
+  const raw = group.querySelector('.ft-q-input').value.trim();
+  const change = /^CHANGE:\s*([\s\S]*)$/i.exec(raw);
+  const choice = raw.toUpperCase() === 'KEEP' ? 'KEEP' : change ? 'CHANGE' : '';
+  group.querySelectorAll('input[type="radio"]').forEach((input) => { input.checked = input.value === choice; });
+  const input = group.querySelector('[data-kc-text]');
+  input.disabled = choice !== 'CHANGE';
+  input.required = choice === 'CHANGE';
+  input.value = change ? change[1] : '';
+}
+
 
 function attachQuestionHandlers() {
   const inputs = document.querySelectorAll('.ft-q-input');
@@ -1267,6 +1293,19 @@ function attachQuestionHandlers() {
     el.addEventListener('change', () => onAnswerChange(el));
   });
   attachMultiSelectHandlers();
+  document.querySelectorAll('.listening-keep-change fieldset').forEach((group) => {
+    const saved = group.querySelector('.ft-q-input');
+    const text = group.querySelector('[data-kc-text]');
+    group.querySelectorAll('input[type="radio"]').forEach((radio) => radio.addEventListener('change', () => {
+      saved.value = radio.value === 'KEEP' ? 'KEEP' : 'CHANGE: ';
+      syncKeepChangeControls(group);
+      onAnswerChange(saved);
+    }));
+    text.addEventListener('input', () => {
+      saved.value = `CHANGE: ${text.value}`;
+      onAnswerChange(saved);
+    });
+  });
 }
 
 // A2 (P4) — a multi-select checkbox group: enforce the N-pick soft-lock and map

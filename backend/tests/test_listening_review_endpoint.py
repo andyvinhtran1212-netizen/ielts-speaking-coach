@@ -121,6 +121,31 @@ def test_review_joins_window_and_solution_per_question(monkeypatch):
     assert out["sections"][0]["section_num"] == 1
 
 
+@pytest.mark.parametrize("self_check", [False, True])
+def test_keep_change_review_joins_printed_value_and_correction(monkeypatch, self_check):
+    attempt = deepcopy(_ATTEMPT_SUBMITTED)
+    if self_check:
+        attempt["grading_details"][0].update(self_check=True, correct=None, alternatives=["Harbour"])
+    _patch(monkeypatch, attempt)
+    db = _DB(attempt)
+    exercises = deepcopy(_EXERCISES)
+    payload = exercises[0]["payload"]
+    payload["variant"] = payload["template_kind"] = "keep_change"
+    payload["questions"][0]["printed_value"] = "Cedar Avenue."
+    db._d["listening_exercises"] = exercises
+    monkeypatch.setattr(L, "supabase_admin", db)
+    out = _run(L.get_listening_test_attempt_review("att-1", authorization="x"))
+    item = ListeningAttemptReviewResponse.model_validate(out).review[0].model_dump()
+    assert item["question_type"] == "keep_change"
+    assert item["printed_value"] == "Cedar Avenue."
+    assert item["user_answer"] == "Brighton"
+    assert item["expected"] == "Brighton"
+    if self_check:
+        assert item["self_check"] is True and item["correct"] is None
+        assert item["alternatives"] == ["Harbour"]
+        assert out["max_score"] == 1
+
+
 def test_review_409_when_not_submitted(monkeypatch):
     in_progress = dict(_ATTEMPT_SUBMITTED, status="in_progress")
     _patch(monkeypatch, in_progress)
