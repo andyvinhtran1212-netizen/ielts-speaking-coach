@@ -23,6 +23,7 @@ BEGIN
         WHERE p.oid IN ('public.fn_admin_exam_content_page_ids(text,text,uuid,boolean,boolean,text,text,integer,integer)'::pg_catalog.regprocedure, 'public.fn_admin_exam_content_levels(text)'::pg_catalog.regprocedure)
           AND (acl.grantee NOT IN (p.proowner, 'service_role'::pg_catalog.regrole) OR acl.privilege_type <> 'EXECUTE' OR acl.is_grantable))
     OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_class AS c WHERE c.oid = 'public.listening_public_practice_catalog'::pg_catalog.regclass
+                    AND c.relowner = 'postgres'::pg_catalog.regrole
                     AND c.reloptions @> ARRAY['security_barrier=true'] AND pg_catalog.has_table_privilege('service_role',c.oid,'SELECT'))
     OR EXISTS (SELECT 1 FROM pg_catalog.pg_class AS c
         CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(c.relacl, pg_catalog.acldefault('r', c.relowner))) AS acl
@@ -260,6 +261,7 @@ BEGIN
         WHERE p.oid IN ('public.fn_admin_exam_content_page_ids(text,text,uuid,boolean,boolean,text,text,integer,integer)'::pg_catalog.regprocedure, 'public.fn_admin_exam_content_levels(text)'::pg_catalog.regprocedure)
           AND (acl.grantee NOT IN (p.proowner, 'service_role'::pg_catalog.regrole) OR acl.privilege_type <> 'EXECUTE' OR acl.is_grantable))
     OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_class AS c WHERE c.oid = 'public.listening_public_practice_catalog'::pg_catalog.regclass
+                    AND c.relowner = 'postgres'::pg_catalog.regrole
                     AND c.reloptions @> ARRAY['security_barrier=true'] AND pg_catalog.has_table_privilege('service_role',c.oid,'SELECT'))
     OR EXISTS (SELECT 1 FROM pg_catalog.pg_class AS c
         CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(c.relacl, pg_catalog.acldefault('r', c.relowner))) AS acl
