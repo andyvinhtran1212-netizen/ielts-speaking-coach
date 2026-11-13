@@ -47,7 +47,8 @@ class DB:
         self.calls.append(name)
         if name in {"reading_passages", "reading_questions", "listening_content", "listening_exercises"}:
             raise AssertionError("mutable player rows read after admission")
-        return Query(self.tables.get(name, []))
+        from namespace_query_double import source_rows
+        return Query(source_rows(self.tables, name))
     def rpc(self, name, params):
         if name == "fn_resolve_mock_paper_access":
             assert params["p_user_id"] == U

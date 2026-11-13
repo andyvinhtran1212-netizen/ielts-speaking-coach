@@ -677,8 +677,7 @@ def hidden_assignment_ids(db, *, cohort_id=None):
     ids, offset = [], 0
     try:
         while True:
-            query = db.table("class_assignments").select("id,skill,content_id,content_config").eq(
-                "skill", "listening")
+            query = db.table("class_assignments").select("id,skill,content_id,content_config")
             if cohort_id is not None:
                 query = query.eq("cohort_id", cohort_id)
             rows = query.order("id").range(offset, offset + 999).execute().data or []

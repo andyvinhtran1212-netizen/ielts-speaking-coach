@@ -166,7 +166,9 @@ def test_serialized_player_boundary_uses_native_blocks_without_answers_or_signed
     monkeypatch.setattr(listening, '_student_audio_url_for_test', lambda _: ('/authorized.mp3', None, 90))
     monkeypatch.setattr(listening, '_sign_programme_visual_url', lambda _: pytest.fail('No PDF crop signing'))
     class Query:
-        def __init__(self, table): self.table = table; self.filters = []
+        def __init__(self, table):
+            from namespace_query_double import source_table
+            self.table = source_table(table); self.filters = []
         def select(self, *_): return self
         def eq(self, key, value): self.filters.append((key, value)); return self
         def in_(self, *_): return self

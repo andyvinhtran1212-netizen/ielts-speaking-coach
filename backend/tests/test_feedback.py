@@ -76,7 +76,7 @@ class _DB:
                         "restricted": False}] if self._test_id else [])
         if table == "reading_passages":
             return _R([{"id": "p-uuid"}] if self._passage_exists else [])
-        if table == "listening_content":
+        if table in {"listening_content", "v_listening_content_public"}:
             return _R([{"id": filters.get("id"), "test_id": None, "metadata": {}}] if self._content_exists else [])
         if table == "user_feedback":
             if op == "insert":

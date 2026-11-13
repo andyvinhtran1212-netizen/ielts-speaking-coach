@@ -82,7 +82,8 @@ class _FakeTableQuery:
     def execute(self):
         if self._insert is not None:
             return _FakeRes([self._insert])
-        rows = self._parent.canned.get(self._table, [])
+        from namespace_query_double import source_rows
+        rows = source_rows(self._parent.canned, self._table)
         for col, val in self._filters:
             rows = [r for r in rows if r.get(col) == val]
         for col, val in self._filters_neq:

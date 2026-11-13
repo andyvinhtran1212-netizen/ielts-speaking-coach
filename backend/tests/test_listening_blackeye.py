@@ -418,7 +418,8 @@ def test_n2_t12_generic_http_receipts_remain_unchanged(env, monkeypatch):
     p = env.p
     a = env.db.freeze(p)
     p.update(programme_id="general-listening-practice", metadata={}, full_audio_storage_path="fixture.wav",
-             title="Generic synthetic", test_type="full")
+             title="Generic synthetic", test_type="full", restricted=False)
+    a["restricted"] = False
     # Freeze needs only Black Eye material in its own tests; here use a generic
     # attempt double, and never manufacture a Black Eye snapshot.
     env.db.rows["mock_paper_attempt_snapshots"] = []

@@ -14,6 +14,21 @@ from test_listening_blackeye import env
 from test_listening_blackeye_guard_identity import admin_env
 
 
+@pytest.fixture
+def strict_namespace_env(env, monkeypatch):
+    """Model WHERE restricted IS FALSE, without legacy fixture defaults."""
+    import test_listening_blackeye as fixtures
+    from namespace_query_double import VIEW_TABLES, source_table
+    original = fixtures.source_rows
+    def rows(tables, name):
+        if name in VIEW_TABLES:
+            return [row for row in tables.get(source_table(name), [])
+                    if row.get("restricted") is False]
+        return original(tables, name)
+    monkeypatch.setattr(fixtures, "source_rows", rows)
+    return env
+
+
 def _assignment_db(tables):
     from test_class_archive_learner_reads import _Db, _Q
     from blackeye_query_double import matches_blackeye_filter
@@ -308,6 +323,208 @@ def test_admin_by_id_routes_deny_before_payload_or_mutation(admin_env, method, p
     assert e.db.rpcs == []
 
 
+@pytest.mark.parametrize("method,path,table,body", [
+    ("patch", "/content/{id}", "listening_content", {"title": "Changed"}),
+    ("patch", "/content/{id}/status", "listening_content", {"status": "published"}),
+    ("patch", "/tests/{id}", "listening_tests", {"title": "Changed"}),
+    ("patch", "/tests/{id}/status", "listening_tests", {"status": "published"}),
+    ("patch", "/tests/{id}/audit", "listening_tests", {"expected_updated_at": "2026-11-13T00:00:00Z"}),
+    ("patch", "/tests/{id}/audio/mode", "listening_tests", {"mode": "parts_only"}),
+    ("post", "/tests/{id}/audit/run", "listening_tests", {}),
+    ("post", "/tests/{id}/audio/assemble", "listening_tests", {}),
+    ("post", "/drills/{id}/publish", "listening_tests", {}),
+    ("post", "/exercises", "listening_content", {"content_id": "{id}"}),
+    ("patch", "/exercises/{id}/questions/1", "listening_content", {}),
+])
+@pytest.mark.parametrize("state", [True, None, "absent", "missing_row"])
+def test_admin_write_http_checks_flag_before_payload_provider_or_mutation(
+    admin_env, method, path, table, body, state,
+):
+    e = admin_env
+    target = str(uuid4())
+    row = {"id": target, "test_id": None, "metadata": {}}
+    if state not in {"absent", "missing_row"}:
+        row["restricted"] = state
+    if state != "missing_row":
+        e.db.rows[table].append(row)
+    if path.startswith("/exercises/{id}"):
+        content_id, target = target, str(uuid4())
+        e.db.rows["listening_exercises"].append({"id": target, "content_id": content_id})
+    payload = {key: target if value == "{id}" else value for key, value in body.items()}
+    response = e.client.request(method, "/admin/listening" + path.format(id=target), json=payload)
+    assert response.status_code == 404, response.text
+    assert response.headers["cache-control"] == "private, no-store"
+    assert all(cols in {"id,restricted", "id,content_id"} and patch is None
+               for _, cols, patch in e.db.calls)
+    assert e.db.rpcs == []
+
+
+@pytest.mark.parametrize("skill", ["speaking", "grammar", "course", "reading"])
+@pytest.mark.parametrize("config", [None, {}, {"blackeye": None}, "malformed"])
+def test_non_listening_assignment_without_programme_needs_no_registry(skill, config):
+    from types import SimpleNamespace
+    from services import listening_blackeye
+    def forbidden(_):
+        pytest.fail("unrelated assignment must not depend on Listening registry IO")
+    row = {"id": "assignment", "skill": skill, "content_config": config}
+    visible = listening_blackeye.generic_assignments(SimpleNamespace(table=forbidden), [row])
+    assert visible == ([row] if config is None or config == {} else [])
+
+
+@pytest.mark.parametrize("skill", ["listening", "speaking", "grammar", "course", "reading"])
+def test_assignment_programme_registry_applies_to_every_skill(admin_env, skill):
+    from services import listening_blackeye
+    e = admin_env
+    e.db.rows["content_access_namespaces"].append({"programme_id": "future-book", "scope": "assignment_only"})
+    row = {"id": "assignment", "skill": skill, "content_config": {"programme_id": "future-book"}}
+    assert listening_blackeye.generic_assignments(e.db, [row]) == []
+    assert e.db.calls == [("content_access_namespaces", "programme_id", None)]
+
+
+@pytest.mark.parametrize("action", ["publish", "archive"])
+@pytest.mark.parametrize("state", [True, None, "absent", "registry", "missing_package"])
+def test_package_write_http_uses_registry_and_all_child_flags(admin_env, action, state):
+    e = admin_env
+    package = {"id": str(uuid4()), "package_id": "synthetic-package", "programme_id": "future-book"}
+    if state == "registry":
+        e.db.rows["content_access_namespaces"].append({"programme_id": "future-book", "scope": "assignment_only"})
+    if state != "missing_package":
+        e.db.rows["listening_content_packages"].append(package)
+    child = {"id": str(uuid4()), "content_package_id": package["id"]}
+    if state != "absent":
+        child["restricted"] = state if state in (True, None) else False
+    e.db.rows["listening_tests"].append(child)
+    response = e.client.post(f'/admin/listening/packages/{package["package_id"]}/{action}',
+                             json={"manifest_sha256": "a" * 64})
+    assert response.status_code == 404, response.text
+    assert response.headers["cache-control"] == "private, no-store"
+    assert all(patch is None for _, _, patch in e.db.calls)
+    assert e.db.rpcs == []
+    if state in {"registry", "missing_package"}:
+        assert all(table != "listening_tests" for table, _, _ in e.db.calls)
+
+
+@pytest.mark.parametrize("route", ["content", "boot", "exercises", "attempt_content", "attempt_exercise"])
+@pytest.mark.parametrize("state", [True, None, "absent"])
+def test_learner_content_http_uses_sticky_flags_after_legacy_guard(strict_namespace_env, route, state):
+    e = strict_namespace_env
+    target, exercise = str(uuid4()), str(uuid4())
+    row = {"id": target, "test_id": None, "metadata": {}, "status": "published",
+           "transcript": "PRIVATE-STICKY-TRANSCRIPT", "audio_storage_path": "private.wav"}
+    if state != "absent":
+        row["restricted"] = state
+    e.db.rows["listening_content"] = [row]
+    e.db.rows["listening_exercises"] = [{"id": exercise, "content_id": target, "status": "published",
+                                         "exercise_type": "dictation", "payload": {"answers": ["PRIVATE"]}}]
+    if route.startswith("attempt_"):
+        response = e.client.post('/api/listening/attempts', json={"mode": "dictation",
+            "content_id" if route == "attempt_content" else "exercise_id": target if route == "attempt_content" else exercise})
+    else:
+        path = (f'/content/{target}' if route == "content" else f'/dictation/{target}/boot' if route == "boot"
+                else f'/exercises?content_id={target}&exercise_type=dictation')
+        response = e.client.get('/api/listening' + path)
+    assert response.status_code == 404, response.text
+    assert response.headers["cache-control"] == "private, no-store"
+    assert "PRIVATE" not in response.text
+    assert any(table == "v_listening_content_public" for table, _, _ in e.db.calls)
+    assert all(patch is None and cols != "*" for _, cols, patch in e.db.calls)
+    assert e.db.rpcs == []
+
+
+@pytest.mark.parametrize("method,path,body", [
+    ("get", "", None), ("get", "/review", None), ("post", "/submit", None),
+    ("patch", "/answers", {"q_num": 1, "user_answer": "synthetic"}),
+    ("post", "/check", {"q_num": 1, "user_answer": "synthetic"}),
+    ("get", "/guided-state", None), ("post", "/questions/1/reveal", None),
+    ("post", "/playback-started", {"playback_claim_id": str(uuid4())}),
+    ("post", "/renderer-affinity", {"renderer_affinity": "next"}),
+])
+@pytest.mark.parametrize("state", [True, None, "absent"])
+@pytest.mark.parametrize("foreign", [False, True])
+def test_shared_attempt_http_denies_other_namespaces_before_private_payload(
+    strict_namespace_env, method, path, body, state, foreign,
+):
+    e = strict_namespace_env
+    attempt_id, test_id = str(uuid4()), str(uuid4())
+    row = {"id": attempt_id, "test_id": test_id, "user_id": str(uuid4()) if foreign else e.actor["id"],
+           "paper_revision": None, "scoring_policy": "diagnostic", "status": "in_progress",
+           "answers": [{"user_answer": "PRIVATE-STICKY-ANSWER"}], "grading_details": ["PRIVATE"]}
+    if state != "absent":
+        row["restricted"] = state
+    e.db.rows["listening_test_attempts"] = [row]
+    e.db.rows["listening_tests"] = [{"id": test_id, "restricted": False, "programme_id": "ielts", "metadata": {}}]
+    kwargs = {"json": body} if body is not None else {}
+    response = e.client.request(method, f'/api/listening/tests/attempts/{attempt_id}{path}', **kwargs)
+    assert response.status_code == 404, response.text
+    assert response.headers["cache-control"] == "private, no-store"
+    assert "PRIVATE" not in response.text
+    assert all(patch is None for _, _, patch in e.db.calls)
+    assert all(cols != "*" for table, cols, _ in e.db.calls
+               if table in {"listening_test_attempts", "mock_paper_attempt_snapshots"})
+    assert e.db.rpcs == []
+
+
+@pytest.mark.parametrize("method,path,body", [
+    ("get", "/tests/{id}", None),
+    ("get", "/tests/{id}/dictation", None),
+    ("get", "/tests/{id}/attempts/in-progress", None),
+    ("post", "/tests/{id}/attempts", {}),
+    ("get", "/tests/{id}/practice-windows", None),
+    ("get", "/tests/{id}/dictation/attempts/in-progress?section_num=1", None),
+    ("post", "/tests/{id}/dictation/attempts?section_num=1", {}),
+    ("post", "/tests/dictation/grade", {"test_id": "{id}", "section_num": 1, "sentence_idx": 0}),
+    ("post", "/tests/dictation/session", {"test_id": "{id}", "section_num": 1,
+                                          "sentences": [{"sentence_idx": 0, "user_transcript": "synthetic"}]}),
+    ("post", "/tests/dictation/flag", {"test_id": "{id}", "section_num": 1, "sentence_idx": 0, "note": "synthetic"}),
+])
+@pytest.mark.parametrize("state", [True, None, "absent"])
+def test_learner_test_http_excludes_other_namespaces_before_delivery(
+    strict_namespace_env, method, path, body, state,
+):
+    e = strict_namespace_env
+    target = str(uuid4())
+    row = {"id": target, "status": "published", "programme_id": "future-book", "metadata": {},
+           "test_type": "practice", "scoring_policy": "diagnostic", "is_public": True}
+    if state != "absent":
+        row["restricted"] = state
+    e.db.rows["listening_tests"] = [row]
+    kwargs = {} if body is None else {"json": {key: target if value == "{id}" else value
+                                              for key, value in body.items()}}
+    response = e.client.request(method, "/api/listening" + path.format(id=target), **kwargs)
+    assert response.status_code == 404, response.text
+    assert response.headers["cache-control"] == "private, no-store"
+    assert e.db.rpcs == []
+    assert all(patch is None and cols != "*" for table, cols, patch in e.db.calls
+               if table != "v_listening_tests_public")
+    assert all(table not in {"listening_content", "listening_exercises", "mock_paper_attempt_snapshots"}
+               for table, _, _ in e.db.calls)
+
+
+@pytest.mark.parametrize("path,body", [
+    ("renderer-affinity", {"renderer_affinity": "next"}),
+    ("sentences/0", {"user_transcript": "synthetic"}),
+])
+@pytest.mark.parametrize("state", [True, None, "absent"])
+def test_dictation_attempt_http_checks_parent_namespace_before_frozen_units(
+    strict_namespace_env, path, body, state,
+):
+    e = strict_namespace_env
+    target, parent = str(uuid4()), str(uuid4())
+    test = {"id": parent, "programme_id": "future-book", "metadata": {}}
+    if state != "absent":
+        test["restricted"] = state
+    e.db.rows["listening_tests"] = [test]
+    e.db.rows["dictation_attempts"] = [{"id": target, "user_id": e.actor["id"], "test_id": parent,
+                                       "units_snapshot": ["PRIVATE-REFERENCE"], "status": "in_progress"}]
+    response = e.client.post(f'/api/listening/tests/dictation/attempts/{target}/{path}', json=body)
+    assert response.status_code == 404, response.text
+    assert response.headers["cache-control"] == "private, no-store"
+    assert "PRIVATE" not in response.text
+    assert e.db.calls == [("dictation_attempts", "id,test_id", None),
+                          ("v_listening_tests_public", "id", None)]
+    assert e.db.rpcs == []
+
+
 @pytest.mark.parametrize("path,body", [
     ("post-test-capture", {"items": []}),
     ("items/1/events", {"event_id": str(uuid4()), "event_name": "correction_result_seen"}),
@@ -419,15 +636,18 @@ def test_student_assignment_start_rejects_before_open_or_paper(env, monkeypatch,
     assert e.db.rpcs == []
 
 
-def test_student_assignment_list_and_progress_share_namespace_filter(env, monkeypatch):
+@pytest.mark.parametrize("skill", ["listening", "course", "speaking", "grammar"])
+def test_student_assignment_list_and_progress_share_namespace_filter(env, monkeypatch, skill):
     from routers import class_student
     e = env
     e.app.include_router(class_student.router)
     db = _assignment_db({
         "content_access_namespaces": [{"programme_id": "next-book", "scope": "assignment_only"}],
         "listening_tests": [{"id": "public", "restricted": False}, {"id": "hidden", "restricted": True}],
-        "class_assignments": [dict(id=target, skill="listening", content_id=target, cohort_id="cohort",
-            status="published", title=target, content_config={}) for target in ("public", "hidden", "missing")],
+        "class_assignments": [dict(id=target, skill=skill, content_id=target, cohort_id="cohort",
+            status="published", title=target,
+            content_config={"programme_id": "next-book"} if skill != "listening" and target != "public" else {})
+            for target in ("public", "hidden", "missing")],
         "class_assignment_items": [dict(id=f"item-{target}", student_id="student", assignment_id=target,
             state="assigned", submitted_at=None) for target in ("public", "hidden", "missing")],
     })
@@ -446,14 +666,17 @@ def test_student_assignment_list_and_progress_share_namespace_filter(env, monkey
         assert class_student._progress_summary(rows)["total"] == 1
 
 
-def test_student_history_excludes_namespace_before_history_cap(env, monkeypatch):
+@pytest.mark.parametrize("skill", ["listening", "course"])
+def test_student_history_excludes_namespace_before_history_cap(env, monkeypatch, skill):
     from routers import class_student
     from datetime import datetime, timezone
     db = _assignment_db({
-        "content_access_namespaces": [],
+        "content_access_namespaces": [{"programme_id": "next-book", "scope": "assignment_only"}],
         "listening_tests": [dict(id=target, restricted=target == "hidden") for target in ("public", "hidden")],
-        "class_assignments": [dict(id=target, skill="listening", content_id=target, cohort_id="cohort",
-            status="published", title=target, content_config={}) for target in ("public", "hidden")],
+        "class_assignments": [dict(id=target, skill=skill, content_id=target, cohort_id="cohort",
+            status="published", title=target,
+            content_config={"programme_id": "next-book"} if skill == "course" and target == "hidden" else {})
+            for target in ("public", "hidden")],
         "class_assignment_items": [dict(id=f"item-{target}-{n}", student_id="student", assignment_id=target,
             state="submitted", submitted_at="2026-11-01T00:00:00Z")
             for target, count in (("hidden", 201), ("public", 200)) for n in range(count)],

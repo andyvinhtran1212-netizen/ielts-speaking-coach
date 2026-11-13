@@ -199,6 +199,10 @@ def _resolve_practice_ref(skill: str, passage_slug: str | None, content_id: str 
         raise HTTPException(422, "content_id must be a UUID")
     from services.listening_blackeye import guard_generic_content
     guard_generic_content(supabase_admin, cid, denied_detail="Content not found")
+    from services.content_visibility import public_content
+    rows = public_content(supabase_admin).select("id").eq("id", cid).limit(1).execute().data or []
+    if not rows:
+        raise HTTPException(404, "Content not found", headers={"Cache-Control": "private, no-store"})
     return f"exercise:{cid}"
 
 

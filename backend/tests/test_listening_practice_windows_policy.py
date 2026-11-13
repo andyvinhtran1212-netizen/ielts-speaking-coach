@@ -20,7 +20,8 @@ class PolicyDB:
                       "scoring_policy": "diagnostic", "metadata": {}}
 
     def table(self, name):
-        assert name == "listening_tests", "content payload was queried before purpose authorization"
+        from namespace_query_double import source_table
+        assert source_table(name) == "listening_tests", "content payload was queried before purpose authorization"
         return self
 
     def select(self, *_args): return self

@@ -64,7 +64,9 @@ class _Q:
     def in_(self, *a, **k): return self
     def order(self, *a, **k): return self
     def limit(self, *a, **k): return self
-    def execute(self): return type("R", (), {"data": self._db.get(self._t, [])})()
+    def execute(self):
+        from namespace_query_double import source_rows
+        return type("R", (), {"data": source_rows(self._db, self._t)})()
 
 
 class _Signer:

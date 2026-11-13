@@ -421,7 +421,8 @@ class _FakeTableQuery:
             return _FakeRes([self._insert])
         if self._update is not None:
             return _FakeRes([self._update])
-        rows = list(self._parent.canned.get(self._table, []))
+        from namespace_query_double import source_rows
+        rows = list(source_rows(self._parent.canned, self._table))
         for col, val in self._filters:
             rows = [r for r in rows if r.get(col) == val]
         if self._order:

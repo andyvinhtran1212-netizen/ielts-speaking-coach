@@ -74,7 +74,8 @@ def boundary(monkeypatch):
                     'listening_exercises': [{'content_id': 'section', 'status': db.exercise_status, 'payload': db.payload}],
                     'listening_programme_feedback_reveals': [{'attempt_id': str(ATTEMPT), 'q_num': 1, 'first_answer': db.answers[0]['user_answer'],
                         'revealed_at': '2026-10-01T01:00:00Z'}]}
-            selected = deepcopy(rows[self.name])
+            from namespace_query_double import source_rows
+            selected = deepcopy(source_rows(rows, self.name))
             for kind, column, value in self.filters:
                 selected = [row for row in selected if (row.get(column) == value if kind == 'eq' else row.get(column) in value)]
             if self.order_column: selected.sort(key=lambda row: row[self.order_column])

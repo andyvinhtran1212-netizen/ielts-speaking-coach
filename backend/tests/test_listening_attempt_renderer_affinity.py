@@ -78,7 +78,7 @@ class _Table:
         return self
 
     def execute(self):
-        if self.name == "listening_tests" and self.operation == "select":
+        if self.name in {"listening_tests", "v_listening_tests_public"} and self.operation == "select":
             return _Result([{
                 "id": "22222222-2222-4222-8222-222222222222",
                 "status": "published",

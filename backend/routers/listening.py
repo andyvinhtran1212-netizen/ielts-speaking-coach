@@ -733,7 +733,7 @@ def _fetch_published_listening_content_with_signed_url(content_id: str) -> dict:
         denied_detail="Listening content not found or not published", hidden_status=422,
         direct_parent_first=True)
     res = (
-        supabase_admin.table("listening_content")
+        public_content(supabase_admin)
         .select(",".join((*_STUDENT_LISTENING_CONTENT_FIELDS,
                           "audio_storage_path,status,test_id")))
         .eq("id", content_id)
@@ -742,7 +742,8 @@ def _fetch_published_listening_content_with_signed_url(content_id: str) -> dict:
         .execute()
     )
     if not res.data:
-        raise HTTPException(404, "Listening content not found or not published")
+        raise HTTPException(404, "Listening content not found or not published",
+                            headers={"Cache-Control": "private, no-store"})
 
     row = res.data[0]
     safe = {field: row.get(field) for field in _STUDENT_LISTENING_CONTENT_FIELDS}
@@ -809,7 +810,7 @@ def _fetch_published_exercises_for_student(
     # Keep the publication check behind identity classification on every
     # learner exercise surface, including the direct /exercises route.
     content = (
-        supabase_admin.table("listening_content")
+        public_content(supabase_admin)
         .select("id,status,audio_duration_seconds")
         .eq("id", content_id)
         .eq("status", "published")
@@ -1050,6 +1051,14 @@ def _resolve_attempt_target(
         denied_detail="Listening content not found or not published", hidden_status=422,
         direct_parent_first=True)
 
+    # Keep the #2281 provenance/F1 guard above, then require the persisted
+    # namespace before any exercise payload read or lazy exercise creation.
+    visible = (public_content(supabase_admin).select("id")
+               .eq("id", content_id).limit(1).execute().data or [])
+    if not visible:
+        raise HTTPException(404, "Listening content not found or not published",
+                            headers={"Cache-Control": "private, no-store"})
+
     if body.exercise_id:
         res = (
             supabase_admin.table("listening_exercises")
@@ -1074,7 +1083,7 @@ def _resolve_attempt_target(
             )
 
     content_res = (
-        supabase_admin.table("listening_content")
+        public_content(supabase_admin)
         .select("id,transcript,status")
         .eq("id", content_id)
         .eq("status", "published")
@@ -6085,6 +6094,13 @@ def _assert_listening_exam_content_allowed(
     "forbidden" would confirm the test id is real.
     """
     from services.mock_paper_policy import authorize
+    # The dedicated Black Eye branches run before this generic policy path.
+    # A public/class/mock entitlement cannot reopen another namespace.
+    visible = (public_tests(supabase_admin).select("id")
+               .eq("id", str(test["id"])).limit(1).execute().data or [])
+    if not visible:
+        raise HTTPException(404, "Test bundle not found",
+                            headers={"Cache-Control": "private, no-store"})
     return authorize(supabase_admin, "listening", test["id"], user_id,
         purpose=purpose if allow_public else "dictation", class_item_id=class_item,
         sitting_id=sitting_id, allow_admission=allow_admission)
@@ -6111,7 +6127,7 @@ def _assemble_listening_player_payload(test: dict, *, include_audio: bool = True
         raw_exercises = [exercise for exercise in raw_exercises if not _is_standalone_authoring_exercise(exercise)]
     else:
         section_rows = (
-            supabase_admin.table("listening_content")
+            public_content(supabase_admin)
             .select("id,section_num,title,transcript,metadata")
             .eq("test_id", test_id).order("section_num").execute().data or []
         )
@@ -6292,9 +6308,12 @@ async def get_published_listening_test(
     """
     _user = await _require_auth(authorization)
     test_id = str(test_id)
-
+    target = await run_in_threadpool(blackeye.test_identity, supabase_admin, test_id, missing_status=None)
+    if blackeye.is_blackeye(target):
+        await run_in_threadpool(blackeye.require_published, supabase_admin, target)
+        raise HTTPException(503, "Black Eye player contract unavailable.")
     res = (
-        supabase_admin.table("listening_tests")
+        public_tests(supabase_admin)
         .select("*")
         .eq("id", test_id)
         .eq("status", "published")
@@ -6302,11 +6321,9 @@ async def get_published_listening_test(
         .execute()
     )
     if not res.data:
-        raise HTTPException(404, "Test bundle not found or not published")
+        raise HTTPException(404, "Test bundle not found or not published",
+                            headers={"Cache-Control": "private, no-store"})
     test = res.data[0]
-    if blackeye.is_blackeye(test):
-        await run_in_threadpool(blackeye.require_published, supabase_admin, test)
-        raise HTTPException(503, "Black Eye player contract unavailable.")
     free_drill = test.get("test_type") == "drill" and test.get("is_public") and not class_item and not sitting_id
     # The generic delivery resolver considers all open class and public
     # attempts when no class_item is passed. Select the public scope
@@ -6427,9 +6444,11 @@ async def get_listening_test_dictation(
     reading the answers during a graded attempt.
     """
     _user = await _require_auth(authorization)
-
+    target = await run_in_threadpool(blackeye.test_identity, supabase_admin, test_id, missing_status=None)
+    if blackeye.is_blackeye(target):
+        raise HTTPException(422, "Black Eye dictation requires separate release.")
     res = (
-        supabase_admin.table("listening_tests")
+        public_tests(supabase_admin)
         .select("*")
         .eq("id", test_id)
         .eq("status", "published")
@@ -6437,10 +6456,9 @@ async def get_listening_test_dictation(
         .execute()
     )
     if not res.data:
-        raise HTTPException(404, "Test bundle not found or not published")
+        raise HTTPException(404, "Test bundle not found or not published",
+                            headers={"Cache-Control": "private, no-store"})
     test = res.data[0]
-    if blackeye.is_blackeye(test):
-        raise HTTPException(422, "Black Eye dictation requires separate release.")
     _assert_listening_exam_content_allowed(test, _user.get("id"), allow_public=False)
 
     config = None
@@ -6579,15 +6597,17 @@ def _published_test_for_dictation(test_id: str, user_id=None) -> dict:
     column the query never fetched is always None. That exact mistake shipped
     four times in this feature.
     """
+    target = blackeye.test_identity(supabase_admin, test_id, missing_status=None)
+    if blackeye.is_blackeye(target):
+        raise HTTPException(422, "Black Eye dictation requires separate release.")
     res = (
-        supabase_admin.table("listening_tests")
+        public_tests(supabase_admin)
         .select("id,test_id,title,status,exam_only,is_public,public_practice_enabled,programme_id,metadata")
         .eq("id", test_id).eq("status", "published").limit(1).execute()
     )
     if not res.data:
-        raise HTTPException(404, "Test bundle not found or not published")
-    if blackeye.is_blackeye(res.data[0]):
-        raise HTTPException(422, "Black Eye dictation requires separate release.")
+        raise HTTPException(404, "Test bundle not found or not published",
+                            headers={"Cache-Control": "private, no-store"})
     _assert_listening_exam_content_allowed(res.data[0], user_id, allow_public=False)
     return res.data[0]
 
@@ -6685,6 +6705,12 @@ def _dictation_attempt_or_404(
     *,
     require_in_progress: bool = False,
 ) -> dict:
+    identity = (supabase_admin.table("dictation_attempts").select("id,test_id")
+                .eq("id", attempt_id).eq("user_id", user_id).limit(1).execute().data or [])
+    visible = (public_tests(supabase_admin).select("id")
+               .eq("id", identity[0].get("test_id")).limit(1).execute().data or []) if identity else []
+    if not visible:
+        raise HTTPException(404, "Không tìm thấy lượt chép chính tả.", headers={"Cache-Control": "private, no-store"})
     res = (
         supabase_admin.table("dictation_attempts").select("*")
         .eq("id", attempt_id).eq("user_id", user_id).limit(1).execute()
@@ -7832,8 +7858,15 @@ async def get_in_progress_listening_attempt(
         state = await run_in_threadpool(blackeye.state, supabase_admin, rows[0])
         return JSONResponse({"attempt": jsonable_encoder(state)},
                             headers={"Cache-Control": "private, no-store"})
+    # Generic resume must not return a sticky restricted attempt, even after
+    # its live test has moved back into an ordinary programme.
+    namespace_query = public_tests(supabase_admin).select("id").eq("id", test_id).limit(1)
+    visible = (await run_in_threadpool(namespace_query.execute)).data or []
+    if not visible:
+        raise HTTPException(404, "Test bundle not found",
+                            headers={"Cache-Control": "private, no-store"})
     query = (
-        supabase_admin.table("listening_test_attempts")
+        public_attempts(supabase_admin)
         .select(
             "id, started_at, created_at, answers, renderer_affinity, "
             "resume_expires_at, status, playback_started_at,user_id,test_id,sitting_id,"
@@ -7925,18 +7958,10 @@ async def start_listening_test_attempt(
     if standalone and class_item:
         raise HTTPException(422, "standalone cannot be combined with class_item")
 
-    # Verify the test is published + has audio.
-    test_res = (
-        supabase_admin.table("listening_tests")
-        .select("id,status,exam_only,is_public,public_practice_enabled,full_audio_storage_path,"
-                "assembled_audio_storage_path,scoring_policy,content_package_id,test_type,programme_id,metadata")
-        .eq("id", test_id)
-        .limit(1)
-        .execute()
-    )
-    if not test_res.data or test_res.data[0].get("status") != "published":
+    # Classify the dedicated path without reading the generic player payload.
+    test_row = await run_in_threadpool(blackeye.test_identity, supabase_admin, test_id, missing_status=None)
+    if not test_row or test_row.get("status") != "published":
         raise HTTPException(404, "Test bundle not found or not published")
-    test_row = test_res.data[0]
     if blackeye.is_blackeye(test_row):
         # Reuse the trusted row; no second test read or generic assembler.
         result = await run_in_threadpool(blackeye.start, supabase_admin, test_row, user["id"], body.blackeye_binding if body else None,
@@ -7946,6 +7971,15 @@ async def start_listening_test_attempt(
         from fastapi.encoders import jsonable_encoder
         from starlette.responses import JSONResponse
         return JSONResponse(jsonable_encoder(result), headers={"Cache-Control": "private, no-store"})
+    test_query = (public_tests(supabase_admin)
+                  .select("id,status,exam_only,is_public,public_practice_enabled,full_audio_storage_path,"
+                          "assembled_audio_storage_path,scoring_policy,content_package_id,test_type,programme_id,metadata")
+                  .eq("id", test_id).limit(1))
+    test_rows = (await run_in_threadpool(test_query.execute)).data or []
+    if not test_rows:
+        raise HTTPException(404, "Test bundle not found or not published",
+                            headers={"Cache-Control": "private, no-store"})
+    test_row = test_rows[0]
     if body and body.blackeye_binding is not None:
         raise HTTPException(422, "Black Eye binding does not match target.")
     decision = _assert_listening_exam_content_allowed(test_row, user.get("id"), class_item,
@@ -8117,19 +8151,31 @@ async def start_listening_test_attempt(
     }
 
 
-def _fetch_attempt_or_404(attempt_id: str, user_id: str) -> dict:
+def _fetch_attempt_or_404(attempt_id: str, user_id: str, *, allow_blackeye=True) -> dict:
     res = (
-        supabase_admin.table("listening_test_attempts")
+        public_attempts(supabase_admin)
         .select("*")
         .eq("id", attempt_id)
         .eq("user_id", user_id)
         .limit(1)
         .execute()
     )
-    if not res.data:
+    if res.data:
+        return res.data[0]
+    if not allow_blackeye:
         raise HTTPException(404, "Attempt not found", headers={"Cache-Control": "private, no-store"})
-    row = res.data[0]
-    return row
+    # Shared routes retain the dedicated Black Eye classifier. Only an owned,
+    # positively classified dedicated attempt may bypass the generic view.
+    identity = (supabase_admin.table("listening_test_attempts")
+                .select("id,test_id,paper_revision,scoring_policy")
+                .eq("id", attempt_id).eq("user_id", user_id).limit(1).execute().data or [])
+    if len(identity) != 1 or not blackeye.attempt_is_blackeye(supabase_admin, identity[0]):
+        raise HTTPException(404, "Attempt not found", headers={"Cache-Control": "private, no-store"})
+    rows = (supabase_admin.table("listening_test_attempts").select("*")
+            .eq("id", attempt_id).eq("user_id", user_id).limit(1).execute().data or [])
+    if not rows:
+        raise HTTPException(404, "Attempt not found", headers={"Cache-Control": "private, no-store"})
+    return rows[0]
 
 
 class DrillPlaybackCheckpoint(BaseModel):
@@ -8169,8 +8215,8 @@ async def record_skill_drill_playback(
 
 def _record_skill_drill_playback(attempt_id: str, body: DrillPlaybackCheckpoint, user_id: str) -> None:
     from services.listening_drill_homework import drill_config
-    lookup = _fetch_attempt_or_404 if body.stage == "listening" else _dictation_attempt_or_404
-    attempt = lookup(attempt_id, user_id)
+    attempt = (_fetch_attempt_or_404(attempt_id, user_id, allow_blackeye=False)
+               if body.stage == "listening" else _dictation_attempt_or_404(attempt_id, user_id))
     item_id = attempt.get("class_assignment_item_id")
     if not item_id:
         raise HTTPException(404, "Lượt làm không thuộc bài luyện kỹ năng được giao.", headers={"Cache-Control": "private, no-store"})
@@ -9395,12 +9441,10 @@ async def get_listening_test_attempt_review(
     attempt_id = str(attempt_id)
     is_admin = await _is_admin(authorization)
     if is_admin:
-        res = supabase_admin.table("listening_test_attempts").select("*").eq(
+        res = public_attempts(supabase_admin).select("*").eq(
             "id", attempt_id,
         ).limit(1).execute()
-        if not res.data:
-            raise HTTPException(404, "Attempt not found", headers={"Cache-Control": "private, no-store"})
-        attempt = res.data[0]
+        attempt = res.data[0] if res.data else await run_in_threadpool(_fetch_attempt_or_404, attempt_id, user["id"])
     else:
         attempt = _fetch_attempt_or_404(attempt_id, user["id"])
     if attempt.get("user_id") != user["id"]:

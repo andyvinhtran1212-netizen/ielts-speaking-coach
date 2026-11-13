@@ -1201,11 +1201,12 @@ def test_skill_drill_checkpoint_throttle_uses_authenticated_user_bucket(monkeypa
 ])
 def test_drill_checkpoint_hides_foreign_attempt_and_rejects_finished_attempt(monkeypatch, stage, table):
     fake, _ = _patch(monkeypatch)
+    fake.tables["listening_tests"] = [{"id": "ordinary-test", "restricted": False}]
     fake.tables[table] = [
         {"id": "foreign", "user_id": "someone-else", "status": "in_progress",
-         "class_assignment_item_id": "item-1"},
+         "class_assignment_item_id": "item-1", "test_id": "ordinary-test"},
         {"id": "finished", "user_id": "user-1", "status": "completed",
-         "class_assignment_item_id": "item-1"},
+         "class_assignment_item_id": "item-1", "test_id": "ordinary-test"},
     ]
     body = listening_router.DrillPlaybackCheckpoint(
         stage=stage, page_id=uuid4(), plays=1, played_ms=1000)

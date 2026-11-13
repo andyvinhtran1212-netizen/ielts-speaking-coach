@@ -233,7 +233,8 @@ class _FakeTableQuery:
             for r in matched:
                 r.update(self._update)
             return _FakeRes(matched)
-        rows = list(self._parent.canned.get(self._table, []))
+        from namespace_query_double import source_rows
+        rows = list(source_rows(self._parent.canned, self._table))
         if (self._table == "listening_exercises" and self._parent.remove_after_identity_read
                 and self._parent.selects[-1] == (self._table, "id,content_id")):
             self._parent.canned[self._table] = []

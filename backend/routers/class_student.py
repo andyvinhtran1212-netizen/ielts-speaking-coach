@@ -596,7 +596,7 @@ def _visible_assignments(student: Dict[str, Any], now: datetime,
             if is_assignment_open(a, now=now):
                 by_id[a["id"]] = a
 
-    if any(a.get("skill") == "listening" for a in by_id.values()):
+    if by_id:
         by_id = {a["id"]: a for a in listening_blackeye.generic_assignments(
             supabase_admin, list(by_id.values()))}
 

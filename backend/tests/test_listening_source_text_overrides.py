@@ -137,7 +137,9 @@ def test_player_corrects_text_after_binding_native_to_the_original_questions(mon
     monkeypatch.setattr(listening, '_student_audio_url_for_test', lambda _: ('/authorized.mp3', None, 90))
     monkeypatch.setattr(listening, '_sign_programme_visual_url', lambda _: pytest.fail('No PDF crop signing'))
     class Query:
-        def __init__(self, table): self.table = table
+        def __init__(self, table):
+            from namespace_query_double import source_table
+            self.table = source_table(table)
         def select(self, *_): return self
         def eq(self, *_): return self
         def in_(self, *_): return self

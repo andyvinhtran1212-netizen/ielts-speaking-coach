@@ -485,7 +485,8 @@ class _PublishDB:
             def execute(self):
                 def field(row, key):
                     return (row.get("metadata") or {}).get("sync_owner") if key == "metadata->>sync_owner" else row.get(key)
-                result = [r for r in owner.rows[name] if all(field(r, k) == v for k, v in self.filters.items())]
+                from namespace_query_double import source_rows
+                result = [r for r in source_rows(owner.rows, name) if all(field(r, k) == v for k, v in self.filters.items())]
                 if self.update_value:
                     if name == "listening_exercises":
                         owner.exercise_update_count += 1
