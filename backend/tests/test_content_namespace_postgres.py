@@ -309,7 +309,12 @@ ALTER FUNCTION public.fn_admin_exam_content_page_ids(text,text,uuid,boolean,bool
 CREATE TEMP TABLE original_functions AS
 SELECT proname,prosrc,proconfig,proacl,proowner FROM pg_proc WHERE oid IN (
  'public.fn_admin_exam_content_page_ids(text,text,uuid,boolean,boolean,text,text,integer,integer)'::regprocedure,
- 'public.fn_admin_exam_content_levels(text)'::regprocedure);
+ 'public.fn_admin_exam_content_levels(text)'::regprocedure,
+ 'public.fn_mock_public_practice_allowed(text,uuid)'::regprocedure,
+ 'public.fn_admit_mock_paper_attempt(text,uuid,uuid,uuid,text)'::regprocedure,
+ 'public.fn_guard_owned_mock_attempt(text,jsonb,text)'::regprocedure,
+ 'public.fn_inspect_mock_paper_policy(text,uuid)'::regprocedure,
+ 'public.fn_guard_mock_paper_reference()'::regprocedure);
 """ + migration(MA) + migration(MB) + checks + down_b + down_a + """
 DO $$ BEGIN
     PERFORM pg_temp.assert_true(NOT EXISTS(SELECT 1 FROM original_functions o JOIN pg_proc p ON p.proname=o.proname

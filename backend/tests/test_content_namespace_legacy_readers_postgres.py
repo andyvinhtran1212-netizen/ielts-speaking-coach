@@ -7,6 +7,35 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public,pg_temp AS 'SELECT t
 """
 
 
+def test_practice_predicate_rejects_restricted_missing_and_null_without_breaking_reading():
+    with local_pg17("legacy-practice-predicate") as pg:
+        pg.psql(bootstrap() + """
+INSERT INTO public.listening_tests(id,test_id,is_public,metadata) VALUES
+ ('00000000-0000-0000-0000-000000000001','hidden-practice',true,'{"blackeye":{}}'),
+ ('00000000-0000-0000-0000-000000000002','ordinary-practice',true,'{}');
+INSERT INTO public.reading_tests(id,test_id,is_public) VALUES
+ ('00000000-0000-0000-0000-000000000003','ordinary-reading',true);
+DO $$ BEGIN
+    PERFORM pg_temp.assert_true(public.fn_mock_public_practice_allowed('listening','00000000-0000-0000-0000-000000000001'), 'old eligibility hole reproduced');
+END $$;
+""" + migration(MA) + migration(MB) + """
+DO $$ BEGIN
+    PERFORM pg_temp.assert_true(NOT public.fn_mock_public_practice_allowed('listening','00000000-0000-0000-0000-000000000001'), 'restricted eligibility false');
+    PERFORM pg_temp.assert_true(NOT public.fn_mock_public_practice_allowed('listening',gen_random_uuid()), 'missing eligibility false');
+    PERFORM pg_temp.assert_true(NOT public.fn_mock_public_practice_allowed('listening',NULL), 'null eligibility false');
+    PERFORM pg_temp.assert_true(public.fn_mock_public_practice_allowed('listening','00000000-0000-0000-0000-000000000002'), 'ordinary eligibility preserved');
+    PERFORM pg_temp.assert_true(public.fn_mock_public_practice_allowed('reading','00000000-0000-0000-0000-000000000003'), 'reading eligibility preserved');
+    PERFORM pg_temp.assert_true((SELECT count(*)=1 FROM public.reading_public_practice_catalog), 'shared Reading view preserved');
+    PERFORM pg_temp.assert_true((SELECT count(*)=1 FROM public.listening_public_practice_catalog), 'Listening view excludes restricted');
+END $$;
+SET ROLE service_role;
+DO $$ BEGIN
+    PERFORM pg_temp.assert_true(NOT public.fn_mock_public_practice_allowed('listening','00000000-0000-0000-0000-000000000001'), 'service RPC cannot admit generic restricted practice');
+END $$;
+RESET ROLE;
+""")
+
+
 def test_capture_and_attempt_guard_keep_restricted_snapshots_private():
     with local_pg17("legacy-capture-attempt") as pg:
         pg.psql(bootstrap() + migration("311_mock_submitted_parent_lifecycle.sql") + migration(MA) + migration(MB) + ACTIVE + """
@@ -35,6 +64,50 @@ DO $$ DECLARE f regprocedure; BEGIN
     END LOOP;
     PERFORM pg_temp.assert_true(NOT has_table_privilege('anon','public.mock_paper_attempt_snapshots','SELECT')
         AND NOT has_table_privilege('authenticated','public.mock_paper_attempt_snapshots','SELECT'), 'snapshot client ACL');
+END $$;
+""")
+
+
+def test_generic_admission_owned_review_inspection_and_new_links_fail_closed():
+    with local_pg17("legacy-boundaries") as pg:
+        pg.psql(bootstrap() + """
+INSERT INTO public.listening_tests(id,test_id,is_public,metadata) VALUES
+ ('00000000-0000-0000-0000-000000000001','hidden-boundary',true,'{"blackeye":{}}'),
+ ('00000000-0000-0000-0000-000000000002','ordinary-boundary',false,'{}');
+INSERT INTO public.listening_test_attempts(id,test_id,user_id,status) VALUES
+ ('10000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001',gen_random_uuid(),'submitted'),
+ ('10000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000002',gen_random_uuid(),'submitted');
+-- Preserve a historical binding to prove new sitting/assignment links are denied.
+INSERT INTO public.mock_exams(id,code,listening_test_id) VALUES
+ ('20000000-0000-0000-0000-000000000001','historical-hidden','00000000-0000-0000-0000-000000000001');
+""" + migration(MA) + migration(MB) + """
+DO $$ DECLARE id uuid; row jsonb; kind text; statement text; BEGIN
+    FOREACH id IN ARRAY ARRAY['00000000-0000-0000-0000-000000000001'::uuid,gen_random_uuid(),NULL::uuid] LOOP
+        PERFORM pg_temp.expect_state(format('SELECT public.fn_admit_mock_paper_attempt(''listening'',%L,NULL,NULL)',id), 'P0001');
+        PERFORM pg_temp.expect_state(format('SELECT public.fn_inspect_mock_paper_policy(''listening'',%L)',id), 'P0001');
+    END LOOP;
+    PERFORM pg_temp.assert_true(public.fn_inspect_mock_paper_policy('listening','00000000-0000-0000-0000-000000000002')->>'content_id'
+        ='00000000-0000-0000-0000-000000000002', 'ordinary policy inspection preserved');
+    SELECT to_jsonb(a) INTO row FROM public.listening_test_attempts a WHERE a.id='10000000-0000-0000-0000-000000000001';
+    PERFORM pg_temp.expect_state(format('SELECT public.fn_guard_owned_mock_attempt(''listening'',%L,''review'')',row), 'P0001');
+    PERFORM pg_temp.expect_state('SELECT public.fn_guard_owned_mock_attempt(''listening'',''{}'',''review'')', 'P0001');
+    SELECT to_jsonb(a) INTO row FROM public.listening_test_attempts a WHERE a.id='10000000-0000-0000-0000-000000000002';
+    PERFORM pg_temp.assert_true(public.fn_guard_owned_mock_attempt('listening',row,'review')->>'allowed'='true', 'ordinary submitted review preserved');
+    -- This guard must work BEFORE 308 activation as well as after it.
+    FOR statement IN SELECT unnest(ARRAY[
+        $s$INSERT INTO public.mock_exams(code,listening_test_id) VALUES('blocked','00000000-0000-0000-0000-000000000001')$s$,
+        $s$INSERT INTO public.mock_exam_sittings(mock_exam_id,user_id) VALUES('20000000-0000-0000-0000-000000000001',gen_random_uuid())$s$,
+        $s$INSERT INTO public.mock_exam_assignments(exam_id,skills) VALUES('20000000-0000-0000-0000-000000000001',ARRAY['listening'])$s$,
+        $s$INSERT INTO public.class_assignments(skill,content_id) VALUES('listening','00000000-0000-0000-0000-000000000001')$s$
+    ]) LOOP
+        PERFORM pg_temp.expect_state(statement, 'P0001');
+    END LOOP;
+    PERFORM pg_temp.assert_true((SELECT count(*)=1 FROM public.mock_exams), 'failed links left no writes');
+END $$;
+INSERT INTO public.mock_exams(code,listening_test_id) VALUES('ordinary-link','00000000-0000-0000-0000-000000000002');
+UPDATE public.mock_exams SET listening_test_id=NULL WHERE code='historical-hidden';
+DO $$ BEGIN
+    PERFORM pg_temp.assert_true((SELECT listening_test_id IS NULL FROM public.mock_exams WHERE code='historical-hidden'), 'historical unlink preserved');
 END $$;
 """)
 

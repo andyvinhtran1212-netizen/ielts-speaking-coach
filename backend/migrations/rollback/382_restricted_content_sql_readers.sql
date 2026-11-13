@@ -40,6 +40,371 @@ BEGIN
 END;
 $$;
 
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc AS p WHERE p.oid = 'public.fn_mock_public_practice_allowed(text,uuid)'::pg_catalog.regprocedure
+        AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc, 'UTF8')), 'hex') = '5f37c19a6ce55310a86def0e6ebed917dcc584f9e65b2e80a0598f0a15291366'
+        AND p.proowner = 'postgres'::pg_catalog.regrole AND p.prosecdef AND p.provolatile = 'v'
+        AND p.proconfig = ARRAY['search_path=pg_catalog, pg_temp']
+        AND pg_catalog.has_function_privilege('service_role', p.oid, 'EXECUTE'))
+       OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc AS p
+        CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(p.proacl, pg_catalog.acldefault('f', p.proowner))) AS acl
+        WHERE p.oid = 'public.fn_mock_public_practice_allowed(text,uuid)'::pg_catalog.regprocedure
+          AND (acl.grantee NOT IN (p.proowner, 'service_role'::pg_catalog.regrole)
+               OR acl.privilege_type <> 'EXECUTE' OR acl.is_grantable)) THEN
+        RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = '382 practice helper body/config/ACL mismatch';
+    END IF;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.fn_mock_public_practice_allowed(p_skill TEXT,p_id UUID)
+RETURNS BOOLEAN LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+DECLARE v JSONB; d JSONB;
+BEGIN
+    PERFORM public.fn_lock_mock_paper(p_skill,p_id);
+    v:=public.fn_mock_paper_row(p_skill,p_id);
+    IF v IS NULL OR v->>'status'<>'published' OR NOT COALESCE((v->>'is_public')::BOOLEAN,FALSE) THEN RETURN FALSE; END IF;
+    d:=public.fn_mock_paper_dependencies(p_skill,p_id);
+    IF EXISTS(SELECT 1 FROM jsonb_array_elements(d) x WHERE x->>'reason' IN ('verification_unavailable','ambiguous_orphan')) THEN RETURN FALSE; END IF;
+    RETURN public.fn_mock_protected_references(d)='[]'::JSONB OR COALESCE(public.fn_mock_overlap_valid(v,d),FALSE);
+END $$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc AS p WHERE p.oid = 'public.fn_mock_public_practice_allowed(text,uuid)'::pg_catalog.regprocedure
+        AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc, 'UTF8')), 'hex') = 'a700d803466cf23f2cd1a97f427098cd91c1248720ac597d51e70b45c91676b5'
+        AND p.proowner = 'postgres'::pg_catalog.regrole AND p.prosecdef AND p.provolatile = 'v'
+        AND p.proconfig = ARRAY['search_path=public, pg_temp']
+        AND pg_catalog.has_function_privilege('service_role', p.oid, 'EXECUTE'))
+       OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc AS p
+        CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(p.proacl, pg_catalog.acldefault('f', p.proowner))) AS acl
+        WHERE p.oid = 'public.fn_mock_public_practice_allowed(text,uuid)'::pg_catalog.regprocedure
+          AND (acl.grantee NOT IN (p.proowner, 'service_role'::pg_catalog.regrole)
+               OR acl.privilege_type <> 'EXECUTE' OR acl.is_grantable)) THEN
+        RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = '382 practice helper body/config/ACL mismatch';
+    END IF;
+END;
+$$;
+
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc AS p WHERE p.oid = 'public.fn_admit_mock_paper_attempt(text,uuid,uuid,uuid,text)'::pg_catalog.regprocedure
+        AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc, 'UTF8')), 'hex') = '3cdb099823a0611d30de6456de4f8c73071d770f5cfb61a3fd19090831dfd4f4'
+        AND p.proowner = 'postgres'::pg_catalog.regrole AND p.prosecdef AND p.provolatile = 'v'
+        AND p.proconfig = ARRAY['search_path=pg_catalog, pg_temp']
+        AND pg_catalog.has_function_privilege('service_role', p.oid, 'EXECUTE'))
+       OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc AS p
+        CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(p.proacl, pg_catalog.acldefault('f', p.proowner))) AS acl
+        WHERE p.oid = 'public.fn_admit_mock_paper_attempt(text,uuid,uuid,uuid,text)'::pg_catalog.regprocedure
+          AND (acl.grantee NOT IN (p.proowner, 'service_role'::pg_catalog.regrole)
+               OR acl.privilege_type <> 'EXECUTE' OR acl.is_grantable)) THEN
+        RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = '382 fn_admit_mock_paper_attempt body/config/ACL mismatch';
+    END IF;
+END $$;
+CREATE OR REPLACE FUNCTION public.fn_admit_mock_paper_attempt(
+    p_skill TEXT,p_test_id UUID,p_user_id UUID,p_sitting_id UUID,p_renderer_affinity_protocol TEXT DEFAULT 'legacy')
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+DECLARE paper JSONB; sitting JSONB; exam JSONB; attempt JSONB; v_id UUID; existing UUID; v_started TIMESTAMPTZ;
+BEGIN
+    PERFORM public.fn_lock_mock_paper(p_skill,p_test_id);
+    paper:=public.fn_mock_paper_row(p_skill,p_test_id);
+    SELECT to_jsonb(s) INTO sitting FROM public.mock_exam_sittings s WHERE id=p_sitting_id AND user_id=p_user_id FOR UPDATE NOWAIT;
+    SELECT to_jsonb(m) INTO exam FROM public.mock_exams m WHERE id=(sitting->>'mock_exam_id')::UUID FOR UPDATE NOWAIT;
+    IF paper IS NULL OR sitting IS NULL OR exam->>(p_skill||'_test_id') IS DISTINCT FROM p_test_id::TEXT
+       OR NOT public.fn_mock_section_valid(p_skill,exam,sitting) THEN
+        PERFORM public.fn_mock_paper_error('admission','invalid_admission',p_skill,p_test_id,(paper->>'policy_revision')::BIGINT);
+    END IF;
+    existing:=NULLIF(sitting->>(p_skill||'_attempt_id'),'')::UUID;
+    IF existing IS NOT NULL THEN
+        IF p_skill='reading' THEN SELECT to_jsonb(a) INTO attempt FROM public.reading_test_attempts a WHERE id=existing FOR UPDATE NOWAIT;
+        ELSE SELECT to_jsonb(a) INTO attempt FROM public.listening_test_attempts a WHERE id=existing FOR UPDATE NOWAIT; END IF;
+        IF attempt IS NULL OR attempt->>'user_id' IS DISTINCT FROM p_user_id::TEXT
+           OR attempt->>'test_id' IS DISTINCT FROM p_test_id::TEXT OR attempt->>'sitting_id' IS DISTINCT FROM p_sitting_id::TEXT
+           OR attempt->>'status'<>'in_progress' THEN
+            PERFORM public.fn_mock_paper_error('admission','ambiguous_orphan',p_skill,p_test_id,(paper->>'policy_revision')::BIGINT);
+        END IF;
+    ELSE
+        IF (p_skill='reading' AND EXISTS(SELECT 1 FROM public.reading_test_attempts WHERE user_id=p_user_id AND test_id=p_test_id AND status='in_progress'))
+           OR (p_skill='listening' AND EXISTS(SELECT 1 FROM public.listening_test_attempts WHERE user_id=p_user_id AND test_id=p_test_id AND status='in_progress')) THEN
+            PERFORM public.fn_mock_paper_error('admission','ambiguous_orphan',p_skill,p_test_id,(paper->>'policy_revision')::BIGINT);
+        END IF;
+        v_id:=gen_random_uuid(); v_started:=clock_timestamp();
+        IF p_skill='reading' THEN
+            UPDATE public.mock_exam_sittings SET reading_attempt_id=v_id WHERE id=p_sitting_id;
+            INSERT INTO public.reading_test_attempts(id,test_id,user_id,sitting_id,started_at,renderer_affinity,resume_expires_at,attempt_purpose)
+            VALUES(v_id,p_test_id,p_user_id,p_sitting_id,v_started,CASE WHEN p_renderer_affinity_protocol='claim-v1' THEN NULL ELSE 'legacy' END,
+                v_started+INTERVAL '24 hours','mock_delivery') RETURNING to_jsonb(reading_test_attempts) INTO attempt;
+        ELSE
+            UPDATE public.mock_exam_sittings SET listening_attempt_id=v_id WHERE id=p_sitting_id;
+            INSERT INTO public.listening_test_attempts(id,test_id,user_id,sitting_id,started_at,renderer_affinity,resume_expires_at,scoring_policy,attempt_purpose)
+            VALUES(v_id,p_test_id,p_user_id,p_sitting_id,v_started,CASE WHEN p_renderer_affinity_protocol='claim-v1' THEN NULL ELSE 'legacy' END,
+                v_started+INTERVAL '24 hours',COALESCE(paper->>'scoring_policy','diagnostic'),'mock_delivery')
+                RETURNING to_jsonb(listening_test_attempts) INTO attempt;
+        END IF;
+    END IF;
+    RETURN jsonb_build_object('attempt_id',attempt->>'id','status',attempt->>'status',
+        'started_at',attempt->>'started_at','resume_expires_at',attempt->>'resume_expires_at',
+        'renderer_affinity',attempt->'renderer_affinity','attempt_purpose','mock_delivery',
+        'mock_sitting_id',p_sitting_id,'paper_revision',attempt->'paper_revision','policy_revision',attempt->'policy_revision',
+        'time_limit_minutes',paper->'time_limit_minutes','playback_started_at',attempt->'playback_started_at',
+        'acquired_existing',existing IS NOT NULL);
+EXCEPTION WHEN deadlock_detected OR lock_not_available THEN
+    PERFORM public.fn_mock_paper_error('admission','verification_unavailable',p_skill,p_test_id,NULL);
+END $$;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc AS p WHERE p.oid = 'public.fn_admit_mock_paper_attempt(text,uuid,uuid,uuid,text)'::pg_catalog.regprocedure
+        AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc, 'UTF8')), 'hex') = '829b76763e299ff145109cc29d18de47bc9e74c1fc699b87e7313e207c450420'
+        AND p.proowner = 'postgres'::pg_catalog.regrole AND p.prosecdef AND p.provolatile = 'v'
+        AND p.proconfig = ARRAY['search_path=public, pg_temp']
+        AND pg_catalog.has_function_privilege('service_role', p.oid, 'EXECUTE'))
+       OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc AS p
+        CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(p.proacl, pg_catalog.acldefault('f', p.proowner))) AS acl
+        WHERE p.oid = 'public.fn_admit_mock_paper_attempt(text,uuid,uuid,uuid,text)'::pg_catalog.regprocedure
+          AND (acl.grantee NOT IN (p.proowner, 'service_role'::pg_catalog.regrole)
+               OR acl.privilege_type <> 'EXECUTE' OR acl.is_grantable)) THEN
+        RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = '382 fn_admit_mock_paper_attempt body/config/ACL mismatch';
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc AS p WHERE p.oid = 'public.fn_guard_owned_mock_attempt(text,jsonb,text)'::pg_catalog.regprocedure
+        AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc, 'UTF8')), 'hex') = '92e5c36eff07bc5c16af4ad433c8dac9f264a9a61a2fbce18b2d1b22ede1ef4f'
+        AND p.proowner = 'postgres'::pg_catalog.regrole AND p.prosecdef AND p.provolatile = 'v'
+        AND p.proconfig = ARRAY['search_path=pg_catalog, pg_temp']
+        AND pg_catalog.has_function_privilege('service_role', p.oid, 'EXECUTE'))
+       OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc AS p
+        CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(p.proacl, pg_catalog.acldefault('f', p.proowner))) AS acl
+        WHERE p.oid = 'public.fn_guard_owned_mock_attempt(text,jsonb,text)'::pg_catalog.regprocedure
+          AND (acl.grantee NOT IN (p.proowner, 'service_role'::pg_catalog.regrole)
+               OR acl.privilege_type <> 'EXECUTE' OR acl.is_grantable)) THEN
+        RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = '382 fn_guard_owned_mock_attempt body/config/ACL mismatch';
+    END IF;
+END $$;
+CREATE OR REPLACE FUNCTION public.fn_guard_owned_mock_attempt(p_skill TEXT,p_attempt JSONB,p_purpose TEXT)
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+DECLARE v JSONB; d JSONB; decision JSONB; sitting JSONB; exam JSONB; pinned JSONB; live_refs JSONB; pinned_refs JSONB;
+BEGIN
+    PERFORM public.fn_lock_mock_paper(p_skill,(p_attempt->>'test_id')::UUID);
+    IF p_attempt->>'status'='submitted' AND p_purpose IN ('flags_read','review') THEN
+        RETURN jsonb_build_object('allowed',TRUE);
+    END IF;
+    IF p_attempt->>'status'<>'in_progress'
+       OR p_attempt->>'resume_expires_at' IS NULL
+       OR (p_attempt->>'resume_expires_at')::TIMESTAMPTZ<=clock_timestamp() THEN
+        PERFORM public.fn_mock_paper_error(p_purpose,'invalid_resume',p_skill,(p_attempt->>'test_id')::UUID,
+            NULLIF(p_attempt->>'policy_revision','')::BIGINT);
+    END IF;
+    IF p_attempt->>'sitting_id' IS NOT NULL THEN
+        IF p_purpose='submit' THEN
+            SELECT to_jsonb(s) INTO sitting FROM public.mock_exam_sittings s WHERE id=(p_attempt->>'sitting_id')::UUID;
+            SELECT to_jsonb(m) INTO exam FROM public.mock_exams m WHERE id=(sitting->>'mock_exam_id')::UUID;
+            IF sitting->>'user_id'=p_attempt->>'user_id' AND sitting->>(p_skill||'_attempt_id')=p_attempt->>'id'
+               AND exam->>(p_skill||'_test_id')=p_attempt->>'test_id' AND exam->>'status'='published'
+               AND sitting->>'status'<>'void' AND sitting->>(p_skill||'_submitted_at') IS NULL
+               AND ((exam->>'exam_mode'='retake' AND COALESCE(sitting->'assigned_skills' ? p_skill,FALSE) AND sitting->>(p_skill||'_started_at') IS NOT NULL)
+                    OR (exam->>'exam_mode'='sequential' AND exam->>'active_section'=p_skill AND exam->>'collected_section' IS DISTINCT FROM p_skill)) THEN
+                RETURN jsonb_build_object('allowed',TRUE);
+            END IF;
+        ELSE
+        decision:=public.fn_resolve_mock_paper_access(p_skill,(p_attempt->>'test_id')::UUID,
+            (p_attempt->>'user_id')::UUID,'mock_delivery',NULL,(p_attempt->>'sitting_id')::UUID,FALSE);
+        IF decision->>'allowed'='true' AND decision->>'attempt_id'=p_attempt->>'id' THEN
+            RETURN jsonb_build_object('allowed',TRUE);
+        END IF;
+        END IF;
+    ELSE
+        d:=public.fn_mock_paper_dependencies(p_skill,(p_attempt->>'test_id')::UUID);
+        IF EXISTS(SELECT 1 FROM jsonb_array_elements(d) x WHERE x->>'reason'='verification_unavailable') THEN
+            PERFORM public.fn_mock_paper_error(p_purpose,'verification_unavailable',p_skill,(p_attempt->>'test_id')::UUID,NULL);
+        END IF;
+        v:=public.fn_mock_paper_row(p_skill,(p_attempt->>'test_id')::UUID);
+        -- Hiding a paper does not cancel already owned, valid practice work.
+        -- New mock references are barred while such work remains active.
+        IF p_attempt->>'attempt_purpose' IS DISTINCT FROM 'mock_delivery'
+           AND (public.fn_mock_protected_references(d)='[]'::JSONB OR COALESCE(public.fn_mock_overlap_valid(v,d),FALSE)) THEN
+            RETURN jsonb_build_object('allowed',TRUE);
+        END IF;
+        -- A source edit cannot revoke the practice overlap under which this
+        -- already owned attempt was admitted. New references/grants still
+        -- require a new decision and are barred by the reverse writer guard.
+        SELECT paper_row->'approved_public_overlap' INTO pinned FROM public.mock_paper_attempt_snapshots
+         WHERE skill=p_skill AND attempt_id=(p_attempt->>'id')::UUID;
+        SELECT jsonb_agg(x-'paper_revision' ORDER BY x->>'mock_exam_id') INTO live_refs FROM jsonb_array_elements(public.fn_mock_protected_references(d)) x;
+        SELECT jsonb_agg(x-'paper_revision' ORDER BY x->>'mock_exam_id') INTO pinned_refs FROM jsonb_array_elements(COALESCE(pinned->'references','[]')) x;
+        IF p_attempt->>'attempt_purpose' IN ('practice','assigned_practice') AND pinned->>'actor_id' IS NOT NULL
+           AND live_refs IS NOT NULL AND live_refs=pinned_refs THEN RETURN jsonb_build_object('allowed',TRUE); END IF;
+    END IF;
+    PERFORM public.fn_mock_paper_error(p_purpose,'ambiguous_orphan',p_skill,(p_attempt->>'test_id')::UUID,
+        NULLIF(p_attempt->>'policy_revision','')::BIGINT);
+END $$;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc AS p WHERE p.oid = 'public.fn_guard_owned_mock_attempt(text,jsonb,text)'::pg_catalog.regprocedure
+        AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc, 'UTF8')), 'hex') = '4c00034c15f569630ac6c2bec994f4be921f912f29d898a08c140a38f88ac575'
+        AND p.proowner = 'postgres'::pg_catalog.regrole AND p.prosecdef AND p.provolatile = 'v'
+        AND p.proconfig = ARRAY['search_path=public, pg_temp']
+        AND pg_catalog.has_function_privilege('service_role', p.oid, 'EXECUTE'))
+       OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc AS p
+        CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(p.proacl, pg_catalog.acldefault('f', p.proowner))) AS acl
+        WHERE p.oid = 'public.fn_guard_owned_mock_attempt(text,jsonb,text)'::pg_catalog.regprocedure
+          AND (acl.grantee NOT IN (p.proowner, 'service_role'::pg_catalog.regrole)
+               OR acl.privilege_type <> 'EXECUTE' OR acl.is_grantable)) THEN
+        RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = '382 fn_guard_owned_mock_attempt body/config/ACL mismatch';
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc AS p WHERE p.oid = 'public.fn_inspect_mock_paper_policy(text,uuid)'::pg_catalog.regprocedure
+        AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc, 'UTF8')), 'hex') = 'db0224be91ba9fd21e033ac5df34aa3a458edd441d4847e5bc05e250268b9d63'
+        AND p.proowner = 'postgres'::pg_catalog.regrole AND p.prosecdef AND p.provolatile = 'v'
+        AND p.proconfig = ARRAY['search_path=pg_catalog, pg_temp']
+        AND pg_catalog.has_function_privilege('service_role', p.oid, 'EXECUTE'))
+       OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc AS p
+        CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(p.proacl, pg_catalog.acldefault('f', p.proowner))) AS acl
+        WHERE p.oid = 'public.fn_inspect_mock_paper_policy(text,uuid)'::pg_catalog.regprocedure
+          AND (acl.grantee NOT IN (p.proowner, 'service_role'::pg_catalog.regrole)
+               OR acl.privilege_type <> 'EXECUTE' OR acl.is_grantable)) THEN
+        RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = '382 fn_inspect_mock_paper_policy body/config/ACL mismatch';
+    END IF;
+END $$;
+CREATE OR REPLACE FUNCTION public.fn_inspect_mock_paper_policy(p_skill TEXT,p_test_id UUID)
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+DECLARE v JSONB; d JSONB; snapshots JSONB;
+BEGIN
+    PERFORM public.fn_lock_mock_paper(p_skill,p_test_id);
+    v:=public.fn_mock_paper_row(p_skill,p_test_id);
+    IF v IS NULL THEN RAISE EXCEPTION 'public_test_not_found'; END IF;
+    d:=public.fn_mock_paper_dependencies(p_skill,p_test_id);
+    SELECT COALESCE(jsonb_agg(jsonb_build_object('snapshot_id',id,'created_at',created_at,'actor_id',actor_id) ORDER BY created_at DESC),'[]') INTO snapshots
+        FROM (SELECT id,created_at,actor_id FROM public.mock_correction_release_events
+            WHERE scope_type=p_skill||'_test' AND scope_id=p_test_id::TEXT AND action='mock_paper_policy_updated'
+            AND previous_state->>'snapshot_contract'='mock-paper-policy/1' ORDER BY created_at DESC LIMIT 20) x;
+    RETURN jsonb_build_object('kind',p_skill,'content_id',p_test_id,'policy_revision',v->'policy_revision',
+        'paper_revision',v->'mock_content_revision','policy',public.fn_mock_policy_snapshot(v),
+        'dependencies',d,'protected_references',public.fn_mock_protected_references(d),'restore_snapshots',snapshots);
+END $$;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc AS p WHERE p.oid = 'public.fn_inspect_mock_paper_policy(text,uuid)'::pg_catalog.regprocedure
+        AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc, 'UTF8')), 'hex') = 'ed01434817c919aeda042388ad2e5f585af10ab8b2ecf434a7e29888e37c460c'
+        AND p.proowner = 'postgres'::pg_catalog.regrole AND p.prosecdef AND p.provolatile = 'v'
+        AND p.proconfig = ARRAY['search_path=public, pg_temp']
+        AND pg_catalog.has_function_privilege('service_role', p.oid, 'EXECUTE'))
+       OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc AS p
+        CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(p.proacl, pg_catalog.acldefault('f', p.proowner))) AS acl
+        WHERE p.oid = 'public.fn_inspect_mock_paper_policy(text,uuid)'::pg_catalog.regprocedure
+          AND (acl.grantee NOT IN (p.proowner, 'service_role'::pg_catalog.regrole)
+               OR acl.privilege_type <> 'EXECUTE' OR acl.is_grantable)) THEN
+        RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = '382 fn_inspect_mock_paper_policy body/config/ACL mismatch';
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc AS p WHERE p.oid = 'public.fn_guard_mock_paper_reference()'::pg_catalog.regprocedure
+        AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc, 'UTF8')), 'hex') = 'a35f2041784c40c44fadd9640473f16222197fd910e0c49b24c851e887c33a96'
+        AND p.proowner = 'postgres'::pg_catalog.regrole AND p.prosecdef AND p.provolatile = 'v'
+        AND p.proconfig = ARRAY['search_path=pg_catalog, pg_temp']
+        AND pg_catalog.has_function_privilege('service_role', p.oid, 'EXECUTE'))
+       OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc AS p
+        CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(p.proacl, pg_catalog.acldefault('f', p.proowner))) AS acl
+        WHERE p.oid = 'public.fn_guard_mock_paper_reference()'::pg_catalog.regprocedure
+          AND (acl.grantee NOT IN (p.proowner, 'service_role'::pg_catalog.regrole)
+               OR acl.privilege_type <> 'EXECUTE' OR acl.is_grantable)) THEN
+        RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = '382 fn_guard_mock_paper_reference body/config/ACL mismatch';
+    END IF;
+END $$;
+CREATE OR REPLACE FUNCTION public.fn_guard_mock_paper_reference()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+DECLARE old_row JSONB:=CASE WHEN TG_OP='INSERT' THEN '{}'::JSONB ELSE to_jsonb(OLD) END;
+        new_row JSONB:=CASE WHEN TG_OP='DELETE' THEN '{}'::JSONB ELSE to_jsonb(NEW) END;
+        refs JSONB:='[]'; x RECORD; paper JSONB; parent JSONB; v_new BOOLEAN; v_protected BOOLEAN;
+BEGIN
+    IF NOT public.fn_mock_admission_contract_active() THEN
+        IF TG_OP='DELETE' THEN RETURN OLD; END IF;
+        RETURN NEW;
+    END IF;
+    IF TG_TABLE_NAME IN ('mock_exams','mock_exam_sittings','mock_exam_assignments') THEN
+        IF TG_TABLE_NAME='mock_exams' THEN
+            refs:=jsonb_build_array(jsonb_build_object('kind','reading','id',old_row->>'reading_test_id'),
+                jsonb_build_object('kind','listening','id',old_row->>'listening_test_id'),
+                jsonb_build_object('kind','reading','id',new_row->>'reading_test_id'),
+                jsonb_build_object('kind','listening','id',new_row->>'listening_test_id'));
+        ELSE
+            FOR x IN SELECT to_jsonb(m) row FROM public.mock_exams m
+                WHERE m.id IN (NULLIF(old_row->>CASE WHEN TG_TABLE_NAME='mock_exam_sittings' THEN 'mock_exam_id' ELSE 'exam_id' END,'')::UUID,
+                               NULLIF(new_row->>CASE WHEN TG_TABLE_NAME='mock_exam_sittings' THEN 'mock_exam_id' ELSE 'exam_id' END,'')::UUID) LOOP
+                refs:=refs||jsonb_build_array(jsonb_build_object('kind','reading','id',x.row->>'reading_test_id'),
+                    jsonb_build_object('kind','listening','id',x.row->>'listening_test_id'));
+            END LOOP;
+        END IF;
+    ELSIF TG_TABLE_NAME='class_assignments' THEN
+        refs:=jsonb_build_array(jsonb_build_object('kind',old_row->>'skill','id',old_row->>'content_id'),
+            jsonb_build_object('kind',new_row->>'skill','id',new_row->>'content_id'));
+    END IF;
+    FOR x IN SELECT DISTINCT item->>'kind' kind,item->>'id' id FROM jsonb_array_elements(refs) item
+        WHERE item->>'kind' IN ('reading','listening') AND item->>'id' IS NOT NULL
+        ORDER BY kind,id LOOP PERFORM public.fn_lock_mock_paper(x.kind,x.id::UUID); END LOOP;
+    IF TG_TABLE_NAME='mock_exam_sittings' AND TG_OP='UPDATE' THEN
+        IF (old_row->>'reading_attempt_id' IS NOT NULL AND new_row->>'reading_attempt_id' IS DISTINCT FROM old_row->>'reading_attempt_id')
+           OR (old_row->>'listening_attempt_id' IS NOT NULL AND new_row->>'listening_attempt_id' IS DISTINCT FROM old_row->>'listening_attempt_id') THEN
+            PERFORM public.fn_mock_paper_error('attach','immutable_admission','reading',NULLIF(new_row->>'reading_attempt_id','')::UUID,NULL);
+        END IF;
+    END IF;
+    IF TG_OP='DELETE' THEN
+        IF TG_TABLE_NAME='mock_exams' AND EXISTS(SELECT 1 FROM public.mock_exam_sittings WHERE mock_exam_id=OLD.id) THEN
+            PERFORM public.fn_mock_paper_error('delete_mock','history_preservation','reading',OLD.reading_test_id,NULL);
+        END IF;
+        RETURN OLD;
+    END IF;
+    FOR x IN SELECT DISTINCT item->>'kind' kind,item->>'id' id FROM jsonb_array_elements(refs) item
+        WHERE item->>'kind' IN ('reading','listening') AND item->>'id' IS NOT NULL ORDER BY kind,id LOOP
+        paper:=public.fn_mock_paper_row(x.kind,x.id::UUID); v_new:=FALSE; v_protected:=FALSE;
+        IF TG_TABLE_NAME='mock_exams' THEN
+            v_new:=TG_OP='INSERT' OR new_row->>(x.kind||'_test_id') IS DISTINCT FROM old_row->>(x.kind||'_test_id')
+                OR (new_row->>'status'='published' AND old_row->>'status' IS DISTINCT FROM 'published');
+            v_protected:=new_row->>(x.kind||'_test_id')=x.id AND new_row->>'status' IN ('draft','published');
+        ELSIF TG_TABLE_NAME='mock_exam_assignments' THEN
+            SELECT to_jsonb(m) INTO parent FROM public.mock_exams m WHERE id=(new_row->>'exam_id')::UUID;
+            v_new:=TG_OP='INSERT' OR new_row-ARRAY['updated_at','created_at'] IS DISTINCT FROM old_row-ARRAY['updated_at','created_at'];
+            v_protected:=parent->>'status' IN ('draft','published') AND COALESCE(new_row->'skills' ? x.kind,FALSE)
+                AND (new_row->>'open_until' IS NULL OR (new_row->>'open_until')::TIMESTAMPTZ>=clock_timestamp());
+        ELSIF TG_TABLE_NAME='class_assignments' THEN
+            v_new:=TG_OP='INSERT' OR new_row-ARRAY['updated_at','created_at'] IS DISTINCT FROM old_row-ARRAY['updated_at','created_at'];
+            v_protected:=new_row->>'skill'=x.kind AND new_row->>'content_id'=x.id AND new_row->>'status'='published'
+                AND (new_row->>'due_at' IS NULL OR (new_row->>'due_at')::TIMESTAMPTZ>=clock_timestamp());
+        END IF;
+        IF v_new AND v_protected THEN
+            IF paper IS NULL OR paper->>'status'<>'published' THEN
+                PERFORM public.fn_mock_paper_error('link','paper_not_ready',x.kind,x.id::UUID,(paper->>'policy_revision')::BIGINT);
+            END IF;
+            IF TG_TABLE_NAME='class_assignments' AND public.fn_mock_protected_references(public.fn_mock_paper_dependencies(x.kind,x.id::UUID))<>'[]'::JSONB
+               AND NOT COALESCE(public.fn_mock_overlap_valid(paper,public.fn_mock_paper_dependencies(x.kind,x.id::UUID)),FALSE) THEN
+                PERFORM public.fn_mock_paper_error('link','public_overlap_unapproved',x.kind,x.id::UUID,(paper->>'policy_revision')::BIGINT);
+            END IF;
+            -- A new confidential reference cannot inherit an old public flag or
+            -- waiver. Create/link privately, then explicitly review all overlap.
+            IF TG_TABLE_NAME<>'class_assignments' AND ((x.kind='reading' AND EXISTS(SELECT 1 FROM public.reading_test_attempts WHERE test_id=x.id::UUID AND sitting_id IS NULL AND status='in_progress' AND (resume_expires_at IS NULL OR resume_expires_at>clock_timestamp()))) OR (x.kind='listening' AND EXISTS(SELECT 1 FROM public.listening_test_attempts WHERE test_id=x.id::UUID AND sitting_id IS NULL AND status='in_progress' AND (resume_expires_at IS NULL OR resume_expires_at>clock_timestamp())))) THEN
+                PERFORM public.fn_mock_paper_error('link','valid_resume',x.kind,x.id::UUID,(paper->>'policy_revision')::BIGINT);
+            END IF;
+            IF TG_TABLE_NAME<>'class_assignments' AND COALESCE((paper->>'is_public')::BOOLEAN,FALSE) THEN
+                PERFORM public.fn_mock_paper_error('link','public_overlap_unapproved',x.kind,x.id::UUID,(paper->>'policy_revision')::BIGINT);
+            END IF;
+        END IF;
+    END LOOP;
+    RETURN NEW;
+END $$;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc AS p WHERE p.oid = 'public.fn_guard_mock_paper_reference()'::pg_catalog.regprocedure
+        AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc, 'UTF8')), 'hex') = '98645fa1203ff29e6119ae1de3ff94979158948c3beece095b1c32c372dbf977'
+        AND p.proowner = 'postgres'::pg_catalog.regrole AND p.prosecdef AND p.provolatile = 'v'
+        AND p.proconfig = ARRAY['search_path=public, pg_temp']
+        AND pg_catalog.has_function_privilege('service_role', p.oid, 'EXECUTE'))
+       OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc AS p
+        CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(p.proacl, pg_catalog.acldefault('f', p.proowner))) AS acl
+        WHERE p.oid = 'public.fn_guard_mock_paper_reference()'::pg_catalog.regprocedure
+          AND (acl.grantee NOT IN (p.proowner, 'service_role'::pg_catalog.regrole)
+               OR acl.privilege_type <> 'EXECUTE' OR acl.is_grantable)) THEN
+        RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = '382 fn_guard_mock_paper_reference body/config/ACL mismatch';
+    END IF;
+END $$;
+
 CREATE OR REPLACE FUNCTION public.fn_admin_exam_content_page_ids(
     p_kind text,
     p_course_level text DEFAULT NULL,
