@@ -305,3 +305,12 @@ def test_runner_requires_named_opt_in_for_a_pending_feature(tmp_path):
     assert "pending_feature:curated_vocab" not in output
     for filename in pending:
         assert f"would apply: {filename}" in output
+
+
+def test_blackeye_admission_376_stays_pending_until_namespace_security_signoff():
+    rows = [line.split("\t", 3) for line in POLICY.read_text().splitlines()
+            if line.startswith("376_")]
+    assert len(rows) == 1
+    assert rows[0][:3] == ["376_blackeye_admission.sql", "pending_feature", "blackeye_admission"]
+    assert "may be applied only after M-A/M-B + 347 + SA sign-off" in rows[0][3]
+    assert "No apply on merge" in rows[0][3]

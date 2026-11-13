@@ -159,6 +159,7 @@ async def require_admin(authorization):
         if any(context["targets"].values()):
             await run_in_threadpool(blackeye.guard_generic_target, supabase_admin,
                                     denied_status=context["denied_status"],
+                                    denied_detail=context["denied_detail"],
                                     external_test_code=context["external_test_code"], **context["targets"])
         context["checked"] = True
     return actor
@@ -171,9 +172,33 @@ class _ListeningAdminRoute(_ListeningRoute):
         async def handler(request):
             # Set identity context only. The endpoint's first canonical staff
             # guard authenticates before this context may cause any database IO.
-            targets = {key: request.path_params.get(key) or request.query_params.get(key)
-                       for key in ("test_id", "content_id", "exercise_id", "attempt_id", "package_id")}
+            targets = {}
+            for key in ("test_id", "content_id", "exercise_id", "attempt_id",
+                        "package_id", "drill_id", "session_id"):
+                query_values = request.query_params.getlist(key)
+                if len(query_values) > 20:
+                    raise HTTPException(422, "Too many identity values.",
+                                        headers={"Cache-Control": "private, no-store"})
+                targets[key] = ([request.path_params[key]] if key in request.path_params else []) + [
+                    value for value in query_values if value.strip()]
+            path = self.path
+            detail = "Test bundle not found"
+            if "/content" in path or path.endswith("/exercises"):
+                detail = "Listening content not found"
+            elif "/exercises/" in path:
+                detail = "Exercise not found"
+            elif "/attempts" in path:
+                detail = "Không tìm thấy lượt làm bài."
+            elif "/dictation-reports" in path:
+                detail = "Không tìm thấy phiên chép chính tả."
+            elif "/packages/" in path:
+                detail = "Listening package not found"
+            elif "/drills/" in path:
+                detail = "Skill drill not found"
+            elif path.endswith("/audit"):
+                detail = "Test not found"
             token = _admin_targets.set({"targets": targets, "checked": False,
+                "denied_detail": detail,
                 "external_test_code": request.url.path in {
                     "/admin/listening/dictation-reports", "/admin/listening/dictation-reports/aggregate"},
                 "denied_status": 503 if request.url.path.endswith("/player-preview") else 404})
@@ -702,6 +727,10 @@ def _fetch_published_listening_content_with_signed_url(content_id: str) -> dict:
     by graders/admin tooling. Those are answer material and must never ride the
     learner boot response, even when the current UI happens to ignore them.
     """
+    blackeye.guard_generic_content(
+        supabase_admin, content_id,
+        denied_detail="Listening content not found or not published", hidden_status=422,
+        direct_parent_first=True)
     res = (
         supabase_admin.table("listening_content")
         .select(",".join((*_STUDENT_LISTENING_CONTENT_FIELDS,
@@ -715,8 +744,6 @@ def _fetch_published_listening_content_with_signed_url(content_id: str) -> dict:
         raise HTTPException(404, "Listening content not found or not published")
 
     row = res.data[0]
-    if row.get("test_id") and blackeye.is_blackeye(blackeye.test_identity(supabase_admin, row["test_id"])):
-        raise HTTPException(422, "Black Eye section access unavailable.")
     safe = {field: row.get(field) for field in _STUDENT_LISTENING_CONTENT_FIELDS}
 
     # Bundle sections may use only the parent test's audio. A missing section
@@ -776,10 +803,21 @@ def _fetch_published_exercises_for_student(
             422, f"exercise_type must be one of {sorted(_EXERCISE_TYPES)}",
         )
 
-    parent = (supabase_admin.table("listening_content").select("test_id")
-              .eq("id", content_id).limit(1).execute().data or [])
-    if parent and parent[0].get("test_id") and blackeye.is_blackeye(blackeye.test_identity(supabase_admin, parent[0]["test_id"])):
-        raise HTTPException(422, "Black Eye section access unavailable.")
+    blackeye.guard_generic_content(
+        supabase_admin, content_id, hidden_status=422, direct_parent_first=True)
+    # Keep the publication check behind identity classification on every
+    # learner exercise surface, including the direct /exercises route.
+    content = (
+        supabase_admin.table("listening_content")
+        .select("id,status,audio_duration_seconds")
+        .eq("id", content_id)
+        .eq("status", "published")
+        .limit(1)
+        .execute()
+    )
+    if not content.data:
+        raise HTTPException(404, "Listening content not found or not published",
+                            headers={"Cache-Control": "private, no-store"})
     res = (
         supabase_admin.table("listening_exercises")
         .select("*")
@@ -1006,11 +1044,10 @@ def _resolve_attempt_target(
         if not identity:
             raise HTTPException(404, "Exercise not found or not published.")
         content_id = identity[0]["content_id"]
-    parent = (supabase_admin.table("listening_content").select("test_id")
-              .eq("id", content_id).eq("status", "published").limit(1).execute().data or [])
-    if parent and parent[0].get("test_id") and blackeye.is_blackeye(
-            blackeye.test_identity(supabase_admin, parent[0]["test_id"])):
-        raise HTTPException(422, "Black Eye section access unavailable.")
+    blackeye.guard_generic_content(
+        supabase_admin, content_id,
+        denied_detail="Listening content not found or not published", hidden_status=422,
+        direct_parent_first=True)
 
     if body.exercise_id:
         res = (
@@ -1485,18 +1522,6 @@ async def get_listening_exercises(
             422, f"exercise_type must be one of {sorted(_EXERCISE_TYPES)}",
         )
 
-    # Content must be published for the user route to surface anything.
-    c = (
-        supabase_admin.table("listening_content")
-        .select("id,status,audio_duration_seconds")
-        .eq("id", content_id)
-        .eq("status", "published")
-        .limit(1)
-        .execute()
-    )
-    if not c.data:
-        raise HTTPException(404, "Listening content not found or not published")
-
     # Keep every learner exercise surface on the same answer-stripping path.
     # Besides payload answer keys, Dictation must also withhold the reference
     # transcript stored in the top-level `segments` column.
@@ -1828,6 +1853,11 @@ async def admin_upsert_listening_exercise(
     existing attempt rows keep referencing the same exercise.
     """
     await require_admin(authorization)
+    if body.exercise_id:
+        try:
+            uuid.UUID(body.exercise_id)
+        except (TypeError, ValueError, AttributeError):
+            raise HTTPException(422, "exercise_id must be a valid UUID") from None
     await run_in_threadpool(blackeye.guard_generic_target, supabase_admin,
                             content_id=body.content_id, exercise_id=body.exercise_id)
 
@@ -1883,10 +1913,6 @@ async def admin_upsert_listening_exercise(
     if body.expected_absent and "order_num" not in body.model_fields_set:
         raise HTTPException(422, "order_num is required with expected_absent")
     if body.exercise_id:
-        try:
-            uuid.UUID(body.exercise_id)
-        except (TypeError, ValueError, AttributeError):
-            raise HTTPException(422, "exercise_id must be a valid UUID") from None
         if body.expected_absent:
             raise HTTPException(422, "exercise_id cannot be combined with expected_absent")
         if not body.expected_updated_at:
@@ -6661,10 +6687,10 @@ def _dictation_attempt_or_404(
         .eq("id", attempt_id).eq("user_id", user_id).limit(1).execute()
     )
     if not res.data:
-        raise HTTPException(404, "Không tìm thấy lượt chép chính tả.")
+        raise HTTPException(404, "Không tìm thấy lượt chép chính tả.", headers={"Cache-Control": "private, no-store"})
     row = res.data[0]
     if require_in_progress and row.get("status") != "in_progress":
-        raise HTTPException(409, "Lượt chép chính tả này đã kết thúc.")
+        raise HTTPException(409, "Lượt chép chính tả này đã kết thúc.", headers={"Cache-Control": "private, no-store"})
     if require_in_progress:
         require_resume_active(row)
     return row
@@ -8143,18 +8169,23 @@ def _record_skill_drill_playback(attempt_id: str, body: DrillPlaybackCheckpoint,
     attempt = lookup(attempt_id, user_id)
     item_id = attempt.get("class_assignment_item_id")
     if not item_id:
-        raise HTTPException(404, "Lượt làm không thuộc bài luyện kỹ năng được giao.")
+        raise HTTPException(404, "Lượt làm không thuộc bài luyện kỹ năng được giao.", headers={"Cache-Control": "private, no-store"})
+    if body.stage == "listening":
+        if blackeye.attempt_is_blackeye(supabase_admin, attempt):
+            raise HTTPException(404, "Black Eye resource unavailable.", headers={"Cache-Control": "private, no-store"})
+    else:
+        blackeye.guard_generic_target(supabase_admin, test_id=attempt.get("test_id"))
     if attempt.get("status") != "in_progress":
-        raise HTTPException(409, "Lượt làm bài đã kết thúc.")
+        raise HTTPException(409, "Lượt làm bài đã kết thúc.", headers={"Cache-Control": "private, no-store"})
     try:
         assignment = validate_class_item_for_test(
             supabase_admin, user_id, item_id, skill="listening", test_id=attempt["test_id"])
     except (ItemNotFoundError, TaskMismatchError) as exc:
-        raise HTTPException(404, str(exc)) from exc
+        raise HTTPException(404, str(exc), headers={"Cache-Control": "private, no-store"}) from exc
     except DeadlinePassedError as exc:
-        raise HTTPException(409, str(exc)) from exc
+        raise HTTPException(409, str(exc), headers={"Cache-Control": "private, no-store"}) from exc
     if drill_config(assignment) is None:
-        raise HTTPException(404, "Lượt làm không thuộc bài luyện kỹ năng được giao.")
+        raise HTTPException(404, "Lượt làm không thuộc bài luyện kỹ năng được giao.", headers={"Cache-Control": "private, no-store"})
     try:
         supabase_admin.rpc("fn_record_listening_drill_playback_v2", {
             "p_item_id": item_id, "p_stage": body.stage, "p_attempt_id": attempt_id,
@@ -8162,9 +8193,9 @@ def _record_skill_drill_playback(attempt_id: str, body: DrillPlaybackCheckpoint,
         }).execute()
     except APIError as exc:
         if exc.code == "55000" and exc.message == "skill_drill_attempt_inactive":
-            raise HTTPException(409, "Lượt làm bài đã kết thúc.") from exc
+            raise HTTPException(409, "Lượt làm bài đã kết thúc.", headers={"Cache-Control": "private, no-store"}) from exc
         if exc.code == "55000" and exc.message == "skill_drill_checkpoint_scope":
-            raise HTTPException(404, "Không tìm thấy trang phát audio của lượt làm bài.") from exc
+            raise HTTPException(404, "Không tìm thấy trang phát audio của lượt làm bài.", headers={"Cache-Control": "private, no-store"}) from exc
         raise
 
 @user_router.post("/tests/attempts/{attempt_id}/playback-started")
