@@ -406,7 +406,8 @@ class _CommitStub:
         return type("R", (), {"data": []})()   # dup-check → none
 
 
-def test_commit_endpoint_persists_fulltest(monkeypatch):
+@pytest.mark.parametrize("mini", [False, True], ids=["full", "mini"])
+def test_commit_endpoint_persists_hidden_draft(monkeypatch, mini):
     import io
     from fastapi import UploadFile
     from services import listening_audio
@@ -418,6 +419,8 @@ def test_commit_endpoint_persists_fulltest(monkeypatch):
     monkeypatch.setattr(listening_module, "_upload_audio_to_bucket", lambda path, b: None)
     monkeypatch.setattr(listening_audio, "validate_full_audio",
                         lambda b: {"duration_seconds": 1657, "size_bytes": len(b), "errors": [], "warnings": []})
+    monkeypatch.setattr(listening_audio, "validate_section_audio",
+                        lambda b, **kw: {"duration_seconds": 1657, "size_bytes": len(b), "errors": [], "warnings": []})
 
     qp, sol, tim = _load()
     out = _run(listening_module.admin_import_fulltest_commit(
@@ -425,7 +428,7 @@ def test_commit_endpoint_persists_fulltest(monkeypatch):
         solution=UploadFile(filename="sol.md", file=io.BytesIO(sol.encode())),
         timings=UploadFile(filename="t.json", file=io.BytesIO(json.dumps(tim).encode())),
         audio=UploadFile(filename="full_test.mp3", file=io.BytesIO(b"x" * 5000)),
-        mini=False,   # direct call: Query(default) is a truthy sentinel — pass the real bool
+        mini=mini,   # direct call: Query(default) is a truthy sentinel — pass the real bool
         authorization="x"))
 
     assert out["test_id"] == "ILR-LIS-001"
@@ -441,11 +444,18 @@ def test_commit_endpoint_persists_fulltest(monkeypatch):
     assert tr["full_audio_duration_seconds"] == 1657
     assert len(tr["cue_points"]) == 4
     assert tr["status"] == "draft"
+    # Explicitly override the database's public=true default on every import.
+    assert tr["is_public"] is False
     # Mig 157 — test_type stamp là cột thật (không còn trong metadata)
-    assert tr["test_type"] == "full"
+    assert tr["test_type"] == ("mini" if mini else "full")
     assert "test_type" not in (tr["metadata"] or {})
     content_rows = [p for (t, p) in stub.inserts if t == "listening_content"]
     assert len(content_rows) == 4
+    assert all(row["status"] == "draft" for row in content_rows)
+    exercise_rows = [p for (t, p) in stub.inserts if t == "listening_exercises"]
+    assert len(exercise_rows) == 10
+    assert all(row["status"] == "draft" for row in exercise_rows)
+    assert out["status"] == "draft"
 
 
 class _RollbackStub:
