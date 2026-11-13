@@ -1,0 +1,913 @@
+{
+  "scope": "Python consumers only; SQL contracts and catalog acceptance belong to N2.",
+  "rows": [
+    {
+      "file": "routers/class_student.py",
+      "function": "_visible_assignments",
+      "line": 495,
+      "source_sha256": "ad0916000b5c56756749e589a6dfb41907f968292d6faa0436fafba9b3447f2f",
+      "context_sha256": "075f427fcd18cf791514cd1033de79e05641a2f0d2057ca9fbace71c857b2ea0",
+      "sites": [
+        {
+          "kind": "reader_call",
+          "target": "routers.class_student._paged_items_of"
+        },
+        {
+          "kind": "reader_call",
+          "target": "routers.class_student._visible_writing_gives"
+        },
+        {
+          "kind": "reader_call",
+          "target": "services.class_assignment_service.reconcile_test_attempts"
+        },
+        {
+          "kind": "reader_call",
+          "target": "services.listening_blackeye.exclude_assignments"
+        },
+        {
+          "kind": "reader_call",
+          "target": "services.listening_blackeye.generic_assignments"
+        },
+        {
+          "kind": "reader_call",
+          "target": "services.quiz_service.reconcile_course_items"
+        }
+      ],
+      "class": "by_id_guarded",
+      "reason": "The common assignment namespace filter runs for every skill before decoration, repair and progress counts, and before the capped history.",
+      "proving_test": "tests/test_content_namespace_boundaries.py::test_student_assignment_list_and_progress_share_namespace_filter"
+    },
+    {
+      "file": "routers/listening.py",
+      "function": "_assert_listening_exam_content_allowed",
+      "line": 6081,
+      "source_sha256": "aab18200292b24dd8b3f8892f544782ad15eed3965abfa0b77b97da2429fee7c",
+      "context_sha256": "d47cb495c8c5a5aaa06d8148df769b3822c43e33cfe75f4c98355bbdffb91438",
+      "sites": [
+        {
+          "kind": "public_helper",
+          "target": "services.content_visibility.public_tests"
+        },
+        {
+          "kind": "reader_call",
+          "target": "services.content_visibility.public_tests"
+        },
+        {
+          "kind": "reader_call",
+          "target": "services.mock_paper_policy.authorize"
+        }
+      ],
+      "class": "by_id_guarded",
+      "reason": "Dedicated Black Eye classification precedes the public test view; generic entitlement cannot reopen another namespace.",
+      "proving_test": "tests/test_content_namespace_boundaries.py::test_learner_test_http_excludes_other_namespaces_before_delivery"
+    },
+    {
+      "file": "routers/listening.py",
+      "function": "_dictation_attempt_or_404",
+      "line": 6702,
+      "source_sha256": "5afa65f6b94c77c22fafe8523afe0c9d2e6aa2f85b7cb5597b083c62b710188f",
+      "context_sha256": "d47cb495c8c5a5aaa06d8148df769b3822c43e33cfe75f4c98355bbdffb91438",
+      "sites": [
+        {
+          "kind": "namespace_reference",
+          "target": "dictation_attempts"
+        },
+        {
+          "kind": "public_helper",
+          "target": "services.content_visibility.public_tests"
+        },
+        {
+          "kind": "reader_call",
+          "target": "services.content_visibility.public_tests"
+        },
+        {
+          "kind": "table",
+          "target": "dictation_attempts"
+        }
+      ],
+      "class": "by_id_guarded",
+      "reason": "An owned scalar identity and a public parent test are required before reading frozen dictation units.",
+      "proving_test": "tests/test_content_namespace_boundaries.py::test_dictation_attempt_http_checks_parent_namespace_before_frozen_units"
+    },
+    {
+      "file": "routers/listening.py",
+      "function": "_fetch_attempt_or_404",
+      "line": 8154,
+      "source_sha256": "3939b564e12a281db6a207bdad4f964af1b5826340d3d567a8c3d839b97bddf7",
+      "context_sha256": "d47cb495c8c5a5aaa06d8148df769b3822c43e33cfe75f4c98355bbdffb91438",
+      "sites": [
+        {
+          "kind": "namespace_reference",
+          "target": "listening_test_attempts"
+        },
+        {
+          "kind": "public_helper",
+          "target": "services.content_visibility.public_attempts"
+        },
+        {
+          "kind": "reader_call",
+          "target": "services.content_visibility.public_attempts"
+        },
+        {
+          "kind": "reader_call",
+          "target": "services.listening_blackeye.attempt_is_blackeye"
+        },
+        {
+          "kind": "table",
+          "target": "listening_test_attempts"
+        }
+      ],
+      "class": "by_id_guarded",
+      "reason": "Owned generic payload comes from the public attempt view; only a positively classified owned Black Eye identity can reach the dedicated raw payload.",
+      "proving_test": "tests/test_content_namespace_boundaries.py::test_shared_attempt_http_denies_other_namespaces_before_private_payload"
+    },
+    {
+      "file": "routers/listening.py",
+      "function": "_fetch_published_exercises_for_student",
+      "line": 781,
+      "source_sha256": "fcdba16ca3fd533b5f4bd85d9831966d224237518838094551e189bf951026df",
+      "context_sha256": "d47cb495c8c5a5aaa06d8148df769b3822c43e33cfe75f4c98355bbdffb91438",
+      "sites": [
+        {
+          "kind": "namespace_reference",
+          "target": "listening_exercises"
+        },
+        {
+          "kind": "public_helper",
+          "target": "services.content_visibility.public_content"
+        },
+        {
+          "kind": "reader_call",
+          "target": "services.content_visibility.public_content"
+        },
+        {
+          "kind": "reader_call",
+          "target": "services.listening_blackeye.guard_generic_content"
+        },
+        {
+          "kind": "table",
+          "target": "listening_exercises"
+        }
+      ],
+      "class": "by_id_guarded",
+      "reason": "Preserve the staging provenance/F1 guard, then require the public content view before payload, signing or lazy writes.",
+      "proving_test": "tests/test_content_namespace_boundaries.py::test_learner_content_http_uses_sticky_flags_after_legacy_guard"
+    },
+    {
+      "file": "routers/listening.py",
+      "function": "_fetch_published_listening_content_with_signed_url",
+      "line": 724,
+      "source_sha256": "f2fb0c874aeef2d987b38fa4f8cc855d73b4c833c16463c5d887ee398d877f5d",
+      "context_sha256": "d47cb495c8c5a5aaa06d8148df769b3822c43e33cfe75f4c98355bbdffb91438",
+      "sites": [
+        {
+          "kind": "public_helper",
+          "target": "services.content_visibility.public_content"
+        },
+        {
+          "kind": "reader_call",
+          "target": "services.content_visibility.public_content"
+        },
+        {
+          "kind": "reader_call",
+          "target": "services.listening_blackeye.guard_generic_content"
+        }
+      ],
+      "class": "by_id_guarded",
+      "reason": "Preserve the staging provenance/F1 guard, then require the public content view before payload, signing or lazy writes.",
+      "proving_test": "tests/test_content_namespace_boundaries.py::test_learner_content_http_uses_sticky_flags_after_legacy_guard"
+    },
+    {
+      "file": "routers/listening.py",
+      "function": "_load_programme_overview",
+      "line": 5421,
+      "source_sha256": "e03bc469e67ca8871068bc89a31d11180af86a885d576a48f8875d518902f95b",
+      "context_sha256": "d47cb495c8c5a5aaa06d8148df769b3822c43e33cfe75f4c98355bbdffb91438",
+      "sites": [
+        {
+          "kind": "namespace_reference",
+          "target": "listening_content_packages"
+        },
+        {
+          "kind": "namespace_reference",
+          "target": "listening_lessons"
+        },
+        {
+          "kind": "namespace_reference",
+          "target": "listening_public_practice_catalog"
+        },
+        {
+          "kind": "public_helper",
+          "target": "services.content_visibility.public_programmes"
+        },
+        {
+          "kind": "reader_call",
+          "target": "routers.listening._programme_attempt_state"
+        },
+        {
+          "kind": "reader_call",
+          "target": "services.content_visibility.public_programmes"
+        },
+        {
+          "kind": "table",
+          "target": "listening_content_packages"
+        },
+        {
+          "kind": "table",
+          "target": "listening_lessons"
+        },
+        {
+          "kind": "table",
+          "target": "listening_public_practice_catalog"
+        }
+      ],
+      "class": "view",
+      "reason": "Package/lesson programme predicates use the canonical registry; form reads consume the fixed public practice catalog.",
+      "proving_test": "tests/test_content_namespace_boundaries.py::test_programme_overview_and_lesson_http_exclude_registry_namespaces"
+    },
+    {
+      "file": "routers/listening.py",
+      "function": "_published_test_for_dictation",
+      "line": 6585,
+      "source_sha256": "949ad9bf951e69bd6d199372f9edc904479a149d79f4fe62070ad781798158bc",
+      "context_sha256": "d47cb495c8c5a5aaa06d8148df769b3822c43e33cfe75f4c98355bbdffb91438",
+      "sites": [
+        {
+          "kind": "public_helper",
+          "target": "services.content_visibility.public_tests"
+        },
+        {
+          "kind": "reader_call",
+          "target": "routers.listening._assert_listening_exam_content_allowed"
+        },
+        {
+          "kind": "reader_call",
+          "target": "services.content_visibility.public_tests"
+        },
+        {
+          "kind": "reader_call",
+          "target": "services.listening_blackeye.test_identity"
+        }
+      ],
+      "class": "by_id_guarded",
+      "reason": "Dedicated Black Eye classification precedes the public test view; generic entitlement cannot reopen another namespace.",
+      "proving_test": "tests/test_content_namespace_boundaries.py::test_learner_test_http_excludes_other_namespaces_before_delivery"
+    },
+    {
+      "file": "routers/listening.py",
+      "function": "_resolve_attempt_target",
+      "line": 1032,
+      "source_sha256": "3f4d0436ee1daa24e9cf974330192f133cf819fcc7c3bcad758b414b9db38300",
+      "context_sha256": "d47cb495c8c5a5aaa06d8148df769b3822c43e33cfe75f4c98355bbdffb91438",
+      "sites": [
+        {
+          "kind": "namespace_reference",
+          "target": "listening_exercises"
+        },
+        {
+          "kind": "public_helper",
+          "target": "services.content_visibility.public_content"
+        },
+        {
+          "kind": "reader_call",
+          "target": "services.content_visibility.public_content"
+        },
+        {
+          "kind": "reader_call",
+          "target": "services.listening_blackeye.guard_generic_content"
+        },
+        {
+          "kind": "table",
+          "target": "listening_exercises"
+        }
+      ],
+      "class": "by_id_guarded",
+      "reason": "Preserve the staging provenance/F1 guard, then require the public content view before payload, signing or lazy writes.",
+      "proving_test": "tests/test_content_namespace_boundaries.py::test_learner_content_http_uses_sticky_flags_after_legacy_guard"
+    },
+    {
+      "file": "routers/listening.py",
+      "function": "admin_list_listening_content",
+      "line": 1597,
+      "source_sha256": "22aa6ad85c7e1787eb373733cf913876dde9a381657a78686355092fd1a7604b",
+      "context_sha256": "d47cb495c8c5a5aaa06d8148df769b3822c43e33cfe75f4c98355bbdffb91438",
+      "sites": [
+        {
+          "kind": "namespace_reference",
+          "target": "listening_content"
+        },
+        {
+          "kind": "public_helper",
+          "target": "services.content_visibility.public_content"
+        },
+        {
+          "kind": "reader_call",
+          "target": "routers.listening.require_admin"
+        },
+        {
+          "kind": "reader_call",
+          "target": "services.content_visibility.public_content"
+        }
+      ],
+      "class": "view",
+      "reason": "Public content view applies before exact count and range, including NULL-parent provenance.",
+      "proving_test": "tests/test_content_namespace_boundaries.py::test_sorh_admin_content_http_filters_null_test_provenance_before_page"
+    },
+    {
+      "file": "routers/listening.py",
+      "function": "get_listening_programme_lesson",
+      "line": 5798,
+      "source_sha256": "f5472f475ea24958ad4f87e7f958109cb78b70bfa19318f5051c5ca3e2180925",
+      "context_sha256": "d47cb495c8c5a5aaa06d8148df769b3822c43e33cfe75f4c98355bbdffb91438",
+      "sites": [
+        {
+          "kind": "namespace_reference",
+          "target": "listening_lessons"
+        },
+        {
+          "kind": "namespace_reference",
+          "target": "listening_public_practice_catalog"
+        },
+        {
+          "kind": "reader_call",
+          "target": "routers.listening._programme_attempt_state"
+        },
+        {
+          "kind": "reader_call",
+          "target": "services.content_visibility.public_programmes"
+        },
+        {
+          "kind": "table",
+          "target": "listening_lessons"
+        },
+        {
+          "kind": "table",
+          "target": "listening_public_practice_catalog"
+        }
+      ],
+      "class": "view",
+      "reason": "Package/lesson programme predicates use the canonical registry; form reads consume the fixed public practice catalog.",
+      "proving_test": "tests/test_content_namespace_boundaries.py::test_programme_overview_and_lesson_http_exclude_registry_namespaces"
+    },
+    {
+      "file": "routers/listening.py",
+      "function": "get_listening_test_dictation",
+      "line": 6433,
+      "source_sha256": "cf02f45ee05273617684d36fb3eb2dbc1ddb2593f3684528aad6aef0d9833afe",
+      "context_sha256": "d47cb495c8c5a5aaa06d8148df769b3822c43e33cfe75f4c98355bbdffb91438",
+      "sites": [
+        {
+          "kind": "namespace_reference",
+          "target": "listening_content"
+        },
+        {
+          "kind": "public_helper",
+          "target": "services.content_visibility.public_tests"
+        },
+        {
+          "kind": "reader_call",
+          "target": "routers.listening._assert_listening_exam_content_allowed"
+        },
+        {
+          "kind": "reader_call",
+          "target": "routers.listening._class_drill_dictation_config"
+        },
+        {
+          "kind": "reader_call",
+          "target": "routers.listening._class_drill_dictation_done"
+        },
+        {
+          "kind": "reader_call",
+          "target": "services.content_visibility.public_tests"
+        },
+        {
+          "kind": "reader_call",
+          "target": "services.listening_blackeye.test_identity"
+        },
+        {
+          "kind": "table",
+          "target": "listening_content"
+        }
+      ],
+      "class": "by_id_guarded",
+      "reason": "Dedicated Black Eye classification precedes the public test view; generic entitlement cannot reopen another namespace.",
+      "proving_test": "tests/test_content_namespace_boundaries.py::test_learner_test_http_excludes_other_namespaces_before_delivery"
+    },
+    {
+      "file": "routers/listening.py",
+      "function": "get_published_listening_test",
+      "line": 6294,
+      "source_sha256": "9eab0ad4a465624963767948857bf0d3c735cf6200896bb6b655ec61dec22e58",
+      "context_sha256": "d47cb495c8c5a5aaa06d8148df769b3822c43e33cfe75f4c98355bbdffb91438",
+      "sites": [
+        {
+          "kind": "namespace_reference",
+          "target": "listening_test_attempts"
+        },
+        {
+          "kind": "public_helper",
+          "target": "services.content_visibility.public_tests"
+        },
+        {
+          "kind": "reader_call",
+          "target": "routers.listening._assemble_listening_player_payload"
+        },
+        {
+          "kind": "reader_call",
+          "target": "routers.listening._assert_listening_exam_content_allowed"
+        },
+        {
+          "kind": "reader_call",
+          "target": "routers.listening._fetch_attempt_or_404"
+        },
+        {
+          "kind": "reader_call",
+          "target": "services.content_visibility.public_tests"
+        },
+        {
+          "kind": "reader_call",
+          "target": "services.listening_blackeye.require_published"
+        },
+        {
+          "kind": "reader_call",
+          "target": "services.listening_blackeye.test_identity"
+        },
+        {
+          "kind": "reader_call",
+          "target": "services.mock_paper_policy.owned_delivery_snapshot"
+        },
+        {
+          "kind": "table",
+          "target": "listening_test_attempts"
+        }
+      ],
+      "class": "by_id_guarded",
+      "reason": "Dedicated Black Eye classification precedes the public test view; generic entitlement cannot reopen another namespace.",
+      "proving_test": "tests/test_content_namespace_boundaries.py::test_learner_test_http_excludes_other_namespaces_before_delivery"
+    },
+    {
+      "file": "routers/listening.py",
+      "function": "list_listening_programme_lessons",
+      "line": 5712,
+      "source_sha256": "db88d74dfe9e81e09a307e101bdb2656736da704035ec217c6467e01903e6c51",
+      "context_sha256": "d47cb495c8c5a5aaa06d8148df769b3822c43e33cfe75f4c98355bbdffb91438",
+      "sites": [
+        {
+          "kind": "namespace_reference",
+          "target": "listening_lessons"
+        },
+        {
+          "kind": "namespace_reference",
+          "target": "listening_public_practice_catalog"
+        },
+        {
+          "kind": "reader_call",
+          "target": "routers.listening._programme_attempt_state"
+        },
+        {
+          "kind": "reader_call",
+          "target": "services.content_visibility.public_programmes"
+        },
+        {
+          "kind": "table",
+          "target": "listening_lessons"
+        },
+        {
+          "kind": "table",
+          "target": "listening_public_practice_catalog"
+        }
+      ],
+      "class": "view",
+      "reason": "Package/lesson programme predicates use the canonical registry; form reads consume the fixed public practice catalog.",
+      "proving_test": "tests/test_content_namespace_boundaries.py::test_programme_overview_and_lesson_http_exclude_registry_namespaces"
+    },
+    {
+      "file": "routers/listening.py",
+      "function": "start_listening_test_attempt",
+      "line": 7939,
+      "source_sha256": "39b004131a216441bed9079840defb85a46b49334a5e94c4a55487bbe9fb96ea",
+      "context_sha256": "d47cb495c8c5a5aaa06d8148df769b3822c43e33cfe75f4c98355bbdffb91438",
+      "sites": [
+        {
+          "kind": "namespace_reference",
+          "target": "listening_test_attempts"
+        },
+        {
+          "kind": "public_helper",
+          "target": "services.content_visibility.public_tests"
+        },
+        {
+          "kind": "reader_call",
+          "target": "routers.listening._assert_listening_exam_content_allowed"
+        },
+        {
+          "kind": "reader_call",
+          "target": "routers.listening._fetch_attempt_or_404"
+        },
+        {
+          "kind": "reader_call",
+          "target": "services.content_visibility.public_tests"
+        },
+        {
+          "kind": "reader_call",
+          "target": "services.listening_blackeye.start"
+        },
+        {
+          "kind": "reader_call",
+          "target": "services.listening_blackeye.test_identity"
+        },
+        {
+          "kind": "reader_call",
+          "target": "services.mock_paper_policy.admit_mock_attempt"
+        },
+        {
+          "kind": "reader_call",
+          "target": "services.mock_paper_policy.guard_owned_attempt"
+        },
+        {
+          "kind": "rpc",
+          "target": "fn_acquire_listening_programme_attempt_v2"
+        },
+        {
+          "kind": "table",
+          "target": "listening_test_attempts"
+        }
+      ],
+      "class": "by_id_guarded",
+      "reason": "Dedicated Black Eye classification precedes the public test view; generic entitlement cannot reopen another namespace.",
+      "proving_test": "tests/test_content_namespace_boundaries.py::test_learner_test_http_excludes_other_namespaces_before_delivery"
+    },
+    {
+      "file": "routers/mock_corrections.py",
+      "function": "_guard_listening_correction_attempt",
+      "line": 135,
+      "source_sha256": "eec73a8fb22ffe68e8656918cddc69e777f29c45e26df8390ab10512c2667acd",
+      "context_sha256": "1e86084c8192d9d7f131f6a13a0ff56844ce7ceba30c133c4d6ebda91ae0c3e4",
+      "sites": [
+        {
+          "kind": "namespace_reference",
+          "target": "listening_test_attempts"
+        },
+        {
+          "kind": "table",
+          "target": "listening_test_attempts"
+        }
+      ],
+      "class": "by_id_guarded",
+      "reason": "Owner-scoped scalar flags deny restricted attempts before correction work, frozen marking or mutations.",
+      "proving_test": "tests/test_content_namespace_boundaries.py::test_correction_http_checks_owned_flag_before_work"
+    },
+    {
+      "file": "services/content_visibility.py",
+      "function": "public_attempts",
+      "line": 20,
+      "source_sha256": "e63ff38f0bed2f3f77dd7ca80b67e3ade0988433d447e9483aa218d88c347928",
+      "context_sha256": "5f995f84b8afb49a6b280ef4296cdde5ff76c807f2434056cc5b1719b8f95f37",
+      "sites": [
+        {
+          "kind": "namespace_reference",
+          "target": "v_listening_attempts_public"
+        },
+        {
+          "kind": "table",
+          "target": "v_listening_attempts_public"
+        }
+      ],
+      "class": "view",
+      "reason": "Return the fixed public view query builder before any projection, count or page.",
+      "proving_test": "tests/test_content_visibility.py::test_builders_return_the_unexecuted_view_query"
+    },
+    {
+      "file": "services/content_visibility.py",
+      "function": "public_content",
+      "line": 16,
+      "source_sha256": "bf36b7db0e5767cace445326e4248acc4b790a522a76950e3e78a9459b9e308f",
+      "context_sha256": "5f995f84b8afb49a6b280ef4296cdde5ff76c807f2434056cc5b1719b8f95f37",
+      "sites": [
+        {
+          "kind": "namespace_reference",
+          "target": "v_listening_content_public"
+        },
+        {
+          "kind": "table",
+          "target": "v_listening_content_public"
+        }
+      ],
+      "class": "view",
+      "reason": "Return the fixed public view query builder before any projection, count or page.",
+      "proving_test": "tests/test_content_visibility.py::test_builders_return_the_unexecuted_view_query"
+    },
+    {
+      "file": "services/content_visibility.py",
+      "function": "public_dictation",
+      "line": 24,
+      "source_sha256": "0fc00776a016d83b4e48ce9f968e87ee7a37b9f61a1eaa25796eb7c53dff9f19",
+      "context_sha256": "5f995f84b8afb49a6b280ef4296cdde5ff76c807f2434056cc5b1719b8f95f37",
+      "sites": [
+        {
+          "kind": "namespace_reference",
+          "target": "v_dictation_sessions_public"
+        },
+        {
+          "kind": "table",
+          "target": "v_dictation_sessions_public"
+        }
+      ],
+      "class": "view",
+      "reason": "Return the fixed public view query builder before any projection, count or page.",
+      "proving_test": "tests/test_content_visibility.py::test_builders_return_the_unexecuted_view_query"
+    },
+    {
+      "file": "services/content_visibility.py",
+      "function": "public_programmes",
+      "line": 47,
+      "source_sha256": "10b05e813889bfa8214f0ce7a194aa469e59e9e364d7c8849e99c3eda314b5a4",
+      "context_sha256": "5f995f84b8afb49a6b280ef4296cdde5ff76c807f2434056cc5b1719b8f95f37",
+      "sites": [
+        {
+          "kind": "reader_call",
+          "target": "services.content_visibility.restricted_programmes"
+        }
+      ],
+      "class": "view",
+      "reason": "Registry scope predicates exclude assignment-only programmes before package/lesson projection.",
+      "proving_test": "tests/test_content_namespace_boundaries.py::test_programme_overview_and_lesson_http_exclude_registry_namespaces"
+    },
+    {
+      "file": "services/content_visibility.py",
+      "function": "public_tests",
+      "line": 12,
+      "source_sha256": "2c7211d73881488e4149f4546019089494f37fe8e11fde2e714f54814c7280a1",
+      "context_sha256": "5f995f84b8afb49a6b280ef4296cdde5ff76c807f2434056cc5b1719b8f95f37",
+      "sites": [
+        {
+          "kind": "namespace_reference",
+          "target": "v_listening_tests_public"
+        },
+        {
+          "kind": "table",
+          "target": "v_listening_tests_public"
+        }
+      ],
+      "class": "view",
+      "reason": "Return the fixed public view query builder before any projection, count or page.",
+      "proving_test": "tests/test_content_visibility.py::test_builders_return_the_unexecuted_view_query"
+    },
+    {
+      "file": "services/content_visibility.py",
+      "function": "restricted_programmes",
+      "line": 33,
+      "source_sha256": "702da495cd8e08a9d6ad25d6058679183b766da3a4e613df5d0e4561e3a13eed",
+      "context_sha256": "5f995f84b8afb49a6b280ef4296cdde5ff76c807f2434056cc5b1719b8f95f37",
+      "sites": [
+        {
+          "kind": "namespace_reference",
+          "target": "content_access_namespaces"
+        },
+        {
+          "kind": "table",
+          "target": "content_access_namespaces"
+        }
+      ],
+      "class": "view",
+      "reason": "Registry scope predicates exclude assignment-only programmes before package/lesson projection.",
+      "proving_test": "tests/test_content_namespace_boundaries.py::test_programme_overview_and_lesson_http_exclude_registry_namespaces"
+    },
+    {
+      "file": "services/listening_blackeye.py",
+      "function": "assignment_is_blackeye",
+      "line": 520,
+      "source_sha256": "b8128c611be413c72b815199c014a8f2357c0f9a194bb178e8190c5828d677f5",
+      "context_sha256": "86029db9bd1d77cf40e18b093abdd665ee60dbb957dccbfe4c9aca905d8f77c4",
+      "sites": [
+        {
+          "kind": "reader_call",
+          "target": "services.listening_blackeye.generic_assignments"
+        }
+      ],
+      "class": "by_id_guarded",
+      "reason": "Batch current-page target flags and registry programme configs; unrelated skills without a programme require no registry lookup.",
+      "proving_test": "tests/test_content_namespace_boundaries.py::test_assignment_flags_are_batched_and_missing_targets_fail_closed"
+    },
+    {
+      "file": "services/listening_blackeye.py",
+      "function": "exclude_assignments",
+      "line": 693,
+      "source_sha256": "1eaf5154e7d0b8e79f32151081f702e07099b33d505c7adf0668416018103578",
+      "context_sha256": "86029db9bd1d77cf40e18b093abdd665ee60dbb957dccbfe4c9aca905d8f77c4",
+      "sites": [
+        {
+          "kind": "reader_call",
+          "target": "services.listening_blackeye.hidden_assignment_ids"
+        }
+      ],
+      "class": "by_id_guarded",
+      "reason": "Cohort-scoped assignment identities are filtered with the common guard before learner history limits.",
+      "proving_test": "tests/test_content_namespace_boundaries.py::test_student_history_excludes_namespace_before_history_cap"
+    },
+    {
+      "file": "services/listening_blackeye.py",
+      "function": "generic_assignments",
+      "line": 491,
+      "source_sha256": "1cad455785c15485889f5797b6877bc58a32b999c64df0c1ff913bb9798448dd",
+      "context_sha256": "86029db9bd1d77cf40e18b093abdd665ee60dbb957dccbfe4c9aca905d8f77c4",
+      "sites": [
+        {
+          "kind": "namespace_reference",
+          "target": "listening_tests"
+        },
+        {
+          "kind": "reader_call",
+          "target": "services.content_visibility.restricted_programmes"
+        },
+        {
+          "kind": "reader_call",
+          "target": "services.listening_blackeye.start"
+        },
+        {
+          "kind": "table",
+          "target": "listening_tests"
+        }
+      ],
+      "class": "by_id_guarded",
+      "reason": "Batch current-page target flags and registry programme configs; unrelated skills without a programme require no registry lookup.",
+      "proving_test": "tests/test_content_namespace_boundaries.py::test_assignment_flags_are_batched_and_missing_targets_fail_closed"
+    },
+    {
+      "file": "services/listening_blackeye.py",
+      "function": "guard_generic_target",
+      "line": 593,
+      "source_sha256": "5d9f914c5e1eb690d46f34254d34989bfcde6245f8e2c9a7d75393fc04355612",
+      "context_sha256": "86029db9bd1d77cf40e18b093abdd665ee60dbb957dccbfe4c9aca905d8f77c4",
+      "sites": [
+        {
+          "kind": "namespace_reference",
+          "target": "dictation_sessions"
+        },
+        {
+          "kind": "namespace_reference",
+          "target": "listening_content"
+        },
+        {
+          "kind": "namespace_reference",
+          "target": "listening_content_packages"
+        },
+        {
+          "kind": "namespace_reference",
+          "target": "listening_exercises"
+        },
+        {
+          "kind": "namespace_reference",
+          "target": "listening_test_attempts"
+        },
+        {
+          "kind": "namespace_reference",
+          "target": "listening_tests"
+        },
+        {
+          "kind": "reader_call",
+          "target": "services.content_visibility.restricted_programmes"
+        },
+        {
+          "kind": "reader_call",
+          "target": "services.listening_blackeye.guard_generic_target.identity"
+        },
+        {
+          "kind": "table",
+          "target": "listening_content_packages"
+        },
+        {
+          "kind": "table",
+          "target": "listening_exercises"
+        },
+        {
+          "kind": "table",
+          "target": "listening_tests"
+        }
+      ],
+      "class": "by_id_guarded",
+      "reason": "Read scalar persisted flags, deny missing/NULL flags and resolve exercise identities before any generic admin payload.",
+      "proving_test": "tests/test_content_namespace_boundaries.py::test_generic_admin_http_uses_each_persisted_flag"
+    },
+    {
+      "file": "services/listening_blackeye.py",
+      "function": "guard_generic_target.identity",
+      "line": 603,
+      "source_sha256": "704d7753b5b022bb46a2332beaa9a053b12a27e25cb3d845201fdea620a3b026",
+      "context_sha256": "86029db9bd1d77cf40e18b093abdd665ee60dbb957dccbfe4c9aca905d8f77c4",
+      "sites": [
+        {
+          "kind": "dynamic_table",
+          "target": "table"
+        }
+      ],
+      "class": "by_id_guarded",
+      "reason": "Read scalar persisted flags, deny missing/NULL flags and resolve exercise identities before any generic admin payload.",
+      "proving_test": "tests/test_content_namespace_boundaries.py::test_generic_admin_http_uses_each_persisted_flag"
+    },
+    {
+      "file": "services/listening_blackeye.py",
+      "function": "hidden_assignment_ids",
+      "line": 676,
+      "source_sha256": "4124f332f29c0e0a45f62a3cdb1c0439fa7ed628cd0238d84c400e4f3accfa59",
+      "context_sha256": "86029db9bd1d77cf40e18b093abdd665ee60dbb957dccbfe4c9aca905d8f77c4",
+      "sites": [
+        {
+          "kind": "reader_call",
+          "target": "services.listening_blackeye.generic_assignments"
+        }
+      ],
+      "class": "by_id_guarded",
+      "reason": "Cohort-scoped assignment identities are filtered with the common guard before learner history limits.",
+      "proving_test": "tests/test_content_namespace_boundaries.py::test_student_history_excludes_namespace_before_history_cap"
+    },
+    {
+      "file": "services/mock_correction_service.py",
+      "function": "_generic_table",
+      "line": 103,
+      "source_sha256": "81f3b3de0cd79be018d17ee2de49640e04d9528e0fa7c87ea0bfd61500b4dc6b",
+      "context_sha256": "d83686077219fce1137d057bbedb26dcd492d8be6e804ad19eff19f52fb758a3",
+      "sites": [
+        {
+          "kind": "dynamic_table",
+          "target": "table"
+        },
+        {
+          "kind": "namespace_reference",
+          "target": "listening_test_attempts"
+        },
+        {
+          "kind": "namespace_reference",
+          "target": "listening_tests"
+        },
+        {
+          "kind": "public_helper",
+          "target": "services.content_visibility.public_attempts"
+        },
+        {
+          "kind": "public_helper",
+          "target": "services.content_visibility.public_tests"
+        },
+        {
+          "kind": "reader_call",
+          "target": "services.content_visibility.public_attempts"
+        },
+        {
+          "kind": "reader_call",
+          "target": "services.content_visibility.public_tests"
+        }
+      ],
+      "class": "view",
+      "reason": "Dynamic Listening test/attempt hydration uses the fixed public views; restricted rows are absent before caller joins.",
+      "proving_test": "tests/test_content_namespace_boundaries.py::test_correction_dynamic_readers_use_namespace_views"
+    },
+    {
+      "file": "services/mock_correction_service.py",
+      "function": "_one",
+      "line": 111,
+      "source_sha256": "2e78d4eb4bff77131840b21dffb265950fee303728f4c4659342a7fabbca55a3",
+      "context_sha256": "d83686077219fce1137d057bbedb26dcd492d8be6e804ad19eff19f52fb758a3",
+      "sites": [
+        {
+          "kind": "reader_call",
+          "target": "services.mock_correction_service._generic_table"
+        }
+      ],
+      "class": "view",
+      "reason": "Dynamic Listening test/attempt hydration uses the fixed public views; restricted rows are absent before caller joins.",
+      "proving_test": "tests/test_content_namespace_boundaries.py::test_correction_dynamic_readers_use_namespace_views"
+    },
+    {
+      "file": "services/mock_correction_service.py",
+      "function": "fetch_owned_submitted_attempt",
+      "line": 117,
+      "source_sha256": "c6ec896df6663db41f57556a6551fee1a2bcb0e2c9f1b695ee3fc3e1f7061716",
+      "context_sha256": "d83686077219fce1137d057bbedb26dcd492d8be6e804ad19eff19f52fb758a3",
+      "sites": [
+        {
+          "kind": "reader_call",
+          "target": "services.mock_correction_service._generic_table"
+        }
+      ],
+      "class": "view",
+      "reason": "Dynamic Listening test/attempt hydration uses the fixed public views; restricted rows are absent before caller joins.",
+      "proving_test": "tests/test_content_namespace_boundaries.py::test_correction_dynamic_readers_use_namespace_views"
+    },
+    {
+      "file": "services/mock_correction_service.py",
+      "function": "non_public_reserved_ids",
+      "line": 193,
+      "source_sha256": "46bc9b4a73483a585e0a3f17a433e7332f5aacc659ad7f8918131aa9bda27978",
+      "context_sha256": "d83686077219fce1137d057bbedb26dcd492d8be6e804ad19eff19f52fb758a3",
+      "sites": [
+        {
+          "kind": "reader_call",
+          "target": "services.mock_correction_service._generic_table"
+        }
+      ],
+      "class": "view",
+      "reason": "Dynamic Listening test/attempt hydration uses the fixed public views; restricted rows are absent before caller joins.",
+      "proving_test": "tests/test_content_namespace_boundaries.py::test_correction_dynamic_readers_use_namespace_views"
+    }
+  ]
+}
