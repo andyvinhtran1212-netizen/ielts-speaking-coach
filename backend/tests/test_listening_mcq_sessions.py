@@ -290,7 +290,7 @@ def _run(c): return asyncio.run(c)
 def test_attempt_mcq_happy_path(monkeypatch):
     canned = {
         "listening_content": [{
-            "id": "c1", "status": "published", "transcript": "...",
+            "id": "c1", "test_id": None, "status": "published", "transcript": "...",
             "audio_storage_path": "ai/c1.mp3", "audio_duration_seconds": 200,
         }],
         "listening_exercises": [{
@@ -322,7 +322,7 @@ def test_attempt_mcq_happy_path(monkeypatch):
 
 def test_attempt_mcq_missing_exercise_404(monkeypatch):
     canned = {
-        "listening_content": [{"id": "c1", "status": "published", "transcript": "x",
+        "listening_content": [{"id": "c1", "test_id": None, "status": "published", "transcript": "x",
                                 "audio_storage_path": "p", "audio_duration_seconds": 60}],
         "listening_exercises": [],
         "listening_attempts": [],
@@ -339,7 +339,7 @@ def test_attempt_mcq_missing_exercise_404(monkeypatch):
 
 def test_attempt_mcq_requires_answers(monkeypatch):
     canned = {
-        "listening_content": [{"id": "c1", "status": "published", "transcript": "x",
+        "listening_content": [{"id": "c1", "test_id": None, "status": "published", "transcript": "x",
                                 "audio_storage_path": "p", "audio_duration_seconds": 60}],
         "listening_exercises": [{
             "id": "ex-mcq", "content_id": "c1", "exercise_type": "mcq",

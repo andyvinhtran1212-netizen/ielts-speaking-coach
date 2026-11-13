@@ -468,7 +468,7 @@ def test_package_slug_publish_archive(env, monkeypatch, action, hidden):
         return {'package_uuid': 'synthetic-uuid', 'status': status, 'forms_changed': 1}
     monkeypatch.setattr(listening_package_import, 'set_package_status', set_status)
     response = env.client.post(f'/admin/listening/packages/{slug}/{action}', json={'manifest_sha256': 'a' * 64})
-    assert response.status_code == (503 if hidden else 200), response.text
+    assert response.status_code == (404 if hidden else 200), response.text
     assert calls == ([] if hidden else [(slug, 'published' if action == 'publish' else 'archived')])
 
 

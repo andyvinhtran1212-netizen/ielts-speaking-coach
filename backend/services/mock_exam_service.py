@@ -2332,7 +2332,16 @@ def _update_mock_with_explanation_approval(
     return result
 
 
+def _guard_listening_attachment(payload):
+    if payload.get("listening_test_id"):
+        from services import listening_blackeye as blackeye
+        if blackeye.is_blackeye(blackeye.test_identity(
+                supabase_admin, payload["listening_test_id"], missing_status=None)):
+            blackeye.assignment_seam()
+
+
 def admin_create_exam(payload: dict, created_by: str) -> dict:
+    _guard_listening_attachment(payload)
     row = {k: v for k, v in payload.items() if k in _EXAM_WRITABLE}
     if not row.get("code") or not row.get("title"):
         raise ValueError("code và title là bắt buộc.")
@@ -2371,6 +2380,7 @@ def admin_create_exam(payload: dict, created_by: str) -> dict:
 
 
 def admin_update_exam(exam_id: str, patch: dict, actor_id: str | None = None) -> dict:
+    _guard_listening_attachment(patch)
     upd = {k: v for k, v in patch.items() if k in _EXAM_WRITABLE}
     if not upd:
         raise ValueError("Không có trường hợp lệ để cập nhật.")

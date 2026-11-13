@@ -77,7 +77,7 @@ class _DB:
         if table == "reading_passages":
             return _R([{"id": "p-uuid"}] if self._passage_exists else [])
         if table == "listening_content":
-            return _R([{"id": filters.get("id")}] if self._content_exists else [])
+            return _R([{"id": filters.get("id"), "test_id": None, "metadata": {}}] if self._content_exists else [])
         if table == "user_feedback":
             if op == "insert":
                 if payload.get("anonymous_dedupe_key") and any(

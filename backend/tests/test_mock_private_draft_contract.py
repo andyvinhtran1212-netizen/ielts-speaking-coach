@@ -44,13 +44,40 @@ def test_service_passes_create_only_copy_command_to_one_atomic_rpc(monkeypatch):
 
 
 def test_cached_package_source_returns_actionable_bad_request(monkeypatch):
+    identity_reads = []
+
+    class IdentityRead:
+        def select(self, columns):
+            assert columns == "id,programme_id,status,is_public,scoring_policy,content_package_id,metadata"
+            return self
+
+        def eq(self, column, value):
+            assert (column, value) == ("id", "package-form")
+            return self
+
+        def limit(self, count):
+            assert count == 1
+            return self
+
+        def execute(self):
+            identity_reads.append("package-form")
+            return type("Response", (), {"data": [{
+                "id": "package-form", "programme_id": "ielts", "metadata": {},
+            }]})()
+
+    def table(name):
+        assert name == "listening_tests"
+        return IdentityRead()
+
     class Result:
         def execute(self):
             raise Exception("mock_copy_source_package_unsupported:listening")
 
     monkeypatch.setattr(mock_exam_service, "supabase_admin", type("DB", (), {
+        "table": staticmethod(table),
         "rpc": staticmethod(lambda name, args: Result()),
     })())
     with pytest.raises(ValueError, match="Hãy chọn đề Listening độc lập"):
         mock_exam_service.admin_create_exam({"code": "C1", "title": "Class mock",
             "listening_test_id": "package-form", "private_content_copy": True}, "admin-1")
+    assert identity_reads == ["package-form"]

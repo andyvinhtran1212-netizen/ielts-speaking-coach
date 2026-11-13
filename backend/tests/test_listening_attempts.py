@@ -256,6 +256,7 @@ def _published_content(content_id="c1", transcript="The cat sat on the mat."):
     return {
         "listening_content": [{
             "id": content_id,
+            "test_id": None,
             "status": "published",
             "transcript": transcript,
             "audio_storage_path": f"ai/{content_id}.mp3",

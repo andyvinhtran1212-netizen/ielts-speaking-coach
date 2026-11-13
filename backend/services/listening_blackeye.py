@@ -39,7 +39,9 @@ def is_blackeye(test: dict) -> bool:
     # Conflicting namespaces fail in Black Eye validation, never generic fallback.
     if test.get("programme_id") == PROGRAMME:
         return True
-    metadata = test.get("metadata") or {}
+    metadata = test.get("metadata")
+    if metadata is None:
+        metadata = {}
     if not isinstance(metadata, dict):
         unavailable()
     # Even malformed/conflicting Black Eye metadata must not fall through.
@@ -526,14 +528,67 @@ def guard_generic_assignment(db, assignment_id, cohort_id=None):
         unavailable()
 
 
+def guard_generic_content(db, content_id, *, denied_status=404,
+                          denied_detail="Listening content not found", hidden_status=None,
+                          direct_parent_first=False):
+    """Classify only identity/provenance before any payload read or audio signing.
+
+    An explicit ordinary standalone row is allowed. Broken/cyclic provenance,
+    absent identity columns, or an unresolved source/test fail closed.
+    """
+    def deny(*, hidden=False):
+        status = hidden_status if hidden and hidden_status is not None else denied_status
+        detail = "Black Eye section access unavailable." if hidden and hidden_status == 422 else denied_detail
+        raise HTTPException(status, detail, headers={"Cache-Control": "private, no-store"})
+
+    seen, pending = set(), [str(content_id)]
+    try:
+        if direct_parent_first:
+            # Learner paths must deny a known hidden direct parent without
+            # projecting even the content's metadata/provenance. This probe
+            # only denies: every other result still needs the strict walk.
+            rows = db.table("listening_content").select("test_id").eq(
+                "id", str(content_id)).limit(1).execute().data or []
+            if len(rows) == 1 and rows[0].get("test_id") is not None:
+                identity = test_identity(db, rows[0]["test_id"], missing_status=None)
+                if identity and is_blackeye(identity):
+                    deny(hidden=True)
+        while pending:
+            current = pending.pop()
+            if current in seen or len(seen) >= 20:
+                deny()
+            seen.add(current)
+            rows = db.table("listening_content").select(
+                "id,test_id,metadata,source_test_id,parent_content_id"
+            ).eq("id", current).limit(1).execute().data or []
+            if len(rows) != 1 or "test_id" not in rows[0]:
+                deny()
+            content = rows[0]
+            if is_blackeye(content):
+                deny(hidden=True)
+            for key in ("test_id", "source_test_id"):
+                if content.get(key) is not None:
+                    identity = test_identity(db, content[key], missing_status=None)
+                    if not identity:
+                        deny()
+                    if is_blackeye(identity):
+                        deny(hidden=True)
+            if content.get("parent_content_id") is not None:
+                pending.append(str(content["parent_content_id"]))
+    except HTTPException:
+        raise
+    except Exception:
+        deny()
+
+
 def guard_generic_target(db, *, test_id=None, content_id=None, exercise_id=None,
                          attempt_id=None, package_id=None, drill_id=None, session_id=None,
-                         denied_status=404, external_test_code=False):
+                         denied_status=404, denied_detail="Test bundle not found", external_test_code=False):
     def values(target):
         return target if isinstance(target, (list, tuple, set)) else [target] if target else []
 
     def deny():
-        raise HTTPException(denied_status, "Black Eye resource unavailable.",
+        raise HTTPException(denied_status, denied_detail,
                             headers={"Cache-Control": "private, no-store"})
 
     def identity(table, value):
@@ -593,13 +648,13 @@ def guard_generic_target(db, *, test_id=None, content_id=None, exercise_id=None,
             for package in packages:
                 if (package.get("programme_id") in programmes
                         or is_blackeye(package)):
-                    assignment_seam()
+                    deny()
                 offset = 0
                 while True:
                     rows = db.table("listening_tests").select("id,restricted").eq(
                         "content_package_id", package["id"]).order("id").range(offset, offset + 999).execute().data or []
                     if any(is_restricted(row) for row in rows):
-                        assignment_seam()
+                        deny()
                     if len(rows) < 1000:
                         break
                     offset += 1000

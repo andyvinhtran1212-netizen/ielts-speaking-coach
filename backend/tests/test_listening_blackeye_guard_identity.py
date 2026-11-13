@@ -121,6 +121,42 @@ def test_standalone_blackeye_content_denied(admin_env, metadata):
     assert all(cols != "*" and not patch for _, cols, patch in e.db.calls)
 
 
+@pytest.mark.parametrize("route", ["content", "exercises"])
+@pytest.mark.parametrize("metadata", [{}, {"blackeye": None}, {"blackeye": {}}, {"blackeye": False}])
+def test_direct_standalone_content_namespace_http(admin_env, monkeypatch, route, metadata):
+    e = admin_env
+    exercise = standalone_exercise(e, metadata)
+    content = e.db.rows["listening_content"][0]
+    content["transcript"] = "SYNTHETIC_PRIVATE_TRANSCRIPT"
+    content["audio_storage_path"] = "synthetic/private.wav"
+    signed = []
+    def sign(path, expires):
+        signed.append((path, expires))
+        return {"signedURL": "https://audio.invalid/synthetic"}
+    monkeypatch.setattr(e.db, "storage", SimpleNamespace(
+        from_=lambda _bucket: SimpleNamespace(create_signed_url=sign)), raising=False)
+    url = (f'/admin/listening/content/{content["id"]}' if route == "content"
+           else f'/admin/listening/exercises?content_id={content["id"]}')
+    response = e.client.get(url)
+    assert ("listening_content", "id,test_id,metadata,source_test_id,parent_content_id", None) in e.db.calls
+    if "blackeye" in metadata:
+        denied(response)
+        assert "SYNTHETIC_PRIVATE_TRANSCRIPT" not in response.text
+        assert all(cols != "*" and not patch for _, cols, patch in e.db.calls)
+        assert signed == []
+    else:
+        assert response.status_code == 200, response.text
+        if route == "content":
+            assert response.json()["transcript"] == content["transcript"]
+            assert response.json()["audio_signed_url"] == "https://audio.invalid/synthetic"
+            assert signed == [(content["audio_storage_path"], 3600)]
+        else:
+            assert response.json()["exercises"][0]["id"] == exercise["id"]
+            assert signed == []
+    assert e.db.rpcs == []
+    assert not any(patch for _, _, patch in e.db.calls)
+
+
 def test_nonexistent_exercise_denied_before_protected_reads(admin_env):
     e = admin_env
     denied(e.client.delete(f'/admin/listening/exercises/{uuid4()}'))
@@ -183,7 +219,7 @@ def test_normal_package_cannot_publish_or_archive_hidden_children(admin_env, ide
             child["programme_id"] = "ielts-listening-practice"
         e.db.rows["listening_tests"] = [e.normal, child]
     denied(e.client.post(f'/admin/listening/packages/{package["package_id"]}/{action}',
-                         json={"manifest_sha256": "a" * 64}), 503)
+                         json={"manifest_sha256": "a" * 64}))
     assert e.db.rpcs == []
     assert not any(patch for _, _, patch in e.db.calls)
 
@@ -228,27 +264,33 @@ def test_dictation_session_target_denied_before_full_report(admin_env):
 
 
 def test_identifier_admin_routes_use_module_staff_guard():
-    """Follow local helpers too (publish delegates); imported guards fail this contract."""
+    """Every route authenticates as its first await, before any database read."""
     assert lr.require_admin.__module__ == lr.__name__
     tree = ast.parse(inspect.getsource(lr))
     functions = {node.name: node for node in tree.body
                  if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
-    def reaches_guard(name, seen):
-        if name == "require_admin":
-            return True
-        if name in seen or name not in functions:
-            return False
-        seen = seen | {name}
+
+    def first_guard(name, seen):
+        assert name not in seen, name
         node = functions[name]
         assert not any(isinstance(n, ast.ImportFrom) and any(a.name == "require_admin" for a in n.names)
                        for n in ast.walk(node)), name
-        return any(reaches_guard(n.func.id, seen) for n in ast.walk(node)
-                   if isinstance(n, ast.Call) and isinstance(n.func, ast.Name))
-    keys = {"test_id", "content_id", "attempt_id", "exercise_id", "package_id", "drill_id", "session_id"}
-    routes = [route for route in lr.admin_router.routes if keys.intersection(route.param_convertors)]
+        body = ast.Module(body=node.body, type_ignores=[])
+        calls = sorted((n for n in ast.walk(body) if isinstance(n, ast.Call)),
+                       key=lambda n: (n.lineno, n.col_offset))
+        assert calls, name
+        call = calls[0]
+        assert isinstance(call.func, ast.Name), name
+        awaits = sorted((n for n in ast.walk(body) if isinstance(n, ast.Await)),
+                        key=lambda n: (n.lineno, n.col_offset))
+        assert awaits and awaits[0].value is call, name
+        if call.func.id != "require_admin":
+            first_guard(call.func.id, seen | {name})
+
+    routes = list(lr.admin_router.routes)
     assert routes
     for route in routes:
-        assert reaches_guard(inspect.unwrap(route.endpoint).__name__, set()), route.path
+        first_guard(inspect.unwrap(route.endpoint).__name__, set())
 
 
 @pytest.mark.parametrize("key,method,path,table", [
@@ -271,6 +313,114 @@ def test_other_path_identities_survive_same_query_key(admin_env, key, method, pa
     denied(getattr(e.client, method)(f"/admin/listening/{path}/{path_id}", params={key: query_id}))
     assert all(cols != "*" and not patch for _, cols, patch in e.db.calls)
     assert e.db.rpcs == []
+
+
+@pytest.mark.parametrize("route", ["content", "exercises", "exercise"])
+@pytest.mark.parametrize("provenance", ["hidden_source", "missing_source", "hidden_parent",
+                                         "missing_parent", "cycle", "ordinary_source", "ordinary_parent"])
+def test_content_provenance_http(admin_env, route, provenance):
+    e = admin_env
+    exercise = standalone_exercise(e)
+    content = e.db.rows["listening_content"][0]
+    content["audio_storage_path"] = None
+    if provenance.endswith("source"):
+        content["source_test_id"] = (e.p["id"] if provenance.startswith("hidden") else
+                                      e.normal["id"] if provenance.startswith("ordinary") else str(uuid4()))
+    else:
+        content["parent_content_id"] = content["id"] if provenance == "cycle" else str(uuid4())
+        if provenance in {"hidden_parent", "ordinary_parent"}:
+            e.db.rows["listening_content"].append(dict(id=content["parent_content_id"], test_id=None,
+                metadata={"blackeye": None} if provenance == "hidden_parent" else {}))
+    url = (f'/admin/listening/content/{content["id"]}' if route == "content" else
+           f'/admin/listening/exercises?content_id={content["id"]}' if route == "exercises" else
+           f'/admin/listening/exercises/{exercise["id"]}')
+    response = getattr(e.client, "delete" if route == "exercise" else "get")(url)
+    if provenance.startswith("ordinary"):
+        assert response.status_code == 200, response.text
+    else:
+        denied(response)
+        assert all(cols != "*" and not patch for _, cols, patch in e.db.calls)
+    assert e.db.rpcs == []
+
+
+@pytest.mark.parametrize("catalog", ["deleted", "changed"])
+def test_admin_attempt_frozen_identity_survives_catalog_changes(admin_env, catalog):
+    e = admin_env
+    attempt = e.db.freeze(e.p)
+    e.db.rows["listening_tests"] = [e.normal]
+    if catalog == "changed":
+        e.db.rows["listening_tests"].append(dict(e.p, programme_id="ordinary", metadata={}))
+    denied(e.client.get(f'/admin/listening/attempts/{attempt["id"]}'))
+    assert any(table == "mock_paper_attempt_snapshots" for table, _, _ in e.db.calls)
+    assert all(cols != "*" and not patch for _, cols, patch in e.db.calls)
+
+
+@pytest.mark.parametrize("parent", ["hidden", "missing", "empty", "ordinary", "duplicate"])
+def test_admin_session_external_parent_after_delete(admin_env, parent):
+    e = admin_env
+    code = "SYNTHETIC-EXTERNAL"
+    e.p["test_id"] = code
+    e.normal["test_id"] = code if parent in {"ordinary", "duplicate"} else "OTHER"
+    if parent == "ordinary":
+        e.db.rows["listening_tests"] = [e.normal]
+    session = dict(id=str(uuid4()), test_id=None, results=[],
+                   test_id_external=None if parent == "empty" else "UNKNOWN" if parent == "missing" else code)
+    e.db.rows["dictation_sessions"] = [session]
+    response = e.client.get(f'/admin/listening/dictation-reports/{session["id"]}')
+    if parent == "ordinary":
+        assert response.status_code == 200, response.text
+    else:
+        denied(response)
+        assert all(cols != "*" and not patch for _, cols, patch in e.db.calls)
+    assert e.db.rpcs == []
+
+
+@pytest.mark.parametrize("key", ["test_id", "content_id", "exercise_id", "attempt_id",
+                                 "session_id", "package_id", "drill_id"])
+def test_query_identity_limits_and_empty_values(admin_env, key):
+    e = admin_env
+    url = f'/admin/listening/tests/{e.normal["id"]}'
+    response = e.client.get(url, params=[(key, str(uuid4()))] * 21)
+    denied(response, 422)
+    assert e.db.calls == []
+    response = e.client.get(url, params=[(key, ""), (key, " ")])
+    assert response.status_code == 200, response.text
+    response = e.client.get(url, params=[(key, "")] * 20)
+    assert response.status_code == 200, response.text
+
+
+@pytest.mark.parametrize("path", ["content", "exercises", "tests", "attempts",
+                                  "dictation-reports", "dictation-reports/aggregate"])
+def test_query_only_admin_routes_authenticate_before_identity_reads(admin_env, path):
+    e = admin_env
+    e.actor["admin"] = False
+    response = e.client.get(f'/admin/listening/{path}',
+                            params={"test_id": e.p["id"], "content_id": str(uuid4())})
+    assert response.status_code == 403, response.text
+    assert e.db.calls == []
+    assert e.db.rpcs == []
+
+
+@pytest.mark.parametrize("route", ["tests", "content", "exercises", "attempts", "dictation-reports"])
+def test_hidden_identity_uses_ordinary_not_found_text(admin_env, route):
+    e = admin_env
+    value = e.p["id"]
+    method = "delete" if route == "exercises" else "get"
+    if route == "content":
+        value = str(uuid4())
+        e.db.rows["listening_content"] = [dict(id=value, test_id=None, metadata={"blackeye": None})]
+    elif route == "exercises":
+        value = standalone_exercise(e, {"blackeye": None})["id"]
+    elif route == "attempts":
+        value = e.db.freeze(e.p)["id"]
+    elif route == "dictation-reports":
+        value = str(uuid4())
+        e.db.rows["dictation_sessions"] = [dict(id=value, test_id=e.p["id"])]
+    hidden = getattr(e.client, method)(f'/admin/listening/{route}/{value}')
+    missing = getattr(e.client, method)(f'/admin/listening/{route}/{uuid4()}')
+    denied(hidden)
+    assert missing.status_code == 404, missing.text
+    assert hidden.json() == missing.json()
 
 
 @pytest.mark.parametrize("stage", ["listening", "dictation"])
