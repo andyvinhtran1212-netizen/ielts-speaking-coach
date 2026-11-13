@@ -669,7 +669,8 @@ def test_catalog_page_crosses_kind_boundaries_without_scanning_source_rows(db, m
     assert all(0 <= call["p_limit"] <= 2 for call in db.page_calls)
 
 
-def test_restricted_listening_catalog_page_never_hydrates_the_library(db, monkeypatch):
+@pytest.mark.parametrize("limit,offset", [(1, 0), (1, 1), (2, 0), (2, 1), (1, 2), (2, 9)])
+def test_restricted_listening_catalog_page_never_hydrates_the_library(db, monkeypatch, limit, offset):
     _seed_three(db)
     ordinary = copy.deepcopy(db.t["listening_tests"][0])
     db.t["listening_tests"] = [
@@ -697,13 +698,15 @@ def test_restricted_listening_catalog_page_never_hydrates_the_library(db, monkey
         return original_table(name)
 
     monkeypatch.setattr(db, "table", no_catalog_scan)
-    page = svc.list_exam_content(kind="listening", limit=1, offset=1)
+    page = svc.list_exam_content(kind="listening", limit=limit, offset=offset)
     assert page["failed_kinds"] == []
     assert page["total"] == 2
-    assert [row["id"] for row in page["items"]] == ["l2"]
-    assert enriched == [("listening", ["l2"])]
+    expected = ["l1", "l2"][offset:offset + limit]
+    assert [row["id"] for row in page["items"]] == expected
+    assert enriched == ([("listening", expected)] if expected else [])
     assert len(db.page_calls) == 1
-    assert db.page_calls[0]["p_limit"] == db.page_calls[0]["p_offset"] == 1
+    assert db.page_calls[0]["p_limit"] == limit
+    assert db.page_calls[0]["p_offset"] == offset
 
 
 @pytest.mark.parametrize("suffix, expected_limit, expected_status", [

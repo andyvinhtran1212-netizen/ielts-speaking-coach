@@ -100,26 +100,41 @@ def test_assignment_flags_are_batched_and_missing_targets_fail_closed(admin_env)
     assert all(len(v) <= 100 for q in e.db.queries for _, v, op in q.filters if op == "in")
 
 
-def test_sorh_admin_content_http_filters_null_test_provenance_before_page(admin_env, monkeypatch):
+@pytest.mark.parametrize("status,limit,offset,expected,total", [
+    ("published", 1, 1, ["public-two"], 2),
+    ("published", 2, 0, ["public-one", "public-two"], 2),
+    ("all", 2, 1, ["public-two", "public-draft"], 3),
+    ("draft", 1, 0, ["public-draft"], 1),
+    ("all", 2, 9, [], 3),
+])
+def test_sorh_admin_content_http_filters_null_test_provenance_before_page(
+    admin_env, monkeypatch, status, limit, offset, expected, total,
+):
     from routers import listening
     from test_listening_overview import _FakeSB
     e = admin_env
     rows = [
-        {"id": "marker", "restricted": True, "test_id": None, "metadata": {"blackeye": {}}},
-        {"id": "source", "restricted": True, "test_id": None, "source_test_id": "hidden"},
-        {"id": "ancestor", "restricted": True, "test_id": None, "parent_content_id": "source"},
-        {"id": "public-one", "restricted": False, "test_id": None},
-        {"id": "public-two", "restricted": False, "test_id": None},
+        {"id": "marker", "restricted": True, "test_id": None, "metadata": {"blackeye": {}}, "status": "published"},
+        {"id": "source", "restricted": True, "test_id": None, "source_test_id": "hidden", "status": "published"},
+        {"id": "ancestor", "restricted": True, "test_id": None, "parent_content_id": "source", "status": "draft"},
+        {"id": "null-flag", "restricted": None, "test_id": None, "status": "published"},
+        {"id": "public-one", "restricted": False, "test_id": None, "status": "published"},
+        {"id": "public-two", "restricted": False, "test_id": None, "status": "published"},
+        {"id": "public-draft", "restricted": False, "test_id": None, "status": "draft"},
     ]
     e.db.rows["listening_content"] = rows
     original, store = e.db.table, _FakeSB(e.db.rows)
+    sources = []
     def table(name):
+        sources.append(name)
         return store.table(name) if name == "v_listening_content_public" else original(name)
     monkeypatch.setattr(listening.supabase_admin, "table", table)
-    response = e.client.get('/admin/listening/content', params={"limit": 1, "offset": 1})
+    response = e.client.get('/admin/listening/content', params={"status": status, "limit": limit, "offset": offset})
     assert response.status_code == 200, response.text
-    assert response.json()["total"] == 2
-    assert [r["id"] for r in response.json()["items"]] == ["public-two"]
+    assert response.json()["total"] == total
+    assert [r["id"] for r in response.json()["items"]] == expected
+    assert response.json()["limit"] == limit and response.json()["offset"] == offset
+    assert sources == ["v_listening_content_public"]
 
 
 def test_programme_overview_and_lesson_http_exclude_registry_namespaces(monkeypatch):
