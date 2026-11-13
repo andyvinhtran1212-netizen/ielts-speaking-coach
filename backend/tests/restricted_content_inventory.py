@@ -104,7 +104,7 @@ def scan_sources(sources: dict[str, str]) -> list[dict]:
                 if isinstance(item, ast.Constant) and isinstance(item.value, str):
                     for target in _OBJECT_RE.findall(item.value):
                         events.add(("namespace_reference", target))
-                if isinstance(item, ast.Attribute) and item.attr in {"table", "rpc"}:
+                if isinstance(item, ast.Attribute) and item.attr in {"table", "from_", "rpc"}:
                     if id(item) not in called_attributes:
                         events.add(("indirect_method_reference", item.attr))
                 if not isinstance(item, ast.Call):
@@ -117,8 +117,15 @@ def scan_sources(sources: dict[str, str]) -> list[dict]:
                 }:
                     events.add(("public_helper", resolved or method))
                 db_method = resolved.rsplit(".", 1)[-1] if resolved else method
-                if db_method in {"table", "rpc"} and isinstance(item.func, (ast.Attribute, ast.Name)):
-                    method = db_method
+                # Supabase Storage uses the same spelling for bucket access;
+                # it is not a PostgREST table argument.
+                if db_method == "from_" and isinstance(item.func, ast.Attribute) and any(
+                    isinstance(n, ast.Attribute) and n.attr == "storage"
+                    for n in ast.walk(item.func.value)
+                ):
+                    continue
+                if db_method in {"table", "from_", "rpc"} and isinstance(item.func, (ast.Attribute, ast.Name)):
+                    method = "table" if db_method == "from_" else db_method
                     target = item.args[0] if item.args else None
                     if not isinstance(target, ast.Constant) or not isinstance(target.value, str):
                         events.add((f"dynamic_{method}", ast.unparse(target) if target is not None else "<none>"))
@@ -130,7 +137,7 @@ def scan_sources(sources: dict[str, str]) -> list[dict]:
                         events.add(("table", target.value))
                 if method == "getattr" and len(item.args) > 1:
                     attr = item.args[1]
-                    if isinstance(attr, ast.Constant) and attr.value in {"table", "rpc"}:
+                    if isinstance(attr, ast.Constant) and attr.value in {"table", "from_", "rpc"}:
                         events.add(("indirect_method_reference", attr.value))
                     elif not isinstance(attr, ast.Constant):
                         events.add(("dynamic_method_reference", ast.unparse(attr)))

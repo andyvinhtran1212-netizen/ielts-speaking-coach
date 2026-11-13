@@ -1,0 +1,245 @@
+{
+  "source_revision": "0f54a85b62bbe0ecae1949bdd91d7ede08b0c97a",
+  "rows": [
+    {
+      "file": "routers/listening.py",
+      "function": "_insert_attempt",
+      "inherited_line": 1111
+    },
+    {
+      "file": "routers/listening.py",
+      "function": "_check_first_attempt",
+      "inherited_line": 1145
+    },
+    {
+      "file": "routers/listening.py",
+      "function": "_count_gist_gradings_today",
+      "inherited_line": 1250
+    },
+    {
+      "file": "routers/listening.py",
+      "function": "_enforce_gist_rate_limit",
+      "inherited_line": 1268
+    },
+    {
+      "file": "routers/listening.py",
+      "function": "_grade_and_save_true_false",
+      "inherited_line": 1379
+    },
+    {
+      "file": "routers/listening.py",
+      "function": "_grade_and_save_mcq",
+      "inherited_line": 1433
+    },
+    {
+      "file": "routers/listening.py",
+      "function": "_load_audit_row",
+      "inherited_line": 3845
+    },
+    {
+      "file": "routers/listening.py",
+      "function": "_assisted_programme_attempt_ids",
+      "inherited_line": 5320
+    },
+    {
+      "file": "routers/listening.py",
+      "function": "_dictation_units",
+      "inherited_line": 6373
+    },
+    {
+      "file": "routers/listening.py",
+      "function": "dictation_grading_capabilities",
+      "inherited_line": 6640
+    },
+    {
+      "file": "routers/listening.py",
+      "function": "_dictation_attempt_answers",
+      "inherited_line": 6699
+    },
+    {
+      "file": "routers/listening.py",
+      "function": "_dictation_attempt_response",
+      "inherited_line": 6707
+    },
+    {
+      "file": "routers/listening.py",
+      "function": "_assert_dictation_attempt_submission",
+      "inherited_line": 7071
+    },
+    {
+      "file": "services/advanced_vocab_service.py",
+      "function": "learner_lesson",
+      "inherited_line": 711
+    },
+    {
+      "file": "services/advanced_vocab_service.py",
+      "function": "submit_listening",
+      "inherited_line": 1337
+    },
+    {
+      "file": "services/advanced_vocab_service.py",
+      "function": "complete_listening_guided_retry",
+      "inherited_line": 1401
+    },
+    {
+      "file": "services/core_attempt_outcomes.py",
+      "function": "dictation_outcome",
+      "inherited_line": 126
+    },
+    {
+      "file": "services/core_attempt_outcomes.py",
+      "function": "observe_writing_background",
+      "inherited_line": 255
+    },
+    {
+      "file": "services/core_attempt_outcomes.py",
+      "function": "observe_writing_batch",
+      "inherited_line": 287
+    },
+    {
+      "file": "services/dictation_grading_version.py",
+      "function": "reference_sha256",
+      "inherited_line": 32
+    },
+    {
+      "file": "services/dictation_grading_version.py",
+      "function": "validate_new_lexical_source",
+      "inherited_line": 44
+    },
+    {
+      "file": "services/dictation_grading_version.py",
+      "function": "persisted_policy_identity",
+      "inherited_line": 60
+    },
+    {
+      "file": "services/dictation_grading_version.py",
+      "function": "frozen_contract",
+      "inherited_line": 77
+    },
+    {
+      "file": "services/dictation_grading_version.py",
+      "function": "require_write_contract",
+      "inherited_line": 97
+    },
+    {
+      "file": "services/dictation_grading_version.py",
+      "function": "grade_frozen_sentence",
+      "inherited_line": 112
+    },
+    {
+      "file": "services/dictation_grading_version.py",
+      "function": "session_contract",
+      "inherited_line": 134
+    },
+    {
+      "file": "services/exam_content_service.py",
+      "function": "cohorts_for",
+      "inherited_line": 196
+    },
+    {
+      "file": "services/exam_content_service.py",
+      "function": "explanation_readiness_for",
+      "inherited_line": 216
+    },
+    {
+      "file": "services/exam_content_service.py",
+      "function": "_mock_refs_for",
+      "inherited_line": 279
+    },
+    {
+      "file": "services/exam_content_service.py",
+      "function": "_cohort_content_ids",
+      "inherited_line": 313
+    },
+    {
+      "file": "services/exam_content_service.py",
+      "function": "_mock_referenced_content_ids",
+      "inherited_line": 329
+    },
+    {
+      "file": "services/listening_blackeye.py",
+      "function": "hidden_test_ids",
+      "inherited_line": 479
+    },
+    {
+      "file": "services/listening_blackeye.py",
+      "function": "exclude_tests",
+      "inherited_line": 494
+    },
+    {
+      "file": "services/listening_drill_homework.py",
+      "function": "completed_at",
+      "inherited_line": 24
+    },
+    {
+      "file": "services/listening_source_collection.py",
+      "function": "day_card",
+      "inherited_line": 149
+    },
+    {
+      "file": "services/listening_source_collection.py",
+      "function": "day_response",
+      "inherited_line": 184
+    },
+    {
+      "file": "services/mock_exam_assignment_service.py",
+      "function": "servable_skills",
+      "inherited_line": 68
+    },
+    {
+      "file": "services/mock_exam_assignment_service.py",
+      "function": "_assert_servable",
+      "inherited_line": 88
+    },
+    {
+      "file": "services/mock_exam_assignment_service.py",
+      "function": "assign",
+      "inherited_line": 166
+    },
+    {
+      "file": "services/mock_exam_service.py",
+      "function": "get_exam_content_for_sitting",
+      "inherited_line": 269
+    },
+    {
+      "file": "services/mock_exam_service.py",
+      "function": "_configured_sections",
+      "inherited_line": 591
+    },
+    {
+      "file": "services/mock_exam_service.py",
+      "function": "_sitting_sections",
+      "inherited_line": 662
+    },
+    {
+      "file": "services/mock_exam_service.py",
+      "function": "submit_writing",
+      "inherited_line": 1044
+    },
+    {
+      "file": "services/mock_exam_service.py",
+      "function": "_sitting_lr_skills",
+      "inherited_line": 1303
+    },
+    {
+      "file": "services/mock_exam_service.py",
+      "function": "start_section",
+      "inherited_line": 1571
+    },
+    {
+      "file": "services/mock_exam_service.py",
+      "function": "_seq_index",
+      "inherited_line": 3891
+    },
+    {
+      "file": "services/mock_exam_service.py",
+      "function": "_sitting_may_open_section",
+      "inherited_line": 4590
+    },
+    {
+      "file": "services/mock_exam_service.py",
+      "function": "user_may_open_exam_content",
+      "inherited_line": 4628
+    }
+  ]
+}
