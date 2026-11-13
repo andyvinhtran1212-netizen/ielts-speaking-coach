@@ -770,11 +770,6 @@ async def start_assignment(
     ):
         raise HTTPException(404, "Bạn không còn thuộc lớp đã giao bài này")
 
-    if skill == "listening" and await asyncio.to_thread(
-        listening_blackeye.assignment_is_blackeye, supabase_admin, assignment,
-    ):
-        listening_blackeye.assignment_seam()
-
     # Lớp đã lưu trữ (CLASSARCHIVE-0030 FR-004, Variant A): mọi lối XEM LẠI bài
     # đã xong vẫn mở, còn mọi lối LÀM TIẾP hay BẮT ĐẦU đều nhận 409. Chỉ hỏi
     # trạng thái lớp ở những lối cần, để một lượt đọc lớp hỏng không chặn việc

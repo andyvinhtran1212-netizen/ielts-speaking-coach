@@ -490,7 +490,16 @@ def _assignment_config_restricted(assignment, programmes):
 
 def generic_assignments(db, rows):
     try:
-        programmes = restricted_programmes(db)
+        # Speaking/Grammar/Course rows without a programme cannot belong to a
+        # registered Listening namespace. Keep their existing start/reopen
+        # paths independent of the Listening registry's availability.
+        needs_registry = any(
+            row.get("skill") == "listening"
+            or (isinstance(row.get("content_config"), dict)
+                and row["content_config"].get("programme_id"))
+            for row in rows
+        )
+        programmes = restricted_programmes(db) if needs_registry else frozenset()
         ids = sorted({str(row["content_id"]) for row in rows
                       if row.get("skill") == "listening" and row.get("content_id")})
         public_ids = set()

@@ -147,7 +147,7 @@ def _deny_admin(monkeypatch):
     monkeypatch.setattr(F, "require_admin", _a)
 
 
-_AUTHED_LISTENING_ATTEMPT = {"id": "att-L", "user_id": "U1", "test_id": "tu-L"}
+_AUTHED_LISTENING_ATTEMPT = {"id": "att-L", "user_id": "U1", "test_id": "tu-L", "restricted": False}
 _AUTHED_READING_ATTEMPT = {"id": "att-R", "user_id": "U1", "test_id": "tu-R"}
 _ANON_READING_ATTEMPT = {"id": "att-A", "user_id": None, "anon_id": "secret-tok", "test_id": "tu-R"}
 

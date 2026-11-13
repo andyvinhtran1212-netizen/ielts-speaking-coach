@@ -138,7 +138,7 @@ def test_direct_standalone_content_namespace_http(admin_env, monkeypatch, route,
     url = (f'/admin/listening/content/{content["id"]}' if route == "content"
            else f'/admin/listening/exercises?content_id={content["id"]}')
     response = e.client.get(url)
-    assert ("listening_content", "id,test_id,metadata,source_test_id,parent_content_id", None) in e.db.calls
+    assert ("listening_content", "id,restricted", None) in e.db.calls
     if "blackeye" in metadata:
         denied(response)
         assert "SYNTHETIC_PRIVATE_TRANSCRIPT" not in response.text
@@ -322,6 +322,9 @@ def test_content_provenance_http(admin_env, route, provenance):
     e = admin_env
     exercise = standalone_exercise(e)
     content = e.db.rows["listening_content"][0]
+    # Migration 381 stamps this flag, including broken/cyclic provenance.
+    # This HTTP test proves consumption; N2 proves stamping in PostgreSQL.
+    content["restricted"] = not provenance.startswith("ordinary")
     content["audio_storage_path"] = None
     if provenance.endswith("source"):
         content["source_test_id"] = (e.p["id"] if provenance.startswith("hidden") else
@@ -351,7 +354,7 @@ def test_admin_attempt_frozen_identity_survives_catalog_changes(admin_env, catal
     if catalog == "changed":
         e.db.rows["listening_tests"].append(dict(e.p, programme_id="ordinary", metadata={}))
     denied(e.client.get(f'/admin/listening/attempts/{attempt["id"]}'))
-    assert any(table == "mock_paper_attempt_snapshots" for table, _, _ in e.db.calls)
+    assert e.db.calls == [("listening_test_attempts", "id,restricted", None)]
     assert all(cols != "*" and not patch for _, cols, patch in e.db.calls)
 
 
@@ -363,7 +366,7 @@ def test_admin_session_external_parent_after_delete(admin_env, parent):
     e.normal["test_id"] = code if parent in {"ordinary", "duplicate"} else "OTHER"
     if parent == "ordinary":
         e.db.rows["listening_tests"] = [e.normal]
-    session = dict(id=str(uuid4()), test_id=None, results=[],
+    session = dict(id=str(uuid4()), test_id=None, results=[], restricted=parent != "ordinary",
                    test_id_external=None if parent == "empty" else "UNKNOWN" if parent == "missing" else code)
     e.db.rows["dictation_sessions"] = [session]
     response = e.client.get(f'/admin/listening/dictation-reports/{session["id"]}')

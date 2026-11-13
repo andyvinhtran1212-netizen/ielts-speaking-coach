@@ -330,7 +330,8 @@ def test_class_start_assignment_denies_blackeye_before_attempt_reads_or_writes(e
     assert response.status_code == 503, response.text
     assert response.headers["cache-control"] == "private, no-store"
     assert env.db.rpcs == []
-    assert all(not patch and table in {"class_assignments", "class_assignment_items", "listening_tests"}
+    assert all(not patch and table in {"class_assignments", "class_assignment_items", "listening_tests",
+                                      "content_access_namespaces"}
                for table, _, patch in env.db.calls)
 
 
