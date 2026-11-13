@@ -121,7 +121,7 @@ VALUES ('listening','20000000-0000-0000-0000-000000000001','00000000-0000-0000-0
  '{"programme_id":"blackeye-v5-upper-listening"}','[]','[]');
 """
     with local_pg17("backfill") as pg:
-        pg.psql(bootstrap() + seed + migration(MA) + migration(MB) + """
+        output = pg.psql(bootstrap() + seed + migration(MA) + migration(MB) + """
 DO $$ DECLARE t record; BEGIN
     FOR t IN SELECT * FROM public.listening_tests LOOP
         PERFORM pg_temp.assert_true(t.restricted = (t.test_id IN ('programme','marker','array','string','number','boolean')), 'test metadata '||t.test_id);
@@ -144,6 +144,7 @@ DO $$ BEGIN
     PERFORM pg_temp.assert_true((SELECT count(*)=3 FROM public.v_listening_content_public), 'SQL and json null public; malformed metadata hidden');
 END $$;
 """)
+        assert "381 dictation backfill: 3 unresolved/ambiguous rows; 4 total restricted rows" in output
 
 
 def test_namespace_stickiness_cascades_nonowner_guc_and_snapshot():

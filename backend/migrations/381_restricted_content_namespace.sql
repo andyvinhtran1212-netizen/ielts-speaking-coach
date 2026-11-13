@@ -223,8 +223,6 @@ DECLARE table_name text; cursor_id uuid; last_id uuid; unresolved bigint; unsafe
         batch record; package_query text;
         previous_transition text := pg_catalog.current_setting('app.listening_package_status_transition', true);
 BEGIN
-    SELECT pg_catalog.count(*) INTO unsafe_count FROM public.dictation_sessions AS s
-     WHERE public.fn_namespace_dictation_restricted(s.test_id, s.test_id_external);
     SELECT pg_catalog.count(*) INTO unresolved FROM public.dictation_sessions AS s
      WHERE (s.test_id IS NULL AND NULLIF(pg_catalog.btrim(s.test_id_external), '') IS NULL)
         OR (s.test_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.listening_tests AS t WHERE t.id = s.test_id))
@@ -232,7 +230,6 @@ BEGIN
             (SELECT pg_catalog.count(*) FROM public.listening_tests AS t WHERE t.test_id = s.test_id_external) <> 1
             OR (s.test_id IS NOT NULL AND EXISTS (SELECT 1 FROM public.listening_tests AS t
                 WHERE t.test_id = s.test_id_external AND t.id <> s.test_id))));
-    RAISE NOTICE '381 dictation backfill: % unresolved/ambiguous rows; % total restricted rows', unresolved, unsafe_count;
     FOREACH table_name IN ARRAY ARRAY['listening_tests', 'listening_content', 'listening_test_attempts', 'dictation_sessions'] LOOP
         cursor_id := NULL;
         LOOP
@@ -258,6 +255,8 @@ BEGIN
             cursor_id := last_id;
         END LOOP;
     END LOOP;
+    SELECT pg_catalog.count(*) INTO unsafe_count FROM public.dictation_sessions AS s WHERE s.restricted;
+    RAISE NOTICE '381 dictation backfill: % unresolved/ambiguous rows; % total restricted rows', unresolved, unsafe_count;
     PERFORM pg_catalog.set_config('app.listening_package_status_transition', COALESCE(previous_transition, ''), true);
 END;
 $$;
