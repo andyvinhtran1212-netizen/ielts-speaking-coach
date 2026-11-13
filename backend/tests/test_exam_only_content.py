@@ -269,6 +269,12 @@ class _PaperAccessDB:
                          if entitlement == "mock" else [])
         self.calls = []
 
+    def table(self, name):
+        assert name == "v_listening_tests_public"
+        # Hidden exam content is still in the generic namespace; its purpose
+        # entitlement remains an independent, mandatory RPC decision below.
+        return _Q([{**self.paper, "restricted": False}])
+
     def rpc(self, name, params):
         assert name == "fn_resolve_mock_paper_access"
         self.calls.append(params)

@@ -29,14 +29,17 @@ class Query:
         self.db.calls.append((self.table, self.action, list(self.filters)))
         if self.table == "mock_attempt_review_flags":
             return SimpleNamespace(data=[])
-        if self.table == "listening_tests":
+        if self.table in {"listening_tests", "v_listening_tests_public"}:
             return SimpleNamespace(data=[self.db.test])
         if self.action == "insert":
             if self.db.insert_error:
                 raise self.db.insert_error
             self.db.rows.append(copy.deepcopy(self.payload))
             return SimpleNamespace(data=[copy.deepcopy(self.payload)])
-        matches = [row for row in self.db.rows if all(row.get(key) == value for key, value in self.filters)]
+        from namespace_query_double import source_rows
+        rows = (source_rows({"listening_test_attempts": self.db.rows}, self.table)
+                if self.table == "v_listening_attempts_public" else self.db.rows)
+        matches = [row for row in rows if all(row.get(key) == value for key, value in self.filters)]
         if self.action == "update":
             if self.db.update_error:
                 raise self.db.update_error

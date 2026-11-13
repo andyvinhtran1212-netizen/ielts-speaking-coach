@@ -49,7 +49,8 @@ def _db(rows=None):
     sink: list[dict] = []
     tables = rows or {}
     db = type("DB", (), {})()
-    db.table = lambda n: _Table(tables.get(n, []), sink)
+    from namespace_query_double import source_rows
+    db.table = lambda n: _Table(source_rows(tables, n), sink)
     db.inserted = sink
     def rpc(name, params):
         assert name == "fn_resolve_mock_paper_access"
@@ -190,8 +191,15 @@ _HOMEWORK = {**_FREE, "id": "att-HW", "class_assignment_item_id": "item-1"}
 
 def _lookup_db(rows, seen):
     db = type("DB", (), {})()
-    db.table = lambda name: _RecordingTable(
-        [] if name == "mock_attempt_review_flags" else rows, seen)
+    from namespace_query_double import source_rows
+    def table(name):
+        if name in {"listening_tests", "v_listening_tests_public"}:
+            return _RecordingTable([{"id": "uuid-1", "status": "published", "restricted": False,
+                                     "programme_id": "ielts", "metadata": {}}], seen)
+        data = (source_rows({"listening_test_attempts": rows}, name)
+                if name == "v_listening_attempts_public" else [] if name == "mock_attempt_review_flags" else rows)
+        return _RecordingTable(data, seen)
+    db.table = table
     def rpc(name, params):
         assert name == "fn_guard_owned_mock_attempt"
         assert params["p_skill"] in {"reading", "listening"}
