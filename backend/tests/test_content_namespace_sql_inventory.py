@@ -12,6 +12,13 @@ from namespace_pg17 import MA, MB, bootstrap, local_pg17, migration
 from namespace_sql_inventory import CATALOG_SQL, audit_catalog, from_output, load_allowlist, readers
 
 
+def test_pg17_matrix_skips_cleanly_when_binaries_are_unavailable(monkeypatch):
+    monkeypatch.setenv("NAMESPACE_PG17_TESTS", "1")
+    monkeypatch.setattr("namespace_pg17.BIN", Path("/__namespace_pg17_unavailable__"))
+    with pytest.raises(pytest.skip.Exception, match="Local PostgreSQL 17 binaries unavailable"):
+        local_pg17("unavailable-probe")
+
+
 def test_unlisted_sql_reader_is_rejected():
     row = {"object":"public.new_reader()", "name":"new_reader", "kind":"function",
            "definition":"SELECT * FROM public.listening_tests", "options":[]}

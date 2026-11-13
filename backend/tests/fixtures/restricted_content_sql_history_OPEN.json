@@ -1,0 +1,104 @@
+[
+  {
+    "object": "public.fn_acquire_blackeye_attempt(uuid, uuid, jsonb, text)",
+    "state": "OPEN",
+    "owner": "N2 + Security Auditor",
+    "reason": "Additional reader discovered by the combined real affected-history catalog. Actual SQL is retained in combined-history-catalog.json; complete namespace/caller and ACL acceptance is not yet proved. No allowlist exception or release acceptance is implied."
+  },
+  {
+    "object": "public.fn_acquire_listening_programme_attempt(uuid, uuid, text)",
+    "state": "OPEN",
+    "owner": "N2 + Security Auditor",
+    "reason": "Additional reader discovered by the combined real affected-history catalog. Actual SQL is retained in combined-history-catalog.json; complete namespace/caller and ACL acceptance is not yet proved. No allowlist exception or release acceptance is implied."
+  },
+  {
+    "object": "public.fn_acquire_listening_programme_attempt_v2(uuid, uuid, text)",
+    "state": "OPEN",
+    "owner": "N2 + Security Auditor",
+    "reason": "Additional reader discovered by the combined real affected-history catalog. Actual SQL is retained in combined-history-catalog.json; complete namespace/caller and ACL acceptance is not yet proved. No allowlist exception or release acceptance is implied."
+  },
+  {
+    "object": "public.fn_copy_mock_draft_paper(text, uuid, uuid, uuid)",
+    "state": "OPEN",
+    "owner": "N2 + Security Auditor",
+    "reason": "Additional reader discovered by the combined real affected-history catalog. Actual SQL is retained in combined-history-catalog.json; complete namespace/caller and ACL acceptance is not yet proved. No allowlist exception or release acceptance is implied."
+  },
+  {
+    "object": "public.fn_guard_blackeye_admission()",
+    "state": "OPEN",
+    "owner": "N2 + Security Auditor",
+    "reason": "Additional reader discovered by the combined real affected-history catalog. Actual SQL is retained in combined-history-catalog.json; complete namespace/caller and ACL acceptance is not yet proved. No allowlist exception or release acceptance is implied."
+  },
+  {
+    "object": "public.fn_guard_dictation_answer_policy()",
+    "state": "OPEN",
+    "owner": "N2 + Security Auditor",
+    "reason": "Additional reader discovered by the combined real affected-history catalog. Actual SQL is retained in combined-history-catalog.json; complete namespace/caller and ACL acceptance is not yet proved. No allowlist exception or release acceptance is implied."
+  },
+  {
+    "object": "public.fn_guard_dictation_report_policy()",
+    "state": "OPEN",
+    "owner": "N2 + Security Auditor",
+    "reason": "Additional reader discovered by the combined real affected-history catalog. Actual SQL is retained in combined-history-catalog.json; complete namespace/caller and ACL acceptance is not yet proved. No allowlist exception or release acceptance is implied."
+  },
+  {
+    "object": "public.fn_guard_listening_programme_feedback_reveal()",
+    "state": "OPEN",
+    "owner": "N2 + Security Auditor",
+    "reason": "Additional reader discovered by the combined real affected-history catalog. Actual SQL is retained in combined-history-catalog.json; complete namespace/caller and ACL acceptance is not yet proved. No allowlist exception or release acceptance is implied."
+  },
+  {
+    "object": "public.fn_guard_listening_programme_start_drain()",
+    "state": "OPEN",
+    "owner": "N2 + Security Auditor",
+    "reason": "Additional reader discovered by the combined real affected-history catalog. Actual SQL is retained in combined-history-catalog.json; complete namespace/caller and ACL acceptance is not yet proved. No allowlist exception or release acceptance is implied."
+  },
+  {
+    "object": "public.fn_guard_listening_source_provenance()",
+    "state": "OPEN",
+    "owner": "N2 + Security Auditor",
+    "reason": "Additional reader discovered by the combined real affected-history catalog. Actual SQL is retained in combined-history-catalog.json; complete namespace/caller and ACL acceptance is not yet proved. No allowlist exception or release acceptance is implied."
+  },
+  {
+    "object": "public.fn_patch_mock_attempt_review_flag(text, uuid, uuid, text, integer, boolean, bigint, uuid)",
+    "state": "OPEN",
+    "owner": "N2 + Security Auditor",
+    "reason": "Additional reader discovered by the combined real affected-history catalog. Actual SQL is retained in combined-history-catalog.json; complete namespace/caller and ACL acceptance is not yet proved. No allowlist exception or release acceptance is implied."
+  },
+  {
+    "object": "public.fn_protect_listening_package_child()",
+    "state": "OPEN",
+    "owner": "N2 + Security Auditor",
+    "reason": "Additional reader discovered by the combined real affected-history catalog. Actual SQL is retained in combined-history-catalog.json; complete namespace/caller and ACL acceptance is not yet proved. No allowlist exception or release acceptance is implied."
+  },
+  {
+    "object": "public.fn_record_listening_drill_playback_v2(uuid, text, uuid, uuid, integer, integer)",
+    "state": "OPEN",
+    "owner": "N2 + Security Auditor",
+    "reason": "Additional reader discovered by the combined real affected-history catalog. Actual SQL is retained in combined-history-catalog.json; complete namespace/caller and ACL acceptance is not yet proved. No allowlist exception or release acceptance is implied."
+  },
+  {
+    "object": "public.fn_record_listening_programme_feedback_reveal(uuid, uuid, integer)",
+    "state": "OPEN",
+    "owner": "N2 + Security Auditor",
+    "reason": "Additional reader discovered by the combined real affected-history catalog. Actual SQL is retained in combined-history-catalog.json; complete namespace/caller and ACL acceptance is not yet proved. No allowlist exception or release acceptance is implied."
+  },
+  {
+    "object": "public.fn_submit_blackeye_attempt(uuid, uuid, jsonb, jsonb)",
+    "state": "OPEN",
+    "owner": "N2 + Security Auditor",
+    "reason": "Additional reader discovered by the combined real affected-history catalog. Actual SQL is retained in combined-history-catalog.json; complete namespace/caller and ACL acceptance is not yet proved. No allowlist exception or release acceptance is implied."
+  },
+  {
+    "object": "public.import_listening_content_package_atomic(jsonb, jsonb, jsonb, jsonb)",
+    "state": "OPEN",
+    "owner": "N2 + Security Auditor",
+    "reason": "Additional reader discovered by the combined real affected-history catalog. Actual SQL is retained in combined-history-catalog.json; complete namespace/caller and ACL acceptance is not yet proved. No allowlist exception or release acceptance is implied."
+  },
+  {
+    "object": "public.set_listening_content_package_status(text, text, text, uuid)",
+    "state": "OPEN",
+    "owner": "N2 + Security Auditor",
+    "reason": "Additional reader discovered by the combined real affected-history catalog. Actual SQL is retained in combined-history-catalog.json; complete namespace/caller and ACL acceptance is not yet proved. No allowlist exception or release acceptance is implied."
+  }
+]

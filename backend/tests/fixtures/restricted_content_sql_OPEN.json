@@ -3,54 +3,63 @@
     "object": "public.fn_create_mock_exam_with_paper_policy(jsonb, uuid)",
     "state": "OPEN",
     "owner": "N2 + Security Auditor",
-    "reason": "Unproven legacy SQL reader; full caller/namespace proof and full-history catalog required. Not allowlisted."
+    "reason": "315:110 creates a mock via bounded dynamic INSERT and delegates private-copy/link operations. The new reference trigger denies restricted bindings, but the latest 315/316 private-copy caller matrix and dynamic relation proof are not closed. N1 admin_create_exam is the Python caller; no Python edits here.",
+    "candidate_class": "bound_at_link"
   },
   {
     "object": "public.fn_mock_paper_dependencies(text, uuid)",
     "state": "OPEN",
     "owner": "N2 + Security Auditor",
-    "reason": "Unproven legacy SQL reader; full caller/namespace proof and full-history catalog required. Not allowlisted."
+    "reason": "306:450 returns protected mock, assignment and attempt identities for a supplied paper. It is needed internally by policy/source guards and also exposed through inspect/mutate/resolver callers. Complete per-caller namespace proof is absent; a blanket empty result would weaken immutability guards.",
+    "candidate_class": "by_id_guarded"
   },
   {
     "object": "public.fn_mock_paper_row(text, uuid)",
     "state": "OPEN",
     "owner": "N2 + Security Auditor",
-    "reason": "Unproven legacy SQL reader; full caller/namespace proof and full-history catalog required. Not allowlisted."
+    "reason": "306:391 returns the full current paper JSON without a namespace flag check. Both generic policy helpers and 376 dedicated admission call it. A blanket filter breaks dedicated admission; complete guarding of all generic roots requires SA/N1 coordination.",
+    "candidate_class": "by_id_guarded"
   },
   {
     "object": "public.fn_mock_section_valid(text, jsonb, jsonb)",
     "state": "OPEN",
     "owner": "N2 + Security Auditor",
-    "reason": "Unproven legacy SQL reader; full caller/namespace proof and full-history catalog required. Not allowlisted."
+    "reason": "306:401 validates a supplied sitting and frozen snapshot identity, then reads Listening timing. New restricted links are now denied, but historical bindings and a paper becoming restricted after linking lack the complete caller/namespace proof.",
+    "candidate_class": "bound_at_link"
   },
   {
     "object": "public.fn_mutate_mock_paper_policy(text, uuid, jsonb, uuid, bigint, jsonb, uuid)",
     "state": "OPEN",
     "owner": "N2 + Security Auditor",
-    "reason": "Unproven legacy SQL reader; full caller/namespace proof and full-history catalog required. Not allowlisted."
+    "reason": "306:734 reads and returns paper JSON and executes dynamic policy UPDATEs. Called by mock_paper_policy.mutate and mock create/update flows. Its restricted-ID and bounded-dynamic-SQL caller matrix is not yet proven; no speculative shared-helper rewrite.",
+    "candidate_class": "by_id_guarded"
   },
   {
     "object": "public.fn_resolve_mock_paper_access(text, uuid, uuid, text, uuid, uuid, boolean)",
     "state": "OPEN",
     "owner": "N2 + Security Auditor",
-    "reason": "Unproven legacy SQL reader; full caller/namespace proof and full-history catalog required. Not allowlisted."
+    "reason": "Latest 316:98 resolves generic and dedicated programme practice through the shared 306 attempt trigger. It can allow a public restricted paper. Denying every restricted ID here would also stop unchanged 376 dedicated admission; an SA-approved boundary decision is needed.",
+    "candidate_class": "by_id_guarded"
   },
   {
     "object": "public.fn_update_mock_exam_with_explanation_approval(uuid, jsonb, uuid)",
     "state": "OPEN",
     "owner": "N2 + Security Auditor",
-    "reason": "Unproven legacy SQL reader; full caller/namespace proof and full-history catalog required. Not allowlisted."
+    "reason": "306:992 uses bounded dynamic patch SQL and shared paper/policy helpers. The reference trigger blocks new restricted links, but existing bindings, returned state and the complete create/update caller matrix are not yet proven.",
+    "candidate_class": "bound_at_link"
   },
   {
     "object": "public.fn_update_public_test_explanation_policy(text, uuid, jsonb, uuid)",
     "state": "OPEN",
     "owner": "N2 + Security Auditor",
-    "reason": "Unproven legacy SQL reader; full caller/namespace proof and full-history catalog required. Not allowlisted."
+    "reason": "306:814 reads/returns paper JSON and performs dynamic explanation-policy UPDATEs. Its authenticated admin caller and shared internal callers need a complete restricted-ID/dynamic SQL proof before allowlisting.",
+    "candidate_class": "by_id_guarded"
   },
   {
     "object": "public.reading_public_practice_catalog",
     "state": "OPEN",
     "owner": "N2 + Security Auditor",
-    "reason": "Unproven legacy SQL reader; full caller/namespace proof and full-history catalog required. Not allowlisted."
+    "reason": "306:543 selects Reading only and passes the literal reading skill to a shared helper. Conservative transitive scanning follows that helper into Listening. The current validator intentionally still requires a namespace predicate; no broad view-check exception was added.",
+    "candidate_class": "view"
   }
 ]
