@@ -448,8 +448,21 @@ def grade_attempt(
 
         ua_row = user_by_q.get(q_num) or {}
         user_answer = ua_row.get("user_answer")
-        is_correct = answer_matches(user_answer, expected, alternatives,
-                                    response_policy=ak.get("response_policy"))
+        if ak.get("template_kind") == "keep_change":
+            raw = str(user_answer or "").strip()
+            action = ak.get("keep_change_action")
+            if action == "KEEP":
+                is_correct = raw.upper() == "KEEP"
+            else:
+                correction = re.fullmatch(r"CHANGE:\s*(\S[\s\S]*)", raw, re.IGNORECASE)
+                typed = correction.group(1).strip() if correction else ""
+                is_correct = (action == "CHANGE" and bool(typed)
+                              and normalize_answer(typed) != normalize_answer(ak.get("printed_value"))
+                              and answer_matches(typed, expected, alternatives,
+                                                 response_policy=ak.get("response_policy")))
+        else:
+            is_correct = answer_matches(user_answer, expected, alternatives,
+                                        response_policy=ak.get("response_policy"))
 
         per_question.append({
             "q_num":            q_num,
@@ -494,6 +507,8 @@ def collect_answer_key(exercise_rows: list[dict[str, Any]],
         payload = row.get("payload") or {}
         tk = payload.get("template_kind")
         answers = payload.get("answers") or []
+        questions_by_q = ({q.get("q_num"): q for q in payload.get("questions") or []}
+                          if tk == "keep_change" else {})
         # A2 (P4) — a "Choose TWO" pair is ONE exercise spanning N q-slots,
         # graded any-order. Tag every entry of an mcq_multi exercise with a
         # shared group_key so grade_attempt can score the set, not slot-by-slot.
@@ -510,6 +525,9 @@ def collect_answer_key(exercise_rows: list[dict[str, Any]],
                 "trap_mechanisms": ans.get("trap_mechanisms") or [],
                 "template_kind":   tk,
                 "group_key":       group_key,
+                **({"keep_change_action": ans.get("keep_change_action"),
+                    "printed_value": (questions_by_q.get(ans.get("q_num")) or {}).get("printed_value", "")}
+                   if tk == "keep_change" else {}),
             })
     return attach_response_policies(out, pinned_policies)
 

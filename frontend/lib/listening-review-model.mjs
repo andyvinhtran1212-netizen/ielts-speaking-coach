@@ -207,6 +207,8 @@ export function normalizeListeningReview(payload) {
       expected: String(row.expected ?? ''),
       question_type: text(row.question_type),
       prompt: String(row.prompt ?? ''),
+      ...(row.question_type === 'keep_change'
+        ? { printed_value: String(row.printed_value ?? row.prompt ?? '') } : {}),
       section: text(row.section) || null,
       transcript_anchor: anchor !== null && Number.isInteger(anchor) && anchor >= 0 ? anchor : null,
       audio_window: normalizeWindow(row.audio_window),

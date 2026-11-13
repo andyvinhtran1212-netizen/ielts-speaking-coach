@@ -121,6 +121,23 @@ def test_review_joins_window_and_solution_per_question(monkeypatch):
     assert out["sections"][0]["section_num"] == 1
 
 
+def test_keep_change_review_joins_printed_value_and_correction(monkeypatch):
+    _patch(monkeypatch, _ATTEMPT_SUBMITTED)
+    db = _DB(_ATTEMPT_SUBMITTED)
+    exercises = deepcopy(_EXERCISES)
+    payload = exercises[0]["payload"]
+    payload["variant"] = payload["template_kind"] = "keep_change"
+    payload["questions"][0]["printed_value"] = "Cedar Avenue."
+    db._d["listening_exercises"] = exercises
+    monkeypatch.setattr(L, "supabase_admin", db)
+    out = _run(L.get_listening_test_attempt_review("att-1", authorization="x"))
+    item = ListeningAttemptReviewResponse.model_validate(out).review[0].model_dump()
+    assert item["question_type"] == "keep_change"
+    assert item["printed_value"] == "Cedar Avenue."
+    assert item["user_answer"] == "Brighton"
+    assert item["expected"] == "Brighton"
+
+
 def test_review_409_when_not_submitted(monkeypatch):
     in_progress = dict(_ATTEMPT_SUBMITTED, status="in_progress")
     _patch(monkeypatch, in_progress)
