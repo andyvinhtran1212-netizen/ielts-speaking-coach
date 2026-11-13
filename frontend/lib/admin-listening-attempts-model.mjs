@@ -88,7 +88,7 @@ export function normalizeListeningAttemptItem(raw) {
   const scoringPolicy = value?.scoring_policy == null ? null : textOf(value.scoring_policy);
   if (!value || !id || !ROW_STATUS_SET.has(status) || !user || !test
     || (scoringPolicy !== null && !SCORING_POLICIES.has(scoringPolicy))
-    || (score != null && score < 0) || (totalQuestions != null && totalQuestions < 1)
+    || (score != null && score < 0) || (totalQuestions != null && totalQuestions < 0)
     || (score != null && totalQuestions != null && score > totalQuestions)
     || (accuracy != null && (accuracy < 0 || accuracy > 1))
     || (durationSeconds != null && durationSeconds < 0)) return null;
@@ -98,11 +98,13 @@ export function normalizeListeningAttemptItem(raw) {
     // A persisted report-only attempt intentionally keeps score/accuracy null
     // while retaining its known question count. Do not infer this from type.
     if (value.score !== null || value.accuracy !== null) return null;
+  } else if (totalQuestions === 0) {
+    if (score !== 0 || value.accuracy !== null) return null;
   } else if ((score == null) !== (totalQuestions == null) || (graded !== (accuracy != null))) return null;
   // Backend transmits round(score / total, 4). Compare to the exact ratio
   // within half of one four-decimal unit so Python ties-to-even values such
   // as 1/32 -> 0.0312 remain canonical in JavaScript.
-  if (graded && Math.abs(accuracy - (score / totalQuestions)) > ACCURACY_ROUNDING_TOLERANCE) return null;
+  if (graded && totalQuestions > 0 && Math.abs(accuracy - (score / totalQuestions)) > ACCURACY_ROUNDING_TOLERANCE) return null;
   return {
     id, status, score, totalQuestions, accuracy, durationSeconds, user, test, scoringPolicy,
     startedAt: nullableText(value.started_at), submittedAt: nullableText(value.submitted_at),
@@ -158,7 +160,10 @@ function normalizeReportQuestion(raw) {
 function normalizeQuestion(raw) {
   const value = objectOf(raw);
   const qNum = integer(value?.q_num);
-  if (!value || qNum == null || qNum < 1 || typeof value.correct !== 'boolean') return null;
+  if (!value || qNum == null || qNum < 1) return null;
+  const selfCheck = value.self_check === true;
+  if (value.self_check != null && typeof value.self_check !== 'boolean') return null;
+  if (selfCheck ? value.correct !== null : typeof value.correct !== 'boolean') return null;
   if (value.trap_caught != null && typeof value.trap_caught !== 'boolean') return null;
   if (value.trap_missed != null && typeof value.trap_missed !== 'boolean') return null;
   if (value.trap_caught === true && value.trap_missed === true) return null;
@@ -166,7 +171,8 @@ function normalizeQuestion(raw) {
   const expected = scalarText(value.expected);
   if (value.user_answer != null && userAnswer == null) return null;
   if (value.expected != null && expected == null) return null;
-  return { qNum, correct: value.correct, userAnswer, expected, trapCaught: value.trap_caught === true, trapMissed: value.trap_missed === true };
+  return { qNum, state: selfCheck ? 'unscored' : undefined, correct: value.correct, userAnswer, expected,
+    trapCaught: !selfCheck && value.trap_caught === true, trapMissed: !selfCheck && value.trap_missed === true };
 }
 
 export function normalizeListeningAttemptDetail(raw, expectedId) {

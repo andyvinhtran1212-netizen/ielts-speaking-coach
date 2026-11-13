@@ -233,12 +233,14 @@ def _listening_summary(user_id: str | None) -> dict | None:
     submitted = [r for r in rows if r.get("status") == "submitted"]
 
     first_acc_by_test: dict[str, float] = {}
+    from services.listening_test_grader import scored_question_count
     for r in reversed(rows):                       # rows đang newest-first
         gd = r.get("grading_details") or []
+        scored_count = scored_question_count(gd)
         tid = r.get("test_id")
         if (tid and tid not in first_acc_by_test and r.get("status") == "submitted"
-                and r.get("score") is not None and gd):
-            first_acc_by_test[tid] = r["score"] / len(gd)
+                and r.get("score") is not None and scored_count):
+            first_acc_by_test[tid] = r["score"] / scored_count
     accs = list(first_acc_by_test.values())
 
     durations = []

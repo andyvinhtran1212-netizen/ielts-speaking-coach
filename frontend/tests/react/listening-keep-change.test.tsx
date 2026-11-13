@@ -65,6 +65,25 @@ it('reviews printed values, chosen answer, expected text and Vietnamese explanat
   expect(card.textContent).toContain('Người nói sửa mã bưu điện thành 9QP.');
 });
 
+it('keeps printed values and reference alternatives on a neutral self-check review card', async () => {
+  window.history.replaceState(null, '', '/listening/review?attempt_id=synthetic-kc');
+  getWith.mockResolvedValue({ attempt_id: 'synthetic-kc', status: 'submitted', title: 'Contact check', score: 0, max_score: 0,
+    sections: [{ section_num: 1, title: 'Part 1', transcript: '' }], review: [{ q_num: 2, question_type: 'keep_change',
+      self_check: true, correct: null, printed_value: 'Northfield ZX4 8QP', user_answer: 'CHANGE: 9QP',
+      expected: 'Westfield ZX4 9QP', alternatives: ['ZX4 9QP', '9QP'],
+      solution: { why_correct: 'Người nói sửa mã bưu điện thành 9QP.' } }] });
+  const view = render(<ListeningReviewWorkspace />);
+  await screen.findByRole('button', { name: 'Câu 2 — Tự đối chiếu' });
+  const card = view.container.querySelector('#listening-review-q-2') as HTMLElement;
+  expect(within(card).getByText('Northfield ZX4 8QP')).toBeTruthy();
+  expect(within(card).getByText('CHANGE: 9QP')).toBeTruthy();
+  expect(within(card).getByText('Westfield ZX4 9QP')).toBeTruthy();
+  expect(card.textContent).toContain('Đáp án tham khảo:');
+  expect(card.textContent).toContain('ZX4 9QP / 9QP');
+  expect(card.textContent).toContain('Người nói sửa mã bưu điện thành 9QP.');
+  expect(card.hasAttribute('data-correct')).toBe(false);
+});
+
 it('legacy claimed attempts restore KEEP/CHANGE and save the same string contract', () => {
   vi.useFakeTimers();
   const source = readFileSync(resolve(process.cwd(), 'public/js/listening-test-player.js'), 'utf8');

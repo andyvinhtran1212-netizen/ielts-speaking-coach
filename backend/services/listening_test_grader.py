@@ -307,6 +307,8 @@ def rollup_trap_analytics(
     """
     out: dict[str, dict[str, int]] = {}
     for row in per_question_results:
+        if row.get("self_check"):
+            continue
         mechanisms = row.get("trap_mechanisms") or []
         if not mechanisms:
             continue
@@ -334,6 +336,8 @@ def section_breakdown(
         f"s{n}": {"correct": 0, "total": 0} for n in (1, 2, 3, 4)
     }
     for row in per_question_results:
+        if row.get("self_check"):
+            continue
         q_num = row.get("q_num")
         if not isinstance(q_num, int):
             continue
@@ -347,6 +351,11 @@ def section_breakdown(
 
 
 # ── Top-level grading ──────────────────────────────────────────────────────
+
+
+def scored_question_count(per_question: list[dict[str, Any]]) -> int:
+    """Use persisted grading flags for score denominators, including history."""
+    return sum(1 for row in per_question if not row.get("self_check"))
 
 
 def grade_attempt(
@@ -378,11 +387,28 @@ def grade_attempt(
         gk = ak.get("group_key")
         if gk and ak.get("template_kind") == "mcq_multi":
             mm_groups.setdefault(gk, []).append(ak)
+    self_check_qs = {ak.get("q_num") for ak in answer_key if ak.get("scoring") == "self_check"}
+    # A selection group is one task: a partially marked group is wholly unscored.
+    for group in mm_groups.values():
+        if any(ak.get("q_num") in self_check_qs for ak in group):
+            self_check_qs.update(ak.get("q_num") for ak in group)
     graded_mm: set[str] = set()
 
     for ak in sorted(answer_key, key=lambda r: r.get("q_num") or 0):
         q_num = ak.get("q_num")
         if not isinstance(q_num, int):
+            continue
+        # Generic skip precedes every type-specific matcher, including future types.
+        if q_num in self_check_qs:
+            expected = ak.get("answer") or ""
+            alternatives = (policy_alternatives(ak["response_policy"], expected)
+                            if ak.get("response_policy") is not None else ak.get("alternatives") or [])
+            per_question.append({
+                "q_num": q_num, "self_check": True, "correct": None,
+                "user_answer": (user_by_q.get(q_num) or {}).get("user_answer") or "",
+                "expected": expected, "alternatives": alternatives,
+                "trap_mechanisms": ak.get("trap_mechanisms") or [],
+            })
             continue
         gk = ak.get("group_key")
         if gk and ak.get("template_kind") == "mcq_multi":
@@ -477,10 +503,11 @@ def grade_attempt(
 
     per_question.sort(key=lambda r: r.get("q_num") or 0)
     score = sum(1 for r in per_question if r["correct"])
+    max_score = scored_question_count(per_question)
     return {
         "score":             score,
-        "max_score":         len(per_question),
-        "band_estimate":     band_estimate(score),
+        "max_score":         max_score,
+        "band_estimate":     band_estimate(score) if max_score else None,
         "per_question":      per_question,
         "trap_analytics":    rollup_trap_analytics(per_question),
         "section_breakdown": section_breakdown(per_question),
@@ -525,6 +552,7 @@ def collect_answer_key(exercise_rows: list[dict[str, Any]],
                 "trap_mechanisms": ans.get("trap_mechanisms") or [],
                 "template_kind":   tk,
                 "group_key":       group_key,
+                **({"scoring": "self_check"} if ans.get("scoring") == "self_check" else {}),
                 **({"keep_change_action": ans.get("keep_change_action"),
                     "printed_value": (questions_by_q.get(ans.get("q_num")) or {}).get("printed_value", "")}
                    if tk == "keep_change" else {}),

@@ -439,7 +439,11 @@ def parse_fulltest(qp_text: str, solution_text: str, timings: dict) -> FullTestP
                 f"nào (sai định dạng — kỳ vọng `### Questions N-M` hoặc `### Question N`). "
                 f"Các câu dưới nó sẽ bị bỏ qua — sửa heading rồi import lại."
             )
-        blocks = lc.parse_question_blocks(qp_sections[section_num])
+        try:
+            blocks = lc.parse_question_blocks(qp_sections[section_num])
+        except ValueError as exc:
+            res.errors.append(f"Section {section_num}: {exc}")
+            continue
         sec_id = f"S{section_num}"
         sec_qcount = 0
         for block in blocks:
@@ -488,6 +492,8 @@ def parse_fulltest(qp_text: str, solution_text: str, timings: dict) -> FullTestP
                     "answer":        canonical or None,
                     "alternatives":  alternatives,
                     "solution":      sol_blocks.get(q_num, {}),
+                    **({"scoring": "self_check"}
+                       if (block.get("metadata") or {}).get("scoring") == "self_check" else {}),
                 }
                 # Replay window: audio:// is authoritative; validate vs timings.
                 sol = sol_blocks.get(q_num) or {}
@@ -589,6 +595,7 @@ def build_section_persistence(res: "FullTestParseResult", qp_text: str) -> list[
         blocks = lc.parse_question_blocks(qp_sections[section_num])
         answers = [{"q_num": q["q_num"], "answer": q["answer"] or "",
                     "alternatives": q.get("alternatives") or [],
+                    **({"scoring": "self_check"} if q.get("scoring") == "self_check" else {}),
                     **({"keep_change_action": q["keep_change_action"]} if "keep_change_action" in q else {}),
                     **({"response_policy": policies[q["q_num"]]} if q["q_num"] in policies else {})}
                    for q in sec_questions]
@@ -700,6 +707,10 @@ def _validate(res: FullTestParseResult, qak: dict, sol_blocks: dict,
         # every question must have an answer (Quick Answer Key)
         if not q.get("answer"):
             res.errors.append(f"Q{n}: thiếu đáp án trong Quick Answer Key.")
+        if q.get("scoring") == "self_check":
+            solution = sol_blocks.get(n) or {}
+            if not solution.get("answer") or not solution.get("why_correct"):
+                res.errors.append(f"Q{n}: tự đối chiếu cần đáp án tham khảo và lời giải trong Solution.")
         # every question must have a replay window (audio://)
         win = q.get("audio_window")
         if not win:

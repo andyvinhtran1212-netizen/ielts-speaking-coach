@@ -129,6 +129,36 @@ def test_printed_value_cannot_get_credit_even_if_in_key_variants():
     assert grader.grade_attempt([{"q_num": 2, "user_answer": "CHANGE: northfield zx4 8qp."}], key)["score"] == 0
 
 
+def test_keep_change_self_check_survives_import_and_skips_matcher(monkeypatch):
+    qp = QP.replace("<!-- qtype: keep_change -->", "<!-- qtype: keep_change -->\n<!-- scoring: self_check -->")
+    solution, timings = pack()
+    parsed = importer.parse_fulltest(qp, solution, timings)
+    assert parsed.ok, parsed.errors
+    assert [(q["keep_change_action"], q["scoring"]) for q in parsed.questions] == [
+        ("KEEP", "self_check"), ("CHANGE", "self_check")]
+    rows = importer.build_section_persistence(parsed, qp)[0]["exercise_rows"]
+    answers = rows[0]["payload"]["answers"]
+    assert [(a["keep_change_action"], a["scoring"]) for a in answers] == [
+        ("KEEP", "self_check"), ("CHANGE", "self_check")]
+    key = grader.collect_answer_key(rows)
+    assert [q["printed_value"] for q in key] == ["Cedar Avenue.", "Northfield ZX4 8QP"]
+    assert [q["scoring"] for q in key] == ["self_check", "self_check"]
+
+    def unexpected_matcher(*args, **kwargs):
+        pytest.fail("Self-check must skip the KEEP/CHANGE matcher")
+
+    monkeypatch.setattr(grader, "answer_matches", unexpected_matcher)
+    result = grader.grade_attempt([
+        {"q_num": 1, "user_answer": "KEEP"},
+        {"q_num": 2, "user_answer": "CHANGE: 9QP"},
+    ], key)
+    assert (result["score"], result["max_score"], result["band_estimate"]) == (0, 0, None)
+    assert all(q["self_check"] is True and q["correct"] is None for q in result["per_question"])
+    assert [q["expected"] for q in result["per_question"]] == ["KEEP", "Westfield ZX4 9QP"]
+    assert result["per_question"][1]["alternatives"] == ["ZX4 9QP", "9QP"]
+    assert result["section_breakdown"]["s1"] == {"correct": 0, "total": 0}
+
+
 def test_existing_unmarked_payload_stays_byte_identical():
     # Hash captured from the unmodified 18be527c importer for a synthetic
     # short-answer mini. Includes content metadata, solutions and payloads.

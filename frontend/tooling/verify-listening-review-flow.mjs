@@ -116,6 +116,13 @@ await page.route('**/*', async (route) => {
     if (id === 'broken') {
       return route.fulfill({ status: 500, contentType: 'application/json', body: '{"detail":"secret stack trace"}', headers: cors });
     }
+    if (id === 'self-check') {
+      return route.fulfill({ status: 200, contentType: 'application/json', headers: cors,
+        body: JSON.stringify({ ...baseReview, attempt_id: id, score: 0, max_score: 0, band_estimate: null,
+          review: [{ q_num: 1, self_check: true, correct: null, user_answer: 'My response', expected: 'Reference answer',
+            prompt: 'Synthetic listening question', solution: { why_correct: 'Đây là lời giải tham khảo.' } }] }),
+      });
+    }
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(baseReview), headers: cors });
   }
   if (request.method() === 'GET' && url.pathname === `/admin/listening/tests/${ADMIN_TEST_ID}/preview`) {
@@ -187,6 +194,22 @@ check('admin preview is neutral and scoreless',
     && await page.locator('.lr-card__verdict').count() === 0
     && await page.locator('.lr-card__ans.is-user').count() === 0
     && await page.locator('.lr-card').count() === 2);
+
+await page.goto(`${BASE}/listening/review?attempt_id=self-check&from=my-class`, { waitUntil: 'domcontentloaded' });
+await page.getByRole('button', { name: 'Câu 1 — Tự đối chiếu' }).waitFor();
+await page.locator('#listening-review-q-1 .lr-card__top').click();
+await page.getByText('Đây là lời giải tham khảo.', { exact: true }).waitFor();
+const selfCheckEvidence = {
+  userVisible: await page.getByText('My response', { exact: true }).isVisible(),
+  referenceVisible: await page.getByText('Reference answer', { exact: true }).isVisible(),
+  explanationVisible: await page.getByText('Đây là lời giải tham khảo.', { exact: true }).isVisible(),
+  summary: await page.locator('.lr-summary').textContent(),
+  markedCards: await page.locator('.lr-card.is-correct, .lr-card.is-incorrect, .lr-card[data-correct]').count(),
+};
+check('self-check review shows answer, reference and Vietnamese explanation without a mark',
+  selfCheckEvidence.userVisible && selfCheckEvidence.referenceVisible && selfCheckEvidence.explanationVisible
+    && selfCheckEvidence.summary.includes('0/0 câu') && selfCheckEvidence.summary.includes('Không chấm điểm')
+    && selfCheckEvidence.markedCards === 0, JSON.stringify(selfCheckEvidence));
 
 await page.goto(`${BASE}/listening/review?attempt_id=not-submitted`, { waitUntil: 'domcontentloaded' });
 await page.locator('.listening-review-next-error[role="alert"]').waitFor();
