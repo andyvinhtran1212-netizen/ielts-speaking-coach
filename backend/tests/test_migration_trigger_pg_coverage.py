@@ -99,6 +99,7 @@ REQUIRES_NAMED_PG_EVIDENCE = {("sessions", "trg_sessions_full_test_attempt_id")}
 # table -> PG test path relative to root; this means the file deliberately
 # executes the table's coexisting triggers, not merely separate unit tests.
 STACK_TESTS = {
+    "dictation_sessions": "backend/tests/test_content_namespace_dictation_stack_postgres.py",
     "dictation_attempt_answers": "backend/tests/test_dictation_grading_postgres.py",
     "users": "backend/tests/test_migration_336_suspended_account_role_guard.py",
     "reading_tests": "backend/tests/test_migration_338_paper_updated_at_triggers.py",

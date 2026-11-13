@@ -28,7 +28,7 @@ BEGIN
         CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(c.relacl, pg_catalog.acldefault('r', c.relowner))) AS acl
         WHERE c.oid = 'public.listening_public_practice_catalog'::pg_catalog.regclass AND acl.grantee <> c.relowner
           AND (acl.grantee <> 'service_role'::pg_catalog.regrole OR acl.privilege_type <> 'SELECT' OR acl.is_grantable))
-       OR pg_catalog.pg_get_viewdef('public.listening_public_practice_catalog'::pg_catalog.regclass) NOT LIKE '%NOT t.restricted%' THEN
+       OR pg_catalog.pg_get_viewdef('public.listening_public_practice_catalog'::pg_catalog.regclass) !~ 'NOT ([a-z_]+[.])?restricted' THEN
         RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = '382 rollback unsafe: body drift or restricted data; roll forward';
     END IF;
 END;
@@ -260,7 +260,7 @@ BEGIN
         CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(c.relacl, pg_catalog.acldefault('r', c.relowner))) AS acl
         WHERE c.oid = 'public.listening_public_practice_catalog'::pg_catalog.regclass AND acl.grantee <> c.relowner
           AND (acl.grantee <> 'service_role'::pg_catalog.regrole OR acl.privilege_type <> 'SELECT' OR acl.is_grantable))
-       OR pg_catalog.pg_get_viewdef('public.listening_public_practice_catalog'::pg_catalog.regclass) LIKE '%NOT t.restricted%' THEN
+       OR pg_catalog.pg_get_viewdef('public.listening_public_practice_catalog'::pg_catalog.regclass) ~ 'NOT ([a-z_]+[.])?restricted' THEN
         RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = '382 rollback postcondition failed';
     END IF;
 END;

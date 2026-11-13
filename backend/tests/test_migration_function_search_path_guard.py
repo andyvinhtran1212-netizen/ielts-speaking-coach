@@ -199,7 +199,15 @@ def scan(root: Path, allowlist: dict[str, tuple[int, str]]) -> list[str]:
 
 
 def test_no_migration_adds_an_unsafe_search_path_or_unpins_one():
-    problems = scan(MIGRATIONS, ALLOWLIST)
+    # SA explicitly requires exact pre-382 proconfig restoration on manual
+    # rollback. Keep the frozen historical debt unchanged; count only these
+    # two restored legacy definitions. Static + PG tests pin bodies/config/ACL.
+    restorations = {
+        "rollback/382_restricted_content_sql_readers.sql": (
+            2, "SA-2281-SCOPE-RULING-20261112 exact 301/299 rollback; test_content_namespace_postgres.py source/config restoration proof"
+        ),
+    }
+    problems = scan(MIGRATIONS, {**ALLOWLIST, **restorations})
     assert problems == [], (
         "SVCPRIV-0042 FR-010: give every new function or procedure `SET search_path = public, pg_temp` "
         "(or `pg_catalog, pg_temp`), never '' and never without pg_temp last, and never RESET it:\n"

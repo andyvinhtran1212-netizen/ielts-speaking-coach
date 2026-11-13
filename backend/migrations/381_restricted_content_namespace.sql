@@ -158,7 +158,10 @@ BEGIN
          WHERE c.id IN (SELECT d.id FROM descendants AS d) AND c.restricted IS DISTINCT FROM true;
         UPDATE public.listening_test_attempts AS a SET restricted = true
          WHERE a.test_id = NEW.id AND a.restricted IS DISTINCT FROM true;
-        UPDATE public.dictation_sessions AS s SET restricted = true
+        -- 305 seals every report field. A no-op identity update lets its guard
+        -- validate unchanged evidence before our later BEFORE trigger stamps
+        -- the now-restricted parent. Do not weaken or replace the 305 guard.
+        UPDATE public.dictation_sessions AS s SET test_id = s.test_id
          WHERE (s.test_id = NEW.id OR s.test_id_external = NEW.test_id
                 OR (TG_OP = 'UPDATE' AND s.test_id_external = OLD.test_id))
            AND s.restricted IS DISTINCT FROM true;
@@ -203,11 +206,18 @@ FOR EACH ROW EXECUTE FUNCTION public.fn_stamp_snapshot_content_namespace();
 -- Test stamps precede content ancestry and activity stamps; cascades also cover
 -- descendants outside the current batch. Unresolved OLD dictation is restricted.
 DO $$
-DECLARE table_name text; cursor_id uuid; last_id uuid; unresolved bigint;
+DECLARE table_name text; cursor_id uuid; last_id uuid; unresolved bigint; unsafe_count bigint;
 BEGIN
-    SELECT pg_catalog.count(*) INTO unresolved FROM public.dictation_sessions AS s
+    SELECT pg_catalog.count(*) INTO unsafe_count FROM public.dictation_sessions AS s
      WHERE public.fn_namespace_dictation_restricted(s.test_id, s.test_id_external);
-    RAISE NOTICE '381 dictation backfill: % restricted or unresolved rows', unresolved;
+    SELECT pg_catalog.count(*) INTO unresolved FROM public.dictation_sessions AS s
+     WHERE (s.test_id IS NULL AND NULLIF(pg_catalog.btrim(s.test_id_external), '') IS NULL)
+        OR (s.test_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.listening_tests AS t WHERE t.id = s.test_id))
+        OR (NULLIF(pg_catalog.btrim(s.test_id_external), '') IS NOT NULL AND (
+            (SELECT pg_catalog.count(*) FROM public.listening_tests AS t WHERE t.test_id = s.test_id_external) <> 1
+            OR (s.test_id IS NOT NULL AND EXISTS (SELECT 1 FROM public.listening_tests AS t
+                WHERE t.test_id = s.test_id_external AND t.id <> s.test_id))));
+    RAISE NOTICE '381 dictation backfill: % unresolved/ambiguous rows; % total restricted rows', unresolved, unsafe_count;
     FOREACH table_name IN ARRAY ARRAY['listening_tests', 'listening_content', 'listening_test_attempts', 'dictation_sessions'] LOOP
         cursor_id := NULL;
         LOOP
@@ -285,7 +295,19 @@ SET search_path = pg_catalog, pg_temp AS $$
                  ('public.listening_tests'::pg_catalog.regclass, 'trg_content_namespace_cascade'),
                  ('public.listening_content'::pg_catalog.regclass, 'trg_content_namespace_cascade'),
                  ('public.mock_paper_attempt_snapshots'::pg_catalog.regclass, 'trg_content_namespace_snapshot'))
-               AND t.tgenabled = 'O' AND NOT t.tgisinternal)
+               AND t.tgenabled = 'O' AND NOT t.tgisinternal
+               AND t.tgfoid = CASE t.tgname
+                   WHEN 'trg_content_namespace_stamp' THEN 'public.fn_stamp_content_namespace()'::pg_catalog.regprocedure
+                   WHEN 'trg_content_namespace_cascade' THEN 'public.fn_cascade_content_namespace()'::pg_catalog.regprocedure
+                   ELSE 'public.fn_stamp_snapshot_content_namespace()'::pg_catalog.regprocedure END
+               AND t.tgtype = CASE t.tgname WHEN 'trg_content_namespace_stamp' THEN 23
+                   WHEN 'trg_content_namespace_cascade' THEN 21 ELSE 5 END)
+        AND (SELECT pg_catalog.count(*) = 8 FROM pg_catalog.pg_proc AS p
+              JOIN pg_catalog.pg_namespace AS n ON n.oid = p.pronamespace
+             WHERE n.nspname = 'public' AND p.proname IN (
+                 'fn_namespace_matches', 'fn_content_is_restricted', 'fn_namespace_content_restricted',
+                 'fn_namespace_dictation_restricted', 'fn_stamp_content_namespace', 'fn_cascade_content_namespace',
+                 'fn_stamp_snapshot_content_namespace', 'fn_content_namespace_ready'))
         AND (SELECT pg_catalog.count(*) = 8 FROM pg_catalog.pg_proc AS p
               JOIN pg_catalog.pg_namespace AS n ON n.oid = p.pronamespace
              WHERE n.nspname = 'public' AND p.proname IN (
@@ -293,7 +315,9 @@ SET search_path = pg_catalog, pg_temp AS $$
                  'fn_namespace_dictation_restricted', 'fn_stamp_content_namespace', 'fn_cascade_content_namespace',
                  'fn_stamp_snapshot_content_namespace', 'fn_content_namespace_ready')
                AND NOT p.prosecdef AND p.proowner = 'postgres'::pg_catalog.regrole
-               AND p.proconfig = ARRAY['search_path=pg_catalog, pg_temp'])
+               AND p.proconfig = ARRAY['search_path=pg_catalog, pg_temp']
+               AND (p.proname IN ('fn_stamp_content_namespace', 'fn_cascade_content_namespace', 'fn_stamp_snapshot_content_namespace')
+                    OR pg_catalog.has_function_privilege('service_role',p.oid,'EXECUTE')))
         AND NOT EXISTS (
             SELECT 1 FROM pg_catalog.pg_proc AS p
               JOIN pg_catalog.pg_namespace AS n ON n.oid = p.pronamespace
@@ -308,12 +332,22 @@ SET search_path = pg_catalog, pg_temp AS $$
               JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
              WHERE n.nspname = 'public' AND c.relname IN (
                  'v_listening_tests_public', 'v_listening_content_public', 'v_listening_attempts_public', 'v_dictation_sessions_public')
-               AND c.relkind = 'v' AND c.reloptions @> ARRAY['security_barrier=true']
-               AND pg_catalog.pg_get_viewdef(c.oid) LIKE '%NOT %.restricted%'
+               AND c.relkind = 'v' AND c.relowner = 'postgres'::pg_catalog.regrole
+               AND c.reloptions @> ARRAY['security_barrier=true']
+               AND pg_catalog.pg_get_viewdef(c.oid) ~ 'NOT ([a-z_]+[.])?restricted'
                AND pg_catalog.has_table_privilege('service_role', c.oid, 'SELECT'))
         AND NOT EXISTS (
             SELECT 1 FROM pg_catalog.pg_class AS c JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
               CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(c.relacl, pg_catalog.acldefault('r', c.relowner))) AS acl
+             WHERE n.nspname = 'public' AND c.relname IN (
+                 'content_access_namespaces', 'v_listening_tests_public', 'v_listening_content_public',
+                 'v_listening_attempts_public', 'v_dictation_sessions_public')
+               AND acl.grantee <> c.relowner
+               AND (acl.grantee <> 'service_role'::pg_catalog.regrole OR acl.privilege_type <> 'SELECT' OR acl.is_grantable))
+        AND NOT EXISTS (
+            SELECT 1 FROM pg_catalog.pg_attribute AS a JOIN pg_catalog.pg_class AS c ON c.oid = a.attrelid
+              JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
+              CROSS JOIN LATERAL pg_catalog.aclexplode(a.attacl) AS acl
              WHERE n.nspname = 'public' AND c.relname IN (
                  'content_access_namespaces', 'v_listening_tests_public', 'v_listening_content_public',
                  'v_listening_attempts_public', 'v_dictation_sessions_public')
