@@ -20,13 +20,22 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-11-12 the highest is `380` (Skill Drill homework,
-#2294), so the next new migration is `381`, subject to the shared migration
-register (ask the Leader before taking it). `379` is PC-J562, the 0037 FR-008
-Listening import source skip (assigned by the Leader). 376–378 without a file
-here are pending/reserved for BLACKEYE-0052 (376 #2281, 377/378 #2282), and
-`370` was already reserved: none may be reused. `369` is PC-J620, the 339
-grammar_quiz definer search paths.
+sequence is dense. As of 2026-11-12 the highest is `380`
+(Skill Drill homework, #2294); the next new migration is `381`, subject to the
+shared migration register (ask the Leader before taking it).
+`379` is present: PC-J562, the 0037 FR-008 Listening import source skip
+(assigned by the Leader). Migration `376` is pending for BLACKEYE-0052 admission;
+377 is reserved for Black Eye PR2 alongside `378`.
+Migration 376 is unexecuted in this PR and requires
+separate SA review and owner approval to run. Its manual rollback is under
+`rollback/376_blackeye_admission.sql`: it keeps the trigger as a deny-all Black Eye
+guard and removes the two RPCs, retaining data, widened CHECKs and the ledger row.
+It refuses published/public Black Eye content under SHARE locks with a 5-second
+lock timeout. Re-apply replaces the trigger atomically using DROP/CREATE and
+checks trigger/security/ACL postconditions before commit; a ledger change still
+requires a separate reviewed decision. No PostgreSQL 14+ live-version assumption
+is needed. Reservations 370–375 remain held by their owners; do not reuse them.
+`369` is PC-J620, the 339 grammar_quiz definer search paths.
 `368` is PC-J619 (#2242); `367` is PC-J612 (#2243); `366` is PC-J611, #2241;
 `365` is PC-J603, #2238; `363` is PC-J538, `361` is PC-J358, #2180; `360` is
 PC-J192, INSTRUCTORGIVE-0044. Check staging, every open PR and the migration

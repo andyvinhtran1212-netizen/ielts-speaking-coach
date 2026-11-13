@@ -89,6 +89,11 @@ class _Query:
         self._negate_is = False
         self._mode, self._payload = "select", None
 
+    def or_(self, expression):
+        from blackeye_query_double import matches_blackeye_filter
+        self._rows = [r for r in self._rows if matches_blackeye_filter(r, expression)]
+        return self
+
     def select(self, *_a, **_kw): return self
     def order(self, *_a, **_kw): return self
     def limit(self, *_a): return self
@@ -403,6 +408,7 @@ def test_scoped_exam_version_refusal_names_the_cause(skill, raised, expected):
 
     db = type("RefusingDB", (), {
         "rpc": lambda self, name, _params: calls.append(name) or _RefusingRPC(),
+        "table": lambda self, name: _Query({}, name, [{"id": "rev-paper", "programme_id": "ielts"}]),
     })()
     with pytest.raises(ExplanationApprovalError) as caught:
         create_class_assignment(
@@ -434,6 +440,7 @@ def test_exam_scope_and_assignment_succeed_together():
 
 def test_empty_roster_rolls_back_exam_scope_too():
     db = _DB({"students": [], "class_assignments": [],
+              "listening_tests": [{"id": "paper-1", "programme_id": "ielts"}],
               "class_assignment_items": [], "exam_content_cohorts": []})
     with pytest.raises(EmptyRosterError):
         create_class_assignment(

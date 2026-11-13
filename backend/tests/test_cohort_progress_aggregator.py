@@ -40,6 +40,11 @@ class _Query:
         self._eq, self._in, self._range = [], [], None
         self._is_null, self._negate_is = None, False
 
+    def or_(self, expression):
+        from blackeye_query_double import matches_blackeye_filter
+        self._rows = [r for r in self._rows if matches_blackeye_filter(r, expression)]
+        return self
+
     def select(self, *_a, **_k): return self
     def order(self, *_a, **_k): return self
 
@@ -733,6 +738,21 @@ def test_a_student_with_no_attempts_gets_an_empty_strip_not_a_missing_key():
     sách rỗng THẬT."""
     row = cohort_progress(_DB(_tables(students=[_student("s1", "u1")])), COHORT)["students"][0]
     assert row["skills"]["speaking"]["recent_bands"] == []
+
+
+def test_blackeye_never_enters_generic_cohort_progress():
+    tables = _tables(students=[_student("s1", "u1")], listening=[
+        {"id": "be-attempt", "user_id": "u1", "test_id": "be", "status": "submitted", "submitted_at": "2026-11-10T00:00:00Z"},
+        {"id": "plain-attempt", "user_id": "u1", "test_id": "plain", "status": "submitted", "submitted_at": "2026-11-09T00:00:00Z"},
+    ])
+    tables["listening_tests"] = [
+        {"id": "be", "programme_id": "blackeye-v5-upper-listening", "metadata": {}},
+        {"id": "plain", "programme_id": "ielts", "metadata": {}},
+    ]
+    result = cohort_progress(_DB(tables), COHORT)
+    listening = result["students"][0]["skills"]["listening"]
+    assert listening["attempts"] == 1
+    assert listening["last_activity"] == "2026-11-09T00:00:00Z"
 
 
 def test_progress_reconciles_required_dictation_only_after_all_sections(monkeypatch):

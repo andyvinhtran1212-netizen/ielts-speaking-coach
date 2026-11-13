@@ -123,17 +123,28 @@ def _paged(db, table: str, columns: str, apply_filters) -> List[Dict[str, Any]]:
     PostgREST caps an un-ranged select at ~1000 rows. Ordered by id because an
     unordered range is not a stable window — two pages could repeat or skip rows.
     """
+    from services import listening_blackeye as blackeye
+
+    def scoped_query():
+        selected = columns
+        if table == "class_assignments" and columns != "*":
+            selected += ",skill,content_id,content_config"
+        q = db.table(table).select(selected)
+        if table == "listening_test_attempts":
+            return blackeye.exclude_tests(db, q)
+        return q
+
     rows: List[Dict[str, Any]] = []
     start = 0
     while True:
         page = (
-            apply_filters(db.table(table).select(columns))
+            apply_filters(scoped_query())
             .order("id")
             .range(start, start + _PAGE - 1)
             .execute()
             .data
         ) or []
-        rows.extend(page)
+        rows.extend(blackeye.generic_assignments(db, page) if table == "class_assignments" else page)
         if len(page) < _PAGE:
             return rows
         start += _PAGE
@@ -179,6 +190,10 @@ def create_class_assignment(
     Raises EmptyRosterError for a class with no students; the function checks
     that inside the same transaction, so nothing is left behind either way.
     """
+    if skill == "listening" and content_id:
+        from services import listening_blackeye
+        if listening_blackeye.is_blackeye(listening_blackeye.test_identity(db, content_id)):
+            listening_blackeye.assignment_seam()
     try:
         params = {
             "p_cohort_id":      cohort_id,
@@ -510,6 +525,8 @@ def read_class_actions(db, *, cohort_id: str, limit: int = 50,
          .select("id, action, assignment_id, assignment_title, student_id, "
                  "student_name, actor_email, details, created_at")
          .eq("cohort_id", cohort_id))
+    from services import listening_blackeye as blackeye
+    q = blackeye.exclude_assignments(db, q, key="assignment_id", cohort_id=cohort_id)
     if before:
         q = q.lt("created_at", before)
     rows = (q.order("created_at", desc=True).limit(n + 1).execute().data) or []

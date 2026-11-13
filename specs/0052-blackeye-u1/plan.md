@@ -83,6 +83,15 @@ Route Black Eye (PR1 trừ khi ghi khác). Mọi response Black Eye mang
 
 ### Kiểm kê route (FR-011, FR-027)
 
+Theo changelog C8 được anh Vinh duyệt (t1803u, bản v2; xem `spec.md`,
+Changelog), giữ trong #2281 các guard theo identity/by-id (bao gồm provenance,
+frozen attempt identity, session external identity, đường học viên C3) và toàn
+bộ inventory tests đang có. Chuyển phần loại Black Eye khỏi danh sách, phân
+trang, đếm và tổng hợp còn lại sang FU-2281-NAMESPACE (M-A, M-B, helper chung
+và inventory/list/aggregate call sites). Bao gồm P2-R8-2: predicate trong SQL
+page/count, không hydrate toàn thư viện. Các đường theo id mới không có trong
+allowlist FR-011 không được trì hoãn theo thay đổi này.
+
 Allowlist route Black Eye: các route ở bảng trên. Route chung nhận
 `attempt_id`, `test_id`, `content_id`, `exercise_id`, `programme_id` hoặc
 `lesson_id` mà không thuộc allowlist phải trả 422/503 với dữ liệu Black Eye
@@ -118,6 +127,17 @@ email, tên hay trạng thái Black Eye nào.
 | Catalog, tạo, biên nhận bài giao Black Eye | 503 (PR1); PR2 200 | 403 | 404 | 401/403 |
 | Bảng tiến độ course 2 (PR2) | 200 | 403 | 404 | 401/403 |
 | Route học viên với attempt của người khác | 404 | 404 | 404 | 404 (khác chủ) |
+
+Theo cùng changelog C8 (t1803u, bản v2), giữ mọi bảo vệ theo id đã có trong
+PR1. Chuyển exclusion danh sách/tổng hợp của các route admin chung còn thiếu
+sang FU-2281-NAMESPACE; phần danh sách/phân trang/đếm/tổng hợp còn lại của ma
+trận được hoàn tất ở follow-up trước khi áp 376 hay import Black Eye. Bao gồm
+GET `/admin/listening/content` (`backend/routers/listening.py:1619`, Codex
+thread `PRRT_kwDOR6Uds862sorH`): `exclude_tests` đang giữ dòng `test_id NULL`
+có marker `metadata.blackeye` hoặc dẫn xuất qua `source_test_id`/
+`parent_content_id`. Không thay đổi ai được quyền, không coi admin toàn cục
+là đủ quyền, không cấp/thu quyền trong PR1. Metadata/tên/trạng thái vẫn được
+bảo vệ theo spec sau follow-up.
 
 Mỗi ô là một test; ô "không có dòng Black Eye" kiểm bằng fixture có cả dữ liệu
 Black Eye và dữ liệu thường, và spy không đọc snapshot/`marking_rows`.
