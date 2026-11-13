@@ -3245,6 +3245,7 @@ async def admin_import_fulltest_commit(
         # 'full' 4 sections); list endpoint student lọc trên cột này.
         "test_type":                   "mini" if mini else "full",
         "status":                      "draft",
+        "is_public":                   False,
     }
     # ── Persist ALL-OR-NOTHING with full rollback ────────────────────
     # Postgres has no cross-statement transaction over PostgREST here, so on ANY
