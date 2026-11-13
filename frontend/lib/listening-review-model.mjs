@@ -10,6 +10,7 @@ const finiteNumber = (value) => {
 // The grade stays authoritative; an empty incorrect response has its own
 // presentation so review does not describe it as a submitted wrong answer.
 export function listeningReviewAnswerState(item) {
+  if (item?.self_check === true) return 'self_check';
   if (item?.correct === true) return 'correct';
   return text(item?.user_answer) ? 'incorrect' : 'unanswered';
 }
@@ -18,7 +19,7 @@ export function listeningReviewAnswerState(item) {
 // unanswered only. Both read the persisted grade through the state above.
 export function listeningReviewMatchesFilter(item, filter) {
   const state = listeningReviewAnswerState(item);
-  if (filter === 'wrong') return state !== 'correct';
+  if (filter === 'wrong') return state === 'incorrect' || state === 'unanswered';
   if (filter === 'blank') return state === 'unanswered';
   if (filter === 'correct') return state === 'correct';
   return true;
@@ -26,7 +27,10 @@ export function listeningReviewMatchesFilter(item, filter) {
 
 export function listeningReviewTotals(review) {
   const totals = { incorrect: 0, unanswered: 0, correct: 0 };
-  for (const item of review || []) totals[listeningReviewAnswerState(item)] += 1;
+  for (const item of review || []) {
+    if (item?.self_check === true) continue;
+    totals[listeningReviewAnswerState(item)] += 1;
+  }
   return totals;
 }
 
@@ -192,7 +196,7 @@ export function normalizeListeningReview(payload) {
     if (!row || typeof row !== 'object') throw new Error('invalid-listening-review-item');
     const qNum = Number(row.q_num);
     if (!Number.isInteger(qNum) || qNum < 1 || seenQuestions.has(qNum)
-        || typeof row.correct !== 'boolean') {
+        || (row.self_check === true ? row.correct !== null : typeof row.correct !== 'boolean')) {
       throw new Error('invalid-listening-review-item');
     }
     seenQuestions.add(qNum);
@@ -235,7 +239,7 @@ export function normalizeListeningReview(payload) {
     contextSource: payload.context_source && typeof payload.context_source === 'object' ? payload.context_source : null,
     webExplanationAccess: payload.web_explanation_access && typeof payload.web_explanation_access === 'object' ? payload.web_explanation_access : null,
     score,
-    maxScore: maxScore ?? review.length,
+    maxScore: maxScore ?? review.filter((item) => !item.self_check).length,
     bandEstimate,
     bandConversion,
     audioUrl: text(payload.audio_url),
@@ -246,6 +250,7 @@ export function normalizeListeningReview(payload) {
 }
 
 export function listeningBandLabel(review) {
+  if (review?.maxScore === 0) return 'Không chấm điểm';
   if (review?.bandEstimate !== null && review?.bandEstimate !== undefined) {
     return `Band ${Number(review.bandEstimate).toFixed(1)}`;
   }
@@ -290,7 +295,7 @@ export function listeningTranscriptParagraphs(raw) {
 export function listeningSkillsToPractise(items, labels = {}) {
   const tally = {};
   for (const item of items || []) {
-    if (item?.correct) continue;
+    if (item?.correct || item?.self_check === true) continue;
     const skills = String(item?.solution?.skills || '').match(/K[1-8]/g) || [];
     for (const code of skills) tally[code] = (tally[code] || 0) + 1;
   }

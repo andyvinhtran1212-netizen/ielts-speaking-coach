@@ -40,6 +40,7 @@ const state = {
   answers: new Map(),
   rendererAffinity: null,
   starts: 0, claims: 0, patches: [], submits: 0, rejectQ2: true,
+  selfCheck: null,
 };
 let audioReady = false;
 function silentWav() {
@@ -187,10 +188,14 @@ await page.route('**/*', async (route) => {
     const perQuestion = [1, 2].map((q_num) => ({
       q_num, user_answer: state.answers.get(q_num) || '', expected: q_num === 1 ? 'library' : 'blue',
       correct: state.answers.get(q_num) === (q_num === 1 ? 'library' : 'blue'),
+      ...(state.selfCheck === 'all' || (state.selfCheck === 'mixed' && q_num === 1)
+        ? { self_check: true, correct: null } : {}),
     }));
+    const scored = perQuestion.filter(row => !row.self_check);
+    const score = scored.filter(row => row.correct).length;
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
-      attempt_id: ATTEMPT_ID, score: perQuestion.filter((row) => row.correct).length, max_score: 2,
-      band_estimate: 7, section_breakdown: { s1: { correct: 2, total: 2 } },
+      attempt_id: ATTEMPT_ID, score, max_score: scored.length,
+      band_estimate: scored.length ? 7 : null, section_breakdown: { s1: { correct: score, total: scored.length } },
       trap_analytics: {}, per_question: perQuestion,
     }), headers: cors });
   }
@@ -250,6 +255,25 @@ await page.getByRole('dialog').getByRole('button', { name: 'Submit answers' }).c
 await page.getByRole('heading', { name: 'Test results' }).waitFor();
 const scoreText = await page.getByLabel('Results overview').locator('.exam-result-metrics strong').first().textContent();
 check('clean submit renders canonical result once', state.submits === 1 && scoreText?.replace(/\s/g, '') === '2/2');
+for (const mode of ['mixed', 'all']) {
+  state.status = 'not_started'; state.selfCheck = mode;
+  await page.goto(`${BASE}/listening/test/session?id=${TEST_ID}`, { waitUntil: 'domcontentloaded' });
+  await page.getByRole('button', { name: 'Start test' }).click();
+  await page.getByRole('dialog', { name: 'Check your headphones' }).getByRole('button', { name: /Play$/ }).click();
+  await page.getByLabel('Answer 1').fill('library');
+  await page.getByLabel('Answer 2').fill('blue');
+  await page.getByRole('button', { name: 'Submit answers' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Submit answers' }).click();
+  await page.getByRole('heading', { name: 'Test results' }).waitFor();
+  const metrics = await page.getByLabel('Results overview').locator('.exam-result-metrics strong').allTextContents();
+  const selfCheckSlots = page.locator('.exam-result-question-map span[aria-label*="Tự đối chiếu"]');
+  check(`${mode} self-check submit keeps inputs and excludes unscored items from results`,
+    metrics[0].replace(/\s/g, '') === (mode === 'all' ? '0/0' : '1/1')
+      && metrics[2] === '0' && metrics[3] === '0'
+      && await selfCheckSlots.count() === (mode === 'all' ? 2 : 1)
+      && await selfCheckSlots.evaluateAll(slots => slots.every(slot => !/is-wrong|is-correct|is-empty/.test(slot.className)))
+      && (mode !== 'all' || (metrics[1] === '—' && await page.locator('.exam-result-band strong').innerText() === '—')));
+}
 check('no uncaught browser error', pageErrors.length === 0, pageErrors[0] || '');
 check(
   'fixture handles APIs with zero production-backend egress',

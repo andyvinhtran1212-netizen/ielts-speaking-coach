@@ -581,6 +581,8 @@ _QTYPE_MARKER_RE = re.compile(
     re.IGNORECASE,
 )
 
+_SCORING_MARKER_RE = re.compile(r"<!--\s*scoring\s*:\s*(.*?)\s*-->", re.IGNORECASE | re.DOTALL)
+
 
 def _read_qtype_marker(body: str) -> tuple[str, str] | None:
     """Read an explicit qtype marker from a question block. Returns
@@ -724,12 +726,19 @@ def parse_question_blocks(qp_section_text: str) -> list[dict[str, Any]]:
 
 def _build_block(body: str, lo: int, hi: int) -> dict[str, Any]:
     """Build one question-block dict from a (possibly sub-) block body."""
+    scoring = _SCORING_MARKER_RE.findall(body)
+    if any(value.strip().lower() != "self_check" for value in scoring):
+        raise ValueError(f"Questions {lo}–{hi}: unknown scoring marker; expected self_check")
+    # Authoring metadata must not appear in prompts or structural templates.
+    body = _SCORING_MARKER_RE.sub("", body)
     instruction = _first_blockquote(body)
     # P2 — explicit marker wins; regex classify is the fallback.
     marker = _read_qtype_marker(body)
     q_type, template_kind = marker if marker else _classify_instruction(instruction)
 
     meta: dict[str, Any] = {}
+    if scoring:
+        meta["scoring"] = "self_check"
     if q_type in ("matching", "mcq_multi"):
         # A1/A2 — shared option bank ("**List of roles/steps:** - **A** …").
         bank = _extract_matching_bank(body)

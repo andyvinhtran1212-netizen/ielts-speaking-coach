@@ -575,6 +575,8 @@ def finalize_item_observations(skill: str, attempt: dict, grading: Iterable[dict
         for row in _current_explanation_rows(skill, attempt.get("test_id"))
     }
     for grade in grading:
+        if grade.get("self_check"):
+            continue
         question_number = int(grade.get("q_num") or 0)
         if not 1 <= question_number <= 40:
             continue

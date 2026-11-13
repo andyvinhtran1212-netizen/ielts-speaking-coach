@@ -367,9 +367,10 @@ function ResultView({ result, attempt, test, from, sittingId, classItem }: {
   const drillDictationHref = drill?.sections?.length
     ? `/listening/dictation/session?test_id=${encodeURIComponent(test.id)}&class_item=${encodeURIComponent(classItem!)}` : null;
   const rows = Array.isArray(result?.per_question) ? result.per_question : [];
-  const maxScore = Number(result?.max_score ?? rows.length) || rows.length;
+  const scoredRows = rows.filter((row: any) => !row.self_check);
+  const maxScore = Number(result?.max_score ?? scoredRows.length);
   const score = Number.isFinite(Number(result?.score)) ? Number(result.score) : rows.filter((row: any) => row.correct).length;
-  const outcomes = examResultOutcomes(rows);
+  const outcomes = examResultOutcomes(scoredRows);
   const accuracy = maxScore ? Math.round((score / maxScore) * 100) : 0;
   const sections = Object.entries(result?.section_breakdown || {});
   return <main className="exam-result-shell listening-next-result">
@@ -377,10 +378,10 @@ function ResultView({ result, attempt, test, from, sittingId, classItem }: {
       <header className="exam-result-heading"><div><p className="exam-result-eyebrow">LISTENING · FULL TEST COMPLETE</p><h1 id="listening-result-title">Test results</h1><p>{test.title}</p></div><span className="exam-result-status">{drill?.dictation_required ? "Đã nộp phần nghe · Còn chép chính tả" : "Submitted"}</span></header>
 
       <section className="exam-result-hero" aria-label="Results overview">
-        <div className="exam-result-band"><span>Estimated band</span><strong>{result?.band_estimate == null ? '<4.0' : Number(result.band_estimate).toFixed(1)}</strong><small>Practice result</small></div>
+        <div className="exam-result-band"><span>Estimated band</span><strong>{maxScore === 0 ? '—' : result?.band_estimate == null ? '<4.0' : Number(result.band_estimate).toFixed(1)}</strong><small>Practice result</small></div>
         <div className="exam-result-metrics">
           <div><span>Correct</span><strong>{score}<small>/{maxScore}</small></strong></div>
-          <div><span>Accuracy</span><strong>{accuracy}<small>%</small></strong></div>
+          <div><span>Accuracy</span><strong>{maxScore === 0 ? '—' : <>{accuracy}<small>%</small></>}</strong></div>
           <div><span>Incorrect</span><strong>{outcomes.incorrect}</strong></div>
           <div><span>Unanswered</span><strong>{outcomes.unanswered}</strong></div>
         </div>
@@ -393,7 +394,8 @@ function ResultView({ result, attempt, test, from, sittingId, classItem }: {
         return <div className="exam-result-part" key={key}><div><span>Part {sectionNumber}</span><strong>{correct}/{total}</strong></div><div className="exam-result-progress" aria-label={`Part ${sectionNumber}: ${correct} correct out of ${total}`}><span style={{ width: `${total ? Math.round((correct / total) * 100) : 0}%` }} /></div></div>;
       })}</div></section> : null}
 
-      <section className="exam-result-review-card" aria-labelledby="listening-result-review-title"><div className="exam-result-section-heading"><div><p>QUESTION MAP</p><h2 id="listening-result-review-title">Overview of {maxScore} questions</h2></div><div className="exam-result-legend" aria-label="Legend"><span className="is-correct" />Correct <span className="is-wrong" />Incorrect <span className="is-empty" />Unanswered</div></div><div className="exam-result-question-map">{rows.map((row: any) => {
+      <section className="exam-result-review-card" aria-labelledby="listening-result-review-title"><div className="exam-result-section-heading"><div><p>QUESTION MAP</p><h2 id="listening-result-review-title">Overview of {rows.length} questions</h2></div><div className="exam-result-legend" aria-label="Legend"><span className="is-correct" />Correct <span className="is-wrong" />Incorrect <span className="is-empty" />Unanswered</div></div><div className="exam-result-question-map">{rows.map((row: any) => {
+        if (row.self_check) return <span aria-label={`Question ${row.q_num}: Tự đối chiếu`} key={row.q_num}>{row.q_num}</span>;
         const empty = !String(row.user_answer ?? '').trim();
         return <span className={empty ? 'is-empty' : row.correct ? 'is-correct' : 'is-wrong'} aria-label={`Question ${row.q_num}: ${empty ? 'unanswered' : row.correct ? 'correct' : 'incorrect'}`} key={row.q_num}>{row.q_num}</span>;
       })}</div></section>

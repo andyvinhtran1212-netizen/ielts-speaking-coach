@@ -2347,12 +2347,14 @@ async def get_listening_analytics(
     )
 
     flat: list[dict] = []
+    from services.listening_test_grader import scored_question_count
     for r in attempts_raw:
         gd = r.get("grading_details") or []
+        scored_count = scored_question_count(gd)
         submitted = r.get("status") == "submitted"
         acc = (
-            round(r["score"] / len(gd), 4)
-            if submitted and r.get("score") is not None and gd else None
+            round(r["score"] / scored_count, 4)
+            if submitted and r.get("score") is not None and scored_count else None
         )
         tinfo = tests.get(r.get("test_id")) or {}
         flat.append({
@@ -2367,7 +2369,7 @@ async def get_listening_analytics(
             "status":     r.get("status"),
             "accuracy":   acc,
             "score":      r.get("score"),
-            "total_questions": len(gd) or None,
+            "total_questions": scored_count if gd else None,
             "created_at": r["created_at"],
         })
 
@@ -3930,6 +3932,9 @@ async def admin_preview_listening_test(
             for k in key if k.get("q_num") is not None
         ],
     }
+    if any(k.get("scoring") == "self_check" for k in key):
+        # Reuse group propagation so preview and submission label the same slots.
+        synthetic["grading_details"] = grader.grade_attempt([], key)["per_question"]
     out = _assemble_listening_review(synthetic, None)
     out["preview"] = True                   # let the page label itself honestly
     return out
@@ -7634,8 +7639,9 @@ def _rows_by_id(
 
 
 def _attempt_public_shape(r: dict, users: dict, tests: dict) -> dict:
+    from services.listening_test_grader import scored_question_count
     gd = r.get("grading_details") or []
-    total_q = len(gd) or None
+    total_q = scored_question_count(gd) if gd else None
     score = r.get("score")
     u = users.get(r.get("user_id")) or {}
     t = tests.get(r.get("test_id")) or {}
@@ -9293,6 +9299,8 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
             "q_num":         q,
             "state":         g.get("state"),
             "correct":       g.get("correct"),
+            **({"self_check": True, "alternatives": g.get("alternatives") or []}
+               if g.get("self_check") else {}),
             "user_answer":   g.get("user_answer") or "",
             "expected":      g.get("expected") or "",
             "question_type": type_by_q.get(q),
@@ -9334,7 +9342,7 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
         "title":           test_row.get("title"),
         "status":          attempt.get("status"),
         "score":           attempt.get("score"),
-        "max_score":       len(review),
+        "max_score":       sum(1 for item in review if not item.get("self_check")),
         "band_estimate":   attempt.get("band_estimate"),
         "scoring_policy":  scoring_policy,
         "assisted":        bool(first_answers_by_q),

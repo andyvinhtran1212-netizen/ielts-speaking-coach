@@ -13,6 +13,34 @@ PUBLIC_POLICY_SQL = (
 ).read_text()
 
 
+def test_final_observations_never_turn_self_check_into_an_incorrect_score(monkeypatch):
+    written = []
+
+    class Query:
+        def upsert(self, rows, **_kwargs):
+            written.extend(rows)
+            return self
+
+        def execute(self):
+            return self
+
+    class Db:
+        def table(self, name):
+            assert name == "mock_item_attempts"
+            return Query()
+
+    monkeypatch.setattr(svc, "supabase_admin", Db())
+    monkeypatch.setattr(svc, "_current_explanation_rows", lambda *_args: [])
+    attempt = {"id": "synthetic-attempt", "user_id": "u1", "test_id": "synthetic-test"}
+    self_check = {"q_num": 1, "self_check": True, "correct": None, "user_answer": "my words"}
+    assert svc.finalize_item_observations("listening", attempt, [self_check, {"q_num": 2, "correct": True}])
+    assert len(written) == 1 and written[0]["question_number"] == 2
+    assert written[0]["is_correct"] is True and written[0]["score_awarded"] == 1
+    written.clear()
+    assert svc.finalize_item_observations("listening", attempt, [self_check])
+    assert written == []
+
+
 def test_capture_happens_before_correctness_is_revealed(monkeypatch):
     monkeypatch.setattr(svc, "_current_explanation_rows", lambda *_: [{"object_id": "x"}])
     monkeypatch.setattr(svc, "_effective_policy", lambda *_: {
