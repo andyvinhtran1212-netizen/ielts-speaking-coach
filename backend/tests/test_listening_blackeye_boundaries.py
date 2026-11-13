@@ -503,7 +503,7 @@ def test_package_slug_publish_archive(env, monkeypatch, action, hidden):
         return {'package_uuid': 'synthetic-uuid', 'status': status, 'forms_changed': 1}
     monkeypatch.setattr(listening_package_import, 'set_package_status', set_status)
     response = env.client.post(f'/admin/listening/packages/{slug}/{action}', json={'manifest_sha256': 'a' * 64})
-    assert response.status_code == (503 if hidden else 200), response.text
+    assert response.status_code == (404 if hidden else 200), response.text
     assert calls == ([] if hidden else [(slug, 'published' if action == 'publish' else 'archived')])
 
 
@@ -605,7 +605,9 @@ def test_core_evidence_denied_before_history_or_status(env, monkeypatch):
     attempt = env.db.freeze(env.p)
     response = env.client.get(f'/admin/core-attempt-evidence/listening_test/{attempt["id"]}')
     assert response.status_code == 503, response.text
-    assert [t for t, _, _ in env.db.calls] == ['listening_test_attempts', 'listening_tests']
+    assert [t for t, _, _ in env.db.calls] == ['listening_test_attempts', 'mock_paper_attempt_snapshots']
+    assert env.db.calls[1][1] == ('programme_id:paper_row->programme_id,'
+                                  'blackeye_identity:paper_row->metadata->blackeye->binding->programme_id')
     assert all(cols != '*' for _, cols, _ in env.db.calls)
     assert env.db.rpcs == []
 

@@ -535,7 +535,7 @@ def test_admin_exercise_expected_absent_rejects_existing_order_block(monkeypatch
 
 
 def test_admin_exercise_rejects_standalone_mcq_on_importer_content(monkeypatch):
-    imported_content = {**_content_row(), "test_id": "test-uuid"}
+    imported_content = {**_content_row(), "test_id": ORDINARY_TEST}
     fake = _FakeAdminClient({"listening_content": [imported_content], "listening_exercises": []})
     _patch_admin_client(monkeypatch, fake)
     authz = _patch_admin_auth(monkeypatch)

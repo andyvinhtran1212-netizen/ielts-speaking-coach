@@ -667,3 +667,22 @@ spec 0052 và Q-1..Q-16 theo đề xuất; FD mở PR spec".
   (F11). Không đổi quyết định Q-1..Q-16 hay D-1..D-5, không mở rộng phạm vi.
 
 - 2026-11-11 (Leader decision, CR #2281 R1 P2-4): FR-015/T004 amended: proposal SQL lands in PR1 as numbered migration 376 marked pending_feature in forward-policy.tsv, merged unexecuted (No apply on merge). T004 = SA SQL review + anh Vinh run approval; staging first, production only at T014.
+
+- 13/11/2026, C8 / CR P2-R9-1: ghi changelog v2 được anh Vinh duyệt qua
+  **t1803u** (12/11/2026 23:59 Asia/Saigon), theo
+  `handoff/leader/spec-0052-changelog-DRAFT-v2.md`, SHA256
+  `85aeb7c8fbe98383ae57a1b086b3f2af52170ebd0f64c61a18be3429288f25eb`.
+  Phê duyệt chỉ cho changelog C8; không phải phê duyệt merge, migration,
+  seed/import hay production. Không đổi định nghĩa Black Eye.
+
+  - FR-011 / plan.md “Kiểm kê route”: giữ trong #2281 các guard theo identity/by-id (bao gồm provenance, frozen attempt identity, session external identity, đường học viên C3) và toàn bộ inventory tests đang có. Chuyển phần loại Black Eye khỏi danh sách, phân trang, đếm và tổng hợp còn lại sang FU-2281-NAMESPACE. Bao gồm P2-R8-2: predicate trong SQL page/count, không hydrate toàn thư viện.
+  - FR-027 / plan.md “Ma trận quyền FR-027”: giữ mọi bảo vệ theo id đã có trong PR1. Chuyển exclusion danh sách/tổng hợp của các route admin chung còn thiếu sang FU-2281-NAMESPACE. Không thay đổi ai được quyền, không coi admin toàn cục là đủ quyền, không cấp/thu quyền trong PR1. Metadata/tên/trạng thái vẫn được bảo vệ theo spec sau follow-up.
+  - FR-012 vẫn thuộc #2281: mọi đường gắn listening_test_id Black Eye vào mock exam create/update phải 503 qua assignment_seam (hoặc 404 deny), trước mọi ghi. Chỉ picker list chuyển sang follow-up.
+  - FU-2281-NAMESPACE gồm M-A, M-B, helper chung và inventory/list/aggregate call sites; không thêm vào #2281. Các đường theo id mới không có trong allowlist FR-011 không được trì hoãn theo thay đổi này.
+
+  - Bổ sung v2 (theo SA-2281-R12k-DELTA-8434cf28): route admin GET /admin/listening/content (backend/routers/listening.py:1619) — exclude_tests đang giữ dòng test_id NULL có marker metadata.blackeye hoặc dẫn xuất qua source_test_id/parent_content_id — được ghi nhận rõ là thuộc FU-2281-NAMESPACE (Codex thread PRRT_kwDOR6Uds862sorH). Trên staging hiện 0 dòng như vậy và chưa có đường app tạo được trước M-A; không áp 376/không import Black Eye cho tới khi FU xong.
+
+  `plan.md` ghi nhận phân tách FR-011/FR-027 ở trên; `rollout.md` bổ sung
+  Preconditions và cổng importer đúng bản v2 đã duyệt. Trước merge vẫn cần CI,
+  CR, SA delta và Codex trên đúng head mới; anh Vinh tự gõ duyệt merge cho đúng
+  SHA. Changelog này không phải SA-MET và không thay thế các điều kiện đó.

@@ -739,9 +739,10 @@ async def start_assignment(
     if not a_rows or not is_assignment_open(a_rows[0]):
         raise HTTPException(404, "Bài tập không còn mở")
     assignment = a_rows[0]
+    from services import listening_blackeye as blackeye
     # Book parents are immutable recipient records. Their activity runner owns
     # progress; generic start and reconciliation must never open the parent.
-    if await run_in_threadpool(blackeye.assignment_is_blackeye, supabase_admin, assignment):
+    if await asyncio.to_thread(blackeye.assignment_is_blackeye, supabase_admin, assignment):
         raise HTTPException(400, "Mở bài tập này từ trang sách bài tập.")
     skill = assignment.get("skill")
     cfg = assignment.get("content_config") or {}
