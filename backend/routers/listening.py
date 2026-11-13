@@ -6456,7 +6456,7 @@ async def get_listening_test_dictation(
     test = res.data[0]
     if blackeye.is_blackeye(test):
         raise HTTPException(422, "Black Eye dictation requires separate release.")
-    _published_test_for_dictation(test_id, _user.get("id"), class_item)
+    _assert_listening_exam_content_allowed(test, _user.get("id"), class_item, allow_public=False)
 
     config = None
     done = {}
@@ -6482,7 +6482,7 @@ async def get_listening_test_dictation(
     for s in (sec_res.data or []):
         if config is not None and s["section_num"] not in config["sections"]:
             continue
-        units = _dictation_units_for_content(s)
+        units = await run_in_threadpool(_dictation_units_for_content, s)
         sentences = [u["text"] for u in units]
         # Per-sentence audio windows (turn timing) when available → the
         # player auto-clips each sentence. null when the section has no
@@ -6546,7 +6546,7 @@ async def grade_listening_test_dictation(
     # Shared loader: published + exam_only, both BEFORE any transcript read.
     _published_test_for_dictation(body.test_id, _user.get("id"), class_item)
     if class_item:
-        _validate_class_dictation_section(_user["id"], class_item, body.test_id, body.section_num)
+        await run_in_threadpool(_validate_class_dictation_section, _user["id"], class_item, body.test_id, body.section_num)
 
     sec_res = (
         supabase_admin.table("listening_content")
@@ -6561,7 +6561,7 @@ async def grade_listening_test_dictation(
 
     # Same unit resolution as the boot endpoint (timed segments → sentence
     # fallback) so the index the frontend submits maps to the right reference.
-    units = _dictation_units_for_content(sec_res.data[0])
+    units = await run_in_threadpool(_dictation_units_for_content, sec_res.data[0])
     if body.sentence_idx >= len(units):
         raise HTTPException(
             422,
@@ -6970,8 +6970,8 @@ async def claim_dictation_attempt_renderer_affinity(
     owned_attempt = _dictation_attempt_or_404(
         str(attempt_id), user["id"], require_in_progress=True,
     )
-    _published_test_for_dictation(owned_attempt["test_id"], user["id"],
-                                  owned_attempt.get("class_assignment_item_id"))
+    await run_in_threadpool(_published_test_for_dictation, owned_attempt["test_id"], user["id"],
+                            owned_attempt.get("class_assignment_item_id"))
     try:
         result = supabase_admin.rpc(
             "fn_claim_dictation_attempt_renderer_affinity",
@@ -7171,7 +7171,7 @@ async def submit_listening_dictation_session(
     if body.client_request_id:
         existing = _dictation_session_by_request(user["id"], body.client_request_id)
         if existing:
-            _assert_class_dictation_report_allowed(existing, user["id"])
+            await run_in_threadpool(_assert_class_dictation_report_allowed, existing, user["id"])
             _assert_dictation_request_replay(existing, body, fingerprint)
             _mark_dictation_attempt_completed(existing, user["id"])
             if existing.get("attempt_id"):
@@ -7182,7 +7182,7 @@ async def submit_listening_dictation_session(
     if body.attempt_id:
         existing = _dictation_session_by_attempt(user["id"], body.attempt_id)
         if existing:
-            _assert_class_dictation_report_allowed(existing, user["id"])
+            await run_in_threadpool(_assert_class_dictation_report_allowed, existing, user["id"])
             _assert_dictation_request_replay(existing, body, fingerprint)
             _mark_dictation_attempt_completed(existing, user["id"])
             bind_owned_attempt({"id": existing.get("attempt_id"), "user_id": user["id"]})
@@ -7213,7 +7213,8 @@ async def submit_listening_dictation_session(
     )
     if not sec_res.data and not attempt:
         raise HTTPException(404, "Section không tồn tại cho test này.")
-    units = (attempt.get("units_snapshot") or []) if attempt else _dictation_units_for_content(sec_res.data[0])
+    units = ((attempt.get("units_snapshot") or []) if attempt
+             else await run_in_threadpool(_dictation_units_for_content, sec_res.data[0]))
     if not units:
         raise HTTPException(409, "Lượt làm bài thiếu snapshot nội dung; vui lòng bắt đầu lại.")
 
@@ -7304,7 +7305,7 @@ async def submit_listening_dictation_session(
             if not existing and body.attempt_id:
                 existing = _dictation_session_by_attempt(user["id"], body.attempt_id)
             if existing:
-                _assert_class_dictation_report_allowed(existing, user["id"])
+                await run_in_threadpool(_assert_class_dictation_report_allowed, existing, user["id"])
                 _assert_dictation_request_replay(existing, body, fingerprint)
                 _mark_dictation_attempt_completed(existing, user["id"])
                 return _dictation_session_response(existing, test.get("title"))
@@ -7328,7 +7329,7 @@ async def get_listening_dictation_session_by_request(
     row = _dictation_session_by_request(user["id"], client_request_id)
     if not row:
         raise HTTPException(404, "Chưa tìm thấy phiên cho mã gửi này.")
-    _assert_class_dictation_report_allowed(row, user["id"])
+    await run_in_threadpool(_assert_class_dictation_report_allowed, row, user["id"])
     _mark_dictation_attempt_completed(row, user["id"])
     return _dictation_session_response(row)
 
@@ -7350,7 +7351,7 @@ async def get_listening_dictation_session(
     row = res.data[0]
     if row.get("user_id") != user["id"]:
         raise HTTPException(403, "Phiên này thuộc người dùng khác.")
-    _assert_class_dictation_report_allowed(row, user["id"])
+    await run_in_threadpool(_assert_class_dictation_report_allowed, row, user["id"])
     return {**row, **_dictation_policy(session_contract, row)}
 
 
@@ -7381,7 +7382,7 @@ async def flag_listening_dictation(
 
     test = _published_test_for_dictation(body.test_id, user.get("id"), class_item)
     if class_item:
-        _validate_class_dictation_section(user["id"], class_item, body.test_id, body.section_num)
+        await run_in_threadpool(_validate_class_dictation_section, user["id"], class_item, body.test_id, body.section_num)
     context = f"[chép chính tả · section {body.section_num}"
     context += f" · câu {body.sentence_idx + 1}]" if body.sentence_idx is not None else "]"
     flag_id = str(uuid.uuid4())
