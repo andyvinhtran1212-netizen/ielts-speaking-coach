@@ -239,6 +239,11 @@ BEGIN
         CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(c.relacl, pg_catalog.acldefault('r', c.relowner))) AS acl
         WHERE c.oid = 'public.listening_public_practice_catalog'::pg_catalog.regclass AND acl.grantee <> c.relowner
           AND (acl.grantee <> 'service_role'::pg_catalog.regrole OR acl.privilege_type <> 'SELECT' OR acl.is_grantable))
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_attribute AS a
+        JOIN pg_catalog.pg_class AS c ON c.oid = a.attrelid
+        CROSS JOIN LATERAL pg_catalog.aclexplode(a.attacl) AS acl
+        WHERE c.oid = 'public.listening_public_practice_catalog'::pg_catalog.regclass AND acl.grantee <> c.relowner
+          AND (acl.grantee <> 'service_role'::pg_catalog.regrole OR acl.privilege_type <> 'SELECT' OR acl.is_grantable))
        OR pg_catalog.pg_get_viewdef('public.listening_public_practice_catalog'::pg_catalog.regclass) !~ 'NOT ([a-z_]+[.])?restricted'
        OR pg_catalog.pg_get_viewdef('public.listening_public_practice_catalog'::pg_catalog.regclass) NOT LIKE '%fn_mock_public_practice_allowed%' THEN
         RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = '382 SQL body or hardening postcondition failed';

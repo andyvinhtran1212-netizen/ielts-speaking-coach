@@ -1,6 +1,6 @@
 """Real 305 report guard plus 381 stamp/cascade on disposable local PG17.
 
-trg_01_guard_dictation_report_policy and trg_content_namespace_stamp coexist:
+trg_01_guard_dictation_report_policy and trg_zz_content_namespace_stamp coexist:
 report evidence stays immutable while the namespace flag can become true.
 """
 from namespace_pg17 import MA, MB, bootstrap, local_pg17, migration

@@ -21,10 +21,10 @@ END;
 $$;
 DROP VIEW public.v_listening_tests_public, public.v_listening_content_public,
     public.v_listening_attempts_public, public.v_dictation_sessions_public;
-DROP TRIGGER trg_content_namespace_stamp ON public.listening_tests;
-DROP TRIGGER trg_content_namespace_stamp ON public.listening_content;
-DROP TRIGGER trg_content_namespace_stamp ON public.listening_test_attempts;
-DROP TRIGGER trg_content_namespace_stamp ON public.dictation_sessions;
+DROP TRIGGER trg_zz_content_namespace_stamp ON public.listening_tests;
+DROP TRIGGER trg_zz_content_namespace_stamp ON public.listening_content;
+DROP TRIGGER trg_zz_content_namespace_stamp ON public.listening_test_attempts;
+DROP TRIGGER trg_zz_content_namespace_stamp ON public.dictation_sessions;
 DROP TRIGGER trg_content_namespace_cascade ON public.listening_tests;
 DROP TRIGGER trg_content_namespace_cascade ON public.listening_content;
 DROP TRIGGER trg_content_namespace_snapshot ON public.mock_paper_attempt_snapshots;
@@ -49,7 +49,7 @@ BEGIN
                        'fn_namespace_dictation_restricted', 'fn_stamp_content_namespace', 'fn_cascade_content_namespace',
                        'fn_stamp_snapshot_content_namespace', 'fn_content_namespace_ready'))
        OR EXISTS (SELECT 1 FROM pg_catalog.pg_trigger AS t WHERE NOT t.tgisinternal
-                   AND t.tgname IN ('trg_content_namespace_stamp','trg_content_namespace_cascade','trg_content_namespace_snapshot'))
+                   AND t.tgname IN ('trg_zz_content_namespace_stamp','trg_content_namespace_cascade','trg_content_namespace_snapshot'))
        OR (SELECT pg_catalog.count(*) FROM pg_catalog.pg_attribute AS a
             WHERE a.attrelid IN ('public.listening_tests'::pg_catalog.regclass, 'public.listening_content'::pg_catalog.regclass,
                                 'public.listening_test_attempts'::pg_catalog.regclass, 'public.dictation_sessions'::pg_catalog.regclass)

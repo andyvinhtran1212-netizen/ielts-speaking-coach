@@ -134,45 +134,58 @@ BEGIN
 END;
 $$;
 
-CREATE TRIGGER trg_content_namespace_stamp BEFORE INSERT OR UPDATE OF programme_id, metadata, restricted
+-- Sort after existing immutable-evidence guards; only our computed flag changes.
+CREATE TRIGGER trg_zz_content_namespace_stamp BEFORE INSERT OR UPDATE OF programme_id, metadata, restricted
 ON public.listening_tests FOR EACH ROW EXECUTE FUNCTION public.fn_stamp_content_namespace();
-CREATE TRIGGER trg_content_namespace_stamp BEFORE INSERT OR UPDATE OF test_id, source_test_id, parent_content_id, metadata, restricted
+CREATE TRIGGER trg_zz_content_namespace_stamp BEFORE INSERT OR UPDATE OF test_id, source_test_id, parent_content_id, metadata, restricted
 ON public.listening_content FOR EACH ROW EXECUTE FUNCTION public.fn_stamp_content_namespace();
-CREATE TRIGGER trg_content_namespace_stamp BEFORE INSERT OR UPDATE OF test_id, restricted
+CREATE TRIGGER trg_zz_content_namespace_stamp BEFORE INSERT OR UPDATE OF test_id, restricted
 ON public.listening_test_attempts FOR EACH ROW EXECUTE FUNCTION public.fn_stamp_content_namespace();
-CREATE TRIGGER trg_content_namespace_stamp BEFORE INSERT OR UPDATE OF test_id, test_id_external, restricted
+CREATE TRIGGER trg_zz_content_namespace_stamp BEFORE INSERT OR UPDATE OF test_id, test_id_external, restricted
 ON public.dictation_sessions FOR EACH ROW EXECUTE FUNCTION public.fn_stamp_content_namespace();
 
 CREATE FUNCTION public.fn_cascade_content_namespace()
 RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER
 SET search_path = pg_catalog, pg_temp AS $$
+DECLARE roots uuid[]; batch record;
+        previous_transition text := pg_catalog.current_setting('app.listening_package_status_transition', true);
 BEGIN
     IF NEW.restricted IS NOT TRUE OR (TG_OP = 'UPDATE' AND OLD.restricted IS TRUE) THEN RETURN NEW; END IF;
     IF TG_TABLE_NAME = 'listening_tests' THEN
+        SELECT pg_catalog.array_agg(c.id) INTO roots FROM public.listening_content AS c
+         WHERE c.test_id = NEW.id OR c.source_test_id = NEW.id;
+    ELSE
+        roots := ARRAY[NEW.id];
+    END IF;
+    -- The original package/source guards see unchanged evidence. Our final
+    -- BEFORE trigger computes the flag only after those guards have validated
+    -- it. The legacy transition setting selects a package; it never authorizes
+    -- lowering a namespace stamp, and is restored before returning.
+    FOR batch IN
         WITH RECURSIVE descendants(id) AS (
-            SELECT c.id FROM public.listening_content AS c WHERE c.test_id = NEW.id OR c.source_test_id = NEW.id
+            SELECT c.id FROM public.listening_content AS c WHERE c.id = ANY(roots)
             UNION
             SELECT c.id FROM public.listening_content AS c JOIN descendants AS d ON c.parent_content_id = d.id
         )
-        UPDATE public.listening_content AS c SET restricted = true
-         WHERE c.id IN (SELECT d.id FROM descendants AS d) AND c.restricted IS DISTINCT FROM true;
-        UPDATE public.listening_test_attempts AS a SET restricted = true
+        SELECT t.content_package_id AS package_id, pg_catalog.array_agg(c.id) AS ids
+          FROM public.listening_content AS c JOIN descendants AS d ON d.id = c.id
+          LEFT JOIN public.listening_tests AS t ON t.id = c.test_id
+         WHERE c.restricted IS DISTINCT FROM true
+         GROUP BY t.content_package_id
+    LOOP
+        PERFORM pg_catalog.set_config('app.listening_package_status_transition', COALESCE(batch.package_id::text, ''), true);
+        UPDATE public.listening_content AS c SET test_id = c.test_id
+         WHERE c.id = ANY(batch.ids) AND c.restricted IS DISTINCT FROM true;
+    END LOOP;
+    PERFORM pg_catalog.set_config('app.listening_package_status_transition', COALESCE(previous_transition, ''), true);
+    IF TG_TABLE_NAME = 'listening_tests' THEN
+        UPDATE public.listening_test_attempts AS a SET test_id = a.test_id
          WHERE a.test_id = NEW.id AND a.restricted IS DISTINCT FROM true;
-        -- 305 seals every report field. A no-op identity update lets its guard
-        -- validate unchanged evidence before our later BEFORE trigger stamps
-        -- the now-restricted parent. Do not weaken or replace the 305 guard.
+        -- 305 seals report evidence; the final BEFORE stamp follows its guard.
         UPDATE public.dictation_sessions AS s SET test_id = s.test_id
          WHERE (s.test_id = NEW.id OR s.test_id_external = NEW.test_id
                 OR (TG_OP = 'UPDATE' AND s.test_id_external = OLD.test_id))
            AND s.restricted IS DISTINCT FROM true;
-    ELSE
-        WITH RECURSIVE descendants(id) AS (
-            SELECT c.id FROM public.listening_content AS c WHERE c.parent_content_id = NEW.id
-            UNION
-            SELECT c.id FROM public.listening_content AS c JOIN descendants AS d ON c.parent_content_id = d.id
-        )
-        UPDATE public.listening_content AS c SET restricted = true
-         WHERE c.id IN (SELECT d.id FROM descendants AS d) AND c.restricted IS DISTINCT FROM true;
     END IF;
     RETURN NEW;
 END;
@@ -193,7 +206,7 @@ BEGIN
         pg_catalog.jsonb_typeof(NEW.paper_row) IS DISTINCT FROM 'object'
         OR public.fn_namespace_matches(NEW.paper_row->>'programme_id', NEW.paper_row->'metadata')
     ) THEN
-        UPDATE public.listening_test_attempts AS a SET restricted = true
+        UPDATE public.listening_test_attempts AS a SET test_id = a.test_id
          WHERE a.id = NEW.attempt_id AND a.restricted IS DISTINCT FROM true;
     END IF;
     RETURN NEW;
@@ -207,6 +220,8 @@ FOR EACH ROW EXECUTE FUNCTION public.fn_stamp_snapshot_content_namespace();
 -- descendants outside the current batch. Unresolved OLD dictation is restricted.
 DO $$
 DECLARE table_name text; cursor_id uuid; last_id uuid; unresolved bigint; unsafe_count bigint;
+        batch record; package_query text;
+        previous_transition text := pg_catalog.current_setting('app.listening_package_status_transition', true);
 BEGIN
     SELECT pg_catalog.count(*) INTO unsafe_count FROM public.dictation_sessions AS s
      WHERE public.fn_namespace_dictation_restricted(s.test_id, s.test_id_external);
@@ -224,17 +239,26 @@ BEGIN
             EXECUTE pg_catalog.format(
                 'SELECT id FROM public.%I WHERE ($1 IS NULL OR id > $1) ORDER BY id LIMIT 1 OFFSET 999', table_name)
                 INTO last_id USING cursor_id;
-            IF last_id IS NULL THEN
-                EXECUTE pg_catalog.format('UPDATE public.%I SET restricted = restricted WHERE ($1 IS NULL OR id > $1)', table_name)
-                    USING cursor_id;
-                EXIT;
-            END IF;
-            EXECUTE pg_catalog.format(
-                'UPDATE public.%I SET restricted = restricted WHERE ($1 IS NULL OR id > $1) AND id <= $2', table_name)
-                USING cursor_id, last_id;
+            -- At most 1000 identities per UPDATE. Package groups preserve the
+            -- unchanged 295/353 immutability contract even on ordinary rows.
+            package_query := CASE table_name
+                WHEN 'listening_tests' THEN
+                    'SELECT r.content_package_id AS package_id, pg_catalog.array_agg(r.id) AS ids FROM public.listening_tests AS r'
+                WHEN 'listening_content' THEN
+                    'SELECT t.content_package_id AS package_id, pg_catalog.array_agg(r.id) AS ids FROM public.listening_content AS r LEFT JOIN public.listening_tests AS t ON t.id = r.test_id'
+                ELSE pg_catalog.format('SELECT NULL::uuid AS package_id, pg_catalog.array_agg(r.id) AS ids FROM public.%I AS r', table_name)
+            END;
+            package_query := package_query || ' WHERE ($1 IS NULL OR r.id > $1) AND ($2 IS NULL OR r.id <= $2) GROUP BY 1';
+            FOR batch IN EXECUTE package_query USING cursor_id, last_id LOOP
+                PERFORM pg_catalog.set_config('app.listening_package_status_transition', COALESCE(batch.package_id::text, ''), true);
+                EXECUTE pg_catalog.format('UPDATE public.%I SET restricted = restricted WHERE id = ANY($1)', table_name)
+                    USING batch.ids;
+            END LOOP;
+            EXIT WHEN last_id IS NULL;
             cursor_id := last_id;
         END LOOP;
     END LOOP;
+    PERFORM pg_catalog.set_config('app.listening_package_status_transition', COALESCE(previous_transition, ''), true);
 END;
 $$;
 
@@ -288,19 +312,19 @@ SET search_path = pg_catalog, pg_temp AS $$
                AND pg_catalog.pg_get_expr(d.adbin, d.adrelid) = 'false')
         AND (SELECT pg_catalog.count(*) = 7 FROM pg_catalog.pg_trigger AS t
              WHERE (t.tgrelid, t.tgname) IN (
-                 ('public.listening_tests'::pg_catalog.regclass, 'trg_content_namespace_stamp'),
-                 ('public.listening_content'::pg_catalog.regclass, 'trg_content_namespace_stamp'),
-                 ('public.listening_test_attempts'::pg_catalog.regclass, 'trg_content_namespace_stamp'),
-                 ('public.dictation_sessions'::pg_catalog.regclass, 'trg_content_namespace_stamp'),
+                 ('public.listening_tests'::pg_catalog.regclass, 'trg_zz_content_namespace_stamp'),
+                 ('public.listening_content'::pg_catalog.regclass, 'trg_zz_content_namespace_stamp'),
+                 ('public.listening_test_attempts'::pg_catalog.regclass, 'trg_zz_content_namespace_stamp'),
+                 ('public.dictation_sessions'::pg_catalog.regclass, 'trg_zz_content_namespace_stamp'),
                  ('public.listening_tests'::pg_catalog.regclass, 'trg_content_namespace_cascade'),
                  ('public.listening_content'::pg_catalog.regclass, 'trg_content_namespace_cascade'),
                  ('public.mock_paper_attempt_snapshots'::pg_catalog.regclass, 'trg_content_namespace_snapshot'))
                AND t.tgenabled = 'O' AND NOT t.tgisinternal
                AND t.tgfoid = CASE t.tgname
-                   WHEN 'trg_content_namespace_stamp' THEN 'public.fn_stamp_content_namespace()'::pg_catalog.regprocedure
+                   WHEN 'trg_zz_content_namespace_stamp' THEN 'public.fn_stamp_content_namespace()'::pg_catalog.regprocedure
                    WHEN 'trg_content_namespace_cascade' THEN 'public.fn_cascade_content_namespace()'::pg_catalog.regprocedure
                    ELSE 'public.fn_stamp_snapshot_content_namespace()'::pg_catalog.regprocedure END
-               AND t.tgtype = CASE t.tgname WHEN 'trg_content_namespace_stamp' THEN 23
+               AND t.tgtype = CASE t.tgname WHEN 'trg_zz_content_namespace_stamp' THEN 23
                    WHEN 'trg_content_namespace_cascade' THEN 21 ELSE 5 END)
         AND (SELECT pg_catalog.count(*) = 8 FROM pg_catalog.pg_proc AS p
               JOIN pg_catalog.pg_namespace AS n ON n.oid = p.pronamespace
