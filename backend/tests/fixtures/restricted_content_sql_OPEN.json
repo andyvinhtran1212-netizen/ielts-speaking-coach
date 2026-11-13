@@ -6,43 +6,13 @@
     "reason": "Unproven legacy SQL reader; full caller/namespace proof and full-history catalog required. Not allowlisted."
   },
   {
-    "object": "public.fn_capture_mock_paper_snapshot()",
-    "state": "OPEN",
-    "owner": "N2 + Security Auditor",
-    "reason": "Unproven legacy SQL reader; full caller/namespace proof and full-history catalog required. Not allowlisted."
-  },
-  {
     "object": "public.fn_create_mock_exam_with_paper_policy(jsonb, uuid)",
     "state": "OPEN",
     "owner": "N2 + Security Auditor",
     "reason": "Unproven legacy SQL reader; full caller/namespace proof and full-history catalog required. Not allowlisted."
   },
   {
-    "object": "public.fn_guard_mock_paper_attempt()",
-    "state": "OPEN",
-    "owner": "N2 + Security Auditor",
-    "reason": "Unproven legacy SQL reader; full caller/namespace proof and full-history catalog required. Not allowlisted."
-  },
-  {
-    "object": "public.fn_guard_mock_paper_policy()",
-    "state": "OPEN",
-    "owner": "N2 + Security Auditor",
-    "reason": "Unproven legacy SQL reader; full caller/namespace proof and full-history catalog required. Not allowlisted."
-  },
-  {
     "object": "public.fn_guard_mock_paper_reference()",
-    "state": "OPEN",
-    "owner": "N2 + Security Auditor",
-    "reason": "Unproven legacy SQL reader; full caller/namespace proof and full-history catalog required. Not allowlisted."
-  },
-  {
-    "object": "public.fn_guard_mock_paper_source()",
-    "state": "OPEN",
-    "owner": "N2 + Security Auditor",
-    "reason": "Unproven legacy SQL reader; full caller/namespace proof and full-history catalog required. Not allowlisted."
-  },
-  {
-    "object": "public.fn_guard_mock_reading_answer()",
     "state": "OPEN",
     "owner": "N2 + Security Auditor",
     "reason": "Unproven legacy SQL reader; full caller/namespace proof and full-history catalog required. Not allowlisted."

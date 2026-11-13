@@ -55,17 +55,23 @@ LANGUAGE sql SECURITY INVOKER AS 'SELECT * FROM public.listening_tests';
 """ + CATALOG_SQL)
         before, after = from_output(output)
         allowlist = load_allowlist()
-        # Prove only the new namespace objects; legacy readers stay OPEN.
-        proven = [r for r in before if r["object"] in allowlist]
-        assert set(audit_catalog(proven)) == set(allowlist)
+        # Resolve transitive dependencies on the WHOLE catalog. Removing OPEN
+        # callees first would lose the evidence that two proven triggers read
+        # Listening through shared helpers.
+        found = readers(before)
+        assert set(allowlist) <= set(found)
         addition = [r for r in after if r["object"] in allowlist or r["name"] == "namespace_negative_reader"]
         with pytest.raises(AssertionError, match="unlisted SQL reader: public.namespace_negative_reader"):
             audit_catalog(addition)
-        with pytest.raises(AssertionError, match="unlisted SQL reader"):
+        with pytest.raises(AssertionError, match="unlisted SQL reader") as audit:
             audit_catalog(before)
         unresolved = sorted(set(readers(before)) - set(allowlist))
         (pg.log_dir / "sql-inventory-OPEN.json").write_text(json.dumps(unresolved, indent=2) + "\n")
         baseline = json.loads(Path(__file__).with_name("fixtures").joinpath("restricted_content_sql_OPEN.json").read_text())
         assert all(r["state"] == "OPEN" and r["owner"] and r["reason"] for r in baseline)
         assert unresolved == sorted(r["object"] for r in baseline), "New unlisted readers may not join the OPEN baseline silently"
+        assert str(audit.value).splitlines() == [
+            f"unlisted SQL reader: {key} ({','.join(found[key]['tables']) or 'dynamic relation'})"
+            for key in unresolved
+        ], "Known readers must pass all safety checks; only explicit OPEN readers may fail"
         assert unresolved, "Full-history SQL inventory must not be represented as closed by this focused fixture"
