@@ -45,6 +45,8 @@ from services.class_assignment_service import (
     reconcile_test_attempts,
 )
 from services.active_player_lifecycle import is_resume_active
+from services.content_visibility import public_attempts, public_tests
+from services import listening_blackeye
 from services.cohort_assignment_service import parse_deadline
 from services.writing_give_status import (
     RETURNED,
@@ -513,10 +515,16 @@ def _visible_assignments(student: Dict[str, Any], now: datetime,
     outstanding = _paged_items(
         lambda q: q.eq("student_id", student["id"]).is_("submitted_at", "null")
     )
-    history = (
+    history_query = (
         supabase_admin.table("class_assignment_items")
         .select("*")
         .eq("student_id", student["id"])
+    )
+    for cohort_id in cohort_ids:
+        history_query = listening_blackeye.exclude_assignments(
+            supabase_admin, history_query, key="assignment_id", cohort_id=cohort_id)
+    history = (
+        history_query
         .not_.is_("submitted_at", "null")
         .order("submitted_at", desc=True)
         .limit(_MAX_HISTORY)
@@ -587,6 +595,10 @@ def _visible_assignments(student: Dict[str, Any], now: datetime,
             # classes at the same time.
             if is_assignment_open(a, now=now):
                 by_id[a["id"]] = a
+
+    if any(a.get("skill") == "listening" for a in by_id.values()):
+        by_id = {a["id"]: a for a in listening_blackeye.generic_assignments(
+            supabase_admin, list(by_id.values()))}
 
     # Record any Reading/Listening hand-in before deciding what this student
     # still owes: their test submission does not touch the class ledger, so
@@ -754,6 +766,11 @@ async def start_assignment(
         student.get("cohort_id"),
     ):
         raise HTTPException(404, "Bạn không còn thuộc lớp đã giao bài này")
+
+    if skill == "listening" and await asyncio.to_thread(
+        listening_blackeye.assignment_is_blackeye, supabase_admin, assignment,
+    ):
+        listening_blackeye.assignment_seam()
 
     # Lớp đã lưu trữ (CLASSARCHIVE-0030 FR-004, Variant A): mọi lối XEM LẠI bài
     # đã xong vẫn mở, còn mọi lối LÀM TIẾP hay BẮT ĐẦU đều nhận 409. Chỉ hỏi
@@ -992,7 +1009,7 @@ async def start_assignment(
     # here instead.
     if skill == "listening":
         rows = (
-            supabase_admin.table("listening_tests")
+            public_tests(supabase_admin)
             .select("id, status, exam_only, is_public, public_practice_enabled, "
                     "full_audio_storage_path, assembled_audio_storage_path")
             .eq("id", test_uuid).limit(1).execute().data
@@ -1007,7 +1024,7 @@ async def start_assignment(
             raise HTTPException(409, "Đề nghe này chưa có audio sẵn sàng.")
         drill = cfg.get("skill_drill") or {}
         if drill.get("dictation_required"):
-            submitted_query = (supabase_admin.table("listening_test_attempts").select("id")
+            submitted_query = (public_attempts(supabase_admin).select("id")
                                .eq("class_assignment_item_id", item_id).eq("user_id", auth_user["id"])
                                .eq("test_id", test_uuid).eq("status", "submitted").limit(1))
             listening_submitted = (await asyncio.to_thread(submitted_query.execute)).data

@@ -30,6 +30,8 @@ class _Query:
 class _Db:
     def __init__(self, rows): self.rows = rows
     def table(self, name):
+        if name == "content_access_namespaces":
+            return _Query([])
         assert name == "class_assignments"
         return _Query(self.rows)
 

@@ -25,6 +25,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from routers import class_student as mod
+from namespace_query_double import source_rows
 
 
 NOW = datetime(2026, 8, 3, 12, 0, tzinfo=timezone.utc)      # 19:00 giờ VN
@@ -426,6 +427,9 @@ class _StartTable:
         self._rows, self._store = list(rows), store
 
     def select(self, *_a, **_k): return self
+    def range(self, start, end):
+        self._rows = self._rows[start:end + 1]
+        return self
     def eq(self, f, v):
         self._rows = [r for r in self._rows if str(r.get(f)) == str(v)]
         return self
@@ -464,8 +468,9 @@ def _start_db(*, skill, content_id, tables=None):
                              "full_audio_storage_path": None}],
     }
     base.update(tables or {})
+    base["listening_tests"] = [{"restricted": False, **row} for row in base["listening_tests"]]
     db = type("DB", (), {})()
-    db.table = lambda name: _StartTable(base.get(name, []), store)
+    db.table = lambda name: _StartTable(source_rows(base, name), store)
     return db
 
 
@@ -735,7 +740,8 @@ async def test_a_listening_paper_that_was_deleted_says_so():
     with pytest.raises(Exception) as exc:
         await _start(_start_db(skill="listening", content_id="uuid-gone",
                                tables={"listening_tests": []}))
-    assert getattr(exc.value, "status_code", None) == 409
+    assert getattr(exc.value, "status_code", None) == 503
+    assert exc.value.headers["Cache-Control"] == "private, no-store"
 
 
 # ── vá sổ hỏng: nói ra, đừng trình bày số cũ như số chính thức ───────────
@@ -891,6 +897,7 @@ def test_actionable_submitted_course_item_is_not_lost_behind_history_cap():
     }]
     db = type("DB", (), {})()
     db.table = lambda name: _Table(
+        [] if name == "content_access_namespaces" else
         history if name == "class_assignment_items" else assignments, False,
     )
     with patch.object(mod, "supabase_admin", db), \

@@ -2781,6 +2781,16 @@ async def create_assignment(
         table = _TEST_SKILLS[body.skill]
         cols = "id, title, status, exam_only, is_public, public_practice_enabled"
         if body.skill == "listening":
+            # Decide namespace access from the persisted flag before reading
+            # the paper payload or preparing any class assignment writes.
+            from services.content_visibility import is_restricted
+            identities = await run_in_threadpool(lambda: (
+                supabase_admin.table("listening_tests").select("id,restricted")
+                .eq("id", body.content_id).limit(1).execute().data or []))
+            if not identities:
+                raise HTTPException(404, "Không tìm thấy đề này.")
+            if is_restricted(identities[0]):
+                blackeye.assignment_seam()
             # Published is not the same as playable: a test whose assembled
             # audio was cleared (section audio replaced) still reads published,
             # but the student endpoint answers 422 "chưa có audio sẵn sàng".
@@ -2794,8 +2804,6 @@ async def create_assignment(
         ) or []
         if not rows:
             raise HTTPException(404, "Không tìm thấy đề này.")
-        if body.skill == "listening" and blackeye.is_blackeye(rows[0]):
-            blackeye.assignment_seam()
         if (rows[0].get("status") or "") != "published":
             raise HTTPException(400, "Đề này chưa xuất bản — hãy xuất bản trước khi giao.")
         if (body.skill == "listening"

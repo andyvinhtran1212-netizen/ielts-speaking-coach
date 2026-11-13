@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 from routers.admin import require_admin
 from routers.auth import get_supabase_user
 from services import mock_correction_service as svc
+from services.content_visibility import is_restricted
 
 router = APIRouter(prefix="/api/mock-corrections", tags=["mock-corrections"])
 class _CorrectionAdminRoute(APIRoute):
@@ -131,6 +132,21 @@ async def _capture_lock(skill: str, attempt_id: str):
             del _capture_locks[key]
 
 
+async def _guard_listening_correction_attempt(attempt_id: str, user_id: str) -> None:
+    from routers import listening
+    from services.listening_blackeye import unavailable
+    try:
+        rows = await asyncio.to_thread(lambda: (
+            listening.supabase_admin.table("listening_test_attempts").select("id,restricted")
+            .eq("id", attempt_id).eq("user_id", user_id).limit(1).execute().data or []))
+    except Exception:
+        unavailable()
+    if not rows:
+        raise HTTPException(404, "Attempt not found", headers={"Cache-Control": "private, no-store"})
+    if is_restricted(rows[0]):
+        raise HTTPException(422, "Black Eye corrections unavailable.", headers={"Cache-Control": "private, no-store"})
+
+
 @router.post("/{skill}/attempts/{attempt_id}/post-test-capture")
 async def submit_post_test_capture(
     skill: Literal["reading", "listening"],
@@ -140,11 +156,7 @@ async def submit_post_test_capture(
 ):
     user = await get_supabase_user(authorization)
     if skill == "listening":
-        from routers import listening
-        from services import listening_blackeye
-        attempt = await asyncio.to_thread(listening._fetch_attempt_or_404, attempt_id, user["id"])
-        if await asyncio.to_thread(listening_blackeye.attempt_is_blackeye, listening.supabase_admin, attempt):
-            raise HTTPException(422, "Black Eye corrections unavailable.", headers={"Cache-Control": "private, no-store"})
+        await _guard_listening_correction_attempt(attempt_id, user["id"])
     try:
         def _capture():
             recorded = svc.record_post_test_capture(
@@ -189,11 +201,7 @@ async def submit_correction_event(
 ):
     user = await get_supabase_user(authorization)
     if skill == "listening":
-        from routers import listening
-        from services import listening_blackeye
-        attempt = await asyncio.to_thread(listening._fetch_attempt_or_404, attempt_id, user["id"])
-        if await asyncio.to_thread(listening_blackeye.attempt_is_blackeye, listening.supabase_admin, attempt):
-            raise HTTPException(422, "Black Eye corrections unavailable.", headers={"Cache-Control": "private, no-store"})
+        await _guard_listening_correction_attempt(attempt_id, user["id"])
     try:
         return await asyncio.to_thread(
             svc.record_correction_event,

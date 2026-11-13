@@ -52,6 +52,8 @@ class _Table:
 
 def _db(paper, *, skill="reading", mapped=True):
     rows = [paper] if paper else []
+    if skill == "listening":
+        rows = [{"restricted": False, **row} for row in rows]
     db = type("DB", (), {})()
     def table(name):
         if name in ("reading_tests", "listening_tests"):

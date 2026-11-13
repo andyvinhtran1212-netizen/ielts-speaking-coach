@@ -16,6 +16,7 @@ from typing import Any, Iterable
 from uuid import uuid4
 
 from database import supabase_admin
+from services.content_visibility import public_attempts, public_tests
 
 logger = logging.getLogger(__name__)
 
@@ -99,14 +100,22 @@ def _test_fk(skill: str) -> str:
     return f"{skill}_test_id"
 
 
+def _generic_table(table: str):
+    if table == "listening_tests":
+        return public_tests(supabase_admin)
+    if table == "listening_test_attempts":
+        return public_attempts(supabase_admin)
+    return supabase_admin.table(table)
+
+
 def _one(table: str, row_id: str, columns: str = "*") -> dict | None:
-    rows = (supabase_admin.table(table).select(columns)
+    rows = (_generic_table(table).select(columns)
             .eq("id", str(row_id)).limit(1).execute().data) or []
     return rows[0] if rows else None
 
 
 def fetch_owned_submitted_attempt(skill: str, attempt_id: str, learner_id: str) -> dict:
-    rows = (supabase_admin.table(_attempt_table(skill)).select("*")
+    rows = (_generic_table(_attempt_table(skill)).select("*")
             .eq("id", str(attempt_id)).eq("user_id", str(learner_id))
             .limit(1).execute().data) or []
     if not rows:
@@ -187,7 +196,7 @@ def non_public_reserved_ids(skill: str, reserved_ids: Iterable[str]) -> set[str]
     if not ids:
         return set()
     try:
-        rows = (supabase_admin.table(_test_table(skill))
+        rows = (_generic_table(_test_table(skill))
                 .select("id,public_practice_enabled").in_("id", list(ids))
                 .execute().data) or []
         public_ids = {str(row["id"]) for row in rows if row.get("public_practice_enabled")}
@@ -1155,7 +1164,7 @@ def admin_performance_summary(
         scoped_attempts = {"reading": set(), "listening": set()}
         if item_ids:
             for current_skill in SKILLS:
-                attempts = (supabase_admin.table(_attempt_table(current_skill)).select("id")
+                attempts = (_generic_table(_attempt_table(current_skill)).select("id")
                             .in_("class_assignment_item_id", item_ids).execute().data) or []
                 scoped_attempts[current_skill] = {str(row["id"]) for row in attempts}
     elif mock_exam_id:

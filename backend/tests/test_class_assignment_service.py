@@ -412,7 +412,8 @@ def test_scoped_exam_version_refusal_names_the_cause(skill, raised, expected):
 
     db = type("RefusingDB", (), {
         "rpc": lambda self, name, _params: calls.append(name) or _RefusingRPC(),
-        "table": lambda self, name: _Query({}, name, [{"id": "rev-paper", "programme_id": "ielts"}]),
+        "table": lambda self, name: _Query({}, name, [] if name == "content_access_namespaces"
+                                          else [{"id": "rev-paper", "restricted": False}]),
     })()
     with pytest.raises(ExplanationApprovalError) as caught:
         create_class_assignment(
@@ -444,7 +445,7 @@ def test_exam_scope_and_assignment_succeed_together():
 
 def test_empty_roster_rolls_back_exam_scope_too():
     db = _DB({"students": [], "class_assignments": [],
-              "listening_tests": [{"id": "paper-1", "programme_id": "ielts"}],
+              "listening_tests": [{"id": "paper-1", "restricted": False}],
               "class_assignment_items": [], "exam_content_cohorts": []})
     with pytest.raises(EmptyRosterError):
         create_class_assignment(

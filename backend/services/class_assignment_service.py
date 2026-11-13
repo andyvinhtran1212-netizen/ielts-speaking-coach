@@ -196,9 +196,11 @@ def create_class_assignment(
     Raises EmptyRosterError for a class with no students; the function checks
     that inside the same transaction, so nothing is left behind either way.
     """
-    if skill == "listening" and content_id:
+    if skill == "listening":
         from services import listening_blackeye
-        if listening_blackeye.is_blackeye(listening_blackeye.test_identity(db, content_id)):
+        if listening_blackeye.assignment_is_blackeye(db, {
+            "skill": skill, "content_id": content_id, "content_config": content_config,
+        }):
             listening_blackeye.assignment_seam()
     try:
         params = {
