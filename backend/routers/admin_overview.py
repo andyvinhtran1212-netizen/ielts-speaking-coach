@@ -54,6 +54,7 @@ from database import supabase_admin
 from models.admin_overview import AdminOverviewOut
 from routers.admin import require_admin
 from services.class_membership_service import active_memberships_for_students
+from services.listening_test_grader import scored_question_count
 
 logger = logging.getLogger(__name__)
 
@@ -475,9 +476,9 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
     ])
     listening_accs = []
     for r in listening_first:
-        gd = r.get("grading_details") or []
-        if r.get("score") is not None and gd:
-            listening_accs.append(r["score"] / len(gd))
+        total = scored_question_count(r.get("grading_details") or [])
+        if r.get("score") is not None and total:
+            listening_accs.append(r["score"] / total)
     listening_avg = (
         round(sum(listening_accs) / len(listening_accs), 4)
         if listening_accs else None
@@ -532,14 +533,14 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
         # active-user + attempts_7d, nhưng không vào feed hoạt động).
         if r.get("status") != "submitted" or not r.get("submitted_at"):
             continue
-        gd = r.get("grading_details") or []
+        total = scored_question_count(r.get("grading_details") or [])
         activity.append({
             "timestamp":  r["submitted_at"],
             "user_id":    r.get("user_id"),
             "skill":      "listening",
             "action":     "Hoàn thành bài Listening",
-            "score":      (f"{r['score']}/{len(gd)}"
-                           if r.get("score") is not None and gd else None),
+            "score":      (f"{r['score']}/{total}"
+                           if r.get("score") is not None and total else None),
             "link":       "/admin/listening/attempts",
         })
     for r in reading_recent:

@@ -333,6 +333,17 @@ def test_a_dictation_only_learner_is_not_shown_as_inactive():
     assert cell["last_band"] is None
 
 
+def test_all_self_check_submission_counts_as_listening_activity_without_a_band():
+    db = _DB(_tables2(students=[_student("s1", "u1")], listening_test_attempts=[{
+        "id": "self-check", "user_id": "u1", "submitted_at": "2026-08-01",
+        "band_estimate": None, "status": "submitted", "score": 0,
+        "grading_details": [{"q_num": 1, "self_check": True, "correct": None}],
+    }]))
+    cell = cohort_progress(db, COHORT)["students"][0]["skills"]["listening"]
+    assert cell["attempts"] == 1
+    assert cell["last_activity"] == "2026-08-01" and cell["last_band"] is None
+
+
 # ── % nộp đúng hạn (Codex review — kế hoạch dòng 223 hứa, tôi bỏ sót) ────
 
 

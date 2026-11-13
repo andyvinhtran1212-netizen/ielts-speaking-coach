@@ -19543,6 +19543,13 @@ export interface components {
             audio_granularity?: string | null;
             /** Q Num */
             q_num: number;
+            /**
+             * Self Check
+             * @default false
+             */
+            self_check: boolean;
+            /** Alternatives */
+            alternatives?: string[];
             /** State */
             state?: string | null;
             /** Correct */

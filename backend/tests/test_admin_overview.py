@@ -416,6 +416,25 @@ class TestSpeakingMetrics:
 
 
 class TestListeningFirstAttempt:
+    @pytest.mark.parametrize("mixed", [False, True])
+    def test_self_check_is_activity_but_not_scored_evidence(self, client, fake_db, mixed):
+        self_check = {"q_num": 2, "self_check": True, "correct": None}
+        rows = [{"id": "self", "user_id": "u1", "test_id": "self-test",
+                 "status": "submitted", "score": 0, "grading_details": [self_check],
+                 "created_at": _iso(-1), "submitted_at": _iso(-1)}]
+        if mixed:
+            rows.append({**rows[0], "id": "mixed", "test_id": "mixed-test", "score": 1,
+                         "grading_details": [{"q_num": 1, "correct": True}, self_check]})
+        fake_db.tables["listening_test_attempts"] = rows
+        response = client.get("/admin/overview", headers=_ADMIN_AUTH)
+        assert response.status_code == 200
+        body = response.json()
+        assert body["skills"]["listening"]["avg_score_7d"] == (1.0 if mixed else None)
+        assert body["skills"]["listening"]["attempts_7d"] == len(rows)
+        feed = [r for r in body["recent_activity"] if r["skill"] == "listening"]
+        assert len(feed) == len(rows)
+        assert sorted(r["score"] or "" for r in feed) == (["", "1/1"] if mixed else [""])
+
     def test_avg_accuracy_uses_first_attempt_per_user_test(self, client, fake_db):
         # Audit 2026-07-17: nguồn = listening_test_attempts; avg = % đúng
         # (score/số câu) của lượt ĐẦU per (user, test) — retry không tính.

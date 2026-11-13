@@ -99,6 +99,7 @@ function normalizeQuestion(raw) {
     options,
     answer: value.answer == null ? '' : String(value.answer).trim(),
     imagePrompt: textOf(value.img_prompt),
+    ...(textOf(value.question_type) ? { questionType: textOf(value.question_type) } : {}),
   };
 }
 

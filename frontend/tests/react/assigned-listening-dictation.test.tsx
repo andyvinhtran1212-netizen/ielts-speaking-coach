@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { AdminClassHomework } from '@/app/(authed-admin-classes)/admin/classes/[cohortId]/admin-class-homework';
 import { ResultView } from '@/app/(authed-listening-player)/listening/test/session/listening-test-session';
 
@@ -62,4 +62,29 @@ it('hides dictation for an assigned exam in none mode and preserves public pract
   expect(screen.queryByRole('link', { name: /dictation|chép chính tả/i })).toBeNull();
   view.rerender(<ResultView {...props} />);
   expect(screen.getByRole('link', { name: 'Dictation practice' }).getAttribute('href')).toBe('/core-player/launch?surface=listening_dictation&test_id=exam');
+});
+
+it.each(['optional', 'required'] as const)('keeps self-check results neutral alongside the %s assigned dictation link', (mode) => {
+  const props = { attempt: null, from: null, sittingId: null, classItem: 'item', test: {
+    id: 'exam', title: 'Synthetic mixed paper', skill_drill_homework: {
+      dictation_required: mode === 'required', sections: [1],
+    },
+  } };
+  const selfCheck = { q_num: 1, self_check: true, correct: null, user_answer: 'my response' };
+  const view = render(<ResultView {...props} result={{ score: 1, per_question: [selfCheck,
+    { q_num: 2, correct: true, user_answer: 'correct response' }] }} />);
+  const overview = screen.getByRole('region', { name: 'Results overview' });
+  expect(overview.textContent).toContain('Correct1/1');
+  expect(overview.textContent).toContain('Accuracy100%');
+  expect(screen.getByLabelText('Question 1: Tự đối chiếu').className).toBe('');
+  const linkName = mode === 'required' ? 'Làm phần chép chính tả bắt buộc' : 'Chép chính tả (tùy chọn)';
+  expect(new URL(screen.getByRole('link', { name: linkName }).getAttribute('href')!, 'https://example.test')
+    .searchParams.get('class_item')).toBe('item');
+
+  view.rerender(<ResultView {...props} result={{ score: 0, max_score: 0, band_estimate: null, per_question: [selfCheck] }} />);
+  expect(overview.textContent).toContain('Correct0/0');
+  expect(within(overview).getAllByText('—')).toHaveLength(2);
+  expect(overview.textContent).toContain('Incorrect0Unanswered0');
+  expect(screen.getByRole('link', { name: linkName })).toBeTruthy();
+  expect(screen.queryByRole('link', { name: 'Dictation practice' })).toBeNull();
 });

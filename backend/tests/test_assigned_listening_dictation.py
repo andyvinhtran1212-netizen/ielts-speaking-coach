@@ -321,6 +321,35 @@ def test_persisted_keep_change_shape_is_excluded_and_self_check_is_unchanged(mon
     assert router._dictation_units_for_content(section) == [dict(text="A synthetic sentence.", start=None, end=None)]
 
 
+@pytest.mark.parametrize("self_check", [False, True])
+def test_real_keep_change_import_is_excluded_from_dictation(monkeypatch, self_check):
+    from services import listening_fulltest_import as importer
+    from test_listening_keep_change import QP, pack
+
+    qp = QP.replace("<!-- qtype: keep_change -->", "<!-- qtype: keep_change -->\n<!-- scoring: self_check -->") if self_check else QP
+    parsed = importer.parse_fulltest(qp, *pack())
+    assert parsed.ok, parsed.errors
+    persisted = importer.build_section_persistence(parsed, qp)[0]
+    db, auth = fixtures._patch(monkeypatch)
+    test = fixtures._seed_test(db)
+    section = dict(persisted["content_row"], id="imported-section", test_id=test["id"],
+                   section_num=persisted["section_num"])
+    db.tables["listening_content"] = [section]
+    db.tables["listening_exercises"] = [dict(row, content_id=section["id"])
+                                         for row in persisted["exercise_rows"]]
+
+    # Exercise rows are the real importer's persistence output, with only the
+    # foreign keys stamped as the import route does. No remote database needed.
+    assert section["transcript"]
+    assert router._dictation_units(section)
+    assert router._has_keep_change(db.tables["listening_exercises"])
+    assert router._dictation_units_for_content(section) == []
+    assert boot_public(test, auth)["sections"][0]["sentences"] == []
+    with pytest.raises(HTTPException) as error:
+        router._dictation_section_units_snapshot(test["id"], section["section_num"])
+    assert error.value.status_code == 404
+
+
 def boot_public(test, auth):
     return fixtures._run(router.get_listening_test_dictation(test["id"], authorization=auth))
 

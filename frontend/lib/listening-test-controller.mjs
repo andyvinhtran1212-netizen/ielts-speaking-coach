@@ -454,3 +454,10 @@ function requiredText(value, code) {
   if (!text) throw new Error(code);
   return text;
 }
+// Saved through the existing user_answer string: KEEP or CHANGE: <text>.
+export function listeningKeepChangeAnswer(raw) {
+  const value = String(raw ?? '');
+  if (value.trim().toUpperCase() === 'KEEP') return { choice: 'KEEP', text: '' };
+  const match = /^CHANGE:[ \t]?([\s\S]*)$/i.exec(value);
+  return match ? { choice: 'CHANGE', text: match[1] } : { choice: '', text: '' };
+}

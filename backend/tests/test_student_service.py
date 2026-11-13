@@ -241,6 +241,21 @@ def test_listening_summary_aggregates_first_submitted_rule():
     assert out["user_email"] == "hv@ex.com"
 
 
+@pytest.mark.parametrize("all_self_check", [False, True])
+def test_listening_summary_excludes_self_check_from_accuracy_but_counts_completion(all_self_check):
+    from services.listening_test_grader import grade_attempt
+    graded = grade_attempt([{"q_num": 2, "user_answer": "blue"}], [
+        {"q_num": 1, "answer": "reference", "scoring": "self_check"},
+        {"q_num": 2, "answer": "blue", **({"scoring": "self_check"} if all_self_check else {})},
+    ])
+    row = _lis_att("synthetic-test", "submitted", graded["score"], 2, "2026-08-01")
+    row["grading_details"] = graded["per_question"]
+    with patch.object(student_service, "supabase_admin", _LisFake({"listening_test_attempts": [row]})):
+        out = student_service._listening_summary("u1")
+    assert out["attempts_submitted"] == 1
+    assert out["avg_accuracy"] == (None if all_self_check else 1.0)
+
+
 def test_listening_summary_paginates_past_1000_rows():
     """Cap newest-N từng cắt lịch sử >N (sai tổng + chọn nhầm retry làm lượt
     nộp đầu) — giờ phân trang đủ (review P2, PR #810)."""
