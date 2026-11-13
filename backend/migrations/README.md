@@ -20,8 +20,8 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-11-12 the highest is `380`
-(Skill Drill homework, #2294); the next new migration is `381`, subject to the
+sequence is dense. As of 2026-11-13 the highest is `382`
+(381/382 FU-2281-NAMESPACE, pending_feature); the next new migration is `383`, subject to the
 shared migration register (ask the Leader before taking it).
 `379` is present: PC-J562, the 0037 FR-008 Listening import source skip
 (assigned by the Leader). Migration `376` is pending for BLACKEYE-0052 admission;
