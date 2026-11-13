@@ -6345,7 +6345,7 @@ async def get_published_listening_test(
         from services.mock_attempt_flags import review_flag_state
         payload.update(attempt_receipt(attempt))
         payload.update(review_flag_state(supabase_admin, "listening", attempt))
-    if class_item and test.get("test_type") == "drill":
+    if class_item:
         from services.listening_drill_homework import drill_config
         try:
             assignment = await run_in_threadpool(
@@ -6370,6 +6370,22 @@ async def get_published_listening_test(
 # sentence to the real transcript sentence via the shared grade_dictation.
 
 
+def _has_keep_change(value) -> bool:
+    if isinstance(value, dict):
+        type_keys = ("type", "qtype", "q_type", "question_type", "exercise_type", "template_kind", "variant")
+        return (any(value.get(key) == "keep_change" for key in type_keys)
+                or any(_has_keep_change(child) for child in value.values() if isinstance(child, (dict, list))))
+    return isinstance(value, list) and any(_has_keep_change(child) for child in value)
+
+
+def _dictation_units_for_content(section: dict) -> list[dict]:
+    # Section transcripts have no reliable question-to-sentence mapping. Omit
+    # a mixed KEEP/CHANGE section rather than transcribe its printed values.
+    exercises = (supabase_admin.table("listening_exercises").select("exercise_type,payload")
+                 .eq("content_id", section["id"]).execute().data or [])
+    return _dictation_units({**section, "exercises": exercises})
+
+
 def _dictation_units(section: dict) -> list[dict]:
     """Resolve a section's dictation units → ``[{text, start, end}]``.
 
@@ -6381,6 +6397,8 @@ def _dictation_units(section: dict) -> list[dict]:
     free scrub) when no timing exists. Boot + grade both call this so their
     indices always agree.
     """
+    if _has_keep_change(section):
+        return []
     segs = (section.get("metadata") or {}).get("dictation_segments")
     if isinstance(segs, list) and segs:
         units = [
@@ -6438,7 +6456,7 @@ async def get_listening_test_dictation(
     test = res.data[0]
     if blackeye.is_blackeye(test):
         raise HTTPException(422, "Black Eye dictation requires separate release.")
-    _assert_listening_exam_content_allowed(test, _user.get("id"), allow_public=False)
+    _published_test_for_dictation(test_id, _user.get("id"), class_item)
 
     config = None
     done = {}
@@ -6464,7 +6482,7 @@ async def get_listening_test_dictation(
     for s in (sec_res.data or []):
         if config is not None and s["section_num"] not in config["sections"]:
             continue
-        units = _dictation_units(s)
+        units = _dictation_units_for_content(s)
         sentences = [u["text"] for u in units]
         # Per-sentence audio windows (turn timing) when available → the
         # player auto-clips each sentence. null when the section has no
@@ -6510,6 +6528,7 @@ class ListeningTestDictationGradeRequest(BaseModel):
 async def grade_listening_test_dictation(
     body: ListeningTestDictationGradeRequest,
     authorization: str | None = Header(default=None),
+    class_item: str | None = None,
 ):
     """Grade one sentence of test-linked dictation.
 
@@ -6525,11 +6544,13 @@ async def grade_listening_test_dictation(
     # user with a draft test ID could otherwise extract its transcript
     # sentence by sentence — even though the boot endpoint 404s on drafts.
     # Shared loader: published + exam_only, both BEFORE any transcript read.
-    _published_test_for_dictation(body.test_id, _user.get("id"))
+    _published_test_for_dictation(body.test_id, _user.get("id"), class_item)
+    if class_item:
+        _validate_class_dictation_section(_user["id"], class_item, body.test_id, body.section_num)
 
     sec_res = (
         supabase_admin.table("listening_content")
-        .select("transcript,metadata")
+        .select("id,transcript,metadata")
         .eq("test_id", body.test_id)
         .eq("section_num", body.section_num)
         .limit(1)
@@ -6540,7 +6561,7 @@ async def grade_listening_test_dictation(
 
     # Same unit resolution as the boot endpoint (timed segments → sentence
     # fallback) so the index the frontend submits maps to the right reference.
-    units = _dictation_units(sec_res.data[0])
+    units = _dictation_units_for_content(sec_res.data[0])
     if body.sentence_idx >= len(units):
         raise HTTPException(
             422,
@@ -6561,9 +6582,9 @@ async def grade_listening_test_dictation(
 # ── Dictation completion report (persisted) + content flags ──────────
 
 
-def _published_test_for_dictation(test_id: str, user_id=None) -> dict:
+def _published_test_for_dictation(test_id: str, user_id=None, class_item: str | None = None) -> dict:
     """Fetch a published test row (id, test_id, title) or 404 — and enforce the
-    exam_only reservation.
+    exam_only reservation and live assignment dictation configuration.
 
     THE ONE loader for every dictation route. Dictation is built from the
     section TRANSCRIPT, i.e. the answer key read aloud, and `grade_dictation()`
@@ -6585,7 +6606,9 @@ def _published_test_for_dictation(test_id: str, user_id=None) -> dict:
         raise HTTPException(404, "Test bundle not found or not published")
     if blackeye.is_blackeye(res.data[0]):
         raise HTTPException(422, "Black Eye dictation requires separate release.")
-    _assert_listening_exam_content_allowed(res.data[0], user_id, allow_public=False)
+    _assert_listening_exam_content_allowed(res.data[0], user_id, class_item, allow_public=False)
+    if class_item:
+        _class_drill_dictation_config(user_id, class_item, test_id)
     return res.data[0]
 
 
@@ -6751,6 +6774,12 @@ def _class_drill_dictation_config(user_id: str, class_item: str, test_id: str) -
     return config
 
 
+def _assert_class_dictation_report_allowed(row: dict, user_id: str) -> None:
+    if class_item := row.get("class_assignment_item_id"):
+        _published_test_for_dictation(row["test_id"], user_id, class_item)
+        _validate_class_dictation_section(user_id, class_item, row["test_id"], row["section_num"])
+
+
 def _class_drill_dictation_done(class_item: str) -> dict[int, str]:
     from services.listening_drill_homework import evidence_by_item
 
@@ -6796,13 +6825,13 @@ def _find_in_progress_dictation_attempt(
 
 def _dictation_section_units_snapshot(test_id: str, section_num: int) -> list[dict]:
     sec_res = (
-        supabase_admin.table("listening_content").select("transcript,metadata")
+        supabase_admin.table("listening_content").select("id,transcript,metadata")
         .eq("test_id", test_id).eq("section_num", section_num)
         .limit(1).execute()
     )
     if not sec_res.data:
         raise HTTPException(404, "Section không có nội dung chép chính tả.")
-    units = _dictation_units(sec_res.data[0])
+    units = _dictation_units_for_content(sec_res.data[0])
     if not units:
         raise HTTPException(404, "Section không có nội dung chép chính tả.")
     return [
@@ -6825,7 +6854,7 @@ async def get_in_progress_dictation_attempt(
     class_item: str | None = None,
 ):
     user = await _require_auth(authorization)
-    _published_test_for_dictation(test_id, user.get("id"))
+    _published_test_for_dictation(test_id, user.get("id"), class_item)
     if class_item:
         await run_in_threadpool(_validate_class_dictation_section, user["id"], class_item, test_id, section_num)
     row = _find_in_progress_dictation_attempt(user["id"], test_id, section_num, class_item)
@@ -6844,7 +6873,7 @@ async def start_dictation_attempt(
 ):
     """Resume the one active section attempt, or create it without destroying progress."""
     user = await _require_auth(authorization)
-    _published_test_for_dictation(test_id, user.get("id"))
+    _published_test_for_dictation(test_id, user.get("id"), class_item)
     if class_item:
         await run_in_threadpool(_validate_class_dictation_section, user["id"], class_item, test_id, section_num)
     if class_item and section_num in await run_in_threadpool(_class_drill_dictation_done, class_item):
@@ -6941,6 +6970,8 @@ async def claim_dictation_attempt_renderer_affinity(
     owned_attempt = _dictation_attempt_or_404(
         str(attempt_id), user["id"], require_in_progress=True,
     )
+    _published_test_for_dictation(owned_attempt["test_id"], user["id"],
+                                  owned_attempt.get("class_assignment_item_id"))
     try:
         result = supabase_admin.rpc(
             "fn_claim_dictation_attempt_renderer_affinity",
@@ -6986,7 +7017,8 @@ async def grade_and_save_dictation_attempt_sentence(
     if class_item := attempt.get("class_assignment_item_id"):
         await run_in_threadpool(_validate_class_dictation_section, user["id"], class_item,
                                 attempt["test_id"], attempt["section_num"])
-    _published_test_for_dictation(attempt["test_id"], user.get("id"))
+    _published_test_for_dictation(attempt["test_id"], user.get("id"),
+                                  attempt.get("class_assignment_item_id"))
     units = attempt.get("units_snapshot") or []
     if not units:
         raise HTTPException(409, "Lượt làm bài thiếu snapshot nội dung; vui lòng bắt đầu lại.")
@@ -7139,6 +7171,7 @@ async def submit_listening_dictation_session(
     if body.client_request_id:
         existing = _dictation_session_by_request(user["id"], body.client_request_id)
         if existing:
+            _assert_class_dictation_report_allowed(existing, user["id"])
             _assert_dictation_request_replay(existing, body, fingerprint)
             _mark_dictation_attempt_completed(existing, user["id"])
             if existing.get("attempt_id"):
@@ -7149,6 +7182,7 @@ async def submit_listening_dictation_session(
     if body.attempt_id:
         existing = _dictation_session_by_attempt(user["id"], body.attempt_id)
         if existing:
+            _assert_class_dictation_report_allowed(existing, user["id"])
             _assert_dictation_request_replay(existing, body, fingerprint)
             _mark_dictation_attempt_completed(existing, user["id"])
             bind_owned_attempt({"id": existing.get("attempt_id"), "user_id": user["id"]})
@@ -7169,16 +7203,17 @@ async def submit_listening_dictation_session(
         raise HTTPException(409, {"error_code": "dictation_versioned_attempt_required",
                                  "message": "Chính sách mới cần một lượt Dictation đã lưu; hãy tải lại."})
 
-    test = _published_test_for_dictation(body.test_id, user.get("id"))
+    test = _published_test_for_dictation(body.test_id, user.get("id"),
+                                          (attempt or {}).get("class_assignment_item_id"))
     sec_res = (
         supabase_admin.table("listening_content")
-        .select("title,transcript,metadata")
+        .select("id,title,transcript,metadata")
         .eq("test_id", body.test_id).eq("section_num", body.section_num)
         .limit(1).execute()
     )
     if not sec_res.data and not attempt:
         raise HTTPException(404, "Section không tồn tại cho test này.")
-    units = (attempt.get("units_snapshot") or []) if attempt else _dictation_units(sec_res.data[0])
+    units = (attempt.get("units_snapshot") or []) if attempt else _dictation_units_for_content(sec_res.data[0])
     if not units:
         raise HTTPException(409, "Lượt làm bài thiếu snapshot nội dung; vui lòng bắt đầu lại.")
 
@@ -7269,6 +7304,7 @@ async def submit_listening_dictation_session(
             if not existing and body.attempt_id:
                 existing = _dictation_session_by_attempt(user["id"], body.attempt_id)
             if existing:
+                _assert_class_dictation_report_allowed(existing, user["id"])
                 _assert_dictation_request_replay(existing, body, fingerprint)
                 _mark_dictation_attempt_completed(existing, user["id"])
                 return _dictation_session_response(existing, test.get("title"))
@@ -7292,6 +7328,7 @@ async def get_listening_dictation_session_by_request(
     row = _dictation_session_by_request(user["id"], client_request_id)
     if not row:
         raise HTTPException(404, "Chưa tìm thấy phiên cho mã gửi này.")
+    _assert_class_dictation_report_allowed(row, user["id"])
     _mark_dictation_attempt_completed(row, user["id"])
     return _dictation_session_response(row)
 
@@ -7313,6 +7350,7 @@ async def get_listening_dictation_session(
     row = res.data[0]
     if row.get("user_id") != user["id"]:
         raise HTTPException(403, "Phiên này thuộc người dùng khác.")
+    _assert_class_dictation_report_allowed(row, user["id"])
     return {**row, **_dictation_policy(session_contract, row)}
 
 
@@ -7328,6 +7366,7 @@ class DictationFlagRequest(BaseModel):
 async def flag_listening_dictation(
     body: DictationFlagRequest,
     authorization: str | None = Header(default=None),
+    class_item: str | None = None,
 ):
     """Report a content error in a dictation sentence. Reuses the shared
     user_feedback inbox (type='report', skill='listening') so it shows up in
@@ -7340,7 +7379,9 @@ async def flag_listening_dictation(
     if not category and not note:
         raise HTTPException(422, "Cần chọn loại lỗi hoặc nhập mô tả.")
 
-    test = _published_test_for_dictation(body.test_id, user.get("id"))
+    test = _published_test_for_dictation(body.test_id, user.get("id"), class_item)
+    if class_item:
+        _validate_class_dictation_section(user["id"], class_item, body.test_id, body.section_num)
     context = f"[chép chính tả · section {body.section_num}"
     context += f" · câu {body.sentence_idx + 1}]" if body.sentence_idx is not None else "]"
     flag_id = str(uuid.uuid4())

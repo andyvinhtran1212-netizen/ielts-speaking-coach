@@ -539,15 +539,15 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation, 
           {editor?.skill === 'listening' && <Field label="Kho Listening">
             <select value={editor.listeningLibrary || 'exam'} onChange={(event) => setEditor({
               ...editor, listeningLibrary: event.target.value as 'exam' | 'drill', drillGroup: '',
-              dictationRequired: false, contentId: '', deliveryMode: 'standard', webExplanationMode: 'disabled', error: '',
+              dictationRequired: false, dictationMode: 'none', contentId: '', deliveryMode: 'standard', webExplanationMode: 'disabled', error: '',
             })}><option value="exam">Kho đề Listening</option><option value="drill">Luyện kỹ năng</option></select>
           </Field>}
           {editingDrill && editor && drillGroups.length > 0 && <Field label="Dạng kỹ năng">
             <select value={editor.drillGroup || ''} onChange={(event) => setEditor({
-              ...editor, drillGroup: event.target.value, contentId: '', dictationRequired: false, error: '',
+              ...editor, drillGroup: event.target.value, contentId: '', dictationRequired: false, dictationMode: 'none', error: '',
             })}><option value="">Tất cả dạng</option>{drillGroups.map((group) => <option key={group}>{group}</option>)}</select>
           </Field>}
-          <Field label={editor?.kind === 'lesson' ? 'Bộ đề của buổi' : editor?.skill === 'course' ? 'Bộ bài tập' : editor?.skill === 'speaking' ? 'Chủ đề' : editor?.skill === 'grammar_lesson' ? 'Bài Grammar' : 'Đề'} hint={catalogError || undefined}><select value={editor?.contentId || ''} onChange={(event) => { if (!editor) return; coursePreviewSequence.current += 1; setCoursePreviewLoading(false); setEditor({ ...editor, contentId: event.target.value, dictationRequired: false, questionIds: [], passPct: '', retakeSize: '', completionMode: 'mastery', timeLimitMinutes: '', error: '' }); }} disabled={catalogLoading || Boolean(catalogError)}><option value="">{catalogLoading ? 'Đang tải…' : 'Chọn nội dung'}</option>{visibleCatalog.map((item) => <option key={item.id} value={item.id} disabled={!item.ready || item.already_given}>{editor?.skill === 'grammar_lesson' ? '' : item.lesson_no != null ? `Buổi ${item.lesson_no} · ` : ''}{item.code ? `${item.code} · ` : ''}{item.title}{item.category ? ` · ${item.category}` : ''}{item.reason ? ` · ${item.reason}` : ''}</option>)}</select></Field>
+          <Field label={editor?.kind === 'lesson' ? 'Bộ đề của buổi' : editor?.skill === 'course' ? 'Bộ bài tập' : editor?.skill === 'speaking' ? 'Chủ đề' : editor?.skill === 'grammar_lesson' ? 'Bài Grammar' : 'Đề'} hint={catalogError || undefined}><select value={editor?.contentId || ''} onChange={(event) => { if (!editor) return; coursePreviewSequence.current += 1; setCoursePreviewLoading(false); setEditor({ ...editor, contentId: event.target.value, dictationRequired: false, dictationMode: 'none', questionIds: [], passPct: '', retakeSize: '', completionMode: 'mastery', timeLimitMinutes: '', error: '' }); }} disabled={catalogLoading || Boolean(catalogError)}><option value="">{catalogLoading ? 'Đang tải…' : 'Chọn nội dung'}</option>{visibleCatalog.map((item) => <option key={item.id} value={item.id} disabled={!item.ready || item.already_given}>{editor?.skill === 'grammar_lesson' ? '' : item.lesson_no != null ? `Buổi ${item.lesson_no} · ` : ''}{item.code ? `${item.code} · ` : ''}{item.title}{item.category ? ` · ${item.category}` : ''}{item.reason ? ` · ${item.reason}` : ''}</option>)}</select></Field>
           {editingDrill && editor && <div className="ach-correction-policy">
             <label><input type="checkbox" checked={editor.dictationRequired === true} disabled={!selectedCatalogItem?.dictation_ready}
               onChange={(event) => setEditor({ ...editor, dictationRequired: event.target.checked, error: '' })} /> Bắt buộc chép chính tả</label>
@@ -555,6 +555,16 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation, 
               ? 'Bài chưa đủ transcript để bắt buộc chép chính tả.'
               : 'Học viên chép chính tả sau khi nộp phần nghe. Bài vẫn mở trong thư viện chung.'}</p>
           </div>}
+          {editor?.kind === 'daily' && editor.skill === 'listening' && !editingDrill
+            && editor.deliveryMode === 'assigned_practice' && <fieldset className="ach-correction-policy">
+              <legend>Chép chính tả sau phần nghe</legend>
+              {([['none', 'Không giao'], ['optional', 'Tùy chọn'], ['required', 'Bắt buộc']] as const).map(([mode, label]) => (
+                <label key={mode}><input type="radio" name="dictation-mode" value={mode}
+                  checked={(editor.dictationMode || 'none') === mode}
+                  onChange={() => setEditor({ ...editor, dictationMode: mode, error: '' })} /> {label}</label>
+              ))}
+              <p className="acd-muted">Tùy chọn và bắt buộc cần transcript dùng được. Học viên chép chính tả sau khi nộp phần nghe.</p>
+            </fieldset>}
           {editor?.skill === 'grammar_lesson' && selectedCatalogItem && <div className="acd-warning"><strong>{selectedCatalogItem.practice_kind === 'full_original_bank' ? `${selectedCatalogItem.question_count} câu: ${selectedCatalogItem.objective_count} trắc nghiệm + ${selectedCatalogItem.writing_count} câu viết${selectedCatalogItem.supplementary_count ? ` (gồm ${selectedCatalogItem.supplementary_count} câu viết bổ sung)` : ''}.` : `${selectedCatalogItem.question_count} câu luyện tập ngắn.`}</strong> {selectedCatalogItem.focus}{selectedCatalogItem.article && <> · <a href={`/grammar/${encodeURIComponent(selectedCatalogItem.article.category)}/${encodeURIComponent(selectedCatalogItem.article.slug)}`} target="_blank" rel="noopener noreferrer">Xem bài học</a></>}</div>}
           {editor?.skill === 'course' && editor.contentId && selectedCatalogItem?.runtime !== 'advanced_vocab' && <section className="ach-course-preview" aria-label="Xem trước bộ bài tập">
             <div className="ach-course-preview__head"><div><strong>Kiểm tra nội dung trước khi giao</strong><span>{coursePreview ? `${coursePreview.summary.question_count} câu · phiên bản ${coursePreview.revision.slice(0, 8)}` : 'Xem đúng đề, đáp án và giải thích đang lưu trên hệ thống.'}</span></div><button className="adm-btn-secondary" type="button" onClick={() => void loadCoursePreview()} disabled={coursePreviewLoading}>{coursePreviewLoading ? 'Đang tải…' : coursePreview ? 'Tải lại đề' : 'Xem trước đề'}</button></div>

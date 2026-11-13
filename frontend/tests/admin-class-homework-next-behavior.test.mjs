@@ -389,3 +389,17 @@ test('rejects a stale timer for a hybrid bank even in mastery mode', () => {
   assert.match(validateHomeworkDraft(draft, hybrid).error, /trắc nghiệm thuần/);
   assert.equal(validateHomeworkDraft({ ...draft, timeLimitMinutes: '' }, hybrid).ok, true);
 });
+
+test('exam dictation modes use the assignment JSON path without enabling the public drill flag', () => {
+  const selected = [{ id: 'exam', title: 'Synthetic exam', ready: true }];
+  for (const mode of ['none', 'optional', 'required']) {
+    const draft = { ...homeworkDraft(), skill: 'listening', contentId: 'exam', title: 'Synthetic assignment',
+      listeningLibrary: 'exam', deliveryMode: 'assigned_practice', dictationMode: mode };
+    const result = validateHomeworkDraft(draft, selected);
+    assert.equal(result.ok, true);
+    assert.equal(result.body.dictation_mode, mode);
+    assert.equal(result.body.listening_skill_drill, undefined);
+    draft.deliveryMode = 'standard';
+    assert.equal(validateHomeworkDraft(draft, selected).body.dictation_mode, undefined);
+  }
+});

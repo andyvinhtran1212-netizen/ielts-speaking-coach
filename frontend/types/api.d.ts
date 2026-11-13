@@ -23626,6 +23626,12 @@ export interface components {
              * @default false
              */
             dictation_required: boolean;
+            /**
+             * Dictation Mode
+             * @default none
+             * @enum {string}
+             */
+            dictation_mode: "none" | "optional" | "required";
             /** Due Days */
             due_days?: number | null;
             /** Title */
@@ -37270,7 +37276,9 @@ export interface operations {
     };
     grade_listening_test_dictation_api_listening_tests_dictation_grade_post: {
         parameters: {
-            query?: never;
+            query?: {
+                class_item?: string | null;
+            };
             header?: {
                 authorization?: string | null;
             };
@@ -37696,7 +37704,9 @@ export interface operations {
     };
     flag_listening_dictation_api_listening_tests_dictation_flag_post: {
         parameters: {
-            query?: never;
+            query?: {
+                class_item?: string | null;
+            };
             header?: {
                 authorization?: string | null;
             };
