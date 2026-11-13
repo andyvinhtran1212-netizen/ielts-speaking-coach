@@ -743,7 +743,8 @@ async def start_assignment(
     # Book parents are immutable recipient records. Their activity runner owns
     # progress; generic start and reconciliation must never open the parent.
     if await asyncio.to_thread(blackeye.assignment_is_blackeye, supabase_admin, assignment):
-        raise HTTPException(400, "Mở bài tập này từ trang sách bài tập.")
+        raise HTTPException(400, "Mở bài tập này từ trang sách bài tập.",
+                            headers={"Cache-Control": "private, no-store"})
     skill = assignment.get("skill")
     cfg = assignment.get("content_config") or {}
 

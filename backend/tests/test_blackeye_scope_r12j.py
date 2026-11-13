@@ -4,6 +4,7 @@ Package import has a CLI/service entry, not a deployed HTTP endpoint. The test
 adapter below exposes that exact service gate/commit through FastAPI so status,
 headers and zero-mutation behavior are exercised without adding a product API.
 """
+from copy import deepcopy
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -326,12 +327,77 @@ def test_class_start_assignment_denies_blackeye_before_attempt_reads_or_writes(e
     item = dict(id=str(uuid4()), assignment_id=assignment["id"], student_id="synthetic-student")
     env.db.rows["class_assignments"] = [assignment]
     env.db.rows["class_assignment_items"] = [item]
+    before = deepcopy(env.db.rows)
     response = env.client.post(f'/api/class/assignments/{item["id"]}/start')
-    assert response.status_code == 503, response.text
+    assert response.status_code == 400, response.text
+    assert response.json() == {"detail": "Mở bài tập này từ trang sách bài tập."}
     assert response.headers["cache-control"] == "private, no-store"
     assert env.db.rpcs == []
     assert all(not patch and table in {"class_assignments", "class_assignment_items", "listening_tests"}
                for table, _, patch in env.db.calls)
+    assert env.db.rows == before
+    assert all(table not in {"listening_test_attempts", "mock_paper_attempt_snapshots"}
+               for table, _, _ in env.db.calls)
+
+
+def test_class_start_assignment_nonowner_blackeye_matches_missing_item(env, monkeypatch):
+    from routers import class_student as router
+    async def user(_):
+        return {"id": env.actor["id"]}
+    monkeypatch.setattr(router, "get_supabase_user", user)
+    monkeypatch.setattr(router, "supabase_admin", env.db)
+    monkeypatch.setattr(router, "_student_for_user", lambda *_: {"id": "synthetic-student-b"})
+    env.app.include_router(router.router)
+    assignment = dict(id=str(uuid4()), cohort_id="synthetic-cohort", skill="listening", status="published",
+                      content_id=env.p["id"], content_config={})
+    item = dict(id=str(uuid4()), assignment_id=assignment["id"], student_id="synthetic-student-a")
+    env.db.rows["class_assignments"] = [assignment]
+    env.db.rows["class_assignment_items"] = [item]
+    before = deepcopy(env.db.rows)
+    responses = [env.client.post(f'/api/class/assignments/{item_id}/start')
+                 for item_id in (item["id"], str(uuid4()))]
+    for response in responses:
+        assert response.status_code == 404, response.text
+        assert response.json() == {"detail": "Không tìm thấy bài tập của bạn"}
+    assert responses[0].json() == responses[1].json()
+    assert env.db.rows == before
+    assert env.db.rpcs == []
+    assert [table for table, _, _ in env.db.calls] == ["class_assignment_items", "class_assignment_items"]
+    assert all(not patch for _, _, patch in env.db.calls)
+
+
+def test_class_start_assignment_classifier_lookup_error_fails_closed(env, monkeypatch):
+    from routers import class_student as router
+    from services import listening_blackeye as blackeye
+    from test_listening_blackeye import Query
+    async def user(_):
+        return {"id": env.actor["id"]}
+    monkeypatch.setattr(router, "get_supabase_user", user)
+    monkeypatch.setattr(router, "supabase_admin", env.db)
+    monkeypatch.setattr(router, "_student_for_user", lambda *_: {"id": "synthetic-student"})
+    env.app.include_router(router.router)
+    assignment = dict(id=str(uuid4()), cohort_id="synthetic-cohort", skill="listening", status="published",
+                      content_id=env.p["id"], content_config={})
+    item = dict(id=str(uuid4()), assignment_id=assignment["id"], student_id="synthetic-student")
+    env.db.rows["class_assignments"] = [assignment]
+    env.db.rows["class_assignment_items"] = [item]
+    execute = Query.execute
+    def fail_classifier_lookup(query):
+        if query.table == "listening_tests":
+            query.db.calls.append((query.table, query.cols, query.patch))
+            raise RuntimeError("synthetic classifier lookup failure")
+        return execute(query)
+    monkeypatch.setattr(Query, "execute", fail_classifier_lookup)
+    before = deepcopy(env.db.rows)
+    response = env.client.post(f'/api/class/assignments/{item["id"]}/start')
+    assert response.status_code == 503, response.text
+    assert response.json() == {"detail": blackeye.UNAVAILABLE}
+    assert response.headers["cache-control"] == "private, no-store"
+    assert env.db.rows == before
+    assert env.db.rpcs == []
+    assert [table for table, _, _ in env.db.calls] == [
+        "class_assignment_items", "class_assignments", "listening_tests"]
+    assert all(not patch for _, _, patch in env.db.calls)
 
 
 @pytest.mark.parametrize("entry", ["package_cli", "source_cli", "package_commit", "source_commit"])

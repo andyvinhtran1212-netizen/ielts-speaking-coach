@@ -686,3 +686,5 @@ spec 0052 và Q-1..Q-16 theo đề xuất; FD mở PR spec".
   Preconditions và cổng importer đúng bản v2 đã duyệt. Trước merge vẫn cần CI,
   CR, SA delta và Codex trên đúng head mới; anh Vinh tự gõ duyệt merge cho đúng
   SHA. Changelog này không phải SA-MET và không thay thế các điều kiện đó.
+
+- 13/11/2026, PR2 D2 (#2289), theo SA-2289-SYNC-R4-STATUS-RULING (sha256 346005561ac4…) và hợp đồng exercise-book-api v1.3.3 §4.1: sau PR2 (#2282 D1 rồi #2289 D2), `POST /api/class/assignments/{item_id}/start` với bài giao Black Eye của chính học viên trả 400 `{"detail": "Mở bài tập này từ trang sách bài tập."}` kèm `Cache-Control: private, no-store`, thay 503 `assignment_seam` của PR1 (FR-012 "cho tới PR2"); không đọc attempt, không ghi, không RPC. Không phải chủ trả 404 giống id không tồn tại; lỗi tra classifier vẫn 503. Các đường giao bài admin của FR-012 vẫn 503 tới khi D1/D2 mở theo hợp đồng. Nếu #2289 merge trước #2282 thì giữ 503. Không đổi FR nào khác.
