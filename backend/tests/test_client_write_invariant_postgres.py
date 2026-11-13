@@ -283,12 +283,16 @@ def _pre_320() -> str:
             status text NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'running', 'completed', 'failed')),
             error_log jsonb DEFAULT '[]'::jsonb, started_at timestamptz, completed_at timestamptz,
             created_at timestamptz NOT NULL DEFAULT now());
-        -- Class work (the columns the class-archive migration reads).
+        -- Class work: existing 177 columns read by class archive and 378.
         CREATE TABLE class_assignments (
             id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
             cohort_id uuid NOT NULL REFERENCES cohorts(id) ON DELETE CASCADE,
-            content_config jsonb NOT NULL DEFAULT '{{}}'::jsonb,
-            title text NOT NULL DEFAULT 'work', status text NOT NULL DEFAULT 'published');
+            title text NOT NULL DEFAULT 'work', status text NOT NULL DEFAULT 'published',
+            skill text, content_id uuid, content_config jsonb NOT NULL DEFAULT '{{}}',
+            due_at timestamptz, publish_at timestamptz,
+            assigned_by uuid REFERENCES users(id) ON DELETE SET NULL,
+            created_at timestamptz NOT NULL DEFAULT now(),
+            updated_at timestamptz NOT NULL DEFAULT now());
         CREATE TABLE class_assignment_items (
             id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
             student_id uuid REFERENCES students(id) ON DELETE CASCADE,
