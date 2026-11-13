@@ -6775,9 +6775,22 @@ def _class_drill_dictation_config(user_id: str, class_item: str, test_id: str) -
 
 
 def _assert_class_dictation_report_allowed(row: dict, user_id: str) -> None:
+    """Authorize persisted results only, independently of live work gates.
+
+    Reports contain references already returned at completion. A deadline,
+    closed assignment, or departure from the class must not prevent recovery.
+    New submissions and transcript readers still use the full live gate.
+    """
+    if row.get("user_id") != user_id:
+        raise HTTPException(404, "Không tìm thấy phiên chép chính tả.")
     if class_item := row.get("class_assignment_item_id"):
-        _published_test_for_dictation(row["test_id"], user_id, class_item)
-        _validate_class_dictation_section(user_id, class_item, row["test_id"], row["section_num"])
+        student = (supabase_admin.table("students").select("id")
+                   .eq("user_id", user_id).limit(1).execute().data)
+        owned = (supabase_admin.table("class_assignment_items").select("id")
+                 .eq("id", class_item).eq("student_id", student[0]["id"])
+                 .limit(1).execute().data) if student else []
+        if not owned:
+            raise HTTPException(404, "Bài tập không thuộc về học viên này")
 
 
 def _class_drill_dictation_done(class_item: str) -> dict[int, str]:
@@ -7344,13 +7357,11 @@ async def get_listening_dictation_session(
     user = await _require_auth(authorization)
     res = (
         supabase_admin.table("dictation_sessions").select("*")
-        .eq("id", session_id).limit(1).execute()
+        .eq("id", session_id).eq("user_id", user["id"]).limit(1).execute()
     )
     if not res.data:
         raise HTTPException(404, "Không tìm thấy phiên chép chính tả.")
     row = res.data[0]
-    if row.get("user_id") != user["id"]:
-        raise HTTPException(403, "Phiên này thuộc người dùng khác.")
     await run_in_threadpool(_assert_class_dictation_report_allowed, row, user["id"])
     return {**row, **_dictation_policy(session_contract, row)}
 

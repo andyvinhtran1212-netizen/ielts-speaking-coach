@@ -47,29 +47,165 @@ def grade(test, auth, section=1):
         test_id=test["id"], section_num=section, sentence_idx=0, user_transcript=""), authorization=auth, class_item="item"))
 
 
-@pytest.mark.parametrize("mode", ["optional", "required"])
-def test_hidden_assignment_opens_boot_grade_attempt_and_session(monkeypatch, mode):
-    db, auth, test, assignment = world(monkeypatch, mode)
-    assert boot(test, auth)["sections"][0]["sentences"] == ["A synthetic sentence."]
-    assert [op["expected"] for op in grade(test, auth)["diff"]] == ["A", "synthetic", "sentence."]
+def complete_report(test, auth):
     attempt = fixtures._run(router.start_dictation_attempt(test["id"], 1, authorization=auth, class_item="item"))
     fixtures._run(router.grade_and_save_dictation_attempt_sentence(UUID(attempt["attempt_id"]), 0,
         router.DictationAttemptAnswerRequest(user_transcript="A synthetic sentence."), authorization=auth))
     body = router.DictationSessionRequest(attempt_id=attempt["attempt_id"], test_id=test["id"], section_num=1,
         client_request_id=uuid4(), sentences=[router.DictationSentenceSubmit(sentence_idx=0, user_transcript="A synthetic sentence.")])
-    report = fixtures._run(router.submit_listening_dictation_session(body, authorization=auth))
+    return body, fixtures._run(router.submit_listening_dictation_session(body, authorization=auth))
+
+
+def report_calls(body, report, auth):
+    return [
+        lambda: fixtures._run(router.get_listening_dictation_session(report["session_id"], authorization=auth)),
+        lambda: fixtures._run(router.get_listening_dictation_session_by_request(body.client_request_id, authorization=auth)),
+        lambda: fixtures._run(router.submit_listening_dictation_session(body, authorization=auth)),
+        # Old clients can replay by attempt without a client request ID.
+        lambda: fixtures._run(router.submit_listening_dictation_session(
+            body.model_copy(update={"client_request_id": None}), authorization=auth)),
+    ]
+
+
+def end_assignment_access(db, assignment, state):
+    if state == "past_due": assignment["due_at"] = "2000-01-01T00:00:00+00:00"
+    if state == "closed": assignment["status"] = "closed"
+    if state == "archived": assignment["status"] = "archived"
+    if state == "archived_cohort": db.tables["cohorts"][0]["status"] = "archived"
+    if state == "left_class": db.tables["student_cohort_memberships"][0]["is_active"] = False
+    if state == "removed_config": assignment["content_config"].pop("skill_drill")
+
+
+def report_world(monkeypatch, paper):
+    db, auth, test, assignment = world(monkeypatch)
+    if paper == "public_drill":
+        test.update(is_public=True, exam_only=False, test_type="drill")
+        assignment["content_config"]["listening_skill_drill"] = True
+    return db, auth, test, assignment
+
+
+@pytest.mark.parametrize("mode", ["optional", "required"])
+def test_hidden_assignment_opens_boot_grade_attempt_and_session(monkeypatch, mode):
+    db, auth, test, assignment = world(monkeypatch, mode)
+    assert boot(test, auth)["sections"][0]["sentences"] == ["A synthetic sentence."]
+    assert [op["expected"] for op in grade(test, auth)["diff"]] == ["A", "synthetic", "sentence."]
+    body, report = complete_report(test, auth)
     assert report["accuracy"] == 1
     assert db.tables["dictation_sessions"][0]["class_assignment_item_id"] == "item"
     assert all(params["p_class_item_id"] == "item" for name, params in db.rpc_calls
                if name == "fn_resolve_mock_paper_access")
     assignment["content_config"].pop("skill_drill")
-    # Idempotent replay and stored report reads must not bypass the live config.
-    for invoke in [lambda: fixtures._run(router.submit_listening_dictation_session(body, authorization=auth)),
-                   lambda: fixtures._run(router.get_listening_dictation_session(report["session_id"], authorization=auth)),
-                   lambda: fixtures._run(router.get_listening_dictation_session_by_request(body.client_request_id, authorization=auth))]:
+    # Revoking live config blocks fresh transcript access, while the owner can
+    # still recover exactly the report already returned at completion.
+    for invoke in report_calls(body, report, auth):
+        assert invoke()["results"] == report["results"]
+    for invoke in [lambda: boot(test, auth), lambda: grade(test, auth)]:
         with pytest.raises(HTTPException) as error:
             invoke()
         assert error.value.status_code == 404
+
+
+@pytest.mark.parametrize("paper", ["public_drill", "hidden_exam"])
+@pytest.mark.parametrize("state", ["past_due", "closed", "archived", "archived_cohort", "left_class", "removed_config"])
+def test_saved_report_and_replays_survive_end_of_live_access(monkeypatch, paper, state):
+    db, auth, test, assignment = report_world(monkeypatch, paper)
+    body, report = complete_report(test, auth)
+    end_assignment_access(db, assignment, state)
+    before = deepcopy(db.tables)
+    # A stored report must never resolve current paper access or read a fresh
+    # transcript (the hidden-paper RPC itself also expires at the deadline).
+    db.fail_tables.update({"listening_tests", "listening_content", "listening_exercises", "class_assignments", "cohorts"})
+    monkeypatch.setattr(db, "rpc", lambda *_: pytest.fail("report rechecked live paper access"))
+    for invoke in report_calls(body, report, auth):
+        recovered = invoke()
+        assert recovered.get("session_id", recovered.get("id")) == report["session_id"]
+        assert recovered["results"] == report["results"]
+        assert recovered["accuracy"] == report["accuracy"]
+    assert db.tables == before
+
+
+@pytest.mark.parametrize("paper", ["public_drill", "hidden_exam"])
+def test_saved_report_recovery_over_http_after_deadline(monkeypatch, paper):
+    from fastapi.testclient import TestClient
+    from main import app
+
+    db, auth, test, assignment = report_world(monkeypatch, paper)
+    body, report = complete_report(test, auth)
+    end_assignment_access(db, assignment, "past_due")
+    client = TestClient(app)
+    headers = {"Authorization": auth}
+    root = "/api/listening/tests/dictation/session"
+    responses = [client.get(f'{root}/{report["session_id"]}', headers=headers),
+                 client.get(f"{root}/by-request/{body.client_request_id}", headers=headers),
+                 client.post(root, headers=headers, json=body.model_dump(mode="json"))]
+    for response in responses:
+        assert response.status_code == 200
+        assert response.json()["results"] == report["results"]
+    assert len(db.tables["dictation_sessions"]) == 1
+
+
+@pytest.mark.parametrize("paper", ["public_drill", "hidden_exam"])
+@pytest.mark.parametrize("foreign", ["session", "item"])
+def test_saved_reports_and_replays_reject_foreign_ownership(monkeypatch, paper, foreign):
+    db, auth, test, _ = report_world(monkeypatch, paper)
+    body, report = complete_report(test, auth)
+    if foreign == "session":
+        async def other_user(_auth): return {"id": "other-user"}
+        monkeypatch.setattr(router, "_require_auth", other_user)
+    else:
+        db.tables["class_assignment_items"][0]["student_id"] = "other-student"
+    before = deepcopy(db.tables)
+    for invoke in report_calls(body, report, auth):
+        with pytest.raises(HTTPException) as error: invoke()
+        assert error.value.status_code == 404
+    assert db.tables == before
+
+
+@pytest.mark.parametrize("paper", ["public_drill", "hidden_exam"])
+def test_deadline_still_blocks_new_sessions_and_transcript_routes(monkeypatch, paper):
+    db, auth, test, assignment = report_world(monkeypatch, paper)
+    attempt = fixtures._run(router.start_dictation_attempt(test["id"], 1, authorization=auth, class_item="item"))
+    fixtures._run(router.grade_and_save_dictation_attempt_sentence(UUID(attempt["attempt_id"]), 0,
+        router.DictationAttemptAnswerRequest(user_transcript="A synthetic sentence."), authorization=auth))
+    body = router.DictationSessionRequest(attempt_id=attempt["attempt_id"], test_id=test["id"], section_num=1,
+        client_request_id=uuid4(), sentences=[router.DictationSentenceSubmit(sentence_idx=0, user_transcript="A synthetic sentence.")])
+    end_assignment_access(db, assignment, "past_due")
+    before = deepcopy(db.tables)
+    for invoke in [lambda: boot(test, auth), lambda: grade(test, auth),
+                   lambda: fixtures._run(router.start_dictation_attempt(test["id"], 1, authorization=auth, class_item="item")),
+                   lambda: fixtures._run(router.submit_listening_dictation_session(body, authorization=auth))]:
+        with pytest.raises(HTTPException) as error: invoke()
+        assert error.value.status_code == 409
+    assert db.tables == before
+
+
+@pytest.mark.parametrize("paper", ["public_drill", "hidden_exam"])
+@pytest.mark.parametrize("state", ["past_due", "closed", "archived_cohort"])
+def test_unique_violation_replay_uses_saved_report_after_live_access_ends(monkeypatch, paper, state):
+    db, auth, test, assignment = report_world(monkeypatch, paper)
+    body, report = complete_report(test, auth)
+    db.tables["dictation_attempts"][0]["status"] = "in_progress"
+    by_request, by_attempt = router._dictation_session_by_request, router._dictation_session_by_attempt
+    collided = False
+    monkeypatch.setattr(router, "_dictation_session_by_request", lambda *args: by_request(*args) if collided else None)
+    monkeypatch.setattr(router, "_dictation_session_by_attempt", lambda *args: by_attempt(*args) if collided else None)
+    original_execute = fixtures._Q.execute
+
+    def concurrent_completion(query):
+        nonlocal collided
+        if query.name == "dictation_sessions" and query._mode == "insert":
+            collided = True
+            end_assignment_access(db, assignment, state)
+            db.fail_tables.update({"listening_tests", "listening_content"})
+            raise router.APIError({"code": "23505", "message": "duplicate completion"})
+        return original_execute(query)
+
+    monkeypatch.setattr(fixtures._Q, "execute", concurrent_completion)
+    recovered = fixtures._run(router.submit_listening_dictation_session(body, authorization=auth))
+    assert collided
+    assert recovered["session_id"] == report["session_id"]
+    assert recovered["results"] == report["results"]
+    assert len(db.tables["dictation_sessions"]) == 1
 
 
 @pytest.mark.parametrize("denial", ["none", "empty_sections", "other_student", "closed", "wrong_test", "inactive_member"])
