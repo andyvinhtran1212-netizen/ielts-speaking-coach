@@ -1,0 +1,6 @@
+{
+  "prompt": "Keep or change: The imaginary robot brings a green basket.",
+  "options": {"KEEP": "Keep", "CHANGE": "Change"},
+  "answers": ["CHANGE"],
+  "rationale": "Change green to purple."
+}

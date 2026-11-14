@@ -1,0 +1,39 @@
+# Invented fixture. Generate local silence.mp3 and replace both SHA placeholders.
+book: demo-book
+programme_id: demo-listening
+title: Invented listening exercise book
+units:
+  - unit: u1
+    title: A fictional robot picnic
+    content_version: 1
+    activities:
+      - activity: u1-a1
+        title: Complete and correct the invented notes
+        answer_set_status: approved
+        answer_set_revision: 01634191-f6b4-4fc2-a096-fb628f52dbd7
+        audio:
+          path: silence.mp3
+          sha256: REPLACE_WITH_SHA256_OF_LOCAL_SILENCE
+        transcript_file: transcript.txt
+        items:
+          - question_id: demo-u1-a1-q1
+            interaction: text
+            scoring_mode: SELF_CHECK
+            content_file: text-item.json
+          - question_id: demo-u1-a1-q2
+            interaction: keep_change
+            scoring_mode: SELF_CHECK
+            content_file: keep-change-item.json
+      - activity: u1-a2
+        title: Choose a fictional destination
+        answer_set_status: approved
+        answer_set_revision: 3f9d2b20-30cd-4ea6-8528-8d5c67cb0b45
+        audio:
+          path: silence.mp3
+          sha256: REPLACE_WITH_SHA256_OF_LOCAL_SILENCE
+        transcript_file: transcript.txt
+        items:
+          - question_id: demo-u1-a2-q1
+            interaction: mcq
+            scoring_mode: AUTO
+            content_file: choice-item.json

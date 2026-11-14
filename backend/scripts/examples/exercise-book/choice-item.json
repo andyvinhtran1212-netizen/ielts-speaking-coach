@@ -1,0 +1,6 @@
+{
+  "prompt": "Where is the imaginary robot going?",
+  "options": {"A": "Moon Garden", "B": "Cloud Library"},
+  "answers": ["A"],
+  "rationale": "The invented destination is Moon Garden."
+}
