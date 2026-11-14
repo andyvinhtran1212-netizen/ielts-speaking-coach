@@ -22,7 +22,8 @@ for (const ready of [false, true]) {
     (window as any).api = { getWith };
     const { container } = render(<AdminVocabPage />);
     const chrome = container.querySelector('aver-admin-chrome')!;
-    const menu = chrome.shadowRoot!.querySelector('[data-subsection="curated"]')!;
+    const menu = chrome.shadowRoot!.querySelector('details [data-subsection="curated"]')!;
+    expect(menu.closest('details')!.querySelector('summary')?.textContent).toBe('Thí điểm & QA');
     await waitFor(() => expect(getWith).toHaveBeenCalledTimes(3));
     await waitFor(() => {
       expect(menu.textContent?.includes('Chưa khả dụng')).toBe(!ready);
@@ -35,6 +36,7 @@ for (const ready of [false, true]) {
     // Reactive sidebar redraw keeps the capability label.
     chrome.setAttribute('subsection', 'curated');
     await waitFor(() => expect(chrome.shadowRoot!.querySelector('[data-curated-availability]')?.textContent).toBe(ready ? '' : 'Chưa khả dụng'));
+    expect(getWith).toHaveBeenCalledTimes(3);
   });
 }
 
@@ -43,4 +45,20 @@ it('shows a visible lookup failure without inventing a missing-schema result', a
   render(<CuratedAvailabilityBadge />);
   expect(await screen.findByText('Không kiểm tra được khả dụng')).toBeTruthy();
   expect(screen.queryByText('Chưa khả dụng')).toBeNull();
+});
+
+it('shares a pending lookup across redraws on non-Vocab pages', async () => {
+  let reject!: (reason: unknown) => void;
+  const getWith = vi.fn(() => new Promise<{ available: boolean }>((_resolve, fail) => { reject = fail; }));
+  (window as any).api = { getWith };
+  const chrome = document.createElement('aver-admin-chrome');
+  chrome.setAttribute('active', 'overview');
+  document.body.append(chrome);
+  await waitFor(() => expect(getWith).toHaveBeenCalledTimes(1));
+  chrome.setAttribute('active', 'grammar');
+  chrome.setAttribute('active', 'users');
+  reject({ status: 503, detail: { error_code: 'feature_unavailable' } });
+  await waitFor(() => expect(chrome.shadowRoot!.querySelector('[data-curated-availability]')?.textContent).toBe('Chưa khả dụng'));
+  expect(getWith).toHaveBeenCalledTimes(1);
+  chrome.remove();
 });

@@ -632,7 +632,7 @@ function renderNavItem(item, isActive, currentKind = null) {
         ${ICONS[item.icon] || ''}
       </svg>
       <span class="nav-label">${item.label}</span>
-      ${tag}
+      ${tag}${item.section === 'vocab' && item.slug === 'curated' ? '<small data-curated-availability role="status"></small>' : ''}
     </a>
   `;
 }
@@ -645,7 +645,7 @@ function renderSubItem(parentSection, sub, isActive) {
        data-section="${parentSection}"
        data-subsection="${sub.slug}"
        aria-label="${sub.label}"${isActive ? ' aria-current="page"' : ''}>
-      <span class="nav-sublabel">${sub.label}</span>${parentSection === 'vocab' && sub.slug === 'curated' ? '<small data-curated-availability role="status"></small>' : ''}
+      <span class="nav-sublabel">${sub.label}</span>
     </a>
   `;
 }
@@ -807,6 +807,7 @@ export class AverAdminChrome extends HTMLElement {
       this._abortController.abort();
       this._abortController = null;
     }
+    this._curatedAvailability = null;
   }
 
   attributeChangedCallback(name, _prev, next) {
@@ -866,9 +867,12 @@ export class AverAdminChrome extends HTMLElement {
           if (++tries < POLL_MAX_TRIES) setTimeout(tick, POLL_INTERVAL_MS);
           return;
         }
-        const state = await readCuratedAvailability(() => window.api.getWith(
+        // Share the in-flight/result promise across sidebar redraws. Each
+        // connected chrome makes at most one lookup, including on non-Vocab pages.
+        this._curatedAvailability ||= readCuratedAvailability(() => window.api.getWith(
           '/admin/vocabulary/curated-availability', undefined, { signal },
         ));
+        const state = await this._curatedAvailability;
         if (!signal?.aborted && badge.isConnected) {
           badge.textContent = state === 'unavailable' ? 'Chưa khả dụng' : '';
           badge.closest('a').setAttribute('aria-label', `Curated Editorial${state === 'unavailable' ? ' — Chưa khả dụng' : ''}`);
