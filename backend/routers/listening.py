@@ -4323,6 +4323,53 @@ async def admin_edit_exercise_question(
     elif any(v is not None for v in (body.answer, body.alternatives, body.trap_mechanisms, body.solution)):
         raise HTTPException(422, f"Câu {q_num} không có answer entry để sửa đáp án/bài giải.")
 
+    if payload.get("template_kind") == "keep_change" and any(
+        v is not None for v in (body.prompt, body.answer, body.alternatives)
+    ):
+        # The editor exposes the persisted key: KEEP or bare correction text,
+        # with separate alternatives. Validate the resulting key before writing
+        # either half; grading reads action from answers and printed_value from questions.
+        from services.listening_test_grader import normalize_answer
+
+        if a_idx is None:
+            raise HTTPException(422, f"Câu {q_num} không có answer entry cho keep_change.")
+        question = dict(questions[q_idx])
+        ans = dict(answers[a_idx])
+        printed = question.get("prompt")
+        answer = ans.get("answer")
+        if not isinstance(printed, str) or not normalize_answer(printed):
+            raise HTTPException(422, f"Câu {q_num}: keep_change cần printed value trong prompt.")
+        if not isinstance(answer, str) or not answer.strip():
+            raise HTTPException(422, f"Câu {q_num}: keep_change cần KEEP hoặc nội dung sửa.")
+        action = "KEEP" if answer.strip().upper() == "KEEP" else "CHANGE"
+        alternatives = ans.get("alternatives") or []
+        if action == "KEEP":
+            if body.alternatives:
+                raise HTTPException(422, f"Câu {q_num}: KEEP không được có alternatives sửa nội dung.")
+            canonical, alternatives = answer, []
+        else:
+            canonical = answer
+            if not isinstance(alternatives, list):
+                raise HTTPException(422, f"Câu {q_num}: alternatives phải là danh sách nội dung sửa.")
+            for value in [canonical, *alternatives]:
+                if (not isinstance(value, str) or not normalize_answer(value)
+                        or value.strip().upper() in {"KEEP", "CHANGE"}
+                        or re.match(r"^(?:KEEP|CHANGE)\s*:", value.strip(), re.IGNORECASE)
+                        or normalize_answer(value) == normalize_answer(printed)):
+                    raise HTTPException(
+                        422,
+                        f"Câu {q_num}: CHANGE cần nội dung sửa khác printed value; "
+                        "answer/alternatives chỉ chứa nội dung, không chứa nhãn KEEP/CHANGE.",
+                    )
+        synced = {"answer": canonical, "alternatives": alternatives, "keep_change_action": action}
+        for field, value in synced.items():
+            if ans.get(field) != value and field not in changed:
+                changed.append(field)
+        if question.get("printed_value") != printed:
+            changed.append("printed_value")
+        questions[q_idx] = {**question, "printed_value": printed}
+        answers[a_idx] = {**ans, **synced}
+
     payload["questions"] = questions
     payload["answers"] = answers
 
