@@ -1,0 +1,156 @@
+{
+  "finding": "C01",
+  "source": {
+    "title": "Cambridge IELTS 20 Academic",
+    "sha256": "a818cf2a0132c37e04c810d30932733f872da0b9122ce13561001887f79fbb0e",
+    "printed_pages": [
+      100,
+      101
+    ],
+    "pdf_pages": [
+      102,
+      103
+    ],
+    "verified": "2026-11-14",
+    "images_sha256": {
+      "102": "f5f34b6cb9120b3589228b5588778e3d776aba78f4331eb68a332b3fb420dd08",
+      "103": "c35468e48f679faf06e829c577de88b340b4707729a1400205ccfaeb99703ba5"
+    }
+  },
+  "paper": {
+    "id": "282c55e1-0581-5e82-b440-da0d72f22a6b",
+    "test_id": "MOCK0016-PROD-20261006-ILR-RDG-CAM-B20-T3-REV02",
+    "status": "published",
+    "is_public": false,
+    "exam_only": true
+  },
+  "passage_id": "90a57574-bcc8-527e-a2e2-4ee5cf0d51b6",
+  "options_before": [
+    {
+      "text": "It has grown alongside the development of ever more advanced robots.",
+      "label": "A"
+    },
+    {
+      "text": "It is the result of our inclination to attribute human characteristics to",
+      "label": "B"
+    },
+    {
+      "text": "It has its origins in basic misunderstandings about how inanimate objects",
+      "label": "C"
+    },
+    {
+      "text": "It demonstrates a key difference between human intelligence and machine",
+      "label": "D"
+    }
+  ],
+  "questions": [
+    {
+      "id": "ef51de3e-10ca-5c19-9bf3-a12dcc1e933f",
+      "q_num": 37,
+      "prompt": "What point does Richardson make about fear of machines?",
+      "answer": {
+        "answer": "B",
+        "alternatives": []
+      },
+      "options": [
+        {
+          "label": "A",
+          "text": "It has grown alongside the development of ever more advanced robots."
+        },
+        {
+          "label": "B",
+          "text": "It is the result of our inclination to attribute human characteristics to non-human entities."
+        },
+        {
+          "label": "C",
+          "text": "It has its origins in basic misunderstandings about how inanimate objects function."
+        },
+        {
+          "label": "D",
+          "text": "It demonstrates a key difference between human intelligence and machine intelligence."
+        }
+      ]
+    },
+    {
+      "id": "606e9e3b-6e74-57ad-aa16-2d4d753b70ff",
+      "q_num": 38,
+      "prompt": "What potential advance does Rees see as a cause for concern?",
+      "answer": {
+        "answer": "C",
+        "alternatives": []
+      },
+      "options": [
+        {
+          "label": "A",
+          "text": "robots outnumbering people"
+        },
+        {
+          "label": "B",
+          "text": "robots having abilities which humans do not"
+        },
+        {
+          "label": "C",
+          "text": "artificial intelligence developing independent thought"
+        },
+        {
+          "label": "D",
+          "text": "artificial intelligence taking over every aspect of our lives"
+        }
+      ]
+    },
+    {
+      "id": "8c1caa3e-0886-549a-8418-04f20d347b8f",
+      "q_num": 39,
+      "prompt": "What does Wolpert emphasise in his response to the question about science fiction?",
+      "answer": {
+        "answer": "B",
+        "alternatives": []
+      },
+      "options": [
+        {
+          "label": "A",
+          "text": "how science fiction influences our attitudes to robots"
+        },
+        {
+          "label": "B",
+          "text": "how fundamental robots are to the science fiction genre"
+        },
+        {
+          "label": "C",
+          "text": "how the image of robots in science fiction has changed over time"
+        },
+        {
+          "label": "D",
+          "text": "how reactions to similar portrayals of robots in science fiction may vary"
+        }
+      ]
+    },
+    {
+      "id": "f20e2901-86aa-5e8c-bfcf-9312a7abf9d4",
+      "q_num": 40,
+      "prompt": "What is Richardson doing in her comment about reality and fantasy?",
+      "answer": {
+        "answer": "C",
+        "alternatives": []
+      },
+      "options": [
+        {
+          "label": "A",
+          "text": "warning people not to confuse one with the other"
+        },
+        {
+          "label": "B",
+          "text": "outlining ways in which one has impacted on the other"
+        },
+        {
+          "label": "C",
+          "text": "recommending a change of approach in how people view them"
+        },
+        {
+          "label": "D",
+          "text": "explaining why scientists have a different perspective on them from other people"
+        }
+      ]
+    }
+  ]
+}
