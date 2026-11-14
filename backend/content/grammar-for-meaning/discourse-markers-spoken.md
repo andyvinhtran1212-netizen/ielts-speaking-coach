@@ -213,6 +213,7 @@ Một số học viên xem nhiều YouTube/TV Mỹ và bắt chước "like" m�
 - ❌ "I went, *like*, to the market and bought, *like*, some food and it was, *like*, really cheap."
 
 Like có chức năng ước lượng, dẫn lời hoặc làm mềm: “It took, like, two hours”, “She was like, ‘No!’”. Lặp thừa có thể cản trở, nhưng không tự trừ điểm chỉ vì dùng like. Dùng có chủ ý:
+
 - ✅ "*Like* I said earlier, I really enjoy cooking." (= as I said)
 - ✅ "Things *like* football and badminton." (= such as)
 

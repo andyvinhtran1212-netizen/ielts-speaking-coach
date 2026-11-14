@@ -429,6 +429,8 @@ class _RecordingDB:
         self.rpc_calls = []
 
     def table(self, name):
+        if name == "listening_tests":
+            return _Q([{"id": "lt1", "programme_id": "ielts", "metadata": {}}])
         self._pending = name
         return self
 

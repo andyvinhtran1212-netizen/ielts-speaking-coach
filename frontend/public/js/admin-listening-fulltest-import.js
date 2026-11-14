@@ -463,12 +463,19 @@
       + '">Mở trang chi tiết test để upload</a></div>';
   }
 
+  function publicVisibilityWarning() {
+    return 'Test import chưa xuất hiện trong thư viện tự luyện nếu admin chưa chọn “Mở công khai” tại Kho test. '
+      + 'Chỉ Phát hành (Published) là chưa đủ. '
+      + '<a href="/admin/listening/tests">Mở Kho test</a>';
+  }
+
   function renderDone(d) {
     $('fi-done-card').hidden = false;
     var a = d.audio || {};
     $('fi-done').innerHTML =
       '<div class="fi-banner fi-banner--ok">✓ Đã import <b class="fi-mono">' + escapeHtml(d.test_id || '') + '</b> '
         + '(status <b>' + escapeHtml(d.status || 'draft') + '</b>).</div>'
+      + '<div id="fi-public-warning" class="fi-banner fi-banner--warn">' + publicVisibilityWarning() + '</div>'
       + '<div class="fi-summary">'
       + '<span>Sections: <b>' + (d.sections_created != null ? d.sections_created : '?') + '</b></span>'
       + '<span>Exercises: <b>' + (d.exercises_created != null ? d.exercises_created : '?') + '</b></span>'
@@ -490,6 +497,7 @@
       var row = await window.api.patch('/admin/listening/tests/'
         + encodeURIComponent(STATE.newTest.id) + '/status', { status: 'published' });
       btn.textContent = '✓ Đã publish (status=' + ((row && row.status) || 'published') + ')';
+      $('fi-public-warning').innerHTML = publicVisibilityWarning();
     } catch (e) {
       btn.disabled = false;
       var note = $('fi-done');

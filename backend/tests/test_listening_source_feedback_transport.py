@@ -68,7 +68,8 @@ def boundary(monkeypatch):
             self.row_limit = count; return self
         def execute(self):
             assert self.columns is not None
-            rows = {'listening_tests': [db.test], 'listening_content_packages': [db.package],
+            rows = {'listening_test_attempts': [db.selected_attempt],
+                    'listening_tests': [db.test], 'listening_content_packages': [db.package],
                     'listening_content': [db.section],
                     'listening_exercises': [{'content_id': 'section', 'status': db.exercise_status, 'payload': db.payload}],
                     'listening_programme_feedback_reveals': [{'attempt_id': str(ATTEMPT), 'q_num': 1, 'first_answer': db.answers[0]['user_answer'],
@@ -109,13 +110,8 @@ def boundary(monkeypatch):
                 'revealed_at': '2026-10-01T01:00:00Z', 'was_created': True}]))
     async def auth(_): return {'id': 'owner'}
     async def not_admin(_): return False
-    def owned(_attempt, owner):
-        assert _attempt == str(ATTEMPT) and owner == 'owner'
-        if db.selected_attempt['user_id'] != owner: raise HTTPException(403, 'not owner')
-        return deepcopy(db.selected_attempt)
     monkeypatch.setattr(router, '_require_auth', auth)
     monkeypatch.setattr(router, '_is_admin', not_admin)
-    monkeypatch.setattr(router, '_fetch_attempt_or_404', owned)
     monkeypatch.setattr(router, 'supabase_admin', Admin())
     monkeypatch.setattr(router, '_student_audio_url_for_test', lambda _: ('/signed-covered-source.mp3', None, 123))
     from services import mock_correction_service
@@ -252,7 +248,10 @@ def test_real_guided_context_active_owner_guards_run_before_reveal_rpc(boundary,
     elif defect == 'expired': db.active_attempt['resume_expires_at'] = '2000-01-01T00:00:00Z'
     else: db.active_attempt['user_id'] = 'foreign-owner'
     for method, suffix in [('GET', 'guided-state'), ('POST', 'questions/1/reveal')]:
-        assert request(boundary, method, suffix).status_code == {'submitted': 409, 'expired': 410, 'foreign_owner': 403}[defect]
+        response = request(boundary, method, suffix)
+        assert response.status_code == {'submitted': 409, 'expired': 410, 'foreign_owner': 404}[defect]
+        if defect == 'foreign_owner':
+            assert response.headers['cache-control'] == 'private, no-store'
     assert db.rpc_calls == []
 
 
@@ -263,6 +262,7 @@ def test_review_requires_submitted_owner_and_available_audio(boundary, monkeypat
     db.attempt['status'] = 'submitted'
     monkeypatch.setattr(router, '_student_audio_url_for_test', lambda _: (None, None, None))
     assert request(boundary, 'GET', 'review').status_code == 503
-    def foreign(*_): raise HTTPException(403, 'not owner')
-    monkeypatch.setattr(router, '_fetch_attempt_or_404', foreign)
-    assert request(boundary, 'GET', 'review').status_code == 403
+    db.attempt['user_id'] = 'foreign-owner'
+    response = request(boundary, 'GET', 'review')
+    assert response.status_code == 404
+    assert response.headers['cache-control'] == 'private, no-store'

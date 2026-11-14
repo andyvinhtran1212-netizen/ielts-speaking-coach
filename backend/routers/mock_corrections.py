@@ -13,6 +13,7 @@ from typing import Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Header, HTTPException, Query
+from fastapi.routing import APIRoute
 from pydantic import BaseModel, Field
 
 from routers.admin import require_admin
@@ -20,7 +21,25 @@ from routers.auth import get_supabase_user
 from services import mock_correction_service as svc
 
 router = APIRouter(prefix="/api/mock-corrections", tags=["mock-corrections"])
-admin_router = APIRouter(prefix="/admin/mock-corrections", tags=["admin-mock-corrections"])
+class _CorrectionAdminRoute(APIRoute):
+    def get_route_handler(self):
+        original = super().get_route_handler()
+
+        async def handler(request):
+            await require_admin(request.headers.get("authorization"))
+            from services import listening_blackeye
+            params = request.path_params
+            if params.get("skill") == "listening" and params.get("test_id"):
+                await asyncio.to_thread(listening_blackeye.guard_generic_target, svc.supabase_admin,
+                                        test_id=params["test_id"], denied_status=503)
+            assignment_id = params.get("assignment_id") or request.query_params.get("class_assignment_id")
+            if assignment_id:
+                await asyncio.to_thread(listening_blackeye.guard_generic_assignment, svc.supabase_admin, assignment_id)
+            return await original(request)
+        return handler
+
+
+admin_router = APIRouter(prefix="/admin/mock-corrections", tags=["admin-mock-corrections"], route_class=_CorrectionAdminRoute)
 
 
 class CaptureItem(BaseModel):
@@ -120,6 +139,12 @@ async def submit_post_test_capture(
     authorization: str | None = Header(default=None),
 ):
     user = await get_supabase_user(authorization)
+    if skill == "listening":
+        from routers import listening
+        from services import listening_blackeye
+        attempt = await asyncio.to_thread(listening._fetch_attempt_or_404, attempt_id, user["id"])
+        if await asyncio.to_thread(listening_blackeye.attempt_is_blackeye, listening.supabase_admin, attempt):
+            raise HTTPException(422, "Black Eye corrections unavailable.", headers={"Cache-Control": "private, no-store"})
     try:
         def _capture():
             recorded = svc.record_post_test_capture(
@@ -163,6 +188,12 @@ async def submit_correction_event(
     authorization: str | None = Header(default=None),
 ):
     user = await get_supabase_user(authorization)
+    if skill == "listening":
+        from routers import listening
+        from services import listening_blackeye
+        attempt = await asyncio.to_thread(listening._fetch_attempt_or_404, attempt_id, user["id"])
+        if await asyncio.to_thread(listening_blackeye.attempt_is_blackeye, listening.supabase_admin, attempt):
+            raise HTTPException(422, "Black Eye corrections unavailable.", headers={"Cache-Control": "private, no-store"})
     try:
         return await asyncio.to_thread(
             svc.record_correction_event,

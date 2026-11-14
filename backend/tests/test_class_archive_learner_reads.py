@@ -493,7 +493,13 @@ def test_validators_refuse_new_work_in_an_archived_class(kind):
 @pytest.mark.parametrize("kind", ["session", "test"])
 @pytest.mark.parametrize("cohort", [ACTIVE, LEGACY])
 def test_validators_accept_active_and_legacy_classes(kind, cohort):
-    assert _validate(kind, _validator_db(cohort)) is None
+    db = _validator_db(cohort)
+    result = _validate(kind, db)
+    if kind == "test":
+        # Listening homework callers use the validated assignment's policy.
+        assert result == db.tables["class_assignments"][0]
+    else:
+        assert result is None
 
 
 @pytest.mark.parametrize("kind", ["session", "test"])

@@ -75,11 +75,13 @@ Dùng đại từ đúng giúp câu văn mạch lạc và tự nhiên hơn. Dùn
 | Số nhiều | we, you, they | us, you, them |
 
 **Subject pronouns:** đứng trước động từ (làm chủ ngữ)
+
 - **I** love music.
 - **She** is my teacher.
 - **They** arrived late.
 
 **Object pronouns:** đứng sau động từ hoặc giới từ
+
 - He called **me** yesterday.
 - Can you help **him**?
 - I'm talking to **them**.
@@ -97,9 +99,11 @@ Dùng đại từ đúng giúp câu văn mạch lạc và tự nhiên hơn. Dùn
 | They | their | theirs |
 
 **Possessive adjective** + noun:
+
 - This is **my** bag. / **Her** book is on the table. / **Their** car is expensive.
 
 **Possessive pronoun** (đứng một mình, không có noun theo sau):
+
 - This bag is **mine**. / That book is **hers**. / The car is **theirs**.
 
 > ⚠️ **Không nhầm:** "its" (sở hữu của it) ≠ "it's" (= it is)
@@ -117,11 +121,13 @@ Dùng đại từ đúng giúp câu văn mạch lạc và tự nhiên hơn. Dùn
 | it → itself | |
 
 Dùng khi chủ ngữ và tân ngữ là cùng một người/vật:
+
 - She hurt **herself** while cooking.
 - He taught **himself** how to play guitar.
 - Please help **yourself** to some food.
 
 Nhấn mạnh:
+
 - I **myself** wrote every word of this essay.
 - The president **himself** attended the meeting.
 
@@ -229,9 +235,11 @@ Dùng đại từ để tránh lặp từ, tạo mạch văn tự nhiên:
 - *Education is vital. **It** shapes the way people think. **Those** who receive quality education tend to...*
 
 **Speaking — tránh lặp danh từ:**
+
 - "My hometown has many problems. **It** is overcrowded. **The city** also lacks green spaces."
 
 **Sở hữu trong học thuật:**
+
 - *A good leader recognises the limits of **his or her** authority.*
 - *A good leader recognises the limits of **their** authority.* (ngày càng phổ biến hơn)
 
@@ -290,9 +298,11 @@ Sau khi nhắc một danh từ lần đầu, dùng *it* (số ít) hoặc *they/
 
 ### Đáp án
 **Chọn đại từ:**
+
 1. He | 2. her | 3. my / yours | 4. its | 5. has
 
 **Sửa lỗi:**
+
 1. Between you and **me**
 2. Everyone **is** responsible...
 3. **It's** a beautiful day...

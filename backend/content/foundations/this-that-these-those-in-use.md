@@ -108,6 +108,7 @@ These/Those + are/were + [description]
 ### Đứng một mình (đại từ):
 
 Khi không cần lặp lại danh từ:
+
 - "Which shirt do you prefer?" — "**This** *(one)*." / "**That** *(one)*."
 - "**These** are the main findings of the study."
 - "**Those** were difficult times for many families."
@@ -183,6 +184,7 @@ Khi so sánh hai thứ, this/that phụ thuộc vị trí, cử chỉ và trọn
 - "**Those** kinds of arguments are simply not convincing."
 
 So sánh:
+
 - "**This** problem is important." *(tôi đang tập trung vào nó)*
 - "**That** problem is not our responsibility." *(tôi không liên quan)*
 
@@ -193,20 +195,24 @@ So sánh:
 ### Trong Speaking Part 1, 2, 3:
 
 **Giới thiệu chủ đề:**
+
 - "Well, **that's** a really interesting question."
 - "**This** is something I feel quite strongly about."
 - "**That** depends on the situation, I think."
 
 **Chỉ lại điều vừa nói:**
+
 - "I mentioned that I enjoy reading. **That's** mainly because it helps me relax."
 - "I've been learning English for five years. **This** has really improved my confidence."
 
 **Bày tỏ cảm nhận:**
+
 - "I remember **those** days very clearly."
 - "**This** kind of experience is really valuable."
 - "**Those** are the main reasons I chose that career."
 
 **Trong cấu trúc "That's why...":**
+
 - "Public transport is unreliable. **That's why** most people prefer to drive."
 - "She worked hard every day. **That's why** she succeeded."
 

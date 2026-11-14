@@ -353,6 +353,119 @@ def test_edit_answer_and_solution(monkeypatch):
     assert out["updated_at"] == stub.last_update["updated_at"]
 
 
+def _keep_change_edit_ctx():
+    ex, content, test = _edit_ctx()
+    ex["payload"].update({
+        "variant": "keep_change", "template_kind": "keep_change",
+        "questions": [
+            {"q_num": 1, "prompt": "Cedar Avenue.", "printed_value": "Cedar Avenue."},
+            {"q_num": 2, "prompt": "Northfield ZX4 8QP", "printed_value": "Northfield ZX4 8QP"},
+        ],
+        "answers": [
+            {"q_num": 1, "answer": "KEEP", "alternatives": [], "keep_change_action": "KEEP"},
+            {"q_num": 2, "answer": "Westfield ZX4 9QP", "alternatives": ["9QP"],
+             "keep_change_action": "CHANGE"},
+        ],
+    })
+    return ex, content, test
+
+
+@pytest.mark.parametrize("q_num, patch, expected_action, expected_answer, alternatives, accepted, rejected", [
+    (2, {"answer": "KEEP"}, "KEEP", "KEEP", [], "KEEP", "CHANGE: Westfield ZX4 9QP"),
+    (2, {"prompt": "Northfield ZX4 8QP", "answer": "KEEP", "alternatives": [], "solution": "Correct as printed"},
+     "KEEP", "KEEP", [], "KEEP", "CHANGE: Westfield ZX4 9QP"),
+    (2, {"answer": " keep "}, "KEEP", " keep ", [], "KEEP", "CHANGE: Westfield ZX4 9QP"),
+    (1, {"answer": "Birch Avenue", "alternatives": ["Birch Ave"]},
+     "CHANGE", "Birch Avenue", ["Birch Ave"], "CHANGE: Birch Ave", "KEEP"),
+])
+def test_edit_keep_change_switches_action_and_grades_reloaded_key(
+    monkeypatch, q_num, patch, expected_action, expected_answer, alternatives, accepted, rejected,
+):
+    from services import listening_test_grader as grader
+    ex, c, t = _keep_change_edit_ctx()
+    original = copy.deepcopy(ex["payload"])
+    stub = _EditStub(ex, c, t)
+    out = _patch(monkeypatch, ex["id"], q_num, patch, stub)
+    persisted = stub.updated_payload
+    answer = next(a for a in persisted["answers"] if a["q_num"] == q_num)
+    assert (answer["keep_change_action"], answer["answer"], answer["alternatives"]) == (
+        expected_action, expected_answer, alternatives)
+    assert "keep_change_action" in out["changed"]
+    assert out["question"]["answer"] == expected_answer
+    assert ex["payload"] == original
+    other_idx = 0 if q_num == 2 else 1
+    assert persisted["questions"][other_idx] == original["questions"][other_idx]
+    assert persisted["answers"][other_idx] == original["answers"][other_idx]
+    key = [a for a in grader.collect_answer_key([{**ex, "payload": persisted}]) if a["q_num"] == q_num]
+    assert grader.grade_attempt([{"q_num": q_num, "user_answer": accepted}], key)["score"] == 1
+    assert grader.grade_attempt([{"q_num": q_num, "user_answer": rejected}], key)["score"] == 0
+    reloaded = _EditStub({**ex, "payload": persisted}, c, t)
+    _patch(monkeypatch, ex["id"], q_num, {"prompt": persisted["questions"][q_num - 1]["prompt"]}, reloaded)
+    assert reloaded.updated_payload["answers"] == persisted["answers"]
+
+
+def test_edit_keep_change_prompt_updates_printed_key_used_by_grader(monkeypatch):
+    from services import listening_test_grader as grader
+    ex, c, t = _keep_change_edit_ctx()
+    stub = _EditStub(ex, c, t)
+    out = _patch(monkeypatch, ex["id"], 2, {
+        "prompt": "Southfield ZX4 8QP", "alternatives": ["Northfield ZX4 8QP"],
+    }, stub)
+    question = stub.updated_payload["questions"][1]
+    assert question["prompt"] == question["printed_value"] == "Southfield ZX4 8QP"
+    assert "printed_value" in out["changed"]
+    key = [a for a in grader.collect_answer_key([{**ex, "payload": stub.updated_payload}]) if a["q_num"] == 2]
+    # The old printed text is now a valid correction variant; the new printed text is not.
+    assert key[0]["printed_value"] == "Southfield ZX4 8QP"
+    assert grader.grade_attempt([{"q_num": 2, "user_answer": "CHANGE: Northfield ZX4 8QP"}], key)["score"] == 1
+    assert grader.grade_attempt([{"q_num": 2, "user_answer": "CHANGE: Southfield ZX4 8QP"}], key)["score"] == 0
+
+
+@pytest.mark.parametrize("q_num, patch", [
+    (1, {"answer": ""}),
+    (1, {"answer": "CHANGE"}),
+    (1, {"answer": "CHANGE: "}),
+    (1, {"answer": "KEEP: Cedar Avenue"}),
+    (1, {"answer": "KEEP", "alternatives": ["Birch Avenue"]}),
+    (2, {"alternatives": ["KEEP"]}),
+    (2, {"alternatives": ["CHANGE: 9QP"]}),
+    (2, {"alternatives": [" "]}),
+    (2, {"answer": " northfield zx4 8qp. "}),
+    (2, {"alternatives": ["Northfield ZX4 8QP"]}),
+    (2, {"prompt": " westfield ZX4 9qp. "}),
+    (2, {"prompt": ""}),
+])
+def test_edit_keep_change_rejects_contradictory_keys_without_write(monkeypatch, q_num, patch):
+    ex, c, t = _keep_change_edit_ctx()
+    original = copy.deepcopy(ex["payload"])
+    stub = _EditStub(ex, c, t)
+    with pytest.raises(HTTPException) as err:
+        _patch(monkeypatch, ex["id"], q_num, patch, stub)
+    assert err.value.status_code == 422
+    assert stub.last_update is None
+    assert ex["payload"] == original
+
+
+@pytest.mark.parametrize("patch", [{"prompt": "Repaired printed value"}, {"alternatives": ["Westfield"]}])
+def test_edit_keep_change_validates_and_repairs_entire_key(monkeypatch, patch):
+    ex, c, t = _keep_change_edit_ctx()
+    ex["payload"]["answers"][1]["keep_change_action"] = "KEEP"
+    stub = _EditStub(ex, c, t)
+    _patch(monkeypatch, ex["id"], 2, patch, stub)
+    assert stub.updated_payload["answers"][1]["keep_change_action"] == "CHANGE"
+    assert stub.updated_payload["questions"][1]["printed_value"] == stub.updated_payload["questions"][1]["prompt"]
+
+
+def test_edit_keep_change_prompt_requires_answer_entry(monkeypatch):
+    ex, c, t = _keep_change_edit_ctx()
+    ex["payload"]["answers"] = []
+    stub = _EditStub(ex, c, t)
+    with pytest.raises(HTTPException) as err:
+        _patch(monkeypatch, ex["id"], 1, {"prompt": "Birch Avenue"}, stub)
+    assert err.value.status_code == 422
+    assert stub.last_update is None
+
+
 def test_standard_question_editor_cannot_rewrite_programme_response_contract(monkeypatch):
     ex, c, t = _edit_ctx()
     ex["payload"] = {"variant": "programme_form_v1", "questions": [{"q_num": 1}],

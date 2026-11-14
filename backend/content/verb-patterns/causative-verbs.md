@@ -100,6 +100,7 @@ Causative verbs diễn tả việc **A khiến / nhờ / cho phép B làm gì**.
 ## Tại sao quan trọng
 
 Causative structures thường xuất hiện trong IELTS khi:
+
 - Thảo luận về chính sách: *"The government should make people..."*
 - Giáo dục: *"Teachers let students..."*
 - Cuộc sống hằng ngày: *"I got my car repaired."*
@@ -317,9 +318,11 @@ Cả bare infinitive và to-infinitive đều chấp nhận được, nhưng bar
 ### Đáp án
 
 **Dạng động từ:**
+
 1. clean | 2. repaired | 3. leave | 4. (to) carry | 5. take
 
 **Sửa lỗi:**
+
 1. He made his employees **work** on weekends. (make + bare inf)
 2. I had my car **fixed** yesterday. (have + thing + V3)
 3. She got her friend **to help** her move. (get + person + to-inf)
@@ -338,6 +341,7 @@ Cả bare infinitive và to-infinitive đều chấp nhận được, nhưng bar
 | Giúp đỡ | help | help + O + (to) inf |
 
 **Quy tắc vàng:**
+
 - **make / let / have (O thực hiện hành động)** → bare infinitive (không "to")
 - **get (O thực hiện hành động)** → to-infinitive
 - **have / get (O nhận hành động)** → past participle (V3)

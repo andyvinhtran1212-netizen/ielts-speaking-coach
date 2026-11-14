@@ -1,0 +1,1173 @@
+{
+  "inventory": {
+    "collection_id": "blackeye-v5-upper",
+    "unit_id": "U1",
+    "activities": [
+      {
+        "binding": {
+          "programme_id": "blackeye-v5-upper-listening",
+          "collection_id": "blackeye-v5-upper",
+          "source_contract": "blackeye_u1_v1",
+          "unit_id": "U1",
+          "activity_id": "U1-A01",
+          "content_revision": "blackeye-u1-content-v1-000000000001",
+          "policy_revision": "selfcheck-v1",
+          "answer_set_revision": "00000000-0000-4000-8000-000000000201"
+        },
+        "test_id": "00000000-0000-4000-8000-000000000031",
+        "title": "Form completion: hotel booking",
+        "order": 1,
+        "readiness": "ready",
+        "readiness_reasons": [],
+        "selectable": true,
+        "response_cell_count": 3,
+        "scoring_policy": "report_only",
+        "items": [
+          {
+            "source_item_id": "A01-c1",
+            "q_num": 1,
+            "source_display_number": "01",
+            "interaction": "text",
+            "prompt": "Ô giả 1",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r1",
+            "column_id": "c2"
+          },
+          {
+            "source_item_id": "A01-c2",
+            "q_num": 2,
+            "source_display_number": "02",
+            "interaction": "text",
+            "prompt": "Ô giả 2",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r2",
+            "column_id": "c2"
+          },
+          {
+            "source_item_id": "A01-c3",
+            "q_num": 3,
+            "source_display_number": "03",
+            "interaction": "text",
+            "prompt": "Ô giả 3",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r3",
+            "column_id": "c2"
+          }
+        ]
+      },
+      {
+        "binding": {
+          "programme_id": "blackeye-v5-upper-listening",
+          "collection_id": "blackeye-v5-upper",
+          "source_contract": "blackeye_u1_v1",
+          "unit_id": "U1",
+          "activity_id": "U1-A02",
+          "content_revision": "blackeye-u1-content-v1-000000000002",
+          "policy_revision": "selfcheck-v1",
+          "answer_set_revision": "00000000-0000-4000-8000-000000000202"
+        },
+        "test_id": "00000000-0000-4000-8000-000000000032",
+        "title": "Table: weekly timetable",
+        "order": 2,
+        "readiness": "ready",
+        "readiness_reasons": [],
+        "selectable": true,
+        "response_cell_count": 3,
+        "scoring_policy": "report_only",
+        "items": [
+          {
+            "source_item_id": "A02-c1",
+            "q_num": 1,
+            "source_display_number": "01",
+            "interaction": "text",
+            "prompt": "Ô giả 1",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r1",
+            "column_id": "c2"
+          },
+          {
+            "source_item_id": "A02-c2",
+            "q_num": 2,
+            "source_display_number": "02",
+            "interaction": "text",
+            "prompt": "Ô giả 2",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r2",
+            "column_id": "c2"
+          },
+          {
+            "source_item_id": "A02-c3",
+            "q_num": 3,
+            "source_display_number": "03",
+            "interaction": "text",
+            "prompt": "Ô giả 3",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r3",
+            "column_id": "c2"
+          }
+        ]
+      },
+      {
+        "binding": {
+          "programme_id": "blackeye-v5-upper-listening",
+          "collection_id": "blackeye-v5-upper",
+          "source_contract": "blackeye_u1_v1",
+          "unit_id": "U1",
+          "activity_id": "U1-A03",
+          "content_revision": "blackeye-u1-content-v1-000000000003",
+          "policy_revision": "selfcheck-v1",
+          "answer_set_revision": "00000000-0000-4000-8000-000000000203"
+        },
+        "test_id": "00000000-0000-4000-8000-000000000033",
+        "title": "Keep or change: lecture notes",
+        "order": 3,
+        "readiness": "ready",
+        "readiness_reasons": [],
+        "selectable": true,
+        "response_cell_count": 2,
+        "scoring_policy": "report_only",
+        "items": [
+          {
+            "source_item_id": "A03-c1",
+            "q_num": 1,
+            "source_display_number": "01",
+            "interaction": "keep_change",
+            "prompt": "Ghi chú giả 1: the meeting starts at nine",
+            "instruction": "Giữ nguyên (KEEP) hoặc sửa (CHANGE) theo audio.",
+            "givens": [
+              "Synthetic given line"
+            ],
+            "group_id": "notes",
+            "row_id": "r1",
+            "column_id": null
+          },
+          {
+            "source_item_id": "A03-c2",
+            "q_num": 2,
+            "source_display_number": "02",
+            "interaction": "keep_change",
+            "prompt": "Ghi chú giả 2: the meeting starts at nine",
+            "instruction": "Giữ nguyên (KEEP) hoặc sửa (CHANGE) theo audio.",
+            "givens": [
+              "Synthetic given line"
+            ],
+            "group_id": "notes",
+            "row_id": "r2",
+            "column_id": null
+          }
+        ]
+      },
+      {
+        "binding": {
+          "programme_id": "blackeye-v5-upper-listening",
+          "collection_id": "blackeye-v5-upper",
+          "source_contract": "blackeye_u1_v1",
+          "unit_id": "U1",
+          "activity_id": "U1-A04",
+          "content_revision": "blackeye-u1-content-v1-000000000004",
+          "policy_revision": "selfcheck-v1",
+          "answer_set_revision": "00000000-0000-4000-8000-000000000204"
+        },
+        "test_id": "00000000-0000-4000-8000-000000000034",
+        "title": "Keep or change: tour notes",
+        "order": 4,
+        "readiness": "ready",
+        "readiness_reasons": [],
+        "selectable": true,
+        "response_cell_count": 2,
+        "scoring_policy": "report_only",
+        "items": [
+          {
+            "source_item_id": "A04-c1",
+            "q_num": 1,
+            "source_display_number": "01",
+            "interaction": "keep_change",
+            "prompt": "Ghi chú giả 1: the meeting starts at nine",
+            "instruction": "Giữ nguyên (KEEP) hoặc sửa (CHANGE) theo audio.",
+            "givens": [
+              "Synthetic given line"
+            ],
+            "group_id": "notes",
+            "row_id": "r1",
+            "column_id": null
+          },
+          {
+            "source_item_id": "A04-c2",
+            "q_num": 2,
+            "source_display_number": "02",
+            "interaction": "keep_change",
+            "prompt": "Ghi chú giả 2: the meeting starts at nine",
+            "instruction": "Giữ nguyên (KEEP) hoặc sửa (CHANGE) theo audio.",
+            "givens": [
+              "Synthetic given line"
+            ],
+            "group_id": "notes",
+            "row_id": "r2",
+            "column_id": null
+          }
+        ]
+      },
+      {
+        "binding": {
+          "programme_id": "blackeye-v5-upper-listening",
+          "collection_id": "blackeye-v5-upper",
+          "source_contract": "blackeye_u1_v1",
+          "unit_id": "U1",
+          "activity_id": "U1-A05",
+          "content_revision": "blackeye-u1-content-v1-000000000005",
+          "policy_revision": "selfcheck-v1",
+          "answer_set_revision": "00000000-0000-4000-8000-000000000205"
+        },
+        "test_id": "00000000-0000-4000-8000-000000000035",
+        "title": "Notes: museum visit",
+        "order": 5,
+        "readiness": "ready",
+        "readiness_reasons": [],
+        "selectable": true,
+        "response_cell_count": 3,
+        "scoring_policy": "report_only",
+        "items": [
+          {
+            "source_item_id": "A05-c1",
+            "q_num": 1,
+            "source_display_number": "01",
+            "interaction": "text",
+            "prompt": "Ô giả 1",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r1",
+            "column_id": "c2"
+          },
+          {
+            "source_item_id": "A05-c2",
+            "q_num": 2,
+            "source_display_number": "02",
+            "interaction": "text",
+            "prompt": "Ô giả 2",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r2",
+            "column_id": "c2"
+          },
+          {
+            "source_item_id": "A05-c3",
+            "q_num": 3,
+            "source_display_number": "03",
+            "interaction": "text",
+            "prompt": "Ô giả 3",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r3",
+            "column_id": "c2"
+          }
+        ]
+      },
+      {
+        "binding": {
+          "programme_id": "blackeye-v5-upper-listening",
+          "collection_id": "blackeye-v5-upper",
+          "source_contract": "blackeye_u1_v1",
+          "unit_id": "U1",
+          "activity_id": "U1-A06",
+          "content_revision": "blackeye-u1-content-v1-000000000006",
+          "policy_revision": "selfcheck-v1",
+          "answer_set_revision": "00000000-0000-4000-8000-000000000206"
+        },
+        "test_id": "00000000-0000-4000-8000-000000000036",
+        "title": "Sentence completion",
+        "order": 6,
+        "readiness": "ready",
+        "readiness_reasons": [],
+        "selectable": true,
+        "response_cell_count": 3,
+        "scoring_policy": "report_only",
+        "items": [
+          {
+            "source_item_id": "A06-c1",
+            "q_num": 1,
+            "source_display_number": "01",
+            "interaction": "text",
+            "prompt": "Ô giả 1",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r1",
+            "column_id": "c2"
+          },
+          {
+            "source_item_id": "A06-c2",
+            "q_num": 2,
+            "source_display_number": "02",
+            "interaction": "text",
+            "prompt": "Ô giả 2",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r2",
+            "column_id": "c2"
+          },
+          {
+            "source_item_id": "A06-c3",
+            "q_num": 3,
+            "source_display_number": "03",
+            "interaction": "text",
+            "prompt": "Ô giả 3",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r3",
+            "column_id": "c2"
+          }
+        ]
+      },
+      {
+        "binding": {
+          "programme_id": "blackeye-v5-upper-listening",
+          "collection_id": "blackeye-v5-upper",
+          "source_contract": "blackeye_u1_v1",
+          "unit_id": "U1",
+          "activity_id": "U1-A07",
+          "content_revision": "blackeye-u1-content-v1-000000000007",
+          "policy_revision": "selfcheck-v1",
+          "answer_set_revision": "00000000-0000-4000-8000-000000000207"
+        },
+        "test_id": "00000000-0000-4000-8000-000000000037",
+        "title": "Table: course options",
+        "order": 7,
+        "readiness": "ready",
+        "readiness_reasons": [],
+        "selectable": true,
+        "response_cell_count": 3,
+        "scoring_policy": "report_only",
+        "items": [
+          {
+            "source_item_id": "A07-c1",
+            "q_num": 1,
+            "source_display_number": "01",
+            "interaction": "text",
+            "prompt": "Ô giả 1",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r1",
+            "column_id": "c2"
+          },
+          {
+            "source_item_id": "A07-c2",
+            "q_num": 2,
+            "source_display_number": "02",
+            "interaction": "text",
+            "prompt": "Ô giả 2",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r2",
+            "column_id": "c2"
+          },
+          {
+            "source_item_id": "A07-c3",
+            "q_num": 3,
+            "source_display_number": "03",
+            "interaction": "text",
+            "prompt": "Ô giả 3",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r3",
+            "column_id": "c2"
+          }
+        ]
+      },
+      {
+        "binding": {
+          "programme_id": "blackeye-v5-upper-listening",
+          "collection_id": "blackeye-v5-upper",
+          "source_contract": "blackeye_u1_v1",
+          "unit_id": "U1",
+          "activity_id": "U1-A08",
+          "content_revision": "blackeye-u1-content-v1-000000000008",
+          "policy_revision": "selfcheck-v1",
+          "answer_set_revision": "00000000-0000-4000-8000-000000000208"
+        },
+        "test_id": "00000000-0000-4000-8000-000000000038",
+        "title": "Synthetic activity 08",
+        "order": 8,
+        "readiness": "locked",
+        "readiness_reasons": [
+          "audio_incomplete_download"
+        ],
+        "selectable": false,
+        "response_cell_count": 3,
+        "scoring_policy": "report_only",
+        "items": [
+          {
+            "source_item_id": "A08-c1",
+            "q_num": 1,
+            "source_display_number": "01",
+            "interaction": "text",
+            "prompt": "Ô giả 1",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r1",
+            "column_id": "c2"
+          },
+          {
+            "source_item_id": "A08-c2",
+            "q_num": 2,
+            "source_display_number": "02",
+            "interaction": "text",
+            "prompt": "Ô giả 2",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r2",
+            "column_id": "c2"
+          },
+          {
+            "source_item_id": "A08-c3",
+            "q_num": 3,
+            "source_display_number": "03",
+            "interaction": "text",
+            "prompt": "Ô giả 3",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r3",
+            "column_id": "c2"
+          }
+        ]
+      },
+      {
+        "binding": {
+          "programme_id": "blackeye-v5-upper-listening",
+          "collection_id": "blackeye-v5-upper",
+          "source_contract": "blackeye_u1_v1",
+          "unit_id": "U1",
+          "activity_id": "U1-A09",
+          "content_revision": "blackeye-u1-content-v1-000000000009",
+          "policy_revision": "selfcheck-v1",
+          "answer_set_revision": "00000000-0000-4000-8000-000000000209"
+        },
+        "test_id": "00000000-0000-4000-8000-000000000039",
+        "title": "Synthetic activity 09",
+        "order": 9,
+        "readiness": "ready",
+        "readiness_reasons": [],
+        "selectable": true,
+        "response_cell_count": 3,
+        "scoring_policy": "report_only",
+        "items": [
+          {
+            "source_item_id": "A09-c1",
+            "q_num": 1,
+            "source_display_number": "01",
+            "interaction": "text",
+            "prompt": "Ô giả 1",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r1",
+            "column_id": "c2"
+          },
+          {
+            "source_item_id": "A09-c2",
+            "q_num": 2,
+            "source_display_number": "02",
+            "interaction": "text",
+            "prompt": "Ô giả 2",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r2",
+            "column_id": "c2"
+          },
+          {
+            "source_item_id": "A09-c3",
+            "q_num": 3,
+            "source_display_number": "03",
+            "interaction": "text",
+            "prompt": "Ô giả 3",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r3",
+            "column_id": "c2"
+          }
+        ]
+      },
+      {
+        "binding": {
+          "programme_id": "blackeye-v5-upper-listening",
+          "collection_id": "blackeye-v5-upper",
+          "source_contract": "blackeye_u1_v1",
+          "unit_id": "U1",
+          "activity_id": "U1-A10",
+          "content_revision": "blackeye-u1-content-v1-00000000000a",
+          "policy_revision": "selfcheck-v1",
+          "answer_set_revision": "00000000-0000-4000-8000-000000000210"
+        },
+        "test_id": "00000000-0000-4000-8000-000000000040",
+        "title": "Synthetic activity 10",
+        "order": 10,
+        "readiness": "ready",
+        "readiness_reasons": [],
+        "selectable": true,
+        "response_cell_count": 3,
+        "scoring_policy": "report_only",
+        "items": [
+          {
+            "source_item_id": "A10-c1",
+            "q_num": 1,
+            "source_display_number": "01",
+            "interaction": "text",
+            "prompt": "Ô giả 1",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r1",
+            "column_id": "c2"
+          },
+          {
+            "source_item_id": "A10-c2",
+            "q_num": 2,
+            "source_display_number": "02",
+            "interaction": "text",
+            "prompt": "Ô giả 2",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r2",
+            "column_id": "c2"
+          },
+          {
+            "source_item_id": "A10-c3",
+            "q_num": 3,
+            "source_display_number": "03",
+            "interaction": "text",
+            "prompt": "Ô giả 3",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r3",
+            "column_id": "c2"
+          }
+        ]
+      },
+      {
+        "binding": {
+          "programme_id": "blackeye-v5-upper-listening",
+          "collection_id": "blackeye-v5-upper",
+          "source_contract": "blackeye_u1_v1",
+          "unit_id": "U1",
+          "activity_id": "U1-A11",
+          "content_revision": "blackeye-u1-content-v1-00000000000b",
+          "policy_revision": "selfcheck-v1",
+          "answer_set_revision": "00000000-0000-4000-8000-000000000211"
+        },
+        "test_id": "00000000-0000-4000-8000-000000000041",
+        "title": "Synthetic activity 11",
+        "order": 11,
+        "readiness": "ready",
+        "readiness_reasons": [],
+        "selectable": true,
+        "response_cell_count": 3,
+        "scoring_policy": "report_only",
+        "items": [
+          {
+            "source_item_id": "A11-c1",
+            "q_num": 1,
+            "source_display_number": "01",
+            "interaction": "text",
+            "prompt": "Ô giả 1",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r1",
+            "column_id": "c2"
+          },
+          {
+            "source_item_id": "A11-c2",
+            "q_num": 2,
+            "source_display_number": "02",
+            "interaction": "text",
+            "prompt": "Ô giả 2",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r2",
+            "column_id": "c2"
+          },
+          {
+            "source_item_id": "A11-c3",
+            "q_num": 3,
+            "source_display_number": "03",
+            "interaction": "text",
+            "prompt": "Ô giả 3",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r3",
+            "column_id": "c2"
+          }
+        ]
+      },
+      {
+        "binding": {
+          "programme_id": "blackeye-v5-upper-listening",
+          "collection_id": "blackeye-v5-upper",
+          "source_contract": "blackeye_u1_v1",
+          "unit_id": "U1",
+          "activity_id": "U1-A12",
+          "content_revision": "blackeye-u1-content-v1-00000000000c",
+          "policy_revision": "selfcheck-v1",
+          "answer_set_revision": "00000000-0000-4000-8000-000000000212"
+        },
+        "test_id": "00000000-0000-4000-8000-000000000042",
+        "title": "Synthetic activity 12",
+        "order": 12,
+        "readiness": "ready",
+        "readiness_reasons": [],
+        "selectable": true,
+        "response_cell_count": 3,
+        "scoring_policy": "report_only",
+        "items": [
+          {
+            "source_item_id": "A12-c1",
+            "q_num": 1,
+            "source_display_number": "01",
+            "interaction": "text",
+            "prompt": "Ô giả 1",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r1",
+            "column_id": "c2"
+          },
+          {
+            "source_item_id": "A12-c2",
+            "q_num": 2,
+            "source_display_number": "02",
+            "interaction": "text",
+            "prompt": "Ô giả 2",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r2",
+            "column_id": "c2"
+          },
+          {
+            "source_item_id": "A12-c3",
+            "q_num": 3,
+            "source_display_number": "03",
+            "interaction": "text",
+            "prompt": "Ô giả 3",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r3",
+            "column_id": "c2"
+          }
+        ]
+      },
+      {
+        "binding": {
+          "programme_id": "blackeye-v5-upper-listening",
+          "collection_id": "blackeye-v5-upper",
+          "source_contract": "blackeye_u1_v1",
+          "unit_id": "U1",
+          "activity_id": "U1-A13",
+          "content_revision": "blackeye-u1-content-v1-00000000000d",
+          "policy_revision": "selfcheck-v1",
+          "answer_set_revision": "00000000-0000-4000-8000-000000000213"
+        },
+        "test_id": "00000000-0000-4000-8000-000000000043",
+        "title": "Synthetic activity 13",
+        "order": 13,
+        "readiness": "ready",
+        "readiness_reasons": [],
+        "selectable": true,
+        "response_cell_count": 3,
+        "scoring_policy": "report_only",
+        "items": [
+          {
+            "source_item_id": "A13-c1",
+            "q_num": 1,
+            "source_display_number": "01",
+            "interaction": "text",
+            "prompt": "Ô giả 1",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r1",
+            "column_id": "c2"
+          },
+          {
+            "source_item_id": "A13-c2",
+            "q_num": 2,
+            "source_display_number": "02",
+            "interaction": "text",
+            "prompt": "Ô giả 2",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r2",
+            "column_id": "c2"
+          },
+          {
+            "source_item_id": "A13-c3",
+            "q_num": 3,
+            "source_display_number": "03",
+            "interaction": "text",
+            "prompt": "Ô giả 3",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r3",
+            "column_id": "c2"
+          }
+        ]
+      },
+      {
+        "binding": {
+          "programme_id": "blackeye-v5-upper-listening",
+          "collection_id": "blackeye-v5-upper",
+          "source_contract": "blackeye_u1_v1",
+          "unit_id": "U1",
+          "activity_id": "U1-A14",
+          "content_revision": "blackeye-u1-content-v1-00000000000e",
+          "policy_revision": "selfcheck-v1",
+          "answer_set_revision": "00000000-0000-4000-8000-000000000214"
+        },
+        "test_id": "00000000-0000-4000-8000-000000000044",
+        "title": "Synthetic activity 14",
+        "order": 14,
+        "readiness": "locked",
+        "readiness_reasons": [
+          "audio_not_found"
+        ],
+        "selectable": false,
+        "response_cell_count": 3,
+        "scoring_policy": "report_only",
+        "items": [
+          {
+            "source_item_id": "A14-c1",
+            "q_num": 1,
+            "source_display_number": "01",
+            "interaction": "text",
+            "prompt": "Ô giả 1",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r1",
+            "column_id": "c2"
+          },
+          {
+            "source_item_id": "A14-c2",
+            "q_num": 2,
+            "source_display_number": "02",
+            "interaction": "text",
+            "prompt": "Ô giả 2",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r2",
+            "column_id": "c2"
+          },
+          {
+            "source_item_id": "A14-c3",
+            "q_num": 3,
+            "source_display_number": "03",
+            "interaction": "text",
+            "prompt": "Ô giả 3",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r3",
+            "column_id": "c2"
+          }
+        ]
+      },
+      {
+        "binding": {
+          "programme_id": "blackeye-v5-upper-listening",
+          "collection_id": "blackeye-v5-upper",
+          "source_contract": "blackeye_u1_v1",
+          "unit_id": "U1",
+          "activity_id": "U1-A15",
+          "content_revision": "blackeye-u1-content-v1-00000000000f",
+          "policy_revision": "selfcheck-v1",
+          "answer_set_revision": "00000000-0000-4000-8000-000000000215"
+        },
+        "test_id": "00000000-0000-4000-8000-000000000045",
+        "title": "Synthetic activity 15",
+        "order": 15,
+        "readiness": "ready",
+        "readiness_reasons": [],
+        "selectable": true,
+        "response_cell_count": 3,
+        "scoring_policy": "report_only",
+        "items": [
+          {
+            "source_item_id": "A15-c1",
+            "q_num": 1,
+            "source_display_number": "01",
+            "interaction": "text",
+            "prompt": "Ô giả 1",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r1",
+            "column_id": "c2"
+          },
+          {
+            "source_item_id": "A15-c2",
+            "q_num": 2,
+            "source_display_number": "02",
+            "interaction": "text",
+            "prompt": "Ô giả 2",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r2",
+            "column_id": "c2"
+          },
+          {
+            "source_item_id": "A15-c3",
+            "q_num": 3,
+            "source_display_number": "03",
+            "interaction": "text",
+            "prompt": "Ô giả 3",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r3",
+            "column_id": "c2"
+          }
+        ]
+      },
+      {
+        "binding": {
+          "programme_id": "blackeye-v5-upper-listening",
+          "collection_id": "blackeye-v5-upper",
+          "source_contract": "blackeye_u1_v1",
+          "unit_id": "U1",
+          "activity_id": "U1-A16",
+          "content_revision": "blackeye-u1-content-v1-000000000010",
+          "policy_revision": "selfcheck-v1",
+          "answer_set_revision": "00000000-0000-4000-8000-000000000216"
+        },
+        "test_id": "00000000-0000-4000-8000-000000000046",
+        "title": "Synthetic activity 16",
+        "order": 16,
+        "readiness": "ready",
+        "readiness_reasons": [],
+        "selectable": true,
+        "response_cell_count": 3,
+        "scoring_policy": "report_only",
+        "items": [
+          {
+            "source_item_id": "A16-c1",
+            "q_num": 1,
+            "source_display_number": "01",
+            "interaction": "text",
+            "prompt": "Ô giả 1",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r1",
+            "column_id": "c2"
+          },
+          {
+            "source_item_id": "A16-c2",
+            "q_num": 2,
+            "source_display_number": "02",
+            "interaction": "text",
+            "prompt": "Ô giả 2",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r2",
+            "column_id": "c2"
+          },
+          {
+            "source_item_id": "A16-c3",
+            "q_num": 3,
+            "source_display_number": "03",
+            "interaction": "text",
+            "prompt": "Ô giả 3",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r3",
+            "column_id": "c2"
+          }
+        ]
+      },
+      {
+        "binding": {
+          "programme_id": "blackeye-v5-upper-listening",
+          "collection_id": "blackeye-v5-upper",
+          "source_contract": "blackeye_u1_v1",
+          "unit_id": "U1",
+          "activity_id": "U1-A17",
+          "content_revision": "blackeye-u1-content-v1-000000000011",
+          "policy_revision": "selfcheck-v1",
+          "answer_set_revision": "00000000-0000-4000-8000-000000000217"
+        },
+        "test_id": "00000000-0000-4000-8000-000000000047",
+        "title": "Synthetic activity 17",
+        "order": 17,
+        "readiness": "ready",
+        "readiness_reasons": [],
+        "selectable": true,
+        "response_cell_count": 3,
+        "scoring_policy": "report_only",
+        "items": [
+          {
+            "source_item_id": "A17-c1",
+            "q_num": 1,
+            "source_display_number": "01",
+            "interaction": "text",
+            "prompt": "Ô giả 1",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r1",
+            "column_id": "c2"
+          },
+          {
+            "source_item_id": "A17-c2",
+            "q_num": 2,
+            "source_display_number": "02",
+            "interaction": "text",
+            "prompt": "Ô giả 2",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r2",
+            "column_id": "c2"
+          },
+          {
+            "source_item_id": "A17-c3",
+            "q_num": 3,
+            "source_display_number": "03",
+            "interaction": "text",
+            "prompt": "Ô giả 3",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r3",
+            "column_id": "c2"
+          }
+        ]
+      },
+      {
+        "binding": {
+          "programme_id": "blackeye-v5-upper-listening",
+          "collection_id": "blackeye-v5-upper",
+          "source_contract": "blackeye_u1_v1",
+          "unit_id": "U1",
+          "activity_id": "U1-A18",
+          "content_revision": "blackeye-u1-content-v1-000000000012",
+          "policy_revision": "selfcheck-v1",
+          "answer_set_revision": "00000000-0000-4000-8000-000000000218"
+        },
+        "test_id": "00000000-0000-4000-8000-000000000048",
+        "title": "Synthetic activity 18",
+        "order": 18,
+        "readiness": "ready",
+        "readiness_reasons": [],
+        "selectable": true,
+        "response_cell_count": 3,
+        "scoring_policy": "report_only",
+        "items": [
+          {
+            "source_item_id": "A18-c1",
+            "q_num": 1,
+            "source_display_number": "01",
+            "interaction": "text",
+            "prompt": "Ô giả 1",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r1",
+            "column_id": "c2"
+          },
+          {
+            "source_item_id": "A18-c2",
+            "q_num": 2,
+            "source_display_number": "02",
+            "interaction": "text",
+            "prompt": "Ô giả 2",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r2",
+            "column_id": "c2"
+          },
+          {
+            "source_item_id": "A18-c3",
+            "q_num": 3,
+            "source_display_number": "03",
+            "interaction": "text",
+            "prompt": "Ô giả 3",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r3",
+            "column_id": "c2"
+          }
+        ]
+      },
+      {
+        "binding": {
+          "programme_id": "blackeye-v5-upper-listening",
+          "collection_id": "blackeye-v5-upper",
+          "source_contract": "blackeye_u1_v1",
+          "unit_id": "U1",
+          "activity_id": "U1-A19",
+          "content_revision": "blackeye-u1-content-v1-000000000013",
+          "policy_revision": "selfcheck-v1",
+          "answer_set_revision": "00000000-0000-4000-8000-000000000219"
+        },
+        "test_id": null,
+        "title": "Synthetic activity 19",
+        "order": 19,
+        "readiness": "locked",
+        "readiness_reasons": [
+          "original_options_unreviewed"
+        ],
+        "selectable": false,
+        "response_cell_count": 3,
+        "scoring_policy": "report_only",
+        "items": [
+          {
+            "source_item_id": "A19-c1",
+            "q_num": 1,
+            "source_display_number": "01",
+            "interaction": "text",
+            "prompt": "Ô giả 1",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r1",
+            "column_id": "c2"
+          },
+          {
+            "source_item_id": "A19-c2",
+            "q_num": 2,
+            "source_display_number": "02",
+            "interaction": "text",
+            "prompt": "Ô giả 2",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r2",
+            "column_id": "c2"
+          },
+          {
+            "source_item_id": "A19-c3",
+            "q_num": 3,
+            "source_display_number": "03",
+            "interaction": "text",
+            "prompt": "Ô giả 3",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r3",
+            "column_id": "c2"
+          }
+        ]
+      },
+      {
+        "binding": {
+          "programme_id": "blackeye-v5-upper-listening",
+          "collection_id": "blackeye-v5-upper",
+          "source_contract": "blackeye_u1_v1",
+          "unit_id": "U1",
+          "activity_id": "U1-A20",
+          "content_revision": "blackeye-u1-content-v1-000000000014",
+          "policy_revision": "selfcheck-v1",
+          "answer_set_revision": "00000000-0000-4000-8000-000000000220"
+        },
+        "test_id": "00000000-0000-4000-8000-000000000050",
+        "title": "Synthetic activity 20",
+        "order": 20,
+        "readiness": "ready",
+        "readiness_reasons": [],
+        "selectable": true,
+        "response_cell_count": 3,
+        "scoring_policy": "report_only",
+        "items": [
+          {
+            "source_item_id": "A20-c1",
+            "q_num": 1,
+            "source_display_number": "01",
+            "interaction": "text",
+            "prompt": "Ô giả 1",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r1",
+            "column_id": "c2"
+          },
+          {
+            "source_item_id": "A20-c2",
+            "q_num": 2,
+            "source_display_number": "02",
+            "interaction": "text",
+            "prompt": "Ô giả 2",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r2",
+            "column_id": "c2"
+          },
+          {
+            "source_item_id": "A20-c3",
+            "q_num": 3,
+            "source_display_number": "03",
+            "interaction": "text",
+            "prompt": "Ô giả 3",
+            "instruction": "Viết không quá hai từ.",
+            "givens": [],
+            "group_id": "table",
+            "row_id": "r3",
+            "column_id": "c2"
+          }
+        ]
+      }
+    ]
+  },
+  "eligible_recipients": [
+    {
+      "student_id": "00000000-0000-4000-8000-000000000011",
+      "display_name": "Học viên Giả An"
+    },
+    {
+      "student_id": "00000000-0000-4000-8000-000000000012",
+      "display_name": "Học viên Giả Bình"
+    },
+    {
+      "student_id": "00000000-0000-4000-8000-000000000013",
+      "display_name": "Học viên Giả Chi"
+    }
+  ],
+  "lookup_errors": []
+}

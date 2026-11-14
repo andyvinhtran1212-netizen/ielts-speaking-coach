@@ -146,6 +146,20 @@ def parse_quick_answer_key(solution_text: str) -> dict[int, str]:
     return out
 
 
+def parse_keep_change_answer(raw: str, q_num: int) -> tuple[str, str, list[str]]:
+    """Return action and corrected-text forms; KEEP has no correction text."""
+    raw = (raw or "").strip()
+    if raw.upper() == "KEEP":
+        return "KEEP", "KEEP", []
+    match = re.fullmatch(r"CHANGE:\s*(\S[\s\S]*)", raw, re.IGNORECASE)
+    if match:
+        correction = match.group(1).strip()
+        if "|" not in correction and all(part.strip() for part in correction.split("/")):
+            canonical, alternatives = split_answer_variants(correction)
+            return "CHANGE", canonical, alternatives
+    raise ValueError(f"Q{q_num}: keep_change cần KEEP hoặc CHANGE: <corrected text> (biến thể dùng /).")
+
+
 # ── Band-conversion table ──────────────────────────────────────────────────
 
 def parse_band_conversion(solution_text: str) -> list[dict]:
@@ -425,10 +439,20 @@ def parse_fulltest(qp_text: str, solution_text: str, timings: dict) -> FullTestP
                 f"nào (sai định dạng — kỳ vọng `### Questions N-M` hoặc `### Question N`). "
                 f"Các câu dưới nó sẽ bị bỏ qua — sửa heading rồi import lại."
             )
-        blocks = lc.parse_question_blocks(qp_sections[section_num])
+        try:
+            blocks = lc.parse_question_blocks(qp_sections[section_num])
+        except ValueError as exc:
+            res.errors.append(f"Section {section_num}: {exc}")
+            continue
         sec_id = f"S{section_num}"
         sec_qcount = 0
         for block in blocks:
+            if block.get("q_type") == "keep_change":
+                lo, hi = block["q_range"]
+                extracted = [q["q_num"] for q in block.get("questions", [])]
+                for n in range(lo, hi + 1):
+                    if extracted.count(n) != 1:
+                        res.errors.append(f"Q{n}: keep_change cần đúng một printed value dạng **N.** <text>.")
             # W-0 — never classify a block as a guess silently. An `unknown`
             # q_type means the instruction matched no marker + no regex; warn so
             # the admin preview shows a red banner instead of mis-rendering.
@@ -444,7 +468,19 @@ def parse_fulltest(qp_text: str, solution_text: str, timings: dict) -> FullTestP
                 seen_q.add(q_num)
                 sec_qcount += 1
                 canonical, alternatives = split_answer_variants(qak.get(q_num) or "")
+                keep_change = {}
+                if block["q_type"] == "keep_change":
+                    try:
+                        action, canonical, alternatives = parse_keep_change_answer(qak.get(q_num) or "", q_num)
+                        keep_change = {"keep_change_action": action, "printed_value": q["printed_value"]}
+                        solution_answer = (sol_blocks.get(q_num) or {}).get("answer")
+                        sol_action, _, _ = parse_keep_change_answer(solution_answer or "", q_num)
+                        if sol_action != action:
+                            raise ValueError(f"Q{q_num}: KEEP/CHANGE trong Solution khác Quick Answer Key.")
+                    except ValueError as exc:
+                        res.errors.append(str(exc))
                 merged = {
+                    **keep_change,
                     "q_num":         q_num,
                     "section":       sec_id,
                     "section_num":   section_num,
@@ -456,6 +492,8 @@ def parse_fulltest(qp_text: str, solution_text: str, timings: dict) -> FullTestP
                     "answer":        canonical or None,
                     "alternatives":  alternatives,
                     "solution":      sol_blocks.get(q_num, {}),
+                    **({"scoring": "self_check"}
+                       if (block.get("metadata") or {}).get("scoring") == "self_check" else {}),
                 }
                 # Replay window: audio:// is authoritative; validate vs timings.
                 sol = sol_blocks.get(q_num) or {}
@@ -557,6 +595,8 @@ def build_section_persistence(res: "FullTestParseResult", qp_text: str) -> list[
         blocks = lc.parse_question_blocks(qp_sections[section_num])
         answers = [{"q_num": q["q_num"], "answer": q["answer"] or "",
                     "alternatives": q.get("alternatives") or [],
+                    **({"scoring": "self_check"} if q.get("scoring") == "self_check" else {}),
+                    **({"keep_change_action": q["keep_change_action"]} if "keep_change_action" in q else {}),
                     **({"response_policy": policies[q["q_num"]]} if q["q_num"] in policies else {})}
                    for q in sec_questions]
         exercises = lc.build_exercises(blocks, answers, section_num)
@@ -662,11 +702,25 @@ def _validate(res: FullTestParseResult, qak: dict, sol_blocks: dict,
             f"`### Question(s) N`). Sửa rồi import lại."
         )
 
+    # Mixed full tests still receive a raw-score band on the 40-point scale.
+    # Target band / conversion-table metadata does not disable that grading.
+    # All-self-check tests have no scored items and therefore no band.
+    self_check = [q for q in res.questions if q.get("scoring") == "self_check"]
+    if (len(seen_q) == _EXPECTED_QUESTIONS and self_check
+            and len(self_check) < len(res.questions)):
+        res.errors.append(
+            "self-check items are not allowed on 40-question band-bearing tests."
+        )
+
     for q in res.questions:
         n = q["q_num"]
         # every question must have an answer (Quick Answer Key)
         if not q.get("answer"):
             res.errors.append(f"Q{n}: thiếu đáp án trong Quick Answer Key.")
+        if q.get("scoring") == "self_check":
+            solution = sol_blocks.get(n) or {}
+            if not solution.get("answer") or not solution.get("why_correct"):
+                res.errors.append(f"Q{n}: tự đối chiếu cần đáp án tham khảo và lời giải trong Solution.")
         # every question must have a replay window (audio://)
         win = q.get("audio_window")
         if not win:

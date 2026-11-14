@@ -132,11 +132,13 @@ Present Perfect dùng khi hành động xảy ra trong quá khứ **nhưng vẫn
 ## Tại sao quan trọng
 
 Present Perfect là thì gây lỗi nhiều nhất trong IELTS Speaking vì:
+
 - Tiếng Việt **không có thì này** — "Tôi đã ăn" có thể là Past Simple hoặc Present Perfect tuỳ ngữ cảnh
 - Người học hay dùng Past Simple khi cần Present Perfect: đếm trải nghiệm tính tới hiện tại là ✅ "I **have visited** Vietnam three times"; còn khoảng quá khứ đã kết thúc thì dùng Past Simple: "I **visited** Vietnam three times between 2018 and 2020". Việc còn ở đó hay có thể quay lại không tự quyết định thì
 - Hay dùng Present Perfect khi cần Past Simple: ❌ "I have visited Vietnam last year"
 
 Trong IELTS Speaking:
+
 - **Part 1:** "Have you ever tried...?", "How long have you been...?"
 - **Part 2:** Nói về trải nghiệm đáng nhớ
 - **Part 3:** "In recent years, attitudes have changed significantly..."
@@ -144,6 +146,7 @@ Trong IELTS Speaking:
 ## Định nghĩa
 
 Present Perfect diễn tả:
+
 1. **Trải nghiệm trong cuộc đời** (không cần biết khi nào)
 2. **Hành động vừa xảy ra** và còn ảnh hưởng đến hiện tại
 3. **Tình trạng kéo dài từ quá khứ đến nay** (dùng with *since/for*)
@@ -186,6 +189,7 @@ Have/Has + Subject + Past Participle ...?
 ### Past Participle (V3) — quy tắc
 
 **Động từ có quy tắc (Regular verbs):** thêm **-ed** (giống Past Simple)
+
 - work → work**ed**
 - study → studi**ed**
 - travel → travel**led**
@@ -248,6 +252,7 @@ Have/Has + Subject + Past Participle ...?
 - They **have already seen** that film.
 
 **Khi nào KHÔNG hỏi "when?":** Nếu câu hỏi tiếp theo là "when?", bạn phải chuyển sang Past Simple.
+
 - A: "Have you been to Paris?" → B: "Yes, I have." → A: "When **did** you go?" *(Past Simple vì hỏi thời điểm)*
 
 <!-- anchor: present-perfect.usage.recent-result -->
@@ -260,6 +265,7 @@ Hành động kết thúc trong quá khứ gần, nhưng **kết quả của nó
 - The bus **has left**. *(Xe buýt đã đi rồi — bạn bỏ lỡ nó)*
 
 So sánh với Past Simple:
+
 - "I **had** lunch at noon." → Đơn giản nêu sự kiện quá khứ, không nhấn mạnh hiện tại.
 - "I **have just had** lunch." → Nhấn mạnh rằng hiện tại tôi no, không muốn ăn nữa.
 
@@ -274,6 +280,7 @@ Khi một tình trạng **bắt đầu trong quá khứ và vẫn tiếp tục �
 - He **has worked** at this company **for** a decade.
 
 **Since** vs. **For:**
+
 - **Since** + thời điểm bắt đầu: *since 2018, since Monday, since I was a child*
 - **For** + khoảng thời gian: *for 3 years, for two months, for a long time*
 
@@ -448,6 +455,7 @@ Tiếng Việt dùng "đã" cho cả Past Simple và Present Perfect — ngữ c
 ### Đáp án
 
 **Chọn đúng:**
+
 1. **saw** (last Friday = mốc cụ thể → Past Simple)
 2. **Have** you ever **tried** (trải nghiệm cuộc đời → Present Perfect)
 3. **has lived** (tình trạng from 2018 đến nay → Present Perfect)
@@ -455,11 +463,13 @@ Tiếng Việt dùng "đã" cho cả Past Simple và Present Perfect — ngữ c
 5. **have just discovered** (Scientists số nhiều → have + V3)
 
 **Viết lại:**
+
 1. I have learned English for eight years.
 2. She hasn't visited her hometown since 2019.
 3. He has lived in Hanoi (for some time / since he moved there).
 
 **Sửa lỗi:**
+
 1. I **met** her last week (last week = mốc cụ thể)
 2. Have you **finished** (V3, không phải nguyên thể)
 3. She has **gone** (V3 of go, không phải went)

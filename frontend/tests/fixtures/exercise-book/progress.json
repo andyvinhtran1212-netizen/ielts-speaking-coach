@@ -1,0 +1,261 @@
+{
+  "assignment_id": "00000000-0000-4000-8000-000000000002",
+  "cohort_id": "00000000-0000-4000-8000-000000000001",
+  "activities": [
+    {
+      "activity_key": "U1-A01",
+      "test_id": "00000000-0000-4000-8000-000000000031",
+      "position": 1
+    },
+    {
+      "activity_key": "U1-A02",
+      "test_id": "00000000-0000-4000-8000-000000000032",
+      "position": 2
+    },
+    {
+      "activity_key": "U1-A03",
+      "test_id": "00000000-0000-4000-8000-000000000033",
+      "position": 3
+    },
+    {
+      "activity_key": "U1-A04",
+      "test_id": "00000000-0000-4000-8000-000000000034",
+      "position": 4
+    },
+    {
+      "activity_key": "U1-A05",
+      "test_id": "00000000-0000-4000-8000-000000000035",
+      "position": 5
+    },
+    {
+      "activity_key": "U1-A06",
+      "test_id": "00000000-0000-4000-8000-000000000036",
+      "position": 6
+    },
+    {
+      "activity_key": "U1-A07",
+      "test_id": "00000000-0000-4000-8000-000000000037",
+      "position": 7
+    }
+  ],
+  "students": [
+    {
+      "student_id": "00000000-0000-4000-8000-000000000011",
+      "display_name": "Học viên Giả An",
+      "item_id": "00000000-0000-4000-8000-000000000021"
+    },
+    {
+      "student_id": "00000000-0000-4000-8000-000000000012",
+      "display_name": "Học viên Giả Bình",
+      "item_id": "00000000-0000-4000-8000-000000000022"
+    },
+    {
+      "student_id": "00000000-0000-4000-8000-000000000013",
+      "display_name": "Học viên Giả Chi",
+      "item_id": "00000000-0000-4000-8000-000000000023"
+    }
+  ],
+  "cells": [
+    {
+      "student_id": "00000000-0000-4000-8000-000000000011",
+      "activity_id": "U1-A01",
+      "item_id": "00000000-0000-4000-8000-000000000021",
+      "attempt_id": "00000000-0000-4000-8000-000000000101",
+      "status": "submitted",
+      "submitted_at": "2026-11-12T08:15:00+07:00",
+      "blank_count": 0
+    },
+    {
+      "student_id": "00000000-0000-4000-8000-000000000011",
+      "activity_id": "U1-A02",
+      "item_id": "00000000-0000-4000-8000-000000000021",
+      "attempt_id": "00000000-0000-4000-8000-000000000102",
+      "status": "submitted",
+      "submitted_at": "2026-11-12T09:15:00+07:00",
+      "blank_count": 1
+    },
+    {
+      "student_id": "00000000-0000-4000-8000-000000000011",
+      "activity_id": "U1-A03",
+      "item_id": "00000000-0000-4000-8000-000000000021",
+      "attempt_id": "00000000-0000-4000-8000-000000000103",
+      "status": "submitted",
+      "submitted_at": "2026-11-12T10:15:00+07:00",
+      "blank_count": 0
+    },
+    {
+      "student_id": "00000000-0000-4000-8000-000000000011",
+      "activity_id": "U1-A04",
+      "item_id": "00000000-0000-4000-8000-000000000021",
+      "attempt_id": "00000000-0000-4000-8000-000000000104",
+      "status": "in_progress",
+      "submitted_at": null,
+      "blank_count": null
+    },
+    {
+      "student_id": "00000000-0000-4000-8000-000000000011",
+      "activity_id": "U1-A05",
+      "item_id": "00000000-0000-4000-8000-000000000021",
+      "attempt_id": null,
+      "status": "not_started",
+      "submitted_at": null,
+      "blank_count": null
+    },
+    {
+      "student_id": "00000000-0000-4000-8000-000000000011",
+      "activity_id": "U1-A06",
+      "item_id": "00000000-0000-4000-8000-000000000021",
+      "attempt_id": null,
+      "status": "not_started",
+      "submitted_at": null,
+      "blank_count": null
+    },
+    {
+      "student_id": "00000000-0000-4000-8000-000000000011",
+      "activity_id": "U1-A07",
+      "item_id": "00000000-0000-4000-8000-000000000021",
+      "attempt_id": "00000000-0000-4000-8000-000000000105",
+      "status": "expired",
+      "submitted_at": null,
+      "blank_count": null
+    },
+    {
+      "student_id": "00000000-0000-4000-8000-000000000012",
+      "activity_id": "U1-A01",
+      "item_id": "00000000-0000-4000-8000-000000000022",
+      "attempt_id": "00000000-0000-4000-8000-000000000106",
+      "status": "submitted",
+      "submitted_at": "2026-11-12T08:15:00+07:00",
+      "blank_count": 0
+    },
+    {
+      "student_id": "00000000-0000-4000-8000-000000000012",
+      "activity_id": "U1-A02",
+      "item_id": "00000000-0000-4000-8000-000000000022",
+      "attempt_id": "00000000-0000-4000-8000-000000000107",
+      "status": "in_progress",
+      "submitted_at": null,
+      "blank_count": null
+    },
+    {
+      "student_id": "00000000-0000-4000-8000-000000000012",
+      "activity_id": "U1-A03",
+      "item_id": "00000000-0000-4000-8000-000000000022",
+      "attempt_id": null,
+      "status": "not_started",
+      "submitted_at": null,
+      "blank_count": null
+    },
+    {
+      "student_id": "00000000-0000-4000-8000-000000000012",
+      "activity_id": "U1-A04",
+      "item_id": "00000000-0000-4000-8000-000000000022",
+      "attempt_id": null,
+      "status": "not_started",
+      "submitted_at": null,
+      "blank_count": null
+    },
+    {
+      "student_id": "00000000-0000-4000-8000-000000000012",
+      "activity_id": "U1-A05",
+      "item_id": "00000000-0000-4000-8000-000000000022",
+      "attempt_id": null,
+      "status": "not_started",
+      "submitted_at": null,
+      "blank_count": null
+    },
+    {
+      "student_id": "00000000-0000-4000-8000-000000000012",
+      "activity_id": "U1-A06",
+      "item_id": "00000000-0000-4000-8000-000000000022",
+      "attempt_id": null,
+      "status": "unavailable",
+      "submitted_at": null,
+      "blank_count": null
+    },
+    {
+      "student_id": "00000000-0000-4000-8000-000000000012",
+      "activity_id": "U1-A07",
+      "item_id": "00000000-0000-4000-8000-000000000022",
+      "attempt_id": null,
+      "status": "not_started",
+      "submitted_at": null,
+      "blank_count": null
+    },
+    {
+      "student_id": "00000000-0000-4000-8000-000000000013",
+      "activity_id": "U1-A01",
+      "item_id": "00000000-0000-4000-8000-000000000023",
+      "attempt_id": null,
+      "status": "not_started",
+      "submitted_at": null,
+      "blank_count": null
+    },
+    {
+      "student_id": "00000000-0000-4000-8000-000000000013",
+      "activity_id": "U1-A02",
+      "item_id": "00000000-0000-4000-8000-000000000023",
+      "attempt_id": null,
+      "status": "not_started",
+      "submitted_at": null,
+      "blank_count": null
+    },
+    {
+      "student_id": "00000000-0000-4000-8000-000000000013",
+      "activity_id": "U1-A03",
+      "item_id": "00000000-0000-4000-8000-000000000023",
+      "attempt_id": null,
+      "status": "not_started",
+      "submitted_at": null,
+      "blank_count": null
+    },
+    {
+      "student_id": "00000000-0000-4000-8000-000000000013",
+      "activity_id": "U1-A04",
+      "item_id": "00000000-0000-4000-8000-000000000023",
+      "attempt_id": null,
+      "status": "not_started",
+      "submitted_at": null,
+      "blank_count": null
+    },
+    {
+      "student_id": "00000000-0000-4000-8000-000000000013",
+      "activity_id": "U1-A05",
+      "item_id": "00000000-0000-4000-8000-000000000023",
+      "attempt_id": null,
+      "status": "not_started",
+      "submitted_at": null,
+      "blank_count": null
+    },
+    {
+      "student_id": "00000000-0000-4000-8000-000000000013",
+      "activity_id": "U1-A06",
+      "item_id": "00000000-0000-4000-8000-000000000023",
+      "attempt_id": null,
+      "status": "not_started",
+      "submitted_at": null,
+      "blank_count": null
+    },
+    {
+      "student_id": "00000000-0000-4000-8000-000000000013",
+      "activity_id": "U1-A07",
+      "item_id": "00000000-0000-4000-8000-000000000023",
+      "attempt_id": null,
+      "status": "not_started",
+      "submitted_at": null,
+      "blank_count": null
+    }
+  ],
+  "completion": {
+    "denominator": 7,
+    "submitted_by_student": {
+      "00000000-0000-4000-8000-000000000011": 3,
+      "00000000-0000-4000-8000-000000000012": 1,
+      "00000000-0000-4000-8000-000000000013": 0
+    }
+  },
+  "dictation": {
+    "available": false,
+    "reason": "separate_release_required"
+  }
+}

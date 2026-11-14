@@ -153,6 +153,13 @@ def _fetch_owned_attempt(skill: str, attempt_id: str, user: Optional[dict], anon
     if not res.data:
         raise HTTPException(404, "Attempt not found")
     row = res.data[0]
+    if skill == "listening":
+        from services import listening_blackeye
+        owned = user is not None and row.get("user_id") == user.get("id")
+        listening_blackeye.guard_generic_target(
+            supabase_admin, attempt_id=attempt_id,
+            denied_status=422 if owned else 404,
+            denied_detail="Black Eye feedback unavailable." if owned else "Attempt not found")
     owner = row.get("user_id")
     if owner:
         if not user or user.get("id") != owner:
@@ -190,12 +197,8 @@ def _resolve_practice_ref(skill: str, passage_slug: str | None, content_id: str 
         uuid.UUID(cid)
     except ValueError:
         raise HTTPException(422, "content_id must be a UUID")
-    res = (
-        supabase_admin.table("listening_content")
-        .select("id").eq("id", cid).limit(1).execute()
-    )
-    if not res.data:
-        raise HTTPException(404, "Content not found")
+    from services.listening_blackeye import guard_generic_content
+    guard_generic_content(supabase_admin, cid, denied_detail="Content not found")
     return f"exercise:{cid}"
 
 

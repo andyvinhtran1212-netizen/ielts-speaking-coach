@@ -75,6 +75,7 @@ anchors:
 ## Tóm tắt
 
 Tiếng Anh có 3 mạo từ:
+
 - **a / an** — mạo từ không xác định (indefinite article): danh từ đếm được số ít, đối tượng chưa được xác định với người nghe
 - **the** — mạo từ xác định (definite article): đã biết, duy nhất, hoặc đã nhắc trước
 - **∅** (zero article) — không dùng mạo từ: danh từ số nhiều chung chung, danh từ không đếm được chung chung
@@ -88,13 +89,16 @@ Tiếng Việt **không có mạo từ** — đây là lý do người Việt m�
 ### Khi dùng "a / an"
 
 **1. Lần đầu tiên nhắc đến một vật:**
+
 - I saw **a dog** in the park. The **dog** was barking loudly. (lần 2 → "the")
 
 **2. Danh từ đếm được số ít, không xác định:**
+
 - She's looking for **a job**.
 - He wants to buy **a new laptop**.
 
 **3. Phân loại, nghề nghiệp:**
+
 - She is **a doctor**.
 - He wants to become **an engineer**.
 
@@ -114,48 +118,59 @@ Tiếng Việt **không có mạo từ** — đây là lý do người Việt m�
 ### Khi dùng "the"
 
 **1. Đã nhắc đến trước:**
+
 - I bought **a book**. **The book** was really interesting.
 
 **2. Người nghe/đọc biết đang nói đến cái gì:**
+
 - Can you close **the door**? (cái cửa trong phòng này)
 - **The president** gave a speech. (tổng thống — ai cũng biết là ai)
 
 **3. Duy nhất (unique) trên thế giới:**
+
 - **the sun**, **the moon**, **the earth**, **the sky**, **the internet**, **the government**
 
 **4. Superlative và thứ tự (ordinal numbers):**
+
 - She's **the most intelligent** student in class.
 - This is **the first** time I've visited London.
 - He was **the only** person who understood.
 
 **5. Nhạc cụ khi nói về việc chơi:**
+
 - She plays **the piano** / **the guitar** / **the violin**.
 
 **6. Biển, sông, núi theo nhóm, tên quốc gia số nhiều:**
+
 - **the** Amazon, **the** Pacific Ocean, **the** Alps
 - **the** United States, **the** Netherlands, **the** Philippines
 
 ### Khi không dùng mạo từ (Zero Article ∅)
 
 **1. Danh từ số nhiều mang nghĩa chung:**
+
 - **∅ Dogs** are loyal animals. (chó nói chung)
 - **∅ Children** need love and care.
 
 **2. Danh từ không đếm được mang nghĩa chung:**
+
 - **∅ Water** is essential for life.
 - **∅ Pollution** is a major problem.
 - I love **∅ music**.
 
 **3. Tên người, tên riêng:**
+
 - **∅ Vietnam** is in Southeast Asia. (nhưng: **the** United States)
 - **∅ London** is expensive. (nhưng: **the** Hague)
 
 **4. Bữa ăn, môn thể thao, ngôn ngữ:**
+
 - I had **∅ breakfast** at 7am.
 - She plays **∅ tennis** every weekend.
 - He speaks **∅ Vietnamese** fluently.
 
 **5. Trường học, nhà thờ, bệnh viện (khi dùng với mục đích chức năng):**
+
 - She's in **∅ hospital**. (đang là bệnh nhân — British English)
 - He goes to **∅ university** next year. (đi học)
 - Nhưng: **The** hospital is on the left. (nói về tòa nhà cụ thể)
@@ -226,16 +241,19 @@ Tiếng Việt **không có mạo từ** — đây là lý do người Việt m�
 ### Writing Task 2 — các lỗi phổ biến cần tránh:
 
 **Chủ đề môi trường:**
+
 - ✅ **The** environment is under increasing pressure from human activity.
 - ✅ **∅ Pollution** is one of **the** most serious problems facing **the** world today.
 - ✅ Governments should protect **the** natural world for future generations.
 
 **Chủ đề giáo dục:**
+
 - ✅ **∅ Education** is widely regarded as **the** foundation of **∅ economic development**.
 - ✅ **The** government has **a** responsibility to ensure access to **∅ quality education**.
 - ✅ Students at **∅ university** level should develop critical thinking skills.
 
 **Chủ đề công nghệ:**
+
 - ✅ **∅ Technology** has transformed **the** way we communicate.
 - ✅ **The** internet has made **∅ information** accessible to **∅ people** around **the** world.
 - ✅ **The** rise of **∅ artificial intelligence** poses both opportunities and challenges.
@@ -272,6 +290,7 @@ Tiếng Việt **không có mạo từ** — đây là lý do người Việt m�
 ### Đáp án
 
 **Điền a / an / the / ∅:**
+
 1. an | the | the
 2. ∅ | the | the
 3. an | the | ∅
@@ -282,6 +301,7 @@ Tiếng Việt **không có mạo từ** — đây là lý do người Việt m�
 8. ∅ (bệnh nhân trong BrE) / the (AmE) | The
 
 **Sửa lỗi:**
+
 1. **∅ Education** is **a** key to economic success.
 2. She is **an** honest person who always tells **the** truth.
 3. I need **∅ information** about the flights to **∅ Vietnam**.
@@ -297,6 +317,7 @@ Tiếng Việt **không có mạo từ** — đây là lý do người Việt m�
 | **∅** | Danh từ chung chung (số nhiều hoặc uncountable), tên riêng (hầu hết), bữa ăn, ngôn ngữ, môn thể thao |
 
 **3 lỗi người Việt mắc nhiều nhất:**
+
 1. Bỏ "the" trước: the government / the environment / the internet / the first time
 2. Thêm "the" vào: technology, education, people, nature (khi nói chung chung)
 3. Dùng "a" với uncountable: a information, a advice; knowledge thường không đếm được nhưng a knowledge of là mẫu hợp lệ

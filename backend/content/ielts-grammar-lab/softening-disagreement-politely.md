@@ -85,6 +85,7 @@ anchors:
 ## Tại sao quan trọng
 
 Trong IELTS Speaking Part 3, examiner thường nói những câu như:
+
 - "Some people think that technology is ruining communication. What do you think?"
 - "Do you agree that young people today are less hardworking than previous generations?"
 

@@ -64,7 +64,7 @@ Inversion = **đảo vị trí trợ động từ và chủ ngữ** để tạo 
 
 ## Tại sao quan trọng
 
-- **Band 7+ marker:** Inversion signals advanced grammatical control
+- **Thể hiện độ đa dạng ngữ pháp:** dùng đúng đảo ngữ cho thấy khả năng kiểm soát cấu trúc nâng cao
 - **Nhấn mạnh:** đặt trọng tâm vào thông tin quan trọng
 - **Trang trọng:** phù hợp với academic writing và formal speech
 - **IELTS Writing Task 2:** mở đầu body paragraph ấn tượng và đa dạng
@@ -87,7 +87,7 @@ Negative adverbial + Auxiliary + Subject + Main verb
 | **Never** | Không bao giờ | Never have I seen such chaos. |
 | **Rarely / Seldom** | Hiếm khi | Rarely do scientists agree unanimously. |
 | **Hardly / Scarcely … when** | Vừa mới … thì | Hardly had he spoken when she objected. |
-| **Not only** | Không chỉ | Not only does it pollute, but it also depletes. |
+| **Not only** | Không chỉ | Not only does it pollute the air, but it also depletes natural resources. |
 | **No sooner...than** | Vừa...thì | No sooner had she arrived than problems started. |
 | **At no time** | Không bao giờ | At no time was the public informed. |
 | **In no way** | Không theo cách nào | In no way is this acceptable. |
@@ -198,7 +198,7 @@ Inversion nhấn mạnh không phải câu hỏi — không có dấu chấm h�
 - ❌ Rarely scientists agree unanimously.
 - ✅ **Rarely do scientists** agree unanimously.
 
-### Lỗi 2: Dùng sai thì trợ động từ
+### Lỗi 2: Chia động từ chính sau trợ động từ đảo
 
 - ❌ Not only did she passes the test...
 - ✅ Not only **did** she **pass** the test... (did + bare infinitive)
@@ -223,7 +223,7 @@ Inversion nhấn mạnh không phải câu hỏi — không có dấu chấm h�
 
 ### Lỗi 6: Dùng inversion quá mức
 
-Inversion là cấu trúc nhấn mạnh — dùng sparingly. Không bắt đầu mọi câu bằng đảo ngữ.
+Inversion là cấu trúc nhấn mạnh — dùng có chừng mực. Không bắt đầu mọi câu bằng đảo ngữ.
 
 ### Lỗi 7: Dùng "do" nhấn mạnh nhưng thêm -s/-ed vào main verb
 
@@ -319,6 +319,7 @@ Inversion là cấu trúc nhấn mạnh — dùng sparingly. Không bắt đầu
 ### Đáp án
 
 **Viết lại:**
+
 1. Never have I seen such a talented student.
 2. Had the government invested earlier, the outcome would have been different.
 3. Hardly had she sat down when her boss called.
@@ -326,13 +327,15 @@ Inversion là cấu trúc nhấn mạnh — dùng sparingly. Không bắt đầu
 5. Should you have any queries, do not hesitate to contact us.
 
 **Sửa lỗi:**
+
 1. **Never have I** encountered such resistance.
 2. **Hardly had** she **arrived** when the ceremony began.
 3. Not only **is** she intelligent, but she also works hard.
-4. Should any problem arise, **contact our team**. (Nếu ý đích là yêu cầu người đọc liên hệ đội ngũ; our team will contact you đổi người liên hệ và thêm cam kết, không phải sửa tối thiểu.)
+4. Should any problem arise, **contact our team**. (bỏ "you")
 5. No sooner had he started **than** problems began.
 
 **Cấu trúc nhấn mạnh:**
+
 1. It is **education** that is the most important factor.
 2. What governments need to do is **invest more**.
 3. The situation is **by no means** simple.
@@ -347,9 +350,10 @@ Inversion là cấu trúc nhấn mạnh — dùng sparingly. Không bắt đầu
 | Conditional (had) | Had + S + V3, would have... | Had I known, I would have... |
 | Conditional (should) | Should + S + V, ... | Should problems arise... |
 | Conditional (were) | Were + S + to V, ... | Were she to apply... |
-| So...that | So + adj + aux + S + that | So severe was the drought that... |
+| So...that | So + adj + be + S + that | So severe was the drought that... |
 
 **Trợ động từ dùng trong inversion:**
+
 - Câu có trợ động từ: đảo trợ động từ lên (have I / was she / can we)
 - Câu không có trợ động từ: thêm do/does/did (Rarely **do** scientists...)
 

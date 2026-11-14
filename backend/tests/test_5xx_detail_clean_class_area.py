@@ -232,7 +232,7 @@ def test_main_app_preserves_safe_500_shape(
     finally:
         client.close()
 
-    assert response.status_code == 500
+    assert response.status_code == (503 if router_name == "admin_class_assignments" else 500)
     assert response.json() == {"detail": {
         "error_code": "internal_error",
         "message": GENERIC_MESSAGE,

@@ -376,6 +376,7 @@ def list_exam_content(kind: Optional[str] = None,
             (q or "").strip(), attention_key, int(limit), int(offset),
         )
 
+    from services import listening_blackeye as blackeye
     candidates: list[dict] = []
     failed: list[str] = []
     for k in kinds:
@@ -393,7 +394,8 @@ def list_exam_content(kind: Optional[str] = None,
             cols += ",audio_assembly_mode,full_audio_storage_path,assembled_audio_storage_path"
         try:
             rows = _paged(
-                lambda t=table, c=cols: supabase_admin.table(t).select(c).order("id")
+                lambda t=table, c=cols: (blackeye.exclude_tests(supabase_admin, supabase_admin.table(t).select(c), key="id")
+                                       if t == "listening_tests" else supabase_admin.table(t).select(c)).order("id")
             )
         except Exception:  # noqa: BLE001
             # One broken library must not blank the screen — an admin looking at
@@ -528,6 +530,17 @@ def _list_exam_content_db_page(
     for kind in sorted(kinds):
         local_offset = max(0, offset - total)
         try:
+            from services import listening_blackeye as blackeye
+            if kind == "listening" and blackeye.hidden_test_ids(supabase_admin):
+                result = list_exam_content(kind, course_level, cohort_id, exam_only, is_public,
+                                           q=query, attention=attention)
+                if result["failed_kinds"]:
+                    raise ValueError("listening catalog unavailable")
+                page = result["items"][local_offset:local_offset + remaining]
+                items.extend(page)
+                total += result["total"]
+                remaining -= len(page)
+                continue
             receipt = supabase_admin.rpc("fn_admin_exam_content_page_ids", {
                 "p_kind": kind,
                 "p_course_level": course_level,

@@ -102,11 +102,13 @@ learning_blocks:
 ## Tại sao quan trọng
 
 Phân biệt countable và uncountable là nền tảng để dùng đúng:
+
 - **Mạo từ a/an:** Chỉ dùng với countable nouns số ít (*a book*, *an idea*)
 - **Số nhiều:** Chỉ countable nouns mới có hình thức số nhiều (*books*, không có *advices*)
 - **Quantifiers:** *many* dùng cho countable, *much* dùng cho uncountable
 
 Trong IELTS Writing/Speaking:
+
 - ❌ Sai: *"She gave me an advice."* / *"I need some informations."*
 - ✅ Đúng: *"She gave me some advice."* / *"I need some information."*
 
@@ -182,10 +184,12 @@ Data có cách dùng danh từ khối/số ít (*The data is...*) và số nhi�
 ### 2. Mạo từ (Articles)
 
 **Với countable nouns:**
+
 - Số ít: bắt buộc phải có mạo từ hoặc từ hạn định (*a book*, *the book*, *this book*, *my book*)
 - Số nhiều: có thể không cần mạo từ khi nói chung chung (*Books are important* = sách nói chung)
 
 **Với uncountable nouns:**
+
 - Không dùng *a/an* bao giờ
 - Không cần mạo từ khi nói chung chung: *Water is essential.* / *Advice is valuable.*
 - Dùng *the* khi nói về thứ cụ thể: *The water in this bottle is cold.*
@@ -262,6 +266,7 @@ Nhiều danh từ có thể là cả hai tùy ngữ cảnh, với **nghĩa khác
 **(Writing Task 2):** "Although the government has allocated **a large amount of money** and **significant resources** to the project, there has been **little progress** due to **a lack of evidence**-based planning."
 
 Phân tích:
+
 - *money* → Uncountable: *a large amount of money* (không phải *many moneys*)
 - *resources* → Countable: *significant resources* (có thể đếm)
 - *progress* → Uncountable: *little progress* (không phải *few progresses*)
@@ -340,6 +345,7 @@ Tiếng Việt **không phân biệt countable/uncountable** — "những thông
 ### IELTS Speaking — Tránh lỗi cơ bản
 
 Khi nói về con số và số lượng:
+
 - "There are **many reasons** why..." (reasons = countable)
 - "There is **a lot of evidence** that..." (evidence = uncountable)
 - "She has **a great deal of knowledge** about..." (knowledge = uncountable)
@@ -382,6 +388,7 @@ Sự thay đổi: *researches → research*, *many furnitures → much of the fu
 ### Đáp án
 
 **Phân loại:**
+
 1. *advice* → **U** (không có *advices*)
 2. *problem* → **C** (*problems*)
 3. *furniture* → **U** (không có *furnitures*)
@@ -394,6 +401,7 @@ Sự thay đổi: *researches → research*, *many furnitures → much of the fu
 10. *achievement* → **C hoặc U tùy nghĩa**: a remarkable achievement / a sense of achievement
 
 **Chọn từ đúng:**
+
 1. *much* experience (uncountable)
 2. *a little* feedback (uncountable)
 3. *many* challenges (countable)

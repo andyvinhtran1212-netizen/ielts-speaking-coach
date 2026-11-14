@@ -29,7 +29,7 @@ type Busy = 'hashing' | 'validating' | 'preflight' | 'uploading' | 'reconciling'
 type Preview = {
   ok: boolean; duplicate: boolean; errors: string[]; warnings: string[]; testId: string; title: string;
   formatVersion: string; transcriptSource: string; sectionCount: number | null; questionCount: number | null;
-  questions: Array<{ number: number; section: number; prompt: string; options: Array<{ label: string; text: string }>; answer: string; imagePrompt: string }>;
+  questions: Array<{ number: number; section: number; prompt: string; options: Array<{ label: string; text: string }>; answer: string; imagePrompt: string; questionType?: string }>;
 };
 type Receipt = { account: string; testId: string; fingerprint: string; mini: boolean; baselineIds: string[]; acknowledgedId: string | null; startedAt: string };
 type Canonical = { id: string; testId: string; status: 'draft' | 'published' | 'archived'; type: 'full' | 'mini'; title: string; sectionCount: number };
@@ -39,6 +39,7 @@ type FileSlotDefinition = { field: Field; label: string; accept: string; extensi
 
 const EMPTY_FILES: Files = { questionPaper: null, solution: null, timings: null, audio: null };
 const FILE_SLOTS = FULLTEST_FILE_SLOTS as unknown as ReadonlyArray<FileSlotDefinition>;
+const PUBLIC_VISIBILITY_WARNING = 'Test import chưa xuất hiện trong thư viện tự luyện nếu admin chưa chọn “Mở công khai” tại Kho test. Chỉ Phát hành (Published) là chưa đủ.';
 const SLOT_COPY: Record<Field, { step: string; hint: string }> = {
   questionPaper: { step: '01', hint: 'Đề và cấu trúc câu hỏi · tối đa 2 MB' },
   solution: { step: '02', hint: 'Answer key, giải thích, audio windows · tối đa 2 MB' },
@@ -377,7 +378,7 @@ export function AdminListeningFulltestImport() {
       if (activeAccount.current !== account) return;
       const row = await readCanonical(target.id, target.testId, 'published', target.type);
       if (activeAccount.current !== account) return;
-      setCanonical(row); setNotice('Backend đã xác nhận Published; test có thể được phân phối theo phạm vi hiện tại.');
+      setCanonical(row); setNotice(`Backend đã xác nhận Published. ${PUBLIC_VISIBILITY_WARNING}`);
     } catch (caught) { if (activeAccount.current === account) setError(`Không xác nhận được trạng thái Published; chưa cập nhật UI lạc quan. ${messageOf(caught)}`); }
     finally { if (activeAccount.current === account) setBusy(null); }
   };
@@ -448,10 +449,11 @@ export function AdminListeningFulltestImport() {
           {!!preview.errors.length && <div className="alfi-findings is-error"><strong>Lỗi chặn import</strong><ul>{preview.errors.map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}</ul></div>}
           {!!preview.warnings.length && <div className="alfi-findings is-warning"><strong>Cảnh báo cần đọc</strong><ul>{preview.warnings.map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}</ul></div>}
           {preview.duplicate && <div className="alfi-duplicate"><div><strong>Không archive trong lúc upload</strong><p>Mở Kho test, archive bản đang active bằng flow có xác nhận và GET readback, rồi quay lại chạy dry-run mới.</p></div><a className="adm-btn-secondary" href={fulltestTestsHref(preview.testId)}>Xử lý {preview.testId}</a></div>}
-          {!!sections.length && <div className="alfi-sections">{sections.map((section) => <details key={section.number} open={section.number === 1}><summary><span>Section {section.number}</span><small>{section.questions.length} câu</small></summary><div className="alfi-question-list">{section.questions.map((question) => <article key={question.number}><span className="alfi-qnum">{question.number}</span><div><p>{question.prompt || 'Không có prompt hiển thị'}</p>{!!question.options.length && <ol>{question.options.map((option, index) => <li key={`${question.number}-${index}`}><b>{option.label || String.fromCharCode(65 + index)}.</b> {option.text}</li>)}</ol>}<small>Đáp án <strong>{question.answer || '—'}</strong></small></div></article>)}</div>{imageBlocks.filter((block) => block.section === section.number).map((block) => { const key = `${block.section}-${block.first}-${block.last}`; return <div className="alfi-image-prompt" key={key}><div><strong>IMG-PROMPT · câu {block.first}{block.last === block.first ? '' : `–${block.last}`}</strong><button type="button" onClick={() => void copyPrompt(key, block.prompt)}>{copied === key ? 'Đã copy' : 'Copy prompt'}</button></div><pre>{block.prompt}</pre></div>; })}</details>)}</div>}
+          {!!sections.length && <div className="alfi-sections">{sections.map((section) => <details key={section.number} open={section.number === 1}><summary><span>Section {section.number}</span><small>{section.questions.length} câu</small></summary><div className="alfi-question-list">{section.questions.map((question) => <article key={question.number}><span className="alfi-qnum">{question.number}</span><div><p>{question.prompt || 'Không có prompt hiển thị'}</p>{!!question.options.length && <ol>{question.options.map((option, index) => <li key={`${question.number}-${index}`}><b>{option.label || String.fromCharCode(65 + index)}.</b> {option.text}</li>)}</ol>}<small>{question.questionType ? <>{question.questionType} · </> : null}Đáp án <strong>{question.answer || '—'}</strong></small></div></article>)}</div>{imageBlocks.filter((block) => block.section === section.number).map((block) => { const key = `${block.section}-${block.first}-${block.last}`; return <div className="alfi-image-prompt" key={key}><div><strong>IMG-PROMPT · câu {block.first}{block.last === block.first ? '' : `–${block.last}`}</strong><button type="button" onClick={() => void copyPrompt(key, block.prompt)}>{copied === key ? 'Đã copy' : 'Copy prompt'}</button></div><pre>{block.prompt}</pre></div>; })}</details>)}</div>}
         </section>}
 
         {canonical && <section className="alfi-card alfi-result" aria-labelledby="alfi-result-title">
+          <div className="alc-banner is-warning" role="status"><span>{PUBLIC_VISIBILITY_WARNING} <a href={fulltestTestsHref(canonical.testId)}>Mở Kho test</a></span></div>
           <div className="alfi-card__head"><div><p className="alc-eyebrow">03 · Canonical result</p><h2 id="alfi-result-title">{canonical.testId} đã được backend xác nhận</h2><p>{canonical.title} · {canonical.type === 'mini' ? 'Mini test' : 'Full test'} · {canonical.sectionCount} section</p></div><span className={`adm-status-pill ${canonical.status === 'published' ? 'is-live' : canonical.status === 'archived' ? 'is-failed' : 'is-new'}`}>{canonical.status}</span></div>
           {commitAck && <dl className="alfi-metrics"><div><dt>Sections</dt><dd>{commitAck.sectionsCreated}</dd></div><div><dt>Exercise blocks</dt><dd>{commitAck.exercisesCreated}</dd></div><div><dt>Audio</dt><dd>{formatFulltestBytes(commitAck.sizeBytes)}</dd></div><div><dt>Duration</dt><dd>{Math.round(commitAck.durationSeconds / 60)} phút</dd></div></dl>}
           <div className="alfi-result-actions"><a className="adm-btn-secondary" href={`/admin/listening/tests/${encodeURIComponent(canonical.id)}`}>Mở workspace test</a><button className="adm-btn-secondary" type="button" disabled={Boolean(busy)} onClick={() => void refreshCanonical()}>Đọc lại trạng thái</button>{canonical.status === 'draft' && <button className="adm-btn-primary" type="button" disabled={Boolean(busy)} onClick={() => setDialog('publish')}>Phát hành…</button>}<button className="adm-btn-secondary" type="button" disabled={Boolean(busy)} onClick={reset}>Import pack khác</button></div>
@@ -465,7 +467,7 @@ export function AdminListeningFulltestImport() {
       </aside>
     </div>
 
-    <Dialog open={dialog === 'publish'} title={`Phát hành ${canonical?.testId || 'test'}?`} description="Backend sẽ kiểm cổng audio rồi chuyển test sang Published. UI chỉ báo thành công sau GET đúng UUID xác nhận trạng thái." busy={busy === 'publishing'} onClose={() => setDialog(null)} actions={<><button className="adm-btn-secondary" type="button" disabled={Boolean(busy)} onClick={() => setDialog(null)}>Giữ Draft</button><button className="adm-btn-primary" type="button" disabled={Boolean(busy)} onClick={() => void publish()}>{busy === 'publishing' ? 'Đang đối chiếu…' : 'Xác nhận phát hành'}</button></>} />
+    <Dialog open={dialog === 'publish'} title={`Phát hành ${canonical?.testId || 'test'}?`} description={`Backend sẽ kiểm cổng audio rồi chuyển test sang Published. UI chỉ báo thành công sau GET đúng UUID xác nhận trạng thái. ${PUBLIC_VISIBILITY_WARNING}`} busy={busy === 'publishing'} onClose={() => setDialog(null)} actions={<><button className="adm-btn-secondary" type="button" disabled={Boolean(busy)} onClick={() => setDialog(null)}>Giữ Draft</button><button className="adm-btn-primary" type="button" disabled={Boolean(busy)} onClick={() => void publish()}>{busy === 'publishing' ? 'Đang đối chiếu…' : 'Xác nhận phát hành'}</button></>} />
     <Dialog open={dialog === 'discard-receipt'} title="Bỏ receipt cục bộ?" description="Thao tác này không hủy hay thay đổi request trên backend. Chỉ bỏ receipt sau khi bạn đã kiểm tra Kho test và chắc chắn không có lượt import đang hoàn tất." busy={false} onClose={() => setDialog(null)} actions={<><button className="adm-btn-secondary" type="button" onClick={() => setDialog(null)}>Tiếp tục đối chiếu</button><button className="adm-btn-danger" type="button" onClick={discardReceipt}>Tôi đã kiểm tra, bỏ receipt</button></>} />
   </main>;
 }

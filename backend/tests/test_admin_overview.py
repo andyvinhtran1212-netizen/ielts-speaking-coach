@@ -120,6 +120,9 @@ class _TableQuery:
         return self
 
     def or_(self, expression):
+        if expression.startswith(("programme_id.eq.blackeye", "test_id.is.null,")):
+            self.blackeye_filters = getattr(self, "blackeye_filters", []) + [expression]
+            return self
         match = re.fullmatch(
             r"created_at\.gt\.(.*),and\(created_at\.eq\.(.*),id\.gt\.(.*)\)",
             expression,
@@ -144,6 +147,10 @@ class _TableQuery:
         self.limit_n = n
         return self
 
+    def range(self, start, end):
+        self.page_range = (start, end)
+        return self
+
     def order(self, field, **kwargs):
         self.order_fields.append((field, bool(kwargs.get("desc", False))))
         return self
@@ -159,6 +166,9 @@ class _TableQuery:
                 if column not in known:
                     raise _undefined_column(self.table_name, column)
         rows = self.fake.tables.get(self.table_name, [])
+        from blackeye_query_double import matches_blackeye_filter
+        for expression in getattr(self, "blackeye_filters", []):
+            rows = [r for r in rows if matches_blackeye_filter(r, expression)]
         matched = [r for r in rows if self._matches(r)]
         if self.cursor_after:
             matched = [
@@ -174,6 +184,9 @@ class _TableQuery:
         if self.fake.response_cap is not None:
             matched = matched[: self.fake.response_cap]
         self.fake.executions.append((self.table_name, self._head, len(matched)))
+        if hasattr(self, "page_range"):
+            start, end = self.page_range
+            matched = matched[start:end + 1]
         data = [] if self._head else matched
         return _Resp(data, count)
 
@@ -403,6 +416,25 @@ class TestSpeakingMetrics:
 
 
 class TestListeningFirstAttempt:
+    @pytest.mark.parametrize("mixed", [False, True])
+    def test_self_check_is_activity_but_not_scored_evidence(self, client, fake_db, mixed):
+        self_check = {"q_num": 2, "self_check": True, "correct": None}
+        rows = [{"id": "self", "user_id": "u1", "test_id": "self-test",
+                 "status": "submitted", "score": 0, "grading_details": [self_check],
+                 "created_at": _iso(-1), "submitted_at": _iso(-1)}]
+        if mixed:
+            rows.append({**rows[0], "id": "mixed", "test_id": "mixed-test", "score": 1,
+                         "grading_details": [{"q_num": 1, "correct": True}, self_check]})
+        fake_db.tables["listening_test_attempts"] = rows
+        response = client.get("/admin/overview", headers=_ADMIN_AUTH)
+        assert response.status_code == 200
+        body = response.json()
+        assert body["skills"]["listening"]["avg_score_7d"] == (1.0 if mixed else None)
+        assert body["skills"]["listening"]["attempts_7d"] == len(rows)
+        feed = [r for r in body["recent_activity"] if r["skill"] == "listening"]
+        assert len(feed) == len(rows)
+        assert sorted(r["score"] or "" for r in feed) == (["", "1/1"] if mixed else [""])
+
     def test_avg_accuracy_uses_first_attempt_per_user_test(self, client, fake_db):
         # Audit 2026-07-17: nguồn = listening_test_attempts; avg = % đúng
         # (score/số câu) của lượt ĐẦU per (user, test) — retry không tính.
@@ -712,3 +744,64 @@ class TestPartialFailures:
     def test_all_reads_ok_reports_no_partial_failures(self, client):
         body = client.get("/admin/overview", headers=_ADMIN_AUTH).json()
         assert body["partial_failures"] == []
+
+
+def test_blackeye_lookup_failure_is_partial_and_never_reads_attempts(client, fake_db, caplog):
+    fake_db.failing["listening_tests"] = RuntimeError("connection reset")
+    fake_db.tables["listening_test_attempts"] = [
+        {"id": "private-attempt", "user_id": "private-learner", "test_id": "be",
+         "status": "submitted", "score": 1, "grading_details": [{"q_num": 1}],
+         "created_at": _iso(-1), "submitted_at": _iso(-1)},
+        {"id": "ordinary-attempt", "user_id": "ordinary-learner", "test_id": "plain",
+         "status": "submitted", "created_at": _iso(-2), "submitted_at": _iso(-2)},
+    ]
+    fake_db.tables["users"] = [
+        {"id": "private-learner", "email": "private@example.invalid"},
+    ]
+    fake_db.tables["sessions"] = [
+        {"id": "speaking-session", "user_id": "speaker", "overall_band": 7.0,
+         "status": "completed", "started_at": _iso(-1), "completed_at": _iso(-1)},
+    ]
+    fake_db.tables["writing_essays"] = [
+        {"id": "essay", "student_id": "writer", "status": "pending", "created_at": _iso(-1)},
+    ]
+
+    with caplog.at_level(logging.ERROR, logger="routers.admin_overview"):
+        response = client.get("/admin/overview", headers=_ADMIN_AUTH)
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["partial_failures"] == ["listening_recent", "listening_total"]
+    assert body["skills"]["speaking"]["sessions_total"] == 1
+    assert body["skills"]["speaking"]["avg_band_7d"] == 7.0
+    assert body["skills"]["writing"]["essays_total"] == 1
+    assert body["skills"]["listening"]["attempts_total"] == 0
+    assert body["skills"]["listening"]["attempts_7d"] == 0
+    assert body["skills"]["listening"]["avg_score_7d"] is None
+    assert body["students"]["active_7d"] == 1
+    assert body["students"]["active_30d"] == 1
+    assert not any(table == "listening_test_attempts" for table, _, _ in fake_db.executions)
+    for sentinel in ("private-attempt", "private-learner", "private@example.invalid",
+                     "ordinary-attempt", "ordinary-learner"):
+        assert sentinel not in response.text
+    for block in ("listening_recent", "listening_total"):
+        assert any(f"block={block}" in record.getMessage() for record in caplog.records
+                   if record.levelno == logging.ERROR)
+
+
+def test_blackeye_admin_overview_excludes_activity_counts_and_identity(client, fake_db):
+    fake_db.tables["listening_tests"] = [
+        {"id": "be", "programme_id": "blackeye-v5-upper-listening", "metadata": {}},
+        {"id": "plain", "programme_id": "ielts", "metadata": {}},
+    ]
+    fake_db.tables["users"] = [{"id": "private-learner", "email": "private@example.invalid"}]
+    fake_db.tables["listening_test_attempts"] = [
+        {"id": "private-attempt", "user_id": "private-learner", "test_id": "be", "status": "submitted", "created_at": _iso(-1)},
+        {"id": "ordinary-attempt", "user_id": "ordinary-learner", "test_id": "plain", "status": "in_progress", "created_at": _iso(-2)},
+    ]
+    r = client.get("/admin/overview", headers=_ADMIN_AUTH)
+    assert r.status_code == 200, r.text
+    assert r.json()["skills"]["listening"]["attempts_total"] == 1
+    assert r.json()["skills"]["listening"]["attempts_7d"] == 1
+    for sentinel in ("private-attempt", "private-learner", "private@example.invalid"):
+        assert sentinel not in r.text
