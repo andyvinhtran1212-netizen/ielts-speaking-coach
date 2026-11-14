@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from services import mock_correction_service as svc
 
 
@@ -11,6 +13,34 @@ PUBLIC_POLICY_SQL = (
     Path(__file__).resolve().parents[1]
     / "migrations/261_atomic_public_explanation_policy.sql"
 ).read_text()
+
+
+def test_final_observations_never_turn_self_check_into_an_incorrect_score(monkeypatch):
+    written = []
+
+    class Query:
+        def upsert(self, rows, **_kwargs):
+            written.extend(rows)
+            return self
+
+        def execute(self):
+            return self
+
+    class Db:
+        def table(self, name):
+            assert name == "mock_item_attempts"
+            return Query()
+
+    monkeypatch.setattr(svc, "supabase_admin", Db())
+    monkeypatch.setattr(svc, "_current_explanation_rows", lambda *_args: [])
+    attempt = {"id": "synthetic-attempt", "user_id": "u1", "test_id": "synthetic-test"}
+    self_check = {"q_num": 1, "self_check": True, "correct": None, "user_answer": "my words"}
+    assert svc.finalize_item_observations("listening", attempt, [self_check, {"q_num": 2, "correct": True}])
+    assert len(written) == 1 and written[0]["question_number"] == 2
+    assert written[0]["is_correct"] is True and written[0]["score_awarded"] == 1
+    written.clear()
+    assert svc.finalize_item_observations("listening", attempt, [self_check])
+    assert written == []
 
 
 def test_capture_happens_before_correctness_is_revealed(monkeypatch):
@@ -40,6 +70,52 @@ def test_sealed_mock_capture_endpoint_cannot_return_score(monkeypatch):
     assert svc.learner_result_payload("listening", {
         "id": "a1", "score": 40, "grading_details": [],
     }) is None
+
+
+@pytest.mark.parametrize("mixed", [False, True])
+def test_listening_capture_completion_keeps_self_check_unscored(monkeypatch, mixed):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from unittest.mock import AsyncMock
+    from routers import listening, mock_corrections
+    from services import listening_blackeye
+
+    grading = [{"q_num": 1, "section": 1, "self_check": True, "correct": None,
+                "user_answer": "my reference", "expected": "reference"}]
+    if mixed:
+        grading += [{"q_num": 2, "section": 1, "correct": True},
+                    {"q_num": 3, "section": 2, "correct": False}]
+    attempt = {"id": "a1", "score": 1 if mixed else 0,
+               "band_estimate": None, "grading_details": grading}
+    monkeypatch.setattr(mock_corrections, "get_supabase_user", AsyncMock(return_value={"id": "u1"}))
+    monkeypatch.setattr(listening, "_fetch_attempt_or_404", lambda *_: attempt)
+    monkeypatch.setattr(listening_blackeye, "attempt_is_blackeye", lambda *_: False)
+    monkeypatch.setattr(svc, "record_post_test_capture", lambda *_: {
+        "attempt": attempt, "capture": {"id": "capture-1"}, "replayed": False,
+    })
+    monkeypatch.setattr(svc, "_effective_policy", lambda *_: {"scope": "practice"})
+    monkeypatch.setattr(svc, "explanation_access", lambda *_: None)
+    app = FastAPI()
+    app.include_router(mock_corrections.router)
+    with TestClient(app) as client:
+        response = client.post("/api/mock-corrections/listening/attempts/a1/post-test-capture", json={"items": []})
+    assert response.status_code == 200
+    result = response.json()["result"]
+    assert result["max_score"] == (2 if mixed else 0)
+    assert result["score"] == (1 if mixed else 0)
+    assert result["band_estimate"] is None
+    assert result["per_question"] == grading
+    assert result["section_breakdown"] == ({"1": {"correct": 1, "total": 1},
+                                           "2": {"correct": 0, "total": 1}} if mixed else {})
+
+
+def test_reading_capture_result_keeps_existing_totals():
+    result = svc.result_payload("reading", {"id": "r1", "score": 1, "grading_details": [
+        {"q_num": 1, "passage_order": 1, "correct": True},
+        {"q_num": 2, "passage_order": 2, "correct": False},
+    ]})
+    assert result["max_score"] == 2
+    assert result["by_part"] == {"p1": {"correct": 1, "total": 1}, "p2": {"correct": 0, "total": 1}}
 
 
 def test_web_object_is_attached_only_after_release_gate(monkeypatch):

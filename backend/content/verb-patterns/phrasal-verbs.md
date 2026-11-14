@@ -84,6 +84,7 @@ Phrasal verbs = **động từ + tiểu từ** (particle: adverb hoặc preposit
 ## Tại sao quan trọng
 
 Phrasal verbs là đặc trưng của tiếng Anh tự nhiên:
+
 - **Speaking:** người bản xứ dùng rất nhiều phrasal verbs thay vì từ học thuật
 - **IELTS Speaking:** dùng đúng phrasal verbs → tăng Lexical Resource score
 - **IELTS Writing:** informal phrasal verbs phù hợp Speaking/Task 2 informal; chính thức hơn thì dùng từ học thuật tương đương
@@ -280,9 +281,11 @@ Trong IELTS Writing Task 2, nên cân nhắc giữa phrasal verb thông thườn
 ### Đáp án
 
 **Phrasal verb đúng:**
+
 1. put up with | 2. gave up | 3. look into | 4. cut down on | 5. ran into
 
 **Tiểu từ còn thiếu:**
+
 1. out of | 2. up | 3. in | 4. up with | 5. up
 
 ## Tóm tắt nhanh
@@ -295,6 +298,7 @@ Trong IELTS Writing Task 2, nên cân nhắc giữa phrasal verb thông thườn
 | Three-word | Không tách | Come up with an idea. |
 
 **Quy tắc vàng — đại từ với separable:**
+
 - **Noun:** turn **off** the light = turn the light **off** ✅
 - **Pronoun (it/them/him...):** turn **it** off ✅ | turn off **it** ❌
 

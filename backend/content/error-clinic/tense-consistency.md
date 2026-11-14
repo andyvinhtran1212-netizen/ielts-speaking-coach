@@ -85,6 +85,7 @@ IELTS Writing Task 1 và Task 2 đều yêu cầu nhất quán thì. Lỗi "tens
 ### Chọn thì chủ đạo và giữ nguyên
 
 Trước khi viết, xác định:
+
 - Sự kiện **trong quá khứ** → dùng **Past Simple** là chủ đạo
 - Sự kiện **hiện tại / sự thật chung** → dùng **Present Simple** là chủ đạo
 - Dự đoán / kế hoạch **tương lai** → dùng **Future forms** là chủ đạo
@@ -92,12 +93,14 @@ Trước khi viết, xác định:
 ### Chuyển thì hợp lệ vs không hợp lệ
 
 **Hợp lệ (có lý do logic):**
+
 - Sự thật vĩnh cửu xen vào câu chuyện quá khứ
 - Hành động xảy ra trước hành động quá khứ khác → Past Perfect
 - Điều kiện và kết quả ở thì khác nhau → Mixed Conditionals
 - Trích dẫn, tường thuật → Reported Speech backshift
 
 **Không hợp lệ (lỗi):**
+
 - Viết về cùng một sự kiện quá khứ, đột ngột dùng Present
 - Chuyển từ Present Simple sang Past Simple không có lý do
 - Quên thống nhất thì trong cùng một đoạn
@@ -145,6 +148,7 @@ IELTS Writing Task 2 thảo luận về vấn đề **hiện tại và tương l
 ### Lỗi thường gặp trong Task 2:
 
 **Lỗi 1: Dùng Past Simple cho sự thật hiện tại**
+
 - ✅ Technology **changed** our lives significantly. *(có thể chỉ giai đoạn quá khứ đã rõ; kết quả vẫn liên quan hiện tại)*
 - ✅ Technology **has changed** our lives significantly. (Present Perfect — kết quả đến hiện tại)
 - ✅ Technology **is changing** our lives significantly. (đang tiếp diễn)
@@ -154,6 +158,7 @@ IELTS Writing Task 2 thảo luận về vấn đề **hiện tại và tương l
 > → "changed" phải là Past Simple: **changed** ✅
 
 **Lỗi 3: Dùng Present Simple cho dự đoán tương lai mà không dùng modal**
+
 - ❌ If we don't act, sea levels **rise** and cities **flood**.
 - ✅ If we don't act, sea levels **will rise** and cities **will flood**.
 
@@ -162,10 +167,12 @@ IELTS Writing Task 2 thảo luận về vấn đề **hiện tại và tương l
 ### Graphs và Charts (xu hướng quá khứ):
 
 Khi mô tả dữ liệu lịch sử (đã qua), dùng **Past Simple** hoặc **Past Perfect**:
+
 - Sales **rose** sharply in 2015.
 - The proportion of users **had doubled** by 2020, compared to 2010.
 
 Khi mô tả dữ liệu hiện tại hoặc không rõ thời điểm, dùng **Present Simple**:
+
 - The chart **shows** / **illustrates** / **compares**...
 
 **Nhất quán trong mô tả xu hướng:**
@@ -174,6 +181,7 @@ Khi mô tả dữ liệu hiện tại hoặc không rõ thời điểm, dùng **
 ### Process diagrams và maps:
 
 Dùng **Present Simple** (thụ động) để mô tả quy trình:
+
 - Water **is filtered** and then **pumped** into the reservoir.
 - The mixture **is heated** to 80°C before **being cooled** rapidly.
 
@@ -221,6 +229,7 @@ Backshift trong reported speech **là chuẩn** — không phải lỗi.
 ### Lỗi 2: Kể chuyện ở Present Simple (historical present) trong academic writing
 
 Historical present hợp lệ trong văn học và báo chí không trang trọng, nhưng **không phù hợp với IELTS Writing**:
+
 - ❌ In 2015, the government **announces** new environmental targets and **pledges** to cut emissions.
 - ✅ In 2015, the government **announced** new environmental targets and **pledged** to cut emissions.
 
@@ -233,10 +242,12 @@ Historical present hợp lệ trong văn học và báo chí không trang trọn
 ### Lỗi 4: Dùng Present Simple cho xu hướng trong Task 1 (khi dữ liệu là quá khứ)
 
 Nếu đề bài cung cấp biểu đồ về 2000–2020 (đã qua):
+
 - ❌ The number of users **increases** from 2000 to 2010.
 - ✅ The number of users **increased** from 2000 to 2010.
 
 Tuy nhiên, câu mở đầu mô tả biểu đồ thì vẫn dùng Present:
+
 - ✅ The graph **shows** the change in user numbers between 2000 and 2020.
 
 ### Lỗi 5: Quên nhất quán khi viết nhiều đoạn
@@ -296,6 +307,7 @@ Trong Speaking, tense consistency ít nghiêm ngặt hơn vì đây là giao ti�
 | Sự thật vĩnh cửu (dù trong narrative) | **Present Simple** |
 
 **Quy tắc vàng:**
+
 - **Xác định thì chủ đạo** trước khi viết bất kỳ đoạn nào
 - **Không chuyển thì** trừ khi có lý do logic rõ ràng (trước/sau, sự thật bất biến, điều kiện)
 - **Đọc lại** bài và gạch chân mọi động từ — kiểm tra tính nhất quán

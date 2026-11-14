@@ -109,11 +109,19 @@ check('double dry-run chỉ gửi một request và hiển thị đủ gap-fill 
 await page.getByRole('button', { name: 'Ghi thành Draft' }).click();
 await page.getByText('đã được backend xác nhận', { exact: false }).waitFor();
 check('commit tạo receipt rồi chỉ thành công sau exact GET', commitRequests === 1 && listReads >= 1 && detailReads >= 1 && await page.getByText('draft', { exact: true }).count() > 0);
+const visibilityWarning = page.locator('.alfi-result .alc-banner.is-warning');
+const expectedWarning = 'Test import chưa xuất hiện trong thư viện tự luyện nếu admin chưa chọn “Mở công khai” tại Kho test. Chỉ Phát hành (Published) là chưa đủ.';
+check('import Draft nhắc Mở công khai tại Kho test để vào thư viện tự luyện', await visibilityWarning.isVisible()
+  && (await visibilityWarning.textContent()).includes(expectedWarning)
+  && await visibilityWarning.getByRole('link', { name: 'Mở Kho test' }).getAttribute('href') === `/admin/listening/tests?search=${testId}`);
 await page.getByRole('button', { name: 'Phát hành…' }).click();
 await page.getByRole('heading', { name: `Phát hành ${testId}?` }).waitFor();
 await page.getByRole('button', { name: 'Xác nhận phát hành' }).click();
 await page.getByText(/Backend đã xác nhận Published/).waitFor();
 check('publish qua dialog và canonical status readback', canonicalStatus === 'published' && await page.getByText('published', { exact: true }).count() > 0);
+check('sau publish vẫn nhắc Mở công khai trong banner và notice', await visibilityWarning.isVisible()
+  && (await visibilityWarning.textContent()).includes(expectedWarning)
+  && (await page.getByText(/Backend đã xác nhận Published/).textContent()).includes(expectedWarning));
 
 scenario = 'full-mismatch'; canonicalId = null; canonicalStatus = 'draft';
 await page.goto(`${BASE}/admin/listening/import-fulltest`, { waitUntil: 'domcontentloaded' });

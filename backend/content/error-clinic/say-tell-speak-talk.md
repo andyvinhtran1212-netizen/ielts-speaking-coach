@@ -335,9 +335,11 @@ talk about / on + topic
 ### Đáp án
 
 **Điền:**
+
 1. speak / talk | 2. told | 3. say | 4. talk / speak | 5. speaks | 6. tell | 7. said | 8. talk / speak | 9. speak / talk | 10. tells
 
 **Sửa lỗi:**
+
 1. She **said** that the exam was difficult. / She **told us** that the exam was difficult.
 2. Can I **speak to** you for a minute?
 3. He **told me** to wait outside.
@@ -357,6 +359,7 @@ talk about / on + topic
 | **talk** | talk **to/with** / talk about | Thân mật; hội thoại hai chiều |
 
 **Quy tắc vàng:**
+
 - **Say** = nội dung; **Tell** = nội dung + ai
 - **Tell someone that/to** cần tân ngữ người nghe → "tell *me* / tell *him* / tell *someone*"
 - **Speak to/with someone** cần giới từ cho người nghe; speak English/speak loudly/speak at a conference có mẫu khác → speak **to** / speak **with**

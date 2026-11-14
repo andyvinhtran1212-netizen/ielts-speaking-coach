@@ -575,6 +575,8 @@ def finalize_item_observations(skill: str, attempt: dict, grading: Iterable[dict
         for row in _current_explanation_rows(skill, attempt.get("test_id"))
     }
     for grade in grading:
+        if grade.get("self_check"):
+            continue
         question_number = int(grade.get("q_num") or 0)
         if not 1 <= question_number <= 40:
             continue
@@ -816,11 +818,13 @@ def record_correction_event(
 
 
 def result_payload(skill: str, attempt: dict) -> dict:
+    from services.listening_test_grader import scored_question_count
+
     grading = attempt.get("grading_details") or []
     payload = {
         "attempt_id": attempt["id"],
         "score": attempt.get("score"),
-        "max_score": len(grading),
+        "max_score": scored_question_count(grading) if skill == "listening" else len(grading),
         "band_estimate": attempt.get("band_estimate"),
         "per_question": grading,
     }
@@ -837,6 +841,8 @@ def result_payload(skill: str, attempt: dict) -> dict:
         payload["trap_analytics"] = attempt.get("trap_analytics") or {}
         section_breakdown: dict[str, dict[str, int]] = {}
         for row in grading:
+            if row.get("self_check"):
+                continue
             key = str(row.get("section") or row.get("section_number") or "unknown")
             bucket = section_breakdown.setdefault(key, {"correct": 0, "total": 0})
             bucket["total"] += 1

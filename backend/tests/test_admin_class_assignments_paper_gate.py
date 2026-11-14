@@ -84,9 +84,11 @@ def _playable(**over):
 
 
 async def _create(
-    paper, skill="reading", *, mapped=True, explanation_ready=True, **body_overrides,
+    paper, skill="reading", *, mapped=True, explanation_ready=True, capture=None, **body_overrides,
 ):
     def atomic_assignment(*_args, **kwargs):
+        if capture is not None:
+            capture.update(kwargs)
         policy = (kwargs.get("content_config") or {}).get("correction_policy") or {}
         if policy.get("web_explanation_mode") != "disabled" and not explanation_ready:
             raise mod.ExplanationApprovalError(
@@ -372,3 +374,17 @@ async def test_changing_status_writes_only_the_status(new_status):
     was submitted relative to the give."""
     written = await _patch_status(new_status)
     assert written == {"status": new_status}
+
+
+
+@pytest.mark.asyncio
+async def test_public_drill_keeps_paper_public_but_uses_class_admission(monkeypatch):
+    paper = _playable(is_public=True, test_type="drill")
+    captured = {}
+    monkeypatch.setattr(mod, "_prepare_listening_drill",
+                        lambda *_args: {"dictation_required": True, "sections": [1]})
+    await _create(paper, skill="listening", capture=captured,
+                  listening_skill_drill=True, dictation_required=True)
+    assert captured["content_config"]["delivery_mode"] == "assigned_practice"
+    assert captured["content_config"]["skill_drill"]["dictation_required"] is True
+    assert paper["is_public"] is True

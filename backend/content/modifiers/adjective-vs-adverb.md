@@ -68,6 +68,7 @@ anchors:
 ## Tại sao quan trọng
 
 Nhầm adjective và adverb là lỗi rất dễ lộ:
+
 - "She drives **careful**." → người chấm nhận ra ngay — thiếu -ly
 - "He is an **incredible** talented musician." → cần **incredibly** (adverb bổ nghĩa cho talented).
 
@@ -225,21 +226,25 @@ adverb + adjective + noun
 ### Ví dụ đối chiếu rõ ràng
 
 **(1) fast:**
+
 - "She is a **fast** learner." → fast = adjective (mô tả "learner")
 - "She learns **fast**." → fast = adverb (mô tả "learns")
 
 **(2) hard:**
+
 - "This is a **hard** question." → hard = adjective (mô tả "question")
 - "She studied **hard** for the exam." → hard = adverb (mô tả "studied")
 - "She **hardly** studied." → hardly = adverb (= almost not — nghĩa hoàn toàn khác!)
 
 **(3) good vs. well:**
+
 - "He is a **good** speaker." → good = adjective (mô tả "speaker")
 - "He speaks **well**." → well = adverb (mô tả "speaks")
 - "I feel **good** today." → good = adjective (sau linking verb "feel")
 - "She sings **well**." → well = adverb (mô tả "sings")
 
 **(4) clear / clearly:**
+
 - "The instructions were **clear**." → adjective (mô tả "instructions")
 - "She explained it **clearly**." → adverb (mô tả "explained")
 - "He has a **clear** understanding." → adjective (mô tả "understanding")
@@ -308,6 +313,7 @@ adverb + adjective + noun
 ## So sánh với
 
 Xem thêm:
+
 - [Adjectives](/grammar/modifiers/adjectives) — học về tính từ
 - [Adverbs](/grammar/modifiers/adverbs) — học về trạng từ
 
@@ -324,6 +330,7 @@ Xem thêm:
 ## Lưu ý cho người học Việt Nam
 
 Tiếng Việt dùng cùng một từ cho cả tính từ và trạng từ:
+
 - "cô ấy lái xe **cẩn thận**" = She drives **carefully**. (cẩn thận = adverb)
 - "cô ấy là người **cẩn thận**" = She is a **careful** person. (cẩn thận = adjective)
 
@@ -346,11 +353,13 @@ Từ này đứng trước tính từ/adverb khác → ADVERB (+ -ly)
 ### IELTS Speaking — Cách dùng phổ biến
 
 **Mô tả người / vật (adjective):**
+
 - "She is an **incredibly talented** and **genuinely humble** person."
 - "It was a **surprisingly difficult** situation to navigate."
 - "The city is **extremely vibrant** and **surprisingly affordable**."
 
 **Mô tả hành động (adverb):**
+
 - "She handled the situation **extremely** well."
 - "People **generally** respond **positively** to these changes."
 - "I worked **incredibly** hard to achieve that result."
@@ -358,11 +367,13 @@ Từ này đứng trước tính từ/adverb khác → ADVERB (+ -ly)
 ### IELTS Writing — Precision với adjective và adverb
 
 **Degree adverbs trước adjectives:**
+
 - "The effects are **largely** positive, though **potentially** problematic in the long term."
 - "This is a **highly** controversial and **deeply** complex issue."
 - "The data provides **statistically** significant evidence for this claim."
 
 **Adverbs mô tả động từ:**
+
 - "Governments have **consistently** failed to address the root causes."
 - "The situation has **gradually** improved over the past decade."
 - "Many people **genuinely** believe that technology will solve this problem."
@@ -395,6 +406,7 @@ Từ này đứng trước tính từ/adverb khác → ADVERB (+ -ly)
 ### Đáp án
 
 **Chọn đúng:**
+
 1. **careful** (adjective — mô tả "worker")
 2. **carefully** (adverb — mô tả "works")
 3. **beautiful** (adjective — sau linking verb "sounds")
@@ -407,6 +419,7 @@ Từ này đứng trước tính từ/adverb khác → ADVERB (+ -ly)
 10. **hard** (adverb — mô tả "studied" theo nghĩa "chăm chỉ")
 
 **Sửa lỗi:**
+
 1. The situation became **dangerous**. (linking verb "became" → adjective)
 2. She spoke to the audience very **confidently**. (action verb → adverb)
 3. He is **an** incredibly talented musician. (Đổi a thành an trước âm nguyên âm /ɪ/; incredibly vốn đã đúng là adverb bổ nghĩa talented.)

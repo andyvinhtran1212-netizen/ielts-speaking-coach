@@ -90,7 +90,7 @@ def test_v2_detail_refuses_corrupt_reference_proof_and_owner_route_keeps_authori
     async def other(_authorization):
         return {'id': 'another-owner'}
     monkeypatch.setattr(router, '_require_auth', other)
-    assert client.get('/api/listening/tests/dictation/session/' + row['id'], headers={'Authorization': auth}).status_code == 403
+    assert client.get('/api/listening/tests/dictation/session/' + row['id'], headers={'Authorization': auth}).status_code == 404
     assert db.tables == before
 
 

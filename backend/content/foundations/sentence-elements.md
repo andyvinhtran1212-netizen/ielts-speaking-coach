@@ -59,6 +59,7 @@ Mọi câu tiếng Anh đều được tạo thành từ các **thành phần c�
 ## Tại sao quan trọng
 
 Trong IELTS Speaking, người học Việt Nam thường mắc các lỗi cấu trúc câu như:
+
 - **Thiếu chủ ngữ:** "Is very interesting." (câu không có subject)
 - **Thiếu động từ:** "My sister a doctor." (không có verb)
 - **Dùng sai bổ ngữ và tân ngữ:** Nhầm lẫn giữa complement và object
@@ -119,6 +120,7 @@ Tân ngữ + bổ ngữ mô tả tân ngữ đó.
 Chủ ngữ là người/vật thực hiện hành động hoặc được nói đến.
 
 **Chủ ngữ có thể là:**
+
 - Noun: *[**Students**] study hard.*
 - Pronoun: *[**They**] work together.*
 - Noun phrase: *[**The quality of education**] matters.*
@@ -143,6 +145,7 @@ Tân ngữ là người/vật bị tác động bởi động từ.
 - Indirect Object: *She made [**me**] [coffee].* — trả lời "made for whom?"
 
 **Tân ngữ có thể là:**
+
 - Noun/pronoun: *I love [**him**].*
 - Gerund: *She enjoys [**travelling**].*
 - That-clause: *I think [**that it's important**].*
@@ -172,6 +175,7 @@ Trạng ngữ bổ nghĩa cho cả câu hoặc động từ — có thể di chu
 ### Phân tích câu phức tạp
 
 Khi gặp câu dài và phức tạp, hãy tìm theo thứ tự:
+
 1. **Verb trước** (vì câu nào cũng có verb)
 2. **Subject** — ai/cái gì làm việc đó?
 3. **Object/Complement** — làm gì / là gì?
@@ -275,11 +279,13 @@ Khi gặp câu dài và phức tạp, hãy tìm theo thứ tự:
 ## Lưu ý cho người học Việt Nam
 
 **Vấn đề chủ ngữ giả:** Tiếng Anh thường dùng *it* và *there* làm chủ ngữ khi không có chủ ngữ thật:
+
 - *It is raining.* (không có "chủ ngữ thật" — trời đang mưa)
 - *There are many students in the class.* — there là chủ ngữ giả của cấu trúc tồn tại. Trong *There are students there*, there đầu là chủ ngữ giả, there cuối chỉ nơi chốn.
 - *It seems that technology is changing fast.* — it là chủ ngữ giả; that-clause nêu nội dung nhận định sau seems, không phải một vật mà it thay thế.
 
 **Mẹo kiểm tra câu:** Trước khi nói/viết, hỏi nhanh:
+
 1. Câu này có Subject chưa?
 2. Câu này có Verb chưa?
 3. Verb này cần Object không? (transitive verbs cần, intransitive verbs không)
@@ -321,6 +327,7 @@ Phân tích 5 thành phần (S/V/O/C/A) của các câu sau:
 ### Đáp án
 
 **Phân tích:**
+
 1. S=She, V=works, A=in a hospital (nơi), A=every day (thời gian)
 2. S=My father, V=gave, IO=me, DO=advice, A=last night
 3. S=The movie, V=seemed, C=boring, A=to most viewers
@@ -330,6 +337,7 @@ Phân tích 5 thành phần (S/V/O/C/A) của các câu sau:
 Giữ đúng cấp phân tích: trong *The quality of education matters*, toàn cụm The quality of education là S. Trong *She put the book on the table*, on the table là bổ ngữ vị trí được put yêu cầu trong nghĩa này; không phải mọi phần còn lại đều là trạng ngữ tùy chọn.
 
 **Sửa câu:**
+
 1. **It** is raining heavily outside.
 2. My sister **is a** doctor at Cho Ray Hospital.
 3. **It is** very difficult to understand this concept.
