@@ -107,6 +107,7 @@ Dùng đại từ đúng giúp câu văn mạch lạc và tự nhiên hơn. Dùn
 - This bag is **mine**. / That book is **hers**. / The car is **theirs**.
 
 > ⚠️ **Không nhầm:** "its" (sở hữu của it) ≠ "it's" (= it is)
+>
 > - The dog lost **its** collar. ✅
 > - **It's** raining outside. ✅ (= It is raining)
 
@@ -162,6 +163,7 @@ Nhóm chỉ **người/vật** ở đây là đại từ; somewhere/anywhere/eve
 - **Nothing** is impossible if you work hard.
 
 > "Everyone" và "someone" là số ít → chia động từ số ít:
+>
 > - **Everyone is** welcome. ✅
 > - Everyone are welcome. ❌
 

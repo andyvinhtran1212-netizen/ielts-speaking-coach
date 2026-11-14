@@ -1,4 +1,5 @@
-"""G03: authored lists need separation from ordinary prose in Python-Markdown."""
+"""G03: authored lists need separation, including within blockquotes."""
+from html.parser import HTMLParser
 from pathlib import Path
 import re
 
@@ -6,10 +7,13 @@ import markdown
 from markdown.extensions.fenced_code import FencedBlockPreprocessor
 import pytest
 
+from services.grammar_content import _MD_EXTENSIONS, _MD_EXT_CONFIGS, grammar_service
+
 _CONTENT = Path(__file__).resolve().parents[1] / "content"
 # Quiz-bank sources whose bytes are pinned by the exact-form parser fixture
 # (frontend/tests/grammar-exact-form-engine.test.mjs, spec 0019 after_sha256).
-# Editing them needs a fixture regeneration, so G03 leaves them unchanged.
+# G03-R2 defers their 21 stuck paragraphs: update both lessons, the exact-form
+# fixture and spec pins together in the follow-up, then remove this exception.
 _HASH_PINNED = {
     "foundations/phrase-vs-clause.md",
     "tenses/past-perfect.md",
@@ -118,6 +122,89 @@ def test_grammar_content_lists_are_separated_from_prose():
         indexes, _ = list_blank_line_candidates(path.read_bytes().decode("utf-8"))
         failures.extend(f"{path.relative_to(_CONTENT)}:{i + 1}" for i in indexes)
     assert not failures, "Add a blank line before these lists:\n" + "\n".join(failures)
+
+
+class _ParagraphText(HTMLParser):
+    """Keep inline text/newlines so emphasis cannot hide a swallowed marker."""
+
+    def __init__(self):
+        super().__init__()
+        self.paragraphs = []
+        self.current = None
+        self.code_depth = 0
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "p":
+            self.current = []
+        elif tag in ("code", "pre"):
+            self.code_depth += 1
+
+    def handle_endtag(self, tag):
+        if tag == "p" and self.current is not None:
+            self.paragraphs.append("".join(self.current))
+            self.current = None
+        elif tag in ("code", "pre"):
+            self.code_depth -= 1
+
+    def handle_data(self, data):
+        if self.current is not None and not self.code_depth:
+            self.current.append(data)
+
+
+def stuck_list_paragraphs(html):
+    parser = _ParagraphText()
+    parser.feed(html)
+    return [text for text in parser.paragraphs
+            if any(_LIST.match(line) for line in text.splitlines()[1:])]
+
+
+def test_grammar_rendered_lists_have_zero_stuck_paragraphs():
+    # Use the public loader's exact HTML, including learning-block processing;
+    # a source-only heuristic misses quoted lists and lists resuming after blanks.
+    assert len(grammar_service.articles_by_slug) == 137
+    failures = []
+    for article in grammar_service.articles_by_slug.values():
+        path = f"{article['category']}/{article['slug']}.md"
+        if path in _HASH_PINNED:
+            continue
+        failures.extend(f"{path}: {text}" for text in stuck_list_paragraphs(article["html"]))
+    assert not failures, "Lists swallowed into rendered paragraphs:\n" + "\n".join(failures)
+
+
+@pytest.mark.parametrize("marker, tag", [("- ", "ul"), ("* ", "ul"), ("+ ", "ul"), ("1. ", "ol")])
+def test_list_immediately_after_heading_renders_as_a_list(marker, tag):
+    # Unlike heading -> prose -> list, a direct ATX heading -> list already
+    # works in Python-Markdown. Check its real structure, not just marker text.
+    html = markdown.Markdown(extensions=_MD_EXTENSIONS, extension_configs=_MD_EXT_CONFIGS).convert(
+        "### Heading\n" + marker + "item\n",
+    )
+    assert f"<{tag}>\n<li>item</li>\n</{tag}>" in html
+    assert stuck_list_paragraphs(html) == []
+
+
+@pytest.mark.parametrize("body", [
+    "> **Note:**\n> - first\n> - second",
+    "> Note:\n> 1. first\n> 2. second",
+    "### Heading\nShort prose:\n- first\n- second",
+    "**Label:**\n- first\n- second\n\n- resumed list",
+])
+def test_render_guard_detects_stuck_lists(body):
+    html = markdown.Markdown(extensions=_MD_EXTENSIONS, extension_configs=_MD_EXT_CONFIGS).convert(body)
+    assert len(stuck_list_paragraphs(html)) == 1
+
+
+@pytest.mark.parametrize("body", [
+    "> **Note:**\n>\n> - first\n> - second",
+    "> Note:\n>\n> 1. first\n> 2. second",
+    "### Heading\nShort prose:\n\n- first\n- second",
+    "### Heading\n\n- first\n- second",
+    "Prose\n\n- first\n  - nested\n- second",
+    "```text\nProse\n- example\n```",
+    "Prose `code\n- example`",
+])
+def test_render_guard_accepts_separated_lists_and_code(body):
+    html = markdown.Markdown(extensions=_MD_EXTENSIONS, extension_configs=_MD_EXT_CONFIGS).convert(body)
+    assert stuck_list_paragraphs(html) == []
 
 
 @pytest.mark.parametrize("marker", ["- ", "* ", "+ ", "1. ", "1) "])

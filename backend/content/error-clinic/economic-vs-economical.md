@@ -197,6 +197,7 @@ an economical + noun
 - "The system operates **economically**." → hoạt động một cách tiết kiệm
 
 > Chú ý: "economically" có thể là trạng từ của cả hai tính từ, nghĩa phụ thuộc vào ngữ cảnh:
+>
 > - "**Economically** speaking, this policy makes sense." → về mặt kinh tế
 > - "The engine runs **economically**." → tiết kiệm nhiên liệu
 

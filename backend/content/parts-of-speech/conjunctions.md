@@ -115,6 +115,7 @@ Nối mệnh đề phụ (subordinate clause) với mệnh đề chính. Mệnh 
 | **whereas** | He likes jazz, **whereas** his sister prefers pop. |
 
 > **Phân biệt:** "although" và "despite/in spite of" diễn đạt cùng ý, nhưng:
+>
 > - **although** + mệnh đề (S + V): **Although** it was cold...
 > - **despite / in spite of** + cụm danh từ: **Despite** the cold weather...
 

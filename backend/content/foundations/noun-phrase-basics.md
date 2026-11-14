@@ -264,6 +264,7 @@ Tiếng Anh cho phép dùng danh từ để bổ nghĩa cho danh từ khác — 
 | **tax** system | hệ thống thuế |
 
 > **Lưu ý:** Noun modifier thường ở dạng số ít; đây là mặc định, không phải lệnh cấm mọi dạng -s:
+>
 > - ❌ "a cars factory" → ✅ "a **car** factory"
 > - ❌ "a books store" → ✅ "a **book** store"
 > - ❌ "a problems solution" → ✅ "a **problem** solution"
@@ -290,6 +291,7 @@ all / most / some / many / a number / the majority + of + [determiner] + noun
 - **a minority of** cases
 
 > So sánh:
+>
 > - "**Most** students..." *(most không có "of" + danh từ không có "the")* — dùng khi nói chung
 > - "**Most of the** students..." *(most of the + danh từ cụ thể)* — dùng khi nói về nhóm cụ thể
 
@@ -360,6 +362,7 @@ Dùng noun phrase để diễn đạt chi tiết có căn cứ. Những phần i
 | the government | **the national government responsible for** environmental protection |
 
 > **Kỹ thuật nominalization:** Biến động từ/tính từ thành danh từ để tăng tính học thuật:
+>
 > - "people are poor" → "**poverty**" hoặc "**the prevalence of poverty**"
 > - "the government decided" → "**the government's decision**"
 > - "it is necessary to" → "**the necessity of**"

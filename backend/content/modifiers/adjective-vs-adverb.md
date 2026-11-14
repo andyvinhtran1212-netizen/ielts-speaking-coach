@@ -125,6 +125,7 @@ Trong IELTS:
 | far | **far** |
 
 > **Bẫy "hardly" và "lately" và "nearly":**
+>
 > - **hard** (adj) = khó; **hard** (adv) = chăm chỉ → "She works **hard**."
 > - **hardly** (adv) = hầu như không → "I **hardly** know him." *(nghĩa khác hoàn toàn!)*
 > - **late** (adj/adv) = muộn → "He arrived **late**."
@@ -151,6 +152,7 @@ Subject + linking verb + adjective (không phải adverb)
 | The situation became **serious**. | The situation became *seriously*. | "became" = linking verb → adjective |
 
 > **Phân biệt "look" là linking verb và "look" là action verb:**
+>
 > - "She looks **beautiful**." → "looks" = linking verb → adjective (mô tả "she")
 > - "She looked at me **suspiciously**." → "looked at" = action verb → adverb (mô tả cách nhìn)
 

@@ -141,6 +141,7 @@ Một số viết liền, một số có dấu gạch nối (*mother-in-law*), m
 ### Kiểm tra nhanh:
 
 > **"Có thể nói *one ___, two ___s* không?"**
+>
 > - *one book, two books* → ✅ Đếm được
 > - *one information, two informations* → ❌ Không đếm được → dùng *some information / a piece of information*
 
