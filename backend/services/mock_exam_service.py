@@ -4003,8 +4003,9 @@ def _listening_total_questions(test_id) -> Optional[int]:
             return None
         rows = (supabase_admin.table("listening_exercises").select("payload")
                 .in_("content_id", section_ids).execute().data or [])
-        return sum(1 for key in grader.collect_answer_key(rows)
-                   if key.get("scoring") != "self_check") or None
+        key = grader.collect_answer_key(rows)
+        # The grader expands self_check to the whole mcq_multi selection group.
+        return grader.grade_attempt([], key)["max_score"] or None
     except Exception:  # noqa: BLE001 — a denominator is never worth a 500
         logger.warning("[mock-exam] listening total lookup failed test=%s", test_id)
         return None
