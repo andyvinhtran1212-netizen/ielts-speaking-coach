@@ -142,6 +142,7 @@ Giới thiệu quan điểm đối lập hoặc ngoại lệ:
 | **That said** | Online learning is convenient. **That said**, face-to-face interaction is irreplaceable. |
 
 > **Phân biệt:**
+>
 > - **However** — phổ biến nhất, dùng được mọi lúc
 > - **Nevertheless / Nonetheless** — mạnh hơn, ngụ ý "dù vậy vẫn cứ..."
 > - **On the other hand** — dùng để trình bày hai mặt của vấn đề (không dùng nếu chỉ có một mặt)

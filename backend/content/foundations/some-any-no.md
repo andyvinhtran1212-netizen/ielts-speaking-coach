@@ -192,6 +192,7 @@ Các từ ghép được tạo bằng cách ghép some/any/no với -one/-body/-
 | I met **some**body interesting. | Is **any**body here? | **No**body was home. |
 
 > **Viết đúng:**
+>
 > - *someone* → **một từ**
 > - *anyone* → **một từ**
 > - *no one* → **hai từ** (khác với nobody — một từ)
@@ -205,6 +206,7 @@ Các từ ghép được tạo bằng cách ghép some/any/no với -one/-body/-
 | There's **something** wrong. | Is there **anything** I can do? | **Nothing** happened. |
 
 > **Ngoại lệ với "something" trong câu hỏi:**
+>
 > - "Would you like **something** to drink?" *(mời mọc)*
 > - "Can I get you **something**?" *(kỳ vọng "yes")*
 

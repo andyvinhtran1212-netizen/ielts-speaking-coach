@@ -131,6 +131,7 @@ much + uncountable noun
 - **How much** money was spent?
 
 > **Lưu ý:** "Much" thường dùng trong câu phủ định và câu hỏi. Trong câu khẳng định, ưu tiên "a lot of" hoặc "a great deal of":
+>
 > - ✅ Much research supports this view. (tự nhiên trong văn học thuật; câu đúng)
 > - ✅ **A great deal of** research supports this view. (học thuật hơn)
 > - ✅ **Much** of the research supports this view. (chấp nhận được trong academic writing)
@@ -211,6 +212,7 @@ a little + uncountable noun = "có một ít", nhấn có một lượng nhỏ (
 - If you have **any** concerns, let me know. (điều kiện)
 
 > **Any trong câu khẳng định = "bất kỳ":**
+>
 > - You can ask **any** question you like.
 > - **Any** country can participate.
 
@@ -261,6 +263,7 @@ Dùng với countable plural, động từ số nhiều:
 - **A number of** factors contribute to this problem.
 
 > **Phân biệt "the number of" vs "a number of":**
+>
 > - **The number of** students **is** increasing. (số lượng → số ít)
 > - **A number of** students **are** struggling. (một số học sinh → số nhiều)
 

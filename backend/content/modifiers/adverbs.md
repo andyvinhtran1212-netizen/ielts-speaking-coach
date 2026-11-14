@@ -99,6 +99,7 @@ Nhưng không phải tất cả adverbs đều kết thúc bằng -ly:
 
 > **Chú ý bẫy:** Một số từ kết thúc bằng -ly nhưng là **tính từ**, không phải adverb:
 > *lovely, friendly, lonely, lively, elderly, silly, cowardly* → Đây là tính từ!
+>
 > - ❌ SAI: She speaks *friendlily*.
 > - ✅ ĐÚNG: She speaks *in a friendly way*.
 
@@ -133,6 +134,7 @@ Subject + verb + (object) + manner adverb
 | good | **well** *(bất quy tắc!)* |
 
 > **Lưu ý quan trọng:** "good" (tính từ) → "well" (adverb)
+>
 > - ❌ SAI: She sings **good**.
 > - ✅ ĐÚNG: She sings **well**.
 
@@ -163,6 +165,7 @@ Subject + be + frequency adverb
 - We **have often** discussed this issue. *(sau auxiliary)*
 
 > **Lỗi phổ biến nhất:** Đặt frequency adverb SAU động từ thường hoặc ĐẦU câu không phù hợp:
+>
 > - ❌ SAI: I drink always coffee in the morning.
 > - ✅ ĐÚNG: I **always** drink coffee in the morning.
 
@@ -245,6 +248,7 @@ Sentence adverb, + subject + verb...
 | **Minh hoạ** | For example, For instance, Namely | **For instance**, cities like Tokyo have... |
 
 > **Lưu ý cấu trúc:** Khi dùng linking adverbs nối hai mệnh đề:
+>
 > - Dùng dấu chấm phẩy hoặc chấm, không dùng dấu phẩy đơn:
 > - ❌ SAI: The plan was good, however it was too expensive.
 > - ✅ ĐÚNG: The plan was good. **However**, it was too expensive.
