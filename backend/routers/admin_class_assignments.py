@@ -1706,7 +1706,7 @@ async def assignment_tally(
 
     skill_drill = drill_config(assignment)
     drill_reports = await run_in_threadpool(report_by_item, supabase_admin, items, skill_drill) if skill_drill else {}
-    listening_fields = _listening_item_score_fields(items)
+    listening_fields = await run_in_threadpool(_listening_item_score_fields, items)
     grammar_attempts: dict[str, dict] = {}
     grammar_attempts_failed = False
     if (assignment.get("skill") == "grammar"
@@ -2280,7 +2280,7 @@ async def student_work(
         ):
             items_by_asg[it["assignment_id"]] = it
 
-    listening_fields = _listening_item_score_fields(list(items_by_asg.values()))
+    listening_fields = await run_in_threadpool(_listening_item_score_fields, list(items_by_asg.values()))
 
     # Mục nào có bài TỰ LUẬN đã chấm — một lượt đọc cho cả danh sách.
     item_ids = [it["id"] for it in items_by_asg.values()]
