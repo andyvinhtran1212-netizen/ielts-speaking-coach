@@ -1,5 +1,7 @@
 'use client';
 
+import { listeningSubmissionLabel } from '@/lib/admin-class-submissions-model.mjs';
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Dialog, messageOf } from '@/components/admin-directory-ui';
@@ -82,7 +84,7 @@ export function AdminClassStudentWork({ cohortId, subject, onClose, onOpenAssign
         {data.items.map((item) => { const action = studentWorkAction(item); return <article key={item.assignment_id} className="acw-item" data-status={item.status}>
           <i aria-hidden="true" />
           <div className="acw-item-main"><div className="acw-item-title"><h3>{item.title}</h3>{item.archived && <span className="adm-status-pill is-archived">Đã đóng</span>}</div><p>{SKILL[item.skill] || item.skill} · Hạn {formatVietnam(item.due_at)}</p>{item.submitted_at && <small>Nộp {formatVietnam(item.submitted_at)}</small>}</div>
-          <div className="acw-result"><span className={`adm-status-pill ${item.status === 'submitted' ? 'is-active' : item.status === 'late' || item.status === 'missing' ? 'is-warning' : 'is-archived'}`}>{STATUS[item.status] || item.status}</span>{item.score != null && <strong>{item.skill === 'course' ? `${Math.round(item.score)}%` : item.score.toFixed(1)}</strong>}</div>
+          <div className="acw-result"><span className={`adm-status-pill ${item.status === 'submitted' ? 'is-active' : item.status === 'late' || item.status === 'missing' ? 'is-warning' : 'is-archived'}`}>{listeningSubmissionLabel(item, STATUS[item.status] || item.status)}</span>{item.score != null && <strong>{item.skill === 'course' ? `${Math.round(item.score)}%` : item.score.toFixed(1)}</strong>}</div>
           <div className="acw-action">{action?.kind === 'external' ? <a className="adm-btn-secondary adm-btn-sm" href={action.href} target="_blank" rel="noopener noreferrer">{action.label}</a> : action ? <button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => onOpenAssignment(assignmentFrom(item), { studentId: subject!.student_id, userId: subject!.user_id, name: data.student.name || subject!.name, hasWriting: item.has_writing })}>{action.label}</button> : <span>Chưa có bài để mở</span>}</div>
         </article>; })}
       </div>}

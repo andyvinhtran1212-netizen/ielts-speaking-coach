@@ -82,9 +82,9 @@ it.each(['optional', 'required'] as const)('keeps self-check results neutral alo
     .searchParams.get('class_item')).toBe('item');
 
   view.rerender(<ResultView {...props} result={{ score: 0, max_score: 0, band_estimate: null, per_question: [selfCheck] }} />);
-  expect(overview.textContent).toContain('Correct0/0');
-  expect(within(overview).getAllByText('—')).toHaveLength(2);
-  expect(overview.textContent).toContain('Incorrect0Unanswered0');
+  expect(overview.textContent).toContain('Đã hoàn thành · 1 câu tự đối chiếu');
+  expect(within(overview).getByText('Không chấm điểm')).toBeTruthy();
+  expect(overview.textContent).not.toMatch(/Correct|Accuracy|Incorrect|Unanswered|0\/0/);
   expect(screen.getByRole('link', { name: linkName })).toBeTruthy();
   expect(screen.queryByRole('link', { name: 'Dictation practice' })).toBeNull();
 });

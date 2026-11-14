@@ -40,7 +40,7 @@ from uuid import UUID
 
 from database import supabase_admin
 from services.errors import clip_user_value
-from services.listening_test_grader import scored_question_count
+from services.listening_test_grader import scored_question_count, score_mode, self_check_count
 
 logger = logging.getLogger(__name__)
 
@@ -751,6 +751,8 @@ def create_sitting(user_id: str, code: str) -> dict:
         # (Codex review, PR #849). Only this function knows which happened.
         return {**existing.data[0], "created": False}
 
+    _guard_listening_scoring(exam.get("listening_test_id"), SittingConflictError)
+
     # NEW sitting only: apply the entry gates.
     #
     # C3 — one live sitting per student, across ALL exams. A student in two
@@ -1332,6 +1334,9 @@ def lr_skill_states(sitting: dict) -> list:
       scored       — band exists; nothing to explain
       no_attempt   — no attempt row at all → genuinely never received
       no_answers   — submitted, but not one question answered → blank paper
+      self_check_only — reference-answer review, no auto-scored questions
+      mixed_no_band — scored and reference-answer questions, no official band
+      no_band      — a paper without exactly 40 auto-scored questions
       below_table  — answered some, scored too low for the published table
                      (e.g. 3/40): a real attempt, just no band to give
 
@@ -1369,7 +1374,14 @@ def lr_skill_states(sitting: dict) -> list:
         r = rows[0]
         gd = r.get("grading_details") or []
         answered = sum(1 for q in gd if str(q.get("user_answer") or "").strip())
-        if r.get("band_estimate") is not None:
+        mode = score_mode(gd) if skill == "listening" else "scored"
+        if mode == "self_check_only":
+            state = "self_check_only"
+        elif mode == "mixed":
+            state = "mixed_no_band"
+        elif skill == "listening" and gd and scored_question_count(gd) != 40:
+            state = "no_band"
+        elif r.get("band_estimate") is not None:
             state = "scored"
         elif answered == 0:
             state = "no_answers"
@@ -1378,8 +1390,10 @@ def lr_skill_states(sitting: dict) -> list:
         out.append({
             "skill":    skill,
             "state":    state,
-            "score":    r.get("score"),
-            "max":      (scored_question_count(gd) if skill == "listening" else len(gd)) or None,
+            "score":    None if mode == "self_check_only" else r.get("score"),
+            "max":      scored_question_count(gd) if skill == "listening" else (len(gd) or None),
+            "score_mode": mode,
+            "self_check_count": self_check_count(gd) if skill == "listening" else 0,
             "answered": answered,
         })
     return out
@@ -1599,6 +1613,8 @@ def start_section(sitting_id: str, user_id: str, section: str) -> dict:
     # `id=undefined`, and let the student's own countdown drain against nothing
     # until the reaper collected the empty paper and it was graded.
     from services.mock_exam_assignment_service import servable_skills
+    if section == "listening":
+        _guard_listening_scoring(exam.get("listening_test_id"), SittingConflictError)
     if section not in servable_skills(exam):
         raise SittingConflictError(
             f"Phần {section} chưa có đề trong kỳ test lại này — báo giáo viên. "
@@ -2332,12 +2348,46 @@ def _update_mock_with_explanation_approval(
     return result
 
 
+def _listening_score_modes(test_ids):
+    """Batch the answer-key lookup; never infer scoring from question counts."""
+    from services import listening_test_grader as grader
+
+    def read_pages(table, columns, field, ids):
+        out = []
+        for chunk_start in range(0, len(ids), 100):
+            chunk = ids[chunk_start:chunk_start + 100]
+            offset = 0
+            while True:
+                rows = (supabase_admin.table(table).select(columns).in_(field, chunk)
+                        .order("id").range(offset, offset + 499).execute().data or [])
+                out.extend(rows)
+                if len(rows) < 500:
+                    break
+                offset += len(rows)
+        return out
+
+    contents = read_pages("listening_content", "id,test_id", "test_id", list(map(str, test_ids)))
+    owners = {row["id"]: str(row["test_id"]) for row in contents}
+    exercises = read_pages("listening_exercises", "id,content_id,payload", "content_id", list(owners))
+    by_test = {str(test_id): [] for test_id in test_ids}
+    for row in exercises:
+        by_test[owners[row["content_id"]]].append(row)
+    return {test_id: grader.grade_attempt([], grader.collect_answer_key(rows))["score_mode"]
+            for test_id, rows in by_test.items()}
+
+
+def _guard_listening_scoring(test_id, error_type=ValueError):
+    if test_id and _listening_score_modes([test_id])[str(test_id)] == "self_check_only":
+        raise error_type("Đề Listening chỉ tự đối chiếu không dùng cho Mock Test. Hãy chọn đề có câu chấm điểm.")
+
+
 def _guard_listening_attachment(payload):
     if payload.get("listening_test_id"):
         from services import listening_blackeye as blackeye
         if blackeye.is_blackeye(blackeye.test_identity(
                 supabase_admin, payload["listening_test_id"], missing_status=None)):
             blackeye.assignment_seam()
+        _guard_listening_scoring(payload["listening_test_id"])
 
 
 def admin_create_exam(payload: dict, created_by: str) -> dict:
@@ -4735,6 +4785,23 @@ def admin_exam_picker_page(kind: str, search: str, limit: int, offset: int) -> d
             query = query.eq("task_type", "task2")
     if search:
         query = query.or_(ilike_or_filter(search_columns, search))
+    if kind == "listening":
+        eligible = []
+        source_offset = 0
+        while True:
+            response = (query.order("created_at", desc=True).order("id", desc=True)
+                        .range(source_offset, source_offset + 499).execute())
+            if response.count is None:
+                raise ValueError("Picker count is unavailable")
+            modes = _listening_score_modes([row["id"] for row in response.data or []])
+            for row in response.data or []:
+                if modes[str(row["id"])] != "self_check_only":
+                    eligible.append(row)
+            source_offset += len(response.data or [])
+            if source_offset >= response.count or not response.data:
+                break
+        return {"items": eligible[offset:offset + limit], "total": len(eligible),
+                "limit": limit, "offset": offset}
     response = (
         query.order("created_at", desc=True).order("id", desc=True)
         .range(offset, offset + limit - 1).execute()

@@ -35,7 +35,7 @@ afterEach(() => {
 });
 
 it('renders self-check answers and Vietnamese explanation without a correct/incorrect mark, including a reload', async () => {
-  const raw = { ...response(), score: 0, max_score: 0, review: [
+  const raw = { ...response(), score: null, score_mode: 'self_check_only', max_score: 0, review: [
     { q_num: 1, self_check: true, correct: null, user_answer: 'my response', expected: 'reference answer',
       alternatives: ['alternative answer'], section: '1', solution: { why_correct: 'Đây là lời giải tham khảo.', skills: 'K2' } },
   ] };
@@ -55,7 +55,7 @@ it('renders self-check answers and Vietnamese explanation without a correct/inco
     expect(card.textContent).not.toMatch(/✓|✗/);
     fireEvent.click(card.querySelector('.lr-card__top')!);
     expect(within(card).getByText('Đây là lời giải tham khảo.')).toBeTruthy();
-    expect(view.container.querySelector('.lr-summary')?.textContent).toContain('0/0 câu');
+    expect(view.container.querySelector('.lr-summary')?.textContent).not.toContain('0/0 câu');
     expect(screen.getByText('Không chấm điểm')).toBeTruthy();
     expect(screen.queryByText('Bạn đã trả lời đúng toàn bộ bài này.')).toBeNull();
     expect(view.container.querySelector('.lr-skills-panel')).toBeNull();

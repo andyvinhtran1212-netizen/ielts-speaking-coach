@@ -14,7 +14,7 @@ export type StudentWorkItem = {
   archived: boolean;
   status: string;
   submitted_at: string | null;
-  score: number | null;
+  score_mode?: string | null; max_score?: number | null; self_check_count?: number | null; score: number | null;
   artifact_kind: string | null;
   artifact_id: string | null;
   has_writing: boolean;

@@ -198,3 +198,10 @@ describe('native route ownership and operational behavior', () => {
     assert.match(CLIENT, /aria-label="Đáp án từng câu"/);
   });
 });
+
+
+test('accepts canonical self-check-only null scores without accepting unmarked null claims', () => {
+  const row = baseRow({ total_questions: 0, score: null, accuracy: null, score_mode: 'self_check_only' });
+  assert.equal(normalizeListeningAttemptList(listPayload({ items: [row] })).rows.length, 1);
+  assert.equal(normalizeListeningAttemptList(listPayload({ items: [{ ...row, score_mode: 'scored' }] })).rows.length, 0);
+});

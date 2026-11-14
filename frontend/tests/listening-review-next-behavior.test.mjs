@@ -137,7 +137,7 @@ describe('Listening review native model', () => {
   });
 
   test('derives band floor, transcript labels, weak skills and section anchors deterministically', () => {
-    const data = normalizeListeningReview(fixture({ band_estimate: null }));
+    const data = normalizeListeningReview(fixture({ band_estimate: null, max_score: 40 }));
     assert.equal(listeningBandLabel(data), 'Dưới band 4.0');
     assert.deepEqual(listeningTranscriptParagraphs(data.sections[0].transcript), [
       { speaker: 'Daniel', text: 'Hello there.' }, { speaker: 'Helen', text: 'Welcome.' },
@@ -255,4 +255,15 @@ describe('Listening review route ownership and rollback', () => {
     assert.match(LEGACY_HTML, /src="\/js\/listening-review\.js"/);
     assert.match(LEGACY_JS, /\/api\/listening\/tests\/attempts\//);
   });
+});
+
+
+test('review accepts null self-check score, hides historical short bands, and labels mixed papers', () => {
+  const item = { q_num: 1, self_check: true, correct: null, user_answer: 'mine', expected: 'reference' };
+  const self = normalizeListeningReview(fixture({ score: null, max_score: 0, score_mode: 'self_check_only', review: [item] }));
+  assert.equal(self.score, null);
+  assert.equal(listeningBandLabel(self), 'Không chấm điểm');
+  assert.equal(listeningBandLabel(normalizeListeningReview(fixture())), 'Không quy đổi band');
+  const mixed = normalizeListeningReview(fixture({ score: 1, max_score: 1, score_mode: 'mixed', review: [item, { q_num: 2, correct: true }] }));
+  assert.equal(listeningBandLabel(mixed), 'Không quy đổi band · 1 câu tự đối chiếu');
 });

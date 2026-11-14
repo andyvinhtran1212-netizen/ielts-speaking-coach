@@ -487,3 +487,23 @@ def test_listening_preview_enforces_real_admin_guard_before_content(monkeypatch,
     assert response.status_code == (403 if role else 401)
     db.table.assert_not_called()
     builder.assert_not_called()
+
+
+@pytest.mark.parametrize("mixed", [False, True])
+def test_review_self_check_display_fields_do_not_regrade_history(monkeypatch, mixed):
+    import copy
+    attempt = copy.deepcopy(_ATTEMPT_SUBMITTED)
+    attempt["score"] = 1 if mixed else 0
+    attempt["grading_details"][0].update(self_check=True, correct=None)
+    if not mixed:
+        for row in attempt["grading_details"]:
+            row.update(self_check=True, correct=None)
+    before = copy.deepcopy(attempt)
+    _patch(monkeypatch, attempt)
+    out = _run(L.get_listening_test_attempt_review("att-1", authorization="x"))
+    assert out["score"] == (1 if mixed else None)
+    assert out["max_score"] == (1 if mixed else 0)
+    assert out["score_mode"] == ("mixed" if mixed else "self_check_only")
+    assert out["self_check_count"] == (1 if mixed else 2)
+    # H1 retains stored historical fields/proofs, only the display mode is derived.
+    assert attempt == before

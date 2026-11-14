@@ -98,6 +98,8 @@ export function normalizeListeningAttemptItem(raw) {
     // A persisted report-only attempt intentionally keeps score/accuracy null
     // while retaining its known question count. Do not infer this from type.
     if (value.score !== null || value.accuracy !== null) return null;
+  } else if (value.score_mode === 'self_check_only') {
+    if (totalQuestions !== 0 || value.score !== null || value.accuracy !== null) return null;
   } else if (totalQuestions === 0) {
     if (score !== 0 || value.accuracy !== null) return null;
   } else if ((score == null) !== (totalQuestions == null) || (graded !== (accuracy != null))) return null;
