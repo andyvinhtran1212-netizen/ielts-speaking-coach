@@ -6477,6 +6477,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/vocabulary/curated-availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Get Curated Availability */
+        get: operations["admin_get_curated_availability_admin_vocabulary_curated_availability_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/vocabulary/pilot-metrics": {
         parameters: {
             query?: never;
@@ -16324,6 +16341,11 @@ export interface components {
             topic: string;
             /** Bullets */
             bullets?: string[];
+        };
+        /** CuratedAvailability */
+        CuratedAvailability: {
+            /** Available */
+            available: boolean;
         };
         /** CuratedCohortRequest */
         CuratedCohortRequest: {
@@ -34955,6 +34977,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_get_curated_availability_admin_vocabulary_curated_availability_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CuratedAvailability"];
                 };
             };
             /** @description Validation Error */

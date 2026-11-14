@@ -34,6 +34,7 @@
  * hamburger button is the only trigger.
  */
 
+import { readCuratedAvailability } from '/js/curated-availability.js';
 import { bindToggleButton } from '/js/theme-toggle.js';
 import { installPerfResourceHints } from '/js/components/perf-hints.js';
 
@@ -333,6 +334,7 @@ const STYLE = /* css */ `
   text-decoration: none;
   border: 1px solid transparent;
 }
+[data-curated-availability] { display: block; font-size: var(--av-fs-xs); }
 .nav-subitem:hover {
   background: var(--av-surface-sunken);
   color: var(--av-text-primary);
@@ -630,7 +632,7 @@ function renderSubItem(parentSection, sub, isActive) {
        data-section="${parentSection}"
        data-subsection="${sub.slug}"
        aria-label="${sub.label}"${isActive ? ' aria-current="page"' : ''}>
-      <span class="nav-sublabel">${sub.label}</span>
+      <span class="nav-sublabel">${sub.label}</span>${parentSection === 'vocab' && sub.slug === 'curated' ? '<small data-curated-availability role="status"></small>' : ''}
     </a>
   `;
 }
@@ -807,6 +809,7 @@ export class AverAdminChrome extends HTMLElement {
     this._bindCollapse();
     // Re-bind hamburger nav-item close handlers for the new DOM.
     this._rebindNavItemCloseHandlers();
+    this._updateCuratedAvailability();
   }
 
 
@@ -828,12 +831,46 @@ export class AverAdminChrome extends HTMLElement {
     document.head.appendChild(link);
   }
 
+  _updateCuratedAvailability() {
+    const badge = this.shadowRoot?.querySelector('[data-curated-availability]');
+    if (!badge) return;
+    const signal = this._abortController?.signal;
+    let tries = 0;
+    const tick = async () => {
+      if (signal?.aborted || !this.isConnected || !badge.isConnected) return;
+      if (!window.api?.getWith || !window.getSupabase?.()) {
+        if (++tries < POLL_MAX_TRIES) setTimeout(tick, POLL_INTERVAL_MS);
+        else badge.textContent = 'Không kiểm tra được khả dụng';
+        return;
+      }
+      try {
+        const { data } = await window.getSupabase().auth.getSession();
+        if (signal?.aborted || !badge.isConnected) return;
+        if (!data?.session) {
+          if (++tries < POLL_MAX_TRIES) setTimeout(tick, POLL_INTERVAL_MS);
+          return;
+        }
+        const state = await readCuratedAvailability(() => window.api.getWith(
+          '/admin/vocabulary/curated-availability', undefined, { signal },
+        ));
+        if (!signal?.aborted && badge.isConnected) {
+          badge.textContent = state === 'unavailable' ? 'Chưa khả dụng' : '';
+          badge.closest('a').setAttribute('aria-label', `Curated Editorial${state === 'unavailable' ? ' — Chưa khả dụng' : ''}`);
+        }
+      } catch {
+        if (!signal?.aborted && badge.isConnected) badge.textContent = 'Không kiểm tra được khả dụng';
+      }
+    };
+    void tick();
+  }
+
   _bindInteractiveChrome() {
     this._bindToggle();
     this._bindCollapse();
     this._bindHamburger();
     this._bindEscape();
     this._populateEmail();
+    this._updateCuratedAvailability();
   }
 
   _normalizeSubsection(value, active) {
