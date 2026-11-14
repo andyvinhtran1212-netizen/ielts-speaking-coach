@@ -2,7 +2,7 @@
 import asyncio
 from uuid import UUID
 
-from fastapi import APIRouter, Header
+from fastapi import APIRouter, Header, HTTPException
 
 from database import supabase_admin
 from models.mock_attempt_flags import (
@@ -17,6 +17,9 @@ router = APIRouter(tags=["attempt review flags"])
 def _guard(skill, attempt, *, write):
     # The policy helper checks purpose only AFTER the existing auth/capability
     # resolver has proved ownership. Submitted GET exposes just flags.
+    from services import listening_blackeye
+    if skill == "listening" and listening_blackeye.attempt_is_blackeye(supabase_admin, attempt):
+        raise HTTPException(422, "Black Eye flags unavailable.", headers={"Cache-Control": "private, no-store"})
     from services.mock_paper_policy import guard_owned_attempt
     guard_owned_attempt(supabase_admin, skill, attempt,
                         purpose="flags_write" if write else "flags_read")

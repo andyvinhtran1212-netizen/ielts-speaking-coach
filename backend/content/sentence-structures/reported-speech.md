@@ -70,7 +70,7 @@ Reported Speech thuật lại lời nói mà **không trích dẫn trực tiếp
 
 - **IELTS Writing Task 2:** trích dẫn quan điểm từ nghiên cứu, chuyên gia, số đông
 - **IELTS Speaking:** kể lại điều ai đó nói, khuyên, hỏi
-- Là cấu trúc ngữ pháp phức tạp thể hiện Grammatical Range (Band 7+)
+- Là cấu trúc ngữ pháp phức tạp thể hiện Grammatical Range and Accuracy (Band 7+)
 - Giúp viết đa dạng hơn thay vì chỉ dùng trích dẫn trực tiếp
 
 <!-- anchor: reported-speech.tense-backshift.vietnamese-skip -->
@@ -108,11 +108,9 @@ Reported Speech thuật lại lời nói mà **không trích dẫn trực tiếp
    - "The Earth **orbits** the sun." → He said the Earth **orbits** the sun. ✅
    - "Water **boils** at 100°C." → She explained that water **boils** at 100°C. ✅
 
-2. **Tường thuật ngay lập tức** (vừa mới nói):
-   - She says she **is** tired. (đang nói ngay lúc này)
+2. **Động từ tường thuật ở hiện tại** (says, has said, argue…): *She says she is tired.*
 
-3. **Dùng với "that" và thì hiện tại** (trong IELTS Writing, chấp nhận):
-   - Researchers argue that technology **has** both benefits and drawbacks.
+3. **Điều được thuật lại vẫn đúng lúc nói:** *He said he is moving to Da Nang next month.* (lùi thì cũng đúng)
 
 ## Thay đổi đại từ và trạng từ
 
@@ -124,7 +122,7 @@ Reported Speech thuật lại lời nói mà **không trích dẫn trực tiếp
 | we / us / our | they / them / their |
 | you / your | I/he/she, me/him/her (tùy ngữ cảnh) |
 
-Bảng chỉ minh họa tình huống người khác thuật lại. Nếu tự thuật lời mình, **I** có thể giữ I; you phụ thuộc người nghe. Company có thể là **it**, hoặc **they** trong Anh Anh khi nhìn các thành viên; xác định đúng đối tượng trước khi đổi đại từ.
+Bảng chỉ áp dụng khi thuật lại lời người khác. Tự thuật lời mình thì giữ I. Với tổ chức (the company), dùng *it* (hoặc *they* trong Anh Anh).
 
 ### Trạng từ thời gian và nơi chốn
 
@@ -210,9 +208,9 @@ Thay vì chỉ dùng "say" và "tell", dùng đa dạng reporting verbs:
 | **argue** | argue (that) | lập luận |
 | **suggest** | suggest + V-ing / suggest (that) + subj | đề xuất |
 | **admit** | admit (that) / admit + V-ing | thừa nhận |
-| **deny** | deny + V-ing | phủ nhận |
+| **deny** | deny + V-ing / deny (that) | phủ nhận |
 | **promise** | promise (that) / promise + to-inf | hứa |
-| **warn** | warn + O + (not) to-inf | cảnh báo |
+| **warn** | warn + O + (not) to-inf / warn (that) | cảnh báo |
 | **explain** | explain (that) | giải thích |
 | **insist** | insist (that) | khẳng định mạnh |
 | **complain** | complain (that) | phàn nàn |
@@ -230,10 +228,10 @@ Thay vì chỉ dùng "say" và "tell", dùng đa dạng reporting verbs:
 
 ### Lỗi 1: Quên backshift thì
 
-- ❌ He said he **is** tired.
-- ✅ He said he **was** tired.
+- ❌ Last Monday he said he **is** ill, but he's fine now. → ✅ … he **was** ill.
 - ❌ She told me she **will** come.
 - ✅ She told me she **would** come.
+- **TẠI SAO:** Tiếng Việt không chia thì ("Anh ấy nói anh ấy mệt"), nên người Việt hay giữ nguyên thì của lời nói trực tiếp.
 
 ### Lỗi 2: Đảo ngữ trong tường thuật câu hỏi
 
@@ -249,7 +247,7 @@ Thay vì chỉ dùng "say" và "tell", dùng đa dạng reporting verbs:
 
 ### Lỗi 4: Quên thay đổi đại từ và trạng từ
 
-- ❌ He said "I will come **tomorrow**." → He said he would come **tomorrow**.
+- ❌ (thuật lại sau một tuần) He said he would come **tomorrow**.
 - ✅ He said he would come **the next day**.
 
 ### Lỗi 5: Dùng cấu trúc sai với "suggest"
@@ -269,7 +267,7 @@ Thay vì chỉ dùng "say" và "tell", dùng đa dạng reporting verbs:
 
 ### Speaking Part 2/3 — Kể lại điều ai nói:
 
-- "My teacher once **told** me **to read** widely in English — best advice I ever received."
+- "My teacher once **told** me **to read** widely in English — **the best advice I've ever received**."
 - "A friend of mine **suggested** that I **try** speaking English every day, even to myself."
 - "My parents always **said** that education **was** the most important investment."
 
@@ -300,6 +298,7 @@ Thay vì chỉ dùng "say" và "tell", dùng đa dạng reporting verbs:
 ### Đáp án
 
 **Reported Speech:**
+
 1. She said (that) she was very happy that day.
 2. The teacher asked me if I had finished my homework.
 3. The supervisor told us not to touch the equipment.
@@ -307,6 +306,7 @@ Thay vì chỉ dùng "say" và "tell", dùng đa dạng reporting verbs:
 5. He asked her why she had left early.
 
 **Sửa lỗi:**
+
 1. She **told me** (that) she was tired. / She **said** (that) she was tired.
 2. He asked where **she lived**. (không đảo ngữ)
 3. They **said** (that) they would return the following week. (say không cần tân ngữ người)
@@ -325,12 +325,14 @@ Thay vì chỉ dùng "say" và "tell", dùng đa dạng reporting verbs:
 | Đề xuất | suggest | suggested + V-ing / that S (should) V |
 
 **Backshift nhanh:**
+
 - Present Simple → Past Simple
 - will → would | can → could | must → had to
 - Present Perfect → Past Perfect
 - Past Simple → Past Perfect
 
 **Quy tắc vàng:**
+
 - **say** (that): không cần tân ngữ người
 - **tell** + NGƯỜI + (that): luôn cần tân ngữ người
 - Câu hỏi tường thuật: **KHÔNG đảo ngữ**

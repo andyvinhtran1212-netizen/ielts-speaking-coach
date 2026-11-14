@@ -121,12 +121,72 @@ def test_review_joins_window_and_solution_per_question(monkeypatch):
     assert out["sections"][0]["section_num"] == 1
 
 
+@pytest.mark.parametrize("self_check", [False, True])
+def test_keep_change_review_joins_printed_value_and_correction(monkeypatch, self_check):
+    attempt = deepcopy(_ATTEMPT_SUBMITTED)
+    if self_check:
+        attempt["grading_details"][0].update(self_check=True, correct=None, alternatives=["Harbour"])
+    _patch(monkeypatch, attempt)
+    db = _DB(attempt)
+    exercises = deepcopy(_EXERCISES)
+    payload = exercises[0]["payload"]
+    payload["variant"] = payload["template_kind"] = "keep_change"
+    payload["questions"][0]["printed_value"] = "Cedar Avenue."
+    db._d["listening_exercises"] = exercises
+    monkeypatch.setattr(L, "supabase_admin", db)
+    out = _run(L.get_listening_test_attempt_review("att-1", authorization="x"))
+    item = ListeningAttemptReviewResponse.model_validate(out).review[0].model_dump()
+    assert item["question_type"] == "keep_change"
+    assert item["printed_value"] == "Cedar Avenue."
+    assert item["user_answer"] == "Brighton"
+    assert item["expected"] == "Brighton"
+    if self_check:
+        assert item["self_check"] is True and item["correct"] is None
+        assert item["alternatives"] == ["Harbour"]
+        assert out["max_score"] == 1
+
+
 def test_review_409_when_not_submitted(monkeypatch):
     in_progress = dict(_ATTEMPT_SUBMITTED, status="in_progress")
     _patch(monkeypatch, in_progress)
     with pytest.raises(HTTPException) as e:
         _run(L.get_listening_test_attempt_review("att-1", authorization="x"))
     assert e.value.status_code == 409
+
+
+@pytest.mark.parametrize("all_self_check", [False, True])
+def test_self_check_review_keeps_reference_explanation_and_scored_maximum(monkeypatch, all_self_check):
+    attempt = deepcopy(_ATTEMPT_SUBMITTED)
+    attempt.update(score=0 if all_self_check else 1, band_estimate=None)
+    attempt["grading_details"][0].update(self_check=True, correct=None, alternatives=["navy"])
+    attempt["grading_details"][1]["correct"] = True
+    if all_self_check:
+        attempt["grading_details"][1].update(self_check=True, correct=None)
+    _patch(monkeypatch, attempt)
+    out = _run(L.get_listening_test_attempt_review("att-1", authorization="x"))
+    assert out["max_score"] == (0 if all_self_check else 1)
+    first = out["review"][0]
+    assert first["self_check"] is True and first["correct"] is None
+    assert first["user_answer"] == "Brighton" and first["expected"] == "Brighton"
+    assert first["alternatives"] == ["navy"]
+    assert first["solution"] == _EXERCISES[0]["payload"]["solutions"]["1"]
+    wire = ListeningAttemptReviewResponse.model_validate(out)
+    assert wire.review[0].self_check is True and wire.review[0].correct is None
+
+
+def test_admin_preview_propagates_partial_multi_select_self_check_marker(monkeypatch):
+    _patch(monkeypatch, deepcopy(_ATTEMPT_SUBMITTED))
+    db = _DB(deepcopy(_ATTEMPT_SUBMITTED))
+    row = deepcopy(_EXERCISES[0])
+    row["payload"].update(template_kind="mcq_multi", answers=[
+        {"q_num": 1, "answer": "A", "scoring": "self_check"}, {"q_num": 2, "answer": "B"},
+    ])
+    db._d["listening_exercises"] = [row]
+    monkeypatch.setattr(L, "supabase_admin", db)
+    monkeypatch.setattr(L, "require_admin", AsyncMock(return_value={"id": "admin"}))
+    out = _run(L.admin_preview_listening_test("t-uuid", authorization="x"))
+    assert out["preview"] is True and out["max_score"] == 0 and out["score"] is None
+    assert all(item["self_check"] is True and item["correct"] is None for item in out["review"])
 
 
 def test_report_only_review_503_when_required_audio_cannot_be_signed(monkeypatch):

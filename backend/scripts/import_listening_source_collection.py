@@ -7,7 +7,10 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from services.listening_source_package_import import build_source_import_plan, commit_source_import_plan
-from services.listening_package_import import PackageValidationError, set_package_status
+from services.listening_package_import import (
+    PackageValidationError, set_package_status, import_plan_is_blackeye,
+    require_import_namespace_ready,
+)
 
 
 def main() -> int:
@@ -20,6 +23,11 @@ def main() -> int:
     mode.add_argument('--archive', action='store_true')
     args = parser.parse_args()
     plan = build_source_import_plan(Path(args.release_root), imported_by=args.actor)
+    from config import settings
+    namespace_db = None
+    if import_plan_is_blackeye(plan) and settings.RESTRICTED_NAMESPACE_READY:
+        from database import supabase_admin as namespace_db
+    require_import_namespace_ready(plan, namespace_db)
     print(json.dumps(plan.report, ensure_ascii=False, sort_keys=True))
     if not (args.commit or args.publish or args.archive):
         print('DRY RUN PASS — no database or Storage writes')

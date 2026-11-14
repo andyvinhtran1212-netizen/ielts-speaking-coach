@@ -669,17 +669,25 @@ def _source_for_tier(grading_tier) -> str:
 
 
 def _bands_from_feedback(feedback) -> dict:
-    """Extract the 4 criterion band columns + overall from a validated
-    WritingFeedback (the admin edit is authoritative on its values, mirroring
-    the legacy admin_edits_json overlay — no recompute)."""
+    """Extract criterion bands and derive the canonical overall (WRITINGBAND-0050)."""
     c = feedback.criteriaFeedback
     return {
-        "overall_band_score":      float(feedback.overallBandScore),
+        "overall_band_score":      overall_from_criteria(
+            c.mainCriterion.bandScore, c.coherenceCohesion.bandScore,
+            c.lexicalResource.bandScore, c.grammaticalRange.bandScore,
+        ),
         "band_main_criterion":     float(c.mainCriterion.bandScore),
         "band_coherence_cohesion": float(c.coherenceCohesion.bandScore),
         "band_lexical_resource":   float(c.lexicalResource.bandScore),
         "band_grammatical_range":  float(c.grammaticalRange.bandScore),
     }
+
+
+def normalize_reviewed_feedback(feedback: WritingFeedback) -> WritingFeedback:
+    """Normalize a copy before equality checks, without touching source feedback."""
+    payload = feedback.model_dump(mode="json")
+    align_overall_band_feedback(payload, _bands_from_feedback(feedback)["overall_band_score"])
+    return WritingFeedback(**payload)
 
 
 def upsert_composed_version(

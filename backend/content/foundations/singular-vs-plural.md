@@ -64,11 +64,13 @@ anchors:
 ## Tại sao quan trọng
 
 Singular vs. plural ảnh hưởng đến:
+
 - **Subject-verb agreement:** Động từ phải hòa hợp với chủ ngữ về số
 - **Mạo từ:** *a/an* chỉ dùng với singular countable nouns
 - **Đại từ:** *it* (singular) vs. *they/them* (plural)
 
 Trong IELTS:
+
 - ❌ *The number of students are increasing.* (lỗi subject-verb agreement rất phổ biến)
 - ✅ *The number of students is increasing.*
 - ❌ *There is many problems.* → ✅ *There are many problems.*
@@ -79,12 +81,14 @@ Lỗi subject-verb agreement bị trừ điểm trong cả Writing (Grammatical 
 
 ### Singular (Số ít)
 Chỉ **một** người, vật, hoặc khái niệm. Dùng với:
+
 - Mạo từ *a/an*: *a book*, *an apple*
 - Mạo từ *the* + danh từ số ít: *the book*
 - Với danh ngữ ngôi ba số ít: is, was, has, does, goes, works. I và you có dạng riêng: I am/I have; you are/you have. They có thể chỉ một người và vẫn dùng they are.
 
 ### Plural (Số nhiều)
 Chỉ **hai trở lên**. Dùng với:
+
 - Không dùng *a/an*
 - Động từ số nhiều: *are, were, have, do, go, work*
 - Quantifiers: *many, several, a few, both*
@@ -165,6 +169,7 @@ Headquarters giữ nguyên hình thức và có thể hòa hợp số ít/số n
 Đây là ứng dụng quan trọng nhất:
 
 **Quy tắc cơ bản:**
+
 - Singular subject → singular verb
 - Plural subject → plural verb
 
@@ -176,20 +181,24 @@ Headquarters giữ nguyên hình thức và có thể hòa hợp số ít/số n
 **Các trường hợp phức tạp:**
 
 **Danh từ tập thể (Collective Nouns):**
+
 - *the government, the team, the committee, the family, the company*
 - Anh-Mỹ: thường dùng số ít: *The team **is** ready.*
 - Anh-Anh: có thể dùng số nhiều: *The team **are** playing well.*
 - IELTS: chấp nhận cả hai — chọn một và nhất quán
 
 **"The number of" vs "A number of":**
+
 - *The number of students **is** increasing.* (the number = chủ ngữ số ít)
 - *A number of students **are** absent.* (a number of = nhiều → số nhiều)
 
 **"Each / Every + singular noun":**
+
 - *Each student **has** a textbook.*
 - *Every country **needs** clean water.*
 
 **"Neither/Either + singular noun":**
+
 - *Neither option **is** ideal.*
 - *Either answer **is** acceptable.*
 
@@ -246,6 +255,7 @@ Với lượng xem như một khối, có thể dùng động từ số ít; v�
 **(Writing Task 2):** "The **media** play/plays a crucial role in shaping public opinion. **The number of** fake news stories **is** growing rapidly, while **many people** still lack **the means** to verify information."
 
 Phân tích:
+
 - *media* → Có thể singular hoặc plural trong văn phong hiện đại; *play* (plural) cũng được chấp nhận
 - *The number of* + plural noun → *is* (singular) ✅
 - *many people* → Plural → *lack* ✅
@@ -328,6 +338,7 @@ Tiếng Việt **không chia động từ** và **không biến hình danh từ*
 **Chiến lược:** Khi viết câu, luôn xác định **chủ ngữ thật** (không phải từ gần động từ nhất) trước khi chia động từ.
 
 **Mẹo nhớ irregular plurals:** Học theo nhóm âm:
+
 - **man/woman/goose → men/women/geese** (đổi nguyên âm giữa)
 - **child/ox → children/oxen** (thêm *-ren/-en*)
 - **Gốc Latin -is → -es:** *analysis → analyses, crisis → crises, basis → bases*
@@ -338,6 +349,7 @@ Tiếng Việt **không chia động từ** và **không biến hình danh từ*
 ### IELTS Speaking — Subject-verb agreement trong câu nói
 
 Trong speaking, lỗi subject-verb agreement bị phát hiện ngay:
+
 - "There **are** several factors that **contribute** to this problem." ✅
 - "The government **has** introduced **a number of** measures." ✅
 - "Each of the strategies **requires** careful planning." ✅
@@ -345,6 +357,7 @@ Trong speaking, lỗi subject-verb agreement bị phát hiện ngay:
 ### IELTS Writing — Kiểm tra trước khi nộp
 
 **Checklist nhanh khi review bài Writing:**
+
 1. Mỗi câu: chủ ngữ số ít hay số nhiều?
 2. Động từ có khớp với chủ ngữ không?
 3. Có danh từ uncountable nào bị thêm *-s* không?
@@ -385,6 +398,7 @@ Trong speaking, lỗi subject-verb agreement bị phát hiện ngay:
 ### Đáp án
 
 **Dạng số nhiều:**
+
 1. children
 2. women
 3. analyses
@@ -397,6 +411,7 @@ Trong speaking, lỗi subject-verb agreement bị phát hiện ngay:
 10. teeth
 
 **Chọn động từ:**
+
 1. **is** (*the number* = singular)
 2. **have** (*a number of solutions* = plural)
 3. **needs** (*each* = singular)

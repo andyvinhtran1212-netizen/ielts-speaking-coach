@@ -48,7 +48,7 @@ pathways:
 - band-6-to-7
 anchors:
   - id: inversion.emphasis-driven
-    location: "## Emphasis-driven inversion (chi tiết bổ sung)"
+    location: "## Loại 1: Đảo ngữ sau trạng ngữ phủ định"
     type: section
 ---
 ## Tóm tắt
@@ -64,11 +64,12 @@ Inversion = **đảo vị trí trợ động từ và chủ ngữ** để tạo 
 
 ## Tại sao quan trọng
 
-- **Band 7+ marker:** Inversion signals advanced grammatical control
+- **Thể hiện độ đa dạng ngữ pháp:** dùng đúng đảo ngữ cho thấy khả năng kiểm soát cấu trúc nâng cao
 - **Nhấn mạnh:** đặt trọng tâm vào thông tin quan trọng
 - **Trang trọng:** phù hợp với academic writing và formal speech
 - **IELTS Writing Task 2:** mở đầu body paragraph ấn tượng và đa dạng
 
+<!-- anchor: inversion.emphasis-driven -->
 ## Loại 1: Đảo ngữ sau trạng ngữ phủ định
 
 ### Quy tắc
@@ -85,8 +86,8 @@ Negative adverbial + Auxiliary + Subject + Main verb
 |-------------|---------|-------|
 | **Never** | Không bao giờ | Never have I seen such chaos. |
 | **Rarely / Seldom** | Hiếm khi | Rarely do scientists agree unanimously. |
-| **Hardly / Scarcely** | Hầu như không | Hardly had he spoken when she objected. |
-| **Not only** | Không chỉ | Not only does it pollute, but it also depletes. |
+| **Hardly / Scarcely … when** | Vừa mới … thì | Hardly had he spoken when she objected. |
+| **Not only** | Không chỉ | Not only does it pollute the air, but it also depletes natural resources. |
 | **No sooner...than** | Vừa...thì | No sooner had she arrived than problems started. |
 | **At no time** | Không bao giờ | At no time was the public informed. |
 | **In no way** | Không theo cách nào | In no way is this acceptable. |
@@ -118,49 +119,8 @@ Negative adverbial + Auxiliary + Subject + Main verb
 
 **Với "be":**
 
-- **Not until** the evidence **was** presented **did** the jury change its opinion.
+- **Not until** the evidence was presented **was** the jury convinced.
 - **Only then was** it clear what had happened.
-
-<!-- anchor: inversion.emphasis-driven -->
-## Emphasis-driven inversion (chi tiết bổ sung)
-
-## 1. Câu chẻ — It-cleft và Wh-cleft
-
-(Xem thêm: bài *Cleft Sentences*)
-
-### It-cleft
-
-```
-It is/was + [thông tin nhấn mạnh] + that/who + [phần còn lại]
-```
-
-- **It is** *the lack of funding* **that** holds back innovation.
-- **It was** *during the Industrial Revolution* **that** urbanisation accelerated dramatically.
-- **It is** *not technology itself* **that** poses a threat, **but** the way it is used.
-
-### Wh-cleft
-
-```
-What/Where/Why + S + V + is/was + [thông tin nhấn mạnh]
-```
-
-- **What** developing nations urgently require **is** equitable access to global markets.
-- **What** strikes many observers **is** the speed of demographic change.
-- **Where** the system consistently fails **is** in its implementation.
-
-## 2. Đảo ngữ nhấn mạnh
-
-(Xem thêm: bài *Inversion*)
-
-### Sau trạng ngữ phủ định
-
-```
-Never/Rarely/Hardly/Seldom + aux + S + V
-```
-
-- **Never before** have the stakes been so high for environmental policy.
-- **Rarely do** governments acknowledge the full extent of inequality.
-- **Seldom has** international cooperation yielded such significant results.
 
 ### Not only...but also
 
@@ -185,171 +145,6 @@ Only when/if/then/by + [adverbial] + aux + S + V
 - **Only then did** researchers begin to understand the complexity of the problem.
 
 Với **only when/if**, đảo trong **mệnh đề chính**, không đảo bên trong mệnh đề phụ: Only when she arrived **did we start**.
-
-## 3. Auxiliary "do/does/did" nhấn mạnh
-
-Dùng "do/does/did" trước bare infinitive để nhấn mạnh sự thật của mệnh đề:
-
-```
-S + do/does/did + bare infinitive (không dùng -s hay -ed thêm vào main verb)
-```
-
-- The findings **do** support the hypothesis. (Kết quả *thực sự* ủng hộ giả thuyết)
-- She **does** understand the risks involved.
-- The policy **did** produce some positive results, despite its flaws.
-- Critics **do** raise valid points, even if the overall argument is flawed.
-
-> **Lưu ý:** Khác với câu phủ định/nghi vấn, "do" nhấn mạnh không thay đổi nghĩa mà chỉ **tăng độ chắc chắn** hoặc **phản bác một sự nghi ngờ**.
-
-## 4. Từ nhấn mạnh
-
-### Indeed, Certainly, Clearly, Undeniably
-
-```
-Dùng đứng đầu câu hoặc giữa câu để nhấn mạnh
-```
-
-- **Indeed**, the evidence overwhelmingly supports this position.
-- This is **certainly** one of the most pressing issues of our time.
-- **Clearly**, a more nuanced approach is required.
-- **Undeniably**, technology has transformed the way we communicate.
-
-### Very, Highly, Particularly, Especially
-
-- This is a **particularly** significant finding.
-- The results were **highly** encouraging.
-- The issue is **especially** acute in urban areas.
-- The proposal has some **very** compelling advantages.
-
-> **IELTS Writing:** Tránh lạm dụng "very" — thay bằng "particularly/especially/highly/remarkably".
-
-## 5. Nhấn mạnh phủ định — Mạnh hơn "not"
-
-| Biểu thức | Nghĩa | Ví dụ |
-|-----------|-------|-------|
-| **by no means** | hoàn toàn không | This is **by no means** a straightforward problem. |
-| **far from** | cách xa, trái ngược | The situation is **far from** resolved. |
-| **not in the least** | không chút nào | I am **not** concerned **in the least**. |
-| **anything but** | hoàn toàn không phải | The solution is **anything but** simple. |
-| **in no way** | không theo cách nào | This **in no way** justifies the approach. |
-| **not remotely** | không hề | The claims are **not remotely** credible. |
-
-**Ví dụ trong IELTS Writing:**
-
-- "The proposed solution is **by no means** a panacea for the complex challenges ahead."
-- "The evidence is **far from** conclusive, and further research is clearly needed."
-- "Opponents are **anything but** convinced by the government's assurances."
-
-## 6. Cấu trúc "The very + noun"
-
-"The very" nhấn mạnh sự chính xác, bất ngờ, hoặc cực độ:
-
-- **The very** idea of banning cars from city centres seems radical to many.
-- **The very** existence of this problem demands urgent attention.
-- **The very** fact that people continue to disagree suggests the issue is not straightforward.
-- **The very** nature of democracy requires freedom of expression.
-
-## 7. Nhấn mạnh tương phản với "while / whereas / yet"
-
-```
-While/Whereas S V, S V (nhấn mạnh sự tương phản)
-```
-
-- **While** some argue that technology creates jobs, **it is equally true that** it displaces many.
-- **Whereas** previous generations valued stability, today's youth prioritise flexibility.
-- The policy is ambitious; **yet** it remains poorly funded.
-
-## Lỗi thường gặp
-
-### Lỗi 1: Dùng "do" nhấn mạnh nhưng thêm -s/-ed vào main verb
-
-- ❌ She does understands the risks.
-- ✅ She **does understand** the risks. (do + bare infinitive)
-- ❌ The policy did produced results.
-- ✅ The policy **did produce** results.
-
-### Lỗi 2: Sai cấu trúc "Not only...but also"
-
-- ❌ Not only she works hard, but she also achieves results.
-- ✅ Not only **does** she work hard, but she **also** achieves results. (đảo ngữ ở mệnh đề not only)
-
-### Lỗi 3: Lạm dụng cấu trúc nhấn mạnh
-
-Nếu mọi câu đều có inversion hay cleft, văn bản trông giả tạo. Dùng emphasis sparingly — 1-2 lần trong một bài writing là đủ ấn tượng.
-
-### Lỗi 4: Nhầm "far from" với "far away from"
-
-- ❌ The solution is far away from perfect.
-- ✅ The solution is **far from** perfect. (far from = hoàn toàn không)
-- ✅ The solution is **far away from** the capital. (far away from = địa lý, cách xa)
-
-### Lỗi 5: Nhầm "by no means" với vị trí trong câu
-
-- **This is a by no means simple problem** hợp cấu trúc: by no means bổ nghĩa simple trong cụm tính từ trước danh từ. Có thể đổi vị trí để câu nhẹ hơn:
-- ✅ This is **by no means** a simple problem.
-- ✅ **By no means** is this a simple problem. (đảo ngữ)
-
-## Ứng dụng trong IELTS
-
-### Writing Task 2 — Introduction nhấn mạnh:
-
-- "**It is** the long-term consequences of climate inaction, **not** immediate economic concerns, **that** should guide policy decisions."
-- "**What** the debate fundamentally concerns **is** the balance between individual freedom and collective responsibility."
-
-### Writing Task 2 — Body paragraph nhấn mạnh:
-
-- "**Not only does** excessive screen time affect children's sleep quality, **but** it **also** impairs cognitive development."
-- "**Rarely do** economic policies satisfy all stakeholders simultaneously."
-- "The evidence **does** suggest that early intervention yields significantly better outcomes."
-- "This is **by no means** an easy problem to solve — **indeed**, it may be the most complex challenge facing policymakers today."
-
-### Writing Task 2 — Conclusion nhấn mạnh:
-
-- "**What** is **clearly** needed **is** a comprehensive, multi-faceted approach."
-- "**Only by** working collaboratively **can** governments hope to address issues of this magnitude."
-- "The situation is **far from** hopeless; **indeed**, there are genuine grounds for cautious optimism."
-
-### Speaking Part 3 — Nhấn mạnh tự nhiên:
-
-- "I **do** think that education plays a crucial role here."
-- "**What** really concerns me **is** the speed of environmental degradation."
-- "**Not only** are economic factors at play, **but** cultural attitudes **also** matter enormously."
-
-## Bài tập luyện
-
-### Viết lại câu dùng cấu trúc nhấn mạnh
-
-1. Education is the most important factor. (Dùng it-cleft)
-2. Governments need to invest more. (Dùng wh-cleft)
-3. The situation is not simple at all. (Dùng "by no means")
-4. She really does understand the problem. (Dùng "do" emphatic)
-5. Early intervention is essential; also, continued support matters. (Dùng "not only...but also")
-
-### Đáp án
-
-1. It is **education** that is the most important factor.
-2. What governments need to do is **invest more**.
-3. The situation is **by no means** simple.
-4. She **does** understand the problem. (✅ already using emphatic "does")
-5. Not only **is** early intervention essential, **but** continued support **also** matters.
-
-## Tóm tắt nhanh
-
-| Mục đích | Cấu trúc | Ví dụ |
-|---------|---------|-------|
-| Nhấn mạnh X | It is X that... | It is *the cost* that matters. |
-| Nhấn mạnh kết quả | What S V is... | What we need *is* time. |
-| Nhấn mạnh phủ định | Never/Rarely + aux + S | Never have I seen... |
-| Nhấn mạnh cộng thêm | Not only...but also | Not only does it cost more... |
-| Xác nhận sự thật | do/does/did + bare inf | She *does* understand. |
-| Phủ định mạnh | by no means / far from | by no means simple |
-| Nhấn mạnh danh từ | the very + noun | the very idea |
-
-**Quy tắc vàng:**
-- Emphasis là gia vị — dùng ít mà đúng chỗ, không phải mọi câu
-- Not only làm trạng ngữ đầu câu → đảo; not only phối hợp chủ ngữ → không đảo
-- "do/does/did" nhấn mạnh → bare infinitive (không thêm -s/-ed)
-- "Far from" = hoàn toàn không phải (khác "far away from" = địa lý)
 
 ## Loại 2: Đảo ngữ trong câu điều kiện trang trọng
 
@@ -403,7 +198,7 @@ Inversion nhấn mạnh không phải câu hỏi — không có dấu chấm h�
 - ❌ Rarely scientists agree unanimously.
 - ✅ **Rarely do scientists** agree unanimously.
 
-### Lỗi 2: Dùng sai thì trợ động từ
+### Lỗi 2: Chia động từ chính sau trợ động từ đảo
 
 - ❌ Not only did she passes the test...
 - ✅ Not only **did** she **pass** the test... (did + bare infinitive)
@@ -428,9 +223,32 @@ Inversion nhấn mạnh không phải câu hỏi — không có dấu chấm h�
 
 ### Lỗi 6: Dùng inversion quá mức
 
-Inversion là cấu trúc nhấn mạnh — dùng sparingly. Không bắt đầu mọi câu bằng đảo ngữ.
+Inversion là cấu trúc nhấn mạnh — dùng có chừng mực. Không bắt đầu mọi câu bằng đảo ngữ.
+
+### Lỗi 7: Dùng "do" nhấn mạnh nhưng thêm -s/-ed vào main verb
+
+- ❌ She does understands the risks.
+- ✅ She **does understand** the risks. (do + bare infinitive)
+- ❌ The policy did produced results.
+- ✅ The policy **did produce** results.
+
+### Lỗi 8: Nhầm "far from" với "far away from"
+
+- ❌ The solution is far away from perfect.
+- ✅ The solution is **far from** perfect. (far from = hoàn toàn không)
+- ✅ The solution is **far away from** the capital. (far away from = địa lý, cách xa)
+
+### Lỗi 9: Nhầm "by no means" với vị trí trong câu
+
+- ❌ By no means this is a simple problem. → ✅ **By no means is this** a simple problem. (by no means đứng đầu câu → bắt buộc đảo ngữ)
+- ✅ This is **by no means** a simple problem.
 
 ## Ứng dụng trong IELTS
+
+### Writing Task 2 — Introduction nhấn mạnh:
+
+- "**It is** the long-term consequences of climate inaction, **not** immediate economic concerns, **that** should guide policy decisions."
+- "**What** the debate fundamentally concerns **is** the balance between individual freedom and collective responsibility."
 
 ### Writing Task 2 — Mở đầu body paragraph ấn tượng:
 
@@ -439,6 +257,19 @@ Inversion là cấu trúc nhấn mạnh — dùng sparingly. Không bắt đầu
 - "**Rarely do** critics consider the long-term social costs of policies that prioritise short-term economic growth."
 - "**Only by** investing in education **can** governments hope to address persistent poverty."
 - "**Under no circumstances should** the needs of future generations be sacrificed for present convenience."
+
+### Writing Task 2 — Body paragraph nhấn mạnh:
+
+- "**Not only does** excessive screen time affect children's sleep quality, **but** it **also** impairs cognitive development."
+- "**Rarely do** economic policies satisfy all stakeholders simultaneously."
+- "The evidence **does** suggest that early intervention yields significantly better outcomes."
+- "This is **by no means** an easy problem to solve — **indeed**, it may be the most complex challenge facing policymakers today."
+
+### Writing Task 2 — Conclusion nhấn mạnh:
+
+- "**What** is **clearly** needed **is** a comprehensive, multi-faceted approach."
+- "**Only by** working collaboratively **can** governments hope to address issues of this magnitude."
+- "The situation is **far from** hopeless; **indeed**, there are genuine grounds for cautious optimism."
 
 ### Writing Task 2 — Conditional inversion (trang trọng):
 
@@ -455,6 +286,9 @@ Inversion là cấu trúc nhấn mạnh — dùng sparingly. Không bắt đầu
 
 - "**Rarely do** we see governments willing to make short-term sacrifices for long-term gain."
 - "**Only when** individuals change their habits **will** we see real environmental improvement."
+- "I **do** think that education plays a crucial role here."
+- "**What** really concerns me **is** the speed of environmental degradation."
+- "**Not only** are economic factors at play, **but** cultural attitudes **also** matter enormously."
 
 ## Bài tập luyện
 
@@ -463,7 +297,7 @@ Inversion là cấu trúc nhấn mạnh — dùng sparingly. Không bắt đầu
 1. I have never seen such a talented student.
 2. If the government had invested earlier, the outcome would have been different.
 3. She had barely sat down when her boss called.
-4. Not only does she speak French, but she also speaks Japanese.
+4. She speaks French, and she also speaks Japanese. (Not only)
 5. If you should have any queries, do not hesitate to contact us.
 
 ### Sửa lỗi
@@ -474,21 +308,39 @@ Inversion là cấu trúc nhấn mạnh — dùng sparingly. Không bắt đầu
 4. Should any problem arise, contact you our team.
 5. No sooner had he started, problems began.
 
+### Viết lại câu dùng cấu trúc nhấn mạnh
+
+1. Education is the most important factor. (Dùng it-cleft)
+2. Governments need to invest more. (Dùng wh-cleft)
+3. The situation is not simple at all. (Dùng "by no means")
+4. She really understands the problem. (Dùng "do" emphatic)
+5. Early intervention is essential; also, continued support matters. (Dùng "not only...but also")
+
 ### Đáp án
 
 **Viết lại:**
+
 1. Never have I seen such a talented student.
 2. Had the government invested earlier, the outcome would have been different.
 3. Hardly had she sat down when her boss called.
-4. (already in inverted form — correct as is)
+4. Not only **does** she speak French, but she also speaks Japanese.
 5. Should you have any queries, do not hesitate to contact us.
 
 **Sửa lỗi:**
+
 1. **Never have I** encountered such resistance.
 2. **Hardly had** she **arrived** when the ceremony began.
 3. Not only **is** she intelligent, but she also works hard.
-4. Should any problem arise, **contact our team**. (Nếu ý đích là yêu cầu người đọc liên hệ đội ngũ; our team will contact you đổi người liên hệ và thêm cam kết, không phải sửa tối thiểu.)
+4. Should any problem arise, **contact our team**. (bỏ "you")
 5. No sooner had he started **than** problems began.
+
+**Cấu trúc nhấn mạnh:**
+
+1. It is **education** that is the most important factor.
+2. What governments need to do is **invest more**.
+3. The situation is **by no means** simple.
+4. She **does** understand the problem.
+5. Not only **is** early intervention essential, **but** continued support **also** matters.
 
 ## Tóm tắt nhanh
 
@@ -498,9 +350,10 @@ Inversion là cấu trúc nhấn mạnh — dùng sparingly. Không bắt đầu
 | Conditional (had) | Had + S + V3, would have... | Had I known, I would have... |
 | Conditional (should) | Should + S + V, ... | Should problems arise... |
 | Conditional (were) | Were + S + to V, ... | Were she to apply... |
-| So...that | So + adj + aux + S + that | So severe was the drought that... |
+| So...that | So + adj + be + S + that | So severe was the drought that... |
 
 **Trợ động từ dùng trong inversion:**
+
 - Câu có trợ động từ: đảo trợ động từ lên (have I / was she / can we)
 - Câu không có trợ động từ: thêm do/does/did (Rarely **do** scientists...)
 

@@ -40,6 +40,7 @@ from uuid import UUID
 
 from database import supabase_admin
 from services.errors import clip_user_value
+from services.listening_test_grader import scored_question_count
 
 logger = logging.getLogger(__name__)
 
@@ -1378,7 +1379,7 @@ def lr_skill_states(sitting: dict) -> list:
             "skill":    skill,
             "state":    state,
             "score":    r.get("score"),
-            "max":      len(gd) or None,
+            "max":      (scored_question_count(gd) if skill == "listening" else len(gd)) or None,
             "answered": answered,
         })
     return out
@@ -2331,7 +2332,16 @@ def _update_mock_with_explanation_approval(
     return result
 
 
+def _guard_listening_attachment(payload):
+    if payload.get("listening_test_id"):
+        from services import listening_blackeye as blackeye
+        if blackeye.is_blackeye(blackeye.test_identity(
+                supabase_admin, payload["listening_test_id"], missing_status=None)):
+            blackeye.assignment_seam()
+
+
 def admin_create_exam(payload: dict, created_by: str) -> dict:
+    _guard_listening_attachment(payload)
     row = {k: v for k, v in payload.items() if k in _EXAM_WRITABLE}
     if not row.get("code") or not row.get("title"):
         raise ValueError("code và title là bắt buộc.")
@@ -2370,6 +2380,7 @@ def admin_create_exam(payload: dict, created_by: str) -> dict:
 
 
 def admin_update_exam(exam_id: str, patch: dict, actor_id: str | None = None) -> dict:
+    _guard_listening_attachment(patch)
     upd = {k: v for k, v in patch.items() if k in _EXAM_WRITABLE}
     if not upd:
         raise ValueError("Không có trường hợp lệ để cập nhật.")
@@ -3992,7 +4003,9 @@ def _listening_total_questions(test_id) -> Optional[int]:
             return None
         rows = (supabase_admin.table("listening_exercises").select("payload")
                 .in_("content_id", section_ids).execute().data or [])
-        return len(grader.collect_answer_key(rows)) or None
+        key = grader.collect_answer_key(rows)
+        # The grader expands self_check to the whole mcq_multi selection group.
+        return grader.grade_attempt([], key)["max_score"] or None
     except Exception:  # noqa: BLE001 — a denominator is never worth a 500
         logger.warning("[mock-exam] listening total lookup failed test=%s", test_id)
         return None

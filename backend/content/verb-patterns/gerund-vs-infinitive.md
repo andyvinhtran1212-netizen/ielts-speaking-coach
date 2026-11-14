@@ -114,6 +114,7 @@ Gerund (V-ing) và to-infinitive đều có thể đứng sau động từ, như
 ## Tại sao quan trọng
 
 Đây là một trong những điểm ngữ pháp gây lỗi nhiều nhất trong IELTS vì:
+
 - Tiếng Việt **không phân biệt** gerund và infinitive — "tôi thích **đi**", "tôi muốn **đi**" đều là "đi"
 - Người chấm IELTS chú ý đặc biệt đến lỗi verb pattern vì chúng xuất hiện rất thường xuyên
 - Một số cặp (remember/forget/stop/try) **đổi nghĩa hoàn toàn** — không hiểu thì viết câu sai nghĩa
@@ -401,12 +402,14 @@ Bài này tổng hợp từ [Gerund](/grammar/verb-patterns/gerund) và [To-Infi
 Tiếng Việt không phân biệt gerund và infinitive — "tôi thích đi", "tôi muốn đi" đều dùng "đi" trực tiếp. Do đó, người học Việt Nam cần học thuộc các nhóm động từ thay vì tìm quy tắc logic.
 
 **Chiến lược học:**
+
 1. Học nhóm Gerund-only trước (enjoy, avoid, mind, finish, keep, suggest, consider)
 2. Học nhóm To-infinitive-only tiếp (want, hope, plan, decide, agree, refuse)
 3. Học từng cặp đổi nghĩa riêng — remember, forget, stop, try là quan trọng nhất
 4. Khi không chắc: gerund thường làm bổ ngữ động từ sau giới từ (phân biệt to giới từ với to-infinitive), to-infinitive diễn tả mục đích
 
 **Mẹo cảm giác:**
+
 - Gerund = hành động như một *thực thể* — bạn thích nó, ghét nó, tránh nó
 - To-infinitive = hành động như một *mục tiêu* — bạn muốn đạt được nó, quyết định làm nó
 
@@ -416,16 +419,19 @@ Tiếng Việt không phân biệt gerund và infinitive — "tôi thích đi", 
 ### IELTS Speaking — Cụm từ hữu ích
 
 **Nói về sở thích (gerund):**
+
 - "I really enjoy **spending** time outdoors."
 - "I avoid **using** my phone before bed."
 - "I'm considering **taking** a course in graphic design."
 
 **Nói về kế hoạch/mục tiêu (to-infinitive):**
+
 - "I'm planning **to apply** for a postgraduate programme."
 - "My goal is **to become** more fluent in academic English."
 - "I hope **to travel** more once I finish my studies."
 
 **Nói về trải nghiệm (cặp đổi nghĩa):**
+
 - "I remember **arriving** at the airport and feeling completely lost."
 - "I stopped **eating** fast food and my health really improved."
 - "I tried **learning** Spanish once but didn't stick with it."
@@ -433,10 +439,12 @@ Tiếng Việt không phân biệt gerund và infinitive — "tôi thích đi", 
 ### IELTS Writing — Kết hợp gerund và to-infinitive
 
 **Đối lập ý kiến:**
+
 - "Some people prefer **working** independently, while others need **to collaborate** with a team."
 - "**Encouraging** students **to develop** critical thinking is arguably more important than **teaching** them to memorise facts."
 
 **Đề xuất và giải pháp:**
+
 - "Governments need **to consider** the long-term impact of **allowing** unchecked development."
 - "**Investing** in public transport while **encouraging** people **to use** it more frequently could significantly reduce emissions."
 
@@ -465,6 +473,7 @@ Tiếng Việt không phân biệt gerund và infinitive — "tôi thích đi", 
 ### Đáp án
 
 **Chọn đúng:**
+
 1. **eating** (avoid → gerund)
 2. **to return** (promised → to-infinitive)
 3. **taking** (suggested → gerund)
@@ -475,6 +484,7 @@ Tiếng Việt không phân biệt gerund và infinitive — "tôi thích đi", 
 8. **to bring** (forget → to-infinitive, hành động tương lai)
 
 **Cặp đổi nghĩa:**
+
 1. **meeting** (remember + gerund = nhớ đã gặp)
 2. **to turn off** (remember + to-inf = nhớ phải làm)
 3. **walking** (stop + to-inf = dừng lại để làm gì khác → nhưng câu này dùng gerund: stopped walking = dừng đi → ❌ stop to walk = dừng lại để đi bộ. Đáp án: **walking**)
@@ -587,6 +597,7 @@ Cấu trúc này dùng **passive infinitive** (to be + past participle). Rõ rà
 ### Trong Academic Writing:
 
 "need to be + V3" thường được ưa dùng hơn vì:
+
 - Rõ ràng về cấu trúc bị động
 - Phù hợp với phong cách trang trọng
 - Dễ thêm thông tin về người thực hiện: "need to be reviewed **by experts**"
@@ -1123,6 +1134,7 @@ Dùng khi bạn nhìn lại quá khứ và **cảm thấy tiếc** vì một vi�
 | Many people regret **not travelling** more when they were young. | Nhiều người tiếc vì đã không đi du lịch nhiều hơn hồi còn trẻ. |
 
 **Thường đi kèm:**
+
 - "I regret + not + doing" → hối tiếc vì đã KHÔNG làm gì
 - "deeply regret", "truly regret", "always regret"
 
@@ -1308,6 +1320,7 @@ forget + to + V → Quên CHƯA thực hiện việc cần làm
 ## FORGET + DOING — Quên mất rằng mình đã làm
 
 Dùng khi hành động **đã xảy ra** nhưng bạn không còn nhớ đến nó nữa. Thường xuất hiện trong các câu:
+
 - "I don't remember..." / "I forget..."
 - "I had forgotten..."
 - Kể chuyện có phần hồi tưởng
@@ -1547,11 +1560,13 @@ Dùng khi bạn **nhớ việc cần làm** rồi thực hiện, hoặc nhắc n
 ## Dấu hiệu nhận biết
 
 **→ Dùng remember + doing khi:**
+
 - Câu nói về ký ức, hồi tưởng
 - Có các từ như: *clearly, vividly, still, I'll never forget*
 - Hành động đã xảy ra trước khi bạn "nhớ" nó
 
 **→ Dùng remember + to do khi:**
+
 - Câu là lời nhắc nhở (imperative: "Remember to...")
 - Bạn muốn nói rằng mình đã không quên làm gì đó
 - Hành động xảy ra sau lúc bạn "nhớ"

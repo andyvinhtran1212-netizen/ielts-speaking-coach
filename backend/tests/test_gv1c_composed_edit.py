@@ -149,13 +149,13 @@ def test_reedit_on_composed_current_updates_in_place():
     assert v == 2, "re-edit must reuse the composed version (no new slot)"
     assert len(store["writing_feedback"]) == 2, "no new version row"
     by_v = {r["version"]: r for r in store["writing_feedback"]}
-    assert by_v[2]["overall_band_score"] == 7.5          # updated in-place
+    assert by_v[2]["overall_band_score"] == 8.0          # updated in-place
     assert by_v[2]["band_main_criterion"] == 8.0
     assert store["writing_essays"][0]["current_version"] == 2
 
 
 @pytest.mark.parametrize("composed_current", [False, True])
-def test_edit_aligns_stale_trajectory_with_authoritative_human_overall(composed_current):
+def test_edit_aligns_stale_trajectory_with_canonical_criteria_overall(composed_current):
     versions = [(1, "ai_pro", None, 6.0)]
     if composed_current:
         versions.append((2, "composed", 1, 7.0))
@@ -171,14 +171,14 @@ def test_edit_aligns_stale_trajectory_with_authoritative_human_overall(composed_
         from services import essay_service
         version = essay_service.upsert_composed_version(EID, feedback, edited_by="adm")
     row = next(r for r in store["writing_feedback"] if r["version"] == version)
-    # Human overall remains authoritative, even when it differs from the criteria mean.
-    assert row["overall_band_score"] == row["feedback_json"]["overallBandScore"] == 7.5
+    # The human criterion scores determine the overall, not the stale client total.
+    assert row["overall_band_score"] == row["feedback_json"]["overallBandScore"] == 8.0
     assert row["band_main_criterion"] == 8
     trajectory = row["feedback_json"]["bandTrajectoryAnalysis"]
-    assert trajectory["current_band"] == 7.5
-    assert "band 7.5" in trajectory["trend_explanation"] and "cao hơn" in trajectory["trend_explanation"]
-    assert "band 8.0" in trajectory["next_target"]
-    assert row["feedback_json"]["overallBandScoreSummary"] == "Bài viết đạt band 7.5. Bố cục rõ ràng."
+    assert trajectory["current_band"] == 8.0
+    assert "band 8.0" in trajectory["trend_explanation"] and "cao hơn" in trajectory["trend_explanation"]
+    assert "band 8.5" in trajectory["next_target"]
+    assert row["feedback_json"]["overallBandScoreSummary"] == "Bài viết đạt band 8.0. Bố cục rõ ràng."
     assert store["writing_feedback"][0]["overall_band_score"] == 6.0
 
 
@@ -197,7 +197,7 @@ def test_bands_extracted_from_model():
     from services import essay_service
     bands = essay_service._bands_from_feedback(_feedback(overall=6.5, crit=7))
     assert bands == {
-        "overall_band_score": 6.5, "band_main_criterion": 7.0,
+        "overall_band_score": 7.0, "band_main_criterion": 7.0,
         "band_coherence_cohesion": 7.0, "band_lexical_resource": 7.0,
         "band_grammatical_range": 7.0,
     }
@@ -221,3 +221,66 @@ def test_no_admin_edits_json_reader_frontend():
           / "writing" / "grade.html").read_text(encoding="utf-8")
     assert "detail.admin_edits_json" not in fe, "grade.html still reads detail.admin_edits_json"
     assert "_adminEdits" not in fe, "grade.html still references the retired _adminEdits"
+
+
+@pytest.mark.parametrize('scores, expected', [
+    ((7, 6, 6, 6), 6.5), ((6, 6, 6, 5), 6.0),
+    ((7, 7, 6, 7), 7.0), ((6, 6, 6, 7), 6.5),
+    ((6, 6, 6, 6), 6.0), ((7, 7, 6, 6), 6.5),
+    ((0, 0, 0, 0), 0.0), ((9, 9, 9, 9), 9.0),
+])
+def test_reviewed_feedback_normalizes_boundaries_without_mutating_input(scores, expected):
+    from services import essay_service
+    feedback = _feedback(overall=5.5)
+    for criterion, score in zip(vars(feedback.criteriaFeedback).values(), scores):
+        criterion.bandScore = score
+    original = feedback.model_dump(mode='json')
+    canonical = essay_service.normalize_reviewed_feedback(feedback)
+    assert canonical.overallBandScore == expected
+    assert feedback.model_dump(mode='json') == original
+    assert canonical.improvedEssay == feedback.improvedEssay
+    assert essay_service.normalize_reviewed_feedback(canonical) == canonical
+    store = _store([(1, 'ai_pro', None, 5.5), (2, 'composed', 1, 5.5)])
+    with patch('services.essay_service.supabase_admin', _FakeSB(store)):
+        essay_service.upsert_composed_version(EID, feedback, edited_by='admin')
+    row = store['writing_feedback'][1]
+    assert row['overall_band_score'] == row['feedback_json']['overallBandScore'] == expected
+
+
+@pytest.mark.asyncio
+async def test_reviewed_unchanged_resave_repairs_stale_composed_once():
+    """FR-002: the old full payload repairs the total, then repeats without writes."""
+    from copy import deepcopy
+    from unittest.mock import AsyncMock
+    from uuid import UUID
+    from routers.admin_writing import update_feedback
+    from services import essay_service
+
+    feedback = _feedback(overall=6.0, crit=6)
+    feedback.criteriaFeedback.mainCriterion.bandScore = 7
+    feedback.overallBandScoreSummary = 'Bài này đạt band 6.0. Bố cục rõ ràng.'
+    feedback.bandTrajectoryAnalysis = {'current_band': 6.0, 'average_last_5': 6.0}
+    payload = feedback.model_dump(mode='json')
+    store = _store([(1, 'ai_pro', None, 6.0), (2, 'composed', 1, 6.0)])
+    store['writing_essays'][0].update(status='reviewed', instructor_note='Keep instructor note')
+    store['writing_feedback'][1]['feedback_json'] = deepcopy(payload)
+    original_ai = deepcopy(store['writing_feedback'][0])
+    fake = _FakeSB(store)
+    with patch('routers.admin_writing.require_admin', AsyncMock(return_value={'id': 'admin'})), \
+         patch('routers.admin_writing.supabase_admin', fake), \
+         patch('services.essay_service.supabase_admin', fake), \
+         patch('services.mock_review_workflow.sync_writing_band_for_essay'), \
+         patch('services.essay_service.upsert_composed_version', wraps=essay_service.upsert_composed_version) as upsert:
+        await update_feedback(UUID(EID), payload, authorization='Bearer fixture')
+        repaired = deepcopy(store['writing_feedback'][1])
+        # Retry the old payload as well as the freshly re-read canonical payload.
+        await update_feedback(UUID(EID), payload, authorization='Bearer fixture')
+        await update_feedback(UUID(EID), repaired['feedback_json'], authorization='Bearer fixture')
+    assert upsert.call_count == 1
+    assert store['writing_feedback'][1] == repaired, 'No provenance rewrite on canonical retry'
+    assert repaired['overall_band_score'] == repaired['feedback_json']['overallBandScore'] == 6.5
+    assert repaired['feedback_json']['bandTrajectoryAnalysis']['current_band'] == 6.5
+    assert repaired['feedback_json']['overallBandScoreSummary'] == 'Bài viết đạt band 6.5. Bố cục rõ ràng.'
+    assert store['writing_feedback'][0] == original_ai
+    assert len(store['writing_feedback']) == 2
+    assert store['writing_essays'][0]['instructor_note'] == 'Keep instructor note'

@@ -76,6 +76,8 @@ draft -> approved -> implementing -> verified -> shipped
 | WRITINGNAV-0007 | Canonical admin Writing navigation context | implementing | high | [spec](0007-writing-navigation-contract/spec.md) |
 | MOCKATTACH-0008 | Mock Reading and Listening attempt integrity | implementing | high | [spec](0008-mock-attempt-integrity/spec.md) |
 | LISTENING80-0009 | Source-faithful 80-day Listening practice collection | implementing | high | [spec](0009-listening-80-days/spec.md) |
+| BLACKEYE-0052 | Black Eye Listening Unit 1 exercises are assigned to a class, reviewed after submission and stay locked until each gate passes | approved | high | [spec](0052-blackeye-u1/spec.md) |
+| SKILLDRILLS-0054 | Assign published Listening Skill Drills across courses | approved | high | [spec](0054-listening-skill-drill-homework/spec.md) |
 
 | DICTATIONTOKEN-0011 | Version dictation word grading and distinguish punctuation in reports | implementing | high | [spec](0011-versioned-dictation-token-grading/spec.md) |
 
@@ -147,6 +149,9 @@ Progress and remaining acceptance are reconciled in [the implementation status l
 | FNEXEC-0045 | A new database function cannot be called by anonymous or signed-in clients unless a migration grants it explicitly, and only the two functions clients really use stay callable | draft | high | [spec](0045-function-default-execute-lockdown/spec.md) |
 
 | SERVERCHECK-0046 | Self-study quiz answers are graded on the server one question at a time, no learner can forge a correct answer, and a one-sitting assessment key stays closed until the class deadline | draft | high | [spec](0046-quiz-server-check-key-release/spec.md) |
+
+| FREETRIAL-0047 | Accounts outside classes can try free Speaking and Writing grading within quotas without affecting class learners | approved | high | [spec](0047-free-trial-grading/spec.md) |
+
 | FLASHCARD-0048 | Flashcard kiểu Quizlet bản MVP — admin dán hàng loạt thẻ vào bộ từ, gán lớp hoặc thư viện chung, học viên lật thẻ và tự đánh dấu Đã nhớ/Chưa nhớ | draft | high | [spec](0048-flashcards-mvp/spec.md) |
 | ADMINSIMPLE-0049 | Đơn giản hoá trang admin — ẩn hoặc chuyển hướng subpage không dùng sau cờ, gom luồng giao bài về workspace lớp; xoá code ở giai đoạn sau | approved | medium | [spec](0049-admin-simplify/spec.md) |
 

@@ -116,6 +116,7 @@ Nối chủ ngữ với bổ ngữ (không có tân ngữ):
 - He **became** a famous writer.
 
 Sau linking verb dùng **adjective**, không phải adverb:
+
 - She **looks beautiful**. ✅ (không phải "beautifully")
 - The soup **tastes good**. ✅ (không phải "well")
 
@@ -189,11 +190,13 @@ Kiểm tra: nếu sau động từ là **tính từ** mô tả chủ ngữ → l
 ### Regular vs. Irregular Verbs
 
 **Regular** (quy tắc): thêm **-ed** cho past simple và past participle
+
 - work → worked → worked
 - study → studied → studied
 - stop → stopped → stopped
 
 **Irregular** (bất quy tắc): phải học thuộc
+
 - go → went → gone
 - eat → ate → eaten
 - write → wrote → written
@@ -252,10 +255,12 @@ Kiểm tra: nếu sau động từ là **tính từ** mô tả chủ ngữ → l
 ## Ứng dụng trong IELTS
 
 **IELTS Speaking:**
+
 - Dùng đa dạng thì để thể hiện Grammatical Range and Accuracy: past simple khi kể chuyện, present perfect khi nói về kinh nghiệm, future forms khi nói về kế hoạch.
 - Stative verbs quan trọng cho Part 1 và 3: *I believe that..., I think..., I feel..., I prefer...*
 
 **IELTS Writing:**
+
 - Passive voice trong Task 1 (process): *The tea leaves **are picked** by hand and then **dried** in the sun.*
 - Tránh lặp một động từ — thay bằng từ gần nghĩa phù hợp: show → indicate / reveal (chú ý sắc thái).
 
@@ -277,9 +282,11 @@ Kiểm tra: nếu sau động từ là **tính từ** mô tả chủ ngữ → l
 
 ### Đáp án
 **Chia dạng:**
+
 1. goes | 2. are studying | 3. have finished | 4. boils | 5. doesn't like
 
 **Sửa lỗi:**
+
 1. knows (stative → không dùng -ing)
 2. **have been to Japan twice** nếu nói hai chuyến đi đã trở về. **Have gone** sửa hình thái went thành past participle, nhưng gone và been có khác biệt về nghĩa/ngữ cảnh; không kết luận mọi have gone twice đều sai.
 3. sounds beautiful (adjective sau linking verb)

@@ -7,6 +7,8 @@ import { AAL2_STATUS } from '../admin-mfa-stub.mjs';
 const ESSAY = 'essay-admin-1';
 const UPDATED = 'Nhận xét tổng quan đã được admin chỉnh sửa.';
 
+let saved = false;
+
 export default {
   name: 'admin Writing Grade — lưu duyệt rồi trả bài',
   route: `/admin/writing/grade?id=${ESSAY}`,
@@ -16,9 +18,9 @@ export default {
     [/\/auth\/me$/, { id: '00000000-0000-0000-0000-000000000000', email: 'admin@local', role: 'admin' }],
     // ADMINAAL2-0032 T010: AdminAccessGate fails closed on the `{}` catch-all.
     [/\/admin\/mfa\/status$/, AAL2_STATUS],
-    [new RegExp(`/admin/writing/essays/${ESSAY}$`), {
+    [new RegExp(`/admin/writing/essays/${ESSAY}$`), () => ({
       id: ESSAY,
-      status: 'graded',
+      status: saved ? 'reviewed' : 'graded',
       task_type: 'task2',
       prompt_text: 'Some people think online learning should replace classrooms.',
       essay_text: 'This is a complete essay used only by the browser write-flow fixture.',
@@ -28,11 +30,11 @@ export default {
       hide_subbands: false,
       student: { student_code: 'S001', full_name: 'Flow Student' },
       feedback: {
-        overall_band_score: 6.5,
-        feedback_json: { overallBandScoreSummary: 'Nhận xét ban đầu.' },
+        overall_band_score: saved ? 7 : 6.5,
+        feedback_json: { overallBandScoreSummary: saved ? UPDATED : 'Nhận xét ban đầu.' },
       },
-    }],
-    [new RegExp(`/admin/writing/essays/${ESSAY}/feedback$`), { essay_id: ESSAY, status: 'reviewed' }],
+    })],
+    [new RegExp(`/admin/writing/essays/${ESSAY}/feedback$`), () => { saved = true; return { essay_id: ESSAY, status: 'reviewed' }; }],
     [new RegExp(`/admin/writing/essays/${ESSAY}/mark-delivered$`), { essay_id: ESSAY, status: 'delivered', method: 'google_docs_paste', hide_subbands: false }],
   ],
 
@@ -44,8 +46,10 @@ export default {
     { click: '#edit-overview .btn-primary' },
     { click: '#btn-save' },
     { waitForWrites: [`/admin/writing/essays/${ESSAY}/feedback`, 1] },
-    // W-GRADE-STALE-STATUS: the pill follows each write response, no reload.
+    // WRITINGBAND-0050: canonical detail refresh precedes delivery.
     { expectText: ['#status-pill[data-status="reviewed"]', 'reviewed'] },
+    ...(process.env.WF_LEGACY ? [] : [{ expectText: ['#band-score', 'Band 7'] }]),
+    { expectText: ['#section-overview .section-content', UPDATED] },
     { click: '#btn-deliver' },
     { waitForWrites: [`/admin/writing/essays/${ESSAY}/mark-delivered`, 1] },
     { expectText: ['#status-pill[data-status="delivered"]', 'delivered'] },

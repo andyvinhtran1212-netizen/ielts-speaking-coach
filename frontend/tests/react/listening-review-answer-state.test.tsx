@@ -34,6 +34,35 @@ afterEach(() => {
   cleanup(); vi.restoreAllMocks(); window.history.replaceState(null, '', '/');
 });
 
+it('renders self-check answers and Vietnamese explanation without a correct/incorrect mark, including a reload', async () => {
+  const raw = { ...response(), score: 0, max_score: 0, review: [
+    { q_num: 1, self_check: true, correct: null, user_answer: 'my response', expected: 'reference answer',
+      alternatives: ['alternative answer'], section: '1', solution: { why_correct: 'Đây là lời giải tham khảo.', skills: 'K2' } },
+  ] };
+  getWith.mockResolvedValue(raw);
+  for (let load = 0; load < 2; load += 1) {
+    const view = render(<ListeningReviewWorkspace />);
+    const nav = await screen.findByRole('button', { name: 'Câu 1 — Tự đối chiếu' });
+    const card = view.container.querySelector('#listening-review-q-1') as HTMLElement;
+    expect(within(card).getByText('Tự đối chiếu')).toBeTruthy();
+    expect(card.dataset.correct).toBeUndefined();
+    expect(card.className).not.toMatch(/is-correct|is-incorrect|is-unanswered/);
+    expect(nav.className).not.toMatch(/is-correct|is-incorrect|is-unanswered/);
+    expect(within(card).getByText('my response')).toBeTruthy();
+    expect(within(card).getByText('reference answer')).toBeTruthy();
+    expect(within(card).getByText('alternative answer')).toBeTruthy();
+    expect(card.querySelector('.is-correct')).toBeNull();
+    expect(card.textContent).not.toMatch(/✓|✗/);
+    fireEvent.click(card.querySelector('.lr-card__top')!);
+    expect(within(card).getByText('Đây là lời giải tham khảo.')).toBeTruthy();
+    expect(view.container.querySelector('.lr-summary')?.textContent).toContain('0/0 câu');
+    expect(screen.getByText('Không chấm điểm')).toBeTruthy();
+    expect(screen.queryByText('Bạn đã trả lời đúng toàn bộ bài này.')).toBeNull();
+    expect(view.container.querySelector('.lr-skills-panel')).toBeNull();
+    view.unmount();
+  }
+});
+
 it.each(['', null, undefined, ' \n '])('labels an unanswered submitted item without changing its false canonical grade: %s', async (blank) => {
   const raw = response(blank);
   const before = JSON.stringify(raw);
