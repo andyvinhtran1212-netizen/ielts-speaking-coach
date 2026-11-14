@@ -51,6 +51,45 @@ def exercises(sections):
     return [exercise for section in sections for exercise in section["exercise_rows"]]
 
 
+def forty_question_pack(self_check_questions):
+    qp = "# IELTS LISTENING — SYNTHETIC-40\n"
+    sol = "## Quick Answer Key\n| " + " | ".join(f"**{n}.** blue" for n in range(1, 41)) + " |\n## Solutions\n"
+    timings = {"sections": []}
+    for section in range(1, 5):
+        qp += f"## SECTION {section}\n"
+        windows = {}
+        for n in range((section - 1) * 10 + 1, section * 10 + 1):
+            qp += f"### Question {n}\n"
+            if n in self_check_questions:
+                qp += "<!-- scoring: self_check -->\n"
+            qp += f"<!-- qtype: short_answer -->\n> Write ONE WORD ONLY.\n**{n}.** Which colour?\n"
+            sol += (f"### Q{n}\n**Answer:** blue\n**Vì sao đúng:** Màu được nhắc tới.\n"
+                    f"[Replay](audio://full_test.mp3?start={n * 10}&end={n * 10 + 5}&q={n}&section=S{section})\n")
+            windows[str(n)] = {"start": n * 10, "end": n * 10 + 5}
+        timings["sections"].append({"id": f"S{section}", "questions": windows})
+    return qp, sol, timings
+
+
+@pytest.mark.parametrize("marked", [{1}, set(range(1, 11)), set(range(1, 40))])
+def test_forty_question_band_bearing_import_rejects_self_check(marked):
+    # No target band or conversion table: neither disables the grader's band.
+    result = importer.parse_fulltest(*forty_question_pack(marked))
+    assert len(result.questions) == 40
+    assert not result.ok
+    assert any("self-check items are not allowed on 40-question band-bearing tests" in error
+               for error in result.errors)
+
+
+def test_forty_question_non_band_all_self_check_import_still_succeeds():
+    qp, sol, timings = forty_question_pack(set(range(1, 41)))
+    result = importer.parse_fulltest(qp, sol, timings)
+    assert result.ok, result.errors
+    key = grader.collect_answer_key(exercises(importer.build_section_persistence(result, qp)))
+    assert len(key) == 40
+    graded = grader.grade_attempt([], key)
+    assert graded["max_score"] == 0 and graded["band_estimate"] is None
+
+
 def test_no_marker_payload_bytes_match_pre_self_check_baseline():
     _, sections = persisted()
     serialized = json.dumps(sections, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()

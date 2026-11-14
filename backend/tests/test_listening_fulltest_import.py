@@ -135,6 +135,44 @@ def test_band_conversion_and_topic_distribution_parsed():
     assert r.metadata["topic_distribution"]["s1"].startswith("Cookery")
 
 
+def test_full_band_pack_with_self_check_is_rejected():
+    qp, sol, tim = _load()
+    qp = qp.replace("### Questions 1-6", "### Questions 1-6\n<!-- scoring: self_check -->", 1)
+    result = imp.parse_fulltest(qp, sol, tim)
+    assert result.metadata["band_target"] == 5.5
+    assert result.metadata["band_conversion"]
+    assert not result.ok
+    assert any("self-check items are not allowed on 40-question band-bearing tests" in error
+               for error in result.errors)
+
+
+def test_commit_rejects_self_check_band_pack_before_external_access(monkeypatch):
+    import io
+    from fastapi import UploadFile
+
+    async def _ok(_a):
+        return {"id": "admin", "role": "admin"}
+
+    class NoExternalAccess:
+        def __getattr__(self, name):
+            pytest.fail(f"Invalid pack reached external access: {name}")
+
+    monkeypatch.setattr(listening_module, "require_admin", _ok)
+    monkeypatch.setattr(listening_module, "supabase_admin", NoExternalAccess())
+    qp, sol, tim = _load()
+    qp = qp.replace("### Questions 1-6", "### Questions 1-6\n<!-- scoring: self_check -->", 1)
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_module.admin_import_fulltest_commit(
+            question_paper=UploadFile(filename="q.md", file=io.BytesIO(qp.encode())),
+            solution=UploadFile(filename="s.md", file=io.BytesIO(sol.encode())),
+            timings=UploadFile(filename="t.json", file=io.BytesIO(json.dumps(tim).encode())),
+            audio=UploadFile(filename="full.mp3", file=io.BytesIO(b"synthetic audio")),
+            mini=False, authorization="x"))
+    assert exc.value.status_code == 422
+    assert any("self-check items are not allowed on 40-question band-bearing tests" in error
+               for error in exc.value.detail["errors"])
+
+
 # ── Fail-loud validation ──────────────────────────────────────────────
 
 def test_validation_flags_audio_timings_divergence():
