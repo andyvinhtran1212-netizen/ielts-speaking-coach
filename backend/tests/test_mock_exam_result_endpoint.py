@@ -301,6 +301,31 @@ def test_lr_banded_skill_needs_no_excuse():
     assert st["state"] == "scored"
 
 
+def test_lr_listening_max_excludes_self_check_but_preserves_answered():
+    details = _q(3, total=10)
+    details[0]["self_check"] = True
+    details[-1]["self_check"] = True
+    st = _lr(l_id="la-1", row={"score": 0, "band_estimate": None,
+                              "grading_details": details})
+    assert st["max"] == 8
+    assert st["answered"] == 3
+    assert st["state"] == "below_table"
+
+
+def test_lr_reading_max_keeps_all_grading_rows():
+    from services import mock_exam_service as svc
+
+    db = MagicMock()
+    db.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value.data = [
+        {"score": 0, "band_estimate": None,
+         "grading_details": [{"user_answer": "x", "self_check": True}, {"user_answer": "y"}]},
+    ]
+    with patch.object(svc, "supabase_admin", db):
+        st, = svc.lr_skill_states({"assigned_skills": ["reading"], "reading_attempt_id": "ra-1"})
+    assert st["max"] == 2
+    assert st["answered"] == 2
+
+
 def test_lr_dangling_attempt_id_reads_as_never_received_not_blank():
     """A sitting pointing at an attempt that isn't there is broken data — calling
     it a blank paper would blame the student for our bug."""

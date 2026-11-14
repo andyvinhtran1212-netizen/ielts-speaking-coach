@@ -40,6 +40,7 @@ from uuid import UUID
 
 from database import supabase_admin
 from services.errors import clip_user_value
+from services.listening_test_grader import scored_question_count
 
 logger = logging.getLogger(__name__)
 
@@ -1378,7 +1379,7 @@ def lr_skill_states(sitting: dict) -> list:
             "skill":    skill,
             "state":    state,
             "score":    r.get("score"),
-            "max":      len(gd) or None,
+            "max":      (scored_question_count(gd) if skill == "listening" else len(gd)) or None,
             "answered": answered,
         })
     return out
@@ -4002,7 +4003,9 @@ def _listening_total_questions(test_id) -> Optional[int]:
             return None
         rows = (supabase_admin.table("listening_exercises").select("payload")
                 .in_("content_id", section_ids).execute().data or [])
-        return len(grader.collect_answer_key(rows)) or None
+        key = grader.collect_answer_key(rows)
+        # The grader expands self_check to the whole mcq_multi selection group.
+        return grader.grade_attempt([], key)["max_score"] or None
     except Exception:  # noqa: BLE001 — a denominator is never worth a 500
         logger.warning("[mock-exam] listening total lookup failed test=%s", test_id)
         return None

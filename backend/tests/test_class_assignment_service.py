@@ -1369,6 +1369,25 @@ def test_a_failed_LEDGER_WRITE_propagates_out_of_the_repair():
         reconcile_test_attempts(db, [_rl_assignment()])
 
 
+@pytest.mark.parametrize("details, expected_total", [
+    ([{"correct": True}, {"correct": False, "self_check": False},
+      {"correct": None, "self_check": True}], 2),
+    ([{"correct": None, "self_check": True}], None),
+    ([], None),
+])
+def test_skill_drill_report_total_excludes_self_check(details, expected_total):
+    from services.listening_drill_homework import report_by_item
+
+    db = _rl_db(table="listening_test_attempts", attempts=[
+        {**_attempt(), "score": 1 if expected_total else 0, "grading_details": details},
+    ])
+    item = db.tables["class_assignment_items"][0]
+    config = {"dictation_required": False, "sections": [1]}
+    report = report_by_item(db, [item], config)[item["id"]]
+    assert report["total"] == expected_total
+    assert report["correct"] == (1 if expected_total else 0)
+
+
 def test_skill_drill_same_content_in_two_courses_has_independent_completion():
     from services.listening_drill_homework import report_by_item
 

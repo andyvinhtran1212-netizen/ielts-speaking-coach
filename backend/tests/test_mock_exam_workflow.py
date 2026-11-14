@@ -6116,7 +6116,8 @@ def test_the_live_board_survives_a_listening_test_with_no_question_count(fake_db
     assert out["students"][0]["sections"]["listening"]["total"] is None
 
 
-def test_the_listening_total_comes_from_the_graders_own_answer_key(fake_db, svc):
+@pytest.mark.parametrize("self_check_count", [0, 2, 10])
+def test_the_listening_total_comes_from_the_graders_own_answer_key(fake_db, svc, self_check_count):
     """Counted from the SAME key the grader scores against, so the denominator
     can never disagree with the graded total — and a 20-question mini-test is
     not reported as 40."""
@@ -6126,15 +6127,52 @@ def test_the_listening_total_comes_from_the_graders_own_answer_key(fake_db, svc)
     fake_db.seed("listening_content", {"id": "sec-2", "test_id": tid})
     fake_db.seed("listening_exercises", {"id": "ex-1", "content_id": "sec-1", "payload": {
         "template_kind": "gap_fill",
-        "answers": [{"q_num": n, "accepted": ["x"]} for n in range(1, 7)]}})
+        "answers": [{"q_num": n, "accepted": ["x"],
+                     **({"scoring": "self_check"} if n <= self_check_count else {})}
+                    for n in range(1, 7)]}})
     fake_db.seed("listening_exercises", {"id": "ex-2", "content_id": "sec-2", "payload": {
         "template_kind": "gap_fill",
-        "answers": [{"q_num": n, "accepted": ["x"]} for n in range(7, 11)]}})
+        "answers": [{"q_num": n, "accepted": ["x"],
+                     **({"scoring": "self_check"} if n <= self_check_count else {})}
+                    for n in range(7, 11)]}})
 
-    assert svc._listening_total_questions(tid) == 10
+    expected_total = (10 - self_check_count) or None
+    assert svc._listening_total_questions(tid) == expected_total
     svc.create_sitting(uuid4(), "MOCK-TEST-A")
     out = svc.admin_live_monitor(exam["id"])
-    assert out["students"][0]["sections"]["listening"]["total"] == 10
+    assert out["students"][0]["sections"]["listening"]["total"] == expected_total
+
+
+@pytest.mark.parametrize("marked_q", [1, 2])
+def test_live_listening_total_excludes_entire_partially_marked_mcq_multi_group(fake_db, svc, marked_q):
+    from services import listening_test_grader as grader
+
+    exam = _seed_exam(fake_db)
+    tid = exam["listening_test_id"]
+    fake_db.seed("listening_content", {"id": "sec-1", "test_id": tid})
+    rows = [
+        {"id": "ex-1", "content_id": "sec-1", "payload": {
+            "template_kind": "mcq_multi",
+            "answers": [
+                {"q_num": n, "answer": answer,
+                 **({"scoring": "self_check"} if n == marked_q else {})}
+                for n, answer in [(1, "A"), (2, "B")]],
+        }},
+        {"id": "ex-2", "content_id": "sec-1", "payload": {
+            "template_kind": "gap_fill",
+            "answers": [{"q_num": 3, "answer": "x"}],
+        }},
+    ]
+    for row in rows:
+        fake_db.seed("listening_exercises", row)
+
+    key = grader.collect_answer_key(rows)
+    expected_total = grader.grade_attempt([], key)["max_score"]
+    assert expected_total == 1
+    assert svc._listening_total_questions(tid) == expected_total
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    out = svc.admin_live_monitor(exam["id"])
+    assert out["students"][0]["sections"]["listening"]["total"] == expected_total
 
 
 def test_the_pacing_page_reads_the_same_source(fake_db, svc):
