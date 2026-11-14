@@ -595,7 +595,7 @@ export function ListeningDictationSession() {
     const accountId = user?.id;
     setFlagging(true); setFlagError('');
     try {
-      await window.api.post('/api/listening/tests/dictation/flag', {
+      await window.api.post(`/api/listening/tests/dictation/flag${classItem ? `?class_item=${encodeURIComponent(classItem)}` : ''}`, {
         test_id: target.test_id, section_num: target.section_num, sentence_idx: target.sentence_idx,
         category: flagCategory || null, note: flagNote.trim() || null,
       });
@@ -603,7 +603,7 @@ export function ListeningDictationSession() {
       setFlagged((previous) => new Set(previous).add(target.sentence_idx)); setFlagIndex(null);
     } catch (caught: any) { if (sectionRunRef.current === run && accountRef.current === accountId) setFlagError(`Không gửi được báo lỗi. ${dictationErrorMessage(caught)}`); }
     finally { if (sectionRunRef.current === run && accountRef.current === accountId) setFlagging(false); }
-  }, [flagCategory, flagContext, flagIndex, flagNote, flagging, user?.id]);
+  }, [classItem, flagCategory, flagContext, flagIndex, flagNote, flagging, user?.id]);
 
   if (phase === 'loading') return <main className="dict-next-shell"><p className="dict-next-state">Đang tải bài chép chính tả…</p></main>;
   if (phase === 'error') return <main className="dict-next-shell"><section className="dict-next-state is-error"><h1>Không mở được bài</h1><p>{error}</p><button type="button" onClick={() => { bootKeyRef.current = ''; if (user?.id) { const sequence = ++bootSequenceRef.current; setPhase('loading'); void boot(sequence, user.id).catch((caught: any) => { if (bootSequenceRef.current === sequence) { setError(dictationErrorMessage(caught) || 'Không xác minh được dữ liệu.'); setPhase('error'); } }); } }}>Thử lại</button></section></main>;

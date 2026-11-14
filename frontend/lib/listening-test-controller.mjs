@@ -262,8 +262,9 @@ export function listeningReviewHref(attemptId, from = null) {
   return `/listening/review?${query.toString()}`;
 }
 
-export function listeningDictationHref(testId) {
-  return `/core-player/launch?surface=listening_dictation&test_id=${encodeURIComponent(requiredText(testId, 'missing-listening-test'))}`;
+/** @param {string} testId @param {string | null} [classItem] */
+export function listeningDictationHref(testId, classItem = null) {
+  return `/core-player/launch?surface=listening_dictation&test_id=${encodeURIComponent(requiredText(testId, 'missing-listening-test'))}${classItem ? `&class_item=${encodeURIComponent(classItem)}` : ''}`;
 }
 
 export function isRetriableListeningSave(error) {

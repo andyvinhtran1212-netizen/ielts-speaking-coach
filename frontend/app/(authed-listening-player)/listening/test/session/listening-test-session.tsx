@@ -383,12 +383,12 @@ function Exercise({ exercise, answers, saveStates, onAnswer }: {
   </section>;
 }
 
-function ResultView({ result, attempt, test, from, sittingId, classItem }: {
+export function ResultView({ result, attempt, test, from, sittingId, classItem }: {
   result: any; attempt: Attempt | null; test: ListeningTest; from: string | null; sittingId: string | null; classItem?: string | null;
 }) {
   const drill = classItem ? test.skill_drill_homework : null;
   const drillDictationHref = drill?.sections?.length
-    ? `/listening/dictation/session?test_id=${encodeURIComponent(test.id)}&class_item=${encodeURIComponent(classItem!)}` : null;
+    ? listeningDictationHref(test.id, classItem) : null;
   const rows = Array.isArray(result?.per_question) ? result.per_question : [];
   const scoredRows = rows.filter((row: any) => !row.self_check);
   const maxScore = Number(result?.max_score ?? scoredRows.length);
@@ -423,7 +423,7 @@ function ResultView({ result, attempt, test, from, sittingId, classItem }: {
         return <span className={empty ? 'is-empty' : row.correct ? 'is-correct' : 'is-wrong'} aria-label={`Question ${row.q_num}: ${empty ? 'unanswered' : row.correct ? 'correct' : 'incorrect'}`} key={row.q_num}>{row.q_num}</span>;
       })}</div></section>
 
-      <section className="exam-result-next-step"><div><p className="exam-result-eyebrow">NEXT STEP</p><h2>{examResultNextStepTitle(outcomes, 'Review the transcript and explanations')}</h2><p>Replay the relevant audio and compare the transcript and explanations for each question.</p></div><div className="exam-result-actions">{attempt ? <a className="ft-control-btn" href={listeningReviewHref(attempt.attempt_id, from)}>Review answers <span aria-hidden="true">→</span></a> : null}{drillDictationHref ? <a className="ft-control-btn" href={drillDictationHref}>{drill.dictation_required ? 'Làm phần chép chính tả bắt buộc' : 'Chép chính tả (tùy chọn)'}</a> : !drill && <a className="ft-control-btn ghost" href={listeningDictationHref(test.id)}>Dictation practice</a>}<a className="ft-control-btn ghost" href={listeningLibraryHref(from, sittingId)}>Back to tests</a></div></section>
+      <section className="exam-result-next-step"><div><p className="exam-result-eyebrow">NEXT STEP</p><h2>{examResultNextStepTitle(outcomes, 'Review the transcript and explanations')}</h2><p>Replay the relevant audio and compare the transcript and explanations for each question.</p></div><div className="exam-result-actions">{attempt ? <a className="ft-control-btn" href={listeningReviewHref(attempt.attempt_id, from)}>Review answers <span aria-hidden="true">→</span></a> : null}{drillDictationHref ? <a className="ft-control-btn" href={drillDictationHref}>{drill.dictation_required ? 'Làm phần chép chính tả bắt buộc' : 'Chép chính tả (tùy chọn)'}</a> : !classItem && !drill && <a className="ft-control-btn ghost" href={listeningDictationHref(test.id)}>Dictation practice</a>}<a className="ft-control-btn ghost" href={listeningLibraryHref(from, sittingId)}>Back to tests</a></div></section>
     </section>
   </main>;
 }

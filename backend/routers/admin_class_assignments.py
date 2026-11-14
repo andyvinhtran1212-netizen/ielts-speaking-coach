@@ -136,7 +136,7 @@ async def list_assignable_listening_drills(cohort_id: str, authorization: str | 
 
 def _assignable_listening_drills(cohort_id: str, admin: dict) -> dict:
     _require_cohort(cohort_id)
-    from routers.listening import _dictation_units
+    from routers.listening import _dictation_units_for_content
     from services import test_data_visibility
     from services.listening_drill_homework import public_drill, require_homework_schema
 
@@ -156,7 +156,7 @@ def _assignable_listening_drills(cohort_id: str, admin: dict) -> dict:
                           lambda q: q.in_("test_id", ids[offset:offset + _ID_CHUNK]))
         for section in sections:
             test = section["test_id"]
-            section_readiness[test] = section_readiness.get(test, True) and bool(_dictation_units(section))
+            section_readiness[test] = section_readiness.get(test, True) and bool(_dictation_units_for_content(section))
     return {"items": [{
         "id": row["id"], "title": row["title"], "code": row["test_id"],
         "group": (row.get("metadata") or {}).get("drill_type"),
@@ -177,6 +177,7 @@ class AssignmentCreate(BaseModel):
     kind:         Literal["daily", "lesson"] = "daily"
     listening_skill_drill: bool = False
     dictation_required: bool = False
+    dictation_mode: Literal["none", "optional", "required"] = "none"
     # Chỉ dùng cho kind='lesson'. Hạn = ngày giao + N ngày, tại `due_time`.
     due_days:     Optional[int] = Field(default=None, ge=1, le=_MAX_DUE_DAYS)
     title:        str = Field(min_length=1, max_length=300)
@@ -2681,8 +2682,21 @@ def _existing_grammar_give(cohort_id: str, request_id: str, fingerprint: str) ->
             "replayed": True}
 
 
+def _prepare_assigned_listening_dictation(content_id: str, required: bool) -> dict:
+    from routers.listening import _dictation_units_for_content
+    from services.listening_drill_homework import require_homework_schema
+
+    require_homework_schema(supabase_admin)
+    sections = _paged(supabase_admin, "listening_content", "id,section_num,transcript,metadata",
+                      lambda q: q.eq("test_id", content_id))
+    usable = sorted({row["section_num"] for row in sections if _dictation_units_for_content(row)})
+    if not usable or (required and len(usable) != len(sections)):
+        raise HTTPException(422, "Bài chưa có transcript dùng được cho phần chép chính tả.")
+    return {"dictation_required": required, "sections": usable}
+
+
 def _prepare_listening_drill(test: dict, content_id: str, required: bool) -> dict:
-    from routers.listening import _dictation_units, _practice_exercise_payloads
+    from routers.listening import _dictation_units_for_content, _practice_exercise_payloads
     from services.listening_drill_homework import public_drill, require_homework_schema
     from services.listening_test_grader import collect_answer_key
 
@@ -2697,7 +2711,7 @@ def _prepare_listening_drill(test: dict, content_id: str, required: bool) -> dic
         raise HTTPException(422, "Bài luyện kỹ năng chưa có đáp án chấm hợp lệ.")
     sections = _paged(supabase_admin, "listening_content", "id,section_num,transcript,metadata",
                       lambda q: q.eq("test_id", content_id))
-    dictation_sections = sorted({row["section_num"] for row in sections if _dictation_units(row)})
+    dictation_sections = sorted({row["section_num"] for row in sections if _dictation_units_for_content(row)})
     if required and (not sections or len(dictation_sections) != len(sections)):
         raise HTTPException(422, "Bài chưa có transcript dùng được cho mọi phần.")
     return {
@@ -2729,6 +2743,10 @@ async def create_assignment(
             # A give that completed before the archive replays its receipt (FR-003).
             return replay
     _require_active_cohort(cohort)
+    assigned_dictation = (body.kind == "daily" and body.skill == "listening"
+                          and body.delivery_mode == "assigned_practice" and not body.listening_skill_drill)
+    if body.dictation_mode != "none" and not assigned_dictation:
+        raise HTTPException(422, "Chế độ chép chính tả chỉ dùng cho đề Listening giao luyện tập có kiểm soát.")
     if body.dictation_required and not body.listening_skill_drill:
         raise HTTPException(422, "Chỉ bài luyện kỹ năng Listening hỗ trợ chép chính tả bắt buộc.")
     if body.listening_skill_drill and (body.kind != "daily" or body.skill != "listening"
@@ -2856,6 +2874,10 @@ async def create_assignment(
         # The attempt trigger requires class-linked admission even for a
         # public paper. This setting only scopes the give, not the paper.
         content_config["delivery_mode"] = "assigned_practice"
+
+    if assigned_dictation and body.dictation_mode != "none":
+        content_config["skill_drill"] = await run_in_threadpool(
+            _prepare_assigned_listening_dictation, content_id, body.dictation_mode == "required")
 
     try:
         result = create_class_assignment(
