@@ -17,9 +17,11 @@ const payload = {
   items: [{
     id: 'draft-attempt', test_id: 'CAM-01', title: 'Title <script> alert',
     band_target: 7, themes: { s1: 'Travel', s2: 'Education' },
+    source_item_count: 40,
     user_best_score: null, user_attempt_count: 2, user_submitted_attempt_count: 0,
   }, {
     id: 'submitted-attempt', test_id: 'CAM-02', title: 'Completed test',
+    max_score: 40, score_mode: 'scored', self_check_count: 0,
     user_best_score: 34, user_attempt_count: 3, user_submitted_attempt_count: 1,
   }],
 };

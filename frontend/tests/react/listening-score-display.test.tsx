@@ -55,6 +55,27 @@ it('catalog uses the best attempt denominator and distinguishes self-check compl
   expect(view.container.textContent).not.toContain('/40');
 });
 
+it('catalog shows known paper size before submission without inventing a score denominator', async () => {
+  Object.defineProperty(window, 'api', { configurable: true, value: { getWith: vi.fn(async () => ({ items: [
+    { id: 'draft', title: 'Draft', source_item_count: 40, user_best_score: null,
+      user_attempt_count: 2, user_submitted_attempt_count: 0 },
+    { id: 'mixed', title: 'Mixed', source_item_count: 40, max_score: 36, score_mode: 'mixed',
+      user_best_score: 36, user_submitted_attempt_count: 1 },
+    { id: 'unknown', title: 'Unknown', user_submitted_attempt_count: 0 },
+  ] })) } });
+  const view = render(<ListeningTestsBehavior />);
+  await screen.findByText('Draft');
+  const draft = view.container.querySelector('[data-test-id="draft"]')!;
+  expect(draft.querySelector('.lt-card-facts')?.textContent).toContain('40 câu');
+  expect(draft.getAttribute('data-status')).toBe('new');
+  expect(draft.querySelector('.lt-card-stats')?.textContent).not.toContain('/40');
+  const mixed = view.container.querySelector('[data-test-id="mixed"]')!;
+  expect(mixed.querySelector('.lt-card-facts')?.textContent).toContain('40 câu');
+  expect(mixed.querySelector('.lt-card-stats')?.textContent).toContain('36/36');
+  expect(mixed.querySelector('.lt-card-stats')?.textContent).not.toContain('/40');
+  expect(view.container.querySelector('[data-test-id="unknown"] .lt-card-facts')?.textContent).not.toContain('câu');
+});
+
 it.each(['self_check_only', 'mixed_no_band'])('mock gap explains %s without the /40 fallback', async (state) => {
   Object.defineProperty(window, 'api', { configurable: true, value: { getWith: vi.fn(async () => ({
     final_bands: {}, lr_skills: [{ skill: 'listening', state, score: state === 'self_check_only' ? null : 36,
