@@ -111,6 +111,7 @@ always → usually → often → sometimes → occasionally → rarely → hardl
 - I **never** exercise at night — it keeps me awake.
 
 > **Vị trí:** Trạng từ tần suất thường đứng **trước động từ chính** nhưng **sau "be"**:
+>
 > - "I **usually** walk to work." ✅
 > - "I **am always** tired on Mondays." ✅
 
@@ -165,6 +166,7 @@ Dùng để kể về thói quen cụ thể trong quá khứ (thường kết h�
 - "Every summer, my family **would** drive to the coast for a week."
 
 > **Lưu ý:** "Would" **không dùng** cho trạng thái (state verbs như be, have, know, believe):
+>
 > - ❌ "I **would be** very shy." → ✅ "I **used to be** very shy."
 
 ---

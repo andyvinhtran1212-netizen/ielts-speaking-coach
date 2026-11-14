@@ -191,6 +191,7 @@ Preposition + V-ing
 | used to *(adj)* | I'm used **to waking** up early. |
 
 > **Bẫy thường gặp:** *look forward **to** + gerund* — chữ "to" ở đây là giới từ, không phải dấu hiệu infinitive!
+>
 > - ❌ SAI: I look forward **to see** you.
 > - ✅ ĐÚNG: I look forward **to seeing** you.
 

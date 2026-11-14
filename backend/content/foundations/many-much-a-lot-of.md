@@ -123,6 +123,7 @@ much + uncountable noun
 - We haven't made **much** progress.
 
 > **Lưu ý quan trọng:** Trong câu khẳng định, "much" nghe hơi formal/cứng khi đứng một mình:
+>
 > - ❌ (informal) "I have **much** work to do." *(sounds unnatural in speech)*
 > - ✅ "I have **a lot of** work to do." *(natural spoken)*
 > - ✅ "There is **much** to be done." *(formal/written)*

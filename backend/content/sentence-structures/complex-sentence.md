@@ -521,6 +521,7 @@ V-ing [reason/context], [main clause].
 | "I was tired. I still finished the report." | "**Feeling tired**, I still managed to finish the report." |
 
 > **Chú ý:** Chủ ngữ của V-ing phrase phải là **chủ ngữ của mệnh đề chính**. Nếu khác, câu sẽ sai (dangling modifier):
+>
 > - ❌ "**Walking home**, the rain started." *(mưa không thể "walking home")*
 > - ✅ "**Walking home**, I got caught in the rain."
 
@@ -815,6 +816,7 @@ Bây giờ, kết hợp nhiều bước để tạo ra một câu phức thực 
 5. → *When he arrived at the station, the train had already left.* (dependent clause không đứng một mình)
 
 **Nâng cấp câu:**
+
 1. "Exercise is important **because** it improves both physical and mental health. **As a result**, incorporating regular activity into daily routines **has been shown to** reduce the risk of numerous chronic diseases."
 
 2. "Young people **who have grown up with social media** tend to use it as their primary source of news and social interaction. **However**, there are growing concerns about its impact on attention spans and the quality of real-world relationships."

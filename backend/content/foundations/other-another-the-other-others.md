@@ -109,6 +109,7 @@ another + singular countable noun
 - I didn't like that idea — do you have **another**?
 
 > Another thường đi trực tiếp với danh từ đếm được số ít. Mẫu another + số đếm + danh từ số nhiều cũng đúng: another three options / another three months. Không nhầm nó với another options không có số đếm.
+>
 > - ❌ another people / another information
 > - ✅ other people / other information
 
@@ -198,6 +199,7 @@ Others + verb (không theo sau noun)
 - You should consider how your actions affect **others**.
 
 > **Lưu ý:** "Others" là đại từ — KHÔNG đứng trước danh từ.
+>
 > - ❌ Others people think differently.
 > - ✅ **Other** people think differently. (dùng "other" khi có noun)
 > - ✅ **Others** think differently. (đại từ, không có noun)
@@ -221,6 +223,7 @@ The others + verb (không theo sau noun)
 - Two seats are taken. **The others** are still available.
 
 > **Lưu ý quan trọng:**
+>
 > - "**Others**" = some other people/things (không xác định, số nhiều)
 > - "**The others**" = the remaining people/things (đã xác định, biết rõ)
 
