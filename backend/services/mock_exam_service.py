@@ -751,7 +751,8 @@ def create_sitting(user_id: str, code: str) -> dict:
         # (Codex review, PR #849). Only this function knows which happened.
         return {**existing.data[0], "created": False}
 
-    _guard_listening_scoring(exam.get("listening_test_id"), SittingConflictError)
+    if not is_retake(exam):
+        _guard_listening_scoring(exam.get("listening_test_id"), SittingConflictError)
 
     # NEW sitting only: apply the entry gates.
     #
@@ -792,6 +793,8 @@ def create_sitting(user_id: str, code: str) -> dict:
             raise NotEligibleError("Bạn chưa được gán làm bài test lại này.")
         _assert_retake_window_open(assignment)
         new_row["assigned_skills"]   = assignment.get("skills") or []
+        if "listening" in new_row["assigned_skills"]:
+            _guard_listening_scoring(exam.get("listening_test_id"), SittingConflictError)
         new_row["retake_open_from"]  = assignment.get("open_from")
         new_row["retake_open_until"] = assignment.get("open_until")
     else:

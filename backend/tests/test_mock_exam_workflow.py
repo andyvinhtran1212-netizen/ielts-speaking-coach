@@ -6820,6 +6820,35 @@ def test_mock_listening_attachment_reuses_grader_group_flags(fake_db, svc, mode,
         svc._guard_listening_attachment({"listening_test_id": paper_id})
 
 
+@pytest.mark.parametrize("skills", [["reading"], ["listening"]], ids=["reading-only", "listening-assigned"])
+def test_retake_listening_guard_uses_assigned_skills(fake_db, svc, skills):
+    """A legacy self-check Listening paper only blocks retakers assigned it."""
+    user_id = str(uuid4())
+    exam = _seed_retake(fake_db, user_id, skills)
+    paper_id = exam["listening_test_id"]
+    fake_db.seed("listening_content", {"id": "retake-guard-content", "test_id": paper_id})
+    fake_db.seed("listening_exercises", {
+        "id": "retake-guard-exercise", "content_id": "retake-guard-content",
+        "payload": {"answers": [
+            {"q_num": n, "answer": "blue", "scoring": "self_check"}
+            for n in range(1, 41)
+        ]},
+    })
+    assert svc._listening_score_modes([paper_id]) == {paper_id: "self_check_only"}
+
+    if "listening" in skills:
+        with pytest.raises(svc.SittingConflictError, match="chỉ tự đối chiếu"):
+            svc.create_sitting(user_id, exam["code"])
+        assert fake_db.rows("mock_exam_sittings") == []
+    else:
+        sitting = svc.create_sitting(user_id, exam["code"])
+        assert sitting["created"] is True
+        assert sitting["status"] == "registered"
+        persisted = svc.get_sitting(sitting["id"])
+        assert persisted["assigned_skills"] == ["reading"]
+        assert svc._sitting_sections(persisted, exam) == ["reading"]
+
+
 def test_mock_listening_guard_fails_closed_on_lookup_error(fake_db, monkeypatch, svc):
     monkeypatch.setattr(svc, "_listening_score_modes", lambda ids: (_ for _ in ()).throw(RuntimeError("lookup failed")))
     with pytest.raises(RuntimeError, match="lookup failed"):
