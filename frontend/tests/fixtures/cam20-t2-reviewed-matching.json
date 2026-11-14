@@ -1,0 +1,88 @@
+{
+  "template_kind": "matching",
+  "variant": "matching",
+  "instruction": "What is the role of the volunteers in each of the following activities?\n\nChoose SIX answers from the box and write the correct letter, A-I, next to Questions 11-16.",
+  "metadata": {
+    "match_options": [
+      {
+        "text": "providing entertainment",
+        "letter": "A"
+      },
+      {
+        "text": "providing publicity about a council service",
+        "letter": "B"
+      },
+      {
+        "text": "contacting local businesses",
+        "letter": "C"
+      },
+      {
+        "text": "giving advice to visitors",
+        "letter": "D"
+      },
+      {
+        "text": "collecting feedback on events",
+        "letter": "E"
+      },
+      {
+        "text": "selling tickets",
+        "letter": "F"
+      },
+      {
+        "text": "introducing guest speakers at an event",
+        "letter": "G"
+      },
+      {
+        "text": "encouraging cooperation between local organisations",
+        "letter": "H"
+      },
+      {
+        "text": "helping people find their seats",
+        "letter": "I"
+      }
+    ],
+    "letter_options": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "G",
+      "H",
+      "I"
+    ]
+  },
+  "questions": [
+    {
+      "q_num": 11,
+      "prompt": "walking around the town centre",
+      "variant": "sentence_inline"
+    },
+    {
+      "q_num": 12,
+      "prompt": "helping at concerts",
+      "variant": "sentence_inline"
+    },
+    {
+      "q_num": 13,
+      "prompt": "getting involved with community groups",
+      "variant": "sentence_inline"
+    },
+    {
+      "q_num": 14,
+      "prompt": "helping with a magazine",
+      "variant": "sentence_inline"
+    },
+    {
+      "q_num": 15,
+      "prompt": "participating at lunches for retired people",
+      "variant": "sentence_inline"
+    },
+    {
+      "q_num": 16,
+      "prompt": "helping with the website",
+      "variant": "sentence_inline"
+    }
+  ]
+}
