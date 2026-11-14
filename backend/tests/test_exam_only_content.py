@@ -431,6 +431,22 @@ class _RecordingDB:
     def table(self, name):
         if name == "listening_tests":
             return _Q([{"id": "lt1", "programme_id": "ielts", "metadata": {}}])
+        if name in {"listening_content", "listening_exercises"}:
+            class ScoringRead(_Q):
+                def order(self, column):
+                    assert column == "id"
+                    return self
+
+                def range(self, start, end):
+                    assert (start, end) == (0, 499)
+                    return self
+
+            rows = {
+                "listening_content": [{"id": "content-1", "test_id": "lt1"}],
+                "listening_exercises": [{"id": "exercise-1", "content_id": "content-1",
+                    "payload": {"answers": [{"q_num": 1, "answer": "blue"}]}}],
+            }
+            return ScoringRead(rows[name])
         self._pending = name
         return self
 

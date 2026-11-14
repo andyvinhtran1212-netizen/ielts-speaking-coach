@@ -268,11 +268,16 @@ for (const mode of ['mixed', 'all']) {
   const metrics = await page.getByLabel('Results overview').locator('.exam-result-metrics strong').allTextContents();
   const selfCheckSlots = page.locator('.exam-result-question-map span[aria-label*="Tự đối chiếu"]');
   check(`${mode} self-check submit keeps inputs and excludes unscored items from results`,
-    metrics[0].replace(/\s/g, '') === (mode === 'all' ? '0/0' : '1/1')
-      && metrics[2] === '0' && metrics[3] === '0'
+    (mode === 'all'
+      ? metrics.length === 0
+        && await page.getByLabel('Results overview').getByText('Đã hoàn thành · 2 câu tự đối chiếu', { exact: true }).isVisible()
+        && await page.locator('.exam-result-band strong').innerText() === 'Không chấm điểm'
+        && await page.getByRole('link', { name: 'Đối chiếu đáp án', exact: true }).count() === 1
+        && await page.getByRole('link', { name: 'Đối chiếu đáp án', exact: true }).isVisible()
+        && (await page.getByRole('link', { name: 'Đối chiếu đáp án', exact: true }).getAttribute('href'))?.includes(`attempt_id=${ATTEMPT_ID}`)
+      : metrics[0].replace(/\s/g, '') === '1/1' && metrics[2] === '0' && metrics[3] === '0')
       && await selfCheckSlots.count() === (mode === 'all' ? 2 : 1)
-      && await selfCheckSlots.evaluateAll(slots => slots.every(slot => !/is-wrong|is-correct|is-empty/.test(slot.className)))
-      && (mode !== 'all' || (metrics[1] === '—' && await page.locator('.exam-result-band strong').innerText() === '—')));
+      && await selfCheckSlots.evaluateAll(slots => slots.every(slot => !/is-wrong|is-correct|is-empty/.test(slot.className))));
 }
 check('no uncaught browser error', pageErrors.length === 0, pageErrors[0] || '');
 check(

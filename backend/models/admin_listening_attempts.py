@@ -22,6 +22,9 @@ class AdminListeningAttemptItem(BaseModel):
     status: Literal['in_progress', 'submitted', 'abandoned']
     scoring_policy: Literal['diagnostic', 'report_only']
     score: int | None
+    max_score: int = 0
+    score_mode: Literal["scored", "mixed", "self_check_only"] = "scored"
+    self_check_count: int = 0
     total_questions: int | None
     accuracy: float | None
     duration_seconds: int | None
