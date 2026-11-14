@@ -702,6 +702,16 @@ def _validate(res: FullTestParseResult, qak: dict, sol_blocks: dict,
             f"`### Question(s) N`). Sửa rồi import lại."
         )
 
+    # Mixed full tests still receive a raw-score band on the 40-point scale.
+    # Target band / conversion-table metadata does not disable that grading.
+    # All-self-check tests have no scored items and therefore no band.
+    self_check = [q for q in res.questions if q.get("scoring") == "self_check"]
+    if (len(seen_q) == _EXPECTED_QUESTIONS and self_check
+            and len(self_check) < len(res.questions)):
+        res.errors.append(
+            "self-check items are not allowed on 40-question band-bearing tests."
+        )
+
     for q in res.questions:
         n = q["q_num"]
         # every question must have an answer (Quick Answer Key)
