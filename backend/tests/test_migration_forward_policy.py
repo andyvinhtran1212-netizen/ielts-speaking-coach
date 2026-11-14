@@ -36,7 +36,11 @@ def test_readme_next_migration_number_matches_directory_maximum():
     readme = (migrations / "README.md").read_text(encoding="utf-8")
 
     assert f"the highest is `{highest}`" in readme
-    assert f"migration is `{highest + 1}`" in readme
+    # 377 is reserved for BLACKEYE PR2 in the shared register (Leader decision).
+    # Keep exact next-number enforcement while accounting for that reservation.
+    reserved = {377}
+    assert "377 is reserved for Black Eye PR2" in readme
+    assert f"migration is `{max(highest, *reserved) + 1}`" in readme
 
 
 def test_gate_f_only_schema_is_retired_from_the_forward_queue():
@@ -301,3 +305,12 @@ def test_runner_requires_named_opt_in_for_a_pending_feature(tmp_path):
     assert "pending_feature:curated_vocab" not in output
     for filename in pending:
         assert f"would apply: {filename}" in output
+
+
+def test_blackeye_admission_376_stays_pending_until_namespace_security_signoff():
+    rows = [line.split("\t", 3) for line in POLICY.read_text().splitlines()
+            if line.startswith("376_")]
+    assert len(rows) == 1
+    assert rows[0][:3] == ["376_blackeye_admission.sql", "pending_feature", "blackeye_admission"]
+    assert "may be applied only after M-A/M-B + 347 + SA sign-off" in rows[0][3]
+    assert "No apply on merge" in rows[0][3]

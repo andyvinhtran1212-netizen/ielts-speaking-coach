@@ -88,6 +88,7 @@ Tiếng Anh có ba mức so sánh:
 ## Tại sao quan trọng
 
 So sánh xuất hiện liên tục trong IELTS:
+
 - Writing Task 1: *Sales were **higher than** the previous year / The UK had **the highest** rate of...*
 - Writing Task 2: *Cities are **more polluted than** rural areas / Education is **one of the most important** investments...*
 - Speaking: *This city is **much bigger** than my hometown / I prefer reading **to** watching TV*
@@ -189,6 +190,7 @@ as + Adjective/Adverb + as
 - He doesn't earn **as much as** she does.
 
 **Phủ định:** not as...as = less...than
+
 - This hotel is **not as expensive as** that one. = This hotel is **less expensive than** that one.
 
 ### 2. Much / Far / A lot / Even / Slightly (nhấn mạnh mức độ so sánh)
@@ -203,6 +205,7 @@ much / far / a lot / even / slightly + comparative
 - The second exam was **even harder** than the first.
 
 **Không dùng "very" với comparative:**
+
 - ❌ She's very taller than me.
 - ✅ She's **much taller** / **far taller** than me.
 
@@ -330,9 +333,11 @@ the least + Adjective
 ### Đáp án
 
 **Chia dạng:**
+
 1. the most beautiful | 2. taller | 3. more difficult | 4. the most challenging | 5. harder
 
 **Sửa lỗi:**
+
 1. She is **older** than her colleague. (old → older, không dùng "more")
 2. This coffee is **the most expensive** on the menu. (the + most + long adj; "in the menu" → "on the menu")
 3. He runs **much faster** than me. (dùng much/far, không dùng very)
@@ -342,16 +347,19 @@ the least + Adjective
 ## Tóm tắt nhanh
 
 **Tính từ một âm tiết thường:** -er / the -est. Tính từ hai âm tiết tùy từ: simpler, more careful, cleverer/more clever; trạng từ -ly thường dùng more/most (more slowly). Tra từ điển khi không chắc.
+
 - Thêm -er/-est: tall → taller → the tallest
 - Nhân đôi phụ âm: big → bigger → the biggest
 - -y → -ier/-iest: happy → happier → the happiest
 
 **Tính từ dài (3+ âm tiết):** more / the most
+
 - more beautiful / the most beautiful
 
 **Bất quy tắc:** good→better→best | bad→worse→worst | much/many→more→most | little→less→least
 
 **Cấu trúc quan trọng:**
+
 - so sánh bằng: as...as
 - nhấn mạnh: much / far / considerably / significantly + comparative
 - tương quan (càng… càng…): the + comparative, the + comparative

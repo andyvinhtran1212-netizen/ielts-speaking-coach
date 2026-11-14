@@ -2069,6 +2069,23 @@ export interface paths {
         patch: operations["update_lesson_admin_cohorts__cohort_id__lessons__lesson_id__patch"];
         trace?: never;
     };
+    "/admin/cohorts/{cohort_id}/listening-skill-drills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Assignable Listening Drills */
+        get: operations["list_assignable_listening_drills_admin_cohorts__cohort_id__listening_skill_drills_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/cohorts/{cohort_id}/assignments": {
         parameters: {
             query?: never;
@@ -2552,6 +2569,74 @@ export interface paths {
          *     nhánh khác, và thêm trường vào cùng một khuôn là dựng sẵn một cuộc va.
          */
         patch: operations["update_assignment_due_admin_cohorts__cohort_id__assignments__assignment_id__due_patch"];
+        trace?: never;
+    };
+    "/admin/cohorts/{cohort_id}/listening-source-assignments/{assignment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Blackeye Assignment Closed */
+        get: operations["blackeye_assignment_closed_admin_cohorts__cohort_id__listening_source_assignments__assignment_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/cohorts/{cohort_id}/listening-source-assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Blackeye Assignment Closed */
+        post: operations["blackeye_assignment_closed_admin_cohorts__cohort_id__listening_source_assignments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/cohorts/{cohort_id}/listening-source-catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Blackeye Assignment Closed */
+        get: operations["blackeye_assignment_closed_admin_cohorts__cohort_id__listening_source_catalog_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/cohorts/{cohort_id}/assignments/{assignment_id}/items/{item_id}/listening-review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Blackeye Teacher Review */
+        get: operations["blackeye_teacher_review_admin_cohorts__cohort_id__assignments__assignment_id__items__item_id__listening_review_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/grammar/lessons/items/{item_id}": {
@@ -8062,6 +8147,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/listening/skill-drill-playback/{attempt_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record Skill Drill Playback */
+        post: operations["record_skill_drill_playback_api_listening_skill_drill_playback__attempt_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/listening/tests/attempts/{attempt_id}/playback-started": {
         parameters: {
             query?: never;
@@ -8325,6 +8427,23 @@ export interface paths {
          *     gate unchanged.
          */
         get: operations["get_listening_test_attempt_review_api_listening_tests_attempts__attempt_id__review_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/listening/source-collections/blackeye-v5-upper/units/U1": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Blackeye Unit */
+        get: operations["get_blackeye_unit_api_listening_source_collections_blackeye_v5_upper_units_U1_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -14879,6 +14998,287 @@ export interface components {
             /** Is Published */
             is_published?: boolean | null;
         };
+        /** BlackEyeActivityPublic */
+        BlackEyeActivityPublic: {
+            binding: components["schemas"]["BlackEyeLearnerBinding"];
+            /** Test Id */
+            test_id: string | null;
+            /** Title */
+            title: string;
+            /** Order */
+            order: number;
+            /**
+             * Readiness
+             * @enum {string}
+             */
+            readiness: "locked" | "candidate" | "ready";
+            /** Readiness Reasons */
+            readiness_reasons: string[];
+            /** Selectable */
+            selectable: boolean;
+            /** Response Cell Count */
+            response_cell_count: number;
+            /**
+             * Scoring Policy
+             * @constant
+             */
+            scoring_policy: "report_only";
+            /**
+             * Objective Denominator
+             * @constant
+             */
+            objective_denominator: 0;
+            dictation: components["schemas"]["BlackEyeDictation"];
+            /** Items */
+            items: components["schemas"]["BlackEyePublicItem"][];
+            /** Media Handle */
+            media_handle: string | null;
+        };
+        /** BlackEyeActivityReview */
+        BlackEyeActivityReview: {
+            attempt: components["schemas"]["BlackEyeAttemptState"];
+            /** Items */
+            items: components["schemas"]["BlackEyeReviewItem"][];
+            /** Transcript */
+            transcript: components["schemas"]["BlackEyeTranscript"][];
+            audio: components["schemas"]["BlackEyeReviewAudio"];
+        };
+        /** BlackEyeAnswer */
+        BlackEyeAnswer: {
+            /** Q Num */
+            q_num: number;
+            /** Source Item Id */
+            source_item_id: string;
+            /** User Answer */
+            user_answer: string;
+        };
+        /** BlackEyeAttemptState */
+        BlackEyeAttemptState: {
+            /** Attempt Id */
+            attempt_id: string;
+            /** Test Id */
+            test_id: string;
+            binding: components["schemas"]["BlackEyeLearnerBinding"];
+            context: components["schemas"]["BlackEyeContext"];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "in_progress" | "submitted";
+            /** Answers */
+            answers: components["schemas"]["BlackEyeAnswer"][];
+            /** Submitted At */
+            submitted_at: string | null;
+            result_summary: components["schemas"]["BlackEyeResultSummary"] | null;
+        };
+        /** BlackEyeContext */
+        BlackEyeContext: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "standalone" | "assigned";
+            /** Class Assignment Item Id */
+            class_assignment_item_id: string | null;
+            /** Assignment Id */
+            assignment_id: string | null;
+            /** Cohort Id */
+            cohort_id: string | null;
+        };
+        /** BlackEyeDictation */
+        BlackEyeDictation: {
+            /**
+             * Available
+             * @constant
+             */
+            available: false;
+            /**
+             * Reason
+             * @constant
+             */
+            reason: "separate_release_required";
+        };
+        /** BlackEyeInProgress */
+        BlackEyeInProgress: {
+            attempt: components["schemas"]["BlackEyeAttemptState"] | null;
+        };
+        /** BlackEyeKeepChangeReference */
+        BlackEyeKeepChangeReference: {
+            /**
+             * Version
+             * @constant
+             */
+            version: "blackeye_keep_change_v1";
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "KEEP" | "CHANGE";
+            /** Correction Text */
+            correction_text: string;
+        };
+        /** BlackEyeLearnerBinding */
+        BlackEyeLearnerBinding: {
+            /**
+             * Programme Id
+             * @constant
+             */
+            programme_id: "blackeye-v5-upper-listening";
+            /**
+             * Collection Id
+             * @constant
+             */
+            collection_id: "blackeye-v5-upper";
+            /**
+             * Source Contract
+             * @constant
+             */
+            source_contract: "blackeye_u1_v1";
+            /**
+             * Unit Id
+             * @constant
+             */
+            unit_id: "U1";
+            /** Activity Id */
+            activity_id: string;
+            /** Content Revision */
+            content_revision: string;
+            /** Policy Revision */
+            policy_revision: string;
+        };
+        /** BlackEyePublicItem */
+        BlackEyePublicItem: {
+            /** Source Item Id */
+            source_item_id: string;
+            /** Q Num */
+            q_num: number;
+            /** Source Display Number */
+            source_display_number: string;
+            /**
+             * Interaction
+             * @enum {string}
+             */
+            interaction: "text" | "keep_change";
+            /** Prompt */
+            prompt: string;
+            /** Instruction */
+            instruction: string;
+            /** Givens */
+            givens: string[];
+            /** Group Id */
+            group_id: string | null;
+            /** Row Id */
+            row_id: string | null;
+            /** Column Id */
+            column_id: string | null;
+        };
+        /** BlackEyeResultSummary */
+        BlackEyeResultSummary: {
+            /**
+             * Submitted
+             * @constant
+             */
+            submitted: true;
+            /** Item Count */
+            item_count: number;
+            /** Blank Count */
+            blank_count: number;
+            /** Unscored Count */
+            unscored_count: number;
+            /**
+             * Objective Denominator
+             * @constant
+             */
+            objective_denominator: 0;
+            /** Score */
+            score: null;
+            /** Band Estimate */
+            band_estimate: null;
+        };
+        /** BlackEyeReviewAudio */
+        BlackEyeReviewAudio: {
+            /** Url */
+            url: string | null;
+            /**
+             * Granularity
+             * @constant
+             */
+            granularity: "whole_activity";
+            /** Expires In */
+            expires_in: number | null;
+        };
+        /** BlackEyeReviewItem */
+        BlackEyeReviewItem: {
+            /** Source Item Id */
+            source_item_id: string;
+            /** Q Num */
+            q_num: number;
+            /** Saved Response */
+            saved_response: string;
+            /** Blank */
+            blank: boolean;
+            /**
+             * Source Status
+             * @enum {string}
+             */
+            source_status: "UNRESOLVED" | "CONFIRMED" | "DISAGREEMENT";
+            /**
+             * Scoring Mode
+             * @constant
+             */
+            scoring_mode: "SELF-CHECK";
+            /**
+             * Academic Verdict
+             * @enum {string}
+             */
+            academic_verdict: "CONFIRMED" | "SUSPECT" | "AMBIGUOUS" | "UNRESOLVED";
+            /** Reference */
+            reference: string | string[] | components["schemas"]["BlackEyeKeepChangeReference"] | null;
+            /**
+             * Reference Provenance
+             * @enum {string}
+             */
+            reference_provenance: "literal_key" | "derived" | "editorial";
+            /** Explanation Vi */
+            explanation_vi: string | null;
+            /** Limitation Vi */
+            limitation_vi: string | null;
+            /** Evidence Pointer */
+            evidence_pointer: string | null;
+        };
+        /** BlackEyeSaveAck */
+        BlackEyeSaveAck: {
+            /** Attempt Id */
+            attempt_id: string;
+            /** Answer Count */
+            answer_count: number;
+            /** Performance Event Recorded */
+            performance_event_recorded: boolean;
+        };
+        /** BlackEyeTranscript */
+        BlackEyeTranscript: {
+            /** Text */
+            text: string;
+            /** Start */
+            start: number | null;
+            /** End */
+            end: number | null;
+        };
+        /** BlackEyeUnitPublic */
+        BlackEyeUnitPublic: {
+            /**
+             * Collection Id
+             * @constant
+             */
+            collection_id: "blackeye-v5-upper";
+            /**
+             * Unit Id
+             * @constant
+             */
+            unit_id: "U1";
+            /** Activities */
+            activities: components["schemas"]["BlackEyeActivityPublic"][];
+        };
         /** Body_admin_import_drill_commit_admin_listening_drills_import_commit_post */
         Body_admin_import_drill_commit_admin_listening_drills_import_commit_post: {
             /**
@@ -16645,6 +17045,23 @@ export interface components {
              * @default
              */
             draft_text: string;
+        };
+        /** DrillPlaybackCheckpoint */
+        DrillPlaybackCheckpoint: {
+            /**
+             * Stage
+             * @enum {string}
+             */
+            stage: "listening" | "dictation";
+            /**
+             * Page Id
+             * Format: uuid
+             */
+            page_id: string;
+            /** Plays */
+            plays: number;
+            /** Played Ms */
+            played_ms: number;
         };
         /**
          * DuePatch
@@ -19126,6 +19543,13 @@ export interface components {
             audio_granularity?: string | null;
             /** Q Num */
             q_num: number;
+            /**
+             * Self Check
+             * @default false
+             */
+            self_check: boolean;
+            /** Alternatives */
+            alternatives?: string[];
             /** State */
             state?: string | null;
             /** Correct */
@@ -23083,6 +23507,7 @@ export interface components {
             purpose?: ("practice" | "assigned_practice" | "mock_delivery") | null;
             /** Mock Sitting Id */
             mock_sitting_id?: string | null;
+            blackeye_binding?: components["schemas"]["BlackEyeLearnerBinding"] | null;
         };
         /** _ReadingAttemptRendererAffinityRequest */
         _ReadingAttemptRendererAffinityRequest: {
@@ -23198,6 +23623,22 @@ export interface components {
              * @enum {string}
              */
             kind: "daily" | "lesson";
+            /**
+             * Listening Skill Drill
+             * @default false
+             */
+            listening_skill_drill: boolean;
+            /**
+             * Dictation Required
+             * @default false
+             */
+            dictation_required: boolean;
+            /**
+             * Dictation Mode
+             * @default none
+             * @enum {string}
+             */
+            dictation_mode: "none" | "optional" | "required";
             /** Due Days */
             due_days?: number | null;
             /** Title */
@@ -27108,6 +27549,39 @@ export interface operations {
             };
         };
     };
+    list_assignable_listening_drills_admin_cohorts__cohort_id__listening_skill_drills_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cohort_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_assignments_admin_cohorts__cohort_id__assignments_get: {
         parameters: {
             query?: never;
@@ -27758,6 +28232,145 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    blackeye_assignment_closed_admin_cohorts__cohort_id__listening_source_assignments__assignment_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cohort_id: string;
+                assignment_id: string | null;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    blackeye_assignment_closed_admin_cohorts__cohort_id__listening_source_assignments_post: {
+        parameters: {
+            query?: {
+                assignment_id?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cohort_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    blackeye_assignment_closed_admin_cohorts__cohort_id__listening_source_catalog_get: {
+        parameters: {
+            query?: {
+                assignment_id?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cohort_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    blackeye_teacher_review_admin_cohorts__cohort_id__assignments__assignment_id__items__item_id__listening_review_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cohort_id: string;
+                assignment_id: string;
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlackEyeActivityReview"];
                 };
             };
             /** @description Validation Error */
@@ -36635,7 +37248,9 @@ export interface operations {
     };
     get_listening_test_dictation_api_listening_tests__test_id__dictation_get: {
         parameters: {
-            query?: never;
+            query?: {
+                class_item?: string | null;
+            };
             header?: {
                 authorization?: string | null;
             };
@@ -36668,7 +37283,9 @@ export interface operations {
     };
     grade_listening_test_dictation_api_listening_tests_dictation_grade_post: {
         parameters: {
-            query?: never;
+            query?: {
+                class_item?: string | null;
+            };
             header?: {
                 authorization?: string | null;
             };
@@ -36736,6 +37353,7 @@ export interface operations {
         parameters: {
             query: {
                 section_num: number;
+                class_item?: string | null;
             };
             header?: {
                 authorization?: string | null;
@@ -36789,6 +37407,7 @@ export interface operations {
         parameters: {
             query: {
                 section_num: number;
+                class_item?: string | null;
             };
             header?: {
                 authorization?: string | null;
@@ -37092,7 +37711,9 @@ export interface operations {
     };
     flag_listening_dictation_api_listening_tests_dictation_flag_post: {
         parameters: {
-            query?: never;
+            query?: {
+                class_item?: string | null;
+            };
             header?: {
                 authorization?: string | null;
             };
@@ -37148,7 +37769,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BlackEyeInProgress"] | {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */
@@ -37188,8 +37811,45 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BlackEyeAttemptState"] | {
+                        [key: string]: unknown;
+                    };
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    record_skill_drill_playback_api_listening_skill_drill_playback__attempt_id__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DrillPlaybackCheckpoint"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -37299,7 +37959,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BlackEyeSaveAck"] | {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */
@@ -37469,7 +38131,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BlackEyeAttemptState"] | {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */
@@ -37502,7 +38166,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BlackEyeAttemptState"] | {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */
@@ -37535,7 +38201,38 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ListeningAttemptReviewResponse"];
+                    "application/json": components["schemas"]["BlackEyeActivityReview"] | components["schemas"]["ListeningAttemptReviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_blackeye_unit_api_listening_source_collections_blackeye_v5_upper_units_U1_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlackEyeUnitPublic"];
                 };
             };
             /** @description Validation Error */

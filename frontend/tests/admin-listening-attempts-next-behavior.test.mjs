@@ -89,6 +89,40 @@ describe('Admin Listening attempts model', () => {
     assert.equal(normalizeListeningAttemptDetail({ ...payload, scoring_policy: 'diagnostic' }, 'attempt-1'), null);
   });
 
+  for (const mixed of [false, true]) {
+    test(`retains ${mixed ? 'mixed' : 'all-self-check'} attempts and neutral detail rows`, () => {
+      const row = baseRow({ scoring_policy: 'diagnostic', score: mixed ? 1 : 0,
+        total_questions: mixed ? 1 : 0, accuracy: mixed ? 1 : null });
+      const list = normalizeListeningAttemptList(listPayload({ items: [row] }));
+      assert.equal(list.rows.length, 1);
+      assert.equal(list.malformedCount, 0);
+      assert.equal(list.rows[0].totalQuestions, mixed ? 1 : 0);
+      const selfCheck = { q_num: 1, self_check: true, correct: null,
+        user_answer: 'my words', expected: 'reference' };
+      const detail = normalizeListeningAttemptDetail({ ...row, band_estimate: null,
+        grading_details: [selfCheck, ...(mixed ? [{ q_num: 2, correct: true, user_answer: 'A', expected: 'A' }] : [])],
+        association_lookup_failed: false, association_lookup_failures: [],
+      }, row.id);
+      assert.equal(detail.questions.length, mixed ? 2 : 1);
+      assert.equal(detail.malformedQuestionCount, 0);
+      assert.deepEqual(detail.questions[0], { qNum: 1, state: 'unscored', correct: null,
+        userAnswer: 'my words', expected: 'reference', trapCaught: false, trapMissed: false });
+      assert.equal(detail.bandEstimate, null);
+    });
+  }
+
+  test('rejects zero-total score or accuracy claims and unmarked null correctness', () => {
+    for (const patch of [{ score: 1, accuracy: null }, { score: 0, accuracy: 0 }, { score: null, accuracy: null }]) {
+      assert.equal(normalizeListeningAttemptList(listPayload({ items: [baseRow({ total_questions: 0, ...patch })] })).rows.length, 0);
+    }
+    const detail = normalizeListeningAttemptDetail({ ...baseRow(),
+      grading_details: [{ q_num: 1, correct: null }, { q_num: 2, self_check: true, correct: false }],
+      association_lookup_failed: false, association_lookup_failures: [],
+    }, 'attempt-1');
+    assert.equal(detail.questions.length, 0);
+    assert.equal(detail.malformedQuestionCount, 2);
+  });
+
   test('rejects inconsistent association lookup truth', () => {
     assert.equal(normalizeListeningAttemptList(listPayload({ association_lookup_failed: true })), null);
     const normalized = normalizeListeningAttemptList(listPayload({ association_lookup_failed: true, association_lookup_failures: ['users'] }));

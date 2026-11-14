@@ -148,6 +148,20 @@ def _pre_320() -> str:
     helper_revokes = "\n".join(re.findall(
         r"^REVOKE EXECUTE ON FUNCTION public.is_current_user_(?:admin|instructor)\(\)[^;]*;",
         (MIGRATIONS / "108_security_hardening.sql").read_text(encoding="utf-8"), re.M))
+    # 380 extends the existing Listening/Dictation evidence tables. Keep their
+    # original definitions (and 220's public-practice uniqueness) in this shape.
+    drill_tables = (
+        ("068_listening_test_attempts.sql", "listening_test_attempts"),
+        ("138_dictation_sessions.sql", "dictation_sessions"),
+        ("220_dictation_attempt_affinity.sql", "dictation_attempts"),
+    )
+    drill_schema = "\n".join(re.search(
+        rf"CREATE TABLE IF NOT EXISTS (?:public\.)?{table} \(.*?^\);",
+        (MIGRATIONS / filename).read_text(encoding="utf-8"), re.S | re.M)[0]
+        for filename, table in drill_tables)
+    dictation_active_index = re.search(
+        r"CREATE UNIQUE INDEX IF NOT EXISTS uq_dictation_attempts_one_active_section\b[^;]*;",
+        (MIGRATIONS / "220_dictation_attempt_affinity.sql").read_text(encoding="utf-8"))[0]
     return f"""
         SET search_path = public, pg_temp;
         CREATE TABLE _schema_migrations (filename text PRIMARY KEY,
@@ -269,11 +283,16 @@ def _pre_320() -> str:
             status text NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'running', 'completed', 'failed')),
             error_log jsonb DEFAULT '[]'::jsonb, started_at timestamptz, completed_at timestamptz,
             created_at timestamptz NOT NULL DEFAULT now());
-        -- Class work (the columns the class-archive migration reads).
+        -- Class work: existing 177 columns read by class archive and 378.
         CREATE TABLE class_assignments (
             id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
             cohort_id uuid NOT NULL REFERENCES cohorts(id) ON DELETE CASCADE,
-            title text NOT NULL DEFAULT 'work', status text NOT NULL DEFAULT 'published');
+            title text NOT NULL DEFAULT 'work', status text NOT NULL DEFAULT 'published',
+            skill text, content_id uuid, content_config jsonb NOT NULL DEFAULT '{{}}',
+            due_at timestamptz, publish_at timestamptz,
+            assigned_by uuid REFERENCES users(id) ON DELETE SET NULL,
+            created_at timestamptz NOT NULL DEFAULT now(),
+            updated_at timestamptz NOT NULL DEFAULT now());
         CREATE TABLE class_assignment_items (
             id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
             student_id uuid REFERENCES students(id) ON DELETE CASCADE,
@@ -314,6 +333,24 @@ def _pre_320() -> str:
         {"".join(f'''
         CREATE TABLE {t} (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), updated_at timestamptz);'''
                  for t in (*m338.TABLES, "listening_exercises"))}
+        -- 295 programme tables/checks and 306 frozen-attempt shape needed by 376.
+        CREATE TABLE listening_content_packages (id uuid PRIMARY KEY, programme_id text,
+            CONSTRAINT listening_content_packages_programme_id_check CHECK (programme_id IN ('general-listening-practice','ielts-listening-practice','ielts-80-days-listening')));
+        CREATE TABLE listening_lessons (id uuid PRIMARY KEY, programme_id text,
+            CONSTRAINT listening_lessons_programme_id_check CHECK (programme_id IN ('general-listening-practice','ielts-listening-practice','ielts-80-days-listening')));
+        ALTER TABLE listening_tests ADD COLUMN programme_id text,
+            ADD CONSTRAINT listening_tests_programme_id_check CHECK (programme_id IN ('ielts','general-listening-practice','ielts-listening-practice','ielts-80-days-listening'));
+        {drill_schema}
+        {dictation_active_index}
+        -- 181 links Listening attempts to class work before 380 is applied.
+        ALTER TABLE listening_test_attempts ADD COLUMN class_assignment_item_id uuid
+            REFERENCES class_assignment_items(id) ON DELETE SET NULL;
+        -- 306/376 frozen-attempt columns extend 068's original attempt shape.
+        ALTER TABLE listening_test_attempts
+            ADD COLUMN resume_expires_at timestamptz, ADD COLUMN result_summary jsonb,
+            ADD COLUMN paper_revision bigint, ADD COLUMN policy_revision bigint,
+            ADD COLUMN sitting_id uuid, ADD COLUMN attempt_purpose text,
+            ADD COLUMN scoring_policy text;
         CREATE TRIGGER trg_mock_paper_policy BEFORE UPDATE OR DELETE ON reading_tests
             FOR EACH ROW EXECUTE FUNCTION fn_stub_paper_trigger();
         CREATE TRIGGER trg_mock_paper_policy BEFORE UPDATE OR DELETE ON listening_tests
@@ -373,6 +410,7 @@ def _pre_320() -> str:
                  for table in ("access_codes", "cohorts", "students", "writing_assignments",
                                "writing_drafts", "writing_essays", "writing_feedback",
                                "class_assignments", "class_assignment_items",
+                               *(table for _, table in drill_tables),
                                *(table for _, table in admin_tables)))}
     """
 
@@ -444,6 +482,9 @@ def _create_database() -> tuple[str, bool]:
         GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
         {defaults}
         CREATE SCHEMA auth;
+        CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$
+          SELECT current_setting('request.jwt.claim.role', true)
+        $$;
         CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$
           SELECT COALESCE(NULLIF(current_setting('request.jwt.claim.sub', true), ''),
                           NULLIF(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')::uuid

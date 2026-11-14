@@ -85,6 +85,10 @@ class _Query:
         return _Not(self)
 
     def or_(self, expr):
+        if expr.startswith(("programme_id.eq.blackeye", "id.is.null,")):
+            from blackeye_query_double import matches_blackeye_filter
+            self._preds.append(lambda r: matches_blackeye_filter(r, expr))
+            return self
         # Visibility is applied with eq(); this expression keeps audio-ready
         # public rows before pagination.
         cols = re.findall(r"and\((\w+)\.not\.is\.null,\1\.neq\.\)", expr)

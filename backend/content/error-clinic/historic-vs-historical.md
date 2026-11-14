@@ -200,6 +200,7 @@ Tiếng Anh có nhiều cặp tính từ theo mẫu này:
 | **politic** | **political** | politic = khôn ngoan (archaic); political = thuộc về chính trị |
 
 **Ví dụ:**
+
 - an **electric** car *(chạy bằng điện)* vs. an **electrical** engineer *(kỹ sư điện)*
 - a **classic** film *(phim kinh điển)* vs. **classical** music *(nhạc cổ điển)*
 

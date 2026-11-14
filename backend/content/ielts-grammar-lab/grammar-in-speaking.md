@@ -76,6 +76,7 @@ anchors:
 ## Tóm tắt
 
 IELTS Speaking được chấm theo 4 tiêu chí, mỗi tiêu chí 25%:
+
 - **Fluency and Coherence** — nói liên tục, mạch lạc
 - **Lexical Resource** — vốn từ đa dạng
 - **Grammatical Range and Accuracy (GRA)** — đa dạng cấu trúc, ít lỗi
@@ -95,6 +96,7 @@ Tóm lược tiêu chí GRA: đánh giá sự đa dạng cấu trúc, độ linh
 ### Speaking Part 1 — Câu hỏi cá nhân
 
 Part 1 hỏi về bản thân, sở thích, thói quen hàng ngày. Thì chính:
+
 - **Present Simple** — thói quen, sự thật hiện tại
 - **Present Continuous** — hoạt động đang diễn ra
 - **Past Simple** — kinh nghiệm quá khứ
@@ -113,6 +115,7 @@ Chú ý: câu trả lời tốt dùng: although (contrast), didn't use to (past 
 ### Speaking Part 2 — Long Turn (1-2 phút)
 
 Part 2 yêu cầu nói về một chủ đề trong 1-2 phút, dùng thẻ gợi ý. Cần:
+
 - **Mạch thời gian rõ ràng** — chọn thì theo đề. Kể chuyến đi đã qua có thể phối hợp các thì quá khứ; mô tả người hiện còn ngưỡng mộ dùng hiện tại cho phẩm chất và quá khứ cho sự kiện cụ thể.
 - **Discourse markers** để cấu trúc câu chuyện
 - **Relative clauses** để thêm chi tiết
@@ -127,6 +130,7 @@ Cấu trúc được dùng: Past Perfect (had never visited), Past Continuous (w
 ### Speaking Part 3 — Thảo luận trừu tượng
 
 Part 3 yêu cầu ý kiến về các vấn đề xã hội rộng hơn. Đây là nơi thể hiện range ngữ pháp cao nhất:
+
 - **Conditionals** — lập luận giả định
 - **Modal verbs** — hedging quan điểm
 - **Passive voice** — tông giọng học thuật nhẹ
@@ -174,13 +178,16 @@ Trong Speaking, tránh nói quá tuyệt đối:
 Conditionals rất tự nhiên trong thảo luận Part 3:
 
 **Type 1 — Thực tế:**
+
 - **If** governments invest more in public transport, air quality **will** definitely improve.
 
 **Type 2 — Giả định:**
+
 - **If** I could change one thing about my city, I **would** definitely improve the roads.
 - **If** everyone worked from home, we **would** see a dramatic reduction in commuting.
 
 **Điều kiện hỗn hợp — quá khứ → hiện tại:**
+
 - **If** we **had invested** in renewable energy earlier, we **wouldn't be facing** such a severe climate crisis now.
 
 ---
@@ -347,6 +354,7 @@ Mở rộng câu trả lời bằng cấu trúc phù hợp mục đích (relativ
 | Part 3 | Mixed — Past + Present + Future + Conditional | Conditionals, hedging, complex sentences |
 
 **Công thức tăng điểm GRA trong Speaking:**
+
 - Sau mỗi câu ngắn → **mở rộng** bằng relative clause, lý do hoặc ví dụ
 - Dùng **ít nhất 1 conditional** trong Part 3
 - Thay "very" bằng adverbs mạnh hơn: **remarkably, incredibly, considerably**

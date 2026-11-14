@@ -272,6 +272,7 @@ def test_get_listening_content_happy_path(monkeypatch):
     canned = {
         "listening_content": [{
             "id": "c1",
+            "test_id": None,
             "status": "published",
             "audio_storage_path": "ai/c1.mp3",
             "title": "Section 1 booking",
@@ -310,7 +311,7 @@ def test_get_listening_content_published_without_section_audio(
         "accent_tag": "uk", "cefr_level": "B1", "ielts_section": 2,
         "topic_tags": ["travel"], "audio_duration_seconds": 0,
         "transcript": "answer material",
-    }]})
+    }], "listening_tests": [{"id": "parent-test", "programme_id": "ielts"}]})
     fake.storage = Mock(wraps=_StrictStorage(fake))
     _patch_admin_client(monkeypatch, fake)
     authz = _patch_user_auth(monkeypatch)
@@ -336,6 +337,7 @@ def test_boot_listening_dictation_published_without_section_audio(monkeypatch):
     fake = _FakeAdminClient({
         "listening_content": [{
             "id": "c1", "status": "published", "audio_storage_path": None,
+            "test_id": None,
             "title": "Section 2 tour",
         }],
         "listening_exercises": [],
@@ -363,6 +365,7 @@ def test_student_unpublished_content_stays_hidden(monkeypatch, status, path, rou
 
     fake = _FakeAdminClient({"listening_content": [{
         "id": "c1", "status": status, "audio_storage_path": path,
+        "test_id": None,
         "title": "WIP", "transcript": "x",
     }]})
     fake.storage = Mock(wraps=_StrictStorage(fake))
@@ -384,6 +387,7 @@ def test_get_listening_content_503_when_signing_existing_audio_fails(
 
     fake = _FakeAdminClient({"listening_content": [{
         "id": "c1", "status": "published", "audio_storage_path": "ai/c1.mp3",
+        "test_id": None,
     }]})
     sign = Mock(side_effect=RuntimeError("bucket not found"))
     monkeypatch.setattr(_FakeStorageBucket, "create_signed_url", sign)
@@ -403,6 +407,7 @@ def test_get_listening_content_404_for_draft(monkeypatch):
     canned = {
         "listening_content": [{
             "id": "c1",
+            "test_id": None,
             "status": "draft",  # admin-only — not visible to user route
             "audio_storage_path": "ai/c1.mp3",
             "title": "WIP",
@@ -434,6 +439,7 @@ def test_boot_listening_dictation_combines_content_and_exercises(monkeypatch):
     canned = {
         "listening_content": [{
             "id": "c1",
+            "test_id": None,
             "status": "published",
             "audio_storage_path": "ai/c1.mp3",
             "title": "Section 1 booking",
@@ -488,6 +494,7 @@ def test_boot_listening_dictation_404_for_draft(monkeypatch):
     canned = {
         "listening_content": [{
             "id": "c1",
+            "test_id": None,
             "status": "draft",
             "audio_storage_path": "ai/c1.mp3",
             "title": "WIP",

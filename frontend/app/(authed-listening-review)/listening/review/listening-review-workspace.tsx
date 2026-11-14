@@ -196,8 +196,8 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, webExplana
   const topRef = useRef<HTMLDivElement | null>(null);
   const flagRef = useRef<HTMLDivElement | null>(null);
   const solution = item.solution || {};
-  const answerState = preview ? (item.correct ? 'correct' : 'incorrect') : listeningReviewAnswerState(item);
-  const webExplanation = item.web_explanation_object;
+  const answerState = item.self_check ? 'self_check' : preview ? (item.correct ? 'correct' : 'incorrect') : listeningReviewAnswerState(item);
+  const webExplanation = item.self_check ? null : item.web_explanation_object;
   const vocab = bulletRows(solution.vocab_focus || solution.vocab);
   const hasSolutionDetail = Boolean(solution.translation_vi || vocab.length || solution.paraphrase
     || solution.why_correct || solution.script || solution.trap || webExplanation);
@@ -217,7 +217,7 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, webExplana
     id={`listening-review-q-${item.q_num}`}
     className={`lr-card is-${answerState}${expanded ? ' is-open' : ''}${selected ? ' is-current' : ''}`}
     data-q={item.q_num}
-    data-correct={item.correct ? 'true' : 'false'}
+    data-correct={item.self_check ? undefined : item.correct ? 'true' : 'false'}
     aria-current={selected ? 'true' : undefined}
   >
     <FeedbackCardBridge cardRef={cardRef} topRef={flagRef} item={item} attemptId={attemptId} preview={preview} />
@@ -234,18 +234,21 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, webExplana
         onKeyDown={keyToggle}
       >
         <span className="lr-card__num">Câu {item.q_num}</span>
-        {!preview ? <span className="lr-card__verdict">{answerState === 'correct' ? '✓ Đúng' : answerState === 'unanswered' ? 'Bỏ trống' : '✗ Sai'}</span> : null}
+        {!preview || item.self_check ? <span className="lr-card__verdict">{answerState === 'self_check' ? 'Tự đối chiếu' : answerState === 'correct' ? '✓ Đúng' : answerState === 'unanswered' ? 'Bỏ trống' : '✗ Sai'}</span> : null}
         <span className="lr-card__toggle">{expanded ? 'Ẩn lời giải' : 'Xem lời giải'} ▸</span>
       </div>
       <div ref={flagRef} className="lr-card__flag" />
     </div>
-    {item.prompt ? <div className="lr-card__prompt">{inlineNodes(item.prompt)}</div> : null}
+    {item.question_type === 'keep_change'
+      ? <div className="lr-card__prompt"><strong>Giá trị in sẵn: </strong>{inlineNodes(item.printed_value)}</div>
+      : item.prompt ? <div className="lr-card__prompt">{inlineNodes(item.prompt)}</div> : null}
     {/* Without a solution the options/context are the only help, so they are always shown (RV-02). */}
     {expanded || selected || !hasSolutionDetail ? <ReviewQuestionContext value={item.question_context} prompt={item.prompt} /> : null}
     <div className="lr-card__answers">
       {!preview ? <div className="lr-card__ans is-user"><span>Bạn:</span> <code>{item.user_answer || '—'}</code>
         <ReviewAnswerChoiceText className="lr-card__ans-text" context={item.question_context} answer={item.user_answer} /></div> : null}
-      <div className="lr-card__ans is-correct"><span>Đáp án:</span> <code>{webExplanation ? 'Mở theo các bước sửa bài bên dưới' : item.unordered_answer_group ? `{${item.unordered_answer_group.accepted_answers.join(', ')}}` : item.expected || '—'}</code>
+      <div className={`lr-card__ans${item.self_check ? '' : ' is-correct'}`}><span>{item.self_check ? 'Đáp án tham khảo:' : 'Đáp án:'}</span> <code>{webExplanation ? 'Mở theo các bước sửa bài bên dưới' : item.unordered_answer_group ? `{${item.unordered_answer_group.accepted_answers.join(', ')}}` : item.expected || '—'}</code>
+        {item.self_check && item.alternatives?.length ? <small>{item.alternatives.join(' / ')}</small> : null}
         {!webExplanation ? <ReviewAnswerChoiceText className="lr-card__ans-text" context={item.question_context}
           answer={item.unordered_answer_group ? item.unordered_answer_group.accepted_answers.join(', ') : item.expected} /> : null}</div>
     </div>
@@ -428,6 +431,7 @@ export function ListeningReviewWorkspace() {
   }, [data]);
 
   const totals = useMemo(() => listeningReviewTotals(data?.review), [data]);
+  const selfCheckCount = data?.review.filter((item: any) => item.self_check).length || 0;
   const wrongCount = totals.incorrect + totals.unanswered;
   const skills = useMemo(() => listeningSkillsToPractise(data?.review, K_LABELS), [data]);
   const visibleItems = useMemo(() => (data?.review || []).filter((item: any) => listeningReviewMatchesFilter(item, filter)), [data, filter]);
@@ -481,7 +485,7 @@ export function ListeningReviewWorkspace() {
           <header className="lr-review-header"><div><p className="lr-review-header__eyebrow">BÀN CHỮA BÀI</p><h1>Nghe lại, nhận ra tín hiệu</h1><p className="lr-review-header__copy">
             {data.preview
               ? `${data.review.length} câu trong đề · Xem đáp án, transcript và lời giải trước khi xuất bản.`
-              : `${totals.incorrect} câu sai · ${totals.unanswered} câu bỏ trống · ${totals.correct} câu đúng. ${wrongCount ? 'Bắt đầu từ các câu sai, nghe lại rồi mở lời giải.' : 'Bạn đã trả lời đúng toàn bộ bài này.'}`}
+              : `${totals.incorrect} câu sai · ${totals.unanswered} câu bỏ trống · ${totals.correct} câu đúng.${selfCheckCount ? ` ${selfCheckCount} câu tự đối chiếu.` : ''} ${wrongCount ? 'Bắt đầu từ các câu sai, nghe lại rồi mở lời giải.' : selfCheckCount ? 'Đối chiếu câu trả lời với đáp án tham khảo và lời giải.' : 'Bạn đã trả lời đúng toàn bộ bài này.'}`}
           </p></div>{!data.preview ? <div className="lr-filter" role="group" aria-label="Lọc kết quả câu hỏi">{([
             ['wrong', 'Cần xem lại'], ['blank', 'Bỏ trống'], ['all', 'Tất cả'], ['correct', 'Đúng'],
           ] as [Filter, string][]).map(([value, label]) => <button type="button" className={`lr-filter__button${filter === value ? ' is-active' : ''}`} aria-pressed={filter === value} onClick={() => setFilter(value)} key={value}>{label}</button>)}</div> : null}</header>
@@ -527,7 +531,7 @@ export function ListeningReviewWorkspace() {
           const section = listeningReviewSection(item);
           const previousSection = index ? listeningReviewSection(data.review[index - 1]) : null;
           const answerState = listeningReviewAnswerState(item);
-          const answerLabel = answerState === 'correct' ? 'đúng' : answerState === 'unanswered' ? 'bỏ trống' : 'sai';
+          const answerLabel = answerState === 'self_check' ? 'Tự đối chiếu' : answerState === 'correct' ? 'đúng' : answerState === 'unanswered' ? 'bỏ trống' : 'sai';
           return <Fragment key={item.q_num}>{index > 0 && section !== null && section !== previousSection ? <span className="lr-palette-sep" aria-hidden="true" /> : null}<button
             type="button"
             className={`lr-nav-q${data.preview ? '' : ` is-${answerState}`}${currentQuestion === item.q_num ? ' is-current' : ''}`}

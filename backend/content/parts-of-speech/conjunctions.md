@@ -89,6 +89,7 @@ Nối hai thành phần **ngang hàng** (cùng loại: từ + từ, hoặc mện
 | **S**o | vì vậy | It rained, **so** we stayed inside. |
 
 **Quan trọng:** Khi nối hai mệnh đề độc lập, đặt dấu phẩy trước coordinating conjunction:
+
 - I was hungry, **so** I made a sandwich. ✅
 - I was hungry **so** I made a sandwich. ✅ (cũng chấp nhận được)
 - I was hungry **so**, I made a sandwich. ❌
@@ -172,6 +173,7 @@ Hai liên từ đi cặp với nhau:
 | **whether...or** | dù...hay | **Whether** you like it **or** not, you must attend. |
 
 **Quan trọng về chia số:** Với "either...or" và "neither...nor", chia động từ theo chủ ngữ gần nhất:
+
 - **Either** the teacher **or** the students **are** responsible. (students → are)
 - **Neither** the students **nor** the teacher **is** here. (teacher → is)
 
@@ -221,20 +223,25 @@ Do tiếng Việt nói "Tuy… nhưng…", "Vì… nên…", người Việt hay
 ### Nối ý kiến trong Writing Task 2:
 
 **Thêm ý:**
+
 - Education is important, **and** it gives people opportunities to succeed.
 - **Not only** does education improve career prospects, **but it also** develops critical thinking.
 
 **Tương phản:**
+
 - **Although** technology has many benefits, it also has drawbacks.
 - Some people prefer city life, **whereas** others value the peace of rural areas.
 
 **Nguyên nhân:**
+
 - Many young people move to cities **because** they are looking for better job opportunities.
 
 **Thời gian:**
+
 - **Since** the internet became widely available, people's lives have changed dramatically.
 
 **Điều kiện:**
+
 - **If** governments invested more in education, inequality would decrease.
 - Urbanisation will continue **unless** rural areas receive more support.
 
@@ -266,9 +273,11 @@ Do tiếng Việt nói "Tuy… nhưng…", "Vì… nên…", người Việt hay
 ### Đáp án
 
 **Điền liên từ:**
+
 1. so | 2. Although / Even though | 3. unless (nếu dùng if you don't, viết lại toàn câu: You'll miss the bus if you don't leave now) | 4. since | 5. so that / so
 
 **Sửa lỗi:**
+
 1. Although it was a long journey, we enjoyed it. (bỏ "but")
 2. Because he was late, the teacher was angry. (bỏ "so") — hoặc: He was late, so the teacher was angry. (bỏ "because")
 3. **Despite** having a headache, she went to work. — hoặc: **Although** she had a headache...
@@ -280,6 +289,7 @@ Do tiếng Việt nói "Tuy… nhưng…", "Vì… nên…", người Việt hay
 **Coordinating (FANBOYS):** for, and, nor, but, or, yet, so — nối hai thành phần ngang hàng
 
 **Subordinating:** nối mệnh đề phụ với mệnh đề chính
+
 - Nguyên nhân: because, since, as
 - Tương phản: although, though, even though, while, whereas
 - Điều kiện: if, unless, provided, as long as
@@ -288,6 +298,7 @@ Do tiếng Việt nói "Tuy… nhưng…", "Vì… nên…", người Việt hay
 **Correlative:** both...and | either...or | neither...nor | not only...but also
 
 **Bẫy phổ biến:**
+
 - Không dùng "although" + "but" cùng lúc
 - Không dùng "because" + "so" cùng lúc
 - Trong bài luận, mệnh đề phụ thường cần mệnh đề chính; trong hội thoại có thể là câu đáp ngắn

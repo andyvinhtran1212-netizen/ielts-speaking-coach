@@ -214,7 +214,7 @@ def test_actual_submit_routes_prove_only_acknowledged_persisted_results(monkeypa
     elif mode == "foreign_owner":
         with pytest.raises(HTTPException) as error:
             asyncio.run(run())
-        assert error.value.status_code == 403
+        assert error.value.status_code == (404 if surface == "listening_test" else 403)
     else:
         result = asyncio.run(run())
         assert len(committed) == 1 and committed[0]["score"] == 1

@@ -15,7 +15,33 @@ afterward, and actual per-shard test seconds plus longest/mean in the aggregate
 job summary. The balance target is longest <= 1.3 times the mean; compare job
 wall times too, since setup can vary independently.
 
-## Snapshot provenance (PC-J515)
+## Snapshot provenance (CI-SHARD4-TIMEOUT, 2026-11-10)
+
+Source: [Tests run 42447937193](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/actions/runs/42447937193),
+attempt 1, head `cf87f7292013c4d91b3dbd8d5f2208b2e9bf689d`. All four shards
+passed in that single attempt and their reports passed parity: 20,339
+collected ids, 20,339 in the union, none missing or extra. The snapshot covers
+all 789 test files on staging `7243b3364` (none missing, none stale).
+
+| Shard | Job wall time (minutes) | Test phases (seconds) |
+| --- | ---: | ---: |
+| 1/4 | 9.48 | 468 |
+| 2/4 | 11.15 | 569 |
+| 3/4 | 11.52 | 586 |
+| 4/4 | 21.28 | 1160 |
+
+The PC-J515 snapshot had no weight for the migration suites added after it
+(`test_migration_341`…`369`, each 70–274 seconds); they got the old median
+(0.04 seconds) and LPT put 365, 369, 361 and 341 together on shard 4. Shard 4
+reached 21.8 minutes on green `9e5083469` (run 42642548055, 1,174 s of tests).
+On `7243b3364` (run 42737006241) a slow Ubuntu mirror added 6.5 and 12 minutes
+to `apt-get install ffmpeg`, and both attempts hit the 25-minute timeout at
+about 63% while running `test_migration_369_grammar_quiz_definer_search_path.py`.
+The refreshed weights predict 696 seconds of test phases per shard on this
+run's timings. Run 42642548055 (green `9e5083469`, slower timings) predicts at
+most 863 seconds per shard with this snapshot.
+
+## Previous snapshot provenance (PC-J515)
 
 Source: [Tests run 41373304720](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/actions/runs/41373304720),
 head `bfd9ba8148f3882a214a5fb069a50b23997f8280`. Its four shard reports passed

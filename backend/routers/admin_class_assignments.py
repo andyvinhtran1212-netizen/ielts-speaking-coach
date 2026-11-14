@@ -27,7 +27,9 @@ from typing import Any, Dict, Literal, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Header, HTTPException, status
+from fastapi.routing import APIRoute
 from pydantic import BaseModel, Field, model_validator
+from starlette.concurrency import run_in_threadpool
 
 from database import supabase_admin
 from services import class_archive_service, speaking_flags
@@ -75,10 +77,26 @@ from services.class_assignment_service import (
     reconcile_test_attempts,
 )
 from services.class_membership_service import student_is_active_in_cohort
+from models.listening_blackeye import BlackEyeActivityReview
+from services import listening_blackeye as blackeye
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/admin/cohorts", tags=["admin", "class-assignments"])
+class _AssignmentRoute(APIRoute):
+    def get_route_handler(self):
+        original = super().get_route_handler()
+
+        async def handler(request):
+            assignment_id = request.path_params.get("assignment_id")
+            if assignment_id and not request.url.path.endswith("/listening-review") and "/listening-source-assignments" not in request.url.path:
+                await require_admin(request.headers.get("authorization"))
+                await run_in_threadpool(blackeye.guard_generic_assignment, supabase_admin,
+                                        assignment_id, request.path_params.get("cohort_id"))
+            return await original(request)
+        return handler
+
+
+router = APIRouter(prefix="/admin/cohorts", tags=["admin", "class-assignments"], route_class=_AssignmentRoute)
 
 # The speaking modes a class assignment may use. A SUBSET of what POST /sessions
 # accepts, and deliberately so: `test_full` is excluded.
@@ -110,6 +128,43 @@ _TEST_SKILLS = {"reading": "reading_tests", "listening": "listening_tests"}
 _MAX_DUE_DAYS = 90
 
 
+@router.get("/{cohort_id}/listening-skill-drills")
+async def list_assignable_listening_drills(cohort_id: str, authorization: str | None = Header(default=None)):
+    admin = await require_admin(authorization)
+    return await run_in_threadpool(_assignable_listening_drills, cohort_id, admin)
+
+
+def _assignable_listening_drills(cohort_id: str, admin: dict) -> dict:
+    _require_cohort(cohort_id)
+    from routers.listening import _dictation_units_for_content
+    from services import test_data_visibility
+    from services.listening_drill_homework import public_drill, require_homework_schema
+
+    require_homework_schema(supabase_admin)
+    drills = _paged(supabase_admin, "listening_tests",
+                    "id,title,test_id,metadata,status,test_type,is_public,scoring_policy,content_package_id,"
+                    "full_audio_storage_path,assembled_audio_storage_path",
+                    lambda q: q.eq("status", "published").eq("test_type", "drill").eq("is_public", True))
+    hide_test_data = test_data_visibility.hide_for(
+        email=admin.get("email"), user_id=admin["id"], is_admin=True)
+    drills = [row for row in drills if public_drill(row)
+              and not (hide_test_data and test_data_visibility.is_test_label(row["title"]))]
+    section_readiness = {}
+    ids = [row["id"] for row in drills]
+    for offset in range(0, len(ids), _ID_CHUNK):
+        sections = _paged(supabase_admin, "listening_content", "id,test_id,transcript,metadata",
+                          lambda q: q.in_("test_id", ids[offset:offset + _ID_CHUNK]))
+        for section in sections:
+            test = section["test_id"]
+            section_readiness[test] = section_readiness.get(test, True) and bool(_dictation_units_for_content(section))
+    return {"items": [{
+        "id": row["id"], "title": row["title"], "code": row["test_id"],
+        "group": (row.get("metadata") or {}).get("drill_type"),
+        "ready": bool(row.get("full_audio_storage_path") or row.get("assembled_audio_storage_path")),
+        "dictation_ready": section_readiness.get(row["id"], False),
+    } for row in drills]}
+
+
 class AssignmentCreate(BaseModel):
     """Speaking (a topic + mode) or Reading/Listening (a published paper).
 
@@ -120,6 +175,9 @@ class AssignmentCreate(BaseModel):
     # 'daily'  — bài hằng ngày: đề từ kho chung, hạn là một mốc trong ngày.
     # 'lesson' — bài sau buổi học: đề từ kho theo buổi, hạn tính bằng số ngày.
     kind:         Literal["daily", "lesson"] = "daily"
+    listening_skill_drill: bool = False
+    dictation_required: bool = False
+    dictation_mode: Literal["none", "optional", "required"] = "none"
     # Chỉ dùng cho kind='lesson'. Hạn = ngày giao + N ngày, tại `due_time`.
     due_days:     Optional[int] = Field(default=None, ge=1, le=_MAX_DUE_DAYS)
     title:        str = Field(min_length=1, max_length=300)
@@ -334,7 +392,7 @@ async def list_assignments(
 
     try:
         rows = (
-            supabase_admin.table("class_assignments").select("*")
+            (await run_in_threadpool(blackeye.exclude_assignments, supabase_admin, supabase_admin.table("class_assignments").select("*"), cohort_id=cohort_id))
             .eq("cohort_id", cohort_id)
             .order("created_at", desc=True)
             .execute().data
@@ -1644,6 +1702,10 @@ async def assignment_tally(
         "passed_at, mastery",
         lambda q: q.eq("assignment_id", assignment_id),
     )
+    from services.listening_drill_homework import drill_config, report_by_item
+
+    skill_drill = drill_config(assignment)
+    drill_reports = await run_in_threadpool(report_by_item, supabase_admin, items, skill_drill) if skill_drill else {}
     grammar_attempts: dict[str, dict] = {}
     grammar_attempts_failed = False
     if (assignment.get("skill") == "grammar"
@@ -1887,6 +1949,7 @@ async def assignment_tally(
             # kèm vì mỗi kỹ năng mở ở một trang khác — đoán từ id là đoán sai.
             "artifact_kind": it.get("artifact_kind"),
             "artifact_id":   it.get("artifact_id"),
+            **({"skill_drill": drill_reports[it["id"]]} if skill_drill else {}),
             "grammar_attempt_id": (grammar_attempts.get(str(it["id"])) or {}).get("id"),
             "grammar_answered": None if grammar_attempts_failed and str(it["id"]) not in grammar_attempts
                 else len((grammar_attempts.get(str(it["id"])) or {}).get("answers") or {}),
@@ -2619,6 +2682,43 @@ def _existing_grammar_give(cohort_id: str, request_id: str, fingerprint: str) ->
             "replayed": True}
 
 
+def _prepare_assigned_listening_dictation(content_id: str, required: bool) -> dict:
+    from routers.listening import _dictation_units_for_content
+    from services.listening_drill_homework import require_homework_schema
+
+    require_homework_schema(supabase_admin)
+    sections = _paged(supabase_admin, "listening_content", "id,section_num,transcript,metadata",
+                      lambda q: q.eq("test_id", content_id))
+    usable = sorted({row["section_num"] for row in sections if _dictation_units_for_content(row)})
+    if not usable or (required and len(usable) != len(sections)):
+        raise HTTPException(422, "Bài chưa có transcript dùng được cho phần chép chính tả.")
+    return {"dictation_required": required, "sections": usable}
+
+
+def _prepare_listening_drill(test: dict, content_id: str, required: bool) -> dict:
+    from routers.listening import _dictation_units_for_content, _practice_exercise_payloads
+    from services.listening_drill_homework import public_drill, require_homework_schema
+    from services.listening_test_grader import collect_answer_key
+
+    if not public_drill(test):
+        raise HTTPException(422, "Chỉ giao bài luyện kỹ năng đang mở trong thư viện chung.")
+    require_homework_schema(supabase_admin)
+    # The published test is the delivery gate. Older imported drills can
+    # still have draft-labelled descendants, which the public player and
+    # its grader already load through this parent.
+    key = collect_answer_key(_practice_exercise_payloads(content_id))
+    if not key or any(not row.get("answer") for row in key):
+        raise HTTPException(422, "Bài luyện kỹ năng chưa có đáp án chấm hợp lệ.")
+    sections = _paged(supabase_admin, "listening_content", "id,section_num,transcript,metadata",
+                      lambda q: q.eq("test_id", content_id))
+    dictation_sections = sorted({row["section_num"] for row in sections if _dictation_units_for_content(row)})
+    if required and (not sections or len(dictation_sections) != len(sections)):
+        raise HTTPException(422, "Bài chưa có transcript dùng được cho mọi phần.")
+    return {
+        "dictation_required": required, "sections": dictation_sections,
+    }
+
+
 @router.post("/{cohort_id}/assignments", status_code=status.HTTP_201_CREATED)
 async def create_assignment(
     cohort_id: str,
@@ -2643,6 +2743,15 @@ async def create_assignment(
             # A give that completed before the archive replays its receipt (FR-003).
             return replay
     _require_active_cohort(cohort)
+    assigned_dictation = (body.kind == "daily" and body.skill == "listening"
+                          and body.delivery_mode == "assigned_practice" and not body.listening_skill_drill)
+    if body.dictation_mode != "none" and not assigned_dictation:
+        raise HTTPException(422, "Chế độ chép chính tả chỉ dùng cho đề Listening giao luyện tập có kiểm soát.")
+    if body.dictation_required and not body.listening_skill_drill:
+        raise HTTPException(422, "Chỉ bài luyện kỹ năng Listening hỗ trợ chép chính tả bắt buộc.")
+    if body.listening_skill_drill and (body.kind != "daily" or body.skill != "listening"
+                                     or body.delivery_mode != "standard"):
+        raise HTTPException(422, "Bài luyện kỹ năng phải dùng chế độ thư viện chung.")
 
     content_id = None
     due_date = body.due_date
@@ -2694,13 +2803,17 @@ async def create_assignment(
             # audio was cleared (section audio replaced) still reads published,
             # but the student endpoint answers 422 "chưa có audio sẵn sàng".
             cols += (", full_audio_storage_path, assembled_audio_storage_path, "
-                     "content_package_id, scoring_policy")
+                     "content_package_id, scoring_policy, programme_id, metadata")
+            if body.listening_skill_drill:
+                cols += ", test_type"
         rows = (
             supabase_admin.table(table).select(cols)
             .eq("id", body.content_id).limit(1).execute().data
         ) or []
         if not rows:
             raise HTTPException(404, "Không tìm thấy đề này.")
+        if body.skill == "listening" and blackeye.is_blackeye(rows[0]):
+            blackeye.assignment_seam()
         if (rows[0].get("status") or "") != "published":
             raise HTTPException(400, "Đề này chưa xuất bản — hãy xuất bản trước khi giao.")
         if (body.skill == "listening"
@@ -2754,6 +2867,17 @@ async def create_assignment(
                 "content_version": body.web_explanation_content_version,
             },
         }
+
+    if body.listening_skill_drill:
+        content_config["skill_drill"] = await run_in_threadpool(
+            _prepare_listening_drill, rows[0], content_id, body.dictation_required)
+        # The attempt trigger requires class-linked admission even for a
+        # public paper. This setting only scopes the give, not the paper.
+        content_config["delivery_mode"] = "assigned_practice"
+
+    if assigned_dictation and body.dictation_mode != "none":
+        content_config["skill_drill"] = await run_in_threadpool(
+            _prepare_assigned_listening_dictation, content_id, body.dictation_mode == "required")
 
     try:
         result = create_class_assignment(
@@ -3072,3 +3196,28 @@ async def delete_assignment(
             409,
             "Đã có học viên nộp bài này — không xoá được. Hãy lưu trữ bài giao thay vì xoá.",
         )
+
+
+@router.get("/{cohort_id}/listening-source-catalog")
+@router.post("/{cohort_id}/listening-source-assignments")
+@router.get("/{cohort_id}/listening-source-assignments/{assignment_id}")
+async def blackeye_assignment_closed(
+    cohort_id: str, assignment_id: str | None = None,
+    authorization: str | None = Header(default=None),
+):
+    # One precise seam: no catalog, recipients, receipt, generic give or DML.
+    await require_admin(authorization)
+    blackeye.assignment_seam()
+
+
+@router.get("/{cohort_id}/assignments/{assignment_id}/items/{item_id}/listening-review",
+            response_model=BlackEyeActivityReview)
+async def blackeye_teacher_review(
+    cohort_id: str, assignment_id: str, item_id: str,
+    authorization: str | None = Header(default=None),
+):
+    actor = await require_admin(authorization)
+    from fastapi.encoders import jsonable_encoder
+    from starlette.responses import JSONResponse
+    result = await run_in_threadpool(blackeye.teacher_review, supabase_admin, actor["id"], cohort_id, assignment_id, item_id)
+    return JSONResponse(jsonable_encoder(result), headers={"Cache-Control": "private, no-store"})

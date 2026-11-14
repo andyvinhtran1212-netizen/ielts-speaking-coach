@@ -44,6 +44,7 @@ class _Q:
         self.eqs: list = []
         self.neqs: list = []
         self.ins: list = []
+        self.ors: list[str] = []
 
     def select(self, *_a, **_k):
         return self
@@ -62,6 +63,10 @@ class _Q:
 
     def eq(self, c, v):
         self.eqs.append((c, v))
+        return self
+
+    def or_(self, expression):
+        self.ors.append(expression)
         return self
 
     def neq(self, c, v):
@@ -83,6 +88,9 @@ class _Q:
         return self
 
     def _match(self, r):
+        from blackeye_query_double import matches_blackeye_filter
+        if not all(matches_blackeye_filter(r, expression) for expression in self.ors):
+            return False
         for c, v in self.eqs:
             if str(r.get(c)) != str(v):
                 return False
