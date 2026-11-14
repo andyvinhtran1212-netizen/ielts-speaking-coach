@@ -310,6 +310,19 @@ async def _require_curated_admin(authorization):
     return admin
 
 
+class CuratedAvailability(BaseModel):
+    available: bool
+
+
+@router.get("/admin/vocabulary/curated-availability", response_model=CuratedAvailability)
+async def admin_get_curated_availability(
+    authorization: str | None = Header(default=None),
+):
+    # Reuse the exact admin/schema gate, including its feature_unavailable 503.
+    await _require_curated_admin(authorization)
+    return CuratedAvailability(available=True)
+
+
 @router.get("/admin/vocabulary/pilot-metrics")
 async def admin_get_vocab_pilot_metrics(
     days: Literal["30", "90", "180"] = Query(default="90"),
