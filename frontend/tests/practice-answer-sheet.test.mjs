@@ -310,32 +310,136 @@ describe('Part 2 nhiều đề vẫn có nội dung để làm', () => {
  * ấy đọc `s.state` ở thời điểm nó luôn bằng 'recording' — tức bản vá không chạy
  * một lần nào (codex PR 942, vòng 4).
  */
-async function recordThenFail(startState) {
+async function recordTake(startState, {
+  part = 1, seconds = 15, error = new Error('mạng đứt'), nextBlob,
+} = {}) {
   const from = JS.indexOf('  async function _sheetToggleRec(');
   const to = JS.indexOf('  /**\n   * Xem lại một câu của phiếu');
   assert.ok(from !== -1 && to > from, 'không cắt được khối ghi âm');
 
-  const slot = { q: { id: 'q1' }, state: startState, band: startState === 'saved' ? 6 : null };
+  const priorResponse = { id: 'prior-response' };
+  const slot = {
+    q: { id: 'q1' }, state: startState, band: startState === 'saved' ? 6 : null,
+    resp: startState === 'idle' ? null : priorResponse,
+  };
   const _sheet = { slots: [slot], recIdx: -1 };
-  const body = JS.slice(from, to)
-    + ' return { toggle: _sheetToggleRec, onRecorded: _sheetOnRecorded };';
+  const blob = {};
+  let calls = 0;
+  const minimums = JS.match(/var MIN_RECORD_SEC\s*=\s*(\{[^;]+\});/);
+  assert.ok(minimums, 'phải dùng bảng ngưỡng hiện có');
+  const body = `
+    var MIN_RECORD_SEC = ${minimums[1]};
+    function _resetRecorder() { _recordedBlob = null; }
+    ${JS.slice(from, to)}
+    return { toggle: _sheetToggleRec, onRecorded: _sheetOnRecorded,
+      retry: _sheetRetrySubmission, recordedBlob: () => _recordedBlob,
+      replaceRecordedBlob: (value) => { _recordedBlob = value; } };
+  `;
   const api = new Function(
     '_sheet', '_renderSheet', 'startRecording', 'stopRecording',
     '_submitGradingEager', '_sessionId', 'console', 'window', '$', '_testMode',
     '_showFeedback', '_respToFeedbackData', '_sheetReviewIdx',
-    '_playerGeneration', '_playerActive', body)(
+    '_playerGeneration', '_playerActive', '_sessionData', '_elapsedSecs', '_recordedBlob', body)(
       _sheet, () => {}, async () => true, () => {},
-      () => Promise.reject(new Error('mạng đứt')), 'sess', console,
+      () => { calls += 1; return error ? Promise.reject(error) : Promise.resolve({ overall_band: 6 }); }, 'sess', console,
       { api: { get: async () => [] }, scrollTo() {} }, () => null, null,
-      () => {}, (x) => x, 0, 1, true);
+      () => {}, (x) => x, 0, 1, true, { part }, seconds, blob);
 
   await api.toggle(0);
   assert.equal(slot.state, 'recording', 'bấm nút xong ô phải đang ghi âm');
-  api.onRecorded(new Blob !== undefined ? {} : {});
+  api.onRecorded(blob);
+  if (nextBlob !== undefined) api.replaceRecordedBlob(nextBlob);
   // để chuỗi .then/.catch/.then chạy hết
   for (let k = 0; k < 8; k++) await Promise.resolve();
-  return slot;
+  return { slot, sheet: _sheet, api, blob, calls, priorResponse, submissionCalls: () => calls };
 }
+
+async function recordThenFail(startState) {
+  return (await recordTake(startState)).slot;
+}
+
+describe('bản ghi quá ngắn phải ghi lại, không gửi lại', () => {
+  for (const [part, min] of [[1, 15], [2, 80], [3, 25]]) {
+    for (const before of ['idle', 'saved', 'ungraded']) {
+      test(`Part ${part}: chặn trước upload và giữ trạng thái ${before}`, async () => {
+        const { slot, sheet, api, calls, submissionCalls } = await recordTake(before, { part, seconds: min - 0.1 });
+        assert.equal(calls, 0);
+        assert.equal(sheet.recIdx, -1);
+        assert.equal(slot.prevState, null);
+        assert.equal(slot.state, before);
+        assert.equal(slot.retryBlob, null);
+        assert.equal(slot.retryHadWork, null);
+        assert.equal(api.recordedBlob(), null);
+        assert.equal(slot.error, `Bản ghi quá ngắn cho Part ${part} (${(min - 0.1).toFixed(1)}s < ${min}s tối thiểu). Hãy ghi âm lại`);
+        api.retry(0);
+        assert.equal(submissionCalls(), 0, 'không có bản ghi ngắn để gửi lại');
+        const model = renderNative([slot, S('idle')]);
+        assert.equal(model.slots[0].canRetry, false);
+        assert.equal(model.slots[0].busy, false);
+        assert.equal(model.locked, false);
+        assert.equal(model.slots[0].recordLabel, before === 'idle' ? 'Ghi âm' : 'Ghi âm lại');
+        assert.equal(model.done, before === 'idle' ? 0 : 1);
+        assert.doesNotMatch(model.submitNote, /\/0/);
+      });
+    }
+
+    test(`Part ${part}: đúng ngưỡng vẫn gửi và lưu được`, async () => {
+      const { slot, calls } = await recordTake('idle', { part, seconds: min, error: null });
+      assert.equal(calls, 1);
+      assert.equal(slot.state, 'saved');
+    });
+  }
+
+  for (const before of ['idle', 'saved', 'ungraded']) {
+    for (const topLevelCode of [false, true]) {
+      test(`422 ${topLevelCode ? 'code' : 'detail.code'}: bỏ blob và khôi phục ${before}`, async () => {
+        const detail = { part: 1, duration_seconds: 7.94, min_seconds: 15 };
+        const error = { status: 422, detail };
+        if (topLevelCode) error.code = 'audio_too_short';
+        else detail.code = 'audio_too_short';
+        const { slot, api, calls, priorResponse } = await recordTake(before, { error });
+        assert.equal(calls, 1);
+        assert.equal(slot.state, before);
+        assert.equal(slot.retryBlob, null);
+        assert.equal(slot.retryHadWork, null);
+        assert.equal(api.recordedBlob(), null);
+        assert.equal(slot.resp, before === 'idle' ? null : priorResponse);
+        assert.equal(slot.band, before === 'saved' ? 6 : null);
+        assert.equal(slot.error, 'Bản ghi quá ngắn cho Part 1 (7.9s < 15s tối thiểu). Hãy ghi âm lại');
+        const model = renderNative([slot, S('idle')]);
+        assert.equal(model.slots[0].canRetry, false);
+        assert.equal(model.slots[0].busy, false);
+        assert.equal(model.locked, false);
+        assert.equal(model.slots[0].recordLabel, before === 'idle' ? 'Ghi âm' : 'Ghi âm lại');
+      });
+    }
+  }
+
+  test('422 chỉ có code vẫn dùng thời lượng đã chụp và ngưỡng client', async () => {
+    const { slot } = await recordTake('idle', { error: { code: 'audio_too_short' } });
+    assert.equal(slot.error, 'Bản ghi quá ngắn cho Part 1 (15.0s < 15s tối thiểu). Hãy ghi âm lại');
+    assert.equal(slot.retryBlob, null);
+  });
+
+  test('422 về muộn không xoá bản ghi mới của câu khác', async () => {
+    const nextBlob = {};
+    const { slot, api } = await recordTake('idle', {
+      error: { code: 'audio_too_short', detail: { duration_seconds: 7.9 } }, nextBlob,
+    });
+    assert.equal(api.recordedBlob(), nextBlob);
+    assert.equal(slot.state, 'idle');
+    assert.equal(slot.retryBlob, null);
+    assert.match(slot.error, /7\.9s < 15s/);
+  });
+
+  test('lỗi khác vẫn giữ nguyên blob và thông báo gửi lại', async () => {
+    const { slot, blob, calls } = await recordTake('idle');
+    assert.equal(calls, 1);
+    assert.equal(slot.state, 'retry');
+    assert.equal(slot.retryBlob, blob);
+    assert.equal(slot.error, 'Chưa gửi được câu này. Bản ghi vẫn còn trên thiết bị — hãy gửi lại.');
+  });
+});
 
 describe('lưu hỏng thì nói ra', () => {
   test('nộp hỏng giữ blob ở trạng thái CHƯA GỬI — không bắt ghi lại', async () => {
