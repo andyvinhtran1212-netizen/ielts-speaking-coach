@@ -468,7 +468,7 @@ export function ListeningReviewWorkspace() {
       <div className="lr-topbar__left"><a className="lr-back" href={back.href}>{back.label}</a><span className="lr-test-label">{data?.title || 'Chữa bài'}</span></div>
       <div className="lr-topbar__right">
         {data?.preview ? <p className="lr-preview-banner" role="status">XEM TRƯỚC — chưa ai làm bài này. Ô trả lời để trống và không có điểm; đáp án + giải thích là thật.</p> : null}
-        {data && !data.preview ? <div className="lr-summary" aria-live="polite"><span><small>Ước tính</small>{listeningBandLabel(data)}</span><span><small>Kết quả</small>{data.score}/{data.maxScore} câu</span></div> : null}
+        {data && !data.preview ? <div className="lr-summary" aria-live="polite"><span><small>Ước tính</small>{listeningBandLabel(data)}</span>{data.maxScore > 0 ? <span><small>Kết quả</small>{data.score}/{data.maxScore} câu</span> : null}</div> : null}
       </div>
     </header>
 

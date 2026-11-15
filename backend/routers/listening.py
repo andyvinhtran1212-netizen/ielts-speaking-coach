@@ -20,6 +20,8 @@ Storage bucket: `listening-audio` (private, signed URLs only — Sprint
 
 from __future__ import annotations
 
+from services.listening_test_grader import score_fields as listening_score_fields
+
 import asyncio
 import hashlib
 import json
@@ -6045,13 +6047,14 @@ async def list_published_listening_tests(
     # Per-user stats — single round trip across all visible test IDs.
     test_ids = [r["id"] for r in rows]
     user_best:            dict[str, int] = {}
+    user_score_fields: dict[str, dict] = {}
     user_count:           dict[str, int] = {}
     user_submitted_count: dict[str, int] = {}
     if test_ids:
         try:
             attempt_query = (
                 supabase_admin.table("listening_test_attempts")
-                .select("test_id,score,status")
+                .select("test_id,score,status,grading_details")
                 .eq("user_id", user["id"])
                 .in_("test_id", test_ids)
             )
@@ -6065,10 +6068,15 @@ async def list_published_listening_tests(
                 user_count[tid] = user_count.get(tid, 0) + 1
                 if att.get("status") == "submitted":
                     user_submitted_count[tid] = user_submitted_count.get(tid, 0) + 1
-                if att.get("status") == "submitted" and att.get("score") is not None:
+                if att.get("status") == "submitted":
+                    fields = listening_score_fields(att.get("score"), att.get("grading_details") or [])
+                    if tid not in user_score_fields:
+                        user_score_fields[tid] = fields
+                if att.get("status") == "submitted" and fields["score"] is not None:
                     prev = user_best.get(tid)
                     if prev is None or att["score"] > prev:
                         user_best[tid] = att["score"]
+                        user_score_fields[tid] = fields
         except Exception as exc:                                             # pragma: no cover
             logger.warning("[listening] attempts lookup failed: %s", exc)
 
@@ -6100,6 +6108,7 @@ async def list_published_listening_tests(
             "claim_policy":         r.get("claim_policy"),
             "source_item_count":    r.get("source_item_count"),
             "user_best_score":              user_best.get(r["id"]),
+            **{k: v for k, v in user_score_fields.get(r["id"], {}).items() if k != "score"},
             "user_attempt_count":           user_count.get(r["id"], 0),
             "user_submitted_attempt_count": user_submitted_count.get(r["id"], 0),
         })
@@ -7755,7 +7764,7 @@ def _attempt_public_shape(r: dict, users: dict, tests: dict) -> dict:
         "id":               r.get("id"),
         "status":           r.get("status"),
         "scoring_policy":   scoring_policy,
-        "score":            score,
+        **listening_score_fields(score, gd),
         "total_questions":  total_q,
         "accuracy":         (round(score / total_q, 4)
                              if score is not None and total_q else None),
@@ -9153,8 +9162,7 @@ async def submit_listening_test_attempt(
 
     return {
         "attempt_id":        attempt_id,
-        "score":             result["score"],
-        "max_score":         result["max_score"],
+        **grader.score_fields(result["score"], result["per_question"]),
         "band_estimate":     result["band_estimate"],
         "section_breakdown": result["section_breakdown"],
         "trap_analytics":    result["trap_analytics"],
@@ -9186,7 +9194,8 @@ async def get_listening_test_attempt(
         "attempt_id":      attempt["id"],
         "test_id":         attempt["test_id"],
         "status":          attempt["status"],
-        "score":           attempt.get("score"),
+        **listening_score_fields(
+            attempt.get("score"), attempt.get("grading_details") or []),
         "band_estimate":   attempt.get("band_estimate"),
         "answers":         attempt.get("answers") or [],
         "grading_details": attempt.get("grading_details") or [],
@@ -9444,8 +9453,7 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
         "test_id":         test_row.get("test_id"),
         "title":           test_row.get("title"),
         "status":          attempt.get("status"),
-        "score":           attempt.get("score"),
-        "max_score":       sum(1 for item in review if not item.get("self_check")),
+        **listening_score_fields(attempt.get("score"), attempt.get("grading_details") or []),
         "band_estimate":   attempt.get("band_estimate"),
         "scoring_policy":  scoring_policy,
         "assisted":        bool(first_answers_by_q),

@@ -223,7 +223,8 @@ export function normalizeListeningReview(payload) {
   const score = finiteNumber(payload.score);
   const maxScore = finiteNumber(payload.max_score);
   const bandEstimate = finiteNumber(payload.band_estimate);
-  if (!preview && (score === null || maxScore === null || maxScore < 0
+  const selfCheckOnly = payload.score_mode === 'self_check_only' || (review.length > 0 && review.every((item) => item.self_check));
+  if (!preview && ((!selfCheckOnly && score === null) || maxScore === null || maxScore < 0
       || score < 0 || score > maxScore)) {
     throw new Error('invalid-listening-review-score');
   }
@@ -241,6 +242,8 @@ export function normalizeListeningReview(payload) {
     contextSource: payload.context_source && typeof payload.context_source === 'object' ? payload.context_source : null,
     webExplanationAccess: payload.web_explanation_access && typeof payload.web_explanation_access === 'object' ? payload.web_explanation_access : null,
     score,
+    scoreMode: payload.score_mode || (selfCheckOnly ? 'self_check_only' : review.some((item) => item.self_check) ? 'mixed' : 'scored'),
+    selfCheckCount: review.filter((item) => item.self_check).length,
     maxScore: maxScore ?? review.filter((item) => !item.self_check).length,
     bandEstimate,
     bandConversion,
@@ -253,6 +256,8 @@ export function normalizeListeningReview(payload) {
 
 export function listeningBandLabel(review) {
   if (review?.maxScore === 0) return 'Không chấm điểm';
+  if (review?.scoreMode === 'mixed') return `Không quy đổi band · ${review.selfCheckCount} câu tự đối chiếu`;
+  if (review?.maxScore != null && review.maxScore !== 40) return 'Không quy đổi band';
   if (review?.bandEstimate !== null && review?.bandEstimate !== undefined) {
     return `Band ${Number(review.bandEstimate).toFixed(1)}`;
   }

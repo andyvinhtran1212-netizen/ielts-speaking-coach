@@ -21,6 +21,7 @@ interface LrSkill {
   state?: string | null;
   score?: number | null;
   max?: number | null;
+  self_check_count?: number | null;
 }
 
 interface MockResultPayload {
@@ -229,7 +230,16 @@ function LrGaps({ skills, finalBands }: {
         const label = SKILL_LABELS[key] || key;
         let why: string;
         let detail: string;
-        if (skill.state === 'no_attempt') {
+        if (skill.state === 'self_check_only') {
+          why = 'Tự đối chiếu: đề này không tính band';
+          detail = 'Đối chiếu đáp án tham khảo trong bài chữa.';
+        } else if (skill.state === 'mixed_no_band') {
+          why = `Không quy đổi band · ${skill.self_check_count ?? 0} câu tự đối chiếu`;
+          detail = `Bạn đúng ${skill.score ?? 0}/${skill.max ?? '?'} câu chấm điểm.`;
+        } else if (skill.state === 'no_band') {
+          why = 'Không quy đổi band';
+          detail = `Bạn đúng ${skill.score ?? 0}/${skill.max ?? '?'} câu. Bảng quy đổi chỉ áp dụng cho đề đủ 40 câu chấm điểm.`;
+        } else if (skill.state === 'no_attempt') {
           why = 'Không nhận được bài làm';
           detail = `Hệ thống không nhận được bài ${label} của bạn.`;
         } else if (skill.state === 'no_answers') {
@@ -237,7 +247,7 @@ function LrGaps({ skills, finalBands }: {
           detail = `Bài ${label} đã nộp nhưng không có câu trả lời nào, nên không chấm được.`;
         } else {
           why = 'Không có band';
-          detail = `Bạn đúng ${skill.score == null ? 0 : skill.score}/${skill.max || 40} câu — dưới mức thấp nhất của bảng quy đổi band IELTS, nên không có band cho phần này.`;
+          detail = `Bạn đúng ${skill.score == null ? 0 : skill.score}/${skill.max ?? '?'} câu — dưới mức thấp nhất của bảng quy đổi band IELTS, nên không có band cho phần này.`;
         }
         return (
           <div className="trf-gap" key={`${key}:${skill.state || 'gap'}:${index}`}>

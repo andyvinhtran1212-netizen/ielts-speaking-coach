@@ -13640,6 +13640,22 @@ export interface components {
             scoring_policy: "diagnostic" | "report_only";
             /** Score */
             score: number | null;
+            /**
+             * Max Score
+             * @default 0
+             */
+            max_score: number;
+            /**
+             * Score Mode
+             * @default scored
+             * @enum {string}
+             */
+            score_mode: "scored" | "mixed" | "self_check_only";
+            /**
+             * Self Check Count
+             * @default 0
+             */
+            self_check_count: number;
             /** Total Questions */
             total_questions: number | null;
             /** Accuracy */
@@ -13683,6 +13699,22 @@ export interface components {
             scoring_policy: "diagnostic" | "report_only";
             /** Score */
             score: number | null;
+            /**
+             * Max Score
+             * @default 0
+             */
+            max_score: number;
+            /**
+             * Score Mode
+             * @default scored
+             * @enum {string}
+             */
+            score_mode: "scored" | "mixed" | "self_check_only";
+            /**
+             * Self Check Count
+             * @default 0
+             */
+            self_check_count: number;
             /** Total Questions */
             total_questions: number | null;
             /** Accuracy */

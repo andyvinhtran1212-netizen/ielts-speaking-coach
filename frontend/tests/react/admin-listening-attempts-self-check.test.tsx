@@ -14,7 +14,7 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.clearAllMocks(); });
 
 it.each([false, true])('renders self-check evidence in list and detail, mixed=%s, including reload', async (mixed) => {
   const row = { id: 'a1', status: 'submitted', scoring_policy: 'diagnostic',
-    score: mixed ? 1 : 0, total_questions: mixed ? 1 : 0, accuracy: mixed ? 1 : null,
+    score: mixed ? 1 : null, score_mode: mixed ? 'mixed' : 'self_check_only', total_questions: mixed ? 1 : 0, accuracy: mixed ? 1 : null,
     user: { id: 'u1', display_name: 'Learner' },
     test: { id: 't1', title: 'Self-check test', test_type: 'mini' } };
   const lookup = { association_lookup_failed: false, association_lookup_failures: [] };
