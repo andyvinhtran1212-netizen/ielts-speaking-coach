@@ -247,3 +247,55 @@ describe('Sprint 14.2 — backend grading.py wires the validator', () => {
   });
 
 });
+
+
+describe('submission entry points enforce the existing duration floor', () => {
+  const helper = PRACTICE_JS.slice(PRACTICE_JS.indexOf('  function _checkRecordedLength()'),
+    PRACTICE_JS.indexOf('  function submitRecording()'));
+  const minimums = PRACTICE_JS.match(/var MIN_RECORD_SEC\s*=\s*(\{[^;]+\});/)[1];
+  const entries = [
+    ['submitRecording', '  // ── Error banner'],
+    ['_handleP2RecordedBlob', '  async function _startP2Speaking'],
+    ['_uploadAndGrade', '  // A server 200'],
+  ];
+  for (const [name, end] of entries) {
+    for (const mode of [null, 'test_part', 'test_full']) {
+      for (const [part, min] of [[1, 15], [2, 80], [3, 25]]) {
+        test(`${name} Part ${part} ${mode}: blocks short take and permits floor`, async () => {
+          for (const seconds of [min - 0.1, min]) {
+            let submitted = 0, advanced = 0, rejected;
+            const env = {
+              _sessionData: { part }, _elapsedSecs: seconds, _recordedBlob: {},
+              _currentQ: { id: 'q' }, _testMode: mode, _sessionId: 's',
+              _playerActive: true, _playerGeneration: 1, _processingRun: 1,
+              _processingTimer: null, _recordingDirty: true,
+              _handleAudioTooShort: (detail) => { rejected = detail; },
+              _showRecError: () => assert.fail('unexpected recording error'),
+              _startProcessing: () => { submitted++; },
+              _submitGradingEager: () => { submitted++; },
+              _advanceTestMode: () => { advanced++; },
+              _stopWaveform: () => {}, _getNativeSubmission: () => null,
+              _knownResponseId: () => null,
+              _submitResponseTransport: async () => { submitted++; return { response_id: 'r' }; },
+              _gradeMissingPersist: () => false, _clearP2SubmissionRetry: () => {},
+              _showFeedback: () => {},
+            };
+            const start = PRACTICE_JS.indexOf(`function ${name}(`);
+            const body = PRACTICE_JS.slice(start, PRACTICE_JS.indexOf(end, start));
+            const run = new Function(...Object.keys(env), `
+              var MIN_RECORD_SEC = ${minimums};
+              ${helper}
+              ${name === '_uploadAndGrade' ? 'async ' : ''}${body}
+              return ${name};
+            `)(...Object.values(env));
+            await run({}, name === '_handleP2RecordedBlob' ? seconds : 'q', 1, 1);
+            assert.equal(submitted, seconds < min ? 0 : 1);
+            assert.equal(advanced, seconds >= min && mode === 'test_full' && name !== '_uploadAndGrade' ? 1 : 0);
+            assert.deepEqual(rejected, seconds < min
+              ? { part, duration_seconds: seconds, min_seconds: min } : undefined);
+          }
+        });
+      }
+    }
+  }
+});
