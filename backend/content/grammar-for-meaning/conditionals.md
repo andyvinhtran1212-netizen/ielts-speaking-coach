@@ -138,6 +138,7 @@ If + Present Simple, Present Simple
 - **If** I drink too much coffee, I **can't** sleep.
 
 > Thay "if" bằng "when" khi nói về điều chắc chắn xảy ra (thay vì chỉ điều kiện):
+>
 > - **When** it rains, the streets **flood**. (luôn xảy ra)
 
 <!-- anchor: conditionals.type1.first-conditional -->
@@ -199,6 +200,7 @@ If + Past Simple, would + V-bare
 
 <!-- anchor: conditionals.type2.common-mistake.was-instead-of-were -->
 > **Lưu ý "were":** Trong điều kiện loại 2, dùng **were** cho mọi ngôi, **kể cả** I/he/she/it (thay cho was):
+>
 > - If I **were** rich... ✅ (không phải "was" — trong văn phong chính thức)
 > - If he **were** here... ✅
 > - If she **were** to apply... ✅
@@ -225,6 +227,7 @@ If + Past Perfect, would have + V3
 - They **would have won** if they **had practised** more.
 
 > **Ý nghĩa ngụ ý:** Điều kiện loại 3 luôn ngụ ý rằng điều kiện KHÔNG xảy ra:
+>
 > - "If I had known..." = Thực ra tôi không biết.
 > - "If she had called..." = Thực ra cô ấy không gọi.
 
@@ -293,6 +296,7 @@ Unless [condition], [result].
 - "Young people **are unlikely to** remain in rural areas **unless** governments invest in job creation and essential services."
 
 > **Lưu ý:** Unless nêu ngoại lệ. 'Unless it were cheaper, people would buy it' nghĩa là 'người ta sẽ mua, trừ khi nó rẻ hơn', vô lý. Muốn nói 'nếu rẻ hơn thì sẽ có nhiều người mua', hãy dùng if:
+>
 > - ✅ "**If** it **weren't** so expensive, more people **would** buy it."
 
 ---
@@ -362,6 +366,7 @@ Provided (that) [condition], [main clause].
 - "Schools should incorporate financial literacy into the curriculum **in case** students are not receiving this guidance at home."
 
 > **So sánh: if vs in case**
+>
 > - "Take an umbrella **if** it rains." *(bạn chỉ lấy nếu trời mưa)*
 > - "Take an umbrella **in case** it rains." *(lấy ngay bây giờ, phòng khi sau này mưa)*
 

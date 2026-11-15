@@ -462,6 +462,15 @@ def test_real_pilot_opt_out_and_separate_objective_eligibility_end_to_end(releas
     # Submitted retry uses the same canonical report without acquisition/write.
     from routers import listening as router
     async def auth(_):return {'id':'owner'}
+    # New namespace dispatch performs a canonical parent-identity read. Keep
+    # this legacy retry test offline while exercising the real dispatch.
+    from types import SimpleNamespace
+    class IdentityQuery:
+        def select(self, *_): return self
+        def eq(self, *_): return self
+        def limit(self, *_): return self
+        def execute(self): return SimpleNamespace(data=[{'id':'form','programme_id':'ielts-80-days-listening'}])
+    monkeypatch.setattr(router, 'supabase_admin', SimpleNamespace(table=lambda name: IdentityQuery()))
     monkeypatch.setattr(router,'_require_auth',auth)
     monkeypatch.setattr(router,'_fetch_attempt_or_404',lambda *_:{'id':'submitted','test_id':'form',
         'status':'submitted','scoring_policy':'report_only','answers':[{'q_num':1,'user_answer':'C'}]})

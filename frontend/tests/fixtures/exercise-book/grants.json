@@ -1,0 +1,21 @@
+{
+  "cohort_id": "00000000-0000-4000-8000-000000000001",
+  "grants": [
+    {
+      "grantee_id": "00000000-0000-4000-8000-000000000071",
+      "display_name": "Giáo viên Giả Dung",
+      "role": "assigner",
+      "state": "granted",
+      "last_event_seq": 3,
+      "last_event_at": "2026-11-11T15:20:00+07:00"
+    },
+    {
+      "grantee_id": "00000000-0000-4000-8000-000000000072",
+      "display_name": "Giáo viên Giả Giang",
+      "role": "teacher",
+      "state": "revoked",
+      "last_event_seq": 2,
+      "last_event_at": "2026-11-11T15:10:00+07:00"
+    }
+  ]
+}

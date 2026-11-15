@@ -142,6 +142,7 @@ Hiện tại không thực, muốn ngược lại:
 - I **wish** it **weren't** so cold. (Trời lạnh thật, không muốn thế)
 
 > **Lưu ý "were":** Dùng "were" cho tất cả các ngôi trong wish + Past Simple (văn phong chính thức):
+>
 > - I wish I **were** taller. ✅ (không phải "was" — trong formal writing)
 > - If only it **were** summer! ✅
 
@@ -172,6 +173,7 @@ Dùng khi muốn ai đó (khác chủ ngữ) thay đổi hành vi — thường 
 - I **wish** it **would stop** raining!
 
 > **Không dùng wish + would cho cùng chủ ngữ:**
+>
 > - ❌ I wish I would be taller.
 > - ✅ I wish I **were** taller. (dùng Past Simple)
 

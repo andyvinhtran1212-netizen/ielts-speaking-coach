@@ -40,17 +40,21 @@ activity (PC-J155: a 42703 on `sessions.created_at` blanked Speaking from
 
 from __future__ import annotations
 
+from services import listening_blackeye as blackeye
+
 import logging
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Header, HTTPException
 from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
 
 from database import supabase_admin
 from models.admin_overview import AdminOverviewOut
 from routers.admin import require_admin
 from services.class_membership_service import active_memberships_for_students
+from services.listening_test_grader import scored_question_count
 
 logger = logging.getLogger(__name__)
 
@@ -301,18 +305,27 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
     # Listening attempts (last 30d for activity + avg) + total count.
     # Nguồn: listening_test_attempts — nơi lesson/mini + drill + full test
     # thật sự ghi (audit 2026-07-17; listening_attempts cũ đã chết từ 05/2026).
-    listening_recent = _safe_select(
-        supabase_admin.table("listening_test_attempts")
-        .select("id, user_id, test_id, status, score, grading_details, "
-                "created_at, submitted_at")
-        .gte("created_at", iso_30d),
-        "listening_recent", partial_failures,
-    )
-    listening_total = _safe_count(
-        supabase_admin.table("listening_test_attempts")
-        .select("id", count="exact", head=True),
-        "listening_total", partial_failures,
-    )
+    # Identity lookup failures must omit Listening data, never read unfiltered rows.
+    try:
+        listening_recent = _safe_select(
+            (await run_in_threadpool(blackeye.exclude_tests, supabase_admin, supabase_admin.table("listening_test_attempts")
+            .select("id, user_id, test_id, status, score, grading_details, "
+                    "created_at, submitted_at")))
+            .gte("created_at", iso_30d),
+            "listening_recent", partial_failures,
+        )
+    except Exception as exc:
+        _record_partial(partial_failures, "listening_recent", exc)
+        listening_recent = []
+    try:
+        listening_total = _safe_count(
+            (await run_in_threadpool(blackeye.exclude_tests, supabase_admin, supabase_admin.table("listening_test_attempts")
+            .select("id", count="exact", head=True))),
+            "listening_total", partial_failures,
+        )
+    except Exception as exc:
+        _record_partial(partial_failures, "listening_total", exc)
+        listening_total = 0
     reading_recent = _safe_reading_attempt_window(iso_30d, snapshot_to, partial_failures)
     reading_total = _safe_count(
         supabase_admin.table("reading_test_attempts")
@@ -463,9 +476,9 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
     ])
     listening_accs = []
     for r in listening_first:
-        gd = r.get("grading_details") or []
-        if r.get("score") is not None and gd:
-            listening_accs.append(r["score"] / len(gd))
+        total = scored_question_count(r.get("grading_details") or [])
+        if r.get("score") is not None and total:
+            listening_accs.append(r["score"] / total)
     listening_avg = (
         round(sum(listening_accs) / len(listening_accs), 4)
         if listening_accs else None
@@ -520,14 +533,14 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
         # active-user + attempts_7d, nhưng không vào feed hoạt động).
         if r.get("status") != "submitted" or not r.get("submitted_at"):
             continue
-        gd = r.get("grading_details") or []
+        total = scored_question_count(r.get("grading_details") or [])
         activity.append({
             "timestamp":  r["submitted_at"],
             "user_id":    r.get("user_id"),
             "skill":      "listening",
             "action":     "Hoàn thành bài Listening",
-            "score":      (f"{r['score']}/{len(gd)}"
-                           if r.get("score") is not None and gd else None),
+            "score":      (f"{r['score']}/{total}"
+                           if r.get("score") is not None and total else None),
             "link":       "/admin/listening/attempts",
         })
     for r in reading_recent:

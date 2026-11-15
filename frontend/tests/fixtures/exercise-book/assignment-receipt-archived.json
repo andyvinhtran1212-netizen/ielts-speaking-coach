@@ -1,0 +1,38 @@
+{
+  "assignment_id": "00000000-0000-4000-8000-000000000003",
+  "request_id": "00000000-0000-4000-8000-000000000005",
+  "cohort_id": "00000000-0000-4000-8000-000000000001",
+  "activities": [
+    {
+      "programme_id": "blackeye-v5-upper-listening",
+      "collection_id": "blackeye-v5-upper",
+      "source_contract": "blackeye_u1_v1",
+      "unit_id": "U1",
+      "activity_id": "U1-A01",
+      "content_revision": "blackeye-u1-content-v1-000000000001",
+      "policy_revision": "selfcheck-v1",
+      "answer_set_revision": "00000000-0000-4000-8000-000000000201"
+    },
+    {
+      "programme_id": "blackeye-v5-upper-listening",
+      "collection_id": "blackeye-v5-upper",
+      "source_contract": "blackeye_u1_v1",
+      "unit_id": "U1",
+      "activity_id": "U1-A02",
+      "content_revision": "blackeye-u1-content-v1-000000000002",
+      "policy_revision": "selfcheck-v1",
+      "answer_set_revision": "00000000-0000-4000-8000-000000000202"
+    }
+  ],
+  "recipient_ids": [
+    "00000000-0000-4000-8000-000000000011",
+    "00000000-0000-4000-8000-000000000012",
+    "00000000-0000-4000-8000-000000000013"
+  ],
+  "due_at": "2026-11-12T21:00:00+07:00",
+  "deadline_timezone": "Asia/Ho_Chi_Minh",
+  "replay_policy": "allowed",
+  "completion_denominator": 2,
+  "status": "archived",
+  "created_at": "2026-11-10T09:00:00+07:00"
+}

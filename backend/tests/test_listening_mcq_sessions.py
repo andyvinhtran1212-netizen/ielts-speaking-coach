@@ -288,7 +288,7 @@ def _run(c): return asyncio.run(c)
 def test_attempt_mcq_happy_path(monkeypatch):
     canned = {
         "listening_content": [{
-            "id": "c1", "status": "published", "transcript": "...",
+            "id": "c1", "test_id": None, "status": "published", "transcript": "...",
             "audio_storage_path": "ai/c1.mp3", "audio_duration_seconds": 200,
         }],
         "listening_exercises": [{
@@ -320,7 +320,7 @@ def test_attempt_mcq_happy_path(monkeypatch):
 
 def test_attempt_mcq_missing_exercise_404(monkeypatch):
     canned = {
-        "listening_content": [{"id": "c1", "status": "published", "transcript": "x",
+        "listening_content": [{"id": "c1", "test_id": None, "status": "published", "transcript": "x",
                                 "audio_storage_path": "p", "audio_duration_seconds": 60}],
         "listening_exercises": [],
         "listening_attempts": [],
@@ -337,7 +337,7 @@ def test_attempt_mcq_missing_exercise_404(monkeypatch):
 
 def test_attempt_mcq_requires_answers(monkeypatch):
     canned = {
-        "listening_content": [{"id": "c1", "status": "published", "transcript": "x",
+        "listening_content": [{"id": "c1", "test_id": None, "status": "published", "transcript": "x",
                                 "audio_storage_path": "p", "audio_duration_seconds": 60}],
         "listening_exercises": [{
             "id": "ex-mcq", "content_id": "c1", "exercise_type": "mcq",
@@ -469,6 +469,24 @@ def _att(i, test="t-mini", *, status="submitted", score=8, total=10, days_ago=1.
         "created_at": _iso_days_ago(days_ago),
         "submitted_at": (_iso_days_ago(days_ago) if status == "submitted" else None),
     }
+
+
+@pytest.mark.parametrize("all_self_check", [False, True])
+def test_analytics_self_check_has_no_accuracy_weight_and_still_completes(monkeypatch, all_self_check):
+    row = _att(1, score=0 if all_self_check else 1, total=2)
+    row["grading_details"] = [
+        {"q_num": 1, "self_check": True, "correct": None},
+        {"q_num": 2, "self_check": all_self_check, "correct": None if all_self_check else True},
+    ]
+    _patch_admin_client(monkeypatch, _FakeAdminClient({"listening_test_attempts": [row], "listening_tests": _tests_canned()}))
+    out = _run(listening_router.get_listening_analytics(time_range="30d", authorization=_patch_user(monkeypatch)))
+    mini = out["by_mode"]["mini"]
+    assert mini["completion"] == 1.0
+    assert mini["scored_count"] == (0 if all_self_check else 1)
+    assert mini["avg_score"] == (None if all_self_check else 1.0)
+    recent = out["recent_attempts"][0]
+    assert recent["accuracy"] == (None if all_self_check else 1.0)
+    assert recent["total_questions"] == (0 if all_self_check else 1)
 
 
 def test_analytics_by_type_aggregation(monkeypatch):

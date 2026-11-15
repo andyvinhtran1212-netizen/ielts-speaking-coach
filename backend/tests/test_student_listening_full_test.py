@@ -1113,6 +1113,7 @@ def test_patch_answer_404_when_not_owner(monkeypatch):
             attempt_id="att", body=body, authorization=authz,
         ))
     assert excinfo.value.status_code == 404
+    assert excinfo.value.headers == {"Cache-Control": "private, no-store"}
 
 
 def test_patch_answer_blocked_after_submit(monkeypatch):
@@ -1230,6 +1231,7 @@ def test_get_attempt_owner_only(monkeypatch):
             attempt_id="att", authorization=authz,
         ))
     assert excinfo.value.status_code == 404
+    assert excinfo.value.headers == {"Cache-Control": "private, no-store"}
 
 
 def test_get_attempt_returns_grading(monkeypatch):

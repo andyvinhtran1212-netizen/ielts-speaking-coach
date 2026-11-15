@@ -4,6 +4,8 @@ from collections import defaultdict
 from fastapi import HTTPException
 from postgrest.exceptions import APIError
 
+from services.listening_test_grader import scored_question_count
+
 
 def require_homework_schema(db) -> None:
     try:
@@ -98,7 +100,7 @@ def report_by_item(db, items: list[dict], config: dict) -> dict:
         out[key] = {
             "listening_submitted_at": (chosen or {}).get("submitted_at"),
             "correct": (chosen or {}).get("score"),
-            "total": len(details) or None,
+            "total": scored_question_count(details) or None,
             "playback": totals,
             "dictation_required": config["dictation_required"],
             "dictation_sections": len(config["sections"]),

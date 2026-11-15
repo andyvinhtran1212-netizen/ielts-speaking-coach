@@ -8,6 +8,10 @@
 - Trước PR2 (T005): anh Vinh trả lời CV-1 (ai cấp/thu quyền FR-027); migration danh sách cấp quyền có số do Release Manager cấp, Security Auditor review, anh Vinh duyệt chạy; Security Auditor xác nhận C3 (SA-2280-R2). Chưa có thì danh sách rỗng, mặc định từ chối, chỉ người tạo bài giao có quyền.
 - `DICTATION_LEXICAL_V2_ENABLED` giữ `False`. Không có dữ liệu Black Eye published trên staging hay prod.
 
+Không áp migration 376, không seed/import Black Eye trên bất kỳ môi trường nào trước khi FU-2281-NAMESPACE (M-A/M-B) hoàn tất, migration 347 đã áp, ma trận/inventory qua kiểm và SA ký. 376 tiếp tục pending_feature; merge không tự áp. Mọi apply/import cần quyết định riêng theo workflow, không được suy ra từ merge.
+
+Importer fail closed trước mọi ghi DB/Storage và mọi RPC import 295: package/test programme Black Eye, hoặc metadata có khóa blackeye trên bất kỳ package/form/content sinh ra, chỉ đi qua khi RESTRICTED_NAMESPACE_READY bật VÀ catalog xác nhận M-A qua fn_content_namespace_ready(). Cờ mặc định false; thiếu hàm (PGRST202/42883), catalog false hoặc mọi lookup/transport error đều 503 + private, no-store, không ghi. Dry-run trả cùng lỗi với commit. Cờ không tự bật từ catalog; cờ bật một mình cũng không cho qua. RPC này do M-A cung cấp ở follow-up; #2281 không tạo RPC/schema/view mới.
+
 ## Staging
 
 - Thứ tự: migration đã duyệt (runner có khóa) → deploy code phụ thuộc → QA đúng SHA.

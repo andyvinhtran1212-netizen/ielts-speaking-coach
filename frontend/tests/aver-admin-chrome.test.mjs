@@ -26,6 +26,7 @@ const CHROME_JS    = read('js', 'components', 'aver-admin-chrome.js');
 const ADMIN_INDEX  = read('pages', 'admin', 'index.html');
 const ADMIN_LEGACY = read('admin.html');
 const VALID_ACTIVE_SOURCE = CHROME_JS.match(/const VALID_ACTIVE\s*=\s*\[([\s\S]*?)\];/)?.[1] || '';
+const NAV_GROUPS = new Function(`return ${CHROME_JS.match(/const NAV_GROUPS = (\[[\s\S]*?\n\]);/)[1]}`)();
 const adminHtmlFiles = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
   const abs = join(dir, entry.name);
   return entry.isDirectory() ? adminHtmlFiles(abs) : (entry.name.endsWith('.html') ? [abs] : []);
@@ -160,7 +161,7 @@ describe('Sprint 12.1 — aver-admin-chrome component source', () => {
 
   it('exposes current, collapsed, and mobile navigation state accessibly', () => {
     assert.match(CHROME_JS, /aria-current=\"page\"/);
-    assert.match(CHROME_JS, /isActive && !subsection \? 'page' : null/);
+    assert.match(CHROME_JS, /isActive && \(item.slug \|\| !subsection\) \? 'page' : null/);
     assert.match(CHROME_JS, /aria-controls=\"sidebar\"/);
     assert.match(CHROME_JS, /aria-expanded=\"false\"/);
     assert.match(CHROME_JS, /event\.key === 'Escape'/);
@@ -170,6 +171,9 @@ describe('Sprint 12.1 — aver-admin-chrome component source', () => {
     assert.match(CHROME_JS, /\*, \*::before, \*::after\s*\{\s*box-sizing:\s*border-box/);
     assert.match(CHROME_JS, /transform:\s*translateX\(-100%\)[\s\S]*?visibility:\s*hidden[\s\S]*?pointer-events:\s*none/);
     assert.match(CHROME_JS, /data-mobile-open="1"[\s\S]*?visibility:\s*visible/);
+    const mobileRules = CHROME_JS.slice(CHROME_JS.indexOf('@media (max-width: 768px)'));
+    assert.match(mobileRules, /\.sidebar\s*\{[^}]*align-self:\s*stretch/,
+      'mobile drawer must stay viewport-bounded so expanded QA links can scroll into view');
   });
 
   it('reconnects rebind interaction and polling observes the abort signal', () => {
@@ -195,6 +199,42 @@ describe('Sprint 12.1 — aver-admin-chrome component source', () => {
 
 
 /* ── New routes exist ──────────────────────────────────────────── */
+
+describe('0049 option (a) — canonical admin menu groups', () => {
+  const group = (title) => NAV_GROUPS.find((entry) => entry.title === title);
+  const hrefs = (title) => group(title).items.map((item) => item.href);
+
+  it('places instructors alongside classes and users with the existing URLs', () => {
+    assert.deepEqual(hrefs('Lớp & Người dùng'), [
+      '/admin/users', '/admin/classes', '/admin/instructors',
+    ]);
+    assert.ok(!hrefs('Nội dung').includes('/admin/instructors'));
+    assert.ok(!group('Người dùng'));
+  });
+
+  it('groups both cross-skill inboxes under Hệ thống', () => {
+    assert.deepEqual(hrefs('Hệ thống'), ['/admin/error-logs', '/admin/feedback']);
+  });
+
+  it('moves all six tools to a single default-collapsed QA group, preserving URLs', () => {
+    const qa = group('Thí điểm & QA');
+    assert.equal(qa.collapsedByDefault, true);
+    assert.equal(NAV_GROUPS.filter((entry) => entry.collapsedByDefault).length, 1);
+    assert.deepEqual(qa.items.map(({ section, slug, label, href }) => ({ section, slug, label, href })), [
+      { section: 'vocab', slug: 'curated', label: 'Curated Editorial', href: '/admin/vocab/curated' },
+      { section: 'vocab', slug: 'pilot-metrics', label: 'Pilot metrics', href: '/admin/vocab/pilot-metrics' },
+      { section: 'vocab', slug: 'd1-curation', label: 'D1 Curation', href: '/admin/vocab/d1-curation' },
+      { section: 'vocab', slug: 'exercises', label: 'D1 Exercises', href: '/admin/vocab/exercises' },
+      { section: 'vocab', slug: 'lemmas', label: 'Lemma Overrides', href: '/admin/vocab/lemmas' },
+      { section: 'grammar', slug: 'recommend-test', label: 'Recommendation tester', href: '/admin/grammar/recommend-test' },
+    ]);
+    const allHrefs = NAV_GROUPS.flatMap((entry) => entry.items.flatMap((item) =>
+      [item.href, ...(item.subsections || []).map((sub) => sub.href)]));
+    for (const item of qa.items) {
+      assert.equal(allHrefs.filter((href) => href === item.href).length, 1, item.href);
+    }
+  });
+});
 
 describe('Sprint 12.1 — 12 moved admin pages exist at new nested paths', () => {
   const moves = [
@@ -662,7 +702,10 @@ describe('FLASHCARD-0048 FR-013 — Bộ từ theo lớp leads the Vocab group',
       href: '/admin/vocab/sets',
     });
     assert.equal(entries.filter((entry) => entry.slug === 'sets').length, 1);
-    assert.ok(entries.some((entry) => entry.slug === 'curated' && entry !== entries[0]));
+    assert.ok(!entries.some((entry) => entry.slug === 'curated'), 'Curated now belongs to Thí điểm & QA');
+    assert.ok(NAV_GROUPS.find((group) => group.title === 'Thí điểm & QA').items.some(
+      (entry) => entry.slug === 'curated' && entry.href === '/admin/vocab/curated',
+    ));
     assert.doesNotMatch(source, /FLASHCARD_MVP_ENABLED|flashcard_mvp|featureFlag|feature_flag/);
     assert.doesNotMatch(source, /\/pages\/admin\/vocab\/sets/);
   });

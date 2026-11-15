@@ -1,0 +1,67 @@
+{
+  "activity": {
+    "binding": {
+      "programme_id": "blackeye-v5-upper-listening",
+      "collection_id": "blackeye-v5-upper",
+      "source_contract": "blackeye_u1_v1",
+      "unit_id": "U1",
+      "activity_id": "U1-A01",
+      "content_revision": "blackeye-u1-content-v1-000000000001",
+      "policy_revision": "selfcheck-v1",
+      "answer_set_revision": "SENTINEL_ANSWER_SET"
+    },
+    "test_id": "00000000-0000-4000-8000-000000000031",
+    "title": "Form completion: hotel booking",
+    "order": 1,
+    "readiness": "ready",
+    "readiness_reasons": [],
+    "selectable": true,
+    "response_cell_count": 3,
+    "scoring_policy": "report_only",
+    "items": [
+      {
+        "source_item_id": "A01-c1",
+        "q_num": 1,
+        "source_display_number": "01",
+        "interaction": "text",
+        "prompt": "Ô giả 1",
+        "instruction": "Viết không quá hai từ.",
+        "givens": [],
+        "group_id": "table",
+        "row_id": "r1",
+        "column_id": "c2"
+      },
+      {
+        "source_item_id": "A01-c2",
+        "q_num": 2,
+        "source_display_number": "02",
+        "interaction": "text",
+        "prompt": "Ô giả 2",
+        "instruction": "Viết không quá hai từ.",
+        "givens": [],
+        "group_id": "table",
+        "row_id": "r2",
+        "column_id": "c2"
+      },
+      {
+        "source_item_id": "A01-c3",
+        "q_num": 3,
+        "source_display_number": "03",
+        "interaction": "text",
+        "prompt": "Ô giả 3",
+        "instruction": "Viết không quá hai từ.",
+        "givens": [],
+        "group_id": "table",
+        "row_id": "r3",
+        "column_id": "c2"
+      }
+    ]
+  },
+  "attempt": null,
+  "replay_policy": "allowed",
+  "audio": {
+    "url": "https://audio.invalid/synthetic/u1-a01.mp3?token=synthetic",
+    "granularity": "whole_activity",
+    "expires_in": 7200
+  }
+}

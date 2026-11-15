@@ -952,7 +952,7 @@ def test_get_dictation_session_owner_only(monkeypatch):
     fake.tables["dictation_sessions"].append({"id": "s1", "user_id": "another-user"})
     with pytest.raises(HTTPException) as e:
         _run(listening_router.get_listening_dictation_session(session_id="s1", authorization=authz))
-    assert e.value.status_code == 403
+    assert e.value.status_code == 404
 
 
 def test_flag_dictation_inserts_user_feedback(monkeypatch):

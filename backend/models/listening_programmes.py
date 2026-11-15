@@ -259,6 +259,8 @@ class ListeningReviewItem(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     q_num: int
+    self_check: bool = False
+    alternatives: list[str] = Field(default_factory=list)
     state: str | None = None
     correct: bool | None = None
     user_answer: str = ""

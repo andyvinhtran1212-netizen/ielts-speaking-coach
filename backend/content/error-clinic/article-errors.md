@@ -110,6 +110,7 @@ Tiếng Việt **không có mạo từ** — đây là lý do người Việt m�
 | Nguyên âm | **an** | **an** apple, **an** hour (/aʊ/) |
 
 > **Lưu ý đặc biệt:**
+>
 > - "university" bắt đầu bằng /j/ (phụ âm) → **a** university ✅
 > - "hour" bắt đầu bằng /aʊ/ (nguyên âm) → **an** hour ✅
 > - "honest" bắt đầu bằng /ɒ/ (nguyên âm) → **an** honest person ✅

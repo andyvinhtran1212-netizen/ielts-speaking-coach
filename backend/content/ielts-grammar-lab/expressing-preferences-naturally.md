@@ -95,6 +95,7 @@ I prefer + V-ing (+ to/over + V-ing)
 - I prefer **reading** physical books **over** reading on a screen.
 
 > **Lưu ý:** "prefer A to B" — dùng "to", không phải "than":
+>
 > - ❌ "I prefer coffee **than** tea."
 > - ✅ "I prefer coffee **to** tea."
 
@@ -125,6 +126,7 @@ I'd rather + bare infinitive (than + bare infinitive)
 - Honestly, I'd rather **have** a quiet dinner than go somewhere loud.
 
 > **Khác với "I prefer":**
+>
 > - "I prefer tea to coffee." *(sở thích chung)*
 > - "I'd rather have tea." *(tình huống hiện tại)*
 

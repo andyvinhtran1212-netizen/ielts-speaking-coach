@@ -70,6 +70,7 @@ export type HomeworkDraft = {
   listeningLibrary?: 'exam' | 'drill';
   drillGroup?: string;
   dictationRequired?: boolean;
+  dictationMode?: 'none' | 'optional' | 'required';
   mode: 'practice' | 'test_part';
   part: '1' | '2' | '3';
   questionMode: 'random' | 'manual';

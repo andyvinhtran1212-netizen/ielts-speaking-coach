@@ -20,6 +20,8 @@ Storage bucket: `listening-audio` (private, signed URLs only — Sprint
 
 from __future__ import annotations
 
+from services.listening_test_grader import score_fields as listening_score_fields
+
 import asyncio
 import hashlib
 import json
@@ -28,6 +30,7 @@ import re
 import time
 import uuid
 from collections import deque
+from contextvars import ContextVar
 from datetime import datetime, timezone
 from functools import partial
 from typing import Any, Literal, Optional
@@ -38,6 +41,13 @@ from fastapi import (
 )
 from postgrest.exceptions import APIError
 from pydantic import BaseModel, ConfigDict, Field
+from fastapi.routing import APIRoute
+from fastapi.exceptions import RequestValidationError
+from models.listening_blackeye import (
+    BlackEyeLearnerBinding, BlackEyeAttemptState, BlackEyeActivityReview,
+    BlackEyeUnitPublic, BlackEyeSaveAck, BlackEyeInProgress,
+)
+from services import listening_blackeye as blackeye
 from starlette.concurrency import run_in_threadpool
 
 from config import settings
@@ -64,7 +74,7 @@ from services.class_assignment_service import (
     validate_class_item_for_test,
 )
 from services.class_archive_service import require_class_attempt_accepts_work
-from routers.admin import require_admin
+from routers.admin import require_admin as _staff_admin_guard
 from routers.auth import get_supabase_user
 from services.listening_gist_grader import grade_gist_response
 from services.rate_limit import (
@@ -119,8 +129,89 @@ from models.listening_programmes import (
 logger = logging.getLogger(__name__)
 
 
-user_router = APIRouter(prefix="/api/listening", tags=["listening"])
-admin_router = APIRouter(prefix="/admin/listening", tags=["listening-admin"])
+class _ListeningRoute(APIRoute):
+    def get_route_handler(self):
+        original = super().get_route_handler()
+
+        async def handler(request):
+            try:
+                return await original(request)
+            except RequestValidationError as exc:
+                # Default Pydantic errors echo rejected values, creating an N2
+                # answer-set oracle. Never echo nested Black Eye inputs.
+                if any("blackeye_binding" in error.get("loc", ()) for error in exc.errors()):
+                    raise HTTPException(422, "Invalid Black Eye binding.", headers={"Cache-Control": "private, no-store"}) from None
+                raise
+            except HTTPException as exc:
+                if isinstance(exc.detail, str) and "Black Eye" in exc.detail:
+                    exc.headers = {**(exc.headers or {}), "Cache-Control": "private, no-store"}
+                raise
+        return handler
+
+
+user_router = APIRouter(prefix="/api/listening", tags=["listening"], route_class=_ListeningRoute)
+_admin_targets = ContextVar("listening_admin_targets", default=None)
+
+
+async def require_admin(authorization):
+    """Canonical staff guard, followed by this request's Black Eye boundary."""
+    actor = await _staff_admin_guard(authorization)
+    context = _admin_targets.get()
+    if context and not context["checked"]:
+        if any(context["targets"].values()):
+            await run_in_threadpool(blackeye.guard_generic_target, supabase_admin,
+                                    denied_status=context["denied_status"],
+                                    denied_detail=context["denied_detail"],
+                                    external_test_code=context["external_test_code"], **context["targets"])
+        context["checked"] = True
+    return actor
+
+
+class _ListeningAdminRoute(_ListeningRoute):
+    def get_route_handler(self):
+        original = super().get_route_handler()
+
+        async def handler(request):
+            # Set identity context only. The endpoint's first canonical staff
+            # guard authenticates before this context may cause any database IO.
+            targets = {}
+            for key in ("test_id", "content_id", "exercise_id", "attempt_id",
+                        "package_id", "drill_id", "session_id"):
+                query_values = request.query_params.getlist(key)
+                if len(query_values) > 20:
+                    raise HTTPException(422, "Too many identity values.",
+                                        headers={"Cache-Control": "private, no-store"})
+                targets[key] = ([request.path_params[key]] if key in request.path_params else []) + [
+                    value for value in query_values if value.strip()]
+            path = self.path
+            detail = "Test bundle not found"
+            if "/content" in path or path.endswith("/exercises"):
+                detail = "Listening content not found"
+            elif "/exercises/" in path:
+                detail = "Exercise not found"
+            elif "/attempts" in path:
+                detail = "Không tìm thấy lượt làm bài."
+            elif "/dictation-reports" in path:
+                detail = "Không tìm thấy phiên chép chính tả."
+            elif "/packages/" in path:
+                detail = "Listening package not found"
+            elif "/drills/" in path:
+                detail = "Skill drill not found"
+            elif path.endswith("/audit"):
+                detail = "Test not found"
+            token = _admin_targets.set({"targets": targets, "checked": False,
+                "denied_detail": detail,
+                "external_test_code": request.url.path in {
+                    "/admin/listening/dictation-reports", "/admin/listening/dictation-reports/aggregate"},
+                "denied_status": 503 if request.url.path.endswith("/player-preview") else 404})
+            try:
+                return await original(request)
+            finally:
+                _admin_targets.reset(token)
+        return handler
+
+
+admin_router = APIRouter(prefix="/admin/listening", tags=["listening-admin"], route_class=_ListeningAdminRoute)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -638,10 +729,14 @@ def _fetch_published_listening_content_with_signed_url(content_id: str) -> dict:
     by graders/admin tooling. Those are answer material and must never ride the
     learner boot response, even when the current UI happens to ignore them.
     """
+    blackeye.guard_generic_content(
+        supabase_admin, content_id,
+        denied_detail="Listening content not found or not published", hidden_status=422,
+        direct_parent_first=True)
     res = (
         supabase_admin.table("listening_content")
         .select(",".join((*_STUDENT_LISTENING_CONTENT_FIELDS,
-                          "audio_storage_path,status")))
+                          "audio_storage_path,status,test_id")))
         .eq("id", content_id)
         .eq("status", "published")
         .limit(1)
@@ -710,6 +805,21 @@ def _fetch_published_exercises_for_student(
             422, f"exercise_type must be one of {sorted(_EXERCISE_TYPES)}",
         )
 
+    blackeye.guard_generic_content(
+        supabase_admin, content_id, hidden_status=422, direct_parent_first=True)
+    # Keep the publication check behind identity classification on every
+    # learner exercise surface, including the direct /exercises route.
+    content = (
+        supabase_admin.table("listening_content")
+        .select("id,status,audio_duration_seconds")
+        .eq("id", content_id)
+        .eq("status", "published")
+        .limit(1)
+        .execute()
+    )
+    if not content.data:
+        raise HTTPException(404, "Listening content not found or not published",
+                            headers={"Cache-Control": "private, no-store"})
     res = (
         supabase_admin.table("listening_exercises")
         .select("*")
@@ -889,7 +999,7 @@ async def post_listening_attempt(
         raise HTTPException(422, "Either content_id or exercise_id is required.")
 
     # ── Resolve exercise + parent content ─────────────────────────────────────
-    exercise_row, content_row = _resolve_attempt_target(body)
+    exercise_row, content_row = await run_in_threadpool(_resolve_attempt_target, body)
 
     # ── Dispatch by mode ──────────────────────────────────────────────────────
     if body.mode == "dictation":
@@ -928,6 +1038,18 @@ def _resolve_attempt_target(
     fallback path; content_row is never None (404 if missing)."""
     exercise_row: dict | None = None
     content_id: str | None = body.content_id
+
+    # Resolve identities only, before transcript/payload reads or lazy writes.
+    if body.exercise_id:
+        identity = (supabase_admin.table("listening_exercises").select("content_id")
+                    .eq("id", body.exercise_id).eq("status", "published").limit(1).execute().data or [])
+        if not identity:
+            raise HTTPException(404, "Exercise not found or not published.")
+        content_id = identity[0]["content_id"]
+    blackeye.guard_generic_content(
+        supabase_admin, content_id,
+        denied_detail="Listening content not found or not published", hidden_status=422,
+        direct_parent_first=True)
 
     if body.exercise_id:
         res = (
@@ -1402,18 +1524,6 @@ async def get_listening_exercises(
             422, f"exercise_type must be one of {sorted(_EXERCISE_TYPES)}",
         )
 
-    # Content must be published for the user route to surface anything.
-    c = (
-        supabase_admin.table("listening_content")
-        .select("id,status,audio_duration_seconds")
-        .eq("id", content_id)
-        .eq("status", "published")
-        .limit(1)
-        .execute()
-    )
-    if not c.data:
-        raise HTTPException(404, "Listening content not found or not published")
-
     # Keep every learner exercise surface on the same answer-stripping path.
     # Besides payload answer keys, Dictation must also withhold the reference
     # transcript stored in the top-level `segments` column.
@@ -1508,6 +1618,7 @@ async def admin_list_listening_content(
     if status != "all":
         q = q.eq("status", status)
 
+    q = await run_in_threadpool(blackeye.exclude_tests, supabase_admin, q, key="test_id")
     res = q.execute()
     return {
         "items":  res.data or [],
@@ -1744,6 +1855,13 @@ async def admin_upsert_listening_exercise(
     existing attempt rows keep referencing the same exercise.
     """
     await require_admin(authorization)
+    if body.exercise_id:
+        try:
+            uuid.UUID(body.exercise_id)
+        except (TypeError, ValueError, AttributeError):
+            raise HTTPException(422, "exercise_id must be a valid UUID") from None
+    await run_in_threadpool(blackeye.guard_generic_target, supabase_admin,
+                            content_id=body.content_id, exercise_id=body.exercise_id)
 
     if body.exercise_type not in _EXERCISE_TYPES:
         raise HTTPException(
@@ -1797,10 +1915,6 @@ async def admin_upsert_listening_exercise(
     if body.expected_absent and "order_num" not in body.model_fields_set:
         raise HTTPException(422, "order_num is required with expected_absent")
     if body.exercise_id:
-        try:
-            uuid.UUID(body.exercise_id)
-        except (TypeError, ValueError, AttributeError):
-            raise HTTPException(422, "exercise_id must be a valid UUID") from None
         if body.expected_absent:
             raise HTTPException(422, "exercise_id cannot be combined with expected_absent")
         if not body.expected_updated_at:
@@ -2235,12 +2349,14 @@ async def get_listening_analytics(
     )
 
     flat: list[dict] = []
+    from services.listening_test_grader import scored_question_count
     for r in attempts_raw:
         gd = r.get("grading_details") or []
+        scored_count = scored_question_count(gd)
         submitted = r.get("status") == "submitted"
         acc = (
-            round(r["score"] / len(gd), 4)
-            if submitted and r.get("score") is not None and gd else None
+            round(r["score"] / scored_count, 4)
+            if submitted and r.get("score") is not None and scored_count else None
         )
         tinfo = tests.get(r.get("test_id")) or {}
         flat.append({
@@ -2255,7 +2371,7 @@ async def get_listening_analytics(
             "status":     r.get("status"),
             "accuracy":   acc,
             "score":      r.get("score"),
-            "total_questions": len(gd) or None,
+            "total_questions": scored_count if gd else None,
             "created_at": r["created_at"],
         })
 
@@ -2450,6 +2566,7 @@ async def admin_list_listening_tests(
     if search.strip():
         q = q.ilike("test_id", f"%{search.strip()}%")
 
+    q = await run_in_threadpool(blackeye.exclude_tests, supabase_admin, q, key="id")
     res = q.execute()
     total = getattr(res, "count", None)
     if not isinstance(total, int) or isinstance(total, bool) or total < 0:
@@ -3130,6 +3247,7 @@ async def admin_import_fulltest_commit(
         # 'full' 4 sections); list endpoint student lọc trên cột này.
         "test_type":                   "mini" if mini else "full",
         "status":                      "draft",
+        "is_public":                   False,
     }
     # ── Persist ALL-OR-NOTHING with full rollback ────────────────────
     # Postgres has no cross-statement transaction over PostgREST here, so on ANY
@@ -3817,6 +3935,9 @@ async def admin_preview_listening_test(
             for k in key if k.get("q_num") is not None
         ],
     }
+    if any(k.get("scoring") == "self_check" for k in key):
+        # Reuse group propagation so preview and submission label the same slots.
+        synthetic["grading_details"] = grader.grade_attempt([], key)["per_question"]
     out = _assemble_listening_review(synthetic, None)
     out["preview"] = True                   # let the page label itself honestly
     return out
@@ -4203,6 +4324,53 @@ async def admin_edit_exercise_question(
         answers[a_idx] = ans
     elif any(v is not None for v in (body.answer, body.alternatives, body.trap_mechanisms, body.solution)):
         raise HTTPException(422, f"Câu {q_num} không có answer entry để sửa đáp án/bài giải.")
+
+    if payload.get("template_kind") == "keep_change" and any(
+        v is not None for v in (body.prompt, body.answer, body.alternatives)
+    ):
+        # The editor exposes the persisted key: KEEP or bare correction text,
+        # with separate alternatives. Validate the resulting key before writing
+        # either half; grading reads action from answers and printed_value from questions.
+        from services.listening_test_grader import normalize_answer
+
+        if a_idx is None:
+            raise HTTPException(422, "Câu này không có answer entry cho keep_change.")
+        question = dict(questions[q_idx])
+        ans = dict(answers[a_idx])
+        printed = question.get("prompt")
+        answer = ans.get("answer")
+        if not isinstance(printed, str) or not normalize_answer(printed):
+            raise HTTPException(422, "Câu này: keep_change cần printed value trong prompt.")
+        if not isinstance(answer, str) or not answer.strip():
+            raise HTTPException(422, "Câu này: keep_change cần KEEP hoặc nội dung sửa.")
+        action = "KEEP" if answer.strip().upper() == "KEEP" else "CHANGE"
+        alternatives = ans.get("alternatives") or []
+        if action == "KEEP":
+            if body.alternatives:
+                raise HTTPException(422, "Câu này: KEEP không được có alternatives sửa nội dung.")
+            canonical, alternatives = answer, []
+        else:
+            canonical = answer
+            if not isinstance(alternatives, list):
+                raise HTTPException(422, "Câu này: alternatives phải là danh sách nội dung sửa.")
+            for value in [canonical, *alternatives]:
+                if (not isinstance(value, str) or not normalize_answer(value)
+                        or value.strip().upper() in {"KEEP", "CHANGE"}
+                        or re.match(r"^(?:KEEP|CHANGE)\s*:", value.strip(), re.IGNORECASE)
+                        or normalize_answer(value) == normalize_answer(printed)):
+                    raise HTTPException(
+                        422,
+                        "Câu này: CHANGE cần nội dung sửa khác printed value; "
+                        "answer/alternatives chỉ chứa nội dung, không chứa nhãn KEEP/CHANGE.",
+                    )
+        synced = {"answer": canonical, "alternatives": alternatives, "keep_change_action": action}
+        for field, value in synced.items():
+            if ans.get(field) != value and field not in changed:
+                changed.append(field)
+        if question.get("printed_value") != printed:
+            changed.append("printed_value")
+        questions[q_idx] = {**question, "printed_value": printed}
+        answers[a_idx] = {**ans, **synced}
 
     payload["questions"] = questions
     payload["answers"] = answers
@@ -5052,6 +5220,7 @@ class _ListeningAttemptStartRequest(BaseModel):
     renderer_affinity_protocol: Literal["claim-v1"] | None = None
     purpose: Literal["practice", "assigned_practice", "mock_delivery"] | None = None
     mock_sitting_id: uuid.UUID | None = None
+    blackeye_binding: BlackEyeLearnerBinding | None = None
 
 
 class _ListeningAttemptRendererAffinityRequest(BaseModel):
@@ -5595,6 +5764,8 @@ async def list_listening_programme_lessons(
     authorization: str | None = Header(default=None),
 ):
     user = await _require_auth(authorization)
+    if programme_id == blackeye.PROGRAMME:
+        blackeye.unavailable()
     if programme_id not in _PROGRAMME_COPY:
         raise HTTPException(404, "Listening programme not found")
     if progress not in {"all", "new", "in_progress", "completed"}:
@@ -5685,6 +5856,8 @@ async def get_listening_programme_lesson(
     if not rows:
         raise HTTPException(404, "Listening lesson not found")
     lesson = rows[0]
+    if lesson.get("programme_id") == blackeye.PROGRAMME:
+        blackeye.unavailable()
     forms = (
         supabase_admin.table("listening_public_practice_catalog")
         .select(
@@ -5874,13 +6047,14 @@ async def list_published_listening_tests(
     # Per-user stats — single round trip across all visible test IDs.
     test_ids = [r["id"] for r in rows]
     user_best:            dict[str, int] = {}
+    user_score_fields: dict[str, dict] = {}
     user_count:           dict[str, int] = {}
     user_submitted_count: dict[str, int] = {}
     if test_ids:
         try:
             attempt_query = (
                 supabase_admin.table("listening_test_attempts")
-                .select("test_id,score,status")
+                .select("test_id,score,status,grading_details")
                 .eq("user_id", user["id"])
                 .in_("test_id", test_ids)
             )
@@ -5894,10 +6068,15 @@ async def list_published_listening_tests(
                 user_count[tid] = user_count.get(tid, 0) + 1
                 if att.get("status") == "submitted":
                     user_submitted_count[tid] = user_submitted_count.get(tid, 0) + 1
-                if att.get("status") == "submitted" and att.get("score") is not None:
+                if att.get("status") == "submitted":
+                    fields = listening_score_fields(att.get("score"), att.get("grading_details") or [])
+                    if tid not in user_score_fields:
+                        user_score_fields[tid] = fields
+                if att.get("status") == "submitted" and fields["score"] is not None:
                     prev = user_best.get(tid)
                     if prev is None or att["score"] > prev:
                         user_best[tid] = att["score"]
+                        user_score_fields[tid] = fields
         except Exception as exc:                                             # pragma: no cover
             logger.warning("[listening] attempts lookup failed: %s", exc)
 
@@ -5929,6 +6108,7 @@ async def list_published_listening_tests(
             "claim_policy":         r.get("claim_policy"),
             "source_item_count":    r.get("source_item_count"),
             "user_best_score":              user_best.get(r["id"]),
+            **{k: v for k, v in user_score_fields.get(r["id"], {}).items() if k != "score"},
             "user_attempt_count":           user_count.get(r["id"], 0),
             "user_submitted_attempt_count": user_submitted_count.get(r["id"], 0),
         })
@@ -5971,6 +6151,8 @@ def _assert_listening_exam_content_allowed(
 
 def _assemble_listening_player_payload(test: dict, *, include_audio: bool = True, snapshot=None) -> dict:
     """Build the student-safe player contract for public and admin preview."""
+    if blackeye.is_blackeye(test):
+        raise HTTPException(503, "Black Eye player contract unavailable.")
     from services import listening_test_grader as grader
 
     test_id = str(test["id"])
@@ -6181,6 +6363,9 @@ async def get_published_listening_test(
     if not res.data:
         raise HTTPException(404, "Test bundle not found or not published")
     test = res.data[0]
+    if blackeye.is_blackeye(test):
+        await run_in_threadpool(blackeye.require_published, supabase_admin, test)
+        raise HTTPException(503, "Black Eye player contract unavailable.")
     free_drill = test.get("test_type") == "drill" and test.get("is_public") and not class_item and not sitting_id
     # The generic delivery resolver considers all open class and public
     # attempts when no class_item is passed. Select the public scope
@@ -6222,7 +6407,7 @@ async def get_published_listening_test(
         from services.mock_attempt_flags import review_flag_state
         payload.update(attempt_receipt(attempt))
         payload.update(review_flag_state(supabase_admin, "listening", attempt))
-    if class_item and test.get("test_type") == "drill":
+    if class_item:
         from services.listening_drill_homework import drill_config
         try:
             assignment = await run_in_threadpool(
@@ -6247,6 +6432,22 @@ async def get_published_listening_test(
 # sentence to the real transcript sentence via the shared grade_dictation.
 
 
+def _has_keep_change(value) -> bool:
+    if isinstance(value, dict):
+        type_keys = ("type", "qtype", "q_type", "question_type", "exercise_type", "template_kind", "variant")
+        return (any(value.get(key) == "keep_change" for key in type_keys)
+                or any(_has_keep_change(child) for child in value.values() if isinstance(child, (dict, list))))
+    return isinstance(value, list) and any(_has_keep_change(child) for child in value)
+
+
+def _dictation_units_for_content(section: dict) -> list[dict]:
+    # Section transcripts have no reliable question-to-sentence mapping. Omit
+    # a mixed KEEP/CHANGE section rather than transcribe its printed values.
+    exercises = (supabase_admin.table("listening_exercises").select("exercise_type,payload")
+                 .eq("content_id", section["id"]).execute().data or [])
+    return _dictation_units({**section, "exercises": exercises})
+
+
 def _dictation_units(section: dict) -> list[dict]:
     """Resolve a section's dictation units → ``[{text, start, end}]``.
 
@@ -6258,6 +6459,8 @@ def _dictation_units(section: dict) -> list[dict]:
     free scrub) when no timing exists. Boot + grade both call this so their
     indices always agree.
     """
+    if _has_keep_change(section):
+        return []
     segs = (section.get("metadata") or {}).get("dictation_segments")
     if isinstance(segs, list) and segs:
         units = [
@@ -6313,7 +6516,9 @@ async def get_listening_test_dictation(
     if not res.data:
         raise HTTPException(404, "Test bundle not found or not published")
     test = res.data[0]
-    _assert_listening_exam_content_allowed(test, _user.get("id"), allow_public=False)
+    if blackeye.is_blackeye(test):
+        raise HTTPException(422, "Black Eye dictation requires separate release.")
+    _assert_listening_exam_content_allowed(test, _user.get("id"), class_item, allow_public=False)
 
     config = None
     done = {}
@@ -6339,7 +6544,7 @@ async def get_listening_test_dictation(
     for s in (sec_res.data or []):
         if config is not None and s["section_num"] not in config["sections"]:
             continue
-        units = _dictation_units(s)
+        units = await run_in_threadpool(_dictation_units_for_content, s)
         sentences = [u["text"] for u in units]
         # Per-sentence audio windows (turn timing) when available → the
         # player auto-clips each sentence. null when the section has no
@@ -6385,6 +6590,7 @@ class ListeningTestDictationGradeRequest(BaseModel):
 async def grade_listening_test_dictation(
     body: ListeningTestDictationGradeRequest,
     authorization: str | None = Header(default=None),
+    class_item: str | None = None,
 ):
     """Grade one sentence of test-linked dictation.
 
@@ -6400,11 +6606,13 @@ async def grade_listening_test_dictation(
     # user with a draft test ID could otherwise extract its transcript
     # sentence by sentence — even though the boot endpoint 404s on drafts.
     # Shared loader: published + exam_only, both BEFORE any transcript read.
-    _published_test_for_dictation(body.test_id, _user.get("id"))
+    _published_test_for_dictation(body.test_id, _user.get("id"), class_item)
+    if class_item:
+        await run_in_threadpool(_validate_class_dictation_section, _user["id"], class_item, body.test_id, body.section_num)
 
     sec_res = (
         supabase_admin.table("listening_content")
-        .select("transcript,metadata")
+        .select("id,transcript,metadata")
         .eq("test_id", body.test_id)
         .eq("section_num", body.section_num)
         .limit(1)
@@ -6415,7 +6623,7 @@ async def grade_listening_test_dictation(
 
     # Same unit resolution as the boot endpoint (timed segments → sentence
     # fallback) so the index the frontend submits maps to the right reference.
-    units = _dictation_units(sec_res.data[0])
+    units = await run_in_threadpool(_dictation_units_for_content, sec_res.data[0])
     if body.sentence_idx >= len(units):
         raise HTTPException(
             422,
@@ -6436,9 +6644,9 @@ async def grade_listening_test_dictation(
 # ── Dictation completion report (persisted) + content flags ──────────
 
 
-def _published_test_for_dictation(test_id: str, user_id=None) -> dict:
+def _published_test_for_dictation(test_id: str, user_id=None, class_item: str | None = None) -> dict:
     """Fetch a published test row (id, test_id, title) or 404 — and enforce the
-    exam_only reservation.
+    exam_only reservation and live assignment dictation configuration.
 
     THE ONE loader for every dictation route. Dictation is built from the
     section TRANSCRIPT, i.e. the answer key read aloud, and `grade_dictation()`
@@ -6453,12 +6661,16 @@ def _published_test_for_dictation(test_id: str, user_id=None) -> dict:
     """
     res = (
         supabase_admin.table("listening_tests")
-        .select("id,test_id,title,status,exam_only,is_public,public_practice_enabled")
+        .select("id,test_id,title,status,exam_only,is_public,public_practice_enabled,programme_id,metadata")
         .eq("id", test_id).eq("status", "published").limit(1).execute()
     )
     if not res.data:
         raise HTTPException(404, "Test bundle not found or not published")
-    _assert_listening_exam_content_allowed(res.data[0], user_id, allow_public=False)
+    if blackeye.is_blackeye(res.data[0]):
+        raise HTTPException(422, "Black Eye dictation requires separate release.")
+    _assert_listening_exam_content_allowed(res.data[0], user_id, class_item, allow_public=False)
+    if class_item:
+        _class_drill_dictation_config(user_id, class_item, test_id)
     return res.data[0]
 
 
@@ -6560,10 +6772,10 @@ def _dictation_attempt_or_404(
         .eq("id", attempt_id).eq("user_id", user_id).limit(1).execute()
     )
     if not res.data:
-        raise HTTPException(404, "Không tìm thấy lượt chép chính tả.")
+        raise HTTPException(404, "Không tìm thấy lượt chép chính tả.", headers={"Cache-Control": "private, no-store"})
     row = res.data[0]
     if require_in_progress and row.get("status") != "in_progress":
-        raise HTTPException(409, "Lượt chép chính tả này đã kết thúc.")
+        raise HTTPException(409, "Lượt chép chính tả này đã kết thúc.", headers={"Cache-Control": "private, no-store"})
     if require_in_progress:
         require_resume_active(row)
     return row
@@ -6624,6 +6836,25 @@ def _class_drill_dictation_config(user_id: str, class_item: str, test_id: str) -
     return config
 
 
+def _assert_class_dictation_report_allowed(row: dict, user_id: str) -> None:
+    """Authorize persisted results only, independently of live work gates.
+
+    Reports contain references already returned at completion. A deadline,
+    closed assignment, or departure from the class must not prevent recovery.
+    New submissions and transcript readers still use the full live gate.
+    """
+    if row.get("user_id") != user_id:
+        raise HTTPException(404, "Không tìm thấy phiên chép chính tả.")
+    if class_item := row.get("class_assignment_item_id"):
+        student = (supabase_admin.table("students").select("id")
+                   .eq("user_id", user_id).limit(1).execute().data)
+        owned = (supabase_admin.table("class_assignment_items").select("id")
+                 .eq("id", class_item).eq("student_id", student[0]["id"])
+                 .limit(1).execute().data) if student else []
+        if not owned:
+            raise HTTPException(404, "Bài tập không thuộc về học viên này")
+
+
 def _class_drill_dictation_done(class_item: str) -> dict[int, str]:
     from services.listening_drill_homework import evidence_by_item
 
@@ -6669,13 +6900,13 @@ def _find_in_progress_dictation_attempt(
 
 def _dictation_section_units_snapshot(test_id: str, section_num: int) -> list[dict]:
     sec_res = (
-        supabase_admin.table("listening_content").select("transcript,metadata")
+        supabase_admin.table("listening_content").select("id,transcript,metadata")
         .eq("test_id", test_id).eq("section_num", section_num)
         .limit(1).execute()
     )
     if not sec_res.data:
         raise HTTPException(404, "Section không có nội dung chép chính tả.")
-    units = _dictation_units(sec_res.data[0])
+    units = _dictation_units_for_content(sec_res.data[0])
     if not units:
         raise HTTPException(404, "Section không có nội dung chép chính tả.")
     return [
@@ -6698,7 +6929,7 @@ async def get_in_progress_dictation_attempt(
     class_item: str | None = None,
 ):
     user = await _require_auth(authorization)
-    _published_test_for_dictation(test_id, user.get("id"))
+    _published_test_for_dictation(test_id, user.get("id"), class_item)
     if class_item:
         await run_in_threadpool(_validate_class_dictation_section, user["id"], class_item, test_id, section_num)
     row = _find_in_progress_dictation_attempt(user["id"], test_id, section_num, class_item)
@@ -6717,7 +6948,7 @@ async def start_dictation_attempt(
 ):
     """Resume the one active section attempt, or create it without destroying progress."""
     user = await _require_auth(authorization)
-    _published_test_for_dictation(test_id, user.get("id"))
+    _published_test_for_dictation(test_id, user.get("id"), class_item)
     if class_item:
         await run_in_threadpool(_validate_class_dictation_section, user["id"], class_item, test_id, section_num)
     if class_item and section_num in await run_in_threadpool(_class_drill_dictation_done, class_item):
@@ -6814,6 +7045,8 @@ async def claim_dictation_attempt_renderer_affinity(
     owned_attempt = _dictation_attempt_or_404(
         str(attempt_id), user["id"], require_in_progress=True,
     )
+    await run_in_threadpool(_published_test_for_dictation, owned_attempt["test_id"], user["id"],
+                            owned_attempt.get("class_assignment_item_id"))
     try:
         result = supabase_admin.rpc(
             "fn_claim_dictation_attempt_renderer_affinity",
@@ -6859,7 +7092,8 @@ async def grade_and_save_dictation_attempt_sentence(
     if class_item := attempt.get("class_assignment_item_id"):
         await run_in_threadpool(_validate_class_dictation_section, user["id"], class_item,
                                 attempt["test_id"], attempt["section_num"])
-    _published_test_for_dictation(attempt["test_id"], user.get("id"))
+    _published_test_for_dictation(attempt["test_id"], user.get("id"),
+                                  attempt.get("class_assignment_item_id"))
     units = attempt.get("units_snapshot") or []
     if not units:
         raise HTTPException(409, "Lượt làm bài thiếu snapshot nội dung; vui lòng bắt đầu lại.")
@@ -7012,6 +7246,7 @@ async def submit_listening_dictation_session(
     if body.client_request_id:
         existing = _dictation_session_by_request(user["id"], body.client_request_id)
         if existing:
+            await run_in_threadpool(_assert_class_dictation_report_allowed, existing, user["id"])
             _assert_dictation_request_replay(existing, body, fingerprint)
             _mark_dictation_attempt_completed(existing, user["id"])
             if existing.get("attempt_id"):
@@ -7022,6 +7257,7 @@ async def submit_listening_dictation_session(
     if body.attempt_id:
         existing = _dictation_session_by_attempt(user["id"], body.attempt_id)
         if existing:
+            await run_in_threadpool(_assert_class_dictation_report_allowed, existing, user["id"])
             _assert_dictation_request_replay(existing, body, fingerprint)
             _mark_dictation_attempt_completed(existing, user["id"])
             bind_owned_attempt({"id": existing.get("attempt_id"), "user_id": user["id"]})
@@ -7042,16 +7278,18 @@ async def submit_listening_dictation_session(
         raise HTTPException(409, {"error_code": "dictation_versioned_attempt_required",
                                  "message": "Chính sách mới cần một lượt Dictation đã lưu; hãy tải lại."})
 
-    test = _published_test_for_dictation(body.test_id, user.get("id"))
+    test = _published_test_for_dictation(body.test_id, user.get("id"),
+                                          (attempt or {}).get("class_assignment_item_id"))
     sec_res = (
         supabase_admin.table("listening_content")
-        .select("title,transcript,metadata")
+        .select("id,title,transcript,metadata")
         .eq("test_id", body.test_id).eq("section_num", body.section_num)
         .limit(1).execute()
     )
     if not sec_res.data and not attempt:
         raise HTTPException(404, "Section không tồn tại cho test này.")
-    units = (attempt.get("units_snapshot") or []) if attempt else _dictation_units(sec_res.data[0])
+    units = ((attempt.get("units_snapshot") or []) if attempt
+             else await run_in_threadpool(_dictation_units_for_content, sec_res.data[0]))
     if not units:
         raise HTTPException(409, "Lượt làm bài thiếu snapshot nội dung; vui lòng bắt đầu lại.")
 
@@ -7142,6 +7380,7 @@ async def submit_listening_dictation_session(
             if not existing and body.attempt_id:
                 existing = _dictation_session_by_attempt(user["id"], body.attempt_id)
             if existing:
+                await run_in_threadpool(_assert_class_dictation_report_allowed, existing, user["id"])
                 _assert_dictation_request_replay(existing, body, fingerprint)
                 _mark_dictation_attempt_completed(existing, user["id"])
                 return _dictation_session_response(existing, test.get("title"))
@@ -7165,6 +7404,7 @@ async def get_listening_dictation_session_by_request(
     row = _dictation_session_by_request(user["id"], client_request_id)
     if not row:
         raise HTTPException(404, "Chưa tìm thấy phiên cho mã gửi này.")
+    await run_in_threadpool(_assert_class_dictation_report_allowed, row, user["id"])
     _mark_dictation_attempt_completed(row, user["id"])
     return _dictation_session_response(row)
 
@@ -7179,13 +7419,12 @@ async def get_listening_dictation_session(
     user = await _require_auth(authorization)
     res = (
         supabase_admin.table("dictation_sessions").select("*")
-        .eq("id", session_id).limit(1).execute()
+        .eq("id", session_id).eq("user_id", user["id"]).limit(1).execute()
     )
     if not res.data:
         raise HTTPException(404, "Không tìm thấy phiên chép chính tả.")
     row = res.data[0]
-    if row.get("user_id") != user["id"]:
-        raise HTTPException(403, "Phiên này thuộc người dùng khác.")
+    await run_in_threadpool(_assert_class_dictation_report_allowed, row, user["id"])
     return {**row, **_dictation_policy(session_contract, row)}
 
 
@@ -7201,6 +7440,7 @@ class DictationFlagRequest(BaseModel):
 async def flag_listening_dictation(
     body: DictationFlagRequest,
     authorization: str | None = Header(default=None),
+    class_item: str | None = None,
 ):
     """Report a content error in a dictation sentence. Reuses the shared
     user_feedback inbox (type='report', skill='listening') so it shows up in
@@ -7213,7 +7453,9 @@ async def flag_listening_dictation(
     if not category and not note:
         raise HTTPException(422, "Cần chọn loại lỗi hoặc nhập mô tả.")
 
-    test = _published_test_for_dictation(body.test_id, user.get("id"))
+    test = _published_test_for_dictation(body.test_id, user.get("id"), class_item)
+    if class_item:
+        await run_in_threadpool(_validate_class_dictation_section, user["id"], class_item, body.test_id, body.section_num)
     context = f"[chép chính tả · section {body.section_num}"
     context += f" · câu {body.sentence_idx + 1}]" if body.sentence_idx is not None else "]"
     flag_id = str(uuid.uuid4())
@@ -7507,8 +7749,9 @@ def _rows_by_id(
 
 
 def _attempt_public_shape(r: dict, users: dict, tests: dict) -> dict:
+    from services.listening_test_grader import scored_question_count
     gd = r.get("grading_details") or []
-    total_q = len(gd) or None
+    total_q = scored_question_count(gd) if gd else None
     score = r.get("score")
     u = users.get(r.get("user_id")) or {}
     t = tests.get(r.get("test_id")) or {}
@@ -7521,7 +7764,7 @@ def _attempt_public_shape(r: dict, users: dict, tests: dict) -> dict:
         "id":               r.get("id"),
         "status":           r.get("status"),
         "scoring_policy":   scoring_policy,
-        "score":            score,
+        **listening_score_fields(score, gd),
         "total_questions":  total_q,
         "accuracy":         (round(score / total_q, 4)
                              if score is not None and total_q else None),
@@ -7605,6 +7848,7 @@ async def admin_list_listening_attempts(
         q = q.in_("user_id", user_ids)
     if test_ids is not None:
         q = q.in_("test_id", test_ids)
+    q = await run_in_threadpool(blackeye.exclude_tests, supabase_admin, q, key="test_id")
     res = q.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
     rows = res.data or []
 
@@ -7632,6 +7876,7 @@ async def admin_get_listening_attempt(
     """Admin: chi tiết 1 lượt làm bài — per-question grading_details (học viên trả
     lời gì, đáp án, trap caught/missed) + trap_analytics + band ước lượng."""
     await require_admin(authorization)
+    await run_in_threadpool(blackeye.guard_generic_target, supabase_admin, attempt_id=attempt_id)
     res = (supabase_admin.table("listening_test_attempts").select("*")
            .eq("id", attempt_id).limit(1).execute())
     if not res.data:
@@ -7651,7 +7896,7 @@ async def admin_get_listening_attempt(
     return out
 
 
-@user_router.get("/tests/{test_id}/attempts/in-progress")
+@user_router.get("/tests/{test_id}/attempts/in-progress", response_model=BlackEyeInProgress | dict[str, Any])
 async def get_in_progress_listening_attempt(
     test_id: str,
     sitting_id: str | None = None,
@@ -7683,6 +7928,22 @@ async def get_in_progress_listening_attempt(
     user = await _require_auth(authorization)
     if standalone and (class_item or sitting_id):
         raise HTTPException(422, "standalone cannot be combined with class_item or sitting_id")
+    target = await run_in_threadpool(blackeye.test_identity, supabase_admin, test_id, missing_status=None)
+    if blackeye.is_blackeye(target):
+        await run_in_threadpool(blackeye.require_published, supabase_admin, target)
+        if class_item or sitting_id or not standalone:
+            blackeye.assignment_seam()
+        rows = await run_in_threadpool(lambda: (supabase_admin.table("listening_test_attempts").select("*")
+                .eq("user_id", user["id"]).eq("test_id", test_id)
+                .eq("status", "in_progress").is_("class_assignment_item_id", "null")
+                .is_("sitting_id", "null").order("created_at", desc=True).limit(1).execute().data or []))
+        if not rows:
+            raise HTTPException(404, "Black Eye attempt unavailable.")
+        from fastapi.encoders import jsonable_encoder
+        from starlette.responses import JSONResponse
+        state = await run_in_threadpool(blackeye.state, supabase_admin, rows[0])
+        return JSONResponse({"attempt": jsonable_encoder(state)},
+                            headers={"Cache-Control": "private, no-store"})
     query = (
         supabase_admin.table("listening_test_attempts")
         .select(
@@ -7752,7 +8013,7 @@ async def get_in_progress_listening_attempt(
     }
 
 
-@user_router.post("/tests/{test_id}/attempts")
+@user_router.post("/tests/{test_id}/attempts", response_model=BlackEyeAttemptState | dict[str, Any])
 @observe_operation("listening_test", "start", correlate_by=("test_id", "body", "class_item"))
 async def start_listening_test_attempt(
     test_id: str,
@@ -7780,7 +8041,7 @@ async def start_listening_test_attempt(
     test_res = (
         supabase_admin.table("listening_tests")
         .select("id,status,exam_only,is_public,public_practice_enabled,full_audio_storage_path,"
-                "assembled_audio_storage_path,scoring_policy,content_package_id,test_type")
+                "assembled_audio_storage_path,scoring_policy,content_package_id,test_type,programme_id,metadata")
         .eq("id", test_id)
         .limit(1)
         .execute()
@@ -7788,6 +8049,17 @@ async def start_listening_test_attempt(
     if not test_res.data or test_res.data[0].get("status") != "published":
         raise HTTPException(404, "Test bundle not found or not published")
     test_row = test_res.data[0]
+    if blackeye.is_blackeye(test_row):
+        # Reuse the trusted row; no second test read or generic assembler.
+        result = await run_in_threadpool(blackeye.start, supabase_admin, test_row, user["id"], body.blackeye_binding if body else None,
+            standalone=standalone, class_item=class_item, purpose=body.purpose if body else None,
+            sitting_id=body.mock_sitting_id if body else None,
+            protocol=body.renderer_affinity_protocol if body else None)
+        from fastapi.encoders import jsonable_encoder
+        from starlette.responses import JSONResponse
+        return JSONResponse(jsonable_encoder(result), headers={"Cache-Control": "private, no-store"})
+    if body and body.blackeye_binding is not None:
+        raise HTTPException(422, "Black Eye binding does not match target.")
     decision = _assert_listening_exam_content_allowed(test_row, user.get("id"), class_item,
         purpose=body.purpose if body and body.purpose else "delivery",
         sitting_id=body.mock_sitting_id if body else None, allow_admission=True)
@@ -7967,7 +8239,7 @@ def _fetch_attempt_or_404(attempt_id: str, user_id: str) -> dict:
         .execute()
     )
     if not res.data:
-        raise HTTPException(404, "Attempt not found")
+        raise HTTPException(404, "Attempt not found", headers={"Cache-Control": "private, no-store"})
     row = res.data[0]
     return row
 
@@ -8013,18 +8285,23 @@ def _record_skill_drill_playback(attempt_id: str, body: DrillPlaybackCheckpoint,
     attempt = lookup(attempt_id, user_id)
     item_id = attempt.get("class_assignment_item_id")
     if not item_id:
-        raise HTTPException(404, "Lượt làm không thuộc bài luyện kỹ năng được giao.")
+        raise HTTPException(404, "Lượt làm không thuộc bài luyện kỹ năng được giao.", headers={"Cache-Control": "private, no-store"})
+    if body.stage == "listening":
+        if blackeye.attempt_is_blackeye(supabase_admin, attempt):
+            raise HTTPException(404, "Black Eye resource unavailable.", headers={"Cache-Control": "private, no-store"})
+    else:
+        blackeye.guard_generic_target(supabase_admin, test_id=attempt.get("test_id"))
     if attempt.get("status") != "in_progress":
-        raise HTTPException(409, "Lượt làm bài đã kết thúc.")
+        raise HTTPException(409, "Lượt làm bài đã kết thúc.", headers={"Cache-Control": "private, no-store"})
     try:
         assignment = validate_class_item_for_test(
             supabase_admin, user_id, item_id, skill="listening", test_id=attempt["test_id"])
     except (ItemNotFoundError, TaskMismatchError) as exc:
-        raise HTTPException(404, str(exc)) from exc
+        raise HTTPException(404, str(exc), headers={"Cache-Control": "private, no-store"}) from exc
     except DeadlinePassedError as exc:
-        raise HTTPException(409, str(exc)) from exc
+        raise HTTPException(409, str(exc), headers={"Cache-Control": "private, no-store"}) from exc
     if drill_config(assignment) is None:
-        raise HTTPException(404, "Lượt làm không thuộc bài luyện kỹ năng được giao.")
+        raise HTTPException(404, "Lượt làm không thuộc bài luyện kỹ năng được giao.", headers={"Cache-Control": "private, no-store"})
     try:
         supabase_admin.rpc("fn_record_listening_drill_playback_v2", {
             "p_item_id": item_id, "p_stage": body.stage, "p_attempt_id": attempt_id,
@@ -8032,9 +8309,9 @@ def _record_skill_drill_playback(attempt_id: str, body: DrillPlaybackCheckpoint,
         }).execute()
     except APIError as exc:
         if exc.code == "55000" and exc.message == "skill_drill_attempt_inactive":
-            raise HTTPException(409, "Lượt làm bài đã kết thúc.") from exc
+            raise HTTPException(409, "Lượt làm bài đã kết thúc.", headers={"Cache-Control": "private, no-store"}) from exc
         if exc.code == "55000" and exc.message == "skill_drill_checkpoint_scope":
-            raise HTTPException(404, "Không tìm thấy trang phát audio của lượt làm bài.") from exc
+            raise HTTPException(404, "Không tìm thấy trang phát audio của lượt làm bài.", headers={"Cache-Control": "private, no-store"}) from exc
         raise
 
 @user_router.post("/tests/attempts/{attempt_id}/playback-started")
@@ -8053,6 +8330,8 @@ async def acknowledge_listening_attempt_playback_started(
     """
     user = await _require_auth(authorization)
     attempt = _fetch_attempt_or_404(str(attempt_id), user["id"])
+    if await run_in_threadpool(blackeye.attempt_is_blackeye, supabase_admin, attempt):
+        raise HTTPException(503, "Black Eye player contract unavailable.")
     if attempt.get("status") != "in_progress":
         raise HTTPException(422, "Attempt không còn hoạt động.")
     require_resume_active(attempt)
@@ -8113,6 +8392,8 @@ async def claim_listening_attempt_renderer_affinity(
     """Claim a stable Listening player on first boot; never move it later."""
     user = await _require_auth(authorization)
     owned_attempt = _fetch_attempt_or_404(str(attempt_id), user["id"])
+    if await run_in_threadpool(blackeye.attempt_is_blackeye, supabase_admin, owned_attempt):
+        raise HTTPException(503, "Black Eye player contract unavailable.")
     require_resume_active(owned_attempt)
     try:
         result = supabase_admin.rpc(
@@ -8151,9 +8432,9 @@ async def _is_admin(authorization: str | None) -> bool:
     and the analogous helper added to reading_student.py, 2026-07-12)."""
     if not authorization:
         return False
-    from routers.admin import require_admin
+    from routers.admin import require_admin as _staff_admin_guard
     try:
-        await require_admin(authorization)
+        await _staff_admin_guard(authorization)
         return True
     except Exception:
         return False
@@ -8171,8 +8452,10 @@ def _mock_sealed(attempt: dict) -> bool:
     return mock_exam_service.is_sealed(sitting_id)
 
 
-@user_router.patch("/tests/attempts/{attempt_id}/answers")
-@observe_operation("listening_test", "save", correlate_by=("attempt_id", "body"))
+@user_router.patch("/tests/attempts/{attempt_id}/answers", response_model=BlackEyeSaveAck | dict[str, Any])
+# This shared route accepts Black Eye answers: retry correlation must never
+# retain an answer-derived digest. The client operation ID scopes each intent.
+@observe_operation("listening_test", "save", correlate_by=("attempt_id",))
 async def patch_listening_test_attempt_answer(
     attempt_id: str,
     body: TestAttemptAnswerPatchRequest,
@@ -8192,6 +8475,11 @@ async def patch_listening_test_attempt_answer(
     user = await _require_auth(authorization)
     attempt = _fetch_attempt_or_404(attempt_id, user["id"])   # ownership gate
     bind_owned_attempt(attempt)
+    if await run_in_threadpool(blackeye.attempt_is_blackeye, supabase_admin, attempt):
+        from starlette.responses import JSONResponse
+        saved = await run_in_threadpool(blackeye.save, supabase_admin, attempt, body.q_num, body.user_answer)
+        ack = BlackEyeSaveAck.model_validate(saved)
+        return JSONResponse(ack.model_dump(), headers={"Cache-Control": "private, no-store"})
     if attempt.get("status") != "in_progress":
         raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể edit.")
     require_resume_active(attempt)
@@ -8288,6 +8576,8 @@ def _practice_exercise_payloads(test_id: str, *, published_only: bool = False) -
 
 def _programme_guided_context(attempt: dict) -> tuple[dict, list[dict]]:
     """Check the report-only programme boundary before reading protected keys."""
+    if blackeye.attempt_is_blackeye(supabase_admin, attempt):
+        raise HTTPException(422, "Black Eye guided feedback unavailable.")
     if attempt.get("status") != "in_progress":
         raise HTTPException(409, "Bài luyện đã kết thúc; hãy mở phần đối chiếu sau bài.")
     require_resume_active(attempt)
@@ -8353,7 +8643,7 @@ async def get_listening_programme_guided_state(
     user = await _require_auth(authorization)
     attempt_id_str = str(attempt_id)
     attempt = _fetch_attempt_or_404(attempt_id_str, user["id"])
-    test, exercise_rows = _programme_guided_context(attempt)
+    test, exercise_rows = await run_in_threadpool(_programme_guided_context, attempt)
     result = (
         supabase_admin.table("listening_programme_feedback_reveals")
         .select("q_num,first_answer,revealed_at")
@@ -8384,7 +8674,7 @@ async def reveal_listening_programme_question(
     user = await _require_auth(authorization)
     attempt_id_str = str(attempt_id)
     attempt = _fetch_attempt_or_404(attempt_id_str, user["id"])
-    test, exercise_rows = _programme_guided_context(attempt)
+    test, exercise_rows = await run_in_threadpool(_programme_guided_context, attempt)
     if q_num <= 0:
         raise HTTPException(422, "Câu hỏi không hợp lệ.")
     # Reject broken/missing authored keys before recording any reveal. The RPC
@@ -8448,6 +8738,9 @@ async def get_practice_audio_windows(
     exam guarantee is unchanged and this exception stays visible in one place.
     """
     _user = await _require_auth(authorization)
+    target = await run_in_threadpool(blackeye.test_identity, supabase_admin, test_id, missing_status=None)
+    if blackeye.is_blackeye(target):
+        raise HTTPException(503, "Black Eye player contract unavailable.")
 
     res = (
         supabase_admin.table("listening_tests")
@@ -8516,6 +8809,8 @@ async def check_listening_practice_answer(
 
     user = await _require_auth(authorization)
     attempt = _fetch_attempt_or_404(attempt_id, user["id"])       # ownership gate
+    if await run_in_threadpool(blackeye.attempt_is_blackeye, supabase_admin, attempt):
+        raise HTTPException(422, "Black Eye practice feedback unavailable.")
     if attempt.get("sitting_id") or attempt.get("attempt_purpose") == "mock_delivery":
         raise HTTPException(404, "Practice feedback unavailable")
     if not body.reveal:
@@ -8660,7 +8955,7 @@ async def check_listening_practice_answer(
     return out
 
 
-@user_router.post("/tests/attempts/{attempt_id}/submit")
+@user_router.post("/tests/attempts/{attempt_id}/submit", response_model=BlackEyeAttemptState | dict[str, Any])
 @observe_operation("listening_test", "submit", correlate_by=("attempt_id",))
 async def submit_listening_test_attempt(
     attempt_id: str,
@@ -8677,6 +8972,12 @@ async def submit_listening_test_attempt(
     user = await _require_auth(authorization)
     attempt = _fetch_attempt_or_404(attempt_id, user["id"])
     bind_owned_attempt(attempt)
+    if await run_in_threadpool(blackeye.attempt_is_blackeye, supabase_admin, attempt):
+        from fastapi.encoders import jsonable_encoder
+        from starlette.responses import JSONResponse
+        result = await run_in_threadpool(blackeye.submit, supabase_admin, attempt, user["id"])
+        return JSONResponse(jsonable_encoder(result),
+                            headers={"Cache-Control": "private, no-store"})
     if attempt.get("status") == "submitted":
         if (attempt.get("scoring_policy") or "diagnostic") == "report_only":
             exercise_rows = _practice_exercise_payloads(attempt["test_id"])
@@ -8861,8 +9162,7 @@ async def submit_listening_test_attempt(
 
     return {
         "attempt_id":        attempt_id,
-        "score":             result["score"],
-        "max_score":         result["max_score"],
+        **grader.score_fields(result["score"], result["per_question"]),
         "band_estimate":     result["band_estimate"],
         "section_breakdown": result["section_breakdown"],
         "trap_analytics":    result["trap_analytics"],
@@ -8871,7 +9171,7 @@ async def submit_listening_test_attempt(
     }
 
 
-@user_router.get("/tests/attempts/{attempt_id}")
+@user_router.get("/tests/attempts/{attempt_id}", response_model=BlackEyeAttemptState | dict[str, Any])
 async def get_listening_test_attempt(
     attempt_id: str,
     authorization: str | None = Header(default=None),
@@ -8882,13 +9182,20 @@ async def get_listening_test_attempt(
     """
     user = await _require_auth(authorization)
     attempt = _fetch_attempt_or_404(attempt_id, user["id"])
+    if await run_in_threadpool(blackeye.attempt_is_blackeye, supabase_admin, attempt):
+        from fastapi.encoders import jsonable_encoder
+        from starlette.responses import JSONResponse
+        result = await run_in_threadpool(blackeye.state, supabase_admin, attempt)
+        return JSONResponse(jsonable_encoder(result),
+                            headers={"Cache-Control": "private, no-store"})
     if _mock_sealed(attempt):
         raise HTTPException(403, "Kết quả đang chờ giám khảo duyệt.")
     return {
         "attempt_id":      attempt["id"],
         "test_id":         attempt["test_id"],
         "status":          attempt["status"],
-        "score":           attempt.get("score"),
+        **listening_score_fields(
+            attempt.get("score"), attempt.get("grading_details") or []),
         "band_estimate":   attempt.get("band_estimate"),
         "answers":         attempt.get("answers") or [],
         "grading_details": attempt.get("grading_details") or [],
@@ -9102,10 +9409,14 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
             "q_num":         q,
             "state":         g.get("state"),
             "correct":       g.get("correct"),
+            **({"self_check": True, "alternatives": g.get("alternatives") or []}
+               if g.get("self_check") else {}),
             "user_answer":   g.get("user_answer") or "",
             "expected":      g.get("expected") or "",
             "question_type": type_by_q.get(q),
             "prompt":        prompt_by_q.get(q),
+            **({"printed_value": (source_questions_by_q.get(q) or {}).get("printed_value", prompt_by_q.get(q))}
+               if type_by_q.get(q) == "keep_change" else {}),
             "audio_window":  win,                       # {start,end,section} — absolute (full) / section-relative (mini)
             "section":       (win or {}).get("section"),
             "transcript_anchor": anchors_by_q.get(solution_q),
@@ -9142,8 +9453,7 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
         "test_id":         test_row.get("test_id"),
         "title":           test_row.get("title"),
         "status":          attempt.get("status"),
-        "score":           attempt.get("score"),
-        "max_score":       len(review),
+        **listening_score_fields(attempt.get("score"), attempt.get("grading_details") or []),
         "band_estimate":   attempt.get("band_estimate"),
         "scoring_policy":  scoring_policy,
         "assisted":        bool(first_answers_by_q),
@@ -9176,7 +9486,7 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
 
 @user_router.get(
     "/tests/attempts/{attempt_id}/review",
-    response_model=ListeningAttemptReviewResponse,
+    response_model=BlackEyeActivityReview | ListeningAttemptReviewResponse,
 )
 async def get_listening_test_attempt_review(
     attempt_id: uuid.UUID,
@@ -9204,10 +9514,22 @@ async def get_listening_test_attempt_review(
             "id", attempt_id,
         ).limit(1).execute()
         if not res.data:
-            raise HTTPException(404, "Attempt not found")
+            raise HTTPException(404, "Attempt not found", headers={"Cache-Control": "private, no-store"})
         attempt = res.data[0]
     else:
         attempt = _fetch_attempt_or_404(attempt_id, user["id"])
+    if attempt.get("user_id") != user["id"]:
+        target = await run_in_threadpool(blackeye.test_identity, supabase_admin, attempt["test_id"], missing_status=None)
+        if blackeye.is_blackeye(target):
+            raise HTTPException(404, "Attempt not found", headers={"Cache-Control": "private, no-store"})
+    if await run_in_threadpool(blackeye.attempt_is_blackeye, supabase_admin, attempt):
+        from fastapi.encoders import jsonable_encoder
+        from starlette.responses import JSONResponse
+        if attempt.get("user_id") != user["id"]:
+            raise HTTPException(404, "Attempt not found", headers={"Cache-Control": "private, no-store"})
+        result = await run_in_threadpool(blackeye.review, supabase_admin, attempt)
+        return JSONResponse(jsonable_encoder(result),
+                            headers={"Cache-Control": "private, no-store"})
     if attempt.get("status") != "submitted":
         raise HTTPException(409, "Chưa có chữa bài — attempt chưa submit.")
     if not is_admin and _mock_sealed(attempt):
@@ -9224,3 +9546,13 @@ async def get_listening_test_attempt_review(
             )
 
     return _assemble_listening_review(attempt, attempt_id)
+
+
+@user_router.get("/source-collections/blackeye-v5-upper/units/U1", response_model=BlackEyeUnitPublic)
+async def get_blackeye_unit(authorization: str | None = Header(default=None)):
+    await _require_auth(authorization)
+    from fastapi.encoders import jsonable_encoder
+    from starlette.responses import JSONResponse
+    inventory = await run_in_threadpool(blackeye.public_inventory, supabase_admin)
+    unit = BlackEyeUnitPublic.model_validate(inventory)
+    return JSONResponse(jsonable_encoder(unit), headers={"Cache-Control": "private, no-store"})

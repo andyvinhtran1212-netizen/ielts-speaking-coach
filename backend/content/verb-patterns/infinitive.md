@@ -100,6 +100,7 @@ Trong IELTS Speaking và Writing, bạn cần to-infinitive để:
 | to have | có |
 
 > **Phân biệt "to" giới từ và "to" infinitive:**
+>
 > - "I walk **to** school." → to = giới từ (chỉ hướng)
 > - "I want **to go** to school." → to go = to-infinitive (sau want)
 
@@ -181,6 +182,7 @@ Dùng to-infinitive thay cho "in order to" — ngắn gọn hơn, tự nhiên h�
 - Governments must invest in education **in order to** reduce inequality.
 
 > **Lưu ý:** Không dùng "for + to-infinitive" để diễn tả mục đích khi chủ ngữ không thay đổi.
+>
 > - ❌ SAI: I study **for to improve** my English.
 > - ✅ ĐÚNG: I study **to improve** my English.
 

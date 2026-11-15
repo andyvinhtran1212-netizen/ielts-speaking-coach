@@ -789,7 +789,7 @@ jobs:
 
   browser-regression:
     name: Next-native browser regression
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     # Job LUÔN chạy và luôn báo check (check bắt buộc của staging): skip ở mức job
     # thì GitHub báo «skipped»; ở đây PR ngoài danh sách chỉ chạy bước báo bỏ qua
@@ -1664,7 +1664,7 @@ jobs:
   # on 3211 and stubs every API call, so no fixture API is needed.
   reading-native-layout:
     name: Reading-native layout (FR-018)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     # Không bắt buộc: skip ở mức job khi PR không chạm danh sách (`changes`).
     needs: changes

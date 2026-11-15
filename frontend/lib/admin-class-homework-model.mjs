@@ -191,6 +191,10 @@ export function validateHomeworkDraft(draft, catalog = [], questions = [], quest
     body.listening_skill_drill = true;
     body.dictation_required = draft.dictationRequired === true;
   }
+  if (draft.kind === 'daily' && draft.skill === 'listening'
+      && draft.listeningLibrary !== 'drill' && draft.deliveryMode === 'assigned_practice') {
+    body.dictation_mode = ['optional', 'required'].includes(draft.dictationMode) ? draft.dictationMode : 'none';
+  }
   if (draft.kind === 'lesson') {
     body.mode = draft.mode;
     body.due_days = Number(draft.dueDays);

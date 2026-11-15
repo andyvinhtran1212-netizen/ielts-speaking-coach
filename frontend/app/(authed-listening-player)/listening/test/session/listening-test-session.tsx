@@ -15,6 +15,7 @@ import {
   listeningDictationHref,
   listeningInlineTokens,
   listeningInstructionParts,
+  listeningKeepChangeAnswer,
   listeningLibraryHref,
   listeningQuestions,
   listeningRendererHref,
@@ -322,6 +323,27 @@ function FlowChartTemplate({ payload, answers, onAnswer }: {
   </div>;
 }
 
+function KeepChangeTemplate({ questions, answers, onAnswer }: {
+  questions: any[]; answers: AnswerMap; onAnswer(q: number, v: string): void;
+}) {
+  return <div className="listening-keep-change">{questions.map((question) => {
+    const qNum = Number(question.q_num);
+    const answer = listeningKeepChangeAnswer(answers.get(qNum));
+    return <fieldset key={qNum} id={`q-${qNum}`} data-q-num={qNum}>
+      <legend><span className="ielts-question-num">{qNum}</span> <InlineText text={question.printed_value ?? question.prompt} /></legend>
+      <div className="listening-keep-change-choices">{['KEEP', 'CHANGE'].map((choice) => <label key={choice}>
+        <input type="radio" name={`keep-change-${qNum}`} value={choice} checked={answer.choice === choice}
+          aria-label={`${choice} — Question ${qNum}`}
+          onChange={() => onAnswer(qNum, choice === 'KEEP' ? 'KEEP' : 'CHANGE: ')} /> {choice}
+      </label>)}</div>
+      <label htmlFor={`keep-change-text-${qNum}`}>Corrected value — Question {qNum}</label>
+      <input type="text" id={`keep-change-text-${qNum}`} className="ft-q-input" data-q-num={qNum}
+        autoComplete="off" spellCheck={false} disabled={answer.choice !== 'CHANGE'} required={answer.choice === 'CHANGE'}
+        value={answer.text} onChange={(event) => onAnswer(qNum, `CHANGE: ${event.target.value}`)} />
+    </fieldset>;
+  })}</div>;
+}
+
 function Exercise({ exercise, answers, saveStates, onAnswer }: {
   exercise: any; answers: AnswerMap; saveStates: SaveMap; onAnswer(q: number, v: string): void;
 }) {
@@ -332,7 +354,8 @@ function Exercise({ exercise, answers, saveStates, onAnswer }: {
   const first = Number(questions[0]?.q_num || 0);
   const last = Number(questions.at(-1)?.q_num || first);
   let content: ReactNode;
-  if (kind === 'form_completion' && Array.isArray(template.rows)) content = <FormTemplate template={template} answers={answers} onAnswer={onAnswer} />;
+  if (kind === 'keep_change') content = <KeepChangeTemplate questions={questions} answers={answers} onAnswer={onAnswer} />;
+  else if (kind === 'form_completion' && Array.isArray(template.rows)) content = <FormTemplate template={template} answers={answers} onAnswer={onAnswer} />;
   else if (kind === 'table_completion' && Array.isArray(template.rows)) content = <TableTemplate template={template} answers={answers} onAnswer={onAnswer} />;
   else if (kind === 'notes_completion' && Array.isArray(template.groups)) content = <NotesTemplate template={template} answers={answers} onAnswer={onAnswer} />;
   else if (kind === 'summary_completion') content = <SummaryTemplate template={template} questions={questions} answers={answers} onAnswer={onAnswer} />;
@@ -360,16 +383,21 @@ function Exercise({ exercise, answers, saveStates, onAnswer }: {
   </section>;
 }
 
-function ResultView({ result, attempt, test, from, sittingId, classItem }: {
+export function ResultView({ result, attempt, test, from, sittingId, classItem }: {
   result: any; attempt: Attempt | null; test: ListeningTest; from: string | null; sittingId: string | null; classItem?: string | null;
 }) {
   const drill = classItem ? test.skill_drill_homework : null;
   const drillDictationHref = drill?.sections?.length
-    ? `/listening/dictation/session?test_id=${encodeURIComponent(test.id)}&class_item=${encodeURIComponent(classItem!)}` : null;
+    ? listeningDictationHref(test.id, classItem) : null;
   const rows = Array.isArray(result?.per_question) ? result.per_question : [];
-  const maxScore = Number(result?.max_score ?? rows.length) || rows.length;
+  const scoredRows = rows.filter((row: any) => !row.self_check);
+  const maxScore = Number(result?.max_score ?? scoredRows.length);
   const score = Number.isFinite(Number(result?.score)) ? Number(result.score) : rows.filter((row: any) => row.correct).length;
-  const outcomes = examResultOutcomes(rows);
+  const selfCheckCount = Number(result?.self_check_count ?? rows.filter((row: any) => row.self_check).length);
+  const selfCheckOnly = result?.score_mode === 'self_check_only' || (rows.length > 0 && maxScore === 0);
+  const mixed = result?.score_mode === 'mixed' || (maxScore > 0 && selfCheckCount > 0);
+  const bandLabel = selfCheckOnly ? 'Không chấm điểm' : mixed ? `Không quy đổi band · ${selfCheckCount} câu tự đối chiếu` : maxScore !== 40 ? 'Không quy đổi band' : result?.band_estimate == null ? '<4.0' : Number(result.band_estimate).toFixed(1);
+  const outcomes = examResultOutcomes(scoredRows);
   const accuracy = maxScore ? Math.round((score / maxScore) * 100) : 0;
   const sections = Object.entries(result?.section_breakdown || {});
   return <main className="exam-result-shell listening-next-result">
@@ -377,28 +405,29 @@ function ResultView({ result, attempt, test, from, sittingId, classItem }: {
       <header className="exam-result-heading"><div><p className="exam-result-eyebrow">LISTENING · FULL TEST COMPLETE</p><h1 id="listening-result-title">Test results</h1><p>{test.title}</p></div><span className="exam-result-status">{drill?.dictation_required ? "Đã nộp phần nghe · Còn chép chính tả" : "Submitted"}</span></header>
 
       <section className="exam-result-hero" aria-label="Results overview">
-        <div className="exam-result-band"><span>Estimated band</span><strong>{result?.band_estimate == null ? '<4.0' : Number(result.band_estimate).toFixed(1)}</strong><small>Practice result</small></div>
-        <div className="exam-result-metrics">
+        <div className="exam-result-band"><span>Estimated band</span><strong>{bandLabel}</strong><small>Practice result</small></div>
+        {selfCheckOnly ? <p>Đã hoàn thành · {selfCheckCount} câu tự đối chiếu</p> : <div className="exam-result-metrics">
           <div><span>Correct</span><strong>{score}<small>/{maxScore}</small></strong></div>
-          <div><span>Accuracy</span><strong>{accuracy}<small>%</small></strong></div>
+          <div><span>Accuracy</span><strong>{maxScore === 0 ? '—' : <>{accuracy}<small>%</small></>}</strong></div>
           <div><span>Incorrect</span><strong>{outcomes.incorrect}</strong></div>
           <div><span>Unanswered</span><strong>{outcomes.unanswered}</strong></div>
-        </div>
+        </div>}
       </section>
 
-      {sections.length ? <section className="exam-result-parts" aria-labelledby="listening-result-parts"><div className="exam-result-section-heading"><div><p>SECTION BREAKDOWN</p><h2 id="listening-result-parts">Results by part</h2></div></div><div className="exam-result-part-grid">{sections.map(([key, value]: [string, any], index) => {
+      {!selfCheckOnly && sections.length ? <section className="exam-result-parts" aria-labelledby="listening-result-parts"><div className="exam-result-section-heading"><div><p>SECTION BREAKDOWN</p><h2 id="listening-result-parts">Results by part</h2></div></div><div className="exam-result-part-grid">{sections.map(([key, value]: [string, any], index) => {
         const total = Number(value?.total || 0);
         const correct = Number(value?.correct || 0);
         const sectionNumber = Number(String(key).match(/\d+/)?.[0]) || index + 1;
         return <div className="exam-result-part" key={key}><div><span>Part {sectionNumber}</span><strong>{correct}/{total}</strong></div><div className="exam-result-progress" aria-label={`Part ${sectionNumber}: ${correct} correct out of ${total}`}><span style={{ width: `${total ? Math.round((correct / total) * 100) : 0}%` }} /></div></div>;
       })}</div></section> : null}
 
-      <section className="exam-result-review-card" aria-labelledby="listening-result-review-title"><div className="exam-result-section-heading"><div><p>QUESTION MAP</p><h2 id="listening-result-review-title">Overview of {maxScore} questions</h2></div><div className="exam-result-legend" aria-label="Legend"><span className="is-correct" />Correct <span className="is-wrong" />Incorrect <span className="is-empty" />Unanswered</div></div><div className="exam-result-question-map">{rows.map((row: any) => {
+      <section className="exam-result-review-card" aria-labelledby="listening-result-review-title"><div className="exam-result-section-heading"><div><p>QUESTION MAP</p><h2 id="listening-result-review-title">Overview of {rows.length} questions</h2></div>{!selfCheckOnly && <div className="exam-result-legend" aria-label="Legend"><span className="is-correct" />Correct <span className="is-wrong" />Incorrect <span className="is-empty" />Unanswered</div>}</div><div className="exam-result-question-map">{rows.map((row: any) => {
+        if (row.self_check) return <span aria-label={`Question ${row.q_num}: Tự đối chiếu`} key={row.q_num}>{row.q_num}</span>;
         const empty = !String(row.user_answer ?? '').trim();
         return <span className={empty ? 'is-empty' : row.correct ? 'is-correct' : 'is-wrong'} aria-label={`Question ${row.q_num}: ${empty ? 'unanswered' : row.correct ? 'correct' : 'incorrect'}`} key={row.q_num}>{row.q_num}</span>;
       })}</div></section>
 
-      <section className="exam-result-next-step"><div><p className="exam-result-eyebrow">NEXT STEP</p><h2>{examResultNextStepTitle(outcomes, 'Review the transcript and explanations')}</h2><p>Replay the relevant audio and compare the transcript and explanations for each question.</p></div><div className="exam-result-actions">{attempt ? <a className="ft-control-btn" href={listeningReviewHref(attempt.attempt_id, from)}>Review answers <span aria-hidden="true">→</span></a> : null}{drillDictationHref ? <a className="ft-control-btn" href={drillDictationHref}>{drill.dictation_required ? 'Làm phần chép chính tả bắt buộc' : 'Chép chính tả (tùy chọn)'}</a> : !drill && <a className="ft-control-btn ghost" href={listeningDictationHref(test.id)}>Dictation practice</a>}<a className="ft-control-btn ghost" href={listeningLibraryHref(from, sittingId)}>Back to tests</a></div></section>
+      <section className="exam-result-next-step"><div><p className="exam-result-eyebrow">NEXT STEP</p><h2>{selfCheckOnly ? 'Đối chiếu đáp án' : examResultNextStepTitle(outcomes, 'Review the transcript and explanations')}</h2><p>Replay the relevant audio and compare the transcript and explanations for each question.</p></div><div className="exam-result-actions">{attempt ? <a className="ft-control-btn" href={listeningReviewHref(attempt.attempt_id, from)}>{selfCheckOnly ? 'Đối chiếu đáp án' : 'Review answers'} <span aria-hidden="true">→</span></a> : null}{drillDictationHref ? <a className="ft-control-btn" href={drillDictationHref}>{drill.dictation_required ? 'Làm phần chép chính tả bắt buộc' : 'Chép chính tả (tùy chọn)'}</a> : !classItem && !drill && <a className="ft-control-btn ghost" href={listeningDictationHref(test.id)}>Dictation practice</a>}<a className="ft-control-btn ghost" href={listeningLibraryHref(from, sittingId)}>Back to tests</a></div></section>
     </section>
   </main>;
 }

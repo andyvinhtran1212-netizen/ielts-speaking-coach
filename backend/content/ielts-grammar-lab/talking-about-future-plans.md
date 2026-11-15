@@ -166,6 +166,7 @@ am/is/are + V-ing
 - "**We're moving** to a new apartment in June."
 
 > **So sánh be going to vs Present Continuous:**
+>
 > - "I'**m going to** look for a new job." (ý định, chưa có cụ thể)
 > - "I'**m starting** a new job on Monday." (đã sắp xếp cụ thể)
 

@@ -78,6 +78,7 @@ class _Query:
 class _DB:
     def __init__(self, attempt):
         self.tables = {
+            "listening_tests": [{"id": attempt["test_id"], "programme_id": "ielts"}],
             "listening_test_attempts": [copy.deepcopy(attempt)],
             "cohorts": [dict(ACTIVE)],
             "class_assignment_items": [{"id": "item-1", "assignment_id": "a1"}],

@@ -18,6 +18,10 @@ _SECRET_QUERY_NAMES = frozenset({
 
 def _redact_target(target: str) -> str:
     path, separator, query = target.partition("?")
+    # Listening request targets can carry learner text in arbitrary query keys.
+    # Log a fixed surface, never a client-controlled path/query (FR-026).
+    if "/listening" in unquote_plus(path).lower():
+        return "/listening/[private]"
     path = _SHARE_PATH.sub(r"\1<redacted>", path)
     if not separator:
         return path

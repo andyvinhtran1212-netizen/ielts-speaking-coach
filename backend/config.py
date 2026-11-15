@@ -88,6 +88,9 @@ def _bounded_int_or_default(name: str, value, low: int, high: int, default: int)
 
 
 class Settings(BaseSettings):
+    # Black Eye imports require this opt-in AND the future M-A readiness RPC.
+    RESTRICTED_NAMESPACE_READY: bool = False
+
     # App
     APP_NAME: str = "IELTS Speaking Coach"
     ENVIRONMENT: str = "development"

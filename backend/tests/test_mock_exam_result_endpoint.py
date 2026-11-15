@@ -5,6 +5,8 @@ which mock-result.html uses to link the student into the detailed chữa bài
 for each skill once results are released."""
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
 from fastapi.testclient import TestClient
 
 
@@ -301,6 +303,32 @@ def test_lr_banded_skill_needs_no_excuse():
     assert st["state"] == "scored"
 
 
+def test_lr_listening_max_excludes_self_check_but_preserves_answered():
+    details = _q(3, total=10)
+    details[0]["self_check"] = True
+    details[-1]["self_check"] = True
+    st = _lr(l_id="la-1", row={"score": 0, "band_estimate": None,
+                              "grading_details": details})
+    assert st["max"] == 8
+    assert st["answered"] == 3
+    assert st["state"] == "mixed_no_band"
+    assert st["self_check_count"] == 2
+
+
+def test_lr_reading_max_keeps_all_grading_rows():
+    from services import mock_exam_service as svc
+
+    db = MagicMock()
+    db.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value.data = [
+        {"score": 0, "band_estimate": None,
+         "grading_details": [{"user_answer": "x", "self_check": True}, {"user_answer": "y"}]},
+    ]
+    with patch.object(svc, "supabase_admin", db):
+        st, = svc.lr_skill_states({"assigned_skills": ["reading"], "reading_attempt_id": "ra-1"})
+    assert st["max"] == 2
+    assert st["answered"] == 2
+
+
 def test_lr_dangling_attempt_id_reads_as_never_received_not_blank():
     """A sitting pointing at an attempt that isn't there is broken data — calling
     it a blank paper would blame the student for our bug."""
@@ -334,3 +362,16 @@ def test_sitting_lr_skills_falls_back_to_the_exam_config():
     with _p.object(svc, "get_published_exam_by_id",
                    return_value={"reading_test_id": "r-1", "listening_test_id": None}):
         assert svc._sitting_lr_skills({"mock_exam_id": "ex-1"}) == {"reading"}
+
+
+@pytest.mark.parametrize("answered", [0, 3])
+def test_self_check_mode_precedes_blank_below_table_and_stale_band(answered):
+    details = [{**row, "self_check": True} for row in _q(answered, total=3)]
+    st = _lr(l_id="la-1", row={"score": 0, "band_estimate": 4.0, "grading_details": details})
+    assert st["state"] == "self_check_only"
+    assert st["score"] is None and st["max"] == 0 and st["self_check_count"] == 3
+
+
+def test_short_scored_paper_is_not_below_band_table_even_with_a_historical_band():
+    st = _lr(l_id="la-1", row={"score": 12, "band_estimate": 4.0, "grading_details": _q(12, total=12)})
+    assert st["state"] == "no_band" and st["max"] == 12

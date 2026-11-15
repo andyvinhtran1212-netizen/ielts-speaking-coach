@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+import { ExerciseBookLearnerEntry } from '@/components/exercise-book/exercise-book-entry';
 import { useAuth } from '@/lib/auth/auth-provider';
 import type { ApiPostJson } from '@/lib/openapi-contract';
 import {
@@ -697,6 +698,7 @@ export function MyClassWorkspace() {
           onRetry={() => void load(false)}
           onStart={(row) => void startAssignment(row)}
         />
+        <ExerciseBookLearnerEntry />
       </div>
     </main>
   );

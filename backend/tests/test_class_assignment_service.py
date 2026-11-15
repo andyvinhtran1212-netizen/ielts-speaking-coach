@@ -89,6 +89,11 @@ class _Query:
         self._negate_is = False
         self._mode, self._payload = "select", None
 
+    def or_(self, expression):
+        from blackeye_query_double import matches_blackeye_filter
+        self._rows = [r for r in self._rows if matches_blackeye_filter(r, expression)]
+        return self
+
     def select(self, *_a, **_kw): return self
     def order(self, *_a, **_kw): return self
     def limit(self, *_a): return self
@@ -403,6 +408,7 @@ def test_scoped_exam_version_refusal_names_the_cause(skill, raised, expected):
 
     db = type("RefusingDB", (), {
         "rpc": lambda self, name, _params: calls.append(name) or _RefusingRPC(),
+        "table": lambda self, name: _Query({}, name, [{"id": "rev-paper", "programme_id": "ielts"}]),
     })()
     with pytest.raises(ExplanationApprovalError) as caught:
         create_class_assignment(
@@ -434,6 +440,7 @@ def test_exam_scope_and_assignment_succeed_together():
 
 def test_empty_roster_rolls_back_exam_scope_too():
     db = _DB({"students": [], "class_assignments": [],
+              "listening_tests": [{"id": "paper-1", "programme_id": "ielts"}],
               "class_assignment_items": [], "exam_content_cohorts": []})
     with pytest.raises(EmptyRosterError):
         create_class_assignment(
@@ -1360,6 +1367,25 @@ def test_a_failed_LEDGER_WRITE_propagates_out_of_the_repair():
     db.table = _table
     with pytest.raises(LedgerWriteError):
         reconcile_test_attempts(db, [_rl_assignment()])
+
+
+@pytest.mark.parametrize("details, expected_total", [
+    ([{"correct": True}, {"correct": False, "self_check": False},
+      {"correct": None, "self_check": True}], 2),
+    ([{"correct": None, "self_check": True}], None),
+    ([], None),
+])
+def test_skill_drill_report_total_excludes_self_check(details, expected_total):
+    from services.listening_drill_homework import report_by_item
+
+    db = _rl_db(table="listening_test_attempts", attempts=[
+        {**_attempt(), "score": 1 if expected_total else 0, "grading_details": details},
+    ])
+    item = db.tables["class_assignment_items"][0]
+    config = {"dictation_required": False, "sections": [1]}
+    report = report_by_item(db, [item], config)[item["id"]]
+    assert report["total"] == expected_total
+    assert report["correct"] == (1 if expected_total else 0)
 
 
 def test_skill_drill_same_content_in_two_courses_has_independent_completion():
