@@ -54,6 +54,38 @@ const fixture = (overrides = {}) => ({
 });
 
 describe('Listening review native model', () => {
+  test('opens submitted practice with a null aggregate score and preserves its question results', () => {
+    const raw = fixture({ score: null, max_score: 10, score_mode: 'scored' });
+    const before = structuredClone(raw);
+    const data = normalizeListeningReview(raw);
+    assert.equal(data.preview, false);
+    assert.equal(data.score, null);
+    assert.equal(data.maxScore, 10);
+    assert.equal(data.scoreMode, 'scored');
+    assert.equal(data.review[0].correct, false);
+    assert.equal(data.review[0].user_answer, 'A');
+    assert.equal(data.review[0].expected, 'B');
+    assert.deepEqual(data.review[0].solution, raw.review[0].solution);
+    assert.equal(data.sections[0].transcript, raw.sections[0].transcript);
+    assert.equal(listeningBandLabel(data), 'Không quy đổi band');
+    // A historical band or conversion table cannot imply a band without a score.
+    assert.equal(listeningBandLabel(normalizeListeningReview({ ...raw, max_score: 40 })), 'Chưa đủ band');
+    assert.deepEqual(raw, before);
+  });
+
+  test('still rejects invalid scores, denominators and malformed scoreless reviews', () => {
+    for (const overrides of [
+      { score: -1 }, { score: 11 }, { score: undefined }, { score: 'invalid' },
+      { score: NaN }, { score: Infinity },
+      { max_score: undefined }, { max_score: null }, { max_score: -1 },
+    ]) {
+      assert.throws(() => normalizeListeningReview(fixture({ score: null, max_score: 10, ...overrides })), /score/);
+    }
+    assert.throws(() => normalizeListeningReview(fixture({ score: null, status: 'in_progress' })), /status/);
+    assert.throws(() => normalizeListeningReview(fixture({ score: null, sections: [null] })), /section/);
+    assert.throws(() => normalizeListeningReview(fixture({ score: null, review: [{ q_num: 1, correct: null }] })), /item/);
+  });
+
   test('keeps self-check neutral and outside scored filters, totals, weak skills and band estimates', () => {
     const item = { q_num: 1, self_check: true, correct: null, user_answer: 'student words',
       expected: 'reference', alternatives: ['another reference'], solution: { why_correct: 'Lời giải tiếng Việt.', skills: 'K2' } };
