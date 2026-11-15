@@ -5062,6 +5062,7 @@
     if (!s) return;
     s.prevState = null;
     _sheet.recIdx = -1;
+    if (_sheetCheckLength(s, blob, hadWork)) return;
     _sheetSubmitBlob(s, blob, hadWork);
   }
 
@@ -5073,6 +5074,7 @@
 
   function _sheetSubmitBlob(s, blob, hadWork) {
     var generation = _playerGeneration;
+    var duration = typeof _elapsedSecs === 'number' ? _elapsedSecs : 0;
     s.retryBlob = null;
     s.retryHadWork = null;
     s.state = 'grading';
@@ -5116,6 +5118,11 @@
       })
       .catch(function (err) {
         if (!_playerActive || generation !== _playerGeneration) return;
+        var detail = err && err.detail;
+        if ((err && err.code === 'audio_too_short') || (detail && detail.code === 'audio_too_short')) {
+          _sheetAudioTooShort(s, blob, hadWork, Object.assign({ duration_seconds: duration }, detail || {}));
+          return;
+        }
         // KHÔNG để ô về "đã lưu": bài này chưa tới server, và để nó xanh nghĩa
         // là học viên bấm Nộp rồi mất câu trả lời mà không biết.
         //
@@ -5132,6 +5139,29 @@
       .then(function () {
         if (_playerActive && generation === _playerGeneration) _renderSheet();
       });
+  }
+
+  function _sheetAudioTooShort(s, blob, hadWork, detail) {
+    var part = detail.part || (_sessionData && _sessionData.part);
+    s.state = hadWork || 'idle';
+    s.retryBlob = null;
+    s.retryHadWork = null;
+    s.error = 'Bản ghi quá ngắn cho Part ' + part + ' (' +
+      Number(detail.duration_seconds).toFixed(1) + 's < ' +
+      (detail.min_seconds || MIN_RECORD_SEC[part]) + 's tối thiểu). Hãy ghi âm lại';
+    // A late rejection must not reset another slot's newer recording.
+    if (_recordedBlob === blob) _resetRecorder();
+  }
+
+  function _sheetCheckLength(s, blob, hadWork) {
+    if (typeof _elapsedSecs !== 'number') return false;
+    var part = _sessionData && _sessionData.part;
+    if (!MIN_RECORD_SEC[part] || _elapsedSecs >= MIN_RECORD_SEC[part]) return false;
+    _sheetAudioTooShort(s, blob, hadWork, {
+      part: part, duration_seconds: _elapsedSecs, min_seconds: MIN_RECORD_SEC[part],
+    });
+    _renderSheet();
+    return true;
   }
 
   /**
