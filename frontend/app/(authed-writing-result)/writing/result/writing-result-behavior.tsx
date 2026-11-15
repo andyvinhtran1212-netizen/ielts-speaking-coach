@@ -189,10 +189,15 @@ function WritingResultReady({ view, essayId }: { view: Extract<ResultView, { kin
     const dataKey = (window as any).WritingRenderers?.SECTION_KEYS?.[sectionKey];
     return dataKey ? fj[dataKey] : undefined;
   };
-  const shouldHide = (sectionKey: string, value: unknown) =>
-    (sectionKey === 'criteria' && hideScores)
-    || (sectionKey === 'counterargument' && isEmpty(value))
-    || (OPTIONAL_SECTIONS.has(sectionKey) && isEmpty(value));
+  const shouldHide = (sectionKey: string, value: unknown) => {
+    if (sectionKey === 'ai-content') {
+      const hasAIContent = window.WritingRenderers?.hasAIContent;
+      return hasAIContent ? !hasAIContent(value) : isEmpty(value);
+    }
+    return (sectionKey === 'criteria' && hideScores)
+      || (sectionKey === 'counterargument' && isEmpty(value))
+      || (OPTIONAL_SECTIONS.has(sectionKey) && isEmpty(value));
+  };
 
   useEffect(() => {
     const el = essayRef.current;

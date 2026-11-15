@@ -16,7 +16,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from models.writing_feedback import WritingFeedback
+from models.writing_feedback import GeneratedWritingFeedback
 from services.gemini_writing_grader import (
     AISafetyBlockError,
     GeminiWritingGrader,
@@ -79,21 +79,27 @@ def test_generation_config_sets_max_output_tokens(grader):
     with _patch_model(grader, [_resp(VALID_JSON)]), \
          patch("services.gemini_writing_grader.GenerationConfig", spy):
         import asyncio
-        asyncio.run(grader._call_with_retry("p", "sys", "usr", parse_schema=WritingFeedback))
+        asyncio.run(grader._call_with_retry("p", "sys", "usr", parse_schema=GeneratedWritingFeedback))
     assert captured.get("max_output_tokens") == 32768
 
 
 # ── parse-fail re-rolls within the loop ───────────────────────────────
 
 
-def test_parse_fail_then_valid_retries(grader):
+@pytest.mark.parametrize("bad_text", [
+    TRUNCATED_JSON,
+    json.dumps({k: v for k, v in VALID.items() if k != "aiContentAnalysis"}),
+    json.dumps({**VALID, "aiContentAnalysis": None}),
+], ids=["truncated", "missing-ai-analysis", "null-ai-analysis"])
+def test_parse_fail_then_valid_retries(grader, bad_text):
     import asyncio
-    with _patch_model(grader, [_resp(TRUNCATED_JSON), _resp(VALID_JSON)]), \
+    with _patch_model(grader, [_resp(bad_text), _resp(VALID_JSON)]), \
          patch("services.gemini_writing_grader.asyncio.sleep", new=_async_noop):
         text, usage = asyncio.run(
-            grader._call_with_retry("p", "sys", "usr", parse_schema=WritingFeedback))
+            grader._call_with_retry("p", "sys", "usr", parse_schema=GeneratedWritingFeedback))
     # second attempt's valid body is returned (re-roll worked)
     assert json.loads(text)["overallBandScore"] == 6.5
+    assert json.loads(text)["aiContentAnalysis"] == VALID["aiContentAnalysis"]
 
 
 def test_parse_retry_logs_each_billed_attempt_with_distinct_status(grader):
@@ -110,7 +116,7 @@ def test_parse_retry_logs_each_billed_attempt_with_distinct_status(grader):
          patch("services.gemini_writing_grader.asyncio.sleep", new=_async_noop), \
          patch("services.gemini_writing_grader.ai_usage_logger.log_gemini_async", usage_log):
         asyncio.run(grader._call_with_retry(
-            "p", "sys", "usr", parse_schema=WritingFeedback,
+            "p", "sys", "usr", parse_schema=GeneratedWritingFeedback,
             usage_context=context,
         ))
 
@@ -198,7 +204,7 @@ def test_all_parse_fail_raises_invalidjson(grader):
     with _patch_model(grader, [_resp(TRUNCATED_JSON)] * 3), \
          patch("services.gemini_writing_grader.asyncio.sleep", new=_async_noop):
         with pytest.raises(InvalidJSONError):     # final raise preserves the parse-fail type
-            asyncio.run(grader._call_with_retry("p", "sys", "usr", parse_schema=WritingFeedback))
+            asyncio.run(grader._call_with_retry("p", "sys", "usr", parse_schema=GeneratedWritingFeedback))
 
 
 def test_safety_block_not_retried(grader):
@@ -212,7 +218,7 @@ def test_safety_block_not_retried(grader):
     fake_model = SimpleNamespace(generate_content=gen)
     with patch("services.gemini_writing_grader.genai.GenerativeModel", lambda **kw: fake_model):
         with pytest.raises(AISafetyBlockError):
-            asyncio.run(grader._call_with_retry("p", "sys", "usr", parse_schema=WritingFeedback))
+            asyncio.run(grader._call_with_retry("p", "sys", "usr", parse_schema=GeneratedWritingFeedback))
     assert calls["n"] == 1, "safety block must NOT retry"
 
 

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { runInNewContext } from 'node:vm';
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 import { WritingResultBehavior } from '@/app/(authed-writing-result)/writing/result/writing-result-behavior';
@@ -41,13 +41,51 @@ function mount(body: unknown) {
   render(<WritingResultBehavior />);
 }
 
+async function openSampleTab() {
+  const tab = await screen.findByRole('tab', { name: /Bài tham khảo/ });
+  fireEvent.click(tab);
+  expect(tab.getAttribute('aria-selected')).toBe('true');
+}
+
 beforeEach(() => {
   const runtime = { window: {} as { WritingRenderers?: unknown } };
   runInNewContext(readFileSync(resolve(process.cwd(), 'public/js/writing-renderers.js'), 'utf8'), runtime);
   Object.defineProperty(window, 'WritingRenderers', { configurable: true, value: runtime.window.WritingRenderers });
   Object.defineProperty(window, 'matchMedia', { configurable: true, value: () => ({ matches: false }) });
+  Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: vi.fn() });
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+
+it.each([
+  {},
+  { aiContentAnalysis: null },
+  { aiContentAnalysis: {} },
+  { aiContentAnalysis: { likelihood: null, explanation: ' ' } },
+  { aiContentAnalysis: { likelihood: 0.42, explanation: '' } },
+])(
+  'omits the learner AI section when the saved estimate is absent (%j)', async (analysis) => {
+    mount(payload({ ...FEEDBACK_JSON, improvedEssay: 'Sample rewrite.', ...analysis }));
+    await openSampleTab();
+    expect(screen.getByText('Sample rewrite.')).toBeTruthy();
+    expect(document.getElementById('section-ai-content')).toBeNull();
+  },
+);
+
+it.each([0, 1, '1', '42'])('shows the saved integer estimate %j as a percentage', async (likelihood) => {
+  mount(payload({ ...FEEDBACK_JSON, aiContentAnalysis: { likelihood, explanation: '' } }));
+  await openSampleTab();
+  const ai = within(document.getElementById('section-ai-content')!);
+  expect(ai.getByText(`${likelihood}%`)).toBeTruthy();
+  expect(ai.queryByText('100%')).toBeNull();
+});
+
+it('never fabricates a percentage from a legacy AI explanation without an estimate', async () => {
+  mount(payload({ ...FEEDBACK_JSON, aiContentAnalysis: { explanation: 'Legacy explanation' } }));
+  await openSampleTab();
+  const ai = within(document.getElementById('section-ai-content')!);
+  expect(ai.getByText('Legacy explanation')).toBeTruthy();
+  expect(ai.queryByText(/%/)).toBeNull();
+});
 
 it('renders the ranked fixes as a labelled ordered list between the intro and the tabs', async () => {
   mount(payload(FEEDBACK_JSON));

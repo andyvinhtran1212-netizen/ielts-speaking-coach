@@ -49,6 +49,7 @@ interface Window {
     SECTION_RENDERERS: Record<string, (value: unknown, options?: { isStaffViewer?: boolean }) => string>;
     SECTION_KEYS: Record<string, string>;
     renderInstructorNote(value: string): string;
+    hasAIContent?(value: unknown): boolean;
     emptyShape(message?: string): string;
   };
   WritingHighlight?: { render(el: HTMLElement, essay: string, mistakes: unknown[]): void };

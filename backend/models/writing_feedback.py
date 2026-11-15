@@ -1,4 +1,4 @@
-"""Pydantic models for Writing Coach AI grader output.
+"""Pydantic models for Writing Coach saved feedback and AI grader output.
 
 Matches TECHNICAL_SPEC.md Section 4 schema. Schema serializes/deserializes via
 the `feedback_json` JSONB column on `writing_feedback` (migration 033).
@@ -194,19 +194,20 @@ class AIContentAnalysis(BaseModel):
 # ── Main schema ───────────────────────────────────────────────────────
 
 class WritingFeedback(BaseModel):
-    """Full IELTS writing analysis output từ Gemini.
+    """Full IELTS writing feedback, including reviewed and composed versions.
 
     Matches TECHNICAL_SPEC.md Section 4. Conditional fields populate per
     analysis_level (Level 1 minimal → Level 5 full).
     """
 
-    # Required for all levels
+    # Core fields for all levels
     overallBandScore: confloat(ge=0, le=9)
     overallBandScoreSummary: str
     keyTakeaways: KeyTakeaways
     criteriaFeedback: CriteriaFeedbackBundle
     mistakeAnalysis: List[MistakeAnalysis]
-    aiContentAnalysis: AIContentAnalysis
+    # Teachers may omit this estimate without replacing it with a guess.
+    aiContentAnalysis: Optional[AIContentAnalysis] = None
     improvedEssay: str
 
     # Conditional (None on Level 1)
@@ -244,6 +245,12 @@ class WritingFeedback(BaseModel):
     # student has ≥5 graded essays; otherwise this stays null.
     bandTrajectoryAnalysis: Optional[dict] = None
     recurringPatterns: Optional[dict] = None
+
+
+class GeneratedWritingFeedback(WritingFeedback):
+    """Provider output must still include the estimate required by its prompt."""
+
+    aiContentAnalysis: AIContentAnalysis
 
 
 # ── Sprint 2.7b — Deep tier (multi-pass + sentence rewrite) ───────────
@@ -295,10 +302,10 @@ class Pass3Rewrites(BaseModel):
     sentence_rewrites: List[SentenceRewrite] = Field(default_factory=list)
 
 
-class WritingFeedbackDeep(WritingFeedback):
+class WritingFeedbackDeep(GeneratedWritingFeedback):
     """Deep tier output — Sprint 2.7b.
 
-    Extends WritingFeedback (the Standard 12-section schema) with two
+    Extends GeneratedWritingFeedback (the Standard 12-section schema) with two
     Deep-only fields. Subclassing keeps the existing persistence path
     (`fb.criteriaFeedback.mainCriterion.bandScore` etc.) unchanged
     when the row was graded in Deep — `essay_service._bg_grade_essay`
@@ -564,8 +571,8 @@ class GradingResult(BaseModel):
 #
 # Always-on fields not listed here (overallBandScore, criteriaFeedback,
 # mistakeAnalysis, keyTakeaways, aiContentAnalysis, improvedEssay) are
-# Pydantic-required at parse time, so they CAN'T be missing — the
-# parser would have rejected the response upstream. We list only the
+# required by GeneratedWritingFeedback, so the provider parser would have
+# rejected a response missing them upstream. We list only the
 # Optional fields that become required-at-this-level under the
 # cumulative contract.
 #
