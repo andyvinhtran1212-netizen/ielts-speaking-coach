@@ -54,6 +54,58 @@ const fixture = (overrides = {}) => ({
 });
 
 describe('Listening review native model', () => {
+  // QA staging payloads from 2026-11-16, with audio_url removed at capture.
+  for (const id of ['0d14596d', '6561780c', '26cf78cc']) {
+    test(`opens report-only fixture ${id} with neutral persisted null grades`, () => {
+      const raw = JSON.parse(read('tests', 'fixtures', `listening-review-report-only-${id}.json`));
+      const before = structuredClone(raw);
+      const data = normalizeListeningReview(raw);
+      assert.equal('audio_url' in raw, false);
+      assert.equal(data.score, null);
+      assert.equal(listeningBandLabel(data), 'Không quy đổi band');
+      assert.equal(data.review.length, raw.review.length);
+      for (const item of data.review) {
+        assert.equal(item.correct, null);
+        assert.equal(item.self_check, false);
+        assert.equal(listeningReviewAnswerState(item), 'self_check');
+        for (const filter of ['wrong', 'blank', 'correct']) {
+          assert.equal(listeningReviewMatchesFilter(item, filter), false);
+        }
+        assert.equal(listeningReviewMatchesFilter(item, 'all'), true);
+      }
+      assert.deepEqual(listeningReviewTotals(data.review), { incorrect: 0, unanswered: 0, correct: 0 });
+      assert.deepEqual(listeningSkillsToPractise(data.review), []);
+      assert.deepEqual(raw, before);
+    });
+  }
+
+  test('keeps scored outcomes authoritative alongside neutral report-only items', () => {
+    const raw = fixture();
+    raw.review.push({ q_num: 3, correct: null, state: 'unscored', user_answer: 'A', solution: { skills: 'K8' } });
+    raw.review.push({ q_num: 4, correct: null, state: 'blank', user_answer: '', solution: { skills: 'K8' } });
+    const data = normalizeListeningReview(raw);
+    assert.deepEqual(data.review.map(listeningReviewAnswerState), ['incorrect', 'correct', 'self_check', 'self_check']);
+    assert.deepEqual(listeningReviewTotals(data.review), { incorrect: 1, unanswered: 0, correct: 1 });
+    assert.deepEqual(data.review.filter(item => listeningReviewMatchesFilter(item, 'wrong')).map(item => item.q_num), [1]);
+    assert.equal(listeningSkillsToPractise(data.review).some(skill => skill.code === 'K8'), false);
+    assert.equal(data.score, 1);
+    assert.equal(data.maxScore, 2);
+  });
+
+  test('requires explicit null and an allowed state for an ungraded item', () => {
+    for (const item of [
+      { q_num: 1, correct: null, state: 'correct' },
+      { q_num: 1, correct: null, state: 'incorrect' },
+      { q_num: 1, correct: null },
+      { q_num: 1, state: 'unscored' },
+      { q_num: 1, state: 'blank' },
+      { correct: null, state: 'unscored' },
+      { q_num: 1, correct: 'false', state: 'unscored' },
+    ]) {
+      assert.throws(() => normalizeListeningReview(fixture({ review: [item] })), /invalid-listening-review-item/);
+    }
+  });
+
   test('opens submitted practice with a null aggregate score and preserves its question results', () => {
     const raw = fixture({ score: null, max_score: 10, score_mode: 'scored' });
     const before = structuredClone(raw);

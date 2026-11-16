@@ -1,3 +1,6 @@
+import unscored from '../fixtures/listening-review-report-only-0d14596d.json';
+import blank from '../fixtures/listening-review-report-only-6561780c.json';
+import revealed from '../fixtures/listening-review-report-only-26cf78cc.json';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
@@ -155,4 +158,32 @@ it('filters unanswered apart from incorrect and keeps palette jumps in the match
 
   expect(JSON.stringify(raw)).toBe(before);
   expect(getWith).toHaveBeenCalledTimes(1);
+});
+
+
+it.each([unscored, blank, revealed])('renders report-only fixture $attempt_id neutrally on open and reload', async (raw) => {
+  window.history.replaceState(null, '', `/listening/review?attempt_id=${raw.attempt_id}`);
+  getWith.mockResolvedValue(raw);
+  for (let load = 0; load < 2; load += 1) {
+    const view = render(<ListeningReviewWorkspace />);
+    await screen.findByRole('button', { name: 'Câu 1 — Tự đối chiếu' });
+    for (const item of raw.review) {
+      const card = view.container.querySelector(`#listening-review-q-${item.q_num}`) as HTMLElement;
+      const nav = screen.getByRole('button', { name: `Câu ${item.q_num} — Tự đối chiếu` });
+      expect(within(card).getByText('Tự đối chiếu')).toBeTruthy();
+      expect(card.dataset.correct).toBeUndefined();
+      expect(card.className).not.toMatch(/is-correct|is-incorrect|is-unanswered/);
+      expect(nav.className).not.toMatch(/is-correct|is-incorrect|is-unanswered/);
+      expect(card.querySelector('.is-correct')).toBeNull();
+      expect(card.textContent).not.toMatch(/✓|✗/);
+      expect(within(card).getByText('Đáp án tham khảo:')).toBeTruthy();
+      if (item.user_answer) expect(within(card).getByText(item.user_answer, { selector: 'code' })).toBeTruthy();
+    }
+    expect(view.container.querySelector('.lr-summary')?.textContent).not.toMatch(/Kết quả|\d+\/\d+ câu|Band \d|null|NaN/);
+    expect(screen.getByText('Không quy đổi band')).toBeTruthy();
+    expect(screen.queryByText('Bạn đã trả lời đúng toàn bộ bài này.')).toBeNull();
+    expect(view.container.querySelector('.lr-skills-panel')).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
+    view.unmount();
+  }
 });

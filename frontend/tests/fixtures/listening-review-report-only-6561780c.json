@@ -1,0 +1,1322 @@
+{
+ "attempt_id": "6561780c-ac00-49c5-a7ad-187f2fcde44d",
+ "test_id": "source-080c434f-dbde-5de5-a6a1-6029ca9fd709",
+ "title": "Day 55 — Ví dụ · Festival program",
+ "status": "submitted",
+ "score": null,
+ "max_score": 6,
+ "band_estimate": null,
+ "scoring_policy": "report_only",
+ "assisted": false,
+ "result_summary": {
+  "item_count": 6,
+  "blank_count": 6,
+  "checked_count": 0,
+  "correct_count": 0,
+  "unscored_count": 0,
+  "completion_count": 0,
+  "technical_error_count": 0
+ },
+ "programme_id": "ielts-80-days-listening",
+ "listening_lesson_id": "317bc194-6a34-451f-9b38-b45d7361ca48",
+ "form_purpose": "practice",
+ "replay_policy": "allowed",
+ "support_policy": "available",
+ "claim_policy": "report_only_no_band_cefr_mastery_or_full_progression_claim",
+ "trap_analytics": {},
+ "audio_granularity": "whole_day",
+ "audio_duration": 139,
+ "section_offsets": {},
+ "cue_points": [],
+ "band_conversion": [],
+ "sections": [
+  {
+   "section_num": 1,
+   "title": "Day 55 — Ví dụ · Festival program",
+   "theme": null,
+   "transcript": "",
+   "context_provenance": {
+    "section_num": "submission_snapshot",
+    "title": "submission_snapshot",
+    "theme": "unavailable",
+    "transcript": "submission_snapshot"
+   }
+  }
+ ],
+ "review": [
+  {
+   "fields": [],
+   "source_item_id": "80-days:day-55:table_completion:q-01",
+   "source_display_number": "1",
+   "review_status": "CONFIRMED",
+   "answer_provenance": "printed_key_verified",
+   "explanation": {
+    "printed_key": {
+     "answer": "3",
+     "source_pdf_page": null,
+     "source_ocr_line_index_1_based": null,
+     "evidence_tier": "PRINTED_EMBEDDED_KEY",
+     "visual_correction": false,
+     "source_lines": [
+      {
+       "pdf_page": 163,
+       "line_index_1_based": 11
+      },
+      {
+       "pdf_page": 163,
+       "line_index_1_based": 12
+      }
+     ]
+    },
+    "answer": "3",
+    "evidence": [
+     {
+      "source_kind": "printed_transcript",
+      "pdf_page": 331,
+      "line_index_1_based": 21,
+      "quote": "Brazilian Drum Band will be appearing on stage 3 at 7:00.",
+      "relation": "supports",
+      "visual_reconstruction": null,
+      "source_image_path": "page-images/pdf-page-330.jpg",
+      "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+      "source_region": {
+       "x": 163.8,
+       "y": 986.8,
+       "width": 1151.8,
+       "height": 32
+      },
+      "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+      "upstream_review_state": null,
+      "raw_ocr_verbatim": null,
+      "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+      "source_line_id": null,
+      "insertion_after_line_index_1_based": null,
+      "line_index_unavailable_reason": null,
+      "start": null,
+      "end": null
+     }
+    ],
+    "why_vi": "Brazilian Drum Band diễn ở stage 3, lúc 7:00. Ô trống thuộc cột Stage nên điền 3; thời gian 7:00 đã có sẵn.",
+    "distractors": [],
+    "paraphrase_vi": "",
+    "trap_vi": "Nhìn tên cột trước khi ghi số.",
+    "format_vi": "Không quá ba từ hoặc số theo yêu cầu gốc; điền đúng loại thông tin của cột.",
+    "source_answer_warning_vi": null,
+    "next_action_vi": null
+   },
+   "audio_granularity": "whole_day",
+   "q_num": 1,
+   "self_check": false,
+   "alternatives": [],
+   "state": "blank",
+   "correct": null,
+   "user_answer": "",
+   "expected": "",
+   "question_type": "short_answer",
+   "prompt": "Brazilian Drum Band · Stage",
+   "audio_window": null,
+   "section": null,
+   "transcript_anchor": null,
+   "solution": {},
+   "self_review": {
+    "rationale": "Brazilian Drum Band diễn ở stage 3, lúc 7:00. Ô trống thuộc cột Stage nên điền 3; thời gian 7:00 đã có sẵn.",
+    "reference_answers": [
+     "3"
+    ]
+   },
+   "first_answer": null,
+   "question_context": {
+    "question_id": "7982eb5f-5d0f-4dca-b2fd-53d93a7afbff:1",
+    "instructions": null,
+    "instruction": null,
+    "options": {},
+    "template": null,
+    "max_words": null,
+    "paragraph_labels": null,
+    "labels": null,
+    "image_url": null,
+    "image_alt": null,
+    "template_kind": null,
+    "variant": "programme_form_v1",
+    "word_limit": 3,
+    "word_limit_text": null,
+    "response_type": "short_answer",
+    "map_svg": null,
+    "map_image_url": null,
+    "metadata": {},
+    "context_provenance": {
+     "question_id": "submission_snapshot",
+     "instructions": "unavailable",
+     "instruction": "unavailable",
+     "options": "submission_snapshot",
+     "template": "unavailable",
+     "max_words": "unavailable",
+     "paragraph_labels": "unavailable",
+     "labels": "unavailable",
+     "image_url": "unavailable",
+     "image_alt": "unavailable",
+     "template_kind": "unavailable",
+     "variant": "submission_snapshot",
+     "word_limit": "submission_snapshot",
+     "word_limit_text": "unavailable",
+     "response_type": "submission_snapshot",
+     "map_svg": "unavailable",
+     "map_image_url": "unavailable",
+     "metadata": "unavailable",
+     "metadata.flow_direction": "unavailable"
+    }
+   },
+   "context_provenance": {
+    "prompt": "submission_snapshot",
+    "question_type": "submission_snapshot",
+    "solution": "unavailable",
+    "audio_window": "unavailable",
+    "transcript_anchor": "unavailable",
+    "self_review": "submission_snapshot",
+    "explanation": "submission_snapshot",
+    "question_context": "submission_snapshot"
+   }
+  },
+  {
+   "fields": [],
+   "source_item_id": "80-days:day-55:table_completion:q-02",
+   "source_display_number": "2",
+   "review_status": "CONFIRMED",
+   "answer_provenance": "editorial_verified",
+   "explanation": {
+    "printed_key": {
+     "answer": "(modern) ballet",
+     "source_pdf_page": null,
+     "source_ocr_line_index_1_based": null,
+     "evidence_tier": "PRINTED_EMBEDDED_KEY",
+     "visual_correction": false,
+     "source_lines": [
+      {
+       "pdf_page": 163,
+       "line_index_1_based": 11
+      },
+      {
+       "pdf_page": 163,
+       "line_index_1_based": 12
+      }
+     ]
+    },
+    "answer": "modern ballet",
+    "evidence": [
+     {
+      "source_kind": "printed_transcript",
+      "pdf_page": 331,
+      "line_index_1_based": 24,
+      "quote": "there is a modern ballet from Great Grapefruit Incorporated",
+      "relation": "supports",
+      "visual_reconstruction": null,
+      "source_image_path": "page-images/pdf-page-330.jpg",
+      "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+      "source_region": {
+       "x": 163.8,
+       "y": 1111.7,
+       "width": 1152.8,
+       "height": 30
+      },
+      "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+      "upstream_review_state": null,
+      "raw_ocr_verbatim": null,
+      "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+      "source_line_id": null,
+      "insertion_after_line_index_1_based": null,
+      "line_index_unavailable_reason": null,
+      "start": null,
+      "end": null
+     }
+    ],
+    "why_vi": "Great Grapefruit biểu diễn modern ballet, múa ba lê hiện đại. Hai từ này khớp transcript và giới hạn; ballet là biến thể rút gọn của bảng đáp án nguồn.",
+    "distractors": [],
+    "paraphrase_vi": "",
+    "trap_vi": "Theo dõi Meanwhile để chuyển sang Stage 2 và đúng nhóm biểu diễn.",
+    "format_vi": "Không quá ba từ hoặc số theo yêu cầu gốc; điền đúng loại thông tin của cột.",
+    "source_answer_warning_vi": null,
+    "next_action_vi": null
+   },
+   "audio_granularity": "whole_day",
+   "q_num": 2,
+   "self_check": false,
+   "alternatives": [],
+   "state": "blank",
+   "correct": null,
+   "user_answer": "",
+   "expected": "",
+   "question_type": "short_answer",
+   "prompt": "Great Grapefruit · Type of act",
+   "audio_window": null,
+   "section": null,
+   "transcript_anchor": null,
+   "solution": {},
+   "self_review": {
+    "rationale": "Great Grapefruit biểu diễn modern ballet, múa ba lê hiện đại. Hai từ này khớp transcript và giới hạn; ballet là biến thể rút gọn của bảng đáp án nguồn.",
+    "reference_answers": [
+     "modern ballet"
+    ]
+   },
+   "first_answer": null,
+   "question_context": {
+    "question_id": "7982eb5f-5d0f-4dca-b2fd-53d93a7afbff:2",
+    "instructions": null,
+    "instruction": null,
+    "options": {},
+    "template": null,
+    "max_words": null,
+    "paragraph_labels": null,
+    "labels": null,
+    "image_url": null,
+    "image_alt": null,
+    "template_kind": null,
+    "variant": "programme_form_v1",
+    "word_limit": 3,
+    "word_limit_text": null,
+    "response_type": "short_answer",
+    "map_svg": null,
+    "map_image_url": null,
+    "metadata": {},
+    "context_provenance": {
+     "question_id": "submission_snapshot",
+     "instructions": "unavailable",
+     "instruction": "unavailable",
+     "options": "submission_snapshot",
+     "template": "unavailable",
+     "max_words": "unavailable",
+     "paragraph_labels": "unavailable",
+     "labels": "unavailable",
+     "image_url": "unavailable",
+     "image_alt": "unavailable",
+     "template_kind": "unavailable",
+     "variant": "submission_snapshot",
+     "word_limit": "submission_snapshot",
+     "word_limit_text": "unavailable",
+     "response_type": "submission_snapshot",
+     "map_svg": "unavailable",
+     "map_image_url": "unavailable",
+     "metadata": "unavailable",
+     "metadata.flow_direction": "unavailable"
+    }
+   },
+   "context_provenance": {
+    "prompt": "submission_snapshot",
+    "question_type": "submission_snapshot",
+    "solution": "unavailable",
+    "audio_window": "unavailable",
+    "transcript_anchor": "unavailable",
+    "self_review": "submission_snapshot",
+    "explanation": "submission_snapshot",
+    "question_context": "submission_snapshot"
+   }
+  },
+  {
+   "fields": [],
+   "source_item_id": "80-days:day-55:table_completion:q-03",
+   "source_display_number": "3",
+   "review_status": "CONFIRMED",
+   "answer_provenance": "printed_key_verified",
+   "explanation": {
+    "printed_key": {
+     "answer": "9:00",
+     "source_pdf_page": null,
+     "source_ocr_line_index_1_based": null,
+     "evidence_tier": "PRINTED_EMBEDDED_KEY",
+     "visual_correction": false,
+     "source_lines": [
+      {
+       "pdf_page": 163,
+       "line_index_1_based": 11
+      },
+      {
+       "pdf_page": 163,
+       "line_index_1_based": 12
+      }
+     ]
+    },
+    "answer": "9:00",
+    "evidence": [
+     {
+      "source_kind": "printed_transcript",
+      "pdf_page": 331,
+      "line_index_1_based": 26,
+      "quote": "Stage 1 begins at 9:00 with the jazz",
+      "relation": "supports",
+      "visual_reconstruction": null,
+      "source_image_path": "page-images/pdf-page-330.jpg",
+      "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+      "source_region": {
+       "x": 164.8,
+       "y": 1152,
+       "width": 1150.8,
+       "height": 29.90000000000009
+      },
+      "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+      "upstream_review_state": null,
+      "raw_ocr_verbatim": null,
+      "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+      "source_line_id": null,
+      "insertion_after_line_index_1_based": null,
+      "line_index_unavailable_reason": null,
+      "start": null,
+      "end": null
+     },
+     {
+      "source_kind": "printed_transcript",
+      "pdf_page": 331,
+      "line_index_1_based": 27,
+      "quote": "fusion band, Crossed Wires",
+      "relation": "supports",
+      "visual_reconstruction": null,
+      "source_image_path": "page-images/pdf-page-330.jpg",
+      "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+      "source_region": {
+       "x": 164.8,
+       "y": 1194.3,
+       "width": 1151.8,
+       "height": 28.90000000000009
+      },
+      "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+      "upstream_review_state": null,
+      "raw_ocr_verbatim": null,
+      "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+      "source_line_id": null,
+      "insertion_after_line_index_1_based": null,
+      "line_index_unavailable_reason": null,
+      "start": null,
+      "end": null
+     }
+    ],
+    "why_vi": "Stage 1 bắt đầu lúc 9:00 với jazz fusion band Crossed Wires. Thông tin trải qua hai dòng transcript; 1 là sân khấu đã in, 9:00 mới là thời gian cần điền.",
+    "distractors": [],
+    "paraphrase_vi": "",
+    "trap_vi": "Ghép mốc giờ với tên nhóm ở dòng kế tiếp.",
+    "format_vi": "Không quá ba từ hoặc số theo yêu cầu gốc; điền đúng loại thông tin của cột.",
+    "source_answer_warning_vi": null,
+    "next_action_vi": null
+   },
+   "audio_granularity": "whole_day",
+   "q_num": 3,
+   "self_check": false,
+   "alternatives": [],
+   "state": "blank",
+   "correct": null,
+   "user_answer": "",
+   "expected": "",
+   "question_type": "short_answer",
+   "prompt": "Crossed Wires · Time",
+   "audio_window": null,
+   "section": null,
+   "transcript_anchor": null,
+   "solution": {},
+   "self_review": {
+    "rationale": "Stage 1 bắt đầu lúc 9:00 với jazz fusion band Crossed Wires. Thông tin trải qua hai dòng transcript; 1 là sân khấu đã in, 9:00 mới là thời gian cần điền.",
+    "reference_answers": [
+     "9:00"
+    ]
+   },
+   "first_answer": null,
+   "question_context": {
+    "question_id": "7982eb5f-5d0f-4dca-b2fd-53d93a7afbff:3",
+    "instructions": null,
+    "instruction": null,
+    "options": {},
+    "template": null,
+    "max_words": null,
+    "paragraph_labels": null,
+    "labels": null,
+    "image_url": null,
+    "image_alt": null,
+    "template_kind": null,
+    "variant": "programme_form_v1",
+    "word_limit": 3,
+    "word_limit_text": null,
+    "response_type": "short_answer",
+    "map_svg": null,
+    "map_image_url": null,
+    "metadata": {},
+    "context_provenance": {
+     "question_id": "submission_snapshot",
+     "instructions": "unavailable",
+     "instruction": "unavailable",
+     "options": "submission_snapshot",
+     "template": "unavailable",
+     "max_words": "unavailable",
+     "paragraph_labels": "unavailable",
+     "labels": "unavailable",
+     "image_url": "unavailable",
+     "image_alt": "unavailable",
+     "template_kind": "unavailable",
+     "variant": "submission_snapshot",
+     "word_limit": "submission_snapshot",
+     "word_limit_text": "unavailable",
+     "response_type": "submission_snapshot",
+     "map_svg": "unavailable",
+     "map_image_url": "unavailable",
+     "metadata": "unavailable",
+     "metadata.flow_direction": "unavailable"
+    }
+   },
+   "context_provenance": {
+    "prompt": "submission_snapshot",
+    "question_type": "submission_snapshot",
+    "solution": "unavailable",
+    "audio_window": "unavailable",
+    "transcript_anchor": "unavailable",
+    "self_review": "submission_snapshot",
+    "explanation": "submission_snapshot",
+    "question_context": "submission_snapshot"
+   }
+  },
+  {
+   "fields": [],
+   "source_item_id": "80-days:day-55:table_completion:q-04",
+   "source_display_number": "4",
+   "review_status": "CONFIRMED",
+   "answer_provenance": "printed_key_verified",
+   "explanation": {
+    "printed_key": {
+     "answer": "3",
+     "source_pdf_page": null,
+     "source_ocr_line_index_1_based": null,
+     "evidence_tier": "PRINTED_EMBEDDED_KEY",
+     "visual_correction": false,
+     "source_lines": [
+      {
+       "pdf_page": 163,
+       "line_index_1_based": 11
+      },
+      {
+       "pdf_page": 163,
+       "line_index_1_based": 12
+      }
+     ]
+    },
+    "answer": "3",
+    "evidence": [
+     {
+      "source_kind": "printed_transcript",
+      "pdf_page": 331,
+      "line_index_1_based": 29,
+      "quote": "at 9:00 on stage 3, there will be a performance by the Flying Barite Brothers",
+      "relation": "supports",
+      "visual_reconstruction": null,
+      "source_image_path": "page-images/pdf-page-330.jpg",
+      "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+      "source_region": {
+       "x": 215.7,
+       "y": 1276.9,
+       "width": 1098.8,
+       "height": 26.799999999999955
+      },
+      "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+      "upstream_review_state": null,
+      "raw_ocr_verbatim": null,
+      "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+      "source_line_id": null,
+      "insertion_after_line_index_1_based": null,
+      "line_index_unavailable_reason": null,
+      "start": null,
+      "end": null
+     }
+    ],
+    "why_vi": "Lượt giới thiệu Flying Barite Brothers nêu stage 3. Ô cần sân khấu, còn 9:00 đã in ở Time. Câu transcript đặt after Claude and Jacques cạnh 9:00, trong khi bảng ghi Claude and Jacques 8:00; giữ bất nhất thời gian của nguồn, không suy một lịch mới từ nó.",
+    "distractors": [],
+    "paraphrase_vi": "",
+    "trap_vi": "Theo dõi stage 3 trong chính câu giới thiệu; không mặc định after luôn có nghĩa cùng sân khấu.",
+    "format_vi": "Không quá ba từ hoặc số theo yêu cầu gốc; điền đúng loại thông tin của cột.",
+    "source_answer_warning_vi": "Nguồn có bất nhất cách đặt mốc Claude and Jacques 8:00/9:00; đáp án Stage 3 vẫn được câu giới thiệu nêu rõ.",
+    "next_action_vi": null
+   },
+   "audio_granularity": "whole_day",
+   "q_num": 4,
+   "self_check": false,
+   "alternatives": [],
+   "state": "blank",
+   "correct": null,
+   "user_answer": "",
+   "expected": "",
+   "question_type": "short_answer",
+   "prompt": "Flying Barite Brothers · Stage",
+   "audio_window": null,
+   "section": null,
+   "transcript_anchor": null,
+   "solution": {},
+   "self_review": {
+    "rationale": "Lượt giới thiệu Flying Barite Brothers nêu stage 3. Ô cần sân khấu, còn 9:00 đã in ở Time. Câu transcript đặt after Claude and Jacques cạnh 9:00, trong khi bảng ghi Claude and Jacques 8:00; giữ bất nhất thời gian của nguồn, không suy một lịch mới từ nó.",
+    "reference_answers": [
+     "3"
+    ]
+   },
+   "first_answer": null,
+   "question_context": {
+    "question_id": "7982eb5f-5d0f-4dca-b2fd-53d93a7afbff:4",
+    "instructions": null,
+    "instruction": null,
+    "options": {},
+    "template": null,
+    "max_words": null,
+    "paragraph_labels": null,
+    "labels": null,
+    "image_url": null,
+    "image_alt": null,
+    "template_kind": null,
+    "variant": "programme_form_v1",
+    "word_limit": 3,
+    "word_limit_text": null,
+    "response_type": "short_answer",
+    "map_svg": null,
+    "map_image_url": null,
+    "metadata": {},
+    "context_provenance": {
+     "question_id": "submission_snapshot",
+     "instructions": "unavailable",
+     "instruction": "unavailable",
+     "options": "submission_snapshot",
+     "template": "unavailable",
+     "max_words": "unavailable",
+     "paragraph_labels": "unavailable",
+     "labels": "unavailable",
+     "image_url": "unavailable",
+     "image_alt": "unavailable",
+     "template_kind": "unavailable",
+     "variant": "submission_snapshot",
+     "word_limit": "submission_snapshot",
+     "word_limit_text": "unavailable",
+     "response_type": "submission_snapshot",
+     "map_svg": "unavailable",
+     "map_image_url": "unavailable",
+     "metadata": "unavailable",
+     "metadata.flow_direction": "unavailable"
+    }
+   },
+   "context_provenance": {
+    "prompt": "submission_snapshot",
+    "question_type": "submission_snapshot",
+    "solution": "unavailable",
+    "audio_window": "unavailable",
+    "transcript_anchor": "unavailable",
+    "self_review": "submission_snapshot",
+    "explanation": "submission_snapshot",
+    "question_context": "submission_snapshot"
+   }
+  },
+  {
+   "fields": [],
+   "source_item_id": "80-days:day-55:table_completion:q-05",
+   "source_display_number": "5",
+   "review_status": "CONFIRMED",
+   "answer_provenance": "printed_key_verified",
+   "explanation": {
+    "printed_key": {
+     "answer": "11:15",
+     "source_pdf_page": null,
+     "source_ocr_line_index_1_based": null,
+     "evidence_tier": "PRINTED_EMBEDDED_KEY",
+     "visual_correction": false,
+     "source_lines": [
+      {
+       "pdf_page": 163,
+       "line_index_1_based": 11
+      },
+      {
+       "pdf_page": 163,
+       "line_index_1_based": 12
+      }
+     ]
+    },
+    "answer": "11:15",
+    "evidence": [
+     {
+      "source_kind": "printed_transcript",
+      "pdf_page": 331,
+      "line_index_1_based": 31,
+      "quote": "From 11:15 we are happy to present Winston Smiles",
+      "relation": "supports",
+      "visual_reconstruction": null,
+      "source_image_path": "page-images/pdf-page-330.jpg",
+      "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+      "source_region": {
+       "x": 163.8,
+       "y": 1356.4,
+       "width": 1152.8,
+       "height": 33
+      },
+      "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+      "upstream_review_state": null,
+      "raw_ocr_verbatim": null,
+      "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+      "source_line_id": null,
+      "insertion_after_line_index_1_based": null,
+      "line_index_unavailable_reason": null,
+      "start": null,
+      "end": null
+     },
+     {
+      "source_kind": "printed_transcript",
+      "pdf_page": 331,
+      "line_index_1_based": 32,
+      "quote": "until the end of the official program at 1:30.",
+      "relation": "supports",
+      "visual_reconstruction": null,
+      "source_image_path": "page-images/pdf-page-330.jpg",
+      "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+      "source_region": {
+       "x": 164.8,
+       "y": 1397.7,
+       "width": 1035.8,
+       "height": 33
+      },
+      "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+      "upstream_review_state": null,
+      "raw_ocr_verbatim": null,
+      "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+      "source_line_id": null,
+      "insertion_after_line_index_1_based": null,
+      "line_index_unavailable_reason": null,
+      "start": null,
+      "end": null
+     }
+    ],
+    "why_vi": "From 11:15 nêu lúc bắt đầu Winston Smiles; until 1:30 nêu lúc kết thúc chương trình. Cột Time trong bảng đang liệt kê giờ bắt đầu nên chọn 11:15.",
+    "distractors": [],
+    "paraphrase_vi": "",
+    "trap_vi": "Phân biệt from với until, bắt đầu với kết thúc.",
+    "format_vi": "Không quá ba từ hoặc số theo yêu cầu gốc; điền đúng loại thông tin của cột.",
+    "source_answer_warning_vi": null,
+    "next_action_vi": null
+   },
+   "audio_granularity": "whole_day",
+   "q_num": 5,
+   "self_check": false,
+   "alternatives": [],
+   "state": "blank",
+   "correct": null,
+   "user_answer": "",
+   "expected": "",
+   "question_type": "short_answer",
+   "prompt": "Winston Smiles · Time",
+   "audio_window": null,
+   "section": null,
+   "transcript_anchor": null,
+   "solution": {},
+   "self_review": {
+    "rationale": "From 11:15 nêu lúc bắt đầu Winston Smiles; until 1:30 nêu lúc kết thúc chương trình. Cột Time trong bảng đang liệt kê giờ bắt đầu nên chọn 11:15.",
+    "reference_answers": [
+     "11:15"
+    ]
+   },
+   "first_answer": null,
+   "question_context": {
+    "question_id": "7982eb5f-5d0f-4dca-b2fd-53d93a7afbff:5",
+    "instructions": null,
+    "instruction": null,
+    "options": {},
+    "template": null,
+    "max_words": null,
+    "paragraph_labels": null,
+    "labels": null,
+    "image_url": null,
+    "image_alt": null,
+    "template_kind": null,
+    "variant": "programme_form_v1",
+    "word_limit": 3,
+    "word_limit_text": null,
+    "response_type": "short_answer",
+    "map_svg": null,
+    "map_image_url": null,
+    "metadata": {},
+    "context_provenance": {
+     "question_id": "submission_snapshot",
+     "instructions": "unavailable",
+     "instruction": "unavailable",
+     "options": "submission_snapshot",
+     "template": "unavailable",
+     "max_words": "unavailable",
+     "paragraph_labels": "unavailable",
+     "labels": "unavailable",
+     "image_url": "unavailable",
+     "image_alt": "unavailable",
+     "template_kind": "unavailable",
+     "variant": "submission_snapshot",
+     "word_limit": "submission_snapshot",
+     "word_limit_text": "unavailable",
+     "response_type": "submission_snapshot",
+     "map_svg": "unavailable",
+     "map_image_url": "unavailable",
+     "metadata": "unavailable",
+     "metadata.flow_direction": "unavailable"
+    }
+   },
+   "context_provenance": {
+    "prompt": "submission_snapshot",
+    "question_type": "submission_snapshot",
+    "solution": "unavailable",
+    "audio_window": "unavailable",
+    "transcript_anchor": "unavailable",
+    "self_review": "submission_snapshot",
+    "explanation": "submission_snapshot",
+    "question_context": "submission_snapshot"
+   }
+  },
+  {
+   "fields": [],
+   "source_item_id": "80-days:day-55:table_completion:q-06",
+   "source_display_number": "6",
+   "review_status": "CONFIRMED",
+   "answer_provenance": "editorial_verified",
+   "explanation": {
+    "printed_key": {
+     "answer": "(country)、(western) music",
+     "source_pdf_page": null,
+     "source_ocr_line_index_1_based": null,
+     "evidence_tier": "PRINTED_EMBEDDED_KEY",
+     "visual_correction": false,
+     "source_lines": [
+      {
+       "pdf_page": 163,
+       "line_index_1_based": 11
+      },
+      {
+       "pdf_page": 163,
+       "line_index_1_based": 12
+      }
+     ]
+    },
+    "answer": "country music",
+    "evidence": [
+     {
+      "source_kind": "printed_transcript",
+      "pdf_page": 331,
+      "line_index_1_based": 35,
+      "quote": "country and western music of Blue Grass Ben",
+      "relation": "supports",
+      "visual_reconstruction": null,
+      "source_image_path": "page-images/pdf-page-330.jpg",
+      "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+      "source_region": {
+       "x": 162.8,
+       "y": 1523.6,
+       "width": 1155.8,
+       "height": 32
+      },
+      "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+      "upstream_review_state": null,
+      "raw_ocr_verbatim": null,
+      "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+      "source_line_id": null,
+      "insertion_after_line_index_1_based": null,
+      "line_index_unavailable_reason": null,
+      "start": null,
+      "end": null
+     },
+     {
+      "source_kind": "printed_transcript",
+      "pdf_page": 331,
+      "line_index_1_based": 36,
+      "quote": "the Cattlemen at 12:00.",
+      "relation": "supports",
+      "visual_reconstruction": null,
+      "source_image_path": "page-images/pdf-page-330.jpg",
+      "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+      "source_region": {
+       "x": 165.8,
+       "y": 1567,
+       "width": 645.0999999999999,
+       "height": 26.799999999999955
+      },
+      "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+      "upstream_review_state": null,
+      "raw_ocr_verbatim": null,
+      "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+      "source_line_id": null,
+      "insertion_after_line_index_1_based": null,
+      "line_index_unavailable_reason": null,
+      "start": null,
+      "end": null
+     }
+    ],
+    "why_vi": "Country and western music gồm bốn từ, vượt giới hạn ba từ. Bảng đáp án rút gọn thành country music hoặc western music; mỗi cách gồm hai từ và đều chỉ thể loại được nhắc.",
+    "distractors": [],
+    "paraphrase_vi": "",
+    "trap_vi": "Giữ tên thể loại cùng music và kiểm số từ.",
+    "format_vi": "Không quá ba từ hoặc số theo yêu cầu gốc; điền đúng loại thông tin của cột.",
+    "source_answer_warning_vi": null,
+    "next_action_vi": null
+   },
+   "audio_granularity": "whole_day",
+   "q_num": 6,
+   "self_check": false,
+   "alternatives": [],
+   "state": "blank",
+   "correct": null,
+   "user_answer": "",
+   "expected": "",
+   "question_type": "short_answer",
+   "prompt": "Blue Grass Ben · Type of act",
+   "audio_window": null,
+   "section": null,
+   "transcript_anchor": null,
+   "solution": {},
+   "self_review": {
+    "rationale": "Blue Grass Ben and the Cattlemen chơi country and western music. Cụm đầy đủ có bốn từ, vượt giới hạn ba; bảng đáp án cho country hoặc western đi với music. Country music là bản rút gọn hai từ, western music là biến thể nguồn; đây là tham khảo tự học, chưa chấm tự động biến thể.",
+    "reference_answers": [
+     "country music"
+    ]
+   },
+   "first_answer": null,
+   "question_context": {
+    "question_id": "7982eb5f-5d0f-4dca-b2fd-53d93a7afbff:6",
+    "instructions": null,
+    "instruction": null,
+    "options": {},
+    "template": null,
+    "max_words": null,
+    "paragraph_labels": null,
+    "labels": null,
+    "image_url": null,
+    "image_alt": null,
+    "template_kind": null,
+    "variant": "programme_form_v1",
+    "word_limit": 3,
+    "word_limit_text": null,
+    "response_type": "short_answer",
+    "map_svg": null,
+    "map_image_url": null,
+    "metadata": {},
+    "context_provenance": {
+     "question_id": "submission_snapshot",
+     "instructions": "unavailable",
+     "instruction": "unavailable",
+     "options": "submission_snapshot",
+     "template": "unavailable",
+     "max_words": "unavailable",
+     "paragraph_labels": "unavailable",
+     "labels": "unavailable",
+     "image_url": "unavailable",
+     "image_alt": "unavailable",
+     "template_kind": "unavailable",
+     "variant": "submission_snapshot",
+     "word_limit": "submission_snapshot",
+     "word_limit_text": "unavailable",
+     "response_type": "submission_snapshot",
+     "map_svg": "unavailable",
+     "map_image_url": "unavailable",
+     "metadata": "unavailable",
+     "metadata.flow_direction": "unavailable"
+    }
+   },
+   "context_provenance": {
+    "prompt": "submission_snapshot",
+    "question_type": "submission_snapshot",
+    "solution": "unavailable",
+    "audio_window": "unavailable",
+    "transcript_anchor": "unavailable",
+    "self_review": "submission_snapshot",
+    "explanation": "submission_snapshot",
+    "question_context": "submission_snapshot"
+   }
+  }
+ ],
+ "controlled_transcripts": {
+  "80-days:day-55:audio": [
+   {
+    "source_kind": "printed_transcript",
+    "pdf_page": 331,
+    "line_index_1_based": 20,
+    "quote": "Now that I've got the official announcements out of the way, I'd like to tell you about tonight's program. The",
+    "relation": "source_transcript",
+    "source_image_path": "page-images/pdf-page-330.jpg",
+    "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+    "source_region": {
+     "x": 213.7,
+     "y": 947.6,
+     "width": 1101.8999999999999,
+     "height": 29.899999999999977
+    },
+    "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+    "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+    "text": "Now that I've got the official announcements out of the way, I'd like to tell you about tonight's program. The"
+   },
+   {
+    "source_kind": "printed_transcript",
+    "pdf_page": 331,
+    "line_index_1_based": 21,
+    "quote": "Brazilian Drum Band will be appearing on stage 3 at 7:00. This is the first time that they have performed outside",
+    "relation": "source_transcript",
+    "source_image_path": "page-images/pdf-page-330.jpg",
+    "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+    "source_region": {
+     "x": 163.8,
+     "y": 986.8,
+     "width": 1151.8,
+     "height": 32
+    },
+    "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+    "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+    "text": "Brazilian Drum Band will be appearing on stage 3 at 7:00. This is the first time that they have performed outside"
+   },
+   {
+    "source_kind": "printed_transcript",
+    "pdf_page": 331,
+    "line_index_1_based": 22,
+    "quote": "south America, so their show is not to be missed. This will be followed by Claude and Jacques, the French mime",
+    "relation": "source_transcript",
+    "source_image_path": "page-images/pdf-page-330.jpg",
+    "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+    "source_region": {
+     "x": 164.8,
+     "y": 1029.2,
+     "width": 1149.7,
+     "height": 28.899999999999864
+    },
+    "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+    "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+    "text": "south America, so their show is not to be missed. This will be followed by Claude and Jacques, the French mime"
+   },
+   {
+    "source_kind": "printed_transcript",
+    "pdf_page": 331,
+    "line_index_1_based": 23,
+    "quote": "artists, at 8:00. During the performance Claude and Jacques will be introducing special guests from the fields of",
+    "relation": "source_transcript",
+    "source_image_path": "page-images/pdf-page-330.jpg",
+    "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+    "source_region": {
+     "x": 163.8,
+     "y": 1068.4,
+     "width": 1154.8,
+     "height": 33
+    },
+    "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+    "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+    "text": "artists, at 8:00. During the performance Claude and Jacques will be introducing special guests from the fields of"
+   },
+   {
+    "source_kind": "printed_transcript",
+    "pdf_page": 331,
+    "line_index_1_based": 24,
+    "quote": "music and dance. Meanwhile, on stage 2, there is a modern ballet from Great Grapefruit Incorporated, illustrating",
+    "relation": "source_transcript",
+    "source_image_path": "page-images/pdf-page-330.jpg",
+    "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+    "source_region": {
+     "x": 163.8,
+     "y": 1111.7,
+     "width": 1152.8,
+     "height": 30
+    },
+    "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+    "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+    "text": "music and dance. Meanwhile, on stage 2, there is a modern ballet from Great Grapefruit Incorporated, illustrating"
+   },
+   {
+    "source_kind": "printed_transcript",
+    "pdf_page": 331,
+    "line_index_1_based": 26,
+    "quote": "women's role in world peace. This will begin at 7:00 and last for roughly 2 hours. Stage 1 begins at 9:00 with the jazz",
+    "relation": "source_transcript",
+    "source_image_path": "page-images/pdf-page-330.jpg",
+    "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+    "source_region": {
+     "x": 164.8,
+     "y": 1152,
+     "width": 1150.8,
+     "height": 29.90000000000009
+    },
+    "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+    "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+    "text": "women's role in world peace. This will begin at 7:00 and last for roughly 2 hours. Stage 1 begins at 9:00 with the jazz"
+   },
+   {
+    "source_kind": "printed_transcript",
+    "pdf_page": 331,
+    "line_index_1_based": 27,
+    "quote": "fusion band, Crossed Wires, whose performance tonight is the last date on their world tour. Stage 1 continues with a",
+    "relation": "source_transcript",
+    "source_image_path": "page-images/pdf-page-330.jpg",
+    "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+    "source_region": {
+     "x": 164.8,
+     "y": 1194.3,
+     "width": 1151.8,
+     "height": 28.90000000000009
+    },
+    "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+    "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+    "text": "fusion band, Crossed Wires, whose performance tonight is the last date on their world tour. Stage 1 continues with a"
+   },
+   {
+    "source_kind": "printed_transcript",
+    "pdf_page": 331,
+    "line_index_1_based": 28,
+    "quote": "regular guest at there festivals, comedian Tom Cobble. His show begins at 10:30.",
+    "relation": "source_transcript",
+    "source_image_path": "page-images/pdf-page-330.jpg",
+    "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+    "source_region": {
+     "x": 164.8,
+     "y": 1235.6,
+     "width": 797.7,
+     "height": 28.90000000000009
+    },
+    "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+    "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+    "text": "regular guest at there festivals, comedian Tom Cobble. His show begins at 10:30."
+   },
+   {
+    "source_kind": "printed_transcript",
+    "pdf_page": 331,
+    "line_index_1_based": 29,
+    "quote": "After Claude and Jacques at 9:00 on stage 3, there will be a performance by the Flying Barite Brothers who are",
+    "relation": "source_transcript",
+    "source_image_path": "page-images/pdf-page-330.jpg",
+    "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+    "source_region": {
+     "x": 215.7,
+     "y": 1276.9,
+     "width": 1098.8,
+     "height": 26.799999999999955
+    },
+    "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+    "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+    "text": "After Claude and Jacques at 9:00 on stage 3, there will be a performance by the Flying Barite Brothers who are"
+   },
+   {
+    "source_kind": "printed_transcript",
+    "pdf_page": 331,
+    "line_index_1_based": 30,
+    "quote": "acrobats with the Albanian State Circus. The Flying Barite Brothers'fire-eating trapeze act is unique. No other",
+    "relation": "source_transcript",
+    "source_image_path": "page-images/pdf-page-330.jpg",
+    "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+    "source_region": {
+     "x": 164.8,
+     "y": 1317.2,
+     "width": 1150.8,
+     "height": 28.899999999999864
+    },
+    "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+    "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+    "text": "acrobats with the Albanian State Circus. The Flying Barite Brothers'fire-eating trapeze act is unique. No other"
+   },
+   {
+    "source_kind": "printed_transcript",
+    "pdf_page": 331,
+    "line_index_1_based": 31,
+    "quote": "performer has managed to equal their grand finale. From 11:15 we are happy to present Winston Smiles and the",
+    "relation": "source_transcript",
+    "source_image_path": "page-images/pdf-page-330.jpg",
+    "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+    "source_region": {
+     "x": 163.8,
+     "y": 1356.4,
+     "width": 1152.8,
+     "height": 33
+    },
+    "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+    "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+    "text": "performer has managed to equal their grand finale. From 11:15 we are happy to present Winston Smiles and the"
+   },
+   {
+    "source_kind": "printed_transcript",
+    "pdf_page": 331,
+    "line_index_1_based": 32,
+    "quote": "Kingston Beat who will be playing authentic Jamaican reggae until the end of the official program at 1:30.",
+    "relation": "source_transcript",
+    "source_image_path": "page-images/pdf-page-330.jpg",
+    "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+    "source_region": {
+     "x": 164.8,
+     "y": 1397.7,
+     "width": 1035.8,
+     "height": 33
+    },
+    "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+    "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+    "text": "Kingston Beat who will be playing authentic Jamaican reggae until the end of the official program at 1:30."
+   },
+   {
+    "source_kind": "printed_transcript",
+    "pdf_page": 331,
+    "line_index_1_based": 33,
+    "quote": "Over on stage 2, the Great Mystery will be Presenting his show of magic illusion and mystery at 9:30. During",
+    "relation": "source_transcript",
+    "source_image_path": "page-images/pdf-page-330.jpg",
+    "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+    "source_region": {
+     "x": 212.6,
+     "y": 1441,
+     "width": 1103,
+     "height": 31
+    },
+    "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+    "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+    "text": "Over on stage 2, the Great Mystery will be Presenting his show of magic illusion and mystery at 9:30. During"
+   },
+   {
+    "source_kind": "printed_transcript",
+    "pdf_page": 331,
+    "line_index_1_based": 34,
+    "quote": "the show he will be chained and thrown into a sealed aquarium from which he will try to escape. If everything goes to",
+    "relation": "source_transcript",
+    "source_image_path": "page-images/pdf-page-330.jpg",
+    "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+    "source_region": {
+     "x": 162.8,
+     "y": 1485.4,
+     "width": 1154.8,
+     "height": 26.899999999999864
+    },
+    "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+    "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+    "text": "the show he will be chained and thrown into a sealed aquarium from which he will try to escape. If everything goes to"
+   },
+   {
+    "source_kind": "printed_transcript",
+    "pdf_page": 331,
+    "line_index_1_based": 35,
+    "quote": "plan, the act will finish at 11:30 and the stage will be ready for the country and western music of Blue Grass Ben and",
+    "relation": "source_transcript",
+    "source_image_path": "page-images/pdf-page-330.jpg",
+    "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+    "source_region": {
+     "x": 162.8,
+     "y": 1523.6,
+     "width": 1155.8,
+     "height": 32
+    },
+    "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+    "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+    "text": "plan, the act will finish at 11:30 and the stage will be ready for the country and western music of Blue Grass Ben and"
+   },
+   {
+    "source_kind": "printed_transcript",
+    "pdf_page": 331,
+    "line_index_1_based": 36,
+    "quote": "the Cattlemen at 12:00. This act will be the last on stage 2 tonight.",
+    "relation": "source_transcript",
+    "source_image_path": "page-images/pdf-page-330.jpg",
+    "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+    "source_region": {
+     "x": 165.8,
+     "y": 1567,
+     "width": 645.0999999999999,
+     "height": 26.799999999999955
+    },
+    "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+    "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+    "text": "the Cattlemen at 12:00. This act will be the last on stage 2 tonight."
+   },
+   {
+    "source_kind": "printed_transcript",
+    "pdf_page": 331,
+    "line_index_1_based": 37,
+    "quote": "After Tom Cobble on stage 1, we have tonight's main attraction. The Proffers, who will be performing in",
+    "relation": "source_transcript",
+    "source_image_path": "page-images/pdf-page-330.jpg",
+    "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+    "source_region": {
+     "x": 217.7,
+     "y": 1607.2,
+     "width": 1098.8999999999999,
+     "height": 26.899999999999864
+    },
+    "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+    "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+    "text": "After Tom Cobble on stage 1, we have tonight's main attraction. The Proffers, who will be performing in"
+   },
+   {
+    "source_kind": "printed_transcript",
+    "pdf_page": 331,
+    "line_index_1_based": 38,
+    "quote": "public tonight for the first time since they broke up 5 years ago. The news is that they are back and they will be",
+    "relation": "source_transcript",
+    "source_image_path": "page-images/pdf-page-330.jpg",
+    "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+    "source_region": {
+     "x": 163.8,
+     "y": 1644.4,
+     "width": 1154.8,
+     "height": 33
+    },
+    "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+    "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+    "text": "public tonight for the first time since they broke up 5 years ago. The news is that they are back and they will be"
+   },
+   {
+    "source_kind": "printed_transcript",
+    "pdf_page": 331,
+    "line_index_1_based": 39,
+    "quote": "presenting a show including both old favourites and songs from their new album, which is to be released in",
+    "relation": "source_transcript",
+    "source_image_path": "page-images/pdf-page-330.jpg",
+    "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+    "source_region": {
+     "x": 163.8,
+     "y": 1685.7,
+     "width": 1154.8,
+     "height": 33
+    },
+    "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+    "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+    "text": "presenting a show including both old favourites and songs from their new album, which is to be released in"
+   },
+   {
+    "source_kind": "printed_transcript",
+    "pdf_page": 331,
+    "line_index_1_based": 40,
+    "quote": "September. They are expected on stage at midnight. After the official program has ended there will be a number of",
+    "relation": "source_transcript",
+    "source_image_path": "page-images/pdf-page-330.jpg",
+    "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+    "source_region": {
+     "x": 164.8,
+     "y": 1727,
+     "width": 1156.9,
+     "height": 33
+    },
+    "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+    "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+    "text": "September. They are expected on stage at midnight. After the official program has ended there will be a number of"
+   },
+   {
+    "source_kind": "printed_transcript",
+    "pdf_page": 331,
+    "line_index_1_based": 41,
+    "quote": "side shows taking place around the site.",
+    "relation": "source_transcript",
+    "source_image_path": "page-images/pdf-page-330.jpg",
+    "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+    "source_region": {
+     "x": 164.8,
+     "y": 1771.4,
+     "width": 389.7,
+     "height": 28.899999999999864
+    },
+    "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+    "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+    "text": "side shows taking place around the site."
+   }
+  ]
+ },
+ "web_explanation_access": {
+  "available": false,
+  "reason": "report_only"
+ },
+ "context_source": {
+  "provenance": "submission_snapshot",
+  "possibly_changed": false,
+  "paper_revision": 0,
+  "policy_revision": 0,
+  "context_sha256": "41d898b254cdf3ac9e1ce6c23dbc84361f4ceb64a7c15cda4852199072e61c00",
+  "field_provenance": {
+   "audio_url": "submission_snapshot",
+   "audio_duration": "submission_snapshot",
+   "cue_points": "submission_snapshot",
+   "section_offsets": "unavailable"
+  }
+ },
+ "score_mode": "scored",
+ "self_check_count": 0
+}

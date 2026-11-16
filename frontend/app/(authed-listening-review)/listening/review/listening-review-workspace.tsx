@@ -197,6 +197,7 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, webExplana
   const flagRef = useRef<HTMLDivElement | null>(null);
   const solution = item.solution || {};
   const answerState = item.self_check ? 'self_check' : preview ? (item.correct ? 'correct' : 'incorrect') : listeningReviewAnswerState(item);
+  const neutral = answerState === 'self_check';
   const webExplanation = item.self_check ? null : item.web_explanation_object;
   const vocab = bulletRows(solution.vocab_focus || solution.vocab);
   const hasSolutionDetail = Boolean(solution.translation_vi || vocab.length || solution.paraphrase
@@ -217,7 +218,7 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, webExplana
     id={`listening-review-q-${item.q_num}`}
     className={`lr-card is-${answerState}${expanded ? ' is-open' : ''}${selected ? ' is-current' : ''}`}
     data-q={item.q_num}
-    data-correct={item.self_check ? undefined : item.correct ? 'true' : 'false'}
+    data-correct={neutral ? undefined : item.correct ? 'true' : 'false'}
     aria-current={selected ? 'true' : undefined}
   >
     <FeedbackCardBridge cardRef={cardRef} topRef={flagRef} item={item} attemptId={attemptId} preview={preview} />
@@ -247,8 +248,8 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, webExplana
     <div className="lr-card__answers">
       {!preview ? <div className="lr-card__ans is-user"><span>Bạn:</span> <code>{item.user_answer || '—'}</code>
         <ReviewAnswerChoiceText className="lr-card__ans-text" context={item.question_context} answer={item.user_answer} /></div> : null}
-      <div className={`lr-card__ans${item.self_check ? '' : ' is-correct'}`}><span>{item.self_check ? 'Đáp án tham khảo:' : 'Đáp án:'}</span> <code>{webExplanation ? 'Mở theo các bước sửa bài bên dưới' : item.unordered_answer_group ? `{${item.unordered_answer_group.accepted_answers.join(', ')}}` : item.expected || '—'}</code>
-        {item.self_check && item.alternatives?.length ? <small>{item.alternatives.join(' / ')}</small> : null}
+      <div className={`lr-card__ans${neutral ? '' : ' is-correct'}`}><span>{neutral ? 'Đáp án tham khảo:' : 'Đáp án:'}</span> <code>{webExplanation ? 'Mở theo các bước sửa bài bên dưới' : item.unordered_answer_group ? `{${item.unordered_answer_group.accepted_answers.join(', ')}}` : item.expected || '—'}</code>
+        {neutral && item.alternatives?.length ? <small>{item.alternatives.join(' / ')}</small> : null}
         {!webExplanation ? <ReviewAnswerChoiceText className="lr-card__ans-text" context={item.question_context}
           answer={item.unordered_answer_group ? item.unordered_answer_group.accepted_answers.join(', ') : item.expected} /> : null}</div>
     </div>
@@ -269,7 +270,7 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, webExplana
             onReplayAudio={onLocate}
             replayWindow={win}
             getAudioPosition={getAudioPosition}
-            correctionRequired={!item.correct}
+            correctionRequired={item.correct === false}
           />
         : hasSolutionDetail ? <>
         <SolutionSection label="Dịch đoạn chứa đáp án">{solution.translation_vi ? <p>{inlineNodes(solution.translation_vi)}</p> : null}</SolutionSection>
@@ -431,7 +432,7 @@ export function ListeningReviewWorkspace() {
   }, [data]);
 
   const totals = useMemo(() => listeningReviewTotals(data?.review), [data]);
-  const selfCheckCount = data?.review.filter((item: any) => item.self_check).length || 0;
+  const selfCheckCount = data?.review.filter((item: any) => listeningReviewAnswerState(item) === 'self_check').length || 0;
   const wrongCount = totals.incorrect + totals.unanswered;
   const skills = useMemo(() => listeningSkillsToPractise(data?.review, K_LABELS), [data]);
   const visibleItems = useMemo(() => (data?.review || []).filter((item: any) => listeningReviewMatchesFilter(item, filter)), [data, filter]);
