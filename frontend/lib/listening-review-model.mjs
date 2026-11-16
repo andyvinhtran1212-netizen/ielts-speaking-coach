@@ -7,10 +7,14 @@ const finiteNumber = (value) => {
   return Number.isFinite(number) ? number : null;
 };
 
+// Programme report-only items preserve a null grade for these persisted states.
+const isUngraded = (item) => item?.correct === null
+  && (item.state === 'unscored' || item.state === 'blank');
+
 // The grade stays authoritative; an empty incorrect response has its own
 // presentation so review does not describe it as a submitted wrong answer.
 export function listeningReviewAnswerState(item) {
-  if (item?.self_check === true) return 'self_check';
+  if (item?.self_check === true || isUngraded(item)) return 'self_check';
   if (item?.correct === true) return 'correct';
   return text(item?.user_answer) ? 'incorrect' : 'unanswered';
 }
@@ -28,7 +32,7 @@ export function listeningReviewMatchesFilter(item, filter) {
 export function listeningReviewTotals(review) {
   const totals = { incorrect: 0, unanswered: 0, correct: 0 };
   for (const item of review || []) {
-    if (item?.self_check === true) continue;
+    if (listeningReviewAnswerState(item) === 'self_check') continue;
     totals[listeningReviewAnswerState(item)] += 1;
   }
   return totals;
@@ -196,7 +200,7 @@ export function normalizeListeningReview(payload) {
     if (!row || typeof row !== 'object') throw new Error('invalid-listening-review-item');
     const qNum = Number(row.q_num);
     if (!Number.isInteger(qNum) || qNum < 1 || seenQuestions.has(qNum)
-        || (row.self_check === true ? row.correct !== null : typeof row.correct !== 'boolean')) {
+        || (row.self_check === true ? row.correct !== null : typeof row.correct !== 'boolean' && !isUngraded(row))) {
       throw new Error('invalid-listening-review-item');
     }
     seenQuestions.add(qNum);
@@ -305,7 +309,7 @@ export function listeningTranscriptParagraphs(raw) {
 export function listeningSkillsToPractise(items, labels = {}) {
   const tally = {};
   for (const item of items || []) {
-    if (item?.correct || item?.self_check === true) continue;
+    if (item?.correct || listeningReviewAnswerState(item) === 'self_check') continue;
     const skills = String(item?.solution?.skills || '').match(/K[1-8]/g) || [];
     for (const code of skills) tally[code] = (tally[code] || 0) + 1;
   }
