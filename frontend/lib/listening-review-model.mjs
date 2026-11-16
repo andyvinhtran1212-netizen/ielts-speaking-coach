@@ -224,7 +224,9 @@ export function normalizeListeningReview(payload) {
   const maxScore = finiteNumber(payload.max_score);
   const bandEstimate = finiteNumber(payload.band_estimate);
   const selfCheckOnly = payload.score_mode === 'self_check_only' || (review.length > 0 && review.every((item) => item.self_check));
-  if (!preview && ((!selfCheckOnly && score === null) || maxScore === null || maxScore < 0
+  // Report-only practice and historical attempts can retain per-question
+  // grades without an aggregate score. Only an explicit null is scoreless.
+  if (!preview && ((!selfCheckOnly && payload.score !== null && score === null) || maxScore === null || maxScore < 0
       || score < 0 || score > maxScore)) {
     throw new Error('invalid-listening-review-score');
   }
@@ -258,6 +260,7 @@ export function listeningBandLabel(review) {
   if (review?.maxScore === 0) return 'Không chấm điểm';
   if (review?.scoreMode === 'mixed') return `Không quy đổi band · ${review.selfCheckCount} câu tự đối chiếu`;
   if (review?.maxScore != null && review.maxScore !== 40) return 'Không quy đổi band';
+  if (review?.score === null) return 'Chưa đủ band';
   if (review?.bandEstimate !== null && review?.bandEstimate !== undefined) {
     return `Band ${Number(review.bandEstimate).toFixed(1)}`;
   }

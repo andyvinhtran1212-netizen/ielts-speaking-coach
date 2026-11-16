@@ -34,6 +34,31 @@ afterEach(() => {
   cleanup(); vi.restoreAllMocks(); window.history.replaceState(null, '', '/');
 });
 
+it.each([10, 40])('opens a scoreless submitted practice review without a numeric result or invented band (max %s)', async (maxScore) => {
+  const raw = { ...response(), score: null, max_score: maxScore, score_mode: 'scored',
+    band_estimate: 6.5, band_conversion: [{ band: 4 }],
+    sections: [{ section_num: 3, title: 'Part 3', transcript: 'A synthetic practice transcript.' }],
+    review: response().review.map((item) => ({ ...item,
+      solution: item.q_num === 28 ? { why_correct: 'A synthetic explanation.' } : {},
+    })),
+  };
+  getWith.mockResolvedValue(raw);
+  const view = render(<ListeningReviewWorkspace />);
+  await screen.findByRole('button', { name: 'Câu 27 — bỏ trống' });
+  expect(screen.getByRole('button', { name: 'Câu 28 — sai' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Câu 29 — đúng' })).toBeTruthy();
+  const card = view.container.querySelector('#listening-review-q-28') as HTMLElement;
+  expect(within(card).getByText('A')).toBeTruthy();
+  expect(within(card).getByText('B')).toBeTruthy();
+  fireEvent.click(card.querySelector('.lr-card__top')!);
+  expect(within(card).getByText('A synthetic explanation.')).toBeTruthy();
+  expect(screen.getByText('A synthetic practice transcript.')).toBeTruthy();
+  const summary = view.container.querySelector('.lr-summary')!;
+  expect(summary.textContent).not.toMatch(/null|NaN|\d*\/\d+ câu|Kết quả|Band \d|Dưới band/);
+  expect(summary.textContent).toContain(maxScore === 40 ? 'Chưa đủ band' : 'Không quy đổi band');
+  expect(screen.queryByRole('alert')).toBeNull();
+});
+
 it('renders self-check answers and Vietnamese explanation without a correct/incorrect mark, including a reload', async () => {
   const raw = { ...response(), score: null, score_mode: 'self_check_only', max_score: 0, review: [
     { q_num: 1, self_check: true, correct: null, user_answer: 'my response', expected: 'reference answer',
