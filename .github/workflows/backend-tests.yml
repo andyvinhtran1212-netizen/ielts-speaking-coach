@@ -76,7 +76,7 @@ jobs:
   # failure here fail CLOSED: an empty/missing output runs every heavy job.
   changes:
     name: Changed paths (CI gate)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       contents: read
@@ -132,7 +132,7 @@ jobs:
   # test exactly once (`scripts/ci_pytest_shards.py verify`).
   backend-shard:
     name: Backend pytest shard ${{ matrix.shard }}/4
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Full pytest plus PG/audio setup and cleanup exceeded 10 minutes in PR1563.
     # A slow Ubuntu mirror has made the ffmpeg install take 8–11 min,
     # cancelling the exact-SHA staging push run that the promotion gate
@@ -255,7 +255,7 @@ jobs:
   # proves the shards ran each collected test exactly once.
   backend-pg17:
     name: Backend PG17 migration/privilege tests (advisory) ${{ matrix.shard }}/3
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     continue-on-error: true
     needs: changes
@@ -349,7 +349,7 @@ jobs:
   # suite exactly once (the serial job ran 1,999 at PC-J582).
   backend-pg17-verify:
     name: Backend PG17 shard parity (advisory)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     continue-on-error: true
     needs: [changes, backend-pg17]
@@ -403,7 +403,7 @@ jobs:
     needs: changes
     # Non-matrix job: a job-level skip still reports this exact required name.
     if: ${{ !cancelled() && (github.event_name == 'push' || needs.changes.outputs.run_tests != 'false') }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -452,7 +452,7 @@ jobs:
     # Exception: a PR touching no gated path (the shards ran empty and the
     # collection was skipped) skips it; push runs always have RUN = true.
     if: ${{ always() && (github.event_name == 'push' || needs.changes.outputs.run_tests != 'false') }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -499,7 +499,7 @@ jobs:
     needs: changes
     # Non-matrix job: a job-level skip still reports this exact required name.
     if: ${{ !cancelled() && (github.event_name == 'push' || needs.changes.outputs.run_tests != 'false') }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
 
     # Most frontend tests are pure node:test contracts. Browser contracts also resolve
