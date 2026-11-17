@@ -29,7 +29,11 @@
       "/workspace/content-audit/cambridge-rev-audit-2026-10-27/raw/explanations.json": "802214227031d60af93dace69b4d662b1215bb22023e630d2cfaf7df6638305b",
       "/workspace/qa/pcj112/data/staging/ILR-RDG-CAM-B20-T3.json": "8b2e8efddea6a776800e4f68f5714986bd8266a6147084ddb5838ebe70ceca40"
     },
-    "q8_cm_followup": "CM-2322-R1-SIGNOFF-20261116.md:41-43"
+    "q8_cm_followup": "CM-2322-R1-SIGNOFF-20261116.md:41-43",
+    "q8_solution_cm": {
+      "path": "CM-2323-Q8Q40-REVIEW-20261116.md:23-25",
+      "sha256": "46d1cf909108e95f5b894dd92a748080de35c40fc6f2904ccf24114f69ad5b12"
+    }
   },
   "q8": {
     "answer": "2.30",
@@ -64,7 +68,12 @@
     ],
     "answer_summary": "Đáp án chuẩn: 2.30 (chấp nhận cả 2:30).",
     "marking_note": "Chấp nhận `2.30` hoặc `2:30`. Không nhận dạng chữ như `two thirty` vì là hai từ, vượt giới hạn ONE WORD AND/OR A NUMBER; không ghi thêm \"pm\" vì đề đã in sẵn \"p.m.\".",
-    "warning": "Bẫy nhẹ về format số: viết **2.30** (đề đã in sẵn \"p.m.\"). Không viết **two thirty** vì đó là hai từ, vượt giới hạn ONE WORD AND/OR A NUMBER; cũng không ghi \"2:30 pm\" vì lặp lại p.m."
+    "warning": "Bẫy nhẹ về format số: viết **2.30** (đề đã in sẵn \"p.m.\"). Không viết **two thirty** vì đó là hai từ, vượt giới hạn ONE WORD AND/OR A NUMBER; cũng không ghi \"2:30 pm\" vì lặp lại p.m.",
+    "solution_fields": {
+      "answer": "2.30 / 2:30",
+      "trap": "Bẫy nhẹ về format số: viết **2.30** (đề đã in sẵn \"p.m.\"). Không viết **two thirty** vì đó là hai từ, vượt giới hạn ONE WORD AND/OR A NUMBER; cũng không ghi \"2:30 pm\" vì lặp lại p.m.",
+      "why_correct": "Lunch stops at **2:30**, so you must eat before then. \"p.m.\" is already printed. Write the numeric form `2.30`; `two thirty` exceeds the one-word limit. Đồ trưa ngừng bán lúc **2:30**, nên phải ăn trước giờ đó. \"p.m.\" đã in sẵn. Ghi dạng số `2.30`; `two thirty` vượt giới hạn một từ."
+    }
   },
   "q31": {
     "canonical": "321,000",

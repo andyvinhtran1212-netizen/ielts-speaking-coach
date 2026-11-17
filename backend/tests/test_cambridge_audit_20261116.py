@@ -14,6 +14,23 @@ from services.listening_test_grader import answer_matches
 
 FIXTURE = json.loads((Path(__file__).parent / 'fixtures/cambridge_audit_20261116.json').read_text())
 STAMP = '2026-11-14T11:35:11+00:00'
+# Copied from CM-2323-Q8Q40-REVIEW-20261116.md:23-25 (Markdown escapes decoded).
+Q8_SOLUTION_AFTER = {
+    'answer': (
+        '2.30 / 2:30'
+    ),
+    'trap': (
+        'Bẫy nhẹ về format số: viết **2.30** (đề đã in sẵn "p.m."). Không viết **two thirty** vì '
+        'đó là hai từ, vượt giới hạn ONE WORD AND/OR A NUMBER; cũng không ghi "2:30 pm" vì lặp '
+        'lại p.m.'
+    ),
+    'why_correct': (
+        'Lunch stops at **2:30**, so you must eat before then. "p.m." is already printed. Write '
+        'the numeric form `2.30`; `two thirty` exceeds the one-word limit. Đồ trưa ngừng bán lúc '
+        '**2:30**, nên phải ăn trước giờ đó. "p.m." đã in sẵn. Ghi dạng số `2.30`; `two thirty` '
+        'vượt giới hạn một từ.'
+    ),
+}
 
 
 def paper(group, environment='prod'):
@@ -49,9 +66,11 @@ def q8_entries(environment='prod', *, already_correct=False):
            'updated_at': STAMP, 'payload': {'answers': [
                {'q_num': 7, 'answer': 'unchanged', 'alternatives': []},
                {'q_num': 8, 'answer': '2.30', 'alternatives': ['two thirty', '2:30']}],
-               'instruction': 'Retain instruction', 'solutions': {'9': "don't touch"}}}
+               'instruction': 'Retain instruction', 'solutions': {
+                   '8': deepcopy(captured_snapshot(environment)['entries'][0]['row']['payload']['solutions']['8']),
+                   '9': "don't touch"}}}
     if already_correct:
-        key['payload']['answers'][1]['alternatives'] = ['2:30']
+        key['payload'] = builder.repair_q8(key['payload'], environment)
         obj['payload'] = builder.repair_q8_object(obj['payload'])
     return [{'target': target, 'paper': paper('c03b', environment), 'row': row}
             for target, row in [('c03b-key', key), ('c03b-object', obj)]]
@@ -100,6 +119,9 @@ def test_prod_only_approved_fields_change_and_input_is_preserved():
             answer = after['payload']['answers'][1]
             assert answer == {'q_num': 8, 'answer': '2.30', 'alternatives': ['2:30']}
             reverted['payload']['answers'][1]['alternatives'] = ['two thirty', '2:30']
+            for field, expected in Q8_SOLUTION_AFTER.items():
+                assert after['payload']['solutions']['8'][field] == expected
+                reverted['payload']['solutions']['8'][field] = before['payload']['solutions']['8'][field]
         else:
             fields = (['item.answer.accepted_forms', 'explanation.answer_summary', 'explanation.marking_note']
                       if c['target'] == 'c03b-object' else list(builder.SPEC['q31']['fields']))
@@ -371,7 +393,7 @@ def test_x1_current_selection_refuses_unsafe_capture(bad_state):
         builder.transaction_sql(snapshot)
 
 
-def test_real_prod_matches_f2d62986_except_two_cm_q8_fields():
+def test_real_prod_matches_f2d62986_except_approved_cm_q8_fields():
     import hashlib
     golden = json.loads((FIXTURES / 'cambridge_batch_a_f2d62986_prod_golden.json').read_text())
     capture = FIXTURES / 'cambridge_batch_a_pre_prod_20261116_2159.json'
@@ -380,21 +402,25 @@ def test_real_prod_matches_f2d62986_except_two_cm_q8_fields():
     plan = builder.build_plan(snapshot)
     assert [c['target'] for c in plan['changes']] == ['c03b-key', 'c03b-object', 'v2b-object']
     sql = builder.transaction_sql(snapshot)
-    old_q8 = None
+    restored_rows = []
     for change, old in zip(plan['changes'], golden['changes']):
         assert change['target'] == old['target']
         assert change['before_sha256'] == builder.sha(change['before']) == old['before_sha256']
         assert change['changed'] == old['changed'] is True
         after = deepcopy(change['after'])
+        if change['target'] == 'c03b-key':
+            for field in Q8_SOLUTION_AFTER:
+                after['payload']['solutions']['8'][field] = change['before']['payload']['solutions']['8'][field]
         if change['target'] == 'c03b-object':
             after['payload']['explanation']['answer_summary'] = golden['q8_answer_summary']
             after['payload']['explanation']['marking_note'] = golden['q8_marking_note']
-            old_q8 = after
+        restored_rows.append((change['after'], after))
         assert builder.sha(after) == old['after_sha256']
-    q8 = next(c for c in plan['changes'] if c['target'] == 'c03b-object')
-    # Restoring only the two approved CM fields reproduces the entire old SQL byte-for-byte.
-    baseline_sql = sql.replace(builder.literal(q8['after']['payload']), builder.literal(old_q8['payload']))
-    baseline_sql = baseline_sql.replace(builder.literal(q8['after']), builder.literal(old_q8))
+    # Restore only the five approved CM fields to reproduce the complete base SQL.
+    baseline_sql = sql
+    for current, restored in restored_rows:
+        baseline_sql = baseline_sql.replace(builder.literal(current['payload']), builder.literal(restored['payload']))
+        baseline_sql = baseline_sql.replace(builder.literal(current), builder.literal(restored))
     assert hashlib.sha256(baseline_sql.encode()).hexdigest() == golden['rollback_sql_sha256']
     v2b = next(c for c in plan['changes'] if c['target'] == 'v2b-object')
     v2b_lines = '\n'.join(line for line in sql.splitlines() if v2b['before']['id'] in line)
@@ -488,3 +514,62 @@ def test_staging_q8_object_presence_uses_existing_pair_path():
     snapshot['entries'][-1]['row']['payload']['explanation']['trap'] = 'unexpected warning'
     with pytest.raises(ValueError, match='Q8 warning drift'):
         builder.transaction_sql(snapshot)
+
+
+@pytest.mark.parametrize('environment', ['staging', 'prod'])
+def test_captured_q8_solution_exact_cm_after_image_and_existing_sql_guards(environment):
+    snapshot = captured_snapshot(environment)
+    plan = builder.build_plan(snapshot)
+    change = next(c for c in plan['changes'] if c['target'] == 'c03b-key')
+    before, after = change['before'], change['after']
+    solution = after['payload']['solutions']['8']
+    assert builder.SPEC['q8']['solution_fields'] == Q8_SOLUTION_AFTER
+    for field, expected in Q8_SOLUTION_AFTER.items():
+        assert solution[field] == expected
+    # No accepted written form remains; its two mentions explicitly reject it.
+    assert 'two thirty' not in solution['answer']
+    assert 'Không viết **two thirty**' in solution['trap']
+    assert '`two thirty` exceeds the one-word limit' in solution['why_correct']
+    assert '`two thirty` vượt giới hạn một từ' in solution['why_correct']
+    restored = deepcopy(after)
+    for field in Q8_SOLUTION_AFTER:
+        restored['payload']['solutions']['8'][field] = before['payload']['solutions']['8'][field]
+    next(a for a in restored['payload']['answers'] if a['q_num'] == 8)['alternatives'] = next(
+        a['alternatives'] for a in before['payload']['answers'] if a['q_num'] == 8)
+    assert restored == before  # All other solution/payload/row fields, including history.
+    sql = builder.transaction_sql(snapshot)
+    assert sql.endswith('ROLLBACK;\n')
+    assert builder.transaction_sql(snapshot, rollback=False) == sql.removesuffix('ROLLBACK;\n') + 'COMMIT;\n'
+    update = next(line for line in sql.splitlines() if line.startswith('UPDATE public.listening_exercises'))
+    assert f"SET payload={builder.literal(after['payload'])}" in update
+    assert f"to_jsonb(r)={builder.literal(before)}" in update
+    assert f"r.updated_at='{before['updated_at']}'::timestamptz" in update
+    assert f"r.content_id IN (SELECT id FROM public.listening_content WHERE test_id='{builder.Q8_PAPER}'::uuid)" in update
+    assert sql.index('fn_lock_mock_paper') < sql.index(update)
+    assert sql.rindex('row pre-image or membership drift') < sql.index(update)
+    count = 7 if environment == 'staging' else 3
+    assert sql.count('GET DIAGNOSTICS touched = ROW_COUNT; IF touched <> 1') == count
+    assert sql.count('content readback mismatch') == count
+    assert f"({builder.literal(after)} - 'updated_at')" in sql
+    assert not re.search(r'\b(CREATE|ALTER|DROP|DELETE|INSERT|TRUNCATE)\b', sql)
+    assert not re.search(r'public\.\w*(attempt|score|snapshot|notification)\w*', sql)
+
+
+@pytest.mark.parametrize('environment', ['staging', 'prod'])
+@pytest.mark.parametrize('field', ['answer', 'trap', 'why_correct'])
+def test_q8_missing_solution_field_refuses_before_sql(environment, field):
+    snapshot = captured_snapshot(environment)
+    entry = next(e for e in snapshot['entries'] if e['target'] == 'c03b-key')
+    del entry['row']['payload']['solutions']['8'][field]
+    with pytest.raises(ValueError, match='Missing Q8 solution field'):
+        builder.transaction_sql(snapshot)
+
+
+def test_staging_q8_correct_alternatives_still_repairs_stale_solution():
+    snapshot = captured_snapshot('staging')
+    key = next(e['row'] for e in snapshot['entries'] if e['target'] == 'c03b-key')
+    next(a for a in key['payload']['answers'] if a['q_num'] == 8)['alternatives'] = ['2:30']
+    change = next(c for c in builder.build_plan(snapshot)['changes'] if c['target'] == 'c03b-key')
+    assert change['changed']
+    assert {field: change['after']['payload']['solutions']['8'][field]
+            for field in Q8_SOLUTION_AFTER} == Q8_SOLUTION_AFTER

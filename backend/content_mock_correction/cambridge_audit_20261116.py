@@ -105,6 +105,12 @@ def repair_q8(payload, environment):
     require(answer == {'q_num': 8, 'answer': '2.30', 'alternatives': answer.get('alternatives')}
             and answer['alternatives'] in expected, 'Q8 answer before-value drift')
     answer['alternatives'] = deepcopy(SPEC['q8']['after'])
+    solution = result.get('solutions', {}).get('8')
+    require(isinstance(solution, dict)
+            and all(field in solution for field in SPEC['q8']['solution_fields']),
+            'Missing Q8 solution field')
+    for field, value in SPEC['q8']['solution_fields'].items():
+        solution[field] = value
     return result
 
 
