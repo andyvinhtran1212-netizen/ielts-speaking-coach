@@ -1,4 +1,4 @@
-"""Offline academic deltas and SQL boundaries; fixtures are staging content only."""
+"""Offline academic deltas and SQL boundaries; fixtures include captured content rows and explicitly synthetic current X1 rows."""
 from copy import deepcopy
 import json
 from pathlib import Path
@@ -14,6 +14,23 @@ from services.listening_test_grader import answer_matches
 
 FIXTURE = json.loads((Path(__file__).parent / 'fixtures/cambridge_audit_20261116.json').read_text())
 STAMP = '2026-11-14T11:35:11+00:00'
+# Copied from CM-2323-Q8Q40-REVIEW-20261116.md:23-25 (Markdown escapes decoded).
+Q8_SOLUTION_AFTER = {
+    'answer': (
+        '2.30 / 2:30'
+    ),
+    'trap': (
+        'Bẫy nhẹ về format số: viết **2.30** (đề đã in sẵn "p.m."). Không viết **two thirty** vì '
+        'đó là hai từ, vượt giới hạn ONE WORD AND/OR A NUMBER; cũng không ghi "2:30 pm" vì lặp '
+        'lại p.m.'
+    ),
+    'why_correct': (
+        'Lunch stops at **2:30**, so you must eat before then. "p.m." is already printed. Write '
+        'the numeric form `2.30`; `two thirty` exceeds the one-word limit. Đồ trưa ngừng bán lúc '
+        '**2:30**, nên phải ăn trước giờ đó. "p.m." đã in sẵn. Ghi dạng số `2.30`; `two thirty` '
+        'vượt giới hạn một từ.'
+    ),
+}
 
 
 def paper(group, environment='prod'):
@@ -49,9 +66,11 @@ def q8_entries(environment='prod', *, already_correct=False):
            'updated_at': STAMP, 'payload': {'answers': [
                {'q_num': 7, 'answer': 'unchanged', 'alternatives': []},
                {'q_num': 8, 'answer': '2.30', 'alternatives': ['two thirty', '2:30']}],
-               'instruction': 'Retain instruction', 'solutions': {'9': "don't touch"}}}
+               'instruction': 'Retain instruction', 'solutions': {
+                   '8': deepcopy(captured_snapshot(environment)['entries'][0]['row']['payload']['solutions']['8']),
+                   '9': "don't touch"}}}
     if already_correct:
-        key['payload']['answers'][1]['alternatives'] = ['2:30']
+        key['payload'] = builder.repair_q8(key['payload'], environment)
         obj['payload'] = builder.repair_q8_object(obj['payload'])
     return [{'target': target, 'paper': paper('c03b', environment), 'row': row}
             for target, row in [('c03b-key', key), ('c03b-object', obj)]]
@@ -68,12 +87,20 @@ def staging_snapshot():
     # Old export predates these revision columns; use explicit synthetic values.
     p.update(mock_content_revision=83, policy_revision=1,
              preserve_policy={'quote_probe': "don't change"})
-    return {'environment': 'staging', 'entries': [
+    snapshot = {'environment': 'staging', 'entries': [
         {'target': f'x1-{kind}-{number}', 'paper': deepcopy(p), 'row': deepcopy(next(
             r for r in FIXTURE['x1'][source] if r[field] == number))}
         for kind, source, field in [('question', 'questions', 'q_num'),
                                     ('object', 'objects', 'question_number')]
         for number in (38, 39, 40)]}
+    # Historical export rows are replaced with explicitly SYNTHETIC current identities.
+    for entry in snapshot['entries']:
+        if entry['target'].startswith('x1-object'):
+            number = int(entry['target'].rsplit('-', 1)[1])
+            expected = next(q for q in builder.SPEC['x1']['questions'] if q['q_num'] == number)
+            entry['row'].update(id=f"{expected['object_row_id_prefix']}-0000-4000-8000-0000000000{number}",
+                                is_current=True, content_version='2026-11-05-t008-pcj667-v1')
+    return snapshot
 
 
 def test_prod_only_approved_fields_change_and_input_is_preserved():
@@ -92,6 +119,9 @@ def test_prod_only_approved_fields_change_and_input_is_preserved():
             answer = after['payload']['answers'][1]
             assert answer == {'q_num': 8, 'answer': '2.30', 'alternatives': ['2:30']}
             reverted['payload']['answers'][1]['alternatives'] = ['two thirty', '2:30']
+            for field, expected in Q8_SOLUTION_AFTER.items():
+                assert after['payload']['solutions']['8'][field] == expected
+                reverted['payload']['solutions']['8'][field] = before['payload']['solutions']['8'][field]
         else:
             fields = (['item.answer.accepted_forms', 'explanation.answer_summary', 'explanation.marking_note']
                       if c['target'] == 'c03b-object' else list(builder.SPEC['q31']['fields']))
@@ -100,8 +130,10 @@ def test_prod_only_approved_fields_change_and_input_is_preserved():
             if c['target'] == 'c03b-object':
                 assert after['payload']['item']['answer']['accepted_forms'] == ['2.30', '2:30']
                 assert 'Không viết **two thirty**' in after['payload']['explanation']['trap']
-                assert after['payload']['explanation']['marking_note'] is None
-                assert after['payload']['explanation']['answer_summary'] == 'Đáp án chuẩn: 2.30.'
+                assert after['payload']['explanation']['marking_note'] == (
+                    'Chấp nhận `2.30` hoặc `2:30`. Không nhận dạng chữ như `two thirty` vì là hai từ, '
+                    'vượt giới hạn ONE WORD AND/OR A NUMBER; không ghi thêm "pm" vì đề đã in sẵn "p.m.".')
+                assert after['payload']['explanation']['answer_summary'] == 'Đáp án chuẩn: 2.30 (chấp nhận cả 2:30).'
             else:
                 assert after['payload']['item']['answer']['canonical'] == '321,000'
                 assert after['payload']['item']['answer']['accepted_forms'] == ['321,000', '321000']
@@ -299,3 +331,245 @@ def test_q8_runtime_explanation_override_cannot_restore_written_answer():
     assert not answer_matches('two thirty', overlay['answer'], overlay['alternatives'])
     assert answer_matches('2.30', overlay['answer'], overlay['alternatives'])
     assert answer_matches('2:30', overlay['answer'], overlay['alternatives'])
+
+
+FIXTURES = Path(__file__).parent / 'fixtures'
+
+
+def captured_snapshot(environment):
+    name = ('cambridge_batch_a_pre_stg_SYNTHETIC_current_x1.json' if environment == 'staging'
+            else 'cambridge_batch_a_pre_prod_20261116_2159.json')
+    return json.loads((FIXTURES / name).read_text())[0]['snapshot']
+
+
+def test_real_staging_shape_with_only_synthetic_current_x1_substitution():
+    snapshot = captured_snapshot('staging')
+    plan = builder.build_plan(snapshot)  # Any mismatch raises before SQL emission.
+    assert len(plan['changes']) == 7
+    assert {c['target'] for c in plan['changes'] if c['changed']} == {
+        'c03b-key', *(f'x1-{kind}-{n}' for kind in ('question', 'object') for n in (38, 39, 40))}
+    assert plan['q8_key_only'] is True
+    key = next(c for c in plan['changes'] if c['target'] == 'c03b-key')
+    assert next(a for a in key['before']['payload']['answers'] if a['q_num'] == 8)['alternatives'] == ['two thirty']
+    assert next(a for a in key['after']['payload']['answers'] if a['q_num'] == 8) == {
+        'q_num': 8, 'answer': '2.30', 'alternatives': ['2:30']}
+    sql = builder.transaction_sql(snapshot)
+    assertion = ("IF (SELECT count(*) FROM public.web_explanation_objects "
+                 f"WHERE listening_test_id='{builder.Q8_PAPER}'::uuid AND skill='listening' "
+                 "AND question_number=8 AND binding_status='BOUND') <> 0 THEN")
+    assert assertion in sql
+    assert sql.index(assertion) < sql.index('UPDATE public.')
+    assert sql.count('X1 current object cardinality drift') == 3
+    assert sql.rindex('row pre-image or membership drift') < sql.index('UPDATE public.')
+    assert sql.count('GET DIAGNOSTICS touched = ROW_COUNT') == 7
+    assert sql.count('content readback mismatch') == 7
+    assert builder.transaction_sql(snapshot, rollback=False) == sql.removesuffix('ROLLBACK;\n') + 'COMMIT;\n'
+    assert not re.search(r'\b(CREATE|ALTER|DROP|DELETE|INSERT|TRUNCATE)\b', sql)
+    assert not re.search(r'public\.\w*(attempt|score|snapshot|notification)\w*', sql)
+    for old in ('be687263', '495a1338', '54675a23'):
+        assert old not in sql
+    reading = next(p for p in plan['papers'] if p['skill'] == 'reading')['before']
+    listening = next(p for p in plan['papers'] if p['skill'] == 'listening')['before']
+    assert builder.literal({**reading, 'mock_content_revision': reading['mock_content_revision'] + 6}) in sql
+    assert builder.literal({**listening, 'mock_content_revision': listening['mock_content_revision'] + 1}) in sql
+    assert plan['skipped'] == [{'target': 'q40-object', 'reason': 'Q40 object absent from capture'}]
+
+
+@pytest.mark.parametrize('bad_state', ['non-current', 'two-current', 'unexpected-prefix'])
+def test_x1_current_selection_refuses_unsafe_capture(bad_state):
+    snapshot = captured_snapshot('staging')
+    entry = next(e for e in snapshot['entries'] if e['target'] == 'x1-object-38')
+    if bad_state == 'non-current':
+        for e in snapshot['entries']:
+            if e['target'].startswith('x1-object'):
+                e['row']['is_current'] = False
+    elif bad_state == 'two-current':
+        extra = deepcopy(entry)
+        extra['row']['id'] = '7ca65ff4-0000-4000-8000-000000000099'
+        snapshot['entries'].append(extra)
+    else:
+        entry['row']['id'] = 'be687263-d155-4850-8ca7-b6c2372938fa'
+    with pytest.raises(ValueError):
+        builder.transaction_sql(snapshot)
+
+
+def test_real_prod_matches_f2d62986_except_approved_cm_q8_fields():
+    import hashlib
+    golden = json.loads((FIXTURES / 'cambridge_batch_a_f2d62986_prod_golden.json').read_text())
+    capture = FIXTURES / 'cambridge_batch_a_pre_prod_20261116_2159.json'
+    assert hashlib.sha256(capture.read_bytes()).hexdigest() == golden['capture_sha256']
+    snapshot = captured_snapshot('prod')
+    plan = builder.build_plan(snapshot)
+    assert [c['target'] for c in plan['changes']] == ['c03b-key', 'c03b-object', 'v2b-object']
+    sql = builder.transaction_sql(snapshot)
+    restored_rows = []
+    for change, old in zip(plan['changes'], golden['changes']):
+        assert change['target'] == old['target']
+        assert change['before_sha256'] == builder.sha(change['before']) == old['before_sha256']
+        assert change['changed'] == old['changed'] is True
+        after = deepcopy(change['after'])
+        if change['target'] == 'c03b-key':
+            for field in Q8_SOLUTION_AFTER:
+                after['payload']['solutions']['8'][field] = change['before']['payload']['solutions']['8'][field]
+        if change['target'] == 'c03b-object':
+            after['payload']['explanation']['answer_summary'] = golden['q8_answer_summary']
+            after['payload']['explanation']['marking_note'] = golden['q8_marking_note']
+        restored_rows.append((change['after'], after))
+        assert builder.sha(after) == old['after_sha256']
+    # Restore only the five approved CM fields to reproduce the complete base SQL.
+    baseline_sql = sql
+    for current, restored in restored_rows:
+        baseline_sql = baseline_sql.replace(builder.literal(current['payload']), builder.literal(restored['payload']))
+        baseline_sql = baseline_sql.replace(builder.literal(current), builder.literal(restored))
+    assert hashlib.sha256(baseline_sql.encode()).hexdigest() == golden['rollback_sql_sha256']
+    v2b = next(c for c in plan['changes'] if c['target'] == 'v2b-object')
+    v2b_lines = '\n'.join(line for line in sql.splitlines() if v2b['before']['id'] in line)
+    assert hashlib.sha256(v2b_lines.encode()).hexdigest() == golden['v2b_sql_lines_sha256']
+    assert not plan['q8_key_only']
+
+
+def with_q40(environment, *, key_accepts=True):
+    snapshot = captured_snapshot(environment)
+    p = paper('q40', environment)
+    if environment == 'prod':
+        p = deepcopy(next(e['paper'] for e in snapshot['entries'] if e['target'] == 'v2b-object'))
+    payload = {'explanation': {'why_other_answers_fail':
+                              'Before\n' + builder.SPEC['q40']['before'] + '\n`around 321,000`\nAfter'},
+               'audit': {'distractor_analysis':
+                         'Different prefix\n' + builder.SPEC['q40']['before'] + '\nDifferent suffix'},
+               'item': {'retain': ['all', 'other', 'fields']}}
+    row = object_row('q40', 40, payload, environment)
+    row['listening_test_id'] = p['id']
+    row['object_id'] = (f"mock-{p['id']}-listening-q40" if environment == 'prod'
+                        else 'cambridge-17-test-2-listening-q40')
+    snapshot['entries'].append({'target': 'q40-object', 'paper': deepcopy(p), 'row': row})
+    if environment == 'staging':
+        key = {'id': builder.SPEC['q40']['staging_key_id'],
+               'content_id': builder.SPEC['q40']['staging_content_id'], 'updated_at': STAMP,
+               'payload': {'answers': [{'q_num': 31, 'answer': '321,000',
+                                        'alternatives': ['321000'] if key_accepts else []}]}}
+        snapshot['entries'].append({'target': 'q40-key', 'paper': deepcopy(p), 'row': key})
+    return snapshot
+
+
+@pytest.mark.parametrize('environment', ['prod', 'staging'])
+def test_optional_q40_changes_only_once_per_field_and_preserves_other_text(environment):
+    snapshot = with_q40(environment)
+    original = deepcopy(snapshot)
+    plan = builder.build_plan(snapshot)
+    assert snapshot == original
+    change = next(c for c in plan['changes'] if c['target'] == 'q40-object')
+    reverted = deepcopy(change['after'])
+    for path in builder.SPEC['q40']['fields']:
+        before = builder.at(change['before']['payload'], path)
+        after = builder.at(change['after']['payload'], path)
+        assert after == before.replace(builder.SPEC['q40']['before'], builder.SPEC['q40']['after'], 1)
+        builder.put(reverted['payload'], path, before)
+    assert reverted == change['before']
+    sql = builder.transaction_sql(snapshot)
+    assert sql.rindex('row pre-image or membership drift') < sql.index('UPDATE public.')
+    assert sql.count('GET DIAGNOSTICS touched = ROW_COUNT') == (4 if environment == 'prod' else 8)
+    if environment == 'staging':
+        guard = next(c for c in plan['guards'] if c['target'] == 'q40-key')
+        assert guard['before'] == guard['after'] and not guard['changed']
+        assert builder.literal(guard['before']) in sql
+        assert not any(c['target'] == 'q40-key' for c in plan['changes'])
+
+
+@pytest.mark.parametrize('environment', ['prod', 'staging'])
+@pytest.mark.parametrize('path', ['explanation.why_other_answers_fail', 'audit.distractor_analysis'])
+@pytest.mark.parametrize('count', [0, 2])
+def test_q40_refuses_unexpected_substring_count(environment, path, count):
+    snapshot = with_q40(environment)
+    row = next(e['row'] for e in snapshot['entries'] if e['target'] == 'q40-object')
+    builder.put(row['payload'], path, 'prefix\n' + builder.SPEC['q40']['before'] * count + '\nsuffix')
+    with pytest.raises(ValueError, match='exactly one old substring'):
+        builder.transaction_sql(snapshot)
+
+
+def test_staging_q40_skipped_while_q31_key_rejects_321000_but_all_captures_guarded():
+    snapshot = with_q40('staging', key_accepts=False)
+    plan = builder.build_plan(snapshot)
+    assert not any(c['target'].startswith('q40') for c in plan['changes'])
+    assert plan['skipped'] == [{'target': 'q40-object', 'reason': 'Staging Q31 key does not accept 321000'}]
+    assert {c['target'] for c in plan['guards']} == {'q40-key', 'q40-object'}
+    sql = builder.transaction_sql(snapshot)
+    for c in plan['guards']:
+        assert c['before'] == c['after']
+        assert builder.literal(c['before']) in sql
+    assert sql.rindex('row pre-image or membership drift') < sql.index('UPDATE public.')
+    assert sql.count('GET DIAGNOSTICS touched = ROW_COUNT') == 7
+    assert 'Q40 expected exactly one' not in sql
+
+
+def test_staging_q8_object_presence_uses_existing_pair_path():
+    snapshot = captured_snapshot('staging')
+    snapshot['entries'].append(q8_entries('staging')[1])
+    # Reuse the full, consistent captured paper row for the synthetic object.
+    snapshot['entries'][-1]['paper'] = deepcopy(snapshot['entries'][0]['paper'])
+    plan = builder.build_plan(snapshot)
+    assert not plan['q8_key_only']
+    assert len(plan['changes']) == 8
+    assert 'Q8 bound object appeared' not in builder.transaction_sql(snapshot)
+    snapshot['entries'][-1]['row']['payload']['explanation']['trap'] = 'unexpected warning'
+    with pytest.raises(ValueError, match='Q8 warning drift'):
+        builder.transaction_sql(snapshot)
+
+
+@pytest.mark.parametrize('environment', ['staging', 'prod'])
+def test_captured_q8_solution_exact_cm_after_image_and_existing_sql_guards(environment):
+    snapshot = captured_snapshot(environment)
+    plan = builder.build_plan(snapshot)
+    change = next(c for c in plan['changes'] if c['target'] == 'c03b-key')
+    before, after = change['before'], change['after']
+    solution = after['payload']['solutions']['8']
+    assert builder.SPEC['q8']['solution_fields'] == Q8_SOLUTION_AFTER
+    for field, expected in Q8_SOLUTION_AFTER.items():
+        assert solution[field] == expected
+    # No accepted written form remains; its two mentions explicitly reject it.
+    assert 'two thirty' not in solution['answer']
+    assert 'Không viết **two thirty**' in solution['trap']
+    assert '`two thirty` exceeds the one-word limit' in solution['why_correct']
+    assert '`two thirty` vượt giới hạn một từ' in solution['why_correct']
+    restored = deepcopy(after)
+    for field in Q8_SOLUTION_AFTER:
+        restored['payload']['solutions']['8'][field] = before['payload']['solutions']['8'][field]
+    next(a for a in restored['payload']['answers'] if a['q_num'] == 8)['alternatives'] = next(
+        a['alternatives'] for a in before['payload']['answers'] if a['q_num'] == 8)
+    assert restored == before  # All other solution/payload/row fields, including history.
+    sql = builder.transaction_sql(snapshot)
+    assert sql.endswith('ROLLBACK;\n')
+    assert builder.transaction_sql(snapshot, rollback=False) == sql.removesuffix('ROLLBACK;\n') + 'COMMIT;\n'
+    update = next(line for line in sql.splitlines() if line.startswith('UPDATE public.listening_exercises'))
+    assert f"SET payload={builder.literal(after['payload'])}" in update
+    assert f"to_jsonb(r)={builder.literal(before)}" in update
+    assert f"r.updated_at='{before['updated_at']}'::timestamptz" in update
+    assert f"r.content_id IN (SELECT id FROM public.listening_content WHERE test_id='{builder.Q8_PAPER}'::uuid)" in update
+    assert sql.index('fn_lock_mock_paper') < sql.index(update)
+    assert sql.rindex('row pre-image or membership drift') < sql.index(update)
+    count = 7 if environment == 'staging' else 3
+    assert sql.count('GET DIAGNOSTICS touched = ROW_COUNT; IF touched <> 1') == count
+    assert sql.count('content readback mismatch') == count
+    assert f"({builder.literal(after)} - 'updated_at')" in sql
+    assert not re.search(r'\b(CREATE|ALTER|DROP|DELETE|INSERT|TRUNCATE)\b', sql)
+    assert not re.search(r'public\.\w*(attempt|score|snapshot|notification)\w*', sql)
+
+
+@pytest.mark.parametrize('environment', ['staging', 'prod'])
+@pytest.mark.parametrize('field', ['answer', 'trap', 'why_correct'])
+def test_q8_missing_solution_field_refuses_before_sql(environment, field):
+    snapshot = captured_snapshot(environment)
+    entry = next(e for e in snapshot['entries'] if e['target'] == 'c03b-key')
+    del entry['row']['payload']['solutions']['8'][field]
+    with pytest.raises(ValueError, match='Missing Q8 solution field'):
+        builder.transaction_sql(snapshot)
+
+
+def test_staging_q8_correct_alternatives_still_repairs_stale_solution():
+    snapshot = captured_snapshot('staging')
+    key = next(e['row'] for e in snapshot['entries'] if e['target'] == 'c03b-key')
+    next(a for a in key['payload']['answers'] if a['q_num'] == 8)['alternatives'] = ['2:30']
+    change = next(c for c in builder.build_plan(snapshot)['changes'] if c['target'] == 'c03b-key')
+    assert change['changed']
+    assert {field: change['after']['payload']['solutions']['8'][field]
+            for field in Q8_SOLUTION_AFTER} == Q8_SOLUTION_AFTER

@@ -23,10 +23,12 @@ PAPERS = {
     'prod': {
         'c03b': ('listening', Q8_PAPER, 'MOCK0016-PROD-20261006-ILR-LIS-CAM-B20-T4-REV02'),
         'v2b': ('listening', Q31_PAPER, 'MOCK0016-PROD-20261006-ILR-LIS-CAM-B17-T2-REV01'),
+        'q40': ('listening', Q31_PAPER, 'MOCK0016-PROD-20261006-ILR-LIS-CAM-B17-T2-REV01'),
     },
     'staging': {
         'c03b': ('listening', Q8_PAPER, 'MOCK0016-20261005-C20L4-REV02'),
         'x1': ('reading', SPEC['x1']['paper_id'], SPEC['x1']['test_id']),
+        'q40': ('listening', SPEC['q40']['staging_paper_id'], SPEC['q40']['staging_test_id']),
     },
 }
 
@@ -103,6 +105,12 @@ def repair_q8(payload, environment):
     require(answer == {'q_num': 8, 'answer': '2.30', 'alternatives': answer.get('alternatives')}
             and answer['alternatives'] in expected, 'Q8 answer before-value drift')
     answer['alternatives'] = deepcopy(SPEC['q8']['after'])
+    solution = result.get('solutions', {}).get('8')
+    require(isinstance(solution, dict)
+            and all(field in solution for field in SPEC['q8']['solution_fields']),
+            'Missing Q8 solution field')
+    for field, value in SPEC['q8']['solution_fields'].items():
+        solution[field] = value
     return result
 
 
@@ -132,6 +140,16 @@ def repair_q31_object(payload):
     return result
 
 
+def repair_q40_object(payload):
+    result = deepcopy(payload)
+    for path in SPEC['q40']['fields']:
+        text = at(result, path)
+        require(isinstance(text, str) and text.count(SPEC['q40']['before']) == 1,
+                f'Q40 expected exactly one old substring: {path}')
+        put(result, path, text.replace(SPEC['q40']['before'], SPEC['q40']['after'], 1))
+    return result
+
+
 def build_plan(snapshot):
     """Validate complete scoped sets, preserving unknown non-target payload fields."""
     require('__CM_TEXT_PENDING__' not in canonical(SPEC)
@@ -142,12 +160,35 @@ def build_plan(snapshot):
     require(isinstance(entries, list) and bool(entries), 'Missing entries')
     required = ({'c03b-key', 'c03b-object', 'v2b-object'} if environment == 'prod' else
                 {f'x1-{kind}-{n}' for kind in ('question', 'object') for n in (38, 39, 40)})
-    allowed = required | ({'c03b-key', 'c03b-object'} if environment == 'staging' else set())
+    allowed = required | {'q40-object'} | (
+        {'c03b-key', 'c03b-object', 'q40-key'} if environment == 'staging' else set())
     names = [entry.get('target') for entry in entries]
     require(len(names) == len(set(names)) and required <= set(names) <= allowed,
             'Incomplete, duplicate or out-of-scope target set')
-    require(('c03b-key' in names) == ('c03b-object' in names), 'Q8 key/object must be captured together')
-    changes, papers, seen = [], {}, set()
+    require('c03b-object' not in names or 'c03b-key' in names, 'Q8 object requires key capture')
+    if environment == 'staging':
+        for expected in SPEC['x1']['questions']:
+            object_id = f"cambridge-20-test-3-reading-q{expected['q_num']}"
+            current = [e['row'] for e in entries if e['row'].get('object_id') == object_id
+                       and e['row'].get('is_current') is True]
+            require(len(current) == 1, f'X1 expected exactly one current row: {object_id}')
+            require(current[0]['id'].startswith(expected['object_row_id_prefix']),
+                    f'X1 unexpected current row prefix: {object_id}')
+        require(('q40-key' in names) == ('q40-object' in names),
+                'Staging Q40 requires its Q31 key capture')
+    q40_enabled = 'q40-object' in names
+    skipped = []
+    if not q40_enabled:
+        skipped.append({'target': 'q40-object', 'reason': 'Q40 object absent from capture'})
+    elif environment == 'staging':
+        key = next(e['row'] for e in entries if e['target'] == 'q40-key')
+        answers = [a for a in key.get('payload', {}).get('answers', []) if a.get('q_num') == 31]
+        require(len(answers) == 1 and answers[0].get('answer') == '321,000'
+                and isinstance(answers[0].get('alternatives'), list), 'Q31 staging key drift')
+        q40_enabled = '321000' in answers[0]['alternatives']
+        if not q40_enabled:
+            skipped.append({'target': 'q40-object', 'reason': 'Staging Q31 key does not accept 321000'})
+    changes, guards, papers, seen = [], [], {}, set()
     for entry in sorted(entries, key=lambda x: x['target']):
         target, paper, row = entry['target'], entry['paper'], entry['row']
         group = target.split('-')[0]
@@ -164,8 +205,7 @@ def build_plan(snapshot):
         if table != 'web_explanation_objects':
             require(bool(row.get('updated_at')), 'Missing content timestamp')
         if target == 'c03b-key':
-            if environment == 'prod':
-                require(row['id'] == Q8_ROW, 'Q8 row identity drift')
+            require(row['id'] == Q8_ROW, 'Q8 row identity drift')
             require(bool(row.get('content_id')), 'Missing listening content membership')
             uuid.UUID(row['content_id'])
             after['payload'] = repair_q8(row['payload'], environment)
@@ -175,6 +215,14 @@ def build_plan(snapshot):
         elif target == 'v2b-object':
             validate_object(row, paper, skill, 'cambridge-17-test-2-listening-q31', 31)
             after['payload'] = repair_q31_object(row['payload'])
+        elif target == 'q40-key':
+            require(row['id'] == SPEC['q40']['staging_key_id']
+                    and row.get('content_id') == SPEC['q40']['staging_content_id'],
+                    'Q31 staging key identity drift')
+        elif target == 'q40-object':
+            validate_object(row, paper, skill, 'cambridge-17-test-2-listening-q40', 40)
+            if q40_enabled:
+                after['payload'] = repair_q40_object(row['payload'])
         else:
             number = int(target.rsplit('-', 1)[1])
             expected = next(q for q in SPEC['x1']['questions'] if q['q_num'] == number)
@@ -186,7 +234,8 @@ def build_plan(snapshot):
                 after['payload']['options'] = deepcopy(expected['options'])
             else:
                 validate_object(row, paper, skill, f'cambridge-20-test-3-reading-q{number}', number)
-                require(row['id'] == expected['object_row_id'], 'X1 object row identity drift')
+                require(row['id'].startswith(expected['object_row_id_prefix']),
+                        'X1 object row identity drift')
                 # Same authored {label: text} representation used by existing
                 # sync_web_explanation_item_text._options; no version rollover.
                 before_options = _options(SPEC['x1']['options_before'])
@@ -196,17 +245,19 @@ def build_plan(snapshot):
                         and answer.get('accepted_forms') == [expected['answer']['answer']],
                         'X1 explanation options/key drift')
                 _set_item_text(after['payload']['item'], 'options', _options(expected['options']))
-        changes.append({'target': target, 'skill': skill, 'paper_id': paper['id'], 'table': table,
+        destination = guards if target == 'q40-key' or (target == 'q40-object' and not q40_enabled) else changes
+        destination.append({'target': target, 'skill': skill, 'paper_id': paper['id'], 'table': table,
                         'before': deepcopy(row), 'after': after, 'before_sha256': sha(row),
                         'after_sha256': sha(after), 'changed': row != after})
     # Never silently repair drift between the two canonical Q8 representations.
-    if 'c03b-key' in names:
+    if 'c03b-object' in names:
         obj = next(c for c in changes if c['target'] == 'c03b-object')
         require(obj['after']['payload']['item']['answer']['accepted_forms'] == ['2.30', '2:30'],
                 'Q8 post-image mismatch')
     return {'package': SPEC['package'], 'environment': environment,
             'papers': [{'skill': skill, 'before': paper} for (skill, _), paper in sorted(papers.items())],
-            'changes': changes}
+            'changes': changes, 'guards': guards, 'skipped': skipped,
+            'q8_key_only': 'c03b-key' in names and 'c03b-object' not in names}
 
 
 def transaction_sql(snapshot, *, rollback=True):
@@ -225,8 +276,23 @@ def transaction_sql(snapshot, *, rollback=True):
             f"SELECT to_jsonb(t) INTO actual FROM public.{skill}_tests t WHERE id='{paper['id']}'::uuid FOR UPDATE;",
             f"IF actual IS DISTINCT FROM {literal(paper)} THEN RAISE EXCEPTION 'paper identity/status/visibility/revision drift'; END IF;",
         ]
-    # Assert every captured row (including no-op staging Q8) before any update.
-    for c in plan['changes']:
+    if plan['q8_key_only']:
+        # With no captured object pre-image, refuse if any bound Q8 version exists.
+        # RM must re-capture the key+object pair before using the paired path.
+        statements.append(
+            "IF (SELECT count(*) FROM public.web_explanation_objects "
+            f"WHERE listening_test_id='{Q8_PAPER}'::uuid AND skill='listening' "
+            "AND question_number=8 AND binding_status='BOUND') <> 0 THEN "
+            "RAISE EXCEPTION 'Q8 bound object appeared; capture key/object pair'; END IF;")
+    if plan['environment'] == 'staging':
+        for q in SPEC['x1']['questions']:
+            statements.append(
+                "IF (SELECT count(*) FROM public.web_explanation_objects "
+                f"WHERE object_id='cambridge-20-test-3-reading-q{q['q_num']}' "
+                "AND is_current IS TRUE) <> 1 THEN "
+                "RAISE EXCEPTION 'X1 current object cardinality drift'; END IF;")
+    # Assert every captured row (including no-ops and skipped Q40 guards) before any update.
+    for c in plan['changes'] + plan['guards']:
         row, table, paper_id = c['before'], c['table'], c['paper_id']
         row_id = str(uuid.UUID(row['id']))
         if table == 'web_explanation_objects':

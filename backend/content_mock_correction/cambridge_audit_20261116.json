@@ -28,6 +28,11 @@
     "staging_exports": {
       "/workspace/content-audit/cambridge-rev-audit-2026-10-27/raw/explanations.json": "802214227031d60af93dace69b4d662b1215bb22023e630d2cfaf7df6638305b",
       "/workspace/qa/pcj112/data/staging/ILR-RDG-CAM-B20-T3.json": "8b2e8efddea6a776800e4f68f5714986bd8266a6147084ddb5838ebe70ceca40"
+    },
+    "q8_cm_followup": "CM-2322-R1-SIGNOFF-20261116.md:41-43",
+    "q8_solution_cm": {
+      "path": "CM-2323-Q8Q40-REVIEW-20261116.md:23-25",
+      "sha256": "46d1cf909108e95f5b894dd92a748080de35c40fc6f2904ccf24114f69ad5b12"
     }
   },
   "q8": {
@@ -61,9 +66,14 @@
       "2.30",
       "2:30"
     ],
-    "answer_summary": "Đáp án chuẩn: 2.30.",
-    "marking_note": null,
-    "warning": "Bẫy nhẹ về format số: viết **2.30** (đề đã in sẵn \"p.m.\"). Không viết **two thirty** vì đó là hai từ, vượt giới hạn ONE WORD AND/OR A NUMBER; cũng không ghi \"2:30 pm\" vì lặp lại p.m."
+    "answer_summary": "Đáp án chuẩn: 2.30 (chấp nhận cả 2:30).",
+    "marking_note": "Chấp nhận `2.30` hoặc `2:30`. Không nhận dạng chữ như `two thirty` vì là hai từ, vượt giới hạn ONE WORD AND/OR A NUMBER; không ghi thêm \"pm\" vì đề đã in sẵn \"p.m.\".",
+    "warning": "Bẫy nhẹ về format số: viết **2.30** (đề đã in sẵn \"p.m.\"). Không viết **two thirty** vì đó là hai từ, vượt giới hạn ONE WORD AND/OR A NUMBER; cũng không ghi \"2:30 pm\" vì lặp lại p.m.",
+    "solution_fields": {
+      "answer": "2.30 / 2:30",
+      "trap": "Bẫy nhẹ về format số: viết **2.30** (đề đã in sẵn \"p.m.\"). Không viết **two thirty** vì đó là hai từ, vượt giới hạn ONE WORD AND/OR A NUMBER; cũng không ghi \"2:30 pm\" vì lặp lại p.m.",
+      "why_correct": "Lunch stops at **2:30**, so you must eat before then. \"p.m.\" is already printed. Write the numeric form `2.30`; `two thirty` exceeds the one-word limit. Đồ trưa ngừng bán lúc **2:30**, nên phải ăn trước giờ đó. \"p.m.\" đã in sẵn. Ghi dạng số `2.30`; `two thirty` vượt giới hạn một từ."
+    }
   },
   "q31": {
     "canonical": "321,000",
@@ -117,7 +127,6 @@
       {
         "q_num": 38,
         "id": "ba6fcedf-c89e-5e63-8d22-fd156d698bee",
-        "object_row_id": "be687263-d155-4850-8ca7-b6c2372938fa",
         "prompt": "Choose the correct letter.\nWhat potential advance does Rees see as a cause for concern?",
         "answer": {
           "answer": "C",
@@ -140,12 +149,12 @@
             "label": "D",
             "text": "artificial intelligence taking over every aspect of our lives"
           }
-        ]
+        ],
+        "object_row_id_prefix": "7ca65ff4"
       },
       {
         "q_num": 39,
         "id": "9ac096f5-0514-55e3-a301-d474c0db7063",
-        "object_row_id": "495a1338-401d-4461-b08a-01014344d678",
         "prompt": "Choose the correct letter.\nWhat does Wolpert emphasise in his response to the question about science fiction?",
         "answer": {
           "answer": "B",
@@ -168,12 +177,12 @@
             "label": "D",
             "text": "how reactions to similar portrayals of robots in science fiction may vary"
           }
-        ]
+        ],
+        "object_row_id_prefix": "8f42f1c4"
       },
       {
         "q_num": 40,
         "id": "8cb3cd32-6e68-54ae-8bde-724544a7c49a",
-        "object_row_id": "54675a23-bec0-4fa5-b466-2a4d36c44dbd",
         "prompt": "Choose the correct letter.\nWhat is Richardson doing in her comment about reality and fantasy?",
         "answer": {
           "answer": "C",
@@ -196,8 +205,21 @@
             "label": "D",
             "text": "explaining why scientists have a different perspective on them from other people"
           }
-        ]
+        ],
+        "object_row_id_prefix": "1656d59a"
       }
     ]
+  },
+  "q40": {
+    "staging_paper_id": "82ecda1d-ea89-5d66-8ae2-3c155836f527",
+    "staging_test_id": "ILR-LIS-CAM-B17-T2",
+    "staging_key_id": "0a846d47-c5d6-58ec-932e-e041e36622fe",
+    "staging_content_id": "eb5b9926-9ace-5e6e-8d6c-d0aae2fc5d12",
+    "fields": [
+      "explanation.why_other_answers_fail",
+      "audit.distractor_analysis"
+    ],
+    "before": "⚠️ Số lớn — phải viết đúng \"321,000\" (ba trăm hai mươi mốt nghìn). \"around\" = \"approximately\".",
+    "after": "⚠️ Số lớn — phải nghe đúng con số 321,000 (ba trăm hai mươi mốt nghìn); viết có dấu phẩy \"321,000\" hay không dấu phẩy \"321000\" đều được chấp nhận. \"around\" = \"approximately\"."
   }
 }
