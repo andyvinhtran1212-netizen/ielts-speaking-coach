@@ -3,7 +3,7 @@
 ## Preconditions
 
 - Spec `approved` trên `staging`; số migration 473, 474 (475, 476 hoãn) chưa bị file hay PR khác dùng; ghi vào sổ số migration (`backend/migrations/register.tsv` khi G01-T06 đã merge).
-- Không có cờ bật/tắt tính năng. Chế độ trả điểm là cột của từng bài giao; bài cũ (NULL) chạy như `immediate`. Biến env `COURSE_TEST_DEFAULT_RELEASE_MODE` (mặc định `teacher_release`) chỉ là giá trị chọn sẵn dự phòng trên giao diện giao bài khi không xác định được loại lớp (`tasks.md` T23); đổi hay xoá biến này không che và không mở điểm của bài nào.
+- Không có cờ bật/tắt tính năng. Chế độ trả điểm là cột của từng bài giao; bài cũ (NULL) chạy như `immediate`. Biến env `COURSE_TEST_DEFAULT_RELEASE_MODE` (mặc định `teacher_release`) chỉ là giá trị chọn sẵn dự phòng trên giao diện giao bài khi không xác định được loại lớp (`tasks.md` T23); thiếu biến hay giá trị lạ thì dùng `teacher_release` (không mở điểm). Đổi hay xoá biến này không che và không mở điểm của bài nào đã giao.
 - Bài giao trước gói (chế độ NULL) và bài `mastery` không đổi hành vi (FR-074, E6): so JSON và ảnh trước/sau trên staging.
 - Giá trị chọn sẵn khi giao bài: lớp offline `teacher_release`, khoá online tự học `immediate` (câu 13); do giao diện T23 chọn sẵn.
 
@@ -17,9 +17,19 @@
 
 ## Rollback and repair
 
-- Migration chỉ thêm đối tượng nên không hạ migration. Thu quyền đọc thẳng ở 473 không quay lui (là sửa lỗ hổng dữ liệu đã ghi ở `01` mục 6).
-- **Cổng đọc không được quay lui.** Khi đã có bài `teacher_release` có bài nộp chưa công bố, bản backend cũ trả điểm mà không xem bảng công bố, và tắt cờ không che được (`COURSE_TEST_DEFAULT_RELEASE_MODE` chỉ là giá trị chọn sẵn khi tạo bài). Vì vậy mốc lui thấp nhất là bản đã có cổng đọc 5.5.5 (T22); lui phần khác (route công bố, hẹn giờ, giao diện T23, T24, T27) bằng revert riêng PR đó, giữ T22. Nếu buộc phải lui qua T22, trước đó admin chuyển mọi bài `teacher_release` chưa công bố sang trạng thái khoá đọc (đường đọc của học viên trả 403 `results_sealed`) rồi mới deploy.
-- Kiểm lui trên staging: với một bài nộp chưa công bố, gọi mọi đường đọc của học viên ở 5.5.5 sau khi lui; điểm và đáp án vẫn vắng.
+- Migration chỉ thêm đối tượng nên **không hạ migration** trên staging hay production. File `backend/migrations/rollback/473_*.sql` và `474_*.sql` chỉ dùng cho PG test cục bộ và CI, không chạy trên môi trường thật (xem `plan.md` 5.5.2). Thu quyền đọc thẳng ở 473 không bao giờ quay lui (là sửa lỗ hổng dữ liệu đã ghi ở `01` mục 6).
+- **Cổng đọc không được quay lui khi còn bài chờ công bố.** Bản backend trước T22 trả điểm mà không xem bảng công bố, và không có cờ nào che được. Mốc lui thấp nhất là bản đã có cổng đọc 5.5.5 (T22). Các phần khác (route công bố, hẹn giờ, giao diện T23, T24, T27) lui bằng revert riêng PR đó, giữ T22.
+- **Cấm lui xuống dưới T22 khi `awaiting_release > 0`.** Không có lối thoát "khoá đọc" thay thế. Trước khi lui, chạy truy vấn đếm chỉ đọc dưới đây; kết quả khác 0 thì dừng, không deploy:
+  ```sql
+  SELECT count(*) AS awaiting_release
+  FROM public.class_assignment_items i
+  JOIN public.class_assignments a ON a.id = i.assignment_id
+  WHERE a.result_release_mode = 'teacher_release'
+    AND i.submitted_at IS NOT NULL
+    AND NOT EXISTS (SELECT 1 FROM public.course_result_releases r WHERE r.item_id = i.id);
+  ```
+  Kết quả bằng 0 nghĩa là mọi bài đã nộp đều đã công bố, nên bản cũ không còn gì để lộ. Kết quả và giờ chạy được ghi vào PR revert.
+- Kiểm lui trên staging bằng chính test vi sai của FR-094: hai học viên thử cùng bài `teacher_release` chưa công bố, một đậu và một trượt; sau khi lui phần khác (giữ T22), gọi mọi đường đọc của học viên ở 5.5.5, kể cả `POST /course/full-retry`; mã HTTP và JSON của hai người phải giống hệt nhau sau khi bỏ id và giờ, và điểm cùng đáp án vẫn vắng.
 
 ## Observability
 

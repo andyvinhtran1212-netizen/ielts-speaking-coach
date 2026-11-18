@@ -69,7 +69,7 @@ Trigger: BEFORE INSERT từ chối khi đã có dòng của item với `level_ra
 
 **Điều kiện sau migration (khối `DO` cuối file 473, sai thì `RAISE EXCEPTION`):** `relrowsecurity` và `relforcerowsecurity` của `course_result_releases` là true; `has_table_privilege('authenticated', 'public.course_result_releases', 'SELECT')` và `'INSERT'` là false, `anon` cũng vậy; không có dòng `pg_policies` nào cho bảng này; mọi hàm trigger mới có `prosecdef = true` và `proconfig` chứa `search_path`. Test PG17 của T21 chạy lại cùng các câu kiểm đó.
 
-Rollback `backend/migrations/rollback/473_course_test_release_schema.sql`: gỡ trigger, giữ cột và bảng; **không** khôi phục policy đọc thẳng và **không** nới quyền đã thu.
+Rollback `backend/migrations/rollback/473_course_test_release_schema.sql`: **chỉ để PG test cục bộ và CI** dựng lại trạng thái trước 473 (gỡ trigger, giữ cột và bảng; **không** khôi phục policy đọc thẳng, **không** nới quyền đã thu). Không chạy trên staging hay production; trên môi trường thật không hạ migration (`rollout.md`).
 
 #### 5.5.3 Máy trạng thái (một học viên · một bài kiểm tra)
 
