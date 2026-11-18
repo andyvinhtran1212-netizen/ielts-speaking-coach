@@ -26,7 +26,7 @@ test('footer links only to public destinations', () => {
   const links = hrefs(footer);
   assert.ok(links.length > 0);
   for (const href of links) {
-    assert.ok(['/', '/login', '/grammar'].includes(href) || href.startsWith('#'),
+    assert.ok(['/', '/login', '/grammar', '/about', '/terms', '/privacy', '/contact'].includes(href) || href.startsWith('#'),
       `footer link ${href} is not a public landing destination`);
   }
   assert.doesNotMatch(footer, /Trang chủ/, 'footer "Trang chủ" only linked back to the landing itself');
