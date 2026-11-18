@@ -87,10 +87,10 @@ Kịch bản của gói (mục 9), giữ số gốc. Môi trường: preview Ver
 
 1. Given script nhập Listening chạy `--dry-run` rồi chạy thật trên staging qua helper của G09-T36, When admin mở `/admin/listening?tab=batches`, Then thấy hai dòng (chạy thử, nhập) với thời điểm, người chạy, tên đọc được của script, môi trường, số tạo/cập nhật/lỗi; không có nút sửa hay xoá lô.
 2. Given lô có lỗi, When bấm "Tải báo cáo lỗi", Then nhận file `.csv` của đúng lô đó; lô không lỗi không có nút.
-3. Given một câu Reading vừa bị học viên báo và có tỉ lệ sai cao, When mở thẻ Câu cần kiểm, Then câu đó chỉ có **một** dòng kèm hai lý do; When admin đánh dấu "Đã kiểm", Then dòng ghi người và thời điểm, rời hàng "Câu cần kiểm"; tải lại trang vẫn thấy trạng thái đó.
+3. Given một câu Reading bị hai học viên báo qua `user_feedback` (một dòng `report` "báo lỗi đề" và một dòng `flag` "flag bài giải", cùng `test_id` và `q_num`), When mở thẻ Câu cần kiểm, Then câu đó chỉ có **một** dòng, lý do `reported` ghi rõ cả hai loại báo; When admin đánh dấu "Đã kiểm", Then dòng ghi người và thời điểm, rời hàng "Câu cần kiểm"; tải lại trang vẫn thấy trạng thái đó.
 4. Given admin mở `/admin/vocab`, When xem đầu trang, Then không có nút chính "Tạo đề"; trang nhập thủ công chỉ mở bằng đường dẫn và có dải cảnh báo "Trang nhập thủ công đã ẩn…" (FR-013 của ADMINIA-0074).
 
-(Gói không có kịch bản đánh số cho phần này; bốn kịch bản trên soạn từ FR-160…FR-163 và mục 5.3, 5.4.)
+(Kịch bản 3 chỉ dùng nguồn đã khai ở plan: `user_feedback` chỉ có Reading/Listening, còn `quiz_item_error_rates` chỉ có quiz Từ vựng/Ngữ pháp, nên một câu không thể vừa "bị báo" vừa "tỉ lệ sai cao" khi tỉ lệ sai Reading/Listening toàn kho còn để sau theo Q22. Khi có nguồn đó thì thêm kịch bản hai lý do khác mã. Gói không có kịch bản đánh số cho phần này; bốn kịch bản trên soạn từ FR-160…FR-163 và mục 5.3, 5.4.)
 
 ## Edge cases
 
