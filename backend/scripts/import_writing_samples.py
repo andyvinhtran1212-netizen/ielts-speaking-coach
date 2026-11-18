@@ -89,7 +89,8 @@ _QUOTES = str.maketrans({"‘": "'", "’": "'", "‚": "'", "′": "'",
 # ── pure helpers ─────────────────────────────────────────────────────────────
 
 def ielts_round(x: Fraction | float) -> float:
-    """Same rule as ``ielts/marking.py``: nearest 0.5, half rounds up."""
+    """Same rule as ``backend/services/band_rounding.py`` (and the source
+    project's ``ielts/marking.py``): nearest 0.5, half rounds up."""
     return math.floor(Fraction(x) * 2 + Fraction(1, 2)) / 2
 
 
@@ -293,12 +294,14 @@ def check_set(item: SourceSet, entry: Optional[dict], *, topics: set[str],
 
     # justification pairs (overrides merged)
     extra = overrides.get("justification_jumps") if isinstance(overrides.get("justification_jumps"), dict) else {}
-    by_crit = (src.get("justification") or {}).get("by_criterion") or []
+    justification = src.get("justification") if isinstance(src.get("justification"), dict) else {}
+    by_crit = justification.get("by_criterion")
+    by_crit = by_crit if isinstance(by_crit, list) else []
     pairs: dict[str, set[str]] = {c: set() for c in CRITERIA}
     for crit in by_crit:
         if isinstance(crit, dict) and crit.get("criterion") in pairs:
-            pairs[crit["criterion"]].update(j.get("pair") for j in crit.get("jumps") or []
-                                            if isinstance(j, dict))
+            jumps = crit.get("jumps") if isinstance(crit.get("jumps"), list) else []
+            pairs[crit["criterion"]].update(j.get("pair") for j in jumps if isinstance(j, dict))
     for c, jumps in extra.items():
         if c in pairs and isinstance(jumps, list):
             pairs[c].update(j.get("pair") for j in jumps if isinstance(j, dict))
@@ -321,12 +324,15 @@ def check_set(item: SourceSet, entry: Optional[dict], *, topics: set[str],
         codes["E_ESSAYS"] = "missing " + ", ".join(bad)
 
     # estimated band vs label
+    mark_essays = item.mark.get("essays") if isinstance(item.mark, dict) else None
     if item.mark is None:
         codes["E_MARK"] = item.mark_error or "unreadable .mark.json"
+    elif not isinstance(mark_essays, dict):
+        codes["E_MARK"] = ".mark.json has no essays object"
     else:
         far = []
         for b in BANDS:
-            scores = ((item.mark.get("essays") or {}).get(b) or {})
+            scores = mark_essays.get(b)
             try:
                 est = ielts_round(sum(Fraction(str(scores[c])) for c in CRITERIA) / 4)
             except (KeyError, TypeError, ValueError):
@@ -347,7 +353,13 @@ def check_set(item: SourceSet, entry: Optional[dict], *, topics: set[str],
         texts = {b: normalise_text(essays[b]["text"]) for b in BANDS}
         misses = 0
         for key, hi, lo in DELTA_SIDES:
-            for d in src.get(key) or []:
+            deltas = src.get(key)
+            if deltas is None:
+                continue
+            if not isinstance(deltas, list):
+                codes["E_PARSE"] = f"{key} is not a list"
+                continue
+            for d in deltas:
                 if not isinstance(d, dict):
                     misses += 1
                     continue
@@ -406,9 +418,15 @@ def run_check(source_dir: Path, manifest: list[dict], topic_rows: list[dict], *,
     for p in shape:
         out(f"MANIFEST {p}")
 
-    results = [check_set(s, by_key.get(s.key), topics=topics, titles=titles, slugs=slugs,
-                         manifest_dir=manifest_dir, source_dir=source_dir, figures=figures)
-               for s in sets]
+    results = []
+    for s in sets:
+        try:
+            r = check_set(s, by_key.get(s.key), topics=topics, titles=titles, slugs=slugs,
+                          manifest_dir=manifest_dir, source_dir=source_dir, figures=figures)
+        except Exception as exc:  # unexpected shape: report this set, keep checking the rest
+            r = SetResult(key=s.key, publish=(by_key.get(s.key) or {}).get("publish") is True)
+            r.codes["E_PARSE"] = f"unexpected structure ({type(exc).__name__}: {exc})"
+        results.append(r)
     for r in results:
         if r.codes:
             out(f"{r.key}: " + " | ".join(f"{c} {d}" for c, d in sorted(r.codes.items())))
@@ -466,6 +484,9 @@ def main(argv: Optional[list[str]] = None) -> int:
                         help="write the W_BAND_NEAR list for reviewers")
     args = parser.parse_args(argv)
 
+    if args.check and args.execute:
+        print("--execute is not available yet and is ignored: running --check only.",
+              file=sys.stderr)
     if not args.check:
         print("Only --check is available: the staging dry run and --execute need the "
               "LIBRARY-0061 tables (G06-T02).", file=sys.stderr)

@@ -281,6 +281,50 @@ def test_missing_mark_file(tree):
     assert "E_MARK" in res["t2"].codes
 
 
+@pytest.mark.parametrize("mark", [[], {"essays": []}, {"essays": {"7.5": [1]}}, "text"])
+def test_wrong_shape_mark_file_is_reported_and_other_sets_still_checked(tree, mark):
+    tree["write"]("a_bad", make_set())
+    (tree["src"] / "a_bad.mark.json").write_text(json.dumps(mark), encoding="utf-8")
+    tree["write"]("b_ok", make_set())
+    _, res, lines = run(tree, [entry("a_bad"), entry("b_ok")])
+    assert res["a_bad"].codes.keys() & {"E_MARK", "E_BAND_FAR"}
+    assert res["b_ok"].codes == {}
+    assert any(line.startswith("SETS 2") for line in lines)
+
+
+@pytest.mark.parametrize("value", [5, "x", {"before": "a"}])
+def test_delta_that_is_not_a_list_is_reported(tree, value):
+    data = make_set()
+    data["delta_75_70"] = value
+    tree["write"]("a_bad", data)
+    tree["write"]("b_ok", make_set())
+    _, res, _ = run(tree, [entry("a_bad"), entry("b_ok")])
+    assert "E_PARSE" in res["a_bad"].codes
+    assert res["b_ok"].codes == {}
+
+
+@pytest.mark.parametrize("mutate", [
+    lambda d: d.update(justification=[]),
+    lambda d: d["justification"].update(by_criterion={"TR": 1}),
+    lambda d: d["justification"]["by_criterion"][0].update(jumps=5),
+])
+def test_wrong_shape_justification_is_a_missing_pair(tree, mutate):
+    data = make_set()
+    mutate(data)
+    tree["write"]("t2", data)
+    _, res, _ = run(tree, [entry("t2")])
+    assert "E_PAIR" in res["t2"].codes
+
+
+def test_set_that_is_not_an_object_is_reported(tree):
+    (tree["src"] / "a_bad.json").write_text("[1, 2]", encoding="utf-8")
+    (tree["src"] / "a_bad.mark.json").write_text(json.dumps(make_mark()), encoding="utf-8")
+    tree["write"]("b_ok", make_set())
+    _, res, _ = run(tree, [entry("a_bad"), entry("b_ok")])
+    assert "E_PARSE" in res["a_bad"].codes
+    assert res["b_ok"].codes == {}
+
+
 def test_unparsable_set(tree):
     (tree["src"] / "bad.json").write_text("{nope", encoding="utf-8")
     _, res, _ = run(tree, [])
@@ -342,6 +386,17 @@ def test_main_refuses_non_check_modes(tree, capsys):
     assert iws.main(["--source", str(tree["src"])]) == 2
     assert iws.main(["--source", str(tree["src"]), "--execute"]) == 2
     assert "LIBRARY-0061" in capsys.readouterr().err
+
+
+def test_main_says_execute_is_ignored_with_check(tree, capsys):
+    tree["write"]("t2", make_set())
+    man = tree["man_dir"] / "m.json"
+    man.write_text(json.dumps([entry("t2")]), encoding="utf-8")
+    topics = tree["man_dir"] / "topics.json"
+    topics.write_text(json.dumps(TOPICS), encoding="utf-8")
+    iws.main(["--check", "--execute", "--source", str(tree["src"]), "--manifest", str(man),
+              "--topics", str(topics)])
+    assert "--execute is not available yet and is ignored" in capsys.readouterr().err
 
 
 def test_main_check_writes_csv_and_hashes(tree, tmp_path):
