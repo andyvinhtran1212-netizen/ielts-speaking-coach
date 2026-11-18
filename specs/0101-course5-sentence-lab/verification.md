@@ -10,6 +10,7 @@
 | FR-004 | Rewrite rule tests; staging rewrite of one item | PENDING |
 | FR-005 | `frontend/tests/course-writing-sentence-lab.test.mjs`; staging browser journey | PENDING |
 | FR-006 | Usage logging tests; calibration report on the 2026-11-18.1 package | PENDING |
+| FR-007 | Cap tests (429 at the cap, 503 on lookup failure, no model call); staging `ai_usage_logs` count | PENDING |
 
 ## Contract evidence
 
