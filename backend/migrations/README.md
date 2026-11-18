@@ -19,10 +19,12 @@ and must not be "filled in" by tooling:
 
 ## Finding the next number
 
-Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-11-12 the highest is `380`
+Take the next number after the highest `present` or `reserved` row in
+[`register.tsv`](register.tsv), add your row (`reserved`, owner = your PR or
+task ID) in the same PR as the file, and change it to `present` when the file
+lands. Do **not** assume the sequence is dense. As of 2026-11-12 the highest is `380`
 (Skill Drill homework, #2294); the next new migration is `381`, subject to the
-shared migration register (ask the Leader before taking it).
+shared migration register (`register.tsv`; ask the Leader before taking it).
 `379` is present: PC-J562, the 0037 FR-008 Listening import source skip
 (assigned by the Leader). Migration `376` is pending for BLACKEYE-0052 admission;
 377 is reserved for Black Eye PR2, renamed `377_exercise_book_cohort_grants.sql`.

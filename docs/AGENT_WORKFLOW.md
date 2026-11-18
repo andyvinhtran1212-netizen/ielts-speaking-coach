@@ -98,6 +98,8 @@ python backend/scripts/validate_specs.py
 git diff --check
 ```
 
+Migration numbers: see `backend/migrations/register.tsv`.
+
 Use the relevant browser journey under `frontend/tooling/verify-*-flow.mjs` or
 the configured Playwright suite for UI changes. Follow the environment and
 server setup in `.github/workflows/next-native-browser.yml`. The fixture modal
