@@ -88,6 +88,7 @@ draft -> approved -> implementing -> verified -> shipped
 | GRAMMARCUTOVER-0014 | Preserve Grammar quiz history during bounded bank revision cutover | approved | high | [spec](0014-grammar-bank-revision-cutover/spec.md) |
 
 | GRAMMARTEXT-0015 | Require exact authored forms for bounded Grammar questions while preserving old work | implementing | high | [spec](0015-grammar-exact-form-policy/spec.md) |
+| BRANDMARK-0083 | The An ky mark is the one logo, favicon, app icon and link preview image of the site, generated from a single geometry source | draft | medium | [spec](0083-brand-mark-an-ky/spec.md) |
 
 | MOCKREPAIR-0016 | Preserve mock paper security and repair Reading and Listening work truthfully | implementing | critical | [spec](0016-mock-content-remediation/spec.md) |
 
