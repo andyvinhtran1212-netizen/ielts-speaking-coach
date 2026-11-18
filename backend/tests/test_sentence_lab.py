@@ -636,17 +636,11 @@ def test_call_cap_is_checked_before_the_model_on_submit_and_rewrite():
 # ── FR-001: importer chỉ ghi khi project ref khớp ────────────────────────────
 def test_importer_commit_requires_matching_project_ref(monkeypatch):
     from config import settings
-    monkeypatch.setattr(settings, "DATABASE_URL",
-                        "postgresql://postgres:x@db.prodref1234.supabase.co:5432/postgres")
     monkeypatch.setattr(settings, "SUPABASE_URL", "https://prodref1234.supabase.co")
     with pytest.raises(SystemExit):
-        imp.database_dsn("zjphffoujxkpltixsbzj")
-    monkeypatch.setattr(settings, "DATABASE_URL",
-                        "postgresql://postgres:x@db.zjphffoujxkpltixsbzj.supabase.co:5432/postgres")
-    with pytest.raises(SystemExit):   # SUPABASE_URL vẫn trỏ nơi khác
-        imp.database_dsn("zjphffoujxkpltixsbzj")
+        imp.check_target("zjphffoujxkpltixsbzj")
     monkeypatch.setattr(settings, "SUPABASE_URL", "https://zjphffoujxkpltixsbzj.supabase.co")
-    assert imp.database_dsn("zjphffoujxkpltixsbzj").startswith("postgresql://")
+    imp.check_target("zjphffoujxkpltixsbzj")
 
 
 def test_importer_commit_without_expect_ref_writes_nothing(tmp_path, monkeypatch):

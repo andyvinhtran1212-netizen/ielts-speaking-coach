@@ -51,19 +51,17 @@ cd backend
 # 1. Thử khô — chỉ đọc gói, kiểm SHA-256 với manifest, 45×12, khớp 540 khóa chấm
 python -m scripts.import_sentence_lab_course5 --package <zip>
 # 2. Ghi thật (staging trước, rồi production) — chỉ khi đã có phê duyệt.
-#    Cần DATABASE_URL + SUPABASE_URL của ĐÚNG môi trường; --expect-ref phải khớp
-#    cả hai, sai là dừng trước khi kết nối. Staging: zjphffoujxkpltixsbzj.
-python -m scripts.import_sentence_lab_course5 --package <zip> --commit --expect-ref <ref>
-# 3. Xuất bản khi code chấm đã chạy trên môi trường đó
+#    --expect-ref phải khớp SUPABASE_URL, sai là dừng. Staging: zjphffoujxkpltixsbzj.
 python -m scripts.import_sentence_lab_course5 --package <zip> --commit --publish --expect-ref <ref>
 ```
 
-Ghi qua kết nối Postgres trực tiếp, cả 45 bank trong **một giao dịch** (hỏng ở
-đâu là không ghi gì). Lý do: từ migration 309, CHECK
-`quiz_banks_grammar_revision_shape` gọi `grammar_quiz_allowed_code`, hàm mà
-service_role không còn quyền EXECUTE, nên ghi `quiz_banks` qua PostgREST bị từ
-chối (42501). Chạy lại lệnh cập nhật đúng 45 bank theo `code` (không tạo bank
-mới); không có `--publish` thì giữ nguyên trạng thái xuất bản hiện có.
+Chạy lại lệnh cập nhật đúng 45 bank theo `code` (không tạo bank mới).
+
+**Đang chặn (18/11):** trên staging, mọi lệnh ghi `quiz_banks` qua PostgREST của
+service_role bị từ chối 42501, vì CHECK `quiz_banks_grammar_revision_shape`
+(migration 309) gọi `grammar_quiz_allowed_code`, hàm mà 309 đã thu quyền
+EXECUTE của service_role. Script này (và `import_course_exercise_bank.py`,
+PATCH `/admin/quiz/banks/{id}`) chưa ghi được cho tới khi có hướng xử lý được duyệt.
 
 ## Hiệu chỉnh model trước khi giao cho học viên
 

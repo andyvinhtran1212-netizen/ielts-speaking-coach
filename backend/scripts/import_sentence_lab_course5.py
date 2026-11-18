@@ -300,102 +300,79 @@ def question_row(pub: dict, key: dict, order: int) -> dict:
     }
 
 
-def database_dsn(expect_ref: str) -> str:
-    """DATABASE_URL đã kiểm project ref — không bao giờ ghi nhầm môi trường.
+def _course_row(db) -> dict:
+    rows = (db.table("courses").select("id, code, name")
+            .eq("code", COURSE_CODE).limit(1).execute().data) or []
+    if not rows:
+        raise SystemExit(f"Không có khoá nào mã {COURSE_CODE!r}.")
+    return rows[0]
 
-    Ghi qua kết nối Postgres trực tiếp (như repair_cam16_cam18_screening), không
-    qua PostgREST: từ migration 309, CHECK `quiz_banks_grammar_revision_shape`
-    gọi một hàm `grammar_quiz_*` mà service_role không còn quyền EXECUTE, nên
-    mọi INSERT/UPDATE `quiz_banks` qua PostgREST bị từ chối (42501).
-    """
-    from urllib.parse import unquote, urlparse
+
+def check_target(expect_ref: str) -> None:
+    """Dừng trước khi ghi nếu SUPABASE_URL không phải môi trường đã nêu."""
+    from urllib.parse import urlparse
     from config import settings
-    raw = (getattr(settings, "DATABASE_URL", "") or "").strip()
-    if not raw:
-        raise SystemExit("Cần DATABASE_URL để ghi.")
-    dsn = raw.replace("postgresql+asyncpg://", "postgresql://", 1)
-    parsed = urlparse(dsn)
-    host = (parsed.hostname or "").lower()
-    user = unquote(parsed.username or "")
-    refs: set[str] = set()
-    if host.startswith("db.") and host.endswith(".supabase.co"):
-        refs.add(host.removeprefix("db.").removesuffix(".supabase.co"))
-    if host.endswith(".pooler.supabase.com") and user.startswith("postgres."):
-        refs.add(user.split(".", 1)[1])
-    api_ref = (urlparse(getattr(settings, "SUPABASE_URL", "") or "").hostname
-               or "").split(".", 1)[0]
-    if refs != {expect_ref} or api_ref != expect_ref:
-        raise SystemExit("Sai môi trường: project ref của DATABASE_URL/SUPABASE_URL "
-                         f"không khớp --expect-ref {expect_ref!r} — không ghi gì.")
-    return dsn
+    ref = (urlparse(getattr(settings, "SUPABASE_URL", "") or "").hostname
+           or "").split(".", 1)[0]
+    if ref != expect_ref:
+        raise SystemExit("Sai môi trường: SUPABASE_URL không khớp --expect-ref "
+                         f"{expect_ref!r} — không ghi gì.")
 
 
-async def _commit_async(plan: dict, *, publish: bool, dsn: str) -> int:
-    import asyncpg
-    conn = await asyncpg.connect(dsn, statement_cache_size=0)
-    try:
-        async with conn.transaction():
-            course = await conn.fetchrow(
-                "select id, code, name from public.courses where code = $1", COURSE_CODE)
-            if not course:
-                raise SystemExit(f"Không có khoá nào mã {COURSE_CODE!r}.")
-            logger.info("Khoá: %s — %s", course["code"], course["name"])
-            for bank in plan["banks"]:
-                rows = await conn.fetch(
-                    "select id, course_id, source, is_published from public.quiz_banks "
-                    "where code = $1 and skill_area = 'course' for update", bank["code"])
-                if len(rows) > 1:
-                    raise SystemExit(f"{bank['code']}: có {len(rows)} bank cùng mã — "
-                                     "dừng, không ghi gì.")
-                if rows and (rows[0]["course_id"] != course["id"]
-                             or rows[0]["source"] != SOURCE):
-                    raise SystemExit(f"{bank['code']}: mã đã thuộc một bank khác "
-                                     "(course/source lệch) — dừng, không ghi gì.")
-                meta = json.dumps(bank["meta"], ensure_ascii=False)
-                if rows:
-                    bank_id = rows[0]["id"]
-                    await conn.execute(
-                        "update public.quiz_banks set title = $2, words_count = $3, "
-                        "lesson_no = null, meta = $4::jsonb where id = $1",
-                        bank_id, bank["title"], len(bank["rows"]), meta)
-                else:
-                    bank_id = await conn.fetchval(
-                        "insert into public.quiz_banks (code, title, skill_area, course_id, "
-                        "lesson_no, words_count, source, is_published, meta) values "
-                        "($1, $2, 'course', $3, null, $4, $5, false, $6::jsonb) returning id",
-                        bank["code"], bank["title"], course["id"], len(bank["rows"]),
-                        SOURCE, meta)
-                n = await conn.fetchval(
-                    "select public.quiz_replace_questions($1, $2::jsonb)", bank_id,
-                    json.dumps(bank["rows"], ensure_ascii=False))
-                if n != len(bank["rows"]):
-                    raise SystemExit(f"{bank['code']}: ghi {n}/{len(bank['rows'])} câu — "
-                                     "huỷ toàn bộ, không ghi gì.")
-                if publish:
-                    await conn.execute(
-                        "update public.quiz_banks set is_published = true where id = $1",
-                        bank_id)
-                logger.info("%s  %s  %d câu  %s", bank["code"], bank_id, n,
-                            "XUẤT BẢN" if publish else
-                            ("giữ trạng thái cũ" if rows else "NHÁP"))
-            total = await conn.fetchval(
-                "select count(*) from public.quiz_questions q join public.quiz_banks b "
-                "on b.id = q.bank_id where b.course_id = $1 and b.source = $2",
-                course["id"], SOURCE)
-            want = sum(len(b["rows"]) for b in plan["banks"])
-            if total != want:
-                raise SystemExit(f"Kiểm cuối: {total} câu, cần {want} — huỷ toàn bộ.")
-    finally:
-        await conn.close()
-    logger.info("Xong: %d bank, %d câu, một giao dịch.", len(plan["banks"]), want)
-    return 0
-
-
-def commit_plan(plan: dict, *, publish: bool, expect_ref: str) -> int:
-    """Ghi cả 45 bank trong MỘT giao dịch: hỏng ở đâu là không ghi gì cả."""
-    import asyncio
-    return asyncio.run(_commit_async(plan, publish=publish,
-                                     dsn=database_dsn(expect_ref)))
+def commit_plan(plan: dict, *, publish: bool) -> int:
+    from database import supabase_admin as db
+    course = _course_row(db)
+    logger.info("Khoá: %s — %s", course["code"], course["name"])
+    failures = 0
+    for bank in plan["banks"]:
+        payload = {
+            "code": bank["code"], "title": bank["title"], "skill_area": "course",
+            "course_id": course["id"], "lesson_no": None,
+            "words_count": len(bank["rows"]), "source": SOURCE,
+            # Nháp trước; chỉ xuất bản SAU khi RPC ghi đủ câu (giống
+            # import_course_exercise_bank) để không có bank rỗng mở được.
+            "is_published": False,
+            "meta": bank["meta"],
+        }
+        existing = (db.table("quiz_banks").select("id, course_id, source")
+                    .eq("code", bank["code"]).eq("skill_area", "course")
+                    .limit(2).execute().data) or []
+        if len(existing) > 1:
+            logger.error("%s: có %d bank cùng mã — dừng buổi này.", bank["code"], len(existing))
+            failures += 1
+            continue
+        if existing and (existing[0].get("course_id") != course["id"]
+                         or existing[0].get("source") != SOURCE):
+            logger.error("%s: mã đã thuộc một bank khác (course/source lệch) — "
+                         "không ghi đè.", bank["code"])
+            failures += 1
+            continue
+        if existing:
+            bank_id = existing[0]["id"]
+            db.table("quiz_banks").update(payload).eq("id", bank_id).execute()
+        else:
+            bank_id = db.table("quiz_banks").insert(payload).execute().data[0]["id"]
+        try:
+            n = db.rpc("quiz_replace_questions",
+                       {"p_bank_id": bank_id, "p_rows": bank["rows"]}).execute().data
+        except Exception as exc:  # noqa: BLE001
+            logger.error("%s: HỎNG khi ghi câu (%s). Bank ở trạng thái NHÁP; "
+                         "chạy lại lệnh để hoàn tất.", bank["code"], exc)
+            failures += 1
+            continue
+        if n != len(bank["rows"]):
+            logger.error("%s: RPC báo %s câu, cần %d — giữ NHÁP.", bank["code"], n,
+                         len(bank["rows"]))
+            failures += 1
+            continue
+        if publish:
+            db.table("quiz_banks").update({"is_published": True}) \
+                .eq("id", bank_id).eq("is_published", False).execute()
+        logger.info("%s  %s  %d câu  %s", bank["code"], bank_id, n,
+                    "ĐÃ XUẤT BẢN" if publish else "NHÁP")
+    logger.info("Xong: %d/%d bank thành công.", len(plan["banks"]) - failures,
+                len(plan["banks"]))
+    return 1 if failures else 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -423,7 +400,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if not args.expect_ref:
         raise SystemExit("--commit cần --expect-ref <project ref> của môi trường đích.")
-    return commit_plan(plan, publish=args.publish, expect_ref=args.expect_ref)
+    check_target(args.expect_ref)
+    return commit_plan(plan, publish=args.publish)
 
 
 if __name__ == "__main__":
