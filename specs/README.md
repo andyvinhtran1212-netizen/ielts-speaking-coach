@@ -116,6 +116,7 @@ Progress and remaining acceptance are reconciled in [the implementation status l
 | ASSIGNDRAFT-0027 | Deleting a writing assignment can never erase a learner's draft | verified | high | [spec](0027-writing-draft-assignment-delete-guard/spec.md) |
 
 | CODEUNIQ-0028 | Access codes are unique and canonical in the repository schema | verified | high | [spec](0028-access-code-unique-canonical/spec.md) |
+| MIGNUM-0058 | Each work package takes migration numbers only from its own block, and the migration register test rejects a number outside or in another package's block | draft | high | [spec](0058-migration-number-blocks/spec.md) |
 
 | STUDENTARCHIVE-0029 | Admin student delete archives the learner with an audit trail instead of erasing their work | implementing | critical | [spec](0029-student-archive/spec.md) |
 | CLASSARCHIVE-0030 | An archived class is hidden from learners, takes no new learners or work, and closes its open work without losing it | approved | high | [spec](0030-class-archive/spec.md) |
