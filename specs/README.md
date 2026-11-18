@@ -73,6 +73,7 @@ draft -> approved -> implementing -> verified -> shipped
 | LISTENING-0006 | Guided per-question Listening feedback | implementing | high | [spec](0006-listening-guided-feedback/spec.md) |
 | LISTENING-0007 | Versioned Listening editorial revision and bilingual questions | implementing | high | [spec](0007-listening-editorial-revision/spec.md) |
 | MOCKOPS-0006 | Admin Mock Test operations workspace at scale | implementing | high | [spec](0006-admin-mock-test-operations/spec.md) |
+| MOCKORG-0086 | Admins organise assigned mock exams for classes, single learners and saved groups, run live or self-paced sittings without breaks, and release results from one tab | draft | high | [spec](0086-mock-exam-organisation/spec.md) |
 | WRITINGNAV-0007 | Canonical admin Writing navigation context | implementing | high | [spec](0007-writing-navigation-contract/spec.md) |
 | MOCKATTACH-0008 | Mock Reading and Listening attempt integrity | implementing | high | [spec](0008-mock-attempt-integrity/spec.md) |
 | LISTENING80-0009 | Source-faithful 80-day Listening practice collection | implementing | high | [spec](0009-listening-80-days/spec.md) |
