@@ -104,6 +104,7 @@ Progress and remaining acceptance are reconciled in [the implementation status l
 | REVEXPLAIN-0022 | Bind reviewed interactive explanations to Cambridge revision papers and name approval refusals | implementing | high | [spec](0022-revision-explanation-binding/spec.md) |
 
 | SECWRITE-0022 | Client roles cannot write privilege, score or session data | implementing | critical | [spec](0022-client-write-privilege-lockdown/spec.md) |
+| COURSETESTRELEASE-0082 | Course test results stay sealed on every learner read path until a teacher releases them at a chosen level, unless the test returns results on submit | draft | critical | [spec](0082-course-test-result-release/spec.md) |
 
 | AIOPS-0024 | Admin AI dashboard with model control, token spend and failure log | implementing | high | [spec](0024-admin-ai-model-control/spec.md) |
 
