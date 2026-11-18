@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Hub một kỹ năng</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--accentH:#0B5953;--link:#0B5953;--mark:#8A4B08;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EDF3F1;--off:#E7E2D6;--onAccent:#FFFFFF}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--accentH:#11254A;--link:#1A3561;--mark:#8A1C1C;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EEF0F5;--off:#E8E2D5;--onAccent:#FFFFFF}
+a{color:var(--link)}a:hover{color:var(--ink)}
+.sf{font-family:'Source Serif 4',Georgia,serif}
+.eb{margin:0;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;color:var(--muted)}
+.cap{font-size:14px;color:var(--muted)}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 20px;box-sizing:border-box;border:1px solid var(--accent);border-radius:2px;background:var(--accent);color:var(--onAccent);font:600 16px 'Source Sans 3',sans-serif;text-decoration:none}
+.btn:hover{background:var(--accentH);color:var(--onAccent)}
+.btn2{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;box-sizing:border-box;border:1px solid var(--ink);border-radius:2px;background:var(--surface);color:var(--ink);font:600 15px 'Source Sans 3',sans-serif;text-decoration:none}
+.lk{display:inline-flex;align-items:center;min-height:44px;font-weight:600}
+.nav a{display:flex;align-items:center;padding-top:3px;border-bottom:3px solid transparent;color:var(--muted);text-decoration:none}
+.nav a[aria-current="page"]{border-bottom-color:var(--accent);color:var(--ink);font-weight:600}
+.tag{display:inline-block;padding:1px 8px;border:1px solid var(--rule);border-radius:2px;font-size:13px;color:var(--muted);white-space:nowrap}
+.tagAi{border-color:var(--accent);color:var(--accent)}
+.sh{margin:0 0 14px;font-family:'Source Serif 4',Georgia,serif;font-size:24px;font-weight:600}
+.blk{margin-top:40px;border-top:2px solid var(--ink);padding-top:16px}
+.bh{display:flex;align-items:baseline;gap:12px;margin:0 0 12px}
+.bn{font-family:'Source Serif 4',Georgia,serif;font-size:22px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div class="{{pal}}" style="width: 1280px; height: 7650px; box-sizing: border-box; padding: 56px 64px; background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 16px; line-height: 1.5; display: flex; flex-direction: column; gap: 48px">
+
+<header>
+<p class="eb" style="font-weight: 400">Aver Learning · Bản in · trang học viên, Đợt 4</p>
+<h1 class="sf" style="margin: 4px 0 6px; font-size: 40px; font-weight: 600; line-height: 1.15">Hub một kỹ năng · một mẫu dùng cho cả bốn kỹ năng</h1>
+<p style="margin: 0; color: var(--muted); max-width: 88ch">Hiện mỗi kỹ năng một kiểu trang: Speaking là bảng số liệu, Writing là danh sách nhiều thẻ, Reading chuyển thẳng sang từ vựng. Tờ này chốt một mẫu chung với bốn khối theo đúng thứ tự: Làm tiếp → Gợi ý cho bạn → Kho bài luyện → Lịch sử và kết quả gần đây. Kỹ năng chỉ khác nhau ở nội dung trong Kho bài luyện và cách ghi kết quả. Bấm thẻ kỹ năng trong khung để thấy mẫu áp cho cả bốn.</p>
+</header>
+
+<section aria-labelledby="m1" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="m1" class="sh">1 · Màn chính · hub Writing, đủ cả trang</h2>
+<div style="border: 1px solid var(--ink); background: var(--paper)">
+<header style="border-bottom: 1px solid var(--ink)">
+<div style="display: flex; align-items: stretch; gap: 36px; height: 64px; padding: 0 32px">
+<a href="Main.dc.html" class="sf" style="display: inline-flex; align-items: center; gap: 9px; align-self: center; font-size: 22px; font-weight: 600; color: var(--ink); text-decoration: none"><svg width="29" height="29" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</a>
+<nav class="nav" aria-label="Điều hướng chính" style="display: flex; gap: 28px; flex-grow: 1">
+<a href="Main.dc.html">Hôm nay</a>
+<a href="LoTrinh.dc.html">Lộ trình</a>
+<a href="LuyenTap.dc.html" aria-current="page">Luyện tập</a>
+<a href="ThiThu.dc.html">Thi thử</a>
+<a href="ThuVien.dc.html">Thư viện</a>
+</nav>
+<div style="display: flex; align-items: center; gap: 16px">
+<a href="LuyenTap.dc.html" style="font-size: 14px; color: var(--muted); text-decoration: none">Lượt chấm AI còn <strong style="color: var(--ink); font-variant-numeric: tabular-nums">XXX</strong></a>
+<button aria-label="Tra nhanh: từ, bài ngữ pháp, đề bài mẫu" title="Tra nhanh" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; box-sizing: border-box; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); cursor: pointer"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="1.6"></circle><path d="M15 15l5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path></svg></button>
+<span style="position: relative; flex: none; display: inline-flex"><a href="ThongBao.dc.html" aria-label="Thông báo, 4 chưa đọc" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; box-sizing: border-box; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink)"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15zM10 20.5a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></a><span aria-hidden="true" style="position: absolute; top: -7px; right: -7px; min-width: 20px; height: 20px; box-sizing: border-box; padding: 0 5px; border: 1px solid var(--paper); border-radius: 2px; background: var(--accent); color: var(--onAccent); font-size: 12px; font-weight: 600; line-height: 18px; text-align: center; font-variant-numeric: tabular-nums">4</span></span>
+<button aria-label="Mở menu tài khoản" style="width: 44px; height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer">MA</button>
+</div>
+</div>
+</header>
+
+<main style="padding: 24px 32px 64px">
+<nav aria-label="Vị trí trang" class="cap"><a href="LuyenTap.dc.html">Luyện tập</a> › <span aria-current="page" style="color: var(--ink)">{{cur.name}}</span></nav>
+<div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 40px; margin-top: 16px">
+<div style="max-width: 64ch">
+<h1 class="sf" style="margin: 0 0 8px; font-size: 44px; font-weight: 600; line-height: 1.15">{{cur.name}}</h1>
+<p style="margin: 0; color: var(--muted)">{{cur.lede}}</p>
+</div>
+<p style="margin: 0; max-width: 380px; padding: 10px 0 10px 18px; border-left: 3px solid {{cur.creditBar}}; font-size: 15px">{{cur.credit}}</p>
+</div>
+
+<div role="tablist" aria-label="Chọn kỹ năng" style="display: flex; gap: 0 32px; margin-top: 24px; border-bottom: 1px solid var(--rule)">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="4">
+<button role="tab" aria-selected="{{t.sel}}" onClick="{{t.pick}}" style="min-height: 44px; padding: 8px 0 6px; border: 0; border-bottom: 3px solid {{t.bar}}; background: transparent; color: {{t.color}}; font: {{t.weight}} 16px 'Source Sans 3', sans-serif; cursor: pointer">{{t.name}}</button>
+</sc-for>
+</div>
+
+<section aria-labelledby="b1" class="blk">
+<div class="bh"><span class="bn">1</span><h2 id="b1" class="eb">Làm tiếp</h2></div>
+<div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 40px">
+<div style="flex: 1 1 560px; min-width: 0">
+<p style="margin: 0" class="cap">{{cur.resume.meta}}</p>
+<h3 lang="en" class="sf" style="margin: 4px 0 6px; font-size: 28px; font-weight: 600; line-height: 1.2">{{cur.resume.title}}</h3>
+<p style="margin: 0">{{cur.resume.state}}</p>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px">
+<span class="{{cur.resume.tagClass}}">{{cur.resume.tag}}</span>
+<a href="{{cur.resume.href}}" class="btn">{{cur.resume.btn}}</a>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="b2" class="blk">
+<div class="bh"><span class="bn">2</span><h2 id="b2" class="eb">Gợi ý cho bạn</h2><span class="cap" style="margin-left: auto">Dựa trên bài bạn đã làm và lộ trình đang học</span></div>
+<ol style="margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 32px">
+<sc-for list="{{cur.sugg}}" as="g" hint-placeholder-count="3">
+<li style="display: flex; flex-direction: column; gap: 4px; padding: 12px 0 4px; border-top: 1px solid var(--rule)">
+<span class="cap">{{g.kind}}</span>
+<a href="{{g.href}}" lang="en" class="sf" style="font-size: 20px; font-weight: 600; line-height: 1.3">{{g.title}}</a>
+<span style="font-size: 15px">{{g.why}}</span>
+<span style="margin-top: 4px"><span class="{{g.tagClass}}">{{g.tag}}</span></span>
+</li>
+</sc-for>
+</ol>
+</section>
+
+<section aria-labelledby="b3" class="blk">
+<div class="bh"><span class="bn">3</span><h2 id="b3" class="eb">Kho bài luyện</h2><a href="DanhSachDe.dc.html" class="lk" style="margin-left: auto; font-size: 15px">Tất cả đề {{cur.name}} ›</a></div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 48px">
+<sc-for list="{{cur.bank}}" as="b" hint-placeholder-count="2">
+<div style="min-width: 0">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-bottom: 6px; border-bottom: 1px solid var(--ink)">
+<h3 class="sf" style="margin: 0; font-size: 22px; font-weight: 600">{{b.name}}</h3>
+<span class="cap">{{b.note}}</span>
+</div>
+<sc-if value="{{b.hasProg}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 12px 0 4px">
+<p style="margin: 0 0 6px; font-variant-numeric: tabular-nums">{{b.progText}}</p>
+<div role="img" aria-label="{{b.progText}}" style="height: 6px; background: var(--off)"><div style="width: {{b.pct}}; height: 6px; background: var(--accent)"></div></div>
+</div>
+</sc-if>
+<ul style="margin: 0; padding: 0; list-style: none">
+<sc-for list="{{b.items}}" as="i" hint-placeholder-count="4">
+<li style="border-bottom: 1px solid var(--rule)">
+<a href="{{i.href}}" style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 16px; padding: 10px 0; color: var(--ink); text-decoration: none">
+<span style="flex: 1 1 200px; font-weight: 600">{{i.label}}</span>
+<span class="cap" style="font-variant-numeric: tabular-nums">{{i.meta}}</span>
+<span aria-hidden="true" style="color: var(--link)">›</span>
+</a>
+</li>
+</sc-for>
+</ul>
+</div>
+</sc-for>
+</div>
+</section>
+
+<section aria-labelledby="b4" class="blk">
+<div class="bh"><span class="bn">4</span><h2 id="b4" class="eb">Lịch sử và kết quả gần đây</h2><a href="DanhSachDe.dc.html" class="lk" style="margin-left: auto; font-size: 15px">Xem tất cả bài đã làm ›</a></div>
+<div role="table" aria-label="Bài đã làm gần đây">
+<div role="row" class="cap" style="display: grid; grid-template-columns: 80px minmax(0, 1fr) 190px 210px 170px 110px; gap: 0 16px; padding: 6px 0; border-bottom: 1px solid var(--ink)">
+<span role="columnheader">Ngày</span><span role="columnheader">Bài</span><span role="columnheader">Dạng</span><span role="columnheader">Cách chấm</span><span role="columnheader">Kết quả</span><span role="columnheader"></span>
+</div>
+<sc-for list="{{cur.history}}" as="h" hint-placeholder-count="4">
+<div role="row" style="display: grid; grid-template-columns: 80px minmax(0, 1fr) 190px 210px 170px 110px; gap: 0 16px; align-items: baseline; padding: 12px 0; border-bottom: 1px solid var(--rule)">
+<span role="cell" style="font-variant-numeric: tabular-nums" class="cap">{{h.date}}</span>
+<span role="cell" lang="en" class="sf" style="font-size: 18px">{{h.title}}</span>
+<span role="cell" class="cap">{{h.kind}}</span>
+<span role="cell" style="font-size: 15px">{{h.source}}</span>
+<span role="cell" style="font-weight: 600; font-variant-numeric: tabular-nums; color: {{h.color}}">{{h.result}}</span>
+<a role="cell" href="{{h.href}}" class="lk" style="justify-self: end; min-height: 0">{{h.action}}</a>
+</div>
+</sc-for>
+</div>
+<p style="margin: 10px 0 0" class="cap">{{cur.histNote}}</p>
+</section>
+</main>
+
+<footer style="display: flex; flex-wrap: wrap; align-items: center; gap: 0 24px; padding: 0 32px; border-top: 1px solid var(--rule); font-size: 14px">
+<span style="gap: 8px; display: inline-flex; align-items: center; color: var(--muted); flex-grow: 1"><svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none; color: var(--ink)"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>© 2026 Aver Learning</span>
+<nav aria-label="Chân trang" style="display: flex; gap: 0 24px">
+<a href="#m1" style="display: inline-flex; align-items: center; min-height: 44px">Trợ giúp</a>
+<a href="PhapLy.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Điều khoản</a>
+<a href="PhapLy.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Quyền riêng tư</a>
+</nav>
+</footer>
+</div>
+</section>
+
+<section aria-labelledby="m2" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="m2" class="sh">2 · Ba kỹ năng còn lại · chỉ phần khác với Writing</h2>
+<p style="margin: -6px 0 18px; max-width: 92ch" class="cap">Khung, bốn khối và thứ tự giữ nguyên. Mỗi cột liệt kê nội dung riêng của khối Làm tiếp, Kho bài luyện và cách ghi kết quả trong Lịch sử. Bấm thẻ kỹ năng ở màn 1 để xem cả trang.</p>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 36px">
+<sc-for list="{{others}}" as="o" hint-placeholder-count="3">
+<div style="min-width: 0; border-top: 2px solid var(--ink); padding-top: 12px">
+<h3 class="sf" style="margin: 0 0 4px; font-size: 26px; font-weight: 600">{{o.name}}</h3>
+<p style="margin: 0 0 14px" class="cap">{{o.credit}}</p>
+<p class="eb" style="font-weight: 400; margin-bottom: 4px">1 · Làm tiếp</p>
+<p style="margin: 0" class="cap">{{o.resume.meta}}</p>
+<p lang="en" class="sf" style="margin: 2px 0 2px; font-size: 18px; font-weight: 600">{{o.resume.title}}</p>
+<p style="margin: 0 0 6px; font-size: 15px">{{o.resume.state}}</p>
+<a href="{{o.resume.href}}" class="btn2" style="min-height: 40px">{{o.resume.btn}}</a>
+<p class="eb" style="font-weight: 400; margin: 18px 0 4px">3 · Kho bài luyện</p>
+<sc-for list="{{o.bank}}" as="b" hint-placeholder-count="2">
+<div style="margin-bottom: 12px">
+<p style="margin: 0; padding-bottom: 4px; border-bottom: 1px solid var(--ink); font-weight: 600">{{b.name}} <span class="cap" style="font-weight: 400">· {{b.note}}</span></p>
+<sc-if value="{{b.hasProg}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 8px 0 2px"><p style="margin: 0 0 4px; font-size: 14px">{{b.progText}}</p><div style="height: 5px; background: var(--off)"><div style="width: {{b.pct}}; height: 5px; background: var(--accent)"></div></div></div>
+</sc-if>
+<ul style="margin: 0; padding: 0; list-style: none">
+<sc-for list="{{b.items}}" as="i" hint-placeholder-count="3">
+<li style="display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--rule); font-size: 15px"><a href="{{i.href}}">{{i.label}}</a><span class="cap" style="text-align: right">{{i.meta}}</span></li>
+</sc-for>
+</ul>
+</div>
+</sc-for>
+<p class="eb" style="font-weight: 400; margin: 18px 0 4px">4 · Kết quả ghi thế nào</p>
+<sc-for list="{{o.history}}" as="h" hint-placeholder-count="2">
+<p style="margin: 0; padding: 6px 0; border-bottom: 1px solid var(--rule); display: flex; justify-content: space-between; gap: 10px; font-size: 15px"><span lang="en">{{h.title}}</span><strong style="white-space: nowrap; color: {{h.color}}">{{h.result}}</strong></p>
+</sc-for>
+<p style="margin: 8px 0 0" class="cap">{{o.histNote}}</p>
+</div>
+</sc-for>
+</div>
+</section>
+
+<section aria-labelledby="m3" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="m3" class="sh">3 · Chưa có lịch sử · lần đầu vào hub Writing</h2>
+<p style="margin: -6px 0 16px" class="cap">Khung và tiêu đề như màn 1. Không có bài dở nên khối Làm tiếp nhường chỗ cho một bài gợi ý đầu tiên. Khối Lịch sử còn một câu, không vẽ bảng rỗng, không hiện band.</p>
+<div style="border: 1px solid var(--rule); padding: 0 32px 28px">
+<section class="blk" style="margin-top: 28px" aria-labelledby="e1">
+<div class="bh"><span class="bn">1</span><h3 id="e1" class="eb">Bắt đầu với một bài</h3></div>
+<div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 40px">
+<div style="flex: 1 1 560px; min-width: 0">
+<p style="margin: 0" class="cap">Task 1 · Biểu đồ đường · 150 từ, 20 phút</p>
+<p lang="en" class="sf" style="margin: 4px 0 6px; font-size: 26px; font-weight: 600">Coffee exports from three countries</p>
+<p style="margin: 0; max-width: 64ch">Task 1 ngắn hơn Task 2, hợp để làm quen trình soạn và phiếu nhận xét. Trước khi viết, bạn có thể đọc ba bài mẫu 7.5 / 7.0 / 6.0 của đề này ở Thư viện.</p>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px"><span class="tag tagAi">Tốn 1 lượt khi nộp chấm</span><a href="BaiTapWriting.dc.html" class="btn">Viết bài đầu tiên</a></div>
+</div>
+</section>
+<p class="cap" style="margin: 20px 0 0">Khối 2 Gợi ý và khối 3 Kho bài luyện như màn 1; số “đã làm” trong kho không hiện.</p>
+<section class="blk" style="margin-top: 20px" aria-labelledby="e4">
+<div class="bh"><span class="bn">4</span><h3 id="e4" class="eb">Lịch sử và kết quả gần đây</h3></div>
+<p style="margin: 0; padding: 14px 0; border-bottom: 1px solid var(--rule)">Bạn chưa nộp bài Writing nào. Bài nộp sẽ hiện ở đây kèm cách chấm và kết quả. Bài nháp nằm ở khối Làm tiếp.</p>
+</section>
+</div>
+</section>
+
+<section aria-labelledby="m4" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="m4" class="sh">4 · Kỹ năng chưa có trong khoá của bạn · ví dụ Speaking</h2>
+<p style="margin: -6px 0 16px; max-width: 92ch" class="cap">Học viên có Khoá Writing for IELTS nhưng chưa có Khoá Speaking for IELTS. Vẫn vào được hub để xem có gì; khối Làm tiếp và Gợi ý thay bằng lời giải thích; kho bài vẫn liệt kê nhưng mỗi dòng ghi rõ cần khoá nào. Phần miễn phí ở Thư viện dẫn ngay đầu.</p>
+<div style="border: 1px solid var(--rule); padding: 28px 32px">
+<nav aria-label="Vị trí trang" class="cap"><a href="LuyenTap.dc.html">Luyện tập</a> › <span style="color: var(--ink)">Speaking</span></nav>
+<h3 class="sf" style="margin: 10px 0 18px; font-size: 36px; font-weight: 600">Speaking</h3>
+<div style="display: flex; flex-wrap: wrap; gap: 20px 48px; border-top: 2px solid var(--ink); padding-top: 18px">
+<div style="flex: 1 1 520px; min-width: 0">
+<p class="eb" style="margin-bottom: 6px">Chưa có trong khoá của bạn</p>
+<p class="sf" style="margin: 0 0 8px; font-size: 24px; font-weight: 600; line-height: 1.3">Ghi âm và AI chấm Speaking có trong Khoá Speaking for IELTS.</p>
+<p style="margin: 0 0 14px; max-width: 62ch">Khoá Writing for IELTS bạn đang học không gồm Speaking. Học phí, thời hạn và lượt chấm AI của Khoá Speaking for IELTS: XXX. Nếu bạn học lớp offline, hỏi giáo viên cấp quyền luyện Speaking.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 12px"><a href="TrangKhoaHoc.dc.html" class="btn">Xem Khoá Speaking for IELTS</a><a href="TaiKhoanDangNhap.dc.html" class="btn2">Nhập mã kích hoạt</a></div>
+</div>
+<div style="flex: 1 1 320px; min-width: 0">
+<p class="eb" style="margin-bottom: 6px">Dùng được ngay, miễn phí</p>
+<p style="margin: 0 0 4px">Đề Speaking theo chủ đề kèm video trả lời mẫu ở Thư viện. Xem, nghe và tự nói theo; chỉ phần ghi âm để AI chấm cần khoá.</p>
+<a href="DeSpeakingDanhSach.dc.html" class="lk">Mở đề Speaking ở Thư viện ›</a>
+</div>
+</div>
+<div style="margin-top: 24px">
+<p style="margin: 0; padding-bottom: 6px; border-bottom: 1px solid var(--ink)" class="sf"><strong style="font-size: 20px">Kho bài luyện</strong> <span class="cap">· xem trước, chưa mở</span></p>
+<sc-for list="{{lockedRows}}" as="l" hint-placeholder-count="5">
+<div style="display: grid; grid-template-columns: 24px 260px minmax(0, 1fr) 200px; gap: 0 14px; align-items: baseline; padding: 10px 0; border-bottom: 1px solid var(--rule)">
+<svg aria-hidden="true" viewBox="0 0 20 20" style="width: 16px; height: 16px; color: var(--muted)"><rect x="4" y="9" width="12" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"></rect><path d="M7 9V6a3 3 0 016 0v3" fill="none" stroke="currentColor" stroke-width="1.5"></path></svg>
+<span style="font-weight: 600; color: var(--muted)">{{l.label}}</span>
+<span class="cap">{{l.meta}}</span>
+<span style="font-size: 14px; font-weight: 600; justify-self: end">Cần Khoá Speaking for IELTS</span>
+</div>
+</sc-for>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="m4b" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="m4b" class="sh">5 · Hết lượt chấm · hub Writing</h2>
+<p style="margin: -6px 0 16px; max-width: 92ch" class="cap">Khối “Hết lượt chấm” dùng chung đứng ngay dưới tiêu đề hub, thay cho dòng số lượt. Khối Làm tiếp, Gợi ý và kho bài giữ nguyên; chỉ nút “Nộp chấm” bị khoá. Ở hub Speaking dòng cuối là “Nghe câu trả lời mẫu của đề này” (DeSpeaking.dc.html).</p>
+<div style="border: 1px solid var(--rule); padding: 28px 32px">
+<nav aria-label="Vị trí trang" class="cap"><a href="LuyenTap.dc.html">Luyện tập</a> › <span style="color: var(--ink)">Writing</span></nav>
+<h3 class="sf" style="margin: 10px 0 18px; font-size: 36px; font-weight: 600">Writing</h3>
+<div role="region" aria-label="Hết lượt chấm" style="padding: 20px 24px 22px; border: 1px solid var(--mark); border-left-width: 8px; background: color-mix(in srgb, var(--mark) 7%, var(--surface))">
+<p class="eb" style="margin: 0 0 6px; color: var(--mark)">Hết lượt chấm</p>
+<p style="margin: 0 0 14px">Bài của bạn đã lưu nháp. Khi có lượt, bạn nộp lại từ đây.</p>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px">
+<a href="GiaHanThemLuot.dc.html" class="btn">Đăng ký thêm lượt chấm</a>
+<a href="BaiMauWriting.dc.html" class="lk">So bài nháp với bài mẫu 7.0 cùng đề</a>
+</div>
+<p style="margin: 10px 0 0" class="cap">Nếu chưa mở đăng ký thêm lượt lẻ, nút chính là “Đăng ký lại khoá · kèm XXX lượt”. Dòng bài mẫu chỉ hiện khi đề có trong kho. Học viên lớp offline: lượt là lượt lớp cấp kèm mã; hết lượt thì khối ghi “Liên hệ giáo viên để được cấp thêm”, không có nút đăng ký.</p>
+</div>
+<div style="margin-top: 24px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 24px; padding: 14px 0; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule)">
+<span class="eb">Làm tiếp</span>
+<span lang="en" style="flex: 1 1 320px">Task 2 · Remote work and productivity</span>
+<span class="cap">Bản nháp 186 từ · lưu 15/11</span>
+<a href="BaiTapWriting.dc.html" class="lk">Viết tiếp bản nháp ›</a>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="m5" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="m5" class="sh">6 · Bản điện thoại 390px · hub Writing</h2>
+<div style="display: flex; flex-wrap: wrap; gap: 40px; align-items: flex-start">
+<div style="width: 390px; flex-shrink: 0; box-sizing: border-box; border: 1px solid var(--ink); background: var(--paper)">
+<header style="display: flex; align-items: center; justify-content: space-between; height: 56px; box-sizing: border-box; padding: 0 16px; border-bottom: 1px solid var(--ink)">
+<span class="sf" style="display: inline-flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 600"><svg width="26" height="26" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<div style="display: flex; align-items: center; gap: 12px"><span style="font-size: 13px; color: var(--muted)">Lượt AI <strong style="color: var(--ink)">XXX</strong></span><button aria-label="Mở menu tài khoản" style="width: 44px; height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif">MA</button></div>
+</header>
+<div style="padding: 4px 16px 20px">
+<a href="LuyenTap.dc.html" class="lk" style="font-size: 15px">‹ Luyện tập</a>
+<h1 class="sf" style="margin: 0 0 10px; font-size: 32px; font-weight: 600">Writing</h1>
+<div role="tablist" aria-label="Chọn kỹ năng" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-bottom: 1px solid var(--rule); font-size: 14px">
+<sc-for list="{{phoneTabs}}" as="t" hint-placeholder-count="4">
+<span role="tab" aria-selected="{{t.sel}}" style="display: flex; align-items: center; justify-content: center; min-height: 44px; border-bottom: 3px solid {{t.bar}}; color: {{t.color}}; font-weight: {{t.weight}}">{{t.name}}</span>
+</sc-for>
+</div>
+<p style="margin: 12px 0 0; padding: 8px 0 8px 12px; border-left: 3px solid var(--accent); font-size: 14px">Lượt chấm AI còn lại: <strong>XXX</strong> · mỗi bài nộp chấm dùng 1 lượt</p>
+<section style="margin-top: 18px; border-top: 2px solid var(--ink); padding-top: 12px">
+<p class="eb" style="margin-bottom: 6px">1 · Làm tiếp</p>
+<p style="margin: 0" class="cap">Task 2 · Nêu quan điểm · bản nháp</p>
+<p lang="en" class="sf" style="margin: 2px 0 2px; font-size: 21px; font-weight: 600">Remote work and productivity</p>
+<p style="margin: 0 0 10px; font-size: 15px">186 trên 250 từ · lưu 21:40, 15/11</p>
+<a href="BaiTapWriting.dc.html" class="btn" style="width: 100%">Viết tiếp</a>
+</section>
+<section style="margin-top: 20px; border-top: 2px solid var(--ink); padding-top: 12px">
+<p class="eb" style="margin-bottom: 4px">2 · Gợi ý cho bạn</p>
+<sc-for list="{{writing.sugg}}" as="g" hint-placeholder-count="3">
+<a href="{{g.href}}" style="display: block; padding: 10px 0; border-bottom: 1px solid var(--rule); color: var(--ink); text-decoration: none"><span class="cap" style="display: block">{{g.kind}}</span><span lang="en" class="sf" style="display: block; font-size: 18px; font-weight: 600; color: var(--link)">{{g.title}}</span><span style="display: block; font-size: 14px">{{g.why}}</span></a>
+</sc-for>
+</section>
+<section style="margin-top: 20px; border-top: 2px solid var(--ink); padding-top: 12px">
+<p class="eb" style="margin-bottom: 4px">3 · Kho bài luyện</p>
+<sc-for list="{{writing.bank}}" as="b" hint-placeholder-count="2">
+<details style="border-bottom: 1px solid var(--rule)">
+<summary style="display: flex; align-items: center; justify-content: space-between; min-height: 48px; cursor: pointer; font-weight: 600">{{b.name}} <span class="cap" style="font-weight: 400">{{b.note}}</span></summary>
+<ul style="margin: 0 0 8px; padding: 0; list-style: none">
+<sc-for list="{{b.items}}" as="i" hint-placeholder-count="3"><li style="display: flex; justify-content: space-between; padding: 8px 0; border-top: 1px solid var(--rule); font-size: 15px"><a href="{{i.href}}">{{i.label}}</a><span class="cap">{{i.meta}}</span></li></sc-for>
+</ul>
+</details>
+</sc-for>
+<a href="DanhSachDe.dc.html" class="lk" style="font-size: 15px">Tất cả đề Writing ›</a>
+</section>
+<section style="margin-top: 16px; border-top: 2px solid var(--ink); padding-top: 12px">
+<p class="eb" style="margin-bottom: 4px">4 · Lịch sử và kết quả</p>
+<sc-for list="{{writing.history}}" as="h" hint-placeholder-count="4">
+<a href="{{h.href}}" style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 12px; padding: 10px 0; border-bottom: 1px solid var(--rule); color: var(--ink); text-decoration: none">
+<span><span lang="en" style="display: block; font-size: 16px">{{h.title}}</span><span class="cap">{{h.date}} · {{h.kind}} · {{h.sourceShort}}</span></span>
+<strong style="align-self: center; color: {{h.color}}; font-size: 15px">{{h.result}}</strong>
+</a>
+</sc-for>
+</section>
+</div>
+<footer style="display: flex; gap: 0 18px; padding: 0 16px; border-top: 1px solid var(--rule); font-size: 14px">
+<span style="gap: 8px; color: var(--muted); flex-grow: 1; display: inline-flex; align-items: center; min-height: 44px"><svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none; color: var(--ink)"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>© 2026 Aver Learning</span>
+<a href="#m5" style="display: inline-flex; align-items: center; min-height: 44px">Trợ giúp</a>
+<a href="PhapLy.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Điều khoản</a>
+</footer>
+<nav aria-label="Điều hướng chính" style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); height: 64px; border-top: 1px solid var(--ink); background: var(--surface)">
+<sc-for list="{{navTabs}}" as="t" hint-placeholder-count="5">
+<a href="{{t.href}}" aria-current="{{t.current}}" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid {{t.bar}}; color: {{t.color}}; font-size: 12px; font-weight: {{t.weight}}; text-decoration: none">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="{{t.icon}}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+{{t.label}}
+</a>
+</sc-for>
+</nav>
+</div>
+<div style="flex: 1 1 300px; min-width: 0; max-width: 520px">
+<p class="eb" style="margin-bottom: 8px">Khác bản máy tính</p>
+<ul style="margin: 0; padding: 0 0 0 18px; display: flex; flex-direction: column; gap: 8px">
+<li>Breadcrumb thành “‹ Luyện tập”. Bốn thẻ kỹ năng chia đều một hàng, mỗi thẻ cao 44px.</li>
+<li>Gợi ý xếp dọc, cả mục là một liên kết. Nhãn lượt rút vào dòng lượt dưới thẻ kỹ năng.</li>
+<li>Kho bài luyện gập theo nhóm (Task 1, Task 2), bấm để mở danh sách dạng đề.</li>
+<li>Lịch sử còn hai cột: tên bài với dòng phụ “ngày · dạng · cách chấm”, và kết quả. Cả dòng mở phiếu.</li>
+<li>Trạng thái chưa có lịch sử và chưa có trong khoá: cùng chữ như máy tính, xếp một cột, nút rộng hết khung.</li>
+</ul>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="m6" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="m6" class="sh">Ghi chú cho lập trình</h2>
+<ul style="margin: 0; padding: 0 0 0 18px; display: flex; flex-direction: column; gap: 6px; max-width: 112ch">
+<li>Một component hub cho bốn đường dẫn /speaking, /writing/dashboard, /listening, /reading (bỏ chuyển hướng /reading → /reading/vocab). Kỹ năng chỉ cấp dữ liệu cho bốn khối; không thêm khối riêng, không đổi thứ tự.</li>
+<li>Thẻ kỹ năng là liên kết sang hub kia (đổi đường dẫn), không đổi nội dung tại chỗ. Breadcrumb Luyện tập › Kỹ năng; điện thoại “‹ Luyện tập”.</li>
+<li>Làm tiếp: bài dở mới nhất của kỹ năng; không có thì ẩn khối, lên đầu là bài gợi ý đầu tiên (màn 3). Gợi ý: tối đa ba mục, mỗi mục có một câu lý do; không đủ dữ liệu thì lấy bài tiếp trong lộ trình rồi dạng làm ít nhất.</li>
+<li>Kho bài luyện: số đề trong kho lấy từ cấu hình nội dung (XXX trên mẫu); “bạn đã làm N” chỉ hiện khi N lớn hơn 0. Mỗi dòng dẫn sang danh sách đề đã lọc sẵn theo dạng đó.</li>
+<li>Lịch sử: 5 bài nộp gần nhất. Writing, Speaking hiện band ước lượng khi đã chấm xong; bài Writing của lớp offline chờ giáo viên duyệt ghi “Chưa có điểm” (Speaking của lớp trả ngay). Listening, Reading bài ngắn ghi số câu đúng, không quy ra band.</li>
+<li>Full test trong hub là full test của riêng kỹ năng đó, tự chọn, làm lại được; full test Speaking mô phỏng gồm 3 câu Part 1, 1 bài Part 2, 2 câu Part 3, dùng 3 lượt (full test Writing 2 lượt, mỗi task một lượt: đã xác nhận 18/11/2026). Không có full test gộp bốn kỹ năng. Mock test nhiều kỹ năng và Overall band chỉ có khi giáo viên giao (MockTestDuocGiao.dc.html).</li>
+<li>Kỹ năng không có trong quyền học (G04 entitlements): ẩn Làm tiếp và Gợi ý, kho bài chỉ xem trước, dòng không bấm được; lối sang trang khoá tương ứng và Thư viện. Lớp offline không thấy lối đăng ký.</li>
+<li>Hết lượt: khối “Hết lượt chấm” dùng chung (nút chính sang GiaHanThemLuot.dc.html; chưa mở lượt lẻ thì “Đăng ký lại khoá · kèm XXX lượt”; Writing: so bài nháp với bài mẫu 7.0 nếu đề có trong kho; Speaking: nghe câu trả lời mẫu). Dòng lượt ở đầu trang chỉ có ở Writing, Speaking; Listening, Reading ghi “không tính lượt chấm AI”. API lượt lỗi thì ẩn dòng, không hiện 0.</li>
+</ul>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Xanh teal","Navy + đỏ mận"],"default":"Navy + đỏ mận"},"$preview":{"width":1280,"height":7650}}'>
+class Component extends DCLogic {
+renderVals() {
+const st = this.state || {};
+const ai = 'tag tagAi', free = 'tag';
+const AI1 = 'Tốn 1 lượt khi nộp chấm', NO = 'Không tính lượt';
+const L = 'DanhSachDe.dc.html';
+const item = (label, meta, href) => ({ label, meta, href: href || L });
+const H = (date, title, kind, source, result, href, pending) => ({ date, title, kind, source, sourceShort: pending === true ? "chờ giáo viên duyệt" : source.split(",")[0], result, href, action: pending ? 'Xem bài' : 'Xem phiếu', color: pending ? 'var(--muted)' : 'var(--ink)' });
+const S = {
+speaking: {
+key: 'speaking', name: 'Speaking',
+lede: 'Luyện từng Part, luyện từng cụm câu Part 1 hoặc làm cả full test. Ghi âm ngay trên trang, AI chấm theo bốn tiêu chí của IELTS Speaking.',
+credit: 'Lượt chấm AI còn lại: XXX. 1 lượt = 1 bài Part 2 hoặc 1 cụm Part 1, Part 3 gồm 2–3 câu; ghi âm và nghe lại không tính lượt.', creditBar: 'var(--accent)',
+resume: { meta: 'Part 2 · đã ghi âm, chưa nộp chấm', title: 'Describe a place you often visit', state: 'Bản ghi 1 phút 48 giây · lưu 20:15 hôm qua', btn: 'Nghe lại và nộp chấm', href: 'BaiTapSpeaking.dc.html', tag: AI1, tagClass: ai },
+sugg: [
+{ kind: 'Part 1 · chủ đề', title: 'Hometown', why: 'Part 1 bạn mới làm một lần trong tháng này.', href: 'BaiTapSpeaking.dc.html', tag: AI1, tagClass: ai },
+{ kind: 'Part 3 · thảo luận', title: 'Places and tourism', why: 'Nối tiếp chủ đề Part 2 bạn vừa ghi âm.', href: 'BaiTapSpeaking.dc.html', tag: AI1, tagClass: ai },
+{ kind: 'Thư viện · video trả lời mẫu', title: 'Describe a place you often visit', why: 'Nghe bài mẫu trước khi nộp chấm bản ghi của bạn.', href: 'DeSpeaking.dc.html', tag: NO, tagClass: free }
+],
+bank: [
+{ name: 'Luyện từng Part', note: 'theo chủ đề', items: [item('Part 1 · hỏi đáp ngắn', 'XXX chủ đề · bạn đã làm 3'), item('Part 2 · thẻ đề, 1 phút chuẩn bị', 'XXX đề · bạn đã làm 5'), item('Part 3 · thảo luận mở rộng', 'XXX chủ đề · bạn đã làm 1')] },
+{ name: 'Luyện câu lẻ', note: 'nộp theo cụm 2–3 câu · 1 cụm 1 lượt', items: [item('Một câu hỏi theo chủ đề', 'XXX câu'), item('Câu hỏi bạn tự nhập', 'ghi âm rồi nộp chấm', 'BaiTapSpeaking.dc.html')] },
+{ name: 'Full test', note: 'Part 1–3 liền · mỗi Part 1 lượt, cả đề 3 lượt', items: [item('Đề full test', 'XXX đề · bạn đã làm 1'), item('Phòng thi: nhãn bằng tiếng Anh', 'như thi máy thật', 'PhongThi.dc.html')] }
+],
+history: [
+H('15/11', 'Describe a skill you learned outside school', 'Part 2', 'AI chấm, trả ngay', 'Band 6.0', 'PhieuKetQua.dc.html'),
+H('13/11', 'Hometown', 'Part 1', 'AI chấm, trả ngay', 'Band 5.5', 'PhieuKetQua.dc.html'),
+H('10/11', 'Full test · Travel and transport', 'Full test', 'AI chấm, trả ngay', 'Band 6.0', 'PhieuKetQua.dc.html')
+],
+histNote: 'Band ước lượng theo bốn tiêu chí, không phải điểm thi. Speaking của lớp offline cũng AI chấm, trả ngay.'
+},
+writing: {
+key: 'writing', name: 'Writing',
+lede: 'Viết Task 1 và Task 2 theo dạng đề, nộp để AI chấm theo bốn tiêu chí, rồi so với bài mẫu 7.5 / 7.0 / 6.0 ở Thư viện.',
+credit: 'Lượt chấm AI còn lại: XXX. Mỗi bài nộp chấm dùng 1 lượt; viết và lưu nháp không tính lượt.', creditBar: 'var(--accent)',
+resume: { meta: 'Task 2 · Nêu quan điểm · bản nháp', title: 'Remote work and productivity', state: '186 trên 250 từ · lưu 21:40, 15/11 · tự lưu khi bạn viết', btn: 'Viết tiếp', href: 'BaiTapWriting.dc.html', tag: AI1, tagClass: ai },
+sugg: [
+{ kind: 'Task 2 · Nêu quan điểm', title: 'Free university education', why: 'Task Response bài gần nhất 5.5: luyện nêu rõ quan điểm ngay mở bài.', href: 'BaiTapWriting.dc.html', tag: AI1, tagClass: ai },
+{ kind: 'Task 1 · Bản đồ', title: 'Changes to Riverside village', why: 'Bạn chưa làm dạng Bản đồ lần nào.', href: 'BaiTapWriting.dc.html', tag: AI1, tagClass: ai },
+{ kind: 'Thư viện · ba bài mẫu', title: 'Online shopping and local businesses', why: 'Cùng đề bạn nộp ngày 15/11: so cách triển khai ý với bài 7.5.', href: 'BaiMauWriting.dc.html', tag: NO, tagClass: free }
+],
+bank: [
+{ name: 'Task 1', note: '150 từ · 20 phút', items: [item('Biểu đồ đường', 'XXX đề · bạn đã làm 2'), item('Biểu đồ cột', 'XXX đề · bạn đã làm 1'), item('Bảng số liệu', 'XXX đề'), item('Biểu đồ tròn', 'XXX đề'), item('Quy trình', 'XXX đề · bạn đã làm 1'), item('Bản đồ', 'XXX đề'), item('Kết hợp nhiều biểu đồ', 'XXX đề')] },
+{ name: 'Task 2', note: '250 từ · 40 phút', items: [item('Nêu quan điểm', 'XXX đề · bạn đã làm 3'), item('Thảo luận hai mặt', 'XXX đề · bạn đã làm 1'), item('Lợi ích và bất lợi', 'XXX đề'), item('Vấn đề và giải pháp', 'XXX đề · bạn đã làm 1'), item('Câu hỏi hai phần', 'XXX đề')] }
+],
+history: [
+H('15/11', 'Online shopping and local businesses', 'Task 2 · Nêu quan điểm', 'AI chấm, trả ngay', 'Band 6.0', 'KetQuaWriting.dc.html'),
+H('12/11', 'Coffee exports from three countries', 'Task 1 · Biểu đồ đường', 'AI chấm, trả ngay', 'Band 5.5', 'KetQuaWriting.dc.html'),
+H('09/11', 'Public transport in big cities', 'Task 2 · Vấn đề và giải pháp', 'AI chấm, giáo viên duyệt', 'Chưa có điểm', 'KetQuaWriting.dc.html', true),
+H('05/11', 'How paper is recycled', 'Task 1 · Quy trình', 'AI chấm, trả ngay', 'Band 6.0', 'KetQuaWriting.dc.html')
+],
+histNote: 'Band ước lượng theo bốn tiêu chí Writing, không phải điểm thi. Bài lớp offline chờ giáo viên duyệt chưa hiện điểm.'
+},
+listening: {
+key: 'listening', name: 'Listening',
+lede: 'Theo chương trình 80 ngày, luyện riêng từng dạng câu hỏi, hoặc chép chính tả để nghe kỹ từng từ.',
+credit: 'Listening không tính lượt chấm AI. Bài được chấm tự động ngay khi nộp.', creditBar: 'var(--rule)',
+resume: { meta: 'Chương trình 80 ngày · Day 54', title: 'Student services building', state: '1 trên 4 câu · lưu 08:10 hôm nay', btn: 'Nghe tiếp', href: 'BaiTapListening.dc.html', tag: NO, tagClass: free },
+sugg: [
+{ kind: 'Luyện theo dạng · Gắn nhãn bản đồ', title: 'Harbour walking tour', why: 'Dạng bạn sai nhiều nhất tuần trước.', href: 'BaiTapListening.dc.html', tag: NO, tagClass: free },
+{ kind: 'Chép chính tả · 8 phút', title: 'Library opening hours', why: 'Luyện nghe số, giờ và tên riêng.', href: 'BaiTapListening.dc.html', tag: NO, tagClass: free },
+{ kind: 'Chương trình 80 ngày', title: 'Day 55 · Community garden plan', why: 'Ngày tiếp theo sau Day 54.', href: 'BaiTapListening.dc.html', tag: NO, tagClass: free }
+],
+bank: [
+{ name: 'Chương trình 80 ngày', note: 'mỗi ngày một bài', hasProg: true, progText: 'Đã xong 53 trên 80 ngày', pct: '66%', items: [item('Day 54 · đang làm', 'Làm tiếp', 'BaiTapListening.dc.html'), item('Xem cả 80 ngày', 'theo tuần')] },
+{ name: 'Luyện theo dạng', note: 'chọn một dạng', items: [item('Điền biểu mẫu', 'XXX bài · bạn đã làm 4'), item('Trắc nghiệm', 'XXX bài · bạn đã làm 2'), item('Gắn nhãn bản đồ, sơ đồ', 'XXX bài · bạn đã làm 1'), item('Nối thông tin', 'XXX bài'), item('Hoàn thành câu', 'XXX bài')] },
+{ name: 'Chép chính tả', note: 'nghe và gõ lại', items: [item('Theo chủ đề', 'XXX bài · bạn đã làm 2'), item('Số, ngày tháng và tên riêng', 'XXX bài')] }
+],
+history: [
+H('16/11', 'Day 53 · Museum volunteer briefing', 'Chương trình 80 ngày', 'Chấm tự động', '9 trên 10 câu đúng', 'PhieuKetQua.dc.html'),
+H('14/11', 'Harbour walking tour', 'Gắn nhãn bản đồ', 'Chấm tự động', '3 trên 6 câu đúng', 'PhieuKetQua.dc.html'),
+H('13/11', 'Library opening hours', 'Chép chính tả', 'Chấm tự động', '46 trên 52 từ đúng', 'PhieuKetQua.dc.html')
+],
+histNote: 'Bài ngắn chỉ ghi số câu đúng, không quy ra band. Band Listening chỉ có khi làm full test Listening (đủ 40 câu) ở Thi thử.'
+},
+reading: {
+key: 'reading', name: 'Reading',
+lede: 'Luyện riêng từng dạng câu hỏi, hoặc đọc chậm với nghĩa từ và bản dịch từng câu để hiểu cấu trúc bài đọc.',
+credit: 'Reading không tính lượt chấm AI. Bài được chấm tự động ngay khi nộp.', creditBar: 'var(--rule)',
+resume: { meta: 'Luyện theo dạng · True / False / Not Given', title: 'The history of glassmaking in Venice', state: 'Câu 7 trên 13 · lưu 21:40 hôm qua', btn: 'Làm tiếp từ câu 7', href: 'BaiTapReading.dc.html', tag: NO, tagClass: free },
+sugg: [
+{ kind: 'Luyện theo dạng · Nối tiêu đề đoạn', title: 'Urban beekeeping', why: 'Dạng bạn làm ít nhất: mới 1 bài.', href: 'BaiTapReading.dc.html', tag: NO, tagClass: free },
+{ kind: 'Đọc có chú giải', title: 'The secret life of moss', why: 'Không tính giờ, có nghĩa từ và dịch từng câu.', href: 'BaiTapReading.dc.html', tag: NO, tagClass: free },
+{ kind: 'Luyện theo dạng · Hoàn thành tóm tắt', title: 'Desert locust swarms', why: 'Bài trước bạn đúng 4 trên 6 câu.', href: 'BaiTapReading.dc.html', tag: NO, tagClass: free }
+],
+bank: [
+{ name: 'Luyện theo dạng', note: 'một bài đọc, một dạng câu hỏi', items: [item('True / False / Not Given', 'XXX bài · bạn đã làm 4'), item('Nối tiêu đề đoạn', 'XXX bài · bạn đã làm 1'), item('Hoàn thành tóm tắt', 'XXX bài · bạn đã làm 2'), item('Trả lời ngắn', 'XXX bài'), item('Nối đặc điểm', 'XXX bài'), item('Trắc nghiệm', 'XXX bài')] },
+{ name: 'Đọc có chú giải', note: 'không tính giờ', items: [item('Khoa học và tự nhiên', 'XXX bài đọc'), item('Xã hội và lịch sử', 'XXX bài đọc · bạn đã đọc 1'), item('Công nghệ và đời sống', 'XXX bài đọc')] }
+],
+history: [
+H('15/11', 'Desert locust swarms', 'Hoàn thành tóm tắt', 'Chấm tự động', '4 trên 6 câu đúng', 'PhieuKetQua.dc.html'),
+H('14/11', 'The economics of tea', 'True / False / Not Given', 'Chấm tự động', '11 trên 13 câu đúng', 'PhieuKetQua.dc.html'),
+H('12/11', 'A short history of maps', 'Đọc có chú giải', 'Không chấm', 'Đã đọc xong', 'BaiTapReading.dc.html', 'read')
+],
+histNote: 'Bài ngắn chỉ ghi số câu đúng, không quy ra band. Band Reading chỉ có khi làm full test Reading (đủ 40 câu) ở Thi thử.'
+}
+};
+const order = ['speaking', 'writing', 'listening', 'reading'];
+const sel = st.skill || 'writing';
+const tabOf = (k, cur) => ({ name: S[k].name, sel: k === cur ? 'true' : 'false', bar: k === cur ? 'var(--ink)' : 'transparent', color: k === cur ? 'var(--ink)' : 'var(--muted)', weight: k === cur ? 600 : 400, pick: () => this.setState({ skill: k }) });
+const nav = (label, href, icon, cur) => ({ label, href, icon, current: cur ? 'page' : 'false', bar: cur ? 'var(--accent)' : 'transparent', color: cur ? 'var(--ink)' : 'var(--muted)', weight: cur ? 600 : 400 });
+order.forEach((k) => S[k].bank.forEach((b) => { if (!b.hasProg) { b.hasProg = false; b.progText = ''; b.pct = '0%'; } }));
+return {
+pal: (this.props.palette ?? 'Navy + đỏ mận') === 'Xanh teal' ? 'pal-teal' : 'pal-navy',
+cur: S[sel],
+writing: S.writing,
+tabs: order.map((k) => tabOf(k, sel)),
+phoneTabs: order.map((k) => tabOf(k, 'writing')),
+others: ['speaking', 'listening', 'reading'].map((k) => S[k]),
+lockedRows: [
+{ label: 'Part 1 · hỏi đáp ngắn', meta: 'XXX chủ đề' },
+{ label: 'Part 2 · thẻ đề', meta: 'XXX đề' },
+{ label: 'Part 3 · thảo luận mở rộng', meta: 'XXX chủ đề' },
+{ label: 'Luyện câu lẻ', meta: 'XXX câu' },
+{ label: 'Full test', meta: 'XXX đề · Part 1–3 liền' }
+],
+navTabs: [
+nav('Hôm nay', 'Main.dc.html', 'M4 11l8-7 8 7v9H4z'),
+nav('Lộ trình', 'LoTrinh.dc.html', 'M5 20V8M5 8h10l-2 3 2 3H5M19 20h-4'),
+nav('Luyện tập', 'LuyenTap.dc.html', 'M4 19l4-1 11-11-3-3L5 15zM14 6l3 3', true),
+nav('Thi thử', 'ThiThu.dc.html', 'M12 7v5l3 2M12 3a9 9 0 100 18 9 9 0 000-18z'),
+nav('Thư viện', 'ThuVien.dc.html', 'M5 4h5v16H5zM10 4h5v16h-5zM16 6l3-1 3 14-3 1z')
+]
+};
+}
+}
+</script>
+</body>
+</html>

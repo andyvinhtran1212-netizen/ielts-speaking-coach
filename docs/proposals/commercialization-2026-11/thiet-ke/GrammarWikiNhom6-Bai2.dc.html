@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Grammar Wiki nhóm 6 bài 2</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--accentH:#0B5953;--link:#0B5953;--mark:#8A4B08;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EDF3F1;--off:#E7E2D6}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--accentH:#11254A;--link:#1A3561;--mark:#8A1C1C;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EEF0F5;--off:#E8E2D5}
+a{color:var(--link)}a:hover{color:var(--ink)}
+.sf{font-family:'Source Serif 4',Georgia,serif}
+.kick{margin:0;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)}
+.h2s{margin:0 0 6px;font-family:'Source Serif 4',Georgia,serif;font-size:24px;font-weight:600}
+.lead{margin:0 0 16px;font-size:14px;color:var(--muted);max-width:110ch}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border:1px solid var(--ink);border-radius:2px;background:var(--surface);color:var(--ink);font:600 15px 'Source Sans 3',sans-serif;text-decoration:none;cursor:pointer;box-sizing:border-box}
+.btnp{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 20px;border:1px solid var(--accent);border-radius:2px;background:var(--accent);color:var(--surface);font:600 15px 'Source Sans 3',sans-serif;text-decoration:none;cursor:pointer;box-sizing:border-box}
+.body{font-family:'Source Serif 4',Georgia,serif;font-size:18px;line-height:29px}
+.body p{margin:0 0 14px}
+.h2a{margin:0 0 10px;font-family:'Source Serif 4',Georgia,serif;font-size:26px;font-weight:600;line-height:1.25}
+.h2a span{color:var(--muted);font-variant-numeric:tabular-nums}
+.h3a{margin:16px 0 4px;font-family:'Source Sans 3',sans-serif;font-size:16px;font-weight:600}
+.sup{font:600 12px 'Source Sans 3',sans-serif;color:var(--accent)}
+.note{margin:0;padding-top:8px;border-top:1px solid var(--rule);font-size:14px;line-height:1.5;color:var(--muted)}
+.cap{margin:8px 0 0;font-size:14px;line-height:1.5;color:var(--muted)}
+.fig{margin:6px 0 4px;padding:18px 20px 16px;border:1px solid var(--rule);background:var(--surface)}
+.tag{display:block;font:600 11px 'Source Sans 3',sans-serif;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);text-align:center;white-space:nowrap}
+.ch{display:flex;align-items:center;justify-content:center;box-sizing:border-box;height:38px;padding:0 8px;font-family:'Source Serif 4',Georgia,serif;font-size:20px;white-space:nowrap;color:var(--ink)}
+.rS{border:1.5px solid var(--ink)}
+.rV{border-bottom:4px double var(--accent);color:var(--accent);font-weight:600}
+.rO{border:1.5px dashed var(--ink)}
+.rC{border:1.5px dotted var(--ink)}
+.rA{color:var(--muted)}
+.rX{border:1.5px dashed var(--muted);color:var(--muted)}
+.cell{display:flex;flex-direction:column;align-items:center;gap:4px}
+.tb{width:100%;border-collapse:collapse;font-family:'Source Sans 3',sans-serif;font-size:16px;line-height:1.45}
+.tb th,.tb td{padding:5px 10px 5px 0;text-align:left;vertical-align:top;border-bottom:1px solid var(--rule)}
+.tb thead tr{border-top:2px solid var(--ink)}
+.tb thead th{border-bottom:1px solid var(--ink);font-weight:600}
+.tb tbody th{font-weight:600;color:var(--muted)}
+.tb caption{caption-side:bottom;text-align:left;padding-top:8px;font-size:14px;color:var(--muted)}
+.foot a{display:inline-flex;align-items:center;min-height:44px}
+.lab{font:600 13px 'Source Sans 3',sans-serif;letter-spacing:0.06em;text-transform:uppercase}
+.gr{display:grid;grid-template-columns:44px 236px 262px minmax(0,1fr) 52px 178px;column-gap:16px;padding:8px 0;border-bottom:1px solid var(--rule);font-size:14px;line-height:1.45}
+.gr>div{min-width:0}
+</style>
+</helmet>
+<div class="{{pal}}" style="width: 1280px; height: 5540px; box-sizing: border-box; padding: 40px 0; background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 16px; line-height: 1.5; display: flex; flex-direction: column; gap: 28px">
+<header style="padding: 0 64px">
+<p class="kick">Aver Learning · Bản in · đợt 8 · Thư viện công khai · Grammar Wiki</p>
+<h1 style="margin: 4px 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 40px; font-weight: 600; line-height: 1.15">Grammar Wiki · nhóm 6 · bài vẽ đủ 2: Comparison</h1>
+<p style="margin: 0; color: var(--muted); max-width: 112ch">Bài vẽ đủ thứ 2 trong hai bài khác loại của nhóm 6 · Ngữ pháp theo chức năng, theo khuôn <a href="GrammarWikiBai.dc.html">trang bài</a>. Nội dung rút gọn từ file Markdown thật; ví dụ tiếng Anh giữ nguyên văn. Bài còn lại (<span lang="en">Because vs. Because of</span>) ở tờ <a href="GrammarWikiNhom6-Bai1.dc.html">GrammarWikiNhom6-Bai1</a>; bảng tất cả bài, ba phần đầu và bản điện thoại ở tờ <a href="GrammarWikiNhom6.dc.html">GrammarWikiNhom6</a>.</p>
+</header>
+
+<section aria-labelledby="b1" style="border-top: 2px solid var(--ink); padding-top: 16px"><div style="padding: 0 64px"><h2 id="b1" class="h2s">Trang bài Comparison · máy tính 1280px · khách</h2><p class="lead">Bài tra cứu nhiều bảng và công thức: Hình kiểu 6 (đuôi -er), kiểu 1 và kiểu 8. Trang này không có dòng mời khoá cuối bài. Mục lục trong bài 208px bên trái; cột chữ 640px; lề chú thích 224px. Bấm được: câu tự kiểm tra (chấm ngay) và nút nghe câu mẫu nếu có. Xem với tư cách khách (thanh công khai).</p></div>
+<div style="border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); background: var(--paper)">
+<header style="border-bottom: 1px solid var(--ink)">
+<div style="display: flex; align-items: stretch; gap: 36px; height: 63px; padding: 0 32px">
+<a href="TrangChuCongKhai.dc.html" class="sf" style="display: inline-flex; align-items: center; gap: 9px; align-self: center; font-size: 22px; font-weight: 600; color: var(--ink); text-decoration: none"><svg width="29" height="29" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</a>
+<nav aria-label="Điều hướng công khai" style="display: flex; gap: 28px; flex-grow: 1">
+<a href="ThuVien.dc.html" aria-current="page" style="display: flex; align-items: center; padding-top: 3px; border-bottom: 3px solid var(--accent); color: var(--ink); font-weight: 600; text-decoration: none">Thư viện</a>
+<a href="DanhMucKhoa.dc.html" style="display: flex; align-items: center; padding-top: 3px; border-bottom: 3px solid transparent; color: var(--muted); text-decoration: none">Khoá học</a>
+</nav>
+<div style="display: flex; align-items: center; gap: 20px">
+<a href="TaiKhoanDangNhap.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; color: var(--ink); font-weight: 600">Đăng nhập</a>
+<a href="DanhMucKhoa.dc.html" class="btnp">Xem các khoá</a>
+</div>
+</div>
+</header>
+<main style="max-width: 1216px; margin: 0 auto; padding: 20px 32px 24px">
+<nav aria-label="Vị trí trang" style="font-size: 14px; color: var(--muted)"><a href="ThuVien.dc.html">Thư viện</a> › <a href="GrammarWiki.dc.html">Grammar Wiki</a> › <a href="GrammarWiki.dc.html">6 · Ngữ pháp theo chức năng</a> › <span aria-current="page" style="color: var(--ink)" lang="en">Comparison</span></nav>
+<div style="display: grid; grid-template-columns: 208px minmax(0, 1fr); column-gap: 40px; margin-top: 20px; align-items: start">
+<nav aria-label="Trong bài này" style="position: sticky; top: 24px; border-top: 2px solid var(--ink); padding-top: 10px">
+<p class="kick" style="font-weight: 600; margin-bottom: 6px">Trong bài này</p>
+<ol style="margin: 0; padding: 0; list-style: none; font-size: 15px"><li><a href="#b-s0" aria-current="location" style="display: flex; gap: 8px; align-items: baseline; min-height: 36px; box-sizing: border-box; padding: 7px 0 7px 11px; border-left: 3px solid var(--accent); color: var(--ink); font-weight: 600; text-decoration: none; line-height: 1.35"><span style="width: 14px; flex-shrink: 0; font-variant-numeric: tabular-nums">·</span><span>Tóm tắt</span></a></li><li><a href="#b-s1" aria-current="false" style="display: flex; gap: 8px; align-items: baseline; min-height: 36px; box-sizing: border-box; padding: 7px 0 7px 11px; border-left: 3px solid transparent; color: var(--muted); font-weight: 400; text-decoration: none; line-height: 1.35"><span style="width: 14px; flex-shrink: 0; font-variant-numeric: tabular-nums">1</span><span>Cấu trúc so sánh hơn</span></a></li><li><a href="#b-s2" aria-current="false" style="display: flex; gap: 8px; align-items: baseline; min-height: 36px; box-sizing: border-box; padding: 7px 0 7px 11px; border-left: 3px solid transparent; color: var(--muted); font-weight: 400; text-decoration: none; line-height: 1.35"><span style="width: 14px; flex-shrink: 0; font-variant-numeric: tabular-nums">2</span><span>Cấu trúc so sánh nhất</span></a></li><li><a href="#b-s3" aria-current="false" style="display: flex; gap: 8px; align-items: baseline; min-height: 36px; box-sizing: border-box; padding: 7px 0 7px 11px; border-left: 3px solid transparent; color: var(--muted); font-weight: 400; text-decoration: none; line-height: 1.35"><span style="width: 14px; flex-shrink: 0; font-variant-numeric: tabular-nums">3</span><span>Các cấu trúc so sánh quan trọng</span></a></li><li><a href="#b-s4" aria-current="false" style="display: flex; gap: 8px; align-items: baseline; min-height: 36px; box-sizing: border-box; padding: 7px 0 7px 11px; border-left: 3px solid transparent; color: var(--muted); font-weight: 400; text-decoration: none; line-height: 1.35"><span style="width: 14px; flex-shrink: 0; font-variant-numeric: tabular-nums">4</span><span>So sánh khi mô tả dữ liệu</span></a></li><li><a href="#b-s5" aria-current="false" style="display: flex; gap: 8px; align-items: baseline; min-height: 36px; box-sizing: border-box; padding: 7px 0 7px 11px; border-left: 3px solid transparent; color: var(--muted); font-weight: 400; text-decoration: none; line-height: 1.35"><span style="width: 14px; flex-shrink: 0; font-variant-numeric: tabular-nums">5</span><span>Lỗi thường gặp</span></a></li><li><a href="#b-s6" aria-current="false" style="display: flex; gap: 8px; align-items: baseline; min-height: 36px; box-sizing: border-box; padding: 7px 0 7px 11px; border-left: 3px solid transparent; color: var(--muted); font-weight: 400; text-decoration: none; line-height: 1.35"><span style="width: 14px; flex-shrink: 0; font-variant-numeric: tabular-nums">6</span><span>Ứng dụng trong IELTS</span></a></li><li><a href="#b-s7" aria-current="false" style="display: flex; gap: 8px; align-items: baseline; min-height: 36px; box-sizing: border-box; padding: 7px 0 7px 11px; border-left: 3px solid transparent; color: var(--muted); font-weight: 400; text-decoration: none; line-height: 1.35"><span style="width: 14px; flex-shrink: 0; font-variant-numeric: tabular-nums">7</span><span>Tự kiểm tra</span></a></li><li><a href="#b-s8" aria-current="false" style="display: flex; gap: 8px; align-items: baseline; min-height: 36px; box-sizing: border-box; padding: 7px 0 7px 11px; border-left: 3px solid transparent; color: var(--muted); font-weight: 400; text-decoration: none; line-height: 1.35"><span style="width: 14px; flex-shrink: 0; font-variant-numeric: tabular-nums">8</span><span>Bài liên quan</span></a></li></ol>
+<div style="margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--rule); font-size: 14px; color: var(--muted)">
+<p style="margin: 0 0 6px">Bài 6.1 trong nhóm <a href="GrammarWiki.dc.html">6 · Ngữ pháp theo chức năng</a></p>
+<p style="margin: 0">Nên đọc trước: <a href="GrammarWikiBai.dc.html" lang="en">Adjectives</a>, <a href="GrammarWikiBai.dc.html" lang="en">Adverbs</a></p>
+</div>
+</nav>
+<article aria-label="Comparison" style="min-width: 0">
+<div style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px">
+<header style="padding-bottom: 14px; border-bottom: 1px solid var(--ink)">
+<p class="kick">Grammar Wiki · 6 · Ngữ pháp theo chức năng · bài 6.1</p>
+<h1 class="sf" style="margin: 6px 0 2px; font-size: 40px; font-weight: 600; line-height: 1.12" lang="en">Comparison</h1>
+<p class="sf" style="margin: 0 0 10px; font-size: 23px; line-height: 1.3; color: var(--muted)">So sánh hơn và nhất</p>
+<p style="margin: 0; font-size: 14px; color: var(--muted)">Trình độ trung cấp · đọc khoảng XXX phút · cập nhật 18/04/2026 · dùng nhiều trong Speaking và Writing</p>
+</header>
+<div style="display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; padding-bottom: 14px; border-bottom: 1px solid var(--rule)"><p style="margin: 0; font-size: 14px; color: var(--muted)"><a href="TaiKhoanDangNhap.dc.html">Đăng nhập</a> để lưu bài và đánh dấu đã đọc.</p></div>
+</div>
+<div id="b-s0" style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px; padding-top: 16px">
+<div style="padding: 12px 0 14px; border-bottom: 1px solid var(--rule)">
+<p class="lab" style="margin: 0 0 4px; color: var(--accent)">Tóm tắt</p>
+<p class="body" style="margin: 0 0 10px">Tiếng Anh có ba mức so sánh. Cấu trúc đổi theo độ dài tính từ: <em lang="en">-er / -est</em> cho tính từ ngắn, <em lang="en">more / most</em> cho tính từ dài.<sup class="sup">1</sup></p><table class="tb" style="margin-bottom: 14px"><caption><strong style="color: var(--ink)">Bảng 1.</strong> Ba mức so sánh.</caption><thead><tr><th scope="col" style="width: 120px">Mức</th><th scope="col" style="width: 290px">Ý nghĩa</th><th scope="col">Ví dụ</th></tr></thead><tbody><tr><th scope="row">Dạng gốc</th><td>chưa đánh dấu so sánh; so sánh bằng cần as…as</td><td lang="en">big, beautiful</td></tr><tr><th scope="row">So sánh hơn</th><td>A hơn B</td><td lang="en">bigger, more beautiful</td></tr><tr><th scope="row">So sánh nhất</th><td>nhất trong nhóm</td><td lang="en">the biggest, the most beautiful</td></tr></tbody></table>
+</div>
+<aside style="padding-top: 12px"><p class="note"><strong style="color: var(--accent)">1</strong> So sánh xuất hiện liên tục trong IELTS: mô tả dữ liệu ở Writing Task 1, lập luận ở Task 2, mô tả và so sánh khi nói.</p></aside>
+</div>
+<div id="b-s1" style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px; padding-top: 18px">
+<div class="body">
+<h2 class="h2a"><span>1</span>&nbsp;&nbsp;Cấu trúc so sánh hơn</h2>
+<h3 class="h3a">Tính từ, trạng từ ngắn (1 âm tiết; 2 âm tiết tận cùng -y)</h3><p lang="en" style="margin: 0 0 14px; padding: 10px 0; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); font-family: 'Source Sans 3', sans-serif; font-size: 18px; font-weight: 600; text-align: center">Adjective + -er + than</p><figure style="margin: 14px 0 0"><div class="fig" role="img" aria-label="Hình 1. Ba từ so sánh hơn bẻ theo mẩu. taller gồm tall và er. bigger gồm big, chữ g nhân đôi và er. happier gồm happ, chữ i thay cho y, và er.">
+<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px 24px" lang="en">
+<div><div style="display: flex; align-items: flex-end; justify-content: center; gap: 2px" class="sf">
+<div class="cell"><span style="font-size: 26px; line-height: 1.25; padding: 0 3px; border-bottom: 1.5px solid var(--ink)">tall</span><span class="tag" lang="vi">gốc</span></div>
+<div class="cell"><span style="font-size: 26px; line-height: 1.25; padding: 0 3px; border: 1.5px dashed var(--ink)">er</span><span class="tag" lang="vi">đuôi</span></div>
+</div><p lang="vi" style="margin: 10px 0 0; font: 14px/1.45 'Source Sans 3', sans-serif; text-align: center">thêm <strong>-er</strong></p></div>
+<div><div style="display: flex; align-items: flex-end; justify-content: center; gap: 2px" class="sf">
+<div class="cell"><span style="font-size: 26px; line-height: 1.25; padding: 0 3px; border-bottom: 1.5px solid var(--ink)">big</span><span class="tag" lang="vi">gốc</span></div>
+<div class="cell"><span style="font-size: 26px; line-height: 1.25; padding: 0 3px; border: 1.5px dotted var(--ink)">g</span><span class="tag" lang="vi">+ g</span></div>
+<div class="cell"><span style="font-size: 26px; line-height: 1.25; padding: 0 3px; border: 1.5px dashed var(--ink)">er</span><span class="tag" lang="vi">đuôi</span></div>
+</div><p lang="vi" style="margin: 10px 0 0; font: 14px/1.45 'Source Sans 3', sans-serif; text-align: center">nhân đôi phụ âm cuối</p></div>
+<div><div style="display: flex; align-items: flex-end; justify-content: center; gap: 2px" class="sf">
+<div class="cell"><span style="font-size: 26px; line-height: 1.25; padding: 0 3px; border-bottom: 1.5px solid var(--ink)">happ</span><span class="tag" lang="vi">gốc</span></div>
+<div class="cell"><span style="font-size: 26px; line-height: 1.25; padding: 0 3px; border: 1.5px dotted var(--ink)">i</span><span class="tag" lang="vi">y → i</span></div>
+<div class="cell"><span style="font-size: 26px; line-height: 1.25; padding: 0 3px; border: 1.5px dashed var(--ink)">er</span><span class="tag" lang="vi">đuôi</span></div>
+</div><p lang="vi" style="margin: 10px 0 0; font: 14px/1.45 'Source Sans 3', sans-serif; text-align: center"><strong>-y</strong> đổi thành <strong>-ier</strong></p></div>
+</div>
+<p style="margin: 12px 0 0; padding-top: 8px; border-top: 1px dashed var(--rule); font-family: 'Source Sans 3', sans-serif; font-size: 14px; line-height: 1.5; color: var(--muted)">Gạch đơn: từ gốc; khung đứt: đuôi <em lang="en">-er</em> (đuôi biến tố, không đổi từ loại); ô chấm: chữ cái đổi hoặc thêm khi ghép. Đuôi <em lang="en">-est</em> của so sánh nhất ghép y như vậy: <em lang="en">tallest, biggest, happiest</em>.</p>
+</div></figure><div style="height: 14px"></div><ul lang="en" style="margin: 0 0 14px; padding: 0; list-style: none; border-top: 1px solid var(--rule)"><li style="padding: 5px 0; border-bottom: 1px solid var(--rule); font-size: 17px; line-height: 1.5">This book is <strong>cheaper</strong> than that one.</li><li style="padding: 5px 0; border-bottom: 1px solid var(--rule); font-size: 17px; line-height: 1.5">My new job is <strong>easier</strong> than the old one.</li></ul><h3 class="h3a">Tính từ dài và trạng từ đuôi -ly</h3><p lang="en" style="margin: 0 0 14px; padding: 10px 0; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); font-family: 'Source Sans 3', sans-serif; font-size: 18px; font-weight: 600; text-align: center">more + Adjective + than</p><ul lang="en" style="margin: 0 0 14px; padding: 0; list-style: none; border-top: 1px solid var(--rule)"><li style="padding: 5px 0; border-bottom: 1px solid var(--rule); font-size: 17px; line-height: 1.5">This solution is <strong>more efficient</strong> than the previous one.</li><li style="padding: 5px 0; border-bottom: 1px solid var(--rule); font-size: 17px; line-height: 1.5">She speaks <strong>more fluently</strong> than I do.</li></ul><table class="tb" style="margin-bottom: 14px"><caption><strong style="color: var(--ink)">Bảng 2.</strong> Bất quy tắc (trích 4 trong 6 dòng).</caption><thead><tr><th scope="col" style="width: 200px">Dạng gốc</th><th scope="col" style="width: 200px">So sánh hơn</th><th scope="col">So sánh nhất</th></tr></thead><tbody><tr><th scope="row" lang="en">good / well</th><td lang="en"><strong>better</strong></td><td lang="en"><strong>the best</strong></td></tr><tr><th scope="row" lang="en">bad / badly</th><td lang="en"><strong>worse</strong></td><td lang="en"><strong>the worst</strong></td></tr><tr><th scope="row" lang="en">little</th><td lang="en"><strong>less</strong></td><td lang="en"><strong>the least</strong></td></tr><tr><th scope="row" lang="en">much / many</th><td lang="en"><strong>more</strong></td><td lang="en"><strong>the most</strong></td></tr></tbody></table>
+</div>
+<aside style="display: flex; flex-direction: column; justify-content: flex-start; gap: 6px"><p class="note"><strong style="color: var(--ink)">Hình 1.</strong> Ba quy tắc thêm đuôi trong Bảng "quy tắc thêm đuôi" của bài, vẽ thành mẩu. Chỗ dễ sai là mẩu ở giữa: chữ <em lang="en">g</em> nhân đôi và chữ <em lang="en">i</em> thay cho <em lang="en">y</em>.</p><p class="cap">Nguồn: Aver Learning biên soạn.</p><p class="note"><strong style="color: var(--accent)">2</strong> Một số tính từ 2 âm tiết dùng được cả hai cách (<em lang="en">simpler / more simple</em>); khi không chắc, tra từ điển.</p></aside>
+</div>
+<div id="b-s2" style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px; padding-top: 18px">
+<div class="body">
+<h2 class="h2a"><span>2</span>&nbsp;&nbsp;Cấu trúc so sánh nhất</h2>
+<p lang="en" style="margin: 0 0 14px; padding: 10px 0; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); font-family: 'Source Sans 3', sans-serif; font-size: 18px; font-weight: 600; text-align: center">the + Adjective + -est  ·  the most + Adjective</p><ul lang="en" style="margin: 0 0 14px; padding: 0; list-style: none; border-top: 1px solid var(--rule)"><li style="padding: 5px 0; border-bottom: 1px solid var(--rule); font-size: 17px; line-height: 1.5">He is <strong>the tallest</strong> student in the class.</li><li style="padding: 5px 0; border-bottom: 1px solid var(--rule); font-size: 17px; line-height: 1.5">This is <strong>the most interesting</strong> book I've ever read.</li><li style="padding: 5px 0; border-bottom: 1px solid var(--rule); font-size: 17px; line-height: 1.5">Tokyo is <strong>one of the most populous</strong> cities in the world.</li></ul>
+</div>
+<aside style="display: flex; flex-direction: column; justify-content: flex-end; gap: 6px"><p class="note"><strong style="color: var(--accent)">3</strong> So sánh nhất + <em lang="en">ever</em>: mệnh đề sau dùng hiện tại hoàn thành (<em lang="en">It's the best film I've ever seen</em>); kể chuyện ở quá khứ thì dùng quá khứ hoàn thành.</p></aside>
+</div>
+<div id="b-s3" style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px; padding-top: 18px">
+<div class="body">
+<h2 class="h2a"><span>3</span>&nbsp;&nbsp;Các cấu trúc so sánh quan trọng</h2>
+<ol style="margin: 0 0 14px; padding: 0; list-style: none; border-top: 1px solid var(--ink)"><li style="display: grid; grid-template-columns: 96px minmax(0, 1fr); padding: 6px 0; border-bottom: 1px solid var(--rule); font-size: 17px; line-height: 1.5"><span class="lab" style="padding-top: 4px; color: var(--muted)">as … as</span><span>So sánh bằng: <em lang="en">She's <strong>as talented as</strong> her sister.</em> Phủ định <em lang="en">not as … as</em> = <em lang="en">less … than</em>.</span></li><li style="display: grid; grid-template-columns: 96px minmax(0, 1fr); padding: 6px 0; border-bottom: 1px solid var(--rule); font-size: 17px; line-height: 1.5"><span class="lab" style="padding-top: 4px; color: var(--muted)">much / far</span><span>Nhấn mức độ: <em lang="en">She's <strong>far more qualified</strong> than the other applicants.</em> · <em lang="en">Prices are <strong>slightly higher</strong> than last year.</em></span></li><li style="display: grid; grid-template-columns: 96px minmax(0, 1fr); padding: 6px 0; border-bottom: 1px solid var(--rule); font-size: 17px; line-height: 1.5"><span class="lab" style="padding-top: 4px; color: var(--muted)">the … the</span><span>Càng… càng…: <em lang="en"><strong>The harder</strong> you work, <strong>the better</strong> your results.</em></span></li><li style="display: grid; grid-template-columns: 96px minmax(0, 1fr); padding: 6px 0; border-bottom: 1px solid var(--rule); font-size: 17px; line-height: 1.5"><span class="lab" style="padding-top: 4px; color: var(--muted)">Bội số</span><span><em lang="en">This laptop costs <strong>twice as much as</strong> the one I bought last year.</em></span></li><li style="display: grid; grid-template-columns: 96px minmax(0, 1fr); padding: 6px 0; border-bottom: 1px solid var(--rule); font-size: 17px; line-height: 1.5"><span class="lab" style="padding-top: 4px; color: var(--muted)">less / least</span><span>So sánh kém: <em lang="en">This approach is <strong>less effective</strong> than the traditional method.</em></span></li></ol><figure style="margin: 14px 0 0"><div class="fig" role="img" aria-label="Hình 2. Câu The new model is much faster than the old one: The new model, chủ ngữ; is, động từ; much faster, bổ ngữ gồm từ nhấn much và dạng so sánh hơn; than the old one, đối tượng so sánh.">
+<div style="display: flex; flex-direction: column; gap: 14px" lang="en">
+<div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 8px">
+<div class="cell"><span class="tag">S</span><span class="ch rS" style="font-size: 18px; height: 36px">The new model</span></div>
+<div class="cell"><span class="tag" style="color: var(--accent)">V</span><span class="ch rV" style="font-size: 18px; height: 36px">is</span></div>
+<div class="cell"><span class="tag">C · much + so sánh hơn</span><span class="ch rC" style="font-size: 18px; height: 36px">much faster</span></div>
+<div class="cell"><span class="tag">than + đối tượng so sánh</span><span class="ch rA" style="font-size: 18px; height: 36px">[ than the old one ]</span></div>
+</div>
+</div>
+<p style="margin: 12px 0 0; padding-top: 8px; border-top: 1px dashed var(--rule); font-family: 'Source Sans 3', sans-serif; font-size: 14px; line-height: 1.5; color: var(--muted)">Hai chỗ người Việt hay bỏ hoặc đổi sai nằm ở hai khối cuối: dùng <em lang="en">very</em> thay <em lang="en">much</em>, và quên <em lang="en">than</em>.</p>
+</div></figure>
+</div>
+<aside style="display: flex; flex-direction: column; justify-content: flex-end; gap: 6px"><p class="note"><strong style="color: var(--ink)">Hình 2.</strong> Câu ví dụ của mục "nhấn mạnh mức độ", bẻ theo vai trò. Khung chấm là bổ ngữ; ngoặc vuông là phần <em lang="en">than</em> + đối tượng so sánh.</p><p class="cap">Nguồn: Aver Learning biên soạn.</p></aside>
+</div>
+<div id="b-s4" style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px; padding-top: 18px">
+<div class="body">
+<h2 class="h2a"><span>4</span>&nbsp;&nbsp;So sánh khi mô tả dữ liệu (Writing Task 1)</h2>
+<table class="tb" style="margin-bottom: 14px"><caption><strong style="color: var(--ink)">Bảng 3.</strong> Trích 5 trong 8 dòng của bài.</caption><thead><tr><th scope="col" style="width: 170px">Cần diễn đạt</th><th scope="col">Ví dụ</th></tr></thead><tbody><tr><th scope="row">A cao hơn B</th><td lang="en">Sales in 2020 were <strong>higher than</strong> in 2019.</td></tr><tr><th scope="row">A cao nhất</th><td lang="en">In 2020, Country A had <strong>the largest</strong> population.</td></tr><tr><th scope="row">Gần bằng nhau</th><td lang="en">France's figures were <strong>almost as high as</strong> Germany's.</td></tr><tr><th scope="row">Gấp đôi</th><td lang="en">The rate in 2020 was <strong>twice as high as</strong> in 2010.</td></tr><tr><th scope="row">Chênh lệch nhỏ</th><td lang="en">Figures were <strong>slightly higher</strong> in urban areas.</td></tr></tbody></table>
+</div>
+<aside style="display: flex; flex-direction: column; justify-content: flex-end; gap: 6px"></aside>
+</div>
+<div id="b-s5" style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px; padding-top: 18px">
+<div class="body">
+<h2 class="h2a"><span>5</span>&nbsp;&nbsp;Lỗi thường gặp</h2>
+<figure style="margin: 14px 0 0"><div class="fig" role="img" aria-label="Hình 3. Ba cặp sai và đúng. more tall sửa thành taller. bigger my hometown thiếu than. very smarter sửa thành much smarter.">
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px">
+<p class="lab" style="margin: 0 0 6px; color: var(--danger)">Sai</p>
+<p class="lab" style="margin: 0 0 6px; color: var(--ok)">Đúng</p>
+<p lang="en" class="sf" style="margin: 0; padding: 10px 0; border-top: 1.5px solid var(--danger); font-size: 18px; line-height: 1.5">She is <span style="padding: 0 3px; border: 1.5px dashed var(--danger); text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px; white-space: nowrap">more tall</span> than her brother.</p>
+<p lang="en" class="sf" style="margin: 0; padding: 10px 0; border-top: 1.5px solid var(--ok); font-size: 18px; line-height: 1.5">She is <span style="padding: 0 3px; border-bottom: 4px double var(--ok); font-weight: 600; white-space: nowrap">taller</span> than her brother.</p>
+<p style="grid-column: span 2; margin: 0 0 12px; font: 14px/1.5 'Source Sans 3', sans-serif; color: var(--muted)"><span class="lab" style="color: var(--muted)">Vì sao&nbsp;&nbsp;</span>Dùng <em lang="en">more</em> với tính từ ngắn.</p>
+<p lang="en" class="sf" style="margin: 0; padding: 10px 0; border-top: 1.5px solid var(--danger); font-size: 18px; line-height: 1.5">My city is bigger <span style="padding: 0 10px; border: 1.5px dashed var(--danger); color: var(--danger); font: 600 12px 'Source Sans 3', sans-serif; letter-spacing: 0.06em; white-space: nowrap">thiếu than</span> my hometown.</p>
+<p lang="en" class="sf" style="margin: 0; padding: 10px 0; border-top: 1.5px solid var(--ok); font-size: 18px; line-height: 1.5">My city is bigger <span style="padding: 0 3px; border-bottom: 4px double var(--ok); font-weight: 600; white-space: nowrap">than</span> my hometown.</p>
+<p style="grid-column: span 2; margin: 0 0 12px; font: 14px/1.5 'Source Sans 3', sans-serif; color: var(--muted)"><span class="lab" style="color: var(--muted)">Vì sao&nbsp;&nbsp;</span>Tiếng Việt lược được đối tượng so sánh ("Tôi cao hơn"); tiếng Anh nêu đối tượng thì phải có <em lang="en">than</em>.</p>
+<p lang="en" class="sf" style="margin: 0; padding: 10px 0; border-top: 1.5px solid var(--danger); font-size: 18px; line-height: 1.5">He is <span style="padding: 0 3px; border: 1.5px dashed var(--danger); text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px; white-space: nowrap">very</span> smarter than me.</p>
+<p lang="en" class="sf" style="margin: 0; padding: 10px 0; border-top: 1.5px solid var(--ok); font-size: 18px; line-height: 1.5">He is <span style="padding: 0 3px; border-bottom: 4px double var(--ok); font-weight: 600; white-space: nowrap">much</span> smarter than me.</p>
+<p style="grid-column: span 2; margin: 0; font: 14px/1.5 'Source Sans 3', sans-serif; color: var(--muted)"><span class="lab" style="color: var(--muted)">Vì sao&nbsp;&nbsp;</span>Trước so sánh hơn dùng <em lang="en">much / far</em>, không dùng <em lang="en">very</em>.</p>
+</div>
+</div></figure><div style="height: 14px"></div><ol style="margin: 0 0 14px; padding: 0; list-style: none; border-top: 1px solid var(--ink)"><li style="display: grid; grid-template-columns: 28px 56px minmax(0, 1fr); gap: 0 8px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--rule); line-height: 26px"><span style="grid-row: span 3; font-family: 'Source Sans 3', sans-serif; font-size: 15px; color: var(--muted)">1</span><span class="lab" style="color: var(--danger)">Sai</span><p lang="en" style="margin: 0"><span style="text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 1.5px">She is most intelligent student in class.</span></p><span class="lab" style="color: var(--ok)">Đúng</span><p lang="en" style="margin: 0">She is <strong>the</strong> most intelligent student in class.</p><span class="lab" style="color: var(--muted)">Vì sao</span><p style="margin: 0; font-family: 'Source Sans 3', sans-serif; font-size: 15px; line-height: 1.45; color: var(--muted)">Quên <em lang="en">the</em> trước so sánh nhất.</p></li><li style="display: grid; grid-template-columns: 28px 56px minmax(0, 1fr); gap: 0 8px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--rule); line-height: 26px"><span style="grid-row: span 3; font-family: 'Source Sans 3', sans-serif; font-size: 15px; color: var(--muted)">2</span><span class="lab" style="color: var(--danger)">Sai</span><p lang="en" style="margin: 0"><span style="text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 1.5px">She is <strong>more better</strong> than him.</span></p><span class="lab" style="color: var(--ok)">Đúng</span><p lang="en" style="margin: 0">She is <strong>better</strong> than him.</p><span class="lab" style="color: var(--muted)">Vì sao</span><p style="margin: 0; font-family: 'Source Sans 3', sans-serif; font-size: 15px; line-height: 1.45; color: var(--muted)">Tiếng Việt "hơn" đi được với mọi tính từ; tiếng Anh không ghép <em lang="en">more</em> với dạng đã là so sánh hơn.</p></li><li style="display: grid; grid-template-columns: 28px 56px minmax(0, 1fr); gap: 0 8px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--rule); line-height: 26px"><span style="grid-row: span 3; font-family: 'Source Sans 3', sans-serif; font-size: 15px; color: var(--muted)">3</span><span class="lab" style="color: var(--danger)">Sai</span><p lang="en" style="margin: 0"><span style="text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 1.5px">Of the three candidates, she is <strong>more qualified</strong>.</span></p><span class="lab" style="color: var(--ok)">Đúng</span><p lang="en" style="margin: 0">Of the three candidates, she is <strong>the most qualified</strong>.</p><span class="lab" style="color: var(--muted)">Vì sao</span><p style="margin: 0; font-family: 'Source Sans 3', sans-serif; font-size: 15px; line-height: 1.45; color: var(--muted)">So từ ba đối tượng trở lên dùng so sánh nhất.</p></li></ol>
+</div>
+<aside style="display: flex; flex-direction: column; justify-content: flex-start; gap: 6px"><p class="note"><strong style="color: var(--ink)">Hình 3.</strong> Lỗi 1, 2 và 4 của bài. Ô đỏ "thiếu than" đánh dấu chữ bị bỏ; hai lỗi còn lại là chữ dùng sai nên bị gạch.</p><p class="cap">Nguồn: Aver Learning biên soạn.</p></aside>
+</div>
+<div id="b-s6" style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px; padding-top: 18px">
+<div class="body">
+<h2 class="h2a"><span>6</span>&nbsp;&nbsp;Ứng dụng trong IELTS</h2>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 28px; font-family: 'Source Sans 3', sans-serif; font-size: 16px; line-height: 1.5; margin-bottom: 14px"><div style="border-top: 1px solid var(--ink); padding-top: 8px"><h3 class="h3a" style="margin-top: 0px">Writing Task 1 · so sánh dữ liệu</h3><p lang="en" class="sf" style="margin: 0 0 6px; font-size: 17px; line-height: 1.5">Sales in France were <strong>considerably higher than</strong> those in Germany throughout the period.</p><h3 class="h3a" style="margin-top: 12px">Writing Task 2 · lập luận</h3><p lang="en" class="sf" style="margin: 0 0 6px; font-size: 17px; line-height: 1.5">Education is arguably <strong>one of the most powerful</strong> tools for reducing inequality.</p></div><div style="border-top: 1px solid var(--ink); padding-top: 8px"><h3 class="h3a" style="margin-top: 0px">Speaking · mô tả và so sánh</h3><p lang="en" class="sf" style="margin: 0 0 6px; font-size: 17px; line-height: 1.5">My hometown is <strong>much smaller</strong> than Hanoi, but I think it's <strong>far more peaceful</strong>.</p><p lang="en" class="sf" style="margin: 0 0 6px; font-size: 17px; line-height: 1.5"><strong>The more</strong> I practise English, <strong>the more confident</strong> I feel using it.</p></div></div>
+</div>
+<aside style="display: flex; flex-direction: column; justify-content: flex-end; gap: 6px"></aside>
+</div>
+<div id="b-s7" style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px; padding-top: 18px">
+<div class="body">
+<h2 class="h2a"><span>7</span>&nbsp;&nbsp;Tự kiểm tra</h2>
+<p style="font-family: 'Source Sans 3', sans-serif; font-size: 16px; line-height: 1.5; color: var(--muted)">Bốn câu lấy từ mục "Bài tập luyện" của bài. Chấm ngay trên trang, không cần tài khoản, không lưu kết quả.</p>
+<ol style="margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--ink)">
+<sc-for list="{{qz.b.items}}" as="q" hint-placeholder-count="3">
+<li style="padding: 10px 0; border-bottom: 1px solid var(--rule)">
+<p style="margin: 0 0 6px"><span style="font-family: 'Source Sans 3', sans-serif; color: var(--muted)">{{q.n}}.&nbsp;</span><span style="font-family: 'Source Sans 3', sans-serif; font-size: 16px">{{q.ask}}</span><br><span lang="en">{{q.prompt}}</span></p>
+<div role="radiogroup" aria-label="{{q.aria}}" style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{q.opts}}" as="o" hint-placeholder-count="3">
+<button role="radio" aria-checked="{{o.on}}" onClick="{{o.pick}}" lang="en" style="display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border: 1px solid {{o.bd}}; border-radius: 2px; background: {{o.bg}}; color: var(--ink); font: 400 17px 'Source Serif 4', Georgia, serif; cursor: pointer">{{o.t}}<span style="font: 600 12px 'Source Sans 3', sans-serif; letter-spacing: 0.06em; text-transform: uppercase; color: {{o.tagc}}">{{o.tag}}</span></button>
+</sc-for>
+</div>
+<sc-if value="{{q.done}}" hint-placeholder-val="{{ false }}"><p style="margin: 8px 0 0; font-family: 'Source Sans 3', sans-serif; font-size: 16px; line-height: 1.5"><strong style="color: {{q.resc}}">{{q.res}}</strong> {{q.why}}</p></sc-if>
+</li>
+</sc-for>
+</ol>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin-top: 12px; font-family: 'Source Sans 3', sans-serif; font-size: 16px">
+<button onClick="{{qz.b.check}}" class="btnp">Kiểm tra</button>
+<button onClick="{{qz.b.reset}}" class="btn">Làm lại</button>
+<span aria-live="polite" style="color: {{qz.b.msgc}}">{{qz.b.msg}}</span>
+</div>
+</div>
+<aside style="display: flex; flex-direction: column; justify-content: flex-end; gap: 6px"></aside>
+</div>
+<div id="b-s8" style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px; padding-top: 18px"><div><h2 class="h2a"><span>8</span>&nbsp;&nbsp;Bài liên quan</h2><div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 24px"><div style="border-top: 1px solid var(--ink); padding-top: 8px"><p class="kick" style="font-size: 12px">Nên đọc trước</p><ul style="margin: 4px 0 0; padding: 0; list-style: none"><li style="padding: 5px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="sf" style="font-size: 16px; color: var(--ink); text-decoration-color: var(--rule); text-underline-offset: 4px">Adjectives</a><span style="display: block; font-size: 14px; color: var(--muted)">Tính từ</span></li><li style="padding: 5px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="sf" style="font-size: 16px; color: var(--ink); text-decoration-color: var(--rule); text-underline-offset: 4px">Adverbs</a><span style="display: block; font-size: 14px; color: var(--muted)">Trạng từ</span></li><li style="padding: 5px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="sf" style="font-size: 16px; color: var(--ink); text-decoration-color: var(--rule); text-underline-offset: 4px">Sentence Elements</a><span style="display: block; font-size: 14px; color: var(--muted)">Thành phần câu</span></li></ul></div><div style="border-top: 1px solid var(--ink); padding-top: 8px"><p class="kick" style="font-size: 12px">Liên quan</p><ul style="margin: 4px 0 0; padding: 0; list-style: none"><li style="padding: 5px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="sf" style="font-size: 16px; color: var(--ink); text-decoration-color: var(--rule); text-underline-offset: 4px">So vs. Such</a><span style="display: block; font-size: 14px; color: var(--muted)">Nhấn mạnh mức độ</span></li><li style="padding: 5px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="sf" style="font-size: 16px; color: var(--ink); text-decoration-color: var(--rule); text-underline-offset: 4px">Quantifiers</a><span style="display: block; font-size: 14px; color: var(--muted)">Từ chỉ số lượng</span></li></ul></div><div style="border-top: 1px solid var(--ink); padding-top: 8px"><p class="kick" style="font-size: 12px">Cùng chủ đề, nhóm khác</p><ul style="margin: 4px 0 0; padding: 0; list-style: none"><li style="padding: 5px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="sf" style="font-size: 16px; color: var(--ink); text-decoration-color: var(--rule); text-underline-offset: 4px">Comparing Ideas in Speaking</a><span style="display: block; font-size: 14px; color: var(--muted)">IELTS Speaking Lab</span></li><li style="padding: 5px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="sf" style="font-size: 16px; color: var(--ink); text-decoration-color: var(--rule); text-underline-offset: 4px">Comparison in Data &amp; Argument</a><span style="display: block; font-size: 14px; color: var(--muted)">Grammar for Reading</span></li><li style="padding: 5px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="sf" style="font-size: 16px; color: var(--ink); text-decoration-color: var(--rule); text-underline-offset: 4px">Grammar in Task 1</a><span style="display: block; font-size: 14px; color: var(--muted)">IELTS Writing Lab</span></li></ul></div></div><nav aria-label="Bài trước và bài sau" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-top: 16px"><span></span><a href="GrammarWikiBai.dc.html" style="display: block; padding: 10px 0; border-top: 2px solid var(--ink); color: var(--ink); text-decoration: none; text-align: right"><span class="kick" style="font-size: 12px">Bài sau · 6.2 ›</span><span class="sf" lang="en" style="display: block; font-size: 20px; font-weight: 600">Quantifiers</span><span style="font-size: 14px; color: var(--muted)">Từ chỉ số lượng</span></a></nav><p style="margin: 14px 0 0; font-size: 14px; color: var(--muted)">Nguồn: Aver Learning biên soạn. Cập nhật 18/04/2026.</p></div><aside></aside></div>
+</article>
+</div>
+</main>
+<footer style="padding: 16px 32px; border-top: 1px solid var(--ink)">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0 28px">
+<span class="sf" style="display: inline-flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 600; margin-right: 12px"><svg width="26" height="26" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="currentColor"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<nav aria-label="Chân trang" class="foot" style="display: flex; flex-wrap: wrap; gap: 0 24px">
+<a href="TrangChuCongKhai.dc.html">Giới thiệu</a><a href="DanhMucKhoa.dc.html">Khoá học</a><a href="ThuVien.dc.html">Thư viện</a><a href="HocVienNoiGi.dc.html">Học viên nói gì</a><a href="PhapLy.dc.html">Điều khoản</a><a href="PhapLy.dc.html">Quyền riêng tư</a><a href="PhapLy.dc.html">Liên hệ</a>
+</nav>
+</div>
+<p style="margin: 6px 0 0; font-size: 14px; color: var(--muted)">© 2026 Aver Learning. Bảo lưu mọi quyền.</p>
+</footer>
+</div>
+</section>
+
+<section aria-labelledby="b3" style="border-top: 2px solid var(--ink); padding: 16px 64px 0">
+<h2 id="b3" class="h2s">Ghi chú cho lập trình</h2>
+<p class="lead">Ghi chú đầy đủ cho nhóm ở tờ GrammarWikiNhom6. Ở đây chỉ ghi điều riêng của trang này. Bản điện thoại 390px của nhóm ở tờ GrammarWikiNhom6, mục 3.</p>
+<ul style="margin: 0; padding-left: 20px; font-size: 15px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 48px"><li><strong>Hình 1 (kiểu 6) dùng lại cho so sánh nhất:</strong> cùng dữ liệu, đổi đuôi <em lang="en">-er</em> thành <em lang="en">-est</em>; không vẽ hình thứ hai.</li><li><strong>Mục "Lỗi phổ biến" đứng sau "Tóm tắt nhanh" trong file</strong> được gộp vào mục 5 Lỗi thường gặp trên trang; cần sửa thứ tự trong file để mục lục trong bài không có hai mục lỗi.</li><li><strong>Bảng dữ liệu Task 1</strong> (8 dòng) và bảng bất quy tắc (6 dòng) hiện đủ trên trang thật; tờ này trích để vừa chiều cao.</li><li><strong>Tên bài:</strong> <em lang="en">title</em> trong file là "Comparatives &amp; Superlatives — So sánh", khác <em lang="en">_groups.yaml</em>.</li></ul>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Navy + đỏ mận","Xanh teal"],"default":"Navy + đỏ mận"},"$preview":{"width":1280,"height":5540}}'>
+class Component extends DCLogic {
+constructor(p) { super(p); this.state = { ans: {}, checked: {}, warn: {}, playing: '', phoneToc: false }; }
+renderVals() {
+const s = this.state || {};
+const QZ = {"a": [{"ask": "Chọn because hoặc because of.", "prompt": "She was promoted ____ her excellent performance.", "opts": ["because", "because of"], "right": 1, "why": "Theo sau là cụm danh từ (her excellent performance) nên dùng because of."}, {"ask": "Chọn because hoặc because of.", "prompt": "He couldn't attend ____ he was travelling abroad.", "opts": ["because", "because of"], "right": 0, "why": "Theo sau là mệnh đề có chủ ngữ và động từ (he was travelling)."}, {"ask": "Chọn because hoặc because of.", "prompt": "The project failed ____ a lack of funding.", "opts": ["because", "because of"], "right": 1, "why": "A lack of funding là cụm danh từ."}, {"ask": "Chọn because hoặc because of.", "prompt": "They cancelled the trip ____ heavy snow was forecast.", "opts": ["because", "because of"], "right": 0, "why": "Heavy snow was forecast là mệnh đề đầy đủ: có động từ was forecast."}], "b": [{"ask": "Chia dạng đúng của (tall).", "prompt": "He's ____ than his father.", "opts": ["taller", "more tall", "the tallest"], "right": 0, "why": "Tính từ một âm tiết thêm -er; không dùng more."}, {"ask": "Chia dạng đúng của (difficult).", "prompt": "The exam was ____ than I expected.", "opts": ["difficulter", "more difficult", "the most difficult"], "right": 1, "why": "Tính từ dài dùng more + tính từ + than."}, {"ask": "Chia dạng đúng của (challenging).", "prompt": "Of all the subjects, Maths is ____ for me.", "opts": ["more challenging", "the most challenging"], "right": 1, "why": "So trong cả nhóm (of all the subjects) thì dùng so sánh nhất."}, {"ask": "Chọn từ nhấn mạnh đúng.", "prompt": "He runs ____ faster than me.", "opts": ["very", "much"], "right": 1, "why": "Trước so sánh hơn dùng much / far, không dùng very."}]};
+const AU = [];
+const TG = [];
+const qz = {};
+Object.keys(QZ).forEach((k) => {
+const Q = QZ[k];
+const ans = (s.ans || {})[k] || {};
+const checked = !!(s.checked || {})[k];
+const setAns = (qi, oi) => this.setState({ ans: Object.assign({}, this.state.ans || {}, { [k]: Object.assign({}, ((this.state.ans || {})[k]) || {}, { [qi]: oi }) }), checked: Object.assign({}, this.state.checked || {}, { [k]: false }), warn: Object.assign({}, this.state.warn || {}, { [k]: 0 }) });
+const items = Q.map((q, qi) => {
+const chosen = ans[qi];
+const done = checked && chosen !== undefined;
+const ok = done && chosen === q.right;
+return { n: String(qi + 1), ask: q.ask, prompt: q.prompt, aria: 'Câu ' + (qi + 1), done, res: ok ? 'Chính xác.' : 'Chưa đúng.', resc: ok ? 'var(--ok)' : 'var(--danger)', why: q.why,
+opts: q.opts.map((t, oi) => {
+const on = chosen === oi;
+const showRight = done && oi === q.right;
+const showWrong = done && on && oi !== q.right;
+return { t, on: on ? 'true' : 'false', bd: showRight ? 'var(--ok)' : (showWrong ? 'var(--danger)' : (on ? 'var(--ink)' : 'var(--rule)')), bg: on ? 'var(--tint)' : 'var(--surface)', tag: showRight ? 'Đúng' : (showWrong ? 'Sai' : ''), tagc: showRight ? 'var(--ok)' : 'var(--danger)', pick: () => setAns(qi, oi) };
+}) };
+});
+const missing = Q.filter((q, i) => ans[i] === undefined).length;
+const nRight = Q.filter((q, i) => ans[i] === q.right).length;
+const warn = (s.warn || {})[k] || 0;
+let msg = ''; let msgc = 'var(--muted)';
+if (warn) { msg = 'Còn ' + warn + ' câu chưa chọn.'; msgc = 'var(--mark)'; }
+else if (checked) { msg = 'Đúng ' + nRight + ' trên ' + Q.length + ' câu.'; msgc = 'var(--ink)'; }
+qz[k] = { items, msg, msgc,
+check: () => { if (missing) { this.setState({ warn: Object.assign({}, this.state.warn || {}, { [k]: missing }) }); } else { this.setState({ checked: Object.assign({}, this.state.checked || {}, { [k]: true }), warn: Object.assign({}, this.state.warn || {}, { [k]: 0 }) }); } },
+reset: () => this.setState({ ans: Object.assign({}, this.state.ans || {}, { [k]: {} }), checked: Object.assign({}, this.state.checked || {}, { [k]: false }), warn: Object.assign({}, this.state.warn || {}, { [k]: 0 }) }) };
+});
+const au = {};
+AU.forEach((k) => {
+const on = s.playing === k;
+au[k] = { on: on ? 'true' : 'false', label: on ? 'Dừng' : 'Nghe câu mẫu', icon: on ? 'M3 2h4v12H3zM9 2h4v12H9z' : 'M3 1.5v13l11-6.5z', bg: on ? 'var(--ink)' : 'var(--surface)', fg: on ? 'var(--surface)' : 'var(--ink)', pick: () => this.setState({ playing: on ? '' : k }) };
+});
+const tg = {};
+TG.forEach((x) => {
+const open = !!((s.tg || {})[x.k]);
+tg[x.k] = { open, exp: open ? 'true' : 'false', label: open ? x.b : x.a, pick: () => this.setState({ tg: Object.assign({}, this.state.tg || {}, { [x.k]: !open }) }) };
+});
+const phoneTocOpen = !!s.phoneToc;
+return {
+pal: (this.props.palette ?? 'Navy + đỏ mận') === 'Xanh teal' ? 'pal-teal' : 'pal-navy',
+qz, au, tg,
+phoneTocOpen, phoneTocIcon: phoneTocOpen ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6', phoneTocLabel: phoneTocOpen ? 'true' : 'false',
+togglePhoneToc: () => this.setState({ phoneToc: !phoneTocOpen })
+};
+}
+}
+</script>
+</body>
+</html>

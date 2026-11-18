@@ -1,0 +1,678 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Mock test được giao</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--accentH:#0B5953;--link:#0B5953;--mark:#8A4B08;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EDF3F1;--off:#E7E2D6;--on-accent:#FFFFFF}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--accentH:#11254A;--link:#1A3561;--mark:#8A1C1C;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EEF0F5;--off:#E8E2D5;--on-accent:#FFFFFF}
+a{color:var(--link)}a:hover{color:var(--ink)}
+.serif{font-family:'Source Serif 4',Georgia,serif}
+.lab{margin:0 0 8px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.labm{margin:0 0 8px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;font-weight:600;color:var(--mark)}
+.h2{margin:0;font-family:'Source Serif 4',Georgia,serif;font-size:22px;font-weight:600}
+.sub{margin:4px 0 16px;color:var(--muted);max-width:100ch}
+.sec{margin:0 64px;border-top:2px solid var(--ink);padding-top:14px}
+.note{margin:8px 0 0;font-size:14px;color:var(--muted)}
+.bar{height:56px;flex-shrink:0;box-sizing:border-box;display:flex;align-items:center;gap:16px;padding:0 20px;background:var(--ink);color:var(--surface)}
+.bar p{margin:0}
+.exit{display:inline-flex;align-items:center;min-height:44px;box-sizing:border-box;padding:0 14px;border:1px solid var(--surface);border-radius:2px;color:var(--surface);text-decoration:none;font-size:15px;white-space:nowrap}
+.exit:hover{color:var(--surface)}
+.frame{box-sizing:border-box;border:1px solid var(--ink);background:var(--paper);display:flex;flex-direction:column;overflow:hidden}
+.btnp{display:inline-flex;align-items:center;justify-content:center;min-height:48px;box-sizing:border-box;padding:0 22px;border:1px solid var(--accent);border-radius:2px;background:var(--accent);color:var(--on-accent);font:600 16px 'Source Sans 3',sans-serif;text-decoration:none;cursor:pointer}
+.btnp:hover{color:var(--on-accent)}
+.btno{display:inline-flex;align-items:center;justify-content:center;min-height:48px;box-sizing:border-box;padding:0 20px;border:1px solid var(--ink);border-radius:2px;background:var(--surface);color:var(--ink);font:600 16px 'Source Sans 3',sans-serif;text-decoration:none;cursor:pointer}
+.btnm{display:inline-flex;align-items:center;justify-content:center;min-height:48px;box-sizing:border-box;padding:0 22px;border:1px solid var(--mark);border-radius:2px;background:var(--mark);color:var(--on-accent);font:600 16px 'Source Sans 3',sans-serif;text-decoration:none;cursor:pointer}
+.btnm:hover{color:var(--on-accent)}
+.chip{display:inline-block;padding:2px 8px;border:1px solid var(--ink);border-radius:2px;background:var(--surface);color:var(--ink);font-size:13px;font-weight:600;white-space:nowrap}
+.warn{display:flex;gap:12px;padding:14px 18px;border:1px solid var(--mark);border-left:4px solid var(--mark);background:color-mix(in srgb,var(--mark) 6%,var(--surface))}
+.wl{margin:0 0 2px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;font-weight:600;color:var(--mark)}
+.kick{margin:0;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.pend{padding:10px 14px;border:1px dashed var(--mark);background:var(--surface);font-size:14px}
+.navl{padding:20px 0;color:var(--muted);text-decoration:none}
+.ib{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;box-sizing:border-box;border:1px solid var(--ink);border-radius:2px;background:var(--surface);color:var(--ink);font:600 14px 'Source Sans 3',sans-serif;cursor:pointer}
+</style>
+</helmet>
+<div class="{{pal}}" style="width: 1280px; height: 8000px; box-sizing: border-box; padding: 0 0 40px; background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 16px; line-height: 1.5; display: flex; flex-direction: column; gap: 20px">
+
+<header style="padding: 32px 64px 0">
+<p class="kick">Aver Learning · Bản in · học viên · thi thử</p>
+<h1 class="serif" style="margin: 4px 0 6px; font-size: 40px; font-weight: 600; line-height: 1.15">Mock test được giao · phía học viên</h1>
+<p style="margin: 0; color: var(--muted); max-width: 96ch">Mock test (nhiều kỹ năng) chỉ có khi giáo viên hoặc admin giao (phía admin: <a href="AdminKyThi.dc.html">AdminKyThi</a>, <a href="AdminKyThiChiTiet.dc.html">AdminKyThiChiTiet</a>); học viên chưa được giao thì không thấy mock test nào. Giao cho cả lớp hoặc nhóm chọn tay; kỹ năng dự thi không bắt buộc đủ bốn. Hai cách thi do giáo viên đặt: <strong style="color: var(--ink)">Làm trong khoảng thời gian</strong> giáo viên mở (màn 2–5; tự chọn lúc bắt đầu, đã bắt đầu thì làm liền các phần, không nghỉ, mỗi phần một lần) và <strong style="color: var(--ink)">Phòng thi cùng giờ</strong> (màn 4b và 6; phòng chờ, giám thị chuyển phần). Trang kỳ thi và thông báo bằng tiếng Việt; từ màn chuẩn bị trở vào là tiếng Anh, luôn sáng. Ví dụ: “Thi thử giữa khoá” của Lớp Tue–Thu 19:30, ba kỹ năng Listening, Reading, Writing, mở 16/11/2026 08:00 – 22/11/2026 23:59; hôm nay là thứ Ba 17/11.</p>
+</header>
+
+<section aria-labelledby="s1" class="sec">
+<h2 id="s1" class="h2">1 · Khi được giao · thông báo, dòng trên Hôm nay và trên Thi thử</h2>
+<p class="sub">Lên lịch ở admin là học viên thấy ngay ba chỗ này. Cả ba đều dẫn về trang kỳ thi (màn 2). Mỗi lần giáo viên sửa khoảng mở, thông báo được gửi lại.</p>
+<p class="lab">1a · ngăn thông báo (chuông) · bốn thời điểm</p>
+<div style="border: 1px solid var(--ink); background: var(--surface); padding: 2px 20px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 40px">
+<sc-for list="{{notis}}" as="n" hint-placeholder-count="4">
+<a href="#s2" style="display: block; padding: 11px 0; border-bottom: 1px solid {{n.line}}; color: var(--ink); text-decoration: none">
+<span style="display: flex; justify-content: space-between; gap: 12px; font-size: 13px"><span style="letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: {{n.kc}}">{{n.kicker}}</span><span style="color: var(--muted)">{{n.when}}</span></span>
+<span style="display: block; margin: 2px 0">{{n.title}}</span>
+<span style="font-size: 14px; color: var(--link); text-decoration: underline">{{n.action}}</span>
+</a>
+</sc-for>
+</div>
+<p class="note" style="margin-bottom: 18px">Bốn dòng là bốn thời điểm khác nhau, vẽ chung một ngăn để so (ngăn thật một cột, xem <a href="ThongBao.dc.html">ThongBao</a>). Dòng nhắc trước khi đóng chỉ gửi cho người chưa bắt đầu. Giáo viên bấm “Nhắc” ở thẻ Theo dõi cũng tạo một dòng như dòng thứ hai.</p>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: start">
+<div>
+<p class="lab">1b · Hôm nay · một dòng trong khối “Bài được giao”</p>
+<div style="border: 1px solid var(--ink); background: var(--paper); padding: 4px 20px 6px">
+<a href="#s2" style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 16px; padding: 14px 0; color: var(--ink); text-decoration: none">
+<span style="width: 60px; font-size: 14px; color: var(--muted)">Thi thử</span>
+<span class="serif" style="flex: 1 1 380px; font-size: 19px">Thi thử giữa khoá — chưa bắt đầu</span>
+<span style="margin-left: 76px; font-size: 14px; color: var(--mark); font-weight: 600">Cần khoảng 2 giờ 30 phút liền một lần · đóng Chủ nhật 22/11, 23:59</span>
+<span style="font-size: 14px; color: var(--link); text-decoration: underline">Vào kỳ thi</span>
+</a>
+</div>
+<p class="note">Hiện suốt khoảng mở cho tới khi nộp hết; chữ hạn đổi sang màu đánh dấu khi còn dưới 48 giờ (giả định). Có phần đang dở thì khối cảnh báo “bài thi đang dở” ở Hôm nay và Thi thử thắng dòng này.</p>
+</div>
+<div>
+<p class="lab">1c · Thi thử · một hàng trong khối “Mock test được giao” (<a href="ThiThu.dc.html">ThiThu</a>)</p>
+<div role="table" aria-label="Mock test được giao trên trang Thi thử" style="border: 1px solid var(--ink); background: var(--paper); padding: 0 20px">
+<div role="row" style="display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto; gap: 16px; align-items: center; padding: 12px 0">
+<div role="cell"><p class="serif" style="margin: 0; font-size: 19px; line-height: 1.3">Thi thử giữa khoá</p><p style="margin: 2px 0 0; font-size: 14px; color: var(--muted)">Listening, Reading, Writing · đến Chủ nhật 22/11, 23:59</p></div>
+<div role="cell"><span class="chip" style="border-color: var(--accent); background: var(--accent); color: var(--on-accent)">Đang mở</span><p style="margin: 4px 0 0; font-size: 13px; color: var(--muted)">Chưa bắt đầu · làm liền một lần</p></div>
+<div role="cell" style="text-align: right"><a href="#s2" class="btnp" style="min-height: 44px; padding: 0 16px; font-size: 15px">Vào kỳ thi</a></div>
+</div>
+</div>
+<p class="note">Bảng đủ cột ở ThiThu màn 1; ở đây gộp cột thời gian cho vừa khung.</p>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="s2" style="display: flex; flex-direction: column; gap: 14px">
+<div class="sec">
+<h2 id="s2" class="h2">2 · Trang kỳ thi của tôi · màn chính, bấm thử năm trạng thái</h2>
+<p class="sub" style="margin-bottom: 10px">Trang thường (thanh 5 mục), tiếng Việt. Vào từ thông báo, Hôm nay hoặc Thi thử. Thứ tự phần cố định Listening → Reading → Writing → Speaking, bỏ qua kỹ năng không dự thi; đã bấm bắt đầu thì các phần chạy liền nhau, không nghỉ (màn 4a). Màn này vẽ cách thi Làm trong khoảng thời gian; trang kỳ thi của Phòng thi cùng giờ ở màn 6.</p>
+<div role="group" aria-label="Xem thử trạng thái trang kỳ thi" style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+<span style="font-size: 14px; color: var(--muted); margin-right: 4px">Xem thử:</span>
+<sc-for list="{{demo}}" as="d" hint-placeholder-count="5">
+<button onClick="{{d.go}}" aria-pressed="{{d.on}}" style="min-height: 40px; padding: 0 14px; border: {{d.bw}} solid var(--ink); border-radius: 2px; background: {{d.bg}}; color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer">{{d.t}}</button>
+</sc-for>
+</div>
+</div>
+<div style="border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); background: var(--paper)">
+<header style="border-bottom: 1px solid var(--ink)">
+<div style="max-width: 1120px; margin: 0 auto; padding: 0 32px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 36px; min-height: 64px">
+<a href="Main.dc.html" class="serif" style="display: inline-flex; align-items: center; gap: 9px; font-size: 22px; font-weight: 600; color: var(--ink); text-decoration: none"><svg width="29" height="29" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</a>
+<nav aria-label="Điều hướng chính" style="display: flex; flex-wrap: wrap; gap: 4px 28px; flex-grow: 1">
+<a href="Main.dc.html" class="navl">Hôm nay</a>
+<a href="LoTrinh.dc.html" class="navl">Lộ trình</a>
+<a href="LuyenTap.dc.html" class="navl">Luyện tập</a>
+<a href="ThiThu.dc.html" aria-current="page" style="padding: 20px 0 17px; color: var(--ink); font-weight: 600; text-decoration: none; border-bottom: 3px solid var(--accent)">Thi thử</a>
+<a href="ThuVien.dc.html" class="navl">Thư viện</a>
+</nav>
+<div style="display: flex; align-items: center; gap: 16px">
+<span style="font-size: 14px; color: var(--muted)">Lượt chấm AI còn <strong style="color: var(--ink); font-variant-numeric: tabular-nums">XXX</strong></span>
+<button aria-label="Tra nhanh: từ, bài ngữ pháp, đề bài mẫu" title="Tra nhanh" class="ib"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="1.6"></circle><path d="M15 15l5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path></svg></button>
+<span style="position: relative; flex: none; display: inline-flex"><a href="ThongBao.dc.html" aria-label="Thông báo, 1 chưa đọc" class="ib"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15zM10 20.5a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></a><span aria-hidden="true" style="position: absolute; top: -7px; right: -7px; min-width: 20px; height: 20px; box-sizing: border-box; padding: 0 5px; border: 1px solid var(--paper); border-radius: 2px; background: var(--accent); color: var(--on-accent); font-size: 12px; font-weight: 600; line-height: 18px; text-align: center">1</span></span>
+<button aria-label="Mở menu tài khoản" class="ib">MA</button>
+</div>
+</div>
+</header>
+<main style="max-width: 1120px; margin: 0 auto; padding: 28px 32px 24px; box-sizing: border-box">
+<nav aria-label="Đường dẫn" style="font-size: 14px; color: var(--muted)"><a href="ThiThu.dc.html">Thi thử</a> › Thi thử giữa khoá</nav>
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; margin: 8px 0 4px">
+<h1 class="serif" style="margin: 0; font-size: 40px; font-weight: 600; line-height: 1.15">Thi thử giữa khoá</h1>
+<span class="chip" style="border-color: {{stBd}}; background: {{stBg}}; color: {{stFg}}">{{stChip}}</span>
+</div>
+<p style="margin: 0 0 22px; color: var(--muted)">Kỳ thi của Lớp Tue–Thu 19:30 · giáo viên Lê Hoàng Yến giao · Làm trong khoảng thời gian, làm liền các phần · ba kỹ năng: Listening, Reading, Writing (không có Speaking)</p>
+
+<div role="{{bnRole}}" style="display: flex; flex-wrap: wrap; align-items: center; gap: 14px 28px; margin-bottom: 28px; padding: 16px 22px; border: 1px solid {{bnC}}; border-left: 4px solid {{bnC}}; background: {{bnBg}}">
+<div style="flex: 1 1 560px; min-width: 0">
+<p style="margin: 0 0 4px; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: {{bnC}}">{{bnLabel}}</p>
+<p class="serif" style="margin: 0 0 4px; font-size: 22px; font-weight: 600; line-height: 1.25">{{bnTitle}}</p>
+<p style="margin: 0; font-size: 15px">{{bnText}}</p>
+</div>
+<sc-if value="{{bnPrimary}}" hint-placeholder-val="{{ true }}"><a href="#s3" class="btnp">{{bnAction}}</a></sc-if>
+<sc-if value="{{bnMark}}" hint-placeholder-val="{{ false }}"><a href="PhongThi.dc.html" class="btnm">{{bnAction}}</a></sc-if>
+<sc-if value="{{bnLink}}" hint-placeholder-val="{{ false }}"><a href="#s9" style="display: inline-flex; align-items: center; min-height: 44px; font-weight: 600">{{bnAction}}</a></sc-if>
+</div>
+
+<div style="display: flex; gap: 48px; align-items: flex-start">
+<div style="flex: 1 1 0; min-width: 0">
+<dl style="margin: 0 0 24px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 24px; border-top: 2px solid var(--ink); padding-top: 12px; font-variant-numeric: tabular-nums">
+<div><dt class="kick">Khoảng mở</dt><dd style="margin: 2px 0 0">Thứ Hai 16/11, 08:00 –<br>Chủ nhật 22/11/2026, 23:59</dd></div>
+<div><dt class="kick">Còn lại của khoảng mở</dt><dd class="serif" style="margin: 2px 0 0; font-size: 24px; font-weight: 600; line-height: 1.25">{{left}}</dd></div>
+<div><dt class="kick">Đã nộp</dt><dd class="serif" style="margin: 2px 0 0; font-size: 24px; font-weight: 600; line-height: 1.25">{{doneN}} trên 3 phần</dd><dd role="img" aria-label="{{doneAria}}" style="margin: 6px 0 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; max-width: 180px"><sc-for list="{{segs}}" as="g" hint-placeholder-count="3"><span style="height: 6px; background: {{g.c}}"></span></sc-for></dd></div>
+</dl>
+
+<h2 class="kick" style="font-weight: 600; margin-bottom: 0">Các phần của kỳ thi · làm liền theo thứ tự, không nghỉ giữa các phần</h2>
+<div role="table" aria-label="Các phần của kỳ thi" style="display: flex; flex-direction: column">
+<div role="row" style="display: grid; grid-template-columns: 28px minmax(0, 1.1fr) 132px minmax(0, 1.7fr) 190px; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--ink); font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted)">
+<span role="columnheader">#</span><span role="columnheader">Phần</span><span role="columnheader">Thời lượng</span><span role="columnheader">Trạng thái</span><span role="columnheader"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden">Thao tác</span></span>
+</div>
+<sc-for list="{{parts}}" as="p" hint-placeholder-count="3">
+<div role="row" style="display: grid; grid-template-columns: 28px minmax(0, 1.1fr) 132px minmax(0, 1.7fr) 190px; gap: 16px; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--rule)">
+<span role="cell" style="color: var(--muted); font-variant-numeric: tabular-nums">{{p.n}}</span>
+<div role="cell"><p class="serif" style="margin: 0; font-size: 20px; line-height: 1.3">{{p.name}}</p><p style="margin: 2px 0 0; font-size: 14px; color: var(--muted)">{{p.qs}}</p></div>
+<span role="cell" style="font-variant-numeric: tabular-nums">{{p.dur}}</span>
+<div role="cell"><span class="chip" style="border-color: {{p.bd}}; background: {{p.bg}}; color: {{p.fg}}">{{p.chip}}</span><p style="margin: 4px 0 0; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums">{{p.note}}</p></div>
+<div role="cell" style="text-align: right">
+<sc-if value="{{p.primary}}" hint-placeholder-val="{{ false }}"><a href="#s3" class="btnp" style="min-height: 44px; padding: 0 16px; font-size: 15px">{{p.action}}</a></sc-if>
+<sc-if value="{{p.mark}}" hint-placeholder-val="{{ false }}"><a href="PhongThi.dc.html" class="btnm" style="min-height: 44px; padding: 0 16px; font-size: 15px">{{p.action}}</a></sc-if>
+<sc-if value="{{p.plain}}" hint-placeholder-val="{{ true }}"><span style="font-size: 14px; color: var(--muted)">{{p.action}}</span></sc-if>
+</div>
+</div>
+</sc-for>
+<div role="row" style="display: grid; grid-template-columns: 28px minmax(0, 1.1fr) 132px minmax(0, 1.7fr) 190px; gap: 16px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--rule); color: var(--muted)">
+<span role="cell">–</span><span role="cell">Speaking</span><span role="cell">–</span><span role="cell" style="font-size: 14px">Không có trong kỳ thi này</span><span role="cell"></span>
+</div>
+</div>
+<p class="note" style="max-width: 80ch">Listening và Reading chấm theo đáp án. Writing được AI chấm rồi giáo viên duyệt; kỳ thi được giao không trừ lượt của bạn. Kết quả chỉ hiện khi giáo viên trả; có thể trả từng phần (màn 9).</p>
+</div>
+
+<aside style="flex: 0 0 320px; border-top: 2px solid var(--ink); padding-top: 12px">
+<h2 class="kick" style="font-weight: 600; margin-bottom: 8px">Quy định của kỳ thi</h2>
+<ul style="margin: 0; padding-left: 20px; font-size: 15px; display: flex; flex-direction: column; gap: 7px">
+<li>Bạn tự chọn lúc bắt đầu trong khoảng mở. <strong>Đã bắt đầu thì làm liền cả ba phần, khoảng 2 giờ 30 phút:</strong> không nghỉ giữa các phần, không để phần sau sang hôm khác.</li>
+<li>Mỗi phần có đồng hồ riêng, không dừng khi bạn rời bài. Nộp phần này là phần kế bắt đầu.</li>
+<li>Mỗi phần làm một lần. Hết giờ thì phần đó tự nộp, không mở lại được.</li>
+<li>Khoảng mở kết thúc: phần đang dở tự nộp, phần chưa tới không làm được nữa.</li>
+<li>Vào làm bài cần máy tính hoặc tablet (màn hình từ 768px). Trong bài thi, mọi chữ bằng tiếng Anh như đề thật.</li>
+<li>Tự mình làm bài, không dùng từ điển, công cụ dịch hay nhờ người khác.</li>
+</ul>
+<p class="note">Cần hỗ trợ: <a href="TroGiupLanDau.dc.html">Trợ giúp</a> hoặc nhắn giáo viên lớp.</p>
+</aside>
+</div>
+</main>
+<footer style="display: flex; flex-wrap: wrap; align-items: center; gap: 0 24px; max-width: 1120px; margin: 0 auto; box-sizing: border-box; padding: 0 32px; border-top: 1px solid var(--rule); font-size: 14px">
+<span style="gap: 8px; display: inline-flex; align-items: center; color: var(--muted); flex-grow: 1"><svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none; color: var(--ink)"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>© 2026 Aver Learning</span>
+<nav aria-label="Chân trang" style="display: flex; gap: 0 24px">
+<a href="TroGiupLanDau.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Trợ giúp</a>
+<a href="PhapLy.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Điều khoản</a>
+<a href="PhapLy.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Quyền riêng tư</a>
+</nav>
+</footer>
+</div>
+</section>
+
+<section aria-labelledby="s3" style="display: flex; flex-direction: column; gap: 14px">
+<div class="sec">
+<h2 id="s3" class="h2">3 · Before you start · màn chuẩn bị, một lần cho cả kỳ thi</h2>
+<p class="sub" style="margin-bottom: 0">Hiện một lần, khi bấm “Chuẩn bị và bắt đầu” ở màn 2; nói rõ tổng thời gian cần dành liền một lần. Thanh tập trung nền mực, tiếng Anh; vì còn ở ngoài bài thi nên khối thiết bị và cảnh báo có một dòng phụ tiếng Việt nhỏ. Kiểm một lần mọi thiết bị mà các phần của kỳ thi cần. Đồng hồ chưa chạy; chỉ chạy khi bấm “Start test”. Tích ô xác nhận để bật nút.</p>
+</div>
+<div lang="en" style="height: 610px; box-sizing: border-box; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); display: flex; flex-direction: column; background: var(--paper)">
+<header class="bar" style="display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr)">
+<div><a href="#s2" class="exit">‹ Back to my test page</a></div>
+<p style="font-size: 15px"><strong>Mid-course Mock Test</strong> · 3 sections · Listening, Reading, Writing</p>
+<p style="text-align: right; font-size: 14px">Timer not started</p>
+</header>
+<div style="flex-grow: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 56px; max-width: 1120px; width: 100%; margin: 0 auto; box-sizing: border-box; padding: 36px 32px">
+<div>
+<p class="kick">Self-paced test · window closes Sun 22 Nov, 23:59</p>
+<h1 class="serif" style="margin: 6px 0 2px; font-size: 36px; font-weight: 600; line-height: 1.2">Before you start</h1>
+<p lang="vi" style="margin: 0 0 12px; font-size: 13px; color: var(--muted)">Bạn cần khoảng 2 giờ 30 phút làm liền một lần. Không nghỉ giữa các phần.</p>
+<dl style="margin: 0 0 18px; display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 4px 16px; padding: 12px 0; border-top: 2px solid var(--ink); border-bottom: 1px solid var(--rule); font-variant-numeric: tabular-nums">
+<dt style="color: var(--muted)">Total time</dt><dd style="margin: 0; font-weight: 600">About 2 hours 30 minutes, in one sitting</dd>
+<dt style="color: var(--muted)">Sections</dt><dd style="margin: 0">Listening 30 min → Reading 60 min → Writing 60 min</dd>
+<dt style="color: var(--muted)">Breaks</dt><dd style="margin: 0; font-weight: 600">None. Each section starts straight after the one before.</dd>
+</dl>
+<ul style="margin: 0 0 18px; padding-left: 20px; display: flex; flex-direction: column; gap: 6px">
+<li>The timer starts when you press Start test and keeps running if you leave.</li>
+<li>You cannot stop after a section and come back another day.</li>
+<li>When a section’s time ends, it is submitted and the next one starts.</li>
+<li>If the test window closes while you work, the test ends then.</li>
+<li>Do not use dictionaries, translation tools or help from other people.</li>
+</ul>
+<label style="display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border: 1px solid {{confirmBorder}}; border-radius: 2px; background: var(--surface); cursor: pointer">
+<input type="checkbox" checked="{{confirmed}}" onChange="{{toggleConfirm}}" style="width: 22px; height: 22px; margin: 1px 0 0; flex-shrink: 0; accent-color: var(--accent)">
+<span>I am Nguyễn Minh Anh. I have the full time now and will take this test on my own.</span>
+</label>
+</div>
+<div>
+<div style="border: 1px solid var(--ink); background: var(--surface); padding: 20px 24px">
+<h2 class="serif" style="margin: 0 0 4px; font-size: 22px; font-weight: 600">Check your device</h2>
+<p style="margin: 0 0 8px; font-size: 15px; color: var(--muted)">For Listening, use headphones and sit somewhere quiet.<span lang="vi" style="display: block; font-size: 13px">Kiểm tra thiết bị một lần cho cả ba phần. Đồng hồ chưa chạy.</span></p>
+<sc-for list="{{checks}}" as="c" hint-placeholder-count="2">
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; align-items: center; padding: 14px 0; border-top: 1px solid var(--rule)">
+<div><p style="margin: 0; font-weight: 600">{{c.name}} <span style="font-weight: 400; color: var(--muted)">· {{c.for}}</span></p><p style="margin: 2px 0 0; font-size: 15px; color: var(--muted)">{{c.detail}}</p></div>
+<span style="display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border: 1px solid var(--ok); border-radius: 2px; color: var(--ok); font-size: 14px; font-weight: 600"><svg aria-hidden="true" viewBox="0 0 16 16" style="width: 14px; height: 14px"><path d="M3 8.5l3 3 7-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Working</span>
+<div style="grid-column: 1 / -1"><button type="button" class="btno" style="min-height: 44px; padding: 0 16px; font-size: 15px">{{c.action}}</button></div>
+</div>
+</sc-for>
+</div>
+<div style="margin-top: 22px">
+<sc-if value="{{confirmed}}" hint-placeholder-val="{{ true }}">
+<a href="PhongThiNgheViet.dc.html" class="btnp" style="display: flex; min-height: 52px; font-size: 18px">Start test</a>
+<p style="margin: 8px 0 0; font-size: 15px; color: var(--muted)">The Listening timer starts now. Reading and Writing follow straight after, with no break.</p>
+</sc-if>
+<sc-if value="{{notConfirmed}}" hint-placeholder-val="{{ false }}">
+<button disabled aria-describedby="pre-why" style="width: 100%; min-height: 52px; border: 1px solid var(--rule); border-radius: 2px; background: var(--off); color: var(--muted); font: 600 18px 'Source Sans 3', sans-serif">Start test</button>
+<p id="pre-why" style="margin: 8px 0 0; font-size: 15px; color: var(--muted)">Confirm your details on the left to start.</p>
+</sc-if>
+</div>
+</div>
+</div>
+</div>
+<div style="margin: 0 64px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: start">
+<div>
+<p class="lab">3b · khoảng mở sắp đóng, không đủ giờ cho cả kỳ thi</p>
+<div lang="en" role="alert" class="warn">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 20px; height: 20px; flex-shrink: 0; margin-top: 2px; color: var(--mark)"><path d="M12 3 2 20h20L12 3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"></path><path d="M12 10v4.5M12 17v.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>
+<div>
+<p class="wl">Warning</p>
+<p style="margin: 0; font-weight: 600">The test window closes in 49 minutes, at 23:59.</p>
+<p lang="vi" style="margin: 0 0 4px; font-size: 13px; color: var(--muted)">Khoảng mở sẽ đóng sau 49 phút, không đủ cho cả ba phần. Bài chưa tính giờ.</p>
+<p style="margin: 0 0 10px; font-size: 15px">The whole test takes about 2 hours 30 minutes. At 23:59 the section you are on is submitted and later sections cannot be taken.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 10px"><span class="btno" style="min-height: 44px; font-size: 15px">Back to my test page</span><span class="btnp" style="min-height: 44px; font-size: 15px">Start test with 49 minutes</span></div>
+</div>
+</div>
+<p class="note">Thay cho nút “Start test” ở màn trên khi thời gian còn lại của khoảng mở ngắn hơn tổng thời gian của kỳ thi. Không chặn, chỉ nói rõ; nút chính ghi đúng số phút thật sẽ có.</p>
+</div>
+<div>
+<p class="lab">3c · thiết bị cần kiểm · gộp theo các phần có trong kỳ thi</p>
+<div role="table" aria-label="Thiết bị cần kiểm theo phần" style="font-size: 15px">
+<div role="row" style="display: grid; grid-template-columns: 120px minmax(0, 1fr) minmax(0, 1.2fr); gap: 16px; padding: 6px 0; border-bottom: 1px solid var(--ink); font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted)"><span role="columnheader">Phần</span><span role="columnheader">Check your device</span><span role="columnheader">Dòng riêng trong quy tắc</span></div>
+<sc-for list="{{devs}}" as="d" hint-placeholder-count="4">
+<div role="row" style="display: grid; grid-template-columns: 120px minmax(0, 1fr) minmax(0, 1.2fr); gap: 16px; padding: 8px 0; border-bottom: 1px solid var(--rule)"><span role="cell" style="font-weight: 600">{{d.name}}</span><span role="cell" lang="en">{{d.checks}}</span><span role="cell" lang="en" style="color: var(--muted)">{{d.rule}}</span></div>
+</sc-for>
+</div>
+<p class="note">Lỗi thiết bị (micro bị chặn, không phát được âm thanh, mất mạng) dùng lại ba khối ở <a href="ThiThuTruocGio.dc.html#s7">ThiThuTruocGio</a> màn 7. Màn chuẩn bị gộp kiểm tra của mọi phần trong kỳ thi; nút “Start test” khoá tới khi mọi kiểm tra đạt, lý do ghi dưới nút.</p>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="s4" class="sec">
+<h2 id="s4" class="h2">4 · Chuyển phần · theo hai cách thi do giáo viên đặt</h2>
+<p class="sub">Hiện ngay sau khi một phần nộp (bấm nộp hoặc hết giờ). Tiếng Anh. Cách thi là của cả kỳ, do giáo viên chọn khi giao; học viên không chọn.</p>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; align-items: start">
+<div>
+<p class="lab">4a · Làm trong khoảng thời gian · phần kế tự bắt đầu, không nghỉ</p>
+<div lang="en" class="frame">
+<header class="bar" style="height: 52px; padding: 0 16px"><p style="flex-grow: 1; font-size: 14px"><strong>Mid-course Mock Test</strong> · Listening submitted</p><span style="font-size: 13px">Window closes Sun 22 Nov, 23:59</span></header>
+<div style="padding: 22px 26px 24px">
+<h3 class="serif" style="margin: 0 0 4px; font-size: 30px; font-weight: 600">Listening submitted</h3>
+<p style="margin: 0 0 14px">38 of 40 questions answered · submitted at 14:10</p>
+<ol style="margin: 0 0 16px; padding: 0; list-style: none">
+<sc-for list="{{steps}}" as="x" hint-placeholder-count="3">
+<li aria-current="{{x.cur}}" style="display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 12px; align-items: baseline; padding: 9px 0 9px 12px; border-left: 4px solid {{x.bar}}; border-bottom: 1px solid var(--rule); color: {{x.color}}"><span style="font-variant-numeric: tabular-nums">{{x.n}}</span><span style="font-weight: 600">{{x.name}} <span style="font-weight: 400; color: var(--muted)">· {{x.time}}</span></span><span style="font-size: 14px">{{x.state}}</span></li>
+</sc-for>
+</ol>
+<p style="margin: 0 0 6px"><strong>Reading starts in <span role="timer" style="font-variant-numeric: tabular-nums">0:52</span>.</strong> There is no break between sections.</p>
+<p style="margin: 0 0 16px; color: var(--muted)">Stay on this page. Reading opens here by itself, and its 60-minute timer starts then.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 12px"><a href="PhongThi.dc.html" class="btnp">Start Reading now</a></div>
+</div>
+</div>
+<p class="note">Không nghỉ giữa các phần (đã chốt 18/11/2026): đếm ngược ngắn rồi tự mở phần kế, “Start Reading now” vào ngay; không có lối về trang kỳ thi. Độ dài đếm ngược: đề xuất 60 giây, chưa chốt.</p>
+</div>
+<div>
+<p class="lab">4b · Phòng thi cùng giờ · chờ giám thị mở phần kế</p>
+<div lang="en" class="frame">
+<header class="bar" style="height: 52px; padding: 0 16px"><p style="flex-grow: 1; font-size: 14px"><strong>Academic Mock Test 4</strong> · Listening submitted</p><span style="font-size: 13px">Waiting for the invigilator</span></header>
+<div style="padding: 22px 26px 24px">
+<h3 class="serif" style="margin: 0 0 4px; font-size: 30px; font-weight: 600">Listening submitted</h3>
+<p style="margin: 0 0 14px">38 of 40 questions answered · submitted at 09:02</p>
+<ol style="margin: 0 0 16px; padding: 0; list-style: none">
+<sc-for list="{{stepsLive}}" as="x" hint-placeholder-count="4">
+<li aria-current="{{x.cur}}" style="display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 12px; align-items: baseline; padding: 9px 0 9px 12px; border-left: 4px solid {{x.bar}}; border-bottom: 1px solid var(--rule); color: {{x.color}}"><span style="font-variant-numeric: tabular-nums">{{x.n}}</span><span style="font-weight: 600">{{x.name}} <span style="font-weight: 400; color: var(--muted)">· {{x.time}}</span></span><span style="font-size: 14px">{{x.state}}</span></li>
+</sc-for>
+</ol>
+<p style="margin: 0 0 6px">Please wait. <strong>Your invigilator will start Reading for everyone.</strong></p>
+<p style="margin: 0 0 16px; color: var(--muted)">Stay on this page. Reading opens here by itself; you do not need to refresh.</p>
+<button disabled style="min-height: 48px; padding: 0 22px; border: 1px solid var(--rule); border-radius: 2px; background: var(--off); color: var(--muted); font: 600 16px 'Source Sans 3', sans-serif">Waiting for the invigilator</button>
+</div>
+</div>
+<p class="note">Giám thị bấm “Bắt đầu phần” ở admin thì cả phòng vào phần kế cùng lúc, đồng hồ chung. Nộp sớm thì chờ ở màn này; nếu giáo viên bật “Cho sang phần sau khi nộp sớm” thì nút đổi thành “Start Reading” và mỗi người một đồng hồ. Không có lối về trang kỳ thi giữa các phần.</p>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="s5" class="sec">
+<h2 id="s5" class="h2">5 · Hết giờ phần, hết khoảng mở, và đã nộp hết</h2>
+<p class="sub">Tiếng Anh. Hết giờ một phần: tự nộp như <a href="ThiThuTruocGio.dc.html#s5">ThiThuTruocGio</a> màn 5, rồi sang màn chuyển phần (màn 4a). Mock test được giao không có “Abandon test”, không có lựa chọn bỏ lượt, không tạm dừng audio; lối rời bài duy nhất là “Leave test”, hộp hỏi lại nói rõ đồng hồ vẫn chạy trên máy chủ. Ba khối dưới là phần riêng của cách thi Làm trong khoảng thời gian.</p>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; align-items: start">
+<div>
+<p class="lab">5a · trong phòng thi · khoảng mở còn 10 phút</p>
+<div lang="en" class="frame">
+<header class="bar" style="height: 52px; gap: 10px; padding: 0 14px"><p style="flex-grow: 1; font-size: 14px"><strong>Reading</strong> · Passage 2 of 3</p><span style="font-size: 13px">Time remaining</span><p role="timer" style="padding: 2px 10px; border-radius: 2px; background: var(--surface); color: var(--ink); font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums">10:00</p></header>
+<div role="status" class="warn" style="border-width: 0 0 1px 4px; padding: 12px 14px">
+<div>
+<p class="wl">Warning</p>
+<p style="margin: 0 0 2px; font-weight: 600">The test window closes in 10 minutes.</p>
+<p style="margin: 0; font-size: 15px">This section will be submitted at 23:59, before your 60 minutes are over. The timer now shows the time to 23:59.</p>
+</div>
+</div>
+<div style="display: flex; padding: 14px"><div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; height: 96px; border: 1px dashed var(--rule); color: var(--muted); font-size: 13px; letter-spacing: 0.08em">[TEST CONTENT]</div></div>
+</div>
+<p class="note">Dải hiện một lần ở mốc 10 phút, dưới thanh đồng hồ, không che câu hỏi. Từ lúc đó đồng hồ đếm về giờ đóng của khoảng mở nếu mốc đó đến trước.</p>
+</div>
+<div>
+<p class="lab">5b · khoảng mở đóng khi đang làm dở</p>
+<div lang="en" class="frame">
+<header class="bar" style="height: 52px; gap: 10px; padding: 0 14px"><p style="flex-grow: 1; font-size: 14px"><strong>Mid-course Mock Test</strong> · Closed</p><span style="font-size: 13px">Closed at 23:59</span></header>
+<div role="alertdialog" aria-label="The test window has closed" style="padding: 18px 20px; background: var(--surface)">
+<h3 class="serif" style="margin: 0 0 6px; font-size: 24px; font-weight: 600">The test window has closed</h3>
+<p style="margin: 0 0 10px">Your Reading has been saved and submitted. You can no longer change it.</p>
+<dl style="margin: 0 0 12px; display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 4px 14px; font-variant-numeric: tabular-nums">
+<dt style="color: var(--muted)">Listening</dt><dd style="margin: 0">Submitted</dd>
+<dt style="color: var(--muted)">Reading</dt><dd style="margin: 0">Submitted · 11 of 40 answered</dd>
+<dt style="color: var(--muted)">Writing</dt><dd style="margin: 0; font-weight: 600; color: var(--mark)">Not taken</dd>
+</dl>
+<p style="margin: 0 0 14px; font-size: 15px; color: var(--muted)">Writing was not started and can no longer be taken. Ask your teacher if you need a make-up test.</p>
+<p lang="vi" style="margin: 0"><a href="#s2" class="btnp" style="display: flex">Về trang kỳ thi</a></p>
+</div>
+</div>
+<p class="note">Không có nút đóng, không hỏi lại. Lối ra là một dòng tiếng Việt như ThiThuTruocGio màn 6. Trang kỳ thi sau đó ở trạng thái “Đã đóng, làm dở” (màn 2).</p>
+</div>
+<div>
+<p class="lab">5c · nộp xong phần cuối</p>
+<div lang="en" class="frame">
+<header class="bar" style="height: 52px; gap: 10px; padding: 0 14px"><p style="flex-grow: 1; font-size: 14px"><strong>Mid-course Mock Test</strong> · Submitted</p><span style="font-size: 13px">Tue 17 Nov, 16:11</span></header>
+<div style="padding: 18px 20px">
+<h3 class="serif" style="margin: 0 0 6px; font-size: 24px; font-weight: 600">All sections submitted</h3>
+<dl style="margin: 0 0 12px; display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 4px 14px; font-variant-numeric: tabular-nums">
+<dt style="color: var(--muted)">Listening</dt><dd style="margin: 0">38 of 40 answered</dd>
+<dt style="color: var(--muted)">Reading</dt><dd style="margin: 0">36 of 40 answered</dd>
+<dt style="color: var(--muted)">Writing</dt><dd style="margin: 0">Task 1: 171 words · Task 2: 268 words</dd>
+</dl>
+<h4 class="kick" style="margin: 0 0 4px; padding-top: 10px; border-top: 2px solid var(--ink)">When will I get my results?</h4>
+<p style="margin: 0 0 14px; font-size: 15px">Your teacher marks this test and releases the results, usually within XXX days. Some sections may be released before others.</p>
+<p lang="vi" style="margin: 0"><a href="#s2" class="btnp" style="display: flex">Về trang kỳ thi để theo dõi</a></p>
+</div>
+</div>
+<p class="note">Không hiện band nào ở đây, kể cả Listening, Reading. Trang kỳ thi chuyển sang “Đã nộp hết · chờ giáo viên chấm và công bố”.</p>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="s6" class="sec">
+<h2 id="s6" class="h2">6 · Phòng thi cùng giờ · trang kỳ thi trước giờ thi, và so hai cách thi</h2>
+<p class="sub">Tiếng Việt. Cùng trang kỳ thi như màn 2, khác ở khối trên cùng và cột thao tác: học viên không tự mở phần nào, chỉ có một lối vào là phòng chờ (<a href="ThiThuTruocGio.dc.html#s1">ThiThuTruocGio</a> màn 1), sau đó giám thị mở từng phần (màn 4b).</p>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 32px; align-items: start">
+<div>
+<p class="lab">6a · trang kỳ thi · Đề thi thử số 4 · bốn kỹ năng</p>
+<div style="border: 1px solid var(--ink); background: var(--paper); padding: 18px 22px 8px">
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px"><h3 class="serif" style="margin: 0; font-size: 26px; font-weight: 600">Đề thi thử số 4</h3><span class="chip">Sắp diễn ra</span></div>
+<p style="margin: 2px 0 14px; font-size: 15px; color: var(--muted)">Lớp Tue–Thu 19:30 · giáo viên Lê Hoàng Yến giao · Phòng thi cùng giờ · Listening, Reading, Writing, Speaking</p>
+<div style="margin-bottom: 14px; padding: 14px 18px; border: 1px solid var(--ink); border-left: 4px solid var(--ink); background: var(--surface)">
+<p style="margin: 0 0 2px; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600">Thi lúc 08:30 thứ Bảy 21/11/2026</p>
+<p class="serif" style="margin: 0 0 4px; font-size: 20px; font-weight: 600">Phòng chờ mở lúc 08:15 · khoảng 2 giờ 45 phút</p>
+<p style="margin: 0 0 10px; font-size: 15px">Vào phòng chờ trước giờ thi để kiểm thiết bị. Giám thị mở từng phần cho cả phòng; bạn vào được tới 09:00.</p>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px"><button disabled style="min-height: 48px; padding: 0 22px; border: 1px solid var(--rule); border-radius: 2px; background: var(--off); color: var(--muted); font: 600 16px 'Source Sans 3', sans-serif">Vào phòng chờ</button><span style="font-size: 14px; color: var(--muted)">Mở lúc 08:15 thứ Bảy 21/11</span></div>
+</div>
+<sc-for list="{{liveParts}}" as="p" hint-placeholder-count="4">
+<div style="display: grid; grid-template-columns: 24px minmax(0, 1fr) 110px minmax(0, 1fr); gap: 12px; align-items: baseline; padding: 9px 0; border-top: 1px solid var(--rule); font-size: 15px"><span style="color: var(--muted)">{{p.n}}</span><span class="serif" style="font-size: 18px">{{p.name}}</span><span>{{p.dur}}</span><span style="color: var(--muted)">Giám thị mở</span></div>
+</sc-for>
+</div>
+<p class="note">Trong giờ thi nút là “Vào phòng thi”. Sau khi nộp hết: “Đã nộp · chờ giáo viên chấm và công bố”, như màn 2. Vắng mặt: “Đã đóng, bạn chưa thi”; thi bù do giáo viên giao riêng, theo cách Làm trong khoảng thời gian.</p>
+</div>
+<div>
+<p class="lab">6b · hai cách thi · khác nhau ở đâu phía học viên</p>
+<div role="table" aria-label="So hai cách thi" style="font-size: 15px">
+<div role="row" style="display: grid; grid-template-columns: 112px minmax(0, 1fr) minmax(0, 1fr); gap: 14px; padding: 6px 0; border-bottom: 1px solid var(--ink); font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted)"><span role="columnheader">Điểm</span><span role="columnheader">Phòng thi cùng giờ</span><span role="columnheader">Làm trong khoảng thời gian</span></div>
+<sc-for list="{{cmp}}" as="c" hint-placeholder-count="6">
+<div role="row" style="display: grid; grid-template-columns: 112px minmax(0, 1fr) minmax(0, 1fr); gap: 14px; padding: 8px 0; border-bottom: 1px solid var(--rule)"><span role="cell" style="font-weight: 600">{{c.k}}</span><span role="cell">{{c.a}}</span><span role="cell">{{c.b}}</span></div>
+</sc-for>
+</div>
+<p class="note">Chung cho cả hai: rời bài bằng “Leave test” (đồng hồ vẫn chạy), không có “Abandon test”, không tạm dừng bài nghe; chặn trên điện thoại dưới 768px; kết quả chỉ hiện khi giáo viên trả.</p>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="s7" style="margin: 0 40px; border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="s7" class="h2">7 · Tablet 768px · và 8 · điện thoại: xem được, không vào bài</h2>
+<p class="sub">Tablet từ 768px vào làm bình thường; trang kỳ thi về một cột, quy định xuống dưới. Dưới 768px (ngưỡng đề xuất, như full test): trang kỳ thi vẫn xem được trạng thái nhưng không có nút vào bài; mở thẳng liên kết một phần thì về màn chặn “Use a larger screen” ở <a href="ThiThuTruocGio.dc.html#s8">ThiThuTruocGio</a> màn 9.</p>
+<div style="display: flex; gap: 24px; align-items: flex-start">
+<div class="frame" style="width: 768px; height: 736px; flex-shrink: 0">
+<header style="flex-shrink: 0; display: flex; align-items: center; gap: 18px; height: 60px; box-sizing: border-box; padding: 0 20px; border-bottom: 1px solid var(--ink)">
+<span class="serif" style="display: inline-flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 600; white-space: nowrap"><svg width="26" height="26" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<nav aria-label="Điều hướng chính" style="display: flex; align-items: center; gap: 18px; flex-grow: 1; font-size: 15px; white-space: nowrap"><span style="color: var(--muted)">Hôm nay</span><span style="color: var(--muted)">Lộ trình</span><span style="color: var(--muted)">Luyện tập</span><span style="font-weight: 600; padding: 16px 0 13px; border-bottom: 3px solid var(--accent)">Thi thử</span><span style="color: var(--muted)">Thư viện</span></nav>
+<span class="ib" aria-label="Thông báo"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15zM10 20.5a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></span><span class="ib">MA</span>
+</header>
+<div style="flex-grow: 1; min-height: 0; padding: 22px 24px">
+<p style="margin: 0; font-size: 14px; color: var(--muted)"><a href="ThiThu.dc.html">Thi thử</a> › Thi thử giữa khoá</p>
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; margin: 6px 0 2px"><h3 class="serif" style="margin: 0; font-size: 32px; font-weight: 600; line-height: 1.15">Thi thử giữa khoá</h3><span class="chip" style="border-color: var(--accent); background: var(--accent); color: var(--on-accent)">Đang mở</span></div>
+<p style="margin: 0 0 16px; font-size: 15px; color: var(--muted)">Lớp Tue–Thu 19:30 · giáo viên Lê Hoàng Yến · Listening, Reading, Writing</p>
+<div style="margin-bottom: 18px; padding: 14px 18px; border: 1px solid var(--ink); border-left: 4px solid var(--ink); background: var(--surface)">
+<p style="margin: 0 0 2px; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600">Chưa bắt đầu · còn 5 ngày 9 giờ</p>
+<p class="serif" style="margin: 0 0 10px; font-size: 20px; font-weight: 600">Cần khoảng 2 giờ 30 phút, làm liền một lần</p>
+<a href="#s3" class="btnp" style="display: flex">Chuẩn bị và bắt đầu</a>
+</div>
+<p class="kick" style="font-weight: 600; padding-top: 10px; border-top: 2px solid var(--ink)">Các phần của kỳ thi · làm liền, không nghỉ giữa các phần</p>
+<sc-for list="{{tabParts}}" as="p" hint-placeholder-count="3">
+<div style="display: grid; grid-template-columns: 24px minmax(0, 1fr) minmax(0, 1.4fr); gap: 14px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--rule)">
+<span style="color: var(--muted)">{{p.n}}</span>
+<div><p class="serif" style="margin: 0; font-size: 19px">{{p.name}}</p><p style="margin: 0; font-size: 14px; color: var(--muted)">{{p.dur}} · {{p.qs}}</p></div>
+<div><span class="chip" style="border-color: {{p.bd}}; background: {{p.bg}}; color: {{p.fg}}">{{p.chip}}</span><p style="margin: 3px 0 0; font-size: 14px; color: var(--muted)">{{p.note}}</p></div>
+</div>
+</sc-for>
+<p class="kick" style="font-weight: 600; margin-top: 18px; padding-top: 10px; border-top: 2px solid var(--ink)">Quy định của kỳ thi</p>
+<ul style="margin: 6px 0 0; padding-left: 20px; font-size: 15px; display: flex; flex-direction: column; gap: 4px">
+<li>Đã bấm bắt đầu thì làm liền cả ba phần, không nghỉ giữa các phần. Đồng hồ không dừng khi bạn rời bài; hết giờ thì tự nộp. Mỗi phần làm một lần.</li>
+<li>Khoảng mở đóng lúc 23:59 Chủ nhật 22/11: phần đang dở tự nộp, phần chưa tới không làm được nữa.</li>
+</ul>
+</div>
+</div>
+
+<div style="width: 390px; flex-shrink: 0">
+<div class="frame" style="width: 390px; height: 736px">
+<header style="flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; height: 56px; box-sizing: border-box; padding: 0 16px; border-bottom: 1px solid var(--ink)">
+<span class="serif" style="display: inline-flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 600"><svg width="26" height="26" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<span style="display: inline-flex; gap: 10px"><span class="ib" aria-label="Thông báo"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15zM10 20.5a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></span><span class="ib">MA</span></span>
+</header>
+<div style="flex-grow: 1; min-height: 0; overflow: hidden; padding: 18px 16px">
+<p style="margin: 0; font-size: 14px; color: var(--muted)"><a href="ThiThu.dc.html">Thi thử</a> › Thi thử giữa khoá</p>
+<h3 class="serif" style="margin: 4px 0 4px; font-size: 28px; font-weight: 600; line-height: 1.15">Thi thử giữa khoá</h3>
+<p style="margin: 0 0 14px; font-size: 14px; color: var(--muted)">Đến Chủ nhật 22/11, 23:59 · còn 5 ngày 9 giờ</p>
+<div role="alert" class="warn" style="margin-bottom: 16px; padding: 12px 14px">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 20px; height: 20px; flex-shrink: 0; margin-top: 2px; color: var(--mark)"><path d="M12 3 2 20h20L12 3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"></path><path d="M12 10v4.5M12 17v.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>
+<div><p class="wl">Cảnh báo</p><p style="margin: 0 0 4px"><strong style="color: var(--mark)">Bài thi không làm được trên điện thoại.</strong></p><p style="margin: 0; font-size: 15px">Mở trang này trên máy tính hoặc tablet (màn hình từ 768px) để làm bài: ba phần làm liền một lần, khoảng 2 giờ 30 phút. Chưa có đồng hồ nào chạy.</p></div>
+</div>
+<p class="kick" style="font-weight: 600; padding-top: 10px; border-top: 2px solid var(--ink)">Chưa bắt đầu · 3 phần làm liền</p>
+<sc-for list="{{tabParts}}" as="p" hint-placeholder-count="3">
+<div style="padding: 11px 0; border-bottom: 1px solid var(--rule)">
+<div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px"><p class="serif" style="margin: 0; font-size: 18px">{{p.n}}. {{p.name}}</p><span class="chip" style="font-size: 12px; border-color: {{p.bd}}; background: {{p.bg}}; color: {{p.fg}}">{{p.chip}}</span></div>
+<p style="margin: 2px 0 0; font-size: 14px; color: var(--muted)">{{p.dur}} · {{p.note}}</p>
+</div>
+</sc-for>
+<p style="margin: 12px 0 0; font-size: 15px"><a href="LuyenTap.dc.html">Luyện từng phần và mini test</a> vẫn làm được trên điện thoại.</p>
+</div>
+<nav aria-label="Điều hướng chính" style="flex-shrink: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); height: 64px; border-top: 1px solid var(--ink); background: var(--surface)">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="5">
+<a href="{{t.href}}" aria-current="{{t.current}}" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid {{t.bar}}; color: {{t.color}}; font-size: 12px; font-weight: {{t.weight}}; text-decoration: none">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="{{t.icon}}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+{{t.label}}
+</a>
+</sc-for>
+</nav>
+</div>
+</div>
+</div>
+<ul style="margin: 12px 0 0; padding-left: 20px; font-size: 14px; color: var(--muted); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 40px">
+<li>Chặn ở lối vào từng phần, trước khi đồng hồ chạy: dưới 768px không tạo lượt làm, không tính giờ. Đang làm trên máy tính/tablet mà thu nhỏ cửa sổ thì không chặn.</li>
+<li>Phần đang làm dở trên máy tính: trên điện thoại hàng đó vẫn ghi “Đang làm · còn khoảng … phút” kèm cảnh báo, không có nút “Làm tiếp”.</li>
+<li>Màn chặn tiếng Anh dùng chung của full test; dòng cuối đổi thành “You can start any time until Sun 22 Nov, 23:59.”</li>
+<li>Tablet: màn 3, 4, 5 về một cột như ThiThuTruocGio màn 8; nút chính rộng hết cột, cao 52px.</li>
+</ul>
+</section>
+
+<section aria-labelledby="s9" class="sec">
+<h2 id="s9" class="h2">9 · Phiếu kết quả khi giáo viên trả từng phần · “Đang chấm”</h2>
+<p class="sub">Tiếng Việt. Giáo viên trả ở thẻ “Trả kết quả” của trang kỳ thi (admin); mặc định trả khi chấm xong đủ kỹ năng dự thi của học viên, và có lựa chọn trả phần đã xong trước. Phần chưa xong ghi “Đang chấm”; không hiện Overall khi chưa đủ bốn band. Bố cục theo <a href="PhieuKetQua.dc.html#s4">PhieuKetQua</a> mục 4; bảng trên trang Thi thử ở <a href="ThiThu.dc.html#s3">ThiThu</a> màn 3.</p>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px; align-items: start">
+<sc-for list="{{slips}}" as="k" hint-placeholder-count="1">
+<div>
+<p class="lab">{{k.label}}</p>
+<div style="border: 1px solid var(--ink); background: var(--paper); padding: 20px 24px 22px">
+<p class="kick">{{k.kicker}}</p>
+<h3 class="serif" style="margin: 4px 0 12px; font-size: 26px; font-weight: 600; line-height: 1.2">{{k.title}}</h3>
+<div style="padding: 14px 0; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink)">
+<p class="kick" style="font-weight: 600">Overall</p>
+<p class="serif" style="margin: 4px 0 0; font-size: 21px; font-weight: 600; line-height: 1.3">{{k.ovTitle}}</p>
+<p style="margin: 4px 0 0; font-size: 15px; color: var(--muted)">{{k.ovText}}</p>
+</div>
+<div role="table" aria-label="{{k.title}}: kết quả từng kỹ năng">
+<div role="row" style="display: grid; grid-template-columns: minmax(0, 1.5fr) 112px 56px minmax(0, 1.1fr); gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--ink); font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted)"><span role="columnheader">Kỹ năng</span><span role="columnheader">Trạng thái</span><span role="columnheader">Band</span><span role="columnheader">Phiếu chi tiết</span></div>
+<sc-for list="{{k.rows}}" as="r" hint-placeholder-count="4">
+<div role="row" style="display: grid; grid-template-columns: minmax(0, 1.5fr) 112px 56px minmax(0, 1.1fr); gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--rule)">
+<div role="cell"><p style="margin: 0; font-weight: 600; color: {{r.nameC}}">{{r.name}}</p><p style="margin: 0; font-size: 14px; color: var(--muted)">{{r.sub}}</p></div>
+<span role="cell"><span class="chip" style="border-color: {{r.bd}}; color: {{r.fg}}">{{r.chip}}</span></span>
+<span role="cell" class="{{r.bandCls}}" style="font-size: {{r.bandSize}}; font-weight: {{r.bandW}}; color: {{r.bandC}}; font-variant-numeric: tabular-nums">{{r.band}}</span>
+<span role="cell" style="font-size: 14px"><sc-if value="{{r.hasLink}}" hint-placeholder-val="{{ true }}"><a href="PhieuKetQua.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; font-weight: 600; font-size: 15px">{{r.link}}</a></sc-if><sc-if value="{{r.noLink}}" hint-placeholder-val="{{ false }}"><span style="color: var(--muted)">{{r.link}}</span></sc-if></span>
+</div>
+</sc-for>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)">{{k.foot}}</p>
+</div>
+</div>
+</sc-for>
+<div>
+<p class="lab">9b · bốn nhãn trạng thái của một phần</p>
+<ul style="margin: 0; padding: 0; list-style: none; font-size: 15px">
+<li style="display: grid; grid-template-columns: 118px minmax(0, 1fr); gap: 14px; padding: 10px 0; border-top: 1px solid var(--ink)"><span><span class="chip" style="border-color: var(--ok); color: var(--ok)">Đã trả</span></span><span>Giáo viên đã trả phần này: hiện band và liên kết phiếu chi tiết.</span></li>
+<li style="display: grid; grid-template-columns: 118px minmax(0, 1fr); gap: 14px; padding: 10px 0; border-top: 1px solid var(--rule)"><span><span class="chip" style="border-color: var(--mark); color: var(--mark)">Đang chấm</span></span><span>Đã nộp, chưa được trả. Không hiện band, kể cả khi AI đã chấm xong mà giáo viên chưa duyệt.</span></li>
+<li style="display: grid; grid-template-columns: 118px minmax(0, 1fr); gap: 14px; padding: 10px 0; border-top: 1px solid var(--rule)"><span><span class="chip" style="border-color: var(--rule); color: var(--muted)">Không dự thi</span></span><span>Kỹ năng không có trong mock test của bạn. Mock test như vậy không bao giờ có Overall.</span></li>
+<li style="display: grid; grid-template-columns: 118px minmax(0, 1fr); gap: 14px; padding: 10px 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule)"><span><span class="chip" style="border-color: var(--mark); color: var(--mark)">Không làm</span></span><span>Có trong mock test nhưng khoảng mở đóng trước khi bạn bắt đầu, hoặc bạn vắng phần đó. Không có band, không tính Overall.</span></li>
+</ul>
+<p class="note">Mock test đủ bốn kỹ năng mà mới trả hai phần: Overall ghi “Chưa có Overall: Writing, Speaking đang chấm”, xem <a href="PhieuKetQua.dc.html#s4">PhieuKetQua</a> mục 4 biến thể A. Overall chỉ có ở mock test được giao; đề tự chọn không có.</p>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="s10" class="sec">
+<h2 id="s10" class="h2" style="margin-bottom: 8px">Ghi chú cho lập trình</h2>
+<ul style="margin: 0; padding: 0 0 0 20px; max-width: 136ch; display: flex; flex-direction: column; gap: 6px">
+<li>Trang kỳ thi là trang thường của mục Thi thử (đề xuất đường dẫn <code>/tests/exams/[kỳ thi]</code>), tiếng Việt, có chế độ sáng/tối. Màn 3, 4, 5 là khung thi: tiếng Anh, luôn sáng, thanh tập trung; chỉ dòng lối về là tiếng Việt, gắn <code>lang="vi"</code>. Không hiện mã kỳ thi hay mã lượt.</li>
+<li>Mock test chỉ đến từ việc giao ở admin; không có danh mục mock test công khai. Phần tự chọn của học viên chỉ có full test từng kỹ năng và mini test (ThiThu). Cơ chế đồng hồ riêng từng phần đã có ở backend (ghi chú ở AdminKyThi); phần thêm phía học viên: trang kỳ thi gom các phần, trạng thái từng phần, thông báo khi được giao và khi sắp đóng.</li>
+<li>Thứ tự phần cố định Listening → Reading → Writing → Speaking theo kỹ năng dự thi của từng người; máy chủ từ chối mở phần sau khi phần trước chưa nộp, và từ chối mở lại phần đã nộp. Làm trong khoảng thời gian (đã chốt 18/11/2026): không nghỉ giữa các phần; bấm “Start test” một lần, phần kế bắt đầu = giờ nộp phần trước + thời gian chuyển phần (đề xuất 60 giây), kể cả khi học viên rời trang. Không có trạng thái “giữa hai phần”.</li>
+<li>Đồng hồ tính ở máy chủ. Quay lại khi kỳ thi đang chạy thì vào đúng phần đang chạy; phần hết giờ khi vắng mặt tự nộp, không có câu trả lời nào thì ghi “Không làm” (giả định). Mốc tự nộp là mốc đến trước trong hai mốc: hết giờ phần, hoặc giờ đóng của khoảng mở (người thi bù có khoảng mở riêng). “Còn lại của khoảng mở” trên trang khớp với cột cùng tên ở thẻ Theo dõi của admin.</li>
+<li>Trạng thái kỳ thi phía học viên: Sắp mở (hoặc Sắp diễn ra, với Phòng thi cùng giờ) → Đang mở → Đã nộp hết · chờ kết quả → Đã trả một phần → Đã có kết quả; nhánh Đã đóng · bạn chưa thi và Đã đóng · làm dở. Chưa bắt đầu: ghi tổng thời gian cần dành liền một lần (cộng thời lượng các phần dự thi). Trạng thái phần: Chưa làm (viền mực), Đang làm (nền đánh dấu, kèm thời gian còn lại), Đã nộp (viền xanh), Không làm (viền đánh dấu, chỉ sau khi khoảng mở đóng); luôn có chữ, không chỉ màu. Trước giờ mở: trang ghi “Mở lúc 08:00 thứ Hai 16/11”, không có nút. Kỳ thi bị huỷ trước giờ mở: trang báo “Kỳ thi đã được huỷ”, dòng ở Hôm nay và Thi thử biến mất.</li>
+<li>Thông báo: khi được giao; khi giáo viên sửa khoảng mở; nhắc trước giờ đóng 24 giờ nếu chưa bắt đầu (giả định); khi giáo viên bấm “Nhắc”; khi khoảng mở đóng mà còn phần chưa làm; mỗi lần giáo viên trả thêm phần.</li>
+<li>Kết quả: không hiện band nào trước khi giáo viên trả. Overall chỉ tính khi kỳ thi có đủ bốn kỹ năng và cả bốn đã được trả. Lượt (sửa 18/11/2026, mặc định tạm chờ anh Andy xác nhận): mock test được giao KHÔNG trừ lượt, cả Writing lẫn Speaking (Speaking do giáo viên chấm từ bản ghi); trang kỳ thi và phòng thi không hiện dòng lượt. Khớp GOI-04 mục 5.6.</li>
+<li>Dưới 768px: trang kỳ thi không có nút vào bài; đường dẫn trực tiếp của phần về màn chặn, không tạo lượt làm. Mỗi phần làm một lần, không có làm lại; không có “Abandon test” hay tạm dừng audio; rời bài bằng “Leave test” thì đồng hồ máy chủ vẫn chạy. Dòng phụ tiếng Việt chỉ ở màn ngoài bài thi (màn 3, màn chặn điện thoại).</li>
+</ul>
+</section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Xanh teal","Navy + đỏ mận"],"default":"Navy + đỏ mận"},"$preview":{"width":1280,"height":8000}}'>
+class Component extends DCLogic {
+renderVals() {
+const s = this.state || {};
+const view = s.view || 'doing';
+const confirmed = s.confirmed === undefined ? true : s.confirmed;
+const C = {
+todo: { chip: 'Chưa làm', bd: 'var(--ink)', bg: 'var(--surface)', fg: 'var(--ink)' },
+doing: { chip: 'Đang làm', bd: 'var(--mark)', bg: 'var(--mark)', fg: 'var(--on-accent)' },
+done: { chip: 'Đã nộp', bd: 'var(--ok)', bg: 'var(--surface)', fg: 'var(--ok)' },
+missed: { chip: 'Không làm', bd: 'var(--mark)', bg: 'var(--surface)', fg: 'var(--mark)' }
+};
+const P = [
+{ n: '1', name: 'Listening', dur: 'khoảng 30 phút', qs: '40 câu · 4 part' },
+{ n: '2', name: 'Reading', dur: '60 phút', qs: '40 câu · 3 passage' },
+{ n: '3', name: 'Writing', dur: '60 phút', qs: 'Task 1 và Task 2' }
+];
+const row = (i, st, note, act, kind) => Object.assign({}, P[i], C[st], { note, action: act || '', primary: kind === 'primary', mark: kind === 'mark', plain: !kind });
+const L1 = 'nộp hôm nay 14:10 · đã trả lời 38 trên 40 câu';
+const L2 = 'nộp thứ Ba 17/11, 14:10 · đã trả lời 38 trên 40 câu';
+const V = {
+start: {
+stChip: 'Đang mở', st: 'open', left: '5 ngày 9 giờ', doneN: 0,
+bn: ['info', 'Kỳ thi đang mở · bạn chưa bắt đầu', 'Bắt đầu lúc nào cũng được trước 23:59 Chủ nhật 22/11', 'Bạn cần khoảng 2 giờ 30 phút làm liền một lần: ba phần chạy nối nhau, không nghỉ giữa các phần và không để phần sau sang hôm khác. Đồng hồ chỉ chạy khi bạn bấm bắt đầu ở màn chuẩn bị.', 'primary', 'Chuẩn bị và bắt đầu'],
+parts: [row(0, 'todo', 'Phần đầu tiên', 'Chuẩn bị và bắt đầu', 'primary'), row(1, 'todo', 'Bắt đầu ngay sau khi nộp Listening', 'Chạy liền sau Listening'), row(2, 'todo', 'Bắt đầu ngay sau khi nộp Reading', 'Chạy liền sau Reading')]
+},
+doing: {
+stChip: 'Đang mở', st: 'open', left: '5 ngày 9 giờ', doneN: 1,
+bn: ['warn', 'Cảnh báo · phần Reading đang dở, đồng hồ vẫn chạy', 'Reading · còn khoảng 41 phút', 'Bắt đầu lúc 14:12 hôm nay · đã trả lời 9 trên 40 câu. Đồng hồ không dừng khi bạn rời bài; hết giờ lúc 15:12, phần này tự nộp với các câu đã trả lời, rồi Writing bắt đầu ngay, không nghỉ.', 'mark', 'Làm tiếp ngay'],
+parts: [row(0, 'done', L1, 'Xem lại sau khi có kết quả'), row(1, 'doing', 'bắt đầu 14:12 hôm nay · còn khoảng 41 phút', 'Làm tiếp ngay', 'mark'), row(2, 'todo', 'Bắt đầu ngay sau khi nộp Reading', 'Chạy liền sau Reading')]
+},
+done: {
+stChip: 'Đã nộp hết · chờ kết quả', st: 'wait', left: 'Bạn đã nộp xong', doneN: 3,
+bn: ['ok', 'Đã nộp đủ 3 phần', 'Chờ giáo viên chấm và công bố', 'Bạn nộp phần cuối lúc 16:11 thứ Ba 17/11. Giáo viên Lê Hoàng Yến chấm rồi trả kết quả, dự kiến trong XXX ngày; có thể trả từng phần. Bạn nhận thông báo mỗi lần có phần được trả.', 'link', 'Xem phiếu khi trả từng phần'],
+parts: [row(0, 'done', L2, 'Chờ giáo viên trả'), row(1, 'done', 'nộp thứ Ba 17/11, 15:10 · đã trả lời 36 trên 40 câu', 'Chờ giáo viên trả'), row(2, 'done', 'nộp thứ Ba 17/11, 16:11 · Task 1: 171 từ · Task 2: 268 từ', 'Chờ giáo viên trả')]
+},
+closedNone: {
+stChip: 'Đã đóng · bạn chưa thi', st: 'closed', left: 'Đã đóng 22/11, 23:59', doneN: 0,
+bn: ['warn', 'Cảnh báo · kỳ thi đã đóng, bạn chưa làm', 'Bạn chưa bắt đầu kỳ thi này.', 'Khoảng mở kết thúc lúc 23:59 Chủ nhật 22/11. Cả ba phần không làm được nữa và không có điểm. Muốn thi bù, hỏi giáo viên lớp.', '', ''],
+parts: [row(0, 'missed', 'khoảng mở đã đóng trước khi bạn bắt đầu', 'Không làm được nữa'), row(1, 'missed', 'khoảng mở đã đóng trước khi bạn bắt đầu', 'Không làm được nữa'), row(2, 'missed', 'khoảng mở đã đóng trước khi bạn bắt đầu', 'Không làm được nữa')]
+},
+closed: {
+stChip: 'Đã đóng · nộp 2 trên 3 phần', st: 'closed', left: 'Đã đóng 22/11, 23:59', doneN: 2,
+bn: ['warn', 'Cảnh báo · kỳ thi đã đóng khi bạn đang làm dở', 'Bạn đã nộp 2 trên 3 phần. Writing chưa làm.', 'Bạn bắt đầu lúc 23:10 Chủ nhật 22/11, khi khoảng mở chỉ còn 49 phút. Lúc 23:59 Reading tự nộp với các câu đã trả lời; Writing không làm được nữa và không có điểm. Hai phần đã nộp vẫn được chấm và trả. Muốn thi bù Writing, hỏi giáo viên lớp.', '', ''],
+parts: [row(0, 'done', 'nộp Chủ nhật 22/11, 23:41 · đã trả lời 38 trên 40 câu', 'Chờ giáo viên trả'), row(1, 'done', 'tự nộp Chủ nhật 22/11, 23:59 · đã trả lời 11 trên 40 câu', 'Chờ giáo viên trả'), row(2, 'missed', 'khoảng mở đã đóng trước khi tới phần này', 'Không làm được nữa')]
+}
+}[view];
+const stC = { open: ['var(--accent)', 'var(--accent)', 'var(--on-accent)'], wait: ['var(--rule)', 'var(--off)', 'var(--ink)'], closed: ['var(--mark)', 'var(--surface)', 'var(--mark)'] }[V.st];
+const bnC = { info: 'var(--ink)', warn: 'var(--mark)', ok: 'var(--ok)' }[V.bn[0]];
+const DEMO = [['start', 'Chưa bắt đầu'], ['doing', 'Đang làm (phần 2)'], ['done', 'Đã nộp hết'], ['closedNone', 'Đã đóng, chưa làm'], ['closed', 'Đã đóng, làm dở']];
+const step = (n, name, time, state, kind) => ({ n, name, time, state, cur: kind === 'next' ? 'step' : 'false', bar: kind === 'done' ? 'var(--ok)' : (kind === 'next' ? 'var(--accent)' : 'var(--rule)'), color: kind === 'later' ? 'var(--muted)' : 'var(--ink)' });
+const tab = (label, icon, href, cur) => ({ label, icon, href, current: cur ? 'page' : 'false', bar: cur ? 'var(--accent)' : 'transparent', color: cur ? 'var(--ink)' : 'var(--muted)', weight: cur ? 600 : 400 });
+const sr = (name, sub, kind, band, link) => {
+const K = { ret: ['Đã trả', 'var(--ok)', 'var(--ok)'], mark: ['Đang chấm', 'var(--mark)', 'var(--mark)'], none: ['Không dự thi', 'var(--rule)', 'var(--muted)'] }[kind];
+const has = kind === 'ret';
+return { name, sub, chip: K[0], bd: K[1], fg: K[2], nameC: kind === 'none' ? 'var(--muted)' : 'var(--ink)', band: has ? band : (kind === 'none' ? '–' : 'Chưa có'), bandCls: has ? 'serif' : '', bandSize: has ? '22px' : '14px', bandW: has ? 600 : 400, bandC: has ? 'var(--ink)' : 'var(--muted)', hasLink: has, noLink: !has, link };
+};
+return {
+pal: (this.props.palette ?? 'Navy + đỏ mận') === 'Xanh teal' ? 'pal-teal' : 'pal-navy',
+demo: DEMO.map(([k, t]) => ({ t, on: view === k, bw: view === k ? '2px' : '1px', bg: view === k ? 'var(--tint)' : 'var(--surface)', go: () => this.setState({ view: k }) })),
+stChip: V.stChip, stBd: stC[0], stBg: stC[1], stFg: stC[2],
+bnRole: V.bn[0] === 'warn' ? 'alert' : 'status', bnC, bnBg: V.bn[0] === 'warn' ? 'color-mix(in srgb, var(--mark) 6%, var(--surface))' : 'var(--surface)',
+bnLabel: V.bn[1], bnTitle: V.bn[2], bnText: V.bn[3], bnAction: V.bn[5],
+bnPrimary: V.bn[4] === 'primary', bnMark: V.bn[4] === 'mark', bnLink: V.bn[4] === 'link',
+left: V.left, doneN: V.doneN, doneAria: 'Đã nộp ' + V.doneN + ' trên 3 phần',
+segs: [0, 1, 2].map((i) => ({ c: i < V.doneN ? 'var(--ok)' : 'var(--rule)' })),
+parts: V.parts,
+confirmed, notConfirmed: !confirmed, confirmBorder: confirmed ? 'var(--ink)' : 'var(--rule)',
+toggleConfirm: () => this.setState({ confirmed: !confirmed }),
+notis: [
+{ kicker: 'Thi thử · mock test mới', kc: 'var(--muted)', when: 'Thứ Hai 16/11, 08:00', title: 'Giáo viên Lê Hoàng Yến giao “Thi thử giữa khoá”: Listening, Reading, Writing. Làm liền ba phần, khoảng 2 giờ 30 phút, từ 08:00 thứ Hai 16/11 đến 23:59 Chủ nhật 22/11.', action: 'Xem kỳ thi', line: 'var(--rule)' },
+{ kicker: 'Cảnh báo · sắp đóng', kc: 'var(--mark)', when: 'Thứ Bảy 21/11, 23:59', title: '“Thi thử giữa khoá” đóng sau 24 giờ. Bạn chưa bắt đầu; cần khoảng 2 giờ 30 phút liền.', action: 'Vào kỳ thi', line: 'var(--rule)' },
+{ kicker: 'Thi thử · đã đóng', kc: 'var(--muted)', when: 'Chủ nhật 22/11, 23:59', title: '“Thi thử giữa khoá” đã đóng. Bạn đã nộp 2 trên 3 phần; Writing chưa làm.', action: 'Xem trạng thái', line: 'transparent' },
+{ kicker: 'Thi thử · có kết quả', kc: 'var(--muted)', when: 'Thứ Ba 24/11, 10:20', title: 'Giáo viên đã trả Listening và Reading của “Thi thử giữa khoá”. Writing đang chấm.', action: 'Xem phiếu', line: 'transparent' }
+],
+checks: [
+{ name: 'Sound', for: 'for Listening', detail: 'You confirmed you can hear the test sound.', action: 'Play test sound' },
+{ name: 'Connection', for: 'for saving answers', detail: 'Online. Your answers will be saved as you work.', action: 'Check again' }
+],
+devs: [
+{ name: 'Listening', checks: 'Sound · Connection', rule: 'Recordings play once only.' },
+{ name: 'Reading', checks: 'Connection', rule: 'No extra time to transfer answers.' },
+{ name: 'Writing', checks: 'Connection', rule: 'Minimum 150 and 250 words.' },
+{ name: 'Speaking', checks: 'Microphone · Connection', rule: 'Each answer is recorded once.' }
+],
+steps: [step('1', 'Listening', 'about 30 minutes', 'Submitted', 'done'), step('2', 'Reading', '60 minutes', 'Starts in 0:52', 'next'), step('3', 'Writing', '60 minutes', 'Straight after Reading', 'later')],
+stepsLive: [step('1', 'Listening', 'about 30 minutes', 'Submitted', 'done'), step('2', 'Reading', '60 minutes', 'Waiting', 'next'), step('3', 'Writing', '60 minutes', 'Not started', 'later'), step('4', 'Speaking', '11–14 minutes', 'Not started', 'later')],
+liveParts: [{ n: '1', name: 'Listening', dur: 'khoảng 30 phút' }, { n: '2', name: 'Reading', dur: '60 phút' }, { n: '3', name: 'Writing', dur: '60 phút' }, { n: '4', name: 'Speaking', dur: '11–14 phút' }],
+cmp: [
+{ k: 'Bắt đầu', a: 'Đúng giờ thi; vào phòng chờ trước đó', b: 'Tự chọn lúc bắt đầu trong khoảng mở' },
+{ k: 'Chuyển phần', a: 'Giám thị mở cho cả phòng', b: 'Phần kế tự bắt đầu' },
+{ k: 'Đồng hồ', a: 'Chung cả phòng', b: 'Riêng từng người, từng phần' },
+{ k: 'Giữa hai phần', a: 'Chờ tại chỗ', b: 'Không nghỉ, vào ngay phần kế' },
+{ k: 'Rời bài', a: 'Đồng hồ vẫn chạy', b: 'Đồng hồ phần vẫn chạy' },
+{ k: 'Kết thúc', a: 'Hết giờ phần thì tự nộp', b: 'Hết giờ phần hoặc hết khoảng mở thì tự nộp' },
+{ k: 'Làm lại', a: 'Không; thi bù do giáo viên giao', b: 'Không; mỗi phần một lần' }
+],
+tabParts: [
+Object.assign({}, P[0], C.todo, { note: 'phần đầu tiên' }),
+Object.assign({}, P[1], C.todo, { note: 'ngay sau Listening' }),
+Object.assign({}, P[2], C.todo, { note: 'ngay sau Reading' })
+],
+tabs: [
+tab('Hôm nay', 'M4 11l8-7 8 7v9H4z', 'Main.dc.html'),
+tab('Lộ trình', 'M5 20V8M5 8h10l-2 3 2 3H5M19 20h-4', 'LoTrinh.dc.html'),
+tab('Luyện tập', 'M4 19l4-1 11-11-3-3L5 15zM14 6l3 3', 'LuyenTap.dc.html'),
+tab('Thi thử', 'M12 7v5l3 2M12 3a9 9 0 100 18 9 9 0 000-18z', 'ThiThu.dc.html', true),
+tab('Thư viện', 'M5 4h5v16H5zM10 4h5v16h-5zM16 6l3-1 3 14-3 1z', 'ThuVien.dc.html')
+],
+slips: [
+{ label: '9a · mock test ba kỹ năng · đã trả hai phần, một phần đang chấm', kicker: 'Phiếu kết quả mock test · làm ngày 17/11/2026', title: 'Thi thử giữa khoá',
+ovTitle: 'Kỳ thi này không tính Overall', ovText: 'Bạn dự thi 3 trên 4 kỹ năng (không có Speaking). Overall chỉ tính khi một mock test có đủ bốn kỹ năng. Writing đang chấm; bạn nhận thông báo khi giáo viên trả.',
+rows: [sr('Listening', 'đúng 29 trên 40 câu', 'ret', '6.5', 'Xem phiếu Listening'), sr('Reading', 'đúng 25 trên 40 câu', 'ret', '6.0', 'Xem phiếu Reading'), sr('Writing', 'đã nộp Task 1 và Task 2', 'mark', '', 'Có khi giáo viên trả phần này'), sr('Speaking', 'không có trong kỳ thi này', 'none', '', 'Không có')],
+foot: 'Giáo viên trả Listening, Reading ngày 24/11/2026. Mọi band ở đây là điểm ước lượng, không phải điểm thi.' }
+]
+};
+}
+}
+</script>
+</body>
+</html>

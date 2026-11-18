@@ -1,0 +1,720 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Grammar Wiki</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--accentH:#0B5953;--link:#0B5953;--mark:#8A4B08;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EDF3F1;--off:#E7E2D6}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--accentH:#11254A;--link:#1A3561;--mark:#8A1C1C;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EEF0F5;--off:#E8E2D5}
+a{color:var(--link)}a:hover{color:var(--ink)}
+.sf{font-family:'Source Serif 4',Georgia,serif}
+.kick{margin:0;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)}
+.h2s{margin:0 0 6px;font-family:'Source Serif 4',Georgia,serif;font-size:24px;font-weight:600}
+.lead{margin:0 0 16px;font-size:14px;color:var(--muted);max-width:110ch}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;border:1px solid var(--ink);border-radius:2px;background:var(--surface);color:var(--ink);font:600 15px 'Source Sans 3',sans-serif;text-decoration:none;cursor:pointer;box-sizing:border-box}
+.btnp{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 20px;border:1px solid var(--accent);border-radius:2px;background:var(--accent);color:var(--surface);font:600 15px 'Source Sans 3',sans-serif;text-decoration:none;cursor:pointer;box-sizing:border-box}
+.tl{font-family:'Source Serif 4',Georgia,serif;font-size:18px;line-height:1.35;color:var(--ink);text-decoration-color:var(--rule);text-underline-offset:4px}
+.vi{display:block;margin-top:1px;font-size:14px;color:var(--muted)}
+.foot a{display:inline-flex;align-items:center;min-height:44px}
+</style>
+</helmet>
+<div class="{{pal}}" style="width: 1280px; height: 5910px; box-sizing: border-box; padding: 40px 0; background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 16px; line-height: 1.5; display: flex; flex-direction: column; gap: 28px">
+
+<header style="padding: 0 64px">
+<p class="kick">Aver Learning · Bản in · đợt 7 · Thư viện công khai · Grammar Wiki</p>
+<h1 style="margin: 4px 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 40px; font-weight: 600; line-height: 1.15">Grammar Wiki: trang mục lục</h1>
+<p style="margin: 0; color: var(--muted); max-width: 96ch">Thiết kế lại trang <span lang="en">/grammar</span> đang chạy trên web, dùng đúng mục lục thật: 137 bài trong 10 nhóm (lấy từ <span lang="en">backend/content/_groups.yaml</span>). Giữ hai chế độ đang có, "Tra cứu" và "Học và luyện". Trang một bài ở tờ <a href="GrammarWikiBai.dc.html">Grammar Wiki: trang bài</a>; bộ sơ đồ câu ở tờ <a href="GrammarWikiMinhHoa.dc.html">Grammar Wiki: minh hoạ câu chữ</a>. Tờ này thay phần mục lục của tờ <a href="NguPhap.dc.html">Ngữ pháp</a> (bản cũ dùng mục lục giả định).</p>
+</header>
+
+<!-- 1 · MỤC LỤC · KHÁCH -->
+<section aria-labelledby="m1" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<div style="padding: 0 64px">
+<h2 id="m1" class="h2s">1 · Mục lục Grammar Wiki · máy tính 1280px · chưa đăng nhập</h2>
+<p class="lead">Vẽ đủ cả trang. Bấm được: hai chế độ, ô tìm (lọc ngay khi gõ, không dấu vẫn khớp; thử "bi dong", "passive", "xyz"), chọn nhóm ở cây chủ đề bên trái để xem toàn bộ bài của nhóm.</p>
+</div>
+<div style="border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); background: var(--paper)">
+
+<header style="border-bottom: 1px solid var(--ink)">
+<div style="display: flex; align-items: stretch; gap: 36px; height: 63px; padding: 0 32px">
+<a href="TrangChuCongKhai.dc.html" style="display: inline-flex; align-items: center; gap: 9px; align-self: center; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600; color: var(--ink); text-decoration: none"><svg width="29" height="29" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</a>
+<nav aria-label="Điều hướng công khai" style="display: flex; gap: 28px; flex-grow: 1">
+<a href="ThuVien.dc.html" aria-current="page" style="display: flex; align-items: center; padding-top: 3px; border-bottom: 3px solid var(--accent); color: var(--ink); font-weight: 600; text-decoration: none">Thư viện</a>
+<a href="DanhMucKhoa.dc.html" style="display: flex; align-items: center; padding-top: 3px; border-bottom: 3px solid transparent; color: var(--muted); text-decoration: none">Khoá học</a>
+</nav>
+<div style="display: flex; align-items: center; gap: 20px">
+<a href="TaiKhoanDangNhap.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; color: var(--ink); font-weight: 600">Đăng nhập</a>
+<a href="DanhMucKhoa.dc.html" class="btnp">Xem các khoá</a>
+</div>
+</div>
+</header>
+
+<main style="max-width: 1216px; margin: 0 auto; padding: 24px 32px 40px">
+<nav aria-label="Vị trí trang" style="font-size: 14px; color: var(--muted)"><a href="ThuVien.dc.html">Thư viện</a> › <span aria-current="page" style="color: var(--ink)">Grammar Wiki</span></nav>
+
+<div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 48px; margin-top: 8px; padding-bottom: 20px; border-bottom: 2px solid var(--ink)">
+<div style="flex: 1 1 560px; min-width: 0">
+<p class="kick">Thư viện · Ngữ pháp</p>
+<h1 style="margin: 4px 0 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 44px; font-weight: 600; line-height: 1.15">Grammar Wiki</h1>
+<p class="sf" style="margin: 0; font-size: 18px; line-height: 29px; max-width: 62ch">Tra cứu ngữ pháp tiếng Anh theo hệ thống: 137 bài trong 10 nhóm. Mỗi bài giảng bằng tiếng Việt, ví dụ tiếng Anh, có sơ đồ câu, lỗi người Việt hay mắc và câu tự kiểm tra. Đọc miễn phí, không cần tài khoản.</p>
+</div>
+<div style="flex: 0 1 440px; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+<label for="gw-q" style="font-weight: 600">Tìm trong Grammar Wiki</label>
+<div style="display: flex">
+<input id="gw-q" type="search" value="{{q}}" onChange="{{onQ}}" onInput="{{onQ}}" placeholder="Tiếng Việt hoặc tiếng Anh: bị động, passive, mạo từ" style="flex: 1 1 auto; min-width: 0; min-height: 44px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px 0 0 2px; background: var(--surface); font: 16px 'Source Sans 3', sans-serif; color: var(--ink)">
+<button onClick="{{clearQ}}" aria-label="Xoá nội dung tìm" style="flex: 0 0 auto; min-width: 72px; min-height: 44px; border: 1px solid var(--muted); border-left: 0; border-radius: 0 2px 2px 0; background: var(--surface); color: var(--ink); font: 600 15px 'Source Sans 3', sans-serif; cursor: pointer">Xoá</button>
+</div>
+<p style="margin: 0; font-size: 14px; color: var(--muted)">Thử nhanh: <a href="#m1" onClick="{{tryA}}">bị động</a> · <a href="#m1" onClick="{{tryB}}">article</a> · <a href="#m1" onClick="{{tryC}}">xyz</a></p>
+</div>
+</div>
+
+<div role="tablist" aria-label="Chế độ Grammar Wiki" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 640px; margin-top: 20px; border-bottom: 1px solid var(--ink)">
+<sc-for list="{{modes}}" as="m" hint-placeholder-count="2">
+<button role="tab" aria-selected="{{m.on}}" onClick="{{m.pick}}" style="display: flex; flex-direction: column; align-items: flex-start; gap: 0; min-height: 64px; padding: 10px 16px 8px 0; border: 0; border-bottom: 3px solid {{m.bar}}; margin-bottom: -1px; background: transparent; color: var(--ink); text-align: left; cursor: pointer; font-family: 'Source Sans 3', sans-serif"><strong style="font-size: 17px; font-weight: {{m.weight}}">{{m.label}}</strong><span style="font-size: 14px; color: var(--muted)">{{m.sub}}</span></button>
+</sc-for>
+</div>
+
+<sc-if value="{{showRef}}" hint-placeholder-val="{{ true }}">
+
+<sc-if value="{{noQuery}}" hint-placeholder-val="{{ true }}">
+<section aria-labelledby="vd-h" style="margin-top: 28px">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 24px; border-top: 2px solid var(--ink); padding-top: 10px">
+<h2 id="vd-h" class="sf" style="margin: 0; font-size: 26px; font-weight: 600">Bắt đầu từ lỗi bạn hay gặp</h2>
+<span style="font-size: 14px; color: var(--muted)">Mỗi dòng dẫn thẳng tới mục chữa lỗi trong bài</span>
+</div>
+<ol style="margin: 8px 0 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 56px">
+<sc-for list="{{problems}}" as="p" hint-placeholder-count="8">
+<li style="display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 0 10px; padding: 12px 0; border-bottom: 1px solid var(--rule)">
+<span style="font-size: 15px; color: var(--muted); font-variant-numeric: tabular-nums">{{p.n}}</span>
+<div style="min-width: 0">
+<p style="margin: 0; font-weight: 600">{{p.issue}}</p>
+<p lang="en" class="sf" style="margin: 2px 0 4px; font-size: 17px"><span style="text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 1.5px">{{p.wrong}}</span></p>
+<p style="margin: 0; font-size: 15px; color: var(--muted)">Đọc: <a href="GrammarWikiBai.dc.html" lang="en">{{p.art}}</a> · {{p.group}}</p>
+</div>
+</li>
+</sc-for>
+</ol>
+</section>
+
+<section aria-labelledby="nb-h" style="margin-top: 32px">
+<h2 id="nb-h" class="sf" style="margin: 0; font-size: 26px; font-weight: 600; border-top: 2px solid var(--ink); padding-top: 10px">Bài nổi bật</h2>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 32px; margin-top: 10px">
+<sc-for list="{{featured}}" as="f" hint-placeholder-count="4">
+<article style="border-top: 1px solid var(--ink); padding: 12px 0 4px">
+<p class="kick" style="font-size: 12px">{{f.group}}</p>
+<h3 style="margin: 4px 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 21px; font-weight: 600; line-height: 1.25"><a href="GrammarWikiBai.dc.html" lang="en" style="color: var(--ink); text-decoration-color: var(--rule); text-underline-offset: 4px">{{f.en}}</a></h3>
+<p style="margin: 0 0 6px; font-size: 15px; color: var(--muted)">{{f.vi}}</p>
+<p style="margin: 0; font-size: 15px">{{f.sum}}</p>
+</article>
+</sc-for>
+</div>
+</section>
+
+<section aria-labelledby="cay-h" style="margin-top: 36px">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 24px; border-top: 2px solid var(--ink); padding-top: 10px">
+<h2 id="cay-h" class="sf" style="margin: 0; font-size: 26px; font-weight: 600">Mục lục theo nhóm</h2>
+<span style="font-size: 14px; color: var(--muted)">10 nhóm · 137 bài</span>
+</div>
+<div style="display: grid; grid-template-columns: 340px minmax(0, 1fr); column-gap: 48px; margin-top: 12px; align-items: start">
+<nav aria-label="Các nhóm chủ đề">
+<ol style="margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--ink)">
+<sc-for list="{{groups}}" as="g" hint-placeholder-count="10">
+<li style="border-bottom: 1px solid var(--rule)"><button onClick="{{g.pick}}" aria-current="{{g.cur}}" style="display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 0 8px; align-items: baseline; width: 100%; min-height: 48px; padding: 10px 8px 10px 9px; border: 0; border-left: 3px solid {{g.bar}}; background: {{g.bg}}; color: var(--ink); text-align: left; cursor: pointer; font-family: 'Source Sans 3', sans-serif"><span style="font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums">{{g.n}}</span><span class="sf" style="font-size: 18px; font-weight: {{g.weight}}; line-height: 1.3">{{g.name}}</span><span style="font-size: 14px; color: var(--muted); white-space: nowrap">{{g.count}} bài</span></button></li>
+</sc-for>
+</ol>
+<p style="margin: 12px 0 0; font-size: 14px; color: var(--muted)">Thứ tự nhóm theo hướng học: nền tảng trước, áp dụng IELTS sau. Bạn mở nhóm nào cũng được.</p>
+</nav>
+<section aria-labelledby="sel-h" style="min-width: 0">
+<p class="kick">Nhóm {{sel.n}}</p>
+<h3 id="sel-h" class="sf" style="margin: 2px 0 4px; font-size: 30px; font-weight: 600; line-height: 1.2">{{sel.name}}</h3>
+<p class="sf" style="margin: 0 0 12px; font-size: 17px; line-height: 27px; color: var(--muted); max-width: 70ch">{{sel.d}} · {{sel.count}} bài.</p>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 40px; border-top: 1px solid var(--ink)">
+<sc-for list="{{selCols}}" as="col" hint-placeholder-count="2">
+<ol start="{{col.start}}" style="margin: 0; padding: 0; list-style: none">
+<sc-for list="{{col.items}}" as="it" hint-placeholder-count="5">
+<li style="display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 0 8px; align-items: baseline; padding: 9px 0; border-bottom: 1px solid var(--rule)">
+<span style="font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums">{{it.n}}</span>
+<span style="min-width: 0"><a href="GrammarWikiBai.dc.html" lang="en" class="tl">{{it.en}}</a><span class="vi">{{it.vi}}</span></span>
+</li>
+</sc-for>
+</ol>
+</sc-for>
+</div>
+</section>
+</div>
+</section>
+</sc-if>
+
+<sc-if value="{{hasResults}}" hint-placeholder-val="{{ false }}">
+<section aria-labelledby="kq-h" style="margin-top: 24px; max-width: 880px">
+<h2 id="kq-h" aria-live="polite" class="sf" style="margin: 0; padding-top: 10px; border-top: 2px solid var(--ink); font-size: 22px; font-weight: 600">{{resultNote}}</h2>
+<ol style="margin: 8px 0 0; padding: 0; list-style: none">
+<sc-for list="{{results}}" as="r" hint-placeholder-count="5">
+<li style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 24px; padding: 10px 0; border-bottom: 1px solid var(--rule)">
+<span style="flex: 1 1 420px; min-width: 0"><a href="GrammarWikiBai.dc.html" lang="en" class="tl">{{r.en}}</a><span class="vi">{{r.vi}}</span></span>
+<span style="font-size: 14px; color: var(--muted); white-space: nowrap">Nhóm {{r.gn}} · {{r.group}}</span>
+</li>
+</sc-for>
+</ol>
+<sc-if value="{{moreNote}}" hint-placeholder-val="{{ false }}"><p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)">{{moreText}}</p></sc-if>
+</section>
+</sc-if>
+
+<sc-if value="{{noResults}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="margin-top: 24px; padding: 18px 0 22px; border-top: 2px solid var(--ink); border-bottom: 1px solid var(--rule); max-width: 720px">
+<p class="sf" style="margin: 0 0 6px; font-size: 22px; font-weight: 600">Không có bài nào khớp “{{q}}”.</p>
+<p class="sf" style="margin: 0 0 12px; font-size: 18px; line-height: 29px">Thử tên tiếng Anh của điểm ngữ pháp (ví dụ <span lang="en">passive voice</span>), bỏ bớt từ, hoặc bắt đầu từ một lỗi hay gặp:</p>
+<ul style="margin: 0 0 16px; padding-left: 20px; font-size: 16px">
+<li><a href="GrammarWikiBai.dc.html" lang="en">Subject-Verb Agreement</a> · chia động từ theo chủ ngữ</li>
+<li><a href="GrammarWikiBai.dc.html" lang="en">Articles</a> · a, an, the</li>
+<li><a href="GrammarWikiBai.dc.html" lang="en">Passive Voice</a> · câu bị động</li>
+</ul>
+<button onClick="{{clearQ}}" class="btn">Xoá tìm kiếm, xem cả mục lục</button>
+</div>
+</sc-if>
+</sc-if>
+
+<sc-if value="{{showLearnGuest}}" hint-placeholder-val="{{ false }}">
+<section aria-labelledby="hl-h" style="margin-top: 28px; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 48px; align-items: start">
+<div style="border-top: 2px solid var(--ink); padding-top: 12px">
+<h2 id="hl-h" class="sf" style="margin: 0 0 8px; font-size: 26px; font-weight: 600">Học và luyện cần đăng nhập</h2>
+<p class="sf" style="margin: 0 0 14px; font-size: 18px; line-height: 29px; max-width: 60ch">Khi đã đăng nhập, chế độ này hiện ba thứ của riêng bạn: bài đang đọc dở, bài đã lưu, và các điểm ngữ pháp cần ôn lấy từ bài Writing, Speaking đã chấm. Mỗi bài trong mục lục có dấu "Đã đọc" khi bạn tự đánh dấu.</p>
+<div style="display: flex; gap: 12px"><a href="TaiKhoanDangNhap.dc.html" class="btnp">Đăng nhập</a><span style="align-self: center; font-size: 14px; color: var(--muted)">Lần đầu đăng nhập là có tài khoản.</span></div>
+</div>
+<div style="border-top: 1px solid var(--ink); padding-top: 12px">
+<p class="kick">Không cần tài khoản</p>
+<ul style="margin: 6px 0 0; padding: 0; list-style: none">
+<li style="padding: 8px 0; border-bottom: 1px solid var(--rule)">Đọc mọi bài và xem đáp án tự kiểm tra trong bài</li>
+<li style="padding: 8px 0; border-bottom: 1px solid var(--rule)">Làm Kiểm tra nhanh cuối mỗi bài (kết quả không lưu)</li>
+<li style="padding: 8px 0; border-bottom: 1px solid var(--rule)">Xem thứ tự gợi ý trong từng nhóm</li>
+</ul>
+</div>
+</section>
+</sc-if>
+
+<aside aria-labelledby="kh-h" style="margin-top: 36px; display: grid; grid-template-columns: 220px minmax(0, 1fr) auto; gap: 8px 32px; align-items: start; padding: 16px 0; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule)">
+<p class="kick" style="padding-top: 3px">Muốn học theo thứ tự?</p>
+<div>
+<h2 id="kh-h" class="sf" style="margin: 0 0 4px; font-size: 21px; font-weight: 600">Khoá Ngữ pháp nền tảng</h2>
+<p style="margin: 0; font-size: 15px; color: var(--muted); max-width: 72ch">Ngữ pháp nền tảng cho việc hiểu tiếng Anh. Wiki để tra cứu; khoá sắp các điểm ngữ pháp theo thứ tự học, có bài tập sau mỗi bài và bài viết được AI chấm. Học phí XXX · truy cập XXX · XXX lượt chấm AI.</p>
+</div>
+<a href="TrangKhoaHoc.dc.html" class="btn" style="white-space: nowrap">Xem khoá</a>
+</aside>
+</main>
+
+<footer style="padding: 20px 32px; border-top: 1px solid var(--ink)">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0 28px">
+<span class="sf" style="display: inline-flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 600; margin-right: 12px"><svg width="26" height="26" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="currentColor"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<nav aria-label="Chân trang" class="foot" style="display: flex; flex-wrap: wrap; gap: 0 24px">
+<a href="TrangChuCongKhai.dc.html">Giới thiệu</a>
+<a href="DanhMucKhoa.dc.html">Khoá học</a>
+<a href="ThuVien.dc.html">Thư viện</a>
+<a href="HocVienNoiGi.dc.html">Học viên nói gì</a>
+<a href="PhapLy.dc.html">Điều khoản</a>
+<a href="PhapLy.dc.html">Quyền riêng tư</a>
+<a href="PhapLy.dc.html">Liên hệ</a>
+</nav>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)">© 2026 Aver Learning. Bảo lưu mọi quyền.</p>
+</footer>
+</div>
+</section>
+
+<!-- 2 · ĐÃ ĐĂNG NHẬP -->
+<section aria-labelledby="m2" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<div style="padding: 0 64px">
+<h2 id="m2" class="h2s">2 · Đã đăng nhập · học viên Khoá Ngữ pháp nền tảng · chế độ "Học và luyện"</h2>
+<p class="lead">Thanh trên là thanh học viên, "Thư viện" đang chọn. Ba cột việc của riêng bạn, rồi cây chủ đề có dấu "Đã đọc" và lối sang bài tập của khoá. Bấm "Đã đọc" ở một dòng để thử bật/tắt.</p>
+</div>
+<div style="border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); background: var(--paper)">
+<header style="border-bottom: 1px solid var(--ink)">
+<div style="display: flex; align-items: center; gap: 8px 36px; min-height: 64px; padding: 0 32px">
+<a href="Main.dc.html" class="sf" style="display: inline-flex; align-items: center; gap: 9px; font-size: 22px; font-weight: 600; color: var(--ink); text-decoration: none"><svg width="29" height="29" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</a>
+<nav aria-label="Điều hướng chính" style="display: flex; gap: 4px 28px; flex-grow: 1">
+<a href="Main.dc.html" style="padding: 20px 0; color: var(--muted); text-decoration: none">Hôm nay</a>
+<a href="LoTrinh.dc.html" style="padding: 20px 0; color: var(--muted); text-decoration: none">Lộ trình</a>
+<a href="LuyenTap.dc.html" style="padding: 20px 0; color: var(--muted); text-decoration: none">Luyện tập</a>
+<a href="ThiThu.dc.html" style="padding: 20px 0; color: var(--muted); text-decoration: none">Thi thử</a>
+<a href="ThuVien.dc.html" aria-current="page" style="padding: 20px 0 17px; color: var(--ink); font-weight: 600; text-decoration: none; border-bottom: 3px solid var(--accent)">Thư viện</a>
+</nav>
+<div style="display: flex; align-items: center; gap: 16px">
+<span style="font-size: 14px; color: var(--muted)">Lượt chấm AI còn <strong style="color: var(--ink); font-variant-numeric: tabular-nums">XXX</strong></span>
+<button aria-label="Tra nhanh: từ, bài ngữ pháp, đề bài mẫu" title="Tra nhanh" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; box-sizing: border-box; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); cursor: pointer"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="1.6"></circle><path d="M15 15l5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path></svg></button>
+<span style="position: relative; flex: none; display: inline-flex"><a href="ThongBao.dc.html" aria-label="Thông báo, 4 chưa đọc" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; box-sizing: border-box; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink)"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15zM10 20.5a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></a><span aria-hidden="true" style="position: absolute; top: -7px; right: -7px; min-width: 20px; height: 20px; box-sizing: border-box; padding: 0 5px; border: 1px solid var(--paper); border-radius: 2px; background: var(--accent); color: var(--surface); font-size: 12px; font-weight: 600; line-height: 18px; text-align: center; font-variant-numeric: tabular-nums">4</span></span>
+<button aria-label="Mở menu tài khoản" style="width: 44px; height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer">MA</button>
+</div>
+</div>
+</header>
+<main style="max-width: 1216px; margin: 0 auto; padding: 20px 32px 36px">
+<nav aria-label="Vị trí trang" style="font-size: 14px; color: var(--muted)"><a href="ThuVien.dc.html">Thư viện</a> › <span aria-current="page" style="color: var(--ink)">Grammar Wiki</span></nav>
+<div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-top: 6px">
+<h1 class="sf" style="margin: 0; font-size: 36px; font-weight: 600">Grammar Wiki</h1>
+<div style="display: flex; flex: 0 1 420px"><input type="search" aria-label="Tìm trong Grammar Wiki" placeholder="Tiếng Việt hoặc tiếng Anh: bị động, passive" style="flex: 1 1 auto; min-width: 0; min-height: 44px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface); font: 16px 'Source Sans 3', sans-serif; color: var(--ink)"></div>
+</div>
+<div role="tablist" aria-label="Chế độ Grammar Wiki" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 640px; margin-top: 14px; border-bottom: 1px solid var(--ink)">
+<button role="tab" aria-selected="false" style="display: flex; flex-direction: column; align-items: flex-start; min-height: 64px; padding: 10px 16px 8px 0; border: 0; border-bottom: 3px solid transparent; margin-bottom: -1px; background: transparent; color: var(--ink); text-align: left; font-family: 'Source Sans 3', sans-serif"><strong style="font-size: 17px; font-weight: 400">Tra cứu</strong><span style="font-size: 14px; color: var(--muted)">Tìm câu trả lời ngay</span></button>
+<button role="tab" aria-selected="true" style="display: flex; flex-direction: column; align-items: flex-start; min-height: 64px; padding: 10px 16px 8px 0; border: 0; border-bottom: 3px solid var(--accent); margin-bottom: -1px; background: transparent; color: var(--ink); text-align: left; font-family: 'Source Sans 3', sans-serif"><strong style="font-size: 17px; font-weight: 600">Học và luyện</strong><span style="font-size: 14px; color: var(--muted)">Đi theo lộ trình của bạn</span></button>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 40px; margin-top: 24px">
+<section aria-labelledby="dt-h" style="border-top: 2px solid var(--ink); padding-top: 10px">
+<h2 id="dt-h" class="sf" style="margin: 0 0 4px; font-size: 21px; font-weight: 600">Đọc tiếp</h2>
+<ul style="margin: 0; padding: 0; list-style: none">
+<li style="padding: 9px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="tl">Passive Voice</a><span class="vi">Cấu trúc câu · đang ở mục 5 Lỗi hay gặp</span></li>
+<li style="padding: 9px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="tl">Present Perfect</a><span class="vi">Thì động từ · mở lần cuối 14/11</span></li>
+<li style="padding: 9px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="tl">Countable vs. Uncountable Nouns</a><span class="vi">Nền tảng · mở lần cuối 12/11</span></li>
+</ul>
+</section>
+<section aria-labelledby="dl-h" style="border-top: 2px solid var(--ink); padding-top: 10px">
+<h2 id="dl-h" class="sf" style="margin: 0 0 4px; font-size: 21px; font-weight: 600">Bài đã lưu</h2>
+<ul style="margin: 0; padding: 0; list-style: none">
+<li style="padding: 9px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="tl">Task 1 Trend Grammar</a><span class="vi">IELTS Writing Lab</span></li>
+<li style="padding: 9px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="tl">Relative Clauses</a><span class="vi">Cấu trúc câu</span></li>
+<li style="padding: 9px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="tl">Hedging Language</a><span class="vi">Ngữ pháp theo chức năng</span></li>
+</ul>
+</section>
+<section aria-labelledby="co-h" style="border-top: 2px solid var(--ink); padding-top: 10px">
+<h2 id="co-h" class="sf" style="margin: 0 0 4px; font-size: 21px; font-weight: 600">Cần ôn, từ bài đã chấm</h2>
+<ul style="margin: 0; padding: 0; list-style: none">
+<li style="padding: 9px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="tl">Subject-Verb Agreement</a><span class="vi">Gặp trong 3 bài Writing đã chấm · gần nhất 15/11</span></li>
+<li style="padding: 9px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="tl">Articles</a><span class="vi">Gặp trong 2 bài Writing đã chấm · gần nhất 10/11</span></li>
+<li style="padding: 9px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="tl">Run-On Sentences</a><span class="vi">Gặp trong 1 bài Speaking đã chấm · gần nhất 08/11</span></li>
+</ul>
+</section>
+</div>
+
+<section aria-labelledby="cay2-h" style="margin-top: 32px">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 24px; border-top: 2px solid var(--ink); padding-top: 10px">
+<h2 id="cay2-h" class="sf" style="margin: 0; font-size: 26px; font-weight: 600">Mục lục theo nhóm</h2>
+<span style="font-size: 14px; color: var(--muted)">Dấu "Đã đọc" do bạn tự đánh dấu ở cuối mỗi bài</span>
+</div>
+<div style="display: grid; grid-template-columns: 340px minmax(0, 1fr); column-gap: 48px; margin-top: 12px; align-items: start">
+<ol style="margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--ink)">
+<sc-for list="{{groupsIn}}" as="g" hint-placeholder-count="10">
+<li style="display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 0 8px; align-items: baseline; padding: 9px 8px 9px 9px; border-bottom: 1px solid var(--rule); border-left: 3px solid {{g.bar}}; background: {{g.bg}}"><span style="font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums">{{g.n}}</span><span><span class="sf" style="display: block; font-size: 18px; font-weight: {{g.weight}}; line-height: 1.3">{{g.name}}</span><span style="font-size: 14px; color: var(--muted)">{{g.readNote}}</span></span></li>
+</sc-for>
+</ol>
+<section aria-labelledby="sel2-h" style="min-width: 0">
+<p class="kick">Nhóm 3</p>
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 24px">
+<h3 id="sel2-h" class="sf" style="margin: 2px 0 4px; font-size: 30px; font-weight: 600; line-height: 1.2">Cấu trúc câu</h3>
+<span style="font-size: 15px; color: var(--muted)">{{readCount}}</span>
+</div>
+<div role="table" aria-label="Bài trong nhóm Cấu trúc câu" style="margin-top: 8px; border-top: 1px solid var(--ink)">
+<div role="row" style="display: grid; grid-template-columns: 36px minmax(0, 1fr) 260px 132px; gap: 0 12px; padding: 8px 0; border-bottom: 1px solid var(--ink); font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted)"><span role="columnheader"></span><span role="columnheader">Bài</span><span role="columnheader">Bài tập trong khoá</span><span role="columnheader">Đã đọc</span></div>
+<sc-for list="{{readRows}}" as="r" hint-placeholder-count="9">
+<div role="row" style="display: grid; grid-template-columns: 36px minmax(0, 1fr) 260px 132px; gap: 0 12px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--rule)">
+<span role="cell" style="font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums">{{r.n}}</span>
+<span role="cell" style="min-width: 0"><a href="GrammarWikiBai.dc.html" lang="en" class="tl">{{r.en}}</a><span class="vi">{{r.vi}}</span></span>
+<span role="cell" style="font-size: 15px"><sc-if value="{{r.hasEx}}" hint-placeholder-val="{{ true }}"><a href="BaiTapTuVungNguPhap.dc.html">{{r.ex}}</a></sc-if><sc-if value="{{r.noEx}}" hint-placeholder-val="{{ false }}"><span style="color: var(--muted)">Không có trong khoá</span></sc-if></span>
+<span role="cell"><button onClick="{{r.toggle}}" aria-pressed="{{r.read}}" style="display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 10px; border: 1px solid {{r.bd}}; border-radius: 2px; background: transparent; color: {{r.fg}}; font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer"><svg aria-hidden="true" viewBox="0 0 16 16" style="width: 14px; height: 14px"><path d="{{r.icon}}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg>{{r.label}}</button></span>
+</div>
+</sc-for>
+</div>
+<p style="margin: 12px 0 0; font-size: 14px; color: var(--muted); max-width: 80ch">Cột "Bài tập trong khoá" chỉ hiện với học viên đang có Khoá Ngữ pháp nền tảng còn hạn; tên bài tập lấy từ khoá. Khoá đã hết hạn: dòng ghi "Khoá đã hết hạn · Đăng ký lại". Chưa có khoá: bỏ cả cột, chỉ còn dòng mời ở cuối trang như khách.</p>
+</section>
+</div>
+</section>
+</main>
+</div>
+</section>
+
+<!-- 3 · TRẠNG THÁI PHỤ -->
+<section aria-labelledby="m3" style="border-top: 2px solid var(--ink); padding: 16px 64px 0">
+<h2 id="m3" class="h2s">3 · Trạng thái phụ của trang mục lục</h2>
+<p class="lead">Vẽ gọn phần thân trang; thanh trên và chân trang giữ như màn 1.</p>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; align-items: start">
+<figure style="margin: 0">
+<p class="kick" style="margin-bottom: 8px">A · Tìm không thấy</p>
+<div role="status" style="border-top: 2px solid var(--ink); border-bottom: 1px solid var(--rule); padding: 14px 0 18px">
+<p class="sf" style="margin: 0 0 6px; font-size: 20px; font-weight: 600">Không có bài nào khớp “thì tương lai gần”.</p>
+<p style="margin: 0 0 10px; font-size: 15px">Gần nhất với từ bạn gõ:</p>
+<ul style="margin: 0 0 14px; padding-left: 18px; font-size: 15px"><li><a href="GrammarWikiBai.dc.html" lang="en">Future Forms</a> · will / be going to</li><li><a href="GrammarWikiBai.dc.html" lang="en">Talking About Future Plans</a></li></ul>
+<span class="btn">Xoá tìm kiếm</span>
+</div>
+<figcaption style="margin-top: 8px; font-size: 14px; color: var(--muted)">Nêu lại đúng từ đã gõ; gợi ý theo từ gần (bỏ dấu, từ đồng nghĩa trong tên tiếng Việt). Không hiện "0 kết quả".</figcaption>
+</figure>
+<figure style="margin: 0">
+<p class="kick" style="margin-bottom: 8px">B · Đang tải mục lục</p>
+<div aria-busy="true" style="border-top: 2px solid var(--ink); padding-top: 12px; display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 10px"><div style="height: 14px; background: var(--off)"></div><div style="height: 14px; background: var(--off)"></div><div style="height: 14px; background: var(--off)"></div><div style="height: 14px; background: var(--off)"></div><div style="height: 14px; background: var(--off)"></div></div>
+<div style="display: flex; flex-direction: column; gap: 10px"><div style="height: 22px; width: 60%; background: var(--off)"></div><div style="height: 14px; background: var(--off)"></div><div style="height: 14px; width: 80%; background: var(--off)"></div><div style="height: 14px; background: var(--off)"></div><div style="height: 14px; width: 70%; background: var(--off)"></div></div>
+</div>
+<p style="margin: 10px 0 0; font-size: 15px; color: var(--muted)">Đang tải mục lục…</p>
+<figcaption style="margin-top: 8px; font-size: 14px; color: var(--muted)">Khung giữ đúng chỗ của cây chủ đề để trang không nhảy. Ô tìm và phần "lỗi hay gặp" là chữ cố định, hiện ngay.</figcaption>
+</figure>
+<figure style="margin: 0">
+<p class="kick" style="margin-bottom: 8px">C · Không tải được</p>
+<div role="alert" style="border: 1px solid var(--mark); background: var(--tint); padding: 14px 16px">
+<p style="margin: 0 0 4px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--mark)">Cảnh báo</p>
+<p style="margin: 0 0 10px; font-size: 16px">Chưa tải được mục lục. Kiểm tra kết nối rồi thử lại; ô tìm vẫn dùng được.</p>
+<span class="btn">Thử lại</span>
+</div>
+<figcaption style="margin-top: 8px; font-size: 14px; color: var(--muted)">Không hiện số bài, số nhóm khi chưa có dữ liệu. Lỗi chỉ ở phần cần dữ liệu; phần còn lại của trang vẫn hiện.</figcaption>
+</figure>
+</div>
+</section>
+
+<!-- 4 · ĐIỆN THOẠI -->
+<section aria-labelledby="m4" style="border-top: 2px solid var(--ink); padding: 16px 32px 0">
+<h2 id="m4" class="h2s">4 · Điện thoại 390px</h2>
+<p class="lead">Trái: khách, chế độ Tra cứu; cây chủ đề thành danh sách mở/đóng, mỗi lúc mở một nhóm (bấm được). Giữa: đang tìm. Phải: học viên đã đăng nhập, chế độ Học và luyện, có thanh dưới năm mục.</p>
+<div style="display: flex; gap: 23px; align-items: flex-start">
+
+<div style="width: 390px; height: 820px; box-sizing: border-box; border: 1px solid var(--ink); display: flex; flex-direction: column; overflow: hidden; background: var(--paper); flex-shrink: 0">
+<header style="flex-shrink: 0; display: flex; align-items: center; gap: 12px; height: 56px; box-sizing: border-box; padding: 0 16px; border-bottom: 1px solid var(--ink)">
+<span class="sf" style="display: inline-flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 600; flex-grow: 1"><svg width="26" height="26" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<a href="TaiKhoanDangNhap.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; color: var(--ink); font-weight: 600">Đăng nhập</a>
+<button aria-label="Mở menu" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink)"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 20px; height: 20px"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg></button>
+</header>
+<div style="padding: 8px 16px 0; overflow: hidden">
+<p style="margin: 0; font-size: 13px; color: var(--muted)"><a href="ThuVien.dc.html">Thư viện</a> › Grammar Wiki</p>
+<h3 class="sf" style="margin: 4px 0 6px; font-size: 30px; font-weight: 600; line-height: 1.15">Grammar Wiki</h3>
+<p class="sf" style="margin: 0 0 12px; font-size: 17px; line-height: 26px">137 bài trong 10 nhóm. Đọc miễn phí, không cần tài khoản.</p>
+<input type="search" aria-label="Tìm trong Grammar Wiki" placeholder="bị động, passive, mạo từ" style="width: 100%; box-sizing: border-box; min-height: 48px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface); font: 16px 'Source Sans 3', sans-serif">
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 10px; border-bottom: 1px solid var(--ink)"><span style="padding: 10px 0 8px; border-bottom: 3px solid var(--accent); margin-bottom: -1px; font-weight: 600">Tra cứu</span><span style="padding: 10px 0 8px; color: var(--muted)">Học và luyện</span></div>
+<p class="kick" style="margin-top: 14px; font-size: 12px">Bắt đầu từ lỗi bạn hay gặp</p>
+<ul style="margin: 4px 0 0; padding: 0; list-style: none; font-size: 15px">
+<li style="padding: 8px 0; border-bottom: 1px solid var(--rule)"><span lang="en" class="sf" style="text-decoration: line-through; text-decoration-color: var(--danger)">The accident was happened.</span><br><a href="GrammarWikiBai.dc.html" lang="en">Passive Voice</a></li>
+<li style="padding: 8px 0; border-bottom: 1px solid var(--rule)"><span lang="en" class="sf" style="text-decoration: line-through; text-decoration-color: var(--danger)">The number of applicants have increased.</span><br><a href="GrammarWikiBai.dc.html" lang="en">Subject-Verb Agreement</a></li>
+<li style="padding: 8px 0; border-bottom: 1px solid var(--rule)"><a href="#m4">Xem cả 8 lỗi hay gặp</a></li>
+</ul>
+<p class="kick" style="margin-top: 14px; font-size: 12px">Mục lục theo nhóm</p>
+<ol style="margin: 4px 0 0; padding: 0; list-style: none; border-top: 1px solid var(--ink)">
+<sc-for list="{{phoneGroups}}" as="g" hint-placeholder-count="6">
+<li style="border-bottom: 1px solid var(--rule)">
+<button onClick="{{g.pick}}" aria-expanded="{{g.open}}" style="display: grid; grid-template-columns: 24px minmax(0, 1fr) auto 20px; gap: 0 8px; align-items: center; width: 100%; min-height: 48px; padding: 0; border: 0; background: transparent; color: var(--ink); text-align: left; cursor: pointer; font-family: 'Source Sans 3', sans-serif"><span style="font-size: 13px; color: var(--muted)">{{g.n}}</span><span class="sf" style="font-size: 17px; font-weight: {{g.weight}}">{{g.name}}</span><span style="font-size: 13px; color: var(--muted)">{{g.count}} bài</span><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 18px; height: 18px"><path d="{{g.icon}}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+<sc-if value="{{g.open}}" hint-placeholder-val="{{ false }}">
+<ol style="margin: 0 0 8px; padding: 0 0 0 32px; list-style: none">
+<sc-for list="{{g.items}}" as="it" hint-placeholder-count="4">
+<li style="padding: 6px 0; border-top: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="sf" style="font-size: 16px; color: var(--ink)">{{it.en}}</a></li>
+</sc-for>
+</ol>
+</sc-if>
+</li>
+</sc-for>
+</ol>
+</div>
+</div>
+
+<div style="width: 390px; height: 820px; box-sizing: border-box; border: 1px solid var(--ink); display: flex; flex-direction: column; overflow: hidden; background: var(--paper); flex-shrink: 0">
+<header style="flex-shrink: 0; display: flex; align-items: center; gap: 12px; height: 56px; box-sizing: border-box; padding: 0 16px; border-bottom: 1px solid var(--ink)">
+<span class="sf" style="display: inline-flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 600; flex-grow: 1"><svg width="26" height="26" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<a href="TaiKhoanDangNhap.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; color: var(--ink); font-weight: 600">Đăng nhập</a>
+<button aria-label="Mở menu" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink)"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 20px; height: 20px"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg></button>
+</header>
+<div style="padding: 12px 16px 0">
+<div style="display: flex"><input type="search" aria-label="Tìm trong Grammar Wiki" value="bi dong" style="flex: 1 1 auto; min-width: 0; min-height: 48px; padding: 0 12px; border: 1px solid var(--ink); border-radius: 2px 0 0 2px; background: var(--surface); font: 16px 'Source Sans 3', sans-serif"><span style="display: inline-flex; align-items: center; padding: 0 14px; border: 1px solid var(--ink); border-left: 0; font-weight: 600">Xoá</span></div>
+<p class="sf" style="margin: 14px 0 4px; padding-top: 8px; border-top: 2px solid var(--ink); font-size: 19px; font-weight: 600">2 bài khớp “bi dong”</p>
+<ul style="margin: 0; padding: 0; list-style: none">
+<li style="padding: 10px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="tl">Passive Voice</a><span class="vi">Câu bị động · Nhóm 3 Cấu trúc câu</span></li>
+<li style="padding: 10px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="tl">Passive in Academic Texts</a><span class="vi">Bị động trong văn học thuật · Nhóm 10 Grammar for Reading</span></li>
+</ul>
+<p style="margin: 12px 0 0; font-size: 14px; color: var(--muted)">Khớp cả tên tiếng Việt khi gõ không dấu. Kết quả thay chỗ phần "lỗi hay gặp" và cây chủ đề. Tên nhóm xuống dòng dưới tên bài; không cắt chữ bằng dấu ba chấm.</p>
+</div>
+</div>
+
+<div style="width: 390px; height: 820px; box-sizing: border-box; border: 1px solid var(--ink); display: flex; flex-direction: column; overflow: hidden; background: var(--paper); flex-shrink: 0">
+<header style="flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; height: 56px; box-sizing: border-box; padding: 0 16px; border-bottom: 1px solid var(--ink)">
+<span class="sf" style="display: inline-flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 600"><svg width="26" height="26" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<div style="display: flex; align-items: center; gap: 12px"><span style="font-size: 13px; color: var(--muted)">Lượt AI <strong style="color: var(--ink)">XXX</strong></span><button aria-label="Mở menu tài khoản" style="width: 44px; height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif">MA</button></div>
+</header>
+<div style="flex-grow: 1; min-height: 0; overflow: hidden; padding: 8px 16px 0">
+<p style="margin: 0; font-size: 13px; color: var(--muted)"><a href="ThuVien.dc.html">Thư viện</a> › Grammar Wiki</p>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 8px; border-bottom: 1px solid var(--ink)"><span style="padding: 10px 0 8px; color: var(--muted)">Tra cứu</span><span style="padding: 10px 0 8px; border-bottom: 3px solid var(--accent); margin-bottom: -1px; font-weight: 600">Học và luyện</span></div>
+<p class="kick" style="margin-top: 14px; font-size: 12px">Đọc tiếp</p>
+<a href="GrammarWikiBai.dc.html" style="display: block; padding: 8px 0 10px; border-bottom: 1px solid var(--rule); text-decoration: none; color: var(--ink)"><span lang="en" class="sf" style="font-size: 18px">Passive Voice</span><span class="vi">Đang ở mục 5 Lỗi hay gặp</span></a>
+<p class="kick" style="margin-top: 14px; font-size: 12px">Cần ôn, từ bài đã chấm</p>
+<ul style="margin: 0; padding: 0; list-style: none">
+<li style="padding: 8px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="sf" style="font-size: 17px; color: var(--ink)">Subject-Verb Agreement</a><span class="vi">Gặp trong 3 bài Writing đã chấm</span></li>
+<li style="padding: 8px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="sf" style="font-size: 17px; color: var(--ink)">Articles</a><span class="vi">Gặp trong 2 bài Writing đã chấm</span></li>
+</ul>
+<p class="kick" style="margin-top: 14px; font-size: 12px">Bài đã lưu · 3</p>
+<a href="#m4" style="display: flex; align-items: center; min-height: 44px; border-bottom: 1px solid var(--rule)">Xem bài đã lưu</a>
+<p class="kick" style="margin-top: 14px; font-size: 12px">Mục lục theo nhóm</p>
+<ul style="margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--ink); font-size: 15px">
+<li style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--rule)"><span class="sf" style="font-size: 17px">1 Nền tảng</span><span style="color: var(--muted)">Đã đọc 6 trong 18 bài</span></li>
+<li style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--rule)"><span class="sf" style="font-size: 17px">2 Từ loại chi tiết</span><span style="color: var(--muted)">Chưa đọc bài nào</span></li>
+<li style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--rule)"><span class="sf" style="font-size: 17px">3 Cấu trúc câu</span><span style="color: var(--muted)">Đã đọc 4 trong 9 bài</span></li>
+</ul>
+</div>
+<nav aria-label="Điều hướng chính" style="flex-shrink: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); height: 64px; border-top: 1px solid var(--ink); background: var(--surface)">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="5">
+<a href="{{t.href}}" aria-current="{{t.current}}" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid {{t.bar}}; color: {{t.color}}; font-size: 12px; font-weight: {{t.weight}}; text-decoration: none"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="{{t.icon}}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>{{t.label}}</a>
+</sc-for>
+</nav>
+</div>
+
+</div>
+</section>
+
+<!-- 5 · GHI CHÚ -->
+<section aria-labelledby="m5" style="border-top: 2px solid var(--ink); padding: 16px 64px 0">
+<h2 id="m5" class="h2s" style="margin-bottom: 10px">Ghi chú cho lập trình</h2>
+<ul style="margin: 0; padding-left: 20px; font-size: 15px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 48px">
+<li><strong>Một cách phân loại trên trang:</strong> cây chủ đề dùng 10 nhóm trong <span lang="en">_groups.yaml</span>, đúng thứ tự file. Bỏ khối "Duyệt theo thư mục bài" (11 thư mục) khỏi trang chủ; thư mục chỉ còn trong URL bài. Số bài, số nhóm tính từ API, không viết cứng.</li>
+<li><strong>Bỏ thanh tiến độ biên tập</strong> (18/18, 23/23). Khách chỉ thấy "18 bài". Người đã đăng nhập thấy "Đã đọc N trong M bài" từ đánh dấu đọc thật; chưa đọc bài nào ghi "Chưa đọc bài nào", không ghi 0.</li>
+<li><strong>Hai chế độ</strong> giữ như web hiện tại (tham số <span lang="en">?mode=</span>), phím mũi tên chuyển tab. "Học và luyện" khi chưa đăng nhập hiện lời mời đăng nhập, không hiện khung rỗng.</li>
+<li><strong>Tìm:</strong> lọc ngay khi gõ, bỏ dấu, khớp tên Anh, tên Việt, tên nhóm và thẻ của bài. Hiện tối đa 12 kết quả, kèm câu "Còn N bài khác, gõ thêm để thu hẹp". Kết quả có đường dẫn chia sẻ được (<span lang="en">/grammar/search?q=</span>).</li>
+<li><strong>"Lỗi hay gặp":</strong> 8 dòng do biên tập chọn, mỗi dòng một câu sai thật lấy từ bài và dẫn tới anchor của mục lỗi (ví dụ <span lang="en">passive-voice.structure.be-pp</span>). "Bài nổi bật" lấy từ <span lang="en">featured_articles</span> của API.</li>
+<li><strong>Đã đăng nhập:</strong> "Đọc tiếp" lấy bài xem gần nhất và mục đang đọc; "Cần ôn" lấy <span lang="en">weak_areas</span> từ bài đã chấm, ghi số bài gặp lỗi, không ghi điểm hay band; không có dữ liệu thì bỏ cột đó.</li>
+<li><strong>Lối sang khoá:</strong> mỗi trang chỉ một khối mời Khoá Ngữ pháp nền tảng, cuối thân trang, không bật lên, không lặp trong danh sách. Học viên đang có khoá thì thay bằng cột "Bài tập trong khoá" ở từng dòng.</li>
+<li><strong>Điện thoại:</strong> cây chủ đề thành danh sách mở/đóng, mỗi lúc mở một nhóm; dòng cao tối thiểu 48px. Thanh dưới năm mục chỉ có khi đã đăng nhập.</li>
+</ul>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Navy + đỏ mận","Xanh teal"],"default":"Navy + đỏ mận"},"$preview":{"width":1280,"height":5910}}'>
+const G = [
+{ id: "foundations", name: "Nền tảng", d: "Hiểu đúng về từ loại, thành phần câu, danh từ — cơ sở của mọi kỹ năng ngữ pháp.", a: [
+["parts-of-speech", "Parts of Speech", "Từ loại"],
+["sentence-elements", "Sentence Elements", "Thành phần câu"],
+["phrase-vs-clause", "Phrase vs. Clause", "Cụm từ và Mệnh đề"],
+["singular-vs-plural", "Singular vs. Plural", "Số ít và Số nhiều"],
+["countable-vs-uncountable", "Countable vs. Uncountable Nouns", ""],
+["articles", "Articles", "a, an, the"],
+["word-order", "Word Order", "Trật tự từ trong câu"],
+["there-is-there-are", "There is / There are", ""],
+["there-is-vs-it-is", "There is vs. It is", "Giới thiệu sự tồn tại hay mô tả?"],
+["few-a-few-little-a-little", "Few / A few / Little / A little", "Phân biệt từ chỉ số lượng nhỏ"],
+["other-another-the-other-others", "Other / Another / The Other / Others", "Phân biệt 4 cấu trúc dễ nhầm"],
+["zero-article", "Zero Article", "Khi nào không dùng mạo từ"],
+["articles-with-places-and-names", "Articles with Places and Names", "Mạo từ với địa danh và tên riêng"],
+["some-any-no", "Some / Any / No", "Phân biệt và cách dùng đúng"],
+["articles-a-an-sound-rules", "A vs. An", "Quy tắc dựa trên âm, không dựa trên chữ cái"],
+["many-much-a-lot-of", "Many / Much / A lot of", "Phân biệt từ chỉ số lượng lớn"],
+["this-that-these-those-in-use", "This / That / These / Those in Use", "Dùng thế nào cho đúng và tự nhiên"],
+["noun-phrase-basics", "Noun Phrase Basics", "Cấu trúc cụm danh từ cơ bản"]
+] },
+{ id: "parts-of-speech", name: "Từ loại chi tiết", d: "Đi sâu vào từng loại từ: tính từ, trạng từ, danh từ, động từ, giới từ và cách dùng đúng.", a: [
+["adjectives", "Adjectives", "Tính từ"],
+["adverbs", "Adverbs", "Trạng từ"],
+["adjective-vs-adverb", "Adjective vs. Adverb", "Tính từ hay Trạng từ?"],
+["participial-adjectives", "Participial Adjectives", "interested vs interesting"],
+["order-of-adjectives", "Order of Adjectives", "Trật tự nhiều tính từ"],
+["compound-adjectives", "Compound Adjectives", "Tính từ ghép (a five-year-old child)"],
+["intensifiers-and-mitigators", "Intensifiers & Mitigators", "quite / fairly / rather / very"],
+["nouns", "Nouns", "Danh từ"],
+["verbs", "Verbs", "Động từ"],
+["prepositions", "Prepositions", "Giới từ"],
+["pronouns", "Pronouns", "Đại từ"],
+["conjunctions", "Conjunctions", "Liên từ"],
+["word-formation-noun-suffixes", "Word Formation", "Noun Suffixes (Hậu tố tạo danh từ)"],
+["word-formation-adjective-suffixes", "Word Formation", "Adjective Suffixes (Hậu tố tạo tính từ)"],
+["word-formation-verbs-and-adverbs", "Word Formation", "Verbs & Adverbs (Hậu tố động từ, trạng từ & tiền tố)"],
+["determiners-overview", "Determiners", "Tổng quan từ hạn định"]
+] },
+{ id: "sentence-structures", name: "Cấu trúc câu", d: "Từ câu đơn đến câu phức — xây dựng câu đúng, đa dạng và có chiều sâu ngữ nghĩa.", a: [
+["simple-sentence", "Simple Sentence", "Câu đơn"],
+["compound-sentence", "Compound Sentence", "Câu ghép"],
+["complex-sentence", "Complex Sentence", "Câu phức"],
+["combining-two-short-sentences", "Combining Two Short Sentences", "Gộp câu ngắn thành câu phức"],
+["relative-clauses", "Relative Clauses", "Mệnh đề quan hệ"],
+["passive-voice", "Passive Voice", "Câu bị động"],
+["reported-speech", "Reported Speech", "Câu tường thuật"],
+["cleft-sentences", "Cleft Sentences", "Câu chẻ"],
+["inversion", "Inversion", "Đảo ngữ"]
+] },
+{ id: "tenses", name: "Thì động từ", d: "Tất cả các thì tiếng Anh — cấu trúc, cách dùng và phân biệt rõ ràng từng thì.", a: [
+["present-simple", "Present Simple", ""],
+["present-continuous", "Present Continuous", ""],
+["present-perfect", "Present Perfect", ""],
+["present-perfect-continuous", "Present Perfect Continuous", ""],
+["past-simple", "Past Simple", ""],
+["past-continuous", "Past Continuous", ""],
+["past-perfect", "Past Perfect", ""],
+["future-forms", "Future Forms", "will / be going to"]
+] },
+{ id: "verb-patterns", name: "Mẫu động từ", d: "Gerund, infinitive, modal verbs — biết chính xác khi nào dùng gì và tại sao.", a: [
+["gerund", "Gerund", "V-ing dùng như danh từ"],
+["infinitive", "To-Infinitive", ""],
+["bare-infinitive", "Bare Infinitive", "Nguyên thể không to"],
+["gerund-vs-infinitive", "Gerund vs. Infinitive", ""],
+["modal-verbs", "Modal Verbs", "Động từ khuyết thiếu"],
+["phrasal-verbs", "Phrasal Verbs", "Cụm động từ"],
+["causative-verbs", "Causative", "have / get / make"],
+["wish-hope", "Wish & Hope", ""],
+["used-to-be-used-to-get-used-to", "Used to / Be used to / Get used to", "Ba cấu trúc khác nhau hoàn toàn"]
+] },
+{ id: "grammar-for-meaning", name: "Ngữ pháp theo chức năng", d: "Dùng ngữ pháp để so sánh, nhấn mạnh, kết nối ý — các cấu trúc cốt lõi trong IELTS Writing.", a: [
+["comparison", "Comparison", "So sánh hơn và nhất"],
+["quantifiers", "Quantifiers", "Từ chỉ số lượng"],
+["conditionals", "Conditionals", "Câu điều kiện"],
+["discourse-markers", "Discourse Markers", "Liên kết ý"],
+["hedging-language", "Hedging Language", "Diễn đạt thận trọng"],
+["because-vs-because-of", "Because vs. Because of", "Liên từ hay Giới từ?"],
+["despite-vs-in-spite-of", "Despite vs. In spite of", "Dù cho / Mặc dù"],
+["so-vs-such", "So vs. Such", "Nhấn mạnh mức độ đúng cách"],
+["academic-hedging", "Academic Hedging", "Diễn đạt thận trọng trong học thuật"],
+["although-though-even-though", "Although / Though / Even Though", "Diễn đạt sự tương phản và nhượng bộ"],
+["grammatical-collocations", "Grammatical Collocations", "Cụm ngữ pháp cố định"],
+["discourse-markers-spoken", "Discourse Markers in Speech", "Liên kết ý trong nói tiếng Anh"]
+] },
+{ id: "ielts-grammar-lab", name: "IELTS Speaking Lab", d: "Cấu trúc câu nâng cao và ngữ pháp thực chiến dành riêng cho IELTS Speaking & Writing Band 7+.", a: [
+["grammar-in-speaking", "Grammar cho IELTS Speaking", ""],
+["common-ielts-grammar-mistakes", "10 lỗi ngữ pháp hay gặp nhất", ""],
+["grammar-for-band7plus", "Grammar cho Band 7+", ""],
+["making-answers-longer-naturally", "Making Answers Longer Naturally", "Kéo dài câu trả lời Speaking tự nhiên"],
+["avoiding-repetitive-sentence-openings", "Avoiding Repetitive Sentence Openings", "Tránh mở câu lặp lại trong IELTS"],
+["adding-reasons-clearly", "Adding Reasons Clearly", "Đưa ra lý do rõ ràng trong IELTS"],
+["adding-results-clearly", "Adding Results Clearly", "Diễn đạt kết quả mạch lạc trong IELTS"],
+["adding-contrast-naturally", "Adding Contrast Naturally", "Diễn đạt tương phản tự nhiên trong IELTS"],
+["giving-examples-naturally", "Giving Examples Naturally", "Đưa ví dụ tự nhiên trong IELTS"],
+["strong-vs-cautious-opinions", "Strong vs. Cautious Opinions", "Thể hiện quan điểm đúng mức độ"],
+["expressing-uncertainty", "Expressing Uncertainty", "Diễn đạt sự không chắc chắn trong IELTS"],
+["comparing-ideas-in-speaking", "Comparing Ideas in Speaking", "So sánh ý tưởng tự nhiên trong IELTS"],
+["talking-about-past-experiences", "Talking About Past Experiences", "Kể về trải nghiệm trong IELTS Speaking"],
+["talking-about-future-plans", "Talking About Future Plans", "Diễn đạt kế hoạch tương lai trong IELTS"],
+["agreeing-and-disagreeing-naturally", "Agreeing and Disagreeing Naturally", "Đồng ý và Phản đối tự nhiên trong IELTS"],
+["balanced-arguments-grammar", "Balanced Arguments Grammar", "Ngữ pháp trình bày lập luận cân bằng trong IELTS"],
+["conditionals-in-speaking", "Conditionals in Speaking", "Dùng câu điều kiện tự nhiên trong IELTS Speaking"],
+["expressing-preferences-naturally", "Expressing Preferences Naturally", "Thể hiện sở thích tự nhiên trong IELTS Speaking"],
+["talking-about-habits-and-routines", "Talking About Habits and Routines", "Kể về thói quen trong IELTS Speaking"],
+["softening-disagreement-politely", "Softening Disagreement Politely", "Phản đối lịch sự trong IELTS Speaking"],
+["speculating-about-the-future", "Speculating About the Future", "Suy đoán và dự đoán tương lai trong IELTS"],
+["talking-about-changes-over-time", "Talking About Changes Over Time", "Diễn đạt sự thay đổi theo thời gian trong IELTS"],
+["pronunciation-grammar-link", "Pronunciation–Grammar Link", "Liên hệ phát âm và ngữ pháp"]
+] },
+{ id: "error-clinic", name: "Error Clinic", d: "Những lỗi ngữ pháp người Việt mắc nhiều nhất — phân tích nguyên nhân và cách sửa đúng.", a: [
+["subject-verb-agreement", "Subject-Verb Agreement", "Chia động từ"],
+["article-errors", "Lỗi dùng mạo từ a / an / the", ""],
+["preposition-errors", "Lỗi dùng giới từ", ""],
+["tense-consistency", "Tense Consistency", "Nhất quán thì"],
+["word-form-errors", "Word Form Errors", "Sai dạng từ"],
+["do-vs-make", "Do vs. Make", "Khi nào dùng do, khi nào dùng make?"],
+["say-tell-speak-talk", "Say / Tell / Speak / Talk", "Bốn động từ nói"],
+["overusing-i-think", "Overusing ’I think’", "Đừng lặp ’I think’ mãi một cách"],
+["affect-vs-effect", "Affect vs. Effect", "Động từ hay Danh từ?"],
+["economic-vs-economical", "Economic vs. Economical", "Hai tính từ, hai nghĩa hoàn toàn khác"],
+["historic-vs-historical", "Historic vs. Historical", "Sự kiện lịch sử hay thuộc về lịch sử?"],
+["run-on-sentences", "Run-On Sentences", "Câu chạy liên tục không có dấu dừng"],
+["sentence-fragments", "Sentence Fragments", "Câu không hoàn chỉnh"],
+["missing-subjects", "Missing Subjects", "Lỗi thiếu chủ ngữ"],
+["missing-main-verbs", "Missing Main Verbs", "Lỗi thiếu động từ chính"],
+["wrong-pronoun-reference", "Wrong Pronoun Reference", "Lỗi đại từ tham chiếu sai hoặc mơ hồ"],
+["double-subject-errors", "Double Subject Errors", "Lỗi lặp chủ ngữ"],
+["tag-questions-errors", "Tag Questions", "Lỗi câu hỏi đuôi (isn’t it?)"],
+["dangling-modifiers", "Dangling Modifiers", "Lỗi mệnh đề phân từ treo"]
+] },
+{ id: "grammar-for-writing", name: "IELTS Writing Lab", d: "Ngữ pháp thực chiến cho IELTS Writing — mô tả số liệu Task 1, ngôn ngữ xu hướng, và câu phức/cohesion cho essay Task 2.", a: [
+["grammar-in-task1", "Grammar in Task 1", "Ngữ pháp cho IELTS Writing Task 1 (Academic)"],
+["task1-trend-grammar", "Task 1 Trend Grammar", "Ngữ pháp mô tả xu hướng trong Writing Task 1"],
+["grammar-in-task2", "Grammar in Task 2", "Ngữ pháp cho IELTS Writing Task 2 (Essay)"],
+["parallel-structure", "Parallel Structure", "Cấu trúc song song"],
+["relative-clauses-in-writing", "Relative Clauses in Writing", "Mệnh đề quan hệ trong bài viết"],
+["cohesion-devices-in-writing", "Cohesion Devices", "Liên kết câu và đoạn trong bài viết"],
+["punctuation-for-writing", "Punctuation for Writing", "Dấu câu trong bài viết học thuật"],
+["complex-sentences-for-task2", "Complex Sentences for Task 2", "Câu phức cho essay"],
+["avoiding-informal-grammar", "Avoiding Informal Grammar", "Tránh văn nói trong bài viết"]
+] },
+{ id: "grammar-for-reading", name: "Grammar for Reading", d: "Các cấu trúc cản trở việc giải mã câu trong bài đọc học thuật: mệnh đề rút gọn, cụm danh từ dài, danh hoá, bị động học thuật, từ nối, tham chiếu và so sánh.", a: [
+["reduced-relative-clauses", "Reduced Relative Clauses", "Mệnh đề quan hệ rút gọn"],
+["participle-clauses", "Participle Clauses", "Mệnh đề phân từ"],
+["complex-noun-phrases", "Untangling Complex Noun Phrases", "Giải mã cụm danh từ dài"],
+["nominalization", "Nominalization", "Danh hoá trong văn học thuật"],
+["passive-in-academic-texts", "Passive in Academic Texts", "Bị động trong văn học thuật"],
+["long-sentence-untangling", "Long Sentence Untangling", "Tách câu dài, tìm mệnh đề chính"],
+["reference-and-cohesion", "Reference Words", "it / this / such / the former…"],
+["paraphrase-patterns", "Paraphrase Patterns", "Nhận diện diễn đạt lại"],
+["logical-connectors-in-reading", "Logical Connectors", "Đọc cấu trúc lập luận qua từ nối"],
+["hedging-and-certainty-in-reading", "Hedging & Certainty", "Mức chắc chắn của tác giả"],
+["ellipsis-and-substitution", "Ellipsis & Substitution", "do so / one / so, neither"],
+["appositives-and-parentheticals", "Appositives", "Thông tin chêm giữa câu"],
+["punctuation-as-meaning-signals", "Punctuation Signals", "Dấu câu báo hiệu nghĩa (— : ; ngoặc)"],
+["comparison-structures-in-reading", "Comparison in Data & Argument", "So sánh trong văn đọc"]
+] }
+];
+class Component extends DCLogic {
+constructor(p) { super(p); this.state = { mode: 'ref', q: '', sel: 'sentence-structures', phoneOpen: 'sentence-structures', read: { 'simple-sentence': true, 'compound-sentence': true, 'complex-sentence': true, 'relative-clauses': true } }; }
+renderVals() {
+const s = this.state || {};
+const q = s.q || '';
+const norm = (t) => String(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd');
+const nq = norm(q.trim());
+const mode = s.mode || 'ref';
+const modes = [
+{ id: 'ref', label: 'Tra cứu', sub: 'Tìm câu trả lời ngay' },
+{ id: 'learn', label: 'Học và luyện', sub: 'Đi theo lộ trình của bạn' }
+].map((m) => ({ ...m, on: m.id === mode, bar: m.id === mode ? 'var(--accent)' : 'transparent', weight: m.id === mode ? 600 : 400, pick: () => this.setState({ mode: m.id }) }));
+const all = [];
+G.forEach((g, gi) => g.a.forEach((a) => all.push({ en: a[1], vi: a[2], gn: gi + 1, group: g.name, key: norm(a[0] + ' ' + a[1] + ' ' + a[2] + ' ' + g.name) })));
+const matched = nq ? all.filter((r) => nq.split(/\s+/).every((w) => r.key.includes(w))) : [];
+const groups = G.map((g, i) => {
+const on = g.id === (s.sel || 'sentence-structures');
+return { n: String(i + 1), name: g.name, count: g.a.length, cur: on ? 'true' : 'false', bar: on ? 'var(--accent)' : 'transparent', bg: on ? 'var(--surface)' : 'transparent', weight: on ? 600 : 400, pick: () => this.setState({ sel: g.id }) };
+});
+const si = Math.max(0, G.findIndex((g) => g.id === (s.sel || 'sentence-structures')));
+const sg = G[si];
+const items = sg.a.map((a, i) => ({ n: (si + 1) + '.' + (i + 1), en: a[1], vi: a[2] }));
+const half = Math.ceil(items.length / 2);
+const read = s.read || {};
+const exMap = { 'simple-sentence': 'Bài tập 3.1 · Câu đơn', 'compound-sentence': 'Bài tập 3.2 · Câu ghép', 'complex-sentence': 'Bài tập 3.3 · Câu phức', 'relative-clauses': 'Bài tập 3.5 · Mệnh đề quan hệ', 'passive-voice': 'Bài tập 3.6 · Câu bị động', 'reported-speech': 'Bài tập 3.7 · Câu tường thuật' };
+const ss = G[2];
+const readRows = ss.a.map((a, i) => {
+const r = !!read[a[0]];
+return { n: '3.' + (i + 1), en: a[1], vi: a[2], hasEx: !!exMap[a[0]], noEx: !exMap[a[0]], ex: exMap[a[0]] || '', read: r ? 'true' : 'false', label: r ? 'Đã đọc' : 'Chưa đọc', fg: r ? 'var(--ok)' : 'var(--muted)', bd: r ? 'var(--ok)' : 'var(--rule)', icon: r ? 'M3 8.5l3.2 3L13 4.5' : 'M3 8h10', toggle: () => this.setState({ read: Object.assign({}, read, { [a[0]]: !r }) }) };
+});
+const nRead = ss.a.filter((a) => read[a[0]]).length;
+const readNotes = ['Đã đọc 6 trong 18 bài', 'Chưa đọc bài nào', '', 'Đã đọc 2 trong 8 bài', 'Chưa đọc bài nào', 'Đã đọc 1 trong 12 bài', 'Chưa đọc bài nào', 'Đã đọc 3 trong 19 bài', 'Đã đọc 1 trong 9 bài', 'Chưa đọc bài nào'];
+const groupsIn = G.map((g, i) => ({ n: String(i + 1), name: g.name, weight: i === 2 ? 600 : 400, bar: i === 2 ? 'var(--accent)' : 'transparent', bg: i === 2 ? 'var(--surface)' : 'transparent', readNote: i === 2 ? (nRead ? 'Đã đọc ' + nRead + ' trong ' + g.a.length + ' bài' : 'Chưa đọc bài nào') : readNotes[i] }));
+const po = s.phoneOpen;
+const phoneGroups = G.slice(0, 6).map((g, i) => ({ n: String(i + 1), name: g.name, count: g.a.length, open: g.id === po, weight: g.id === po ? 600 : 400, icon: g.id === po ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6', items: g.a.slice(0, 4).map((a) => ({ en: a[1] })).concat(g.id === po ? [{ en: 'Xem cả ' + g.a.length + ' bài' }] : []), pick: () => this.setState({ phoneOpen: g.id === po ? '' : g.id }) }));
+const tab = (label, icon, href, cur) => ({ label, icon, href, current: cur ? 'page' : 'false', bar: cur ? 'var(--accent)' : 'transparent', color: cur ? 'var(--ink)' : 'var(--muted)', weight: cur ? 600 : 400 });
+return {
+pal: (this.props.palette ?? 'Navy + đỏ mận') === 'Xanh teal' ? 'pal-teal' : 'pal-navy',
+q, modes,
+onQ: (e) => this.setState({ q: e.target.value }),
+clearQ: () => this.setState({ q: '' }),
+tryA: () => this.setState({ q: 'bị động', mode: 'ref' }),
+tryB: () => this.setState({ q: 'article', mode: 'ref' }),
+tryC: () => this.setState({ q: 'xyz', mode: 'ref' }),
+showRef: mode === 'ref',
+showLearnGuest: mode === 'learn',
+noQuery: !nq,
+hasResults: !!nq && matched.length > 0,
+noResults: !!nq && matched.length === 0,
+results: matched.slice(0, 12),
+resultNote: matched.length + ' bài khớp “' + q.trim() + '”',
+moreNote: matched.length > 12,
+moreText: 'Còn ' + (matched.length - 12) + ' bài khác, gõ thêm để thu hẹp.',
+problems: [
+{ n: '1', issue: 'Thêm "be" vào động từ không có tân ngữ', wrong: 'The accident was happened yesterday.', art: 'Passive Voice', group: 'Cấu trúc câu' },
+{ n: '2', issue: 'Chia động từ theo danh từ đứng gần thay vì chủ ngữ', wrong: 'The number of applicants have increased.', art: 'Subject-Verb Agreement', group: 'Error Clinic' },
+{ n: '3', issue: 'Thiếu hoặc thừa a, an, the', wrong: 'The life is beautiful.', art: 'Articles', group: 'Nền tảng' },
+{ n: '4', issue: 'Câu dài nhưng không có động từ chính', wrong: 'My sister a doctor.', art: 'Missing Main Verbs', group: 'Error Clinic' },
+{ n: '5', issue: 'Nối nhiều ý bằng dấu phẩy thành một câu', wrong: 'I love cooking, I do it every day.', art: 'Run-On Sentences', group: 'Error Clinic' },
+{ n: '6', issue: 'Dùng động từ, tính từ ở chỗ cần danh từ', wrong: 'The manage of the project was excellent.', art: 'Word Form Errors', group: 'Error Clinic' },
+{ n: '7', issue: 'Quên "been" ở bị động hoàn thành', wrong: 'The policy has implemented since last year.', art: 'Passive Voice', group: 'Cấu trúc câu' },
+{ n: '8', issue: 'Đổi thì giữa chừng trong cùng một mạch kể', wrong: 'She went to the library, opens a book, and studied for hours.', art: 'Tense Consistency', group: 'Error Clinic' }
+],
+featured: [
+{ group: 'Cấu trúc câu', en: 'Passive Voice', vi: 'Câu bị động', sum: 'be + V3 theo từng thì; khi nào nên dùng, khi nào nói chủ động tự nhiên hơn; bị/được không luôn là bị động.' },
+{ group: 'Thì động từ', en: 'Present Perfect', vi: 'Hiện tại hoàn thành', sum: 'Việc đã qua còn liên quan tới bây giờ; since và for; phân biệt với Past Simple.' },
+{ group: 'Cấu trúc câu', en: 'Relative Clauses', vi: 'Mệnh đề quan hệ', sum: 'who, which, that, whose, where; mệnh đề xác định và không xác định; khi nào cần dấu phẩy.' },
+{ group: 'Grammar for Reading', en: 'Long Sentence Untangling', vi: 'Tách câu dài, tìm mệnh đề chính', sum: 'Nhóm phần bổ nghĩa, giữ khung chủ ngữ và động từ chính để hiểu câu dài trong bài Reading.' }
+],
+groups,
+sel: { n: String(si + 1), name: sg.name, d: sg.d, count: sg.a.length },
+selCols: [{ start: 1, items: items.slice(0, half) }, { start: half + 1, items: items.slice(half) }],
+groupsIn, readRows,
+readCount: nRead ? 'Đã đọc ' + nRead + ' trong ' + ss.a.length + ' bài' : 'Chưa đọc bài nào',
+phoneGroups,
+tabs: [
+tab('Hôm nay', 'M4 11l8-7 8 7v9H4z', 'Main.dc.html', false),
+tab('Lộ trình', 'M5 20V8M5 8h10l-2 3 2 3H5M19 20h-4', 'LoTrinh.dc.html', false),
+tab('Luyện tập', 'M4 19l4-1 11-11-3-3L5 15zM14 6l3 3', 'LuyenTap.dc.html', false),
+tab('Thi thử', 'M12 7v5l3 2M12 3a9 9 0 100 18 9 9 0 000-18z', 'ThiThu.dc.html', false),
+tab('Thư viện', 'M5 4h5v16H5zM10 4h5v16h-5zM16 6l3-1 3 14-3 1z', 'ThuVien.dc.html', true)
+]
+};
+}
+}
+</script>
+</body>
+</html>

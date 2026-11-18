@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Grammar Wiki nhóm 7 bài 2</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--accentH:#0B5953;--link:#0B5953;--mark:#8A4B08;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EDF3F1;--off:#E7E2D6}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--accentH:#11254A;--link:#1A3561;--mark:#8A1C1C;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EEF0F5;--off:#E8E2D5}
+a{color:var(--link)}a:hover{color:var(--ink)}
+.sf{font-family:'Source Serif 4',Georgia,serif}
+.kick{margin:0;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)}
+.h2s{margin:0 0 6px;font-family:'Source Serif 4',Georgia,serif;font-size:24px;font-weight:600}
+.lead{margin:0 0 16px;font-size:14px;color:var(--muted);max-width:110ch}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border:1px solid var(--ink);border-radius:2px;background:var(--surface);color:var(--ink);font:600 15px 'Source Sans 3',sans-serif;text-decoration:none;cursor:pointer;box-sizing:border-box}
+.btnp{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 20px;border:1px solid var(--accent);border-radius:2px;background:var(--accent);color:var(--surface);font:600 15px 'Source Sans 3',sans-serif;text-decoration:none;cursor:pointer;box-sizing:border-box}
+.body{font-family:'Source Serif 4',Georgia,serif;font-size:18px;line-height:29px}
+.body p{margin:0 0 14px}
+.h2a{margin:0 0 10px;font-family:'Source Serif 4',Georgia,serif;font-size:26px;font-weight:600;line-height:1.25}
+.h2a span{color:var(--muted);font-variant-numeric:tabular-nums}
+.h3a{margin:16px 0 4px;font-family:'Source Sans 3',sans-serif;font-size:16px;font-weight:600}
+.sup{font:600 12px 'Source Sans 3',sans-serif;color:var(--accent)}
+.note{margin:0;padding-top:8px;border-top:1px solid var(--rule);font-size:14px;line-height:1.5;color:var(--muted)}
+.cap{margin:8px 0 0;font-size:14px;line-height:1.5;color:var(--muted)}
+.fig{margin:6px 0 4px;padding:18px 20px 16px;border:1px solid var(--rule);background:var(--surface)}
+.tag{display:block;font:600 11px 'Source Sans 3',sans-serif;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);text-align:center;white-space:nowrap}
+.ch{display:flex;align-items:center;justify-content:center;box-sizing:border-box;height:38px;padding:0 8px;font-family:'Source Serif 4',Georgia,serif;font-size:20px;white-space:nowrap;color:var(--ink)}
+.rS{border:1.5px solid var(--ink)}
+.rV{border-bottom:4px double var(--accent);color:var(--accent);font-weight:600}
+.rO{border:1.5px dashed var(--ink)}
+.rC{border:1.5px dotted var(--ink)}
+.rA{color:var(--muted)}
+.rX{border:1.5px dashed var(--muted);color:var(--muted)}
+.cell{display:flex;flex-direction:column;align-items:center;gap:4px}
+.tb{width:100%;border-collapse:collapse;font-family:'Source Sans 3',sans-serif;font-size:16px;line-height:1.45}
+.tb th,.tb td{padding:5px 10px 5px 0;text-align:left;vertical-align:top;border-bottom:1px solid var(--rule)}
+.tb thead tr{border-top:2px solid var(--ink)}
+.tb thead th{border-bottom:1px solid var(--ink);font-weight:600}
+.tb tbody th{font-weight:600;color:var(--muted)}
+.tb caption{caption-side:bottom;text-align:left;padding-top:8px;font-size:14px;color:var(--muted)}
+.foot a{display:inline-flex;align-items:center;min-height:44px}
+.lab{font:600 13px 'Source Sans 3',sans-serif;letter-spacing:0.06em;text-transform:uppercase}
+.gr{display:grid;grid-template-columns:44px 236px 262px minmax(0,1fr) 52px 178px;column-gap:16px;padding:8px 0;border-bottom:1px solid var(--rule);font-size:14px;line-height:1.45}
+.gr>div{min-width:0}
+</style>
+</helmet>
+<div class="{{pal}}" style="width: 1280px; height: 4960px; box-sizing: border-box; padding: 40px 0; background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 16px; line-height: 1.5; display: flex; flex-direction: column; gap: 28px">
+<header style="padding: 0 64px">
+<p class="kick">Aver Learning · Bản in · đợt 8 · Thư viện công khai · Grammar Wiki</p>
+<h1 style="margin: 4px 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 40px; font-weight: 600; line-height: 1.15">Grammar Wiki · nhóm 7 · bài vẽ đủ 2: Pronunciation–Grammar Link</h1>
+<p style="margin: 0; color: var(--muted); max-width: 112ch">Bài vẽ đủ thứ 2 trong hai bài khác loại của nhóm 7 · IELTS Speaking Lab, theo khuôn <a href="GrammarWikiBai.dc.html">trang bài</a>. Nội dung rút gọn từ file Markdown thật; ví dụ tiếng Anh giữ nguyên văn. Bài còn lại (<span lang="en">Making Answers Longer Naturally</span>) ở tờ <a href="GrammarWikiNhom7-Bai1.dc.html">GrammarWikiNhom7-Bai1</a>; bảng tất cả bài, ba phần đầu và bản điện thoại ở tờ <a href="GrammarWikiNhom7.dc.html">GrammarWikiNhom7</a>.</p>
+</header>
+
+<section aria-labelledby="b1" style="border-top: 2px solid var(--ink); padding-top: 16px"><div style="padding: 0 64px"><h2 id="b1" class="h2s">Trang bài Pronunciation–Grammar Link · máy tính 1280px · khách</h2><p class="lead">Bài về âm: bảng phiên âm IPA, Hình kiểu 6 có cách đọc dưới từng mẩu, kiểu 8 cho cách nhấn, danh sách tự kiểm khi ghi âm. Trang này không có dòng mời khoá cuối bài. Mục lục trong bài 208px bên trái; cột chữ 640px; lề chú thích 224px. Bấm được: câu tự kiểm tra (chấm ngay) và nút nghe câu mẫu nếu có. Xem với tư cách khách (thanh công khai).</p></div>
+<div style="border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); background: var(--paper)">
+<header style="border-bottom: 1px solid var(--ink)">
+<div style="display: flex; align-items: stretch; gap: 36px; height: 63px; padding: 0 32px">
+<a href="TrangChuCongKhai.dc.html" class="sf" style="display: inline-flex; align-items: center; gap: 9px; align-self: center; font-size: 22px; font-weight: 600; color: var(--ink); text-decoration: none"><svg width="29" height="29" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</a>
+<nav aria-label="Điều hướng công khai" style="display: flex; gap: 28px; flex-grow: 1">
+<a href="ThuVien.dc.html" aria-current="page" style="display: flex; align-items: center; padding-top: 3px; border-bottom: 3px solid var(--accent); color: var(--ink); font-weight: 600; text-decoration: none">Thư viện</a>
+<a href="DanhMucKhoa.dc.html" style="display: flex; align-items: center; padding-top: 3px; border-bottom: 3px solid transparent; color: var(--muted); text-decoration: none">Khoá học</a>
+</nav>
+<div style="display: flex; align-items: center; gap: 20px">
+<a href="TaiKhoanDangNhap.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; color: var(--ink); font-weight: 600">Đăng nhập</a>
+<a href="DanhMucKhoa.dc.html" class="btnp">Xem các khoá</a>
+</div>
+</div>
+</header>
+<main style="max-width: 1216px; margin: 0 auto; padding: 20px 32px 24px">
+<nav aria-label="Vị trí trang" style="font-size: 14px; color: var(--muted)"><a href="ThuVien.dc.html">Thư viện</a> › <a href="GrammarWiki.dc.html">Grammar Wiki</a> › <a href="GrammarWiki.dc.html">7 · IELTS Speaking Lab</a> › <span aria-current="page" style="color: var(--ink)" lang="en">Pronunciation–Grammar Link</span></nav>
+<div style="display: grid; grid-template-columns: 208px minmax(0, 1fr); column-gap: 40px; margin-top: 20px; align-items: start">
+<nav aria-label="Trong bài này" style="position: sticky; top: 24px; border-top: 2px solid var(--ink); padding-top: 10px">
+<p class="kick" style="font-weight: 600; margin-bottom: 6px">Trong bài này</p>
+<ol style="margin: 0; padding: 0; list-style: none; font-size: 15px"><li><a href="#b-s0" aria-current="location" style="display: flex; gap: 8px; align-items: baseline; min-height: 36px; box-sizing: border-box; padding: 7px 0 7px 11px; border-left: 3px solid var(--accent); color: var(--ink); font-weight: 600; text-decoration: none; line-height: 1.35"><span style="width: 14px; flex-shrink: 0; font-variant-numeric: tabular-nums">·</span><span>Tóm tắt</span></a></li><li><a href="#b-s1" aria-current="false" style="display: flex; gap: 8px; align-items: baseline; min-height: 36px; box-sizing: border-box; padding: 7px 0 7px 11px; border-left: 3px solid transparent; color: var(--muted); font-weight: 400; text-decoration: none; line-height: 1.35"><span style="width: 14px; flex-shrink: 0; font-variant-numeric: tabular-nums">1</span><span>Vì sao quan trọng</span></a></li><li><a href="#b-s2" aria-current="false" style="display: flex; gap: 8px; align-items: baseline; min-height: 36px; box-sizing: border-box; padding: 7px 0 7px 11px; border-left: 3px solid transparent; color: var(--muted); font-weight: 400; text-decoration: none; line-height: 1.35"><span style="width: 14px; flex-shrink: 0; font-variant-numeric: tabular-nums">2</span><span>Đuôi -s</span></a></li><li><a href="#b-s3" aria-current="false" style="display: flex; gap: 8px; align-items: baseline; min-height: 36px; box-sizing: border-box; padding: 7px 0 7px 11px; border-left: 3px solid transparent; color: var(--muted); font-weight: 400; text-decoration: none; line-height: 1.35"><span style="width: 14px; flex-shrink: 0; font-variant-numeric: tabular-nums">3</span><span>Đuôi -ed</span></a></li><li><a href="#b-s4" aria-current="false" style="display: flex; gap: 8px; align-items: baseline; min-height: 36px; box-sizing: border-box; padding: 7px 0 7px 11px; border-left: 3px solid transparent; color: var(--muted); font-weight: 400; text-decoration: none; line-height: 1.35"><span style="width: 14px; flex-shrink: 0; font-variant-numeric: tabular-nums">4</span><span>Dạng yếu của từ chức năng</span></a></li><li><a href="#b-s5" aria-current="false" style="display: flex; gap: 8px; align-items: baseline; min-height: 36px; box-sizing: border-box; padding: 7px 0 7px 11px; border-left: 3px solid transparent; color: var(--muted); font-weight: 400; text-decoration: none; line-height: 1.35"><span style="width: 14px; flex-shrink: 0; font-variant-numeric: tabular-nums">5</span><span>Dạng rút gọn</span></a></li><li><a href="#b-s6" aria-current="false" style="display: flex; gap: 8px; align-items: baseline; min-height: 36px; box-sizing: border-box; padding: 7px 0 7px 11px; border-left: 3px solid transparent; color: var(--muted); font-weight: 400; text-decoration: none; line-height: 1.35"><span style="width: 14px; flex-shrink: 0; font-variant-numeric: tabular-nums">6</span><span>Lỗi thường gặp khi nói</span></a></li><li><a href="#b-s7" aria-current="false" style="display: flex; gap: 8px; align-items: baseline; min-height: 36px; box-sizing: border-box; padding: 7px 0 7px 11px; border-left: 3px solid transparent; color: var(--muted); font-weight: 400; text-decoration: none; line-height: 1.35"><span style="width: 14px; flex-shrink: 0; font-variant-numeric: tabular-nums">7</span><span>Tự kiểm khi luyện nói</span></a></li><li><a href="#b-s8" aria-current="false" style="display: flex; gap: 8px; align-items: baseline; min-height: 36px; box-sizing: border-box; padding: 7px 0 7px 11px; border-left: 3px solid transparent; color: var(--muted); font-weight: 400; text-decoration: none; line-height: 1.35"><span style="width: 14px; flex-shrink: 0; font-variant-numeric: tabular-nums">8</span><span>Bài liên quan</span></a></li></ol>
+<div style="margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--rule); font-size: 14px; color: var(--muted)">
+<p style="margin: 0 0 6px">Bài 7.23 trong nhóm <a href="GrammarWiki.dc.html">7 · IELTS Speaking Lab</a></p>
+<p style="margin: 0">Nên đọc trước: <a href="GrammarWikiBai.dc.html" lang="en">Present Simple</a>, <a href="GrammarWikiBai.dc.html" lang="en">Past Simple</a>, <a href="GrammarWikiBai.dc.html" lang="en">Articles</a></p>
+</div>
+</nav>
+<article aria-label="Pronunciation–Grammar Link" style="min-width: 0">
+<div style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px">
+<header style="padding-bottom: 14px; border-bottom: 1px solid var(--ink)">
+<p class="kick">Grammar Wiki · 7 · IELTS Speaking Lab · bài 7.23</p>
+<h1 class="sf" style="margin: 6px 0 2px; font-size: 40px; font-weight: 600; line-height: 1.12" lang="en">Pronunciation–Grammar Link</h1>
+<p class="sf" style="margin: 0 0 10px; font-size: 23px; line-height: 1.3; color: var(--muted)">Liên hệ phát âm và ngữ pháp</p>
+<p style="margin: 0; font-size: 14px; color: var(--muted)">Trình độ nâng cao · đọc khoảng 12 phút · cập nhật 28/05/2026 · dùng nhiều trong Speaking</p>
+</header>
+<div style="display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; padding-bottom: 14px; border-bottom: 1px solid var(--rule)"><p style="margin: 0; font-size: 14px; color: var(--muted)"><a href="TaiKhoanDangNhap.dc.html">Đăng nhập</a> để lưu bài và đánh dấu đã đọc.</p></div>
+</div>
+<div id="b-s0" style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px; padding-top: 16px">
+<div style="padding: 12px 0 14px; border-bottom: 1px solid var(--rule)">
+<p class="lab" style="margin: 0 0 4px; color: var(--accent)">Tóm tắt</p>
+<p class="body" style="margin: 0">Trong IELTS Speaking, <strong>phát âm và ngữ pháp liên kết chặt chẽ</strong>. Bạn có thể biết <em lang="en">she works</em>, <em lang="en">two books</em>, <em lang="en">I worked</em> về mặt ngữ pháp, nhưng nếu phát âm rớt <em lang="en">-s</em> hay <em lang="en">-ed</em> thì thì và số lượng có thể khó nhận ra.<sup class="sup">1</sup> Bài tập trung vào 4 điểm người Việt thường rớt khi nói: (1) <em lang="en">-s</em> số nhiều và ngôi thứ ba, (2) <em lang="en">-ed</em> quá khứ, (3) dạng yếu của từ chức năng, (4) dạng rút gọn.</p>
+</div>
+<aside style="padding-top: 12px"><p class="note"><strong style="color: var(--accent)">1</strong> Cần đánh giá trên bản ghi âm và mức dễ hiểu của cả bài nói, không chỉ trên từng từ.</p></aside>
+</div>
+<div id="b-s1" style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px; padding-top: 18px">
+<div class="body">
+<h2 class="h2a"><span>1</span>&nbsp;&nbsp;Vì sao quan trọng</h2>
+<p>Tiếng Việt có cấu trúc âm tiết <strong>C-V-(C)</strong>: chỉ vài phụ âm cuối, không có cụm phụ âm. Tiếng Anh cho phép cụm phụ âm cuối phức tạp: /ksts/ trong <em lang="en">texts</em>, /kts/ trong <em lang="en">acts</em>. Khi áp thói quen tiếng Việt sang, người nói tự động bỏ phụ âm cuối, làm các mẩu ngữ pháp <em lang="en">-s</em>, <em lang="en">-ed</em> thành im lặng.</p><figure style="margin: 14px 0 0"><div class="fig" role="img" aria-label="Hình 1. Từ worked gồm gốc work và đuôi ed đọc là t, đánh dấu quá khứ. Khi rớt âm cuối, người nghe chỉ còn nghe work, mất dấu quá khứ.">
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px 24px" lang="en">
+<div><div style="display: flex; align-items: flex-end; justify-content: center; gap: 2px" class="sf">
+<div class="cell"><span style="font-size: 28px; line-height: 1.25; padding: 0 3px; border-bottom: 1.5px solid var(--ink)">work</span><span class="tag" style="text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--muted)">gốc · /wɜːk/</span></div>
+<div class="cell"><span style="font-size: 28px; line-height: 1.25; padding: 0 3px; border: 1.5px dashed var(--ink)">ed</span><span class="tag" style="text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--muted)">/t/ · quá khứ</span></div>
+</div><p lang="vi" style="margin: 10px 0 0; font: 14px/1.45 'Source Sans 3', sans-serif; text-align: center">Viết và nói đủ: <em lang="en">worked</em> /wɜːkt/</p></div>
+<div><div style="display: flex; align-items: flex-end; justify-content: center; gap: 2px" class="sf">
+<div class="cell"><span style="font-size: 28px; line-height: 1.25; padding: 0 3px; border-bottom: 1.5px solid var(--ink)">work</span><span class="tag" style="text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--muted)">gốc · /wɜːk/</span></div>
+<div class="cell"><span style="font-size: 28px; line-height: 1.25; padding: 0 3px; border: 1.5px dashed var(--danger); color: var(--danger); text-decoration: line-through">ed</span><span class="tag" style="color: var(--danger)" lang="vi">bị rớt khi nói</span></div>
+</div><p lang="vi" style="margin: 10px 0 0; font: 14px/1.45 'Source Sans 3', sans-serif; text-align: center">Nói rớt âm cuối: nghe thành <em lang="en">work</em>, mất dấu quá khứ</p></div>
+</div>
+</div></figure><div style="height: 14px"></div><div style="margin: 0 0 14px; padding: 10px 0 12px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule)"><p lang="en" style="margin: 0 0 4px; font: 600 15px/1.45 'Source Sans 3', sans-serif"><span class="lab" lang="vi" style="font-size: 11px; color: var(--muted)">Câu viết&nbsp;&nbsp;</span>Yesterday I worked until 10pm and finished the project.</p><p lang="en" style="margin: 0; font-size: 17px; line-height: 1.55">Yesterday I /wɜːk/ until 10pm and /ˈfɪnɪʃ/ the project.</p><p style="margin: 6px 0 0; display: flex; flex-wrap: wrap; gap: 6px"><span class="lab" style="font-size: 11px; padding: 2px 6px; border: 1px solid var(--rule); color: var(--muted)">câu nói khi rớt âm cuối</span><span class="lab" style="font-size: 11px; padding: 2px 6px; border: 1px solid var(--rule); color: var(--muted)">giám khảo có thể khó nhận ra thì quá khứ</span></p><div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 10px; font-family: 'Source Sans 3', sans-serif"><button onClick="{{au.w6.pick}}" aria-pressed="{{au.w6.on}}" aria-label="Nghe câu trả lời mẫu" style="display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border: 1px solid var(--ink); border-radius: 2px; background: {{au.w6.bg}}; color: {{au.w6.fg}}; font: 600 15px 'Source Sans 3', sans-serif; cursor: pointer"><svg aria-hidden="true" viewBox="0 0 16 16" style="width: 14px; height: 14px"><path d="{{au.w6.icon}}" fill="currentColor"></path></svg>{{au.w6.label}}</button><span style="font-size: 14px; color: var(--muted)">XXX giây</span><span class="lab" style="font-size: 11px; padding: 3px 6px; border: 1px solid var(--muted); color: var(--muted)">Giọng đọc tổng hợp</span></div></div>
+</div>
+<aside style="display: flex; flex-direction: column; justify-content: flex-start; gap: 6px"><p class="note"><strong style="color: var(--ink)">Hình 1.</strong> Đuôi <em lang="en">-ed</em> là một mẩu ngữ pháp (khung đứt). Bên phải: mẩu đó bị gạch vì không được phát âm; chữ viết vẫn đúng nhưng người nghe không còn nghe thấy thì quá khứ.</p><p class="cap">Nguồn: Aver Learning biên soạn.</p><p class="note"><strong style="color: var(--accent)">2</strong> Ảnh hưởng được xét trong tiêu chí phù hợp trên toàn bài; không tự tính một lỗi hai lần, không suy mức band chỉ từ âm cuối.</p></aside>
+</div>
+<div id="b-s2" style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px; padding-top: 18px">
+<div class="body">
+<h2 class="h2a"><span>2</span>&nbsp;&nbsp;Đuôi -s: số nhiều và ngôi thứ ba</h2>
+<table class="tb" style="margin-bottom: 14px"><caption><strong style="color: var(--ink)">Bảng 1.</strong> Ba cách đọc đuôi -s.</caption><thead><tr><th scope="col" style="width: 250px">Trước -s là</th><th scope="col" style="width: 60px">Đọc</th><th scope="col">Ví dụ</th></tr></thead><tbody><tr><th scope="row">Phụ âm vô thanh (/p t k f θ/)</th><td>/s/</td><td>books /bʊks/, cats /kæts/, walks /wɔːks/</td></tr><tr><th scope="row">Phụ âm hữu thanh hoặc nguyên âm</th><td>/z/</td><td>dogs /dɒɡz/, runs /rʌnz/, sees /siːz/</td></tr><tr><th scope="row">Âm xuýt (/s z ʃ ʒ tʃ dʒ/)</th><td>/ɪz/</td><td>buses /ˈbʌsɪz/, watches /ˈwɒtʃɪz/</td></tr></tbody></table><p>Điểm rớt hay gặp: nói <em lang="en">two book</em> thay cho <em lang="en">two books</em> /tuː bʊks/; <em lang="en">she work</em> thay cho <em lang="en">she works</em> /ʃiː wɜːks/. Cụm /ks/ và /nts/ ở cuối từ không tồn tại trong tiếng Việt.</p>
+</div>
+<aside style="display: flex; flex-direction: column; justify-content: flex-end; gap: 6px"></aside>
+</div>
+<div id="b-s3" style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px; padding-top: 18px">
+<div class="body">
+<h2 class="h2a"><span>3</span>&nbsp;&nbsp;Đuôi -ed: thì quá khứ</h2>
+<p>Tương tự <em lang="en">-s</em>, đuôi <em lang="en">-ed</em> có ba cách đọc.</p><figure style="margin: 14px 0 0"><div class="fig" role="img" aria-label="Hình 2. Ba động từ quá khứ. walked: đuôi ed đọc t. played: đuôi ed đọc d. wanted: đuôi ed đọc ɪd, thêm một âm tiết.">
+<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px 24px" lang="en">
+<div><div style="display: flex; align-items: flex-end; justify-content: center; gap: 2px" class="sf">
+<div class="cell"><span style="font-size: 26px; line-height: 1.25; padding: 0 3px; border-bottom: 1.5px solid var(--ink)">walk</span><span class="tag" style="text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--muted)">/wɔːk/</span></div>
+<div class="cell"><span style="font-size: 26px; line-height: 1.25; padding: 0 3px; border: 1.5px dashed var(--ink)">ed</span><span class="tag" style="text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--muted)">/t/</span></div>
+</div><p lang="vi" style="margin: 10px 0 0; font: 14px/1.45 'Source Sans 3', sans-serif; text-align: center">sau phụ âm vô thanh: <em lang="en">walked</em> /wɔːkt/</p></div>
+<div><div style="display: flex; align-items: flex-end; justify-content: center; gap: 2px" class="sf">
+<div class="cell"><span style="font-size: 26px; line-height: 1.25; padding: 0 3px; border-bottom: 1.5px solid var(--ink)">play</span><span class="tag" style="text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--muted)">/pleɪ/</span></div>
+<div class="cell"><span style="font-size: 26px; line-height: 1.25; padding: 0 3px; border: 1.5px dashed var(--ink)">ed</span><span class="tag" style="text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--muted)">/d/</span></div>
+</div><p lang="vi" style="margin: 10px 0 0; font: 14px/1.45 'Source Sans 3', sans-serif; text-align: center">sau âm hữu thanh: <em lang="en">played</em> /pleɪd/</p></div>
+<div><div style="display: flex; align-items: flex-end; justify-content: center; gap: 2px" class="sf">
+<div class="cell"><span style="font-size: 26px; line-height: 1.25; padding: 0 3px; border-bottom: 1.5px solid var(--ink)">want</span><span class="tag" style="text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--muted)">/wɒnt/</span></div>
+<div class="cell"><span style="font-size: 26px; line-height: 1.25; padding: 0 3px; border: 1.5px dashed var(--ink)">ed</span><span class="tag" style="text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--muted)">/ɪd/</span></div>
+</div><p lang="vi" style="margin: 10px 0 0; font: 14px/1.45 'Source Sans 3', sans-serif; text-align: center">sau /t/ hoặc /d/: <em lang="en">wanted</em> /ˈwɒntɪd/, thêm một âm tiết</p></div>
+</div>
+</div></figure><div style="height: 14px"></div><p><strong>Lỗi số 1 của người Việt:</strong> nghĩ <em lang="en">-ed</em> luôn đọc /əd/ (<em lang="en">walked</em> thành /wɔːkəd/), hoặc bỏ hẳn <em lang="en">-ed</em> (/wɔːk/). Chỉ thêm âm tiết /ɪd/ khi động từ tận cùng bằng /t/ hoặc /d/.</p>
+</div>
+<aside style="display: flex; flex-direction: column; justify-content: flex-end; gap: 6px"><p class="note"><strong style="color: var(--ink)">Hình 2.</strong> Ba dòng của bảng "-ed" vẽ thành mẩu: gốc gạch đơn, đuôi khung đứt, cách đọc ghi ngay dưới mẩu. Mỗi từ nên có nút nghe riêng khi có audio.</p><p class="cap">Nguồn: Aver Learning biên soạn.</p></aside>
+</div>
+<div id="b-s4" style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px; padding-top: 18px">
+<div class="body">
+<h2 class="h2a"><span>4</span>&nbsp;&nbsp;Dạng yếu của từ chức năng</h2>
+<p>Trong lời nói liền mạch, từ chức năng (trợ động từ, giới từ, mạo từ, đại từ) thường đọc yếu, không nhấn.</p><table class="tb" style="margin-bottom: 14px"><caption><strong style="color: var(--ink)">Bảng 2.</strong> Dạng mạnh và dạng yếu (trích 5 trong 8 dòng).</caption><thead><tr><th scope="col" style="width: 60px">Từ</th><th scope="col" style="width: 110px">Dạng mạnh</th><th scope="col" style="width: 110px">Dạng yếu</th><th scope="col">Ví dụ</th></tr></thead><tbody><tr><th scope="row">a</th><td>/eɪ/</td><td>/ə/</td><td>a book /ə bʊk/</td></tr><tr><th scope="row">to</th><td>/tuː/</td><td>/tə/</td><td>I want to go /tə ɡəʊ/</td></tr><tr><th scope="row">for</th><td>/fɔː/</td><td>/fə/</td><td>a gift for you /fə juː/</td></tr><tr><th scope="row">of</th><td>/ɒv/</td><td>/əv/</td><td>a cup of tea /ə kʌp əv tiː/</td></tr><tr><th scope="row">was</th><td>/wɒz/</td><td>/wəz/</td><td>He was happy /hi wəz ˈhæpiː/</td></tr></tbody></table>
+</div>
+<aside style="display: flex; flex-direction: column; justify-content: flex-end; gap: 6px"><p class="note"><strong style="color: var(--accent)">3</strong> Từ chức năng vẫn được nhấn khi đối lập: <em lang="en">I said TO the bank, not FROM it</em>. Chọn theo trọng tâm thông tin.</p></aside>
+</div>
+<div id="b-s5" style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px; padding-top: 18px">
+<div class="body">
+<h2 class="h2a"><span>5</span>&nbsp;&nbsp;Dạng rút gọn</h2>
+<table class="tb" style="margin-bottom: 14px"><caption><strong style="color: var(--ink)">Bảng 3.</strong> Dạng đầy đủ và dạng rút gọn (trích 5 trong 11 dòng).</caption><thead><tr><th scope="col" style="width: 200px">Đầy đủ</th><th scope="col" style="width: 160px">Rút gọn</th><th scope="col">Âm</th></tr></thead><tbody><tr><th scope="row" lang="en">I am</th><td lang="en">I'm</td><td>/aɪm/</td></tr><tr><th scope="row" lang="en">I have</th><td lang="en">I've</td><td>/aɪv/</td></tr><tr><th scope="row" lang="en">He is / He has</th><td lang="en">He's</td><td>/hiːz/</td></tr><tr><th scope="row" lang="en">Will not</th><td lang="en">Won't</td><td>/wəʊnt/</td></tr><tr><th scope="row" lang="en">I would / I had</th><td lang="en">I'd</td><td>/aɪd/</td></tr></tbody></table><p>Nói dạng đầy đủ ở mọi chỗ làm nhịp nói nặng và chậm; giữ dạng đầy đủ khi nhấn mạnh hoặc ở cuối câu trả lời ngắn: <em lang="en">Yes, I am</em>.</p>
+</div>
+<aside style="display: flex; flex-direction: column; justify-content: flex-end; gap: 6px"></aside>
+</div>
+<div id="b-s6" style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px; padding-top: 18px">
+<div class="body">
+<h2 class="h2a"><span>6</span>&nbsp;&nbsp;Lỗi thường gặp khi nói</h2>
+<figure style="margin: 14px 0 0"><div class="fig" role="img" aria-label="Hình 3. Hai cách nhấn câu I want to go to the bank. Sai: nhấn đều mọi từ. Đúng: chỉ nhấn WANT, GO, BANK là các từ nội dung; to, to, the đọc yếu.">
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px">
+<p class="lab" style="margin: 0 0 6px; color: var(--danger)">Sai</p>
+<p class="lab" style="margin: 0 0 6px; color: var(--ok)">Đúng</p>
+<p lang="en" class="sf" style="margin: 0; padding: 10px 0; border-top: 1.5px solid var(--danger); font-size: 18px; line-height: 1.5"><span style="padding: 0 3px; border: 1.5px dashed var(--danger); text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px; white-space: nowrap">I WANT TO GO TO THE BANK.</span></p>
+<p lang="en" class="sf" style="margin: 0; padding: 10px 0; border-top: 1.5px solid var(--ok); font-size: 18px; line-height: 1.5">I <span style="padding: 0 3px; border-bottom: 4px double var(--ok); font-weight: 600; white-space: nowrap">WANT</span> to <span style="padding: 0 3px; border-bottom: 4px double var(--ok); font-weight: 600; white-space: nowrap">GO</span> to the <span style="padding: 0 3px; border-bottom: 4px double var(--ok); font-weight: 600; white-space: nowrap">BANK</span>.</p>
+<p style="grid-column: span 2; margin: 0 0 12px; font: 14px/1.5 'Source Sans 3', sans-serif; color: var(--muted)"><span class="lab" style="color: var(--muted)">Vì sao&nbsp;&nbsp;</span>Nhấn rơi vào từ nội dung (danh từ, động từ chính, tính từ, trạng từ); từ chức năng thường đọc yếu.</p>
+<p lang="en" class="sf" style="margin: 0; padding: 10px 0; border-top: 1.5px solid var(--danger); font-size: 18px; line-height: 1.5">texts /teksts/ → <span style="padding: 0 3px; border: 1.5px dashed var(--danger); text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px; white-space: nowrap">/teks/</span></p>
+<p lang="en" class="sf" style="margin: 0; padding: 10px 0; border-top: 1.5px solid var(--ok); font-size: 18px; line-height: 1.5">texts <span style="padding: 0 3px; border-bottom: 4px double var(--ok); font-weight: 600; white-space: nowrap">/teksts/</span></p>
+<p style="grid-column: span 2; margin: 0; font: 14px/1.5 'Source Sans 3', sans-serif; color: var(--muted)"><span class="lab" style="color: var(--muted)">Vì sao&nbsp;&nbsp;</span>Bỏ cụm phụ âm cuối làm mất dấu số nhiều. Tương tự: <em lang="en">asks</em> /ɑːsks/, <em lang="en">stopped</em> /stɒpt/.</p>
+</div>
+</div></figure><div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 10px 0 14px; font-family: 'Source Sans 3', sans-serif"><button onClick="{{au.ph.pick}}" aria-pressed="{{au.ph.on}}" aria-label="Nghe hai cách nhấn" style="display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border: 1px solid var(--ink); border-radius: 2px; background: {{au.ph.bg}}; color: {{au.ph.fg}}; font: 600 15px 'Source Sans 3', sans-serif; cursor: pointer"><svg aria-hidden="true" viewBox="0 0 16 16" style="width: 14px; height: 14px"><path d="{{au.ph.icon}}" fill="currentColor"></path></svg>{{au.ph.label}}</button><span style="font-size: 14px; color: var(--muted)">hai cách nhấn, đọc lần lượt · XXX giây</span><span class="lab" style="font-size: 11px; padding: 3px 6px; border: 1px solid var(--muted); color: var(--muted)">Giọng đọc tổng hợp</span></div>
+</div>
+<aside style="display: flex; flex-direction: column; justify-content: flex-end; gap: 6px"><p class="note"><strong style="color: var(--ink)">Hình 3.</strong> Lỗi 4 (nhấn đều) và lỗi 1 (bỏ cụm phụ âm) của bài. Từ viết hoa đậm gạch đôi là từ được nhấn. Hình về âm phải đi kèm nút nghe.</p><p class="cap">Nguồn: Aver Learning biên soạn.</p></aside>
+</div>
+<div id="b-s7" style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px; padding-top: 18px">
+<div class="body">
+<h2 class="h2a"><span>7</span>&nbsp;&nbsp;Tự kiểm khi luyện nói</h2>
+<p>Ghi âm mọi lần luyện và nghe lại với danh sách sau. Danh sách này dùng để luyện, không phải phép tính band.</p><ul style="margin: 0 0 14px; padding: 0; list-style: none; border-top: 1px solid var(--ink); font-size: 17px; line-height: 1.5"><li style="display: flex; gap: 12px; align-items: center; min-height: 40px; border-bottom: 1px solid var(--rule)"><span aria-hidden="true" style="width: 16px; height: 16px; border: 1.5px solid var(--ink); flex: none"></span><em lang="en">-s</em> số nhiều rõ ràng?</li><li style="display: flex; gap: 12px; align-items: center; min-height: 40px; border-bottom: 1px solid var(--rule)"><span aria-hidden="true" style="width: 16px; height: 16px; border: 1.5px solid var(--ink); flex: none"></span><em lang="en">-s</em> ngôi thứ ba rõ ràng?</li><li style="display: flex; gap: 12px; align-items: center; min-height: 40px; border-bottom: 1px solid var(--rule)"><span aria-hidden="true" style="width: 16px; height: 16px; border: 1.5px solid var(--ink); flex: none"></span><em lang="en">-ed</em> quá khứ đúng cả ba dạng?</li><li style="display: flex; gap: 12px; align-items: center; min-height: 40px; border-bottom: 1px solid var(--rule)"><span aria-hidden="true" style="width: 16px; height: 16px; border: 1.5px solid var(--ink); flex: none"></span>Có dùng dạng rút gọn, không nói dạng đầy đủ ở mọi chỗ?</li><li style="display: flex; gap: 12px; align-items: center; min-height: 40px; border-bottom: 1px solid var(--rule)"><span aria-hidden="true" style="width: 16px; height: 16px; border: 1.5px solid var(--ink); flex: none"></span>Từ chức năng đọc yếu, từ nội dung được nhấn?</li></ul><p style="font-family: 'Source Sans 3', sans-serif; font-size: 16px; line-height: 1.5; color: var(--muted)">Ba câu soạn từ hai bảng cách đọc ở mục 2 và 3 (bài gốc không có bài tập dạng chọn). Chấm ngay trên trang.</p>
+<ol style="margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--ink)">
+<sc-for list="{{qz.b.items}}" as="q" hint-placeholder-count="3">
+<li style="padding: 10px 0; border-bottom: 1px solid var(--rule)">
+<p style="margin: 0 0 6px"><span style="font-family: 'Source Sans 3', sans-serif; color: var(--muted)">{{q.n}}.&nbsp;</span><span style="font-family: 'Source Sans 3', sans-serif; font-size: 16px">{{q.ask}}</span><br><span lang="en">{{q.prompt}}</span></p>
+<div role="radiogroup" aria-label="{{q.aria}}" style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{q.opts}}" as="o" hint-placeholder-count="3">
+<button role="radio" aria-checked="{{o.on}}" onClick="{{o.pick}}" lang="en" style="display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border: 1px solid {{o.bd}}; border-radius: 2px; background: {{o.bg}}; color: var(--ink); font: 400 17px 'Source Serif 4', Georgia, serif; cursor: pointer">{{o.t}}<span style="font: 600 12px 'Source Sans 3', sans-serif; letter-spacing: 0.06em; text-transform: uppercase; color: {{o.tagc}}">{{o.tag}}</span></button>
+</sc-for>
+</div>
+<sc-if value="{{q.done}}" hint-placeholder-val="{{ false }}"><p style="margin: 8px 0 0; font-family: 'Source Sans 3', sans-serif; font-size: 16px; line-height: 1.5"><strong style="color: {{q.resc}}">{{q.res}}</strong> {{q.why}}</p></sc-if>
+</li>
+</sc-for>
+</ol>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin-top: 12px; font-family: 'Source Sans 3', sans-serif; font-size: 16px">
+<button onClick="{{qz.b.check}}" class="btnp">Kiểm tra</button>
+<button onClick="{{qz.b.reset}}" class="btn">Làm lại</button>
+<span aria-live="polite" style="color: {{qz.b.msgc}}">{{qz.b.msg}}</span>
+</div>
+</div>
+<aside style="display: flex; flex-direction: column; justify-content: flex-start; gap: 6px"><p class="note"><strong style="color: var(--accent)">4</strong> Bài gốc chỉ có bài tập đọc to (cluster drill, kể lại một phút). Khuôn cần khối "danh sách tự kiểm" có ô đánh dấu; ba câu chọn cách đọc bên dưới là đề xuất của người vẽ, cần người soạn duyệt.</p></aside>
+</div>
+<div id="b-s8" style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px; padding-top: 18px"><div><h2 class="h2a"><span>8</span>&nbsp;&nbsp;Bài liên quan</h2><div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 24px"><div style="border-top: 1px solid var(--ink); padding-top: 8px"><p class="kick" style="font-size: 12px">Nên đọc trước</p><ul style="margin: 4px 0 0; padding: 0; list-style: none"><li style="padding: 5px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="sf" style="font-size: 16px; color: var(--ink); text-decoration-color: var(--rule); text-underline-offset: 4px">Present Simple</a><span style="display: block; font-size: 14px; color: var(--muted)">Hiện tại đơn</span></li><li style="padding: 5px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="sf" style="font-size: 16px; color: var(--ink); text-decoration-color: var(--rule); text-underline-offset: 4px">Past Simple</a><span style="display: block; font-size: 14px; color: var(--muted)">Quá khứ đơn</span></li><li style="padding: 5px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="sf" style="font-size: 16px; color: var(--ink); text-decoration-color: var(--rule); text-underline-offset: 4px">Articles</a><span style="display: block; font-size: 14px; color: var(--muted)">a, an, the</span></li></ul></div><div style="border-top: 1px solid var(--ink); padding-top: 8px"><p class="kick" style="font-size: 12px">Liên quan</p><ul style="margin: 4px 0 0; padding: 0; list-style: none"><li style="padding: 5px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="sf" style="font-size: 16px; color: var(--ink); text-decoration-color: var(--rule); text-underline-offset: 4px">Grammar cho IELTS Speaking</a><span style="display: block; font-size: 14px; color: var(--muted)">IELTS Speaking Lab</span></li><li style="padding: 5px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="sf" style="font-size: 16px; color: var(--ink); text-decoration-color: var(--rule); text-underline-offset: 4px">Future Forms</a><span style="display: block; font-size: 14px; color: var(--muted)">will / be going to</span></li></ul></div><div style="border-top: 1px solid var(--ink); padding-top: 8px"><p class="kick" style="font-size: 12px">Cùng chủ đề, nhóm khác</p><ul style="margin: 4px 0 0; padding: 0; list-style: none"><li style="padding: 5px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="sf" style="font-size: 16px; color: var(--ink); text-decoration-color: var(--rule); text-underline-offset: 4px">Subject-Verb Agreement</a><span style="display: block; font-size: 14px; color: var(--muted)">Error Clinic</span></li><li style="padding: 5px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="sf" style="font-size: 16px; color: var(--ink); text-decoration-color: var(--rule); text-underline-offset: 4px">Singular vs. Plural</a><span style="display: block; font-size: 14px; color: var(--muted)">Nền tảng</span></li></ul></div></div><nav aria-label="Bài trước và bài sau" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-top: 16px"><a href="GrammarWikiBai.dc.html" style="display: block; padding: 10px 0; border-top: 2px solid var(--ink); color: var(--ink); text-decoration: none"><span class="kick" style="font-size: 12px">‹ Bài trước · 7.22</span><span class="sf" lang="en" style="display: block; font-size: 20px; font-weight: 600">Talking About Changes Over Time</span><span style="font-size: 14px; color: var(--muted)">Diễn đạt sự thay đổi theo thời gian trong IELTS</span></a><span></span></nav><p style="margin: 14px 0 0; font-size: 14px; color: var(--muted)">Nguồn: Aver Learning biên soạn. Cập nhật 28/05/2026.</p></div><aside></aside></div>
+</article>
+</div>
+</main>
+<footer style="padding: 16px 32px; border-top: 1px solid var(--ink)">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0 28px">
+<span class="sf" style="display: inline-flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 600; margin-right: 12px"><svg width="26" height="26" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="currentColor"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<nav aria-label="Chân trang" class="foot" style="display: flex; flex-wrap: wrap; gap: 0 24px">
+<a href="TrangChuCongKhai.dc.html">Giới thiệu</a><a href="DanhMucKhoa.dc.html">Khoá học</a><a href="ThuVien.dc.html">Thư viện</a><a href="HocVienNoiGi.dc.html">Học viên nói gì</a><a href="PhapLy.dc.html">Điều khoản</a><a href="PhapLy.dc.html">Quyền riêng tư</a><a href="PhapLy.dc.html">Liên hệ</a>
+</nav>
+</div>
+<p style="margin: 6px 0 0; font-size: 14px; color: var(--muted)">© 2026 Aver Learning. Bảo lưu mọi quyền.</p>
+</footer>
+</div>
+</section>
+
+<section aria-labelledby="b3" style="border-top: 2px solid var(--ink); padding: 16px 64px 0">
+<h2 id="b3" class="h2s">Ghi chú cho lập trình</h2>
+<p class="lead">Ghi chú đầy đủ cho nhóm ở tờ GrammarWikiNhom7. Ở đây chỉ ghi điều riêng của trang này. Bản điện thoại 390px của nhóm ở tờ GrammarWikiNhom7, mục 3.</p>
+<ul style="margin: 0; padding-left: 20px; font-size: 15px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 48px"><li><strong>IPA dùng Source Sans 3</strong>, đặt giữa hai gạch chéo, không xuống dòng giữa một phiên âm (<em lang="en">white-space: nowrap</em> cho từng cụm /…/).</li><li><strong>Hình về âm phải có nút nghe:</strong> Hình 1, 2, 3 của bài này cần audio cho từng từ hoặc từng câu; không có audio thì hình vẫn đọc được nhờ IPA nhưng mất nửa tác dụng.</li><li><strong>Danh sách tự kiểm (mới):</strong> các dòng <em lang="en">- [ ]</em> trong Markdown dựng thành danh sách có ô đánh dấu; đánh dấu chỉ lưu trên trình duyệt, không gửi về máy chủ.</li><li><strong>Thời lượng đọc 12 phút</strong> lấy từ <em lang="en">estimated_minutes</em> của file; đây là một trong ba bài của năm nhóm có trường này.</li></ul>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Navy + đỏ mận","Xanh teal"],"default":"Navy + đỏ mận"},"$preview":{"width":1280,"height":4960}}'>
+class Component extends DCLogic {
+constructor(p) { super(p); this.state = { ans: {}, checked: {}, warn: {}, playing: '', phoneToc: false }; }
+renderVals() {
+const s = this.state || {};
+const QZ = {"b": [{"ask": "Đuôi -ed trong từ này đọc thế nào?", "prompt": "walked", "opts": ["/t/", "/d/", "/ɪd/"], "right": 0, "why": "Trước -ed là phụ âm vô thanh /k/ nên đọc /t/: /wɔːkt/."}, {"ask": "Đuôi -ed trong từ này đọc thế nào?", "prompt": "needed", "opts": ["/t/", "/d/", "/ɪd/"], "right": 2, "why": "Động từ tận cùng bằng /d/ nên thêm hẳn một âm tiết: /ˈniːdɪd/."}, {"ask": "Đuôi -s trong từ này đọc thế nào?", "prompt": "dogs", "opts": ["/s/", "/z/", "/ɪz/"], "right": 1, "why": "Trước -s là phụ âm hữu thanh /ɡ/ nên đọc /z/: /dɒɡz/."}]};
+const AU = ["p1", "p3", "p6", "w1", "w6", "ph"];
+const TG = [{"k": "model", "a": "Xem câu trả lời mẫu", "b": "Ẩn câu trả lời mẫu"}];
+const qz = {};
+Object.keys(QZ).forEach((k) => {
+const Q = QZ[k];
+const ans = (s.ans || {})[k] || {};
+const checked = !!(s.checked || {})[k];
+const setAns = (qi, oi) => this.setState({ ans: Object.assign({}, this.state.ans || {}, { [k]: Object.assign({}, ((this.state.ans || {})[k]) || {}, { [qi]: oi }) }), checked: Object.assign({}, this.state.checked || {}, { [k]: false }), warn: Object.assign({}, this.state.warn || {}, { [k]: 0 }) });
+const items = Q.map((q, qi) => {
+const chosen = ans[qi];
+const done = checked && chosen !== undefined;
+const ok = done && chosen === q.right;
+return { n: String(qi + 1), ask: q.ask, prompt: q.prompt, aria: 'Câu ' + (qi + 1), done, res: ok ? 'Chính xác.' : 'Chưa đúng.', resc: ok ? 'var(--ok)' : 'var(--danger)', why: q.why,
+opts: q.opts.map((t, oi) => {
+const on = chosen === oi;
+const showRight = done && oi === q.right;
+const showWrong = done && on && oi !== q.right;
+return { t, on: on ? 'true' : 'false', bd: showRight ? 'var(--ok)' : (showWrong ? 'var(--danger)' : (on ? 'var(--ink)' : 'var(--rule)')), bg: on ? 'var(--tint)' : 'var(--surface)', tag: showRight ? 'Đúng' : (showWrong ? 'Sai' : ''), tagc: showRight ? 'var(--ok)' : 'var(--danger)', pick: () => setAns(qi, oi) };
+}) };
+});
+const missing = Q.filter((q, i) => ans[i] === undefined).length;
+const nRight = Q.filter((q, i) => ans[i] === q.right).length;
+const warn = (s.warn || {})[k] || 0;
+let msg = ''; let msgc = 'var(--muted)';
+if (warn) { msg = 'Còn ' + warn + ' câu chưa chọn.'; msgc = 'var(--mark)'; }
+else if (checked) { msg = 'Đúng ' + nRight + ' trên ' + Q.length + ' câu.'; msgc = 'var(--ink)'; }
+qz[k] = { items, msg, msgc,
+check: () => { if (missing) { this.setState({ warn: Object.assign({}, this.state.warn || {}, { [k]: missing }) }); } else { this.setState({ checked: Object.assign({}, this.state.checked || {}, { [k]: true }), warn: Object.assign({}, this.state.warn || {}, { [k]: 0 }) }); } },
+reset: () => this.setState({ ans: Object.assign({}, this.state.ans || {}, { [k]: {} }), checked: Object.assign({}, this.state.checked || {}, { [k]: false }), warn: Object.assign({}, this.state.warn || {}, { [k]: 0 }) }) };
+});
+const au = {};
+AU.forEach((k) => {
+const on = s.playing === k;
+au[k] = { on: on ? 'true' : 'false', label: on ? 'Dừng' : 'Nghe câu mẫu', icon: on ? 'M3 2h4v12H3zM9 2h4v12H9z' : 'M3 1.5v13l11-6.5z', bg: on ? 'var(--ink)' : 'var(--surface)', fg: on ? 'var(--surface)' : 'var(--ink)', pick: () => this.setState({ playing: on ? '' : k }) };
+});
+const tg = {};
+TG.forEach((x) => {
+const open = !!((s.tg || {})[x.k]);
+tg[x.k] = { open, exp: open ? 'true' : 'false', label: open ? x.b : x.a, pick: () => this.setState({ tg: Object.assign({}, this.state.tg || {}, { [x.k]: !open }) }) };
+});
+const phoneTocOpen = !!s.phoneToc;
+return {
+pal: (this.props.palette ?? 'Navy + đỏ mận') === 'Xanh teal' ? 'pal-teal' : 'pal-navy',
+qz, au, tg,
+phoneTocOpen, phoneTocIcon: phoneTocOpen ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6', phoneTocLabel: phoneTocOpen ? 'true' : 'false',
+togglePhoneToc: () => this.setState({ phoneToc: !phoneTocOpen })
+};
+}
+}
+</script>
+</body>
+</html>

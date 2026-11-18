@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Viết lại sau khi chấm</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--link:#0B5953;--mark:#8A4B08;--tint:#EDF3F1;--on-accent:#FFFFFF}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--link:#1A3561;--mark:#8A1C1C;--tint:#EEF0F5;--on-accent:#FFFFFF}
+a{color:var(--link)}a:hover{color:var(--ink)}
+</style>
+</helmet>
+<div class="{{pal}}" style="background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 16px; line-height: 1.55; min-height: 8000px">
+<div style="max-width: 1120px; margin: 0 auto; padding: 24px 32px 20px">
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Aver Learning · Bản in · hướng phát triển 2 · trang học viên</p>
+<p style="margin: 2px 0 4px; font-family: 'Source Serif 4', Georgia, serif; font-size: 32px; font-weight: 600; line-height: 1.15">Viết lại sau khi chấm, đặt cạnh bài mẫu cùng đề</p>
+<p style="margin: 0; color: var(--muted); font-size: 15px">Sau phiếu chấm Writing, người học chọn một nhận xét và viết lại đúng đoạn bị nhận xét. Kết quả cho thấy từng nhận xét đã xử lý hay còn, có lỗi mới không, kèm câu trích từ bản viết lại; không chấm lại band. Nếu đề thuộc kho 549 đề thì đặt đoạn đó cạnh đoạn tương ứng của bài 6.0, 7.0, 7.5. Nhân vật: học viên khoá online, AI chấm trả ngay; đề "Working from home" có trong kho.</p>
+</div>
+<section id="s1" aria-labelledby="h-s1" style="border-top: 2px solid var(--ink)">
+<div style="max-width: 1120px; margin: 0 auto; padding: 16px 32px 27px">
+<h2 id="h-s1" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">1 · Lối vào từ phiếu chấm</h2>
+<p style="margin: 4px 0 18px; font-size: 14px; color: var(--muted); max-width: 110ch">Phiếu KetQuaWriting đã duyệt, thêm nút "Viết lại đoạn này" ở mỗi đoạn có nhận xét cần sửa và đổi hàng "Làm gì tiếp". Phiếu cắt bớt: chỉ vẽ phần đổi.</p>
+<div style="border: 1px solid var(--ink); background: var(--paper)">
+<header style="border-bottom: 1px solid var(--ink)">
+<div style="padding: 0 32px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 36px; min-height: 64px">
+<a href="Main.dc.html" style="display: inline-flex; align-items: center; gap: 9px; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600; color: var(--ink); text-decoration: none"><svg width="29" height="29" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</a>
+<nav aria-label="Điều hướng chính" style="display: flex; flex-wrap: wrap; gap: 4px 28px; flex-grow: 1">
+<a href="Main.dc.html" style="padding: 20px 0; color: var(--muted); text-decoration: none">Hôm nay</a>
+<a href="LoTrinh.dc.html" style="padding: 20px 0; color: var(--muted); text-decoration: none">Lộ trình</a>
+<a href="LuyenTap.dc.html" aria-current="page" style="padding: 20px 0 17px; color: var(--ink); font-weight: 600; text-decoration: none; border-bottom: 3px solid var(--accent)">Luyện tập</a>
+<a href="ThiThu.dc.html" style="padding: 20px 0; color: var(--muted); text-decoration: none">Thi thử</a>
+<a href="ThuVien.dc.html" style="padding: 20px 0; color: var(--muted); text-decoration: none">Thư viện</a>
+</nav>
+<div style="display: flex; align-items: center; gap: 16px">
+<span style="font-size: 14px; color: var(--muted)">Lượt chấm AI còn <strong style="color: var(--ink); font-variant-numeric: tabular-nums">XXX</strong></span>
+<button aria-label="Tra nhanh: từ, bài ngữ pháp, đề bài mẫu" title="Tra nhanh" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; box-sizing: border-box; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); cursor: pointer"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="1.6"></circle><path d="M15 15l5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path></svg></button>
+<span style="position: relative; flex: none; display: inline-flex"><a href="ThongBao.dc.html" aria-label="Thông báo, 4 chưa đọc" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; box-sizing: border-box; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink)"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15zM10 20.5a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></a><span aria-hidden="true" style="position: absolute; top: -7px; right: -7px; min-width: 20px; height: 20px; box-sizing: border-box; padding: 0 5px; border: 1px solid var(--paper); border-radius: 2px; background: var(--accent); color: var(--on-accent); font-size: 12px; font-weight: 600; line-height: 18px; text-align: center; font-variant-numeric: tabular-nums">4</span></span>
+<button aria-label="Mở menu tài khoản" style="width: 44px; height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer">MA</button>
+</div>
+</div>
+</header>
+<main style="padding: 14px 32px 20px">
+<p style="margin: 0; font-size: 14px; color: var(--muted)"><a href="LuyenTap.dc.html">Luyện tập</a> › <a href="KetQuaWriting.dc.html">Writing</a> › Kết quả</p>
+<p style="margin: 6px 0 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Phiếu nhận xét · Writing Task 2 · nộp 15/11/2026 · AI chấm, trả ngay</p>
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 28px; padding-bottom: 12px; border-bottom: 1px solid var(--ink)">
+<h1 lang="en" style="margin: 2px 0 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 30px; font-weight: 600; line-height: 1.2">Working from home</h1>
+<p style="margin: 0; font-size: 15px; font-variant-numeric: tabular-nums">Band ước lượng <strong>6.0</strong> · Task Response <strong>5.5</strong> · Coherence and Cohesion 6.0 · Lexical Resource 6.0 · Grammatical Range and Accuracy 6.0</p>
+</div>
+<p style="margin: 14px 0 12px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Bài của bạn · phần phiếu đã duyệt, thêm lối "Viết lại đoạn này" ở từng đoạn có nhận xét cần sửa</p>
+<div style="display: flex; flex-wrap: wrap; gap: 20px 48px">
+<div style="flex: 999 1 520px; min-width: 0; max-width: 680px">
+<p style="margin: 0 0 8px; font-size: 14px; color: var(--muted)">Đoạn 1 · Mở bài · không có nhận xét cần sửa nên không có nút · <span lang="en">Nowadays more people can work from home…</span></p>
+<p style="margin: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 16px; font-size: 14px; padding-top: 8px; border-top: 2px solid var(--ink)"><span style="font-weight: 600">Đoạn 2 · Thân bài 1 · 4 nhận xét cần sửa</span><a href="#s2" style="display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; background: var(--accent); color: var(--on-accent); font-weight: 600; text-decoration: none; border-radius: 2px">Viết lại đoạn này</a></p>
+<p lang="en" style="margin: 6px 0 16px; font-family: 'Source Serif 4', Georgia, serif; font-size: 17px; line-height: 1.6">Firstly, <span style="border-bottom: 2px solid var(--mark)">working from home save</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--mark)"> 1</sup> a lot of time. People do not need to go to office every day, so <span style="border-bottom: 2px dotted var(--mark)">they have more time for family</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--mark)"> 2</sup>. For example, <span style="border-bottom: 2px dotted var(--mark)">my sister works at home and she is very happy</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--mark)"> 3</sup>. <span style="border-bottom: 2px dashed var(--ink)">Also, they can save money because they do not buy petrol.</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--ink)"> 4</sup></p>
+<p style="margin: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 16px; font-size: 14px; padding: 6px 0; border-top: 1px solid var(--rule)"><span style="color: var(--muted)">Đoạn 3 · Thân bài 2 · 3 nhận xét cần sửa</span><a href="#s2" style="display: inline-flex; align-items: center; min-height: 40px; font-weight: 600">Viết lại đoạn này</a></p>
+<p style="margin: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 16px; font-size: 14px; padding: 6px 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule)"><span style="color: var(--muted)">Đoạn 4 · Kết bài · 1 nhận xét cần sửa · <span lang="en">In conclusion, I believe…</span></span><a href="#s2" style="display: inline-flex; align-items: center; min-height: 40px; font-weight: 600">Viết lại đoạn này</a></p>
+</div>
+<ol aria-label="Chú thích của Đoạn 2" style="flex: 1 1 300px; min-width: 0; margin: 0; padding: 0; list-style: none">
+<li style="display: flex; gap: 12px; padding: 10px 0; border-top: 1px solid var(--rule)"><span style="font-weight: 600; color: var(--mark); font-variant-numeric: tabular-nums">1</span><div style="min-width: 0"><p style="margin: 0; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--mark)">Ngữ pháp</p><p style="margin: 2px 0 0; font-size: 15px">Chủ ngữ là cụm <span lang="en">working from home</span>, tính là số ít: <span lang="en">saves</span>.</p></div></li>
+<li style="display: flex; gap: 12px; padding: 10px 0; border-top: 1px solid var(--rule)"><span style="font-weight: 600; color: var(--mark); font-variant-numeric: tabular-nums">2</span><div style="min-width: 0"><p style="margin: 0; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--mark)">Task Response</p><p style="margin: 2px 0 0; font-size: 15px">Ý mới dừng ở mức nêu. Chưa nói thời gian đó đổi được việc gì và vì sao đáng kể.</p><a href="#s2" style="display: inline-block; margin-top: 4px; font-size: 14px">Viết lại đoạn để sửa nhận xét này</a></div></li>
+<li style="display: flex; gap: 12px; padding: 10px 0; border-top: 1px solid var(--rule)"><span style="font-weight: 600; color: var(--mark); font-variant-numeric: tabular-nums">3</span><div style="min-width: 0"><p style="margin: 0; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--mark)">Task Response</p><p style="margin: 2px 0 0; font-size: 15px">Ví dụ không chứng minh cho ý tiết kiệm thời gian: "vui" không cho thấy thời gian được dùng thế nào.</p></div></li>
+<li style="display: flex; gap: 12px; padding: 10px 0; border-top: 1px solid var(--rule)"><span style="font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums">4</span><div style="min-width: 0"><p style="margin: 0; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--ink)">Coherence and Cohesion</p><p style="margin: 2px 0 0; font-size: 15px">Câu cuối mở một ý thứ hai (tiền xăng) không nối với câu chủ đề của đoạn.</p></div></li>
+</ol>
+</div>
+<section style="margin-top: 22px; padding-top: 14px; border-top: 2px solid var(--ink)">
+<h2 style="margin: 0 0 10px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Làm gì tiếp</h2>
+<div style="display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center"><a href="#s2" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 22px; background: var(--accent); color: var(--on-accent); font-weight: 600; text-decoration: none; border-radius: 2px">Viết lại một đoạn</a><a href="PhongThi.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 22px; border: 1px solid var(--ink); background: var(--surface); color: var(--ink); font-weight: 600; text-decoration: none; border-radius: 2px">Viết lại cả bài</a><span style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border: 1px dashed var(--muted); color: var(--muted); border-radius: 2px">Bài của tôi đứng đâu · mở sau khi viết lại một đoạn</span><a href="KetQuaWriting.dc.html" style="font-size: 15px">Gửi yêu cầu chấm lại</a></div>
+</section>
+</main>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted); max-width: 120ch">Viết lại một đoạn: AI đối chiếu với từng nhận xét, không chấm lại band. Viết lại cả bài: một bài mới, 1 lượt, có band mới. Bấm "Viết lại đoạn này" hoặc bấm vào một nhận xét đều mở màn ở mục 2 với đúng đoạn đó; nhận xét được bấm xếp đầu danh sách. Đoạn không có nhận xét cần sửa thì không có nút. Lối này chỉ có khi phiếu đã trả (lớp offline: sau khi giáo viên duyệt).</p>
+
+</div>
+</section>
+<section id="s2" aria-labelledby="h-s2" style="border-top: 2px solid var(--ink)">
+<div style="max-width: 1120px; margin: 0 auto; padding: 16px 32px 27px">
+<h2 id="h-s2" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">2 · Màn viết lại</h2>
+<p style="margin: 4px 0 18px; font-size: 14px; color: var(--muted); max-width: 110ch">Trái: đoạn gốc và danh sách nhận xét cần xử lý. Phải: ô viết lại. Không có bài mẫu, không có gợi ý câu chữ trên màn này.</p>
+<div style="border: 1px solid var(--ink); background: var(--paper)">
+<p style="margin: 0; padding: 6px 32px; border-bottom: 1px solid var(--ink); font-size: 13px; color: var(--muted)">Thanh học viên năm mục, Luyện tập đang chọn (lược bớt trên tờ; mục 1 vẽ đủ).</p>
+<main style="padding: 14px 32px 20px">
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 24px; padding-bottom: 10px; border-bottom: 1px solid var(--ink)">
+<p style="margin: 0; font-size: 15px"><a href="#s1">‹ Phiếu nhận xét · Working from home</a></p>
+<p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">Viết lại Đoạn 2 · Thân bài 1</p>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)"><strong style="color: var(--ink)">Đề:</strong> <span lang="en">More people now work from home using digital technology. Do advantages outweigh disadvantages?</span> <a href="#s2">Xem đủ đề</a></p>
+<div style="display: flex; flex-wrap: wrap; gap: 24px 48px; margin-top: 16px">
+<div style="flex: 1 1 420px; min-width: 0">
+<h2 style="margin: 0 0 10px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Đoạn gốc của bạn · 50 từ</h2>
+<p lang="en" style="margin: 0 0 18px; font-family: 'Source Serif 4', Georgia, serif; font-size: 17px; line-height: 1.6">Firstly, <span style="border-bottom: 2px solid var(--mark)">working from home save</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--mark)"> 1</sup> a lot of time. People do not need to go to office every day, so <span style="border-bottom: 2px dotted var(--mark)">they have more time for family</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--mark)"> 2</sup>. For example, <span style="border-bottom: 2px dotted var(--mark)">my sister works at home and she is very happy</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--mark)"> 3</sup>. <span style="border-bottom: 2px dashed var(--ink)">Also, they can save money because they do not buy petrol.</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--ink)"> 4</sup></p>
+<h2 style="margin: 0 0 10px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Nhận xét cần xử lý · 4</h2>
+<div style="border-bottom: 1px solid var(--rule)">
+<label style="display: flex; gap: 10px; padding: 9px 0; border-top: 1px solid var(--rule); cursor: pointer"><span aria-hidden="true" style="flex: none; width: 18px; height: 18px; box-sizing: border-box; margin-top: 2px; border: 1.5px solid var(--ink); background: var(--ink)"></span><span style="min-width: 0"><span style="display: block; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--mark)">2 · Task Response</span><span style="display: block; font-size: 15px">Ý mới dừng ở mức nêu. Chưa nói thời gian đó đổi được việc gì và vì sao đáng kể.</span></span></label>
+<label style="display: flex; gap: 10px; padding: 9px 0; border-top: 1px solid var(--rule); cursor: pointer"><span aria-hidden="true" style="flex: none; width: 18px; height: 18px; box-sizing: border-box; margin-top: 2px; border: 1.5px solid var(--ink); background: var(--ink)"></span><span style="min-width: 0"><span style="display: block; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--mark)">1 · Ngữ pháp</span><span style="display: block; font-size: 15px">Chủ ngữ là cụm <span lang="en">working from home</span>, tính là số ít: <span lang="en">saves</span>.</span></span></label>
+<label style="display: flex; gap: 10px; padding: 9px 0; border-top: 1px solid var(--rule); cursor: pointer"><span aria-hidden="true" style="flex: none; width: 18px; height: 18px; box-sizing: border-box; margin-top: 2px; border: 1.5px solid var(--ink); background: var(--surface)"></span><span style="min-width: 0"><span style="display: block; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--mark)">3 · Task Response</span><span style="display: block; font-size: 15px">Ví dụ không chứng minh cho ý tiết kiệm thời gian: "vui" không cho thấy thời gian được dùng thế nào.</span></span></label>
+<label style="display: flex; gap: 10px; padding: 9px 0; border-top: 1px solid var(--rule); cursor: pointer"><span aria-hidden="true" style="flex: none; width: 18px; height: 18px; box-sizing: border-box; margin-top: 2px; border: 1.5px solid var(--ink); background: var(--surface)"></span><span style="min-width: 0"><span style="display: block; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--ink)">4 · Coherence and Cohesion</span><span style="display: block; font-size: 15px">Câu cuối mở một ý thứ hai (tiền xăng) không nối với câu chủ đề của đoạn.</span></span></label>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)">Ô đánh dấu để bạn tự theo dõi; máy không dùng nó khi đối chiếu.</p>
+</div>
+<div style="flex: 1 1 480px; min-width: 0">
+<label for="rw" style="display: block; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Bản viết lại</label>
+<textarea id="rw" rows="6" lang="en" style="display: block; width: 100%; box-sizing: border-box; margin-top: 8px; padding: 12px 14px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 18px/1.65 'Source Serif 4', Georgia, serif; resize: vertical">The main advantage of working from home is that it saves travelling time. For example, an office worker in Ho Chi Minh City who spent ninety minutes in traffic every day can now use this time to cook dinner or exercise, so</textarea>
+<p style="margin: 6px 0 0; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; font-size: 14px; color: var(--muted)"><span style="font-variant-numeric: tabular-nums">42 từ · đoạn gốc 50 từ · tối đa 140 từ</span><span>Đã lưu nháp 21:52</span></p>
+<p style="margin: 12px 0 0; padding: 10px 14px; border: 1px solid var(--rule); background: var(--surface); font-size: 14px">Bài mẫu cùng đề mở sau khi bạn nộp bản viết lại. Câu trùng nguyên văn với bài mẫu không được tính là đã xử lý.</p>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; margin-top: 14px"><a href="#s3" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 22px; background: var(--accent); color: var(--on-accent); font-weight: 600; text-decoration: none; border-radius: 2px">Nộp bản viết lại</a><a href="#s1" style="font-size: 15px">Để sau</a></div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)">Lần viết lại đầu của bài này không dùng lượt chấm AI. Từ lần hai: 1 lượt mỗi lần. <span style="display: inline-block; padding: 1px 7px; border: 1px solid var(--mark); border-radius: 2px; color: var(--mark); font: 600 12px 'Source Sans 3', sans-serif; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap">Chờ chủ dự án quyết</span></p>
+</div>
+</div>
+</main>
+</div>
+
+</div>
+</section>
+<section id="s3" aria-labelledby="h-s3" style="border-top: 2px solid var(--ink)">
+<div style="max-width: 1120px; margin: 0 auto; padding: 16px 32px 27px">
+<h2 id="h-s3" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">3 · Kết quả: bản 1 và bản 2 cạnh nhau</h2>
+<p style="margin: 4px 0 18px; font-size: 14px; color: var(--muted); max-width: 110ch">Mỗi nhận xét của đoạn nhận một trong ba nhãn, kèm dẫn chứng trích từ bản 2. Không chấm lại band cả bài.</p>
+<div style="border: 1px solid var(--ink); background: var(--paper)">
+<p style="margin: 0; padding: 6px 32px; border-bottom: 1px solid var(--ink); font-size: 13px; color: var(--muted)">Thanh học viên năm mục, Luyện tập đang chọn (lược bớt trên tờ; mục 1 vẽ đủ).</p>
+<main style="padding: 14px 32px 22px">
+<p style="margin: 0; font-size: 15px"><a href="#s1">‹ Phiếu nhận xét · Working from home</a> <span style="color: var(--muted)">· Kết quả viết lại · Đoạn 2 · Thân bài 1 · nộp 17/11, 21:58 · AI đối chiếu, trả ngay</span></p>
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 32px; margin-top: 8px; padding: 12px 0; border-top: 2px solid var(--ink); border-bottom: 1px solid var(--ink)">
+<p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 26px; font-weight: 600; line-height: 1.2">3 nhận xét đã xử lý · 1 còn · 2 lỗi mới</p>
+<p style="margin: 0; flex: 1 1 380px; font-size: 14px; color: var(--muted)">Đây không phải điểm. Band của bài vẫn là 6.0 theo phiếu ngày 15/11; viết lại một đoạn không chấm lại band cả bài.</p>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 20px 40px; margin-top: 16px">
+<div style="flex: 1 1 440px; min-width: 0">
+<h2 style="margin: 0 0 10px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Bản 1 · trong bài nộp 15/11 · 50 từ</h2>
+<p lang="en" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 17px; line-height: 1.6">Firstly, <span style="border-bottom: 2px solid var(--mark)">working from home save</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--mark)"> 1</sup> a lot of time. People do not need to go to office every day, so <span style="border-bottom: 2px dotted var(--mark)">they have more time for family</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--mark)"> 2</sup>. For example, <span style="border-bottom: 2px dotted var(--mark)">my sister works at home and she is very happy</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--mark)"> 3</sup>. <span style="border-bottom: 2px dashed var(--ink)">Also, they can save money because they do not buy petrol.</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--ink)"> 4</sup></p>
+</div>
+<div style="flex: 1 1 440px; min-width: 0; padding-left: 28px; border-left: 1px solid var(--ink)">
+<h2 style="margin: 0 0 10px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Bản 2 · viết lại 17/11 · 74 từ</h2>
+<p lang="en" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 17px; line-height: 1.6">The main advantage of working from home is that <span style="background: var(--tint)">it saves travelling time</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--accent)"> 1</sup>. For example, <span style="background: var(--tint)">an office worker in Ho Chi Minh City who spent ninety minutes in traffic every day</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--accent)"> 3</sup> <span style="background: var(--tint)">can now use this time to cook dinner or exercise</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--accent)"> 2</sup>, so <span style="border-bottom: 2px solid var(--mark)">the worker feel</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--mark)"> A</sup> less tired in the evening. Because <span style="border-bottom: 2px solid var(--mark)">this benefit happen</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--mark)"> B</sup> every working day, it is more important than small problems like slow internet. <span style="border-bottom: 2px dashed var(--ink)">Also, they can save money on petrol.</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--ink)"> 4</sup></p>
+</div>
+</div>
+<p style="margin: 10px 0 0; font-size: 13px; color: var(--muted)">Ở bản 2: nền nhạt và số = chỗ đã xử lý nhận xét cùng số · gạch đứt = nhận xét còn · gạch liền và chữ cái = lỗi mới. Cách gạch theo tiêu chí giống trang bài mẫu.</p>
+<div role="table" aria-label="Từng nhận xét sau khi viết lại" style="margin-top: 18px; border-top: 2px solid var(--ink)">
+<div role="row" style="display: flex; flex-wrap: wrap; gap: 6px 28px; padding: 8px 0; border-bottom: 1px solid var(--ink); font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--muted)"><span role="columnheader" style="flex: 1 1 320px">Nhận xét ở bản 1</span><span role="columnheader" style="flex: 0 0 150px">Sau khi viết lại</span><span role="columnheader" style="flex: 1 1 380px">Dẫn chứng trích từ bản 2</span></div>
+<div role="row" style="display: flex; flex-wrap: wrap; gap: 6px 28px; padding: 9px 0; border-bottom: 1px solid var(--rule)"><div role="cell" style="flex: 1 1 320px; min-width: 0"><p style="margin: 0; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--mark)">1 · Ngữ pháp</p><p style="margin: 2px 0 0; font-size: 15px">Chủ ngữ là cụm <span lang="en">working from home</span>, tính là số ít: <span lang="en">saves</span>.</p></div><div role="cell" style="flex: 0 0 150px"><span style="display: inline-block; padding: 2px 9px; border: 1.5px solid var(--accent); color: var(--accent); font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; border-radius: 2px">Đã xử lý</span></div><div role="cell" style="flex: 1 1 380px; min-width: 0"><p lang="en" style="margin: 0; padding-left: 12px; border-left: 3px solid var(--accent); font-family: 'Source Serif 4', Georgia, serif; font-size: 16px; line-height: 1.45">… is that <strong>it saves</strong> travelling time.</p><p style="margin: 4px 0 0; font-size: 14px; color: var(--muted)">Động từ đã chia số ít theo chủ ngữ <span lang="en">it</span>.</p></div></div>
+<div role="row" style="display: flex; flex-wrap: wrap; gap: 6px 28px; padding: 9px 0; border-bottom: 1px solid var(--rule)"><div role="cell" style="flex: 1 1 320px; min-width: 0"><p style="margin: 0; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--mark)">2 · Task Response</p><p style="margin: 2px 0 0; font-size: 15px">Ý mới dừng ở mức nêu. Chưa nói thời gian đó đổi được việc gì và vì sao đáng kể.</p></div><div role="cell" style="flex: 0 0 150px"><span style="display: inline-block; padding: 2px 9px; border: 1.5px solid var(--accent); color: var(--accent); font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; border-radius: 2px">Đã xử lý</span></div><div role="cell" style="flex: 1 1 380px; min-width: 0"><p lang="en" style="margin: 0; padding-left: 12px; border-left: 3px solid var(--accent); font-family: 'Source Serif 4', Georgia, serif; font-size: 16px; line-height: 1.45">… <strong>can now use this time to cook dinner or exercise</strong> … Because this benefit happen every working day, it is more important than small problems …</p><p style="margin: 4px 0 0; font-size: 14px; color: var(--muted)">Đã nói thời gian đổi thành việc gì và vì sao đáng kể.</p></div></div>
+<div role="row" style="display: flex; flex-wrap: wrap; gap: 6px 28px; padding: 9px 0; border-bottom: 1px solid var(--rule)"><div role="cell" style="flex: 1 1 320px; min-width: 0"><p style="margin: 0; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--mark)">3 · Task Response</p><p style="margin: 2px 0 0; font-size: 15px">Ví dụ không chứng minh cho ý tiết kiệm thời gian: "vui" không cho thấy thời gian được dùng thế nào.</p></div><div role="cell" style="flex: 0 0 150px"><span style="display: inline-block; padding: 2px 9px; border: 1.5px solid var(--accent); color: var(--accent); font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; border-radius: 2px">Đã xử lý</span></div><div role="cell" style="flex: 1 1 380px; min-width: 0"><p lang="en" style="margin: 0; padding-left: 12px; border-left: 3px solid var(--accent); font-family: 'Source Serif 4', Georgia, serif; font-size: 16px; line-height: 1.45"><strong>an office worker in Ho Chi Minh City who spent ninety minutes in traffic every day</strong></p><p style="margin: 4px 0 0; font-size: 14px; color: var(--muted)">Ví dụ mới có người, có con số, gắn thẳng với ý tiết kiệm thời gian.</p></div></div>
+<div role="row" style="display: flex; flex-wrap: wrap; gap: 6px 28px; padding: 9px 0; border-bottom: 1px solid var(--rule)"><div role="cell" style="flex: 1 1 320px; min-width: 0"><p style="margin: 0; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--ink)">4 · Coherence and Cohesion</p><p style="margin: 2px 0 0; font-size: 15px">Câu cuối mở một ý thứ hai (tiền xăng) không nối với câu chủ đề của đoạn.</p></div><div role="cell" style="flex: 0 0 150px"><span style="display: inline-block; padding: 2px 9px; border: 1.5px solid var(--ink); color: var(--ink); font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; border-radius: 2px">Còn</span></div><div role="cell" style="flex: 1 1 380px; min-width: 0"><p lang="en" style="margin: 0; padding-left: 12px; border-left: 3px solid var(--ink); font-family: 'Source Serif 4', Georgia, serif; font-size: 16px; line-height: 1.45"><strong>Also, they can save money on petrol.</strong></p><p style="margin: 4px 0 0; font-size: 14px; color: var(--muted)">Câu về tiền xăng vẫn ở cuối đoạn và vẫn không nối với câu chủ đề.</p></div></div>
+<div role="row" style="display: flex; flex-wrap: wrap; gap: 6px 28px; padding: 9px 0; border-bottom: 1px solid var(--rule)"><div role="cell" style="flex: 1 1 320px; min-width: 0"><p style="margin: 0; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--mark)">A · Lỗi mới · Ngữ pháp</p><p style="margin: 2px 0 0; font-size: 15px">Không có ở bản 1. Cùng loại với nhận xét 1: hoà hợp chủ ngữ và động từ.</p></div><div role="cell" style="flex: 0 0 150px"><span style="display: inline-block; padding: 2px 9px; border: 1.5px solid var(--mark); color: var(--mark); font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; border-radius: 2px">Lỗi mới</span></div><div role="cell" style="flex: 1 1 380px; min-width: 0"><p lang="en" style="margin: 0; padding-left: 12px; border-left: 3px solid var(--mark); font-family: 'Source Serif 4', Georgia, serif; font-size: 16px; line-height: 1.45">… so <strong>the worker feel</strong> less tired in the evening.</p><p style="margin: 4px 0 0; font-size: 14px; color: var(--muted)">Chủ ngữ số ít: <span lang="en">the worker feels</span>.</p></div></div>
+<div role="row" style="display: flex; flex-wrap: wrap; gap: 6px 28px; padding: 9px 0; border-bottom: 1px solid var(--rule)"><div role="cell" style="flex: 1 1 320px; min-width: 0"><p style="margin: 0; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--mark)">B · Lỗi mới · Ngữ pháp</p><p style="margin: 2px 0 0; font-size: 15px">Không có ở bản 1. Cùng loại với nhận xét 1.</p></div><div role="cell" style="flex: 0 0 150px"><span style="display: inline-block; padding: 2px 9px; border: 1.5px solid var(--mark); color: var(--mark); font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; border-radius: 2px">Lỗi mới</span></div><div role="cell" style="flex: 1 1 380px; min-width: 0"><p lang="en" style="margin: 0; padding-left: 12px; border-left: 3px solid var(--mark); font-family: 'Source Serif 4', Georgia, serif; font-size: 16px; line-height: 1.45">Because <strong>this benefit happen</strong> every working day …</p><p style="margin: 4px 0 0; font-size: 14px; color: var(--muted)">Chủ ngữ số ít: <span lang="en">this benefit happens</span>.</p></div></div>
+</div>
+<p style="margin: 12px 0 0; padding: 10px 14px; border: 1px solid var(--rule); background: var(--surface); font-size: 15px">Bạn đã sửa đúng chỗ bị nhận xét, nhưng lỗi hoà hợp chủ ngữ và động từ xuất hiện ở hai chỗ mới. <a href="GrammarWikiBai.dc.html#g-s5">Grammar Wiki · Hoà hợp chủ ngữ và động từ, mục chữa lỗi</a> · <a href="SoLoiCaNhan.dc.html">Sổ lỗi của tôi</a> <span style="color: var(--muted)">(lỗi Writing vào sổ ở giai đoạn sau)</span></p>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-top: 16px"><a href="#s4" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 22px; background: var(--accent); color: var(--on-accent); font-weight: 600; text-decoration: none; border-radius: 2px">Bài của tôi đứng đâu</a><a href="#s2" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 22px; border: 1px solid var(--ink); background: var(--surface); color: var(--ink); font-weight: 600; text-decoration: none; border-radius: 2px">Viết lại đoạn này lần nữa · 1 lượt</a><a href="#s1" style="font-size: 15px">Viết lại đoạn khác</a><a href="#s1" style="font-size: 15px">Về phiếu</a></div>
+</main>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 14px 40px; margin-top: 14px; font-size: 14px; color: var(--muted)">
+<p style="margin: 0; flex: 1 1 460px"><strong style="color: var(--ink)">Ba nhãn, không có nhãn thứ tư.</strong> "Đã xử lý" và "Còn" bắt buộc kèm câu trích nguyên từ bản 2; không trích được thì là "Còn". "Lỗi mới" chỉ ghi lỗi không có ở bản 1. Không phần trăm, không lời khen chung.</p>
+<p style="margin: 0; flex: 1 1 460px"><strong style="color: var(--ink)">Khi bản 2 khác hẳn đoạn gốc</strong> (dưới 20% từ trùng, ngưỡng đề xuất): nhận xét về ý của bản 1 ghi "Không còn áp dụng"; bản 2 được nhận xét như đoạn mới, tối đa 4 nhận xét.</p>
+</div>
+
+</div>
+</section>
+<section id="s4" aria-labelledby="h-s4" style="border-top: 2px solid var(--ink)">
+<div style="max-width: 1120px; margin: 0 auto; padding: 16px 32px 27px">
+<h2 id="h-s4" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">4 · "Bài của tôi đứng đâu"</h2>
+<p style="margin: 4px 0 18px; font-size: 14px; color: var(--muted); max-width: 110ch">Chỉ khi đề thuộc kho bài mẫu, và mở sau khi đã nộp bản viết lại. Bấm được ba thẻ 6.0 · 7.0 · 7.5; tờ mở ở 7.0.</p>
+<div style="border: 1px solid var(--ink); background: var(--paper)">
+<p style="margin: 0; padding: 6px 32px; border-bottom: 1px solid var(--ink); font-size: 13px; color: var(--muted)">Thanh học viên năm mục, Luyện tập đang chọn (lược bớt trên tờ; mục 1 vẽ đủ).</p>
+<main style="padding: 14px 32px 22px">
+<p style="margin: 0; font-size: 15px"><a href="#s3">‹ Kết quả viết lại</a> <span style="color: var(--muted)">· Working from home · đề này có trong kho bài mẫu</span></p>
+<h1 style="margin: 6px 0 4px; font-family: 'Source Serif 4', Georgia, serif; font-size: 28px; font-weight: 600; line-height: 1.2">Bài của tôi đứng đâu</h1>
+<p style="margin: 0">Thân bài 1 của bạn (bản viết lại) cạnh Thân bài 1 của ba bài mẫu cùng đề, chỉ so ở tiêu chí yếu nhất của bài bạn: <strong>Task Response, 5.5</strong>. Trang này không cho đoạn của bạn một band.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 20px 40px; margin-top: 18px">
+<div style="flex: 1 1 400px; min-width: 0">
+<h2 style="margin: 0 0 10px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Thân bài 1 của bạn · bản 2 · 74 từ</h2>
+<p lang="en" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 17px; line-height: 1.6">The main advantage of working from home is that it saves travelling time. For example, an office worker in Ho Chi Minh City who spent ninety minutes in traffic every day can now use this time to cook dinner or exercise, so the worker feel less tired in the evening. Because this benefit happen every working day, it is more important than small problems like slow internet. Also, they can save money on petrol.</p>
+</div>
+<div style="flex: 1 1 500px; min-width: 0; padding-left: 28px; border-left: 1px solid var(--ink)">
+<div role="tablist" aria-label="Chọn bài mẫu" style="display: flex; align-items: baseline; gap: 0 24px; border-bottom: 1px solid var(--ink); margin-bottom: 12px">
+<span style="font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Thân bài 1 của bài mẫu</span>
+<sc-for list="{{bands}}" as="b" hint-placeholder-count="3">
+<button type="button" role="tab" aria-selected="{{b.sel}}" onClick="{{b.pick}}" style="min-height: 40px; padding: 0 2px; border: 0; border-bottom: 3px solid {{b.bar}}; background: none; color: {{b.color}}; font: {{b.weight}} 16px 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums; cursor: pointer">{{b.label}}</button>
+</sc-for>
+</div>
+<sc-if value="{{is60}}" hint-placeholder-val="{{ false }}"><p lang="en" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 17px; line-height: 1.6">Firstly, avoiding a journey can release personal time. A payroll worker may previously have taken two buses to a office each morning. Through a secure connection, the same calculations can be completed at home. The worker then has many time for an evening walk or preparing a meal. It is important to avoid to extend the working day into every saved hour. <span style="border-bottom: 2px dotted var(--mark)">Deadlines and agreed periods of availability still apply.</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--mark)"> a</sup> Removing travel can make these requirements easier to meet without losing as much personal time. The benefit is repeated rather than being only an occasional convenience. <span style="border-bottom: 2px dotted var(--mark)">Work changes location, but it should still have a beginning and an end.</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--mark)"> b</sup></p></sc-if>
+<sc-if value="{{is70}}" hint-placeholder-val="{{ true }}"><p lang="en" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 17px; line-height: 1.6">The main advantage is that people get back the time they spent travelling to work. A payroll worker who previously took two buses to an office can complete the same calculations through a secure connection at home. The journey saved can become an evening walk or time to prepare a meal, rather than simply extending the working day. This happens every day. <span style="border-bottom: 2px dotted var(--mark)">The worker still has deadlines and must remain available at agreed times, so home working does not mean unrestricted freedom.</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--mark)"> a</sup> However, without travel, it is easier to meet these requirements. <span style="border-bottom: 2px dotted var(--mark)">Its value comes from changing where work happens, while preserving the time in which it is supposed to happen.</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--mark)"> b</sup></p></sc-if>
+<sc-if value="{{is75}}" hint-placeholder-val="{{ false }}"><p lang="en" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 17px; line-height: 1.6">The clearest advantage is the recovery of time that commuting consumes. A payroll worker who previously took two buses to an office can complete the same calculations through a secure connection at home. The journey saved can become an evening walk or time to prepare a meal, rather than simply extending the working day. <span style="border-bottom: 2px dotted var(--mark)">This is a recurring benefit, not just an occasional convenience.</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--mark)"> c</sup> <span style="border-bottom: 2px dotted var(--mark)">The worker still has deadlines and must remain available at agreed times, so home working does not mean unrestricted freedom.</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--mark)"> a</sup> Nevertheless, removing travel makes it easier to meet those requirements without sacrificing as much personal time. <span style="border-bottom: 2px dotted var(--mark)">Its value comes from changing where work happens, while preserving the time in which it is supposed to happen.</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--mark)"> b</sup></p></sc-if>
+<p style="margin: 8px 0 0; font-size: 13px; color: var(--muted)">Gạch chấm = chỗ bài mẫu làm mà đoạn của bạn chưa làm, chữ cái khớp với bảng dưới. <a href="BaiMauWriting.dc.html">Đọc cả ba bài mẫu của đề này</a></p>
+</div>
+</div>
+<figure style="margin: 22px 0 0">
+<div role="table" aria-label="Việc của Thân bài 1: đoạn của bạn và ba bài mẫu" style="border: 1px solid var(--ink); background: var(--surface)">
+<div role="row" style="display: flex; gap: 8px 16px; padding: 6px 12px; border-bottom: 1px solid var(--ink); font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--muted)"><span role="columnheader" style="flex: 1 1 380px; min-width: 0">Hình 1 · Việc Thân bài 1 làm cho Task Response</span><span role="columnheader" style="flex: 0 0 150px; text-align: center; background: var(--tint); color: var(--muted)">Đoạn của bạn</span><span role="columnheader" style="flex: 0 0 110px; text-align: center; color: var(--ink)">6.0</span><span role="columnheader" style="flex: 0 0 110px; text-align: center; color: var(--ink)">7.0</span><span role="columnheader" style="flex: 0 0 110px; text-align: center; color: var(--ink)">7.5</span></div>
+<div role="row" style="display: flex; gap: 8px 16px; padding: 6px 12px; border-bottom: 1px solid var(--rule); font-size: 15px"><span role="cell" style="flex: 1 1 380px; min-width: 0">Câu chủ đề nêu lợi ích chính</span><span role="cell" style="flex: 0 0 150px; text-align: center; background: var(--tint); color: var(--ink); font-weight: 600">có</span><span role="cell" style="flex: 0 0 110px; text-align: center; color: var(--ink); font-weight: 400">có</span><span role="cell" style="flex: 0 0 110px; text-align: center; color: var(--ink); font-weight: 400">có</span><span role="cell" style="flex: 0 0 110px; text-align: center; color: var(--ink); font-weight: 400">có</span></div>
+<div role="row" style="display: flex; gap: 8px 16px; padding: 6px 12px; border-bottom: 1px solid var(--rule); font-size: 15px"><span role="cell" style="flex: 1 1 380px; min-width: 0">Ví dụ một người cụ thể, gắn với ý</span><span role="cell" style="flex: 0 0 150px; text-align: center; background: var(--tint); color: var(--ink); font-weight: 600">có</span><span role="cell" style="flex: 0 0 110px; text-align: center; color: var(--ink); font-weight: 400">có</span><span role="cell" style="flex: 0 0 110px; text-align: center; color: var(--ink); font-weight: 400">có</span><span role="cell" style="flex: 0 0 110px; text-align: center; color: var(--ink); font-weight: 400">có</span></div>
+<div role="row" style="display: flex; gap: 8px 16px; padding: 6px 12px; border-bottom: 1px solid var(--rule); font-size: 15px"><span role="cell" style="flex: 1 1 380px; min-width: 0"><strong>a</strong> · Thừa nhận giới hạn của lợi ích (vẫn có hạn nộp, giờ phải có mặt)</span><span role="cell" style="flex: 0 0 150px; text-align: center; background: var(--tint); color: var(--mark); font-weight: 600">chưa</span><span role="cell" style="flex: 0 0 110px; text-align: center; color: var(--ink); font-weight: 400">có</span><span role="cell" style="flex: 0 0 110px; text-align: center; color: var(--ink); font-weight: 400">có</span><span role="cell" style="flex: 0 0 110px; text-align: center; color: var(--ink); font-weight: 400">có</span></div>
+<div role="row" style="display: flex; gap: 8px 16px; padding: 6px 12px; border-bottom: 1px solid var(--rule); font-size: 15px"><span role="cell" style="flex: 1 1 380px; min-width: 0"><strong>b</strong> · Câu kết đoạn rút ra vì sao lợi ích này có giá trị</span><span role="cell" style="flex: 0 0 150px; text-align: center; background: var(--tint); color: var(--mark); font-weight: 600">một phần</span><span role="cell" style="flex: 0 0 110px; text-align: center; color: var(--ink); font-weight: 400">có</span><span role="cell" style="flex: 0 0 110px; text-align: center; color: var(--ink); font-weight: 400">có</span><span role="cell" style="flex: 0 0 110px; text-align: center; color: var(--ink); font-weight: 400">có</span></div>
+<div role="row" style="display: flex; gap: 8px 16px; padding: 6px 12px; border-bottom: 1px solid var(--rule); font-size: 15px"><span role="cell" style="flex: 1 1 380px; min-width: 0"><strong>c</strong> · Đối chiếu lợi ích lặp lại với tiện lợi thỉnh thoảng</span><span role="cell" style="flex: 0 0 150px; text-align: center; background: var(--tint); color: var(--mark); font-weight: 600">một phần</span><span role="cell" style="flex: 0 0 110px; text-align: center; color: var(--ink); font-weight: 400">có</span><span role="cell" style="flex: 0 0 110px; text-align: center; color: var(--ink); font-weight: 400">chỉ nêu</span><span role="cell" style="flex: 0 0 110px; text-align: center; color: var(--ink); font-weight: 400">có</span></div>
+</div>
+<figcaption style="margin-top: 6px; font-size: 13px; color: var(--muted)">Hình 1. Ba bài mẫu chung một dàn ý nên cùng làm các việc này, khác nhau ở diễn đạt và độ sâu. Đoạn của bạn thiếu <strong>a</strong>; <strong>b</strong> và <strong>c</strong> mới làm một phần.</figcaption>
+</figure>
+<h2 style="margin: 22px 0 0; padding-top: 14px; border-top: 2px solid var(--ink); font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">Bài 7.0 làm khác gì ở Task Response</h2>
+<div style="display: flex; flex-wrap: wrap; gap: 4px 40px">
+<div style="flex: 1 1 440px; min-width: 0; padding: 12px 0; border-bottom: 1px solid var(--rule)">
+<p style="margin: 0; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--mark)">a · Thừa nhận giới hạn</p>
+<p lang="en" style="margin: 6px 0 0; padding-left: 12px; border-left: 3px solid var(--ink); font-family: 'Source Serif 4', Georgia, serif; font-size: 16px; line-height: 1.45">The worker still has deadlines and must remain available at agreed times, so home working does not mean unrestricted freedom.</p>
+<p style="margin: 4px 0 0; font-size: 14px; color: var(--muted)">Bài 7.0</p>
+<p style="margin: 8px 0 0; font-size: 15px"><strong>Đoạn của bạn:</strong> không có câu nào nói tới giới hạn. Đề hỏi lợi có nhiều hơn hại không, nên một lợi ích được cân với giới hạn của nó thì trả lời đề sát hơn.</p>
+</div>
+<div style="flex: 1 1 440px; min-width: 0; padding: 12px 0; border-bottom: 1px solid var(--rule)">
+<p style="margin: 0; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--mark)">b · Câu kết đoạn</p>
+<p lang="en" style="margin: 6px 0 0; padding-left: 12px; border-left: 3px solid var(--ink); font-family: 'Source Serif 4', Georgia, serif; font-size: 16px; line-height: 1.45">Its value comes from changing where work happens, while preserving the time in which it is supposed to happen.</p>
+<p style="margin: 4px 0 0; font-size: 14px; color: var(--muted)">Bài 7.0</p>
+<p style="margin: 8px 0 0; font-size: 15px"><strong>Đoạn của bạn:</strong> <span lang="en">"it is more important than small problems like slow internet"</span> — có so sánh, nhưng "small problems" chưa được nêu ở đâu trong đoạn, và sau đó đoạn còn rẽ sang tiền xăng.</p>
+</div>
+</div>
+<p style="margin: 12px 0 0; font-size: 15px"><strong>Giống bài 7.0:</strong> ví dụ một người cụ thể và nói rõ thời gian đổi thành việc gì. <strong>Bài 7.5 làm thêm (c):</strong> <span lang="en">"This is a recurring benefit, not just an occasional convenience."</span> — bài 7.0 chỉ viết <span lang="en">"This happens every day."</span></p>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-top: 16px"><a href="#s2" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 22px; background: var(--accent); color: var(--on-accent); font-weight: 600; text-decoration: none; border-radius: 2px">Viết lại đoạn này lần nữa · 1 lượt</a><a href="#s1" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 22px; border: 1px solid var(--ink); background: var(--surface); color: var(--ink); font-weight: 600; text-decoration: none; border-radius: 2px">Viết lại đoạn khác</a><a href="BaiMauWriting.dc.html" style="font-size: 15px">Mở trang bài mẫu của đề</a></div>
+</main>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 14px 40px; margin-top: 14px">
+<div style="flex: 1 1 460px; min-width: 0; padding: 14px 16px; border: 1px dashed var(--muted)">
+<p style="margin: 0 0 4px; font-size: 13px; color: var(--muted)">Trước khi nộp bản viết lại · thẻ "Bài mẫu cùng đề" trên phiếu <span style="display: inline-block; padding: 1px 7px; border: 1px solid var(--mark); border-radius: 2px; color: var(--mark); font: 600 12px 'Source Sans 3', sans-serif; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap">Chờ chủ dự án quyết</span></p>
+<p style="margin: 0; font-weight: 600">Bài mẫu cùng đề mở sau khi bạn viết lại một đoạn</p>
+<p style="margin: 4px 0 8px; font-size: 15px">Viết bằng câu của bạn trước, rồi đặt cạnh bài 6.0, 7.0 và 7.5 để thấy chỗ khác.</p>
+<p style="margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px"><a href="#s2" style="display: inline-flex; align-items: center; min-height: 40px; padding: 0 22px; background: var(--accent); color: var(--on-accent); font-weight: 600; text-decoration: none; border-radius: 2px">Viết lại một đoạn</a><a href="BaiMauWriting.dc.html" style="font-size: 15px">Mở bài mẫu ngay, không viết lại</a></p>
+</div>
+<div style="flex: 1 1 460px; min-width: 0; font-size: 14px; color: var(--muted)">
+<p style="margin: 0"><strong style="color: var(--ink)">Điều kiện hiện.</strong> Chỉ khi đề thuộc kho 549 đề; đề ngoài kho thì không có nút, thẻ hay trang này. So theo tiêu chí và loại đoạn, không so câu với câu, không xếp đoạn của người học vào một band.</p>
+<p style="margin: 8px 0 0"><strong style="color: var(--ink)">Khoá mềm.</strong> Thư viện bài mẫu công khai nên không khoá thật được. Mặc định vẽ: bài mẫu chờ sau bản viết lại, có lối "Mở bài mẫu ngay"; ai mở trước thì kết quả ghi "đã xem bài mẫu trước khi viết".</p>
+</div>
+</div>
+
+</div>
+</section>
+<section id="s5" aria-labelledby="h-s5" style="border-top: 2px solid var(--ink)">
+<div style="max-width: 1120px; margin: 0 auto; padding: 16px 32px 27px">
+<h2 id="h-s5" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">5 · Viết lại một đoạn tốn bao nhiêu lượt</h2>
+<p style="margin: 4px 0 18px; font-size: 14px; color: var(--muted); max-width: 110ch">Câu chưa chốt. Hai phương án đặt cạnh nhau, cùng một chuỗi thao tác.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 20px 32px">
+<div style="flex: 1 1 460px; min-width: 0; padding: 16px 20px 18px; border: 1px solid var(--ink); background: var(--paper)">
+<p style="margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px"><span style="font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">Phương án A</span><span style="display: inline-block; padding: 1px 7px; border: 1px solid var(--mark); border-radius: 2px; color: var(--mark); font: 600 12px 'Source Sans 3', sans-serif; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap">Chờ chủ dự án quyết</span></p>
+<p style="margin: 4px 0 10px">Lần viết lại đầu của mỗi bài không tốn lượt; từ lần hai tốn 1 lượt mỗi lần.</p>
+<div style="border-top: 1px solid var(--ink); font-size: 15px; font-variant-numeric: tabular-nums">
+<p style="margin: 0; display: flex; justify-content: space-between; gap: 16px; padding: 7px 0; border-bottom: 1px solid var(--rule)"><span>Nộp bài gốc</span><strong>1 lượt</strong></p>
+<p style="margin: 0; display: flex; justify-content: space-between; gap: 16px; padding: 7px 0; border-bottom: 1px solid var(--rule)"><span>Viết lại lần 1 (một đoạn bất kỳ của bài)</span><strong>0 lượt</strong></p>
+<p style="margin: 0; display: flex; justify-content: space-between; gap: 16px; padding: 7px 0; border-bottom: 1px solid var(--rule)"><span>Viết lại lần 2, đoạn đó hoặc đoạn khác</span><strong>1 lượt</strong></p>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px"><strong>Dòng người học thấy cạnh nút nộp:</strong> "Lần viết lại đầu của bài này không dùng lượt chấm AI. Từ lần hai: 1 lượt mỗi lần."</p>
+<p style="margin: 8px 0 0; font-size: 14px"><strong>Được:</strong> người học thử viết lại ít nhất một lần cho mỗi bài; đây là lần đem lại nhiều nhất.</p>
+<p style="margin: 4px 0 0; font-size: 14px"><strong>Mất:</strong> mỗi bài thêm một lần gọi AI không thu lượt (chấm một đoạn, rẻ hơn chấm cả bài; chi phí thật XXX, chưa đo).</p>
+</div>
+<div style="flex: 1 1 460px; min-width: 0; padding: 16px 20px 18px; border: 1px solid var(--ink); background: var(--paper)">
+<p style="margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px"><span style="font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">Phương án B</span><span style="display: inline-block; padding: 1px 7px; border: 1px solid var(--mark); border-radius: 2px; color: var(--mark); font: 600 12px 'Source Sans 3', sans-serif; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap">Chờ chủ dự án quyết</span></p>
+<p style="margin: 4px 0 10px">Mỗi lần viết lại tốn 1 lượt.</p>
+<div style="border-top: 1px solid var(--ink); font-size: 15px; font-variant-numeric: tabular-nums">
+<p style="margin: 0; display: flex; justify-content: space-between; gap: 16px; padding: 7px 0; border-bottom: 1px solid var(--rule)"><span>Nộp bài gốc</span><strong>1 lượt</strong></p>
+<p style="margin: 0; display: flex; justify-content: space-between; gap: 16px; padding: 7px 0; border-bottom: 1px solid var(--rule)"><span>Viết lại lần 1</span><strong>1 lượt</strong></p>
+<p style="margin: 0; display: flex; justify-content: space-between; gap: 16px; padding: 7px 0; border-bottom: 1px solid var(--rule)"><span>Viết lại lần 2</span><strong>1 lượt</strong></p>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px"><strong>Dòng người học thấy cạnh nút nộp:</strong> "Nộp bản viết lại dùng 1 lượt chấm AI. Bạn còn XXX lượt, Writing và Speaking dùng chung."</p>
+<p style="margin: 8px 0 0; font-size: 14px"><strong>Được:</strong> một quy tắc duy nhất, dễ giải thích, không phát sinh chi phí ngoài lượt.</p>
+<p style="margin: 4px 0 0; font-size: 14px"><strong>Mất:</strong> viết lại một đoạn tốn bằng nộp cả một bài mới nên người học dễ bỏ qua; chỉ số "tỉ lệ bài được viết lại" nhiều khả năng thấp.</p>
+</div>
+</div>
+<p style="margin: 12px 0 0; font-size: 14px; color: var(--muted); max-width: 120ch">Chung cho cả hai: mỗi đoạn tối đa 3 bản viết lại <span style="display: inline-block; padding: 1px 7px; border: 1px solid var(--ink); border-radius: 2px; color: var(--ink); font: 600 12px 'Source Sans 3', sans-serif; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap">Đề xuất</span> · bản viết lại không quá 140 từ, để không dùng lối này nộp một bài mới <span style="display: inline-block; padding: 1px 7px; border: 1px solid var(--ink); border-radius: 2px; color: var(--ink); font: 600 12px 'Source Sans 3', sans-serif; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap">Đề xuất</span> · AI lỗi thì không trừ lượt · "Viết lại cả bài" vẫn là một bài mới, 1 lượt, như đã chốt. Các màn trên tờ vẽ theo phương án A.</p>
+
+</div>
+</section>
+<section id="s6" aria-labelledby="h-s6" style="border-top: 2px solid var(--ink)">
+<div style="max-width: 1120px; margin: 0 auto; padding: 16px 32px 27px">
+<h2 id="h-s6" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">6 · Lớp offline</h2>
+<p style="margin: 4px 0 18px; font-size: 14px; color: var(--muted); max-width: 110ch">Bài gốc của lớp offline qua giáo viên duyệt. Bản viết lại vẽ theo mặc định: AI nhận xét trả ngay, giáo viên xem được.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 20px 32px">
+<div style="flex: 1 1 460px; min-width: 0; padding: 16px 20px 18px; border: 1px solid var(--ink); background: var(--paper)">
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Học viên lớp offline thấy · đầu trang kết quả viết lại</p>
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Nguồn nhận xét</p>
+<p style="margin: 4px 0 0"><strong>AI đối chiếu, trả ngay.</strong> Giáo viên lớp bạn xem được cả hai bản và có thể ghi thêm.</p>
+<p style="margin: 10px 0 0; padding-top: 10px; border-top: 1px solid var(--rule); font-size: 14px">Cạnh nút nộp: "Lần viết lại đầu của bài này không dùng lượt. Từ lần hai: 1 lượt trong số lượt lớp cấp cho bạn; hết thì liên hệ giáo viên để được cấp thêm."</p>
+</div>
+<div style="flex: 1 1 460px; min-width: 0; padding: 16px 20px 18px; border: 1px solid var(--ink); background: var(--paper)">
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Giáo viên thấy · một dòng trong trang bài đã trả (AdminChamWriting), không vào hàng chờ duyệt</p>
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 20px; padding: 10px 0; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule)">
+<span style="flex: 1 1 220px; min-width: 0"><strong>Nguyễn Minh Anh</strong><span style="display: block; font-size: 14px; color: var(--muted)">Task 2 · Working from home · đã trả 16/11</span></span>
+<span style="font-size: 14px">Viết lại Đoạn 2 · 17/11<span style="display: block; color: var(--muted)">3 đã xử lý · 1 còn · 2 lỗi mới</span></span>
+<a href="AdminChamWriting.dc.html" style="font-size: 14px; font-weight: 600">Xem hai bản</a>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px">Giáo viên có thể ghi một lời nhắn vào bản viết lại; học viên nhận thông báo. Không có nút duyệt, không có hạn xử lý.</p>
+</div>
+</div>
+<div style="margin-top: 14px; padding: 12px 16px; border: 1px solid var(--mark); display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px">
+<span style="display: inline-block; padding: 1px 7px; border: 1px solid var(--mark); border-radius: 2px; color: var(--mark); font: 600 12px 'Source Sans 3', sans-serif; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap">Chờ chủ dự án quyết</span>
+<p style="margin: 0; flex: 1 1 600px; font-size: 15px"><strong>Bản viết lại của lớp offline có qua giáo viên duyệt không?</strong> Tờ vẽ theo mặc định "AI nhận xét trả ngay, giáo viên xem được": bản viết lại không có band nên không phải điểm cần duyệt, và chờ duyệt thì mất nhịp sửa ngay. Nếu chọn "qua giáo viên duyệt": mỗi bản viết lại thành một việc trong hàng chờ Writing, và hạn 48 giờ ở Cài đặt › Ngưỡng vận hành áp cho cả bản viết lại.</p>
+</div>
+
+</div>
+</section>
+<section id="s7" aria-labelledby="h-s7" style="border-top: 2px solid var(--ink)">
+<div style="max-width: 1120px; margin: 0 auto; padding: 16px 32px 27px">
+<h2 id="h-s7" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">7 · Trạng thái: hết lượt, đang đối chiếu, lỗi, không nộp được</h2>
+<p style="margin: 4px 0 18px; font-size: 14px; color: var(--muted); max-width: 110ch">Cảnh báo dùng viền và nền nhạt màu đánh dấu như khối dùng chung.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 20px 28px">
+<div style="flex: 1 1 240px; min-width: 0">
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted); min-height: 38px">Hết lượt · khối dùng chung. Lớp offline: thay nút bằng "Liên hệ giáo viên để được cấp thêm".</p>
+<div role="region" aria-label="Hết lượt chấm" style="padding: 16px 18px 18px; border: 1px solid var(--mark); border-left-width: 8px; background: color-mix(in srgb, var(--mark) 7%, var(--surface))">
+<p style="margin: 0 0 6px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--mark)">Hết lượt chấm</p>
+<p style="margin: 0 0 12px; font-size: 15px">Bản viết lại của bạn đã lưu nháp. Khi có lượt, bạn nộp lại từ đây.</p>
+<a href="GiaHanThemLuot.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; background: var(--accent); color: var(--surface); font-weight: 600; text-decoration: none; border-radius: 2px">Đăng ký thêm lượt chấm</a>
+</div>
+</div>
+<div style="flex: 1 1 240px; min-width: 0">
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted); min-height: 38px">Đang đối chiếu · sau khi bấm nộp</p>
+<div role="status" style="padding: 16px 18px 18px; border: 1px solid var(--ink); background: var(--paper)">
+<p style="margin: 0; font-weight: 600">Đang đối chiếu bản viết lại với 4 nhận xét</p>
+<ol style="margin: 10px 0 0; padding: 0; list-style: none; font-size: 15px">
+<li style="padding: 5px 0; border-top: 1px solid var(--rule)">1. Đã nộp 21:58</li>
+<li style="padding: 5px 0; border-top: 1px solid var(--rule); font-weight: 600">2. AI đang đối chiếu</li>
+<li style="padding: 5px 0; border-top: 1px solid var(--rule); color: var(--muted)">3. Trả kết quả</li>
+</ol>
+<p style="margin: 8px 0 0; font-size: 13px; color: var(--muted)">Thường dưới XXX giây. Rời trang được; có kết quả thì báo ở chuông.</p>
+</div>
+</div>
+<div style="flex: 1 1 240px; min-width: 0">
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted); min-height: 38px">Lỗi khi đối chiếu</p>
+<div role="alert" style="padding: 16px 18px 18px; border: 1px solid var(--mark); border-left-width: 8px; background: color-mix(in srgb, var(--mark) 7%, var(--surface))">
+<p style="margin: 0 0 6px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--mark)">Chưa đối chiếu được</p>
+<p style="margin: 0 0 12px; font-size: 15px">Bản viết lại của bạn đã lưu. Lần này không tính lượt và không tính là lần viết lại đầu.</p>
+<a href="#s2" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border: 1px solid var(--ink); background: var(--surface); color: var(--ink); font-weight: 600; text-decoration: none; border-radius: 2px">Thử lại</a>
+</div>
+</div>
+<div style="flex: 1 1 240px; min-width: 0">
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted); min-height: 38px">Không nộp được · báo ngay dưới ô viết, nút nộp mờ</p>
+<div style="padding: 16px 18px 18px; border: 1px solid var(--ink); background: var(--paper); font-size: 15px">
+<p style="margin: 0; padding-bottom: 8px; border-bottom: 1px solid var(--rule)"><strong>Bản viết lại gần như chưa đổi.</strong> Sửa ít nhất một chỗ bị nhận xét rồi nộp.</p>
+<p style="margin: 8px 0 0; padding-bottom: 8px; border-bottom: 1px solid var(--rule)"><strong>Quá 140 từ.</strong> Muốn viết lại cả bài thì dùng "Viết lại cả bài".</p>
+<p style="margin: 8px 0 0"><strong>Trùng bài mẫu.</strong> Vẫn trả kết quả; câu trùng từ 8 từ liên tiếp ghi "trùng bài mẫu", không tính là đã xử lý.</p>
+</div>
+</div>
+</div>
+
+</div>
+</section>
+<section id="s8" aria-labelledby="h-s8" style="border-top: 2px solid var(--ink)">
+<div style="max-width: 1120px; margin: 0 auto; padding: 16px 32px 27px">
+<h2 id="h-s8" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">8 · Điện thoại 390px · màn viết lại và kết quả</h2>
+<p style="margin: 4px 0 18px; font-size: 14px; color: var(--muted); max-width: 110ch">Viết lại một đoạn là việc 5–10 phút, làm được trên điện thoại.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 32px; align-items: flex-start">
+<div aria-label="Điện thoại · màn viết lại" style="flex: none; width: 390px; height: 844px; box-sizing: border-box; border: 1px solid var(--ink); display: flex; flex-direction: column; overflow: hidden; background: var(--paper)">
+<header style="flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; height: 56px; box-sizing: border-box; padding: 0 16px; border-bottom: 1px solid var(--ink)">
+<span style="display: inline-flex; align-items: center; gap: 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; font-weight: 600"><svg width="26" height="26" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<div style="display: flex; align-items: center; gap: 12px">
+<span style="font-size: 13px; color: var(--muted)">Lượt AI <strong style="color: var(--ink)">XXX</strong></span>
+<span style="position: relative; flex: none; display: inline-flex"><a href="ThongBao.dc.html" aria-label="Thông báo, 4 chưa đọc" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; box-sizing: border-box; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink)"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15zM10 20.5a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></a><span aria-hidden="true" style="position: absolute; top: -7px; right: -7px; min-width: 20px; height: 20px; box-sizing: border-box; padding: 0 5px; border: 1px solid var(--paper); border-radius: 2px; background: var(--accent); color: var(--on-accent); font-size: 12px; font-weight: 600; line-height: 18px; text-align: center; font-variant-numeric: tabular-nums">4</span></span>
+<button aria-label="Mở menu tài khoản" style="width: 44px; height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif">MA</button>
+</div>
+</header>
+<div style="flex-grow: 1; min-height: 0; overflow-y: auto; padding: 8px 16px 16px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<a href="#s1" style="display: inline-flex; align-items: center; align-self: flex-start; min-height: 44px; font-size: 15px">‹ Phiếu nhận xét</a>
+<p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600; line-height: 1.2">Viết lại Đoạn 2 · Thân bài 1</p>
+<div role="tablist" aria-label="Phần đang xem" style="display: flex; gap: 22px; border-bottom: 1px solid var(--ink)">
+<span role="tab" aria-selected="true" style="display: inline-flex; align-items: center; min-height: 44px; border-bottom: 3px solid var(--ink); font-weight: 600">Viết</span>
+<span role="tab" aria-selected="false" style="display: inline-flex; align-items: center; min-height: 44px; color: var(--muted)">Đoạn gốc</span>
+<span role="tab" aria-selected="false" style="display: inline-flex; align-items: center; min-height: 44px; color: var(--muted)">Nhận xét 4</span>
+</div>
+<div style="padding: 8px 10px; border: 1px solid var(--rule); background: var(--surface); font-size: 14px">
+<p style="margin: 0; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--mark)">2 · Task Response · đang ghim</p>
+<p style="margin: 2px 0 0">Ý mới dừng ở mức nêu. Chưa nói thời gian đó đổi được việc gì và vì sao đáng kể.</p>
+<p style="margin: 4px 0 0; color: var(--muted)">‹ 1 trên 4 ›</p>
+</div>
+<label for="rwm" style="font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Bản viết lại</label>
+<textarea id="rwm" rows="9" lang="en" style="display: block; width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 17px/1.6 'Source Serif 4', Georgia, serif; resize: none">The main advantage of working from home is that it saves travelling time. For example, an office worker in Ho Chi Minh City who spent ninety minutes in traffic every day can now use this time to cook dinner or exercise, so</textarea>
+<p style="margin: 0; display: flex; justify-content: space-between; font-size: 13px; color: var(--muted)"><span>42 từ · tối đa 140</span><span>Đã lưu nháp 21:52</span></p>
+<p style="margin: 0; font-size: 13px; color: var(--muted)">Bài mẫu cùng đề mở sau khi bạn nộp.</p>
+</div>
+</div>
+<div style="flex-shrink: 0; padding: 10px 16px; border-top: 1px solid var(--ink); background: var(--surface)"><a href="#s3" style="display: flex; align-items: center; justify-content: center; min-height: 48px; background: var(--accent); color: var(--on-accent); font-weight: 600; text-decoration: none; border-radius: 2px">Nộp bản viết lại</a><p style="margin: 6px 0 0; font-size: 12px; color: var(--muted); text-align: center">Lần viết lại đầu của bài này không dùng lượt</p></div>
+<nav aria-label="Điều hướng chính" style="flex-shrink: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); height: 64px; border-top: 1px solid var(--ink); background: var(--surface)">
+<a href="Main.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid transparent; color: var(--muted); font-size: 12px; font-weight: 400; text-decoration: none"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M4 11l8-7 8 7v9H4z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Hôm nay</a>
+<a href="LoTrinh.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid transparent; color: var(--muted); font-size: 12px; font-weight: 400; text-decoration: none"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M5 20V8M5 8h10l-2 3 2 3H5M19 20h-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Lộ trình</a>
+<a href="LuyenTap.dc.html" aria-current="page" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid var(--accent); color: var(--ink); font-size: 12px; font-weight: 600; text-decoration: none"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M4 19l4-1 11-11-3-3L5 15zM14 6l3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Luyện tập</a>
+<a href="ThiThu.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid transparent; color: var(--muted); font-size: 12px; font-weight: 400; text-decoration: none"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M12 7v5l3 2M12 3a9 9 0 100 18 9 9 0 000-18z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Thi thử</a>
+<a href="ThuVien.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid transparent; color: var(--muted); font-size: 12px; font-weight: 400; text-decoration: none"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M5 4h5v16H5zM10 4h5v16h-5zM16 6l3-1 3 14-3 1z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Thư viện</a>
+</nav>
+</div>
+<div aria-label="Điện thoại · kết quả viết lại" style="flex: none; width: 390px; height: 844px; box-sizing: border-box; border: 1px solid var(--ink); display: flex; flex-direction: column; overflow: hidden; background: var(--paper)">
+<header style="flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; height: 56px; box-sizing: border-box; padding: 0 16px; border-bottom: 1px solid var(--ink)">
+<span style="display: inline-flex; align-items: center; gap: 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; font-weight: 600"><svg width="26" height="26" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<div style="display: flex; align-items: center; gap: 12px">
+<span style="font-size: 13px; color: var(--muted)">Lượt AI <strong style="color: var(--ink)">XXX</strong></span>
+<span style="position: relative; flex: none; display: inline-flex"><a href="ThongBao.dc.html" aria-label="Thông báo, 4 chưa đọc" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; box-sizing: border-box; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink)"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15zM10 20.5a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></a><span aria-hidden="true" style="position: absolute; top: -7px; right: -7px; min-width: 20px; height: 20px; box-sizing: border-box; padding: 0 5px; border: 1px solid var(--paper); border-radius: 2px; background: var(--accent); color: var(--on-accent); font-size: 12px; font-weight: 600; line-height: 18px; text-align: center; font-variant-numeric: tabular-nums">4</span></span>
+<button aria-label="Mở menu tài khoản" style="width: 44px; height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif">MA</button>
+</div>
+</header>
+<div style="flex-grow: 1; min-height: 0; overflow-y: auto; padding: 8px 16px 16px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<a href="#s1" style="display: inline-flex; align-items: center; align-self: flex-start; min-height: 44px; font-size: 15px">‹ Phiếu nhận xét</a>
+<p style="margin: 0; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Kết quả viết lại · Đoạn 2</p>
+<p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600; line-height: 1.2">3 đã xử lý · 1 còn · 2 lỗi mới</p>
+<p style="margin: 0; font-size: 13px; color: var(--muted)">Đây không phải điểm. Band của bài vẫn là 6.0.</p>
+<div role="tablist" aria-label="Bản đang xem" style="display: flex; gap: 22px; border-bottom: 1px solid var(--ink)">
+<span role="tab" aria-selected="false" style="display: inline-flex; align-items: center; min-height: 44px; color: var(--muted)">Bản 1</span>
+<span role="tab" aria-selected="true" style="display: inline-flex; align-items: center; min-height: 44px; border-bottom: 3px solid var(--ink); font-weight: 600">Bản 2</span>
+<span role="tab" aria-selected="false" style="display: inline-flex; align-items: center; min-height: 44px; color: var(--muted)">Từng nhận xét</span>
+</div>
+<div>
+<div style="padding: 9px 0; border-top: 1px solid var(--rule)"><p style="margin: 0; display: flex; justify-content: space-between; align-items: baseline; gap: 10px"><span style="font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--mark)">1 · Ngữ pháp</span><span style="flex: none; padding: 1px 7px; border: 1.5px solid var(--accent); color: var(--accent); font-size: 12px; font-weight: 600; text-transform: uppercase; border-radius: 2px">Đã xử lý</span></p><p lang="en" style="margin: 5px 0 0; padding-left: 10px; border-left: 3px solid var(--accent); font-family: 'Source Serif 4', Georgia, serif; font-size: 15px; line-height: 1.4">… is that <strong>it saves</strong> travelling time.</p></div>
+<div style="padding: 9px 0; border-top: 1px solid var(--rule)"><p style="margin: 0; display: flex; justify-content: space-between; align-items: baseline; gap: 10px"><span style="font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--ink)">4 · Coherence and Cohesion</span><span style="flex: none; padding: 1px 7px; border: 1.5px solid var(--ink); color: var(--ink); font-size: 12px; font-weight: 600; text-transform: uppercase; border-radius: 2px">Còn</span></p><p lang="en" style="margin: 5px 0 0; padding-left: 10px; border-left: 3px solid var(--ink); font-family: 'Source Serif 4', Georgia, serif; font-size: 15px; line-height: 1.4"><strong>Also, they can save money on petrol.</strong></p></div>
+<div style="padding: 9px 0; border-top: 1px solid var(--rule)"><p style="margin: 0; display: flex; justify-content: space-between; align-items: baseline; gap: 10px"><span style="font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--mark)">A · Lỗi mới · Ngữ pháp</span><span style="flex: none; padding: 1px 7px; border: 1.5px solid var(--mark); color: var(--mark); font-size: 12px; font-weight: 600; text-transform: uppercase; border-radius: 2px">Lỗi mới</span></p><p lang="en" style="margin: 5px 0 0; padding-left: 10px; border-left: 3px solid var(--mark); font-family: 'Source Serif 4', Georgia, serif; font-size: 15px; line-height: 1.4">… so <strong>the worker feel</strong> less tired …</p></div>
+</div>
+<p style="margin: 0; font-size: 13px; color: var(--muted)">Vẽ ở thẻ "Từng nhận xét" để thấy ba nhãn; còn 3 dòng nữa khi cuộn.</p>
+</div>
+</div>
+<div style="flex-shrink: 0; padding: 10px 16px; border-top: 1px solid var(--ink); background: var(--surface)"><a href="#s4" style="display: flex; align-items: center; justify-content: center; min-height: 48px; background: var(--accent); color: var(--on-accent); font-weight: 600; text-decoration: none; border-radius: 2px">Bài của tôi đứng đâu</a></div>
+<nav aria-label="Điều hướng chính" style="flex-shrink: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); height: 64px; border-top: 1px solid var(--ink); background: var(--surface)">
+<a href="Main.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid transparent; color: var(--muted); font-size: 12px; font-weight: 400; text-decoration: none"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M4 11l8-7 8 7v9H4z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Hôm nay</a>
+<a href="LoTrinh.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid transparent; color: var(--muted); font-size: 12px; font-weight: 400; text-decoration: none"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M5 20V8M5 8h10l-2 3 2 3H5M19 20h-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Lộ trình</a>
+<a href="LuyenTap.dc.html" aria-current="page" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid var(--accent); color: var(--ink); font-size: 12px; font-weight: 600; text-decoration: none"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M4 19l4-1 11-11-3-3L5 15zM14 6l3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Luyện tập</a>
+<a href="ThiThu.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid transparent; color: var(--muted); font-size: 12px; font-weight: 400; text-decoration: none"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M12 7v5l3 2M12 3a9 9 0 100 18 9 9 0 000-18z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Thi thử</a>
+<a href="ThuVien.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid transparent; color: var(--muted); font-size: 12px; font-weight: 400; text-decoration: none"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M5 4h5v16H5zM10 4h5v16h-5zM16 6l3-1 3 14-3 1z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Thư viện</a>
+</nav>
+</div>
+<div style="flex: 1 1 220px; min-width: 0">
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Quy tắc bản điện thoại</p>
+<ul style="margin: 0; padding-left: 18px; font-size: 14.5px; display: flex; flex-direction: column; gap: 8px">
+<li>Hai cột thành ba thẻ: Viết · Đoạn gốc · Nhận xét. Mở ở thẻ Viết.</li>
+<li>Trên ô viết luôn ghim một nhận xét, vuốt ngang để đổi; người học không phải rời ô viết để đọc nhận xét.</li>
+<li>Nút nộp dính đáy, trên thanh năm mục; dòng tính lượt nằm ngay dưới nút.</li>
+<li>Kết quả: Bản 1 · Bản 2 · Từng nhận xét là ba thẻ; không đặt hai bản cạnh nhau ở 390px.</li>
+<li>"Bài của tôi đứng đâu": đoạn của bạn ở trên, ba bài mẫu là thẻ 6.0 · 7.0 · 7.5 ở dưới; bảng Hình 1 thành danh sách, mỗi việc một dòng "bạn: chưa · 7.0: có".</li>
+<li>Viết lại một đoạn làm được trên điện thoại; "Viết lại cả bài" vẫn theo quy tắc phòng thi.</li>
+</ul>
+</div>
+</div>
+
+</div>
+</section>
+<section id="notes" aria-labelledby="h-notes" style="border-top: 2px solid var(--ink)">
+<div style="max-width: 1120px; margin: 0 auto; padding: 16px 32px 30px">
+<h2 id="h-notes" style="margin: 0 0 10px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">Ghi chú cho lập trình</h2>
+<div style="columns: 2; column-gap: 44px; font-size: 14px; line-height: 1.5">
+<p style="margin: 0 0 9px; break-inside: avoid"><strong>Đã có [NGAY].</strong> Phiếu chấm Writing có chú thích theo câu, trích nguyên văn, gắn tiêu chí (KetQuaWriting; <code>writing_essays</code>, <code>writing_feedback</code>). Band theo bốn tiêu chí của bài, nên biết tiêu chí yếu nhất. Kho 549 đề, mỗi đề ba bài mẫu 6.0 / 7.0 / 7.5, cùng dàn ý, có chia đoạn theo loại (mở bài, thân bài, kết bài). Nút "Viết lại bài này" (viết lại cả bài, 1 lượt). Sổ lượt chấm dùng chung Writing và Speaking. Khối "Hết lượt chấm" dùng chung. Luồng lớp offline: AI chấm, giáo viên duyệt rồi trả.</p>
+<p style="margin: 0 0 9px; break-inside: avoid"><strong>Phải thêm [THÊM].</strong> (1) Chia bài của người học thành đoạn và gắn mỗi chú thích vào một đoạn (cần vị trí ký tự của câu trích; kiểm xem phiếu hiện lưu vị trí hay chỉ lưu câu trích). (2) Bảng bản viết lại: bài gốc, số đoạn, lần thứ mấy, nội dung, lúc nộp, có dùng lượt không, đã mở bài mẫu trước chưa. (3) Lời gọi AI "đối chiếu": đầu vào là đoạn gốc, các nhận xét của đoạn, bản viết lại; đầu ra bắt buộc theo khuôn — mỗi nhận xét một nhãn (đã xử lý / còn / không còn áp dụng) kèm câu trích nguyên từ bản 2, và danh sách lỗi mới kèm câu trích. Máy chủ kiểm câu trích có thật trong bản 2; không khớp thì hạ nhãn thành "còn". Không trả band. (4) Lời gọi AI "đứng đâu": đoạn của người học, đoạn cùng loại của ba bài mẫu, tiêu chí yếu nhất; trả bảng việc và tối đa hai khác biệt, mỗi khác biệt một câu trích từ bài 7.0. (5) Kiểm trùng bài mẫu bằng so chuỗi (từ 8 từ liên tiếp), không dùng AI. (6) Quy tắc tính lượt theo phương án được chọn. (7) Dòng "đã viết lại" ở trang bài đã trả của giáo viên.</p>
+<p style="margin: 0 0 9px; break-inside: avoid"><strong>Cần kiểm trong dữ liệu.</strong> Nhật ký khác biệt giữa hai mức theo tiêu chí (như trên trang bài mẫu): kho đã lưu thì "đứng đâu" dùng lại; chưa thì bước (4) phải tự rút, tốn hơn và dễ gượng hơn.</p>
+<p style="margin: 0 0 9px; break-inside: avoid"><strong>Chỉ số</strong> (huong-phat-trien, hướng 2): tỉ lệ bài đã chấm có ít nhất một bản viết lại; số nhận xét được đánh dấu "đã xử lý" trên tổng nhận xét của đoạn ở bản hai; điểm cùng tiêu chí ở bài kế tiếp (đề khác) của người có viết lại so với người không. Theo dõi thêm: tỉ lệ "lỗi mới", tỉ lệ mở "Bài của tôi đứng đâu", tỉ lệ mở bài mẫu trước khi viết lại.</p>
+<p style="margin: 0 0 9px; break-inside: avoid"><strong>Rủi ro.</strong> Chép bài mẫu: bài mẫu chờ sau bản viết lại, kiểm trùng chuỗi, nhưng thư viện là công khai nên chỉ là khoá mềm. AI nói "đã xử lý" khi chưa: bắt buộc câu trích và kiểm câu trích ở máy chủ. So sánh gượng khi người học viết khác dàn ý bài mẫu: chỉ so theo tiêu chí và loại đoạn, cho phép kết quả "không có khác biệt đáng nói ở tiêu chí này". Người học hiểu nhầm là được chấm lại: câu "Đây không phải điểm" nằm ngay dưới dòng tổng. Người học né vì tốn lượt: xem mục 5.</p>
+<p style="margin: 0 0 9px; break-inside: avoid"><strong>Chờ chủ dự án quyết.</strong> Cách tính lượt A hay B (mục 5) · bản viết lại của lớp offline có qua giáo viên duyệt không (mục 6) · khoá bài mẫu mềm hay cứng trên phiếu (mục 4) · trần 3 bản viết lại mỗi đoạn và 140 từ (đề xuất) · "Viết lại một đoạn" thay "Viết lại bài này" làm nút chính ở phiếu (đang vẽ: có).</p>
+<p style="margin: 0 0 9px; break-inside: avoid"><strong>Liên kết.</strong> KetQuaWriting.dc.html (phiếu; thêm lối vào ở từng đoạn và ở "Làm gì tiếp") · BaiMauWriting.dc.html (trang bài mẫu; ba đoạn mẫu trên tờ lấy nguyên từ đó) · GiaHanThemLuot.dc.html · AdminChamWriting.dc.html · SoLoiCaNhan.dc.html. Bấm được trên tờ: ba thẻ 6.0 · 7.0 · 7.5 ở mục 4. Đoạn của người học là văn mẫu minh hoạ; ba đoạn bài mẫu là nội dung thật của kho.</p>
+</div>
+</div>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Xanh teal","Navy + đỏ mận"],"default":"Navy + đỏ mận"},"$preview":{"width":1280,"height":8000}}'>
+class Component extends DCLogic {
+renderVals() {
+const band = this.state.band ?? '7.0';
+const b = (id) => ({ label: id, sel: band === id ? 'true' : 'false', bar: band === id ? 'var(--ink)' : 'transparent', color: band === id ? 'var(--ink)' : 'var(--muted)', weight: band === id ? 600 : 400, pick: () => this.setState({ band: id }) });
+return {
+pal: (this.props.palette ?? 'Navy + đỏ mận') === 'Xanh teal' ? 'pal-teal' : 'pal-navy',
+bands: [b('6.0'), b('7.0'), b('7.5')],
+is60: band === '6.0', is70: band === '7.0', is75: band === '7.5'
+};
+}
+}
+</script>
+</body>
+</html>
