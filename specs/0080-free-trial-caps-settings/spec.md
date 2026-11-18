@@ -197,6 +197,7 @@ Bảng vướng mắc của gói (mục 7):
 ## Related specifications
 
 - **FREETRIAL-0047 (approved 10/11/2026): spec này sửa đổi 0047** — thay FR-003 phần hạn mức bằng ba lớp trần cấu hình (FR-020) và bổ sung FR-006 phần trạng thái (FR-022). Không đổi FR-001 (đối tượng dùng thử) và không đổi trần USD theo provider của 0047. Biến môi trường `TRIAL_*_PER_DAY`, `TRIAL_*_TOTAL` của 0047 **thôi dùng** khi migration 471 có hiệu lực; giá trị đọc từ bảng cấu hình (FR-024).
+- Spec 0047 đã approved nên PR spec này không sửa file của 0047; dòng "Sửa đổi bởi TRIALCAP-0080" ở 0047 thêm cùng PR mã đầu tiên của G11-T14 (hoặc khi anh Andy duyệt 0080).
 - Trạng thái 0047 kiểm ngày 18/11/2026: `backend/migrations/` chưa có file `371_*` → theo **đường (a)** của plan 5.2.1 (471 viết sau khi 371 của G11-T14a merge).
 - COURSEACCESS-0055 (G04): `has_ever_had_online_course` (FR-030); chấm thử không gộp vào sổ lượt (FR-042 của 0055).
 - AIBUDGET-0033: trần ngân sách AI chung; trần chấm thử là lớp riêng.
