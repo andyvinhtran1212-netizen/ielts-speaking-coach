@@ -23,7 +23,8 @@ Take the next number after the highest `present` or `reserved` row in
 [`register.tsv`](register.tsv), add your row (`reserved`, owner = your PR or
 task ID) in the same PR as the file, and change it to `present` when the file
 lands. Do **not** assume the sequence is dense. As of 2026-11-12 the highest is `380`
-(Skill Drill homework, #2294); the next new migration is `381`, subject to the
+(Skill Drill homework, #2294); 381 and 382 are reserved for FU-2281
+(Leader decision, 2026-11-18), so the next new migration is `383`, subject to the
 shared migration register (`register.tsv`; ask the Leader before taking it).
 `379` is present: PC-J562, the 0037 FR-008 Listening import source skip
 (assigned by the Leader). Migration `376` is pending for BLACKEYE-0052 admission;

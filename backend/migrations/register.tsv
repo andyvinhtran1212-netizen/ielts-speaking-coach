@@ -386,3 +386,5 @@ number	filename	state	owner	spec	note
 378	378_exercise_book_assignments.sql	present	-	-	-
 379	379_listening_import_source_skip.sql	present	-	-	-
 380	380_listening_skill_drill_homework.sql	present	-	-	-
+381	-	reserved	FU-2281	BLACKEYE-0052	FU-2281-NAMESPACE follow-up; Leader decision C3 on #2335, Andy approved 2026-11-18.
+382	-	reserved	FU-2281	BLACKEYE-0052	FU-2281-NAMESPACE follow-up; Leader decision C3 on #2335, Andy approved 2026-11-18.
