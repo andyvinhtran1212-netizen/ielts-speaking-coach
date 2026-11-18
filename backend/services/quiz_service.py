@@ -2453,6 +2453,10 @@ async def regrade_failed_course_writing(
         items = r.get("items") or []
         if not items or all(i.get("ok") is not None for i in items):
             continue
+        # Kho viết câu Course 5 không bao giờ lưu câu chưa chấm (hỏng là không
+        # ghi gì), và bộ chấm Course 1 không hiểu khóa chấm của nó: bỏ qua.
+        if any(i.get("mode") in sentence_lab_grader.MODES for i in items):
+            continue
         batch = [{"qid": i.get("qid"), "prompt": i.get("prompt") or "",
                   "explain": i.get("explain") or "", "answer": i.get("answer") or ""}
                  for i in items]
@@ -4049,6 +4053,9 @@ def course_writing_state(
             draft = None
     if lab:
         return _sentence_lab_state(
+            revision_open=bool(item) and complete_sub
+            and not _lab_revision_done(sub)
+            and _lab_assignment_open(bank_id, user_id, item),
             bank=bank, item=item, attempt_no=attempt_no, qs=qs, sub=sub,
             complete_sub=complete_sub, draft=draft,
         )
@@ -4117,9 +4124,24 @@ def _lab_public_items(items: list, *, reveal: bool) -> list:
     return [{k: v for k, v in (i or {}).items() if k != "explain"} for i in items]
 
 
+def _lab_assignment_open(bank_id: str, user_id: str, item: dict) -> bool:
+    """Bài giao còn nhận bài (chưa quá hạn, lớp chưa lưu trữ) — cùng cổng của
+    lượt nộp. Quá hạn thì không viết lại nữa (không tốn lượt gọi model), nhưng
+    vẫn chốt được để xem đáp án."""
+    try:
+        _bank_meta_or_404(bank_id, user_id)
+        live = _assignment_item_for(bank_id, user_id,
+                                    assignment_item_id=item.get("id"))
+    except HTTPException as exc:
+        if exc.status_code == 404:
+            return False
+        raise
+    return bool(live) and live.get("id") == item.get("id")
+
+
 def _sentence_lab_state(*, bank: dict, item: dict | None, attempt_no: int,
                         qs: list, sub: dict | None, complete_sub: bool,
-                        draft: dict | None) -> dict:
+                        draft: dict | None, revision_open: bool = False) -> dict:
     lab = (bank.get("meta") or {}).get("sentence_lab") or {}
     done = complete_sub and _lab_revision_done(sub)
     show_guide = complete_sub or not lab.get("show_guidance_after_first_submission")
@@ -4155,6 +4177,7 @@ def _sentence_lab_state(*, bank: dict, item: dict | None, attempt_no: int,
             "guide": lab.get("guide") if show_guide else None,
             "guide_locked": not show_guide,
             "revision_done": done,
+            "revision_open": bool(revision_open),
             "max_revision_items": sentence_lab_grader.MAX_REVISION_ITEMS,
         },
     }
@@ -4202,6 +4225,11 @@ def _lab_revise_prepare(*, user_id: str, bank_id: str, answers: dict,
     if too_long:
         raise HTTPException(422, {"message": "Có câu dài quá 600 ký tự.",
                                   "too_long": too_long})
+    # Viết lại tốn lượt gọi model → cùng cổng CHẶT của lượt nộp. Chốt rỗng
+    # (chỉ mở đáp án) không gọi gì nên vẫn được sau hạn.
+    if chosen and not _lab_assignment_open(bank_id, user_id, item):
+        raise HTTPException(404, "Bài giao đã đóng — không viết lại được nữa. "
+                                 "Bấm Chốt để xem đáp án.")
 
     segs = {q["qid"]: _lab_segments(q) for q in qs}
     entries = [{
@@ -4248,6 +4276,7 @@ async def revise_course_writing(*, user_id: str, bank_id: str, answers: dict,
         assignment_item_id=assignment_item_id)
     graded, model_name = ([], None)
     if entries:
+        await asyncio.to_thread(sentence_lab_grader.enforce_daily_call_cap, user_id)
         graded, model_name = await sentence_lab_grader.grade(
             entries, mode="review", usage_user_id=user_id)
         if any(g.get("ok") is None for g in graded):
@@ -4447,6 +4476,7 @@ async def submit_course_writing(*, user_id: str, bank_id: str,
     if lab:
         # Kho viết câu Course 5: chấm theo khóa chấm riêng, chế độ coach (gợi ý
         # tự sửa, chưa lộ câu sửa). 12 câu → 2 lượt gọi model.
+        await asyncio.to_thread(sentence_lab_grader.enforce_daily_call_cap, user_id)
         graded, model_name = await sentence_lab_grader.grade([{
             "qid": it["qid"], "prompt": it["prompt"], "explain": it["explain"],
             "item": _lab_segments(q).get("item") or {},

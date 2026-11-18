@@ -283,6 +283,9 @@ class Settings(BaseSettings):
     # không cần deploy code. Reasoning effort chỉ áp cho model gpt-5*/o*.
     SENTENCE_LAB_MODEL: str = "gpt-5-mini"
     SENTENCE_LAB_REASONING_EFFORT: str = "low"
+    # Trần lượt gọi model của kho viết câu cho MỘT học viên mỗi ngày UTC
+    # (SENTLAB-0101 FR-007). Một buổi dùng 3–5 lượt; 40 ≈ tám buổi kể cả gọi lại.
+    SENTENCE_LAB_MAX_CALLS_PER_USER_PER_DAY: int = 40
 
     # Controlled Rewrite in Advanced Vocabulary: all 20 answers are reviewed
     # in one low-cost structured request, once per learner/unit.

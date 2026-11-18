@@ -144,3 +144,30 @@ test('a committed revision survives a failed follow-up read', async () => {
   assert.deepEqual(await w.submitRevision(), { already: true });
   assert.equal(posts.length, 1);
 });
+
+test('after the deadline the result offers only "close and see answers"', async () => {
+  const sub = { items: [{ qid: 'S01-Q01', answer: 'a', ok: false, feedback: FB('S01-Q01') }],
+                total: 1, clean: 0 };
+  const a = api([{ questions: [ITEM('S01-Q01')], submitted: true, submission: sub,
+    sentence_lab: LAB({ revision_open: false }) }]);
+  const w = createWriting({ api: a, storage: null, userId: 'u' });
+  await w.load('b1');
+  const html = w.renderResult();
+  assert.ok(!html.includes('cw-revise"'), 'no rewrite boxes');
+  assert.match(html, /hết hạn nộp/);
+  w.writeRevision('S01-Q01', 'typed anyway');
+  await w.submitRevision();
+  assert.deepEqual(a.calls.post[0].body.answers, {});
+});
+
+test('model text with HTML is escaped in coaching feedback', async () => {
+  const sub = { items: [{ qid: 'S01-Q01', answer: 'a', ok: false,
+    feedback: FB('S01-Q01', { next_action_vi: '<img src=x onerror=alert(1)>' }) }],
+    total: 1, clean: 0 };
+  const w = createWriting({ api: api([{ questions: [ITEM('S01-Q01')], submitted: true,
+    submission: sub, sentence_lab: LAB() }]), storage: null, userId: 'u' });
+  await w.load('b1');
+  const html = w.renderResult();
+  assert.ok(!html.includes('<img'));
+  assert.match(html, /&lt;img src=x/);
+});

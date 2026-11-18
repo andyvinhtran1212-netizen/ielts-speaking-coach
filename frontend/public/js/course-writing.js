@@ -254,7 +254,15 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
     .filter((v) => String(v || '').trim()).length;
   const maxRevision = () => Number(lab && lab.max_revision_items) || 6;
 
+  // Quá hạn / lớp đã lưu trữ: máy chủ không nhận viết lại (tốn lượt gọi AI),
+  // nhưng vẫn cho chốt để mở đáp án. Trường thiếu = máy chủ cũ, coi là còn mở.
+  const rewriteOpen = () => !lab || lab.revision_open !== false;
+
   const reviseBar = () => {
+    if (!rewriteOpen()) {
+      return `<span class="cw-bar__note" id="cw-revise-note">Bài giao đã hết hạn nộp — không viết lại được nữa. Bấm chốt để xem đáp án tham khảo.</span>
+      <button class="av-button av-button-primary" id="cw-revise-submit" type="button">Chốt và xem đáp án</button>`;
+    }
     const n = revisionCount();
     const max = maxRevision();
     const over = n > max;
@@ -386,7 +394,7 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
         ? `<div class="sl-rev"><p class="sl-label">Bài viết lại</p>
             <p class="cw-diff">${inlineDiff(g.answer, rev.answer)}</p>
             ${labFeedback(rev.feedback, rev.answer)}</div>`
-        : (!done
+        : (!done && rewriteOpen()
           ? `<label class="sl-label" for="cw-rev-${esc(g.qid)}">Tự viết lại câu này (tuỳ chọn)</label>
              <textarea class="cw-write cw-revise" id="cw-rev-${esc(g.qid)}" data-qid="${esc(g.qid)}" rows="2"
                placeholder="Viết lại theo gợi ý…">${esc(revision[g.qid] || '')}</textarea>`
@@ -561,9 +569,11 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
       if (!lab || !submitted || lab.revision_done) return { already: true };
       if (revisionCount() > maxRevision()) return { tooMany: true };
       const answers = {};
-      Object.entries(revision).forEach(([qid, v]) => {
-        if (String(v || '').trim()) answers[qid] = String(v).trim();
-      });
+      if (rewriteOpen()) {
+        Object.entries(revision).forEach(([qid, v]) => {
+          if (String(v || '').trim()) answers[qid] = String(v).trim();
+        });
+      }
       const r = await api.post('/api/quiz/course/writing/revise', {
         bank_id: bankId, class_item: itemId, answers,
       });

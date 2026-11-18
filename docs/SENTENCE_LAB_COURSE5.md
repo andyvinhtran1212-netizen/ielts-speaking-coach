@@ -25,7 +25,12 @@ Không có migration.
    lộ câu sửa).
 3. Tự viết lại tối đa 6 câu → `POST /api/quiz/course/writing/revise`, chế độ
    **review**: 1 lượt gọi. Câu đầu không bị ghi đè, điểm bài giao không đổi.
-   Gửi rỗng = chốt luôn. Sau khi chốt, đáp án tham khảo hiện ra.
+   Gửi rỗng = chốt luôn. Sau khi chốt, đáp án tham khảo hiện ra. Viết lại chỉ
+   được khi bài giao còn nhận bài (chưa quá hạn, lớp chưa lưu trữ); quá hạn thì
+   chỉ còn nút chốt để xem đáp án, không tốn lượt gọi.
+4. Trần `SENTENCE_LAB_MAX_CALLS_PER_USER_PER_DAY` (mặc định 40) lượt gọi model
+   mỗi học viên mỗi ngày UTC, đếm từ `ai_usage_logs`; chạm trần → 429, đếm hỏng
+   → 503 (không cho qua).
 
 Câu hỏng (JSON sai schema/validator, lộ lời giải ở coach, bỏ sót câu) được gom
 vào **một** lượt gọi lại. Vẫn hỏng → không ghi gì, 503, nháp giữ nguyên.
@@ -45,11 +50,20 @@ Tổng số lượt gọi cho một bài: 1–3.
 cd backend
 # 1. Thử khô — chỉ đọc gói, kiểm SHA-256 với manifest, 45×12, khớp 540 khóa chấm
 python -m scripts.import_sentence_lab_course5 --package <zip>
-# 2. Ghi thật (staging trước, rồi production) — chỉ khi đã có phê duyệt
-python -m scripts.import_sentence_lab_course5 --package <zip> --commit --publish
+# 2. Ghi thật (staging trước, rồi production) — chỉ khi đã có phê duyệt.
+#    Cần DATABASE_URL + SUPABASE_URL của ĐÚNG môi trường; --expect-ref phải khớp
+#    cả hai, sai là dừng trước khi kết nối. Staging: zjphffoujxkpltixsbzj.
+python -m scripts.import_sentence_lab_course5 --package <zip> --commit --expect-ref <ref>
+# 3. Xuất bản khi code chấm đã chạy trên môi trường đó
+python -m scripts.import_sentence_lab_course5 --package <zip> --commit --publish --expect-ref <ref>
 ```
 
-Chạy lại lệnh cập nhật đúng 45 bank theo `code` (không tạo bank mới).
+Ghi qua kết nối Postgres trực tiếp, cả 45 bank trong **một giao dịch** (hỏng ở
+đâu là không ghi gì). Lý do: từ migration 309, CHECK
+`quiz_banks_grammar_revision_shape` gọi `grammar_quiz_allowed_code`, hàm mà
+service_role không còn quyền EXECUTE, nên ghi `quiz_banks` qua PostgREST bị từ
+chối (42501). Chạy lại lệnh cập nhật đúng 45 bank theo `code` (không tạo bank
+mới); không có `--publish` thì giữ nguyên trạng thái xuất bản hiện có.
 
 ## Hiệu chỉnh model trước khi giao cho học viên
 

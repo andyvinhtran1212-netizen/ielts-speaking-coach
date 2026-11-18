@@ -21,6 +21,13 @@ from services import quiz_service as qs
 from services import sentence_lab_grader as g
 
 
+@pytest.fixture(autouse=True)
+def _no_call_cap(request, monkeypatch):
+    """Trần lượt gọi/ngày đọc DB; các test khác không quan tâm thì tắt nó."""
+    if "call_cap" not in request.node.name:
+        monkeypatch.setattr(g, "enforce_daily_call_cap", lambda _u: None)
+
+
 # ── Phản hồi mẫu ─────────────────────────────────────────────────────────────
 def _fb(**over):
     base = {
@@ -390,7 +397,7 @@ def test_submit_routes_lab_bank_to_the_gpt_grader_in_coach_mode():
     assert all("explain" not in i for i in out["items"])
 
 
-def _state(sub_items):
+def _state(sub_items, open_=True):
     subs = ([{"id": "sub", "class_assignment_item_id": ITEM, "attempt_no": 1,
               "items": sub_items, "total": 2, "clean": 1, "graded_at": "t"}]
             if sub_items is not None else [])
@@ -400,7 +407,8 @@ def _state(sub_items):
             patch.object(qs, "_bank_meta_for_review_or_404", lambda *_a, **_k: LAB_BANK), \
             patch.object(qs, "_assignment_item_for_review",
                          lambda *_a, **_k: {"id": ITEM}), \
-            patch.object(qs, "course_section_attempt_no", lambda _i: 1):
+            patch.object(qs, "course_section_attempt_no", lambda _i: 1), \
+            patch.object(qs, "_lab_assignment_open", lambda *_a: open_):
         return qs.course_writing_state(user_id="u1", bank_id="b1")
 
 
@@ -434,7 +442,7 @@ def test_state_after_revision_reveals_reference_answers():
     assert st["questions"][0]["explain"].startswith("**Đáp án tham khảo:**")
 
 
-def _revise(answers, sub_items, grade=None):
+def _revise(answers, sub_items, grade=None, open_=True):
     db = _DB({"quiz_questions": _questions(), "course_writing_submissions": [
         {"id": "sub", "class_assignment_item_id": ITEM, "attempt_no": 1,
          "items": sub_items, "graded_at": "t"}]})
@@ -450,6 +458,7 @@ def _revise(answers, sub_items, grade=None):
             patch.object(qs, "_assignment_item_for_review",
                          lambda *_a, **_k: {"id": ITEM}), \
             patch.object(qs, "course_section_attempt_no", lambda _i: 1), \
+            patch.object(qs, "_lab_assignment_open", lambda *_a: open_), \
             patch.object(qs.sentence_lab_grader, "grade", grade or default_grade):
         out = asyncio.run(qs.revise_course_writing(
             user_id="u1", bank_id="b1", answers=answers))
@@ -509,3 +518,138 @@ def test_revision_refused_for_non_lab_banks():
 def test_play_path_strips_the_guide_from_bank_meta():
     src = open(qs.__file__, encoding="utf-8").read()
     assert 'meta["sentence_lab"] = {k: v for k, v in lab.items() if k != "guide"}' in src
+
+
+# ── SENTLAB-0101 FR-002/FR-003: lộ đáp án gần đúng, biến thể ─────────────────
+def test_coach_near_copy_or_variant_of_the_answer_is_a_reveal():
+    near = _fb(errors=[{**_fb()["errors"][0],
+                        "hint_vi": "Viết: Public transport is quite affordable for many "
+                                   "low income workers."}])
+    assert any("reveals" in p for p in _check(near))
+    variant = "Many low-income workers can afford public transport."
+    leak = _fb(next_action_vi="Thử: many low-income workers can afford public transport")
+    assert any("reveals" in p for p in g.validate_feedback(
+        leak, item_id="S01-Q01", mode="coach", response=RESP,
+        reference_answer=REF, variants=[variant]))
+
+
+def test_quoting_the_learners_own_sentence_is_not_a_reveal():
+    quote = _fb(errors=[{**_fb()["errors"][0],
+                         "reason_vi": "Câu 'Public transport affordable for many "
+                                      "low-income workers' thiếu động từ."}])
+    assert _check(quote) == []
+
+
+def test_model_request_carries_no_learner_identity():
+    payload = json.dumps(g._payload({"qid": "S01-Q01", "item": {"source": "s"},
+                                     "key": {"answer": REF}, "response": "x"}, "coach"))
+    assert "u1" not in payload and "user" not in payload and "email" not in payload
+
+
+# ── FR-004: viết lại chỉ khi bài giao còn nhận bài ───────────────────────────
+def test_rewrite_after_the_deadline_is_refused_before_any_model_call():
+    async def never(*_a, **_k):
+        raise AssertionError("no model call after the deadline")
+
+    with pytest.raises(HTTPException) as e:
+        _revise({"S01-Q01": "x"}, _graded(), grade=never, open_=False)
+    assert e.value.status_code == 404
+
+
+def test_closing_without_rewrites_still_works_after_the_deadline():
+    _out, db = _revise({}, _graded(), open_=False)
+    assert all(i["revision"] is None for i in db.updates[0]["items"])
+
+
+def test_state_reports_whether_rewriting_is_open():
+    assert _state(_graded())["sentence_lab"]["revision_open"] is True
+    assert _state(_graded(), open_=False)["sentence_lab"]["revision_open"] is False
+    assert _state(_graded(revision=None))["sentence_lab"]["revision_open"] is False
+
+
+def test_course1_regrade_skips_sentence_lab_rows():
+    rows = [{"id": "r1", "user_id": "u", "items": [
+        {"qid": "S01-Q01", "answer": "a", "ok": None, "mode": "coach"}]}]
+
+    async def never(*_a, **_k):
+        raise AssertionError("Course 1 grader must not regrade a lab row")
+
+    with patch.object(qs, "_report_pages", lambda *_a, **_k: rows), \
+            patch.object(qs.course_writing_grader, "grade", never):
+        assert asyncio.run(qs.regrade_failed_course_writing(object())) == []
+
+
+# ── FR-007: trần lượt gọi mỗi học viên mỗi ngày ──────────────────────────────
+class _CountDB:
+    def __init__(self, count=None, boom=False):
+        self.count, self.boom = count, boom
+
+    def table(self, name):
+        assert name == "ai_usage_logs"
+        outer = self
+
+        class Q:
+            def select(self, *_a, **_k): return self
+            def eq(self, *_a): return self
+            def gte(self, *_a): return self
+            def limit(self, *_a): return self
+
+            def execute(self):
+                if outer.boom:
+                    raise RuntimeError("db down")
+                class R: pass
+                r = R(); r.count = outer.count; r.data = []
+                return r
+        return Q()
+
+
+def _cap(db, cap=40):
+    import database
+    with patch.object(database, "supabase_admin", db), \
+            patch.object(g.settings, "SENTENCE_LAB_MAX_CALLS_PER_USER_PER_DAY", cap):
+        g.enforce_daily_call_cap("u1")
+
+
+def test_call_cap_allows_under_and_refuses_at_the_cap():
+    _cap(_CountDB(count=39))
+    with pytest.raises(HTTPException) as e:
+        _cap(_CountDB(count=40))
+    assert e.value.status_code == 429 and "reset_at" in e.value.detail
+
+
+def test_call_cap_fails_closed_on_lookup_error_or_bad_config():
+    for db, cap in ((_CountDB(boom=True), 40), (_CountDB(count=None), 40),
+                    (_CountDB(count=0), 0)):
+        with pytest.raises(HTTPException) as e:
+            _cap(db, cap)
+        assert e.value.status_code == 503
+
+
+def test_call_cap_is_checked_before_the_model_on_submit_and_rewrite():
+    src = open(qs.__file__, encoding="utf-8").read()
+    for marker in ('mode="coach", usage_user_id=user_id)',
+                   'entries, mode="review", usage_user_id=user_id)'):
+        head = src[:src.index(marker)]
+        assert "enforce_daily_call_cap" in head[-900:], marker
+
+
+# ── FR-001: importer chỉ ghi khi project ref khớp ────────────────────────────
+def test_importer_commit_requires_matching_project_ref(monkeypatch):
+    from config import settings
+    monkeypatch.setattr(settings, "DATABASE_URL",
+                        "postgresql://postgres:x@db.prodref1234.supabase.co:5432/postgres")
+    monkeypatch.setattr(settings, "SUPABASE_URL", "https://prodref1234.supabase.co")
+    with pytest.raises(SystemExit):
+        imp.database_dsn("zjphffoujxkpltixsbzj")
+    monkeypatch.setattr(settings, "DATABASE_URL",
+                        "postgresql://postgres:x@db.zjphffoujxkpltixsbzj.supabase.co:5432/postgres")
+    with pytest.raises(SystemExit):   # SUPABASE_URL vẫn trỏ nơi khác
+        imp.database_dsn("zjphffoujxkpltixsbzj")
+    monkeypatch.setattr(settings, "SUPABASE_URL", "https://zjphffoujxkpltixsbzj.supabase.co")
+    assert imp.database_dsn("zjphffoujxkpltixsbzj").startswith("postgresql://")
+
+
+def test_importer_commit_without_expect_ref_writes_nothing(tmp_path, monkeypatch):
+    monkeypatch.setattr(imp, "commit_plan", lambda *_a, **_k: pytest.fail("wrote"))
+    with pytest.raises(SystemExit):
+        imp.main(["--package", str(_package(tmp_path)), "--commit"])
