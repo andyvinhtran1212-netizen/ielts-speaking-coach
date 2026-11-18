@@ -16,7 +16,7 @@
 -- privilege. anon, authenticated and PUBLIC stay without EXECUTE. Every other
 -- grammar_quiz_% ACL, the CHECK and the bank guard are unchanged.
 --
--- Needs 309 and 314 in the ledger. No apply on merge: pending_feature
+-- Needs 339 (the last blanket revoke, after 309/314) in the ledger. No apply on merge: pending_feature
 -- course_bank_service_write; use the advisory-locked runner with
 -- MIGRATION_FEATURES=course_bank_service_write, staging first, production
 -- only at an explicitly authorised staging -> main promotion.
@@ -31,9 +31,8 @@ SET LOCAL lock_timeout = '5s';
 DO $$
 BEGIN
     IF pg_catalog.to_regclass('public._schema_migrations') IS NULL
-       OR (SELECT pg_catalog.count(*) FROM public._schema_migrations m
-            WHERE m.filename IN ('309_grammar_quiz_revision_cutover.sql',
-                                 '314_grammar_audit_reviewed_publication.sql')) <> 2 THEN
+       OR NOT EXISTS (SELECT 1 FROM public._schema_migrations m
+                       WHERE m.filename = '339_grammar_quiz_followup_codes.sql') THEN
         RAISE EXCEPTION 'migration_501_prerequisite_missing: no ledger row';
     END IF;
     IF pg_catalog.to_regprocedure('public.grammar_quiz_allowed_code(text)') IS NULL

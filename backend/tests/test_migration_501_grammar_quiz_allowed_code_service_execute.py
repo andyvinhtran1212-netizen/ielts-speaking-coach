@@ -54,7 +54,7 @@ async def _ledger(pg, *names):
 
 
 async def _ready(pg):
-    await _ledger(pg, "309_grammar_quiz_revision_cutover.sql", "314_grammar_audit_reviewed_publication.sql")
+    await _ledger(pg, "339_grammar_quiz_followup_codes.sql")
 
 
 async def _service_insert(pg):
@@ -106,7 +106,7 @@ async def test_rerun_is_idempotent_and_leaves_other_helpers_revoked(pg):
 
 @pytest.mark.asyncio
 async def test_missing_ledger_aborts_without_grant(pg):
-    await _ledger(pg, "309_grammar_quiz_revision_cutover.sql")
+    await _ledger(pg, "309_grammar_quiz_revision_cutover.sql", "314_grammar_audit_reviewed_publication.sql")
     assert "migration_501_prerequisite_missing: no ledger row" in await _fails(pg, pg.adapted(SQL))
     assert not await _can(pg, "service_role")
 
