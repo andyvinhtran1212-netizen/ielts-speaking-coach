@@ -1,4 +1,5 @@
 import { cleanup, render, screen } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { LoginBehavior } from '@/app/(public-auth)/login/login-behavior';
 
@@ -84,6 +85,21 @@ it('keeps the destination across the Google OAuth return, which has no referrer'
   await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/writing/result?id=1'));
   expect(exchangeCodeForSession).toHaveBeenCalledWith('abc');
   expect(sessionStorage.getItem(NEXT_KEY)).toBeNull();
+});
+
+it('keeps the destination across the OAuth return under Strict Mode effect replay', async () => {
+  sessionStorage.setItem(NEXT_KEY, '/writing/result?id=1');
+  referrer = 'https://accounts.google.com/';
+  window.history.replaceState(null, '', '/login?code=abc');
+  render(<StrictMode><LoginBehavior googleIcon={null} /></StrictMode>);
+  await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/writing/result?id=1'));
+  expect(replace).not.toHaveBeenCalledWith('/home');
+});
+
+it('a dot-segment ?next= cannot leave the site', async () => {
+  window.history.replaceState(null, '', '/login?next=%2F..%2F%2Fevil.example');
+  renderLogin();
+  await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/home'));
 });
 
 it.each([

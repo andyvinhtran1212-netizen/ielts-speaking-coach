@@ -16,6 +16,16 @@ describe('sanitizeLearnerNext', () => {
   ]) {
     test(`refuses ${JSON.stringify(raw)}`, () => assert.equal(sanitizeLearnerNext(raw), null));
   }
+
+  // Dot segments resolve to a protocol-relative `//evil.com` only after URL
+  // normalisation, so they must be refused on the normalised form too.
+  for (const raw of ['/..//evil.com', '/.//evil.com', '/%2e%2e//evil.com', '/a/..//evil.com', '/%2E//evil.com']) {
+    test(`refuses dot-segment escape ${JSON.stringify(raw)}`, () => assert.equal(sanitizeLearnerNext(raw), null));
+  }
+
+  test('a harmless dot segment still resolves to its same-origin path', () => {
+    assert.equal(sanitizeLearnerNext('/writing/../grammar'), '/grammar');
+  });
 });
 
 describe('resolveLoginNext', () => {

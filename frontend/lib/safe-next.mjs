@@ -25,7 +25,12 @@ export function sanitizeLearnerNext(raw) {
   const path = url.pathname.replace(/\/+$/, '') || '/';
   if (REFUSED_PATHS.has(path)) return null;
   if ([...REFUSED_PATHS].some((refused) => refused !== '/' && path.startsWith(`${refused}/`))) return null;
-  return `${url.pathname}${url.search}${url.hash}`;
+  // Dot segments are resolved only now: `/..//evil.com` and `/%2e%2e//evil.com`
+  // both normalise to `//evil.com`, a protocol-relative URL to another host.
+  // So the check that matters runs on the normalised result, not on `raw`.
+  const safe = `${url.pathname}${url.search}${url.hash}`;
+  if (safe.startsWith('//') || new URL(safe, PROBE_ORIGIN).origin !== PROBE_ORIGIN) return null;
+  return safe;
 }
 
 /**

@@ -176,6 +176,7 @@ export function LoginBehavior({ googleIcon }: { googleIcon: ReactNode }) {
   const [signingOut, setSigningOut] = useState(false);
   const [suspended, setSuspended] = useState(false);
   const [returnTo, setReturnTo] = useState<string | null>(null);
+  const rememberedNext = useRef<string | null | undefined>(undefined);
   const clientRef = useRef<SupabaseClient | null>(null);
   const activateInFlight = useRef(false);
   const signOutInFlight = useRef(false);
@@ -199,8 +200,11 @@ export function LoginBehavior({ googleIcon }: { googleIcon: ReactNode }) {
 
   useEffect(() => {
     let disposed = false;
-    // Read before bootstrap() strips any callback from the address bar.
-    setReturnTo(rememberLoginNext());
+    // Read before bootstrap() strips any callback from the address bar, and only
+    // once per mount: a Strict Mode replay runs after the strip, would no longer
+    // see the OAuth return and would overwrite the target from Google's referrer.
+    if (rememberedNext.current === undefined) rememberedNext.current = rememberLoginNext();
+    setReturnTo(rememberedNext.current);
     if (!bootPromise) bootPromise = bootstrap();
     const pendingBoot = bootPromise;
     void pendingBoot.then((result) => {
