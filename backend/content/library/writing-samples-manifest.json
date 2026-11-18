@@ -970,7 +970,7 @@
   },
   {
     "source_key": "t2_advertising_body_shape",
-    "title_en": "Do adverts make people worry too much about body shape",
+    "title_en": "Do adverts make people worry too much about body shape?",
     "slug": "do-adverts-make-people-worry-too-much-about-body-shape",
     "topic_slug": "media",
     "topic_confidence": "cao",
@@ -984,7 +984,7 @@
   },
   {
     "source_key": "t2_advertising_individuality",
-    "title_en": "Does advertising make everyone want the same things",
+    "title_en": "Does advertising make everyone want the same things?",
     "slug": "does-advertising-make-everyone-want-the-same-things",
     "topic_slug": "media",
     "topic_confidence": "cao",
@@ -1040,7 +1040,7 @@
   },
   {
     "source_key": "t2_advertising_quantity_quality",
-    "title_en": "Does advertising push quantity over quality",
+    "title_en": "Does advertising push quantity over quality?",
     "slug": "does-advertising-push-quantity-over-quality",
     "topic_slug": "media",
     "topic_confidence": "cao",
@@ -1068,7 +1068,7 @@
   },
   {
     "source_key": "t2_ai_jobs_tasks_responsibility",
-    "title_en": "Will artificial intelligence replace most jobs",
+    "title_en": "Will artificial intelligence replace most jobs?",
     "slug": "will-artificial-intelligence-replace-most-jobs",
     "topic_slug": "technology",
     "topic_confidence": "cao",
@@ -1110,7 +1110,7 @@
   },
   {
     "source_key": "t2_aid_national_boundaries",
-    "title_en": "Should charities help only their own country",
+    "title_en": "Should charities help only their own country?",
     "slug": "should-charities-help-only-their-own-country",
     "topic_slug": "government-law",
     "topic_confidence": "vừa",
@@ -1124,7 +1124,7 @@
   },
   {
     "source_key": "t2_aid_poor_countries_effects",
-    "title_en": "Does foreign aid to poor countries do more harm than good",
+    "title_en": "Does foreign aid to poor countries do more harm than good?",
     "slug": "does-foreign-aid-to-poor-countries-do-more-harm-than-good",
     "topic_slug": "government-law",
     "topic_confidence": "vừa",
@@ -1152,7 +1152,7 @@
   },
   {
     "source_key": "t2_alternative_medicine_proportionate_standards",
-    "title_en": "Should alternative medicine be regulated like Western medicine",
+    "title_en": "Should alternative medicine be regulated like Western medicine?",
     "slug": "should-alternative-medicine-be-regulated-like-western-medicine",
     "topic_slug": "health",
     "topic_confidence": "cao",
@@ -1166,7 +1166,7 @@
   },
   {
     "source_key": "t2_animal_products_need_and_substitution",
-    "title_en": "Do we still need animals for food, clothing and medicine",
+    "title_en": "Do we still need animals for food, clothing and medicine?",
     "slug": "do-we-still-need-animals-for-food-clothing-and-medicine",
     "topic_slug": "environment",
     "topic_confidence": "vừa",
@@ -1222,7 +1222,7 @@
   },
   {
     "source_key": "t2_armed_forces_role_standards",
-    "title_en": "Should women serve in the armed forces on equal terms",
+    "title_en": "Should women serve in the armed forces on equal terms?",
     "slug": "should-women-serve-in-the-armed-forces-on-equal-terms",
     "topic_slug": "government-law",
     "topic_confidence": "vừa",
@@ -1236,7 +1236,7 @@
   },
   {
     "source_key": "t2_art_basic_course_later_choice",
-    "title_en": "Should art classes be compulsory in high school",
+    "title_en": "Should art classes be compulsory in high school?",
     "slug": "should-art-classes-be-compulsory-in-high-school",
     "topic_slug": "education",
     "topic_confidence": "vừa",
@@ -1279,7 +1279,7 @@
   },
   {
     "source_key": "t2_arts_public_value",
-    "title_en": "Is public spending on the arts a waste",
+    "title_en": "Is public spending on the arts a waste?",
     "slug": "is-public-spending-on-the-arts-a-waste",
     "topic_slug": "culture-arts",
     "topic_confidence": "cao",
@@ -1321,7 +1321,7 @@
   },
   {
     "source_key": "t2_big_city_health_exposure_access_conditions",
-    "title_en": "Is living in a big city bad for your health",
+    "title_en": "Is living in a big city bad for your health?",
     "slug": "is-living-in-a-big-city-bad-for-your-health",
     "topic_slug": "health",
     "topic_confidence": "vừa",
@@ -1363,7 +1363,7 @@
   },
   {
     "source_key": "t2_business_policy_voice",
-    "title_en": "Should businesses have more say in government policy",
+    "title_en": "Should businesses have more say in government policy?",
     "slug": "should-businesses-have-more-say-in-government-policy",
     "topic_slug": "government-law",
     "topic_confidence": "cao",
@@ -1447,7 +1447,7 @@
   },
   {
     "source_key": "t2_career_retraining_choice_relevance",
-    "title_en": "Should everyone retrain for a new career at least once",
+    "title_en": "Should everyone retrain for a new career at least once?",
     "slug": "should-everyone-retrain-for-a-new-career-at-least-once",
     "topic_slug": "work",
     "topic_confidence": "cao",
@@ -1461,7 +1461,7 @@
   },
   {
     "source_key": "t2_career_satisfaction_other_purposes",
-    "title_en": "Is a satisfying career the most important thing in life",
+    "title_en": "Is a satisfying career the most important thing in life?",
     "slug": "is-a-satisfying-career-the-most-important-thing-in-life",
     "topic_slug": "work",
     "topic_confidence": "cao",
@@ -1615,7 +1615,7 @@
   },
   {
     "source_key": "t2_children_daily_computers",
-    "title_en": "Do young children lose more than they gain from daily computer use",
+    "title_en": "Do young children lose more than they gain from daily computer use?",
     "slug": "do-young-children-lose-more-than-they-gain-from-daily-computer-use",
     "topic_slug": "technology",
     "topic_confidence": "vừa",
@@ -1643,7 +1643,7 @@
   },
   {
     "source_key": "t2_children_screens_displacement_purpose",
-    "title_en": "Is children's screen time harmful",
+    "title_en": "Is children's screen time harmful?",
     "slug": "is-childrens-screen-time-harmful",
     "topic_slug": "technology",
     "topic_confidence": "vừa",
@@ -1657,7 +1657,7 @@
   },
   {
     "source_key": "t2_children_television_guided_learning",
-    "title_en": "Is television bad or good for children",
+    "title_en": "Is television bad or good for children?",
     "slug": "is-television-bad-or-good-for-children",
     "topic_slug": "media",
     "topic_confidence": "vừa",
@@ -1769,7 +1769,7 @@
   },
   {
     "source_key": "t2_city_rural_quality_of_life",
-    "title_en": "Which offers a better quality of life, cities or rural areas",
+    "title_en": "Which offers a better quality of life, cities or rural areas?",
     "slug": "which-offers-a-better-quality-of-life-cities-or-rural-areas",
     "topic_slug": "cities-transport",
     "topic_confidence": "vừa",
@@ -1825,7 +1825,7 @@
   },
   {
     "source_key": "t2_climate_development_differentiated_obligations",
-    "title_en": "Should developing nations be exempt from strict climate rules",
+    "title_en": "Should developing nations be exempt from strict climate rules?",
     "slug": "should-developing-nations-be-exempt-from-strict-climate-rules",
     "topic_slug": "environment",
     "topic_confidence": "cao",
@@ -1853,7 +1853,7 @@
   },
   {
     "source_key": "t2_communication_benefits_usable_access",
-    "title_en": "Has everyone benefited from modern communication technology",
+    "title_en": "Has everyone benefited from modern communication technology?",
     "slug": "has-everyone-benefited-from-modern-communication-technology",
     "topic_slug": "technology",
     "topic_confidence": "cao",
@@ -2008,7 +2008,7 @@
   },
   {
     "source_key": "t2_convenience_foods_traditional_preparation_coexistence",
-    "title_en": "Will convenience foods replace traditional cooking",
+    "title_en": "Will convenience foods replace traditional cooking?",
     "slug": "will-convenience-foods-replace-traditional-cooking",
     "topic_slug": "culture-arts",
     "topic_confidence": "vừa",
@@ -2064,7 +2064,7 @@
   },
   {
     "source_key": "t2_crime_prevention_practical_limits",
-    "title_en": "Can more be done to prevent crime",
+    "title_en": "Can more be done to prevent crime?",
     "slug": "can-more-be-done-to-prevent-crime",
     "topic_slug": "government-law",
     "topic_confidence": "cao",
@@ -2078,7 +2078,7 @@
   },
   {
     "source_key": "t2_crime_reporting_details",
-    "title_en": "Should the media stop reporting crime in detail",
+    "title_en": "Should the media stop reporting crime in detail?",
     "slug": "should-the-media-stop-reporting-crime-in-detail",
     "topic_slug": "media",
     "topic_confidence": "cao",
@@ -2190,7 +2190,7 @@
   },
   {
     "source_key": "t2_data_explanations_usable_accountability",
-    "title_en": "Should tech companies explain how they use our data",
+    "title_en": "Should tech companies explain how they use our data?",
     "slug": "should-tech-companies-explain-how-they-use-our-data",
     "topic_slug": "technology",
     "topic_confidence": "cao",
@@ -2218,7 +2218,7 @@
   },
   {
     "source_key": "t2_digital_communication_literacy_practice",
-    "title_en": "Do phones and computers harm young people's literacy",
+    "title_en": "Do phones and computers harm young people's literacy?",
     "slug": "do-phones-and-computers-harm-young-peoples-literacy",
     "topic_slug": "education",
     "topic_confidence": "vừa",
@@ -2246,7 +2246,7 @@
   },
   {
     "source_key": "t2_digital_contact_face_to_face_practice",
-    "title_en": "Is digital communication eroding face-to-face skills",
+    "title_en": "Is digital communication eroding face-to-face skills?",
     "slug": "is-digital-communication-eroding-face-to-face-skills",
     "topic_slug": "technology",
     "topic_confidence": "cao",
@@ -2359,7 +2359,7 @@
   },
   {
     "source_key": "t2_education_crime_prevention",
-    "title_en": "Is education the best way to reduce crime",
+    "title_en": "Is education the best way to reduce crime?",
     "slug": "is-education-the-best-way-to-reduce-crime",
     "topic_slug": "government-law",
     "topic_confidence": "vừa",
@@ -2401,7 +2401,7 @@
   },
   {
     "source_key": "t2_education_work_and_public_judgement",
-    "title_en": "Should education mainly prepare young people for work",
+    "title_en": "Should education mainly prepare young people for work?",
     "slug": "should-education-mainly-prepare-young-people-for-work",
     "topic_slug": "education",
     "topic_confidence": "cao",
@@ -2485,7 +2485,7 @@
   },
   {
     "source_key": "t2_environment_public_authority_daily_participation",
-    "title_en": "Is protecting the environment the government's job alone",
+    "title_en": "Is protecting the environment the government's job alone?",
     "slug": "is-protecting-the-environment-the-governments-job-alone",
     "topic_slug": "environment",
     "topic_confidence": "cao",
@@ -2626,7 +2626,7 @@
   },
   {
     "source_key": "t2_family_income_adult_life",
-    "title_en": "Does growing up with less money prepare children better",
+    "title_en": "Does growing up with less money prepare children better?",
     "slug": "does-growing-up-with-less-money-prepare-children-better",
     "topic_slug": "society-family",
     "topic_confidence": "cao",
@@ -2640,7 +2640,7 @@
   },
   {
     "source_key": "t2_family_policy_care_over_form",
-    "title_en": "Should policy promote traditional family structures",
+    "title_en": "Should policy promote traditional family structures?",
     "slug": "should-policy-promote-traditional-family-structures",
     "topic_slug": "society-family",
     "topic_confidence": "cao",
@@ -2682,7 +2682,7 @@
   },
   {
     "source_key": "t2_fashion_imitation",
-    "title_en": "Is fashion a sign that people like to copy one another",
+    "title_en": "Is fashion a sign that people like to copy one another?",
     "slug": "is-fashion-a-sign-that-people-like-to-copy-one-another",
     "topic_slug": "culture-arts",
     "topic_confidence": "vừa",
@@ -2920,7 +2920,7 @@
   },
   {
     "source_key": "t2_free_trade_gains_domestic_adjustment",
-    "title_en": "Does free trade benefit everyone or hurt local industry",
+    "title_en": "Does free trade benefit everyone or hurt local industry?",
     "slug": "does-free-trade-benefit-everyone-or-hurt-local-industry",
     "topic_slug": "economy-consumers",
     "topic_confidence": "cao",
@@ -3075,7 +3075,7 @@
   },
   {
     "source_key": "t2_globalisation_culture_reach_participation",
-    "title_en": "Does globalisation strengthen or weaken local culture",
+    "title_en": "Does globalisation strengthen or weaken local culture?",
     "slug": "does-globalisation-strengthen-or-weaken-local-culture",
     "topic_slug": "culture-arts",
     "topic_confidence": "cao",
@@ -3089,7 +3089,7 @@
   },
   {
     "source_key": "t2_globalisation_gain_scale_distribution",
-    "title_en": "Who gains most from globalisation",
+    "title_en": "Who gains most from globalisation?",
     "slug": "who-gains-most-from-globalisation",
     "topic_slug": "economy-consumers",
     "topic_confidence": "cao",
@@ -3103,7 +3103,7 @@
   },
   {
     "source_key": "t2_globalisation_unequal_capacity_returns",
-    "title_en": "Does globalisation benefit all countries equally",
+    "title_en": "Does globalisation benefit all countries equally?",
     "slug": "does-globalisation-benefit-all-countries-equally",
     "topic_slug": "economy-consumers",
     "topic_confidence": "cao",
@@ -3173,7 +3173,7 @@
   },
   {
     "source_key": "t2_growth_environment_resource_limits",
-    "title_en": "Can economic growth and environmental protection coexist",
+    "title_en": "Can economic growth and environmental protection coexist?",
     "slug": "can-economic-growth-and-environmental-protection-coexist",
     "topic_slug": "environment",
     "topic_confidence": "cao",
@@ -3215,7 +3215,7 @@
   },
   {
     "source_key": "t2_happiness_economic_success",
-    "title_en": "Is happiness tied to economic success",
+    "title_en": "Is happiness tied to economic success?",
     "slug": "is-happiness-tied-to-economic-success",
     "topic_slug": "society-family",
     "topic_confidence": "cao",
@@ -3229,7 +3229,7 @@
   },
   {
     "source_key": "t2_happiness_personal_effort_external_opportunities",
-    "title_en": "Are we responsible for our own happiness",
+    "title_en": "Are we responsible for our own happiness?",
     "slug": "are-we-responsible-for-our-own-happiness",
     "topic_slug": "society-family",
     "topic_confidence": "cao",
@@ -3257,7 +3257,7 @@
   },
   {
     "source_key": "t2_health_education_funding",
-    "title_en": "Should governments pay for health care and education",
+    "title_en": "Should governments pay for health care and education?",
     "slug": "should-governments-pay-for-health-care-and-education",
     "topic_slug": "government-law",
     "topic_confidence": "vừa",
@@ -3341,7 +3341,7 @@
   },
   {
     "source_key": "t2_healthy_lifestyles_support_choice",
-    "title_en": "Should governments decide how people live healthily",
+    "title_en": "Should governments decide how people live healthily?",
     "slug": "should-governments-decide-how-people-live-healthily",
     "topic_slug": "health",
     "topic_confidence": "cao",
@@ -3509,7 +3509,7 @@
   },
   {
     "source_key": "t2_independence_interdependence_choices_specialisation",
-    "title_en": "Are people becoming more dependent or more independent",
+    "title_en": "Are people becoming more dependent or more independent?",
     "slug": "are-people-becoming-more-dependent-or-more-independent",
     "topic_slug": "society-family",
     "topic_confidence": "cao",
@@ -3523,7 +3523,7 @@
   },
   {
     "source_key": "t2_individual_environment_action",
-    "title_en": "Can individuals do anything to improve the environment",
+    "title_en": "Can individuals do anything to improve the environment?",
     "slug": "can-individuals-do-anything-to-improve-the-environment",
     "topic_slug": "environment",
     "topic_confidence": "cao",
@@ -3579,7 +3579,7 @@
   },
   {
     "source_key": "t2_internet_access_usable_information",
-    "title_en": "Has the internet democratised access to information",
+    "title_en": "Has the internet democratised access to information?",
     "slug": "has-the-internet-democratised-access-to-information",
     "topic_slug": "technology",
     "topic_confidence": "cao",
@@ -3593,7 +3593,7 @@
   },
   {
     "source_key": "t2_internet_schooling",
-    "title_en": "Is school unnecessary now that information is online",
+    "title_en": "Is school unnecessary now that information is online?",
     "slug": "is-school-unnecessary-now-that-information-is-online",
     "topic_slug": "education",
     "topic_confidence": "cao",
@@ -3649,7 +3649,7 @@
   },
   {
     "source_key": "t2_journalist_news_trust",
-    "title_en": "Can we trust the news journalists give us",
+    "title_en": "Can we trust the news journalists give us?",
     "slug": "can-we-trust-the-news-journalists-give-us",
     "topic_slug": "media",
     "topic_confidence": "cao",
@@ -3677,7 +3677,7 @@
   },
   {
     "source_key": "t2_junk_food_education_limits",
-    "title_en": "Is education the answer to eating too much junk food",
+    "title_en": "Is education the answer to eating too much junk food?",
     "slug": "is-education-the-answer-to-eating-too-much-junk-food",
     "topic_slug": "health",
     "topic_confidence": "cao",
@@ -3720,7 +3720,7 @@
   },
   {
     "source_key": "t2_language_loss_shared_communication",
-    "title_en": "Does it matter that languages are dying out",
+    "title_en": "Does it matter that languages are dying out?",
     "slug": "does-it-matter-that-languages-are-dying-out",
     "topic_slug": "culture-arts",
     "topic_confidence": "cao",
@@ -3804,7 +3804,7 @@
   },
   {
     "source_key": "t2_leadership_age_relevant_experience",
-    "title_en": "Do older people make better leaders",
+    "title_en": "Do older people make better leaders?",
     "slug": "do-older-people-make-better-leaders",
     "topic_slug": "work",
     "topic_confidence": "vừa",
@@ -3832,7 +3832,7 @@
   },
   {
     "source_key": "t2_lectures_technology",
-    "title_en": "Can technology replace lectures for large classes",
+    "title_en": "Can technology replace lectures for large classes?",
     "slug": "can-technology-replace-lectures-for-large-classes",
     "topic_slug": "education",
     "topic_confidence": "cao",
@@ -3860,7 +3860,7 @@
   },
   {
     "source_key": "t2_letter_writing_skill",
-    "title_en": "Will letter writing disappear",
+    "title_en": "Will letter writing disappear?",
     "slug": "will-letter-writing-disappear",
     "topic_slug": "technology",
     "topic_confidence": "vừa",
@@ -3874,7 +3874,7 @@
   },
   {
     "source_key": "t2_libraries_books_other_media",
-    "title_en": "Should libraries provide only books",
+    "title_en": "Should libraries provide only books?",
     "slug": "should-libraries-provide-only-books",
     "topic_slug": "culture-arts",
     "topic_confidence": "vừa",
@@ -4086,7 +4086,7 @@
   },
   {
     "source_key": "t2_migration_cultural_integration",
-    "title_en": "Should migrants adopt the new culture",
+    "title_en": "Should migrants adopt the new culture?",
     "slug": "should-migrants-adopt-the-new-culture",
     "topic_slug": "society-family",
     "topic_confidence": "cao",
@@ -4212,7 +4212,7 @@
   },
   {
     "source_key": "t2_museums_digital",
-    "title_en": "Will museums be replaced by computers",
+    "title_en": "Will museums be replaced by computers?",
     "slug": "will-museums-be-replaced-by-computers",
     "topic_slug": "culture-arts",
     "topic_confidence": "cao",
@@ -4352,7 +4352,7 @@
   },
   {
     "source_key": "t2_noise_limits_ordinary_activity",
-    "title_en": "Should noise be strictly controlled",
+    "title_en": "Should noise be strictly controlled?",
     "slug": "should-noise-be-strictly-controlled",
     "topic_slug": "cities-transport",
     "topic_confidence": "vừa",
@@ -4450,7 +4450,7 @@
   },
   {
     "source_key": "t2_old_age_support_capacity_to_save",
-    "title_en": "Who should pay for care in old age",
+    "title_en": "Who should pay for care in old age?",
     "slug": "who-should-pay-for-care-in-old-age",
     "topic_slug": "society-family",
     "topic_confidence": "vừa",
@@ -4772,7 +4772,7 @@
   },
   {
     "source_key": "t2_parenting_course_practice_adaptation",
-    "title_en": "Should parents take parenting courses",
+    "title_en": "Should parents take parenting courses?",
     "slug": "should-parents-take-parenting-courses",
     "topic_slug": "society-family",
     "topic_confidence": "cao",
@@ -5038,7 +5038,7 @@
   },
   {
     "source_key": "t2_progress_capability_responsibility",
-    "title_en": "Is human progress still certain",
+    "title_en": "Is human progress still certain?",
     "slug": "is-human-progress-still-certain",
     "topic_slug": "society-family",
     "topic_confidence": "thấp",
@@ -5416,7 +5416,7 @@
   },
   {
     "source_key": "t2_responsible_tourism_guidance_service_design",
-    "title_en": "Can tourists be responsible",
+    "title_en": "Can tourists be responsible?",
     "slug": "can-tourists-be-responsible",
     "topic_slug": "travel-tourism",
     "topic_confidence": "cao",
@@ -5458,7 +5458,7 @@
   },
   {
     "source_key": "t2_retraining_employer_worker_responsibility",
-    "title_en": "Who should retrain workers",
+    "title_en": "Who should retrain workers?",
     "slug": "who-should-retrain-workers",
     "topic_slug": "work",
     "topic_confidence": "cao",
@@ -5528,7 +5528,7 @@
   },
   {
     "source_key": "t2_robots_hazard_control_worker_transition",
-    "title_en": "Are robots good or dangerous",
+    "title_en": "Are robots good or dangerous?",
     "slug": "are-robots-good-or-dangerous",
     "topic_slug": "technology",
     "topic_confidence": "cao",
@@ -5893,7 +5893,7 @@
   },
   {
     "source_key": "t2_shopping_age_budget_access",
-    "title_en": "Does age decide how people shop",
+    "title_en": "Does age decide how people shop?",
     "slug": "does-age-decide-how-people-shop",
     "topic_slug": "economy-consumers",
     "topic_confidence": "cao",
@@ -5963,7 +5963,7 @@
   },
   {
     "source_key": "t2_skilled_migration_opportunity_local_capacity",
-    "title_en": "Does skilled migration harm developing nations",
+    "title_en": "Does skilled migration harm developing nations?",
     "slug": "does-skilled-migration-harm-developing-nations",
     "topic_slug": "work",
     "topic_confidence": "vừa",
@@ -5977,7 +5977,7 @@
   },
   {
     "source_key": "t2_smartphones_communication_reach_attention",
-    "title_en": "Do smartphones help or harm communication",
+    "title_en": "Do smartphones help or harm communication?",
     "slug": "do-smartphones-help-or-harm-communication",
     "topic_slug": "technology",
     "topic_confidence": "cao",
@@ -6145,7 +6145,7 @@
   },
   {
     "source_key": "t2_species_loss_remaining_conservation",
-    "title_en": "Is it too late to save species",
+    "title_en": "Is it too late to save species?",
     "slug": "is-it-too-late-to-save-species",
     "topic_slug": "environment",
     "topic_confidence": "cao",
@@ -6215,7 +6215,7 @@
   },
   {
     "source_key": "t2_standardised_exams_comparable_partial_evidence",
-    "title_en": "Are standardised exams the best measure",
+    "title_en": "Are standardised exams the best measure?",
     "slug": "are-standardised-exams-the-best-measure",
     "topic_slug": "education",
     "topic_confidence": "cao",
@@ -6300,7 +6300,7 @@
   },
   {
     "source_key": "t2_sugar_taxes_design_effectiveness",
-    "title_en": "Do sugar taxes work",
+    "title_en": "Do sugar taxes work?",
     "slug": "do-sugar-taxes-work",
     "topic_slug": "health",
     "topic_confidence": "cao",
@@ -6342,7 +6342,7 @@
   },
   {
     "source_key": "t2_tax_other_responsibilities",
-    "title_en": "Is paying tax enough",
+    "title_en": "Is paying tax enough?",
     "slug": "is-paying-tax-enough",
     "topic_slug": "government-law",
     "topic_confidence": "vừa",
@@ -6412,7 +6412,7 @@
   },
   {
     "source_key": "t2_technology_creativity",
-    "title_en": "Is technology reducing creativity",
+    "title_en": "Is technology reducing creativity?",
     "slug": "is-technology-reducing-creativity",
     "topic_slug": "technology",
     "topic_confidence": "cao",
@@ -6580,7 +6580,7 @@
   },
   {
     "source_key": "t2_trade_development_opportunity_adjustment",
-    "title_en": "Does trade harm developing countries",
+    "title_en": "Does trade harm developing countries?",
     "slug": "does-trade-harm-developing-countries",
     "topic_slug": "economy-consumers",
     "topic_confidence": "cao",
@@ -6692,7 +6692,7 @@
   },
   {
     "source_key": "t2_traditions_value_voluntary_adaptation",
-    "title_en": "Are traditions still worth keeping",
+    "title_en": "Are traditions still worth keeping?",
     "slug": "are-traditions-still-worth-keeping",
     "topic_slug": "culture-arts",
     "topic_confidence": "cao",
@@ -6888,7 +6888,7 @@
   },
   {
     "source_key": "t2_university_funding",
-    "title_en": "Who should fund higher education",
+    "title_en": "Who should fund higher education?",
     "slug": "who-should-fund-higher-education",
     "topic_slug": "education",
     "topic_confidence": "cao",
@@ -7266,7 +7266,7 @@
   },
   {
     "source_key": "t2_women_leaders_peace",
-    "title_en": "Would women leaders bring peace",
+    "title_en": "Would women leaders bring peace?",
     "slug": "would-women-leaders-bring-peace",
     "topic_slug": "society-family",
     "topic_confidence": "vừa",
@@ -7336,8 +7336,8 @@
   },
   {
     "source_key": "t2_work_standards_individual_needs",
-    "title_en": "Jobs only for men",
-    "slug": "jobs-only-for-men",
+    "title_en": "Should some jobs be only for men?",
+    "slug": "should-some-jobs-be-only-for-men",
     "topic_slug": "work",
     "topic_confidence": "cao",
     "publish": false,
@@ -7434,7 +7434,7 @@
   },
   {
     "source_key": "t2_young_leaders_evidence_judgement",
-    "title_en": "Can young people be leaders",
+    "title_en": "Can young people be leaders?",
     "slug": "can-young-people-be-leaders",
     "topic_slug": "work",
     "topic_confidence": "cao",
