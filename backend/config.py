@@ -289,6 +289,9 @@ class Settings(BaseSettings):
     # Công tắc tắt khẩn (rollback không gỡ code): False → nộp/viết lại bank lab
     # trả 503, không gọi model, bài vẫn còn nguyên.
     SENTENCE_LAB_ENABLED: bool = True
+    # Prompt chấm của gói (private/ai_grader_prompt.md). Bí mật nội dung: chỉ đặt
+    # trên server (Railway), không commit. Trống → chấm lab tạm dừng (503).
+    SENTENCE_LAB_PROMPT: str = ""
 
     # Controlled Rewrite in Advanced Vocabulary: all 20 answers are reviewed
     # in one low-cost structured request, once per learner/unit.

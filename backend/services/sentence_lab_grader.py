@@ -11,7 +11,8 @@ thích), và phản hồi theo thang luyện câu 0–10 với hai lượt:
   thiểu khi còn lỗi.
 
 Prompt, schema và quy tắc kiểm tra đầu ra lấy NGUYÊN từ gói nội dung
-(`assets/sentence_lab/ai_grader_prompt.md`, `feedback.schema.json`,
+(prompt: biến môi trường `SENTENCE_LAB_PROMPT` — gói xếp nó vào `private/` nên
+KHÔNG nằm trong repo công khai; `feedback.schema.json`,
 `feedback_validator.mjs`). Phản hồi không qua kiểm tra thì KHÔNG được hiện như
 một kết quả chấm: câu ấy được gọi lại một lần, vẫn hỏng thì trả ``ok=None`` để
 tầng gọi giữ nguyên lượt nộp (503) — đúng hợp đồng "chưa chấm được KHÁC HẲN
@@ -34,7 +35,6 @@ import re
 import time
 import unicodedata
 from difflib import SequenceMatcher
-from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -70,9 +70,14 @@ def is_sentence_lab_bank(bank: dict | None) -> bool:
     return isinstance(lab, dict) and lab.get("kind") == KIND
 
 
-@lru_cache(maxsize=1)
+def prompt_configured() -> bool:
+    return bool(str(getattr(settings, "SENTENCE_LAB_PROMPT", "") or "").strip())
+
+
 def _system_prompt() -> str:
-    base = (_ASSETS / "ai_grader_prompt.md").read_text(encoding="utf-8")
+    base = str(getattr(settings, "SENTENCE_LAB_PROMPT", "") or "")
+    if not base.strip():
+        raise RuntimeError("SENTENCE_LAB_PROMPT is not configured")
     codes = json.loads((_ASSETS / "error_codes.json").read_text(encoding="utf-8"))
     catalog = "\n".join(f"- {k}: {v}" for k, v in codes.items() if k != "STYLE")
     return (
@@ -190,7 +195,7 @@ _IN_FLIGHT: set[str] = set()
 
 def ensure_enabled() -> None:
     """Công tắc tắt khẩn (rollout: không gỡ code khi đã có bài giao lab)."""
-    if not getattr(settings, "SENTENCE_LAB_ENABLED", True):
+    if not getattr(settings, "SENTENCE_LAB_ENABLED", True) or not prompt_configured():
         from fastapi import HTTPException
         raise HTTPException(503, {
             "message": "Bài viết câu đang tạm dừng chấm. Bài của em vẫn còn "

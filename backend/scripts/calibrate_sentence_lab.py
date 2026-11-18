@@ -23,6 +23,16 @@ from scripts import import_sentence_lab_course5 as imp
 from services import sentence_lab_grader as g
 
 
+def _private(path: Path, name: str) -> bytes:
+    if path.is_dir():
+        return (path / name).read_bytes()
+    with zipfile.ZipFile(path) as zf:
+        hits = [n for n in zf.namelist() if n == name or n.endswith("/" + name)]
+        if len(hits) != 1:
+            raise SystemExit(f"Không thấy {name} trong gói.")
+        return zf.read(hits[0])
+
+
 def _cases(path: Path) -> list[dict]:
     name = "private/calibration_cases.json"
     if path.is_dir():
@@ -37,6 +47,11 @@ def _cases(path: Path) -> list[dict]:
 
 
 async def _run(package: Path) -> int:
+    # Prompt chấm là nội dung private của gói, không nằm trong repo: lấy từ
+    # SENTENCE_LAB_PROMPT nếu đã đặt, không thì đọc thẳng từ gói đang hiệu chỉnh.
+    if not g.prompt_configured():
+        g.settings.SENTENCE_LAB_PROMPT = _private(
+            package, "private/ai_grader_prompt.md").decode("utf-8")
     plan = imp.build_plan(imp.read_package(package))
     rows = {r["qid"]: r for b in plan["banks"] for r in b["rows"]}
     failed = 0

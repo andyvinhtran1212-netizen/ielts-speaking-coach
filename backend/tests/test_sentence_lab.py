@@ -22,6 +22,13 @@ from services import sentence_lab_grader as g
 
 
 @pytest.fixture(autouse=True)
+def _prompt(monkeypatch):
+    """Prompt thật là nội dung private của gói, không có trong repo."""
+    monkeypatch.setattr(g.settings, "SENTENCE_LAB_PROMPT", "# PROMPT GÓI (test)",
+                        raising=False)
+
+
+@pytest.fixture(autouse=True)
 def _no_call_cap(request, monkeypatch):
     """Trần lượt gọi/ngày đọc DB; các test khác không quan tâm thì tắt nó."""
     if "call_cap" not in request.node.name:
@@ -211,10 +218,23 @@ def test_model_payload_carries_public_item_key_and_previous_response():
     assert p["key"]["answer"] == REF and p["previous_response"] == "old"
 
 
-def test_system_prompt_is_the_pack_prompt_plus_catalog():
+def test_system_prompt_is_the_configured_prompt_plus_catalog():
     text = g._system_prompt()
-    assert "COACH, lần nộp đầu" in text and "WORDORDER" in text
+    assert text.startswith("# PROMPT GÓI (test)") and "WORDORDER" in text
     assert "STYLE:" not in text
+
+
+def test_private_prompt_is_not_shipped_in_the_repo():
+    from pathlib import Path
+    assets = Path(g.__file__).resolve().parent.parent / "assets" / "sentence_lab"
+    assert not (assets / "ai_grader_prompt.md").exists()
+
+
+def test_missing_prompt_pauses_lab_grading(monkeypatch):
+    monkeypatch.setattr(g.settings, "SENTENCE_LAB_PROMPT", "")
+    with pytest.raises(HTTPException) as e:
+        g.ensure_enabled()
+    assert e.value.status_code == 503 and e.value.detail["work_saved"] is True
 
 
 # ── Importer ─────────────────────────────────────────────────────────────────
