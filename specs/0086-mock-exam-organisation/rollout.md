@@ -7,7 +7,9 @@
 
 ## Staging
 
-- Áp migration 445, 446 (backfill), 447, 448 lên staging trước, dưới khoá advisory, test PG17 + postcondition; deploy backend rồi frontend; bật `ADMIN_FRAME_V2` chỉ trên staging; chạy các kịch bản của spec bằng tài khoản QA admin có TOTP. Thiếu tài khoản QA → PR ghi "chờ anh Andy kiểm tay trên staging".
+- Thứ tự T31 (theo `plan.md` mục Migration): (1) áp 445 lên staging dưới khoá advisory (chỉ nới CHECK và thêm bảng/cột, chưa đổi dữ liệu); (2) deploy backend có lớp tương thích đọc được cả tên cũ (`retake`, `sequential`) lẫn tên mới (`self_paced`, `live`), gồm `mock_exam_service.is_retake()` và vòng quét hết hạn `reap_expired_retake_sittings()`; kiểm trên staging một kỳ cũ đang có lượt làm dở vẫn resume và vẫn được quét hết hạn; (3) chỉ khi bước 2 đạt mới áp 446 (backfill đổi tên chế độ); (4) deploy frontend.
+- 447 và 448 đi cùng T33, sau T31, cũng dưới khoá advisory, test PG17 + postcondition.
+- Bật `ADMIN_FRAME_V2` chỉ trên staging; chạy các kịch bản của spec bằng tài khoản QA admin có TOTP. Thiếu tài khoản QA → PR ghi "chờ anh Andy kiểm tay trên staging".
 
 ## Production
 
@@ -15,7 +17,9 @@
 
 ## Rollback and repair
 
-- Tắt cờ `ADMIN_FRAME_V2` → khung admin cũ (chuyển hướng 307 vẫn giữ trang cũ mở được). Deploy lại bản trước; migration chỉ thêm bảng/cột nên tương thích với mã cũ, không hạ migration.
+- Tắt cờ `ADMIN_FRAME_V2` → khung admin cũ (chuyển hướng 307 vẫn giữ trang cũ mở được).
+- Trước 446: 445, 447, 448 chỉ thêm bảng/cột nên deploy lại bản trước được, không hạ migration.
+- Sau 446: dữ liệu `exam_mode` đã mang tên mới, nên **mốc lui thấp nhất là bản backend có lớp tương thích hai tên** (bước 2 ở trên); không deploy lại bản chỉ hiểu `retake`/`sequential`. Kiểm lui trên staging bằng một kỳ đã backfill có lượt làm dở: resume được và vẫn được quét hết hạn. Không hạ migration.
 - Backfill 446: chạy lại được (idempotent); sai thì sửa bằng migration mới, không sửa file cũ.
 
 Ràng buộc của gói liên quan:
