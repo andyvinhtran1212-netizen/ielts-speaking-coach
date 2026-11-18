@@ -82,6 +82,7 @@ draft -> approved -> implementing -> verified -> shipped
 | DICTATIONTOKEN-0011 | Version dictation word grading and distinguish punctuation in reports | implementing | high | [spec](0011-versioned-dictation-token-grading/spec.md) |
 
 | READINGGRAMMAR-0012 | Correct L1 Reading grammar analysis without replacing passage questions | implementing | medium | [spec](0012-reading-grammar-focus-edit/spec.md) |
+| CONTENTBATCH-0087 | Admins see every content import script run as a read-only batch and work one review queue per question on the four-tab content pages | draft | high | [spec](0087-content-import-batches/spec.md) |
 
 | WRITINGMODAL-0013 | Make Writing content dialogs follow browser history and keyboard focus | implementing | medium | [spec](0013-writing-content-modal-history/spec.md) |
 
