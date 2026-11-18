@@ -58,6 +58,7 @@ sang `PASS`/`MANUAL`/`N/A` theo mẫu ở `specs/_templates/verification.md`.
 | FR-043 | kind=test; ref=route inventory: no password route (T003–T005) | PENDING |
 | FR-044 | kind=test; ref=G04-T07 Speaking cluster charge (T007); E17 | PENDING |
 | FR-051 | kind=test; ref=G04-T03 feature short_writing_feedback charge (T003); route thuộc TOPICKNOW-0097 | PENDING |
+| FR-052 | kind=test; ref=G04-T18 (ACCOUNTDATA-0100): yêu cầu xoá có hạn huỷ, đăng xuất mọi phiên, job ẩn danh/xoá theo danh sách bảng; tải bản sao dữ liệu | PENDING |
 | FR-045 | rationale=ĐÃ BỎ theo quyết định 18/11/2026 (00 mục 2 điểm 22): không bảng, không API, không công tắc đồng ý dùng bản ghi âm | N/A |
 
 ## Contract evidence

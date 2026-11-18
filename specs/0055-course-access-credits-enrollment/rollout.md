@@ -22,7 +22,7 @@
 
 ## Rollback and repair
 
-- Quay lui: (1) tắt cờ `credit_metering`, `enrollment_orders`, `single_session_learners`, `retention_by_entitlement`, `pron_sample_window` (hiệu lực ≤15 s); (2) deploy lại backend trước đó; (3) chỉ khi cần mới chạy rollback theo thứ tự ngược 388 → 387 → 385 → 384 → 383 → 382 → 381 — script 381–383 và 388 giữ bảng và dữ liệu, gỡ hàm/trigger, từ chối khi có dữ liệu đơn/lượt trừ khi GUC mở rõ ràng. Không bao giờ xoá dòng `credit_ledger`/`enrollment_orders`.
+- Quay lui: (1) tắt cờ `credit_metering`, `enrollment_orders`, `single_session_learners`, `retention_by_entitlement`, `pron_sample_window` (hiệu lực ≤15 s); (2) deploy lại backend trước đó; (3) chỉ khi cần mới chạy rollback theo thứ tự ngược với thứ tự áp: 385 → 387 → 384 → 388 → 383 → 382 → 381 — script 381–383 và 388 giữ bảng và dữ liệu, gỡ hàm/trigger, từ chối khi có dữ liệu đơn/lượt trừ khi GUC mở rõ ràng. Không bao giờ xoá dòng `credit_ledger`/`enrollment_orders`.
 
 - Sổ lượt chỉ ghi thêm: sửa sai bằng dòng `admin_adjust` có lý do, không UPDATE/DELETE. Đơn xác nhận nhầm: thu hồi quyền (`revoke`) + dòng điều chỉnh, ghi sự kiện.
 
