@@ -718,3 +718,9 @@ def test_lab_submit_rejects_answers_over_600_chars_before_grading():
                 user_id="u1", bank_id="b1",
                 answers={"S01-Q01": "a" * 601, "S01-Q02": "b"}))
     assert e.value.status_code == 422
+
+
+def test_openai_client_has_no_hidden_sdk_retries(monkeypatch):
+    """SA C-5: the only retry is the explicit combined retry call."""
+    monkeypatch.setattr(g.settings, "OPENAI_API_KEY", "sk-test")
+    assert g._client().max_retries == 0

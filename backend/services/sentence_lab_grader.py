@@ -426,7 +426,7 @@ def _client():
     key = getattr(settings, "OPENAI_API_KEY", "") or ""
     if not key:
         raise RuntimeError("OPENAI_API_KEY is not configured")
-    return AsyncOpenAI(api_key=key, timeout=_TIMEOUT_SECONDS, max_retries=1)
+    return AsyncOpenAI(api_key=key, timeout=_TIMEOUT_SECONDS, max_retries=0)
 
 
 def _payload(entry: Dict[str, Any], mode: str) -> Dict[str, Any]:
