@@ -4276,9 +4276,11 @@ async def revise_course_writing(*, user_id: str, bank_id: str, answers: dict,
         assignment_item_id=assignment_item_id)
     graded, model_name = ([], None)
     if entries:
-        await asyncio.to_thread(sentence_lab_grader.enforce_daily_call_cap, user_id)
-        graded, model_name = await sentence_lab_grader.grade(
-            entries, mode="review", usage_user_id=user_id)
+        sentence_lab_grader.ensure_enabled()
+        async with sentence_lab_grader.single_flight(user_id):
+            await asyncio.to_thread(sentence_lab_grader.enforce_daily_call_cap, user_id)
+            graded, model_name = await sentence_lab_grader.grade(
+                entries, mode="review", usage_user_id=user_id)
         if any(g.get("ok") is None for g in graded):
             raise HTTPException(503, {
                 "message": "Bộ chấm chưa đọc được đủ các câu viết lại. Bài vẫn "
@@ -4476,13 +4478,15 @@ async def submit_course_writing(*, user_id: str, bank_id: str,
     if lab:
         # Kho viết câu Course 5: chấm theo khóa chấm riêng, chế độ coach (gợi ý
         # tự sửa, chưa lộ câu sửa). 12 câu → 2 lượt gọi model.
-        await asyncio.to_thread(sentence_lab_grader.enforce_daily_call_cap, user_id)
-        graded, model_name = await sentence_lab_grader.grade([{
-            "qid": it["qid"], "prompt": it["prompt"], "explain": it["explain"],
-            "item": _lab_segments(q).get("item") or {},
-            "key": _lab_segments(q).get("key") or {},
-            "response": it["answer"], "attempt": 1,
-        } for it, q in zip(items, qs)], mode="coach", usage_user_id=user_id)
+        sentence_lab_grader.ensure_enabled()
+        async with sentence_lab_grader.single_flight(user_id):
+            await asyncio.to_thread(sentence_lab_grader.enforce_daily_call_cap, user_id)
+            graded, model_name = await sentence_lab_grader.grade([{
+                "qid": it["qid"], "prompt": it["prompt"], "explain": it["explain"],
+                "item": _lab_segments(q).get("item") or {},
+                "key": _lab_segments(q).get("key") or {},
+                "response": it["answer"], "attempt": 1,
+            } for it, q in zip(items, qs)], mode="coach", usage_user_id=user_id)
     else:
         graded, model_name = await course_writing_grader.grade(
             items, usage_user_id=user_id,

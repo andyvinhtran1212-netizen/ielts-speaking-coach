@@ -647,3 +647,74 @@ def test_importer_commit_without_expect_ref_writes_nothing(tmp_path, monkeypatch
     monkeypatch.setattr(imp, "commit_plan", lambda *_a, **_k: pytest.fail("wrote"))
     with pytest.raises(SystemExit):
         imp.main(["--package", str(_package(tmp_path)), "--commit"])
+
+
+# ── SA-2367 S-1: một lượt chấm đang chạy cho mỗi học viên ────────────────────
+def test_second_concurrent_grading_for_the_same_learner_is_409():
+    async def run():
+        async with g.single_flight("u1"):
+            with pytest.raises(HTTPException) as e:
+                async with g.single_flight("u1"):
+                    pytest.fail("second flight must not start")
+            assert e.value.status_code == 409
+            async with g.single_flight("u2"):   # học viên khác không bị chặn
+                pass
+        async with g.single_flight("u1"):       # xong thì mở lại
+            pass
+    asyncio.run(run())
+
+
+def test_concurrent_submits_spend_one_set_of_calls():
+    calls = []
+    gate = asyncio.Event()
+
+    async def slow(entries, **_k):
+        calls.append(len(entries))
+        await gate.wait()
+        return ([], "gpt-test")
+
+    async def run():
+        with patch.object(qs.sentence_lab_grader, "grade", slow):
+            async def one():
+                async with g.single_flight("u1"):
+                    await g.grade([], mode="coach")
+            first = asyncio.create_task(one())
+            await asyncio.sleep(0)
+            with pytest.raises(HTTPException) as e:
+                await one()
+            assert e.value.status_code == 409
+            gate.set()
+            await first
+    asyncio.run(run())
+    assert calls == [0]
+
+
+# ── Rollout: công tắc tắt khẩn ───────────────────────────────────────────────
+def test_kill_switch_refuses_lab_grading_without_a_model_call(monkeypatch):
+    monkeypatch.setattr(g.settings, "SENTENCE_LAB_ENABLED", False)
+    with pytest.raises(HTTPException) as e:
+        g.ensure_enabled()
+    assert e.value.status_code == 503 and e.value.detail["work_saved"] is True
+
+    async def never(*_a, **_k):
+        raise AssertionError("no model call while paused")
+
+    with pytest.raises(HTTPException) as e:
+        _revise({"S01-Q01": "x"}, _graded(), grade=never)
+    assert e.value.status_code == 503
+
+
+def test_lab_submit_rejects_answers_over_600_chars_before_grading():
+    db = _DB({"quiz_questions": _questions(), "course_writing_submissions": []})
+
+    async def never(*_a, **_k):
+        raise AssertionError("no model call for an over-long answer")
+
+    with patch.object(qs, "supabase_admin", db), \
+            patch.object(qs, "_bank_meta_or_404", lambda *_a, **_k: LAB_BANK), \
+            patch.object(qs.sentence_lab_grader, "grade", never):
+        with pytest.raises(HTTPException) as e:
+            asyncio.run(qs.submit_course_writing(
+                user_id="u1", bank_id="b1",
+                answers={"S01-Q01": "a" * 601, "S01-Q02": "b"}))
+    assert e.value.status_code == 422

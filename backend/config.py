@@ -286,6 +286,9 @@ class Settings(BaseSettings):
     # Trần lượt gọi model của kho viết câu cho MỘT học viên mỗi ngày UTC
     # (SENTLAB-0101 FR-007). Một buổi dùng 3–5 lượt; 40 ≈ tám buổi kể cả gọi lại.
     SENTENCE_LAB_MAX_CALLS_PER_USER_PER_DAY: int = 40
+    # Công tắc tắt khẩn (rollback không gỡ code): False → nộp/viết lại bank lab
+    # trả 503, không gọi model, bài vẫn còn nguyên.
+    SENTENCE_LAB_ENABLED: bool = True
 
     # Controlled Rewrite in Advanced Vocabulary: all 20 answers are reviewed
     # in one low-cost structured request, once per learner/unit.

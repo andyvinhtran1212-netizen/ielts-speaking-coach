@@ -27,6 +27,7 @@ Model: `SENTENCE_LAB_MODEL` (OpenAI, mặc định trong `config.py`).
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import re
@@ -184,6 +185,42 @@ NEAR_COPY_RATIO = 0.85
 
 
 _CAP_QUOTA = "SENTENCE_LAB_MAX_CALLS_PER_USER_PER_DAY"
+_IN_FLIGHT: set[str] = set()
+
+
+def ensure_enabled() -> None:
+    """Công tắc tắt khẩn (rollout: không gỡ code khi đã có bài giao lab)."""
+    if not getattr(settings, "SENTENCE_LAB_ENABLED", True):
+        from fastapi import HTTPException
+        raise HTTPException(503, {
+            "message": "Bài viết câu đang tạm dừng chấm. Bài của em vẫn còn "
+                       "nguyên — quay lại sau nhé.",
+            "work_saved": True, "paused": True,
+        })
+
+
+@contextlib.asynccontextmanager
+async def single_flight(user_id: str):
+    """Mỗi học viên chỉ MỘT lượt chấm lab đang chạy trong process này (FR-007).
+
+    Sổ usage ghi bất đồng bộ, nên N request song song đều đếm thấy dưới trần;
+    request thứ hai bị từ chối 409 trước khi gọi model. Nhiều replica thì mỗi
+    replica một lượt — giới hạn ghi trong spec.
+    """
+    from fastapi import HTTPException
+    key = str(user_id)
+    if key in _IN_FLIGHT:
+        raise HTTPException(409, {
+            "message": "Bài của em đang được chấm ở một tab khác. Đợi xong rồi "
+                       "tải lại trang nhé.",
+            "in_flight": True,
+        })
+    _IN_FLIGHT.add(key)
+    try:
+        yield
+    finally:
+        _IN_FLIGHT.discard(key)
+
 
 
 def enforce_daily_call_cap(user_id: str) -> None:
