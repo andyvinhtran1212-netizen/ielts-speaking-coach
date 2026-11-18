@@ -168,11 +168,17 @@ await signedOut.close();
 
 const missingId = await authedPage(browser);
 await missingId.page.goto(`${BASE}/listening/practice-run`, { waitUntil: 'domcontentloaded' });
-await missingId.page.getByRole('heading', { name: 'Luyện nhanh · …' }).waitFor();
-check('missing-id state preserves chrome, heading and canonical back link',
-  await missingId.page.locator('aver-chrome').count() === 1
-    && await missingId.page.getByRole('link', { name: /Quay lại Luyện nhanh/i }).isVisible()
-    && await missingId.page.getByRole('alert').getByText('Thiếu mã bài luyện.').isVisible());
+// G02-T11: a link without its test now returns to quick practice, which shows
+// one plain line (RedirectNotice) and drops `?notice=` from the address bar.
+await missingId.page.waitForURL((url) => url.pathname === '/listening/practice', { timeout: 15_000 }).catch(() => {});
+const missingNotice = missingId.page.locator('.av-redirect-notice[role="status"]');
+await missingNotice.waitFor({ timeout: 15_000 }).catch(() => {});
+check('missing-id link returns to quick practice with a one-line notice',
+  new URL(missingId.page.url()).pathname === '/listening/practice'
+    && !new URL(missingId.page.url()).searchParams.has('notice')
+    && (await missingNotice.count() ? await missingNotice.innerText() : '')
+      .includes('Liên kết bạn vừa mở chưa đủ thông tin nên bạn được đưa về trang luyện nghe.'),
+  missingId.page.url());
 check('missing-id state makes no attempt mutation or production egress',
   missingId.state.startPosts === 0 && missingId.egress.length === 0 && missingId.errors.length === 0,
   missingId.egress[0] || missingId.errors[0] || '');

@@ -108,18 +108,37 @@ try {
   for (const width of [360, 390]) {
     const tag = `${width}px`;
 
-    // ── U-16 /quiz ─────────────────────────────────────────────────────
-    for (const [query, expected] of [['', 'chưa cho biết cần mở bài kiểm tra nào'], ['?bank=a&bank=b', 'không hợp lệ']]) {
+    // ── U-16 → G02-T11 /quiz ───────────────────────────────────────────
+    // A link that names no bank (or names it twice) returns to the exercise
+    // list of its skill with one plain line, without fetching any bank list.
+    for (const [query, parent, label] of [
+      ['', '/grammar/exercises', 'trang bài tập ngữ pháp'],
+      ['?bank=a&bank=b', '/grammar/exercises', 'trang bài tập ngữ pháp'],
+      // This harness cannot render /vocabulary/hub (it shows the error
+      // boundary even when opened directly), so for that parent only the
+      // redirect target is checked; the notice line itself is covered by the
+      // other parents and tests/react/redirect-notice.test.tsx.
+      ['?skill_area=vocab&bank=a&bank=b', '/vocabulary/hub', null],
+    ]) {
       const { page, requests } = await newPage(browser, { width, user: USER_A });
+      const navigated = [];
+      page.on('framenavigated', (frame) => { if (frame === page.mainFrame()) navigated.push(frame.url()); });
       await page.goto(`${BASE}/quiz${query}`, { waitUntil: 'networkidle' });
-      const alert = page.getByRole('alert').filter({ hasText: 'Không thể mở bài' });
-      await alert.waitFor({ timeout: 15_000 });
-      const text = await alert.innerText();
-      check(`${tag} /quiz${query} explains the link problem`, text.includes(expected) && !/tham số|bank\./.test(text), JSON.stringify(text));
-      check(`${tag} /quiz${query} offers no retry that cannot succeed`, await page.getByRole('button', { name: 'Mở lại bài' }).count() === 0);
-      const back = alert.getByRole('link', { name: 'Quay lại' });
-      check(`${tag} /quiz${query} has a back button`, await hrefOf(back) === '/vocabulary/practice');
-      check(`${tag} /quiz${query} does not fetch a bank list`, !requests.some((row) => row.includes('/banks')), requests.join(' | '));
+      await page.waitForURL((url) => url.pathname === parent, { timeout: 15_000 }).catch(() => {});
+      const notice = page.locator('.av-redirect-notice[role="status"]');
+      await notice.waitFor({ timeout: 15_000 }).catch(() => {});
+      const text = (await notice.count()) ? await notice.innerText() : '';
+      const landed = new URL(page.url());
+      if (label) {
+        check(`${tag} /quiz${query} returns to ${parent}`, landed.pathname === parent && !landed.searchParams.has('notice'), page.url());
+        check(`${tag} /quiz${query} explains in one plain line`,
+          text.includes(`Liên kết bạn vừa mở chưa đủ thông tin nên bạn được đưa về ${label}.`) && !/tham số|bank/.test(text), JSON.stringify(text));
+      } else {
+        check(`${tag} /quiz${query} redirects to ${parent}?notice=lien-ket-thieu`,
+          navigated.some((u) => { const x = new URL(u); return x.pathname === parent && x.searchParams.get('notice') === 'lien-ket-thieu'; }),
+          navigated.join(' | '));
+      }
+      check(`${tag} /quiz${query} does not fetch a quiz bank`, !requests.some((row) => row.includes('/api/quiz/banks')), requests.join(' | '));
       check(`${tag} /quiz${query} has no horizontal overflow`, await overflowOf(page) <= 1);
       if (SHOT_DIR && !query) await page.screenshot({ path: join(SHOT_DIR, `quiz-missing-${width}.png`) });
       await page.context().close();
@@ -146,17 +165,18 @@ try {
       await page.context().close();
     }
 
-    // ── U-16 /grammar-lessons/assigned ─────────────────────────────────
+    // ── U-16 → G02-T11 /grammar-lessons/assigned ───────────────────────
     {
       const { page, requests } = await newPage(browser, { width, user: USER_A });
       await page.goto(`${BASE}/grammar-lessons/assigned`, { waitUntil: 'networkidle' });
-      const alert = page.locator('.agl-alert[role="alert"]');
-      await alert.waitFor({ timeout: 15_000 });
-      const text = await alert.innerText();
-      check(`${tag} /grammar-lessons/assigned explains the link problem`, /chưa cho biết bài Grammar nào/.test(text) && !/Thiếu mã/.test(text), JSON.stringify(text));
-      check(`${tag} /grammar-lessons/assigned offers no retry`, await page.getByRole('button', { name: 'Thử lại' }).count() === 0);
-      check(`${tag} /grammar-lessons/assigned has a back button`,
-        await hrefOf(page.getByRole('link', { name: '← Về Lớp của tôi' })) === '/my-class');
+      await page.waitForURL((url) => url.pathname === '/my-class', { timeout: 15_000 }).catch(() => {});
+      const notice = page.locator('.av-redirect-notice[role="status"]');
+      await notice.waitFor({ timeout: 15_000 }).catch(() => {});
+      const text = (await notice.count()) ? await notice.innerText() : '';
+      const landed = new URL(page.url());
+      check(`${tag} /grammar-lessons/assigned returns to My class`, landed.pathname === '/my-class' && !landed.searchParams.has('notice'), page.url());
+      check(`${tag} /grammar-lessons/assigned explains in one plain line`,
+        text.includes('Liên kết bạn vừa mở chưa đủ thông tin nên bạn được đưa về trang Lớp học.') && !/Thiếu mã/.test(text), JSON.stringify(text));
       check(`${tag} /grammar-lessons/assigned calls no lesson API`, !requests.some((row) => row.includes('/api/grammar/lessons')), requests.join(' | '));
       check(`${tag} /grammar-lessons/assigned has no horizontal overflow`, await overflowOf(page) <= 1);
       if (SHOT_DIR) await page.screenshot({ path: join(SHOT_DIR, `grammar-lesson-missing-${width}.png`) });
