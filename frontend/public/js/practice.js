@@ -3396,9 +3396,11 @@
       if (e.data && e.data.size > 0) _audioChunks.push(e.data);
     };
 
+    var p2RecordingStartedAt = Date.now();
     _recorder.onstop = function () {
       var type = (_recorder.mimeType && _recorder.mimeType !== '') ? _recorder.mimeType : 'audio/webm';
-      _handleP2RecordedBlob(new Blob(_audioChunks, { type: type }));
+      _handleP2RecordedBlob(new Blob(_audioChunks, { type: type }),
+        Math.floor((Date.now() - p2RecordingStartedAt) / 1000));
     };
 
     _recorder.start(250);
