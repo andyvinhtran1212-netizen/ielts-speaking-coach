@@ -151,10 +151,16 @@ def _hut(ax, x: float, y: float) -> None:
 
 
 def draw_island(data: dict, out: Path) -> None:
-    # Elements come from data["elements"]: reception (centre), restaurant
-    # (west of reception), two hut clusters (west and east), vehicle track,
-    # pier (south), footpaths from huts to the beach, roped-off swimming area
-    # off the west beach, trees kept in the eastern half.
+    # What is drawn, and where relative to other things, comes only from
+    # data["elements"]: reception (centre), restaurant (west of reception), two
+    # hut clusters (west and east), vehicle track, pier (south), footpaths from
+    # huts to the beach, roped-off swimming area off the west beach, trees kept
+    # in the eastern half. The coordinates below are a hand-made layout of that
+    # description; the map has no measurements, so none are implied.
+    text = " ".join(data["elements"]).lower()
+    for name in ("reception", "restaurant", "accommodation huts", "vehicle track", "pier",
+                 "footpaths", "roped-off"):
+        assert name in text, f"island: {name!r} not in data['elements']"
     fig, (left, right) = plt.subplots(1, 2, figsize=(15, 6.6))
     _island_base(left, "Before", trees_west=True)
     _island_base(right, "After", trees_west=False)
@@ -168,12 +174,13 @@ def draw_island(data: dict, out: Path) -> None:
     east_huts = [(5.9, 5.6), (6.4, 5.75), (6.9, 5.6), (6.15, 5.2), (6.65, 5.2)]
     for x, y in west_huts + east_huts:
         _hut(ax, x, y)
-    ax.text(3.5, 5.97, "Accommodation huts", ha="center", fontsize=9)
-    ax.text(6.4, 5.97, "Accommodation huts", ha="center", fontsize=9)
+    # hut labels sit below each cluster, clear of the footpaths above them
+    ax.text(3.45, 4.82, "Accommodation huts", ha="center", va="center", fontsize=9)
+    ax.text(6.55, 4.82, "Accommodation huts", ha="center", va="center", fontsize=9)
     track = dict(color=INK, lw=3.2, solid_capstyle="round")
     ax.plot([3.6, 4.55], [4.05, 4.05], **track)                  # restaurant – reception
-    ax.plot([5.0, 5.0, 3.5, 3.5], [4.4, 4.75, 4.75, 5.05], **track)  # reception – west huts
-    ax.plot([5.0, 6.4, 6.4], [4.75, 4.75, 5.05], **track)        # reception – east huts
+    ax.plot([5.0, 5.0, 4.45, 4.45, 4.13], [4.4, 4.58, 4.58, 5.2, 5.2], **track)  # reception – west huts
+    ax.plot([5.0, 5.5, 5.5, 5.77], [4.58, 4.58, 5.2, 5.2], **track)  # reception – east huts
     ax.plot([5.0, 5.0], [3.7, 1.45], **track)                    # reception – pier
     ax.text(5.15, 2.6, "Vehicle track", fontsize=9, rotation=90, va="center")
     ax.add_patch(Rectangle((4.85, 0.35), 0.3, 1.1, fc="#ffffff", ec=INK, lw=1.6))
@@ -186,7 +193,7 @@ def draw_island(data: dict, out: Path) -> None:
     ax.text(0.62, 2.95, "Swimming\narea", ha="center", va="top", fontsize=8.5)
 
     left.text(5.4, 4.0, "Trees", fontsize=10, ha="center")
-    right.text(8.0, 2.55, "Trees", fontsize=10, ha="center")
+    right.text(7.05, 1.8, "Trees", fontsize=10, ha="center", va="center")
     fig.tight_layout()
     fig.savefig(out, dpi=DPI, bbox_inches="tight", pad_inches=0.2)
     plt.close(fig)
