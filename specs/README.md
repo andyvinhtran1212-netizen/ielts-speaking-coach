@@ -69,6 +69,7 @@ draft -> approved -> implementing -> verified -> shipped
 | MASTER30FULL-0018 | Assign the complete original MASTER30 Grammar banks | shipped | high | [spec](0018-master30-full-bank-assignments/spec.md) |
 | AI-0004 | AI model usage observability and controlled model rollout | implementing | high | [spec](0004-ai-model-usage-observability/spec.md) |
 | AIBUDGET-0033 | Paid AI stops at hard budgets, Claude alerts on a soft budget, and learner work waits safely for grading | approved | critical | [spec](0033-ai-budget-hard-cap/spec.md) |
+| TRIALCAP-0080 | Free trial grading stops at configurable per-person, per-day and site-wide daily cost caps that admins change and pause from Settings with an audit log | draft | high | [spec](0080-free-trial-caps-settings/spec.md) |
 | LISTENING-0005 | Listening content programmes, import and learner hub | implementing | high | [spec](0005-listening-content-programmes/spec.md) |
 | LISTENING-0006 | Guided per-question Listening feedback | implementing | high | [spec](0006-listening-guided-feedback/spec.md) |
 | LISTENING-0007 | Versioned Listening editorial revision and bilingual questions | implementing | high | [spec](0007-listening-editorial-revision/spec.md) |
