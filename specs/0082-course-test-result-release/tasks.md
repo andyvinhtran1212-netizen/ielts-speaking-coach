@@ -53,7 +53,7 @@ Bảng phụ thuộc của cả gói và chi tiết từng nhiệm vụ (gói m�
 ### G11-T23 — Migration 474 và API chế độ, công bố, hẹn giờ
 - Mục đích: 5.5.7, 5.5.8 (trừ `late-until`, `retakes`).
 - Đầu vào: `admin_class_assignments.py` dòng 195–290, 930–1033, 1648–2011, 2742–2950; tờ `KiemTraKhoa` mục 7, `AdminLop`.
-- Việc làm: migration 474 + test PG17 (hai giáo viên cùng bấm công bố → một dòng mỗi item; lặp `request_key` → cùng kết quả; hẹn giờ chỉ công bố bài nộp trước giờ); sửa `AssignmentCreate` + kiểm; route `release-mode`, `release`, `release-schedule`; `tally` thêm trường; config `COURSE_TEST_DEFAULT_RELEASE_MODE` (env, mặc định `immediate` — mục 10 câu 13) dùng cho giá trị chọn sẵn trên giao diện, **không** tự gán cho bài khi admin không gửi trường.
+- Việc làm: migration 474 + test PG17 (hai giáo viên cùng bấm công bố → một dòng mỗi item; lặp `request_key` → cùng kết quả; hẹn giờ chỉ công bố bài nộp trước giờ); sửa `AssignmentCreate` + kiểm; route `release-mode`, `release`, `release-schedule`; `tally` thêm trường; giá trị chọn sẵn trên giao diện giao bài theo câu 13 đã trả lời 17/11: lớp offline chọn sẵn `teacher_release`, khoá online tự học chọn sẵn `immediate`; config `COURSE_TEST_DEFAULT_RELEASE_MODE` (env) chỉ là giá trị dự phòng khi không xác định được loại lớp, mặc định `teacher_release`; **không** tự gán cho bài khi request không gửi trường (giữ hành vi cũ). Test: drawer của lớp offline mở ra đã chọn `teacher_release`; request tạo bài không có `result_release_mode` giữ hành vi cũ.
 - Đầu ra: 1 PR.
 - Nghiệm thu: test backend + PG17 pass; `test_staff_guard_inventory.py` pass; tạo bài giao mastery với `result_release_mode` → 400.
 - Không làm: không gửi thông báo trong RPC.

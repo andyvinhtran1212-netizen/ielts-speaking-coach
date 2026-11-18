@@ -17,7 +17,9 @@
 
 ## Rollback and repair
 
-- Tắt cờ (hiệu lực ≤ 15 s qua `runtime_flags`), rồi deploy lại backend trước đó; migration chỉ thêm đối tượng nên tương thích với mã cũ. Thu quyền đọc thẳng ở 473 không quay lui (là sửa lỗ hổng dữ liệu đã ghi ở `01` mục 6).
+- Migration chỉ thêm đối tượng nên không hạ migration. Thu quyền đọc thẳng ở 473 không quay lui (là sửa lỗ hổng dữ liệu đã ghi ở `01` mục 6).
+- **Cổng đọc không được quay lui.** Khi đã có bài `teacher_release` có bài nộp chưa công bố, bản backend cũ trả điểm mà không xem bảng công bố, và tắt cờ không che được (`COURSE_TEST_DEFAULT_RELEASE_MODE` chỉ là giá trị chọn sẵn khi tạo bài). Vì vậy mốc lui thấp nhất là bản đã có cổng đọc 5.5.5 (T22); lui phần khác (route công bố, hẹn giờ, giao diện T23, T24, T27) bằng revert riêng PR đó, giữ T22. Nếu buộc phải lui qua T22, trước đó admin chuyển mọi bài `teacher_release` chưa công bố sang trạng thái khoá đọc (đường đọc của học viên trả 403 `results_sealed`) rồi mới deploy.
+- Kiểm lui trên staging: với một bài nộp chưa công bố, gọi mọi đường đọc của học viên ở 5.5.5 sau khi lui; điểm và đáp án vẫn vắng.
 
 ## Observability
 
