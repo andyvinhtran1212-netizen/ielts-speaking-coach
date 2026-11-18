@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Khối riêng của việc học</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--accentH:#0B5953;--link:#0B5953;--mark:#8A4B08;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EDF3F1;--off:#E7E2D6}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--accentH:#11254A;--link:#1A3561;--mark:#8A1C1C;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EEF0F5;--off:#E8E2D5}
+a{color:var(--link)}a:hover{color:var(--ink)}
+</style>
+</helmet>
+<div class="{{pal}}" style="width: 1280px; height: 4399px; box-sizing: border-box; padding: 56px 64px; background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 16px; line-height: 1.5; display: flex; flex-direction: column; gap: 44px">
+<header>
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Aver Learning · Bản in · tờ 3</p>
+<h1 style="margin: 4px 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 40px; font-weight: 600; line-height: 1.15">Thành phần · khối riêng của việc học · phần 2</h1>
+<p style="margin: 0; color: var(--muted); max-width: 84ch">Những khối chỉ có ở web học IELTS: điểm band, trình phát, đồng hồ, bảng câu hỏi, mục từ, chú thích trên bài và hình minh hoạ. Nhãn giao diện tiếng Việt, xưng "bạn"; nội dung học tiếng Anh. Riêng phòng thi dùng nhãn toàn tiếng Anh và được vẽ thành bản riêng. Nút, ô nhập và nhãn trạng thái lấy từ tờ 1.</p>
+</header>
+
+<!-- 1. BAND -->
+<section aria-labelledby="k-nav" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="k-nav" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">5. Bảng câu hỏi</h2>
+<p style="margin: 0 0 20px; color: var(--muted); max-width: 90ch"><strong style="color: var(--ink)">Dùng khi nào:</strong> chân trang phòng thi (bản tiếng Anh) và bài luyện nhiều câu (bản tiếng Việt). Mỗi trạng thái khác nhau ở nền, viền hoặc biểu tượng, và có tên đọc đầy đủ cho trình đọc màn hình. Sau khi chấm, ô có dấu đúng, sai, bỏ trống.</p>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 48px">
+<div lang="en">
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Exam mode · English labels · click a number to move</p>
+<nav aria-label="Question navigator" style="padding: 14px 16px; border: 1px solid var(--ink); background: var(--surface)">
+<div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px"><span style="font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Part 1 · Questions 1–13</span><span style="font-size: 14px; color: var(--muted)">Answered <strong style="color: var(--ink); font-variant-numeric: tabular-nums">12</strong> of 40</span></div>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<sc-for list="{{examNav}}" as="n" hint-placeholder-count="13">
+<button onClick="{{n.pick}}" aria-label="{{n.aria}}" aria-current="{{n.ariaCur}}" style="position: relative; width: 44px; height: 48px; padding: 0; border: 1px solid var(--ink); border-bottom: 4px solid {{n.bar}}; border-radius: 2px; background: {{n.bg}}; color: {{n.fg}}; outline: {{n.outline}}; outline-offset: 2px; font: 600 15px 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums; cursor: pointer">{{n.n}}<sc-if value="{{n.flagged}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="position: absolute; top: 2px; right: 2px"><path d="M5 21V4M5 4h11l-2 4 2 4H5"></path></svg></sc-if></button>
+</sc-for>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)">Part 2 · 2 of 13 &nbsp;&nbsp; Part 3 · 0 of 14 &nbsp;&nbsp; Now on question <strong style="color: var(--ink); font-variant-numeric: tabular-nums">{{curN}}</strong></p>
+</nav>
+<ul style="margin: 12px 0 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; font-size: 14px">
+<li style="display: flex; align-items: center; gap: 10px"><span aria-hidden="true" style="width: 28px; height: 30px; box-sizing: border-box; border: 1px solid var(--ink); border-bottom: 4px solid var(--rule); background: var(--surface)"></span>Not answered</li>
+<li style="display: flex; align-items: center; gap: 10px"><span aria-hidden="true" style="width: 28px; height: 30px; box-sizing: border-box; border: 1px solid var(--ink); background: var(--ink)"></span>Answered</li>
+<li style="display: flex; align-items: center; gap: 10px"><span aria-hidden="true" style="width: 28px; height: 30px; box-sizing: border-box; border: 1px solid var(--ink); border-bottom: 4px solid var(--rule); background: var(--surface); outline: 3px solid var(--accent); outline-offset: 2px"></span>Current question (thick outline)</li>
+<li style="display: flex; align-items: center; gap: 10px"><span aria-hidden="true" style="position: relative; width: 28px; height: 30px; box-sizing: border-box; border: 1px solid var(--ink); border-bottom: 4px solid var(--mark); background: var(--surface)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2.5" style="position: absolute; top: 1px; right: 1px"><path d="M5 21V4M5 4h11l-2 4 2 4H5"></path></svg></span>Flagged for review (flag icon)</li>
+</ul>
+</div>
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Chế độ học · đang làm · nhãn tiếng Việt</p>
+<nav aria-label="Bảng câu hỏi" style="padding: 14px 16px; border: 1px solid var(--ink); background: var(--surface)">
+<div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px"><span style="font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Câu 1–13</span><span style="font-size: 14px; color: var(--muted)">Đã trả lời <strong style="color: var(--ink); font-variant-numeric: tabular-nums">10</strong> trên 13 câu</span></div>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<sc-for list="{{learnNav}}" as="n" hint-placeholder-count="13">
+<button aria-label="{{n.aria}}" style="position: relative; width: 44px; height: 48px; padding: 0; border: 1px solid var(--ink); border-bottom: 4px solid {{n.bar}}; border-radius: 2px; background: {{n.bg}}; color: {{n.fg}}; outline: {{n.outline}}; outline-offset: 2px; font: 600 15px 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums; cursor: pointer">{{n.n}}<sc-if value="{{n.flagged}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="position: absolute; top: 2px; right: 2px"><path d="M5 21V4M5 4h11l-2 4 2 4H5"></path></svg></sc-if></button>
+</sc-for>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)">Bạn đang ở câu <strong style="color: var(--ink)">5</strong> · 2 câu đánh dấu xem lại</p>
+</nav>
+<ul style="margin: 12px 0 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; font-size: 14px">
+<li style="display: flex; align-items: center; gap: 10px"><span aria-hidden="true" style="width: 28px; height: 30px; box-sizing: border-box; border: 1px solid var(--ink); border-bottom: 4px solid var(--rule); background: var(--surface)"></span>Chưa trả lời</li>
+<li style="display: flex; align-items: center; gap: 10px"><span aria-hidden="true" style="width: 28px; height: 30px; box-sizing: border-box; border: 1px solid var(--ink); background: var(--ink)"></span>Đã trả lời</li>
+<li style="display: flex; align-items: center; gap: 10px"><span aria-hidden="true" style="width: 28px; height: 30px; box-sizing: border-box; border: 1px solid var(--ink); border-bottom: 4px solid var(--rule); background: var(--surface); outline: 3px solid var(--accent); outline-offset: 2px"></span>Đang ở câu này (viền dày)</li>
+<li style="display: flex; align-items: center; gap: 10px"><span aria-hidden="true" style="position: relative; width: 28px; height: 30px; box-sizing: border-box; border: 1px solid var(--ink); border-bottom: 4px solid var(--mark); background: var(--surface)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2.5" style="position: absolute; top: 1px; right: 1px"><path d="M5 21V4M5 4h11l-2 4 2 4H5"></path></svg></span>Đánh dấu xem lại (có cờ)</li>
+</ul>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 48px; margin-top: 32px; align-items: start">
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Chế độ học · sau khi chấm</p>
+<nav aria-label="Kết quả từng câu" style="padding: 14px 16px; border: 1px solid var(--ink); background: var(--surface)">
+<div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px"><span style="font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Câu 1–13</span><span style="font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums">Đúng 9 trên 13 câu · sai 2 · bỏ trống 2</span></div>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<sc-for list="{{gradedNav}}" as="n" hint-placeholder-count="13">
+<button aria-label="{{n.aria}}" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; width: 44px; height: 52px; padding: 0; border: {{n.border}}; border-radius: 2px; background: var(--surface); color: {{n.fg}}; font: 600 15px 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums; cursor: pointer"><span style="color: var(--ink)">{{n.n}}</span><sc-if value="{{n.ok}}" hint-placeholder-val="{{true}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5 9-10"></path></svg></sc-if><sc-if value="{{n.bad}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 6l12 12M18 6L6 18"></path></svg></sc-if><sc-if value="{{n.blank}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 12h12"></path></svg></sc-if></button>
+</sc-for>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)">Bấm một ô để xem đáp án đúng và lời giải thích của câu đó. Bài ngắn nên không quy ra band.</p>
+</nav>
+<ul style="margin: 12px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 8px 24px; font-size: 14px">
+<li style="display: flex; align-items: center; gap: 8px"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="3"><path d="M5 12l5 5 9-10"></path></svg>Đúng · dấu tích</li>
+<li style="display: flex; align-items: center; gap: 8px"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="3"><path d="M6 6l12 12M18 6L6 18"></path></svg>Sai · dấu nhân, viền đậm 2px</li>
+<li style="display: flex; align-items: center; gap: 8px"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="3"><path d="M6 12h12"></path></svg>Bỏ trống · gạch ngang, viền đứt</li>
+</ul>
+<p style="margin: 24px 0 6px; font-weight: 600">Quy tắc của bảng câu hỏi</p>
+<ul style="margin: 0; padding-left: 20px">
+<li>Bản thi và bản học không trộn nhãn: phòng thi toàn tiếng Anh, bài luyện toàn tiếng Việt.</li>
+<li>Ô số rộng 44px, cao 48px; tên đọc gồm số câu và mọi trạng thái, ví dụ "Câu 3, đã trả lời, đánh dấu xem lại".</li>
+<li>"Đang ở" dùng viền ngoài dày; "đánh dấu" dùng biểu tượng cờ; không dựa vào màu.</li>
+<li>Trên điện thoại, bảng gập thành ngăn kéo đáy, mở bằng nút ở chân trang.</li>
+</ul>
+</div>
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Điện thoại · rộng 390px · ngăn kéo đáy đang mở</p>
+<div style="width: 390px; box-sizing: border-box; border: 1px solid var(--ink); background: var(--paper)">
+<div aria-hidden="true" style="padding: 16px; height: 168px; box-sizing: border-box; background: var(--off); color: var(--muted)">
+<p lang="en" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 17px"><strong>5</strong>&nbsp; The writer says that small workshops…</p>
+<p style="margin: 0; font-size: 14px">Phần câu hỏi bị phủ khi ngăn kéo mở.</p>
+</div>
+<div role="dialog" aria-label="Bảng câu hỏi" style="border-top: 2px solid var(--ink); background: var(--surface); padding: 6px 16px 16px">
+<div aria-hidden="true" style="width: 40px; height: 4px; margin: 0 auto 6px; background: var(--rule)"></div>
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+<p style="margin: 0; font-weight: 600">Bảng câu hỏi · <span style="font-variant-numeric: tabular-nums">đã trả lời 10 trên 13</span></p>
+<button aria-label="Đóng bảng câu hỏi" style="display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); cursor: pointer"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+</div>
+<div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin-top: 10px">
+<sc-for list="{{learnNav}}" as="n" hint-placeholder-count="13">
+<button aria-label="{{n.aria}}" style="position: relative; height: 48px; padding: 0; border: 1px solid var(--ink); border-bottom: 4px solid {{n.bar}}; border-radius: 2px; background: {{n.bg}}; color: {{n.fg}}; outline: {{n.outline}}; outline-offset: 2px; font: 600 15px 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums; cursor: pointer">{{n.n}}<sc-if value="{{n.flagged}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="position: absolute; top: 2px; right: 2px"><path d="M5 21V4M5 4h11l-2 4 2 4H5"></path></svg></sc-if></button>
+</sc-for>
+</div>
+<p style="margin: 12px 0 10px; font-size: 14px; color: var(--muted)">Nền đậm: đã trả lời · viền dày: đang ở · cờ: xem lại</p>
+<button style="width: 100%; min-height: 48px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: #FFFFFF; font: 600 16px 'Source Sans 3', sans-serif">Tới câu chưa trả lời đầu tiên</button>
+</div>
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 16px; border-top: 1px solid var(--ink); background: var(--surface)">
+<button style="min-height: 48px; padding: 0 14px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 15px 'Source Sans 3', sans-serif">Câu trước</button>
+<button aria-expanded="true" style="min-height: 48px; padding: 0 14px; border: 2px solid var(--ink); border-radius: 2px; background: var(--tint); color: var(--ink); font: 600 15px 'Source Sans 3', sans-serif">Câu 5 trên 13</button>
+<button style="min-height: 48px; padding: 0 14px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: #FFFFFF; font: 600 15px 'Source Sans 3', sans-serif">Câu sau</button>
+</div>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)">Bản thi trên điện thoại giống hệt, nhãn tiếng Anh: "Questions", "Answered 10 of 13", "Close".</p>
+</div>
+</div>
+</section>
+
+<!-- 6. VOCAB -->
+<section aria-labelledby="k-vocab" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="k-vocab" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">6. Thẻ từ vựng · mục từ kiểu từ điển</h2>
+<p style="margin: 0 0 20px; color: var(--muted); max-width: 90ch"><strong style="color: var(--ink)">Dùng khi nào:</strong> bản đầy đủ trong Sổ từ, Thư viện và sau bài đọc; bản thu gọn nổi cạnh từ khi bạn bấm vào một từ trong bài đọc hoặc lời thoại. Thứ tự luôn là: từ, phát âm, từ loại, nghĩa Anh, nghĩa Việt, ví dụ, collocation.</p>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 48px; align-items: start">
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Đầy đủ · {{savedName}} · bấm nút lưu để thử</p>
+<article style="padding: 20px 24px; border: 1px solid var(--ink); background: var(--surface)">
+<div style="display: flex; align-items: flex-start; gap: 16px">
+<div style="flex: 1 1 auto; min-width: 0">
+<h3 lang="en" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 36px; font-weight: 600; line-height: 1.15">affordable</h3>
+<p style="margin: 2px 0 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px"><span lang="en" style="font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 18px; color: var(--muted)">/əˈfɔːdəbl/</span><span style="padding: 1px 8px; border: 1px solid var(--muted); border-radius: 2px; font-size: 13px; font-weight: 600; color: var(--muted)">tính từ</span></p>
+</div>
+<button aria-label="Nghe phát âm affordable" style="display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); cursor: pointer"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"></path><path d="M16 9a4 4 0 0 1 0 6"></path><path d="M18.5 6.5a8 8 0 0 1 0 11"></path></svg></button>
+</div>
+<dl style="margin: 16px 0 0; display: grid; grid-template-columns: 124px minmax(0, 1fr); gap: 10px 12px; font-size: 15px; border-top: 1px solid var(--rule); padding-top: 14px">
+<dt style="color: var(--muted)">Nghĩa tiếng Anh</dt><dd lang="en" style="margin: 0; font: 17px/1.5 'Source Serif 4', Georgia, serif">cheap enough for most people to pay for</dd>
+<dt style="color: var(--muted)">Nghĩa tiếng Việt</dt><dd style="margin: 0; font: 17px/1.5 'Source Serif 4', Georgia, serif">vừa túi tiền, giá phải chăng</dd>
+<dt style="color: var(--muted)">Ví dụ</dt><dd lang="en" style="margin: 0; font: 17px/1.5 'Source Serif 4', Georgia, serif">The city plans to make bus tickets more <strong>affordable</strong> for students.</dd>
+<dt style="color: var(--muted)">Collocation</dt><dd lang="en" style="margin: 0; font: 17px/1.5 'Source Serif 4', Georgia, serif">affordable housing · remain affordable · make something affordable</dd>
+</dl>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--rule)">
+<button onClick="{{toggleSave}}" aria-pressed="{{saved}}" style="display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border: 1px solid {{saveBorder}}; border-radius: 2px; background: {{saveBg}}; color: {{saveFg}}; font: 600 16px 'Source Sans 3', sans-serif; cursor: pointer"><sc-if value="{{notSaved}}" hint-placeholder-val="{{true}}"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12v18l-6-4-6 4z"></path></svg></sc-if><sc-if value="{{saved}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5 9-10"></path></svg></sc-if>{{saveText}}</button>
+<span role="status" style="font-size: 14px; color: var(--muted)">{{saveNote}}</span>
+</div>
+</article>
+<div style="display: flex; flex-wrap: wrap; gap: 24px; margin-top: 16px">
+<div><p style="margin: 0 0 6px; font-size: 13px; color: var(--muted)">Nút lưu · chưa lưu</p><button style="display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12v18l-6-4-6 4z"></path></svg>Lưu vào sổ từ</button></div>
+<div><p style="margin: 0 0 6px; font-size: 13px; color: var(--muted)">Nút lưu · đã lưu</p><button aria-pressed="true" style="display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border: 1px solid var(--ink); border-radius: 2px; background: var(--ink); color: #FFFFFF; font: 600 16px 'Source Sans 3', sans-serif"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5 9-10"></path></svg>Đã lưu</button></div>
+<div><p style="margin: 0 0 6px; font-size: 13px; color: var(--muted)">Nút lưu · đang lưu</p><button aria-busy="true" style="display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif">Đang lưu…</button></div>
+</div>
+</div>
+
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Thu gọn · nổi cạnh từ đang chọn trong bài đọc</p>
+<article lang="en" style="padding: 20px 24px; border: 1px solid var(--rule); background: var(--surface); font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; line-height: 1.65">
+<p style="margin: 0 0 4px">Many large cities now offer free buses at weekends. Supporters say the policy reduces <span style="background: var(--tint); border-bottom: 2px dotted var(--ink); outline: 2px solid var(--ink); outline-offset: 1px">congestion</span> in the centre and helps families on low incomes.</p>
+<div lang="vi" style="position: relative; margin: 14px 0 14px 120px; width: 340px; box-sizing: border-box; padding: 14px 16px; border: 1px solid var(--ink); background: var(--surface); font-family: 'Source Sans 3', sans-serif; font-size: 15px; line-height: 1.5">
+<svg aria-hidden="true" width="18" height="10" viewBox="0 0 18 10" style="position: absolute; top: -10px; left: 40px"><path d="M0 10L9 1l9 9" fill="var(--surface)" stroke="var(--ink)" stroke-width="1"></path></svg>
+<div style="display: flex; align-items: flex-start; gap: 8px">
+<div style="flex: 1 1 auto; min-width: 0">
+<p lang="en" style="margin: 0; font: 600 22px/1.2 'Source Serif 4', Georgia, serif">congestion</p>
+<p style="margin: 2px 0 0"><span lang="en" style="font-family: 'Source Sans 3', system-ui, sans-serif; color: var(--muted)">/kənˈdʒestʃən/</span> · <span style="color: var(--muted)">danh từ</span></p>
+</div>
+<button aria-label="Nghe phát âm congestion" style="display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); cursor: pointer"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"></path><path d="M16 9a4 4 0 0 1 0 6"></path><path d="M18.5 6.5a8 8 0 0 1 0 11"></path></svg></button>
+<button aria-label="Đóng thẻ từ" style="display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; border: 0; background: transparent; color: var(--ink); cursor: pointer"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+</div>
+<p style="margin: 8px 0 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 17px">tình trạng ùn tắc giao thông</p>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 10px">
+<button style="display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 15px 'Source Sans 3', sans-serif"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12v18l-6-4-6 4z"></path></svg>Lưu vào sổ từ</button>
+<a href="#k-vocab" style="font-weight: 600; display: inline-flex; align-items: center; min-height: 44px">Xem đủ mục từ</a>
+</div>
+</div>
+<p style="margin: 0 0 14px">Critics reply that the money could be spent on new lines instead. They argue that a fare of a few dollars is already <span style="border-bottom: 2px dotted var(--muted)">affordable</span> for most passengers.</p>
+<p style="margin: 0">In either case, cities will need to measure who actually uses the buses before deciding.</p>
+</article>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)">Từ có mục từ được gạch chấm mảnh. Từ đang chọn có viền ngoài và nền nhạt. Thẻ nổi đặt dưới từ, đẩy dòng sau xuống thay vì che chữ; phím Esc đóng. Trên điện thoại thẻ thành ngăn kéo đáy.</p>
+</div>
+</div>
+</section>
+
+<!-- 7. ANNOTATION -->
+<section aria-labelledby="k-anno" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="k-anno" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">7. Chú thích trên bài viết và lời thoại</h2>
+<p style="margin: 0 0 16px; color: var(--muted); max-width: 90ch"><strong style="color: var(--ink)">Dùng khi nào:</strong> phiếu nhận xét Writing và Speaking. Bốn loại đánh dấu khác nhau ở kiểu gạch, có số chú thích và nhãn chữ ở lề; màu chỉ là lớp thứ ba.</p>
+<ul style="margin: 0 0 24px; padding: 14px 0; list-style: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 24px; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule)">
+<li><span lang="en" style="font: 19px 'Source Serif 4', Georgia, serif; border-bottom: 2px solid var(--mark)">has went</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--mark)"> 1</sup><p style="margin: 6px 0 0; font-size: 14px"><strong style="color: var(--mark)">Ngữ pháp</strong> · gạch liền 2px</p></li>
+<li><span lang="en" style="font: 19px 'Source Serif 4', Georgia, serif; text-decoration: underline wavy var(--mark); text-decoration-thickness: 1.5px; text-underline-offset: 5px">do a mistake</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--mark)"> 2</sup><p style="margin: 6px 0 0; font-size: 14px"><strong style="color: var(--mark)">Từ vựng</strong> · gạch lượn sóng</p></li>
+<li><span lang="en" style="font: 19px 'Source Serif 4', Georgia, serif; border-bottom: 2px dashed var(--ink)">Besides, …</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--ink)"> 3</sup><p style="margin: 6px 0 0; font-size: 14px"><strong>Mạch lạc</strong> · gạch đứt</p></li>
+<li><span lang="en" style="font: 19px 'Source Serif 4', Georgia, serif; background: var(--tint); border-bottom: 3px double var(--accent)">a clear example</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--accent)"> 4</sup><p style="margin: 6px 0 0; font-size: 14px"><strong style="color: var(--accent)">Làm tốt</strong> · nền nhạt, gạch đôi</p></li>
+</ul>
+
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Bài viết · đang chọn chú thích {{sel}} · bấm số ở lề để chọn</p>
+<div style="display: flex; gap: 48px">
+<div lang="en" style="flex: 1 1 auto; min-width: 0; max-width: 660px; font-family: 'Source Serif 4', Georgia, serif; font-size: 19px; line-height: 1.8">
+<p style="margin: 0 0 18px">Many cities are spending more money on public transport, and some people argue that this is the best way to reduce traffic. I <span style="border-bottom: 2px solid var(--mark); outline: {{o1}}; outline-offset: 2px; background: {{b1}}">am agree</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--mark)"> 1</sup> with this view to some extent.</p>
+<p style="margin: 0 0 18px">Firstly, buses and trains can carry many passengers at once, so fewer cars are needed on the roads. <span style="background: var(--tint); border-bottom: 3px double var(--accent); outline: {{o3}}; outline-offset: 2px">For instance, one train on a new metro line can replace hundreds of motorbikes during rush hour.</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--accent)"> 3</sup> However, if tickets are <span style="text-decoration: underline wavy var(--mark); text-decoration-thickness: 1.5px; text-underline-offset: 5px; outline: {{o2}}; outline-offset: 2px; background: {{b2}}">expensive price</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--mark)"> 2</sup>, many people will still prefer their own vehicles.</p>
+<p style="margin: 0"><span style="border-bottom: 2px dashed var(--ink); outline: {{o4}}; outline-offset: 2px; background: {{b4}}">Secondly, the government should build more parks in the suburbs.</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--ink)"> 4</sup> Public transport <span style="border-bottom: 2px solid var(--mark); outline: {{o5}}; outline-offset: 2px; background: {{b5}}">need</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--mark)"> 5</sup> to be cheap and frequent, or drivers will not change their habits.</p>
+</div>
+<ol aria-label="Chú thích" style="flex: 0 0 360px; margin: 0; padding: 0; list-style: none; font-size: 15px">
+<sc-for list="{{notes}}" as="n" hint-placeholder-count="5">
+<li style="display: flex; gap: 12px; padding: 10px 12px; margin-bottom: 6px; border: {{n.border}}; background: {{n.bg}}">
+<button onClick="{{n.pick}}" aria-pressed="{{n.on}}" aria-label="{{n.aria}}" style="flex: 0 0 44px; height: 44px; padding: 0; border: 1px solid {{n.color}}; border-radius: 2px; background: {{n.btnBg}}; color: {{n.btnFg}}; font: 600 16px 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums; cursor: pointer">{{n.n}}</button>
+<div style="min-width: 0"><p style="margin: 0; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: {{n.color}}">{{n.kind}} · {{n.line}}</p><p style="margin: 2px 0 0">{{n.text}}</p></div>
+</li>
+</sc-for>
+</ol>
+</div>
+
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 48px; margin-top: 36px; align-items: start">
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Lời thoại Speaking · cùng bốn kiểu đánh dấu, có mốc thời gian</p>
+<div style="display: flex; gap: 32px">
+<ol lang="en" aria-label="Lời thoại Part 2" style="flex: 1 1 auto; min-width: 0; margin: 0; padding: 0; list-style: none; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; line-height: 1.7">
+<li style="display: flex; gap: 14px; padding: 8px 0; border-top: 1px solid var(--rule)"><button aria-label="Nghe từ 0:04" style="flex: 0 0 auto; min-width: 52px; min-height: 44px; padding: 0 6px; border: 1px solid var(--rule); border-radius: 2px; background: var(--surface); color: var(--link); font: 600 14px 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums; cursor: pointer">0:04</button><span>I'd like to talk about a trip I <span style="border-bottom: 2px solid var(--mark)">have taken</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--mark)"> 1</sup> last summer with my cousins.</span></li>
+<li style="display: flex; gap: 14px; padding: 8px 0; border-top: 1px solid var(--rule)"><button aria-label="Nghe từ 0:11" style="flex: 0 0 auto; min-width: 52px; min-height: 44px; padding: 0 6px; border: 1px solid var(--rule); border-radius: 2px; background: var(--surface); color: var(--link); font: 600 14px 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums; cursor: pointer">0:11</button><span>We went to a small town in the mountains, <span style="background: var(--tint); border-bottom: 3px double var(--accent)">which is well known for its cool weather and pine forests</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--accent)"> 2</sup>.</span></li>
+<li style="display: flex; gap: 14px; padding: 8px 0; border-top: 1px solid var(--rule)"><button aria-label="Nghe từ 0:19" style="flex: 0 0 auto; min-width: 52px; min-height: 44px; padding: 0 6px; border: 1px solid var(--rule); border-radius: 2px; background: var(--surface); color: var(--link); font: 600 14px 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums; cursor: pointer">0:19</button><span>It was a really <span style="text-decoration: underline wavy var(--mark); text-decoration-thickness: 1.5px; text-underline-offset: 5px">funny</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--mark)"> 3</sup> trip because we had no plan at all.</span></li>
+<li style="display: flex; gap: 14px; padding: 8px 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule)"><button aria-label="Nghe từ 0:27" style="flex: 0 0 auto; min-width: 52px; min-height: 44px; padding: 0 6px; border: 1px solid var(--rule); border-radius: 2px; background: var(--surface); color: var(--link); font: 600 14px 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums; cursor: pointer">0:27</button><span><span style="border-bottom: 2px dashed var(--ink)">Anyway, my phone is quite old now.</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--ink)"> 4</sup> So we used a paper map.</span></li>
+</ol>
+<ol aria-label="Chú thích lời thoại" style="flex: 0 0 300px; margin: 0; padding: 0; list-style: none; font-size: 15px">
+<li style="display: flex; gap: 10px; padding: 10px 0; border-top: 1px solid var(--rule)"><span style="font-weight: 600; color: var(--mark)">1</span><div><p style="margin: 0; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--mark)">Ngữ pháp · 0:04</p><p style="margin: 2px 0 0">Có "last summer" thì dùng quá khứ đơn: <span lang="en">took</span>.</p></div></li>
+<li style="display: flex; gap: 10px; padding: 10px 0; border-top: 1px solid var(--rule)"><span style="font-weight: 600; color: var(--accent)">2</span><div><p style="margin: 0; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--accent)">Làm tốt · 0:11</p><p style="margin: 2px 0 0">Mệnh đề quan hệ tự nhiên, thêm chi tiết.</p></div></li>
+<li style="display: flex; gap: 10px; padding: 10px 0; border-top: 1px solid var(--rule)"><span style="font-weight: 600; color: var(--mark)">3</span><div><p style="margin: 0; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--mark)">Từ vựng · 0:19</p><p style="margin: 2px 0 0"><span lang="en">funny</span> là buồn cười; ý bạn là <span lang="en">fun</span>.</p></div></li>
+<li style="display: flex; gap: 10px; padding: 10px 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule)"><span style="font-weight: 600">4</span><div><p style="margin: 0; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600">Mạch lạc · 0:27</p><p style="margin: 2px 0 0">Chuyển ý đột ngột; nối lại: "We had no map because…".</p></div></li>
+</ol>
+</div>
+<p style="margin: 14px 0 0; font-size: 14px; color: var(--muted)">Mốc thời gian là nút: bấm để nghe đúng đoạn đó trong trình phát thu gọn. Số chú thích đánh lại từ 1 cho mỗi bài.</p>
+</div>
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Điện thoại · rộng 390px · ghi chú nằm dưới đoạn</p>
+<div style="width: 390px; box-sizing: border-box; border: 1px solid var(--ink); background: var(--paper); padding: 18px 18px 22px">
+<p style="margin: 0 0 10px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Bài của bạn · đoạn 2</p>
+<p lang="en" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; line-height: 1.75">Firstly, buses and trains can carry many passengers at once. <span style="background: var(--tint); border-bottom: 3px double var(--accent)">For instance, one train can replace hundreds of motorbikes.</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--accent)"> 3</sup> However, if tickets are <span style="text-decoration: underline wavy var(--mark); text-decoration-thickness: 1.5px; text-underline-offset: 5px; outline: 2px solid var(--ink); outline-offset: 2px">expensive price</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--mark)"> 2</sup>, many people will still drive.</p>
+<ol aria-label="Chú thích của đoạn 2" style="margin: 12px 0 0; padding: 0; list-style: none; font-size: 15px">
+<li style="display: flex; gap: 10px; padding: 10px 12px; border: 2px solid var(--ink); background: var(--tint)"><span style="font-weight: 600; color: var(--mark)">2</span><div><p style="margin: 0; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--mark)">Từ vựng · đang chọn</p><p style="margin: 2px 0 0">"price" đã nằm trong "expensive". Viết: <span lang="en">if tickets are expensive</span>.</p></div></li>
+<li style="display: flex; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--rule)"><span style="font-weight: 600; color: var(--accent)">3</span><div><p style="margin: 0; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--accent)">Làm tốt</p><p style="margin: 2px 0 0">Ví dụ cụ thể đỡ cho ý vừa nêu.</p></div></li>
+</ol>
+<p lang="en" style="margin: 16px 0 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; line-height: 1.75; color: var(--muted)">Secondly, the government should…</p>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)">Không có lề trên điện thoại: chú thích của đoạn nào nằm ngay dưới đoạn đó, theo thứ tự số.</p>
+</div>
+</div>
+</section>
+
+<!-- 8. FIGURES -->
+<section aria-labelledby="k-fig" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="k-fig" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">8. Sơ đồ minh hoạ</h2>
+<p style="margin: 0 0 16px; color: var(--muted); max-width: 90ch"><strong style="color: var(--ink)">Dùng khi nào:</strong> trong bài giảng và phần giải thích đáp án. Hình vẽ nét mảnh trên nền trắng, viền 1px, chữ trong hình dùng cùng hai họ chữ của trang.</p>
+<dl style="margin: 0 0 24px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 24px; padding: 12px 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); font-size: 15px">
+<div><dt style="font-weight: 600">Số hình</dt><dd style="margin: 0; color: var(--muted)">"Hình 14.1": số bài, dấu chấm, thứ tự hình trong bài. Đậm, đứng đầu chú thích.</dd></div>
+<div><dt style="font-weight: 600">Chú thích hình</dt><dd style="margin: 0; color: var(--muted)">Một câu nói hình muốn chỉ ra điều gì, không tả lại hình. Chữ 14px dưới hình.</dd></div>
+<div><dt style="font-weight: 600">Nguồn</dt><dd style="margin: 0; color: var(--muted)">Dòng riêng sau chú thích: "Nguồn: …". Hình tự vẽ ghi "Aver Learning biên soạn".</dd></div>
+</dl>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; align-items: start">
+<figure style="margin: 0">
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Mẫu 1 · sơ đồ câu</p>
+<svg role="img" aria-label="Sơ đồ câu: Students who study abroad often become more independent. Chủ ngữ là Students, cụm who study abroad bổ nghĩa cho chủ ngữ, động từ là become." viewBox="0 0 360 240" style="display: block; width: 100%; height: auto; border: 1px solid var(--rule); background: var(--surface)">
+<line x1="20" y1="120" x2="340" y2="120" stroke="var(--ink)" stroke-width="1.4"></line>
+<line x1="128" y1="90" x2="128" y2="134" stroke="var(--ink)" stroke-width="1.4"></line>
+<line x1="226" y1="96" x2="214" y2="120" stroke="var(--ink)" stroke-width="1.2"></line>
+<text x="74" y="110" text-anchor="middle" font-family="Source Serif 4, Georgia, serif" font-size="20" fill="var(--ink)" lang="en">Students</text>
+<text x="176" y="110" text-anchor="middle" font-family="Source Serif 4, Georgia, serif" font-size="20" font-weight="600" fill="var(--accent)" lang="en">become</text>
+<text x="284" y="110" text-anchor="middle" font-family="Source Serif 4, Georgia, serif" font-size="18" fill="var(--ink)" lang="en">independent</text>
+<line x1="50" y1="120" x2="80" y2="170" stroke="var(--ink)" stroke-width="1.1"></line>
+<text x="86" y="182" font-family="Source Serif 4, Georgia, serif" font-size="17" font-style="italic" fill="var(--muted)" lang="en">who study abroad</text>
+<line x1="150" y1="120" x2="170" y2="160" stroke="var(--ink)" stroke-width="1.1"></line>
+<text x="176" y="168" font-family="Source Serif 4, Georgia, serif" font-size="16" font-style="italic" fill="var(--muted)" lang="en">often</text>
+<text x="74" y="46" text-anchor="middle" font-family="Source Sans 3, sans-serif" font-size="12" letter-spacing="1" fill="var(--muted)">CHỦ NGỮ</text>
+<text x="176" y="46" text-anchor="middle" font-family="Source Sans 3, sans-serif" font-size="12" letter-spacing="1" fill="var(--accent)">ĐỘNG TỪ</text>
+<text x="284" y="46" text-anchor="middle" font-family="Source Sans 3, sans-serif" font-size="12" letter-spacing="1" fill="var(--muted)">BỔ NGỮ</text>
+<line x1="74" y1="54" x2="74" y2="82" stroke="var(--muted)" stroke-width="1"></line>
+<line x1="176" y1="54" x2="176" y2="82" stroke="var(--accent)" stroke-width="1"></line>
+<line x1="284" y1="54" x2="284" y2="82" stroke="var(--muted)" stroke-width="1"></line>
+<text x="20" y="222" font-family="Source Sans 3, sans-serif" font-size="12" fill="var(--muted)">Nhánh chéo: phần bổ nghĩa, không đổi động từ</text>
+</svg>
+<figcaption style="margin-top: 8px; font-size: 14px; color: var(--muted)"><strong style="color: var(--ink)">Hình 14.2.</strong> Mệnh đề <em lang="en">who study abroad</em> treo dưới chủ ngữ; động từ vẫn chia theo <em lang="en">Students</em>.<br>Nguồn: Aver Learning biên soạn.</figcaption>
+</figure>
+<figure style="margin: 0">
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Mẫu 2 · sơ đồ quy trình đơn giản</p>
+<svg role="img" aria-label="Quy trình ba bước viết mở bài Writing Task 2: một, viết lại đề bằng lời của bạn; hai, nêu quan điểm; ba, báo trước hai ý chính." viewBox="0 0 360 240" style="display: block; width: 100%; height: auto; border: 1px solid var(--rule); background: var(--surface)">
+<rect x="20" y="28" width="320" height="48" fill="none" stroke="var(--ink)" stroke-width="1.4"></rect>
+<rect x="20" y="104" width="320" height="48" fill="none" stroke="var(--ink)" stroke-width="1.4"></rect>
+<rect x="20" y="180" width="320" height="48" fill="var(--tint)" stroke="var(--accent)" stroke-width="1.4"></rect>
+<path d="M180 76v24M174 93l6 7 6-7" fill="none" stroke="var(--ink)" stroke-width="1.4"></path>
+<path d="M180 152v24M174 169l6 7 6-7" fill="none" stroke="var(--ink)" stroke-width="1.4"></path>
+<text x="36" y="57" font-family="Source Serif 4, Georgia, serif" font-size="20" font-weight="600" fill="var(--ink)">1</text>
+<text x="62" y="57" font-family="Source Sans 3, sans-serif" font-size="15" fill="var(--ink)">Viết lại đề bằng lời của bạn</text>
+<text x="36" y="133" font-family="Source Serif 4, Georgia, serif" font-size="20" font-weight="600" fill="var(--ink)">2</text>
+<text x="62" y="133" font-family="Source Sans 3, sans-serif" font-size="15" fill="var(--ink)">Nêu quan điểm trong một câu</text>
+<text x="36" y="209" font-family="Source Serif 4, Georgia, serif" font-size="20" font-weight="600" fill="var(--accent)">3</text>
+<text x="62" y="209" font-family="Source Sans 3, sans-serif" font-size="15" fill="var(--ink)">Báo trước hai ý của thân bài</text>
+</svg>
+<figcaption style="margin-top: 8px; font-size: 14px; color: var(--muted)"><strong style="color: var(--ink)">Hình 9.1.</strong> Mở bài Task 2 chỉ cần ba việc; bước 3 là bước người học hay bỏ sót.<br>Nguồn: Aver Learning biên soạn.</figcaption>
+</figure>
+<figure style="margin: 0">
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Ô chờ · minh hoạ chưa có</p>
+<div style="aspect-ratio: 3 / 2; display: flex; align-items: center; justify-content: center; border: 1px dashed var(--muted); color: var(--muted); font-size: 14px; text-align: center; padding: 16px; box-sizing: border-box">[MINH HOẠ: quy trình tái chế chai nhựa, 5 bước có mũi tên, cho bài Task 1 số 22]</div>
+<figcaption style="margin-top: 8px; font-size: 14px; color: var(--muted)"><strong style="color: var(--ink)">Hình 22.3.</strong> Chú thích viết trước, hình vẽ sau.<br>Nguồn: XXX.</figcaption>
+</figure>
+</div>
+<p style="margin: 14px 0 0; font-size: 14px; color: var(--muted)">Mỗi hình là một <code>&lt;svg&gt;</code> có role="img" và aria-label đọc được nội dung hình. Hình phải hiểu được khi in đen trắng: phân biệt bằng nét, số và chữ.</p>
+</section>
+
+<p style="margin: 0; padding-top: 16px; border-top: 1px solid var(--rule); font-size: 14px; color: var(--muted)">Quy tắc chung của tờ: nhãn tiếng Việt ở chế độ học, toàn tiếng Anh trong phòng thi, không trộn trong cùng một mẫu. Band chỉ hiện khi đủ dữ liệu và luôn ghi "điểm ước lượng, không phải điểm thi" kèm số bài. Trạng thái luôn có chữ, không chỉ màu. Giá, tên khoá và số lượt AI chưa chốt ghi XXX.</p>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Xanh teal","Navy + đỏ mận"],"default":"Navy + đỏ mận"},"$preview":{"width":1280,"height":4399}}'>
+class Component extends DCLogic {
+constructor(p) { super(p); this.state = { t: 72, playing: false, speed: 1, vt: 372, vMode: 'idle', vSub: true, vSpeed: 1, cur: 5, sel: 2, saved: false }; }
+componentWillUnmount() { if (this.timer) { clearInterval(this.timer); this.timer = null; } }
+renderVals() {
+const s = this.state || {};
+const dur = 222;
+const t = s.t == null ? 72 : s.t;
+const playing = !!s.playing;
+const speed = s.speed || 1;
+const fmt = (x) => Math.floor(x / 60) + ':' + String(Math.floor(x % 60)).padStart(2, '0');
+const fmt2 = (x) => String(Math.floor(x / 60)).padStart(2, '0') + ':' + String(Math.floor(x % 60)).padStart(2, '0');
+const vn = (n) => String(n).replace('.', ',') + '×';
+const stop = () => { if (this.timer) { clearInterval(this.timer); this.timer = null; } };
+const jump = (d) => () => this.setState((st) => ({ t: Math.max(0, Math.min(dur, (st.t == null ? 72 : st.t) + d)) }));
+const toggle = () => {
+if (playing) { stop(); this.setState({ playing: false }); return; }
+stop();
+this.timer = setInterval(() => {
+const st = this.state || {};
+const next = Math.min(dur, (st.t || 0) + (st.speed || 1));
+if (next >= dur) { stop(); this.setState({ t: dur, playing: false }); } else { this.setState({ t: next }); }
+}, 1000);
+this.setState({ playing: true, t: t >= dur ? 0 : t });
+};
+const speedList = [0.75, 1, 1.25, 1.5];
+
+const vt = s.vt == null ? 372 : s.vt;
+const vMode = s.vMode || 'idle';
+const vPlaying = vMode === 'play';
+const vSub = s.vSub !== false;
+const vSpeed = s.vSpeed || 1;
+const vSpeeds = [1, 1.25, 1.5, 0.75];
+const vJump = (d) => () => this.setState((st) => ({ vt: Math.max(0, Math.min(1084, (st.vt == null ? 372 : st.vt) + d)), vMode: (st.vMode || 'idle') === 'idle' ? 'pause' : st.vMode }));
+
+const answered = { 1: 1, 2: 1, 3: 1, 4: 1, 6: 1, 7: 1, 8: 1, 10: 1, 11: 1, 12: 1 };
+const flags = { 3: 1, 9: 1 };
+const cur = s.cur || 5;
+const navItem = (n, current, lang) => {
+const done = !!answered[n], fl = !!flags[n];
+const aria = lang === 'en'
+? 'Question ' + n + (done ? ', answered' : ', not answered') + (fl ? ', flagged for review' : '') + (current ? ', current question' : '')
+: 'Câu ' + n + (done ? ', đã trả lời' : ', chưa trả lời') + (fl ? ', đánh dấu xem lại' : '') + (current ? ', đang ở câu này' : '');
+return { n, aria, ariaCur: current ? 'true' : 'false', flagged: fl, bg: done ? 'var(--ink)' : 'var(--surface)', fg: done ? '#FFFFFF' : 'var(--ink)', bar: fl ? 'var(--mark)' : (done ? 'var(--ink)' : 'var(--rule)'), outline: current ? '3px solid var(--accent)' : '0' };
+};
+const nums = Array.from({ length: 13 }, (_, i) => i + 1);
+const examNav = nums.map((n) => ({ ...navItem(n, n === cur, 'en'), pick: () => this.setState({ cur: n }) }));
+const learnNav = nums.map((n) => navItem(n, n === 5, 'vi'));
+const wrong = { 3: 1, 13: 1 }, blank = { 5: 1, 9: 1 };
+const gradedNav = nums.map((n) => {
+const bad = !!wrong[n], bl = !!blank[n], ok = !bad && !bl;
+return { n, ok, bad, blank: bl, aria: 'Câu ' + n + (ok ? ', đúng' : bad ? ', sai' : ', bỏ trống'), fg: ok ? 'var(--ok)' : bad ? 'var(--danger)' : 'var(--muted)', border: bad ? '2px solid var(--danger)' : bl ? '1px dashed var(--muted)' : '1px solid var(--ink)' };
+});
+
+const sel = s.sel || 2;
+const m = 'var(--mark)', a = 'var(--accent)', k = 'var(--ink)';
+const noteData = [
+{ n: 1, kind: 'Ngữ pháp', line: 'đoạn 1', color: m, text: 'agree đã là động từ, bỏ am: I agree with this view.' },
+{ n: 2, kind: 'Từ vựng', line: 'đoạn 2', color: m, text: '"price" đã nằm trong "expensive". Viết: if tickets are expensive, hoặc if ticket prices are high.' },
+{ n: 3, kind: 'Làm tốt', line: 'đoạn 2', color: a, text: 'Ví dụ cụ thể, có số lượng, đỡ cho ý vừa nêu.' },
+{ n: 4, kind: 'Mạch lạc', line: 'đoạn 3', color: k, text: 'Câu chủ đề lạc khỏi đề giao thông. Nối về ý chính hoặc bỏ.' },
+{ n: 5, kind: 'Ngữ pháp', line: 'đoạn 3', color: m, text: 'Chủ ngữ số ít: Public transport needs.' }
+];
+const notes = noteData.map((x) => {
+const on = x.n === sel;
+return { ...x, on, aria: 'Chú thích ' + x.n + ', ' + x.kind + (on ? ', đang chọn' : ''), border: on ? '2px solid var(--ink)' : '1px solid var(--rule)', bg: on ? 'var(--tint)' : 'var(--surface)', btnBg: on ? 'var(--ink)' : 'var(--surface)', btnFg: on ? '#FFFFFF' : x.color, pick: () => this.setState({ sel: x.n }) };
+});
+const ol = (n) => (n === sel ? '2px solid var(--ink)' : '0');
+const bgl = (n) => (n === sel ? 'var(--tint)' : 'transparent');
+
+const saved = !!s.saved;
+return {
+pal: (this.props.palette ?? 'Navy + đỏ mận') === 'Xanh teal' ? 'pal-teal' : 'pal-navy',
+t, dur, playing, paused: !playing,
+pct: Math.round((t / dur) * 100),
+now: fmt(t), total: fmt(dur),
+audioStateName: playing ? 'đang phát' : (t > 0 ? 'đang tạm dừng' : 'chưa phát'),
+playText: playing ? 'Tạm dừng' : 'Phát',
+playLabel: playing ? 'Tạm dừng bài nghe' : 'Phát bài nghe',
+toggle, back: jump(-5), fwd: jump(5),
+seek: (e) => this.setState({ t: Number(e.target.value) }),
+speeds: speedList.map((v) => ({ label: vn(v), on: speed === v, bg: speed === v ? 'var(--ink)' : 'var(--surface)', fg: speed === v ? '#FFFFFF' : 'var(--ink)', pick: () => this.setState({ speed: v }) })),
+speedLabel: vn(speed),
+speedAria: 'Tốc độ ' + vn(speed) + ', bấm để đổi',
+cycleSpeed: () => this.setState({ speed: speedList[(speedList.indexOf(speed) + 1) % speedList.length] }),
+
+vt, vNow: fmt2(vt),
+vIdle: vMode === 'idle', vActive: vMode !== 'idle',
+vPlaying, vPaused: !vPlaying,
+vStateName: vMode === 'idle' ? 'chưa phát, nhớ vị trí' : (vPlaying ? 'đang phát' : 'đang tạm dừng'),
+vPlayText: vPlaying ? 'Tạm dừng' : 'Phát',
+vPlayLabel: vPlaying ? 'Tạm dừng video' : 'Phát video',
+vToggle: () => this.setState({ vMode: vPlaying ? 'pause' : 'play' }),
+vRestart: () => this.setState({ vMode: 'play', vt: 0 }),
+vBack: vJump(-10), vFwd: vJump(10),
+vSeek: (e) => this.setState({ vt: Number(e.target.value) }),
+vSub, vSubText: vSub ? 'Phụ đề: bật' : 'Phụ đề: tắt',
+vSubBg: vSub ? '#FFFFFF' : 'transparent', vSubFg: vSub ? 'var(--ink)' : '#FFFFFF',
+vSubToggle: () => this.setState({ vSub: !vSub }),
+vSpeedLabel: vn(vSpeed),
+vSpeedAria: 'Tốc độ video ' + vn(vSpeed) + ', bấm để đổi',
+vCycle: () => this.setState({ vSpeed: vSpeeds[(vSpeeds.indexOf(vSpeed) + 1) % vSpeeds.length] }),
+
+examNav, learnNav, gradedNav, curN: cur,
+
+sel, notes,
+o1: ol(1), o2: ol(2), o3: ol(3), o4: ol(4), o5: ol(5),
+b1: bgl(1), b2: bgl(2), b4: bgl(4), b5: bgl(5),
+
+saved, notSaved: !saved,
+savedName: saved ? 'đã lưu' : 'chưa lưu',
+saveText: saved ? 'Đã lưu' : 'Lưu vào sổ từ',
+saveNote: saved ? 'Đã thêm vào Sổ từ · bấm lần nữa để bỏ lưu' : 'Từ sẽ vào bộ ôn tập hằng ngày',
+saveBorder: 'var(--ink)', saveBg: saved ? 'var(--ink)' : 'var(--surface)', saveFg: saved ? '#FFFFFF' : 'var(--ink)',
+toggleSave: () => this.setState({ saved: !saved })
+};
+}
+}
+</script>
+</body>
+</html>

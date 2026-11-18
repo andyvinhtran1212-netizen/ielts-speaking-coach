@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Admin — Nội dung Writing, Speaking, Reading</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--accentH:#0B5953;--link:#0B5953;--mark:#8A4B08;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EDF3F1;--off:#E7E2D6;--warnbg:#F6EEDF;--on:#FFFFFF}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--accentH:#11254A;--link:#1A3561;--mark:#8A1C1C;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EEF0F5;--off:#E8E2D5;--warnbg:#F6E9E6;--on:#FFFFFF}
+a{color:var(--link)}a:hover{color:var(--ink)}
+.serif{font-family:'Source Serif 4',Georgia,serif}
+.sec{border-top:2px solid var(--ink);padding-top:16px}
+.h2{margin:0 0 6px;font-family:'Source Serif 4',Georgia,serif;font-size:24px;font-weight:600}
+.lead{margin:0 0 16px;color:var(--muted);max-width:110ch}
+.eb{margin:0 0 8px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;font-weight:600;color:var(--muted)}
+.btn{display:inline-flex;align-items:center;min-height:40px;padding:0 16px;border:1px solid var(--ink);border-radius:2px;background:var(--surface);color:var(--ink);font:600 14px 'Source Sans 3',sans-serif;cursor:pointer;text-decoration:none;box-sizing:border-box;white-space:nowrap}
+.btnp{display:inline-flex;align-items:center;min-height:40px;padding:0 16px;border:1px solid var(--accent);border-radius:2px;background:var(--accent);color:var(--on);font:600 14px 'Source Sans 3',sans-serif;cursor:pointer;text-decoration:none;box-sizing:border-box;white-space:nowrap}
+.btnoff{display:inline-flex;align-items:center;min-height:40px;padding:0 16px;border:1px solid var(--rule);border-radius:2px;background:var(--paper);color:var(--muted);font:600 14px 'Source Sans 3',sans-serif;box-sizing:border-box}
+.btnd{display:inline-flex;align-items:center;min-height:40px;padding:0 16px;border:1px solid var(--danger);border-radius:2px;background:var(--surface);color:var(--danger);font:600 14px 'Source Sans 3',sans-serif;cursor:pointer;box-sizing:border-box;white-space:nowrap}
+.btns{display:inline-flex;align-items:center;min-height:34px;padding:0 10px;border:1px solid var(--ink);border-radius:2px;background:var(--surface);color:var(--ink);font:600 13px 'Source Sans 3',sans-serif;cursor:pointer;text-decoration:none;box-sizing:border-box;white-space:nowrap}
+.lnk{min-height:36px;padding:0 4px;border:0;background:transparent;color:var(--link);font:600 14px 'Source Sans 3',sans-serif;text-decoration:underline;cursor:pointer}
+.fld{display:flex;flex-direction:column;gap:4px}
+.lbl{font-weight:600;font-size:14px}
+.hint{font-size:13px;color:var(--muted)}
+.inp{min-height:40px;box-sizing:border-box;padding:0 12px;border:1px solid var(--muted);border-radius:2px;background:var(--surface);font:15px 'Source Sans 3',sans-serif;color:var(--ink)}
+.ta{box-sizing:border-box;padding:8px 12px;border:1px solid var(--muted);border-radius:2px;background:var(--surface);font:15px 'Source Sans 3',sans-serif;color:var(--ink);resize:vertical}
+.th{padding:8px 10px 8px 0;font-size:13px;font-weight:600;color:var(--muted)}
+.td{padding:8px 10px 8px 0}
+.chip{display:inline-flex;padding:1px 8px;border:1px solid currentColor;border-radius:2px;background:var(--surface);font-size:13px;font-weight:600;white-space:nowrap}
+.box{border:1px solid var(--ink);background:var(--surface)}
+.crumb{font-size:14px;color:var(--muted);margin:0 0 12px}
+.note{display:flex;gap:10px;padding:10px 14px;border:1px solid var(--accent);background:var(--tint)}
+.ph{display:flex;align-items:center;justify-content:center;border:1px dashed var(--muted);background:var(--paper);color:var(--muted);font-size:13px;text-align:center}
+.sk{height:14px;background:var(--off)}
+.seg{min-height:36px;padding:0 12px;border:0;font:600 14px 'Source Sans 3',sans-serif;cursor:pointer}
+</style>
+</helmet>
+<div class="{{pal}}" style="width: 1440px; height: 6650px; box-sizing: border-box; padding: 48px 40px; background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 15px; line-height: 1.5; display: flex; flex-direction: column; gap: 40px">
+<header>
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Aver Learning · Bản in · Admin · Nội dung · Đợt 10</p>
+<h1 class="serif" style="margin: 4px 0 6px; font-size: 40px; font-weight: 600; line-height: 1.15">Admin · Nội dung Writing, Speaking, Reading: phần khác của mẫu</h1>
+<p style="margin: 0; color: var(--muted); max-width: 112ch">Phần riêng của ba kỹ năng trên mẫu chung ở <a href="AdminNoiDung.dc.html">Nội dung một kỹ năng</a>. Bốn thẻ (Đề và bài · Chương trình và bộ · Lô nhập · Câu cần kiểm), trạng thái, phiên bản trong chi tiết, hộp hỏi lại khi đăng và dải "Trang nhập thủ công đã ẩn" giữ đúng như mẫu; tờ này không vẽ lại. Không còn sổ giao bài Writing: trang một đề chỉ có "Giao bài này…" mở thành phần giao bài dùng chung (bản gốc ThanhPhanDuLieu "Giao bài theo buổi", mở ở <a href="AdminLop.dc.html#m3">Lớp 3b</a>), kết quả xem ở <a href="AdminKetQuaBaiGiao.dc.html">Kết quả một bài giao</a>. Chấm bài Writing, Speaking ở nhóm Chấm bài.</p>
+</header>
+
+<section id="m1" class="sec" aria-labelledby="h-m1">
+<h2 id="h-m1" class="h2">1 · Writing · trang kỹ năng</h2>
+<p class="lead">Màn chính, đủ khung admin. Bấm được: nhóm ở thanh bên, bốn thẻ, lựa chọn "Đề bài · Mẹo viết" trong thẻ Đề và bài. "Tạo đề lẻ" và "Tạo mẹo lẻ" là nút phụ ở cuối hàng lọc (Writing chưa có script cho mẹo), không đặt ở vị trí nút chính.</p>
+<div style="box-sizing: border-box; border: 1px solid var(--ink); background: var(--paper); display: flex; flex-direction: column; overflow: hidden">
+<header style="flex-shrink: 0; display: flex; align-items: center; gap: 20px; height: 56px; box-sizing: border-box; padding: 0 24px; border-bottom: 1px solid var(--ink); background: var(--surface)">
+<span style="display: inline-flex; align-items: center; gap: 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 19px; font-weight: 600; white-space: nowrap"><svg width="25" height="25" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<span style="padding: 2px 8px; border: 1px solid var(--ink); border-radius: 2px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; white-space: nowrap">Quản trị</span>
+<span style="padding: 2px 8px; background: var(--mark); color: var(--on); border-radius: 2px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; white-space: nowrap">Production · dữ liệu thật</span>
+<label style="flex: 1 1 280px; max-width: 440px; display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--paper)">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 16px; height: 16px; flex-shrink: 0"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"></circle><path d="M16.5 16.5L21 21" stroke="currentColor" stroke-width="2"></path></svg>
+<input type="search" placeholder="Tìm học viên, lớp, bài nộp, đề…" aria-label="Tìm nhanh" style="flex-grow: 1; min-width: 0; border: 0; background: transparent; font: 15px 'Source Sans 3', sans-serif; color: var(--ink)">
+<kbd style="font: 12px 'Source Sans 3', sans-serif; color: var(--muted); border: 1px solid var(--rule); padding: 1px 6px; border-radius: 2px">⌘K</kbd>
+</label>
+<span style="flex-grow: 1"></span>
+<a href="Main.dc.html" style="display: inline-flex; align-items: center; min-height: 36px; font-size: 14px; white-space: nowrap">Xem như học viên</a>
+<button aria-label="Mở menu tài khoản: đổi vai trò, đăng xuất" style="flex-shrink: 0; width: 40px; height: 40px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 13px 'Source Sans 3', sans-serif; cursor: pointer">VT</button>
+</header>
+<div style="display: flex; align-items: stretch">
+<nav aria-label="Điều hướng quản trị" style="flex-shrink: 0; width: 248px; box-sizing: border-box; padding: 12px 0; border-right: 1px solid var(--rule); background: var(--surface)">
+<sc-for list="{{nav}}" as="g" hint-placeholder-count="8">
+<div>
+<button type="button" aria-expanded="{{g.exp}}" onClick="{{g.toggle}}" style="display: flex; align-items: center; gap: 8px; width: 100%; min-height: 36px; padding: 0 16px; border: 0; background: transparent; color: {{g.headColor}}; font: 600 12px 'Source Sans 3', sans-serif; letter-spacing: 0.08em; text-transform: uppercase; text-align: left; cursor: pointer">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 14px; height: 14px; flex-shrink: 0"><path d="{{g.chev}}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<span style="flex-grow: 1">{{g.name}}</span>
+<span style="color: var(--mark); font-variant-numeric: tabular-nums; letter-spacing: 0">{{g.badgeShow}}</span>
+</button>
+<sc-if value="{{g.show}}" hint-placeholder-val="{{ false }}">
+<div role="group" aria-label="{{g.name}}" style="margin: 0 0 6px 23px; border-left: 1px solid var(--rule)">
+<sc-for list="{{g.items}}" as="i" hint-placeholder-count="3">
+<a href="{{i.href}}" aria-current="{{i.current}}" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; padding: 0 16px 0 21px; margin-left: -2px; border-left: 3px solid {{i.bar}}; background: {{i.bg}}; color: var(--ink); font-weight: {{i.weight}}; text-decoration: none">{{i.label}}<span style="color: var(--mark); font-weight: 600; font-variant-numeric: tabular-nums">{{i.count}}</span></a>
+</sc-for>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</nav>
+<main style="position: relative; flex-grow: 1; min-width: 0; padding: 20px 32px 40px">
+<nav aria-label="Vị trí trang" class="crumb">Nội dung › <span aria-current="page" style="color: var(--ink)">Writing</span></nav>
+<div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px">
+<div>
+<h1 class="serif" style="margin: 0; font-size: 32px; font-weight: 600; line-height: 1.15">Writing</h1>
+<p style="margin: 4px 0 0; color: var(--muted); max-width: 80ch">Đề Task 1, Task 2 và mẹo viết. Đề nhập bằng script vào "Chờ duyệt"; bài mẫu của mỗi đề nằm ở <a href="AdminThuVienCongKhai.dc.html">Thư viện công khai</a>, đề chỉ liên kết tới.</p>
+</div>
+<a href="AdminBaoCao.dc.html" style="font-size: 14px">Số liệu dùng của Writing ở Báo cáo ›</a>
+</div>
+<div role="tablist" aria-label="Phần của trang Writing" style="display: flex; gap: 0 28px; margin: 18px 0 18px; border-bottom: 1px solid var(--ink)">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="4">
+<button type="button" role="tab" aria-selected="{{t.aria}}" onClick="{{t.go}}" style="padding: 10px 0 7px; border: 0; border-bottom: 3px solid {{t.bar}}; background: transparent; color: {{t.color}}; font: {{t.fw}} 15px 'Source Sans 3', sans-serif; cursor: pointer">{{t.label}}<span style="margin-left: 6px; color: var(--mark); font-weight: 600">{{t.count}}</span></button>
+</sc-for>
+</div>
+
+<sc-if value="{{tabDe}}" hint-placeholder-val="{{ true }}">
+<label style="display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 14px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface)">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 18px; height: 18px; flex-shrink: 0"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"></circle><path d="M16.5 16.5L21 21" stroke="currentColor" stroke-width="2"></path></svg>
+<input type="search" aria-label="Tìm đề hoặc mẹo Writing" placeholder="Tìm theo tiêu đề tiếng Anh, câu đầu của đề hoặc mã lô (ví dụ LW-1114A)" style="flex-grow: 1; min-width: 0; border: 0; background: transparent; font: 16px 'Source Sans 3', sans-serif; color: var(--ink)">
+</label>
+<div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-top: 12px">
+<div class="fld"><span class="lbl">Loại</span><div role="group" aria-label="Loại nội dung" style="display: flex; border: 1px solid var(--ink); border-radius: 2px"><button type="button" aria-pressed="{{segDeA}}" onClick="{{segDe}}" class="seg" style="background: {{segDeBg}}; color: {{segDeFg}}">Đề bài · 6</button><button type="button" aria-pressed="{{segMeoA}}" onClick="{{segMeo}}" class="seg" style="border-left: 1px solid var(--ink); background: {{segMeoBg}}; color: {{segMeoFg}}">Mẹo viết · 3</button></div></div>
+<div class="fld" style="flex: 0 1 140px"><label for="w-t" class="lbl">Task</label><select id="w-t" class="inp"><option>Cả hai</option><option>Task 1</option><option>Task 2</option></select></div>
+<div class="fld" style="flex: 0 1 160px"><label for="w-s" class="lbl">Trạng thái</label><select id="w-s" class="inp"><option>Tất cả</option><option>Nháp</option><option>Chờ duyệt</option><option>Chưa đăng</option><option>Đã đăng</option><option>Đã gỡ</option></select></div>
+<div class="fld" style="flex: 0 1 200px"><label for="w-u" class="lbl">Dùng trong</label><select id="w-u" class="inp"><option>Mọi khoá và kỳ thi</option><option>Course 1 · XXX</option><option>Khoá Writing for IELTS</option><option>Thi thử</option><option>Chưa dùng</option></select></div>
+<span style="flex-grow: 1"></span>
+<a href="#m3" class="btn">{{createLabel}}</a>
+</div>
+<p style="margin: 14px 0 0; display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 12px; box-sizing: border-box; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); color: var(--muted)">Đánh dấu ô đầu hàng để Đăng… · Gỡ khỏi học viên… · Thêm vào bộ… nhiều mục cùng lúc (như mẫu).</p>
+<div role="table" aria-label="{{tableLabel}}" style="margin-top: 12px; font-size: 14px; font-variant-numeric: tabular-nums">
+<div role="row" style="display: grid; grid-template-columns: 36px minmax(0, 2.5fr) 132px 100px minmax(0, 1.4fr) 72px 92px 96px; align-items: center; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); background: var(--surface)">
+<div role="columnheader"></div><div role="columnheader" class="th">Tên</div><div role="columnheader" class="th">Dạng</div><div role="columnheader" class="th">Trạng thái</div><div role="columnheader" class="th">Dùng trong</div><div role="columnheader" class="th">Báo lỗi chưa xử lý</div><div role="columnheader" class="th">Lô nhập</div><div role="columnheader" class="th">Sửa lần cuối ↓</div>
+</div>
+<sc-for list="{{wrows}}" as="r" hint-placeholder-count="6">
+<div role="row" style="display: grid; grid-template-columns: 36px minmax(0, 2.5fr) 132px 100px minmax(0, 1.4fr) 72px 92px 96px; align-items: center; min-height: 56px; border-bottom: 1px solid var(--rule)">
+<div role="cell"><svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><rect x="1" y="1" width="18" height="18" rx="2" style="fill: var(--surface); stroke: var(--muted)" stroke-width="1.5"></rect></svg></div>
+<div role="cell" class="td"><a href="#m2" style="font-weight: 600; color: {{r.tColor}}">{{r.name}}</a><span lang="en" style="display: block; color: var(--muted); font-size: 13px">{{r.sub}}</span></div>
+<div role="cell" class="td">{{r.kind}}</div>
+<div role="cell"><span class="chip" style="color: {{r.stc}}">{{r.st}}</span></div>
+<div role="cell" class="td" style="color: {{r.usedColor}}">{{r.used}}</div>
+<div role="cell" class="td" style="color: {{r.errColor}}; font-weight: {{r.errW}}">{{r.err}}</div>
+<div role="cell" class="td">{{r.lot}}</div>
+<div role="cell" class="td">{{r.edited}}<span style="display: block; color: var(--muted); font-size: 13px">{{r.by}}</span></div>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{tabBo}}" hint-placeholder-val="{{ false }}">
+<ul style="margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--ink); font-size: 15px">
+<li style="display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr) 110px 120px; align-items: center; min-height: 48px; border-bottom: 1px solid var(--rule)"><strong>Bộ đề Writing · Course 1 · XXX</strong><span>Theo buổi của lớp</span><span>XXX đề</span><a href="#m1">Sắp xếp</a></li>
+<li style="display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr) 110px 120px; align-items: center; min-height: 48px; border-bottom: 1px solid var(--rule)"><strong>Khoá Writing for IELTS</strong><span>Khoá online</span><span>XXX đề</span><a href="#m1">Sắp xếp</a></li>
+<li style="display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr) 110px 120px; align-items: center; min-height: 48px; border-bottom: 1px solid var(--rule)"><strong>Đề dành cho Thi thử</strong><span>Chỉ dùng trong kỳ thi</span><span>XXX đề</span><a href="AdminKyThi.dc.html">Xem kỳ thi</a></li>
+<li style="display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr) 110px 120px; align-items: center; min-height: 48px; border-bottom: 1px solid var(--rule)"><strong>549 bài mẫu công khai</strong><span>Do Thư viện công khai quản lý</span><span>549 đề</span><a href="AdminThuVienCongKhai.dc.html">Mở Thư viện</a></li>
+</ul>
+</sc-if>
+
+<sc-if value="{{tabLo}}" hint-placeholder-val="{{ false }}">
+<div class="note" role="note" style="margin-bottom: 12px"><p style="margin: 0">Chạy bằng script nhập trên máy chủ. Trang này chỉ đọc kết quả; không tải file qua trình duyệt. Đề do script tạo hoặc cập nhật vào "Chờ duyệt". Mẹo viết chưa có script nhập: soạn lẻ bằng "Tạo mẹo lẻ".</p></div>
+<div role="table" aria-label="Lô nhập Writing" style="font-size: 14px">
+<div role="row" style="display: grid; grid-template-columns: 112px 118px minmax(0, 1.4fr) 104px 150px minmax(0, 1.3fr) 150px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink)"><div role="columnheader" class="th">Thời điểm</div><div role="columnheader" class="th">Người chạy</div><div role="columnheader" class="th">Script · mã lô</div><div role="columnheader" class="th">Môi trường</div><div role="columnheader" class="th">Tạo · cập nhật · lỗi</div><div role="columnheader" class="th">Trạng thái</div><div role="columnheader" class="th">Mở</div></div>
+<div role="row" style="display: grid; grid-template-columns: 112px 118px minmax(0, 1.4fr) 104px 150px minmax(0, 1.3fr) 150px; align-items: center; min-height: 54px; border-bottom: 1px solid var(--rule)"><div role="cell" class="td">14/11 · 16:20</div><div role="cell" class="td">Vũ Thanh Tâm</div><div role="cell" class="td"><strong>Nhập đề Writing</strong><span style="display: block; color: var(--muted); font-size: 13px">LW-1114A</span></div><div role="cell" class="td">Production</div><div role="cell" class="td">tạo 2 · cập nhật 0 · <span style="color: var(--muted)">lỗi 0</span></div><div role="cell" class="td" style="color: var(--mark)">Đã nhập · chờ duyệt 2 mục</div><div role="cell" class="td"><a href="#m1">Xem các mục của lô</a></div></div>
+<div role="row" style="display: grid; grid-template-columns: 112px 118px minmax(0, 1.4fr) 104px 150px minmax(0, 1.3fr) 150px; align-items: center; min-height: 54px; border-bottom: 1px solid var(--rule)"><div role="cell" class="td">20/10 · 09:05</div><div role="cell" class="td">Trần Thu Hà</div><div role="cell" class="td"><strong>Nhập đề Writing</strong><span style="display: block; color: var(--muted); font-size: 13px">LW-1020A</span></div><div role="cell" class="td">Production</div><div role="cell" class="td">tạo 3 · cập nhật 0 · <span style="color: var(--danger); font-weight: 600">lỗi 1</span></div><div role="cell" class="td" style="color: var(--ok)">Đã nhập · đã duyệt hết</div><div role="cell" class="td"><a href="#m1">Xem các mục của lô</a><a href="#m1" style="display: block">Tải báo cáo lỗi (.csv)</a></div></div>
+</div>
+</sc-if>
+
+<sc-if value="{{tabQc}}" hint-placeholder-val="{{ false }}">
+<p style="margin: 0 0 12px; color: var(--muted)">Writing không có đáp án đúng nên không có tỉ lệ sai. Hàng chờ gộp báo lỗi của học viên về đề và các thiếu sót chặn đăng.</p>
+<div role="table" aria-label="Câu cần kiểm Writing" style="font-size: 14px">
+<div role="row" style="display: grid; grid-template-columns: 100px minmax(0, 1.6fr) minmax(0, 2fr) 84px 240px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink)"><div role="columnheader" class="th">Phần</div><div role="columnheader" class="th">Đề</div><div role="columnheader" class="th">Lý do</div><div role="columnheader" class="th">Lượt làm</div><div role="columnheader" class="th">Việc</div></div>
+<div role="row" style="display: grid; grid-template-columns: 100px minmax(0, 1.6fr) minmax(0, 2fr) 84px 240px; align-items: center; min-height: 54px; border-bottom: 1px solid var(--rule)"><div role="rowheader" class="td" style="font-weight: 600">Hình</div><div role="cell" class="td" lang="en">Tourist numbers by month</div><div role="cell" class="td">Báo lỗi 1 người: số liệu tháng 7 trên hình khác đề bài</div><div role="cell" class="td">27</div><div role="cell" class="td" style="display: flex; gap: 8px"><a href="#m2" class="btns">Mở đề</a><button type="button" class="btns">Không phải lỗi…</button></div></div>
+<div role="row" style="display: grid; grid-template-columns: 100px minmax(0, 1.6fr) minmax(0, 2fr) 84px 240px; align-items: center; min-height: 54px; border-bottom: 1px solid var(--rule)"><div role="rowheader" class="td" style="font-weight: 600">Tiêu đề</div><div role="cell" class="td" lang="en">Some people think that university education…</div><div role="cell" class="td">Thiếu tiêu đề tiếng Anh · chặn đăng</div><div role="cell" class="td" style="color: var(--muted)">chưa có</div><div role="cell" class="td"><a href="#m6" class="btns">Thêm tiêu đề</a></div></div>
+<div role="row" style="display: grid; grid-template-columns: 100px minmax(0, 1.6fr) minmax(0, 2fr) 84px 240px; align-items: center; min-height: 54px; border-bottom: 1px solid var(--rule)"><div role="rowheader" class="td" style="font-weight: 600">Mô tả hình</div><div role="cell" class="td" lang="en">Town centre redevelopment</div><div role="cell" class="td">Mô tả hình cho AI chấm chờ người thứ hai duyệt · chặn đăng</div><div role="cell" class="td" style="color: var(--muted)">chưa có</div><div role="cell" class="td"><a href="#m2" class="btns">Duyệt mô tả</a></div></div>
+</div>
+</sc-if>
+</main>
+</div>
+</div>
+</section>
+
+<section id="m2" class="sec" aria-labelledby="h-m2">
+<h2 id="h-m2" class="h2">2 · Writing · chi tiết một đề: sửa lẻ, nơi dùng, giao bài</h2>
+<p class="lead">Phần nội dung của khung. Đề Task 1 đang giao cho Lớp Tue–Thu 19:30. Tiêu đề tiếng Anh sửa thẳng; đề bài, hình và mô tả hình khi đề đã giao thì lưu thành bản kế tiếp ở Nháp và đăng qua hộp hỏi lại của mẫu. Writing không có đáp án nên hộp đăng không hỏi tính lại điểm.</p>
+<div class="box" style="padding: 20px 28px 28px; background: var(--paper)">
+<nav aria-label="Vị trí trang" class="crumb">Nội dung › <a href="#m1">Writing</a> › <span aria-current="page" style="color: var(--ink)">Tourist numbers by month</span></nav>
+<div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px">
+<div>
+<h1 lang="en" class="serif" style="margin: 0; font-size: 30px; font-weight: 600; line-height: 1.15">Tourist numbers by month</h1>
+<p style="margin: 4px 0 0; color: var(--muted)">Task 1 · Biểu đồ cột · <strong style="color: var(--ok)">Đã đăng</strong> · bản 2 · nhập từ lô LW-1020A</p>
+</div>
+<div style="display: flex; gap: 10px"><a href="AdminLop.dc.html#m3" class="btnp">Giao bài này…</a><a href="AdminBaoCao.dc.html" class="btn">Số liệu của đề ở Báo cáo</a></div>
+</div>
+<div style="display: flex; gap: 32px; margin-top: 20px">
+<div style="flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<div class="fld"><label for="p-ti" class="lbl">Tiêu đề ngắn tiếng Anh</label><input id="p-ti" class="inp" lang="en" value="Tourist numbers by month"><span class="hint">Hiện ở danh sách đề của học viên, Thư viện và kết quả chấm. Tối đa 60 ký tự. Sửa thẳng, ghi nhật ký.</span></div>
+<div class="fld"><label for="p-bd" class="lbl">Đề bài (tiếng Anh, như đề thật)</label><textarea id="p-bd" class="ta" rows="3" lang="en">The chart below shows the number of tourists visiting a coastal town each month in 2023. Summarise the information by selecting and reporting the main features, and make comparisons where relevant.</textarea></div>
+<div style="display: flex; gap: 16px; align-items: flex-start">
+<div class="ph" style="width: 220px; height: 130px">Hình: biểu đồ cột của đề · 12 tháng</div>
+<div style="flex-grow: 1; display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; gap: 10px; align-items: center"><strong>Hình Task 1</strong><button type="button" class="btns">Thay ảnh…</button></div>
+<div class="fld"><label for="p-ds" class="lbl">Mô tả hình cho AI chấm</label><textarea id="p-ds" class="ta" rows="3">Biểu đồ cột, 12 tháng năm 2023, đơn vị nghìn lượt. Cao nhất tháng 7 (khoảng 48), thấp nhất tháng 1 (khoảng 6); tăng đều từ tháng 3 tới tháng 7 rồi giảm.</textarea><span class="hint">Người thứ hai duyệt mô tả trước khi đăng. Dấu duyệt mô tả: <strong style="color: var(--ok)">có, 20/10</strong>.</span></div>
+</div>
+</div>
+<div>
+<p class="eb">Bài mẫu · liên kết từ Thư viện công khai</p>
+<ul style="margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--ink); font-size: 14px">
+<li style="display: grid; grid-template-columns: 90px minmax(0, 1fr) 120px; align-items: center; min-height: 40px; border-bottom: 1px solid var(--rule)"><strong>Band 7.5</strong><span>Đã đăng ở Thư viện</span><a href="AdminThuVienCongKhai.dc.html">Đổi bài</a></li>
+<li style="display: grid; grid-template-columns: 90px minmax(0, 1fr) 120px; align-items: center; min-height: 40px; border-bottom: 1px solid var(--rule)"><strong>Band 7.0</strong><span>Đã đăng ở Thư viện</span><a href="AdminThuVienCongKhai.dc.html">Đổi bài</a></li>
+<li style="display: grid; grid-template-columns: 90px minmax(0, 1fr) 120px; align-items: center; min-height: 40px; border-bottom: 1px solid var(--rule)"><strong>Band 6.0</strong><span style="color: var(--muted)">chưa có</span><a href="AdminThuVienCongKhai.dc.html">Chọn bài</a></li>
+</ul>
+</div>
+<div style="display: flex; gap: 10px; align-items: center"><button type="button" class="btnp">Lưu thành bản 3 (Nháp)</button><span style="font-size: 14px; color: var(--muted)">Bài đang viết và bài đã chấm giữ bản 2. Đăng bản 3 qua hộp hỏi lại; người có quyền duyệt đăng thẳng được.</span></div>
+</div>
+<aside style="flex: 0 0 330px; display: flex; flex-direction: column; gap: 20px">
+<section aria-labelledby="h-wu" style="border-top: 2px solid var(--ink); padding-top: 12px">
+<h3 id="h-wu" class="eb">Nơi đang dùng · 2</h3>
+<ul style="margin: 0; padding: 0; list-style: none; font-size: 14px">
+<li style="padding: 8px 0; border-bottom: 1px solid var(--rule)"><a href="AdminLop.dc.html" style="font-weight: 600">Course 1 · XXX · Lớp Tue–Thu 19:30</a><span style="display: block; color: var(--muted)">Giao ở Buổi 10 cho 14 học viên · <a href="AdminKetQuaBaiGiao.dc.html">Kết quả bài giao</a></span></li>
+<li style="padding: 8px 0; border-bottom: 1px solid var(--rule)"><a href="#m1" style="font-weight: 600">Khoá Writing for IELTS · bài 6</a><span style="display: block; color: var(--muted)">Khoá online</span></li>
+</ul>
+</section>
+<section aria-labelledby="h-wv" style="border-top: 2px solid var(--ink); padding-top: 12px">
+<h3 id="h-wv" class="eb">Phiên bản</h3>
+<p style="margin: 0; font-size: 14px"><strong>Bản 2 · Đã đăng</strong> · 12/11 · Vũ Thanh Tâm · sửa mô tả hình<br><span style="color: var(--muted)">Bản 1 · Đã thay · 20/10 · lô LW-1020A</span></p>
+</section>
+<section aria-labelledby="h-we" style="border-top: 2px solid var(--ink); padding-top: 12px">
+<h3 id="h-we" class="eb">Báo lỗi của học viên · <span style="color: var(--mark)">1 chưa xử lý</span></h3>
+<p style="margin: 0 0 6px; font-size: 14px"><strong>Hình</strong> · Nguyễn Minh Anh · Tue–Thu 19:30 · 15/11, 21:40<br>"Cột tháng 7 trên hình là 48 nhưng đề bài nói khoảng 50."</p>
+<div style="display: flex; gap: 8px"><button type="button" class="btns">Đúng là lỗi · sửa</button><a href="AdminSuCo.dc.html#m3" class="btns">Trả lời người báo</a></div>
+</section>
+<section aria-labelledby="h-wd" style="padding: 12px 14px; border: 1px solid var(--danger)">
+<h3 id="h-wd" class="eb" style="color: var(--danger); margin-bottom: 4px">Vùng nguy hiểm</h3>
+<p style="margin: 0 0 8px; font-size: 14px">Gỡ khỏi học viên chỉ làm được khi đề không còn dùng ở đâu.</p>
+<button type="button" disabled class="btnoff">Gỡ khỏi học viên</button>
+</section>
+</aside>
+</div>
+</div>
+</section>
+
+<section id="m3" class="sec" aria-labelledby="h-m3">
+<h2 id="h-m3" class="h2">3 · Writing · tạo lẻ: đề mới và mẹo viết</h2>
+<p class="lead">Mở từ nút phụ "Tạo đề lẻ" hoặc "Tạo mẹo lẻ". Đề mới dùng đúng biểu mẫu của mục 2, bắt đầu ở Nháp; chỉ gửi duyệt hoặc đăng được khi có tiêu đề tiếng Anh (Task 1 thêm hình và mô tả hình đã duyệt). Mẹo viết soạn lẻ vì chưa có script nhập.</p>
+<div style="display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 32px; align-items: start">
+<div class="box" style="padding: 18px 22px; display: flex; flex-direction: column; gap: 12px">
+<p style="margin: 0; font-size: 14px; color: var(--muted)">Writing › Mẹo viết › <span style="color: var(--ink)">Viết câu tổng quan cho Task 1</span> · Đã đăng · bản 2 · hiện ở Thư viện và cạnh XXX đề Task 1</p>
+<div style="display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 12px"><div class="fld"><label for="t-ti" class="lbl">Tiêu đề (tiếng Việt)</label><input id="t-ti" class="inp" value="Viết câu tổng quan cho Task 1"></div><div class="fld"><label for="t-g" class="lbl">Nhóm</label><select id="t-g" class="inp"><option>Task 1</option><option>Task 2</option><option>Chung</option></select></div></div>
+<div class="fld"><label for="t-bd" class="lbl">Nội dung</label><textarea id="t-bd" class="ta" rows="4">Khi nào viết: ngay sau câu mở đầu, trước các đoạn chi tiết.
+Ví dụ: Overall, tourist numbers peaked in July and were lowest in January.</textarea></div>
+<div style="display: flex; gap: 10px"><button type="button" class="btn">Xem trước</button><button type="button" class="btnp">Lưu và đăng bản 3…</button></div>
+</div>
+<div style="font-size: 14px; display: flex; flex-direction: column; gap: 10px">
+<p style="margin: 0"><strong>Thứ tự trong thẻ Đề và bài:</strong> chọn "Mẹo viết" ở hàng lọc; cột giữ nguyên (Lô nhập ghi "soạn lẻ").</p>
+<p style="margin: 0"><strong>Gỡ hoặc xoá mẹo:</strong> ở vùng nguy hiểm cuối trang mẹo, không đặt cạnh nút sửa. Xoá phải gõ tên mẹo để xác nhận.</p>
+<p style="margin: 0"><strong>Đề lẻ chưa giao:</strong> sửa thẳng mọi ô, không tạo bản mới.</p>
+</div>
+</div>
+</section>
+
+<section id="m4" class="sec" aria-labelledby="h-m4">
+<h2 id="h-m4" class="h2">4 · Speaking · thẻ Đề và bài: chủ đề và câu hỏi</h2>
+<p class="lead">Cùng khung và bốn thẻ của mẫu (thanh bên mở "Speaking" ở nhóm Nội dung). Bấm được: lọc Part. Bỏ cột "Phiên gần đây": phiên luyện xem ở Chấm bài › Speaking, số liệu ở Báo cáo. "Tạo chủ đề lẻ" là nút phụ.</p>
+<div class="box" style="padding: 20px 28px 24px; background: var(--paper)">
+<nav aria-label="Vị trí trang" class="crumb">Nội dung › <span aria-current="page" style="color: var(--ink)">Speaking</span></nav>
+<div style="display: flex; gap: 0 28px; border-bottom: 1px solid var(--ink); margin-bottom: 14px; font-size: 15px"><span style="padding: 8px 0 5px; border-bottom: 3px solid var(--ink); font-weight: 600">Đề và bài</span><span style="padding: 8px 0; color: var(--muted)">Chương trình và bộ</span><span style="padding: 8px 0; color: var(--muted)">Lô nhập</span><span style="padding: 8px 0; color: var(--muted)">Câu cần kiểm <strong style="color: var(--mark)">1</strong></span></div>
+<div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px">
+<label style="flex: 1 1 360px; display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 14px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface)"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 18px; height: 18px; flex-shrink: 0"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"></circle><path d="M16.5 16.5L21 21" stroke="currentColor" stroke-width="2"></path></svg><input type="search" aria-label="Tìm chủ đề Speaking" placeholder="Tên chủ đề, câu hỏi đầu hoặc mã lô" style="flex-grow: 1; min-width: 0; border: 0; background: transparent; font: 16px 'Source Sans 3', sans-serif; color: var(--ink)"></label>
+<div role="group" aria-label="Lọc theo Part" style="display: flex; border: 1px solid var(--ink); border-radius: 2px"><sc-for list="{{parts}}" as="o" hint-placeholder-count="4"><button type="button" aria-pressed="{{o.aria}}" onClick="{{o.go}}" class="seg" style="border-left: {{o.bl}}; background: {{o.bg}}; color: {{o.fg}}">{{o.label}}</button></sc-for></div>
+<a href="#m5" class="btn">Tạo chủ đề lẻ</a>
+</div>
+<div role="table" aria-label="Chủ đề Speaking" style="margin-top: 14px; font-size: 14px">
+<div role="row" style="display: grid; grid-template-columns: minmax(0, 2.4fr) 92px 100px minmax(0, 1.5fr) 72px 92px 96px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); background: var(--surface)"><div role="columnheader" class="th" style="padding-left: 8px">Tên</div><div role="columnheader" class="th">Dạng</div><div role="columnheader" class="th">Trạng thái</div><div role="columnheader" class="th">Dùng trong</div><div role="columnheader" class="th">Báo lỗi chưa xử lý</div><div role="columnheader" class="th">Lô nhập</div><div role="columnheader" class="th">Sửa lần cuối</div></div>
+<sc-for list="{{srows}}" as="t" hint-placeholder-count="5">
+<div role="row" style="display: grid; grid-template-columns: minmax(0, 2.4fr) 92px 100px minmax(0, 1.5fr) 72px 92px 96px; align-items: center; min-height: 52px; border-bottom: 1px solid var(--rule)">
+<div role="cell" class="td" style="padding-left: 8px"><a href="#m5" lang="en" style="font-weight: 600; color: var(--ink)">{{t.name}}</a><span style="display: block; color: var(--muted); font-size: 13px">{{t.sub}}</span></div>
+<div role="cell" class="td">{{t.part}}</div>
+<div role="cell"><span class="chip" style="color: {{t.stc}}">{{t.st}}</span></div>
+<div role="cell" class="td" style="color: {{t.usedColor}}">{{t.used}}</div>
+<div role="cell" class="td" style="color: {{t.errColor}}; font-weight: {{t.errW}}">{{t.err}}</div>
+<div role="cell" class="td">{{t.lot}}</div>
+<div role="cell" class="td">{{t.ed}}</div>
+</div>
+</sc-for>
+<sc-if value="{{noParts}}" hint-placeholder-val="{{ false }}"><p style="margin: 0; padding: 14px 0; color: var(--muted); border-bottom: 1px solid var(--rule)">Không có chủ đề nào ở phần này. <button type="button" onClick="{{partAll}}" class="lnk">Xem tất cả</button></p></sc-if>
+</div>
+</div>
+</section>
+
+<section id="m5" class="sec" aria-labelledby="h-m5">
+<h2 id="h-m5" class="h2">5 · Speaking · chi tiết một chủ đề: câu hỏi, cue card, video mẫu</h2>
+<p class="lead">Chủ đề đã đăng, đang dùng trong khoá. Sửa lẻ câu chữ câu hỏi, cue card và đường dẫn video trả lời mẫu; thêm hoặc bớt câu, audio đọc câu hỏi làm bằng script. Video trả lời mẫu do quy trình sản xuất video riêng làm sẵn (kịch bản, giọng đọc tổng hợp Kokoro, dựng video); ở đây chỉ gắn đường dẫn video (YouTube hoặc máy chủ riêng) và đường dẫn tệp lời thoại có mốc thời gian. Không có ô tải video hay ô soạn lời thoại.</p>
+<div class="box" style="padding: 20px 28px 24px; background: var(--paper)">
+<nav aria-label="Vị trí trang" class="crumb">Nội dung › <a href="#m4">Speaking</a> › <span aria-current="page" style="color: var(--ink)">Describe a place in your hometown you like</span></nav>
+<div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px">
+<div><h1 lang="en" class="serif" style="margin: 0; font-size: 28px; font-weight: 600; line-height: 1.15">Describe a place in your hometown you like</h1><p style="margin: 4px 0 0; color: var(--muted)">Part 2 kèm Part 3 · <strong style="color: var(--ok)">Đã đăng</strong> · bản 2 · lô LS-0930A</p></div>
+<div style="display: flex; gap: 10px"><a href="AdminLop.dc.html#m3" class="btnp">Giao bài này…</a><a href="AdminChamSpeakingThiThu.dc.html" class="btn">Phiên luyện của chủ đề ở Chấm bài</a></div>
+</div>
+<div style="display: flex; gap: 32px; margin-top: 18px">
+<div style="flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px">
+<div class="fld"><label for="s-cc" class="lbl">Cue card · Part 2</label><textarea id="s-cc" class="ta" rows="5" lang="en">Describe a place in your hometown you like.
+You should say: where it is, what you can do there, how often you go there
+and explain why you like this place.</textarea><span class="hint">Chuẩn bị 1 phút · nói 1–2 phút (như đề thật).</span></div>
+<div class="fld"><span class="lbl">Part 3 · câu hỏi thảo luận · 2 câu</span>
+<ol lang="en" style="margin: 0; padding-left: 20px; font-size: 14px; display: flex; flex-direction: column; gap: 6px">
+<li>Why do some people prefer living in their hometown? <button type="button" class="lnk" lang="vi">Sửa</button></li>
+<li>How have public places in cities changed in recent years? <button type="button" class="lnk" lang="vi">Sửa</button></li>
+</ol>
+<span class="hint">Thêm hoặc bớt câu: Làm bằng script, nhập lại thành phiên bản mới.</span></div>
+</div>
+<div>
+<p class="eb">Video trả lời mẫu · 2</p>
+<ul style="margin: 0 0 10px; padding: 0; list-style: none; border-top: 1px solid var(--ink); font-size: 14px">
+<li style="display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.4fr) 80px; align-items: center; min-height: 44px; border-bottom: 1px solid var(--rule)"><span>Part 2 · bài nói mẫu · YouTube · 2:05 · giọng đọc tổng hợp</span><span style="color: var(--ok)">Đã đăng · hiện sau khi học viên nộp bài</span><button type="button" class="lnk">Sửa</button></li>
+<li style="display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.4fr) 80px; align-items: center; min-height: 44px; border-bottom: 1px solid var(--rule)"><span>Part 3 · câu 1 · máy chủ riêng · 1:10</span><span style="color: var(--muted)">Nháp · chưa gắn tệp lời thoại</span><button type="button" class="lnk">Sửa</button></li>
+</ul>
+<div style="display: flex; gap: 10px; align-items: flex-end"><div class="fld" style="flex-grow: 1"><label for="s-v" class="lbl">Thêm video bằng đường dẫn</label><input id="s-v" class="inp" placeholder="Đường dẫn video (youtu.be/… hoặc máy chủ riêng) · rồi đường dẫn tệp lời thoại .vtt"></div><button type="button" class="btn">Thêm</button></div>
+<p class="hint" style="margin: 4px 0 0">Kiểm tra phát được và đọc được tệp lời thoại khi bấm Thêm. Trang học viên ghi "Giọng đọc tổng hợp" cạnh trình phát. Sửa video không tạo phiên bản mới; ghi nhật ký.</p>
+</div>
+</div>
+<aside style="flex: 0 0 310px; display: flex; flex-direction: column; gap: 16px; font-size: 14px">
+<section aria-labelledby="h-su" style="border-top: 2px solid var(--ink); padding-top: 12px"><h3 id="h-su" class="eb">Nơi đang dùng · 2</h3><p style="margin: 0"><a href="AdminLop.dc.html">Course 3 · XXX · Lớp Mon–Wed 18:00</a>, buổi 6 · <a href="AdminKetQuaBaiGiao.dc.html">Kết quả bài giao</a><br>Khoá Speaking for IELTS, bài 4</p></section>
+<section aria-labelledby="h-sr" style="border-top: 2px solid var(--ink); padding-top: 12px"><h3 id="h-sr" class="eb">Số liệu và phiên luyện</h3><p style="margin: 0">Không hiện trong trang nội dung. <a href="AdminBaoCao.dc.html">Báo cáo, lọc theo chủ đề này</a> · <a href="AdminChamSpeakingThiThu.dc.html">Chấm bài › Speaking, lọc theo chủ đề</a>.</p></section>
+<section aria-labelledby="h-se" style="border-top: 2px solid var(--ink); padding-top: 12px"><h3 id="h-se" class="eb">Báo lỗi của học viên</h3><p style="margin: 0; color: var(--muted)">Không có báo lỗi chưa xử lý.</p></section>
+</aside>
+</div>
+</div>
+</section>
+
+<section id="m6" class="sec" aria-labelledby="h-m6">
+<h2 id="h-m6" class="h2">6 · Reading · chi tiết bài đọc: bản dịch, chú giải, đáp án</h2>
+<p class="lead">Trang Reading là mẫu chung không đổi (Đề và bài · Chương trình và bộ · Lô nhập · Câu cần kiểm). Chi tiết một bài đọc thay khối audio của Listening bằng ba khối dưới đây; khoá, chia sẻ, đăng giữ như hiện nay. Thêm bớt câu hoặc đoạn: làm bằng script, nhập lại thành phiên bản mới.</p>
+<div style="display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 28px; align-items: start">
+<div style="display: flex; flex-direction: column; gap: 18px">
+<div>
+<p class="eb">Bài đọc · đoạn đánh số, bản dịch theo câu (sửa lẻ)</p>
+<div class="box" style="padding: 14px 16px">
+<p lang="en" class="serif" style="margin: 0 0 8px; font-size: 16px"><strong style="font-family: 'Source Sans 3', sans-serif">A</strong> Urban heat islands form when impervious surfaces absorb sunlight during the day and release it slowly at night.</p>
+<p style="margin: 0; padding: 8px 10px; border-left: 3px solid var(--rule); font-size: 14px">Câu 1 · bản dịch: Đảo nhiệt đô thị hình thành khi các bề mặt không thấm nước hấp thụ ánh nắng ban ngày và toả nhiệt chậm vào ban đêm. <button type="button" class="lnk">Sửa</button></p>
+</div>
+<p class="hint" style="margin: 6px 0 0">Bản dịch và chú giải chỉ hiện ở bài luyện; đề đầy đủ và Thi thử không có. Câu chưa dịch ghi "chưa dịch".</p>
+</div>
+<div>
+<p class="eb">Câu hỏi · đáp án chấp nhận thêm, lời giải thích, ảnh sơ đồ</p>
+<div role="table" aria-label="Đáp án bài đọc" style="font-size: 14px">
+<div role="row" style="display: grid; grid-template-columns: 64px 120px minmax(0, 1fr) minmax(0, 1.3fr) 56px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink)"><div role="columnheader" class="th">Câu</div><div role="columnheader" class="th">Đáp án</div><div role="columnheader" class="th">Chấp nhận thêm</div><div role="columnheader" class="th">Lời giải thích</div><div role="columnheader" class="th"></div></div>
+<div role="row" style="display: grid; grid-template-columns: 64px 120px minmax(0, 1fr) minmax(0, 1.3fr) 56px; align-items: center; min-height: 44px; border-bottom: 1px solid var(--rule)"><div role="rowheader" style="font-weight: 600">Câu 3</div><div role="cell" lang="en">NOT GIVEN</div><div role="cell" style="color: var(--muted)">không có</div><div role="cell">Đoạn B không nói về chi phí trồng cây.</div><div role="cell"><button type="button" class="lnk">Sửa</button></div></div>
+<div role="row" style="display: grid; grid-template-columns: 64px 120px minmax(0, 1fr) minmax(0, 1.3fr) 56px; align-items: center; min-height: 44px; border-bottom: 1px solid var(--rule); background: var(--tint)"><div role="rowheader" style="font-weight: 600">Câu 8</div><div role="cell" lang="en">canopy</div><div role="cell" lang="en">tree canopy</div><div role="cell">Đoạn D, câu 2. Báo lỗi 3 người.</div><div role="cell"><button type="button" class="lnk">Sửa</button></div></div>
+</div>
+<div style="display: flex; gap: 12px; align-items: center; margin-top: 10px"><div class="ph" style="width: 150px; height: 70px">Hình: sơ đồ câu 9–12</div><button type="button" class="btns">Thay ảnh…</button><span class="hint">Thay từng ảnh một.</span></div>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 18px">
+<div>
+<p class="eb">Chú giải từ của bài · 14 mục</p>
+<ul style="margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--ink); font-size: 14px">
+<li style="display: grid; grid-template-columns: 110px minmax(0, 1fr) 120px; align-items: center; min-height: 40px; border-bottom: 1px solid var(--rule)"><strong lang="en">impervious</strong><span>không thấm nước</span><span style="color: var(--ok)">Có trong kho</span></li>
+<li style="display: grid; grid-template-columns: 110px minmax(0, 1fr) 120px; align-items: center; min-height: 40px; border-bottom: 1px solid var(--rule)"><strong lang="en">absorb</strong><span>hấp thụ · absorbs, absorbed</span><span style="color: var(--ok)">Có trong kho</span></li>
+<li style="display: grid; grid-template-columns: 110px minmax(0, 1fr) 120px; align-items: center; min-height: 40px; border-bottom: 1px solid var(--rule)"><strong lang="en">canopy</strong><span>tán cây · canopies</span><button type="button" class="lnk" style="text-align: left; padding: 0">Thêm vào kho</button></li>
+</ul>
+<p class="hint" style="margin: 6px 0 0">"Thêm vào kho" đưa từ vào Từ vựng ở trạng thái Chờ duyệt.</p>
+</div>
+<div>
+<p class="eb">Câu cần kiểm của Reading · ví dụ</p>
+<ul style="margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--ink); font-size: 14px">
+<li style="padding: 8px 0; border-bottom: 1px solid var(--rule)"><strong>Câu 8</strong> · <span lang="en">Urban heat islands</span> · Báo lỗi 3 người: nên chấp nhận "tree canopy" · 64 lượt làm</li>
+<li style="padding: 8px 0; border-bottom: 1px solid var(--rule)"><strong>Câu 3</strong> · <span lang="en">Urban heat islands</span> · Nhiều người chọn cùng đáp án sai: FALSE · 64 lượt làm</li>
+</ul>
+</div>
+</div>
+</div>
+<div style="margin-top: 24px">
+<p class="eb">Đề thiếu tiêu đề tiếng Anh · sửa ngay trong dòng (Writing)</p>
+<ul style="margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--ink); font-size: 14px">
+<li style="display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr) 90px; gap: 12px; align-items: center; min-height: 52px; border-bottom: 1px solid var(--rule)"><span>Task 2 · <span lang="en">"Some people think that university education should be free for everyone…"</span> · Chờ duyệt · lô LW-1114A</span><input aria-label="Tiêu đề tiếng Anh" class="inp" placeholder="Ví dụ: Free university education"><button type="button" class="btn">Lưu</button></li>
+</ul>
+<p class="hint" style="margin: 6px 0 0">Lưu từng dòng, ghi nhật ký, không tạo phiên bản. Đề thiếu tiêu đề không đăng được.</p>
+</div>
+</section>
+
+<section id="m7" class="sec" aria-labelledby="h-m7">
+<h2 id="h-m7" class="h2">7 · Trạng thái phụ</h2>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px 28px; align-items: start">
+<div><p class="eb">Mẹo viết rỗng</p><div class="box" style="padding: 20px"><p class="serif" style="margin: 0 0 4px; font-size: 19px; font-weight: 600">Chưa có mẹo nào</p><p style="margin: 0 0 12px; color: var(--muted)">Mẹo viết chưa có script nhập; soạn từng mẹo.</p><a href="#m3" class="btn">Tạo mẹo lẻ</a></div></div>
+<div><p class="eb">Lô nhập Speaking rỗng</p><div class="box" style="padding: 20px"><p class="serif" style="margin: 0 0 4px; font-size: 19px; font-weight: 600">Chưa có lô nào</p><p style="margin: 0; color: var(--muted)">Chưa có lô nào. Nội dung nhập bằng script trên máy chủ; xem hướng dẫn.</p></div></div>
+<div><p class="eb">Speaking chưa có chủ đề</p><div class="box" style="padding: 20px"><p class="serif" style="margin: 0 0 4px; font-size: 19px; font-weight: 600">Chưa có chủ đề Speaking nào</p><p style="margin: 0 0 12px; color: var(--muted)">Chủ đề vào kho sau lần chạy script đầu tiên, hoặc tạo từng chủ đề.</p><a href="#m5" class="btn">Tạo chủ đề lẻ</a></div></div>
+<div><p class="eb">Đang tải</p><div aria-busy="true" style="display: flex; flex-direction: column; gap: 10px; padding: 12px 0; border-top: 1px solid var(--ink)"><span style="font-size: 14px; color: var(--muted)">Đang tải danh sách đề…</span><div class="sk" style="width: 92%"></div><div class="sk" style="width: 84%"></div></div></div>
+<div><p class="eb">Lỗi tải</p><div role="alert" style="padding: 12px 14px; border-top: 1px solid var(--danger); border-bottom: 1px solid var(--danger)"><p style="margin: 0 0 4px; font-weight: 600; color: var(--danger)">Chưa tải được danh sách chủ đề.</p><p style="margin: 0 0 8px; font-size: 14px">Bộ lọc giữ nguyên. Thử tải lại.</p><button type="button" class="btn">Tải lại</button></div></div>
+<div><p class="eb">Đường dẫn video không phát được</p><div role="alert" style="padding: 12px 14px; border-top: 1px solid var(--danger); border-bottom: 1px solid var(--danger)"><p style="margin: 0 0 4px; font-weight: 600; color: var(--danger)">Chưa thêm được video.</p><p style="margin: 0 0 8px; font-size: 14px">Video ở chế độ riêng tư hoặc đã bị xoá. Đổi sang công khai hoặc không công khai rồi thử lại.</p><button type="button" class="btn">Thử lại</button></div></div>
+</div>
+<p style="margin: 18px 0 0; font-size: 14px; color: var(--muted)">Bản hẹp 1024px: theo mẫu (thanh bên còn cột biểu tượng; bảng giữ Tên · Trạng thái · Báo lỗi, các cột khác gộp vào dòng phụ dưới tên). Chi tiết đề Writing, chủ đề Speaking và bài đọc dưới 1100px đưa cột phải xuống dưới biểu mẫu.</p>
+</section>
+
+<section class="sec" aria-labelledby="h-dev">
+<h2 id="h-dev" class="h2" style="margin-bottom: 10px">Ghi chú cho lập trình</h2>
+<ul style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; max-width: 124ch">
+<li><strong>Route.</strong> /admin/writing, /admin/speaking, /admin/reading với ?tab=items|programs|batches|review như mẫu. Bỏ thẻ Giao bài và sổ giao bài Writing (writing/assignments, writing/cohorts chuyển 307 về lớp); writing/new và writing/status thuộc Chấm bài. Bỏ thẻ Mẹo viết riêng: mẹo là lựa chọn "Loại" trong Đề và bài (?type=tips).</li>
+<li><strong>Trạng thái nội dung.</strong> Một bộ năm tên, dùng chung cho các tờ Nội dung và Thư viện công khai: Nháp · Chờ duyệt · Chưa đăng (đã duyệt, chưa công bố) · Đã đăng · Đã gỡ. "Đăng…" trên mục Chờ duyệt là duyệt và đăng trong một bước; "Chưa đăng" là mục đã có dấu duyệt mà chưa bấm đăng. Bộ lọc, nhãn và nhật ký không dùng tên nào khác (không "Đã xuất bản", "Ẩn", "Lưu trữ", "Đã duyệt" làm trạng thái).</li>
+<li><strong>Đề và bài Writing, Speaking, Reading</strong> [NGAY: trạng thái, nơi dùng, cấp lớp qua /admin/exam-content/... và API danh sách prompts, tips, topics, reading content] [THÊM: cột Lô nhập và tìm theo mã lô]. Không có cột Phiên bản, cột Phiên gần đây. "Tạo đề lẻ" (Writing), "Tạo mẹo lẻ" (Writing), "Tạo chủ đề lẻ" (Speaking) là nút phụ cuối hàng lọc; Reading không có nút tạo.</li>
+<li><strong>Sửa lẻ Writing</strong> [NGAY: POST /admin/writing/prompts, /upload-image (A3 giữ sửa prompt và ảnh lẻ)]. Tiêu đề tiếng Anh sửa thẳng. Đề đã giao: đề bài, hình, mô tả hình lưu thành bản kế tiếp ở Nháp. Task 1 chỉ đăng được khi mô tả hình đã duyệt; đề mới chỉ gửi duyệt hoặc đăng khi có tiêu đề. Writing không có đáp án nên hộp đăng không có phần tính lại điểm.</li>
+<li><strong>Mẹo viết</strong> [NGAY: admin_writing_tips hiện có, soạn lẻ]. Bỏ "nhập nhiều mẹo từ file"; giữ API import phía máy chủ chỉ cho script tương lai (A3: chưa có script tương ứng).</li>
+<li><strong>Sửa lẻ Speaking</strong> [NGAY: API JSON topics hiện có, bật tắt và sửa câu chữ]. Video trả lời mẫu do quy trình sản xuất video riêng làm sẵn (kịch bản, giọng đọc tổng hợp Kokoro, dựng video); admin chỉ gắn đường dẫn video và đường dẫn tệp lời thoại có mốc thời gian, kiểm tra phát được khi thêm; không có điều khiển tải video qua trình duyệt. Thêm bớt câu ở chủ đề đã đăng và audio đọc câu hỏi qua script (import_speaking_bank_admin.py, import_speaking_lesson_sets.py, pregen_speaking_question_audio.py). Chủ đề tạo lẻ còn ở Nháp thì thêm bớt câu được trong biểu mẫu.</li>
+<li><strong>Sửa lẻ Reading</strong> [NGAY: /admin/reading/preview, upload-diagram-image; khoá, chia sẻ, đăng giữ nguyên]. Đáp án chấp nhận thêm tạo bản kế tiếp ở Nháp và khi đăng hỏi tính lại điểm như mẫu [THÊM: tác vụ tính lại]. Bản dịch câu và chú giải sửa thẳng, ghi nhật ký.</li>
+<li><strong>Chương trình và bộ</strong> [NGAY]: bộ đề của khoá, đề Thi thử; bộ 549 bài mẫu chỉ liên kết sang Thư viện công khai.</li>
+<li><strong>Lô nhập</strong> [THÊM: import_writing_prompts.py, migrate_writing_images.py, các script Speaking và Reading (import_reading_drills.py, reimport_wp5_reading.py, import_cambridge_canonical_qa.py) ghi bản ghi lô như mẫu]. Mọi mục script tạo hoặc cập nhật vào Chờ duyệt. Trang chỉ đọc, không có ô chọn file.</li>
+<li><strong>Câu cần kiểm</strong> [NGAY: user_feedback cho Reading; báo lỗi đề Writing, Speaking từ phản hồi học viên; thiếu tiêu đề và mô tả hình chưa duyệt tính từ bản ghi đề] [THÊM: tỉ lệ sai theo câu Reading ở mức toàn kho, lựa chọn sai phổ biến]. Một hàng chờ theo câu (Writing: theo phần của đề).</li>
+<li><strong>Giao bài</strong>: "Giao bài này…" mở thành phần giao bài của lớp (AdminLop 3b) với đề đã chọn sẵn; kết quả mở AdminKetQuaBaiGiao. Không còn khối "Phiên Speaking gần đây": liên kết sang Chấm bài › Speaking và Báo cáo đã lọc theo chủ đề.</li>
+<li>Không hiện slug, mã phiên, tên model; band chỉ hiện khi đã chấm xong; số chưa có ghi "chưa có".</li>
+</ul>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Navy + đỏ mận","Xanh teal"],"default":"Navy + đỏ mận"},"$preview":{"width":1440,"height":6650}}'>
+class Component extends DCLogic {
+constructor(p) { super(p); this.state = { open: { nd: true }, tab: 'de', seg: 'de', part: 'all' }; }
+
+renderVals() {
+const s = this.state || {};
+const NAV = (cur, open) => [
+['tq', 'Tổng quan', [['Việc cần làm', 'AdminViecCanLam.dc.html', '']]],
+['hv', 'Học viên và quyền truy cập', [['Học viên', 'AdminDanhBa.dc.html', ''], ['Lớp', 'AdminLop.dc.html', ''], ['Giáo viên', 'AdminGiaoVienThongBao.dc.html', ''], ['Mã kích hoạt', 'AdminLuotVaMa.dc.html#s2', ''], ['Gửi thông báo', 'AdminGiaoVienThongBao.dc.html#m2', ''], ['Khảo sát và nhận xét', 'AdminKhaoSat.dc.html', '4']]],
+['kh', 'Khoá học và đăng ký', [['Khoá học', 'AdminKhoaHoc.dc.html', ''], ['Đơn đăng ký', 'AdminDonDangKy.dc.html', '2'], ['Lượt AI', 'AdminLuotVaMa.dc.html', '']]],
+['cb', 'Chấm bài', [['Writing', 'AdminChamWriting.dc.html', '3'], ['Speaking', 'AdminChamSpeakingThiThu.dc.html', '2'], ['Yêu cầu chấm lại', 'AdminChamLai.dc.html', '2']]],
+['nd', 'Nội dung', [['Listening', 'AdminNoiDung.dc.html', ''], ['Reading', 'AdminNoiDung.dc.html', ''], ['Writing', 'AdminNoiDungVietNoi.dc.html', ''], ['Speaking', 'AdminNoiDungVietNoi.dc.html#m5', ''], ['Từ vựng', 'AdminNoiDungTuVungNguPhap.dc.html', ''], ['Ngữ pháp', 'AdminNoiDungTuVungNguPhap.dc.html#m6', ''], ['Thư viện công khai', 'AdminThuVienCongKhai.dc.html', '']]],
+['tt', 'Thi thử', [['Kỳ thi', 'AdminKyThi.dc.html', '']]],
+['bc', 'Báo cáo', [['Hoạt động học viên', 'AdminBaoCao.dc.html#m1', ''], ['Lưu lượng', 'AdminBaoCao.dc.html#m2', ''], ['Chi phí AI', 'AdminBaoCao.dc.html#m3', ''], ['Chất lượng nội dung', 'AdminBaoCao.dc.html#m4', '']]],
+['ht', 'Hệ thống', [['Hộp thư sự cố', 'AdminSuCo.dc.html', '12'], ['AI và mô hình', 'AdminHeThong.dc.html', ''], ['Bảo mật', 'AdminHeThong.dc.html#m2', ''], ['Công cụ QA', 'AdminHeThong.dc.html#m3', ''], ['Cài đặt', 'AdminCaiDat.dc.html', '']]]
+].map(([id, name, rows]) => {
+const items = rows.map(([label, href, count]) => { const c = cur === id + '/' + label; return { label, href, count, current: c ? 'page' : 'false', bar: c ? 'var(--accent)' : 'transparent', bg: c ? 'var(--tint)' : 'transparent', weight: c ? 600 : 400 }; });
+const ex = !!open[id];
+const hasCur = items.some((x) => x.current === 'page');
+const badge = items.reduce((n, x) => n + (Number(x.count) || 0), 0);
+return { id, name, items, exp: ex ? 'true' : 'false', show: ex, chev: ex ? 'M6 9l6 6 6-6' : 'M9 6l6 6-6 6', badgeShow: !ex && badge ? String(badge) : '', headColor: hasCur ? 'var(--ink)' : 'var(--muted)', toggle: () => this.setState({ open: Object.assign({}, open, { [id]: !open[id] }) }) };
+});
+const counts = { 'Việc cần làm': '7', 'Writing': '3', 'Speaking': '2', 'Yêu cầu chấm lại': '2', 'Đơn đăng ký': '2', 'Hộp thư sự cố': '12' };
+const tab = s.tab || 'de';
+const tabs = [['de', 'Đề và bài', ''], ['bo', 'Chương trình và bộ', ''], ['lo', 'Lô nhập', ''], ['qc', 'Câu cần kiểm', '3']].map(([id, label, count]) => ({ label, count, aria: tab === id ? 'true' : 'false', bar: tab === id ? 'var(--ink)' : 'transparent', color: tab === id ? 'var(--ink)' : 'var(--muted)', fw: tab === id ? 600 : 400, go: () => this.setState({ tab: id }) }));
+const C = { 'Nháp': 'var(--muted)', 'Chờ duyệt': 'var(--mark)', 'Chưa đăng': 'var(--ink)', 'Đã đăng': 'var(--ok)', 'Đã gỡ': 'var(--muted)' };
+const fin = (r) => Object.assign({}, r, { stc: C[r.st], used: r.used || 'chưa dùng', usedColor: r.used ? 'var(--ink)' : 'var(--muted)', err: r.err ? String(r.err) : 'không có', errColor: r.err ? 'var(--mark)' : 'var(--muted)', errW: r.err ? 600 : 400, tColor: r.noTitle ? 'var(--mark)' : 'var(--ink)' });
+const prompts = [
+{ name: 'Tourist numbers by month', sub: 'The chart below shows the number of tourists visiting a coastal town…', kind: 'Task 1 · Biểu đồ cột', st: 'Đã đăng', used: 'Course 1 · XXX; Khoá Writing for IELTS', err: 1, lot: 'LW-1020A', edited: '12/11', by: 'Vũ Thanh Tâm' },
+{ name: 'Global coffee exports, 2000–2020', sub: 'The graph below shows coffee exports from three countries…', kind: 'Task 1 · Biểu đồ đường', st: 'Đã đăng', used: 'Course 1 · XXX', err: 0, lot: 'LW-1020A', edited: '20/10', by: 'lô nhập' },
+{ name: 'Online learning vs classrooms', sub: 'Some people believe online courses can replace classroom teaching…', kind: 'Task 2 · Hai quan điểm', st: 'Đã đăng', used: 'Course 1 · XXX', err: 0, lot: 'LW-1020A', edited: '20/10', by: 'lô nhập' },
+{ name: 'Town centre redevelopment', sub: 'The maps below show a town centre in 1995 and now…', kind: 'Task 1 · Bản đồ', st: 'Chờ duyệt', used: '', err: 0, lot: 'LW-1114A', edited: '14/11', by: 'lô nhập' },
+{ name: 'Chưa có tiêu đề tiếng Anh', sub: 'Some people think that university education should be free for everyone…', kind: 'Task 2 · Nêu quan điểm', st: 'Chờ duyệt', used: '', err: 0, lot: 'LW-1114A', edited: '14/11', by: 'lô nhập', noTitle: true },
+{ name: 'Working from home and productivity', sub: 'Working from home has become common in many countries…', kind: 'Task 2 · Nêu quan điểm', st: 'Nháp', used: '', err: 0, lot: 'tạo lẻ', edited: '16/11', by: 'Vũ Thanh Tâm' }
+].map(fin);
+const tips = [
+{ name: 'Viết câu tổng quan cho Task 1', sub: 'Một câu nêu xu hướng chính, không số liệu', kind: 'Mẹo · Task 1', st: 'Đã đăng', used: 'Thư viện; cạnh XXX đề Task 1', err: 0, lot: 'soạn lẻ', edited: '09/11', by: 'Vũ Thanh Tâm' },
+{ name: 'So sánh số liệu không lặp từ', sub: 'Năm cách nói "tăng" và "giảm"', kind: 'Mẹo · Task 1', st: 'Đã đăng', used: 'Thư viện', err: 0, lot: 'soạn lẻ', edited: '02/11', by: 'Vũ Thanh Tâm' },
+{ name: 'Mở bài Task 2 trong hai câu', sub: 'Viết lại đề và nêu quan điểm', kind: 'Mẹo · Task 2', st: 'Nháp', used: '', err: 0, lot: 'soạn lẻ', edited: '16/11', by: 'Vũ Thanh Tâm' }
+].map(fin);
+const seg = s.seg || 'de';
+const sg = (on) => ({ a: on ? 'true' : 'false', bg: on ? 'var(--ink)' : 'var(--surface)', fg: on ? 'var(--on)' : 'var(--ink)' });
+const sd = sg(seg === 'de'), sm = sg(seg === 'meo');
+const part = s.part || 'all';
+const topicsAll = [
+{ name: 'Describe a place in your hometown you like', sub: 'Cue card + 2 câu Part 3 · 2 video mẫu', part: 'Part 2', p: 'p2', st: 'Đã đăng', used: 'Course 3 · XXX; Khoá Speaking for IELTS', err: 0, lot: 'LS-0930A', ed: '10/11' },
+{ name: 'Hometown', sub: '3 câu hỏi mở đầu', part: 'Part 1', p: 'p1', st: 'Đã đăng', used: 'Course 3 · XXX', err: 1, lot: 'LS-0930A', ed: '30/09' },
+{ name: 'Work or study', sub: '4 câu hỏi mở đầu', part: 'Part 1', p: 'p1', st: 'Chờ duyệt', used: '', err: 0, lot: 'LS-1110A', ed: '10/11' },
+{ name: 'Describe a useful app on your phone', sub: 'Cue card · chưa có video mẫu', part: 'Part 2', p: 'p2', st: 'Chờ duyệt', used: '', err: 0, lot: 'LS-1110A', ed: '10/11' },
+{ name: 'Technology and older people', sub: '3 câu thảo luận · tạo lẻ', part: 'Part 3', p: 'p3', st: 'Nháp', used: '', err: 0, lot: 'tạo lẻ', ed: '16/11' }
+];
+const srows = topicsAll.filter((t) => part === 'all' || t.p === part).map((t) => Object.assign({}, t, { stc: C[t.st], used: t.used || 'chưa dùng', usedColor: t.used ? 'var(--ink)' : 'var(--muted)', err: t.err ? String(t.err) : 'không có', errColor: t.err ? 'var(--mark)' : 'var(--muted)', errW: t.err ? 600 : 400 }));
+const parts = [['all', 'Tất cả'], ['p1', 'Part 1'], ['p2', 'Part 2'], ['p3', 'Part 3']].map(([id, label], k) => ({ label, aria: part === id ? 'true' : 'false', bg: part === id ? 'var(--ink)' : 'var(--surface)', fg: part === id ? 'var(--on)' : 'var(--ink)', bl: k ? '1px solid var(--ink)' : '0', go: () => this.setState({ part: id }) }));
+return {
+pal: (this.props.palette ?? 'Navy + đỏ mận') === 'Xanh teal' ? 'pal-teal' : 'pal-navy',
+nav: NAV('nd/Writing', s.open || { nd: true }),
+tabs, tabDe: tab === 'de', tabBo: tab === 'bo', tabLo: tab === 'lo', tabQc: tab === 'qc',
+wrows: seg === 'meo' ? tips : prompts,
+tableLabel: seg === 'meo' ? 'Mẹo viết' : 'Đề Writing',
+createLabel: seg === 'meo' ? 'Tạo mẹo lẻ' : 'Tạo đề lẻ',
+segDeA: sd.a, segDeBg: sd.bg, segDeFg: sd.fg, segMeoA: sm.a, segMeoBg: sm.bg, segMeoFg: sm.fg,
+segDe: () => this.setState({ seg: 'de' }), segMeo: () => this.setState({ seg: 'meo' }),
+parts, srows, noParts: srows.length === 0, partAll: () => this.setState({ part: 'all' })
+};
+}
+}
+</script>
+</body>
+</html>

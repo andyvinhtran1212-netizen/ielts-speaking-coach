@@ -1,0 +1,772 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Kiến thức nền theo chủ đề</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--accentH:#0B5953;--link:#0B5953;--mark:#8A4B08;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EDF3F1;--off:#E7E2D6;--onAccent:#FFFFFF}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--accentH:#11254A;--link:#1A3561;--mark:#8A1C1C;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EEF0F5;--off:#E8E2D5;--onAccent:#FFFFFF}
+a{color:var(--link)}a:hover{color:var(--ink)}
+.sf{font-family:'Source Serif 4',Georgia,serif}
+.eb{margin:0;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;color:var(--muted)}
+.cap{font-size:14px;color:var(--muted)}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 20px;box-sizing:border-box;border:1px solid var(--accent);border-radius:2px;background:var(--accent);color:var(--onAccent);font:600 16px 'Source Sans 3',sans-serif;text-decoration:none;cursor:pointer}
+.btn:hover{background:var(--accentH);color:var(--onAccent)}
+.btn2{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;box-sizing:border-box;border:1px solid var(--ink);border-radius:2px;background:var(--surface);color:var(--ink);font:600 15px 'Source Sans 3',sans-serif;text-decoration:none;cursor:pointer}
+.lk{display:inline-flex;align-items:center;min-height:44px;font-weight:600}
+.nav a{display:flex;align-items:center;padding-top:3px;border-bottom:3px solid transparent;color:var(--muted);text-decoration:none}
+.nav a[aria-current="page"]{border-bottom-color:var(--accent);color:var(--ink);font-weight:600}
+.tag{display:inline-block;padding:1px 8px;border:1px solid var(--rule);border-radius:2px;font-size:13px;color:var(--muted);white-space:nowrap}
+.num{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;box-sizing:border-box;border:1px solid var(--ink);border-radius:2px;font:600 14px 'Source Sans 3',sans-serif}
+.warn{display:flex;gap:12px;padding:14px 18px;border:1px solid var(--mark);border-left:6px solid var(--mark);background:color-mix(in srgb,var(--mark) 7%,var(--surface))}
+.sh{margin:0 0 14px;font-family:'Source Serif 4',Georgia,serif;font-size:24px;font-weight:600}
+.h3{margin:0 0 10px;font-family:'Source Serif 4',Georgia,serif;font-size:22px;font-weight:600}
+.crumb{display:flex;flex-wrap:wrap;gap:8px;font-size:14px;color:var(--muted);margin:0 0 14px}
+.fh{margin:0 0 8px;font-size:14px;font-weight:600}
+.fh span{font-weight:400;color:var(--muted)}
+.fig{border:1px solid var(--ink);background:var(--surface);padding:10px 20px}
+.en{font-family:'Source Serif 4',Georgia,serif;font-size:18px;line-height:1.5}
+.q{border-bottom:2px solid var(--ink);padding-bottom:1px}
+.q sup{font:600 12px 'Source Sans 3',sans-serif;margin-left:2px}
+.tabbtn{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;box-sizing:border-box;border:1px solid var(--ink);border-radius:2px;font:15px 'Source Sans 3',sans-serif;cursor:pointer;text-align:left}
+.note li{margin-bottom:4px}
+</style>
+</helmet>
+<div class="{{pal}}" style="width: 1280px; height: 8000px; box-sizing: border-box; padding: 36px 64px; background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 16px; line-height: 1.5; display: flex; flex-direction: column; gap: 24px">
+
+<header>
+<p class="eb" style="font-weight: 400">Aver Learning · Bản in · công khai · Thư viện · sản phẩm mới B1 · prototype một chủ đề</p>
+<h1 class="sf" style="margin: 4px 0 6px; font-size: 40px; font-weight: 600; line-height: 1.15">Kiến thức nền theo chủ đề · Work</h1>
+<p style="margin: 0; color: var(--muted); max-width: 96ch">Trang kiến thức xã hội cho người thi IELTS, mở công khai và thuộc Thư viện (đã chốt 18/11/2026): ai cũng đọc được cả trang, dùng thanh công khai và chân trang công khai; chỉ việc nộp đoạn viết ngắn cho AI nhận xét mới cần đăng nhập và tính 1 lượt. Trang gắn với chủ đề của trang <a href="TuVung.dc.html">Từ vựng</a> và nối ngược về kho <a href="BaiMauWritingDanhSach.dc.html">bài mẫu Writing</a>. Tờ này dựng thử một chủ đề với nội dung thật để đo công soạn. Mục 1 vẽ đủ trang; sơ đồ ở Hình 1 bấm được, phần khía cạnh bên dưới đổi theo nhánh đang chọn, cả năm khía cạnh đều đã viết. Mục tiêu của trang là người học dùng được ý và collocation trong bài nộp, không phải học thuộc ý.</p>
+</header>
+
+<section aria-labelledby="m1" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="m1" class="sh">1 · Trang chủ đề · mở công khai, thuộc Thư viện</h2>
+
+<div role="group" aria-label="Xem thử trạng thái người đọc" style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px">
+<span class="cap" style="margin-right: 4px">Xem thử:</span>
+<sc-for list="{{demo}}" as="d" hint-placeholder-count="3">
+<button onClick="{{d.go}}" aria-pressed="{{d.on}}" style="min-height: 40px; padding: 0 14px; border: {{d.bw}} solid var(--ink); border-radius: 2px; background: {{d.bg}}; color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer">{{d.t}}</button>
+</sc-for>
+<span class="cap">Thanh trên và khối Tự kiểm đổi theo. Phần đọc không đổi: ai cũng đọc được cả trang.</span>
+</div>
+
+<div style="border: 1px solid var(--ink); background: var(--paper)">
+<header style="border-bottom: 1px solid var(--ink)">
+<div style="display: flex; align-items: stretch; gap: 36px; height: 63px; padding: 0 32px">
+<a href="TrangChuCongKhai.dc.html" style="display: inline-flex; align-items: center; gap: 9px; align-self: center; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600; color: var(--ink); text-decoration: none"><svg width="29" height="29" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</a>
+<nav aria-label="Điều hướng công khai" style="display: flex; gap: 28px; flex-grow: 1">
+<a href="ThuVien.dc.html" aria-current="page" style="display: flex; align-items: center; padding-top: 3px; border-bottom: 3px solid var(--accent); color: var(--ink); font-weight: 600; text-decoration: none">Thư viện</a>
+<a href="DanhMucKhoa.dc.html" style="display: flex; align-items: center; padding-top: 3px; border-bottom: 3px solid transparent; color: var(--muted); text-decoration: none">Khoá học</a>
+</nav>
+<sc-if value="{{fbGuest}}" hint-placeholder-val="{{true}}"><div style="display: flex; align-items: center; gap: 20px">
+<a href="TaiKhoanDangNhap.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; color: var(--ink); font-weight: 600">Đăng nhập</a>
+<a href="DanhMucKhoa.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; border-radius: 2px; background: var(--accent); color: var(--surface); font-weight: 600; text-decoration: none">Xem các khoá</a>
+</div></sc-if>
+<sc-if value="{{fbIn}}" hint-placeholder-val="{{false}}"><div style="display: flex; align-items: center; gap: 20px">
+<button aria-label="Mở menu tài khoản" style="width: 44px; height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif">MA</button>
+<a href="Main.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; border-radius: 2px; background: var(--accent); color: var(--surface); font-weight: 600; text-decoration: none">Vào học</a>
+</div></sc-if>
+</div>
+</header>
+
+<main style="padding: 32px 32px 48px">
+<nav aria-label="Vị trí trang" class="crumb"><a href="ThuVien.dc.html">Thư viện</a><span aria-hidden="true">›</span><a href="#m4">Kiến thức nền</a><span aria-hidden="true">›</span><span aria-current="page">Work</span></nav>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px 56px; align-items: flex-start">
+<div style="flex: 1 1 620px; min-width: 0">
+<p class="eb" style="margin-bottom: 4px">Kiến thức nền · chủ đề 3 trên 10</p>
+<h1 class="sf" style="margin: 0 0 10px; font-size: 44px; font-weight: 600; line-height: 1.15"><span lang="en">Work</span> · Công việc</h1>
+<h2 class="eb" style="margin-bottom: 6px; color: var(--ink)">Vì sao người thi IELTS cần hiểu chủ đề này</h2>
+<p style="margin: 0 0 10px; max-width: 68ch">Công việc là chủ đề gặp ở cả Writing Task 2 lẫn Speaking Part 3, và đề thường không hỏi bạn thích gì mà hỏi vì sao một thay đổi xảy ra, ai được, ai mất, và nên làm gì. Người viết không có sẵn hiểu biết sẽ dừng ở mức “làm ở nhà tiện hơn, nhưng cũng có bất lợi”, tức là có quan điểm nhưng không có ý để phát triển.</p>
+<p style="margin: 0; max-width: 68ch">Trang này không đưa bài văn để học thuộc. Nó cho bạn bản đồ của vấn đề: năm khía cạnh, mỗi khía cạnh vài ý kèm cách nói bằng tiếng Anh. Bạn đọc, tự trả lời ba câu hỏi ở cuối trang, rồi viết một đoạn ngắn bằng ý của chính mình.</p>
+</div>
+<div style="flex: 0 1 300px; min-width: 0; padding-left: 20px; border-left: 3px solid var(--accent)">
+<p class="eb" style="font-weight: 400; margin-bottom: 6px">Trong chủ đề này</p>
+<p style="margin: 0 0 4px">5 khía cạnh · 20 ý lập luận</p>
+<p style="margin: 0 0 4px">40 từ và collocation, nối sang <a href="TuVung.dc.html">Từ vựng</a></p>
+<p style="margin: 0 0 4px"><a href="#lk">5 đề Writing Task 2 có bài mẫu</a></p>
+<p style="margin: 0 0 10px"><a href="#lk">4 câu hỏi Speaking Part 3</a></p>
+<p style="margin: 0" class="cap">Đọc hết khoảng 25 phút. Đọc miễn phí, không cần tài khoản.</p>
+</div>
+</div>
+
+<section aria-labelledby="h-tree" style="margin-top: 32px; border-top: 2px solid var(--ink); padding-top: 18px">
+<h2 id="h-tree" class="eb" style="margin-bottom: 12px">Cây kiến thức · bấm một nhánh để đọc</h2>
+<figure style="margin: 0">
+<p class="fh">Hình 1 <span>· Năm khía cạnh của chủ đề Work và các ý con</span></p>
+<div class="fig">
+<svg viewBox="0 0 1056 472" role="group" aria-label="Hình 1. Cây kiến thức chủ đề Work: chủ đề ở giữa, năm nhánh khía cạnh đánh số 1 đến 5, mỗi nhánh có ba ý con. Bấm một nhánh để mở khía cạnh đó ở phần dưới." style="display: block; width: 100%; height: auto; font-family: 'Source Sans 3', system-ui, sans-serif">
+<path d="M1026,56 H1046 V276 H1026" fill="none" stroke="var(--ink)" stroke-width="1.2" stroke-dasharray="5 4"/>
+<text x="1040" y="170" transform="rotate(-90 1040 170)" text-anchor="middle" style="font-size: 12px; fill: var(--muted)">a · hay đi cùng trong đề lợi – hại</text>
+<path d="M30,56 H12 V398 H360 V356 H383" fill="none" stroke="var(--ink)" stroke-width="1.2" stroke-dasharray="5 4"/>
+<text x="22" y="416" style="font-size: 12px; fill: var(--muted)">b · hay đi cùng trong đề nguyên nhân – giải pháp</text>
+<path d="M438,186 L320,62" fill="none" stroke="var(--ink)" stroke-width="{{b1.sw}}"/>
+<g role="button" tabindex="0" aria-pressed="{{b1.on}}" aria-label="Khía cạnh 1: Vì sao công việc thay đổi" onClick="{{b1.pick}}" style="cursor: pointer"><rect x="30" y="30" width="290" height="52" style="fill: {{b1.fill}}; stroke: var(--ink); stroke-width: {{b1.bw}}"/><path d="M74,30 V82" style="stroke: {{b1.ink}}; stroke-width: 1.2"/><text x="52" y="64" text-anchor="middle" style="font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600; fill: {{b1.ink}}">1</text><text x="88" y="62" style="font-size: 16px; font-weight: 600; fill: {{b1.ink}}">Vì sao công việc thay đổi</text></g>
+<path d="M52,82 V148" fill="none" stroke="var(--ink)" stroke-width="1"/>
+<path d="M52,104 H66" fill="none" stroke="var(--ink)" stroke-width="1"/>
+<text x="72" y="109" style="font-size: 14px; fill: var(--ink)">công nghệ và kết nối</text>
+<path d="M52,126 H66" fill="none" stroke="var(--ink)" stroke-width="1"/>
+<text x="72" y="131" style="font-size: 14px; fill: var(--ink)">đại dịch như một phép thử</text>
+<path d="M52,148 H66" fill="none" stroke="var(--ink)" stroke-width="1"/>
+<text x="72" y="153" style="font-size: 14px; fill: var(--ink)">chi phí và kỳ vọng mới</text>
+<path d="M618,186 L736,62" fill="none" stroke="var(--ink)" stroke-width="{{b2.sw}}"/>
+<g role="button" tabindex="0" aria-pressed="{{b2.on}}" aria-label="Khía cạnh 2: Tác động tới người lao động" onClick="{{b2.pick}}" style="cursor: pointer"><rect x="736" y="30" width="290" height="52" style="fill: {{b2.fill}}; stroke: var(--ink); stroke-width: {{b2.bw}}"/><path d="M780,30 V82" style="stroke: {{b2.ink}}; stroke-width: 1.2"/><text x="758" y="64" text-anchor="middle" style="font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600; fill: {{b2.ink}}">2</text><text x="794" y="62" style="font-size: 16px; font-weight: 600; fill: {{b2.ink}}">Tác động tới người lao động</text></g>
+<path d="M758,82 V148" fill="none" stroke="var(--ink)" stroke-width="1"/>
+<path d="M758,104 H772" fill="none" stroke="var(--ink)" stroke-width="1"/>
+<text x="778" y="109" style="font-size: 14px; fill: var(--ink)">thời gian và sức khoẻ</text>
+<path d="M758,126 H772" fill="none" stroke="var(--ink)" stroke-width="1"/>
+<text x="778" y="131" style="font-size: 14px; fill: var(--ink)">ranh giới công việc – đời sống</text>
+<path d="M758,148 H772" fill="none" stroke="var(--ink)" stroke-width="1"/>
+<text x="778" y="153" style="font-size: 14px; fill: var(--ink)">kỹ năng và việc làm</text>
+<path d="M618,234 L736,270" fill="none" stroke="var(--ink)" stroke-width="{{b3.sw}}"/>
+<g role="button" tabindex="0" aria-pressed="{{b3.on}}" aria-label="Khía cạnh 3: Doanh nghiệp và xã hội" onClick="{{b3.pick}}" style="cursor: pointer"><rect x="736" y="250" width="290" height="52" style="fill: {{b3.fill}}; stroke: var(--ink); stroke-width: {{b3.bw}}"/><path d="M780,250 V302" style="stroke: {{b3.ink}}; stroke-width: 1.2"/><text x="758" y="284" text-anchor="middle" style="font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600; fill: {{b3.ink}}">3</text><text x="794" y="282" style="font-size: 16px; font-weight: 600; fill: {{b3.ink}}">Doanh nghiệp và xã hội</text></g>
+<path d="M758,302 V368" fill="none" stroke="var(--ink)" stroke-width="1"/>
+<path d="M758,324 H772" fill="none" stroke="var(--ink)" stroke-width="1"/>
+<text x="778" y="329" style="font-size: 14px; fill: var(--ink)">chi phí, tuyển dụng, phối hợp</text>
+<path d="M758,346 H772" fill="none" stroke="var(--ink)" stroke-width="1"/>
+<text x="778" y="351" style="font-size: 14px; fill: var(--ink)">giao thông và khu trung tâm</text>
+<path d="M758,368 H772" fill="none" stroke="var(--ink)" stroke-width="1"/>
+<text x="778" y="373" style="font-size: 14px; fill: var(--ink)">khoảng cách giữa các nhóm nghề</text>
+<path d="M528,250 L528,330" fill="none" stroke="var(--ink)" stroke-width="{{b4.sw}}"/>
+<g role="button" tabindex="0" aria-pressed="{{b4.on}}" aria-label="Khía cạnh 4: Giải pháp và chính sách" onClick="{{b4.pick}}" style="cursor: pointer"><rect x="383" y="330" width="290" height="52" style="fill: {{b4.fill}}; stroke: var(--ink); stroke-width: {{b4.bw}}"/><path d="M427,330 V382" style="stroke: {{b4.ink}}; stroke-width: 1.2"/><text x="405" y="364" text-anchor="middle" style="font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600; fill: {{b4.ink}}">4</text><text x="441" y="362" style="font-size: 16px; font-weight: 600; fill: {{b4.ink}}">Giải pháp và chính sách</text></g>
+<path d="M405,382 V448" fill="none" stroke="var(--ink)" stroke-width="1"/>
+<path d="M405,404 H419" fill="none" stroke="var(--ink)" stroke-width="1"/>
+<text x="425" y="409" style="font-size: 14px; fill: var(--ink)">doanh nghiệp: mô hình kết hợp</text>
+<path d="M405,426 H419" fill="none" stroke="var(--ink)" stroke-width="1"/>
+<text x="425" y="431" style="font-size: 14px; fill: var(--ink)">nhà nước: luật, đào tạo lại</text>
+<path d="M405,448 H419" fill="none" stroke="var(--ink)" stroke-width="1"/>
+<text x="425" y="453" style="font-size: 14px; fill: var(--ink)">cá nhân: học suốt đời</text>
+<path d="M438,234 L320,270" fill="none" stroke="var(--ink)" stroke-width="{{b5.sw}}"/>
+<g role="button" tabindex="0" aria-pressed="{{b5.on}}" aria-label="Khía cạnh 5: Tranh luận hai phía" onClick="{{b5.pick}}" style="cursor: pointer"><rect x="30" y="250" width="290" height="52" style="fill: {{b5.fill}}; stroke: var(--ink); stroke-width: {{b5.bw}}"/><path d="M74,250 V302" style="stroke: {{b5.ink}}; stroke-width: 1.2"/><text x="52" y="284" text-anchor="middle" style="font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600; fill: {{b5.ink}}">5</text><text x="88" y="282" style="font-size: 16px; font-weight: 600; fill: {{b5.ink}}">Tranh luận hai phía</text></g>
+<path d="M52,302 V368" fill="none" stroke="var(--ink)" stroke-width="1"/>
+<path d="M52,324 H66" fill="none" stroke="var(--ink)" stroke-width="1"/>
+<text x="72" y="329" style="font-size: 14px; fill: var(--ink)">từ xa hay văn phòng</text>
+<path d="M52,346 H66" fill="none" stroke="var(--ink)" stroke-width="1"/>
+<text x="72" y="351" style="font-size: 14px; fill: var(--ink)">máy thay người hay giúp người</text>
+<path d="M52,368 H66" fill="none" stroke="var(--ink)" stroke-width="1"/>
+<text x="72" y="373" style="font-size: 14px; fill: var(--ink)">lương cao hay sự hài lòng</text>
+<rect x="438" y="170" width="180" height="80" style="fill: var(--surface); stroke: var(--ink); stroke-width: 2.5"/>
+<rect x="444" y="176" width="168" height="68" style="fill: none; stroke: var(--ink); stroke-width: 1"/>
+<text x="528" y="213" text-anchor="middle" lang="en" style="font-family: 'Source Serif 4', Georgia, serif; font-size: 28px; font-weight: 600; fill: var(--ink)">Work</text>
+<text x="528" y="234" text-anchor="middle" style="font-size: 14px; fill: var(--muted)">Công việc</text>
+</svg>
+</div>
+<figcaption class="cap" style="margin-top: 8px; max-width: 110ch">Số trong ô là thứ tự khía cạnh, dùng lại ở phần đề liên quan cuối trang. Ô nền đậm và đường nối dày là nhánh đang mở. Hai đường nét đứt a và b nối những khía cạnh hay phải dùng cùng nhau trong một dạng đề. Hình đọc được khi in đen trắng.</figcaption>
+</figure>
+<div role="tablist" aria-label="Chọn khía cạnh" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="5">
+<button role="tab" aria-selected="{{t.on}}" onClick="{{t.pick}}" class="tabbtn" style="background: {{t.bg}}; color: {{t.fg}}; font-weight: {{t.weight}}"><span style="font-weight: 600">{{t.n}}</span>{{t.short}}</button>
+</sc-for>
+</div>
+</section>
+
+<section aria-labelledby="h-asp" style="margin-top: 28px; border-top: 1px solid var(--ink); padding-top: 18px">
+<div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 8px 24px; margin-bottom: 16px">
+<div>
+<p class="eb" style="margin-bottom: 2px">Khía cạnh {{a.n}} trên 5</p>
+<h2 id="h-asp" class="sf" style="margin: 0; font-size: 32px; font-weight: 600; line-height: 1.2">{{a.title}}</h2>
+</div>
+<div style="display: flex; gap: 8px">
+<button class="btn2" onClick="{{goPrev}}">‹ {{prevLabel}}</button>
+<button class="btn2" onClick="{{goNext}}">{{nextLabel}} ›</button>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 0 48px; align-items: start">
+<div>
+<h3 class="eb" style="margin-bottom: 8px; color: var(--ink)">Hiểu vấn đề</h3>
+<sc-for list="{{a.explain}}" as="p" hint-placeholder-count="3">
+<p style="margin: 0 0 12px">{{p.t}}</p>
+</sc-for>
+
+<h3 class="eb" style="margin: 14px 0 2px; color: var(--ink); border-top: 2px solid var(--ink); padding-top: 12px">Từ và collocation của khía cạnh này</h3>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 28px">
+<sc-for list="{{a.words}}" as="w" hint-placeholder-count="8">
+<p style="margin: 0; padding: 8px 0; border-bottom: 1px solid var(--rule)"><a href="{{w.href}}" lang="en" style="font-weight: 600">{{w.en}}</a><span style="display: block" class="cap">{{w.vi}}</span></p>
+</sc-for>
+</div>
+<p style="margin: 10px 0 0" class="cap">Bấm một từ để mở mục từ ở trang Từ vựng. <a href="TaiKhoanDangNhap.dc.html">Đăng nhập</a> để thêm cả tám từ vào sổ từ · Giúp trả lời đề số {{a.essays}} ở <a href="#lk">phần đề liên quan</a>.</p>
+</div>
+
+<div>
+<h3 class="eb" style="margin-bottom: 4px; color: var(--ink)">Ý lập luận có thể dùng</h3>
+<p class="cap" style="margin: 0 0 6px">Câu tiếng Anh là một cách nói, không phải câu để chép. Nhãn bên phải cho biết đó là câu đơn giản hay câu phát triển hơn; nhãn không phải mức điểm.</p>
+<ol style="margin: 0; padding: 0; list-style: none">
+<sc-for list="{{a.ideas}}" as="i" hint-placeholder-count="4">
+<li style="display: grid; grid-template-columns: 34px minmax(0, 1fr) 132px; gap: 0 10px; padding: 12px 0; border-top: 1px solid var(--rule)">
+<span class="num">{{i.k}}</span>
+<div>
+<p style="margin: 0; font-weight: 600">{{i.vi}}</p>
+<p lang="en" class="en" style="margin: 4px 0">{{i.en}}</p>
+<p style="margin: 0" class="cap">{{i.why}}</p>
+</div>
+<span class="tag" style="align-self: start; justify-self: end; color: var(--ink)">{{i.level}}</span>
+</li>
+</sc-for>
+</ol>
+
+</div>
+</div>
+<div style="margin-top: 20px; border: 1px solid var(--ink); border-left: 6px solid var(--ink); padding: 14px 18px; background: var(--surface); display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 4fr) minmax(0, 5fr); gap: 0 32px; align-items: start">
+<div>
+<p class="eb" style="margin-bottom: 4px; color: var(--ink)">Bẫy lập luận hay mắc</p>
+<p class="sf" style="margin: 0 0 8px; font-size: 20px; font-weight: 600">{{a.trapName}}</p>
+<p style="margin: 0 0 2px" class="cap">Câu hay gặp trong bài nộp</p>
+<p lang="en" class="en" style="margin: 0; text-decoration: line-through; text-decoration-thickness: 1px; color: var(--muted)">{{a.trapBad}}</p>
+</div>
+<div>
+<p style="margin: 0 0 2px" class="cap">Vì sao mất điểm</p>
+<p style="margin: 0">{{a.trapWhy}}</p>
+</div>
+<div>
+<p style="margin: 0 0 2px" class="cap">Viết lại</p>
+<p lang="en" class="en" style="margin: 0">{{a.trapGood}}</p>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="h-self" style="margin-top: 36px; border-top: 2px solid var(--ink); padding-top: 18px">
+<h2 id="h-self" class="h3">Tự kiểm</h2>
+<h3 class="eb" style="margin-bottom: 4px; color: var(--ink)">Ba câu hỏi để tự phát triển ý</h3>
+<p class="cap" style="margin: 0 0 8px">Không có đáp án đúng sai. Hãy trả lời thành lời hoặc ghi vài dòng trước khi viết đoạn văn bên dưới.</p>
+<ol style="margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 32px">
+<sc-for list="{{questions}}" as="q" hint-placeholder-count="3">
+<li style="display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 0 10px; padding: 12px 0; border-top: 1px solid var(--ink)">
+<span class="num">{{q.k}}</span>
+<div><p style="margin: 0">{{q.q}}</p><p style="margin: 4px 0 0" class="cap">Gợi ý tìm ý ở: {{q.use}}</p></div>
+</li>
+</sc-for>
+</ol>
+
+<div style="margin-top: 16px; border-top: 2px solid var(--ink); padding-top: 14px; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 0 48px; align-items: start">
+<div>
+<h3 class="eb" style="margin-bottom: 4px; color: var(--ink)">Viết một đoạn 80–100 từ</h3>
+<p style="margin: 0 0 8px">Đề: <span lang="en" class="sf" style="font-size: 18px">What is one disadvantage of working from home for employees? Explain it and give an example.</span></p>
+<sc-if value="{{fbGuest}}" hint-placeholder-val="{{true}}">
+<div style="border: 1px solid var(--ink); background: var(--surface); padding: 14px 16px; min-height: 96px; box-sizing: border-box; color: var(--muted)">Viết đoạn của bạn ở đây. Bản nháp được giữ trên trình duyệt này.</div>
+<p style="margin: 6px 0 10px" class="cap">0 từ · cần 80–100 từ</p>
+<div style="padding: 12px 16px; border: 1px solid var(--rule); border-left: 3px solid var(--accent); background: var(--surface)">
+<p style="margin: 0 0 4px; font-weight: 600">Muốn AI nhận xét đoạn này?</p>
+<p style="margin: 0 0 8px; font-size: 15px">Đăng nhập rồi nộp; mỗi lần nộp tính 1 lượt chấm AI. Đọc cả trang thì không cần tài khoản.</p>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px 18px"><a href="TaiKhoanDangNhap.dc.html" class="btn2">Đăng nhập để nộp</a><a href="ChamThuMienPhi.dc.html" class="lk">Chấm thử một bài miễn phí ›</a><a href="DanhMucKhoa.dc.html" class="lk">Xem các khoá có lượt chấm AI ›</a></div>
+</div>
+</sc-if>
+<sc-if value="{{fbDraft}}" hint-placeholder-val="{{false}}">
+<div style="border: 1px solid var(--ink); background: var(--surface); padding: 14px 16px">
+<p lang="en" class="en" style="margin: 0">One main disadvantage of working from home is that the line between work and personal life becomes unclear. When people work in their living room, they often check emails at night and work longer hours than before. For example, my sister works for a bank and she usually answers messages from her manager after 9 p.m. As a result, she feels tired all the time. In addition, working from home is bad for everyone because they cannot meet their colleagues. Therefore, companies should solve this problem.</p>
+</div>
+<p style="margin: 6px 0 10px" class="cap">86 từ · trong khoảng 80–100 · bản nháp đã lưu 21:14</p>
+<button class="btn" onClick="{{submit}}">Nộp để AI nhận xét (dùng 1 lượt)</button>
+<p style="margin: 8px 0 0" class="cap">Bạn còn XXX lượt chấm AI.</p>
+</sc-if>
+<sc-if value="{{fbDone}}" hint-placeholder-val="{{false}}">
+<div style="border: 1px solid var(--ink); background: var(--surface); padding: 14px 16px">
+<p class="cap" style="margin: 0 0 6px">Đoạn của bạn · 86 từ · nộp 21:16, thứ Tư 18/11</p>
+<p lang="en" class="en" style="margin: 0">One main disadvantage of working from home is that <span class="q">the line between work and personal life becomes unclear<sup>1</sup></span>. When people work in their living room, they often check emails at night and work longer hours than before. For example, my sister works for a bank and she usually answers messages from her manager after 9 p.m. As a result, she feels tired all the time. In addition, <span class="q">working from home is bad for everyone<sup>2</sup></span> because they cannot meet their colleagues. Therefore, <span class="q">companies should solve this problem<sup>3</sup></span>.</p>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; margin-top: 12px">
+<button class="btn2" onClick="{{redraft}}">Viết lại đoạn này</button>
+<span class="cap" style="flex: 1 1 200px">Nộp bản viết lại sẽ dùng thêm 1 lượt. Trên tờ: bấm để xem trạng thái trước khi nộp.</span>
+</div>
+</sc-if>
+</div>
+
+<div>
+<sc-if value="{{fbNone}}" hint-placeholder-val="{{true}}">
+<h4 class="eb" style="color: var(--ink); margin-bottom: 6px">Nhận xét của AI</h4>
+<p style="margin: 0; padding: 14px 16px; border: 1px dashed var(--ink)">Chưa có nhận xét. Sau khi bạn nộp, phần này chỉ ra ý nào trong đoạn đã dùng được và chỗ nào còn chung chung, kèm trích dẫn từ chính đoạn của bạn. Đoạn ngắn không được chấm band.</p>
+</sc-if>
+<sc-if value="{{fbDone}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px">
+<h4 class="eb" style="color: var(--ink)">Nhận xét của AI</h4>
+<span class="cap">Đã dùng 1 lượt · không chấm band cho đoạn ngắn</span>
+</div>
+<p style="margin: 6px 0 6px">Đoạn có một ý rõ và một ví dụ thật, đó là phần mạnh nhất. Hai câu cuối làm đoạn yếu đi: một câu khẳng định cho mọi người, một câu nêu giải pháp nhưng chưa có nội dung. Bạn cũng mở thêm ý thứ hai, không gặp đồng nghiệp, mà chưa kịp phát triển; đoạn 80–100 từ chỉ nên giữ một ý.</p>
+<ol style="margin: 0; padding: 0; list-style: none">
+<sc-for list="{{feedback}}" as="f" hint-placeholder-count="3">
+<li style="display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 0 10px; padding: 10px 0; border-top: 1px solid var(--rule)">
+<span class="num">{{f.k}}</span>
+<div>
+<p style="margin: 0"><strong>{{f.kind}}</strong> · <span lang="en" class="sf">“{{f.quote}}”</span></p>
+<p style="margin: 2px 0">{{f.note}}</p>
+<p lang="en" class="en" style="margin: 0; padding-left: 12px; border-left: 3px solid var(--accent)">{{f.fix}}</p>
+</div>
+</li>
+</sc-for>
+</ol>
+<p style="margin: 0; padding-top: 10px; border-top: 1px solid var(--rule)"><strong>Ý và từ của chủ đề trong đoạn này:</strong> 1 ý của cây (khía cạnh 2, ý 2) · chưa dùng collocation nào trong 8 từ của khía cạnh 2. Thử <a href="TuVung.dc.html" lang="en">blur the boundary</a> hoặc <a href="TuVung.dc.html" lang="en">a heavy workload</a> khi viết lại.</p>
+</sc-if>
+</div>
+</div>
+</section>
+
+<section id="lk" aria-labelledby="h-lk" style="margin-top: 36px; border-top: 2px solid var(--ink); padding-top: 18px">
+<h2 id="h-lk" class="h3">Dùng kiến thức này ở đâu</h2>
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 24px; border-bottom: 2px solid var(--ink); padding-bottom: 8px">
+<h3 class="eb">Đề Writing Task 2 cùng chủ đề · có bài mẫu ba mức band</h3>
+<a href="BaiMauWritingDanhSach.dc.html" style="font-size: 14px">Xem tất cả đề chủ đề Work ở Thư viện ›</a>
+</div>
+<div role="table" aria-label="Đề Writing Task 2 chủ đề Work">
+<div role="row" class="cap" style="display: grid; grid-template-columns: 28px minmax(0, 1fr) 170px 150px 130px; gap: 0 20px; padding: 8px 0; border-bottom: 1px solid var(--rule)">
+<span role="columnheader"></span><span role="columnheader">Đề</span><span role="columnheader">Dạng đề</span><span role="columnheader">Khía cạnh giúp trả lời</span><span role="columnheader">Bài mẫu</span>
+</div>
+<sc-for list="{{essays}}" as="e" hint-placeholder-count="5">
+<div role="row" style="display: grid; grid-template-columns: 28px minmax(0, 1fr) 170px 150px 130px; gap: 0 20px; align-items: baseline; padding: 9px 0; border-bottom: 1px solid var(--rule)">
+<span role="cell" class="cap">{{e.k}}</span>
+<span role="cell"><a href="BaiMauWriting.dc.html" lang="en" class="sf" style="font-size: 20px; font-weight: 600; color: var(--ink); text-decoration: none">{{e.title}}</a><span lang="en" style="display: block; font-size: 15px" class="cap">{{e.text}}</span></span>
+<span role="cell" style="font-size: 15px">{{e.type}}</span>
+<span role="cell" style="font-weight: 600; font-variant-numeric: tabular-nums">{{e.asp}}</span>
+<span role="cell"><a href="BaiMauWriting.dc.html" style="font-weight: 600">7.5 · 7.0 · 6.0 ›</a></span>
+</div>
+</sc-for>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 24px; border-bottom: 2px solid var(--ink); padding-bottom: 8px; margin-top: 28px">
+<h3 class="eb">Speaking Part 3 liên quan</h3>
+<a href="DeSpeakingDanhSach.dc.html" style="font-size: 14px">Mở đề Speaking có video trả lời mẫu ›</a>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 40px">
+<sc-for list="{{speaking}}" as="q" hint-placeholder-count="4">
+<p style="margin: 0; padding: 10px 0; border-bottom: 1px solid var(--rule); display: flex; justify-content: space-between; gap: 16px"><a href="DeSpeaking.dc.html" lang="en">{{q.q}}</a><span class="cap" style="white-space: nowrap">Khía cạnh {{q.asp}}</span></p>
+</sc-for>
+</div>
+</section>
+</main>
+
+<footer style="padding: 20px 32px; border-top: 1px solid var(--ink)">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0 28px">
+<span style="display: inline-flex; align-items: center; gap: 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; font-weight: 600; margin-right: 12px"><svg width="26" height="26" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="currentColor"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<nav aria-label="Chân trang" style="display: flex; flex-wrap: wrap; gap: 0 24px">
+<a href="TrangChuCongKhai.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Giới thiệu</a>
+<a href="DanhMucKhoa.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Khoá học</a>
+<a href="ThuVien.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Thư viện</a>
+<a href="HocVienNoiGi.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Học viên nói gì</a>
+<a href="PhapLy.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Điều khoản</a>
+<a href="PhapLy.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Quyền riêng tư</a>
+<a href="PhapLy.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Liên hệ</a>
+</nav>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)">© 2026 Aver Learning. Bảo lưu mọi quyền.</p>
+</footer>
+</div>
+</section>
+
+<section aria-labelledby="m2" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="m2" class="sh">2 · Liên kết ngược · dòng “Kiến thức nền cho đề này” trên trang một đề Writing</h2>
+<div style="display: flex; flex-wrap: wrap; gap: 20px 40px; align-items: flex-start">
+<div style="flex: 1 1 640px; min-width: 0; border: 1px solid var(--ink); padding: 20px 24px">
+<nav aria-label="Vị trí trang" class="crumb"><a href="ThuVien.dc.html">Thư viện</a><span aria-hidden="true">›</span><a href="BaiMauWritingDanhSach.dc.html">Bài mẫu Writing</a><span aria-hidden="true">›</span><span aria-current="page" lang="en">Working from home</span></nav>
+<p class="eb" style="margin-bottom: 2px">Task 2 · Cân lợi – hại · chủ đề Work</p>
+<p class="sf" lang="en" style="margin: 0 0 8px; font-size: 30px; font-weight: 600; line-height: 1.2">Working from home</p>
+<p lang="en" class="en" style="margin: 0 0 14px">More and more people are working from home rather than in a traditional office. Do the advantages of this development outweigh the disadvantages?</p>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; padding: 10px 14px; border: 1px solid var(--ink); border-left: 4px solid var(--accent); background: var(--surface)">
+<span style="font-weight: 600">Kiến thức nền cho đề này</span>
+<a href="#m1" style="font-weight: 600"><span lang="en">Work</span> · khía cạnh 2, 3 và 5 ›</a>
+<span class="cap" style="flex-basis: 100%">Tác động tới người lao động · Doanh nghiệp và xã hội · Tranh luận hai phía. Đọc trước khi xem bài mẫu để tự nghĩ ý của mình.</span>
+</div>
+<div style="display: flex; gap: 8px; margin-top: 14px; border-bottom: 1px solid var(--ink)">
+<span style="padding: 8px 14px; border: 1px solid var(--ink); border-bottom: 0; background: var(--ink); color: var(--paper); font-weight: 600">Bài 7.5</span>
+<span style="padding: 8px 14px; border: 1px solid var(--ink); border-bottom: 0">Bài 7.0</span>
+<span style="padding: 8px 14px; border: 1px solid var(--ink); border-bottom: 0">Bài 6.0</span>
+</div>
+<p class="cap" style="margin: 10px 0 0">Phần còn lại của trang giữ nguyên như tờ <a href="BaiMauWriting.dc.html">Bài mẫu Writing</a>.</p>
+</div>
+<div style="flex: 1 1 360px; min-width: 0">
+<p class="eb" style="margin-bottom: 6px">Biến thể của dòng liên kết</p>
+<div style="padding: 10px 14px; border: 1px solid var(--rule); margin-bottom: 10px">
+<p class="cap" style="margin: 0 0 4px">Khách chưa đăng nhập</p>
+<p style="margin: 0">Thấy đúng dòng như bên trái và bấm vào đọc được ngay: trang Kiến thức nền mở công khai, không hỏi đăng nhập, không gắn với khoá nào.</p>
+</div>
+<div style="padding: 10px 14px; border: 1px solid var(--rule); margin-bottom: 10px">
+<p class="cap" style="margin: 0 0 4px">Đề thuộc chủ đề chưa có nội dung</p>
+<p style="margin: 0">Không hiện dòng này. Không hiện “đang soạn” ở trang đề.</p>
+</div>
+<div style="padding: 10px 14px; border: 1px solid var(--rule)">
+<p class="cap" style="margin: 0 0 4px">Cũng hiện ở trang làm bài Writing của học viên</p>
+<p style="margin: 0">Trên tờ <a href="BaiTapWriting.dc.html">Bài tập Writing</a>, dòng này nằm dưới đề, chỉ khi luyện tự do. Bài được giao có giờ và bài thi thử không hiện.</p>
+</div>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="m3" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="m3" class="sh">3 · Bản điện thoại 390px · sơ đồ đổi thành danh sách thụt bậc</h2>
+<div style="display: flex; flex-wrap: wrap; gap: 24px 40px; align-items: flex-start">
+
+<div style="width: 390px; flex: none; border: 1px solid var(--ink); background: var(--paper)">
+<header style="display: flex; align-items: center; gap: 12px; height: 56px; box-sizing: border-box; padding: 0 16px; border-bottom: 1px solid var(--ink)">
+<span style="display: inline-flex; align-items: center; gap: 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; font-weight: 600; flex-grow: 1"><svg width="26" height="26" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<a href="TaiKhoanDangNhap.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; color: var(--ink); font-weight: 600">Đăng nhập</a>
+<button aria-label="Mở menu" aria-expanded="false" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink)"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 20px; height: 20px"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg></button>
+</header>
+<div style="padding: 16px 16px 20px">
+<p class="cap" style="margin: 0 0 6px"><a href="ThuVien.dc.html">‹ Thư viện</a> · Kiến thức nền · chủ đề 3 trên 10</p>
+<p class="sf" style="margin: 0 0 6px; font-size: 30px; font-weight: 600; line-height: 1.15"><span lang="en">Work</span> · Công việc</p>
+<p style="margin: 0 0 14px; font-size: 15px">Đề về công việc hỏi vì sao thay đổi xảy ra, ai được, ai mất, nên làm gì. Trang này cho bạn bản đồ năm khía cạnh để tự nghĩ ý.</p>
+<p class="fh">Hình 1 <span>· dạng danh sách</span></p>
+<div style="border: 1px solid var(--ink); background: var(--surface)">
+<p style="margin: 0; padding: 10px 12px; border-bottom: 1px solid var(--ink)"><strong class="sf" lang="en" style="font-size: 18px">Work</strong> <span class="cap">· Công việc · 5 khía cạnh</span></p>
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="5">
+<div style="border-bottom: 1px solid var(--rule); margin-left: 16px; border-left: 1px solid var(--ink)">
+<button aria-expanded="{{t.on}}" onClick="{{t.pick}}" style="display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 0 12px; border: 0; background: {{t.bg}}; color: {{t.fg}}; font: 16px 'Source Sans 3', sans-serif; font-weight: {{t.weight}}; text-align: left; cursor: pointer"><span style="font-weight: 600; width: 14px">{{t.n}}</span><span style="flex-grow: 1">{{t.title}}</span></button>
+<sc-if value="{{t.isOn}}" hint-placeholder-val="{{false}}">
+<ul style="margin: 0; padding: 6px 12px 10px 0; list-style: none">
+<sc-for list="{{t.leaves}}" as="l" hint-placeholder-count="3">
+<li style="margin-left: 26px; padding: 4px 0 4px 12px; border-left: 1px solid var(--ink); font-size: 15px">{{l.t}}</li>
+</sc-for>
+</ul>
+</sc-if>
+</div>
+</sc-for>
+</div>
+<p class="cap" style="margin: 8px 0 16px">Bấm một dòng để mở khía cạnh. Dòng nền đậm là khía cạnh đang đọc.</p>
+
+<p class="eb" style="margin-bottom: 2px">Khía cạnh {{a.n}} trên 5</p>
+<p class="sf" style="margin: 0 0 8px; font-size: 24px; font-weight: 600; line-height: 1.2">{{a.title}}</p>
+<p style="margin: 0 0 12px; font-size: 15px">{{a.explain0}}</p>
+<p class="cap" style="margin: 0 0 12px">Đọc tiếp 2 đoạn ›</p>
+<p class="cap" style="margin: 4px 0 0; padding-top: 8px; border-top: 1px solid var(--rule)">Tiếp theo trên trang, một cột: 4 ý lập luận · 8 từ · bẫy lập luận · Tự kiểm · đề liên quan.</p>
+</div>
+</div>
+
+<div style="width: 390px; flex: none; border: 1px solid var(--ink); background: var(--paper)">
+<header style="display: flex; align-items: center; gap: 10px; height: 56px; padding: 0 16px; border-bottom: 1px solid var(--ink)">
+<a href="#m3" aria-label="Quay lại đầu trang chủ đề" style="display: inline-flex; align-items: center; min-height: 44px; font-weight: 600; text-decoration: none">‹ Work</a>
+<span style="flex-grow: 1; font-weight: 600; text-align: center">Tự kiểm</span>
+<span class="cap">XXX lượt</span>
+</header>
+<div style="padding: 16px 16px 20px">
+<p class="eb" style="margin-bottom: 4px; color: var(--ink)">Viết một đoạn 80–100 từ</p>
+<p lang="en" class="sf" style="margin: 0 0 10px; font-size: 17px">What is one disadvantage of working from home for employees? Explain it and give an example.</p>
+<div style="border: 1px solid var(--ink); background: var(--surface); padding: 12px">
+<p class="cap" style="margin: 0 0 4px">Đoạn của bạn · 86 từ</p>
+<p lang="en" class="en" style="margin: 0; font-size: 16px">One main disadvantage of working from home is that <span class="q">the line between work and personal life becomes unclear<sup>1</sup></span>. When people work in their living room, they often check emails at night … In addition, <span class="q">working from home is bad for everyone<sup>2</sup></span> because they cannot meet their colleagues. Therefore, <span class="q">companies should solve this problem<sup>3</sup></span>.</p>
+<p class="cap" style="margin: 6px 0 0"><a href="#m3">Xem cả đoạn</a></p>
+</div>
+<p class="eb" style="margin: 14px 0 4px; color: var(--ink)">Nhận xét của AI</p>
+<p class="cap" style="margin: 0 0 6px">Đã dùng 1 lượt · không chấm band cho đoạn ngắn</p>
+<sc-for list="{{feedback2}}" as="f" hint-placeholder-count="2">
+<div style="padding: 10px 0; border-top: 1px solid var(--rule); font-size: 15px">
+<p style="margin: 0"><span class="num" style="margin-right: 6px">{{f.k}}</span><strong>{{f.kind}}</strong></p>
+<p lang="en" class="sf" style="margin: 4px 0">“{{f.quote}}”</p>
+<p style="margin: 0 0 4px">{{f.note}}</p>
+<p lang="en" class="sf" style="margin: 0; padding-left: 10px; border-left: 3px solid var(--accent); font-size: 16px">{{f.fix}}</p>
+</div>
+</sc-for>
+<p style="margin: 0; padding: 10px 0; border-top: 1px solid var(--rule); font-size: 15px"><span class="num" style="margin-right: 6px">3</span><strong>Giải pháp rỗng</strong> <span class="cap">· bấm để mở</span></p>
+<div style="margin-top: 4px"><span class="btn2" style="width: 100%">Viết lại đoạn này</span></div>
+</div>
+</div>
+
+<div style="flex: 1 1 260px; min-width: 0">
+<p class="eb" style="margin-bottom: 6px">Ghi chú bản điện thoại</p>
+<ul class="note" style="margin: 0; padding-left: 18px; font-size: 15px">
+<li>Dưới 768px không vẽ sơ đồ SVG; cùng dữ liệu hiện thành danh sách thụt bậc: chủ đề › khía cạnh › ý con. Khía cạnh đang chọn mở ra, các khía cạnh khác gập.</li>
+<li>Danh sách ở khung trái bấm được và dùng chung trạng thái với Hình 1 ở mục 1.</li>
+<li>Bấm một khía cạnh thì cuộn tới phần nội dung của khía cạnh đó; giữ lựa chọn trên đường dẫn để nút quay lại của trình duyệt hoạt động.</li>
+<li>Phần giải thích hiện đoạn đầu, có “Đọc tiếp”; ý lập luận, từ, bẫy xếp một cột.</li>
+<li>Thanh trên công khai (logo, Đăng nhập, nút menu) như các trang Thư viện; không có thanh dưới năm mục.</li>
+<li>Khung phải: Tự kiểm của người đã đăng nhập, sau khi có nhận xét. Ô viết chiếm cả chiều rộng, bộ đếm từ nằm ngay dưới ô.</li>
+</ul>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="m4" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="m4" class="sh">4 · Mục lục các chủ đề · Thư viện › Kiến thức nền</h2>
+<div style="display: flex; flex-wrap: wrap; gap: 20px 48px; align-items: flex-start">
+<div style="flex: 1 1 700px; min-width: 0">
+<div role="table" aria-label="Mục lục chủ đề kiến thức nền">
+<div role="row" class="cap" style="display: grid; grid-template-columns: 30px minmax(0, 1fr) 150px minmax(0, 1fr); gap: 0 20px; padding: 8px 0; border-top: 2px solid var(--ink); border-bottom: 1px solid var(--rule)">
+<span role="columnheader"></span><span role="columnheader">Chủ đề</span><span role="columnheader">Trạng thái</span><span role="columnheader">Ghi chú</span>
+</div>
+<sc-for list="{{topics}}" as="t" hint-placeholder-count="10">
+<div role="row" style="display: grid; grid-template-columns: 30px minmax(0, 1fr) 150px minmax(0, 1fr); gap: 0 20px; align-items: baseline; padding: 5px 0; border-bottom: 1px solid var(--rule)">
+<span role="cell" class="cap">{{t.k}}</span>
+<span role="cell"><sc-if value="{{t.has}}" hint-placeholder-val="{{false}}"><a href="#m1" lang="en" class="sf" style="font-size: 20px; font-weight: 600">{{t.en}}</a></sc-if><sc-if value="{{t.no}}" hint-placeholder-val="{{true}}"><span lang="en" class="sf" style="font-size: 20px; color: var(--muted)">{{t.en}}</span></sc-if> <span class="cap">· {{t.vi}}</span></span>
+<span role="cell" style="font-weight: {{t.weight}}; color: {{t.color}}">{{t.st}}</span>
+<span role="cell" class="cap">{{t.note}}</span>
+</div>
+</sc-for>
+</div>
+</div>
+<div style="flex: 1 1 320px; min-width: 0">
+<p class="eb" style="margin-bottom: 6px">Quy tắc của mục lục</p>
+<ul class="note" style="margin: 0; padding-left: 18px; font-size: 15px">
+<li>Tám chủ đề đầu lấy đúng danh sách “Theo chủ đề” của trang Từ vựng; hai chủ đề cuối là đề xuất thêm để đủ mười.</li>
+<li>Người đọc chỉ thấy hai trạng thái: “Đã có nội dung” (bấm được) và “Đang soạn” (chữ mờ, không bấm được). “Chờ duyệt”, “Chưa bắt đầu”, “Đề xuất thêm” là trạng thái nội bộ, vẽ ở đây cho người soạn; với người đọc đều hiện là “Đang soạn”.</li>
+<li>Trạng thái của chín chủ đề còn lại trên tờ là minh hoạ. Hiện mới có nội dung cho Work.</li>
+<li>Không hiện số ý, số từ cho chủ đề chưa có nội dung.</li>
+<li>Lối vào: kệ “Kiến thức nền” trên thanh kệ của <a href="ThuVien.dc.html">Thư viện</a>; ở trang <a href="TuVung.dc.html">Từ vựng</a>, khối “Theo chủ đề” có lối “Kiến thức nền theo chủ đề” và mỗi chủ đề có nội dung thêm một dòng “Kiến thức nền của chủ đề này”.</li>
+</ul>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="m5" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="m5" class="sh">5 · Trạng thái phụ</h2>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 24px">
+<div style="border-top: 1px solid var(--ink); padding-top: 10px">
+<p class="eb" style="margin-bottom: 8px">5a · Đã đăng nhập, chưa có khoá</p>
+<p class="sf" style="margin: 0 0 6px; font-size: 20px; font-weight: 600">Bạn vẫn đọc được cả trang</p>
+<p style="margin: 0 0 10px; font-size: 15px">Nộp đoạn viết để AI nhận xét tính 1 lượt chấm AI, mà tài khoản của bạn chưa có lượt. Hôm nay bạn còn XXX bài chấm thử miễn phí.</p>
+<a href="ChamThuMienPhi.dc.html" class="btn2">Chấm thử một bài miễn phí</a>
+<p style="margin: 8px 0 0" class="cap"><a href="DanhMucKhoa.dc.html">Xem các khoá có lượt chấm AI</a>. Hết bài chấm thử hôm nay thì ẩn nút chấm thử, chỉ còn dòng này. Không khoá nội dung nào của trang.</p>
+</div>
+<div style="border-top: 1px solid var(--ink); padding-top: 10px">
+<p class="eb" style="margin-bottom: 8px">5b · Hết lượt chấm AI</p>
+<div class="warn" style="padding: 10px 12px; font-size: 15px"><div><p style="margin: 0; font-weight: 600; color: var(--mark)">Cảnh báo</p><p style="margin: 2px 0 0">Bạn đã dùng hết lượt chấm AI. Đoạn viết vẫn được lưu; bạn có thể nộp sau khi có thêm lượt.</p></div></div>
+<p style="margin: 10px 0 0"><a href="GiaHanThemLuot.dc.html" class="lk">Xem cách có thêm lượt ›</a></p>
+<p class="cap" style="margin: 0">Nút “Nộp để AI nhận xét” ở trạng thái tắt.</p>
+</div>
+<div style="border-top: 1px solid var(--ink); padding-top: 10px">
+<p class="eb" style="margin-bottom: 8px">5c · Đang chờ nhận xét</p>
+<p style="margin: 0 0 6px; font-weight: 600">Đang đọc đoạn của bạn…</p>
+<p style="margin: 0 0 10px; font-size: 15px">Thường mất dưới một phút. Bạn có thể rời trang; nhận xét sẽ nằm ở đây khi bạn quay lại.</p>
+<div aria-hidden="true" style="display: flex; flex-direction: column; gap: 8px"><span style="height: 12px; width: 90%; background: var(--off)"></span><span style="height: 12px; width: 70%; background: var(--off)"></span><span style="height: 12px; width: 80%; background: var(--off)"></span></div>
+</div>
+<div style="border-top: 1px solid var(--ink); padding-top: 10px">
+<p class="eb" style="margin-bottom: 8px">5d · Lỗi và kiểm tra đầu vào</p>
+<div class="warn" style="padding: 10px 12px; font-size: 15px"><div><p style="margin: 0; font-weight: 600; color: var(--mark)">Cảnh báo</p><p style="margin: 2px 0 0">Chưa gửi được đoạn viết. Lượt chấm chưa bị trừ, đoạn của bạn vẫn còn nguyên.</p></div></div>
+<p style="margin: 10px 0 6px"><span class="btn2">Gửi lại</span></p>
+<p class="cap" style="margin: 0">Đoạn dưới 80 từ: nút tắt, dòng dưới ô ghi “62 từ · cần ít nhất 80”. Trên 100 từ vẫn nộp được, có dòng nhắc “đoạn dài hơn yêu cầu”.</p>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="m6" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="m6" class="sh">6 · Ghi chú cho lập trình và cho người soạn nội dung</h2>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 40px; font-size: 15px">
+<div>
+<p class="eb" style="margin-bottom: 6px; color: var(--ink)">Cấu trúc dữ liệu của một chủ đề</p>
+<ul class="note" style="margin: 0; padding-left: 18px">
+<li><strong>Chủ đề:</strong> tên tiếng Anh, tên tiếng Việt, đường dẫn (trùng chủ đề của trang Từ vựng), đoạn dẫn, trạng thái (nháp · chờ duyệt · đã xuất bản), người soạn, người duyệt, ngày duyệt.</li>
+<li><strong>Khía cạnh</strong> (3–6 mỗi chủ đề, có thứ tự): tiêu đề, nhãn ngắn, 3 ý con cho sơ đồ, 2–3 đoạn giải thích tiếng Việt.</li>
+<li><strong>Ý lập luận</strong> (3–4 mỗi khía cạnh): ý tiếng Việt, một dòng “vì sao dùng được”, câu tiếng Anh, nhãn mức câu. Đề xuất, chờ duyệt: không hiện con số band cạnh câu mẫu (dễ bị hiểu là cam kết điểm); thay bằng hai nhãn “câu đơn giản” và “câu phát triển hơn”.</li>
+<li><strong>Từ và collocation</strong> (6–8 mỗi khía cạnh): cụm tiếng Anh, nghĩa tiếng Việt, liên kết tới mục từ nếu đã có ở trang Từ vựng; chưa có thì hiện chữ thường, không liên kết.</li>
+<li><strong>Bẫy lập luận</strong> (1 mỗi khía cạnh): tên bẫy, câu sai, lý do, câu viết lại.</li>
+<li><strong>Quan hệ giữa khía cạnh:</strong> cặp khía cạnh và nhãn dạng đề (đường nét đứt của hình).</li>
+<li><strong>Tự kiểm:</strong> 3 câu hỏi mở, mỗi câu trỏ tới khía cạnh gợi ý; 1 đề viết đoạn.</li>
+<li><strong>Đề liên quan:</strong> bảng nối đề Writing với khía cạnh (nhiều–nhiều); câu hỏi Speaking Part 3 với khía cạnh. Dòng liên kết ngược ở trang đề đọc từ chính bảng này.</li>
+<li>Sơ đồ sinh từ dữ liệu, bố cục cố định cho 3 đến 6 nhánh.</li>
+</ul>
+</div>
+<div>
+<p class="eb" style="margin-bottom: 6px; color: var(--ink)">Hành vi</p>
+<ul class="note" style="margin: 0; padding-left: 18px">
+<li>Bấm nhánh trên hình, bấm thẻ dưới hình, hoặc nút “Khía cạnh trước/sau” đều đổi cùng một lựa chọn; lựa chọn ghi trên đường dẫn. Nhánh trên hình nhận tiêu điểm bàn phím và phím Enter.</li>
+<li>Trang mở công khai, thuộc Thư viện (đã chốt 18/11/2026): thanh công khai và chân trang công khai chép từ tờ Từ vựng; nội dung nằm sẵn trong trang khi tải để công cụ tìm kiếm đọc được; không có màn “chưa có khoá thì khoá nội dung”. Không đếm “đã mở mấy khía cạnh” cho khách.</li>
+<li>Nộp đoạn viết cho AI nhận xét: cần đăng nhập và tính 1 lượt từ kho lượt chấm chung (đã chốt 18/11/2026); trừ lượt khi nhận xét trả về thành công. Chưa đăng nhập: ô viết vẫn dùng được, nháp giữ trên trình duyệt, nút nộp thay bằng lời mời nhẹ (Đăng nhập để nộp · Chấm thử một bài miễn phí · Xem các khoá có lượt chấm AI). Đã đăng nhập mà chưa có khoá, chưa có lượt: màn 5a; lối chấm thử chỉ hiện khi hôm nay còn bài chấm thử. Lớp offline: nhận xét trả ngay, không qua giáo viên duyệt vì không phải bài Writing chấm band.</li>
+<li>Nhận xét phải trích nguyên văn từ đoạn của người học, tối đa ba mục, mỗi mục gắn với một ý hoặc một bẫy của cây. Không chấm band.</li>
+<li>Dòng “Ý và từ của chủ đề trong đoạn này” là số đo chính của sản phẩm: lưu số ý của cây và số collocation của chủ đề xuất hiện trong mỗi bài nộp, kể cả bài Writing đầy đủ thuộc các đề liên quan.</li>
+<li>Hình dùng biến màu của bảng màu nên theo được chế độ tối; bản in luôn sáng. Chủ đề chưa xuất bản không có đường dẫn.</li>
+</ul>
+</div>
+<div>
+<p class="eb" style="margin-bottom: 6px; color: var(--ink)">Công soạn và người duyệt</p>
+<ul class="note" style="margin: 0; padding-left: 18px">
+<li><strong>Khối lượng của chủ đề Work trên tờ này:</strong> 5 khía cạnh; 15 đoạn giải thích, khoảng 740 chữ tiếng Việt; 20 ý với 20 câu tiếng Anh, khoảng 360 từ; 40 từ và collocation; 5 bẫy; 3 câu tự kiểm; 5 đề Writing và 4 câu Speaking được nối.</li>
+<li><strong>Ước lượng cho một chủ đề:</strong> bản nháp do AI soạn trong một phiên làm việc; phần tốn công là người duyệt. Đề nghị dự trù 2–3 giờ giáo viên cho mỗi chủ đề: đọc dữ kiện, sửa câu tiếng Anh và nhãn mức câu, kiểm bảng nối đề. Con số này là ước lượng, chưa đo trên người duyệt thật.</li>
+<li><strong>Nguồn đề:</strong> năm đề Writing lấy nguyên văn từ kho 549 bộ bài mẫu. Tiêu đề tiếng Anh trên tờ là đề xuất vì kho chưa có trường tiêu đề. Bốn câu Speaking Part 3 là minh hoạ.</li>
+<li><strong>Ai duyệt:</strong> đề nghị hai lượt. Giáo viên IELTS duyệt câu tiếng Anh, nhãn mức câu và bẫy lập luận; chủ dự án hoặc người phụ trách nội dung duyệt dữ kiện và giọng văn. Chủ đề chỉ xuất bản khi có đủ tên hai người duyệt.</li>
+<li><strong>Quy tắc soạn:</strong> dữ kiện phổ thông, không số liệu; chỗ cần số thì nói định tính. Mỗi ý phải đi được vào ít nhất một đề trong kho. Câu tiếng Anh dài tối đa khoảng 30 từ. Nhãn “câu đơn giản” / “câu phát triển hơn” trên tờ là đánh giá của bản nháp, chưa qua giáo viên.</li>
+</ul>
+</div>
+</div>
+</section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Xanh teal","Navy + đỏ mận"],"default":"Navy + đỏ mận"},"$preview":{"width":1280,"height":8000}}'>
+class Component extends DCLogic {
+constructor(p) { super(p); this.state = { asp: 2, fb: "guest" }; }
+renderVals() {
+const s = this.state || {};
+const pal = (this.props.palette ?? 'Navy + đỏ mận') === "Xanh teal" ? "pal-teal" : "pal-navy";
+const cur = s.asp || 2;
+const W = "TuVung.dc.html";
+const aspects = [
+{ n: 1, title: "Vì sao công việc thay đổi", short: "Nguyên nhân",
+leaves: ["công nghệ và kết nối", "đại dịch như một phép thử", "chi phí và kỳ vọng mới"],
+explain: [
+"Có ba lực đẩy chính. Thứ nhất là công nghệ: internet nhanh, phần mềm họp trực tuyến và lưu trữ đám mây khiến nhiều việc văn phòng không còn gắn với một chỗ ngồi cố định; cùng lúc đó máy móc và phần mềm nhận dần những việc lặp đi lặp lại.",
+"Thứ hai là kinh tế: doanh nghiệp muốn giảm chi phí mặt bằng và tuyển được người ở xa; khu vực dịch vụ, nơi phần lớn công việc làm trên máy tính, ngày càng chiếm phần lớn hơn so với sản xuất.",
+"Thứ ba là kỳ vọng của người lao động. Giai đoạn đại dịch COVID-19 buộc rất nhiều nơi cho nhân viên làm tại nhà; sau đó nhiều người đã quen và muốn giữ sự linh hoạt. Cần nhớ thay đổi này không đều: việc chăm sóc, bán lẻ, sản xuất, giao hàng vẫn phải có mặt tại chỗ."
+],
+ideas: [
+{ vi: "Công nghệ tách công việc khỏi địa điểm", why: "Nêu công cụ cụ thể, rồi nêu hệ quả.", en: "Reliable internet access and video-conferencing tools mean that many office tasks can now be performed remotely.", band: "6.5" },
+{ vi: "Đại dịch là một phép thử quy mô lớn", why: "Dùng như dữ kiện phổ thông, không cần số liệu.", en: "The pandemic acted as a large-scale experiment, showing employers that staff could remain productive outside the office.", band: "7.5" },
+{ vi: "Doanh nghiệp có động cơ về chi phí", why: "Nói rõ tiết kiệm ở khoản nào.", en: "Companies have a clear financial incentive: fewer desks mean lower spending on rent and utilities.", band: "7.0" },
+{ vi: "Kỳ vọng của người đi làm đã khác", why: "Giới hạn nhóm đối tượng bằng “in particular”.", en: "Younger employees in particular tend to value flexibility as highly as pay when choosing an employer.", band: "7.0" }
+],
+words: [["remote working", "làm việc từ xa"], ["video conferencing", "họp trực tuyến có hình"], ["automation", "tự động hoá"], ["routine tasks", "việc lặp đi lặp lại"], ["cut overheads", "cắt chi phí cố định"], ["flexible working arrangements", "cách sắp xếp làm việc linh hoạt"], ["the service sector", "khu vực dịch vụ"], ["a shift in attitudes", "sự thay đổi trong cách nhìn"]],
+trapName: "Quy mọi thứ về một nguyên nhân",
+trapBad: "Because of technology, everyone works from home now.",
+trapWhy: "Câu này vừa chỉ một nguyên nhân, vừa nói “everyone”. Giám khảo đọc là thấy ý chưa được nghĩ kỹ: rất nhiều nghề không thể làm ở nhà.",
+trapGood: "Advances in technology have made remote work possible for many office-based roles, although jobs that require physical presence are largely unaffected.",
+essays: "2, 5" },
+{ n: 2, title: "Tác động tới người lao động", short: "Người lao động",
+leaves: ["thời gian và sức khoẻ", "ranh giới công việc – đời sống", "kỹ năng và việc làm"],
+explain: [
+"Mặt được: bớt thời gian đi lại mỗi ngày, tự sắp xếp giờ giấc, dễ kết hợp việc nhà và chăm con; người sống xa thành phố lớn có thể làm cho công ty ở nơi khác mà không phải chuyển nhà.",
+"Mặt mất: khi nhà cũng là chỗ làm, ranh giới giữa giờ làm và giờ nghỉ mờ đi, dễ thành làm thêm giờ mà không ai tính. Ít gặp đồng nghiệp nên dễ thấy lẻ loi, và người mới vào nghề mất cơ hội học việc bằng cách quan sát người đi trước.",
+"Với tự động hoá, phần dễ bị máy thay nhất là các thao tác lặp lại, có quy tắc rõ. Người làm những việc đó phải học kỹ năng mới; đổi lại, máy cũng nhận phần nặng nhọc và nguy hiểm. Tác động vì thế khác nhau theo nghề, tuổi nghề và điều kiện nhà ở của từng người."
+],
+ideas: [
+{ vi: "Bớt đi lại, thêm thời gian cho gia đình và sức khoẻ", why: "Lợi ích cụ thể, đo được bằng thời gian.", en: "Without a daily commute, employees gain time that can be spent with their family or on exercise.", band: "6.5" },
+{ vi: "Ranh giới mờ dẫn tới làm quá giờ và kiệt sức", why: "Chuỗi nguyên nhân – kết quả hai bước.", en: "When the home becomes the office, the boundary between work and personal life blurs, and many people end up working longer hours.", band: "7.5" },
+{ vi: "Người mới thiếu cơ hội học việc", why: "Chỉ ra đúng nhóm chịu thiệt.", en: "Junior staff may miss out on the informal guidance that comes from sitting near experienced colleagues.", band: "7.0" },
+{ vi: "Máy thay thao tác, không hẳn thay cả nghề", why: "Ý cân bằng, có điều kiện “who retrain”.", en: "Automation tends to replace routine tasks rather than whole jobs, so workers who retrain can move into roles that require judgement.", band: "7.5" }
+],
+words: [["work-life balance", "cân bằng công việc – đời sống"], ["a daily commute", "quãng đường đi làm mỗi ngày"], ["burnout", "kiệt sức vì công việc"], ["blur the boundary", "làm mờ ranh giới"], ["a sense of isolation", "cảm giác lẻ loi"], ["job security", "sự ổn định việc làm"], ["retrain", "học lại nghề, đào tạo lại"], ["a heavy workload", "khối lượng việc nặng"]],
+trapName: "Khẳng định tuyệt đối cho mọi người",
+trapBad: "Working from home makes all employees happier and more productive.",
+trapWhy: "“All employees” là điều không ai chứng minh được, và người đọc nghĩ ngay ra phản ví dụ: người ở nhà chật, người có con nhỏ, người mới vào nghề.",
+trapGood: "Employees who have a quiet space at home often find it easier to concentrate, whereas those who share a small flat may struggle.",
+essays: "1, 3, 4" },
+{ n: 3, title: "Doanh nghiệp và xã hội", short: "Doanh nghiệp, xã hội",
+leaves: ["chi phí, tuyển dụng, phối hợp", "giao thông và khu trung tâm", "khoảng cách giữa các nhóm nghề"],
+explain: [
+"Với doanh nghiệp: giảm được chi phí văn phòng, tuyển được người ở nhiều nơi, và giữ chân nhân viên nhờ sự linh hoạt. Cái giá là phối hợp nhóm khó hơn, văn hoá chung khó giữ, và người quản lý phải chuyển từ đếm giờ ngồi sang đánh giá bằng kết quả.",
+"Với xã hội: ít người đi làm giờ cao điểm thì đường bớt tắc và bớt khí thải từ xe cộ; nhưng quán ăn, cửa hàng sống nhờ dân văn phòng ở khu trung tâm mất khách. Cơ hội việc làm có thể lan ra ngoài các đô thị lớn.",
+"Điểm dễ bị bỏ quên: người làm được từ xa thường là lao động văn phòng, còn công nhân, y tá, người giao hàng thì không. Tương tự, tự động hoá làm năng suất tăng nhưng phần lợi không tự chia đều cho mọi nhóm."
+],
+ideas: [
+{ vi: "Nguồn tuyển dụng rộng hơn", why: "Lợi ích cho doanh nghiệp, có lý do đi kèm.", en: "Employers can recruit from a much wider talent pool, since location is no longer a barrier.", band: "7.0" },
+{ vi: "Phối hợp chậm đi khi ít gặp nhau", why: "Mô tả cơ chế bằng một hình ảnh đời thường.", en: "Collaboration can suffer when team members rarely meet, as quick questions turn into delayed messages.", band: "7.0" },
+{ vi: "Bớt tắc đường nhưng khu trung tâm mất khách", why: "Hai hệ quả trái chiều trong một câu.", en: "Fewer commuters ease traffic congestion, yet businesses that depend on office workers, such as city-centre cafés, lose custom.", band: "7.5" },
+{ vi: "Khoảng cách giữa các nhóm nghề", why: "Ý ít người nghĩ tới, hợp phần phản biện.", en: "Remote work is largely limited to office-based professionals, which may widen the gap between them and workers whose jobs require physical presence.", band: "7.5" }
+],
+words: [["a talent pool", "nguồn nhân lực để tuyển"], ["staff retention", "việc giữ chân nhân viên"], ["productivity", "năng suất"], ["traffic congestion", "tắc nghẽn giao thông"], ["city-centre businesses", "cơ sở kinh doanh ở khu trung tâm"], ["widen the gap", "nới rộng khoảng cách"], ["team cohesion", "sự gắn kết của nhóm"], ["be assessed on results", "được đánh giá bằng kết quả"]],
+trapName: "Nói chung chung, không có cơ chế",
+trapBad: "Working from home is good for the economy and society.",
+trapWhy: "Câu này không sai nhưng không cho giám khảo biết ai được lợi và được lợi bằng cách nào, nên không được tính là một ý đã phát triển.",
+trapGood: "Working from home benefits employers directly, because a smaller office means lower rent.",
+essays: "1, 3" },
+{ n: 4, title: "Giải pháp và chính sách", short: "Giải pháp",
+leaves: ["doanh nghiệp: mô hình kết hợp", "nhà nước: luật, đào tạo lại", "cá nhân: học suốt đời"],
+explain: [
+"Nên nghĩ giải pháp theo ba tầng. Doanh nghiệp: mô hình kết hợp, tức một số ngày ở văn phòng và một số ngày ở nhà; quy định rõ khung giờ được liên lạc; kèm cặp người mới bằng các buổi gặp trực tiếp.",
+"Nhà nước: một số nước đã đưa vào luật “quyền ngắt kết nối” ngoài giờ làm, Pháp là ví dụ hay được nhắc; đầu tư chương trình đào tạo lại cho người mất việc vì tự động hoá; mở rộng hạ tầng internet ra ngoài thành phố lớn.",
+"Cá nhân: tự đặt ranh giới giờ làm và học kỹ năng mới suốt đời đi làm. Một giải pháp được điểm khi nói đủ ba thứ: ai làm, làm gì, và vì sao việc đó có tác dụng."
+],
+ideas: [
+{ vi: "Mô hình kết hợp giữ được cả hai mặt lợi", why: "Giải pháp có lý do đi kèm.", en: "A hybrid arrangement, with set days in the office, keeps the flexibility of remote work while preserving face-to-face contact.", band: "7.5" },
+{ vi: "Quy định giờ được liên lạc", why: "Nêu kết quả mong đợi của biện pháp.", en: "Clear rules on when staff can be contacted would protect personal time without reducing output.", band: "7.0" },
+{ vi: "Nhà nước và doanh nghiệp cùng chi cho đào tạo lại", why: "Đủ ba phần: ai làm, làm gì, để làm gì.", en: "Governments and employers should share the cost of retraining programmes so that displaced workers can move into growing sectors.", band: "7.5" },
+{ vi: "Kèm cặp người mới", why: "Giải pháp cho đúng nhóm chịu thiệt ở khía cạnh 2.", en: "Pairing new recruits with a mentor for regular in-person sessions can make up for the lack of informal learning.", band: "7.0" }
+],
+words: [["hybrid working", "làm việc kết hợp nhà và văn phòng"], ["the right to disconnect", "quyền ngắt kết nối ngoài giờ"], ["retraining programmes", "chương trình đào tạo lại"], ["displaced workers", "người lao động bị mất việc"], ["lifelong learning", "học tập suốt đời"], ["mentoring", "việc kèm cặp"], ["subsidise", "trợ cấp, hỗ trợ kinh phí"], ["digital infrastructure", "hạ tầng số"]],
+trapName: "Giải pháp rỗng với “should”",
+trapBad: "The government should solve this problem and raise people's awareness.",
+trapWhy: "Không nói làm gì cụ thể và vì sao có tác dụng. “Raise awareness” gần như dùng được cho mọi đề, nên không chứng minh bạn hiểu đề này.",
+trapGood: "The government could subsidise short retraining courses, which would help workers in declining industries find new roles.",
+essays: "3, 5" },
+{ n: 5, title: "Tranh luận hai phía", short: "Hai phía",
+leaves: ["từ xa hay văn phòng", "máy thay người hay giúp người", "lương cao hay sự hài lòng"],
+explain: [
+"Đề về công việc thường yêu cầu bàn hai quan điểm hoặc cân lợi – hại. Ba cặp tranh luận gặp nhiều nhất: làm từ xa là tương lai hay văn phòng không thể thiếu; tự động hoá giải phóng con người hay gây thất nghiệp; nên chọn việc lương cao hay việc mình thấy hài lòng.",
+"Ở cả ba cặp, câu trả lời có sức thuyết phục thường là “tuỳ điều kiện”. Việc cần tập trung một mình hợp làm ở nhà, việc cần trao đổi nhanh hợp ở văn phòng. Công nghệ vừa xoá việc cũ vừa tạo việc mới, nhưng người mất việc và người có việc mới thường không phải là một. Sự hài lòng chỉ thành ưu tiên khi thu nhập đã đủ sống.",
+"Nêu được điều kiện để mỗi bên đúng chính là cách thể hiện quan điểm rõ ràng mà không phải khẳng định tuyệt đối."
+],
+ideas: [
+{ vi: "Tuỳ bản chất công việc", why: "Quan điểm có điều kiện, kèm hai ví dụ đối xứng.", en: "Whether remote work is preferable depends largely on the nature of the task: focused individual work suits the home, whereas brainstorming benefits from a shared space.", band: "7.5" },
+{ vi: "Nhượng bộ rồi phản biện", why: "Mẫu “although …, provided that …”.", en: "Although automation will inevitably eliminate some positions, it is likely to create others, provided that workers are given the chance to retrain.", band: "7.5" },
+{ vi: "Hài lòng với công việc và ngưỡng đủ sống", why: "Đặt ranh giới cho quan điểm của mình.", en: "Job satisfaction matters more only once a salary covers essential expenses; below that level, financial security understandably comes first.", band: "7.5" },
+{ vi: "Kết luận có điều kiện", why: "Dùng cho câu cuối của bài cân lợi – hại.", en: "On balance, the advantages outweigh the drawbacks as long as employers set clear expectations.", band: "6.5" }
+],
+words: [["outweigh the drawbacks", "lớn hơn những mặt hạn chế"], ["to a certain extent", "ở một mức độ nhất định"], ["provided that", "với điều kiện là"], ["on balance", "cân nhắc mọi mặt"], ["the nature of the task", "bản chất của công việc"], ["eliminate jobs", "xoá bỏ việc làm"], ["financial security", "sự an toàn tài chính"], ["job satisfaction", "sự hài lòng với công việc"]],
+trapName: "Bàn hai phía rồi không chọn gì",
+trapBad: "In conclusion, both working from home and working in an office have advantages and disadvantages.",
+trapWhy: "Câu kết này đúng với mọi đề và không trả lời câu hỏi. Đề hỏi “outweigh” hay “your opinion” thì bài phải nghiêng về một phía, kèm điều kiện.",
+trapGood: "In conclusion, I believe remote work is the better option for experienced staff, while newcomers still need regular time in the office.",
+essays: "1, 2, 4" }
+];
+const mk = (a) => {
+const on = a.n === cur;
+return { fill: on ? "var(--ink)" : "var(--surface)", ink: on ? "var(--paper)" : "var(--ink)", sw: on ? "3.5" : "1.2", bw: on ? "2" : "1.2", on: on ? "true" : "false", pick: () => this.setState({ asp: a.n }) };
+};
+const b = aspects.map(mk);
+const a0 = aspects.find((x) => x.n === cur) || aspects[1];
+const a = Object.assign({}, a0, {
+explain: a0.explain.map((t) => ({ t })),
+explain0: a0.explain[0],
+idea0: a0.ideas[0],
+ideas: a0.ideas.map((x, i) => Object.assign({ k: String(i + 1), level: Number(x.band) >= 7 ? "câu phát triển hơn" : "câu đơn giản" }, x)),
+words: a0.words.map((w) => ({ en: w[0], vi: w[1], href: W })),
+leaves: a0.leaves.map((t) => ({ t }))
+});
+const tabs = aspects.map((x) => {
+const on = x.n === cur;
+return { n: String(x.n), title: x.title, short: x.short, on: on ? "true" : "false", isOn: on, bg: on ? "var(--ink)" : "var(--surface)", fg: on ? "var(--paper)" : "var(--ink)", weight: on ? "600" : "400", pick: () => this.setState({ asp: x.n }), leaves: x.leaves.map((t) => ({ t })) };
+});
+const prevN = cur === 1 ? 5 : cur - 1;
+const nextN = cur === 5 ? 1 : cur + 1;
+const questions = [
+{ k: "1", q: "Nghề của bạn, hoặc một nghề bạn biết rõ, có làm từ xa được không? Phần việc nào được, phần nào không, và vì sao?", use: "Khía cạnh 1 và 3" },
+{ k: "2", q: "Chọn một người bị thiệt khi nhiều người làm việc tại nhà, ví dụ nhân viên mới vào nghề hoặc chủ quán ăn cạnh toà văn phòng. Điều gì thay đổi với họ, và ai có thể làm gì để giảm thiệt hại?", use: "Khía cạnh 2, 3 và 4" },
+{ k: "3", q: "“Tự động hoá chỉ có hại cho người lao động.” Hãy tìm một trường hợp câu này đúng và một trường hợp câu này sai, rồi nói điều gì tạo ra khác biệt giữa hai trường hợp.", use: "Khía cạnh 2 và 5" }
+];
+const feedback = [
+{ k: "1", kind: "Ý đã dùng được", quote: "the line between work and personal life becomes unclear", note: "Đây là ý thứ hai của khía cạnh 2, và bạn đã phát triển nó bằng một ví dụ có thật về chị của mình. Ví dụ cụ thể như vậy làm ý đứng vững. Cách nói tự nhiên hơn cho cùng ý:", fix: "the boundary between work and personal life blurs" },
+{ k: "2", kind: "Khẳng định tuyệt đối", quote: "working from home is bad for everyone", note: "Đây là bẫy của khía cạnh 2. Chính đoạn của bạn chỉ chứng minh cho một người. Hãy giới hạn nhóm đối tượng:", fix: "working from home can be isolating for those who live alone" },
+{ k: "3", kind: "Giải pháp rỗng", quote: "companies should solve this problem", note: "Câu kết chưa nói công ty làm gì. Xem khía cạnh 4, ý thứ hai. Ví dụ:", fix: "companies could set clear hours when staff are not expected to reply" }
+];
+const essays = [
+{ title: "Working from home", type: "Cân lợi – hại", text: "More and more people are working from home rather than in a traditional office. Do the advantages of this development outweigh the disadvantages?", asp: "2 · 3 · 5" },
+{ title: "Automation and repetitive work", type: "Bàn hai quan điểm", text: "Some argue automation will free workers from repetitive tasks; others fear mass job loss. Discuss both views.", asp: "1 · 2 · 5" },
+{ title: "Flexible working hours", type: "Cân lợi – hại", text: "Many companies offer flexible working hours. Do advantages outweigh disadvantages?", asp: "2 · 3 · 4" },
+{ title: "Job satisfaction or a high salary", type: "Nêu quan điểm", text: "Job satisfaction is more important than a high salary. To what extent do you agree?", asp: "2 · 5" },
+{ title: "Young workers: low pay and insecurity", type: "Nguyên nhân – giải pháp", text: "Many young workers are underpaid and lack job security. What are the causes and what can be done?", asp: "1 · 4" }
+].map((e, i) => Object.assign({ k: String(i + 1) }, e));
+const speaking = [
+{ q: "Do you think working from home will become more common in your country?", asp: "1 · 5" },
+{ q: "What kinds of jobs are most likely to be done by machines in the future?", asp: "1 · 2" },
+{ q: "Is it more important to enjoy your job or to earn a high salary?", asp: "5" },
+{ q: "How can employers help their staff achieve a better work-life balance?", asp: "4" }
+];
+const topics = [
+{ k: "1", en: "Education", vi: "Giáo dục", st: "Đang soạn", note: "Người soạn đang viết nháp", has: false },
+{ k: "2", en: "Environment", vi: "Môi trường", st: "Chờ duyệt", note: "Đã soạn xong, chờ giáo viên duyệt", has: false },
+{ k: "3", en: "Work", vi: "Công việc", st: "Đã có nội dung", note: "5 khía cạnh · 20 ý · 40 từ · 5 đề Writing", has: true },
+{ k: "4", en: "Technology", vi: "Công nghệ", st: "Đang soạn", note: "Người soạn đang viết nháp", has: false },
+{ k: "5", en: "Health", vi: "Sức khoẻ", st: "Chưa bắt đầu", note: "", has: false },
+{ k: "6", en: "Crime", vi: "Tội phạm, pháp luật", st: "Chưa bắt đầu", note: "", has: false },
+{ k: "7", en: "Government", vi: "Chính phủ, chính sách", st: "Chưa bắt đầu", note: "", has: false },
+{ k: "8", en: "Media", vi: "Truyền thông", st: "Chưa bắt đầu", note: "", has: false },
+{ k: "9", en: "Cities and housing", vi: "Đô thị, nhà ở", st: "Đề xuất thêm", note: "Chưa có trong danh sách chủ đề từ vựng", has: false },
+{ k: "10", en: "Culture and globalisation", vi: "Văn hoá, toàn cầu hoá", st: "Đề xuất thêm", note: "Chưa có trong danh sách chủ đề từ vựng", has: false }
+].map((t) => Object.assign({}, t, { no: !t.has, weight: t.has ? "600" : "400", color: t.has ? "var(--ink)" : "var(--muted)" }));
+const tab = (label, href, icon, c) => ({ label, href, icon, current: c ? "page" : "false", bar: c ? "var(--accent)" : "transparent", color: c ? "var(--ink)" : "var(--muted)", weight: c ? 600 : 400 });
+const mtabs = [
+tab("Hôm nay", "Main.dc.html", "M4 11l8-7 8 7v9H4z", false),
+tab("Lộ trình", "LoTrinh.dc.html", "M5 5h14M5 12h14M5 19h14", false),
+tab("Luyện tập", "LuyenTap.dc.html", "M5 19l4-1 10-10-3-3L6 15z", true),
+tab("Thi thử", "ThiThu.dc.html", "M12 7v5l3 2M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18", false),
+tab("Thư viện", "ThuVien.dc.html", "M5 4h5v16H5zM10 4h5v16h-5zM16 6l3-1 2 14-3 1z", false)
+];
+const done = s.fb === "done";
+const guest = (s.fb || "guest") === "guest";
+const demo = [["guest", "Chưa đăng nhập"], ["draft", "Đã đăng nhập · chưa nộp"], ["done", "Đã đăng nhập · có nhận xét"]].map(([k, t]) => ({ t, on: (s.fb || "guest") === k ? "true" : "false", bw: (s.fb || "guest") === k ? "2px" : "1px", bg: (s.fb || "guest") === k ? "var(--tint)" : "var(--surface)", go: () => this.setState({ fb: k }) }));
+return {
+pal, a, tabs, questions, feedback, feedback2: feedback.slice(0, 2), essays, speaking, topics, mtabs,
+b1: b[0], b2: b[1], b3: b[2], b4: b[3], b5: b[4],
+prevLabel: "Khía cạnh " + prevN, nextLabel: "Khía cạnh " + nextN,
+goPrev: () => this.setState({ asp: prevN }), goNext: () => this.setState({ asp: nextN }),
+demo, fbGuest: guest, fbIn: !guest, fbNone: !done, fbDone: done, fbDraft: !done && !guest,
+submit: () => this.setState({ fb: "done" }), redraft: () => this.setState({ fb: "draft" })
+};
+}
+}
+
+</script>
+</body>
+</html>

@@ -1,0 +1,697 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Admin — Chấm Writing</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--accentH:#0B5953;--link:#0B5953;--mark:#8A4B08;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EDF3F1;--off:#E7E2D6;--warnBg:#F6EEE3}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--accentH:#11254A;--link:#1A3561;--mark:#8A1C1C;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EEF0F5;--off:#E8E2D5;--warnBg:#F6ECE9}
+a{color:var(--link)}a:hover{color:var(--ink)}
+button:disabled{opacity:0.5;cursor:not-allowed}
+.k{margin:0;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;color:var(--muted)}
+.cap{margin:0 0 8px;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)}
+.serif{font-family:'Source Serif 4',Georgia,serif}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:0 16px;box-sizing:border-box;border:1px solid var(--ink);border-radius:2px;background:var(--surface);color:var(--ink);font:600 14px 'Source Sans 3',sans-serif;text-decoration:none;cursor:pointer;white-space:nowrap}
+.btn-p{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.btn-p:hover{background:var(--accentH);color:var(--surface)}
+.btn-d{border-color:var(--danger);color:var(--danger)}
+.btn-dd{background:var(--danger);border-color:var(--danger);color:var(--surface)}
+.lk{min-height:32px;padding:0 2px;border:0;background:none;color:var(--link);font:400 14px 'Source Sans 3',sans-serif;text-decoration:underline;cursor:pointer}
+.inp{min-height:40px;padding:0 12px;box-sizing:border-box;border:1px solid var(--muted);border-radius:2px;background:var(--surface);color:var(--ink);font:15px 'Source Sans 3',sans-serif}
+.ta{box-sizing:border-box;width:100%;padding:8px 10px;border:1px solid var(--muted);border-radius:2px;background:var(--surface);color:var(--ink);font:15px/1.5 'Source Sans 3',sans-serif;resize:vertical}
+.th{padding:8px 12px 8px 0;font-size:13px;font-weight:600;color:var(--muted);border-top:1px solid var(--ink);border-bottom:1px solid var(--ink)}
+.td{padding:10px 12px 10px 0;min-width:0}
+.tr{border-bottom:1px solid var(--rule)}
+.warn{padding:14px 18px;border:1px solid var(--mark);border-left:4px solid var(--mark);background:var(--warnBg)}
+.warn-k{margin:0 0 2px;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;color:var(--mark)}
+.info{padding:10px 16px;border:1px solid var(--rule);border-left:4px solid var(--accent);background:var(--surface)}
+kbd{font:600 12px 'Source Sans 3',sans-serif;color:var(--ink);border:1px solid var(--muted);border-bottom-width:2px;padding:0 6px;border-radius:2px;background:var(--surface)}
+</style>
+</helmet>
+<div class="{{pal}}" style="width: 1440px; height: 5600px; box-sizing: border-box; padding: 56px 64px; background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 15px; line-height: 1.5; display: flex; flex-direction: column; gap: 44px">
+
+<header>
+<p class="cap" style="margin: 0">Aver Learning · Bản in · Admin và giáo viên · Chấm bài</p>
+<h1 class="serif" style="margin: 4px 0 6px; font-size: 40px; font-weight: 600; line-height: 1.15">Chấm Writing: hàng chờ và màn chấm một bài</h1>
+<p style="margin: 0; color: var(--muted); max-width: 96ch; font-size: 16px">Chỉ bài của học viên lớp offline vào hàng chờ: AI chấm trước, giáo viên duyệt rồi mới trả. Bài khoá online và tự luyện AI chấm và trả ngay, không qua đây, trừ khi học viên gửi yêu cầu chấm lại (xem <a href="AdminChamLai.dc.html">Yêu cầu chấm lại</a>). Giáo viên dùng đúng các màn này trong khung giáo viên, chỉ thấy lớp của mình.</p>
+</header>
+
+<!-- ============ 1. HÀNG CHỜ ============ -->
+<section aria-labelledby="s1" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="s1" class="serif" style="margin: 0 0 6px; font-size: 24px; font-weight: 600">1 · Bài chờ duyệt · Writing</h2>
+<p style="margin: 0 0 16px; color: var(--muted)">Màn chính, đủ khung admin. Một hàng chờ duy nhất cho bài chờ giáo viên duyệt; không còn mục "Giáo viên duyệt" riêng. Lối "AI lỗi cần chấm tay", bộ lọc Lớp, Task, Kỳ thi và Sắp xếp bấm được.</p>
+<div style="border: 1px solid var(--ink); background: var(--paper)">
+<header style="display: flex; align-items: center; gap: 20px; min-height: 56px; padding: 0 24px; border-bottom: 1px solid var(--ink); background: var(--surface)">
+<span class="serif" style="display: inline-flex; align-items: center; gap: 8px; font-size: 19px; font-weight: 600"><svg width="25" height="25" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<span style="padding: 2px 8px; border: 1px solid var(--ink); border-radius: 2px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600">Quản trị</span>
+<span style="padding: 2px 8px; background: var(--mark); color: var(--surface); border-radius: 2px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600">Production · dữ liệu thật</span>
+<label style="flex: 1 1 320px; max-width: 440px; display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--paper)">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 16px; height: 16px; flex-shrink: 0"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"></circle><path d="M16.5 16.5L21 21" stroke="currentColor" stroke-width="2"></path></svg>
+<input type="search" placeholder="Tìm học viên, lớp, bài nộp, đề…" aria-label="Tìm nhanh" style="flex-grow: 1; min-width: 0; border: 0; background: transparent; font: 15px 'Source Sans 3', sans-serif; color: var(--ink)">
+<kbd style="font-weight: 400; color: var(--muted); border-color: var(--rule); border-bottom-width: 1px">⌘K</kbd>
+</label>
+<span style="flex-grow: 1"></span>
+<a href="Main.dc.html" style="font-size: 14px">Xem như học viên</a>
+<button aria-label="Mở menu tài khoản: đổi vai trò, đăng xuất" style="width: 40px; height: 40px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 13px 'Source Sans 3', sans-serif; cursor: pointer">VT</button>
+</header>
+<div style="display: flex">
+<nav aria-label="Điều hướng quản trị" style="flex-shrink: 0; width: 248px; box-sizing: border-box; padding: 12px 0; border-right: 1px solid var(--rule); background: var(--surface)">
+<sc-for list="{{nav}}" as="g" hint-placeholder-count="8">
+<div>
+<button type="button" aria-expanded="{{g.exp}}" onClick="{{g.toggle}}" style="display: flex; align-items: center; gap: 8px; width: 100%; min-height: 36px; padding: 0 16px; border: 0; background: transparent; color: {{g.headColor}}; font: 600 12px 'Source Sans 3', sans-serif; letter-spacing: 0.08em; text-transform: uppercase; text-align: left; cursor: pointer">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 14px; height: 14px; flex-shrink: 0"><path d="{{g.chev}}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<span style="flex-grow: 1">{{g.name}}</span>
+<span style="color: var(--mark); font-variant-numeric: tabular-nums; letter-spacing: 0">{{g.badgeShow}}</span>
+</button>
+<sc-if value="{{g.show}}" hint-placeholder-val="{{ false }}">
+<div role="group" aria-label="{{g.name}}" style="margin: 0 0 6px 23px; border-left: 1px solid var(--rule)">
+<sc-for list="{{g.items}}" as="i" hint-placeholder-count="3">
+<a href="{{i.href}}" aria-current="{{i.current}}" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; padding: 0 16px 0 21px; margin-left: -2px; border-left: 3px solid {{i.bar}}; background: {{i.bg}}; color: var(--ink); font-weight: {{i.weight}}; text-decoration: none">{{i.label}}<span style="color: var(--mark); font-weight: 600; font-variant-numeric: tabular-nums">{{i.count}}</span></a>
+</sc-for>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</nav>
+<main style="flex: 1 1 auto; min-width: 0; padding: 24px 32px 40px">
+<nav aria-label="Vị trí trang" style="font-size: 14px; color: var(--muted); margin-bottom: 14px"><a href="AdminViecCanLam.dc.html">Tổng quan</a> › Chấm bài › <span aria-current="page" style="color: var(--ink)">Writing</span></nav>
+<div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px">
+<div>
+<h3 class="serif" style="margin: 0; font-size: 32px; font-weight: 600; line-height: 1.15">Bài chờ duyệt · Writing</h3>
+<p style="margin: 4px 0 0; color: var(--muted)">Bài của học viên lớp offline. AI đã chấm và đề xuất điểm; học viên chỉ thấy kết quả sau khi bạn duyệt và trả.</p>
+</div>
+<div style="display: flex; gap: 10px">
+<a href="#s2" class="btn">Gửi bài chấm thay học viên</a>
+<a href="#s2" class="btn btn-p">Chấm bài đầu hàng chờ</a>
+</div>
+</div>
+<div role="group" aria-label="Bài chờ duyệt" style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 28px; margin: 18px 0 0; padding: 12px 16px; border: 1px solid var(--rule); border-left: 4px solid var(--ink); background: var(--surface); font-variant-numeric: tabular-nums">
+<span class="k" style="color: var(--ink)">Bài chờ duyệt</span>
+<span aria-current="page"><strong>Writing <span style="color: var(--mark)">3</span></strong> <span style="color: var(--muted); font-size: 14px">· đang xem</span></span>
+<a href="AdminChamSpeakingThiThu.dc.html">Speaking thi thử chờ chấm <strong style="color: var(--mark)">2</strong></a>
+<button type="button" class="lk" aria-pressed="{{aiOnlyOn}}" onClick="{{toggleAiOnly}}" style="font-weight: {{aiOnlyW}}">AI lỗi cần chấm tay <strong style="color: var(--mark)">1</strong></button>
+<span style="color: var(--muted); font-size: 14px">AI lỗi nằm trong số Writing 3; bấm để chỉ xem bài đó.</span>
+<span style="flex-grow: 1"></span>
+<span role="status" style="font-weight: 600">{{leftLine}}</span>
+</div>
+<div role="tablist" aria-label="Làn của hàng chờ" style="display: flex; flex-wrap: wrap; gap: 0 28px; margin: 16px 0 16px; border-bottom: 1px solid var(--ink)">
+<a href="#s1" role="tab" aria-selected="true" style="padding: 10px 0 8px; color: var(--ink); font-weight: 600; text-decoration: none; border-bottom: 3px solid var(--ink)">Chờ duyệt <span style="color: var(--mark); font-variant-numeric: tabular-nums">3</span></a>
+<a href="#s1" role="tab" aria-selected="false" style="padding: 10px 0; color: var(--muted); text-decoration: none">Nháp của bạn</a>
+<a href="#s1" role="tab" aria-selected="false" style="padding: 10px 0; color: var(--muted); text-decoration: none">Chờ học viên viết lại 1</a>
+<a href="#s1" role="tab" aria-selected="false" style="padding: 10px 0; color: var(--muted); text-decoration: none">Đã trả · 7 ngày</a>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px 20px">
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="q-cls" style="font-weight: 600; font-size: 14px">Lớp</label>
+<select id="q-cls" class="inp" value="{{cls}}" onChange="{{pickCls}}" style="min-width: 220px">
+<sc-for list="{{clsOpts}}" as="o" hint-placeholder-count="4"><option value="{{o.v}}">{{o.v}}</option></sc-for>
+</select></div>
+<div role="group" aria-label="Task" style="display: flex; flex-direction: column; gap: 4px"><span style="font-weight: 600; font-size: 14px">Task</span>
+<div style="display: flex">
+<sc-for list="{{taskOpts}}" as="t" hint-placeholder-count="3"><button type="button" aria-pressed="{{t.on}}" onClick="{{t.pick}}" style="min-height: 40px; padding: 0 16px; margin-right: -1px; border: 1px solid var(--ink); background: {{t.bg}}; color: {{t.fg}}; font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer">{{t.label}}</button></sc-for>
+</div></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="q-who" style="font-weight: 600; font-size: 14px">Người chấm</label>
+<select id="q-who" class="inp"><option>Tất cả</option><option>Chưa ai nhận</option><option>Bạn đang giữ</option></select></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="q-exam" style="font-weight: 600; font-size: 14px">Kỳ thi</label>
+<select id="q-exam" class="inp" value="{{exam}}" onChange="{{pickExam}}"><sc-for list="{{examOpts}}" as="o" hint-placeholder-count="2"><option value="{{o.v}}">{{o.label}}</option></sc-for></select></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="q-sort" style="font-weight: 600; font-size: 14px">Sắp xếp</label>
+<select id="q-sort" class="inp" value="{{sort}}" onChange="{{pickSort}}"><sc-for list="{{sortOpts}}" as="o" hint-placeholder-count="4"><option value="{{o.v}}">{{o.label}}</option></sc-for></select></div>
+<span role="status" style="margin-left: auto; font-weight: 600; font-variant-numeric: tabular-nums">{{qCount}}</span>
+</div>
+<div role="table" aria-label="Bài chờ duyệt" style="margin-top: 16px; font-variant-numeric: tabular-nums">
+<div role="row" style="display: grid; grid-template-columns: 168px 132px minmax(0, 1fr) 92px 96px 96px 150px 72px">
+<div role="columnheader" class="th">Học viên</div><div role="columnheader" class="th">Lớp</div><div role="columnheader" class="th">Đề</div><div role="columnheader" class="th">Nộp lúc</div><div role="columnheader" class="th">Chờ</div><div role="columnheader" class="th" style="text-align: right">Điểm AI đề xuất</div><div role="columnheader" class="th" style="padding-left: 16px">Người đang chấm</div><div role="columnheader" class="th"><span style="position: absolute; left: -9999px">Thao tác</span></div>
+</div>
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="8">
+<div role="row" class="tr" style="display: grid; grid-template-columns: 168px 132px minmax(0, 1fr) 92px 96px 96px 150px 72px; align-items: baseline; background: {{r.bg}}">
+<div role="cell" class="td"><a href="HoSoHocVien.dc.html" style="font-weight: 600">{{r.name}}</a></div>
+<div role="cell" class="td" style="font-size: 14px">{{r.cls}}</div>
+<div role="cell" class="td"><span lang="en">{{r.title}}</span><span style="display: block; font-size: 13px; color: var(--muted)">{{r.task}} · {{r.words}} từ · lần nộp {{r.attempt}}</span></div>
+<div role="cell" class="td" style="font-size: 14px">{{r.at}}</div>
+<div role="cell" class="td" style="font-weight: {{r.waitW}}; color: {{r.waitC}}">{{r.wait}}</div>
+<div role="cell" class="td" style="text-align: right; font-family: 'Source Serif 4', Georgia, serif; font-size: {{r.aiSize}}; font-weight: 600; color: {{r.aiC}}">{{r.ai}}</div>
+<div role="cell" class="td" style="padding-left: 16px; font-size: 14px; color: {{r.whoC}}">{{r.who}}</div>
+<div role="cell" class="td" style="padding-right: 0; text-align: right"><a href="#s2" style="font-weight: 600">{{r.act}}</a></div>
+</div>
+</sc-for>
+<sc-if value="{{examEmpty}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 18px 0; border-bottom: 1px solid var(--rule)">
+<p style="margin: 0 0 4px; font-weight: 600">Chưa có bài Writing nào của Thi thử tháng 11.</p>
+<p style="margin: 0; font-size: 14px; color: var(--muted)">Kỳ thi bắt đầu 14:00 hôm nay (17/11), hai lớp Tue–Thu 19:30 và Mon–Wed 18:00. Bài vào đây khi thí sinh nộp; bạn chấm như mọi bài, nhưng không trả từng bài. Trả kết quả thi thử chỉ làm ở thẻ Trả kết quả của <a href="AdminKyThi.dc.html">kỳ thi</a>.</p>
+</div>
+</sc-if>
+<sc-if value="{{filterEmpty}}" hint-placeholder-val="{{ false }}"><p style="margin: 0; padding: 18px 0; border-bottom: 1px solid var(--rule); color: var(--muted)">Không có bài nào khớp bộ lọc. <button type="button" class="lk" onClick="{{clearF}}">Xoá bộ lọc</button></p></sc-if>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; margin-top: 14px; font-size: 14px; color: var(--muted)">
+<span>Chờ tính từ lúc AI chấm xong. Bài vượt ngưỡng ở <a href="AdminCaiDat.dc.html#m6">Cài đặt › Ngưỡng vận hành</a> ghi chữ "quá hạn" và tô đậm màu đánh dấu.</span>
+</div>
+<p style="margin: 18px 0 0; padding-top: 12px; border-top: 1px solid var(--rule); font-size: 14px; color: var(--muted)">Phím tắt: <kbd>↑</kbd> <kbd>↓</kbd> chọn hàng · <kbd>Enter</kbd> mở màn chấm · trong màn chấm <kbd>Ctrl Enter</kbd> trả bài và mở bài kế, <kbd>J</kbd> bài kế tiếp, <kbd>K</kbd> bài trước, theo đúng thứ tự và bộ lọc của danh sách này.</p>
+</main>
+</div>
+</div>
+</section>
+
+<!-- ============ 2. MÀN CHẤM ============ -->
+<section aria-labelledby="s2" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="s2" class="serif" style="margin: 0 0 6px; font-size: 24px; font-weight: 600">2 · Màn chấm một bài</h2>
+<p style="margin: 0 0 16px; color: var(--muted)">Thanh bên thu về dạng icon để đủ ba vùng: bài viết có chú thích · điểm và nhận xét · hành động. Đổi điểm, sửa, xoá, thêm chú thích và các hộp xác nhận đều bấm được.</p>
+<div style="border: 1px solid var(--ink); background: var(--paper)">
+<header style="display: flex; align-items: center; gap: 20px; min-height: 56px; padding: 0 24px; border-bottom: 1px solid var(--ink); background: var(--surface)">
+<span class="serif" style="display: inline-flex; align-items: center; gap: 8px; font-size: 19px; font-weight: 600"><svg width="25" height="25" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<span style="padding: 2px 8px; border: 1px solid var(--ink); border-radius: 2px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600">Quản trị</span>
+<span style="padding: 2px 8px; background: var(--mark); color: var(--surface); border-radius: 2px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600">Production · dữ liệu thật</span>
+<label style="flex: 1 1 320px; max-width: 440px; display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--paper)">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 16px; height: 16px; flex-shrink: 0"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"></circle><path d="M16.5 16.5L21 21" stroke="currentColor" stroke-width="2"></path></svg>
+<input type="search" placeholder="Tìm học viên, lớp, bài nộp, đề…" aria-label="Tìm nhanh" style="flex-grow: 1; min-width: 0; border: 0; background: transparent; font: 15px 'Source Sans 3', sans-serif; color: var(--ink)">
+<kbd style="font-weight: 400; color: var(--muted); border-color: var(--rule); border-bottom-width: 1px">⌘K</kbd>
+</label>
+<span style="flex-grow: 1"></span>
+<a href="Main.dc.html" style="font-size: 14px">Xem như học viên</a>
+<button aria-label="Mở menu tài khoản: đổi vai trò, đăng xuất" style="width: 40px; height: 40px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 13px 'Source Sans 3', sans-serif; cursor: pointer">VT</button>
+</header>
+<div style="display: flex">
+<nav aria-label="Điều hướng quản trị" style="flex: 0 0 56px; display: flex; flex-direction: column; border-right: 1px solid var(--rule); background: var(--surface)">
+<sc-for list="{{rail}}" as="r" hint-placeholder-count="8">
+<a href="{{r.href}}" aria-label="{{r.name}}" title="{{r.name}}" aria-current="{{r.cur}}" style="position: relative; display: flex; align-items: center; justify-content: center; height: 40px; border-left: 3px solid {{r.bar}}; background: {{r.bg}}; color: var(--ink)">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 20px; height: 20px"><path d="{{r.icon}}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<span aria-hidden="true" style="position: absolute; top: 2px; right: 4px; font-size: 11px; font-weight: 600; color: var(--mark); font-variant-numeric: tabular-nums">{{r.badge}}</span>
+</a>
+</sc-for>
+<button aria-label="Mở rộng thanh bên" style="margin-top: 8px; height: 40px; border: 0; border-top: 1px solid var(--rule); background: transparent; color: var(--ink); cursor: pointer"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 18px; height: 18px"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+</nav>
+<main style="flex: 1 1 auto; min-width: 0; padding: 20px 28px 36px">
+
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; padding-bottom: 12px; border-bottom: 1px solid var(--rule)">
+<nav aria-label="Vị trí trang" style="font-size: 14px; color: var(--muted)"><a href="#s1">Chấm bài</a> › <a href="#s1">Writing</a> › <span aria-current="page" style="color: var(--ink)">Nguyễn Minh Anh · Task 2</span></nav>
+<span style="flex-grow: 1"></span>
+<span style="font-size: 14px; font-variant-numeric: tabular-nums"><strong>{{leftLine}}</strong> <span style="color: var(--muted)">· bài 1 / 3</span></span>
+<a href="#s2" class="btn" style="min-height: 36px">← Bài trước <kbd>K</kbd></a>
+<a href="#s2" class="btn" style="min-height: 36px">Bài kế tiếp <kbd>J</kbd> →</a>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px 32px; margin-top: 18px">
+<div style="min-width: 0">
+<p class="k">Writing Task 2 · lần nộp 2 · 214 từ</p>
+<h3 lang="en" class="serif" style="margin: 4px 0 6px; font-size: 32px; font-weight: 600; line-height: 1.15">Technology and young people's jobs</h3>
+<p style="margin: 0; color: var(--muted)"><a href="HoSoHocVien.dc.html" style="font-weight: 600">Nguyễn Minh Anh</a> · Lớp Tue–Thu 19:30 · Course 1 · XXX · nộp 21:38, 14/11/2026</p>
+<p style="margin: 6px 0 0; padding: 4px 0 4px 10px; border-left: 3px solid var(--rule); font-size: 14px; font-variant-numeric: tabular-nums">4 bài gần nhất <strong>5.5 · 5.5 · 6.0 · 6.0</strong> · mục tiêu <strong>6.5</strong> · hay sai: <strong style="color: var(--mark)">hoà hợp chủ–vị (3 bài)</strong> · <a href="HoSoHocVien.dc.html">Mở hồ sơ học viên</a></p>
+</div>
+<div role="status" style="display: flex; align-items: center; gap: 10px; padding: 8px 14px; border: 1px solid var(--rule); background: var(--surface); font-size: 14px">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 16px; height: 16px"><rect x="5" y="11" width="14" height="9" fill="none" stroke="currentColor" stroke-width="1.8"></rect><path d="M8 11V8a4 4 0 018 0v3" fill="none" stroke="currentColor" stroke-width="1.8"></path></svg>
+<span>Bạn đang giữ bài này từ 10:05. Người khác mở sẽ thấy bài đang được chấm. Tự nhả sau 30 phút không thao tác.</span>
+</div>
+</div>
+
+<ol aria-label="Trạng thái bài" style="display: flex; flex-wrap: wrap; gap: 6px 28px; margin: 16px 0 0; padding: 10px 0; list-style: none; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); font-size: 14px">
+<li><strong>1.</strong> Nộp 21:38, 14/11</li>
+<li><strong>2.</strong> AI chấm xong 21:40</li>
+<li style="color: var(--accent); font-weight: 600">3. Giáo viên duyệt · đang làm</li>
+<li style="color: var(--muted)">4. Trả cho học viên</li>
+<li style="margin-left: auto; color: var(--muted)">Học viên đang thấy: "Đang chờ giáo viên duyệt"</li>
+</ol>
+
+<details style="margin: 12px 0 0; border-bottom: 1px solid var(--rule)">
+<summary style="padding: 6px 0 8px; font-weight: 600; cursor: pointer">Đề bài</summary>
+<p lang="en" class="serif" style="margin: 0 0 12px; font-size: 17px; line-height: 1.6; max-width: 80ch">Technology is changing the way young people work. Some people think this is a positive development, while others believe it takes jobs away from young workers. Discuss both views and give your own opinion.</p>
+</details>
+
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 404px; gap: 32px; margin-top: 22px; align-items: start">
+
+<!-- Vùng 1: bài viết -->
+<section aria-labelledby="z1">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-bottom: 12px">
+<h4 id="z1" class="k" style="flex-grow: 1">Vùng 1 · Bài viết và chú thích</h4>
+<button type="button" class="btn" onClick="{{openAdd}}" style="min-height: 36px">+ Thêm chú thích <kbd>A</kbd></button>
+</div>
+<ul style="margin: 0 0 14px; padding: 8px 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px 20px; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); font-size: 13px">
+<li><span style="border-bottom: 2px solid var(--mark)">gạch liền</span> <strong style="color: var(--mark)">Ngữ pháp</strong></li>
+<li><span style="text-decoration: underline wavy var(--mark); text-underline-offset: 4px">lượn sóng</span> <strong style="color: var(--mark)">Từ vựng</strong></li>
+<li><span style="border-bottom: 2px dashed var(--ink)">gạch đứt</span> <strong>Mạch lạc</strong></li>
+<li><span style="background: var(--tint); border-bottom: 3px double var(--accent)">nền, gạch đôi</span> <strong style="color: var(--accent)">Làm tốt</strong></li>
+</ul>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; align-items: start">
+<div lang="en" class="serif" style="font-size: 18px; line-height: 1.8">
+<p style="margin: 0 0 16px">Nowadays technology <span style="{{e1}}">have changed</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--mark)">{{s1}}</sup> the way young people work. Some people think this is a positive development, while others believe it takes jobs away from them.</p>
+<p style="margin: 0 0 16px">On the one hand, technology creates many new jobs. <span style="{{e2}}">The number of online shops are increasing</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--mark)">{{s2}}</sup> every year, so young people can work as designers or sellers. <span style="{{e3}}">Moreover, they can learn new skills from free courses on the internet.</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--accent)">{{s3}}</sup></p>
+<p style="margin: 0 0 16px">On the other hand, machines can do simple tasks faster than people. <span style="{{e4}}">Besides, many companies like to hire experienced workers.</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--ink)">{{s4}}</sup> As a result, some young people find it hard to get their <span style="{{e6}}">first job</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--ink)">{{s6}}</sup>.</p>
+<p style="margin: 0">In conclusion, although some jobs disappear, I believe technology brings more benefits than <span style="{{e5}}">drawback</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--mark)">{{s5}}</sup> for young workers.</p>
+</div>
+<div>
+<sc-if value="{{addOpen}}" hint-placeholder-val="{{ false }}">
+<div role="dialog" aria-labelledby="add-t" style="margin-bottom: 10px; padding: 12px; border: 2px solid var(--ink); background: var(--surface)">
+<p id="add-t" style="margin: 0 0 4px; font-weight: 600">Thêm chú thích</p>
+<p style="margin: 0 0 8px; font-size: 14px; color: var(--muted)">Đoạn đã chọn: <span lang="en" style="color: var(--ink)">"first job"</span> · đoạn 3</p>
+<div role="radiogroup" aria-label="Loại chú thích" style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px">
+<sc-for list="{{addKinds}}" as="k" hint-placeholder-count="4"><button type="button" role="radio" aria-checked="{{k.on}}" onClick="{{k.pick}}" style="min-height: 32px; padding: 0 10px; border: 1px solid var(--ink); border-radius: 2px; background: {{k.bg}}; color: {{k.fg}}; font: 600 13px 'Source Sans 3', sans-serif; cursor: pointer">{{k.label}}</button></sc-for>
+</div>
+<textarea class="ta" rows="3" aria-label="Nội dung chú thích" value="{{addText}}" onChange="{{onAddText}}"></textarea>
+<div style="display: flex; gap: 8px; margin-top: 8px"><button type="button" class="btn btn-p" onClick="{{doAdd}}" style="min-height: 36px">Thêm</button><button type="button" class="btn" onClick="{{closeAdd}}" style="min-height: 36px">Huỷ</button></div>
+</div>
+</sc-if>
+<ol aria-label="Chú thích" style="margin: 0; padding: 0; list-style: none; font-size: 14px">
+<sc-for list="{{notes}}" as="n" hint-placeholder-count="5">
+<li style="padding: 10px; margin-bottom: 6px; border: {{n.border}}; background: {{n.bg}}">
+<div style="display: flex; gap: 10px; align-items: flex-start">
+<button type="button" onClick="{{n.pick}}" aria-pressed="{{n.on}}" aria-label="{{n.aria}}" style="flex: 0 0 32px; height: 32px; padding: 0; border: 1px solid {{n.color}}; border-radius: 2px; background: {{n.btnBg}}; color: {{n.btnFg}}; font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer">{{n.n}}</button>
+<div style="min-width: 0; flex-grow: 1">
+<p style="margin: 0; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: {{n.color}}">{{n.kind}} <span style="color: var(--muted); letter-spacing: 0; text-transform: none; font-weight: 400">· {{n.src}}</span></p>
+<p style="margin: 2px 0 0; text-decoration: {{n.strike}}; color: {{n.textC}}">{{n.text}}</p>
+<sc-if value="{{n.wasAi}}" hint-placeholder-val="{{ false }}"><p style="margin: 4px 0 0; font-size: 13px; color: var(--muted)">AI viết: <span style="text-decoration: line-through">{{n.aiText}}</span></p></sc-if>
+<div style="display: flex; gap: 12px; margin-top: 4px">
+<sc-if value="{{n.canEdit}}" hint-placeholder-val="{{ true }}"><button type="button" class="lk" onClick="{{n.edit}}">Sửa</button><button type="button" class="lk" onClick="{{n.del}}">Xoá</button></sc-if>
+<sc-if value="{{n.isDel}}" hint-placeholder-val="{{ false }}"><button type="button" class="lk" onClick="{{n.undo}}">Hoàn tác xoá</button></sc-if>
+</div>
+</div>
+</div>
+<sc-if value="{{n.editing}}" hint-placeholder-val="{{ false }}">
+<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--rule)">
+<div role="radiogroup" aria-label="Loại chú thích" style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px">
+<sc-for list="{{n.kinds}}" as="k" hint-placeholder-count="4"><button type="button" role="radio" aria-checked="{{k.on}}" onClick="{{k.pick}}" style="min-height: 32px; padding: 0 10px; border: 1px solid var(--ink); border-radius: 2px; background: {{k.bg}}; color: {{k.fg}}; font: 600 13px 'Source Sans 3', sans-serif; cursor: pointer">{{k.label}}</button></sc-for>
+</div>
+<textarea class="ta" rows="3" aria-label="Sửa nội dung chú thích" value="{{n.draft}}" onChange="{{n.onDraft}}"></textarea>
+<div style="display: flex; gap: 8px; margin-top: 8px"><button type="button" class="btn btn-p" onClick="{{n.save}}" style="min-height: 36px">Lưu</button><button type="button" class="btn" onClick="{{n.cancel}}" style="min-height: 36px">Huỷ</button></div>
+</div>
+</sc-if>
+</li>
+</sc-for>
+</ol>
+<p style="margin: 6px 0 0; font-size: 13px; color: var(--muted)">Thêm: bôi đen đoạn trong bài rồi bấm "Thêm chú thích" hoặc phím <kbd>A</kbd>. Chú thích đã xoá vẫn hiện gạch ngang tới khi trả bài; học viên không thấy.</p>
+</div>
+</div>
+
+<section aria-labelledby="h-hist" style="margin-top: 28px">
+<h4 id="h-hist" class="k" style="margin-bottom: 8px">Các lần nộp của bài này</h4>
+<div role="table" aria-label="Các lần nộp" style="font-variant-numeric: tabular-nums; font-size: 14px">
+<div role="row" style="display: grid; grid-template-columns: 112px 110px 64px 80px minmax(0, 1fr) 130px"><div role="columnheader" class="th">Lần</div><div role="columnheader" class="th">Nộp</div><div role="columnheader" class="th">Số từ</div><div role="columnheader" class="th">Điểm AI</div><div role="columnheader" class="th">Kết quả</div><div role="columnheader" class="th"><span style="position: absolute; left: -9999px">Mở</span></div></div>
+<div role="row" class="tr" style="display: grid; grid-template-columns: 112px 110px 64px 80px minmax(0, 1fr) 130px; background: var(--tint)"><div role="cell" class="td" style="font-weight: 600">2 · đang xem</div><div role="cell" class="td">14/11 21:38</div><div role="cell" class="td">214</div><div role="cell" class="td">6.0</div><div role="cell" class="td">Chờ duyệt</div><div role="cell" class="td"></div></div>
+<div role="row" class="tr" style="display: grid; grid-template-columns: 112px 110px 64px 80px minmax(0, 1fr) 130px"><div role="cell" class="td">1</div><div role="cell" class="td">08/11 20:12</div><div role="cell" class="td">186</div><div role="cell" class="td">5.5</div><div role="cell" class="td">Giáo viên Trần Thu Hà trả 5.5 · 09/11</div><div role="cell" class="td" style="text-align: right"><a href="#s2">So sánh với lần 2</a></div></div>
+</div>
+</section>
+</section>
+
+<!-- Vùng 2 + 3 -->
+<div style="display: flex; flex-direction: column; gap: 24px">
+<section aria-labelledby="z2" style="border-top: 2px solid var(--ink); padding-top: 12px">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+<h4 id="z2" class="k">Vùng 2 · Điểm và nhận xét</h4>
+<span style="font-size: 13px; color: var(--muted)">AI đề xuất · bạn quyết định</span>
+</div>
+<div style="display: flex; align-items: flex-end; gap: 20px; padding: 12px 0; border-bottom: 1px solid var(--ink)">
+<div><p class="k" style="font-size: 12px">Band của bạn</p><p class="serif" style="margin: 0; font-size: 56px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums">{{band}}</p></div>
+<p style="margin: 0 0 4px; font-size: 14px; color: var(--muted)">AI đề xuất {{aiBand}}<br>{{bandNote}}</p>
+</div>
+<sc-for list="{{crit}}" as="c" hint-placeholder-count="4">
+<div style="padding: 10px 0 10px 10px; margin-left: -10px; border-left: 3px solid {{c.bar}}; border-bottom: 1px solid var(--rule)">
+<div style="display: flex; align-items: center; gap: 10px">
+<span style="flex-grow: 1; font-weight: 600; line-height: 1.25">{{c.name}}</span>
+<button type="button" onClick="{{c.dec}}" aria-label="{{c.decAria}}" style="width: 32px; height: 32px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif; cursor: pointer">−</button>
+<span class="serif" style="min-width: 36px; text-align: center; font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums">{{c.v}}</span>
+<button type="button" onClick="{{c.inc}}" aria-label="{{c.incAria}}" style="width: 32px; height: 32px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif; cursor: pointer">+</button>
+</div>
+<p style="margin: 4px 0 0; font-size: 13px; color: {{c.metaC}}; font-weight: {{c.metaW}}">{{c.meta}} <sc-if value="{{c.changed}}" hint-placeholder-val="{{ false }}"><button type="button" class="lk" onClick="{{c.reset}}" style="font-size: 13px; min-height: 0">Về điểm AI</button></sc-if></p>
+<p style="margin: 4px 0 0; font-size: 14px; color: var(--muted)">{{c.note}}</p>
+</div>
+</sc-for>
+<div style="margin-top: 14px">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px"><label for="cm" style="font-weight: 600">Nhận xét gửi học viên</label><span style="font-size: 13px; font-weight: {{cmW}}; color: {{cmC}}">{{cmTag}}</span></div>
+<textarea id="cm" class="ta" rows="5" value="{{comment}}" onChange="{{onComment}}" style="margin-top: 4px; border-left: 3px solid {{cmBar}}"></textarea>
+<div style="display: flex; gap: 12px; font-size: 13px"><button type="button" class="lk" onClick="{{toggleAiCm}}" style="font-size: 13px">{{aiCmBtn}}</button><sc-if value="{{cmChanged}}" hint-placeholder-val="{{ true }}"><button type="button" class="lk" onClick="{{resetCm}}" style="font-size: 13px">Dùng lại bản AI</button></sc-if></div>
+<sc-if value="{{showAiCm}}" hint-placeholder-val="{{ false }}"><p style="margin: 4px 0 0; padding: 8px 10px; border: 1px dashed var(--rule); font-size: 14px; color: var(--muted)">Bản AI: {{aiComment}}</p></sc-if>
+</div>
+</section>
+
+<section aria-labelledby="z3" style="border-top: 2px solid var(--ink); padding-top: 12px">
+<h4 id="z3" class="k" style="margin-bottom: 8px">Vùng 3 · Hành động</h4>
+<p style="margin: 0 0 12px; padding: 8px 10px; background: var(--tint); font-size: 14px"><strong>So với AI:</strong> {{diffText}}</p>
+<sc-if value="{{actIdle}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<button type="button" class="btn btn-p" onClick="{{doApprove}}" style="min-height: 44px; font-size: 15px">Trả bài và mở bài kế <kbd style="margin-left: 4px">Ctrl Enter</kbd></button>
+<p style="margin: -4px 0 0; font-size: 13px; color: var(--muted)">Trả ngay, không hỏi lại (thu hồi được), rồi mở bài kế theo bộ lọc đang dùng: Trần Bảo Ngọc · Task 2 · AI lỗi. Hết bài thì về hàng chờ trống. Bài của kỳ thi thử: nút này là "Lưu điểm và mở bài kế"; kết quả trả ở thẻ Trả kết quả của <a href="AdminKyThi.dc.html">kỳ thi</a>.</p>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+<button type="button" class="btn" onClick="{{saveDraft}}">Lưu nháp <kbd>Ctrl S</kbd></button>
+<button type="button" class="btn" onClick="{{askRegrade}}">Chấm lại bằng AI</button>
+</div>
+<p style="margin: 0; font-size: 13px; color: var(--muted)">{{draftNote}}</p>
+<div style="margin-top: 4px; padding-top: 10px; border-top: 1px solid var(--rule)">
+<button type="button" class="btn" onClick="{{askRewrite}}" style="width: 100%">Trả lại, yêu cầu viết lại</button>
+<p style="margin: 6px 0 0; font-size: 13px; color: var(--muted)">Dùng khi bài lạc đề, thiếu đoạn hoặc quá ngắn để chấm. Bài không được tính điểm.</p>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{actRegrade}}" hint-placeholder-val="{{ false }}">
+<div role="alertdialog" aria-labelledby="rg-t" class="warn">
+<p class="warn-k">Cảnh báo · tốn chi phí AI</p>
+<p id="rg-t" style="margin: 0 0 6px; font-weight: 600">Chấm lại bài này bằng AI?</p>
+<p style="margin: 0 0 6px; font-size: 14px">Mỗi lần chấm lại tốn khoảng XXX US$ chi phí AI, tính vào báo cáo Chi phí AI của lớp. Không trừ lượt chấm của học viên.</p>
+<p style="margin: 0 0 12px; font-size: 14px">Điểm và nhận xét AI mới thay bản đề xuất hiện tại. Các chỉnh sửa của bạn được giữ thành nháp để so sánh, không mất.</p>
+<div style="display: flex; gap: 10px"><button type="button" class="btn btn-dd" onClick="{{doRegrade}}">Chấm lại, chấp nhận chi phí</button><button type="button" class="btn" onClick="{{cancelAct}}">Huỷ</button></div>
+</div>
+</sc-if>
+<sc-if value="{{actRewrite}}" hint-placeholder-val="{{ false }}">
+<div role="alertdialog" aria-labelledby="rw-t" style="padding: 16px; border: 1px solid var(--ink); background: var(--surface)">
+<p id="rw-t" class="serif" style="margin: 0 0 6px; font-size: 20px; font-weight: 600">Yêu cầu học viên viết lại</p>
+<p style="margin: 0 0 10px; font-size: 14px">Học viên nhận lời nhắn dưới đây thay cho phiếu điểm. Lần nộp sau vào lại hàng chờ của bạn và không trừ lượt chấm AI của học viên.</p>
+<label for="rw-r" style="display: block; margin-bottom: 4px; font-weight: 600">Lời nhắn cho học viên <span style="font-weight: 400; color: var(--muted)">(bắt buộc)</span></label>
+<textarea id="rw-r" class="ta" rows="3" value="{{rwText}}" onChange="{{onRw}}" placeholder="Ví dụ: Bài mới có 214 từ và chưa bàn vế thứ hai của đề. Bạn viết lại đủ 250 từ nhé."></textarea>
+<div style="display: flex; gap: 10px; margin-top: 10px"><button type="button" class="btn btn-p" onClick="{{doRewrite}}" disabled="{{rwEmpty}}">Gửi yêu cầu viết lại</button><button type="button" class="btn" onClick="{{cancelAct}}">Huỷ</button></div>
+</div>
+</sc-if>
+<sc-if value="{{actDone}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="padding: 14px 16px; border: 1px solid var(--ok); border-left: 4px solid var(--ok); background: var(--surface)">
+<p style="margin: 0 0 4px; font-weight: 600; color: var(--ok)">{{doneTitle}}</p>
+<p style="margin: 0 0 10px; font-size: 14px">{{doneText}}</p>
+<div style="display: flex; flex-wrap: wrap; gap: 10px"><sc-if value="{{doneNext}}" hint-placeholder-val="{{ false }}"><a href="#s2" class="btn btn-p">Bài kế tiếp <kbd>J</kbd></a></sc-if><button type="button" class="btn" onClick="{{cancelAct}}">{{undoLabel}}</button></div>
+</div>
+</sc-if>
+</section>
+<p style="margin: 0; font-size: 13px; color: var(--muted)">Phím tắt chỉ chạy khi con trỏ không ở ô nhập: <kbd>J</kbd> bài kế tiếp · <kbd>K</kbd> bài trước · <kbd>A</kbd> thêm chú thích · <kbd>1</kbd>–<kbd>4</kbd> chọn tiêu chí. <kbd>Ctrl S</kbd> và <kbd>Ctrl Enter</kbd> (trả bài và mở bài kế theo bộ lọc) chạy ở mọi chỗ. Sang bài khác khi còn thay đổi chưa lưu thì tự lưu nháp.</p>
+</div>
+</div>
+</main>
+</div>
+</div>
+</section>
+
+<!-- ============ 3. TRẠNG THÁI PHỤ ============ -->
+<section aria-labelledby="s3" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="s3" class="serif" style="margin: 0 0 16px; font-size: 24px; font-weight: 600">3 · Trạng thái phụ</h2>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; align-items: start">
+
+<div>
+<p class="cap">3a · Bài đang được người khác chấm · khoá mềm</p>
+<div style="border: 1px solid var(--ink); background: var(--paper); padding: 20px 24px">
+<p style="margin: 0 0 4px; font-size: 14px; color: var(--muted)">Chấm bài › Writing › Hoàng Mai Chi · Task 1</p>
+<p lang="en" class="serif" style="margin: 0 0 14px; font-size: 24px; font-weight: 600">Coffee exports from three countries</p>
+<div role="status" style="padding: 14px 16px; border: 1px solid var(--ink); border-left: 4px solid var(--ink); background: var(--surface)">
+<p style="margin: 0 0 4px; font-weight: 600">Giáo viên Trần Thu Hà đang chấm bài này từ 09:52 (thao tác gần nhất 3 phút trước).</p>
+<p style="margin: 0 0 12px; font-size: 14px; color: var(--muted)">Bạn xem được bài, điểm AI và nháp của Thu Hà nhưng chưa sửa được. Khoá tự nhả nếu Thu Hà không thao tác 30 phút.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 10px">
+<a href="#s2" class="btn btn-p">Sang bài kế tiếp chưa ai nhận</a>
+<button type="button" class="btn">Chỉ xem</button>
+<button type="button" class="btn">Nhận chấm thay…</button>
+</div>
+</div>
+<p style="margin: 12px 0 0; font-size: 14px; color: var(--muted)">"Nhận chấm thay" hỏi lại một lần, báo cho Thu Hà, giữ nháp của Thu Hà trong lịch sử. Hai người không bao giờ cùng sửa một bài.</p>
+<div style="margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--rule); font-size: 14px">
+<p class="k" style="font-size: 12px; margin-bottom: 4px">Trên hàng chờ</p>
+<p style="margin: 0"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 14px; height: 14px; vertical-align: -2px"><rect x="5" y="11" width="14" height="9" fill="none" stroke="currentColor" stroke-width="1.8"></rect><path d="M8 11V8a4 4 0 018 0v3" fill="none" stroke="currentColor" stroke-width="1.8"></path></svg> Trần Thu Hà · từ 09:52 — nút trong hàng đổi thành "Xem".</p>
+</div>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 32px">
+<div>
+<p class="cap">3c · Hàng chờ trống</p>
+<div style="border: 1px solid var(--ink); background: var(--paper); padding: 28px 24px">
+<p class="serif" style="margin: 0 0 6px; font-size: 24px; font-weight: 600">Không còn bài nào chờ duyệt</p>
+<p style="margin: 0 0 4px">Bạn đã trả hết bài trong bộ lọc Tất cả lớp · Tất cả Task. Bài trả gần nhất: Hoàng Mai Chi, 10:41 hôm nay.</p>
+<p style="margin: 0 0 14px; font-size: 14px; color: var(--muted)">Bài mới của học viên lớp offline vào đây sau khi AI chấm xong, thường trong vài phút sau khi nộp.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 10px"><a href="AdminChamSpeakingThiThu.dc.html" class="btn">Speaking thi thử · 2 chờ chấm</a><a href="AdminChamLai.dc.html" class="btn">Yêu cầu chấm lại · 2</a><a href="AdminViecCanLam.dc.html" class="btn">Về Việc cần làm</a><a href="#s1" class="lk" style="display: inline-flex; align-items: center">Xem bài đã trả 7 ngày</a></div>
+<p style="margin: 14px 0 0; font-size: 14px; color: var(--muted)">Khi đang lọc mà không có bài: "Không có bài nào khớp bộ lọc Lớp Mon–Wed 18:00 · Task 1." kèm nút "Xoá bộ lọc".</p>
+</div>
+</div>
+<div>
+<p class="cap">3d · Đang tải hàng chờ</p>
+<div aria-busy="true" style="border: 1px solid var(--ink); background: var(--paper); padding: 16px 24px">
+<div style="height: 14px; width: 30%; background: var(--off); margin-bottom: 14px"></div>
+<div style="display: flex; gap: 16px; align-items: center; height: 40px; border-bottom: 1px solid var(--rule)"><div style="height: 10px; width: 120px; background: var(--off)"></div><div style="height: 10px; width: 240px; background: var(--off)"></div><div style="height: 10px; width: 40px; background: var(--off); margin-left: auto"></div></div>
+<div style="display: flex; gap: 16px; align-items: center; height: 40px; border-bottom: 1px solid var(--rule)"><div style="height: 10px; width: 100px; background: var(--off)"></div><div style="height: 10px; width: 280px; background: var(--off)"></div><div style="height: 10px; width: 40px; background: var(--off); margin-left: auto"></div></div>
+<div style="display: flex; gap: 16px; align-items: center; height: 40px; border-bottom: 1px solid var(--rule)"><div style="height: 10px; width: 130px; background: var(--off)"></div><div style="height: 10px; width: 210px; background: var(--off)"></div><div style="height: 10px; width: 40px; background: var(--off); margin-left: auto"></div></div>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)">Giữ bộ lọc và tiêu đề cột; chỉ các hàng là khung xám. Không hiện "0 bài" khi chưa tải xong.</p>
+</div>
+</div>
+</div>
+</div>
+
+<div style="margin-top: 32px">
+<p class="cap">3b · AI chấm lỗi · chưa có điểm đề xuất, giáo viên chấm tay</p>
+<div style="border: 1px solid var(--ink); background: var(--paper); padding: 20px 24px; display: grid; grid-template-columns: minmax(0, 1fr) 404px; gap: 32px; align-items: start">
+<div>
+<p style="margin: 0 0 4px; font-size: 14px; color: var(--muted)">Chấm bài › Writing › Trần Bảo Ngọc · Task 2 · lần nộp 1 · 263 từ</p>
+<p lang="en" class="serif" style="margin: 0 0 12px; font-size: 24px; font-weight: 600">Working from home</p>
+<div class="warn" style="margin-bottom: 14px">
+<p class="warn-k">Cảnh báo</p>
+<p style="margin: 0 0 4px; font-weight: 600">AI chưa chấm được bài này (thử 2 lần, lần cuối 20:14, 15/11).</p>
+<p style="margin: 0; font-size: 14px">Chưa có điểm đề xuất và chú thích AI. Bạn chấm tay bình thường, hoặc thử chấm lại bằng AI. Sự cố đã được ghi vào <a href="AdminSuCo.dc.html">Hộp thư sự cố</a>.</p>
+</div>
+<div lang="en" class="serif" style="font-size: 18px; line-height: 1.8; color: var(--ink)">
+<p style="margin: 0 0 12px">More and more companies now allow their staff to work from home for part of the week. In my opinion, this trend has more advantages than disadvantages, both for workers and for employers.</p>
+<p style="margin: 0; color: var(--muted)">Firstly, people who work from home save the time they would spend on travelling…</p>
+</div>
+<p style="margin: 12px 0 0; font-size: 14px; color: var(--muted)">Chưa có chú thích. Bôi đen đoạn trong bài rồi bấm "Thêm chú thích" để tự đánh dấu.</p>
+</div>
+<div style="border-top: 2px solid var(--ink); padding-top: 12px">
+<p class="k" style="margin-bottom: 6px">Điểm · chấm tay</p>
+<div style="display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--rule)"><span style="flex-grow: 1; font-weight: 600">Task Response</span><select class="inp" aria-label="Điểm Task Response" style="min-width: 110px"><option>Chọn điểm</option><option>5.0</option><option>5.5</option><option>6.0</option><option>6.5</option></select></div>
+<div style="display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--rule)"><span style="flex-grow: 1; font-weight: 600">Coherence and Cohesion</span><select class="inp" aria-label="Điểm Coherence and Cohesion" style="min-width: 110px"><option>6.0</option></select></div>
+<div style="display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--rule)"><span style="flex-grow: 1; font-weight: 600">Lexical Resource</span><select class="inp" aria-label="Điểm Lexical Resource" style="min-width: 110px"><option>Chọn điểm</option></select></div>
+<div style="display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--rule)"><span style="flex-grow: 1; font-weight: 600">Grammatical Range and Accuracy</span><select class="inp" aria-label="Điểm Grammatical Range and Accuracy" style="min-width: 110px"><option>Chọn điểm</option></select></div>
+<p style="margin: 10px 0 12px; font-size: 14px; color: var(--muted)">Band hiện khi đủ bốn tiêu chí. Còn thiếu 3 tiêu chí.</p>
+<textarea class="ta" rows="3" aria-label="Nhận xét gửi học viên" placeholder="Nhận xét gửi học viên (bắt buộc khi chấm tay)"></textarea>
+<div style="display: flex; flex-direction: column; gap: 10px; margin-top: 12px">
+<button type="button" class="btn btn-p" disabled="{{ true }}" style="min-height: 44px">Duyệt và trả bài</button>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px"><button type="button" class="btn">Lưu nháp</button><button type="button" class="btn">Thử chấm lại bằng AI</button></div>
+<p style="margin: 0; font-size: 13px; color: var(--muted)">"Thử chấm lại bằng AI" hiện cùng hộp cảnh báo chi phí như màn chính.</p>
+</div>
+</div>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)">Trên hàng chờ, ô Điểm AI ghi "Chưa có · AI lỗi" bằng màu đánh dấu; bài vẫn nằm trong số Writing và xếp như mọi bài khác. Lối "AI lỗi cần chấm tay 1" ở dải Bài chờ duyệt chỉ là bộ lọc của cùng hàng chờ này.</p>
+</div>
+
+<div style="margin-top: 32px">
+<p class="cap">3e · Bản hẹp</p>
+<p style="margin: 0; max-width: 100ch">Không vẽ bản 1024px riêng. Dưới 1200px thanh bên luôn ở dạng icon; dưới 1100px vùng điểm và hành động xuống dưới bài viết, chú thích xuống dưới từng đoạn như bản điện thoại của phiếu học viên. Màn chấm không hỗ trợ điện thoại: mở trên điện thoại chỉ cho xem, có dòng "Mở trên máy tính để chấm".</p>
+</div>
+</section>
+
+<!-- ============ GHI CHÚ ============ -->
+<section aria-labelledby="s9" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="s9" class="serif" style="margin: 0 0 12px; font-size: 24px; font-weight: 600">Ghi chú cho lập trình</h2>
+<ol style="margin: 0; padding-left: 22px; max-width: 110ch; display: flex; flex-direction: column; gap: 6px">
+<li>Một hàng chờ "Bài chờ duyệt" cho bài Writing của lớp offline (Speaking luyện tập của lớp AI trả ngay, không có hàng chờ duyệt), dải đầu đếm: Writing (gồm cả bài AI lỗi) · Speaking thi thử chờ chấm (<a href="AdminChamSpeakingThiThu.dc.html">màn Speaking</a>, hàng chờ riêng) · AI lỗi cần chấm tay (bộ lọc của Writing, không cộng thêm). Số khớp sidebar và Việc cần làm. Không có mục "Giáo viên duyệt" riêng. Bài khoá online và tự luyện không vào đây; chỉ tới giáo viên qua <a href="AdminChamLai.dc.html">Yêu cầu chấm lại</a>. Giáo viên chỉ thấy lớp mình; admin thấy tất cả.</li>
+<li>Quá hạn: một ngưỡng duy nhất ở <a href="AdminCaiDat.dc.html#m6">Cài đặt › Ngưỡng vận hành</a>, mốc tính từ lúc AI chấm xong (bài AI lỗi: từ lúc nộp). Tờ này không ghi số giờ riêng; vượt ngưỡng thì ô Chờ ghi "quá hạn".</li>
+<li>Khoá mềm: mở màn chấm là nhận bài; tự nhả sau 30 phút không thao tác hoặc khi rời bài mà không có nháp. Người thứ hai chỉ xem; "Nhận chấm thay" chuyển khoá và báo người cũ.</li>
+<li>Mỗi tiêu chí lưu cả điểm AI và điểm giáo viên; "đã sửa" khi khác nhau. Band = trung bình bốn tiêu chí làm tròn theo IELTS. Thiếu tiêu chí nào thì không hiện band. Chú thích có nguồn AI hoặc Giáo viên; xoá là mềm tới lúc trả bài; học viên chỉ thấy bản cuối.</li>
+<li>Ctrl Enter = "Trả bài và mở bài kế": trả ngay (không hộp hỏi lại, có thu hồi), rồi mở bài kế theo bộ lọc và thứ tự lúc mở bài; hết bài thì về hàng chờ trống. J/K chỉ chuyển bài, không trả. Đầu màn chấm luôn ghi "còn N bài · M bài của lớp học tối nay (lớp)"; M tính các lớp có buổi học trong ngày. Sắp xếp "Lớp có buổi học sớm nhất trước" theo buổi kế tiếp của lớp, rồi chờ lâu nhất.</li>
+<li>Dải dưới tên học viên: band 4 bài Writing gần nhất (đã trả), mục tiêu band, loại chú thích lặp nhiều nhất kèm số bài, và liên kết <a href="HoSoHocVien.dc.html">hồ sơ</a>. Chưa có bài đã trả: "chưa có bài"; chưa đặt mục tiêu: "mục tiêu chưa đặt"; không ghi band khi thiếu dữ liệu.</li>
+<li>Bài Writing thi thử: chỉ lọc bằng "Kỳ thi" trong hàng chờ này; chấm xong là lưu điểm, không có nút trả. Trả kết quả thi thử chỉ ở thẻ Trả kết quả của <a href="AdminKyThi.dc.html">kỳ thi</a>. "Chấm lại bằng AI" luôn qua hộp cảnh báo chi phí, không trừ lượt học viên. "Yêu cầu viết lại" bắt buộc lời nhắn.</li>
+<li>Không hiện mã bài, mã học viên hay lỗi kỹ thuật; AI lỗi chỉ nói "AI chưa chấm được" và giờ thử cuối. Bài AI lỗi chấm tay được; nút trả chỉ bật khi đủ bốn điểm và có nhận xét.</li>
+</ol>
+</section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Xanh teal","Navy + đỏ mận"],"default":"Navy + đỏ mận"},"$preview":{"width":1440,"height":5600}}'>
+class Component extends DCLogic {
+renderVals() {
+const s = this.state || {};
+const open = s.open || { cb: true };
+const mark = 'var(--mark)', acc = 'var(--accent)', ink = 'var(--ink)', mut = 'var(--muted)';
+const NAV = (cur, open) => [
+['tq', 'Tổng quan', [['Việc cần làm', 'AdminViecCanLam.dc.html', '']]],
+['hv', 'Học viên và quyền truy cập', [['Học viên', 'AdminDanhBa.dc.html', ''], ['Lớp', 'AdminLop.dc.html', ''], ['Giáo viên', 'AdminGiaoVienThongBao.dc.html', ''], ['Mã kích hoạt', 'AdminLuotVaMa.dc.html#s2', ''], ['Gửi thông báo', 'AdminGiaoVienThongBao.dc.html#m2', ''], ['Khảo sát và nhận xét', 'AdminKhaoSat.dc.html', '4']]],
+['kh', 'Khoá học và đăng ký', [['Khoá học', 'AdminKhoaHoc.dc.html', ''], ['Đơn đăng ký', 'AdminDonDangKy.dc.html', '2'], ['Lượt AI', 'AdminLuotVaMa.dc.html', '']]],
+['cb', 'Chấm bài', [['Writing', 'AdminChamWriting.dc.html', '3'], ['Speaking', 'AdminChamSpeakingThiThu.dc.html', '2'], ['Yêu cầu chấm lại', 'AdminChamLai.dc.html', '2']]],
+['nd', 'Nội dung', [['Listening', 'AdminNoiDung.dc.html', ''], ['Reading', 'AdminNoiDung.dc.html', ''], ['Writing', 'AdminNoiDungVietNoi.dc.html', ''], ['Speaking', 'AdminNoiDungVietNoi.dc.html#m5', ''], ['Từ vựng', 'AdminNoiDungTuVungNguPhap.dc.html', ''], ['Ngữ pháp', 'AdminNoiDungTuVungNguPhap.dc.html#m6', ''], ['Thư viện công khai', 'AdminThuVienCongKhai.dc.html', '']]],
+['tt', 'Thi thử', [['Kỳ thi', 'AdminKyThi.dc.html', '']]],
+['bc', 'Báo cáo', [['Hoạt động học viên', 'AdminBaoCao.dc.html#m1', ''], ['Lưu lượng', 'AdminBaoCao.dc.html#m2', ''], ['Chi phí AI', 'AdminBaoCao.dc.html#m3', ''], ['Chất lượng nội dung', 'AdminBaoCao.dc.html#m4', '']]],
+['ht', 'Hệ thống', [['Hộp thư sự cố', 'AdminSuCo.dc.html', '12'], ['AI và mô hình', 'AdminHeThong.dc.html', ''], ['Bảo mật', 'AdminHeThong.dc.html#m2', ''], ['Công cụ QA', 'AdminHeThong.dc.html#m3', ''], ['Cài đặt', 'AdminCaiDat.dc.html', '']]]
+].map(([id, name, rows]) => {
+const items = rows.map(([label, href, count]) => { const c = cur === id + '/' + label; return { label, href, count, current: c ? 'page' : 'false', bar: c ? 'var(--accent)' : 'transparent', bg: c ? 'var(--tint)' : 'transparent', weight: c ? 600 : 400 }; });
+const ex = !!open[id];
+const hasCur = items.some((x) => x.current === 'page');
+const badge = items.reduce((n, x) => n + (Number(x.count) || 0), 0);
+return { id, name, items, exp: ex ? 'true' : 'false', show: ex, chev: ex ? 'M6 9l6 6 6-6' : 'M9 6l6 6-6 6', badgeShow: !ex && badge ? String(badge) : '', headColor: hasCur ? 'var(--ink)' : 'var(--muted)', toggle: () => this.setState({ open: Object.assign({}, open, { [id]: !open[id] }) }) };
+});
+const ICON = { tq: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z', hv: 'M12 12a4 4 0 100-8 4 4 0 000 8zM4 20c1-4 4-6 8-6s7 2 8 6', kh: 'M5 8h14l-1 12H6zM9 8V6a3 3 0 016 0v2', cb: 'M6 3h9l4 4v14H6zM9 13l2 2 4-4', nd: 'M5 4h11a3 3 0 013 3v13H8a3 3 0 01-3-3zM5 17a3 3 0 013-3h11', tt: 'M12 7v5l3 2M12 3a9 9 0 100 18 9 9 0 000-18z', bc: 'M5 20V10M12 20V4M19 20v-7', ht: 'M4 7h10M18 7h2M4 17h4M12 17h8M16 5v4M10 15v4' };
+const RAIL = (navList) => navList.map((g) => { const cur = g.id === 'cb'; const badge = g.items.reduce((n, x) => n + (Number(x.count) || 0), 0); return { name: g.name, href: g.items[0].href, icon: ICON[g.id], badge: badge ? String(badge) : '', cur: cur ? 'page' : 'false', bar: cur ? 'var(--accent)' : 'transparent', bg: cur ? 'var(--tint)' : 'transparent' }; });
+const nav = NAV('cb/Writing', open);
+const rail = RAIL(nav);
+
+// ---- Hàng chờ
+const task = s.task || 'all';
+const cls = s.cls || 'Tất cả lớp';
+const exam = s.exam || 'none';
+const sort = s.sort || 'lop';
+const aiOnly = !!s.aiOnly;
+const clsList = ['Tất cả lớp', 'Lớp Tue–Thu 19:30', 'Lớp Mon–Wed 18:00', 'Lớp Sat–Sun 09:00'];
+const R = [
+{ name: 'Nguyễn Minh Anh', cls: 'Lớp Tue–Thu 19:30', title: "Technology and young people's jobs", task: 'Task 2', t: '2', words: 214, attempt: 2, at: '14/11 21:38', wait: '2 ngày 12 giờ', h: 60, lop: 0, late: true, ai: '6.0', aiN: 6, who: 'Bạn đang giữ', whoC: acc, act: 'Chấm', sel: true },
+{ name: 'Trần Bảo Ngọc', cls: 'Lớp Tue–Thu 19:30', title: 'Working from home', task: 'Task 2', t: '2', words: 263, attempt: 1, at: '15/11 20:10', wait: '1 ngày 14 giờ', h: 38, lop: 0, ai: 'Chưa có · AI lỗi', aiN: 0, aiErr: true, who: 'Chưa ai nhận', act: 'Chấm' },
+{ name: 'Hoàng Mai Chi', cls: 'Lớp Mon–Wed 18:00', title: 'Coffee exports from three countries', task: 'Task 1', t: '1', words: 158, attempt: 1, at: '16/11 19:02', wait: '15 giờ', h: 15, lop: 1, ai: '5.5', aiN: 5.5, who: 'Trần Thu Hà · từ 09:52', lock: true, act: 'Xem' }
+];
+const SORT = { lop: ['Lớp có buổi học sớm nhất trước', (x, y) => x.lop - y.lop || y.h - x.h], wait: ['Chờ lâu nhất trước', (x, y) => y.h - x.h], new: ['Mới nộp trước', (x, y) => x.h - y.h], ai: ['Điểm AI thấp trước', (x, y) => x.aiN - y.aiN] };
+const rowsF = exam !== 'none' ? [] : R.filter((r) => (task === 'all' || r.t === task) && (cls === 'Tất cả lớp' || r.cls === cls) && (!aiOnly || r.aiErr)).sort(SORT[sort][1]);
+const rows = rowsF.map((r) => Object.assign({}, r, { bg: r.sel ? 'var(--tint)' : 'transparent', wait: r.wait + (r.late ? ' · quá hạn' : ''), waitW: r.late ? 600 : 400, waitC: r.late ? mark : ink, aiC: r.aiErr ? mark : ink, aiSize: r.aiErr ? '14px' : '18px', whoC: r.lock ? ink : (r.whoC || mut), who: (r.lock ? 'Đang chấm: ' : '') + r.who }));
+const tOpt = (v, label) => ({ label, on: task === v ? 'true' : 'false', bg: task === v ? 'var(--ink)' : 'var(--surface)', fg: task === v ? 'var(--surface)' : 'var(--ink)', pick: () => this.setState({ task: v }) });
+const nTonight = R.filter((r) => r.lop === 0).length;
+const leftLine = 'Còn ' + R.length + ' bài · ' + nTonight + ' bài của lớp học tối nay (Tue–Thu 19:30)';
+
+// ---- Chú thích
+const KIND = { g: 'Ngữ pháp', v: 'Từ vựng', c: 'Mạch lạc', ok: 'Làm tốt' };
+const KCOL = { g: mark, v: mark, c: ink, ok: acc };
+const KSTY = { g: 'border-bottom: 2px solid var(--mark)', v: 'text-decoration: underline wavy var(--mark); text-decoration-thickness: 1.5px; text-underline-offset: 5px', c: 'border-bottom: 2px dashed var(--ink)', ok: 'background: var(--tint); border-bottom: 3px double var(--accent)' };
+const base = [
+{ id: 1, k: 'g', ai: 'technology là số ít: has changed.', src: 'AI' },
+{ id: 2, k: 'g', ai: 'Chủ ngữ thật là "the number": is increasing.', src: 'AI' },
+{ id: 3, k: 'ok', ai: 'Ý phụ có ví dụ cụ thể, nối câu tự nhiên.', src: 'AI' },
+{ id: 4, k: 'c', ai: 'Besides không nối được với ý trước; câu này nói về người trẻ khó tìm việc.', src: 'AI' },
+{ id: 5, k: 'v', ai: 'Cần số nhiều: drawbacks.', src: 'AI' },
+{ id: 6, k: 'v', ai: '', src: 'GV' }
+];
+const ed = s.ed || { 4: { k: 'c', t: 'Besides chỉ thêm ý cùng chiều. Ở đây cần nối nguyên nhân: "In addition, employers often prefer…" hoặc "This is partly because…".' } };
+const del = s.del || { 3: false };
+const added = s.added || {};
+const sel = s.sel ?? 4;
+const editing = s.editing ?? null;
+const drafts = s.drafts || {};
+const visible = base.filter((n) => n.src === 'AI' || added[n.id]);
+const curK = (n) => (ed[n.id] && ed[n.id].k) || (added[n.id] && added[n.id].k) || n.k;
+const curT = (n) => (ed[n.id] && ed[n.id].t) || (added[n.id] && added[n.id].t) || n.ai;
+const notes = visible.map((n) => {
+const k = curK(n), isDel = !!del[n.id], on = sel === n.id, isEd = !!ed[n.id];
+const col = KCOL[k];
+const d = drafts[n.id] || { k: k, t: curT(n) };
+return {
+n: String(n.id), kind: KIND[k], color: col, text: curT(n),
+src: isDel ? 'đã xoá' : (n.src === 'GV' ? 'bạn thêm' : (isEd ? 'AI · bạn đã sửa' : 'AI')),
+wasAi: isEd && !isDel && ed[n.id].t !== n.ai, aiText: n.ai,
+strike: isDel ? 'line-through' : 'none', textC: isDel ? mut : ink,
+canEdit: !isDel, isDel: isDel, editing: editing === n.id && !isDel,
+on: on ? 'true' : 'false', aria: 'Chọn chú thích ' + n.id,
+border: on ? '2px solid var(--ink)' : '1px solid var(--rule)', bg: on ? 'var(--surface)' : 'transparent',
+btnBg: on ? col : 'var(--surface)', btnFg: on ? 'var(--surface)' : col,
+pick: () => this.setState({ sel: n.id }),
+edit: () => this.setState({ editing: n.id, sel: n.id, drafts: Object.assign({}, drafts, { [n.id]: { k: k, t: curT(n) } }) }),
+del: () => this.setState({ del: Object.assign({}, del, { [n.id]: true }), editing: null }),
+undo: () => this.setState({ del: Object.assign({}, del, { [n.id]: false }) }),
+draft: d.t,
+onDraft: (e) => this.setState({ drafts: Object.assign({}, drafts, { [n.id]: { k: d.k, t: e.target.value } }) }),
+kinds: Object.keys(KIND).map((kk) => ({ label: KIND[kk], on: d.k === kk ? 'true' : 'false', bg: d.k === kk ? 'var(--ink)' : 'var(--surface)', fg: d.k === kk ? 'var(--surface)' : 'var(--ink)', pick: () => this.setState({ drafts: Object.assign({}, drafts, { [n.id]: { k: kk, t: d.t } }) }) })),
+save: () => { if (n.src === 'GV') { this.setState({ added: Object.assign({}, added, { [n.id]: { k: d.k, t: d.t } }), editing: null }); } else { this.setState({ ed: Object.assign({}, ed, { [n.id]: { k: d.k, t: d.t } }), editing: null }); } },
+cancel: () => this.setState({ editing: null })
+};
+});
+const spanSty = (id) => {
+const n = base.find((x) => x.id === id);
+if (n.src === 'GV' && !added[id]) return '';
+if (del[id]) return 'color: var(--muted); text-decoration: line-through';
+const st = KSTY[curK(n)];
+return st + (sel === id ? '; outline: 2px solid var(--ink); outline-offset: 2px' : '');
+};
+const sup = (id) => { const n = base.find((x) => x.id === id); if (n.src === 'GV' && !added[id]) return ''; return del[id] ? '' : ' ' + id; };
+const addOpen = !!s.addOpen;
+const addK = s.addK || 'v';
+const addText = s.addText ?? 'Nên rõ hơn: "their first full-time job" — nhà tuyển dụng cần kinh nghiệm cho việc toàn thời gian.';
+
+// ---- Điểm
+const AI = { tr: 5.5, cc: 6.0, lr: 6.0, gra: 6.0 };
+const sc = s.sc || { tr: 6.0, cc: 6.0, lr: 6.0, gra: 6.0 };
+const f1 = (x) => x.toFixed(1);
+const CR = [
+{ id: 'tr', name: 'Task Response', note: 'Vế "mất việc" mới có một đoạn ngắn, thiếu ví dụ.' },
+{ id: 'cc', name: 'Coherence and Cohesion', note: 'Bố cục bốn đoạn rõ; từ nối đoạn 3 dùng sai.' },
+{ id: 'lr', name: 'Lexical Resource', note: 'Đủ dùng; lặp technology nhiều lần.' },
+{ id: 'gra', name: 'Grammatical Range and Accuracy', note: 'Có câu phức; sai hoà hợp chủ–vị 2 lần.' }
+];
+const setSc = (id, v) => this.setState({ sc: Object.assign({}, sc, { [id]: Math.max(0, Math.min(9, v)) }) });
+const crit = CR.map((c, i) => {
+const ch = sc[c.id] !== AI[c.id];
+return { name: (i + 1) + '. ' + c.name, v: f1(sc[c.id]), note: c.note, changed: ch,
+meta: ch ? 'Đã sửa · AI đề xuất ' + f1(AI[c.id]) : 'Giữ điểm AI', metaC: ch ? acc : mut, metaW: ch ? 600 : 400, bar: ch ? 'var(--accent)' : 'transparent',
+dec: () => setSc(c.id, sc[c.id] - 0.5), inc: () => setSc(c.id, sc[c.id] + 0.5), reset: () => setSc(c.id, AI[c.id]),
+decAria: 'Giảm điểm ' + c.name, incAria: 'Tăng điểm ' + c.name };
+});
+const round = (a) => Math.floor(a * 2 + 0.5) / 2;
+const avg = (o) => (o.tr + o.cc + o.lr + o.gra) / 4;
+const band = f1(round(avg(sc)));
+const aiBand = f1(round(avg(AI)));
+const nChanged = CR.filter((c) => sc[c.id] !== AI[c.id]).length;
+const aiComment = 'Bài có bố cục rõ và ví dụ cụ thể ở thân bài 1. Vế thứ hai của đề mới được nhắc ngắn. Cần sửa hoà hợp chủ ngữ và động từ.';
+const comment = s.comment ?? 'Bài có bố cục rõ và ví dụ cụ thể ở thân bài 1. Đoạn 3 đã bàn vế "người trẻ khó tìm việc" nhưng còn ngắn; thêm một ví dụ và nối ý bằng nguyên nhân thay cho Besides. Sửa hoà hợp chủ ngữ và động từ ở câu 1 và câu 3.';
+const cmChanged = comment.trim() !== aiComment;
+
+// ---- Tóm tắt thay đổi
+const nEd = base.filter((n) => n.src === 'AI' && ed[n.id] && !del[n.id]).length;
+const nDel = base.filter((n) => del[n.id]).length;
+const nAdd = base.filter((n) => n.src === 'GV' && added[n.id] && !del[n.id]).length;
+const parts = [];
+parts.push(nChanged ? 'đổi ' + nChanged + ' điểm tiêu chí' : 'giữ cả bốn điểm');
+if (nEd) parts.push('sửa ' + nEd + ' chú thích');
+if (nDel) parts.push('xoá ' + nDel + ' chú thích');
+if (nAdd) parts.push('thêm ' + nAdd + ' chú thích');
+parts.push(cmChanged ? 'nhận xét đã sửa' : 'nhận xét giữ bản AI');
+
+const act = s.act || 'idle';
+const rwText = s.rwText ?? '';
+const doneKind = s.doneKind || 'approve';
+const DONE = {
+approve: ['Đã trả bài Nguyễn Minh Anh · 10:18', 'Band ' + band + '; học viên đã nhận thông báo. Đang mở bài kế theo bộ lọc: Trần Bảo Ngọc · Task 2 · AI lỗi, chấm tay. Còn 2 bài.', 'Thu hồi trả bài'],
+regrade: ['AI đang chấm lại', 'Kết quả mới hiện ở Vùng 2 trong khoảng một phút; nháp của bạn được giữ để so sánh.', 'Đóng'],
+rewrite: ['Đã gửi yêu cầu viết lại', 'Bài chuyển sang làn "Chờ học viên viết lại". Học viên nhận lời nhắn của bạn.', 'Thu hồi yêu cầu']
+};
+
+return {
+pal: (this.props.palette ?? 'Navy + đỏ mận') === 'Xanh teal' ? 'pal-teal' : 'pal-navy',
+nav, rail,
+clsOpts: clsList.map((v) => ({ v })), cls,
+pickCls: (e) => this.setState({ cls: e.target.value }),
+exam, pickExam: (e) => this.setState({ exam: e.target.value }),
+examOpts: [{ v: 'none', label: 'Tất cả bài' }, { v: 'nov', label: 'Thi thử tháng 11 · 17/11' }],
+sort, pickSort: (e) => this.setState({ sort: e.target.value }),
+sortOpts: Object.keys(SORT).map((k) => ({ v: k, label: SORT[k][0] })),
+aiOnlyOn: aiOnly ? 'true' : 'false', aiOnlyW: aiOnly ? 600 : 400, toggleAiOnly: () => this.setState({ aiOnly: !aiOnly }),
+leftLine,
+examEmpty: exam !== 'none', filterEmpty: exam === 'none' && rows.length === 0,
+clearF: () => this.setState({ task: 'all', cls: 'Tất cả lớp', aiOnly: false }),
+taskOpts: [tOpt('all', 'Tất cả'), tOpt('1', 'Task 1'), tOpt('2', 'Task 2')],
+qCount: rows.length ? 'Đang hiện ' + rows.length + ' bài' : '',
+rows,
+e1: spanSty(1), e2: spanSty(2), e3: spanSty(3), e4: spanSty(4), e5: spanSty(5), e6: spanSty(6),
+s1: sup(1), s2: sup(2), s3: sup(3), s4: sup(4), s5: sup(5), s6: sup(6),
+notes,
+addOpen,
+openAdd: () => this.setState({ addOpen: true }),
+closeAdd: () => this.setState({ addOpen: false }),
+addKinds: Object.keys(KIND).map((kk) => ({ label: KIND[kk], on: addK === kk ? 'true' : 'false', bg: addK === kk ? 'var(--ink)' : 'var(--surface)', fg: addK === kk ? 'var(--surface)' : 'var(--ink)', pick: () => this.setState({ addK: kk }) })),
+addText,
+onAddText: (e) => this.setState({ addText: e.target.value }),
+doAdd: () => this.setState({ added: Object.assign({}, added, { 6: { k: addK, t: addText } }), addOpen: false, sel: 6 }),
+crit, band, aiBand,
+bandNote: band === aiBand ? 'Bằng band AI' : 'Khác band AI',
+comment,
+onComment: (e) => this.setState({ comment: e.target.value }),
+cmChanged,
+cmTag: cmChanged ? 'Đã sửa so với AI' : 'Bản AI',
+cmC: cmChanged ? acc : mut, cmW: cmChanged ? 600 : 400, cmBar: cmChanged ? 'var(--accent)' : 'var(--muted)',
+showAiCm: !!s.showAiCm,
+aiCmBtn: s.showAiCm ? 'Ẩn bản AI' : 'Xem bản AI',
+toggleAiCm: () => this.setState({ showAiCm: !s.showAiCm }),
+resetCm: () => this.setState({ comment: aiComment }),
+aiComment,
+diffText: parts.join(' · ') + '.',
+actIdle: act === 'idle', actRegrade: act === 'regrade', actRewrite: act === 'rewrite', actDone: act === 'done',
+askRegrade: () => this.setState({ act: 'regrade' }),
+askRewrite: () => this.setState({ act: 'rewrite' }),
+cancelAct: () => this.setState({ act: 'idle' }),
+doApprove: () => this.setState({ act: 'done', doneKind: 'approve' }),
+doRegrade: () => this.setState({ act: 'done', doneKind: 'regrade' }),
+doRewrite: () => this.setState({ act: 'done', doneKind: 'rewrite' }),
+saveDraft: () => this.setState({ saved: true }),
+draftNote: s.saved ? 'Đã lưu nháp lúc 10:16. Học viên chưa thấy gì thay đổi.' : 'Nháp tự lưu mỗi 30 giây; lần gần nhất 10:12.',
+rwText,
+onRw: (e) => this.setState({ rwText: e.target.value }),
+rwEmpty: rwText.trim() === '',
+doneNext: doneKind !== 'approve', doneTitle: DONE[doneKind][0], doneText: DONE[doneKind][1], undoLabel: DONE[doneKind][2]
+};
+}
+}
+</script>
+</body>
+</html>

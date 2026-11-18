@@ -1,0 +1,640 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Sổ lỗi của tôi</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--link:#0B5953;--mark:#8A4B08;--tint:#EDF3F1;--on-accent:#FFFFFF}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--link:#1A3561;--mark:#8A1C1C;--tint:#EEF0F5;--on-accent:#FFFFFF}
+a{color:var(--link)}a:hover{color:var(--ink)}
+</style>
+</helmet>
+<div class="{{pal}}" style="background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 16px; line-height: 1.55; min-height: 8000px">
+<div style="max-width: 1120px; margin: 0 auto; padding: 24px 32px 20px">
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Aver Learning · Bản in · hướng phát triển 1 · trang học viên</p>
+<p style="margin: 2px 0 4px; font-family: 'Source Serif 4', Georgia, serif; font-size: 32px; font-weight: 600; line-height: 1.15">Sổ lỗi của tôi</p>
+<p style="margin: 0; color: var(--muted); font-size: 15px">Mỗi lỗi lặp lại thành một mục, quay lại để ôn theo lịch 2, 7, 21 ngày. Bản đầu chỉ dùng dữ liệu bài tập ngữ pháp đã lưu (lỗi gom theo nhóm ngữ pháp, không cần AI); lỗi Writing là giai đoạn sau. Nhân vật: Nguyễn Minh Anh, lớp Tue–Thu 19:30, Course 1; hôm nay Thứ Ba 17/11/2026. Câu hỏi lấy từ ngân hàng B13 và B05 trong repo; số đếm là dữ liệu mẫu, chỗ chưa có câu thật ghi XXX. Không có chuỗi ngày, huy hiệu, điểm thưởng.</p>
+</div>
+<section id="s1" aria-labelledby="h-s1" style="border-top: 2px solid var(--ink)">
+<div style="max-width: 1120px; margin: 0 auto; padding: 16px 32px 27px">
+<h2 id="h-s1" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">1 · Trên trang Hôm nay</h2>
+<p style="margin: 4px 0 18px; font-size: 14px; color: var(--muted); max-width: 110ch">Khối "Lỗi đang lặp lại" ở cột phụ lấy số từ Sổ lỗi, và thêm một dòng ở "Làm tiếp khi rảnh". Trang cắt bớt: chỉ vẽ phần liên quan.</p>
+<div style="border: 1px solid var(--ink); background: var(--paper)">
+<header style="border-bottom: 1px solid var(--ink)">
+<div style="padding: 0 32px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 36px; min-height: 64px">
+<a href="Main.dc.html" style="display: inline-flex; align-items: center; gap: 9px; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600; color: var(--ink); text-decoration: none"><svg width="29" height="29" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</a>
+<nav aria-label="Điều hướng chính" style="display: flex; flex-wrap: wrap; gap: 4px 28px; flex-grow: 1">
+<a href="Main.dc.html" aria-current="page" style="padding: 20px 0 17px; color: var(--ink); font-weight: 600; text-decoration: none; border-bottom: 3px solid var(--accent)">Hôm nay</a>
+<a href="LoTrinh.dc.html" style="padding: 20px 0; color: var(--muted); text-decoration: none">Lộ trình</a>
+<a href="LuyenTap.dc.html" style="padding: 20px 0; color: var(--muted); text-decoration: none">Luyện tập</a>
+<a href="ThiThu.dc.html" style="padding: 20px 0; color: var(--muted); text-decoration: none">Thi thử</a>
+<a href="ThuVien.dc.html" style="padding: 20px 0; color: var(--muted); text-decoration: none">Thư viện</a>
+</nav>
+<div style="display: flex; align-items: center; gap: 16px">
+<span style="font-size: 14px; color: var(--muted)">Lượt chấm AI còn <strong style="color: var(--ink); font-variant-numeric: tabular-nums">XXX</strong></span>
+<button aria-label="Tra nhanh: từ, bài ngữ pháp, đề bài mẫu" title="Tra nhanh" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; box-sizing: border-box; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); cursor: pointer"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="1.6"></circle><path d="M15 15l5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path></svg></button>
+<span style="position: relative; flex: none; display: inline-flex"><a href="ThongBao.dc.html" aria-label="Thông báo, 4 chưa đọc" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; box-sizing: border-box; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink)"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15zM10 20.5a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></a><span aria-hidden="true" style="position: absolute; top: -7px; right: -7px; min-width: 20px; height: 20px; box-sizing: border-box; padding: 0 5px; border: 1px solid var(--paper); border-radius: 2px; background: var(--accent); color: var(--on-accent); font-size: 12px; font-weight: 600; line-height: 18px; text-align: center; font-variant-numeric: tabular-nums">4</span></span>
+<button aria-label="Mở menu tài khoản" style="width: 44px; height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer">MA</button>
+</div>
+</div>
+</header>
+<main style="padding: 22px 32px 26px">
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Thứ Ba, 17 tháng 11</p>
+<h1 style="margin: 6px 0 22px; font-family: 'Source Serif 4', Georgia, serif; font-size: 34px; font-weight: 600; line-height: 1.15">Chào Minh Anh. Hôm nay bạn có ba việc.</h1>
+<div style="display: flex; flex-wrap: wrap; gap: 56px">
+<div style="flex: 999 1 560px; min-width: 0">
+<section style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 style="margin: 0 0 4px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Bài được giao, hạn hôm nay và ngày mai</h2>
+<a href="BaiTapSpeaking.dc.html" style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 20px; padding: 14px 0; border-bottom: 1px solid var(--rule); color: var(--ink); text-decoration: none"><span style="width: 84px; font-size: 14px; color: var(--muted)">Speaking</span><span lang="en" style="flex: 1 1 260px; font-family: 'Source Serif 4', Georgia, serif; font-size: 19px">Part 2 — Describe a place you often visit</span><span style="font-size: 14px; color: var(--mark); font-weight: 600">Hạn hôm nay, 22:00</span><span style="font-size: 14px; color: var(--link); text-decoration: underline">Luyện nói</span></a>
+</section>
+<section style="border-top: 2px solid var(--ink); padding-top: 16px; margin-top: 22px">
+<h2 style="margin: 0 0 4px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Làm tiếp khi rảnh</h2>
+<a href="#s2" style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 20px; padding: 14px 0; border-bottom: 1px solid var(--rule); color: var(--ink); text-decoration: none"><span style="width: 84px; font-size: 14px; color: var(--muted)">Sổ lỗi</span><span style="flex: 1 1 260px; font-family: 'Source Serif 4', Georgia, serif; font-size: 19px">3 lỗi cần ôn hôm nay</span><span style="font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums">12 câu · khoảng 10 phút</span><span style="font-size: 14px; color: var(--link); text-decoration: underline">Ôn 10 phút</span></a>
+</section>
+</div>
+<aside style="flex: 1 1 280px; min-width: 0">
+<section aria-labelledby="h-err" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="h-err" style="margin: 0 0 12px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Lỗi đang lặp lại</h2>
+<p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; line-height: 1.35">3 lỗi cần ôn hôm nay</p>
+<p style="margin: 6px 0 0; font-size: 14px; color: var(--muted)">Sai nhiều nhất: quá khứ với <span lang="en">did</span>, 3 câu ở 2 bài ngữ pháp.</p>
+<p style="margin: 10px 0 0; display: flex; flex-wrap: wrap; gap: 4px 20px; font-size: 15px"><a href="#s3">Ôn 10 phút</a><a href="#s2">Xem cả 9 lỗi</a></p>
+</section>
+</aside>
+</div>
+</main>
+</div>
+<p style="margin: 22px 0 10px; font-weight: 600">Bốn biến thể của khối "Lỗi đang lặp lại" (tiêu đề khối và hai nhãn liên kết giữ đúng như tờ Hôm nay đã duyệt)</p>
+<div style="display: flex; flex-wrap: wrap; gap: 20px 32px">
+<div style="flex: 1 1 240px; min-width: 0">
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Có mục, hôm nay không đến hạn</p>
+<section style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h3 style="margin: 0 0 12px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Lỗi đang lặp lại</h3>
+<p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; line-height: 1.35">Hôm nay không có lỗi nào đến hạn ôn</p>
+<p style="margin: 6px 0 0; font-size: 14px; color: var(--muted)">Lần ôn kế tiếp: Thứ Năm 19/11, 2 lỗi.</p>
+<p style="margin: 10px 0 0; display: flex; flex-wrap: wrap; gap: 4px 20px; font-size: 15px"><a href="#s2">Xem cả 9 lỗi</a></p>
+</section>
+</div>
+<div style="flex: 1 1 240px; min-width: 0">
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Sau khi ôn xong</p>
+<section style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h3 style="margin: 0 0 12px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Lỗi đang lặp lại</h3>
+<p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; line-height: 1.35">Đã ôn xong 3 lỗi hôm nay</p>
+<p style="margin: 6px 0 0; font-size: 14px; color: var(--muted)">2 lỗi sang mốc kế tiếp, 1 lỗi ở lại mốc 2 ngày.</p>
+<p style="margin: 10px 0 0; display: flex; flex-wrap: wrap; gap: 4px 20px; font-size: 15px"><a href="#s2">Xem cả 9 lỗi</a></p>
+</section>
+</div>
+<div style="flex: 1 1 240px; min-width: 0">
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Giai đoạn sau · khi sổ có cả lỗi Writing (câu đã duyệt ở Main)</p>
+<section style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h3 style="margin: 0 0 12px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Lỗi đang lặp lại</h3>
+<p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; line-height: 1.35">4 trên 5 bài Writing sai hoà hợp chủ ngữ–động từ</p>
+<p style="margin: 6px 0 0; font-size: 14px; color: var(--muted)">Cộng 3 lỗi ngữ pháp cần ôn hôm nay.</p>
+<p style="margin: 10px 0 0; display: flex; flex-wrap: wrap; gap: 4px 20px; font-size: 15px"><a href="#s3">Ôn 10 phút</a><a href="#s2">Xem cả 4 lỗi</a></p>
+</section>
+</div>
+<div style="flex: 1 1 240px; min-width: 0">
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Sổ chưa có mục nào</p>
+<div style="padding: 18px 14px; border: 1px dashed var(--muted); font-size: 14px; color: var(--muted)">Ẩn cả khối và cả dòng ở "Làm tiếp khi rảnh". Không hiện khối rỗng, không hiện số 0.</div>
+</div>
+</div>
+
+</div>
+</section>
+<section id="s2" aria-labelledby="h-s2" style="border-top: 2px solid var(--ink)">
+<div style="max-width: 1120px; margin: 0 auto; padding: 16px 32px 27px">
+<h2 id="h-s2" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">2 · Trang Sổ lỗi</h2>
+<p style="margin: 4px 0 18px; font-size: 14px; color: var(--muted); max-width: 110ch">Vào từ Hôm nay, Luyện tập và Tiến độ. Bấm được bốn bộ lọc; trang mở ở "Cần ôn hôm nay". Dưới danh sách có hai dòng mẫu của hai bộ lọc còn lại.</p>
+<div style="border: 1px solid var(--ink); background: var(--paper)">
+<header style="border-bottom: 1px solid var(--ink)">
+<div style="padding: 0 32px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 36px; min-height: 64px">
+<a href="Main.dc.html" style="display: inline-flex; align-items: center; gap: 9px; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600; color: var(--ink); text-decoration: none"><svg width="29" height="29" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</a>
+<nav aria-label="Điều hướng chính" style="display: flex; flex-wrap: wrap; gap: 4px 28px; flex-grow: 1">
+<a href="Main.dc.html" style="padding: 20px 0; color: var(--muted); text-decoration: none">Hôm nay</a>
+<a href="LoTrinh.dc.html" style="padding: 20px 0; color: var(--muted); text-decoration: none">Lộ trình</a>
+<a href="LuyenTap.dc.html" aria-current="page" style="padding: 20px 0 17px; color: var(--ink); font-weight: 600; text-decoration: none; border-bottom: 3px solid var(--accent)">Luyện tập</a>
+<a href="ThiThu.dc.html" style="padding: 20px 0; color: var(--muted); text-decoration: none">Thi thử</a>
+<a href="ThuVien.dc.html" style="padding: 20px 0; color: var(--muted); text-decoration: none">Thư viện</a>
+</nav>
+<div style="display: flex; align-items: center; gap: 16px">
+<span style="font-size: 14px; color: var(--muted)">Lượt chấm AI còn <strong style="color: var(--ink); font-variant-numeric: tabular-nums">XXX</strong></span>
+<button aria-label="Tra nhanh: từ, bài ngữ pháp, đề bài mẫu" title="Tra nhanh" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; box-sizing: border-box; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); cursor: pointer"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="1.6"></circle><path d="M15 15l5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path></svg></button>
+<span style="position: relative; flex: none; display: inline-flex"><a href="ThongBao.dc.html" aria-label="Thông báo, 4 chưa đọc" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; box-sizing: border-box; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink)"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15zM10 20.5a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></a><span aria-hidden="true" style="position: absolute; top: -7px; right: -7px; min-width: 20px; height: 20px; box-sizing: border-box; padding: 0 5px; border: 1px solid var(--paper); border-radius: 2px; background: var(--accent); color: var(--on-accent); font-size: 12px; font-weight: 600; line-height: 18px; text-align: center; font-variant-numeric: tabular-nums">4</span></span>
+<button aria-label="Mở menu tài khoản" style="width: 44px; height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer">MA</button>
+</div>
+</div>
+</header>
+<main style="padding: 24px 32px 36px">
+<nav aria-label="Vị trí trang" style="font-size: 14px; color: var(--muted)"><a href="LuyenTap.dc.html">Luyện tập</a> › <span aria-current="page" style="color: var(--ink)">Sổ lỗi của tôi</span></nav>
+<h1 style="margin: 8px 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 36px; font-weight: 600; line-height: 1.15">Sổ lỗi của tôi</h1>
+<p style="margin: 0; max-width: 110ch">Mỗi nhóm ngữ pháp bạn sai từ hai câu trở lên thành một mục. Mục quay lại sau 2, 7 rồi 21 ngày; đúng cả ba lần liên tiếp thì coi là đã vững.</p>
+<div style="margin-top: 22px; padding: 16px 0; border-top: 2px solid var(--ink); border-bottom: 1px solid var(--ink); display: flex; flex-wrap: wrap; align-items: center; gap: 12px 32px">
+<div style="flex: 1 1 380px; min-width: 0">
+<p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1.2">Hôm nay: 3 mục · 12 câu · khoảng 10 phút</p>
+<p style="margin: 4px 0 0; font-size: 14px; color: var(--muted)">Mỗi ngày tối đa 3 mục. Hôm nay có 4 mục đến hạn nên 1 mục được xếp sang ngày mai; mục xếp sang không bị tính là trễ.</p>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px"><a href="#s3" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 22px; background: var(--accent); color: var(--on-accent); font-weight: 600; text-decoration: none; border-radius: 2px">Bắt đầu ôn</a><button type="button" style="min-height: 44px; padding: 0 4px; border: 0; background: none; color: var(--link); font: 400 15px 'Source Sans 3', sans-serif; text-decoration: underline; cursor: pointer">Để mai cả ba mục</button></div>
+</div>
+<div role="tablist" aria-label="Lọc mục lỗi" style="display: flex; flex-wrap: wrap; gap: 0 28px; margin-top: 20px; border-bottom: 1px solid var(--ink)">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="4">
+<button type="button" role="tab" aria-selected="{{t.sel}}" onClick="{{t.pick}}" style="min-height: 44px; padding: 0; border: 0; border-bottom: 3px solid {{t.bar}}; background: none; color: {{t.color}}; font: {{t.weight}} 16px 'Source Sans 3', sans-serif; cursor: pointer">{{t.label}} <span style="font-variant-numeric: tabular-nums; color: var(--muted); font-weight: 400">{{t.n}}</span></button>
+</sc-for>
+</div>
+<div role="table" aria-label="Danh sách mục lỗi">
+<sc-for list="{{rows}}" as="e" hint-placeholder-count="9">
+<div role="row" style="display: flex; flex-wrap: wrap; gap: 10px 32px; padding: 14px 0; border-bottom: 1px solid var(--rule)">
+<div role="cell" style="flex: 999 1 420px; min-width: 0">
+<p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; font-weight: 600; line-height: 1.25">{{e.name}}</p>
+<p style="margin: 2px 0 0; font-size: 14px; color: var(--muted)">{{e.src}}</p>
+<p style="margin: 10px 0 0; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--mark)">{{e.qlabel}}</p>
+<p lang="en" style="margin: 4px 0 0; padding: 2px 0 2px 12px; border-left: 3px solid var(--mark); font-family: 'Source Serif 4', Georgia, serif; font-size: 17px; line-height: 1.45">{{e.quote}}</p>
+<p style="margin: 4px 0 0; font-size: 14px; color: var(--muted)">{{e.qnote}}</p>
+</div>
+<div role="cell" style="flex: 1 1 210px; min-width: 0">
+<p style="margin: 0; font-weight: 600">{{e.count}}</p>
+<p style="margin: 2px 0 0; font-size: 14px; color: var(--muted)">{{e.where}}</p>
+<a href="#s5" style="display: inline-block; margin-top: 6px; font-size: 14px">Mở mục này</a>
+</div>
+<div role="cell" style="flex: 1 1 200px; min-width: 0">
+<p style="margin: 0; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: {{e.stColor}}">{{e.st}}</p>
+<p style="margin: 2px 0 0; font-weight: 600">{{e.next}}</p>
+<p style="margin: 2px 0 8px; font-size: 14px; color: var(--muted)">{{e.stage}}</p>
+<sc-if value="{{e.due}}" hint-placeholder-val="{{ true }}">
+<p style="margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px"><a href="#s3" style="display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; border: 1px solid var(--ink); background: var(--surface); color: var(--ink); font-weight: 600; text-decoration: none; border-radius: 2px">Ôn 4 câu</a><button type="button" style="min-height: 40px; padding: 0; border: 0; background: none; color: var(--link); font: 400 15px 'Source Sans 3', sans-serif; text-decoration: underline; cursor: pointer">Để mai</button></p>
+</sc-if>
+</div>
+</div>
+</sc-for>
+</div>
+<sc-if value="{{moreText}}"><p style="margin: 12px 0 0; font: 400 15px 'Source Sans 3', sans-serif; color: var(--muted)">{{moreText}} · <a href="#" style="color: var(--accent); text-decoration: underline">Xem thêm</a></p></sc-if>
+<div style="margin-top: 20px; display: flex; flex-wrap: wrap; gap: 14px 40px">
+<div style="flex: 1 1 420px; min-width: 0; padding-top: 10px; border-top: 1px solid var(--ink)">
+<p style="margin: 0 0 6px; font-size: 13px; color: var(--muted)">Dòng "Đang theo dõi" (ở bộ lọc thứ hai) · không có nút ôn, chỉ có ngày</p>
+<p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; font-weight: 600; line-height: 1.25">always + tiếp diễn: sắc thái phàn nàn</p>
+<p style="margin: 2px 0 0; font-size: 14px; color: var(--muted)">Sai 2 câu ở 1 bài · <span style="color: var(--ink); font-weight: 600">Thứ Ba, 24/11</span> · mốc 2, đã đúng mốc 1 hôm 17/11</p>
+</div>
+<div style="flex: 1 1 420px; min-width: 0; padding-top: 10px; border-top: 1px solid var(--ink)">
+<p style="margin: 0 0 6px; font-size: 13px; color: var(--muted)">Dòng "Đã vững" (ở bộ lọc thứ ba) · vẫn mở được để xem câu cũ</p>
+<p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; font-weight: 600; line-height: 1.25">Định từ và đại từ sở hữu (their / theirs)</p>
+<p style="margin: 2px 0 0; font-size: 14px; color: var(--muted)">Đã sai 3 câu ở 1 bài · <span style="color: var(--accent); font-weight: 600">Vững từ 13/11</span> · đúng cả ba mốc 2, 7 và 21 ngày</p>
+</div>
+</div>
+<div style="margin-top: 20px; padding: 14px 16px; border: 1px dashed var(--muted); display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px">
+<span style="display: inline-block; padding: 1px 7px; border: 1px solid var(--ink); border-radius: 2px; color: var(--ink); font: 600 12px 'Source Sans 3', sans-serif; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap">Sắp có</span>
+<p style="margin: 0; flex: 1 1 520px; font-size: 15px"><strong>Lỗi từ bài Writing.</strong> Khi có, lỗi lặp lại trong nhận xét Writing (ví dụ hoà hợp chủ ngữ–động từ ở từ hai bài trở lên) cũng thành mục ở đây, kèm nút "Đây không phải lỗi này" vì nhãn do AI gán. Bản đầu chỉ có lỗi từ bài tập ngữ pháp.</p>
+</div>
+</main>
+</div>
+
+</div>
+</section>
+<section id="s3" aria-labelledby="h-s3" style="border-top: 2px solid var(--ink)">
+<div style="max-width: 1120px; margin: 0 auto; padding: 16px 32px 27px">
+<h2 id="h-s3" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">3 · Một phiên ôn</h2>
+<p style="margin: 4px 0 18px; font-size: 14px; color: var(--muted); max-width: 110ch">Mỗi mục một phiên 4 câu của đúng nhóm lỗi, lấy từ ngân hàng có sẵn: 3 câu trắc nghiệm bạn chưa gặp và 1 câu viết lại câu bạn từng sai. Vẽ lúc vừa trả lời sai câu 2: phản hồi, sơ đồ câu chữ, liên kết Grammar Wiki.</p>
+<div style="border: 1px solid var(--ink); background: var(--paper)">
+<p style="margin: 0; padding: 6px 32px; border-bottom: 1px solid var(--ink); font-size: 13px; color: var(--muted)">Thanh học viên năm mục như mục 2, Luyện tập đang chọn (lược bớt trên tờ).</p>
+<main style="padding: 20px 32px 32px">
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 24px; padding-bottom: 12px; border-bottom: 1px solid var(--ink)">
+<p style="margin: 0; font-size: 15px"><a href="#s2">‹ Sổ lỗi</a> <span style="color: var(--muted)">· Mục 1 trên 3 hôm nay</span></p>
+<p style="margin: 0; font-size: 15px; color: var(--muted)">Ôn không tính lượt chấm AI · <button type="button" style="padding: 0; border: 0; background: none; color: var(--link); font: 400 15px 'Source Sans 3', sans-serif; text-decoration: underline; cursor: pointer">Dừng, để mai</button></p>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 28px 56px; margin-top: 20px">
+<div style="flex: 999 1 560px; min-width: 0">
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Quá khứ với did: động từ về nguyên mẫu · câu 2 trên 4</p>
+<p style="margin: 8px 0 4px; font-size: 17px">Câu hỏi quá khứ dưới đây chọn đúng dạng nào, và vì sao?</p>
+<p lang="en" style="margin: 0 0 16px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; line-height: 1.35">Did the council approve the funding for the new footpath last year?</p>
+<div role="group" aria-label="Phương án" style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; align-items: baseline; gap: 12px; padding: 11px 14px; border: 2px solid var(--ink); background: var(--surface)"><span style="flex: none; font-weight: 600">A</span><span style="flex-grow: 1; min-width: 0">Quá khứ đơn dạng hỏi — <span lang="en">did</span> kéo động từ về nguyên mẫu</span><span style="flex: none; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--ink)">Đáp án</span></div>
+<div style="display: flex; align-items: baseline; gap: 12px; padding: 11px 14px; border: 2px solid var(--mark); background: color-mix(in srgb, var(--mark) 6%, var(--surface))"><span style="flex: none; font-weight: 600">B</span><span style="flex-grow: 1; min-width: 0">Quá khứ đơn dạng hỏi — vẫn giữ nguyên động từ ở dạng V2 cũ</span><span style="flex: none; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--mark)">Bạn chọn · chưa đúng</span></div>
+<div style="display: flex; align-items: baseline; gap: 12px; padding: 11px 14px; border: 1px solid var(--rule); background: var(--surface)"><span style="flex: none; font-weight: 600">C</span><span style="flex-grow: 1; min-width: 0">Hiện tại đơn dạng hỏi — <span lang="en">did</span> chỉ dùng cho hiện tại</span></div>
+<div style="display: flex; align-items: baseline; gap: 12px; padding: 11px 14px; border: 1px solid var(--rule); background: var(--surface)"><span style="flex: none; font-weight: 600">D</span><span style="flex-grow: 1; min-width: 0">Quá khứ tiếp diễn dạng hỏi — cần <span lang="en">was</span> thay cho <span lang="en">did</span></span></div>
+</div>
+<div role="status" style="margin-top: 18px; padding-top: 14px; border-top: 2px solid var(--mark)">
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--mark)">Chưa đúng</p>
+<p style="margin: 6px 0 0; max-width: 68ch">Câu hỏi quá khứ đơn dùng <span lang="en">did</span> cộng nguyên mẫu; dạng V2 biến mất. Vậy là <em lang="en">Did the council approve</em>, không phải <em lang="en">Did the council approved</em>.</p>
+<figure style="margin: 16px 0 0">
+<svg role="img" aria-label="Sơ đồ: did mang dấu quá khứ, động từ chính trở về nguyên mẫu" viewBox="0 0 560 172" style="display: block; width: 100%; max-width: 560px; height: auto; border: 1px solid var(--rule); background: var(--surface)">
+<text x="16" y="24" font-family="Source Sans 3, sans-serif" font-size="11" letter-spacing="1" fill="var(--muted)">HÌNH 1</text>
+<rect x="24" y="44" width="62" height="38" fill="none" stroke="var(--ink)" stroke-width="2"></rect>
+<text x="55" y="69" text-anchor="middle" font-family="Source Serif 4, Georgia, serif" font-size="19" font-weight="600" fill="var(--ink)">Did</text>
+<text x="150" y="69" text-anchor="middle" font-family="Source Serif 4, Georgia, serif" font-size="19" fill="var(--ink)">the council</text>
+<rect x="218" y="44" width="98" height="38" fill="none" stroke="var(--ink)" stroke-width="2"></rect>
+<text x="267" y="69" text-anchor="middle" font-family="Source Serif 4, Georgia, serif" font-size="19" font-weight="600" fill="var(--ink)">approve</text>
+<text x="438" y="69" text-anchor="middle" font-family="Source Serif 4, Georgia, serif" font-size="19" fill="var(--ink)">the funding … last year?</text>
+<path d="M55 44 V30 H267 V40" fill="none" stroke="var(--ink)" stroke-width="1.2"></path>
+<path d="M262 34 l5 7 l5 -7" fill="none" stroke="var(--ink)" stroke-width="1.2"></path>
+<text x="161" y="24" text-anchor="middle" font-family="Source Sans 3, sans-serif" font-size="12" fill="var(--ink)">kéo động từ chính về nguyên mẫu</text>
+<line x1="55" y1="82" x2="55" y2="104" stroke="var(--ink)" stroke-width="1"></line>
+<text x="24" y="120" font-family="Source Sans 3, sans-serif" font-size="13" fill="var(--ink)">mang dấu quá khứ</text>
+<text x="24" y="137" font-family="Source Sans 3, sans-serif" font-size="12" fill="var(--muted)">(do → did)</text>
+<line x1="267" y1="82" x2="267" y2="104" stroke="var(--ink)" stroke-width="1"></line>
+<text x="218" y="120" font-family="Source Sans 3, sans-serif" font-size="13" fill="var(--ink)">nguyên mẫu, không thêm -ed</text>
+<text x="218" y="146" font-family="Source Serif 4, Georgia, serif" font-size="17" fill="var(--mark)">approved</text>
+<line x1="214" y1="141" x2="296" y2="141" stroke="var(--mark)" stroke-width="1.6"></line>
+<text x="304" y="146" font-family="Source Sans 3, sans-serif" font-size="12" fill="var(--mark)">không viết dạng này sau did</text>
+</svg>
+<figcaption style="margin-top: 6px; font-size: 13px; color: var(--muted)">Hình 1. Trong câu hỏi và câu phủ định quá khứ, dấu quá khứ nằm ở <span lang="en">did</span>; động từ chính trở về nguyên mẫu.</figcaption>
+</figure>
+<p style="margin: 14px 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 24px"><a href="#s3" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 22px; background: var(--accent); color: var(--on-accent); font-weight: 600; text-decoration: none; border-radius: 2px">Câu tiếp</a><a href="GrammarWikiBai.dc.html#g-s5" style="font-weight: 600">Grammar Wiki · Quá khứ đơn: câu hỏi và phủ định với did</a></p>
+</div>
+</div>
+<aside style="flex: 1 1 280px; min-width: 0">
+<section style="border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 style="margin: 0 0 12px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Phiên này · 4 câu</h2>
+<ol style="margin: 0; padding: 0; list-style: none; font-size: 15px">
+<li style="display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--rule)"><span>1 · Chọn dạng đúng</span><span style="font-weight: 600">Đúng</span></li>
+<li style="display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--rule); background: var(--tint)"><span style="font-weight: 600">2 · Nhận diện thì</span><span style="font-weight: 600; color: var(--mark)">Chưa đúng</span></li>
+<li style="display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--rule); color: var(--muted)"><span>3 · Tìm phần sai</span><span>chưa làm</span></li>
+<li style="display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--rule); color: var(--muted)"><span>4 · Viết lại câu bạn từng sai</span><span>chưa làm</span></li>
+</ol>
+</section>
+<section style="border-top: 2px solid var(--ink); padding-top: 14px; margin-top: 28px">
+<h2 style="margin: 0 0 12px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Vì sao có mục này</h2>
+<p style="margin: 0; font-size: 15px">Bạn sai 3 câu của nhóm này ở 2 bài. Câu gần nhất:</p>
+<p lang="en" style="margin: 8px 0 0; padding: 2px 0 2px 12px; border-left: 3px solid var(--mark); font-family: 'Source Serif 4', Georgia, serif; font-size: 17px; line-height: 1.45">The residents did not complained about the noise until the survey was published.</p>
+<p style="margin: 4px 0 0; font-size: 14px; color: var(--muted)">Ngữ pháp B13, câu 47 · 10/11. Câu này quay lại ở câu 4.</p>
+</section>
+</aside>
+</div>
+</main>
+</div>
+<p style="margin: 22px 0 10px; font-weight: 600">Câu 4 · "viết lại câu bạn từng sai" — ba trạng thái. Máy so chữ với câu đúng đã có trong ngân hàng, không dùng AI.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 20px 28px">
+<div style="flex: 1 1 320px; min-width: 0; padding: 14px 16px 16px; border: 1px solid var(--ink); background: var(--paper)">
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Đang làm</p>
+<p style="margin: 0; font-size: 15px">Hôm 10/11 bạn chọn câu này. Gõ lại cả câu cho đúng.</p>
+<p lang="en" style="margin: 8px 0 0; padding: 2px 0 2px 12px; border-left: 3px solid var(--mark); font-family: 'Source Serif 4', Georgia, serif; font-size: 17px; line-height: 1.45">The residents did not complained about the noise until the survey was published.</p>
+<label style="display: block; margin-top: 12px; font-size: 14px; font-weight: 600">Câu của bạn
+<textarea rows="2" lang="en" style="display: block; width: 100%; box-sizing: border-box; margin-top: 4px; padding: 8px 10px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 17px/1.45 'Source Serif 4', Georgia, serif; resize: none">The residents did not complain about the noise until</textarea></label>
+<p style="margin: 10px 0 0"><a href="#s3" style="display: inline-flex; align-items: center; min-height: 40px; padding: 0 22px; background: var(--accent); color: var(--on-accent); font-weight: 600; text-decoration: none; border-radius: 2px">Kiểm tra</a></p>
+</div>
+<div style="flex: 1 1 320px; min-width: 0; padding: 14px 16px 16px; border: 1px solid var(--ink); background: var(--paper)">
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Chưa đúng · được thử lại một lần</p>
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--mark)">Chưa đúng ở một chỗ</p>
+<p lang="en" style="margin: 8px 0 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 17px; line-height: 1.6">The residents did not <span style="border-bottom: 2px solid var(--mark)">complains</span> about the noise until the survey was published.</p>
+<p style="margin: 8px 0 0; font-size: 15px">Chỗ gạch dưới khác câu đúng. Chưa hiện đáp án; bạn sửa và kiểm tra lại. Sai lần hai thì hiện câu đúng và câu này tính là sai.</p>
+<p style="margin: 10px 0 0"><a href="#s3" style="display: inline-flex; align-items: center; min-height: 40px; padding: 0 22px; border: 1px solid var(--ink); background: var(--surface); color: var(--ink); font-weight: 600; text-decoration: none; border-radius: 2px">Sửa và kiểm tra lại</a></p>
+</div>
+<div style="flex: 1 1 320px; min-width: 0; padding: 14px 16px 16px; border: 1px solid var(--ink); background: var(--paper)">
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Đúng</p>
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--accent)">Đúng</p>
+<p lang="en" style="margin: 8px 0 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 17px; line-height: 1.6">The residents did not <span style="background: var(--tint); font-weight: 600">complain</span> about the noise until the survey was published.</p>
+<p style="margin: 8px 0 0; font-size: 15px">So với câu cũ của bạn: <span lang="en" style="text-decoration: line-through">complained</span> → <span lang="en" style="font-weight: 600">complain</span>. Viết tắt <span lang="en">didn't</span> và khác biệt hoa thường, dấu chấm cuối cũng được nhận.</p>
+<p style="margin: 10px 0 0"><a href="#s4" style="display: inline-flex; align-items: center; min-height: 40px; padding: 0 22px; background: var(--accent); color: var(--on-accent); font-weight: 600; text-decoration: none; border-radius: 2px">Xem kết quả phiên</a></p>
+</div>
+</div>
+
+</div>
+</section>
+<section id="s4" aria-labelledby="h-s4" style="border-top: 2px solid var(--ink)">
+<div style="max-width: 1120px; margin: 0 auto; padding: 16px 32px 27px">
+<h2 id="h-s4" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">4 · Sau phiên ôn: lịch quay lại, "đã vững", trần mỗi ngày</h2>
+<p style="margin: 4px 0 18px; font-size: 14px; color: var(--muted); max-width: 110ch">Hai kết quả phiên, sơ đồ lịch và hai nhóm quy tắc. Con số có nhãn "Đề xuất" là mặc định người thiết kế đặt.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 24px 32px; margin-bottom: 22px">
+<div style="flex: 1 1 440px; min-width: 0; padding: 18px 20px 20px; border: 1px solid var(--ink); background: var(--paper)">
+<p style="margin: 0 0 10px; font-size: 13px; color: var(--muted)">Kết quả phiên mẫu ở mục 3 · có một câu sai</p>
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Xong mục 1 trên 3 · Quá khứ với did</p>
+<p style="margin: 6px 0 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 28px; font-weight: 600; line-height: 1.2">Đúng 3 trên 4 câu</p>
+<p style="margin: 8px 0 0">Câu 2 chưa đúng nên mục này ở lại mốc 1. <strong>Lần ôn kế tiếp: Thứ Năm 19/11</strong>, 4 câu khác của cùng nhóm.</p>
+<p style="margin: 14px 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px"><a href="#s3" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 22px; background: var(--accent); color: var(--on-accent); font-weight: 600; text-decoration: none; border-radius: 2px">Ôn mục 2 trên 3</a><a href="#s2">Để mai 2 mục còn lại</a><a href="GrammarWikiBai.dc.html#g-s5">Đọc lại bài Grammar Wiki</a></p>
+</div>
+<div style="flex: 1 1 440px; min-width: 0; padding: 18px 20px 20px; border: 1px solid var(--ink); background: var(--paper)">
+<p style="margin: 0 0 10px; font-size: 13px; color: var(--muted)">Trường hợp đúng cả phiên · mục đang ở mốc 3</p>
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Xong mục · Định từ và đại từ sở hữu</p>
+<p style="margin: 6px 0 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 28px; font-weight: 600; line-height: 1.2">Đúng 4 trên 4 câu</p>
+<p style="margin: 8px 0 0">Bạn đã đúng cả ba mốc 2, 7 và 21 ngày. <strong>Mục này chuyển sang "Đã vững"</strong> và không quay lại nữa, trừ khi bạn sai lại từ 2 câu của nhóm này trong một bài tập mới.</p>
+<p style="margin: 14px 0 0"><a href="#s2">Về Sổ lỗi</a></p>
+</div>
+</div>
+<figure style="margin: 0">
+<svg role="img" aria-label="Sơ đồ lịch ôn: lập mục, ôn sau 2 ngày, 7 ngày, 21 ngày, rồi đã vững; sai thì lùi một mốc" viewBox="0 0 1040 214" style="display: block; width: 100%; height: auto; border: 1px solid var(--rule); background: var(--surface)">
+<text x="16" y="24" font-family="Source Sans 3, sans-serif" font-size="11" letter-spacing="1" fill="var(--muted)">HÌNH 2</text>
+<rect x="24" y="70" width="150" height="56" fill="none" stroke="var(--ink)" stroke-width="1.2"></rect>
+<text x="99" y="94" text-anchor="middle" font-family="Source Sans 3, sans-serif" font-size="14" font-weight="600" fill="var(--ink)">Lập mục</text>
+<text x="99" y="113" text-anchor="middle" font-family="Source Sans 3, sans-serif" font-size="12" fill="var(--muted)">sai từ 2 câu cùng nhóm</text>
+<rect x="244" y="70" width="150" height="56" fill="none" stroke="var(--ink)" stroke-width="2"></rect>
+<text x="319" y="94" text-anchor="middle" font-family="Source Sans 3, sans-serif" font-size="14" font-weight="600" fill="var(--ink)">Mốc 1 · ôn 4 câu</text>
+<text x="319" y="113" text-anchor="middle" font-family="Source Sans 3, sans-serif" font-size="12" fill="var(--muted)">sau 2 ngày</text>
+<rect x="464" y="70" width="150" height="56" fill="none" stroke="var(--ink)" stroke-width="2"></rect>
+<text x="539" y="94" text-anchor="middle" font-family="Source Sans 3, sans-serif" font-size="14" font-weight="600" fill="var(--ink)">Mốc 2 · ôn 4 câu</text>
+<text x="539" y="113" text-anchor="middle" font-family="Source Sans 3, sans-serif" font-size="12" fill="var(--muted)">sau 7 ngày</text>
+<rect x="684" y="70" width="150" height="56" fill="none" stroke="var(--ink)" stroke-width="2"></rect>
+<text x="759" y="94" text-anchor="middle" font-family="Source Sans 3, sans-serif" font-size="14" font-weight="600" fill="var(--ink)">Mốc 3 · ôn 4 câu</text>
+<text x="759" y="113" text-anchor="middle" font-family="Source Sans 3, sans-serif" font-size="12" fill="var(--muted)">sau 21 ngày</text>
+<rect x="896" y="70" width="120" height="56" fill="var(--tint)" stroke="var(--ink)" stroke-width="1.2"></rect>
+<text x="956" y="103" text-anchor="middle" font-family="Source Sans 3, sans-serif" font-size="14" font-weight="600" fill="var(--ink)">Đã vững</text>
+<path d="M174 98 H238 M232 93 l7 5 l-7 5 M394 98 H458 M452 93 l7 5 l-7 5 M614 98 H678 M672 93 l7 5 l-7 5 M834 98 H890 M884 93 l7 5 l-7 5" fill="none" stroke="var(--ink)" stroke-width="1.4"></path>
+<text x="426" y="88" text-anchor="middle" font-family="Source Sans 3, sans-serif" font-size="12" fill="var(--ink)">đúng</text>
+<text x="646" y="88" text-anchor="middle" font-family="Source Sans 3, sans-serif" font-size="12" fill="var(--ink)">đúng</text>
+<text x="862" y="88" text-anchor="middle" font-family="Source Sans 3, sans-serif" font-size="12" fill="var(--ink)">đúng</text>
+<path d="M539 70 V46 H332 V64 M327 58 l5 7 l5 -7" fill="none" stroke="var(--mark)" stroke-width="1.4" stroke-dasharray="5 4"></path>
+<path d="M759 70 V46 H552 V64 M547 58 l5 7 l5 -7" fill="none" stroke="var(--mark)" stroke-width="1.4" stroke-dasharray="5 4"></path>
+<text x="436" y="40" text-anchor="middle" font-family="Source Sans 3, sans-serif" font-size="12" fill="var(--mark)">có câu sai: lùi một mốc</text>
+<text x="656" y="40" text-anchor="middle" font-family="Source Sans 3, sans-serif" font-size="12" fill="var(--mark)">có câu sai: lùi một mốc</text>
+<path d="M300 126 V150 H270 V132 M265 138 l5 -7 l5 7" fill="none" stroke="var(--mark)" stroke-width="1.4" stroke-dasharray="5 4"></path>
+<text x="286" y="168" text-anchor="middle" font-family="Source Sans 3, sans-serif" font-size="12" fill="var(--mark)">có câu sai: ở lại mốc 1,</text>
+<text x="286" y="184" text-anchor="middle" font-family="Source Sans 3, sans-serif" font-size="12" fill="var(--mark)">ôn lại sau 2 ngày</text>
+<path d="M956 126 V160 H346 V132 M341 138 l5 -7 l5 7" fill="none" stroke="var(--mark)" stroke-width="1.4" stroke-dasharray="5 4"></path>
+<text x="660" y="178" text-anchor="middle" font-family="Source Sans 3, sans-serif" font-size="12" fill="var(--mark)">sai lại từ 2 câu của nhóm này trong một bài tập mới: mở lại mục, về mốc 1</text>
+</svg>
+<figcaption style="margin-top: 6px; font-size: 13px; color: var(--muted)">Hình 2. Đường liền: đúng cả phiên thì sang mốc sau. Đường đứt: có câu sai thì lùi một mốc. Ngày tính từ hôm bạn ôn thật, không tính từ ngày đến hạn.</figcaption>
+</figure>
+<div style="display: flex; flex-wrap: wrap; gap: 20px 48px; margin-top: 22px">
+<div style="flex: 1 1 460px; min-width: 0">
+<h3 style="margin: 0 0 12px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Quy tắc lịch</h3>
+<ul style="margin: 0; padding-left: 20px; font-size: 15px; display: flex; flex-direction: column; gap: 6px">
+<li>Lập mục khi sai từ 2 câu cùng một nhóm ngữ pháp, tính trên lượt đầu của mọi bài tập và bài kiểm tra, cộng câu sai lại ở lượt làm lại. <span style="display: inline-block; padding: 1px 7px; border: 1px solid var(--ink); border-radius: 2px; color: var(--ink); font: 600 12px 'Source Sans 3', sans-serif; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap">Đề xuất</span></li>
+<li>Phiên đạt khi đúng cả 4 câu. Phương án nới: cho sai 1 câu trắc nghiệm, câu viết lại vẫn phải đúng. <span style="display: inline-block; padding: 1px 7px; border: 1px solid var(--mark); border-radius: 2px; color: var(--mark); font: 600 12px 'Source Sans 3', sans-serif; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap">Chờ chủ dự án quyết</span></li>
+<li>Có câu sai: lùi một mốc (mốc 3 về mốc 2, mốc 2 về mốc 1, mốc 1 ở lại mốc 1).</li>
+<li>"Đã vững": đúng liên tiếp qua ba mốc. Mục đã vững mở lại khi nhóm đó sai lại từ 2 câu trong một bài tập mới.</li>
+</ul>
+</div>
+<div style="flex: 1 1 460px; min-width: 0">
+<h3 style="margin: 0 0 12px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Trần mỗi ngày và "Để mai"</h3>
+<ul style="margin: 0; padding-left: 20px; font-size: 15px; display: flex; flex-direction: column; gap: 6px">
+<li>Mỗi ngày tối đa 3 mục, tức 12 câu, khoảng 10 phút. <span style="display: inline-block; padding: 1px 7px; border: 1px solid var(--ink); border-radius: 2px; color: var(--ink); font: 600 12px 'Source Sans 3', sans-serif; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap">Đề xuất</span></li>
+<li>Quá 3 mục đến hạn: xếp mục quá hạn lâu nhất trước, rồi mục ở mốc 1; phần còn lại tự sang ngày kế. Mục bị xếp sang không tính là trễ và không lùi mốc.</li>
+<li>"Để mai" có ở từng mục, ở khối đầu trang và trong phiên. Bấm thì mục sang ngày mai, mốc giữ nguyên, không hỏi lý do, không nhắc lại trong ngày.</li>
+<li>Không có chuỗi ngày, huy hiệu, điểm thưởng; không gửi thông báo riêng cho việc ôn lỗi. Chỗ nhắc duy nhất là trang Hôm nay.</li>
+</ul>
+</div>
+</div>
+
+</div>
+</section>
+<section id="s5" aria-labelledby="h-s5" style="border-top: 2px solid var(--ink)">
+<div style="max-width: 1120px; margin: 0 auto; padding: 16px 32px 27px">
+<h2 id="h-s5" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">5 · Mở một mục: các câu đã sai và biểu đồ theo tháng</h2>
+<p style="margin: 4px 0 18px; font-size: 14px; color: var(--muted); max-width: 110ch">Biểu đồ chỉ hiện khi mỗi tháng đem so có ít nhất 5 câu của nhóm (đề xuất). Không đủ thì thay bằng một câu nói rõ còn thiếu gì.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 28px 56px">
+<div style="flex: 999 1 480px; min-width: 0">
+<p style="margin: 0; font-size: 14px; color: var(--muted)"><a href="#s2">‹ Sổ lỗi</a> · Ngữ pháp B13 · Thì hiện tại và quá khứ</p>
+<p style="margin: 6px 0 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 28px; font-weight: 600; line-height: 1.2">Động từ trạng thái không chia tiếp diễn</p>
+<p style="margin: 6px 0 16px; color: var(--muted)">Đang ở mốc 2 · cần ôn hôm nay · <a href="GrammarWikiBai.dc.html">Grammar Wiki · Động từ trạng thái</a></p>
+<h3 style="margin: 0 0 12px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Các câu bạn đã sai · 4 câu ở 1 bài</h3>
+<div style="border-top: 1px solid var(--ink)">
+<div style="padding: 12px 0; border-bottom: 1px solid var(--rule)"><p style="margin: 0; font-size: 14px; color: var(--muted)">Ngữ pháp B13, câu 3 · 10/11 · lượt đầu · 9 giây</p><p lang="en" style="margin: 4px 0 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 17px">The patient <strong>hears</strong> a faint ringing in both ears.</p><p style="margin: 4px 0 0; font-size: 15px"><span style="color: var(--mark); font-weight: 600">Bạn chọn:</span> Nhóm hành động thường — chia tiếp diễn được</p></div>
+<div style="padding: 12px 0; border-bottom: 1px solid var(--rule)"><p style="margin: 0; font-size: 14px; color: var(--muted)">Ngữ pháp B13, câu 4 · 10/11 · lượt đầu · 31 giây</p><p lang="en" style="margin: 4px 0 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 17px">The founder still <strong>owns</strong> most of the company shares.</p><p style="margin: 4px 0 0; font-size: 15px"><span style="color: var(--mark); font-weight: 600">Bạn chọn:</span> Vì chủ ngữ số ít bắt buộc phải dùng dạng đơn</p></div>
+<div style="padding: 12px 0; border-bottom: 1px solid var(--rule)"><p style="margin: 0; font-size: 14px; color: var(--muted)">Ngữ pháp B13, câu 62 · 10/11 · lượt đầu · 22 giây</p><p lang="en" style="margin: 4px 0 0; padding-left: 12px; border-left: 3px solid var(--mark); font-family: 'Source Serif 4', Georgia, serif; font-size: 17px">I am knowing the answer.</p><p style="margin: 4px 0 0; font-size: 15px"><span style="color: var(--mark); font-weight: 600">Bạn chọn câu này là câu đúng.</span></p></div>
+<p style="margin: 10px 0 0; font-size: 14px"><a href="XemLaiBaiLam.dc.html">Xem câu thứ tư và cả bài làm B13</a></p>
+</div>
+</div>
+<aside style="flex: 1 1 380px; min-width: 0">
+<section style="border-top: 2px solid var(--ink); padding-top: 14px">
+<h3 style="margin: 0 0 12px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Nhóm này theo tháng · đủ dữ liệu</h3>
+<div style="display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 12px 14px; align-items: start">
+<span style="font-size: 14px; color: var(--muted)">Tháng 10</span><span><span role="img" aria-label="6 câu sai trên 14 câu đã gặp" style="display: inline-flex; flex-wrap: wrap; gap: 4px; max-width: 280px"><span style="width: 15px; height: 15px; box-sizing: border-box; background: var(--mark)"></span><span style="width: 15px; height: 15px; box-sizing: border-box; background: var(--mark)"></span><span style="width: 15px; height: 15px; box-sizing: border-box; background: var(--mark)"></span><span style="width: 15px; height: 15px; box-sizing: border-box; background: var(--mark)"></span><span style="width: 15px; height: 15px; box-sizing: border-box; background: var(--mark)"></span><span style="width: 15px; height: 15px; box-sizing: border-box; background: var(--mark)"></span><span style="width: 15px; height: 15px; box-sizing: border-box; border: 1.5px solid var(--ink)"></span><span style="width: 15px; height: 15px; box-sizing: border-box; border: 1.5px solid var(--ink)"></span><span style="width: 15px; height: 15px; box-sizing: border-box; border: 1.5px solid var(--ink)"></span><span style="width: 15px; height: 15px; box-sizing: border-box; border: 1.5px solid var(--ink)"></span><span style="width: 15px; height: 15px; box-sizing: border-box; border: 1.5px solid var(--ink)"></span><span style="width: 15px; height: 15px; box-sizing: border-box; border: 1.5px solid var(--ink)"></span><span style="width: 15px; height: 15px; box-sizing: border-box; border: 1.5px solid var(--ink)"></span><span style="width: 15px; height: 15px; box-sizing: border-box; border: 1.5px solid var(--ink)"></span></span><span style="display: block; margin-top: 4px; font-size: 14px">sai <strong>6</strong> trên 14 câu đã gặp</span></span>
+<span style="font-size: 14px; color: var(--muted)">Tháng 11</span><span><span role="img" aria-label="1 câu sai trên 9 câu đã gặp" style="display: inline-flex; flex-wrap: wrap; gap: 4px; max-width: 280px"><span style="width: 15px; height: 15px; box-sizing: border-box; background: var(--mark)"></span><span style="width: 15px; height: 15px; box-sizing: border-box; border: 1.5px solid var(--ink)"></span><span style="width: 15px; height: 15px; box-sizing: border-box; border: 1.5px solid var(--ink)"></span><span style="width: 15px; height: 15px; box-sizing: border-box; border: 1.5px solid var(--ink)"></span><span style="width: 15px; height: 15px; box-sizing: border-box; border: 1.5px solid var(--ink)"></span><span style="width: 15px; height: 15px; box-sizing: border-box; border: 1.5px solid var(--ink)"></span><span style="width: 15px; height: 15px; box-sizing: border-box; border: 1.5px solid var(--ink)"></span><span style="width: 15px; height: 15px; box-sizing: border-box; border: 1.5px solid var(--ink)"></span><span style="width: 15px; height: 15px; box-sizing: border-box; border: 1.5px solid var(--ink)"></span></span><span style="display: block; margin-top: 4px; font-size: 14px">sai <strong>1</strong> trên 9 câu đã gặp</span></span>
+</div>
+<p style="margin: 10px 0 0; font-size: 13px; color: var(--muted)">Mỗi ô là một câu của nhóm này bạn trả lời lần đầu (bài tập, bài kiểm tra, phiên ôn). Ô tô kín là câu sai. Hiện cả số câu đã gặp để con số sai không bị hiểu lệch khi tháng đó gặp ít câu.</p>
+</section>
+<section style="border-top: 2px solid var(--ink); padding-top: 14px; margin-top: 24px">
+<h3 style="margin: 0 0 12px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Cùng khối, khi chưa đủ dữ liệu</h3>
+<p style="margin: 0; padding: 12px 14px; border: 1px dashed var(--muted); font-size: 15px">Chưa đủ để so sánh: tháng này bạn mới gặp 2 câu của nhóm này. Cần ít nhất 5 câu trong mỗi tháng. Không vẽ biểu đồ, không ghi phần trăm.</p>
+</section>
+<section style="border-top: 2px solid var(--ink); padding-top: 14px; margin-top: 24px">
+<h3 style="margin: 0 0 12px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Lịch sử ôn</h3>
+<div style="font-size: 15px">
+<p style="margin: 0; display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--rule)"><span>08/11 · lập mục</span><span style="color: var(--muted)">sai 4 câu ở B13</span></p>
+<p style="margin: 0; display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--rule)"><span>10/11 · mốc 1</span><span>đúng 4 trên 4 · sang mốc 2</span></p>
+<p style="margin: 0; display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--rule)"><span>17/11 · mốc 2</span><span style="font-weight: 600">đến hạn hôm nay</span></p>
+</div>
+</section>
+</aside>
+</div>
+
+</div>
+</section>
+<section id="s6" aria-labelledby="h-s6" style="border-top: 2px solid var(--ink)">
+<div style="max-width: 1120px; margin: 0 auto; padding: 16px 32px 27px">
+<h2 id="h-s6" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">6 · Trạng thái rỗng và chưa đủ dữ liệu</h2>
+<p style="margin: 4px 0 18px; font-size: 14px; color: var(--muted); max-width: 110ch">Không khen, không số 0 to. Mỗi trạng thái nói rõ vì sao trống và việc làm tiếp nếu có.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 20px 32px">
+<div style="flex: 1 1 230px; min-width: 0">
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted); min-height: 38px">Chưa làm bài tập ngữ pháp nào</p>
+<div style="padding: 18px 20px; border: 1px solid var(--ink); background: var(--paper); min-height: 168px; box-sizing: border-box">
+<p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 19px; font-weight: 600; line-height: 1.25">Sổ lỗi chưa có gì</p>
+<p style="margin: 6px 0 0; font-size: 15px; max-width: 60ch">Sổ tự ghi khi bạn sai từ hai câu của cùng một nhóm ngữ pháp trong bài tập.</p>
+<p style="margin: 10px 0 0; font-size: 15px"><a href="LoTrinhBaiDuocGiao.dc.html">Xem bài được giao</a></p>
+</div>
+</div>
+<div style="flex: 1 1 230px; min-width: 0">
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted); min-height: 38px">Đã làm bài, chưa nhóm nào sai từ 2 câu</p>
+<div style="padding: 18px 20px; border: 1px solid var(--ink); background: var(--paper); min-height: 168px; box-sizing: border-box">
+<p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 19px; font-weight: 600; line-height: 1.25">Chưa có lỗi nào lặp lại</p>
+<p style="margin: 6px 0 0; font-size: 15px; max-width: 60ch">Bạn đã làm 2 bài ngữ pháp; chưa nhóm nào có từ hai câu sai. Câu sai lẻ xem trong bài làm.</p>
+<p style="margin: 10px 0 0; font-size: 15px"><a href="XemLaiBaiLam.dc.html">Xem lại bài làm</a></p>
+</div>
+</div>
+<div style="flex: 1 1 230px; min-width: 0">
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted); min-height: 38px">Hôm nay không mục nào đến hạn (khối đầu trang)</p>
+<div style="padding: 18px 20px; border: 1px solid var(--ink); background: var(--paper); min-height: 168px; box-sizing: border-box">
+<p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 19px; font-weight: 600; line-height: 1.25">Hôm nay không có mục nào đến hạn</p>
+<p style="margin: 6px 0 0; font-size: 15px; max-width: 60ch">Lần ôn kế tiếp: Thứ Năm 19/11, 2 mục.</p>
+<p style="margin: 10px 0 0; font-size: 15px"><a href="#s2">Xem 4 mục đang theo dõi</a></p>
+</div>
+</div>
+<div style="flex: 1 1 230px; min-width: 0">
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted); min-height: 38px">Lỗi tải, và nhóm hết câu chưa gặp</p>
+<div role="alert" style="padding: 14px 18px; border: 1px solid var(--mark); border-left-width: 8px; background: color-mix(in srgb, var(--mark) 7%, var(--surface))">
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--mark)">Chưa tải được Sổ lỗi</p>
+<p style="margin: 4px 0 0; font-size: 15px">Lịch ôn của bạn không đổi. <a href="#s2">Tải lại</a></p>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)">Nhóm không còn câu chưa gặp: phiên dùng lại câu đã gặp cách đây lâu nhất, đảo thứ tự phương án, và ghi "câu đã gặp" cạnh số câu. Không tự sinh câu mới.</p>
+</div>
+</div>
+<p style="margin: 12px 0 0; font-size: 14px; color: var(--muted); max-width: 120ch">Không vẽ riêng: mọi mục đã vững ("Không còn mục nào đang theo dõi"); câu sai lẻ ở trang xem lại bài làm có dòng "Sai thêm một câu của nhóm này thì nhóm vào Sổ lỗi".</p>
+
+</div>
+</section>
+<section id="s7" aria-labelledby="h-s7" style="border-top: 2px solid var(--ink)">
+<div style="max-width: 1120px; margin: 0 auto; padding: 16px 32px 27px">
+<h2 id="h-s7" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">7 · Điện thoại 390px · trang Sổ lỗi và phiên ôn</h2>
+<p style="margin: 4px 0 18px; font-size: 14px; color: var(--muted); max-width: 110ch">Phiên ôn làm được trọn trên điện thoại vì mỗi phiên chỉ 4 câu.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 32px; align-items: flex-start">
+<div aria-label="Điện thoại · trang Sổ lỗi" style="flex: none; width: 390px; height: 844px; box-sizing: border-box; border: 1px solid var(--ink); display: flex; flex-direction: column; overflow: hidden; background: var(--paper)">
+<header style="flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; height: 56px; box-sizing: border-box; padding: 0 16px; border-bottom: 1px solid var(--ink)">
+<span style="display: inline-flex; align-items: center; gap: 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; font-weight: 600"><svg width="26" height="26" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<div style="display: flex; align-items: center; gap: 12px">
+<span style="font-size: 13px; color: var(--muted)">Lượt AI <strong style="color: var(--ink)">XXX</strong></span>
+<span style="position: relative; flex: none; display: inline-flex"><a href="ThongBao.dc.html" aria-label="Thông báo, 4 chưa đọc" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; box-sizing: border-box; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink)"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15zM10 20.5a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></a><span aria-hidden="true" style="position: absolute; top: -7px; right: -7px; min-width: 20px; height: 20px; box-sizing: border-box; padding: 0 5px; border: 1px solid var(--paper); border-radius: 2px; background: var(--accent); color: var(--on-accent); font-size: 12px; font-weight: 600; line-height: 18px; text-align: center; font-variant-numeric: tabular-nums">4</span></span>
+<button aria-label="Mở menu tài khoản" style="width: 44px; height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif">MA</button>
+</div>
+</header>
+<div style="flex-grow: 1; min-height: 0; overflow-y: auto; padding: 8px 16px 16px">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<a href="LuyenTap.dc.html" style="display: inline-flex; align-items: center; align-self: flex-start; min-height: 44px; font-size: 15px">‹ Luyện tập</a>
+<p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 28px; font-weight: 600; line-height: 1.15">Sổ lỗi của tôi</p>
+<div style="padding: 12px 0; border-top: 2px solid var(--ink); border-bottom: 1px solid var(--ink)">
+<p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; font-weight: 600; line-height: 1.25">Hôm nay: 3 mục · 12 câu</p>
+<p style="margin: 2px 0 10px; font-size: 14px; color: var(--muted)">Khoảng 10 phút. 1 mục xếp sang ngày mai.</p>
+<a href="#s3" style="display: flex; align-items: center; justify-content: center; min-height: 48px; background: var(--accent); color: var(--on-accent); font-weight: 600; text-decoration: none; border-radius: 2px">Bắt đầu ôn</a>
+<a href="#s2" style="display: flex; align-items: center; justify-content: center; min-height: 44px; font-size: 15px">Để mai cả ba mục</a>
+</div>
+<div role="tablist" aria-label="Lọc mục lỗi" style="display: flex; gap: 22px; overflow-x: auto; border-bottom: 1px solid var(--ink); white-space: nowrap">
+<span role="tab" aria-selected="true" style="display: inline-flex; align-items: center; min-height: 44px; border-bottom: 3px solid var(--ink); font-weight: 600">Cần ôn hôm nay 3</span>
+<span role="tab" aria-selected="false" style="display: inline-flex; align-items: center; min-height: 44px; color: var(--muted)">Đang theo dõi 4</span>
+<span role="tab" aria-selected="false" style="display: inline-flex; align-items: center; min-height: 44px; color: var(--muted)">Đã vững 2</span>
+</div>
+<div style="padding: 4px 0 12px; border-bottom: 1px solid var(--rule)">
+<p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; font-weight: 600; line-height: 1.25">Quá khứ với did: động từ về nguyên mẫu</p>
+<p style="margin: 2px 0 0; font-size: 13px; color: var(--muted)">Sai 3 câu ở 2 bài · mốc 1 · đến hạn hôm nay</p>
+<p lang="en" style="margin: 8px 0 0; padding-left: 10px; border-left: 3px solid var(--mark); font-family: 'Source Serif 4', Georgia, serif; font-size: 16px; line-height: 1.4">The residents did not complained about the noise until the survey was published.</p>
+<p style="margin: 6px 0 0; display: flex; align-items: center; gap: 18px"><a href="#s3" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border: 1px solid var(--ink); background: var(--surface); color: var(--ink); font-weight: 600; text-decoration: none; border-radius: 2px">Ôn 4 câu</a><a href="#s2" style="display: inline-flex; align-items: center; min-height: 44px">Để mai</a><a href="#s5" style="display: inline-flex; align-items: center; min-height: 44px">Mở mục</a></p>
+</div>
+<div style="padding: 0 0 8px">
+<p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; font-weight: 600; line-height: 1.25">Động từ trạng thái không chia tiếp diễn</p>
+<p style="margin: 2px 0 0; font-size: 13px; color: var(--muted)">Sai 4 câu ở 1 bài · mốc 2 · đến hạn hôm nay</p>
+<p lang="en" style="margin: 8px 0 0; padding-left: 10px; border-left: 3px solid var(--mark); font-family: 'Source Serif 4', Georgia, serif; font-size: 16px; line-height: 1.4">The patient hears a faint ringing in both ears.</p>
+</div>
+</div>
+</div>
+<nav aria-label="Điều hướng chính" style="flex-shrink: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); height: 64px; border-top: 1px solid var(--ink); background: var(--surface)">
+<a href="Main.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid transparent; color: var(--muted); font-size: 12px; font-weight: 400; text-decoration: none"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M4 11l8-7 8 7v9H4z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Hôm nay</a>
+<a href="LoTrinh.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid transparent; color: var(--muted); font-size: 12px; font-weight: 400; text-decoration: none"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M5 20V8M5 8h10l-2 3 2 3H5M19 20h-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Lộ trình</a>
+<a href="LuyenTap.dc.html" aria-current="page" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid var(--accent); color: var(--ink); font-size: 12px; font-weight: 600; text-decoration: none"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M4 19l4-1 11-11-3-3L5 15zM14 6l3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Luyện tập</a>
+<a href="ThiThu.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid transparent; color: var(--muted); font-size: 12px; font-weight: 400; text-decoration: none"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M12 7v5l3 2M12 3a9 9 0 100 18 9 9 0 000-18z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Thi thử</a>
+<a href="ThuVien.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid transparent; color: var(--muted); font-size: 12px; font-weight: 400; text-decoration: none"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M5 4h5v16H5zM10 4h5v16h-5zM16 6l3-1 3 14-3 1z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Thư viện</a>
+</nav>
+</div>
+<div aria-label="Điện thoại · phiên ôn, sau khi trả lời" style="flex: none; width: 390px; height: 844px; box-sizing: border-box; border: 1px solid var(--ink); display: flex; flex-direction: column; overflow: hidden; background: var(--paper)">
+<header style="flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; height: 56px; box-sizing: border-box; padding: 0 16px; border-bottom: 1px solid var(--ink)">
+<span style="display: inline-flex; align-items: center; gap: 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; font-weight: 600"><svg width="26" height="26" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<div style="display: flex; align-items: center; gap: 12px">
+<span style="font-size: 13px; color: var(--muted)">Lượt AI <strong style="color: var(--ink)">XXX</strong></span>
+<span style="position: relative; flex: none; display: inline-flex"><a href="ThongBao.dc.html" aria-label="Thông báo, 4 chưa đọc" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; box-sizing: border-box; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink)"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15zM10 20.5a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></a><span aria-hidden="true" style="position: absolute; top: -7px; right: -7px; min-width: 20px; height: 20px; box-sizing: border-box; padding: 0 5px; border: 1px solid var(--paper); border-radius: 2px; background: var(--accent); color: var(--on-accent); font-size: 12px; font-weight: 600; line-height: 18px; text-align: center; font-variant-numeric: tabular-nums">4</span></span>
+<button aria-label="Mở menu tài khoản" style="width: 44px; height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif">MA</button>
+</div>
+</header>
+<div style="flex-grow: 1; min-height: 0; overflow-y: auto; padding: 8px 16px 16px">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<p style="margin: 0; display: flex; justify-content: space-between; align-items: center; min-height: 44px; font-size: 15px"><a href="#s2">‹ Sổ lỗi</a><span style="color: var(--muted)">Mục 1 trên 3 · câu 2 trên 4</span></p>
+<div role="img" aria-label="Câu 2 trên 4" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px"><span style="height: 5px; background: var(--ink)"></span><span style="height: 5px; background: var(--mark)"></span><span style="height: 5px; background: var(--rule)"></span><span style="height: 5px; background: var(--rule)"></span></div>
+<p style="margin: 4px 0 0; font-size: 15px">Câu hỏi quá khứ dưới đây chọn đúng dạng nào, và vì sao?</p>
+<p lang="en" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; line-height: 1.35">Did the council approve the funding for the new footpath last year?</p>
+<div style="display: flex; flex-direction: column; gap: 6px; font-size: 15px">
+<div style="padding: 10px 12px; border: 2px solid var(--ink); background: var(--surface)"><span style="display: block; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600">Đáp án</span>A · Quá khứ đơn dạng hỏi — <span lang="en">did</span> kéo động từ về nguyên mẫu</div>
+<div style="padding: 10px 12px; border: 2px solid var(--mark); background: color-mix(in srgb, var(--mark) 6%, var(--surface))"><span style="display: block; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--mark)">Bạn chọn · chưa đúng</span>B · Quá khứ đơn dạng hỏi — vẫn giữ nguyên động từ ở dạng V2 cũ</div>
+</div>
+<p style="margin: 2px 0 0; font-size: 13px; color: var(--muted)">Hai phương án còn lại gập lại sau khi trả lời.</p>
+<div style="padding-top: 10px; border-top: 2px solid var(--mark)">
+<p style="margin: 0; font-size: 15px">Câu hỏi quá khứ đơn dùng <span lang="en">did</span> cộng nguyên mẫu; dạng V2 biến mất.</p>
+<svg role="img" aria-label="Sơ đồ: did kéo động từ chính về nguyên mẫu" viewBox="0 0 356 112" style="display: block; width: 100%; height: auto; margin-top: 8px; border: 1px solid var(--rule); background: var(--surface)">
+<rect x="14" y="40" width="52" height="32" fill="none" stroke="var(--ink)" stroke-width="2"></rect>
+<text x="40" y="62" text-anchor="middle" font-family="Source Serif 4, Georgia, serif" font-size="17" font-weight="600" fill="var(--ink)">Did</text>
+<text x="118" y="62" text-anchor="middle" font-family="Source Serif 4, Georgia, serif" font-size="17" fill="var(--ink)">the council</text>
+<rect x="172" y="40" width="84" height="32" fill="none" stroke="var(--ink)" stroke-width="2"></rect>
+<text x="214" y="62" text-anchor="middle" font-family="Source Serif 4, Georgia, serif" font-size="17" font-weight="600" fill="var(--ink)">approve</text>
+<text x="268" y="62" font-family="Source Serif 4, Georgia, serif" font-size="17" fill="var(--ink)">… ?</text>
+<path d="M40 40 V26 H214 V36 M209 30 l5 7 l5 -7" fill="none" stroke="var(--ink)" stroke-width="1.2"></path>
+<text x="127" y="20" text-anchor="middle" font-family="Source Sans 3, sans-serif" font-size="12" fill="var(--ink)">kéo về nguyên mẫu</text>
+<text x="172" y="98" font-family="Source Serif 4, Georgia, serif" font-size="15" fill="var(--mark)">approved</text>
+<line x1="168" y1="93" x2="240" y2="93" stroke="var(--mark)" stroke-width="1.6"></line>
+<text x="248" y="98" font-family="Source Sans 3, sans-serif" font-size="12" fill="var(--mark)">không viết sau did</text>
+</svg>
+<a href="GrammarWikiBai.dc.html#g-s5" style="display: inline-flex; align-items: center; min-height: 44px; font-size: 15px; font-weight: 600">Grammar Wiki · Quá khứ đơn với did</a>
+</div>
+</div>
+</div>
+<div style="flex-shrink: 0; display: flex; gap: 12px; align-items: center; padding: 10px 16px; border-top: 1px solid var(--ink); background: var(--surface)"><a href="#s2" style="display: inline-flex; align-items: center; min-height: 48px; font-size: 15px">Dừng, để mai</a><a href="#s3" style="flex-grow: 1; display: flex; align-items: center; justify-content: center; min-height: 48px; background: var(--accent); color: var(--on-accent); font-weight: 600; text-decoration: none; border-radius: 2px">Câu tiếp</a></div>
+<nav aria-label="Điều hướng chính" style="flex-shrink: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); height: 64px; border-top: 1px solid var(--ink); background: var(--surface)">
+<a href="Main.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid transparent; color: var(--muted); font-size: 12px; font-weight: 400; text-decoration: none"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M4 11l8-7 8 7v9H4z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Hôm nay</a>
+<a href="LoTrinh.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid transparent; color: var(--muted); font-size: 12px; font-weight: 400; text-decoration: none"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M5 20V8M5 8h10l-2 3 2 3H5M19 20h-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Lộ trình</a>
+<a href="LuyenTap.dc.html" aria-current="page" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid var(--accent); color: var(--ink); font-size: 12px; font-weight: 600; text-decoration: none"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M4 19l4-1 11-11-3-3L5 15zM14 6l3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Luyện tập</a>
+<a href="ThiThu.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid transparent; color: var(--muted); font-size: 12px; font-weight: 400; text-decoration: none"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M12 7v5l3 2M12 3a9 9 0 100 18 9 9 0 000-18z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Thi thử</a>
+<a href="ThuVien.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid transparent; color: var(--muted); font-size: 12px; font-weight: 400; text-decoration: none"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M5 4h5v16H5zM10 4h5v16h-5zM16 6l3-1 3 14-3 1z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Thư viện</a>
+</nav>
+</div>
+<div style="flex: 1 1 220px; min-width: 0">
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Quy tắc bản điện thoại</p>
+<ul style="margin: 0; padding-left: 18px; font-size: 14.5px; display: flex; flex-direction: column; gap: 8px">
+<li>Khối "Hôm nay" nằm trên bộ lọc; nút "Bắt đầu ôn" rộng hết khung, cao 48px.</li>
+<li>Ba bộ lọc cuộn ngang; mặc định "Cần ôn hôm nay". "Tất cả" nằm cuối hàng.</li>
+<li>Mỗi bộ lọc hiện 3 mục đầu trên tờ này để vừa khung; trên web hiện 10 mục, nút "Xem thêm" tải thêm 10.</li>
+<li>Mỗi mục xếp dọc: tên, một dòng số liệu, câu sai, hàng hành động cao 44px.</li>
+<li>Phiên ôn: thanh "Câu tiếp" dính đáy, nằm trên thanh năm mục. Sau khi trả lời, phương án không liên quan gập lại để phản hồi và sơ đồ vào vừa một màn.</li>
+<li>Sơ đồ câu chữ vẽ lại cho khung hẹp (bỏ phần đuôi câu), không thu nhỏ bản máy tính.</li>
+<li>Câu viết lại: ô gõ rộng hết khung, bàn phím tiếng Anh, tắt tự sửa chính tả để máy không sửa hộ.</li>
+</ul>
+</div>
+</div>
+
+</div>
+</section>
+<section id="s8" aria-labelledby="h-s8" style="border-top: 2px solid var(--ink)">
+<div style="max-width: 1120px; margin: 0 auto; padding: 16px 32px 27px">
+<h2 id="h-s8" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">8 · Phía giáo viên: sổ lỗi của lớp gom lại</h2>
+<p style="margin: 4px 0 18px; font-size: 14px; color: var(--muted); max-width: 110ch">Một khối, không phải trang mới. Dẫn sang trang kết quả bài giao.</p>
+<div style="border: 1px solid var(--ink); background: var(--paper); padding: 20px 24px 22px">
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 24px">
+<p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">Sổ lỗi của lớp · Tue–Thu 19:30</p>
+<p style="margin: 0; font-size: 14px; color: var(--muted)">Course 1 · XXX · 14 học viên · tính đến 17/11 · 11 người đã có ít nhất một mục</p>
+</div>
+<p style="margin: 4px 0 10px; font-size: 15px; max-width: 96ch">Gom sổ lỗi của từng người theo nhóm ngữ pháp, để chọn nhóm cần chữa lại trên lớp và biết ai ôn rồi vẫn sai.</p>
+<div role="table" aria-label="Sổ lỗi của lớp theo nhóm ngữ pháp" style="font-size: 15px; font-variant-numeric: tabular-nums">
+<div role="row" style="display: flex; gap: 8px 20px; padding: 10px 0; border-bottom: 1px solid var(--ink); font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--muted)"><span role="columnheader" style="flex: 999 1 300px; min-width: 0">Nhóm ngữ pháp</span><span role="columnheader" style="flex: 1 1 120px; min-width: 0">Đang có mục</span><span role="columnheader" style="flex: 1 1 110px; min-width: 0">Đã vững</span><span role="columnheader" style="flex: 1 1 210px; min-width: 0">Sai lại sau khi ôn</span><span role="columnheader" style="flex: 1 1 130px; min-width: 0">Từ bài</span></div>
+<div role="row" style="display: flex; gap: 8px 20px; padding: 10px 0; border-bottom: 1px solid var(--rule); "><span role="cell" style="flex: 999 1 300px; min-width: 0"><strong>Động từ lưỡng tính đổi nghĩa (have, think…)</strong></span><span role="cell" style="flex: 1 1 120px; min-width: 0">9 / 14 người</span><span role="cell" style="flex: 1 1 110px; min-width: 0">1 người</span><span role="cell" style="flex: 1 1 210px; min-width: 0"><span style="color: var(--mark); font-weight: 600">4 người</span> · ở lại mốc 1 hai lần</span><span role="cell" style="flex: 1 1 130px; min-width: 0"><a href="AdminKetQuaBaiGiao.dc.html#b3">Ngữ pháp B13</a></span></div>
+<div role="row" style="display: flex; gap: 8px 20px; padding: 10px 0; border-bottom: 1px solid var(--rule); "><span role="cell" style="flex: 999 1 300px; min-width: 0"><strong>Động từ trạng thái không chia tiếp diễn</strong></span><span role="cell" style="flex: 1 1 120px; min-width: 0">7 / 14 người</span><span role="cell" style="flex: 1 1 110px; min-width: 0">2 người</span><span role="cell" style="flex: 1 1 210px; min-width: 0">2 người</span><span role="cell" style="flex: 1 1 130px; min-width: 0"><a href="AdminKetQuaBaiGiao.dc.html#b3">Ngữ pháp B13</a></span></div>
+<div role="row" style="display: flex; gap: 8px 20px; padding: 10px 0; border-bottom: 1px solid var(--rule); "><span role="cell" style="flex: 999 1 300px; min-width: 0"><strong>Quá khứ với did: động từ về nguyên mẫu</strong></span><span role="cell" style="flex: 1 1 120px; min-width: 0">5 / 14 người</span><span role="cell" style="flex: 1 1 110px; min-width: 0">0 người</span><span role="cell" style="flex: 1 1 210px; min-width: 0">1 người</span><span role="cell" style="flex: 1 1 130px; min-width: 0"><a href="AdminKetQuaBaiGiao.dc.html#b3">Ngữ pháp B13</a></span></div>
+<div role="row" style="display: flex; gap: 8px 20px; padding: 10px 0; border-bottom: 1px solid var(--rule); "><span role="cell" style="flex: 999 1 300px; min-width: 0"><strong>Danh từ tập hợp: số ít hay số nhiều</strong></span><span role="cell" style="flex: 1 1 120px; min-width: 0">3 / 14 người</span><span role="cell" style="flex: 1 1 110px; min-width: 0">6 người</span><span role="cell" style="flex: 1 1 210px; min-width: 0">0 người</span><span role="cell" style="flex: 1 1 130px; min-width: 0"><a href="AdminKetQuaBaiGiao.dc.html#b3">Ngữ pháp B05</a></span></div>
+</div>
+<p style="margin: 14px 0 0; font-size: 15px"><strong>Ôn hai lần vẫn sai:</strong> <a href="HoSoHocVien.dc.html">Phạm Gia Huy</a> (2 mục) · <a href="HoSoHocVien.dc.html">Đặng Văn Khoa</a> (1 mục) · <a href="HoSoHocVien.dc.html">Trần Quốc Bảo</a> (1 mục). <span style="color: var(--muted)">Chưa mở Sổ lỗi lần nào: 3 người.</span></p>
+<p style="margin: 12px 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 24px"><a href="AdminKetQuaBaiGiao.dc.html#b3" style="display: inline-flex; align-items: center; min-height: 40px; padding: 0 22px; border: 1px solid var(--ink); background: var(--surface); color: var(--ink); font-weight: 600; text-decoration: none; border-radius: 2px">Mở kết quả Ngữ pháp B13</a><a href="AdminKetQuaBaiGiao.dc.html#b5">Thêm nhóm đầu bảng vào "Nên chữa ở buổi tới"</a></p>
+</div>
+<p style="margin: 12px 0 0; font-size: 14px; color: var(--muted); max-width: 110ch">Vị trí: một khối trong trang lớp (AdminLop, thẻ Bài nộp và chấm) và ở "Lớp của tôi" của khung giáo viên. Mỗi dòng dẫn sang khối 3 của AdminKetQuaBaiGiao. Khối chỉ đếm, không xếp hạng học viên. Số là dữ liệu mẫu.</p>
+
+</div>
+</section>
+<section id="notes" aria-labelledby="h-notes" style="border-top: 2px solid var(--ink)">
+<div style="max-width: 1120px; margin: 0 auto; padding: 16px 32px 30px">
+<h2 id="h-notes" style="margin: 0 0 10px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">Ghi chú cho lập trình</h2>
+<div style="columns: 2; column-gap: 44px; font-size: 14px; line-height: 1.5">
+<p style="margin: 0 0 9px; break-inside: avoid"><strong>Đã có [NGAY].</strong> Từng câu trả lời ở <code>quiz_attempts</code>: <code>is_correct</code>, <code>answer_given</code>, <code>attempt_no</code>, <code>response_time_ms</code>, <code>created_at</code>, <code>question_id</code>, <code>skill</code> (= nhóm ngữ pháp <code>truc_nhom</code>), <code>subtype</code> (= dạng câu). Câu hỏi ở <code>quiz_questions</code>: đề, phương án, đáp án, lời giải thích, <code>why_wrong</code> của từng phương án nhiễu. Phiên làm ở <code>quiz_sessions</code> (<code>kind</code> run/retake). Ngân hàng khoảng 100 câu và 6–11 nhóm mỗi buổi. Grammar Wiki 137 bài, bộ sơ đồ câu chữ. Mọi con số trên tờ (sai mấy câu ở bài nào, theo tháng) tính được từ các bảng này, không cần AI.</p>
+<p style="margin: 0 0 9px; break-inside: avoid"><strong>Phải thêm [THÊM].</strong> (1) Bảng mục lỗi: người học, nhóm, trạng thái, mốc, ngày đến hạn, ngày lập, ngày mở lại. (2) Bảng phiên ôn: mục, mốc, câu đã ra, kết quả từng câu, "để mai". (3) Bảng tên tiếng Việt cho mã <code>truc_nhom</code> (dùng chung với AdminKetQuaBaiGiao) và ánh xạ nhóm → bài Grammar Wiki → sơ đồ câu chữ, giáo viên duyệt một lần; người học không bao giờ thấy mã nhóm. (4) Bộ chọn câu: cùng nhóm, ưu tiên câu chưa gặp, rồi câu đã sai, rồi câu gặp lâu nhất. (5) Câu đúng dạng chữ cho "viết lại" (ghép đề với đáp án) và các cách viết được nhận. (6) Lọc mã nội bộ khỏi lời giải thích ("RÀNG BUỘC 3", "N1"–"N6", "Mẹo 1"). (7) Trang Sổ lỗi, chi tiết mục, phiên ôn, dòng ở Hôm nay, khối của lớp. (8) Câu tự luận E1–E3 chưa có <code>truc_nhom</code>: bản đầu không tính.</p>
+<p style="margin: 0 0 9px; break-inside: avoid"><strong>"Câu sai của chính người học".</strong> Dạng điền chỗ trống: câu đề ghép với phương án đã chọn, thành câu tiếng Anh sai do chính họ chọn. Dạng tìm phần sai: câu đề và phần họ cho là sai. Dạng nhận diện: câu ví dụ và nguyên văn phương án họ chọn. Danh sách không hiện đáp án; đáp án chỉ hiện sau khi trả lời trong phiên. Câu "viết lại" chỉ lấy từ hai dạng đầu; nhóm không có câu như vậy thì phiên gồm 4 câu trắc nghiệm.</p>
+<p style="margin: 0 0 9px; break-inside: avoid"><strong>Chỉ số</strong> (huong-phat-trien, hướng 1): (a) tỉ lệ sai lại cùng nhóm ở lần gặp sau so với lần đầu, so người dùng sổ với người không dùng; (b) tỉ lệ mục được ôn đúng hạn. Theo dõi thêm: tỉ lệ bấm "Để mai", số mục đến hạn mỗi ngày so với trần, tỉ lệ mục đã vững bị mở lại. Sau 8 tuần (a) không giảm thì xem lại cách chọn câu trước khi mở sang Writing.</p>
+<p style="margin: 0 0 9px; break-inside: avoid"><strong>Rủi ro.</strong> Hàng ôn phình: có trần, mục xếp sang không tính trễ. Nhãn nhóm sai thì ôn sai chỗ: chỉ dùng <code>truc_nhom</code> đã có, không tự sinh, không dùng AI gán nhãn. Nhóm ít câu (có nhóm 4–6 câu một buổi) không đủ ba phiên: lấy thêm câu cùng nhóm ở bài kiểm tra giữa và cuối khoá, hết thì dùng lại câu cũ có ghi rõ. Thuộc đáp án: câu ôn khác câu đã sai, đảo phương án, có câu tự gõ.</p>
+<p style="margin: 0 0 9px; break-inside: avoid"><strong>Phạm vi.</strong> Chỉ tài khoản có bài tập ngữ pháp theo buổi (lớp offline Course 1; khoá online "Ngữ pháp nền tảng" khi ngân hàng của khoá có nhãn nhóm) mới thấy Sổ lỗi. Lỗi Writing làm sau: cần bộ nhãn lỗi cố định cho chú thích, lập mục khi cùng nhãn có ở từ 2 bài, và nút "Đây không phải lỗi này".</p>
+<p style="margin: 0 0 9px; break-inside: avoid"><strong>Chờ chủ dự án quyết.</strong> Ngưỡng lập mục (đề xuất 2 câu sai cùng nhóm) · trần mỗi ngày (đề xuất 3 mục) · phiên đạt: đúng cả 4 câu hay cho sai 1 câu trắc nghiệm · lỗi cần ôn có cộng vào số việc ở câu chào Hôm nay không (đang vẽ: không) · ngưỡng hiện biểu đồ tháng (đề xuất 5 câu mỗi tháng) · giáo viên thấy tên người "ôn hai lần vẫn sai" (đang vẽ: có).</p>
+<p style="margin: 0 0 9px; break-inside: avoid"><strong>Liên kết.</strong> Main.dc.html (khối "Lỗi đang lặp lại": "Ôn 10 phút" vào phiên ôn, "Xem cả N lỗi" vào trang này) · TienDo.dc.html · GrammarWikiBai.dc.html · XemLaiBaiLam.dc.html · AdminKetQuaBaiGiao.dc.html. Bấm được trên tờ: bốn bộ lọc ở mục 2.</p>
+</div>
+</div>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Xanh teal","Navy + đỏ mận"],"default":"Navy + đỏ mận"},"$preview":{"width":1280,"height":8000}}'>
+class Component extends DCLogic {
+renderVals() {
+const f = this.state.f ?? 'due';
+const M = 'var(--mark)', K = 'var(--ink)', U = 'var(--muted)';
+const all = [
+{ k: 'due', name: 'Quá khứ với did: động từ về nguyên mẫu', src: 'Ngữ pháp B13 · Thì hiện tại và quá khứ', qlabel: 'Câu sai của bạn', quote: 'The residents did not complained about the noise until the survey was published.', qnote: 'Bạn chọn "did not complained" · Ngữ pháp B13, câu 47 · 10/11', count: 'Sai 3 câu ở 2 bài', where: 'Ngữ pháp B13 (2 câu, 10/11) · B13 làm lại (1 câu, 15/11)', st: 'Cần ôn hôm nay', next: 'Hôm nay, 17/11', stage: 'Mốc 1 · 2 ngày sau khi lập mục' },
+{ k: 'due', name: 'Động từ trạng thái không chia tiếp diễn', src: 'Ngữ pháp B13 · Thì hiện tại và quá khứ', qlabel: 'Câu bạn chọn sai', quote: 'The patient hears a faint ringing in both ears.', qnote: 'Bạn chọn "Nhóm hành động thường — chia tiếp diễn được" · Ngữ pháp B13, câu 3 · 10/11', count: 'Sai 4 câu ở 1 bài', where: 'Ngữ pháp B13 (4 câu, 10/11)', st: 'Cần ôn hôm nay', next: 'Hôm nay, 17/11', stage: 'Mốc 2 · đã đúng mốc 1 hôm 10/11' },
+{ k: 'due', name: 'Hiện tại đơn ngôi ba số ít: đuôi -s', src: 'Ngữ pháp B13 · Thì hiện tại và quá khứ', qlabel: 'Câu bạn chọn sai', quote: '(A) A good tutor (B) explain (C) each step (D) before the test.', qnote: 'Bạn cho rằng phần sai là (C) · Ngữ pháp B13, câu 71 · 10/11', count: 'Sai 2 câu ở 1 bài', where: 'Ngữ pháp B13 (2 câu, 10/11)', st: 'Cần ôn hôm nay', next: 'Hôm nay, 17/11', stage: 'Mốc 1 · lần hai, vì hôm 15/11 có câu sai' },
+{ k: 'watch', name: 'Nền và biến cố: quá khứ tiếp diễn với quá khứ đơn', src: 'Ngữ pháp B13 · Thì hiện tại và quá khứ', qlabel: 'Câu bạn chọn sai', quote: 'While the examiner was reading out the instructions, a mobile phone rang loudly.', qnote: 'Bạn chọn "was reading và rang đều là biến cố nối nhau" · Ngữ pháp B13, câu 19 · 10/11', count: 'Sai 2 câu ở 1 bài', where: 'Ngữ pháp B13 (2 câu, 10/11)', st: 'Đang theo dõi', next: 'Ngày mai, 18/11', stage: 'Mốc 1 · đến hạn hôm nay, xếp sang mai vì đã đủ 3 mục' },
+{ k: 'watch', name: 'Danh từ tập hợp: số ít hay số nhiều', src: 'Ngữ pháp B05 · Đại từ và định từ', qlabel: 'Câu sai của bạn', quote: 'XXX', qnote: 'Trích nguyên câu trả lời trong bài B05 · 13/10', count: 'Sai 3 câu ở 2 bài', where: 'Ngữ pháp B05 (2 câu, 13/10) · Kiểm tra giữa khoá (1 câu)', st: 'Đang theo dõi', next: 'Thứ Sáu, 20/11', stage: 'Mốc 2 · lùi từ mốc 3 hôm 13/11' },
+{ k: 'watch', name: 'always + tiếp diễn: sắc thái phàn nàn', src: 'Ngữ pháp B13 · Thì hiện tại và quá khứ', qlabel: 'Câu bạn chọn sai', quote: '(A) The old bus (B) always is (C) breaking down (D) on this steep hill.', qnote: 'Bạn cho rằng phần sai là (C) · Ngữ pháp B13, câu 76 · 10/11', count: 'Sai 2 câu ở 1 bài', where: 'Ngữ pháp B13 (2 câu, 10/11)', st: 'Đang theo dõi', next: 'Thứ Ba, 24/11', stage: 'Mốc 2 · đã đúng mốc 1 hôm 17/11' },
+{ k: 'watch', name: 'Đại từ bất định (someone, anything…)', src: 'Ngữ pháp B05 · Đại từ và định từ', qlabel: 'Câu sai của bạn', quote: 'XXX', qnote: 'Trích nguyên câu trả lời trong bài B05 · 13/10', count: 'Sai 2 câu ở 1 bài', where: 'Ngữ pháp B05 (2 câu, 13/10)', st: 'Đang theo dõi', next: 'Thứ Tư, 02/12', stage: 'Mốc 3 · đã đúng mốc 1 và mốc 2' },
+{ k: 'done', name: 'Định từ và đại từ sở hữu (their / theirs)', src: 'Ngữ pháp B05 · Đại từ và định từ', qlabel: 'Câu bạn chọn sai', quote: 'Their office is on the third floor.', qnote: 'Bạn chọn "ĐẠI TỪ — nó đang thay cho cả cụm the office kia" · Ngữ pháp B05, câu 1 · 13/10', count: 'Đã sai 3 câu ở 1 bài', where: 'Ngữ pháp B05 (3 câu, 13/10)', st: 'Đã vững', next: 'Vững từ 13/11', stage: 'Đúng cả ba mốc 2, 7 và 21 ngày' },
+{ k: 'done', name: 'Sở hữu với \u2019s hay of', src: 'Ngữ pháp B05 · Đại từ và định từ', qlabel: 'Câu sai của bạn', quote: 'XXX', qnote: 'Trích nguyên câu trả lời trong bài B05 · 13/10', count: 'Đã sai 2 câu ở 1 bài', where: 'Ngữ pháp B05 (2 câu, 13/10)', st: 'Đã vững', next: 'Vững từ 13/11', stage: 'Đúng cả ba mốc 2, 7 và 21 ngày' }
+];
+const n = (k) => all.filter((e) => e.k === k).length;
+const tab = (id, label, count) => ({ label, n: String(count), sel: f === id ? 'true' : 'false', bar: f === id ? K : 'transparent', color: f === id ? K : U, weight: f === id ? 600 : 400, pick: () => this.setState({ f: id }) });
+return {
+pal: (this.props.palette ?? 'Navy + đỏ mận') === 'Xanh teal' ? 'pal-teal' : 'pal-navy',
+tabs: [tab('due', 'Cần ôn hôm nay', n('due')), tab('watch', 'Đang theo dõi', n('watch')), tab('done', 'Đã vững', n('done')), tab('all', 'Tất cả', all.length)],
+moreText: (() => { const t = all.filter((e) => f === 'all' || e.k === f).length; return t > 3 ? 'Đang hiện 3 trong ' + t + ' mục' : ''; })(),
+rows: all.filter((e) => f === 'all' || e.k === f).slice(0, 3).map((e) => ({ ...e, due: e.k === 'due', stColor: e.k === 'due' ? M : (e.k === 'done' ? 'var(--accent)' : U) }))
+};
+}
+}
+</script>
+</body>
+</html>
