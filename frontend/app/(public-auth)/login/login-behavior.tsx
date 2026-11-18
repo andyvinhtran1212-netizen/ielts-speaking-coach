@@ -15,6 +15,7 @@ import {
   normalizeAccessCode,
   normalizeLoginProfile,
 } from '@/lib/login-model.mjs';
+import { LOGIN_NEXT_STORAGE_KEY, resolveLoginNext, sanitizeLearnerNext } from '@/lib/safe-next.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 type Session = { access_token?: string };
@@ -95,6 +96,32 @@ function readAuthCallback(): { code: string | null } | null {
   return { code: failed || implicit ? null : code };
 }
 
+// G02-T15: remember where the visitor was going, before the OAuth round trip.
+// Google returns to `/login?code=…` without the original referrer, but the
+// same tab keeps sessionStorage. Storage may be blocked (strict private mode):
+// the feature then degrades to `/home`, sign-in itself is unaffected.
+function rememberLoginNext(): string | null {
+  if (readAuthCallback()) return readLoginNext();
+  const next = resolveLoginNext({
+    search: window.location.search,
+    referrer: document.referrer,
+    origin: window.location.origin,
+  });
+  try {
+    if (next) window.sessionStorage.setItem(LOGIN_NEXT_STORAGE_KEY, next);
+    else window.sessionStorage.removeItem(LOGIN_NEXT_STORAGE_KEY);
+  } catch { /* storage blocked */ }
+  return next;
+}
+
+function readLoginNext(): string | null {
+  try { return sanitizeLearnerNext(window.sessionStorage.getItem(LOGIN_NEXT_STORAGE_KEY)); } catch { return null; }
+}
+
+function forgetLoginNext() {
+  try { window.sessionStorage.removeItem(LOGIN_NEXT_STORAGE_KEY); } catch { /* storage blocked */ }
+}
+
 // U-07: a session this tab already signed out (its page died mid-revoke, or
 // the revoke failed) is dead or dying — never send it to /auth/me. Finish the
 // revoke the logout started (an already-revoked session counts as signed out)
@@ -148,6 +175,7 @@ export function LoginBehavior({ googleIcon }: { googleIcon: ReactNode }) {
   const [activateSuccess, setActivateSuccess] = useState('');
   const [signingOut, setSigningOut] = useState(false);
   const [suspended, setSuspended] = useState(false);
+  const [returnTo, setReturnTo] = useState<string | null>(null);
   const clientRef = useRef<SupabaseClient | null>(null);
   const activateInFlight = useRef(false);
   const signOutInFlight = useRef(false);
@@ -159,17 +187,20 @@ export function LoginBehavior({ googleIcon }: { googleIcon: ReactNode }) {
       setSuspended(true);
       return;
     }
-    const destination = loginDestination(profile);
+    const destination = loginDestination(profile, readLoginNext());
     if (destination === 'activate') {
       setBusyMessage('');
       setActivationOpen(true);
       return;
     }
+    forgetLoginNext();
     window.location.replace(destination);
   }, []);
 
   useEffect(() => {
     let disposed = false;
+    // Read before bootstrap() strips any callback from the address bar.
+    setReturnTo(rememberLoginNext());
     if (!bootPromise) bootPromise = bootstrap();
     const pendingBoot = bootPromise;
     void pendingBoot.then((result) => {
@@ -293,13 +324,14 @@ export function LoginBehavior({ googleIcon }: { googleIcon: ReactNode }) {
         return;
       }
 
-      const destination = loginDestination(profile);
+      const destination = loginDestination(profile, readLoginNext());
       if (destination === 'activate') {
         throw mutationError || new Error('Access code chưa được máy chủ chấp nhận. Vui lòng kiểm tra lại.');
       }
 
       setActivateSuccess('Tài khoản đã được kích hoạt! Đang chuyển tiếp…');
       keepLockedForRedirect = true;
+      forgetLoginNext();
       redirectTimer.current = setTimeout(() => window.location.replace(destination), 450);
     } catch (caught) {
       setActivateError(messageOf(caught, 'Kích hoạt thất bại.'));
@@ -358,6 +390,10 @@ export function LoginBehavior({ googleIcon }: { googleIcon: ReactNode }) {
             {signingOut ? 'Đang đăng xuất…' : 'Đăng xuất'}
           </button>
         </div>
+      )}
+
+      {returnTo && !suspended && (
+        <p className="lx-return-note" role="status">Đăng nhập để tiếp tục tới trang bạn vừa mở.</p>
       )}
 
       {!busyMessage && !suspended && (
