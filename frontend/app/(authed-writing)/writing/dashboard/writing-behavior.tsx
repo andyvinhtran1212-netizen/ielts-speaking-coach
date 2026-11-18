@@ -1258,7 +1258,7 @@ async function submitFromModal(ms: ModalState, force: boolean) {
 
   if (!force) {
     if (wc < 100) {
-      if (!confirm('Bài viết chỉ có ' + wc + ' từ.\nIELTS Task 2 yêu cầu tối thiểu 250 từ.\nEm chắc muốn nộp bài?')) return;
+      if (!confirm('Bài viết chỉ có ' + wc + ' từ.\nIELTS Task 2 yêu cầu tối thiểu 250 từ.\nBạn chắc muốn nộp bài?')) return;
     }
     if (!confirm('Sau khi nộp bạn không thể chỉnh sửa. Bạn chắc muốn nộp bài?')) return;
   }
