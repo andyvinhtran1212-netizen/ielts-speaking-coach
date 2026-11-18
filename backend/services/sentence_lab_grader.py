@@ -467,7 +467,7 @@ async def _call_model(batch: List[Dict[str, Any]], mode: str, *,
     }
     if _is_reasoning_model(name):
         kwargs["extra_body"] = {"reasoning_effort": settings.SENTENCE_LAB_REASONING_EFFORT
-                                or "low"}
+                                or "medium"}
     else:
         kwargs["temperature"] = 0
     started = time.monotonic()

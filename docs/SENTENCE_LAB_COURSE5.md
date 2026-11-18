@@ -39,7 +39,7 @@ Tổng số lượt gọi cho một bài: 1–3.
 ## Model
 
 `SENTENCE_LAB_MODEL` (mặc định `gpt-5-mini`), `SENTENCE_LAB_REASONING_EFFORT`
-(mặc định `low`, chỉ áp cho model `gpt-5*`/`gpt-6*`/`o*`). Dùng
+(mặc định `medium`: 20/20 ca hiệu chỉnh ngày 18/11, `low` chỉ 15–17/20, chỉ áp cho model `gpt-5*`/`gpt-6*`/`o*`). Dùng
 `OPENAI_API_KEY` sẵn có (Whisper). Mọi lượt gọi ghi vào `ai_usage_logs`
 `service='openai'`, `feature='sentence_lab'`; model chưa có dòng giá trong
 `services/ai_pricing.py` được ghi `cost_source='unpriced'` kèm số token.
