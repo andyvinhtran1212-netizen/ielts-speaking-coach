@@ -351,6 +351,10 @@ class Settings(BaseSettings):
     # MAX_SESSIONS_PER_USER_PER_DAY env var is set (e.g. on Railway) it WINS
     # over this default, so update/remove that var to roll the production value.
     MAX_SESSIONS_PER_USER_PER_DAY: int = 24
+    # G02-T05 (FR-02-004) — the student mock result and the Home mock tile draw
+    # an Overall only once this many of the four skills carry a final band.
+    # Display-only: the stored final_bands.overall is never changed.
+    MOCK_OVERALL_MIN_SKILLS: int = 4
     MAX_AUDIO_DURATION_SECONDS: int = 300
     # B5 / Mục 5 — daily cap on the expensive grading pipeline (Whisper + Claude)
     # per user. Generous: a real student rarely exceeds a few dozen gradings/day;
