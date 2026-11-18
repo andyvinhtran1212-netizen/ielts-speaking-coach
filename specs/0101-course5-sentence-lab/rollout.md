@@ -2,7 +2,7 @@
 
 ## Preconditions
 
-- This spec merged on `staging`. No migration. New optional settings `SENTENCE_LAB_MODEL`, `SENTENCE_LAB_REASONING_EFFORT` and `SENTENCE_LAB_MAX_CALLS_PER_USER_PER_DAY` and `SENTENCE_LAB_ENABLED` have safe code defaults, so no env change is required. `OPENAI_API_KEY` present on Railway staging and production (already used by Whisper).
+- This spec merged on `staging`. No migration. New optional settings `SENTENCE_LAB_MODEL`, `SENTENCE_LAB_REASONING_EFFORT` and `SENTENCE_LAB_MAX_CALLS_PER_USER_PER_DAY` and `SENTENCE_LAB_ENABLED` have safe code defaults. `SENTENCE_LAB_PROMPT` must be set on Railway staging, then production, with the exact text of the pack's `private/ai_grader_prompt.md` (env change, owner approval); until it is set, lab grading stays paused. `OPENAI_API_KEY` present on Railway staging and production (already used by Whisper).
 - The owner's typed approval for each DB write: staging import, then production import with a named window.
 
 ## Staging

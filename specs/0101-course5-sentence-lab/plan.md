@@ -6,7 +6,7 @@
 - `backend/services/quiz_service.py`: `course_writing_state`, `submit_course_writing` branch on `meta.sentence_lab.kind='sentence_lab_v1'`; new `revise_course_writing`; play-path guide strip.
 - `backend/routers/quiz.py`: `POST /course/writing/revise`.
 - `backend/config.py`, `backend/services/ai_usage_logger.py`: model settings and an OpenAI chat usage row.
-- `backend/scripts/import_sentence_lab_course5.py`, `backend/scripts/calibrate_sentence_lab.py`, `backend/assets/sentence_lab/*`.
+- `backend/scripts/import_sentence_lab_course5.py`, `backend/scripts/calibrate_sentence_lab.py`, `backend/assets/sentence_lab/error_codes.json` (public part of the pack). The private grading prompt is a server-side setting, not a repo file.
 - Frontend: `frontend/public/js/course-writing.js`, `frontend/app/(authed)/course-exercises/course-behavior.tsx`, `frontend/public/css/course-exercises.css`, regenerated `frontend/types/api.d.ts`.
 
 ## Data and contracts
