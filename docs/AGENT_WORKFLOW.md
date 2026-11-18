@@ -35,7 +35,8 @@ git remote -v
 ```
 
 Fetch the remote before choosing a base. Normal work starts from
-`origin/staging`, with a `codex/<task>` branch and a PR targeting `staging`.
+`origin/staging`, on a scoped topic branch (`codex/<task>`; use `preview/<slug>`
+only to request a Vercel preview) and a PR targeting `staging`.
 Use an isolated worktree when another task owns the current checkout or there
 is unrelated work. Inspect available task/session status when coordinating
 shared work; directory age alone does not establish abandonment.
