@@ -10,7 +10,7 @@
 | FR-004 | Rewrite rule tests; staging rewrite of one item | PENDING |
 | FR-005 | `frontend/tests/course-writing-sentence-lab.test.mjs`; staging browser journey | PENDING |
 | FR-006 | Usage logging tests; `test_private_prompt_is_not_shipped_in_the_repo` and `test_missing_prompt_pauses_lab_grading` (unset `SENTENCE_LAB_PROMPT` → 503, no model call); calibration report on the 2026-11-18.1 package (18/11: medium 20/20, low 15–17/20) | PENDING |
-| FR-007 | Cap tests (429 at the cap, 503 on lookup failure, no model call); single-flight test (second concurrent grading 409, one set of calls); staging `ai_usage_logs` count | PENDING |
+| FR-007 | Cap tests (whole-batch reservation at the 37/38/39/40 boundaries for submit and rewrite, unlogged calls counted, per-call budget stops the retry, 503 on lookup failure, no model call); single-flight test (second concurrent grading 409, one set of calls); staging 39/40 boundary check on a test account with `ai_usage_logs` count | PENDING |
 | FR-008 | Kill-switch test (503, `work_saved`, no model call); staging toggle with an assigned test learner | PENDING |
 
 ## Contract evidence
