@@ -158,7 +158,7 @@ Thứ tự làm theo cột Phụ thuộc, không theo số mã. Không nhiệm v
 - Việc làm: route `/admin/course-products*` (gồm `short_title`, `credit_valid_days`, `/archive`, hai số `open_orders`, `active_learners`), `/admin/users/{id}/access`, `/admin/users/{id}/credits`, `/admin/entitlements*`, `/admin/credits/adjust`; thêm `kind` vào phản hồi `GET /admin/courses` để G09 lọc; test.
 - Nghiệm thu: test từng route (403 không admin; 422 vi phạm CHECK với thông điệp tiếng Việt không có tên cột; replay `request_key`; lý do điều chỉnh dưới 10 ký tự → 422; trừ quá số dư → 409 `would_go_negative` và số dư không đổi; lưu trữ khi còn người học → 409 `has_active_learners`); sửa học phí của sản phẩm không đổi đơn đã tạo (đọc lại đơn); `test_staff_guard_inventory.py` pass.
 - Không làm: giao diện admin (G09); nhập sáu khoá online (G11-T29 làm qua API này).
-- Vướng mắc → cách gỡ: lỗi CHECK từ PostgREST trả mã `23514` kèm tên constraint — map tên constraint → thông điệp, không trả chuỗi SQL; step-up MFA cho cộng lượt lớn (Q13) — mặc định chỉ `require_admin`, không thêm vào `STEP_UP_ROUTES`.
+- Vướng mắc → cách gỡ: lỗi CHECK từ PostgREST trả mã `23514` kèm tên constraint — map tên constraint → thông điệp, không trả chuỗi SQL; step-up MFA cho cấp lượt lớn (Q13, đã trả lời 18/11): bốn route `adjust`, `entitlements`, `grant-extra`, `convert-class` vào `CONDITIONAL_STEP_UP_ROUTES` theo điều kiện ở plan 5.9; thêm cặp `guarded`/`ordinary` cho mỗi route (51 lượt bị đòi MFA dưới `ADMIN_STEP_UP_ENFORCE=true`, 50 lượt thì không); route đơn không vào danh sách.
 - Ước lượng: 1 phiên · độ khó 3.
 
 ### G04-T06 — Mã kích hoạt có sản phẩm và số lượt kèm mã
