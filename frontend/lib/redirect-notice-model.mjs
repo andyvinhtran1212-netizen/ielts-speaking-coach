@@ -54,7 +54,8 @@ export function redirectNoticeMessage(key, pathname) {
  * @param {string} [key]
  */
 export function redirectNoticeHref(parent, key = NOTICE_KEYS.missing) {
-  if (typeof parent !== 'string' || !parent.startsWith('/') || parent.startsWith('//')) {
+  // A backslash reads as `/` in browsers, so `/\\evil` would leave the site.
+  if (typeof parent !== 'string' || !parent.startsWith('/') || parent.startsWith('//') || parent.includes('\\')) {
     throw new Error('redirect-notice-parent-must-be-a-path');
   }
   if (!Object.hasOwn(MESSAGES, key)) throw new Error('redirect-notice-unknown-key');

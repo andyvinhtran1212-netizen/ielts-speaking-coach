@@ -1,34 +1,65 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
 
 import { redirectNoticeMessage, takeRedirectNotice } from '@/lib/redirect-notice-model.mjs';
 
 // G02-T11 (FR-02-010): the one-line strip a parent page shows after a page
 // without its required parameter sent the visitor here with `?notice=`.
 //
-// Reads `window.location` in an effect rather than `useSearchParams`: the app
-// runs `cacheComponents`, and `useSearchParams` outside <Suspense> fails the
-// build for every layout this is mounted in. The parameter is dropped from the
-// address bar straight away, so a reload or a copied link does not repeat it.
+// The strip lives in a shared layout, and Next keeps a layout mounted across
+// client-side navigation, so it re-reads the address on every pathname or
+// search change (Codex on #2365): a soft redirect into this layout still shows
+// the line, and moving on to another page hides it. `useSearchParams` sits
+// inside <Suspense> because the app runs `cacheComponents`. The parameter is
+// dropped from the address bar straight away, so a reload or a copied link
+// does not repeat it.
 const CHROME_SELECTOR = 'aver-chrome, aver-admin-chrome';
 
+// The key leaves the URL on first read, so a remount (Strict Mode replay, an
+// auth provider re-keying its subtree) would otherwise lose the line. Keep it
+// for the page it was shown on until the learner closes it or moves on.
+let pending: { path: string; text: string } | null = null;
+
 export function RedirectNotice() {
+  return (
+    <Suspense fallback={null}>
+      <RedirectNoticeLine />
+    </Suspense>
+  );
+}
+
+function RedirectNoticeLine() {
+  const pathname = usePathname();
+  const search = useSearchParams()?.toString() ?? '';
   const [message, setMessage] = useState<string | null>(null);
   const [top, setTop] = useState(0);
 
   useEffect(() => {
-    const { key, search } = takeRedirectNotice(window.location.search);
-    if (key === null) return;
-    try {
-      window.history.replaceState(window.history.state, '', `${window.location.pathname}${search}${window.location.hash}`);
-    } catch { /* the notice still shows; only the URL keeps the parameter */ }
-    const text = redirectNoticeMessage(key, window.location.pathname);
-    if (!text) return;
+    const path = window.location.pathname;
+    const taken = takeRedirectNotice(window.location.search);
+    if (taken.key !== null) {
+      try {
+        window.history.replaceState(window.history.state, '', `${path}${taken.search}${window.location.hash}`);
+      } catch { /* the notice still shows; only the URL keeps the parameter */ }
+      const text = redirectNoticeMessage(taken.key, path);
+      pending = text ? { path, text } : null;
+    }
+    if (!pending || pending.path !== path) {
+      pending = null;
+      setMessage(null);
+      return;
+    }
     const chrome = document.querySelector(CHROME_SELECTOR);
     setTop(chrome ? Math.max(0, Math.round(chrome.getBoundingClientRect().bottom)) : 0);
-    setMessage(text);
-  }, []);
+    setMessage(pending.text);
+  }, [pathname, search]);
+
+  const close = () => {
+    pending = null;
+    setMessage(null);
+  };
 
   if (!message) return null;
   return (
@@ -71,7 +102,7 @@ export function RedirectNotice() {
         <span style={{ flex: 1 }}>{message}</span>
         <button
           type="button"
-          onClick={() => setMessage(null)}
+          onClick={close}
           style={{
             border: 0,
             background: 'transparent',

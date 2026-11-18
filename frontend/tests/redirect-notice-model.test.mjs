@@ -39,6 +39,8 @@ describe('redirectNoticeHref / takeRedirectNotice', () => {
   test('refuses a non-path parent or an unknown key', () => {
     assert.throws(() => redirectNoticeHref('https://evil.example'));
     assert.throws(() => redirectNoticeHref('//evil.example'));
+    // Browsers read `\` as `/`, so `/\evil.example` is another origin.
+    assert.throws(() => redirectNoticeHref('/\\evil.example'));
     assert.throws(() => redirectNoticeHref('/speaking', 'other'));
   });
   test('round trip: the parent reads the key and drops only the notice', () => {

@@ -7,7 +7,11 @@ import { MockResultBehavior } from '@/app/(authed-mock-result)/mock/result/mock-
 // parent with `?notice=`; the parent shows one plain line and drops the key.
 vi.mock('@/lib/auth/auth-provider', () => ({ useAuth: () => ({ status: 'signed-in', user: { id: 'learner-a' } }) }));
 vi.mock('@/lib/when-global-ready.mjs', () => ({ whenGlobalReady: async () => true }));
-vi.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams('') }));
+// The layout strip re-reads the address on navigation; mirror the live URL.
+vi.mock('next/navigation', () => ({
+  usePathname: () => window.location.pathname,
+  useSearchParams: () => new URLSearchParams(window.location.search),
+}));
 
 beforeEach(() => window.history.replaceState(null, '', '/'));
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
@@ -35,6 +39,30 @@ it('shows nothing without a notice', () => {
   render(<RedirectNotice />);
   expect(screen.queryByRole('status')).toBeNull();
   expect(window.location.search).toBe('?x=1');
+});
+
+// Codex on #2365: Next keeps the layout (and this strip) mounted across
+// client-side navigation, so the strip follows the address, not its mount.
+it('a soft redirect into an already-mounted layout still shows the line', () => {
+  window.history.replaceState(null, '', '/grammar/search');
+  const view = render(<RedirectNotice />);
+  expect(screen.queryByRole('status')).toBeNull();
+  window.history.replaceState(null, '', '/grammar?notice=lien-ket-thieu');
+  view.rerender(<RedirectNotice />);
+  expect(screen.getByRole('status').textContent).toContain('được đưa về Grammar Wiki.');
+  expect(window.location.search).toBe('');
+});
+
+it('moving on to another page hides the line and does not bring it back', () => {
+  window.history.replaceState(null, '', '/grammar?notice=lien-ket-thieu');
+  const view = render(<RedirectNotice />);
+  expect(screen.getByRole('status')).toBeTruthy();
+  window.history.replaceState(null, '', '/grammar/exercises');
+  view.rerender(<RedirectNotice />);
+  expect(screen.queryByRole('status')).toBeNull();
+  window.history.replaceState(null, '', '/grammar');
+  view.rerender(<RedirectNotice />);
+  expect(screen.queryByRole('status')).toBeNull();
 });
 
 it('a mock result link without its sitting goes to Full Test with the notice', async () => {
