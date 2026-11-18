@@ -44,6 +44,24 @@ export function formatRelativeTime(isoString) {
   return Math.floor(diffDays / 365) + ' năm trước';
 }
 
+const BAND_NOT_READY = 'Chưa đủ bài để ước lượng band';
+
+function bandOrCount(s, emptyHint) {
+  const attempts = s.attempts_count || 0;
+  const banded = Number.isInteger(s.banded_tests_count) ? s.banded_tests_count : 0;
+  if (s.band_ready === true && typeof s.last_band === 'number' && Number.isFinite(s.last_band)) {
+    return {
+      primary: { value: s.last_band.toFixed(1), unit: 'band' },
+      sub: 'Ước lượng từ đề đủ 40 câu gần nhất · không phải điểm thi',
+    };
+  }
+  if (!attempts) return { primary: { value: '0', unit: 'bài' }, sub: emptyHint };
+  return {
+    primary: { value: String(attempts), unit: 'bài' },
+    sub: banded > 0 ? banded + ' đề đủ 40 câu đã làm' : BAND_NOT_READY,
+  };
+}
+
 /**
  * Một formatter mỗi kỹ năng. Giữ dạng BẢNG như legacy: bật Reading/Listening
  * sang active về sau là thêm một khoá, không phải sửa một câu switch.
@@ -96,25 +114,14 @@ export const METRIC_FORMATTERS = {
     else sub = 'Bắt đầu lưu từ mới';
     return { primary: { value: String(s.words_learned || 0), unit: 'từ' }, sub };
   },
+  // G02-T04 (FR-02-003): a Reading/Listening band is shown only once the
+  // backend says enough full (40-question) tests carry one (`band_ready`). The
+  // number is the latest full test's band, so the sub-line says exactly that
+  // instead of pairing it with a count of every exercise done.
   reading(s) {
-    const band = s.last_band != null ? s.last_band.toFixed(1) : '—';
-    return {
-      primary: { value: band, unit: 'band' },
-      sub: s.attempts_count
-        ? s.attempts_count + ' bài đã hoàn thành'
-        : 'Luyện đọc với bài kiểm tra IELTS thực tế',
-    };
+    return bandOrCount(s, 'Luyện đọc với bài kiểm tra IELTS thực tế');
   },
   listening(s) {
-    if (s.last_band != null) {
-      return {
-        primary: { value: s.last_band.toFixed(1), unit: 'band' },
-        sub: s.attempts_count ? s.attempts_count + ' bài đã hoàn thành' : 'Tiếp tục luyện nghe',
-      };
-    }
-    return {
-      primary: { value: String(s.attempts_count || 0), unit: 'bài' },
-      sub: s.attempts_count ? 'Tiếp tục luyện nghe' : 'Luyện nghe với dictation và comprehension',
-    };
+    return bandOrCount(s, 'Luyện nghe với dictation và comprehension');
   },
 };

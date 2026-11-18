@@ -351,6 +351,10 @@ class Settings(BaseSettings):
     # MAX_SESSIONS_PER_USER_PER_DAY env var is set (e.g. on Railway) it WINS
     # over this default, so update/remove that var to roll the production value.
     MAX_SESSIONS_PER_USER_PER_DAY: int = 24
+    # G02-T04 (FR-02-003) — the Home Reading/Listening card shows a band only
+    # once the learner has at least this many submitted full (40-question)
+    # tests with a band_estimate; below it the card shows no band number.
+    HOME_SKILL_BAND_MIN_FULL_TESTS: int = 1
     MAX_AUDIO_DURATION_SECONDS: int = 300
     # B5 / Mục 5 — daily cap on the expensive grading pipeline (Whisper + Claude)
     # per user. Generous: a real student rarely exceeds a few dozen gradings/day;
