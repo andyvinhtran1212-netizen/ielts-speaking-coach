@@ -42,7 +42,8 @@ describe('/speaking/result — native React behavior', () => {
   test('reads the canonical released-result endpoint and reports both gates', () => {
     assert.match(BEHAVIOR, /window\.api\.getWith<ResultPayload>/);
     assert.match(BEHAVIOR, /`\/api\/mock-exams\/sittings\/\$\{encodeURIComponent\(sittingId\)\}\/result`/);
-    assert.match(BEHAVIOR, /Thiếu mã lượt thi\./);
+    // G02-T11: a missing sitting now goes back to Speaking with a notice.
+    assert.match(BEHAVIOR, /leaveForParent\('\/speaking'\)/);
     assert.match(BEHAVIOR, /Lượt thi này không có nhận xét Speaking\./);
   });
 

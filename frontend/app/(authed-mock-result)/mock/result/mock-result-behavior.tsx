@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 
 import { useAuth } from '@/lib/auth/auth-provider';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
+import { leaveForParent } from '@/lib/redirect-notice-model.mjs';
 
 type BandValue = number | string | null;
 
@@ -413,7 +414,8 @@ export function MockResultBehavior() {
     setPendingKey(null);
 
     if (!sittingId) {
-      setErrorState({ key: requestKey, value: 'Thiếu mã sitting.' });
+      // G02-T11: a link without its sitting goes back to Full Test.
+      leaveForParent('/full-test');
       return () => controller.abort();
     }
 

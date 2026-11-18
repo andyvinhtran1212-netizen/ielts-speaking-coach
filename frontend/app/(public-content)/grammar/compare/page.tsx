@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { Suspense } from 'react';
 
 import { getCompare, type GrammarCompareWire } from '@/lib/grammar-api';
@@ -9,6 +9,7 @@ import {
   CategoryBadge,
   LevelBadge,
 } from '../grammar-cards';
+import { redirectNoticeHref } from '@/lib/redirect-notice-model.mjs';
 
 type CompareArticle = GrammarCompareWire['left'];
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -69,19 +70,12 @@ function CompareColumn({ article, id }: { article: CompareArticle; id: string })
   );
 }
 
-function MissingSlug() {
-  return (
-    <main id="compare-container" className="av-w-page py-8 ds-fadein">
-      <div id="compare-left" className="compare-col">
-        <p className="text-red-400 text-sm py-4">Lỗi: Thiếu tham số slug.</p>
-      </div>
-    </main>
-  );
-}
-
 async function CompareBody({ searchParams }: { searchParams: SearchParams }) {
   const slug = querySlug(await searchParams);
-  if (!slug) return <MissingSlug />;
+  // G02-T11: a compare link without its slug goes back to the Wiki with a
+  // notice. Inside this async child (rendered under <Suspense>), as the
+  // cacheComponents build requires for request data.
+  if (!slug) redirect(redirectNoticeHref('/grammar'));
 
   const data = await getCompare(slug);
   if (!data) notFound();

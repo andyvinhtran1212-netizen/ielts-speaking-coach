@@ -27,6 +27,7 @@ import Script from 'next/script';
 
 import { BodyClassBridge } from '@/components/body-class-bridge';
 import { NextPageViewBeacon } from '@/components/next-page-view-beacon';
+import { RedirectNotice } from '@/components/redirect-notice';
 import { SupabaseRuntimeBoundary } from '@/components/supabase-runtime-boundary';
 import { AuthProvider } from '@/lib/auth/auth-provider';
 
@@ -210,7 +211,11 @@ export async function AuthedShell({
           staff consoles included (Q-13); the provider exempts only /login
           itself. Hybrid (authGated=false) layouts keep their public modes
           reachable. */}
-      <AuthProvider activationGate={authGated}>{children}</AuthProvider>
+      <AuthProvider activationGate={authGated}>
+        {children}
+        {/* G02-T11: the parent page's "đưa về trang cha" strip (`?notice=`). */}
+        <RedirectNotice />
+      </AuthProvider>
     </>
   );
 }

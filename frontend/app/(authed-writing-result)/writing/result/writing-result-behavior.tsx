@@ -19,6 +19,7 @@ import {
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 import { WritingTopFixes } from './writing-top-fixes';
+import { leaveForParent } from '@/lib/redirect-notice-model.mjs';
 
 type ResultView =
   | { kind: 'loading' }
@@ -426,10 +427,8 @@ export function WritingResultBehavior() {
     // replacement request after the first setup has been cleaned up.
     setResultState({ key: requestKey, value: { kind: 'loading' } });
     if (!essayId) {
-      setResultState({
-        key: requestKey,
-        value: { kind: 'error', message: 'Thiếu mã bài viết trong URL.' },
-      });
+      // G02-T11: a link without its essay goes back to the Writing dashboard.
+      leaveForParent('/writing/dashboard');
       return;
     }
     let dead = false;
