@@ -295,6 +295,24 @@ def enforce_daily_call_cap(user_id: str, calls: int = 1) -> int:
     return cap - used
 
 
+def variant_texts(variants: Any) -> List[str]:
+    """Chuẩn hoá `variants` của khóa chấm thành danh sách câu (SA N-1).
+
+    Gói thật để `variants` là MỘT chuỗi, đôi khi nhiều cách viết nối bằng ";".
+    Chuỗi → [cả chuỗi, từng đoạn tách theo ";"]; danh sách → các phần tử chuỗi.
+    Không bao giờ duyệt từng ký tự của chuỗi.
+    """
+    if isinstance(variants, str):
+        whole = variants.strip()
+        if not whole:
+            return []
+        parts = [x.strip() for x in whole.split(";") if x.strip()]
+        return [whole, *[x for x in parts if x != whole]]
+    if isinstance(variants, (list, tuple)):
+        return [x.strip() for x in variants if isinstance(x, str) and x.strip()]
+    return []
+
+
 def _sim(a: list[str], b: list[str]) -> float:
     return SequenceMatcher(None, a, b, autojunk=False).ratio() if a and b else 0.0
 
@@ -440,8 +458,7 @@ def validate_feedback(fb: Any, *, item_id: str, mode: str, response: str,
         texts = [fb.get(k) for k in _FREE_TEXT_FIELDS]
         texts += [e.get(k) for e in errors if isinstance(e, dict)
                   for k in ("reason_vi", "hint_vi")]
-        targets = [reference_answer, *[v for v in (variants or [])
-                                       if isinstance(v, str)]]
+        targets = [reference_answer, *variant_texts(variants)]
         if any(_reveals(t, targets, (response, source)) for t in texts if t):
             p.append("Coach feedback reveals the reference answer.")
     if mode == "review" and status == "revise":

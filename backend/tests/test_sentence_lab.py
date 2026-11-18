@@ -800,3 +800,89 @@ def test_openai_client_has_no_hidden_sdk_retries(monkeypatch):
     """SA C-5: the only retry is the explicit combined retry call."""
     monkeypatch.setattr(g.settings, "OPENAI_API_KEY", "sk-test")
     assert g._client().max_retries == 0
+
+
+# ── SA N-1: variants là chuỗi (như gói thật) ─────────────────────────────────
+def test_variant_texts_never_iterates_characters():
+    assert g.variant_texts("Many workers can afford it.") == ["Many workers can afford it."]
+    assert g.variant_texts("A b c d; E f g h") == ["A b c d; E f g h", "A b c d", "E f g h"]
+    assert g.variant_texts(["x y", 3, " "]) == ["x y"]
+    assert g.variant_texts(None) == [] and g.variant_texts("  ") == []
+
+
+def test_coach_copying_a_string_variant_is_a_reveal():
+    variant = "Many low-income workers can afford public transport."
+    leak = _fb(next_action_vi="Thử: many low-income workers can afford public transport")
+    for given in (variant, f"Something else entirely here; {variant}"):
+        assert any("reveals" in p for p in g.validate_feedback(
+            leak, item_id="S01-Q01", mode="coach", response=RESP,
+            reference_answer=REF, variants=given))
+
+
+def test_importer_rejects_non_string_variants_and_shows_lists_readably(tmp_path):
+    with pytest.raises(SystemExit) as e:
+        imp.build_plan(imp.read_package(_package(
+            tmp_path, lambda c, i, k: k[0].update(variants=[1, 2]))))
+    assert "variants" in str(e.value)
+    assert imp.explain_text({"answer": "A.", "variants": ["B.", "C."]}) \
+        == "**Đáp án tham khảo:** A.\n\n**Cách viết khác:** B.; C."
+    assert "['" not in imp.explain_text({"answer": "A.", "variants": ["B."]})
+
+
+# ── SA N-2: chạy lại importer không gỡ xuất bản bank đang dùng ───────────────
+class _ImportDB:
+    def __init__(self, existing):
+        self.existing, self.writes = existing, []
+
+    def table(self, name):
+        db = self
+
+        class Q:
+            def __init__(self): self.op, self.row = "select", None
+            def select(self, *_a, **_k): return self
+            def eq(self, *_a): return self
+            def limit(self, *_a): return self
+            def insert(self, row): self.op, self.row = "insert", row; return self
+            def update(self, row): self.op, self.row = "update", row; return self
+
+            def execute(self):
+                class R: pass
+                r = R()
+                if self.op == "select":
+                    r.data = list(db.existing)
+                else:
+                    db.writes.append((self.op, dict(self.row)))
+                    r.data = [{"id": "new"}]
+                return r
+        return Q()
+
+    def rpc(self, _name, params):
+        class R:
+            def execute(_s):
+                class D: data = len(params["p_rows"])
+                return D()
+        return R()
+
+
+def _commit(tmp_path, monkeypatch, existing, publish):
+    import database
+    plan = imp.build_plan(imp.read_package(_package(tmp_path)))
+    plan["banks"] = plan["banks"][:1]
+    db = _ImportDB(existing)
+    monkeypatch.setattr(database, "supabase_admin", db)
+    monkeypatch.setattr(imp, "_course_row", lambda _db: {"id": "c5", "code": "C5", "name": "n"})
+    assert imp.commit_plan(plan, publish=publish) == 0
+    return db.writes
+
+
+def test_rerun_keeps_publish_state_of_an_existing_bank(tmp_path, monkeypatch):
+    existing = [{"id": "b1", "course_id": "c5", "source": imp.SOURCE}]
+    writes = _commit(tmp_path, monkeypatch, existing, publish=False)
+    assert [op for op, _ in writes] == ["update"]
+    assert "is_published" not in writes[0][1]
+
+
+def test_new_bank_starts_as_draft_and_publishes_after_questions(tmp_path, monkeypatch):
+    writes = _commit(tmp_path, monkeypatch, [], publish=True)
+    assert writes[0][0] == "insert" and writes[0][1]["is_published"] is False
+    assert writes[-1] == ("update", {"is_published": True})

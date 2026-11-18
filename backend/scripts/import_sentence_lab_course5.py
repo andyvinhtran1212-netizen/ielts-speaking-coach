@@ -182,6 +182,10 @@ def build_plan(files: dict[str, bytes]) -> dict:
             _fail(f"{iid}.meaning phải là danh sách có nội dung.")
         if k.get("required") != by_id[iid]["required"]:
             _fail(f"{iid}: required của khóa chấm khác đề công khai.")
+        v = k.get("variants")
+        if v is not None and not isinstance(v, str) and not (
+                isinstance(v, list) and all(isinstance(x, str) for x in v)):
+            _fail(f"{iid}.variants phải là chuỗi hoặc danh sách chuỗi.")
         key_by_id[iid] = k
     missing_keys = sorted(set(by_id) - set(key_by_id))
     if missing_keys:
@@ -261,8 +265,11 @@ def prompt_text(pub: dict) -> str:
 
 def explain_text(key: dict) -> str:
     parts = [f"**Đáp án tham khảo:** {key['answer'].strip()}"]
-    if str(key.get("variants") or "").strip():
-        parts.append(f"**Cách viết khác:** {str(key['variants']).strip()}")
+    variants = key.get("variants")
+    shown = (variants.strip() if isinstance(variants, str)
+             else "; ".join(x.strip() for x in variants or [] if x.strip()))
+    if shown:
+        parts.append(f"**Cách viết khác:** {shown}")
     if str(key.get("explanation") or "").strip():
         parts.append(str(key["explanation"]).strip())
     return "\n\n".join(parts)
@@ -329,9 +336,6 @@ def commit_plan(plan: dict, *, publish: bool) -> int:
             "code": bank["code"], "title": bank["title"], "skill_area": "course",
             "course_id": course["id"], "lesson_no": None,
             "words_count": len(bank["rows"]), "source": SOURCE,
-            # Nháp trước; chỉ xuất bản SAU khi RPC ghi đủ câu (giống
-            # import_course_exercise_bank) để không có bank rỗng mở được.
-            "is_published": False,
             "meta": bank["meta"],
         }
         existing = (db.table("quiz_banks").select("id, course_id, source")
@@ -348,10 +352,15 @@ def commit_plan(plan: dict, *, publish: bool) -> int:
             failures += 1
             continue
         if existing:
+            # Bank đã có: KHÔNG đổi is_published (SA N-2). Chạy lại để sửa nội
+            # dung không được gỡ xuất bản bank học viên đang làm.
             bank_id = existing[0]["id"]
             db.table("quiz_banks").update(payload).eq("id", bank_id).execute()
         else:
-            bank_id = db.table("quiz_banks").insert(payload).execute().data[0]["id"]
+            # Bank mới: nháp trước; chỉ xuất bản SAU khi RPC ghi đủ câu (giống
+            # import_course_exercise_bank) để không có bank rỗng mở được.
+            bank_id = db.table("quiz_banks").insert(
+                {**payload, "is_published": False}).execute().data[0]["id"]
         try:
             n = db.rpc("quiz_replace_questions",
                        {"p_bank_id": bank_id, "p_rows": bank["rows"]}).execute().data
