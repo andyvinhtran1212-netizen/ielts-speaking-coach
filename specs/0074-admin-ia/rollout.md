@@ -15,7 +15,8 @@
 
 ## Rollback and repair
 
-- Tắt cờ `ADMIN_FRAME_V2` → khung admin cũ (chuyển hướng 307 vẫn giữ trang cũ mở được). Deploy lại bản trước; migration chỉ thêm bảng/cột nên tương thích với mã cũ, không hạ migration.
+- Tắt cờ `ADMIN_FRAME_V2` → khung admin cũ (chuyển hướng 307 vẫn giữ trang cũ mở được). Migration 440, 441, 442, 451 của spec này chỉ thêm bảng/cột nên deploy lại bản trước được; không hạ migration.
+- Ngoại lệ: sau khi 446 (MOCKORG-0086) chạy, `exam_mode` đã mang tên mới (`self_paced`, `live`). Từ lúc đó **mốc lui thấp nhất là bản backend có lớp tương thích hai tên** của T31 (`is_retake()` và `reap_expired_retake_sittings()` nhận cả tên cũ lẫn mới); không deploy lại bản chỉ hiểu `retake`. Thứ tự áp và cách kiểm lui ghi ở `specs/0086-mock-exam-organisation/rollout.md`.
 
 Ràng buộc của gói liên quan:
 
