@@ -55,6 +55,17 @@ export function inlineDiff(before, after) {
 
 const KIND = { grammar: 'ngữ pháp', spelling: 'chính tả', mechanics: 'hình thức' };
 
+/** Mã lỗi của kho viết câu Course 5 (public/error_codes.json của gói). */
+export const ERROR_LABELS = {
+  SENT: 'Câu thiếu thành phần', SVA: 'Hòa hợp chủ–vị', COUNT: 'Danh từ & lượng từ',
+  ART: 'Mạo từ', TENSE: 'Thì & mốc thời gian', CLAUSE: 'Mệnh đề',
+  REL: 'Mệnh đề quan hệ', VERBFORM: 'Dạng động từ', PASSIVE: 'Bị động',
+  REF: 'Tham chiếu', PARALLEL: 'Song song', LINK: 'Liên từ & quan hệ ý',
+  COND: 'Điều kiện', MODAL: 'Tình thái', COMP: 'So sánh', DATA: 'Dữ liệu & đơn vị',
+  SCOPE: 'Phạm vi & độ chắc chắn', LEX: 'Từ & cụm từ', PREP: 'Giới từ',
+  WORDORDER: 'Trật tự từ', PUNC: 'Dấu câu & chính tả', TASK: 'Yêu cầu của bài',
+};
+
 /**
  * Lỗi HÌNH THỨC (viết hoa đầu câu, dấu chấm cuối, khoảng trắng) vẫn hiện đủ,
  * nhưng KHÔNG làm câu bị tính là sai — nhãn ấy do máy chủ đặt bằng phép so
@@ -99,6 +110,10 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
   let armed = false;
   let itemId = null;
   let attemptNo = 1;
+  // Kho viết câu Course 5 (`sentence_lab`): null với bài tự luận Course 1.
+  let lab = null;
+  // Lượt TỰ VIẾT LẠI sau khi chấm — chỉ sống trong trang; gửi một lần.
+  let revision = {};
   // Đẩy nháp lên máy chủ SAU khi ngừng gõ, không phải mỗi phím: một câu 600 ký
   // tự là 600 request.
   let pushTimer = null;
@@ -226,6 +241,24 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
       <button class="av-button av-button-primary" id="cw-confirm" type="button">Nộp luôn</button>`;
   };
 
+  const revisionCount = () => Object.values(revision)
+    .filter((v) => String(v || '').trim()).length;
+  const maxRevision = () => Number(lab && lab.max_revision_items) || 6;
+
+  const reviseBar = () => {
+    const n = revisionCount();
+    const max = maxRevision();
+    const over = n > max;
+    const note = over
+      ? `Bạn đang viết lại <strong>${n}</strong> câu — chỉ gửi được tối đa ${max} câu.`
+      : n
+        ? `Đã viết lại ${n}/${max} câu. Gửi một lần để AI đánh giá lại và đưa bản sửa tối thiểu.`
+        : `Chọn tối đa ${max} câu để tự viết lại (ưu tiên câu chưa đạt). Không viết câu nào cũng được — bấm chốt để xem đáp án tham khảo.`;
+    return `<span class="cw-bar__note" id="cw-revise-note">${note}</span>
+      <button class="av-button av-button-primary" id="cw-revise-submit" type="button"${
+        over ? ' disabled' : ''}>${n ? 'Gửi bài viết lại' : 'Chốt và xem đáp án'}</button>`;
+  };
+
   const noteHtml = () => {
     const miss = missing();
     if (!miss.length) {
@@ -239,12 +272,143 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
       + `<span class="cw-jump">${jump}</span>`;
   };
 
+  // ── Kho viết câu Course 5 ────────────────────────────────────────────────
+  const labGuide = () => {
+    const g = lab && lab.guide;
+    if (!g) {
+      return lab && lab.guide_locked
+        ? '<p class="cw-unknown">Buổi chẩn đoán: ghi nhớ và ví dụ làm mẫu mở sau khi bạn nộp lượt đầu.</p>'
+        : '';
+    }
+    const li = (xs) => (xs || []).map((x) => `<li>${md(x)}</li>`).join('');
+    const w = g.worked || {};
+    return `<details class="sl-guide"${submitted ? '' : ' open'}>
+        <summary>Mục tiêu, ghi nhớ và ví dụ làm mẫu</summary>
+        ${g.objective ? `<p><strong>Mục tiêu:</strong> ${md(g.objective)}</p>` : ''}
+        ${g.ielts_use ? `<p><strong>Dùng trong IELTS:</strong> ${md(g.ielts_use)}</p>` : ''}
+        ${(g.mini_rules || []).length ? `<ul>${li(g.mini_rules)}</ul>` : ''}
+        ${w.source ? `<div class="sl-worked"><p><strong>Ví dụ:</strong> ${md(w.instruction || '')}</p>
+          <p class="cw-diff">${esc(w.source)}</p>
+          <p class="cw-diff">${esc(w.answer || '')}</p>
+          ${w.explanation ? `<p>${md(w.explanation)}</p>` : ''}</div>` : ''}
+        ${submitted && (g.exit_check || []).length
+          ? `<p><strong>Tự kiểm tra cuối buổi:</strong></p><ul>${li(g.exit_check)}</ul>` : ''}
+      </details>`;
+  };
+
+  const labAsk = (q, fallback) => {
+    const it = q && q.sentence_lab_item;
+    if (!it) return `<p class="cw-item__ask">${md(fallback || '')}</p>`;
+    return `<div class="sl-ask">
+        <p class="cw-item__ask"><strong>${esc(it.instruction || '')}</strong></p>
+        <p class="sl-source">${esc(it.source || '')}</p>
+        <ul class="sl-required">${(it.required || []).map((r) => `<li>${esc(r)}</li>`).join('')}</ul>
+      </div>`;
+  };
+
+  function renderLabForm() {
+    const items = questions.map((q, i) => {
+      const val = draft[q.qid] || '';
+      return `<article class="cw-item" id="cw-${esc(q.qid)}">
+          <span class="cw-item__no">Câu ${i + 1} · ${esc(q.subtype || '')}</span>
+          ${labAsk(q, q.prompt)}
+          <textarea class="cw-write" data-qid="${esc(q.qid)}" rows="2"
+            aria-label="Câu trả lời cho câu ${i + 1}"
+            placeholder="Viết MỘT câu tiếng Anh hoàn chỉnh…">${esc(val)}</textarea>
+        </article>`;
+    }).join('');
+    return `<div class="cw-intro">
+        <h2>${esc(lab.session_id || '')} · ${esc(lab.title || 'Luyện viết câu')} — ${questions.length} câu</h2>
+        <p>Mỗi bài viết <strong>một câu tiếng Anh hoàn chỉnh</strong>, giữ đúng dữ kiện và yêu cầu
+           in đậm. AI chấm theo thang luyện câu 0–10 (không phải band IELTS) và chỉ ra tối đa
+           hai lỗi ưu tiên kèm gợi ý để bạn tự sửa. Sau đó bạn được <strong>tự viết lại tối đa
+           ${maxRevision()} câu</strong> để nhận bản sửa tối thiểu. <strong>Lượt nộp đầu chỉ có một</strong>.</p>
+      </div>
+      ${labGuide()}
+      <div class="cw-list">${items}</div>
+      <div class="cw-bar" id="cw-bar">${bar()}</div>`;
+  }
+
+  const STATUS = {
+    accepted: 'Đạt',
+    revise: 'Cần sửa',
+    needs_review: 'Cần giáo viên xem',
+    no_attempt: 'Chưa làm',
+  };
+
+  const labFeedback = (fb, text) => {
+    if (!fb) return '<p class="cw-unknown">Chưa chấm được câu này.</p>';
+    const score = fb.total == null ? '' : `<span class="sl-score">${esc(fb.total)}/10</span>`;
+    const errs = (fb.errors || []).map((e) => `
+        <li class="cw-issue">
+          <span class="cw-issue__kind">${esc(ERROR_LABELS[e.code] || e.code)}</span>
+          <span>${e.offending_text ? `<del>${esc(e.offending_text)}</del> — ` : ''}${esc(e.reason_vi || '')}</span>
+          ${e.hint_vi ? `<span class="cw-issue__note">Gợi ý: ${esc(e.hint_vi)}</span>` : ''}
+        </li>`).join('');
+    const fix = fb.minimal_correction
+      ? `<p class="sl-label">Bản sửa tối thiểu</p><p class="cw-diff">${inlineDiff(text, fb.minimal_correction)}</p>`
+      : '';
+    const alt = fb.optional_alternative
+      ? `<p class="sl-label">Một cách viết khác (không phải sửa lỗi)</p><p class="cw-diff">${esc(fb.optional_alternative)}</p>`
+      : '';
+    return `<div class="sl-fb" data-status="${esc(fb.status)}">
+        <p class="sl-head"><span class="sl-badge">${esc(STATUS[fb.status] || fb.status)}</span>${score}</p>
+        ${fb.strength_vi ? `<p>${esc(fb.strength_vi)}</p>` : ''}
+        ${errs ? `<ul class="cw-issues">${errs}</ul>` : ''}
+        ${fb.has_more_issues ? '<p class="cw-unknown">Còn lỗi khác — sửa hai lỗi ưu tiên trước.</p>' : ''}
+        ${fb.needs_review_reason_vi ? `<p class="cw-unknown">${esc(fb.needs_review_reason_vi)}</p>` : ''}
+        ${fix}${alt}
+        ${fb.next_action_vi ? `<p class="sl-next">${esc(fb.next_action_vi)}</p>` : ''}
+      </div>`;
+  };
+
+  function renderLabResult() {
+    const items0 = (submission && submission.items) || [];
+    const byQid = {};
+    questions.forEach((q) => { byQid[q.qid] = q; });
+    const done = !!lab.revision_done;
+    const clean = (submission && submission.clean) || 0;
+    const total = (submission && submission.total) || items0.length;
+    const points = items0.reduce((a, g) => a + (Number(g.score) || 0), 0);
+    const items = items0.map((g, i) => {
+      const q = byQid[g.qid] || {};
+      const rev = g.revision;
+      const revBlock = rev
+        ? `<div class="sl-rev"><p class="sl-label">Bài viết lại</p>
+            <p class="cw-diff">${inlineDiff(g.answer, rev.answer)}</p>
+            ${labFeedback(rev.feedback, rev.answer)}</div>`
+        : (!done
+          ? `<label class="sl-label" for="cw-rev-${esc(g.qid)}">Tự viết lại câu này (tuỳ chọn)</label>
+             <textarea class="cw-write cw-revise" id="cw-rev-${esc(g.qid)}" data-qid="${esc(g.qid)}" rows="2"
+               placeholder="Viết lại theo gợi ý…">${esc(revision[g.qid] || '')}</textarea>`
+          : '');
+      const modelText = done ? (g.explain || q.explain || '') : '';
+      return `<article class="cw-item" data-ok="${String(g.ok)}">
+          <span class="cw-item__no">Câu ${i + 1}${q.subtype ? ' · ' + esc(q.subtype) : ''}</span>
+          ${labAsk(q, g.prompt)}
+          <p class="sl-label">Câu bạn nộp</p>
+          <p class="cw-diff">${esc(g.answer)}</p>
+          ${labFeedback(g.feedback, g.answer)}
+          ${revBlock}
+          ${modelText ? `<div class="cw-model course-explain">${formatCourseExplanation(modelText)}</div>` : ''}
+        </article>`;
+    }).join('');
+    return `<div class="cw-done">${clean}<small>/ ${total} câu đạt · ${points}/${total * 10} điểm luyện câu</small></div>
+      <p class="cw-unknown">Thang 0–10 là điểm luyện câu, không quy đổi sang band IELTS.</p>
+      ${labGuide()}
+      <div class="cw-list">${items}</div>
+      ${done ? '' : `<div class="cw-bar" id="cw-revise-bar">${reviseBar()}</div>`}`;
+  }
+
   return {
     get submitted() { return submitted; },
     get questions() { return questions.slice(); },
     get missing() { return missing(); },
     get draft() { return { ...draft }; },
     get course() { return submission?.course || null; },
+    /** Kho viết câu Course 5 — null với bài tự luận thường. */
+    get lab() { return lab; },
+    get revisionCount() { return revisionCount(); },
     /** Đang ở bước XÁC NHẬN (đã bấm Nộp một lần). */
     get armed() { return armed; },
 
@@ -268,6 +432,7 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
       itemId = (r && r.item_id) || null;
       attemptNo = Number(r && r.attempt_no) || 1;
       questions = (r && r.questions) || [];
+      lab = (r && r.sentence_lab) || null;
       submitted = !!(r && r.submitted);
       submission = (r && r.submission) || null;
       // Nộp rồi thì bản nháp là rác — và giữ nó lại chỉ để một ngày nào đó
@@ -364,8 +529,41 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
       return { graded: r };
     },
 
+    /** Ghi một câu viết lại (sau khi chấm). Trả số câu đang viết lại. */
+    writeRevision(qid, text) {
+      if (!lab || !submitted || lab.revision_done) return revisionCount();
+      revision[qid] = text;
+      return revisionCount();
+    },
+
+    renderReviseBar() { return reviseBar(); },
+
+    /**
+     * Gửi lượt viết lại — MỘT lần. Đọc lại trạng thái từ máy chủ sau khi gửi:
+     * đáp án tham khảo chỉ máy chủ mới quyết định được lúc nào hiện.
+     */
+    async submitRevision() {
+      if (!lab || !submitted || lab.revision_done) return { already: true };
+      if (revisionCount() > maxRevision()) return { tooMany: true };
+      const answers = {};
+      Object.entries(revision).forEach(([qid, v]) => {
+        if (String(v || '').trim()) answers[qid] = String(v).trim();
+      });
+      await api.post('/api/quiz/course/writing/revise', {
+        bank_id: bankId, class_item: itemId, answers,
+      });
+      revision = {};
+      const r = await api.get('/api/quiz/course/writing?bank_id=' + encodeURIComponent(bankId)
+        + (itemId ? '&class_item=' + encodeURIComponent(itemId) : ''));
+      questions = (r && r.questions) || questions;
+      lab = (r && r.sentence_lab) || lab;
+      submission = (r && r.submission) || submission;
+      return { revised: true };
+    },
+
     /** Màn VIẾT. */
     renderForm() {
+      if (lab) return renderLabForm();
       const items = questions.map((q, i) => {
         const val = draft[q.qid] || '';
         const gap = !String(val).trim();
@@ -397,6 +595,7 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
 
     /** Màn ĐÃ CHẤM. */
     renderResult() {
+      if (lab) return renderLabResult();
       // DỰNG TỪ BẢN CHỤP, không từ đề hiện hành. `submission.items` giữ nguyên
       // văn đề + bài viết + bản chấm tại thời điểm nộp, đúng vì bộ đề CÓ THỂ
       // được soạn lại (Buổi 1 vừa đổi 31/100 câu). Lấy đề hiện hành làm gốc thì

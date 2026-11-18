@@ -276,6 +276,14 @@ class Settings(BaseSettings):
     # dùng được" và mất lượt nộp DUY NHẤT (em Lê Chinh).
     COURSE_WRITING_MODEL: str = "gemini-3.5-flash-lite"
 
+    # SENTENCE_LAB_MODEL — Course 5 "Kho luyện viết câu 45 buổi": chấm ngữ
+    # nghĩa + ngữ pháp + yêu cầu bài theo khóa chấm riêng (services/
+    # sentence_lab_grader.py). OpenAI Chat Completions + Structured Outputs; 12
+    # câu đi thành 2 lượt gọi (6+6), lượt sửa là 1 lượt. Đổi model bằng env,
+    # không cần deploy code. Reasoning effort chỉ áp cho model gpt-5*/o*.
+    SENTENCE_LAB_MODEL: str = "gpt-5-mini"
+    SENTENCE_LAB_REASONING_EFFORT: str = "low"
+
     # Controlled Rewrite in Advanced Vocabulary: all 20 answers are reviewed
     # in one low-cost structured request, once per learner/unit.
     ADVANCED_VOCAB_REWRITE_MODEL: str = "gemini-3.5-flash-lite"
