@@ -324,7 +324,7 @@ function ResultContent({ data, sittingId }: {
         <div className="trf-card__head">
           <div>
             <div className="trf-eyebrow">Phiếu kết quả thi thử · TRF</div>
-            <h1 className="trf-h1">Kết quả bài thi thử của em</h1>
+            <h1 className="trf-h1">Kết quả bài thi thử của bạn</h1>
           </div>
           <p className="trf-stamp">{releasedAt}</p>
         </div>
@@ -462,7 +462,7 @@ export function MockResultBehavior() {
         <div className="trf-state">
           <h1>Đang chờ giám khảo duyệt</h1>
           <p>
-            Bài của em đã được ghi nhận. Giám khảo sẽ chấm và công bố kết quả trong thời gian cam kết — em sẽ thấy điểm và phần chữa bài tại đây ngay khi có.
+            Bài của bạn đã được ghi nhận. Giám khảo sẽ chấm và công bố kết quả trong thời gian cam kết — bạn sẽ thấy điểm và phần chữa bài tại đây ngay khi có.
           </p>
         </div>
       </div>
