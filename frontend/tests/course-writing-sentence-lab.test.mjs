@@ -100,3 +100,47 @@ test('revision caps at six and posts once, then reloads state', async () => {
   assert.ok(!html.includes('cw-revise"'));
   assert.deepEqual(await w.submitRevision(), { already: true });
 });
+
+test('first submission refreshes state so checkpoint guidance shows at once', async () => {
+  const q = [ITEM('S01-Q01')];
+  const before = { questions: q, submitted: false, sentence_lab: LAB() };
+  const after = { questions: q, submitted: true,
+    submission: { total: 1, clean: 0, items: [{ qid: 'S01-Q01', answer: 'x', ok: false,
+      score: 9, feedback: FB('S01-Q01') }] },
+    sentence_lab: LAB({ guide_locked: false, guide: { objective: 'Mục tiêu buổi' } }) };
+  const a = api([before, after]);
+  a.post = async (path, body) => { a.calls.post.push({ path, body });
+    return { items: after.submission.items, total: 1, clean: 0, course: { done: true } }; };
+  const w = createWriting({ api: a, storage: null, userId: 'u' });
+  await w.load('b1');
+  w.write('S01-Q01', 'x');
+  w.arm();
+  await w.submit();
+  assert.match(w.renderResult(), /Mục tiêu buổi/);
+  assert.deepEqual(w.course, { done: true });
+});
+
+test('a committed revision survives a failed follow-up read', async () => {
+  const items = [{ qid: 'S01-Q01', answer: 'a', ok: false, score: 8, feedback: FB('S01-Q01') }];
+  const state = { questions: [ITEM('S01-Q01')], submitted: true,
+    submission: { total: 1, clean: 0, items }, sentence_lab: LAB() };
+  let gets = 0;
+  const posts = [];
+  const a = {
+    async get() { gets += 1; if (gets > 1) throw new Error('mạng hỏng'); return state; },
+    async post(path, body) { posts.push(path); return { total: 1, clean: 1, revision_done: true,
+      items: [{ ...items[0], explain: '**Đáp án tham khảo:** A.',
+        revision: { answer: 'b', feedback: FB('S01-Q01', { mode: 'review', status: 'accepted',
+          errors: [], total: 10 }) } }] }; },
+  };
+  const w = createWriting({ api: a, storage: null, userId: 'u' });
+  await w.load('b1');
+  w.writeRevision('S01-Q01', 'b');
+  assert.deepEqual(await w.submitRevision(), { revised: true });
+  assert.equal(w.lab.revision_done, true);
+  const html = w.renderResult();
+  assert.match(html, /Bài viết lại/);
+  assert.match(html, /Đáp án tham khảo/);
+  assert.deepEqual(await w.submitRevision(), { already: true });
+  assert.equal(posts.length, 1);
+});

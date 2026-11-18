@@ -241,6 +241,15 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
       <button class="av-button av-button-primary" id="cw-confirm" type="button">Nộp luôn</button>`;
   };
 
+  async function refreshState() {
+    const r = await api.get('/api/quiz/course/writing?bank_id=' + encodeURIComponent(bankId)
+      + (itemId ? '&class_item=' + encodeURIComponent(itemId) : ''));
+    if (!r || !r.submitted) return;
+    questions = r.questions || questions;
+    lab = r.sentence_lab || lab;
+    submission = { ...(submission || {}), ...(r.submission || {}) };
+  }
+
   const revisionCount = () => Object.values(revision)
     .filter((v) => String(v || '').trim()).length;
   const maxRevision = () => Number(lab && lab.max_revision_items) || 6;
@@ -523,6 +532,12 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
       submitted = true;
       submission = r;
       activeTimer.setActive(false);
+      if (lab) {
+        // Kho viết câu: hướng dẫn buổi chẩn đoán (S01/S45) chỉ mở SAU lượt nộp
+        // đầu — đọc lại trạng thái để màn kết quả có ngay. Đọc hỏng thì giữ
+        // bản chấm vừa nhận; lượt nộp đã chốt rồi.
+        try { await refreshState(); } catch (e) { /* giữ kết quả POST */ }
+      }
       if (storage) {
         try { storage.removeItem(draftKey(bankId, userId, itemId, attemptNo)); } catch (e) { /* kệ */ }
       }
@@ -549,15 +564,19 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
       Object.entries(revision).forEach(([qid, v]) => {
         if (String(v || '').trim()) answers[qid] = String(v).trim();
       });
-      await api.post('/api/quiz/course/writing/revise', {
+      const r = await api.post('/api/quiz/course/writing/revise', {
         bank_id: bankId, class_item: itemId, answers,
       });
+      // POST thành công = lượt viết lại ĐÃ CHỐT ở máy chủ. Dựng trạng thái từ
+      // chính phản hồi ấy trước; lượt đọc lại sau chỉ để lấy đáp án tham khảo
+      // theo đề. Đọc hỏng không được biến một lượt đã chốt thành "chưa gửi".
       revision = {};
-      const r = await api.get('/api/quiz/course/writing?bank_id=' + encodeURIComponent(bankId)
-        + (itemId ? '&class_item=' + encodeURIComponent(itemId) : ''));
-      questions = (r && r.questions) || questions;
-      lab = (r && r.sentence_lab) || lab;
-      submission = (r && r.submission) || submission;
+      lab = { ...lab, revision_done: true };
+      if (r && Array.isArray(r.items)) {
+        submission = { ...(submission || {}), items: r.items,
+          total: r.total ?? submission?.total, clean: r.clean ?? submission?.clean };
+      }
+      try { await refreshState(); } catch (e) { /* đã có bản chấm từ POST */ }
       return { revised: true };
     },
 
