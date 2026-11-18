@@ -2,7 +2,7 @@
 
 ## Preconditions
 
-- This spec merged on `staging`. No migration. New optional settings `SENTENCE_LAB_MODEL`, `SENTENCE_LAB_REASONING_EFFORT` and `SENTENCE_LAB_MAX_CALLS_PER_USER_PER_DAY` have safe code defaults, so no env change is required. `OPENAI_API_KEY` present on Railway staging and production (already used by Whisper).
+- This spec merged on `staging`. No migration. New optional settings `SENTENCE_LAB_MODEL`, `SENTENCE_LAB_REASONING_EFFORT` and `SENTENCE_LAB_MAX_CALLS_PER_USER_PER_DAY` and `SENTENCE_LAB_ENABLED` have safe code defaults, so no env change is required. `OPENAI_API_KEY` present on Railway staging and production (already used by Whisper).
 - The owner's typed approval for each DB write: staging import, then production import with a named window.
 
 ## Staging
@@ -15,7 +15,7 @@
 
 ## Rollback and repair
 
-- Code rollback: revert the implementation; lab banks then fall back to the Course 1 grader, so unpublish the 45 banks first (`update quiz_banks set is_published=false where code like 'C5-SL-S%'`). Stored submissions are additive JSON and stay readable.
+- Pause in place (FR-008): set `SENTENCE_LAB_ENABLED=false` on Railway (env change, owner approval). Lab submit and rewrite return 503 with the work kept; nothing reaches the Course 1 grader. Do not revert the lab code while any lab assignment exists: assigned learners open Course banks through the assignment even when `is_published=false`, so a revert would route them to the Course 1 grader and release reference answers early. A full code revert requires first removing every class assignment item that points at a `C5-SL-S%` bank, then verifying with an assigned test learner that opening and submitting are both refused.
 - Content repair: re-run the importer with a corrected package; it updates the same 45 banks by code.
 
 ## Observability

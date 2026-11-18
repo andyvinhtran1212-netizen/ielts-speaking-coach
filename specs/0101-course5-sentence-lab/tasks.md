@@ -4,5 +4,5 @@
 - [ ] T002 Submit, state, rewrite route and play-path gating. `depends: T001` `owns: backend/services/quiz_service.py, backend/routers/quiz.py`
 - [ ] T003 Importer and calibration scripts. `depends: T001` `owns: backend/scripts/import_sentence_lab_course5.py, backend/scripts/calibrate_sentence_lab.py`
 - [ ] T004 Learner UI and API types. `depends: T002` `owns: frontend/public/js/course-writing.js, frontend/app/(authed)/course-exercises/course-behavior.tsx, frontend/public/css/course-exercises.css, frontend/types/api.d.ts`
-- [ ] T005 Per-learner daily call cap, active-assignment rewrite gate, regrade skip and near-copy reveal check. `depends: T002`
+- [ ] T005 Per-learner daily call cap and single-flight, kill switch, active-assignment rewrite gate, regrade skip and near-copy reveal check. `depends: T002`
 - [ ] T006 Tests, runbook and staging acceptance. `depends: T002, T003, T004, T005`
