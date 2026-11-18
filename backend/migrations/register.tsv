@@ -164,12 +164,12 @@ number	filename	state	owner	spec	note
 157	157_listening_tests_test_type_column.sql	present	-	-	-
 158	158_reading_tests_test_type_column.sql	present	-	-	-
 159	159_quiz_questions_hint.sql	present	-	-	-
-160	-	reserved	unknown-ask-owner	-	Gap with no file and no README explanation; owner to confirm or release.
+160	-	abandoned	-	-	Released 2026-11-18 (Andy): no file, PR, spec or ledger reference ever found.
 161	161_fn_upsert_listening_answer.sql	present	-	-	-
 161b	161b_backfill_retake_open_until.sql	present	-	-	Deliberate variant of 161, not a duplicate.
 162	162_mock_sitting_one_live_per_user.sql	present	-	-	-
 163	163_fn_merge_sitting_integrity.sql	present	-	-	-
-164	-	reserved	unknown-ask-owner	-	Gap with no file and no README explanation; owner to confirm or release.
+164	-	abandoned	-	-	Released 2026-11-18 (Andy): the mock-exam backfill planned as 164 landed as 161b (commit 4bf02e17e, review #839).
 165	165_mock_review_void_status.sql	present	-	-	-
 166	166_mock_exam_collected_section.sql	present	-	-	-
 167	167_mock_exam_done_at.sql	present	-	-	-
@@ -353,13 +353,13 @@ number	filename	state	owner	spec	note
 345	345_admin_inline_policies_strict.sql	present	-	-	-
 346	346_class_archive_update_guards.sql	present	-	-	-
 347	347_listening_tests_client_revoke.sql	present	-	-	-
-348	-	reserved	unknown-ask-owner	-	README: 348-351 reserved for other work; no owner named.
+348	-	abandoned	-	-	Released 2026-11-18 (Andy): README listed 348-351 as reserved but no owner, file, spec or open PR was found.
 349	-	reserved	SECWRITE-0022	SECWRITE-0022	FR-012 (Amendment 1); README: 348-351 reserved.
 350	-	reserved	SECWRITE-0022	SECWRITE-0022	FR-013 deferred, job on HOLD; must not be written without Vinh approval.
 351	351_dashboard_rpcs_client_revoke.sql	present	-	-	-
 352	352_mfa_status_throttle.sql	present	-	-	-
 353	353_listening_package_status_revision.sql	present	-	-	-
-354	-	reserved	unknown-ask-owner	-	README: 353-359 without a file may be held by open PRs; none may be reused.
+354	-	abandoned	-	-	Released 2026-11-18 (Andy): no file, spec or open PR holds it.
 355	355_vocab_curated_guard_reparent.sql	present	-	-	-
 356	356_class_action_log_no_truncate.sql	present	-	-	-
 357	357_public_schema_create_revoke.sql	present	-	-	-
@@ -375,12 +375,12 @@ number	filename	state	owner	spec	note
 367	367_ai_budget_definer_search_path.sql	present	-	-	-
 368	368_class_archive_definer_search_path.sql	present	-	-	-
 369	369_grammar_quiz_definer_search_path.sql	present	-	-	-
-370	-	reserved	unknown-ask-owner	-	README: reservations 370-375 remain held by their owners.
+370	-	abandoned	-	-	Released 2026-11-18 (Andy): Black Eye U1 admission was drafted as 370 and moved to 376 (commit 3a7d494e2).
 371	-	reserved	FREETRIAL-0047	FREETRIAL-0047	Leader assigned 2026-11-04 (0047 plan); README 370-375 held.
 372	-	reserved	FLASHCARD-0048	FLASHCARD-0048	372_vocab_cards_public_wiki.sql; Leader assigned 2026-11-04 (0048 plan).
-373	-	reserved	unknown-ask-owner	-	README: reservations 370-375 remain held by their owners.
-374	-	reserved	unknown-ask-owner	-	README: reservations 370-375 remain held by their owners.
-375	-	reserved	unknown-ask-owner	-	README: reservations 370-375 remain held by their owners.
+373	-	abandoned	-	-	Released 2026-11-18 (Andy): no file, spec or open PR holds it.
+374	-	abandoned	-	-	Released 2026-11-18 (Andy): no file, spec or open PR holds it.
+375	-	abandoned	-	-	Released 2026-11-18 (Andy): no file, spec or open PR holds it.
 376	376_blackeye_admission.sql	present	-	-	-
 377	377_exercise_book_cohort_grants.sql	present	-	-	-
 378	378_exercise_book_assignments.sql	present	-	-	-
