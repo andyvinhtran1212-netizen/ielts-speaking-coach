@@ -28,7 +28,7 @@ Bảng phụ thuộc của cả gói và chi tiết từng nhiệm vụ (gói m�
   3. Rollback giữ bảng; khôi phục thân hàm 371 (đường b).
   4. Test PG17 ở 5.2.1.
 - Đầu ra: 1 PR (2 phiên).
-- Nghiệm thu: test PG17 pass, gồm ca 20 lời gọi song song cho đúng số giữ chỗ mà ngân sách ngày còn đủ; bất biến client pass.
+- Nghiệm thu: test PG17 pass, gồm ca 20 lời gọi song song cho đúng số giữ chỗ mà ngân sách ngày còn đủ, và ca khoá IP: hai kết nối, hai tài khoản cùng `ip_hash` với `vn_day` khác nhau, hạn mức IP chỉ còn 1 lượt → đúng một giữ chỗ thành công (khoá `aver.trial.ip:` không gắn ngày, thứ tự site → ip → user); bất biến client pass.
 - Không làm: không đổi bước chống lạm dụng, trần USD, `request_key` của 0047.
 - Vướng mắc → cách gỡ: hai khoá tư vấn trong một giao dịch gây chờ dài khi đông → đo bằng test 200 lời gọi; quá 2 s ở p95 trên PG cục bộ thì báo, không tự đổi thiết kế; `vn_day` tính sai múi giờ → dùng đúng biểu thức của 371 (`(now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date`), test ca 23:59 và 00:01.
 - Ước lượng: 2 phiên · 5.

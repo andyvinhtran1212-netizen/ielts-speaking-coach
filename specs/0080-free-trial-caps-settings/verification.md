@@ -11,7 +11,7 @@ sang `PASS`/`MANUAL`/`N/A` theo mẫu ở `specs/_templates/verification.md`.
 | FR-020 | kind=test; ref=planned in G11-T16; scenarios B* (gói mục 9) | PENDING |
 | FR-021 | kind=test; ref=planned in G11-T14, G11-T14a; scenarios B* (gói mục 9) | PENDING |
 | FR-022 | kind=test; ref=planned in G11-T14, G11-T14a; scenarios B* (gói mục 9) | PENDING |
-| FR-023 | kind=test; ref=planned in G11-T14, G11-T14a; scenarios B* (gói mục 9) | PENDING |
+| FR-023 | kind=test; ref=planned in G11-T14, G11-T14a: test PG17 20 lời gọi song song (ngân sách ngày) và test hai kết nối cùng `ip_hash`, khác `vn_day`, còn 1 lượt IP → đúng một giữ chỗ; scenarios B*, B7 (gói mục 9) | PENDING |
 | FR-024 | kind=test; ref=planned in G11-T14, G11-T14a; scenarios B* (gói mục 9) | PENDING |
 | FR-025 | kind=test; ref=planned in G11-T14, G11-T14a; scenarios B* (gói mục 9) | PENDING |
 | FR-026 | kind=test; ref=planned in G11-T14, G11-T14a; scenarios B* (gói mục 9) | PENDING |
