@@ -143,6 +143,7 @@ Progress and remaining acceptance are reconciled in [the implementation status l
 | SVCPRIV-0042 | service_role loses public table maintenance privileges and schema CREATE, and unpinned public functions get a fixed search_path, to block owner-run planted triggers, function overloads and temp-object shadowing | approved | critical | [spec](0042-service-role-table-maintenance-revoke/spec.md) |
 
 | LESSONREPORT-0043 | Teachers see a course assessment's results per lesson for each learner and the whole class, with the weakest lessons highlighted | approved | high | [spec](0043-course-assessment-lesson-report/spec.md) |
+| CLASSRESULT-0085 | Teachers open one result page per class assignment with five blocks from one aggregate API, and give work to saved learner groups through one shared component | draft | high | [spec](0085-class-assignment-result/spec.md) |
 
 | INSTRUCTORGIVE-0044 | A teacher's repeated or retried Writing give from /instructor creates the homework once | approved | high | [spec](0044-instructor-give-idempotency/spec.md) |
 
