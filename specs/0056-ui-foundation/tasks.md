@@ -7,12 +7,12 @@ G03-T01 là chính PR spec này; G03-T03 **ĐÃ BỎ** (bộ icon chuyển sang 
 - [ ] T004 (G03-T04) Trang `/ui-library` và test ảnh chụp. `owns: frontend/app/(ui-library)/, frontend/tests/visual/, frontend/playwright.visual.config.js` `depends: T002`
 - [ ] T005 (G03-T05…T10) Component theo đợt (mỗi đợt một PR). `owns: frontend/components/ui/*.tsx, frontend/tests/react/ui/` `depends: T002, T004`
 - [ ] T011 (G03-T11) Danh mục trang và test CI. `owns: frontend/lib/route-registry.mjs, frontend/tests/route-registry.test.mjs` `depends: spec approved`
-- [ ] T012 (G03-T12) `AuthedShell design="v2"` và ranh giới điều hướng cứng. `owns: frontend/components/authed-shell.tsx (chỉ bọc điều kiện)` `depends: T002`
-- [ ] T013 (G03-T13) `PublicShell` và chuyển 4 trang pháp lý. `owns: frontend/components/ui/shell/public-*` `depends: T005, T012, G02-T13`
-- [ ] T014 (G03-T14) `LearnerShell` (máy tính, máy tính bảng, điện thoại). `owns: frontend/components/ui/shell/learner-*` `depends: T005, T012`
-- [ ] T015 (G03-T15) `FocusShell` (luyện tiếng Việt, thi tiếng Anh). `owns: frontend/components/ui/shell/focus-*` `depends: T005, T012`
-- [ ] T016 (G03-T16) `StaffShell` (admin, giáo viên). `owns: frontend/components/ui/shell/staff-*` `depends: T005, T012`
-- [ ] T018 (G03-T18) Chế độ tối cho cây v2 (2 PR). `owns: frontend/styles/av2/tokens.css (khối tối)` `depends: T002, T013`
+- [ ] T018 (G03-T18) Chế độ tối cho cây v2 (2 PR). `owns: frontend/styles/av2/tokens.css (khối tối)` `depends: T002, T004` (trước T012…T016 để khung dựng ra đã đủ hai chế độ, theo chi tiết G03-T18)
+- [ ] T012 (G03-T12) `AuthedShell design="v2"` và ranh giới điều hướng cứng. `owns: frontend/components/authed-shell.tsx (chỉ bọc điều kiện)` `depends: T002, T018`
+- [ ] T013 (G03-T13) `PublicShell` và chuyển 4 trang pháp lý. `owns: frontend/components/ui/shell/public-*` `depends: T005, T012, G02-T13, T018`
+- [ ] T014 (G03-T14) `LearnerShell` (máy tính, máy tính bảng, điện thoại). `owns: frontend/components/ui/shell/learner-*` `depends: T005, T012, T018`
+- [ ] T015 (G03-T15) `FocusShell` (luyện tiếng Việt, thi tiếng Anh). `owns: frontend/components/ui/shell/focus-*` `depends: T005, T012, T018`
+- [ ] T016 (G03-T16) `StaffShell` (admin, giáo viên). `owns: frontend/components/ui/shell/staff-*` `depends: T005, T012, T018`
 - [ ] T017 (G03-T17) Đối chiếu cuối và cập nhật `verification.md`. `depends: T002–T018`
 
 Chi tiết từng nhiệm vụ — mục 6 của gói, chép nguyên:

@@ -50,7 +50,7 @@ Giá trị lấy từ lớp `.pal-navy` có trong mọi tờ thiết kế và c�
 |---|---|---|
 | Màu | `--av2-paper` `--av2-surface` `--av2-ink` `--av2-muted` `--av2-rule` `--av2-accent` `--av2-accent-hover` `--av2-link` `--av2-mark` `--av2-danger` `--av2-ok` `--av2-tint` `--av2-off` `--av2-on-dark` | `#FAF6EF` `#FFFFFF` `#1B1A17` `#5E5A52` `#D8D0C0` `#1A3561` `#11254A` `#1A3561` `#8A1C1C` `#9B1C1C` `#1F6B3A` `#EEF0F5` `#E8E2D5` `#FFFFFF` |
 | Viền điều khiển | `--av2-control-border` | `var(--av2-muted)` — `--av2-rule` chỉ đạt 1,42:1 trên giấy, không đủ 3:1 cho viền ô nhập/ô chọn (WCAG 1.4.11); `--av2-rule` chỉ dùng làm đường phân cách |
-| Họ chữ | `--av2-font-serif` `--av2-font-sans` | `var(--av2-ff-serif), Georgia, serif` · `var(--av2-ff-sans), system-ui, sans-serif` (biến `--av2-ff-*` do `next/font` sinh) |
+| Họ chữ | `--av2-font-serif` `--av2-font-sans` | `var(--av2-ff-serif), Georgia, serif` · `var(--av2-ff-sans), system-ui, sans-serif` (biến `--av2-ff-*` do `next/font` sinh). Hai token này khai trên `.av2-root`, **không** trên `:root`: `--av2-ff-*` chỉ có trên phần tử gắn `av2FontClass` (5.7), mà biến tham chiếu được giải ở phần tử khai báo nó, nên khai ở `:root` sẽ rơi về font dự phòng. Kiểm: trên `/ui-library`, `getComputedStyle` của H1 và đoạn văn ra Source Serif 4 / Source Sans 3 |
 | Cỡ chữ | `--av2-fs-12` … | 12, 13, 14, 15, 16, 18, 20, 24, 40 px; `--av2-fs-band-row` 18, `--av2-fs-band-md` 40, `--av2-fs-band-lg` 96, `--av2-fs-band-phone` 72 |
 | Độ đậm | `--av2-fw-regular` `--av2-fw-strong` | 400, 600 |
 | Dòng | `--av2-lh-body` `--av2-lh-tight` | 1.5 (theo tờ), 1.15 (H1). Kiểm dấu chồng ở 13–14px; nếu dấu bị cắt, nâng `--av2-lh-body` lên 1.55 và ghi trong PR |
@@ -64,7 +64,7 @@ Giá trị lấy từ lớp `.pal-navy` có trong mọi tờ thiết kế và c�
 
 Tương phản đã tính: muted/giấy 6,37:1; accent/giấy 11,3:1; mark/giấy 8,61:1; ok/giấy 6,05:1; trắng/accent 12,17:1; trắng/mark 9,28:1; ink/giấy 16,15:1.
 
-`base.css`: `.av2-root { background: var(--av2-paper); color: var(--av2-ink); font: var(--av2-fw-regular) var(--av2-fs-16)/var(--av2-lh-body) var(--av2-font-sans); }`, H1–H3 dưới `.av2-root` dùng `--av2-font-serif` 600, `a` dùng `--av2-link`, `:focus-visible` dùng `--av2-focus`, `.av2-ipa { font-family: var(--av2-font-sans) }`. Không luật nào ngoài `.av2-root`, trừ `:root` khai biến.
+`base.css`: `.av2-root { background: var(--av2-paper); color: var(--av2-ink); font: var(--av2-fw-regular) var(--av2-fs-16)/var(--av2-lh-body) var(--av2-font-sans); }`, H1–H3 dưới `.av2-root` dùng `--av2-font-serif` 600, `a` dùng `--av2-link`, `:focus-visible` dùng `--av2-focus`, `.av2-ipa { font-family: var(--av2-font-sans) }`. Không luật nào ngoài `.av2-root`, trừ `:root` khai biến (riêng `--av2-font-serif`, `--av2-font-sans` khai trên `.av2-root`, xem 5.2).
 
 ### 5.3 Font (`frontend/styles/av2/fonts.ts`)
 
