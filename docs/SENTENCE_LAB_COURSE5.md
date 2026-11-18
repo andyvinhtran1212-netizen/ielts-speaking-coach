@@ -28,9 +28,16 @@ Không có migration.
    Gửi rỗng = chốt luôn. Sau khi chốt, đáp án tham khảo hiện ra. Viết lại chỉ
    được khi bài giao còn nhận bài (chưa quá hạn, lớp chưa lưu trữ); quá hạn thì
    chỉ còn nút chốt để xem đáp án, không tốn lượt gọi.
-4. Trần `SENTENCE_LAB_MAX_CALLS_PER_USER_PER_DAY` (mặc định 40) lượt gọi model
-   mỗi học viên mỗi ngày UTC, đếm từ `ai_usage_logs`; chạm trần → 429, đếm hỏng
-   → 503 (không cho qua).
+4. Trần **cứng** `SENTENCE_LAB_MAX_CALLS_PER_USER_PER_DAY` (mặc định 40) lượt
+   gọi model mỗi học viên mỗi ngày UTC. Trước mỗi đợt chấm, máy chủ giữ chỗ số
+   lượt TỐI ĐA đợt đó có thể dùng (`planned_calls`: mỗi 6 câu một lượt + một
+   lượt gọi lại; nộp 12 câu = 3, viết lại ≤6 câu = 2). Đã dùng + số giữ chỗ vượt
+   trần → 429 trước khi gọi model: ở lượt 38/40 không nộp được 12 câu, ở 39/40
+   không viết lại được. Trong đợt, từng lượt gọi còn bị chặn bởi số lượt còn lại.
+   "Đã dùng" = max(dòng `ai_usage_logs` hôm nay, số lượt tiến trình đã bắt đầu
+   hôm nay) vì sổ ghi bất đồng bộ. Đếm hỏng → 503 (không cho qua). Bộ đếm phụ
+   và `single_flight` nằm trong một tiến trình; nếu backend chạy nhiều worker,
+   hai request cùng lúc ở hai worker vẫn có thể trễ đúng các lượt đang chạy.
 
 Câu hỏng (JSON sai schema/validator, lộ lời giải ở coach, bỏ sót câu) được gom
 vào **một** lượt gọi lại. Vẫn hỏng → không ghi gì, 503, nháp giữ nguyên.

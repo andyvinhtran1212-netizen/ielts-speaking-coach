@@ -32,7 +32,7 @@ def _prompt(monkeypatch):
 def _no_call_cap(request, monkeypatch):
     """Trần lượt gọi/ngày đọc DB; các test khác không quan tâm thì tắt nó."""
     if "call_cap" not in request.node.name:
-        monkeypatch.setattr(g, "enforce_daily_call_cap", lambda _u: None)
+        monkeypatch.setattr(g, "enforce_daily_call_cap", lambda _u, _calls=1: None)
 
 
 # ── Phản hồi mẫu ─────────────────────────────────────────────────────────────
@@ -623,18 +623,74 @@ class _CountDB:
         return Q()
 
 
-def _cap(db, cap=40):
+def _cap(db, cap=40, calls=1, user="u1"):
     import database
     with patch.object(database, "supabase_admin", db), \
             patch.object(g.settings, "SENTENCE_LAB_MAX_CALLS_PER_USER_PER_DAY", cap):
-        g.enforce_daily_call_cap("u1")
+        return g.enforce_daily_call_cap(user, calls)
+
+
+@pytest.fixture(autouse=True)
+def _fresh_started(monkeypatch):
+    monkeypatch.setattr(g, "_STARTED", {})
 
 
 def test_call_cap_allows_under_and_refuses_at_the_cap():
-    _cap(_CountDB(count=39))
+    assert _cap(_CountDB(count=39)) == 1
     with pytest.raises(HTTPException) as e:
         _cap(_CountDB(count=40))
     assert e.value.status_code == 429 and "reset_at" in e.value.detail
+
+
+def test_planned_calls_reserve_the_retry():
+    assert [g.planned_calls(n) for n in (0, 1, 6, 7, 12)] == [0, 2, 2, 3, 3]
+
+
+def test_call_cap_reserves_the_whole_batch_at_the_39_40_boundary():
+    # Nộp 12 câu cần tối đa 3 lượt (2 + 1 gọi lại); viết lại ≤6 câu cần 2.
+    submit, revise = g.planned_calls(12), g.planned_calls(6)
+    assert _cap(_CountDB(count=37), calls=submit) == 3
+    for used in (38, 39, 40):
+        with pytest.raises(HTTPException) as e:
+            _cap(_CountDB(count=used), calls=submit)
+        assert e.value.status_code == 429
+    assert _cap(_CountDB(count=38), calls=revise) == 2
+    for used in (39, 40):
+        with pytest.raises(HTTPException) as e:
+            _cap(_CountDB(count=used), calls=revise)
+        assert e.value.status_code == 429
+
+
+def test_call_cap_counts_calls_the_ledger_has_not_written_yet():
+    for _ in range(39):
+        g._mark_started("u1")
+    with pytest.raises(HTTPException) as e:
+        _cap(_CountDB(count=0), calls=2)
+    assert e.value.status_code == 429
+    assert _cap(_CountDB(count=0), calls=2, user="u2") == 40
+
+
+def test_call_cap_lets_an_all_blank_submit_through_without_calls():
+    assert _cap(_CountDB(count=40), calls=0) == 0
+
+
+def test_call_budget_stops_the_retry_and_never_exceeds_the_cap():
+    calls = []
+
+    async def bad(batch, mode, *, usage_user_id):
+        calls.append(len(batch))
+        return {}
+
+    with patch.object(g, "_call_model", bad):
+        out, _ = asyncio.run(g.grade(_entries(), mode="coach", call_budget=2))
+    assert calls == [6, 6]
+    assert all(r.get("ok") is None for r in out)
+
+
+def test_submit_and_rewrite_pass_the_reserved_budget_to_the_grader():
+    src = open(qs.__file__, encoding="utf-8").read()
+    assert src.count("call_budget=budget") == 2
+    assert src.count("sentence_lab_grader.planned_calls(") == 2
 
 
 def test_call_cap_fails_closed_on_lookup_error_or_bad_config():
@@ -647,8 +703,8 @@ def test_call_cap_fails_closed_on_lookup_error_or_bad_config():
 
 def test_call_cap_is_checked_before_the_model_on_submit_and_rewrite():
     src = open(qs.__file__, encoding="utf-8").read()
-    for marker in ('mode="coach", usage_user_id=user_id)',
-                   'entries, mode="review", usage_user_id=user_id)'):
+    for marker in ('mode="coach", usage_user_id=user_id,',
+                   'entries, mode="review", usage_user_id=user_id, call_budget=budget)'):
         head = src[:src.index(marker)]
         assert "enforce_daily_call_cap" in head[-900:], marker
 

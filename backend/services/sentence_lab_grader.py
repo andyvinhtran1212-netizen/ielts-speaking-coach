@@ -191,6 +191,33 @@ NEAR_COPY_RATIO = 0.85
 
 _CAP_QUOTA = "SENTENCE_LAB_MAX_CALLS_PER_USER_PER_DAY"
 _IN_FLIGHT: set[str] = set()
+# Lượt gọi đã BẮT ĐẦU trong tiến trình này, theo (học viên, ngày UTC). Sổ
+# `ai_usage_logs` ghi bất đồng bộ nên có thể trễ vài lượt vừa gọi; trần lấy
+# max(sổ, bộ đếm này) để lượt trễ ghi vẫn bị tính.
+_STARTED: Dict[str, tuple[str, int]] = {}
+
+
+def planned_calls(n_items: int) -> int:
+    """Số lượt gọi TỐI ĐA một đợt chấm `n_items` câu có thể dùng: mỗi 6 câu một
+    lượt, cộng đúng một lượt gọi lại. 0 câu → 0 lượt."""
+    if n_items <= 0:
+        return 0
+    return -(-n_items // MAX_ITEMS_PER_CALL) + 1
+
+
+def _utc_day() -> str:
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).date().isoformat()
+
+
+def _started_today(user_id: str) -> int:
+    day, n = _STARTED.get(user_id, ("", 0))
+    return n if day == _utc_day() else 0
+
+
+def _mark_started(user_id: str | None) -> None:
+    if user_id:
+        _STARTED[user_id] = (_utc_day(), _started_today(user_id) + 1)
 
 
 def ensure_enabled() -> None:
@@ -228,13 +255,17 @@ async def single_flight(user_id: str):
 
 
 
-def enforce_daily_call_cap(user_id: str) -> None:
-    """Trần lượt gọi model mỗi học viên mỗi ngày UTC (FR-007). Đồng bộ — gọi
-    qua `asyncio.to_thread`. Đếm `ai_usage_logs` của feature này; đếm hỏng hoặc
-    trần không hợp lệ thì TỪ CHỐI (503 paid-AI), không cho qua.
+def enforce_daily_call_cap(user_id: str, calls: int = 1) -> int:
+    """Trần CỨNG lượt gọi model mỗi học viên mỗi ngày UTC (FR-007). Đồng bộ — gọi
+    qua `asyncio.to_thread`, trong `single_flight`.
 
-    Sổ ghi bất đồng bộ nên trần có thể trễ đúng các lượt gọi của một request
-    đang chạy.
+    Giữ chỗ cả đợt: `calls` là số lượt tối đa đợt này có thể dùng
+    (`planned_calls`, gồm lượt gọi lại). Đã dùng + `calls` vượt trần → 429 trước
+    khi gọi model, nên ở lượt 39/40 không thể mở một đợt cần 2–3 lượt. Trả số
+    lượt còn lại để `grade(call_budget=…)` chặn thêm từng lượt.
+
+    "Đã dùng" = max(số dòng `ai_usage_logs` hôm nay, số lượt tiến trình này đã
+    bắt đầu hôm nay). Đếm hỏng hoặc trần không hợp lệ thì TỪ CHỐI (503 paid-AI).
     """
     from datetime import datetime, timedelta, timezone
     from fastapi import HTTPException
@@ -252,14 +283,16 @@ def enforce_daily_call_cap(user_id: str) -> None:
         logger.warning("[sentence-lab] call-cap lookup failed: %s", type(exc).__name__)
         raise rl.refuse_paid_ai("budget_unavailable", feature=FEATURE,
                                 quota=_CAP_QUOTA) from None
-    used = rl.counted_rows(res, quota=_CAP_QUOTA, feature=FEATURE)
-    if used >= cap:
+    used = max(rl.counted_rows(res, quota=_CAP_QUOTA, feature=FEATURE),
+               _started_today(user_id))
+    if int(calls) > 0 and used + int(calls) > cap:
         raise HTTPException(429, {
             "error": "rate_limit_exceeded",
             "message": "Hôm nay em đã dùng hết lượt chấm bài viết câu. "
                        "Bài vẫn còn nguyên — thử lại vào ngày mai nhé.",
             "reset_at": (start + timedelta(days=1)).isoformat(),
         })
+    return cap - used
 
 
 def _sim(a: list[str], b: list[str]) -> float:
@@ -477,6 +510,7 @@ async def _call_model(batch: List[Dict[str, Any]], mode: str, *,
         kwargs["temperature"] = 0
     started = time.monotonic()
     status, error_code, usage = "success", None, None
+    _mark_started(usage_user_id)
     try:
         resp = await _client().chat.completions.create(**kwargs)
         usage = getattr(resp, "usage", None)
@@ -564,11 +598,15 @@ def _result_row(entry: Dict[str, Any], mode: str, fb: Dict[str, Any] | None,
 
 
 async def grade(entries: List[Dict[str, Any]], *, mode: str,
-                usage_user_id: str | None = None) -> tuple[List[Dict[str, Any]], str]:
+                usage_user_id: str | None = None,
+                call_budget: int | None = None) -> tuple[List[Dict[str, Any]], str]:
     """Chấm `entries` theo `mode`; trả (dòng kết quả theo đúng thứ tự, model).
 
     Mỗi entry: {qid, prompt, explain, item, key, response, attempt?,
     previous_response?}. Câu trống được trả `no_attempt` ngay, không gọi model.
+    `call_budget` (từ `enforce_daily_call_cap`) chặn từng lượt gọi: hết lượt thì
+    không gọi nữa, các câu chưa chấm trả lỗi (nộp/viết lại báo 503, bài giữ
+    nguyên).
     """
     if mode not in MODES:
         raise ValueError(f"unknown mode {mode!r}")
@@ -605,7 +643,14 @@ async def grade(entries: List[Dict[str, Any]], *, mode: str,
                 results[e["qid"]] = _result_row(e, mode, fb)
         return failed
 
+    calls = {"n": 0}
+
     async def _run(batch: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        if call_budget is not None and calls["n"] >= call_budget:
+            logger.warning("[sentence-lab] call budget %d spent; %d items left ungraded",
+                           call_budget, len(batch))
+            return list(batch)
+        calls["n"] += 1
         try:
             by_qid = await _call_model(batch, mode, usage_user_id=usage_user_id)
         except Exception as exc:  # noqa: BLE001
