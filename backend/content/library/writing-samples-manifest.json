@@ -1,6 +1,20 @@
 [
   {
+    "source_key": "advdis",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
     "source_key": "discussion",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
     "publish": false,
     "review": {
       "status": "approved",
@@ -11,7 +25,45 @@
     "content_hash": "ddc85ad2379b2911229dde61d38ff2f6293441f27a934bd3c0a3ac92cebb14ce"
   },
   {
+    "source_key": "t1_advertising_graduate_qualifications",
+    "topic_slug": "work",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_asian_tourism_revenue",
+    "topic_slug": "travel-tourism",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_bali_tourists",
+    "topic_slug": "travel-tourism",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
     "source_key": "t1_car_sales_europe",
+    "topic_slug": "economy-consumers",
+    "topic_confidence": "cao",
     "publish": false,
     "review": {
       "status": "approved",
@@ -22,7 +74,741 @@
     "content_hash": "8bdf98cae4c4aaf0f4dd88386dc5857b41fca211ec29c7e7b24d5e92d0457640"
   },
   {
+    "source_key": "t1_city_centre_plan_2030",
+    "topic_slug": "cities-transport",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_city_y_household_waste",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_city_y_public_transport",
+    "topic_slug": "cities-transport",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_coal_energy_losses",
+    "topic_slug": "science",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_coffee_consumption_contrasting_trends",
+    "topic_slug": "economy-consumers",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_consumer_expenditure",
+    "topic_slug": "economy-consumers",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_country_x_electricity_transition",
+    "topic_slug": "environment",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_country_y_electricity_mix",
+    "topic_slug": "environment",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_country_z_occupational_salaries",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_cruise_passengers",
+    "topic_slug": "travel-tourism",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_curriculum_brick_making",
+    "topic_slug": "science",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_curriculum_coffee_production",
+    "topic_slug": "science",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_curriculum_horse_evolution",
+    "topic_slug": "science",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_curriculum_iceberg_structure",
+    "topic_slug": "science",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_curriculum_neuron_structure",
+    "topic_slug": "science",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_curriculum_photosynthesis",
+    "topic_slug": "science",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_curriculum_stone_tools",
+    "topic_slug": "science",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_curriculum_water_cycle",
+    "topic_slug": "science",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_electricity_sources",
+    "topic_slug": "environment",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_europe_university",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_first_marriage_age_comparisons",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_fishing_village",
+    "topic_slug": "cities-transport",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_foreign_student_enrolments",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_four_city_crime_rates",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_four_city_living_costs",
+    "topic_slug": "economy-consumers",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_four_country_population_gap",
+    "topic_slug": "society-family",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_global_water_sectors_brazil_congo",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_ireland_unemployment_emigration",
+    "topic_slug": "work",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_land_degradation",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_land_degradation_causes_2022",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_marriage_childbirth_longevity_2022",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_mock_camera_evolution",
+    "topic_slug": "technology",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_mock_coastal_town",
+    "topic_slug": "cities-transport",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_mock_human_ear",
+    "topic_slug": "science",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_nz_tourist_transport",
+    "topic_slug": "travel-tourism",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_ozone_gases",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_plastic_recycling",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_sandbridge_map",
+    "topic_slug": "cities-transport",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_six_country_gdp_2024",
+    "topic_slug": "economy-consumers",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_smartphone_ownership_continents",
+    "topic_slug": "technology",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_sports_interest",
+    "topic_slug": "sport",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_sydney_london_monthly_rainfall",
+    "topic_slug": "environment",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_teacher_hours",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_teenage_weekly_activities",
+    "topic_slug": "society-family",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_three_country_population_worldbank",
+    "topic_slug": "society-family",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_tourist_island_plan_2030",
+    "topic_slug": "travel-tourism",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_uk_city_house_prices",
+    "topic_slug": "economy-consumers",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_uk_drinking_water_sources",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_uk_goods_transport",
+    "topic_slug": "cities-transport",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_uk_household_spending_2023",
+    "topic_slug": "economy-consumers",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_uk_internet_age_gap",
+    "topic_slug": "technology",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_uk_leisure_spending_rankings",
+    "topic_slug": "economy-consumers",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_uk_school_spending",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_uk_telephone_call_minutes_categories",
+    "topic_slug": "technology",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_uk_travel_abroad_reasons",
+    "topic_slug": "travel-tourism",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_university_choice_reasons",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_university_faculty_enrolment",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_university_library_renovation",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_urban_population",
+    "topic_slug": "cities-transport",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_us_energy_consumption",
+    "topic_slug": "environment",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t1_video_games",
+    "topic_slug": "technology",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
     "source_key": "t1_vietnam_phones",
+    "topic_slug": "technology",
+    "topic_confidence": "cao",
     "publish": false,
     "review": {
       "status": "approved",
@@ -33,7 +819,261 @@
     "content_hash": "885ceb03331e6db7d29590a621c4e3ef6bc70e21e32d8bf60d746d6060d23369"
   },
   {
+    "source_key": "t1_yemen_italy_age_profiles_projection",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_advertising_body_shape",
+    "topic_slug": "media",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_advertising_individuality",
+    "topic_slug": "media",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_advertising_influence_protection",
+    "topic_slug": "media",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_advertising_information_status_dissatisfaction",
+    "topic_slug": "media",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_advertising_priorities_status_purchase_costs",
+    "topic_slug": "media",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_advertising_quantity_quality",
+    "topic_slug": "media",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_ai_hiring_consistency_context",
+    "topic_slug": "technology",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_ai_jobs_tasks_responsibility",
+    "topic_slug": "technology",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_ai_misinformation_verifiable_context",
+    "topic_slug": "technology",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_ai_recruitment_screening_relevant_ability",
+    "topic_slug": "technology",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_aid_national_boundaries",
+    "topic_slug": "government-law",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_aid_poor_countries_effects",
+    "topic_slug": "government-law",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_air_freight_produce",
+    "topic_slug": "environment",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_alternative_medicine_proportionate_standards",
+    "topic_slug": "health",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_animal_products_need_and_substitution",
+    "topic_slug": "environment",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_animal_research_conditional_justification",
+    "topic_slug": "science",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_antibiotic_resistance_access_prevention",
+    "topic_slug": "health",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_app_services_convenience_reliable_access",
+    "topic_slug": "technology",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_armed_forces_role_standards",
+    "topic_slug": "government-law",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_art_basic_course_later_choice",
+    "topic_slug": "education",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
     "source_key": "t2_arts_funding",
+    "topic_slug": "culture-arts",
+    "topic_confidence": "cao",
     "publish": false,
     "review": {
       "status": "approved",
@@ -44,7 +1084,573 @@
     "content_hash": "e912a6056781fe699a8c2fa5f29f560a4db458313c4dc91b9a95dcd64be360a9"
   },
   {
+    "source_key": "t2_arts_funding_basic_entitlement",
+    "topic_slug": "culture-arts",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_arts_public_value",
+    "topic_slug": "culture-arts",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_automation_tasks_employment_choices",
+    "topic_slug": "work",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_bag_charges_reuse_habits",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_big_city_health_exposure_access_conditions",
+    "topic_slug": "health",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_bike_network_complete_journeys",
+    "topic_slug": "cities-transport",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_burnout_service_workload",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_business_policy_voice",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_campaign_funding_balance",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_cancer_care_affordable_connected_access",
+    "topic_slug": "health",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_carbon_pricing_clean_investment_support",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_career_choice_informed_planning",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_career_residence_changes_purposeful_transition",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_career_retraining_choice_relevance",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_career_satisfaction_other_purposes",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_career_stability_learning_opportunities",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_celebrity_display_achievement_young_audiences",
+    "topic_slug": "media",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_central_local_responsibility",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_changing_crime_opportunities_response",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_cheap_air_travel_access_environment",
+    "topic_slug": "travel-tourism",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_childcare_quality_centre_family",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_childhood_freedom_choice_guidance",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_childhood_obesity_daily_environment",
+    "topic_slug": "health",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_children_academic_social_commercial_pressures",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_children_advertising_pressure",
+    "topic_slug": "media",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_children_daily_computers",
+    "topic_slug": "technology",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_children_paid_work",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_children_screens_displacement_purpose",
+    "topic_slug": "technology",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_children_television_guided_learning",
+    "topic_slug": "media",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_chosen_hours_concentration_service",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_citizen_assemblies_advice_public_response",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_citizen_influence_early_consultation",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_city_centre_car_bans_access",
+    "topic_slug": "cities-transport",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_city_costs_access_housing_transport",
+    "topic_slug": "cities-transport",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_city_countryside_access_daily_fit",
+    "topic_slug": "cities-transport",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_city_design_walking_cycling_access",
+    "topic_slug": "cities-transport",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_city_rural_quality_of_life",
+    "topic_slug": "cities-transport",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_city_zoning",
+    "topic_slug": "cities-transport",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_climate_adaptation_emissions_prevention",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_climate_adaptation_with_mitigation",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_climate_development_differentiated_obligations",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_climate_individual_choices_public_systems",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_communication_benefits_usable_access",
+    "topic_slug": "technology",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_community_service_balance",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_community_service_year_uneven_burden",
+    "topic_slug": "government-law",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_community_volunteering_access_local_support",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_company_countryside_relocation",
+    "topic_slug": "cities-transport",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
     "source_key": "t2_competitiveness",
+    "topic_slug": "society-family",
+    "topic_confidence": "vừa",
     "publish": false,
     "review": {
       "status": "approved",
@@ -55,7 +1661,285 @@
     "content_hash": "26af66f4f8b50df64a934251887e7ef6f27e6104ee7fb9255725c4140c6c01ed"
   },
   {
+    "source_key": "t2_compulsory_school_community_work",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_compulsory_voting_broader_electorate",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_congestion_alternatives_peak_demand",
+    "topic_slug": "cities-transport",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_congestion_charges_reliable_fair_access",
+    "topic_slug": "cities-transport",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_consumer_goods_production_repairable_design",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_convenience_foods_traditional_preparation_coexistence",
+    "topic_slug": "culture-arts",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_corruption_detection_enforcement",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_coursework_process_independent_evidence",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_crime_causes_opportunity_peer_pressure",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_crime_prevention_practical_limits",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_crime_reporting_details",
+    "topic_slug": "media",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_crime_reporting_sensitive_detail_public_understanding",
+    "topic_slug": "media",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_crime_reporting_trust_access",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_criminal_case_reporting",
+    "topic_slug": "media",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_crypto_legal_tender_motives_consequences",
+    "topic_slug": "economy-consumers",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_cybercrime_causes_prevention",
+    "topic_slug": "technology",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_cybersecurity_disruption_recovery",
+    "topic_slug": "technology",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_daily_apps_coordination",
+    "topic_slug": "technology",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_data_explanations_usable_accountability",
+    "topic_slug": "technology",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_device_disconnection_attention",
+    "topic_slug": "technology",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_digital_communication_literacy_practice",
+    "topic_slug": "education",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_digital_consultation_local_knowledge",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_digital_contact_face_to_face_practice",
+    "topic_slug": "technology",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
     "source_key": "t2_digital_transactions",
+    "topic_slug": "technology",
+    "topic_confidence": "cao",
     "publish": false,
     "review": {
       "status": "approved",
@@ -66,7 +1950,297 @@
     "content_hash": "e987b8983251e07dc7fee5a1f2e96ca4ff6d5c1112e1bd9848a86f2f1e823550"
   },
   {
+    "source_key": "t2_direct_giving_charity_organisations",
+    "topic_slug": "society-family",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_disconnect_rest_service_coverage",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_disliked_jobs_transition",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_drug_trafficking_demand_enforcement",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_drug_use_health_response",
+    "topic_slug": "government-law",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_early_programming_exploration_priorities",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_education_crime_prevention",
+    "topic_slug": "government-law",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_education_equity_attendance_teaching",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_education_social_contribution_personal_ambition",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_education_work_and_public_judgement",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_electric_vehicle_uptake_lifecycle",
+    "topic_slug": "environment",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_electronic_payments_cashless_access",
+    "topic_slug": "economy-consumers",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_elite_sport_facilities_public_access_tradeoff",
+    "topic_slug": "sport",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_emissions_pledges_investment_delivery",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_environment_consumers_product_design_rules",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_environment_public_authority_daily_participation",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_environmental_pressure_shared_capacity",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_equal_gender_university_subjects",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_equal_housework_workload_responsibility",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_esports_access_physical_participation",
+    "topic_slug": "sport",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_extreme_weather_community_preparedness",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_facial_recognition_theft",
+    "topic_slug": "technology",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_factory_relocation_wages_worker_transition",
+    "topic_slug": "economy-consumers",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_families_young_children_practical_support",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
     "source_key": "t2_family_closeness",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
     "publish": false,
     "review": {
       "status": "approved",
@@ -77,7 +2251,309 @@
     "content_hash": "c025914a6bb590cba230db31917cbe8186314e4007924971a6b51a38df3e4f39"
   },
   {
+    "source_key": "t2_family_income_adult_life",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_family_policy_care_over_form",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_family_proximity_relocation_opportunity",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_farm_methods_health_communities",
+    "topic_slug": "environment",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_fashion_imitation",
+    "topic_slug": "culture-arts",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_fathers_care_work_arrangements_shared_choice",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_fewer_children_cost_choice_population",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_financial_literacy_core_practical_reasoning",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_firearm_ownership_conditional_public_protection",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_fitness_tracking_daily_habits",
+    "topic_slug": "health",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_flexible_hours_retention_coordination",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_flight_tax_avoidable_demand",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_food_replacement_family_skills_local_continuity",
+    "topic_slug": "culture-arts",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_food_science_technology",
+    "topic_slug": "science",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_food_security_domestic_import_diversity",
+    "topic_slug": "economy-consumers",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_foreign_languages_early_start_continuity",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_foreign_screen_music_visibility_diversity",
+    "topic_slug": "culture-arts",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_former_prisoners_classroom_contribution",
+    "topic_slug": "government-law",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_four_day_week_hours_service_coverage",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_free_internet_public_budget",
+    "topic_slug": "technology",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_free_time_peers_mixed_ages",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_free_trade_gains_domestic_adjustment",
+    "topic_slug": "economy-consumers",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_free_transport_service_fit",
+    "topic_slug": "cities-transport",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_fresh_water_rights_fair_controls",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_fuel_prices_incentives_available_alternatives",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
     "source_key": "t2_gap_year",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
     "publish": false,
     "review": {
       "status": "approved",
@@ -88,7 +2564,621 @@
     "content_hash": "5339a53e410633e144feec58a5080cefcb961615c948821b34eeb8c802a17592"
   },
   {
+    "source_key": "t2_gender_roles_care_agreed_responsibilities",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_gig_work_flexibility_income_security",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_global_brands_living_street_identity",
+    "topic_slug": "cities-transport",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_global_english_access_language_domains",
+    "topic_slug": "culture-arts",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_global_food_variety_useful_supply_waste",
+    "topic_slug": "economy-consumers",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_global_manufacturing_specialisation_continuity",
+    "topic_slug": "economy-consumers",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_globalisation_culture_reach_participation",
+    "topic_slug": "culture-arts",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_globalisation_gain_scale_distribution",
+    "topic_slug": "economy-consumers",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_globalisation_unequal_capacity_returns",
+    "topic_slug": "economy-consumers",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_graduate_mismatch_skills_use_opportunities",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_graduate_teamwork_assessment_workplace_induction",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_graduates_field_work_evidence_demand",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_group_independent_study",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_growth_environment_resource_limits",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_habitat_conversion_land_pressure",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_happiness_definitions_conditions_personal_meaning",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_happiness_economic_success",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_happiness_personal_effort_external_opportunities",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_harmful_information_controls",
+    "topic_slug": "media",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_health_education_funding",
+    "topic_slug": "government-law",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_health_government_personal_responsibility",
+    "topic_slug": "health",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_health_workforce_training_retention",
+    "topic_slug": "health",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_healthcare_priority_complementary_services",
+    "topic_slug": "health",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_healthcare_shared_funding_patient_charges",
+    "topic_slug": "health",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_healthy_diet_public_conditions_personal_choices",
+    "topic_slug": "health",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_healthy_lifestyles_support_choice",
+    "topic_slug": "health",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_heritage_fees_contribution_access",
+    "topic_slug": "travel-tourism",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_historical_objects_return_provenance_community_access",
+    "topic_slug": "culture-arts",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_history_core_practical_subjects",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_home_cooked_meals_time_control",
+    "topic_slug": "health",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_home_education_flexibility_teaching_commitment",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_home_meals_control_shared_work",
+    "topic_slug": "society-family",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_homeschool_choice_pace_teaching_conditions",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_household_recycling_access_confidence",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_immigration_culture_shared_participation",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_income_gaps_security_wellbeing",
+    "topic_slug": "economy-consumers",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_income_inequality_gains_access",
+    "topic_slug": "economy-consumers",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_independence_interdependence_choices_specialisation",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_individual_environment_action",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_international_aid_moral_duty_delivery_accountability",
+    "topic_slug": "government-law",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_international_environment_action",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_international_exchange_local_expression",
+    "topic_slug": "culture-arts",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_internet_access_usable_information",
+    "topic_slug": "technology",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_internet_schooling",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_job_moves_better_match_continuity",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_job_satisfaction_income_floor",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_job_satisfaction_security_viable_choices",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_journalist_news_trust",
+    "topic_slug": "media",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_junk_food_advertising_limits",
+    "topic_slug": "health",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_junk_food_education_limits",
+    "topic_slug": "health",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_juvenile_crime_peer_rewards_support",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
     "source_key": "t2_knowledge_online",
+    "topic_slug": "technology",
+    "topic_confidence": "cao",
     "publish": false,
     "review": {
       "status": "approved",
@@ -99,7 +3189,177 @@
     "content_hash": "0e99c330080302ce4440a956de5426675058b08c891e7ff3714a6bd1cccacba4"
   },
   {
+    "source_key": "t2_language_loss_shared_communication",
+    "topic_slug": "culture-arts",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_language_preservation_participation_budget",
+    "topic_slug": "culture-arts",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_language_shift_daily_use_transmission",
+    "topic_slug": "culture-arts",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_large_classes_feedback_staffing",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_later_marriage_readiness_choice",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_later_parenthood_readiness_reproductive_flexibility",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_leadership_age_relevant_experience",
+    "topic_slug": "work",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_learning_through_play_guidance",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_lectures_technology",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_leisure_reading_imagined_scenes_language_practice",
+    "topic_slug": "culture-arts",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_letter_writing_skill",
+    "topic_slug": "technology",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_libraries_books_other_media",
+    "topic_slug": "culture-arts",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_life_other_planets_evidence_public_priorities",
+    "topic_slug": "science",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_literacy_gaps_continuity_adult_opportunities",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
     "source_key": "t2_living_alone",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
     "publish": false,
     "review": {
       "status": "approved",
@@ -110,7 +3370,93 @@
     "content_hash": "d08f999d1c689b79b83b6be8b6836838da9245227629c601dae98b6acb1ff53c"
   },
   {
+    "source_key": "t2_living_alone_independence_support",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_local_business_competition_service_access",
+    "topic_slug": "economy-consumers",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_local_environment_resident_duties_public_services",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_location_choice_communication_transport_practical_limits",
+    "topic_slug": "technology",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_luxury_redevelopment_affordable_homes",
+    "topic_slug": "cities-transport",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_maintaining_biodiversity",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_manufacturing_location_clear_disclosure",
+    "topic_slug": "economy-consumers",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
     "source_key": "t2_mars_research",
+    "topic_slug": "science",
+    "topic_confidence": "cao",
     "publish": false,
     "review": {
       "status": "approved",
@@ -121,7 +3467,1317 @@
     "content_hash": "466c74b46a2881b206e9cc38086cdbee402393e5b08fd590c3dc413de04768f0"
   },
   {
+    "source_key": "t2_maternity_leave_recovery_work",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_medical_research_open_findings_privacy",
+    "topic_slug": "health",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_mental_health_stigma_contact_privacy",
+    "topic_slug": "health",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_migration_cultural_integration",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_minimum_wage_protection_employment",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_minor_crimes_selective_reform",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_minor_offences_proportionate_supervised_responses",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_mixed_ability",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_modern_traditional_games_breadth_of_skills",
+    "topic_slug": "society-family",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_multicultural_cooperation_fair_participation",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_multigenerational_homes_shared_responsibility",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_multinationals_capability_accountability",
+    "topic_slug": "economy-consumers",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_museums_digital",
+    "topic_slug": "culture-arts",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_museums_local_interest_return_visits",
+    "topic_slug": "culture-arts",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_national_income_gaps_productive_capacity",
+    "topic_slug": "economy-consumers",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_neighbour_ties_routines_shared_activity",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_new_towns_leisure_spaces_retail_comparison",
+    "topic_slug": "cities-transport",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_news_media_editorial_quality_timeliness",
+    "topic_slug": "media",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_news_media_society",
+    "topic_slug": "media",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_news_selection_negative_positive",
+    "topic_slug": "media",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_news_shared_information_public_scrutiny",
+    "topic_slug": "media",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_no_fault_divorce_practical_responsibilities",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_noise_limits_ordinary_activity",
+    "topic_slug": "cities-transport",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_nuclear_energy_accountable_choice",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_nuclear_energy_contribution_long_term_duties",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_nutrition_warning_informed_choices",
+    "topic_slug": "health",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_ocean_plastics_sources_prevention",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_offender_education_training",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_official_selection_roles",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_old_age_support_capacity_to_save",
+    "topic_slug": "society-family",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_old_buildings_replacement_assessed_use_value",
+    "topic_slug": "cities-transport",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_old_buildings_restoration_housing_roads_priorities",
+    "topic_slug": "cities-transport",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_older_adults_digital_service_access",
+    "topic_slug": "technology",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_older_adults_scams_verification_support",
+    "topic_slug": "technology",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_older_parents_distance_local_support",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_older_workers_digital_practice",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_older_workers_meaningful_voluntary_roles",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_older_workers_voluntary_suitable_roles",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_one_child_family_resources_relationships",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_online_degrees_access_substance",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_online_learning_feedback_task_conditions",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_online_services_access_human_support",
+    "topic_slug": "technology",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_online_shopping_practical_choice",
+    "topic_slug": "economy-consumers",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_online_shopping_replacement_access_inspection",
+    "topic_slug": "economy-consumers",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_online_subjects_scheduling_active_support",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_online_university_access_academic_requirements",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_organ_donation_default_consent",
+    "topic_slug": "health",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_organised_crime_cooperation",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_overseas_work_opportunities_real_returns",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_parental_leave_equal_care_company_payment",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_parental_liability_conduct_teenage_crime",
+    "topic_slug": "government-law",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_parental_responsibility_guidance_proportionate_repair",
+    "topic_slug": "society-family",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_parenting_course_practice_adaptation",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_parents_school_society",
+    "topic_slug": "education",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_personal_data_collection_service_limits",
+    "topic_slug": "technology",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_personal_data_hidden_trade",
+    "topic_slug": "technology",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_petrol_prices",
+    "topic_slug": "cities-transport",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_pets_parenthood_informed_choice",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_plant_diets_practical_substitution",
+    "topic_slug": "environment",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_plastic_free_packaging_product_protection",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_police_surveillance_limits",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_politician_retirement_ability",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_populism_grievance_accountability",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_prevention_treatment_budget",
+    "topic_slug": "health",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_preventive_care_universal_access",
+    "topic_slug": "health",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_primary_coding_test_explain",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_prison_alternative_sentences",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_prison_purpose_rehabilitation",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_prison_rehabilitation_capacity_accountability",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_prison_sentences",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_private_car_individual_gains_environmental_costs",
+    "topic_slug": "cities-transport",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_progress_capability_responsibility",
+    "topic_slug": "society-family",
+    "topic_confidence": "thấp",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_public_artist_support",
+    "topic_slug": "culture-arts",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_public_arts_direct_participation_spending_choices",
+    "topic_slug": "culture-arts",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_public_cctv_balance",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_public_data_useful_openness",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_public_facial_recognition_targeted_limits",
+    "topic_slug": "technology",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_public_health_budget_dependencies",
+    "topic_slug": "health",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_public_private_services",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_public_services_delays_access",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_public_services_real_capacity_delivery",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_public_transport_car_limits",
+    "topic_slug": "cities-transport",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_public_trust_delivery_fairness",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_public_university_fees",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_railway_priority_usable_transport_network",
+    "topic_slug": "cities-transport",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_recycling_access_sorting_guidance",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_recycling_awareness_collection_markets",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_referendums_choice_complexity",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_refugee_admission_moral_responsibility",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_regional_blocs_access_boundaries",
+    "topic_slug": "economy-consumers",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_released_prisoner_tags",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_religious_participation_belief_community",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_remote_office_task_fit",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_remote_work_time_boundaries",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_renewables_benefits_grid_integration",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_reoffending_continuity_reintegration",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_repeat_offenders_proportionality",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_resource_pressure_supplies_ecosystems",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_responsible_tourism_guidance_service_design",
+    "topic_slug": "travel-tourism",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_retirement_age_gradual_capacity",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_retirement_flexibility_planned_transition",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_retraining_employer_worker_responsibility",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_return_home_family_reciprocal_support",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_rewards_results_evidenced_progress",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_richer_nations_development_support",
+    "topic_slug": "economy-consumers",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_risk_behaviour_insurance_access",
+    "topic_slug": "health",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_robots_hazard_control_worker_transition",
+    "topic_slug": "technology",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_rubbish_causes_reduction",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_rural_urban_living_standards_access_services",
+    "topic_slug": "cities-transport",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
     "source_key": "t2_rural_urban_migration",
+    "topic_slug": "cities-transport",
+    "topic_confidence": "vừa",
     "publish": false,
     "review": {
       "status": "approved",
@@ -132,7 +4788,585 @@
     "content_hash": "b49452fe1e371ca9163c1c04f16d7c39560393f46eca5fd84ffd6e6c12cd05a4"
   },
   {
+    "source_key": "t2_rush_hour_charging_access_transport_choices",
+    "topic_slug": "cities-transport",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_salary_openness_comparison_privacy",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_saving_future",
+    "topic_slug": "economy-consumers",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_school_attention_clear_tasks_distraction_boundaries",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_school_behaviour",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_school_entry_four_readiness_play",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_school_instruments_shared_practice",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_school_leavers_learning_confidence_relevance",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_school_leavers_practice_feedback",
+    "topic_slug": "education",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_school_mental_physical_health",
+    "topic_slug": "education",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_school_start_readiness_supported_early_learning",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_school_subjects_foundations_creative_choices",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_school_technology_visible_relationships",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_science_humanities",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_science_teaching_targeted_resources_other_subjects",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_screen_violence_controls",
+    "topic_slug": "media",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_second_hand_purchase_useful_life",
+    "topic_slug": "economy-consumers",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_sedentary_lifestyles_daily_opportunities",
+    "topic_slug": "health",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_self_sufficiency_critical_capacity_diverse_trade",
+    "topic_slug": "economy-consumers",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_serious_youth_offences_proportionate_accountability",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_shared_independent_reading",
+    "topic_slug": "society-family",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_shared_products_access_local_expression",
+    "topic_slug": "culture-arts",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_shopping_age_budget_access",
+    "topic_slug": "economy-consumers",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_similar_places_commercial_repetition_local_character",
+    "topic_slug": "travel-tourism",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_single_use_plastics_targeted_phaseout",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_skilled_emigration_service_retention_training",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_skilled_migration_opportunities",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_skilled_migration_opportunity_local_capacity",
+    "topic_slug": "work",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_smartphones_communication_reach_attention",
+    "topic_slug": "technology",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_smoke_free_shared_spaces_exposure",
+    "topic_slug": "health",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_social_media_compulsion_routines",
+    "topic_slug": "media",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_social_media_identity_accountability_speech",
+    "topic_slug": "media",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_social_media_teenagers_comparison_connection",
+    "topic_slug": "media",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_social_networks_personal_comparison_public_trust",
+    "topic_slug": "media",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_social_news_access_visible_sources",
+    "topic_slug": "media",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_social_political_news",
+    "topic_slug": "media",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_social_skills_qualifications_applied_competence",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_solar_buildings_suitability_rule",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_space_exploration_earth_priorities",
+    "topic_slug": "science",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_specialisation_breadth_progressive_depth",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_species_loss_remaining_conservation",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_sport_international_peace",
+    "topic_slug": "sport",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_sports_professional_earnings",
+    "topic_slug": "sport",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_sports_public_health",
+    "topic_slug": "sport",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_stagnant_wages_shared_growth",
+    "topic_slug": "economy-consumers",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_standardised_exams_comparable_partial_evidence",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_streaming_cinema_access_shared_experience",
+    "topic_slug": "culture-arts",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_street_harassment_response_shared_spaces",
+    "topic_slug": "government-law",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
     "source_key": "t2_student_evaluation",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
     "publish": false,
     "review": {
       "status": "approved",
@@ -143,7 +5377,1161 @@
     "content_hash": "e45d58ca4933766981ef2b3b93bf8cdde08477784fb1e446df3fed5658ee890c"
   },
   {
+    "source_key": "t2_study_abroad_course_fit_affordable_exchange",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_success_effort_opportunity_conditions",
+    "topic_slug": "society-family",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_sugar_taxes_design_effectiveness",
+    "topic_slug": "health",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_tablets_textbooks_access_reliability",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_tax_fairness_rate_ability_allowance",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_tax_other_responsibilities",
+    "topic_slug": "government-law",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_teacher_pay_fair_remuneration_actual_duties",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_teacher_retention_workload_support",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_teacher_role_information_judgement_feedback",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_teachers_parents_influence",
+    "topic_slug": "education",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_technology_creativity",
+    "topic_slug": "technology",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_technology_harms_design_choices",
+    "topic_slug": "technology",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_technology_independent_thinking_active_use",
+    "topic_slug": "technology",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_technology_regulation_risk_innovation",
+    "topic_slug": "technology",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_technology_simpler_life",
+    "topic_slug": "environment",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_telehealth_access_clinical_limits",
+    "topic_slug": "health",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_televised_trials_understanding_participant_exposure",
+    "topic_slug": "media",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_television_children_creativity",
+    "topic_slug": "media",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_throw_away_culture",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_tourism_cultural_traditions",
+    "topic_slug": "travel-tourism",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_tourism_local_income_destination_limits",
+    "topic_slug": "travel-tourism",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_tourist_crowding_resident_access",
+    "topic_slug": "travel-tourism",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_trade_development_opportunity_adjustment",
+    "topic_slug": "economy-consumers",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_traditional_food_daily_practice_choice",
+    "topic_slug": "culture-arts",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_traditional_food_replacement_convenience_costs",
+    "topic_slug": "environment",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_traditional_industries_adaptation_viability",
+    "topic_slug": "economy-consumers",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_traditional_medicine_evidence_funding",
+    "topic_slug": "health",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_traditional_skills",
+    "topic_slug": "culture-arts",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_traditional_skills_repair_knowledge",
+    "topic_slug": "culture-arts",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_traditional_values_community",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_traditions_value_voluntary_adaptation",
+    "topic_slug": "culture-arts",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_transit_investment_priority",
+    "topic_slug": "cities-transport",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_travel_direct_online_learning",
+    "topic_slug": "travel-tourism",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_tutoring_targeted_gaps_proportionate_time",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_tv_channels_meaningful_choice_quality",
+    "topic_slug": "media",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_unemployment_security_supported_opportunities",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_unemployment_support_work_incentives",
+    "topic_slug": "work",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_uniforms_visible_comparison_accessible_rules",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_universities_employment_broader_public_purposes",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_university_academic_vocational_skills",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_university_access_learning_job_demand",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_university_choice_future_usefulness",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_university_dropout_finance_course_fit",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_university_fees_access_teaching_resources",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_university_funding",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_university_funding_merit_need_shared_teaching",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_university_other_activities_proportionate_participation",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_university_purpose",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_university_rankings_learning_value",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_university_subject_choice_public_needs_informed_application",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_university_subject_depth_selected_breadth",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_university_theory_practice_informed_application",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_unlimited_holiday_real_permission_rest",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_unpaid_community_work_universal_expectation",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_urban_air_transport_waste_sources",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_urban_exercise_access_belonging",
+    "topic_slug": "health",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_urban_loneliness_repeated_contact",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_urban_trees_housing_site_priorities",
+    "topic_slug": "cities-transport",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_urban_wildlife_coexistence_targeted_response",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_vaccine_hesitancy_trust_responsive_dialogue",
+    "topic_slug": "health",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_vegetarian_diet_benefits_drawbacks",
+    "topic_slug": "health",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_vehicle_free_day_street_use_access_arrangements",
+    "topic_slug": "cities-transport",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_vertical_horizontal_cities_access_building_mix",
+    "topic_slug": "cities-transport",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_vocational_choice_practice_progression",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_voter_turnout_choice_access",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_voting_compulsion_access",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_voting_rights_proportionate_restriction",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_wealthy_taxation_effective_redistribution",
+    "topic_slug": "government-law",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_white_collar_crime_detection_consequences",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_wildlife_habitat_exploitation_response",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_wildlife_protection_habitat_local_costs",
+    "topic_slug": "environment",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_women_leaders_peace",
+    "topic_slug": "society-family",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_women_pay_promotion_equality",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_women_police_soldiers",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_women_technical_careers",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_work_intrusion_personal_boundaries",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_work_standards_individual_needs",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_working_mothers_youth_problems",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_workplace_wellness_access_privacy_conditions",
+    "topic_slug": "work",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_young_adults_surgery_appearance_pressure",
+    "topic_slug": "health",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_young_city_residents_cost_access_responses",
+    "topic_slug": "cities-transport",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_young_donors_affordability_visible_impact",
+    "topic_slug": "society-family",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_young_government_officials_preparation_accountability",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_young_leaders_evidence_judgement",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_young_men_suicide_prevention_support",
+    "topic_slug": "health",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_young_population_present_needs_future_transition",
+    "topic_slug": "society-family",
+    "topic_confidence": "vừa",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_young_voters_confidence_practical_access",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_young_workers_abroad_learning_real_returns",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_young_workers_job_career_moves_reasons_tradeoffs",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_young_workers_pay_security",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_youth_business_small_trials",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_youth_crime_opportunities_support",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_youth_mental_health_school_support",
+    "topic_slug": "health",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_youth_politics_relevance_voice",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_youth_punishment_accountability_education",
+    "topic_slug": "government-law",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
+    "source_key": "t2_youth_unemployment_income_work_routes",
+    "topic_slug": "work",
+    "topic_confidence": "cao",
+    "publish": false,
+    "review": {
+      "status": "needs_review",
+      "by": null,
+      "at": null,
+      "note": "G06-T04: nguồn đã rà (review_status có sẵn); chờ người duyệt ký by/at."
+    }
+  },
+  {
     "source_key": "task1_bricks",
+    "topic_slug": "technology",
+    "topic_confidence": "vừa",
     "publish": false,
     "review": {
       "status": "approved",
@@ -151,7 +6539,6 @@
       "at": "2026-11-18",
       "note": "G06-T19: đủ ba bài, dàn ý, bảng từ; nhật ký khác biệt khớp nguyên văn; band ước tính đúng nhãn; số từ đạt tối thiểu; không trùng đề bộ khác. Hình tự dựng từ trường data của bộ (scripts/library/draw_task1_figures.py); cặp LR 6.0->7.0 bổ sung bằng trích nguyên văn bài 6.0 và 7.0."
     },
-    "content_hash": "8c22592bc4db4ff348a74fdc7f97d06a9ae149115f5a30892655068e2306d9b5",
     "overrides": {
       "image_path": "figures/task1_bricks.png",
       "justification_jumps": {
@@ -187,10 +6574,13 @@
           }
         ]
       }
-    }
+    },
+    "content_hash": "8c22592bc4db4ff348a74fdc7f97d06a9ae149115f5a30892655068e2306d9b5"
   },
   {
     "source_key": "task1_internet",
+    "topic_slug": "technology",
+    "topic_confidence": "cao",
     "publish": false,
     "review": {
       "status": "approved",
@@ -198,7 +6588,6 @@
       "at": "2026-11-18",
       "note": "G06-T19: đủ ba bài, dàn ý, bảng từ; nhật ký khác biệt khớp nguyên văn; band ước tính đúng nhãn; số từ đạt tối thiểu; không trùng đề bộ khác. Hình tự dựng từ trường data của bộ (scripts/library/draw_task1_figures.py); cặp LR 6.0->7.0 bổ sung bằng trích nguyên văn bài 6.0 và 7.0. Ghi chú: trường word_count của bài 7.5 và 7.0 ghi 170/152, đếm lại là 172/154 (không hiện trên web)."
     },
-    "content_hash": "da6063302395413f3be6b3c1ad49c99ffb681545090d9cc2754ee80d339416b5",
     "overrides": {
       "image_path": "figures/task1_internet.png",
       "justification_jumps": {
@@ -228,10 +6617,13 @@
           }
         ]
       }
-    }
+    },
+    "content_hash": "da6063302395413f3be6b3c1ad49c99ffb681545090d9cc2754ee80d339416b5"
   },
   {
     "source_key": "task1_island",
+    "topic_slug": "travel-tourism",
+    "topic_confidence": "cao",
     "publish": false,
     "review": {
       "status": "approved",
@@ -239,7 +6631,6 @@
       "at": "2026-11-18",
       "note": "G06-T19: đủ ba bài, dàn ý, bảng từ; nhật ký khác biệt khớp nguyên văn; band ước tính đúng nhãn; số từ đạt tối thiểu; không trùng đề bộ khác. Hình tự dựng từ trường data của bộ (scripts/library/draw_task1_figures.py); cặp LR 6.0->7.0 bổ sung bằng trích nguyên văn bài 6.0 và 7.0. Một câu trong bảng từ bài 7.5 dùng dấu '...' rút gọn trích dẫn."
     },
-    "content_hash": "b3ab3969fde3c4f8c38409c6faba7b308964aefe00d5e980433ba538359ddf46",
     "overrides": {
       "image_path": "figures/task1_island.png",
       "justification_jumps": {
@@ -269,10 +6660,13 @@
           }
         ]
       }
-    }
+    },
+    "content_hash": "b3ab3969fde3c4f8c38409c6faba7b308964aefe00d5e980433ba538359ddf46"
   },
   {
     "source_key": "tech",
+    "topic_slug": "education",
+    "topic_confidence": "cao",
     "publish": false,
     "review": {
       "status": "approved",
@@ -284,6 +6678,8 @@
   },
   {
     "source_key": "traffic",
+    "topic_slug": "cities-transport",
+    "topic_confidence": "cao",
     "publish": false,
     "review": {
       "status": "approved",
@@ -295,6 +6691,8 @@
   },
   {
     "source_key": "twopart",
+    "topic_slug": "health",
+    "topic_confidence": "vừa",
     "publish": false,
     "review": {
       "status": "approved",
