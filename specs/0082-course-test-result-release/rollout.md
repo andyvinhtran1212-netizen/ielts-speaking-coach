@@ -26,9 +26,10 @@
   JOIN public.class_assignments a ON a.id = i.assignment_id
   WHERE a.result_release_mode = 'teacher_release'
     AND i.submitted_at IS NOT NULL
-    AND NOT EXISTS (SELECT 1 FROM public.course_result_releases r WHERE r.item_id = i.id);
+    AND NOT EXISTS (SELECT 1 FROM public.course_result_releases r
+                    WHERE r.item_id = i.id AND r.level_rank = 3);
   ```
-  Kết quả bằng 0 nghĩa là mọi bài đã nộp đều đã công bố, nên bản cũ không còn gì để lộ. Kết quả và giờ chạy được ghi vào PR revert.
+  Bản trước T22 trả cả đáp án và lời giải, nên chỉ mức `full` (`level_rank = 3`) mới được tính là đã công bố hết. Kết quả bằng 0 nghĩa là mọi bài đã nộp đều đã công bố ở mức `full`, nên bản cũ không còn gì để lộ. Test T21 có ca: item chỉ công bố mức `score` vẫn được đếm. Kết quả và giờ chạy được ghi vào PR revert.
 - Kiểm lui trên staging bằng chính test vi sai của FR-094: hai học viên thử cùng bài `teacher_release` chưa công bố, một đậu và một trượt; sau khi lui phần khác (giữ T22), gọi mọi đường đọc của học viên ở 5.5.5, kể cả `POST /course/full-retry`; mã HTTP và JSON của hai người phải giống hệt nhau sau khi bỏ id và giờ, và điểm cùng đáp án vẫn vắng.
 
 ## Observability
