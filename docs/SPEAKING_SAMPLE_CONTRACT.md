@@ -2,6 +2,8 @@
 
 Phiên bản hợp đồng: `1` · Nhiệm vụ: G06-T12 (gói `GOI-06-thu-vien-cong-khai.md`) · Ngày: 18/11/2026.
 
+Tệp này nằm ở `docs/` thay vì `backend/content/library/` như gói ghi, vì các script rà Grammar Wiki quét mọi tệp `.md` dưới `backend/content/` và sẽ đếm nhầm nó là bài ngữ pháp.
+
 Câu trả lời mẫu Speaking của kệ "Đề Speaking" (`/library/speaking`) do repo
 VIDEO MAKING sản xuất: kịch bản, giọng đọc tổng hợp Kokoro, dựng video
 (00-QUY-UOC-CHUNG mục 2 điểm 22). Web **chỉ hiển thị**: không viết câu trả lời
@@ -10,7 +12,7 @@ này quy định repo VIDEO MAKING giao gì và web kiểm gì trước khi nh�
 
 ## 1. Danh sách đề dự kiến
 
-`speaking-samples-manifest.json` (cùng thư mục) liệt kê 210 đề có thể lên kệ,
+`backend/content/library/speaking-samples-manifest.json` liệt kê 210 đề có thể lên kệ,
 lấy từ ngân hàng `backend/content/speaking_bank/`:
 
 | Part | Số đề | Nguồn câu chữ |
