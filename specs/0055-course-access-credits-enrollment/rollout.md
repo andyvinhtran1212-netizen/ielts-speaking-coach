@@ -2,7 +2,7 @@
 
 ## Preconditions
 
-- Spec này `approved` trên `staging`; số migration 381–385, 387, 388 chưa bị file hay PR khác dùng (kiểm lại ngay trước T001); ghi số vào sổ số migration của repo (`backend/migrations/register.tsv` khi G01-T06 đã merge; chưa có thì mục "Finding the next number" của `backend/migrations/README.md`).
+- Spec này `approved` trên `staging`; bảy số migration của gói (nhãn 381–385, 387, 388) đã được sổ cấp và chưa bị file hay PR khác dùng (kiểm lại ngay trước T001); ghi số vào sổ số migration của repo (`backend/migrations/register.tsv` của G01-T06, PR #2364; khi PR đó chưa merge thì xin số qua sổ của Leader `/workspace/cc-jobs/migrations-register.md`). Theo quyết định C3 của Leader, 381/382 đang giữ cho FU-2281: các số 381–388 trong spec này là **nhãn làm việc** M1…M7, số thật do sổ cấp trước G04-T01 và mọi tên file, test, forward-policy đổi theo số được cấp.
 - Mọi cờ mới mặc định **tắt**: `credit_metering`, `enrollment_orders`, `single_session_learners`, `retention_by_entitlement`, `pron_sample_window`.
 - Trước khi bật `enrollment_orders` anh Andy phải điền (Q11, không ghi cứng ở đâu):
 
