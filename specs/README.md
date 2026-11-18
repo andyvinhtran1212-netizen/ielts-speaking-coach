@@ -71,6 +71,7 @@ draft -> approved -> implementing -> verified -> shipped
 | AIBUDGET-0033 | Paid AI stops at hard budgets, Claude alerts on a soft budget, and learner work waits safely for grading | approved | critical | [spec](0033-ai-budget-hard-cap/spec.md) |
 | LISTENING-0005 | Listening content programmes, import and learner hub | implementing | high | [spec](0005-listening-content-programmes/spec.md) |
 | LISTENING-0006 | Guided per-question Listening feedback | implementing | high | [spec](0006-listening-guided-feedback/spec.md) |
+| NOTIFY-0079 | Learners see one bell of in-app notifications and an overdue count, and staff send reminders to a class or chosen learners exactly once | draft | high | [spec](0079-learner-notifications/spec.md) |
 | LISTENING-0007 | Versioned Listening editorial revision and bilingual questions | implementing | high | [spec](0007-listening-editorial-revision/spec.md) |
 | MOCKOPS-0006 | Admin Mock Test operations workspace at scale | implementing | high | [spec](0006-admin-mock-test-operations/spec.md) |
 | WRITINGNAV-0007 | Canonical admin Writing navigation context | implementing | high | [spec](0007-writing-navigation-contract/spec.md) |
