@@ -2,7 +2,8 @@
 
 Reconciled on **2026-09-26** (0000–0008), **2026-10-31** (0009–0036, staging
 `11bbfd227fbe39815758f4ffa470cffaa7059cb3`) and **2026-11-02** (0037–0044,
-staging `b636255a6206314aa31e9691a912eee99a535d34`). This is a navigation ledger, not a replacement for
+staging `b636255a6206314aa31e9691a912eee99a535d34`) and **2026-11-18** (0045–0054,
+staging `cf37b46b6`). This is a navigation ledger, not a replacement for
 each feature's tasks or requirement evidence. `implementing` includes an existing
 candidate or deployed implementation with unfinished acceptance. It does not
 authorize activation, paid evaluation, content publication or schema changes.
@@ -108,6 +109,22 @@ tasks; this refresh makes no new production claim.
 | [SVCPRIV-0042](0042-service-role-table-maintenance-revoke/verification.md) | approved | 1/6 | Approval #2170 and ordering clarification #2200 merged; only T000 is checked. T001 table-maintenance revoke remains open; schema CREATE migration 357 (#2196, T005) and routine search-path migration 358 (#2201, T004) remain open PRs. T002/T003 staging/production acceptance is unchecked. |
 | [LESSONREPORT-0043](0043-course-assessment-lesson-report/verification.md) | approved | 1/9 | Spec-only #2075 merged; only T000 approval is checked. T001–T006 implementation and T007–T008 staging/security acceptance remain open; no lesson-report implementation is recorded in the staging tree. |
 | [INSTRUCTORGIVE-0044](0044-instructor-give-idempotency/verification.md) | implementing (was approved) | 6/8 | Approval #2121 and implementation #2125 (migration 360, backend/frontend idempotency) merged; #2202 reconciled T001–T006. T007 complete staging S1–S4/AT retest and T008 production P1–P2 acceptance remain unchecked. Migration application alone does not close these gates. |
+
+Rows 0045–0054 were added on 2026-11-18 from each feature's `spec.md`
+frontmatter, `tasks.md` checkboxes, `verification.md` and approval record at
+staging `cf37b46b6`. They record only what those files state; they make no
+claim from the presence of code, migrations or deployments. Spec numbers 0049
+and 0051 are held by open spec PRs (#2254, #2274) and 0053 is unused.
+
+| Spec | Status | Tasks | Recorded in the spec / note |
+| --- | --- | --- | --- |
+| [FNEXEC-0045](0045-function-default-execute-lockdown/verification.md) | draft | 0/4 | Draft only. T000 owner approval of Q-J364-1…Q-J364-6 and the migration number is unchecked; T001 migration, T002 staging and T003 production remain open. |
+| [SERVERCHECK-0046](0046-quiz-server-check-key-release/verification.md) | draft | 0/11 | Draft only; no task is checked. `verification.md` cites the existing course-runner `/progress` verdict (#2091) as context, not as acceptance for this spec. T001–T011 remain open. |
+| [FREETRIAL-0047](0047-free-trial-grading/verification.md) | approved | 0/13 | Owner approval recorded 2026-11-10 on spec PR #2252 (`approval-decision.md`). No implementation task is checked; T001 migration through T013 entry flow remain open. |
+| [FLASHCARD-0048](0048-flashcards-mvp/verification.md) | draft | 0/8 | Draft only; no task is checked. T001–T008 (menu, migration, flag/parser, paste panel, card player, retry set, staging scenarios, optional hiding) remain open. |
+| [WRITINGBAND-0050](0050-writing-band-save-consistency/verification.md) | approved | 4/6 | Spec baseline #2268 merged to staging before implementation; T001–T004 (approval record, backend normalisation, canonical UI refetch, local suites and review) are checked on branch `codex/writing-band-save-fix`. T005 exact-SHA staging/production release and T006 six-submission parent acceptance remain open. |
+| [BLACKEYE-0052](0052-blackeye-u1/verification.md) | approved | 0/14 | Owner approval recorded 2026-11-10 (`approval-decision.md`). Every FR row in `verification.md` is PENDING; T001–T014 (PR1 rebuild, PR2 backend/frontend/tests, staging QA, content, audio and a separate production release gate) remain open. |
+| [SKILLDRILLS-0054](0054-listening-skill-drill-homework/verification.md) | approved | 0/4 | Owner approval recorded 2026-11-11 on spec PR #2291 (`spec.md` "Approval record"), including 180-day evidence retention. T001 migration slot and evidence, T002 admin catalog, T003 learner players and T004 staging journey remain open. |
 
 ## Closing a row
 
