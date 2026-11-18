@@ -29,7 +29,7 @@ Bảng phụ thuộc của cả gói và chi tiết từng nhiệm vụ (gói m�
 - Việc làm:
   1. Xin số 473. Đọc định nghĩa mới nhất của mọi trigger trên `class_assignment_items` (`grep -n "TRIGGER.*class_assignment_items\|ON public.class_assignment_items" backend/migrations/*.sql`) để trigger khoá chế độ không xung đột thứ tự.
   2. Viết 473 theo 5.5.2; khối thu quyền đọc thẳng có điều kiện (`IF EXISTS (SELECT 1 FROM pg_policies WHERE tablename='quiz_attempts' AND policyname='quiz_attempts_select')`).
-  3. Rollback; `forward-policy.tsv`; test PG17 `test_migration_473_course_test_release.py`: CHECK chế độ chỉ cho `single_attempt`; nộp item đầu → `release_mode_locked_at` có; đổi chế độ sau đó → lỗi `release_mode_locked`; chèn mức thấp hơn → lỗi; UPDATE/DELETE dòng công bố → lỗi; `authenticated` SELECT `quiz_attempts` → lỗi quyền; bài NULL không bị trigger đụng.
+  3. Rollback; `forward-policy.tsv`; test PG17 `test_migration_473_course_test_release.py`: CHECK chế độ chỉ cho `single_attempt`; nộp item đầu → `release_mode_locked_at` có; đổi chế độ sau đó → lỗi `release_mode_locked`; chèn mức thấp hơn → lỗi; UPDATE/DELETE dòng công bố → lỗi; `authenticated` SELECT `quiz_attempts` → lỗi quyền; bài NULL không bị trigger đụng; khối `DO` kiểm RLS và quyền của `course_result_releases` (FR-095) chạy qua.
 - Đầu ra: 1 PR.
 - Nghiệm thu: test PG17 pass; `test_client_write_invariant_postgres.py` pass; bộ backend đầy đủ pass (đặc biệt test đang dựa `quiz_attempts_select` — nếu có test dựa policy này, liệt kê và dừng hỏi, không sửa hàng loạt).
 - Không làm: không đổi `quiz_attempts` ngoài policy/grant; không backfill chế độ cho bài cũ.
@@ -43,7 +43,7 @@ Bảng phụ thuộc của cả gói và chi tiết từng nhiệm vụ (gói m�
   1. `backend/services/course_result_release.py`: `course_test_state`, `result_gate`, `course_test_block` (khối 5.5.6), hàm đọc release theo lô.
   2. Sửa từng điểm ở bảng 5.5.5; mỗi điểm một commit, cùng PR.
   3. Mở rộng `_sealed_course_session_ids` gọi `result_gate` (một nơi quyết niêm phong).
-  4. Test `test_course_result_release_no_leak.py` (5.5.5) + test hồi quy: bài NULL và bài `mastery` trả đúng như trước (so phản hồi trước/sau trên cùng dữ liệu giả), số truy vấn ở `log_progress` cho bài không gate không tăng.
+  4. Test `test_course_result_release_no_leak.py` (5.5.5, gồm ca cặp đậu/trượt FR-091–FR-094) + test hồi quy: bài NULL và bài `mastery` trả đúng như trước (so phản hồi trước/sau trên cùng dữ liệu giả), số truy vấn ở `log_progress` cho bài không gate không tăng.
 - Đầu ra: 1 PR (2 phiên).
 - Nghiệm thu: `cd backend && python -m pytest tests/test_course_result_release_no_leak.py tests/test_quiz_service.py -q` pass; bộ đầy đủ pass; `-k "course or quiz"` không có test bị bỏ qua mới.
 - Không làm: không đổi cách chấm, không đổi điểm lưu ở item, không đổi đường admin.
@@ -53,7 +53,7 @@ Bảng phụ thuộc của cả gói và chi tiết từng nhiệm vụ (gói m�
 ### G11-T23 — Migration 474 và API chế độ, công bố, hẹn giờ
 - Mục đích: 5.5.7, 5.5.8 (trừ `late-until`, `retakes`).
 - Đầu vào: `admin_class_assignments.py` dòng 195–290, 930–1033, 1648–2011, 2742–2950; tờ `KiemTraKhoa` mục 7, `AdminLop`.
-- Việc làm: migration 474 + test PG17 (hai giáo viên cùng bấm công bố → một dòng mỗi item; lặp `request_key` → cùng kết quả; hẹn giờ chỉ công bố bài nộp trước giờ); sửa `AssignmentCreate` + kiểm; route `release-mode`, `release`, `release-schedule`; `tally` thêm trường; giá trị chọn sẵn trên giao diện giao bài theo câu 13 đã trả lời 17/11: lớp offline chọn sẵn `teacher_release`, khoá online tự học chọn sẵn `immediate`; config `COURSE_TEST_DEFAULT_RELEASE_MODE` (env) chỉ là giá trị dự phòng khi không xác định được loại lớp, mặc định `teacher_release`; **không** tự gán cho bài khi request không gửi trường (giữ hành vi cũ). Test: drawer của lớp offline mở ra đã chọn `teacher_release`; request tạo bài không có `result_release_mode` giữ hành vi cũ.
+- Việc làm: migration 474 + test PG17 (hai giáo viên cùng bấm công bố → một dòng mỗi item; lặp `request_key` → cùng kết quả; hẹn giờ chỉ công bố bài nộp trước giờ; vai `authenticated` gọi hàm bị từ chối; giáo viên lớp khác và học viên nhận `not_found`, không dòng nào được chèn — FR-096); sửa `AssignmentCreate` + kiểm; route `release-mode`, `release`, `release-schedule`; `tally` thêm trường; giá trị chọn sẵn trên giao diện giao bài theo câu 13 đã trả lời 17/11: lớp offline chọn sẵn `teacher_release`, khoá online tự học chọn sẵn `immediate`; config `COURSE_TEST_DEFAULT_RELEASE_MODE` (env) chỉ là giá trị dự phòng khi không xác định được loại lớp, mặc định `teacher_release`; **không** tự gán cho bài khi request không gửi trường (giữ hành vi cũ). Test: drawer của lớp offline mở ra đã chọn `teacher_release`; request tạo bài không có `result_release_mode` giữ hành vi cũ.
 - Đầu ra: 1 PR.
 - Nghiệm thu: test backend + PG17 pass; `test_staff_guard_inventory.py` pass; tạo bài giao mastery với `result_release_mode` → 400.
 - Không làm: không gửi thông báo trong RPC.

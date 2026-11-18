@@ -35,3 +35,9 @@ sang `PASS`/`MANUAL`/`N/A` theo mẫu ở `specs/_templates/verification.md`.
 | FR-088 | kind=test; ref=backend/tests/test_course_result_release_no_leak.py (G11-T22); E1 | PENDING |
 | FR-089 | kind=test; ref=backend/tests/test_course_result_release_no_leak.py (G11-T22); E1 | PENDING |
 | FR-090 | kind=test; ref=backend/tests/test_course_result_release_no_leak.py (G11-T22); E1 | PENDING |
+| FR-091 | kind=test; ref=backend/tests/test_course_result_release_no_leak.py (G11-T22), ca cặp đậu/trượt; E1 | PENDING |
+| FR-092 | kind=test; ref=backend/tests/test_course_result_release_no_leak.py (G11-T22), ca full-retry đậu/trượt; E1 | PENDING |
+| FR-093 | kind=test; ref=backend/tests/test_course_result_release_no_leak.py (G11-T22); E1 | PENDING |
+| FR-094 | kind=test; ref=backend/tests/test_course_result_release_no_leak.py (G11-T22), so JSON hai học viên đậu/trượt | PENDING |
+| FR-095 | kind=test; ref=test PG17 test_migration_473_course_test_release.py (G11-T21), khối DO kiểm RLS và quyền | PENDING |
+| FR-096 | kind=test; ref=test PG17 của migration 474 (G11-T23): vai authenticated bị từ chối, giáo viên lớp khác nhận not_found | PENDING |

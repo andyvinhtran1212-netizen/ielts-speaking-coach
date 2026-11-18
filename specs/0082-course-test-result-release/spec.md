@@ -167,6 +167,15 @@ Mỗi đường đọc ở bảng 5.5.5 là một FR con (G11-T04 yêu cầu), �
 - **FR-089:** Đường đọc `GET /api/student/today` (G07) (`services/student_today.py`): khi cổng `result_gate` áp và mức đã công bố thấp hơn mức cần, dùng khối `course_test`, không đọc `score` thô.
 - **FR-090:** Đường đọc `GET /api/me/kp-mastery`, `/api/me/roadmap` (`backend/routers/kp.py`): khi cổng `result_gate` áp và mức đã công bố thấp hơn mức cần, không ghi bằng chứng KP từ hàng của bài một lượt (0046 FR-019); CHƯA KIỂM nơi ghi: `grep -n "_record_quiz_kp_evidence" backend/services/quiz_service.py` (dòng 2961).
 
+Các yêu cầu thêm theo SA-2354-R1 (P2-1, P2-2):
+
+- **FR-091:** Trường điều hướng `course_action`, `review_only`, `expiry_pending`, `near_threshold` trong `GET /api/quiz/banks/{bank_id}` và `/course-resume`: khi cổng áp và chưa công bố mức `score`, mọi bài đã nộp nhận cùng giá trị (`course_action = "review"`, `near_threshold = null`) dù đậu hay trượt.
+- **FR-092:** `POST /api/quiz/course/full-retry`: khi cổng áp và chưa công bố, luôn trả cùng một lỗi `409 {"code":"result_not_released"}`, kiểm trước mọi nhánh đọc `passed_at` hay `next_action`.
+- **FR-093:** Mọi phản hồi học viên có `mastery` hoặc lịch sử lượt: khi cổng áp và chưa công bố mức `score`, `next_action`, `retry_reason`, `passed`, `passed_at` là `null` hoặc vắng.
+- **FR-094:** Hai học viên cùng bài `teacher_release` chưa công bố, một đậu và một trượt, nhận mã HTTP và JSON giống hệt nhau trên mọi đường đọc của học viên (sau khi bỏ trường định danh và giờ).
+- **FR-095:** Bảng `course_result_releases` bật và ép RLS, không có policy cho client, `anon`/`authenticated` không có quyền nào; migration 473 tự kiểm các điều này và dừng nếu sai.
+- **FR-096:** Bốn hàm của migration 474 là `SECURITY DEFINER` với `search_path` cố định, chỉ `service_role` gọi được; người thực hiện lấy từ JWT đã kiểm ở router, và hàm kiểm lại người đó là admin hoặc giáo viên của đúng lớp.
+
 ## Acceptance scenarios
 
 Kịch bản của gói (mục 9), giữ mã gốc; mỗi dòng là Given / When / Then theo cột.

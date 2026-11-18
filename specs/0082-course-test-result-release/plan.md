@@ -65,7 +65,11 @@ Trigger: BEFORE INSERT từ chối khi đã có dòng của item với `level_ra
 
 **Thu quyền đọc thẳng** (chỉ khi 0046 chưa làm; kiểm bằng `select policyname from pg_policies where tablename in ('quiz_attempts','quiz_sessions')` trên PG test sau khi áp mọi migration): `DROP POLICY IF EXISTS quiz_attempts_select ON public.quiz_attempts; DROP POLICY IF EXISTS quiz_sessions_select ON public.quiz_sessions; REVOKE SELECT ON public.quiz_attempts, public.quiz_sessions FROM anon, authenticated;`. Trước khi viết, người thực thi chạy `grep -rn "from('quiz_attempts')\|from(\"quiz_attempts\")\|from('quiz_sessions')\|from(\"quiz_sessions\")" frontend/ backend/` và kiểm view/RPC gọi được bởi `authenticated` đọc hai bảng này (`select … from pg_views` / `pg_proc` có `prosecdef=false` nhắc tên bảng) — có kết quả là **dừng** (0046 FR-017 ghi cùng điều kiện). Kiểm thêm `course_section_submissions` không có quyền client đọc (`select grantee, privilege_type from information_schema.role_table_grants where table_name='course_section_submissions'`).
 
-Rollback `backend/migrations/rollback/473_course_test_release_schema.sql`: gỡ trigger, giữ cột và bảng; **không** khôi phục policy đọc thẳng.
+**Quyền trên bảng mới (FR-095).** `course_result_releases`: `ENABLE ROW LEVEL SECURITY` và `FORCE ROW LEVEL SECURITY`, không tạo policy nào cho `anon`/`authenticated`; `REVOKE ALL ON public.course_result_releases FROM PUBLIC, anon, authenticated;` `GRANT SELECT, INSERT ON public.course_result_releases TO service_role;` (không UPDATE/DELETE, khớp trigger chỉ ghi thêm). Hàm trigger là `SECURITY DEFINER SET search_path = pg_catalog, pg_temp`, viết tên bảng đầy đủ `public.`, và `REVOKE EXECUTE … FROM PUBLIC`. Các cột mới trên `class_assignments` không mở thêm quyền cột nào cho client.
+
+**Điều kiện sau migration (khối `DO` cuối file 473, sai thì `RAISE EXCEPTION`):** `relrowsecurity` và `relforcerowsecurity` của `course_result_releases` là true; `has_table_privilege('authenticated', 'public.course_result_releases', 'SELECT')` và `'INSERT'` là false, `anon` cũng vậy; không có dòng `pg_policies` nào cho bảng này; mọi hàm trigger mới có `prosecdef = true` và `proconfig` chứa `search_path`. Test PG17 của T21 chạy lại cùng các câu kiểm đó.
+
+Rollback `backend/migrations/rollback/473_course_test_release_schema.sql`: gỡ trigger, giữ cột và bảng; **không** khôi phục policy đọc thẳng và **không** nới quyền đã thu.
 
 #### 5.5.3 Máy trạng thái (một học viên · một bài kiểm tra)
 
@@ -113,9 +117,13 @@ Tính ở `backend/services/course_result_release.py::course_test_state(item, as
 | `GET /api/class/my-assignments`, `GET /api/class/me` | `_decorate` | `score`, `passed_at` = `null`; thêm khối `course_test` (5.5.6) |
 | `GET /api/student/today` (G07) | `services/student_today.py` | dùng khối `course_test`, không đọc `score` thô |
 | `GET /api/me/kp-mastery`, `/api/me/roadmap` | `backend/routers/kp.py` | không ghi bằng chứng KP từ hàng của bài một lượt (0046 FR-019); CHƯA KIỂM nơi ghi: `grep -n "_record_quiz_kp_evidence" backend/services/quiz_service.py` (dòng 2961) |
+| `GET /api/quiz/banks/{bank_id}` và `/course-resume` (trường điều hướng) | `get_bank_for_play` (khối `course_action` ở dòng 1308 và 1393, `review_only`, `expiry_pending`, `near_threshold`) | `course_action` = `"review"` cho mọi bài đã nộp, đậu hay trượt (hôm nay bài trượt một lượt nhận `"continue"` còn bài đậu nhận `"review"`, nên chỉ nhìn trường này đã biết kết quả); `near_threshold` = `null` (FR-091) |
+| `POST /api/quiz/course/full-retry` | `begin_course_full_retry` | kiểm `result_gate` **trước** `passed_at` và `_recorded_next_action`: khi gate áp thì luôn trả cùng một lỗi `409 {"code":"result_not_released"}` với cùng nội dung, đậu hay trượt. Hôm nay hai câu 409 khác nhau ("đã đạt" và "chưa yêu cầu làm lại") lộ kết quả (FR-092) |
+| Mọi phản hồi có `mastery` hoặc lịch sử lượt | `_course_attempt_history`, `_recorded_next_action`, `course_mastery_next_action`, `_course_retry_reason`, khối trả ở dòng 719, 845, 4714 | `next_action`, `retry_reason`, `passed`, `passed_at`, `pass_pct` so với điểm = `null` hoặc vắng; không trả `section_ceiling` (FR-093) |
 | Mọi đường admin/giáo viên (`assignment_id`, `/admin/...`) | — | không đổi (FR-075) |
 
 - Test hành vi bắt buộc `backend/tests/test_course_result_release_no_leak.py`: dựng một item `teacher_release` đã nộp (supabase giả theo mẫu test quiz hiện có — `grep -ln "single_attempt" backend/tests | head`), gọi **mọi** route ở bảng trên bằng TestClient, duyệt đệ quy JSON trả về và khẳng định không có khoá `score, correct, pct, accuracy, total_correct, total_wrong, is_correct, answer, accept, explain, why_wrong, right` mang giá trị khác `null`; rồi công bố mức `score` → chỉ `correct/total/pct` xuất hiện; mức 2 → thêm `is_correct`; mức 3 → thêm đáp án. Đây là test hành vi theo phản hồi, không đọc mã nguồn.
+- Test cặp đậu/trượt bắt buộc (FR-094), cùng tệp: dựng **hai** học viên cùng một bài `teacher_release` chưa công bố, một người đậu và một người trượt (cùng số câu đã làm, cùng thời lượng). Gọi mọi route ở bảng trên cho cả hai, kể cả `POST /course/full-retry`. Sau khi bỏ các trường định danh (id, `client_id`, `submitted_at`, `updated_at`), mã HTTP và JSON của hai người phải **bằng nhau từng byte**. Khoá nào khác nhau thì test in tên khoá đó. Route mới có phản hồi cho học viên phải được thêm vào danh sách route của test trong cùng PR.
 
 #### 5.5.6 Khối `course_test` trả cho học viên (thêm vào `_decorate` và API G07)
 ```json
@@ -140,10 +148,16 @@ Tính ở `backend/services/course_result_release.py::course_test_state(item, as
 
 | Hàm | Tham số | Kết quả |
 |---|---|---|
-| `fn_course_result_release` | `p_actor_id uuid, p_assignment_id uuid, p_student_ids uuid[] NULL (NULL = mọi bài đã nộp), p_level text, p_note text, p_request_key text, p_source text` | `{released: n, upgraded: n, skipped_not_submitted: n, skipped_same_or_higher: n}`; `not_release_mode`, `not_found` |
-| `fn_course_result_schedule` | `p_actor_id, p_assignment_id, p_at timestamptz NULL (NULL = huỷ hẹn), p_level text` | `scheduled`, `cancelled`, `in_past`, `not_release_mode` |
+| `fn_course_result_release` | `p_actor_user_id uuid, p_assignment_id uuid, p_student_ids uuid[] NULL (NULL = mọi bài đã nộp), p_level text, p_note text, p_request_key text, p_source text` | `{released: n, upgraded: n, skipped_not_submitted: n, skipped_same_or_higher: n}`; `not_release_mode`, `not_found` |
+| `fn_course_result_schedule` | `p_actor_user_id, p_assignment_id, p_at timestamptz NULL (NULL = huỷ hẹn), p_level text` | `scheduled`, `cancelled`, `in_past`, `not_release_mode` |
 | `fn_course_result_run_schedules` | `p_limit int` | `{assignments: n, released: n}` — bài có `release_scheduled_at <= now()`: gọi `fn_course_result_release(..., NULL, release_schedule_level, NULL, 'schedule:'||id||':'||epoch, 'schedule')` chỉ cho item có `submitted_at <= release_scheduled_at`, rồi đặt `release_scheduled_at = NULL`, `release_schedule_level = NULL` |
-| `fn_course_release_mode_set` | `p_actor_id, p_assignment_id, p_mode text, p_default_level text, p_expected_at timestamptz` | `updated`, `locked`, `not_eligible` |
+| `fn_course_release_mode_set` | `p_actor_user_id, p_assignment_id, p_mode text, p_default_level text, p_expected_at timestamptz` | `updated`, `locked`, `not_eligible` |
+
+**Hợp đồng quyền của bốn hàm (FR-096).** Theo mẫu đã có ở `backend/migrations/378_exercise_book_assignments.sql`: mỗi hàm `SECURITY DEFINER SET search_path = pg_catalog, pg_temp`, viết tên bảng đầy đủ `public.`; `REVOKE ALL ON FUNCTION … FROM PUBLIC, anon, authenticated;` `GRANT EXECUTE … TO service_role;` và dòng đầu thân hàm `IF auth.role() IS DISTINCT FROM 'service_role' THEN RAISE insufficient_privilege; END IF;`. Trình duyệt không gọi thẳng được hàm nào.
+
+**Người thực hiện lấy từ phiên, không từ yêu cầu.** Ba hàm có tham số người thực hiện đổi tên thành `p_actor_user_id`. Router chỉ điền tham số này bằng `user["id"]` của `get_current_user` (JWT đã kiểm), không bao giờ từ body hay query; model request của 5.5.8 không có trường nào tên actor. Hàm vẫn tự kiểm lại trong cùng giao dịch: `p_actor_user_id` phải là admin đang hoạt động, hoặc là giáo viên của lớp chứa `p_assignment_id` theo đúng nguồn mà `services/staff_scope.py::resolve_staff_scope` đọc (người thực thi ghi tên bảng nguồn vào PR; CHƯA KIỂM). Sai thì trả `not_found`, giống 404 của router, để không lộ lớp có tồn tại. `fn_course_result_run_schedules` không nhận actor và ghi `released_by = NULL`, `source = 'schedule'`.
+
+**Điều kiện sau migration 474 (khối `DO`):** với mỗi hàm, `has_function_privilege('authenticated', …, 'EXECUTE')` và `anon` là false, `prosecdef = true`, `proconfig` có `search_path`. Test PG17 của T23 thêm ba ca: gọi bằng vai `authenticated` bị từ chối; actor là giáo viên lớp khác nhận `not_found` và không có dòng nào được chèn; actor là học viên nhận `not_found`.
 
 `fn_course_result_release`: `SELECT … FROM class_assignments WHERE id = … FOR UPDATE` (khoá bài trước), rồi chèn dòng cho từng item thoả (`submitted_at IS NOT NULL`, mức mới > mức hiện có) theo thứ tự `item_id` tăng; `request_key` lặp → trả kết quả cũ (không chèn thêm). Không ghi thông báo trong hàm (job A đọc bảng công bố).
 

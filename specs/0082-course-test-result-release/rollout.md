@@ -3,9 +3,9 @@
 ## Preconditions
 
 - Spec `approved` trên `staging`; số migration 473, 474 (475, 476 hoãn) chưa bị file hay PR khác dùng; ghi vào sổ số migration (`backend/migrations/register.tsv` khi G01-T06 đã merge).
-- Cờ mặc định tắt: `COURSE_TEST_DEFAULT_RELEASE_MODE` (cấu hình mặc định khi giao bài).
+- Không có cờ bật/tắt tính năng. Chế độ trả điểm là cột của từng bài giao; bài cũ (NULL) chạy như `immediate`. Biến env `COURSE_TEST_DEFAULT_RELEASE_MODE` (mặc định `teacher_release`) chỉ là giá trị chọn sẵn dự phòng trên giao diện giao bài khi không xác định được loại lớp (`tasks.md` T23); đổi hay xoá biến này không che và không mở điểm của bài nào.
 - Bài giao trước gói (chế độ NULL) và bài `mastery` không đổi hành vi (FR-074, E6): so JSON và ảnh trước/sau trên staging.
-- Mặc định `COURSE_TEST_DEFAULT_RELEASE_MODE`: lớp offline `teacher_release` (câu 13).
+- Giá trị chọn sẵn khi giao bài: lớp offline `teacher_release`, khoá online tự học `immediate` (câu 13); do giao diện T23 chọn sẵn.
 
 ## Staging
 
