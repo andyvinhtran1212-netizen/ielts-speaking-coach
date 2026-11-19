@@ -398,25 +398,15 @@ async def get_result(
     return await asyncio.to_thread(_result_sync, sitting_id, user["id"])
 
 
-_TRF_SKILLS = ("listening", "reading", "writing", "speaking")
-
-
-def _sitting_skills(sitting_id: str, final_bands: dict):
-    """The skills this sitting actually covers, in TRF order.
-
-    The examiner's required set (retake → the student's assigned skills;
-    otherwise the exam's configured sections, plus Speaking when the exam has
-    a speaking component) plus any skill that carries a band anyway (a live
-    Speaking assessment). None when the lookup fails: the TRF then names no
+def _sitting_skills(sitting: dict, final_bands: dict):
+    """svc.sitting_skills, or None when the lookup fails: the TRF then names no
     missing skill rather than guess one the student was never set."""
     try:
-        required = set(review_wf.required_skills_for_sitting(sitting_id))
+        return svc.sitting_skills(sitting, final_bands)
     except Exception:
         logger.warning("[mock-result] sitting_skills lookup failed sitting=%s",
-                       sitting_id, exc_info=True)
+                       sitting.get("id"), exc_info=True)
         return None
-    return [s for s in _TRF_SKILLS
-            if s in required or final_bands.get(s) is not None]
 
 
 def _result_sync(sitting_id: str, user_id) -> dict:
@@ -441,6 +431,12 @@ def _result_sync(sitting_id: str, user_id) -> dict:
     e1, e2 = sitting.get("essay_task1_id"), sitting.get("essay_task2_id")
     delivered = essay_service.delivered_essay_ids([e1, e2])
     final_bands = review.get("final_bands") or {}
+    sitting_skills = _sitting_skills(sitting, final_bands)
+    writing_tasks = svc.writing_task_states(sitting, delivered)
+    if sitting_skills is not None and "writing" not in sitting_skills:
+        # An exam without Writing prompts has nothing to report per task; two
+        # "Bạn chưa nộp bài" cards would blame the student for an empty step.
+        writing_tasks = []
     return {
         "sitting_id":           sitting_id,
         "final_bands":          final_bands,
@@ -448,7 +444,7 @@ def _result_sync(sitting_id: str, user_id) -> dict:
         **svc.overall_readiness(final_bands),
         # The skills THIS sitting ran, so the TRF names only those as missing:
         # an L/R-only retake must not be told Writing/Speaking are "còn thiếu".
-        "sitting_skills":       _sitting_skills(sitting_id, final_bands),
+        "sitting_skills":       sitting_skills,
         "examiner_comment_vi":  review.get("examiner_comment_vi"),
         "per_skill_notes":      review.get("per_skill_notes") or {},
         "released_at":          review.get("released_at"),
@@ -468,7 +464,7 @@ def _result_sync(sitting_id: str, user_id) -> dict:
         #
         # Empty when the sitting has no Writing at all (an L/R-only retake) —
         # writing_task_states decides that off the sitting's own assigned_skills.
-        "writing_tasks":        svc.writing_task_states(sitting, delivered),
+        "writing_tasks":        writing_tasks,
         # Why a Listening/Reading skill carries no band. The grid lists only
         # banded skills, so a bandless one vanished with no explanation — the
         # same silent gap the Writing cards fixed (2026-07-15).
