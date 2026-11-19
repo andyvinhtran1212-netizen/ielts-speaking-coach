@@ -62,19 +62,23 @@ draft -> approved -> implementing -> verified -> shipped
 | ID | Feature | Status | Risk | Spec |
 | --- | --- | --- | --- | --- |
 | SDD-0000 | Lean spec-driven development foundation | shipped | medium | [spec](0000-sdd-foundation/spec.md) |
+| UIBASE-0056 | New pages share one Ban in design foundation of tokens, fonts, components and four page shells, while every existing page keeps its current look | draft | medium | [spec](0056-ui-foundation/spec.md) |
 | GRAMMAR-0001 | Timed grammar midterm assessment banks | implementing | high | [spec](0001-timed-grammar-midterm-assessments/spec.md) |
 | AVOC-0002 | Advanced Vocabulary self-paced core 30 | implementing | high | [spec](0002-advanced-vocabulary-self-paced/spec.md) |
 | MASTER30-0003 | MASTER30 Grammar Diagnostic and Adaptive Review | implementing | high | [spec](0003-master30-grammar-diagnostic/spec.md) |
 | GRAMMARLESSON-0017 | Assign individual MASTER30 Grammar lessons to Course 5 learners | shipped | high | [spec](0017-grammar-lesson-assignments/spec.md) |
 | MASTER30FULL-0018 | Assign the complete original MASTER30 Grammar banks | shipped | high | [spec](0018-master30-full-bank-assignments/spec.md) |
 | AI-0004 | AI model usage observability and controlled model rollout | implementing | high | [spec](0004-ai-model-usage-observability/spec.md) |
+| ADMINIA-0074 | Admins and the class teacher run daily work from one admin frame with eight sidebar groups, a unified learner directory and profile, and canonical queues | draft | high | [spec](0074-admin-ia/spec.md) |
 | AIBUDGET-0033 | Paid AI stops at hard budgets, Claude alerts on a soft budget, and learner work waits safely for grading | approved | critical | [spec](0033-ai-budget-hard-cap/spec.md) |
 | LISTENING-0005 | Listening content programmes, import and learner hub | implementing | high | [spec](0005-listening-content-programmes/spec.md) |
 | LISTENING-0006 | Guided per-question Listening feedback | implementing | high | [spec](0006-listening-guided-feedback/spec.md) |
 | LISTENING-0007 | Versioned Listening editorial revision and bilingual questions | implementing | high | [spec](0007-listening-editorial-revision/spec.md) |
 | MOCKOPS-0006 | Admin Mock Test operations workspace at scale | implementing | high | [spec](0006-admin-mock-test-operations/spec.md) |
 | WRITINGNAV-0007 | Canonical admin Writing navigation context | implementing | high | [spec](0007-writing-navigation-contract/spec.md) |
+| TESTPOLICY-0057 | New tests check behaviour instead of source text, and an advisory visual baseline shows every intended or accidental change to key screens | draft | medium | [spec](0057-test-policy-visual-baseline/spec.md) |
 | MOCKATTACH-0008 | Mock Reading and Listening attempt integrity | implementing | high | [spec](0008-mock-attempt-integrity/spec.md) |
+| PHONEGATE-0081 | Full tests open only on screens at least the configured width, while mini tests, practice and course tests stay available on phones | draft | medium | [spec](0081-full-test-phone-gate/spec.md) |
 | LISTENING80-0009 | Source-faithful 80-day Listening practice collection | implementing | high | [spec](0009-listening-80-days/spec.md) |
 | BLACKEYE-0052 | Black Eye Listening Unit 1 exercises are assigned to a class, reviewed after submission and stay locked until each gate passes | approved | high | [spec](0052-blackeye-u1/spec.md) |
 | SKILLDRILLS-0054 | Assign published Listening Skill Drills across courses | approved | high | [spec](0054-listening-skill-drill-homework/spec.md) |
@@ -88,6 +92,7 @@ draft -> approved -> implementing -> verified -> shipped
 | GRAMMARCUTOVER-0014 | Preserve Grammar quiz history during bounded bank revision cutover | approved | high | [spec](0014-grammar-bank-revision-cutover/spec.md) |
 
 | GRAMMARTEXT-0015 | Require exact authored forms for bounded Grammar questions while preserving old work | implementing | high | [spec](0015-grammar-exact-form-policy/spec.md) |
+| BRANDMARK-0083 | The An ky mark is the one logo, favicon, app icon and link preview image of the site, generated from a single geometry source | draft | medium | [spec](0083-brand-mark-an-ky/spec.md) |
 
 | MOCKREPAIR-0016 | Preserve mock paper security and repair Reading and Listening work truthfully | implementing | critical | [spec](0016-mock-content-remediation/spec.md) |
 
@@ -96,6 +101,7 @@ Progress and remaining acceptance are reconciled in [the implementation status l
 | LEARNERDRAFT-0010 | Preserve Reading answers and Speaking preparation within a browser tab | implementing | medium | [spec](0010-learner-draft-preservation/spec.md) |
 
 | GRAMMARAUDIT-0019 | Close the October Grammar audit while preserving every learner revision | implementing | high | [spec](0019-grammar-audit-remediation/spec.md) |
+| GRAMMARFIG-0084 | Grammar Wiki articles show numbered, accessible sentence diagrams written as semantic figure blocks, and a malformed block never hides the article | draft | medium | [spec](0084-grammar-wiki-figures/spec.md) |
 
 | VOCABSETS-0020 | Vocabulary class sets and unified learning workspace | implementing | high | [spec](0020-vocabulary-class-sets/spec.md) |
 
@@ -104,6 +110,7 @@ Progress and remaining acceptance are reconciled in [the implementation status l
 | REVEXPLAIN-0022 | Bind reviewed interactive explanations to Cambridge revision papers and name approval refusals | implementing | high | [spec](0022-revision-explanation-binding/spec.md) |
 
 | SECWRITE-0022 | Client roles cannot write privilege, score or session data | implementing | critical | [spec](0022-client-write-privilege-lockdown/spec.md) |
+| COURSETESTRELEASE-0082 | Course test results stay sealed on every learner read path until a teacher releases them at a chosen level, unless the test returns results on submit | draft | critical | [spec](0082-course-test-result-release/spec.md) |
 
 | AIOPS-0024 | Admin AI dashboard with model control, token spend and failure log | implementing | high | [spec](0024-admin-ai-model-control/spec.md) |
 
@@ -116,6 +123,7 @@ Progress and remaining acceptance are reconciled in [the implementation status l
 | ASSIGNDRAFT-0027 | Deleting a writing assignment can never erase a learner's draft | verified | high | [spec](0027-writing-draft-assignment-delete-guard/spec.md) |
 
 | CODEUNIQ-0028 | Access codes are unique and canonical in the repository schema | verified | high | [spec](0028-access-code-unique-canonical/spec.md) |
+| MIGNUM-0058 | Each work package takes migration numbers only from its own block, and the migration register test rejects a number outside or in another package's block | draft | high | [spec](0058-migration-number-blocks/spec.md) |
 
 | STUDENTARCHIVE-0029 | Admin student delete archives the learner with an audit trail instead of erasing their work | implementing | critical | [spec](0029-student-archive/spec.md) |
 | CLASSARCHIVE-0030 | An archived class is hidden from learners, takes no new learners or work, and closes its open work without losing it | approved | high | [spec](0030-class-archive/spec.md) |

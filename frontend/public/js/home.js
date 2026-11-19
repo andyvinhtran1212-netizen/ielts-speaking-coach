@@ -75,6 +75,22 @@
   // Each returns { primary: { value, unit }, sub: html-or-text }.
   // Pulled out into a map so adding Reading/Listening as active later is
   // a one-key addition, not a switch-statement edit.
+  function bandOrCount(s, emptyHint) {
+    const attempts = s.attempts_count || 0;
+    const banded = Number.isInteger(s.banded_tests_count) ? s.banded_tests_count : 0;
+    if (s.band_ready === true && typeof s.last_band === 'number' && Number.isFinite(s.last_band)) {
+      return {
+        primary: { value: s.last_band.toFixed(1), unit: 'band' },
+        sub: 'Ước lượng từ đề đủ 40 câu gần nhất · không phải điểm thi',
+      };
+    }
+    if (!attempts) return { primary: { value: '0', unit: 'bài' }, sub: emptyHint };
+    return {
+      primary: { value: String(attempts), unit: 'bài' },
+      sub: banded > 0 ? banded + ' đề đủ 40 câu đã làm' : 'Chưa đủ bài để ước lượng band',
+    };
+  }
+
   const METRIC_FORMATTERS = {
     writing(s) {
       const band = s.last_band != null ? s.last_band.toFixed(1) : '—';
@@ -128,30 +144,12 @@
         sub: sub,
       };
     },
+    // G02-T04 — kept identical to lib/home-metrics.mjs (parity test).
     reading(s) {
-      const band = s.last_band != null ? s.last_band.toFixed(1) : '—';
-      return {
-        primary: { value: band, unit: 'band' },
-        sub: s.attempts_count
-          ? s.attempts_count + ' bài đã hoàn thành'
-          : 'Luyện đọc với bài kiểm tra IELTS thực tế',
-      };
+      return bandOrCount(s, 'Luyện đọc với bài kiểm tra IELTS thực tế');
     },
     listening(s) {
-      if (s.last_band != null) {
-        return {
-          primary: { value: s.last_band.toFixed(1), unit: 'band' },
-          sub: s.attempts_count
-            ? s.attempts_count + ' bài đã hoàn thành'
-            : 'Tiếp tục luyện nghe',
-        };
-      }
-      return {
-        primary: { value: String(s.attempts_count || 0), unit: 'bài' },
-        sub: s.attempts_count
-          ? 'Tiếp tục luyện nghe'
-          : 'Luyện nghe với dictation và comprehension',
-      };
+      return bandOrCount(s, 'Luyện nghe với dictation và comprehension');
     },
   };
 

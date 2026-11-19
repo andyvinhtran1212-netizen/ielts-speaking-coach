@@ -38,6 +38,7 @@ import {
   submittedAtFor,
 } from '@/lib/mock-exam-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
+import { leaveForParent } from '@/lib/redirect-notice-model.mjs';
 
 type Section = 'listening' | 'reading' | 'writing';
 type ConnectionState = null | 'offline' | 'submitting' | 'submit_failed';
@@ -658,6 +659,12 @@ export function MockExamRunner() {
   }, [queryKey]);
   const [state, setState] = useState<MockState | null>(null);
   const [fatal, setFatal] = useState<string | null>(params.error);
+  // G02-T11: a link without a code or sitting goes back to Full Test with a
+  // notice (shown there in Vietnamese); the English card above is only what
+  // flashes while the browser leaves.
+  useEffect(() => {
+    if (params.error) leaveForParent('/full-test');
+  }, [params.error]);
   const [connection, setConnection] = useState<ConnectionState>(null);
   const [remaining, setRemaining] = useState(0);
   const [starting, setStarting] = useState<Section | null>(null);

@@ -287,6 +287,14 @@ function ProgressContent({ progress, children, skill }: {
   const totals = progress.totals || {};
   const banks = progress.banks || [];
   const sessions = progress.recent_sessions || [];
+  // G02-T08: session rows carry only the bank code; name them from the same
+  // response's banks (same skill) instead of showing the internal code.
+  const bankTitles = new Map<string, string>();
+  for (const bank of banks) {
+    if (bank.code && bank.title && (!skill || bank.skill_area === skill) && !bankTitles.has(bank.code)) {
+      bankTitles.set(bank.code, bank.title);
+    }
+  }
 
   return (
     <>
@@ -346,7 +354,7 @@ function ProgressContent({ progress, children, skill }: {
               <tbody>
                 {sessions.map((session, index) => (
                   <tr key={`${session.ended_at || 'session'}:${index}`}>
-                    <td data-label="Bộ">{quizHistoryBankDisplay(session.code, undefined, skill || undefined).label || '—'}</td>
+                    <td data-label="Bộ">{quizHistoryBankDisplay(session.code, (session.code && bankTitles.get(session.code)) || undefined, skill || undefined).label || '—'}</td>
                     <td data-label="Chính xác">{formatPercent(session.accuracy)}</td>
                     <td data-label="Đã thuộc">{session.words_mastered || 0}</td>
                     <td data-label="Thời gian">{session.duration_sec ? formatDuration(session.duration_sec) : '—'}</td>

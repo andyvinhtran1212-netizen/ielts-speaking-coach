@@ -3213,6 +3213,37 @@ def test_list_my_sittings_flags_released_with_overall(fake_db, svc):
     assert p["released"] is False and p["overall"] is None    # unreleased → no band leak
 
 
+def test_list_my_sittings_reports_overall_readiness(fake_db, svc):
+    # G02-T05 (FR-02-004): the Home tile draws an Overall only once enough of the
+    # four skills carry a band; the stored overall itself is left untouched.
+    u = str(uuid4())
+    fake_db.seed("mock_exams", {"id": "ex-1", "code": "MOCK-1", "title": "Mid-term"})
+    fake_db.seed("mock_exam_sittings", {"id": "s1", "user_id": u, "mock_exam_id": "ex-1",
+                                        "status": "released", "created_at": "2026-07-15T00:00:00Z"})
+    fake_db.seed("mock_exam_sittings", {"id": "s2", "user_id": u, "mock_exam_id": "ex-1",
+                                        "status": "released", "created_at": "2026-07-14T00:00:00Z"})
+    fake_db.seed("mock_exam_sittings", {"id": "s3", "user_id": u, "mock_exam_id": "ex-1",
+                                        "status": "all_submitted", "created_at": "2026-07-13T00:00:00Z"})
+    fake_db.seed("mock_exam_reviews", {"id": "rv1", "sitting_id": "s1",
+                                       "final_bands": {"writing": 9.0, "overall": 9.0}})
+    fake_db.seed("mock_exam_reviews", {"id": "rv2", "sitting_id": "s2", "final_bands": {
+        "listening": 6.0, "reading": 7.0, "writing": 6.0, "speaking": 6.5, "overall": 6.5}})
+
+    out = {s["sitting_id"]: s for s in svc.list_my_sittings(u)}
+    assert (out["s1"]["banded_skill_count"], out["s1"]["overall_min_skills"]) == (1, 4)
+    assert out["s1"]["overall"] == 9.0  # stored value unchanged; the UI decides
+    assert (out["s2"]["banded_skill_count"], out["s2"]["overall_min_skills"]) == (4, 4)
+    assert out["s3"]["banded_skill_count"] == 0  # unreleased → nothing counted
+
+
+@pytest.mark.parametrize("configured, expected", [(4, 4), (3, 3), (0, 1), (9, 4)])
+def test_overall_readiness_threshold_is_clamped(svc, monkeypatch, configured, expected):
+    from config import settings
+    monkeypatch.setattr(settings, "MOCK_OVERALL_MIN_SKILLS", configured)
+    got = svc.overall_readiness({"listening": 5.0, "reading": None, "overall": 5.0})
+    assert got == {"overall_min_skills": expected, "banded_skill_count": 1}
+
+
 def test_list_my_sittings_empty(fake_db, svc):
     assert svc.list_my_sittings(str(uuid4())) == []
 

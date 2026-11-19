@@ -189,7 +189,7 @@ def test_my_essays_403_when_user_not_linked_to_student(monkeypatch):
             ws_module.get_current_student(authorization="Bearer x")
         )))
     assert exc.value.status_code == 403
-    assert exc.value.detail == "Em chưa được xếp lớp, Writing sẽ mở khi giáo viên giao bài"
+    assert exc.value.detail == "Bạn chưa được xếp lớp, Writing sẽ mở khi giáo viên giao bài"
 
 
 def test_dashboard_greeting_uses_account_name_and_keeps_roster_code(monkeypatch):

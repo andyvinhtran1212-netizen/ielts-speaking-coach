@@ -10,6 +10,7 @@ import {
   fullTestSummaryPath,
 } from '@/lib/speaking-full-test-result-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
+import { leaveForParent } from '@/lib/redirect-notice-model.mjs';
 
 interface KeyedState<T> {
   key: string;
@@ -350,7 +351,8 @@ export function FullTestResultBehavior() {
     setErrorState(null);
     const path = fullTestSummaryPath({ p1, p2, p3 });
     if (!path) {
-      setErrorState({ key: requestKey, value: 'Thiếu session Part 1 trong URL.' });
+      // G02-T11: a link without its Part 1 session goes back to Speaking.
+      leaveForParent('/speaking');
       return () => controller.abort();
     }
 

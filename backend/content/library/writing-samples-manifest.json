@@ -1,0 +1,307 @@
+[
+  {
+    "source_key": "discussion",
+    "publish": false,
+    "review": {
+      "status": "approved",
+      "by": "doi-thuc-hien",
+      "at": "2026-11-18",
+      "note": "G06-T19: đủ ba bài, dàn ý, bảng từ; nhật ký khác biệt khớp nguyên văn; band ước tính đúng nhãn; số từ đạt tối thiểu; không trùng đề bộ khác."
+    },
+    "content_hash": "ddc85ad2379b2911229dde61d38ff2f6293441f27a934bd3c0a3ac92cebb14ce"
+  },
+  {
+    "source_key": "t1_car_sales_europe",
+    "publish": false,
+    "review": {
+      "status": "approved",
+      "by": "doi-thuc-hien",
+      "at": "2026-11-18",
+      "note": "G06-T19: đủ ba bài, dàn ý, bảng từ; nhật ký khác biệt khớp nguyên văn; band ước tính đúng nhãn; số từ đạt tối thiểu; không trùng đề bộ khác."
+    },
+    "content_hash": "8bdf98cae4c4aaf0f4dd88386dc5857b41fca211ec29c7e7b24d5e92d0457640"
+  },
+  {
+    "source_key": "t1_vietnam_phones",
+    "publish": false,
+    "review": {
+      "status": "approved",
+      "by": "doi-thuc-hien",
+      "at": "2026-11-18",
+      "note": "G06-T19: đủ ba bài, dàn ý, bảng từ; nhật ký khác biệt khớp nguyên văn; band ước tính đúng nhãn; số từ đạt tối thiểu; không trùng đề bộ khác."
+    },
+    "content_hash": "885ceb03331e6db7d29590a621c4e3ef6bc70e21e32d8bf60d746d6060d23369"
+  },
+  {
+    "source_key": "t2_arts_funding",
+    "publish": false,
+    "review": {
+      "status": "approved",
+      "by": "doi-thuc-hien",
+      "at": "2026-11-18",
+      "note": "G06-T19: đủ ba bài, dàn ý, bảng từ; nhật ký khác biệt khớp nguyên văn; band ước tính đúng nhãn; số từ đạt tối thiểu; không trùng đề bộ khác. 'ca tru' là tên riêng (ca trù), không phải lỗi chính tả."
+    },
+    "content_hash": "e912a6056781fe699a8c2fa5f29f560a4db458313c4dc91b9a95dcd64be360a9"
+  },
+  {
+    "source_key": "t2_competitiveness",
+    "publish": false,
+    "review": {
+      "status": "approved",
+      "by": "doi-thuc-hien",
+      "at": "2026-11-18",
+      "note": "G06-T19: đủ ba bài, dàn ý, bảng từ; nhật ký khác biệt khớp nguyên văn; band ước tính đúng nhãn; số từ đạt tối thiểu; không trùng đề bộ khác."
+    },
+    "content_hash": "26af66f4f8b50df64a934251887e7ef6f27e6104ee7fb9255725c4140c6c01ed"
+  },
+  {
+    "source_key": "t2_digital_transactions",
+    "publish": false,
+    "review": {
+      "status": "approved",
+      "by": "doi-thuc-hien",
+      "at": "2026-11-18",
+      "note": "G06-T19: đủ ba bài, dàn ý, bảng từ; nhật ký khác biệt khớp nguyên văn; band ước tính đúng nhãn; số từ đạt tối thiểu; không trùng đề bộ khác."
+    },
+    "content_hash": "e987b8983251e07dc7fee5a1f2e96ca4ff6d5c1112e1bd9848a86f2f1e823550"
+  },
+  {
+    "source_key": "t2_family_closeness",
+    "publish": false,
+    "review": {
+      "status": "approved",
+      "by": "doi-thuc-hien",
+      "at": "2026-11-18",
+      "note": "G06-T19: đủ ba bài, dàn ý, bảng từ; nhật ký khác biệt khớp nguyên văn; band ước tính đúng nhãn; số từ đạt tối thiểu; không trùng đề bộ khác."
+    },
+    "content_hash": "c025914a6bb590cba230db31917cbe8186314e4007924971a6b51a38df3e4f39"
+  },
+  {
+    "source_key": "t2_gap_year",
+    "publish": false,
+    "review": {
+      "status": "approved",
+      "by": "doi-thuc-hien",
+      "at": "2026-11-18",
+      "note": "G06-T19: đủ ba bài, dàn ý, bảng từ; nhật ký khác biệt khớp nguyên văn; band ước tính đúng nhãn; số từ đạt tối thiểu; không trùng đề bộ khác."
+    },
+    "content_hash": "5339a53e410633e144feec58a5080cefcb961615c948821b34eeb8c802a17592"
+  },
+  {
+    "source_key": "t2_knowledge_online",
+    "publish": false,
+    "review": {
+      "status": "approved",
+      "by": "doi-thuc-hien",
+      "at": "2026-11-18",
+      "note": "G06-T19: đủ ba bài, dàn ý, bảng từ; nhật ký khác biệt khớp nguyên văn; band ước tính đúng nhãn; số từ đạt tối thiểu; không trùng đề bộ khác."
+    },
+    "content_hash": "0e99c330080302ce4440a956de5426675058b08c891e7ff3714a6bd1cccacba4"
+  },
+  {
+    "source_key": "t2_living_alone",
+    "publish": false,
+    "review": {
+      "status": "approved",
+      "by": "doi-thuc-hien",
+      "at": "2026-11-18",
+      "note": "G06-T19: đủ ba bài, dàn ý, bảng từ; nhật ký khác biệt khớp nguyên văn; band ước tính đúng nhãn; số từ đạt tối thiểu; không trùng đề bộ khác."
+    },
+    "content_hash": "d08f999d1c689b79b83b6be8b6836838da9245227629c601dae98b6acb1ff53c"
+  },
+  {
+    "source_key": "t2_mars_research",
+    "publish": false,
+    "review": {
+      "status": "approved",
+      "by": "doi-thuc-hien",
+      "at": "2026-11-18",
+      "note": "G06-T19: đủ ba bài, dàn ý, bảng từ; nhật ký khác biệt khớp nguyên văn; band ước tính đúng nhãn; số từ đạt tối thiểu; không trùng đề bộ khác."
+    },
+    "content_hash": "466c74b46a2881b206e9cc38086cdbee402393e5b08fd590c3dc413de04768f0"
+  },
+  {
+    "source_key": "t2_rural_urban_migration",
+    "publish": false,
+    "review": {
+      "status": "approved",
+      "by": "doi-thuc-hien",
+      "at": "2026-11-18",
+      "note": "G06-T19: đủ ba bài, dàn ý, bảng từ; nhật ký khác biệt khớp nguyên văn; band ước tính đúng nhãn; số từ đạt tối thiểu; không trùng đề bộ khác."
+    },
+    "content_hash": "b49452fe1e371ca9163c1c04f16d7c39560393f46eca5fd84ffd6e6c12cd05a4"
+  },
+  {
+    "source_key": "t2_student_evaluation",
+    "publish": false,
+    "review": {
+      "status": "approved",
+      "by": "doi-thuc-hien",
+      "at": "2026-11-18",
+      "note": "G06-T19: đủ ba bài, dàn ý, bảng từ; nhật ký khác biệt khớp nguyên văn; band ước tính đúng nhãn; số từ đạt tối thiểu; không trùng đề bộ khác."
+    },
+    "content_hash": "e45d58ca4933766981ef2b3b93bf8cdde08477784fb1e446df3fed5658ee890c"
+  },
+  {
+    "source_key": "task1_bricks",
+    "publish": false,
+    "review": {
+      "status": "approved",
+      "by": "doi-thuc-hien",
+      "at": "2026-11-18",
+      "note": "G06-T19: đủ ba bài, dàn ý, bảng từ; nhật ký khác biệt khớp nguyên văn; band ước tính đúng nhãn; số từ đạt tối thiểu; không trùng đề bộ khác. Hình tự dựng từ trường data của bộ (scripts/library/draw_task1_figures.py); cặp LR 6.0->7.0 bổ sung bằng trích nguyên văn bài 6.0 và 7.0."
+    },
+    "content_hash": "8c22592bc4db4ff348a74fdc7f97d06a9ae149115f5a30892655068e2306d9b5",
+    "overrides": {
+      "image_path": "figures/task1_bricks.png",
+      "justification_jumps": {
+        "LR": [
+          {
+            "pair": "6.0->7.0",
+            "changes": [
+              {
+                "lower_form": "make it into bricks by a machine or a mould",
+                "higher_form": "the mixture is shaped into bricks, either by a wire cutter or by a mould",
+                "why_vi": "'make it into ... a machine' → 'is shaped into', gọi đúng 'wire cutter'.",
+                "type": "word_choice_safer"
+              },
+              {
+                "lower_form": "they put the brick in a kiln and make it very hot",
+                "higher_form": "the bricks are fired in a kiln",
+                "why_vi": "'make it very hot' → động từ đúng thuật ngữ 'are fired'.",
+                "type": "collocation_downgrade"
+              },
+              {
+                "lower_form": "the brick is move to another room to make it cool",
+                "higher_form": "they are moved to a cooling chamber and left to cool",
+                "why_vi": "'another room' → gọi đúng 'a cooling chamber'.",
+                "type": "word_choice_safer"
+              },
+              {
+                "lower_form": "bring it to the customer by truck",
+                "higher_form": "put on lorries for delivery to the customers",
+                "why_vi": "'bring it ... by truck' → cụm 'for delivery'.",
+                "type": "collocation_downgrade"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_key": "task1_internet",
+    "publish": false,
+    "review": {
+      "status": "approved",
+      "by": "doi-thuc-hien",
+      "at": "2026-11-18",
+      "note": "G06-T19: đủ ba bài, dàn ý, bảng từ; nhật ký khác biệt khớp nguyên văn; band ước tính đúng nhãn; số từ đạt tối thiểu; không trùng đề bộ khác. Hình tự dựng từ trường data của bộ (scripts/library/draw_task1_figures.py); cặp LR 6.0->7.0 bổ sung bằng trích nguyên văn bài 6.0 và 7.0. Ghi chú: trường word_count của bài 7.5 và 7.0 ghi 170/152, đếm lại là 172/154 (không hiện trên web)."
+    },
+    "content_hash": "da6063302395413f3be6b3c1ad49c99ffb681545090d9cc2754ee80d339416b5",
+    "overrides": {
+      "image_path": "figures/task1_internet.png",
+      "justification_jumps": {
+        "LR": [
+          {
+            "pair": "6.0->7.0",
+            "changes": [
+              {
+                "lower_form": "In 2000, the UK was 20% and Germany was 18%",
+                "higher_form": "In 2000, the UK and Germany started at similar levels, at 20% and 18% of households",
+                "why_vi": "'the UK was 20%' → mô tả mức xuất phát 'started at similar levels'.",
+                "type": "trend_language_downgrade"
+              },
+              {
+                "lower_form": "Then in 2010 it go up to 55%",
+                "higher_form": "this rose to 55% in 2010",
+                "why_vi": "Câu về France (55% năm 2010): 'go up' → động từ xu hướng 'rose'.",
+                "type": "trend_language_downgrade"
+              },
+              {
+                "lower_form": "So both countries increased very much",
+                "higher_form": "both increased quickly over the next ten years",
+                "why_vi": "'increased very much' → 'increased quickly over the next ten years', có mốc thời gian.",
+                "type": "trend_language_downgrade"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_key": "task1_island",
+    "publish": false,
+    "review": {
+      "status": "approved",
+      "by": "doi-thuc-hien",
+      "at": "2026-11-18",
+      "note": "G06-T19: đủ ba bài, dàn ý, bảng từ; nhật ký khác biệt khớp nguyên văn; band ước tính đúng nhãn; số từ đạt tối thiểu; không trùng đề bộ khác. Hình tự dựng từ trường data của bộ (scripts/library/draw_task1_figures.py); cặp LR 6.0->7.0 bổ sung bằng trích nguyên văn bài 6.0 và 7.0. Một câu trong bảng từ bài 7.5 dùng dấu '...' rút gọn trích dẫn."
+    },
+    "content_hash": "b3ab3969fde3c4f8c38409c6faba7b308964aefe00d5e980433ba538359ddf46",
+    "overrides": {
+      "image_path": "figures/task1_island.png",
+      "justification_jumps": {
+        "LR": [
+          {
+            "pair": "6.0->7.0",
+            "changes": [
+              {
+                "lower_form": "some house for tourists to stay",
+                "higher_form": "two groups of huts for accommodation",
+                "why_vi": "'some house for tourists to stay' → đúng nhãn bản đồ 'huts for accommodation'.",
+                "type": "word_choice_safer"
+              },
+              {
+                "lower_form": "They also built a road to connect these buildings",
+                "higher_form": "a vehicle track was built to connect it to a restaurant",
+                "why_vi": "'a road' → đúng nhãn 'a vehicle track'.",
+                "type": "word_choice_safer"
+              },
+              {
+                "lower_form": "there is a place for people to swim",
+                "higher_form": "an area of the sea was used for swimming by the visitors",
+                "why_vi": "'a place for people to swim' → 'an area of the sea ... for swimming'.",
+                "type": "collocation_downgrade"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_key": "tech",
+    "publish": false,
+    "review": {
+      "status": "approved",
+      "by": "doi-thuc-hien",
+      "at": "2026-11-18",
+      "note": "G06-T19: đủ ba bài, dàn ý, bảng từ; nhật ký khác biệt khớp nguyên văn; band ước tính đúng nhãn; số từ đạt tối thiểu; không trùng đề bộ khác. Ghi chú: bài 6.0 có 'by themself' (lỗi cố ý mức 6.0, nhật ký không ghi); đề gần chủ đề với t2_technology_independent_thinking_active_use nhưng khác phạm vi (giáo dục) nên không trùng."
+    },
+    "content_hash": "ebcdb85257557e55b251456702155379f70fc4769391123ac31c4194839c0ae0"
+  },
+  {
+    "source_key": "traffic",
+    "publish": false,
+    "review": {
+      "status": "approved",
+      "by": "doi-thuc-hien",
+      "at": "2026-11-18",
+      "note": "G06-T19: đủ ba bài, dàn ý, bảng từ; nhật ký khác biệt khớp nguyên văn; band ước tính đúng nhãn; số từ đạt tối thiểu; không trùng đề bộ khác."
+    },
+    "content_hash": "047c3dd5703f80a33d69e3d925d2afa6eea4b329d87fbdb9a9f65141be21f2ec"
+  },
+  {
+    "source_key": "twopart",
+    "publish": false,
+    "review": {
+      "status": "approved",
+      "by": "doi-thuc-hien",
+      "at": "2026-11-18",
+      "note": "G06-T19: đủ ba bài, dàn ý, bảng từ; nhật ký khác biệt khớp nguyên văn; band ước tính đúng nhãn; số từ đạt tối thiểu; không trùng đề bộ khác."
+    },
+    "content_hash": "ea891a5f8ac8ee612b3a7e393dd3147408f854a819333815e907680b60dd538b"
+  }
+]

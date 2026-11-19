@@ -50,6 +50,14 @@
 .trf-ring span { display: block; font-size: 10px; text-transform: uppercase;
   letter-spacing: var(--av-tracking-wide); color: var(--av-text-faint);
   font-weight: var(--av-fw-semibold); margin-top: 4px; }
+/* G02-T05: no Overall until enough skills are banded — text, never a number. */
+.trf-overall-none { width: 168px; min-height: 168px; border-radius: var(--av-radius-lg);
+  border: 1px dashed var(--av-border-subtle); display: grid; align-content: center;
+  gap: var(--av-space-2); padding: var(--av-space-3); text-align: center;
+  background: var(--av-surface-card); }
+.trf-overall-none b { font-size: var(--av-fs-sm); font-weight: var(--av-fw-bold);
+  color: var(--av-text-primary); }
+.trf-overall-none span { font-size: var(--av-fs-xs); color: var(--av-text-faint); }
 .trf-skills { display: grid; gap: var(--av-space-3); }
 .trf-sk { display: grid; grid-template-columns: 92px 1fr 48px;
   gap: var(--av-space-3); align-items: center; }

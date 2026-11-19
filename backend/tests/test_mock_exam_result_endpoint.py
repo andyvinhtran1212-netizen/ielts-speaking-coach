@@ -375,3 +375,22 @@ def test_self_check_mode_precedes_blank_below_table_and_stale_band(answered):
 def test_short_scored_paper_is_not_below_band_table_even_with_a_historical_band():
     st = _lr(l_id="la-1", row={"score": 12, "band_estimate": 4.0, "grading_details": _q(12, total=12)})
     assert st["state"] == "no_band" and st["max"] == 12
+
+
+def test_result_reports_overall_readiness():
+    """G02-T05 (FR-02-004): the TRF gets how many skills are banded and how many
+    an Overall needs, so a 1-skill result never draws a ring with a number."""
+    sitting = {"id": _SITTING_ID, "user_id": _USER["id"], "status": "released"}
+    review = {"final_bands": {"writing": 9.0, "overall": 9.0}}
+    with patch("routers.mock_exams.get_supabase_user", new=AsyncMock(return_value=_USER)), \
+         patch("routers.mock_exams.svc.get_sitting", return_value=sitting), \
+         patch("routers.mock_exams.svc.lr_skill_states", return_value=[]), \
+         patch("routers.mock_exams.review_wf.get_review_for_sitting", return_value=review), \
+         patch("routers.mock_exams.essay_service.delivered_essay_ids", return_value=set()):
+        r = _client().get(
+            "/api/mock-exams/sittings/" + _SITTING_ID + "/result", headers=_AUTH,
+        )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["final_bands"] == {"writing": 9.0, "overall": 9.0}
+    assert (body["banded_skill_count"], body["overall_min_skills"]) == (1, 4)
