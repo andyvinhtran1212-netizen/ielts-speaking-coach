@@ -588,6 +588,26 @@ def test_state_reports_whether_rewriting_is_open():
     assert _state(_graded(revision=None))["sentence_lab"]["revision_open"] is False
 
 
+def test_archived_class_counts_as_a_closed_rewrite_window():
+    """Codex #2371: the archived-class gate raises 409 cohort_archived, not 404.
+    It must close the rewrite window, not break the results read."""
+    from services.class_archive_service import cohort_archived_error
+
+    def archived(*_a, **_k):
+        raise cohort_archived_error(learner=True)
+
+    with patch.object(qs, "_bank_meta_or_404", archived):
+        assert qs._lab_assignment_open("b1", "u1", {"id": ITEM}) is False
+
+    def other_conflict(*_a, **_k):
+        raise HTTPException(409, "Bài này cần mở bằng trình học khác")
+
+    with patch.object(qs, "_bank_meta_or_404", other_conflict):
+        with pytest.raises(HTTPException) as e:
+            qs._lab_assignment_open("b1", "u1", {"id": ITEM})
+    assert e.value.status_code == 409
+
+
 def test_course1_regrade_skips_sentence_lab_rows():
     rows = [{"id": "r1", "user_id": "u", "items": [
         {"qid": "S01-Q01", "answer": "a", "ok": None, "mode": "coach"}]}]

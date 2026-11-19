@@ -32,7 +32,9 @@ from services.class_assignment_service import (
     _at,
     mark_item_submitted,
 )
-from services.class_archive_service import cohort_archived_error, is_cohort_archived
+from services.class_archive_service import (
+    COHORT_ARCHIVED_CODE, cohort_archived_error, is_cohort_archived,
+)
 from services.class_membership_service import active_cohort_ids_for_student
 
 from database import supabase_admin
@@ -4133,7 +4135,12 @@ def _lab_assignment_open(bank_id: str, user_id: str, item: dict) -> bool:
         live = _assignment_item_for(bank_id, user_id,
                                     assignment_item_id=item.get("id"))
     except HTTPException as exc:
-        if exc.status_code == 404:
+        # Lớp đã lưu trữ: cổng trả 409 `cohort_archived` (không phải 404). Đó
+        # cũng là "bài giao đã đóng" — học viên vẫn xem kết quả và chốt được.
+        detail = exc.detail if isinstance(exc.detail, dict) else {}
+        if exc.status_code == 404 or (
+                exc.status_code == 409
+                and detail.get("code") == COHORT_ARCHIVED_CODE):
             return False
         raise
     return bool(live) and live.get("id") == item.get("id")
