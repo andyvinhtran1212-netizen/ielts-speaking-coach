@@ -10662,6 +10662,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/quiz/course/writing/revise": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revise Course Writing
+         * @description Kho viết câu Course 5: gửi lượt TỰ VIẾT LẠI (tối đa 6 câu, một lần).
+         *
+         *     Không đổi điểm của lượt nộp; chấm chế độ review và mở đáp án tham khảo.
+         */
+        post: operations["revise_course_writing_api_quiz_course_writing_revise_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/quiz/course/writing/draft": {
         parameters: {
             query?: never;
@@ -42311,6 +42333,41 @@ export interface operations {
         };
     };
     submit_course_writing_api_quiz_course_writing_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseWritingBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revise_course_writing_api_quiz_course_writing_revise_post: {
         parameters: {
             query?: never;
             header?: {
