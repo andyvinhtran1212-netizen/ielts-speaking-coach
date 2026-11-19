@@ -1224,7 +1224,7 @@
     "source_key": "t2_armed_forces_role_standards",
     "title_en": "Should women serve in the armed forces on equal terms?",
     "slug": "should-women-serve-in-the-armed-forces-on-equal-terms",
-    "topic_slug": "government-law",
+    "topic_slug": "work",
     "topic_confidence": "vừa",
     "publish": false,
     "review": {
@@ -5502,7 +5502,7 @@
     "source_key": "t2_richer_nations_development_support",
     "title_en": "Rich nations helping poorer countries develop",
     "slug": "rich-nations-helping-poorer-countries-develop",
-    "topic_slug": "economy-consumers",
+    "topic_slug": "government-law",
     "topic_confidence": "vừa",
     "publish": false,
     "review": {
@@ -7618,7 +7618,7 @@
     "source_key": "task1_bricks",
     "title_en": "How bricks are manufactured",
     "slug": "how-bricks-are-manufactured",
-    "topic_slug": "technology",
+    "topic_slug": "science",
     "topic_confidence": "vừa",
     "publish": false,
     "review": {
