@@ -116,13 +116,19 @@ draft -> approved -> implementing -> verified -> shipped
 | WRITINGBAND-0050 | Saving reviewed Writing criteria keeps the total and feedback consistent | approved | high | [spec](0050-writing-band-save-consistency/spec.md) |
 | BLACKEYE-0052 | Black Eye Listening Unit 1 exercises are assigned to a class, reviewed after submission and stay locked until each gate passes | approved | high | [spec](0052-blackeye-u1/spec.md) |
 | SKILLDRILLS-0054 | Assign published Listening Skill Drills across courses | approved | high | [spec](0054-listening-skill-drill-homework/spec.md) |
+| COURSEACCESS-0055 | Learners get course access, one shared AI grading credit pool and bank-transfer enrollment orders confirmed by an admin, while existing access codes keep working | draft | critical | [spec](0055-course-access-credits-enrollment/spec.md) |
+| UIBASE-0056 | New pages share one Ban in design foundation of tokens, fonts, components and four page shells, while every existing page keeps its current look | draft | medium | [spec](0056-ui-foundation/spec.md) |
 | TESTPOLICY-0057 | New tests check behaviour instead of source text, and an advisory visual baseline shows every intended or accidental change to key screens | draft | medium | [spec](0057-test-policy-visual-baseline/spec.md) |
 | MIGNUM-0058 | Each work package takes migration numbers only from its own block, and the migration register test rejects a number outside or in another package's block | draft | high | [spec](0058-migration-number-blocks/spec.md) |
+| ADMINIA-0074 | Admins and the class teacher run daily work from one admin frame with eight sidebar groups, a unified learner directory and profile, and canonical queues | draft | high | [spec](0074-admin-ia/spec.md) |
+| PHONEGATE-0081 | Full tests open only on screens at least the configured width, while mini tests, practice and course tests stay available on phones | draft | medium | [spec](0081-full-test-phone-gate/spec.md) |
+| COURSETESTRELEASE-0082 | Course test results stay sealed on every learner read path until a teacher releases them at a chosen level, unless the test returns results on submit | draft | critical | [spec](0082-course-test-result-release/spec.md) |
+| BRANDMARK-0083 | The An ky mark is the one logo, favicon, app icon and link preview image of the site, generated from a single geometry source | draft | medium | [spec](0083-brand-mark-an-ky/spec.md) |
+| GRAMMARFIG-0084 | Grammar Wiki articles show numbered, accessible sentence diagrams written as semantic figure blocks, and a malformed block never hides the article | draft | medium | [spec](0084-grammar-wiki-figures/spec.md) |
+| SENTLAB-0101 | Course 5 learners practise 45 sentence-writing sessions with AI coaching that never reveals the answer before they rewrite | approved | high | [spec](0101-course5-sentence-lab/spec.md) |
 
 Progress and remaining acceptance are reconciled in [the implementation status ledger](IMPLEMENTATION_STATUS.md). A deployed application does not by itself close a feature acceptance gate.
 
 Spec numbers 0006, 0007 and 0022 are each used by two features; the ID, not the
 number, is unique. 0049 is reserved by open PR #2254 (ADMINSIMPLE-0049) and 0051
-by open PR #2274 (AUDIODEPR-0051); 0055 (COURSEACCESS) and 0056 (UIBASE) are
-assigned in `docs/proposals/commercialization-2026-11/01-KE-HOACH-TONG.md`
-section 6; 0053 is unused.
+by open PR #2274 (AUDIODEPR-0051); 0053 is unused.
