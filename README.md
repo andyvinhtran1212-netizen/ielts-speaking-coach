@@ -41,6 +41,23 @@ does not prove that a release is pending or complete.
 - `backend/scripts/agent-config/` — versioned project skills and local config templates.
   Install them explicitly to the ignored agent paths; existing files are backed up.
 
+## Where things live
+
+- `scripts/` — repository operations only: `backup/`, `hooks/`, `ci/`,
+  `e2e-staging/`.
+- `backend/scripts/` — application and content tooling (imports, audits,
+  migrations helper, agent config). New product or content scripts go here, not
+  in `scripts/`.
+- Content has five homes:
+  - `backend/content/<category>/` — Grammar Wiki articles; the directory name is
+    the article category.
+  - `backend/content/reading-practice/` — Reading practice packages.
+  - `backend/content/advanced_vocab/` with media under
+    `frontend/public/assets/advanced-vocab/` — Advanced Vocabulary.
+  - `docs/grammar-quiz-banks/` — import sources for Grammar quiz banks, not
+    documentation.
+  - `backend/data/` — reference data read by backend services.
+
 ## Local setup
 
 Use **Node.js 24+** (`frontend/package.json`). Backend CI uses **Python 3.11**;
@@ -95,14 +112,12 @@ production-origin guard. `AVER_ENVIRONMENT=test` admits the local API origin
 in the development CSP. The generator receives shell variables; it does not
 load `.env.local` itself. Use the same Supabase project as the backend. `predev`
 copies vendor bundles but does not regenerate runtime config. After local use,
-restore the committed unconfigured default before committing:
+restore the committed unconfigured default before committing. The command
+reruns the generator with every runtime-config variable unset (macOS/Linux
+`env -u`):
 
 ```bash
-env -u VERCEL_ENV -u VERCEL_GIT_COMMIT_SHA -u VERCEL_GIT_COMMIT_REF \
-  -u AVER_ENVIRONMENT -u AVER_API_BASE -u AVER_SUPABASE_URL \
-  -u AVER_SUPABASE_ANON_KEY -u AVER_CORE_OPERATION_CORRELATION_ENABLED \
-  -u AVER_WRITING_ADMISSION_ENABLED -u AVER_RUNTIME_CONFIG_OUT \
-  node tooling/generate-runtime-config.mjs
+npm --prefix frontend run config:reset
 ```
 
 Database setup depends on the target's schema and migration ledger. Follow the

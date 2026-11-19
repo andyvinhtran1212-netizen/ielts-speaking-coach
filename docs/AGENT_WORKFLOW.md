@@ -185,7 +185,8 @@ preset, local API and test environment; the generator rejects known production
 origins. Set both `AVER_SUPABASE_URL` and `AVER_SUPABASE_ANON_KEY` in the launch
 environment to use another non-production project, and match the backend to it.
 Partial pairs fail before startup; AVER_RUNTIME_CONFIG_OUT is cleared so the
-launcher always updates the served runtime file.
+launcher always updates the served runtime file. Before committing, restore
+the committed unconfigured default with `npm --prefix frontend run config:reset`.
 Environment files, caches and generated knowledge graphs remain outside version
 control.
 
