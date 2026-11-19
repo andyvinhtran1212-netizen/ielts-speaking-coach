@@ -303,7 +303,7 @@ async function renderMockTiles(api: any, cancelled: () => boolean) {
         + encodeURIComponent(s.sitting_id) + '">'
       + '<span class="mock-result-tile__band">' + (mockOverallReady(s) ? fmtBand(s.overall) : '—') + '</span>'
       + '<span class="mock-result-tile__body">'
-      + '<span class="mock-result-tile__title">Kết quả: ' + esc(s.code || 'Thi thử') + '</span>'
+      + '<span class="mock-result-tile__title">Kết quả: ' + esc(s.title || 'Bài thi thử') + '</span>'
       + '<span class="mock-result-tile__hint">'
       + (mockOverallReady(s) ? 'Xem điểm 4 kỹ năng + chữa bài →' : 'Chưa có Overall · xem điểm từng kỹ năng →')
       + '</span>'
