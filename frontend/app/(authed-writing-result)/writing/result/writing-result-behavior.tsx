@@ -19,6 +19,7 @@ import {
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 import { WritingTopFixes } from './writing-top-fixes';
+import { leaveForParent } from '@/lib/redirect-notice-model.mjs';
 
 type ResultView =
   | { kind: 'loading' }
@@ -106,8 +107,8 @@ function PendingState({ essay }: { essay: any }) {
       <div id="not-delivered-icon" className="icon" aria-hidden="true">{instructor ? '👤' : '⏳'}</div>
       <h2 id="not-delivered-title">{instructor ? 'Giảng viên đang review bài' : 'Bài đang được duyệt'}</h2>
       <p id="not-delivered-body">{instructor
-        ? 'Bài của em đang được giảng viên review trực tiếp. Thời gian thường ~24–48 giờ. Em sẽ thấy feedback đầy đủ và tin nhắn từ giảng viên ngay tại đây khi xong.'
-        : 'Giảng viên đang xem lại feedback. Em sẽ thấy kết quả khi bài được duyệt xong.'}</p>
+        ? 'Bài của bạn đang được giảng viên review trực tiếp. Thời gian thường ~24–48 giờ. Bạn sẽ thấy feedback đầy đủ và tin nhắn từ giảng viên ngay tại đây khi xong.'
+        : 'Giảng viên đang xem lại feedback. Bạn sẽ thấy kết quả khi bài được duyệt xong.'}</p>
       {instructor ? <p id="not-delivered-meta" className="not-delivered-meta">Đã nộp: {formatWritingDate(essay?.created_at)}</p> : null}
       <BackLink />
     </div>
@@ -357,7 +358,7 @@ function WritingResultReady({ view, essayId }: { view: Extract<ResultView, { kin
           <WritingTopFixes feedbackJson={fj} mistakesTabLabel={TABS.find((item) => item.key === 'loi')!.label} />
           <div className="review-workspace">
             <div className="feedback-column">
-              <div className="feedback-column__heading"><div><span>Phản hồi học tập</span><h2>Nhận xét dành cho em</h2></div><p>Bắt đầu ở “Ưu tiên”, sau đó chuyển tới lỗi cần sửa.</p></div>
+              <div className="feedback-column__heading"><div><span>Phản hồi học tập</span><h2>Nhận xét dành cho bạn</h2></div><p>Bắt đầu ở “Ưu tiên”, sau đó chuyển tới lỗi cần sửa.</p></div>
               <nav className="result-tabs" role="tablist" aria-label="Các phần nhận xét Writing">
                 {TABS.filter((item) => item.key !== 'note' || hasInstructorNote).map((item) => (
                   <button
@@ -386,7 +387,7 @@ function WritingResultReady({ view, essayId }: { view: Extract<ResultView, { kin
             </div>
             <aside className="essay-column" aria-label="Bài viết đã nộp">
               <section className="essay-section">
-                <header className="section-header"><div><span className="essay-section__eyebrow">Đối chiếu bài làm</span><h2>📄 Bài viết của em</h2></div><span id="word-count" className="word-count">{countWritingWords(essay.essay_text)} từ</span></header>
+                <header className="section-header"><div><span className="essay-section__eyebrow">Đối chiếu bài làm</span><h2>📄 Bài viết của bạn</h2></div><span id="word-count" className="word-count">{countWritingWords(essay.essay_text)} từ</span></header>
                 <p className="essay-section__hint">Các đoạn gạch chân là vị trí có nhận xét. Chọn vào đoạn để xem cách sửa.</p>
                 <div id="prompt-box" className="prompt-box" />
                 {essay.task_type === 'task1_academic' && essay.prompt_image_url ? <img id="prompt-image" className="prompt-chart-img" role="button" tabIndex={0} src={essay.prompt_image_url} alt="Hình đề Task 1 của bài viết" onClick={openPromptImage} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openPromptImage(); } }} /> : null}{essay.task_type === 'task1_academic' && !essay.prompt_image_url && essay.prompt_image_lookup_failed ? <p className="prompt-chart-failed" role="status">⚠ Không tải được hình đề Task 1. Tải lại trang để thử lại.</p> : null}
@@ -398,7 +399,7 @@ function WritingResultReady({ view, essayId }: { view: Extract<ResultView, { kin
         {tips.length ? <section id="tips-reco" className="tips-reco"><header className="section-header"><h2>💡 Mẹo viết liên quan</h2></header><div id="tips-reco-list" className="tips-reco__list">{tips.map((tip) => <button type="button" className="tips-reco__card" data-tip-id={tip.id} key={tip.id} onClick={() => setSelectedTip(tip)}><span className="tips-reco__card-title">{tip.title || '(Mẹo viết)'}</span><span className="tips-reco__card-preview">{writingTipPreview(tip.body_markdown)}</span></button>)}</div></section> : null}
       </div>
 
-      {regradeModal ? <div id="regrade-modal" className="wr-modal" role="dialog" aria-modal="true" aria-labelledby="regrade-modal-title"><div id="regrade-modal-backdrop" className="wr-modal__backdrop" onClick={() => { if (!regradeSending) setRegradeModal(false); }} /><div ref={regradeDialogRef} className="wr-modal__panel" tabIndex={-1}><h2 id="regrade-modal-title" className="wr-modal__title">Yêu cầu chấm lại</h2><p className="wr-modal__hint">Có gì chưa hài lòng với bài chấm? Em nêu rõ lý do để giảng viên xem lại (50–500 ký tự).</p><p className="wr-modal__hint">Giảng viên sẽ xem lại yêu cầu — có thể chấm lại bằng AI hoặc chấm tay, thường trong vài ngày. Sau khi chấm lại, band có thể <strong>tăng, giữ nguyên, hoặc giảm</strong>.</p><textarea ref={regradeReasonRef} id="regrade-reason" className="wr-modal__textarea" rows={5} maxLength={500} placeholder="VD: Em nghĩ phần Task Response chưa được đánh giá đúng vì…" value={reason} onChange={(event) => setReason(event.target.value)} /><div className="wr-modal__meta"><span id="regrade-count">{reason.length}</span> / 500 · tối thiểu 50</div>{regradeError ? <div id="regrade-error" className="wr-modal__error">{regradeError}</div> : null}<div className="wr-modal__actions"><button id="regrade-cancel" type="button" className="btn-icon" disabled={regradeSending} onClick={() => setRegradeModal(false)}>Hủy</button><button id="regrade-submit" type="button" className="btn-icon btn-icon--primary" disabled={reason.trim().length < 50 || regradeSending} onClick={submitRegrade}>Gửi yêu cầu</button></div></div></div> : null}
+      {regradeModal ? <div id="regrade-modal" className="wr-modal" role="dialog" aria-modal="true" aria-labelledby="regrade-modal-title"><div id="regrade-modal-backdrop" className="wr-modal__backdrop" onClick={() => { if (!regradeSending) setRegradeModal(false); }} /><div ref={regradeDialogRef} className="wr-modal__panel" tabIndex={-1}><h2 id="regrade-modal-title" className="wr-modal__title">Yêu cầu chấm lại</h2><p className="wr-modal__hint">Có gì chưa hài lòng với bài chấm? Bạn nêu rõ lý do để giảng viên xem lại (50–500 ký tự).</p><p className="wr-modal__hint">Giảng viên sẽ xem lại yêu cầu — có thể chấm lại bằng AI hoặc chấm tay, thường trong vài ngày. Sau khi chấm lại, band có thể <strong>tăng, giữ nguyên, hoặc giảm</strong>.</p><textarea ref={regradeReasonRef} id="regrade-reason" className="wr-modal__textarea" rows={5} maxLength={500} placeholder="VD: Tôi nghĩ phần Task Response chưa được đánh giá đúng vì…" value={reason} onChange={(event) => setReason(event.target.value)} /><div className="wr-modal__meta"><span id="regrade-count">{reason.length}</span> / 500 · tối thiểu 50</div>{regradeError ? <div id="regrade-error" className="wr-modal__error">{regradeError}</div> : null}<div className="wr-modal__actions"><button id="regrade-cancel" type="button" className="btn-icon" disabled={regradeSending} onClick={() => setRegradeModal(false)}>Hủy</button><button id="regrade-submit" type="button" className="btn-icon btn-icon--primary" disabled={reason.trim().length < 50 || regradeSending} onClick={submitRegrade}>Gửi yêu cầu</button></div></div></div> : null}
       {selectedTip ? <div id="tip-reco-modal" className="wr-modal" role="dialog" aria-modal="true" aria-labelledby="tip-reco-title"><div id="tip-reco-backdrop" className="wr-modal__backdrop" onClick={() => setSelectedTip(null)} /><div ref={tipDialogRef} className="wr-modal__panel wr-modal__panel--wide" tabIndex={-1}><button ref={tipCloseRef} id="tip-reco-close" type="button" className="wr-modal__close" aria-label="Đóng" onClick={() => setSelectedTip(null)}>✕</button><h2 id="tip-reco-title" className="wr-modal__title">{selectedTip.title || ''}</h2><div id="tip-reco-body" className="md-body" dangerouslySetInnerHTML={{ __html: renderMarkdown(selectedTip.body_markdown || '') }} /></div></div> : null}
     </>
   );
@@ -426,10 +427,8 @@ export function WritingResultBehavior() {
     // replacement request after the first setup has been cleaned up.
     setResultState({ key: requestKey, value: { kind: 'loading' } });
     if (!essayId) {
-      setResultState({
-        key: requestKey,
-        value: { kind: 'error', message: 'Thiếu mã bài viết trong URL.' },
-      });
+      // G02-T11: a link without its essay goes back to the Writing dashboard.
+      leaveForParent('/writing/dashboard');
       return;
     }
     let dead = false;

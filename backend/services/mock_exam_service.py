@@ -38,6 +38,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
+from config import settings
 from database import supabase_admin
 from services.errors import clip_user_value
 from services.listening_test_grader import scored_question_count, score_mode, self_check_count
@@ -210,6 +211,27 @@ def list_open_exams(user_id: str) -> list[dict]:
     return out
 
 
+_BAND_SKILLS = ("listening", "reading", "writing", "speaking")
+
+
+def overall_readiness(final_bands: Optional[dict]) -> dict:
+    """G02-T05 (FR-02-004): whether a student surface may draw the Overall.
+
+    `banded_skill_count` counts the four skills that carry a final band;
+    `overall_min_skills` is MOCK_OVERALL_MIN_SKILLS, floored at 1 and capped at
+    4. Display-only — the stored `final_bands.overall` is left as it is."""
+    fb = final_bands or {}
+    banded = sum(1 for s in _BAND_SKILLS if fb.get(s) is not None)
+    try:
+        need = int(settings.MOCK_OVERALL_MIN_SKILLS)
+    except (TypeError, ValueError):
+        need = len(_BAND_SKILLS)
+    return {
+        "overall_min_skills": min(len(_BAND_SKILLS), max(1, need)),
+        "banded_skill_count": banded,
+    }
+
+
 def list_my_sittings(user_id: str) -> list[dict]:
     """The caller's own mock sittings — powers the student home: what to resume
     and which results are RELEASED. A released sitting carries its overall band +
@@ -249,6 +271,7 @@ def list_my_sittings(user_id: str) -> list[dict]:
             "released":     released,
             "overall":      fb.get("overall") if released else None,
             "released_at":  rvw.get("released_at"),
+            **overall_readiness(fb if released else None),
         })
     return out
 

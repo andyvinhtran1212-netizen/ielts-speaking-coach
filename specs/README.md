@@ -116,9 +116,13 @@ draft -> approved -> implementing -> verified -> shipped
 | WRITINGBAND-0050 | Saving reviewed Writing criteria keeps the total and feedback consistent | approved | high | [spec](0050-writing-band-save-consistency/spec.md) |
 | BLACKEYE-0052 | Black Eye Listening Unit 1 exercises are assigned to a class, reviewed after submission and stay locked until each gate passes | approved | high | [spec](0052-blackeye-u1/spec.md) |
 | SKILLDRILLS-0054 | Assign published Listening Skill Drills across courses | approved | high | [spec](0054-listening-skill-drill-homework/spec.md) |
+| TESTPOLICY-0057 | New tests check behaviour instead of source text, and an advisory visual baseline shows every intended or accidental change to key screens | draft | medium | [spec](0057-test-policy-visual-baseline/spec.md) |
+| MIGNUM-0058 | Each work package takes migration numbers only from its own block, and the migration register test rejects a number outside or in another package's block | draft | high | [spec](0058-migration-number-blocks/spec.md) |
 
 Progress and remaining acceptance are reconciled in [the implementation status ledger](IMPLEMENTATION_STATUS.md). A deployed application does not by itself close a feature acceptance gate.
 
 Spec numbers 0006, 0007 and 0022 are each used by two features; the ID, not the
 number, is unique. 0049 is reserved by open PR #2254 (ADMINSIMPLE-0049) and 0051
-by open PR #2274 (AUDIODEPR-0051); 0053 is unused.
+by open PR #2274 (AUDIODEPR-0051); 0055 (COURSEACCESS) and 0056 (UIBASE) are
+assigned in `docs/proposals/commercialization-2026-11/01-KE-HOACH-TONG.md`
+section 6; 0053 is unused.
