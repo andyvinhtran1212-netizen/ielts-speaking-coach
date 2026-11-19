@@ -118,3 +118,14 @@ export const METRIC_FORMATTERS = {
     };
   },
 };
+
+/**
+ * G02-T05 (FR-02-004): whether the Home mock-result tile may show an Overall.
+ * Only once the backend says enough of the four skills carry a band; a
+ * sitting payload without `banded_skill_count` (older backend) never shows one.
+ */
+export function mockOverallReady(s) {
+  if (!s || typeof s.banded_skill_count !== 'number') return false;
+  const need = typeof s.overall_min_skills === 'number' ? s.overall_min_skills : 4;
+  return s.banded_skill_count >= need && s.overall != null && s.overall !== '';
+}
