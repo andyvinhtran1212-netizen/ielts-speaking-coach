@@ -1345,6 +1345,38 @@ def _sitting_lr_skills(sitting: dict) -> set:
     return {s for s in ("listening", "reading") if s in configured}
 
 
+def sitting_skills(sitting: dict, final_bands: Optional[dict] = None) -> Optional[list]:
+    """The skills this sitting actually set the student, in TRF order.
+
+    Not the examiner's band form (_required_skills_for): that always carries
+    Writing for a sequential exam because the admin still opens a Writing step,
+    even when the exam has no Writing prompt to answer. Here a skill counts only
+    when there was something to take:
+      · assigned_skills set  → a retake: exactly the student's assigned skills
+      · otherwise            → Listening/Reading with a configured test, Writing
+                               with at least one prompt, Speaking with a topic set
+    plus any skill that carries a final band anyway (a live Speaking assessment).
+    None when the exam row is missing — the caller must not guess."""
+    fb = final_bands or {}
+    assigned = sitting.get("assigned_skills") or []
+    if assigned:
+        ran = set(assigned)
+    else:
+        exam = get_published_exam_by_id(sitting.get("mock_exam_id"))
+        if not exam:
+            return None
+        ran = set()
+        if exam.get("listening_test_id"):
+            ran.add("listening")
+        if exam.get("reading_test_id"):
+            ran.add("reading")
+        if exam.get("writing_task1_prompt_id") or exam.get("writing_task2_prompt_id"):
+            ran.add("writing")
+        if exam.get("speaking_topic_set"):
+            ran.add("speaking")
+    return [s for s in _BAND_SKILLS if s in ran or fb.get(s) is not None]
+
+
 def lr_skill_states(sitting: dict) -> list:
     """Why a Listening/Reading skill has no band — for the student's TRF.
 
