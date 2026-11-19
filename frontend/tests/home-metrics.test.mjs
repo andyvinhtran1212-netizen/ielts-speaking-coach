@@ -166,3 +166,16 @@ test('thứ tự kỹ năng và metadata trùng nhau', () => {
     assert.equal(next.SKILL_META[id].name, m[1], `${id}: tên kỹ năng lệch`);
   }
 });
+
+// G02-T05 (FR-02-004): the Home mock tile shows an Overall only with enough
+// banded skills. Next-only — the legacy tile script is not deployed.
+test('mockOverallReady — Overall only once enough skills are banded', () => {
+  const f = next.mockOverallReady;
+  assert.equal(f({ overall: 9, banded_skill_count: 1, overall_min_skills: 4 }), false);
+  assert.equal(f({ overall: 6.5, banded_skill_count: 4, overall_min_skills: 4 }), true);
+  assert.equal(f({ overall: 6.5, banded_skill_count: 3, overall_min_skills: 3 }), true);
+  assert.equal(f({ overall: null, banded_skill_count: 4, overall_min_skills: 4 }), false);
+  assert.equal(f({ overall: 6.5 }), false, 'a payload without the count never shows an Overall');
+  assert.equal(f({ overall: 6.5, banded_skill_count: 4 }), true, 'threshold defaults to four');
+  assert.equal(f(null), false);
+});

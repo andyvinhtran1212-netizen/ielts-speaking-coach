@@ -571,7 +571,7 @@ describe('Sprint 7.11 — <aver-chrome> Web Component contract', () => {
     // `class` is a primary learner destination even though it is not a skill.
     // Keeping it in this canonical contract lets My Class render a real active
     // state instead of silently falling back to Home.
-    assert.deepEqual(skills.sort(), ['class', 'grammar', 'home', 'listening', 'speaking', 'vocabulary', 'writing']);
+    assert.deepEqual(skills.sort(), ['class', 'grammar', 'home', 'listening', 'reading', 'speaking', 'vocabulary', 'writing']);
   });
 
   test('shadow tree contains canonical brand wordmark with span.dot', () => {

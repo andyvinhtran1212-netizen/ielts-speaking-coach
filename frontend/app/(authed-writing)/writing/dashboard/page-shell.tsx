@@ -87,7 +87,7 @@ export function WritingShell() {
             <div className="text-sm">
               <strong className="wd-preview-banner__title block mb-1">Chế độ xem trước</strong>
               <p className="wd-preview-banner__body">
-                Quyền Writing chưa được kích hoạt cho tài khoản này. Em vẫn có thể xem
+                Quyền Writing chưa được kích hoạt cho tài khoản này. Bạn vẫn có thể xem
                 các bài đã nộp trước đây — liên hệ giảng viên để được kích hoạt
                 tính năng nộp bài mới.
               </p>
@@ -135,8 +135,8 @@ export function WritingShell() {
             <div id="assignments-list" className="space-y-3" aria-busy="true"></div>
             <div id="assignments-empty" className="wd-empty hidden">
               <div className="wd-empty__icon" aria-hidden="true">📋</div>
-              <p className="wd-empty__title">Em chưa có bài giao nào</p>
-              <p className="wd-empty__hint">Khi giảng viên giao đề, em sẽ thấy ở đây.</p>
+              <p className="wd-empty__title">Bạn chưa có bài giao nào</p>
+              <p className="wd-empty__hint">Khi giảng viên giao đề, bạn sẽ thấy ở đây.</p>
             </div>
           </section>
 
@@ -165,8 +165,8 @@ export function WritingShell() {
             <div id="essays-list" className="space-y-3"><p className="text-sm py-8 text-center" style={{color:'var(--av-text-muted)'}}>Đang tải…</p></div>
             <div id="empty-state" className="wd-empty hidden">
               <div className="wd-empty__icon" aria-hidden="true">📝</div>
-              <p className="wd-empty__title">Em chưa có bài viết nào</p>
-              <p className="wd-empty__hint">Hãy nộp bài đầu tiên qua thẻ "Bài giao" hoặc qua giảng viên của em.</p>
+              <p className="wd-empty__title">Bạn chưa có bài viết nào</p>
+              <p className="wd-empty__hint">Hãy nộp bài đầu tiên qua thẻ "Bài giao" hoặc qua giảng viên của bạn.</p>
             </div>
             <div id="filter-empty-state" className="wd-empty wd-empty--compact hidden">
               <p className="wd-empty__hint">Không có bài nào trong nhóm này.</p>
@@ -214,7 +214,7 @@ export function WritingShell() {
             <div id="tips-empty" className="wd-empty hidden">
               <div className="wd-empty__icon" aria-hidden="true">💡</div>
               <p className="wd-empty__title">Chưa có mẹo nào</p>
-              <p className="wd-empty__hint">Giảng viên sẽ đăng mẹo viết sớm — em quay lại sau nhé.</p>
+              <p className="wd-empty__hint">Giảng viên sẽ đăng mẹo viết sớm — bạn quay lại sau nhé.</p>
             </div>
             <div id="tips-error" className="wd-empty wd-empty--compact hidden" role="alert">
               <p className="wd-empty__hint" id="tips-error-msg">Không tải được mẹo viết.</p>
@@ -342,21 +342,21 @@ export function WritingShell() {
                 <div className="wd-editor-toolbar">
                   <div>
                     <span className="wd-modal-section-label">Bài làm</span>
-                    <h2 id="wd-editor-heading">Bài viết của em</h2>
+                    <h2 id="wd-editor-heading">Bài viết của bạn</h2>
                   </div>
                 </div>
 
                 {/* Shown only for a read-only give of an archived class (FR-004). */}
                 <div id="modal-archived" className="wd-modal-instructions hidden" role="status">
                   <strong>Lớp đã lưu trữ — đã đóng</strong>
-                  <span>Bài và bản nháp của em vẫn được giữ. Bài này không nhận bài nộp mới.</span>
+                  <span>Bài và bản nháp của bạn vẫn được giữ. Bài này không nhận bài nộp mới.</span>
                 </div>
 
                 {/* Essay textarea — Grammarly + autocorrect + spellcheck disabled */}
                 <textarea id="modal-essay-textarea"
                           className="wd-modal-textarea"
                           rows={20}
-                          placeholder="Bắt đầu bài viết của em tại đây…"
+                          placeholder="Bắt đầu bài viết của bạn tại đây…"
                           aria-describedby="modal-word-target"
                           autoComplete="off"
                           autoCorrect="off"
@@ -381,7 +381,7 @@ export function WritingShell() {
                   <div className="wd-modal-footer-meta">
                     <span id="modal-save-status" className="wd-modal-save-status hidden">Đã lưu bản nháp</span>
                     <span id="modal-save-pending" className="wd-modal-save-pending hidden">Đang lưu…</span>
-                    <span className="wd-modal-autosave-hint">Bản nháp tự lưu khi em viết</span>
+                    <span className="wd-modal-autosave-hint">Bản nháp tự lưu khi bạn viết</span>
                   </div>
                   <div className="wd-modal-actions">
                     <button id="modal-btn-save" type="button"
@@ -407,7 +407,7 @@ export function WritingShell() {
             <h3 id="spell-panel-title" className="wd-spell-panel__title">Kiểm tra chính tả</h3>
             <p className="wd-spell-panel__hint">
               Có <strong><span id="spell-count">0</span> từ</strong> có thể sai chính tả.
-              Em có thể quay lại sửa, hoặc nộp luôn.
+              Bạn có thể quay lại sửa, hoặc nộp luôn.
             </p>
             <ul id="spell-list" className="wd-spell-panel__list"></ul>
             <div className="wd-spell-panel__actions">
