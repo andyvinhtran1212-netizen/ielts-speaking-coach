@@ -1048,7 +1048,7 @@
   },
   {
     "source_key": "t2_armed_forces_role_standards",
-    "topic_slug": "government-law",
+    "topic_slug": "work",
     "topic_confidence": "vừa",
     "publish": false,
     "review": {
@@ -4716,7 +4716,7 @@
   },
   {
     "source_key": "t2_richer_nations_development_support",
-    "topic_slug": "economy-consumers",
+    "topic_slug": "government-law",
     "topic_confidence": "vừa",
     "publish": false,
     "review": {
@@ -6530,7 +6530,7 @@
   },
   {
     "source_key": "task1_bricks",
-    "topic_slug": "technology",
+    "topic_slug": "science",
     "topic_confidence": "vừa",
     "publish": false,
     "review": {
