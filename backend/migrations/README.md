@@ -20,9 +20,18 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-11-12 the highest is `380`
-(Skill Drill homework, #2294); the next new migration is `381`, subject to the
-shared migration register (ask the Leader before taking it).
+sequence is dense. As of 2026-11-18 the highest is `501`
+(GRAMMARAUDIT-0019 FR-008 service_role EXECUTE on `grammar_quiz_allowed_code`,
+taken from the reserve band 501+ of the commercialization register); the next
+new migration is `502`, subject to the shared migration register, whose bands
+(381–389, 400–499, 500) still assign the numbers below 501 (ask the Leader
+before taking one). `380` is Skill Drill homework, #2294.
+`501` is `pending_feature course_bank_service_write`: since 309 its CHECK
+`quiz_banks_grammar_revision_shape` calls `grammar_quiz_allowed_code`, whose
+EXECUTE the 309/314/339 blanket loops revoke from service_role, so every
+service_role write of `quiz_banks` failed with 42501. 501 grants that one
+predicate back (non-definer, immutable, reads no table); re-run it after any
+re-run of 309, 314 or 339.
 `379` is present: PC-J562, the 0037 FR-008 Listening import source skip
 (assigned by the Leader). Migration `376` is pending for BLACKEYE-0052 admission;
 377 is reserved for Black Eye PR2, renamed `377_exercise_book_cohort_grants.sql`.

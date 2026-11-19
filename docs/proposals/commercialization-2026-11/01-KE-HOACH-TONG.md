@@ -271,7 +271,7 @@ Số 0085–0087 cấp ngày 18/11/2026; trước đó chưa file nào trong b�
 | GOI-11 | 470–479 | 470, 471, 473, 474 | 472 không dùng; 475, 476 hoãn cùng G11-T25, T26; 471 phụ thuộc 440 (bảng `admin_settings_log` của G09) và 371 |
 | GOI-12 | 480–489 | 480 `writing_score_pairs` · 481 `error_book` · 482 `writing_rewrites` · 483 `score_gap_reports` · 484 `placement_tests` · 485 `weekly_plans` · 486 `weekly_plan_messages` · 487 `review_pack_products` · 488 `review_pack_queue` · 489 `writing_blind_review` | Dùng đủ 10 số, không còn dự phòng; 489 chỉ dùng nếu làm C08 (chấm mù). Bản Writing của sổ lỗi sau này phải xin số mới |
 | GOI-13 | 490–499 | **490** nhận xét và khảo sát · **491** loại thông báo khảo sát (có điều kiện: chỉ khi 470 đã merge, nếu chưa thì thêm thẳng vào G11-T08) · **492** Kiến thức nền · **493** đoạn viết ngắn · **494** Đọc kỹ | 495–496 giữ cho khuôn luyện đề (E), chưa áp; 497–499 dự phòng của gói (sửa 18/11 theo GOI-13) |
-| Dự phòng | 500 trở đi | **500** `account_data_rights` (G04-T18, cấp tối 18/11: dải 381–389 không còn số — 386 để trống có chủ ý, 389 giữ cho phần chênh của 381/382) | 501 trở đi còn trống |
+| Dự phòng | 500 trở đi | **500** `account_data_rights` (G04-T18, cấp tối 18/11: dải 381–389 không còn số — 386 để trống có chủ ý, 389 giữ cho phần chênh của 381/382) | **501** quyền EXECUTE `grammar_quiz_allowed_code` cho service_role (GRAMMARAUDIT-0019 FR-008, mở khoá ghi `quiz_banks` cho kho Course 5, anh Andy duyệt 18/11); 502 trở đi còn trống |
 
 **Phân xử:**
 
