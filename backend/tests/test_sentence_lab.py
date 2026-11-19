@@ -571,6 +571,17 @@ def test_key_fingerprint_is_stable_and_key_sensitive():
     assert REF not in g.key_fingerprint(a)
 
 
+def test_revise_response_hides_the_fingerprint_but_the_row_keeps_it():
+    """CR #2375: both a real rewrite and an empty finalise return the reference
+    answers without `key_sha`; the stored row still carries it."""
+    for answers in ({"S01-Q01": "Public transport is affordable."}, {}):
+        out, db = _revise(answers, _graded())
+        assert "key_sha" not in json.dumps(out)
+        assert all(i["explain"] == "REF" for i in out["items"])
+        assert all(i["key_sha"] == g.key_fingerprint({"answer": REF})
+                   for i in db.updates[0]["items"])
+
+
 def test_key_fingerprint_never_reaches_the_learner():
     for st in (_state(_graded()), _state(_graded(revision=None))):
         assert "key_sha" not in json.dumps(st)

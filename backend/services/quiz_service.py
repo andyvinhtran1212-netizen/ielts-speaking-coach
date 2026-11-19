@@ -4324,7 +4324,8 @@ async def revise_course_writing(*, user_id: str, bank_id: str, answers: dict,
     new_items = [{**i, "revision": review.get(i.get("qid"))} for i in items]
     await asyncio.to_thread(_lab_revise_save, sub, new_items)
     return {
-        "items": new_items,
+        # Bản lưu giữ `key_sha`; phản hồi cho học viên thì không (CR #2375).
+        "items": _lab_public_items(new_items, reveal=True),
         "total": sub.get("total"),
         "clean": sum(1 for i in new_items if i.get("ok") is True),
         "graded_at": sub.get("graded_at"),
