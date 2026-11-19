@@ -434,7 +434,9 @@ def _state(sub_items, open_=True):
 
 
 def _graded(**extra):
-    return [{"qid": q, "answer": RESP, "explain": "REF", "ok": n == 0, **extra}
+    # `key_sha` như lượt nộp thật ghi: dấu vân tay khóa chấm lúc chấm lần đầu.
+    return [{"qid": q, "answer": RESP, "explain": "REF", "ok": n == 0,
+             "key_sha": g.key_fingerprint(_seg(q)["sentence_lab"]["key"]), **extra}
             for n, q in enumerate(("S01-Q01", "S01-Q02"))]
 
 
@@ -531,6 +533,58 @@ def test_rewrite_is_refused_when_the_task_changed_since_submission():
     assert out["revision_done"] is True
     _out, db = _revise({}, stale, grade=never)   # finalising still works
     assert db.updates
+
+
+def test_rewrite_is_refused_when_only_the_grading_key_changed():
+    """Advisor 19/11: a re-import that keeps the public task but changes the
+    grading key must not grade the rewrite against the NEW key while the first
+    submission was graded against the OLD one."""
+    async def never(*_a, **_k):
+        raise AssertionError("no model call when the key changed")
+
+    old_key = [dict(i, item={"id": i["qid"], "source": "src"},
+                    key_sha=g.key_fingerprint({"answer": "An OLD answer."}))
+               for i in _graded()]
+    with pytest.raises(HTTPException) as e:
+        _revise({"S01-Q01": "x"}, old_key, grade=never)
+    assert e.value.status_code == 409 and e.value.detail["changed"] == ["S01-Q01"]
+    _out, db = _revise({}, old_key, grade=never)    # finalising still works
+    assert db.updates
+
+
+def test_rewrite_without_a_key_fingerprint_is_refused():
+    """A snapshot that cannot prove the key is unchanged is not regraded."""
+    async def never(*_a, **_k):
+        raise AssertionError("no model call without a key fingerprint")
+
+    legacy = [{k: v for k, v in i.items() if k != "key_sha"} for i in _graded()]
+    with pytest.raises(HTTPException) as e:
+        _revise({"S01-Q02": "x"}, legacy, grade=never)
+    assert e.value.status_code == 409 and e.value.detail["changed"] == ["S01-Q02"]
+
+
+def test_key_fingerprint_is_stable_and_key_sensitive():
+    a = {"answer": REF, "variants": ["x"], "required": ["is"]}
+    assert g.key_fingerprint(a) == g.key_fingerprint(dict(reversed(list(a.items()))))
+    assert g.key_fingerprint(a) != g.key_fingerprint({**a, "answer": REF + " "})
+    assert g.key_fingerprint(None) == g.key_fingerprint({})
+    assert REF not in g.key_fingerprint(a)
+
+
+def test_revise_response_hides_the_fingerprint_but_the_row_keeps_it():
+    """CR #2375: both a real rewrite and an empty finalise return the reference
+    answers without `key_sha`; the stored row still carries it."""
+    for answers in ({"S01-Q01": "Public transport is affordable."}, {}):
+        out, db = _revise(answers, _graded())
+        assert "key_sha" not in json.dumps(out)
+        assert all(i["explain"] == "REF" for i in out["items"])
+        assert all(i["key_sha"] == g.key_fingerprint({"answer": REF})
+                   for i in db.updates[0]["items"])
+
+
+def test_key_fingerprint_never_reaches_the_learner():
+    for st in (_state(_graded()), _state(_graded(revision=None))):
+        assert "key_sha" not in json.dumps(st)
 
 
 def test_revision_grader_failure_does_not_close_the_round():
@@ -888,11 +942,15 @@ def test_course1_submit_still_requires_every_answer():
 
 def test_coach_rows_snapshot_the_public_item_but_never_the_key():
     db = _DB({"quiz_questions": _questions(), "course_writing_submissions": []})
-    _lab_submit({}, db)
+    out = _lab_submit({}, db)
+    assert "key_sha" not in json.dumps(out)
     rows = db.inserts[0]["items"]
     assert [r["item"] for r in rows] == [{"id": "S01-Q01", "source": "src"},
                                          {"id": "S01-Q02", "source": "src"}]
     assert REF not in json.dumps([r["item"] for r in rows])
+    # Dấu vân tay khóa chấm được lưu (máy chủ) để lượt viết lại so khóa.
+    assert [r["key_sha"] for r in rows] == [
+        g.key_fingerprint({"answer": REF}), g.key_fingerprint({"answer": REF})]
 
 
 def test_openai_client_has_no_hidden_sdk_retries(monkeypatch):

@@ -4118,12 +4118,15 @@ def _lab_segments(q: dict) -> dict:
     return lab if isinstance(lab, dict) else {}
 
 
+# Khóa chỉ dành cho máy chủ trong bản chụp lượt nộp (dấu vân tay khóa chấm).
+_LAB_SERVER_ONLY = frozenset({"key_sha"})
+
+
 def _lab_public_items(items: list, *, reveal: bool) -> list:
     """Bản chụp trả cho học viên. Đáp án tham khảo (`explain`) chỉ đi kèm khi
     lượt sửa đã chốt — trước đó học viên còn phải tự viết lại."""
-    if reveal:
-        return items
-    return [{k: v for k, v in (i or {}).items() if k != "explain"} for i in items]
+    hidden = _LAB_SERVER_ONLY if reveal else _LAB_SERVER_ONLY | {"explain"}
+    return [{k: v for k, v in (i or {}).items() if k not in hidden} for i in items]
 
 
 def _lab_assignment_open(bank_id: str, user_id: str, item: dict) -> bool:
@@ -4251,9 +4254,16 @@ def _lab_revise_prepare(*, user_id: str, bank_id: str, answers: dict,
     } for qid, text in chosen.items()]
     # Đề đã nhập lại khác bản chụp lúc nộp → không chấm câu viết lại theo đề
     # MỚI cho một câu trả lời của đề CŨ (Codex #2371). Chốt rỗng vẫn được.
+    # Khóa chấm đổi mà đề công khai giữ nguyên cũng là "đề đã đổi": lượt nộp đã
+    # chấm theo khóa CŨ, chấm lượt viết lại theo khóa MỚI sẽ cho hai điểm theo
+    # hai đáp án khác nhau. Bản chụp thiếu dấu vân tay thì không chứng minh được
+    # khóa còn nguyên → cũng từ chối (chốt rỗng vẫn được).
     changed = [e["qid"] for e in entries
-               if not e["key"] or (by_qid[e["qid"]].get("item") is not None
-                                   and by_qid[e["qid"]]["item"] != e["item"])]
+               if not e["key"]
+               or (by_qid[e["qid"]].get("item") is not None
+                   and by_qid[e["qid"]]["item"] != e["item"])
+               or by_qid[e["qid"]].get("key_sha")
+               != sentence_lab_grader.key_fingerprint(e["key"])]
     if changed:
         raise HTTPException(409, {
             "message": "Đề của bài này đã thay đổi — không chấm lại được. "
@@ -4314,7 +4324,8 @@ async def revise_course_writing(*, user_id: str, bank_id: str, answers: dict,
     new_items = [{**i, "revision": review.get(i.get("qid"))} for i in items]
     await asyncio.to_thread(_lab_revise_save, sub, new_items)
     return {
-        "items": new_items,
+        # Bản lưu giữ `key_sha`; phản hồi cho học viên thì không (CR #2375).
+        "items": _lab_public_items(new_items, reveal=True),
         "total": sub.get("total"),
         "clean": sum(1 for i in new_items if i.get("ok") is True),
         "graded_at": sub.get("graded_at"),
