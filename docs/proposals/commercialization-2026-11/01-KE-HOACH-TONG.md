@@ -255,8 +255,9 @@ Các gói được viết song song nên có vài chỗ chồng nhau. Phân xử
 | 0098 | CLOSEREAD (Đọc kỹ) | GOI-13 phần D (sửa 18/11 theo GOI-13) |
 | 0099 | EXAMKIT (khuôn luyện đề) — chỉ giữ số, hoãn, chưa viết | GOI-13 phần E (sửa 18/11 theo GOI-13) |
 | 0100 | ACCOUNTDATA (yêu cầu xoá tài khoản và tải dữ liệu) | G04-T18 (cấp tối 18/11 theo rà soát) |
+| 0101 | SENTLAB (kho luyện viết câu 45 buổi, Course 5) | Ngoài gói, việc riêng của anh Andy 18/11 (PR #2366) |
 
-Số 0085–0087 cấp ngày 18/11/2026; trước đó chưa file nào trong bộ tài liệu dùng. Từ 18/11 (sửa theo GOI-13): 0088–0094 giữ cho GOI-12, 0095–0099 cấp cho GOI-13; tối 18/11: 0100 cấp cho G04-T18; số kế tiếp còn trống: 0101.
+Số 0085–0087 cấp ngày 18/11/2026; trước đó chưa file nào trong bộ tài liệu dùng. Từ 18/11 (sửa theo GOI-13): 0088–0094 giữ cho GOI-12, 0095–0099 cấp cho GOI-13; tối 18/11: 0100 cấp cho G04-T18; 0101 cấp cho SENTLAB (Course 5, 18/11); số kế tiếp còn trống: 0102.
 
 **Dải số migration (số cao nhất hiện tại trong repo là 380; các số 370–375 đang bị giữ, 371 thuộc spec 0047). Migration số nhỏ không được phụ thuộc đối tượng do migration số lớn tạo.**
 
