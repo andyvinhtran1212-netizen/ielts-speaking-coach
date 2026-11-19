@@ -48,8 +48,8 @@ Tổng số lượt gọi cho một bài: 1–3.
 `SENTENCE_LAB_MODEL` (mặc định `gpt-5-mini`), `SENTENCE_LAB_REASONING_EFFORT`
 (mặc định `medium`: 20/20 ca hiệu chỉnh ngày 18/11, `low` chỉ 15–17/20, chỉ áp cho model `gpt-5*`/`gpt-6*`/`o*`). Dùng
 `OPENAI_API_KEY` sẵn có (Whisper). **Prompt chấm** là nội dung private, không nằm
-trong repo: biến `SENTENCE_LAB_PROMPT` trên Railway chứa prompt v2 đã hiệu chỉnh
-(sha256 `4ad07f49…c57ed2`), KHÔNG phải `private/ai_grader_prompt.md` gốc của gói
+trong repo: biến `SENTENCE_LAB_PROMPT` trên Railway chứa prompt v2.2 đã được SA
+review và hiệu chỉnh (sha256 `e60e85992308196d006cbbdea0d8bf5119b624584b2ba6f162767bee43c61de1`), KHÔNG phải `private/ai_grader_prompt.md` gốc của gói
 (bản gốc đã lộ trong lịch sử PR). Đặt trên staging rồi production; đổi env cần anh
 Andy duyệt, production cần thêm Content Manager + SA duyệt. Thiếu biến này thì
 nộp/viết lại bài lab trả 503, bài vẫn còn nguyên; script hiệu chỉnh cũng dừng.
