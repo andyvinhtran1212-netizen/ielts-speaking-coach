@@ -1,0 +1,1819 @@
+[
+  {
+    "ro": "on",
+    "tz": "UTC",
+    "snapshot": {
+      "entries": [
+        {
+          "row": {
+            "id": "64a259ec-eb66-5b69-ad4f-08d755d50405",
+            "status": "draft",
+            "payload": {
+              "answers": [
+                {
+                  "q_num": 1,
+                  "answer": "Kings",
+                  "alternatives": [
+                    "King's"
+                  ]
+                },
+                {
+                  "q_num": 2,
+                  "answer": "125",
+                  "alternatives": []
+                },
+                {
+                  "q_num": 3,
+                  "answer": "walking",
+                  "alternatives": []
+                },
+                {
+                  "q_num": 4,
+                  "answer": "boat",
+                  "alternatives": []
+                },
+                {
+                  "q_num": 5,
+                  "answer": "Tuesday",
+                  "alternatives": []
+                },
+                {
+                  "q_num": 6,
+                  "answer": "space",
+                  "alternatives": []
+                },
+                {
+                  "q_num": 7,
+                  "answer": "vegetarian",
+                  "alternatives": []
+                },
+                {
+                  "q_num": 8,
+                  "answer": "2.30",
+                  "alternatives": [
+                    "two thirty"
+                  ]
+                },
+                {
+                  "q_num": 9,
+                  "answer": "75",
+                  "alternatives": [
+                    "seventy-five"
+                  ]
+                },
+                {
+                  "q_num": 10,
+                  "answer": "port",
+                  "alternatives": []
+                }
+              ],
+              "variant": "dictation_gap_fill",
+              "template": {
+                "groups": [
+                  {
+                    "items": [
+                      {
+                        "q_num": 1,
+                        "prefix": "",
+                        "suffix": "Hotel on George Street"
+                      },
+                      {
+                        "q_num": 2,
+                        "prefix": "cost of a family room per night",
+                        "suffix": "£ (approx.)"
+                      }
+                    ],
+                    "heading": "Accommodation"
+                  },
+                  {
+                    "items": [
+                      {
+                        "q_num": 3,
+                        "prefix": "a",
+                        "suffix": "tour of the city centre (starts in Carlton Square)"
+                      },
+                      {
+                        "q_num": 4,
+                        "prefix": "a trip by",
+                        "suffix": "to the old fort"
+                      }
+                    ],
+                    "heading": "Recommended trips"
+                  },
+                  {
+                    "items": [
+                      {
+                        "q_num": 5,
+                        "prefix": "best day to visit",
+                        "suffix": ""
+                      },
+                      {
+                        "q_num": 6,
+                        "prefix": "see the exhibition about",
+                        "suffix": ", which opens soon"
+                      }
+                    ],
+                    "heading": "Science Museum"
+                  },
+                  {
+                    "items": [],
+                    "heading": "Food"
+                  },
+                  {
+                    "items": [
+                      {
+                        "q_num": 7,
+                        "prefix": "good for",
+                        "suffix": "food"
+                      },
+                      {
+                        "q_num": 8,
+                        "prefix": "need to have lunch before",
+                        "suffix": "p.m."
+                      }
+                    ],
+                    "heading": "● Clacton Market:"
+                  },
+                  {
+                    "items": [
+                      {
+                        "q_num": 9,
+                        "prefix": "save up to",
+                        "suffix": "% on ticket prices at bargaintickets.com"
+                      }
+                    ],
+                    "heading": "Theatre tickets"
+                  },
+                  {
+                    "items": [],
+                    "heading": "Free activities"
+                  },
+                  {
+                    "items": [
+                      {
+                        "text": "Roots Music Festival"
+                      },
+                      {
+                        "q_num": 10,
+                        "prefix": "climb Telegraph Hill to see a view of the",
+                        "suffix": ""
+                      }
+                    ],
+                    "heading": "● Blakewell Gardens:"
+                  }
+                ],
+                "heading": "Advice on family visit"
+              },
+              "questions": [
+                {
+                  "q_num": 1,
+                  "prompt": "Accommodation: ___ Hotel on George Street",
+                  "variant": "sentence_inline"
+                },
+                {
+                  "q_num": 2,
+                  "prompt": "Accommodation: cost of a family room per night ___ £ (approx.)",
+                  "variant": "sentence_inline"
+                },
+                {
+                  "q_num": 3,
+                  "prompt": "Recommended trips: a ___ tour of the city centre (starts in Carlton Square)",
+                  "variant": "sentence_inline"
+                },
+                {
+                  "q_num": 4,
+                  "prompt": "Recommended trips: a trip by ___ to the old fort",
+                  "variant": "sentence_inline"
+                },
+                {
+                  "q_num": 5,
+                  "prompt": "Science Museum: best day to visit ___",
+                  "variant": "sentence_inline"
+                },
+                {
+                  "q_num": 6,
+                  "prompt": "Science Museum: see the exhibition about ___ , which opens soon",
+                  "variant": "sentence_inline"
+                },
+                {
+                  "q_num": 7,
+                  "prompt": "● Clacton Market:: good for ___ food",
+                  "variant": "sentence_inline"
+                },
+                {
+                  "q_num": 8,
+                  "prompt": "● Clacton Market:: need to have lunch before ___ p.m.",
+                  "variant": "sentence_inline"
+                },
+                {
+                  "q_num": 9,
+                  "prompt": "Theatre tickets: save up to ___ % on ticket prices at bargaintickets.com",
+                  "variant": "sentence_inline"
+                },
+                {
+                  "q_num": 10,
+                  "prompt": "● Blakewell Gardens:: climb Telegraph Hill to see a view of the ___",
+                  "variant": "sentence_inline"
+                }
+              ],
+              "solutions": {
+                "1": {
+                  "trap": "Tên riêng có thể viết **Kings** hoặc **King's** (cả hai được chấp nhận). Đừng ghi nhầm \"Murray\" — đó là tên ga (Murray Station), không phải tên hotel.",
+                  "answer": "Kings / King's",
+                  "script": "```\nSpeaker 2 (Sandra): Yes, I do. Actually, I always recommend people stay at the King's Hotel.\nSpeaker 1 (Man): Where's that near?\nSpeaker 2 (Sandra): It's about 5 minutes walk from Murray Station, so nice and central. It's actually on George Street.\n```",
+                  "skills": "K1, K5 (nghe tên riêng; định vị đúng chi tiết địa chỉ).\n\n**🎧 Vì sao tai bạn trượt chỗ này**\n\nChỗ đề và audio không trùng mặt chữ — \"… Hotel on George Street\" → \"the **King's** Hotel … It's actually on George Street\" (tên hotel + xác nhận đúng phố George). Chữ cái đọc liền mạch, **không có ngữ điệu để bám** — viết ngay từng chữ.",
+                  "relisten": "Part 1, Speaker 2 (Sandra) — đoạn giới thiệu accommodation.\n\n---",
+                  "paraphrase": "\"… Hotel on George Street\" → \"the **King's** Hotel … It's actually on George Street\" (tên hotel + xác nhận đúng phố George).",
+                  "vocab_focus": "- **central** /ˈsen.trəl/ (adj) — ở trung tâm, tiện đi lại\n- **budget** /ˈbʌdʒ.ɪt/ (n) — ngân sách, khoản tiền dự chi",
+                  "why_correct": "Sandra names the hotel — \"the **King's** Hotel\" — and immediately anchors it to the printed cue \"on George Street\", confirming this is the right item. \"Murray Station\" is a nearby landmark, not the hotel name.\n\nSandra nói tên khách sạn — \"the **King's** Hotel\" — rồi gắn ngay với cụm in sẵn \"on George Street\", xác nhận đây đúng là chỗ cần điền. \"Murray Station\" chỉ là mốc gần đó, không phải tên khách sạn. Đáp án chấp nhận cả `Kings` và `King's`.",
+                  "audio_window": {
+                    "end": 142.84,
+                    "file": "full_test.mp3",
+                    "start": 138.12,
+                    "section": "S1"
+                  },
+                  "paraphrase_map": "| Question keyword | Audio paraphrase | Signal/trap word |\n|---|---|---|\n| … Hotel on George Street | _the King's Hotel … It's actually on George Street_ | \"actually on George Street\" = khớp cue in sẵn |",
+                  "translation_vi": "\"Có chứ. Thật ra tôi luôn khuyên mọi người ở khách sạn **King's**.\" … \"Nó cách ga Murray khoảng 5 phút đi bộ, khá trung tâm. Đúng ra nó nằm trên phố George.\"",
+                  "trap_mechanisms": "- `name_spelling` — Tên riêng nghe âm; chấp nhận biến thể chính tả có/không dấu sở hữu (Kings / King's)."
+                },
+                "2": {
+                  "trap": "**Distractor số**: £95 xuất hiện ngay sau, nhưng đó là giá **mỗi phòng đôi (double room)** anh trai Sandra đã đặt — KHÔNG phải giá family room. Câu hỏi hỏi giá **family room** = 125.",
+                  "answer": "125",
+                  "script": "```\nSpeaker 2 (Sandra): If you book a family room, it's about £125 per night. My brother paid for two double rooms in the end, and I think that was around £95 for each room.\n```",
+                  "skills": "K1, K5 (nghe số + phân biệt số nào ứng với \"family room\").\n\n**🎧 Vì sao tai bạn trượt chỗ này**\n\nChỗ đề và audio không trùng mặt chữ — \"cost of a family room per night\" → \"If you book a **family room**, it's about **£125** per night\". Điểm nằm ở cái được **chốt**, không phải cái nghe **rõ nhất**. Lượt mở ra bằng *“Speaker 2 (Sandra): If you book a family room,…”* — thứ nghe được đầu tiên ở đây chưa phải thứ được chốt.",
+                  "relisten": "Part 1, Speaker 2 (Sandra) — đoạn báo giá phòng.\n\n---",
+                  "paraphrase": "\"cost of a family room per night\" → \"If you book a **family room**, it's about **£125** per night\".",
+                  "vocab_focus": "- **family room** /ˈfæm.əl.i ruːm/ (n) — phòng cho cả gia đình\n- **per night** /pə naɪt/ (phr) — mỗi đêm\n- **roughly / approx.** /ˈrʌf.li/ (adv) — khoảng chừng",
+                  "why_correct": "The figure tied to \"a family room … per night\" is **£125**. £95 is explicitly a different product — \"two double rooms … each room\" — so it is a distractor. The £ symbol is already printed, so write only **125**.\n\nCon số gắn với \"a family room … per night\" là **£125**. £95 rõ ràng là sản phẩm khác — \"hai phòng đôi… mỗi phòng\" — nên chỉ là bẫy. Ký hiệu £ đã in sẵn nên chỉ ghi **125**.",
+                  "audio_window": {
+                    "end": 158.84,
+                    "file": "full_test.mp3",
+                    "start": 142.84,
+                    "section": "S1"
+                  },
+                  "paraphrase_map": "| Question keyword | Audio paraphrase | Signal/trap word |\n|---|---|---|\n| cost of a family room per night | _a family room, it's about £125 per night_ | £95 = giá double room (distractor) |",
+                  "translation_vi": "\"Nếu đặt một phòng gia đình thì khoảng **£125** một đêm. Cuối cùng anh trai tôi đặt hai phòng đôi, và tôi nghĩ mỗi phòng khoảng £95.\"",
+                  "trap_mechanisms": "- `distractor_drop` — Nhiều con số được nêu; chỉ 1 số khớp đúng đối tượng \"family room\"."
+                },
+                "3": {
+                  "trap": "**Polarity flip**: người đàn ông nhắc \"bus tour\" trước — dễ ghi nhầm \"bus\". Sandra BÁC lại (\"quite expensive\") và đề xuất \"walking tour\". Cue \"starts from Carlton Square\" xác nhận đúng tour đi bộ.",
+                  "answer": "walking",
+                  "script": "```\nSpeaker 1 (Man): … I was thinking of doing a bus tour of the city center as none of them have been here before.\nSpeaker 2 (Sandra): Those bus tours are quite expensive. I think it's better to do a walking tour. It gives you a much better feel for the city. There's one that starts from Carlton Square.\n```",
+                  "skills": "K2, K5 (paraphrase + loại phương án bị bác).\n\n**🎧 Vì sao tai bạn trượt chỗ này**\n\nChỗ đề và audio không trùng mặt chữ — \"a … tour of the city centre\" → \"it's better to do a **walking** tour… There's one that starts from Carlton Square\". Từ đảo chiều là từ **bị nói nhanh nhất** — sót một âm tiết là hiểu ngược. Về âm: **`walking tour`** /ˈwɔː.kɪŋ tʊə/ — trọng âm ở nhịp đầu, đuôi từ trôi rất nhanh; mặt chữ **11 ký tự** mà chỉ **3 nhịp** — nhìn dài, nghe ngắn.",
+                  "relisten": "Part 1, đoạn Sandra khuyên về Recommended trips.\n\n---",
+                  "paraphrase": "\"a … tour of the city centre\" → \"it's better to do a **walking** tour… There's one that starts from Carlton Square\".",
+                  "vocab_focus": "- **walking tour** /ˈwɔː.kɪŋ tʊə/ (n) — tour tham quan đi bộ\n- **get a feel for** /ɡet ə fiːl fɔː/ (phr) — cảm nhận rõ hơn về (nơi nào đó)",
+                  "why_correct": "The man's \"bus tour\" is rejected (\"quite expensive\") and replaced by Sandra's recommendation, a **walking** tour, which she anchors with \"starts from Carlton Square\" — exactly the printed cue.\n\n\"Bus tour\" mà người đàn ông nói bị bác (\"khá đắt\") và được thay bằng gợi ý của Sandra: một tour **walking**, gắn với cue \"starts from Carlton Square\" đúng như đề in.",
+                  "audio_window": {
+                    "end": 191.72,
+                    "file": "full_test.mp3",
+                    "start": 187.26,
+                    "section": "S1"
+                  },
+                  "paraphrase_map": "| Question keyword | Audio paraphrase | Signal/trap word |\n|---|---|---|\n| a … tour (starts in Carlton Square) | _better to do a walking tour… starts from Carlton Square_ | \"better to do\" = bác bỏ bus tour |",
+                  "translation_vi": "Man: \"Tôi định làm một tour **xe buýt** vòng quanh trung tâm…\" Sandra: \"Mấy tour xe buýt đó khá đắt. Tôi nghĩ tốt hơn là làm một tour **đi bộ**… Có một tour khởi hành từ Quảng trường Carlton.\"",
+                  "trap_mechanisms": "- `polarity_flip` — Phương án đầu (bus) bị phủ định, phương án sau (walking) mới đúng.\n- `distractor_drop` — \"bus tour\" là mồi bị loại."
+                },
+                "4": {
+                  "trap": "Không có bẫy mạnh; chỉ cần nghe đúng phương tiện \"by boat\". Chi tiết \"half a day\" là thời lượng, không phải đáp án.",
+                  "answer": "boat",
+                  "script": "```\nSpeaker 2 (Sandra): If the weather's nice, one thing you could do is visit the old fort, but you could get there by boat. The whole trip takes half a day.\n```",
+                  "skills": "K2 (paraphrase phương tiện).\n\n**🎧 Vì sao tai bạn trượt chỗ này**\n\nĐề in một đằng, audio gần như giữ nguyên chữ một nẻo — \"a trip by … to the old fort\" → \"visit the old fort, but you could get there **by boat**\". Từ khó không phải vấn đề; **khoảng cách giữa hai cách nói** mới là vấn đề. Nó nằm ở **mấy chữ cuối lượt** — buông sớm là mất.",
+                  "relisten": "Part 1, Speaker 2 (Sandra) — gợi ý pháo đài cổ.\n\n---",
+                  "paraphrase": "\"a trip by … to the old fort\" → \"visit the old fort, but you could get there **by boat**\".",
+                  "vocab_focus": "- **old fort** /əʊld fɔːt/ (n) — pháo đài cổ\n- **by boat** /baɪ bəʊt/ (phr) — bằng thuyền/tàu\n- **half a day** /hɑːf ə deɪ/ (phr) — nửa ngày",
+                  "why_correct": "The means of transport to the old fort is stated directly: \"get there **by boat**.\" One word: `boat`.\n\nPhương tiện tới pháo đài cổ được nói thẳng: \"get there **by boat**.\" Chỉ 1 từ: `boat`.",
+                  "audio_window": {
+                    "end": 209.12,
+                    "file": "full_test.mp3",
+                    "start": 205.12,
+                    "section": "S1"
+                  },
+                  "paraphrase_map": "| Question keyword | Audio paraphrase | Signal/trap word |\n|---|---|---|\n| a trip by … to the old fort | _visit the old fort… get there by boat_ | \"get there by\" = phương tiện |",
+                  "translation_vi": "\"Nếu thời tiết đẹp, một việc bạn có thể làm là ghé thăm pháo đài cổ, và bạn có thể tới đó **bằng thuyền**. Cả chuyến mất nửa ngày.\"",
+                  "trap_mechanisms": "- `paraphrase_t0` — Lặp gần nguyên văn: \"the old fort … by boat\"."
+                },
+                "5": {
+                  "trap": "**Distractor drop kép**: có 3 ngày được nhắc — Monday (đóng cửa), Saturday (quá đông), Tuesday (tốt nhất). Người bám \"Monday\" hoặc \"Saturday\" sẽ sai.",
+                  "answer": "Tuesday",
+                  "script": "```\nSpeaker 2 (Sandra): Yeah, don't forget it's closed on Mondays.\nSpeaker 1 (Man): They're here from Saturday for four nights, so Tuesday would be best, I think.\nSpeaker 2 (Sandra): And it won't be so crowded then. Saturdays are terrible.\n```",
+                  "skills": "K3, K5 (bám dòng loại trừ ngày; detail vs gist).\n\n**🎧 Vì sao tai bạn trượt chỗ này**\n\nChỗ đề và audio không trùng mặt chữ — \"best day to visit\" → \" **Tuesday** would be best\" (sau khi loại Monday: đóng cửa, Saturday: quá đông). Nhiều thứ cùng khớp mặt chữ; chỉ khác nhau ở chỗ cái nào bị bác. Lượt mở ra bằng *“Speaker 2 (Sandra): Yeah, don't forget it's closed on…”* — thứ nghe được đầu tiên ở đây chưa phải thứ được chốt.",
+                  "relisten": "Part 1, đoạn về Science Museum.\n\n---",
+                  "paraphrase": "\"best day to visit\" → \"**Tuesday** would be best\" (sau khi loại Monday: đóng cửa, Saturday: quá đông).",
+                  "vocab_focus": "- **closed on Mondays** /kləʊzd ɒn ˈmʌn.deɪz/ (phr) — đóng cửa (các) thứ Hai\n- **crowded** /ˈkraʊ.dɪd/ (adj) — đông đúc",
+                  "why_correct": "Monday is ruled out (\"closed on Mondays\"), Saturday is ruled out (\"terrible… far too crowded\"), leaving **Tuesday**, confirmed by Sandra (\"it won't be so crowded then\").\n\nThứ Hai bị loại (\"đóng cửa\"), thứ Bảy bị loại (\"khủng khiếp… quá đông\"), còn lại **Tuesday**, được Sandra xác nhận (\"lúc đó sẽ không quá đông\").",
+                  "audio_window": {
+                    "end": 230.44,
+                    "file": "full_test.mp3",
+                    "start": 224.76,
+                    "section": "S1"
+                  },
+                  "paraphrase_map": "| Question keyword | Audio paraphrase | Signal/trap word |\n|---|---|---|\n| best day to visit | _Tuesday would be best… won't be so crowded then_ | \"closed on Mondays\", \"Saturdays are terrible\" = loại trừ |",
+                  "translation_vi": "Sandra: \"À, đừng quên là nó đóng cửa vào thứ Hai.\" Man: \"Họ ở đây từ thứ Bảy, ở bốn đêm, nên tôi nghĩ **thứ Ba** là tốt nhất.\" Sandra: \"Và lúc đó cũng sẽ không quá đông. Thứ Bảy thì khủng khiếp.\"",
+                  "trap_mechanisms": "- `distractor_drop` — Ba ngày nêu ra, chỉ 1 ngày đúng sau khi loại 2."
+                },
+                "6": {
+                  "trap": "**Time flag**: có 2 triển lãm — \"old computers\" (ĐÃ kết thúc, \"it's finished now\") và \"space\" (SẮP mở). Cue \"opens soon\" khớp với space. Ai bám \"old computers\" sẽ sai.",
+                  "answer": "space",
+                  "script": "```\nSpeaker 2 (Sandra): … I took my kids to the exhibition on old computers there, and it was far too crowded. I wanted to go back, but it's finished now.\nSpeaker 1 (Man): That's a shame…\nSpeaker 2 (Sandra): There's another one starting soon on space, which looks really good, too.\n```",
+                  "skills": "K3, K5 (bám cue \"opens soon / starting soon\").\n\n**🎧 Vì sao tai bạn trượt chỗ này**\n\nChỗ đề và audio không trùng mặt chữ — \"the exhibition… which opens soon\" → \"another one **starting soon** on **space**\". Phương án bị loại luôn được nói **trước** — treo bút tới hết lượt. Lượt mở ra bằng *“Speaker 2 (Sandra): … I took my kids to…”* — thứ nghe được đầu tiên ở đây chưa phải thứ được chốt. Phải giữ tập trung tới **hết lượt**; đáp án là phần sau cùng.",
+                  "relisten": "Part 1, đoạn Sandra kể chuyện đưa con đi bảo tàng.\n\n---",
+                  "paraphrase": "\"the exhibition… which opens soon\" → \"another one **starting soon** on **space**\".",
+                  "vocab_focus": "- **exhibition** /ˌek.sɪˈbɪʃ.ən/ (n) — triển lãm\n- **space** /speɪs/ (n) — vũ trụ, không gian\n- **starting soon** /ˈstɑː.tɪŋ suːn/ (phr) — sắp khai mạc",
+                  "why_correct": "\"old computers\" is the finished exhibition; the one that \"opens soon\" is on **space**. The printed cue \"which opens soon\" = \"starting soon\".\n\n\"old computers\" là triển lãm đã kết thúc; triển lãm \"opens soon\" nói về **space**. Cue in sẵn \"which opens soon\" khớp \"starting soon\".",
+                  "audio_window": {
+                    "end": 249.56,
+                    "file": "full_test.mp3",
+                    "start": 244.72,
+                    "section": "S1"
+                  },
+                  "paraphrase_map": "| Question keyword | Audio paraphrase | Signal/trap word |\n|---|---|---|\n| exhibition about …, which opens soon | _another one starting soon on space_ | \"it's finished now\" (computers) vs \"starting soon\" (space) |",
+                  "translation_vi": "\"Tôi đã đưa các con đến triển lãm về **máy tính cổ** ở đó, nhưng quá đông… giờ nó kết thúc rồi.\" … \"Có một triển lãm khác sắp mở về **vũ trụ**, trông cũng rất hay.\"",
+                  "trap_mechanisms": "- `distractor_drop` — Triển lãm cũ \"old computers\" là mồi (đã kết thúc)."
+                },
+                "7": {
+                  "trap": "**Referential**: từ khóa \"vegetarian\" xuất hiện ở câu trước, còn cụm gắn với \"good for\" là \"that kind of food\" — phải nối \"that kind\" trở lại \"vegetarian\". Nếu chỉ đợi cụm \"good for\" mà không giữ từ trước, dễ bỏ lỡ.",
+                  "answer": "vegetarian",
+                  "script": "```\nSpeaker 1 (Man): Well, I really like all the food stalls at Clacton Market. My cousin's vegetarian. I know it's one of the best places for that kind of food.\n```",
+                  "skills": "K2, K5 (paraphrase \"good for\" ↔ \"best places for that kind of food\").\n\n**🎧 Vì sao tai bạn trượt chỗ này**\n\nĐề in một đằng, audio đi qua một chuỗi đồng nghĩa một nẻo — \"good for …\" → \"one of the best places for that kind of food\" (that kind = **vegetarian**). Băng không quay lại, nên phép quy đổi phải xong **trong một lượt nghe**. Về âm: **`vegetarian`** /ˌvedʒ.əˈteə.ri.ən/ — trọng âm rơi vào nhịp **3/5**, hai nhịp đầu bị nén lại; phần không nhấn hoá **/ə/**, nên từ nghe ngắn hơn mặt chữ nhiều; mặt chữ **10 ký tự** mà chỉ **5 nhịp** — nhìn dài, nghe ngắn.",
+                  "relisten": "Part 1, đoạn Food / Clacton Market.\n\n---",
+                  "paraphrase": "\"good for …\" → \"one of the best places for that kind of food\" (that kind = **vegetarian**).",
+                  "vocab_focus": "- **vegetarian** /ˌvedʒ.əˈteə.ri.ən/ (n/adj) — người ăn chay / (đồ) chay\n- **food stalls** /fuːd stɔːlz/ (n) — quầy/sạp thức ăn",
+                  "why_correct": "The market is \"one of the best places for that kind of food\" — and \"that kind\" refers back to **vegetarian** food. The single-word answer is `vegetarian`.\n\nChợ là \"một trong những nơi tốt nhất cho loại đồ ăn đó\" — \"that kind\" quy chiếu về đồ **vegetarian**. Đáp án 1 từ: `vegetarian`.",
+                  "audio_window": {
+                    "end": 299.42,
+                    "file": "full_test.mp3",
+                    "start": 292.76,
+                    "section": "S1"
+                  },
+                  "paraphrase_map": "| Question keyword | Audio paraphrase | Signal/trap word |\n|---|---|---|\n| good for … | _best places for that kind of food_ | \"that kind\" ↔ vegetarian |",
+                  "translation_vi": "\"Tôi rất thích các quầy ăn ở chợ Clacton. Cô em họ tôi ăn **chay**. Tôi biết đó là một trong những nơi tốt nhất cho loại đồ ăn đó.\"",
+                  "trap_mechanisms": "- `synonym_chain` — \"good for\" ↔ \"one of the best places for\" ↔ \"that kind of food\" = vegetarian."
+                },
+                "8": {
+                  "trap": "Bẫy nhẹ về format số: viết **2.30** hoặc **two thirty** (đề đã in sẵn \"p.m.\"). Đừng ghi \"2:30 pm\" lặp lại p.m.",
+                  "answer": "2.30 / two thirty",
+                  "script": "```\nSpeaker 2 (Sandra): … You need to get there quite early, though. At the weekend, most of the stores stop serving lunch at 2:30.\n```",
+                  "skills": "K1 (nghe giờ).\n\n**🎧 Vì sao tai bạn trượt chỗ này**\n\nĐề in một đằng, audio đổi một cụm một nẻo — \"need to have lunch before … p.m.\" → \"most of the stores **stop serving lunch at 2:30**\". Băng không quay lại, nên phép quy đổi phải xong **trong một lượt nghe**. Đoạn chứa nó bắt đầu bằng *“Speaker 2 (Sandra): … You need to get there…”* — dò từ mốc đó khi nghe lại.",
+                  "relisten": "Part 1, đoạn Food / Clacton Market.\n\n---",
+                  "paraphrase": "\"need to have lunch before … p.m.\" → \"most of the stores **stop serving lunch at 2:30**\".",
+                  "vocab_focus": "- **stop serving** /stɒp ˈsɜː.vɪŋ/ (phr) — ngừng phục vụ\n- **at the weekend** /ət ðə ˌwiːkˈend/ (phr) — vào cuối tuần",
+                  "why_correct": "Lunch stops at **2:30**, so you must eat before then. \"p.m.\" is already printed. Accept `2.30` or `two thirty`.\n\nĐồ trưa ngừng bán lúc **2:30**, nên phải ăn trước giờ đó. \"p.m.\" đã in sẵn. Chấp nhận `2.30` hoặc `two thirty`.",
+                  "audio_window": {
+                    "end": 315.42,
+                    "file": "full_test.mp3",
+                    "start": 299.42,
+                    "section": "S1"
+                  },
+                  "paraphrase_map": "| Question keyword | Audio paraphrase | Signal/trap word |\n|---|---|---|\n| have lunch before … p.m. | _stop serving lunch at 2:30_ | \"stop serving … at\" = mốc giờ cuối |",
+                  "translation_vi": "\"Chắc chắn rồi. Và cũng sẽ có nhiều lựa chọn cho bọn trẻ nữa. Nhưng bạn cần tới đó khá sớm. Cuối tuần, hầu hết các quầy ngừng phục vụ trưa lúc **2:30**.\"",
+                  "trap_mechanisms": "- `paraphrase_t1` — \"before … p.m.\" ↔ \"stop serving lunch at 2:30\"."
+                },
+                "9": {
+                  "trap": "Không có số nhiễu ở đây; chỉ cần nghe đúng \"75\". Ký hiệu \"%\" đã in sẵn, ghi số **75**.",
+                  "answer": "75 / seventy-five",
+                  "script": "```\nSpeaker 2 (Sandra): I know, but you can get some good deals if you book online with bargaintickets.com for the following day. On some seats, there's a 75% discount.\n```",
+                  "skills": "K1 (nghe phần trăm).\n\n**🎧 Vì sao tai bạn trượt chỗ này**\n\nĐề in một đằng, audio đổi một cụm một nẻo — \"save up to … %\" → \"there's a **75%** discount\" (on some seats). Băng không quay lại, nên phép quy đổi phải xong **trong một lượt nghe**. Đoạn chứa nó bắt đầu bằng *“Speaker 2 (Sandra): I know, but you can get…”* — dò từ mốc đó khi nghe lại.",
+                  "relisten": "Part 1, đoạn Theatre tickets.\n\n---",
+                  "paraphrase": "\"save up to … %\" → \"there's a **75%** discount\" (on some seats).",
+                  "vocab_focus": "- **discount** /ˈdɪs.kaʊnt/ (n) — mức giảm giá\n- **deals** /diːlz/ (n) — ưu đãi, món hời\n- **book online** /bʊk ˌɒnˈlaɪn/ (phr) — đặt trực tuyến",
+                  "why_correct": "The discount is **75%** on some seats — \"save up to …%\" = \"a 75% discount\". Write `75`.\n\nMức giảm là **75%** cho một số ghế — \"save up to …%\" = \"a 75% discount\". Ghi `75`.",
+                  "audio_window": {
+                    "end": 315.42,
+                    "file": "full_test.mp3",
+                    "start": 299.42,
+                    "section": "S1"
+                  },
+                  "paraphrase_map": "| Question keyword | Audio paraphrase | Signal/trap word |\n|---|---|---|\n| save up to … % | _there's a 75% discount_ | \"discount\" = phần trăm tiết kiệm |",
+                  "translation_vi": "\"Tôi biết, nhưng bạn có thể săn được ưu đãi tốt nếu đặt online tại bargaintickets.com cho ngày hôm sau. Với một số ghế, có mức giảm **75%**.\"",
+                  "trap_mechanisms": "- `paraphrase_t1` — \"save up to …%\" ↔ \"a 75% discount\"."
+                },
+                "10": {
+                  "trap": "Bẫy nhẹ: \"views are amazing\" và \"so huge\" là bình luận, không phải đáp án. Đáp án là đối tượng được nhìn = **port**.",
+                  "answer": "port",
+                  "script": "```\nSpeaker 2 (Sandra): And if you're in Blakewell Gardens, climb Telegraph Hill. You'll be able to look right down on the port. Everyone's always really impressed because it's so huge.\n```",
+                  "skills": "K2, K5 (paraphrase \"a view of\" ↔ \"look down on\").\n\n**🎧 Vì sao tai bạn trượt chỗ này**\n\nĐề in một đằng, audio đổi một cụm một nẻo — \"a view of the …\" → \"You'll be able to **look right down on the port**\". Băng không quay lại, nên phép quy đổi phải xong **trong một lượt nghe**. Đoạn chứa nó bắt đầu bằng *“Speaker 2 (Sandra): And if you're in Blakewell Gardens,…”* — dò từ mốc đó khi nghe lại.",
+                  "relisten": "Part 1, đoạn Free activities / Blakewell Gardens.\n\n---",
+                  "paraphrase": "\"a view of the …\" → \"You'll be able to **look right down on the port**\".",
+                  "vocab_focus": "- **port** /pɔːt/ (n) — cảng, bến cảng\n- **look right down on** /lʊk raɪt daʊn ɒn/ (phr) — nhìn thẳng xuống\n- **impressed** /ɪmˈprest/ (adj) — ấn tượng",
+                  "why_correct": "From Telegraph Hill you \"look right down on the **port**\" — the object of the view is the port. One word: `port`.\n\nTừ đồi Telegraph bạn \"nhìn thẳng xuống **cảng**\" — đối tượng của khung cảnh là port. Một từ: `port`.",
+                  "audio_window": {
+                    "end": 390.1,
+                    "file": "full_test.mp3",
+                    "start": 374.1,
+                    "section": "S1"
+                  },
+                  "paraphrase_map": "| Question keyword | Audio paraphrase | Signal/trap word |\n|---|---|---|\n| a view of the … | _look right down on the port_ | \"look down on\" = a view of |",
+                  "translation_vi": "\"Và nếu bạn ở Vườn Blakewell, hãy leo lên đồi Telegraph. Bạn sẽ có thể nhìn thẳng xuống **cảng**. Ai cũng ấn tượng vì nó rất rộng lớn.\"",
+                  "trap_mechanisms": "- `paraphrase_t1` — \"a view of\" ↔ \"look right down on\"."
+                }
+              },
+              "instruction": "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.",
+              "audio_windows": {
+                "1": {
+                  "end": 142.84,
+                  "start": 138.12,
+                  "section": "S1"
+                },
+                "2": {
+                  "end": 158.84,
+                  "start": 142.84,
+                  "section": "S1"
+                },
+                "3": {
+                  "end": 191.72,
+                  "start": 187.26,
+                  "section": "S1"
+                },
+                "4": {
+                  "end": 209.12,
+                  "start": 205.12,
+                  "section": "S1"
+                },
+                "5": {
+                  "end": 230.44,
+                  "start": 224.76,
+                  "section": "S1"
+                },
+                "6": {
+                  "end": 249.56,
+                  "start": 244.72,
+                  "section": "S1"
+                },
+                "7": {
+                  "end": 299.42,
+                  "start": 292.76,
+                  "section": "S1"
+                },
+                "8": {
+                  "end": 315.42,
+                  "start": 299.42,
+                  "section": "S1"
+                },
+                "9": {
+                  "end": 315.42,
+                  "start": 299.42,
+                  "section": "S1"
+                },
+                "10": {
+                  "end": 390.1,
+                  "start": 374.1,
+                  "section": "S1"
+                }
+              },
+              "template_kind": "notes_completion",
+              "transcript_anchors": {}
+            },
+            "segments": [],
+            "order_num": 1,
+            "cefr_level": null,
+            "content_id": "e6097750-f3c9-5d7c-b82e-83978e17638a",
+            "created_at": "2026-10-05T04:00:32.703536+00:00",
+            "updated_at": "2026-10-05T04:00:32.703536+00:00",
+            "exercise_type": "dictation"
+          },
+          "paper": {
+            "id": "aa667c6d-1b95-5079-a38e-5dcd88a39f0d",
+            "title": "[STAGING PRIVATE REVISED REV02] Cambridge IELTS 20 — Listening Test 4",
+            "status": "draft",
+            "themes": {
+              "s1": "Section 1",
+              "s2": "Section 2",
+              "s3": "Section 3",
+              "s4": "Section 4"
+            },
+            "test_id": "MOCK0016-20261005-C20L4-REV02",
+            "version": "revised-text-2",
+            "metadata": {
+              "source_format": "listening-fulltest-v1.2",
+              "band_conversion": [],
+              "section_offsets": {
+                "S1": 0,
+                "S2": 442.33,
+                "S3": 950.8,
+                "S4": 1423.54
+              },
+              "mock_remediation_revision": {
+                "revision": "REV02",
+                "audio_timing": "SKIPPED_BY_USER",
+                "audio_hearing": "SKIPPED_BY_USER",
+                "source_sha256": "2e812ab26cadd81e39377e9fda55b40f090db5ce1f50816c5b2143720587fcb4",
+                "source_test_id": "ILR-LIS-CAM-B20-T4",
+                "revised_questions": [
+                  7,
+                  35
+                ],
+                "source_acceptance": "CORROBORATED_SECONDARY_TEXT_ONLY",
+                "publisher_authenticated": false
+              }
+            },
+            "exam_only": true,
+            "is_public": false,
+            "test_type": "full",
+            "created_at": "2026-10-05T04:00:32.085977+00:00",
+            "cue_points": [
+              {
+                "type": "section",
+                "section_num": 1,
+                "timestamp_seconds": 0
+              },
+              {
+                "type": "section",
+                "section_num": 2,
+                "timestamp_seconds": 442.33
+              },
+              {
+                "type": "section",
+                "section_num": 3,
+                "timestamp_seconds": 950.8
+              },
+              {
+                "type": "section",
+                "section_num": 4,
+                "timestamp_seconds": 1423.54
+              }
+            ],
+            "updated_at": "2026-10-05T04:00:32.085977+00:00",
+            "band_target": null,
+            "claim_policy": null,
+            "course_level": null,
+            "form_purpose": null,
+            "programme_id": "ielts",
+            "replay_policy": null,
+            "accent_profile": [],
+            "scoring_policy": "diagnostic",
+            "source_form_id": null,
+            "support_policy": null,
+            "policy_revision": 0,
+            "source_lesson_id": null,
+            "source_item_count": null,
+            "content_package_id": null,
+            "audio_assembly_mode": "full_premixed",
+            "listening_lesson_id": null,
+            "web_explanation_mode": "disabled",
+            "full_audio_size_bytes": 30501031,
+            "mock_content_revision": 14,
+            "source_manifest_sha256": null,
+            "total_transcript_words": 3271,
+            "approved_public_overlap": null,
+            "full_audio_storage_path": "cambridge-internal-qa/cambridge-20-test-4/cambridge_ielts_20_test_4_full_test.mp3",
+            "public_practice_enabled": false,
+            "full_audio_duration_seconds": 1906,
+            "assembled_audio_generated_at": null,
+            "assembled_audio_storage_path": null,
+            "web_explanations_released_at": null,
+            "web_explanations_released_by": null,
+            "web_explanation_content_version": null
+          },
+          "target": "c03b-key"
+        },
+        {
+          "row": {
+            "id": "7ca65ff4-0000-4000-8000-000000000038",
+            "skill": "reading",
+            "payload": {
+              "item": {
+                "answer": {
+                  "canonical": "C",
+                  "accepted_forms": [
+                    "C"
+                  ],
+                  "comparison_mode": "single_value",
+                  "requires_normalization_review": false
+                },
+                "prompt": "Choose the correct letter.\nWhat potential advance does Rees see as a cause for concern?",
+                "context": {
+                  "kind": "passage",
+                  "title": "Robots and us",
+                  "number": 3,
+                  "source_instructions": "Read the passage and answer the questions."
+                },
+                "options": {
+                  "A": "It has grown alongside the development of ever more advanced robots.",
+                  "B": "It is the result of our inclination to attribute human characteristics to non-human entities.",
+                  "C": "It has its origins in basic misunderstandings about how inanimate objects function.",
+                  "D": "It demonstrates a key difference between human intelligence and machine intelligence."
+                },
+                "question_type": "multiple_choice_single",
+                "response_group": null,
+                "response_constraint": {
+                  "word_limit_text": null,
+                  "instruction_text": "Choose the correct letter.",
+                  "selection_count_text": null
+                },
+                "source_question_type": "mcq_single"
+              },
+              "audit": {
+                "verdict": "CONFIRMED",
+                "evidence": [
+                  {
+                    "quote": "\"these could behave like a single 'brain' with a mind of its own, and with goals that may be contrary to human welfare.\"",
+                    "location": "Passage 3: Robots and us; ILR-RDG-CAM-B20-T3.md",
+                    "relation": "Passage evidence (token containment 1.000).",
+                    "source_page": null
+                  }
+                ],
+                "confidence": {
+                  "label": "high",
+                  "score": 0.97
+                },
+                "blind_answer": "C",
+                "collection_review": null,
+                "instruction_check": {
+                  "detail": "No lexical word limit, or selected-response item.",
+                  "status": "COMPLIANT"
+                },
+                "distractor_analysis": "Loại B (\"robot có khả năng con người không có\") — Rees nói robot *vượt ở tính toán* nhưng đó không phải *mối lo* của ông. Loại A (áp đảo về số lượng) và D (thâu tóm mọi mặt đời sống) không được nêu. Mối lo cốt lõi là mạng máy tính có \"ý chí riêng\" → C.",
+                "proposed_correction": null,
+                "deterministic_issues": [],
+                "alternative_answers_considered": [
+                  "A: It has grown alongside the development of ever more advanced robots.",
+                  "B: It is the result of our inclination to attribute human characteristics to non-human entities.",
+                  "D: It demonstrates a key difference between human intelligence and machine intelligence."
+                ]
+              },
+              "source": {
+                "paper": "reading",
+                "test_id": "cambridge-20-test-3",
+                "immutable": true,
+                "collection": "Cambridge IELTS 20",
+                "test_number": 3,
+                "timings_path": "cambridge-20-test-3/cambridge_ielts_20_test_3_timings.json",
+                "question_number": 38,
+                "provenance_hashes": {
+                  "timings_path": "9321488239855f8ec4fadaa30811aed66c082bbb8836621358247aa84fb12dc0",
+                  "semantic_audit_path": "f852aa18ec6685bcb03954b4be085c65445a83d057cde7dd31562b5aca223d3a",
+                  "authored_solution_path": "9a181d41497543317b2dbe3d9ebba64cb3c1383eb2f695d9d6f3e0c39fbef1e2",
+                  "canonical_package_path": "63df0b9f80b080a55f096e77953ebf8fd5395f1a9c3877bb2611ec22dd350aa3",
+                  "deterministic_preflight_path": "577a00b0d111fd02f1382fcc29ff743faf8e24b726a7fab656faf49068a42fe3"
+                },
+                "semantic_audit_path": "cambridge-20-test-3/semantic-audit.json",
+                "authored_solution_path": "cambridge-20-test-3/cambridge_ielts_20_test_3_reading_Solution.md",
+                "canonical_package_path": "cambridge-20-test-3/package.json",
+                "deterministic_preflight_path": "cambridge-20-test-3/deterministic-preflight.json"
+              },
+              "object_id": "cambridge-20-test-3-reading-q38",
+              "telemetry": {
+                "required_events": [
+                  "paper_submitted",
+                  "confidence_recorded",
+                  "evidence_attempt_submitted",
+                  "hint_revealed",
+                  "full_explanation_opened",
+                  "correction_output_submitted",
+                  "same_source_repair_scored",
+                  "parallel_transfer_scored",
+                  "delayed_retest_scored"
+                ],
+                "minimum_event_payload": [
+                  "event_id",
+                  "event_name",
+                  "schema_version",
+                  "learner_id",
+                  "mock_session_id",
+                  "sequence_no",
+                  "client_occurred_at",
+                  "server_received_at",
+                  "client_version",
+                  "payload"
+                ]
+              },
+              "explanation": {
+                "trap": "Loại B (\"robot có khả năng con người không có\") — Rees nói robot *vượt ở tính toán* nhưng đó không phải *mối lo* của ông. Loại A (áp đảo về số lượng) và D (thâu tóm mọi mặt đời sống) không được nêu. Mối lo cốt lõi là mạng máy tính có \"ý chí riêng\" → C.",
+                "language": "vi-with-en-evidence",
+                "paraphrase": "\"developing independent thought\" ↔ \"a mind of its own\" (cơ chế: thay từ đồng nghĩa và đổi trật tự — bài không cho bạn quét trùng chữ).",
+                "vocabulary": "`mind of its own` = ý chí/suy nghĩ riêng; `welfare (n)` = phúc lợi; `dependent on` = phụ thuộc vào.",
+                "why_correct": "ngay tại câu nguồn đã trích ở trên. Chữ quyết định: **a mind of its own** — nối thẳng với \"developing independent thought\" trong đề.",
+                "audio_window": null,
+                "marking_note": "viết **C**, không chép cả câu phương án — đề yêu cầu một chữ cái · `C` viết ẩu dễ bị đọc thành `G`, và bài chấm theo cái người chấm đọc được.",
+                "decision_path": "(1) \"computer networks... could behave like a single 'brain' with a mind of its own\". (2) Chọn C. · *Điểm rẽ:* giữa đáp án và **B** — đây là phương án gần nghĩa nhất còn lại.",
+                "strategy_note": "\"a mind of its own\" = \"independent thought\" — chính là điều khiến Rees lo.",
+                "answer_summary": "Đáp án chuẩn: C.",
+                "script_extract": null,
+                "source_evidence": [
+                  {
+                    "quote": "\"these could behave like a single 'brain' with a mind of its own, and with goals that may be contrary to human welfare.\"",
+                    "location": "Passage 3: Robots and us; ILR-RDG-CAM-B20-T3.md",
+                    "relation": "Passage evidence (token containment 1.000).",
+                    "source_page": null
+                  }
+                ],
+                "legacy_authored_labels": {
+                  "skill_label": "INFER",
+                  "item_band_estimate": "7.0",
+                  "display_as_official_ielts_band": false
+                },
+                "why_other_answers_fail": "**B** — (\"robot có khả năng con người không có\") — Rees nói robot *vượt ở tính toán* nhưng đó không phải *mối lo* của ông. Loại · **A** — (áp đảo về số lượng) và · **D** — (thâu tóm mọi mặt đời sống) không được nêu. Mối lo cốt lõi là mạng máy tính có \"ý chí riêng\" → C",
+                "decisive_word_or_paraphrase": "ngay tại câu nguồn đã trích ở trên. Chữ quyết định: **a mind of its own** — nối thẳng với \"developing independent thought\" trong đề.",
+                "evidence_location_or_audio_anchor": [
+                  "Passage 3: Robots and us; ILR-RDG-CAM-B20-T3.md"
+                ]
+              },
+              "remediation": {
+                "assigned_pack_id": null,
+                "diagnostic_state": "PROPOSED_NOT_CONFIRMED",
+                "parallel_probe_id": null,
+                "confirmed_skill_code": null,
+                "candidate_skill_codes": [
+                  {
+                    "code": "R02",
+                    "name": "Paraphrase recognition"
+                  },
+                  {
+                    "code": "R09",
+                    "name": "Distractor discrimination"
+                  },
+                  {
+                    "code": "R10",
+                    "name": "Information integration"
+                  }
+                ],
+                "diagnostic_confidence": "low_without_learner_evidence",
+                "delayed_retest_form_id": null,
+                "confirmed_error_subtype": null,
+                "candidate_error_subtypes": [
+                  "R09-MENTION",
+                  "R09-PARTIAL",
+                  "R09-SCOPE"
+                ],
+                "candidate_error_tags_original": [
+                  "mentioned_not_answer",
+                  "partial_truth",
+                  "scope_or_modifier"
+                ],
+                "unmapped_candidate_error_tags": [],
+                "confirmation_evidence_required": [
+                  "first_attempt_answer",
+                  "confidence_before_reveal",
+                  "learner_evidence_or_audio_anchor",
+                  "error_self_explanation",
+                  "performance_on_parallel_item"
+                ]
+              },
+              "schema_version": "web-explanation-object/1.0",
+              "correction_flow": {
+                "completion_rule": {
+                  "correction_verified_when": [
+                    "correction_output_submitted",
+                    "same_source_repair_passed"
+                  ],
+                  "remediation_mastered_when": [
+                    "parallel_transfer_passed",
+                    "delayed_retest_passed"
+                  ],
+                  "viewing_explanation_is_completion": false
+                },
+                "reveal_sequence": [
+                  {
+                    "id": "result_only",
+                    "stage": 1,
+                    "reveals": [
+                      "correct_or_incorrect"
+                    ]
+                  },
+                  {
+                    "id": "evidence_attempt",
+                    "stage": 2,
+                    "requires": [
+                      "learner_marks_evidence_or_audio_window"
+                    ]
+                  },
+                  {
+                    "id": "location_hint",
+                    "stage": 3,
+                    "reveals": [
+                      "evidence_location_or_audio_window"
+                    ]
+                  },
+                  {
+                    "id": "decisive_hint",
+                    "stage": 4,
+                    "reveals": [
+                      "decisive_word_or_paraphrase"
+                    ]
+                  },
+                  {
+                    "id": "full_explanation",
+                    "stage": 5,
+                    "reveals": [
+                      "answer",
+                      "why_correct",
+                      "why_others_fail",
+                      "trap"
+                    ]
+                  },
+                  {
+                    "id": "correction_output",
+                    "stage": 6,
+                    "requires": [
+                      "learner_explains_error_mechanism",
+                      "corrected_answer"
+                    ]
+                  },
+                  {
+                    "id": "same_source_repair",
+                    "stage": 7,
+                    "requires": [
+                      "repair_pass"
+                    ]
+                  },
+                  {
+                    "id": "parallel_transfer",
+                    "stage": 8,
+                    "requires": [
+                      "new_item_pass"
+                    ]
+                  },
+                  {
+                    "id": "delayed_retest",
+                    "stage": 9,
+                    "requires": [
+                      "retest_after_2_to_7_days"
+                    ]
+                  }
+                ],
+                "attempt_contract": {
+                  "capture_before_reveal": [
+                    "first_answer",
+                    "confidence_1_to_5",
+                    "evidence_or_audio_anchor_attempt"
+                  ],
+                  "lock_first_attempt_after_submit": true
+                },
+                "same_source_repair": {
+                  "pass_rule": "Có bằng chứng cụ thể và cơ chế quyết định đúng; không chấp nhận chỉ chép lại đáp án.",
+                  "prompt_vi": "Gạch chân phạm vi câu hỏi, bằng chứng quyết định và từ nhỏ nhất làm một lựa chọn sai.",
+                  "max_attempts_before_teacher_review": 2
+                }
+              },
+              "rights_and_release": {
+                "copyright_source": "Cambridge IELTS 20",
+                "editorial_status": "GENERATED_REQUIRES_EDITORIAL_REVIEW",
+                "publication_status": "BLOCKED_PENDING_RIGHTS_REVIEW",
+                "allowed_current_use": "internal planning and QA only",
+                "item_serving_status": "ELIGIBLE_AFTER_GLOBAL_RELEASE_GATES"
+              }
+            },
+            "object_id": "cambridge-20-test-3-reading-q38",
+            "created_at": "2026-09-11T02:47:08.848644+00:00",
+            "is_current": true,
+            "book_number": 20,
+            "imported_by": null,
+            "source_hash": "782c39e30b328736a1284c03f2df6939647066c5ed2650865a2320830f937b2d",
+            "test_number": 3,
+            "audit_verdict": "CONFIRMED",
+            "rights_status": "BLOCKED_PENDING_RIGHTS_REVIEW",
+            "binding_status": "BOUND",
+            "serving_status": "ELIGIBLE_AFTER_GLOBAL_RELEASE_GATES",
+            "content_version": "2026-11-05-t008-pcj667-v1",
+            "import_batch_id": "cc210f3a-238b-4722-85ab-3c52ea193bde",
+            "question_number": 38,
+            "reading_test_id": "72a8a0d2-b3d3-58da-85be-35a56c1097c3",
+            "source_test_key": "cambridge-20-test-3",
+            "editorial_status": "GENERATED_REQUIRES_EDITORIAL_REVIEW",
+            "listening_test_id": null
+          },
+          "paper": {
+            "id": "72a8a0d2-b3d3-58da-85be-35a56c1097c3",
+            "title": "[INTERNAL QA] Cambridge IELTS 20 Test 3 Reading",
+            "module": "academic",
+            "status": "draft",
+            "test_id": "ILR-RDG-CAM-B20-T3",
+            "version": "1.0",
+            "metadata": {
+              "internal_qa": true,
+              "source_hash": "bbb7bc5e737dd514f6cef8d7592225de5812df2cbaf57bc868dd09e3bf603e74",
+              "source_format": "canonical-package/1.0",
+              "source_package_id": "cambridge-20-test-3"
+            },
+            "exam_only": true,
+            "is_public": false,
+            "test_type": "full",
+            "created_at": "2026-09-11T03:37:57.027763+00:00",
+            "created_by": null,
+            "updated_at": "2026-11-05T01:33:02.109132+00:00",
+            "band_target": null,
+            "course_level": null,
+            "passage_count": 3,
+            "policy_revision": 0,
+            "total_questions": 40,
+            "time_limit_minutes": 60,
+            "web_explanation_mode": "disabled",
+            "mock_content_revision": 609,
+            "approved_public_overlap": null,
+            "public_practice_enabled": false,
+            "web_explanations_released_at": null,
+            "web_explanations_released_by": null,
+            "web_explanation_content_version": null
+          },
+          "target": "x1-object-38"
+        },
+        {
+          "row": {
+            "id": "8f42f1c4-0000-4000-8000-000000000039",
+            "skill": "reading",
+            "payload": {
+              "item": {
+                "answer": {
+                  "canonical": "B",
+                  "accepted_forms": [
+                    "B"
+                  ],
+                  "comparison_mode": "single_value",
+                  "requires_normalization_review": false
+                },
+                "prompt": "Choose the correct letter.\nWhat does Wolpert emphasise in his response to the question about science fiction?",
+                "context": {
+                  "kind": "passage",
+                  "title": "Robots and us",
+                  "number": 3,
+                  "source_instructions": "Read the passage and answer the questions."
+                },
+                "options": {
+                  "A": "It has grown alongside the development of ever more advanced robots.",
+                  "B": "It is the result of our inclination to attribute human characteristics to non-human entities.",
+                  "C": "It has its origins in basic misunderstandings about how inanimate objects function.",
+                  "D": "It demonstrates a key difference between human intelligence and machine intelligence."
+                },
+                "question_type": "multiple_choice_single",
+                "response_group": null,
+                "response_constraint": {
+                  "word_limit_text": null,
+                  "instruction_text": "Choose the correct letter.",
+                  "selection_count_text": null
+                },
+                "source_question_type": "mcq_single"
+              },
+              "audit": {
+                "verdict": "CONFIRMED",
+                "evidence": [
+                  {
+                    "quote": "\"Interestingly, almost no science fiction envisages a future without robots.\"",
+                    "location": "Passage 3: Robots and us; ILR-RDG-CAM-B20-T3.md",
+                    "relation": "Passage evidence (token containment 1.000).",
+                    "source_page": null
+                  }
+                ],
+                "confidence": {
+                  "label": "high",
+                  "score": 0.97
+                },
+                "blind_answer": "B",
+                "collection_review": null,
+                "instruction_check": {
+                  "detail": "No lexical word limit, or selected-response item.",
+                  "status": "COMPLIANT"
+                },
+                "distractor_analysis": "Loại C (\"hình ảnh robot thay đổi theo thời gian\") — ông mô tả một *dải* tương lai (từ dễ thương đến u ám) nhưng đó là phổ *đồng thời*, không phải sự thay đổi theo thời gian. Loại A và D không phải điểm ông nhấn mạnh. Câu \"Interestingly...\" là ý ông muốn nhấn → B.",
+                "proposed_correction": null,
+                "deterministic_issues": [],
+                "alternative_answers_considered": [
+                  "A: It has grown alongside the development of ever more advanced robots.",
+                  "C: It has its origins in basic misunderstandings about how inanimate objects function.",
+                  "D: It demonstrates a key difference between human intelligence and machine intelligence."
+                ]
+              },
+              "source": {
+                "paper": "reading",
+                "test_id": "cambridge-20-test-3",
+                "immutable": true,
+                "collection": "Cambridge IELTS 20",
+                "test_number": 3,
+                "timings_path": "cambridge-20-test-3/cambridge_ielts_20_test_3_timings.json",
+                "question_number": 39,
+                "provenance_hashes": {
+                  "timings_path": "9321488239855f8ec4fadaa30811aed66c082bbb8836621358247aa84fb12dc0",
+                  "semantic_audit_path": "f852aa18ec6685bcb03954b4be085c65445a83d057cde7dd31562b5aca223d3a",
+                  "authored_solution_path": "9a181d41497543317b2dbe3d9ebba64cb3c1383eb2f695d9d6f3e0c39fbef1e2",
+                  "canonical_package_path": "63df0b9f80b080a55f096e77953ebf8fd5395f1a9c3877bb2611ec22dd350aa3",
+                  "deterministic_preflight_path": "577a00b0d111fd02f1382fcc29ff743faf8e24b726a7fab656faf49068a42fe3"
+                },
+                "semantic_audit_path": "cambridge-20-test-3/semantic-audit.json",
+                "authored_solution_path": "cambridge-20-test-3/cambridge_ielts_20_test_3_reading_Solution.md",
+                "canonical_package_path": "cambridge-20-test-3/package.json",
+                "deterministic_preflight_path": "cambridge-20-test-3/deterministic-preflight.json"
+              },
+              "object_id": "cambridge-20-test-3-reading-q39",
+              "telemetry": {
+                "required_events": [
+                  "paper_submitted",
+                  "confidence_recorded",
+                  "evidence_attempt_submitted",
+                  "hint_revealed",
+                  "full_explanation_opened",
+                  "correction_output_submitted",
+                  "same_source_repair_scored",
+                  "parallel_transfer_scored",
+                  "delayed_retest_scored"
+                ],
+                "minimum_event_payload": [
+                  "event_id",
+                  "event_name",
+                  "schema_version",
+                  "learner_id",
+                  "mock_session_id",
+                  "sequence_no",
+                  "client_occurred_at",
+                  "server_received_at",
+                  "client_version",
+                  "payload"
+                ]
+              },
+              "explanation": {
+                "trap": "Loại C (\"hình ảnh robot thay đổi theo thời gian\") — ông mô tả một *dải* tương lai (từ dễ thương đến u ám) nhưng đó là phổ *đồng thời*, không phải sự thay đổi theo thời gian. Loại A và D không phải điểm ông nhấn mạnh. Câu \"Interestingly...\" là ý ông muốn nhấn → B.",
+                "language": "vi-with-en-evidence",
+                "paraphrase": "\"how fundamental robots are to the science fiction genre\" ↔ \"almost no science fiction envisages a future without robots\" (robot có mặt ở gần như mọi tác phẩm) (cơ chế: thay từ đồng nghĩa và đổi trật tự — bài không cho bạn quét trùng chữ).",
+                "vocabulary": "`envisage (v)` = hình dung; `genre (n)` = thể loại; `fundamental (adj)` = cốt lõi/nền tảng.",
+                "why_correct": "ngay tại câu nguồn đã trích ở trên. Chữ quyết định: **almost no science fiction envisages a future without robots** — nối thẳng với \"how fundamental robots are to the science fiction genre\" trong đề.",
+                "audio_window": null,
+                "marking_note": "viết **B**, không chép cả câu phương án — đề yêu cầu một chữ cái · `B` viết ẩu dễ bị đọc thành `D`, và bài chấm theo cái người chấm đọc được.",
+                "decision_path": "(1) Câu chốt: \"almost no science fiction envisages a future without robots\". (2) Chọn B. · *Điểm rẽ:* giữa đáp án và **C** — đây là phương án gần nghĩa nhất còn lại.",
+                "strategy_note": "Từ \"Interestingly / crucially\" thường mở đầu ý mà tác giả *muốn nhấn mạnh nhất*.",
+                "answer_summary": "Đáp án chuẩn: B.",
+                "script_extract": null,
+                "source_evidence": [
+                  {
+                    "quote": "\"Interestingly, almost no science fiction envisages a future without robots.\"",
+                    "location": "Passage 3: Robots and us; ILR-RDG-CAM-B20-T3.md",
+                    "relation": "Passage evidence (token containment 1.000).",
+                    "source_page": null
+                  }
+                ],
+                "legacy_authored_labels": {
+                  "skill_label": "SKIM",
+                  "item_band_estimate": "7.0",
+                  "display_as_official_ielts_band": false
+                },
+                "why_other_answers_fail": "**C** — (\"hình ảnh robot thay đổi theo thời gian\") — ông mô tả một *dải* tương lai (từ dễ thương đến u ám) nhưng đó là phổ *đồng thời*, không phải sự thay đổi theo thời gian. Loại A và D không phải điểm ông n · **A** — không có căn cứ nào trong bài chống đỡ cho phương án này · **D** — không có căn cứ nào trong bài chống đỡ cho phương án này",
+                "decisive_word_or_paraphrase": "ngay tại câu nguồn đã trích ở trên. Chữ quyết định: **almost no science fiction envisages a future without robots** — nối thẳng với \"how fundamental robots are to the science fiction genre\" trong đề.",
+                "evidence_location_or_audio_anchor": [
+                  "Passage 3: Robots and us; ILR-RDG-CAM-B20-T3.md"
+                ]
+              },
+              "remediation": {
+                "assigned_pack_id": null,
+                "diagnostic_state": "PROPOSED_NOT_CONFIRMED",
+                "parallel_probe_id": null,
+                "confirmed_skill_code": null,
+                "candidate_skill_codes": [
+                  {
+                    "code": "R02",
+                    "name": "Paraphrase recognition"
+                  },
+                  {
+                    "code": "R09",
+                    "name": "Distractor discrimination"
+                  },
+                  {
+                    "code": "R10",
+                    "name": "Information integration"
+                  }
+                ],
+                "diagnostic_confidence": "low_without_learner_evidence",
+                "delayed_retest_form_id": null,
+                "confirmed_error_subtype": null,
+                "candidate_error_subtypes": [
+                  "R09-MENTION",
+                  "R09-PARTIAL",
+                  "R09-SCOPE"
+                ],
+                "candidate_error_tags_original": [
+                  "mentioned_not_answer",
+                  "partial_truth",
+                  "scope_or_modifier"
+                ],
+                "unmapped_candidate_error_tags": [],
+                "confirmation_evidence_required": [
+                  "first_attempt_answer",
+                  "confidence_before_reveal",
+                  "learner_evidence_or_audio_anchor",
+                  "error_self_explanation",
+                  "performance_on_parallel_item"
+                ]
+              },
+              "schema_version": "web-explanation-object/1.0",
+              "correction_flow": {
+                "completion_rule": {
+                  "correction_verified_when": [
+                    "correction_output_submitted",
+                    "same_source_repair_passed"
+                  ],
+                  "remediation_mastered_when": [
+                    "parallel_transfer_passed",
+                    "delayed_retest_passed"
+                  ],
+                  "viewing_explanation_is_completion": false
+                },
+                "reveal_sequence": [
+                  {
+                    "id": "result_only",
+                    "stage": 1,
+                    "reveals": [
+                      "correct_or_incorrect"
+                    ]
+                  },
+                  {
+                    "id": "evidence_attempt",
+                    "stage": 2,
+                    "requires": [
+                      "learner_marks_evidence_or_audio_window"
+                    ]
+                  },
+                  {
+                    "id": "location_hint",
+                    "stage": 3,
+                    "reveals": [
+                      "evidence_location_or_audio_window"
+                    ]
+                  },
+                  {
+                    "id": "decisive_hint",
+                    "stage": 4,
+                    "reveals": [
+                      "decisive_word_or_paraphrase"
+                    ]
+                  },
+                  {
+                    "id": "full_explanation",
+                    "stage": 5,
+                    "reveals": [
+                      "answer",
+                      "why_correct",
+                      "why_others_fail",
+                      "trap"
+                    ]
+                  },
+                  {
+                    "id": "correction_output",
+                    "stage": 6,
+                    "requires": [
+                      "learner_explains_error_mechanism",
+                      "corrected_answer"
+                    ]
+                  },
+                  {
+                    "id": "same_source_repair",
+                    "stage": 7,
+                    "requires": [
+                      "repair_pass"
+                    ]
+                  },
+                  {
+                    "id": "parallel_transfer",
+                    "stage": 8,
+                    "requires": [
+                      "new_item_pass"
+                    ]
+                  },
+                  {
+                    "id": "delayed_retest",
+                    "stage": 9,
+                    "requires": [
+                      "retest_after_2_to_7_days"
+                    ]
+                  }
+                ],
+                "attempt_contract": {
+                  "capture_before_reveal": [
+                    "first_answer",
+                    "confidence_1_to_5",
+                    "evidence_or_audio_anchor_attempt"
+                  ],
+                  "lock_first_attempt_after_submit": true
+                },
+                "same_source_repair": {
+                  "pass_rule": "Có bằng chứng cụ thể và cơ chế quyết định đúng; không chấp nhận chỉ chép lại đáp án.",
+                  "prompt_vi": "Gạch chân phạm vi câu hỏi, bằng chứng quyết định và từ nhỏ nhất làm một lựa chọn sai.",
+                  "max_attempts_before_teacher_review": 2
+                }
+              },
+              "rights_and_release": {
+                "copyright_source": "Cambridge IELTS 20",
+                "editorial_status": "GENERATED_REQUIRES_EDITORIAL_REVIEW",
+                "publication_status": "BLOCKED_PENDING_RIGHTS_REVIEW",
+                "allowed_current_use": "internal planning and QA only",
+                "item_serving_status": "ELIGIBLE_AFTER_GLOBAL_RELEASE_GATES"
+              }
+            },
+            "object_id": "cambridge-20-test-3-reading-q39",
+            "created_at": "2026-09-11T02:47:08.848644+00:00",
+            "is_current": true,
+            "book_number": 20,
+            "imported_by": null,
+            "source_hash": "a55fbd0c1139c4e3e2af23fa31ade307b51c448dde4e4b5a9d7a534e74f0fe5f",
+            "test_number": 3,
+            "audit_verdict": "CONFIRMED",
+            "rights_status": "BLOCKED_PENDING_RIGHTS_REVIEW",
+            "binding_status": "BOUND",
+            "serving_status": "ELIGIBLE_AFTER_GLOBAL_RELEASE_GATES",
+            "content_version": "2026-11-05-t008-pcj667-v1",
+            "import_batch_id": "5bb757e1-316b-41dc-8160-a89cec86a4fd",
+            "question_number": 39,
+            "reading_test_id": "72a8a0d2-b3d3-58da-85be-35a56c1097c3",
+            "source_test_key": "cambridge-20-test-3",
+            "editorial_status": "GENERATED_REQUIRES_EDITORIAL_REVIEW",
+            "listening_test_id": null
+          },
+          "paper": {
+            "id": "72a8a0d2-b3d3-58da-85be-35a56c1097c3",
+            "title": "[INTERNAL QA] Cambridge IELTS 20 Test 3 Reading",
+            "module": "academic",
+            "status": "draft",
+            "test_id": "ILR-RDG-CAM-B20-T3",
+            "version": "1.0",
+            "metadata": {
+              "internal_qa": true,
+              "source_hash": "bbb7bc5e737dd514f6cef8d7592225de5812df2cbaf57bc868dd09e3bf603e74",
+              "source_format": "canonical-package/1.0",
+              "source_package_id": "cambridge-20-test-3"
+            },
+            "exam_only": true,
+            "is_public": false,
+            "test_type": "full",
+            "created_at": "2026-09-11T03:37:57.027763+00:00",
+            "created_by": null,
+            "updated_at": "2026-11-05T01:33:02.109132+00:00",
+            "band_target": null,
+            "course_level": null,
+            "passage_count": 3,
+            "policy_revision": 0,
+            "total_questions": 40,
+            "time_limit_minutes": 60,
+            "web_explanation_mode": "disabled",
+            "mock_content_revision": 609,
+            "approved_public_overlap": null,
+            "public_practice_enabled": false,
+            "web_explanations_released_at": null,
+            "web_explanations_released_by": null,
+            "web_explanation_content_version": null
+          },
+          "target": "x1-object-39"
+        },
+        {
+          "row": {
+            "id": "1656d59a-0000-4000-8000-000000000040",
+            "skill": "reading",
+            "payload": {
+              "item": {
+                "answer": {
+                  "canonical": "C",
+                  "accepted_forms": [
+                    "C"
+                  ],
+                  "comparison_mode": "single_value",
+                  "requires_normalization_review": false
+                },
+                "prompt": "Choose the correct letter.\nWhat is Richardson doing in her comment about reality and fantasy?",
+                "context": {
+                  "kind": "passage",
+                  "title": "Robots and us",
+                  "number": 3,
+                  "source_instructions": "Read the passage and answer the questions."
+                },
+                "options": {
+                  "A": "It has grown alongside the development of ever more advanced robots.",
+                  "B": "It is the result of our inclination to attribute human characteristics to non-human entities.",
+                  "C": "It has its origins in basic misunderstandings about how inanimate objects function.",
+                  "D": "It demonstrates a key difference between human intelligence and machine intelligence."
+                },
+                "question_type": "multiple_choice_single",
+                "response_group": null,
+                "response_constraint": {
+                  "word_limit_text": null,
+                  "instruction_text": "Choose the correct letter.",
+                  "selection_count_text": null
+                },
+                "source_question_type": "mcq_single"
+              },
+              "audit": {
+                "verdict": "CONFIRMED",
+                "evidence": [
+                  {
+                    "quote": "\"In some cases, we need to bring these different understandings together to get a whole perspective.\"",
+                    "location": "Passage 3: Robots and us; ILR-RDG-CAM-B20-T3.md",
+                    "relation": "Passage evidence (token containment 1.000).",
+                    "source_page": null
+                  }
+                ],
+                "confidence": {
+                  "label": "high",
+                  "score": 0.97
+                },
+                "blind_answer": "C",
+                "collection_review": null,
+                "instruction_check": {
+                  "detail": "No lexical word limit, or selected-response item.",
+                  "status": "COMPLIANT"
+                },
+                "distractor_analysis": "Loại A (\"cảnh báo đừng nhầm lẫn hai thứ\") — trái ý bà (bà nói ranh giới *không* rạch ròi, nên gộp lại). Loại B (nêu cách một bên tác động bên kia) và D (giải thích vì sao nhà khoa học có góc nhìn khác) chỉ là chi tiết phụ; *hành động chính* của bà là *khuyến nghị* gộp các cách hiểu lại → C.",
+                "proposed_correction": null,
+                "deterministic_issues": [],
+                "alternative_answers_considered": [
+                  "A: It has grown alongside the development of ever more advanced robots.",
+                  "B: It is the result of our inclination to attribute human characteristics to non-human entities.",
+                  "D: It demonstrates a key difference between human intelligence and machine intelligence."
+                ]
+              },
+              "source": {
+                "paper": "reading",
+                "test_id": "cambridge-20-test-3",
+                "immutable": true,
+                "collection": "Cambridge IELTS 20",
+                "test_number": 3,
+                "timings_path": "cambridge-20-test-3/cambridge_ielts_20_test_3_timings.json",
+                "question_number": 40,
+                "provenance_hashes": {
+                  "timings_path": "9321488239855f8ec4fadaa30811aed66c082bbb8836621358247aa84fb12dc0",
+                  "semantic_audit_path": "f852aa18ec6685bcb03954b4be085c65445a83d057cde7dd31562b5aca223d3a",
+                  "authored_solution_path": "9a181d41497543317b2dbe3d9ebba64cb3c1383eb2f695d9d6f3e0c39fbef1e2",
+                  "canonical_package_path": "63df0b9f80b080a55f096e77953ebf8fd5395f1a9c3877bb2611ec22dd350aa3",
+                  "deterministic_preflight_path": "577a00b0d111fd02f1382fcc29ff743faf8e24b726a7fab656faf49068a42fe3"
+                },
+                "semantic_audit_path": "cambridge-20-test-3/semantic-audit.json",
+                "authored_solution_path": "cambridge-20-test-3/cambridge_ielts_20_test_3_reading_Solution.md",
+                "canonical_package_path": "cambridge-20-test-3/package.json",
+                "deterministic_preflight_path": "cambridge-20-test-3/deterministic-preflight.json"
+              },
+              "object_id": "cambridge-20-test-3-reading-q40",
+              "telemetry": {
+                "required_events": [
+                  "paper_submitted",
+                  "confidence_recorded",
+                  "evidence_attempt_submitted",
+                  "hint_revealed",
+                  "full_explanation_opened",
+                  "correction_output_submitted",
+                  "same_source_repair_scored",
+                  "parallel_transfer_scored",
+                  "delayed_retest_scored"
+                ],
+                "minimum_event_payload": [
+                  "event_id",
+                  "event_name",
+                  "schema_version",
+                  "learner_id",
+                  "mock_session_id",
+                  "sequence_no",
+                  "client_occurred_at",
+                  "server_received_at",
+                  "client_version",
+                  "payload"
+                ]
+              },
+              "explanation": {
+                "trap": "Loại A (\"cảnh báo đừng nhầm lẫn hai thứ\") — trái ý bà (bà nói ranh giới *không* rạch ròi, nên gộp lại). Loại B (nêu cách một bên tác động bên kia) và D (giải thích vì sao nhà khoa học có góc nhìn khác) chỉ là chi tiết phụ; *hành động chính* của bà là *khuyến nghị* gộp các cách hiểu lại → C.",
+                "language": "vi-with-en-evidence",
+                "paraphrase": "\"recommending a change of approach\" ↔ \"we need to bring these different understandings together\" (cơ chế: thay từ đồng nghĩa và đổi trật tự — bài không cho bạn quét trùng chữ).",
+                "vocabulary": "`perspective (n)` = góc nhìn; `divide (n)` = ranh giới/sự phân chia; `clear cut` = rạch ròi.",
+                "why_correct": "ngay tại câu nguồn đã trích ở trên. Chữ quyết định: **we need to bring these different understandings together** — nối thẳng với \"recommending a change of approach\" trong đề.",
+                "audio_window": null,
+                "marking_note": "viết **C**, không chép cả câu phương án — đề yêu cầu một chữ cái · `C` viết ẩu dễ bị đọc thành `G`, và bài chấm theo cái người chấm đọc được.",
+                "decision_path": "(1) \"we need to bring these different understandings together to get a whole perspective\". (2) Đây là một *đề xuất* thay đổi cách nhìn → C. · *Điểm rẽ:* giữa đáp án và **A** — đây là phương án gần nghĩa nhất còn lại.",
+                "strategy_note": "Dạng \"what is the writer doing\" → tìm *động từ hành ngôn* (recommend/warn/explain/outline) khớp với ý chủ đạo, không phải chi tiết phụ.",
+                "answer_summary": "Đáp án chuẩn: C.",
+                "script_extract": null,
+                "source_evidence": [
+                  {
+                    "quote": "\"In some cases, we need to bring these different understandings together to get a whole perspective.\"",
+                    "location": "Passage 3: Robots and us; ILR-RDG-CAM-B20-T3.md",
+                    "relation": "Passage evidence (token containment 1.000).",
+                    "source_page": null
+                  }
+                ],
+                "legacy_authored_labels": {
+                  "skill_label": "SKIM",
+                  "item_band_estimate": "7.5",
+                  "display_as_official_ielts_band": false
+                },
+                "why_other_answers_fail": "**A** — (\"cảnh báo đừng nhầm lẫn hai thứ\") — trái ý bà (bà nói ranh giới *không* rạch ròi, nên gộp lại). Loại · **B** — (nêu cách một bên tác động bên kia) và · **D** — (giải thích vì sao nhà khoa học có góc nhìn khác) chỉ là chi tiết phụ; *hành động chính* của bà là *khuyến nghị* gộp các cách hiểu lại → C",
+                "decisive_word_or_paraphrase": "ngay tại câu nguồn đã trích ở trên. Chữ quyết định: **we need to bring these different understandings together** — nối thẳng với \"recommending a change of approach\" trong đề.",
+                "evidence_location_or_audio_anchor": [
+                  "Passage 3: Robots and us; ILR-RDG-CAM-B20-T3.md"
+                ]
+              },
+              "remediation": {
+                "assigned_pack_id": null,
+                "diagnostic_state": "PROPOSED_NOT_CONFIRMED",
+                "parallel_probe_id": null,
+                "confirmed_skill_code": null,
+                "candidate_skill_codes": [
+                  {
+                    "code": "R02",
+                    "name": "Paraphrase recognition"
+                  },
+                  {
+                    "code": "R09",
+                    "name": "Distractor discrimination"
+                  },
+                  {
+                    "code": "R10",
+                    "name": "Information integration"
+                  }
+                ],
+                "diagnostic_confidence": "low_without_learner_evidence",
+                "delayed_retest_form_id": null,
+                "confirmed_error_subtype": null,
+                "candidate_error_subtypes": [
+                  "R09-MENTION",
+                  "R09-PARTIAL",
+                  "R09-SCOPE"
+                ],
+                "candidate_error_tags_original": [
+                  "mentioned_not_answer",
+                  "partial_truth",
+                  "scope_or_modifier"
+                ],
+                "unmapped_candidate_error_tags": [],
+                "confirmation_evidence_required": [
+                  "first_attempt_answer",
+                  "confidence_before_reveal",
+                  "learner_evidence_or_audio_anchor",
+                  "error_self_explanation",
+                  "performance_on_parallel_item"
+                ]
+              },
+              "schema_version": "web-explanation-object/1.0",
+              "correction_flow": {
+                "completion_rule": {
+                  "correction_verified_when": [
+                    "correction_output_submitted",
+                    "same_source_repair_passed"
+                  ],
+                  "remediation_mastered_when": [
+                    "parallel_transfer_passed",
+                    "delayed_retest_passed"
+                  ],
+                  "viewing_explanation_is_completion": false
+                },
+                "reveal_sequence": [
+                  {
+                    "id": "result_only",
+                    "stage": 1,
+                    "reveals": [
+                      "correct_or_incorrect"
+                    ]
+                  },
+                  {
+                    "id": "evidence_attempt",
+                    "stage": 2,
+                    "requires": [
+                      "learner_marks_evidence_or_audio_window"
+                    ]
+                  },
+                  {
+                    "id": "location_hint",
+                    "stage": 3,
+                    "reveals": [
+                      "evidence_location_or_audio_window"
+                    ]
+                  },
+                  {
+                    "id": "decisive_hint",
+                    "stage": 4,
+                    "reveals": [
+                      "decisive_word_or_paraphrase"
+                    ]
+                  },
+                  {
+                    "id": "full_explanation",
+                    "stage": 5,
+                    "reveals": [
+                      "answer",
+                      "why_correct",
+                      "why_others_fail",
+                      "trap"
+                    ]
+                  },
+                  {
+                    "id": "correction_output",
+                    "stage": 6,
+                    "requires": [
+                      "learner_explains_error_mechanism",
+                      "corrected_answer"
+                    ]
+                  },
+                  {
+                    "id": "same_source_repair",
+                    "stage": 7,
+                    "requires": [
+                      "repair_pass"
+                    ]
+                  },
+                  {
+                    "id": "parallel_transfer",
+                    "stage": 8,
+                    "requires": [
+                      "new_item_pass"
+                    ]
+                  },
+                  {
+                    "id": "delayed_retest",
+                    "stage": 9,
+                    "requires": [
+                      "retest_after_2_to_7_days"
+                    ]
+                  }
+                ],
+                "attempt_contract": {
+                  "capture_before_reveal": [
+                    "first_answer",
+                    "confidence_1_to_5",
+                    "evidence_or_audio_anchor_attempt"
+                  ],
+                  "lock_first_attempt_after_submit": true
+                },
+                "same_source_repair": {
+                  "pass_rule": "Có bằng chứng cụ thể và cơ chế quyết định đúng; không chấp nhận chỉ chép lại đáp án.",
+                  "prompt_vi": "Gạch chân phạm vi câu hỏi, bằng chứng quyết định và từ nhỏ nhất làm một lựa chọn sai.",
+                  "max_attempts_before_teacher_review": 2
+                }
+              },
+              "rights_and_release": {
+                "copyright_source": "Cambridge IELTS 20",
+                "editorial_status": "GENERATED_REQUIRES_EDITORIAL_REVIEW",
+                "publication_status": "BLOCKED_PENDING_RIGHTS_REVIEW",
+                "allowed_current_use": "internal planning and QA only",
+                "item_serving_status": "ELIGIBLE_AFTER_GLOBAL_RELEASE_GATES"
+              }
+            },
+            "object_id": "cambridge-20-test-3-reading-q40",
+            "created_at": "2026-09-11T02:47:08.848644+00:00",
+            "is_current": true,
+            "book_number": 20,
+            "imported_by": null,
+            "source_hash": "010f37e50271a1670a21f29e9de6e7cd59bee0dedc059285038c1f9b3b86947b",
+            "test_number": 3,
+            "audit_verdict": "CONFIRMED",
+            "rights_status": "BLOCKED_PENDING_RIGHTS_REVIEW",
+            "binding_status": "BOUND",
+            "serving_status": "ELIGIBLE_AFTER_GLOBAL_RELEASE_GATES",
+            "content_version": "2026-11-05-t008-pcj667-v1",
+            "import_batch_id": "74eb9b0c-63d4-4f41-8ff0-eb0a0cc52d4e",
+            "question_number": 40,
+            "reading_test_id": "72a8a0d2-b3d3-58da-85be-35a56c1097c3",
+            "source_test_key": "cambridge-20-test-3",
+            "editorial_status": "GENERATED_REQUIRES_EDITORIAL_REVIEW",
+            "listening_test_id": null
+          },
+          "paper": {
+            "id": "72a8a0d2-b3d3-58da-85be-35a56c1097c3",
+            "title": "[INTERNAL QA] Cambridge IELTS 20 Test 3 Reading",
+            "module": "academic",
+            "status": "draft",
+            "test_id": "ILR-RDG-CAM-B20-T3",
+            "version": "1.0",
+            "metadata": {
+              "internal_qa": true,
+              "source_hash": "bbb7bc5e737dd514f6cef8d7592225de5812df2cbaf57bc868dd09e3bf603e74",
+              "source_format": "canonical-package/1.0",
+              "source_package_id": "cambridge-20-test-3"
+            },
+            "exam_only": true,
+            "is_public": false,
+            "test_type": "full",
+            "created_at": "2026-09-11T03:37:57.027763+00:00",
+            "created_by": null,
+            "updated_at": "2026-11-05T01:33:02.109132+00:00",
+            "band_target": null,
+            "course_level": null,
+            "passage_count": 3,
+            "policy_revision": 0,
+            "total_questions": 40,
+            "time_limit_minutes": 60,
+            "web_explanation_mode": "disabled",
+            "mock_content_revision": 609,
+            "approved_public_overlap": null,
+            "public_practice_enabled": false,
+            "web_explanations_released_at": null,
+            "web_explanations_released_by": null,
+            "web_explanation_content_version": null
+          },
+          "target": "x1-object-40"
+        },
+        {
+          "row": {
+            "id": "ba6fcedf-c89e-5e63-8d22-fd156d698bee",
+            "q_num": 38,
+            "answer": {
+              "answer": "C",
+              "alternatives": []
+            },
+            "prompt": "Choose the correct letter.\nWhat potential advance does Rees see as a cause for concern?",
+            "payload": {
+              "options": [
+                {
+                  "text": "It has grown alongside the development of ever more advanced robots.",
+                  "label": "A"
+                },
+                {
+                  "text": "It is the result of our inclination to attribute human characteristics to non-human entities.",
+                  "label": "B"
+                },
+                {
+                  "text": "It has its origins in basic misunderstandings about how inanimate objects function.",
+                  "label": "C"
+                },
+                {
+                  "text": "It demonstrates a key difference between human intelligence and machine intelligence.",
+                  "label": "D"
+                }
+              ]
+            },
+            "order_num": 12,
+            "skill_tag": "inference",
+            "sub_skill": "mcq_single",
+            "created_at": "2026-09-11T03:37:57.374904+00:00",
+            "passage_id": "4cee611a-73b7-5a3f-b634-970560c7b6e7",
+            "updated_at": "2026-09-11T03:37:57.374904+00:00",
+            "explanation": null,
+            "question_type": "mcq_single"
+          },
+          "paper": {
+            "id": "72a8a0d2-b3d3-58da-85be-35a56c1097c3",
+            "title": "[INTERNAL QA] Cambridge IELTS 20 Test 3 Reading",
+            "module": "academic",
+            "status": "draft",
+            "test_id": "ILR-RDG-CAM-B20-T3",
+            "version": "1.0",
+            "metadata": {
+              "internal_qa": true,
+              "source_hash": "bbb7bc5e737dd514f6cef8d7592225de5812df2cbaf57bc868dd09e3bf603e74",
+              "source_format": "canonical-package/1.0",
+              "source_package_id": "cambridge-20-test-3"
+            },
+            "exam_only": true,
+            "is_public": false,
+            "test_type": "full",
+            "created_at": "2026-09-11T03:37:57.027763+00:00",
+            "created_by": null,
+            "updated_at": "2026-11-05T01:33:02.109132+00:00",
+            "band_target": null,
+            "course_level": null,
+            "passage_count": 3,
+            "policy_revision": 0,
+            "total_questions": 40,
+            "time_limit_minutes": 60,
+            "web_explanation_mode": "disabled",
+            "mock_content_revision": 609,
+            "approved_public_overlap": null,
+            "public_practice_enabled": false,
+            "web_explanations_released_at": null,
+            "web_explanations_released_by": null,
+            "web_explanation_content_version": null
+          },
+          "target": "x1-question-38"
+        },
+        {
+          "row": {
+            "id": "9ac096f5-0514-55e3-a301-d474c0db7063",
+            "q_num": 39,
+            "answer": {
+              "answer": "B",
+              "alternatives": []
+            },
+            "prompt": "Choose the correct letter.\nWhat does Wolpert emphasise in his response to the question about science fiction?",
+            "payload": {
+              "options": [
+                {
+                  "text": "It has grown alongside the development of ever more advanced robots.",
+                  "label": "A"
+                },
+                {
+                  "text": "It is the result of our inclination to attribute human characteristics to non-human entities.",
+                  "label": "B"
+                },
+                {
+                  "text": "It has its origins in basic misunderstandings about how inanimate objects function.",
+                  "label": "C"
+                },
+                {
+                  "text": "It demonstrates a key difference between human intelligence and machine intelligence.",
+                  "label": "D"
+                }
+              ]
+            },
+            "order_num": 13,
+            "skill_tag": "inference",
+            "sub_skill": "mcq_single",
+            "created_at": "2026-09-11T03:37:57.374904+00:00",
+            "passage_id": "4cee611a-73b7-5a3f-b634-970560c7b6e7",
+            "updated_at": "2026-09-11T03:37:57.374904+00:00",
+            "explanation": null,
+            "question_type": "mcq_single"
+          },
+          "paper": {
+            "id": "72a8a0d2-b3d3-58da-85be-35a56c1097c3",
+            "title": "[INTERNAL QA] Cambridge IELTS 20 Test 3 Reading",
+            "module": "academic",
+            "status": "draft",
+            "test_id": "ILR-RDG-CAM-B20-T3",
+            "version": "1.0",
+            "metadata": {
+              "internal_qa": true,
+              "source_hash": "bbb7bc5e737dd514f6cef8d7592225de5812df2cbaf57bc868dd09e3bf603e74",
+              "source_format": "canonical-package/1.0",
+              "source_package_id": "cambridge-20-test-3"
+            },
+            "exam_only": true,
+            "is_public": false,
+            "test_type": "full",
+            "created_at": "2026-09-11T03:37:57.027763+00:00",
+            "created_by": null,
+            "updated_at": "2026-11-05T01:33:02.109132+00:00",
+            "band_target": null,
+            "course_level": null,
+            "passage_count": 3,
+            "policy_revision": 0,
+            "total_questions": 40,
+            "time_limit_minutes": 60,
+            "web_explanation_mode": "disabled",
+            "mock_content_revision": 609,
+            "approved_public_overlap": null,
+            "public_practice_enabled": false,
+            "web_explanations_released_at": null,
+            "web_explanations_released_by": null,
+            "web_explanation_content_version": null
+          },
+          "target": "x1-question-39"
+        },
+        {
+          "row": {
+            "id": "8cb3cd32-6e68-54ae-8bde-724544a7c49a",
+            "q_num": 40,
+            "answer": {
+              "answer": "C",
+              "alternatives": []
+            },
+            "prompt": "Choose the correct letter.\nWhat is Richardson doing in her comment about reality and fantasy?",
+            "payload": {
+              "options": [
+                {
+                  "text": "It has grown alongside the development of ever more advanced robots.",
+                  "label": "A"
+                },
+                {
+                  "text": "It is the result of our inclination to attribute human characteristics to non-human entities.",
+                  "label": "B"
+                },
+                {
+                  "text": "It has its origins in basic misunderstandings about how inanimate objects function.",
+                  "label": "C"
+                },
+                {
+                  "text": "It demonstrates a key difference between human intelligence and machine intelligence.",
+                  "label": "D"
+                }
+              ]
+            },
+            "order_num": 14,
+            "skill_tag": "inference",
+            "sub_skill": "mcq_single",
+            "created_at": "2026-09-11T03:37:57.374904+00:00",
+            "passage_id": "4cee611a-73b7-5a3f-b634-970560c7b6e7",
+            "updated_at": "2026-09-11T03:37:57.374904+00:00",
+            "explanation": null,
+            "question_type": "mcq_single"
+          },
+          "paper": {
+            "id": "72a8a0d2-b3d3-58da-85be-35a56c1097c3",
+            "title": "[INTERNAL QA] Cambridge IELTS 20 Test 3 Reading",
+            "module": "academic",
+            "status": "draft",
+            "test_id": "ILR-RDG-CAM-B20-T3",
+            "version": "1.0",
+            "metadata": {
+              "internal_qa": true,
+              "source_hash": "bbb7bc5e737dd514f6cef8d7592225de5812df2cbaf57bc868dd09e3bf603e74",
+              "source_format": "canonical-package/1.0",
+              "source_package_id": "cambridge-20-test-3"
+            },
+            "exam_only": true,
+            "is_public": false,
+            "test_type": "full",
+            "created_at": "2026-09-11T03:37:57.027763+00:00",
+            "created_by": null,
+            "updated_at": "2026-11-05T01:33:02.109132+00:00",
+            "band_target": null,
+            "course_level": null,
+            "passage_count": 3,
+            "policy_revision": 0,
+            "total_questions": 40,
+            "time_limit_minutes": 60,
+            "web_explanation_mode": "disabled",
+            "mock_content_revision": 609,
+            "approved_public_overlap": null,
+            "public_practice_enabled": false,
+            "web_explanations_released_at": null,
+            "web_explanations_released_by": null,
+            "web_explanation_content_version": null
+          },
+          "target": "x1-question-40"
+        }
+      ],
+      "environment": "staging"
+    },
+    "missing": [
+      "c03b-object"
+    ]
+  }
+]

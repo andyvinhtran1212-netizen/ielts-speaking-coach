@@ -101,15 +101,26 @@ for (const [label, impl] of IMPLS) {
       'Wallet cá nhân + Quick-Check');
     assert.equal(M.vocabulary({}).sub, 'Bắt đầu lưu từ mới');
 
-    assert.equal(M.reading({ last_band: 7 }).primary.value, '7.0');
-    assert.equal(M.reading({}).sub, 'Luyện đọc với bài kiểm tra IELTS thực tế');
+    // G02-T04 (FR-02-003): a band only when the backend says enough full tests
+    // carry one; never a band number while band_ready is false.
+    assert.deepEqual(plain(M.reading({ last_band: 7, band_ready: true, banded_tests_count: 1, attempts_count: 3 })),
+      { primary: { value: '7.0', unit: 'band' }, sub: 'Ước lượng từ đề đủ 40 câu gần nhất · không phải điểm thi' });
+    assert.deepEqual(plain(M.reading({ last_band: 7, band_ready: false, attempts_count: 3 })),
+      { primary: { value: '3', unit: 'bài' }, sub: 'Chưa đủ bài để ước lượng band' });
+    assert.equal(M.reading({ last_band: 7 }).primary.unit, 'bài', 'a payload without band_ready never shows a band');
+    assert.deepEqual(plain(M.reading({})),
+      { primary: { value: '0', unit: 'bài' }, sub: 'Luyện đọc với bài kiểm tra IELTS thực tế' });
 
-    // Listening đổi CẢ đơn vị khi chưa có band — dễ trôi nhất giữa hai bản.
     assert.deepEqual(plain(M.listening({})),
       { primary: { value: '0', unit: 'bài' }, sub: 'Luyện nghe với dictation và comprehension' });
-    assert.deepEqual(plain(M.listening({ attempts_count: 4 })),
-      { primary: { value: '4', unit: 'bài' }, sub: 'Tiếp tục luyện nghe' });
-    assert.equal(M.listening({ last_band: 5.5, attempts_count: 4 }).primary.unit, 'band');
+    // 1 full test + 6 exercises: the 7 must not sit next to a band.
+    assert.deepEqual(plain(M.listening({ last_band: 5.5, band_ready: true, banded_tests_count: 1, attempts_count: 7 })),
+      { primary: { value: '5.5', unit: 'band' }, sub: 'Ước lượng từ đề đủ 40 câu gần nhất · không phải điểm thi' });
+    assert.deepEqual(plain(M.listening({ attempts_count: 4, banded_tests_count: 0, band_ready: false })),
+      { primary: { value: '4', unit: 'bài' }, sub: 'Chưa đủ bài để ước lượng band' });
+    // Ready, but the latest test was a mini test (no band): count, not a fake "not enough".
+    assert.deepEqual(plain(M.listening({ last_band: null, band_ready: true, banded_tests_count: 2, attempts_count: 5 })),
+      { primary: { value: '5', unit: 'bài' }, sub: '2 đề đủ 40 câu đã làm' });
   });
 }
 
@@ -123,8 +134,10 @@ test('hai bản cho kết quả TRÙNG KHỚP trên mọi ca', () => {
     vocabulary: [{}, { words_learned: 42, flashcards_due: 5 },
       { words_learned: 3, wallet_words: 3 }, { words_learned: 9, quiz_words_mastered: 9 },
       { words_learned: 9, wallet_words: 4, quiz_words_mastered: 5 }],
-    reading: [{}, { last_band: 6, attempts_count: 2 }],
-    listening: [{}, { attempts_count: 4 }, { last_band: 5.5, attempts_count: 4 }],
+    reading: [{}, { last_band: 6, attempts_count: 2 }, { last_band: 6, attempts_count: 2, band_ready: true, banded_tests_count: 1 }],
+    listening: [{}, { attempts_count: 4 }, { last_band: 5.5, attempts_count: 4 },
+      { last_band: 5.5, attempts_count: 7, band_ready: true, banded_tests_count: 1 },
+      { last_band: null, attempts_count: 5, band_ready: true, banded_tests_count: 2 }],
   };
   for (const [skill, cases] of Object.entries(CASES)) {
     for (const c of cases) {
@@ -152,4 +165,17 @@ test('thứ tự kỹ năng và metadata trùng nhau', () => {
     assert.ok(m, `không đọc được name của ${id} trong home.js`);
     assert.equal(next.SKILL_META[id].name, m[1], `${id}: tên kỹ năng lệch`);
   }
+});
+
+// G02-T05 (FR-02-004): the Home mock tile shows an Overall only with enough
+// banded skills. Next-only — the legacy tile script is not deployed.
+test('mockOverallReady — Overall only once enough skills are banded', () => {
+  const f = next.mockOverallReady;
+  assert.equal(f({ overall: 9, banded_skill_count: 1, overall_min_skills: 4 }), false);
+  assert.equal(f({ overall: 6.5, banded_skill_count: 4, overall_min_skills: 4 }), true);
+  assert.equal(f({ overall: 6.5, banded_skill_count: 3, overall_min_skills: 3 }), true);
+  assert.equal(f({ overall: null, banded_skill_count: 4, overall_min_skills: 4 }), false);
+  assert.equal(f({ overall: 6.5 }), false, 'a payload without the count never shows an Overall');
+  assert.equal(f({ overall: 6.5, banded_skill_count: 4 }), true, 'threshold defaults to four');
+  assert.equal(f(null), false);
 });

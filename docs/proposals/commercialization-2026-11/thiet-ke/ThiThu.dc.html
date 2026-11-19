@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Thi thử</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--accentH:#0B5953;--link:#0B5953;--mark:#8A4B08;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EDF3F1;--off:#E7E2D6}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--accentH:#11254A;--link:#1A3561;--mark:#8A1C1C;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EEF0F5;--off:#E8E2D5}
+a{color:var(--link)}a:hover{color:var(--ink)}
+</style>
+</helmet>
+<div class="{{pal}}" style="width: 1280px; height: 8000px; box-sizing: border-box; padding: 0 0 40px; background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 16px; line-height: 1.5; display: flex; flex-direction: column; gap: 48px">
+
+<header style="padding: 56px 64px 0">
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Aver Learning · Bản in · học viên, đợt 5</p>
+<h1 style="margin: 4px 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 40px; font-weight: 600; line-height: 1.15">Thi thử · hub</h1>
+<p style="margin: 0; color: var(--muted); max-width: 88ch">Trang chọn bài của mục Thi thử, chưa vào thi nên nhãn tiếng Việt. Bốn khối theo thứ tự: bài đang dở, mock test được giao, đề tự chọn (chỉ full test từng kỹ năng và mini test), mọi kết quả thi gần đây. Mock test nhiều kỹ năng chỉ có khi giáo viên hoặc admin giao; Overall chỉ có ở mock test được giao. Vào phòng chờ hoặc bấm làm bài thì chuyển sang khung thi tiếng Anh ở tờ ThiThuTruocGio.</p>
+</header>
+
+<section aria-labelledby="s1" style="display: flex; flex-direction: column; gap: 16px">
+<div style="margin: 0 64px; border-top: 2px solid var(--ink); padding: 14px 0 0">
+<h2 id="s1" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">1 · Màn chính · học viên lớp offline, có bài dở, có lịch thi và kết quả</h2>
+<p style="margin: 4px 0 0; color: var(--muted); max-width: 92ch">Khung đủ trang ở 1280px. Học viên Nguyễn Minh Anh thuộc Lớp Tue–Thu 19:30 và có Course 2 · XXX. Các ô đánh số bên dưới khung là chú thích, không thuộc giao diện.</p>
+</div>
+
+<div style="border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); background: var(--paper)">
+<header style="border-bottom: 1px solid var(--ink)">
+<div style="max-width: 1120px; margin: 0 auto; padding: 0 32px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 36px; min-height: 64px">
+<a href="Main.dc.html" style="display: inline-flex; align-items: center; gap: 9px; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600; color: var(--ink); text-decoration: none"><svg width="29" height="29" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</a>
+<nav aria-label="Điều hướng chính" style="display: flex; flex-wrap: wrap; gap: 4px 28px; flex-grow: 1">
+<a href="Main.dc.html" style="padding: 20px 0; color: var(--muted); text-decoration: none">Hôm nay</a>
+<a href="LoTrinh.dc.html" style="padding: 20px 0; color: var(--muted); text-decoration: none">Lộ trình</a>
+<a href="LuyenTap.dc.html" style="padding: 20px 0; color: var(--muted); text-decoration: none">Luyện tập</a>
+<a href="ThiThu.dc.html" aria-current="page" style="padding: 20px 0 17px; color: var(--ink); font-weight: 600; text-decoration: none; border-bottom: 3px solid var(--accent)">Thi thử</a>
+<a href="ThuVien.dc.html" style="padding: 20px 0; color: var(--muted); text-decoration: none">Thư viện</a>
+</nav>
+<div style="display: flex; align-items: center; gap: 16px">
+<span style="font-size: 14px; color: var(--muted)">Lượt chấm AI còn <strong style="color: var(--ink); font-variant-numeric: tabular-nums">XXX</strong></span>
+<button aria-label="Tra nhanh: từ, bài ngữ pháp, đề bài mẫu" title="Tra nhanh" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; box-sizing: border-box; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); cursor: pointer"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="1.6"></circle><path d="M15 15l5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path></svg></button>
+<span style="position: relative; flex: none; display: inline-flex"><a href="ThongBao.dc.html" aria-label="Thông báo, 4 chưa đọc" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; box-sizing: border-box; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink)"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15zM10 20.5a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></a><span aria-hidden="true" style="position: absolute; top: -7px; right: -7px; min-width: 20px; height: 20px; box-sizing: border-box; padding: 0 5px; border: 1px solid var(--paper); border-radius: 2px; background: var(--accent); color: var(--surface); font-size: 12px; font-weight: 600; line-height: 18px; text-align: center; font-variant-numeric: tabular-nums">4</span></span>
+<button aria-label="Mở menu tài khoản" style="width: 44px; height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer">MA</button>
+</div>
+</div>
+</header>
+
+<main style="max-width: 1120px; margin: 0 auto; padding: 44px 32px 64px">
+<h1 style="margin: 0 0 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 44px; font-weight: 600; line-height: 1.15">Thi thử</h1>
+<p style="margin: 0 0 36px; color: var(--muted); max-width: 66ch">Mock test do giáo viên giao, đề tự chọn theo từng kỹ năng để thi như thật, và mọi kết quả thi của bạn ở một chỗ. Trong lúc thi, mọi nhãn bằng tiếng Anh như đề thật.</p>
+
+<section aria-labelledby="h-resume" style="margin-bottom: 44px; padding: 20px 24px; border: 1px solid var(--mark); border-left: 4px solid var(--mark); background: color-mix(in srgb, var(--mark) 6%, var(--surface))">
+<p style="display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--mark)"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 18px; height: 18px; flex-shrink: 0"><path d="M12 3 2 20h20L12 3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"></path><path d="M12 10v4.5M12 17v.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>Cảnh báo · bài thi đang dở, đồng hồ vẫn chạy</p>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px 32px">
+<div style="flex: 1 1 520px; min-width: 0">
+<h2 id="h-resume" style="margin: 0 0 4px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1.25">Reading · Academic Test 5 <span style="font-family: 'Source Sans 3', sans-serif; font-size: 15px; font-weight: 400; color: var(--muted)">· full test Reading, tự chọn</span></h2>
+<p style="margin: 0">Bắt đầu lúc 10:05 hôm nay · đã trả lời 14 trên 40 câu · <strong style="font-variant-numeric: tabular-nums">còn khoảng 38 phút</strong>.</p>
+<p style="margin: 4px 0 0; font-size: 15px; color: var(--muted)">Đồng hồ vẫn chạy khi bạn rời bài. Hết giờ lúc 11:05, đề Reading này tự nộp với các câu đã trả lời. Mock test được giao luôn tự nộp; đề tự chọn có Writing hoặc Speaking mà hết giờ khi bài còn dở thì bạn được chọn chấm phần đã làm hoặc bỏ lượt thi, bỏ thì không tính lượt. <span style="color: var(--ink); font-weight: 600">[1]</span></p>
+</div>
+<a href="PhongThi.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 22px; background: var(--mark); color: var(--surface); font-weight: 600; text-decoration: none; border-radius: 2px">Làm tiếp ngay</a>
+</div>
+</section>
+
+<section aria-labelledby="h-sched" style="margin-bottom: 48px; border-top: 2px solid var(--ink); padding-top: 18px">
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px; margin-bottom: 6px">
+<h2 id="h-sched" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 28px; font-weight: 600">Mock test được giao</h2>
+<p style="margin: 0; font-size: 14px; color: var(--muted)">Giáo viên Lớp Tue–Thu 19:30 giao · Phòng thi cùng giờ hoặc Làm trong khoảng thời gian · không trừ lượt của bạn</p>
+</div>
+<div role="table" aria-label="Mock test được giao" style="display: flex; flex-direction: column">
+<div role="row" style="display: grid; grid-template-columns: minmax(0, 2.1fr) minmax(0, 1.6fr) 190px 200px; gap: 20px; padding: 10px 0; border-bottom: 1px solid var(--ink); font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted)">
+<span role="columnheader">Kỳ thi</span><span role="columnheader">Thời gian</span><span role="columnheader">Trạng thái</span><span role="columnheader"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden">Thao tác</span></span>
+</div>
+<sc-for list="{{sched}}" as="e" hint-placeholder-count="4">
+<div role="row" style="display: grid; grid-template-columns: minmax(0, 2.1fr) minmax(0, 1.6fr) 190px 200px; gap: 20px; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--rule)">
+<div role="cell">
+<p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 19px; line-height: 1.3">{{e.title}}</p>
+<p style="margin: 2px 0 0; font-size: 14px; color: var(--muted)">{{e.kind}} · giáo viên {{e.teacher}}</p>
+</div>
+<div role="cell">
+<p style="margin: 0; font-variant-numeric: tabular-nums">{{e.when}}</p>
+<p style="margin: 2px 0 0; font-size: 14px; color: var(--muted)">{{e.sub}}</p>
+</div>
+<div role="cell">
+<span style="display: inline-block; padding: 2px 8px; border: 1px solid {{e.bd}}; border-radius: 2px; background: {{e.bg}}; color: {{e.fg}}; font-size: 13px; font-weight: 600">{{e.status}}</span>
+<p style="margin: 4px 0 0; font-size: 13px; color: var(--muted)">{{e.statusNote}}</p>
+</div>
+<div role="cell" style="text-align: right">
+<sc-if value="{{e.primary}}" hint-placeholder-val="{{ false }}">
+<a href="{{e.href}}" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; background: var(--accent); color: var(--surface); font-weight: 600; text-decoration: none; border-radius: 2px">{{e.action}}</a>
+</sc-if>
+<sc-if value="{{e.secondary}}" hint-placeholder-val="{{ true }}">
+<a href="{{e.href}}" style="display: inline-flex; align-items: center; min-height: 44px">{{e.action}}</a>
+</sc-if>
+</div>
+</div>
+</sc-for>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)">Mock test chỉ hiện khi giáo viên hoặc admin giao cho bạn. Phòng thi cùng giờ: vào phòng chờ trước giờ thi, giám thị mở từng phần. Làm trong khoảng thời gian: bạn tự chọn lúc bắt đầu; đã bắt đầu thì làm liền các phần, không nghỉ giữa các phần, mỗi phần một lần, ở <a href="MockTestDuocGiao.dc.html">trang kỳ thi của bạn</a>. Quá giờ đóng mà chưa thi: “Đã đóng, bạn chưa thi”; thi bù thì hỏi giáo viên. <span style="color: var(--ink); font-weight: 600">[2]</span></p>
+</section>
+
+<section aria-labelledby="h-self" style="margin-bottom: 48px; border-top: 2px solid var(--ink); padding-top: 18px">
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px; margin-bottom: 6px">
+<h2 id="h-self" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 28px; font-weight: 600">Tự chọn đề thi thử</h2>
+<p style="margin: 0; font-size: 14px; color: var(--muted)">Làm bất cứ lúc nào trong thời hạn khoá · mỗi kỹ năng một lần ngồi · làm lại lúc nào cũng được</p>
+</div>
+<div role="table" aria-label="Đề thi thử tự chọn" style="display: flex; flex-direction: column">
+<div role="row" style="display: grid; grid-template-columns: minmax(0, 2.2fr) 170px minmax(0, 1.3fr) minmax(0, 1.4fr) 110px; gap: 20px; padding: 10px 0; border-bottom: 1px solid var(--ink); font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted)">
+<span role="columnheader">Loại bài</span><span role="columnheader">Thời lượng</span><span role="columnheader">Số câu</span><span role="columnheader">Lượt chấm AI</span><span role="columnheader"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden">Thao tác</span></span>
+</div>
+<sc-for list="{{selfGroups}}" as="g" hint-placeholder-count="2">
+<div role="row" style="padding: 18px 0 6px; border-bottom: 1px solid var(--rule)">
+<span role="rowheader" style="font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600">{{g.name}}</span>
+</div>
+<sc-for list="{{g.items}}" as="t" hint-placeholder-count="2">
+<div role="row" style="display: grid; grid-template-columns: minmax(0, 2.2fr) 170px minmax(0, 1.3fr) minmax(0, 1.4fr) 110px; gap: 20px; align-items: baseline; padding: 14px 0; border-bottom: 1px solid var(--rule)">
+<div role="cell">
+<p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 19px; line-height: 1.3">{{t.name}}</p>
+<p style="margin: 2px 0 0; font-size: 14px; color: var(--muted)">{{t.desc}}</p>
+</div>
+<span role="cell" style="font-variant-numeric: tabular-nums">{{t.dur}}</span>
+<span role="cell">{{t.qs}}</span>
+<span role="cell" style="color: {{t.aiColor}}; font-weight: {{t.aiWeight}}">{{t.ai}}</span>
+<span role="cell" style="text-align: right"><a href="ThiThuTruocGio.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Chọn đề</a></span>
+</div>
+</sc-for>
+</sc-for>
+</div>
+<p style="margin: 12px 0 0; font-size: 14px; color: var(--muted); max-width: 96ch">Đề tự chọn chỉ có full test từng kỹ năng và mini test; không có full test bốn kỹ năng làm một mạch, và không tính Overall. Mỗi lần làm lại là một lượt làm mới. Listening và Reading chấm theo đáp án, không tốn lượt. Writing và Speaking tốn lượt chấm AI, số lượt hiện trước khi bắt đầu: full test Writing 2 lượt (mỗi task 1 lượt); full test Speaking 3 lượt (mỗi Part 1 lượt). Khoá online: AI chấm và trả ngay. <span style="color: var(--ink); font-weight: 600">[3]</span></p>
+</section>
+
+<section aria-labelledby="h-res" style="border-top: 2px solid var(--ink); padding-top: 18px">
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px; margin-bottom: 6px">
+<h2 id="h-res" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 28px; font-weight: 600">Kết quả thi gần đây</h2>
+<a href="PhieuKetQua.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; font-size: 15px">Xem tất cả kết quả</a>
+</div>
+<div role="table" aria-label="Kết quả thi gần đây" style="display: flex; flex-direction: column">
+<div role="row" style="display: grid; grid-template-columns: minmax(0, 2fr) 104px 84px 84px 92px 92px minmax(0, 1.25fr) 92px; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--ink); font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted)">
+<span role="columnheader">Bài</span><span role="columnheader">Ngày thi</span><span role="columnheader">Listening</span><span role="columnheader">Reading</span><span role="columnheader">Writing</span><span role="columnheader">Speaking</span><span role="columnheader">Overall</span><span role="columnheader"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden">Phiếu</span></span>
+</div>
+<sc-for list="{{results}}" as="r" hint-placeholder-count="5">
+<div role="row" style="display: grid; grid-template-columns: minmax(0, 2fr) 104px 84px 84px 92px 92px minmax(0, 1.25fr) 92px; gap: 16px; align-items: baseline; padding: 14px 0; border-bottom: 1px solid var(--rule)">
+<div role="cell">
+<p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; line-height: 1.3">{{r.name}}</p>
+<p style="margin: 2px 0 0; font-size: 14px; color: var(--muted)">{{r.kind}}</p>
+</div>
+<span role="cell" style="font-variant-numeric: tabular-nums">{{r.date}}</span>
+<sc-for list="{{r.cells}}" as="c" hint-placeholder-count="4">
+<span role="cell" style="font-size: {{c.size}}; font-weight: {{c.weight}}; color: {{c.color}}; font-variant-numeric: tabular-nums">{{c.v}}</span>
+</sc-for>
+<span role="cell" style="font-size: {{r.ovSize}}; font-weight: {{r.ovWeight}}; color: {{r.ovColor}}; font-variant-numeric: tabular-nums">{{r.overall}}</span>
+<span role="cell" style="text-align: right"><a href="PhieuKetQua.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Xem phiếu</a></span>
+</div>
+</sc-for>
+</div>
+<p style="margin: 12px 0 0; font-size: 14px; color: var(--muted); max-width: 96ch">Band là điểm ước lượng, không phải điểm thi. Overall chỉ có ở mock test được giao, khi đủ bốn kỹ năng và cả bốn đã có điểm. Giáo viên có thể trả từng phần: phần chưa xong ghi “Đang chấm”. Đề tự chọn và mini test không tính Overall. <span style="color: var(--ink); font-weight: 600">[4]</span></p>
+</section>
+</main>
+
+<footer style="display: flex; flex-wrap: wrap; align-items: center; gap: 0 24px; max-width: 1120px; margin: 0 auto; box-sizing: border-box; padding: 0 32px; border-top: 1px solid var(--rule); font-size: 14px">
+<span style="gap: 8px; display: inline-flex; align-items: center; color: var(--muted); flex-grow: 1"><svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none; color: var(--ink)"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>© 2026 Aver Learning</span>
+<nav aria-label="Chân trang" style="display: flex; gap: 0 24px">
+<a href="#s1" style="display: inline-flex; align-items: center; min-height: 44px">Trợ giúp</a>
+<a href="PhapLy.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Điều khoản</a>
+<a href="PhapLy.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Quyền riêng tư</a>
+</nav>
+</footer>
+</div>
+
+<div style="margin: 0 64px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; font-size: 14px">
+<p style="margin: 0; padding: 12px 14px; border: 1px dashed var(--rule)"><strong>[1] Hết giờ (HV-32).</strong> Đồng hồ không dừng khi rời bài (giờ tính từ lúc bắt đầu ở máy chủ, GOI-08 mục 10 câu 3). Mock test được giao: hết giờ là tự nộp. Đề tự chọn: hết giờ khi bài Writing dưới mức tối thiểu hoặc Speaking có Part chưa ghi thì màn "Time is up" cho chọn "Mark what I wrote (uses N credits)" hoặc "Discard this attempt (no credit used)" (<a href="ThiThuTruocGio.dc.html">ThiThuTruocGio</a> màn 6, <a href="PhongThiNgheViet.dc.html">PhongThiNgheViet</a>); trong phòng thi đề tự chọn có nút "Abandon test", hỏi lại, không tính lượt. Listening, Reading không tốn lượt nên hết giờ vẫn tự nộp.</p>
+<p style="margin: 0; padding: 12px 14px; border: 1px dashed var(--rule)"><strong>[2] Mock test được giao.</strong> Đã chốt: mock test nhiều kỹ năng chỉ có khi giáo viên/admin giao (cho lớp hoặc nhóm chọn tay, không bắt buộc đủ 4 kỹ năng); chưa được giao thì không thấy mock test nào. Hai cách thi do giáo viên đặt: Phòng thi cùng giờ (phòng chờ, giám thị chuyển phần) và Làm trong khoảng thời gian (tự chọn lúc bắt đầu; đã bắt đầu thì các phần chạy liền nhau, không nghỉ giữa các phần, mỗi phần một lần). Chi tiết phía học viên: <a href="MockTestDuocGiao.dc.html">MockTestDuocGiao</a>. Thi bù do giáo viên giao ở admin.</p>
+<p style="margin: 0; padding: 12px 14px; border: 1px dashed var(--rule)"><strong>[3] Lượt chấm.</strong> Đã chốt đơn vị Speaking: 1 lượt = 1 bài Part 2 hoặc 1 cụm Part 1 (Part 3) gồm 2–3 câu. Full test Speaking mô phỏng = 3 câu Part 1 + 1 bài Part 2 + 2 câu Part 3 = 3 lượt, mỗi Part một lượt. Full test Writing = 2 lượt, mỗi task 1 lượt (đã xác nhận 18/11/2026). Thời lượng, số câu mini test: XXX. Mock test được giao không trừ lượt (mặc định tạm 18/11/2026, chờ anh Andy xác nhận).</p>
+<p style="margin: 0; padding: 12px 14px; border: 1px dashed var(--rule)"><strong>[4] Quy tắc Overall.</strong> Chỉ mock test được giao mới có Overall, và chỉ khi kỳ thi đủ bốn kỹ năng, cả bốn đã được trả. Đề tự chọn (một kỹ năng), mini test: cột ghi “đề tự chọn · không tính Overall”. Mock test trả từng phần: ô chưa xong ghi “Đang chấm”, cột Overall ghi “Chưa có Overall · còn n phần đang chấm” (màn 3a). Không lấy Overall máy chủ trả khi đếm band kỹ năng dưới 4 (GOI-07 FR-07-054).</p>
+</div>
+</section>
+
+<section aria-labelledby="s2" style="margin: 0 64px; border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="s2" style="margin: 0 0 4px; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">2 · Rỗng · chưa được giao mock test nào và chưa thi lần nào</h2>
+<p style="margin: 0 0 16px; color: var(--muted); max-width: 92ch">Vẽ phần thân trang; thanh trên và chân trang như màn 1. Không có bài dở thì khối cảnh báo không hiện. Khối “Tự chọn đề thi thử” giữ nguyên như màn 1, chỉ vẽ dòng đầu.</p>
+<div style="border: 1px solid var(--ink); background: var(--paper); padding: 32px 40px">
+<h1 style="margin: 0 0 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 36px; font-weight: 600; line-height: 1.15">Thi thử</h1>
+<p style="margin: 0 0 28px; color: var(--muted); max-width: 66ch">Mock test do giáo viên giao, đề tự chọn theo từng kỹ năng, và mọi kết quả thi của bạn ở một chỗ.</p>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px">
+<div style="border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 style="margin: 0 0 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">Mock test được giao</h2>
+<p style="margin: 0 0 6px">Chưa có mock test nào được giao cho bạn.</p>
+<p style="margin: 0; font-size: 15px; color: var(--muted)">Mock test nhiều kỹ năng chỉ có khi giáo viên hoặc admin giao. Khi được giao, kỳ thi hiện ở đây kèm ngày giờ hoặc khoảng thời gian và các kỹ năng dự thi; bạn cũng nhận thông báo và thấy nó ở trang Hôm nay.</p>
+</div>
+<div style="border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 style="margin: 0 0 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">Kết quả thi gần đây</h2>
+<p style="margin: 0 0 6px">Bạn chưa thi lần nào.</p>
+<p style="margin: 0 0 14px; font-size: 15px; color: var(--muted)">Kết quả hiện ở đây sau bài thi đầu tiên. Nếu chưa quen khung thi, bắt đầu bằng một mini test ngắn.</p>
+<a href="ThiThuTruocGio.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; background: var(--accent); color: var(--surface); font-weight: 600; text-decoration: none; border-radius: 2px">Làm mini test Listening</a>
+</div>
+</div>
+<div style="margin-top: 32px; border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">Tự chọn đề thi thử</h2>
+<div style="display: grid; grid-template-columns: minmax(0, 2.2fr) 170px minmax(0, 1.3fr) minmax(0, 1.4fr) 110px; gap: 20px; align-items: baseline; padding: 14px 0; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule)">
+<span style="font-family: 'Source Serif 4', Georgia, serif; font-size: 19px">Listening</span><span>khoảng 30 phút</span><span>40 câu</span><span style="color: var(--muted)">Không cần</span><span style="text-align: right"><a href="ThiThuTruocGio.dc.html">Chọn đề</a></span>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)">Các dòng còn lại như màn 1.</p>
+</div>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)"><strong style="color: var(--ink)">Điều kiện:</strong> mọi học viên có khoá đều thấy khối “Mock test được giao”; chưa được giao thì chỉ có dòng rỗng trên, không có danh sách mock test để tự chọn.</p>
+</section>
+
+<section aria-labelledby="s3" style="margin: 0 64px; border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="s3" style="margin: 0 0 4px; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">3 · Giáo viên trả kết quả từng phần · “Đang chấm”</h2>
+<p style="margin: 0 0 16px; color: var(--muted); max-width: 92ch">Hàng “Đề thi thử số 2” ở màn 1 khi mở rộng (bấm vào tên đề): giáo viên đã trả Listening và Reading, Writing và Speaking còn “Đang chấm”, chưa có Overall. Bên phải: kỳ thi chưa trả phần nào. Phiếu đầy đủ ở <a href="PhieuKetQua.dc.html#s4">PhieuKetQua</a> mục 4 và <a href="MockTestDuocGiao.dc.html#s9">MockTestDuocGiao</a> màn 9.</p>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; align-items: start">
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">3a · mở rộng hàng · đã trả hai phần, hai phần đang chấm</p>
+<div style="border: 1px solid var(--ink); background: var(--surface); padding: 20px 24px">
+<p style="margin: 0; font-size: 14px; color: var(--muted)">Mock test được giao · thi ngày 14/11/2026</p>
+<h3 style="margin: 2px 0 12px; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">Đề thi thử số 2</h3>
+<dl style="margin: 0; display: grid; grid-template-columns: 110px minmax(0, 1fr) auto; gap: 8px 16px; font-variant-numeric: tabular-nums">
+<dt>Listening</dt><dd style="margin: 0; color: var(--muted)">đúng 29 trên 40 câu</dd><dd style="margin: 0; font-weight: 600">6.5</dd>
+<dt>Reading</dt><dd style="margin: 0; color: var(--muted)">đúng 25 trên 40 câu</dd><dd style="margin: 0; font-weight: 600">6.0</dd>
+<dt>Writing</dt><dd style="margin: 0; color: var(--muted)">đã nộp Task 1 và Task 2 · AI chấm, giáo viên duyệt</dd><dd style="margin: 0"><span style="display: inline-block; padding: 1px 8px; border: 1px solid var(--mark); border-radius: 2px; background: var(--surface); color: var(--mark); font-size: 13px; font-weight: 600; white-space: nowrap">Đang chấm</span></dd>
+<dt>Speaking</dt><dd style="margin: 0; color: var(--muted)">đã ghi âm Part 1–3 · giáo viên chấm từ bản ghi</dd><dd style="margin: 0"><span style="display: inline-block; padding: 1px 8px; border: 1px solid var(--mark); border-radius: 2px; background: var(--surface); color: var(--mark); font-size: 13px; font-weight: 600; white-space: nowrap">Đang chấm</span></dd>
+</dl>
+<p style="margin: 14px 0 0; padding-top: 12px; border-top: 1px solid var(--rule)"><strong>Overall:</strong> chưa có. Writing, Speaking đang chấm; Overall hiện khi đủ bốn kỹ năng.</p>
+<p style="margin: 4px 0 0; font-size: 14px; color: var(--muted)">Giáo viên trả 16/11: Listening, Reading. Bạn nhận thông báo mỗi lần có thêm phần được trả. Thời gian chấm dự kiến: XXX ngày. <a href="PhieuKetQua.dc.html#s4">Xem phiếu</a></p>
+</div>
+</div>
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">3b · kỳ thi chưa trả phần nào</p>
+<div role="table" aria-label="Kết quả niêm phong" style="border: 1px solid var(--ink); background: var(--surface); padding: 4px 20px">
+<div role="row" style="display: grid; grid-template-columns: minmax(0, 1.6fr) 96px minmax(0, 1.6fr); gap: 16px; align-items: baseline; padding: 14px 0">
+<div role="cell"><p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px">Đề thi thử số 2</p><p style="margin: 2px 0 0; font-size: 14px; color: var(--muted)">Mock test được giao · 4 kỹ năng</p></div>
+<span role="cell" style="font-variant-numeric: tabular-nums">14/11/2026</span>
+<span role="cell" style="font-size: 14px; color: var(--muted)">Chờ giáo viên công bố. Điểm từng kỹ năng chưa hiện; chưa đủ kỹ năng để tính Overall.</span>
+</div>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)"><strong style="color: var(--ink)">Quy tắc:</strong> kết quả mock test được giao chỉ hiện khi giáo viên bấm trả ở thẻ “Trả kết quả” (AdminKyThiChiTiet). Mặc định trả khi đã chấm xong đủ kỹ năng dự thi của bạn; giáo viên có thể chọn trả phần đã xong trước, khi đó hàng hiện như 3a. Trước lúc trả, cả Listening, Reading cũng chưa hiện band. Đề tự chọn không qua bước này.</p>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="s4" style="margin: 0 64px; border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="s4" style="margin: 0 0 4px; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">4 · Chưa có khoá · và 5 · không tải được một khối</h2>
+<p style="margin: 0 0 16px; color: var(--muted); max-width: 92ch">Tài khoản đã đăng nhập nhưng chưa có khoá nào đang hiệu lực, chưa thuộc lớp nào. Thanh trên không hiện “Lượt chấm AI còn”.</p>
+<div style="display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 32px; align-items: start">
+<div style="border: 1px solid var(--ink); background: var(--paper); padding: 28px 32px">
+<h1 style="margin: 0 0 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 32px; font-weight: 600">Thi thử</h1>
+<div style="border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">Thi thử cần một khoá học</h2>
+<p style="margin: 0 0 6px; max-width: 58ch">Bạn chưa có khoá nào đang hiệu lực. Đề thi thử, kết quả và lượt chấm AI đi kèm khoá. Học viên lớp nhận mã kích hoạt từ trung tâm.</p>
+<p style="margin: 0 0 16px; font-size: 15px; color: var(--muted)">Thư viện vẫn mở miễn phí: 549 bài mẫu Writing, đề Speaking kèm video, ngữ pháp, từ vựng.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 12px">
+<a href="DanhMucKhoa.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; background: var(--accent); color: var(--surface); font-weight: 600; text-decoration: none; border-radius: 2px">Xem các khoá đang mở đăng ký</a>
+<a href="TaiKhoanDangNhap.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; border: 1px solid var(--ink); color: var(--ink); font-weight: 600; text-decoration: none; border-radius: 2px">Nhập mã kích hoạt</a>
+</div>
+</div>
+<div style="margin-top: 24px; border-top: 1px solid var(--rule); padding-top: 12px">
+<p style="margin: 0 0 6px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Khoá nào có thi thử</p>
+<p style="margin: 0; font-size: 15px">Full test từng kỹ năng và mini test đi kèm: XXX. Mock test chỉ có khi giáo viên giao. Danh sách đề vẫn hiện để bạn biết có gì, mỗi dòng ghi “Cần khoá” thay cho “Chọn đề”.</p>
+</div>
+</div>
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">5 · lỗi tải khối kết quả, các khối khác vẫn hiện</p>
+<div style="border: 1px solid var(--ink); background: var(--surface); padding: 20px 24px">
+<h2 style="margin: 0 0 10px; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">Kết quả thi gần đây</h2>
+<div role="alert" style="display: flex; gap: 12px; padding: 12px 16px; border: 1px solid var(--danger); border-left: 4px solid var(--danger); background: color-mix(in srgb, var(--danger) 6%, var(--surface))">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 20px; height: 20px; flex-shrink: 0; margin-top: 2px; color: var(--danger)"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"></circle><path d="M12 7v6M12 16v.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>
+<div>
+<p style="margin: 0; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--danger)">Lỗi</p>
+<p style="margin: 0 0 10px">Chưa tải được kết quả thi. Bài thi và điểm của bạn không bị mất.</p>
+<button style="min-height: 44px; padding: 0 18px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 15px 'Source Sans 3', sans-serif; cursor: pointer">Thử tải lại</button>
+</div>
+</div>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)">Mỗi khối tải và báo lỗi riêng. Đang tải: ba dòng kẻ mờ đúng chiều cao hàng, không có vòng quay.</p>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="s6" style="margin: 0 64px; border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="s6" style="margin: 0 0 4px; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">6 · Điện thoại 390px · màn chính</h2>
+<p style="margin: 0 0 16px; color: var(--muted); max-width: 92ch">Hai khung là một trang cuộn: đầu trang và phần dưới. Bảng chuyển thành danh sách; mỗi kết quả là một khối có bốn kỹ năng theo hàng. Thanh dưới luôn hiện ở trang này.</p>
+<div style="display: flex; gap: 32px; align-items: flex-start">
+
+<div style="width: 390px; height: 1400px; flex-shrink: 0; box-sizing: border-box; border: 1px solid var(--ink); display: flex; flex-direction: column; overflow: hidden; background: var(--paper)">
+<header style="flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; height: 56px; box-sizing: border-box; padding: 0 16px; border-bottom: 1px solid var(--ink)">
+<span style="display: inline-flex; align-items: center; gap: 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; font-weight: 600"><svg width="26" height="26" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<div style="display: flex; align-items: center; gap: 12px">
+<span style="font-size: 13px; color: var(--muted)">Lượt AI <strong style="color: var(--ink)">XXX</strong></span>
+<button aria-label="Mở menu tài khoản" style="width: 44px; height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif">MA</button>
+</div>
+</header>
+<div style="flex-grow: 1; min-height: 0; overflow: hidden; padding: 20px 16px">
+<h1 style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 32px; font-weight: 600; line-height: 1.15">Thi thử</h1>
+<p style="margin: 0 0 20px; font-size: 15px; color: var(--muted)">Xem lịch thi và kết quả. Vào thi cần máy tính hoặc tablet; <a href="LuyenTap.dc.html">luyện từng phần</a> vẫn làm được ở đây.</p>
+<div style="margin-bottom: 24px; padding: 14px 16px; border: 1px solid var(--mark); border-left: 4px solid var(--mark); background: color-mix(in srgb, var(--mark) 6%, var(--surface))">
+<p style="margin: 0 0 4px; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--mark)">Cảnh báo · bài đang dở</p>
+<p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 19px; font-weight: 600">Reading · Academic Test 5</p>
+<p style="margin: 2px 0 0; font-size: 15px">14 trên 40 câu · <strong>còn khoảng 38 phút</strong></p>
+<p style="margin: 2px 0 8px; font-size: 14px; color: var(--muted)">Đồng hồ vẫn chạy khi bạn rời bài.</p>
+<p style="margin: 0; font-size: 15px"><strong style="color: var(--mark)">Bài thi không làm được trên điện thoại.</strong> Mở Thi thử trên máy tính hoặc tablet (màn hình từ 768px) để làm tiếp.</p>
+</div>
+<h2 style="margin: 0; padding-top: 12px; border-top: 2px solid var(--ink); font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">Mock test được giao</h2>
+<p style="margin: 2px 0 4px; font-size: 13px; color: var(--muted)">Lớp Tue–Thu 19:30 · không trừ lượt</p>
+<sc-for list="{{sched}}" as="e" hint-placeholder-count="4">
+<div style="padding: 12px 0; border-bottom: 1px solid var(--rule)">
+<div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px">
+<p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 17px; line-height: 1.3">{{e.title}}</p>
+<span style="flex-shrink: 0; padding: 1px 6px; border: 1px solid {{e.bd}}; border-radius: 2px; background: {{e.bg}}; color: {{e.fg}}; font-size: 12px; font-weight: 600">{{e.status}}</span>
+</div>
+<p style="margin: 2px 0 0; font-size: 14px; color: var(--muted)">{{e.when}} · {{e.sub}}</p>
+<sc-if value="{{e.primary}}" hint-placeholder-val="{{ false }}">
+<p style="margin: 8px 0 0; padding: 8px 10px; border: 1px solid var(--mark); border-left: 4px solid var(--mark); background: color-mix(in srgb, var(--mark) 6%, var(--surface)); font-size: 14px"><strong style="color: var(--mark)">Cảnh báo:</strong> vào thi cần máy tính hoặc tablet. Trên điện thoại bấm vào đề chỉ mở màn chặn.</p>
+</sc-if>
+<sc-if value="{{e.secondary}}" hint-placeholder-val="{{ true }}">
+<a href="{{e.href}}" style="display: inline-flex; align-items: center; min-height: 44px; font-size: 15px">{{e.action}}</a>
+</sc-if>
+</div>
+</sc-for>
+</div>
+<nav aria-label="Điều hướng chính" style="flex-shrink: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); height: 64px; border-top: 1px solid var(--ink); background: var(--surface)">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="5">
+<a href="{{t.href}}" aria-current="{{t.current}}" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid {{t.bar}}; color: {{t.color}}; font-size: 12px; font-weight: {{t.weight}}; text-decoration: none">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="{{t.icon}}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+{{t.label}}
+</a>
+</sc-for>
+</nav>
+</div>
+
+<div style="width: 390px; height: 1400px; flex-shrink: 0; box-sizing: border-box; border: 1px solid var(--ink); display: flex; flex-direction: column; overflow: hidden; background: var(--paper)">
+<div style="flex-grow: 1; min-height: 0; overflow: hidden; padding: 16px">
+<h2 style="margin: 0; padding-top: 12px; border-top: 2px solid var(--ink); font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">Tự chọn đề thi thử</h2>
+<sc-for list="{{selfFlat}}" as="t" hint-placeholder-count="7">
+<a href="ThiThuTruocGio.dc.html" style="display: block; padding: 10px 0; border-bottom: 1px solid var(--rule); color: var(--ink); text-decoration: none">
+<span style="display: block; font-family: 'Source Serif 4', Georgia, serif; font-size: 17px">{{t.name}}</span>
+<span style="display: block; font-size: 14px; color: var(--muted)">{{t.dur}} · {{t.qs}} · AI: {{t.aiShort}}</span>
+</a>
+</sc-for>
+<h2 style="margin: 24px 0 0; padding-top: 12px; border-top: 2px solid var(--ink); font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">Kết quả thi gần đây</h2>
+<sc-for list="{{resultsPhone}}" as="r" hint-placeholder-count="3">
+<a href="PhieuKetQua.dc.html" style="display: block; padding: 12px 0; border-bottom: 1px solid var(--rule); color: var(--ink); text-decoration: none">
+<span style="display: flex; justify-content: space-between; gap: 8px"><span style="font-family: 'Source Serif 4', Georgia, serif; font-size: 17px">{{r.name}}</span><span style="font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums">{{r.date}}</span></span>
+<span style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; margin-top: 6px; font-size: 13px">
+<sc-for list="{{r.cells}}" as="c" hint-placeholder-count="4">
+<span><span style="display: block; color: var(--muted)">{{c.k}}</span><span style="display: block; font-weight: {{c.weight}}; color: {{c.color}}; font-variant-numeric: tabular-nums">{{c.v}}</span></span>
+</sc-for>
+</span>
+<span style="display: block; margin-top: 6px; font-size: 14px; color: {{r.ovColor}}; font-weight: {{r.ovWeight}}">Overall: {{r.overall}}</span>
+</a>
+</sc-for>
+<a href="PhieuKetQua.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; font-size: 15px">Xem tất cả kết quả</a>
+<div style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 0 18px; border-top: 1px solid var(--rule); font-size: 14px">
+<span style="display: inline-flex; align-items: center; min-height: 44px; color: var(--muted)">© 2026 Aver Learning</span>
+<a href="#s6" style="display: inline-flex; align-items: center; min-height: 44px">Trợ giúp</a>
+<a href="PhapLy.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Điều khoản</a>
+</div>
+</div>
+<nav aria-label="Điều hướng chính" style="flex-shrink: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); height: 64px; border-top: 1px solid var(--ink); background: var(--surface)">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="5">
+<a href="{{t.href}}" aria-current="{{t.current}}" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid {{t.bar}}; color: {{t.color}}; font-size: 12px; font-weight: {{t.weight}}; text-decoration: none">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="{{t.icon}}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+{{t.label}}
+</a>
+</sc-for>
+</nav>
+</div>
+
+<div style="flex: 1 1 0; min-width: 0">
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Quy tắc bản điện thoại</p>
+<ul style="margin: 0; padding-left: 20px; font-size: 15px; display: flex; flex-direction: column; gap: 8px">
+<li>Thứ tự khối giữ như máy tính: bài dở, mock test được giao, tự chọn, kết quả.</li>
+<li>Nút chính rộng hết cột, cao 48px. Hàng khác là liên kết cả dòng.</li>
+<li>Kết quả: bốn kỹ năng một hàng, ô chưa có điểm ghi chữ (“chờ chấm”, “không thi”), không để trống, không “0”.</li>
+<li>Đã chốt: không thi trên điện thoại. Vùng nhìn dưới 768px (ngưỡng đề xuất): bấm một đề, mock test được giao hay bài đang dở đều mở màn chặn “Use a larger screen” (ThiThuTruocGio mục 9), không vào bài, không chạy đồng hồ. Tablet/iPad từ 768px vào thi bình thường.</li>
+<li>Áp cho full test từng kỹ năng và mock test được giao. Mini test không tính là full test: vẫn làm được trên điện thoại, cũng như luyện từng phần ở trang Luyện tập.</li>
+</ul>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="s7" style="margin: 0 64px; border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="s7" style="margin: 0 0 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">Ghi chú cho lập trình</h2>
+<ul style="margin: 0; padding: 0 0 0 20px; max-width: 104ch; display: flex; flex-direction: column; gap: 6px">
+<li>Đường dẫn <code>/tests</code>, mục “Thi thử” đang ở. Trang thường (thanh 5 mục, chân trang gọn), không phải chế độ tập trung. Nhãn tiếng Việt; tên đề lấy từ dữ liệu đề, không hiện mã kỳ thi hay mã lượt.</li>
+<li>Đề tự chọn: chỉ full test từng kỹ năng và mini test; mỗi lần bấm làm là một lượt làm mới, không giới hạn số lần. Khối “Mock test được giao” đọc từ danh sách kỳ thi giao cho đúng học viên; không có danh mục mock test công khai. Chế độ thi không tạm dừng audio; rời bài chỉ bằng "Leave test" (hộp hỏi lại), thì đồng hồ máy chủ vẫn chạy; đề tự chọn có thêm "Abandon test". Mã kích hoạt (nhập ở TaiKhoanDangNhap): một câu lỗi gộp “Mã không đúng hoặc đã hết hạn”, hai câu riêng “Bạn đã có khoá này”, “Bạn đã dùng mã này rồi”; tối đa 5 lần thử trong 15 phút.</li>
+<li>Lượt: đề tự chọn trừ vào lượt khoá online (full test Speaking 3 lượt, Writing 2 lượt, xem [3]); mock test được giao không trừ lượt (sửa 18/11/2026, mặc định tạm chờ anh Andy xác nhận; khớp GOI-04 mục 5.6). Speaking mock test do giáo viên chấm từ bản ghi, trả ở trang kỳ thi.</li>
+<li>Hết giờ: mock test được giao tự nộp. Đề tự chọn có Writing/Speaking: nếu Writing dưới mức tối thiểu hoặc Speaking còn Part chưa ghi thì chưa trừ lượt, chờ người học chọn chấm (trừ đủ số lượt của đề) hoặc bỏ (không trừ); bỏ lượt thì không ghi vào bảng kết quả. Khối bài dở chỉ hiện khi có lượt thi chưa nộp và còn giờ; thời gian còn lại tính từ giờ bắt đầu ở máy chủ. Nhiều bài dở: hiện bài hết giờ sớm nhất, dòng dưới “và XXX bài khác”. Hết giờ trong lúc đang xem trang: khối biến mất, kết quả thêm vào bảng.</li>
+<li>Trạng thái mock test được giao: Sắp diễn ra (trước giờ mở) → Đang mở (giữa giờ mở và giờ đóng, nút “Vào phòng chờ”/“Vào thi”) → Đã thi · chờ kết quả → Đã trả một phần → Đã có kết quả; thêm “Đã đóng, bạn chưa thi”. Cách Làm trong khoảng thời gian: Sắp mở → Đang mở (kèm “đã nộp n trên m phần” và thời gian còn lại của khoảng mở, nút “Vào kỳ thi” sang MockTestDuocGiao) → Đã nộp hết · chờ kết quả, hoặc “Đã đóng · nộp n trên m phần”. Trạng thái luôn có chữ, không chỉ màu. Phòng chờ mở trước giờ thi XXX phút.</li>
+<li>Thời lượng, số câu, số lượt AI của mỗi loại đề lấy từ cấu hình đề; không viết cứng. Không đủ lượt AI cho đề có Writing/Speaking: dòng vẫn hiện, cột lượt ghi “Không đủ lượt” bằng màu đánh dấu, nút đổi thành “Xem cách thêm lượt”.</li>
+<li>Bảng kết quả: mọi lượt thi đã nộp, mới nhất trước, 10 dòng rồi “Xem tất cả kết quả”. Overall chỉ hiện khi đếm được 4 band kỹ năng của cùng đề; nếu không, chữ “chưa đủ kỹ năng để tính Overall”. Mock test được giao: không hiện band nào tới khi giáo viên trả; trả từng phần thì phần đã trả hiện band, phần còn lại hiện nhãn “Đang chấm” (có chữ, không chỉ màu), cột Overall ghi “Chưa có Overall · còn n phần đang chấm”. Kỳ thi không đủ bốn kỹ năng: ô kỹ năng không dự thi ghi “không thi”, không bao giờ có Overall.</li>
+<li>Bảng là lưới div có <code>role="table"</code>/<code>row</code>/<code>cell</code>; dưới 768px chuyển thành danh sách như mục 6.</li>
+<li>Dưới 768px không có nút vào bài thi: nút “Vào thi”/“Làm tiếp ngay” thay bằng dòng Cảnh báo; mở thẳng đường dẫn phòng thi cũng về màn chặn ở bước Before you begin.</li>
+</ul>
+</section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Xanh teal","Navy + đỏ mận"],"default":"Navy + đỏ mận"},"$preview":{"width":1280,"height":8000}}'>
+class Component extends DCLogic {
+renderVals() {
+const st = (kind) => {
+if (kind === 'open') return { bd: 'var(--accent)', bg: 'var(--accent)', fg: 'var(--surface)' };
+if (kind === 'soon') return { bd: 'var(--ink)', bg: 'var(--surface)', fg: 'var(--ink)' };
+if (kind === 'wait') return { bd: 'var(--rule)', bg: 'var(--off)', fg: 'var(--ink)' };
+return { bd: 'var(--ok)', bg: 'var(--surface)', fg: 'var(--ok)' };
+};
+const sched = [
+Object.assign({ title: 'Thi thử tháng 11', kind: 'Listening, Reading, Writing, Speaking · Phòng thi cùng giờ', teacher: 'Lê Hoàng Yến', when: 'Hôm nay 17/11, 14:00', sub: 'khoảng 2 giờ 45 phút', status: 'Sắp diễn ra', statusNote: 'Phòng chờ mở lúc 13:45', action: 'Xem quy định', href: 'ThiThuTruocGio.dc.html', primary: false, secondary: true }, st('soon')),
+Object.assign({ title: 'Thi thử giữa khoá', kind: 'Listening, Reading, Writing · Làm trong khoảng thời gian', teacher: 'Lê Hoàng Yến', when: 'Đến Chủ nhật 22/11, 23:59', sub: 'mở từ 16/11, 08:00 · làm liền ba phần, khoảng 2 giờ 30 phút', status: 'Đang mở', statusNote: 'Chưa bắt đầu · còn 5 ngày', action: 'Vào kỳ thi', href: 'MockTestDuocGiao.dc.html', primary: true, secondary: false }, st('open')),
+Object.assign({ title: 'Đề thi thử số 4', kind: 'Listening, Reading, Writing, Speaking · Phòng thi cùng giờ', teacher: 'Lê Hoàng Yến', when: 'Thứ Bảy 21/11/2026, 08:30', sub: 'đóng lúc 09:00 · khoảng 2 giờ 45 phút', status: 'Sắp diễn ra', statusNote: 'Phòng chờ mở lúc 08:15', action: 'Xem quy định', href: 'ThiThuTruocGio.dc.html', primary: false, secondary: true }, st('soon')),
+Object.assign({ title: 'Đề thi thử số 2', kind: 'Listening, Reading, Writing, Speaking · Phòng thi cùng giờ', teacher: 'Lê Hoàng Yến', when: 'Thi ngày 14/11/2026', sub: 'nộp lúc 11:12', status: 'Đã trả một phần', statusNote: 'Writing, Speaking đang chấm', action: 'Xem trạng thái', href: 'PhieuKetQua.dc.html', primary: false, secondary: true }, st('wait')),
+Object.assign({ title: 'Đề thi thử số 1', kind: 'Listening, Reading, Writing, Speaking · Phòng thi cùng giờ', teacher: 'Lê Hoàng Yến', when: 'Thi ngày 31/10/2026', sub: 'giáo viên trả điểm 03/11', status: 'Đã có kết quả', statusNote: 'Overall 6.0', action: 'Xem phiếu', href: 'PhieuKetQua.dc.html', primary: false, secondary: true }, st('done'))
+];
+const ai = (v, need) => ({ ai: v, aiShort: need ? 'có' : 'không', aiColor: need ? 'var(--ink)' : 'var(--muted)', aiWeight: need ? 600 : 400 });
+const selfGroups = [
+{ name: 'Full test từng kỹ năng', items: [
+Object.assign({ name: 'Listening', desc: '4 Part, nghe một lần', dur: 'khoảng 30 phút', qs: '40 câu' }, ai('Không cần', false)),
+Object.assign({ name: 'Reading', desc: '3 Passage', dur: '60 phút', qs: '40 câu' }, ai('Không cần', false)),
+Object.assign({ name: 'Writing', desc: 'Task 1 và Task 2', dur: '60 phút', qs: '2 task' }, ai('Có · 2 lượt', true)),
+Object.assign({ name: 'Speaking', desc: 'Part 1–3, ghi âm', dur: '11–14 phút', qs: '3 part' }, ai('Có · 3 lượt', true))
+] },
+{ name: 'Mini test', items: [
+Object.assign({ name: 'Listening mini test', desc: 'Một Part, không quy ra band', dur: 'XXX phút', qs: 'XXX câu' }, ai('Không cần', false)),
+Object.assign({ name: 'Reading mini test', desc: 'Một Passage, không quy ra band', dur: 'XXX phút', qs: 'XXX câu' }, ai('Không cần', false))
+] }
+];
+const selfFlat = [];
+selfGroups.forEach((g) => g.items.forEach((t) => selfFlat.push(Object.assign({}, t, { name: g.name === 'Full test từng kỹ năng' ? 'Full test ' + t.name : t.name }))));
+const band = (v) => ({ v, size: '16px', weight: 600, color: 'var(--ink)' });
+const note = (v) => ({ v, size: '14px', weight: 400, color: 'var(--muted)' });
+const K = ['Listening', 'Reading', 'Writing', 'Speaking'];
+const noOv = { overall: 'đề tự chọn · không tính Overall', ovSize: '14px', ovWeight: 400, ovColor: 'var(--muted)' };
+const results = [
+Object.assign({ name: 'Đề thi thử số 2', kind: 'Mock test được giao · 4 kỹ năng', date: '14/11/2026', cells: [band('6.5'), band('6.0'), note('Đang chấm'), note('Đang chấm')] }, { overall: 'Chưa có Overall · còn 2 phần đang chấm', ovSize: '14px', ovWeight: 400, ovColor: 'var(--muted)' }),
+Object.assign({ name: 'Reading · Academic Test 4', kind: 'Tự chọn · full test Reading', date: '12/11/2026', cells: [note('không thi'), band('6.5'), note('không thi'), note('không thi')] }, noOv),
+Object.assign({ name: 'Writing · Academic Test 3', kind: 'Tự chọn · full test Writing', date: '08/11/2026', cells: [note('không thi'), note('không thi'), band('6.0'), note('không thi')] }, noOv),
+Object.assign({ name: 'Listening mini test 2', kind: 'Tự chọn · mini test', date: '05/11/2026', cells: [note('đúng 8 trên 10 câu'), note('không thi'), note('không thi'), note('không thi')] }, noOv),
+{ name: 'Đề thi thử số 1', kind: 'Mock test được giao · 4 kỹ năng', date: '31/10/2026', cells: [band('6.0'), band('6.0'), band('5.5'), band('6.0')], overall: '6.0', ovSize: '18px', ovWeight: 600, ovColor: 'var(--ink)' }
+];
+const resultsPhone = [results[0], results[1], results[4]].map((r) => Object.assign({}, r, { cells: r.cells.map((c, i) => Object.assign({}, c, { k: K[i] })) }));
+const tab = (label, icon, href, cur) => ({ label, icon, href, current: cur ? 'page' : 'false', bar: cur ? 'var(--accent)' : 'transparent', color: cur ? 'var(--ink)' : 'var(--muted)', weight: cur ? 600 : 400 });
+return {
+pal: (this.props.palette ?? 'Navy + đỏ mận') === 'Xanh teal' ? 'pal-teal' : 'pal-navy',
+sched,
+selfGroups,
+selfFlat,
+results,
+resultsPhone,
+tabs: [
+tab('Hôm nay', 'M4 11l8-7 8 7v9H4z', 'Main.dc.html'),
+tab('Lộ trình', 'M5 20V8M5 8h10l-2 3 2 3H5M19 20h-4', 'LoTrinh.dc.html'),
+tab('Luyện tập', 'M4 19l4-1 11-11-3-3L5 15zM14 6l3 3', 'BaiGiang.dc.html'),
+tab('Thi thử', 'M12 7v5l3 2M12 3a9 9 0 100 18 9 9 0 000-18z', 'ThiThu.dc.html', true),
+tab('Thư viện', 'M5 4h5v16H5zM10 4h5v16h-5zM16 6l3-1 3 14-3 1z', 'ThuVien.dc.html')
+]
+};
+}
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,958 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Thành phần dữ liệu</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--accentH:#0B5953;--link:#0B5953;--mark:#8A4B08;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EDF3F1;--off:#E7E2D6}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--accentH:#11254A;--link:#1A3561;--mark:#8A1C1C;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EEF0F5;--off:#E8E2D5}
+a{color:var(--link)}a:hover{color:var(--ink)}
+</style>
+</helmet>
+<div class="{{pal}}" style="width: 1280px; height: 8000px; box-sizing: border-box; padding: 24px 64px; background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 16px; line-height: 1.5; display: flex; flex-direction: column; gap: 20px">
+<header>
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Aver Learning · Bản in · tờ 2</p>
+<h1 style="margin: 4px 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 40px; font-weight: 600; line-height: 1.15">Thành phần · dữ liệu và lớp phủ</h1>
+<p style="margin: 0; color: var(--muted); max-width: 80ch">Bảng, số liệu, biểu đồ, tiến độ, lớp phủ, tải file, quy trình nhiều bước và chọn ngày giờ. Nút, ô nhập, nhãn trạng thái, thông báo và hộp hỏi lại dùng đúng kiểu ở tờ 1. Số luôn căn phải và cùng độ rộng chữ số; trạng thái luôn có chữ, không chỉ có màu.</p>
+</header>
+
+<section aria-labelledby="c-table" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="c-table" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">1. Bảng dữ liệu: tìm, lọc, chọn nhiều, sắp xếp</h2>
+<p style="margin: 0 0 18px; color: var(--muted)"><strong style="color: var(--ink)">Dùng khi nào:</strong> danh sách cần so sánh theo cột hoặc làm việc với nhiều bản ghi cùng lúc (học viên của lớp, kho đề). Danh sách đọc lướt của học viên dùng danh sách thường, không dùng bảng. Mẫu dưới bấm được: tiêu đề cột, ô chọn, chip bộ lọc, thanh hành động.</p>
+
+<div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px">
+<div style="flex: 1 1 320px; display: flex; flex-direction: column; gap: 6px"><label for="t-q" style="font-weight: 600">Tìm học viên</label><div style="display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface)"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" style="flex: none; color: var(--muted)"><circle cx="7.5" cy="7.5" r="5.5" fill="none" stroke="currentColor" stroke-width="1.5"></circle><path d="M11.5 11.5L16 16" fill="none" stroke="currentColor" stroke-width="1.5"></path></svg><input id="t-q" type="search" placeholder="Tên hoặc email" style="flex: 1; min-width: 0; min-height: 42px; padding: 0; border: 0; background: transparent; font: 16px 'Source Sans 3', sans-serif; color: var(--ink)"></div></div>
+<div style="flex: 0 1 200px; display: flex; flex-direction: column; gap: 6px"><label for="t-cls" style="font-weight: 600">Lớp</label><select id="t-cls" style="min-height: 44px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface); font: 16px 'Source Sans 3', sans-serif; color: var(--ink)"><option>Tất cả lớp</option><option>Tue–Thu 19:30</option><option>Mon–Wed 18:00</option></select></div>
+<div style="flex: 0 1 200px; display: flex; flex-direction: column; gap: 6px"><label for="t-st" style="font-weight: 600">Trạng thái</label><select id="t-st" style="min-height: 44px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface); font: 16px 'Source Sans 3', sans-serif; color: var(--ink)"><option>Tất cả trạng thái</option><option>Đang học</option><option>Quá hạn</option><option>Chưa làm</option><option>Sắp hết hạn</option></select></div>
+<div style="flex: 0 1 200px; display: flex; flex-direction: column; gap: 6px"><label for="t-sk" style="font-weight: 600">Kỹ năng</label><select id="t-sk" style="min-height: 44px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface); font: 16px 'Source Sans 3', sans-serif; color: var(--ink)"><option>Tất cả kỹ năng</option><option>Listening</option><option>Reading</option><option>Writing</option><option>Speaking</option></select></div>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 14px; min-height: 44px">
+<span style="font-size: 14px; color: var(--muted)">Đang lọc:</span>
+<sc-for list="{{chips}}" as="f" hint-placeholder-count="3"><span style="display: inline-flex; align-items: center; min-height: 44px; padding-left: 12px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); font-size: 15px">{{f.t}}<button type="button" onClick="{{f.rm}}" aria-label="{{f.aria}}" style="width: 44px; min-height: 42px; border: 0; background: transparent; color: var(--ink); cursor: pointer; display: inline-flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 3l8 8M11 3l-8 8" fill="none" stroke="currentColor" stroke-width="1.75"></path></svg></button></span></sc-for>
+<sc-if value="{{hasChips}}" hint-placeholder-val="{{true}}"><button type="button" onClick="{{clearF}}" style="min-height: 44px; padding: 0 4px; border: 0; background: transparent; color: var(--link); font: 600 15px 'Source Sans 3', sans-serif; text-decoration: underline; cursor: pointer">Xoá bộ lọc</button></sc-if>
+<sc-if value="{{noChips}}" hint-placeholder-val="{{false}}"><span style="color: var(--muted)">chưa có bộ lọc nào.</span><button type="button" onClick="{{resetF}}" style="min-height: 44px; padding: 0 4px; border: 0; background: transparent; color: var(--link); font: 600 15px 'Source Sans 3', sans-serif; text-decoration: underline; cursor: pointer">Dùng lại bộ lọc mẫu</button></sc-if>
+<span role="status" style="margin-left: auto; font-weight: 600; font-variant-numeric: tabular-nums">{{resultText}}</span>
+</div>
+
+<div style="margin-top: 16px; min-height: 56px">
+<sc-if value="{{showBar}}" hint-placeholder-val="{{true}}">
+<div role="region" aria-label="Hành động cho các học viên đã chọn" style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; min-height: 56px; padding: 6px 12px; box-sizing: border-box; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); background: var(--tint)">
+<strong style="font-variant-numeric: tabular-nums">{{selText}}</strong>
+<span style="width: 1px; height: 28px; background: var(--rule)"></span>
+<button type="button" style="min-height: 44px; padding: 0 16px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 15px 'Source Sans 3', sans-serif">Giao bài</button>
+<button type="button" style="min-height: 44px; padding: 0 16px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 15px 'Source Sans 3', sans-serif">Gửi nhắc nhở</button>
+<button type="button" style="min-height: 44px; padding: 0 16px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 15px 'Source Sans 3', sans-serif">Xuất danh sách</button>
+<sc-if value="{{allSel}}" hint-placeholder-val="{{false}}"><button type="button" style="min-height: 44px; padding: 0 4px; border: 0; background: transparent; color: var(--link); font: 600 15px 'Source Sans 3', sans-serif; text-decoration: underline">Chọn cả {{total}} học viên khớp bộ lọc</button></sc-if>
+<span style="margin-left: auto; display: flex; align-items: center; gap: 12px">
+<button type="button" onClick="{{askLock}}" style="min-height: 44px; padding: 0 16px; border: 1px solid var(--danger); border-radius: 2px; background: var(--surface); color: var(--danger); font: 600 15px 'Source Sans 3', sans-serif; cursor: pointer">Khoá quyền học…</button>
+<button type="button" onClick="{{clearSel}}" style="min-height: 44px; padding: 0 4px; border: 0; background: transparent; color: var(--link); font: 600 15px 'Source Sans 3', sans-serif; text-decoration: underline; cursor: pointer">Bỏ chọn</button>
+</span>
+</div>
+</sc-if>
+<sc-if value="{{noBar}}" hint-placeholder-val="{{false}}"><p style="margin: 0; display: flex; align-items: center; min-height: 56px; padding: 0 12px; box-sizing: border-box; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); color: var(--muted)">Chưa chọn học viên nào. Đánh dấu ô ở đầu hàng để hiện thanh hành động hàng loạt.</p></sc-if>
+<sc-if value="{{lockedMsg}}" hint-placeholder-val="{{false}}"><p role="status" style="margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 56px; padding: 0 16px; box-sizing: border-box; border-top: 1px solid var(--ok); border-bottom: 1px solid var(--ok); background: var(--surface)"><strong style="color: var(--ok)">{{lockedText}}</strong> Học viên sẽ thấy “Đã khoá” khi đăng nhập. <button type="button" onClick="{{undoLock}}" style="min-height: 44px; padding: 0 4px; border: 0; background: transparent; color: var(--link); font: 600 16px 'Source Sans 3', sans-serif; text-decoration: underline; cursor: pointer">Hoàn tác</button></p></sc-if>
+<sc-if value="{{confirmLock}}" hint-placeholder-val="{{false}}">
+<div role="alertdialog" aria-labelledby="t-lock-t" aria-describedby="t-lock-d" style="margin-top: 12px; max-width: 560px; padding: 24px; border: 1px solid var(--ink); background: var(--surface)">
+<h3 id="t-lock-t" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">{{confirmTitle}}</h3>
+<p id="t-lock-d" style="margin: 0 0 18px">Họ sẽ không mở được bài và đề cho tới khi bạn mở khoá. Bài đã nộp và điểm vẫn được giữ.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 12px">
+<button type="button" onClick="{{doLock}}" style="min-height: 44px; padding: 0 20px; border: 1px solid var(--danger); border-radius: 2px; background: var(--danger); color: #FFFFFF; font: 600 16px 'Source Sans 3', sans-serif; cursor: pointer">Khoá quyền học</button>
+<button type="button" onClick="{{cancelLock}}" style="min-height: 44px; padding: 0 20px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif; cursor: pointer">Huỷ</button>
+</div>
+</div>
+</sc-if>
+</div>
+
+<div style="margin-top: 16px; overflow-x: auto; border-bottom: 1px solid var(--rule); background: var(--surface)">
+<div role="table" style="display: table; width: 100%; min-width: 1380px; border-collapse: separate; border-spacing: 0; font-variant-numeric: tabular-nums">
+<div style="display: table-caption; caption-side: top; text-align: left; padding: 10px 12px; font-size: 14px; color: var(--muted); background: var(--paper)">Học viên lớp Tue–Thu 19:30 và Mon–Wed 18:00 · {{sortText}}. Bấm tiêu đề cột để đổi.</div>
+<div role="rowgroup" style="display: table-header-group"><div role="row" style="display: table-row">
+<div role="columnheader" style="display: table-cell; font-weight: 600; width: 56px; height: 44px; padding: 0 0 0 6px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); background: var(--surface); text-align: left">
+<button type="button" role="checkbox" aria-checked="{{headAria}}" aria-label="Chọn cả trang" onClick="{{toggleAll}}" style="width: 44px; height: 44px; padding: 0; border: 0; background: transparent; color: var(--muted); display: inline-flex; align-items: center; justify-content: center; cursor: pointer">
+<sc-if value="{{headNone}}" hint-placeholder-val="{{false}}"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><rect x="1" y="1" width="18" height="18" rx="2" style="fill: var(--surface); stroke: var(--muted)" stroke-width="1.5"></rect></svg></sc-if>
+<sc-if value="{{headSome}}" hint-placeholder-val="{{true}}"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><rect x="1" y="1" width="18" height="18" rx="2" style="fill: var(--accent); stroke: var(--accent)" stroke-width="1.5"></rect><path d="M5 10h10" fill="none" stroke="#FFFFFF" stroke-width="2"></path></svg></sc-if>
+<sc-if value="{{headAll}}" hint-placeholder-val="{{false}}"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><rect x="1" y="1" width="18" height="18" rx="2" style="fill: var(--accent); stroke: var(--accent)" stroke-width="1.5"></rect><path d="M5 10.5l3.2 3L15 6.5" fill="none" stroke="#FFFFFF" stroke-width="2"></path></svg></sc-if>
+</button>
+</div>
+<div role="columnheader" aria-sort="{{sm.name.aria}}" style="display: table-cell; font-weight: 600; width: 210px; height: 44px; padding: 0 12px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); background: var(--surface); text-align: left; white-space: nowrap"><button type="button" onClick="{{sm.name.go}}" style="display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--ink); font: 600 13px 'Source Sans 3', sans-serif; cursor: pointer">Học viên <span style="font-weight: 400; color: var(--muted)">{{sm.name.word}}</span>
+<sc-if value="{{sm.name.none}}" hint-placeholder-val="{{true}}"><svg width="12" height="14" viewBox="0 0 12 14" aria-hidden="true" style="color: var(--muted)"><path d="M3 5l3-3 3 3M3 9l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5"></path></svg></sc-if>
+<sc-if value="{{sm.name.asc}}" hint-placeholder-val="{{false}}"><svg width="12" height="14" viewBox="0 0 12 14" aria-hidden="true"><path d="M6 12V2M2.5 5.5L6 2l3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.5"></path></svg></sc-if>
+<sc-if value="{{sm.name.desc}}" hint-placeholder-val="{{false}}"><svg width="12" height="14" viewBox="0 0 12 14" aria-hidden="true"><path d="M6 2v10M2.5 8.5L6 12l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.5"></path></svg></sc-if>
+</button></div>
+<div role="columnheader" style="display: table-cell; width: 230px; height: 44px; padding: 0 12px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); background: var(--surface); text-align: left; font-size: 13px; font-weight: 600; color: var(--muted)">Email</div>
+<div role="columnheader" style="display: table-cell; width: 120px; height: 44px; padding: 0 12px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); background: var(--surface); text-align: left; font-size: 13px; font-weight: 600; color: var(--muted)">Lớp</div>
+<div role="columnheader" aria-sort="{{sm.band.aria}}" style="display: table-cell; font-weight: 600; width: 140px; height: 44px; padding: 0 12px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); background: var(--surface); text-align: right; white-space: nowrap"><button type="button" onClick="{{sm.band.go}}" style="display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--ink); font: 600 13px 'Source Sans 3', sans-serif; cursor: pointer">Band dự kiến <span style="font-weight: 400; color: var(--muted)">{{sm.band.word}}</span>
+<sc-if value="{{sm.band.none}}" hint-placeholder-val="{{false}}"><svg width="12" height="14" viewBox="0 0 12 14" aria-hidden="true" style="color: var(--muted)"><path d="M3 5l3-3 3 3M3 9l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5"></path></svg></sc-if>
+<sc-if value="{{sm.band.asc}}" hint-placeholder-val="{{false}}"><svg width="12" height="14" viewBox="0 0 12 14" aria-hidden="true"><path d="M6 12V2M2.5 5.5L6 2l3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.5"></path></svg></sc-if>
+<sc-if value="{{sm.band.desc}}" hint-placeholder-val="{{true}}"><svg width="12" height="14" viewBox="0 0 12 14" aria-hidden="true"><path d="M6 2v10M2.5 8.5L6 12l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.5"></path></svg></sc-if>
+</button></div>
+<div role="columnheader" aria-sort="{{sm.done.aria}}" style="display: table-cell; font-weight: 600; width: 140px; height: 44px; padding: 0 12px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); background: var(--surface); text-align: right; white-space: nowrap"><button type="button" onClick="{{sm.done.go}}" style="display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--ink); font: 600 13px 'Source Sans 3', sans-serif; cursor: pointer">Bài đã nộp <span style="font-weight: 400; color: var(--muted)">{{sm.done.word}}</span>
+<sc-if value="{{sm.done.none}}" hint-placeholder-val="{{true}}"><svg width="12" height="14" viewBox="0 0 12 14" aria-hidden="true" style="color: var(--muted)"><path d="M3 5l3-3 3 3M3 9l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5"></path></svg></sc-if>
+<sc-if value="{{sm.done.asc}}" hint-placeholder-val="{{false}}"><svg width="12" height="14" viewBox="0 0 12 14" aria-hidden="true"><path d="M6 12V2M2.5 5.5L6 2l3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.5"></path></svg></sc-if>
+<sc-if value="{{sm.done.desc}}" hint-placeholder-val="{{false}}"><svg width="12" height="14" viewBox="0 0 12 14" aria-hidden="true"><path d="M6 2v10M2.5 8.5L6 12l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.5"></path></svg></sc-if>
+</button></div>
+<div role="columnheader" aria-sort="{{sm.last.aria}}" style="display: table-cell; font-weight: 600; width: 180px; height: 44px; padding: 0 12px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); background: var(--surface); text-align: left; white-space: nowrap"><button type="button" onClick="{{sm.last.go}}" style="display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--ink); font: 600 13px 'Source Sans 3', sans-serif; cursor: pointer">Lần học gần nhất <span style="font-weight: 400; color: var(--muted)">{{sm.last.word}}</span>
+<sc-if value="{{sm.last.none}}" hint-placeholder-val="{{true}}"><svg width="12" height="14" viewBox="0 0 12 14" aria-hidden="true" style="color: var(--muted)"><path d="M3 5l3-3 3 3M3 9l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5"></path></svg></sc-if>
+<sc-if value="{{sm.last.asc}}" hint-placeholder-val="{{false}}"><svg width="12" height="14" viewBox="0 0 12 14" aria-hidden="true"><path d="M6 12V2M2.5 5.5L6 2l3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.5"></path></svg></sc-if>
+<sc-if value="{{sm.last.desc}}" hint-placeholder-val="{{false}}"><svg width="12" height="14" viewBox="0 0 12 14" aria-hidden="true"><path d="M6 2v10M2.5 8.5L6 12l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.5"></path></svg></sc-if>
+</button></div>
+<div role="columnheader" style="display: table-cell; height: 44px; padding: 0 12px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); background: var(--surface); text-align: left; font-size: 13px; font-weight: 600; color: var(--muted)">Trạng thái</div>
+<div role="columnheader" style="display: table-cell; position: sticky; right: 0; width: 120px; height: 44px; padding: 0 12px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); border-left: 1px solid var(--rule); background: var(--surface); text-align: left; font-size: 13px; font-weight: 600; color: var(--muted)">Hành động</div>
+</div></div>
+<div role="rowgroup" style="display: table-row-group">
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
+<div role="row" onMouseEnter="{{r.enter}}" onMouseLeave="{{leave}}" style="display: table-row">
+<div role="cell" style="display: table-cell; height: 52px; padding: 0 0 0 6px; border-bottom: 1px solid var(--rule); background: {{r.bg}}">
+<button type="button" role="checkbox" aria-checked="{{r.aria}}" aria-label="Chọn {{r.name}}" onClick="{{r.toggle}}" style="width: 44px; height: 44px; padding: 0; border: 0; background: transparent; display: inline-flex; align-items: center; justify-content: center; cursor: pointer">
+<sc-if value="{{r.off}}" hint-placeholder-val="{{true}}"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><rect x="1" y="1" width="18" height="18" rx="2" style="fill: var(--surface); stroke: var(--muted)" stroke-width="1.5"></rect></svg></sc-if>
+<sc-if value="{{r.on}}" hint-placeholder-val="{{false}}"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><rect x="1" y="1" width="18" height="18" rx="2" style="fill: var(--accent); stroke: var(--accent)" stroke-width="1.5"></rect><path d="M5 10.5l3.2 3L15 6.5" fill="none" stroke="#FFFFFF" stroke-width="2"></path></svg></sc-if>
+</button>
+</div>
+<div role="rowheader" style="display: table-cell; height: 52px; padding: 0 12px; border-bottom: 1px solid var(--rule); background: {{r.bg}}; text-align: left; font-weight: 600; white-space: nowrap"><a href="#c-overlay" style="color: var(--ink); text-decoration: {{r.deco}}">{{r.name}}</a></div>
+<div role="cell" style="display: table-cell; height: 52px; padding: 0 12px; border-bottom: 1px solid var(--rule); background: {{r.bg}}; color: var(--muted); white-space: nowrap">{{r.email}}</div>
+<div role="cell" style="display: table-cell; height: 52px; padding: 0 12px; border-bottom: 1px solid var(--rule); background: {{r.bg}}; white-space: nowrap">{{r.cls}}</div>
+<div role="cell" style="display: table-cell; height: 52px; padding: 0 12px; border-bottom: 1px solid var(--rule); background: {{r.bg}}; text-align: right; white-space: nowrap"><sc-if value="{{r.hasBand}}" hint-placeholder-val="{{true}}">{{r.bandT}}</sc-if><sc-if value="{{r.noBand}}" hint-placeholder-val="{{false}}"><span style="color: var(--muted)">chưa có</span></sc-if></div>
+<div role="cell" style="display: table-cell; height: 52px; padding: 0 12px; border-bottom: 1px solid var(--rule); background: {{r.bg}}; text-align: right; white-space: nowrap">{{r.doneT}}</div>
+<div role="cell" style="display: table-cell; height: 52px; padding: 0 12px; border-bottom: 1px solid var(--rule); background: {{r.bg}}; white-space: nowrap"><sc-if value="{{r.hasLast}}" hint-placeholder-val="{{true}}">{{r.lastT}}</sc-if><sc-if value="{{r.noLast}}" hint-placeholder-val="{{false}}"><span style="color: var(--muted)">chưa có</span></sc-if></div>
+<div role="cell" style="display: table-cell; height: 52px; padding: 0 12px; border-bottom: 1px solid var(--rule); background: {{r.bg}}; white-space: nowrap"><span style="display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border: 1px solid {{r.stc}}; border-radius: 2px; background: var(--surface); color: {{r.stc}}; font-size: 14px; font-weight: 600"><sc-if value="{{r.issue}}" hint-placeholder-val="{{false}}"><svg width="14" height="14" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5L18.5 17.5H1.5z" fill="none" stroke="currentColor" stroke-width="1.75"></path><path d="M10 8v4.5M10 14.5v1" fill="none" stroke="currentColor" stroke-width="1.75"></path></svg></sc-if>{{r.st}}</span></div>
+<div role="cell" style="display: table-cell; position: sticky; right: 0; height: 52px; padding: 0 4px 0 12px; border-bottom: 1px solid var(--rule); border-left: 1px solid var(--rule); background: {{r.bg}}; white-space: nowrap"><span style="display: flex; align-items: center; gap: 4px"><a href="#c-overlay" style="display: inline-flex; align-items: center; min-height: 44px; font-weight: 600">Xem</a><button type="button" aria-label="Thao tác khác cho {{r.name}}" style="width: 44px; height: 44px; border: 0; background: transparent; color: var(--ink); display: inline-flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="4" cy="10" r="1.6" fill="currentColor"></circle><circle cx="10" cy="10" r="1.6" fill="currentColor"></circle><circle cx="16" cy="10" r="1.6" fill="currentColor"></circle></svg></button></span></div>
+</div>
+</sc-for>
+</div>
+</div>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px; margin-top: 12px">
+<ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 4px 20px; font-size: 13px; flex: 1 1 0; min-width: 0">
+<li style="display: flex; align-items: center; gap: 8px"><span aria-hidden="true" style="width: 28px; height: 18px; background: var(--tint); border: 1px solid var(--rule)"></span><span><strong>Hàng đang chọn</strong> · nền nhạt và ô đã đánh dấu</span></li>
+<li style="display: flex; align-items: center; gap: 8px"><span aria-hidden="true" style="width: 28px; height: 18px; background: var(--paper); border: 1px solid var(--rule)"></span><span><strong>Rê chuột</strong> · nền giấy và gạch chân tên</span></li>
+<li style="display: flex; align-items: center; gap: 8px"><svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true" style="color: var(--danger)"><path d="M10 2.5L18.5 17.5H1.5z" fill="none" stroke="currentColor" stroke-width="1.75"></path><path d="M10 8v4.5M10 14.5v1" fill="none" stroke="currentColor" stroke-width="1.75"></path></svg><span><strong>Có vấn đề</strong> · nhãn chữ nói rõ vấn đề, ví dụ “Quá hạn 3 bài”</span></li>
+<li><span><strong>Ô trống</strong> · ghi “chưa có”, không để gạch ngang</span></li>
+<li><span><strong>Cột Hành động</strong> · ghim bên phải khi cuộn ngang</span></li>
+</ul>
+<nav aria-label="Phân trang bảng học viên" style="display: flex; align-items: center; gap: 8px; font-variant-numeric: tabular-nums">
+<a href="#c-table" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 14px; border: 1px solid var(--ink); border-radius: 2px; color: var(--ink); text-decoration: none">‹ Trước</a>
+<span style="padding: 0 8px">{{pageText}}</span>
+<a href="#c-table" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 14px; border: 1px solid var(--ink); border-radius: 2px; color: var(--ink); text-decoration: none">Sau ›</a>
+</nav>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)">Sắp xếp: lần một tăng, lần hai giảm, lần ba bỏ; ô trống luôn cuối; tên sắp theo tên gọi; ô chọn ở tiêu đề có ba trạng thái; hành động nguy hiểm tách bên phải và hỏi lại.</p>
+</section>
+
+<section aria-labelledby="c-dense" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="c-dense" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">2. Bảng: mật độ, trống, đang tải, điện thoại</h2>
+<p style="margin: 0 0 18px; color: var(--muted)"><strong style="color: var(--ink)">Dùng khi nào:</strong> hàng 52px cho màn học viên và giáo viên; hàng 40px chỉ cho bảng admin nhiều bản ghi (kho đề, đơn đăng ký, nhập liệu), chữ 14px, vùng bấm 40px.</p>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 32px; align-items: start">
+<div style="display: flex; flex-direction: column; gap: 24px; min-width: 0">
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Mật độ admin · hàng 40px · một hàng đang chọn · một hàng có vấn đề · kho đề, mới cập nhật trước</p>
+<div style="overflow-x: auto; background: var(--surface)">
+<div role="table" style="display: table; width: 100%; min-width: 680px; white-space: nowrap; border-collapse: separate; border-spacing: 0; font-size: 14px; font-variant-numeric: tabular-nums">
+<div style="display: table-caption; position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Kho đề · sắp theo ngày cập nhật, mới nhất trước</div>
+<div role="rowgroup" style="display: table-header-group"><div role="row" style="display: table-row">
+<div role="columnheader" style="display: table-cell; font-weight: 600; width: 40px; height: 36px; padding: 0 0 0 4px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); text-align: left"><input type="checkbox" aria-label="Chọn cả trang" style="width: 18px; height: 18px; margin: 11px; accent-color: var(--accent)"></div>
+<div role="columnheader" style="display: table-cell; height: 36px; padding: 0 10px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); text-align: left; font-size: 13px; font-weight: 600; color: var(--muted)">Tên đề</div>
+<div role="columnheader" style="display: table-cell; height: 36px; padding: 0 10px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); text-align: left; font-size: 13px; font-weight: 600; color: var(--muted)">Kỹ năng</div>
+<div role="columnheader" style="display: table-cell; height: 36px; padding: 0 10px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); text-align: right; font-size: 13px; font-weight: 600; color: var(--muted)">Câu hỏi</div>
+<div role="columnheader" style="display: table-cell; height: 36px; padding: 0 10px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); text-align: right; font-size: 13px; font-weight: 600; color: var(--muted)">Lượt làm</div>
+<div role="columnheader" aria-sort="descending" style="display: table-cell; height: 36px; padding: 0 10px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); text-align: left; font-size: 13px; font-weight: 600; color: var(--ink); white-space: nowrap">Cập nhật <span style="font-weight: 400; color: var(--muted)">giảm</span></div>
+<div role="columnheader" style="display: table-cell; height: 36px; padding: 0 10px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); text-align: left; font-size: 13px; font-weight: 600; color: var(--muted)">Trạng thái</div>
+<div role="columnheader" style="display: table-cell; position: sticky; right: 0; height: 36px; padding: 0 10px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); border-left: 1px solid var(--rule); background: var(--surface); text-align: left; font-size: 13px; font-weight: 600; color: var(--muted)">Hành động</div>
+</div></div>
+<div role="rowgroup" style="display: table-row-group">
+<sc-for list="{{admin}}" as="a" hint-placeholder-count="5">
+<div role="row" style="display: table-row">
+<div role="cell" style="display: table-cell; height: 40px; padding: 0 0 0 4px; border-bottom: 1px solid var(--rule); background: {{a.bg}}"><input type="checkbox" checked="{{a.sel}}" aria-label="Chọn {{a.t}}" style="width: 18px; height: 18px; margin: 11px; accent-color: var(--accent)"></div>
+<div role="rowheader" style="display: table-cell; height: 40px; padding: 0 10px; border-bottom: 1px solid var(--rule); background: {{a.bg}}; text-align: left; font-weight: 600; white-space: nowrap">{{a.t}}</div>
+<div role="cell" lang="en" style="display: table-cell; height: 40px; padding: 0 10px; border-bottom: 1px solid var(--rule); background: {{a.bg}}">{{a.sk}}</div>
+<div role="cell" style="display: table-cell; height: 40px; padding: 0 10px; border-bottom: 1px solid var(--rule); background: {{a.bg}}; text-align: right">{{a.q}}</div>
+<div role="cell" style="display: table-cell; height: 40px; padding: 0 10px; border-bottom: 1px solid var(--rule); background: {{a.bg}}; text-align: right"><sc-if value="{{a.hasN}}" hint-placeholder-val="{{true}}">{{a.n}}</sc-if><sc-if value="{{a.noN}}" hint-placeholder-val="{{false}}"><span style="color: var(--muted)">chưa có</span></sc-if></div>
+<div role="cell" style="display: table-cell; height: 40px; padding: 0 10px; border-bottom: 1px solid var(--rule); background: {{a.bg}}; white-space: nowrap">{{a.d}}</div>
+<div role="cell" style="display: table-cell; height: 40px; padding: 0 10px; border-bottom: 1px solid var(--rule); background: {{a.bg}}; white-space: nowrap"><span style="padding: 1px 8px; border: 1px solid {{a.c}}; border-radius: 2px; background: {{a.sbg}}; color: {{a.c}}; font-size: 13px; font-weight: 600">{{a.st}}</span><sc-if value="{{a.issue}}" hint-placeholder-val="{{false}}"><span style="margin-left: 8px; color: var(--danger); font-weight: 600">{{a.issueT}}</span></sc-if></div>
+<div role="cell" style="display: table-cell; position: sticky; right: 0; height: 40px; padding: 0 10px; border-bottom: 1px solid var(--rule); border-left: 1px solid var(--rule); background: {{a.bg}}"><a href="#c-dense" style="display: inline-flex; align-items: center; min-height: 40px; font-weight: 600">Sửa</a></div>
+</div>
+</sc-for>
+</div>
+</div>
+</div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px">
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Bảng trống · do bộ lọc</p>
+<table style="width: 100%; border-collapse: collapse; background: var(--surface)">
+<thead><tr>
+<th scope="col" style="height: 44px; padding: 0 12px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); text-align: left; font-size: 13px; font-weight: 600; color: var(--muted)">Học viên</th>
+<th scope="col" style="height: 44px; padding: 0 12px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); text-align: right; font-size: 13px; font-weight: 600; color: var(--muted)">Band dự kiến</th>
+<th scope="col" style="height: 44px; padding: 0 12px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); text-align: left; font-size: 13px; font-weight: 600; color: var(--muted)">Trạng thái</th>
+</tr></thead>
+<tbody><tr><td colspan="3" style="padding: 28px 16px; border-bottom: 1px solid var(--rule); text-align: center">
+<p style="margin: 0 0 4px; font-family: 'Source Serif 4', Georgia, serif; font-size: 19px; font-weight: 600">Không có học viên nào khớp bộ lọc</p>
+<p style="margin: 0 0 14px; color: var(--muted)">Thử bỏ bớt bộ lọc hoặc tìm bằng email.</p>
+<button type="button" style="min-height: 44px; padding: 0 20px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif">Xoá bộ lọc</button>
+</td></tr></tbody>
+</table>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)">Chưa có dữ liệu: nói việc làm dữ liệu xuất hiện.</p>
+</div>
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Bảng đang tải</p>
+<div role="table" aria-busy="true" style="display: table; width: 100%; border-collapse: collapse; background: var(--surface)">
+<div style="display: table-caption; caption-side: bottom; text-align: left; padding: 8px 0 0; font-size: 14px; color: var(--muted); background: var(--paper)">Đang tải danh sách học viên…</div>
+<div role="rowgroup" style="display: table-header-group"><div role="row" style="display: table-row">
+<div role="columnheader" style="display: table-cell; height: 44px; padding: 0 12px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); text-align: left; font-size: 13px; font-weight: 600; color: var(--muted)">Học viên</div>
+<div role="columnheader" style="display: table-cell; height: 44px; padding: 0 12px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); text-align: right; font-size: 13px; font-weight: 600; color: var(--muted)">Band dự kiến</div>
+<div role="columnheader" style="display: table-cell; height: 44px; padding: 0 12px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); text-align: left; font-size: 13px; font-weight: 600; color: var(--muted)">Trạng thái</div>
+</div></div>
+<div role="rowgroup" style="display: table-row-group">
+<sc-for list="{{skel}}" as="k" hint-placeholder-count="4">
+<div role="row" style="display: table-row">
+<div role="cell" style="display: table-cell; height: 52px; padding: 0 12px; border-bottom: 1px solid var(--rule)"><div style="height: 12px; width: {{k.w}}; background: var(--off)"></div></div>
+<div role="cell" style="display: table-cell; height: 52px; padding: 0 12px; border-bottom: 1px solid var(--rule)"><div style="height: 12px; width: 36px; margin-left: auto; background: var(--off)"></div></div>
+<div role="cell" style="display: table-cell; height: 52px; padding: 0 12px; border-bottom: 1px solid var(--rule)"><div style="height: 12px; width: 70%; background: var(--off)"></div></div>
+</div>
+</sc-for>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Điện thoại · 390px · bảng cuộn ngang trong hộp, cột tên ghim trái</p>
+<div style="width: 390px; box-sizing: border-box; border: 1px solid var(--ink); background: var(--paper); padding: 16px; display: flex; flex-direction: column; gap: 12px">
+<div><h3 style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">Học viên</h3><p style="margin: 0; font-size: 14px; color: var(--muted)">Tue–Thu 19:30 · 14 học viên</p></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="m-q" style="font-weight: 600">Tìm học viên</label><input id="m-q" type="search" placeholder="Tên hoặc email" style="min-height: 48px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface); font: 16px 'Source Sans 3', sans-serif; color: var(--ink)"></div>
+<div style="display: flex; gap: 8px"><button type="button" style="min-height: 44px; padding: 0 14px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 15px 'Source Sans 3', sans-serif">Bộ lọc (2)</button><button type="button" style="min-height: 44px; padding: 0 14px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 15px 'Source Sans 3', sans-serif">Sắp: band giảm dần</button></div>
+<div style="overflow-x: auto; border: 1px solid var(--rule); background: var(--surface)">
+<div role="table" style="display: table; min-width: 520px; width: 100%; border-collapse: separate; border-spacing: 0; font-variant-numeric: tabular-nums">
+<div role="rowgroup" style="display: table-header-group"><div role="row" style="display: table-row">
+<div role="columnheader" style="display: table-cell; position: sticky; left: 0; height: 44px; padding: 0 12px; border-bottom: 1px solid var(--ink); border-right: 1px solid var(--rule); background: var(--surface); text-align: left; font-size: 13px; font-weight: 600; color: var(--muted)">Học viên</div>
+<div role="columnheader" aria-sort="descending" style="display: table-cell; height: 44px; padding: 0 12px; border-bottom: 1px solid var(--ink); text-align: right; font-size: 13px; font-weight: 600; white-space: nowrap">Band <span style="font-weight: 400; color: var(--muted)">giảm</span></div>
+<div role="columnheader" style="display: table-cell; height: 44px; padding: 0 12px; border-bottom: 1px solid var(--ink); text-align: right; font-size: 13px; font-weight: 600; color: var(--muted); white-space: nowrap">Bài đã nộp</div>
+<div role="columnheader" style="display: table-cell; height: 44px; padding: 0 12px; border-bottom: 1px solid var(--ink); text-align: left; font-size: 13px; font-weight: 600; color: var(--muted)">Trạng thái</div>
+</div></div>
+<div role="rowgroup" style="display: table-row-group">
+<sc-for list="{{mob}}" as="m" hint-placeholder-count="4">
+<div role="row" style="display: table-row">
+<div role="rowheader" style="display: table-cell; font-weight: 600; position: sticky; left: 0; height: 52px; padding: 0 12px 0 4px; border-bottom: 1px solid var(--rule); border-right: 1px solid var(--rule); background: {{m.bg}}; text-align: left; white-space: nowrap"><label style="display: flex; align-items: center; gap: 6px; min-height: 48px; font-weight: 600"><input type="checkbox" checked="{{m.sel}}" style="width: 20px; height: 20px; margin: 12px; accent-color: var(--accent)">{{m.name}}</label></div>
+<div role="cell" style="display: table-cell; height: 52px; padding: 0 12px; border-bottom: 1px solid var(--rule); background: {{m.bg}}; text-align: right">{{m.band}}</div>
+<div role="cell" style="display: table-cell; height: 52px; padding: 0 12px; border-bottom: 1px solid var(--rule); background: {{m.bg}}; text-align: right; white-space: nowrap">{{m.done}}</div>
+<div role="cell" style="display: table-cell; height: 52px; padding: 0 12px; border-bottom: 1px solid var(--rule); background: {{m.bg}}; white-space: nowrap; font-weight: 600; color: {{m.c}}">{{m.st}}</div>
+</div>
+</sc-for>
+</div>
+</div>
+</div>
+<p style="margin: 0; font-size: 14px; color: var(--muted)">Kéo ngang trong hộp để xem thêm cột. Chạm tên để mở ngăn kéo xem nhanh.</p>
+<div role="region" aria-label="Hành động cho học viên đã chọn" style="display: flex; align-items: center; gap: 10px; padding: 8px 0 0; border-top: 1px solid var(--ink)">
+<strong style="flex: 1">Đã chọn 2 học viên</strong>
+<button type="button" style="min-height: 48px; padding: 0 16px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: #FFFFFF; font: 600 16px 'Source Sans 3', sans-serif">Hành động</button>
+<button type="button" style="min-height: 48px; padding: 0 4px; border: 0; background: transparent; color: var(--link); font: 600 16px 'Source Sans 3', sans-serif; text-decoration: underline">Bỏ chọn</button>
+</div>
+</div>
+</div>
+</div>
+<p style="margin: 14px 0 0; font-size: 14px; color: var(--muted)">Điện thoại: thanh hành động hàng loạt dính đáy màn; “Hành động” mở danh sách lệnh, lệnh nguy hiểm vẫn hỏi lại. Bộ lọc gom vào một nút có đếm số bộ lọc đang áp dụng.</p>
+</section>
+
+<section aria-labelledby="c-stat" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="c-stat" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">3. Thẻ số liệu</h2>
+<p style="margin: 0 0 18px; color: var(--muted)"><strong style="color: var(--ink)">Dùng khi nào:</strong> đầu trang tổng quan của giáo viên hoặc admin, tối đa 4 thẻ một hàng. Mỗi thẻ một con số, một nhãn nói số đó đếm gì, một câu so sánh bằng chữ. Tăng hay giảm không tự là tốt hay xấu nên chữ so sánh dùng màu chữ thường.</p>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px">
+<div><p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Mặc định · tăng</p>
+<div style="padding: 20px; border: 1px solid var(--rule); background: var(--surface)"><p style="margin: 0; font-weight: 600">Bài nộp 7 ngày qua</p><p style="margin: 4px 0 0; font-size: 44px; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums">35</p><p style="margin: 8px 0 0; display: flex; align-items: center; gap: 6px; color: var(--muted); font-variant-numeric: tabular-nums"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true" style="flex: none"><path d="M7 12V2M3 6l4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.5"></path></svg>tăng 4 so với tuần trước</p><p style="margin: 2px 0 0; font-size: 14px; color: var(--muted)">10/11 – 16/11/2026 · lớp Tue–Thu 19:30</p></div></div>
+<div><p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Mặc định · giảm</p>
+<div style="padding: 20px; border: 1px solid var(--rule); background: var(--surface)"><p style="margin: 0; font-weight: 600">Học viên học ít nhất 1 lần</p><p style="margin: 4px 0 0; font-size: 44px; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums">14 <span style="font-size: 20px; color: var(--muted)">trên 18</span></p><p style="margin: 8px 0 0; display: flex; align-items: center; gap: 6px; color: var(--muted); font-variant-numeric: tabular-nums"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true" style="flex: none"><path d="M7 2v10M3 8l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5"></path></svg>giảm 2 so với tuần trước</p><p style="margin: 2px 0 0; font-size: 14px; color: var(--muted)"><a href="#c-table">Xem 4 học viên chưa học</a></p></div></div>
+<div><p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Mặc định · không đổi</p>
+<div style="padding: 20px; border: 1px solid var(--rule); background: var(--surface)"><p style="margin: 0; font-weight: 600">Band Writing trung bình</p><p style="margin: 4px 0 0; font-size: 44px; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums">5.6</p><p style="margin: 8px 0 0; display: flex; align-items: center; gap: 6px; color: var(--muted)"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true" style="flex: none"><path d="M2 7h10" fill="none" stroke="currentColor" stroke-width="1.5"></path></svg>không đổi so với tháng trước</p><p style="margin: 2px 0 0; font-size: 14px; color: var(--muted)">Tính trên 42 bài đã chấm</p></div></div>
+<div><p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Đang tải</p>
+<div aria-busy="true" style="padding: 20px; border: 1px solid var(--rule); background: var(--surface)"><p style="margin: 0; font-weight: 600">Bài nộp 7 ngày qua</p><div style="height: 44px; width: 96px; margin: 8px 0 12px; background: var(--off)"></div><div style="height: 12px; width: 80%; margin-bottom: 10px; background: var(--off)"></div><div style="height: 12px; width: 55%; background: var(--off)"></div><p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)">Đang tải số liệu…</p></div></div>
+<div><p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Chưa đủ dữ liệu</p>
+<div style="padding: 20px; border: 1px dashed var(--muted); background: var(--surface)"><p style="margin: 0; font-weight: 600">Band Speaking trung bình</p><p style="margin: 4px 0 0; font-size: 44px; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums">5.0</p><p style="margin: 8px 0 0; color: var(--muted)">Chưa so sánh được: cần ít nhất 2 tuần có bài đã chấm, hiện mới có 1 tuần.</p></div></div>
+<div><p style="margin: 0 0 8px; font-size: 13px; color: var(--danger)">Lỗi</p>
+<div style="padding: 20px; border: 1px solid var(--rule); background: var(--surface)"><p style="margin: 0; font-weight: 600">Bài nộp 7 ngày qua</p><p style="margin: 6px 0 4px; font-family: 'Source Serif 4', Georgia, serif; font-size: 19px; font-weight: 600; color: var(--danger)">Chưa tải được số liệu</p><p style="margin: 0 0 12px; color: var(--muted)">Bài và điểm của học viên không bị ảnh hưởng.</p><button type="button" style="min-height: 44px; padding: 0 20px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif">Tải lại</button></div></div>
+</div>
+<p style="margin: 14px 0 0; font-size: 14px; color: var(--muted)">Mũi tên chỉ đi kèm, chữ “tăng/giảm/không đổi” mới là tín hiệu. Điện thoại: 2 thẻ một hàng, số 32px; quá 4 thẻ thì chuyển thành bảng.</p>
+</section>
+
+<section aria-labelledby="c-chart" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="c-chart" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">4. Biểu đồ</h2>
+<p style="margin: 0 0 18px; color: var(--muted)"><strong style="color: var(--ink)">Dùng khi nào:</strong> cột để so sánh số đếm giữa các kỳ; đường để xem xu hướng của một điểm số qua các bài. Một màu nhấn cho dữ liệu, mọi thứ khác là nét mực. Luôn có tiêu đề nói kết luận, trục có đơn vị, nguồn, và bảng số liệu ngay dưới cho người không xem được hình.</p>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 260px; gap: 32px; align-items: start">
+
+<figure style="margin: 0; min-width: 0">
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Cột</p>
+<h3 style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; font-weight: 600">Bài nộp tăng đều 3 tuần gần đây</h3>
+<p style="margin: 2px 0 8px; font-size: 14px; color: var(--muted)">Số bài nộp mỗi tuần · lớp Tue–Thu 19:30</p>
+<p style="margin: 0 0 6px; display: flex; align-items: center; gap: 8px; font-size: 14px"><span aria-hidden="true" style="width: 14px; height: 14px; background: var(--accent)"></span>Bài đã nộp</p>
+<svg role="img" aria-label="Biểu đồ cột: số bài nộp mỗi tuần của lớp Tue–Thu 19:30 trong 7 tuần, từ tuần 28/09 đến tuần 09/11/2026: 18, 22, 19, 27, 24, 31, 35. Thấp nhất 18, cao nhất 35 ở tuần gần nhất." viewBox="0 0 440 240" width="100%" style="display: block; font-family: 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums">
+<line x1="36" y1="12" x2="436" y2="12" style="stroke: var(--rule)" stroke-width="1"></line>
+<line x1="36" y1="61" x2="436" y2="61" style="stroke: var(--rule)" stroke-width="1"></line>
+<line x1="36" y1="110" x2="436" y2="110" style="stroke: var(--rule)" stroke-width="1"></line>
+<line x1="36" y1="159" x2="436" y2="159" style="stroke: var(--rule)" stroke-width="1"></line>
+<line x1="36" y1="208" x2="436" y2="208" style="stroke: var(--ink)" stroke-width="1"></line>
+<text x="28" y="16" text-anchor="end" font-size="12" style="fill: var(--muted)">40</text>
+<text x="28" y="65" text-anchor="end" font-size="12" style="fill: var(--muted)">30</text>
+<text x="28" y="114" text-anchor="end" font-size="12" style="fill: var(--muted)">20</text>
+<text x="28" y="163" text-anchor="end" font-size="12" style="fill: var(--muted)">10</text>
+<text x="28" y="212" text-anchor="end" font-size="12" style="fill: var(--muted)">0</text>
+<rect x="48" y="119.8" width="32" height="88.2" style="fill: var(--accent)"></rect>
+<rect x="105" y="100.2" width="32" height="107.8" style="fill: var(--accent)"></rect>
+<rect x="161" y="114.9" width="32" height="93.1" style="fill: var(--accent)"></rect>
+<rect x="218" y="75.7" width="32" height="132.3" style="fill: var(--accent)"></rect>
+<rect x="275" y="90.4" width="32" height="117.6" style="fill: var(--accent)"></rect>
+<rect x="331" y="56.1" width="32" height="151.9" style="fill: var(--accent)"></rect>
+<rect x="388" y="36.5" width="32" height="171.5" style="fill: var(--accent)"></rect>
+<text x="64" y="114" text-anchor="middle" font-size="12" style="fill: var(--ink)">18</text>
+<text x="121" y="94" text-anchor="middle" font-size="12" style="fill: var(--ink)">22</text>
+<text x="177" y="109" text-anchor="middle" font-size="12" style="fill: var(--ink)">19</text>
+<text x="234" y="70" text-anchor="middle" font-size="12" style="fill: var(--ink)">27</text>
+<text x="291" y="85" text-anchor="middle" font-size="12" style="fill: var(--ink)">24</text>
+<text x="347" y="50" text-anchor="middle" font-size="12" style="fill: var(--ink)">31</text>
+<text x="404" y="31" text-anchor="middle" font-size="12" font-weight="600" style="fill: var(--ink)">35</text>
+<text x="64" y="226" text-anchor="middle" font-size="12" style="fill: var(--muted)">28/09</text>
+<text x="121" y="226" text-anchor="middle" font-size="12" style="fill: var(--muted)">05/10</text>
+<text x="177" y="226" text-anchor="middle" font-size="12" style="fill: var(--muted)">12/10</text>
+<text x="234" y="226" text-anchor="middle" font-size="12" style="fill: var(--muted)">19/10</text>
+<text x="291" y="226" text-anchor="middle" font-size="12" style="fill: var(--muted)">26/10</text>
+<text x="347" y="226" text-anchor="middle" font-size="12" style="fill: var(--muted)">02/11</text>
+<text x="404" y="226" text-anchor="middle" font-size="12" style="fill: var(--muted)">09/11</text>
+</svg>
+<p style="margin: 2px 0 0; font-size: 13px; color: var(--muted)">Trục ngang: tuần bắt đầu từ thứ Hai · trục dọc: số bài</p>
+<figcaption style="margin: 2px 0 12px; font-size: 13px; color: var(--muted)">Nguồn: bài nộp trên Aver Learning, cập nhật 16/11/2026 08:00</figcaption>
+<div style="overflow-x: auto">
+<table style="width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums">
+<caption style="caption-side: top; text-align: left; padding: 0 0 4px; font-size: 13px; font-weight: 600; color: var(--muted)">Số liệu của biểu đồ</caption>
+<tbody>
+<tr><th scope="row" style="height: 32px; padding: 0 8px 0 0; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule); text-align: left; font-weight: 600; white-space: nowrap">Tuần</th><td style="padding: 0 4px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule); text-align: right">28/09</td><td style="padding: 0 4px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule); text-align: right">05/10</td><td style="padding: 0 4px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule); text-align: right">12/10</td><td style="padding: 0 4px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule); text-align: right">19/10</td><td style="padding: 0 4px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule); text-align: right">26/10</td><td style="padding: 0 4px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule); text-align: right">02/11</td><td style="padding: 0 4px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule); text-align: right">09/11</td></tr>
+<tr><th scope="row" style="height: 32px; padding: 0 8px 0 0; border-bottom: 1px solid var(--ink); text-align: left; font-weight: 600; white-space: nowrap">Bài nộp</th><td style="padding: 0 4px; border-bottom: 1px solid var(--ink); text-align: right">18</td><td style="padding: 0 4px; border-bottom: 1px solid var(--ink); text-align: right">22</td><td style="padding: 0 4px; border-bottom: 1px solid var(--ink); text-align: right">19</td><td style="padding: 0 4px; border-bottom: 1px solid var(--ink); text-align: right">27</td><td style="padding: 0 4px; border-bottom: 1px solid var(--ink); text-align: right">24</td><td style="padding: 0 4px; border-bottom: 1px solid var(--ink); text-align: right">31</td><td style="padding: 0 4px; border-bottom: 1px solid var(--ink); text-align: right">35</td></tr>
+</tbody>
+</table>
+</div>
+</figure>
+
+<figure style="margin: 0; min-width: 0">
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Đường</p>
+<h3 style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; font-weight: 600">Band Writing của lớp lên 6.0 sau 6 bài</h3>
+<p style="margin: 2px 0 8px; font-size: 14px; color: var(--muted)">Band trung bình mỗi bài · lớp Tue–Thu 19:30</p>
+<p style="margin: 0 0 6px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; font-size: 14px"><span style="display: inline-flex; align-items: center; gap: 8px"><svg width="24" height="10" viewBox="0 0 24 10" aria-hidden="true"><line x1="0" y1="5" x2="24" y2="5" style="stroke: var(--accent)" stroke-width="2.5"></line><circle cx="12" cy="5" r="3.5" style="fill: var(--surface); stroke: var(--accent)" stroke-width="2"></circle></svg>Band trung bình</span><span style="display: inline-flex; align-items: center; gap: 8px"><svg width="24" height="10" viewBox="0 0 24 10" aria-hidden="true"><line x1="0" y1="5" x2="24" y2="5" style="stroke: var(--ink)" stroke-width="1.5" stroke-dasharray="4 3"></line></svg>Mục tiêu của lớp 6.5</span></p>
+<svg role="img" aria-label="Biểu đồ đường: band Writing trung bình của lớp Tue–Thu 19:30 qua 6 bài: 5.0, 5.0, 5.5, 5.5, 5.5, 6.0. Tăng từ 5.0 lên 6.0, còn cách mục tiêu 6.5 nửa band." viewBox="0 0 440 240" width="100%" style="display: block; font-family: 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums">
+<line x1="36" y1="12" x2="436" y2="12" style="stroke: var(--rule)" stroke-width="1"></line>
+<line x1="36" y1="77.3" x2="436" y2="77.3" style="stroke: var(--rule)" stroke-width="1"></line>
+<line x1="36" y1="142.7" x2="436" y2="142.7" style="stroke: var(--rule)" stroke-width="1"></line>
+<line x1="36" y1="208" x2="436" y2="208" style="stroke: var(--ink)" stroke-width="1"></line>
+<text x="28" y="16" text-anchor="end" font-size="12" style="fill: var(--muted)">7.0</text>
+<text x="28" y="81" text-anchor="end" font-size="12" style="fill: var(--muted)">6.0</text>
+<text x="28" y="147" text-anchor="end" font-size="12" style="fill: var(--muted)">5.0</text>
+<text x="28" y="212" text-anchor="end" font-size="12" style="fill: var(--muted)">4.0</text>
+<line x1="36" y1="44.7" x2="436" y2="44.7" style="stroke: var(--ink)" stroke-width="1.5" stroke-dasharray="4 3"></line>
+<text x="436" y="38" text-anchor="end" font-size="12" style="fill: var(--ink)">mục tiêu 6.5</text>
+<polyline points="60,142.7 132,142.7 204,110 276,110 348,110 420,77.3" fill="none" style="stroke: var(--accent)" stroke-width="2.5"></polyline>
+<circle cx="60" cy="142.7" r="4" style="fill: var(--surface); stroke: var(--accent)" stroke-width="2"></circle>
+<circle cx="132" cy="142.7" r="4" style="fill: var(--surface); stroke: var(--accent)" stroke-width="2"></circle>
+<circle cx="204" cy="110" r="4" style="fill: var(--surface); stroke: var(--accent)" stroke-width="2"></circle>
+<circle cx="276" cy="110" r="4" style="fill: var(--surface); stroke: var(--accent)" stroke-width="2"></circle>
+<circle cx="348" cy="110" r="4" style="fill: var(--surface); stroke: var(--accent)" stroke-width="2"></circle>
+<circle cx="420" cy="77.3" r="4" style="fill: var(--surface); stroke: var(--accent)" stroke-width="2"></circle>
+<text x="420" y="98" text-anchor="middle" font-size="12" font-weight="600" style="fill: var(--ink)">6.0</text>
+<text x="60" y="226" text-anchor="middle" font-size="12" style="fill: var(--muted)">Bài 1</text>
+<text x="132" y="226" text-anchor="middle" font-size="12" style="fill: var(--muted)">Bài 2</text>
+<text x="204" y="226" text-anchor="middle" font-size="12" style="fill: var(--muted)">Bài 3</text>
+<text x="276" y="226" text-anchor="middle" font-size="12" style="fill: var(--muted)">Bài 4</text>
+<text x="348" y="226" text-anchor="middle" font-size="12" style="fill: var(--muted)">Bài 5</text>
+<text x="420" y="226" text-anchor="middle" font-size="12" style="fill: var(--muted)">Bài 6</text>
+</svg>
+<p style="margin: 2px 0 0; font-size: 13px; color: var(--muted)">Trục ngang: bài Writing Task 2 được giao · trục dọc: band</p>
+<figcaption style="margin: 2px 0 12px; font-size: 13px; color: var(--muted)">Nguồn: điểm giáo viên đã duyệt, cập nhật 16/11/2026 08:00</figcaption>
+<div style="overflow-x: auto">
+<table style="width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums">
+<caption style="caption-side: top; text-align: left; padding: 0 0 4px; font-size: 13px; font-weight: 600; color: var(--muted)">Số liệu của biểu đồ</caption>
+<tbody>
+<tr><th scope="row" style="height: 32px; padding: 0 8px 0 0; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule); text-align: left; font-weight: 600; white-space: nowrap">Bài</th><td style="padding: 0 4px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule); text-align: right">1</td><td style="padding: 0 4px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule); text-align: right">2</td><td style="padding: 0 4px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule); text-align: right">3</td><td style="padding: 0 4px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule); text-align: right">4</td><td style="padding: 0 4px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule); text-align: right">5</td><td style="padding: 0 4px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule); text-align: right">6</td></tr>
+<tr><th scope="row" style="height: 32px; padding: 0 8px 0 0; border-bottom: 1px solid var(--ink); text-align: left; font-weight: 600; white-space: nowrap">Band trung bình</th><td style="padding: 0 4px; border-bottom: 1px solid var(--ink); text-align: right">5.0</td><td style="padding: 0 4px; border-bottom: 1px solid var(--ink); text-align: right">5.0</td><td style="padding: 0 4px; border-bottom: 1px solid var(--ink); text-align: right">5.5</td><td style="padding: 0 4px; border-bottom: 1px solid var(--ink); text-align: right">5.5</td><td style="padding: 0 4px; border-bottom: 1px solid var(--ink); text-align: right">5.5</td><td style="padding: 0 4px; border-bottom: 1px solid var(--ink); text-align: right">6.0</td></tr>
+</tbody>
+</table>
+</div>
+</figure>
+
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Trống</p>
+<h3 style="margin: 0 0 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; font-weight: 600">Band Speaking theo bài</h3>
+<div style="position: relative; height: 200px; border-left: 1px solid var(--rule); border-bottom: 1px solid var(--ink); background: var(--surface); display: flex; flex-direction: column; justify-content: center; padding: 16px 20px; box-sizing: border-box">
+<p style="margin: 0 0 4px; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; font-weight: 600">Chưa có bài Speaking nào được chấm</p>
+<p style="margin: 0; color: var(--muted); font-size: 15px">Biểu đồ hiện khi lớp có ít nhất 2 bài đã chấm.</p>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)">Không vẽ trục số và đường bằng 0 khi chưa có dữ liệu: người xem sẽ đọc thành “điểm bằng 0”.</p>
+</div>
+</div>
+<p style="margin: 14px 0 0; font-size: 14px; color: var(--muted)">Hai chuỗi trên cùng biểu đồ khác nhau bằng nét liền/nét đứt, không chỉ bằng màu. Điện thoại: biểu đồ đủ rộng màn, tối đa 7 cột; nhãn trục rút gọn; bảng số liệu cuộn ngang trong hộp.</p>
+</section>
+
+<section aria-labelledby="c-prog" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="c-prog" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">5. Thanh tiến độ</h2>
+<p style="margin: 0 0 18px; color: var(--muted)"><strong style="color: var(--ink)">Dùng khi nào:</strong> xác định khi biết tổng (bài trong lộ trình, dòng đang nhập); không xác định khi chưa biết còn bao lâu (AI đang chấm); theo bước khi quy trình có số bước cố định. Luôn có chữ nói tiến độ.</p>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px">
+<div style="display: flex; flex-direction: column; gap: 18px">
+<p style="margin: 0; font-size: 13px; color: var(--muted)">Xác định</p>
+<div><p style="margin: 0 0 6px; display: flex; justify-content: space-between; gap: 12px"><span style="font-weight: 600">Lộ trình Writing</span><span style="font-variant-numeric: tabular-nums">13 trên 48 bài</span></p><div role="progressbar" aria-label="Lộ trình Writing" aria-valuemin="0" aria-valuemax="48" aria-valuenow="13" aria-valuetext="13 trên 48 bài" style="height: 8px; background: var(--off)"><div style="width: 27%; height: 8px; background: var(--accent)"></div></div><p style="margin: 4px 0 0; font-size: 14px; color: var(--muted)">Đang học · còn 35 bài</p></div>
+<div><p style="margin: 0 0 6px; display: flex; justify-content: space-between; gap: 12px"><span style="font-weight: 600">Lộ trình Reading</span><span style="font-variant-numeric: tabular-nums">0 trên 48 bài</span></p><div role="progressbar" aria-label="Lộ trình Reading" aria-valuemin="0" aria-valuemax="48" aria-valuenow="0" aria-valuetext="0 trên 48 bài" style="height: 8px; background: var(--off)"></div><p style="margin: 4px 0 0; font-size: 14px; color: var(--muted)">Chưa bắt đầu</p></div>
+<div><p style="margin: 0 0 6px; display: flex; justify-content: space-between; gap: 12px"><span style="font-weight: 600">Lộ trình Listening</span><span style="font-variant-numeric: tabular-nums">48 trên 48 bài</span></p><div role="progressbar" aria-label="Lộ trình Listening" aria-valuemin="0" aria-valuemax="48" aria-valuenow="48" aria-valuetext="48 trên 48 bài, đã xong" style="height: 8px; background: var(--ok)"></div><p style="margin: 4px 0 0; font-size: 14px; font-weight: 600; color: var(--ok)">Đã xong</p></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 18px">
+<p style="margin: 0; font-size: 13px; color: var(--muted)">Không xác định · đang xử lý</p>
+<div><p style="margin: 0 0 6px; font-weight: 600">Đang chấm bài Writing</p><div role="progressbar" aria-label="Đang chấm bài Writing" aria-valuetext="Đang xử lý" style="position: relative; height: 8px; background: var(--off); overflow: hidden"><div style="position: absolute; left: 32%; width: 28%; height: 8px; background: var(--accent)"></div></div><p style="margin: 6px 0 0; font-size: 14px; color: var(--muted)">Đang xử lý… thường mất khoảng 2 phút. Bạn có thể rời trang, kết quả sẽ nằm trong “Bài đã nộp”.</p></div>
+<div><p style="margin: 0 0 6px; font-weight: 600">Đang tạo file xuất</p><div role="progressbar" aria-label="Đang tạo file xuất" aria-valuetext="Đang xử lý" style="position: relative; height: 8px; background: var(--off); overflow: hidden"><div style="position: absolute; left: 0; width: 28%; height: 8px; background: var(--accent)"></div></div><p style="margin: 6px 0 0; font-size: 14px; color: var(--muted)">Đoạn đậm chạy qua lại liên tục. Người bật “giảm chuyển động” chỉ thấy chữ và đoạn đứng yên.</p></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 18px">
+<p style="margin: 0; font-size: 13px; color: var(--muted)">Theo bước</p>
+<div><p style="margin: 0 0 6px; display: flex; justify-content: space-between; gap: 12px"><span style="font-weight: 600">Nhập danh sách học viên</span><span style="font-variant-numeric: tabular-nums">Bước 2 trên 4</span></p><div role="progressbar" aria-label="Nhập danh sách học viên" aria-valuemin="1" aria-valuemax="4" aria-valuenow="2" aria-valuetext="Bước 2 trên 4, Kiểm tra thử" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px"><div style="height: 8px; background: var(--ink)"></div><div style="height: 8px; background: var(--accent)"></div><div style="height: 8px; background: var(--off)"></div><div style="height: 8px; background: var(--off)"></div></div><p style="margin: 6px 0 0; font-size: 14px; color: var(--muted)">Đang làm: Kiểm tra thử · tiếp theo: Xác nhận</p></div>
+<div><p style="margin: 0 0 6px; display: flex; justify-content: space-between; gap: 12px"><span style="font-weight: 600">Đang nhập 1 284 dòng</span><span style="font-variant-numeric: tabular-nums">640 trên 1 284</span></p><div role="progressbar" aria-label="Đang nhập dòng" aria-valuemin="0" aria-valuemax="1284" aria-valuenow="640" aria-valuetext="640 trên 1 284 dòng" style="height: 8px; background: var(--off)"><div style="width: 50%; height: 8px; background: var(--accent)"></div></div><p style="margin: 6px 0 0; font-size: 14px; color: var(--muted)">Giữ trang này mở. Nếu mất mạng, lần sau nhập tiếp từ dòng 641.</p></div>
+</div>
+</div>
+<p style="margin: 14px 0 0; font-size: 14px; color: var(--muted)">Không hiện phần trăm khi tổng nhỏ: “13 trên 48 bài” dễ hiểu hơn “27%”. Thanh cao 8px, không bo góc; xong thì đổi sang màu đạt kèm chữ “Đã xong”.</p>
+</section>
+
+<section aria-labelledby="c-overlay" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="c-overlay" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">6. Lớp phủ: modal và ngăn kéo</h2>
+<p style="margin: 0 0 18px; color: var(--muted)"><strong style="color: var(--ink)">Dùng khi nào:</strong> chỉ khi người dùng cần quyết định hoặc xem nhanh mà không rời danh sách. Nút đóng góc phải, phím Esc và bấm ra nền đều đóng; mở lên thì con trỏ phím vào lớp phủ, đóng thì trả về nút đã mở. Mẫu dưới đóng/mở được.</p>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; align-items: start">
+<div style="display: flex; flex-direction: column; gap: 24px">
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Modal nhỏ · rộng 400px · hỏi một việc</p>
+<div style="position: relative; height: 200px; border: 1px solid var(--ink); background: var(--paper); overflow: hidden">
+<div aria-hidden="true" style="padding: 20px; display: flex; flex-direction: column; gap: 12px"><div style="height: 18px; width: 40%; background: var(--off)"></div><div style="height: 12px; width: 90%; background: var(--off)"></div><div style="height: 12px; width: 84%; background: var(--off)"></div><div style="height: 12px; width: 70%; background: var(--off)"></div><div style="height: 12px; width: 88%; background: var(--off)"></div></div>
+<sc-if value="{{modalSm}}" hint-placeholder-val="{{true}}">
+<div aria-hidden="true" onClick="{{closeSm}}" style="position: absolute; inset: 0; background: var(--ink); opacity: 0.55"></div>
+<div role="dialog" aria-modal="true" aria-labelledby="ov-sm-t" style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 400px; box-sizing: border-box; padding: 24px; border: 1px solid var(--ink); background: var(--surface)">
+<div style="display: flex; align-items: flex-start; gap: 12px"><h3 id="ov-sm-t" style="flex: 1; margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">Gửi nhắc nhở cho 3 học viên?</h3><button type="button" onClick="{{closeSm}}" aria-label="Đóng" style="width: 44px; height: 44px; margin: -10px -12px 0 0; border: 0; border-radius: 2px; background: transparent; color: var(--ink); display: inline-flex; align-items: center; justify-content: center; cursor: pointer"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M4 4l10 10M14 4L4 14" fill="none" stroke="currentColor" stroke-width="1.75"></path></svg></button></div>
+<p style="margin: 0 0 18px">Mỗi học viên nhận một email liệt kê bài còn thiếu.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 12px"><button type="button" onClick="{{closeSm}}" style="min-height: 44px; padding: 0 20px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: #FFFFFF; font: 600 16px 'Source Sans 3', sans-serif; cursor: pointer">Gửi nhắc nhở</button><button type="button" onClick="{{closeSm}}" style="min-height: 44px; padding: 0 20px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif; cursor: pointer">Huỷ</button></div>
+</div>
+</sc-if>
+<sc-if value="{{smClosed}}" hint-placeholder-val="{{false}}"><div style="position: absolute; left: 0; right: 0; bottom: 20px; display: flex; justify-content: center"><button type="button" onClick="{{openSm}}" style="min-height: 44px; padding: 0 20px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif; cursor: pointer">Mở lại modal nhỏ</button></div></sc-if>
+</div>
+</div>
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Modal vừa · rộng 520px · biểu mẫu ngắn</p>
+<div style="position: relative; height: 440px; border: 1px solid var(--ink); background: var(--paper); overflow: hidden">
+<div aria-hidden="true" style="padding: 20px; display: flex; flex-direction: column; gap: 12px"><div style="height: 18px; width: 50%; background: var(--off)"></div><div style="height: 12px; width: 92%; background: var(--off)"></div><div style="height: 12px; width: 80%; background: var(--off)"></div><div style="height: 12px; width: 86%; background: var(--off)"></div></div>
+<sc-if value="{{modalMd}}" hint-placeholder-val="{{true}}">
+<div aria-hidden="true" onClick="{{closeMd}}" style="position: absolute; inset: 0; background: var(--ink); opacity: 0.55"></div>
+<div role="dialog" aria-modal="true" aria-labelledby="ov-md-t" style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 520px; max-width: calc(100% - 24px); box-sizing: border-box; border: 1px solid var(--ink); background: var(--surface)">
+<div style="display: flex; align-items: center; gap: 12px; padding: 14px 12px 14px 24px; border-bottom: 1px solid var(--rule)"><h3 id="ov-md-t" style="flex: 1; margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">Dời buổi 12 · Tue–Thu 19:30</h3><button type="button" onClick="{{closeMd}}" aria-label="Đóng" style="width: 44px; height: 44px; border: 0; border-radius: 2px; background: transparent; color: var(--ink); display: inline-flex; align-items: center; justify-content: center; cursor: pointer"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M4 4l10 10M14 4L4 14" fill="none" stroke="currentColor" stroke-width="1.75"></path></svg></button></div>
+<div style="padding: 20px 24px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="ov-b" style="font-weight: 600">Buổi</label><select id="ov-b" style="min-height: 44px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface); font: 16px 'Source Sans 3', sans-serif; color: var(--ink)"><option>Buổi 12 · Thứ Năm 19/11/2026</option><option>Buổi 13 · Thứ Ba 24/11/2026</option></select></div>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 140px; gap: 12px"><div style="display: flex; flex-direction: column; gap: 6px"><label for="ov-d" style="font-weight: 600">Ngày mới</label><input id="ov-d" type="text" inputmode="numeric" value="20/11/2026" style="min-height: 44px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface); font: 16px 'Source Sans 3', sans-serif; color: var(--ink); font-variant-numeric: tabular-nums"></div><div style="display: flex; flex-direction: column; gap: 6px"><label for="ov-h" style="font-weight: 600">Giờ</label><input id="ov-h" type="text" inputmode="numeric" value="21:00" style="min-height: 44px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface); font: 16px 'Source Sans 3', sans-serif; color: var(--ink); font-variant-numeric: tabular-nums"></div></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="ov-n" style="font-weight: 600">Lời nhắn cho lớp <span style="font-weight: 400; color: var(--muted)">(không bắt buộc)</span></label><input id="ov-n" type="text" placeholder="Ví dụ: Lớp nghỉ vì giáo viên ốm." style="min-height: 44px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface); font: 16px \'Source Sans 3\', sans-serif; color: var(--ink)"></div>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 12px; padding: 14px 24px 20px; border-top: 1px solid var(--rule)"><button type="button" onClick="{{closeMd}}" style="min-height: 44px; padding: 0 20px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: #FFFFFF; font: 600 16px 'Source Sans 3', sans-serif; cursor: pointer">Dời buổi</button><button type="button" onClick="{{closeMd}}" style="min-height: 44px; padding: 0 20px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif; cursor: pointer">Huỷ</button></div>
+</div>
+</sc-if>
+<sc-if value="{{mdClosed}}" hint-placeholder-val="{{false}}"><div style="position: absolute; left: 0; right: 0; bottom: 20px; display: flex; justify-content: center"><button type="button" onClick="{{openMd}}" style="min-height: 44px; padding: 0 20px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif; cursor: pointer">Mở lại modal vừa</button></div></sc-if>
+</div>
+</div>
+</div>
+
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Ngăn kéo · trượt từ phải · rộng 420px · xem nhanh một học viên</p>
+<div style="position: relative; height: 560px; border: 1px solid var(--ink); background: var(--paper); overflow: hidden">
+<div aria-hidden="true" style="padding: 20px; display: flex; flex-direction: column; gap: 0">
+<div style="height: 18px; width: 36%; margin-bottom: 16px; background: var(--off)"></div>
+<sc-for list="{{skelRows}}" as="k" hint-placeholder-count="10"><div style="display: flex; gap: 16px; align-items: center; height: 52px; border-bottom: 1px solid var(--rule)"><div style="height: 12px; width: 120px; background: var(--off)"></div><div style="height: 12px; width: 60px; background: var(--off)"></div></div></sc-for>
+</div>
+<sc-if value="{{drawer}}" hint-placeholder-val="{{true}}">
+<div aria-hidden="true" onClick="{{closeDr}}" style="position: absolute; inset: 0; background: var(--ink); opacity: 0.35"></div>
+<div role="dialog" aria-modal="true" aria-labelledby="ov-dr-t" style="position: absolute; top: 0; right: 0; bottom: 0; width: 420px; box-sizing: border-box; border-left: 1px solid var(--ink); background: var(--surface); display: flex; flex-direction: column">
+<div style="display: flex; align-items: center; gap: 12px; padding: 6px 12px 6px 20px; border-bottom: 1px solid var(--ink)"><p id="ov-dr-t" style="flex: 1; margin: 0; font-size: 14px; color: var(--muted)">Xem nhanh · Khối tóm tắt học viên (mục 10)</p><button type="button" onClick="{{closeDr}}" aria-label="Đóng xem nhanh" style="width: 44px; height: 44px; border: 0; border-radius: 2px; background: transparent; color: var(--ink); display: inline-flex; align-items: center; justify-content: center; cursor: pointer"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M4 4l10 10M14 4L4 14" fill="none" stroke="currentColor" stroke-width="1.75"></path></svg></button></div>
+<sc-for list="{{sumDr}}" as="p" hint-placeholder-count="1">
+<article aria-label="Tóm tắt học viên {{p.name}}" style="display: flex; flex-direction: column; border: {{p.bd}}; background: var(--surface)">
+<div style="padding: 14px 20px 12px; border-bottom: 1px solid var(--rule)">
+<h3 style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">{{p.name}}</h3>
+<p style="margin: 2px 0 0; font-size: 14px; color: var(--muted)">{{p.cls}}</p>
+<p style="margin: 8px 0 0"><span style="display: inline-flex; align-items: center; padding: 2px 10px; border: 1px solid {{p.tone}}; border-radius: 2px; color: {{p.tone}}; font-size: 14px; font-weight: 600">{{p.status}}</span></p>
+</div>
+<dl style="margin: 0; padding: 2px 20px 0; display: grid; grid-template-columns: 148px minmax(0, 1fr); font-size: 15px; font-variant-numeric: tabular-nums">
+<dt style="padding: 6px 0; color: var(--muted)">Mục tiêu</dt><dd style="margin: 0; padding: 6px 0; color: {{p.goalC}}">{{p.goal}}</dd>
+<dt style="padding: 6px 0; border-top: 1px solid var(--rule); color: var(--muted)">Bài quá hạn</dt><dd style="margin: 0; padding: 6px 0; border-top: 1px solid var(--rule); color: {{p.odC}}; font-weight: {{p.odW}}">{{p.overdue}}</dd>
+<dt style="padding: 6px 0; border-top: 1px solid var(--rule); color: var(--muted)">Band gần đây</dt><dd style="margin: 0; padding: 6px 0; border-top: 1px solid var(--rule); color: {{p.bandC}}">{{p.band}}</dd>
+<dt style="padding: 6px 0; border-top: 1px solid var(--rule); color: var(--muted)">Hoạt động gần nhất</dt><dd style="margin: 0; padding: 6px 0; border-top: 1px solid var(--rule)">{{p.last}}</dd>
+<dt style="padding: 6px 0; border-top: 1px solid var(--rule); color: var(--muted)">Ghi chú mới nhất</dt><dd style="margin: 0; padding: 6px 0; border-top: 1px solid var(--rule); color: {{p.noteC}}">{{p.note}}</dd>
+</dl>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 20px 16px; border-top: 1px solid var(--rule)"><a href="HoSoHocVien.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; box-sizing: border-box; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: #FFFFFF; font-weight: 600; text-decoration: none">Mở hồ sơ</a><button type="button" style="min-height: 44px; padding: 0 18px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif">{{p.act}}</button></div>
+</article>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{drClosed}}" hint-placeholder-val="{{false}}"><div style="position: absolute; left: 0; right: 0; bottom: 24px; display: flex; justify-content: center"><button type="button" onClick="{{openDr}}" style="min-height: 44px; padding: 0 20px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif; cursor: pointer">Mở lại ngăn kéo</button></div></sc-if>
+</div>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; margin-top: 24px; border-top: 1px solid var(--rule); padding-top: 16px">
+<div><h3 style="margin: 0; font-size: 15px; font-size: 17px; font-weight: 600">Modal</h3><p style="margin: 0; font-size: 15px">Một quyết định ngắn phải trả lời ngay: hỏi lại trước khi gửi, khoá, xoá; biểu mẫu tối đa 3 ô. Không cuộn bên trong, không mở modal chồng modal. <span style="color: var(--muted)">Điện thoại: modal vừa thành toàn màn hình.</span></p></div>
+<div><h3 style="margin: 0; font-size: 15px; font-size: 17px; font-weight: 600">Ngăn kéo</h3><p style="margin: 0; font-size: 15px">Xem nhanh hoặc sửa nhanh một bản ghi trong khi vẫn thấy danh sách: học viên, bài nộp, đơn đăng ký. Luôn có “Mở trang đầy đủ” cho việc dài. <span style="color: var(--muted)">Điện thoại: trang trượt lên che toàn màn.</span></p></div>
+<div><h3 style="margin: 0; font-size: 15px; font-size: 17px; font-weight: 600">Trang riêng</h3><p style="margin: 0; font-size: 15px">Việc dài, nhiều bước hoặc cần đường dẫn chia sẻ được: làm bài, soạn đề, nhập dữ liệu, hồ sơ học viên đầy đủ. Không bao giờ đặt bài thi trong lớp phủ. <span style="color: var(--muted)">Có vị trí trang và nút quay lại.</span></p></div>
+</div>
+</section>
+
+<section aria-labelledby="c-upload" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="c-upload" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">7. Tải file lên</h2>
+<p style="margin: 0 0 18px; color: var(--muted)"><strong style="color: var(--ink)">Dùng khi nào:</strong> admin nhập danh sách, đề, audio; giáo viên đính kèm tài liệu. Luôn nói trước định dạng và cỡ tối đa. Mỗi file có dòng riêng với trạng thái bằng chữ.</p>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 32px; align-items: start">
+<div style="display: flex; flex-direction: column; gap: 24px">
+<div><p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Vùng thả · mặc định</p>
+<div style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 28px 20px; border: 1px dashed var(--ink); background: var(--surface); text-align: center">
+<svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true" style="color: var(--muted)"><path d="M14 19V5M8 11l6-6 6 6M5 19v4h18v-4" fill="none" stroke="currentColor" stroke-width="1.75"></path></svg>
+<p style="margin: 0">Kéo file vào đây, hoặc</p>
+<label for="up-f" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font-weight: 600; cursor: pointer">Chọn file từ máy</label>
+<input id="up-f" type="file" multiple accept=".xlsx,.csv" aria-describedby="up-h" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap">
+<p id="up-h" style="margin: 0; font-size: 14px; color: var(--muted)">File .xlsx hoặc .csv · tối đa XXX MB mỗi file</p>
+</div></div>
+<div><p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Vùng thả · đang kéo file vào</p>
+<div style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 27px 19px; border: 2px solid var(--accent); background: var(--tint); text-align: center">
+<svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true" style="color: var(--accent)"><path d="M14 19V5M8 11l6-6 6 6M5 19v4h18v-4" fill="none" stroke="currentColor" stroke-width="1.75"></path></svg>
+<p style="margin: 0; font-weight: 600">Thả để tải lên 2 file</p>
+<p style="margin: 0; font-size: 14px; color: var(--muted)">File .xlsx hoặc .csv · tối đa XXX MB mỗi file</p>
+</div></div>
+</div>
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Danh sách nhiều file · đang tải, xong, lỗi định dạng, quá cỡ</p>
+<ul style="margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--ink)">
+<li style="display: flex; gap: 14px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--rule)">
+<svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true" style="flex: none; color: var(--muted)"><path d="M5 2h8l4 4v14H5z M13 2v4h4" fill="none" stroke="currentColor" stroke-width="1.5"></path></svg>
+<div style="flex: 1; min-width: 0">
+<sc-if value="{{upActive}}" hint-placeholder-val="{{true}}"><p style="margin: 0; display: flex; justify-content: space-between; gap: 12px"><span style="font-weight: 600">danh-sach-lop-toi.xlsx</span><span style="font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums">Đang tải lên · 1,2 trên 1,9 MB</span></p><div role="progressbar" aria-label="Tải lên danh-sach-lop-toi.xlsx" aria-valuemin="0" aria-valuemax="100" aria-valuenow="63" aria-valuetext="1,2 trên 1,9 MB" style="margin-top: 6px; height: 6px; background: var(--off)"><div style="width: 63%; height: 6px; background: var(--accent)"></div></div></sc-if>
+<sc-if value="{{upCancelled}}" hint-placeholder-val="{{false}}"><p style="margin: 0; font-weight: 600">danh-sach-lop-toi.xlsx</p><p style="margin: 0; font-size: 14px; color: var(--muted)">Đã huỷ tải lên. Chưa có gì được lưu.</p></sc-if>
+</div>
+<sc-if value="{{upActive}}" hint-placeholder-val="{{true}}"><button type="button" onClick="{{cancelUp}}" style="min-height: 44px; padding: 0 16px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 15px 'Source Sans 3', sans-serif; cursor: pointer">Huỷ</button></sc-if>
+<sc-if value="{{upCancelled}}" hint-placeholder-val="{{false}}"><button type="button" onClick="{{retryUp}}" style="min-height: 44px; padding: 0 16px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 15px 'Source Sans 3', sans-serif; cursor: pointer">Tải lên lại</button></sc-if>
+</li>
+<li style="display: flex; gap: 14px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--rule)">
+<svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true" style="flex: none; color: var(--ok)"><circle cx="11" cy="11" r="9" fill="none" stroke="currentColor" stroke-width="1.5"></circle><path d="M6.5 11.5l3 3 6-6.5" fill="none" stroke="currentColor" stroke-width="1.75"></path></svg>
+<div style="flex: 1; min-width: 0"><p style="margin: 0; font-weight: 600">de-reading-12.csv</p><p style="margin: 0; font-size: 14px"><strong style="color: var(--ok)">Đã tải lên</strong> <span style="color: var(--muted); font-variant-numeric: tabular-nums">· 240 KB · 40 câu</span></p></div>
+<button type="button" style="min-height: 44px; padding: 0 4px; border: 0; background: transparent; color: var(--link); font: 600 15px 'Source Sans 3', sans-serif; text-decoration: underline">Gỡ file</button>
+</li>
+<li style="display: flex; gap: 14px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--rule)">
+<svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true" style="flex: none; color: var(--danger)"><path d="M11 2.5L20 18.5H2z" fill="none" stroke="currentColor" stroke-width="1.5"></path><path d="M11 8.5v4.5M11 15v1" fill="none" stroke="currentColor" stroke-width="1.75"></path></svg>
+<div style="flex: 1; min-width: 0"><p style="margin: 0; font-weight: 600">audio-part2.mp3</p><p role="alert" style="margin: 0; font-size: 14px"><strong style="color: var(--danger)">Sai định dạng.</strong> Ô này chỉ nhận .xlsx hoặc .csv. Audio tải ở mục Bài nghe.</p></div>
+<button type="button" style="min-height: 44px; padding: 0 16px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 15px 'Source Sans 3', sans-serif">Chọn file khác</button>
+</li>
+<li style="display: flex; gap: 14px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--rule)">
+<svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true" style="flex: none; color: var(--danger)"><path d="M11 2.5L20 18.5H2z" fill="none" stroke="currentColor" stroke-width="1.5"></path><path d="M11 8.5v4.5M11 15v1" fill="none" stroke="currentColor" stroke-width="1.75"></path></svg>
+<div style="flex: 1; min-width: 0"><p style="margin: 0; font-weight: 600">kho-de-toan-bo.xlsx</p><p role="alert" style="margin: 0; font-size: 14px"><strong style="color: var(--danger)">Quá cỡ.</strong> <span style="font-variant-numeric: tabular-nums">File 38 MB, tối đa XXX MB.</span> Tách thành nhiều file nhỏ hơn.</p></div>
+<button type="button" style="min-height: 44px; padding: 0 16px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 15px 'Source Sans 3', sans-serif">Chọn file khác</button>
+</li>
+</ul>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums">4 file · 1 xong · 1 đang tải · 2 lỗi. Nút “Tiếp tục” chỉ bật khi không còn file đang tải.</p>
+</div>
+</div>
+<p style="margin: 14px 0 0; font-size: 14px; color: var(--muted)">Điện thoại: không có kéo thả, chỉ còn nút “Chọn file” cao 48px; danh sách file xếp dọc như trên. Khi nhập dữ liệu, file chỉ được đọc để kiểm tra; chưa ghi gì cho tới bước Xác nhận.</p>
+</section>
+
+<section aria-labelledby="c-step" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="c-step" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">8. Quy trình nhiều bước</h2>
+<p style="margin: 0 0 18px; color: var(--muted)"><strong style="color: var(--ink)">Dùng khi nào:</strong> việc có 3–5 bước theo thứ tự cố định và có điểm không quay lại được (nhập liệu, tạo khoá học). Mỗi bước ghi tên bằng động từ và trạng thái bằng chữ. Mẫu đầu bấm được.</p>
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Đang làm · bấm “Tiếp tục” / “Quay lại” để xem bước xong, đang làm, chưa tới</p>
+<ol aria-label="Các bước nhập dữ liệu" style="margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0">
+<sc-for list="{{steps}}" as="x" hint-placeholder-count="4">
+<li aria-current="{{x.aria}}" style="display: flex; flex-direction: column; gap: 8px; padding-right: 12px">
+<div style="display: flex; align-items: center; gap: 8px">
+<span style="flex: none; width: 32px; height: 32px; box-sizing: border-box; border: {{x.bd}}; border-radius: 50%; background: {{x.bg}}; color: {{x.fg}}; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; font-variant-numeric: tabular-nums"><sc-if value="{{x.done}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="2"></path></svg></sc-if><sc-if value="{{x.notDone}}" hint-placeholder-val="{{true}}">{{x.n}}</sc-if></span>
+<sc-if value="{{x.notLast}}" hint-placeholder-val="{{true}}"><span aria-hidden="true" style="flex: 1; height: 2px; background: {{x.line}}"></span></sc-if>
+</div>
+<span style="font-weight: {{x.fw}}">{{x.t}}</span>
+<span style="margin-top: -8px; font-size: 14px; color: var(--muted)">{{x.stateT}}</span>
+</li>
+</sc-for>
+</ol>
+<div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px">
+<button type="button" onClick="{{stepBack}}" disabled="{{atStart}}" style="min-height: 44px; padding: 0 20px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif; cursor: pointer">Quay lại</button>
+<button type="button" onClick="{{stepNext}}" disabled="{{atEnd}}" style="min-height: 44px; padding: 0 20px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: #FFFFFF; font: 600 16px 'Source Sans 3', sans-serif; cursor: pointer">{{nextLabel}}</button>
+<span role="status" style="align-self: center; color: var(--muted); font-variant-numeric: tabular-nums">{{stepText}}</span>
+</div>
+
+<p style="margin: 28px 0 8px; font-size: 13px; color: var(--danger)">Bước lỗi · kiểm tra thử phát hiện dòng sai</p>
+<ol aria-label="Các bước nhập dữ liệu, có lỗi" style="margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0">
+<li style="display: flex; flex-direction: column; gap: 8px; padding-right: 12px"><div style="display: flex; align-items: center; gap: 8px"><span style="flex: none; width: 32px; height: 32px; box-sizing: border-box; border-radius: 50%; background: var(--ink); color: #FFFFFF; display: inline-flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="2"></path></svg></span><span aria-hidden="true" style="flex: 1; height: 2px; background: var(--ink)"></span></div><span>Chọn file</span><span style="margin-top: -8px; font-size: 14px; color: var(--muted)">Xong</span></li>
+<li aria-current="step" style="display: flex; flex-direction: column; gap: 8px; padding-right: 12px"><div style="display: flex; align-items: center; gap: 8px"><span style="flex: none; width: 32px; height: 32px; box-sizing: border-box; border: 2px solid var(--danger); border-radius: 50%; background: var(--surface); color: var(--danger); display: inline-flex; align-items: center; justify-content: center; font-weight: 600">!</span><span aria-hidden="true" style="flex: 1; height: 2px; background: var(--rule)"></span></div><span style="font-weight: 600; color: var(--danger)">Kiểm tra thử</span><span style="margin-top: -8px; font-size: 14px; font-weight: 600; color: var(--danger)">Có lỗi · 12 dòng cần sửa</span></li>
+<li style="display: flex; flex-direction: column; gap: 8px; padding-right: 12px"><div style="display: flex; align-items: center; gap: 8px"><span style="flex: none; width: 32px; height: 32px; box-sizing: border-box; border: 1px solid var(--rule); border-radius: 50%; background: var(--surface); color: var(--muted); display: inline-flex; align-items: center; justify-content: center; font-weight: 600">3</span><span aria-hidden="true" style="flex: 1; height: 2px; background: var(--rule)"></span></div><span>Xác nhận</span><span style="margin-top: -8px; font-size: 14px; color: var(--muted)">Chưa tới · khoá cho tới khi hết lỗi</span></li>
+<li style="display: flex; flex-direction: column; gap: 8px; padding-right: 12px"><div style="display: flex; align-items: center; gap: 8px"><span style="flex: none; width: 32px; height: 32px; box-sizing: border-box; border: 1px solid var(--rule); border-radius: 50%; background: var(--surface); color: var(--muted); display: inline-flex; align-items: center; justify-content: center; font-weight: 600">4</span></div><span>Xong</span><span style="margin-top: -8px; font-size: 14px; color: var(--muted)">Chưa tới</span></li>
+</ol>
+<p role="alert" style="margin: 16px 0 0; max-width: 720px; padding: 12px 16px; border-top: 1px solid var(--danger); border-bottom: 1px solid var(--danger); background: var(--surface)"><strong style="color: var(--danger)">12 dòng chưa nhập được.</strong> 9 dòng thiếu email, 3 dòng trùng học viên đã có. Chưa có gì được ghi vào hệ thống. <a href="#c-step">Tải file các dòng lỗi</a></p>
+<p style="margin: 14px 0 0; font-size: 14px; color: var(--muted)">Bước đã xong bấm được để xem lại; bước chưa tới không bấm được. Điện thoại: rút thành một dòng “Bước 2 trên 4 · Kiểm tra thử” kèm thanh theo bước ở mục 5.</p>
+</section>
+
+<section aria-labelledby="c-date" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="c-date" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">9. Chọn ngày, chọn giờ, chọn khoảng ngày</h2>
+<p style="margin: 0 0 18px; color: var(--muted)"><strong style="color: var(--ink)">Dùng khi nào:</strong> đặt hạn nộp, lịch học, khoảng thời gian cho báo cáo. Ngày luôn viết dd/mm/yyyy, giờ 24 giờ hh:mm. Gõ tay được; lịch chỉ để hỗ trợ. Tuần bắt đầu từ thứ Hai. Lịch ở giữa bấm chọn được; lịch bên phải bấm hai lần để chọn khoảng.</p>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; align-items: start">
+
+<div style="display: flex; flex-direction: column; gap: 20px">
+<div><p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Ngày · đóng, có giá trị</p>
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="dt-1" style="font-weight: 600">Hạn nộp</label><div style="display: flex"><input id="dt-1" type="text" inputmode="numeric" value="{{dateText}}" aria-describedby="dt-1h" style="flex: 1; min-width: 0; min-height: 44px; padding: 0 12px; border: 1px solid var(--muted); border-right: 0; border-radius: 2px 0 0 2px; background: var(--surface); font: 16px 'Source Sans 3', sans-serif; color: var(--ink); font-variant-numeric: tabular-nums"><button type="button" aria-label="Mở lịch chọn hạn nộp" style="width: 44px; min-height: 44px; border: 1px solid var(--muted); border-radius: 0 2px 2px 0; background: var(--surface); color: var(--ink); display: inline-flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><rect x="2" y="3.5" width="14" height="12.5" fill="none" stroke="currentColor" stroke-width="1.5"></rect><path d="M2 7.5h14M6 1.5v4M12 1.5v4" fill="none" stroke="currentColor" stroke-width="1.5"></path></svg></button></div><span id="dt-1h" style="font-size: 14px; color: var(--muted)">dd/mm/yyyy · {{dateDow}}</span></div></div>
+<div><p style="margin: 0 0 8px; font-size: 13px; color: var(--danger)">Ngày · lỗi</p>
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="dt-2" style="font-weight: 600">Ngày bắt đầu</label><div style="display: flex"><input id="dt-2" type="text" inputmode="numeric" value="31/11/2026" aria-invalid="true" aria-describedby="dt-2e" style="flex: 1; min-width: 0; min-height: 44px; padding: 0 12px; border: 2px solid var(--danger); border-right: 0; border-radius: 2px 0 0 2px; background: var(--surface); font: 16px 'Source Sans 3', sans-serif; color: var(--ink); font-variant-numeric: tabular-nums"><button type="button" aria-label="Mở lịch chọn ngày bắt đầu" style="width: 44px; min-height: 44px; border: 2px solid var(--danger); border-radius: 0 2px 2px 0; background: var(--surface); color: var(--ink); display: inline-flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><rect x="2" y="3.5" width="14" height="12.5" fill="none" stroke="currentColor" stroke-width="1.5"></rect><path d="M2 7.5h14M6 1.5v4M12 1.5v4" fill="none" stroke="currentColor" stroke-width="1.5"></path></svg></button></div><span id="dt-2e" style="font-size: 14px; font-weight: 600; color: var(--danger)">Tháng 11 chỉ có 30 ngày. Bạn kiểm tra lại ngày.</span></div></div>
+<div><p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Giờ · đóng</p>
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="dt-3" style="font-weight: 600">Giờ học</label><div style="display: flex"><input id="dt-3" type="text" inputmode="numeric" value="19:30" aria-describedby="dt-3h" style="flex: 1; min-width: 0; min-height: 44px; padding: 0 12px; border: 1px solid var(--muted); border-right: 0; border-radius: 2px 0 0 2px; background: var(--surface); font: 16px 'Source Sans 3', sans-serif; color: var(--ink); font-variant-numeric: tabular-nums"><button type="button" aria-label="Mở danh sách giờ" style="width: 44px; min-height: 44px; border: 1px solid var(--muted); border-radius: 0 2px 2px 0; background: var(--surface); color: var(--ink); display: inline-flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><circle cx="9" cy="9" r="7" fill="none" stroke="currentColor" stroke-width="1.5"></circle><path d="M9 5v4.5l3 2" fill="none" stroke="currentColor" stroke-width="1.5"></path></svg></button></div><span id="dt-3h" style="font-size: 14px; color: var(--muted)">24 giờ, ví dụ 07:05 hoặc 19:30</span></div></div>
+<div><p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Giờ · mở, bước 15 phút</p>
+<div style="max-width: 220px; border: 1px solid var(--ink); background: var(--surface)">
+<ul aria-label="Chọn giờ học" style="margin: 0; padding: 4px 0; list-style: none; font-variant-numeric: tabular-nums">
+<li><button type="button" aria-pressed="true" style="width: 100%; min-height: 44px; padding: 0 14px; border: 0; background: var(--accent); color: #FFFFFF; font: 600 16px 'Source Sans 3', sans-serif; text-align: left; display: flex; align-items: center; justify-content: space-between">19:30 <span style="font-weight: 400; font-size: 14px">đang chọn</span></button></li>
+<li><button type="button" aria-pressed="false" style="width: 100%; min-height: 44px; padding: 0 14px; border: 0; background: transparent; color: var(--ink); font: 16px 'Source Sans 3', sans-serif; text-align: left">19:45</button></li>
+<li><button type="button" disabled style="width: 100%; min-height: 44px; padding: 0 14px; border: 0; background: var(--off); color: var(--muted); font: 16px 'Source Sans 3', sans-serif; text-align: left; text-decoration: line-through">20:00 <span style="text-decoration: none; font-size: 14px">· lớp khác</span></button></li>
+</ul>
+</div></div>
+</div>
+
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Lịch mở · chọn một ngày · ngày đã qua bị khoá</p>
+<div role="dialog" aria-label="Chọn hạn nộp" style="width: 342px; box-sizing: border-box; padding: 16px; border: 1px solid var(--ink); background: var(--surface)">
+<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px">
+<button type="button" aria-label="Tháng trước" style="width: 44px; height: 44px; border: 1px solid var(--rule); border-radius: 2px; background: var(--surface); color: var(--ink); display: inline-flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M9 2L4 7l5 5" fill="none" stroke="currentColor" stroke-width="1.75"></path></svg></button>
+<h3 aria-live="polite" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; font-weight: 600">Tháng 11, 2026</h3>
+<button type="button" aria-label="Tháng sau" style="width: 44px; height: 44px; border: 1px solid var(--rule); border-radius: 2px; background: var(--surface); color: var(--ink); display: inline-flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M5 2l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.75"></path></svg></button>
+</div>
+<div role="table" style="display: table; border-collapse: collapse; font-variant-numeric: tabular-nums">
+<div role="rowgroup" style="display: table-header-group"><div role="row" style="display: table-row">
+<sc-for list="{{dows}}" as="w" hint-placeholder-count="7"><div role="columnheader" abbr="{{w.full}}" style="display: table-cell; width: 44px; height: 32px; padding: 0; font-size: 13px; font-weight: 600; color: var(--muted)">{{w.s}}</div></sc-for>
+</div></div>
+<div role="rowgroup" style="display: table-row-group">
+<sc-for list="{{cal}}" as="wk" hint-placeholder-count="6">
+<div role="row" style="display: table-row">
+<sc-for list="{{wk.days}}" as="d" hint-placeholder-count="7">
+<div role="cell" style="display: table-cell; width: 44px; height: 44px; padding: 0; text-align: center"><sc-if value="{{d.inM}}" hint-placeholder-val="{{true}}"><button type="button" onClick="{{d.pick}}" disabled="{{d.dis}}" aria-pressed="{{d.pressed}}" aria-label="{{d.label}}" style="width: 44px; height: 44px; box-sizing: border-box; padding: 0; border: {{d.bd}}; border-radius: 2px; background: {{d.bg}}; color: {{d.fg}}; font: {{d.fw}} 15px 'Source Sans 3', sans-serif; text-decoration: {{d.td}}; cursor: {{d.cur}}">{{d.n}}</button></sc-if></div>
+</sc-for>
+</div>
+</sc-for>
+</div>
+</div>
+<p role="status" style="margin: 10px 0 0; font-weight: 600">Đã chọn: {{dateLong}}</p>
+</div>
+<ul style="margin: 12px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; font-size: 14px">
+<li style="display: flex; align-items: center; gap: 8px"><span aria-hidden="true" style="width: 22px; height: 22px; background: var(--accent)"></span>Đang chọn · nền đậm chữ trắng</li>
+<li style="display: flex; align-items: center; gap: 8px"><span aria-hidden="true" style="width: 22px; height: 22px; box-sizing: border-box; border: 2px solid var(--ink); background: var(--surface)"></span>Hôm nay (17/11) · viền đậm</li>
+<li style="display: flex; align-items: center; gap: 8px"><span aria-hidden="true" style="width: 22px; height: 22px; background: var(--off)"></span>Bị khoá · nền xám, số gạch ngang, không bấm được</li>
+</ul>
+</div>
+
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Khoảng ngày · đóng và mở</p>
+<fieldset style="margin: 0 0 14px; padding: 0; border: 0"><legend style="padding: 0; margin-bottom: 6px; font-weight: 600">Khoảng thời gian báo cáo</legend>
+<div style="display: flex; align-items: center; gap: 8px"><label for="dr-a" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap">Từ ngày</label><input id="dr-a" type="text" inputmode="numeric" value="{{rsText}}" style="width: 0; flex: 1; min-height: 44px; padding: 0 10px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface); font: 16px 'Source Sans 3', sans-serif; color: var(--ink); font-variant-numeric: tabular-nums"><span aria-hidden="true">–</span><label for="dr-b" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap">Đến ngày</label><input id="dr-b" type="text" inputmode="numeric" value="{{reText}}" placeholder="dd/mm/yyyy" style="width: 0; flex: 1; min-height: 44px; padding: 0 10px; border: 2px solid var(--ink); border-radius: 2px; background: var(--surface); font: 16px 'Source Sans 3', sans-serif; color: var(--ink); font-variant-numeric: tabular-nums"></div>
+<span style="display: block; margin-top: 6px; font-size: 14px; color: var(--muted)">Từ ngày – đến ngày, dd/mm/yyyy</span></fieldset>
+<div role="dialog" aria-label="Chọn khoảng ngày" style="width: 342px; box-sizing: border-box; padding: 16px; border: 1px solid var(--ink); background: var(--surface)">
+<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px">
+<button type="button" aria-label="Tháng trước" style="width: 44px; height: 44px; border: 1px solid var(--rule); border-radius: 2px; background: var(--surface); color: var(--ink); display: inline-flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M9 2L4 7l5 5" fill="none" stroke="currentColor" stroke-width="1.75"></path></svg></button>
+<h3 style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; font-weight: 600">Tháng 11, 2026</h3>
+<button type="button" aria-label="Tháng sau" style="width: 44px; height: 44px; border: 1px solid var(--rule); border-radius: 2px; background: var(--surface); color: var(--ink); display: inline-flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M5 2l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.75"></path></svg></button>
+</div>
+<div role="table" style="display: table; border-collapse: collapse; font-variant-numeric: tabular-nums">
+<div role="rowgroup" style="display: table-header-group"><div role="row" style="display: table-row">
+<sc-for list="{{dows}}" as="w" hint-placeholder-count="7"><div role="columnheader" abbr="{{w.full}}" style="display: table-cell; width: 44px; height: 32px; padding: 0; font-size: 13px; font-weight: 600; color: var(--muted)">{{w.s}}</div></sc-for>
+</div></div>
+<div role="rowgroup" style="display: table-row-group">
+<sc-for list="{{calR}}" as="wk" hint-placeholder-count="6">
+<div role="row" style="display: table-row">
+<sc-for list="{{wk.days}}" as="d" hint-placeholder-count="7">
+<div role="cell" style="display: table-cell; width: 44px; height: 44px; padding: 0; text-align: center"><sc-if value="{{d.inM}}" hint-placeholder-val="{{true}}"><button type="button" onClick="{{d.pick}}" disabled="{{d.dis}}" aria-pressed="{{d.pressed}}" aria-label="{{d.label}}" style="width: 44px; height: 44px; box-sizing: border-box; padding: 0; border: {{d.bd}}; border-radius: 0; background: {{d.bg}}; color: {{d.fg}}; font: {{d.fw}} 15px 'Source Sans 3', sans-serif; text-decoration: {{d.td}}; cursor: {{d.cur}}">{{d.n}}</button></sc-if></div>
+</sc-for>
+</div>
+</sc-for>
+</div>
+</div>
+<p role="status" style="margin: 10px 0 0; font-weight: 600; font-variant-numeric: tabular-nums">{{rangeText}}</p>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)">Đầu và cuối khoảng nền đậm; các ngày giữa nền nhạt. Bấm ngày đầu rồi ngày cuối; bấm lần nữa để chọn lại.</p>
+</div>
+</div>
+<p style="margin: 14px 0 0; font-size: 14px; color: var(--muted)">Điện thoại: lịch mở thành tấm trượt từ đáy, rộng hết màn, ô ngày 44px, nút “Xong” dính đáy; ô giờ mở bàn phím số. Không dùng ô chọn ngày mặc định của trình duyệt vì định dạng đổi theo máy.</p>
+</section>
+
+<section aria-labelledby="c-assign" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="c-assign" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">10. Giao bài theo buổi · Khối tóm tắt học viên</h2>
+<p style="margin: 0 0 14px; color: var(--muted)"><strong style="color: var(--ink)">Bản gốc dùng chung cho admin và giáo viên.</strong> Mọi nơi giao bài mở bảng bên này; mọi nơi xem nhanh một học viên dùng khối tóm tắt bên phải. Mẫu bấm được.</p>
+<div style="display: grid; grid-template-columns: 480px minmax(0, 1fr); gap: 32px; align-items: start">
+<div><p style="margin: 0 0 6px; font-size: 13px; color: var(--muted)">Bảng bên · trượt từ phải · rộng 480px · ở đây mở từ “Giao bài” ngoài lớp nên chọn lớp</p>
+<div role="dialog" aria-modal="true" aria-labelledby="ga-t" style="width: 480px; box-sizing: border-box; border: 1px solid var(--ink); background: var(--surface); display: flex; flex-direction: column">
+<div style="display: flex; align-items: flex-start; gap: 12px; padding: 10px 12px 8px 24px; border-bottom: 1px solid var(--rule)"><div style="flex: 1"><h3 id="ga-t" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">Giao bài</h3><p style="margin: 2px 0 0; font-size: 14px; color: var(--muted)">{{gaFrom}}</p></div><button type="button" aria-label="Đóng bảng giao bài" style="width: 44px; height: 44px; border: 0; border-radius: 2px; background: transparent; color: var(--ink); display: inline-flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M4 4l10 10M14 4L4 14" fill="none" stroke="currentColor" stroke-width="1.75"></path></svg></button></div>
+<div style="padding: 14px 24px; display: flex; flex-direction: column; gap: 12px; font-size: 15px">
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="ga-l" style="font-weight: 600">Lớp</label><select id="ga-l" style="min-height: 44px; padding: 0 8px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface); font: 15px 'Source Sans 3', sans-serif; color: var(--ink)"><option>Tue–Thu 19:30 · Course 1</option><option>Mon–Wed 18:00 · Course 3</option></select></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="ga-b" style="font-weight: 600">Buổi</label><select id="ga-b" style="min-height: 44px; padding: 0 8px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface); font: 15px 'Source Sans 3', sans-serif; color: var(--ink)"><option>Buổi 12 · Thứ Năm 19/11</option><option>Buổi 11 · Thứ Ba 17/11 (hôm nay)</option><option>Buổi 13 · Thứ Ba 24/11</option></select></div>
+</div>
+<fieldset style="margin: 0; padding: 0; border: 0"><legend style="padding: 0; font-weight: 600">Bài <span style="font-weight: 400; color: var(--muted)">· ngân hàng bài của Course 1 · lọc: Tất cả kỹ năng</span></legend>
+<sc-for list="{{gaBai}}" as="b" hint-placeholder-count="3"><button type="button" role="checkbox" aria-checked="{{b.aria}}" onClick="{{b.toggle}}" style="display: flex; align-items: center; gap: 10px; width: 100%; min-height: 36px; padding: 0; border: 0; border-bottom: 1px solid var(--rule); background: transparent; color: var(--ink); font: 15px 'Source Sans 3', sans-serif; text-align: left; cursor: pointer"><sc-if value="{{b.off}}" hint-placeholder-val="{{false}}"><svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true" style="flex: none"><rect x="1" y="1" width="18" height="18" rx="2" style="fill: var(--surface); stroke: var(--muted)" stroke-width="1.5"></rect></svg></sc-if><sc-if value="{{b.on}}" hint-placeholder-val="{{true}}"><svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true" style="flex: none"><rect x="1" y="1" width="18" height="18" rx="2" style="fill: var(--accent); stroke: var(--accent)" stroke-width="1.5"></rect><path d="M5 10.5l3.2 3L15 6.5" fill="none" stroke="#FFFFFF" stroke-width="2"></path></svg></sc-if><span style="flex: 1">{{b.label}}</span><span style="font-size: 13px; color: var(--muted)">{{b.meta}}</span></button></sc-for>
+</fieldset>
+<fieldset style="margin: 0; padding: 0; border: 0"><legend style="padding: 0 0 4px; font-weight: 600">Giao cho</legend>
+<div role="radiogroup" aria-label="Giao cho" style="display: flex; border: 1px solid var(--ink); border-radius: 2px"><sc-for list="{{gaModes}}" as="m" hint-placeholder-count="3"><button type="button" role="radio" aria-checked="{{m.aria}}" onClick="{{m.go}}" style="flex: 1; min-height: 40px; padding: 0 8px; border: 0; border-left: {{m.sep}}; background: {{m.bg}}; color: {{m.fg}}; font: 600 15px 'Source Sans 3', sans-serif; cursor: pointer">{{m.t}}</button></sc-for></div>
+<sc-if value="{{gaIsAll}}" hint-placeholder-val="{{true}}"><p style="margin: 6px 0 0; color: var(--muted)">Cả 14 học viên của lớp, kể cả người vào lớp sau khi giao.</p></sc-if>
+<sc-if value="{{gaIsPick}}" hint-placeholder-val="{{false}}"><div style="margin-top: 6px">
+<sc-for list="{{gaStu}}" as="u" hint-placeholder-count="5"><button type="button" role="checkbox" aria-checked="{{u.aria}}" onClick="{{u.toggle}}" style="display: flex; align-items: center; gap: 10px; width: 100%; min-height: 32px; padding: 0; border: 0; border-bottom: 1px solid var(--rule); background: transparent; color: var(--ink); font: 15px 'Source Sans 3', sans-serif; text-align: left; cursor: pointer"><sc-if value="{{u.off}}" hint-placeholder-val="{{false}}"><svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true" style="flex: none"><rect x="1" y="1" width="18" height="18" rx="2" style="fill: var(--surface); stroke: var(--muted)" stroke-width="1.5"></rect></svg></sc-if><sc-if value="{{u.on}}" hint-placeholder-val="{{true}}"><svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true" style="flex: none"><rect x="1" y="1" width="18" height="18" rx="2" style="fill: var(--accent); stroke: var(--accent)" stroke-width="1.5"></rect><path d="M5 10.5l3.2 3L15 6.5" fill="none" stroke="#FFFFFF" stroke-width="2"></path></svg></sc-if><span style="flex: 1">{{u.name}}</span><span style="font-size: 13px; color: var(--muted)">{{u.meta}}</span></button></sc-for>
+<p style="margin: 6px 0 0; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px"><span><strong>{{gaPickText}}</strong> <span style="color: var(--muted)">· 10 người khác: tìm tên để thêm</span></span><button type="button" style="min-height: 32px; padding: 0; border: 0; background: transparent; color: var(--link); font: 600 15px 'Source Sans 3', sans-serif; text-decoration: underline">Lưu nhóm này…</button></p>
+</div></sc-if>
+<sc-if value="{{gaIsGroup}}" hint-placeholder-val="{{false}}"><div role="radiogroup" aria-label="Nhóm đã lưu" style="margin-top: 6px">
+<sc-for list="{{gaGroups}}" as="g" hint-placeholder-count="2"><button type="button" role="radio" aria-checked="{{g.aria}}" onClick="{{g.go}}" style="display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 0; border: 0; border-bottom: 1px solid var(--rule); background: transparent; color: var(--ink); font: 15px 'Source Sans 3', sans-serif; text-align: left; cursor: pointer"><svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true" style="flex: none"><circle cx="10" cy="10" r="8" style="fill: var(--surface); stroke: var(--muted)" stroke-width="1.5"></circle><circle cx="10" cy="10" r="4.5" style="fill: {{g.dot}}"></circle></svg><span style="flex: 1">{{g.t}}</span><span style="font-size: 13px; color: var(--muted)">{{g.n}}</span></button></sc-for>
+</div></sc-if>
+</fieldset>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 120px; gap: 12px"><div style="display: flex; flex-direction: column; gap: 4px"><label for="ga-d" style="font-weight: 600">Hạn nộp</label><input id="ga-d" type="text" inputmode="numeric" value="{{gaDate}}" style="min-height: 44px; padding: 0 10px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface); font: 15px 'Source Sans 3', sans-serif; color: var(--ink); font-variant-numeric: tabular-nums"></div><div style="display: flex; flex-direction: column; gap: 4px"><label for="ga-h" style="font-weight: 600">Giờ</label><input id="ga-h" type="text" inputmode="numeric" value="23:59" style="min-height: 44px; padding: 0 10px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface); font: 15px 'Source Sans 3', sans-serif; color: var(--ink); font-variant-numeric: tabular-nums"></div></div>
+<p style="margin: -6px 0 0; font-size: 13px; color: var(--muted)">Mặc định 23:59 ngày học của buổi; sửa được. Writing lớp offline: AI chấm, giáo viên duyệt rồi mới trả. Speaking lớp offline: AI chấm, trả ngay. Bài nộp chấm dùng lượt lớp cấp cho học viên kèm mã.</p>
+<sc-if value="{{gaTest}}" hint-placeholder-val="{{false}}"><fieldset style="margin: 0; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 2px"><legend style="padding: 0 4px; font-weight: 600">Chế độ trả điểm <span style="font-weight: 400; color: var(--muted)">· vì có bài kiểm tra</span></legend>
+<sc-for list="{{gaRets}}" as="r2" hint-placeholder-count="2"><button type="button" role="radio" aria-checked="{{r2.aria}}" onClick="{{r2.go}}" style="display: flex; align-items: center; gap: 10px; width: 100%; min-height: 32px; padding: 0; border: 0; background: transparent; color: var(--ink); font: 15px 'Source Sans 3', sans-serif; text-align: left; cursor: pointer"><svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true" style="flex: none"><circle cx="10" cy="10" r="8" style="fill: var(--surface); stroke: var(--muted)" stroke-width="1.5"></circle><circle cx="10" cy="10" r="4.5" style="fill: {{r2.dot}}"></circle></svg><span>{{r2.t}}</span><span style="font-size: 13px; color: var(--muted)">{{r2.hint}}</span></button></sc-for>
+</fieldset></sc-if>
+</div>
+<div style="padding: 12px 24px 16px; border-top: 1px solid var(--rule); display: flex; flex-direction: column; gap: 10px">
+<p style="margin: 0; font-size: 15px"><span style="color: var(--muted)">Xem lại:</span> {{gaReview}}</p>
+<sc-if value="{{gaNotDone}}" hint-placeholder-val="{{true}}"><div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px"><button type="button" onClick="{{gaGo}}" aria-disabled="{{gaDis}}" style="min-height: 44px; padding: 0 22px; border: 1px solid {{gaBtnBd}}; border-radius: 2px; background: {{gaBtnBg}}; color: {{gaBtnFg}}; font: 600 16px 'Source Sans 3', sans-serif; cursor: pointer">Giao bài</button><button type="button" style="min-height: 44px; padding: 0 20px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif">Huỷ</button><span style="font-size: 14px; color: var(--danger)">{{gaWhy}}</span></div></sc-if>
+<sc-if value="{{gaDone}}" hint-placeholder-val="{{false}}"><p role="status" style="margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 44px; padding: 0 12px; border-top: 1px solid var(--ok); border-bottom: 1px solid var(--ok)"><strong style="color: var(--ok)">Đã giao</strong> · học viên nhận thông báo trong ứng dụng. <button type="button" onClick="{{gaAgain}}" style="min-height: 36px; padding: 0 4px; border: 0; background: transparent; color: var(--link); font: 600 15px 'Source Sans 3', sans-serif; text-decoration: underline; cursor: pointer">Giao bài khác</button></p></sc-if>
+</div>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 14px">
+<p style="margin: 0; font-size: 13px; color: var(--muted)">Khối tóm tắt học viên · trên: có dữ liệu · dưới: chưa có bài nào thì không ghi band</p>
+<sc-for list="{{sumEx}}" as="p" hint-placeholder-count="1">
+<article aria-label="Tóm tắt học viên {{p.name}}" style="display: flex; flex-direction: column; border: {{p.bd}}; background: var(--surface)">
+<div style="padding: 14px 20px 12px; border-bottom: 1px solid var(--rule)">
+<h3 style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">{{p.name}}</h3>
+<p style="margin: 2px 0 0; font-size: 14px; color: var(--muted)">{{p.cls}}</p>
+<p style="margin: 8px 0 0"><span style="display: inline-flex; align-items: center; padding: 2px 10px; border: 1px solid {{p.tone}}; border-radius: 2px; color: {{p.tone}}; font-size: 14px; font-weight: 600">{{p.status}}</span></p>
+</div>
+<dl style="margin: 0; padding: 2px 20px 0; display: grid; grid-template-columns: 148px minmax(0, 1fr); font-size: 15px; font-variant-numeric: tabular-nums">
+<dt style="padding: 6px 0; color: var(--muted)">Mục tiêu</dt><dd style="margin: 0; padding: 6px 0; color: {{p.goalC}}">{{p.goal}}</dd>
+<dt style="padding: 6px 0; border-top: 1px solid var(--rule); color: var(--muted)">Bài quá hạn</dt><dd style="margin: 0; padding: 6px 0; border-top: 1px solid var(--rule); color: {{p.odC}}; font-weight: {{p.odW}}">{{p.overdue}}</dd>
+<dt style="padding: 6px 0; border-top: 1px solid var(--rule); color: var(--muted)">Band gần đây</dt><dd style="margin: 0; padding: 6px 0; border-top: 1px solid var(--rule); color: {{p.bandC}}">{{p.band}}</dd>
+<dt style="padding: 6px 0; border-top: 1px solid var(--rule); color: var(--muted)">Hoạt động gần nhất</dt><dd style="margin: 0; padding: 6px 0; border-top: 1px solid var(--rule)">{{p.last}}</dd>
+<dt style="padding: 6px 0; border-top: 1px solid var(--rule); color: var(--muted)">Ghi chú mới nhất</dt><dd style="margin: 0; padding: 6px 0; border-top: 1px solid var(--rule); color: {{p.noteC}}">{{p.note}}</dd>
+</dl>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 20px 16px; border-top: 1px solid var(--rule)"><a href="HoSoHocVien.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; box-sizing: border-box; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: #FFFFFF; font-weight: 600; text-decoration: none">Mở hồ sơ</a><button type="button" style="min-height: 44px; padding: 0 18px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif">{{p.act}}</button></div>
+</article>
+</sc-for>
+<ul style="margin: 0; padding: 12px 0 0 18px; border-top: 1px solid var(--rule); font-size: 14px; display: flex; flex-direction: column; gap: 4px">
+<li><strong>Giao bài mở từ:</strong> AdminLop thẻ Buổi học/Bài nộp (lớp cố định); GiaoVien Giao bài, Việc của tôi; HoSoHocVien “Giao bài” (chọn sẵn người đó); trang một đề “Giao bài này…”.</li>
+<li>Hai sổ giao bài ở Nội dung (AdminNoiDungVietNoi mục 4, AdminNoiDungTuVungNguPhap mục 8) bị bỏ.</li>
+<li><strong>Khối tóm tắt dùng ở:</strong> “Xem nhanh” AdminDanhBa, ngăn học viên GiaoVien, đầu HoSoHocVien; nút phụ “Gửi nhắc” hoặc “Giao bài”.</li>
+</ul>
+</div>
+</div>
+</section>
+
+<p style="margin: 0; padding-top: 16px; border-top: 1px solid var(--rule); font-size: 14px; color: var(--muted)">Quy tắc của tờ này: số căn phải, cùng độ rộng chữ số; ô trống ghi “chưa có”; trạng thái và xu hướng luôn bằng chữ; mỗi biểu đồ có bảng số liệu; lớp phủ chỉ cho việc ngắn, việc dài mở trang riêng; hành động nguy hiểm tách riêng và hỏi lại; ngày dd/mm/yyyy, giờ 24 giờ, tuần bắt đầu thứ Hai. Giao bài chỉ có một thành phần (mục 10): nút “Giao bài” bị tắt khi chưa chọn bài hoặc chọn tay mà chưa chọn ai, lý do ghi cạnh nút; giao xong hiện dòng “Đã giao”. Khối tóm tắt: thiếu dữ liệu ghi “chưa đặt” / “chưa có bài” / “chưa có ghi chú”, không bao giờ hiện band ước đoán.</p>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Xanh teal","Navy + đỏ mận"],"default":"Navy + đỏ mận"},"$preview":{"width":1280,"height":8000}}'>
+class Component extends DCLogic {
+constructor(p) {
+super(p);
+this.state = { sortKey: 'band', sortDir: 'desc', sel: [1, 2, 4], hover: null, confirmLock: false, lockedN: 0, filters: ['khoa', 'kn', 'bd'], gaMode: 'pick', gaPick: [2, 3], gaBai: ['w31', 'kt1'], gaGrp: 'g1', gaRet: 'gv', gaDone: false, modalSm: true, modalMd: true, drawer: true, step: 1, day: 18, rs: 23, re: 29, upCancel: false };
+}
+renderVals() {
+const s = this.state || {};
+const sel = s.sel || [];
+const filters = s.filters || [];
+const pad = (x) => String(x).padStart(2, '0');
+const base = [
+{ id: 1, name: 'Nguyễn Minh Anh', email: 'minhanh@example.com', cls: 'Tue–Thu 19:30', band: 6.0, done: 31, last: 20261117, lastT: '17/11/2026', st: 'Đang học', stc: 'var(--ok)', issue: false },
+{ id: 2, name: 'Phạm Gia Huy', email: 'giahuy@example.com', cls: 'Tue–Thu 19:30', band: 5.5, done: 13, last: 20261112, lastT: '12/11/2026', st: 'Trễ 2 bài liên tiếp', stc: 'var(--danger)', issue: true },
+{ id: 3, name: 'Hoàng Mai Chi', email: 'maichi@example.com', cls: 'Mon–Wed 18:00', band: null, done: 0, last: null, lastT: '', st: 'Chưa làm', stc: 'var(--muted)', issue: false },
+{ id: 4, name: 'Ngô Thành Đạt', email: 'thanhdat@example.com', cls: 'Tue–Thu 19:30', band: 6.5, done: 40, last: 20261115, lastT: '15/11/2026', st: 'Đang học', stc: 'var(--ok)', issue: false },
+{ id: 5, name: 'Võ Ngọc Lan', email: 'ngoclan@example.com', cls: 'Mon–Wed 18:00', band: 5.0, done: 22, last: 20261109, lastT: '09/11/2026', st: 'Sắp hết hạn · còn 7 ngày', stc: 'var(--mark)', issue: false },
+{ id: 6, name: 'Đặng Thuỳ Dương', email: 'thuyduong@example.com', cls: 'Tue–Thu 19:30', band: 7.0, done: 46, last: 20261116, lastT: '16/11/2026', st: 'Đang học', stc: 'var(--ok)', issue: false }
+];
+const key = s.sortKey, dir = s.sortDir;
+const val = (r) => key === 'name' ? r.name.split(' ').pop() : r[key];
+const sorted = base.slice();
+if (key) sorted.sort((a, b) => {
+const x = val(a), y = val(b);
+if (x == null && y == null) return 0;
+if (x == null) return 1;
+if (y == null) return -1;
+const c = typeof x === 'string' ? x.localeCompare(y, 'vi') : x - y;
+return dir === 'asc' ? c : -c;
+});
+const cols = { name: 'tên học viên', band: 'band dự kiến', done: 'số bài đã nộp', last: 'lần học gần nhất' };
+const sm = {};
+Object.keys(cols).forEach((k) => {
+const on = key === k, d = on ? dir : null;
+sm[k] = {
+aria: d === 'asc' ? 'ascending' : d === 'desc' ? 'descending' : 'none',
+asc: d === 'asc', desc: d === 'desc', none: !d,
+word: d === 'asc' ? 'tăng' : d === 'desc' ? 'giảm' : '',
+go: () => {
+if (!on) this.setState({ sortKey: k, sortDir: 'asc' });
+else if (dir === 'asc') this.setState({ sortDir: 'desc' });
+else this.setState({ sortKey: null, sortDir: null });
+}
+};
+});
+const sortText = key ? 'đang sắp theo ' + cols[key] + ', ' + (dir === 'asc' ? 'tăng dần' : 'giảm dần') : 'chưa sắp, theo thứ tự thêm vào lớp';
+const n = sel.length, all = n === base.length, some = n > 0 && !all;
+const rows = sorted.map((r) => {
+const on = sel.includes(r.id), hv = s.hover === r.id;
+return {
+name: r.name, email: r.email, cls: r.cls, st: r.st, stc: r.stc, issue: r.issue,
+on, off: !on, aria: on ? 'true' : 'false',
+hasBand: r.band != null, noBand: r.band == null, bandT: r.band != null ? r.band.toFixed(1) : '',
+doneT: r.done + ' / 48',
+hasLast: !!r.last, noLast: !r.last, lastT: r.lastT,
+bg: on ? 'var(--tint)' : hv ? 'var(--paper)' : 'var(--surface)',
+deco: hv ? 'underline' : 'none',
+toggle: () => this.setState({ sel: on ? sel.filter((x) => x !== r.id) : sel.concat(r.id), confirmLock: false, lockedN: 0 }),
+enter: () => this.setState({ hover: r.id })
+};
+});
+const fdefs = [{ id: 'khoa', t: 'Khoá: XXX' }, { id: 'kn', t: 'Kỹ năng: Writing' }, { id: 'bd', t: 'Bắt đầu học: từ 01/09/2026' }];
+const chips = fdefs.filter((f) => filters.includes(f.id)).map((f) => ({ t: f.t, aria: 'Gỡ bộ lọc ' + f.t, rm: () => this.setState({ filters: filters.filter((x) => x !== f.id) }) }));
+const counts = [128, 86, 52, 37];
+const total = counts[chips.length];
+const admin = [
+{ t: 'Đề Reading số 13', sk: 'Reading', q: 38, n: null, d: '16/11/2026', st: 'Bản nháp', c: 'var(--muted)', sbg: 'var(--surface)', issue: true, issueT: 'Thiếu 2 câu', sel: false },
+{ t: 'Writing Task 2 · Opinion 31', sk: 'Writing', q: 1, n: null, d: '15/11/2026', st: 'Bản nháp', c: 'var(--muted)', sbg: 'var(--surface)', issue: false, issueT: '', sel: true },
+{ t: 'Đề Reading số 12', sk: 'Reading', q: 40, n: '1 284', d: '14/11/2026', st: 'Đã phát hành', c: 'var(--ok)', sbg: 'var(--surface)', issue: false, issueT: '', sel: false },
+{ t: 'Đề Listening số 7', sk: 'Listening', q: 40, n: '962', d: '10/11/2026', st: 'Đã phát hành', c: 'var(--ok)', sbg: 'var(--surface)', issue: false, issueT: '', sel: false },
+{ t: 'Speaking Part 2 · Bộ 4', sk: 'Speaking', q: 12, n: '311', d: '02/11/2026', st: 'Lưu trữ', c: 'var(--muted)', sbg: 'var(--off)', issue: false, issueT: '', sel: false }
+].map((a) => ({ ...a, hasN: a.n != null, noN: a.n == null, bg: a.sel ? 'var(--tint)' : 'var(--surface)' }));
+const mob = [
+{ name: 'Đặng Khánh Linh', band: '7.0', done: '46 / 48', st: 'Đang học', c: 'var(--ok)', sel: true },
+{ name: 'Phạm Gia Huy', band: '6.5', done: '40 / 48', st: 'Đang học', c: 'var(--ok)', sel: true },
+{ name: 'Nguyễn Minh Anh', band: '6.0', done: '31 / 48', st: 'Đang học', c: 'var(--ok)', sel: false }
+].map((m) => ({ ...m, bg: m.sel ? 'var(--tint)' : 'var(--surface)' }));
+const stepNames = ['Chọn file', 'Kiểm tra thử', 'Xác nhận', 'Xong'];
+const st = s.step == null ? 1 : s.step;
+const steps = stepNames.map((t, i) => {
+const done = i < st || st === 3, cur = i === st && st !== 3;
+return {
+t, n: i + 1, done, notDone: !done, notLast: i < 3, aria: cur ? 'step' : 'false',
+stateT: done ? 'Xong' : cur ? 'Đang làm' : 'Chưa tới',
+bd: done ? '1px solid var(--ink)' : cur ? '2px solid var(--accent)' : '1px solid var(--rule)',
+bg: done ? 'var(--ink)' : 'var(--surface)',
+fg: done ? '#FFFFFF' : cur ? 'var(--accent)' : 'var(--muted)',
+fw: cur ? '600' : '400',
+line: i < st ? 'var(--ink)' : 'var(--rule)'
+};
+});
+const nextLabels = ['Kiểm tra thử', 'Sang bước xác nhận', 'Nhập 1 284 dòng', 'Đã xong'];
+const dowFull = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ Nhật'];
+const dowShort = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+const dowOf = (dd) => dowFull[(dd - 1 + 6) % 7];
+const TODAY = 17;
+const day = s.day || 18;
+const rs = s.rs, re = s.re;
+const build = (mode) => {
+const weeks = [];
+for (let w = 0; w < 6; w++) {
+const days = [];
+for (let d = 0; d < 7; d++) {
+const dt = new Date(2026, 9, 26 + w * 7 + d);
+const inM = dt.getMonth() === 10, dd = dt.getDate();
+const dis = inM && dd < TODAY, today = inM && dd === TODAY;
+let selD = false, mid = false;
+if (mode === 'one') selD = inM && dd === day;
+else { selD = inM && (dd === rs || dd === re); mid = inM && re != null && dd > rs && dd < re; }
+const label = dowFull[d] + ', ' + pad(dd) + '/11/2026' + (today ? ', hôm nay' : '') + (dis ? ', không chọn được' : '') + (selD ? (mode === 'one' ? ', đang chọn' : (dd === rs ? ', ngày bắt đầu' : ', ngày kết thúc')) : '') + (mid ? ', trong khoảng đã chọn' : '');
+days.push({
+inM, n: dd, dis, label, pressed: selD || mid ? 'true' : 'false',
+bg: selD ? 'var(--accent)' : mid ? 'var(--tint)' : dis ? 'var(--off)' : 'var(--surface)',
+fg: selD ? '#FFFFFF' : dis ? 'var(--muted)' : 'var(--ink)',
+bd: today && !selD ? '2px solid var(--ink)' : '1px solid transparent',
+fw: selD || today ? '600' : '400',
+td: dis ? 'line-through' : 'none',
+cur: dis ? 'not-allowed' : 'pointer',
+pick: () => {
+if (dis || !inM) return;
+if (mode === 'one') this.setState({ day: dd });
+else if (re != null || dd < rs) this.setState({ rs: dd, re: null });
+else if (dd === rs) this.setState({ re: dd });
+else this.setState({ re: dd });
+}
+});
+}
+weeks.push({ days });
+}
+return weeks;
+};
+const nights = re != null ? re - rs + 1 : 0;
+const GA = (s, from) => {
+const mode = s.gaMode || 'all', pick = s.gaPick || [], bai = s.gaBai || [], grp = s.gaGrp || 'g1', ret = s.gaRet || 'gv';
+const set = (o) => this.setState(Object.assign({ gaDone: false }, o));
+const baiDefs = [['w31', 'Writing Task 2 · Opinion 31', 'Writing'], ['r12', 'Đề Reading số 12', 'Reading'], ['kt1', 'Kiểm tra giữa khoá · Course 1', 'bài kiểm tra']];
+const gaBai = baiDefs.map(([id, label, meta]) => { const on = bai.includes(id); return { label, meta, on, off: !on, aria: on ? 'true' : 'false', toggle: () => set({ gaBai: on ? bai.filter((x) => x !== id) : bai.concat(id) }) }; });
+const gaModes = [['all', 'Cả lớp (14)'], ['pick', 'Chọn tay'], ['group', 'Nhóm đã lưu']].map(([id, t], i) => { const on = mode === id; return { t, aria: on ? 'true' : 'false', bg: on ? 'var(--ink)' : 'var(--surface)', fg: on ? '#FFFFFF' : 'var(--ink)', sep: i ? '1px solid var(--ink)' : '0', go: () => set({ gaMode: id }) }; });
+const stuDefs = [[1, 'Nguyễn Minh Anh', ''], [2, 'Phạm Gia Huy', 'trễ 2 bài'], [3, 'Đỗ Khánh Linh', '9 ngày chưa học'], [4, 'Trần Bảo Ngọc', 'mới vào lớp']];
+const gaStu = stuDefs.map(([id, name, meta]) => { const on = pick.includes(id); return { name, meta, on, off: !on, aria: on ? 'true' : 'false', toggle: () => set({ gaPick: on ? pick.filter((x) => x !== id) : pick.concat(id) }) }; });
+const grpDefs = [['g1', 'Cần luyện thêm Task 2', 4], ['g2', 'Học bù buổi 10', 3]];
+const gaGroups = grpDefs.map(([id, t, n]) => ({ t, n: n + ' học viên', aria: grp === id ? 'true' : 'false', dot: grp === id ? 'var(--accent)' : 'transparent', go: () => set({ gaGrp: id }) }));
+const gaRets = [['ngay', 'Trả ngay khi nộp', ''], ['gv', 'Giáo viên công bố', 'mặc định với lớp offline']].map(([id, t, hint]) => ({ t, hint, aria: ret === id ? 'true' : 'false', dot: ret === id ? 'var(--accent)' : 'transparent', go: () => set({ gaRet: id }) }));
+const test = bai.includes('kt1');
+const who = mode === 'all' ? 'cả lớp (14 học viên)' : mode === 'pick' ? pick.length + ' học viên chọn tay' : 'nhóm “' + (grpDefs.find((g) => g[0] === grp) || grpDefs[0])[1] + '” (' + (grpDefs.find((g) => g[0] === grp) || grpDefs[0])[2] + ' học viên)';
+const why = !bai.length ? 'Chọn ít nhất một bài.' : mode === 'pick' && !pick.length ? 'Chọn ít nhất một học viên.' : '';
+const ok = !why;
+return {
+gaFrom: from, gaBai, gaModes, gaStu, gaGroups, gaRets,
+gaIsAll: mode === 'all', gaIsPick: mode === 'pick', gaIsGroup: mode === 'group',
+gaPickText: pick.length ? 'Đã chọn ' + pick.length : 'Chưa chọn ai',
+gaDate: '19/11/2026', gaTest: test,
+gaReview: bai.length ? 'giao ' + bai.length + ' bài cho ' + who + ' · lớp Tue–Thu 19:30 · buổi 12 · hạn 23:59 Thứ Năm 19/11/2026' + (test ? ' · ' + (ret === 'gv' ? 'giáo viên công bố điểm' : 'trả điểm ngay khi nộp') : '') + '.' : 'chưa chọn bài nào.',
+gaWhy: why, gaDis: ok ? 'false' : 'true',
+gaBtnBg: ok ? 'var(--accent)' : 'var(--off)', gaBtnBd: ok ? 'var(--accent)' : 'var(--rule)', gaBtnFg: ok ? '#FFFFFF' : 'var(--muted)',
+gaDone: !!s.gaDone, gaNotDone: !s.gaDone,
+gaGo: () => { if (ok) this.setState({ gaDone: true }); },
+gaAgain: () => this.setState({ gaDone: false, gaBai: [] })
+};
+};
+const SUM = (o) => Object.assign({ bd: '1px solid var(--ink)', goalC: 'var(--ink)', odC: 'var(--ink)', odW: 400, bandC: 'var(--ink)', noteC: 'var(--ink)', act: 'Giao bài' }, o);
+const sumMA = SUM({ name: 'Nguyễn Minh Anh', cls: 'Tue–Thu 19:30 · Course 1 · XXX · minhanh@example.com', status: 'Cần chú ý: điểm bài ngữ pháp giảm hai buổi liên tiếp', tone: 'var(--mark)', goal: 'Band 6.5 · thi 20/03/2027', overdue: 'Không có', band: 'Writing 5.5 · 5.5 · 6.0 · 6.0 · Speaking 6.0', last: 'Hôm nay, 10:42 · luyện Reading tự chọn', note: 'Vũ Thanh Tâm · 12/11 · Còn lẫn quá khứ đơn với hiện tại hoàn thành.' });
+const sumBN = SUM({ name: 'Trần Bảo Ngọc', cls: 'Tue–Thu 19:30 · Course 1 · XXX · baongoc@example.com', status: 'Mới vào lớp · chưa nộp bài nào', tone: 'var(--muted)', goal: 'chưa đặt', goalC: 'var(--muted)', overdue: 'Không có', band: 'chưa có bài', bandC: 'var(--muted)', last: '16/11 · kích hoạt mã lớp', note: 'chưa có ghi chú', noteC: 'var(--muted)' });
+const sumQB = SUM({ bd: '0', name: 'Phạm Gia Huy', cls: 'Tue–Thu 19:30 · Course 1 · XXX · giahuy@example.com', status: 'Cần chú ý: trễ 2 bài liên tiếp', tone: 'var(--danger)', goal: 'Band 6.0 · ngày thi chưa đặt', overdue: '2 · gần nhất Writing Task 1 · Buổi 10', odC: 'var(--danger)', odW: 600, band: 'Writing 5.5 · 5.0 · 5.5 · Speaking: chưa có bài', last: '12/11 21:14 · mở bài giảng buổi 9', note: 'Trần Thu Hà · 13/11 · Đã gọi, hẹn nộp bù trước buổi 12.', act: 'Gửi nhắc' });
+
+return {
+pal: (this.props.palette ?? 'Navy + đỏ mận') === 'Xanh teal' ? 'pal-teal' : 'pal-navy',
+chips, hasChips: chips.length > 0, noChips: chips.length === 0,
+clearF: () => this.setState({ filters: [] }),
+resetF: () => this.setState({ filters: ['khoa', 'kn', 'bd'] }),
+resultText: total + ' học viên khớp' + (chips.length ? '' : ' · chưa lọc'),
+total,
+pageText: 'Trang 1 trên ' + Math.ceil(total / 6) + ' · ' + total + ' học viên',
+sm, sortText, rows,
+leave: () => this.setState({ hover: null }),
+headAria: all ? 'true' : some ? 'mixed' : 'false', headAll: all, headSome: some, headNone: n === 0,
+toggleAll: () => this.setState({ sel: all ? [] : base.map((r) => r.id), confirmLock: false, lockedN: 0 }),
+showBar: n > 0, allSel: all, noBar: n === 0 && !s.lockedN, lockedMsg: n === 0 && s.lockedN > 0,
+selText: 'Đã chọn ' + n + ' học viên',
+confirmLock: !!s.confirmLock && n > 0,
+confirmTitle: 'Khoá quyền học của ' + n + ' học viên?',
+lockedText: 'Đã khoá quyền học của ' + s.lockedN + ' học viên.',
+askLock: () => this.setState({ confirmLock: true }),
+cancelLock: () => this.setState({ confirmLock: false }),
+doLock: () => this.setState({ lockedN: n, sel: [], confirmLock: false }),
+undoLock: () => this.setState({ lockedN: 0 }),
+clearSel: () => this.setState({ sel: [], confirmLock: false, lockedN: 0 }),
+admin, mob,
+skel: [{ w: '70%' }, { w: '55%' }],
+skelRows: Array.from({ length: 9 }, () => ({})),
+modalSm: !!s.modalSm, smClosed: !s.modalSm, closeSm: () => this.setState({ modalSm: false }), openSm: () => this.setState({ modalSm: true }),
+modalMd: !!s.modalMd, mdClosed: !s.modalMd, closeMd: () => this.setState({ modalMd: false }), openMd: () => this.setState({ modalMd: true }),
+drawer: !!s.drawer, drClosed: !s.drawer, closeDr: () => this.setState({ drawer: false }), openDr: () => this.setState({ drawer: true }),
+upActive: !s.upCancel, upCancelled: !!s.upCancel, cancelUp: () => this.setState({ upCancel: true }), retryUp: () => this.setState({ upCancel: false }),
+steps, atStart: st === 0, atEnd: st === 3, nextLabel: nextLabels[st],
+stepBack: () => this.setState({ step: Math.max(0, st - 1) }),
+stepNext: () => this.setState({ step: Math.min(3, st + 1) }),
+stepText: st === 3 ? 'Đã nhập xong 1 284 dòng.' : 'Bước ' + (st + 1) + ' trên 4 · ' + stepNames[st],
+dows: dowShort.map((x, i) => ({ s: x, full: dowFull[i] })),
+cal: build('one'), calR: build('range'),
+dateText: pad(day) + '/11/2026', dateDow: dowOf(day), dateLong: dowOf(day) + ', ' + pad(day) + '/11/2026',
+rsText: pad(rs) + '/11/2026', reText: re != null ? pad(re) + '/11/2026' : '',
+...GA(s, 'Mở từ “Giao bài” · chọn lớp, buổi, bài và người nhận'),
+sumEx: [sumMA, sumBN], sumDr: [sumQB],
+rangeText: re != null ? pad(rs) + '/11 – ' + pad(re) + '/11/2026 · ' + nights + ' ngày' : 'Từ ' + pad(rs) + '/11/2026 · chọn ngày kết thúc'
+};
+}
+}
+</script>
+</body>
+</html>

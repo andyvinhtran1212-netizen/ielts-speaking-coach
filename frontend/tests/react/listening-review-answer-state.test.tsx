@@ -1,3 +1,6 @@
+import unscored from '../fixtures/listening-review-report-only-0d14596d.json';
+import blank from '../fixtures/listening-review-report-only-6561780c.json';
+import revealed from '../fixtures/listening-review-report-only-26cf78cc.json';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
@@ -32,6 +35,31 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup(); vi.restoreAllMocks(); window.history.replaceState(null, '', '/');
+});
+
+it.each([10, 40])('opens a scoreless submitted practice review without a numeric result or invented band (max %s)', async (maxScore) => {
+  const raw = { ...response(), score: null, max_score: maxScore, score_mode: 'scored',
+    band_estimate: 6.5, band_conversion: [{ band: 4 }],
+    sections: [{ section_num: 3, title: 'Part 3', transcript: 'A synthetic practice transcript.' }],
+    review: response().review.map((item) => ({ ...item,
+      solution: item.q_num === 28 ? { why_correct: 'A synthetic explanation.' } : {},
+    })),
+  };
+  getWith.mockResolvedValue(raw);
+  const view = render(<ListeningReviewWorkspace />);
+  await screen.findByRole('button', { name: 'Câu 27 — bỏ trống' });
+  expect(screen.getByRole('button', { name: 'Câu 28 — sai' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Câu 29 — đúng' })).toBeTruthy();
+  const card = view.container.querySelector('#listening-review-q-28') as HTMLElement;
+  expect(within(card).getByText('A')).toBeTruthy();
+  expect(within(card).getByText('B')).toBeTruthy();
+  fireEvent.click(card.querySelector('.lr-card__top')!);
+  expect(within(card).getByText('A synthetic explanation.')).toBeTruthy();
+  expect(screen.getByText('A synthetic practice transcript.')).toBeTruthy();
+  const summary = view.container.querySelector('.lr-summary')!;
+  expect(summary.textContent).not.toMatch(/null|NaN|\d*\/\d+ câu|Kết quả|Band \d|Dưới band/);
+  expect(summary.textContent).toContain(maxScore === 40 ? 'Chưa đủ band' : 'Không quy đổi band');
+  expect(screen.queryByRole('alert')).toBeNull();
 });
 
 it('renders self-check answers and Vietnamese explanation without a correct/incorrect mark, including a reload', async () => {
@@ -130,4 +158,32 @@ it('filters unanswered apart from incorrect and keeps palette jumps in the match
 
   expect(JSON.stringify(raw)).toBe(before);
   expect(getWith).toHaveBeenCalledTimes(1);
+});
+
+
+it.each([unscored, blank, revealed])('renders report-only fixture $attempt_id neutrally on open and reload', async (raw) => {
+  window.history.replaceState(null, '', `/listening/review?attempt_id=${raw.attempt_id}`);
+  getWith.mockResolvedValue(raw);
+  for (let load = 0; load < 2; load += 1) {
+    const view = render(<ListeningReviewWorkspace />);
+    await screen.findByRole('button', { name: 'Câu 1 — Tự đối chiếu' });
+    for (const item of raw.review) {
+      const card = view.container.querySelector(`#listening-review-q-${item.q_num}`) as HTMLElement;
+      const nav = screen.getByRole('button', { name: `Câu ${item.q_num} — Tự đối chiếu` });
+      expect(within(card).getByText('Tự đối chiếu')).toBeTruthy();
+      expect(card.dataset.correct).toBeUndefined();
+      expect(card.className).not.toMatch(/is-correct|is-incorrect|is-unanswered/);
+      expect(nav.className).not.toMatch(/is-correct|is-incorrect|is-unanswered/);
+      expect(card.querySelector('.is-correct')).toBeNull();
+      expect(card.textContent).not.toMatch(/✓|✗/);
+      expect(within(card).getByText('Đáp án tham khảo:')).toBeTruthy();
+      if (item.user_answer) expect(within(card).getByText(item.user_answer, { selector: 'code' })).toBeTruthy();
+    }
+    expect(view.container.querySelector('.lr-summary')?.textContent).not.toMatch(/Kết quả|\d+\/\d+ câu|Band \d|null|NaN/);
+    expect(screen.getByText('Không quy đổi band')).toBeTruthy();
+    expect(screen.queryByText('Bạn đã trả lời đúng toàn bộ bài này.')).toBeNull();
+    expect(view.container.querySelector('.lr-skills-panel')).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
+    view.unmount();
+  }
 });

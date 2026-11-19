@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Tài khoản và đăng nhập</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--on-accent:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--accentH:#0B5953;--link:#0B5953;--mark:#8A4B08;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EDF3F1;--off:#E7E2D6}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--on-accent:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--accentH:#11254A;--link:#1A3561;--mark:#8A1C1C;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EEF0F5;--off:#E8E2D5}
+a{color:var(--link)}a:hover{color:var(--ink)}
+</style>
+</helmet>
+<div class="{{pal}}" style="width: 1280px; height: 7980px; box-sizing: border-box; padding: 56px 64px; background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 16px; line-height: 1.5; display: flex; flex-direction: column; gap: 36px">
+<header>
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Aver Learning · Bản in · tài khoản</p>
+<h1 style="margin: 4px 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 40px; font-weight: 600; line-height: 1.15">Đăng nhập bằng Google hoặc mã qua email, mã kích hoạt của lớp</h1>
+<p style="margin: 0 0 16px; color: var(--muted)">Mỗi màn một cột hẹp giữa trang, thanh công khai tối giản. Không có mật khẩu, không có màn đăng ký riêng: lần đầu đăng nhập là có tài khoản.</p>
+<div style="display: grid; grid-template-columns: 160px 220px minmax(0, 1fr); border-top: 1px solid var(--ink); font-size: 15px">
+<span style="padding: 10px 16px 10px 0; border-bottom: 1px solid var(--rule)"></span>
+<span style="padding: 10px 16px 10px 0; border-bottom: 1px solid var(--rule); font-weight: 600; color: var(--muted)">Hiện trạng</span>
+<span style="padding: 10px 0; border-bottom: 1px solid var(--rule); font-weight: 600">Thiết kế mới</span>
+<span style="padding: 10px 16px 10px 0; border-bottom: 1px solid var(--rule); font-weight: 600">Cách đăng nhập</span>
+<span style="padding: 10px 16px 10px 0; border-bottom: 1px solid var(--rule); color: var(--muted)">Chỉ Google</span>
+<span style="padding: 10px 0; border-bottom: 1px solid var(--rule)">Hai cách: (1) Tiếp tục với Google; (2) nhập email, nhận mã đăng nhập 6 số qua thư, nhập mã. Không có mật khẩu, nên không có quên, đặt lại hay đổi mật khẩu, không có thư xác minh email.</span>
+<span style="padding: 10px 16px 10px 0; border-bottom: 1px solid var(--rule); font-weight: 600">Tài khoản mới</span>
+<span style="padding: 10px 16px 10px 0; border-bottom: 1px solid var(--rule); color: var(--muted)">Tạo ở lần đầu đăng nhập Google</span>
+<span style="padding: 10px 0; border-bottom: 1px solid var(--rule)">Lần đầu đăng nhập bằng Google, hoặc lần đầu nhập đúng mã gửi tới một email mới, là tạo tài khoản. Cùng một email thì Google và mã vào cùng một tài khoản.</span>
+<span style="padding: 10px 16px 10px 0; border-bottom: 1px solid var(--rule); font-weight: 600">Hai loại mã</span>
+<span style="padding: 10px 16px 10px 0; border-bottom: 1px solid var(--rule); color: var(--muted)">Chỉ có mã kích hoạt</span>
+<span style="padding: 10px 0; border-bottom: 1px solid var(--rule)"><strong>Mã đăng nhập</strong>: 6 chữ số, gửi qua email mỗi lần đăng nhập, dùng một lần, hết hạn sau XXX phút. <strong>Mã kích hoạt của lớp</strong>: 12 ký tự chữ và số (XXXX-XXXX-XXXX), giáo viên hoặc admin cấp, nhập sau khi đã đăng nhập.</span>
+<span style="padding: 10px 16px 10px 0; border-bottom: 1px solid var(--rule); font-weight: 600">Mã kích hoạt</span>
+<span style="padding: 10px 16px 10px 0; border-bottom: 1px solid var(--rule); color: var(--muted)">Cửa bắt buộc ngay sau đăng nhập</span>
+<span style="padding: 10px 0; border-bottom: 1px solid var(--rule)">Cách học viên lớp offline vào khoá của lớp (Course 1–5) hoặc được cấp quyền luyện lại; admin cấp mã. Không dùng để đăng ký khoá online. Tài khoản chưa có khoá vẫn vào Thư viện và xem danh mục khoá online.</span>
+</div>
+</header>
+
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; align-items: start">
+<section aria-labelledby="s1" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="s1" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">1 · Đăng nhập: chọn cách vào</h2>
+<p style="margin: 0 0 10px; font-size: 15px; color: var(--muted)">Một màn cho cả người mới và người đã có tài khoản.</p>
+<div role="group" aria-label="Xem màn đăng nhập theo cách đến" style="display: flex; align-items: center; flex-wrap: wrap; margin-bottom: 12px"><span style="margin-right: 12px; font-size: 14px; color: var(--muted)">Đến từ</span><sc-for list="{{ctxBtns}}" as="b" hint-placeholder-count="2"><button type="button" onClick="{{b.pick}}" aria-pressed="{{b.on}}" style="min-height: 36px; padding: 0 12px; margin-right: -1px; border: 1px solid var(--ink); border-radius: 0; background: {{b.bg}}; color: {{b.fg}}; font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer">{{b.label}}</button></sc-for></div>
+<div style="border: 1px solid var(--ink); background: var(--paper)">
+<header style="border-bottom: 1px solid var(--ink)"><div style="display: flex; align-items: center; gap: 24px; height: 60px; padding: 0 24px"><a href="#s1" style="display: inline-flex; align-items: center; gap: 9px; font-family: 'Source Serif 4', Georgia, serif; font-size: 21px; font-weight: 600; color: var(--ink); text-decoration: none; flex-grow: 1"><svg width="28" height="28" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</a><a href="#s1" style="display: inline-flex; align-items: center; min-height: 44px; color: var(--muted); text-decoration: none">Thư viện</a><a href="#s1" style="display: inline-flex; align-items: center; min-height: 44px; color: var(--muted); text-decoration: none">Khoá học</a></div></header>
+<main style="padding: 28px 24px 30px">
+<div style="max-width: 400px; margin: 0 auto">
+<sc-if value="{{fromBuy}}" hint-placeholder-val="{{false}}">
+<div role="note" style="margin: 0 0 20px; padding: 12px 14px; border-top: 2px solid var(--accent); border-bottom: 1px solid var(--accent); background: var(--tint)">
+<p style="margin: 0; font-weight: 600">Bạn đang đăng ký Khoá Writing for IELTS</p>
+<p style="margin: 2px 0 0; font-size: 15px">Đăng nhập để tiếp tục; lần đầu đăng nhập là có tài khoản luôn. Xong sẽ quay về đúng đơn đăng ký.</p>
+</div>
+</sc-if>
+<h3 style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 34px; font-weight: 600; line-height: 1.15">Đăng nhập</h3>
+<p style="margin: 0 0 22px; color: var(--muted)">Thư viện đọc được không cần tài khoản. Đăng nhập để học theo khoá và nộp bài cho AI chấm. Chưa có tài khoản? Cứ đăng nhập, tài khoản được tạo luôn.</p>
+<button type="button" style="display: flex; align-items: center; justify-content: center; width: 100%; min-height: 48px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: var(--surface); font: 600 16px 'Source Sans 3', sans-serif; cursor: pointer">Tiếp tục với Google</button>
+<div style="display: flex; align-items: center; gap: 12px; margin: 22px 0 14px"><span aria-hidden="true" style="flex: 1; height: 1px; background: var(--rule)"></span><span style="font-size: 14px; color: var(--muted)">hoặc nhận mã qua email</span><span aria-hidden="true" style="flex: 1; height: 1px; background: var(--rule)"></span></div>
+<form aria-label="Nhận mã đăng nhập qua email" style="display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="l-mail" style="font-weight: 600">Email</label><input id="l-mail" type="email" inputmode="email" autocomplete="email" value="minhanh@example.com" aria-describedby="l-mail-h" style="min-height: 44px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface); font: 16px 'Source Sans 3', sans-serif; color: var(--ink)"><span id="l-mail-h" style="font-size: 14px; color: var(--muted)">Chúng tôi gửi mã đăng nhập 6 số tới email này. Không cần mật khẩu.</span></div>
+<button type="button" style="display: flex; align-items: center; justify-content: center; width: 100%; min-height: 48px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif; cursor: pointer">Gửi mã đăng nhập</button>
+</form>
+<p style="margin: 14px 0 0; font-size: 14px; color: var(--muted)">Tiếp tục bằng Google hoặc bằng mã là bạn đồng ý với <a href="PhapLy.dc.html">Điều khoản sử dụng</a> và <a href="PhapLy.dc.html">Quyền riêng tư</a>.</p>
+<p style="margin: 18px 0 0; padding-top: 14px; border-top: 1px solid var(--rule); font-size: 15px">Có <strong>mã kích hoạt của lớp</strong> (12 ký tự, giáo viên cấp)? Đăng nhập trước, rồi nhập mã trong Tài khoản (<a href="#s6">màn 6</a>).</p>
+</div>
+</main>
+<footer style="padding: 14px 24px 16px; border-top: 1px solid var(--ink)"><div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0 20px"><span style="display: inline-flex; align-items: center; gap: 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; font-weight: 600; margin-right: 8px"><svg width="22" height="22" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="currentColor"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span><nav aria-label="Chân trang" style="display: flex; flex-wrap: wrap; gap: 0 18px; font-size: 15px"><a href="#s1" style="display: inline-flex; align-items: center; min-height: 44px">Giới thiệu</a><a href="#s1" style="display: inline-flex; align-items: center; min-height: 44px">Khoá học</a><a href="#s1" style="display: inline-flex; align-items: center; min-height: 44px">Thư viện</a><a href="HocVienNoiGi.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Học viên nói gì</a><a href="#s1" style="display: inline-flex; align-items: center; min-height: 44px">Điều khoản</a><a href="#s1" style="display: inline-flex; align-items: center; min-height: 44px">Quyền riêng tư</a><a href="#s1" style="display: inline-flex; align-items: center; min-height: 44px">Liên hệ</a></nav></div></footer>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)"><strong style="color: var(--ink); font-weight: 600">Bấm thử:</strong> "Đến từ" đổi giữa bấm Đăng nhập trên thanh và bấm Đăng ký khoá này (<a href="ThanhToan.dc.html">tờ Thanh toán</a>). Thanh tối giản: không có "Đăng nhập" và "Xem các khoá" để màn chỉ còn một việc. "Gửi mã đăng nhập" luôn sang màn 2, dù email đã có tài khoản hay chưa.</p>
+</section>
+
+<section aria-labelledby="s2" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="s2" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">2 · Nhập mã đăng nhập</h2>
+<p style="margin: 0 0 10px; font-size: 15px; color: var(--muted)">Ngay sau "Gửi mã đăng nhập". Đủ 6 số là tự gửi.</p>
+<div role="group" aria-label="Xem màn nhập mã theo trạng thái" style="display: flex; align-items: center; flex-wrap: wrap; margin-bottom: 12px"><span style="margin-right: 12px; font-size: 14px; color: var(--muted)">Trạng thái</span><sc-for list="{{otpBtns}}" as="b" hint-placeholder-count="4"><button type="button" onClick="{{b.pick}}" aria-pressed="{{b.on}}" style="min-height: 36px; padding: 0 12px; margin-right: -1px; border: 1px solid var(--ink); border-radius: 0; background: {{b.bg}}; color: {{b.fg}}; font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer">{{b.label}}</button></sc-for></div>
+<div style="border: 1px solid var(--ink); background: var(--paper)">
+<header style="border-bottom: 1px solid var(--ink)"><div style="display: flex; align-items: center; gap: 24px; height: 60px; padding: 0 24px"><a href="#s2" style="display: inline-flex; align-items: center; gap: 9px; font-family: 'Source Serif 4', Georgia, serif; font-size: 21px; font-weight: 600; color: var(--ink); text-decoration: none; flex-grow: 1"><svg width="28" height="28" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</a><a href="#s2" style="display: inline-flex; align-items: center; min-height: 44px; color: var(--muted); text-decoration: none">Thư viện</a><a href="#s2" style="display: inline-flex; align-items: center; min-height: 44px; color: var(--muted); text-decoration: none">Khoá học</a></div></header>
+<main style="padding: 28px 24px 30px">
+<div style="max-width: 400px; margin: 0 auto">
+<h3 style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 34px; font-weight: 600; line-height: 1.15">Nhập mã đăng nhập</h3>
+<p style="margin: 0 0 20px">Chúng tôi đã gửi mã 6 số tới <strong>minhanh@example.com</strong>. Mã dùng được trong XXX phút và chỉ một lần.</p>
+<div role="group" aria-labelledby="otp-l" style="display: flex; flex-direction: column; gap: 6px">
+<span id="otp-l" style="font-weight: 600">Mã đăng nhập · 6 số</span>
+<div style="display: flex; gap: 8px">
+<sc-for list="{{digits}}" as="d" hint-placeholder-count="6">
+<input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="{{d.ac}}" aria-label="{{d.aria}}" value="{{d.v}}" style="width: 52px; height: 60px; box-sizing: border-box; padding: 0; border: 2px solid {{d.border}}; border-radius: 2px; background: {{d.bg}}; text-align: center; font: 600 26px 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums; color: var(--ink)">
+</sc-for>
+</div>
+<span style="font-size: 14px; color: var(--muted)">Dán cả mã vào ô nào cũng được, mã tự rải đủ 6 ô. Trên điện thoại, mã trong thư hiện ngay trên bàn phím.</span>
+</div>
+<p role="status" style="margin: 14px 0 0; min-height: 24px; font-size: 15px; font-weight: 600; color: {{otpMsgColor}}">{{otpMsg}}</p>
+<button type="button" aria-disabled="{{otpBtnOff}}" style="display: flex; align-items: center; justify-content: center; width: 100%; min-height: 48px; margin-top: 8px; border: 1px solid {{otpBtnBorder}}; border-radius: 2px; background: {{otpBtnBg}}; color: {{otpBtnFg}}; font: 600 16px 'Source Sans 3', sans-serif">{{otpBtn}}</button>
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 16px; margin-top: 10px">
+<button type="button" aria-disabled="{{resendOff}}" style="min-height: 44px; padding: 0; border: 0; background: none; color: {{resendColor}}; font: 600 15px 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums; text-decoration: {{resendDeco}}; cursor: pointer">{{resendLabel}}</button>
+<a href="#s1" style="display: inline-flex; align-items: center; min-height: 44px; font-size: 15px">Dùng email khác</a>
+</div>
+<p style="margin: 16px 0 0; padding-top: 14px; border-top: 1px solid var(--rule); font-size: 14px; color: var(--muted)">Chưa thấy thư? Xem mục Thư rác hoặc Quảng cáo; người gửi là XXX. Đây là mã đăng nhập, không phải mã kích hoạt của lớp.</p>
+</div>
+</main>
+<footer style="padding: 14px 24px 16px; border-top: 1px solid var(--ink)"><div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0 20px"><span style="display: inline-flex; align-items: center; gap: 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; font-weight: 600; margin-right: 8px"><svg width="22" height="22" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="currentColor"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span><nav aria-label="Chân trang" style="display: flex; flex-wrap: wrap; gap: 0 18px; font-size: 15px"><a href="#s2" style="display: inline-flex; align-items: center; min-height: 44px">Giới thiệu</a><a href="#s2" style="display: inline-flex; align-items: center; min-height: 44px">Khoá học</a><a href="#s2" style="display: inline-flex; align-items: center; min-height: 44px">Thư viện</a><a href="HocVienNoiGi.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Học viên nói gì</a><a href="#s2" style="display: inline-flex; align-items: center; min-height: 44px">Điều khoản</a><a href="#s2" style="display: inline-flex; align-items: center; min-height: 44px">Quyền riêng tư</a><a href="#s2" style="display: inline-flex; align-items: center; min-height: 44px">Liên hệ</a></nav></div></footer>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)"><strong style="color: var(--ink); font-weight: 600">Bấm thử:</strong> "Trạng thái" đi từ lúc vừa gửi (đếm lùi gửi lại 0:45), đang gõ, đủ 6 số (tự gửi, ô khoá lại) tới lúc hết giờ chờ (nút "Gửi lại mã" bấm được). Mã đúng: đi tiếp như sau đăng nhập Google, kể cả hỏi phiên ở màn 8a.</p>
+</section>
+</div>
+
+<section aria-labelledby="s3" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="s3" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">3 · Trạng thái của ô email và của mã đăng nhập</h2>
+<p style="margin: 0 0 14px; color: var(--muted)">Lỗi nằm ngay dưới ô, nói điều gì chưa đúng và cách sửa; không dùng "không hợp lệ", "sai". Khối 3a–3h thay dòng trạng thái dưới 6 ô ở màn 2; khung trang bỏ ra cho gọn.</p>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; margin-bottom: 20px">
+<div style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Email · trống</span><label for="e1" style="font-weight: 600">Email</label><input id="e1" type="email" placeholder="ban@example.com" style="min-height: 44px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface); font: 16px 'Source Sans 3', sans-serif; color: var(--ink)"><span style="font-size: 14px; color: var(--muted)">Chữ mờ là ví dụ, nhãn luôn nằm trên ô.</span></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Email · đang nhập</span><label for="e2" style="font-weight: 600">Email</label><input id="e2" type="email" value="minhanh@exam" style="min-height: 44px; padding: 0 12px; border: 2px solid var(--ink); border-radius: 2px; background: var(--surface); font: 16px 'Source Sans 3', sans-serif; color: var(--ink)"><span style="font-size: 14px; color: var(--muted)">Viền đậm 2px. Chưa báo lỗi khi đang gõ.</span></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--danger)">Email · lỗi</span><label for="e3" style="font-weight: 600">Email</label><input id="e3" type="email" value="minhanh@example" aria-invalid="true" aria-describedby="e3e" style="min-height: 44px; padding: 0 12px; border: 2px solid var(--danger); border-radius: 2px; background: var(--surface); font: 16px 'Source Sans 3', sans-serif; color: var(--ink)"><span id="e3e" style="font-size: 14px; font-weight: 600; color: var(--danger)">Email còn thiếu phần đuôi, ví dụ ".com" hoặc ".vn".</span></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Email · đang gửi</span><label for="e4" style="font-weight: 600; color: var(--muted)">Email</label><input id="e4" type="email" value="minhanh@example.com" disabled style="min-height: 44px; padding: 0 12px; border: 1px solid var(--rule); border-radius: 2px; background: var(--off); font: 16px 'Source Sans 3', sans-serif; color: var(--muted)"><button type="button" aria-busy="true" disabled style="min-height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 15px 'Source Sans 3', sans-serif">Đang gửi mã…</button></div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; align-items: stretch">
+<div style="display: flex; flex-direction: column; gap: 12px; border: 1px solid var(--ink); background: var(--paper); padding: 16px 16px 18px"><p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">3a · Mã chưa đúng</p><div style="display: flex; gap: 6px"><input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="one-time-code" aria-label="Số thứ 1" value="4" style="width: 30px; height: 40px; box-sizing: border-box; padding: 0; border: 2px solid var(--danger); border-radius: 2px; background: var(--surface); text-align: center; font: 600 17px 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums; color: var(--ink)"><input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="Số thứ 2" value="8" style="width: 30px; height: 40px; box-sizing: border-box; padding: 0; border: 2px solid var(--danger); border-radius: 2px; background: var(--surface); text-align: center; font: 600 17px 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums; color: var(--ink)"><input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="Số thứ 3" value="2" style="width: 30px; height: 40px; box-sizing: border-box; padding: 0; border: 2px solid var(--danger); border-radius: 2px; background: var(--surface); text-align: center; font: 600 17px 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums; color: var(--ink)"><input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="Số thứ 4" value="9" style="width: 30px; height: 40px; box-sizing: border-box; padding: 0; border: 2px solid var(--danger); border-radius: 2px; background: var(--surface); text-align: center; font: 600 17px 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums; color: var(--ink)"><input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="Số thứ 5" value="1" style="width: 30px; height: 40px; box-sizing: border-box; padding: 0; border: 2px solid var(--danger); border-radius: 2px; background: var(--surface); text-align: center; font: 600 17px 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums; color: var(--ink)"><input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="Số thứ 6" value="7" style="width: 30px; height: 40px; box-sizing: border-box; padding: 0; border: 2px solid var(--danger); border-radius: 2px; background: var(--surface); text-align: center; font: 600 17px 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums; color: var(--ink)"></div><div role="alert" style="padding: 10px 12px; border-top: 2px solid var(--danger); border-bottom: 1px solid var(--danger); background: var(--surface)"><p style="margin: 0 0 4px; font-weight: 600; color: var(--danger)">Mã chưa đúng. Bạn còn 2 lần thử.</p><p style="margin: 0; font-size: 15px">Xem lại 6 số trong thư mới nhất. Gửi mã mới thì mã cũ không dùng được nữa.</p></div></div>
+<div style="display: flex; flex-direction: column; gap: 12px; border: 1px solid var(--ink); background: var(--paper); padding: 16px 16px 18px"><p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">3b · Hết lần thử</p><div role="alert" style="padding: 10px 12px; border: 1px solid var(--mark); border-left: 4px solid var(--mark); background: color-mix(in srgb, var(--mark) 7%, var(--surface))"><p style="margin: 0 0 4px; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--mark)">Cảnh báo</p><p style="margin: 0 0 4px; font-weight: 600">Bạn đã nhập sai XXX lần. Mã này đã bị huỷ.</p><p style="margin: 0; font-size: 15px">Gửi mã mới tới minhanh@example.com để đăng nhập.</p></div><button type="button" style="min-height: 44px; padding: 0 16px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: var(--surface); font: 600 15px 'Source Sans 3', sans-serif; align-self: flex-start">Gửi mã mới</button></div>
+<div style="display: flex; flex-direction: column; gap: 12px; border: 1px solid var(--ink); background: var(--paper); padding: 16px 16px 18px"><p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">3c · Mã hết hạn</p><div role="alert" style="padding: 10px 12px; border: 1px solid var(--mark); border-left: 4px solid var(--mark); background: color-mix(in srgb, var(--mark) 7%, var(--surface))"><p style="margin: 0 0 4px; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--mark)">Cảnh báo</p><p style="margin: 0 0 4px; font-weight: 600">Mã này đã quá XXX phút.</p><p style="margin: 0; font-size: 15px">Mã đăng nhập chỉ dùng được XXX phút sau khi gửi. Gửi mã mới, rồi dùng mã trong thư mới nhất.</p></div><button type="button" style="min-height: 44px; padding: 0 16px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: var(--surface); font: 600 15px 'Source Sans 3', sans-serif; align-self: flex-start">Gửi mã mới</button></div>
+<div style="display: flex; flex-direction: column; gap: 12px; border: 1px solid var(--ink); background: var(--paper); padding: 16px 16px 18px"><p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">3d · Gửi quá nhiều lần</p><div role="alert" style="padding: 10px 12px; border: 1px solid var(--mark); border-left: 4px solid var(--mark); background: color-mix(in srgb, var(--mark) 7%, var(--surface))"><p style="margin: 0 0 4px; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--mark)">Cảnh báo</p><p style="margin: 0 0 4px; font-weight: 600">Tạm dừng gửi mã tới email này trong XXX phút.</p><p style="margin: 0; font-size: 15px">Bạn đã yêu cầu mã XXX lần liền. Mã gửi trước đó vẫn dùng được nếu chưa quá XXX phút.</p></div><div style="display: flex; flex-wrap: wrap; gap: 0 16px"><a href="#s1" style="display: inline-flex; align-items: center; min-height: 44px; font-size: 15px; font-weight: 600">Tiếp tục với Google</a></div></div>
+<div style="display: flex; flex-direction: column; gap: 12px; border: 1px solid var(--ink); background: var(--paper); padding: 16px 16px 18px"><p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">3e · Thư chưa tới</p><div role="status" style="padding: 10px 12px; border-top: 2px solid var(--ink); border-bottom: 1px solid var(--ink); background: var(--surface)"><p style="margin: 0 0 4px; font-weight: 600; color: var(--ink)">Chưa thấy thư?</p><p style="margin: 0; font-size: 15px">Xem mục Thư rác hoặc Quảng cáo, tìm thư từ XXX. Kiểm tra email đã gõ đúng: minhanh@example.com. Thư thường tới trong vài phút.</p></div><div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0 16px"><button type="button" style="min-height: 44px; padding: 0 16px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 15px 'Source Sans 3', sans-serif; align-self: flex-start">Gửi lại mã</button><a href="#s1" style="display: inline-flex; align-items: center; min-height: 44px; font-size: 15px; font-weight: 600">Dùng email khác</a></div></div>
+<div style="display: flex; flex-direction: column; gap: 12px; border: 1px solid var(--ink); background: var(--paper); padding: 16px 16px 18px"><p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">3f · Lỗi mạng</p><div role="alert" style="padding: 10px 12px; border-top: 2px solid var(--danger); border-bottom: 1px solid var(--danger); background: var(--surface)"><p style="margin: 0 0 4px; font-weight: 600; color: var(--danger)">Chưa kết nối được máy chủ.</p><p style="margin: 0; font-size: 15px">Mã bạn gõ vẫn còn trong ô và không bị tính là một lần thử. Kiểm tra mạng rồi bấm Thử lại.</p></div><button type="button" style="min-height: 44px; padding: 0 16px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 15px 'Source Sans 3', sans-serif; align-self: flex-start">Thử lại</button></div>
+<div style="display: flex; flex-direction: column; gap: 12px; border: 1px solid var(--ink); background: var(--paper); padding: 16px 16px 18px"><p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">3g · Email đã gắn với Google</p><div role="status" style="padding: 10px 12px; border-top: 2px solid var(--ok); border-bottom: 1px solid var(--ok); background: var(--surface)"><p style="margin: 0 0 4px; font-weight: 600; color: var(--ok)">Bạn đã đăng nhập vào tài khoản minhanh@example.com.</p><p style="margin: 0; font-size: 15px">Tài khoản này cũng vào được bằng Google; hai cách là cùng một tài khoản, khoá học và bài làm giữ nguyên.</p></div></div>
+<div style="display: flex; flex-direction: column; gap: 12px; border: 1px solid var(--ink); background: var(--paper); padding: 16px 16px 18px"><p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">3h · Dán nhầm mã kích hoạt</p><div role="alert" style="padding: 10px 12px; border: 1px solid var(--mark); border-left: 4px solid var(--mark); background: color-mix(in srgb, var(--mark) 7%, var(--surface))"><p style="margin: 0 0 4px; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--mark)">Cảnh báo</p><p style="margin: 0 0 4px; font-weight: 600">Đây có vẻ là mã kích hoạt của lớp.</p><p style="margin: 0; font-size: 15px">Ô này nhận mã đăng nhập 6 số gửi qua email. Mã 12 ký tự của lớp thì nhập sau khi đăng nhập, ở Tài khoản › Nhập mã kích hoạt.</p></div><a href="#s6" style="display: inline-flex; align-items: center; min-height: 44px; font-size: 15px; font-weight: 600">Xem màn nhập mã kích hoạt</a></div>
+</div>
+<p style="margin: 12px 0 0; font-size: 14px; color: var(--muted)"><strong style="color: var(--ink); font-weight: 600">Quy tắc:</strong> các thông báo trước khi mã đúng giống nhau cho mọi email, có tài khoản hay chưa. 3a: các ô được xoá, con trỏ về ô đầu; số lần thử XXX mỗi mã. 3g chỉ hiện sau khi mã đúng, một lần, ở đầu trang đích. Tài khoản bị tạm ngưng: hiện sau khi mã đúng, cùng câu chữ ở màn 9. Lỗi mạng khi bấm "Gửi mã đăng nhập" ở màn 1: dòng đỏ dưới nút, email vẫn còn trong ô.</p>
+</section>
+
+<section aria-labelledby="s5" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="s5" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">5 · Đăng xuất khỏi mọi thiết bị</h2>
+<p style="margin: 0 0 16px; color: var(--muted); max-width: 110ch">Không còn màn đổi mật khẩu; màn này thay vào. Mở từ Tài khoản › Hồ sơ › Bảo mật (<a href="TaiKhoan.dc.html#h-session">TaiKhoan</a>) và từ dòng "Không phải bạn?" ở 8b, 8c. Hộp hỏi lại hiện giữa trang, phần sau mờ đi; khung trang bỏ ra cho gọn.</p>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; align-items: start">
+<div><p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">5a · Hỏi lại</p>
+<div role="dialog" aria-labelledby="so-h" style="border: 1px solid var(--ink); background: var(--surface); padding: 22px 22px 24px">
+<h3 id="so-h" style="margin: 0 0 10px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1.2">Đăng xuất khỏi mọi thiết bị?</h3>
+<ul style="margin: 0 0 16px; padding-left: 20px; font-size: 15px; display: flex; flex-direction: column; gap: 4px">
+<li>Mọi thiết bị đang mở tài khoản minhanh@example.com, kể cả thiết bị này, phải đăng nhập lại.</li>
+<li>Bài đang viết dở được lưu nháp trước khi đăng xuất.</li>
+<li>Mã đăng nhập đã gửi mà chưa dùng bị huỷ.</li>
+</ul>
+<div style="display: flex; gap: 10px"><button type="button" style="flex: 1 1 auto; min-height: 48px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: var(--surface); font: 600 16px 'Source Sans 3', sans-serif">Đăng xuất khỏi mọi thiết bị</button><button type="button" style="flex: 0 0 88px; min-height: 48px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif">Huỷ</button></div>
+</div></div>
+<div><p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">5b · Có bài có giờ đang làm ở thiết bị khác</p>
+<div role="alert" style="padding: 12px 14px; border: 1px solid var(--mark); border-left: 4px solid var(--mark); background: color-mix(in srgb, var(--mark) 7%, var(--surface))"><p style="margin: 0 0 4px; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--mark)">Cảnh báo</p><p style="margin: 0 0 6px; font-weight: 600">Thi thử tháng 11 đang làm ở Chrome trên Windows, còn khoảng 38 phút.</p><p style="margin: 0; font-size: 15px">Bài có giờ không bị cắt ngang: thiết bị đó đăng xuất ngay khi bài kết thúc. Các thiết bị khác đăng xuất bây giờ.</p></div>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)">Khối này chen vào hộp 5a, trên hai nút, khi có bài có giờ đang chạy.</p></div>
+<div><p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">5c · Xong</p>
+<div role="status" style="padding: 12px 14px; border-top: 2px solid var(--ok); border-bottom: 1px solid var(--ok); background: var(--surface)"><p style="margin: 0 0 4px; font-weight: 600; color: var(--ok)">Đã đăng xuất khỏi mọi thiết bị lúc XXX.</p><p style="margin: 0 0 12px; font-size: 15px">Đăng nhập lại bằng Google hoặc bằng mã gửi tới minhanh@example.com.</p><a href="#s1" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border-radius: 2px; background: var(--accent); color: var(--surface); font-weight: 600; text-decoration: none">Đăng nhập lại</a></div>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)">Nghĩ có người khác mở được hộp thư của bạn? Bảo vệ hộp thư email trước, vì mã đăng nhập gửi về đó; rồi <a href="TroGiupLanDau.dc.html">báo cho chúng tôi</a>.</p></div>
+</div>
+</section>
+
+<section aria-labelledby="s6" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; margin-bottom: 16px">
+<h2 id="s6" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">6 · Nhập mã kích hoạt</h2>
+<div role="group" aria-label="Xem kết quả kiểm tra mã" style="display: flex; align-items: center; flex-wrap: wrap">
+<span style="margin-right: 12px; font-size: 14px; color: var(--muted)">Kết quả</span>
+<sc-for list="{{codeBtns}}" as="b" hint-placeholder-count="5">
+<button type="button" onClick="{{b.pick}}" aria-pressed="{{b.on}}" style="min-height: 36px; padding: 0 12px; margin-right: -1px; border: 1px solid var(--ink); border-radius: 0; background: {{b.bg}}; color: {{b.fg}}; font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer">{{b.label}}</button>
+</sc-for>
+</div>
+</div>
+<div style="border: 1px solid var(--ink); background: var(--paper)">
+<header style="border-bottom: 1px solid var(--ink)">
+<div style="display: flex; align-items: center; gap: 28px; height: 63px; padding: 0 32px">
+<a href="#s6" style="display: inline-flex; align-items: center; gap: 9px; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600; color: var(--ink); text-decoration: none; flex-grow: 1"><svg width="29" height="29" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</a>
+<a href="#s6" style="display: inline-flex; align-items: center; min-height: 44px; color: var(--muted); text-decoration: none">Thư viện</a>
+<a href="#s6" style="display: inline-flex; align-items: center; min-height: 44px; color: var(--muted); text-decoration: none">Khoá học</a>
+<button aria-label="Mở menu tài khoản" style="width: 44px; height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer">MA</button>
+</div>
+</header>
+<main style="padding: 40px 32px 48px">
+<div style="max-width: 440px; margin: 0 auto">
+<h3 style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 34px; font-weight: 600; line-height: 1.15">Nhập mã kích hoạt</h3>
+<p style="margin: 0 0 20px; color: var(--muted)">Dành cho học viên lớp offline. Mã do admin hoặc giáo viên cấp, mở một khoá của lớp (Course 1–5) hoặc cấp quyền luyện lại một khoá khác cho tài khoản này. Khoá online thì đăng ký trên trang khoá, không cần mã.</p>
+<p role="note" style="margin: -6px 0 20px; padding: 8px 12px; border-left: 3px solid var(--accent); background: var(--tint); font-size: 15px">Đây không phải mã đăng nhập. Mã đăng nhập gồm 6 số, gửi qua email mỗi lần đăng nhập; mã kích hoạt của lớp gồm 12 ký tự và do giáo viên hoặc admin cấp.</p>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="code" style="font-weight: 600">Mã kích hoạt của lớp</label>
+<div style="display: flex; gap: 8px">
+<input id="code" type="text" value="{{codeValue}}" autocomplete="off" spellcheck="false" aria-invalid="{{codeInvalid}}" aria-disabled="{{codeLock}}" aria-describedby="code-h" style="flex: 1 1 auto; min-width: 0; min-height: 44px; padding: 0 12px; border: 2px solid {{codeBorder}}; border-radius: 2px; background: {{codeBg}}; font: 600 18px 'Source Sans 3', sans-serif; letter-spacing: 0.08em; color: var(--ink); text-transform: uppercase">
+<button type="button" aria-disabled="{{codeLock}}" style="flex: none; min-height: 44px; padding: 0 18px; border: 1px solid {{codeBtnBd}}; border-radius: 2px; background: {{codeBg}}; color: {{codeBtnFg}}; font: 600 16px 'Source Sans 3', sans-serif">Kiểm tra mã</button>
+</div>
+<span id="code-h" style="font-size: 14px; color: var(--muted)">12 ký tự, dạng XXXX-XXXX-XXXX. Dán cả chuỗi có dấu gạch cũng được; gõ chữ thường hoặc không có gạch cũng được, dấu gạch tự thêm.</span>
+</div>
+<sc-if value="{{isOk}}" hint-placeholder-val="{{true}}">
+<div role="status" style="margin-top: 20px; border: 1px solid var(--ink); background: var(--surface); padding: 18px 20px">
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ok); font-weight: 600">{{okKind}}</p>
+<p style="margin: 4px 0 12px; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600; line-height: 1.25">{{okTitle}}</p>
+<dl style="margin: 0 0 16px; display: grid; grid-template-columns: auto minmax(0, 1fr); border-top: 1px solid var(--rule); font-size: 15px">
+<dt style="padding: 8px 16px 8px 0; border-bottom: 1px solid var(--rule); color: var(--muted)">Cấp bởi</dt><dd style="margin: 0; padding: 8px 0; border-bottom: 1px solid var(--rule)">Admin Aver Learning, cho lớp XXX</dd>
+<dt style="padding: 8px 16px 8px 0; border-bottom: 1px solid var(--rule); color: var(--muted)">Thời hạn</dt><dd style="margin: 0; padding: 8px 0; border-bottom: 1px solid var(--rule)">XXX ngày từ hôm nay, tới hết ngày XXX</dd>
+<dt style="padding: 8px 16px 8px 0; border-bottom: 1px solid var(--rule); color: var(--muted)">Lượt chấm AI</dt><dd style="margin: 0; padding: 8px 0; border-bottom: 1px solid var(--rule)">XXX lượt, cấp kèm mã; bài của lớp dùng lượt này</dd>
+<dt style="padding: 8px 16px 8px 0; border-bottom: 1px solid var(--rule); color: var(--muted)">Chấm bài</dt><dd style="margin: 0; padding: 8px 0; border-bottom: 1px solid var(--rule)">Writing: AI chấm, giáo viên duyệt rồi mới trả. Speaking: AI chấm, trả ngay.</dd>
+</dl>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px">
+<button type="button" style="min-height: 48px; padding: 0 22px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: var(--surface); font: 600 16px 'Source Sans 3', sans-serif">{{okBtn}}</button>
+<a href="#s6" style="display: inline-flex; align-items: center; min-height: 44px; font-size: 15px">Nhập mã khác</a>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)">{{okNote}} Thời hạn tính từ lúc bấm xác nhận. Mã chưa bị dùng cho tới bước này.</p>
+</div>
+</sc-if>
+<sc-if value="{{isErr}}" hint-placeholder-val="{{false}}">
+<div role="alert" style="margin-top: 20px; padding: 14px 16px; border-top: 2px solid {{errColor}}; border-bottom: 1px solid {{errColor}}; background: var(--surface)">
+<p style="margin: 0 0 4px; font-weight: 600; color: {{errColor}}">{{errTitle}}</p>
+<p style="margin: 0 0 8px">{{errBody}}</p>
+<a href="{{errHref}}" style="display: inline-flex; align-items: center; min-height: 44px; font-weight: 600">{{errLink}}</a>
+</div>
+</sc-if>
+<p style="margin: 24px 0 0; padding-top: 14px; border-top: 1px solid var(--rule); font-size: 15px">Không có mã? <a href="#s6">Xem các khoá online</a> để đăng ký, hoặc <a href="#s6">đọc Thư viện</a> miễn phí.</p>
+</div>
+</main>
+<footer style="display: flex; flex-wrap: wrap; align-items: center; gap: 0 24px; padding: 0 32px; border-top: 1px solid var(--rule); font-size: 14px">
+<span style="gap: 8px; display: inline-flex; align-items: center; color: var(--muted); flex-grow: 1"><svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none; color: var(--ink)"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>© 2026 Aver Learning</span>
+<nav aria-label="Chân trang" style="display: flex; gap: 0 24px">
+<a href="#s6" style="display: inline-flex; align-items: center; min-height: 44px">Trợ giúp</a>
+<a href="#s6" style="display: inline-flex; align-items: center; min-height: 44px">Điều khoản</a>
+<a href="#s6" style="display: inline-flex; align-items: center; min-height: 44px">Quyền riêng tư</a>
+</nav>
+</footer>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)"><strong style="color: var(--ink); font-weight: 600">Bấm thử:</strong> "Kết quả" đổi giữa hai loại mã dùng được và năm trạng thái khác: một câu lỗi chung (chống dò mã), hai câu riêng về chính tài khoản này, tạm khoá sau 5 lần thử, nhầm mã đăng nhập. Xác nhận xong dẫn tới màn "Đã mở khoá" giống <a href="ThanhToan.dc.html">tờ Thanh toán, màn 4</a>, ghi "Mở bằng mã kích hoạt" thay cho mã đơn.</p>
+</section>
+
+<section aria-labelledby="s6b" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="s6b" style="margin: 0 0 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">6b · Nhập mã kích hoạt, mở từ liên kết trong thư mời</h2>
+<p style="margin: 0 0 16px; color: var(--muted); max-width: 90ch">Thư mời của lớp có nút “Mở khoá của lớp” trỏ tới trang này kèm mã. Mã điền sẵn vào ô; người học chỉ bấm hai lần: “Kiểm tra mã”, rồi “Xác nhận mở khoá”. Khung và thanh điều hướng giống màn 6, bỏ ra ở đây cho gọn.</p>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; align-items: start">
+<div><p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Bước 1 · vừa mở liên kết</p><div style="border: 1px solid var(--ink); background: var(--paper); padding: 28px 32px 32px"><p role="status" style="margin: 0 0 16px; padding: 10px 14px; border-top: 1px solid var(--ok); border-bottom: 1px solid var(--ok); background: var(--surface); font-size: 15px"><strong style="color: var(--ok)">Mã đã được điền sẵn từ liên kết trong thư mời.</strong> Bấm “Kiểm tra mã”.</p><h3 style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 30px; font-weight: 600; line-height: 1.15">Nhập mã kích hoạt</h3><div style="display: flex; flex-direction: column; gap: 6px"><label for="lk-code1" style="font-weight: 600">Mã kích hoạt của lớp</label><div style="display: flex; gap: 8px"><input id="lk-code1" type="text" value="K7QM-24RT-9XWD" autocomplete="off" spellcheck="false" style="flex: 1 1 auto; min-width: 0; min-height: 44px; padding: 0 12px; border: 2px solid var(--ink); border-radius: 2px; background: var(--surface); font: 600 18px 'Source Sans 3', sans-serif; letter-spacing: 0.08em; color: var(--ink)"><button type="button" style="flex: none; min-height: 44px; padding: 0 18px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: var(--surface); font: 600 16px 'Source Sans 3', sans-serif">Kiểm tra mã</button></div><span style="font-size: 14px; color: var(--muted)">Có thể sửa nếu mã sai. Dán cả chuỗi có dấu gạch cũng được.</span></div></div></div>
+<div><p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Bước 2 · sau khi bấm “Kiểm tra mã”</p><div style="border: 1px solid var(--ink); background: var(--paper); padding: 28px 32px 32px"><p role="status" style="margin: 0 0 16px; padding: 10px 14px; border-top: 1px solid var(--ok); border-bottom: 1px solid var(--ok); background: var(--surface); font-size: 15px"><strong style="color: var(--ok)">Mã đã được điền sẵn từ liên kết trong thư mời.</strong></p><h3 style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 30px; font-weight: 600; line-height: 1.15">Nhập mã kích hoạt</h3><div style="display: flex; flex-direction: column; gap: 6px"><label for="lk-code2" style="font-weight: 600">Mã kích hoạt của lớp</label><div style="display: flex; gap: 8px"><input id="lk-code2" type="text" value="K7QM-24RT-9XWD" autocomplete="off" spellcheck="false" style="flex: 1 1 auto; min-width: 0; min-height: 44px; padding: 0 12px; border: 2px solid var(--ink); border-radius: 2px; background: var(--surface); font: 600 18px 'Source Sans 3', sans-serif; letter-spacing: 0.08em; color: var(--ink)"><button type="button" style="flex: none; min-height: 44px; padding: 0 18px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif">Kiểm tra mã</button></div><span style="font-size: 14px; color: var(--muted)">Có thể sửa nếu mã sai. Dán cả chuỗi có dấu gạch cũng được.</span></div><div role="status" style="margin-top: 20px; border: 1px solid var(--ink); background: var(--surface); padding: 18px 20px"><p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ok); font-weight: 600">Mã dùng được · khoá của lớp</p><p style="margin: 4px 0 12px; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600; line-height: 1.25">Mã này mở Course 2 của lớp XXX · thời hạn XXX</p><p style="margin: 0 0 14px; font-size: 15px; color: var(--muted)">Kèm XXX lượt chấm AI lớp cấp cho bạn. Writing: AI chấm, giáo viên duyệt rồi mới trả; Speaking: AI chấm, trả ngay. Thời hạn tính từ lúc bấm xác nhận; mã chưa bị dùng cho tới bước này.</p><button type="button" style="min-height: 48px; padding: 0 22px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: var(--surface); font: 600 16px 'Source Sans 3', sans-serif">Xác nhận mở khoá</button></div></div></div>
+</div>
+<p style="margin: 12px 0 0; font-size: 14px; color: var(--muted)"><strong style="color: var(--ink); font-weight: 600">Quy tắc:</strong> chưa đăng nhập thì đi qua màn 1 và 2 (Google hoặc mã đăng nhập) rồi quay lại đúng trang này với mã còn trong ô. Mã đọc từ liên kết chỉ điền vào ô, không tự kiểm tra và không tự xác nhận; mã chưa bị tiêu cho tới “Xác nhận mở khoá”. Mã trong liên kết không dùng được thì hiện câu chung ở màn 6, ô vẫn giữ mã để sửa.</p>
+</section>
+
+<section aria-labelledby="s8" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="s8" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">8 · Một phiên mỗi tài khoản học viên <span style="font-weight: 400; color: var(--muted)">và</span> 9 · Lỗi đăng nhập Google</h2>
+<p style="margin: 0 0 16px; color: var(--muted); max-width: 100ch">Chỉ áp cho tài khoản học viên; admin và giáo viên không bị giới hạn một phiên. 8a hỏi ở thiết bị mới ngay sau khi đăng nhập xong (Google hoặc mã); 8b khi thiết bị kia đang trong bài có giờ (thi thử, kỳ thi, bài kiểm tra khoá, bài luyện có đồng hồ) thì không được chiếm phiên; 8c là thiết bị bị đăng xuất. Khung là thanh công khai tối giản như màn 1.</p>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; align-items: start">
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">8a · Thiết bị mới · bên kia không làm bài có giờ</p>
+<div style="border: 1px solid var(--ink); background: var(--paper); padding: 24px 22px 26px">
+<h3 style="margin: 0 0 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1.2">Tài khoản đang mở ở thiết bị khác</h3>
+<p style="margin: 0 0 6px">Tiếp tục ở đây sẽ đăng xuất bên kia.</p>
+<p style="margin: 0 0 18px; padding: 8px 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); font-size: 14px; color: var(--muted)">Đang mở: iPhone · Safari, từ 21:40 hôm qua, TP. Hồ Chí Minh (gần đúng). Bài đang viết dở bên kia được lưu nháp trước khi đăng xuất.</p>
+<div style="display: flex; gap: 10px">
+<button type="button" style="flex: 1 1 auto; min-height: 48px; border-radius: 2px; font: 600 16px 'Source Sans 3', sans-serif; border: 1px solid var(--accent); background: var(--accent); color: var(--surface)">Tiếp tục ở đây</button>
+<button type="button" style="flex: 0 0 96px; min-height: 48px; border-radius: 2px; font: 600 16px 'Source Sans 3', sans-serif; border: 1px solid var(--ink); background: var(--surface); color: var(--ink)">Huỷ</button>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)">Huỷ: thiết bị này không đăng nhập; bên kia giữ nguyên.</p>
+</div>
+</div>
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">8b · Thiết bị mới · bên kia đang làm bài có giờ</p>
+<div style="border: 1px solid var(--ink); background: var(--paper); padding: 24px 22px 26px">
+<div role="alert" style="margin: 0 0 14px; padding: 10px 12px; border: 1px solid var(--mark); border-left: 4px solid var(--mark); background: color-mix(in srgb, var(--mark) 7%, var(--surface))">
+<p style="margin: 0 0 4px; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--mark)">Cảnh báo</p>
+<p style="margin: 0"><strong>Bạn đang làm bài có giờ ở thiết bị khác, còn khoảng 38 phút.</strong> Bạn có thể vào sau khi bài kết thúc.</p>
+</div>
+<p style="margin: 0 0 16px; font-size: 14px; color: var(--muted)">Thi thử tháng 11 · Chrome trên Windows. Không có nút chiếm phiên: bài có giờ không bị cắt ngang.</p>
+<a href="#s1" style="display: flex; align-items: center; justify-content: center; min-height: 48px; border-radius: 2px; font: 600 16px 'Source Sans 3', sans-serif; border: 1px solid var(--ink); background: var(--surface); color: var(--ink); text-decoration: none">Về trang đăng nhập</a>
+<p style="margin: 12px 0 0; font-size: 15px">Không phải bạn? <a href="#s5">Đăng xuất khỏi mọi thiết bị</a> / <a href="TroGiupLanDau.dc.html">báo cho chúng tôi</a>.</p>
+</div>
+</div>
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">8c · Thiết bị bị đăng xuất</p>
+<div style="border: 1px solid var(--ink); background: var(--paper); padding: 24px 22px 26px">
+<h3 style="margin: 0 0 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1.2">Bạn đã được đăng xuất trên thiết bị này</h3>
+<p style="margin: 0 0 8px">Tài khoản <strong>minhanh@example.com</strong> vừa được chọn “Tiếp tục ở đây” trên thiết bị khác lúc XXX.</p>
+<p style="margin: 0 0 16px; padding: 8px 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); font-size: 15px">Bài bạn đang viết dở đã được lưu nháp.</p>
+<button type="button" style="width: 100%; min-height: 48px; border-radius: 2px; font: 600 16px 'Source Sans 3', sans-serif; border: 1px solid var(--accent); background: var(--accent); color: var(--surface)">Đăng nhập lại trên thiết bị này</button>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)">Đăng nhập lại sẽ hỏi như 8a. Không phải bạn? <a href="#s5">Đăng xuất khỏi mọi thiết bị</a> (xem “Lần đăng nhập gần đây” ở <a href="TaiKhoan.dc.html#h-session">Tài khoản</a>), hoặc liên hệ XXX.</p>
+</div>
+</div>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)"><strong style="color: var(--ink); font-weight: 600">Quy tắc:</strong> “còn khoảng N phút” lấy theo đồng hồ máy chủ của bài, làm tròn lên. Đăng xuất khỏi mọi thiết bị từ 8b (màn 5) vẫn không cắt bài có giờ: bên kia đăng xuất khi bài kết thúc. 8a–8c áp như nhau cho đăng nhập bằng Google và bằng mã. Phòng thi mất phiên vì lý do khác (hết hạn token) thì đăng nhập lại ngay trong phòng thi (PhongThi, KiemTraKhoa). Màn chào sau lần đăng nhập đầu (màn 7 cũ) đã thay bằng <a href="TroGiupLanDau.dc.html">TroGiupLanDau màn 2</a>, không dựng.</p>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; align-items: start; margin-top: 20px">
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">9 · Lỗi đăng nhập Google</p>
+<div style="border: 1px solid var(--ink); background: var(--paper); padding: 24px 22px 26px">
+<h3 style="margin: 0 0 16px; font-family: 'Source Serif 4', Georgia, serif; font-size: 28px; font-weight: 600; line-height: 1.2">Đăng nhập</h3>
+<div role="alert" style="margin: 0 0 20px; padding: 12px 14px; border-top: 2px solid var(--danger); border-bottom: 1px solid var(--danger); background: var(--surface)">
+<p style="margin: 0 0 4px; font-weight: 600; color: var(--danger)">Chưa đăng nhập được bằng Google</p>
+<p style="margin: 0; font-size: 15px">Cửa sổ Google đã đóng trước khi xong. Chưa có gì thay đổi trên tài khoản; bạn có thể thử lại.</p>
+</div>
+<button type="button" style="display: flex; align-items: center; justify-content: center; width: 100%; min-height: 48px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: var(--surface); font: 600 16px 'Source Sans 3', sans-serif">Thử lại với Google</button>
+<a href="#s1" style="display: flex; align-items: center; justify-content: center; min-height: 44px; margin-top: 4px; font-size: 15px">Nhận mã đăng nhập qua email</a>
+</div>
+</div>
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Nội dung thông báo theo nguyên nhân</p>
+<ul style="margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--ink); font-size: 15px">
+<li style="padding: 8px 0; border-bottom: 1px solid var(--rule)"><strong>Trình duyệt chặn cửa sổ Google.</strong> Cho phép cửa sổ bật lên cho trang này rồi bấm lại.</li>
+<li style="padding: 8px 0; border-bottom: 1px solid var(--rule)"><strong>Google chưa phản hồi.</strong> Thường tự hết sau ít phút; thử lại sau.</li>
+<li style="padding: 8px 0; border-bottom: 1px solid var(--rule)"><strong>Tài khoản này đang bị tạm ngưng trên Aver Learning.</strong> Liên hệ XXX để biết lý do. Đăng nhập bằng mã cũng hiện câu này, sau khi mã đúng.</li>
+</ul>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="s10" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="s10" style="margin: 0 0 16px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">10 · Điện thoại 390px · Đăng nhập, Nhập mã đăng nhập, Nhập mã kích hoạt</h2>
+<div style="display: flex; gap: 32px; align-items: flex-start">
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Điện thoại · Đăng nhập</p>
+<div style="width: 390px; box-sizing: border-box; border: 1px solid var(--ink); background: var(--paper)">
+<header style="display: flex; align-items: center; gap: 16px; height: 56px; box-sizing: border-box; padding: 0 16px; border-bottom: 1px solid var(--ink)"><span style="display: inline-flex; align-items: center; gap: 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; font-weight: 600; flex-grow: 1"><svg width="26" height="26" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span><a href="#s10" style="display: inline-flex; align-items: center; min-height: 44px; color: var(--muted); text-decoration: none">Thư viện</a></header>
+<div style="padding: 24px 16px 24px">
+<h3 style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 30px; font-weight: 600; line-height: 1.15">Đăng nhập</h3>
+<p style="margin: 0 0 18px; font-size: 15px; color: var(--muted)">Thư viện đọc được không cần tài khoản. Lần đầu đăng nhập là có tài khoản.</p>
+<button type="button" style="display: flex; align-items: center; justify-content: center; width: 100%; min-height: 48px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: var(--surface); font: 600 16px 'Source Sans 3', sans-serif; cursor: pointer">Tiếp tục với Google</button>
+<div style="display: flex; align-items: center; gap: 10px; margin: 18px 0 12px"><span aria-hidden="true" style="flex: 1; height: 1px; background: var(--rule)"></span><span style="font-size: 14px; color: var(--muted)">hoặc nhận mã qua email</span><span aria-hidden="true" style="flex: 1; height: 1px; background: var(--rule)"></span></div>
+<div style="display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="m-mail" style="font-weight: 600">Email</label><input id="m-mail" type="email" inputmode="email" autocomplete="email" placeholder="ban@example.com" style="min-height: 48px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface); font: 16px 'Source Sans 3', sans-serif; color: var(--ink)"></div>
+<button type="button" style="display: flex; align-items: center; justify-content: center; width: 100%; min-height: 48px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif; cursor: pointer">Gửi mã đăng nhập</button>
+</div>
+<p style="margin: 12px 0 0; font-size: 14px; color: var(--muted)">Tiếp tục là bạn đồng ý với <a href="PhapLy.dc.html">Điều khoản</a> và <a href="PhapLy.dc.html">Quyền riêng tư</a>.</p>
+</div>
+<footer style="display: flex; flex-wrap: wrap; gap: 0 16px; padding: 0 16px; border-top: 1px solid var(--ink); font-size: 14px"><a href="HocVienNoiGi.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Học viên nói gì</a><a href="#s10" style="display: inline-flex; align-items: center; min-height: 44px">Điều khoản</a><a href="#s10" style="display: inline-flex; align-items: center; min-height: 44px">Quyền riêng tư</a><a href="#s10" style="display: inline-flex; align-items: center; min-height: 44px">Liên hệ</a></footer>
+</div>
+</div>
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Điện thoại · Nhập mã đăng nhập · bàn phím số</p>
+<div style="width: 390px; box-sizing: border-box; border: 1px solid var(--ink); background: var(--paper)">
+<header style="display: flex; align-items: center; gap: 16px; height: 56px; box-sizing: border-box; padding: 0 16px; border-bottom: 1px solid var(--ink)"><span style="display: inline-flex; align-items: center; gap: 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; font-weight: 600; flex-grow: 1"><svg width="26" height="26" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span><a href="#s10" style="display: inline-flex; align-items: center; min-height: 44px; color: var(--muted); text-decoration: none">Thư viện</a></header>
+<div style="padding: 4px 16px 18px">
+<a href="#s1" style="display: inline-flex; align-items: center; min-height: 44px; font-size: 15px; font-weight: 600">‹ Dùng email khác</a>
+<h3 style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 28px; font-weight: 600; line-height: 1.15">Nhập mã đăng nhập</h3>
+<p style="margin: 0 0 14px; font-size: 15px">Mã 6 số đã gửi tới <strong>minhanh@example.com</strong>, dùng được XXX phút.</p>
+<div role="group" aria-labelledby="m-otp-l" style="display: flex; flex-direction: column; gap: 6px"><span id="m-otp-l" style="font-weight: 600">Mã đăng nhập · 6 số</span><div style="display: flex; gap: 8px"><input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="one-time-code" aria-label="Số thứ 1" value="4" style="width: 50px; height: 58px; box-sizing: border-box; padding: 0; border: 2px solid var(--ink); border-radius: 2px; background: var(--surface); text-align: center; font: 600 26px 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums; color: var(--ink)"><input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="Số thứ 2" value="8" style="width: 50px; height: 58px; box-sizing: border-box; padding: 0; border: 2px solid var(--ink); border-radius: 2px; background: var(--surface); text-align: center; font: 600 26px 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums; color: var(--ink)"><input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="Số thứ 3" value="2" style="width: 50px; height: 58px; box-sizing: border-box; padding: 0; border: 2px solid var(--ink); border-radius: 2px; background: var(--surface); text-align: center; font: 600 26px 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums; color: var(--ink)"><input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="Số thứ 4" value="" style="width: 50px; height: 58px; box-sizing: border-box; padding: 0; border: 2px solid var(--ink); border-radius: 2px; background: var(--surface); text-align: center; font: 600 26px 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums; color: var(--ink)"><input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="Số thứ 5" value="" style="width: 50px; height: 58px; box-sizing: border-box; padding: 0; border: 2px solid var(--ink); border-radius: 2px; background: var(--surface); text-align: center; font: 600 26px 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums; color: var(--ink)"><input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="Số thứ 6" value="" style="width: 50px; height: 58px; box-sizing: border-box; padding: 0; border: 2px solid var(--ink); border-radius: 2px; background: var(--surface); text-align: center; font: 600 26px 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums; color: var(--ink)"></div></div>
+<p style="margin: 10px 0 0; font-size: 15px; color: var(--muted); font-variant-numeric: tabular-nums">Gửi lại mã sau 0:45</p>
+</div>
+<div aria-hidden="true" style="border-top: 1px solid var(--rule); background: var(--off); padding: 0 6px 10px">
+<div style="display: flex; align-items: center; justify-content: center; height: 40px; font-size: 15px; color: var(--ink)"><span style="padding: 2px 12px; border-radius: 2px; background: var(--surface); border: 1px solid var(--rule)">Từ Thư · <strong style="letter-spacing: 0.08em">482913</strong></span></div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px"><span aria-hidden="true" style="display: flex; align-items: center; justify-content: center; height: 42px; border-radius: 2px; background: var(--surface); border: 1px solid var(--rule); font: 400 22px 'Source Sans 3', sans-serif; color: var(--ink)">1</span><span aria-hidden="true" style="display: flex; align-items: center; justify-content: center; height: 42px; border-radius: 2px; background: var(--surface); border: 1px solid var(--rule); font: 400 22px 'Source Sans 3', sans-serif; color: var(--ink)">2</span><span aria-hidden="true" style="display: flex; align-items: center; justify-content: center; height: 42px; border-radius: 2px; background: var(--surface); border: 1px solid var(--rule); font: 400 22px 'Source Sans 3', sans-serif; color: var(--ink)">3</span><span aria-hidden="true" style="display: flex; align-items: center; justify-content: center; height: 42px; border-radius: 2px; background: var(--surface); border: 1px solid var(--rule); font: 400 22px 'Source Sans 3', sans-serif; color: var(--ink)">4</span><span aria-hidden="true" style="display: flex; align-items: center; justify-content: center; height: 42px; border-radius: 2px; background: var(--surface); border: 1px solid var(--rule); font: 400 22px 'Source Sans 3', sans-serif; color: var(--ink)">5</span><span aria-hidden="true" style="display: flex; align-items: center; justify-content: center; height: 42px; border-radius: 2px; background: var(--surface); border: 1px solid var(--rule); font: 400 22px 'Source Sans 3', sans-serif; color: var(--ink)">6</span><span aria-hidden="true" style="display: flex; align-items: center; justify-content: center; height: 42px; border-radius: 2px; background: var(--surface); border: 1px solid var(--rule); font: 400 22px 'Source Sans 3', sans-serif; color: var(--ink)">7</span><span aria-hidden="true" style="display: flex; align-items: center; justify-content: center; height: 42px; border-radius: 2px; background: var(--surface); border: 1px solid var(--rule); font: 400 22px 'Source Sans 3', sans-serif; color: var(--ink)">8</span><span aria-hidden="true" style="display: flex; align-items: center; justify-content: center; height: 42px; border-radius: 2px; background: var(--surface); border: 1px solid var(--rule); font: 400 22px 'Source Sans 3', sans-serif; color: var(--ink)">9</span><span aria-hidden="true" style="display: flex; align-items: center; justify-content: center; height: 42px; border-radius: 2px; background: transparent; border: 1px solid transparent; font: 400 22px 'Source Sans 3', sans-serif; color: var(--ink)"></span><span aria-hidden="true" style="display: flex; align-items: center; justify-content: center; height: 42px; border-radius: 2px; background: var(--surface); border: 1px solid var(--rule); font: 400 22px 'Source Sans 3', sans-serif; color: var(--ink)">0</span><span aria-hidden="true" style="display: flex; align-items: center; justify-content: center; height: 42px; border-radius: 2px; background: var(--surface); border: 1px solid var(--rule); font: 600 15px 'Source Sans 3', sans-serif; color: var(--ink)">Xoá</span></div>
+</div>
+</div>
+</div>
+<div style="flex: 1 1 auto; min-width: 0">
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Quy tắc trên điện thoại</p>
+<ul style="margin: 0; padding-left: 20px; font-size: 15px; display: flex; flex-direction: column; gap: 8px">
+<li>Ô nhập và nút cao 48px, rộng hết cột.</li>
+<li>Ô email: inputmode="email", autocomplete="email". Ô mã đăng nhập: inputmode="numeric", pattern="[0-9]*", autocomplete="one-time-code" ở ô đầu. Ô mã kích hoạt: bàn phím chữ in.</li>
+<li>Mở màn 2 thì con trỏ ở ô đầu, bàn phím số của máy bật sẵn (không tự vẽ bàn phím). Gợi ý "Từ Thư" do hệ điều hành đưa ra nhờ one-time-code; chạm vào là điền đủ 6 ô và tự gửi.</li>
+<li>Thanh công khai tối giản chỉ còn tên và "Thư viện"; không có menu.</li>
+<li>Thông báo lỗi nằm ngay dưới ô hoặc dưới nút, không dùng hộp nổi.</li>
+<li>Trang con dùng "‹ tên trang cha", không breadcrumb.</li>
+</ul>
+</div>
+</div>
+<div style="display: flex; gap: 32px; align-items: flex-start; margin-top: 20px">
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Điện thoại · Nhập mã kích hoạt</p>
+<div style="width: 390px; box-sizing: border-box; border: 1px solid var(--ink); background: var(--paper)">
+<header style="display: flex; align-items: center; gap: 12px; height: 56px; box-sizing: border-box; padding: 0 16px; border-bottom: 1px solid var(--ink)"><span style="display: inline-flex; align-items: center; gap: 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; font-weight: 600; flex-grow: 1"><svg width="26" height="26" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span><button aria-label="Mở menu tài khoản" style="width: 44px; height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif">MA</button></header>
+<div style="padding: 4px 16px 28px">
+<a href="#s7" style="display: inline-flex; align-items: center; min-height: 44px; font-size: 15px; font-weight: 600">‹ Tài khoản</a>
+<h3 style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 28px; font-weight: 600; line-height: 1.15">Nhập mã kích hoạt</h3>
+<p style="margin: 0 0 16px; font-size: 15px; color: var(--muted)">Dành cho học viên lớp offline; mã do admin hoặc giáo viên cấp. Không phải mã đăng nhập 6 số gửi qua email.</p>
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="m-code" style="font-weight: 600">Mã kích hoạt của lớp</label><input id="m-code" type="text" value="K7QM-24RT-9XWD" style="min-height: 48px; padding: 0 12px; border: 2px solid var(--ink); border-radius: 2px; background: var(--surface); font: 600 18px 'Source Sans 3', sans-serif; letter-spacing: 0.08em; color: var(--ink)"><span style="font-size: 14px; color: var(--muted)">12 ký tự, dạng XXXX-XXXX-XXXX. Dán cả chuỗi có dấu gạch cũng được.</span></div>
+<button type="button" style="display: flex; align-items: center; justify-content: center; width: 100%; min-height: 48px; margin-top: 12px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif">Kiểm tra mã</button>
+<p style="margin: 12px 0 0; font-size: 14px; color: var(--muted)">Kết quả kiểm tra (dùng được, luyện lại, các lỗi) hiện ngay dưới nút, cùng nội dung như màn 6.</p>
+</div>
+</div>
+</div>
+<div style="flex: 1 1 auto; min-width: 0">
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Hai loại mã, đặt cạnh nhau để không nhầm</p>
+<div role="table" aria-label="So sánh mã đăng nhập và mã kích hoạt của lớp" style="border-top: 1px solid var(--ink); font-size: 15px">
+<div role="row" style="display: grid; grid-template-columns: 130px repeat(2, minmax(0, 1fr)); gap: 0 16px; padding: 8px 0; border-bottom: 1px solid var(--rule); font-weight: 600"><span role="columnheader"></span><span role="columnheader">Mã đăng nhập</span><span role="columnheader">Mã kích hoạt của lớp</span></div>
+<div role="row" style="display: grid; grid-template-columns: 130px repeat(2, minmax(0, 1fr)); gap: 0 16px; padding: 8px 0; border-bottom: 1px solid var(--rule)"><span role="rowheader" style="color: var(--muted)">Dạng</span><span role="cell">6 chữ số, ví dụ 482913</span><span role="cell">12 ký tự chữ và số, XXXX-XXXX-XXXX</span></div>
+<div role="row" style="display: grid; grid-template-columns: 130px repeat(2, minmax(0, 1fr)); gap: 0 16px; padding: 8px 0; border-bottom: 1px solid var(--rule)"><span role="rowheader" style="color: var(--muted)">Ai đưa</span><span role="cell">Hệ thống gửi qua email, mỗi lần đăng nhập</span><span role="cell">Giáo viên hoặc admin cấp, qua thư mời hoặc tại lớp</span></div>
+<div role="row" style="display: grid; grid-template-columns: 130px repeat(2, minmax(0, 1fr)); gap: 0 16px; padding: 8px 0; border-bottom: 1px solid var(--rule)"><span role="rowheader" style="color: var(--muted)">Nhập ở đâu</span><span role="cell">Màn đăng nhập, khi chưa đăng nhập</span><span role="cell">Tài khoản › Nhập mã kích hoạt, sau khi đã đăng nhập</span></div>
+<div role="row" style="display: grid; grid-template-columns: 130px repeat(2, minmax(0, 1fr)); gap: 0 16px; padding: 8px 0; border-bottom: 1px solid var(--rule)"><span role="rowheader" style="color: var(--muted)">Ô nhập</span><span role="cell">6 ô vuông, bàn phím số, tự gửi</span><span role="cell">Một ô dài, chữ in, nút "Kiểm tra mã"</span></div>
+<div role="row" style="display: grid; grid-template-columns: 130px repeat(2, minmax(0, 1fr)); gap: 0 16px; padding: 8px 0; border-bottom: 1px solid var(--rule)"><span role="rowheader" style="color: var(--muted)">Thời hạn</span><span role="cell">XXX phút, dùng một lần</span><span role="cell">Tới ngày ghi trên mã, mỗi mã một tài khoản</span></div>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)">Dán nhầm loại mã thì báo đúng loại và chỉ chỗ nhập (3h ở màn 3, "Mã đăng nhập" ở màn 6). Câu chữ luôn ghi đủ "mã đăng nhập" hoặc "mã kích hoạt của lớp", không viết trống "mã".</p>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="dev" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="dev" style="margin: 0 0 12px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">Ghi chú cho lập trình</h2>
+<ul style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; ">
+<li>Hai cách đăng nhập: Google, hoặc mã đăng nhập 6 số gửi qua email. Không có mật khẩu: bỏ hẳn đăng ký bằng mật khẩu, quên, đặt lại, đổi mật khẩu và thư xác minh email bằng liên kết. Lần đầu Google hoặc lần đầu nhập đúng mã cho một email mới là tạo tài khoản (email coi như đã xác minh). Cùng email thì Google và mã là một tài khoản.</li>
+<li>Mã đăng nhập: 6 chữ số ngẫu nhiên, dùng một lần, hết hạn sau XXX phút, lưu dạng băm; gửi mã mới thì mã cũ hết hiệu lực; đăng nhập xong thì huỷ mã. Giới hạn cấu hình được: tối đa XXX lần thử mỗi mã (hết thì huỷ mã, màn 3b); tối đa XXX lần gửi mỗi email trong XXX phút và theo địa chỉ mạng (3d); chờ gửi lại 45 giây (XXX). Không có liên kết đăng nhập trong thư.</li>
+<li>Không tiết lộ email có tài khoản hay chưa: "Gửi mã đăng nhập" luôn sang màn 2 với cùng câu chữ và cùng thời gian phản hồi; email mới vẫn nhận mã. "Email đã gắn với Google" (3g) và "tài khoản bị tạm ngưng" (màn 9) chỉ hiện sau khi mã đúng.</li>
+<li>Sáu ô mã: chỉ nhận số; ô đầu có autocomplete="one-time-code"; dán hoặc tự điền vào ô nào cũng rải đủ 6 ô, bỏ khoảng trắng và gạch; Backspace ở ô trống lùi về ô trước. Đủ 6 số thì tự gửi một lần và khoá ô; sai thì xoá ô, con trỏ về ô đầu; lỗi mạng giữ mã và không tính lần thử. Dán chuỗi 12 ký tự dạng mã kích hoạt thì hiện 3h, không gửi.</li>
+<li>Sau đăng nhập: có tham số quay lại (đơn đăng ký, bài trong Thư viện, liên kết thư mời ở 6b) thì về đó; lần đầu thì TroGiupLanDau màn 2; còn lại về Hôm nay (chưa có khoá thì trạng thái “Chưa có khoá”, Main.dc.html mục 2). Đã đăng nhập thì luôn dùng thanh học viên 5 mục. Không còn bước bắt buộc nhập mã kích hoạt.</li>
+<li>Một phiên mỗi tài khoản học viên (admin, giáo viên không giới hạn) áp như nhau cho Google và mã: thiết bị mới hỏi ở 8a; phiên cũ lưu nháp rồi hiện 8c; phiên cũ đang trong bài có giờ thì thiết bị mới bị chặn (8b) tới khi bài kết thúc. "Đăng xuất khỏi mọi thiết bị" (màn 5) huỷ mọi phiên và mã đăng nhập chưa dùng, nhưng không cắt bài có giờ.</li>
+<li>Mã kích hoạt của lớp: do admin tạo, gắn một lớp offline và một khoá Course 1–5; hai loại (mở khoá của lớp, cấp quyền luyện lại); không mở khoá online; kèm số lượt chấm AI admin cấp. Kiểm tra trước, chỉ ghi nhận khi bấm xác nhận. Lỗi gộp một câu “Mã không đúng hoặc đã hết hạn” (không lộ lý do); hai câu riêng: “Bạn đã có khoá này” (mã không bị tiêu), “Bạn đã dùng mã này rồi”; nhầm mã đăng nhập không tính lần thử. Tối đa 5 lần thử trong 15 phút, chạm thì khoá ô kèm giờ thử lại. Ô nhận dán cả chuỗi có gạch; bỏ khoảng trắng, đổi chữ hoa, tự thêm gạch. Liên kết thư mời (6b) chỉ điền sẵn, không tự kiểm tra.</li>
+<li>Ô nhập: lỗi định dạng chỉ hiện khi rời ô hoặc bấm gửi; đang gửi thì khoá ô và nút, nút ghi "Đang …"; lỗi máy chủ giữ nguyên dữ liệu đã nhập.</li>
+</ul>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Xanh teal","Navy + đỏ mận"],"default":"Navy + đỏ mận"},"$preview":{"width":1280,"height":7980}}'>
+class Component extends DCLogic {
+constructor(p) { super(p); this.state = { ctx: 'thuong', otp: 'moi', code: 'ok' }; }
+renderVals() {
+const st = this.state || {};
+const ctx = st.ctx || 'thuong';
+const otp = st.otp || 'moi';
+const code = st.code || 'ok';
+const seg = (on) => ({ bg: on ? 'var(--ink)' : 'var(--surface)', fg: on ? 'var(--surface)' : 'var(--ink)' });
+const ctxBtns = [['thuong', 'Nút Đăng nhập'], ['dk', 'Đăng ký khoá này']].map(([k, label]) => Object.assign({ label, on: ctx === k, pick: () => this.setState({ ctx: k }) }, seg(ctx === k)));
+const otpBtns = [['moi', 'Vừa gửi'], ['go', 'Đang gõ'], ['du', 'Đủ 6 số'], ['lai', 'Hết giờ chờ']].map(([k, label]) => Object.assign({ label, on: otp === k, pick: () => this.setState({ otp: k }) }, seg(otp === k)));
+const filled = { moi: ['', '', '', '', '', ''], go: ['4', '8', '2', '9', '', ''], du: ['4', '8', '2', '9', '1', '3'], lai: ['', '', '', '', '', ''] }[otp];
+const busy = otp === 'du';
+const digits = filled.map((v, i) => ({ v, ac: i === 0 ? 'one-time-code' : 'off', aria: 'Số thứ ' + (i + 1) + ' của mã đăng nhập', border: busy ? 'var(--rule)' : (otp === 'go' && i === 4 ? 'var(--accent)' : (v ? 'var(--ink)' : 'var(--muted)')), bg: busy ? 'var(--off)' : 'var(--surface)' }));
+const msgs = { moi: ['Mã đã gửi lúc 20:14. Thư thường tới trong vài phút.', 'var(--muted)'], go: ['Còn 2 số nữa.', 'var(--muted)'], du: ['Đang kiểm tra mã…', 'var(--ink)'], lai: ['Mã cũ vẫn dùng được tới 20:XX nếu chưa quá XXX phút.', 'var(--muted)'] }[otp];
+const canResend = otp === 'lai';
+const errs = {
+chung: { title: 'Mã không đúng hoặc đã hết hạn', body: 'Kiểm tra lại từng ký tự, nhất là 0 và O, 1 và I, 8 và B. Nếu vẫn không được, hỏi giáo viên lớp của bạn để nhận mã mới. Bạn còn 3 lần thử.', link: 'Hỏi giáo viên lớp của bạn', href: '#s6', color: 'var(--danger)', value: 'K7QM-24RT-9XWB' },
+co: { title: 'Bạn đã có khoá này', body: 'Course 2 của lớp XXX đang mở trong tài khoản của bạn tới hết ngày XXX. Mã chưa bị dùng; bạn có thể trả lại cho giáo viên.', link: 'Vào học Course 2', href: '#s6', color: 'var(--accent)', value: 'K7QM-24RT-9XWD' },
+dung: { title: 'Bạn đã dùng mã này rồi', body: 'Mã này đã mở khoá cho chính tài khoản này vào ngày XXX. Không cần nhập lại.', link: 'Xem khoá trong Tài khoản', href: 'TaiKhoan.dc.html', color: 'var(--accent)', value: 'K7QM-24RT-9XWD' },
+khoa: { title: 'Bạn đã thử 5 lần. Thử lại sau 20:29.', body: 'Để bảo vệ mã của lớp, ô nhập tạm khoá 15 phút sau 5 lần thử không thành. Trong lúc chờ, hỏi giáo viên lớp để kiểm tra lại mã.', link: 'Hỏi giáo viên lớp của bạn', href: '#s6', color: 'var(--mark)', value: 'K7QM-24RT-9XWB', lock: true },
+nham: { title: 'Đây có vẻ là mã đăng nhập 6 số', body: 'Mã đăng nhập gửi qua email chỉ dùng ở màn đăng nhập, và bạn đã đăng nhập rồi. Mã kích hoạt của lớp có 12 ký tự chữ và số (XXXX-XXXX-XXXX), do giáo viên hoặc admin cấp.', link: 'Hỏi giáo viên lớp của bạn', href: '#s6', color: 'var(--mark)', value: '482913' }
+};
+const oks = {
+ok: { kind: 'Mã dùng được · khoá của lớp', title: 'Mã này mở Course 2 của lớp XXX · thời hạn XXX · kèm XXX lượt chấm AI', btn: 'Xác nhận mở khoá', note: 'Khoá của lớp offline, admin cấp; không đăng ký trên web.' },
+luyen: { kind: 'Mã dùng được · quyền luyện lại', title: 'Mã này cấp quyền luyện lại Course 1 của lớp XXX · thời hạn XXX', btn: 'Xác nhận quyền luyện lại', note: 'Admin cấp thêm để bạn ôn lại; khoá đang học (Course 2) giữ nguyên.' }
+};
+const ok = oks[code];
+const codeBtns = [['ok', 'Dùng được'], ['luyen', 'Luyện lại'], ['chung', 'Mã không dùng được'], ['co', 'Đã có khoá'], ['dung', 'Đã dùng'], ['khoa', 'Tạm khoá'], ['nham', 'Nhầm mã đăng nhập']].map(([k, label]) => Object.assign({ label, on: code === k, pick: () => this.setState({ code: k }) }, seg(code === k)));
+const e = errs[code];
+return {
+pal: (this.props.palette ?? 'Navy + đỏ mận') === 'Xanh teal' ? 'pal-teal' : 'pal-navy',
+ctxBtns, fromBuy: ctx === 'dk',
+otpBtns, digits,
+otpMsg: msgs[0], otpMsgColor: msgs[1],
+otpBtn: busy ? 'Đang đăng nhập…' : 'Đăng nhập', otpBtnOff: otp === 'du' || otp === 'go' || otp === 'moi' || otp === 'lai' ? 'true' : 'false',
+otpBtnBorder: busy ? 'var(--rule)' : 'var(--ink)', otpBtnBg: busy ? 'var(--off)' : 'var(--surface)', otpBtnFg: busy ? 'var(--muted)' : 'var(--ink)',
+resendLabel: canResend ? 'Gửi lại mã' : 'Gửi lại mã sau ' + ({ moi: '0:45', go: '0:31', du: '0:28' }[otp]), resendOff: canResend ? 'false' : 'true',
+resendColor: canResend ? 'var(--link)' : 'var(--muted)', resendDeco: canResend ? 'underline' : 'none',
+codeBtns, isOk: !!ok, isErr: !!e,
+okKind: ok ? ok.kind : '', okTitle: ok ? ok.title : '', okBtn: ok ? ok.btn : '', okNote: ok ? ok.note : '',
+codeValue: e ? e.value : 'K7QM-24RT-9XWD',
+codeInvalid: code === 'chung' || code === 'khoa' || code === 'nham' ? 'true' : 'false',
+codeLock: e && e.lock ? 'true' : 'false', codeBg: e && e.lock ? 'var(--off)' : 'var(--surface)', codeBtnFg: e && e.lock ? 'var(--muted)' : 'var(--ink)', codeBtnBd: e && e.lock ? 'var(--rule)' : 'var(--ink)',
+codeBorder: code === 'chung' ? 'var(--danger)' : (code === 'khoa' ? 'var(--rule)' : 'var(--ink)'),
+errTitle: e ? e.title : '', errBody: e ? e.body : '', errLink: e ? e.link : '', errHref: e ? e.href : '#s6', errColor: e ? e.color : 'var(--ink)'
+};
+}
+}
+</script>
+</body>
+</html>

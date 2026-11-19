@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Grammar Wiki nhóm 6 bài 1</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--accentH:#0B5953;--link:#0B5953;--mark:#8A4B08;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EDF3F1;--off:#E7E2D6}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--accentH:#11254A;--link:#1A3561;--mark:#8A1C1C;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EEF0F5;--off:#E8E2D5}
+a{color:var(--link)}a:hover{color:var(--ink)}
+.sf{font-family:'Source Serif 4',Georgia,serif}
+.kick{margin:0;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)}
+.h2s{margin:0 0 6px;font-family:'Source Serif 4',Georgia,serif;font-size:24px;font-weight:600}
+.lead{margin:0 0 16px;font-size:14px;color:var(--muted);max-width:110ch}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border:1px solid var(--ink);border-radius:2px;background:var(--surface);color:var(--ink);font:600 15px 'Source Sans 3',sans-serif;text-decoration:none;cursor:pointer;box-sizing:border-box}
+.btnp{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 20px;border:1px solid var(--accent);border-radius:2px;background:var(--accent);color:var(--surface);font:600 15px 'Source Sans 3',sans-serif;text-decoration:none;cursor:pointer;box-sizing:border-box}
+.body{font-family:'Source Serif 4',Georgia,serif;font-size:18px;line-height:29px}
+.body p{margin:0 0 14px}
+.h2a{margin:0 0 10px;font-family:'Source Serif 4',Georgia,serif;font-size:26px;font-weight:600;line-height:1.25}
+.h2a span{color:var(--muted);font-variant-numeric:tabular-nums}
+.h3a{margin:16px 0 4px;font-family:'Source Sans 3',sans-serif;font-size:16px;font-weight:600}
+.sup{font:600 12px 'Source Sans 3',sans-serif;color:var(--accent)}
+.note{margin:0;padding-top:8px;border-top:1px solid var(--rule);font-size:14px;line-height:1.5;color:var(--muted)}
+.cap{margin:8px 0 0;font-size:14px;line-height:1.5;color:var(--muted)}
+.fig{margin:6px 0 4px;padding:18px 20px 16px;border:1px solid var(--rule);background:var(--surface)}
+.tag{display:block;font:600 11px 'Source Sans 3',sans-serif;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);text-align:center;white-space:nowrap}
+.ch{display:flex;align-items:center;justify-content:center;box-sizing:border-box;height:38px;padding:0 8px;font-family:'Source Serif 4',Georgia,serif;font-size:20px;white-space:nowrap;color:var(--ink)}
+.rS{border:1.5px solid var(--ink)}
+.rV{border-bottom:4px double var(--accent);color:var(--accent);font-weight:600}
+.rO{border:1.5px dashed var(--ink)}
+.rC{border:1.5px dotted var(--ink)}
+.rA{color:var(--muted)}
+.rX{border:1.5px dashed var(--muted);color:var(--muted)}
+.cell{display:flex;flex-direction:column;align-items:center;gap:4px}
+.tb{width:100%;border-collapse:collapse;font-family:'Source Sans 3',sans-serif;font-size:16px;line-height:1.45}
+.tb th,.tb td{padding:5px 10px 5px 0;text-align:left;vertical-align:top;border-bottom:1px solid var(--rule)}
+.tb thead tr{border-top:2px solid var(--ink)}
+.tb thead th{border-bottom:1px solid var(--ink);font-weight:600}
+.tb tbody th{font-weight:600;color:var(--muted)}
+.tb caption{caption-side:bottom;text-align:left;padding-top:8px;font-size:14px;color:var(--muted)}
+.foot a{display:inline-flex;align-items:center;min-height:44px}
+.lab{font:600 13px 'Source Sans 3',sans-serif;letter-spacing:0.06em;text-transform:uppercase}
+.gr{display:grid;grid-template-columns:44px 236px 262px minmax(0,1fr) 52px 178px;column-gap:16px;padding:8px 0;border-bottom:1px solid var(--rule);font-size:14px;line-height:1.45}
+.gr>div{min-width:0}
+</style>
+</helmet>
+<div class="{{pal}}" style="width: 1280px; height: 5480px; box-sizing: border-box; padding: 40px 0; background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 16px; line-height: 1.5; display: flex; flex-direction: column; gap: 28px">
+<header style="padding: 0 64px">
+<p class="kick">Aver Learning · Bản in · đợt 8 · Thư viện công khai · Grammar Wiki</p>
+<h1 style="margin: 4px 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 40px; font-weight: 600; line-height: 1.15">Grammar Wiki · nhóm 6 · bài vẽ đủ 1: Because vs. Because of</h1>
+<p style="margin: 0; color: var(--muted); max-width: 112ch">Bài vẽ đủ thứ 1 trong hai bài khác loại của nhóm 6 · Ngữ pháp theo chức năng, theo khuôn <a href="GrammarWikiBai.dc.html">trang bài</a>. Nội dung rút gọn từ file Markdown thật; ví dụ tiếng Anh giữ nguyên văn. Bài còn lại (<span lang="en">Comparison</span>) ở tờ <a href="GrammarWikiNhom6-Bai2.dc.html">GrammarWikiNhom6-Bai2</a>; bảng tất cả bài, ba phần đầu và bản điện thoại ở tờ <a href="GrammarWikiNhom6.dc.html">GrammarWikiNhom6</a>.</p>
+</header>
+
+<section aria-labelledby="b1" style="border-top: 2px solid var(--ink); padding-top: 16px"><div style="padding: 0 64px"><h2 id="b1" class="h2s">Trang bài Because vs. Because of · máy tính 1280px · khách</h2><p class="lead">Bài đối chiếu hai cấu trúc: bảng hai cột trong Tóm tắt, Hình kiểu 1 hai hàng, kiểu 4 (đổi mệnh đề thành cụm danh từ) và kiểu 8. Mục lục trong bài 208px bên trái; cột chữ 640px; lề chú thích 224px. Bấm được: câu tự kiểm tra (chấm ngay) và nút nghe câu mẫu nếu có. Xem với tư cách khách (thanh công khai).</p></div>
+<div style="border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); background: var(--paper)">
+<header style="border-bottom: 1px solid var(--ink)">
+<div style="display: flex; align-items: stretch; gap: 36px; height: 63px; padding: 0 32px">
+<a href="TrangChuCongKhai.dc.html" class="sf" style="display: inline-flex; align-items: center; gap: 9px; align-self: center; font-size: 22px; font-weight: 600; color: var(--ink); text-decoration: none"><svg width="29" height="29" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</a>
+<nav aria-label="Điều hướng công khai" style="display: flex; gap: 28px; flex-grow: 1">
+<a href="ThuVien.dc.html" aria-current="page" style="display: flex; align-items: center; padding-top: 3px; border-bottom: 3px solid var(--accent); color: var(--ink); font-weight: 600; text-decoration: none">Thư viện</a>
+<a href="DanhMucKhoa.dc.html" style="display: flex; align-items: center; padding-top: 3px; border-bottom: 3px solid transparent; color: var(--muted); text-decoration: none">Khoá học</a>
+</nav>
+<div style="display: flex; align-items: center; gap: 20px">
+<a href="TaiKhoanDangNhap.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; color: var(--ink); font-weight: 600">Đăng nhập</a>
+<a href="DanhMucKhoa.dc.html" class="btnp">Xem các khoá</a>
+</div>
+</div>
+</header>
+<main style="max-width: 1216px; margin: 0 auto; padding: 20px 32px 24px">
+<nav aria-label="Vị trí trang" style="font-size: 14px; color: var(--muted)"><a href="ThuVien.dc.html">Thư viện</a> › <a href="GrammarWiki.dc.html">Grammar Wiki</a> › <a href="GrammarWiki.dc.html">6 · Ngữ pháp theo chức năng</a> › <span aria-current="page" style="color: var(--ink)" lang="en">Because vs. Because of</span></nav>
+<div style="display: grid; grid-template-columns: 208px minmax(0, 1fr); column-gap: 40px; margin-top: 20px; align-items: start">
+<nav aria-label="Trong bài này" style="position: sticky; top: 24px; border-top: 2px solid var(--ink); padding-top: 10px">
+<p class="kick" style="font-weight: 600; margin-bottom: 6px">Trong bài này</p>
+<ol style="margin: 0; padding: 0; list-style: none; font-size: 15px"><li><a href="#a-s0" aria-current="location" style="display: flex; gap: 8px; align-items: baseline; min-height: 36px; box-sizing: border-box; padding: 7px 0 7px 11px; border-left: 3px solid var(--accent); color: var(--ink); font-weight: 600; text-decoration: none; line-height: 1.35"><span style="width: 14px; flex-shrink: 0; font-variant-numeric: tabular-nums">·</span><span>Tóm tắt</span></a></li><li><a href="#a-s1" aria-current="false" style="display: flex; gap: 8px; align-items: baseline; min-height: 36px; box-sizing: border-box; padding: 7px 0 7px 11px; border-left: 3px solid transparent; color: var(--muted); font-weight: 400; text-decoration: none; line-height: 1.35"><span style="width: 14px; flex-shrink: 0; font-variant-numeric: tabular-nums">1</span><span>BECAUSE + mệnh đề</span></a></li><li><a href="#a-s2" aria-current="false" style="display: flex; gap: 8px; align-items: baseline; min-height: 36px; box-sizing: border-box; padding: 7px 0 7px 11px; border-left: 3px solid transparent; color: var(--muted); font-weight: 400; text-decoration: none; line-height: 1.35"><span style="width: 14px; flex-shrink: 0; font-variant-numeric: tabular-nums">2</span><span>BECAUSE OF + cụm danh từ</span></a></li><li><a href="#a-s3" aria-current="false" style="display: flex; gap: 8px; align-items: baseline; min-height: 36px; box-sizing: border-box; padding: 7px 0 7px 11px; border-left: 3px solid transparent; color: var(--muted); font-weight: 400; text-decoration: none; line-height: 1.35"><span style="width: 14px; flex-shrink: 0; font-variant-numeric: tabular-nums">3</span><span>Chuyển đổi giữa hai cấu trúc</span></a></li><li><a href="#a-s4" aria-current="false" style="display: flex; gap: 8px; align-items: baseline; min-height: 36px; box-sizing: border-box; padding: 7px 0 7px 11px; border-left: 3px solid transparent; color: var(--muted); font-weight: 400; text-decoration: none; line-height: 1.35"><span style="width: 14px; flex-shrink: 0; font-variant-numeric: tabular-nums">4</span><span>Các cấu trúc nguyên nhân khác</span></a></li><li><a href="#a-s5" aria-current="false" style="display: flex; gap: 8px; align-items: baseline; min-height: 36px; box-sizing: border-box; padding: 7px 0 7px 11px; border-left: 3px solid transparent; color: var(--muted); font-weight: 400; text-decoration: none; line-height: 1.35"><span style="width: 14px; flex-shrink: 0; font-variant-numeric: tabular-nums">5</span><span>Lỗi thường gặp</span></a></li><li><a href="#a-s6" aria-current="false" style="display: flex; gap: 8px; align-items: baseline; min-height: 36px; box-sizing: border-box; padding: 7px 0 7px 11px; border-left: 3px solid transparent; color: var(--muted); font-weight: 400; text-decoration: none; line-height: 1.35"><span style="width: 14px; flex-shrink: 0; font-variant-numeric: tabular-nums">6</span><span>Ứng dụng trong IELTS</span></a></li><li><a href="#a-s7" aria-current="false" style="display: flex; gap: 8px; align-items: baseline; min-height: 36px; box-sizing: border-box; padding: 7px 0 7px 11px; border-left: 3px solid transparent; color: var(--muted); font-weight: 400; text-decoration: none; line-height: 1.35"><span style="width: 14px; flex-shrink: 0; font-variant-numeric: tabular-nums">7</span><span>Tự kiểm tra</span></a></li><li><a href="#a-s8" aria-current="false" style="display: flex; gap: 8px; align-items: baseline; min-height: 36px; box-sizing: border-box; padding: 7px 0 7px 11px; border-left: 3px solid transparent; color: var(--muted); font-weight: 400; text-decoration: none; line-height: 1.35"><span style="width: 14px; flex-shrink: 0; font-variant-numeric: tabular-nums">8</span><span>Bài liên quan</span></a></li></ol>
+<div style="margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--rule); font-size: 14px; color: var(--muted)">
+<p style="margin: 0 0 6px">Bài 6.6 trong nhóm <a href="GrammarWiki.dc.html">6 · Ngữ pháp theo chức năng</a></p>
+<p style="margin: 0">Nên đọc trước: <a href="GrammarWikiBai.dc.html" lang="en">Conjunctions</a>, <a href="GrammarWikiBai.dc.html" lang="en">Sentence Elements</a>, <a href="GrammarWikiBai.dc.html" lang="en">Complex Sentence</a></p>
+</div>
+</nav>
+<article aria-label="Because vs. Because of" style="min-width: 0">
+<div style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px">
+<header style="padding-bottom: 14px; border-bottom: 1px solid var(--ink)">
+<p class="kick">Grammar Wiki · 6 · Ngữ pháp theo chức năng · bài 6.6</p>
+<h1 class="sf" style="margin: 6px 0 2px; font-size: 40px; font-weight: 600; line-height: 1.12" lang="en">Because vs. Because of</h1>
+<p class="sf" style="margin: 0 0 10px; font-size: 23px; line-height: 1.3; color: var(--muted)">Liên từ hay Giới từ?</p>
+<p style="margin: 0; font-size: 14px; color: var(--muted)">Trình độ trung cấp · đọc khoảng XXX phút · cập nhật 19/04/2026 · dùng nhiều trong Speaking và Writing</p>
+</header>
+<div style="display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; padding-bottom: 14px; border-bottom: 1px solid var(--rule)"><p style="margin: 0; font-size: 14px; color: var(--muted)"><a href="TaiKhoanDangNhap.dc.html">Đăng nhập</a> để lưu bài và đánh dấu đã đọc.</p></div>
+</div>
+<div id="a-s0" style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px; padding-top: 16px">
+<div style="padding: 12px 0 14px; border-bottom: 1px solid var(--rule)">
+<p class="lab" style="margin: 0 0 4px; color: var(--accent)">Tóm tắt</p>
+<p class="body" style="margin: 0 0 10px">Hai cấu trúc, một quy tắc đơn giản: <em lang="en">because</em> nối một <strong>mệnh đề</strong>, <em lang="en">because of</em> nối một <strong>cụm danh từ</strong>.<sup class="sup">1</sup></p><table class="tb" style="margin-bottom: 14px"><caption><strong style="color: var(--ink)">Bảng 1.</strong> Bảng Tóm tắt của bài.</caption><thead><tr><th scope="col" style="width: 110px"></th><th scope="col" style="width: 240px">BECAUSE</th><th scope="col">BECAUSE OF</th></tr></thead><tbody><tr><th scope="row">Theo sau là</th><td>Mệnh đề (subject + verb)</td><td>Cụm danh từ (noun, noun phrase)</td></tr><tr><th scope="row">Loại từ</th><td>Liên từ (conjunction)</td><td>Giới từ kép (preposition)</td></tr><tr><th scope="row">Ví dụ</th><td>because it <strong>rained</strong></td><td>because of the <strong>rain</strong></td></tr></tbody></table>
+</div>
+<aside style="padding-top: 12px"><p class="note"><strong style="color: var(--accent)">1</strong> Lỗi rất phổ biến trong IELTS Writing: viết <em lang="en">because of it rained</em> (giới từ + mệnh đề) hoặc <em lang="en">because the heavy rain</em> (liên từ + cụm danh từ).</p></aside>
+</div>
+<div id="a-s1" style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px; padding-top: 18px">
+<div class="body">
+<h2 class="h2a"><span>1</span>&nbsp;&nbsp;BECAUSE + mệnh đề</h2>
+<p><em lang="en">Because</em> là <strong>liên từ</strong>: nó nối hai mệnh đề.</p><p lang="en" style="margin: 0 0 14px; padding: 10px 0; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); font-family: 'Source Sans 3', sans-serif; font-size: 18px; font-weight: 600; text-align: center">[Main clause] + because + [subject] + [verb] + …</p><ul lang="en" style="margin: 0 0 14px; padding: 0; list-style: none; border-top: 1px solid var(--rule)"><li style="padding: 5px 0; border-bottom: 1px solid var(--rule); font-size: 17px; line-height: 1.5">He failed the exam <strong>because</strong> he <strong>didn't</strong> study.</li><li style="padding: 5px 0; border-bottom: 1px solid var(--rule); font-size: 17px; line-height: 1.5">The event was cancelled <strong>because</strong> it <strong>rained</strong> heavily.</li><li style="padding: 5px 0; border-bottom: 1px solid var(--rule); font-size: 17px; line-height: 1.5"><strong>Because</strong> she <strong>was</strong> tired, she went to bed early.</li></ul>
+</div>
+<aside style="display: flex; flex-direction: column; justify-content: flex-end; gap: 6px"><p class="note"><strong style="color: var(--accent)">2</strong> <em lang="en">Because</em> đứng đầu câu là đúng, miễn câu có đủ mệnh đề chính. Chỉ tránh viết riêng "Because + mệnh đề." thành một câu (câu cụt).</p></aside>
+</div>
+<div id="a-s2" style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px; padding-top: 18px">
+<div class="body">
+<h2 class="h2a"><span>2</span>&nbsp;&nbsp;BECAUSE OF + cụm danh từ</h2>
+<p><em lang="en">Because of</em> là <strong>giới từ kép</strong>: theo sau là danh từ hoặc cụm danh từ.</p><p lang="en" style="margin: 0 0 14px; padding: 10px 0; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); font-family: 'Source Sans 3', sans-serif; font-size: 18px; font-weight: 600; text-align: center">[Main clause] + because of + [noun phrase]</p><ul lang="en" style="margin: 0 0 14px; padding: 0; list-style: none; border-top: 1px solid var(--rule)"><li style="padding: 5px 0; border-bottom: 1px solid var(--rule); font-size: 17px; line-height: 1.5">He failed the exam <strong>because of</strong> his <strong>lack of preparation</strong>.</li><li style="padding: 5px 0; border-bottom: 1px solid var(--rule); font-size: 17px; line-height: 1.5">The event was cancelled <strong>because of</strong> the <strong>heavy rain</strong>.</li><li style="padding: 5px 0; border-bottom: 1px solid var(--rule); font-size: 17px; line-height: 1.5"><strong>Because of</strong> rising <strong>costs</strong>, many businesses had to close.</li></ul><figure style="margin: 14px 0 0"><div class="fig" role="img" aria-label="Hình 1. Hai hàng cùng một ý. Hàng trên: She stayed home because she was sick, sau because là mệnh đề có chủ ngữ she và động từ was. Hàng dưới: She stayed home because of her illness, sau because of là một cụm danh từ.">
+<div style="display: flex; flex-direction: column; gap: 14px" lang="en">
+<div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 8px">
+<div class="cell"><span class="tag">S</span><span class="ch rS" style="font-size: 18px; height: 36px">She</span></div>
+<div class="cell"><span class="tag" style="color: var(--accent)">V</span><span class="ch rV" style="font-size: 18px; height: 36px">stayed</span></div>
+<div class="cell"><span class="tag">A</span><span class="ch rA" style="font-size: 18px; height: 36px">[ home ]</span></div>
+<div class="cell"><span class="tag">liên từ</span><span class="ch" style="font-size: 18px; height: 36px">because</span></div>
+<div class="cell"><span class="tag">S</span><span class="ch rS" style="font-size: 18px; height: 36px">she</span></div>
+<div class="cell"><span class="tag" style="color: var(--accent)">V</span><span class="ch rV" style="font-size: 18px; height: 36px">was</span></div>
+<div class="cell"><span class="tag">C</span><span class="ch rC" style="font-size: 18px; height: 36px">sick</span></div>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 8px">
+<div class="cell"><span class="tag">S</span><span class="ch rS" style="font-size: 18px; height: 36px">She</span></div>
+<div class="cell"><span class="tag" style="color: var(--accent)">V</span><span class="ch rV" style="font-size: 18px; height: 36px">stayed</span></div>
+<div class="cell"><span class="tag">A</span><span class="ch rA" style="font-size: 18px; height: 36px">[ home ]</span></div>
+<div class="cell"><span class="tag">giới từ kép</span><span class="ch" style="font-size: 18px; height: 36px">because of</span></div>
+<div class="cell"><span class="tag">cụm danh từ</span><span class="ch rO" style="font-size: 18px; height: 36px">her illness</span></div>
+</div>
+</div>
+<p style="margin: 12px 0 0; padding-top: 8px; border-top: 1px dashed var(--rule); font-family: 'Source Sans 3', sans-serif; font-size: 14px; line-height: 1.5; color: var(--muted)">Hàng trên: sau <em lang="en">because</em> có đủ S + V. Hàng dưới: sau <em lang="en">because of</em> chỉ có một khối, không có động từ.</p>
+</div></figure>
+</div>
+<aside style="display: flex; flex-direction: column; justify-content: flex-end; gap: 6px"><p class="note"><strong style="color: var(--ink)">Hình 1.</strong> Cùng một nguyên nhân, hai cách nối. Đếm khối sau từ nối: có khung S và gạch đôi V thì là <em lang="en">because</em>; chỉ một khung danh từ thì là <em lang="en">because of</em>.</p><p class="cap">Nguồn: Aver Learning biên soạn.</p></aside>
+</div>
+<div id="a-s3" style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px; padding-top: 18px">
+<div class="body">
+<h2 class="h2a"><span>3</span>&nbsp;&nbsp;Chuyển đổi giữa hai cấu trúc</h2>
+<p>Khi có động từ, chuyển nó thành danh từ tương ứng.</p><figure style="margin: 14px 0 0"><div class="fig" role="img" aria-label="Hình 2. Câu Because traffic was congested, we missed the train chuyển thành Because of the traffic congestion, we missed the train. Chủ ngữ traffic và cụm was congested gộp thành cụm danh từ the traffic congestion; mệnh đề chính giữ nguyên.">
+<div style="position: relative; width: 596px; height: 236px" lang="en">
+<span class="lab" style="position: absolute; left: 0; top: 0; color: var(--muted); font-size: 11px" lang="vi">Because + mệnh đề</span>
+<div style="position: absolute; left: 0; top: 18px; display: flex; gap: 12px"><div style="width: 96px"><span class="tag">liên từ</span><span class="ch " style="margin-top: 4px">Because</span></div><div style="width: 96px"><span class="tag">S</span><span class="ch rS" style="margin-top: 4px">traffic</span></div><div style="width: 160px"><span class="tag" style="color: var(--accent)">V + tính từ</span><span class="ch rV" style="margin-top: 4px">was congested</span></div><div style="width: 196px"><span class="tag">mệnh đề chính</span><span class="ch " style="margin-top: 4px">we missed the train.</span></div></div>
+<svg aria-hidden="true" viewBox="0 0 596 70" style="position: absolute; left: 0; top: 80px; width: 596px; height: 70px">
+<defs><marker id="ah4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--ink)"></path></marker></defs>
+<path d="M156 4 C 156 38, 245 30, 245 64" fill="none" stroke="var(--ink)" stroke-width="1.6" marker-end="url(#ah4)"></path>
+<text x="164" y="18" font-family="'Source Sans 3', sans-serif" font-size="13" font-weight="600" fill="var(--ink)">1</text>
+<path d="M296 4 C 296 38, 245 30, 245 64" fill="none" stroke="var(--accent)" stroke-width="1.6" marker-end="url(#ah4)"></path>
+<text x="280" y="18" font-family="'Source Sans 3', sans-serif" font-size="13" font-weight="600" fill="var(--accent)">2</text>
+<path d="M486 4 L 472 64" fill="none" stroke="var(--muted)" stroke-width="1" marker-end="url(#ah4)"></path>
+<text x="487" y="38" font-family="'Source Sans 3', sans-serif" font-size="12" fill="var(--muted)">giữ chỗ</text>
+</svg>
+<div style="position: absolute; left: 0; top: 152px; display: flex; gap: 12px"><div style="width: 116px"><span class="ch ">Because of</span><span class="tag" style="margin-top: 4px">giới từ kép</span></div><div style="width: 234px"><span class="ch rO">the traffic congestion</span><span class="tag" style="margin-top: 4px">cụm danh từ</span></div><div style="width: 196px"><span class="ch ">we missed the train.</span><span class="tag" style="margin-top: 4px">mệnh đề chính</span></div></div>
+<span class="lab" style="position: absolute; right: 0; top: 0; color: var(--muted); font-size: 11px" lang="vi">Because of + cụm danh từ ↓</span>
+</div>
+</div></figure><div style="height: 14px"></div><table class="tb" style="margin-bottom: 14px"><caption><strong style="color: var(--ink)">Bảng 2.</strong> Trích 5 trong 12 cặp ở hai bảng "so sánh trực tiếp" và "chuyển đổi" của bài.</caption><thead><tr><th scope="col" style="width: 300px">BECAUSE (+ clause)</th><th scope="col">BECAUSE OF (+ noun phrase)</th></tr></thead><tbody><tr><th scope="row" lang="en">because she <strong>was</strong> ill</th><td lang="en">because of her <strong>illness</strong></td></tr><tr><th scope="row" lang="en">because prices <strong>increased</strong></th><td lang="en">because of the <strong>price increase</strong></td></tr><tr><th scope="row" lang="en">because he <strong>arrived</strong> late</th><td lang="en">because of his <strong>late arrival</strong></td></tr><tr><th scope="row" lang="en">because they <strong>refused</strong></th><td lang="en">because of their <strong>refusal</strong></td></tr><tr><th scope="row" lang="en">because demand <strong>fell</strong></th><td lang="en">because of <strong>falling demand</strong></td></tr></tbody></table>
+</div>
+<aside style="display: flex; flex-direction: column; justify-content: flex-start; gap: 6px"><p class="note"><strong style="color: var(--ink)">Hình 2.</strong> Đổi mệnh đề thành cụm danh từ.</p><ol style="margin: 8px 0 0; padding: 0; list-style: none; font-size: 14px; line-height: 1.5; color: var(--muted); display: flex; flex-direction: column; gap: 4px"><li><strong style="color: var(--ink)">1</strong> Chủ ngữ <span lang="en">traffic</span> vào trong cụm danh từ.</li><li><strong style="color: var(--accent)">2</strong> <span lang="en">was congested</span> thành danh từ <span lang="en">congestion</span>.</li></ol><p class="cap">Mệnh đề chính không đổi. Nguồn: Aver Learning biên soạn.</p></aside>
+</div>
+<div id="a-s4" style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px; padding-top: 18px">
+<div class="body">
+<h2 class="h2a"><span>4</span>&nbsp;&nbsp;Các cấu trúc nguyên nhân khác</h2>
+<p>Khi viết IELTS, tránh lặp <em lang="en">because / because of</em>.</p><table class="tb" style="margin-bottom: 14px"><caption><strong style="color: var(--ink)">Bảng 3.</strong> Theo sau là cụm danh từ (giống because of).</caption><thead><tr><th scope="col" style="width: 150px">Cấu trúc</th><th scope="col">Ví dụ</th></tr></thead><tbody><tr><th scope="row" lang="en">due to</th><td lang="en">The delay was <strong>due to</strong> bad weather.</td></tr><tr><th scope="row" lang="en">owing to</th><td lang="en"><strong>Owing to</strong> staff shortages, the service suffered.</td></tr><tr><th scope="row" lang="en">as a result of</th><td lang="en"><strong>As a result of</strong> the recession, unemployment rose.</td></tr></tbody></table><table class="tb" style="margin-bottom: 14px"><caption><strong style="color: var(--ink)">Bảng 4.</strong> Theo sau là mệnh đề (giống because).</caption><thead><tr><th scope="col" style="width: 150px">Cấu trúc</th><th scope="col">Ví dụ</th></tr></thead><tbody><tr><th scope="row" lang="en">since</th><td lang="en"><strong>Since</strong> prices rose, many consumers cut back.</td></tr><tr><th scope="row" lang="en">as</th><td lang="en"><strong>As</strong> the economy weakened, spending fell.</td></tr><tr><th scope="row" lang="en">given that</th><td lang="en"><strong>Given that</strong> resources are limited, priorities must be set.</td></tr></tbody></table>
+</div>
+<aside style="display: flex; flex-direction: column; justify-content: flex-end; gap: 6px"><p class="note"><strong style="color: var(--accent)">3</strong> Mức trang trọng: <em lang="en">since / as</em> trung tính, hay gặp trong văn học thuật; <em lang="en">due to</em> rất trang trọng; <em lang="en">because</em> phổ biến nhất, hợp cả nói và viết.</p></aside>
+</div>
+<div id="a-s5" style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px; padding-top: 18px">
+<div class="body">
+<h2 class="h2a"><span>5</span>&nbsp;&nbsp;Lỗi thường gặp</h2>
+<p>Tiếng Việt chỉ có "vì / bởi vì" cho cả danh từ lẫn mệnh đề, nên người học hay viết <em lang="en">because of</em> + mệnh đề hoặc <em lang="en">because</em> + danh từ.</p><figure style="margin: 14px 0 0"><div class="fig" role="img" aria-label="Hình 3. Ba cặp sai và đúng. because of she was tired sửa thành because she was tired. because bad weather sửa thành because of bad weather. due to the storm was severe sửa thành due to the severe storm.">
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px">
+<p class="lab" style="margin: 0 0 6px; color: var(--danger)">Sai</p>
+<p class="lab" style="margin: 0 0 6px; color: var(--ok)">Đúng</p>
+<p lang="en" class="sf" style="margin: 0; padding: 10px 0; border-top: 1.5px solid var(--danger); font-size: 18px; line-height: 1.5">She left early <span style="padding: 0 3px; border: 1.5px dashed var(--danger); text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px; white-space: nowrap">because of</span> she was tired.</p>
+<p lang="en" class="sf" style="margin: 0; padding: 10px 0; border-top: 1.5px solid var(--ok); font-size: 18px; line-height: 1.5">She left early <span style="padding: 0 3px; border-bottom: 4px double var(--ok); font-weight: 600; white-space: nowrap">because</span> she was tired.</p>
+<p style="grid-column: span 2; margin: 0 0 12px; font: 14px/1.5 'Source Sans 3', sans-serif; color: var(--muted)"><span class="lab" style="color: var(--muted)">Vì sao&nbsp;&nbsp;</span><em lang="en">because of</em> + mệnh đề. Cũng đúng: <em lang="en">because of her tiredness</em>.</p>
+<p lang="en" class="sf" style="margin: 0; padding: 10px 0; border-top: 1.5px solid var(--danger); font-size: 18px; line-height: 1.5">The match was delayed <span style="padding: 0 3px; border: 1.5px dashed var(--danger); text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px; white-space: nowrap">because</span> bad weather.</p>
+<p lang="en" class="sf" style="margin: 0; padding: 10px 0; border-top: 1.5px solid var(--ok); font-size: 18px; line-height: 1.5">The match was delayed <span style="padding: 0 3px; border-bottom: 4px double var(--ok); font-weight: 600; white-space: nowrap">because of</span> bad weather.</p>
+<p style="grid-column: span 2; margin: 0 0 12px; font: 14px/1.5 'Source Sans 3', sans-serif; color: var(--muted)"><span class="lab" style="color: var(--muted)">Vì sao&nbsp;&nbsp;</span><em lang="en">because</em> + cụm danh từ. Cũng đúng: <em lang="en">because the weather was bad</em>.</p>
+<p lang="en" class="sf" style="margin: 0; padding: 10px 0; border-top: 1.5px solid var(--danger); font-size: 18px; line-height: 1.5">The flight was cancelled due to <span style="padding: 0 3px; border: 1.5px dashed var(--danger); text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px; white-space: nowrap">the storm was severe</span>.</p>
+<p lang="en" class="sf" style="margin: 0; padding: 10px 0; border-top: 1.5px solid var(--ok); font-size: 18px; line-height: 1.5">The flight was cancelled due to <span style="padding: 0 3px; border-bottom: 4px double var(--ok); font-weight: 600; white-space: nowrap">the severe storm</span>.</p>
+<p style="grid-column: span 2; margin: 0; font: 14px/1.5 'Source Sans 3', sans-serif; color: var(--muted)"><span class="lab" style="color: var(--muted)">Vì sao&nbsp;&nbsp;</span><em lang="en">due to</em> cũng cần cụm danh từ.</p>
+</div>
+</div></figure><div style="height: 14px"></div><p><strong>Lưu ý:</strong> <em lang="en">because of</em> + V-ing đúng ngữ pháp nhưng hơi cứng (<em lang="en">He succeeded because of working hard</em>); cụm danh từ tự nhiên hơn (<em lang="en">because of his hard work</em>).</p>
+</div>
+<aside style="display: flex; flex-direction: column; justify-content: flex-end; gap: 6px"><p class="note"><strong style="color: var(--ink)">Hình 3.</strong> Ba lỗi của bài. Chỗ sai có thể là từ nối (hai cặp đầu) hoặc phần đứng sau nó (cặp thứ ba); dòng "Vì sao" ghi thêm cách sửa thứ hai mà bài nêu.</p><p class="cap">Nguồn: Aver Learning biên soạn.</p></aside>
+</div>
+<div id="a-s6" style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px; padding-top: 18px">
+<div class="body">
+<h2 class="h2a"><span>6</span>&nbsp;&nbsp;Ứng dụng trong IELTS</h2>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 28px; font-family: 'Source Sans 3', sans-serif; font-size: 16px; line-height: 1.5; margin-bottom: 14px"><div style="border-top: 1px solid var(--ink); padding-top: 8px"><h3 class="h3a" style="margin-top: 0px">Writing Task 1 · mô tả xu hướng</h3><p lang="en" class="sf" style="margin: 0 0 6px; font-size: 17px; line-height: 1.5">The decline in public transport use was partly <strong>due to</strong> rising fares.</p><h3 class="h3a" style="margin-top: 12px">Writing Task 2 · phân tích nguyên nhân</h3><p lang="en" class="sf" style="margin: 0 0 6px; font-size: 17px; line-height: 1.5">Many young people are unemployed <strong>because</strong> they <strong>lack</strong> practical skills.</p><p lang="en" class="sf" style="margin: 0 0 6px; font-size: 17px; line-height: 1.5"><strong>Because of</strong> the high cost of living, young adults are delaying marriage.</p></div><div style="border-top: 1px solid var(--ink); padding-top: 8px"><h3 class="h3a" style="margin-top: 0px">Speaking Part 3 · giải thích lý do</h3><p lang="en" class="sf" style="margin: 0 0 6px; font-size: 17px; line-height: 1.5">I think people prefer city life <strong>because</strong> there are more job opportunities.</p><p lang="en" class="sf" style="margin: 0 0 6px; font-size: 17px; line-height: 1.5"><strong>Because of</strong> social media, young people feel more pressure about their appearance.</p></div></div>
+</div>
+<aside style="display: flex; flex-direction: column; justify-content: flex-end; gap: 6px"><p class="note"><strong style="color: var(--accent)">4</strong> Task 1: chỉ nêu nguyên nhân khi đề bài cho thông tin đó. Nếu biểu đồ chỉ cho xu hướng thì viết <em lang="en">Sales increased.</em> và dừng.</p></aside>
+</div>
+<div id="a-s7" style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px; padding-top: 18px">
+<div class="body">
+<h2 class="h2a"><span>7</span>&nbsp;&nbsp;Tự kiểm tra</h2>
+<p style="font-family: 'Source Sans 3', sans-serif; font-size: 16px; line-height: 1.5; color: var(--muted)">Bốn câu lấy từ mục "Bài tập luyện" của bài. Chấm ngay trên trang, không cần tài khoản, không lưu kết quả.</p>
+<ol style="margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--ink)">
+<sc-for list="{{qz.a.items}}" as="q" hint-placeholder-count="3">
+<li style="padding: 10px 0; border-bottom: 1px solid var(--rule)">
+<p style="margin: 0 0 6px"><span style="font-family: 'Source Sans 3', sans-serif; color: var(--muted)">{{q.n}}.&nbsp;</span><span style="font-family: 'Source Sans 3', sans-serif; font-size: 16px">{{q.ask}}</span><br><span lang="en">{{q.prompt}}</span></p>
+<div role="radiogroup" aria-label="{{q.aria}}" style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{q.opts}}" as="o" hint-placeholder-count="3">
+<button role="radio" aria-checked="{{o.on}}" onClick="{{o.pick}}" lang="en" style="display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border: 1px solid {{o.bd}}; border-radius: 2px; background: {{o.bg}}; color: var(--ink); font: 400 17px 'Source Serif 4', Georgia, serif; cursor: pointer">{{o.t}}<span style="font: 600 12px 'Source Sans 3', sans-serif; letter-spacing: 0.06em; text-transform: uppercase; color: {{o.tagc}}">{{o.tag}}</span></button>
+</sc-for>
+</div>
+<sc-if value="{{q.done}}" hint-placeholder-val="{{ false }}"><p style="margin: 8px 0 0; font-family: 'Source Sans 3', sans-serif; font-size: 16px; line-height: 1.5"><strong style="color: {{q.resc}}">{{q.res}}</strong> {{q.why}}</p></sc-if>
+</li>
+</sc-for>
+</ol>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin-top: 12px; font-family: 'Source Sans 3', sans-serif; font-size: 16px">
+<button onClick="{{qz.a.check}}" class="btnp">Kiểm tra</button>
+<button onClick="{{qz.a.reset}}" class="btn">Làm lại</button>
+<span aria-live="polite" style="color: {{qz.a.msgc}}">{{qz.a.msg}}</span>
+</div>
+</div>
+<aside style="display: flex; flex-direction: column; justify-content: flex-end; gap: 6px"><p class="note"><strong style="color: var(--accent)">5</strong> <strong>Kiểm tra nhanh:</strong> sau từ nối là mệnh đề đầy đủ thì dùng <em lang="en">because</em>; là cụm danh từ hoặc V-ing thì dùng <em lang="en">because of</em>. Động từ nằm trong mệnh đề quan hệ của cụm danh từ không quyết định lựa chọn.</p></aside>
+</div>
+<div id="a-s8" style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px; padding-top: 18px"><div><h2 class="h2a"><span>8</span>&nbsp;&nbsp;Bài liên quan</h2><div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 24px"><div style="border-top: 1px solid var(--ink); padding-top: 8px"><p class="kick" style="font-size: 12px">Nên đọc trước</p><ul style="margin: 4px 0 0; padding: 0; list-style: none"><li style="padding: 5px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="sf" style="font-size: 16px; color: var(--ink); text-decoration-color: var(--rule); text-underline-offset: 4px">Conjunctions</a><span style="display: block; font-size: 14px; color: var(--muted)">Liên từ</span></li><li style="padding: 5px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="sf" style="font-size: 16px; color: var(--ink); text-decoration-color: var(--rule); text-underline-offset: 4px">Complex Sentence</a><span style="display: block; font-size: 14px; color: var(--muted)">Câu phức</span></li><li style="padding: 5px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="sf" style="font-size: 16px; color: var(--ink); text-decoration-color: var(--rule); text-underline-offset: 4px">Prepositions</a><span style="display: block; font-size: 14px; color: var(--muted)">Giới từ</span></li></ul></div><div style="border-top: 1px solid var(--ink); padding-top: 8px"><p class="kick" style="font-size: 12px">So sánh với</p><ul style="margin: 4px 0 0; padding: 0; list-style: none"><li style="padding: 5px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="sf" style="font-size: 16px; color: var(--ink); text-decoration-color: var(--rule); text-underline-offset: 4px">Despite vs. In spite of</a><span style="display: block; font-size: 14px; color: var(--muted)">Dù cho, mặc dù</span></li><li style="padding: 5px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="sf" style="font-size: 16px; color: var(--ink); text-decoration-color: var(--rule); text-underline-offset: 4px">Discourse Markers</a><span style="display: block; font-size: 14px; color: var(--muted)">Liên kết ý</span></li></ul></div><div style="border-top: 1px solid var(--ink); padding-top: 8px"><p class="kick" style="font-size: 12px">Cùng chủ đề, nhóm khác</p><ul style="margin: 4px 0 0; padding: 0; list-style: none"><li style="padding: 5px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="sf" style="font-size: 16px; color: var(--ink); text-decoration-color: var(--rule); text-underline-offset: 4px">Adding Reasons Clearly</a><span style="display: block; font-size: 14px; color: var(--muted)">IELTS Speaking Lab</span></li><li style="padding: 5px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="sf" style="font-size: 16px; color: var(--ink); text-decoration-color: var(--rule); text-underline-offset: 4px">Logical Connectors</a><span style="display: block; font-size: 14px; color: var(--muted)">Grammar for Reading</span></li></ul></div></div><p style="margin: 18px 0 0; padding: 12px 0; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule); font-size: 15px; color: var(--muted)">Chủ điểm này được dạy theo thứ tự, có bài tập và bài được AI chấm trong các khoá online. Học phí XXX · truy cập XXX. <a href="DanhMucKhoa.dc.html">Xem các khoá</a></p><nav aria-label="Bài trước và bài sau" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-top: 16px"><a href="GrammarWikiBai.dc.html" style="display: block; padding: 10px 0; border-top: 2px solid var(--ink); color: var(--ink); text-decoration: none"><span class="kick" style="font-size: 12px">‹ Bài trước · 6.5</span><span class="sf" lang="en" style="display: block; font-size: 20px; font-weight: 600">Hedging Language</span><span style="font-size: 14px; color: var(--muted)">Diễn đạt thận trọng</span></a><a href="GrammarWikiBai.dc.html" style="display: block; padding: 10px 0; border-top: 2px solid var(--ink); color: var(--ink); text-decoration: none; text-align: right"><span class="kick" style="font-size: 12px">Bài sau · 6.7 ›</span><span class="sf" lang="en" style="display: block; font-size: 20px; font-weight: 600">Despite vs. In spite of</span><span style="font-size: 14px; color: var(--muted)">Dù cho / Mặc dù</span></a></nav><p style="margin: 14px 0 0; font-size: 14px; color: var(--muted)">Nguồn: Aver Learning biên soạn. Cập nhật 19/04/2026.</p></div><aside></aside></div>
+</article>
+</div>
+</main>
+<footer style="padding: 16px 32px; border-top: 1px solid var(--ink)">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0 28px">
+<span class="sf" style="display: inline-flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 600; margin-right: 12px"><svg width="26" height="26" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="currentColor"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<nav aria-label="Chân trang" class="foot" style="display: flex; flex-wrap: wrap; gap: 0 24px">
+<a href="TrangChuCongKhai.dc.html">Giới thiệu</a><a href="DanhMucKhoa.dc.html">Khoá học</a><a href="ThuVien.dc.html">Thư viện</a><a href="HocVienNoiGi.dc.html">Học viên nói gì</a><a href="PhapLy.dc.html">Điều khoản</a><a href="PhapLy.dc.html">Quyền riêng tư</a><a href="PhapLy.dc.html">Liên hệ</a>
+</nav>
+</div>
+<p style="margin: 6px 0 0; font-size: 14px; color: var(--muted)">© 2026 Aver Learning. Bảo lưu mọi quyền.</p>
+</footer>
+</div>
+</section>
+
+<section aria-labelledby="b3" style="border-top: 2px solid var(--ink); padding: 16px 64px 0">
+<h2 id="b3" class="h2s">Ghi chú cho lập trình</h2>
+<p class="lead">Ghi chú đầy đủ cho nhóm ở tờ GrammarWikiNhom6. Ở đây chỉ ghi điều riêng của trang này. Bản điện thoại 390px của nhóm ở tờ GrammarWikiNhom6, mục 3.</p>
+<ul style="margin: 0; padding-left: 20px; font-size: 15px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 48px"><li><strong>Khối công thức:</strong> các khối mã ba dấu huyền trong Markdown (<em lang="en">[Main clause] + because + …</em>) dựng thành dải công thức có kẻ trên dưới, chữ Source Sans 3 đậm, căn giữa.</li><li><strong>"Tại sao quan trọng" và "Tóm tắt nhanh":</strong> mục đầu thành chú thích lề 1; mục sau trùng bảng Tóm tắt nên chỉ giữ phần "Kiểm tra nhanh" làm chú thích lề 5 cạnh Tự kiểm tra.</li><li><strong>Bảng so sánh và bảng chuyển đổi</strong> của bài cùng một dạng dữ liệu (cặp clause / noun phrase): gộp thành một bảng, có nút mở đủ 12 cặp.</li><li><strong>Chú thích Task 1:</strong> câu ví dụ có điều kiện "chỉ viết khi đề bài cho thông tin này" là nội dung bắt buộc giữ, đặt ở lề cạnh ví dụ.</li></ul>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Navy + đỏ mận","Xanh teal"],"default":"Navy + đỏ mận"},"$preview":{"width":1280,"height":5480}}'>
+class Component extends DCLogic {
+constructor(p) { super(p); this.state = { ans: {}, checked: {}, warn: {}, playing: '', phoneToc: false }; }
+renderVals() {
+const s = this.state || {};
+const QZ = {"a": [{"ask": "Chọn because hoặc because of.", "prompt": "She was promoted ____ her excellent performance.", "opts": ["because", "because of"], "right": 1, "why": "Theo sau là cụm danh từ (her excellent performance) nên dùng because of."}, {"ask": "Chọn because hoặc because of.", "prompt": "He couldn't attend ____ he was travelling abroad.", "opts": ["because", "because of"], "right": 0, "why": "Theo sau là mệnh đề có chủ ngữ và động từ (he was travelling)."}, {"ask": "Chọn because hoặc because of.", "prompt": "The project failed ____ a lack of funding.", "opts": ["because", "because of"], "right": 1, "why": "A lack of funding là cụm danh từ."}, {"ask": "Chọn because hoặc because of.", "prompt": "They cancelled the trip ____ heavy snow was forecast.", "opts": ["because", "because of"], "right": 0, "why": "Heavy snow was forecast là mệnh đề đầy đủ: có động từ was forecast."}], "b": [{"ask": "Chia dạng đúng của (tall).", "prompt": "He's ____ than his father.", "opts": ["taller", "more tall", "the tallest"], "right": 0, "why": "Tính từ một âm tiết thêm -er; không dùng more."}, {"ask": "Chia dạng đúng của (difficult).", "prompt": "The exam was ____ than I expected.", "opts": ["difficulter", "more difficult", "the most difficult"], "right": 1, "why": "Tính từ dài dùng more + tính từ + than."}, {"ask": "Chia dạng đúng của (challenging).", "prompt": "Of all the subjects, Maths is ____ for me.", "opts": ["more challenging", "the most challenging"], "right": 1, "why": "So trong cả nhóm (of all the subjects) thì dùng so sánh nhất."}, {"ask": "Chọn từ nhấn mạnh đúng.", "prompt": "He runs ____ faster than me.", "opts": ["very", "much"], "right": 1, "why": "Trước so sánh hơn dùng much / far, không dùng very."}]};
+const AU = [];
+const TG = [];
+const qz = {};
+Object.keys(QZ).forEach((k) => {
+const Q = QZ[k];
+const ans = (s.ans || {})[k] || {};
+const checked = !!(s.checked || {})[k];
+const setAns = (qi, oi) => this.setState({ ans: Object.assign({}, this.state.ans || {}, { [k]: Object.assign({}, ((this.state.ans || {})[k]) || {}, { [qi]: oi }) }), checked: Object.assign({}, this.state.checked || {}, { [k]: false }), warn: Object.assign({}, this.state.warn || {}, { [k]: 0 }) });
+const items = Q.map((q, qi) => {
+const chosen = ans[qi];
+const done = checked && chosen !== undefined;
+const ok = done && chosen === q.right;
+return { n: String(qi + 1), ask: q.ask, prompt: q.prompt, aria: 'Câu ' + (qi + 1), done, res: ok ? 'Chính xác.' : 'Chưa đúng.', resc: ok ? 'var(--ok)' : 'var(--danger)', why: q.why,
+opts: q.opts.map((t, oi) => {
+const on = chosen === oi;
+const showRight = done && oi === q.right;
+const showWrong = done && on && oi !== q.right;
+return { t, on: on ? 'true' : 'false', bd: showRight ? 'var(--ok)' : (showWrong ? 'var(--danger)' : (on ? 'var(--ink)' : 'var(--rule)')), bg: on ? 'var(--tint)' : 'var(--surface)', tag: showRight ? 'Đúng' : (showWrong ? 'Sai' : ''), tagc: showRight ? 'var(--ok)' : 'var(--danger)', pick: () => setAns(qi, oi) };
+}) };
+});
+const missing = Q.filter((q, i) => ans[i] === undefined).length;
+const nRight = Q.filter((q, i) => ans[i] === q.right).length;
+const warn = (s.warn || {})[k] || 0;
+let msg = ''; let msgc = 'var(--muted)';
+if (warn) { msg = 'Còn ' + warn + ' câu chưa chọn.'; msgc = 'var(--mark)'; }
+else if (checked) { msg = 'Đúng ' + nRight + ' trên ' + Q.length + ' câu.'; msgc = 'var(--ink)'; }
+qz[k] = { items, msg, msgc,
+check: () => { if (missing) { this.setState({ warn: Object.assign({}, this.state.warn || {}, { [k]: missing }) }); } else { this.setState({ checked: Object.assign({}, this.state.checked || {}, { [k]: true }), warn: Object.assign({}, this.state.warn || {}, { [k]: 0 }) }); } },
+reset: () => this.setState({ ans: Object.assign({}, this.state.ans || {}, { [k]: {} }), checked: Object.assign({}, this.state.checked || {}, { [k]: false }), warn: Object.assign({}, this.state.warn || {}, { [k]: 0 }) }) };
+});
+const au = {};
+AU.forEach((k) => {
+const on = s.playing === k;
+au[k] = { on: on ? 'true' : 'false', label: on ? 'Dừng' : 'Nghe câu mẫu', icon: on ? 'M3 2h4v12H3zM9 2h4v12H9z' : 'M3 1.5v13l11-6.5z', bg: on ? 'var(--ink)' : 'var(--surface)', fg: on ? 'var(--surface)' : 'var(--ink)', pick: () => this.setState({ playing: on ? '' : k }) };
+});
+const tg = {};
+TG.forEach((x) => {
+const open = !!((s.tg || {})[x.k]);
+tg[x.k] = { open, exp: open ? 'true' : 'false', label: open ? x.b : x.a, pick: () => this.setState({ tg: Object.assign({}, this.state.tg || {}, { [x.k]: !open }) }) };
+});
+const phoneTocOpen = !!s.phoneToc;
+return {
+pal: (this.props.palette ?? 'Navy + đỏ mận') === 'Xanh teal' ? 'pal-teal' : 'pal-navy',
+qz, au, tg,
+phoneTocOpen, phoneTocIcon: phoneTocOpen ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6', phoneTocLabel: phoneTocOpen ? 'true' : 'false',
+togglePhoneToc: () => this.setState({ phoneToc: !phoneTocOpen })
+};
+}
+}
+</script>
+</body>
+</html>

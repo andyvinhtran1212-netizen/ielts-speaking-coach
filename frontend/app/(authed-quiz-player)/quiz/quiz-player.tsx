@@ -24,7 +24,6 @@ import {
   validQuizEnd,
   validQuizReset,
   resolveQuizBank,
-  INVALID_QUIZ_LINK_MESSAGE,
   safeQuizLink,
   shuffledAnswerIndices,
   stripAudioToken,
@@ -34,6 +33,7 @@ import { quizPlayerApi } from '@/lib/quiz-player-api';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 import { createEngine } from '../../../public/js/quiz-engine.js';
 import { buildReviewList } from '../../../public/js/quiz-review.js';
+import { leaveForParent } from '@/lib/redirect-notice-model.mjs';
 
 type Phase = 'loading' | 'error' | 'gate' | 'play' | 'finishing' | 'summary';
 type AnyRow = Record<string, any>;
@@ -315,7 +315,12 @@ export function QuizPlayer() {
         if (!isCurrentScope(scope)) return;
         if (!ready) { unavailable(scope, 'Không tải được thành phần kết nối. Hãy mở lại bài.'); return; }
         let query;
-        try { query = normalizeQuizQuery(querySource); } catch { unavailable(scope, INVALID_QUIZ_LINK_MESSAGE, false); return; }
+        // G02-T11: a link that names no bank, or names it more than once, goes
+        // back to the exercise list of its skill with a notice.
+        const quizParent = new URLSearchParams(querySource).get('skill_area') === 'vocab'
+          ? '/vocabulary/hub' : '/grammar/exercises';
+        try { query = normalizeQuizQuery(querySource); } catch { leaveForParent(quizParent); return; }
+        if (!query.bank && !query.skillArea) { leaveForParent(quizParent); return; }
         let resolution;
         if (query.bank || !query.skillArea) resolution = resolveQuizBank(query, null);
         else {
