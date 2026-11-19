@@ -38,6 +38,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
+from config import settings
 from database import supabase_admin
 from services.errors import clip_user_value
 from services.listening_test_grader import scored_question_count, score_mode, self_check_count
@@ -210,6 +211,27 @@ def list_open_exams(user_id: str) -> list[dict]:
     return out
 
 
+_BAND_SKILLS = ("listening", "reading", "writing", "speaking")
+
+
+def overall_readiness(final_bands: Optional[dict]) -> dict:
+    """G02-T05 (FR-02-004): whether a student surface may draw the Overall.
+
+    `banded_skill_count` counts the four skills that carry a final band;
+    `overall_min_skills` is MOCK_OVERALL_MIN_SKILLS, floored at 1 and capped at
+    4. Display-only — the stored `final_bands.overall` is left as it is."""
+    fb = final_bands or {}
+    banded = sum(1 for s in _BAND_SKILLS if fb.get(s) is not None)
+    try:
+        need = int(settings.MOCK_OVERALL_MIN_SKILLS)
+    except (TypeError, ValueError):
+        need = len(_BAND_SKILLS)
+    return {
+        "overall_min_skills": min(len(_BAND_SKILLS), max(1, need)),
+        "banded_skill_count": banded,
+    }
+
+
 def list_my_sittings(user_id: str) -> list[dict]:
     """The caller's own mock sittings — powers the student home: what to resume
     and which results are RELEASED. A released sitting carries its overall band +
@@ -249,6 +271,7 @@ def list_my_sittings(user_id: str) -> list[dict]:
             "released":     released,
             "overall":      fb.get("overall") if released else None,
             "released_at":  rvw.get("released_at"),
+            **overall_readiness(fb if released else None),
         })
     return out
 
@@ -1320,6 +1343,38 @@ def _sitting_lr_skills(sitting: dict) -> set:
     exam = get_published_exam_by_id(sitting.get("mock_exam_id")) or {}
     configured = set(_configured_sections(exam))
     return {s for s in ("listening", "reading") if s in configured}
+
+
+def sitting_skills(sitting: dict, final_bands: Optional[dict] = None) -> Optional[list]:
+    """The skills this sitting actually set the student, in TRF order.
+
+    Not the examiner's band form (_required_skills_for): that always carries
+    Writing for a sequential exam because the admin still opens a Writing step,
+    even when the exam has no Writing prompt to answer. Here a skill counts only
+    when there was something to take:
+      · assigned_skills set  → a retake: exactly the student's assigned skills
+      · otherwise            → Listening/Reading with a configured test, Writing
+                               with at least one prompt, Speaking with a topic set
+    plus any skill that carries a final band anyway (a live Speaking assessment).
+    None when the exam row is missing — the caller must not guess."""
+    fb = final_bands or {}
+    assigned = sitting.get("assigned_skills") or []
+    if assigned:
+        ran = set(assigned)
+    else:
+        exam = get_published_exam_by_id(sitting.get("mock_exam_id"))
+        if not exam:
+            return None
+        ran = set()
+        if exam.get("listening_test_id"):
+            ran.add("listening")
+        if exam.get("reading_test_id"):
+            ran.add("reading")
+        if exam.get("writing_task1_prompt_id") or exam.get("writing_task2_prompt_id"):
+            ran.add("writing")
+        if exam.get("speaking_topic_set"):
+            ran.add("speaking")
+    return [s for s in _BAND_SKILLS if s in ran or fb.get(s) is not None]
 
 
 def lr_skill_states(sitting: dict) -> list:

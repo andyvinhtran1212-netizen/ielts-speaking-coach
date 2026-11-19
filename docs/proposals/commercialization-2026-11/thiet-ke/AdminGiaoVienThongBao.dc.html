@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Admin — Giáo viên và Gửi thông báo</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--accentH:#0B5953;--link:#0B5953;--mark:#8A4B08;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EDF3F1;--off:#E7E2D6}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--accentH:#11254A;--link:#1A3561;--mark:#8A1C1C;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EEF0F5;--off:#E8E2D5}
+a{color:var(--link)}a:hover{color:var(--ink)}
+</style>
+</helmet>
+<div class="{{pal}}" style="width: 1440px; height: 4700px; box-sizing: border-box; padding: 48px 40px; background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 15px; line-height: 1.5; display: flex; flex-direction: column; gap: 28px">
+<header>
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Aver Learning · Bản in · Admin · Học viên và quyền truy cập</p>
+<h1 style="margin: 4px 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 40px; font-weight: 600; line-height: 1.15">Admin · Giáo viên và Gửi thông báo</h1>
+<p style="margin: 0; color: var(--muted); max-width: 120ch">Hai trang của nhóm Học viên và quyền truy cập. Giáo viên: danh sách, mời, gán và gỡ lớp, hồ sơ khối lượng duyệt; thu quyền làm ở vùng nguy hiểm của <a href="AdminHeThong.dc.html#m2">Bảo mật</a>. Gửi thông báo: soạn cho một lớp, một khoá, danh sách đã chọn (đẩy sang từ Danh bạ, bảng lớp, Kết quả bài giao), nhóm theo điều kiện hoặc tất cả học viên, qua thông báo trong ứng dụng và email. Hiện trạng Production: chưa có tài khoản giáo viên nào (mục 3); màn 1 vẽ bằng dữ liệu thử trên Staging. Liên quan: <a href="AdminLop.dc.html">Lớp</a> · <a href="GiaoVien.dc.html">Khu giáo viên</a> · <a href="AdminViecCanLam.dc.html">Việc cần làm</a> · <a href="AdminDonDangKy.dc.html">Đơn đăng ký</a> · <a href="ThongBao.dc.html">Thông báo của học viên</a> · <a href="EmailMau.dc.html">Mẫu thư</a>.</p>
+</header>
+
+<section id="m1" aria-labelledby="h-m1" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="h-m1" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">1 · Giáo viên · danh sách, mời, hồ sơ một giáo viên</h2>
+<p style="margin: 0 0 16px; color: var(--muted); max-width: 110ch">Bấm được: "Mời giáo viên" mở biểu mẫu (thử một email sai); "Mở" ở từng dòng đổi hồ sơ bên dưới; "Gỡ khỏi lớp…" hỏi lại và nói số bài chờ duyệt bị ảnh hưởng; "Chuyển lớp sang giáo viên này" (mỗi lớp một giáo viên: lớp rời khỏi giáo viên cũ).</p>
+<div style="border: 1px solid var(--ink); background: var(--paper)">
+<header style="display: flex; align-items: center; gap: 20px; min-height: 56px; padding: 0 24px; border-bottom: 1px solid var(--ink); background: var(--surface)">
+<span style="display: inline-flex; align-items: center; gap: 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 19px; font-weight: 600"><svg width="25" height="25" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<span style="padding: 2px 8px; border: 1px solid var(--ink); border-radius: 2px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600">Quản trị</span>
+<span style="padding: 1px 8px; border: 1px dashed var(--ink); background: var(--paper); color: var(--ink); border-radius: 2px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600">Staging · dữ liệu thử</span>
+<label style="flex: 1 1 320px; max-width: 440px; display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--paper)">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 16px; height: 16px; flex-shrink: 0"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"></circle><path d="M16.5 16.5L21 21" stroke="currentColor" stroke-width="2"></path></svg>
+<input type="search" placeholder="Tìm học viên, lớp, bài nộp, đề…" aria-label="Tìm nhanh" style="flex-grow: 1; min-width: 0; border: 0; background: transparent; font: 15px 'Source Sans 3', sans-serif; color: var(--ink)">
+<kbd style="font: 12px 'Source Sans 3', sans-serif; color: var(--muted); border: 1px solid var(--rule); padding: 1px 6px; border-radius: 2px">⌘K</kbd>
+</label>
+<span style="flex-grow: 1"></span>
+<a href="Main.dc.html" style="display: inline-flex; align-items: center; min-height: 36px; font-size: 14px">Xem như học viên</a>
+<button type="button" aria-label="Mở menu tài khoản: đổi vai trò, đăng xuất" style="width: 40px; height: 40px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 13px 'Source Sans 3', sans-serif; cursor: pointer">VT</button>
+</header>
+<div style="display: flex">
+<nav aria-label="Điều hướng quản trị" style="flex-shrink: 0; width: 248px; box-sizing: border-box; padding: 12px 0; border-right: 1px solid var(--rule); background: var(--surface)">
+<sc-for list="{{nav1}}" as="g" hint-placeholder-count="8">
+<div>
+<button type="button" aria-expanded="{{g.exp}}" onClick="{{g.toggle}}" style="display: flex; align-items: center; gap: 8px; width: 100%; min-height: 36px; padding: 0 16px; border: 0; background: transparent; color: {{g.headColor}}; font: 600 12px 'Source Sans 3', sans-serif; letter-spacing: 0.08em; text-transform: uppercase; text-align: left; cursor: pointer">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 14px; height: 14px; flex-shrink: 0"><path d="{{g.chev}}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<span style="flex-grow: 1">{{g.name}}</span>
+<span style="color: var(--mark); font-variant-numeric: tabular-nums; letter-spacing: 0">{{g.badgeShow}}</span>
+</button>
+<sc-if value="{{g.show}}" hint-placeholder-val="{{ false }}">
+<div role="group" aria-label="{{g.name}}" style="margin: 0 0 6px 23px; border-left: 1px solid var(--rule)">
+<sc-for list="{{g.items}}" as="i" hint-placeholder-count="3">
+<a href="{{i.href}}" aria-current="{{i.current}}" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; padding: 0 16px 0 21px; margin-left: -2px; border-left: 3px solid {{i.bar}}; background: {{i.bg}}; color: var(--ink); font-weight: {{i.weight}}; text-decoration: none">{{i.label}}<span style="color: var(--mark); font-weight: 600; font-variant-numeric: tabular-nums">{{i.count}}</span></a>
+</sc-for>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</nav>
+<main style="flex-grow: 1; min-width: 0; padding: 20px 32px 40px">
+<nav aria-label="Vị trí trang" style="font-size: 14px; color: var(--muted); margin-bottom: 12px"><a href="#m1">Học viên và quyền truy cập</a> › <span aria-current="page" style="color: var(--ink)">Giáo viên</span></nav>
+<div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px">
+<div>
+<h1 style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 32px; font-weight: 600; line-height: 1.15">Giáo viên</h1>
+<p style="margin: 4px 0 0; color: var(--muted)">Giáo viên chỉ thấy học viên của lớp được gán. Đổi vai trò và thu quyền ở <a href="AdminHeThong.dc.html#m2">Bảo mật</a>.</p>
+</div>
+<button type="button" onClick="{{inviteOpen}}" aria-expanded="{{invAria}}" style="min-height: 40px; padding: 0 16px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: var(--surface); font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center">Mời giáo viên</button>
+</div>
+<sc-if value="{{inv}}" hint-placeholder-val="{{ false }}">
+<div role="group" aria-labelledby="h-inv" style="margin-top: 16px; padding: 16px 20px; border: 1px solid var(--ink); background: var(--surface)">
+<h3 id="h-inv" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 21px; font-weight: 600">Mời giáo viên</h3>
+<div style="display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px 16px">
+<div style="flex: 1 1 320px"><label for="iv-e" style="display: block; margin: 0 0 4px; font-size: 14px; font-weight: 600">Email</label><input id="iv-e" type="email" value="{{invEmail}}" onChange="{{setInvEmail}}" aria-invalid="{{invInv}}" style="box-sizing: border-box; min-height: 40px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface); font: 15px 'Source Sans 3', sans-serif; color: var(--ink); width: 100%; border: {{invBd}}"><span style="display: block; font-size: 13px; color: {{invMsgC}}; font-weight: 600">{{invMsg}}</span></div>
+<div style="flex: 0 1 260px"><label for="iv-c" style="display: block; margin: 0 0 4px; font-size: 14px; font-weight: 600">Gán lớp ngay <span style="font-weight: 400; color: var(--muted)">· không bắt buộc · thay giáo viên hiện tại</span></label><select id="iv-c" style="box-sizing: border-box; min-height: 40px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface); font: 15px 'Source Sans 3', sans-serif; color: var(--ink); width: 100%"><option>Chưa gán lớp</option><option>Tue–Thu 19:30 · Course 1 · XXX</option><option>Mon–Wed 18:00 · Course 3 · XXX</option><option>Sat–Sun 09:00 · Course 2 · XXX</option></select></div>
+<div style="display: flex; gap: 8px; padding-top: 26px"><button type="button" onClick="{{invSend}}" disabled="{{invOff}}" style="min-height: 40px; padding: 0 16px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: var(--surface); font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; opacity: {{invOp}}">Gửi lời mời</button><button type="button" onClick="{{invClose}}" style="min-height: 40px; padding: 0 16px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center">Huỷ</button></div>
+</div>
+<p style="margin: 8px 0 0; font-size: 13px; color: var(--muted)">Người được mời nhận thư mời (hạn XXX ngày), đăng nhập bằng Google hoặc mã 6 số gửi tới đúng email được mời; không có mật khẩu. Lần đăng nhập đầu phải bật xác thực hai bước. Lời mời ghi vào nhật ký thao tác nhạy cảm.</p>
+</div>
+</sc-if>
+<sc-if value="{{invDone}}" hint-placeholder-val="{{ false }}"><p role="status" style="margin: 16px 0 0; display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border-top: 1px solid var(--ok); border-bottom: 1px solid var(--ok); background: var(--surface)"><span style="color: var(--ok)"><svg width="18" height="18" viewBox="0 0 22 22" aria-hidden="true" style="flex: none"><circle cx="11" cy="11" r="9" fill="none" stroke="currentColor" stroke-width="1.5"></circle><path d="M6.5 11.5l3 3 6-6.5" fill="none" stroke="currentColor" stroke-width="1.75"></path></svg></span><strong style="color: var(--ok)">Đã gửi lời mời tới {{invEmail}}.</strong><span style="color: var(--muted)">Dòng mới ở trạng thái "Đã mời".</span></p></sc-if>
+
+<div role="table" aria-label="Giáo viên" style="margin-top: 18px; font-size: 14px; font-variant-numeric: tabular-nums">
+<div role="row" style="display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1.8fr) 110px 150px 150px 140px 70px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); background: var(--surface)"><div role="columnheader" style="padding: 8px 10px 8px 0; font-size: 13px; font-weight: 600; color: var(--muted)">Giáo viên</div><div role="columnheader" style="padding: 8px 10px 8px 0; font-size: 13px; font-weight: 600; color: var(--muted)">Lớp đang dạy</div><div role="columnheader" style="padding: 8px 10px 8px 0; font-size: 13px; font-weight: 600; color: var(--muted)">Bài chờ duyệt</div><div role="columnheader" style="padding: 8px 10px 8px 0; font-size: 13px; font-weight: 600; color: var(--muted)">Duyệt trung bình</div><div role="columnheader" style="padding: 8px 10px 8px 0; font-size: 13px; font-weight: 600; color: var(--muted)">Xác thực hai bước</div><div role="columnheader" style="padding: 8px 10px 8px 0; font-size: 13px; font-weight: 600; color: var(--muted)">Đăng nhập gần nhất</div><div role="columnheader" style="padding: 8px 10px 8px 0; font-size: 13px; font-weight: 600; color: var(--muted)"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden">Mở hồ sơ</span></div></div>
+<sc-for list="{{teachers}}" as="g" hint-placeholder-count="4">
+<div role="row" style="display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1.8fr) 110px 150px 150px 140px 70px; align-items: center; min-height: 56px; border-bottom: 1px solid var(--rule); background: {{g.bg}}">
+<div role="cell" style="padding-right: 10px"><strong>{{g.name}}</strong><span style="display: block; font-size: 13px; color: var(--muted)">{{g.email}}</span></div>
+<div role="cell" style="padding-right: 10px; color: {{g.clsC}}">{{g.clsText}}</div>
+<div role="cell" style="font-weight: {{g.pendW}}; color: {{g.pendC}}">{{g.pend}}</div>
+<div role="cell">{{g.avg}}</div>
+<div role="cell" style="font-weight: 600; color: {{g.mfaC}}">{{g.mfa}}</div>
+<div role="cell">{{g.last}}</div>
+<div role="cell"><button type="button" onClick="{{g.open}}" aria-pressed="{{g.aria}}" style="min-height: 36px; padding: 0 4px; border: 0; background: transparent; color: var(--link); font: 600 14px 'Source Sans 3', sans-serif; text-decoration: underline; cursor: pointer">Mở</button></div>
+</div>
+</sc-for>
+</div>
+<p style="margin: 8px 0 0; font-size: 13px; color: var(--muted)">Duyệt trung bình: từ lúc AI chấm xong tới lúc giáo viên trả bài, 30 ngày gần nhất; chưa đủ dữ liệu thì để trống. Ngưỡng quá hạn đặt ở <a href="AdminCaiDat.dc.html#m6">Cài đặt › Ngưỡng vận hành</a>.</p>
+
+<section aria-labelledby="h-pf" style="margin-top: 24px; border-top: 2px solid var(--ink); padding-top: 14px">
+<div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px"><h3 id="h-pf" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">{{cur.name}}</h3><span style="font-size: 14px; color: var(--muted)">{{cur.email}} · vai trò {{cur.role}}</span></div>
+<div style="display: flex; gap: 32px; margin-top: 14px; align-items: flex-start">
+<div style="flex: 1 1 0; min-width: 0">
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Lớp được gán</p>
+<ul style="margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--ink); font-size: 14px">
+<sc-for list="{{cur.classes}}" as="c" hint-placeholder-count="2">
+<li style="border-bottom: 1px solid var(--rule)">
+<div style="display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) 120px 130px; align-items: center; min-height: 48px"><a href="AdminLop.dc.html" style="font-weight: 600">{{c.name}}</a><span>{{c.course}}</span><span>{{c.pendText}}</span><button type="button" onClick="{{c.ask}}" style="min-height: 36px; padding: 0 4px; border: 0; background: transparent; color: var(--link); font: 600 14px 'Source Sans 3', sans-serif; text-decoration: underline; cursor: pointer">Gỡ khỏi lớp…</button></div>
+<sc-if value="{{c.asking}}" hint-placeholder-val="{{ false }}">
+<div role="alertdialog" aria-label="Xác nhận gỡ khỏi lớp" style="margin: 0 0 10px; padding: 12px 16px; border: 1px solid var(--mark); background: var(--surface)"><p style="margin: 0 0 6px"><strong>Gỡ {{c.tname}} khỏi lớp {{c.name}}?</strong> {{c.effect}}</p><div style="display: flex; gap: 10px"><button type="button" onClick="{{c.doIt}}" style="min-height: 40px; padding: 0 16px; border: 1px solid var(--danger); border-radius: 2px; background: var(--danger); color: var(--surface); font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer">Gỡ khỏi lớp</button><button type="button" onClick="{{c.cancel}}" style="min-height: 40px; padding: 0 16px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center">Huỷ</button></div></div>
+</sc-if>
+</li>
+</sc-for>
+</ul>
+<sc-if value="{{cur.noClass}}" hint-placeholder-val="{{ false }}"><p style="margin: 0; padding: 12px 0; border-bottom: 1px solid var(--rule); color: var(--muted)">Chưa được gán lớp nào. Giáo viên đăng nhập sẽ thấy "Chưa có lớp".</p></sc-if>
+<div style="display: flex; align-items: flex-end; gap: 10px; margin-top: 12px"><div><label for="as-c" style="display: block; margin: 0 0 4px; font-size: 14px; font-weight: 600">Gán lớp · mỗi lớp một giáo viên</label><select id="as-c" style="box-sizing: border-box; min-height: 40px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface); font: 15px 'Source Sans 3', sans-serif; color: var(--ink); min-width: 300px"><option>Sat–Sun 09:00 · Course 2 · XXX · đang do Vũ Thanh Tâm dạy</option></select></div><button type="button" onClick="{{assign}}" style="min-height: 40px; padding: 0 16px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center">Chuyển lớp sang giáo viên này</button></div>
+<sc-if value="{{hasMsg}}" hint-placeholder-val="{{ false }}"><p role="status" style="margin: 10px 0 0; font-weight: 600; color: var(--ok)">{{msg}}</p></sc-if>
+</div>
+<aside style="flex: 0 0 360px">
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Khối lượng duyệt · 30 ngày</p>
+<dl style="margin: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; border-top: 1px solid var(--ink); font-size: 14px; font-variant-numeric: tabular-nums">
+<dt style="padding: 8px 0; border-bottom: 1px solid var(--rule)">Bài đã duyệt và trả</dt><dd style="margin: 0; padding: 8px 0; border-bottom: 1px solid var(--rule); font-weight: 600">{{cur.done}}</dd>
+<dt style="padding: 8px 0; border-bottom: 1px solid var(--rule)">Đang chờ duyệt</dt><dd style="margin: 0; padding: 8px 0; border-bottom: 1px solid var(--rule); font-weight: 600">{{cur.pend}}</dd>
+<dt style="padding: 8px 0; border-bottom: 1px solid var(--rule)">Quá hạn xử lý</dt><dd style="margin: 0; padding: 8px 0; border-bottom: 1px solid var(--rule); font-weight: 600; color: {{cur.lateC}}">{{cur.late}}</dd>
+<dt style="padding: 8px 0; border-bottom: 1px solid var(--rule)">Thời gian duyệt trung bình</dt><dd style="margin: 0; padding: 8px 0; border-bottom: 1px solid var(--rule); font-weight: 600">{{cur.avg}}</dd>
+</dl>
+<p style="margin: 8px 0 0; font-size: 14px"><a href="AdminChamWriting.dc.html">Xem bài chờ người này duyệt ở Chấm bài › Writing</a> · <a href="AdminChamSpeakingThiThu.dc.html">Speaking</a> · <a href="GiaoVien.dc.html">Xem như giáo viên</a></p>
+<div style="margin-top: 18px; padding: 12px 16px; border: 1px solid var(--danger); background: var(--surface)">
+<p style="margin: 0 0 4px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--danger)">Vùng nguy hiểm</p>
+<p style="margin: 0 0 6px; font-size: 14px">Thu mọi quyền của giáo viên: đăng xuất ngay, bài Writing chờ duyệt và Speaking thi thử chờ chấm về hàng chờ của admin. Không hoàn tác được, phải gõ email xác nhận.</p>
+<a href="AdminHeThong.dc.html#m2" style="font-weight: 600; color: var(--danger)">Mở vùng nguy hiểm ở Bảo mật</a>
+</div>
+</aside>
+</div>
+</section>
+</main>
+</div>
+</div>
+</section>
+
+<section id="m2" aria-labelledby="h-m2" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="h-m2" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">2 · Gửi thông báo · soạn, xem trước, đặt lịch, lịch sử</h2>
+<p style="margin: 0 0 16px; color: var(--muted); max-width: 110ch">Đặt ở nhóm Học viên và quyền truy cập vì người nhận chọn theo lớp và khoá như danh bạ; dải thông báo toàn trang và lịch bảo trì nằm ở <a href="AdminCaiDat.dc.html#m5">Cài đặt › Thông báo hệ thống</a>. Bấm được: người nhận gồm Một lớp, Một khoá, Danh sách đã chọn (đổi nguồn, bỏ bớt người), Nhóm theo điều kiện (đổi điều kiện), Tất cả học viên — số người nhận đổi theo; kênh, gửi ngay hoặc hẹn giờ, "Gửi…" mở hộp xác nhận; gửi cho tất cả phải gõ xác nhận.</p>
+<div style="border: 1px solid var(--ink); background: var(--paper)">
+<header style="display: flex; align-items: center; gap: 20px; min-height: 56px; padding: 0 24px; border-bottom: 1px solid var(--ink); background: var(--surface)">
+<span style="display: inline-flex; align-items: center; gap: 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 19px; font-weight: 600"><svg width="25" height="25" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<span style="padding: 2px 8px; border: 1px solid var(--ink); border-radius: 2px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600">Quản trị</span>
+<span style="padding: 2px 8px; background: var(--mark); color: var(--surface); border-radius: 2px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600">Production · dữ liệu thật</span>
+<label style="flex: 1 1 320px; max-width: 440px; display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--paper)">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 16px; height: 16px; flex-shrink: 0"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"></circle><path d="M16.5 16.5L21 21" stroke="currentColor" stroke-width="2"></path></svg>
+<input type="search" placeholder="Tìm học viên, lớp, bài nộp, đề…" aria-label="Tìm nhanh" style="flex-grow: 1; min-width: 0; border: 0; background: transparent; font: 15px 'Source Sans 3', sans-serif; color: var(--ink)">
+<kbd style="font: 12px 'Source Sans 3', sans-serif; color: var(--muted); border: 1px solid var(--rule); padding: 1px 6px; border-radius: 2px">⌘K</kbd>
+</label>
+<span style="flex-grow: 1"></span>
+<a href="Main.dc.html" style="display: inline-flex; align-items: center; min-height: 36px; font-size: 14px">Xem như học viên</a>
+<button type="button" aria-label="Mở menu tài khoản: đổi vai trò, đăng xuất" style="width: 40px; height: 40px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 13px 'Source Sans 3', sans-serif; cursor: pointer">VT</button>
+</header>
+<div style="display: flex">
+<nav aria-label="Điều hướng quản trị" style="flex-shrink: 0; width: 248px; box-sizing: border-box; padding: 12px 0; border-right: 1px solid var(--rule); background: var(--surface)">
+<sc-for list="{{nav2}}" as="g" hint-placeholder-count="8">
+<div>
+<button type="button" aria-expanded="{{g.exp}}" onClick="{{g.toggle}}" style="display: flex; align-items: center; gap: 8px; width: 100%; min-height: 36px; padding: 0 16px; border: 0; background: transparent; color: {{g.headColor}}; font: 600 12px 'Source Sans 3', sans-serif; letter-spacing: 0.08em; text-transform: uppercase; text-align: left; cursor: pointer">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 14px; height: 14px; flex-shrink: 0"><path d="{{g.chev}}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<span style="flex-grow: 1">{{g.name}}</span>
+<span style="color: var(--mark); font-variant-numeric: tabular-nums; letter-spacing: 0">{{g.badgeShow}}</span>
+</button>
+<sc-if value="{{g.show}}" hint-placeholder-val="{{ false }}">
+<div role="group" aria-label="{{g.name}}" style="margin: 0 0 6px 23px; border-left: 1px solid var(--rule)">
+<sc-for list="{{g.items}}" as="i" hint-placeholder-count="3">
+<a href="{{i.href}}" aria-current="{{i.current}}" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; padding: 0 16px 0 21px; margin-left: -2px; border-left: 3px solid {{i.bar}}; background: {{i.bg}}; color: var(--ink); font-weight: {{i.weight}}; text-decoration: none">{{i.label}}<span style="color: var(--mark); font-weight: 600; font-variant-numeric: tabular-nums">{{i.count}}</span></a>
+</sc-for>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</nav>
+<main style="flex-grow: 1; min-width: 0; padding: 20px 32px 40px">
+<nav aria-label="Vị trí trang" style="font-size: 14px; color: var(--muted); margin-bottom: 12px"><a href="#m1">Học viên và quyền truy cập</a> › <span aria-current="page" style="color: var(--ink)">Gửi thông báo</span></nav>
+<h1 style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 32px; font-weight: 600; line-height: 1.15">Gửi thông báo</h1>
+<p style="margin: 4px 0 20px; color: var(--muted)">Thông báo hiện ở mục Thông báo của học viên; bật kênh email thì gửi thêm thư theo mẫu "Thông báo từ trung tâm". Đã gửi thì không thu hồi được.</p>
+<div style="display: flex; gap: 32px; align-items: flex-start">
+<div style="flex: 1 1 0; min-width: 0">
+<section aria-labelledby="h-to" style="border-top: 2px solid var(--ink); padding-top: 12px">
+<h3 id="h-to" style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Người nhận</h3>
+<div role="radiogroup" aria-label="Gửi cho" style="display: flex; flex-wrap: wrap; border: 1px solid var(--ink); border-radius: 2px; width: max-content">
+<sc-for list="{{auds}}" as="a" hint-placeholder-count="3"><button type="button" role="radio" aria-checked="{{a.aria}}" onClick="{{a.go}}" style="min-height: 40px; padding: 0 16px; border: 0; border-left: {{a.sep}}; background: {{a.bg}}; color: {{a.fg}}; font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer">{{a.label}}</button></sc-for>
+</div>
+<sc-if value="{{audClass}}" hint-placeholder-val="{{ true }}"><div style="margin-top: 10px"><label for="to-c" style="display: block; margin: 0 0 4px; font-size: 14px; font-weight: 600">Lớp</label><select id="to-c" style="box-sizing: border-box; min-height: 40px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface); font: 15px 'Source Sans 3', sans-serif; color: var(--ink); min-width: 340px"><option>Tue–Thu 19:30 · Course 1 · XXX</option><option>Mon–Wed 18:00 · Course 3 · XXX</option><option>Sat–Sun 09:00 · Course 2 · XXX</option></select></div></sc-if>
+<sc-if value="{{audCourse}}" hint-placeholder-val="{{ false }}"><div style="margin-top: 10px"><label for="to-k" style="display: block; margin: 0 0 4px; font-size: 14px; font-weight: 600">Khoá</label><select id="to-k" style="box-sizing: border-box; min-height: 40px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface); font: 15px 'Source Sans 3', sans-serif; color: var(--ink); min-width: 340px"><option>Khoá Writing for IELTS</option><option>Khoá Speaking for IELTS</option><option>Course 1 · XXX (mọi lớp)</option></select><span style="display: block; font-size: 13px; color: var(--muted)">Gồm người đang có quyền vào khoá; người đã hết hạn không nhận.</span></div></sc-if>
+<sc-if value="{{audAll}}" hint-placeholder-val="{{ false }}"><p style="margin: 10px 0 0; font-size: 14px">Mọi học viên đang có tài khoản hoạt động. Tài khoản đã lưu trữ hoặc bị khoá không nhận.</p></sc-if>
+<sc-if value="{{audList}}" hint-placeholder-val="{{ false }}"><div style="margin-top: 10px">
+<p style="margin: 0 0 4px; font-size: 14px; font-weight: 600">Danh sách đẩy sang từ</p>
+<div role="radiogroup" aria-label="Nguồn danh sách" style="display: flex; flex-direction: column; gap: 2px">
+<sc-for list="{{lsrcs}}" as="o" hint-placeholder-count="3"><button type="button" role="radio" aria-checked="{{o.aria}}" onClick="{{o.go}}" style="display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 0 10px; border: 0; border-left: 3px solid {{o.bar}}; background: {{o.bg}}; color: var(--ink); font: {{o.fw}} 14px 'Source Sans 3', sans-serif; text-align: left; cursor: pointer">{{o.label}}</button></sc-for>
+</div>
+<p style="margin: 10px 0 4px; font-size: 14px"><strong>{{lsrcLine}}</strong></p>
+<ul aria-label="Người trong danh sách" style="margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px 8px">
+<sc-for list="{{lpeople}}" as="q" hint-placeholder-count="3"><li style="display: inline-flex; align-items: center; gap: 4px; padding: 0 0 0 10px; border: 1px solid var(--rule); border-radius: 2px; background: var(--surface); font-size: 14px">{{q.name}}<button type="button" onClick="{{q.drop}}" aria-label="Bỏ {{q.name}} khỏi danh sách" style="min-height: 32px; padding: 0 8px; border: 0; background: transparent; color: var(--link); font: 600 13px 'Source Sans 3', sans-serif; text-decoration: underline; cursor: pointer">Bỏ</button></li></sc-for>
+</ul>
+<p style="margin: 6px 0 0; font-size: 13px; color: var(--muted)">{{lmore}}Danh sách chỉ đến từ nút "Gửi thông báo cho người đã chọn" ở <a href="AdminDanhBa.dc.html">Danh bạ</a>, bảng lớp (<a href="AdminLop.dc.html">Lớp</a>) và <a href="AdminKetQuaBaiGiao.dc.html">Kết quả bài giao</a>; ở đây chỉ bớt người, không thêm tay.</p>
+</div></sc-if>
+<sc-if value="{{audCond}}" hint-placeholder-val="{{ false }}"><div style="margin-top: 10px">
+<p style="margin: 0 0 4px; font-size: 14px; font-weight: 600">Điều kiện</p>
+<div role="radiogroup" aria-label="Điều kiện" style="display: flex; flex-direction: column; gap: 2px">
+<sc-for list="{{conds}}" as="o" hint-placeholder-count="3"><button type="button" role="radio" aria-checked="{{o.aria}}" onClick="{{o.go}}" style="display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 0 10px; border: 0; border-left: 3px solid {{o.bar}}; background: {{o.bg}}; color: var(--ink); font: {{o.fw}} 14px 'Source Sans 3', sans-serif; text-align: left; cursor: pointer">{{o.label}}</button></sc-for>
+</div>
+<sc-if value="{{condNosub}}" hint-placeholder-val="{{ false }}"><div style="margin-top: 10px"><label for="cd-as" style="display: block; margin: 0 0 4px; font-size: 14px; font-weight: 600">Bài</label><select id="cd-as" style="box-sizing: border-box; min-height: 40px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface); font: 15px 'Source Sans 3', sans-serif; color: var(--ink); min-width: 340px"><option>Writing Task 2 · buổi 10 · Tue–Thu 19:30 · hạn 12/11, 23:59</option><option>Writing Task 2 · buổi 11 · Tue–Thu 19:30 · hạn 17/11, 23:59</option><option>Speaking Part 2 · buổi 14 · Mon–Wed 18:00 · hạn 16/11, 23:59</option></select></div></sc-if>
+<p style="margin: 8px 0 0; font-size: 14px">{{condRule}} <a href="AdminCaiDat.dc.html#m6">Cài đặt › Ngưỡng vận hành</a>.</p>
+<p style="margin: 4px 0 0; font-size: 14px"><strong>{{condWho}}</strong></p>
+<p style="margin: 4px 0 0; font-size: 13px; color: var(--muted)">Danh sách tính lại lúc gửi (hẹn giờ thì tính lại lúc đến giờ); ai không còn khớp điều kiện thì không nhận.</p>
+</div></sc-if>
+<p style="margin: 10px 0 0; font-size: 15px; font-variant-numeric: tabular-nums"><strong>{{recip}}</strong></p>
+</section>
+<section aria-labelledby="h-ch" style="border-top: 2px solid var(--ink); padding-top: 12px; margin-top: 20px">
+<h3 id="h-ch" style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Kênh</h3>
+<div style="display: flex; gap: 24px">
+<label style="display: flex; align-items: center; gap: 8px; min-height: 40px"><input type="checkbox" checked="{{chApp}}" onChange="{{flipApp}}" style="width: 18px; height: 18px">Trong ứng dụng</label>
+<label style="display: flex; align-items: center; gap: 8px; min-height: 40px"><input type="checkbox" checked="{{chMail}}" onChange="{{flipMail}}" style="width: 18px; height: 18px">Email</label>
+</div>
+<sc-if value="{{noCh}}" hint-placeholder-val="{{ false }}"><p style="margin: 4px 0 0; font-size: 13px; color: var(--danger); font-weight: 600">Chọn ít nhất một kênh.</p></sc-if>
+</section>
+<section aria-labelledby="h-kd" style="border-top: 2px solid var(--ink); padding-top: 12px; margin-top: 20px">
+<h3 id="h-kd" style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Loại</h3>
+<div role="radiogroup" aria-label="Loại thông báo" style="display: flex; border: 1px solid var(--ink); border-radius: 2px; width: max-content">
+<sc-for list="{{kinds}}" as="k" hint-placeholder-count="2"><button type="button" role="radio" aria-checked="{{k.aria}}" onClick="{{k.go}}" style="min-height: 40px; padding: 0 16px; border: 0; border-left: {{k.sep}}; background: {{k.bg}}; color: {{k.fg}}; font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer">{{k.label}}</button></sc-for>
+</div>
+<sc-if value="{{isRemind}}" hint-placeholder-val="{{ false }}"><div style="margin-top: 10px"><label for="nt-as" style="display: block; margin: 0 0 4px; font-size: 14px; font-weight: 600">Nhắc về bài được giao <span style="font-weight: 400; color: var(--muted)">· không bắt buộc</span></label><select id="nt-as" style="box-sizing: border-box; min-height: 40px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface); font: 15px 'Source Sans 3', sans-serif; color: var(--ink); min-width: 340px"><option>Writing Task 2 · buổi 11 · hạn 17/11, 23:59</option><option>Speaking Part 2 · buổi 11 · hạn 17/11, 23:59</option><option>Không gắn bài</option></select><span style="display: block; font-size: 13px; color: var(--muted)">Gắn bài thì học viên bấm thông báo là tới đúng bài; ai đã nộp bài đó không nhận.</span></div></sc-if>
+<p style="margin: 6px 0 0; font-size: 13px; color: var(--muted)">Học viên thấy nhãn “Thông báo từ trung tâm” hoặc “Nhắc nhở” (tờ <a href="ThongBao.dc.html#s3c">Thông báo của học viên</a>). Thông báo tự động không soạn ở đây: bài mới được giao, sắp đến hạn, quá hạn và số bài quá hạn ở chuông, bài đã có kết quả, kết quả bài kiểm tra khoá khi giáo viên công bố, đơn đăng ký, khoá sắp hết hạn hoặc đã hết hạn (Đăng ký lại), lượt chấm AI, thi thử; bảo trì đặt ở Cài đặt › Thông báo hệ thống.</p>
+</section>
+<section aria-labelledby="h-ct" style="border-top: 2px solid var(--ink); padding-top: 12px; margin-top: 20px">
+<h3 id="h-ct" style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Nội dung</h3>
+<label for="nt-t" style="display: block; margin: 0 0 4px; font-size: 14px; font-weight: 600">Tiêu đề <span style="font-weight: 400; color: var(--muted)">· tối đa 80 ký tự</span></label>
+<input id="nt-t" value="{{title}}" onChange="{{setTitle}}" style="box-sizing: border-box; min-height: 40px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface); font: 15px 'Source Sans 3', sans-serif; color: var(--ink); width: 100%">
+<label for="nt-b" style="display: block; margin: 0 0 4px; font-size: 14px; font-weight: 600; margin-top: 12px">Nội dung</label>
+<textarea id="nt-b" rows="5" value="{{body}}" onChange="{{setBody}}" style="box-sizing: border-box; width: 100%; padding: 10px 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface); font: 15px/1.5 'Source Sans 3', sans-serif; color: var(--ink)"></textarea>
+<p style="margin: 4px 0 0; font-size: 13px; color: var(--muted)">Chữ thường, có thể có một liên kết tới trang trong ứng dụng. Không chèn ảnh.</p>
+</section>
+<section aria-labelledby="h-wh" style="border-top: 2px solid var(--ink); padding-top: 12px; margin-top: 20px">
+<h3 id="h-wh" style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Thời gian gửi</h3>
+<div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 20px">
+<div role="radiogroup" aria-label="Thời gian gửi" style="display: flex; border: 1px solid var(--ink); border-radius: 2px">
+<sc-for list="{{whens}}" as="w" hint-placeholder-count="2"><button type="button" role="radio" aria-checked="{{w.aria}}" onClick="{{w.go}}" style="min-height: 40px; padding: 0 16px; border: 0; border-left: {{w.sep}}; background: {{w.bg}}; color: {{w.fg}}; font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer">{{w.label}}</button></sc-for>
+</div>
+<sc-if value="{{later}}" hint-placeholder-val="{{ false }}"><div><label for="nt-at" style="display: block; margin: 0 0 4px; font-size: 14px; font-weight: 600">Gửi lúc</label><input id="nt-at" value="18/11/2026 08:00" style="box-sizing: border-box; min-height: 40px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface); font: 15px 'Source Sans 3', sans-serif; color: var(--ink)"></div></sc-if>
+</div>
+</section>
+<div style="display: flex; align-items: center; gap: 10px; margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--rule)">
+<button type="button" onClick="{{askSend}}" disabled="{{sendOff}}" style="min-height: 40px; padding: 0 16px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: var(--surface); font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; opacity: {{sendOp}}">{{sendLabel}}</button>
+<button type="button" style="min-height: 40px; padding: 0 16px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center">Lưu nháp</button>
+</div>
+<sc-if value="{{asking}}" hint-placeholder-val="{{ false }}">
+<div role="alertdialog" aria-labelledby="d-send" style="margin-top: 14px; padding: 18px 22px; border: 2px solid {{dlgBd}}; background: var(--surface)">
+<sc-if value="{{audAll}}" hint-placeholder-val="{{ false }}"><p style="margin: 0 0 4px; display: flex; align-items: center; gap: 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--mark)"><svg aria-hidden="true" viewBox="0 0 20 20" style="width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.6"><path d="M10 3l8 14H2z"></path><path d="M10 8v4M10 14.5v.5"></path></svg>Cảnh báo</p></sc-if>
+<h3 id="d-send" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 21px; font-weight: 600">{{dlgTitle}}</h3>
+<ul style="margin: 0 0 10px; padding-left: 20px"><li>{{dlgWho}}</li><li>{{dlgCh}}</li><li>Đã gửi thì không thu hồi được. Hẹn giờ thì huỷ được trước giờ gửi.</li></ul>
+<sc-if value="{{audAll}}" hint-placeholder-val="{{ false }}"><label for="snd-type" style="display: block; margin: 0 0 4px; font-size: 14px; font-weight: 600">Gõ <strong>gửi tất cả</strong> để xác nhận</label><input id="snd-type" value="{{sendType}}" onChange="{{setSendType}}" autocomplete="off" style="box-sizing: border-box; min-height: 40px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface); font: 15px 'Source Sans 3', sans-serif; color: var(--ink); width: 260px; margin-bottom: 12px"></sc-if>
+<div style="display: flex; gap: 10px"><button type="button" onClick="{{doSend}}" disabled="{{confOff}}" style="min-height: 40px; padding: 0 16px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: var(--surface); font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; opacity: {{confOp}}">{{confLabel}}</button><button type="button" onClick="{{cancelSend}}" style="min-height: 40px; padding: 0 16px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center">Huỷ</button></div>
+</div>
+</sc-if>
+<sc-if value="{{sent}}" hint-placeholder-val="{{ false }}"><p role="status" style="margin: 14px 0 0; display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border-top: 1px solid var(--ok); border-bottom: 1px solid var(--ok); background: var(--surface)"><span style="color: var(--ok)"><svg width="18" height="18" viewBox="0 0 22 22" aria-hidden="true" style="flex: none"><circle cx="11" cy="11" r="9" fill="none" stroke="currentColor" stroke-width="1.5"></circle><path d="M6.5 11.5l3 3 6-6.5" fill="none" stroke="currentColor" stroke-width="1.75"></path></svg></span><strong style="color: var(--ok)">{{sentMsg}}</strong><span style="color: var(--muted)">Xem kết quả ở Lịch sử bên dưới.</span></p></sc-if>
+</div>
+<aside style="flex: 0 0 380px">
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Xem trước · trong ứng dụng</p>
+<div style="border: 1px solid var(--ink); background: var(--surface)">
+<p style="margin: 0; padding: 3px 12px; background: var(--off); font-size: 13px">Mục Thông báo của học viên</p>
+<div style="padding: 12px 16px; border-left: 3px solid var(--accent)"><p style="margin: 0; font-size: 13px; color: var(--muted)">{{kindKicker}}</p><p style="margin: 2px 0 4px; font-weight: 600">{{title}}</p><p style="margin: 0; font-size: 14px; white-space: pre-line">{{body}}</p></div>
+</div>
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted); margin-top: 18px">Xem trước · email</p>
+<div style="border: 1px solid var(--ink); background: var(--surface)">
+<p style="margin: 0; padding: 6px 12px; border-bottom: 1px solid var(--rule); font-size: 13px">Từ: Aver Learning · XXX<br>Tiêu đề: {{title}}</p>
+<div style="padding: 12px 16px; font-size: 14px"><p style="margin: 0 0 8px">Chào bạn,</p><p style="margin: 0 0 8px; white-space: pre-line">{{body}}</p><p style="margin: 0; color: var(--muted)">Bạn nhận thư này vì đang học tại Aver Learning. Tắt thư thông báo trong Tài khoản › Thông báo.</p></div>
+</div>
+<p style="margin: 6px 0 0; font-size: 13px; color: var(--muted)">Khung thư theo mẫu "Thông báo từ trung tâm" ở tờ <a href="EmailMau.dc.html">Mẫu thư</a>.</p>
+</aside>
+</div>
+
+<section aria-labelledby="h-hs" style="margin-top: 26px; border-top: 2px solid var(--ink); padding-top: 12px">
+<h3 id="h-hs" style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Lịch sử đã gửi</h3>
+<div role="table" aria-label="Lịch sử thông báo" style="font-size: 14px; font-variant-numeric: tabular-nums">
+<div role="row" style="display: grid; grid-template-columns: 130px minmax(0, 1.8fr) minmax(0, 1.3fr) 170px minmax(0, 1.6fr) 130px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink)"><div role="columnheader" style="padding: 8px 10px 8px 0; font-size: 13px; font-weight: 600; color: var(--muted)">Lúc</div><div role="columnheader" style="padding: 8px 10px 8px 0; font-size: 13px; font-weight: 600; color: var(--muted)">Tiêu đề</div><div role="columnheader" style="padding: 8px 10px 8px 0; font-size: 13px; font-weight: 600; color: var(--muted)">Gửi cho</div><div role="columnheader" style="padding: 8px 10px 8px 0; font-size: 13px; font-weight: 600; color: var(--muted)">Kênh</div><div role="columnheader" style="padding: 8px 10px 8px 0; font-size: 13px; font-weight: 600; color: var(--muted)">Kết quả</div><div role="columnheader" style="padding: 8px 10px 8px 0; font-size: 13px; font-weight: 600; color: var(--muted)">Người gửi</div></div>
+<sc-for list="{{hist}}" as="h" hint-placeholder-count="4">
+<div role="row" style="display: grid; grid-template-columns: 130px minmax(0, 1.8fr) minmax(0, 1.3fr) 170px minmax(0, 1.6fr) 130px; align-items: center; min-height: 48px; border-bottom: 1px solid var(--rule)">
+<div role="cell">{{h.at}}</div><div role="cell" style="font-weight: 600; padding-right: 10px">{{h.title}}</div><div role="cell">{{h.to}}</div><div role="cell">{{h.ch}}</div>
+<div role="cell" style="color: {{h.c}}; font-weight: {{h.w}}">{{h.res}}<sc-if value="{{h.act}}" hint-placeholder-val="{{ false }}"> · <a href="{{h.href}}">{{h.actText}}</a></sc-if></div>
+<div role="cell">{{h.by}}</div>
+</div>
+</sc-for>
+</div>
+</section>
+</main>
+</div>
+</div>
+</section>
+
+<section id="m3" aria-labelledby="h-m3" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="h-m3" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600; margin-bottom: 14px">3 · Trạng thái phụ: chưa có giáo viên nào, gửi lỗi một phần, lời mời lỗi, đang tải</h2>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 32px; align-items: start">
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Chưa có giáo viên nào · hiện trạng Production</p>
+<div style="padding: 24px; border: 1px solid var(--ink); background: var(--surface)">
+<p style="margin: 0 0 4px; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; font-weight: 600">Chưa có giáo viên nào</p>
+<p style="margin: 0 0 12px">Bài Writing của học viên lớp offline cần giáo viên duyệt trước khi trả (Speaking luyện tập AI trả ngay). Khi chưa có giáo viên, bài nằm ở hàng chờ <a href="AdminChamWriting.dc.html">Chấm bài › Writing</a>, admin duyệt thay; Speaking thi thử chờ chấm ở <a href="AdminChamSpeakingThiThu.dc.html">Speaking</a>.</p>
+<div style="display: flex; gap: 10px"><button type="button" style="min-height: 40px; padding: 0 16px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: var(--surface); font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center">Mời giáo viên</button><a href="AdminHeThong.dc.html#m2" style="min-height: 40px; padding: 0 16px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center">Thêm vai trò cho nhân sự có sẵn</a></div>
+<p style="margin: 10px 0 0; font-size: 13px; color: var(--muted)">Không hiện bảng rỗng, không hiện cột số liệu.</p>
+</div>
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted); margin-top: 22px">Lời mời lỗi · email đã là tài khoản học viên</p>
+<div role="alert" style="padding: 12px 14px; border-top: 1px solid var(--danger); border-bottom: 1px solid var(--danger)"><p style="margin: 0 0 4px; font-weight: 600; color: var(--danger)">Chưa gửi lời mời.</p><p style="margin: 0 0 8px; font-size: 14px">giahuy@example.com đang là tài khoản học viên. Một tài khoản không vừa học vừa duyệt bài của chính lớp mình; dùng email khác, hoặc thêm vai trò ở Bảo mật nếu đây là nhân sự.</p><a href="AdminHeThong.dc.html#m2" style="font-weight: 600">Mở Bảo mật</a></div>
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted); margin-top: 22px">Đang tải</p>
+<div aria-busy="true" style="display: flex; flex-direction: column; gap: 10px; padding: 12px 0; border-top: 1px solid var(--ink)"><span style="font-size: 14px; color: var(--muted)">Đang tải danh sách giáo viên…</span><div style="height: 14px; width: 92%; background: var(--off)"></div><div style="height: 14px; width: 86%; background: var(--off)"></div></div>
+</div>
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Gửi lỗi một phần · mở từ Lịch sử</p>
+<div style="padding: 18px 22px; border: 1px solid var(--mark); border-left-width: 6px; background: var(--surface)">
+<p style="margin: 0 0 4px; display: flex; align-items: center; gap: 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--mark)"><svg aria-hidden="true" viewBox="0 0 20 20" style="width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.6"><path d="M10 3l8 14H2z"></path><path d="M10 8v4M10 14.5v.5"></path></svg>Cảnh báo</p>
+<h3 style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 21px; font-weight: 600">"Đổi phòng học buổi 11/11" gửi chưa hết</h3>
+<dl style="margin: 0 0 12px; display: grid; grid-template-columns: minmax(0, 1fr) auto; font-size: 14px; font-variant-numeric: tabular-nums; border-top: 1px solid var(--ink)">
+<dt style="padding: 6px 0; border-bottom: 1px solid var(--rule)">Trong ứng dụng</dt><dd style="margin: 0; padding: 6px 0; border-bottom: 1px solid var(--rule); font-weight: 600">12 người nhận</dd>
+<dt style="padding: 6px 0; border-bottom: 1px solid var(--rule)">Email đã gửi</dt><dd style="margin: 0; padding: 6px 0; border-bottom: 1px solid var(--rule); font-weight: 600">9 thư</dd>
+<dt style="padding: 6px 0; border-bottom: 1px solid var(--rule)">Email lỗi</dt><dd style="margin: 0; padding: 6px 0; border-bottom: 1px solid var(--rule); font-weight: 600; color: var(--danger)">2 thư</dd>
+<dt style="padding: 6px 0; border-bottom: 1px solid var(--rule)">Không có email hoặc đã tắt thư</dt><dd style="margin: 0; padding: 6px 0; border-bottom: 1px solid var(--rule); font-weight: 600">1 người</dd>
+</dl>
+<ul style="margin: 0 0 12px; padding: 0; list-style: none; font-size: 14px"><li style="padding: 6px 0; border-bottom: 1px solid var(--rule)">ducminh@example.com · hộp thư đầy · đã thử lại 3 lần</li><li style="padding: 6px 0; border-bottom: 1px solid var(--rule)">thanhvan@example.com · địa chỉ không tồn tại</li></ul>
+<div style="display: flex; gap: 10px"><button type="button" style="min-height: 40px; padding: 0 16px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: var(--surface); font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center">Gửi lại 2 thư lỗi</button><a href="AdminDanhBa.dc.html" style="min-height: 40px; padding: 0 16px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center">Sửa email trong hồ sơ</a></div>
+<p style="margin: 10px 0 0; font-size: 13px; color: var(--muted)">Gửi lại chỉ gửi cho người lỗi; người đã nhận không nhận lần hai.</p>
+</div>
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted); margin-top: 22px">Thiếu quyền · giáo viên mở Gửi thông báo</p>
+<div style="padding: 16px 20px; border: 1px solid var(--ink); background: var(--surface)"><p style="margin: 0 0 4px; font-weight: 600">Bạn chưa có quyền gửi thông báo cho mọi học viên</p><p style="margin: 0; font-size: 14px">Giáo viên nhắn cho lớp của mình ở <a href="GiaoVien.dc.html">khu giáo viên</a>. Gửi cho khoá hoặc tất cả cần vai trò Quản trị.</p></div>
+</div>
+</div>
+<p style="margin: 18px 0 0; font-size: 14px; color: var(--muted)">Bản hẹp: không vẽ riêng. Dưới 1200px thanh bên thu về icon; hồ sơ giáo viên và bản xem trước thông báo xuống dưới; bảng cuộn ngang, giữ cột tên.</p>
+</section>
+
+<section aria-labelledby="h-dev" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="h-dev" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600; margin-bottom: 10px">Ghi chú cho lập trình</h2>
+<ul style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; max-width: 120ch">
+<li>Giáo viên: route /admin/instructors (giữ route hiện có), hồ sơ là route con có link riêng; không hiện mã nội bộ, chi phí AI để ở Báo cáo. Bỏ thẻ dạng lưới hiện nay, dùng bảng sắp xếp được.</li>
+<li>Mời: email hợp lệ, chưa là nhân sự, không phải tài khoản học viên; lời mời có hạn, đăng nhập bằng Google hoặc mã 6 số qua email (không dùng mật khẩu, không có bước đặt lại mật khẩu); đăng nhập đầu bắt buộc bật xác thực hai bước. Lời mời hết hạn hiện "Hết hạn" kèm "Mời lại".</li>
+<li>Mỗi lớp đúng một giáo viên (đã chốt 18/11/2026); một giáo viên dạy được nhiều lớp. Gán một lớp đã có giáo viên là thay người: ô chọn ghi tên người đang dạy, gán xong lớp rời khỏi hồ sơ giáo viên cũ, bài chờ duyệt đi theo lớp sang giáo viên mới; máy chủ không nhận giáo viên thứ hai cho một lớp. Gỡ khỏi lớp đảo ngược được (gán lại) nên chỉ hỏi lại, nêu số bài Writing chờ duyệt và Speaking thi thử chờ chấm chuyển về hàng chờ của admin (không còn hàng chờ "Giáo viên duyệt" riêng). Thu quyền không hoàn tác: chỉ ở vùng nguy hiểm của Bảo mật, gõ email.</li>
+<li>Thời gian duyệt trung bình tính ở máy chủ trong 30 ngày; dưới XXX bài thì để trống, không hiện "0".</li>
+<li>Gửi thông báo: số người nhận do máy chủ tính theo bộ chọn và kênh (trừ người không có email hoặc đã tắt thư); hộp xác nhận nêu đúng số đó; gửi cho tất cả phải gõ "gửi tất cả". Hẹn giờ huỷ được tới trước giờ gửi.</li>
+<li>Người nhận "Danh sách đã chọn": chỉ nhận danh sách đẩy sang từ nút "Gửi thông báo cho người đã chọn" ở Danh bạ (AdminDanhBa), bảng lớp (AdminLop) và Kết quả bài giao (AdminKetQuaBaiGiao), kèm dòng nguồn ("12 học viên từ Danh bạ · lọc Cần chú ý"); ở đây chỉ bớt người, không thêm tay; danh sách trống thì tắt nút Gửi. Lịch sử ghi nguồn.</li>
+<li>Người nhận "Nhóm theo điều kiện": Chưa nộp một bài được giao (chọn bài) · Quyền khoá sắp hết hạn · Không hoạt động. Ngưỡng lấy từ Cài đặt › Ngưỡng vận hành (AdminCaiDat #m6), tờ này không giữ số riêng; danh sách tính lại ở máy chủ lúc gửi hoặc lúc đến giờ hẹn.</li>
+<li>Gửi chạy nền; lịch sử hiện kết quả theo kênh; thư lỗi có "Gửi lại" chỉ cho người lỗi. Mọi lần gửi ghi nhật ký thao tác nhạy cảm.</li>
+</ul>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Navy + đỏ mận","Xanh teal"],"default":"Navy + đỏ mận"},"$preview":{"width":1440,"height":4700}}'>
+class Component extends DCLogic {
+constructor(p) { super(p); this.state = { open: { hv: true }, inv: false, invEmail: '', invSent: false, tsel: 't1', gone: {}, added: {}, gAsk: '', msg: '', aud: 'list', ls: 'db', app: true, mail: true, when: 'now', title: 'Bạn đang chậm bài so với lộ trình', body: 'Mấy ngày gần đây bạn còn thiếu bài so với lộ trình. Bạn xem các bài còn thiếu ở mục Hôm nay; cần đổi lịch học thì trao đổi với giáo viên sau buổi học gần nhất.', ask: false, sendType: '', sent: false }; }
+renderVals() {
+const s = this.state || {};
+const open = s.open || { hv: true };
+const NAV = (cur, open) => [
+['tq', 'Tổng quan', [['Việc cần làm', 'AdminViecCanLam.dc.html', '']]],
+['hv', 'Học viên và quyền truy cập', [['Học viên', 'AdminDanhBa.dc.html', ''], ['Lớp', 'AdminLop.dc.html', ''], ['Giáo viên', 'AdminGiaoVienThongBao.dc.html', ''], ['Mã kích hoạt', 'AdminLuotVaMa.dc.html#s2', ''], ['Gửi thông báo', 'AdminGiaoVienThongBao.dc.html#m2', ''], ['Khảo sát và nhận xét', 'AdminKhaoSat.dc.html', '4']]],
+['kh', 'Khoá học và đăng ký', [['Khoá học', 'AdminKhoaHoc.dc.html', ''], ['Đơn đăng ký', 'AdminDonDangKy.dc.html', '2'], ['Lượt AI', 'AdminLuotVaMa.dc.html', '']]],
+['cb', 'Chấm bài', [['Writing', 'AdminChamWriting.dc.html', '3'], ['Speaking', 'AdminChamSpeakingThiThu.dc.html', '2'], ['Yêu cầu chấm lại', 'AdminChamLai.dc.html', '2']]],
+['nd', 'Nội dung', [['Listening', 'AdminNoiDung.dc.html', ''], ['Reading', 'AdminNoiDung.dc.html', ''], ['Writing', 'AdminNoiDungVietNoi.dc.html', ''], ['Speaking', 'AdminNoiDungVietNoi.dc.html#m5', ''], ['Từ vựng', 'AdminNoiDungTuVungNguPhap.dc.html', ''], ['Ngữ pháp', 'AdminNoiDungTuVungNguPhap.dc.html#m6', ''], ['Thư viện công khai', 'AdminThuVienCongKhai.dc.html', '']]],
+['tt', 'Thi thử', [['Kỳ thi', 'AdminKyThi.dc.html', '']]],
+['bc', 'Báo cáo', [['Hoạt động học viên', 'AdminBaoCao.dc.html#m1', ''], ['Lưu lượng', 'AdminBaoCao.dc.html#m2', ''], ['Chi phí AI', 'AdminBaoCao.dc.html#m3', ''], ['Chất lượng nội dung', 'AdminBaoCao.dc.html#m4', '']]],
+['ht', 'Hệ thống', [['Hộp thư sự cố', 'AdminSuCo.dc.html', '12'], ['AI và mô hình', 'AdminHeThong.dc.html', ''], ['Bảo mật', 'AdminHeThong.dc.html#m2', ''], ['Công cụ QA', 'AdminHeThong.dc.html#m3', ''], ['Cài đặt', 'AdminCaiDat.dc.html', '']]]
+].map(([id, name, rows]) => {
+const items = rows.map(([label, href, count]) => { const c = cur === id + '/' + label; return { label, href, count, current: c ? 'page' : 'false', bar: c ? 'var(--accent)' : 'transparent', bg: c ? 'var(--tint)' : 'transparent', weight: c ? 600 : 400 }; });
+const ex = !!open[id];
+const hasCur = items.some((x) => x.current === 'page');
+const badge = items.reduce((n, x) => n + (Number(x.count) || 0), 0);
+return { id, name, items, exp: ex ? 'true' : 'false', show: ex, chev: ex ? 'M6 9l6 6 6-6' : 'M9 6l6 6-6 6', badgeShow: !ex && badge ? String(badge) : '', headColor: hasCur ? 'var(--ink)' : 'var(--muted)', toggle: () => this.setState({ open: Object.assign({}, open, { [id]: !open[id] }) }) };
+});
+const em = (s.invEmail || '').trim();
+const emOk = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em);
+const known = ['thuha@example.com', 'tamvt@example.com', 'minhchau@example.com'];
+const dup = known.indexOf(em.toLowerCase()) >= 0;
+const invBad = em !== '' && (!emOk || dup);
+const gone = s.gone || {};
+const added = s.added || {};
+const T = [
+{ id: 't1', name: 'Trần Thu Hà', email: 'thuha@example.com', role: 'Giáo viên', classes: [{ id: 'c1', name: 'Tue–Thu 19:30', course: 'Course 1 · XXX', pend: 3 }, { id: 'c2', name: 'Mon–Wed 18:00', course: 'Course 3 · XXX', pend: 2 }], avg: 'XXX', mfa: 'Đã bật', last: 'Hôm nay, 09:28', done: 'XXX bài', late: '1 bài' },
+{ id: 't2', name: 'Vũ Thanh Tâm', email: 'tamvt@example.com', role: 'Quản trị, Giáo viên', classes: [{ id: 'c3', name: 'Sat–Sun 09:00', course: 'Course 2 · XXX', pend: 0 }], avg: 'XXX', mfa: 'Đã bật', last: 'Hôm nay, 10:40', done: 'XXX bài', late: 'không có' },
+{ id: 't4', name: 'Lý Minh Châu', email: 'minhchau@example.com', role: 'Giáo viên · đã mời 15/11', classes: [], avg: 'chưa đủ dữ liệu', mfa: 'Chưa nhận lời mời', last: 'lời mời hết hạn sau XXX ngày', done: 'chưa có', late: 'không có' }
+];
+if (s.invSent && em) T.push({ id: 't5', name: em, email: em, role: 'Giáo viên · đã mời hôm nay', classes: [], avg: 'chưa đủ dữ liệu', mfa: 'Chưa nhận lời mời', last: 'vừa mời', done: 'chưa có', late: 'không có' });
+const full = T.map((t) => { const movedAway = Object.keys(added).some((k) => added[k] && k !== 't2'); const cls = t.classes.filter((c) => !gone[c.id] && !(c.id === 'c3' && movedAway)).concat(added[t.id] && t.id !== 't2' ? [{ id: 'cx' + t.id, name: 'Sat–Sun 09:00', course: 'Course 2 · XXX', pend: 0 }] : []); const pend = cls.reduce((n, c) => n + c.pend, 0); return Object.assign({}, t, { cls, pendN: pend }); });
+const teachers = full.map((t) => ({ name: t.name, email: t.email, clsText: t.cls.length ? t.cls.map((c) => c.name + ' · ' + c.course).join('; ') : 'chưa được gán lớp', clsC: t.cls.length ? 'var(--ink)' : 'var(--muted)', pend: t.cls.length ? (t.pendN ? String(t.pendN) : 'không có') : 'không áp dụng', pendW: t.pendN ? 600 : 400, pendC: t.pendN ? 'var(--mark)' : 'var(--ink)', avg: t.avg, mfa: t.mfa, mfaC: t.mfa === 'Đã bật' ? 'var(--ok)' : 'var(--mark)', last: t.last, bg: s.tsel === t.id ? 'var(--tint)' : 'transparent', aria: s.tsel === t.id ? 'true' : 'false', open: () => this.setState({ tsel: t.id, gAsk: '', msg: '' }) }));
+const ct = full.find((t) => t.id === s.tsel) || full[0];
+const cur = { name: ct.name, email: ct.email, role: ct.role, avg: ct.avg, done: ct.done, pend: ct.cls.length ? (ct.pendN ? String(ct.pendN) + ' bài' : 'không có') : 'không áp dụng', late: ct.late, lateC: ct.late === 'không có' ? 'var(--ink)' : 'var(--mark)', noClass: ct.cls.length === 0,
+classes: ct.cls.map((c) => ({ tname: ct.name, name: c.name, course: c.course, pendText: c.pend ? c.pend + ' bài chờ duyệt' : 'không có bài chờ', asking: s.gAsk === c.id,
+effect: c.pend ? c.pend + ' bài chờ duyệt, chờ chấm của lớp này chuyển về hàng chờ Chấm bài › Writing và Speaking thi thử của admin cho tới khi có giáo viên mới. Học viên không bị ảnh hưởng. Gán lại được.' : 'Lớp không có bài chờ duyệt. Học viên không bị ảnh hưởng. Gán lại được.',
+ask: () => this.setState({ gAsk: c.id, msg: '' }), cancel: () => this.setState({ gAsk: '' }),
+doIt: () => { const n = Object.assign({}, gone); n[c.id] = true; this.setState({ gone: n, gAsk: '', msg: 'Đã gỡ ' + ct.name + ' khỏi lớp ' + c.name + '. Đã ghi nhật ký.' }); } })) };
+const aud = s.aud || 'list';
+const auds = [['class', 'Một lớp'], ['course', 'Một khoá'], ['list', 'Danh sách đã chọn'], ['cond', 'Nhóm theo điều kiện'], ['all', 'Tất cả học viên']].map(([k, label], i) => ({ label, aria: aud === k ? 'true' : 'false', bg: aud === k ? 'var(--ink)' : 'var(--surface)', fg: aud === k ? 'var(--surface)' : 'var(--ink)', sep: i ? '1px solid var(--ink)' : '0', go: () => this.setState({ aud: k, ask: false, sendType: '', sent: false }) }));
+const app = !!s.app, mail = !!s.mail;
+const LS = {
+db: { label: 'Danh bạ · lọc Cần chú ý', line: 'từ Danh bạ · lọc Cần chú ý', names: ['Phạm Gia Huy', 'Đỗ Khánh Linh', 'Lê Quang Minh', 'Hoàng Mai Chi'], extra: 8 },
+lop: { label: 'Bảng lớp Tue–Thu 19:30 · chọn tay', line: 'từ bảng lớp Tue–Thu 19:30 · chọn tay', names: ['Phạm Gia Huy', 'Đỗ Khánh Linh', 'Trần Bảo Ngọc'], extra: 0 },
+kq: { label: 'Kết quả bài giao · Writing Task 2 buổi 10 · lọc Chưa nộp', line: 'từ Kết quả bài giao · Writing Task 2 buổi 10 · lọc Chưa nộp', names: ['Phạm Gia Huy', 'Đỗ Khánh Linh', 'Đặng Văn Khoa'], extra: 0 }
+};
+const ls = s.ls || 'db';
+const drop = s.drop || {};
+const lNames = LS[ls].names.filter((n) => !drop[ls + n]);
+const lN = lNames.length + LS[ls].extra;
+const lsrcs = Object.keys(LS).map((k) => ({ label: LS[k].label, aria: ls === k ? 'true' : 'false', bar: ls === k ? 'var(--accent)' : 'transparent', bg: ls === k ? 'var(--tint)' : 'transparent', fw: ls === k ? 600 : 400, go: () => this.setState({ ls: k, ask: false, sent: false }) }));
+const lpeople = lNames.map((n) => ({ name: n, drop: () => this.setState({ drop: Object.assign({}, drop, { [ls + n]: true }), ask: false, sent: false }) }));
+const CD = {
+nosub: { label: 'Chưa nộp một bài được giao', rule: 'Học viên được giao bài đã chọn mà tới giờ gửi vẫn chưa nộp. Bài quá hạn khi qua hạn nộp; nhóm "Cần chú ý" theo', names: ['Phạm Gia Huy', 'Đỗ Khánh Linh'] },
+exp: { label: 'Quyền khoá sắp hết hạn', rule: 'Quyền vào khoá còn trong ngưỡng "sắp hết hạn" (hiện: còn ≤ 7 ngày). Ngưỡng đặt ở', names: ['Lê Quang Minh'] },
+idle: { label: 'Không hoạt động', rule: 'Không mở bài nào trong số ngày của ngưỡng "không hoạt động" (hiện: từ 7 ngày). Ngưỡng đặt ở', names: ['Đỗ Khánh Linh'] }
+};
+const cd = s.cd || 'nosub';
+const conds = Object.keys(CD).map((k) => ({ label: CD[k].label, aria: cd === k ? 'true' : 'false', bar: cd === k ? 'var(--accent)' : 'transparent', bg: cd === k ? 'var(--tint)' : 'transparent', fw: cd === k ? 600 : 400, go: () => this.setState({ cd: k, ask: false, sent: false }) }));
+const cN = CD[cd].names.length;
+const nApp = aud === 'class' ? '14' : (aud === 'list' ? String(lN) : (aud === 'cond' ? String(cN) : 'XXX'));
+const nMail = aud === 'class' ? '13' : nApp;
+const recipParts = [];
+if (app) recipParts.push(nApp + ' người nhận trong ứng dụng');
+if (mail) recipParts.push(nMail + ' người nhận email' + (aud === 'class' ? ' (1 người không có email hoặc đã tắt thư)' : ''));
+const recip = lN === 0 && aud === 'list' ? 'Danh sách đã trống: chọn lại người ở nguồn' : (recipParts.length ? recipParts.join(' · ') : 'Chưa chọn kênh nên chưa có người nhận');
+const audName = aud === 'class' ? 'lớp Tue–Thu 19:30' : (aud === 'course' ? 'người học Khoá Writing for IELTS' : (aud === 'list' ? lN + ' học viên ' + LS[ls].line : (aud === 'cond' ? 'nhóm "' + CD[cd].label + '"' : 'tất cả học viên')));
+const later = s.when === 'later';
+const kd = s.kind || 'tb';
+const kinds = [['tb', 'Thông báo chung'], ['nn', 'Nhắc nhở']].map(([k, label], i) => ({ label, aria: kd === k ? 'true' : 'false', bg: kd === k ? 'var(--ink)' : 'var(--surface)', fg: kd === k ? 'var(--surface)' : 'var(--ink)', sep: i ? '1px solid var(--ink)' : '0', go: () => this.setState({ kind: k }) }));
+const whens = [['now', 'Gửi ngay'], ['later', 'Hẹn giờ']].map(([k, label], i) => ({ label, aria: (s.when || 'now') === k ? 'true' : 'false', bg: (s.when || 'now') === k ? 'var(--ink)' : 'var(--surface)', fg: (s.when || 'now') === k ? 'var(--surface)' : 'var(--ink)', sep: i ? '1px solid var(--ink)' : '0', go: () => this.setState({ when: k }) }));
+const title = s.title || '';
+const body = s.body || '';
+const sendOff = (!app && !mail) || !title.trim() || !body.trim() || (aud === 'list' && lN === 0);
+const typeOk = aud !== 'all' || (s.sendType || '').trim().toLowerCase() === 'gửi tất cả';
+const H = [
+{ at: '15/11 17:30', title: 'Thi thử tháng 11 · 17/11 14:00 · Phòng thi cùng giờ', to: 'Lớp Tue–Thu 19:30', ch: 'Ứng dụng, email', res: '14 trong ứng dụng · 13 email', c: 'var(--ink)', w: 400, act: false, by: 'Vũ Thanh Tâm' },
+{ at: '12/11 08:00', title: 'Khoá Writing for IELTS có thêm 12 đề luyện', to: 'Khoá Writing for IELTS', ch: 'Ứng dụng', res: 'XXX trong ứng dụng', c: 'var(--ink)', w: 400, act: false, by: 'Vũ Thanh Tâm' },
+{ at: '16/11 09:10', title: 'Nhắc nộp Writing Task 2 buổi 10', to: 'Danh sách đã chọn · 3 học viên từ Kết quả bài giao', ch: 'Ứng dụng', res: '3 trong ứng dụng', c: 'var(--ink)', w: 400, act: false, by: 'Vũ Thanh Tâm' },
+{ at: '10/11 20:15', title: 'Đổi phòng học buổi 11/11', to: 'Lớp Mon–Wed 18:00', ch: 'Ứng dụng, email', res: 'Gửi chưa hết: 2 email lỗi', c: 'var(--mark)', w: 600, act: true, actText: 'Xem và gửi lại', href: '#m3', by: 'Vũ Thanh Tâm' },
+{ at: 'Hẹn 18/11 08:00', title: 'Nhắc hạn nộp bài tuần 12', to: 'Lớp Sat–Sun 09:00', ch: 'Ứng dụng', res: 'Đang hẹn giờ', c: 'var(--muted)', w: 600, act: true, actText: 'Huỷ hẹn', href: '#m2', by: 'Vũ Thanh Tâm' }
+];
+if (s.sent) H.unshift({ at: later ? 'Hẹn 18/11 08:00' : 'Vừa xong', title, to: aud === 'class' ? 'Lớp Tue–Thu 19:30' : (aud === 'course' ? 'Khoá Writing for IELTS' : (aud === 'list' ? 'Danh sách đã chọn · ' + lN + ' học viên ' + LS[ls].line : (aud === 'cond' ? 'Nhóm theo điều kiện · ' + CD[cd].label : 'Tất cả học viên'))), ch: [app ? 'Ứng dụng' : '', mail ? 'email' : ''].filter(Boolean).join(', '), res: later ? 'Đang hẹn giờ' : 'Đang gửi…', c: 'var(--muted)', w: 600, act: false, by: 'Vũ Thanh Tâm' });
+const hist = H.map((h) => Object.assign({ actText: '', href: '#m2' }, h));
+return {
+pal: (this.props.palette ?? 'Navy + đỏ mận') === 'Xanh teal' ? 'pal-teal' : 'pal-navy',
+nav1: NAV('hv/Giáo viên', open), nav2: NAV('hv/Gửi thông báo', open),
+inv: !!s.inv, invAria: s.inv ? 'true' : 'false', inviteOpen: () => this.setState({ inv: !s.inv, invSent: false }), invClose: () => this.setState({ inv: false }),
+invEmail: em, setInvEmail: (e) => this.setState({ invEmail: e.target.value }),
+invInv: invBad ? 'true' : 'false', invBd: invBad ? '2px solid var(--danger)' : '1px solid var(--muted)',
+invMsg: em === '' ? '' : (!emOk ? 'Email chưa đúng dạng, ví dụ ten@example.com.' : (dup ? 'Email này đã là nhân sự hoặc đã được mời.' : 'Hợp lệ')), invMsgC: invBad ? 'var(--danger)' : 'var(--ok)',
+invOff: !emOk || dup, invOp: !emOk || dup ? 0.45 : 1, invSend: () => { if (emOk && !dup) this.setState({ inv: false, invSent: true }); }, invDone: !!s.invSent && !!em,
+teachers, cur, assign: () => { if (ct.id === 't2') { this.setState({ msg: 'Vũ Thanh Tâm đang dạy lớp Sat–Sun 09:00. Mỗi lớp một giáo viên.' }); return; } const n = {}; n[ct.id] = true; this.setState({ added: n, msg: 'Đã chuyển lớp Sat–Sun 09:00 từ Vũ Thanh Tâm sang ' + ct.name + '. Mỗi lớp một giáo viên. Đã ghi nhật ký.' }); }, hasMsg: !!s.msg, msg: s.msg || '',
+auds, audClass: aud === 'class', audCourse: aud === 'course', audAll: aud === 'all', audList: aud === 'list', audCond: aud === 'cond', recip,
+lsrcs, lpeople, lsrcLine: lN + ' học viên ' + LS[ls].line, lmore: LS[ls].extra ? 'và ' + LS[ls].extra + ' người khác (xem đủ ở nguồn). ' : '',
+conds, condNosub: cd === 'nosub', condRule: CD[cd].rule, condWho: cN + ' học viên khớp lúc này: ' + CD[cd].names.join(', '),
+chApp: app, chMail: mail, flipApp: () => this.setState({ app: !app }), flipMail: () => this.setState({ mail: !mail }), noCh: !app && !mail,
+title, body, setTitle: (e) => this.setState({ title: e.target.value.slice(0, 80) }), setBody: (e) => this.setState({ body: e.target.value }),
+whens, later, kinds, isRemind: kd === 'nn', kindKicker: kd === 'nn' ? 'Chưa đọc · Nhắc nhở · vừa xong' : 'Chưa đọc · Thông báo từ trung tâm · vừa xong',
+sendOff, sendOp: sendOff ? 0.45 : 1, sendLabel: later ? 'Hẹn gửi…' : 'Gửi…', askSend: () => { if (!sendOff) this.setState({ ask: true, sent: false, sendType: '' }); },
+asking: !!s.ask, dlgBd: aud === 'all' ? 'var(--mark)' : 'var(--ink)',
+dlgTitle: (later ? 'Hẹn gửi "' : 'Gửi "') + title + '" cho ' + audName + '?',
+dlgWho: 'Người nhận: ' + recip + '.',
+dlgCh: later ? 'Gửi lúc 18/11/2026 08:00.' : 'Gửi ngay khi bấm xác nhận; email đi dần trong vài phút.',
+sendType: s.sendType || '', setSendType: (e) => this.setState({ sendType: e.target.value }),
+confOff: !typeOk, confOp: typeOk ? 1 : 0.45, confLabel: (later ? 'Hẹn gửi cho ' : 'Gửi cho ') + (app ? nApp : nMail) + ' người',
+doSend: () => { if (typeOk) this.setState({ ask: false, sent: true }); }, cancelSend: () => this.setState({ ask: false }),
+sent: !!s.sent, sentMsg: later ? 'Đã hẹn gửi lúc 18/11 08:00.' : 'Đang gửi tới ' + audName + '.',
+hist
+};
+}
+}
+</script>
+</body>
+</html>

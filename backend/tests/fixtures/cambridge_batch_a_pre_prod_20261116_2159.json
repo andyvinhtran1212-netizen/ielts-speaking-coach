@@ -1,0 +1,1457 @@
+[
+ {
+  "ro": "on",
+  "tz": "UTC",
+  "snapshot": {
+   "entries": [
+    {
+     "row": {
+      "id": "64a259ec-eb66-5b69-ad4f-08d755d50405",
+      "status": "draft",
+      "payload": {
+       "answers": [
+        {
+         "q_num": 1,
+         "answer": "Kings",
+         "alternatives": [
+          "King's"
+         ]
+        },
+        {
+         "q_num": 2,
+         "answer": "125",
+         "alternatives": []
+        },
+        {
+         "q_num": 3,
+         "answer": "walking",
+         "alternatives": []
+        },
+        {
+         "q_num": 4,
+         "answer": "boat",
+         "alternatives": []
+        },
+        {
+         "q_num": 5,
+         "answer": "Tuesday",
+         "alternatives": []
+        },
+        {
+         "q_num": 6,
+         "answer": "space",
+         "alternatives": []
+        },
+        {
+         "q_num": 7,
+         "answer": "vegetarian",
+         "alternatives": []
+        },
+        {
+         "q_num": 8,
+         "answer": "2.30",
+         "alternatives": [
+          "two thirty",
+          "2:30"
+         ]
+        },
+        {
+         "q_num": 9,
+         "answer": "75",
+         "alternatives": [
+          "seventy-five"
+         ]
+        },
+        {
+         "q_num": 10,
+         "answer": "port",
+         "alternatives": []
+        }
+       ],
+       "variant": "dictation_gap_fill",
+       "template": {
+        "groups": [
+         {
+          "items": [
+           {
+            "q_num": 1,
+            "prefix": "",
+            "suffix": "Hotel on George Street"
+           },
+           {
+            "q_num": 2,
+            "prefix": "cost of a family room per night",
+            "suffix": "£ (approx.)"
+           }
+          ],
+          "heading": "Accommodation"
+         },
+         {
+          "items": [
+           {
+            "q_num": 3,
+            "prefix": "a",
+            "suffix": "tour of the city centre (starts in Carlton Square)"
+           },
+           {
+            "q_num": 4,
+            "prefix": "a trip by",
+            "suffix": "to the old fort"
+           }
+          ],
+          "heading": "Recommended trips"
+         },
+         {
+          "items": [
+           {
+            "q_num": 5,
+            "prefix": "best day to visit",
+            "suffix": ""
+           },
+           {
+            "q_num": 6,
+            "prefix": "see the exhibition about",
+            "suffix": ", which opens soon"
+           }
+          ],
+          "heading": "Science Museum"
+         },
+         {
+          "items": [],
+          "heading": "Food"
+         },
+         {
+          "items": [
+           {
+            "q_num": 7,
+            "prefix": "good for",
+            "suffix": "food"
+           },
+           {
+            "q_num": 8,
+            "prefix": "need to have lunch before",
+            "suffix": "p.m."
+           }
+          ],
+          "heading": "● Clacton Market:"
+         },
+         {
+          "items": [
+           {
+            "q_num": 9,
+            "prefix": "save up to",
+            "suffix": "% on ticket prices at bargaintickets.com"
+           }
+          ],
+          "heading": "Theatre tickets"
+         },
+         {
+          "items": [],
+          "heading": "Free activities"
+         },
+         {
+          "items": [
+           {
+            "text": "Roots Music Festival"
+           },
+           {
+            "q_num": 10,
+            "prefix": "climb Telegraph Hill to see a view of the",
+            "suffix": ""
+           }
+          ],
+          "heading": "● Blakewell Gardens:"
+         }
+        ],
+        "heading": "Advice on family visit"
+       },
+       "questions": [
+        {
+         "q_num": 1,
+         "prompt": "Accommodation: ___ Hotel on George Street",
+         "variant": "sentence_inline"
+        },
+        {
+         "q_num": 2,
+         "prompt": "Accommodation: cost of a family room per night ___ £ (approx.)",
+         "variant": "sentence_inline"
+        },
+        {
+         "q_num": 3,
+         "prompt": "Recommended trips: a ___ tour of the city centre (starts in Carlton Square)",
+         "variant": "sentence_inline"
+        },
+        {
+         "q_num": 4,
+         "prompt": "Recommended trips: a trip by ___ to the old fort",
+         "variant": "sentence_inline"
+        },
+        {
+         "q_num": 5,
+         "prompt": "Science Museum: best day to visit ___",
+         "variant": "sentence_inline"
+        },
+        {
+         "q_num": 6,
+         "prompt": "Science Museum: see the exhibition about ___ , which opens soon",
+         "variant": "sentence_inline"
+        },
+        {
+         "q_num": 7,
+         "prompt": "● Clacton Market:: good for ___ food",
+         "variant": "sentence_inline"
+        },
+        {
+         "q_num": 8,
+         "prompt": "● Clacton Market:: need to have lunch before ___ p.m.",
+         "variant": "sentence_inline"
+        },
+        {
+         "q_num": 9,
+         "prompt": "Theatre tickets: save up to ___ % on ticket prices at bargaintickets.com",
+         "variant": "sentence_inline"
+        },
+        {
+         "q_num": 10,
+         "prompt": "● Blakewell Gardens:: climb Telegraph Hill to see a view of the ___",
+         "variant": "sentence_inline"
+        }
+       ],
+       "solutions": {
+        "1": {
+         "trap": "Tên riêng có thể viết **Kings** hoặc **King's** (cả hai được chấp nhận). Đừng ghi nhầm \"Murray\" — đó là tên ga (Murray Station), không phải tên hotel.",
+         "answer": "Kings / King's",
+         "script": "```\nSpeaker 2 (Sandra): Yes, I do. Actually, I always recommend people stay at the King's Hotel.\nSpeaker 1 (Man): Where's that near?\nSpeaker 2 (Sandra): It's about 5 minutes walk from Murray Station, so nice and central. It's actually on George Street.\n```",
+         "skills": "K1, K5 (nghe tên riêng; định vị đúng chi tiết địa chỉ).\n\n**🎧 Vì sao tai bạn trượt chỗ này**\n\nChỗ đề và audio không trùng mặt chữ — \"… Hotel on George Street\" → \"the **King's** Hotel … It's actually on George Street\" (tên hotel + xác nhận đúng phố George). Chữ cái đọc liền mạch, **không có ngữ điệu để bám** — viết ngay từng chữ.",
+         "relisten": "Part 1, Speaker 2 (Sandra) — đoạn giới thiệu accommodation.\n\n---",
+         "paraphrase": "\"… Hotel on George Street\" → \"the **King's** Hotel … It's actually on George Street\" (tên hotel + xác nhận đúng phố George).",
+         "vocab_focus": "- **central** /ˈsen.trəl/ (adj) — ở trung tâm, tiện đi lại\n- **budget** /ˈbʌdʒ.ɪt/ (n) — ngân sách, khoản tiền dự chi",
+         "why_correct": "Sandra names the hotel — \"the **King's** Hotel\" — and immediately anchors it to the printed cue \"on George Street\", confirming this is the right item. \"Murray Station\" is a nearby landmark, not the hotel name.\n\nSandra nói tên khách sạn — \"the **King's** Hotel\" — rồi gắn ngay với cụm in sẵn \"on George Street\", xác nhận đây đúng là chỗ cần điền. \"Murray Station\" chỉ là mốc gần đó, không phải tên khách sạn. Đáp án chấp nhận cả `Kings` và `King's`.",
+         "audio_window": {
+          "end": 142.84,
+          "file": "full_test.mp3",
+          "start": 138.12,
+          "section": "S1"
+         },
+         "paraphrase_map": "| Question keyword | Audio paraphrase | Signal/trap word |\n|---|---|---|\n| … Hotel on George Street | _the King's Hotel … It's actually on George Street_ | \"actually on George Street\" = khớp cue in sẵn |",
+         "translation_vi": "\"Có chứ. Thật ra tôi luôn khuyên mọi người ở khách sạn **King's**.\" … \"Nó cách ga Murray khoảng 5 phút đi bộ, khá trung tâm. Đúng ra nó nằm trên phố George.\"",
+         "trap_mechanisms": "- `name_spelling` — Tên riêng nghe âm; chấp nhận biến thể chính tả có/không dấu sở hữu (Kings / King's)."
+        },
+        "2": {
+         "trap": "**Distractor số**: £95 xuất hiện ngay sau, nhưng đó là giá **mỗi phòng đôi (double room)** anh trai Sandra đã đặt — KHÔNG phải giá family room. Câu hỏi hỏi giá **family room** = 125.",
+         "answer": "125",
+         "script": "```\nSpeaker 2 (Sandra): If you book a family room, it's about £125 per night. My brother paid for two double rooms in the end, and I think that was around £95 for each room.\n```",
+         "skills": "K1, K5 (nghe số + phân biệt số nào ứng với \"family room\").\n\n**🎧 Vì sao tai bạn trượt chỗ này**\n\nChỗ đề và audio không trùng mặt chữ — \"cost of a family room per night\" → \"If you book a **family room**, it's about **£125** per night\". Điểm nằm ở cái được **chốt**, không phải cái nghe **rõ nhất**. Lượt mở ra bằng *“Speaker 2 (Sandra): If you book a family room,…”* — thứ nghe được đầu tiên ở đây chưa phải thứ được chốt.",
+         "relisten": "Part 1, Speaker 2 (Sandra) — đoạn báo giá phòng.\n\n---",
+         "paraphrase": "\"cost of a family room per night\" → \"If you book a **family room**, it's about **£125** per night\".",
+         "vocab_focus": "- **family room** /ˈfæm.əl.i ruːm/ (n) — phòng cho cả gia đình\n- **per night** /pə naɪt/ (phr) — mỗi đêm\n- **roughly / approx.** /ˈrʌf.li/ (adv) — khoảng chừng",
+         "why_correct": "The figure tied to \"a family room … per night\" is **£125**. £95 is explicitly a different product — \"two double rooms … each room\" — so it is a distractor. The £ symbol is already printed, so write only **125**.\n\nCon số gắn với \"a family room … per night\" là **£125**. £95 rõ ràng là sản phẩm khác — \"hai phòng đôi… mỗi phòng\" — nên chỉ là bẫy. Ký hiệu £ đã in sẵn nên chỉ ghi **125**.",
+         "audio_window": {
+          "end": 158.84,
+          "file": "full_test.mp3",
+          "start": 142.84,
+          "section": "S1"
+         },
+         "paraphrase_map": "| Question keyword | Audio paraphrase | Signal/trap word |\n|---|---|---|\n| cost of a family room per night | _a family room, it's about £125 per night_ | £95 = giá double room (distractor) |",
+         "translation_vi": "\"Nếu đặt một phòng gia đình thì khoảng **£125** một đêm. Cuối cùng anh trai tôi đặt hai phòng đôi, và tôi nghĩ mỗi phòng khoảng £95.\"",
+         "trap_mechanisms": "- `distractor_drop` — Nhiều con số được nêu; chỉ 1 số khớp đúng đối tượng \"family room\"."
+        },
+        "3": {
+         "trap": "**Polarity flip**: người đàn ông nhắc \"bus tour\" trước — dễ ghi nhầm \"bus\". Sandra BÁC lại (\"quite expensive\") và đề xuất \"walking tour\". Cue \"starts from Carlton Square\" xác nhận đúng tour đi bộ.",
+         "answer": "walking",
+         "script": "```\nSpeaker 1 (Man): … I was thinking of doing a bus tour of the city center as none of them have been here before.\nSpeaker 2 (Sandra): Those bus tours are quite expensive. I think it's better to do a walking tour. It gives you a much better feel for the city. There's one that starts from Carlton Square.\n```",
+         "skills": "K2, K5 (paraphrase + loại phương án bị bác).\n\n**🎧 Vì sao tai bạn trượt chỗ này**\n\nChỗ đề và audio không trùng mặt chữ — \"a … tour of the city centre\" → \"it's better to do a **walking** tour… There's one that starts from Carlton Square\". Từ đảo chiều là từ **bị nói nhanh nhất** — sót một âm tiết là hiểu ngược. Về âm: **`walking tour`** /ˈwɔː.kɪŋ tʊə/ — trọng âm ở nhịp đầu, đuôi từ trôi rất nhanh; mặt chữ **11 ký tự** mà chỉ **3 nhịp** — nhìn dài, nghe ngắn.",
+         "relisten": "Part 1, đoạn Sandra khuyên về Recommended trips.\n\n---",
+         "paraphrase": "\"a … tour of the city centre\" → \"it's better to do a **walking** tour… There's one that starts from Carlton Square\".",
+         "vocab_focus": "- **walking tour** /ˈwɔː.kɪŋ tʊə/ (n) — tour tham quan đi bộ\n- **get a feel for** /ɡet ə fiːl fɔː/ (phr) — cảm nhận rõ hơn về (nơi nào đó)",
+         "why_correct": "The man's \"bus tour\" is rejected (\"quite expensive\") and replaced by Sandra's recommendation, a **walking** tour, which she anchors with \"starts from Carlton Square\" — exactly the printed cue.\n\n\"Bus tour\" mà người đàn ông nói bị bác (\"khá đắt\") và được thay bằng gợi ý của Sandra: một tour **walking**, gắn với cue \"starts from Carlton Square\" đúng như đề in.",
+         "audio_window": {
+          "end": 191.72,
+          "file": "full_test.mp3",
+          "start": 187.26,
+          "section": "S1"
+         },
+         "paraphrase_map": "| Question keyword | Audio paraphrase | Signal/trap word |\n|---|---|---|\n| a … tour (starts in Carlton Square) | _better to do a walking tour… starts from Carlton Square_ | \"better to do\" = bác bỏ bus tour |",
+         "translation_vi": "Man: \"Tôi định làm một tour **xe buýt** vòng quanh trung tâm…\" Sandra: \"Mấy tour xe buýt đó khá đắt. Tôi nghĩ tốt hơn là làm một tour **đi bộ**… Có một tour khởi hành từ Quảng trường Carlton.\"",
+         "trap_mechanisms": "- `polarity_flip` — Phương án đầu (bus) bị phủ định, phương án sau (walking) mới đúng.\n- `distractor_drop` — \"bus tour\" là mồi bị loại."
+        },
+        "4": {
+         "trap": "Không có bẫy mạnh; chỉ cần nghe đúng phương tiện \"by boat\". Chi tiết \"half a day\" là thời lượng, không phải đáp án.",
+         "answer": "boat",
+         "script": "```\nSpeaker 2 (Sandra): If the weather's nice, one thing you could do is visit the old fort, but you could get there by boat. The whole trip takes half a day.\n```",
+         "skills": "K2 (paraphrase phương tiện).\n\n**🎧 Vì sao tai bạn trượt chỗ này**\n\nĐề in một đằng, audio gần như giữ nguyên chữ một nẻo — \"a trip by … to the old fort\" → \"visit the old fort, but you could get there **by boat**\". Từ khó không phải vấn đề; **khoảng cách giữa hai cách nói** mới là vấn đề. Nó nằm ở **mấy chữ cuối lượt** — buông sớm là mất.",
+         "relisten": "Part 1, Speaker 2 (Sandra) — gợi ý pháo đài cổ.\n\n---",
+         "paraphrase": "\"a trip by … to the old fort\" → \"visit the old fort, but you could get there **by boat**\".",
+         "vocab_focus": "- **old fort** /əʊld fɔːt/ (n) — pháo đài cổ\n- **by boat** /baɪ bəʊt/ (phr) — bằng thuyền/tàu\n- **half a day** /hɑːf ə deɪ/ (phr) — nửa ngày",
+         "why_correct": "The means of transport to the old fort is stated directly: \"get there **by boat**.\" One word: `boat`.\n\nPhương tiện tới pháo đài cổ được nói thẳng: \"get there **by boat**.\" Chỉ 1 từ: `boat`.",
+         "audio_window": {
+          "end": 209.12,
+          "file": "full_test.mp3",
+          "start": 205.12,
+          "section": "S1"
+         },
+         "paraphrase_map": "| Question keyword | Audio paraphrase | Signal/trap word |\n|---|---|---|\n| a trip by … to the old fort | _visit the old fort… get there by boat_ | \"get there by\" = phương tiện |",
+         "translation_vi": "\"Nếu thời tiết đẹp, một việc bạn có thể làm là ghé thăm pháo đài cổ, và bạn có thể tới đó **bằng thuyền**. Cả chuyến mất nửa ngày.\"",
+         "trap_mechanisms": "- `paraphrase_t0` — Lặp gần nguyên văn: \"the old fort … by boat\"."
+        },
+        "5": {
+         "trap": "**Distractor drop kép**: có 3 ngày được nhắc — Monday (đóng cửa), Saturday (quá đông), Tuesday (tốt nhất). Người bám \"Monday\" hoặc \"Saturday\" sẽ sai.",
+         "answer": "Tuesday",
+         "script": "```\nSpeaker 2 (Sandra): Yeah, don't forget it's closed on Mondays.\nSpeaker 1 (Man): They're here from Saturday for four nights, so Tuesday would be best, I think.\nSpeaker 2 (Sandra): And it won't be so crowded then. Saturdays are terrible.\n```",
+         "skills": "K3, K5 (bám dòng loại trừ ngày; detail vs gist).\n\n**🎧 Vì sao tai bạn trượt chỗ này**\n\nChỗ đề và audio không trùng mặt chữ — \"best day to visit\" → \" **Tuesday** would be best\" (sau khi loại Monday: đóng cửa, Saturday: quá đông). Nhiều thứ cùng khớp mặt chữ; chỉ khác nhau ở chỗ cái nào bị bác. Lượt mở ra bằng *“Speaker 2 (Sandra): Yeah, don't forget it's closed on…”* — thứ nghe được đầu tiên ở đây chưa phải thứ được chốt.",
+         "relisten": "Part 1, đoạn về Science Museum.\n\n---",
+         "paraphrase": "\"best day to visit\" → \"**Tuesday** would be best\" (sau khi loại Monday: đóng cửa, Saturday: quá đông).",
+         "vocab_focus": "- **closed on Mondays** /kləʊzd ɒn ˈmʌn.deɪz/ (phr) — đóng cửa (các) thứ Hai\n- **crowded** /ˈkraʊ.dɪd/ (adj) — đông đúc",
+         "why_correct": "Monday is ruled out (\"closed on Mondays\"), Saturday is ruled out (\"terrible… far too crowded\"), leaving **Tuesday**, confirmed by Sandra (\"it won't be so crowded then\").\n\nThứ Hai bị loại (\"đóng cửa\"), thứ Bảy bị loại (\"khủng khiếp… quá đông\"), còn lại **Tuesday**, được Sandra xác nhận (\"lúc đó sẽ không quá đông\").",
+         "audio_window": {
+          "end": 230.44,
+          "file": "full_test.mp3",
+          "start": 224.76,
+          "section": "S1"
+         },
+         "paraphrase_map": "| Question keyword | Audio paraphrase | Signal/trap word |\n|---|---|---|\n| best day to visit | _Tuesday would be best… won't be so crowded then_ | \"closed on Mondays\", \"Saturdays are terrible\" = loại trừ |",
+         "translation_vi": "Sandra: \"À, đừng quên là nó đóng cửa vào thứ Hai.\" Man: \"Họ ở đây từ thứ Bảy, ở bốn đêm, nên tôi nghĩ **thứ Ba** là tốt nhất.\" Sandra: \"Và lúc đó cũng sẽ không quá đông. Thứ Bảy thì khủng khiếp.\"",
+         "trap_mechanisms": "- `distractor_drop` — Ba ngày nêu ra, chỉ 1 ngày đúng sau khi loại 2."
+        },
+        "6": {
+         "trap": "**Time flag**: có 2 triển lãm — \"old computers\" (ĐÃ kết thúc, \"it's finished now\") và \"space\" (SẮP mở). Cue \"opens soon\" khớp với space. Ai bám \"old computers\" sẽ sai.",
+         "answer": "space",
+         "script": "```\nSpeaker 2 (Sandra): … I took my kids to the exhibition on old computers there, and it was far too crowded. I wanted to go back, but it's finished now.\nSpeaker 1 (Man): That's a shame…\nSpeaker 2 (Sandra): There's another one starting soon on space, which looks really good, too.\n```",
+         "skills": "K3, K5 (bám cue \"opens soon / starting soon\").\n\n**🎧 Vì sao tai bạn trượt chỗ này**\n\nChỗ đề và audio không trùng mặt chữ — \"the exhibition… which opens soon\" → \"another one **starting soon** on **space**\". Phương án bị loại luôn được nói **trước** — treo bút tới hết lượt. Lượt mở ra bằng *“Speaker 2 (Sandra): … I took my kids to…”* — thứ nghe được đầu tiên ở đây chưa phải thứ được chốt. Phải giữ tập trung tới **hết lượt**; đáp án là phần sau cùng.",
+         "relisten": "Part 1, đoạn Sandra kể chuyện đưa con đi bảo tàng.\n\n---",
+         "paraphrase": "\"the exhibition… which opens soon\" → \"another one **starting soon** on **space**\".",
+         "vocab_focus": "- **exhibition** /ˌek.sɪˈbɪʃ.ən/ (n) — triển lãm\n- **space** /speɪs/ (n) — vũ trụ, không gian\n- **starting soon** /ˈstɑː.tɪŋ suːn/ (phr) — sắp khai mạc",
+         "why_correct": "\"old computers\" is the finished exhibition; the one that \"opens soon\" is on **space**. The printed cue \"which opens soon\" = \"starting soon\".\n\n\"old computers\" là triển lãm đã kết thúc; triển lãm \"opens soon\" nói về **space**. Cue in sẵn \"which opens soon\" khớp \"starting soon\".",
+         "audio_window": {
+          "end": 249.56,
+          "file": "full_test.mp3",
+          "start": 244.72,
+          "section": "S1"
+         },
+         "paraphrase_map": "| Question keyword | Audio paraphrase | Signal/trap word |\n|---|---|---|\n| exhibition about …, which opens soon | _another one starting soon on space_ | \"it's finished now\" (computers) vs \"starting soon\" (space) |",
+         "translation_vi": "\"Tôi đã đưa các con đến triển lãm về **máy tính cổ** ở đó, nhưng quá đông… giờ nó kết thúc rồi.\" … \"Có một triển lãm khác sắp mở về **vũ trụ**, trông cũng rất hay.\"",
+         "trap_mechanisms": "- `distractor_drop` — Triển lãm cũ \"old computers\" là mồi (đã kết thúc)."
+        },
+        "7": {
+         "trap": "**Referential**: từ khóa \"vegetarian\" xuất hiện ở câu trước, còn cụm gắn với \"good for\" là \"that kind of food\" — phải nối \"that kind\" trở lại \"vegetarian\". Nếu chỉ đợi cụm \"good for\" mà không giữ từ trước, dễ bỏ lỡ.",
+         "answer": "vegetarian",
+         "script": "```\nSpeaker 1 (Man): Well, I really like all the food stalls at Clacton Market. My cousin's vegetarian. I know it's one of the best places for that kind of food.\n```",
+         "skills": "K2, K5 (paraphrase \"good for\" ↔ \"best places for that kind of food\").\n\n**🎧 Vì sao tai bạn trượt chỗ này**\n\nĐề in một đằng, audio đi qua một chuỗi đồng nghĩa một nẻo — \"good for …\" → \"one of the best places for that kind of food\" (that kind = **vegetarian**). Băng không quay lại, nên phép quy đổi phải xong **trong một lượt nghe**. Về âm: **`vegetarian`** /ˌvedʒ.əˈteə.ri.ən/ — trọng âm rơi vào nhịp **3/5**, hai nhịp đầu bị nén lại; phần không nhấn hoá **/ə/**, nên từ nghe ngắn hơn mặt chữ nhiều; mặt chữ **10 ký tự** mà chỉ **5 nhịp** — nhìn dài, nghe ngắn.",
+         "relisten": "Part 1, đoạn Food / Clacton Market.\n\n---",
+         "paraphrase": "\"good for …\" → \"one of the best places for that kind of food\" (that kind = **vegetarian**).",
+         "vocab_focus": "- **vegetarian** /ˌvedʒ.əˈteə.ri.ən/ (n/adj) — người ăn chay / (đồ) chay\n- **food stalls** /fuːd stɔːlz/ (n) — quầy/sạp thức ăn",
+         "why_correct": "The market is \"one of the best places for that kind of food\" — and \"that kind\" refers back to **vegetarian** food. The single-word answer is `vegetarian`.\n\nChợ là \"một trong những nơi tốt nhất cho loại đồ ăn đó\" — \"that kind\" quy chiếu về đồ **vegetarian**. Đáp án 1 từ: `vegetarian`.",
+         "audio_window": {
+          "end": 299.42,
+          "file": "full_test.mp3",
+          "start": 292.76,
+          "section": "S1"
+         },
+         "paraphrase_map": "| Question keyword | Audio paraphrase | Signal/trap word |\n|---|---|---|\n| good for … | _best places for that kind of food_ | \"that kind\" ↔ vegetarian |",
+         "translation_vi": "\"Tôi rất thích các quầy ăn ở chợ Clacton. Cô em họ tôi ăn **chay**. Tôi biết đó là một trong những nơi tốt nhất cho loại đồ ăn đó.\"",
+         "trap_mechanisms": "- `synonym_chain` — \"good for\" ↔ \"one of the best places for\" ↔ \"that kind of food\" = vegetarian."
+        },
+        "8": {
+         "trap": "Bẫy nhẹ về format số: viết **2.30** hoặc **two thirty** (đề đã in sẵn \"p.m.\"). Đừng ghi \"2:30 pm\" lặp lại p.m.",
+         "answer": "2.30 / two thirty",
+         "script": "```\nSpeaker 2 (Sandra): … You need to get there quite early, though. At the weekend, most of the stores stop serving lunch at 2:30.\n```",
+         "skills": "K1 (nghe giờ).\n\n**🎧 Vì sao tai bạn trượt chỗ này**\n\nĐề in một đằng, audio đổi một cụm một nẻo — \"need to have lunch before … p.m.\" → \"most of the stores **stop serving lunch at 2:30**\". Băng không quay lại, nên phép quy đổi phải xong **trong một lượt nghe**. Đoạn chứa nó bắt đầu bằng *“Speaker 2 (Sandra): … You need to get there…”* — dò từ mốc đó khi nghe lại.",
+         "relisten": "Part 1, đoạn Food / Clacton Market.\n\n---",
+         "paraphrase": "\"need to have lunch before … p.m.\" → \"most of the stores **stop serving lunch at 2:30**\".",
+         "vocab_focus": "- **stop serving** /stɒp ˈsɜː.vɪŋ/ (phr) — ngừng phục vụ\n- **at the weekend** /ət ðə ˌwiːkˈend/ (phr) — vào cuối tuần",
+         "why_correct": "Lunch stops at **2:30**, so you must eat before then. \"p.m.\" is already printed. Accept `2.30` or `two thirty`.\n\nĐồ trưa ngừng bán lúc **2:30**, nên phải ăn trước giờ đó. \"p.m.\" đã in sẵn. Chấp nhận `2.30` hoặc `two thirty`.",
+         "audio_window": {
+          "end": 315.42,
+          "file": "full_test.mp3",
+          "start": 299.42,
+          "section": "S1"
+         },
+         "paraphrase_map": "| Question keyword | Audio paraphrase | Signal/trap word |\n|---|---|---|\n| have lunch before … p.m. | _stop serving lunch at 2:30_ | \"stop serving … at\" = mốc giờ cuối |",
+         "translation_vi": "\"Chắc chắn rồi. Và cũng sẽ có nhiều lựa chọn cho bọn trẻ nữa. Nhưng bạn cần tới đó khá sớm. Cuối tuần, hầu hết các quầy ngừng phục vụ trưa lúc **2:30**.\"",
+         "trap_mechanisms": "- `paraphrase_t1` — \"before … p.m.\" ↔ \"stop serving lunch at 2:30\"."
+        },
+        "9": {
+         "trap": "Không có số nhiễu ở đây; chỉ cần nghe đúng \"75\". Ký hiệu \"%\" đã in sẵn, ghi số **75**.",
+         "answer": "75 / seventy-five",
+         "script": "```\nSpeaker 2 (Sandra): I know, but you can get some good deals if you book online with bargaintickets.com for the following day. On some seats, there's a 75% discount.\n```",
+         "skills": "K1 (nghe phần trăm).\n\n**🎧 Vì sao tai bạn trượt chỗ này**\n\nĐề in một đằng, audio đổi một cụm một nẻo — \"save up to … %\" → \"there's a **75%** discount\" (on some seats). Băng không quay lại, nên phép quy đổi phải xong **trong một lượt nghe**. Đoạn chứa nó bắt đầu bằng *“Speaker 2 (Sandra): I know, but you can get…”* — dò từ mốc đó khi nghe lại.",
+         "relisten": "Part 1, đoạn Theatre tickets.\n\n---",
+         "paraphrase": "\"save up to … %\" → \"there's a **75%** discount\" (on some seats).",
+         "vocab_focus": "- **discount** /ˈdɪs.kaʊnt/ (n) — mức giảm giá\n- **deals** /diːlz/ (n) — ưu đãi, món hời\n- **book online** /bʊk ˌɒnˈlaɪn/ (phr) — đặt trực tuyến",
+         "why_correct": "The discount is **75%** on some seats — \"save up to …%\" = \"a 75% discount\". Write `75`.\n\nMức giảm là **75%** cho một số ghế — \"save up to …%\" = \"a 75% discount\". Ghi `75`.",
+         "audio_window": {
+          "end": 315.42,
+          "file": "full_test.mp3",
+          "start": 299.42,
+          "section": "S1"
+         },
+         "paraphrase_map": "| Question keyword | Audio paraphrase | Signal/trap word |\n|---|---|---|\n| save up to … % | _there's a 75% discount_ | \"discount\" = phần trăm tiết kiệm |",
+         "translation_vi": "\"Tôi biết, nhưng bạn có thể săn được ưu đãi tốt nếu đặt online tại bargaintickets.com cho ngày hôm sau. Với một số ghế, có mức giảm **75%**.\"",
+         "trap_mechanisms": "- `paraphrase_t1` — \"save up to …%\" ↔ \"a 75% discount\"."
+        },
+        "10": {
+         "trap": "Bẫy nhẹ: \"views are amazing\" và \"so huge\" là bình luận, không phải đáp án. Đáp án là đối tượng được nhìn = **port**.",
+         "answer": "port",
+         "script": "```\nSpeaker 2 (Sandra): And if you're in Blakewell Gardens, climb Telegraph Hill. You'll be able to look right down on the port. Everyone's always really impressed because it's so huge.\n```",
+         "skills": "K2, K5 (paraphrase \"a view of\" ↔ \"look down on\").\n\n**🎧 Vì sao tai bạn trượt chỗ này**\n\nĐề in một đằng, audio đổi một cụm một nẻo — \"a view of the …\" → \"You'll be able to **look right down on the port**\". Băng không quay lại, nên phép quy đổi phải xong **trong một lượt nghe**. Đoạn chứa nó bắt đầu bằng *“Speaker 2 (Sandra): And if you're in Blakewell Gardens,…”* — dò từ mốc đó khi nghe lại.",
+         "relisten": "Part 1, đoạn Free activities / Blakewell Gardens.\n\n---",
+         "paraphrase": "\"a view of the …\" → \"You'll be able to **look right down on the port**\".",
+         "vocab_focus": "- **port** /pɔːt/ (n) — cảng, bến cảng\n- **look right down on** /lʊk raɪt daʊn ɒn/ (phr) — nhìn thẳng xuống\n- **impressed** /ɪmˈprest/ (adj) — ấn tượng",
+         "why_correct": "From Telegraph Hill you \"look right down on the **port**\" — the object of the view is the port. One word: `port`.\n\nTừ đồi Telegraph bạn \"nhìn thẳng xuống **cảng**\" — đối tượng của khung cảnh là port. Một từ: `port`.",
+         "audio_window": {
+          "end": 390.1,
+          "file": "full_test.mp3",
+          "start": 374.1,
+          "section": "S1"
+         },
+         "paraphrase_map": "| Question keyword | Audio paraphrase | Signal/trap word |\n|---|---|---|\n| a view of the … | _look right down on the port_ | \"look down on\" = a view of |",
+         "translation_vi": "\"Và nếu bạn ở Vườn Blakewell, hãy leo lên đồi Telegraph. Bạn sẽ có thể nhìn thẳng xuống **cảng**. Ai cũng ấn tượng vì nó rất rộng lớn.\"",
+         "trap_mechanisms": "- `paraphrase_t1` — \"a view of\" ↔ \"look right down on\"."
+        }
+       },
+       "instruction": "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.",
+       "audio_windows": {
+        "1": {
+         "end": 142.84,
+         "start": 138.12,
+         "section": "S1"
+        },
+        "2": {
+         "end": 158.84,
+         "start": 142.84,
+         "section": "S1"
+        },
+        "3": {
+         "end": 191.72,
+         "start": 187.26,
+         "section": "S1"
+        },
+        "4": {
+         "end": 209.12,
+         "start": 205.12,
+         "section": "S1"
+        },
+        "5": {
+         "end": 230.44,
+         "start": 224.76,
+         "section": "S1"
+        },
+        "6": {
+         "end": 249.56,
+         "start": 244.72,
+         "section": "S1"
+        },
+        "7": {
+         "end": 299.42,
+         "start": 292.76,
+         "section": "S1"
+        },
+        "8": {
+         "end": 315.42,
+         "start": 299.42,
+         "section": "S1"
+        },
+        "9": {
+         "end": 315.42,
+         "start": 299.42,
+         "section": "S1"
+        },
+        "10": {
+         "end": 390.1,
+         "start": 374.1,
+         "section": "S1"
+        }
+       },
+       "template_kind": "notes_completion",
+       "transcript_anchors": {}
+      },
+      "segments": [],
+      "order_num": 1,
+      "cefr_level": null,
+      "content_id": "e6097750-f3c9-5d7c-b82e-83978e17638a",
+      "created_at": "2026-10-07T00:34:42.467323+00:00",
+      "updated_at": "2026-11-14T11:35:13.95237+00:00",
+      "exercise_type": "dictation"
+     },
+     "paper": {
+      "id": "aa667c6d-1b95-5079-a38e-5dcd88a39f0d",
+      "title": "[Revised REV02] Cambridge IELTS 20 — Listening Test 4",
+      "status": "published",
+      "themes": {
+       "s1": "Section 1",
+       "s2": "Section 2",
+       "s3": "Section 3",
+       "s4": "Section 4"
+      },
+      "test_id": "MOCK0016-PROD-20261006-ILR-LIS-CAM-B20-T4-REV02",
+      "version": "revised-text-2",
+      "metadata": {
+       "source_format": "listening-fulltest-v1.2",
+       "band_conversion": [],
+       "section_offsets": {
+        "S1": 0,
+        "S2": 442.33,
+        "S3": 950.8,
+        "S4": 1423.54
+       },
+       "mock_remediation_revision": {
+        "revision": "REV02",
+        "audio_timing": "SKIPPED_BY_USER",
+        "audio_hearing": "SKIPPED_BY_USER",
+        "source_sha256": "2e812ab26cadd81e39377e9fda55b40f090db5ce1f50816c5b2143720587fcb4",
+        "source_test_id": "ILR-LIS-CAM-B20-T4",
+        "revised_questions": [
+         7,
+         35
+        ],
+        "source_acceptance": "CORROBORATED_SECONDARY_TEXT_ONLY",
+        "publisher_authenticated": false
+       },
+       "production_remediation_revision": {
+        "package": "MOCK0016-PROD-20261006",
+        "revised": true,
+        "revision": "REV02",
+        "audio_timing": "SKIPPED_BY_USER",
+        "staging_code": "MOCK0016-20261005-C20L4-REV02",
+        "audio_hearing": "SKIPPED_BY_USER",
+        "source_paper_id": "ILR-LIS-CAM-B20-T4",
+        "publication_scope": "future mock selection only; originals and existing bindings unchanged",
+        "accepted_staging_uuid": "aa667c6d-1b95-5079-a38e-5dcd88a39f0d",
+        "production_original_uuid": "07b447bc-960d-435f-a4fd-a0c196a97c6f",
+        "native_accepted_payload_sha256": "7060010ca50d91229b11efe7fc57b21fe3c3b99633629ca0d54570f7278288e3",
+        "whole_paper_publisher_certified": false
+       }
+      },
+      "exam_only": true,
+      "is_public": false,
+      "test_type": "full",
+      "created_at": "2026-10-07T00:34:42.467323+00:00",
+      "cue_points": [
+       {
+        "type": "section",
+        "section_num": 1,
+        "timestamp_seconds": 0
+       },
+       {
+        "type": "section",
+        "section_num": 2,
+        "timestamp_seconds": 442.33
+       },
+       {
+        "type": "section",
+        "section_num": 3,
+        "timestamp_seconds": 950.8
+       },
+       {
+        "type": "section",
+        "section_num": 4,
+        "timestamp_seconds": 1423.54
+       }
+      ],
+      "updated_at": "2026-11-14T11:35:13.95237+00:00",
+      "band_target": null,
+      "claim_policy": null,
+      "course_level": null,
+      "form_purpose": null,
+      "programme_id": "ielts",
+      "replay_policy": null,
+      "accent_profile": [],
+      "scoring_policy": "diagnostic",
+      "source_form_id": null,
+      "support_policy": null,
+      "policy_revision": 3,
+      "source_lesson_id": null,
+      "source_item_count": null,
+      "content_package_id": null,
+      "audio_assembly_mode": "full_premixed",
+      "listening_lesson_id": null,
+      "web_explanation_mode": "disabled",
+      "full_audio_size_bytes": 30501031,
+      "mock_content_revision": 53,
+      "source_manifest_sha256": null,
+      "total_transcript_words": 3271,
+      "approved_public_overlap": null,
+      "full_audio_storage_path": "tests/aa667c6d-1b95-5079-a38e-5dcd88a39f0d/full.mp3",
+      "public_practice_enabled": false,
+      "full_audio_duration_seconds": 1906,
+      "assembled_audio_generated_at": null,
+      "assembled_audio_storage_path": null,
+      "web_explanations_released_at": null,
+      "web_explanations_released_by": null,
+      "web_explanation_content_version": null
+     },
+     "target": "c03b-key"
+    },
+    {
+     "row": {
+      "id": "bfd3185b-3524-401f-a92d-81a18d880140",
+      "skill": "listening",
+      "payload": {
+       "item": {
+        "answer": {
+         "canonical": "2.30",
+         "accepted_forms": [
+          "2.30",
+          "two thirty"
+         ],
+         "comparison_mode": "single_value",
+         "requires_normalization_review": false
+        },
+        "prompt": "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.\nClacton Market — need to have lunch before ………… p.m.",
+        "context": {
+         "kind": "section",
+         "title": "Section 1",
+         "number": 1,
+         "source_instructions": "Listening questions in source order."
+        },
+        "options": null,
+        "question_type": "note_completion",
+        "response_group": null,
+        "response_constraint": {
+         "word_limit_text": "ONE WORD AND/OR A NUMBER",
+         "instruction_text": "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.",
+         "selection_count_text": null
+        },
+        "source_question_type": "note"
+       },
+       "audit": {
+        "verdict": "CONFIRMED",
+        "evidence": [
+         {
+          "quote": "Speaker 2 (Sandra): … You need to get there quite early, though. At the weekend, most of the stores stop serving lunch at 2:30.",
+          "location": "Section 1; cambridge_ielts_20_test_4_audioscript.md",
+          "relation": "Transcript evidence (token containment 1.000).",
+          "timestamp": "303.42-312.14s",
+          "source_page": null
+         }
+        ],
+        "confidence": {
+         "label": "high",
+         "score": 0.97
+        },
+        "blind_answer": "2.30",
+        "collection_review": null,
+        "instruction_check": {
+         "detail": "Every accepted variant is within the 1-word limit.",
+         "status": "COMPLIANT"
+        },
+        "distractor_analysis": "- `paraphrase_t1` — \"before … p.m.\" ↔ \"stop serving lunch at 2:30\". **Re-listen anchor:** Part 1, đoạn Food / Clacton Market. ---",
+        "proposed_correction": null,
+        "deterministic_issues": [],
+        "revision_answer_sync": {
+         "spec": "REVEXPLAIN-0023",
+         "added_forms": [
+          "two thirty"
+         ],
+         "grading_change": false,
+         "revision_test_id": "MOCK0016-PROD-20261006-ILR-LIS-CAM-B20-T4-REV02"
+        },
+        "alternative_answers_considered": []
+       },
+       "source": {
+        "paper": "listening",
+        "test_id": "cambridge-20-test-4",
+        "immutable": true,
+        "collection": "Cambridge IELTS 20",
+        "test_number": 4,
+        "timings_path": "cambridge-20-test-4/cambridge_ielts_20_test_4_timings.json",
+        "question_number": 8,
+        "provenance_hashes": {
+         "timings_path": "e38dc6a8628b596a768a268929efb4a097b7bc4e6b80b7f149bd004816b7ddaa",
+         "semantic_audit_path": "71d0ccfe6d1c60193226b4113545219b4a63babfbc93950f78b8e298849be51e",
+         "authored_solution_path": "180bff593132bcea47592927cc8fab522d7a50f8a8478761f33edf2123cd1e4a",
+         "canonical_package_path": "36fb7b4be853fa7ec9b5e1e9fecb48e5efd18881af1c58a80ee45501ea08c738",
+         "deterministic_preflight_path": "f14d4aa7f8ef4c1a78cac687964b28327131b3ab7eb60dd3d78dd7435ded67e6"
+        },
+        "semantic_audit_path": "cambridge-20-test-4/semantic-audit.json",
+        "authored_solution_path": "cambridge-20-test-4/cambridge_ielts_20_test_4_listening_Solution.md",
+        "canonical_package_path": "cambridge-20-test-4/package.json",
+        "deterministic_preflight_path": "cambridge-20-test-4/deterministic-preflight.json"
+       },
+       "object_id": "cambridge-20-test-4-listening-q08",
+       "telemetry": {
+        "required_events": [
+         "paper_submitted",
+         "confidence_recorded",
+         "evidence_attempt_submitted",
+         "hint_revealed",
+         "full_explanation_opened",
+         "correction_output_submitted",
+         "same_source_repair_scored",
+         "parallel_transfer_scored",
+         "delayed_retest_scored"
+        ],
+        "minimum_event_payload": [
+         "event_id",
+         "event_name",
+         "schema_version",
+         "learner_id",
+         "mock_session_id",
+         "sequence_no",
+         "client_occurred_at",
+         "server_received_at",
+         "client_version",
+         "payload"
+        ]
+       },
+       "explanation": {
+        "trap": "Bẫy nhẹ về format số: viết **2.30** (đề đã in sẵn \"p.m.\"). Không viết **two thirty** vì đó là hai từ, vượt giới hạn ONE WORD AND/OR A NUMBER; cũng không ghi \"2:30 pm\" vì lặp lại p.m.",
+        "language": "vi-with-en-evidence",
+        "paraphrase": "\"need to have lunch before … p.m.\" → \"most of the stores **stop serving lunch at 2:30**\".",
+        "vocabulary": "- **stop serving** /stɒp ˈsɜː.vɪŋ/ (phr) — ngừng phục vụ\n- **at the weekend** /ət ðə ˌwiːkˈend/ (phr) — vào cuối tuần",
+        "why_correct": "Lunch stops at **2:30**, so you must eat before then. \"p.m.\" is already printed. Write the numeric form `2.30`; `two thirty` exceeds the one-word limit.\nĐồ trưa ngừng bán lúc **2:30**, nên phải ăn trước giờ đó. \"p.m.\" đã in sẵn. Ghi dạng số `2.30`; `two thirty` vượt giới hạn một từ.",
+        "audio_window": {
+         "audio_uri": "audio://cambridge_ielts_20_test_4_full_test.mp3?start=303.42&end=312.14&q=8&section=S1",
+         "provenance": "authored_solution",
+         "end_seconds": 312.14,
+         "start_seconds": 303.42,
+         "alignment_confidence": null
+        },
+        "marking_note": null,
+        "decision_path": "Đề in một đằng, audio đổi một cụm một nẻo — \"need to have lunch before … p.m.\" → \"most of the stores **stop serving lunch at 2:30**\". Băng không quay lại, nên phép quy đổi phải xong **trong một lượt nghe**. Đoạn chứa nó bắt đầu bằng *“Speaker 2 (Sandra): … You need to get there…”* — dò từ mốc đó khi nghe lại.",
+        "strategy_note": "Part 1, đoạn Food / Clacton Market.",
+        "answer_summary": "Đáp án chuẩn: 2.30.",
+        "script_extract": "```\nSpeaker 2 (Sandra): … You need to get there quite early, though. At the weekend, most of the stores stop serving lunch at 2:30.\n```",
+        "source_evidence": [
+         {
+          "quote": "Speaker 2 (Sandra): … You need to get there quite early, though. At the weekend, most of the stores stop serving lunch at 2:30.",
+          "location": "Section 1; cambridge_ielts_20_test_4_audioscript.md",
+          "relation": "Transcript evidence (token containment 1.000).",
+          "timestamp": "303.42-312.14s",
+          "source_page": null
+         }
+        ],
+        "legacy_authored_labels": {
+         "skill_label": "K1 (nghe giờ).",
+         "item_band_estimate": null,
+         "display_as_official_ielts_band": false
+        },
+        "why_other_answers_fail": "- `paraphrase_t1` — \"before … p.m.\" ↔ \"stop serving lunch at 2:30\". **Re-listen anchor:** Part 1, đoạn Food / Clacton Market. ---",
+        "decisive_word_or_paraphrase": "\"need to have lunch before … p.m.\" → \"most of the stores **stop serving lunch at 2:30**\".",
+        "evidence_location_or_audio_anchor": {
+         "audio_uri": "audio://cambridge_ielts_20_test_4_full_test.mp3?start=303.42&end=312.14&q=8&section=S1",
+         "provenance": "authored_solution",
+         "end_seconds": 312.14,
+         "start_seconds": 303.42,
+         "alignment_confidence": null
+        }
+       },
+       "remediation": {
+        "assigned_pack_id": null,
+        "diagnostic_state": "PROPOSED_NOT_CONFIRMED",
+        "parallel_probe_id": null,
+        "confirmed_skill_code": null,
+        "candidate_skill_codes": [
+         {
+          "code": "L01",
+          "name": "Acoustic decoding"
+         },
+         {
+          "code": "L03",
+          "name": "Connected and reduced speech"
+         },
+         {
+          "code": "L05",
+          "name": "Prediction"
+         },
+         {
+          "code": "L13",
+          "name": "Spelling, plural and answer grammar"
+         }
+        ],
+        "diagnostic_confidence": "low_without_learner_evidence",
+        "delayed_retest_form_id": null,
+        "confirmed_error_subtype": null,
+        "candidate_error_subtypes": [
+         "L13-GRAMMAR_FIT",
+         "L13-WORD_LIMIT",
+         "L06-LEXICAL",
+         "L11-ORIENTATION",
+         "L01-WORD_NOT_RECOGNISED",
+         "L02-WORD_BOUNDARY"
+        ],
+        "candidate_error_tags_original": [
+         "answer_form",
+         "word_limit",
+         "grammar_fit",
+         "paraphrase_miss",
+         "spatial_orientation",
+         "sound_decoding",
+         "word_boundary"
+        ],
+        "unmapped_candidate_error_tags": [],
+        "confirmation_evidence_required": [
+         "first_attempt_answer",
+         "confidence_before_reveal",
+         "learner_evidence_or_audio_anchor",
+         "error_self_explanation",
+         "performance_on_parallel_item"
+        ]
+       },
+       "schema_version": "web-explanation-object/1.0",
+       "correction_flow": {
+        "completion_rule": {
+         "correction_verified_when": [
+          "correction_output_submitted",
+          "same_source_repair_passed"
+         ],
+         "remediation_mastered_when": [
+          "parallel_transfer_passed",
+          "delayed_retest_passed"
+         ],
+         "viewing_explanation_is_completion": false
+        },
+        "reveal_sequence": [
+         {
+          "id": "result_only",
+          "stage": 1,
+          "reveals": [
+           "correct_or_incorrect"
+          ]
+         },
+         {
+          "id": "evidence_attempt",
+          "stage": 2,
+          "requires": [
+           "learner_marks_evidence_or_audio_window"
+          ]
+         },
+         {
+          "id": "location_hint",
+          "stage": 3,
+          "reveals": [
+           "evidence_location_or_audio_window"
+          ]
+         },
+         {
+          "id": "decisive_hint",
+          "stage": 4,
+          "reveals": [
+           "decisive_word_or_paraphrase"
+          ]
+         },
+         {
+          "id": "full_explanation",
+          "stage": 5,
+          "reveals": [
+           "answer",
+           "why_correct",
+           "why_others_fail",
+           "trap"
+          ]
+         },
+         {
+          "id": "correction_output",
+          "stage": 6,
+          "requires": [
+           "learner_explains_error_mechanism",
+           "corrected_answer"
+          ]
+         },
+         {
+          "id": "same_source_repair",
+          "stage": 7,
+          "requires": [
+           "repair_pass"
+          ]
+         },
+         {
+          "id": "parallel_transfer",
+          "stage": 8,
+          "requires": [
+           "new_item_pass"
+          ]
+         },
+         {
+          "id": "delayed_retest",
+          "stage": 9,
+          "requires": [
+           "retest_after_2_to_7_days"
+          ]
+         }
+        ],
+        "attempt_contract": {
+         "capture_before_reveal": [
+          "first_answer",
+          "confidence_1_to_5",
+          "evidence_or_audio_anchor_attempt"
+         ],
+         "lock_first_attempt_after_submit": true
+        },
+        "same_source_repair": {
+         "pass_rule": "Có bằng chứng cụ thể và cơ chế quyết định đúng; không chấp nhận chỉ chép lại đáp án.",
+         "prompt_vi": "Nghe lại cửa sổ mục tiêu, chép chính tả chunk chứa đáp án và kiểm tra word limit/ending/plural.",
+         "max_attempts_before_teacher_review": 2
+        }
+       },
+       "rights_and_release": {
+        "copyright_source": "Cambridge IELTS 20",
+        "editorial_status": "GENERATED_REQUIRES_EDITORIAL_REVIEW",
+        "publication_status": "BLOCKED_PENDING_RIGHTS_REVIEW",
+        "allowed_current_use": "internal planning and QA only",
+        "item_serving_status": "ELIGIBLE_AFTER_GLOBAL_RELEASE_GATES"
+       }
+      },
+      "object_id": "mock-aa667c6d-1b95-5079-a38e-5dcd88a39f0d-listening-q08",
+      "created_at": "2026-10-27T04:34:47.624079+00:00",
+      "is_current": true,
+      "book_number": 20,
+      "imported_by": null,
+      "source_hash": "dc40390032096f358e6d7c7832de0b3245f9706c61833628aba5ea2fec36ea5e",
+      "test_number": 4,
+      "audit_verdict": "CONFIRMED",
+      "rights_status": "BLOCKED_PENDING_RIGHTS_REVIEW",
+      "binding_status": "BOUND",
+      "serving_status": "ELIGIBLE_AFTER_GLOBAL_RELEASE_GATES",
+      "content_version": "cambridge-web-explanations/2026-09-10-v1",
+      "import_batch_id": "5ff1a30c-9d62-4dd5-8fd5-03d36418b472",
+      "question_number": 8,
+      "reading_test_id": null,
+      "source_test_key": "cambridge-20-test-4",
+      "editorial_status": "GENERATED_REQUIRES_EDITORIAL_REVIEW",
+      "listening_test_id": "aa667c6d-1b95-5079-a38e-5dcd88a39f0d"
+     },
+     "paper": {
+      "id": "aa667c6d-1b95-5079-a38e-5dcd88a39f0d",
+      "title": "[Revised REV02] Cambridge IELTS 20 — Listening Test 4",
+      "status": "published",
+      "themes": {
+       "s1": "Section 1",
+       "s2": "Section 2",
+       "s3": "Section 3",
+       "s4": "Section 4"
+      },
+      "test_id": "MOCK0016-PROD-20261006-ILR-LIS-CAM-B20-T4-REV02",
+      "version": "revised-text-2",
+      "metadata": {
+       "source_format": "listening-fulltest-v1.2",
+       "band_conversion": [],
+       "section_offsets": {
+        "S1": 0,
+        "S2": 442.33,
+        "S3": 950.8,
+        "S4": 1423.54
+       },
+       "mock_remediation_revision": {
+        "revision": "REV02",
+        "audio_timing": "SKIPPED_BY_USER",
+        "audio_hearing": "SKIPPED_BY_USER",
+        "source_sha256": "2e812ab26cadd81e39377e9fda55b40f090db5ce1f50816c5b2143720587fcb4",
+        "source_test_id": "ILR-LIS-CAM-B20-T4",
+        "revised_questions": [
+         7,
+         35
+        ],
+        "source_acceptance": "CORROBORATED_SECONDARY_TEXT_ONLY",
+        "publisher_authenticated": false
+       },
+       "production_remediation_revision": {
+        "package": "MOCK0016-PROD-20261006",
+        "revised": true,
+        "revision": "REV02",
+        "audio_timing": "SKIPPED_BY_USER",
+        "staging_code": "MOCK0016-20261005-C20L4-REV02",
+        "audio_hearing": "SKIPPED_BY_USER",
+        "source_paper_id": "ILR-LIS-CAM-B20-T4",
+        "publication_scope": "future mock selection only; originals and existing bindings unchanged",
+        "accepted_staging_uuid": "aa667c6d-1b95-5079-a38e-5dcd88a39f0d",
+        "production_original_uuid": "07b447bc-960d-435f-a4fd-a0c196a97c6f",
+        "native_accepted_payload_sha256": "7060010ca50d91229b11efe7fc57b21fe3c3b99633629ca0d54570f7278288e3",
+        "whole_paper_publisher_certified": false
+       }
+      },
+      "exam_only": true,
+      "is_public": false,
+      "test_type": "full",
+      "created_at": "2026-10-07T00:34:42.467323+00:00",
+      "cue_points": [
+       {
+        "type": "section",
+        "section_num": 1,
+        "timestamp_seconds": 0
+       },
+       {
+        "type": "section",
+        "section_num": 2,
+        "timestamp_seconds": 442.33
+       },
+       {
+        "type": "section",
+        "section_num": 3,
+        "timestamp_seconds": 950.8
+       },
+       {
+        "type": "section",
+        "section_num": 4,
+        "timestamp_seconds": 1423.54
+       }
+      ],
+      "updated_at": "2026-11-14T11:35:13.95237+00:00",
+      "band_target": null,
+      "claim_policy": null,
+      "course_level": null,
+      "form_purpose": null,
+      "programme_id": "ielts",
+      "replay_policy": null,
+      "accent_profile": [],
+      "scoring_policy": "diagnostic",
+      "source_form_id": null,
+      "support_policy": null,
+      "policy_revision": 3,
+      "source_lesson_id": null,
+      "source_item_count": null,
+      "content_package_id": null,
+      "audio_assembly_mode": "full_premixed",
+      "listening_lesson_id": null,
+      "web_explanation_mode": "disabled",
+      "full_audio_size_bytes": 30501031,
+      "mock_content_revision": 53,
+      "source_manifest_sha256": null,
+      "total_transcript_words": 3271,
+      "approved_public_overlap": null,
+      "full_audio_storage_path": "tests/aa667c6d-1b95-5079-a38e-5dcd88a39f0d/full.mp3",
+      "public_practice_enabled": false,
+      "full_audio_duration_seconds": 1906,
+      "assembled_audio_generated_at": null,
+      "assembled_audio_storage_path": null,
+      "web_explanations_released_at": null,
+      "web_explanations_released_by": null,
+      "web_explanation_content_version": null
+     },
+     "target": "c03b-object"
+    },
+    {
+     "row": {
+      "id": "b435caa7-a1a5-45db-9054-56d606a710f4",
+      "skill": "listening",
+      "payload": {
+       "item": {
+        "answer": {
+         "canonical": "321,000",
+         "accepted_forms": [
+          "321,000"
+         ],
+         "comparison_mode": "single_value",
+         "requires_normalization_review": false
+        },
+        "prompt": "Write ONE WORD AND/OR A NUMBER for each answer.\nThe Icelandic language — has approximately **31** ________ speakers",
+        "context": {
+         "kind": "section",
+         "title": "Section 4",
+         "number": 4,
+         "source_instructions": "Listening questions in source order."
+        },
+        "options": null,
+        "question_type": "note_completion",
+        "response_group": null,
+        "response_constraint": {
+         "word_limit_text": "ONE WORD AND/OR A NUMBER",
+         "instruction_text": "Write ONE WORD AND/OR A NUMBER for each answer.",
+         "selection_count_text": null
+        },
+        "source_question_type": "note"
+       },
+       "audit": {
+        "verdict": "CONFIRMED",
+        "evidence": [
+         {
+          "quote": "LECTURER: ...the Icelandic language, which is spoken by around 321,000 people, most of whom live in Iceland (Q31) - an island in the North Atlantic Ocean.",
+          "location": "Section 4; cambridge_ielts_17_test_2_audioscript.md",
+          "relation": "Transcript evidence (token containment 1.000).",
+          "timestamp": "1420.50-1433.62s",
+          "source_page": null
+         }
+        ],
+        "confidence": {
+         "label": "high",
+         "score": 0.99
+        },
+        "blind_answer": "321,000",
+        "collection_review": null,
+        "instruction_check": {
+         "detail": "Every accepted variant is within the 1-word limit.",
+         "status": "COMPLIANT"
+        },
+        "distractor_analysis": "- `paraphrase_t0` — gần như lặp nguyên văn con số **Re-listen anchor:** Part 4, LECTURER: \"spoken by around 321,000 people.\" ---",
+        "proposed_correction": null,
+        "deterministic_issues": [],
+        "alternative_answers_considered": []
+       },
+       "source": {
+        "paper": "listening",
+        "test_id": "cambridge-17-test-2",
+        "immutable": true,
+        "collection": "Cambridge IELTS 17",
+        "test_number": 2,
+        "timings_path": "cambridge-17-test-2/cambridge_ielts_17_test_2_timings.json",
+        "question_number": 31,
+        "provenance_hashes": {
+         "timings_path": "4264b1782cdcb6814584f843bb661ea37a5502a415eb9858f83a1905ea50446b",
+         "semantic_audit_path": "39060e28b6275c24dec4be4982276942ba2dea9cf408cb11aae9f6d8461de312",
+         "authored_solution_path": "99e159474c721e95c48af402bcc26bc3f5fac2078cd76ccf004b5078e667ed92",
+         "canonical_package_path": "685d6558ce847a69d9d66cb77a08f638159337445d24601da2b8332c6ca3b6a7",
+         "deterministic_preflight_path": "c96f3434e23f2bfd0ac99dfe0d7bf071e396d24fa570a61c456643877078da13"
+        },
+        "semantic_audit_path": "cambridge-17-test-2/semantic-audit.json",
+        "authored_solution_path": "cambridge-17-test-2/cambridge_ielts_17_test_2_listening_Solution.md",
+        "canonical_package_path": "cambridge-17-test-2/package.json",
+        "deterministic_preflight_path": "cambridge-17-test-2/deterministic-preflight.json"
+       },
+       "object_id": "cambridge-17-test-2-listening-q31",
+       "telemetry": {
+        "required_events": [
+         "paper_submitted",
+         "confidence_recorded",
+         "evidence_attempt_submitted",
+         "hint_revealed",
+         "full_explanation_opened",
+         "correction_output_submitted",
+         "same_source_repair_scored",
+         "parallel_transfer_scored",
+         "delayed_retest_scored"
+        ],
+        "minimum_event_payload": [
+         "event_id",
+         "event_name",
+         "schema_version",
+         "learner_id",
+         "mock_session_id",
+         "sequence_no",
+         "client_occurred_at",
+         "server_received_at",
+         "client_version",
+         "payload"
+        ]
+       },
+       "explanation": {
+        "trap": "Số lớn — phải viết đúng \"321,000\" (ba trăm hai mươi mốt nghìn). \"around\" = \"approximately\".",
+        "language": "vi-with-en-evidence",
+        "paraphrase": "approximately ___ speakers → \"spoken by **around 321,000** people\"",
+        "vocabulary": "- **approximately** /əˈprɒk.sɪ.mət.li/ (adv) — khoảng, xấp xỉ\n- **the North Atlantic Ocean** /nɔːθ ətˈlæn.tɪk ˈəʊ.ʃən/ (n) — Bắc Đại Tây Dương",
+        "why_correct": "\"Spoken by **around 321,000** people\" directly gives the number of speakers = `321,000`.\n\"Spoken by **around 321,000** people\" cho thẳng số người nói = `321,000`.",
+        "audio_window": {
+         "audio_uri": "audio://cambridge_ielts_17_test_2_full_test.mp3?start=1420.50&end=1433.62&q=31&section=S4",
+         "provenance": "authored_solution",
+         "end_seconds": 1433.62,
+         "start_seconds": 1420.5,
+         "alignment_confidence": null
+        },
+        "marking_note": null,
+        "decision_path": "Đề in một đằng, audio gần như giữ nguyên chữ một nẻo — approximately ___ speakers → \"spoken by **around 321,000** people\". Băng không quay lại, nên phép quy đổi phải xong **trong một lượt nghe**. Đoạn chứa nó bắt đầu bằng *“...the Icelandic language, which is spoken by around 321,000…”* — dò từ mốc đó khi nghe lại.",
+        "strategy_note": "Part 4, LECTURER: \"spoken by around 321,000 people.\"",
+        "answer_summary": "Đáp án chuẩn: 321,000.",
+        "script_extract": "```\nLECTURER: ...the Icelandic language, which is spoken by around 321,000 people, most of whom live in Iceland (Q31) - an island in the North Atlantic Ocean.\n```",
+        "source_evidence": [
+         {
+          "quote": "LECTURER: ...the Icelandic language, which is spoken by around 321,000 people, most of whom live in Iceland (Q31) - an island in the North Atlantic Ocean.",
+          "location": "Section 4; cambridge_ielts_17_test_2_audioscript.md",
+          "relation": "Transcript evidence (token containment 1.000).",
+          "timestamp": "1420.50-1433.62s",
+          "source_page": null
+         }
+        ],
+        "legacy_authored_labels": {
+         "skill_label": "K1 (nghe số lớn)",
+         "item_band_estimate": null,
+         "display_as_official_ielts_band": false
+        },
+        "why_other_answers_fail": "- `paraphrase_t0` — gần như lặp nguyên văn con số **Re-listen anchor:** Part 4, LECTURER: \"spoken by around 321,000 people.\" ---",
+        "decisive_word_or_paraphrase": "approximately ___ speakers → \"spoken by **around 321,000** people\"",
+        "evidence_location_or_audio_anchor": {
+         "audio_uri": "audio://cambridge_ielts_17_test_2_full_test.mp3?start=1420.50&end=1433.62&q=31&section=S4",
+         "provenance": "authored_solution",
+         "end_seconds": 1433.62,
+         "start_seconds": 1420.5,
+         "alignment_confidence": null
+        }
+       },
+       "remediation": {
+        "assigned_pack_id": null,
+        "diagnostic_state": "PROPOSED_NOT_CONFIRMED",
+        "parallel_probe_id": null,
+        "confirmed_skill_code": null,
+        "candidate_skill_codes": [
+         {
+          "code": "L01",
+          "name": "Acoustic decoding"
+         },
+         {
+          "code": "L03",
+          "name": "Connected and reduced speech"
+         },
+         {
+          "code": "L05",
+          "name": "Prediction"
+         },
+         {
+          "code": "L13",
+          "name": "Spelling, plural and answer grammar"
+         }
+        ],
+        "diagnostic_confidence": "low_without_learner_evidence",
+        "delayed_retest_form_id": null,
+        "confirmed_error_subtype": null,
+        "candidate_error_subtypes": [
+         "L13-GRAMMAR_FIT",
+         "L13-WORD_LIMIT",
+         "L06-LEXICAL",
+         "L10-SPEAKER_ATTRIBUTION",
+         "L11-ORIENTATION",
+         "L01-WORD_NOT_RECOGNISED",
+         "L02-WORD_BOUNDARY"
+        ],
+        "candidate_error_tags_original": [
+         "answer_form",
+         "word_limit",
+         "grammar_fit",
+         "paraphrase_miss",
+         "speaker_attribution",
+         "spatial_orientation",
+         "sound_decoding",
+         "word_boundary"
+        ],
+        "unmapped_candidate_error_tags": [],
+        "confirmation_evidence_required": [
+         "first_attempt_answer",
+         "confidence_before_reveal",
+         "learner_evidence_or_audio_anchor",
+         "error_self_explanation",
+         "performance_on_parallel_item"
+        ]
+       },
+       "schema_version": "web-explanation-object/1.0",
+       "correction_flow": {
+        "completion_rule": {
+         "correction_verified_when": [
+          "correction_output_submitted",
+          "same_source_repair_passed"
+         ],
+         "remediation_mastered_when": [
+          "parallel_transfer_passed",
+          "delayed_retest_passed"
+         ],
+         "viewing_explanation_is_completion": false
+        },
+        "reveal_sequence": [
+         {
+          "id": "result_only",
+          "stage": 1,
+          "reveals": [
+           "correct_or_incorrect"
+          ]
+         },
+         {
+          "id": "evidence_attempt",
+          "stage": 2,
+          "requires": [
+           "learner_marks_evidence_or_audio_window"
+          ]
+         },
+         {
+          "id": "location_hint",
+          "stage": 3,
+          "reveals": [
+           "evidence_location_or_audio_window"
+          ]
+         },
+         {
+          "id": "decisive_hint",
+          "stage": 4,
+          "reveals": [
+           "decisive_word_or_paraphrase"
+          ]
+         },
+         {
+          "id": "full_explanation",
+          "stage": 5,
+          "reveals": [
+           "answer",
+           "why_correct",
+           "why_others_fail",
+           "trap"
+          ]
+         },
+         {
+          "id": "correction_output",
+          "stage": 6,
+          "requires": [
+           "learner_explains_error_mechanism",
+           "corrected_answer"
+          ]
+         },
+         {
+          "id": "same_source_repair",
+          "stage": 7,
+          "requires": [
+           "repair_pass"
+          ]
+         },
+         {
+          "id": "parallel_transfer",
+          "stage": 8,
+          "requires": [
+           "new_item_pass"
+          ]
+         },
+         {
+          "id": "delayed_retest",
+          "stage": 9,
+          "requires": [
+           "retest_after_2_to_7_days"
+          ]
+         }
+        ],
+        "attempt_contract": {
+         "capture_before_reveal": [
+          "first_answer",
+          "confidence_1_to_5",
+          "evidence_or_audio_anchor_attempt"
+         ],
+         "lock_first_attempt_after_submit": true
+        },
+        "same_source_repair": {
+         "pass_rule": "Có bằng chứng cụ thể và cơ chế quyết định đúng; không chấp nhận chỉ chép lại đáp án.",
+         "prompt_vi": "Nghe lại cửa sổ mục tiêu, chép chính tả chunk chứa đáp án và kiểm tra word limit/ending/plural.",
+         "max_attempts_before_teacher_review": 2
+        }
+       },
+       "rights_and_release": {
+        "copyright_source": "Cambridge IELTS 17",
+        "editorial_status": "GENERATED_REQUIRES_EDITORIAL_REVIEW",
+        "publication_status": "BLOCKED_PENDING_RIGHTS_REVIEW",
+        "allowed_current_use": "internal planning and QA only",
+        "item_serving_status": "ELIGIBLE_AFTER_GLOBAL_RELEASE_GATES"
+       }
+      },
+      "object_id": "mock-995b0273-8854-57a6-9065-450c3c13465e-listening-q31",
+      "created_at": "2026-10-27T04:29:35.881849+00:00",
+      "is_current": true,
+      "book_number": 17,
+      "imported_by": null,
+      "source_hash": "b3f2b3eaf716cdec2d85b3256312f98bd885f16695cd74d06a9c5049bcb71d15",
+      "test_number": 2,
+      "audit_verdict": "CONFIRMED",
+      "rights_status": "BLOCKED_PENDING_RIGHTS_REVIEW",
+      "binding_status": "BOUND",
+      "serving_status": "ELIGIBLE_AFTER_GLOBAL_RELEASE_GATES",
+      "content_version": "cambridge-web-explanations/2026-09-10-v1",
+      "import_batch_id": "40861f0a-acaf-4602-a9a2-14794a8d862d",
+      "question_number": 31,
+      "reading_test_id": null,
+      "source_test_key": "cambridge-17-test-2",
+      "editorial_status": "GENERATED_REQUIRES_EDITORIAL_REVIEW",
+      "listening_test_id": "995b0273-8854-57a6-9065-450c3c13465e"
+     },
+     "paper": {
+      "id": "995b0273-8854-57a6-9065-450c3c13465e",
+      "title": "[Revised REV01] ILR-LIS-CAM-B17-T2",
+      "status": "published",
+      "themes": {
+       "s1": "Section 1",
+       "s2": "Section 2",
+       "s3": "Section 3",
+       "s4": "Section 4"
+      },
+      "test_id": "MOCK0016-PROD-20261006-ILR-LIS-CAM-B17-T2-REV01",
+      "version": "revised-source-text-1",
+      "metadata": {
+       "source_format": "listening-fulltest-v1.2",
+       "band_conversion": [],
+       "section_offsets": {
+        "S1": 0,
+        "S2": 474.59,
+        "S3": 919.72,
+        "S4": 1322.19
+       },
+       "mock_remediation_revision": {
+        "timing": "SKIPPED_BY_USER",
+        "hearing": "SKIPPED_BY_USER",
+        "revision": "REV01",
+        "source_test_id": "ILR-LIS-CAM-B17-T2",
+        "pending_field_count": 0,
+        "accepted_field_count": 12,
+        "accepted_plan_sha256": "a7e895d4823c21105c436b09888e360035e9ea5a5342e83cdd762d1cf4b12e31",
+        "whole_paper_accepted": false,
+        "source_snapshot_sha256": "c4e7a40d0c6e7096c20abc468a15116dc6fd52fc78d62d24d03c0059c78055c8"
+       },
+       "production_remediation_revision": {
+        "package": "MOCK0016-PROD-20261006",
+        "revised": true,
+        "revision": "REV01",
+        "audio_timing": "SKIPPED_BY_USER",
+        "staging_code": "MOCK0016-20261006-C17L2-REV01",
+        "audio_hearing": "SKIPPED_BY_USER",
+        "source_paper_id": "ILR-LIS-CAM-B17-T2",
+        "publication_scope": "future mock selection only; originals and existing bindings unchanged",
+        "accepted_staging_uuid": "995b0273-8854-57a6-9065-450c3c13465e",
+        "production_original_uuid": "bb75e1eb-9b6c-43e0-8195-4c540c1d9b78",
+        "native_accepted_payload_sha256": "00e3072a545a5b7ef9a738d4a75f8e514a36eacdb2802dd4fc33ffb9d1be5902",
+        "whole_paper_publisher_certified": false
+       }
+      },
+      "exam_only": true,
+      "is_public": false,
+      "test_type": "full",
+      "created_at": "2026-10-07T00:34:42.467323+00:00",
+      "cue_points": [
+       {
+        "type": "section",
+        "section_num": 1,
+        "timestamp_seconds": 0
+       },
+       {
+        "type": "section",
+        "section_num": 2,
+        "timestamp_seconds": 474.59
+       },
+       {
+        "type": "section",
+        "section_num": 3,
+        "timestamp_seconds": 919.72
+       },
+       {
+        "type": "section",
+        "section_num": 4,
+        "timestamp_seconds": 1322.19
+       }
+      ],
+      "updated_at": "2026-11-14T11:35:13.95237+00:00",
+      "band_target": null,
+      "claim_policy": null,
+      "course_level": null,
+      "form_purpose": null,
+      "programme_id": "ielts",
+      "replay_policy": null,
+      "accent_profile": [],
+      "scoring_policy": "diagnostic",
+      "source_form_id": null,
+      "support_policy": null,
+      "policy_revision": 3,
+      "source_lesson_id": null,
+      "source_item_count": null,
+      "content_package_id": null,
+      "audio_assembly_mode": "full_premixed",
+      "listening_lesson_id": null,
+      "web_explanation_mode": "disabled",
+      "full_audio_size_bytes": 28106126,
+      "mock_content_revision": 53,
+      "source_manifest_sha256": null,
+      "total_transcript_words": 2866,
+      "approved_public_overlap": null,
+      "full_audio_storage_path": "tests/995b0273-8854-57a6-9065-450c3c13465e/full.mp3",
+      "public_practice_enabled": false,
+      "full_audio_duration_seconds": 1757,
+      "assembled_audio_generated_at": null,
+      "assembled_audio_storage_path": null,
+      "web_explanations_released_at": null,
+      "web_explanations_released_by": null,
+      "web_explanation_content_version": null
+     },
+     "target": "v2b-object"
+    }
+   ],
+   "environment": "prod"
+  },
+  "missing": []
+ }
+]

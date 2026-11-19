@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Bài kiểm tra của khoá · giáo viên công bố điểm</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--accentH:#0B5953;--link:#0B5953;--mark:#8A4B08;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EDF3F1;--off:#E7E2D6}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--accentH:#11254A;--link:#1A3561;--mark:#8A1C1C;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EEF0F5;--off:#E8E2D5}
+a{color:var(--link)}a:hover{color:var(--ink)}
+.kick{margin:0;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;color:var(--muted)}
+.lab{margin:0 0 8px;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)}
+.ser{font-family:'Source Serif 4',Georgia,serif}
+.bp{display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;min-height:44px;padding:0 20px;border:1px solid var(--accent);border-radius:2px;background:var(--accent);color:var(--surface);font:600 16px 'Source Sans 3',sans-serif;text-decoration:none;cursor:pointer}
+.bp:hover{background:var(--accentH);color:var(--surface)}
+.bs{display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;min-height:44px;padding:0 20px;border:1px solid var(--ink);border-radius:2px;background:var(--surface);color:var(--ink);font:600 16px 'Source Sans 3',sans-serif;text-decoration:none;cursor:pointer}
+.bs:hover{background:var(--tint);color:var(--ink)}
+.bx{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;min-height:44px;padding:0 20px;border:1px solid var(--off);border-radius:2px;background:var(--off);color:var(--muted);font:600 16px 'Source Sans 3',sans-serif}
+.note{margin:0;font-size:14px;color:var(--muted)}
+.h2s{margin:0 0 6px;font-family:'Source Serif 4',Georgia,serif;font-size:24px;font-weight:600}
+.warn{padding:14px 16px;border:1px solid var(--mark);border-left:4px solid var(--mark);background:var(--surface)}
+.wl{margin:0 0 4px;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;color:var(--mark)}
+.dl{display:grid;grid-template-columns:180px minmax(0,1fr);gap:0 16px;margin:0}
+.dl dt{padding:10px 0;border-bottom:1px solid var(--rule);color:var(--muted)}
+.dl dd{margin:0;padding:10px 0;border-bottom:1px solid var(--rule)}
+</style>
+</helmet>
+<div class="{{pal}}" style="width: 1280px; height: 2920px; box-sizing: border-box; padding: 56px 64px; background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 16px; line-height: 1.5; display: flex; flex-direction: column; gap: 34px">
+<header>
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Aver Learning · Bản in · giáo viên và admin · tách từ KiemTraKhoa mục 7</p>
+<h1 style="margin: 4px 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 40px; font-weight: 600; line-height: 1.15">Bài kiểm tra của khoá: giáo viên công bố điểm</h1>
+<p style="margin: 0; color: var(--muted); max-width: 90ch">Phía giáo viên của <a href="KiemTraKhoa.dc.html">KiemTraKhoa</a> (học viên thấy gì: mục 4–6 của tờ đó). Chỉ dùng cho bài có chế độ trả điểm "Giáo viên công bố", mặc định của lớp offline (00-QUY-UOC mục 2.15). Mở từ thẻ Kết quả kiểm tra ở <a href="AdminLop.dc.html">AdminLop</a> và từ <a href="GiaoVien.dc.html">GiaoVien</a>; khung theo <a href="ThanhPhanKhungTrang2.dc.html">khung admin</a>. Công bố xong học viên nhận <a href="ThongBao.dc.html">thông báo</a>.</p>
+</header>
+
+<section aria-labelledby="g1" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="g1" class="h2s" style="margin-bottom: 6px">1 · Bảng công bố điểm · theo buổi, chọn người, hỏi lại · bấm thử được</h2>
+<p class="note" style="margin-bottom: 12px; max-width: 120ch">Đang chọn sẵn 3 dòng nên nút "Công bố cho cả lớp" tắt. Bỏ chọn hết để thấy nút cả lớp; bấm nút công bố để mở hộp hỏi lại, trong hộp bấm "Xem như học viên thấy".</p>
+<div style="position: relative; padding: 24px 28px; border: 1px solid var(--ink); background: var(--paper)">
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 16px">
+<h3 class="ser" style="margin: 0; font-size: 24px; font-weight: 600">Lớp XXX · Kiểm tra giữa kỳ · công bố điểm</h3>
+<p style="margin: 0; font-size: 14px">Chế độ: <strong>Giáo viên công bố</strong> · đóng 21:00, 16/11 · đã nộp 6, chưa làm 1 · đã công bố <strong>{{pubCount}}</strong> trên 6</p>
+</div>
+
+<div style="margin-bottom: 22px">
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--ink)">
+<h4 class="kick">Theo buổi · 6 bài đã nộp · Buổi 1–11 · 120 câu</h4>
+<a href="#g2" style="font-weight: 600">Mở ma trận học viên × buổi</a>
+</div>
+<div role="table" aria-label="Kết quả của lớp theo buổi" style="font-variant-numeric: tabular-nums; font-size: 15px">
+<div role="row" style="display: grid; grid-template-columns: 70px minmax(0, 1fr) 80px 260px 150px 90px; gap: 0 12px; padding: 6px 0; border-bottom: 1px solid var(--rule); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--muted)">
+<div role="columnheader">Buổi</div><div role="columnheader">Chủ điểm</div><div role="columnheader" style="text-align: right">Số câu</div><div role="columnheader">Tỉ lệ đúng của lớp</div><div role="columnheader" style="text-align: right">Học viên dưới 60%</div><div role="columnheader"></div>
+</div>
+<sc-for list="{{byLesson}}" as="r" hint-placeholder-count="11">
+<div role="row" onClick="{{r.pick}}" style="display: grid; grid-template-columns: 70px minmax(0, 1fr) 80px 260px 150px 90px; gap: 0 12px; align-items: center; padding: 3px 0 3px 6px; border-bottom: 1px solid var(--rule); border-left: 3px solid {{r.bar}}; background: {{r.bg}}; cursor: pointer">
+<div role="cell" style="font-weight: 600">Buổi {{r.n}}</div>
+<div role="cell">{{r.topic}}</div>
+<div role="cell" style="text-align: right">{{r.t}}</div>
+<div role="cell" style="display: flex; align-items: center; gap: 10px"><span aria-hidden="true" style="display: block; width: 180px; height: 8px; background: var(--off)"><span style="display: block; height: 8px; width: {{r.w}}; background: {{r.barColor}}"></span></span><span>{{r.p}}%</span></div>
+<div role="cell" style="text-align: right; color: {{r.uColor}}; font-weight: {{r.uWeight}}">{{r.under}}</div>
+<div role="cell" style="font-size: 13px; font-weight: 600; color: var(--mark)">{{r.label}}</div>
+</div>
+</sc-for>
+</div>
+<p class="note" style="margin-top: 6px">Tỉ lệ đúng của lớp = tổng câu đúng của các bài đã nộp trên tổng câu của buổi đó; người chưa làm không tính. "Cần ôn" khi lớp dưới 60%, cùng mốc với báo cáo của học viên (KiemTraKhoa mục 5). Bấm một buổi để tô cột đó trong ma trận (mục 2).</p>
+</div>
+
+<fieldset style="margin: 0 0 16px; padding: 0; border: 0">
+<legend class="lab" style="font-weight: 600; padding: 0">Mức hiển thị cho học viên</legend>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+<sc-for list="{{levels}}" as="l" hint-placeholder-count="3">
+<label style="display: flex; gap: 10px; align-items: flex-start; padding: 8px 12px; border: {{l.bw}} solid {{l.border}}; background: {{l.bg}}; cursor: pointer"><input type="radio" name="lvl" checked="{{l.on}}" onChange="{{l.pick}}" style="margin-top: 4px; accent-color: var(--accent)"><span><strong style="display: block">{{l.t}}</strong><span style="font-size: 14px; color: var(--muted)">{{l.d}}</span></span></label>
+</sc-for>
+</div>
+</fieldset>
+<div role="table" aria-label="Bảng điểm cả lớp" style="font-variant-numeric: tabular-nums; font-size: 15px">
+<div role="row" style="display: grid; grid-template-columns: 44px minmax(0, 1.4fr) minmax(0, 1.2fr) 110px 70px minmax(0, 1fr); border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); background: var(--surface); font-size: 13px; font-weight: 600; color: var(--muted)">
+<div role="columnheader" style="padding: 10px 0 10px 12px">Chọn</div><div role="columnheader" style="padding: 10px 8px">Học viên</div><div role="columnheader" style="padding: 10px 8px">Bài nộp</div><div role="columnheader" style="padding: 10px 8px; text-align: right">Câu đúng</div><div role="columnheader" style="padding: 10px 8px; text-align: right">Tỉ lệ</div><div role="columnheader" style="padding: 10px 8px">Công bố</div>
+</div>
+<sc-for list="{{board}}" as="b" hint-placeholder-count="7">
+<div role="row" style="display: grid; grid-template-columns: 44px minmax(0, 1.4fr) minmax(0, 1.2fr) 110px 70px minmax(0, 1fr); align-items: center; border-bottom: 1px solid var(--rule); background: {{b.bg}}">
+<div role="cell" style="padding: 5px 0 5px 12px"><sc-if value="{{b.can}}" hint-placeholder-val="{{ true }}"><input type="checkbox" aria-label="Chọn {{b.name}}" checked="{{b.on}}" onChange="{{b.toggle}}" style="width: 18px; height: 18px; accent-color: var(--accent)"></sc-if></div>
+<div role="cell" style="padding: 5px 8px; font-weight: 600">{{b.name}}</div>
+<div role="cell" style="padding: 5px 8px; color: {{b.subColor}}">{{b.sub}}</div>
+<div role="cell" style="padding: 5px 8px; text-align: right">{{b.score}}</div>
+<div role="cell" style="padding: 5px 8px; text-align: right">{{b.pct}}</div>
+<div role="cell" style="padding: 5px 8px; font-size: 14px; color: {{b.pubColor}}">{{b.pub}}</div>
+</div>
+</sc-for>
+</div>
+<p class="note" style="margin-top: 6px">Câu bỏ trống tính sai. Dòng chưa làm không chọn được. Mở lượt làm bù cho người chưa làm, nộp trễ và làm lại: <strong>Đợt sau</strong>, không dựng ở đợt này.</p>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 16px">
+<sc-if value="{{noSel}}" hint-placeholder-val="{{ false }}">
+<button onClick="{{askAll}}" class="bp">Công bố cho cả lớp ({{leftCount}} bài)</button>
+</sc-if>
+<sc-if value="{{hasSel}}" hint-placeholder-val="{{ true }}">
+<button disabled aria-describedby="allOff" class="bx">Công bố cho cả lớp</button>
+<button onClick="{{askSel}}" class="bp">Công bố cho {{selCount}} bạn đã chọn</button>
+<button onClick="{{clearSel}}" class="bs">Bỏ chọn</button>
+</sc-if>
+<span style="flex-grow: 1"></span>
+<label for="sch" style="font-size: 14px; color: var(--muted)">Hoặc hẹn giờ công bố cả lớp</label>
+<input id="sch" value="18:00, Thứ Năm 19/11" style="width: 200px; box-sizing: border-box; min-height: 44px; padding: 0 12px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); font: 16px 'Source Sans 3', sans-serif; color: var(--ink)"><button onClick="{{doSchedule}}" class="bs">Đặt hẹn</button>
+</div>
+<p id="allOff" class="note" style="margin-top: 6px">{{selLine}}</p>
+<p class="note" style="margin-top: 2px">{{schedLine}}</p>
+<sc-if value="{{askOpen}}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: var(--ink); opacity: 0.45"></div>
+<div role="dialog" aria-modal="true" aria-labelledby="dlg-pub" style="position: absolute; top: 90px; left: 50%; margin-left: -320px; width: 640px; box-sizing: border-box; padding: 22px 24px; border: 1px solid var(--ink); background: var(--surface)">
+<h4 id="dlg-pub" class="ser" style="margin: 0 0 10px; font-size: 22px; font-weight: 600">{{askTitle}}</h4>
+<dl class="dl" style="grid-template-columns: 150px minmax(0, 1fr); font-size: 15px">
+<dt>Số người</dt><dd><strong>{{askN}} học viên</strong>: {{askNames}}</dd>
+<dt>Mức hiển thị</dt><dd><strong>{{levelName}}</strong></dd>
+<dt>Học viên thấy</dt><dd>{{seeLine}}</dd>
+<dt>Chưa thấy</dt><dd>{{hideLine}}</dd>
+</dl>
+<p style="margin: 10px 0 0"><button onClick="{{togglePv}}" aria-expanded="{{pvOpen}}" style="padding: 0; border: 0; background: none; color: var(--link); font: 600 16px 'Source Sans 3', sans-serif; text-decoration: underline; cursor: pointer">{{pvLabel}}</button></p>
+<sc-if value="{{pvOpen}}" hint-placeholder-val="{{ false }}">
+<div style="margin-top: 8px; padding: 14px 16px; border: 1px solid var(--rule); background: var(--paper)">
+<p class="lab">Màn của {{pv.name}} sau khi công bố</p>
+<p class="ser" style="margin: 0 0 4px; font-size: 20px; font-weight: 600; line-height: 1.3">{{pv.score}}</p>
+<sc-for list="{{pv.lines}}" as="x" hint-placeholder-count="3"><p style="margin: 0; font-size: 15px">{{x}}</p></sc-for>
+<p class="note" style="margin-top: 6px">Màn đầy đủ theo từng mức: <a href="KiemTraKhoa.dc.html">KiemTraKhoa</a> mục 5 và 6.</p>
+</div>
+</sc-if>
+<div class="warn" style="margin-top: 14px">
+<p class="wl">Cảnh báo · không hoàn tác</p>
+<p style="margin: 0; font-size: 15px">Công bố chỉ nâng, không hạ, không thu hồi. Sau bước này bạn nâng được lên mức cao hơn, nhưng không hạ mức, không ẩn lại điểm và không thu hồi kết quả của {{askN}} học viên. Học viên nhận thông báo "Đã có kết quả bài kiểm tra giữa kỳ" khi kết quả hiện.</p>
+</div>
+<div style="display: flex; gap: 12px; margin-top: 16px"><button onClick="{{doPublish}}" class="bp">{{askBtn}}</button><button onClick="{{closeAsk}}" class="bs">Huỷ</button></div>
+</div>
+</sc-if>
+</div>
+</section>
+
+<section aria-labelledby="g2" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="g2" class="h2s" style="margin-bottom: 6px">2 · Ma trận học viên × buổi · mở từ khối "Theo buổi" (spec 0043)</h2>
+<p class="note" style="margin-bottom: 12px; max-width: 120ch">Mỗi ô là tỉ lệ đúng của một học viên ở một buổi. Ô dưới 60% có viền trái đỏ mận và chữ đậm, nhãn đọc màn hình ghi "dưới 60%". Cột đang chọn ở mục 1 được tô nền. Bấm tên học viên mở hồ sơ (<a href="HoSoHocVien.dc.html">HoSoHocVien</a>).</p>
+<div style="padding: 20px 24px; border: 1px solid var(--ink); background: var(--surface)">
+<div role="table" aria-label="Ma trận học viên theo buổi" style="font-variant-numeric: tabular-nums; font-size: 15px">
+<div role="row" style="display: grid; grid-template-columns: 190px repeat(11, minmax(0, 1fr)) 96px; border-bottom: 1px solid var(--ink); font-size: 13px; font-weight: 600; color: var(--muted)">
+<div role="columnheader" style="padding: 8px 8px 8px 0">Học viên</div>
+<sc-for list="{{mHead}}" as="h" hint-placeholder-count="11"><div role="columnheader" style="padding: 8px 4px; text-align: center; background: {{h.bg}}">B{{h.n}}<span style="display: block; font-weight: 400">{{h.t}} câu</span></div></sc-for>
+<div role="columnheader" style="padding: 8px 0 8px 8px; text-align: right">Cả bài</div>
+</div>
+<sc-for list="{{mRows}}" as="m" hint-placeholder-count="7">
+<div role="row" style="display: grid; grid-template-columns: 190px repeat(11, minmax(0, 1fr)) 96px; align-items: stretch; border-bottom: 1px solid var(--rule)">
+<div role="rowheader" style="padding: 7px 8px 7px 0; font-weight: 600"><a href="HoSoHocVien.dc.html" style="color: var(--ink)">{{m.name}}</a></div>
+<sc-if value="{{m.has}}" hint-placeholder-val="{{ true }}">
+<sc-for list="{{m.cells}}" as="c" hint-placeholder-count="11"><div role="cell" aria-label="{{c.aria}}" style="padding: 7px 4px; text-align: center; border-left: 3px solid {{c.bl}}; background: {{c.bg}}; color: {{c.color}}; font-weight: {{c.weight}}">{{c.p}}</div></sc-for>
+<div role="cell" style="padding: 7px 0 7px 8px; text-align: right; font-weight: 600">{{m.total}}</div>
+</sc-if>
+<sc-if value="{{m.none}}" hint-placeholder-val="{{ false }}">
+<div role="cell" style="grid-column: span 12; padding: 7px 4px; color: var(--muted)">Chưa làm · bài đã đóng · không có điểm, không ghi 0</div>
+</sc-if>
+</div>
+</sc-for>
+<div role="row" style="display: grid; grid-template-columns: 190px repeat(11, minmax(0, 1fr)) 96px; border-bottom: 1px solid var(--ink); font-weight: 600">
+<div role="rowheader" style="padding: 7px 8px 7px 0">Cả lớp</div>
+<sc-for list="{{byLesson}}" as="r" hint-placeholder-count="11"><div role="cell" style="padding: 7px 4px; text-align: center; background: {{r.colBg}}; color: {{r.pColor}}">{{r.p}}%</div></sc-for>
+<div role="cell" style="padding: 7px 0 7px 8px; text-align: right">{{classPct}}%</div>
+</div>
+</div>
+<p class="note" style="margin-top: 8px">Đề không gắn buổi: không có khối "Theo buổi" và ma trận; bảng công bố vẫn dùng được. Lớp đông: cột học viên giữ cố định, cuộn ngang các buổi; xuất CSV theo đúng bảng này.</p>
+</div>
+</section>
+
+<section aria-labelledby="g3" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="g3" class="h2s" style="margin-bottom: 16px">3 · Trạng thái phụ</h2>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px">
+<div style="padding: 18px; border: 1px solid var(--rule); background: var(--surface)">
+<p class="lab">Chưa có bài nộp</p>
+<p class="ser" style="margin: 0 0 6px; font-size: 20px; font-weight: 600; line-height: 1.3">Chưa ai nộp bài</p>
+<p style="margin: 0; font-size: 15px">Ẩn khối "Theo buổi" và ma trận, không hiện 0%. Hai nút công bố tắt, kèm lý do "Chưa có bài để công bố". Hẹn giờ vẫn đặt được.</p>
+</div>
+<div style="padding: 18px; border: 1px solid var(--rule); background: var(--surface)">
+<p class="lab">Đã công bố cho mọi bài đã nộp</p>
+<p class="ser" style="margin: 0 0 6px; font-size: 20px; font-weight: 600; line-height: 1.3">Đã công bố 6 trên 6</p>
+<p style="margin: 0; font-size: 15px">Nút công bố đổi thành "Nâng mức hiển thị…", chỉ chọn được mức cao hơn mức hiện tại; qua cùng hộp hỏi lại.</p>
+</div>
+<div style="padding: 18px; border: 1px dashed var(--muted); background: var(--surface)">
+<p class="lab">Đợt sau · không dựng ở đợt này</p>
+<p class="ser" style="margin: 0 0 6px; font-size: 20px; font-weight: 600; line-height: 1.3; color: var(--muted)">Nộp trễ, làm bù, làm lại</p>
+<p style="margin: 0; font-size: 15px; color: var(--muted)">Cột "Nộp trễ N phút", menu "Mở lượt làm bù" và "Mở lượt làm lại" của dòng để đợt sau, kèm thi lại/làm bù của thi thử (kiểm duyệt admin AD-27).</p>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="g4" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="g4" class="h2s" style="margin-bottom: 12px">Ghi chú cho lập trình</h2>
+<ul style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; max-width: 120ch">
+<li>Mỗi bài kiểm tra có chế độ trả điểm "trả ngay khi nộp" hoặc "giáo viên công bố"; lớp offline mặc định "giáo viên công bố" (00-QUY-UOC mục 2.15). Tờ này chỉ mở với chế độ "giáo viên công bố".</li>
+<li>Khối "Theo buổi" (AD-11) đặt trên bảng công bố: mỗi buổi một dòng gồm số câu của buổi trong đề, tỉ lệ đúng của lớp (chỉ tính bài đã nộp), số học viên dưới 60%; "Cần ôn" khi lớp dưới 60%. Liên kết mở ma trận học viên × buổi theo spec 0043. Đề không gắn buổi: ẩn cả hai.</li>
+<li>Có dòng được chọn thì nút "Công bố cho cả lớp" tắt, chỉ còn "Công bố cho N bạn đã chọn" và "Bỏ chọn"; không có dòng chọn thì chỉ có nút cả lớp (AD-17).</li>
+<li>Mọi lệnh công bố (cả lớp, đã chọn, nâng mức) qua một hộp hỏi lại nêu số người, tên, mức hiển thị, học viên thấy gì và chưa thấy gì, kèm "Xem như học viên thấy" dựng đúng màn học viên ở mức đó (KiemTraKhoa mục 5–6) cho người đầu danh sách.</li>
+<li>Công bố chỉ nâng, không hạ, không thu hồi; máy chủ từ chối lệnh hạ mức. Ghi theo từng học viên: thời điểm, người công bố, mức. Hẹn giờ là lệnh công bố cả lớp cho mọi bài đã nộp lúc tới giờ; huỷ được tới trước giờ đó.</li>
+<li>Đợt sau, không dựng ở đợt này: nộp trễ, làm bù cho người chưa làm, làm lại.</li>
+</ul>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Navy + đỏ mận","Xanh teal"],"default":"Navy + đỏ mận"},"$preview":{"width":1280,"height":2920}}'>
+class Component extends DCLogic {
+constructor(p) { super(p); this.state = { lvl: 'marks', pick: { b1: true, b2: true, b4: true }, pub: { b5: true }, ask: '', pv: false, sched: false, msg: '', selB: 7 }; }
+renderVals() {
+const st = this.state || {};
+const palette = this.props.palette ?? 'Navy + đỏ mận';
+const pal = palette === 'Xanh teal' ? 'pal-teal' : 'pal-navy';
+const MT = [11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 10];
+const topics = ['Bộ khung câu', 'Danh từ và lượng từ', 'Mạo từ, định từ và đại từ', 'Tính từ và trạng từ', 'So sánh', 'Giới từ và cụm danh từ', 'Cụm động từ và thì', 'Thì hoàn thành và tương lai', 'Hoà hợp chủ ngữ – động từ', 'Câu bị động', 'Modal'];
+const BR = [
+['b1', 'Nguyễn Minh Anh', 'Nộp 20:31', [10, 10, 10, 9, 10, 7, 9, 6, 10, 10, 5]],
+['b2', 'Trần Quốc Bảo', 'Nộp 20:52', [8, 8, 6, 6, 6, 6, 7, 5, 8, 6, 5]],
+['b3', 'Lê Thảo Vy', 'Nộp 20:58', [9, 8, 8, 10, 8, 7, 9, 7, 9, 8, 5]],
+['b4', 'Hoàng Đức Nam', 'Hết giờ, máy tự nộp', [7, 7, 6, 6, 6, 3, 7, 5, 6, 7, 4]],
+['b5', 'Đỗ Khánh Linh', 'Nộp 20:14', [11, 10, 11, 9, 10, 8, 10, 7, 9, 10, 7]],
+['b6', 'Trần Bảo Ngọc', 'Nộp 20:47', [10, 9, 8, 8, 7, 7, 8, 5, 8, 9, 4]],
+['b7', 'Vũ Hoàng Long', 'Chưa làm · bài đã đóng', null]
+];
+const pc = (a, b) => Math.round(100 * a / b);
+const sum = (a) => a.reduce((x, y) => x + y, 0);
+const subs = BR.filter((r) => r[3]);
+const selB = st.selB == null ? 7 : st.selB;
+const byLesson = MT.map((t, i) => {
+const c = sum(subs.map((r) => r[3][i]));
+const p = pc(c, t * subs.length);
+const u = subs.filter((r) => r[3][i] / t < 0.6).length;
+const weak = p < 60; const on = i === selB;
+return { n: i + 1, topic: topics[i], t: t, p: p, w: p + '%', barColor: weak ? 'var(--mark)' : 'var(--ink)', pColor: weak ? 'var(--mark)' : 'var(--ink)', under: u === 0 ? 'Không ai' : u + ' học viên', uColor: u ? 'var(--mark)' : 'var(--muted)', uWeight: u ? 600 : 400, label: weak ? 'Cần ôn' : '', bar: on ? 'var(--accent)' : 'transparent', bg: on ? 'var(--tint)' : 'transparent', colBg: on ? 'var(--tint)' : 'transparent', pick: () => this.setState({ selB: i }) };
+});
+const classPct = pc(sum(subs.map((r) => sum(r[3]))), 120 * subs.length);
+const mHead = MT.map((t, i) => ({ n: i + 1, t: t, bg: i === selB ? 'var(--tint)' : 'transparent' }));
+const mRows = BR.map((r) => ({ name: r[1], has: !!r[3], none: !r[3], total: r[3] ? sum(r[3]) + ' / 120' : '', cells: r[3] ? r[3].map((c, i) => { const p = pc(c, MT[i]); const weak = p < 60; return { p: p + '%', aria: r[1] + ', Buổi ' + (i + 1) + ': ' + c + ' trên ' + MT[i] + ' câu, ' + p + '%' + (weak ? ', dưới 60%' : ''), bl: weak ? 'var(--mark)' : 'transparent', bg: i === selB ? 'var(--tint)' : 'transparent', color: weak ? 'var(--mark)' : 'var(--ink)', weight: weak ? 600 : 400 }; }) : [] }));
+const LV = [['score', 'Chỉ điểm', 'Số câu đúng và tỉ lệ'], ['marks', 'Điểm và câu đúng sai', 'Thêm theo buổi, từng câu đúng sai'], ['full', 'Kèm đáp án và giải thích', 'Thêm đáp án đúng và lời giải']];
+const lvl = st.lvl || 'marks';
+const levels = LV.map((x) => ({ t: x[1], d: x[2], on: x[0] === lvl, bw: x[0] === lvl ? '2px' : '1px', border: x[0] === lvl ? 'var(--accent)' : 'var(--rule)', bg: x[0] === lvl ? 'var(--tint)' : 'var(--surface)', pick: () => this.setState({ lvl: x[0] }) }));
+const levelName = LV.filter((x) => x[0] === lvl)[0][1];
+const SEE = { score: ['Số câu đúng trên 120 và tỉ lệ.', 'Theo buổi, từng câu đúng sai, đáp án đúng và lời giải.'], marks: ['Số câu đúng, tỉ lệ, kết quả theo buổi và từng câu đúng hay sai.', 'Đáp án đúng và lời giải.'], full: ['Số câu đúng, tỉ lệ, theo buổi, từng câu đúng sai, đáp án đúng và lời giải.', 'Không còn gì ẩn.'] };
+const pk = st.pick || {}; const pb = st.pub || {};
+const board = BR.map((r) => { const done = !!pb[r[0]]; const absent = !r[3]; const can = !absent && !done; const on = can && !!pk[r[0]]; const sc = absent ? 0 : sum(r[3]); return { name: r[1], sub: r[2], subColor: absent ? 'var(--muted)' : 'var(--ink)', score: absent ? 'Không có bài' : sc + ' trên 120', pct: absent ? '' : pc(sc, 120) + '%', pub: absent ? 'Không áp dụng' : (done ? 'Đã công bố' : 'Chưa công bố'), pubColor: done ? 'var(--ok)' : 'var(--muted)', can: can, on: on, bg: on ? 'var(--tint)' : 'var(--surface)', toggle: () => { const p = Object.assign({}, this.state.pick); p[r[0]] = !p[r[0]]; this.setState({ pick: p }); } }; });
+const leftRows = BR.filter((r, i) => board[i].can);
+const selRows = leftRows.filter((r) => !!pk[r[0]]);
+const askRows = st.ask === 'sel' ? selRows : leftRows;
+const askN = askRows.length;
+const first = askRows[0] || BR[0];
+const fs = sum(first[3] || [0]);
+const weakB = first[3] ? first[3].map((c, i) => pc(c, MT[i]) < 60 ? 'Buổi ' + (i + 1) : null).filter((x) => x) : [];
+const pvLines = lvl === 'score' ? ['Không có theo buổi, câu đúng sai hay đáp án.', 'Dòng "Giáo viên mở thêm thì bạn nhận thông báo".'] : (lvl === 'marks' ? ['Theo buổi: cần ôn ' + (weakB.length ? weakB.join(', ') : 'không buổi nào') + '.', 'Từng câu đúng hay sai; chưa có đáp án đúng và lời giải.'] : ['Theo buổi: cần ôn ' + (weakB.length ? weakB.join(', ') : 'không buổi nào') + '.', 'Từng câu đúng sai, kèm đáp án đúng và lời giải.']);
+return {
+pal: pal, byLesson: byLesson, mHead: mHead, mRows: mRows, classPct: classPct,
+levels: levels, levelName: levelName, board: board, pubCount: Object.keys(pb).filter((k) => pb[k]).length,
+leftCount: leftRows.length, selCount: selRows.length, hasSel: selRows.length > 0, noSel: selRows.length === 0,
+selLine: selRows.length ? 'Đang chọn ' + selRows.length + ' dòng nên nút công bố cả lớp tắt. Bỏ chọn hết để công bố cả lớp.' : 'Chọn dòng để công bố riêng cho từng bạn; khi có dòng được chọn, nút cả lớp tắt.',
+clearSel: () => this.setState({ pick: {} }),
+askAll: () => { if (leftRows.length) this.setState({ ask: 'all', pv: false, msg: '' }); }, askSel: () => { if (selRows.length) this.setState({ ask: 'sel', pv: false, msg: '' }); }, closeAsk: () => this.setState({ ask: '', pv: false }),
+askOpen: !!st.ask && askN > 0, askN: askN, askNames: askRows.map((r) => r[1]).join(', '),
+seeLine: SEE[lvl][0], hideLine: SEE[lvl][1],
+pvOpen: !!st.pv, pvLabel: st.pv ? 'Ẩn màn xem trước' : 'Xem như học viên thấy', togglePv: () => this.setState({ pv: !this.state.pv }),
+pv: { name: first[1], score: fs + ' trên 120 câu đúng · ' + pc(fs, 120) + '%', lines: pvLines },
+doPublish: () => { if (this.state.ask === 'sched') { this.setState({ ask: '', pv: false, sched: true, msg: '' }); return; } const ids = askRows.map((r) => r[0]); const p = Object.assign({}, this.state.pub); ids.forEach((id) => { p[id] = true; }); this.setState({ pub: p, pick: {}, ask: '', pv: false, msg: 'Đã công bố cho ' + ids.length + ' học viên ở mức "' + levelName + '".' }); },
+doSchedule: () => { if (leftRows.length) this.setState({ ask: 'sched', pv: false, msg: '' }); },
+askTitle: st.ask === 'sched' ? 'Hẹn công bố cho ' + askN + ' học viên lúc 18:00, Thứ Năm 19/11?' : 'Công bố cho ' + askN + ' học viên?', askBtn: st.ask === 'sched' ? 'Đặt hẹn công bố' : 'Công bố cho ' + askN + ' học viên',
+schedLine: st.msg ? st.msg + ' Học viên đã nhận thông báo "Đã có kết quả" trong ứng dụng.' : st.sched ? 'Đã hẹn công bố lúc 18:00, Thứ Năm 19/11 ở mức "' + levelName + '". Học viên thấy giờ này ở màn "Đã nộp". Huỷ hẹn được tới trước giờ đó.' : 'Hẹn giờ áp cho mọi bài đã nộp lúc tới giờ; bài nộp sau đó cần công bố thêm. Đặt hẹn cũng qua hộp hỏi lại.'
+};
+}
+}
+</script>
+</body>
+</html>

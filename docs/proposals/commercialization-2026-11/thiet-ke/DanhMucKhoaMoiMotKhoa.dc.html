@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Danh mục khoá học · mới một khoá mở</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--accentH:#0B5953;--link:#0B5953;--mark:#8A4B08;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EDF3F1;--off:#E7E2D6}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--accentH:#11254A;--link:#1A3561;--mark:#8A1C1C;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EEF0F5;--off:#E8E2D5}
+a{color:var(--link)}a:hover{color:var(--ink)}
+</style>
+</helmet>
+<div class="{{pal}}" style="width: 1280px; height: 2100px; box-sizing: border-box; padding: 56px 64px; background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 16px; line-height: 1.5; display: flex; flex-direction: column; gap: 44px">
+<header>
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Aver Learning · Bản in · trang công khai · /courses · tờ phụ của DanhMucKhoa</p>
+<h1 style="margin: 4px 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 40px; font-weight: 600; line-height: 1.15">Danh mục khoá học</h1>
+<p style="margin: 0; color: var(--muted); max-width: 80ch">Sáu khoá online dự kiến (Grammar, Listening, Reading, Writing, Speaking, Vocabulary Skills + Ideas), trình bày như mục lục sách: mỗi khoá một dòng kẻ, cùng một cách ghi học phí, thời hạn và lượt chấm AI như trang một khoá. Các khoá độc lập, không có thứ tự bắt buộc. Khoá đưa lên dần nên dòng "Sắp mở" phải đọc được, không để trống. Khoá của lớp offline không nằm trong danh mục; chỉ có lối nhập mã kích hoạt.</p>
+</header>
+
+<section aria-labelledby="s3" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="s3" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">1 · Mới có một khoá mở đăng ký</h2>
+<p style="margin: 0 0 16px; color: var(--muted); max-width: 80ch">Lúc ra mắt có thể chỉ một khoá mở đăng ký (ví dụ Khoá Writing for IELTS). Danh sách vẫn đủ sáu dòng để người xem thấy đủ các khoá dự kiến; năm dòng "Sắp mở" không có học phí, có ngày dự kiến và vẫn mở được trang khoá để xem chương trình.</p>
+<div style="border: 1px solid var(--ink); background: var(--paper); padding: 28px 48px 32px">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 24px">
+<h3 style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 30px; font-weight: 600">Sáu khoá</h3>
+<p style="margin: 0; font-size: 15px; color: var(--muted)">1 khoá đang mở đăng ký · 5 khoá sắp mở</p>
+</div>
+<div role="list" style="margin-top: 8px; border-top: 1px solid var(--ink)">
+<sc-for list="{{rowsOne}}" as="r" hint-placeholder-count="6">
+<div role="listitem" style="display: grid; grid-template-columns: minmax(0, 1fr) 200px 190px 200px; gap: 0 28px; align-items: start; padding: 16px 0; border-bottom: 1px solid var(--rule)">
+<div style="min-width: 0">
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">{{r.tag}}</p>
+<a href="TrangKhoaHoc.dc.html" style="display: block; margin: 2px 0 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1.25; color: {{r.numColor}}; text-decoration: none">{{r.name}}</a>
+<p style="margin: 2px 0 0; font-size: 14px; color: var(--muted)">Người soạn và giảng: XXX</p>
+</div>
+<div style="font-size: 15px"><p style="margin: 0; font-size: 13px; color: var(--muted)">Trình độ</p><p style="margin: 0">XXX → XXX</p></div>
+<div style="font-size: 15px; font-variant-numeric: tabular-nums"><p style="margin: 0">XXX bài học</p><p style="margin: 0">Truy cập XXX tháng</p></div>
+<div style="display: flex; flex-direction: column; align-items: flex-start; gap: 6px">
+<sc-if value="{{r.forSale}}" hint-placeholder-val="{{ false }}"><p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">XXX đ</p></sc-if>
+<span style="padding: 3px 10px; border: 1px solid {{r.badge.c}}; border-radius: 2px; background: {{r.badge.bg}}; color: {{r.badge.fg}}; font-size: 14px; font-weight: 600">{{r.badge.t}}</span>
+<sc-if value="{{r.soon}}" hint-placeholder-val="{{ true }}"><p style="margin: 0; font-size: 14px; color: var(--muted)">Dự kiến mở: XXX</p></sc-if>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0 16px">
+<a href="TrangKhoaHoc.dc.html" style="display: inline-flex; align-items: center; min-height: 32px; font-weight: 600">Xem khoá ›</a>
+<sc-if value="{{r.nfLink}}" hint-placeholder-val="{{ true }}"><button onClick="{{r.nfPick}}" aria-expanded="{{r.nfOpen}}" style="min-height: 32px; padding: 0; border: 0; background: transparent; color: var(--link); font: 600 16px 'Source Sans 3', sans-serif; text-decoration: underline; cursor: pointer">Báo cho tôi khi mở</button></sc-if>
+<sc-if value="{{r.nfBtn}}" hint-placeholder-val="{{ false }}"><button style="min-height: 44px; padding: 0 18px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif; cursor: pointer">Báo cho tôi khi mở</button></sc-if>
+<sc-if value="{{r.nfDone}}" hint-placeholder-val="{{ false }}"><p style="margin: 0; font-size: 14px; color: var(--ok); font-weight: 600">Đã đăng ký nhận báo</p></sc-if>
+</div>
+</div>
+<sc-if value="{{r.nfForm}}" hint-placeholder-val="{{ false }}"><div style="grid-column: 1 / -1; display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 12px 16px; background: var(--tint); border-left: 3px solid var(--accent)">
+<label for="nf-email" style="font-size: 15px">Email nhận thông báo</label>
+<input id="nf-email" type="email" placeholder="ten@email.com" style="min-height: 44px; width: 280px; box-sizing: border-box; padding: 0 12px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 16px 'Source Sans 3', sans-serif">
+<button style="min-height: 44px; padding: 0 18px; border: 0; border-radius: 2px; background: var(--accent); color: var(--surface); font: 600 16px 'Source Sans 3', sans-serif; cursor: pointer">Báo cho tôi khi mở</button>
+<span style="font-size: 14px; color: var(--muted)">Chỉ gửi một thư khi khoá mở đăng ký. Bạn bỏ nhận được bất cứ lúc nào.</span>
+</div></sc-if>
+</div>
+</sc-for>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)">Minh hoạ các trạng thái "Báo cho tôi khi mở" theo dòng: Listening, khách mở ô email · Reading, đã đăng ký nhận báo · Speaking, liên kết chưa bấm · Vocabulary, đã đăng nhập (chỉ còn nút, dùng email của tài khoản).</p>
+<div style="display: flex; gap: 32px; margin-top: 20px; font-size: 15px; color: var(--muted)">
+<p style="margin: 0; flex: 1 1 0"><strong style="color: var(--ink); font-weight: 600">Bảng so sánh:</strong> cột khoá sắp mở ghi "Công bố khi mở đăng ký" ở hàng Học phí và "Khi mở đăng ký" ở hàng Bài học thử; các hàng khác ghi theo dữ liệu dự kiến.</p>
+<p style="margin: 0; flex: 1 1 0"><strong style="color: var(--ink); font-weight: 600">Mục trọn bộ:</strong> ẩn khi còn dưới hai khoá mở đăng ký (giả định), vì lúc đó gói gần như chỉ là một khoá.</p>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="s5" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="s5" style="margin: 0 0 12px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">Ghi chú cho lập trình</h2>
+<ol style="margin: 0; padding-left: 22px; font-size: 15px; max-width: 110ch; display: flex; flex-direction: column; gap: 8px">
+<li>"Báo cho tôi khi mở" ở dòng "Sắp mở": khách bấm thì mở ô email ngay dưới dòng (không cửa sổ bật lên); đã đăng nhập thì chỉ còn nút, dùng email tài khoản. Sau khi đăng ký hiện "Đã đăng ký nhận báo" kèm lối bỏ nhận; khoá mở đăng ký thì gửi đúng một thư. Dòng "Người soạn và giảng: XXX" lấy từ hồ sơ khoá.</li>
+<li>Cùng hệ trạng thái và nhãn với DanhMucKhoa.dc.html.</li>
+</ol>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Xanh teal","Navy + đỏ mận"],"default":"Navy + đỏ mận"},"$preview":{"width":1280,"height":2100}}'>
+class Component extends DCLogic {
+constructor(p) { super(p); this.state = { lvl: 0, nf: 1 }; }
+renderVals() {
+const B = {
+open: { t: 'Đang mở đăng ký', c: 'var(--accent)', bg: 'var(--surface)', fg: 'var(--accent)' },
+soon: { t: 'Sắp mở', c: 'var(--muted)', bg: 'var(--off)', fg: 'var(--muted)' },
+learning: { t: 'Bạn đang học · còn XXX ngày', c: 'var(--ok)', bg: 'var(--surface)', fg: 'var(--ok)' },
+expired: { t: 'Hết hạn', c: 'var(--danger)', bg: 'var(--surface)', fg: 'var(--danger)' }
+};
+const NAMES = ['Khoá Ngữ pháp nền tảng', 'Khoá Listening for IELTS', 'Khoá Reading for IELTS', 'Khoá Writing for IELTS', 'Khoá Speaking for IELTS', 'Khoá Vocabulary Skills + Ideas for IELTS'];
+const TAGS = ['Grammar', 'Listening', 'Reading', 'Writing', 'Speaking', 'Vocabulary'];
+const mk = (i, st) => ({
+name: NAMES[i], tag: TAGS[i], badge: B[st],
+forSale: st === 'open', soon: st === 'soon', owned: st === 'learning', expired: st === 'expired',
+notOwned: st === 'open' || st === 'soon', progress: st === 'learning' || st === 'expired',
+numColor: st === 'soon' ? 'var(--muted)' : 'var(--ink)'
+});
+const mainSt = ['open', 'soon', 'soon', 'open', 'soon', 'soon'];
+const lvl = (this.state && this.state.lvl) || 0;
+const labels = [
+'Viết và nói còn sai ngữ pháp, muốn chắc nền câu',
+'Nghe không kịp, hay mất ý ở bài Listening',
+'Đọc chậm, hết giờ trước khi làm xong bài Reading',
+'Cần nâng band Writing Task 1 và Task 2',
+'Nói còn ngập ngừng khi trả lời Speaking',
+'Thiếu từ vựng và ý tưởng khi viết, nói'
+];
+return {
+pal: (this.props.palette ?? 'Navy + đỏ mận') === 'Xanh teal' ? 'pal-teal' : 'pal-navy',
+rows: mainSt.map((s, i) => mk(i, s)),
+rowsOwned: [mk(0, 'expired'), mk(3, 'learning')],
+rowsOne: ['soon', 'soon', 'soon', 'open', 'soon', 'soon'].map((s, i) => {
+const r = mk(i, s);
+const nf = (this.state && this.state.nf);
+r.nfLink = i === 1 || i === 4;
+r.nfOpen = nf === i;
+r.nfForm = nf === i;
+r.nfPick = () => this.setState({ nf: nf === i ? -1 : i });
+r.nfDone = i === 2;
+r.nfBtn = i === 5;
+return r;
+}),
+opts: labels.map((label, i) => ({
+label, tag: TAGS[i], on: lvl === i,
+bg: lvl === i ? 'var(--tint)' : 'transparent',
+ring: lvl === i ? '6px solid var(--accent)' : '1px solid var(--muted)',
+pick: () => this.setState({ lvl: i })
+})),
+sug: { name: NAMES[lvl], open: mainSt[lvl] === 'open', soon: mainSt[lvl] === 'soon' }
+};
+}
+}
+</script>
+</body>
+</html>

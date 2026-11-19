@@ -12,6 +12,7 @@ import {
   readPracticeSessionId,
 } from '@/lib/practice-session-bootstrap.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
+import { leaveForParent } from '@/lib/redirect-notice-model.mjs';
 
 function setLoadingMessage(message: string) {
   const player = (window as any).PracticePlayer;
@@ -135,6 +136,11 @@ export function PracticeSessionBoot() {
             ));
             return;
           }
+        }
+        if (error instanceof PracticeBootstrapError && error.code === 'missing_session_id') {
+          // G02-T11: no session in the link → back to Speaking with a notice.
+          leaveForParent('/speaking');
+          return;
         }
         if (error instanceof PracticeBootstrapError && error.code === 'auth_required') {
           window.location.replace('/login');

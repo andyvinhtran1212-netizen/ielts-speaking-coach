@@ -1,0 +1,638 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Nền tảng thiết kế</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--accentH:#0B5953;--link:#0B5953;--mark:#8A4B08;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EDF3F1;--off:#E7E2D6}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--accentH:#11254A;--link:#1A3561;--mark:#8A1C1C;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EEF0F5;--off:#E8E2D5}
+a{color:var(--link)}a:hover{color:var(--ink)}
+</style>
+</helmet>
+<div class="{{pal}}" style="width: 1280px; height: 8000px; box-sizing: border-box; padding: 48px 64px; background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 16px; line-height: 1.5; display: flex; flex-direction: column; gap: 28px">
+
+<header>
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Aver Learning · Bản in · tờ 0 · cho lập trình dựng token</p>
+<h1 style="margin: 4px 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 40px; font-weight: 600; line-height: 1.15">Nền tảng thiết kế</h1>
+<p style="margin: 0; color: var(--muted); max-width: 112ch">Tổng hợp từ các tờ đã có (ThanhPhan, ThanhPhanDuLieu, ThanhPhanHocTap, ThanhPhanHocTap2, ThanhPhanKhungTrang, ThanhPhanKhungTrang2 và các màn đã duyệt), đo lại bằng cách đếm giá trị đang dùng trong 80 tờ. Không thêm giá trị mới; chỗ các tờ chưa định số ghi <strong style="color: var(--ink)">Đề xuất</strong>, chỗ các tờ đang dùng lệch nhau ghi <strong style="color: var(--mark)">Đang lệch</strong>. Bảng tên token tiền tố <code>--av2-</code> ở cuối tờ.</p>
+</header>
+
+<!-- 1 · MÀU -->
+<section aria-labelledby="s1" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="s1" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">1 · Bảng màu · hai bộ</h2>
+<p style="margin: 0 0 14px; font-size: 14px; color: var(--muted)">Mặc định là Navy + đỏ mận; Xanh teal là bộ thay thế cùng tên biến. Mọi màu trong giao diện đi qua biến; không viết mã màu trong thành phần. Tweak "palette" của tờ đổi màu toàn tờ; bảng dưới luôn hiện cả hai bộ.</p>
+<div role="table" aria-label="Biến màu" style="border-top: 1px solid var(--ink)">
+<div role="row" style="display: grid; grid-template-columns: 150px minmax(0, 1fr) 230px 230px; gap: 0 20px; padding: 8px 0; border-bottom: 1px solid var(--ink); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)"><span role="columnheader">Biến hiện có</span><span role="columnheader">Vai trò</span><span role="columnheader">Navy + đỏ mận</span><span role="columnheader">Xanh teal</span></div>
+<sc-for list="{{colors}}" as="c" hint-placeholder-count="13">
+<div role="row" style="display: grid; grid-template-columns: 150px minmax(0, 1fr) 230px 230px; gap: 0 20px; align-items: center; padding: 3px 0; border-bottom: 1px solid var(--rule); font-size: 15px">
+<code role="rowheader" style="font-size: 14px">--{{c.v}}</code>
+<span role="cell">{{c.role}}</span>
+<span role="cell" style="display: flex; align-items: center; gap: 10px"><span class="pal-navy" aria-hidden="true" style="width: 56px; height: 28px; border: 1px solid var(--ink); background: var(--{{c.v}})"></span><code style="font-size: 14px">{{c.navy}}</code></span>
+<span role="cell" style="display: flex; align-items: center; gap: 10px"><span class="pal-teal" aria-hidden="true" style="width: 56px; height: 28px; border: 1px solid var(--ink); background: var(--{{c.v}})"></span><code style="font-size: 14px">{{c.teal}}</code></span>
+</div>
+</sc-for>
+<div role="row" style="display: grid; grid-template-columns: 150px minmax(0, 1fr) 230px 230px; gap: 0 20px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--rule); font-size: 15px">
+<span role="rowheader" style="font-size: 14px">nền cảnh báo</span>
+<span role="cell">Nền nhạt của khối cảnh báo: --mark trộn 7% vào --surface. Nền lỗi: --danger 7%.</span>
+<span role="cell" style="display: flex; align-items: center; gap: 10px"><span class="pal-navy" aria-hidden="true" style="width: 56px; height: 28px; border: 1px solid var(--mark); background: color-mix(in srgb, var(--mark) 7%, var(--surface))"></span><span style="font-size: 14px; color: var(--muted)">tính từ biến</span></span>
+<span role="cell" style="display: flex; align-items: center; gap: 10px"><span class="pal-teal" aria-hidden="true" style="width: 56px; height: 28px; border: 1px solid var(--mark); background: color-mix(in srgb, var(--mark) 7%, var(--surface))"></span><span style="font-size: 14px; color: var(--muted)">tính từ biến</span></span>
+</div>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)"><strong style="color: var(--mark)">Đang lệch:</strong> vài tờ khai thêm --onAccent, --on, --warnbg, --warnBg (4 tên cho 2 việc), và nhiều tờ viết thẳng mã trắng cho chữ trên nền đậm. Gộp thành <code>--av2-on-accent</code> (bằng --surface) và <code>--av2-warn-bg</code>, <code>--av2-error-bg</code> tính bằng color-mix như trên.</p>
+
+<h3 style="margin: 22px 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Cặp tương phản · tỉ lệ tính theo WCAG 2.2</h3>
+<div role="table" aria-label="Cặp tương phản" style="border-top: 1px solid var(--ink)">
+<div role="row" style="display: grid; grid-template-columns: 260px 110px 110px minmax(0, 1fr); gap: 0 20px; padding: 8px 0; border-bottom: 1px solid var(--ink); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)"><span role="columnheader">Chữ / nền</span><span role="columnheader">Navy</span><span role="columnheader">Teal</span><span role="columnheader">Dùng cho · mức đạt</span></div>
+<sc-for list="{{pairs}}" as="p" hint-placeholder-count="12">
+<div role="row" style="display: grid; grid-template-columns: 260px 110px 110px minmax(0, 1fr); gap: 0 20px; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--rule); font-size: 15px">
+<span role="rowheader" style="display: flex; align-items: center; gap: 10px"><span aria-hidden="true" style="display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 26px; border: 1px solid var(--rule); background: var(--{{p.bg}}); color: var(--{{p.fg}}); font-weight: 600; font-size: 14px">Aa</span><code style="font-size: 14px">{{p.fg}} / {{p.bg}}</code></span>
+<span role="cell" style="font-variant-numeric: tabular-nums; font-weight: 600">{{p.n}}</span>
+<span role="cell" style="font-variant-numeric: tabular-nums; font-weight: 600">{{p.t}}</span>
+<span role="cell" style="color: var(--muted)">{{p.use}}</span>
+</div>
+</sc-for>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)">Mốc: chữ thường cần 4.5:1 (AA), chữ lớn và viền thành phần cần 3:1. --rule chỉ 1.4:1 nên chỉ dùng cho đường kẻ trang trí; viền ô nhập, nút phụ, ô chọn dùng --muted hoặc --ink.</p>
+</section>
+
+<!-- 2 · CHỮ -->
+<section aria-labelledby="s2" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="s2" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">2 · Thang chữ</h2>
+<p style="margin: 0 0 14px; font-size: 14px; color: var(--muted)">Hai họ chữ: <strong style="color: var(--ink)">Source Serif 4</strong> cho tiêu đề và phần đọc (bài giảng, đề bài, bài viết); <strong style="color: var(--ink)">Source Sans 3</strong> cho giao diện, bảng, nhãn và phiên âm IPA (Serif thiếu ký tự IPA). Chỉ hai độ đậm: 400 và 600; nghiêng chỉ dùng Serif 400 cho ví dụ. Số đếm, giờ, điểm dùng chữ số đều cột.</p>
+<div role="table" aria-label="Thang chữ" style="border-top: 1px solid var(--ink)">
+<div role="row" style="display: grid; grid-template-columns: 170px 150px minmax(0, 1fr) 250px; gap: 0 20px; padding: 8px 0; border-bottom: 1px solid var(--ink); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)"><span role="columnheader">Bậc</span><span role="columnheader">Cỡ / dòng / đậm</span><span role="columnheader">Mẫu</span><span role="columnheader">Dùng ở</span></div>
+<sc-for list="{{types}}" as="t" hint-placeholder-count="14">
+<div role="row" style="display: grid; grid-template-columns: 170px 150px minmax(0, 1fr) 250px; gap: 0 20px; align-items: baseline; padding: 4px 0; border-bottom: 1px solid var(--rule)">
+<span role="rowheader" style="font-size: 15px; font-weight: 600">{{t.name}}</span>
+<span role="cell" style="font-size: 14px; font-variant-numeric: tabular-nums">{{t.fam}} · {{t.spec}}</span>
+<span role="cell" style="font-family: {{t.css}}; font-size: {{t.size}}px; line-height: {{t.lh}}; font-weight: {{t.w}}; letter-spacing: {{t.ls}}; text-transform: {{t.tt}}; color: var(--{{t.col}}); white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{t.sample}}</span>
+<span role="cell" style="font-size: 14px; color: var(--muted)">{{t.use}}</span>
+</div>
+</sc-for>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; margin-top: 16px">
+<div style="padding-top: 10px; border-top: 1px solid var(--rule)">
+<p style="margin: 0 0 4px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Mẫu dấu tiếng Việt · Serif</p>
+<p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 19px; line-height: 1.65">Ước lượng band của bài viết được tính từ bốn tiêu chí. Chữ có dấu chồng: ắ ằ ẳ ẵ ặ · ấ ầ ẩ ẫ ậ · ế ề ể ễ ệ · ố ồ ổ ỗ ộ · ớ ờ ở ỡ ợ · ứ ừ ử ữ ự · ỳ ỷ ỹ ỵ · Đđ.</p>
+</div>
+<div style="padding-top: 10px; border-top: 1px solid var(--rule)">
+<p style="margin: 0 0 4px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Mẫu giao diện và IPA · Sans</p>
+<p style="margin: 0; font-size: 16px">Đã nộp bài lúc 10:44. Kết quả thường có sau 2 phút. <span style="font-variant-numeric: tabular-nums">13 trên 48 bài · 09:24 · 6.5</span></p>
+<p style="margin: 6px 0 0; font-size: 18px">environment <span>/ɪnˈvaɪrənmənt/</span> · thought <span>/θɔːt/</span> · measure <span>/ˈmeʒə(r)/</span></p>
+</div>
+</div>
+<p style="margin: 12px 0 0; font-size: 14px; color: var(--muted)"><strong style="color: var(--mark)">Đang lệch:</strong> 21 cỡ chữ khác nhau đang dùng (11–96px). Cỡ 11, 21, 27, 34, 38, 52 xuất hiện ít, gộp về bậc gần nhất trong bảng. Dòng dài đọc tối đa 66–70 ký tự.</p>
+</section>
+
+<!-- 3 · KHOẢNG CÁCH VÀ LƯỚI -->
+<section aria-labelledby="s3" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="s3" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">3 · Khoảng cách, lưới, điểm ngắt</h2>
+<p style="margin: 0 0 14px; font-size: 14px; color: var(--muted)">Thang bước 4px, đo từ khoảng cách đang dùng (gap 8 và 12 dùng nhiều nhất, rồi 10, 6, 4, 16). Bước lẻ 2, 6, 10, 14 chỉ dùng bên trong thành phần dày (hàng bảng, nhãn); giữa các khối dùng bước 4 chẵn.</p>
+<div style="display: grid; grid-template-columns: 520px minmax(0, 1fr); gap: 40px">
+<div role="table" aria-label="Thang khoảng cách" style="border-top: 1px solid var(--ink)">
+<sc-for list="{{spaces}}" as="sp" hint-placeholder-count="11">
+<div role="row" style="display: grid; grid-template-columns: 120px 56px minmax(0, 1fr); gap: 0 14px; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--rule); font-size: 14px">
+<code role="rowheader">{{sp.tok}}</code>
+<span role="cell" style="font-variant-numeric: tabular-nums; font-weight: 600">{{sp.px}}px</span>
+<span role="cell" style="display: flex; align-items: center; gap: 10px"><span aria-hidden="true" style="width: {{sp.px}}px; height: 12px; background: var(--accent)"></span><span style="color: var(--muted)">{{sp.use}}</span></span>
+</div>
+</sc-for>
+</div>
+<div>
+<p style="margin: 0 0 6px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Lưới 12 cột ở 1280 · lề 64 · khoảng giữa cột 24 · cột 74</p>
+<div aria-hidden="true" style="position: relative; height: 150px; border: 1px solid var(--ink); background: var(--surface); padding: 0 32px; box-sizing: border-box">
+<div style="height: 100%; display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: 12px">
+<sc-for list="{{cols12}}" as="k" hint-placeholder-count="12"><div style="background: var(--tint); border-left: 1px solid var(--accent); border-right: 1px solid var(--accent); display: flex; align-items: flex-end; justify-content: center; font-size: 12px; color: var(--muted)">{{k.n}}</div></sc-for>
+</div>
+<div style="position: absolute; left: 32px; top: 22px; width: 56%; height: 34px; border: 2px solid var(--ink); background: var(--surface); display: flex; align-items: center; padding-left: 10px; box-sizing: border-box; font-size: 13px; font-weight: 600">Cột đọc · 7 cột ≈ 662px</div>
+<div style="position: absolute; right: 32px; top: 70px; width: 32%; height: 34px; border: 1px solid var(--ink); background: var(--surface); display: flex; align-items: center; padding-left: 10px; box-sizing: border-box; font-size: 13px">Khối bên · 4 cột ≈ 368px</div>
+</div>
+<dl style="margin: 12px 0 0; font-size: 14px; display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 4px 12px">
+<dt style="font-weight: 600">Cột đọc</dt><dd style="margin: 0; color: var(--muted)">628–665px, mặc định 640 (bài mẫu, bài giảng, kết quả). Khoảng 62–70 ký tự Serif 19px.</dd>
+<dt style="font-weight: 600">Vùng nội dung</dt><dd style="margin: 0; color: var(--muted)">Công khai tối đa 1088 + lề 32; học viên tối đa 1120 + lề 32; tờ thiết kế lề 64.</dd>
+<dt style="font-weight: 600">Vùng bấm</dt><dd style="margin: 0; color: var(--muted)">44px mặc định · 48px điện thoại · 36–40px trong bảng admin.</dd>
+<dt style="font-weight: 600">Hàng bảng</dt><dd style="margin: 0; color: var(--muted)">52px học viên, giáo viên · 40px admin nhiều bản ghi.</dd>
+</dl>
+</div>
+</div>
+<div role="table" aria-label="Điểm ngắt" style="margin-top: 18px; border-top: 1px solid var(--ink)">
+<div role="row" style="display: grid; grid-template-columns: 110px 120px 90px 110px minmax(0, 1fr); gap: 0 16px; padding: 8px 0; border-bottom: 1px solid var(--ink); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)"><span role="columnheader">Điểm ngắt</span><span role="columnheader">Lề trang</span><span role="columnheader">Cột</span><span role="columnheader">Giữa cột</span><span role="columnheader">Khung thay đổi</span></div>
+<sc-for list="{{bps}}" as="b" hint-placeholder-count="5">
+<div role="row" style="display: grid; grid-template-columns: 110px 120px 90px 110px minmax(0, 1fr); gap: 0 16px; padding: 7px 0; border-bottom: 1px solid var(--rule); font-size: 15px">
+<span role="rowheader" style="font-weight: 600; font-variant-numeric: tabular-nums">{{b.w}}</span><span role="cell">{{b.m}}</span><span role="cell">{{b.c}}</span><span role="cell">{{b.g}}</span><span role="cell" style="color: var(--muted)">{{b.note}}</span>
+</div>
+</sc-for>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)"><strong style="color: var(--ink)">Đề xuất:</strong> số cột và khoảng giữa cột ở 390 và 768 chưa có tờ nào định; lề 16 ở 390 lấy theo quy định bản điện thoại.</p>
+</section>
+
+<!-- 4 · ĐƯỜNG KẺ, BO GÓC, BÓNG -->
+<section aria-labelledby="s4" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="s4" style="margin: 0 0 14px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">4 · Đường kẻ, bo góc, không bóng đổ</h2>
+<div style="display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 40px">
+<div role="table" aria-label="Đường kẻ" style="border-top: 1px solid var(--ink)">
+<sc-for list="{{rules}}" as="r" hint-placeholder-count="8">
+<div role="row" style="display: grid; grid-template-columns: 120px 150px minmax(0, 1fr); gap: 0 16px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--rule); font-size: 14px">
+<span role="cell" aria-hidden="true" style="height: 20px; {{r.css}}"></span>
+<code role="rowheader">{{r.spec}}</code>
+<span role="cell" style="color: var(--muted)">{{r.use}}</span>
+</div>
+</sc-for>
+</div>
+<div>
+<div style="display: flex; gap: 20px; margin-bottom: 14px">
+<div style="flex: 1 1 0; height: 72px; border: 1px solid var(--ink); background: var(--surface); display: flex; align-items: center; justify-content: center; font-size: 14px"><span><strong>0</strong> · khung, thẻ, bảng, thanh tiến độ</span></div>
+<div style="flex: 1 1 0; height: 72px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); display: flex; align-items: center; justify-content: center; font-size: 14px"><span><strong>2px</strong> · nút, ô nhập, nhãn</span></div>
+</div>
+<ul style="margin: 0; padding-left: 18px; font-size: 15px; display: flex; flex-direction: column; gap: 6px">
+<li>Chỉ hai mức bo: 0 và 2px (đếm được 1 422 chỗ 2px).</li>
+<li>Không bóng đổ, không nền chuyển màu. Lớp nổi (modal, ngăn kéo, thông báo nổi) tách khỏi trang bằng viền 1px --ink.</li>
+<li>Đường kẻ thay cho thẻ: nhóm nội dung bằng kẻ trên 2px --ink và khoảng trắng, không đóng hộp từng mục.</li>
+<li><strong style="color: var(--mark)">Đang lệch:</strong> 30 chỗ bo tròn 50% (nút phát tròn trong video, chấm "đang ghi âm"). Đề xuất: bỏ ở nút phát, chỉ giữ cho chấm trạng thái nhỏ hơn 12px; cần chủ dự án duyệt.</li>
+<li>Nền phủ sau modal: các tờ chưa vẽ thống nhất, XXX.</li>
+</ul>
+</div>
+</div>
+</section>
+
+<!-- 5 · BỘ ICON -->
+<section aria-labelledby="s5" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="s5" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">5 · Bộ icon · nét đơn · {{iconTotal}} icon, {{iconGroupCount}} nhóm</h2>
+<p style="margin: 0 0 14px; font-size: 14px; color: var(--muted)">Toàn bộ icon đang dùng trong các tờ và trong mã hiện tại, vẽ cùng một kiểu: lưới 24, nét 2 (nét đang dùng nhiều nhất), đầu nét và góc nối tròn, không tô kín trừ chấm ghi âm. Cỡ hiển thị: 16 (cạnh chữ 14–15px), 20 (mặc định, trong nút), 24 (bước và trạng thái lớn). Tên theo cột chữ nhỏ; icon có dấu <strong style="color: var(--ink)">*</strong> là bản bổ sung sau khi rà toàn web.</p>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 24px; align-items: start">
+<sc-for list="{{iconGroups}}" as="g" hint-placeholder-count="9">
+<div>
+<p style="margin: 0 0 4px; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">{{g.name}} · {{g.count}}</p>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--ink); border-left: 1px solid var(--rule)">
+<sc-for list="{{g.items}}" as="ic" hint-placeholder-count="8">
+<div style="display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 5px 2px 4px; border-right: 1px solid var(--rule); border-bottom: 1px solid var(--rule); background: var(--surface)">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 24px; height: 24px; fill: none; stroke: var(--ink); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><path d="{{ic.d}}"></path></svg>
+<code style="font-size: 11px; color: var(--muted)">{{ic.n}}{{ic.star}}</code>
+<span style="font-size: 11px; text-align: center; line-height: 1.25">{{ic.vi}}</span>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-for>
+</div>
+<p style="margin: 10px 0 0; font-size: 13px; color: var(--muted)"><strong style="color: var(--mark)">Đang lệch:</strong> các tờ dùng 10 độ dày nét và ba lưới (14, 20, 24); một hình cảnh báo có ba bản vẽ. Dùng một bộ duy nhất. Lùi/tới chung một icon cho 5 và 10 giây (số giây ở nhãn); sửa dùng <code>pencil</code>; lặp A–B dùng <code>repeat</code>; lớp học dùng <code>users</code>; ký tự thay icon (›, ‹, ×, →, ↑, ↓, ⋯) đổi sang icon cùng nghĩa trong nhóm Điều hướng.</p>
+
+<h3 style="margin: 14px 0 6px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Phạm vi bộ icon</h3>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; font-size: 13px">
+<p style="margin: 0"><strong style="color: var(--ink)">Đã rà:</strong> 80 tờ thiết kế (icon SVG inline, ký tự thay icon, mọi hành động có nhãn chữ thường cần icon) và mã thật nhánh staging (app, components, public/js): không dùng thư viện icon; 28 tệp tự viết SVG, còn lại dùng emoji và ký tự (mũi tên, dấu tích, dấu x, cảnh báo, tam giác phát…) làm icon, mỗi khái niệm đó đã có icon trong bộ. Emoji trang trí (pháo hoa, lửa, cúp, vẫy tay, mầm…) và biểu tượng ký tự ở mosaic trang chủ cũ không đưa vào bộ, thay bằng nhãn chữ. Thay emoji: micro, tai nghe, sách, bóng đèn, biểu đồ, cờ → <code>mic</code>, <code>headphones</code>, <code>book</code>, <code>lightbulb</code>, <code>chart</code>, <code>flag</code>.</p>
+<div>
+<p style="margin: 0 0 2px"><strong style="color: var(--ink)">Khi cần icon mới:</strong></p>
+<ol style="margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px">
+<li>Ưu tiên nhãn chữ; chỉ thêm icon khi chữ không đủ chỗ hoặc khái niệm đã quen.</li>
+<li>Icon không đứng một mình, trừ các nút đã quen: đóng, menu, tìm, thêm, phát/tạm dừng, tua, toàn màn hình, tải lại.</li>
+<li>Mọi icon có <code>aria-label</code> khi đứng một mình; đi kèm chữ thì <code>aria-hidden="true"</code>.</li>
+<li>Vẽ trên lưới 24, nét 2, đầu nét và góc tròn, không tô kín; tên chữ thường nối gạch; xếp vào đúng nhóm; không emoji.</li>
+</ol>
+</div>
+</div>
+</section>
+
+<!-- 6 · TRẠNG THÁI TƯƠNG TÁC -->
+<section aria-labelledby="s6" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="s6" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">6 · Trạng thái tương tác chung</h2>
+<p style="margin: 0 0 14px; font-size: 14px; color: var(--muted)">Lấy từ mục Nút và Ô nhập của tờ ThanhPhan. Trạng thái luôn đổi hơn một thứ (màu và viền, hoặc màu và gạch chân), không chỉ đổi màu.</p>
+<div style="display: grid; grid-template-columns: 140px repeat(5, minmax(0, 1fr)); gap: 12px 16px; align-items: center">
+<span></span>
+<span style="font-size: 13px; color: var(--muted)">Mặc định</span><span style="font-size: 13px; color: var(--muted)">Rê chuột</span><span style="font-size: 13px; color: var(--muted)">Focus bằng phím</span><span style="font-size: 13px; color: var(--muted)">Đang nhấn · Đề xuất</span><span style="font-size: 13px; color: var(--muted)">Vô hiệu</span>
+<span style="font-weight: 600">Nút chính</span>
+<button style="min-height: 44px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: var(--surface); font: 600 16px 'Source Sans 3', sans-serif">Nộp bài</button>
+<button style="min-height: 44px; border: 1px solid var(--accentH); border-radius: 2px; background: var(--accentH); color: var(--surface); font: 600 16px 'Source Sans 3', sans-serif">Nộp bài</button>
+<button style="min-height: 44px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: var(--surface); font: 600 16px 'Source Sans 3', sans-serif; outline: 3px solid var(--ink); outline-offset: 2px">Nộp bài</button>
+<button style="min-height: 44px; border: 2px solid var(--ink); border-radius: 2px; background: var(--accentH); color: var(--surface); font: 600 16px 'Source Sans 3', sans-serif">Nộp bài</button>
+<button disabled style="min-height: 44px; border: 1px solid var(--off); border-radius: 2px; background: var(--off); color: var(--muted); font: 600 16px 'Source Sans 3', sans-serif">Nộp bài</button>
+<span style="font-weight: 600">Nút phụ</span>
+<button style="min-height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif">Lưu nháp</button>
+<button style="min-height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--tint); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif">Lưu nháp</button>
+<button style="min-height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif; outline: 3px solid var(--ink); outline-offset: 2px">Lưu nháp</button>
+<button style="min-height: 44px; border: 2px solid var(--ink); border-radius: 2px; background: var(--off); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif">Lưu nháp</button>
+<button disabled style="min-height: 44px; border: 1px solid var(--rule); border-radius: 2px; background: var(--surface); color: var(--muted); font: 600 16px 'Source Sans 3', sans-serif">Lưu nháp</button>
+<span style="font-weight: 600">Liên kết chữ</span>
+<span style="color: var(--link); text-decoration: underline; font-weight: 600">Xem lại đáp án</span>
+<span style="color: var(--ink); text-decoration: underline; font-weight: 600">Xem lại đáp án</span>
+<span style="color: var(--link); text-decoration: underline; font-weight: 600; outline: 3px solid var(--ink); outline-offset: 2px; justify-self: start">Xem lại đáp án</span>
+<span style="color: var(--ink); text-decoration: underline; text-decoration-thickness: 2px; font-weight: 600">Xem lại đáp án</span>
+<span style="color: var(--muted); font-weight: 600">Xem lại đáp án</span>
+<span style="font-weight: 600">Ô nhập</span>
+<span style="min-height: 44px; display: flex; align-items: center; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface); color: var(--muted)">Ví dụ: ten@example.com</span>
+<span style="min-height: 44px; display: flex; align-items: center; padding: 0 12px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--muted)">Ví dụ: ten@example.com</span>
+<span style="min-height: 44px; display: flex; align-items: center; padding: 0 12px; border: 2px solid var(--ink); border-radius: 2px; background: var(--surface)">minhanh@example.com</span>
+<span style="min-height: 44px; display: flex; align-items: center; padding: 0 12px; border: 2px solid var(--danger); border-radius: 2px; background: var(--surface)">sai định dạng</span>
+<span style="min-height: 44px; display: flex; align-items: center; padding: 0 12px; border: 1px solid var(--rule); border-radius: 2px; background: var(--off); color: var(--muted)">Không sửa được</span>
+</div>
+<ul style="margin: 14px 0 0; padding-left: 18px; font-size: 14px; color: var(--muted); columns: 2; column-gap: 40px">
+<li><strong style="color: var(--ink)">Vòng focus:</strong> viền ngoài 3px --ink, cách 2px, cho mọi phần tử bấm được; chỉ hiện khi dùng phím.</li>
+<li><strong style="color: var(--ink)">Rê chuột:</strong> nút chính nền --accentH; nút phụ nền --tint; liên kết đổi sang --ink; hàng bảng nền --tint.</li>
+<li><strong style="color: var(--ink)">Đang nhấn (đề xuất, các tờ chưa vẽ):</strong> như rê chuột thêm viền 2px --ink; nút bật/tắt đang bật dùng nền --ink chữ --surface.</li>
+<li><strong style="color: var(--ink)">Đang xử lý:</strong> giữ nguyên kiểu, chữ đổi sang động từ đang làm ("Đang nộp…"), không bấm lại được.</li>
+<li><strong style="color: var(--ink)">Vô hiệu:</strong> nền --off hoặc viền --rule, chữ --muted, kèm một dòng lý do gần đó.</li>
+<li><strong style="color: var(--ink)">Lỗi ô nhập:</strong> viền 2px --danger, dòng lỗi 14px đậm màu --danger nói cách sửa.</li>
+</ul>
+</section>
+
+<!-- 7 · CHUYỂN ĐỘNG + 8 · TẢI, THÔNG BÁO NỔI -->
+<section aria-labelledby="s7" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="s7" style="margin: 0 0 14px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">7 · Chuyển động · 8 · Đang tải và thông báo nổi</h2>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px">
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Chuyển động</p>
+<div role="table" aria-label="Thời lượng" style="border-top: 1px solid var(--ink); font-size: 14px">
+<div role="row" style="display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 0 12px; padding: 7px 0; border-bottom: 1px solid var(--rule)"><span role="rowheader" style="font-weight: 600">0</span><span role="cell">Mặc định. Đổi trạng thái tức thì: rê chuột, chọn, tab.</span></div>
+<div role="row" style="display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 0 12px; padding: 7px 0; border-bottom: 1px solid var(--rule)"><span role="rowheader" style="font-weight: 600">150ms</span><span role="cell">Đề xuất: gập/mở mục, hiện thông báo nổi.</span></div>
+<div role="row" style="display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 0 12px; padding: 7px 0; border-bottom: 1px solid var(--rule)"><span role="rowheader" style="font-weight: 600">200ms</span><span role="cell">Đề xuất: ngăn kéo trượt từ phải, modal hiện.</span></div>
+<div role="row" style="display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 0 12px; padding: 7px 0; border-bottom: 1px solid var(--rule)"><span role="rowheader" style="font-weight: 600">lặp</span><span role="cell">Chỉ thanh tiến độ không xác định (đoạn đậm chạy qua lại).</span></div>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)">Không dùng chuyển động: trong phòng thi, cho đồng hồ, cho số điểm, khi trang tải lần đầu. Người bật "giảm chuyển động": mọi thời lượng về 0, thanh không xác định đứng yên và chỉ còn chữ. Các tờ chưa định số; 150/200ms là đề xuất.</p>
+</div>
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Khung xương khi đang tải</p>
+<div aria-busy="true" style="padding: 18px; border: 1px solid var(--rule); background: var(--surface)">
+<div style="height: 18px; width: 70%; background: var(--off); margin-bottom: 12px"></div>
+<div style="height: 12px; width: 100%; background: var(--off); margin-bottom: 8px"></div>
+<div style="height: 12px; width: 86%; background: var(--off); margin-bottom: 8px"></div>
+<div style="height: 12px; width: 54%; background: var(--off)"></div>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)">Khối --off không bo, đứng yên (không ánh chạy). Tiêu đề 18px, dòng 12px, rộng 70 / 100 / 86 / 54%. Có aria-busy và một câu cho trình đọc màn hình ("Đang tải danh sách đề…"). Quá 10 giây chuyển sang trạng thái lỗi có "Tải lại" (đề xuất).</p>
+</div>
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Thông báo nổi</p>
+<div style="position: relative; height: 150px; border: 1px solid var(--ink); background: var(--paper)">
+<div style="height: 28px; border-bottom: 1px solid var(--ink); background: var(--surface)"></div>
+<div role="status" style="position: absolute; top: 40px; right: 12px; width: 230px; padding: 10px 12px; border: 1px solid var(--ink); border-left: 4px solid var(--ok); background: var(--surface); font-size: 14px"><strong style="color: var(--ok)">Đã lưu thay đổi.</strong> Lúc 09:24.</div>
+<div role="status" style="position: absolute; top: 96px; right: 12px; width: 230px; padding: 8px 12px; border: 1px solid var(--mark); border-left: 4px solid var(--mark); background: var(--surface); font-size: 13px"><strong style="color: var(--mark)">Cảnh báo.</strong> Bài cần gõ trực tiếp.</div>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)">Góc phải trên vùng làm việc, dưới thanh trên; điện thoại: trên thanh dưới. Thành công tự ẩn sau 5 giây (tờ TaiKhoan), lời nhắc chặn dán 4 giây (spec 0047). Lỗi và cảnh báo cần làm gì thì không tự ẩn. role="status"; tối đa một thông báo một lúc (đề xuất).</p>
+</div>
+</div>
+</section>
+
+<!-- 9 · MINH HOẠ -->
+<section aria-labelledby="s9" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="s9" style="margin: 0 0 14px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">9 · Minh hoạ · sơ đồ câu chữ và sơ đồ đánh số</h2>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px">
+<figure style="margin: 0">
+<div role="img" aria-label="Sơ đồ câu chữ: The news là chủ ngữ, made là động từ, everyone là tân ngữ, happy là bổ ngữ" style="aspect-ratio: 16 / 9; max-height: 220px; padding: 12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;box-sizing:border-box;border:1px solid var(--rule);background:var(--surface);color:var(--ink)"><span style="display:flex;align-items:flex-end;justify-content:center;gap:8px"><span style="display:flex;flex-direction:column;align-items:center;gap:4px"><span style="font:600 11px 'Source Sans 3',sans-serif;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);white-space:nowrap">S · chủ ngữ</span><span lang="en" style="display:flex;align-items:center;box-sizing:border-box;height:38px;padding:0 9px;font-family:'Source Serif 4',Georgia,serif;font-size:20px;white-space:nowrap;border:1.5px solid var(--ink)">The news</span></span><span style="display:flex;flex-direction:column;align-items:center;gap:4px"><span style="font:600 11px 'Source Sans 3',sans-serif;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent);white-space:nowrap">V · động từ</span><span lang="en" style="display:flex;align-items:center;box-sizing:border-box;height:38px;padding:0 9px;font-family:'Source Serif 4',Georgia,serif;font-size:20px;white-space:nowrap;border-bottom:4px double var(--accent);color:var(--accent);font-weight:600">made</span></span><span style="display:flex;flex-direction:column;align-items:center;gap:4px"><span style="font:600 11px 'Source Sans 3',sans-serif;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);white-space:nowrap">O · tân ngữ</span><span lang="en" style="display:flex;align-items:center;box-sizing:border-box;height:38px;padding:0 9px;font-family:'Source Serif 4',Georgia,serif;font-size:20px;white-space:nowrap;border:1.5px dashed var(--ink)">everyone</span></span><span style="display:flex;flex-direction:column;align-items:center;gap:4px"><span style="font:600 11px 'Source Sans 3',sans-serif;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);white-space:nowrap">C · bổ ngữ</span><span lang="en" style="display:flex;align-items:center;box-sizing:border-box;height:38px;padding:0 9px;font-family:'Source Serif 4',Georgia,serif;font-size:20px;white-space:nowrap;border:1.5px dotted var(--ink)">happy</span></span></span></div>
+<figcaption style="margin-top: 8px; font-size: 14px; color: var(--muted)"><strong style="color: var(--ink)">Hình 9.0.</strong> Sơ đồ câu chữ: mỗi vai trò trong câu một kiểu nét. Nguồn: Aver Learning biên soạn.</figcaption>
+<ul style="margin: 10px 0 0; padding-left: 18px; font-size: 14px; display: flex; flex-direction: column; gap: 4px">
+<li>Minh hoạ của web là sơ đồ câu chữ tự vẽ: bẻ một câu ra cho thấy vai trò từng phần; mười kiểu ở GrammarWikiMinhHoa.</li>
+<li>S khung liền, V gạch chân đôi màu nhấn, O khung đứt, C khung chấm; màu chỉ nhấn thêm, in đen trắng vẫn đọc được.</li>
+<li>Không dùng ảnh kho, ảnh tạm hay ô giữ chỗ "chọn sau". Chỗ nào không cần hình thì bỏ hẳn ô hình.</li>
+</ul>
+</figure>
+<figure style="margin: 0">
+<svg role="img" aria-label="Sơ đồ ba bước viết mở bài Task 2: 1 viết lại đề, 2 nêu quan điểm, 3 nói trước hai ý chính." viewBox="0 0 520 170" style="width: 100%; height: auto; max-height: 220px; border: 1px solid var(--rule); background: var(--surface)">
+<rect x="20" y="50" width="140" height="56" fill="none" stroke="var(--ink)" stroke-width="1.4"></rect>
+<rect x="190" y="50" width="140" height="56" fill="none" stroke="var(--ink)" stroke-width="1.4"></rect>
+<rect x="360" y="50" width="140" height="56" fill="none" stroke="var(--accent)" stroke-width="2"></rect>
+<path d="M160 78h26M330 78h26" stroke="var(--ink)" stroke-width="1.4" fill="none"></path>
+<path d="M180 72l6 6-6 6M350 72l6 6-6 6" stroke="var(--ink)" stroke-width="1.4" fill="none"></path>
+<rect x="28" y="40" width="22" height="22" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.2"></rect>
+<rect x="198" y="40" width="22" height="22" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.2"></rect>
+<rect x="368" y="40" width="22" height="22" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.2"></rect>
+<text x="39" y="56" text-anchor="middle" font-family="Source Serif 4, Georgia, serif" font-size="14" font-weight="600" fill="var(--ink)">1</text>
+<text x="209" y="56" text-anchor="middle" font-family="Source Serif 4, Georgia, serif" font-size="14" font-weight="600" fill="var(--ink)">2</text>
+<text x="379" y="56" text-anchor="middle" font-family="Source Serif 4, Georgia, serif" font-size="14" font-weight="600" fill="var(--accent)">3</text>
+<text x="90" y="88" text-anchor="middle" font-family="Source Sans 3, sans-serif" font-size="14" fill="var(--ink)">Viết lại đề</text>
+<text x="260" y="88" text-anchor="middle" font-family="Source Sans 3, sans-serif" font-size="14" fill="var(--ink)">Nêu quan điểm</text>
+<text x="430" y="88" text-anchor="middle" font-family="Source Sans 3, sans-serif" font-size="14" fill="var(--ink)">Nói trước hai ý</text>
+<text x="430" y="134" text-anchor="middle" font-family="Source Sans 3, sans-serif" font-size="12" fill="var(--muted)">bước hay bị bỏ sót</text>
+</svg>
+<figcaption style="margin-top: 8px; font-size: 14px; color: var(--muted)"><strong style="color: var(--ink)">Hình 9.1.</strong> Mở bài Task 2 chỉ cần ba việc; bước 3 hay bị bỏ sót. Nguồn: Aver Learning biên soạn.</figcaption>
+<ul style="margin: 10px 0 0; padding-left: 18px; font-size: 14px; display: flex; flex-direction: column; gap: 4px">
+<li>SVG tự vẽ, nét mảnh 1.2–1.4 trên nền --surface, viền 1px --rule, chữ cùng hai họ của trang.</li>
+<li>Đánh số bằng ô vuông 22–28px viền 1px; số Serif 600. Nhấn một ý bằng --accent, còn lại --ink.</li>
+<li>Số hình "Hình 14.1" (số bài, thứ tự hình); chú thích một câu 14px nói ý chính; dòng Nguồn riêng.</li>
+<li>role="img" và aria-label đọc được nội dung; hiểu được khi in đen trắng. Trên canvas thiết kế dùng một svg cho mỗi hình.</li>
+</ul>
+</figure>
+</div>
+</section>
+
+<!-- 10 · CÂU CHỮ -->
+<section aria-labelledby="s10" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="s10" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">10 · Câu chữ · tóm tắt</h2>
+<p style="margin: 0 0 14px; font-size: 14px; color: var(--muted)">Theo mục 3 của quy ước chung và quy tắc "Bản in" ngày 16/11/2026. Xưng "bạn". Mỗi màn một ngôn ngữ nhãn: học và luyện tiếng Việt; phòng thi toàn tiếng Anh.</p>
+<div role="table" aria-label="Từ dùng và không dùng" style="border-top: 1px solid var(--ink); columns: 1">
+<div role="row" style="display: grid; grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1fr); gap: 0 20px; padding: 8px 0; border-bottom: 1px solid var(--ink); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)"><span role="columnheader">Chỗ dùng</span><span role="columnheader">Dùng</span><span role="columnheader">Không dùng</span></div>
+<sc-for list="{{words}}" as="w" hint-placeholder-count="12">
+<div role="row" style="display: grid; grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1fr); gap: 0 20px; padding: 6px 0; border-bottom: 1px solid var(--rule); font-size: 15px">
+<span role="rowheader" style="color: var(--muted)">{{w.k}}</span><span role="cell" style="font-weight: 600">{{w.yes}}</span><span role="cell" style="color: var(--muted); text-decoration: line-through; text-decoration-color: var(--mark)">{{w.no}}</span>
+</div>
+</sc-for>
+</div>
+</section>
+
+<!-- TOKEN -->
+<section aria-labelledby="s11" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="s11" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">Bảng tên token đề xuất · tiền tố --av2-</h2>
+<p style="margin: 0 0 14px; font-size: 14px; color: var(--muted)">Tên mới cho lập trình; cột giữa là biến hoặc giá trị hiện có trong các tờ. Hai bộ màu dùng chung tên, đổi bằng một lớp hoặc thuộc tính trên gốc trang.</p>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 40px">
+<sc-for list="{{tokCols}}" as="col" hint-placeholder-count="2">
+<div role="table" aria-label="Token" style="border-top: 1px solid var(--ink)">
+<sc-for list="{{col.rows}}" as="tk" hint-placeholder-count="20">
+<div role="row" style="display: grid; grid-template-columns: 230px 150px minmax(0, 1fr); gap: 0 12px; padding: 2px 0; border-bottom: 1px solid var(--rule); font-size: 13px">
+<code role="rowheader" style="font-weight: 600">{{tk.n}}</code><code role="cell">{{tk.v}}</code><span role="cell" style="color: var(--muted)">{{tk.u}}</span>
+</div>
+</sc-for>
+</div>
+</sc-for>
+</div>
+</section>
+
+<section aria-labelledby="s12" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="s12" style="margin: 0 0 12px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">Ghi chú cho lập trình</h2>
+<ol style="margin: 0; padding-left: 22px; font-size: 15px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 40px">
+<li>Khai token một lần ở gốc; bộ Xanh teal ghi đè đúng các biến màu, không đổi chữ, khoảng cách, bo góc.</li>
+<li>Thành phần chỉ đọc token <code>--av2-</code>; không viết mã màu, cỡ chữ lẻ hay bóng đổ trong thành phần.</li>
+<li>Các mục ghi "Đề xuất" (nhấn, thời lượng chuyển động, cột ở 390/768, giới hạn thông báo nổi) cần chủ dự án duyệt trước khi khoá token.</li>
+<li>Các mục "Đang lệch" sửa khi dựng lại thành phần: gộp biến màu thừa, gộp cỡ chữ ít dùng, thống nhất bộ icon, bỏ bo tròn 50% ở nút phát.</li>
+<li>Vòng focus và vùng bấm là bắt buộc ở mọi thành phần; kiểm bằng phím Tab trên cả hai bộ màu.</li>
+<li>Font tải đúng hai họ, hai độ đậm và nghiêng Serif 400; bật chữ số đều cột cho số đếm, giờ, điểm.</li>
+</ol>
+</section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Xanh teal","Navy + đỏ mận"],"default":"Navy + đỏ mận"},"$preview":{"width":1280,"height":8000}}'>
+class Component extends DCLogic {
+renderVals() {
+const C = (v, role, navy, teal) => ({ v, role, navy, teal });
+const colors = [
+C('paper', 'Nền trang', '#FAF6EF', '#FBF9F4'),
+C('surface', 'Nền khối, ô nhập; chữ trên nền đậm', '#FFFFFF', '#FFFFFF'),
+C('ink', 'Chữ chính, đường kẻ đậm, vòng focus', '#1B1A17', '#1C1B19'),
+C('muted', 'Chữ phụ, nhãn, viền ô nhập', '#5E5A52', '#5F5B53'),
+C('rule', 'Đường kẻ mảnh phân cách hàng', '#D8D0C0', '#D9D3C5'),
+C('accent', 'Nút chính, mục đang ở, nhấn trong hình', '#1A3561', '#0F766E'),
+C('accentH', 'Nút chính khi rê chuột', '#11254A', '#0B5953'),
+C('link', 'Liên kết chữ', '#1A3561', '#0B5953'),
+C('mark', 'Cảnh báo, đánh dấu lỗi trong bài, nút trong hộp cảnh báo', '#8A1C1C', '#8A4B08'),
+C('danger', 'Lỗi, việc nguy hiểm', '#9B1C1C', '#9B1C1C'),
+C('ok', 'Đạt, đã xong, đã lưu', '#1F6B3A', '#1F6B3A'),
+C('tint', 'Nền nhấn nhạt: thông tin, rê chuột nút phụ', '#EEF0F5', '#EDF3F1'),
+C('off', 'Nền vô hiệu, khung xương, ô giữ chỗ', '#E8E2D5', '#E7E2D6')
+];
+const P = (fg, bg, n, t, use) => ({ fg, bg, n, t, use });
+const pairs = [
+P('ink', 'paper', '16.2', '16.4', 'Chữ chính · AAA'),
+P('muted', 'paper', '6.4', '6.4', 'Chữ phụ, nhãn · AA'),
+P('muted', 'off', '5.3', '5.2', 'Chữ vô hiệu, giữ chỗ · AA'),
+P('surface', 'accent', '12.2', '5.5', 'Chữ trên nút chính · AA (Navy AAA)'),
+P('surface', 'accentH', '15.1', '8.2', 'Nút chính khi rê chuột · AAA'),
+P('link', 'paper', '11.3', '7.8', 'Liên kết · AAA'),
+P('mark', 'paper', '8.6', '6.5', 'Đánh dấu lỗi trong bài · AA'),
+P('surface', 'mark', '9.3', '6.8', 'Chữ trên nút cảnh báo · AA'),
+P('danger', 'surface', '8.2', '8.2', 'Chữ lỗi · AAA'),
+P('ok', 'surface', '6.5', '6.5', 'Chữ đạt · AA'),
+P('rule', 'paper', '1.4', '1.4', 'Chỉ đường kẻ trang trí · không dùng cho chữ, viền ô')
+];
+const SERIF = "'Source Serif 4', Georgia, serif", SANS = "'Source Sans 3', sans-serif";
+const T = (name, fam, size, lh, w, use, sample, o) => Object.assign({ name, fam: fam === SERIF ? 'Serif' : 'Sans', css: fam, size, lh, w, use, sample, ls: 'normal', tt: 'none', col: 'ink', spec: size + ' / ' + lh + ' / ' + w }, o || {});
+const types = [
+T('Số lớn', SERIF, 96, 1, 600, 'Band trên phiếu kết quả (điện thoại 64); mẫu vẽ ở 64', '6.5', { size: 64, spec: '96 / 1 / 600' }),
+T('Tiêu đề bài giảng', SERIF, 44, 1.12, 600, 'H1 bài giảng, trang khoá', 'Sự hoà hợp chủ ngữ'),
+T('Tiêu đề trang', SERIF, 40, 1.15, 600, 'H1 trang, tờ thiết kế', 'Thư viện bài mẫu'),
+T('Mục lớn', SERIF, 28, 1.2, 600, 'H2 trong bài, trang (30 ở trang khoá)', '1. Quy tắc gốc'),
+T('Mục', SERIF, 24, 1.25, 600, 'H2 khối, tiêu đề hộp hỏi lại (22)', 'Ba việc nên sửa trước'),
+T('Tiêu đề thẻ', SERIF, 20, 1.3, 600, 'Tên đề trong danh sách, khối trạng thái', 'Working from home'),
+T('Dẫn nhập', SERIF, 20, 1.5, 400, 'Câu tóm dưới H1, màu chữ phụ', 'Động từ đi theo chủ ngữ thật', { col: 'muted' }),
+T('Đọc', SERIF, 19, 1.65, 400, 'Thân bài giảng, bài mẫu (bài có chú thích 1.75)', 'Chủ ngữ số ít đi với động từ số ít.'),
+T('Ô viết, đề bài', SERIF, 18, 1.6, 400, 'Ô soạn Writing, đề bài tiếng Anh (17–20)', 'More people now work from home.'),
+T('Giao diện', SANS, 16, 1.5, 400, 'Chữ mặc định, nút (600), ô nhập; không nhỏ hơn 16 trong ô nhập', 'Nộp bài · Lưu nháp'),
+T('Phụ', SANS, 15, 1.5, 400, 'Danh sách, bảng học viên, mô tả ngắn', 'Đã học 13 trên 48 bài'),
+T('Ghi chú', SANS, 14, 1.5, 400, 'Chú thích hình, ghi chú dưới khối, bảng admin', 'Cập nhật 16/11/2026 08:00', { col: 'muted' }),
+T('Nhãn chữ hoa', SANS, 13, 1.5, 600, 'Tiêu đề nhóm, nhãn khối; cách chữ 0.08em', 'Trong bài này', { ls: '0.08em', tt: 'uppercase', col: 'muted' }),
+T('Nhãn nhỏ', SANS, 12, 1.5, 600, 'Nhãn "Cảnh báo", "Lỗi" trong thông báo', 'Cảnh báo', { ls: '0.08em', tt: 'uppercase', col: 'mark' })
+];
+const S = (tok, px, use) => ({ tok, px, use });
+const spaces = [
+S('--av2-space-1', 4, 'trong nhãn, giữa icon và chữ nhỏ'),
+S('--av2-space-2', 8, 'giữa chữ và icon, dòng trong nhóm'),
+S('--av2-space-3', 12, 'giữa nút, đệm ô nhập'),
+S('--av2-space-4', 16, 'giữa đoạn, đệm thông báo'),
+S('--av2-space-5', 20, 'đệm khối, giữa nhóm nhỏ'),
+S('--av2-space-6', 24, 'giữa cột, đệm khung'),
+S('--av2-space-8', 32, 'lề vùng nội dung, giữa khối'),
+S('--av2-space-10', 40, 'giữa hai cột lớn'),
+S('--av2-space-12', 48, 'giữa mục trong trang'),
+S('--av2-space-14', 56, 'giữa mục lục và bài, đệm tờ'),
+S('--av2-space-16', 64, 'lề tờ thiết kế 1280')
+];
+const B = (w, m, c, g, note) => ({ w, m, c, g, note });
+const bps = [
+B('390', '16', '4', '12', 'Thanh trên gọn + thanh dưới 5 mục (sau đăng nhập); bảng cuộn ngang trong hộp; vùng bấm 48px.'),
+B('768', '32', '8', '16', 'Thanh trên máy tính bảng; mục lục bài gập thành nút; khối đăng ký thành thanh dính đáy.'),
+B('1024', '32', '12', '24', 'Thanh học viên đủ 5 mục; khối đăng ký đứng yên khi cuộn; admin có sidebar.'),
+B('1280', '64', '12', '24', 'Bố cục chuẩn của các tờ học viên và công khai.'),
+B('1440', '32 + sidebar', '12', '24', 'Bố cục chuẩn của tờ admin và giáo viên.')
+];
+const R = (css, spec, use) => ({ css, spec, use });
+const rules = [
+R('border-top: 2px solid var(--ink)', '2px ink', 'Đầu mục lớn, đầu khối kết quả'),
+R('border-top: 1px solid var(--ink)', '1px ink', 'Khung, đầu bảng, thanh trên'),
+R('border-top: 1px solid var(--rule)', '1px rule', 'Giữa các hàng, giữa mục nhỏ'),
+R('border-top: 1px dashed var(--muted)', '1px dashed muted', 'Ô giữ chỗ, vùng chưa có nội dung'),
+R('border-top: 3px solid var(--accent)', '3px accent dưới', 'Mục đang ở trên thanh điều hướng'),
+R('border-top: 3px solid var(--ink)', '3px ink dưới', 'Thẻ (tab) đang chọn'),
+R('border-left: 4px solid var(--mark)', '4px trái mark', 'Khối cảnh báo (lỗi: danger)'),
+R('outline: 3px solid var(--ink); outline-offset: -6px', '3px ink, cách 2', 'Vòng focus bằng phím')
+];
+const c = (cx, cy, r) => 'M' + (cx - r) + ' ' + cy + 'a' + r + ' ' + r + ' 0 1 0 ' + (2 * r) + ' 0a' + r + ' ' + r + ' 0 1 0 ' + (-2 * r) + ' 0';
+const I = (n, vi, d, star) => ({ n, vi, d, star });
+const iconGroups = [
+{ name: 'Điều hướng và chỉ hướng', count: 13, items: [
+I('menu', 'Menu', 'M4 7h16M4 12h16M4 17h16', ''),
+I('chev-down', 'Mở', 'M6 9l6 6 6-6', ''),
+I('chev-up', 'Gập', 'M6 15l6-6 6 6', ''),
+I('chev-left', 'Trước', 'M15 6l-6 6 6 6', ''),
+I('chev-right', 'Sau', 'M9 6l6 6-6 6', ''),
+I('arrow-left', 'Quay lại', 'M19 12H5M11 6l-6 6 6 6', ''),
+I('arrow-right', 'Tiếp tục', 'M5 12h14M13 6l6 6-6 6', '*'),
+I('arrow-up', 'Tăng', 'M12 19V5M6 11l6-6 6 6', ''),
+I('arrow-down', 'Giảm', 'M12 5v14M6 13l6 6 6-6', ''),
+I('external', 'Mở trang ngoài', 'M14 4h6v6M20 4l-9 9M18 14v6H4V6h6', ''),
+I('close', 'Đóng', 'M6 6l12 12M18 6L6 18', ''),
+I('more', 'Thêm', c(5, 12, 1) + c(12, 12, 1) + c(19, 12, 1), ''),
+I('drag', 'Kéo thả', c(9, 6, 1) + c(15, 6, 1) + c(9, 12, 1) + c(15, 12, 1) + c(9, 18, 1) + c(15, 18, 1), '*')
+] },
+{ name: 'Thao tác với nội dung', count: 15, items: [
+I('plus', 'Thêm', 'M12 5v14M5 12h14', '*'),
+I('minus', 'Bớt', 'M5 12h14', '*'),
+I('trash', 'Xoá', 'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6', ''),
+I('copy', 'Sao chép', 'M9 9h11v11H9zM5 15H4V4h11v1', '*'),
+I('save', 'Lưu', 'M4 4h13l3 3v13H4zM8 4v5h8V4M8 20v-6h8v6', '*'),
+I('download', 'Tải xuống', 'M12 4v11M7 10l5 5 5-5M4 15v5h16v-5', '*'),
+I('upload', 'Tải lên', 'M12 15V4M7 9l5-5 5 5M4 15v5h16v-5', ''),
+I('print', 'In', 'M7 9V3h10v6M7 17H4v-7h16v7h-3M7 14h10v7H7z', '*'),
+I('link', 'Liên kết', 'M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1', '*'),
+I('refresh', 'Tải lại, thử lại', 'M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5', '*'),
+I('highlight', 'Tô sáng', 'M9 14l6-6 3 3-6 6H9zM15 8l2-2 3 3-2 2M4 21h8', '*'),
+I('note', 'Ghi chú', 'M4 4h16v12l-4 4H4zM16 20v-4h4M8 9h8M8 13h4', '*'),
+I('bookmark', 'Đã lưu', 'M6 3h12v18l-6-4-6 4z', ''),
+I('flag', 'Đánh dấu', 'M5 21V4M5 4h11l-2 4 2 4H5', ''),
+I('star', 'Đánh giá sao', 'M12 3l2.7 5.6 6.3.9-4.5 4.4 1 6.1L12 17l-5.5 3 1-6.1L3 9.5l6.3-.9z', '*')
+] },
+{ name: 'Phát nghe và ghi âm', count: 14, items: [
+I('play', 'Phát', 'M7 4l13 8-13 8z', ''),
+I('pause', 'Tạm dừng', 'M8 5v14M16 5v14', ''),
+I('stop', 'Dừng ghi', 'M6 6h12v12H6z', ''),
+I('back-10', 'Lùi 10 giây', 'M3 12a9 9 0 1 0 3-6.7M3 4v5h5', ''),
+I('fwd-10', 'Tới 10 giây', 'M21 12a9 9 0 1 1-3-6.7M21 4v5h-5', ''),
+I('repeat', 'Lặp đoạn', 'M17 2l4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 0 1-3 3H3', ''),
+I('speed', 'Tốc độ', 'M3.5 17a9 9 0 1 1 17 0M12 14l4-5', '*'),
+I('volume', 'Nghe', 'M4 9v6h4l5 4V5L8 9zM16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11', ''),
+I('volume-off', 'Tắt tiếng', 'M4 9v6h4l5 4V5L8 9zM17 9l5 6M22 9l-5 6', '*'),
+I('mic', 'Micro', 'M9 3h6v11H9zM5 11a7 7 0 0 0 14 0M12 18v3', ''),
+I('record', 'Đang ghi âm', c(12, 12, 4) + c(12, 12, 2), ''),
+I('subtitles', 'Phụ đề', 'M3 6h18v12H3zM10 10.5a2 2 0 1 0 0 3M17 10.5a2 2 0 1 0 0 3', ''),
+I('video', 'Video', 'M3 5h18v14H3zM10 9v6l5-3z', ''),
+I('headphones', 'Listening', 'M4 15v-3a8 8 0 0 1 16 0v3M4 15h4v5H4zM16 15h4v5h-4z', '*')
+] },
+{ name: 'Nội dung và tệp', count: 13, items: [
+I('file', 'Tệp', 'M6 3h8l4 4v14H6zM14 3v4h4', ''),
+I('book', 'Reading, bài đọc', 'M12 6C10 4.5 7 4 3 4v15c4 0 7 .5 9 2 2-1.5 5-2 9-2V4c-4 0-7 .5-9 2zM12 6v15', '*'),
+I('image', 'Hình ảnh', 'M3 4h18v16H3zM3 16l5-5 5 5M13 14l3-3 5 5' + c(8, 8, 1.5), '*'),
+I('folder', 'Thư mục', 'M3 5h6l2 2h10v13H3z', '*'),
+I('clipboard', 'Bài được giao', 'M8 4h8v3H8zM6 5.5V21h12V5.5M9 12h6M9 16h4', '*'),
+I('flashcard', 'Thẻ ghi nhớ', 'M7 7h13v13H7zM4 16V4h12', '*'),
+I('chart', 'Biểu đồ', 'M4 4v16h16M8 17v-5M12 17V8M17 17v-3', '*'),
+I('trend', 'Xu hướng', 'M3 17l6-6 4 4 8-8M15 7h6v6', '*'),
+I('target', 'Mục tiêu', c(12, 12, 9) + c(12, 12, 5) + c(12, 12, 1), '*'),
+I('lightbulb', 'Mẹo', 'M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z', '*'),
+I('sparkle', 'AI, gợi ý', 'M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z', '*'),
+I('qr', 'Mã QR', 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h3v3M21 14v1M14 20v1M18 21h3v-3', '*'),
+I('credit-card', 'Thanh toán', 'M3 5h18v14H3zM3 10h18M7 15h4', '*')
+] },
+{ name: 'Trạng thái và cảnh báo', count: 12, items: [
+I('check', 'Đúng, đã xong', 'M5 12l5 5 9-10', ''),
+I('check-circle', 'Đạt', c(12, 12, 9) + 'M7.5 12.5l3 3 6-7', ''),
+I('x-circle', 'Chưa đúng', c(12, 12, 9) + 'M9 9l6 6M15 9l-6 6', '*'),
+I('warning', 'Cảnh báo', 'M12 3L2 20h20zM12 10v4.5M12 17v.5', ''),
+I('error', 'Lỗi', c(12, 12, 9) + 'M12 7.5v5.5M12 16v.5', ''),
+I('info', 'Thông tin', c(12, 12, 9) + 'M12 11v5M12 7.5v.5', ''),
+I('help', 'Trợ giúp', c(12, 12, 9) + 'M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 1-1 1.7M12 17v.5', '*'),
+I('circle', 'Chưa bắt đầu', c(12, 12, 9), '*'),
+I('partial', 'Đang làm dở', c(12, 12, 9) + 'M12 3a9 9 0 0 1 0 18z', '*'),
+I('offline', 'Mất mạng', 'M3 9a14 14 0 0 1 18 0M6 12.5a9.5 9.5 0 0 1 12 0M9 16a5 5 0 0 1 6 0M12 19.5h.01M4 4l16 16', ''),
+I('inbox', 'Hộp trống', 'M3 13l3-8h12l3 8v6H3zM3 13h5l1 3h6l1-3h5', '*'),
+I('checkbox', 'Ô chọn đã chọn', 'M3 3h18v18H3zM7 12l3.5 3.5L17 8', '')
+] },
+{ name: 'Tìm, lọc, xem', count: 9, items: [
+I('search', 'Tìm', c(11, 11, 7) + 'M16.5 16.5L21 21', ''),
+I('filter', 'Lọc', 'M4 6h16M7 12h10M10 18h4', ''),
+I('sort', 'Sắp xếp', 'M8 5v14M4 9l4-4 4 4M16 19V5M12 15l4 4 4-4', ''),
+I('zoom-in', 'Phóng to', c(10.5, 10.5, 6.5) + 'M15.5 15.5L21 21M7.5 10.5h6M10.5 7.5v6', ''),
+I('zoom-out', 'Thu nhỏ', c(10.5, 10.5, 6.5) + 'M15.5 15.5L21 21M7.5 10.5h6', '*'),
+I('fullscreen', 'Toàn màn hình', 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5', ''),
+I('exit-fullscreen', 'Thoát toàn màn hình', 'M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5', '*'),
+I('eye', 'Xem', 'M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z' + c(12, 12, 3), '*'),
+I('eye-off', 'Ẩn', 'M10.6 5.1A9.8 9.8 0 0 1 12 5c6 0 10 7 10 7a17 17 0 0 1-3 3.7M6.6 6.6A17 17 0 0 0 2 12s4 7 10 7a9.5 9.5 0 0 0 4.4-1.1M9.9 9.9a3 3 0 0 0 4.2 4.2M3 3l18 18', '*')
+] },
+{ name: 'Mục chính', count: 5, items: [
+I('home', 'Hôm nay', 'M4 11l8-7 8 7v9H4z', ''),
+I('route', 'Lộ trình', c(6, 19, 2) + c(18, 5, 2) + 'M8 19h7a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h7', ''),
+I('pencil', 'Luyện tập', 'M4 20l4-1 11-11-3-3L5 16zM14 6l3 3', ''),
+I('timer', 'Thi thử', c(12, 13, 8) + 'M12 9v4l3 2M9 2h6', ''),
+I('books', 'Thư viện', 'M4 4h5v16H4zM9 4h5v16H9zM15 6l3-1 3 14-3 1z', '')
+] },
+{ name: 'Thời gian và thông báo', count: 5, items: [
+I('calendar', 'Ngày', 'M4 5h16v15H4zM4 9h16M8 3v4M16 3v4', ''),
+I('clock', 'Giờ, đang chờ', c(12, 12, 9) + 'M12 7v5l3.5 2', ''),
+I('history', 'Lịch sử, nhật ký', 'M3 12a9 9 0 1 0 3-6.7M3 4v5h5M12 7v5l3 2', '*'),
+I('bell', 'Thông báo', 'M6 16v-5a6 6 0 0 1 12 0v5l2 2H4zM10 21h4', '*'),
+I('mail', 'Thư', 'M3 5h18v14H3zM3 7l9 7 9-7', '*')
+] },
+{ name: 'Tài khoản và hệ thống', count: 8, items: [
+I('user', 'Người dùng', c(12, 8, 4) + 'M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1', '*'),
+I('users', 'Lớp, nhóm người', c(9, 8, 3.5) + 'M2.5 20a6.5 6.5 0 0 1 13 0M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14a6.5 6.5 0 0 1 3.5 6', '*'),
+I('settings', 'Cài đặt', 'M4 6h8M16 6h4M4 12h3M11 12h9M4 18h10M18 18h2' + c(14, 6, 2) + c(9, 12, 2) + c(16, 18, 2), '*'),
+I('logout', 'Đăng xuất', 'M9 4H4v16h5M16 8l4 4-4 4M20 12H9', '*'),
+I('lock', 'Đã khoá', 'M5 11h14v9H5zM8 11V8a4 4 0 0 1 8 0v3', ''),
+I('unlock', 'Mở khoá', 'M5 11h14v9H5zM8 11V8a4 4 0 0 1 7.5-2', '*'),
+I('shield', 'Quyền truy cập', 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z', '*'),
+I('device', 'Thiết bị', 'M3 5h18v11H3zM8 20h8M12 16v4', '')
+] }
+];
+const iconTotal = iconGroups.reduce((s, g) => s + g.count, 0);
+const W = (k, yes, no) => ({ k, yes, no });
+const words = [
+W('Khoá học', 'Đăng ký khoá · Đơn đăng ký · Học phí · Thanh toán', 'Từ ngữ cửa hàng, thương mại'),
+W('Trạng thái khoá', 'Đang mở đăng ký · Sắp mở · Hết hạn', 'Ưu đãi sốc · đếm ngược · chỉ còn hôm nay'),
+W('Người dạy', 'giáo viên', 'mọi cách gọi khác cho người dạy'),
+W('Xưng hô', 'bạn', 'em · quý khách'),
+W('Nhãn trạng thái bài', 'Chưa làm · Đã nộp · chờ chấm · Đã chấm · Đã trả bài', 'draft · graded · submitted'),
+W('Nhãn nội dung admin', 'Bản nháp · Đã phát hành · Lưu trữ', 'draft · published · live'),
+W('Điểm', 'Band ước lượng · do AI chấm', 'điểm thi · band khi chưa đủ dữ liệu · 0/0'),
+W('Tiến độ', '13 trên 48 bài', '27% khi tổng nhỏ'),
+W('Nút', 'Động từ nói rõ việc: Nộp bài · Lưu nháp · Gửi nhắc nhở', 'OK · Xác nhận · Gửi chung chung'),
+W('Lỗi', 'Chuyện gì xảy ra, bài còn không, làm gì tiếp', 'Mã lỗi HTTP · tên tham số · mã nội bộ'),
+W('Phòng thi', 'Submit test · Time remaining · Q5 · Highlight · Note · Clear', 'Nhãn tiếng Việt trong phòng thi'),
+W('Tên riêng', 'IELTS · Speaking · Writing · Listening · Reading · Task 1/2 · band', 'Việt hoá tên kỹ năng')
+];
+const K = (n, v, u) => ({ n, v, u });
+const left = [
+K('--av2-color-paper', '--paper', 'nền trang'),
+K('--av2-color-surface', '--surface', 'nền khối'),
+K('--av2-color-ink', '--ink', 'chữ chính'),
+K('--av2-color-muted', '--muted', 'chữ phụ'),
+K('--av2-color-rule', '--rule', 'kẻ mảnh'),
+K('--av2-color-accent', '--accent', 'nhấn'),
+K('--av2-color-accent-hover', '--accentH', 'nhấn khi rê'),
+K('--av2-color-link', '--link', 'liên kết'),
+K('--av2-color-mark', '--mark', 'cảnh báo'),
+K('--av2-color-danger', '--danger', 'lỗi'),
+K('--av2-color-ok', '--ok', 'đạt'),
+K('--av2-color-tint', '--tint', 'nền nhấn nhạt'),
+K('--av2-color-off', '--off', 'vô hiệu, khung xương'),
+K('--av2-on-accent', '--surface', 'chữ trên nền đậm'),
+K('--av2-warn-bg', 'mark 7%', 'nền cảnh báo'),
+K('--av2-error-bg', 'danger 7%', 'nền lỗi'),
+K('--av2-font-serif', 'Source Serif 4', 'đọc, tiêu đề'),
+K('--av2-font-sans', 'Source Sans 3', 'giao diện, IPA'),
+K('--av2-weight-regular', '400', ''),
+K('--av2-weight-bold', '600', '')
+];
+const right = [
+K('--av2-text-display', '96 / 1', 'band'),
+K('--av2-text-h1-lesson', '44 / 1.12', ''),
+K('--av2-text-h1', '40 / 1.15', ''),
+K('--av2-text-h2', '28 / 1.2', ''),
+K('--av2-text-h3', '24 / 1.25', ''),
+K('--av2-text-title', '20 / 1.3', ''),
+K('--av2-text-read', '19 / 1.65', 'Serif'),
+K('--av2-text-ui', '16 / 1.5', 'Sans'),
+K('--av2-text-small', '14 / 1.5', ''),
+K('--av2-text-label', '13 · 0.08em', 'chữ hoa'),
+K('--av2-space-1 … 16', '4 … 64', 'mục 3'),
+K('--av2-measure-read', '640px', '628–665'),
+K('--av2-radius-0 / -1', '0 / 2px', ''),
+K('--av2-rule-strong / -thin', '2px / 1px', ''),
+K('--av2-focus-ring', '3px ink, cách 2', ''),
+K('--av2-touch / -dense', '44 / 36px', '48 điện thoại'),
+K('--av2-row / -dense', '52 / 40px', 'hàng bảng'),
+K('--av2-bp-sm … xl', '390 … 1440', 'mục 3'),
+K('--av2-motion-fast / -base', '150 / 200ms', 'đề xuất'),
+K('--av2-toast-ms', '4000–5000', '')
+];
+return {
+pal: (this.props.palette ?? 'Navy + đỏ mận') === 'Xanh teal' ? 'pal-teal' : 'pal-navy',
+colors, pairs, types, spaces, bps, rules, iconGroups, iconTotal: String(iconTotal), iconGroupCount: String(iconGroups.length), words,
+cols12: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => ({ n: String(n) })),
+tokCols: [{ rows: left }, { rows: right }]
+};
+}
+}
+</script>
+</body>
+</html>

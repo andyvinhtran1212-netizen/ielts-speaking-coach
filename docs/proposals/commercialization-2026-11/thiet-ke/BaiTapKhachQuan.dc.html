@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Câu hỏi khách quan</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--link:#0B5953;--mark:#8A4B08;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EDF3F1;--off:#E7E2D6}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--link:#1A3561;--mark:#8A1C1C;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EEF0F5;--off:#E8E2D5}
+a{color:var(--link)}a:hover{color:var(--ink)}
+</style>
+</helmet>
+<div class="{{pal}}" style="width: 1280px; height: 2060px; box-sizing: border-box; padding: 56px 64px; background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 16px; line-height: 1.5">
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Aver Learning · Bản in · dạng bài tập, tờ 1</p>
+<h1 style="margin: 4px 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 40px; font-weight: 600; line-height: 1.15">Câu hỏi khách quan · 6 dạng</h1>
+<p style="margin: 0 0 36px; color: var(--muted); max-width: 86ch">Dùng chung cho Reading, Listening, ngữ pháp, từ vựng và bài luyện sau bài giảng. Mỗi dạng có hai trạng thái: đang làm và sau khi chấm. Sau khi chấm luôn có ba thứ: đúng hay sai bằng chữ, đáp án đúng, và một dòng giải thích.</p>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px 48px">
+
+<section aria-labelledby="q1" style="border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="q1" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">1. Chọn một đáp án</h2>
+<p style="margin: 0 0 14px; font-size: 14px; color: var(--muted)">Reading, Listening, Quick Check · bấm thử được</p>
+<fieldset style="margin: 0; padding: 0; border: 0">
+<legend lang="en" style="padding: 0; margin-bottom: 10px; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px"><strong>7</strong>&nbsp;&nbsp;Why do prices of hand-made goods remain high?</legend>
+<sc-for list="{{mcq}}" as="o" hint-placeholder-count="3">
+<button onClick="{{o.pick}}" aria-pressed="{{o.on}}" lang="en" style="display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; margin-bottom: 8px; padding: 8px 14px; border: {{o.bw}} solid var(--ink); border-radius: 2px; background: {{o.bg}}; color: var(--ink); font: 17px 'Source Serif 4', Georgia, serif; text-align: left; cursor: pointer"><span style="font: 600 14px 'Source Sans 3', sans-serif; width: 18px">{{o.k}}</span>{{o.t}}</button>
+</sc-for>
+</fieldset>
+<p style="margin: 14px 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Sau khi chấm</p>
+<div lang="en" style="display: flex; align-items: center; gap: 12px; min-height: 48px; margin-bottom: 8px; padding: 8px 14px; border: 2px solid var(--danger); background: var(--surface); font: 17px 'Source Serif 4', Georgia, serif"><span style="font: 600 14px 'Source Sans 3', sans-serif; width: 18px">A</span><span style="flex-grow: 1">Makers choose expensive materials.</span><span lang="vi" style="font: 600 14px 'Source Sans 3', sans-serif; color: var(--danger)">Bạn chọn · Sai</span></div>
+<div lang="en" style="display: flex; align-items: center; gap: 12px; min-height: 48px; margin-bottom: 8px; padding: 8px 14px; border: 2px solid var(--ok); background: var(--surface); font: 17px 'Source Serif 4', Georgia, serif"><span style="font: 600 14px 'Source Sans 3', sans-serif; width: 18px">B</span><span style="flex-grow: 1">Output is low and materials cost more in small amounts.</span><span lang="vi" style="font: 600 14px 'Source Sans 3', sans-serif; color: var(--ok)">Đáp án đúng</span></div>
+<p style="margin: 0; font-size: 15px"><strong>Vì sao:</strong> đoạn C nêu hai lý do, sản lượng thấp và đặt vật liệu số lượng nhỏ thì đắt.</p>
+</section>
+
+<section aria-labelledby="q2" style="border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="q2" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">2. Chọn nhiều đáp án</h2>
+<p style="margin: 0 0 14px; font-size: 14px; color: var(--muted)">Reading, Listening · luôn ghi rõ phải chọn mấy đáp án</p>
+<fieldset style="margin: 0; padding: 0; border: 0">
+<legend lang="en" style="padding: 0; margin-bottom: 4px; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px"><strong>8–9</strong>&nbsp;&nbsp;Which TWO reasons for the change are given?</legend>
+<p style="margin: 0 0 10px; font-size: 14px; color: var(--muted)">Đã chọn 1 trên 2</p>
+<label lang="en" style="display: flex; align-items: center; gap: 12px; min-height: 48px; margin-bottom: 8px; padding: 8px 14px; border: 2px solid var(--ink); background: var(--tint); font: 17px 'Source Serif 4', Georgia, serif"><input type="checkbox" checked style="width: 20px; height: 20px; accent-color: var(--accent)">curiosity about how things are made</label>
+<label lang="en" style="display: flex; align-items: center; gap: 12px; min-height: 48px; margin-bottom: 8px; padding: 8px 14px; border: 1px solid var(--ink); background: var(--surface); font: 17px 'Source Serif 4', Georgia, serif"><input type="checkbox" style="width: 20px; height: 20px; accent-color: var(--accent)">lower prices</label>
+<label lang="en" style="display: flex; align-items: center; gap: 12px; min-height: 48px; margin-bottom: 8px; padding: 8px 14px; border: 1px solid var(--ink); background: var(--surface); font: 17px 'Source Serif 4', Georgia, serif"><input type="checkbox" style="width: 20px; height: 20px; accent-color: var(--accent)">concern about waste</label>
+</fieldset>
+<p style="margin: 14px 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Sau khi chấm</p>
+<p style="margin: 0; font-size: 15px"><strong style="color: var(--mark)">Đúng 1 trên 2.</strong> Bạn chọn <em lang="en">curiosity</em> (đúng) và <em lang="en">lower prices</em> (sai). Đáp án còn lại: <em lang="en">concern about waste</em>. Mỗi đáp án đúng tính một câu.</p>
+</section>
+
+<section aria-labelledby="q3" style="border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="q3" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">3. True / False / Not Given</h2>
+<p style="margin: 0 0 14px; font-size: 14px; color: var(--muted)">Reading · cùng kiểu cho Yes / No / Not Given và Đúng / Sai của ngữ pháp</p>
+<p lang="en" style="margin: 0 0 10px; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px"><strong>2</strong>&nbsp;&nbsp;Hand-made goods are now cheaper than factory products.</p>
+<div role="group" aria-label="Chọn đáp án câu 2" style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px">
+<button aria-pressed="false" style="min-height: 44px; padding: 0 16px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif">TRUE</button>
+<button aria-pressed="true" style="min-height: 44px; padding: 0 16px; border: 1px solid var(--ink); border-radius: 2px; background: var(--ink); color: #FFFFFF; font: 600 14px 'Source Sans 3', sans-serif">FALSE</button>
+<button aria-pressed="false" style="min-height: 44px; padding: 0 16px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif">NOT GIVEN</button>
+<button style="margin-left: auto; min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--link); font: 600 14px 'Source Sans 3', sans-serif; text-decoration: underline">Đánh dấu xem lại</button>
+</div>
+<p style="margin: 14px 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Sau khi chấm</p>
+<p style="margin: 0; font-size: 15px"><strong style="color: var(--ok)">Đúng.</strong> Bạn chọn FALSE. <strong>Vì sao:</strong> đoạn C nói giá vì thế cao, tức đắt hơn chứ không rẻ hơn. <a href="#q3">Xem câu trong bài đọc</a></p>
+</section>
+
+<section aria-labelledby="q4" style="border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="q4" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">4. Điền từ vào chỗ trống</h2>
+<p style="margin: 0 0 14px; font-size: 14px; color: var(--muted)">Reading, Listening, ngữ pháp, từ vựng · giới hạn số từ ghi ngay trên đề</p>
+<p lang="en" style="margin: 0 0 6px; font-size: 14px; font-weight: 600">Write NO MORE THAN TWO WORDS.</p>
+<p lang="en" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; line-height: 2.4"><strong>10</strong>&nbsp;&nbsp;A potter working alone finishes only a few <label><span style="position: absolute; width: 1px; height: 1px; overflow: hidden">Câu 10</span><input type="text" value="dozen pieces" style="width: 170px; min-height: 40px; padding: 0 10px; border: 0; border-bottom: 2px solid var(--ink); background: var(--tint); font: 18px 'Source Serif 4', Georgia, serif; color: var(--ink)"></label> a week.</p>
+<p lang="en" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; line-height: 2.4"><strong>11</strong>&nbsp;&nbsp;Objects made with care are more likely to be <label><span style="position: absolute; width: 1px; height: 1px; overflow: hidden">Câu 11</span><input type="text" placeholder="câu 11" style="width: 170px; min-height: 40px; padding: 0 10px; border: 0; border-bottom: 2px solid var(--ink); background: var(--surface); font: 18px 'Source Serif 4', Georgia, serif; color: var(--ink)"></label> than thrown away.</p>
+<p style="margin: 14px 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Sau khi chấm</p>
+<p style="margin: 0 0 6px; font-size: 15px"><strong style="color: var(--ok)">10 · Đúng.</strong> <em lang="en">dozen pieces</em></p>
+<p style="margin: 0; font-size: 15px"><strong style="color: var(--danger)">11 · Sai.</strong> Bạn viết <span lang="en" style="text-decoration: line-through">repair</span>. Đáp án: <strong lang="en">repaired</strong>. Sai dạng từ: sau <em lang="en">to be</em> cần quá khứ phân từ.</p>
+</section>
+
+<section aria-labelledby="q5" style="border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="q5" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">5. Nối tiêu đề, nối thông tin</h2>
+<p style="margin: 0 0 14px; font-size: 14px; color: var(--muted)">Reading, Listening · danh sách lựa chọn luôn nhìn thấy, lựa chọn đã dùng thì mờ đi</p>
+<ol lang="en" style="margin: 0 0 12px; padding: 10px 14px; list-style: none; border: 1px solid var(--rule); background: var(--surface); font-family: 'Source Serif 4', Georgia, serif; font-size: 16px">
+<li style="color: var(--muted)"><strong style="font: 600 14px 'Source Sans 3', sans-serif">i</strong>&nbsp;&nbsp;Why uniformity once seemed like progress · <span lang="vi" style="font: 14px 'Source Sans 3', sans-serif">đã dùng cho đoạn A</span></li>
+<li><strong style="font: 600 14px 'Source Sans 3', sans-serif">ii</strong>&nbsp;&nbsp;Two reasons buyers are drawn back to makers</li>
+<li><strong style="font: 600 14px 'Source Sans 3', sans-serif">iii</strong>&nbsp;&nbsp;Two real difficulties for the movement</li>
+</ol>
+<div lang="en" style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px"><label for="m1" style="width: 130px"><strong>1</strong>&nbsp;&nbsp;Paragraph A</label><select id="m1" style="flex-grow: 1; min-height: 44px; padding: 0 10px; border: 2px solid var(--ink); border-radius: 2px; background: var(--tint); font: 16px 'Source Sans 3', sans-serif; color: var(--ink)"><option>i · Why uniformity once seemed like progress</option></select></div>
+<div lang="en" style="display: flex; align-items: center; gap: 12px; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px"><label for="m2" style="width: 130px"><strong>2</strong>&nbsp;&nbsp;Paragraph B</label><select id="m2" style="flex-grow: 1; min-height: 44px; padding: 0 10px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); font: 16px 'Source Sans 3', sans-serif; color: var(--muted)"><option lang="vi">Chọn tiêu đề</option></select></div>
+<p style="margin: 14px 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Sau khi chấm</p>
+<p style="margin: 0; font-size: 15px"><strong style="color: var(--ok)">1 · Đúng</strong> (i). <strong style="color: var(--danger)">2 · Sai.</strong> Bạn chọn iii, đáp án ii: đoạn B nêu tò mò và lo ngại rác thải, là lý do khách hàng quay lại.</p>
+</section>
+
+<section aria-labelledby="q6" style="border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="q6" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">6. Hoàn thành bảng, biểu mẫu, ghi chú</h2>
+<p style="margin: 0 0 14px; font-size: 14px; color: var(--muted)">Listening Section 1–2, Reading · giữ đúng hình dạng biểu mẫu của đề</p>
+<p lang="en" style="margin: 0 0 8px; font-size: 14px; font-weight: 600">Write ONE WORD AND/OR A NUMBER.</p>
+<table lang="en" style="width: 100%; border-collapse: collapse; font-family: 'Source Serif 4', Georgia, serif; font-size: 17px; background: var(--surface)">
+<caption style="caption-side: top; text-align: left; padding: 8px 12px; border: 1px solid var(--ink); border-bottom: 0; font: 600 14px 'Source Sans 3', sans-serif; letter-spacing: 0.06em; text-transform: uppercase">Student services · booking form</caption>
+<tbody>
+<tr><th scope="row" style="width: 42%; text-align: left; font-weight: 400; padding: 10px 12px; border: 1px solid var(--ink)">Name</th><td style="padding: 6px 12px; border: 1px solid var(--ink)">Daniel <label><span style="position: absolute; width: 1px; height: 1px; overflow: hidden">Câu 1</span><input type="text" value="Harlow" style="width: 140px; min-height: 40px; padding: 0 8px; border: 0; border-bottom: 2px solid var(--ink); background: var(--tint); font: 17px 'Source Serif 4', Georgia, serif; color: var(--ink)"></label></td></tr>
+<tr><th scope="row" style="text-align: left; font-weight: 400; padding: 10px 12px; border: 1px solid var(--ink)">Room number</th><td style="padding: 6px 12px; border: 1px solid var(--ink)"><label><span style="position: absolute; width: 1px; height: 1px; overflow: hidden">Câu 2</span><input type="text" placeholder="câu 2" style="width: 140px; min-height: 40px; padding: 0 8px; border: 0; border-bottom: 2px solid var(--ink); background: var(--surface); font: 17px 'Source Serif 4', Georgia, serif; color: var(--ink)"></label></td></tr>
+<tr><th scope="row" style="text-align: left; font-weight: 400; padding: 10px 12px; border: 1px solid var(--ink)">Appointment day</th><td style="padding: 6px 12px; border: 1px solid var(--ink)"><label><span style="position: absolute; width: 1px; height: 1px; overflow: hidden">Câu 3</span><input type="text" placeholder="câu 3" style="width: 140px; min-height: 40px; padding: 0 8px; border: 0; border-bottom: 2px solid var(--ink); background: var(--surface); font: 17px 'Source Serif 4', Georgia, serif; color: var(--ink)"></label></td></tr>
+</tbody>
+</table>
+<p style="margin: 14px 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Sau khi chấm</p>
+<p style="margin: 0; font-size: 15px"><strong style="color: var(--danger)">1 · Sai chính tả.</strong> Bạn viết <span lang="en" style="text-decoration: line-through">Harlow</span>, đáp án <strong lang="en">Harlowe</strong>. Tên riêng được đánh vần trong bài nghe. <a href="#q6">Nghe lại đoạn 0:42</a></p>
+</section>
+</div>
+<p style="margin: 36px 0 0; padding-top: 16px; border-top: 1px solid var(--rule); font-size: 14px; color: var(--muted)">Quy tắc chung: câu chưa trả lời có nền trắng, đã trả lời có nền nhạt và viền đậm. Không tự nộp khi còn câu trống mà không hỏi lại. Kết quả ghi "đúng 9 trên 13 câu"; chỉ quy ra band khi làm đủ một đề 40 câu.</p>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Xanh teal","Navy + đỏ mận"],"default":"Navy + đỏ mận"},"$preview":{"width":1280,"height":2060}}'>
+class Component extends DCLogic {
+constructor(p) { super(p); this.state = { pick: 'B' }; }
+renderVals() {
+const cur = (this.state && this.state.pick) || '';
+const opts = [['A', 'Makers choose expensive materials.'], ['B', 'Output is low and materials cost more in small amounts.'], ['C', 'Shops add a large profit.']];
+return {
+pal: (this.props.palette ?? 'Navy + đỏ mận') === 'Xanh teal' ? 'pal-teal' : 'pal-navy',
+mcq: opts.map(([k, t]) => ({ k, t, on: cur === k, bg: cur === k ? 'var(--tint)' : 'var(--surface)', bw: cur === k ? '2px' : '1px', pick: () => this.setState({ pick: k }) }))
+};
+}
+}
+</script>
+</body>
+</html>

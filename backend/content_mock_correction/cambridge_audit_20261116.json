@@ -1,0 +1,225 @@
+{
+  "package": "cambridge-audit-20261116",
+  "provenance": {
+    "options": {
+      "commit": "629e35fb7ee0737be80904dbfbea567d88f8b5e2",
+      "path": "backend/content_mock_correction/cam20_r3_c01.json",
+      "source": {
+        "title": "Cambridge IELTS 20 Academic",
+        "sha256": "a818cf2a0132c37e04c810d30932733f872da0b9122ce13561001887f79fbb0e",
+        "printed_pages": [
+          100,
+          101
+        ],
+        "pdf_pages": [
+          102,
+          103
+        ],
+        "verified": "2026-11-14",
+        "images_sha256": {
+          "102": "f5f34b6cb9120b3589228b5588778e3d776aba78f4331eb68a332b3fb420dd08",
+          "103": "c35468e48f679faf06e829c577de88b340b4707729a1400205ccfaeb99703ba5"
+        }
+      }
+    },
+    "q8_cm_spec": "CAM20-L-T4-Q8-REMOVE-TWO-THIRTY-SPEC-20261114.md",
+    "q31_cm_spec": "CAM17-L2-Q31-EXPLANATION-SPEC-20261116.md",
+    "q31_cm_sha256": "547b42f41b535ea647cd75a20fdb2f76f9aa5e5b8225857a35e15f432a775748",
+    "staging_exports": {
+      "/workspace/content-audit/cambridge-rev-audit-2026-10-27/raw/explanations.json": "802214227031d60af93dace69b4d662b1215bb22023e630d2cfaf7df6638305b",
+      "/workspace/qa/pcj112/data/staging/ILR-RDG-CAM-B20-T3.json": "8b2e8efddea6a776800e4f68f5714986bd8266a6147084ddb5838ebe70ceca40"
+    },
+    "q8_cm_followup": "CM-2322-R1-SIGNOFF-20261116.md:41-43",
+    "q8_solution_cm": {
+      "path": "CM-2323-Q8Q40-REVIEW-20261116.md:23-25",
+      "sha256": "46d1cf909108e95f5b894dd92a748080de35c40fc6f2904ccf24114f69ad5b12"
+    }
+  },
+  "q8": {
+    "answer": "2.30",
+    "prod_before": [
+      "two thirty",
+      "2:30"
+    ],
+    "after": [
+      "2:30"
+    ],
+    "accepted_before": [
+      [
+        "2.30"
+      ],
+      [
+        "2.30",
+        "two thirty"
+      ],
+      [
+        "2.30",
+        "two thirty",
+        "2:30"
+      ],
+      [
+        "2.30",
+        "2:30"
+      ]
+    ],
+    "accepted_after": [
+      "2.30",
+      "2:30"
+    ],
+    "answer_summary": "Đáp án chuẩn: 2.30 (chấp nhận cả 2:30).",
+    "marking_note": "Chấp nhận `2.30` hoặc `2:30`. Không nhận dạng chữ như `two thirty` vì là hai từ, vượt giới hạn ONE WORD AND/OR A NUMBER; không ghi thêm \"pm\" vì đề đã in sẵn \"p.m.\".",
+    "warning": "Bẫy nhẹ về format số: viết **2.30** (đề đã in sẵn \"p.m.\"). Không viết **two thirty** vì đó là hai từ, vượt giới hạn ONE WORD AND/OR A NUMBER; cũng không ghi \"2:30 pm\" vì lặp lại p.m.",
+    "solution_fields": {
+      "answer": "2.30 / 2:30",
+      "trap": "Bẫy nhẹ về format số: viết **2.30** (đề đã in sẵn \"p.m.\"). Không viết **two thirty** vì đó là hai từ, vượt giới hạn ONE WORD AND/OR A NUMBER; cũng không ghi \"2:30 pm\" vì lặp lại p.m.",
+      "why_correct": "Lunch stops at **2:30**, so you must eat before then. \"p.m.\" is already printed. Write the numeric form `2.30`; `two thirty` exceeds the one-word limit. Đồ trưa ngừng bán lúc **2:30**, nên phải ăn trước giờ đó. \"p.m.\" đã in sẵn. Ghi dạng số `2.30`; `two thirty` vượt giới hạn một từ."
+    }
+  },
+  "q31": {
+    "canonical": "321,000",
+    "fields": {
+      "item.answer.accepted_forms": {
+        "before": [
+          "321,000"
+        ],
+        "after": [
+          "321,000",
+          "321000"
+        ]
+      },
+      "explanation.trap": {
+        "before": "Số lớn — phải viết đúng \"321,000\" (ba trăm hai mươi mốt nghìn). \"around\" = \"approximately\".",
+        "after": "Số lớn — phải nghe đúng con số 321,000 (ba trăm hai mươi mốt nghìn); viết có dấu phẩy \"321,000\" hay không dấu phẩy \"321000\" đều được chấp nhận. \"around\" = \"approximately\"."
+      },
+      "explanation.answer_summary": {
+        "before": "Đáp án chuẩn: 321,000.",
+        "after": "Đáp án chuẩn: 321,000 (chấp nhận cả 321000)."
+      },
+      "explanation.marking_note": {
+        "before": null,
+        "after": "Chấp nhận cả `321,000` và `321000` — có hay không có dấu phẩy ngăn cách hàng nghìn đều đúng; chỉ cần đúng con số."
+      }
+    }
+  },
+  "x1": {
+    "paper_id": "72a8a0d2-b3d3-58da-85be-35a56c1097c3",
+    "test_id": "ILR-RDG-CAM-B20-T3",
+    "passage_id": "4cee611a-73b7-5a3f-b634-970560c7b6e7",
+    "options_before": [
+      {
+        "text": "It has grown alongside the development of ever more advanced robots.",
+        "label": "A"
+      },
+      {
+        "text": "It is the result of our inclination to attribute human characteristics to non-human entities.",
+        "label": "B"
+      },
+      {
+        "text": "It has its origins in basic misunderstandings about how inanimate objects function.",
+        "label": "C"
+      },
+      {
+        "text": "It demonstrates a key difference between human intelligence and machine intelligence.",
+        "label": "D"
+      }
+    ],
+    "questions": [
+      {
+        "q_num": 38,
+        "id": "ba6fcedf-c89e-5e63-8d22-fd156d698bee",
+        "prompt": "Choose the correct letter.\nWhat potential advance does Rees see as a cause for concern?",
+        "answer": {
+          "answer": "C",
+          "alternatives": []
+        },
+        "options": [
+          {
+            "label": "A",
+            "text": "robots outnumbering people"
+          },
+          {
+            "label": "B",
+            "text": "robots having abilities which humans do not"
+          },
+          {
+            "label": "C",
+            "text": "artificial intelligence developing independent thought"
+          },
+          {
+            "label": "D",
+            "text": "artificial intelligence taking over every aspect of our lives"
+          }
+        ],
+        "object_row_id_prefix": "7ca65ff4"
+      },
+      {
+        "q_num": 39,
+        "id": "9ac096f5-0514-55e3-a301-d474c0db7063",
+        "prompt": "Choose the correct letter.\nWhat does Wolpert emphasise in his response to the question about science fiction?",
+        "answer": {
+          "answer": "B",
+          "alternatives": []
+        },
+        "options": [
+          {
+            "label": "A",
+            "text": "how science fiction influences our attitudes to robots"
+          },
+          {
+            "label": "B",
+            "text": "how fundamental robots are to the science fiction genre"
+          },
+          {
+            "label": "C",
+            "text": "how the image of robots in science fiction has changed over time"
+          },
+          {
+            "label": "D",
+            "text": "how reactions to similar portrayals of robots in science fiction may vary"
+          }
+        ],
+        "object_row_id_prefix": "8f42f1c4"
+      },
+      {
+        "q_num": 40,
+        "id": "8cb3cd32-6e68-54ae-8bde-724544a7c49a",
+        "prompt": "Choose the correct letter.\nWhat is Richardson doing in her comment about reality and fantasy?",
+        "answer": {
+          "answer": "C",
+          "alternatives": []
+        },
+        "options": [
+          {
+            "label": "A",
+            "text": "warning people not to confuse one with the other"
+          },
+          {
+            "label": "B",
+            "text": "outlining ways in which one has impacted on the other"
+          },
+          {
+            "label": "C",
+            "text": "recommending a change of approach in how people view them"
+          },
+          {
+            "label": "D",
+            "text": "explaining why scientists have a different perspective on them from other people"
+          }
+        ],
+        "object_row_id_prefix": "1656d59a"
+      }
+    ]
+  },
+  "q40": {
+    "staging_paper_id": "82ecda1d-ea89-5d66-8ae2-3c155836f527",
+    "staging_test_id": "ILR-LIS-CAM-B17-T2",
+    "staging_key_id": "0a846d47-c5d6-58ec-932e-e041e36622fe",
+    "staging_content_id": "eb5b9926-9ace-5e6e-8d6c-d0aae2fc5d12",
+    "fields": [
+      "explanation.why_other_answers_fail",
+      "audit.distractor_analysis"
+    ],
+    "before": "⚠️ Số lớn — phải viết đúng \"321,000\" (ba trăm hai mươi mốt nghìn). \"around\" = \"approximately\".",
+    "after": "⚠️ Số lớn — phải nghe đúng con số 321,000 (ba trăm hai mươi mốt nghìn); viết có dấu phẩy \"321,000\" hay không dấu phẩy \"321000\" đều được chấp nhận. \"around\" = \"approximately\"."
+  }
+}

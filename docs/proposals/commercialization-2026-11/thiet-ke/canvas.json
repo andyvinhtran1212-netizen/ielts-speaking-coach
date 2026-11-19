@@ -1,0 +1,1646 @@
+{
+ "v": 3,
+ "attachments": {},
+ "boards": {
+  "AdminBaoCao.dc.html": {
+   "h": 8000,
+   "is_interactive": true,
+   "page": "admin",
+   "title": "Báo cáo",
+   "w": 1440,
+   "x": 16720,
+   "y": 0
+  },
+  "AdminCaiDat.dc.html": {
+   "h": 8000,
+   "is_interactive": true,
+   "page": "admin",
+   "title": "Cài đặt",
+   "w": 1440,
+   "x": 27360,
+   "y": 0
+  },
+  "AdminChamLai.dc.html": {
+   "h": 4553,
+   "is_interactive": true,
+   "page": "admin",
+   "title": "Yêu cầu chấm lại",
+   "w": 1440,
+   "x": 10640,
+   "y": 0
+  },
+  "AdminChamSpeakingThiThu.dc.html": {
+   "h": 5084,
+   "is_interactive": true,
+   "page": "admin",
+   "title": "Chấm Speaking và thi thử",
+   "w": 1440,
+   "x": 12160,
+   "y": 0
+  },
+  "AdminChamWriting.dc.html": {
+   "h": 6006,
+   "is_interactive": true,
+   "page": "admin",
+   "title": "Chấm Writing: hàng chờ và màn chấm",
+   "w": 1440,
+   "x": 9120,
+   "y": 0
+  },
+  "AdminDanhBa.dc.html": {
+   "h": 7840,
+   "is_interactive": true,
+   "page": "admin",
+   "title": "Danh bạ học viên",
+   "w": 1440,
+   "x": 1520,
+   "y": 0
+  },
+  "AdminDonDangKy.dc.html": {
+   "h": 6459,
+   "is_interactive": true,
+   "page": "admin",
+   "title": "Đơn đăng ký",
+   "w": 1440,
+   "x": 6080,
+   "y": 0
+  },
+  "AdminGiaoVienThongBao.dc.html": {
+   "h": 4990,
+   "is_interactive": true,
+   "page": "admin",
+   "title": "Giáo viên và gửi thông báo",
+   "w": 1440,
+   "x": 28880,
+   "y": 0
+  },
+  "AdminHeThong.dc.html": {
+   "h": 7207,
+   "is_interactive": true,
+   "page": "admin",
+   "title": "AI và mô hình, bảo mật",
+   "w": 1440,
+   "x": 19760,
+   "y": 0
+  },
+  "AdminKhoaHoc.dc.html": {
+   "h": 7600,
+   "is_interactive": true,
+   "page": "admin",
+   "title": "Khoá học",
+   "w": 1440,
+   "x": 4560,
+   "y": 0
+  },
+  "AdminKyThi.dc.html": {
+   "h": 5483,
+   "is_interactive": true,
+   "page": "admin",
+   "title": "Kỳ thi",
+   "w": 1440,
+   "x": 15200,
+   "y": 0
+  },
+  "AdminLop.dc.html": {
+   "h": 8000,
+   "is_interactive": true,
+   "page": "admin",
+   "title": "Lớp: danh sách và hồ sơ lớp",
+   "w": 1440,
+   "x": 3040,
+   "y": 0
+  },
+  "AdminLuotVaMa.dc.html": {
+   "h": 6765,
+   "is_interactive": true,
+   "page": "admin",
+   "title": "Lượt chấm AI và mã kích hoạt",
+   "w": 1440,
+   "x": 7600,
+   "y": 0
+  },
+  "AdminNoiDung.dc.html": {
+   "h": 6523,
+   "is_interactive": true,
+   "page": "admin",
+   "title": "Nội dung một kỹ năng",
+   "w": 1440,
+   "x": 13680,
+   "y": 0
+  },
+  "AdminNoiDungTuVungNguPhap.dc.html": {
+   "h": 6200,
+   "is_interactive": true,
+   "page": "admin",
+   "title": "Nội dung Từ vựng và Ngữ pháp",
+   "w": 1440,
+   "x": 24320,
+   "y": 0
+  },
+  "AdminNoiDungVietNoi.dc.html": {
+   "h": 6701,
+   "is_interactive": true,
+   "page": "admin",
+   "title": "Nội dung Writing và Speaking",
+   "w": 1440,
+   "x": 22800,
+   "y": 0
+  },
+  "AdminSuCo.dc.html": {
+   "h": 5800,
+   "is_interactive": true,
+   "page": "admin",
+   "title": "Hộp thư sự cố",
+   "w": 1440,
+   "x": 18240,
+   "y": 0
+  },
+  "AdminThuVienCongKhai.dc.html": {
+   "h": 7900,
+   "is_interactive": true,
+   "page": "admin",
+   "title": "Nội dung Thư viện công khai",
+   "w": 1440,
+   "x": 25840,
+   "y": 0
+  },
+  "AdminViecCanLam.dc.html": {
+   "h": 7500,
+   "is_interactive": true,
+   "page": "admin",
+   "title": "Tổng quan: việc cần làm",
+   "w": 1440,
+   "x": 0,
+   "y": 0
+  },
+  "BaiGiang.dc.html": {
+   "expand": "fill",
+   "h": 3400,
+   "is_interactive": true,
+   "title": "3 · Trang bài giảng",
+   "w": 1280,
+   "x": 2720,
+   "y": 0
+  },
+  "BaiHocThu.dc.html": {
+   "h": 7100,
+   "is_interactive": true,
+   "page": "cong-khai",
+   "title": "Bài học thử công khai",
+   "w": 1280,
+   "x": 10880,
+   "y": 0
+  },
+  "BaiMauWriting.dc.html": {
+   "h": 7600,
+   "is_interactive": true,
+   "page": "thu-vien",
+   "title": "Trang một bài mẫu Writing",
+   "w": 1280,
+   "x": 1360,
+   "y": 0
+  },
+  "BaiMauWritingDanhSach.dc.html": {
+   "h": 6100,
+   "is_interactive": true,
+   "page": "thu-vien",
+   "title": "Danh sách bài mẫu Writing",
+   "w": 1280,
+   "x": 0,
+   "y": 0
+  },
+  "BaiTapKhachQuan.dc.html": {
+   "h": 2060,
+   "is_interactive": true,
+   "page": "bai-tap",
+   "title": "Câu hỏi khách quan · 6 dạng",
+   "w": 1280,
+   "x": 0,
+   "y": 0
+  },
+  "BaiTapListening.dc.html": {
+   "h": 3720,
+   "is_interactive": true,
+   "page": "bai-tap",
+   "title": "Listening · 5 dạng",
+   "w": 1280,
+   "x": 1360,
+   "y": 0
+  },
+  "BaiTapPhatAm.dc.html": {
+   "h": 7050,
+   "is_interactive": true,
+   "page": "bo-sung",
+   "title": "Bài luyện phát âm",
+   "w": 1280,
+   "x": 9520,
+   "y": 0
+  },
+  "BaiTapReading.dc.html": {
+   "h": 3500,
+   "is_interactive": true,
+   "page": "bai-tap",
+   "title": "Reading · 5 dạng",
+   "w": 1280,
+   "x": 2720,
+   "y": 0
+  },
+  "BaiTapSpeaking.dc.html": {
+   "h": 5050,
+   "is_interactive": true,
+   "page": "bai-tap",
+   "title": "Speaking · luồng luyện nói",
+   "w": 1280,
+   "x": 4080,
+   "y": 0
+  },
+  "BaiTapTuVungNguPhap.dc.html": {
+   "h": 3500,
+   "is_interactive": true,
+   "page": "bai-tap",
+   "title": "Từ vựng và ngữ pháp · 6 dạng",
+   "w": 1280,
+   "x": 6800,
+   "y": 0
+  },
+  "BaiTapWriting.dc.html": {
+   "h": 6150,
+   "is_interactive": true,
+   "page": "bai-tap",
+   "title": "Writing · trình soạn Task 1 và Task 2",
+   "w": 1280,
+   "x": 5440,
+   "y": 0
+  },
+  "ChamThuMienPhi.dc.html": {
+   "h": 8000,
+   "is_interactive": true,
+   "page": "cong-khai",
+   "title": "Chấm thử miễn phí",
+   "w": 1280,
+   "x": 9520,
+   "y": 0
+  },
+  "ChuongTrinhKyNang.dc.html": {
+   "h": 7508,
+   "is_interactive": true,
+   "page": "bo-sung",
+   "title": "Chương trình và bài học kỹ năng",
+   "w": 1280,
+   "x": 2720,
+   "y": 0
+  },
+  "DanhMucKhoa.dc.html": {
+   "h": 7050,
+   "is_interactive": true,
+   "page": "cong-khai",
+   "title": "Danh mục khoá học",
+   "w": 1280,
+   "x": 1360,
+   "y": 0
+  },
+  "DanhSachDe.dc.html": {
+   "h": 5600,
+   "is_interactive": true,
+   "page": "hoc-vien",
+   "title": "Danh sách đề của một kỹ năng",
+   "w": 1280,
+   "x": 5440,
+   "y": 0
+  },
+  "DeSpeaking.dc.html": {
+   "h": 7960,
+   "is_interactive": true,
+   "page": "thu-vien",
+   "title": "Trang một đề Speaking có video",
+   "w": 1280,
+   "x": 5440,
+   "y": 0
+  },
+  "DeSpeakingDanhSach.dc.html": {
+   "h": 6400,
+   "is_interactive": true,
+   "page": "thu-vien",
+   "title": "Thư viện đề Speaking",
+   "w": 1280,
+   "x": 4080,
+   "y": 0
+  },
+  "EmailMau.dc.html": {
+   "h": 7790,
+   "is_interactive": true,
+   "page": "bo-sung",
+   "title": "Thư gửi học viên: bộ mẫu",
+   "w": 1280,
+   "x": 14960,
+   "y": 0
+  },
+  "GiaHanThemLuot.dc.html": {
+   "h": 7560,
+   "is_interactive": true,
+   "page": "bo-sung",
+   "title": "Gia hạn khoá và thêm lượt chấm",
+   "w": 1280,
+   "x": 13600,
+   "y": 0
+  },
+  "GiaoVien.dc.html": {
+   "h": 4931,
+   "is_interactive": true,
+   "page": "admin",
+   "title": "Khu giáo viên",
+   "w": 1440,
+   "x": 21280,
+   "y": 0
+  },
+  "HoSoHocVien.dc.html": {
+   "expand": "fill",
+   "h": 8000,
+   "title": "7 · Admin — Hồ sơ học viên",
+   "w": 1440,
+   "x": 0,
+   "y": 12800
+  },
+  "HubKyNang.dc.html": {
+   "h": 7903,
+   "is_interactive": true,
+   "page": "hoc-vien",
+   "title": "Hub một kỹ năng · một mẫu",
+   "w": 1280,
+   "x": 4080,
+   "y": 0
+  },
+  "KetQuaWriting.dc.html": {
+   "expand": "fill",
+   "h": 4127,
+   "is_interactive": true,
+   "title": "5 · Phiếu kết quả Writing",
+   "w": 1280,
+   "x": 1360,
+   "y": 6900
+  },
+  "KiemTraKhoa.dc.html": {
+   "h": 7840,
+   "is_interactive": true,
+   "page": "bo-sung",
+   "title": "Bài kiểm tra của khoá: giữa kỳ và cuối kỳ",
+   "w": 1280,
+   "x": 10880,
+   "y": 0
+  },
+  "KienThucWriting.dc.html": {
+   "h": 7000,
+   "is_interactive": true,
+   "page": "thu-vien",
+   "title": "Bài viết kiến thức Writing",
+   "w": 1280,
+   "x": 2720,
+   "y": 0
+  },
+  "LoTrinh.dc.html": {
+   "expand": "fill",
+   "h": 2920,
+   "is_interactive": true,
+   "title": "2 · Lộ trình",
+   "w": 1280,
+   "x": 1360,
+   "y": 0
+  },
+  "LoTrinhBaiDuocGiao.dc.html": {
+   "h": 6970,
+   "is_interactive": true,
+   "page": "hoc-vien",
+   "title": "Lộ trình · Bài được giao",
+   "w": 1280,
+   "x": 0,
+   "y": 0
+  },
+  "LopBuoiHoc.dc.html": {
+   "h": 6950,
+   "is_interactive": true,
+   "page": "hoc-vien",
+   "title": "Buổi học và tài liệu lớp",
+   "w": 1280,
+   "x": 1360,
+   "y": 0
+  },
+  "LuyenTap.dc.html": {
+   "h": 6600,
+   "is_interactive": true,
+   "page": "hoc-vien",
+   "title": "Luyện tập · hub chung",
+   "w": 1280,
+   "x": 2720,
+   "y": 0
+  },
+  "Main.dc.html": {
+   "expand": "fill",
+   "h": 1815,
+   "is_interactive": true,
+   "title": "1 · Hôm nay",
+   "w": 1280,
+   "x": 0,
+   "y": 0
+  },
+  "Mobile.dc.html": {
+   "h": 1550,
+   "title": "8 · Hôm nay trên điện thoại",
+   "w": 390,
+   "x": 1520,
+   "y": 12800
+  },
+  "NguPhap.dc.html": {
+   "h": 7946,
+   "is_interactive": true,
+   "page": "thu-vien",
+   "title": "Ngữ pháp: mục lục và trang bài",
+   "w": 1280,
+   "x": 6800,
+   "y": 0
+  },
+  "NguPhapHocVien.dc.html": {
+   "h": 7600,
+   "is_interactive": true,
+   "page": "bo-sung",
+   "title": "Ngữ pháp của tôi",
+   "w": 1280,
+   "x": 8160,
+   "y": 0
+  },
+  "PhapLy.dc.html": {
+   "h": 8000,
+   "is_interactive": true,
+   "page": "cong-khai",
+   "title": "Điều khoản, quyền riêng tư, liên hệ, giới thiệu",
+   "w": 1280,
+   "x": 6800,
+   "y": 0
+  },
+  "PhieuKetQua.dc.html": {
+   "h": 8000,
+   "is_interactive": true,
+   "page": "bai-tap",
+   "title": "Phiếu kết quả · 4 loại",
+   "w": 1280,
+   "x": 8160,
+   "y": 0
+  },
+  "PhongThi.dc.html": {
+   "h": 5640,
+   "is_interactive": true,
+   "title": "4 · Phòng thi chung",
+   "w": 1280,
+   "x": 0,
+   "y": 6900
+  },
+  "PhongThiNgheViet.dc.html": {
+   "h": 8000,
+   "is_interactive": true,
+   "page": "bo-sung",
+   "title": "Phòng thi · Listening và Writing",
+   "w": 1280,
+   "x": 0,
+   "y": 0
+  },
+  "PhongThiSpeaking.dc.html": {
+   "h": 8000,
+   "is_interactive": true,
+   "page": "bo-sung",
+   "title": "Phòng thi · Speaking full test",
+   "w": 1280,
+   "x": 1360,
+   "y": 0
+  },
+  "SachBaiTap.dc.html": {
+   "h": 7450,
+   "is_interactive": true,
+   "page": "bo-sung",
+   "title": "Sách bài tập",
+   "w": 1280,
+   "x": 4080,
+   "y": 0
+  },
+  "TaiKhoan.dc.html": {
+   "h": 8000,
+   "is_interactive": true,
+   "page": "hoc-vien",
+   "title": "Tài khoản: khoá học, lượt chấm AI, hồ sơ",
+   "w": 1280,
+   "x": 10880,
+   "y": 0
+  },
+  "TaiKhoanDangNhap.dc.html": {
+   "h": 8000,
+   "is_interactive": true,
+   "page": "cong-khai",
+   "title": "Đăng ký, đăng nhập, mã kích hoạt",
+   "w": 1280,
+   "x": 5440,
+   "y": 0
+  },
+  "ThanhPhan.dc.html": {
+   "h": 3100,
+   "page": "thanh-phan",
+   "title": "Thành phần cơ bản",
+   "w": 1280,
+   "x": 0,
+   "y": 0
+  },
+  "ThanhPhanDuLieu.dc.html": {
+   "h": 8000,
+   "is_interactive": true,
+   "page": "thanh-phan",
+   "title": "Thành phần · dữ liệu và lớp phủ",
+   "w": 1280,
+   "x": 1360,
+   "y": 0
+  },
+  "ThanhPhanHocTap.dc.html": {
+   "h": 5414,
+   "is_interactive": true,
+   "page": "thanh-phan",
+   "title": "Thành phần · khối việc học (1): band, audio, video, đồng hồ",
+   "w": 1280,
+   "x": 2720,
+   "y": 0
+  },
+  "ThanhPhanHocTap2.dc.html": {
+   "h": 4399,
+   "is_interactive": true,
+   "page": "thanh-phan",
+   "title": "Thành phần · khối việc học (2): bảng câu hỏi, thẻ từ, chú thích, sơ đồ",
+   "w": 1280,
+   "x": 4080,
+   "y": 0
+  },
+  "ThanhPhanKhungTrang.dc.html": {
+   "h": 8000,
+   "is_interactive": true,
+   "page": "thanh-phan",
+   "title": "Thành phần · khung trang (1): học viên, công khai, thanh tập trung",
+   "w": 1280,
+   "x": 5440,
+   "y": 0
+  },
+  "ThanhPhanKhungTrang2.dc.html": {
+   "h": 4800,
+   "is_interactive": true,
+   "page": "thanh-phan",
+   "title": "Thành phần · khung trang (2): admin, giáo viên, chân trang",
+   "w": 1280,
+   "x": 6800,
+   "y": 0
+  },
+  "ThanhPhanNenTang.dc.html": {
+   "h": 8000,
+   "is_interactive": true,
+   "page": "thanh-phan",
+   "title": "Nền tảng thiết kế: màu, chữ, khoảng cách, icon, token",
+   "w": 1280,
+   "x": 8160,
+   "y": 0
+  },
+  "ThanhToan.dc.html": {
+   "h": 7960,
+   "is_interactive": true,
+   "page": "cong-khai",
+   "title": "Đăng ký và thanh toán học phí",
+   "w": 1280,
+   "x": 4080,
+   "y": 0
+  },
+  "ThiThu.dc.html": {
+   "h": 8000,
+   "is_interactive": true,
+   "page": "hoc-vien",
+   "title": "Thi thử · hub",
+   "w": 1280,
+   "x": 6800,
+   "y": 0
+  },
+  "ThiThuTruocGio.dc.html": {
+   "h": 8000,
+   "is_interactive": true,
+   "page": "hoc-vien",
+   "title": "Trước giờ thi và chuyển phần",
+   "w": 1280,
+   "x": 8160,
+   "y": 0
+  },
+  "ThongBao.dc.html": {
+   "h": 8000,
+   "is_interactive": true,
+   "page": "bo-sung",
+   "title": "Thông báo trong ứng dụng",
+   "w": 1280,
+   "x": 12240,
+   "y": 0
+  },
+  "ThuVien.dc.html": {
+   "expand": "fill",
+   "h": 2338,
+   "is_interactive": true,
+   "title": "6 · Thư viện miễn phí",
+   "w": 1280,
+   "x": 2720,
+   "y": 6900
+  },
+  "TienDo.dc.html": {
+   "h": 6620,
+   "is_interactive": true,
+   "page": "hoc-vien",
+   "title": "Tiến độ",
+   "w": 1280,
+   "x": 9520,
+   "y": 0
+  },
+  "TrangChuCongKhai.dc.html": {
+   "h": 8000,
+   "is_interactive": true,
+   "page": "cong-khai",
+   "title": "Trang chủ công khai",
+   "w": 1280,
+   "x": 0,
+   "y": 0
+  },
+  "TrangKhoaHoc.dc.html": {
+   "h": 7900,
+   "is_interactive": true,
+   "page": "cong-khai",
+   "title": "Trang một khoá",
+   "w": 1280,
+   "x": 2720,
+   "y": 0
+  },
+  "TrangLoi.dc.html": {
+   "h": 7780,
+   "is_interactive": true,
+   "page": "cong-khai",
+   "title": "Trang 404 và lỗi",
+   "w": 1280,
+   "x": 8160,
+   "y": 0
+  },
+  "TroGiupLanDau.dc.html": {
+   "h": 6674,
+   "is_interactive": true,
+   "page": "hoc-vien",
+   "title": "Trợ giúp và lần đầu vào",
+   "w": 1280,
+   "x": 12240,
+   "y": 0
+  },
+  "TuVung.dc.html": {
+   "h": 7700,
+   "is_interactive": true,
+   "page": "thu-vien",
+   "title": "Từ điển từ vựng: danh sách và mục từ",
+   "w": 1280,
+   "x": 8160,
+   "y": 0
+  },
+  "TuVungHocVien.dc.html": {
+   "h": 7600,
+   "is_interactive": true,
+   "page": "bo-sung",
+   "title": "Từ vựng của tôi",
+   "w": 1280,
+   "x": 6800,
+   "y": 0
+  },
+  "XemLaiBaiLam.dc.html": {
+   "h": 5429,
+   "is_interactive": true,
+   "page": "bo-sung",
+   "title": "Xem lại bài làm · Listening và Reading",
+   "w": 1280,
+   "x": 5440,
+   "y": 0
+  },
+  "GrammarWiki.dc.html": {
+   "h": 5910,
+   "is_interactive": true,
+   "page": "thu-vien",
+   "title": "Grammar Wiki: mục lục 137 bài",
+   "w": 1280,
+   "x": 9520,
+   "y": 0
+  },
+  "GrammarWikiBai.dc.html": {
+   "h": 8000,
+   "is_interactive": true,
+   "page": "thu-vien",
+   "title": "Grammar Wiki: trang một bài",
+   "w": 1280,
+   "x": 10880,
+   "y": 0
+  },
+  "GrammarWikiMinhHoa.dc.html": {
+   "h": 6400,
+   "is_interactive": true,
+   "page": "thu-vien",
+   "title": "Grammar Wiki: bộ minh hoạ câu chữ",
+   "w": 1280,
+   "x": 12240,
+   "y": 0
+  },
+  "NhanDienLogo.dc.html": {
+   "h": 7680,
+   "is_interactive": true,
+   "page": "nhan-dien",
+   "title": "Logo: hiện trạng, ba hướng, quy cách",
+   "w": 1280,
+   "x": 0,
+   "y": 0
+  },
+  "NhanDienSocial.dc.html": {
+   "h": 6600,
+   "is_interactive": true,
+   "page": "nhan-dien",
+   "title": "Tài nguyên mạng xã hội, thư, tài liệu in",
+   "w": 1280,
+   "x": 1360,
+   "y": 0
+  },
+  "CheDoToi.dc.html": {
+   "h": 8000,
+   "is_interactive": true,
+   "page": "che-do-toi",
+   "title": "Chế độ tối: bảng màu, quy tắc, cách chọn",
+   "w": 1280,
+   "x": 0,
+   "y": 0
+  },
+  "CheDoToiHocVien.dc.html": {
+   "h": 8000,
+   "is_interactive": true,
+   "page": "che-do-toi",
+   "title": "Chế độ tối: màn học viên",
+   "w": 1280,
+   "x": 1360,
+   "y": 0
+  },
+  "CheDoToiCongKhaiAdmin.dc.html": {
+   "h": 8000,
+   "is_interactive": true,
+   "page": "che-do-toi",
+   "title": "Chế độ tối: công khai, admin, giáo viên",
+   "w": 1280,
+   "x": 2720,
+   "y": 0
+  },
+  "AdminKetQuaBaiGiao.dc.html": {
+   "h": 8000,
+   "is_interactive": true,
+   "page": "admin",
+   "title": "Kết quả một bài giao (chẩn đoán lớp)",
+   "w": 1440,
+   "x": 30400,
+   "y": 0
+  },
+  "AdminKyThiChiTiet.dc.html": {
+   "h": 7450,
+   "is_interactive": true,
+   "page": "admin",
+   "title": "Trang một kỳ thi: theo dõi, phân tích, trả kết quả",
+   "w": 1440,
+   "x": 31920,
+   "y": 0
+  },
+  "KiemTraKhoaGiaoVien.dc.html": {
+   "h": 2920,
+   "is_interactive": true,
+   "page": "admin",
+   "title": "Bài kiểm tra khoá: bảng công bố điểm",
+   "w": 1280,
+   "x": 33440,
+   "y": 0
+  },
+  "DanhMucKhoaMoiMotKhoa.dc.html": {
+   "h": 2100,
+   "is_interactive": true,
+   "page": "cong-khai",
+   "title": "Danh mục khi mới có một khoá mở",
+   "w": 1280,
+   "x": 12240,
+   "y": 0
+  },
+  "HomNayTrangThai.dc.html": {
+   "h": 5940,
+   "is_interactive": true,
+   "title": "Hôm nay · các trạng thái khác",
+   "w": 1280,
+   "x": 4080,
+   "y": 0
+  },
+  "MockTestDuocGiao.dc.html": {
+   "h": 8000,
+   "is_interactive": true,
+   "page": "bo-sung",
+   "title": "Mock test được giao · phía học viên",
+   "w": 1280,
+   "x": 16320,
+   "y": 0
+  },
+  "HocVienNoiGi.dc.html": {
+   "h": 5900,
+   "is_interactive": true,
+   "page": "cong-khai",
+   "title": "Học viên nói gì",
+   "w": 1280,
+   "x": 13600,
+   "y": 0
+  },
+  "AdminKhaoSat.dc.html": {
+   "h": 8000,
+   "is_interactive": true,
+   "page": "admin",
+   "title": "Khảo sát và nhận xét",
+   "w": 1440,
+   "x": 34800,
+   "y": 0
+  },
+  "Admin1024.dc.html": {
+   "h": 7950,
+   "is_interactive": true,
+   "page": "admin",
+   "title": "Admin ở 1024px: quy tắc co giãn, ba trang",
+   "w": 1024,
+   "x": 36320,
+   "y": 0
+  },
+  "KienThucNen.dc.html": {
+   "h": 8000,
+   "is_interactive": true,
+   "page": "prototype",
+   "title": "Kiến thức nền theo chủ đề · Work",
+   "w": 1280,
+   "x": 0,
+   "y": 0
+  },
+  "DocKy.dc.html": {
+   "h": 7870,
+   "is_interactive": true,
+   "page": "prototype",
+   "title": "Đọc kỹ: đọc và dịch theo ngữ pháp",
+   "w": 1280,
+   "x": 1360,
+   "y": 0
+  },
+  "KhuonLuyenDe.dc.html": {
+   "h": 8000,
+   "is_interactive": true,
+   "page": "prototype",
+   "title": "Khuôn luyện đề tái dùng (ví dụ THPT)",
+   "w": 1280,
+   "x": 2720,
+   "y": 0
+  },
+  "GrammarWikiNhom1.dc.html": {
+   "h": 5460,
+   "is_interactive": true,
+   "page": "grammar-wiki",
+   "title": "Grammar Wiki nhóm 1",
+   "w": 1280,
+   "x": 0,
+   "y": 0
+  },
+  "GrammarWikiNhom1-Bai1.dc.html": {
+   "h": 5913,
+   "is_interactive": true,
+   "page": "grammar-wiki",
+   "title": "Grammar Wiki bài 1.2",
+   "w": 1280,
+   "x": 1360,
+   "y": 0
+  },
+  "GrammarWikiNhom1-Bai2.dc.html": {
+   "h": 5816,
+   "is_interactive": true,
+   "page": "grammar-wiki",
+   "title": "Grammar Wiki bài 1.9",
+   "w": 1280,
+   "x": 2720,
+   "y": 0
+  },
+  "GrammarWikiNhom2.dc.html": {
+   "h": 4740,
+   "is_interactive": true,
+   "page": "grammar-wiki",
+   "title": "Grammar Wiki nhóm 2",
+   "w": 1280,
+   "x": 0,
+   "y": 7000
+  },
+  "GrammarWikiNhom2-Bai1.dc.html": {
+   "h": 6693,
+   "is_interactive": true,
+   "page": "grammar-wiki",
+   "title": "Grammar Wiki bài 2.3",
+   "w": 1280,
+   "x": 1360,
+   "y": 7000
+  },
+  "GrammarWikiNhom2-Bai2.dc.html": {
+   "h": 4554,
+   "is_interactive": true,
+   "page": "grammar-wiki",
+   "title": "Grammar Wiki bài 2.6",
+   "w": 1280,
+   "x": 2720,
+   "y": 7000
+  },
+  "GrammarWikiNhom3.dc.html": {
+   "h": 4160,
+   "is_interactive": true,
+   "page": "grammar-wiki",
+   "title": "Grammar Wiki nhóm 3",
+   "w": 1280,
+   "x": 0,
+   "y": 14000
+  },
+  "GrammarWikiNhom3-Bai1.dc.html": {
+   "h": 6188,
+   "is_interactive": true,
+   "page": "grammar-wiki",
+   "title": "Grammar Wiki bài 3.5",
+   "w": 1280,
+   "x": 1360,
+   "y": 14000
+  },
+  "GrammarWikiNhom3-Bai2.dc.html": {
+   "h": 5880,
+   "is_interactive": true,
+   "page": "grammar-wiki",
+   "title": "Grammar Wiki bài 3.8",
+   "w": 1280,
+   "x": 2720,
+   "y": 14000
+  },
+  "GrammarWikiNhom4.dc.html": {
+   "h": 4200,
+   "is_interactive": true,
+   "page": "grammar-wiki",
+   "title": "Grammar Wiki nhóm 4",
+   "w": 1280,
+   "x": 0,
+   "y": 21000
+  },
+  "GrammarWikiNhom4-Bai1.dc.html": {
+   "h": 5701,
+   "is_interactive": true,
+   "page": "grammar-wiki",
+   "title": "Grammar Wiki bài 4.7",
+   "w": 1280,
+   "x": 1360,
+   "y": 21000
+  },
+  "GrammarWikiNhom4-Bai2.dc.html": {
+   "h": 5873,
+   "is_interactive": true,
+   "page": "grammar-wiki",
+   "title": "Grammar Wiki bài 4.8",
+   "w": 1280,
+   "x": 2720,
+   "y": 21000
+  },
+  "GrammarWikiNhom5.dc.html": {
+   "h": 4420,
+   "is_interactive": true,
+   "page": "grammar-wiki",
+   "title": "Grammar Wiki nhóm 5",
+   "w": 1280,
+   "x": 0,
+   "y": 28000
+  },
+  "GrammarWikiNhom5-Bai1.dc.html": {
+   "h": 5993,
+   "is_interactive": true,
+   "page": "grammar-wiki",
+   "title": "Grammar Wiki bài 5.7",
+   "w": 1280,
+   "x": 1360,
+   "y": 28000
+  },
+  "GrammarWikiNhom5-Bai2.dc.html": {
+   "h": 5651,
+   "is_interactive": true,
+   "page": "grammar-wiki",
+   "title": "Grammar Wiki bài 5.9",
+   "w": 1280,
+   "x": 2720,
+   "y": 28000
+  },
+  "GrammarWikiNhom6.dc.html": {
+   "h": 4720,
+   "is_interactive": true,
+   "page": "grammar-wiki",
+   "title": "Grammar Wiki nhóm 6",
+   "w": 1280,
+   "x": 0,
+   "y": 35000
+  },
+  "GrammarWikiNhom6-Bai1.dc.html": {
+   "h": 5512,
+   "is_interactive": true,
+   "page": "grammar-wiki",
+   "title": "Grammar Wiki nhóm 6 bài 1",
+   "w": 1280,
+   "x": 1360,
+   "y": 35000
+  },
+  "GrammarWikiNhom6-Bai2.dc.html": {
+   "h": 5584,
+   "is_interactive": true,
+   "page": "grammar-wiki",
+   "title": "Grammar Wiki nhóm 6 bài 2",
+   "w": 1280,
+   "x": 2720,
+   "y": 35000
+  },
+  "GrammarWikiNhom7.dc.html": {
+   "h": 6120,
+   "is_interactive": true,
+   "page": "grammar-wiki",
+   "title": "Grammar Wiki nhóm 7",
+   "w": 1280,
+   "x": 0,
+   "y": 42000
+  },
+  "GrammarWikiNhom7-Bai1.dc.html": {
+   "h": 6082,
+   "is_interactive": true,
+   "page": "grammar-wiki",
+   "title": "Grammar Wiki nhóm 7 bài 1",
+   "w": 1280,
+   "x": 1360,
+   "y": 42000
+  },
+  "GrammarWikiNhom7-Bai2.dc.html": {
+   "h": 4960,
+   "is_interactive": true,
+   "page": "grammar-wiki",
+   "title": "Grammar Wiki nhóm 7 bài 2",
+   "w": 1280,
+   "x": 2720,
+   "y": 42000
+  },
+  "GrammarWikiNhom8.dc.html": {
+   "h": 5440,
+   "is_interactive": true,
+   "page": "grammar-wiki",
+   "title": "Grammar Wiki nhóm 8",
+   "w": 1280,
+   "x": 0,
+   "y": 49000
+  },
+  "GrammarWikiNhom8-Bai1.dc.html": {
+   "h": 5491,
+   "is_interactive": true,
+   "page": "grammar-wiki",
+   "title": "Grammar Wiki nhóm 8 bài 1",
+   "w": 1280,
+   "x": 1360,
+   "y": 49000
+  },
+  "GrammarWikiNhom8-Bai2.dc.html": {
+   "h": 5140,
+   "is_interactive": true,
+   "page": "grammar-wiki",
+   "title": "Grammar Wiki nhóm 8 bài 2",
+   "w": 1280,
+   "x": 2720,
+   "y": 49000
+  },
+  "GrammarWikiNhom9.dc.html": {
+   "h": 4420,
+   "is_interactive": true,
+   "page": "grammar-wiki",
+   "title": "Grammar Wiki nhóm 9",
+   "w": 1280,
+   "x": 0,
+   "y": 56000
+  },
+  "GrammarWikiNhom9-Bai1.dc.html": {
+   "h": 5900,
+   "is_interactive": true,
+   "page": "grammar-wiki",
+   "title": "Grammar Wiki nhóm 9 bài 1",
+   "w": 1280,
+   "x": 1360,
+   "y": 56000
+  },
+  "GrammarWikiNhom9-Bai2.dc.html": {
+   "h": 4380,
+   "is_interactive": true,
+   "page": "grammar-wiki",
+   "title": "Grammar Wiki nhóm 9 bài 2",
+   "w": 1280,
+   "x": 2720,
+   "y": 56000
+  },
+  "GrammarWikiNhom10.dc.html": {
+   "h": 5000,
+   "is_interactive": true,
+   "page": "grammar-wiki",
+   "title": "Grammar Wiki nhóm 10",
+   "w": 1280,
+   "x": 0,
+   "y": 63000
+  },
+  "GrammarWikiNhom10-Bai1.dc.html": {
+   "h": 5417,
+   "is_interactive": true,
+   "page": "grammar-wiki",
+   "title": "Grammar Wiki nhóm 10 bài 1",
+   "w": 1280,
+   "x": 1360,
+   "y": 63000
+  },
+  "GrammarWikiNhom10-Bai2.dc.html": {
+   "h": 4640,
+   "is_interactive": true,
+   "page": "grammar-wiki",
+   "title": "Grammar Wiki nhóm 10 bài 2",
+   "w": 1280,
+   "x": 2720,
+   "y": 63000
+  },
+  "SoLoiCaNhan.dc.html": {
+   "h": 8000,
+   "is_interactive": true,
+   "page": "huong-phat-trien",
+   "title": "Sổ lỗi của tôi",
+   "w": 1280,
+   "x": 0,
+   "y": 0
+  },
+  "VietLaiSauCham.dc.html": {
+   "h": 8000,
+   "is_interactive": true,
+   "page": "huong-phat-trien",
+   "title": "Viết lại sau khi chấm",
+   "w": 1280,
+   "x": 1360,
+   "y": 0
+  },
+  "DoLechAIGiaoVien.dc.html": {
+   "h": 5330,
+   "is_interactive": true,
+   "page": "huong-phat-trien",
+   "title": "Chúng tôi chấm bài thế nào",
+   "w": 1280,
+   "x": 2720,
+   "y": 0
+  },
+  "DoLechAIGiaoVienAdmin.dc.html": {
+   "h": 3300,
+   "is_interactive": true,
+   "page": "huong-phat-trien",
+   "title": "Admin · Độ lệch AI–giáo viên",
+   "w": 1440,
+   "x": 4080,
+   "y": 0
+  },
+  "KiemTraDauVao.dc.html": {
+   "h": 7968,
+   "is_interactive": true,
+   "page": "huong-phat-trien",
+   "title": "Kiểm tra đầu vào",
+   "w": 1280,
+   "x": 5600,
+   "y": 0
+  },
+  "NhacViecThuTuan.dc.html": {
+   "h": 7174,
+   "is_interactive": true,
+   "page": "huong-phat-trien",
+   "title": "Nhắc việc và thư tổng kết tuần",
+   "w": 1280,
+   "x": 6960,
+   "y": 0
+  },
+  "GoiGiaoVienCham.dc.html": {
+   "h": 7324,
+   "is_interactive": true,
+   "page": "huong-phat-trien",
+   "title": "Gói giáo viên chấm",
+   "w": 1280,
+   "x": 8320,
+   "y": 0
+  },
+  "GoiGiaoVienChamAdmin.dc.html": {
+   "h": 4697,
+   "is_interactive": true,
+   "page": "huong-phat-trien",
+   "title": "Gói giáo viên chấm — Admin",
+   "w": 1440,
+   "x": 9680,
+   "y": 0
+  }
+ },
+ "createdOnFiles": {
+  "at": "2026-11-16T04:30:00Z",
+  "v": 1
+ },
+ "designSystems": [],
+ "launch": {
+  "view": "canvas"
+ },
+ "noteOrder": [
+  "t1",
+  "t2",
+  "t3",
+  "n1",
+  "note-dnre9z",
+  "note-0fi7g6",
+  "note-4n3pz0",
+  "note-o5nur9",
+  "note-p8y32o",
+  "note-rhdcm9",
+  "note-dvecfk",
+  "note-k33m0f",
+  "note-z6f5qb",
+  "note-slqrhk",
+  "note-7472my",
+  "note-ibq9y1",
+  "note-3aob1w",
+  "note-vq0gcf",
+  "note-qqhtng",
+  "note-jbvx3r",
+  "note-w9ll6r",
+  "note-oen9bw",
+  "note-6ddnhb",
+  "note-x3zyz3",
+  "note-wwevx1"
+ ],
+ "notes": {
+  "n1": {
+   "fill": "teal",
+   "text": "Đổi bảng màu: chọn một màn → nút Tweaks → Bảng màu (Xanh teal / Navy + đỏ mận). Bấm Play để đi qua lại giữa các màn bằng thanh điều hướng. Số liệu, tên người, giá đều là dữ liệu mẫu.",
+   "w": 420,
+   "x": 4080,
+   "y": 0
+  },
+  "note-0fi7g6": {
+   "text": "nếu chỗ này có 40 câu thì thiết kế thế nào",
+   "w": 240,
+   "x": 673,
+   "y": 7704
+  },
+  "note-3aob1w": {
+   "page": "bai-tap",
+   "text": "các nhãn lựa chọn này cũng dùng tiếng Anh: highlight ...",
+   "w": 240,
+   "x": 3480,
+   "y": 1377
+  },
+  "note-4n3pz0": {
+   "text": "Các lớp học viên offline: thì có 5 khoá (dạng học viên này sẽ được cấp mã từ phía admin để truy cập vào khoá để làm bài tập về nhà: mình có thể phân quyền cho người học để truy cập vào một vài khoá học để luyện tập lại)\ncòn các khoá bán online: hiện tại dự kiến có:\n- khoá grammar\n- Khoá listening\n- Khoá reading\n- khoá writing\n- KHoá speaking\n- Khoá vocab skills + ideas",
+   "w": 240,
+   "x": 1432,
+   "y": 319
+  },
+  "note-6ddnhb": {
+   "page": "bai-tap",
+   "text": "mấy góp ý này sửa chưa nhỉ",
+   "w": 240,
+   "x": 3241,
+   "y": 817
+  },
+  "note-7472my": {
+   "page": "bai-tap",
+   "text": "chỉ cần cross out hoặc fade nhẹ, không cần để tiếng Việt \"đã dùng, câu 6\"",
+   "w": 240,
+   "x": 3182,
+   "y": 549
+  },
+  "note-dnre9z": {
+   "text": "Nếu giả sử người dùng resize khung cửa số thi, kéo qua kéo lại 2 bên giữa bài đọc và",
+   "w": 240,
+   "x": 985,
+   "y": 7129
+  },
+  "note-dvecfk": {
+   "page": "thanh-phan",
+   "text": "nên nhìn giống cảnh báo hơn với các thông báo thế này\nNút nộp bài dùng màu đỏ (nếu là tin cảnh báo)",
+   "w": 240,
+   "x": 498,
+   "y": 1699
+  },
+  "note-ibq9y1": {
+   "page": "bai-tap",
+   "text": "nếu là bài full test thì các nhãn chuyển thành tiếng Anh, ví dụ như cụm chọn từ ở đây",
+   "w": 240,
+   "x": 3864,
+   "y": 722
+  },
+  "note-jbvx3r": {
+   "page": "bai-tap",
+   "text": "Dùng từ GIÁO VIÊN thay cho chữ thầy nhé",
+   "w": 240,
+   "x": 5658,
+   "y": 4156
+  },
+  "note-k33m0f": {
+   "page": "thanh-phan",
+   "text": "chỗ này note vào thiết kế thêm tính năng: đặt 2 đầu A và B vào lặp lại liên tục",
+   "w": 240,
+   "x": 3151,
+   "y": 2159
+  },
+  "note-o5nur9": {
+   "text": "ở trong thư viện writing, đề bài có thể có tiêu đề\n(cái này có thể dò lại trong kho writing, cũng có thể note lại một task là rà lại các đề trong kho và đặt lại tên cho hợp lý; nhưng mình muốn tên bằng tiếng Anh)",
+   "w": 240,
+   "x": 1945,
+   "y": 7011
+  },
+  "note-oen9bw": {
+   "page": "thanh-phan",
+   "text": "kiểm tra xem bộ icon này đủ cover cho toàn bộ web chưa",
+   "w": 240,
+   "x": 8508,
+   "y": 3778
+  },
+  "note-p8y32o": {
+   "text": "Gởi yêu cầu chấm lại: chỗ này có thể để lại bài yêu cầu chấm lại: học viên/ người dùng dùng cái này có thể chọn thêm một cái note nhỏ về lý do tại sao lại yêu cầu chấm lại)\n- sẵn tiện nhắc về việc chấm bài trên web: có 2 dạng: 1 dạng là ai chấm thẳng rồi trả luôn\n- một dạng còn lại là qua luồng duyệt của giáo viên rồi mới bám trả về: nếu dạng học viên học offline rồi được gán mã lên web thì sẽ rơi vào dạng này.",
+   "w": 240,
+   "x": 2052,
+   "y": 8437
+  },
+  "note-qqhtng": {
+   "page": "bai-tap",
+   "text": "dùng màu nhìn có vẻ giống warning hơn",
+   "w": 240,
+   "x": 5826,
+   "y": 3046
+  },
+  "note-rhdcm9": {
+   "text": "dùng một tí indentation cho biết trang con nhé\nCó thể dùng collapsible tab",
+   "w": 240,
+   "x": -265,
+   "y": 12950
+  },
+  "note-slqrhk": {
+   "page": "bai-tap",
+   "text": "nếu như là bài thi full test thì đừng để tiếng Việt, \"câu 5' -> có thể dùng Q5",
+   "w": 240,
+   "x": 3471,
+   "y": 549
+  },
+  "note-vq0gcf": {
+   "page": "bai-tap",
+   "text": "nếu là bài thi full test thì các nhãn và hướng dẫn này để bằng tiếng Anh nhé",
+   "w": 240,
+   "x": 5952,
+   "y": 347
+  },
+  "note-w9ll6r": {
+   "page": "cong-khai",
+   "text": "đừng dùng từ Mua, dùng các từ mang tính nhẹ nhàng học thuật hơn: ví dụ đăng kí, thanh toán ...",
+   "w": 240,
+   "x": 282,
+   "y": 3635
+  },
+  "note-wwevx1": {
+   "page": "bai-tap",
+   "text": "NHẬN XÉT NÀY CHƯA THỰC THI",
+   "w": 240,
+   "x": 6245,
+   "y": 402
+  },
+  "note-x3zyz3": {
+   "page": "cong-khai",
+   "text": "trừ khoá GRAMMAR, các khoá còn lại đề THÊM CỤM TỪ: for ielts vào nhé\nkhoá GRAMMAR SỬA TÊN LẠI thành NGỮ PHÁP NỀN TẢNG CHO VIỆC HIỂU TIẾNG ANH",
+   "w": 240,
+   "x": 1662,
+   "y": 1195
+  },
+  "note-z6f5qb": {
+   "page": "thanh-phan",
+   "text": "nếu là tài khoản admin thì cái này mới hiện",
+   "w": 240,
+   "x": 6537,
+   "y": 1292
+  },
+  "t1": {
+   "kind": "title1",
+   "maxW": 4000,
+   "text": "Học viên — điều hướng theo khoá",
+   "w": 240,
+   "x": 0,
+   "y": -300
+  },
+  "t2": {
+   "kind": "title1",
+   "maxW": 4000,
+   "text": "Làm bài, kết quả, thư viện miễn phí",
+   "w": 240,
+   "x": 0,
+   "y": 6600
+  },
+  "t3": {
+   "kind": "title1",
+   "maxW": 1910,
+   "text": "Admin và điện thoại",
+   "w": 240,
+   "x": 0,
+   "y": 12500
+  }
+ },
+ "order": [
+  "BaiMauWritingDanhSach.dc.html",
+  "BaiMauWriting.dc.html",
+  "KienThucWriting.dc.html",
+  "DeSpeakingDanhSach.dc.html",
+  "DeSpeaking.dc.html",
+  "NguPhap.dc.html",
+  "TuVung.dc.html",
+  "Main.dc.html",
+  "LoTrinh.dc.html",
+  "BaiGiang.dc.html",
+  "PhongThi.dc.html",
+  "KetQuaWriting.dc.html",
+  "ThuVien.dc.html",
+  "HoSoHocVien.dc.html",
+  "Mobile.dc.html",
+  "LoTrinhBaiDuocGiao.dc.html",
+  "LopBuoiHoc.dc.html",
+  "LuyenTap.dc.html",
+  "HubKyNang.dc.html",
+  "DanhSachDe.dc.html",
+  "ThiThu.dc.html",
+  "ThiThuTruocGio.dc.html",
+  "TienDo.dc.html",
+  "TaiKhoan.dc.html",
+  "TroGiupLanDau.dc.html",
+  "AdminViecCanLam.dc.html",
+  "AdminDanhBa.dc.html",
+  "AdminLop.dc.html",
+  "AdminKhoaHoc.dc.html",
+  "AdminDonDangKy.dc.html",
+  "AdminLuotVaMa.dc.html",
+  "AdminChamWriting.dc.html",
+  "AdminChamLai.dc.html",
+  "AdminChamSpeakingThiThu.dc.html",
+  "AdminNoiDung.dc.html",
+  "AdminKyThi.dc.html",
+  "AdminBaoCao.dc.html",
+  "AdminSuCo.dc.html",
+  "AdminHeThong.dc.html",
+  "GiaoVien.dc.html",
+  "PhongThiNgheViet.dc.html",
+  "PhongThiSpeaking.dc.html",
+  "ChuongTrinhKyNang.dc.html",
+  "SachBaiTap.dc.html",
+  "XemLaiBaiLam.dc.html",
+  "TuVungHocVien.dc.html",
+  "NguPhapHocVien.dc.html",
+  "BaiTapPhatAm.dc.html",
+  "KiemTraKhoa.dc.html",
+  "ThongBao.dc.html",
+  "GiaHanThemLuot.dc.html",
+  "EmailMau.dc.html",
+  "AdminNoiDungVietNoi.dc.html",
+  "AdminNoiDungTuVungNguPhap.dc.html",
+  "AdminThuVienCongKhai.dc.html",
+  "AdminCaiDat.dc.html",
+  "AdminGiaoVienThongBao.dc.html",
+  "ThanhPhan.dc.html",
+  "ThanhPhanDuLieu.dc.html",
+  "ThanhPhanHocTap.dc.html",
+  "ThanhPhanHocTap2.dc.html",
+  "ThanhPhanKhungTrang.dc.html",
+  "ThanhPhanKhungTrang2.dc.html",
+  "ThanhPhanNenTang.dc.html",
+  "TrangChuCongKhai.dc.html",
+  "DanhMucKhoa.dc.html",
+  "TrangKhoaHoc.dc.html",
+  "ThanhToan.dc.html",
+  "TaiKhoanDangNhap.dc.html",
+  "PhapLy.dc.html",
+  "TrangLoi.dc.html",
+  "ChamThuMienPhi.dc.html",
+  "BaiHocThu.dc.html",
+  "BaiTapKhachQuan.dc.html",
+  "BaiTapListening.dc.html",
+  "BaiTapReading.dc.html",
+  "BaiTapSpeaking.dc.html",
+  "BaiTapWriting.dc.html",
+  "BaiTapTuVungNguPhap.dc.html",
+  "PhieuKetQua.dc.html",
+  "GrammarWiki.dc.html",
+  "GrammarWikiBai.dc.html",
+  "GrammarWikiMinhHoa.dc.html",
+  "NhanDienLogo.dc.html",
+  "NhanDienSocial.dc.html",
+  "CheDoToi.dc.html",
+  "CheDoToiHocVien.dc.html",
+  "CheDoToiCongKhaiAdmin.dc.html",
+  "AdminKetQuaBaiGiao.dc.html",
+  "AdminKyThiChiTiet.dc.html",
+  "KiemTraKhoaGiaoVien.dc.html",
+  "DanhMucKhoaMoiMotKhoa.dc.html",
+  "HomNayTrangThai.dc.html",
+  "MockTestDuocGiao.dc.html",
+  "HocVienNoiGi.dc.html",
+  "AdminKhaoSat.dc.html",
+  "Admin1024.dc.html",
+  "KienThucNen.dc.html",
+  "DocKy.dc.html",
+  "KhuonLuyenDe.dc.html",
+  "GrammarWikiNhom1.dc.html",
+  "GrammarWikiNhom1-Bai1.dc.html",
+  "GrammarWikiNhom1-Bai2.dc.html",
+  "GrammarWikiNhom2.dc.html",
+  "GrammarWikiNhom2-Bai1.dc.html",
+  "GrammarWikiNhom2-Bai2.dc.html",
+  "GrammarWikiNhom3.dc.html",
+  "GrammarWikiNhom3-Bai1.dc.html",
+  "GrammarWikiNhom3-Bai2.dc.html",
+  "GrammarWikiNhom4.dc.html",
+  "GrammarWikiNhom4-Bai1.dc.html",
+  "GrammarWikiNhom4-Bai2.dc.html",
+  "GrammarWikiNhom5.dc.html",
+  "GrammarWikiNhom5-Bai1.dc.html",
+  "GrammarWikiNhom5-Bai2.dc.html",
+  "GrammarWikiNhom6.dc.html",
+  "GrammarWikiNhom6-Bai1.dc.html",
+  "GrammarWikiNhom6-Bai2.dc.html",
+  "GrammarWikiNhom7.dc.html",
+  "GrammarWikiNhom7-Bai1.dc.html",
+  "GrammarWikiNhom7-Bai2.dc.html",
+  "GrammarWikiNhom8.dc.html",
+  "GrammarWikiNhom8-Bai1.dc.html",
+  "GrammarWikiNhom8-Bai2.dc.html",
+  "GrammarWikiNhom9.dc.html",
+  "GrammarWikiNhom9-Bai1.dc.html",
+  "GrammarWikiNhom9-Bai2.dc.html",
+  "GrammarWikiNhom10.dc.html",
+  "GrammarWikiNhom10-Bai1.dc.html",
+  "GrammarWikiNhom10-Bai2.dc.html",
+  "SoLoiCaNhan.dc.html",
+  "VietLaiSauCham.dc.html",
+  "DoLechAIGiaoVien.dc.html",
+  "DoLechAIGiaoVienAdmin.dc.html",
+  "KiemTraDauVao.dc.html",
+  "NhacViecThuTuan.dc.html",
+  "GoiGiaoVienCham.dc.html",
+  "GoiGiaoVienChamAdmin.dc.html"
+ ],
+ "pages": [
+  {
+   "id": "man-hinh",
+   "name": "Màn hình"
+  },
+  {
+   "id": "thanh-phan",
+   "name": "Thành phần"
+  },
+  {
+   "id": "bai-tap",
+   "name": "Dạng bài tập"
+  },
+  {
+   "id": "cong-khai",
+   "name": "Công khai, đăng ký khoá"
+  },
+  {
+   "id": "thu-vien",
+   "name": "Thư viện công khai"
+  },
+  {
+   "id": "hoc-vien",
+   "name": "Học viên (Đợt 4)"
+  },
+  {
+   "id": "admin",
+   "name": "Admin và giáo viên (Đợt 5)"
+  },
+  {
+   "id": "bo-sung",
+   "name": "Học viên · bổ sung (Đợt 6)"
+  },
+  {
+   "id": "nhan-dien",
+   "name": "Nhận diện thương hiệu"
+  },
+  {
+   "id": "che-do-toi",
+   "name": "Chế độ tối"
+  },
+  {
+   "id": "prototype",
+   "name": "Prototype mới (18/11)"
+  },
+  {
+   "id": "grammar-wiki",
+   "name": "Grammar Wiki · 137 bài theo 10 nhóm"
+  },
+  {
+   "id": "huong-phat-trien",
+   "name": "Hướng phát triển (chưa lên lịch)"
+  }
+ ],
+ "title": "Aver Learning — Prototype \"Bản in\""
+}

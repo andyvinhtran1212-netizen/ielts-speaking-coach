@@ -1,0 +1,457 @@
+{
+  "q8": {
+    "item": {
+      "answer": {
+        "canonical": "2.30",
+        "accepted_forms": [
+          "2.30"
+        ],
+        "comparison_mode": "single_value",
+        "requires_normalization_review": false
+      },
+      "prompt": "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.\nClacton Market — need to have lunch before ………… p.m.",
+      "context": {
+        "kind": "section",
+        "title": "Section 1",
+        "number": 1,
+        "source_instructions": "Listening questions in source order."
+      },
+      "options": null,
+      "question_type": "note_completion",
+      "response_group": null,
+      "response_constraint": {
+        "word_limit_text": "ONE WORD AND/OR A NUMBER",
+        "instruction_text": "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.",
+        "selection_count_text": null
+      },
+      "source_question_type": "note"
+    },
+    "explanation": {
+      "trap": "Bẫy nhẹ về format số: viết **2.30** (đề đã in sẵn \"p.m.\"). Không viết **two thirty** vì đó là hai từ, vượt giới hạn ONE WORD AND/OR A NUMBER; cũng không ghi \"2:30 pm\" vì lặp lại p.m.",
+      "why_correct": "Lunch stops at **2:30**, so you must eat before then. \"p.m.\" is already printed. Write the numeric form `2.30`; `two thirty` exceeds the one-word limit.\nĐồ trưa ngừng bán lúc **2:30**, nên phải ăn trước giờ đó. \"p.m.\" đã in sẵn. Ghi dạng số `2.30`; `two thirty` vượt giới hạn một từ.",
+      "audio_window": {
+        "audio_uri": "audio://cambridge_ielts_20_test_4_full_test.mp3?start=303.42&end=312.14&q=8&section=S1",
+        "provenance": "authored_solution",
+        "end_seconds": 312.14,
+        "start_seconds": 303.42,
+        "alignment_confidence": null
+      },
+      "marking_note": null,
+      "answer_summary": "Đáp án chuẩn: 2.30."
+    }
+  },
+  "q31": {
+    "item": {
+      "answer": {
+        "canonical": "321,000",
+        "accepted_forms": [
+          "321,000"
+        ],
+        "comparison_mode": "single_value",
+        "requires_normalization_review": false
+      },
+      "prompt": "Write ONE WORD AND/OR A NUMBER for each answer.\nThe Icelandic language — has approximately **31** ________ speakers",
+      "context": {
+        "kind": "section",
+        "title": "Section 4",
+        "number": 4,
+        "source_instructions": "Listening questions in source order."
+      },
+      "options": null,
+      "question_type": "note_completion",
+      "response_group": null,
+      "response_constraint": {
+        "word_limit_text": "ONE WORD AND/OR A NUMBER",
+        "instruction_text": "Write ONE WORD AND/OR A NUMBER for each answer.",
+        "selection_count_text": null
+      },
+      "source_question_type": "note"
+    },
+    "explanation": {
+      "trap": "Số lớn — phải viết đúng \"321,000\" (ba trăm hai mươi mốt nghìn). \"around\" = \"approximately\".",
+      "why_correct": "\"Spoken by **around 321,000** people\" directly gives the number of speakers = `321,000`.\n\"Spoken by **around 321,000** people\" cho thẳng số người nói = `321,000`.",
+      "audio_window": {
+        "audio_uri": "audio://cambridge_ielts_17_test_2_full_test.mp3?start=1420.50&end=1433.62&q=31&section=S4",
+        "provenance": "authored_solution",
+        "end_seconds": 1433.62,
+        "start_seconds": 1420.5,
+        "alignment_confidence": null
+      },
+      "marking_note": null,
+      "answer_summary": "Đáp án chuẩn: 321,000."
+    }
+  },
+  "x1": {
+    "paper": {
+      "id": "72a8a0d2-b3d3-58da-85be-35a56c1097c3",
+      "test_id": "ILR-RDG-CAM-B20-T3",
+      "title": "[INTERNAL QA] Cambridge IELTS 20 Test 3 Reading",
+      "version": "1.0",
+      "module": "academic",
+      "time_limit_minutes": 60,
+      "passage_count": 3,
+      "total_questions": 40,
+      "band_target": null,
+      "metadata": {
+        "internal_qa": true,
+        "source_hash": "bbb7bc5e737dd514f6cef8d7592225de5812df2cbaf57bc868dd09e3bf603e74",
+        "source_format": "canonical-package/1.0",
+        "source_package_id": "cambridge-20-test-3"
+      },
+      "status": "draft",
+      "created_by": null,
+      "created_at": "2026-09-11T03:37:57.027763+00:00",
+      "updated_at": "2026-09-11T03:37:57.027763+00:00",
+      "test_type": "full",
+      "exam_only": true,
+      "course_level": null,
+      "public_practice_enabled": false,
+      "web_explanation_mode": "disabled",
+      "web_explanations_released_at": null,
+      "web_explanations_released_by": null,
+      "web_explanation_content_version": null,
+      "is_public": false,
+      "policy_revision": 0,
+      "mock_content_revision": 0,
+      "approved_public_overlap": null
+    },
+    "questions": [
+      {
+        "id": "2aba535f-9b05-5583-b506-b47f31ac74b6",
+        "passage_id": "4cee611a-73b7-5a3f-b634-970560c7b6e7",
+        "q_num": 37,
+        "question_type": "mcq_single",
+        "prompt": "Choose the correct letter.\nWhat point does Richardson make about fear of machines?",
+        "payload": {
+          "options": [
+            {
+              "text": "It has grown alongside the development of ever more advanced robots.",
+              "label": "A"
+            },
+            {
+              "text": "It is the result of our inclination to attribute human characteristics to non-human entities.",
+              "label": "B"
+            },
+            {
+              "text": "It has its origins in basic misunderstandings about how inanimate objects function.",
+              "label": "C"
+            },
+            {
+              "text": "It demonstrates a key difference between human intelligence and machine intelligence.",
+              "label": "D"
+            }
+          ]
+        },
+        "answer": {
+          "answer": "B",
+          "alternatives": []
+        },
+        "skill_tag": "inference",
+        "sub_skill": "mcq_single",
+        "explanation": null,
+        "order_num": 11,
+        "created_at": "2026-09-11T03:37:57.374904+00:00",
+        "updated_at": "2026-09-11T03:37:57.374904+00:00"
+      },
+      {
+        "id": "ba6fcedf-c89e-5e63-8d22-fd156d698bee",
+        "passage_id": "4cee611a-73b7-5a3f-b634-970560c7b6e7",
+        "q_num": 38,
+        "question_type": "mcq_single",
+        "prompt": "Choose the correct letter.\nWhat potential advance does Rees see as a cause for concern?",
+        "payload": {
+          "options": [
+            {
+              "text": "It has grown alongside the development of ever more advanced robots.",
+              "label": "A"
+            },
+            {
+              "text": "It is the result of our inclination to attribute human characteristics to non-human entities.",
+              "label": "B"
+            },
+            {
+              "text": "It has its origins in basic misunderstandings about how inanimate objects function.",
+              "label": "C"
+            },
+            {
+              "text": "It demonstrates a key difference between human intelligence and machine intelligence.",
+              "label": "D"
+            }
+          ]
+        },
+        "answer": {
+          "answer": "C",
+          "alternatives": []
+        },
+        "skill_tag": "inference",
+        "sub_skill": "mcq_single",
+        "explanation": null,
+        "order_num": 12,
+        "created_at": "2026-09-11T03:37:57.374904+00:00",
+        "updated_at": "2026-09-11T03:37:57.374904+00:00"
+      },
+      {
+        "id": "9ac096f5-0514-55e3-a301-d474c0db7063",
+        "passage_id": "4cee611a-73b7-5a3f-b634-970560c7b6e7",
+        "q_num": 39,
+        "question_type": "mcq_single",
+        "prompt": "Choose the correct letter.\nWhat does Wolpert emphasise in his response to the question about science fiction?",
+        "payload": {
+          "options": [
+            {
+              "text": "It has grown alongside the development of ever more advanced robots.",
+              "label": "A"
+            },
+            {
+              "text": "It is the result of our inclination to attribute human characteristics to non-human entities.",
+              "label": "B"
+            },
+            {
+              "text": "It has its origins in basic misunderstandings about how inanimate objects function.",
+              "label": "C"
+            },
+            {
+              "text": "It demonstrates a key difference between human intelligence and machine intelligence.",
+              "label": "D"
+            }
+          ]
+        },
+        "answer": {
+          "answer": "B",
+          "alternatives": []
+        },
+        "skill_tag": "inference",
+        "sub_skill": "mcq_single",
+        "explanation": null,
+        "order_num": 13,
+        "created_at": "2026-09-11T03:37:57.374904+00:00",
+        "updated_at": "2026-09-11T03:37:57.374904+00:00"
+      },
+      {
+        "id": "8cb3cd32-6e68-54ae-8bde-724544a7c49a",
+        "passage_id": "4cee611a-73b7-5a3f-b634-970560c7b6e7",
+        "q_num": 40,
+        "question_type": "mcq_single",
+        "prompt": "Choose the correct letter.\nWhat is Richardson doing in her comment about reality and fantasy?",
+        "payload": {
+          "options": [
+            {
+              "text": "It has grown alongside the development of ever more advanced robots.",
+              "label": "A"
+            },
+            {
+              "text": "It is the result of our inclination to attribute human characteristics to non-human entities.",
+              "label": "B"
+            },
+            {
+              "text": "It has its origins in basic misunderstandings about how inanimate objects function.",
+              "label": "C"
+            },
+            {
+              "text": "It demonstrates a key difference between human intelligence and machine intelligence.",
+              "label": "D"
+            }
+          ]
+        },
+        "answer": {
+          "answer": "C",
+          "alternatives": []
+        },
+        "skill_tag": "inference",
+        "sub_skill": "mcq_single",
+        "explanation": null,
+        "order_num": 14,
+        "created_at": "2026-09-11T03:37:57.374904+00:00",
+        "updated_at": "2026-09-11T03:37:57.374904+00:00"
+      }
+    ],
+    "objects": [
+      {
+        "id": "be687263-d155-4850-8ca7-b6c2372938fa",
+        "object_id": "cambridge-20-test-3-reading-q38",
+        "content_version": "cambridge-web-explanations/2026-09-10-v1",
+        "source_test_key": "cambridge-20-test-3",
+        "skill": "reading",
+        "book_number": 20,
+        "test_number": 3,
+        "question_number": 38,
+        "reading_test_id": "72a8a0d2-b3d3-58da-85be-35a56c1097c3",
+        "listening_test_id": null,
+        "payload": {
+          "item": {
+            "answer": {
+              "canonical": "C",
+              "accepted_forms": [
+                "C"
+              ],
+              "comparison_mode": "single_value",
+              "requires_normalization_review": false
+            },
+            "prompt": "Choose the correct letter.\nWhat potential advance does Rees see as a cause for concern?",
+            "context": {
+              "kind": "passage",
+              "title": "Robots and us",
+              "number": 3,
+              "source_instructions": "Read the passage and answer the questions."
+            },
+            "options": {
+              "A": "It has grown alongside the development of ever more advanced robots.",
+              "B": "It is the result of our inclination to attribute human characteristics to non-human entities.",
+              "C": "It has its origins in basic misunderstandings about how inanimate objects function.",
+              "D": "It demonstrates a key difference between human intelligence and machine intelligence."
+            },
+            "question_type": "multiple_choice_single",
+            "response_group": null,
+            "response_constraint": {
+              "word_limit_text": null,
+              "instruction_text": "Choose the correct letter.",
+              "selection_count_text": null
+            },
+            "source_question_type": "mcq_single"
+          },
+          "object_id": "cambridge-20-test-3-reading-q38",
+          "explanation": {
+            "trap": "Loại B (\"robot có khả năng con người không có\") — Rees nói robot *vượt ở tính toán* nhưng đó không phải *mối lo* của ông. Loại A (áp đảo về số lượng) và D (thâu tóm mọi mặt đời sống) không được nêu. Mối lo cốt lõi là mạng máy tính có \"ý chí riêng\" → C.",
+            "why_correct": "ngay tại câu nguồn đã trích ở trên. Chữ quyết định: **a mind of its own** — nối thẳng với \"developing independent thought\" trong đề.",
+            "answer_summary": "Đáp án chuẩn: C."
+          },
+          "schema_version": "web-explanation-object/1.0"
+        },
+        "source_hash": "782c39e30b328736a1284c03f2df6939647066c5ed2650865a2320830f937b2d",
+        "audit_verdict": "CONFIRMED",
+        "rights_status": "BLOCKED_PENDING_RIGHTS_REVIEW",
+        "editorial_status": "GENERATED_REQUIRES_EDITORIAL_REVIEW",
+        "serving_status": "ELIGIBLE_AFTER_GLOBAL_RELEASE_GATES",
+        "binding_status": "BOUND",
+        "is_current": true,
+        "import_batch_id": "cc210f3a-238b-4722-85ab-3c52ea193bde",
+        "imported_by": null,
+        "created_at": "2026-09-11T02:47:08.848644+00:00"
+      },
+      {
+        "id": "495a1338-401d-4461-b08a-01014344d678",
+        "object_id": "cambridge-20-test-3-reading-q39",
+        "content_version": "cambridge-web-explanations/2026-09-10-v1",
+        "source_test_key": "cambridge-20-test-3",
+        "skill": "reading",
+        "book_number": 20,
+        "test_number": 3,
+        "question_number": 39,
+        "reading_test_id": "72a8a0d2-b3d3-58da-85be-35a56c1097c3",
+        "listening_test_id": null,
+        "payload": {
+          "item": {
+            "answer": {
+              "canonical": "B",
+              "accepted_forms": [
+                "B"
+              ],
+              "comparison_mode": "single_value",
+              "requires_normalization_review": false
+            },
+            "prompt": "Choose the correct letter.\nWhat does Wolpert emphasise in his response to the question about science fiction?",
+            "context": {
+              "kind": "passage",
+              "title": "Robots and us",
+              "number": 3,
+              "source_instructions": "Read the passage and answer the questions."
+            },
+            "options": {
+              "A": "It has grown alongside the development of ever more advanced robots.",
+              "B": "It is the result of our inclination to attribute human characteristics to non-human entities.",
+              "C": "It has its origins in basic misunderstandings about how inanimate objects function.",
+              "D": "It demonstrates a key difference between human intelligence and machine intelligence."
+            },
+            "question_type": "multiple_choice_single",
+            "response_group": null,
+            "response_constraint": {
+              "word_limit_text": null,
+              "instruction_text": "Choose the correct letter.",
+              "selection_count_text": null
+            },
+            "source_question_type": "mcq_single"
+          },
+          "object_id": "cambridge-20-test-3-reading-q39",
+          "explanation": {
+            "trap": "Loại C (\"hình ảnh robot thay đổi theo thời gian\") — ông mô tả một *dải* tương lai (từ dễ thương đến u ám) nhưng đó là phổ *đồng thời*, không phải sự thay đổi theo thời gian. Loại A và D không phải điểm ông nhấn mạnh. Câu \"Interestingly...\" là ý ông muốn nhấn → B.",
+            "why_correct": "ngay tại câu nguồn đã trích ở trên. Chữ quyết định: **almost no science fiction envisages a future without robots** — nối thẳng với \"how fundamental robots are to the science fiction genre\" trong đề.",
+            "answer_summary": "Đáp án chuẩn: B."
+          },
+          "schema_version": "web-explanation-object/1.0"
+        },
+        "source_hash": "a55fbd0c1139c4e3e2af23fa31ade307b51c448dde4e4b5a9d7a534e74f0fe5f",
+        "audit_verdict": "CONFIRMED",
+        "rights_status": "BLOCKED_PENDING_RIGHTS_REVIEW",
+        "editorial_status": "GENERATED_REQUIRES_EDITORIAL_REVIEW",
+        "serving_status": "ELIGIBLE_AFTER_GLOBAL_RELEASE_GATES",
+        "binding_status": "BOUND",
+        "is_current": true,
+        "import_batch_id": "5bb757e1-316b-41dc-8160-a89cec86a4fd",
+        "imported_by": null,
+        "created_at": "2026-09-11T02:47:08.848644+00:00"
+      },
+      {
+        "id": "54675a23-bec0-4fa5-b466-2a4d36c44dbd",
+        "object_id": "cambridge-20-test-3-reading-q40",
+        "content_version": "cambridge-web-explanations/2026-09-10-v1",
+        "source_test_key": "cambridge-20-test-3",
+        "skill": "reading",
+        "book_number": 20,
+        "test_number": 3,
+        "question_number": 40,
+        "reading_test_id": "72a8a0d2-b3d3-58da-85be-35a56c1097c3",
+        "listening_test_id": null,
+        "payload": {
+          "item": {
+            "answer": {
+              "canonical": "C",
+              "accepted_forms": [
+                "C"
+              ],
+              "comparison_mode": "single_value",
+              "requires_normalization_review": false
+            },
+            "prompt": "Choose the correct letter.\nWhat is Richardson doing in her comment about reality and fantasy?",
+            "context": {
+              "kind": "passage",
+              "title": "Robots and us",
+              "number": 3,
+              "source_instructions": "Read the passage and answer the questions."
+            },
+            "options": {
+              "A": "It has grown alongside the development of ever more advanced robots.",
+              "B": "It is the result of our inclination to attribute human characteristics to non-human entities.",
+              "C": "It has its origins in basic misunderstandings about how inanimate objects function.",
+              "D": "It demonstrates a key difference between human intelligence and machine intelligence."
+            },
+            "question_type": "multiple_choice_single",
+            "response_group": null,
+            "response_constraint": {
+              "word_limit_text": null,
+              "instruction_text": "Choose the correct letter.",
+              "selection_count_text": null
+            },
+            "source_question_type": "mcq_single"
+          },
+          "object_id": "cambridge-20-test-3-reading-q40",
+          "explanation": {
+            "trap": "Loại A (\"cảnh báo đừng nhầm lẫn hai thứ\") — trái ý bà (bà nói ranh giới *không* rạch ròi, nên gộp lại). Loại B (nêu cách một bên tác động bên kia) và D (giải thích vì sao nhà khoa học có góc nhìn khác) chỉ là chi tiết phụ; *hành động chính* của bà là *khuyến nghị* gộp các cách hiểu lại → C.",
+            "why_correct": "ngay tại câu nguồn đã trích ở trên. Chữ quyết định: **we need to bring these different understandings together** — nối thẳng với \"recommending a change of approach\" trong đề.",
+            "answer_summary": "Đáp án chuẩn: C."
+          },
+          "schema_version": "web-explanation-object/1.0"
+        },
+        "source_hash": "010f37e50271a1670a21f29e9de6e7cd59bee0dedc059285038c1f9b3b86947b",
+        "audit_verdict": "CONFIRMED",
+        "rights_status": "BLOCKED_PENDING_RIGHTS_REVIEW",
+        "editorial_status": "GENERATED_REQUIRES_EDITORIAL_REVIEW",
+        "serving_status": "ELIGIBLE_AFTER_GLOBAL_RELEASE_GATES",
+        "binding_status": "BOUND",
+        "is_current": true,
+        "import_batch_id": "74eb9b0c-63d4-4f41-8ff0-eb0a0cc52d4e",
+        "imported_by": null,
+        "created_at": "2026-09-11T02:47:08.848644+00:00"
+      }
+    ]
+  }
+}
