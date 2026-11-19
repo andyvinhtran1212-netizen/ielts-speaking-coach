@@ -47,7 +47,7 @@ phát âm, chuyển lớp mã cũ). Migration 386 để trống có chủ ý; 38
 - Thành viên lớp và mã cũ **không** ghi thành dòng `entitlements` (không backfill): `services/entitlements.py` suy ra chúng lúc đọc. Lý do: tránh động vào sự thật của các mã đã kích hoạt và các lớp đang chạy. Hệ quả có chủ ý: người chỉ có mã cũ không có nơi nhận lượt nên bài của họ không đo lượt **cho tới khi admin chuyển lớp của họ sang đo lượt** (5.18): lệnh đó tạo cho từng thành viên một dòng `entitlements` loại `class` kèm số lượt ban đầu, từ đó bài giao của lớp trừ vào lượt ấy. Không có đợt backfill tự động; mỗi lớp do admin chủ động chuyển.
 - **Dữ liệu chưa chốt không nằm trong mã:** tên sáu khoá, học phí, thời hạn, số lượt, ngày mở là dữ liệu `course_products` do admin nhập qua API (G11-T29 nhập tên trên staging, để `coming_soon`); tài khoản nhận tiền và hạn giữ đơn là cấu hình (5.10), để trống thì không tạo được đơn. Migration không seed sản phẩm nào. Test dùng sản phẩm thử tự tạo.
 
-### 5.2 Migration M1 — lược đồ (số 381, theo dải đã cấp ở `01-KE-HOACH-TONG.md` mục 6)
+### 5.2 Migration M1 — lược đồ (nhãn 381; số thật do `register.tsv` cấp, xem `rollout.md`)
 
 File `backend/migrations/381_course_commerce_core.sql`. Một giao dịch, `SET LOCAL lock_timeout = '5s'`, idempotent (`IF NOT EXISTS`, `CREATE OR REPLACE`), không đổi dòng dữ liệu cũ, khối DO cuối kiểm postcondition (RLS bật, không quyền client, ACL hàm, `search_path`) và `RAISE EXCEPTION` nếu sai. Mọi hàm: `SECURITY DEFINER`, `SET search_path = pg_catalog, pg_temp`, tên bảng/hàm ghi đủ `public.`, `REVOKE EXECUTE ... FROM PUBLIC, anon, authenticated; GRANT EXECUTE ... TO service_role`.
 

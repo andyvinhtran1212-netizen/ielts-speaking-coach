@@ -296,7 +296,7 @@ Bảng vướng mắc của gói (mục 7) và bảng ca biên của vòng đờ
 
 | Tình huống | Dấu hiệu nhận biết | Cách gỡ | Khi nào dừng và hỏi |
 |---|---|---|---|
-| Số migration bị giữ | README nói 370–375 giữ, 371 = 0047; số 381–385, 387, 388 có thể trùng file của một PR đang mở | Dải 381–389 đã cấp cho gói này, không cần hỏi; đọc PR mở có file `backend/migrations/38*` để tránh trùng; nếu trùng, lấy số trống kế tiếp **trong dải**, đổi tên file + forward-policy + README + sổ đăng ký cùng lúc | Hết số trong dải hoặc PR ngoài gói đang dùng số của dải → báo anh Andy |
+| Số migration bị giữ | README nói 370–375 giữ, 371 = 0047; 381/382 giữ cho FU-2281 trong `backend/migrations/register.tsv` (#2364), nên dải 381–389 của `01` mục 6 không còn dùng được | Các số 381–388 trong spec là nhãn làm việc M1…M7 (`rollout.md`); trước G04-T01 xin số thật từ `register.tsv` (hoặc sổ của Leader khi #2364 chưa merge), đổi tên file + forward-policy + README + test cùng lúc | Sổ không cấp được số, hoặc số được cấp trùng file của PR đang mở → báo anh Andy |
 | `test_migration_forward_policy.py` đỏ | assert "the highest is `N`" | Sửa README hai câu "highest"/"next" đúng số mới | — |
 | Bất biến client đỏ | `test_client_write_invariant_postgres.py` báo bảng/hàm client EXECUTE được hoặc migration cần đối tượng trước 320 | REVOKE từ `PUBLIC` (ACL mặc định cho PUBLIC EXECUTE hàm); mở rộng `_pre_320()` bằng định nghĩa nguyên văn | Phải nới allowlist 320 → dừng, đây là thay đổi an ninh |
 | `search_path` | `test_migration_function_search_path_guard.py` / 358 báo hàm không kết thúc bằng `pg_temp` | `SET search_path = pg_catalog, pg_temp`, viết `public.` cho mọi bảng/hàm | — |
@@ -390,7 +390,7 @@ Trả lời thêm ngày 18/11/2026 chiều (00 mục 2 điểm 23), không còn 
 10. Bảng mẫu thư ghi "bảy mẫu", T01 ghi "đúng 7 giá trị" → tám, có `course_open_alert`.
 11. Cột `course_products.retention_content_days` và quy tắc "lớn nhất trong các quyền, không thấp hơn 60" trái điểm 23 (45 ngày sau khi hết hạn) → bỏ cột, viết lại 5.14, T10, E12.
 12. T09 ghi "lần đăng nhập gần đây chưa có gói nhận" → nay là G04-T16.
-13. Mục 8 ghi phần chênh của 381/382 đi bằng "một migration trong dải 387–389" trong khi 387, 388 đã có việc → ghi rõ số 389.
+13. Mục 8 ghi phần chênh của 381/382 đi bằng "một migration trong dải 387–389" trong khi 387, 388 đã có việc → ghi rõ số 389 (nhãn làm việc; số thật do `register.tsv` cấp).
 14. Mục 7 dòng "Lớp đang chạy bằng mã cũ" trỏ Q4 như câu chưa quyết → sửa theo quyết định đã có.
 15. E14 tính `carry_over` theo 50% → sửa theo chuyển toàn bộ; thêm E12b, E14b, E14c, E19, E20, E21.
 16. Tài liệu ghi trạng thái repo `93c7085` cho mọi số dòng → ghi SHA đã kiểm lại `c3bc71574`.
