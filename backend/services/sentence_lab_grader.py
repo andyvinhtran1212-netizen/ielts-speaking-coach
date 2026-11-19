@@ -649,6 +649,10 @@ def _result_row(entry: Dict[str, Any], mode: str, fb: Dict[str, Any] | None,
         "answer": str(entry.get("response") or ""),
         "mode": mode,
     }
+    if mode == "coach":
+        # Bản chụp đề CÔNG KHAI lúc nộp: nhập lại bank sau đó không được làm
+        # kết quả cũ hiện đề mới. Chỉ phần `item` — khóa chấm không bao giờ vào đây.
+        base["item"] = entry.get("item") or {}
     if fb is None:
         return {**base, "corrected": None, "issues": [], "ok": None,
                 "feedback": None, "error": error or "Chưa chấm được câu này."}

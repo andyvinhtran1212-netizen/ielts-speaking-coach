@@ -817,6 +817,52 @@ def test_lab_submit_rejects_answers_over_600_chars_before_grading():
     assert e.value.status_code == 422
 
 
+# ── Codex #2371: câu trống là no_attempt; kết quả giữ đề lúc nộp ───────────
+def _lab_submit(answers, db):
+    async def never(*_a, **_k):
+        raise AssertionError("no model call for blank answers")
+
+    with patch.object(qs, "supabase_admin", db), \
+            patch.object(qs, "_bank_meta_or_404", lambda *_a, **_k: LAB_BANK), \
+            patch.object(qs, "_assignment_item_for", lambda *_a, **_k: {"id": ITEM}), \
+            patch.object(qs, "refresh_course_completion", lambda **_k: None), \
+            patch.object(qs.sentence_lab_grader, "ensure_enabled", lambda: None), \
+            patch.object(qs.sentence_lab_grader, "enforce_daily_call_cap",
+                         lambda _u, calls: calls), \
+            patch.object(g, "_call_model", never):
+        return asyncio.run(qs.submit_course_writing(
+            user_id="u1", bank_id="b1", answers=answers))
+
+
+def test_lab_submit_accepts_blank_answers_as_no_attempt_without_calls():
+    db = _DB({"quiz_questions": _questions(), "course_writing_submissions": []})
+    _lab_submit({"S01-Q01": "  "}, db)
+    rows = db.inserts[0]["items"]
+    assert [r["status"] for r in rows] == ["no_attempt", "no_attempt"]
+    assert all(r["ok"] is False and r["score"] == 0 for r in rows)
+    assert db.inserts[0]["clean"] == 0
+
+
+def test_course1_submit_still_requires_every_answer():
+    db = _DB({"quiz_questions": _questions(), "course_writing_submissions": []})
+    with patch.object(qs, "supabase_admin", db), \
+            patch.object(qs, "_bank_meta_or_404",
+                         lambda *_a, **_k: {"id": "b1", "meta": {}}):
+        with pytest.raises(HTTPException) as e:
+            asyncio.run(qs.submit_course_writing(
+                user_id="u1", bank_id="b1", answers={"S01-Q01": "a"}))
+    assert e.value.status_code == 422 and e.value.detail["missing"] == ["S01-Q02"]
+
+
+def test_coach_rows_snapshot_the_public_item_but_never_the_key():
+    db = _DB({"quiz_questions": _questions(), "course_writing_submissions": []})
+    _lab_submit({}, db)
+    rows = db.inserts[0]["items"]
+    assert [r["item"] for r in rows] == [{"id": "S01-Q01", "source": "src"},
+                                         {"id": "S01-Q02", "source": "src"}]
+    assert REF not in json.dumps([r["item"] for r in rows])
+
+
 def test_openai_client_has_no_hidden_sdk_retries(monkeypatch):
     """SA C-5: the only retry is the explicit combined retry call."""
     monkeypatch.setattr(g.settings, "OPENAI_API_KEY", "sk-test")

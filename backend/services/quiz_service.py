@@ -4423,7 +4423,10 @@ async def submit_course_writing(*, user_id: str, bank_id: str,
 
     answers = answers or {}
     missing = [q["qid"] for q in qs if not str(answers.get(q["qid"]) or "").strip()]
-    if missing:
+    # Kho viết câu (SENTLAB-0101 FR-003/FR-007): câu trống là `no_attempt`
+    # (0 điểm, không gọi model), nên bài nộp dở vẫn được nhận. Course 1 giữ luật
+    # "đủ câu mới nhận".
+    if missing and not lab:
         raise HTTPException(422, {
             "message": f"Còn {len(missing)} câu chưa viết.",
             "missing": missing,

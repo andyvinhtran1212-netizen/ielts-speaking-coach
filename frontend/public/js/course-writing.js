@@ -213,6 +213,9 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
   const missing = () => questions
     .filter((q) => !String(draft[q.qid] || '').trim())
     .map((q) => q.qid);
+  // Câu còn trống CHẶN lượt nộp — chỉ với Course 1. Kho viết câu (SENTLAB-0101
+  // FR-003) nhận câu trống thành `no_attempt` (0 điểm, không gọi model).
+  const blocking = () => (lab ? [] : missing());
 
   /**
    * Thanh nộp: HAI BƯỚC.
@@ -232,7 +235,7 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
     if (!armed) {
       return `<span class="cw-bar__note" id="cw-note">${noteHtml()}</span>
         <button class="av-button av-button-primary" id="cw-submit" type="button"${
-          miss.length ? ' disabled' : ''}>Nộp phần tự luận</button>`;
+          blocking().length ? ' disabled' : ''}>Nộp phần tự luận</button>`;
     }
     return `<span class="cw-bar__note cw-bar__warn" id="cw-note">
         Nộp rồi là <strong>không sửa được nữa</strong>, và chỉ nộp được một lần.
@@ -286,6 +289,7 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
     const jump = miss.slice(0, 10)
       .map((qid) => `<a href="#cw-${esc(qid)}">${idx[qid]}</a>`).join('');
     return `Còn <strong>${miss.length}</strong> câu chưa viết`
+      + (lab ? ' — câu để trống được tính 0 điểm' : '')
       + `<span class="cw-jump">${jump}</span>`;
   };
 
@@ -402,7 +406,7 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
       const modelText = done ? (g.explain || q.explain || '') : '';
       return `<article class="cw-item" data-ok="${String(g.ok)}">
           <span class="cw-item__no">Câu ${i + 1}${q.subtype ? ' · ' + esc(q.subtype) : ''}</span>
-          ${labAsk(q, g.prompt)}
+          ${labAsk(g.item ? { sentence_lab_item: g.item } : null, g.prompt)}
           <p class="sl-label">Câu bạn nộp</p>
           <p class="cw-diff">${esc(g.answer)}</p>
           ${labFeedback(g.feedback, g.answer)}
@@ -420,7 +424,7 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
   return {
     get submitted() { return submitted; },
     get questions() { return questions.slice(); },
-    get missing() { return missing(); },
+    get missing() { return blocking(); },
     get draft() { return { ...draft }; },
     get course() { return submission?.course || null; },
     /** Kho viết câu Course 5 — null với bài tự luận thường. */
@@ -434,7 +438,7 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
      * bài thì chưa có gì để xác nhận, và trang phải chỉ chỗ còn trống trước.
      */
     arm() {
-      if (submitted || missing().length) return false;
+      if (submitted || blocking().length) return false;
       armed = true;
       return true;
     },
@@ -526,7 +530,7 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
      */
     async submit() {
       if (submitted) return { already: true };
-      const miss = missing();
+      const miss = blocking();
       if (miss.length) return { missing: miss };
       if (!armed) return { needsConfirm: true };
       const answers = {};

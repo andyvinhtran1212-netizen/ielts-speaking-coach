@@ -171,3 +171,32 @@ test('model text with HTML is escaped in coaching feedback', async () => {
   assert.ok(!html.includes('<img'));
   assert.match(html, /&lt;img src=x/);
 });
+
+test('lab submit goes through with blank sentences (they become no_attempt)', async () => {
+  const a = api([{ questions: [ITEM('S01-Q01'), ITEM('S01-Q02')], submitted: false,
+    sentence_lab: LAB() }]);
+  a.post = async (path, body) => { a.calls.post.push({ path, body });
+    return { items: [], total: 2, clean: 0 }; };
+  const w = createWriting({ api: a, storage: null, userId: 'u' });
+  await w.load('b1');
+  w.write('S01-Q01', 'x');
+  assert.deepEqual(w.missing, []);
+  assert.match(w.renderBar(), /câu để trống được tính 0 điểm/);
+  assert.ok(!/id="cw-submit"[^>]*disabled/.test(w.renderBar()));
+  assert.equal(w.arm(), true);
+  await w.submit();
+  assert.deepEqual(a.calls.post[0].body.answers, { 'S01-Q01': 'x', 'S01-Q02': '' });
+});
+
+test('result shows the task as submitted, not the re-imported one', async () => {
+  const snap = { id: 'S01-Q01', instruction: 'Đề lúc nộp.', source: 'Old source.', required: [] };
+  const sub = { total: 1, clean: 0, items: [{ qid: 'S01-Q01', answer: 'a', ok: false, score: 8,
+    item: snap, feedback: FB('S01-Q01') }] };
+  const w = createWriting({ api: api([{ questions: [ITEM('S01-Q01')], submitted: true,
+    submission: sub, sentence_lab: LAB() }]), storage: null, userId: 'u' });
+  await w.load('b1');
+  const html = w.renderResult();
+  assert.match(html, /Đề lúc nộp\./);
+  assert.match(html, /Old source\./);
+  assert.ok(!html.includes('Bổ sung động từ be.'));
+});
