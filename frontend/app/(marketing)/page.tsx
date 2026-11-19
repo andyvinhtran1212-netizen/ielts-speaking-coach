@@ -789,12 +789,6 @@ export default function LandingPreviewPage() {
             <p className="ix-footer__copy text-sm">
               © 2026 Aver Learning. Mọi quyền được bảo lưu.
             </p>
-            <nav aria-label="Thông tin" className="flex flex-wrap items-center gap-4">
-              <Link href="/about" className="ix-footer__link text-sm">Giới thiệu</Link>
-              <Link href="/terms" className="ix-footer__link text-sm">Điều khoản</Link>
-              <Link href="/privacy" className="ix-footer__link text-sm">Quyền riêng tư</Link>
-              <Link href="/contact" className="ix-footer__link text-sm">Liên hệ</Link>
-            </nav>
             <p className="ix-footer__powered text-xs">
               Phản hồi AI cho Speaking và Writing
             </p>
