@@ -26,7 +26,7 @@ import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 // Phần THUẦN nằm ở module riêng để `node --test` kiểm được hành vi thật —
 // `node --test` không nạp được `.tsx`. Cùng khuôn `when-global-ready.mjs`.
 import {
-  METRIC_FORMATTERS, SKILLS_ORDER, SKILL_META, formatRelativeTime,
+  METRIC_FORMATTERS, SKILLS_ORDER, SKILL_META, formatRelativeTime, mockOverallReady,
 } from '@/lib/home-metrics.mjs';
 
 function $(id: string) { return document.getElementById(id); }
@@ -301,10 +301,12 @@ async function renderMockTiles(api: any, cancelled: () => boolean) {
     hub.insertAdjacentHTML('beforeend',
       '<a class="mock-result-tile" href="/mock/result?sitting='
         + encodeURIComponent(s.sitting_id) + '">'
-      + '<span class="mock-result-tile__band">' + fmtBand(s.overall) + '</span>'
+      + '<span class="mock-result-tile__band">' + (mockOverallReady(s) ? fmtBand(s.overall) : '—') + '</span>'
       + '<span class="mock-result-tile__body">'
       + '<span class="mock-result-tile__title">Kết quả: ' + esc(s.title || 'Bài thi thử') + '</span>'
-      + '<span class="mock-result-tile__hint">Xem điểm 4 kỹ năng + chữa bài →</span>'
+      + '<span class="mock-result-tile__hint">'
+      + (mockOverallReady(s) ? 'Xem điểm 4 kỹ năng + chữa bài →' : 'Chưa có Overall · xem điểm từng kỹ năng →')
+      + '</span>'
       + '</span></a>');
   });
 }

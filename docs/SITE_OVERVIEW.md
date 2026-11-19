@@ -73,6 +73,10 @@ to `/`; the historical source file is not a separately served marketing page.
 | `/login` | all | Google OAuth + access-code activation → `POST /auth/activate` (sets `users.is_active`, permissions, marks `access_codes` used). |
 | `/onboarding` | new user | First-time setup (band target, level, goals) → `/auth/*` profile write. |
 | `/pricing` | public | Pre-launch server redirect to `/`; no pricing controls or payment promise are currently served here. |
+| `/terms` | public | Draft Terms of use skeleton (articles from the PhapLy design sheet, bodies `XXX`); `noindex` until legal review. |
+| `/privacy` | public | Draft Privacy policy skeleton (articles from the PhapLy design sheet, bodies `XXX`); `noindex` until legal review. |
+| `/contact` | public | Contact channels (all `XXX` until the owner provides them); no form yet; `noindex`. |
+| `/about` | public | Product introduction; team and editorial process `XXX`; `noindex`. |
 
 ### 4.2 Student — Speaking
 
