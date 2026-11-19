@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import hashlib
 import json
 import logging
 import re
@@ -639,6 +640,19 @@ def _log_usage(name: str, usage: Any, *, status: str, error_code: str | None,
         logger.warning("[sentence-lab] usage log failed: %s", exc)
 
 
+def key_fingerprint(key: Any) -> str:
+    """Dấu vân tay của khóa chấm một câu (sha256 của JSON chuẩn hoá).
+
+    Lưu cùng bản chụp lượt nộp để lượt viết lại biết khóa chấm có đổi không:
+    nhập lại bank với khóa mới mà đề công khai giữ nguyên thì lượt viết lại
+    không được chấm theo khóa MỚI cho một lượt nộp đã chấm theo khóa CŨ.
+    Chỉ ở máy chủ — `_lab_public_items` bỏ nó khỏi mọi phản hồi cho học viên.
+    """
+    raw = json.dumps(key if isinstance(key, dict) else {}, sort_keys=True,
+                     ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
 def _result_row(entry: Dict[str, Any], mode: str, fb: Dict[str, Any] | None,
                 error: str | None = None) -> Dict[str, Any]:
     """Một dòng `items` của course_writing_submissions.
@@ -658,6 +672,7 @@ def _result_row(entry: Dict[str, Any], mode: str, fb: Dict[str, Any] | None,
         # Bản chụp đề CÔNG KHAI lúc nộp: nhập lại bank sau đó không được làm
         # kết quả cũ hiện đề mới. Chỉ phần `item` — khóa chấm không bao giờ vào đây.
         base["item"] = entry.get("item") or {}
+        base["key_sha"] = key_fingerprint(entry.get("key"))
     if fb is None:
         return {**base, "corrected": None, "issues": [], "ok": None,
                 "feedback": None, "error": error or "Chưa chấm được câu này."}
