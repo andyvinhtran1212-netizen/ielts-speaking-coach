@@ -419,9 +419,12 @@ def _result_sync(sitting_id: str, user_id) -> dict:
     # undelivered id would be a dead-end link (2026-07-12).
     e1, e2 = sitting.get("essay_task1_id"), sitting.get("essay_task2_id")
     delivered = essay_service.delivered_essay_ids([e1, e2])
+    final_bands = review.get("final_bands") or {}
     return {
         "sitting_id":           sitting_id,
-        "final_bands":          review.get("final_bands") or {},
+        "final_bands":          final_bands,
+        # G02-T05: the TRF draws an Overall only once enough skills are banded.
+        **svc.overall_readiness(final_bands),
         "examiner_comment_vi":  review.get("examiner_comment_vi"),
         "per_skill_notes":      review.get("per_skill_notes") or {},
         "released_at":          review.get("released_at"),

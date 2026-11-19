@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 
 import { useAuth } from '@/lib/auth/auth-provider';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
+import { leaveForParent } from '@/lib/redirect-notice-model.mjs';
 
 type BandValue = number | string | null;
 
@@ -26,6 +27,8 @@ interface LrSkill {
 
 interface MockResultPayload {
   final_bands?: Record<string, BandValue>;
+  overall_min_skills?: number;
+  banded_skill_count?: number;
   examiner_comment_vi?: string | null;
   per_skill_notes?: Record<string, unknown>;
   released_at?: string | null;
@@ -306,6 +309,12 @@ function ResultContent({ data, sittingId }: {
   const scored = SKILLS.filter((skill) => finalBands[skill.key] != null);
   const displayed = scored.length ? scored : SKILLS;
   const overall = finalBands.overall;
+  // G02-T05 (FR-02-004): an Overall is drawn only once enough skills carry a
+  // band. A payload without the readiness fields (older backend) needs all four.
+  const minSkills = typeof data.overall_min_skills === 'number' ? data.overall_min_skills : SKILLS.length;
+  const bandedCount = typeof data.banded_skill_count === 'number' ? data.banded_skill_count : scored.length;
+  const overallReady = overall != null && overall !== '' && bandedCount >= minSkills;
+  const missingSkills = SKILLS.filter((skill) => finalBands[skill.key] == null).map((skill) => skill.label);
   const overallDegrees = overall == null || overall === ''
     ? 0
     : Math.min(9, Math.max(0, Number(overall))) / 9 * 360;
@@ -329,9 +338,16 @@ function ResultContent({ data, sittingId }: {
           <p className="trf-stamp">{releasedAt}</p>
         </div>
         <div className="trf-card__body">
-          <div className="trf-ring" role="img" aria-label={`Overall ${fmtBand(overall)}`} style={ringStyle}>
-            <div><div><b>{fmtBand(overall)}</b><span>Overall</span></div></div>
-          </div>
+          {overallReady ? (
+            <div className="trf-ring" role="img" aria-label={`Overall ${fmtBand(overall)}`} style={ringStyle}>
+              <div><div><b>{fmtBand(overall)}</b><span>Overall</span></div></div>
+            </div>
+          ) : (
+            <div className="trf-overall-none" data-testid="overall-missing">
+              <b>Chưa có Overall{missingSkills.length ? ` · còn thiếu ${missingSkills.join(', ')}` : ''}</b>
+              <span>Overall cần đủ {minSkills === 4 ? 'bốn' : minSkills} kỹ năng trong cùng đề thi thử.</span>
+            </div>
+          )}
           <div className="trf-skills">
             {displayed.map((skill) => {
               const value = finalBands[skill.key];
@@ -413,7 +429,8 @@ export function MockResultBehavior() {
     setPendingKey(null);
 
     if (!sittingId) {
-      setErrorState({ key: requestKey, value: 'Thiếu mã sitting.' });
+      // G02-T11: a link without its sitting goes back to Full Test.
+      leaveForParent('/full-test');
       return () => controller.abort();
     }
 
