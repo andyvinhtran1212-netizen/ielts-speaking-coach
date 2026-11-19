@@ -2,26 +2,90 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useEffect, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 import { grammarMode, grammarModeHref } from '@/lib/grammar-navigation-context.mjs';
 import { articleUrl } from './grammar-cards';
 
 type DashboardArticle = { slug: string; title: string; category: string };
+// Wire shape of `GET /api/grammar/dashboard-data` → `weak_areas[]`
+// (backend/routers/grammar.py): keyed by `tag`/`label_vi`, not `slug`/`title`.
+type WeakAreaWire = {
+  tag?: string | null;
+  label_vi?: string | null;
+  category?: string | null;
+  occurrence_count?: number;
+  last_seen_at?: string | null;
+  slug?: string | null;
+  title?: string | null;
+};
 type Dashboard = {
-  weak_areas?: Array<DashboardArticle & { occurrence_count?: number }>;
+  weak_areas?: WeakAreaWire[];
   recently_viewed?: DashboardArticle[];
   saved_articles?: DashboardArticle[];
 };
 type Roadmap = { mode?: string; weak_count?: number; nodes?: Array<DashboardArticle & { status?: string; is_weak?: boolean }> };
 
+/** Normalize `weak_areas[]` to linkable articles; drop rows that cannot form a real article URL. */
+export function normalizeWeakAreas(items: unknown): DashboardArticle[] {
+  if (!Array.isArray(items)) return [];
+  const text = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
+  return items.flatMap((item: WeakAreaWire) => {
+    const slug = text(item?.slug) || text(item?.tag);
+    const category = text(item?.category);
+    if (!slug || !category) return [];
+    return [{ slug, category, title: text(item?.title) || text(item?.label_vi) || slug }];
+  });
+}
+
+export const GROUPS_SECTION_ID = 'groups-section';
+const GROUPS_SECTION_HASH = `#${GROUPS_SECTION_ID}`;
+
 export function GrammarModeSwitcher({ reference, learning }: { reference: ReactNode; learning: ReactNode }) {
   const params = useSearchParams();
   const mode = grammarMode(params || undefined);
-  const setMode = (next: 'reference' | 'learning') => {
-    window.history.replaceState(null, '', grammarModeHref({ mode: next }));
+  const pendingGroupsScroll = useRef(false);
+  const setMode = (next: 'reference' | 'learning', hash = '') => {
+    window.history.replaceState(null, '', `${grammarModeHref({ mode: next })}${hash}`);
   };
+
+  // The hero CTAs link to #groups-section, which lives in the reference panel.
+  // In learning mode that panel is hidden, so switch to reference first and
+  // scroll once it has rendered. The plain href stays as the no-JS fallback.
+  useEffect(() => {
+    if (mode !== 'learning') return;
+    const revealGroups = () => {
+      pendingGroupsScroll.current = true;
+      setMode('reference', GROUPS_SECTION_HASH);
+    };
+    const onClick = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const target = event.target instanceof Element ? event.target : null;
+      if (!target?.closest(`a[href="${GROUPS_SECTION_HASH}"]`)) return;
+      event.preventDefault();
+      revealGroups();
+    };
+    const onHashChange = () => {
+      if (window.location.hash === GROUPS_SECTION_HASH) revealGroups();
+    };
+    onHashChange();
+    document.addEventListener('click', onClick);
+    window.addEventListener('hashchange', onHashChange);
+    return () => {
+      document.removeEventListener('click', onClick);
+      window.removeEventListener('hashchange', onHashChange);
+    };
+  }, [mode]);
+
+  useEffect(() => {
+    if (mode !== 'reference' || !pendingGroupsScroll.current) return;
+    const frame = window.requestAnimationFrame(() => {
+      pendingGroupsScroll.current = false;
+      document.getElementById(GROUPS_SECTION_ID)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [mode]);
   const selectMode = (next: 'reference' | 'learning') => {
     setMode(next);
     document.getElementById(`grammar-mode-${next}`)?.focus();
@@ -101,7 +165,7 @@ export function GrammarLearningDashboard() {
       <div className="gw-learning-grid">
         <ArticleList title="Vừa xem" items={dashboard.recently_viewed} empty="Chưa có lịch sử đọc." />
         <ArticleList title="Đã lưu" items={dashboard.saved_articles} empty="Lưu bài để quay lại nhanh." />
-        <ArticleList title="Điểm cần củng cố" items={dashboard.weak_areas} empty="Chưa có lỗi lặp lại đủ để kết luận." />
+        <ArticleList title="Điểm cần củng cố" items={normalizeWeakAreas(dashboard.weak_areas)} empty="Chưa có lỗi lặp lại đủ để kết luận." />
       </div>
     </div>
   );

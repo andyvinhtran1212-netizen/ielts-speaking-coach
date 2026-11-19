@@ -64,6 +64,7 @@ anchors:
 ## Tóm tắt
 
 Giới từ trong tiếng Anh thường phải học theo **collocation** (cụm từ cố định) vì không có quy tắc logic hoàn toàn. Các lỗi phổ biến nhất là:
+
 1. Nhầm giới từ thời gian: at/on/in
 2. Nhầm giới từ vị trí: at/on/in
 3. Sai giới từ theo sau động từ: depend **on** (không phải "to")
@@ -84,6 +85,7 @@ Giới từ sai tạo ra "unnatural English" — câu đúng nghĩa nhưng nghe 
 | **in** | Tháng, năm, thế kỷ, thập kỷ, buổi (morning/afternoon/evening) | in May, in 2020, in the 21st century, in the morning |
 
 **Ngoại lệ cần nhớ:**
+
 - at night (không phải "in the night" khi nói chung chung)
 - at the weekend (British) / on the weekend (American)
 - in the morning / afternoon / evening → NHƯNG: **on** Monday morning
@@ -109,6 +111,7 @@ Giới từ sai tạo ra "unnatural English" — câu đúng nghĩa nhưng nghe 
 | **in** | Không gian bên trong, thành phố/quốc gia | in the room, in a box, in London, in Vietnam, in the car |
 
 **Ngoại lệ quan trọng:**
+
 - in/on the bus: **on** the bus (đang ở trên xe) vs get **in** the car (bước vào xe)
 - at/in school: **at school** (đang học, chức năng) vs **in** the school (bên trong tòa nhà)
 - at/in the corner: **at the corner** (ngoài góc đường) vs **in the corner** (góc trong phòng)
@@ -153,6 +156,7 @@ Giới từ sai tạo ra "unnatural English" — câu đúng nghĩa nhưng nghe 
 | aim | aim **to achieve** (V), aim **at improving** (V), aim **for a target** (V); the aim **of** the project / its aim is **to** help (N) | Theo vai trò và nghĩa |
 
 **Ví dụ đúng:**
+
 - The success of the project **depends on** several factors.
 - This **results in** greater inequality.
 - Poverty **results from** a combination of factors.
@@ -237,10 +241,12 @@ Giới từ sai tạo ra "unnatural English" — câu đúng nghĩa nhưng nghe 
 ### Lỗi 1: Dịch sát từ tiếng Việt
 
 Tiếng Việt: "phụ thuộc vào" — người học dùng "depend to"
+
 - ❌ This **depends to** many factors.
 - ✅ This **depends on** many factors.
 
 Tiếng Việt: "quan tâm đến" — người học dùng "care to"
+
 - ❌ She **cares to** the environment.
 - ✅ She **cares about** the environment.
 
@@ -272,18 +278,21 @@ Tiếng Việt: "quan tâm đến" — người học dùng "care to"
 ### Writing Task 2 — các collocations quan trọng:
 
 **Môi trường:**
+
 - The increase **in** carbon emissions has led **to** global warming.
 - Governments must find solutions **to** environmental problems.
 - This policy will have a significant impact **on** the environment.
 - Many species are **at** risk **of** extinction.
 
 **Giáo dục:**
+
 - Access **to** quality education should be guaranteed **for** all children.
 - There is an urgent need **for** educational reform.
 - Investment **in** education is essential **for** economic development.
 - Students **benefit from** a structured learning environment.
 
 **Xã hội:**
+
 - The reason **for** rising inequality is complex.
 - Technology has changed our attitude **towards** work.
 - Young people are particularly concerned **about** their career prospects.
@@ -321,9 +330,11 @@ Tiếng Việt: "quan tâm đến" — người học dùng "care to"
 ### Đáp án
 
 **Điền giới từ:**
+
 1. on | 2. in | 3. in | 4. on | 5. in / from | 6. at | 7. to | 8. from
 
 **Sửa lỗi:**
+
 1. Many people suffer **from** stress in their daily lives.
 2. The reason **for** climate change is human activity.
 3. We need better access **to** clean water in rural areas.
@@ -333,16 +344,19 @@ Tiếng Việt: "quan tâm đến" — người học dùng "care to"
 ## Tóm tắt nhanh
 
 **Giới từ thời gian:**
+
 - **at** + giờ (7pm, noon, midnight)
 - **on** + ngày, thứ, ngày đặc biệt
 - **in** + tháng, năm, thập kỷ, buổi (morning/afternoon/evening)
 
 **Giới từ vị trí:**
+
 - **at** + điểm cụ thể, địa chỉ, địa điểm (là điểm)
 - **on** + bề mặt, tầng
 - **in** + không gian bên trong, thành phố/quốc gia
 
 **Collocations quan trọng nhất:**
+
 - depend/rely/focus/concentrate/insist **on**
 - result/suffer/benefit/different **from**
 - contribute/respond/similar/dedicated **to**

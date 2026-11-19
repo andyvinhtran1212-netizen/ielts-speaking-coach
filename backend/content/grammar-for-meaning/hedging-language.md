@@ -81,18 +81,21 @@ anchors:
 ## Tóm tắt
 
 Hedging (diễn đạt thận trọng) là kỹ thuật dùng ngôn ngữ để:
+
 - **Tránh khẳng định tuyệt đối** khi bằng chứng chưa đủ chắc chắn
 - **Thể hiện sự không chắc chắn** một cách học thuật
 - **Trình bày quan điểm** mà không áp đặt
 - **Phân biệt sự thật với ý kiến** trong văn bản học thuật
 
 So sánh:
+
 - ❌ "Technology **destroys** human relationships." (quá tuyệt đối)
 - ✅ "Technology **tends to undermine** human relationships **in some cases**." (hedged)
 
 ## Tại sao quan trọng
 
 Trong IELTS Writing và Speaking, hedging language giúp:
+
 1. **Nghĩa rõ:** Phân biệt fact vs opinion, certain vs uncertain
 2. **Độ chính xác:** Tránh overgeneralisation — lỗi phổ biến khiến mất điểm Task Response
 3. **Văn phong học thuật:** Dùng hedge khi bằng chứng cần giới hạn; nhận định mạnh có căn cứ vẫn phù hợp
@@ -116,6 +119,7 @@ Modal verbs là cách hedging phổ biến nhất:
 | **can** | khả năng/khái quát | Stress **can** lead to serious health problems. |
 
 **Dùng trong IELTS Writing Task 2:**
+
 - This **could** lead to greater inequality.
 - There **may** be long-term consequences that we cannot yet foresee.
 - Such policies **might** prove counterproductive if implemented without proper planning.
@@ -159,6 +163,7 @@ Modal verbs là cách hedging phổ biến nhất:
 | Chỉ về lý thuyết | **conceivably, theoretically, potentially** |
 
 **Ví dụ:**
+
 - This is **probably** the most significant factor.
 - **Generally**, people prefer stability over change.
 - **Perhaps** the most important consideration is cost.
@@ -187,6 +192,7 @@ Dùng danh từ trừu tượng để tránh khẳng định mạnh:
 | "Everyone knows..." | "It is **widely believed** that..." |
 
 **Cấu trúc hữu dụng:**
+
 - There **tends to be** a relationship between X and Y.
 - There **appears to be** evidence that...
 - There **is a possibility** that...
@@ -212,11 +218,13 @@ Subject + passive verb + to-infinitive
 | **It is often claimed that** | **It is often claimed that** technology creates jobs. |
 
 **Chuyển từ active sang passive:**
+
 - “Researchers believe that...” → “It is believed that...” bỏ nguồn cụ thể; nếu đã biết nguồn, nên giữ “The researchers in this study believe...”. Bị động không tự thêm bằng chứng hay tính khách quan.
 - "Some argue that..." → "**It is argued that...**"
 - "Studies show that..." → "**It has been shown that...**"
 
 **Subject + passive + to-infinitive:**
+
 - Technology **is thought to** be both beneficial and harmful.
 - Education **is considered to** be a fundamental right.
 - Income inequality **is known to** affect social mobility.
@@ -236,6 +244,7 @@ Tránh số liệu tuyệt đối hoặc khẳng định vô điều kiện:
 | **proves** | suggests, indicates, implies, points to |
 
 **Số liệu gần đúng:**
+
 - **approximately** 30% of respondents
 - **around** half of the population
 - **roughly** one in three people
@@ -327,6 +336,7 @@ Tránh số liệu tuyệt đối hoặc khẳng định vô điều kiện:
 ### Đáp án
 
 **Thêm hedging:**
+
 1. Technology **tends to make** young people **somewhat** less social, **in certain contexts**.
 2. The government's policy **may help to** reduce unemployment **to some extent**.
 3. **Many** people / **The majority of** people **appear to** prefer working from home.
@@ -334,6 +344,7 @@ Tránh số liệu tuyệt đối hoặc khẳng định vô điều kiện:
 5. The economy **is likely to** recover **within approximately** two years, **assuming** conditions remain stable.
 
 **Chọn hedge:**
+
 1. suggests | 2. tends to be | 3. It is argued | 4. may undermine / in some cases
 
 ## Tóm tắt nhanh
@@ -350,6 +361,7 @@ Tránh số liệu tuyệt đối hoặc khẳng định vô điều kiện:
 | **Noun phrases** | there tends to be, there appears to be a link |
 
 **Quy tắc vàng:**
+
 - Kiểm tra bằng chứng trước khi dùng all, never, always hoặc proves; không tự làm yếu một nhận định đã được chứng minh.
 - Dùng hedge khi bằng chứng cần giới hạn; không có số hedge bắt buộc mỗi câu. Khẳng định mạnh có căn cứ cũng phù hợp.
 - Trong IELTS Writing: hedging không phải là "thiếu tự tin" — nó là **văn phong học thuật chuẩn**

@@ -49,7 +49,7 @@ def _keys_deep(node, found=None):
 def _seed(fake, exercise_type, payload, segments=None):
     cid = str(uuid4())
     fake.tables["listening_content"].append({
-        "id": cid, "status": "published", "audio_duration_seconds": 60,
+        "id": cid, "test_id": None, "status": "published", "audio_duration_seconds": 60,
         "audio_storage_path": "x/y.mp3", "title": "Bài kiểm rò rỉ",
     })
     row = {

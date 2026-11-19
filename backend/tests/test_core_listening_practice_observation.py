@@ -98,7 +98,7 @@ def test_check_retry_reveal_submit_preserve_first_answer_without_extra_attempts(
     assert all(mode == "select" for _, mode in world.calls[:-1])
 
 
-@pytest.mark.parametrize("denial,expected_status", [("auth", 401), ("owner", 403), ("missing", 404)])
+@pytest.mark.parametrize("denial,expected_status", [("auth", 401), ("owner", 404), ("missing", 404)])
 def test_unauthorized_or_missing_attempts_never_create_evidence(monkeypatch, denial, expected_status):
     world = setup(monkeypatch)
     if denial == "auth":
@@ -265,7 +265,7 @@ def test_installed_postgrest_client_preserves_boolean_rpc_contract(value):
 
 
 @pytest.mark.parametrize("scenario,status", [("success", 200), ("conflict", 409),
-                                           ("malformed", 503), ("owner", 403)])
+                                           ("malformed", 503), ("owner", 404)])
 @pytest.mark.parametrize("enabled", [False, True])
 def test_http_practice_route_preserves_body_auth_and_truthful_error_status(monkeypatch, scenario, status, enabled):
     from main import request_id_middleware

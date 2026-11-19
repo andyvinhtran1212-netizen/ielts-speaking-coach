@@ -109,6 +109,7 @@ Một số từ bắt đầu bằng chữ **U** nhưng phát âm là **/juː/** 
 | URL | (nếu đọc từng chữ /juː-ɑːr-ɛl/) | **a** URL |
 
 **Ví dụ câu:**
+
 - She studied at **a** university in Hanoi.
 - This is **a** unique chance to improve your skills.
 - It is **a** useful reference guide for IELTS candidates.
@@ -193,6 +194,7 @@ Với chữ viết tắt, quy tắc vẫn dựa trên **âm của chữ đầu t
 | CV | /siː-viː/ | **a** CV |
 
 **Ví dụ:**
+
 - She completed **an** MBA at a top business school.
 - **An** NGO was set up to address the issue of child poverty.
 - He attached **a** PDF to the email.

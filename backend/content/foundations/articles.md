@@ -142,6 +142,7 @@ learning_blocks:
 
 
 Tiếng Việt không có mạo từ — "tôi có xe" có thể là "I have a car" hoặc "I have the car" tuỳ ngữ cảnh. Người học Việt Nam thường:
+
 - Bỏ mạo từ: ❌ "She is student." / "I like music" (đúng!), "I like the music" (sai nếu nói chung)
 - Dùng "the" quá nhiều: ❌ "I enjoy the reading." / "The life is beautiful."
 - Nhầm a/an: ❌ "a umbrella" / "a hour"
@@ -174,6 +175,7 @@ Chọn **a** hay **an** dựa trên **âm đầu tiên của từ tiếp theo**,
 | **an** + nguyên âm (*vowel sound*) | an **a**pple, an **e**gg, an **h**our (h câm) |
 
 **Chú ý đặc biệt:**
+
 - **a university** — "u" đọc là /j/ (phụ âm) → dùng **a**
 - **an umbrella** — "u" đọc là /ʌ/ (nguyên âm) → dùng **an**
 - **an hour** — "h" câm, đọc bắt đầu bằng /aʊ/ → dùng **an**
@@ -273,6 +275,7 @@ Khi nói về loại chung, không phải cụ thể.
 - **Smartphones** have changed communication.
 
 So sánh:
+
 - "**The** books on the shelf are mine." *(những cuốn cụ thể)*
 - "**Books** can expand your mind." *(sách nói chung)*
 
@@ -282,6 +285,7 @@ So sánh:
 - She gave me **advice**. / I need **information**.
 
 So sánh:
+
 - "I love **music**." *(âm nhạc nói chung)*
 - "I love **the** music at this cafe." *(âm nhạc cụ thể đang phát)*
 
@@ -440,6 +444,7 @@ Phân tích: thiếu "a" trước "small city" (lần đầu nhắc + đếm đ�
 ### Đáp án
 
 **Điền:**
+
 1. a doctor; a local hospital nếu giới thiệu bệnh viện chưa được nhận diện. The local hospital cũng phù hợp khi ngữ cảnh xác định bệnh viện của địa phương; đề không cho ngữ cảnh để loại cách đó.
 2. the United States; The trip
 3. ø Mount Fuji (tên núi đơn); a volcano; ø Japan
@@ -447,6 +452,7 @@ Phân tích: thiếu "a" trước "small city" (lần đầu nhắc + đếm đ�
 5. ø knowledge khi nói chung; the knowledge of grammar khi xác định vốn kiến thức cụ thể. A good knowledge of grammar là mẫu có tính từ, không phải quy tắc mọi knowledge đều có a. IELTS thường không có mạo từ; the IELTS exam có danh từ trung tâm exam.
 
 **Sửa lỗi:**
+
 1. **Life** is full of surprises. (danh từ không đếm được nói chung)
 2. I travel to work by **train** every morning. (by + transport = zero article)
 3. She bought **an** umbrella (âm đầu /ʌ/ là nguyên âm; hour mới là ví dụ h câm)

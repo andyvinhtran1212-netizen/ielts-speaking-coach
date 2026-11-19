@@ -28,6 +28,14 @@ class _Table:
         self._rows, self._log, self._boom = rows, log, boom
         self._f, self._limit, self._desc, self._lt = [], None, False, None
 
+    def or_(self, expression):
+        from blackeye_query_double import matches_blackeye_filter
+        self._rows = [r for r in self._rows if matches_blackeye_filter(r, expression)]
+        return self
+    def range(self, start, end):
+        self._rows = self._rows[start:end + 1]
+        return self
+
     def select(self, *_a, **_k): return self
     def eq(self, f, v): self._f.append((f, v)); return self
     def lt(self, f, v): self._lt = (f, v); return self

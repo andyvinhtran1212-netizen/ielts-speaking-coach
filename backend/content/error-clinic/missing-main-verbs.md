@@ -114,6 +114,7 @@ Subject + Main Verb (+ phần còn lại)
 ## KIỂU 2: DÙNG V-ING MÀ THIẾU "BE"
 
 V-ing có thể là:
+
 - **Main verb** trong continuous tense: "She **is sleeping**." ← cần "be"
 - **Gerund** làm subject: "**Swimming** is good for health." ← subject, không phải main verb
 - **Present participle** trong cụm: "**Running** late, she took a taxi." ← participle phrase
@@ -196,12 +197,14 @@ Tương tự, passive voice cần "be + past participle". Bỏ "be" khiến câu
 ## Ứng dụng trong Speaking
 
 Trong speaking, thiếu main verb thường xảy ra khi:
+
 - Người nói nói nhanh và bỏ qua "is/are/was"
 - Người nói tập trung vào nội dung mà quên cấu trúc
 
 **Thực hành:**
 
 Luyện thêm "be" vào các câu mô tả:
+
 - "**It is** important that..." (không bỏ "is")
 - "**There are** many reasons..." (không bỏ "are")
 - "**This is** because..." (không bỏ "is")

@@ -85,6 +85,7 @@ Trong IELTS, không phải lúc nào cũng phù hợp để nói "I think" hay "
 ## Tại sao quan trọng
 
 Examiner IELTS đánh giá cao người biết **phân biệt** giữa:
+
 - Điều chắc chắn (undeniable facts)
 - Quan điểm cá nhân mạnh (strong personal views)
 - Nhận định cần thận trọng (debatable claims)
@@ -235,6 +236,7 @@ The reality is more nuanced than...
 > "**I strongly believe that** governments should ban fast-food advertising directed at children. **It is undeniable that** children are highly susceptible to advertising, and **there is clear evidence that** food marketing shapes what they want to eat. **However**, **it could be argued that** parents ultimately bear the primary responsibility for their children's diet, and that blanket bans may infringe on commercial freedom. **That said**, **I am convinced that** the health of future generations must take precedence over commercial interests."
 
 **Phân tích cấu trúc:**
+
 - Câu 1: Strong stance (I strongly believe)
 - Câu 2: Strong evidence (it is undeniable, there is clear evidence)
 - Câu 3: Cautious acknowledgement (it could be argued)
@@ -314,11 +316,13 @@ The reality is more nuanced than...
 ### Gợi ý đáp án (Viết lại):
 
 **Thêm hedging:**
+
 1. "**It could be argued that** social media is **having a negative impact on** some relationships."
 2. "**There is a growing view that** some young people are **becoming less motivated**, possibly due to economic uncertainty."
 3. "**While** technology **has undoubtedly created challenges**, **it would be an oversimplification to say** it causes nothing but problems."
 
 **Thêm strength:**
+
 1. "**It is widely acknowledged that** education is **one of the most important factors** in personal and social development."
 2. "**There is no doubt that** pollution **poses a serious threat** to public health."
 3. "**It is clear from research that** regular exercise has **significant benefits** for both physical and mental wellbeing."

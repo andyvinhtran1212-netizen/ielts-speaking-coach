@@ -1,0 +1,100 @@
+{
+  "items": [
+    {
+      "assignment_id": "00000000-0000-4000-8000-000000000002",
+      "cohort_id": "00000000-0000-4000-8000-000000000001",
+      "title": "Black Eye · Unit 1 · A01–A07",
+      "due_at": "2026-11-25T21:00:00+07:00",
+      "status": "published",
+      "activities": [
+        {
+          "activity_id": "U1-A01",
+          "title": "Form completion: hotel booking",
+          "position": 1,
+          "test_id": "00000000-0000-4000-8000-000000000031",
+          "item_id": "00000000-0000-4000-8000-000000000021",
+          "readiness": "ready",
+          "readiness_reasons": [],
+          "my_status": "submitted",
+          "latest_attempt_id": "00000000-0000-4000-8000-000000000061",
+          "answer_set_revision": "SENTINEL_ANSWER_SET"
+        },
+        {
+          "activity_id": "U1-A02",
+          "title": "Table: weekly timetable",
+          "position": 2,
+          "test_id": "00000000-0000-4000-8000-000000000032",
+          "item_id": "00000000-0000-4000-8000-000000000021",
+          "readiness": "ready",
+          "readiness_reasons": [],
+          "my_status": "in_progress",
+          "latest_attempt_id": "00000000-0000-4000-8000-000000000062",
+          "answer_set_revision": "SENTINEL_ANSWER_SET"
+        },
+        {
+          "activity_id": "U1-A03",
+          "title": "Keep or change: lecture notes",
+          "position": 3,
+          "test_id": "00000000-0000-4000-8000-000000000033",
+          "item_id": "00000000-0000-4000-8000-000000000021",
+          "readiness": "ready",
+          "readiness_reasons": [],
+          "my_status": "not_started",
+          "latest_attempt_id": null,
+          "answer_set_revision": "SENTINEL_ANSWER_SET"
+        },
+        {
+          "activity_id": "U1-A04",
+          "title": "Keep or change: tour notes",
+          "position": 4,
+          "test_id": "00000000-0000-4000-8000-000000000034",
+          "item_id": "00000000-0000-4000-8000-000000000021",
+          "readiness": "ready",
+          "readiness_reasons": [],
+          "my_status": "not_started",
+          "latest_attempt_id": null,
+          "answer_set_revision": "SENTINEL_ANSWER_SET"
+        },
+        {
+          "activity_id": "U1-A05",
+          "title": "Notes: museum visit",
+          "position": 5,
+          "test_id": "00000000-0000-4000-8000-000000000035",
+          "item_id": "00000000-0000-4000-8000-000000000021",
+          "readiness": "locked",
+          "readiness_reasons": [
+            "audio_not_found"
+          ],
+          "my_status": "not_started",
+          "latest_attempt_id": null,
+          "answer_set_revision": "SENTINEL_ANSWER_SET"
+        },
+        {
+          "activity_id": "U1-A06",
+          "title": "Sentence completion",
+          "position": 6,
+          "test_id": "00000000-0000-4000-8000-000000000036",
+          "item_id": "00000000-0000-4000-8000-000000000021",
+          "readiness": "ready",
+          "readiness_reasons": [],
+          "my_status": "not_started",
+          "latest_attempt_id": null,
+          "answer_set_revision": "SENTINEL_ANSWER_SET"
+        },
+        {
+          "activity_id": "U1-A07",
+          "title": "Table: course options",
+          "position": 7,
+          "test_id": "00000000-0000-4000-8000-000000000037",
+          "item_id": "00000000-0000-4000-8000-000000000021",
+          "readiness": "ready",
+          "readiness_reasons": [],
+          "my_status": "expired",
+          "latest_attempt_id": null,
+          "answer_set_revision": "SENTINEL_ANSWER_SET"
+        }
+      ]
+    }
+  ],
+  "next_cursor": null
+}

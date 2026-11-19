@@ -75,7 +75,7 @@ Nhiều câu trắc nghiệm cho sẵn 4 dạng của cùng một gốc từ và
 
 > The company's rapid ____ surprised investors. (A) grow (B) growing (C) **growth** (D) grew
 
-Sau tính từ sở hữu *company's rapid* + vị trí chủ ngữ → cần **danh từ** → *growth*. Nhận diện hậu tố danh từ là chìa khoá.
+Sau sở hữu cách *The company's* + tính từ *rapid*, ở vị trí chủ ngữ → cần **danh từ** → *growth*. Nhận diện hậu tố danh từ là chìa khoá.
 
 <!-- anchor: word-formation-noun-suffixes.suffix.tion-sion -->
 ### -tion / -sion — hành động, quá trình
@@ -90,7 +90,7 @@ Hậu tố phổ biến nhất, gắn vào **động từ** để chỉ hành đ
 | discuss | discus**sion** |
 | inform | information |
 
-Gốc kết thúc bằng *-de/-se* thường thành *-sion* (decide → decision); phần lớn còn lại thành *-tion*.
+Gốc tận cùng *-de/-se/-ss/-mit* thường thành *-sion* (decide → decision, confuse → confusion, discuss → discussion, permit → permission); phần lớn còn lại thành *-tion*.
 
 <!-- anchor: word-formation-noun-suffixes.suffix.ment -->
 ### -ment — hành động hoặc kết quả
@@ -112,7 +112,7 @@ Nhóm -ity/-ness thường gắn với tính từ; -ance/-ence có thể liên q
 
 Nhóm này rất hay xuất hiện trong Writing học thuật (**nominalization** — danh hoá):
 
-- *The prices increased rapidly.* → *The rapid **increase** in prices…*
+- *People are increasingly **aware** of climate change.* → *Public **awareness** of climate change is increasing.*
 
 ### Hậu tố chỉ người: -er / -or / -ist / -ant
 
@@ -132,24 +132,26 @@ Chỉ **người** thực hiện hành động hoặc nghề nghiệp:
 
 ### Lỗi 2: Chọn sai hậu tố cho gốc từ
 
-- ❌ *decision* → ~~decidement~~; *importance* → ~~importantness~~
+- ❌ decide → ~~decidement~~ (✅ decision); important → ~~importantness~~ (✅ importance)
 - ✅ Học **theo cụm gốc + hậu tố cố định**, không suy đoán tuỳ tiện.
 
 ### Lỗi 3: Quên đổi chính tả khi thêm hậu tố
 
-- happy → happi**ness** (y → i); able → **ability** có thân abil-, không chỉ bỏ e rồi ghép ity (sẽ thành ablity). Học dạng chính tả của cả từ.
+- ❌ ~~happyness~~ → ✅ happi**ness** (y → i); ❌ ~~ablity~~ → ✅ **ability** (able → abil- + ity).
 
 ## Ứng dụng trong bài thi
 
 **TOEIC Part 5 / THPT:** câu "word form" — nhìn **vị trí trống** (sau mạo từ, tính từ, giới từ → thường là danh từ) rồi chọn dạng có hậu tố danh từ.
 
 **IELTS Writing:** dùng danh hoá để câu súc tích, học thuật hơn — nhưng đừng lạm dụng đến mức khó đọc.
+
 - Task 2: *Many people are not **aware** of the risks.* → *There is little public **awareness** of the risks.*
 - Task 1: *Sales improved significantly.* → *There was a significant **improvement** in sales.*
 
 ## Bài tập luyện
 
 Chuyển sang danh từ:
+
 1. decide → ?
 2. improve → ?
 3. aware → ?

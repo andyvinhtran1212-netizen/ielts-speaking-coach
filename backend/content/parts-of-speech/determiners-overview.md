@@ -96,6 +96,7 @@ Chọn sai determiner theo tính đếm được là lỗi rất phổ biến �
 | **some / any** | some/any books | some/any water |
 
 Quy tắc lõi:
+
 - **many, (a) few** + danh từ **đếm được số nhiều**
 - **much, (a) little** + danh từ **không đếm được**
 - **some** thường trong câu khẳng định; **any** trong câu phủ định/nghi vấn
@@ -129,6 +130,7 @@ Quy tắc lõi:
 **TOEIC / THPT:** khi thấy chỗ trống trước danh từ, hỏi ngay: *danh từ đếm được hay không? số ít hay nhiều?* rồi chọn determiner khớp. Cặp *much/many* và *few/little* bị hỏi nhiều nhất.
 
 **Ví dụ IELTS Writing:**
+
 - "**Many** people believe…"
 - "**Little** attention has been paid to…"
 - "**Every** citizen should have access to clean water."
@@ -136,6 +138,7 @@ Quy tắc lõi:
 ## Bài tập luyện
 
 Chọn determiner đúng:
+
 1. How (much / many) luggage do you have?
 2. There are (few / little) chairs left.
 3. (Every / All) student must register.

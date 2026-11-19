@@ -102,6 +102,7 @@ Quantifiers = từ đứng trước danh từ để chỉ **số lượng** nhi�
 ## Tại sao quan trọng
 
 Lỗi dùng sai quantifier (much students, few information...) bị đánh giá là lỗi cơ bản trong IELTS. Nắm vững quantifiers giúp:
+
 - Diễn đạt số lượng chính xác trong Writing Task 1 (mô tả dữ liệu)
 - Lập luận thuyết phục trong Task 2 (most people, a significant proportion...)
 - Nói tự nhiên và đa dạng trong Speaking
@@ -130,6 +131,7 @@ much + uncountable noun
 - **How much** money was spent?
 
 > **Lưu ý:** "Much" thường dùng trong câu phủ định và câu hỏi. Trong câu khẳng định, ưu tiên "a lot of" hoặc "a great deal of":
+>
 > - ✅ Much research supports this view. (tự nhiên trong văn học thuật; câu đúng)
 > - ✅ **A great deal of** research supports this view. (học thuật hơn)
 > - ✅ **Much** of the research supports this view. (chấp nhận được trong academic writing)
@@ -188,6 +190,7 @@ a little + uncountable noun = "có một ít", nhấn có một lượng nhỏ (
 | **Uncountable** | **little** (ít hơn mức cần) | **a little** (có một ít) |
 
 **Ví dụ so sánh:**
+
 - **Few** students passed. (Rất ít em đỗ — kết quả đáng lo ngại)
 - **A few** students passed. (Có một vài em đỗ — tốt hơn không có gì)
 - **Little** funding was available. (Gần như không có kinh phí)
@@ -209,6 +212,7 @@ a little + uncountable noun = "có một ít", nhấn có một lượng nhỏ (
 - If you have **any** concerns, let me know. (điều kiện)
 
 > **Any trong câu khẳng định = "bất kỳ":**
+>
 > - You can ask **any** question you like.
 > - **Any** country can participate.
 
@@ -259,6 +263,7 @@ Dùng với countable plural, động từ số nhiều:
 - **A number of** factors contribute to this problem.
 
 > **Phân biệt "the number of" vs "a number of":**
+>
 > - **The number of** students **is** increasing. (số lượng → số ít)
 > - **A number of** students **are** struggling. (một số học sinh → số nhiều)
 
@@ -349,9 +354,11 @@ Tiếng Việt 'nhiều' dùng cho mọi danh từ nên người học hay viế
 ### Đáp án
 
 **Quantifier đúng:**
+
 1. much | 2. A few | 3. a little | 4. Much / A great deal of | 5. several
 
 **Sửa lỗi:**
+
 1. There is **much / a great deal of** evidence... (evidence = uncountable)
 2. **A great deal of** research has been conducted. (research = uncountable; "a number of" → countable plural)
 3. **A few** solutions exist, so we are optimistic. (positive → "a few")
@@ -371,6 +378,7 @@ Tiếng Việt 'nhiều' dùng cho mọi danh từ nên người học hay viế
 | **Không có** | not any / no | not any / no |
 
 **Quy tắc vàng:**
+
 - **many / few / a few / several** → chỉ dùng với countable plural
 - **much / little / a little** → chỉ dùng với uncountable
 - **few/little** nhấn lượng ít; **a few/a little** nhấn có một lượng nhỏ. “Âm tính” ở đây là cách định hướng lượng, không tự là cảm xúc tiêu cực hay không đủ dùng.

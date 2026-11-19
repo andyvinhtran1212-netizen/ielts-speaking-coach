@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Writing · trình soạn Task 1 và Task 2</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--link:#0B5953;--mark:#8A4B08;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EDF3F1;--off:#E7E2D6}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--link:#1A3561;--mark:#8A1C1C;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EEF0F5;--off:#E8E2D5}
+a{color:var(--link)}a:hover{color:var(--ink)}
+</style>
+</helmet>
+<div class="{{pal}}" style="width: 1280px; height: 6150px; box-sizing: border-box; padding: 56px 64px; background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 16px; line-height: 1.5">
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Aver Learning · Bản in · dạng bài tập, tờ 5</p>
+<h1 style="margin: 4px 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 40px; font-weight: 600; line-height: 1.15">Writing · trình soạn Task 1 và Task 2</h1>
+<p style="margin: 0 0 36px; color: var(--muted); max-width: 86ch">Một trình soạn, hai chế độ. Chế độ luyện dùng cho bài được giao và bài tự luyện, không bắt buộc giờ, nhãn tiếng Việt. Chế độ thi dùng khi làm đề có giờ, nằm trong khung phòng thi chung, nhãn tiếng Anh như thi máy thật. Đề bài luôn bằng tiếng Anh. Các ô viết trên tờ này gõ thử được, số từ đếm theo chữ bạn gõ.</p>
+<div role="group" aria-label="Chế độ hiển thị nhãn của trình soạn" style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin: -12px 0 36px; padding: 14px 16px; border: 1px solid var(--ink); background: var(--surface)">
+<span style="font-weight: 600; margin-right: 4px">Chế độ của khối 1 và 2:</span>
+<button onClick="{{toPractice}}" aria-pressed="{{isPractice}}" style="min-height: 44px; padding: 0 16px; border: 1px solid var(--ink); border-radius: 2px; background: {{pBg}}; color: {{pFg}}; font: 600 15px 'Source Sans 3', sans-serif; cursor: pointer">Luyện từng phần</button>
+<button onClick="{{toTest}}" aria-pressed="{{isTest}}" style="min-height: 44px; padding: 0 16px; border: 1px solid var(--ink); border-radius: 2px; background: {{tBg}}; color: {{tFg}}; font: 600 15px 'Source Sans 3', sans-serif; cursor: pointer">Full test</button>
+<p style="flex-basis: 100%; margin: 0; font-size: 14px; color: var(--muted)">{{modeNote}}</p>
+</div>
+<div style="display: flex; flex-direction: column; gap: 40px">
+
+<section id="luyen2" aria-labelledby="h-luyen2" style="border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="h-luyen2" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">1. Task 2 · {{modeName}}</h2>
+<p style="margin: 0 0 14px; font-size: 14px; color: var(--muted)">{{sub1}}</p>
+<div lang="{{L.lang}}" style="position: relative; height: 600px; display: flex; flex-direction: column; border: 1px solid var(--ink); background: var(--surface)">
+<div style="flex-shrink: 0; display: flex; align-items: center; gap: 16px; min-height: 56px; padding: 0 24px; border-bottom: 1px solid var(--ink)">
+<a href="#luyen2" style="display: inline-flex; align-items: center; min-height: 44px; font-weight: 600">{{L.back}}</a>
+<p style="margin: 0; flex-grow: 1"><strong>Writing Task 2</strong> <span style="color: var(--muted)">{{L.due2}}</span></p>
+<span style="padding: 3px 10px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums">{{L.badge}}</span>
+</div>
+<div style="flex-grow: 1; min-height: 0; display: flex">
+<article style="width: 44%; box-sizing: border-box; padding: 24px 28px; overflow-y: auto; border-right: 1px solid var(--ink); background: var(--paper)">
+<p style="margin: 0 0 10px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">{{L.prompt2}}</p>
+<p lang="en" style="margin: 0 0 12px; font-size: 15px; color: var(--muted)">Write about the following topic:</p>
+<p lang="en" style="margin: 0 0 14px; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; font-weight: 600; line-height: 1.45">Some people think that city councils should spend public money on libraries. Others believe this money would be better spent on free internet access in public places.</p>
+<p lang="en" style="margin: 0 0 14px; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; font-weight: 600; line-height: 1.45">Discuss both views and give your own opinion.</p>
+<p lang="en" style="margin: 0 0 14px; font-family: 'Source Serif 4', Georgia, serif; font-size: 17px; line-height: 1.55">Give reasons for your answer and include any relevant examples from your own knowledge or experience.</p>
+<p lang="en" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 17px; line-height: 1.55">Write at least 250 words.</p>
+</article>
+<div style="width: 56%; box-sizing: border-box; display: flex; flex-direction: column; gap: 8px; padding: 20px 24px">
+<label for="ta-luyen2" style="font-weight: 600">{{L.yours}}</label>
+<textarea id="ta-luyen2" lang="en" spellcheck="false" value="{{t2}}" onChange="{{onT2}}" placeholder="{{L.ph}}" style="flex-grow: 1; min-height: 0; box-sizing: border-box; width: 100%; padding: 14px 16px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface); font: 18px/1.6 'Source Serif 4', Georgia, serif; color: var(--ink); resize: none"></textarea>
+</div>
+</div>
+<div style="flex-shrink: 0; display: flex; align-items: center; gap: 20px; min-height: 68px; padding: 0 24px; border-top: 1px solid var(--ink)">
+<p aria-live="polite" style="margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; color: {{c2.color}}">{{w2}}</p>
+<p role="status" style="margin: 0; flex-grow: 1; font-size: 14px; color: var(--muted)">{{saveL}}</p>
+<sc-if value="{{isPractice}}" hint-placeholder-val="{{true}}">
+<button onClick="{{saveNow}}" style="min-height: 44px; padding: 0 20px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif; cursor: pointer">Lưu nháp</button>
+</sc-if>
+<button onClick="{{askSubmit}}" style="min-height: 44px; padding: 0 20px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: #FFFFFF; font: 600 16px 'Source Sans 3', sans-serif; cursor: pointer">{{L.submit}}</button>
+</div>
+<sc-if value="{{askLow}}" hint-placeholder-val="{{false}}">
+<div role="alertdialog" aria-labelledby="dlg-low" style="position: absolute; right: 24px; bottom: 84px; width: 480px; box-sizing: border-box; padding: 20px 24px 24px; border: 2px solid var(--mark); border-left-width: 8px; background: var(--surface)">
+<p style="margin: 0 0 8px; display: flex; align-items: center; gap: 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--mark)"><svg aria-hidden="true" viewBox="0 0 20 20" style="width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.6"><path d="M10 3l8 14H2z"></path><path d="M10 8v4M10 14.5v.5"></path></svg>{{L.warn}}</p>
+<h3 id="dlg-low" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">{{lowHead}}</h3>
+<p style="margin: 0 0 18px">{{L.lowBody}}</p>
+<div style="display: flex; flex-wrap: wrap; gap: 12px">
+<button onClick="{{closeAsk}}" style="min-height: 44px; padding: 0 20px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: #FFFFFF; font: 600 16px 'Source Sans 3', sans-serif; cursor: pointer">{{L.keep}}</button>
+<button onClick="{{askConfirm}}" style="min-height: 44px; padding: 0 20px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif; cursor: pointer">{{L.anyway}}</button>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{askOk}}" hint-placeholder-val="{{false}}">
+<div role="alertdialog" aria-labelledby="dlg-ok" style="position: absolute; right: 24px; bottom: 84px; width: 480px; box-sizing: border-box; padding: 24px; border: 2px solid var(--ink); background: var(--surface)">
+<h3 id="dlg-ok" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">{{L.okHead}}</h3>
+<p style="margin: 0 0 18px">{{L.okBody}}</p>
+<div style="display: flex; flex-wrap: wrap; gap: 12px">
+<a href="#cham" onClick="{{closeAsk}}" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: #FFFFFF; font-weight: 600; text-decoration: none">{{L.submit}}</a>
+<button onClick="{{closeAsk}}" style="min-height: 44px; padding: 0 20px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif; cursor: pointer">{{L.backWrite}}</button>
+</div>
+</div>
+</sc-if>
+</div>
+<p style="margin: 16px 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Ba trạng thái tự lưu · hiện ở thanh dưới, cạnh số từ</p>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px">
+<div style="padding-top: 10px; border-top: 1px solid var(--rule)"><p style="margin: 0; display: flex; align-items: center; gap: 8px; color: var(--muted)"><svg aria-hidden="true" viewBox="0 0 20 20" style="width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.5"><path d="M4 10.5l4 4 8-9"></path></svg>Đã lưu lúc 10:42</p><p style="margin: 2px 0 0; font-size: 14px; color: var(--muted)">Bình thường. Tự lưu sau mỗi lần bạn ngừng gõ.</p></div>
+<div style="padding-top: 10px; border-top: 1px solid var(--rule)"><p style="margin: 0; display: flex; align-items: center; gap: 8px; color: var(--muted)"><svg aria-hidden="true" viewBox="0 0 20 20" style="width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.5"><circle cx="10" cy="10" r="7"></circle><path d="M10 6v4l3 2"></path></svg>Đang lưu…</p><p style="margin: 2px 0 0; font-size: 14px; color: var(--muted)">Không chặn việc gõ, không hiện vòng xoay giữa màn.</p></div>
+<div style="padding-top: 10px; border-top: 1px solid var(--danger)"><p style="margin: 0; display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--danger)"><svg aria-hidden="true" viewBox="0 0 20 20" style="width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.5"><path d="M10 3l8 14H2z"></path><path d="M10 8v4M10 14.5v.5"></path></svg>Chưa lưu được, sẽ thử lại</p><p style="margin: 2px 0 0; font-size: 14px; color: var(--muted)">Bài vẫn giữ trên máy. Xem trạng thái mất mạng ở khối 4.</p></div>
+</div>
+</section>
+
+<section id="luyen1" aria-labelledby="h-luyen1" style="border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="h-luyen1" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">2. Task 1 · {{modeName}}</h2>
+<p style="margin: 0 0 14px; font-size: 14px; color: var(--muted)">{{sub2}}</p>
+<div lang="{{L.lang}}" style="position: relative; height: 680px; display: flex; flex-direction: column; border: 1px solid var(--ink); background: var(--surface)">
+<div style="flex-shrink: 0; display: flex; align-items: center; gap: 16px; min-height: 56px; padding: 0 24px; border-bottom: 1px solid var(--ink)">
+<a href="#luyen1" style="display: inline-flex; align-items: center; min-height: 44px; font-weight: 600">{{L.back}}</a>
+<p style="margin: 0; flex-grow: 1"><strong>Writing Task 1</strong> <span style="color: var(--muted)">{{L.due1}}</span></p>
+<span style="padding: 3px 10px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums">{{L.badge}}</span>
+</div>
+<div style="flex-grow: 1; min-height: 0; display: flex">
+<article style="width: 50%; box-sizing: border-box; padding: 20px 28px; overflow-y: auto; border-right: 1px solid var(--ink); background: var(--paper)">
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">{{L.prompt1}}</p>
+<p lang="en" style="margin: 0 0 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; font-weight: 600; line-height: 1.45">The line graph below shows the percentage of households with internet access in three towns between 2000 and 2020.</p>
+<p lang="en" style="margin: 0 0 12px; font-family: 'Source Serif 4', Georgia, serif; font-size: 16px; line-height: 1.5">Summarise the information by selecting and reporting the main features, and make comparisons where relevant. Write at least 150 words.</p>
+<figure style="margin: 0; box-sizing: border-box; display: flex; flex-direction: column; gap: 6px; background: var(--surface); border: 1px solid var(--rule); position: {{zPos}}; inset: {{zInset}}; z-index: 2; padding: {{zPad}}">
+<div style="display: flex; align-items: center; gap: 12px">
+<figcaption lang="en" style="flex-grow: 1; font-size: 14px; font-weight: 600">Households with internet access (%), 2000–2020</figcaption>
+<button onClick="{{toggleZoom}}" aria-pressed="{{zoom}}" style="display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer"><svg aria-hidden="true" viewBox="0 0 20 20" style="width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5"><circle cx="8.5" cy="8.5" r="5.5"></circle><path d="M12.5 12.5L18 18M6 8.5h5M8.5 6v5"></path></svg>{{zoomLabel}}</button>
+</div>
+<svg role="img" aria-label="Line graph. Alder rises from 12 percent in 2000 to 84 percent in 2020. Brook rises from 5 percent to 96 percent. Carden rises from 20 percent to 52 percent." viewBox="0 0 520 280" style="display: block; width: 100%; height: {{chartH}}">
+<path d="M50 240H440M50 185H440M50 130H440M50 75H440M50 20H440" style="fill: none; stroke: var(--rule); stroke-width: 1"></path>
+<path d="M50 20V240H440" style="fill: none; stroke: var(--ink); stroke-width: 1.5"></path>
+<path d="M50 240v5M147.5 240v5M245 240v5M342.5 240v5M440 240v5" style="fill: none; stroke: var(--ink); stroke-width: 1.5"></path>
+<text x="42" y="244" style="text-anchor: end; fill: var(--muted); font: 12px 'Source Sans 3', sans-serif">0</text>
+<text x="42" y="189" style="text-anchor: end; fill: var(--muted); font: 12px 'Source Sans 3', sans-serif">25</text>
+<text x="42" y="134" style="text-anchor: end; fill: var(--muted); font: 12px 'Source Sans 3', sans-serif">50</text>
+<text x="42" y="79" style="text-anchor: end; fill: var(--muted); font: 12px 'Source Sans 3', sans-serif">75</text>
+<text x="42" y="24" style="text-anchor: end; fill: var(--muted); font: 12px 'Source Sans 3', sans-serif">100</text>
+<text x="50" y="262" style="text-anchor: middle; fill: var(--muted); font: 12px 'Source Sans 3', sans-serif">2000</text>
+<text x="147.5" y="262" style="text-anchor: middle; fill: var(--muted); font: 12px 'Source Sans 3', sans-serif">2005</text>
+<text x="245" y="262" style="text-anchor: middle; fill: var(--muted); font: 12px 'Source Sans 3', sans-serif">2010</text>
+<text x="342.5" y="262" style="text-anchor: middle; fill: var(--muted); font: 12px 'Source Sans 3', sans-serif">2015</text>
+<text x="440" y="262" style="text-anchor: middle; fill: var(--muted); font: 12px 'Source Sans 3', sans-serif">2020</text>
+<polyline points="50,196 147.5,178.4 245,160.8 342.5,141 440,125.6" style="fill: none; stroke: var(--mark); stroke-width: 2; stroke-dasharray: 2 4"></polyline>
+<polyline points="50,229 147.5,209.2 245,156.4 342.5,94.8 440,28.8" style="fill: none; stroke: var(--accent); stroke-width: 2; stroke-dasharray: 7 4"></polyline>
+<polyline points="50,213.6 147.5,174 245,119 342.5,77.2 440,55.2" style="fill: none; stroke: var(--ink); stroke-width: 2"></polyline>
+<text x="450" y="33" style="fill: var(--accent); font: 600 13px 'Source Sans 3', sans-serif">Brook 96</text>
+<text x="450" y="60" style="fill: var(--ink); font: 600 13px 'Source Sans 3', sans-serif">Alder 84</text>
+<text x="450" y="130" style="fill: var(--mark); font: 600 13px 'Source Sans 3', sans-serif">Carden 52</text>
+</svg>
+<div lang="en" style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px 20px; font-size: 13px">
+<span style="display: inline-flex; align-items: center; gap: 6px"><svg aria-hidden="true" viewBox="0 0 28 8" style="width: 28px; height: 8px"><path d="M0 4H28" style="fill: none; stroke: var(--ink); stroke-width: 2"></path></svg>Alder</span>
+<span style="display: inline-flex; align-items: center; gap: 6px"><svg aria-hidden="true" viewBox="0 0 28 8" style="width: 28px; height: 8px"><path d="M0 4H28" style="fill: none; stroke: var(--accent); stroke-width: 2; stroke-dasharray: 7 4"></path></svg>Brook</span>
+<span style="display: inline-flex; align-items: center; gap: 6px"><svg aria-hidden="true" viewBox="0 0 28 8" style="width: 28px; height: 8px"><path d="M0 4H28" style="fill: none; stroke: var(--mark); stroke-width: 2; stroke-dasharray: 2 4"></path></svg>Carden</span>
+<span lang="{{L.lang}}" style="margin-left: auto; color: var(--muted)">{{L.source}}</span>
+</div>
+</figure>
+</article>
+<div style="width: 50%; box-sizing: border-box; display: flex; flex-direction: column; gap: 8px; padding: 20px 24px">
+<label for="ta-luyen1" style="font-weight: 600">{{L.yours}}</label>
+<textarea id="ta-luyen1" lang="en" spellcheck="false" value="{{t1}}" onChange="{{onT1}}" placeholder="{{L.ph}}" style="flex-grow: 1; min-height: 0; box-sizing: border-box; width: 100%; padding: 14px 16px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface); font: 18px/1.6 'Source Serif 4', Georgia, serif; color: var(--ink); resize: none"></textarea>
+</div>
+</div>
+<div style="flex-shrink: 0; display: flex; align-items: center; gap: 20px; min-height: 68px; padding: 0 24px; border-top: 1px solid var(--ink)">
+<p aria-live="polite" style="margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; color: {{c1.color}}">{{w1}}</p>
+<p role="status" style="margin: 0; flex-grow: 1; font-size: 14px; color: var(--muted)">{{saveL}}</p>
+<sc-if value="{{isPractice}}" hint-placeholder-val="{{true}}">
+<button onClick="{{saveNow}}" style="min-height: 44px; padding: 0 20px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif; cursor: pointer">Lưu nháp</button>
+</sc-if>
+<button style="min-height: 44px; padding: 0 20px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: #FFFFFF; font: 600 16px 'Source Sans 3', sans-serif; cursor: pointer">{{L.submit}}</button>
+</div>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)">Biểu đồ của đề thật là ảnh do giáo viên tải lên; khung, nút phóng to và dòng nguồn giữ nguyên như trên. Các đường phân biệt bằng kiểu nét và nhãn ghi thẳng ở cuối đường, không chỉ bằng màu.</p>
+</section>
+
+<section id="thi" aria-labelledby="h-thi" style="border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="h-thi" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">3. Task 2 · chế độ thi</h2>
+<p style="margin: 0 0 14px; font-size: 14px; color: var(--muted)">Làm đề có giờ, trong khung phòng thi chung · toàn bộ nhãn tiếng Anh · đang ở lúc còn 5 phút</p>
+<div lang="en" style="height: 680px; display: flex; flex-direction: column; border: 1px solid var(--ink); background: var(--paper)">
+<header style="height: 56px; flex-shrink: 0; display: flex; align-items: center; gap: 24px; padding: 0 20px; background: var(--ink); color: #FFFFFF">
+<a href="#thi" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 14px; border: 1px solid #FFFFFF; border-radius: 2px; color: #FFFFFF; text-decoration: none; font-size: 15px">‹ Leave test</a>
+<p style="margin: 0; flex-grow: 1; font-size: 15px"><strong>Writing · Academic Test 1</strong> <span style="opacity: 0.85">· Task 2 of 2</span></p>
+<p style="margin: 0; font-size: 13px; opacity: 0.85">{{saveEn}}</p>
+<p style="margin: 0; font-size: 13px; opacity: 0.85">Time remaining</p>
+<p role="timer" aria-label="Time remaining" style="margin: 0; padding: 4px 14px; background: #FFFFFF; color: var(--mark); font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; border-radius: 2px">04:58</p>
+</header>
+<p role="alert" style="flex-shrink: 0; margin: 0; padding: 10px 20px; border-bottom: 1px solid var(--mark); background: var(--surface)"><strong style="color: var(--mark)">5 minutes remaining.</strong> Your answers will be submitted automatically when the time is up.</p>
+<div style="flex-grow: 1; min-height: 0; display: flex">
+<article style="width: 44%; box-sizing: border-box; padding: 24px 32px; overflow-y: auto; border-right: 1px solid var(--ink); background: var(--surface)">
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Writing Task 2</p>
+<p style="margin: 6px 0 14px; color: var(--muted)">You should spend about 40 minutes on this task. Write about the following topic:</p>
+<p style="margin: 0 0 14px; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; font-weight: 600; line-height: 1.45">Some people think that city councils should spend public money on libraries. Others believe this money would be better spent on free internet access in public places.</p>
+<p style="margin: 0 0 14px; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; font-weight: 600; line-height: 1.45">Discuss both views and give your own opinion.</p>
+<p style="margin: 0 0 14px; font-family: 'Source Serif 4', Georgia, serif; font-size: 17px; line-height: 1.55">Give reasons for your answer and include any relevant examples from your own knowledge or experience.</p>
+<p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 17px; line-height: 1.55">Write at least 250 words.</p>
+</article>
+<div style="width: 56%; box-sizing: border-box; display: flex; flex-direction: column; gap: 8px; padding: 20px 28px 14px">
+<label for="ta-thi" style="font-weight: 600">Your answer · Task 2</label>
+<textarea id="ta-thi" spellcheck="false" value="{{tx}}" onChange="{{onTx}}" placeholder="Type your answer here." style="flex-grow: 1; min-height: 0; box-sizing: border-box; width: 100%; padding: 14px 16px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface); font: 18px/1.6 'Source Serif 4', Georgia, serif; color: var(--ink); resize: none"></textarea>
+<p aria-live="polite" style="margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; color: {{cx.color}}">Word count: {{cx.n}} <span style="font-weight: 400">· {{cx.note}}</span></p>
+</div>
+</div>
+<footer style="height: 72px; flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 0 20px; border-top: 1px solid var(--ink); background: var(--surface)">
+<nav aria-label="Task navigator" style="display: flex; align-items: center; gap: 8px; flex-grow: 1">
+<button aria-pressed="false" style="min-height: 44px; padding: 0 16px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums; cursor: pointer">Task 1 · 164 words</button>
+<button aria-pressed="true" style="min-height: 44px; padding: 0 16px; border: 1px solid var(--ink); border-radius: 2px; background: var(--ink); color: #FFFFFF; font: 600 14px 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums; cursor: pointer">Task 2 · {{cx.n}} words</button>
+</nav>
+<a href="#thi" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 22px; background: var(--accent); color: #FFFFFF; font-weight: 600; text-decoration: none; border-radius: 2px">Submit test</a>
+</footer>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)">Khác chế độ luyện: có đồng hồ, không có nút lưu nháp riêng (tự lưu, hiện "Saved at"), chuyển Task 1 và Task 2 ở thanh dưới, một nút nộp cho cả đề. Khi còn 5 phút, đồng hồ đổi màu và hiện một dòng báo, không che bài viết.</p>
+</section>
+
+<section id="trangthai" aria-labelledby="h-trangthai" style="border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="h-trangthai" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">4. Các trạng thái</h2>
+<p style="margin: 0 0 18px; font-size: 14px; color: var(--muted)">Năm khung đầu thuộc chế độ luyện, nhãn tiếng Việt · khung cuối thuộc chế độ thi, nhãn tiếng Anh</p>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px 48px">
+
+<div>
+<h3 style="margin: 0; font-size: 16px; font-weight: 600">Bấm nộp chấm · chế độ luyện</h3>
+<p style="margin: 0 0 10px; font-size: 14px; color: var(--muted)">Một hộp duy nhất. Khi bài chưa đủ số từ, dòng cảnh báo hiện phía trên (viền đỏ mận, nhãn "Cảnh báo"), vẫn cho nộp; nút chính là việc an toàn hơn. Khi đủ số từ, bỏ dòng cảnh báo, giữ phần còn lại.</p>
+<div role="alertdialog" aria-label="Nộp chấm bài này" style="border: 1px solid var(--ink); background: var(--surface)">
+<div style="padding: 14px 24px; border-bottom: 2px solid var(--mark); border-left: 8px solid var(--mark)">
+<p style="margin: 0 0 4px; display: flex; align-items: center; gap: 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--mark)"><svg aria-hidden="true" viewBox="0 0 20 20" style="width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.6"><path d="M10 3l8 14H2z"></path><path d="M10 8v4M10 14.5v.5"></path></svg>Cảnh báo</p>
+<p style="margin: 0"><strong>Bài mới có 182 từ.</strong> Task 2 cần ít nhất 250 từ. Bài thiếu từ sẽ bị trừ điểm. Bạn vẫn nộp được nếu muốn.</p>
+</div>
+<div style="padding: 20px 24px 24px">
+<h4 style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">Nộp chấm bài này?</h4>
+<p style="margin: 0 0 18px">Nộp chấm dùng 1 lượt chấm AI, bạn còn XXX lượt. Nộp rồi thì không sửa được bài này nữa.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 12px">
+<button style="min-height: 44px; padding: 0 20px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: #FFFFFF; font: 600 16px 'Source Sans 3', sans-serif">Viết tiếp</button>
+<button style="min-height: 44px; padding: 0 20px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif">Vẫn nộp chấm</button>
+</div>
+</div>
+</div>
+</div>
+
+<div>
+<h3 style="margin: 0; font-size: 16px; font-weight: 600">Hết lượt chấm · chế độ luyện</h3>
+<p style="margin: 0 0 10px; font-size: 14px; color: var(--muted)">Hiện thay cho hộp nộp chấm. Khối hết lượt dùng chung với Speaking, Luyện tập, Hub kỹ năng, Thư viện. Dòng cuối chỉ hiện khi đề có trong kho bài mẫu.</p>
+<div role="region" aria-label="Hết lượt chấm" style="padding: 20px 24px 22px; border: 1px solid var(--mark); border-left-width: 8px; background: color-mix(in srgb, var(--mark) 7%, var(--surface))">
+<p style="margin: 0 0 6px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--mark)">Hết lượt chấm</p>
+<p style="margin: 0 0 14px">Bài của bạn đã lưu nháp. Khi có lượt, bạn nộp lại từ đây.</p>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px">
+<a href="GiaHanThemLuot.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; background: var(--accent); color: var(--surface); font-weight: 600; text-decoration: none; border-radius: 2px">Đăng ký thêm lượt chấm</a>
+<a href="BaiMauWriting.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; font-weight: 600">So bài nháp với bài mẫu 7.0 cùng đề</a>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)">Nếu chưa mở đăng ký thêm lượt lẻ, nút chính là “Đăng ký lại khoá · kèm XXX lượt”. Việc ở dòng cuối không tốn lượt. Học viên lớp offline: hộp nộp ghi “Nộp chấm dùng 1 lượt trong số lượt lớp cấp cho bạn”; hết lượt thì khối này ghi “Liên hệ giáo viên để được cấp thêm”, không có nút đăng ký.</p>
+</div>
+</div>
+
+<div>
+<h3 style="margin: 0; font-size: 16px; font-weight: 600">Mất mạng khi đang viết · chế độ luyện</h3>
+<p style="margin: 0 0 10px; font-size: 14px; color: var(--muted)">Dòng báo nằm trên ô viết, ô viết vẫn gõ được. Nút nộp tạm khoá, có ghi lý do.</p>
+<div style="border: 1px solid var(--ink); background: var(--surface)">
+<p role="alert" style="margin: 0; padding: 12px 16px; border-bottom: 1px solid var(--danger)"><strong style="color: var(--danger)">Mất kết nối mạng.</strong> Bản nháp đang được giữ trên máy này, bạn cứ viết tiếp. Khi có mạng lại, bài sẽ tự lưu.</p>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 14px 16px">
+<p style="margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--mark)">182 từ · cần ít nhất 250</p>
+<p style="margin: 0; flex-grow: 1; font-size: 14px; font-weight: 600; color: var(--danger)">Chưa lưu được, sẽ thử lại</p>
+<button style="min-height: 44px; padding: 0 20px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif">Thử lưu lại</button>
+<button disabled aria-describedby="off-why" style="min-height: 44px; padding: 0 20px; border: 1px solid var(--off); border-radius: 2px; background: var(--off); color: var(--muted); font: 600 16px 'Source Sans 3', sans-serif">Nộp chấm</button>
+</div>
+<p id="off-why" style="margin: 0; padding: 0 16px 14px; font-size: 14px; color: var(--muted); text-align: right">Cần có mạng để nộp chấm.</p>
+</div>
+</div>
+
+<div>
+<h3 style="margin: 0; font-size: 16px; font-weight: 600">Khôi phục bản nháp khi mở lại · chế độ luyện</h3>
+<p style="margin: 0 0 10px; font-size: 14px; color: var(--muted)">Hiện khi máy còn bản nháp mới hơn bản trên máy chủ. Không tự ghi đè bên nào.</p>
+<div style="padding: 24px; border: 1px solid var(--ink); background: var(--surface)">
+<h4 style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">Viết tiếp bản nháp còn trên máy này?</h4>
+<p style="margin: 0 0 18px">Bản nháp có 182 từ, lưu trên máy lúc 10:42 hôm qua và chưa kịp lưu lên. Bản đã lưu trước đó có 140 từ.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 12px">
+<button style="min-height: 44px; padding: 0 20px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: #FFFFFF; font: 600 16px 'Source Sans 3', sans-serif">Viết tiếp bản nháp</button>
+<button style="min-height: 44px; padding: 0 20px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif">Dùng bản 140 từ</button>
+</div>
+</div>
+</div>
+
+<div>
+<h3 style="margin: 0; font-size: 16px; font-weight: 600">Hết giờ · chế độ thi</h3>
+<p style="margin: 0 0 10px; font-size: 14px; color: var(--muted)">Tự nộp cả hai task, không hỏi lại. Phủ lên khung phòng thi, ô viết khoá.</p>
+<div lang="en" style="padding: 24px; border: 1px solid var(--ink); background: var(--surface)">
+<p style="margin: 0 0 4px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mark)">Time remaining 00:00</p>
+<h4 style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">Time is up. Your test has been submitted.</h4>
+<p style="margin: 0 0 18px; font-variant-numeric: tabular-nums">Both tasks were submitted automatically as you left them. Task 1: 164 words. Task 2: 231 words.</p>
+<a href="#cham" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; background: var(--accent); color: #FFFFFF; font-weight: 600; text-decoration: none; border-radius: 2px">View submission status</a>
+</div>
+</div>
+
+</div>
+</section>
+
+<section id="cham" aria-labelledby="h-cham" style="border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="h-cham" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">5. Đang chấm</h2>
+<p style="margin: 0 0 14px; font-size: 14px; color: var(--muted)">Màn chờ sau khi nộp · chế độ luyện, nhãn tiếng Việt · mỗi bước có chữ trạng thái, không chỉ dựa vào biểu tượng</p>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px 48px">
+
+<div>
+<h3 style="margin: 0 0 10px; font-size: 16px; font-weight: 600">Bài được giao · ba bước</h3>
+<div style="padding: 28px; border: 1px solid var(--ink); background: var(--surface)">
+<h4 style="margin: 0 0 4px; font-family: 'Source Serif 4', Georgia, serif; font-size: 26px; font-weight: 600; line-height: 1.2">Bài của bạn đang được chấm</h4>
+<p style="margin: 0 0 18px; color: var(--muted); font-variant-numeric: tabular-nums">Writing Task 2 · 262 từ · nộp lúc 10:44</p>
+<ol style="margin: 0 0 18px; padding: 0; list-style: none">
+<li style="display: flex; gap: 14px; padding: 12px 0; border-top: 1px solid var(--rule)"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 24px; height: 24px; flex-shrink: 0; fill: none; stroke: var(--ok); stroke-width: 1.5"><circle cx="12" cy="12" r="9"></circle><path d="M7.5 12.5l3 3 6-7"></path></svg><div style="flex-grow: 1"><p style="margin: 0; font-weight: 600">Đã nhận bài</p><p style="margin: 0; font-size: 14px; color: var(--muted)">Bài đã nằm trên máy chủ từ 10:44.</p></div><span style="font-size: 14px; font-weight: 600; color: var(--ok)">Xong</span></li>
+<li aria-current="step" style="display: flex; gap: 14px; padding: 12px 0; border-top: 1px solid var(--rule)"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 24px; height: 24px; flex-shrink: 0; fill: none; stroke: var(--ink); stroke-width: 1.5"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3.5 2"></path></svg><div style="flex-grow: 1"><p style="margin: 0; font-weight: 600">AI đang chấm</p><p style="margin: 0; font-size: 14px; color: var(--muted)">Thường xong trong khoảng 2 phút. Trang này tự cập nhật khi có kết quả.</p></div><span style="font-size: 14px; font-weight: 600; color: var(--ink); white-space: nowrap">Đang làm</span></li>
+<li style="display: flex; gap: 14px; padding: 12px 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule)"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 24px; height: 24px; flex-shrink: 0; fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 3 3"><circle cx="12" cy="12" r="9"></circle></svg><div style="flex-grow: 1"><p style="margin: 0; font-weight: 600">Giáo viên duyệt</p><p style="margin: 0; font-size: 14px; color: var(--muted)">Bài được giao trong lớp nên giáo viên xem lại nhận xét của AI rồi mới trả bài. Thường trong XXX ngày.</p></div><span style="font-size: 14px; font-weight: 600; color: var(--muted)">Chờ</span></li>
+</ol>
+<p style="margin: 0 0 16px">Bạn không cần chờ ở trang này. Kết quả sẽ nằm trong mục Bài đã nộp.</p>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px">
+<a href="#cham" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font-weight: 600; text-decoration: none">Về danh sách bài tập</a>
+<a href="#cham" style="display: inline-flex; align-items: center; min-height: 44px; font-weight: 600">Đọc lại bài đã nộp</a>
+</div>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)">Bài tự luyện và bài trong khoá online không có bước "Giáo viên duyệt": chỉ hiện hai bước đầu, AI chấm xong là có kết quả ngay. Bước này chỉ có với học viên lớp offline được giáo viên giao bài bằng mã.</p>
+</div>
+
+<div>
+<h3 style="margin: 0 0 10px; font-size: 16px; font-weight: 600">Lỗi chấm · thử lại không trừ thêm lượt</h3>
+<div style="padding: 28px; border: 1px solid var(--ink); background: var(--surface)">
+<p style="margin: 0 0 4px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--danger)">Lỗi</p>
+<h4 style="margin: 0 0 4px; font-family: 'Source Serif 4', Georgia, serif; font-size: 26px; font-weight: 600; line-height: 1.2">Chưa chấm được bài này</h4>
+<p style="margin: 0 0 18px; color: var(--muted); font-variant-numeric: tabular-nums">Writing Task 2 · 262 từ · nộp lúc 10:44</p>
+<ol style="margin: 0 0 18px; padding: 0; list-style: none">
+<li style="display: flex; gap: 14px; padding: 12px 0; border-top: 1px solid var(--rule)"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 24px; height: 24px; flex-shrink: 0; fill: none; stroke: var(--ok); stroke-width: 1.5"><circle cx="12" cy="12" r="9"></circle><path d="M7.5 12.5l3 3 6-7"></path></svg><div style="flex-grow: 1"><p style="margin: 0; font-weight: 600">Đã nhận bài</p><p style="margin: 0; font-size: 14px; color: var(--muted)">Bài của bạn vẫn còn nguyên trên máy chủ.</p></div><span style="font-size: 14px; font-weight: 600; color: var(--ok)">Xong</span></li>
+<li style="display: flex; gap: 14px; padding: 12px 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule)"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 24px; height: 24px; flex-shrink: 0; fill: none; stroke: var(--danger); stroke-width: 1.5"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v6M12 16v.5"></path></svg><div style="flex-grow: 1"><p style="margin: 0; font-weight: 600">AI chấm</p><p style="margin: 0; font-size: 14px; color: var(--muted)">Hệ thống chấm gặp lỗi, không phải do bài của bạn.</p></div><span style="font-size: 14px; font-weight: 600; color: var(--danger)">Lỗi</span></li>
+</ol>
+<p role="alert" style="margin: 0 0 16px">Thử lại không trừ thêm lượt chấm. Lượt đã dùng cho bài này vẫn được tính cho lần chấm lại.</p>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px">
+<button style="min-height: 44px; padding: 0 20px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: #FFFFFF; font: 600 16px 'Source Sans 3', sans-serif">Thử lại</button>
+<a href="#cham" style="display: inline-flex; align-items: center; min-height: 44px; font-weight: 600">Về danh sách bài tập</a>
+</div>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)">Nếu thử lại vẫn lỗi, giữ nguyên màn này và thêm một dòng cách liên hệ hỗ trợ. Không bắt bạn nộp lại từ đầu.</p>
+</div>
+
+</div>
+</section>
+
+<section id="dienthoai" aria-labelledby="h-dienthoai" style="border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="h-dienthoai" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">6. Bản điện thoại · Task 2 chế độ luyện</h2>
+<p style="margin: 0 0 14px; font-size: 14px; color: var(--muted)">Khung 390 × 844 · nhãn tiếng Việt · bấm "Xem cả đề" để mở và thu gọn đề, gõ thử được</p>
+<div style="display: flex; gap: 48px; align-items: flex-start">
+<div style="width: 390px; height: 844px; flex-shrink: 0; box-sizing: border-box; display: flex; flex-direction: column; border: 1px solid var(--ink); background: var(--surface)">
+<div style="flex-shrink: 0; display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 0 16px; border-bottom: 1px solid var(--ink)">
+<a href="#dienthoai" style="display: inline-flex; align-items: center; min-height: 48px; font-weight: 600">‹ Bài được giao</a>
+<p style="margin: 0; flex-grow: 1; text-align: right; font-weight: 600">Writing Task 2</p>
+</div>
+<div style="flex-shrink: 0; padding: 12px 16px; border-bottom: 1px solid var(--ink); background: var(--paper)">
+<p style="margin: 0 0 4px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Đề bài · tối thiểu 250 từ</p>
+<sc-if value="{{promptClosed}}" hint-placeholder-val="{{true}}">
+<p lang="en" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 16px; line-height: 1.45; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Some people think that city councils should spend public money on libraries.</p>
+</sc-if>
+<sc-if value="{{promptOpen}}" hint-placeholder-val="{{false}}">
+<div lang="en" style="font-family: 'Source Serif 4', Georgia, serif; font-size: 16px; line-height: 1.45">
+<p style="margin: 0 0 8px; font-weight: 600">Some people think that city councils should spend public money on libraries. Others believe this money would be better spent on free internet access in public places.</p>
+<p style="margin: 0 0 8px; font-weight: 600">Discuss both views and give your own opinion.</p>
+<p style="margin: 0">Give reasons for your answer and include any relevant examples from your own knowledge or experience. Write at least 250 words.</p>
+</div>
+</sc-if>
+<button onClick="{{togglePrompt}}" aria-expanded="{{promptOpen}}" style="display: inline-flex; align-items: center; gap: 6px; min-height: 48px; padding: 0; border: 0; background: transparent; color: var(--link); font: 600 16px 'Source Sans 3', sans-serif; text-decoration: underline; cursor: pointer">{{promptLabel}}</button>
+</div>
+<div style="flex-grow: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; padding: 12px 16px">
+<label for="ta-dt" style="font-weight: 600">Bài viết của bạn</label>
+<textarea id="ta-dt" lang="en" spellcheck="false" value="{{t2}}" onChange="{{onT2}}" placeholder="Viết bài bằng tiếng Anh ở đây." style="flex-grow: 1; min-height: 0; box-sizing: border-box; width: 100%; padding: 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface); font: 17px/1.55 'Source Serif 4', Georgia, serif; color: var(--ink); resize: none"></textarea>
+</div>
+<div style="flex-shrink: 0; padding: 10px 16px 14px; border-top: 1px solid var(--ink)">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px">
+<p aria-live="polite" style="margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; color: {{c2.color}}">{{c2.n}} từ · {{c2.note}}</p>
+<p role="status" style="margin: 0; font-size: 14px; color: var(--muted)">{{saveVi}}</p>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+<button onClick="{{saveNow}}" style="min-height: 48px; padding: 0 12px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif; cursor: pointer">Lưu nháp</button>
+<button style="min-height: 48px; padding: 0 12px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: #FFFFFF; font: 600 16px 'Source Sans 3', sans-serif; cursor: pointer">Nộp chấm</button>
+</div>
+</div>
+</div>
+<div style="flex-grow: 1; min-width: 0; max-width: 520px">
+<h3 style="margin: 0 0 10px; font-size: 16px; font-weight: 600">Khác bản máy tính ở đâu</h3>
+<ul style="margin: 0; padding: 0; list-style: none">
+<li style="padding: 12px 0; border-top: 1px solid var(--rule)"><strong>Một cột.</strong> Đề nằm trên, thu gọn còn một dòng để nhường chỗ cho ô viết. Mở đề thì ô viết ngắn lại, không che lên bài.</li>
+<li style="padding: 12px 0; border-top: 1px solid var(--rule)"><strong>Thanh dưới luôn nhìn thấy.</strong> Số từ và trạng thái tự lưu ở dòng trên, hai nút cao 48px ở dòng dưới. Khi bàn phím hiện, thanh này nằm ngay trên bàn phím.</li>
+<li style="padding: 12px 0; border-top: 1px solid var(--rule)"><strong>Task 1.</strong> Biểu đồ nằm trong phần đề mở ra, rộng hết khung; nút "Phóng to biểu đồ" mở biểu đồ toàn màn, xoay ngang được.</li>
+<li style="padding: 12px 0; border-top: 1px solid var(--rule)"><strong>Hộp hỏi lại.</strong> Cùng nội dung như khối 4, hiện ở nửa dưới màn, hai nút xếp dọc, nút chính ở trên.</li>
+<li style="padding: 12px 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule)"><strong>Chế độ thi.</strong> Giữ khung phòng thi và nhãn tiếng Anh; đồng hồ luôn ở thanh trên, chuyển task bằng hai nút ở thanh dưới.</li>
+</ul>
+</div>
+</div>
+</section>
+
+</div>
+<p style="margin: 36px 0 0; padding-top: 16px; border-top: 1px solid var(--rule); font-size: 14px; color: var(--muted)">Quy tắc chung: số từ luôn ghi kèm mức tối thiểu của task (150 hoặc 250) và đổi chữ khi đã đủ. Thiếu từ chỉ cảnh báo, không chặn nộp. Mỗi lần nộp chấm đều hỏi lại và nói rõ dùng 1 lượt. Bài viết không bao giờ mất vì lỗi mạng hay lỗi chấm. Một khung màn chỉ dùng một ngôn ngữ nhãn: luyện từng phần tiếng Việt, full test tiếng Anh.</p>
+<p style="margin: 12px 0 0; font-size: 14px; color: var(--muted)"><strong style="color: var(--ink)">Ghi chú cho lập trình:</strong> trình soạn nhận chế độ của bài (practice hoặc test) và lấy mọi chuỗi từ bộ chuỗi tương ứng: nút quay lại, dòng phụ trên thanh trên, nhãn đề ("You should spend about 40 minutes on this task"), nhãn ô viết, placeholder, bộ đếm ("Words: 187 · minimum 250"), trạng thái tự lưu ("Saved at 10:42"), nút nộp, hộp nộp chấm và chữ cho trình đọc màn hình. Ở chế độ test không có nút lưu nháp riêng và thanh trên hiện đồng hồ. Hộp nộp chấm là MỘT hộp: khi thiếu từ, dòng cảnh báo hiện ở đầu hộp, nút chính "Viết tiếp", nút phụ "Vẫn nộp chấm"; hộp luôn hiện, kể cả sau khi bấm "Vẫn nộp chấm". Khi hết lượt, hộp được thay bằng khối "Hết lượt chấm" dùng chung (nút "Đăng ký thêm lượt chấm" sang GiaHanThemLuot.dc.html; nếu chưa mở đăng ký lượt lẻ thì "Đăng ký lại khoá · kèm XXX lượt"; dòng "So bài nháp với bài mẫu 7.0 cùng đề" chỉ hiện khi đề có trong kho bài mẫu; học viên lớp offline dùng lượt lớp cấp kèm mã, hết lượt thì “Liên hệ giáo viên để được cấp thêm”, không có nút đăng ký). Dòng cảnh báo thiếu từ dùng viền --mark 2px, vạch trái 8px và nhãn "Cảnh báo" hoặc "Warning" kèm biểu tượng tam giác, không chỉ đổi màu chữ.</p>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Xanh teal","Navy + đỏ mận"],"default":"Navy + đỏ mận"},"$preview":{"width":1280,"height":6150}}'>
+class Component extends DCLogic {
+constructor(p) {
+super(p);
+const essay = "Public money is always limited, so councils must choose carefully between services. Some people argue that libraries deserve this funding, while others would rather see free internet in parks, stations and squares. This essay will look at both sides before giving my own view.\n\nOn the one hand, libraries offer more than books. They give students a quiet place to study, and they give older residents a reason to leave the house and meet other people. In many towns the library is also the only place where a child from a poor family can borrow a book or ask a trained librarian for help. If the building closes, these benefits are difficult to replace.\n\nOn the other hand, free internet reaches people wherever they are. A job seeker can send an application from a bus stop, and a visitor can find a map without paying for data. Supporters also point out that most information is now online, so access to a network matters more than access to shelves. However, a connection alone does not teach anyone how to judge what they read.\n\nIn my opinion, councils should protect libraries first and add free internet inside them. This approach keeps the trained staff and the quiet space, while still helping people who cannot afford data at home. Spending on both in one place is cheaper than running two separate services. For these reasons, I believe the library should remain the centre of public learning in every town.";
+const report = "The line graph compares the proportion of households with internet access in three towns, Alder, Brook and Carden, over a twenty-year period from 2000 to 2020.\n\nOverall, access rose in all three towns, but the increase was far steeper in Alder and Brook than in Carden. Brook started with the lowest figure and finished with the highest.\n\nIn 2000, only 5% of homes in Brook were connected, compared with 12% in Alder and 20% in Carden. Over the next ten years, Alder climbed quickly to 55%, while Brook reached 38% and Carden rose slowly to 36%. After 2010, Brook grew fastest of all";
+const first = (text, n) => (text.match(/\S+\s*/g) || []).slice(0, n).join('').trim();
+this.state = { mode: 'test', t2: first(essay, 182), t1: first(report, 96), tx: first(essay, 231), saving: false, savedAt: '10:42', ask: '', zoom: false, promptOpen: false };
+}
+componentWillUnmount() { clearTimeout(this.saveTimer); }
+count(text) { return ((text || '').trim().match(/\S+/g) || []).length; }
+stamp() { const d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
+edit(key, value) {
+this.setState({ [key]: value, saving: true });
+clearTimeout(this.saveTimer);
+this.saveTimer = setTimeout(() => this.setState({ saving: false, savedAt: this.stamp() }), 900);
+}
+renderVals() {
+const s = this.state || {};
+const vi = (text, min) => { const n = this.count(text); return { n, note: n < min ? 'cần ít nhất ' + min : 'đã đủ mức tối thiểu ' + min, color: n < min ? 'var(--mark)' : 'var(--ok)' }; };
+const nx = this.count(s.tx);
+const c2 = vi(s.t2, 250);
+const c1 = vi(s.t1, 150);
+const T = s.mode === 'test';
+const word = (c, min) => T ? 'Words: ' + c.n + ' · ' + (c.n < min ? 'minimum ' + min : 'minimum reached') : c.n + ' từ · ' + c.note;
+const L = T ? {
+lang: 'en', back: '‹ Leave test', due2: '· Academic Test 1', due1: '· Academic Test 1', badge: 'Time remaining 38:12',
+prompt2: 'Task 2 · You should spend about 40 minutes on this task', prompt1: 'Task 1 · You should spend about 20 minutes on this task',
+yours: 'Your answer', ph: 'Type your answer here.', submit: 'Submit', warn: 'Warning',
+lowBody: 'Task 2 requires at least 250 words. Answers under the minimum lose marks. You can still submit.',
+keep: 'Keep writing', anyway: 'Submit anyway', okHead: 'Submit this task?', okBody: 'Once you submit, you cannot edit this answer.',
+backWrite: 'Back to writing', source: 'Source: sample data'
+} : {
+lang: 'vi', back: '‹ Bài được giao', due2: '· hạn nộp 21:00 thứ Sáu', due1: '· hạn nộp 21:00 thứ Sáu', badge: 'Đang làm',
+prompt2: 'Đề bài · nên dành khoảng 40 phút', prompt1: 'Đề bài · nên dành khoảng 20 phút',
+yours: 'Bài viết của bạn', ph: 'Viết bài bằng tiếng Anh ở đây.', submit: 'Nộp chấm', warn: 'Cảnh báo',
+lowBody: 'Task 2 cần ít nhất 250 từ. Bài thiếu từ sẽ bị trừ điểm. Bạn vẫn nộp được nếu muốn.',
+keep: 'Viết tiếp', anyway: 'Vẫn nộp chấm', okHead: 'Nộp chấm bài này?', okBody: 'Nộp chấm dùng 1 lượt chấm AI, bạn còn XXX lượt. Nộp rồi thì không sửa được bài này nữa.',
+backWrite: 'Quay lại viết tiếp', source: 'Nguồn: số liệu minh hoạ'
+};
+return {
+L, isTest: T, isPractice: !T,
+toPractice: () => this.setState({ mode: 'practice' }), toTest: () => this.setState({ mode: 'test' }),
+pBg: T ? 'var(--surface)' : 'var(--ink)', pFg: T ? 'var(--ink)' : 'var(--surface)',
+tBg: T ? 'var(--ink)' : 'var(--surface)', tFg: T ? 'var(--surface)' : 'var(--ink)',
+modeName: T ? 'full test' : 'chế độ luyện',
+modeNote: T ? 'Full test: mọi nhãn, hướng dẫn, bộ đếm từ, trạng thái tự lưu, nút và hộp hỏi lại ở khối 1 và 2 chuyển sang tiếng Anh; thanh trên hiện đồng hồ, không có nút lưu nháp riêng. Khung phòng thi đầy đủ xem ở khối 3.' : 'Luyện từng phần: bài được giao hoặc tự luyện, không bắt buộc giờ, nhãn tiếng Việt. Bấm "Full test" để xem cùng trình soạn với bộ nhãn tiếng Anh.',
+sub1: T ? 'Full test · toàn bộ nhãn tiếng Anh · gõ thử được, bấm "Submit" để xem hộp hỏi lại' : 'Bài được giao, không bắt buộc giờ · nhãn tiếng Việt · gõ thử được, bấm "Nộp chấm" để xem hộp hỏi lại',
+sub2: T ? 'Full test · đề kèm biểu đồ, tối thiểu 150 từ · toàn bộ nhãn tiếng Anh · bấm "Enlarge chart" để xem biểu đồ phủ cả khung' : 'Đề kèm biểu đồ, tối thiểu 150 từ · nhãn tiếng Việt · bấm "Phóng to biểu đồ" để xem biểu đồ phủ cả khung',
+w2: word(c2, 250), w1: word(c1, 150),
+lowHead: T ? 'Submit with only ' + c2.n + ' words?' : 'Nộp chấm khi bài mới có ' + c2.n + ' từ?',
+saveL: T ? (s.saving ? 'Saving…' : 'Saved at ' + s.savedAt) : (s.saving ? 'Đang lưu…' : 'Đã lưu lúc ' + s.savedAt),
+pal: (this.props.palette ?? 'Navy + đỏ mận') === 'Xanh teal' ? 'pal-teal' : 'pal-navy',
+t2: s.t2, t1: s.t1, tx: s.tx,
+onT2: (e) => this.edit('t2', e.target.value),
+onT1: (e) => this.edit('t1', e.target.value),
+onTx: (e) => this.edit('tx', e.target.value),
+c2, c1,
+cx: { n: nx, note: nx < 250 ? 'minimum 250' : 'minimum reached', color: nx < 250 ? 'var(--mark)' : 'var(--ink)' },
+saveVi: s.saving ? 'Đang lưu…' : 'Đã lưu lúc ' + s.savedAt,
+saveEn: s.saving ? 'Saving…' : 'Saved at ' + s.savedAt,
+saveNow: () => { clearTimeout(this.saveTimer); this.setState({ saving: false, savedAt: this.stamp() }); },
+askSubmit: () => this.setState({ ask: c2.n < 250 ? 'low' : 'ok' }),
+askConfirm: () => this.setState({ ask: 'ok' }),
+closeAsk: () => this.setState({ ask: '' }),
+askLow: s.ask === 'low', askOk: s.ask === 'ok',
+zoom: !!s.zoom,
+toggleZoom: () => this.setState({ zoom: !s.zoom }),
+zoomLabel: T ? (s.zoom ? 'Reduce chart' : 'Enlarge chart') : (s.zoom ? 'Thu nhỏ biểu đồ' : 'Phóng to biểu đồ'),
+zPos: s.zoom ? 'absolute' : 'static', zInset: s.zoom ? '0' : 'auto', zPad: s.zoom ? '24px 32px' : '10px 12px', chartH: s.zoom ? '480px' : '210px',
+promptOpen: !!s.promptOpen, promptClosed: !s.promptOpen,
+togglePrompt: () => this.setState({ promptOpen: !s.promptOpen }),
+promptLabel: s.promptOpen ? 'Thu gọn đề' : 'Xem cả đề'
+};
+}
+}
+</script>
+</body>
+</html>

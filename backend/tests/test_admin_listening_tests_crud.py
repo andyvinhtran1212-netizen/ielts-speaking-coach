@@ -49,6 +49,10 @@ class _Query:
         self._order: str | None = None
         self._desc: bool = False
 
+    def or_(self, expression):
+        self.blackeye_filters = getattr(self, "blackeye_filters", []) + [expression]
+        return self
+
     def select(self, *_a, **kw):
         self._mode = "select"
         return self
@@ -96,6 +100,9 @@ class _Query:
         return self
 
     def _match(self, row: dict) -> bool:
+        from blackeye_query_double import matches_blackeye_filter
+        if not all(matches_blackeye_filter(row, e) for e in getattr(self, "blackeye_filters", [])):
+            return False
         for col, val in self._filters_eq:
             if row.get(col) != val:
                 return False

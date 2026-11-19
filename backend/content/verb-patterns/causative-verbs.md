@@ -100,6 +100,7 @@ Causative verbs diễn tả việc **A khiến / nhờ / cho phép B làm gì**.
 ## Tại sao quan trọng
 
 Causative structures thường xuất hiện trong IELTS khi:
+
 - Thảo luận về chính sách: *"The government should make people..."*
 - Giáo dục: *"Teachers let students..."*
 - Cuộc sống hằng ngày: *"I got my car repaired."*
@@ -137,6 +138,7 @@ Nhấn mạnh vào kết quả — vật được làm (không đề cập ai l�
 - He **had** his laptop **repaired** at the shop.
 
 > **Phân biệt:**
+>
 > - **have sb do sth** = nhờ người cụ thể làm
 > - **have sth done** = để vật được làm (không quan tâm ai làm)
 
@@ -166,6 +168,7 @@ Subject + get + Object (bên nhận hành động) + past participle
 - He **got** his phone **replaced** under warranty.
 
 > **Have vs Get + sth done:**
+>
 > - Cả hai đều diễn đạt "để vật được làm"
 > - **have** = trung tính, cả formal và informal
 > - **get** = informal hơn, thường trong spoken English
@@ -187,6 +190,7 @@ Nghĩa mạnh hơn: **bắt buộc, không có lựa chọn**.
 - The law **makes** drivers **wear** seat belts.
 
 > **Lưu ý:** Trong passive voice, "make" dùng **to-infinitive**:
+>
 > - Active: She **made** him **apologise**.
 > - Passive: He **was made to apologise** (by her).
 
@@ -207,6 +211,7 @@ Cho phép ai làm gì — không ngăn cản.
 - Parents should **let** children **make** their own decisions.
 
 > **let vs allow:**
+>
 > - **let + bare inf:** Let me know. (informal)
 > - **allow + O + to-inf:** They allowed me to leave.
 > - **allow bị động + to-inf:** I was allowed to leave. (formal)
@@ -317,9 +322,11 @@ Cả bare infinitive và to-infinitive đều chấp nhận được, nhưng bar
 ### Đáp án
 
 **Dạng động từ:**
+
 1. clean | 2. repaired | 3. leave | 4. (to) carry | 5. take
 
 **Sửa lỗi:**
+
 1. He made his employees **work** on weekends. (make + bare inf)
 2. I had my car **fixed** yesterday. (have + thing + V3)
 3. She got her friend **to help** her move. (get + person + to-inf)
@@ -338,6 +345,7 @@ Cả bare infinitive và to-infinitive đều chấp nhận được, nhưng bar
 | Giúp đỡ | help | help + O + (to) inf |
 
 **Quy tắc vàng:**
+
 - **make / let / have (O thực hiện hành động)** → bare infinitive (không "to")
 - **get (O thực hiện hành động)** → to-infinitive
 - **have / get (O nhận hành động)** → past participle (V3)

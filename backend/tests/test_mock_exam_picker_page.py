@@ -28,7 +28,9 @@ def test_picker_search_and_page_are_database_scoped(kind, table, field, value):
     })()
     db = MagicMock()
     db.table.return_value = query
-    with patch.object(service, "supabase_admin", db):
+    if kind == "listening":
+        query.execute.return_value.data = [{"id": f"row-{n}", "title": "Target"} for n in range(1, 102)]
+    with patch.object(service, "supabase_admin", db), patch.object(service, "_listening_score_modes", side_effect=lambda ids: {str(id): "scored" for id in ids}):
         page = service.admin_exam_picker_page(kind, "target,%_", 25, 100)
     db.table.assert_called_once_with(table)
     query.select.assert_called_once()
@@ -40,7 +42,7 @@ def test_picker_search_and_page_are_database_scoped(kind, table, field, value):
         query.in_.assert_not_called()
     elif kind == "writing-task1":
         query.in_.assert_called_once_with("task_type", ["task1_academic", "task1_general"])
-    query.range.assert_called_once_with(100, 124)
+    query.range.assert_called_once_with(0, 499) if kind == "listening" else query.range.assert_called_once_with(100, 124)
     if kind == "listening":
         query.is_.assert_called_once_with("content_package_id", "null")
     else:
@@ -57,3 +59,17 @@ async def test_picker_route_requires_admin_and_passes_bounded_query():
     gate.assert_awaited_once_with("Bearer x")
     picker.assert_called_once_with("reading", "needle", 25, 0)
     assert result["total"] == 0
+
+
+def test_listening_picker_filters_before_page_and_count():
+    query = MagicMock()
+    for name in ("select", "eq", "is_", "order", "range"):
+        getattr(query, name).return_value = query
+    query.execute.return_value = type("R", (), {"count": 3, "data": [
+        {"id": "self"}, {"id": "normal"}, {"id": "mixed"}]})()
+    db = MagicMock()
+    db.table.return_value = query
+    with patch.object(service, "supabase_admin", db), patch.object(service, "_listening_score_modes", return_value={
+            "self": "self_check_only", "normal": "scored", "mixed": "mixed"}):
+        page = service.admin_exam_picker_page("listening", "", 1, 1)
+    assert page == {"items": [{"id": "mixed"}], "total": 2, "limit": 1, "offset": 1}

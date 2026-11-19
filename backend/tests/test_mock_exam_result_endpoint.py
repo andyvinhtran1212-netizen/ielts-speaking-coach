@@ -5,6 +5,8 @@ which mock-result.html uses to link the student into the detailed chữa bài
 for each skill once results are released."""
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
 from fastapi.testclient import TestClient
 
 
@@ -16,6 +18,22 @@ def _client() -> TestClient:
 _USER = {"id": "00000000-0000-0000-0000-0000000000aa"}
 _AUTH = {"Authorization": "Bearer faketoken"}
 _SITTING_ID = "00000000-0000-0000-0000-0000000000bb"
+
+
+_FULL_EXAM = {
+    "listening_test_id": "lt-1", "reading_test_id": "rt-1",
+    "writing_task1_prompt_id": "wp-1", "writing_task2_prompt_id": "wp-2",
+    "speaking_topic_set": "topic-set-1",
+}
+
+
+@pytest.fixture(autouse=True)
+def _exam_lookup(monkeypatch):
+    """The result endpoint reads the exam to know which skills the sitting set;
+    keep that off the database. Default: a full four-skill mock."""
+    from routers import mock_exams
+    monkeypatch.setattr(mock_exams.svc, "get_published_exam_by_id",
+                        lambda _eid: dict(_FULL_EXAM))
 
 
 def test_result_includes_attempt_ids_and_delivered_essays():
@@ -301,6 +319,32 @@ def test_lr_banded_skill_needs_no_excuse():
     assert st["state"] == "scored"
 
 
+def test_lr_listening_max_excludes_self_check_but_preserves_answered():
+    details = _q(3, total=10)
+    details[0]["self_check"] = True
+    details[-1]["self_check"] = True
+    st = _lr(l_id="la-1", row={"score": 0, "band_estimate": None,
+                              "grading_details": details})
+    assert st["max"] == 8
+    assert st["answered"] == 3
+    assert st["state"] == "mixed_no_band"
+    assert st["self_check_count"] == 2
+
+
+def test_lr_reading_max_keeps_all_grading_rows():
+    from services import mock_exam_service as svc
+
+    db = MagicMock()
+    db.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value.data = [
+        {"score": 0, "band_estimate": None,
+         "grading_details": [{"user_answer": "x", "self_check": True}, {"user_answer": "y"}]},
+    ]
+    with patch.object(svc, "supabase_admin", db):
+        st, = svc.lr_skill_states({"assigned_skills": ["reading"], "reading_attempt_id": "ra-1"})
+    assert st["max"] == 2
+    assert st["answered"] == 2
+
+
 def test_lr_dangling_attempt_id_reads_as_never_received_not_blank():
     """A sitting pointing at an attempt that isn't there is broken data — calling
     it a blank paper would blame the student for our bug."""
@@ -334,3 +378,106 @@ def test_sitting_lr_skills_falls_back_to_the_exam_config():
     with _p.object(svc, "get_published_exam_by_id",
                    return_value={"reading_test_id": "r-1", "listening_test_id": None}):
         assert svc._sitting_lr_skills({"mock_exam_id": "ex-1"}) == {"reading"}
+
+
+@pytest.mark.parametrize("answered", [0, 3])
+def test_self_check_mode_precedes_blank_below_table_and_stale_band(answered):
+    details = [{**row, "self_check": True} for row in _q(answered, total=3)]
+    st = _lr(l_id="la-1", row={"score": 0, "band_estimate": 4.0, "grading_details": details})
+    assert st["state"] == "self_check_only"
+    assert st["score"] is None and st["max"] == 0 and st["self_check_count"] == 3
+
+
+def test_short_scored_paper_is_not_below_band_table_even_with_a_historical_band():
+    st = _lr(l_id="la-1", row={"score": 12, "band_estimate": 4.0, "grading_details": _q(12, total=12)})
+    assert st["state"] == "no_band" and st["max"] == 12
+
+
+def test_result_reports_overall_readiness():
+    """G02-T05 (FR-02-004): the TRF gets how many skills are banded and how many
+    an Overall needs, so a 1-skill result never draws a ring with a number."""
+    sitting = {"id": _SITTING_ID, "user_id": _USER["id"], "status": "released"}
+    review = {"final_bands": {"writing": 9.0, "overall": 9.0}}
+    with patch("routers.mock_exams.get_supabase_user", new=AsyncMock(return_value=_USER)), \
+         patch("routers.mock_exams.svc.get_sitting", return_value=sitting), \
+         patch("routers.mock_exams.svc.lr_skill_states", return_value=[]), \
+         patch("routers.mock_exams.review_wf.get_review_for_sitting", return_value=review), \
+         patch("routers.mock_exams.essay_service.delivered_essay_ids", return_value=set()):
+        r = _client().get(
+            "/api/mock-exams/sittings/" + _SITTING_ID + "/result", headers=_AUTH,
+        )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["final_bands"] == {"writing": 9.0, "overall": 9.0}
+    assert (body["banded_skill_count"], body["overall_min_skills"]) == (1, 4)
+
+
+def _result_with(sitting, review, exam=None, exam_error=None):
+    def lookup(_eid):
+        if exam_error:
+            raise exam_error
+        return exam
+    with patch("routers.mock_exams.get_supabase_user", new=AsyncMock(return_value=_USER)), \
+         patch("routers.mock_exams.svc.get_sitting", return_value=sitting), \
+         patch("routers.mock_exams.svc.lr_skill_states", return_value=[]), \
+         patch("routers.mock_exams.review_wf.get_review_for_sitting", return_value=review), \
+         patch("routers.mock_exams.svc.get_published_exam_by_id", side_effect=lookup), \
+         patch("routers.mock_exams.essay_service.delivered_essay_ids", return_value=set()):
+        r = _client().get(
+            "/api/mock-exams/sittings/" + _SITTING_ID + "/result", headers=_AUTH,
+        )
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def _sitting(**kw):
+    return {"id": _SITTING_ID, "user_id": _USER["id"], "status": "released",
+            "mock_exam_id": "exam-1", **kw}
+
+
+def test_result_sitting_skills_for_a_listening_reading_retake():
+    """An L/R-only retake set two skills; the TRF must not list Writing and
+    Speaking as missing work, and shows no Writing task cards."""
+    body = _result_with(_sitting(assigned_skills=["listening", "reading"]),
+                        {"final_bands": {"listening": 6.0, "reading": 6.5, "overall": 6.5}},
+                        exam=dict(_FULL_EXAM))
+    assert body["sitting_skills"] == ["listening", "reading"]
+    assert body["writing_tasks"] == []
+
+
+def test_result_sitting_skills_for_a_sequential_mock_with_only_listening_reading():
+    """CR (#2376): a normal sequential mock that configures only Listening and
+    Reading. The examiner's band form still carries Writing (the admin opens an
+    empty Writing step), but the student was set no Writing, so it is neither
+    "còn thiếu" nor two "chưa nộp bài" task cards."""
+    exam = {"exam_mode": "sequential", "listening_test_id": "lt-1",
+            "reading_test_id": "rt-1", "writing_task1_prompt_id": None,
+            "writing_task2_prompt_id": None, "speaking_topic_set": None}
+    body = _result_with(_sitting(), {"final_bands": {"listening": 6.0, "reading": 6.5}},
+                        exam=exam)
+    assert body["sitting_skills"] == ["listening", "reading"]
+    assert body["writing_tasks"] == []
+
+
+def test_result_sitting_skills_for_a_full_four_skill_mock():
+    sitting = _sitting(essay_task1_id=None, essay_task2_id=None, writing_submission={})
+    body = _result_with(sitting, {"final_bands": {"listening": 6.0}}, exam=dict(_FULL_EXAM))
+    assert body["sitting_skills"] == ["listening", "reading", "writing", "speaking"]
+    assert [t["task"] for t in body["writing_tasks"]] == ["task1", "task2"]
+
+
+def test_result_sitting_skills_keep_a_live_speaking_band():
+    """Speaking assessed live counts even when the exam had no speaking set."""
+    exam = {**_FULL_EXAM, "speaking_topic_set": None}
+    body = _result_with(_sitting(), {"final_bands": {"listening": 6.0, "speaking": 6.0}}, exam=exam)
+    assert body["sitting_skills"] == ["listening", "reading", "writing", "speaking"]
+
+
+def test_result_sitting_skills_is_null_when_the_exam_lookup_fails_or_is_missing():
+    """No guess: the TRF then names no missing skill; Writing cards stay as before."""
+    sitting = _sitting(essay_task1_id=None, essay_task2_id=None, writing_submission={})
+    body = _result_with(sitting, {"final_bands": {"writing": 6.0}}, exam_error=RuntimeError("db down"))
+    assert body["sitting_skills"] is None
+    assert len(body["writing_tasks"]) == 2
+    body = _result_with(sitting, {"final_bands": {"writing": 6.0}}, exam=None)
+    assert body["sitting_skills"] is None

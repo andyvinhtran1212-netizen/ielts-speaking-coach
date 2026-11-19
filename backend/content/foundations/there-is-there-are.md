@@ -127,6 +127,7 @@ Dùng "there is/are" khi giới thiệu một thứ mà người nghe chưa bi�
 - **The café** is on this street. (→ cả hai đã biết cái café đó rồi)
 
 **Ví dụ phân biệt:**
+
 - "There's a famous museum in this city." (người nghe chưa biết)
 - "The museum is near the city centre." (cả hai đã biết museum đó)
 
@@ -168,11 +169,13 @@ Tự nhiên hơn: "There are many problems in this area."
 ## Dấu hiệu nhận biết
 
 **Dùng "There is/are" khi:**
+
 1. Bạn muốn nêu sự tồn tại của ai/cái gì đó
 2. Bạn giới thiệu danh từ lần đầu
 3. Bạn muốn nhấn mạnh "sự tồn tại" chứ không phải "vị trí"
 
 **Không dùng khi:**
+
 - Bạn muốn nêu vị trí của thứ đã biết: "The book is on the table" (không phải "there is")
 - Bạn nêu danh từ đã xác định: "My brother is a doctor" (không phải "there is")
 
@@ -194,6 +197,7 @@ Tự nhiên hơn: "There are many problems in this area."
   - "**they're**" = they are
 
 **Ví dụ phân biệt:**
+
 - "There is a book on **their** table." (there = cấu trúc; their = sở hữu)
 - "**They're** here. **There** is food for everyone." (they're = they are; there = cấu trúc)
 
@@ -304,9 +308,11 @@ Trong hội thoại, người nói có thể hòa hợp với danh từ đầu d
 ### Đáp án
 
 **Điền:**
+
 1. is | 2. are | 3. is | 4. Is | 5. are | 6. are | 7. are | 8. is
 
 **Dịch:**
+
 1. There are three bedrooms in my apartment.
 2. There weren't any tests yesterday.
 3. Is there enough time to study?
@@ -314,6 +320,7 @@ Trong hội thoại, người nói có thể hòa hợp với danh từ đầu d
 5. There will be a meeting next week.
 
 **Sửa lỗi:**
+
 1. **There** are two parks near my house. (there ≠ their)
 2. **Are** there any restaurants in this area? (đảo trợ động từ lên trước)
 3. There **are** many problems to solve. (problems = số nhiều)

@@ -320,6 +320,7 @@ Với mỗi câu trả lời ngắn dưới đây, hãy viết phiên bản dài
 ```
 
 **Mục tiêu:**
+
 - Part 1: 2-4 câu / câu trả lời
 - Part 2: 1.5-2 phút (kết hợp nhiều patterns)
 - Part 3: 4-6 câu / câu trả lời, ideally sử dụng 2+ patterns

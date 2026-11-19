@@ -119,6 +119,7 @@ Modal verbs là nhóm động từ đặc biệt đứng trước động từ c
 ## Tại sao quan trọng
 
 Modal verbs cho phép diễn đạt nhiều sắc thái: chắc chắn / không chắc, bắt buộc / tự nguyện, lịch sự / thẳng thắn, suy luận / thực tế. Trong IELTS, chúng giúp:
+
 - **Hedging** quan điểm trong Writing Task 2: *This **may** lead to..., It **could** be argued...*
 - **Đề xuất** và **khuyến nghị**: *Governments **should** invest..., **Would** you mind...*
 - **Suy luận** về quá khứ: *He **must have** forgotten...*
@@ -136,10 +137,12 @@ Các modal cốt lõi khác động từ thường ở những điểm sau. Ough
 | Không có dạng infinitive | ❌ to can |
 
 **Phủ định:** modal + **not**
+
 - You should**n't** smoke here.
 - She can**not** (can't) come tomorrow.
 
 **Câu hỏi:** đảo modal lên trước
+
 - **Can** you help me?
 - **Should** I apply for this job?
 
@@ -157,6 +160,7 @@ Các modal cốt lõi khác động từ thường ở những điểm sau. Ough
 - **Can** you speak Japanese? — Yes, I can.
 
 **Could** cũng dùng để đề nghị lịch sự:
+
 - **Could** you open the window? (lịch sự hơn "Can you...?")
 - **Could** I use your phone?
 
@@ -176,6 +180,7 @@ might (ít chắc) → may → could (chắc hơn một chút)
 - It **could** rain — you should take an umbrella. (khả năng chưa chắc chắn; khuyên chuẩn bị)
 
 **Quá khứ** (suy luận về điều có thể đã xảy ra):
+
 - She **may have missed** the bus. (có thể đã lỡ xe)
 - He **might have forgotten** about our meeting.
 - They **could have taken** a different route.
@@ -194,12 +199,14 @@ might (ít chắc) → may → could (chắc hơn một chút)
 - She **couldn't have** done it — she wasn't there.
 
 **Quá khứ:**
+
 - It **must have been** very difficult for them. (chắc là đã rất khó khăn)
 - She **can't have known** about this — she would have told us.
 
 ### Should (expectation)
 
 Dùng khi dự đoán điều gì đó sẽ xảy ra theo kỳ vọng:
+
 - The package **should** arrive tomorrow. (dự kiến sẽ đến)
 - He left two hours ago, so he **should be** home by now.
 
@@ -221,6 +228,7 @@ Dùng khi dự đoán điều gì đó sẽ xảy ra theo kỳ vọng:
 Must và have to có thể dùng cho cùng một nghĩa vụ; phân biệt internal/external chỉ là xu hướng, không phải phép chấm cứng.
 
 **Phủ định — ý nghĩa KHÁC NHAU:**
+
 - You **mustn't** smoke here. = cấm không được (prohibition)
 - You **don't have to** wear a tie. = không bắt buộc (no obligation)
 
@@ -314,11 +322,13 @@ Diễn tả hành động trước một mốc tham chiếu, thường là quá 
 ### Writing Task 2 — hedging và đề xuất:
 
 **Hedging quan điểm (tránh nói quá tuyệt đối):**
+
 - Technology **could** transform education in ways we haven't yet imagined.
 - This **may** lead to higher unemployment rates.
 - It **might** be argued that social media has had more negative than positive effects.
 
 **Đưa ra khuyến nghị:**
+
 - Governments **should** invest more heavily in renewable energy.
 - Schools **ought to** incorporate digital literacy into their curriculum.
 - More needs to be done — public awareness campaigns **could** be a good starting point.
@@ -357,9 +367,11 @@ Diễn tả hành động trước một mốc tham chiếu, thường là quá 
 ### Đáp án
 
 **Điền modal:**
+
 1. mustn't / can't | 2. must | 3. Could / May | 4. might | 5. should
 
 **Sửa lỗi:**
+
 1. He **can** drive a truck. (bỏ "to")
 2. She **must** submit / **has to** submit (bỏ -s)
 3. You **don't have to** bring a present. (mustn't = cấm; don't have to = không bắt buộc)
@@ -385,6 +397,7 @@ Diễn tả hành động trước một mốc tham chiếu, thường là quá 
 | Đề nghị lịch sự | could / would |
 
 **Nguyên tắc vàng:**
+
 - Modal + **V-bare** (không "to") — trừ ought **to**, used **to**, have **to**, need **to**
 - Không thêm -s/-es cho ngôi 3
 - Modal + **have + V3** = suy luận/đánh giá về quá khứ

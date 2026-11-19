@@ -56,6 +56,7 @@ Mỗi từ trong tiếng Anh đóng một **vai trò cụ thể** trong câu —
 ## Tại sao quan trọng
 
 Người học Việt Nam thường học thuộc từ vựng mà không biết **từ đó là danh từ hay động từ**. Hậu quả là:
+
 - Đặt sai vị trí từ trong câu: "I very like coffee" thay vì "I really like coffee"
 - Dùng sai dạng từ: "She is beauty" thay vì "She is beautiful"
 - Không biết chia thì vì không xác định được động từ chính
@@ -91,6 +92,7 @@ Danh từ chỉ người, vật, nơi chốn, hoặc khái niệm trừu tượn
 - Khái niệm: *education, freedom, culture, technology*
 
 **Đuôi hay gặp:** -tion, -ment, -ness, -ity, -ance, -er/-or
+
 - educate → educa**tion**
 - develop → develop**ment**
 - happy → happi**ness**
@@ -117,6 +119,7 @@ Tính từ mô tả tính chất của danh từ.
 - *She seems **nervous**.* — đứng sau seem
 
 **Đuôi hay gặp:** -ful, -less, -ous, -al, -ive, -able, -ible, -ic
+
 - beauty → beauti**ful**
 - care → care**ful** / care**less**
 - danger → danger**ous**
@@ -134,6 +137,7 @@ Trạng từ bổ nghĩa cho động từ, tính từ, hoặc trạng từ khác
 - Bổ nghĩa trạng từ: *She works **surprisingly** quickly.*
 
 **Đuôi hay gặp:** -ly
+
 - quick → quick**ly**
 - careful → careful**ly**
 - **Ngoại lệ:** fast, hard, well (không thêm -ly)
@@ -275,9 +279,11 @@ Tiếng Anh rất linh hoạt — cùng một từ có thể đóng vai trò kh�
 ## Lưu ý cho người học Việt Nam
 
 Nhiều từ tiếng Anh đổi hình thức khi đổi chức năng; một số giữ nguyên, như “work” và “fast”. Luôn xét chức năng trong câu. Một gia đình từ có đổi dạng là:
+
 - beauty (noun) → beautiful (adjective) → beautifully (adverb)
 
 **Mẹo:** Khi học từ mới, hãy học **cả gia đình từ**:
+
 - educate (v) → education (n) → educational (adj) → educationally (adv)
 
 ## Ứng dụng trong IELTS
@@ -319,6 +325,7 @@ Nhiều từ tiếng Anh đổi hình thức khi đổi chức năng; một số
 ### Đáp án
 
 **Từ loại:**
+
 1. Studying → Gerund (Noun/Verb-ing dùng làm chủ ngữ)
 2. extremely → Adverb (bổ nghĩa cho "valuable")
 3. valuable → Adjective (bổ nghĩa cho "experience")
@@ -326,6 +333,7 @@ Nhiều từ tiếng Anh đổi hình thức khi đổi chức năng; một số
 5. for → Preposition
 
 **Sửa lỗi:**
+
 1. clearly (adverb bổ nghĩa cho "explained")
 2. beautiful (adjective trước noun)
 3. happy (adjective sau "feel" — linking verb)

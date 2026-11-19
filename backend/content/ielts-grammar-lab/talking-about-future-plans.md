@@ -80,6 +80,7 @@ Bốn cách nói về tương lai — khác nhau về ý định giao tiếp và
 ## Tại sao quan trọng
 
 Trong IELTS Speaking, câu hỏi về tương lai rất phổ biến:
+
 - Part 1: "What do you plan to do after you finish studying?"
 - Part 1: "Do you think your hometown will change in the future?"
 - Part 2: "Describe something you would like to do in the future."
@@ -165,6 +166,7 @@ am/is/are + V-ing
 - "**We're moving** to a new apartment in June."
 
 > **So sánh be going to vs Present Continuous:**
+>
 > - "I'**m going to** look for a new job." (ý định, chưa có cụ thể)
 > - "I'**m starting** a new job on Monday." (đã sắp xếp cụ thể)
 

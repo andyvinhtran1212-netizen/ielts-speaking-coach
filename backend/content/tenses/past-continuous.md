@@ -87,6 +87,7 @@ Past Continuous diễn tả **hành động đang diễn ra** tại một thời
 ## Tại sao quan trọng
 
 Past Continuous là công cụ kể chuyện quan trọng trong IELTS:
+
 - **Speaking Part 2:** mô tả bối cảnh khi kể về sự kiện quá khứ
 - **Writing Task 1:** diễn tả xu hướng đang diễn ra tại một thời điểm
 - Tạo sự phong phú về ngữ pháp khi kết hợp với Past Simple
@@ -251,12 +252,15 @@ Khi nói trạng thái nói chung, các động từ như know, believe, underst
 ### Đáp án
 
 **Chia động từ:**
+
 1. was reading / called | 2. were playing / started | 3. was sleeping | 4. was cooking / was doing | 5. were you doing
 
 **When/While:**
+
 1. While | 2. When | 3. while | 4. while / when
 
 **Sửa lỗi:**
+
 1. She **knew** the truth all along. (stative verb)
 2. **You were** working very hard yesterday.
 3. **When** he arrived, I was cooking.
@@ -272,6 +276,7 @@ Khi nói trạng thái nói chung, các động từ như know, believe, underst
 | Mô tả bối cảnh | PC (nền) + PS (sự kiện) | The rain was falling when we left. |
 
 **Quy tắc vàng:**
+
 - **was** = I / he / she / it
 - **were** = you / we / they
 - Stative verbs thường dùng Past Simple khi nói trạng thái; một số nghĩa/ngữ cảnh cho phép Past Continuous.

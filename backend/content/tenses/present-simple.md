@@ -91,6 +91,7 @@ Present Simple diễn tả những gì **luôn đúng**, **thường xảy ra**,
 Đây là thì cơ bản nhất và được dùng nhiều nhất trong tiếng Anh. Trong IELTS Speaking Part 1, bạn sẽ dùng Present Simple để nói về thói quen và sở thích của mình. Trong Writing Task 2, bạn dùng nó để trình bày sự thật và quan điểm chung.
 
 Người học Việt Nam thường mắc 2 lỗi lớn với thì này:
+
 1. Quên thêm **-s/-es** với chủ ngữ ngôi thứ 3 (he, she, it)
 2. Dùng **do/does** sai khi đặt câu hỏi và câu phủ định
 
@@ -137,6 +138,7 @@ Does + he / she / it       + V ...?
 | Tận cùng phụ âm + y | Đổi y → i + es | study → studies, carry → carries |
 
 **Cách phát âm -s/-es:**
+
 - /s/ sau âm vô thanh (p, k, t, f, th): works /wɜːks/, sits /sɪts/
 - /z/ sau nguyên âm và phụ âm hữu thanh **không phải âm xuýt** (b, g, d, v, m, n, l, r, ð): reads /riːdz/, lives /lɪvz/
 - /ɪz/ sau âm /s/, /z/, /ʃ/, /ʒ/, /tʃ/, /dʒ/: buzzes /ˈbʌzɪz/, wishes /ˈwɪʃɪz/, changes /ˈtʃeɪndʒɪz/
@@ -272,6 +274,7 @@ Tiếng Việt không có chia động từ theo ngôi, nên người Việt d�
 Tiếng Việt cũng không cần trợ động từ để đặt câu hỏi (chỉ cần thêm 'không' ở cuối), nên người Việt hay quên do/does trong câu hỏi tiếng Anh.
 
 **Mẹo nhớ công thức:** 
+
 - Khẳng định: thêm -s với he/she/it
 - Phủ định/Hỏi: **do/does + V nguyên thể**
 
@@ -315,6 +318,7 @@ Tiếng Việt cũng không cần trợ động từ để đặt câu hỏi (ch
 ## Đáp án
 
 **Chia động từ:**
+
 1. goes
 2. freezes
 3. don't watch
@@ -324,6 +328,7 @@ Tiếng Việt cũng không cần trợ động từ để đặt câu hỏi (ch
 7. Do ... speak
 
 **Sửa lỗi:**
+
 1. He **doesn't like** spicy food. (doesn't + V nguyên thể)
 2. **Does** she **go** to the gym? (goes → go)
 3. My brother **works** in District 7. (thêm -s)
@@ -331,6 +336,7 @@ Tiếng Việt cũng không cần trợ động từ để đặt câu hỏi (ch
 5. She **doesn't go** to school on Sunday — **that is** true. (doesn't go / is)
 
 **Câu hỏi:**
+
 1. Do you like reading books?
 2. What does she do? / What does she do for a living? (Hỏi nghề nghiệp; "as a doctor" không trả lời nơi làm việc.)
 3. Where do they go every summer? (Hỏi nơi đến; "to the beach" cung cấp địa điểm.)
@@ -347,6 +353,7 @@ Tiếng Việt cũng không cần trợ động từ để đặt câu hỏi (ch
 Chủ ngữ ngôi thứ ba số ít như **water**, **the meeting** và **my sister** cũng theo nhóm **he/she/it**. Bảng này áp dụng cho động từ thường; **be** dùng **am/is/are**.
 
 **Quy tắc vàng:**
+
 1. **He/She/It + V-s/-es** — LUÔN nhớ thêm s
 2. **Câu hỏi và phủ định:** Do/Does + V nguyên thể
 3. Sau **doesn't** → bỏ -s
@@ -366,6 +373,7 @@ Chủ ngữ ngôi thứ ba số ít như **water**, **the meeting** và **my sis
 ❌ "It **rain** every day in summer." → ✅ "It **rains** every day in summer."
 
 **3 dạng phát âm -s** (xem thêm article `pronunciation-grammar-link`):
+
 - Sau /p, t, k, f, θ/: phát âm /s/ — "works" /wɜːks/, "stops" /stɒps/
 - Sau hữu thanh không phải âm xuýt + nguyên âm: phát âm /z/ — "runs" /rʌnz/, "plays" /pleɪz/
 - Sau /s, z, ʃ, ʒ, tʃ, dʒ/: phát âm /ɪz/ — "watches" /wɒtʃɪz/, "finishes" /ˈfɪnɪʃɪz/

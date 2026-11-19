@@ -108,17 +108,20 @@ so + adjective + that + [result clause]
 ```
 
 **Với tính từ:**
+
 - The exam was **so difficult** (that many students failed).
 - She is **so intelligent** (that everyone admires her).
 - The weather was **so cold** we couldn't go out.
 - His explanation was **so clear** I understood immediately.
 
 **Với trạng từ:**
+
 - He spoke **so quickly** (that I couldn't follow).
 - She worked **so hard** she burned out.
 - Time passed **so slowly** while we were waiting.
 
 **Với much / many / few / little (số lượng):**
+
 - There was **so much** traffic (that we were late).
 - She has **so many** friends.
 - I have **so little** time these days.
@@ -141,6 +144,7 @@ such + a/an + noun (không cần adj)
 ```
 
 **Danh từ đếm được số ít (cần a/an):**
+
 - It was **such a difficult exam** (that many students failed).
 - She is **such an intelligent person** (that everyone admires her).
 - He is **such a good teacher**.
@@ -148,16 +152,19 @@ such + a/an + noun (không cần adj)
 - That was **such a great idea**!
 
 **Danh từ đếm được số nhiều (không có a/an):**
+
 - They are **such talented musicians**.
 - These are **such important issues**.
 - We had **such great times** together.
 
 **Danh từ không đếm được (không có a/an):**
+
 - She showed **such courage** under pressure.
 - It was **such hard work**.
 - He displayed **such patience** with the students.
 
 **Chỉ có danh từ, không có tính từ:**
+
 - He is **such a genius**!
 - It was **such a coincidence** that we met here.
 - She made **such a mess**.
@@ -286,9 +293,11 @@ Tiếng Việt chỉ dùng 'quá/rất' trước cả tính từ lẫn cụm dan
 ### Đáp án
 
 **Chọn:**
+
 1. so | 2. such | 3. such | 4. so | 5. so | 6. such | 7. so | 8. such
 
 **Viết lại:**
+
 1. It was **such a difficult exam**. (hoặc: The exam was **so difficult**.)
 2. She's **such a talented singer**.
 3. It was **such shocking news** that everyone went silent.

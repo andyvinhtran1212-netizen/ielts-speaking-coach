@@ -123,6 +123,7 @@ Trong English, -s ở cuối có 3 phát âm khác nhau theo phụ âm trước:
 **Tại sao:** Cluster /ks/ (books, works) và /nts/ (students) ở cuối từ — không tồn tại trong VN.
 
 **Cách fix:**
+
 1. Practice cluster đơn giản trước: book**s**, cat**s**, work**s**. Phát âm /s/ rõ ràng và hơi kéo dài hơn bình thường ở giai đoạn đầu (over-correct).
 2. Trên 3rd-person -s, đặc biệt chú ý ở present simple — đây là lỗi người Việt rất hay mắc.
 3. Practice list 50 verb + -s mỗi sáng: "She likes, he works, it runs, she finishes, he watches..."
@@ -141,6 +142,7 @@ Tương tự -s, -ed có 3 phát âm:
 ⚠ **Lỗi #1 cho người Việt:** Nghĩ -ed luôn phát âm /əd/ → "walked" → /wɔːkəd/ (sai!). Hoặc bỏ hoàn toàn -ed → /wɔːk/ (cũng sai!).
 
 **Cách fix:**
+
 1. Học rule 3 dạng -ed kỹ — đây là rule cơ bản mà nhiều người không nắm.
 2. Practice past simple narrative với rhythmic awareness: "Yesterday I walked to the market /wɔːkt/, bought some food /bɔːt/, cooked dinner /kʊkt/, and watched TV /wɒtʃt/."
 3. Chỉ thêm âm tiết /ɪd/ khi động từ tận cùng bằng /t/ hoặc /d/; các trường hợp khác dùng /t/ hoặc /d/, không thêm âm tiết.
@@ -164,6 +166,7 @@ Trong English connected speech, function words (auxiliaries, prepositions, artic
 Trong mẫu trọng âm trung tính, function words thường yếu; chúng vẫn được nhấn khi đối lập: “I said TO the bank, not FROM it”. Chọn theo trọng tâm thông tin.
 
 **Cách fix:**
+
 1. Listen to native speakers slow → fast → notice weak forms.
 2. Practice với "shadowing" — nhái lại đúng rhythm và stress.
 3. Mark stress trên scripts trước khi practice. Stress goes on **content words** (nouns, main verbs, adjectives, adverbs); function words usually weak.
@@ -190,6 +193,7 @@ English natural speech uses contractions extensively. Avoid full forms:
 Nói dạng đầy đủ ở mọi chỗ làm nhịp nói nặng và chậm hơn; dùng dạng rút gọn ở chỗ phù hợp giúp nói trôi chảy hơn.
 
 **Cách fix:**
+
 1. Luyện contractions ở vị trí cấu trúc cho phép; giữ dạng đầy đủ khi nhấn mạnh hoặc cuối câu trả lời ngắn: “Yes, I am”.
 2. gonna/wanna là dạng nói thân mật; có thể xuất hiện tự nhiên khi nói, nhưng không cần cố dùng.
 3. Lưu ý: "I'd" có 2 nghĩa (I would / I had) — context phân biệt. Đừng tránh "I'd" vì sợ nhầm.

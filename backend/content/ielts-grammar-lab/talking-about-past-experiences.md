@@ -85,6 +85,7 @@ Khi kể về trải nghiệm quá khứ, bạn cần phối hợp nhiều thì:
 ## Tại sao quan trọng
 
 IELTS Speaking Part 2 thường có dạng:
+
 - "Describe a place you have visited."
 - "Talk about a person who has influenced you."
 - "Describe an interesting experience you have had."
@@ -104,11 +105,13 @@ Subject + V2 (regular: -ed, irregular: sang/went/saw...)
 ```
 
 **Dùng Past Simple để:**
+
 - Kể các sự kiện theo trình tự: "I **arrived**, **checked in**, and **went** to my room."
 - Mô tả hành động hoàn chỉnh: "She **told** me something I'll never forget."
 - Nói về cảm xúc tại thời điểm đó: "I **was** so nervous. I **felt** completely overwhelmed."
 
 **Ví dụ kể chuyện:**
+
 - "Last summer, I **went** on a trip to Da Lat with my family. We **drove** up the mountain road early in the morning, **arrived** around noon, and **spent** the whole afternoon exploring the flower gardens."
 - "I **met** her at a conference two years ago. She **introduced** herself and we **started** talking about our research interests. I **realised** immediately that she was someone exceptional."
 
@@ -143,6 +146,7 @@ was/were + V-ing + when + Past Simple
 - "She **was explaining** the project **when** the power **went** out."
 
 **Mẫu câu tả bối cảnh opening:**
+
 - "It was a warm evening in July. The streets **were buzzing** with people, music **was playing** in the background, and I **was standing** there wondering what to expect..."
 
 ---
@@ -157,11 +161,13 @@ Subject + had + past participle
 ```
 
 **Dùng khi:**
+
 - Cần làm rõ điều gì đó xảy ra trước: "By the time we arrived, the show **had already started**."
 - Kể về trải nghiệm lần đầu: "I **had never** seen anything like it before."
 - Giải thích nguyên nhân dẫn đến sự kiện quá khứ: "I accepted the job because I **had always dreamed** of working in that field."
 
 **Ví dụ:**
+
 - "I **had never** visited a foreign country before that trip, so everything felt incredibly new and exciting."
 - "By the time I graduated, I **had spent** four years studying something I truly loved."
 - "I **had been thinking** about changing careers for months before I finally quit." *(Past Perfect Continuous)*
@@ -178,11 +184,13 @@ Subject + has/have + past participle
 ```
 
 **Dùng khi:**
+
 - Nói về ảnh hưởng kéo dài: "That experience **has shaped** who I am today."
 - Kết luận câu chuyện: "It **has been** one of the most memorable experiences of my life."
 - Nói về điều chưa từng xảy ra: "I **have never** felt so proud of myself."
 
 **Ví dụ kết chuyện:**
+
 - "That trip **has stayed** with me ever since — it completely changed the way I see the world."
 - "Working with her **has been** one of the most valuable experiences of my career."
 - "I **have never** regretted making that decision."
@@ -277,6 +285,7 @@ Subject + has/have + past participle
 Cho câu mở đầu: "Last year, I took part in a public speaking competition."
 
 Hãy viết thêm 5-6 câu kể tiếp câu chuyện, dùng ít nhất:
+
 - 3 câu Past Simple
 - 1 câu Past Continuous
 - 1 câu kết thúc bằng Present Perfect

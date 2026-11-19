@@ -66,7 +66,7 @@ function questionCard(q) {
   return `<li class="cr-q" data-ok="${q.is_correct ? '1' : '0'}">
     <p class="cr-q__prompt">${mdBold(q.prompt || '')}</p>
     <dl class="cr-q__pick">
-      <dt>Em chọn</dt>
+      <dt>Bạn chọn</dt>
       <dd><b>${esc(picked)}</b> ${esc(q.picked_text || 'không trả lời')}</dd>
       ${q.is_correct ? '' : `<dt>Đáp án</dt>
       <dd><b>${esc(answer)}</b> ${esc(q.answer_text || '')}</dd>`}
@@ -350,7 +350,7 @@ export function renderReport(data, opts = {}) {
     ${history}
 
     ${locked ? `<p class="cr-locked">Xem chi tiết từng câu kèm lời giải sẽ mở khi
-      em đạt ${esc(data.threshold != null ? data.threshold + '%' : 'ngưỡng của lớp')}.
+      bạn đạt ${esc(data.threshold != null ? data.threshold + '%' : 'ngưỡng của lớp')}.
       Giờ hãy dùng bảng dưới để biết ôn trục nào trước.</p>` : ''}
     <ol class="cr-axes">
       ${groups.map((g, i) => `<li class="cr-axis" data-weak="${needsWork(g) ? '1' : '0'}">

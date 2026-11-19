@@ -166,11 +166,6 @@ function ArticleCard({ article }: { article: Article }) {
           {article.commonError ? <div className="va-callout va-warn"><CalloutIcon kind="warn" /><div><span className="va-t">Hay nhầm</span>{article.commonError}</div></div> : null}
           {article.memoryHook ? <div className="va-callout va-hook"><CalloutIcon kind="hook" /><div><span className="va-t">Mẹo nhớ</span>{article.memoryHook}</div></div> : null}
         </div></> : null}
-        {article.register || article.source ? <><div className="va-rule" /><div className="va-pad va-foot"><span className="va-trace">
-          {article.register ? <>register <b>{article.register}</b></> : null}
-          {article.register && article.source ? ' · ' : null}
-          {article.source ? <>nguồn <b>{article.source}</b></> : null}
-        </span></div></> : null}
       </div>
       {fallbackHtml ? <div id="article-body" className="md-body" dangerouslySetInnerHTML={{ __html: fallbackHtml }} /> : null}
     </>

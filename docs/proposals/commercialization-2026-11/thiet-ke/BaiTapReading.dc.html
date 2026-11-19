@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Reading · 5 dạng</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--link:#0B5953;--mark:#8A4B08;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EDF3F1;--off:#E7E2D6;--hl:#F6E3A1}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--link:#1A3561;--mark:#8A1C1C;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EEF0F5;--off:#E8E2D5;--hl:#F6E3A1}
+a{color:var(--link)}a:hover{color:var(--ink)}
+</style>
+</helmet>
+<div class="{{pal}}" style="width: 1280px; height: 3500px; box-sizing: border-box; padding: 56px 64px; background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 16px; line-height: 1.5">
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Aver Learning · Bản in · dạng bài tập, tờ 3</p>
+<h1 style="margin: 4px 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 40px; font-weight: 600; line-height: 1.15">Reading · 5 dạng</h1>
+<p style="margin: 0 0 36px; color: var(--muted); max-width: 86ch">Ba dạng câu hỏi riêng của Reading (trả lời ngắn, hoàn thành tóm tắt, nối đặc điểm), hai công cụ đọc (tô sáng và ghi chú, chú giải từ và dịch từng câu), và bố cục bài luyện trên điện thoại. Bài luyện từng phần: nhãn tiếng Việt, nội dung bài tiếng Anh; bài full test: mọi nhãn tiếng Anh (đổi bằng nút chế độ bên dưới). Thanh công cụ đọc (Highlight, Note, Clear) luôn tiếng Anh. Dạng có chấm luôn trả ba thứ: đúng hay sai bằng chữ, đáp án đúng, và một dòng giải thích.</p>
+<div role="group" aria-label="Chế độ hiển thị nhãn" style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin: -12px 0 36px; padding: 14px 16px; border: 1px solid var(--ink); background: var(--surface)">
+<span style="font-weight: 600; margin-right: 4px">Đang xem bản (bấm để đổi):</span>
+<button onClick="{{toPractice}}" aria-pressed="{{isPractice}}" style="min-height: 44px; padding: 0 16px; border: 1px solid var(--ink); border-radius: 2px; background: {{pBg}}; color: {{pFg}}; font: 600 15px 'Source Sans 3', sans-serif; cursor: pointer">Luyện từng phần</button>
+<button onClick="{{toTest}}" aria-pressed="{{isTest}}" style="min-height: 44px; padding: 0 16px; border: 1px solid var(--ink); border-radius: 2px; background: {{tBg}}; color: {{tFg}}; font: 600 15px 'Source Sans 3', sans-serif; cursor: pointer">Full test</button>
+<p style="flex-basis: 100%; margin: 0; font-size: 14px; color: var(--muted)">{{modeNote}}</p>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px 48px">
+
+<section aria-labelledby="r1" style="border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="r1" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">1. Trả lời ngắn</h2>
+<p style="margin: 0 0 14px; font-size: 14px; color: var(--muted)">Reading · giới hạn số từ ghi ngay trên đề, bộ đếm từ nằm cạnh ô nhập</p>
+<p lang="en" style="margin: 0 0 10px; font-size: 14px; font-weight: 600">Answer the questions below. Write NO MORE THAN THREE WORDS AND/OR A NUMBER for each answer.</p>
+<p lang="en" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px"><label for="sa1"><strong>1</strong>&nbsp;&nbsp;What held back the rising tide at a tidal mill?</label></p>
+<div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px">
+<input id="sa1" type="text" lang="en" value="low dam" style="width: 300px; min-height: 44px; box-sizing: border-box; padding: 0 10px; border: 0; border-bottom: 2px solid var(--ink); background: var(--tint); font: 18px 'Source Serif 4', Georgia, serif; color: var(--ink)">
+<span lang="{{L.lang}}" style="font-size: 14px; color: var(--muted)">{{L.wc1}}</span>
+</div>
+<p lang="en" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px"><label for="sa2"><strong>2</strong>&nbsp;&nbsp;How long did each working period last?</label></p>
+<div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px">
+<input id="sa2" type="text" lang="en" value="about four hours each day" aria-describedby="sa2c" style="width: 300px; min-height: 44px; box-sizing: border-box; padding: 0 10px; border: 0; border-bottom: 2px solid var(--danger); background: var(--tint); font: 18px 'Source Serif 4', Georgia, serif; color: var(--ink)">
+<span id="sa2c" lang="{{L.lang}}" style="font-size: 14px; font-weight: 600; color: var(--danger)">{{L.wc2}}</span>
+</div>
+<p lang="en" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px"><label for="sa3"><strong>3</strong>&nbsp;&nbsp;Which fuel made steam engines dependable?</label></p>
+<div style="display: flex; align-items: center; gap: 12px">
+<input id="sa3" type="text" lang="en" placeholder="{{L.ph3}}" style="width: 300px; min-height: 44px; box-sizing: border-box; padding: 0 10px; border: 0; border-bottom: 2px solid var(--ink); background: var(--surface); font: 18px 'Source Serif 4', Georgia, serif; color: var(--ink)">
+<span lang="{{L.lang}}" style="font-size: 14px; color: var(--muted)">{{L.wc3}}</span>
+</div>
+<p style="margin: 18px 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Sau khi chấm</p>
+<p style="margin: 0 0 4px; font-size: 15px"><strong style="color: var(--ok)">1 · Đúng.</strong> Bạn viết <em lang="en">low dam</em>. Cũng chấp nhận: <span lang="en">a low dam · dam</span>.</p>
+<p style="margin: 0 0 12px; font-size: 15px"><strong>Vì sao:</strong> đoạn A nói nước triều lên bị giữ lại sau một con đập thấp.</p>
+<p style="margin: 0 0 4px; font-size: 15px"><strong style="color: var(--danger)">2 · Sai.</strong> Bạn viết <span lang="en" style="text-decoration: line-through">about four hours each day</span> (5 từ, quá giới hạn 3 từ). Đáp án: <strong lang="en">four hours</strong>. Cũng chấp nhận: <span lang="en">4 hours · roughly four hours</span>.</p>
+<p style="margin: 0 0 12px; font-size: 15px"><strong>Vì sao:</strong> đoạn A ghi mỗi ca làm việc dài khoảng bốn giờ. Ý đúng nhưng vượt số từ thì vẫn tính sai.</p>
+<p style="margin: 0; font-size: 15px"><strong style="color: var(--muted)">3 · Chưa trả lời.</strong> Đáp án: <strong lang="en">coal</strong>. Cũng chấp nhận: <span lang="en">cheap coal</span>. <strong>Vì sao:</strong> đoạn B, than rẻ giúp máy hơi nước chạy được mọi giờ. <a href="#r4">Xem câu trong bài đọc</a></p>
+</section>
+
+<section aria-labelledby="r2" style="border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="r2" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">2. Hoàn thành tóm tắt</h2>
+<p style="margin: 0 0 14px; font-size: 14px; color: var(--muted)">Reading · hai biến thể: gõ từ lấy trong bài, hoặc chọn từ trong hộp từ</p>
+<p style="margin: 0 0 6px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Biến thể A · gõ từ lấy trong bài</p>
+<p lang="en" style="margin: 0 0 4px; font-size: 14px; font-weight: 600">Complete the summary. Choose ONE WORD ONLY from the passage for each answer.</p>
+<p lang="en" style="margin: 0 0 14px; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; line-height: 2.5">Tidal mills lost ground in the nineteenth century. Steam engines burned cheap <label><span style="position: absolute; width: 1px; height: 1px; overflow: hidden">{{L.q4}}</span><strong>4</strong> <input type="text" value="coal" style="width: 130px; min-height: 40px; padding: 0 10px; border: 0; border-bottom: 2px solid var(--ink); background: var(--tint); font: 18px 'Source Serif 4', Georgia, serif; color: var(--ink)"></label> and could run at any hour, while <label><span style="position: absolute; width: 1px; height: 1px; overflow: hidden">{{L.q5}}</span><strong>5</strong> <input type="text" placeholder="{{L.ph5}}" style="width: 130px; min-height: 40px; padding: 0 10px; border: 0; border-bottom: 2px solid var(--ink); background: var(--surface); font: 18px 'Source Serif 4', Georgia, serif; color: var(--ink)"></label> left many mill ponds too shallow.</p>
+<p style="margin: 0 0 6px; padding-top: 12px; border-top: 1px solid var(--rule); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Biến thể B · chọn từ trong hộp từ</p>
+<p lang="en" style="margin: 0 0 8px; font-size: 14px; font-weight: 600">Complete the summary using the list of words, A–F, below.</p>
+<ul lang="en" aria-label="{{L.wordBox}}" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 16px; margin: 0 0 10px; padding: 10px 14px; list-style: none; border: 1px solid var(--ink); background: var(--surface); font-family: 'Source Serif 4', Georgia, serif; font-size: 17px">
+<li style="color: var(--muted); opacity: 0.6"><strong style="font: 600 14px 'Source Sans 3', sans-serif">A</strong>&nbsp;&nbsp;<span style="text-decoration: line-through">weather</span><span lang="{{L.lang}}" style="position: absolute; width: 1px; height: 1px; overflow: hidden">{{L.usedA}}</span></li>
+<li><strong style="font: 600 14px 'Source Sans 3', sans-serif">B</strong>&nbsp;&nbsp;tide</li>
+<li><strong style="font: 600 14px 'Source Sans 3', sans-serif">C</strong>&nbsp;&nbsp;harvest</li>
+<li><strong style="font: 600 14px 'Source Sans 3', sans-serif">D</strong>&nbsp;&nbsp;coal</li>
+<li><strong style="font: 600 14px 'Source Sans 3', sans-serif">E</strong>&nbsp;&nbsp;season</li>
+<li><strong style="font: 600 14px 'Source Sans 3', sans-serif">F</strong>&nbsp;&nbsp;market</li>
+</ul>
+<p lang="en" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; line-height: 2.7">Unlike a windmill, a tidal mill did not depend on the <label><span style="position: absolute; width: 1px; height: 1px; overflow: hidden">{{L.q6}}</span><strong>6</strong> <select style="min-height: 44px; padding: 0 8px; border: 2px solid var(--ink); border-radius: 2px; background: var(--tint); font: 16px 'Source Sans 3', sans-serif; color: var(--ink)"><option>A · weather</option></select></label>. Its timetable was fixed by the <label><span style="position: absolute; width: 1px; height: 1px; overflow: hidden">{{L.q7}}</span><strong>7</strong> <select style="min-height: 44px; padding: 0 8px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); font: 16px 'Source Sans 3', sans-serif; color: var(--muted)"><option lang="{{L.lang}}">{{L.choose}}</option></select></label>, so the miller knew his hours weeks ahead.</p>
+<p style="margin: 18px 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Sau khi chấm</p>
+<p style="margin: 0 0 6px; font-size: 15px"><strong style="color: var(--ok)">4 · Đúng.</strong> <em lang="en">coal</em></p>
+<p style="margin: 0 0 6px; font-size: 15px"><strong style="color: var(--danger)">5 · Sai.</strong> Bạn viết <span lang="en" style="text-decoration: line-through">estuaries</span>. Đáp án: <strong lang="en">silting</strong>. <strong>Vì sao:</strong> đoạn B nói chính sự bồi lắng làm hồ cạn; cửa sông chỉ là nơi xảy ra.</p>
+<p style="margin: 0 0 6px; font-size: 15px"><strong style="color: var(--ok)">6 · Đúng.</strong> A · <em lang="en">weather</em></p>
+<p style="margin: 0; font-size: 15px"><strong style="color: var(--danger)">7 · Sai.</strong> Bạn chọn C · <span lang="en" style="text-decoration: line-through">harvest</span>. Đáp án: <strong lang="en">B · tide</strong>. <strong>Vì sao:</strong> giờ xay theo con nước lên xuống, không theo mùa gặt.</p>
+</section>
+
+<section aria-labelledby="r3" style="border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="r3" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">3. Nối đặc điểm</h2>
+<p style="margin: 0 0 14px; font-size: 14px; color: var(--muted)">Reading · danh sách người luôn nhìn thấy, mỗi câu chọn một chữ cái</p>
+<p lang="en" style="margin: 0 0 4px; font-size: 14px; font-weight: 600">Match each statement with the correct researcher, A–D.</p>
+<p lang="{{L.lang}}" style="margin: 0 0 10px; font-size: 14px; font-weight: 600; color: var(--mark)">{{L.multi}}</p>
+<ol lang="en" aria-label="{{L.researchers}}" style="margin: 0 0 16px; padding: 10px 14px; list-style: none; border: 1px solid var(--ink); background: var(--surface); font-family: 'Source Serif 4', Georgia, serif; font-size: 17px">
+<li><strong style="font: 600 14px 'Source Sans 3', sans-serif">A</strong>&nbsp;&nbsp;Helen Marsh</li>
+<li><strong style="font: 600 14px 'Source Sans 3', sans-serif">B</strong>&nbsp;&nbsp;Tomas Ruiz <span lang="{{L.lang}}" style="font: 13px 'Source Sans 3', sans-serif; color: var(--muted)">{{L.usedB}}</span></li>
+<li><strong style="font: 600 14px 'Source Sans 3', sans-serif">C</strong>&nbsp;&nbsp;Ingrid Olsen</li>
+<li><strong style="font: 600 14px 'Source Sans 3', sans-serif">D</strong>&nbsp;&nbsp;Peter Adeyemi</li>
+</ol>
+<sc-for list="{{feats}}" as="f" hint-placeholder-count="3">
+<fieldset style="margin: 0 0 14px; padding: 0; border: 0">
+<legend lang="en" style="padding: 0; margin-bottom: 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px"><strong>{{f.n}}</strong>&nbsp;&nbsp;{{f.text}}</legend>
+<div style="display: flex; align-items: center; gap: 10px">
+<sc-for list="{{f.options}}" as="o" hint-placeholder-count="4">
+<button onClick="{{o.pick}}" aria-pressed="{{o.on}}" aria-label="{{o.aria}}" style="width: 48px; min-height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: {{o.bg}}; color: {{o.fg}}; font: 600 15px 'Source Sans 3', sans-serif; cursor: pointer">{{o.k}}</button>
+</sc-for>
+<span style="margin-left: 8px; font-size: 14px; color: var(--muted)">{{f.status}}</span>
+</div>
+</fieldset>
+</sc-for>
+<p style="margin: 18px 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Sau khi chấm</p>
+<p style="margin: 0 0 6px; font-size: 15px"><strong style="color: var(--ok)">8 · Đúng.</strong> B · <span lang="en">Tomas Ruiz</span>. <strong>Vì sao:</strong> đoạn C, ông đề xuất phục hồi cối xay làm nguồn điện nhỏ.</p>
+<p style="margin: 0 0 6px; font-size: 15px"><strong style="color: var(--danger)">9 · Sai.</strong> Bạn chọn B, đáp án <strong>C · <span lang="en">Ingrid Olsen</span></strong>. <strong>Vì sao:</strong> chính bà cho rằng bùn lấp gây hại nhiều hơn cạnh tranh; Ruiz chỉ nhắc đến máy hơi nước.</p>
+<p style="margin: 0; font-size: 15px"><strong style="color: var(--muted)">10 · Chưa trả lời.</strong> Đáp án <strong>A · <span lang="en">Helen Marsh</span></strong>. <strong>Vì sao:</strong> bà mô tả giờ xay thất thường chi phối sinh hoạt của cả làng.</p>
+</section>
+
+<section aria-labelledby="r4" style="border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="r4" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">4. Tô sáng và ghi chú trên bài đọc</h2>
+<p style="margin: 0 0 14px; font-size: 14px; color: var(--muted)">Công cụ đọc, không chấm · chọn chữ thì hiện thanh nổi · bấm thử "Highlight" và "Clear" · nhãn công cụ luôn tiếng Anh</p>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 168px; gap: 0 16px; padding: 18px 16px; border: 1px solid var(--rule); background: var(--surface)">
+<p lang="en" style="margin: 0 0 14px; font-family: 'Source Serif 4', Georgia, serif; font-size: 17px; line-height: 1.62"><strong>A</strong>&nbsp;&nbsp;Long before steam, coastal communities ground their grain with the sea. A tidal mill trapped the rising tide behind a low dam and released it through a wheel as the water fell, <span style="background: var(--hl)">giving the miller two working periods of roughly four hours each day</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--mark)">&nbsp;1</sup>.</p>
+<aside aria-label="{{L.margin1}}" lang="{{L.lang}}" style="align-self: end; margin-bottom: 14px; padding-top: 6px; border-top: 1px solid var(--ink); font-size: 14px; line-height: 1.4">
+<p style="margin: 0"><strong style="color: var(--mark)">1</strong>&nbsp; {{L.note1}}</p>
+<button style="min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--link); font: 600 14px 'Source Sans 3', sans-serif; text-decoration: underline; cursor: pointer">{{L.editNote}}</button>
+</aside>
+<p lang="en" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 17px; line-height: 1.62"><strong>B</strong>&nbsp;&nbsp;The mills declined in the nineteenth century. Cheap coal made steam engines reliable at any hour, and the <span style="position: relative; display: inline-block; background: {{selBg}}; outline: {{selOutline}}">silting of estuaries<span lang="en" role="toolbar" aria-label="Text tools" style="position: absolute; left: 0; bottom: 100%; margin-bottom: 6px; display: flex; white-space: nowrap; background: var(--ink); border-radius: 2px; z-index: 1">
+<button onClick="{{hlOn}}" style="min-height: 44px; padding: 0 14px; border: 0; border-right: 1px solid var(--muted); background: transparent; color: #FFFFFF; font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer">Highlight</button>
+<button style="min-height: 44px; padding: 0 14px; border: 0; border-right: 1px solid var(--muted); background: transparent; color: #FFFFFF; font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer">Note</button>
+<button onClick="{{hlOff}}" style="min-height: 44px; padding: 0 14px; border: 0; background: transparent; color: var(--surface); font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer">Clear</button>
+</span></span> left many mill ponds too shallow to store useful water. <span style="background: var(--hl)">By 1900 only a handful were still grinding.</span></p>
+<p aria-live="polite" style="align-self: end; margin: 0; padding-top: 6px; border-top: 1px solid var(--rule); font-size: 14px; line-height: 1.4; color: var(--muted)">{{selHint}}</p>
+</div>
+<h3 lang="{{L.lang}}" style="margin: 18px 0 2px; font: 600 16px 'Source Sans 3', sans-serif">{{notesHead}}</h3>
+<ol lang="{{L.lang}}" style="margin: 0; padding: 0; list-style: none">
+<li style="display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--rule)">
+<span style="width: 60px; flex-shrink: 0; font-size: 13px; font-weight: 600; color: var(--muted)">{{L.paraA}}</span>
+<span style="flex-grow: 1; font-size: 15px"><span lang="en" style="background: var(--hl); font-family: 'Source Serif 4', Georgia, serif">two working periods of roughly four hours</span><br>{{L.note1}}</span>
+<a href="#r4" style="display: inline-flex; align-items: center; min-height: 44px; font-size: 14px; font-weight: 600; white-space: nowrap">{{L.goTo}}</a>
+<button aria-label="{{L.delA}}" style="width: 44px; height: 44px; flex-shrink: 0; padding: 0; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); cursor: pointer"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"></path><path d="M9 7V4h6v3"></path><path d="M6 7l1 13h10l1-13"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg></button>
+</li>
+<sc-if value="{{hl}}" hint-placeholder-val="{{false}}">
+<li style="display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--rule)">
+<span style="width: 60px; flex-shrink: 0; font-size: 13px; font-weight: 600; color: var(--muted)">{{L.paraB}}</span>
+<span style="flex-grow: 1; font-size: 15px"><span lang="en" style="background: var(--hl); font-family: 'Source Serif 4', Georgia, serif">silting of estuaries</span><br><span style="color: var(--muted)">{{L.hlOnly}}</span></span>
+<a href="#r4" style="display: inline-flex; align-items: center; min-height: 44px; font-size: 14px; font-weight: 600; white-space: nowrap">{{L.goTo}}</a>
+<button onClick="{{hlOff}}" aria-label="{{L.clrB}}" style="width: 44px; height: 44px; flex-shrink: 0; padding: 0; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); cursor: pointer"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"></path><path d="M9 7V4h6v3"></path><path d="M6 7l1 13h10l1-13"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg></button>
+</li>
+</sc-if>
+<li style="display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--rule)">
+<span style="width: 60px; flex-shrink: 0; font-size: 13px; font-weight: 600; color: var(--muted)">{{L.paraB}}</span>
+<span style="flex-grow: 1; font-size: 15px"><span lang="en" style="background: var(--hl); font-family: 'Source Serif 4', Georgia, serif">By 1900 only a handful were still grinding.</span><br><span style="color: var(--muted)">{{L.hlOnly}}</span></span>
+<a href="#r4" style="display: inline-flex; align-items: center; min-height: 44px; font-size: 14px; font-weight: 600; white-space: nowrap">{{L.goTo}}</a>
+<button aria-label="{{L.clrB2}}" style="width: 44px; height: 44px; flex-shrink: 0; padding: 0; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); cursor: pointer"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"></path><path d="M9 7V4h6v3"></path><path d="M6 7l1 13h10l1-13"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg></button>
+</li>
+</ol>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)">Tô sáng và ghi chú được giữ theo bài, mở lại vẫn còn. Trên điện thoại, ghi chú ở lề chuyển thành số nhỏ trong bài; bấm số để mở ghi chú.</p>
+</section>
+
+<section aria-labelledby="r5" style="border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="r5" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">5. Đọc có chú giải từ và dịch từng câu</h2>
+<p style="margin: 0 0 14px; font-size: 14px; color: var(--muted)">Chỉ có ở chế độ học, không chấm · bấm thử từ gạch chân chấm và nút "Dịch" cuối mỗi câu</p>
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px">
+<p style="margin: 0; font-size: 14px; color: var(--muted)">Đang hiện bản dịch {{trCount}} trên 3 câu</p>
+<button onClick="{{toggleAll}}" style="min-height: 44px; padding: 0 16px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer">{{allLabel}}</button>
+</div>
+<div lang="en" style="padding: 14px 18px; border: 1px solid var(--rule); background: var(--surface); font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; line-height: 2.5">
+<p style="margin: 0">Tidal mills did not vanish overnight; their numbers <button onClick="{{openW1}}" aria-expanded="{{w1}}" style="margin: -12px 0; padding: 12px 1px; border: 0; background: {{w1Bg}}; color: var(--ink); font: inherit; text-decoration: underline dotted; text-decoration-thickness: 2px; text-underline-offset: 5px; cursor: pointer">dwindled</button> over several decades. <button onClick="{{tog1}}" aria-expanded="{{t1}}" aria-label="Dịch câu 1" lang="vi" style="width: 52px; height: 44px; padding: 0; border: 0; background: transparent; vertical-align: middle; cursor: pointer"><span style="display: inline-block; padding: 2px 8px; border: 1px solid var(--ink); border-radius: 2px; background: {{b1Bg}}; color: {{b1Fg}}; font: 600 12px/1.5 'Source Sans 3', sans-serif">Dịch</span></button>
+<sc-if value="{{t1}}" hint-placeholder-val="{{true}}"><span lang="vi" style="display: block; margin: 0 0 6px; padding: 6px 12px; background: var(--tint); font: 16px/1.5 'Source Sans 3', sans-serif">Cối xay thuỷ triều không biến mất chỉ sau một đêm; số lượng của chúng giảm dần trong vài thập kỷ.</span></sc-if>
+As estuaries filled with mud, the ponds could no longer <button onClick="{{openW2}}" aria-expanded="{{w2}}" style="margin: -12px 0; padding: 12px 1px; border: 0; background: {{w2Bg}}; color: var(--ink); font: inherit; text-decoration: underline dotted; text-decoration-thickness: 2px; text-underline-offset: 5px; cursor: pointer">retain</button> enough water to turn a wheel. <button onClick="{{tog2}}" aria-expanded="{{t2}}" aria-label="Dịch câu 2" lang="vi" style="width: 52px; height: 44px; padding: 0; border: 0; background: transparent; vertical-align: middle; cursor: pointer"><span style="display: inline-block; padding: 2px 8px; border: 1px solid var(--ink); border-radius: 2px; background: {{b2Bg}}; color: {{b2Fg}}; font: 600 12px/1.5 'Source Sans 3', sans-serif">Dịch</span></button>
+<sc-if value="{{t2}}" hint-placeholder-val="{{false}}"><span lang="vi" style="display: block; margin: 0 0 6px; padding: 6px 12px; background: var(--tint); font: 16px/1.5 'Source Sans 3', sans-serif">Khi các cửa sông bị bùn lấp đầy, hồ chứa không còn giữ đủ nước để quay bánh xe.</span></sc-if>
+A few survive today as museums, kept running by volunteers. <button onClick="{{tog3}}" aria-expanded="{{t3}}" aria-label="Dịch câu 3" lang="vi" style="width: 52px; height: 44px; padding: 0; border: 0; background: transparent; vertical-align: middle; cursor: pointer"><span style="display: inline-block; padding: 2px 8px; border: 1px solid var(--ink); border-radius: 2px; background: {{b3Bg}}; color: {{b3Fg}}; font: 600 12px/1.5 'Source Sans 3', sans-serif">Dịch</span></button>
+<sc-if value="{{t3}}" hint-placeholder-val="{{false}}"><span lang="vi" style="display: block; margin: 0 0 6px; padding: 6px 12px; background: var(--tint); font: 16px/1.5 'Source Sans 3', sans-serif">Một số ít còn tồn tại đến nay dưới dạng bảo tàng, được các tình nguyện viên duy trì hoạt động.</span></sc-if>
+</p>
+</div>
+<p style="margin: 16px 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Thẻ nghĩa của từ đang chọn</p>
+<sc-if value="{{w1}}" hint-placeholder-val="{{true}}">
+<div role="group" aria-label="Thẻ nghĩa: dwindle" style="padding: 14px 16px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface)">
+<div style="display: flex; align-items: baseline; gap: 12px">
+<p lang="en" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">dwindle</p>
+<p style="margin: 0; font-size: 15px; color: var(--muted)">/ˈdwɪn.dəl/</p>
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--muted)">động từ</p>
+<button onClick="{{closeW}}" aria-label="Đóng thẻ nghĩa" style="margin-left: auto; align-self: center; width: 44px; height: 44px; padding: 0; border: 0; background: transparent; color: var(--ink); cursor: pointer"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg></button>
+</div>
+<p style="margin: 4px 0 2px; font-size: 17px">giảm dần, teo dần về số lượng hoặc kích cỡ</p>
+<p style="margin: 0 0 12px; font-size: 14px; color: var(--muted)">Trong bài: dạng quá khứ <em lang="en">dwindled</em>.</p>
+<button onClick="{{save1}}" aria-pressed="{{s1}}" style="display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border: 1px solid var(--ink); border-radius: 2px; background: {{s1Bg}}; color: var(--ink); font: 600 15px 'Source Sans 3', sans-serif; cursor: pointer"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M6 4h12v16l-6-4-6 4z"></path></svg>{{s1Label}}</button>
+</div>
+</sc-if>
+<sc-if value="{{w2}}" hint-placeholder-val="{{false}}">
+<div role="group" aria-label="Thẻ nghĩa: retain" style="padding: 14px 16px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface)">
+<div style="display: flex; align-items: baseline; gap: 12px">
+<p lang="en" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">retain</p>
+<p style="margin: 0; font-size: 15px; color: var(--muted)">/rɪˈteɪn/</p>
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--muted)">động từ</p>
+<button onClick="{{closeW}}" aria-label="Đóng thẻ nghĩa" style="margin-left: auto; align-self: center; width: 44px; height: 44px; padding: 0; border: 0; background: transparent; color: var(--ink); cursor: pointer"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg></button>
+</div>
+<p style="margin: 4px 0 2px; font-size: 17px">giữ lại, giữ được</p>
+<p style="margin: 0 0 12px; font-size: 14px; color: var(--muted)">Trong bài: <em lang="en">retain enough water</em>, giữ đủ nước.</p>
+<button onClick="{{save2}}" aria-pressed="{{s2}}" style="display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border: 1px solid var(--ink); border-radius: 2px; background: {{s2Bg}}; color: var(--ink); font: 600 15px 'Source Sans 3', sans-serif; cursor: pointer"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M6 4h12v16l-6-4-6 4z"></path></svg>{{s2Label}}</button>
+</div>
+</sc-if>
+<sc-if value="{{noWord}}" hint-placeholder-val="{{false}}">
+<p style="margin: 0; padding: 14px 16px; border: 1px solid var(--rule); font-size: 15px; color: var(--muted)">Chưa chọn từ nào. Bấm một từ gạch chân chấm trong bài để xem nghĩa.</p>
+</sc-if>
+<p style="margin: 14px 0 0; font-size: 14px; color: var(--muted)">Trên máy tính, thẻ nghĩa nổi ngay dưới từ; trên điện thoại, thẻ trượt lên từ đáy màn hình. Chú giải và bản dịch tắt hẳn trong phòng thi.</p>
+</section>
+
+<section aria-labelledby="r6" style="border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="r6" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">6. Bài luyện Reading trên điện thoại</h2>
+<p style="margin: 0 0 14px; font-size: 14px; color: var(--muted)">Khung 390px · thẻ chuyển "Bài đọc / Câu hỏi" thay cho hai cột · bấm thử thẻ và nút "Chấm bài"</p>
+<div style="width: 390px; box-sizing: border-box; border: 1px solid var(--ink); background: var(--paper)">
+<header style="display: flex; align-items: center; gap: 4px; padding: 4px 12px 4px 4px; border-bottom: 1px solid var(--rule); background: var(--surface)">
+<a href="#r6" aria-label="Quay lại danh sách bài luyện" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; color: var(--ink)"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></a>
+<p style="margin: 0; flex-grow: 1; font-size: 15px; font-weight: 600">Luyện Reading · Bài đọc 1</p>
+<p style="margin: 0; font-size: 13px; color: var(--muted)">Đã lưu</p>
+</header>
+<div role="tablist" aria-label="Chuyển giữa bài đọc và câu hỏi" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); background: var(--surface)">
+<button role="tab" onClick="{{toPassage}}" aria-selected="{{isPassage}}" style="min-height: 48px; padding: 0; border: 0; border-bottom: 3px solid {{tabPBar}}; background: transparent; color: {{tabPFg}}; font: 600 15px 'Source Sans 3', sans-serif; cursor: pointer">Bài đọc</button>
+<button role="tab" onClick="{{toQuestions}}" aria-selected="{{isQuestions}}" style="min-height: 48px; padding: 0; border: 0; border-bottom: 3px solid {{tabQBar}}; background: transparent; color: {{tabQFg}}; font: 600 15px 'Source Sans 3', sans-serif; cursor: pointer">Câu hỏi 1–2</button>
+</div>
+<sc-if value="{{isPassage}}" hint-placeholder-val="{{false}}">
+<article lang="en" style="min-height: 520px; box-sizing: border-box; padding: 18px 16px; background: var(--surface)">
+<h3 style="margin: 0 0 12px; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600; line-height: 1.2">Milling with the Tide</h3>
+<p style="margin: 0 0 12px; font-family: 'Source Serif 4', Georgia, serif; font-size: 17px; line-height: 1.62"><strong>A</strong>&nbsp;&nbsp;Long before steam, coastal communities ground their grain with the sea. A tidal mill trapped the rising tide behind a low dam and released it through a wheel as the water fell, <span style="background: var(--hl)">giving the miller two working periods of roughly four hours each day</span>.</p>
+<p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 17px; line-height: 1.62"><strong>B</strong>&nbsp;&nbsp;The mills declined in the nineteenth century. Cheap coal made steam engines reliable at any hour, and the silting of estuaries left many mill ponds too shallow to store useful water. By 1900 only a handful were still grinding.</p>
+</article>
+</sc-if>
+<sc-if value="{{isQuestions}}" hint-placeholder-val="{{true}}">
+<div style="min-height: 520px; box-sizing: border-box; padding: 18px 16px">
+<p lang="en" style="margin: 0 0 14px; font-size: 14px; font-weight: 600">Write NO MORE THAN THREE WORDS AND/OR A NUMBER for each answer.</p>
+<p lang="en" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; line-height: 1.4"><label for="ph1"><strong>1</strong>&nbsp;&nbsp;What held back the rising tide at a tidal mill?</label></p>
+<input id="ph1" type="text" lang="en" value="low dam" style="width: 100%; min-height: 48px; box-sizing: border-box; padding: 0 10px; border: 0; border-bottom: 2px solid var(--ink); background: var(--tint); font: 18px 'Source Serif 4', Georgia, serif; color: var(--ink)">
+<sc-if value="{{notGraded}}" hint-placeholder-val="{{true}}">
+<p style="margin: 4px 0 16px; font-size: 14px; color: var(--muted)">2 trên 3 từ</p>
+</sc-if>
+<sc-if value="{{graded}}" hint-placeholder-val="{{false}}">
+<p style="margin: 6px 0 16px; font-size: 15px"><strong style="color: var(--ok)">Đúng.</strong> Cũng chấp nhận: <span lang="en">a low dam · dam</span>. <strong>Vì sao:</strong> đoạn A, nước triều bị giữ sau một con đập thấp.</p>
+</sc-if>
+<p lang="en" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; line-height: 1.4"><label for="ph2"><strong>2</strong>&nbsp;&nbsp;How long did each working period last?</label></p>
+<input id="ph2" type="text" lang="en" value="eight hours" style="width: 100%; min-height: 48px; box-sizing: border-box; padding: 0 10px; border: 0; border-bottom: 2px solid var(--ink); background: var(--tint); font: 18px 'Source Serif 4', Georgia, serif; color: var(--ink)">
+<sc-if value="{{notGraded}}" hint-placeholder-val="{{true}}">
+<p style="margin: 4px 0 8px; font-size: 14px; color: var(--muted)">2 trên 3 từ</p>
+</sc-if>
+<sc-if value="{{graded}}" hint-placeholder-val="{{false}}">
+<p style="margin: 6px 0 8px; font-size: 15px"><strong style="color: var(--danger)">Sai.</strong> Đáp án: <strong lang="en">four hours</strong>. Cũng chấp nhận: <span lang="en">4 hours</span>. <strong>Vì sao:</strong> tám giờ là tổng hai ca; mỗi ca khoảng bốn giờ.</p>
+</sc-if>
+<button onClick="{{toPassage}}" style="min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--link); font: 600 14px 'Source Sans 3', sans-serif; text-decoration: underline; cursor: pointer">Xem đoạn A trong bài đọc</button>
+</div>
+</sc-if>
+<footer style="display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-top: 1px solid var(--ink); background: var(--surface)">
+<p style="margin: 0; flex-grow: 1; font-size: 14px; color: var(--muted)">{{phoneStatus}}</p>
+<button onClick="{{toggleGrade}}" style="min-height: 44px; padding: 0 20px; border: 1px solid {{gradeBorder}}; border-radius: 2px; background: {{gradeBg}}; color: {{gradeFg}}; font: 600 15px 'Source Sans 3', sans-serif; cursor: pointer">{{gradeLabel}}</button>
+</footer>
+</div>
+<p style="margin: 12px 0 0; font-size: 14px; color: var(--muted); max-width: 60ch">Thẻ chuyển giữ nguyên vị trí cuộn của từng bên. Thanh đáy luôn hiện số câu đã trả lời và nút chấm. Sau khi chấm, kết quả nằm ngay dưới từng ô, không mở trang khác.</p>
+</section>
+</div>
+<p style="margin: 36px 0 0; padding-top: 16px; border-top: 1px solid var(--rule); font-size: 14px; color: var(--muted)">Quy tắc chung: câu chưa trả lời có nền trắng, đã trả lời có nền nhạt và viền đậm. Giới hạn số từ luôn ghi trên đề và được đếm ngay khi gõ; vượt giới hạn thì báo bằng chữ, không chặn gõ. Đáp án chấp nhận nhiều biến thể thì liệt kê đủ sau khi chấm. Tô sáng và ghi chú dùng được cả trong phòng thi; chú giải từ và bản dịch chỉ có ở chế độ học và luyện. Kết quả ghi "đúng 9 trên 13 câu"; chỉ quy ra band khi làm đủ một đề 40 câu.</p>
+<p style="margin: 12px 0 0; font-size: 14px; color: var(--muted)">Quy tắc ngôn ngữ: bài luyện từng phần dùng nhãn tiếng Việt; bài full test (thi thử, phòng thi) dùng tiếng Anh cho toàn bộ nhãn, hướng dẫn, trạng thái và chữ cho trình đọc màn hình, số câu ghi "Q5" hoặc "Question 5". Nhãn công cụ đọc và chọn kiểu thi (Highlight, Note, Clear) luôn tiếng Anh ở mọi chế độ. Từ đã dùng trong hộp từ chỉ gạch ngang và làm mờ, không ghi thêm chữ.</p>
+<p style="margin: 12px 0 0; font-size: 14px; color: var(--muted)"><strong style="color: var(--ink)">Ghi chú cho lập trình:</strong> mọi chuỗi giao diện của các dạng câu hỏi lấy từ hai bộ chuỗi theo chế độ của bài (practice: tiếng Việt, test: tiếng Anh), kể cả placeholder, bộ đếm từ ("2 / 3 words"), ô chọn ("Select"), aria-label và chữ ẩn cho trình đọc màn hình. Bộ chuỗi của thanh công cụ đọc chỉ có tiếng Anh. Từ đã dùng: thêm text-decoration: line-through và opacity 0.6, kèm chữ ẩn "(used in Q6)" hoặc "(đã dùng cho câu 6)" cho trình đọc màn hình. Màn kết quả sau khi nộp thuộc chế độ học, dùng tiếng Việt.</p>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Xanh teal","Navy + đỏ mận"],"default":"Navy + đỏ mận"},"$preview":{"width":1280,"height":3500}}'>
+class Component extends DCLogic {
+constructor(p) {
+super(p);
+this.state = { mode: 'test', feat: { 8: 'B', 9: 'B' }, hl: false, tr: { 1: true }, word: 'w1', saved: {}, tab: 'q', graded: false };
+}
+renderVals() {
+const s = this.state || {};
+const feat = s.feat || {}, tr = s.tr || {}, saved = s.saved || {};
+const T = s.mode === 'test';
+const L = T ? {
+lang: 'en', wc1: '2 / 3 words', wc2: '5 / 3 words · over the limit', wc3: '0 / 3 words', ph3: 'Q3',
+q4: 'Question 4', q5: 'Question 5', q6: 'Question 6', q7: 'Question 7', ph5: 'Q5',
+wordBox: 'List of words', usedA: '(used in Q6)', choose: 'Select',
+multi: 'NB You may use any letter more than once.', researchers: 'List of researchers', usedB: '',
+margin1: 'Note 1', note1: 'Two shifts a day, set by the tide.', editNote: 'Edit note',
+paraA: 'Para. A', paraB: 'Para. B', goTo: 'Go to text', delA: 'Delete note in paragraph A',
+clrB: 'Clear highlight in paragraph B', clrB2: 'Clear highlight, last sentence of paragraph B', hlOnly: 'Highlight only, no note.'
+} : {
+lang: 'vi', wc1: '2 trên 3 từ', wc2: '5 trên 3 từ · quá giới hạn', wc3: '0 trên 3 từ', ph3: 'câu 3',
+q4: 'Câu 4', q5: 'Câu 5', q6: 'Câu 6', q7: 'Câu 7', ph5: 'câu 5',
+wordBox: 'Hộp từ', usedA: '(đã dùng cho câu 6)', choose: 'Chọn từ',
+multi: 'Một lựa chọn có thể dùng nhiều lần.', researchers: 'Danh sách nhà nghiên cứu', usedB: '',
+margin1: 'Ghi chú 1 ở lề', note1: 'Hai ca mỗi ngày, giờ làm đổi theo con nước.', editNote: 'Sửa ghi chú',
+paraA: 'Đoạn A', paraB: 'Đoạn B', goTo: 'Tới chỗ này', delA: 'Xoá ghi chú ở đoạn A',
+clrB: 'Bỏ tô sáng ở đoạn B', clrB2: 'Bỏ tô sáng câu cuối đoạn B', hlOnly: 'Chỉ tô sáng, chưa có ghi chú.'
+};
+const featTexts = [
+[8, 'Tidal mills could be restored today as small sources of electricity.'],
+[9, 'Mud did more damage to the mills than competition from steam.'],
+[10, 'The irregular hours of milling shaped the daily life of whole villages.']
+];
+const feats = featTexts.map(([n, text]) => {
+const cur = feat[n];
+return {
+n, text, status: cur ? (T ? 'Selected: ' : 'Đã chọn ') + cur : (T ? 'Not answered' : 'Chưa chọn'),
+options: ['A', 'B', 'C', 'D'].map((k) => ({
+k, on: cur === k, aria: (T ? 'Question ' + n + ', option ' : 'Câu ' + n + ', chọn ') + k,
+bg: cur === k ? 'var(--ink)' : 'var(--surface)', fg: cur === k ? '#FFFFFF' : 'var(--ink)',
+pick: () => this.setState({ feat: { ...feat, [n]: cur === k ? undefined : k } })
+}))
+};
+});
+const hl = !!s.hl;
+const t = (n) => !!tr[n];
+const tog = (n) => () => this.setState({ tr: { ...tr, [n]: !tr[n] } });
+const trCount = [1, 2, 3].filter(t).length;
+const allOn = trCount === 3;
+const bBg = (n) => (t(n) ? 'var(--ink)' : 'var(--surface)');
+const bFg = (n) => (t(n) ? '#FFFFFF' : 'var(--ink)');
+const word = s.word || '';
+const openW = (w) => () => this.setState({ word: word === w ? '' : w });
+const save = (w) => () => this.setState({ saved: { ...saved, [w]: !saved[w] } });
+const isQ = s.tab !== 'p';
+const graded = !!s.graded;
+return {
+pal: (this.props.palette ?? 'Navy + đỏ mận') === 'Xanh teal' ? 'pal-teal' : 'pal-navy',
+feats,
+hl, hlOn: () => this.setState({ hl: true }), hlOff: () => this.setState({ hl: false }),
+selBg: hl ? 'var(--hl)' : 'var(--tint)', selOutline: hl ? '0' : '1px solid var(--accent)',
+selHint: T ? (hl ? 'Highlighted.' : '3 words selected in paragraph B.') : (hl ? 'Đã tô sáng đoạn chữ này.' : 'Đang chọn 3 từ ở đoạn B.'),
+notesHead: T ? 'Notes and highlights · ' + (hl ? 3 : 2) : 'Ghi chú của bài · ' + (hl ? 3 : 2) + ' mục',
+L, isTest: T, isPractice: !T,
+toPractice: () => this.setState({ mode: 'practice' }), toTest: () => this.setState({ mode: 'test' }),
+pBg: T ? 'var(--surface)' : 'var(--ink)', pFg: T ? 'var(--ink)' : 'var(--surface)',
+tBg: T ? 'var(--ink)' : 'var(--surface)', tFg: T ? 'var(--surface)' : 'var(--ink)',
+modeNote: T ? 'Full test: mọi nhãn, hướng dẫn, trạng thái và chữ cho trình đọc màn hình ở khối 1–4 chuyển sang tiếng Anh, số câu ghi "Q5". Các dòng "Sau khi chấm" là màn kết quả sau khi nộp, thuộc chế độ học nên vẫn tiếng Việt. Khối 5 và 6 chỉ có ở bài luyện.' : 'Luyện từng phần: nhãn, hướng dẫn và số câu tiếng Việt. Riêng thanh công cụ đọc (Highlight, Note, Clear) luôn tiếng Anh. Bấm "Full test" để xem bộ nhãn tiếng Anh ở khối 1–4.',
+t1: t(1), t2: t(2), t3: t(3), tog1: tog(1), tog2: tog(2), tog3: tog(3),
+b1Bg: bBg(1), b1Fg: bFg(1), b2Bg: bBg(2), b2Fg: bFg(2), b3Bg: bBg(3), b3Fg: bFg(3),
+trCount, allLabel: allOn ? 'Ẩn tất cả bản dịch' : 'Hiện dịch tất cả câu',
+toggleAll: () => this.setState({ tr: allOn ? {} : { 1: true, 2: true, 3: true } }),
+w1: word === 'w1', w2: word === 'w2', noWord: word === '',
+w1Bg: word === 'w1' ? 'var(--tint)' : 'transparent', w2Bg: word === 'w2' ? 'var(--tint)' : 'transparent',
+openW1: openW('w1'), openW2: openW('w2'), closeW: () => this.setState({ word: '' }),
+s1: !!saved.w1, s2: !!saved.w2, save1: save('w1'), save2: save('w2'),
+s1Label: saved.w1 ? 'Đã lưu vào sổ từ' : 'Lưu vào sổ từ', s2Label: saved.w2 ? 'Đã lưu vào sổ từ' : 'Lưu vào sổ từ',
+s1Bg: saved.w1 ? 'var(--tint)' : 'var(--surface)', s2Bg: saved.w2 ? 'var(--tint)' : 'var(--surface)',
+isPassage: !isQ, isQuestions: isQ,
+toPassage: () => this.setState({ tab: 'p' }), toQuestions: () => this.setState({ tab: 'q' }),
+tabPBar: !isQ ? 'var(--ink)' : 'var(--rule)', tabPFg: !isQ ? 'var(--ink)' : 'var(--muted)',
+tabQBar: isQ ? 'var(--ink)' : 'var(--rule)', tabQFg: isQ ? 'var(--ink)' : 'var(--muted)',
+graded, notGraded: !graded,
+toggleGrade: () => this.setState({ graded: !graded, tab: 'q' }),
+gradeLabel: graded ? 'Làm lại' : 'Chấm bài',
+gradeBg: graded ? 'var(--surface)' : 'var(--accent)', gradeFg: graded ? 'var(--ink)' : '#FFFFFF',
+gradeBorder: graded ? 'var(--ink)' : 'var(--accent)',
+phoneStatus: graded ? 'Đúng 1 trên 2 câu' : 'Đã trả lời 2 trên 2 câu'
+};
+}
+}
+</script>
+</body>
+</html>

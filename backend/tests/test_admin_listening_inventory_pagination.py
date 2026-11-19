@@ -16,6 +16,11 @@ class Query:
         self.orders, self.filters = [], []
         self.bounds = None
 
+    def or_(self, expression):
+        from blackeye_query_double import matches_blackeye_filter
+        self.filters.append(lambda row: matches_blackeye_filter(row, expression))
+        return self
+
     def select(self, *args, **kwargs):
         return self
 

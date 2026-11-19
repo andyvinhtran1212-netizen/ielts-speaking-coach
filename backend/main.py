@@ -652,7 +652,7 @@ def _safe_error_request_context(request: Request) -> tuple[str, dict | None]:
     # fall back to the concrete path: it may itself be a bearer capability.
     route_template = getattr(route, "path", None) or "<unmatched-route>"
     query = None
-    if request.query_params:
+    if request.query_params and "/listening" not in str(route_template):
         query = {
             key: "[redacted]" if key.lower() in _SENSITIVE_QUERY_KEYS else value[:256]
             for key, value in request.query_params.items()
@@ -696,10 +696,16 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     else:
         message = str(exc) or exc.__class__.__name__
         stack = _traceback.format_exc()
+    private_listening = "/listening" in request.url.path
+    if private_listening:
+        # A failed DB/client call may quote complete learner/content rows.
+        # Keep only a fixed diagnostic envelope; no free text or traceback.
+        message, stack = "Listening request failed", ""
+        mark_sentry_handled(exc)
     # The Sentry SDK reports this exception itself, with its stack trace;
     # sentry_skip keeps this line from becoming a second, trace-less event.
     logger.error("[error] Unhandled exception on %s (req=%s): %s",
-                 safe_path, request_id, message if validation_error is not None else exc,
+                 safe_path, request_id, message if validation_error is not None or private_listening else exc,
                  extra={"sentry_skip": True})
 
     payload = {
@@ -822,7 +828,7 @@ async def request_validation_handler(request: Request, exc: RequestValidationErr
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     import uuid as _uuid
     request_id = getattr(request.state, "request_id", None) or str(_uuid.uuid4())
-    detail = safe_detail(exc.status_code, exc.detail, ref=request_id)
+    detail = safe_detail(exc.status_code, "Listening request failed" if "/listening" in request.url.path and exc.status_code >= 500 and not (isinstance(exc.detail, dict) and "error_code" in exc.detail) else exc.detail, ref=request_id)
     if exc.status_code >= 500:
         # PC-J92 — persist handled 5xx to error_logs like the unhandled handler
         # (fire-and-forget, never raises). Only the error_code, route template,

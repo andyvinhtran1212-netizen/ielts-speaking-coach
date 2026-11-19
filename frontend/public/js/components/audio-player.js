@@ -254,6 +254,8 @@ export class AverAudioPlayer extends HTMLElement {
     this._segmentTimer = null;
   }
 
+  get mediaElement() { return this._audio; }
+
   connectedCallback() {
     if (this._mounted) return;
     this._mounted = true;
@@ -502,6 +504,7 @@ export class AverAudioPlayer extends HTMLElement {
       const target = this._isSegmentMode()
         ? this._segmentStart()
         : Math.max(0, (this._audio.currentTime || 0) - 5);
+      if (!this._audio.paused) this._audio.dispatchEvent(new Event('aver-drill-replay'));
       this._audio.currentTime = target;
       if (this._audio.paused) this._audio.play().catch(() => {});
     });

@@ -107,6 +107,7 @@ Phần lớn quốc gia không dùng "the":
 - **∅ Mexico**, **∅ Canada**, **∅ Spain**, **∅ Italy**
 
 **Ví dụ câu:**
+
 - I was born in **∅ Vietnam**.
 - She studied in **∅ Australia** for three years.
 - **∅ Japan** has one of the world's most advanced economies.
@@ -114,6 +115,7 @@ Phần lớn quốc gia không dùng "the":
 ### Dùng THE — quốc gia có "United", "Republic", "Kingdom", số nhiều
 
 Dùng "the" khi tên quốc gia:
+
 - Chứa từ **United, Republic, Kingdom, Federation, Union, States**
 - Là **số nhiều** (plural)
 
@@ -131,6 +133,7 @@ Dùng "the" khi tên quốc gia:
 | **the** Democratic Republic of Congo | chứa "Republic" |
 
 **Ví dụ câu:**
+
 - She moved to **the** United States after graduation.
 - **The** Philippines consists of over 7,000 islands.
 - **The** Netherlands is known for its tulips and windmills.
@@ -148,6 +151,7 @@ Sông, kênh đào và eo biển **luôn dùng THE**:
 | Eo biển | **the** Strait of Malacca, **the** English Channel |
 
 **Ví dụ câu:**
+
 - **The** Amazon is the world's largest river by volume.
 - **The** Mekong flows through six countries in East and Southeast Asia: China, Myanmar, Thailand, Laos, Cambodia and Vietnam.
 - Ships travelling between Europe and Asia often pass through **the** Suez Canal.
@@ -168,6 +172,7 @@ Sông, kênh đào và eo biển **luôn dùng THE**:
 Tên theo mẫu **Name + Bay** thường không có mạo từ: **Ha Long Bay**, **Hudson Bay**. So sánh với **the Bay of Bengal** và **the Gulf of Mexico**; không suy mạo từ chỉ từ loại địa hình.
 
 **Ví dụ:**
+
 - **The** Pacific Ocean is the largest ocean on Earth.
 - Vietnam has a long coastline along **the** South China Sea.
 
@@ -193,6 +198,7 @@ Dãy núi số nhiều **dùng THE**:
 - **the** Pyrenees, **the** Carpathians, **the** Atlas Mountains
 
 **Ví dụ:**
+
 - **∅ Mount Everest** is the world's highest peak.
 - **The** Himalayas separate South Asia from the Tibetan Plateau.
 - Skiing in **the** Alps is popular with European tourists.
@@ -211,6 +217,7 @@ Dãy núi số nhiều **dùng THE**:
 - **the** Great Lakes (nhóm 5 hồ lớn ở Bắc Mỹ)
 
 **Ví dụ:**
+
 - **∅ Lake Baikal** in Russia is the world's deepest lake.
 - The region around **the** Great Lakes is heavily industrialised.
 
@@ -237,6 +244,7 @@ Dãy núi số nhiều **dùng THE**:
 - **∅ Silicon Valley**, **∅ Brooklyn**, **∅ Westminster**
 
 **Ngoại lệ phổ biến nhất — The Hague (La Hay, Hà Lan):**
+
 - I attended a conference at **the** Hague. *(trường hợp đặc biệt — tên lịch sử)*
 
 ---

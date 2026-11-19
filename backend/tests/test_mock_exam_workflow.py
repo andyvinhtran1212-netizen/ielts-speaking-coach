@@ -3213,6 +3213,37 @@ def test_list_my_sittings_flags_released_with_overall(fake_db, svc):
     assert p["released"] is False and p["overall"] is None    # unreleased → no band leak
 
 
+def test_list_my_sittings_reports_overall_readiness(fake_db, svc):
+    # G02-T05 (FR-02-004): the Home tile draws an Overall only once enough of the
+    # four skills carry a band; the stored overall itself is left untouched.
+    u = str(uuid4())
+    fake_db.seed("mock_exams", {"id": "ex-1", "code": "MOCK-1", "title": "Mid-term"})
+    fake_db.seed("mock_exam_sittings", {"id": "s1", "user_id": u, "mock_exam_id": "ex-1",
+                                        "status": "released", "created_at": "2026-07-15T00:00:00Z"})
+    fake_db.seed("mock_exam_sittings", {"id": "s2", "user_id": u, "mock_exam_id": "ex-1",
+                                        "status": "released", "created_at": "2026-07-14T00:00:00Z"})
+    fake_db.seed("mock_exam_sittings", {"id": "s3", "user_id": u, "mock_exam_id": "ex-1",
+                                        "status": "all_submitted", "created_at": "2026-07-13T00:00:00Z"})
+    fake_db.seed("mock_exam_reviews", {"id": "rv1", "sitting_id": "s1",
+                                       "final_bands": {"writing": 9.0, "overall": 9.0}})
+    fake_db.seed("mock_exam_reviews", {"id": "rv2", "sitting_id": "s2", "final_bands": {
+        "listening": 6.0, "reading": 7.0, "writing": 6.0, "speaking": 6.5, "overall": 6.5}})
+
+    out = {s["sitting_id"]: s for s in svc.list_my_sittings(u)}
+    assert (out["s1"]["banded_skill_count"], out["s1"]["overall_min_skills"]) == (1, 4)
+    assert out["s1"]["overall"] == 9.0  # stored value unchanged; the UI decides
+    assert (out["s2"]["banded_skill_count"], out["s2"]["overall_min_skills"]) == (4, 4)
+    assert out["s3"]["banded_skill_count"] == 0  # unreleased → nothing counted
+
+
+@pytest.mark.parametrize("configured, expected", [(4, 4), (3, 3), (0, 1), (9, 4)])
+def test_overall_readiness_threshold_is_clamped(svc, monkeypatch, configured, expected):
+    from config import settings
+    monkeypatch.setattr(settings, "MOCK_OVERALL_MIN_SKILLS", configured)
+    got = svc.overall_readiness({"listening": 5.0, "reading": None, "overall": 5.0})
+    assert got == {"overall_min_skills": expected, "banded_skill_count": 1}
+
+
 def test_list_my_sittings_empty(fake_db, svc):
     assert svc.list_my_sittings(str(uuid4())) == []
 
@@ -6116,25 +6147,66 @@ def test_the_live_board_survives_a_listening_test_with_no_question_count(fake_db
     assert out["students"][0]["sections"]["listening"]["total"] is None
 
 
-def test_the_listening_total_comes_from_the_graders_own_answer_key(fake_db, svc):
+@pytest.mark.parametrize("self_check_count", [0, 2, 10])
+def test_the_listening_total_comes_from_the_graders_own_answer_key(fake_db, svc, self_check_count):
     """Counted from the SAME key the grader scores against, so the denominator
     can never disagree with the graded total — and a 20-question mini-test is
     not reported as 40."""
     exam = _seed_exam(fake_db)
     tid = exam["listening_test_id"]
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")  # pre-existing sitting, before paper revision
     fake_db.seed("listening_content", {"id": "sec-1", "test_id": tid})
     fake_db.seed("listening_content", {"id": "sec-2", "test_id": tid})
     fake_db.seed("listening_exercises", {"id": "ex-1", "content_id": "sec-1", "payload": {
         "template_kind": "gap_fill",
-        "answers": [{"q_num": n, "accepted": ["x"]} for n in range(1, 7)]}})
+        "answers": [{"q_num": n, "accepted": ["x"],
+                     **({"scoring": "self_check"} if n <= self_check_count else {})}
+                    for n in range(1, 7)]}})
     fake_db.seed("listening_exercises", {"id": "ex-2", "content_id": "sec-2", "payload": {
         "template_kind": "gap_fill",
-        "answers": [{"q_num": n, "accepted": ["x"]} for n in range(7, 11)]}})
+        "answers": [{"q_num": n, "accepted": ["x"],
+                     **({"scoring": "self_check"} if n <= self_check_count else {})}
+                    for n in range(7, 11)]}})
 
-    assert svc._listening_total_questions(tid) == 10
+    expected_total = (10 - self_check_count) or None
+    assert svc._listening_total_questions(tid) == expected_total
+    if self_check_count == 10:
+        with pytest.raises(svc.SittingConflictError, match="chỉ tự đối chiếu"):
+            svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    out = svc.admin_live_monitor(exam["id"])
+    assert out["students"][0]["sections"]["listening"]["total"] == expected_total
+
+
+@pytest.mark.parametrize("marked_q", [1, 2])
+def test_live_listening_total_excludes_entire_partially_marked_mcq_multi_group(fake_db, svc, marked_q):
+    from services import listening_test_grader as grader
+
+    exam = _seed_exam(fake_db)
+    tid = exam["listening_test_id"]
+    fake_db.seed("listening_content", {"id": "sec-1", "test_id": tid})
+    rows = [
+        {"id": "ex-1", "content_id": "sec-1", "payload": {
+            "template_kind": "mcq_multi",
+            "answers": [
+                {"q_num": n, "answer": answer,
+                 **({"scoring": "self_check"} if n == marked_q else {})}
+                for n, answer in [(1, "A"), (2, "B")]],
+        }},
+        {"id": "ex-2", "content_id": "sec-1", "payload": {
+            "template_kind": "gap_fill",
+            "answers": [{"q_num": 3, "answer": "x"}],
+        }},
+    ]
+    for row in rows:
+        fake_db.seed("listening_exercises", row)
+
+    key = grader.collect_answer_key(rows)
+    expected_total = grader.grade_attempt([], key)["max_score"]
+    assert expected_total == 1
+    assert svc._listening_total_questions(tid) == expected_total
     svc.create_sitting(uuid4(), "MOCK-TEST-A")
     out = svc.admin_live_monitor(exam["id"])
-    assert out["students"][0]["sections"]["listening"]["total"] == 10
+    assert out["students"][0]["sections"]["listening"]["total"] == expected_total
 
 
 def test_the_pacing_page_reads_the_same_source(fake_db, svc):
@@ -6753,3 +6825,62 @@ def test_save_speaking_assessment_refused_after_release(fake_db, svc, wf):
     with _pytest.raises(Exception):
         wf.save_speaking_assessment(review["id"], admin,
             {"bands": {"fc": 5, "lr": 5, "gra": 5, "p": 5}})
+
+
+@pytest.mark.parametrize("mode,checks", [("self_check_only", 40), ("scored", 0), ("mixed", 4)])
+def test_mock_listening_attachment_reuses_grader_group_flags(fake_db, svc, mode, checks):
+    paper_id = str(uuid4())
+    fake_db.seed("listening_tests", {"id": paper_id, "test_id": "SYNTHETIC", "status": "published"})
+    fake_db.seed("listening_content", {"id": "content-guard", "test_id": paper_id})
+    fake_db.seed("listening_exercises", {"id": "exercise-guard", "content_id": "content-guard", "payload": {"answers": [
+        {"q_num": n, "answer": "blue", **({"scoring": "self_check"} if n <= checks else {})}
+        for n in range(1, 41)]}})
+    assert svc._listening_score_modes([paper_id]) == {paper_id: mode}
+    if mode == "self_check_only":
+        for call in (lambda: svc.admin_create_exam({"listening_test_id": paper_id}, "admin"),
+                     lambda: svc.admin_update_exam("exam", {"listening_test_id": paper_id})):
+            with pytest.raises(ValueError, match="chỉ tự đối chiếu"):
+                call()
+        exam = _seed_exam(fake_db)
+        exam["listening_test_id"] = paper_id
+        with pytest.raises(svc.SittingConflictError, match="chỉ tự đối chiếu"):
+            svc.create_sitting(str(uuid4()), exam["code"])
+        assert fake_db.rows("mock_exam_sittings") == []
+    else:
+        # A standard 40-question paper and mixed paper both pass the attach guard.
+        svc._guard_listening_attachment({"listening_test_id": paper_id})
+
+
+@pytest.mark.parametrize("skills", [["reading"], ["listening"]], ids=["reading-only", "listening-assigned"])
+def test_retake_listening_guard_uses_assigned_skills(fake_db, svc, skills):
+    """A legacy self-check Listening paper only blocks retakers assigned it."""
+    user_id = str(uuid4())
+    exam = _seed_retake(fake_db, user_id, skills)
+    paper_id = exam["listening_test_id"]
+    fake_db.seed("listening_content", {"id": "retake-guard-content", "test_id": paper_id})
+    fake_db.seed("listening_exercises", {
+        "id": "retake-guard-exercise", "content_id": "retake-guard-content",
+        "payload": {"answers": [
+            {"q_num": n, "answer": "blue", "scoring": "self_check"}
+            for n in range(1, 41)
+        ]},
+    })
+    assert svc._listening_score_modes([paper_id]) == {paper_id: "self_check_only"}
+
+    if "listening" in skills:
+        with pytest.raises(svc.SittingConflictError, match="chỉ tự đối chiếu"):
+            svc.create_sitting(user_id, exam["code"])
+        assert fake_db.rows("mock_exam_sittings") == []
+    else:
+        sitting = svc.create_sitting(user_id, exam["code"])
+        assert sitting["created"] is True
+        assert sitting["status"] == "registered"
+        persisted = svc.get_sitting(sitting["id"])
+        assert persisted["assigned_skills"] == ["reading"]
+        assert svc._sitting_sections(persisted, exam) == ["reading"]
+
+
+def test_mock_listening_guard_fails_closed_on_lookup_error(fake_db, monkeypatch, svc):
+    monkeypatch.setattr(svc, "_listening_score_modes", lambda ids: (_ for _ in ()).throw(RuntimeError("lookup failed")))
+    with pytest.raises(RuntimeError, match="lookup failed"):
+        svc._guard_listening_attachment({"listening_test_id": "paper"})

@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Phòng thi chung</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--link:#0B5953;--mark:#8A4B08;--tint:#EDF3F1;--hl:#F6E3A1}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--link:#1A3561;--mark:#8A1C1C;--tint:#EEF0F5;--hl:#F6E3A1}
+a{color:var(--link)}a:hover{color:var(--ink)}
+.ab-exit{display:inline-flex;align-items:center;min-height:44px;box-sizing:border-box;padding:0 14px;border:1px solid var(--surface);border-radius:2px;color:var(--surface);font-size:15px;white-space:nowrap}
+.ab-timer{margin:0;padding:4px 14px;background:var(--surface);color:var(--ink);font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;border-radius:2px}
+.ab-warn{box-sizing:border-box;padding:16px 20px 18px;border:2px solid var(--mark);border-left-width:8px;border-radius:2px;background:var(--surface)}
+.ab-wl{margin:0 0 6px;display:flex;align-items:center;gap:8px;color:var(--mark);font-weight:600;letter-spacing:.06em;text-transform:uppercase;font-size:14px}
+.ab-p{display:inline-flex;align-items:center;min-height:44px;padding:0 20px;border:1px solid var(--accent);border-radius:2px;background:var(--accent);color:var(--surface);font:600 15px 'Source Sans 3',sans-serif;cursor:pointer}
+.ab-o{display:inline-flex;align-items:center;min-height:44px;padding:0 18px;border:1px solid var(--ink);border-radius:2px;background:var(--surface);color:var(--ink);font:600 15px 'Source Sans 3',sans-serif;cursor:pointer}
+.ab-d{display:inline-flex;align-items:center;min-height:44px;padding:0 18px;border:1px solid var(--mark);border-radius:2px;background:var(--surface);color:var(--mark);font:600 15px 'Source Sans 3',sans-serif;cursor:pointer}
+</style>
+</helmet>
+<div class="{{pal}}" style="width: 1280px; height: 5640px; box-sizing: border-box; display: flex; flex-direction: column; background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 16px; line-height: 1.5">
+
+<div lang="en" style="height: 820px; flex-shrink: 0; display: flex; flex-direction: column">
+<header style="height: 56px; flex-shrink: 0; display: flex; align-items: center; gap: 24px; padding: 0 20px; background: var(--ink); color: var(--surface)">
+<a href="Main.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 14px; border: 1px solid var(--surface); border-radius: 2px; color: var(--surface); text-decoration: none; font-size: 15px">‹ Leave test</a>
+<p style="margin: 0; flex-grow: 1; font-size: 15px"><strong>Reading · Academic Test 1</strong> <span style="opacity: 0.85">· {{where}}</span></p>
+<p style="margin: 0; font-size: 13px; opacity: 0.85">Saved at 10:42</p>
+<p style="margin: 0; font-size: 13px; opacity: 0.85">Time remaining</p>
+<p role="timer" aria-label="Time remaining" style="margin: 0; padding: 4px 14px; background: var(--surface); color: var(--ink); font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; border-radius: 2px">52:18</p>
+</header>
+<div style="flex-grow: 1; min-height: 0; display: flex; user-select: {{userSelect}}">
+<article style="width: {{leftW}}; flex-shrink: 0; box-sizing: border-box; padding: 28px 36px; overflow-y: auto; background: var(--surface)">
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Reading Passage 1</p>
+<h1 style="margin: 6px 0 18px; font-family: 'Source Serif 4', Georgia, serif; font-size: 26px; font-weight: 600; line-height: 1.2">The Return of Hand-Made Goods</h1>
+<p style="margin: 0 0 14px; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; line-height: 1.62"><strong>A</strong>&nbsp;&nbsp;For most of the last century, shoppers in large cities expected every high street to look alike. The same goods at the same prices were taken as a sign that life was improving. <span style="background: var(--hl)">In recent years a quieter movement has pushed in the other direction</span>, as small workshops began selling pottery, furniture and clothing made by hand.</p>
+<p style="margin: 0 0 14px; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; line-height: 1.62"><strong>B</strong>&nbsp;&nbsp;Several reasons explain the change. One is curiosity: people can now watch a knife being forged or a chair being jointed, and many feel a connection with the maker that a factory product does not offer. Another is concern about waste, since an object made with care is more likely to be repaired than thrown away.</p>
+<p style="margin: 0 0 14px; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; line-height: 1.62"><strong>C</strong>&nbsp;&nbsp;The makers themselves face real limits. A potter working alone can finish only a few dozen pieces a week, and materials bought in small quantities cost more. Prices are therefore high, and the market remains small beside that of mass production.</p>
+</article>
+<div role="separator" tabIndex="0" aria-orientation="vertical" aria-label="Resize passage and questions" aria-valuemin="30" aria-valuemax="70" aria-valuenow="{{split}}" aria-valuetext="{{splitText}}" title="Drag to resize. Double-click to reset." onPointerDown="{{dragStart}}" onDoubleClick="{{resetSplit}}" onKeyDown="{{splitKey}}" style="width: 16px; flex-shrink: 0; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border-left: 1px solid var(--ink); border-right: 1px solid var(--rule); background: {{handleBg}}; cursor: col-resize; touch-action: none">
+<span aria-hidden="true" style="display: flex; flex-direction: column; gap: 4px; padding: 10px 3px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface)"><span style="width: 4px; height: 4px; background: var(--ink)"></span><span style="width: 4px; height: 4px; background: var(--ink)"></span><span style="width: 4px; height: 4px; background: var(--ink)"></span><span style="width: 4px; height: 4px; background: var(--ink)"></span></span>
+</div>
+<section aria-label="Questions" style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 28px 36px; overflow-y: auto">
+<p style="margin: 0 0 6px; font-weight: 600">Questions 1–3</p>
+<p style="margin: 0 0 18px; color: var(--muted)">Do the following statements agree with the information given in the passage? Choose TRUE, FALSE or NOT GIVEN.</p>
+<sc-for list="{{questions}}" as="q" hint-placeholder-count="3">
+<fieldset style="margin: 0 0 14px; padding: 16px 18px; border: 1px solid {{q.border}}; background: var(--surface)">
+<legend style="padding: 0 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px"><strong style="font-variant-numeric: tabular-nums">{{q.n}}</strong>&nbsp;&nbsp;{{q.text}}</legend>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px">
+<sc-for list="{{q.options}}" as="o" hint-placeholder-count="3">
+<button onClick="{{o.pick}}" aria-pressed="{{o.on}}" style="min-height: 44px; padding: 0 16px; border: 1px solid var(--ink); border-radius: 2px; background: {{o.bg}}; color: {{o.fg}}; font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer">{{o.label}}</button>
+</sc-for>
+<button onClick="{{q.flag}}" aria-pressed="{{q.flagged}}" style="margin-left: auto; min-height: 44px; padding: 0 12px; border: 0; background: transparent; color: {{q.flagColor}}; font: 600 14px 'Source Sans 3', sans-serif; text-decoration: underline; cursor: pointer">{{q.flagLabel}}</button>
+</div>
+</fieldset>
+</sc-for>
+</section>
+</div>
+<footer style="height: 72px; flex-shrink: 0; box-sizing: border-box; display: flex; align-items: center; gap: 16px; padding: 0 20px; border-top: 1px solid var(--ink); background: var(--surface)">
+<nav aria-label="Question navigation" style="display: flex; align-items: center; gap: 6px; flex-grow: 1; min-width: 0">
+<sc-for list="{{mainGroups}}" as="g" hint-placeholder-count="3">
+<sc-if value="{{g.active}}" hint-placeholder-val="{{true}}">
+<div role="group" aria-label="{{g.label}}" style="display: flex; align-items: center; gap: 4px; padding-right: 10px; margin-right: 4px; border-right: 1px solid var(--rule)">
+<span style="margin-right: 6px; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; white-space: nowrap">{{g.label}}</span>
+<sc-for list="{{g.items}}" as="n" hint-placeholder-count="13">
+<button onClick="{{n.go}}" aria-label="{{n.aria}}" aria-current="{{n.current}}" style="width: 32px; height: 44px; flex-shrink: 0; padding: 0; border: 1px solid var(--ink); border-bottom: 4px solid {{n.bar}}; border-radius: 2px; background: {{n.bg}}; color: {{n.fg}}; outline: {{n.outline}}; outline-offset: 2px; font: 600 14px 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums; cursor: pointer">{{n.n}}</button>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{g.inactive}}" hint-placeholder-val="{{false}}">
+<button onClick="{{g.go}}" aria-label="{{g.aria}}" style="flex-shrink: 0; min-height: 44px; padding: 0 12px; border: 1px solid var(--rule); border-bottom: 4px solid {{g.bar}}; border-radius: 2px; background: var(--paper); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums; white-space: nowrap; cursor: pointer">{{g.summary}}</button>
+</sc-if>
+</sc-for>
+</nav>
+<p style="margin: 0; font-size: 14px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums">Answered <strong style="color: var(--ink)">{{answered}}</strong> of 40</p>
+<a href="KetQuaWriting.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 22px; background: var(--accent); color: var(--surface); font-weight: 600; text-decoration: none; border-radius: 2px; white-space: nowrap">Submit test</a>
+</footer>
+</div>
+
+<div lang="vi" style="flex-grow: 1; box-sizing: border-box; padding: 48px 0 56px; border-top: 2px solid var(--ink)">
+<div style="padding: 0 64px">
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Ghi chú thiết kế · phần dưới không thuộc giao diện thi</p>
+<p style="margin: 6px 0 32px; max-width: 92ch; color: var(--muted)">Quy tắc ngôn ngữ: phòng thi full test dùng tiếng Anh cho toàn bộ nhãn, hướng dẫn, trạng thái và chữ cho trình đọc màn hình (Leave test · Time remaining · Flag for review · Answered 2 of 40 · Submit test). Số câu ghi bằng số hoặc "Q5", "Question 5", không ghi "Câu 5". Ghi chú thiết kế bên dưới viết tiếng Việt cho người làm.</p>
+
+<section aria-labelledby="pt1" style="border-top: 2px solid var(--ink); padding-top: 14px; margin-bottom: 44px">
+<h2 id="pt1" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">1. Kéo đổi tỉ lệ bài đọc và câu hỏi</h2>
+<p style="margin: 0 0 14px; font-size: 14px; color: var(--muted)">Kéo thử tay nắm giữa hai cột ở màn trên · bấm đúp để về mặc định · tỉ lệ hiện tại: <strong style="color: var(--ink); font-variant-numeric: tabular-nums">{{splitLabel}}</strong></p>
+<p style="margin: 0 0 16px; padding: 12px 16px; border: 1px solid var(--rule); border-left: 4px solid var(--mark); background: var(--surface); max-width: 92ch"><strong style="color: var(--mark)">Cách hiểu, cần anh xác nhận.</strong> Ghi chú gốc bị cắt giữa chừng ("Nếu giả sử người dùng resize khung cửa sổ thi, kéo qua kéo lại 2 bên giữa bài đọc và…"). Em hiểu là: người thi cần kéo được đường phân cách giữa cột bài đọc và cột câu hỏi để đổi độ rộng hai bên, và cần rõ cách màn xử lý khi cửa sổ trình duyệt bị thu hẹp. Nếu ý anh khác, phần này sẽ làm lại.</p>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 48px">
+<ul style="margin: 0; padding: 0; list-style: none">
+<li style="padding: 10px 0; border-top: 1px solid var(--rule)"><strong>Tay nắm.</strong> Dải rộng 16px nằm đúng trên đường phân cách, có ô bốn chấm ở giữa; con trỏ đổi thành mũi tên hai chiều. Kéo bằng chuột, bút hoặc ngón tay.</li>
+<li style="padding: 10px 0; border-top: 1px solid var(--rule)"><strong>Giới hạn.</strong> Mỗi bên chiếm từ 30% đến 70% (ở khung 1280px, mỗi bên luôn rộng ít nhất khoảng 380px). Kéo quá thì dừng ở giới hạn, không gập hẳn một bên.</li>
+<li style="padding: 10px 0; border-top: 1px solid var(--rule)"><strong>Về mặc định.</strong> Bấm đúp tay nắm, hoặc nhấn Enter khi tay nắm đang được chọn, để về 50 / 50.</li>
+<li style="padding: 10px 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule)"><strong>Bàn phím.</strong> Tab tới tay nắm; mũi tên trái, phải đổi 5% mỗi lần; Home, End đưa về giới hạn 30% hoặc 70%. Trình đọc màn hình đọc "Resize passage and questions, passage 50 percent".</li>
+</ul>
+<ul style="margin: 0; padding: 0; list-style: none">
+<li style="padding: 10px 0; border-top: 1px solid var(--rule)"><strong>Khi đổi cỡ cửa sổ.</strong> Giữ tỉ lệ phần trăm người thi đã chọn, không giữ số pixel. Nếu cửa sổ hẹp làm một bên còn dưới 360px thì tự nới về mức tối thiểu đó; khi cửa sổ rộng lại thì trả về tỉ lệ cũ.</li>
+<li style="padding: 10px 0; border-top: 1px solid var(--rule)"><strong>Cửa sổ dưới 900px.</strong> Không đủ chỗ cho hai cột 360px: ẩn tay nắm, chuyển sang hai thẻ "Passage" và "Questions" ở đầu màn; mỗi thẻ giữ vị trí cuộn riêng. Dải số câu chuyển sang dạng gọn (mục 2, biến thể C).</li>
+<li style="padding: 10px 0; border-top: 1px solid var(--rule)"><strong>Lưu tỉ lệ.</strong> Nhớ trong suốt lượt thi, kể cả khi chuyển Passage hay tải lại trang. Lượt thi mới bắt đầu lại ở 50 / 50.</li>
+<li style="padding: 10px 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule)"><strong>Khi đang kéo.</strong> Tạm tắt chọn chữ để không bôi nhầm bài đọc; nội dung hai bên tự xuống dòng lại, không có thanh cuộn ngang.</li>
+</ul>
+</div>
+</section>
+
+<section aria-labelledby="pt2" style="border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="pt2" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">2. Dải số câu cho đủ 40 câu</h2>
+<p style="margin: 0 0 16px; font-size: 14px; color: var(--muted)">Chia theo Passage (Reading 13 · 13 · 14) hoặc Part (Listening 10 · 10 · 10 · 10) · phần đang làm bung đủ số câu, phần khác thu gọn thành một nút kèm số câu đã trả lời · dải ở màn trên bấm thử được</p>
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Bốn trạng thái của một ô số câu</p>
+<div lang="en" style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 32px; margin-bottom: 28px">
+<span style="display: inline-flex; align-items: center; gap: 10px"><span style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 44px; box-sizing: border-box; border: 1px solid var(--ink); border-bottom: 4px solid var(--rule); border-radius: 2px; background: var(--surface); font: 600 14px 'Source Sans 3', sans-serif">5</span><span lang="vi" style="font-size: 15px">Chưa trả lời: nền trắng, vạch đáy nhạt</span></span>
+<span style="display: inline-flex; align-items: center; gap: 10px"><span style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 44px; box-sizing: border-box; border: 1px solid var(--ink); border-bottom: 4px solid var(--ink); border-radius: 2px; background: var(--ink); color: var(--surface); font: 600 14px 'Source Sans 3', sans-serif">6</span><span lang="vi" style="font-size: 15px">Đã trả lời: nền đậm</span></span>
+<span style="display: inline-flex; align-items: center; gap: 10px"><span style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 44px; box-sizing: border-box; border: 1px solid var(--ink); border-bottom: 4px solid var(--mark); border-radius: 2px; background: var(--surface); font: 600 14px 'Source Sans 3', sans-serif">7</span><span lang="vi" style="font-size: 15px">Đánh dấu xem lại: vạch đáy đỏ mận (đi cùng cả hai trạng thái trên)</span></span>
+<span style="display: inline-flex; align-items: center; gap: 10px"><span style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 44px; box-sizing: border-box; border: 1px solid var(--ink); border-bottom: 4px solid var(--rule); border-radius: 2px; background: var(--surface); outline: 3px solid var(--accent); outline-offset: 2px; font: 600 14px 'Source Sans 3', sans-serif">8</span><span lang="vi" style="font-size: 15px">Câu hiện tại: viền ngoài 3px màu nhấn</span></span>
+</div>
+</section>
+</div>
+
+<sc-for list="{{variants}}" as="v" hint-placeholder-count="2">
+<div style="margin-bottom: 28px">
+<div style="padding: 0 64px 8px">
+<p style="margin: 0; font-weight: 600">{{v.title}}</p>
+<p style="margin: 0; font-size: 14px; color: var(--muted)">{{v.desc}}</p>
+</div>
+<div lang="en" style="width: 1280px; height: 72px; box-sizing: border-box; display: flex; align-items: center; gap: 16px; padding: 0 20px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); background: var(--surface)">
+<nav aria-label="Question navigation" style="display: flex; align-items: center; gap: 6px; flex-grow: 1; min-width: 0">
+<sc-for list="{{v.groups}}" as="g" hint-placeholder-count="3">
+<sc-if value="{{g.active}}" hint-placeholder-val="{{true}}">
+<div role="group" aria-label="{{g.label}}" style="display: flex; align-items: center; gap: 4px; padding-right: 10px; margin-right: 4px; border-right: 1px solid var(--rule)">
+<span style="margin-right: 6px; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; white-space: nowrap">{{g.label}}</span>
+<sc-for list="{{g.items}}" as="n" hint-placeholder-count="13">
+<button aria-label="{{n.aria}}" aria-current="{{n.current}}" style="width: 32px; height: 44px; flex-shrink: 0; padding: 0; border: 1px solid var(--ink); border-bottom: 4px solid {{n.bar}}; border-radius: 2px; background: {{n.bg}}; color: {{n.fg}}; outline: {{n.outline}}; outline-offset: 2px; font: 600 14px 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums">{{n.n}}</button>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{g.inactive}}" hint-placeholder-val="{{false}}">
+<button aria-label="{{g.aria}}" style="flex-shrink: 0; min-height: 44px; padding: 0 12px; border: 1px solid var(--rule); border-bottom: 4px solid {{g.bar}}; border-radius: 2px; background: var(--paper); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums; white-space: nowrap">{{g.summary}}</button>
+</sc-if>
+</sc-for>
+</nav>
+<p style="margin: 0; font-size: 14px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums">Answered <strong style="color: var(--ink)">{{v.answered}}</strong> of 40</p>
+<span style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 22px; background: var(--accent); color: var(--surface); font-weight: 600; border-radius: 2px; white-space: nowrap">Submit test</span>
+</div>
+</div>
+</sc-for>
+
+<div style="padding: 0 64px">
+<p style="margin: 0; font-weight: 600">Biến thể C · tablet, iPad (768–1023px)</p>
+<p style="margin: 0 0 8px; font-size: 14px; color: var(--muted)">Không đủ chỗ bung 14 ô: thanh đáy chỉ còn câu hiện tại, nút lùi, tới và nút "Review" mở bảng đủ 40 câu chia theo Passage. Đang vẽ lúc bảng mở, ở câu 18.</p>
+<div lang="en" style="width: 768px; box-sizing: border-box; border: 1px solid var(--ink); background: var(--paper)">
+<div role="dialog" aria-label="All questions" style="padding: 16px 20px 18px; border-bottom: 1px solid var(--ink); background: var(--surface)">
+<div style="display: flex; align-items: center; gap: 12px; margin-bottom: 6px">
+<p style="margin: 0; flex-grow: 1; font-size: 18px; font-weight: 600">All questions</p>
+<span style="font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums">Answered {{narrow.answered}} of 40 · {{narrow.flagged}} flagged</span>
+<span aria-label="Close" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; color: var(--ink)"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg></span>
+</div>
+<sc-for list="{{narrow.groups}}" as="g" hint-placeholder-count="3">
+<div role="group" aria-label="{{g.label}}" style="padding: 10px 0; border-top: 1px solid var(--rule)">
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; font-variant-numeric: tabular-nums">{{g.summary}}</p>
+<div style="display: grid; grid-template-columns: repeat(10, 44px); gap: 8px">
+<sc-for list="{{g.items}}" as="n" hint-placeholder-count="13">
+<button aria-label="{{n.aria}}" aria-current="{{n.current}}" style="width: 44px; height: 44px; padding: 0; border: 1px solid var(--ink); border-bottom: 4px solid {{n.bar}}; border-radius: 2px; background: {{n.bg}}; color: {{n.fg}}; outline: {{n.outline}}; outline-offset: 2px; font: 600 15px 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums">{{n.n}}</button>
+</sc-for>
+</div>
+</div>
+</sc-for>
+</div>
+<div style="height: 72px; box-sizing: border-box; display: flex; align-items: center; gap: 10px; padding: 0 16px; background: var(--surface)">
+<span aria-label="Previous question" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; box-sizing: border-box; border: 1px solid var(--ink); border-radius: 2px"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></span>
+<p style="margin: 0; font-variant-numeric: tabular-nums"><strong>Q18</strong> <span style="color: var(--muted)">of 40 · Passage 2 · 4/13</span></p>
+<span aria-label="Next question" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; box-sizing: border-box; border: 1px solid var(--ink); border-radius: 2px"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg></span>
+<span aria-expanded="true" style="margin-left: auto; display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border: 1px solid var(--ink); border-radius: 2px; background: var(--ink); color: var(--surface); font-weight: 600">Review</span>
+<span style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; background: var(--accent); color: var(--surface); font-weight: 600; border-radius: 2px">Submit test</span>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 48px; margin-top: 28px">
+<div>
+<h3 style="margin: 0 0 6px; font-size: 16px; font-weight: 600">Quy tắc của dải số câu</h3>
+<ul style="margin: 0; padding: 0; list-style: none">
+<li style="padding: 10px 0; border-top: 1px solid var(--rule)"><strong>Một phần bung, các phần khác gọn.</strong> Phần chứa câu hiện tại hiện đủ ô số (tối đa 14). Phần khác là một nút "Passage 2 · 3/13" hoặc "Part 3 · 0/10"; bấm vào thì bung phần đó và nhảy tới câu đầu tiên chưa trả lời của phần đó.</li>
+<li style="padding: 10px 0; border-top: 1px solid var(--rule)"><strong>Đánh dấu không bị giấu.</strong> Phần thu gọn có câu đánh dấu xem lại thì nút của phần đó cũng có vạch đáy đỏ mận, và chữ cho trình đọc màn hình đọc thêm "2 flagged".</li>
+<li style="padding: 10px 0; border-top: 1px solid var(--rule)"><strong>Đủ chỗ ở 1280px.</strong> Ca dài nhất là Passage 3 bung 14 ô cùng hai nút thu gọn: khoảng 880px cho dải, còn đủ chỗ cho "Answered 2 of 40" và "Submit test". Ô rộng 32px, cao 44px, cách nhau 4px. Không cuộn ngang.</li>
+<li style="padding: 10px 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule)"><strong>Không chỉ dựa vào màu.</strong> Đã trả lời khác chưa trả lời ở nền; đánh dấu là một vạch dày; câu hiện tại là viền ngoài. Mỗi ô có nhãn đọc được, ví dụ "Question 18, not answered, current".</li>
+</ul>
+</div>
+<div>
+<h3 style="margin: 0 0 6px; font-size: 16px; font-weight: 600">Màn hẹp</h3>
+<ul style="margin: 0; padding: 0; list-style: none">
+<li style="padding: 10px 0; border-top: 1px solid var(--rule)"><strong>Từ 1024px đến 1279px.</strong> Giữ dải như trên; nếu không đủ chỗ thì bỏ chữ "Answered … of 40" trước, rồi rút ô còn 28px. Không thu nhỏ chữ.</li>
+<li style="padding: 10px 0; border-top: 1px solid var(--rule)"><strong>Dưới 1024px (máy tính bảng).</strong> Dạng gọn như biến thể C: nút lùi, "Q18 of 40 · Passage 2 · 4/13", nút tới, "Review", "Submit test". Bảng Review trượt lên từ đáy, chia theo Passage hoặc Part, 10 ô một hàng, ô 44px.</li>
+<li style="padding: 10px 0; border-top: 1px solid var(--rule)"><strong>Điện thoại (dưới 768px): không có phòng thi.</strong> Full test và thi thử không mở trên điện thoại; mở bài sẽ thấy màn chặn có Warning “Use a larger screen”, nút “‹ Go back” và lối sang luyện từng phần (ThiThuTruocGio mục 9). Ngưỡng 768px là đề xuất. Đang thi trên tablet/máy tính mà thu cửa sổ dưới 768px: giữ dạng gọn của biến thể C, không chặn giữa bài.</li>
+<li style="padding: 10px 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule)"><strong>Listening.</strong> Cùng cấu trúc, đổi chữ "Passage" thành "Part"; bấm số câu chỉ cuộn tới câu đó, không tua bài nghe.</li>
+</ul>
+</div>
+</div>
+
+<section aria-labelledby="pt-sess" style="margin-top: 44px; border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="pt-sess" style="margin: 0 0 4px; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">3. Phiên đăng nhập trong phòng thi</h2>
+<p style="margin: 0 0 16px; color: var(--muted); max-width: 100ch">Một phiên mỗi tài khoản học viên, nhưng người đang làm bài có giờ không bao giờ bị đẩy ra (TaiKhoanDangNhap màn 8b). Hai khối trạng thái ngắn, toàn bộ tiếng Anh theo quy tắc full test; hiện dưới thanh đồng hồ, không che câu hỏi.</p>
+<div lang="en" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; align-items: start">
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">a · Sign-in attempt on another device</p>
+<div role="status" style="padding: 12px 16px; border: 1px solid var(--rule); border-left: 4px solid var(--ink); background: var(--surface)">
+<p style="margin: 0 0 4px; font-weight: 600">Someone tried to sign in to your account on another device at 10:12.</p>
+<p style="margin: 0 0 8px; font-size: 15px">They were not let in while your test is running. Your test continues here.</p>
+<p style="margin: 0; font-size: 15px">Not you? <a href="TaiKhoanDangNhap.dc.html#s5">Sign out of all devices</a> after the test, or <a href="TroGiupLanDau.dc.html">tell us</a>. <button type="button" style="margin-left: 8px; min-height: 36px; padding: 0 12px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif">Dismiss</button></p>
+</div>
+</div>
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">b · Session expired · sign in again here</p>
+<div role="alert" style="padding: 12px 16px; border: 1px solid var(--mark); border-left: 4px solid var(--mark); background: color-mix(in srgb, var(--mark) 7%, var(--surface))">
+<p style="margin: 0 0 2px; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--mark)">Warning</p>
+<p style="margin: 0 0 4px; font-weight: 600">Your session has expired. Sign in again to continue this test.</p>
+<p style="margin: 0 0 10px; font-size: 15px">Your answers up to 10:42 are saved. The timer runs on our server: 38 minutes left.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 10px"><button type="button" style="min-height: 44px; padding: 0 18px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: var(--surface); font: 600 15px 'Source Sans 3', sans-serif">Sign in with Google</button><button type="button" style="min-height: 44px; padding: 0 18px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 15px 'Source Sans 3', sans-serif">Get a sign-in code by email</button></div>
+</div>
+</div>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)">(a) chỉ hiện ở thiết bị đang thi, tự ẩn khi bấm Dismiss; thiết bị kia thấy màn chặn TaiKhoanDangNhap 8b. (b) mất phiên vì lý do khác (hết hạn token): đăng nhập lại ngay trong phòng thi, không rời trang; câu trả lời đã lưu, đồng hồ theo máy chủ không dừng; đăng nhập xong quay đúng câu đang làm. Áp cho mọi bài có giờ (full test, kỳ thi, bài luyện có đồng hồ); bài kiểm tra khoá dùng khối tiếng Việt ở KiemTraKhoa.</p>
+</section>
+
+<section aria-labelledby="pt-ab" style="margin-top: 44px; border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="pt-ab" style="margin: 0 0 4px; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">4. Bỏ bài và hết giờ · Reading và Listening (HV-32)</h2>
+<p style="margin: 0 0 16px; color: var(--muted); max-width: 104ch">Cùng mẫu với <a href="ThiThuTruocGio.dc.html#s6b">ThiThuTruocGio</a> màn 6b và <a href="PhongThiNgheViet.dc.html#n7d">PhongThiNgheViet</a> 7d–7f. Đồng hồ không dừng ở bất kỳ hộp nào. Đề tự chọn (full test từng kỹ năng, mini test) có "Abandon test" và hộp hỏi lại; mock test được giao không có nút này và hết giờ luôn tự nộp. Reading, Listening chấm theo đáp án, không dùng lượt, nên hết giờ thì tự nộp phần đã trả lời (4c, đã chốt); hộp hỏi "chấm phần đã làm hay bỏ" ("Mark what I wrote" / "Discard this attempt (no credit used)") chỉ áp cho Writing và Speaking tự chọn. Toàn bộ chữ trong khung là tiếng Anh.</p>
+
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">4a · thanh trên · nút "Leave test", không có nút lưu rồi thoát · đề tự chọn có "Abandon test", mock test được giao thì không</p>
+<div lang="en" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px">
+<header style="height: 56px; box-sizing: border-box; display: flex; align-items: center; gap: 16px; padding: 0 20px; background: var(--ink); color: var(--surface)">
+<span class="ab-exit">‹ Leave test</span><button type="button" class="ab-exit" style="background: none; font-family: 'Source Sans 3', sans-serif; cursor: pointer">Abandon test</button>
+<p style="margin: 0; flex-grow: 1; font-size: 15px"><strong>Reading · Academic Test 1</strong> <span style="opacity: 0.85">· self-selected · Passage 2 of 3</span></p>
+<p style="margin: 0; font-size: 13px; opacity: 0.85">Saved at 10:42</p><p style="margin: 0; font-size: 13px; opacity: 0.85">Time remaining</p><p class="ab-timer">31:07</p>
+</header>
+<header style="height: 56px; box-sizing: border-box; display: flex; align-items: center; gap: 16px; padding: 0 20px; background: var(--ink); color: var(--surface)">
+<span class="ab-exit">‹ Leave test</span>
+<p style="margin: 0; flex-grow: 1; font-size: 15px"><strong>Listening · Academic Mock Test 3</strong> <span style="opacity: 0.85">· assigned mock test · Part 3 of 4</span></p>
+<p style="margin: 0; font-size: 13px; opacity: 0.85">Saved at 10:42</p><p style="margin: 0; font-size: 13px; opacity: 0.85">Time remaining</p><p class="ab-timer">11:52</p>
+</header>
+</div>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 28px; align-items: start; margin: 14px 0 22px">
+<div lang="en" role="alertdialog" aria-label="Leave this test?" style="box-sizing: border-box; padding: 16px 20px 18px; border: 1px solid var(--ink); border-left: 4px solid var(--ink); background: var(--surface)">
+<p style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; font-weight: 600">Leave this test?</p>
+<p style="margin: 0 0 6px"><strong>The timer keeps running on our server while you are away.</strong> Your answers so far are saved.</p>
+<p style="margin: 0 0 14px; color: var(--muted)">Come back before 11:05 to continue. At 11:05 the test is submitted with the answers you have given.</p>
+<div style="display: flex; gap: 12px; flex-wrap: wrap"><button type="button" class="ab-p">Stay in test</button><button type="button" class="ab-o">Leave test</button></div>
+</div>
+<p style="margin: 0; font-size: 14px; color: var(--muted)">Đã chốt: chế độ thi (full test từng kỹ năng, mock test, mini test) <strong style="color: var(--ink)">không có nút lưu rồi thoát</strong> và không có nút tạm dừng bài nghe; chỉ luyện từng phần mới có tạm dừng và nghe lại. Nút trên thanh là "Leave test": mở hộp bên trái, nói rõ đồng hồ vẫn chạy trên máy chủ; câu trả lời vẫn tự lưu như trước. Đề tự chọn có thêm "Abandon test" (nút viền trắng, không tô đỏ trên thanh; màu cảnh báo chỉ ở hộp 4b). Mock test được giao không có "Abandon test": rời bài thì đồng hồ vẫn chạy, hết giờ phần thì tự nộp.</p>
+</div>
+
+
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; align-items: start">
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">4b · hỏi lại trước khi bỏ · đề tự chọn</p>
+<div lang="en" role="alertdialog" aria-label="Abandon this test?" class="ab-warn">
+<p class="ab-wl"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3l10 18H2z"></path><path d="M12 10v5M12 18h.01"></path></svg>Warning</p>
+<p style="margin: 0 0 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; font-weight: 600">Abandon this test?</p>
+<p style="margin: 0 0 6px">You have answered <strong>17 of 40</strong> questions. If you abandon, your answers will not be marked. This attempt will not appear in your results, and you cannot return to it.</p>
+<p style="margin: 0 0 14px; color: var(--muted)">You can start this test again later as a new attempt. The timer is still running: 31:07 left.</p>
+<div style="display: flex; gap: 12px; flex-wrap: wrap"><button type="button" class="ab-p">Return to test</button><button type="button" class="ab-d">Abandon test</button></div>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)">Focus vào "Return to test"; Esc đóng hộp và quay lại bài. Listening: audio vẫn phát sau hộp (nghe một lần, không tua lại). Bỏ xong về màn "Attempt discarded" (ThiThuTruocGio 6b).</p>
+</div>
+
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">4c · hết giờ · tự nộp (đề tự chọn và mock test được giao)</p>
+<div lang="en" style="border: 1px solid var(--ink); background: var(--paper)">
+<header style="height: 52px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 0 16px; background: var(--ink); color: var(--surface)"><p style="margin: 0; flex-grow: 1; font-size: 14px"><strong>Reading</strong> · Academic Test 1</p><span style="font-size: 13px">Time remaining</span><p role="timer" aria-label="Time remaining: zero" class="ab-timer" style="font-size: 18px; padding: 2px 10px">00:00</p></header>
+<div role="alertdialog" aria-label="Time is up" style="padding: 18px 20px; background: var(--surface)">
+<p style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">Time is up</p>
+<p style="margin: 0 0 10px">Your answers have been saved and submitted. You can no longer change them.</p>
+<p style="margin: 0 0 14px; font-variant-numeric: tabular-nums"><strong>Reading:</strong> 31 of 40 questions answered · 9 left blank</p>
+<button type="button" class="ab-p" style="width: 100%; justify-content: center">See my result</button>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)">Reading and Listening are marked from the answer key. No credit is used.</p>
+</div>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)">Đã chốt 18/11: Reading, Listening tự chọn hết giờ thì tự nộp, không hỏi "chấm hay bỏ" (hai kỹ năng này không tốn lượt). Không có nút đóng, không hỏi lại. Câu để trống tính là sai. Mock test được giao: cùng hộp, bỏ dòng cuối, nút là "Continue" (sang màn chuyển phần hoặc màn chờ giám thị); chưa hiện điểm.</p>
+</div>
+
+</div>
+</section>
+
+<section aria-labelledby="pt3" style="margin-top: 44px; border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="pt3" style="margin: 0 0 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">Ghi chú cho lập trình</h2>
+<ul style="margin: 0; padding: 0 0 0 20px; max-width: 100ch">
+<li style="margin-bottom: 6px">Tay nắm: phần tử <code>role="separator"</code>, <code>aria-orientation="vertical"</code>, <code>aria-valuenow</code> từ 30 đến 70, <code>tabindex="0"</code>. Kéo bằng pointer events (pointerdown trên tay nắm, pointermove và pointerup trên window), có <code>touch-action: none</code>. Tính phần trăm theo bề rộng vùng chứa hai cột, kẹp trong 30–70, đồng thời mỗi bên không dưới 360px.</li>
+<li style="margin-bottom: 6px">Lưu tỉ lệ theo lượt thi (attempt), không theo tài khoản. Dưới 900px bỏ tay nắm và dùng thẻ Passage / Questions; quay lại rộng thì dùng lại tỉ lệ đã lưu.</li>
+<li style="margin-bottom: 6px">Dải số câu sinh từ cấu trúc đề: danh sách phần (Passage hoặc Part) kèm số câu đầu, cuối. Không viết cứng 13 · 13 · 14. Trạng thái mỗi câu: answered, flagged, current.</li>
+<li style="margin-bottom: 6px">Ô số câu: <code>aria-label</code> tiếng Anh dạng "Question 18, answered, flagged for review", câu hiện tại có <code>aria-current="true"</code>. Nút phần thu gọn: "Passage 2: 3 of 13 answered, 1 flagged. Show questions 14–26".</li>
+<li style="margin-bottom: 6px">Kiểm độ rộng vùng nhìn trước khi tạo lượt thi: dưới 768px không tạo lượt, không chạy đồng hồ, chuyển về màn chặn ở bước Before you begin.</li>
+<li style="margin-bottom: 6px">Bỏ bài và hết giờ (mục 4): "Abandon test" chỉ có ở đề tự chọn; bỏ thì đánh dấu lượt thi là đã bỏ, không chấm, không ghi vào bảng kết quả, không mở lại được. Hết giờ Reading/Listening: máy chủ tự nộp các câu đã trả lời (cả đề tự chọn và mock test được giao), không hỏi. Mock test được giao không có đường bỏ bài; cách thi "Làm trong khoảng thời gian" thêm một mốc tự nộp là lúc khoảng mở kết thúc (MockTestDuocGiao). Không có nút lưu rồi thoát và không có tạm dừng audio ở mọi chế độ thi; "Leave test" chỉ rời trang, đồng hồ máy chủ vẫn chạy.</li>
+<li>Mọi chuỗi trong phòng thi full test lấy từ bộ chuỗi tiếng Anh, kể cả thông báo lỗi, hộp hỏi lại khi nộp và chữ cho trình đọc màn hình.</li>
+<li>Phiên: máy chủ coi lượt thi có giờ đang chạy là khoá phiên; đăng nhập mới của cùng tài khoản bị từ chối tới khi hết giờ hoặc nộp bài. Token hết hạn giữa bài: hiện khối 3b, giữ câu trả lời trên máy, gửi lại sau khi đăng nhập.</li>
+</ul>
+</section>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Xanh teal","Navy + đỏ mận"],"default":"Navy + đỏ mận"},"$preview":{"width":1280,"height":5640}}'>
+class Component extends DCLogic {
+constructor(p) { super(p); this.state = { ans: { 1: 'TRUE' }, flags: { 2: true }, cur: 2, split: 50, dragging: false }; }
+componentWillUnmount() { if (this.stopDrag) this.stopDrag(); }
+clamp(v) { return Math.max(30, Math.min(70, Math.round(v))); }
+groups(def, cur, ans, flags, all, go) {
+const noop = () => {};
+return def.map(([label, a, b]) => {
+const nums = []; for (let n = a; n <= b; n++) nums.push(n);
+const done = nums.filter((n) => !!ans[n]).length, fl = nums.filter((n) => !!flags[n]).length;
+const active = all || (cur >= a && cur <= b);
+const firstOpen = nums.find((n) => !ans[n]) || a;
+return {
+label, active, inactive: !active,
+summary: label + ' · ' + done + '/' + nums.length,
+aria: label + ': ' + done + ' of ' + nums.length + ' answered' + (fl ? ', ' + fl + ' flagged' : '') + '. Show questions ' + a + '–' + b,
+bar: fl ? 'var(--mark)' : 'var(--rule)',
+go: go ? () => go(firstOpen) : noop,
+items: active ? nums.map((n) => {
+const d = !!ans[n], f = !!flags[n], c = n === cur;
+return {
+n, current: c ? 'true' : 'false',
+aria: 'Question ' + n + (d ? ', answered' : ', not answered') + (f ? ', flagged for review' : '') + (c ? ', current' : ''),
+bg: d ? 'var(--ink)' : 'var(--surface)', fg: d ? 'var(--surface)' : 'var(--ink)',
+bar: f ? 'var(--mark)' : (d ? 'var(--ink)' : 'var(--rule)'),
+outline: c ? '3px solid var(--accent)' : '0 solid transparent',
+go: go ? () => go(n) : noop
+};
+}) : []
+};
+});
+}
+renderVals() {
+const s = this.state || {};
+const ans = s.ans || {}, flags = s.flags || {}, cur = s.cur || 1;
+const split = this.clamp(s.split == null ? 50 : s.split);
+const setSplit = (v) => this.setState({ split: this.clamp(v) });
+const READING = [['Passage 1', 1, 13], ['Passage 2', 14, 26], ['Passage 3', 27, 40]];
+const LISTENING = [['Part 1', 1, 10], ['Part 2', 11, 20], ['Part 3', 21, 30], ['Part 4', 31, 40]];
+const texts = ['Shoppers once saw identical high streets as evidence of progress.', 'Hand-made goods are now cheaper than factory products.', 'Most small workshops are run by people under thirty.'];
+const questions = texts.map((text, i) => {
+const n = i + 1, picked = ans[n], fl = !!flags[n];
+return {
+n, text, border: n === cur ? 'var(--ink)' : 'var(--rule)', flagged: fl,
+flagLabel: fl ? 'Unflag' : 'Flag for review', flagColor: fl ? 'var(--mark)' : 'var(--link)',
+flag: () => this.setState({ flags: { ...flags, [n]: !fl }, cur: n }),
+options: ['TRUE', 'FALSE', 'NOT GIVEN'].map((label) => ({
+label, on: picked === label, bg: picked === label ? 'var(--ink)' : 'var(--surface)', fg: picked === label ? 'var(--surface)' : 'var(--ink)',
+pick: () => this.setState({ ans: { ...ans, [n]: label }, cur: n })
+}))
+};
+});
+const part = READING.find(([, a, b]) => cur >= a && cur <= b) || READING[0];
+const fill = (from, to, skip) => { const o = {}; for (let n = from; n <= to; n++) if (!(skip || []).includes(n)) o[n] = 'x'; return o; };
+const aA = { ...fill(1, 13, [7]), ...fill(14, 17) }, fA = { 4: true, 16: true };
+const aB = { ...fill(1, 10), ...fill(11, 13) }, fB = { 6: true, 12: true };
+const count = (o) => Object.keys(o).filter((k) => o[k]).length;
+const dragStart = (e) => {
+const box = e.currentTarget.parentElement.getBoundingClientRect();
+if (e.preventDefault) e.preventDefault();
+const move = (ev) => setSplit(((ev.clientX - box.left) / box.width) * 100);
+const up = () => { if (this.stopDrag) this.stopDrag(); this.setState({ dragging: false }); };
+this.stopDrag = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); this.stopDrag = null; };
+window.addEventListener('pointermove', move);
+window.addEventListener('pointerup', up);
+this.setState({ dragging: true });
+};
+const splitKey = (e) => {
+const k = e.key; let v = split;
+if (k === 'ArrowLeft') v -= 5; else if (k === 'ArrowRight') v += 5; else if (k === 'Home') v = 30; else if (k === 'End') v = 70; else if (k === 'Enter') v = 50; else return;
+e.preventDefault(); setSplit(v);
+};
+return {
+pal: (this.props.palette ?? 'Navy + đỏ mận') === 'Xanh teal' ? 'pal-teal' : 'pal-navy',
+where: part[0] + ' of 3 · Questions ' + part[1] + '–' + part[2],
+questions,
+mainGroups: this.groups(READING, cur, ans, flags, false, (n) => this.setState({ cur: n })),
+answered: count(ans),
+split, splitText: 'Passage ' + split + ' percent, questions ' + (100 - split) + ' percent',
+splitLabel: split + ' / ' + (100 - split),
+leftW: 'calc(' + split + '% - 8px)',
+handleBg: s.dragging ? 'var(--tint)' : 'var(--paper)',
+userSelect: s.dragging ? 'none' : 'auto',
+dragStart, splitKey, resetSplit: () => setSplit(50),
+variants: [
+{ title: 'Biến thể A · Reading, đang ở Passage 2 (câu 18)', desc: 'Passage 1 đã xong 12 trên 13 câu và có câu đánh dấu nên nút thu gọn có vạch đỏ mận; Passage 3 chưa làm.', groups: this.groups(READING, 18, aA, fA, false, null), answered: count(aA) },
+{ title: 'Biến thể A2 · Reading, đang ở Passage 3 (câu 27), ca dài nhất', desc: 'Passage 3 bung 14 ô cùng hai nút thu gọn: dải không tràn, còn chỗ cho số câu đã trả lời và nút nộp.', groups: this.groups(READING, 27, { ...aA, ...fill(18, 26) }, fA, false, null), answered: count({ ...aA, ...fill(18, 26) }) },
+{ title: 'Biến thể B · Listening, 4 Part, đang ở Part 2 (câu 14)', desc: 'Cùng quy tắc, mỗi Part 10 câu. Ca rộng nhất của Reading là Passage 3 bung 14 ô, vẫn vừa 1280px.', groups: this.groups(LISTENING, 14, aB, fB, false, null), answered: count(aB) }
+],
+narrow: { groups: this.groups(READING, 18, aA, fA, true, null), answered: count(aA), flagged: count(fA) }
+};
+}
+}
+</script>
+</body>
+</html>

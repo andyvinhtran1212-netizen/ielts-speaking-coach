@@ -472,7 +472,7 @@ def _run(c): return asyncio.run(c)
 
 def _content_row():
     return {
-        "id": "c1", "status": "published",
+        "id": "c1", "test_id": None, "status": "published",
         "transcript": "Coastal erosion is accelerating...",
         "audio_storage_path": "ai/c1.mp3",
         "audio_duration_seconds": 270,

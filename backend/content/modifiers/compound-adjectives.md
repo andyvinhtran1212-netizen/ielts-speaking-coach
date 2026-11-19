@@ -78,6 +78,7 @@ Khi con số + danh từ đứng **trước** danh từ chính, danh từ trong 
 Nhưng khi đứng **sau** động từ, dùng bình thường: *The boy is **five years old**.*
 
 **Lưu ý: cách viết khi làm vị ngữ**
+
 - *The writer is well known.* thường không có gạch nối ở vị trí này. Đây không phải quy tắc bỏ mọi gạch nối sau be: **The plan is long-term** có thể giữ dạng từ ghép theo từ điển/văn phong.
 
 <!-- anchor: compound-adjectives.pitfall -->

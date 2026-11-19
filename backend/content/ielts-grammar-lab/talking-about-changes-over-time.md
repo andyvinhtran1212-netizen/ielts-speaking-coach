@@ -93,6 +93,7 @@ anchors:
 ## Tại sao quan trọng
 
 Trong Speaking Part 3, examiner thường hỏi:
+
 - "How has [X] changed in recent years?"
 - "Do you think [X] is different now compared to the past?"
 - "How do you think [aspect of life] has changed over the generations?"
@@ -271,6 +272,7 @@ Over the course of [period], [subject] has [change].
 ### Lỗi 4: Chỉ mô tả thay đổi mà không giải thích tại sao
 
 Trong Speaking Part 3 và Writing Task 2, mô tả thay đổi cần kèm lý do:
+
 - "The job market **has changed dramatically**, **largely due to** the rise of automation and digital technology."
 
 ---

@@ -94,6 +94,7 @@ Present Perfect Continuous nhấn mạnh **quá trình đang diễn ra** hoặc 
 ## Tại sao quan trọng
 
 Present Perfect Continuous giúp người nói:
+
 - Diễn đạt hành động **đang tiếp diễn đến hiện tại** với thời gian cụ thể
 - Giải thích **lý do** cho trạng thái hiện tại
 - Thể hiện **sự kiên trì, nỗ lực** trong một khoảng thời gian
@@ -264,9 +265,11 @@ Với động từ có hai nghĩa, kiểm nghĩa trước: *I have had this car 
 ### Đáp án
 
 **Chia động từ:**
+
 1. has been working | 2. has written | 3. have known | 4. have been building | 5. have you been waiting
 
 **Sửa lỗi:**
+
 1. I **have been living** here since 2020.
 2. She **has known** the truth for weeks. (stative verb → PP đơn)
 3. They have been working here **for** five years.
@@ -282,6 +285,7 @@ Với động từ có hai nghĩa, kiểm nghĩa trước: *I have had this car 
 | Xu hướng đang diễn ra | Cities have been growing rapidly. |
 
 **Trọng tâm thường gặp, không phải phân chia xong/chưa xong tuyệt đối:**
+
 - **PP đơn:** kết quả/số lượng hoặc trạng thái kéo dài — **She has finished**, **He has worked here for ten years** (có thể vẫn đang làm).
 - **PPC:** hoạt động/quá trình — **She has been working for hours** (có thể còn làm hoặc vừa ngừng).
 

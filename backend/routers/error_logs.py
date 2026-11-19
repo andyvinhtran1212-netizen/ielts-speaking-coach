@@ -153,6 +153,13 @@ async def report_frontend_error(
         "extra":      body.extra,
     }
 
+    # Free-text Listening diagnostics can contain answers, names or transcripts.
+    # Retain the structured owner column only (SA-2280-F11).
+    from urllib.parse import unquote
+    if "/listening" in unquote(body.url or "").lower():
+        payload.update(message="Listening client error", stack=None,
+                       url="/listening/[private]", extra=None, user_agent=None)
+
     try:
         supabase_admin.table("error_logs").insert(payload).execute()
     except Exception as exc:

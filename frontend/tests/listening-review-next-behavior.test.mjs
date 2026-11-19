@@ -54,6 +54,106 @@ const fixture = (overrides = {}) => ({
 });
 
 describe('Listening review native model', () => {
+  // QA staging payloads from 2026-11-16, with audio_url removed at capture.
+  for (const id of ['0d14596d', '6561780c', '26cf78cc']) {
+    test(`opens report-only fixture ${id} with neutral persisted null grades`, () => {
+      const raw = JSON.parse(read('tests', 'fixtures', `listening-review-report-only-${id}.json`));
+      const before = structuredClone(raw);
+      const data = normalizeListeningReview(raw);
+      assert.equal('audio_url' in raw, false);
+      assert.equal(data.score, null);
+      assert.equal(listeningBandLabel(data), 'Không quy đổi band');
+      assert.equal(data.review.length, raw.review.length);
+      for (const item of data.review) {
+        assert.equal(item.correct, null);
+        assert.equal(item.self_check, false);
+        assert.equal(listeningReviewAnswerState(item), 'self_check');
+        for (const filter of ['wrong', 'blank', 'correct']) {
+          assert.equal(listeningReviewMatchesFilter(item, filter), false);
+        }
+        assert.equal(listeningReviewMatchesFilter(item, 'all'), true);
+      }
+      assert.deepEqual(listeningReviewTotals(data.review), { incorrect: 0, unanswered: 0, correct: 0 });
+      assert.deepEqual(listeningSkillsToPractise(data.review), []);
+      assert.deepEqual(raw, before);
+    });
+  }
+
+  test('keeps scored outcomes authoritative alongside neutral report-only items', () => {
+    const raw = fixture();
+    raw.review.push({ q_num: 3, correct: null, state: 'unscored', user_answer: 'A', solution: { skills: 'K8' } });
+    raw.review.push({ q_num: 4, correct: null, state: 'blank', user_answer: '', solution: { skills: 'K8' } });
+    const data = normalizeListeningReview(raw);
+    assert.deepEqual(data.review.map(listeningReviewAnswerState), ['incorrect', 'correct', 'self_check', 'self_check']);
+    assert.deepEqual(listeningReviewTotals(data.review), { incorrect: 1, unanswered: 0, correct: 1 });
+    assert.deepEqual(data.review.filter(item => listeningReviewMatchesFilter(item, 'wrong')).map(item => item.q_num), [1]);
+    assert.equal(listeningSkillsToPractise(data.review).some(skill => skill.code === 'K8'), false);
+    assert.equal(data.score, 1);
+    assert.equal(data.maxScore, 2);
+  });
+
+  test('requires explicit null and an allowed state for an ungraded item', () => {
+    for (const item of [
+      { q_num: 1, correct: null, state: 'correct' },
+      { q_num: 1, correct: null, state: 'incorrect' },
+      { q_num: 1, correct: null },
+      { q_num: 1, state: 'unscored' },
+      { q_num: 1, state: 'blank' },
+      { correct: null, state: 'unscored' },
+      { q_num: 1, correct: 'false', state: 'unscored' },
+    ]) {
+      assert.throws(() => normalizeListeningReview(fixture({ review: [item] })), /invalid-listening-review-item/);
+    }
+  });
+
+  test('opens submitted practice with a null aggregate score and preserves its question results', () => {
+    const raw = fixture({ score: null, max_score: 10, score_mode: 'scored' });
+    const before = structuredClone(raw);
+    const data = normalizeListeningReview(raw);
+    assert.equal(data.preview, false);
+    assert.equal(data.score, null);
+    assert.equal(data.maxScore, 10);
+    assert.equal(data.scoreMode, 'scored');
+    assert.equal(data.review[0].correct, false);
+    assert.equal(data.review[0].user_answer, 'A');
+    assert.equal(data.review[0].expected, 'B');
+    assert.deepEqual(data.review[0].solution, raw.review[0].solution);
+    assert.equal(data.sections[0].transcript, raw.sections[0].transcript);
+    assert.equal(listeningBandLabel(data), 'Không quy đổi band');
+    // A historical band or conversion table cannot imply a band without a score.
+    assert.equal(listeningBandLabel(normalizeListeningReview({ ...raw, max_score: 40 })), 'Chưa đủ band');
+    assert.deepEqual(raw, before);
+  });
+
+  test('still rejects invalid scores, denominators and malformed scoreless reviews', () => {
+    for (const overrides of [
+      { score: -1 }, { score: 11 }, { score: undefined }, { score: 'invalid' },
+      { score: NaN }, { score: Infinity },
+      { max_score: undefined }, { max_score: null }, { max_score: -1 },
+    ]) {
+      assert.throws(() => normalizeListeningReview(fixture({ score: null, max_score: 10, ...overrides })), /score/);
+    }
+    assert.throws(() => normalizeListeningReview(fixture({ score: null, status: 'in_progress' })), /status/);
+    assert.throws(() => normalizeListeningReview(fixture({ score: null, sections: [null] })), /section/);
+    assert.throws(() => normalizeListeningReview(fixture({ score: null, review: [{ q_num: 1, correct: null }] })), /item/);
+  });
+
+  test('keeps self-check neutral and outside scored filters, totals, weak skills and band estimates', () => {
+    const item = { q_num: 1, self_check: true, correct: null, user_answer: 'student words',
+      expected: 'reference', alternatives: ['another reference'], solution: { why_correct: 'Lời giải tiếng Việt.', skills: 'K2' } };
+    const data = normalizeListeningReview(fixture({ score: 0, max_score: 0, band_estimate: null, review: [item] }));
+    assert.equal(data.review[0].correct, null);
+    assert.equal(data.review[0].self_check, true);
+    assert.equal(data.review[0].expected, 'reference');
+    assert.equal(listeningReviewAnswerState(data.review[0]), 'self_check');
+    for (const filter of ['wrong', 'blank', 'correct']) assert.equal(listeningReviewMatchesFilter(item, filter), false);
+    assert.equal(listeningReviewMatchesFilter(item, 'all'), true);
+    assert.deepEqual(listeningReviewTotals(data.review), { incorrect: 0, unanswered: 0, correct: 0 });
+    assert.deepEqual(listeningSkillsToPractise(data.review), []);
+    assert.equal(listeningBandLabel(data), 'Không chấm điểm');
+    assert.throws(() => normalizeListeningReview(fixture({ review: [{ ...item, self_check: false }] })), /item/);
+    assert.throws(() => normalizeListeningReview(fixture({ review: [{ ...item, correct: false }] })), /item/);
+  });
   test('distinguishes empty responses without overriding canonical positive grades or numeric zero', () => {
     assert.equal(listeningReviewAnswerState({ correct: false, user_answer: null }), 'unanswered');
     assert.equal(listeningReviewAnswerState({ correct: false, user_answer: ' \n ' }), 'unanswered');
@@ -121,7 +221,7 @@ describe('Listening review native model', () => {
   });
 
   test('derives band floor, transcript labels, weak skills and section anchors deterministically', () => {
-    const data = normalizeListeningReview(fixture({ band_estimate: null }));
+    const data = normalizeListeningReview(fixture({ band_estimate: null, max_score: 40 }));
     assert.equal(listeningBandLabel(data), 'Dưới band 4.0');
     assert.deepEqual(listeningTranscriptParagraphs(data.sections[0].transcript), [
       { speaker: 'Daniel', text: 'Hello there.' }, { speaker: 'Helen', text: 'Welcome.' },
@@ -239,4 +339,15 @@ describe('Listening review route ownership and rollback', () => {
     assert.match(LEGACY_HTML, /src="\/js\/listening-review\.js"/);
     assert.match(LEGACY_JS, /\/api\/listening\/tests\/attempts\//);
   });
+});
+
+
+test('review accepts null self-check score, hides historical short bands, and labels mixed papers', () => {
+  const item = { q_num: 1, self_check: true, correct: null, user_answer: 'mine', expected: 'reference' };
+  const self = normalizeListeningReview(fixture({ score: null, max_score: 0, score_mode: 'self_check_only', review: [item] }));
+  assert.equal(self.score, null);
+  assert.equal(listeningBandLabel(self), 'Không chấm điểm');
+  assert.equal(listeningBandLabel(normalizeListeningReview(fixture())), 'Không quy đổi band');
+  const mixed = normalizeListeningReview(fixture({ score: 1, max_score: 1, score_mode: 'mixed', review: [item, { q_num: 2, correct: true }] }));
+  assert.equal(listeningBandLabel(mixed), 'Không quy đổi band · 1 câu tự đối chiếu');
 });

@@ -104,6 +104,38 @@ describe('Phase A — 26MB upload shows real progress', () => {
 });
 
 
+describe('Phase A — imported test public-library warning', () => {
+  const warning = 'Test import chưa xuất hiện trong thư viện tự luyện nếu admin chưa chọn “Mở công khai” tại Kho test. Chỉ Phát hành (Published) là chưa đủ.';
+  const helper = js.slice(js.indexOf('function publicVisibilityWarning'), js.indexOf('function renderDone'));
+
+  test('renderDone warns for both draft and published imports and links to Kho test', () => {
+    const source = js.slice(js.indexOf('function renderDone'), js.indexOf('async function onPublish'));
+    const nodes = { 'fi-done-card': { scrollIntoView() {} }, 'fi-done': {} };
+    const render = new Function('$', 'escapeHtml', 'mb', 'mapUploadCta', helper + source + '; return renderDone;')(
+      (id) => nodes[id], (value) => String(value), () => '1 MB', () => '');
+    for (const status of ['draft', 'published']) {
+      render({ id: 'new-test', test_id: 'IMPORT-1', status });
+      assert.ok(nodes['fi-done'].innerHTML.includes(warning));
+      assert.match(nodes['fi-done'].innerHTML, /id="fi-public-warning" class="fi-banner fi-banner--warn"/);
+      assert.match(nodes['fi-done'].innerHTML, /href="\/admin\/listening\/tests">Mở Kho test/);
+    }
+  });
+
+  test('publish success keeps the warning visible and writes only status', async () => {
+    const source = js.slice(js.indexOf('async function onPublish'), js.indexOf('function init()'));
+    const nodes = { 'fi-publish': {}, 'fi-public-warning': {} };
+    const calls = [];
+    const publish = new Function('$', 'STATE', 'window', 'escapeHtml', helper + source + '; return onPublish;')(
+      (id) => nodes[id], { newTest: { id: 'new/test' } },
+      { api: { patch: async (...args) => { calls.push(args); return { status: 'published' }; } } }, String);
+    await publish();
+    assert.deepEqual(calls, [['/admin/listening/tests/new%2Ftest/status', { status: 'published' }]]);
+    assert.match(nodes['fi-publish'].textContent, /status=published/);
+    assert.ok(nodes['fi-public-warning'].innerHTML.includes(warning));
+    assert.match(nodes['fi-public-warning'].innerHTML, /Mở Kho test/);
+  });
+});
+
 describe('Phase B — publish/archive on the tests list (replaces manual SQL)', () => {
   test('statusActions returns the right buttons per status (real value)', () => {
     const m = listJs.match(/function statusActions\(t\) \{[\s\S]*?\n\}/);

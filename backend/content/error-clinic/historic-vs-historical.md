@@ -125,6 +125,7 @@ historic + noun
 - The **historic** city centre has been preserved as a UNESCO World Heritage Site.
 
 > **Lưu ý a/an:** Khi đọc âm /h/ đầu "historic", lựa chọn thông dụng là **a**:
+>
 > - ✅ **a** historic victory
 > - **an historic victory** cũng được ghi nhận trong sử dụng; khi phát âm /h/, **a historic victory** là lựa chọn thông dụng. Không coi biến thể an là sai tuyệt đối theo quốc gia.
 
@@ -200,6 +201,7 @@ Tiếng Anh có nhiều cặp tính từ theo mẫu này:
 | **politic** | **political** | politic = khôn ngoan (archaic); political = thuộc về chính trị |
 
 **Ví dụ:**
+
 - an **electric** car *(chạy bằng điện)* vs. an **electrical** engineer *(kỹ sư điện)*
 - a **classic** film *(phim kinh điển)* vs. **classical** music *(nhạc cổ điển)*
 

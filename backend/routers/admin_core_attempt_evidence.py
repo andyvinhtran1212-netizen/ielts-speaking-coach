@@ -106,4 +106,10 @@ async def inspect_core_attempt(
     if (surface == "speaking") != (attempt_kind != "default"):
         raise HTTPException(422, "Loại bài làm không phù hợp với kỹ năng")
     response.headers["Cache-Control"] = "no-store"
+    if surface == "listening_test":
+        from database import supabase_admin
+        from services import listening_blackeye as blackeye
+        from starlette.concurrency import run_in_threadpool
+        await run_in_threadpool(blackeye.guard_generic_target, supabase_admin,
+                                attempt_id=str(canonical_attempt_id), denied_status=503)
     return await inspect_attempt(surface, attempt_kind, canonical_attempt_id)

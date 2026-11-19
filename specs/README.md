@@ -65,88 +65,70 @@ draft -> approved -> implementing -> verified -> shipped
 | GRAMMAR-0001 | Timed grammar midterm assessment banks | implementing | high | [spec](0001-timed-grammar-midterm-assessments/spec.md) |
 | AVOC-0002 | Advanced Vocabulary self-paced core 30 | implementing | high | [spec](0002-advanced-vocabulary-self-paced/spec.md) |
 | MASTER30-0003 | MASTER30 Grammar Diagnostic and Adaptive Review | implementing | high | [spec](0003-master30-grammar-diagnostic/spec.md) |
-| GRAMMARLESSON-0017 | Assign individual MASTER30 Grammar lessons to Course 5 learners | shipped | high | [spec](0017-grammar-lesson-assignments/spec.md) |
-| MASTER30FULL-0018 | Assign the complete original MASTER30 Grammar banks | shipped | high | [spec](0018-master30-full-bank-assignments/spec.md) |
 | AI-0004 | AI model usage observability and controlled model rollout | implementing | high | [spec](0004-ai-model-usage-observability/spec.md) |
-| AIBUDGET-0033 | Paid AI stops at hard budgets, Claude alerts on a soft budget, and learner work waits safely for grading | approved | critical | [spec](0033-ai-budget-hard-cap/spec.md) |
 | LISTENING-0005 | Listening content programmes, import and learner hub | implementing | high | [spec](0005-listening-content-programmes/spec.md) |
 | LISTENING-0006 | Guided per-question Listening feedback | implementing | high | [spec](0006-listening-guided-feedback/spec.md) |
-| LISTENING-0007 | Versioned Listening editorial revision and bilingual questions | implementing | high | [spec](0007-listening-editorial-revision/spec.md) |
 | MOCKOPS-0006 | Admin Mock Test operations workspace at scale | implementing | high | [spec](0006-admin-mock-test-operations/spec.md) |
+| LISTENING-0007 | Versioned Listening editorial revision and bilingual questions | implementing | high | [spec](0007-listening-editorial-revision/spec.md) |
 | WRITINGNAV-0007 | Canonical admin Writing navigation context | implementing | high | [spec](0007-writing-navigation-contract/spec.md) |
 | MOCKATTACH-0008 | Mock Reading and Listening attempt integrity | implementing | high | [spec](0008-mock-attempt-integrity/spec.md) |
 | LISTENING80-0009 | Source-faithful 80-day Listening practice collection | implementing | high | [spec](0009-listening-80-days/spec.md) |
-
+| LEARNERDRAFT-0010 | Preserve Reading answers and Speaking preparation within a browser tab | implementing | medium | [spec](0010-learner-draft-preservation/spec.md) |
 | DICTATIONTOKEN-0011 | Version dictation word grading and distinguish punctuation in reports | implementing | high | [spec](0011-versioned-dictation-token-grading/spec.md) |
-
 | READINGGRAMMAR-0012 | Correct L1 Reading grammar analysis without replacing passage questions | implementing | medium | [spec](0012-reading-grammar-focus-edit/spec.md) |
-
 | WRITINGMODAL-0013 | Make Writing content dialogs follow browser history and keyboard focus | implementing | medium | [spec](0013-writing-content-modal-history/spec.md) |
-
 | GRAMMARCUTOVER-0014 | Preserve Grammar quiz history during bounded bank revision cutover | approved | high | [spec](0014-grammar-bank-revision-cutover/spec.md) |
-
 | GRAMMARTEXT-0015 | Require exact authored forms for bounded Grammar questions while preserving old work | implementing | high | [spec](0015-grammar-exact-form-policy/spec.md) |
-
 | MOCKREPAIR-0016 | Preserve mock paper security and repair Reading and Listening work truthfully | implementing | critical | [spec](0016-mock-content-remediation/spec.md) |
+| GRAMMARLESSON-0017 | Assign individual MASTER30 Grammar lessons to Course 5 learners | shipped | high | [spec](0017-grammar-lesson-assignments/spec.md) |
+| MASTER30FULL-0018 | Assign the complete original MASTER30 Grammar banks | shipped | high | [spec](0018-master30-full-bank-assignments/spec.md) |
+| GRAMMARAUDIT-0019 | Close the October Grammar audit while preserving every learner revision | implementing | high | [spec](0019-grammar-audit-remediation/spec.md) |
+| VOCABSETS-0020 | Vocabulary class sets and unified learning workspace | implementing | high | [spec](0020-vocabulary-class-sets/spec.md) |
+| READINGPRACTICE-0021 | Repair Reading practice and support sentence translation in place | implementing | high | [spec](0021-reading-practice-support/spec.md) |
+| REVEXPLAIN-0022 | Bind reviewed interactive explanations to Cambridge revision papers and name approval refusals | implementing | high | [spec](0022-revision-explanation-binding/spec.md) |
+| SECWRITE-0022 | Client roles cannot write privilege, score or session data | implementing | critical | [spec](0022-client-write-privilege-lockdown/spec.md) |
+| REVEXPLAIN-0023 | Bind Cambridge REV papers by marking-equivalent keys and document accepted forms | verified | high | [spec](0023-revision-explanation-key-equivalence/spec.md) |
+| AIOPS-0024 | Admin AI dashboard with model control, token spend and failure log | implementing | high | [spec](0024-admin-ai-model-control/spec.md) |
+| WRITINGRATE-0025 | Repair writing_grade_ratings drift so admin grade ratings key on the graded run | implementing | high | [spec](0025-writing-grade-ratings-feedback-version/spec.md) |
+| ROLECHECK-0026 | Admins can make a user an instructor because users.role has one correct CHECK | implementing | high | [spec](0026-users-role-single-check/spec.md) |
+| ASSIGNDRAFT-0027 | Deleting a writing assignment can never erase a learner's draft | verified | high | [spec](0027-writing-draft-assignment-delete-guard/spec.md) |
+| CODEUNIQ-0028 | Access codes are unique and canonical in the repository schema | verified | high | [spec](0028-access-code-unique-canonical/spec.md) |
+| STUDENTARCHIVE-0029 | Admin student delete archives the learner with an audit trail instead of erasing their work | implementing | critical | [spec](0029-student-archive/spec.md) |
+| CLASSARCHIVE-0030 | An archived class is hidden from learners, takes no new learners or work, and closes its open work without losing it | approved | high | [spec](0030-class-archive/spec.md) |
+| GIVEARCHIVE-0031 | A Writing give can never create work for an archived learner, even when the archive lands mid-request | implementing | high | [spec](0031-archived-learner-give-guard/spec.md) |
+| ADMINAAL2-0032 | Admin powers require a verified second factor and a suspended or demoted staff account loses access on its next request | approved | critical | [spec](0032-admin-aal2-staff-guard/spec.md) |
+| AIBUDGET-0033 | Paid AI stops at hard budgets, Claude alerts on a soft budget, and learner work waits safely for grading | approved | critical | [spec](0033-ai-budget-hard-cap/spec.md) |
+| ACTIVATELIMIT-0034 | Access-code activation attempts are limited per learner across every backend worker, and the limit fails closed | implementing | high | [spec](0034-activate-attempt-rate-limit/spec.md) |
+| INACTIVEWRITE-0035 | An inactive account cannot write Vocabulary or flashcard rows through any path, including direct Supabase REST | implementing | high | [spec](0035-inactive-learner-rest-write-guard/spec.md) |
+| ASYNCAUTH-0036 | Per-request auth and permission checks can run on the async DB client behind USE_ASYNC_DB without changing any access decision | approved | high | [spec](0036-async-db-auth-layer/spec.md) |
+| PAPERUPDATEDAT-0037 | Every change to a Reading or Listening paper advances updated_at, and admins see that a Mock Test hides its public source | implementing | high | [spec](0037-mock-paper-updated-at-and-hide-warning/spec.md) |
+| STORAGELIMITS-0038 | Each Storage bucket accepts only the file sizes and types the app writes, and an oversize or wrong-type upload gets a clear 413 or 415 | approved | high | [spec](0038-storage-bucket-limits/spec.md) |
+| RLSCLEANUP-0039 | No RLS policy depends on the revoked admin or instructor helper functions, and learner or instructor JWTs have no direct access to the 21 admin-managed tables | approved | high | [spec](0039-rls-admin-policy-cleanup/spec.md) |
+| VOCABGUARD-0040 | A review or task of a published curated vocabulary version can never be moved to another version | approved | high | [spec](0040-vocab-curated-published-child-guard/spec.md) |
+| CALAPPEND-0041 | The class action log is append-only for every role, and no role can wipe it with TRUNCATE | approved | high | [spec](0041-class-action-log-append-only/spec.md) |
+| SVCPRIV-0042 | service_role loses public table maintenance privileges and schema CREATE, and unpinned public functions get a fixed search_path, to block owner-run planted triggers, function overloads and temp-object shadowing | approved | critical | [spec](0042-service-role-table-maintenance-revoke/spec.md) |
+| LESSONREPORT-0043 | Teachers see a course assessment's results per lesson for each learner and the whole class, with the weakest lessons highlighted | approved | high | [spec](0043-course-assessment-lesson-report/spec.md) |
+| INSTRUCTORGIVE-0044 | A teacher's repeated or retried Writing give from /instructor creates the homework once | approved | high | [spec](0044-instructor-give-idempotency/spec.md) |
+| FNEXEC-0045 | A new database function cannot be called by anonymous or signed-in clients unless a migration grants it explicitly, and only the two functions clients really use stay callable | draft | high | [spec](0045-function-default-execute-lockdown/spec.md) |
+| SERVERCHECK-0046 | Self-study quiz answers are graded on the server one question at a time, no learner can forge a correct answer, and a one-sitting assessment key stays closed until the class deadline | draft | high | [spec](0046-quiz-server-check-key-release/spec.md) |
+| FREETRIAL-0047 | Accounts outside classes can try free Speaking and Writing grading within quotas without affecting class learners | approved | high | [spec](0047-free-trial-grading/spec.md) |
+| FLASHCARD-0048 | Flashcard kiểu Quizlet bản MVP — admin dán hàng loạt thẻ vào bộ từ, gán lớp hoặc thư viện chung, học viên lật thẻ và tự đánh dấu Đã nhớ/Chưa nhớ | draft | high | [spec](0048-flashcards-mvp/spec.md) |
+| WRITINGBAND-0050 | Saving reviewed Writing criteria keeps the total and feedback consistent | approved | high | [spec](0050-writing-band-save-consistency/spec.md) |
+| BLACKEYE-0052 | Black Eye Listening Unit 1 exercises are assigned to a class, reviewed after submission and stay locked until each gate passes | approved | high | [spec](0052-blackeye-u1/spec.md) |
+| SKILLDRILLS-0054 | Assign published Listening Skill Drills across courses | approved | high | [spec](0054-listening-skill-drill-homework/spec.md) |
+| COURSEACCESS-0055 | Learners get course access, one shared AI grading credit pool and bank-transfer enrollment orders confirmed by an admin, while existing access codes keep working | draft | critical | [spec](0055-course-access-credits-enrollment/spec.md) |
+| UIBASE-0056 | New pages share one Ban in design foundation of tokens, fonts, components and four page shells, while every existing page keeps its current look | draft | medium | [spec](0056-ui-foundation/spec.md) |
+| TESTPOLICY-0057 | New tests check behaviour instead of source text, and an advisory visual baseline shows every intended or accidental change to key screens | draft | medium | [spec](0057-test-policy-visual-baseline/spec.md) |
+| MIGNUM-0058 | Each work package takes migration numbers only from its own block, and the migration register test rejects a number outside or in another package's block | draft | high | [spec](0058-migration-number-blocks/spec.md) |
+| ADMINIA-0074 | Admins and the class teacher run daily work from one admin frame with eight sidebar groups, a unified learner directory and profile, and canonical queues | draft | high | [spec](0074-admin-ia/spec.md) |
+| PHONEGATE-0081 | Full tests open only on screens at least the configured width, while mini tests, practice and course tests stay available on phones | draft | medium | [spec](0081-full-test-phone-gate/spec.md) |
+| COURSETESTRELEASE-0082 | Course test results stay sealed on every learner read path until a teacher releases them at a chosen level, unless the test returns results on submit | draft | critical | [spec](0082-course-test-result-release/spec.md) |
+| BRANDMARK-0083 | The An ky mark is the one logo, favicon, app icon and link preview image of the site, generated from a single geometry source | draft | medium | [spec](0083-brand-mark-an-ky/spec.md) |
+| GRAMMARFIG-0084 | Grammar Wiki articles show numbered, accessible sentence diagrams written as semantic figure blocks, and a malformed block never hides the article | draft | medium | [spec](0084-grammar-wiki-figures/spec.md) |
+| SENTLAB-0101 | Course 5 learners practise 45 sentence-writing sessions with AI coaching that never reveals the answer before they rewrite | approved | high | [spec](0101-course5-sentence-lab/spec.md) |
 
 Progress and remaining acceptance are reconciled in [the implementation status ledger](IMPLEMENTATION_STATUS.md). A deployed application does not by itself close a feature acceptance gate.
 
-| LEARNERDRAFT-0010 | Preserve Reading answers and Speaking preparation within a browser tab | implementing | medium | [spec](0010-learner-draft-preservation/spec.md) |
-
-| GRAMMARAUDIT-0019 | Close the October Grammar audit while preserving every learner revision | implementing | high | [spec](0019-grammar-audit-remediation/spec.md) |
-
-| VOCABSETS-0020 | Vocabulary class sets and unified learning workspace | implementing | high | [spec](0020-vocabulary-class-sets/spec.md) |
-
-| READINGPRACTICE-0021 | Repair Reading practice and support sentence translation in place | implementing | high | [spec](0021-reading-practice-support/spec.md) |
-
-| REVEXPLAIN-0022 | Bind reviewed interactive explanations to Cambridge revision papers and name approval refusals | implementing | high | [spec](0022-revision-explanation-binding/spec.md) |
-
-| SECWRITE-0022 | Client roles cannot write privilege, score or session data | implementing | critical | [spec](0022-client-write-privilege-lockdown/spec.md) |
-
-| AIOPS-0024 | Admin AI dashboard with model control, token spend and failure log | implementing | high | [spec](0024-admin-ai-model-control/spec.md) |
-
-| REVEXPLAIN-0023 | Bind Cambridge REV papers by marking-equivalent keys and document accepted forms | verified | high | [spec](0023-revision-explanation-key-equivalence/spec.md) |
-
-| WRITINGRATE-0025 | Repair writing_grade_ratings drift so admin grade ratings key on the graded run | implementing | high | [spec](0025-writing-grade-ratings-feedback-version/spec.md) |
-
-| ROLECHECK-0026 | Admins can make a user an instructor because users.role has one correct CHECK | implementing | high | [spec](0026-users-role-single-check/spec.md) |
-
-| ASSIGNDRAFT-0027 | Deleting a writing assignment can never erase a learner's draft | verified | high | [spec](0027-writing-draft-assignment-delete-guard/spec.md) |
-
-| CODEUNIQ-0028 | Access codes are unique and canonical in the repository schema | verified | high | [spec](0028-access-code-unique-canonical/spec.md) |
-
-| STUDENTARCHIVE-0029 | Admin student delete archives the learner with an audit trail instead of erasing their work | implementing | critical | [spec](0029-student-archive/spec.md) |
-| CLASSARCHIVE-0030 | An archived class is hidden from learners, takes no new learners or work, and closes its open work without losing it | approved | high | [spec](0030-class-archive/spec.md) |
-
-| GIVEARCHIVE-0031 | A Writing give can never create work for an archived learner, even when the archive lands mid-request | implementing | high | [spec](0031-archived-learner-give-guard/spec.md) |
-
-| ADMINAAL2-0032 | Admin powers require a verified second factor and a suspended or demoted staff account loses access on its next request | approved | critical | [spec](0032-admin-aal2-staff-guard/spec.md) |
-
-| ACTIVATELIMIT-0034 | Access-code activation attempts are limited per learner across every backend worker, and the limit fails closed | implementing | high | [spec](0034-activate-attempt-rate-limit/spec.md) |
-
-| INACTIVEWRITE-0035 | An inactive account cannot write Vocabulary or flashcard rows through any path, including direct Supabase REST | implementing | high | [spec](0035-inactive-learner-rest-write-guard/spec.md) |
-
-| ASYNCAUTH-0036 | Per-request auth and permission checks can run on the async DB client behind USE_ASYNC_DB without changing any access decision | approved | high | [spec](0036-async-db-auth-layer/spec.md) |
-
-| PAPERUPDATEDAT-0037 | Every change to a Reading or Listening paper advances updated_at, and admins see that a Mock Test hides its public source | implementing | high | [spec](0037-mock-paper-updated-at-and-hide-warning/spec.md) |
-
-| STORAGELIMITS-0038 | Each Storage bucket accepts only the file sizes and types the app writes, and an oversize or wrong-type upload gets a clear 413 or 415 | approved | high | [spec](0038-storage-bucket-limits/spec.md) |
-
-| RLSCLEANUP-0039 | No RLS policy depends on the revoked admin or instructor helper functions, and learner or instructor JWTs have no direct access to the 21 admin-managed tables | approved | high | [spec](0039-rls-admin-policy-cleanup/spec.md) |
-
-| VOCABGUARD-0040 | A review or task of a published curated vocabulary version can never be moved to another version | approved | high | [spec](0040-vocab-curated-published-child-guard/spec.md) |
-
-| CALAPPEND-0041 | The class action log is append-only for every role, and no role can wipe it with TRUNCATE | approved | high | [spec](0041-class-action-log-append-only/spec.md) |
-
-| SVCPRIV-0042 | service_role loses public table maintenance privileges and schema CREATE, and unpinned public functions get a fixed search_path, to block owner-run planted triggers, function overloads and temp-object shadowing | approved | critical | [spec](0042-service-role-table-maintenance-revoke/spec.md) |
-
-| LESSONREPORT-0043 | Teachers see a course assessment's results per lesson for each learner and the whole class, with the weakest lessons highlighted | approved | high | [spec](0043-course-assessment-lesson-report/spec.md) |
-
-| INSTRUCTORGIVE-0044 | A teacher's repeated or retried Writing give from /instructor creates the homework once | approved | high | [spec](0044-instructor-give-idempotency/spec.md) |
-
-| FNEXEC-0045 | A new database function cannot be called by anonymous or signed-in clients unless a migration grants it explicitly, and only the two functions clients really use stay callable | draft | high | [spec](0045-function-default-execute-lockdown/spec.md) |
-
-| SERVERCHECK-0046 | Self-study quiz answers are graded on the server one question at a time, no learner can forge a correct answer, and a one-sitting assessment key stays closed until the class deadline | draft | high | [spec](0046-quiz-server-check-key-release/spec.md) |
-| FLASHCARD-0048 | Flashcard kiểu Quizlet bản MVP — admin dán hàng loạt thẻ vào bộ từ, gán lớp hoặc thư viện chung, học viên lật thẻ và tự đánh dấu Đã nhớ/Chưa nhớ | draft | high | [spec](0048-flashcards-mvp/spec.md) |
-
-| WRITINGBAND-0050 | Saving reviewed Writing criteria keeps the total and feedback consistent | approved | high | [spec](0050-writing-band-save-consistency/spec.md) |
+Spec numbers 0006, 0007 and 0022 are each used by two features; the ID, not the
+number, is unique. 0049 is reserved by open PR #2254 (ADMINSIMPLE-0049) and 0051
+by open PR #2274 (AUDIODEPR-0051); 0053 is unused.

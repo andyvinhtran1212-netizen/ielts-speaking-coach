@@ -93,6 +93,7 @@ Ví dụ đầy đủ: *a **lovely little old Italian silk** scarf*.
 **THPT:** câu sắp xếp tính từ hỏi trực tiếp trật tự này. Nhớ **OSASCOMP**.
 
 **Speaking Part 2:**
+
 - *It was a **small old wooden** house near the river.*
 - *She gave me a **beautiful red silk** scarf.*
 

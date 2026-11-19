@@ -526,13 +526,14 @@ export function normalizeClassStartResponse(value, expectedItemId) {
   }
 
   if (!['reading', 'listening'].includes(skill)) return null;
-  const surface = skill === 'reading' ? 'reading_exam' : 'listening_test';
   const playerSurface = textOf(row.player_surface);
+  const dictation = skill === 'listening' && playerSurface === 'listening_dictation';
+  const surface = dictation ? 'listening_dictation' : skill === 'reading' ? 'reading_exam' : 'listening_test';
   const playerQuery = objectOf(row.player_query);
   if (playerSurface || playerQuery) {
     if (playerSurface !== surface || !playerQuery) return null;
     const queryKeys = Object.keys(playerQuery).sort();
-    const identityKey = skill === 'reading' ? 'test_id' : 'id';
+    const identityKey = skill === 'reading' || dictation ? 'test_id' : 'id';
     if (queryKeys.join(',') !== ['class_item', identityKey].sort().join(',')) return null;
     const identity = textOf(playerQuery[identityKey]);
     const classItem = textOf(playerQuery.class_item);

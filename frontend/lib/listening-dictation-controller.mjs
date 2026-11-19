@@ -122,7 +122,7 @@ function safeAudioUrl(value) {
 
 export function dictationParams(search) {
   const params = new URLSearchParams(search || '');
-  if (['test_id', 'section', 'session_id'].some((key) => params.getAll(key).length > 1)) throw new Error('invalid-dictation-query');
+  if (['test_id', 'section', 'session_id', 'class_item'].some((key) => params.getAll(key).length > 1)) throw new Error('invalid-dictation-query');
   const sessionId = params.get('session_id');
   if (sessionId !== null && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(sessionId)) throw new Error('invalid-dictation-session-id');
   const testId = text(params.get('test_id'));
@@ -132,7 +132,9 @@ export function dictationParams(search) {
   if (rawSection && (!Number.isInteger(section) || section < 1)) {
     throw new Error('invalid-dictation-section');
   }
-  return Object.freeze({ testId, section, ...(sessionId ? { sessionId } : {}) });
+  const classItem = text(params.get('class_item'));
+  if (classItem && (!testId || !/^[0-9a-f-]{36}$/i.test(classItem))) throw new Error('invalid-class-item');
+  return Object.freeze({ testId, section, ...(sessionId ? { sessionId } : {}), ...(classItem ? { classItem } : {}) });
 }
 
 export function dictationRendererHref(renderer, search) {
@@ -141,6 +143,7 @@ export function dictationRendererHref(renderer, search) {
   return corePlayerUrl('listening_dictation', renderer, {
     test_id: params.testId,
     ...(params.section == null ? {} : { section: params.section }),
+    ...(params.classItem ? { class_item: params.classItem } : {}),
   });
 }
 
@@ -244,6 +247,10 @@ export function normalizeDictationBundle(payload) {
     audio_url: safeAudioUrl(payload.audio_url),
     audio_duration_seconds: Math.max(0, finite(payload.audio_duration_seconds)),
     sections: Object.freeze(sections),
+    ...(payload.completed_sections ? {
+      completed_sections: Object.freeze({ ...payload.completed_sections }),
+      dictation_required: payload.dictation_required === true,
+    } : {}),
   });
 }
 
@@ -512,12 +519,12 @@ export function normalizeDictationStoredReport(payload, expectedSessionId) {
     results: Object.freeze(results) });
 }
 
-export function dictationReceiptKey(accountId, testId, sectionNum) {
+export function dictationReceiptKey(accountId, testId, sectionNum, classItem = "") {
   const account = text(accountId);
   const test = text(testId);
   const section = Number(sectionNum);
   if (!account || !test || !Number.isInteger(section) || section < 1) throw new Error('invalid-dictation-receipt-key');
-  return `av:dictation:v1:${account}:${test}:${section}`;
+  return `av:dictation:v1:${account}:${test}:${section}${classItem ? `:${classItem}` : ""}`;
 }
 
 export function dictationRequestId(cryptoProvider = globalThis.crypto) {
@@ -544,10 +551,12 @@ export function normalizeDictationReceipt(payload, identity) {
   const createdAt = text(payload.createdAt);
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId)
       || accountId !== identity.accountId || testId !== identity.testId
+      || text(payload.classItem) !== text(identity.classItem)
       || sectionNum !== Number(identity.sectionNum) || !payload.submission
       || !Number.isFinite(Date.parse(createdAt))) return null;
   return Object.freeze({
     requestId, accountId, testId, sectionNum, createdAt, submission: payload.submission,
+    ...(payload.classItem ? { classItem: payload.classItem } : {}),
     localResults: Array.isArray(payload.localResults) ? payload.localResults : [],
     localReport: payload.localReport && typeof payload.localReport === 'object'
       ? payload.localReport : null,

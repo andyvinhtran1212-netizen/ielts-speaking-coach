@@ -55,6 +55,10 @@ env:
     tests/test_rls_no_inline_admin_role_policy.py
     tests/test_class_action_log_postgres.py
     tests/test_client_write_invariant_postgres.py
+    tests/test_blackeye_admission_postgres.py
+    tests/test_blackeye_grants_postgres.py
+    tests/test_exercise_book_postgres.py
+    tests/test_blackeye_package_import_postgres.py
     tests/test_mock_paper_policy_postgres.py
     tests/test_mock_private_draft_postgres.py
     tests/test_activate_rate_limit.py
@@ -72,7 +76,7 @@ jobs:
   # failure here fail CLOSED: an empty/missing output runs every heavy job.
   changes:
     name: Changed paths (CI gate)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       contents: read
@@ -128,12 +132,15 @@ jobs:
   # test exactly once (`scripts/ci_pytest_shards.py verify`).
   backend-shard:
     name: Backend pytest shard ${{ matrix.shard }}/4
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Full pytest plus PG/audio setup and cleanup exceeded 10 minutes in PR1563.
     # A slow Ubuntu mirror has made the ffmpeg install take 8–11 min,
     # cancelling the exact-SHA staging push run that the promotion gate
-    # requires (#1695, 2026-10-26). Each shard keeps that 25-minute budget.
-    timeout-minutes: 25
+    # requires (#1695, 2026-10-26). On 2026-11-18 shards of docs-only PR
+    # #2367 hit 25 minutes three runs in a row with no failing test (#2366,
+    # #2368 and the staging push for #2334 were cancelled the same way), so
+    # each shard now has a 40-minute budget.
+    timeout-minutes: 40
     needs: changes
     # Bắt buộc phải CHẠY, không được skip ở mức job: matrix bị skip sẽ báo một
     # check tên chưa nở (`… ${{ matrix.shard }}/4`) và 4 check bắt buộc
@@ -251,7 +258,7 @@ jobs:
   # proves the shards ran each collected test exactly once.
   backend-pg17:
     name: Backend PG17 migration/privilege tests (advisory) ${{ matrix.shard }}/3
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     continue-on-error: true
     needs: changes
@@ -345,7 +352,7 @@ jobs:
   # suite exactly once (the serial job ran 1,999 at PC-J582).
   backend-pg17-verify:
     name: Backend PG17 shard parity (advisory)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     continue-on-error: true
     needs: [changes, backend-pg17]
@@ -399,7 +406,7 @@ jobs:
     needs: changes
     # Non-matrix job: a job-level skip still reports this exact required name.
     if: ${{ !cancelled() && (github.event_name == 'push' || needs.changes.outputs.run_tests != 'false') }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -448,7 +455,7 @@ jobs:
     # Exception: a PR touching no gated path (the shards ran empty and the
     # collection was skipped) skips it; push runs always have RUN = true.
     if: ${{ always() && (github.event_name == 'push' || needs.changes.outputs.run_tests != 'false') }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -495,7 +502,7 @@ jobs:
     needs: changes
     # Non-matrix job: a job-level skip still reports this exact required name.
     if: ${{ !cancelled() && (github.event_name == 'push' || needs.changes.outputs.run_tests != 'false') }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
 
     # Most frontend tests are pure node:test contracts. Browser contracts also resolve

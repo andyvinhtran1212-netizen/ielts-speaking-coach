@@ -3,7 +3,7 @@ title: Combining Two Short Sentences — Gộp câu ngắn thành câu phức tr
 slug: combining-two-short-sentences
 category: sentence-structures
 summary: 'Viết toàn câu ngắn rời rạc ("primer style") khiến bài bị trừ điểm Grammatical
-  Range và Coherence. Bài này dạy năm cách gộp hai câu ngắn thành một câu mạch lạc
+  Range and Accuracy và Coherence and Cohesion. Bài này dạy năm cách gộp hai câu ngắn thành một câu mạch lạc
   — liên từ kết hợp, liên từ phụ thuộc, mệnh đề quan hệ, cụm phân từ, và đồng vị ngữ
   — kèm cảnh báo lỗi câu chạy (run-on) và comma splice khi gộp sai. Áp dụng cho cả
   Speaking và Writing.
@@ -101,7 +101,7 @@ Ba câu đơn đúng: *"I live in Hanoi. Hanoi is the capital. It is very busy."
 
 ## Tại sao quan trọng
 
-Tiêu chí **Grammatical Range and Accuracy** đánh giá sự đa dạng, linh hoạt và chính xác trên toàn bài; không có mức trần cố định suy từ một câu. Gộp sai có thể tạo run-on/comma splice. Chọn cấu trúc làm rõ ý và giữ accuracy.
+Tiêu chí **Grammatical Range and Accuracy** đánh giá sự đa dạng, linh hoạt và chính xác trên toàn bài; không có mức trần cố định suy từ một câu. Gộp sai có thể tạo run-on/comma splice. Chọn cấu trúc làm rõ ý và giữ độ chính xác.
 
 ---
 
@@ -134,7 +134,7 @@ Because [subordinate clause], [main clause]
 - It rained. We cancelled the trip. → **Because** it rained, we cancelled the trip.
 - She was nervous. She performed well. → **Although** she was nervous, she performed well.
 
-> Dùng khi một ý **phụ thuộc / giải thích** ý kia. Đây là cấu trúc giá-trị-cao nhất cho band 6→7.
+> Dùng khi một ý phụ thuộc / giải thích ý kia (nguyên nhân, nhượng bộ, thời gian).
 
 ---
 
@@ -168,6 +168,7 @@ V-ing/V-ed phrase, [main clause]
 - The report was written quickly. It contained errors. → **Written quickly,** the report contained errors.
 
 ⚠ **Dangling modifier:** chủ ngữ của cụm phân từ phải khớp chủ ngữ mệnh đề chính.
+
 - ❌ **Walking to school,** the rain started. (mưa không "walk")
 - ✅ **Walking to school,** I got caught in the rain.
 
@@ -181,7 +182,7 @@ Một danh từ/cụm danh từ đặt cạnh để giải thích danh từ trư
 - My teacher is very strict. She is a former examiner. → My teacher, **a former examiner,** is very strict.
 - IELTS is challenging. It is a global English test. → IELTS, **a global English test,** is challenging.
 
-> Đồng vị ngữ giúp nhồi thông tin gọn gàng mà không cần thêm động từ — rất "economical".
+> Đồng vị ngữ giúp nhồi thông tin gọn gàng mà không cần thêm động từ — rất tiết kiệm chữ.
 
 ---
 
@@ -201,9 +202,10 @@ Một danh từ/cụm danh từ đặt cạnh để giải thích danh từ trư
 <!-- anchor: combining-two-short-sentences.speaking-application -->
 ## SPEAKING — gộp câu khi nói
 
-Trong Speaking, gộp câu giúp câu trả lời **trôi chảy** và dài tự nhiên (Fluency). Công cụ dễ dùng khi nói: **and, but, so, because, which, who**.
+Trong Speaking, gộp câu giúp câu trả lời **trôi chảy** và dài tự nhiên (Fluency and Coherence). Công cụ dễ dùng khi nói: **and, but, so, because, which, who**.
 
 **Part 1 example:**
+
 - ❌ "I like coffee. It keeps me awake. I drink it every morning." (rời rạc)
 - ✅ "I really like coffee **because** it keeps me awake, **so** I usually have a cup every morning."
 
@@ -228,8 +230,8 @@ Trong Speaking, gộp câu giúp câu trả lời **trôi chảy** và dài tự
 
 ### Lỗi 3: Gộp quá nhiều ý vào một câu
 
-- ❌ Một câu dài 60 từ với 5 mệnh đề → người đọc lạc.
-- ✅ Gộp 2–3 ý, rồi xuống câu mới.
+- ❌ *Cities are growing because people move there for jobs, which increases demand for housing, so prices rise, and young people cannot afford homes, although governments build more flats.*
+- ✅ *Cities are growing because people move there for jobs. This increases demand for housing, so prices rise and many young people cannot afford a home.*
 
 ### Lỗi 4: Dangling participle
 
@@ -250,10 +252,10 @@ Trong Speaking, gộp câu giúp câu trả lời **trôi chảy** và dài tự
 
 ### Đáp án (gợi ý)
 
-1. The film was long **and** boring. Hoặc: The film was long, **and** it was boring. But chỉ phù hợp nếu ngữ cảnh tạo kỳ vọng tương phản riêng.
+1. The film was long **and** boring. Hoặc: The film was long, **and** it was boring.
 2. He was late **because** he missed the bus.
 3. This is my brother, **who** works in finance.
-4. **Having finished** her essay, she submitted it online. Having finished giữ ý hoàn tất trước khi nộp; finishing không mặc nhiên giữ quan hệ thời gian ấy.
+4. **Having finished** her essay, she submitted it online. Having finished nhấn mạnh viết xong rồi mới nộp; *Finishing her essay, …* không thể hiện rõ thứ tự này.
 5. Ha Long Bay, **a UNESCO site,** is stunning.
 
 ---
@@ -263,12 +265,13 @@ Trong Speaking, gộp câu giúp câu trả lời **trôi chảy** và dài tự
 | Quan hệ giữa 2 câu | Dùng | Ví dụ |
 |--------------------|------|-------|
 | Ngang hàng | and / but / so / or (+ phẩy) | ..., so ... |
-| Nguyên nhân–kết quả / nhượng bộ | because / although / when | Because..., ... |
+| Nguyên nhân / nhượng bộ / thời gian | because / although / when | Because..., ... |
 | Cùng một danh từ | who / which / that | ..., which ... |
 | Cùng chủ ngữ, 2 hành động | V-ing / V-ed phrase | Feeling tired, ... |
 | Giải thích danh từ | đồng vị ngữ (, ... ,) | X, the capital, ... |
 
 **Quy tắc vàng:**
+
 - KHÔNG nối hai mệnh đề chỉ bằng dấu phẩy (comma splice) — thêm liên từ hoặc tách câu
 - Đa dạng độ dài: xen câu phức với câu ngắn để tạo nhịp
 - Chủ ngữ của cụm phân từ phải khớp mệnh đề chính (tránh dangling)

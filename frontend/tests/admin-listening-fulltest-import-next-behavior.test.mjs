@@ -175,6 +175,21 @@ describe('native route, write boundary and responsive contract', () => {
     assert.doesNotMatch(CLIENT, /\b(?:window\.)?(?:alert|confirm)\s*\(/i);
   });
 
+  test('warns after import and publish that Published alone does not open the self-practice library', () => {
+    const warning = 'Test import chưa xuất hiện trong thư viện tự luyện nếu admin chưa chọn “Mở công khai” tại Kho test. Chỉ Phát hành (Published) là chưa đủ.';
+    assert.ok(CLIENT.includes(`const PUBLIC_VISIBILITY_WARNING = '${warning}';`));
+    const resultCard = CLIENT.slice(CLIENT.indexOf('{canonical && <section'), CLIENT.indexOf('<aside'));
+    assert.match(resultCard, /className="alc-banner is-warning" role="status"/);
+    assert.match(resultCard, /\{PUBLIC_VISIBILITY_WARNING\}/);
+    assert.match(resultCard, /href=\{fulltestTestsHref\(canonical\.testId\)\}>Mở Kho test/);
+    const publish = CLIENT.slice(CLIENT.indexOf('const publish = async'), CLIENT.indexOf('const refreshCanonical'));
+    assert.match(publish, /setNotice\(`Backend đã xác nhận Published\. \$\{PUBLIC_VISIBILITY_WARNING\}`\)/);
+    assert.match(publish, /\/status`, \{ status: 'published' \}\)/);
+    assert.doesNotMatch(publish, /is_public/);
+    assert.doesNotMatch(CLIENT, /test có thể được phân phối theo phạm vi hiện tại/);
+    assert.match(CLIENT, /description=\{`Backend sẽ kiểm cổng audio[^`]+\$\{PUBLIC_VISIBILITY_WARNING\}`\}/);
+  });
+
   test('loads token-only responsive CSS and fixture browser coverage', () => {
     assert.match(LAYOUT, /admin-listening-fulltest-import-next\.css/);
     assert.match(CSS, /:focus-visible/);

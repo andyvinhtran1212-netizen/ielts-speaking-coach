@@ -22,6 +22,8 @@ from services.listening_package_import import (  # noqa: E402
     build_import_plan,
     commit_import_plan,
     discover_packages,
+    import_plan_is_blackeye,
+    require_import_namespace_ready,
     select_package,
     set_package_status,
 )
@@ -70,6 +72,13 @@ def main() -> int:
         parser.error("--publish/--archive yêu cầu đúng một --package")
 
     plans = [build_import_plan(location, imported_by=args.actor) for location in selected]
+    # Gate all plans before printing a dry-run PASS or starting any write.
+    # Ordinary packages retain their local-only dry-run behaviour.
+    from config import settings
+    restricted = any(import_plan_is_blackeye(plan) for plan in plans)
+    namespace_db = _admin() if restricted and settings.RESTRICTED_NAMESPACE_READY else None
+    for plan in plans:
+        require_import_namespace_ready(plan, namespace_db)
     for plan in plans:
         source_package_id = plan.report.get("editorial_source_package_id")
         if not source_package_id:

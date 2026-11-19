@@ -15,6 +15,7 @@ import { useEffect, useLayoutEffect, useRef } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
+import { leaveForParent } from '@/lib/redirect-notice-model.mjs';
 
 import { COURSE_TITLE, COURSE_TITLE_META, SAVE_NOTE_IDLE } from './course-copy';
 
@@ -208,9 +209,10 @@ export function CourseBehavior() {
       const bankId = new URLSearchParams(location.search).get('bank');
       const requestedView = new URLSearchParams(location.search).get('view');
       const requestedItem = new URLSearchParams(location.search).get('class_item');
+      // G02-T11 (mục 5.3): a link that names no bank goes back to Lớp học,
+      // which says so in one line (RedirectNotice).
       if (!bankId) {
-        fail('Liên kết bài tập chưa đầy đủ. Hãy mở bài từ Lớp học.', { connection: false });
-        appendBackToClass();
+        leaveForParent('/my-class');
         return;
       }
 
@@ -1267,6 +1269,30 @@ export function CourseBehavior() {
         renderWriting();
       }
 
+      /** Kho viết câu Course 5: gửi lượt tự viết lại (một lần). */
+      async function onRevisionSubmit() {
+        const btn = $('cw-revise-submit') as HTMLButtonElement | null;
+        if (btn) { btn.disabled = true; btn.textContent = 'Đang chấm…'; }
+        try {
+          await writing.submitRevision();
+        } catch (err: any) {
+          if (disposed) return;
+          const bar = $('cw-revise-bar');
+          if (bar) bar.innerHTML = writing.renderReviseBar();
+          const note = $('cw-revise-note');
+          if (note) {
+            const d = err && err.detail;
+            const why = (d && typeof d === 'object' && d.message)
+              ? d.message : (err?.message || err);
+            note.textContent = 'Chưa gửi được: ' + why
+              + ' Các câu bạn viết lại vẫn còn ở đây.';
+          }
+          return;
+        }
+        if (disposed) return;
+        renderWriting();
+      }
+
       // Nút nằm lại trên màn hình trong lúc runner đang hỏi server chặng kế
       // tiếp. Khoá ngay từ lần kích hoạt đầu để double-tap trên thiết bị cảm
       // ứng không xếp thêm một lượt chuyển chặng trước khi DOM được vẽ lại.
@@ -1561,6 +1587,7 @@ export function CourseBehavior() {
         if (t.id === 'cw-submit') return onWritingArm();
         if (t.id === 'cw-cancel') { writing.disarm(); return syncWritingNote(); }
         if (t.id === 'cw-confirm') return void onWritingSubmit();
+        if (t.id === 'cw-revise-submit') return void onRevisionSubmit();
       };
       document.addEventListener('click', onClick);
 
@@ -1590,6 +1617,13 @@ export function CourseBehavior() {
             const fresh = shell.querySelector('#cr-bar');
             if (fresh) bar.replaceWith(fresh);
           }
+          return;
+        }
+        if (el?.classList?.contains('cw-revise')) {
+          // Kho viết câu Course 5: lượt tự viết lại sau khi chấm.
+          writing.writeRevision(el.dataset.qid, el.value);
+          const reviseBar = $('cw-revise-bar');
+          if (reviseBar) reviseBar.innerHTML = writing.renderReviseBar();
           return;
         }
         if (!el || !el.classList || !el.classList.contains('cw-write')) return;

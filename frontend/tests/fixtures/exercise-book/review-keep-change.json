@@ -1,0 +1,94 @@
+{
+  "attempt": {
+    "attempt_id": "00000000-0000-4000-8000-000000000063",
+    "test_id": "00000000-0000-4000-8000-000000000033",
+    "binding": {
+      "programme_id": "blackeye-v5-upper-listening",
+      "collection_id": "blackeye-v5-upper",
+      "source_contract": "blackeye_u1_v1",
+      "unit_id": "U1",
+      "activity_id": "U1-A03",
+      "content_revision": "blackeye-u1-content-v1-000000000003",
+      "policy_revision": "selfcheck-v1"
+    },
+    "context": {
+      "kind": "assigned",
+      "class_assignment_item_id": "00000000-0000-4000-8000-000000000021",
+      "assignment_id": "00000000-0000-4000-8000-000000000002",
+      "cohort_id": "00000000-0000-4000-8000-000000000001"
+    },
+    "status": "submitted",
+    "answers": [
+      {
+        "q_num": 1,
+        "source_item_id": "A03-c1",
+        "user_answer": "{\"version\": \"blackeye_keep_change_v1\", \"action\": \"CHANGE\", \"correction_text\": \"ten\"}"
+      },
+      {
+        "q_num": 2,
+        "source_item_id": "A03-c2",
+        "user_answer": "{\"version\": \"blackeye_keep_change_v1\", \"action\": \"KEEP\", \"correction_text\": \"\"}"
+      }
+    ],
+    "submitted_at": "2026-11-12T08:15:00+07:00",
+    "result_summary": {
+      "submitted": true,
+      "item_count": 2,
+      "blank_count": 0,
+      "unscored_count": 2,
+      "objective_denominator": 0,
+      "score": null,
+      "band_estimate": null
+    }
+  },
+  "items": [
+    {
+      "source_item_id": "A03-c1",
+      "q_num": 1,
+      "saved_response": "{\"version\": \"blackeye_keep_change_v1\", \"action\": \"CHANGE\", \"correction_text\": \"ten\"}",
+      "blank": false,
+      "source_status": "CONFIRMED",
+      "scoring_mode": "SELF-CHECK",
+      "academic_verdict": "CONFIRMED",
+      "reference": {
+        "version": "blackeye_keep_change_v1",
+        "action": "CHANGE",
+        "correction_text": "ten"
+      },
+      "reference_provenance": "literal_key",
+      "explanation_vi": "Audio nói \"ten\", không phải \"nine\".",
+      "limitation_vi": null,
+      "evidence_pointer": null
+    },
+    {
+      "source_item_id": "A03-c2",
+      "q_num": 2,
+      "saved_response": "{\"version\": \"blackeye_keep_change_v1\", \"action\": \"KEEP\", \"correction_text\": \"\"}",
+      "blank": false,
+      "source_status": "CONFIRMED",
+      "scoring_mode": "SELF-CHECK",
+      "academic_verdict": "SUSPECT",
+      "reference": {
+        "version": "blackeye_keep_change_v1",
+        "action": "KEEP",
+        "correction_text": ""
+      },
+      "reference_provenance": "editorial",
+      "explanation_vi": null,
+      "limitation_vi": null,
+      "evidence_pointer": null
+    }
+  ],
+  "transcript": [
+    {
+      "text": "Synthetic keep-change transcript.",
+      "start": null,
+      "end": null
+    }
+  ],
+  "audio": {
+    "url": null,
+    "granularity": "whole_activity",
+    "expires_in": null
+  }
+}

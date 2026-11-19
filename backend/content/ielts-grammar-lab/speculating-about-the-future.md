@@ -89,6 +89,7 @@ anchors:
 ## Tại sao quan trọng
 
 Trong IELTS Speaking Part 3, examiner hay hỏi:
+
 - "What do you think will happen to [X] in the future?"
 - "Do you think [trend] will continue?"
 - "How might [issue] change in the next decade?"

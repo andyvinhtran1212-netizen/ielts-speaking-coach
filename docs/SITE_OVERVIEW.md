@@ -1,8 +1,8 @@
 # averlearning.com — Site / Product Overview
 
 > **What this is:** the **single source of truth** for the live site's product map — every module, how the modules relate, and what each sub-page does (purpose · audience · basic operation). Use it to onboard fast or to locate where a feature lives. `README.md` is a thin intro that points here; keep per-page / feature detail in this file only (don't reconstruct a competing map elsewhere).
-> **Updated:** 2026-09-10 · route ownership refreshed against the 130 product App Router pages after hard flip. Existing domain/endpoint descriptions are retained unless explicitly corrected below; source coverage is not a fresh end-to-end audit of every feature.
-> **Not this:** orchestration plans/lessons/patterns live in `docs/HANDOFF.md`; day-to-day Claude rules in `CLAUDE.md`; design-system narrative in `frontend/css/aver-design/DESIGN_SYSTEM.md`. The root `CURRENT_ARCHITECTURE_AND_PRODUCT_DIRECTION.md` is **retired** as a product-direction doc — superseded by this file (it remains a gitignored, stale-at-Sprint-6 personal-notes file on the author's machine; do not treat it as current).
+> **Updated:** 2026-09-10 · route ownership refreshed after hard flip; the tree had 159 `page.tsx` files on 2026-11-18, and product pages exclude `NON_PRODUCT_APP_PAGE_ROUTES` in `frontend/tooling/app-route-inventory.mjs`. Existing domain/endpoint descriptions are retained unless explicitly corrected below; source coverage is not a fresh end-to-end audit of every feature.
+> **Not this:** day-to-day Claude rules in `CLAUDE.md`; design-system narrative in `frontend/css/aver-design/DESIGN_SYSTEM.md`. The root `CURRENT_ARCHITECTURE_AND_PRODUCT_DIRECTION.md` is **retired** as a product-direction doc — superseded by this file (it remains a gitignored, stale-at-Sprint-6 personal-notes file on the author's machine; do not treat it as current).
 > **Sub-page unit:** one unique product URL pattern from `frontend/app/**/page.tsx` or `page.ts` = one sub-page. Route groups do not add URL segments; dynamic parameters remain bracketed. Private folders, route handlers, fixtures and the two named engineering routes `/next-probe` and `/recorder-spike` are excluded. Historical HTML URLs are compatibility redirects, not separate live pages or immediately usable rollback UIs.
 
 ---
@@ -73,6 +73,10 @@ to `/`; the historical source file is not a separately served marketing page.
 | `/login` | all | Google OAuth + access-code activation → `POST /auth/activate` (sets `users.is_active`, permissions, marks `access_codes` used). |
 | `/onboarding` | new user | First-time setup (band target, level, goals) → `/auth/*` profile write. |
 | `/pricing` | public | Pre-launch server redirect to `/`; no pricing controls or payment promise are currently served here. |
+| `/terms` | public | Draft Terms of use skeleton (articles from the PhapLy design sheet, bodies `XXX`); `noindex` until legal review. |
+| `/privacy` | public | Draft Privacy policy skeleton (articles from the PhapLy design sheet, bodies `XXX`); `noindex` until legal review. |
+| `/contact` | public | Contact channels (all `XXX` until the owner provides them); no form yet; `noindex`. |
+| `/about` | public | Product introduction; team and editorial process `XXX`; `noindex`. |
 
 ### 4.2 Student — Speaking
 
@@ -109,6 +113,7 @@ to `/`; the historical source file is not a separately served marketing page.
 | `/listening/review` | student, plus admin preview | Native submitted-only chữa-bài: score/band floor, wrong-answer focus, section transcript, rich per-question solution and real audio-window seek (`GET /api/listening/tests/attempts/{id}/review`). `?admin_test_id=` opens the honest no-score admin preview; mock-sealed attempts remain backend-gated until release. |
 | `/listening/analytics` | student | Personal listening analytics. |
 | `/listening/practice` | student | Quick-practice selection workspace; chosen exercises open the practice runner. |
+| `/listening/exercise-book` · `/listening/exercise-book/tests/[testId]` · `/listening/exercise-book/attempts/[attemptId]/review` | student | Assigned exercise-book Listening (Black Eye U1 first): own assignments with per-activity status and completion, a runner keyed by `?class_item=` that resumes the in-progress attempt before any start, saves per cell with ordered `client_seq` ACKs and submits `expected_answers`, then a submitted-only SELF-CHECK review (reference, explanation, source status; no score). Built on the D↔E contract v1 mocks until PR D ships; deployed builds answer 503 until then. Entry from `/my-class` only when the learner has a book assignment. |
 
 ### 4.5 Student — Reading
 
@@ -203,6 +208,7 @@ to `/`; the historical source file is not a separately served marketing page.
 | `/admin/users` | admin | All users (role, activation, sessions-today). |
 | `/admin/students` | admin | Student roster (Tailwind page). |
 | `/admin/classes` · `/admin/classes/[cohortId]` | admin | Class roster and selected class workspace: students, attendance, lessons and assigned work (`/admin/cohorts/*`). |
+| `/admin/classes/[cohortId]/exercise-book` · `/admin/classes/[cohortId]/exercise-book/grants` | admin (377 grant holders; grants page: the course-2 owner account only) | Exercise-book workspace of one class: catalog with locked activities and reasons, per-activity assignment to named recipients with a Vietnam-time deadline and idempotent `request_id`, the class's book assignments, student × activity progress, teacher review and close-with-reason. The grants page records grant/revoke events in the 377 log; it is a UI gate only, enforced server-side (owner UUID, AAL2 step-up). Links appear on the class Homework tab only when the read route answers 200. |
 | `/admin/users?tab=codes` | admin | Access-code tab — issue, assign, revoke; canonical ownership via `user_code_assignments` (legacy fallback `access_codes.used_by`). |
 | `/admin/instructors` | admin | Instructor management workspace. |
 | `/admin/mfa` | admin (AAL1 allowed) | Two-step sign-in for admins (ADMINAAL2-0032): enroll a TOTP factor, complete the AAL1 → AAL2 challenge, add a backup factor or remove one with a fresh code. `AdminAccessGate` and `api.js` send an admin here when the backend answers `mfa_required`. |
@@ -220,8 +226,8 @@ to `/`; the historical source file is not a separately served marketing page.
 
 | Domain | Routers (prefix) |
 |---|---|
-| Speaking | `sessions.py` `/sessions` · `questions.py` · `grading.py` (★ official) · `pronunciation.py` · `tts.py` · `responses.py` (legacy, unused) |
-| Writing | `writing_student.py` `/api/writing` · `admin_writing*.py` (`/api/admin/writing`, assignments, cohorts, prompts, regrade, tips) · `admin_instructor.py` |
+| Speaking | `sessions.py` `/sessions` · `questions.py` · `grading.py` (★ official) · `pronunciation.py` · `tts.py` (the legacy `responses.py` route was removed) |
+| Writing | `writing_student.py` `/api/writing` · `admin_writing*.py` (`/api/admin/writing`, assignments, cohorts, prompts, regrade, tips) · `admin_instructors.py` · `admin_instructor_queue.py` |
 | Listening | `listening.py` `/api/listening` · admin under `/admin/listening` |
 | Reading | `reading_student.py` `/api/reading` (L1/L2/L3 fetch, exam boot/attempts/submit/answers/review, share + anon) · `admin_reading.py` `/admin/reading` (import, lock, share) |
 | Vocabulary | `vocabulary.py` `/api/vocabulary` · `vocabulary_bank.py` · `flashcards.py` · `exercises.py` (+ `/admin/exercises`) |

@@ -7,9 +7,14 @@ const finiteNumber = (value) => {
   return Number.isFinite(number) ? number : null;
 };
 
+// Programme report-only items preserve a null grade for these persisted states.
+const isUngraded = (item) => item?.correct === null
+  && (item.state === 'unscored' || item.state === 'blank');
+
 // The grade stays authoritative; an empty incorrect response has its own
 // presentation so review does not describe it as a submitted wrong answer.
 export function listeningReviewAnswerState(item) {
+  if (item?.self_check === true || isUngraded(item)) return 'self_check';
   if (item?.correct === true) return 'correct';
   return text(item?.user_answer) ? 'incorrect' : 'unanswered';
 }
@@ -18,7 +23,7 @@ export function listeningReviewAnswerState(item) {
 // unanswered only. Both read the persisted grade through the state above.
 export function listeningReviewMatchesFilter(item, filter) {
   const state = listeningReviewAnswerState(item);
-  if (filter === 'wrong') return state !== 'correct';
+  if (filter === 'wrong') return state === 'incorrect' || state === 'unanswered';
   if (filter === 'blank') return state === 'unanswered';
   if (filter === 'correct') return state === 'correct';
   return true;
@@ -26,7 +31,10 @@ export function listeningReviewMatchesFilter(item, filter) {
 
 export function listeningReviewTotals(review) {
   const totals = { incorrect: 0, unanswered: 0, correct: 0 };
-  for (const item of review || []) totals[listeningReviewAnswerState(item)] += 1;
+  for (const item of review || []) {
+    if (listeningReviewAnswerState(item) === 'self_check') continue;
+    totals[listeningReviewAnswerState(item)] += 1;
+  }
   return totals;
 }
 
@@ -192,7 +200,7 @@ export function normalizeListeningReview(payload) {
     if (!row || typeof row !== 'object') throw new Error('invalid-listening-review-item');
     const qNum = Number(row.q_num);
     if (!Number.isInteger(qNum) || qNum < 1 || seenQuestions.has(qNum)
-        || typeof row.correct !== 'boolean') {
+        || (row.self_check === true ? row.correct !== null : typeof row.correct !== 'boolean' && !isUngraded(row))) {
       throw new Error('invalid-listening-review-item');
     }
     seenQuestions.add(qNum);
@@ -207,6 +215,8 @@ export function normalizeListeningReview(payload) {
       expected: String(row.expected ?? ''),
       question_type: text(row.question_type),
       prompt: String(row.prompt ?? ''),
+      ...(row.question_type === 'keep_change'
+        ? { printed_value: String(row.printed_value ?? row.prompt ?? '') } : {}),
       section: text(row.section) || null,
       transcript_anchor: anchor !== null && Number.isInteger(anchor) && anchor >= 0 ? anchor : null,
       audio_window: normalizeWindow(row.audio_window),
@@ -217,7 +227,10 @@ export function normalizeListeningReview(payload) {
   const score = finiteNumber(payload.score);
   const maxScore = finiteNumber(payload.max_score);
   const bandEstimate = finiteNumber(payload.band_estimate);
-  if (!preview && (score === null || maxScore === null || maxScore < 0
+  const selfCheckOnly = payload.score_mode === 'self_check_only' || (review.length > 0 && review.every((item) => item.self_check));
+  // Report-only practice and historical attempts can retain per-question
+  // grades without an aggregate score. Only an explicit null is scoreless.
+  if (!preview && ((!selfCheckOnly && payload.score !== null && score === null) || maxScore === null || maxScore < 0
       || score < 0 || score > maxScore)) {
     throw new Error('invalid-listening-review-score');
   }
@@ -235,7 +248,9 @@ export function normalizeListeningReview(payload) {
     contextSource: payload.context_source && typeof payload.context_source === 'object' ? payload.context_source : null,
     webExplanationAccess: payload.web_explanation_access && typeof payload.web_explanation_access === 'object' ? payload.web_explanation_access : null,
     score,
-    maxScore: maxScore ?? review.length,
+    scoreMode: payload.score_mode || (selfCheckOnly ? 'self_check_only' : review.some((item) => item.self_check) ? 'mixed' : 'scored'),
+    selfCheckCount: review.filter((item) => item.self_check).length,
+    maxScore: maxScore ?? review.filter((item) => !item.self_check).length,
     bandEstimate,
     bandConversion,
     audioUrl: text(payload.audio_url),
@@ -246,6 +261,10 @@ export function normalizeListeningReview(payload) {
 }
 
 export function listeningBandLabel(review) {
+  if (review?.maxScore === 0) return 'Không chấm điểm';
+  if (review?.scoreMode === 'mixed') return `Không quy đổi band · ${review.selfCheckCount} câu tự đối chiếu`;
+  if (review?.maxScore != null && review.maxScore !== 40) return 'Không quy đổi band';
+  if (review?.score === null) return 'Chưa đủ band';
   if (review?.bandEstimate !== null && review?.bandEstimate !== undefined) {
     return `Band ${Number(review.bandEstimate).toFixed(1)}`;
   }
@@ -290,7 +309,7 @@ export function listeningTranscriptParagraphs(raw) {
 export function listeningSkillsToPractise(items, labels = {}) {
   const tally = {};
   for (const item of items || []) {
-    if (item?.correct) continue;
+    if (item?.correct || listeningReviewAnswerState(item) === 'self_check') continue;
     const skills = String(item?.solution?.skills || '').match(/K[1-8]/g) || [];
     for (const code of skills) tally[code] = (tally[code] || 0) + 1;
   }

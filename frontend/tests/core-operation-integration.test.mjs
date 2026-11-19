@@ -98,7 +98,7 @@ test('actual anonymous Reading save reuses its capability-scoped hint after relo
 
 test('actual Listening submit changes hint when saved answer snapshot changes, although HTTP body stays empty', async () => {
   const h = harness(), calls = [], answersRef = { current: new Map([[1, 'A']]) };
-  const scope = { user: h.user, attempt: h.attempt, phase: 'inprogress', params: {}, answersRef,
+  const scope = { user: h.user, attempt: h.attempt, phase: 'inprogress', params: {}, answersRef, testData: null,
     coreOperationRequest: h.request, coordinatorRef: { current: { flush: async () => true } },
     setSubmitOpen() {}, setSubmitBlocked() {}, setPhase() {}, setError() {}, setResult() {}, audioRef: { current: null },
     window: { api: { postWith: async (path, body, headers) => { calls.push({ path, body, headers }); throw Error('lost response'); } } },

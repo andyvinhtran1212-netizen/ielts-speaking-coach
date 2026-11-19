@@ -33,6 +33,7 @@ export type CatalogOption = Partial<Pick<components['schemas']['CatalogEntry'],
   id: string;
   title: string;
   category?: string | null;
+  dictation_ready?: boolean;
   code: string | null;
   part: number | null;
   lesson_no: number | null;
@@ -66,6 +67,10 @@ export type HomeworkDraft = {
   skill: 'speaking' | 'reading' | 'listening' | 'course' | 'grammar' | 'grammar_lesson';
   title: string;
   contentId: string;
+  listeningLibrary?: 'exam' | 'drill';
+  drillGroup?: string;
+  dictationRequired?: boolean;
+  dictationMode?: 'none' | 'optional' | 'required';
   mode: 'practice' | 'test_part';
   part: '1' | '2' | '3';
   questionMode: 'random' | 'manual';

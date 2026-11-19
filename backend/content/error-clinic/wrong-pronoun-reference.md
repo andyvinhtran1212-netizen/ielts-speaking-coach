@@ -91,17 +91,20 @@ Câu trên mơ hồ vì "he" có thể là teacher hoặc student.
 ### Ví dụ và cách sửa:
 
 **Ví dụ 1:**
+
 - ❌ "The company introduced a new policy. **It** caused a lot of confusion."
 - ✅ "The company introduced a new policy. **The policy** caused a lot of confusion."
 - ✅ "The company introduced a new policy **that** caused a lot of confusion."
 
 **Ví dụ 2:**
+
 - ❌ "The report discussed the budget and the timeline. **It** was unclear."
 - → Không rõ "it" = report, budget hay timeline
 - ✅ "The report discussed the budget and the timeline. **The timeline** was unclear."
 - ✅ "The report discussed the budget and the timeline, but **neither** was clearly explained."
 
 **Ví dụ 3:**
+
 - ✅ “Technology has improved education. But **it** has also created problems.”
 - → Câu này thực ra ổn vì "it" = technology là rõ nhất
 - ✅ Nếu muốn rõ hơn: "Technology has improved education, but **technology** has also created problems." *(hoặc giữ "it" — tuỳ ngữ cảnh)*
@@ -118,17 +121,20 @@ Câu trên mơ hồ vì "he" có thể là teacher hoặc student.
 ### Ví dụ và cách sửa:
 
 **Ví dụ 1:**
+
 - ❌ "Parents and teachers both care about children. **They** are often too strict."
 - → "They" = parents, teachers, hay cả hai?
 - ✅ "Parents and teachers both care about children. However, **parents** are often too strict about screen time."
 - ✅ "Parents and teachers both care about children, but **teachers** tend to be stricter in academic matters."
 
 **Ví dụ 2:**
+
 - ✅ “The government and businesses need to cooperate. **They** should invest more.” *(they có thể chỉ cả hai; chỉ cần đổi nếu muốn riêng một bên)*
 - → Ai đầu tư? Cả hai? Chỉ một bên?
 - ✅ "The government and businesses need to cooperate. **Both parties** should invest more in infrastructure."
 
 **Ví dụ 3:**
+
 - ❌ "Students who study abroad often struggle at first. **They** eventually adapt."
 - → Câu này ổn — "they" rõ ràng là "students who study abroad"
 - Không phải mọi "they" đều mơ hồ — chỉ khi có nhiều nhóm danh từ số nhiều.
@@ -143,12 +149,14 @@ Câu trên mơ hồ vì "he" có thể là teacher hoặc student.
 ### Ví dụ và cách sửa:
 
 **Ví dụ 1:**
+
 - ❌ "Pollution is rising. Traffic is increasing. Deforestation is getting worse. **This** is a serious concern."
 - → "This" = pollution? traffic? deforestation? cả ba?
 - ✅ "Pollution is rising. Traffic is increasing. Deforestation is getting worse. **These environmental problems** are a serious concern."
 - ✅ "**All of these issues** represent a serious threat to the environment."
 
 **Ví dụ 2:**
+
 - ❌ "Many young people prefer working from home. **This** makes employers uncomfortable."
 - → Câu này ổn — "this" rõ ràng chỉ "the fact that young people prefer working from home"
 - ✅ Có thể viết rõ hơn: "**This preference for remote work** makes some employers uncomfortable."
@@ -164,18 +172,21 @@ Khi câu có hai người cùng giới tính, "he" hoặc "she" có thể gây n
 ### Ví dụ và cách sửa:
 
 **Ví dụ 1:**
+
 - ❌ "The teacher told the student that **he** was wrong."
 - → "He" = teacher hay student?
 - ✅ "The teacher told the student that **the student** was wrong."
 - ✅ "The teacher said to the student, '**You** were wrong.'"
 
 **Ví dụ 2:**
+
 - ❌ "After the manager spoke to the employee, **he** felt better."
 - → Ai cảm thấy tốt hơn — manager hay employee?
 - ✅ "After the manager spoke to the employee, **the employee** felt better."
 - ✅ "After their meeting, **the employee** felt more confident."
 
 **Ví dụ 3:**
+
 - ❌ "Maria called Anna because **she** was worried."
 - → Ai lo lắng — Maria hay Anna?
 - ✅ "**Maria** called Anna because **Maria** was worried about the situation."

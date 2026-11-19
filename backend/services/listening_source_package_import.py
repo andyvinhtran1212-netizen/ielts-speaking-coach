@@ -641,6 +641,8 @@ def build_source_import_plan(release_root: Path, *, imported_by: str | None = No
 
 
 def commit_source_import_plan(plan: SourceImportPlan, db: Any, *, bucket_name: str) -> dict:
+    from services.listening_package_import import require_import_namespace_ready
+    require_import_namespace_ready(plan, db)
     actions = {"created": 0, "reused": 0}
     for asset in plan.assets:
         path = Path(asset["local_path"])

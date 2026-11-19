@@ -113,6 +113,7 @@ learning_blocks:
 ## Tóm tắt
 
 Câu điều kiện (Conditional Sentences) gồm hai phần:
+
 - **If-clause (điều kiện):** nêu điều kiện
 - **Main clause (kết quả):** nêu kết quả nếu điều kiện xảy ra
 
@@ -137,6 +138,7 @@ If + Present Simple, Present Simple
 - **If** I drink too much coffee, I **can't** sleep.
 
 > Thay "if" bằng "when" khi nói về điều chắc chắn xảy ra (thay vì chỉ điều kiện):
+>
 > - **When** it rains, the streets **flood**. (luôn xảy ra)
 
 <!-- anchor: conditionals.type1.first-conditional -->
@@ -154,6 +156,7 @@ If + Present Simple, will + V-bare
 - She **will** be upset **if** you forget her birthday.
 
 **Các biến thể:**
+
 - If + Present Simple + **can / may / might / should** + V
   - **If** you're tired, you **can** take a break.
   - **If** it clears up, we **might** go for a walk.
@@ -197,6 +200,7 @@ If + Past Simple, would + V-bare
 
 <!-- anchor: conditionals.type2.common-mistake.was-instead-of-were -->
 > **Lưu ý "were":** Trong điều kiện loại 2, dùng **were** cho mọi ngôi, **kể cả** I/he/she/it (thay cho was):
+>
 > - If I **were** rich... ✅ (không phải "was" — trong văn phong chính thức)
 > - If he **were** here... ✅
 > - If she **were** to apply... ✅
@@ -204,6 +208,7 @@ If + Past Simple, would + V-bare
 > Trong giao tiếp thông thường, "was" được chấp nhận; trong IELTS Writing, ưu tiên "were".
 
 **Các biến thể:**
+
 - would **not** = **wouldn't** + V: I wouldn't stay if I were you.
 - could / might thay cho would: She **might** understand if you explained properly.
 
@@ -222,10 +227,12 @@ If + Past Perfect, would have + V3
 - They **would have won** if they **had practised** more.
 
 > **Ý nghĩa ngụ ý:** Điều kiện loại 3 luôn ngụ ý rằng điều kiện KHÔNG xảy ra:
+>
 > - "If I had known..." = Thực ra tôi không biết.
 > - "If she had called..." = Thực ra cô ấy không gọi.
 
 **Các biến thể:**
+
 - could have / might have thay cho would have:
   - **If** we had set off earlier, we **might have avoided** the traffic.
 
@@ -289,6 +296,7 @@ Unless [condition], [result].
 - "Young people **are unlikely to** remain in rural areas **unless** governments invest in job creation and essential services."
 
 > **Lưu ý:** Unless nêu ngoại lệ. 'Unless it were cheaper, people would buy it' nghĩa là 'người ta sẽ mua, trừ khi nó rẻ hơn', vô lý. Muốn nói 'nếu rẻ hơn thì sẽ có nhiều người mua', hãy dùng if:
+>
 > - ✅ "**If** it **weren't** so expensive, more people **would** buy it."
 
 ---
@@ -358,6 +366,7 @@ Provided (that) [condition], [main clause].
 - "Schools should incorporate financial literacy into the curriculum **in case** students are not receiving this guidance at home."
 
 > **So sánh: if vs in case**
+>
 > - "Take an umbrella **if** it rains." *(bạn chỉ lấy nếu trời mưa)*
 > - "Take an umbrella **in case** it rains." *(lấy ngay bây giờ, phòng khi sau này mưa)*
 
@@ -489,6 +498,7 @@ If + Past Simple, would have + V3
 - I won't go **unless** you come with me. (= I won't go **if** you **don't** come.)
 
 Unless có thể đi với phủ định khi ý ngoại lệ cần phủ định: “I will go unless you don’t want me to”. Với ý “nếu không nhanh sẽ trễ”:
+
 - ❌ Unless you don't hurry (không diễn đạt ý “nếu không nhanh”)
 - ✅ Unless you hurry
 
@@ -539,14 +549,17 @@ Unless có thể đi với phủ định khi ý ngoại lệ cần phủ định
 ### Writing Task 2 — lập luận giả định:
 
 **Type 1 — điều kiện thực tế:**
+
 - **If** governments invest in renewable energy, carbon emissions **will** decrease significantly.
 - The problem **will** worsen **if** no action is taken immediately.
 
 **Type 2 — đề xuất và giả định:**
+
 - **If** education were free for all, inequality **would** be dramatically reduced.
 - **If** people worked fewer hours, they **would** have more time for family and personal development.
 
 **Type 3 — đánh giá lịch sử:**
+
 - **If** stricter regulations **had been introduced** earlier, many of the current environmental problems **would not have developed**.
 - The economic crisis **might have been avoided** **if** banks **had been** more carefully regulated.
 
@@ -584,12 +597,15 @@ Unless có thể đi với phủ định khi ý ngoại lệ cần phủ định
 ### Đáp án
 
 **Chia thì:**
+
 1. rains / will cancel | 2. were / would invest | 3. had studied / would have passed | 4. boils / heat | 5. would have helped / had asked
 
 **Loại điều kiện:**
+
 1. Type 1 | 2. Type 2 | 3. Type 3 | 4. Type 0
 
 **Sửa lỗi:**
+
 1. If it **snows** tomorrow, I won't go out.
 2. If I **had** a car, I would drive you home.
 3. If she had called me, I would **have gone** to pick her up.
@@ -606,6 +622,7 @@ Unless có thể đi với phủ định khi ý ngoại lệ cần phủ định
 | **Mixed** | Past Perfect | would + V | Quá khứ → ảnh hưởng hiện tại |
 
 **Quy tắc vàng:**
+
 - Trong mẫu dự đoán/giả định cơ bản, không dùng will/would chỉ để đánh dấu tương lai. Có thể dùng cho sự sẵn lòng hoặc kết quả được điều kiện hóa: “If you will help, we can finish”; “If it will help, I’ll explain again”.
 - Loại 2 if-clause: **Past Simple** (were, had, did...)
 - Loại 3 if-clause: **Past Perfect** (had been, had done, had gone...)

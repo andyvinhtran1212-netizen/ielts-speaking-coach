@@ -75,6 +75,7 @@ Present Continuous diễn tả những gì **đang xảy ra ngay lúc này**, nh
 ## Tại sao quan trọng
 
 Trong IELTS Speaking, Present Continuous xuất hiện nhiều trong:
+
 - **Part 1:** Mô tả những gì bạn đang làm gần đây / hiện tại
 - **Part 2:** Nếu đề bài hỏi về điều bạn đang trải qua
 - **Part 3:** Nói về xu hướng xã hội đang thay đổi: "More and more people **are working** from home..."
@@ -84,6 +85,7 @@ Người học Việt Nam thường bỏ "be" hoặc quên thêm "-ing" vì ti�
 ## Định nghĩa
 
 Present Continuous dùng để diễn tả:
+
 1. Hành động đang xảy ra **ngay lúc nói** (right now)
 2. Hành động xảy ra **xung quanh thời điểm hiện tại** (around now — tạm thời)
 3. **Xu hướng đang thay đổi** (changing trends)
@@ -105,6 +107,7 @@ Subject + am/is/are + V-ing
 | You / We / They | are preparing | are not preparing | Are you/we/they preparing? |
 
 **Ví dụ:**
+
 - I **am studying** English right now.
 - She **is working** from home this week.
 - They **are preparing** for the IELTS exam.
@@ -159,6 +162,7 @@ Hành động không nhất thiết phải xảy ra đúng lúc nói, nhưng ch�
 - He**'s working** extra hours because of a big project.
 
 **Khác với Present Simple:**
+
 - "I **live** with my parents." → Tôi sống với bố mẹ (thường xuyên, tình trạng cố định)
 - "I**'m living** with my parents." → Tôi đang sống với bố mẹ (tạm thời thôi)
 
@@ -323,6 +327,7 @@ Tiếng Việt dùng phó từ thời gian ("đang", "vừa", "sắp") để di�
 ### Đáp án
 
 **Điền từ:**
+
 1. is shining
 2. isn't studying
 3. are working
@@ -330,11 +335,13 @@ Tiếng Việt dùng phó từ thời gian ("đang", "vừa", "sắp") để di�
 5. is applying
 
 **Viết lại:**
+
 1. She is living with her aunt this month.
 2. Technology is reshaping the way we communicate.
 3. I'm always arriving late (— my teacher gets annoyed).
 
 **Sửa lỗi:**
+
 1. I **know** (stative verb — không dùng continuous)
 2. She **is studying** (thiếu "is")
 3. They are always **going** (V-ing, không phải V nguyên thể)

@@ -18,6 +18,16 @@ from fastapi import HTTPException
 from routers import listening as listening_router
 
 
+@pytest.mark.parametrize("all_self_check", [False, True])
+def test_attempt_history_uses_scored_denominator_with_zero_safe_accuracy(all_self_check):
+    row = {"id": "synthetic-attempt", "score": 0 if all_self_check else 1, "status": "submitted",
+           "grading_details": [{"q_num": 1, "self_check": True, "correct": None},
+                               {"q_num": 2, "self_check": all_self_check, "correct": None if all_self_check else True}]}
+    out = listening_router._attempt_public_shape(row, {}, {})
+    assert out["total_questions"] == (0 if all_self_check else 1)
+    assert out["accuracy"] == (None if all_self_check else 1.0)
+
+
 # ── Fake supabase ──────────────────────────────────────────────────────────
 
 
@@ -311,13 +321,11 @@ def test_detail_exposes_test_lookup_failure(fake):
     row = _seed(fake)
     fake.fail_tables.add("listening_tests")
 
-    out = _run(listening_router.admin_get_listening_attempt(
-        row["id"], authorization="Bearer x"))
-
-    assert out["association_lookup_failed"] is True
-    assert out["association_lookup_failures"] == ["listening_tests"]
-    assert out["test"]["id"] == row["test_id"]
-    assert out["test"]["title"] is None
+    # Classification is an authorization boundary (FR-027): no work can be
+    # returned when the source identity cannot be established.
+    with pytest.raises(HTTPException) as error:
+        _run(listening_router.admin_get_listening_attempt(row["id"], authorization="Bearer x"))
+    assert error.value.status_code == 503
 
 
 def test_detail_404_on_unknown_id(fake):

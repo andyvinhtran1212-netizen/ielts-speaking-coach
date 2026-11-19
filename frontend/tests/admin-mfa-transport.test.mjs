@@ -280,3 +280,78 @@ test('a cool-off refusal does not leave a pending prompt behind', async () => {
   assert.deepEqual(prompts, [900]);
   assert.equal(sent.length, 3);
 });
+
+// ── Exercise-book contract v1.3.1 §0: `code` and step-up fields at the TOP level ──
+// The bodies are the fixed D2 bodies of the E fixture, so fixture ↔ transport
+// ↔ adapter stay one shape (CR #2285 P2-3).
+
+const BOOK_ERRORS = JSON.parse(readFileSync(new URL('./fixtures/exercise-book/errors.json', import.meta.url), 'utf8'));
+const bookRefusal = (name) => ({ status: BOOK_ERRORS[name].status, body: BOOK_ERRORS[name].body });
+const GRANTS = '/admin/cohorts/00000000-0000-4000-8000-000000000001/exercise-book-grants';
+
+test('book step_up_required (top-level code): prompts with max_age_seconds and resends exactly once', async () => {
+  const { api, sent, prompts } = loadStepUp({
+    responses: [bookRefusal('step_up_required'), { status: 200, body: { cohort_id: 'c', grants: [] } }],
+    onStepUp: verifyThen(true),
+  });
+  assert.equal(JSON.stringify(await api.getWith(GRANTS)), '{"cohort_id":"c","grants":[]}');
+  assert.deepEqual(prompts, [600]);
+  assert.deepEqual(sent.map((s) => [s.method, s.auth]), [['GET', 'Bearer aal2-old'], ['GET', 'Bearer aal2-fresh']]);
+});
+
+test('book step_up_required refused again after the resend is thrown with .code, never sent a third time', async () => {
+  const { api, sent, prompts } = loadStepUp({
+    responses: [bookRefusal('step_up_required'), bookRefusal('step_up_required')], onStepUp: verifyThen(true),
+  });
+  await assert.rejects(api.postWith(GRANTS, { action: 'grant' }), (error) => {
+    assert.equal(error.status, 403);
+    assert.equal(error.code, 'step_up_required');
+    assert.equal(error.detail, BOOK_ERRORS.step_up_required.body.detail);
+    assert.equal(error.reason, null);
+    return true;
+  });
+  assert.equal(sent.length, 2);
+  assert.deepEqual(prompts, [600]);
+});
+
+test('book cool-off refusal: no prompt, sent once, .reason carried to the caller', async () => {
+  const { api, sent, prompts } = loadStepUp({ responses: [bookRefusal('step_up_cooloff')], onStepUp: verifyThen(true) });
+  await assert.rejects(api.getWith(GRANTS), (error) => error.code === 'step_up_required' && error.reason === 'new_factor_cooloff');
+  assert.deepEqual([prompts.length, sent.length], [0, 1]);
+});
+
+test('book mfa_required (top-level code) navigates to /admin/mfa and still rejects', async () => {
+  const replaced = [];
+  const window = {
+    location: { hostname: 'mfa-fixture.invalid', pathname: '/admin/classes/c1/exercise-book/grants', search: '', replace(v) { replaced.push(v); }, set href(_v) {} },
+    __AVER_RUNTIME_CONFIG__: { apiBase: 'https://mfa-fixture.invalid' },
+    __AVER_SUPABASE_CLIENT__: { auth: { getSession: async () => ({ data: { session: { access_token: 't' } } }) } },
+    dispatchEvent() { return true; },
+  };
+  // The D2 body as is (no {detail} wrapper, unlike `load`).
+  const fetch = async () => new Response(JSON.stringify(BOOK_ERRORS.mfa_required.body), { status: 403, headers: { 'content-type': 'application/json' } });
+  vm.runInNewContext(source, { window, fetch, console, CustomEvent: globalThis.CustomEvent });
+  await assert.rejects(window.api.getWith(GRANTS), (error) => error.status === 403 && error.code === 'mfa_required');
+  assert.deepEqual(replaced, ['/admin/mfa?next=%2Fadmin%2Fclasses%2Fc1%2Fexercise-book%2Fgrants']);
+});
+
+test('book not_owner: no navigation, no prompt, .code set; noRedirect probes get every code without side effects', async () => {
+  const owner = loadStepUp({ responses: [bookRefusal('not_owner')], onStepUp: verifyThen(true) });
+  await assert.rejects(owner.api.getWith(GRANTS), (error) => error.code === 'not_owner');
+  assert.deepEqual([owner.prompts.length, owner.sent.length], [0, 1]);
+  for (const name of Object.keys(BOOK_ERRORS).filter((key) => key !== '_note')) {
+    const { api, sent, prompts } = loadStepUp({ responses: [bookRefusal(name)], onStepUp: verifyThen(true) });
+    await assert.rejects(api.getWith(GRANTS, undefined, { noRedirect: true }), (error) => {
+      assert.equal(error.status, BOOK_ERRORS[name].status, name);
+      assert.equal(error.code, BOOK_ERRORS[name].body.code ?? null, name);
+      assert.equal(error.reason, BOOK_ERRORS[name].body.reason ?? null, name);
+      return true;
+    });
+    assert.deepEqual([prompts.length, sent.length], [0, 1], name);
+  }
+});
+
+test('an older nested detail still sets .code (backward compatible)', async () => {
+  const { api } = loadStepUp({ responses: [{ status: 403, body: { detail: { code: 'last_admin', message: 'm' } } }] });
+  await assert.rejects(api.getWith('/admin/users'), (error) => error.code === 'last_admin' && error.detail.code === 'last_admin');
+});

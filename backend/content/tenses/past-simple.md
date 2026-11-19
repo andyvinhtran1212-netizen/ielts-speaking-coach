@@ -91,6 +91,7 @@ Past Simple diễn tả hành động **đã xảy ra và hoàn thành** ở m�
 ## Tại sao quan trọng
 
 Past Simple là thì **số một** trong IELTS Speaking Part 2 — khi bạn kể về:
+
 - Một nơi bạn đã đến thăm
 - Một người bạn đã gặp
 - Một sự kiện đáng nhớ trong cuộc đời
@@ -99,12 +100,14 @@ Past Simple là thì **số một** trong IELTS Speaking Part 2 — khi bạn k�
 Nếu nhầm thì ở đây, giám khảo sẽ ngay lập tức nhận ra.
 
 Người học Việt Nam thường mắc hai lỗi lớn:
+
 1. Dùng động từ nguyên thể thay vì V2/V-ed: "Yesterday I **go** to school."
 2. Dùng sai dạng bất quy tắc: "She **buyed** a new phone."
 
 ## Định nghĩa
 
 Past Simple dùng để diễn tả:
+
 - Hành động đã **xảy ra và kết thúc** ở thời điểm xác định trong quá khứ
 - Các hành động **nối tiếp nhau** trong quá khứ (kể chuyện)
 - Thói quen hoặc trạng thái trong quá khứ (đã không còn nữa)
@@ -129,6 +132,7 @@ Subject + did not (didn't) + V (nguyên thể)
 - They **didn't know** about the change.
 
 **Lưu ý:** Khi đã có "didn't", động từ trở về nguyên thể.
+
 - ❌ SAI: She didn't **went** home.
 - ✅ ĐÚNG: She didn't **go** home.
 
@@ -141,6 +145,7 @@ Did + Subject + V (nguyên thể) ...?
 - **What did** they **do** at the weekend?
 
 **Wh-questions:**
+
 - **Where did** you **go** last summer?
 - **When did** she **start** her new job?
 - **How long did** they **live** in Da Nang?
@@ -173,6 +178,7 @@ Thêm **-ed** vào động từ nguyên thể.
 | Tận cùng bằng -l (British) | Nhân đôi l | travel → travel**led** |
 
 **Cách phát âm -ed:**
+
 - /t/ sau âm vô thanh (k, p, f, s, sh, ch): work**ed** /wɜːkt/, stop**ped** /stɒpt/
 - /d/ sau âm hữu thanh (b, g, l, m, n, r, v, z...): play**ed** /pleɪd/, live**d** /lɪvd/
 - /ɪd/ sau âm /t/ hoặc /d/: want**ed** /ˈwɒntɪd/, need**ed** /ˈniːdɪd/
@@ -220,6 +226,7 @@ Phải **học thuộc** — không có quy tắc chung.
 | sleep | slept | ngủ |
 
 **Mẹo học irregular verbs:** Học theo nhóm có pattern giống nhau:
+
 - **-ing → -ang → -ung:** sing/sang, ring/rang, swim/swam, begin/began
 - **-ow → -ew:** know/knew, grow/grew, throw/threw, blow/blew
 - **-ell → -old:** tell/told, sell/sold
@@ -357,15 +364,18 @@ Khi muốn nói về điều gì đó đúng trong quá khứ nhưng không còn
 ## Lưu ý cho người học Việt Nam
 
 Tiếng Việt dùng phó từ thời gian ("hôm qua", "năm ngoái", "lúc trước") để diễn tả quá khứ — động từ không thay đổi:
+
 - "Hôm qua tôi **đi** học" = "Yesterday I **went** to school"
 - "Tôi **mua** điện thoại năm ngoái" = "I **bought** a phone last year"
 
 **Ba điều cần nhớ mỗi lần nói về quá khứ:**
+
 1. Có thời gian xác định không? → Past Simple
 2. Động từ đó có regular hay irregular? → Chia đúng dạng
 3. Câu phủ định/hỏi: didn't/did + V nguyên thể (trừ be → wasn't/weren't/was/were)
 
 **Mẹo học irregular verbs:** Đừng cố nhớ từng cặp riêng lẻ. Hãy **đặt câu** với mỗi từ và nói thành tiếng:
+
 - "Yesterday I *went* to school, *ate* lunch with my friend, and *came* home at 5 PM."
 
 ## Ứng dụng trong IELTS
@@ -391,6 +401,7 @@ Tiếng Việt dùng phó từ thời gian ("hôm qua", "năm ngoái", "lúc tr�
 
 ### Viết câu hỏi
 Dựa vào câu trả lời, đặt câu hỏi:
+
 1. ____________? — I went to school by bus.
 2. ____________? — Yes, she called me at 8 PM.
 3. ____________? — They stayed in a hotel in the city centre.
@@ -406,6 +417,7 @@ Dựa vào câu trả lời, đặt câu hỏi:
 ### Đáp án
 
 **Điền từ:**
+
 1. went
 2. didn't have
 3. Was
@@ -413,12 +425,14 @@ Dựa vào câu trả lời, đặt câu hỏi:
 5. saw, was
 
 **Câu hỏi:**
+
 1. How did you go to school?
 2. Did she call you?
 3. Where did they stay?
 4. When did the movie start?
 
 **Sửa lỗi:**
+
 1. **went** (irregular — không phải goed)
 2. didn't **call** (sau didn't → nguyên thể)
 3. **Did** you have... (have không phải be — phải dùng did)
