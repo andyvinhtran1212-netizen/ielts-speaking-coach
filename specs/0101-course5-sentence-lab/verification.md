@@ -6,10 +6,10 @@
 | --- | --- | --- |
 | FR-001 | `backend/tests/test_sentence_lab.py` importer tests; dry run and staging import counts (45 banks, 540 questions) | PENDING |
 | FR-002 | State/play-path gating tests; staging S01 journey response inspection | PENDING |
-| FR-003 | Batching/retry/validator/submit tests, 600-character submit refusal test; staging S01 submission and `ai_usage_logs` call count | PENDING |
+| FR-003 | Batching/retry/validator/submit tests, 600-character submit refusal test, per-field length and prompt-echo rejection tests, spelled-out answer reveal test, no retry when more than 6 items failed; staging S01 submission and `ai_usage_logs` call count | PENDING |
 | FR-004 | Rewrite rule tests; staging rewrite of one item | PENDING |
 | FR-005 | `frontend/tests/course-writing-sentence-lab.test.mjs`; staging browser journey | PENDING |
-| FR-006 | Usage logging tests; `test_private_prompt_is_not_shipped_in_the_repo` and `test_missing_prompt_pauses_lab_grading` (unset `SENTENCE_LAB_PROMPT` → 503, no model call); calibration report on the 2026-11-18.1 package (18/11: medium 20/20, low 15–17/20) | PENDING |
+| FR-006 | Usage logging tests; `test_private_prompt_is_not_shipped_in_the_repo` and `test_missing_prompt_pauses_lab_grading` (unset `SENTENCE_LAB_PROMPT` → 503, no model call); calibration report on the 2026-11-18.1 package (18/11: medium 20/20, low 15–17/20) plus 2–3 cases where the answer begs or instructs the grader to accept it, none returned `accepted` | PENDING |
 | FR-007 | Cap tests (whole-batch reservation at the 37/38/39/40 boundaries for submit and rewrite, unlogged calls counted, per-call budget stops the retry, 503 on lookup failure, no model call); single-flight test (second concurrent grading 409, one set of calls); staging 39/40 boundary check on a test account with `ai_usage_logs` count | PENDING |
 | FR-008 | Kill-switch test (503, `work_saved`, no model call); staging toggle with an assigned test learner | PENDING |
 
