@@ -136,8 +136,11 @@ jobs:
     # Full pytest plus PG/audio setup and cleanup exceeded 10 minutes in PR1563.
     # A slow Ubuntu mirror has made the ffmpeg install take 8–11 min,
     # cancelling the exact-SHA staging push run that the promotion gate
-    # requires (#1695, 2026-10-26). Each shard keeps that 25-minute budget.
-    timeout-minutes: 25
+    # requires (#1695, 2026-10-26). On 2026-11-18 shards of docs-only PR
+    # #2367 hit 25 minutes three runs in a row with no failing test (#2366,
+    # #2368 and the staging push for #2334 were cancelled the same way), so
+    # each shard now has a 40-minute budget.
+    timeout-minutes: 40
     needs: changes
     # Bắt buộc phải CHẠY, không được skip ở mức job: matrix bị skip sẽ báo một
     # check tên chưa nở (`… ${{ matrix.shard }}/4`) và 4 check bắt buộc
