@@ -303,8 +303,8 @@ def enforce_daily_call_cap(user_id: str, calls: int = 1) -> int:
     khi gọi model, nên ở lượt 39/40 không thể mở một đợt cần 2–3 lượt. Trả số
     lượt còn lại để `grade(call_budget=…)` chặn thêm từng lượt.
 
-    "Đã dùng" = max(số dòng `ai_usage_logs` hôm nay, số lượt tiến trình này đã
-    bắt đầu hôm nay). Đếm hỏng hoặc trần không hợp lệ thì TỪ CHỐI (503 paid-AI).
+    "Đã dùng" = bộ đếm tiến trình, nâng lên bằng số dòng `ai_usage_logs` hôm nay
+    mỗi khi sổ cao hơn, rồi cộng mọi lượt tiến trình này bắt đầu sau đó. Đếm hỏng hoặc trần không hợp lệ thì TỪ CHỐI (503 paid-AI).
     """
     from datetime import datetime, timedelta, timezone
     from fastapi import HTTPException
@@ -322,8 +322,13 @@ def enforce_daily_call_cap(user_id: str, calls: int = 1) -> int:
         logger.warning("[sentence-lab] call-cap lookup failed: %s", type(exc).__name__)
         raise rl.refuse_paid_ai("budget_unavailable", feature=FEATURE,
                                 quota=_CAP_QUOTA) from None
-    used = max(rl.counted_rows(res, quota=_CAP_QUOTA, feature=FEATURE),
-               _started_today(user_id))
+    ledger = rl.counted_rows(res, quota=_CAP_QUOTA, feature=FEATURE)
+    # Bộ đếm cục bộ lấy sổ làm MỐC: sau khi khởi động lại (hoặc khi replica khác
+    # đã gọi) sổ có N dòng mà bộ đếm còn 0, nên các lượt gọi mới của tiến trình
+    # này phải cộng TRÊN N, không phải so max với N (Codex #2371).
+    if ledger > _started_today(user_id):
+        _STARTED[user_id] = (_utc_day(), ledger)
+    used = _started_today(user_id)
     if int(calls) > 0 and used + int(calls) > cap:
         raise HTTPException(429, {
             "error": "rate_limit_exceeded",

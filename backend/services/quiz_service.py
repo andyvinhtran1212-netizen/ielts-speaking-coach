@@ -4249,8 +4249,17 @@ def _lab_revise_prepare(*, user_id: str, bank_id: str, answers: dict,
         "attempt": 2,
         "previous_response": by_qid[qid].get("answer") or "",
     } for qid, text in chosen.items()]
-    if any(not e["key"] for e in entries):
-        raise HTTPException(409, "Đề của bài này đã thay đổi — không chấm lại được.")
+    # Đề đã nhập lại khác bản chụp lúc nộp → không chấm câu viết lại theo đề
+    # MỚI cho một câu trả lời của đề CŨ (Codex #2371). Chốt rỗng vẫn được.
+    changed = [e["qid"] for e in entries
+               if not e["key"] or (by_qid[e["qid"]].get("item") is not None
+                                   and by_qid[e["qid"]]["item"] != e["item"])]
+    if changed:
+        raise HTTPException(409, {
+            "message": "Đề của bài này đã thay đổi — không chấm lại được. "
+                       "Bấm Chốt để xem đáp án.",
+            "changed": changed,
+        })
     return sub, items, entries
 
 

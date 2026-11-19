@@ -516,6 +516,23 @@ def test_revision_is_once_and_capped_at_six():
     assert e.value.status_code == 422
 
 
+def test_rewrite_is_refused_when_the_task_changed_since_submission():
+    """Codex #2371: a re-import under the same qid must not grade the rewrite
+    against a different task."""
+    async def never(*_a, **_k):
+        raise AssertionError("no model call for a changed task")
+
+    stale = [dict(i, item={"id": i["qid"], "source": "OLD"}) for i in _graded()]
+    with pytest.raises(HTTPException) as e:
+        _revise({"S01-Q01": "x"}, stale, grade=never)
+    assert e.value.status_code == 409 and e.value.detail["changed"] == ["S01-Q01"]
+    same = [dict(i, item={"id": i["qid"], "source": "src"}) for i in _graded()]
+    out, _db = _revise({"S01-Q01": "x"}, same)
+    assert out["revision_done"] is True
+    _out, db = _revise({}, stale, grade=never)   # finalising still works
+    assert db.updates
+
+
 def test_revision_grader_failure_does_not_close_the_round():
     async def broken(entries, **_k):
         return ([{"qid": e["qid"], "answer": e["response"], "ok": None}
@@ -669,16 +686,18 @@ def test_planned_calls_reserve_the_retry():
 
 def test_call_cap_reserves_the_whole_batch_at_the_39_40_boundary():
     # Nộp 12 câu cần tối đa 3 lượt (2 + 1 gọi lại); viết lại ≤6 câu cần 2.
+    # Each boundary is its own learner: the process counter ratchets up to the
+    # highest ledger count it has seen that day (the ledger never shrinks).
     submit, revise = g.planned_calls(12), g.planned_calls(6)
-    assert _cap(_CountDB(count=37), calls=submit) == 3
+    assert _cap(_CountDB(count=37), calls=submit, user="s37") == 3
     for used in (38, 39, 40):
         with pytest.raises(HTTPException) as e:
-            _cap(_CountDB(count=used), calls=submit)
+            _cap(_CountDB(count=used), calls=submit, user=f"s{used}")
         assert e.value.status_code == 429
-    assert _cap(_CountDB(count=38), calls=revise) == 2
+    assert _cap(_CountDB(count=38), calls=revise, user="r38") == 2
     for used in (39, 40):
         with pytest.raises(HTTPException) as e:
-            _cap(_CountDB(count=used), calls=revise)
+            _cap(_CountDB(count=used), calls=revise, user=f"r{used}")
         assert e.value.status_code == 429
 
 
@@ -689,6 +708,19 @@ def test_call_cap_counts_calls_the_ledger_has_not_written_yet():
         _cap(_CountDB(count=0), calls=2)
     assert e.value.status_code == 429
     assert _cap(_CountDB(count=0), calls=2, user="u2") == 40
+
+
+def test_call_cap_adds_new_calls_on_top_of_the_ledger_after_a_restart():
+    """Codex #2371: 37 ledger rows, empty process counter, usage writes delayed.
+    Two successive 12-item submits must not both pass a 40 cap."""
+    assert _cap(_CountDB(count=37), calls=3) == 3
+    g._mark_started("u1")
+    g._mark_started("u1")          # first submit used 2 calls, not yet logged
+    with pytest.raises(HTTPException) as e:
+        _cap(_CountDB(count=37), calls=3)
+    assert e.value.status_code == 429
+    # A ledger that has caught up is not counted twice.
+    assert _cap(_CountDB(count=39), calls=1) == 1
 
 
 def test_call_cap_lets_an_all_blank_submit_through_without_calls():
