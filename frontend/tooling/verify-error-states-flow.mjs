@@ -125,18 +125,23 @@ try {
       await page.context().close();
     }
 
-    // ── U-16 /mock-exam ────────────────────────────────────────────────
+    // ── U-16 → G02-T11 /mock-exam ──────────────────────────────────────
+    // A link without a code or sitting now goes back to Full Test, which shows
+    // one Vietnamese line (RedirectNotice) and drops `?notice=` from the URL.
     {
       const { page } = await newPage(browser, { width, user: USER_A });
       await page.goto(`${BASE}/mock-exam`, { waitUntil: 'networkidle' });
-      const alert = page.getByRole('alert').filter({ hasText: 'Unable to open the test' });
-      await alert.waitFor({ timeout: 15_000 });
-      const text = await alert.innerText();
-      check(`${tag} /mock-exam explains the link problem`, /does not say which test to open/.test(text) && !/attempt ID/.test(text), JSON.stringify(text));
-      check(`${tag} /mock-exam offers no retry`, await page.getByRole('button', { name: 'Retry' }).count() === 0);
-      check(`${tag} /mock-exam has a back button to Full Test`,
-        await hrefOf(alert.getByRole('link', { name: 'Back to Full Test' })) === '/full-test');
-      check(`${tag} /mock-exam has no horizontal overflow`, await overflowOf(page) <= 1);
+      await page.waitForURL((url) => url.pathname === '/full-test', { timeout: 15_000 }).catch(() => {});
+      const notice = page.locator('.av-redirect-notice[role="status"]');
+      await notice.waitFor({ timeout: 15_000 }).catch(() => {});
+      const text = (await notice.count()) ? await notice.innerText() : '';
+      const landed = new URL(page.url());
+      check(`${tag} /mock-exam without a test returns to Full Test`, landed.pathname === '/full-test', page.url());
+      check(`${tag} /mock-exam drops the notice parameter after showing it`, !landed.searchParams.has('notice'), page.url());
+      check(`${tag} /mock-exam explains in one plain line`,
+        text.includes('Liên kết bạn vừa mở chưa đủ thông tin nên bạn được đưa về trang Thi thử.')
+          && !/Unable|code|sitting/.test(text), JSON.stringify(text));
+      check(`${tag} /mock-exam notice has no horizontal overflow`, await overflowOf(page) <= 1);
       if (SHOT_DIR) await page.screenshot({ path: join(SHOT_DIR, `mock-exam-missing-${width}.png`) });
       await page.context().close();
     }

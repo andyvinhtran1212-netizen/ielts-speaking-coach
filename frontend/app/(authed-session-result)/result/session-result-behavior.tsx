@@ -22,6 +22,7 @@ import {
   roundHalf,
 } from '@/lib/speaking-session-result-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
+import { leaveForParent } from '@/lib/redirect-notice-model.mjs';
 
 interface KeyedState<T> {
   key: string;
@@ -1293,7 +1294,8 @@ export function SessionResultBehavior() {
     setErrorState(null);
 
     if (!sessionId) {
-      setErrorState({ key: requestKey, value: 'Thiếu session ID trong URL.' });
+      // G02-T11: a link without its session goes back to Speaking with a notice.
+      leaveForParent('/speaking');
       return () => controller.abort();
     }
 
