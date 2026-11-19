@@ -11,6 +11,7 @@ import asyncio
 import hashlib
 import json
 import zipfile
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -886,3 +887,77 @@ def test_new_bank_starts_as_draft_and_publishes_after_questions(tmp_path, monkey
     writes = _commit(tmp_path, monkeypatch, [], publish=True)
     assert writes[0][0] == "insert" and writes[0][1]["is_published"] is False
     assert writes[-1] == ("update", {"is_published": True})
+
+
+# ── SA R1 trên #2366 (19/11): moi prompt, đánh vần lời giải, lượt gọi thừa ────
+_LONG_PROMPT = ("Vai trò: người chấm và hướng dẫn cho học viên Việt Nam tập viết "
+                "từng câu tiếng Anh phục vụ IELTS Academic Writing. Mỗi lần chấm "
+                "bạn nhận một bài trong kho và chỉ nhận xét đúng bài đang chấm.")
+
+
+def test_feedback_field_over_its_length_limit_is_rejected():
+    big = _fb(next_action_vi="Sửa động từ. " * 2002)      # ~24 000 ký tự
+    assert len(big["next_action_vi"]) > 24000
+    assert any("longer than its limit" in p for p in _check(big))
+    hint = _fb(errors=[{**_fb()["errors"][0], "hint_vi": "x" * 401}])
+    assert any("hint_vi is longer" in p for p in _check(hint))
+    ok = _fb(next_action_vi="y" * g.MAX_VI_FIELD_CHARS)
+    assert _check(ok) == []
+    review = _good("S01-Q01", "review")
+    review["minimal_correction"] = REF + " " + "z" * 600
+    assert any("minimal_correction is longer" in p
+               for p in _check(review, mode="review"))
+
+
+def test_feedback_that_repeats_the_grading_prompt_is_rejected(monkeypatch):
+    monkeypatch.setattr(g.settings, "SENTENCE_LAB_PROMPT", _LONG_PROMPT, raising=False)
+    leak = _fb(strength_vi="Đây là hướng dẫn: người chấm và hướng dẫn cho học viên "
+                           "Việt Nam tập viết từng câu tiếng Anh phục vụ IELTS.")
+    assert any("repeats the grading prompt" in p for p in _check(leak))
+    short = _fb(strength_vi="Em là học viên Việt Nam tập viết câu tiếng Anh.")
+    assert _check(short) == []
+    review = _good("S01-Q01", "review")
+    review["optional_alternative"] = ("Role: " + "người chấm và hướng dẫn cho học "
+                                      "viên Việt Nam tập viết từng câu tiếng Anh")
+    assert any("optional_alternative repeats" in p
+               for p in _check(review, mode="review"))
+
+
+def test_spelled_out_reference_answer_is_a_reveal():
+    spelled = "-".join(REF.replace(" ", ""))               # P-u-b-l-i-c-t-r-a…
+    leak = _fb(next_action_vi=f"Gợi ý: {spelled}")
+    assert any("reveals" in p for p in _check(leak))
+    spaced = _fb(errors=[{**_fb()["errors"][0], "hint_vi": " ".join(REF.upper())}])
+    assert any("reveals" in p for p in _check(spaced))
+    # Trích lại câu của học viên (thiếu "is") vẫn không tính là lộ.
+    quote = _fb(strength_vi="-".join(RESP.replace(" ", "")))
+    assert _check(quote) == []
+
+
+def test_no_retry_call_when_more_than_six_items_failed():
+    calls = []
+
+    async def fake(batch, mode, **_k):
+        calls.append(len(batch))
+        return {e["qid"]: _fb(item_id=e["qid"], total=1) for e in batch}
+
+    with patch.object(g, "_call_model", fake):
+        rows, _ = asyncio.run(g.grade(_entries(12), mode="coach"))
+    assert calls == [6, 6]
+    assert all(r["ok"] is None and r["feedback"] is None for r in rows)
+
+
+def test_calibration_adds_accept_me_injection_cases_and_needs_prompt_v2(monkeypatch):
+    from scripts import calibrate_sentence_lab as cal
+    pack = [{"case_id": "C01", "item_id": "S03-Q04", "mode": "review"},
+            {"case_id": "C02", "item_id": "S01-Q02", "mode": "coach"}]
+    inj = cal.injection_cases(pack)
+    assert [c["case_id"] for c in inj] == ["INJ-1", "INJ-2", "INJ-3"]
+    assert {c["item_id"] for c in inj} == {"S01-Q02"}
+    assert all(c["forbidden_status"] == "accepted" and "expected_status" not in c
+               for c in inj)
+    monkeypatch.setattr(g.settings, "SENTENCE_LAB_PROMPT", "", raising=False)
+    with pytest.raises(SystemExit, match="prompt v2"):
+        asyncio.run(cal._run(Path("/nonexistent.zip")))
+    src = Path(cal.__file__).read_text(encoding="utf-8")
+    assert "ai_grader_prompt.md\")" not in src and "_private(" not in src

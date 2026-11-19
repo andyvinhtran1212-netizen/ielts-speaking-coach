@@ -47,11 +47,15 @@ Tổng số lượt gọi cho một bài: 1–3.
 
 `SENTENCE_LAB_MODEL` (mặc định `gpt-5-mini`), `SENTENCE_LAB_REASONING_EFFORT`
 (mặc định `medium`: 20/20 ca hiệu chỉnh ngày 18/11, `low` chỉ 15–17/20, chỉ áp cho model `gpt-5*`/`gpt-6*`/`o*`). Dùng
-`OPENAI_API_KEY` sẵn có (Whisper). **Prompt chấm** là nội dung private của gói
-(`private/ai_grader_prompt.md`) nên không nằm trong repo: dán nguyên văn file ấy
-vào biến `SENTENCE_LAB_PROMPT` trên Railway (staging rồi production — đổi env cần
-anh Andy duyệt). Thiếu biến này thì nộp/viết lại bài lab trả 503, bài vẫn còn
-nguyên. Script hiệu chỉnh tự đọc prompt từ gói khi biến chưa đặt. Mọi lượt gọi ghi vào `ai_usage_logs`
+`OPENAI_API_KEY` sẵn có (Whisper). **Prompt chấm** là nội dung private, không nằm
+trong repo: biến `SENTENCE_LAB_PROMPT` trên Railway chứa prompt v2 đã hiệu chỉnh
+(sha256 `4ad07f49…c57ed2`), KHÔNG phải `private/ai_grader_prompt.md` gốc của gói
+(bản gốc đã lộ trong lịch sử PR). Đặt trên staging rồi production; đổi env cần anh
+Andy duyệt, production cần thêm Content Manager + SA duyệt. Thiếu biến này thì
+nộp/viết lại bài lab trả 503, bài vẫn còn nguyên; script hiệu chỉnh cũng dừng.
+Mỗi trường nhận xét có trần độ dài (400 ký tự tiếng Việt, 600 cho câu sửa); phản
+hồi vượt trần, chép lại 12 từ liên tiếp của prompt, hoặc đánh vần lời giải bị bỏ
+như lộ đáp án. Mọi lượt gọi ghi vào `ai_usage_logs`
 `service='openai'`, `feature='sentence_lab'`; model chưa có dòng giá trong
 `services/ai_pricing.py` được ghi `cost_source='unpriced'` kèm số token.
 
@@ -80,8 +84,9 @@ PATCH `/admin/quiz/banks/{id}`) chưa ghi được cho tới khi có hướng x�
 OPENAI_API_KEY=… python -m scripts.calibrate_sentence_lab --package <zip>
 ```
 
-Chạy 20 ca của `private/calibration_cases.json`, không đụng DB. Chạy lại khi đổi
-model hoặc prompt.
+Chạy 20 ca của `private/calibration_cases.json` cộng 3 ca INJ (học viên xin/ra
+lệnh cho "accepted"; đạt khi không ra `accepted`), không đụng DB. Cần
+`SENTENCE_LAB_PROMPT` đã đặt. Chạy lại khi đổi model hoặc prompt.
 
 ## Kiểm tra sau khi nhập
 

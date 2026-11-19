@@ -175,6 +175,15 @@ BATCH_SCHEMA = {
 _FULL_SCORES = {"meaning": 3, "grammar": 3, "task": 2, "lexis": 1, "mechanics": 1}
 _ZERO_SCORES = {k: 0 for k in DIMENSIONS}
 _FREE_TEXT_FIELDS = ("strength_vi", "next_action_vi", "needs_review_reason_vi")
+# Trần độ dài mỗi trường văn bản tự do (FR-003). Lời giải thích tiếng Việt ngắn,
+# câu sửa không dài hơn câu học viên được nộp. Vượt trần = bỏ phản hồi, như lộ lời giải.
+MAX_VI_FIELD_CHARS = 400
+MAX_SENTENCE_FIELD_CHARS = MAX_ANSWER_CHARS
+_VI_FIELD_LIMITS = {k: MAX_VI_FIELD_CHARS for k in _FREE_TEXT_FIELDS}
+_SENTENCE_FIELD_LIMITS = {"minimal_correction": MAX_SENTENCE_FIELD_CHARS,
+                          "optional_alternative": MAX_SENTENCE_FIELD_CHARS}
+# Phản hồi lặp lại từ ngần này từ LIÊN TIẾP của prompt chấm = prompt bị moi ra.
+PROMPT_ECHO_WORDS = 12
 
 
 def _norm(text: Any) -> str:
@@ -187,6 +196,36 @@ def _norm(text: Any) -> str:
 
 
 NEAR_COPY_RATIO = 0.85
+
+
+def _letters(text: Any) -> str:
+    """Chỉ giữ chữ và số: "T-h-e  c a t" và "The cat" cùng thành "thecat"."""
+    return "".join(ch for ch in _norm(text) if ch.isalnum())
+
+
+_ECHO_CACHE: dict[str, frozenset] = {}
+
+
+def _prompt_ngrams() -> frozenset:
+    base = str(getattr(settings, "SENTENCE_LAB_PROMPT", "") or "")
+    hit = _ECHO_CACHE.get(base)
+    if hit is None:
+        w = _norm(base).split()
+        n = PROMPT_ECHO_WORDS
+        hit = frozenset(tuple(w[i:i + n]) for i in range(len(w) - n + 1))
+        _ECHO_CACHE.clear()
+        _ECHO_CACHE[base] = hit
+    return hit
+
+
+def echoes_prompt(text: Any) -> bool:
+    """Văn bản có chép lại PROMPT_ECHO_WORDS từ liên tiếp của prompt chấm không?"""
+    grams = _prompt_ngrams()
+    if not grams:
+        return False
+    w = _norm(text).split()
+    n = PROMPT_ECHO_WORDS
+    return any(tuple(w[i:i + n]) in grams for i in range(len(w) - n + 1))
 
 
 _CAP_QUOTA = "SENTENCE_LAB_MAX_CALLS_PER_USER_PER_DAY"
@@ -331,12 +370,19 @@ def _reveals(text: Any, targets: Any, learner: Any = ()) -> bool:
     if not words:
         return False
     own = [_norm(x).split() for x in learner if _norm(x)]
+    flat = _letters(text)
+    own_flat = [_letters(x) for x in learner]
     for target in targets:
         ref = _norm(target)
         tw = ref.split()
         if len(tw) < 4:
             continue
         if ref in " ".join(words):
+            return True
+        # Đánh vần từng chữ ("T-h-e c-a-t …") lọt qua so khớp theo từ: so cả
+        # chuỗi chỉ còn chữ và số, trừ khi câu của học viên/đề đã chứa nó.
+        ref_flat = _letters(ref)
+        if ref_flat and ref_flat in flat and not any(ref_flat in o for o in own_flat):
             return True
         n = len(tw)
         for lo in range(max(1, len(words) - n + 1)):
@@ -383,6 +429,18 @@ def validate_feedback(fb: Any, *, item_id: str, mode: str, response: str,
                      ("needs_review_reason_vi", nrr)):
         if val is not None and not isinstance(val, str):
             p.append(f"{key} must be a string or null.")
+
+    limits = {**_VI_FIELD_LIMITS, **_SENTENCE_FIELD_LIMITS}
+    free = [(k, fb.get(k)) for k in limits]
+    free += [(k, e.get(k)) for e in (errors if isinstance(errors, list) else [])
+             if isinstance(e, dict) for k in ("reason_vi", "hint_vi")]
+    for key, val in free:
+        if not isinstance(val, str):
+            continue
+        if len(val) > limits.get(key, MAX_VI_FIELD_CHARS):
+            p.append(f"{key} is longer than its limit.")
+        elif echoes_prompt(val):
+            p.append(f"{key} repeats the grading prompt.")
 
     if not str(response or "").strip() and status != "no_attempt":
         p.append("An empty response must receive no_attempt.")
@@ -683,10 +741,11 @@ async def grade(entries: List[Dict[str, Any]], *, mode: str,
     except Exception:  # pragma: no cover — _run swallows provider errors
         failed_lists = [list(b) for b in batches]
     failed = [e for lst in failed_lists for e in lst]
-    # ĐÚNG MỘT lượt gọi lại cho mọi câu hỏng — giữ tổng số lượt gọi ≤ 3.
+    # Tối đa MỘT lượt gọi lại, cho ≤ 6 câu hỏng — tổng số lượt gọi ≤ 3. Hỏng
+    # nhiều hơn 6 câu thì lượt gọi lại không cứu được bài: không gọi (FR-003).
     if failed:
-        still = await _run(failed[:MAX_ITEMS_PER_CALL])
-        still += failed[MAX_ITEMS_PER_CALL:]
+        still = (await _run(failed) if len(failed) <= MAX_ITEMS_PER_CALL
+                 else list(failed))
         for e in still:
             results[e["qid"]] = _result_row(
                 e, mode, None, "Bộ chấm chưa trả được phản hồi hợp lệ cho câu này.")
