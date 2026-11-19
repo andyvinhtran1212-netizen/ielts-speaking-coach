@@ -99,6 +99,7 @@ Progress and remaining acceptance are reconciled in [the implementation status l
 | LEARNERDRAFT-0010 | Preserve Reading answers and Speaking preparation within a browser tab | implementing | medium | [spec](0010-learner-draft-preservation/spec.md) |
 
 | GRAMMARAUDIT-0019 | Close the October Grammar audit while preserving every learner revision | implementing | high | [spec](0019-grammar-audit-remediation/spec.md) |
+| GRAMMARFIG-0084 | Grammar Wiki articles show numbered, accessible sentence diagrams written as semantic figure blocks, and a malformed block never hides the article | draft | medium | [spec](0084-grammar-wiki-figures/spec.md) |
 
 | VOCABSETS-0020 | Vocabulary class sets and unified learning workspace | implementing | high | [spec](0020-vocabulary-class-sets/spec.md) |
 
