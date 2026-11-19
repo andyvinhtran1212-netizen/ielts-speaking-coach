@@ -292,9 +292,9 @@ await adminPage.waitForURL(`${BASE}/admin/users`);
 check('admin chrome dùng App Router qua Shadow DOM',
   await adminPage.evaluate(() => window.__adminNavigationSentinel) === 'survived');
 check('soft navigation admin không phát sinh lỗi JavaScript', adminErrors.length === 0, adminErrors[0] || '');
-// G02-T11: a bare `/mock-exam` now leaves for /full-test (RedirectNotice), so
-// the soft-navigation language check opens it with a code.
-for (const examPath of ['/reading/exam/session', '/listening/test/session', '/mock-exam?code=NAV-LANG']) {
+// G02-T11: an exam page without its test now leaves for its parent
+// (RedirectNotice), so the soft-navigation language check opens each with one.
+for (const examPath of ['/reading/exam/session?test_id=NAV-LANG', '/listening/test/session?id=NAV-LANG', '/mock-exam?code=NAV-LANG']) {
   const link = adminPage.locator('aver-admin-chrome a[href="/admin/users"]:visible').first();
   await link.evaluate((anchor, href) => { anchor.href = href; }, examPath);
   await adminPage.locator(`aver-admin-chrome a[href="${examPath}"]:visible`).first().click();

@@ -15,6 +15,7 @@ import { useEffect, useLayoutEffect, useRef } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
+import { leaveForParent } from '@/lib/redirect-notice-model.mjs';
 
 import { COURSE_TITLE, COURSE_TITLE_META, SAVE_NOTE_IDLE } from './course-copy';
 
@@ -208,9 +209,10 @@ export function CourseBehavior() {
       const bankId = new URLSearchParams(location.search).get('bank');
       const requestedView = new URLSearchParams(location.search).get('view');
       const requestedItem = new URLSearchParams(location.search).get('class_item');
+      // G02-T11 (mục 5.3): a link that names no bank goes back to Lớp học,
+      // which says so in one line (RedirectNotice).
       if (!bankId) {
-        fail('Liên kết bài tập chưa đầy đủ. Hãy mở bài từ Lớp học.', { connection: false });
-        appendBackToClass();
+        leaveForParent('/my-class');
         return;
       }
 

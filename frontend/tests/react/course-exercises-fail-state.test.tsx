@@ -44,6 +44,11 @@ vi.mock('@/lib/auth/auth-provider', () => ({
 vi.mock('@/lib/when-global-ready.mjs', () => ({
   whenGlobalReady: vi.fn(async () => wire.apiReady),
 }));
+const leaveForParent = vi.hoisted(() => vi.fn());
+vi.mock('@/lib/redirect-notice-model.mjs', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  leaveForParent,
+}));
 
 import { CourseBehavior } from '@/app/(authed)/course-exercises/course-behavior';
 import { CourseShell } from '@/app/(authed)/course-exercises/page-shell';
@@ -119,19 +124,14 @@ function bankApi(questions: unknown[], title = 'Buổi 1') {
 }
 
 describe('course-exercises error states', () => {
-  it('missing ?bank= shows a friendly link back to Lớp học, no connection badge, no progress frame', async () => {
+  // G02-T11: a missing ?bank= no longer shows an error box here; the page
+  // goes back to Lớp học, which shows the one-line RedirectNotice.
+  it('missing ?bank= returns to Lớp học without fetching anything', async () => {
+    leaveForParent.mockClear();
     renderPage('');
-    const box = await errorShown();
-    expect(box.textContent).toContain('Liên kết bài tập chưa đầy đủ. Hãy mở bài từ Lớp học.');
+    await waitFor(() => expect(leaveForParent).toHaveBeenCalledWith('/my-class'));
     expect(document.body.textContent).not.toContain('?bank=');
     expect(document.body.textContent).not.toContain(CONNECTION_BADGE);
-    const back = backLinkAfter(box);
-    expect(back?.getAttribute('href')).toBe('/my-class');
-    expect(back?.textContent).toBe('Về Lớp học');
-    expect(box.textContent).not.toContain('Về Lớp học');
-    expect(el('cx-save-note').hidden).toBe(true);
-    expect(el('cx-stage').hidden).toBe(true);
-    expect(el('cx-loading').hidden).toBe(true);
     // Nothing was fetched for a link that names no bank.
     expect((window.api as unknown as { get: ReturnType<typeof vi.fn> }).get).not.toHaveBeenCalled();
   });
