@@ -128,7 +128,8 @@ and checks that the generated CSS matches the committed files.
 
 1. Inspect the working tree, applicable agent instructions and existing
    implementation before editing. Start normal work from `origin/staging` on a
-   scoped `codex/<task>` branch.
+   scoped topic branch (`codex/<task>`; use `preview/<slug>` only to request a
+   Vercel preview).
 2. Classify the change using [specs/README.md](specs/README.md). Feature/high-risk
    implementation requires the approved spec on the base branch first.
 3. Make a focused patch and run the affected local checks. Commands and test
