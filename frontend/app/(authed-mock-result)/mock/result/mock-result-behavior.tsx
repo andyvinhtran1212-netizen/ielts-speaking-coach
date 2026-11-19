@@ -29,6 +29,7 @@ interface MockResultPayload {
   final_bands?: Record<string, BandValue>;
   overall_min_skills?: number;
   banded_skill_count?: number;
+  sitting_skills?: string[] | null;
   examiner_comment_vi?: string | null;
   per_skill_notes?: Record<string, unknown>;
   released_at?: string | null;
@@ -314,7 +315,16 @@ function ResultContent({ data, sittingId }: {
   const minSkills = typeof data.overall_min_skills === 'number' ? data.overall_min_skills : SKILLS.length;
   const bandedCount = typeof data.banded_skill_count === 'number' ? data.banded_skill_count : scored.length;
   const overallReady = overall != null && overall !== '' && bandedCount >= minSkills;
-  const missingSkills = SKILLS.filter((skill) => finalBands[skill.key] == null).map((skill) => skill.label);
+  // Only the skills this sitting ran can be missing. Without that list (older
+  // backend, failed lookup) no skill is named rather than guessing one.
+  const sittingSkills = Array.isArray(data.sitting_skills) ? data.sitting_skills : null;
+  const sittingLabels = sittingSkills
+    ? SKILLS.filter((skill) => sittingSkills.includes(skill.key)).map((skill) => skill.label)
+    : [];
+  const missingSkills = sittingSkills
+    ? SKILLS.filter((skill) => sittingSkills.includes(skill.key) && finalBands[skill.key] == null).map((skill) => skill.label)
+    : [];
+  const fewerThanNeeded = sittingSkills != null && sittingSkills.length < minSkills;
   const overallDegrees = overall == null || overall === ''
     ? 0
     : Math.min(9, Math.max(0, Number(overall))) / 9 * 360;
@@ -345,7 +355,10 @@ function ResultContent({ data, sittingId }: {
           ) : (
             <div className="trf-overall-none" data-testid="overall-missing">
               <b>Chưa có Overall{missingSkills.length ? ` · còn thiếu ${missingSkills.join(', ')}` : ''}</b>
-              <span>Overall cần đủ {minSkills === 4 ? 'bốn' : minSkills} kỹ năng trong cùng đề thi thử.</span>
+              <span>
+                Overall cần đủ {minSkills === 4 ? 'bốn' : minSkills} kỹ năng trong cùng đề thi thử.
+                {fewerThanNeeded ? ` Bài thi này chỉ gồm ${sittingLabels.join(', ')}.` : ''}
+              </span>
             </div>
           )}
           <div className="trf-skills">

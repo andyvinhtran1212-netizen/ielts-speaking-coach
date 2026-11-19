@@ -20,6 +20,15 @@ _AUTH = {"Authorization": "Bearer faketoken"}
 _SITTING_ID = "00000000-0000-0000-0000-0000000000bb"
 
 
+@pytest.fixture(autouse=True)
+def _required_skills(monkeypatch):
+    """The result endpoint asks which skills the sitting ran; keep that off the
+    database here. Tests that care set their own list."""
+    from routers import mock_exams
+    monkeypatch.setattr(mock_exams.review_wf, "required_skills_for_sitting",
+                        lambda _sid: ["listening", "reading", "writing"])
+
+
 def test_result_includes_attempt_ids_and_delivered_essays():
     sitting = {
         "id":                   _SITTING_ID,
@@ -394,3 +403,45 @@ def test_result_reports_overall_readiness():
     body = r.json()
     assert body["final_bands"] == {"writing": 9.0, "overall": 9.0}
     assert (body["banded_skill_count"], body["overall_min_skills"]) == (1, 4)
+
+
+def _result_with(sitting, review, required):
+    with patch("routers.mock_exams.get_supabase_user", new=AsyncMock(return_value=_USER)), \
+         patch("routers.mock_exams.svc.get_sitting", return_value=sitting), \
+         patch("routers.mock_exams.svc.lr_skill_states", return_value=[]), \
+         patch("routers.mock_exams.review_wf.get_review_for_sitting", return_value=review), \
+         patch("routers.mock_exams.review_wf.required_skills_for_sitting", side_effect=required), \
+         patch("routers.mock_exams.essay_service.delivered_essay_ids", return_value=set()):
+        r = _client().get(
+            "/api/mock-exams/sittings/" + _SITTING_ID + "/result", headers=_AUTH,
+        )
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def test_result_sitting_skills_for_a_listening_reading_retake():
+    """An L/R-only retake ran two skills; the TRF must not list Writing and
+    Speaking as missing work."""
+    sitting = {"id": _SITTING_ID, "user_id": _USER["id"], "status": "released",
+               "assigned_skills": ["listening", "reading"]}
+    review = {"final_bands": {"listening": 6.0, "reading": 6.5, "overall": 6.5}}
+    body = _result_with(sitting, review, lambda _sid: ["listening", "reading"])
+    assert body["sitting_skills"] == ["listening", "reading"]
+    assert body["banded_skill_count"] == 2
+
+
+def test_result_sitting_skills_keep_a_live_speaking_band():
+    """Speaking assessed live counts even when the exam had no speaking set."""
+    sitting = {"id": _SITTING_ID, "user_id": _USER["id"], "status": "released"}
+    review = {"final_bands": {"listening": 6.0, "speaking": 6.0}}
+    body = _result_with(sitting, review, lambda _sid: ["listening", "reading", "writing"])
+    assert body["sitting_skills"] == ["listening", "reading", "writing", "speaking"]
+
+
+def test_result_sitting_skills_is_null_when_the_lookup_fails():
+    """No guess: a failed lookup sends null and the TRF names no missing skill."""
+    def boom(_sid):
+        raise RuntimeError("db down")
+    sitting = {"id": _SITTING_ID, "user_id": _USER["id"], "status": "released"}
+    body = _result_with(sitting, {"final_bands": {"writing": 6.0}}, boom)
+    assert body["sitting_skills"] is None

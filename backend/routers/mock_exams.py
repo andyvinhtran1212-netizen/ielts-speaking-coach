@@ -398,6 +398,27 @@ async def get_result(
     return await asyncio.to_thread(_result_sync, sitting_id, user["id"])
 
 
+_TRF_SKILLS = ("listening", "reading", "writing", "speaking")
+
+
+def _sitting_skills(sitting_id: str, final_bands: dict):
+    """The skills this sitting actually covers, in TRF order.
+
+    The examiner's required set (retake → the student's assigned skills;
+    otherwise the exam's configured sections, plus Speaking when the exam has
+    a speaking component) plus any skill that carries a band anyway (a live
+    Speaking assessment). None when the lookup fails: the TRF then names no
+    missing skill rather than guess one the student was never set."""
+    try:
+        required = set(review_wf.required_skills_for_sitting(sitting_id))
+    except Exception:
+        logger.warning("[mock-result] sitting_skills lookup failed sitting=%s",
+                       sitting_id, exc_info=True)
+        return None
+    return [s for s in _TRF_SKILLS
+            if s in required or final_bands.get(s) is not None]
+
+
 def _result_sync(sitting_id: str, user_id) -> dict:
     """Sync body of GET /sittings/{id}/result after auth, run in ONE worker
     thread (PC-J423) so the reads never hold the event loop."""
@@ -425,6 +446,9 @@ def _result_sync(sitting_id: str, user_id) -> dict:
         "final_bands":          final_bands,
         # G02-T05: the TRF draws an Overall only once enough skills are banded.
         **svc.overall_readiness(final_bands),
+        # The skills THIS sitting ran, so the TRF names only those as missing:
+        # an L/R-only retake must not be told Writing/Speaking are "còn thiếu".
+        "sitting_skills":       _sitting_skills(sitting_id, final_bands),
         "examiner_comment_vi":  review.get("examiner_comment_vi"),
         "per_skill_notes":      review.get("per_skill_notes") or {},
         "released_at":          review.get("released_at"),
