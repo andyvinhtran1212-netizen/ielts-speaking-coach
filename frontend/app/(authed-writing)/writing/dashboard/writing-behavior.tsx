@@ -241,6 +241,25 @@ function hideSubmissionNotice() {
   if (notice) notice.classList.add('hidden');
 }
 
+// The submit modal is full-screen, so the page-level notice above sits behind
+// it. Problems raised while the learner is writing (draft save, blocked paste)
+// go to the in-modal notice instead; it is cleared on every open/close.
+function showModalNotice(kind: 'warning' | 'error', message: string) {
+  const notice = $('modal-notice');
+  if (!notice) return;
+  notice.className = 'wd-submit-notice is-' + kind;
+  notice.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+  notice.textContent = message;
+  notice.classList.remove('hidden');
+}
+
+function hideModalNotice() {
+  const notice = $('modal-notice');
+  if (!notice) return;
+  notice.classList.add('hidden');
+  notice.textContent = '';
+}
+
 function statusCode(err: any): number | null {
   const value = Number(err && err.status);
   return Number.isFinite(value) ? value : null;
@@ -519,7 +538,7 @@ async function downloadEssayDocx(essayId: string, btn: HTMLElement | null) {
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(dl);
   } catch (err: any) {
-    alert('Lỗi tải file: ' + ((err && err.message) || 'không xác định'));
+    showSubmissionNotice('error', 'Lỗi tải file: ' + ((err && err.message) || 'không xác định'));
   } finally {
     if (btn) { (btn as any).disabled = false; btn.innerHTML = orig; }
   }
@@ -1070,6 +1089,8 @@ async function saveDraft(ms: ModalState) {
     if (!isCurrent()) return;
     if (pending) pending.classList.add('hidden');
     if (saved) saved.classList.remove('hidden');
+    // A later successful save supersedes an earlier "draft not saved" error.
+    if ($('modal-notice')?.classList.contains('is-error')) hideModalNotice();
     setTimeout(() => { if (isCurrent() && saved) saved.classList.add('hidden'); }, 2000);
   } catch (err: any) {
     if (!isCurrent()) return;
@@ -1080,7 +1101,7 @@ async function saveDraft(ms: ModalState) {
       await submitFromModal(ms, true);
       return;
     }
-    alert('Không lưu được bản nháp: ' + msg);
+    showModalNotice('error', 'Không lưu được bản nháp: ' + msg);
   }
 }
 
@@ -1149,7 +1170,7 @@ function setupAntiPaste(textarea: HTMLTextAreaElement, ms: ModalState, on: Liste
 
     if (len > PASTE_BLOCK_THRESHOLD) {
       ev.preventDefault();
-      alert('⚠ Không cho phép paste nội dung dài (' + len + ' ký tự). Vui lòng tự gõ bài.');
+      showModalNotice('warning', 'Không dán được đoạn dài ' + len + ' ký tự. Bạn hãy tự gõ bài.');
       if (ms.assignmentId) {
         try {
           await (window as any).api.post(
@@ -1359,6 +1380,7 @@ function closeModal(ms: ModalState) {
   }
   const modal = $('submit-modal');
   if (modal) modal.classList.add('hidden');
+  hideModalNotice();
   ms.assignmentId = null;
   const returnFocus = ms.returnFocus;
   ms.returnFocus = null;
@@ -1555,6 +1577,7 @@ async function openSubmitModal(
   // assignment is not a draft for this one; persistent receipts remain intact.
   const staleTextarea = $('modal-essay-textarea') as HTMLTextAreaElement | null;
   if (staleTextarea) staleTextarea.value = '';
+  hideModalNotice();
   ms.allowSoftCheck = false;
   ms.dead = false;
   const accountId = ms.accountId;
@@ -1657,7 +1680,7 @@ async function openSubmitModal(
       showSubmissionNotice('warning', 'Bài đã được nộp ở một tab khác. Danh sách đã được đồng bộ lại.');
       await Promise.all([loadAssignments(api, ms), loadEssays(api, ms)]);
     } else {
-      alert('Không tải được bài: ' + ((err && err.message) || 'không xác định'));
+      showSubmissionNotice('error', 'Không tải được bài: ' + ((err && err.message) || 'không xác định'));
     }
     closeModal(ms);
   }

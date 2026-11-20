@@ -19,7 +19,7 @@
 //   1. Cổng đăng nhập qua `useAuth()` (ADR-011) thay vì `getSession()` thô.
 //   2. Chờ `window.api` bằng `whenGlobalReady` (có hạn giờ, báo lỗi) thay vì
 //      giả định script đã nạp.
-//   3. `alert()` của `startPractice` giữ nguyên — nó là hành vi người dùng thấy;
+//   3. Hộp `window.alert` của `startPractice` giữ nguyên — nó là hành vi người dùng thấy;
 //      đổi sang toast là thay đổi ngoài phạm vi port.
 import { useEffect, useLayoutEffect, useRef } from 'react';
 

@@ -123,9 +123,10 @@ test('actual Listening submit does not record/send anything when answers have no
 });
 
 test('actual Writing draft uses the exact textarea snapshot and preserves retry across remount', async () => {
-  const h = harness(), calls = [], textarea = { value: 'My exact essay text' };
+  const h = harness(), calls = [], notices = [], textarea = { value: 'My exact essay text' };
+  // G02-T14: a failed draft save is reported in the modal, not with alert().
   const scope = { $: id => id === 'modal-essay-textarea' ? textarea : null, coreOperationRequest: h.request,
-    setTimeout() {}, alert() {},
+    setTimeout() {}, showModalNotice: (kind, message) => notices.push([kind, message]), hideModalNotice() {},
     window: { api: { patchWith: async (path, body, headers) => {
       calls.push({ path, body, headers });
       if (calls.length === 1) throw new Error('offline');
@@ -136,6 +137,7 @@ test('actual Writing draft uses the exact textarea snapshot and preserves retry 
   // the shared modal is still waiting for another assignment's admission.
   const ms = { assignmentId: h.attempt.attempt_id, accountId: h.user.id, workspaceReady: true, openGeneration: 1, dead: false };
   await actualHandler('writing', 'saveDraft', scope)(ms);
+  assert.deepEqual(notices, [['error', 'Không lưu được bản nháp: offline']]);
   await actualHandler('writing', 'saveDraft', { ...scope, coreOperationRequest: harnessTransport(h) })(ms);
   assert.deepEqual(calls[0], calls[1]);
   assert.deepEqual(calls[0].body, { draft_text: textarea.value });

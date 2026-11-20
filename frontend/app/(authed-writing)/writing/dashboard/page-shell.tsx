@@ -352,6 +352,10 @@ export function WritingShell() {
                   <span>Bài và bản nháp của bạn vẫn được giữ. Bài này không nhận bài nộp mới.</span>
                 </div>
 
+                {/* In-page notice for draft-save failures and blocked pastes
+                     (replaces the browser alert box; filled by showModalNotice). */}
+                <div id="modal-notice" className="wd-submit-notice hidden" role="status"></div>
+
                 {/* Essay textarea — Grammarly + autocorrect + spellcheck disabled */}
                 <textarea id="modal-essay-textarea"
                           className="wd-modal-textarea"
