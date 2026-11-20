@@ -1,0 +1,558 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Minh hoạ câu chữ</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--accentH:#0B5953;--link:#0B5953;--mark:#8A4B08;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EDF3F1;--off:#E7E2D6}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--accentH:#11254A;--link:#1A3561;--mark:#8A1C1C;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EEF0F5;--off:#E8E2D5}
+.bw{--accent:var(--ink);--accentH:var(--ink);--link:var(--ink);--mark:var(--ink);--danger:var(--ink);--ok:var(--ink);--tint:var(--surface);--paper:var(--surface)}
+a{color:var(--link)}a:hover{color:var(--ink)}
+.sf{font-family:'Source Serif 4',Georgia,serif}
+.kick{margin:0;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)}
+.h2s{margin:0 0 6px;font-family:'Source Serif 4',Georgia,serif;font-size:24px;font-weight:600}
+.lead{margin:0 0 16px;font-size:14px;color:var(--muted);max-width:110ch}
+.fig{padding:20px 22px 18px;border:1px solid var(--rule);background:var(--surface)}
+.tag{display:block;font:600 11px 'Source Sans 3',sans-serif;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);text-align:center;white-space:nowrap}
+.ch{display:flex;align-items:center;justify-content:center;box-sizing:border-box;height:38px;padding:0 8px;font-family:'Source Serif 4',Georgia,serif;font-size:20px;white-space:nowrap;color:var(--ink)}
+.rS{border:1.5px solid var(--ink)}
+.rV{border-bottom:4px double var(--accent);color:var(--accent);font-weight:600}
+.rO{border:1.5px dashed var(--ink)}
+.rC{border:1.5px dotted var(--ink)}
+.rA{color:var(--muted)}
+.rX{border:1.5px dashed var(--muted);color:var(--muted)}
+.cell{display:flex;flex-direction:column;align-items:center;gap:4px}
+.row{display:grid;grid-template-columns:760px minmax(0,1fr);column-gap:40px;padding:22px 0 24px;border-top:1px solid var(--ink)}
+.fh{margin:0 0 10px;font-family:'Source Serif 4',Georgia,serif;font-size:22px;font-weight:600}
+.fh span{color:var(--muted);font-weight:400}
+.cap{margin:10px 0 0;font-size:14px;line-height:1.5;color:var(--muted)}
+.cap strong{color:var(--ink)}
+.rules{margin:0;display:flex;flex-direction:column;gap:10px;font-size:15px;line-height:1.45}
+.rules dt{font:600 12px 'Source Sans 3',sans-serif;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)}
+.rules dd{margin:2px 0 0}
+.lab{font:600 12px 'Source Sans 3',sans-serif;letter-spacing:0.06em;text-transform:uppercase}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:0 16px;border:1px solid var(--ink);border-radius:0;font:600 14px 'Source Sans 3',sans-serif;cursor:pointer}
+</style>
+</helmet>
+<div class="{{pal}} {{bwc}}" style="width: 1280px; height: 6400px; box-sizing: border-box; padding: 40px 0; background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 16px; line-height: 1.5; display: flex; flex-direction: column; gap: 28px">
+
+<header style="padding: 0 64px">
+<p class="kick">Aver Learning · Bản in · đợt 7 · Grammar Wiki · thành phần</p>
+<h1 style="margin: 4px 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 40px; font-weight: 600; line-height: 1.15">Grammar Wiki: minh hoạ câu chữ</h1>
+<p style="margin: 0 0 14px; color: var(--muted); max-width: 100ch">Mười kiểu sơ đồ "bẻ câu chữ ra cho thấy vai trò từng phần", dùng trong bài wiki (<a href="GrammarWikiBai.dc.html">trang bài</a>), bài giảng và phần giải thích đáp án. Phát triển từ mẫu "sơ đồ câu" ở tờ <a href="ThanhPhanHocTap2.dc.html">Thành phần học tập 2</a> (mục 8). Ví dụ đều lấy từ bài thật trong <span lang="en">backend/content</span>.</p>
+<div role="group" aria-label="Chế độ xem" style="display: flex; align-items: center; gap: 12px"><span style="font-size: 14px; color: var(--muted)">Xem như</span><div style="display: flex"><sc-for list="{{views}}" as="v" hint-placeholder-count="2"><button onClick="{{v.pick}}" aria-pressed="{{v.on}}" class="btn" style="margin-right: -1px; background: {{v.bg}}; color: {{v.fg}}">{{v.label}}</button></sc-for></div><span style="font-size: 14px; color: var(--muted)">Bấm "Bản in đen trắng" để kiểm: mọi hình vẫn đọc được khi mất màu.</span></div>
+</header>
+
+<!-- 0 · QUY ƯỚC -->
+<section aria-labelledby="q0" style="border-top: 2px solid var(--ink); padding: 16px 64px 0">
+<h2 id="q0" class="h2s">Quy ước chung cho mọi hình</h2>
+<p class="lead">Mỗi vai trò có một kiểu nét riêng; màu chỉ nhấn thêm. Nhãn vai trò viết chữ hoa nhỏ ở trên khối (câu gốc) hoặc dưới khối (câu đã biến đổi).</p>
+<div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0 24px; border-top: 1px solid var(--ink)">
+<div style="padding: 14px 0; border-bottom: 1px solid var(--rule)"><div class="cell" style="align-items: flex-start"><span class="tag" style="text-align: left">S · chủ ngữ</span><span class="ch rS" lang="en">the news</span></div><p style="margin: 10px 0 0; font-size: 14px">Khung viền liền 1.5px, màu chữ.</p></div>
+<div style="padding: 14px 0; border-bottom: 1px solid var(--rule)"><div class="cell" style="align-items: flex-start"><span class="tag" style="text-align: left; color: var(--accent)">V · động từ</span><span class="ch rV" lang="en">made</span></div><p style="margin: 10px 0 0; font-size: 14px">Gạch chân đôi 4px, chữ đậm, màu nhấn. Không khung.</p></div>
+<div style="padding: 14px 0; border-bottom: 1px solid var(--rule)"><div class="cell" style="align-items: flex-start"><span class="tag" style="text-align: left">O · tân ngữ</span><span class="ch rO" lang="en">everyone</span></div><p style="margin: 10px 0 0; font-size: 14px">Khung viền đứt (gạch 6, hở 4).</p></div>
+<div style="padding: 14px 0; border-bottom: 1px solid var(--rule)"><div class="cell" style="align-items: flex-start"><span class="tag" style="text-align: left">C · bổ ngữ</span><span class="ch rC" lang="en">happy</span></div><p style="margin: 10px 0 0; font-size: 14px">Khung viền chấm.</p></div>
+<div style="padding: 14px 0; border-bottom: 1px solid var(--rule)"><div class="cell" style="align-items: flex-start"><span class="tag" style="text-align: left">A · trạng ngữ</span><span class="ch rA" lang="en">[ after the competition ]</span></div><p style="margin: 10px 0 0; font-size: 14px">Ngoặc vuông, chữ màu phụ. Không khung.</p></div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 24px; margin-top: 4px; font-size: 14px">
+<p style="margin: 10px 0 0"><strong>Khối bỏ được</strong> (by + agent, phần chêm): viền đứt màu phụ, kèm ngoặc tròn.</p>
+<p style="margin: 10px 0 0"><strong>Sai</strong>: gạch ngang chữ + nhãn "Sai" bằng chữ; <strong>Đúng</strong>: nhãn "Đúng". Không dùng dấu tích, dấu nhân thay chữ.</p>
+<p style="margin: 10px 0 0"><strong>Mũi tên</strong>: liền = bắt buộc đổi chỗ; đứt = tuỳ chọn; mỗi mũi tên có số khớp với chú thích.</p>
+<p style="margin: 10px 0 0"><strong>Chữ trong hình</strong>: câu ví dụ Source Serif 4 20px; nhãn Source Sans 3 11px chữ hoa, giãn 0.08em.</p>
+</div>
+<dl style="margin: 18px 0 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 24px; padding: 12px 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); font-size: 14px">
+<div><dt style="font-weight: 600">Số hình</dt><dd style="margin: 0; color: var(--muted)">"Hình N" đánh theo thứ tự trong một bài, bắt đầu từ 1. Đậm, đứng đầu chú thích.</dd></div>
+<div><dt style="font-weight: 600">Chú thích</dt><dd style="margin: 0; color: var(--muted)">Một câu nói hình chỉ ra điều gì. Ở lề phải (máy tính) hoặc ngay dưới hình (điện thoại). Dòng sau: "Nguồn: Aver Learning biên soạn."</dd></div>
+<div><dt style="font-weight: 600">Dựng bằng gì</dt><dd style="margin: 0; color: var(--muted)">Khối chữ dựng bằng HTML để xuống dòng và chọn chữ được; SVG chỉ cho đường nối, mũi tên, trục thời gian.</dd></div>
+<div><dt style="font-weight: 600">Trợ năng</dt><dd style="margin: 0; color: var(--muted)">Mỗi hình có role="img" và aria-label đọc thành câu: vai trò của từng phần theo thứ tự.</dd></div>
+</dl>
+</section>
+
+<!-- CÁC HÌNH -->
+<section aria-labelledby="q1" style="border-top: 2px solid var(--ink); padding: 16px 64px 0">
+<h2 id="q1" class="h2s">Mười kiểu sơ đồ</h2>
+<p class="lead">Mỗi kiểu: hình mẫu với câu thật, chú thích, rồi quy tắc dùng ở cột phải. Số hình ở đây là số thứ tự trong tờ này; trong bài thật đánh lại từ 1.</p>
+
+<!-- H1 -->
+<div class="row">
+<figure style="margin: 0">
+<p class="fh">Hình 1 <span>· Bẻ câu theo vai trò S, V, O, C, A</span></p>
+<div class="fig" role="img" aria-label="Hình 1. A: The news, chủ ngữ; made, động từ; everyone, tân ngữ; happy, bổ ngữ cho tân ngữ. He, chủ ngữ; became, động từ; famous, bổ ngữ; after the competition, trạng ngữ. B: cùng câu thứ nhất vẽ kiểu nhánh: đường gốc chia bởi vạch đứng, vạch xiên trước bổ ngữ, the treo chéo dưới news.">
+<p class="lab" style="margin: 0 0 8px; color: var(--muted)">A · kiểu khối</p>
+<div style="display: flex; flex-direction: column; gap: 14px" lang="en">
+<div style="display: flex; align-items: flex-end; gap: 10px">
+<div class="cell"><span class="tag">S</span><span class="ch rS">The news</span></div>
+<div class="cell"><span class="tag" style="color: var(--accent)">V</span><span class="ch rV">made</span></div>
+<div class="cell"><span class="tag">O</span><span class="ch rO">everyone</span></div>
+<div class="cell"><span class="tag">C</span><span class="ch rC">happy</span></div>
+<span class="sf" style="font-size: 20px; padding-bottom: 6px">.</span>
+<span style="margin-left: auto; padding-bottom: 8px; font: 600 14px 'Source Sans 3', sans-serif; color: var(--muted)">S + V + O + C</span>
+</div>
+<div style="display: flex; align-items: flex-end; gap: 10px">
+<div class="cell"><span class="tag">S</span><span class="ch rS">He</span></div>
+<div class="cell"><span class="tag" style="color: var(--accent)">V</span><span class="ch rV">became</span></div>
+<div class="cell"><span class="tag">C</span><span class="ch rC">famous</span></div>
+<div class="cell"><span class="tag">A</span><span class="ch rA">[ after the competition ]</span></div>
+<span class="sf" style="font-size: 20px; padding-bottom: 6px">.</span>
+<span style="margin-left: auto; padding-bottom: 8px; font: 600 14px 'Source Sans 3', sans-serif; color: var(--muted)">S + V + C + A</span>
+</div>
+</div>
+<p class="lab" style="margin: 20px 0 6px; padding-top: 12px; border-top: 1px dashed var(--rule); color: var(--muted)">B · kiểu nhánh (từ mẫu sơ đồ câu, Thành phần học tập 2)</p>
+<svg viewBox="0 0 716 170" aria-hidden="true" style="display: block; width: 100%; height: auto">
+<line x1="20" y1="100" x2="700" y2="100" stroke="var(--ink)" stroke-width="1.4"></line>
+<line x1="176" y1="62" x2="176" y2="122" stroke="var(--ink)" stroke-width="1.4"></line>
+<line x1="350" y1="70" x2="350" y2="100" stroke="var(--ink)" stroke-width="1.4"></line>
+<line x1="514" y1="70" x2="530" y2="100" stroke="var(--ink)" stroke-width="1.4"></line>
+<text x="98" y="90" text-anchor="middle" font-family="'Source Serif 4', Georgia, serif" font-size="20" fill="var(--ink)" lang="en">news</text>
+<text x="262" y="90" text-anchor="middle" font-family="'Source Serif 4', Georgia, serif" font-size="20" font-weight="600" fill="var(--accent)" lang="en">made</text>
+<text x="436" y="90" text-anchor="middle" font-family="'Source Serif 4', Georgia, serif" font-size="20" fill="var(--ink)" lang="en">everyone</text>
+<text x="614" y="90" text-anchor="middle" font-family="'Source Serif 4', Georgia, serif" font-size="20" fill="var(--ink)" lang="en">happy</text>
+<line x1="60" y1="100" x2="86" y2="146" stroke="var(--ink)" stroke-width="1.1"></line>
+<text x="92" y="152" font-family="'Source Serif 4', Georgia, serif" font-size="17" font-style="italic" fill="var(--muted)" lang="en">The</text>
+<text x="98" y="30" text-anchor="middle" font-family="'Source Sans 3', sans-serif" font-size="11" letter-spacing="1" fill="var(--muted)">CHỦ NGỮ</text>
+<text x="262" y="30" text-anchor="middle" font-family="'Source Sans 3', sans-serif" font-size="11" letter-spacing="1" fill="var(--accent)">ĐỘNG TỪ</text>
+<text x="436" y="30" text-anchor="middle" font-family="'Source Sans 3', sans-serif" font-size="11" letter-spacing="1" fill="var(--muted)">TÂN NGỮ</text>
+<text x="614" y="30" text-anchor="middle" font-family="'Source Sans 3', sans-serif" font-size="11" letter-spacing="1" fill="var(--muted)">BỔ NGỮ CHO TÂN NGỮ</text>
+<text x="190" y="140" font-family="'Source Sans 3', sans-serif" font-size="12" fill="var(--muted)">vạch cắt qua: chủ ngữ | vị ngữ · vạch nửa trên: trước tân ngữ · vạch xiên: trước bổ ngữ</text>
+</svg>
+</div>
+<figcaption class="cap"><strong>Hình 1.</strong> Hai cách vẽ cùng một ý: mỗi phần của câu giữ một vai trò. Kiểu khối dùng cho bài sơ cấp; kiểu nhánh dùng khi cần cho thấy phần nào treo vào phần nào.<br>Nguồn: Aver Learning biên soạn; ví dụ từ bài <span lang="en">Sentence Elements</span>.</figcaption>
+</figure>
+<dl class="rules">
+<div><dt>Dùng khi</dt><dd>Giới thiệu thành phần câu, năm mẫu câu, lỗi thiếu chủ ngữ hoặc thiếu động từ.</dd></div>
+<div><dt>Cách vẽ</dt><dd>Mỗi khối là một thành phần, không phải một từ. Tối đa 6 khối một dòng. Bên phải ghi công thức mẫu câu. Kiểu nhánh chỉ dùng khi câu có phần bổ nghĩa cần treo.</dd></div>
+<div><dt>Điện thoại</dt><dd>Khối xuống dòng nguyên khối, nhãn đi theo khối. Công thức chuyển xuống dưới câu. Kiểu nhánh thu theo bề ngang, chữ không nhỏ hơn 14px; hẹp hơn thì đổi sang kiểu khối.</dd></div>
+<div><dt>In đen trắng</dt><dd>Phân biệt bằng viền liền, đứt, chấm, gạch đôi và ngoặc vuông; nhãn chữ S, V, O, C, A luôn có.</dd></div>
+</dl>
+</div>
+
+<!-- H2 -->
+<div class="row">
+<figure style="margin: 0">
+<p class="fh">Hình 2 <span>· Cụm danh từ mở rộng</span></p>
+<div class="fig" role="img" aria-label="Hình 2. Cụm danh từ làm chủ ngữ: The, từ hạn định; rapid, tính từ; expansion, danh từ chính; of privately funded urban transport projects, bổ nghĩa sau; in developing regions, bổ nghĩa sau. Động từ của câu là has raised, chia theo expansion.">
+<div lang="en" style="display: flex; align-items: flex-start; gap: 8px">
+<div style="display: flex; flex-direction: column">
+<div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px"><span style="flex: 1 1 auto; height: 8px; border: 1.5px solid var(--ink); border-bottom: 0"></span><span class="lab" style="color: var(--ink)">cụm danh từ = chủ ngữ</span><span style="flex: 1 1 auto; height: 8px; border: 1.5px solid var(--ink); border-bottom: 0"></span></div>
+<div style="display: flex; align-items: flex-start; gap: 6px">
+<div class="cell"><span class="ch" style="border-bottom: 1.5px dotted var(--ink); padding: 0 4px">The</span><span class="tag">hạn định</span></div>
+<div class="cell"><span class="ch" style="border-bottom: 1.5px dotted var(--ink); padding: 0 4px">rapid</span><span class="tag">tính từ</span></div>
+<div class="cell"><span class="ch rS" style="font-weight: 600">expansion</span><span class="tag" style="color: var(--ink)">danh từ chính</span></div>
+<div class="cell"><span class="ch" style="border-bottom: 1.5px dashed var(--ink); padding: 0 4px">of privately funded urban transport projects</span><span class="tag">← bổ nghĩa sau ①</span></div>
+</div>
+<div style="display: flex; justify-content: flex-start; gap: 6px; margin-top: 10px; padding-left: 230px">
+<div class="cell"><span class="ch" style="border-bottom: 1.5px dashed var(--ink); padding: 0 4px">in developing regions</span><span class="tag">← bổ nghĩa sau ②</span></div>
+<div class="cell" style="margin-left: 10px"><span class="ch rV">has raised</span><span class="tag" style="color: var(--accent)">V · chia theo expansion</span></div>
+<div class="cell"><span class="ch rO">concerns</span><span class="tag">O</span></div>
+</div>
+</div>
+</div>
+<p style="margin: 14px 0 0; padding-top: 10px; border-top: 1px dashed var(--rule); font-size: 14px; color: var(--muted)">Trong ① lại có một cụm danh từ nhỏ: <span lang="en">privately funded urban transport</span> + <strong lang="en" style="color: var(--ink)">projects</strong> (danh từ chính của cụm nhỏ). Bóc từ ngoài vào trong, mỗi lần tìm một danh từ chính.</p>
+</div>
+<figcaption class="cap"><strong>Hình 2.</strong> Chủ ngữ dài 12 từ nhưng chỉ có một danh từ chính, <span lang="en">expansion</span>; mọi phần khác bổ nghĩa cho nó, nên động từ là <span lang="en">has</span>.<br>Nguồn: Aver Learning biên soạn; câu từ bài <span lang="en">Untangling Complex Noun Phrases</span>.</figcaption>
+</figure>
+<dl class="rules">
+<div><dt>Dùng khi</dt><dd>Cụm danh từ, danh hoá, câu Reading có chủ ngữ dài, lỗi chia động từ theo danh từ đứng gần.</dd></div>
+<div><dt>Cách vẽ</dt><dd>Một ngoặc trên bao cả cụm. Danh từ chính khung liền, chữ đậm. Phần đứng trước: gạch chấm. Phần đứng sau: gạch đứt kèm mũi tên chỉ về danh từ chính.</dd></div>
+<div><dt>Điện thoại</dt><dd>Đổi thành danh sách thụt bậc: danh từ chính ở dòng đầu, các phần bổ nghĩa xếp dưới, mỗi phần một dòng, thụt 16px.</dd></div>
+<div><dt>In đen trắng</dt><dd>Danh từ chính nhận ra nhờ khung liền và chữ đậm; trước/sau phân biệt bằng gạch chấm và gạch đứt.</dd></div>
+</dl>
+</div>
+
+<!-- H3 -->
+<div class="row">
+<figure style="margin: 0">
+<p class="fh">Hình 3 <span>· Dòng thời gian cho thì</span></p>
+<div class="fig" role="img" aria-label="Hình 3. Trục thời gian từ quá khứ tới tương lai. Present Perfect: She has lived in Da Nang since 2020, thanh liền bắt đầu năm 2020 và chạm mốc bây giờ. Past Simple: I lived in Hanoi for five years, thanh viền đôi nằm trọn trong quá khứ, không chạm bây giờ.">
+<svg viewBox="0 0 716 236" aria-hidden="true" style="display: block; width: 100%; height: auto">
+<defs><marker id="ta" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--ink)"></path></marker></defs>
+<line x1="20" y1="124" x2="700" y2="124" stroke="var(--ink)" stroke-width="1.4" marker-end="url(#ta)"></line>
+<text x="20" y="146" font-family="'Source Sans 3', sans-serif" font-size="12" fill="var(--muted)">QUÁ KHỨ</text>
+<text x="700" y="146" text-anchor="end" font-family="'Source Sans 3', sans-serif" font-size="12" fill="var(--muted)">TƯƠNG LAI</text>
+<line x1="540" y1="58" x2="540" y2="214" stroke="var(--ink)" stroke-width="1.2" stroke-dasharray="4 4"></line>
+<text x="540" y="230" text-anchor="middle" font-family="'Source Sans 3', sans-serif" font-size="12" font-weight="600" fill="var(--ink)">BÂY GIỜ</text>
+<text x="20" y="62" font-family="'Source Sans 3', sans-serif" font-size="12" font-weight="600" fill="var(--accent)" lang="en">PRESENT PERFECT</text>
+<text x="250" y="44" font-family="'Source Serif 4', Georgia, serif" font-size="18" fill="var(--ink)" lang="en">She has lived in Da Nang since 2020.</text>
+<line x1="300" y1="80" x2="540" y2="80" stroke="var(--accent)" stroke-width="7"></line>
+<line x1="540" y1="80" x2="600" y2="80" stroke="var(--accent)" stroke-width="2" stroke-dasharray="4 4"></line>
+<circle cx="300" cy="80" r="6" fill="var(--accent)"></circle>
+<line x1="300" y1="80" x2="300" y2="124" stroke="var(--accent)" stroke-width="1" stroke-dasharray="2 3"></line>
+<text x="300" y="112" text-anchor="middle" font-family="'Source Sans 3', sans-serif" font-size="12" fill="var(--ink)">2020</text>
+<text x="606" y="84" font-family="'Source Sans 3', sans-serif" font-size="12" fill="var(--muted)">còn tiếp</text>
+<text x="20" y="176" font-family="'Source Sans 3', sans-serif" font-size="12" font-weight="600" fill="var(--muted)" lang="en">PAST SIMPLE</text>
+<rect x="110" y="166" width="200" height="10" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.4"></rect>
+<circle cx="110" cy="171" r="5" fill="var(--ink)"></circle>
+<circle cx="310" cy="171" r="5" fill="var(--ink)"></circle>
+<text x="210" y="160" text-anchor="middle" font-family="'Source Sans 3', sans-serif" font-size="12" fill="var(--muted)">năm năm, đã khép lại</text>
+<text x="110" y="204" font-family="'Source Serif 4', Georgia, serif" font-size="18" fill="var(--ink)" lang="en">I lived in Hanoi for five years.</text>
+</svg>
+</div>
+<figcaption class="cap"><strong>Hình 3.</strong> Thanh của Present Perfect chạm vạch "bây giờ"; thanh của Past Simple nằm trọn bên trái, hai đầu đã đóng.<br>Nguồn: Aver Learning biên soạn; câu từ bài <span lang="en">Present Perfect</span>.</figcaption>
+</figure>
+<dl class="rules">
+<div><dt>Dùng khi</dt><dd>Mọi bài về thì; so sánh hai thì; mốc since/for, by the time, already.</dd></div>
+<div><dt>Cách vẽ</dt><dd>Trục ngang, mũi tên về phải; vạch "bây giờ" đứt dọc. Hành động kéo dài: thanh; hành động tại một điểm: chấm tròn. Tối đa hai thì một hình, câu ví dụ đặt ngay trên thanh.</dd></div>
+<div><dt>Điện thoại</dt><dd>Hình thu theo bề ngang, chữ trong hình tối thiểu 13px; câu ví dụ chuyển xuống dưới hình, đánh dấu (a), (b) khớp với thanh.</dd></div>
+<div><dt>In đen trắng</dt><dd>Thanh liền đặc khác thanh viền rỗng; phần "còn tiếp" là nét đứt; mỗi thanh có nhãn tên thì bằng chữ.</dd></div>
+</dl>
+</div>
+
+<!-- H4 -->
+<div class="row">
+<figure style="margin: 0">
+<p class="fh">Hình 4 <span>· Chủ động ↔ bị động</span></p>
+<div class="fig" role="img" aria-label="Hình 4. Scientists discovered a new planet in 2023 chuyển thành A new planet was discovered by scientists in 2023. Tân ngữ lên làm chủ ngữ; chủ ngữ cũ ra sau by, bỏ được; động từ thành be cộng V3; trạng ngữ in 2023 giữ nguyên chỗ.">
+<div style="position: relative; width: 716px; height: 228px" lang="en">
+<div style="position: absolute; left: 0; top: 0; display: flex; gap: 12px">
+<div style="width: 150px"><span class="tag">S</span><span class="ch rS" style="margin-top: 4px">Scientists</span></div>
+<div style="width: 150px"><span class="tag" style="color: var(--accent)">V</span><span class="ch rV" style="margin-top: 4px">discovered</span></div>
+<div style="width: 170px"><span class="tag">O</span><span class="ch rO" style="margin-top: 4px">a new planet</span></div>
+<div style="width: 110px"><span class="tag">A</span><span class="ch rA" style="margin-top: 4px">[ in 2023 ]</span></div>
+</div>
+<svg aria-hidden="true" viewBox="0 0 716 82" style="position: absolute; left: 0; top: 62px; width: 716px; height: 82px">
+<defs><marker id="ah4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--ink)"></path></marker></defs>
+<path d="M409 4 C 409 40, 85 36, 85 76" fill="none" stroke="var(--ink)" stroke-width="1.6" marker-end="url(#ah4)"></path>
+<path d="M75 4 C 75 46, 459 30, 459 76" fill="none" stroke="var(--muted)" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#ah4)"></path>
+<path d="M237 4 L 272 76" fill="none" stroke="var(--accent)" stroke-width="1.6" marker-end="url(#ah4)"></path>
+<path d="M547 4 L 609 76" fill="none" stroke="var(--muted)" stroke-width="1" marker-end="url(#ah4)"></path>
+<text x="330" y="22" font-family="'Source Sans 3', sans-serif" font-size="13" font-weight="600" fill="var(--ink)">1</text>
+<text x="150" y="58" font-family="'Source Sans 3', sans-serif" font-size="13" font-weight="600" fill="var(--muted)">2</text>
+<text x="262" y="34" font-family="'Source Sans 3', sans-serif" font-size="13" font-weight="600" fill="var(--accent)">3</text>
+<text x="590" y="34" font-family="'Source Sans 3', sans-serif" font-size="12" fill="var(--muted)">giữ chỗ</text>
+</svg>
+<div style="position: absolute; left: 0; top: 146px; display: flex; gap: 12px">
+<div style="width: 170px"><span class="ch rS">A new planet</span><span class="tag" style="margin-top: 4px">S mới</span></div>
+<div style="width: 180px"><span class="ch rV">was discovered</span><span class="tag" style="margin-top: 4px; color: var(--accent)">V · be + V3</span></div>
+<div style="width: 170px"><span class="ch rX">(by scientists)</span><span class="tag" style="margin-top: 4px">bỏ được</span></div>
+<div style="width: 110px"><span class="ch rA">[ in 2023 ]</span><span class="tag" style="margin-top: 4px">A</span></div>
+</div>
+</div>
+</div>
+<figcaption class="cap"><strong>Hình 4.</strong> (1) Tân ngữ lên làm chủ ngữ; (2) chủ ngữ cũ ra sau <span lang="en">by</span>, khung đứt nghĩa là bỏ được; (3) động từ thành <span lang="en">be + V3</span> cùng thì; trạng ngữ không đổi chỗ.<br>Nguồn: Aver Learning biên soạn; câu từ bài <span lang="en">Passive Voice</span>.</figcaption>
+</figure>
+<dl class="rules">
+<div><dt>Dùng khi</dt><dd>Bị động, câu tường thuật, đảo ngữ, câu chẻ: mọi phép biến đổi làm các thành phần đổi chỗ.</dd></div>
+<div><dt>Cách vẽ</dt><dd>Câu gốc trên, nhãn trên khối; câu đã đổi dưới, nhãn dưới khối. Khối giữ bề rộng cố định để mũi tên nối đúng tâm. Tối đa ba mũi tên có số; phần không đổi chỗ dùng nét mảnh ghi "giữ chỗ".</dd></div>
+<div><dt>Điện thoại</dt><dd>Bỏ mũi tên. Hai câu xếp dọc; mỗi khối mang chữ mũ a, b, c ở cả hai câu để nối cặp (xem khung điện thoại bên dưới).</dd></div>
+<div><dt>In đen trắng</dt><dd>Mũi tên bắt buộc là nét liền, tuỳ chọn là nét đứt; số trên mũi tên khớp chú thích.</dd></div>
+</dl>
+</div>
+
+<!-- H5 -->
+<div class="row">
+<figure style="margin: 0">
+<p class="fh">Hình 5 <span>· Mệnh đề lồng nhau</span></p>
+<div class="fig" role="img" aria-label="Hình 5. Câu Although the initial results, which were gathered over three years, seemed promising, the drug ultimately failed the final trial. Mệnh đề chính: the drug ultimately failed the final trial. Mệnh đề phụ chỉ nhượng bộ: Although the initial results seemed promising. Lồng trong đó: which were gathered over three years, bổ nghĩa cho results.">
+<p lang="en" class="sf" style="margin: 0 0 14px; font-size: 19px; line-height: 1.7"><span style="color: var(--muted)">⟨</span>Although the initial results<span style="color: var(--muted)">(</span>, which were gathered over three years,<span style="color: var(--muted)">)</span> seemed promising,<span style="color: var(--muted)">⟩</span> <span style="padding: 1px 4px; border: 1.5px solid var(--ink)">the drug</span> ultimately <span style="border-bottom: 4px double var(--accent); color: var(--accent); font-weight: 600">failed</span> <span style="padding: 1px 4px; border: 1.5px dashed var(--ink)">the final trial</span>.</p>
+<div lang="en" style="font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; line-height: 1.4; border-top: 1px solid var(--rule)">
+<div style="display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 0 12px; padding: 8px 0; border-bottom: 1px solid var(--rule)"><span class="lab" style="color: var(--accent); padding-top: 3px">Bậc 1 · chính</span><span><span style="padding: 1px 4px; border: 1.5px solid var(--ink)">the drug</span> ultimately <span style="border-bottom: 4px double var(--accent); color: var(--accent); font-weight: 600">failed</span> <span style="padding: 1px 4px; border: 1.5px dashed var(--ink)">the final trial</span>.</span></div>
+<div style="display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 0 12px; padding: 8px 0; border-bottom: 1px solid var(--rule)"><span class="lab" style="color: var(--muted); padding-top: 3px">Bậc 2 · phụ</span><span style="padding-left: 22px; border-left: 1.5px solid var(--muted)"><span style="color: var(--muted)">⟨</span> Although <span style="padding: 1px 4px; border: 1.5px solid var(--muted)">the initial results</span> <em>seemed</em> promising <span style="color: var(--muted)">⟩</span> <span style="font: 14px 'Source Sans 3', sans-serif; color: var(--muted)">nhượng bộ, bổ nghĩa cho cả bậc 1</span></span></div>
+<div style="display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 0 12px; padding: 8px 0"><span class="lab" style="color: var(--muted); padding-top: 3px">Bậc 3 · lồng</span><span style="margin-left: 22px; padding-left: 22px; border-left: 1.5px dashed var(--muted); color: var(--muted)">( which <em>were gathered</em> over three years ) <span style="font: 14px 'Source Sans 3', sans-serif">bổ nghĩa cho <em lang="en">results</em> ở bậc 2</span></span></div>
+</div>
+</div>
+<figcaption class="cap"><strong>Hình 5.</strong> Dòng trên là câu gốc có ngoặc đánh dấu ranh giới; bên dưới tách thành ba bậc. Chỉ <span lang="en">failed</span> là động từ của cả câu.<br>Nguồn: Aver Learning biên soạn; câu từ bài <span lang="en">Long Sentence Untangling</span>.</figcaption>
+</figure>
+<dl class="rules">
+<div><dt>Dùng khi</dt><dd>Câu phức, mệnh đề quan hệ, mệnh đề trạng ngữ, giải mã câu dài trong Reading.</dd></div>
+<div><dt>Cách vẽ</dt><dd>Luôn có dòng câu gốc ở trên. Ngoặc nhọn ⟨ ⟩ cho mệnh đề phụ, ngoặc tròn cho mệnh đề lồng sâu hơn. Mỗi bậc thụt 22px với vạch trái: liền cho bậc 2, đứt cho bậc 3. Tối đa ba bậc.</dd></div>
+<div><dt>Điện thoại</dt><dd>Giữ thụt bậc nhưng giảm còn 12px; nhãn bậc lên dòng riêng phía trên. Câu gốc xuống dòng tự nhiên, ngoặc không tách khỏi chữ.</dd></div>
+<div><dt>In đen trắng</dt><dd>Bậc phân biệt bằng độ thụt, vạch liền/đứt và kiểu ngoặc; nhãn "Bậc 1/2/3" bằng chữ.</dd></div>
+</dl>
+</div>
+
+<!-- H6 -->
+<div class="row">
+<figure style="margin: 0">
+<p class="fh">Hình 6 <span>· Hình vị trong từ</span></p>
+<div class="fig" role="img" aria-label="Hình 6. unemployment gồm un, tiền tố nghĩa không; employ, gốc nghĩa thuê làm; ment, hậu tố biến động từ thành danh từ. developments gồm develop, ment và s, hậu tố số nhiều. worked gồm work và ed, quá khứ.">
+<div style="display: grid; grid-template-columns: 1.3fr 1.2fr 0.8fr; gap: 0 28px" lang="en">
+<div>
+<div style="display: flex; align-items: flex-end; justify-content: center; gap: 2px" class="sf">
+<div class="cell"><span style="font-size: 28px; padding: 0 3px; border: 1.5px dotted var(--ink)">un</span><span class="tag">tiền tố</span></div>
+<div class="cell"><span style="font-size: 28px; padding: 0 3px; border-bottom: 1.5px solid var(--ink)">employ</span><span class="tag">gốc</span></div>
+<div class="cell"><span style="font-size: 28px; padding: 0 3px; border-bottom: 4px double var(--accent); color: var(--accent); font-weight: 600">ment</span><span class="tag" style="color: var(--accent)">hậu tố từ loại</span></div>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px; text-align: center">không + thuê làm + <strong>→ danh từ</strong> = tình trạng thất nghiệp</p>
+</div>
+<div>
+<div style="display: flex; align-items: flex-end; justify-content: center; gap: 2px" class="sf">
+<div class="cell"><span style="font-size: 28px; padding: 0 3px; border-bottom: 1.5px solid var(--ink)">develop</span><span class="tag">gốc · v</span></div>
+<div class="cell"><span style="font-size: 28px; padding: 0 3px; border-bottom: 4px double var(--accent); color: var(--accent); font-weight: 600">ment</span><span class="tag" style="color: var(--accent)">→ n</span></div>
+<div class="cell"><span style="font-size: 28px; padding: 0 3px; border: 1.5px dashed var(--ink)">s</span><span class="tag">số nhiều</span></div>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px; text-align: center">phát triển + <strong>→ danh từ</strong> + nhiều cái</p>
+</div>
+<div>
+<div style="display: flex; align-items: flex-end; justify-content: center; gap: 2px" class="sf">
+<div class="cell"><span style="font-size: 28px; padding: 0 3px; border-bottom: 1.5px solid var(--ink)">work</span><span class="tag">gốc</span></div>
+<div class="cell"><span style="font-size: 28px; padding: 0 3px; border: 1.5px dashed var(--ink)">ed</span><span class="tag">quá khứ</span></div>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px; text-align: center">cũng vậy: <span lang="en">work·s</span>, <span lang="en">work·ing</span></p>
+</div>
+</div>
+<p style="margin: 16px 0 0; padding-top: 10px; border-top: 1px dashed var(--rule); font-size: 14px; color: var(--muted)">Hậu tố từ loại (gạch đôi) đổi loại từ; hậu tố biến tố (khung đứt: -s, -ed, -ing) chỉ thêm số, thì, dạng, không đổi loại từ. Tiền tố (khung chấm) đổi nghĩa, không đổi loại từ.</p>
+</div>
+<figcaption class="cap"><strong>Hình 6.</strong> Mỗi mẩu của từ góp một phần nghĩa; đọc từ gốc ra ngoài. <span lang="en">unemployment</span> có trong bài <span lang="en">Passive Voice</span> (<span lang="en">It has been reported that unemployment has risen</span>).<br>Nguồn: Aver Learning biên soạn; theo bài <span lang="en">Word Formation — Noun Suffixes</span>.</figcaption>
+</figure>
+<dl class="rules">
+<div><dt>Dùng khi</dt><dd>Cấu tạo từ, hậu tố danh từ/tính từ, lỗi sai dạng từ, chia động từ -s/-ed, so sánh -er/-est.</dd></div>
+<div><dt>Cách vẽ</dt><dd>Tách bằng khoảng 2px, không dùng gạch nối. Gốc gạch đơn; tiền tố khung chấm; hậu tố từ loại gạch đôi màu nhấn; hậu tố biến tố khung đứt. Dưới từ một dòng "nghĩa cộng lại". Tối đa 3 từ một hình.</dd></div>
+<div><dt>Điện thoại</dt><dd>Mỗi từ một dòng, chữ 24px; dòng nghĩa ngay dưới. Không thu nhỏ mẩu nào dưới 20px.</dd></div>
+<div><dt>In đen trắng</dt><dd>Bốn loại mẩu khác nhau bởi gạch đơn, gạch đôi, khung chấm, khung đứt và nhãn chữ.</dd></div>
+</dl>
+</div>
+
+<!-- H7 -->
+<div class="row">
+<figure style="margin: 0">
+<p class="fh">Hình 7 <span>· Hoà hợp chủ ngữ và động từ</span></p>
+<div class="fig" role="img" aria-label="Hình 7. Câu The proportion of people who use public transport has risen significantly. Cung trên nối proportion với has, số ít. Cung dưới nối people với use, số nhiều. Phần of people who use public transport chen giữa, không quyết định has.">
+<svg viewBox="0 0 716 190" aria-hidden="true" style="display: block; width: 100%; height: auto" lang="en">
+<path d="M108 76 C 108 22, 534 22, 534 76" fill="none" stroke="var(--ink)" stroke-width="1.6"></path>
+<circle cx="108" cy="78" r="3" fill="var(--ink)"></circle><circle cx="534" cy="78" r="3" fill="var(--ink)"></circle>
+<text x="321" y="30" text-anchor="middle" font-family="'Source Sans 3', sans-serif" font-size="12" font-weight="600" fill="var(--ink)">① SỐ ÍT: proportion → has</text>
+<rect x="60" y="84" width="96" height="34" fill="none" stroke="var(--ink)" stroke-width="1.5"></rect>
+<text x="20" y="108" font-family="'Source Serif 4', Georgia, serif" font-size="20" fill="var(--ink)" textLength="32" lengthAdjust="spacingAndGlyphs">The</text>
+<text x="66" y="108" font-family="'Source Serif 4', Georgia, serif" font-size="20" font-weight="600" fill="var(--ink)" textLength="84" lengthAdjust="spacingAndGlyphs">proportion</text>
+<text x="166" y="108" font-family="'Source Serif 4', Georgia, serif" font-size="20" fill="var(--muted)" textLength="18" lengthAdjust="spacingAndGlyphs">of</text>
+<rect x="190" y="84" width="70" height="34" fill="none" stroke="var(--muted)" stroke-width="1.4" stroke-dasharray="5 4"></rect>
+<text x="196" y="108" font-family="'Source Serif 4', Georgia, serif" font-size="20" fill="var(--muted)" textLength="58" lengthAdjust="spacingAndGlyphs">people</text>
+<text x="270" y="108" font-family="'Source Serif 4', Georgia, serif" font-size="20" fill="var(--muted)" textLength="38" lengthAdjust="spacingAndGlyphs">who</text>
+<text x="316" y="108" font-family="'Source Serif 4', Georgia, serif" font-size="20" font-weight="600" fill="var(--muted)" textLength="34" lengthAdjust="spacingAndGlyphs">use</text>
+<line x1="316" y1="116" x2="350" y2="116" stroke="var(--muted)" stroke-width="1.2"></line><line x1="316" y1="119" x2="350" y2="119" stroke="var(--muted)" stroke-width="1.2"></line>
+<text x="360" y="108" font-family="'Source Serif 4', Georgia, serif" font-size="20" fill="var(--muted)" textLength="52" lengthAdjust="spacingAndGlyphs">public</text>
+<text x="420" y="108" font-family="'Source Serif 4', Georgia, serif" font-size="20" fill="var(--muted)" textLength="80" lengthAdjust="spacingAndGlyphs">transport</text>
+<text x="516" y="108" font-family="'Source Serif 4', Georgia, serif" font-size="20" font-weight="600" fill="var(--accent)" textLength="36" lengthAdjust="spacingAndGlyphs">has</text>
+<line x1="516" y1="116" x2="552" y2="116" stroke="var(--accent)" stroke-width="1.4"></line><line x1="516" y1="120" x2="552" y2="120" stroke="var(--accent)" stroke-width="1.4"></line>
+<text x="562" y="108" font-family="'Source Serif 4', Georgia, serif" font-size="20" fill="var(--ink)" textLength="44" lengthAdjust="spacingAndGlyphs">risen</text>
+<text x="614" y="108" font-family="'Source Serif 4', Georgia, serif" font-size="20" fill="var(--ink)" textLength="96" lengthAdjust="spacingAndGlyphs">significantly.</text>
+<path d="M225 124 C 225 160, 333 160, 333 126" fill="none" stroke="var(--muted)" stroke-width="1.4" stroke-dasharray="5 4"></path>
+<text x="279" y="176" text-anchor="middle" font-family="'Source Sans 3', sans-serif" font-size="12" font-weight="600" fill="var(--muted)">② SỐ NHIỀU: people → use</text>
+<path d="M166 132 L166 140 L500 140 L500 132" fill="none" stroke="var(--muted)" stroke-width="1"></path>
+<text x="500" y="160" text-anchor="end" font-family="'Source Sans 3', sans-serif" font-size="12" fill="var(--muted)">phần chen giữa</text>
+</svg>
+</div>
+<figcaption class="cap"><strong>Hình 7.</strong> Động từ <span lang="en">has</span> chia theo <span lang="en">proportion</span> (cung liền ①), không theo <span lang="en">people</span> hay <span lang="en">transport</span> đứng ngay trước nó. Trong mệnh đề <span lang="en">who…</span>, <span lang="en">use</span> chia theo <span lang="en">people</span> (cung đứt ②).<br>Nguồn: Aver Learning biên soạn; câu từ bài <span lang="en">Subject-Verb Agreement</span>.</figcaption>
+</figure>
+<dl class="rules">
+<div><dt>Dùng khi</dt><dd>Hoà hợp chủ–vị, đại từ thay thế (it/they), lỗi tham chiếu mơ hồ.</dd></div>
+<div><dt>Cách vẽ</dt><dd>Cung nối chủ ngữ chính và động từ của nó, vẽ phía trên câu, nét liền. Cặp phụ vẽ phía dưới, nét đứt. Phần chen giữa đổi chữ màu phụ và có ngoặc dưới. Tối đa hai cung.</dd></div>
+<div><dt>Điện thoại</dt><dd>Không vẽ cung qua dòng. Câu xuống dòng tự nhiên; hai từ của một cặp mang cùng số mũ ① hoặc ②, kèm dòng "① proportion → has" dưới câu.</dd></div>
+<div><dt>In đen trắng</dt><dd>Cung liền và cung đứt, khung liền và khung đứt, số ① ② bằng chữ.</dd></div>
+</dl>
+</div>
+
+<!-- H8 -->
+<div class="row">
+<figure style="margin: 0">
+<p class="fh">Hình 8 <span>· Sai và đúng cạnh nhau</span></p>
+<div class="fig" role="img" aria-label="Hình 8. Hai cặp sai đúng. The accident was happened yesterday, sai, sửa thành The accident happened yesterday vì happen không có bị động. The quality of the products have improved, sai, sửa thành has improved vì chủ ngữ chính là quality.">
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px">
+<p class="lab" style="margin: 0 0 6px; color: var(--danger)">Sai</p>
+<p class="lab" style="margin: 0 0 6px; color: var(--ok)">Đúng</p>
+<p lang="en" class="sf" style="margin: 0; padding: 10px 0; border-top: 1.5px solid var(--danger); font-size: 19px">The accident <span style="text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px; padding: 0 3px; border: 1.5px dashed var(--danger)">was happened</span> yesterday.</p>
+<p lang="en" class="sf" style="margin: 0; padding: 10px 0; border-top: 1.5px solid var(--ok); font-size: 19px">The accident <span style="padding: 0 3px; border-bottom: 4px double var(--ok); font-weight: 600">happened</span> yesterday.</p>
+<p style="grid-column: span 2; margin: 0 0 12px; font-size: 14px; color: var(--muted)"><span class="lab" style="color: var(--muted)">Vì sao&nbsp;&nbsp;</span><span lang="en">happen</span> không có tân ngữ, nên không có dạng bị động.</p>
+<p lang="en" class="sf" style="margin: 0; padding: 10px 0; border-top: 1.5px solid var(--danger); font-size: 19px">The quality of the products <span style="text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px; padding: 0 3px; border: 1.5px dashed var(--danger)">have</span> improved.</p>
+<p lang="en" class="sf" style="margin: 0; padding: 10px 0; border-top: 1.5px solid var(--ok); font-size: 19px">The quality of the products <span style="padding: 0 3px; border-bottom: 4px double var(--ok); font-weight: 600">has</span> improved.</p>
+<p style="grid-column: span 2; margin: 0; font-size: 14px; color: var(--muted)"><span class="lab" style="color: var(--muted)">Vì sao&nbsp;&nbsp;</span>chủ ngữ chính là <span lang="en">quality</span>; <span lang="en">of the products</span> là cụm giới từ (xem Hình 7).</p>
+</div>
+</div>
+<figcaption class="cap"><strong>Hình 8.</strong> Chỉ đánh dấu đúng chỗ sai, phần còn lại của câu giữ nguyên để mắt so được ngay.<br>Nguồn: Aver Learning biên soạn; câu từ bài <span lang="en">Passive Voice</span> và <span lang="en">Subject-Verb Agreement</span>.</figcaption>
+</figure>
+<dl class="rules">
+<div><dt>Dùng khi</dt><dd>Mục "Lỗi người Việt hay gặp", Error Clinic, phản hồi bài chấm dẫn sang wiki.</dd></div>
+<div><dt>Cách vẽ</dt><dd>Hai cột, câu sai trái, câu đúng phải, cùng hàng. Chỉ khoanh phần sai (khung đứt + gạch ngang) và phần sửa (gạch đôi). Dòng "Vì sao" chạy hết hai cột. Tối đa ba cặp.</dd></div>
+<div><dt>Điện thoại</dt><dd>Xếp dọc: Sai, Đúng, Vì sao; nhãn đứng đầu dòng. Không đặt hai cột cạnh nhau dưới 600px.</dd></div>
+<div><dt>In đen trắng</dt><dd>Chữ "Sai"/"Đúng" luôn có; phần sai vừa gạch ngang vừa khung đứt, phần đúng gạch đôi.</dd></div>
+</dl>
+</div>
+
+<!-- H9 -->
+<div class="row">
+<figure style="margin: 0">
+<p class="fh">Hình 9 <span>· Dịch theo vai trò, Anh → Việt</span></p>
+<div class="fig" role="img" aria-label="Hình 9. A new bridge was built last year dịch thành Một cây cầu mới đã được xây năm ngoái. Ba khối chủ ngữ, động từ, trạng ngữ giữ cùng thứ tự. Trong cụm danh từ, new bridge đảo thành cầu mới.">
+<div style="display: grid; grid-template-columns: 76px 220px 200px 160px; gap: 0 12px; align-items: center">
+<span class="lab" style="font-size: 11px; color: var(--muted)">Tiếng Anh</span>
+<div class="cell"><span class="tag">S</span><span class="ch rS" lang="en" style="width: 100%">A new bridge</span></div>
+<div class="cell"><span class="tag" style="color: var(--accent)">V · bị động</span><span class="ch rV" lang="en" style="width: 100%">was built</span></div>
+<div class="cell"><span class="tag">A</span><span class="ch rA" lang="en">[ last year ]</span></div>
+<span></span>
+<span style="justify-self: center; width: 0; height: 22px; border-left: 1.5px solid var(--ink)"></span>
+<span style="justify-self: center; width: 0; height: 22px; border-left: 1.5px solid var(--accent)"></span>
+<span style="justify-self: center; width: 0; height: 22px; border-left: 1.5px solid var(--muted)"></span>
+<span class="lab" style="font-size: 11px; color: var(--muted)">Tiếng Việt</span>
+<span class="ch rS" style="width: 100%">Một cây cầu mới</span>
+<span class="ch rV" style="width: 100%">đã được xây</span>
+<span class="ch rA">[ năm ngoái ]</span>
+</div>
+<div style="display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 0 12px; margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--rule)">
+<span class="lab" style="font-size: 11px; color: var(--muted); padding-top: 6px">Trong khối S</span>
+<svg viewBox="0 0 420 92" aria-hidden="true" style="display: block; width: 420px; height: 92px">
+<text x="30" y="22" text-anchor="middle" font-family="'Source Serif 4', Georgia, serif" font-size="19" fill="var(--ink)" lang="en">a</text>
+<text x="130" y="22" text-anchor="middle" font-family="'Source Serif 4', Georgia, serif" font-size="19" fill="var(--ink)" lang="en">new</text>
+<text x="250" y="22" text-anchor="middle" font-family="'Source Serif 4', Georgia, serif" font-size="19" font-weight="600" fill="var(--ink)" lang="en">bridge</text>
+<line x1="30" y1="30" x2="30" y2="64" stroke="var(--ink)" stroke-width="1.2"></line>
+<line x1="130" y1="30" x2="250" y2="64" stroke="var(--ink)" stroke-width="1.4" stroke-dasharray="5 4"></line>
+<line x1="250" y1="30" x2="130" y2="64" stroke="var(--ink)" stroke-width="1.6"></line>
+<text x="30" y="84" text-anchor="middle" font-family="'Source Serif 4', Georgia, serif" font-size="19" fill="var(--ink)">một</text>
+<text x="130" y="84" text-anchor="middle" font-family="'Source Serif 4', Georgia, serif" font-size="19" font-weight="600" fill="var(--ink)">cây cầu</text>
+<text x="250" y="84" text-anchor="middle" font-family="'Source Serif 4', Georgia, serif" font-size="19" fill="var(--ink)">mới</text>
+<text x="300" y="52" font-family="'Source Sans 3', sans-serif" font-size="12" fill="var(--muted)">tính từ đổi chỗ:</text>
+<text x="300" y="68" font-family="'Source Sans 3', sans-serif" font-size="12" fill="var(--muted)">trước danh từ → sau</text>
+</svg>
+</div>
+</div>
+<figcaption class="cap"><strong>Hình 9.</strong> Ở cấp câu, ba vai trò giữ cùng thứ tự S → V → A. Đảo trật tự chỉ xảy ra bên trong khối: tính từ tiếng Anh đứng trước danh từ, tiếng Việt đứng sau.<br>Nguồn: Aver Learning biên soạn.</figcaption>
+</figure>
+<dl class="rules">
+<div><dt>Dùng khi</dt><dd>Lỗi do dịch từng chữ, "bị/được", cụm danh từ, so sánh trật tự từ Anh–Việt.</dd></div>
+<div><dt>Cách vẽ</dt><dd>Hai hàng cùng cột: tiếng Anh trên, tiếng Việt dưới, vạch dọc nối khối cùng vai trò. Đảo trật tự bên trong khối vẽ riêng bên dưới bằng đường chéo. Nhãn hàng ghi rõ ngôn ngữ.</dd></div>
+<div><dt>Điện thoại</dt><dd>Mỗi vai trò thành một hàng: nhãn vai trò, câu Anh, câu Việt xếp dọc. Phần đảo trật tự giữ nguyên hình nhỏ, rộng tối đa 340px.</dd></div>
+<div><dt>In đen trắng</dt><dd>Đường thẳng nối từ giữ chỗ; đường chéo đứt và liền cho hai từ đổi chỗ; danh từ chính in đậm ở cả hai hàng.</dd></div>
+</dl>
+</div>
+
+<!-- H10 -->
+<div class="row">
+<figure style="margin: 0">
+<p class="fh">Hình 10 <span>· Ô trống theo vị trí từ loại (kiểu thêm)</span></p>
+<div class="fig" role="img" aria-label="Hình 10. Câu The company's rapid chỗ trống surprised investors. Trước chỗ trống là sở hữu cách và tính từ, sau là động từ, nên chỗ trống cần danh từ: growth.">
+<div lang="en" style="display: flex; align-items: flex-start; gap: 8px">
+<div class="cell"><span class="ch" style="border-bottom: 1.5px dotted var(--ink)">The company’s</span><span class="tag">sở hữu cách</span></div>
+<div class="cell"><span class="ch" style="border-bottom: 1.5px dotted var(--ink)">rapid</span><span class="tag">tính từ</span></div>
+<div class="cell"><span class="ch rS" style="min-width: 120px; font-weight: 600; color: var(--accent)">____</span><span class="tag" style="color: var(--accent)">cần danh từ</span></div>
+<div class="cell"><span class="ch rV">surprised</span><span class="tag" style="color: var(--accent)">V</span></div>
+<div class="cell"><span class="ch rO">investors</span><span class="tag">O</span></div>
+</div>
+<svg viewBox="0 0 716 30" aria-hidden="true" style="display: block; width: 100%; height: 30px; margin-top: 4px">
+<defs><marker id="ah10" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--muted)"></path></marker></defs>
+<path d="M70 4 C 70 24, 250 24, 270 12" fill="none" stroke="var(--muted)" stroke-width="1.2" marker-end="url(#ah10)"></path>
+<path d="M410 4 C 400 24, 340 24, 334 12" fill="none" stroke="var(--muted)" stroke-width="1.2" marker-end="url(#ah10)"></path>
+</svg>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px" lang="en">
+<span style="display: inline-flex; align-items: center; min-height: 40px; padding: 0 12px; border: 1px solid var(--rule); font-family: 'Source Serif 4', Georgia, serif; font-size: 18px">(A) grow <span class="lab" style="margin-left: 8px; color: var(--muted); font-size: 11px">v</span></span>
+<span style="display: inline-flex; align-items: center; min-height: 40px; padding: 0 12px; border: 1px solid var(--rule); font-family: 'Source Serif 4', Georgia, serif; font-size: 18px">(B) growing <span class="lab" style="margin-left: 8px; color: var(--muted); font-size: 11px">v-ing</span></span>
+<span style="display: inline-flex; align-items: center; min-height: 40px; padding: 0 12px; border: 2px solid var(--ok); background: var(--tint); font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; font-weight: 600">(C) growth <span class="lab" style="margin-left: 8px; color: var(--ok); font-size: 11px">n · Đúng</span></span>
+<span style="display: inline-flex; align-items: center; min-height: 40px; padding: 0 12px; border: 1px solid var(--rule); font-family: 'Source Serif 4', Georgia, serif; font-size: 18px">(D) grew <span class="lab" style="margin-left: 8px; color: var(--muted); font-size: 11px">v quá khứ</span></span>
+</div>
+</div>
+<figcaption class="cap"><strong>Hình 10.</strong> Hai mũi tên cho thấy hai manh mối: đứng sau tính từ, đứng trước động từ ở vị trí chủ ngữ, nên chỗ trống phải là danh từ.<br>Nguồn: Aver Learning biên soạn; câu từ bài <span lang="en">Word Formation — Noun Suffixes</span>.</figcaption>
+</figure>
+<dl class="rules">
+<div><dt>Dùng khi</dt><dd>Câu chọn dạng từ, word form, giải thích đáp án Quick Check và bài tập Reading điền từ.</dd></div>
+<div><dt>Cách vẽ</dt><dd>Chỗ trống là khung liền, chữ màu nhấn, rộng tối thiểu 120px. Mũi tên mảnh từ các manh mối trỏ vào chỗ trống. Lựa chọn đặt dưới, mỗi lựa chọn ghi từ loại; đáp án đúng có chữ "Đúng".</dd></div>
+<div><dt>Điện thoại</dt><dd>Bỏ mũi tên, manh mối được gạch chấm và liệt kê dưới câu ("sau tính từ · trước động từ"). Lựa chọn xếp dọc, cao 48px.</dd></div>
+<div><dt>In đen trắng</dt><dd>Chỗ trống nhận ra bằng khung liền và nét gạch; đáp án đúng nhận ra bằng viền dày và chữ "Đúng".</dd></div>
+</dl>
+</div>
+</section>
+
+<!-- ĐIỆN THOẠI -->
+<section aria-labelledby="q2" style="border-top: 2px solid var(--ink); padding: 16px 32px 0">
+<div style="padding: 0 32px">
+<h2 id="q2" class="h2s">Bản điện thoại 390px · câu dài xuống dòng thế nào</h2>
+<p class="lead">Ba nguyên tắc: (1) xuống dòng ở ranh giới khối, không bao giờ cắt đôi một khối; (2) nhãn đi theo khối của nó; (3) đường nối, mũi tên, cung không vẽ qua dòng mà đổi thành chữ mũ cặp hoặc danh sách thụt bậc.</p>
+</div>
+<div style="display: flex; gap: 23px; align-items: flex-start">
+
+<div style="width: 390px; height: 560px; box-sizing: border-box; border: 1px solid var(--ink); background: var(--paper); padding: 16px; flex-shrink: 0; overflow: hidden">
+<p class="lab" style="margin: 0 0 10px; color: var(--muted)">Hình 1 · khối xuống dòng nguyên khối</p>
+<div style="border: 1px solid var(--rule); background: var(--surface); padding: 14px 12px">
+<div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 8px" lang="en">
+<div class="cell"><span class="tag">S</span><span class="ch rS" style="height: 34px; font-size: 18px">He</span></div>
+<div class="cell"><span class="tag" style="color: var(--accent)">V</span><span class="ch rV" style="height: 34px; font-size: 18px">became</span></div>
+<div class="cell"><span class="tag">C</span><span class="ch rC" style="height: 34px; font-size: 18px">famous</span></div>
+<div class="cell"><span class="tag">A</span><span class="ch rA" style="height: 34px; font-size: 18px">[ after the competition ]</span></div>
+</div>
+<p style="margin: 12px 0 0; font: 600 14px 'Source Sans 3', sans-serif; color: var(--muted)">S + V + C + A</p>
+</div>
+<p class="cap"><strong>Hình 1.</strong> Khối A dài xuống dòng cả khối, nhãn A đi cùng. Công thức chuyển xuống dưới câu.</p>
+<p class="lab" style="margin: 18px 0 10px; color: var(--muted)">Hình 2 · cụm danh từ thành danh sách thụt bậc</p>
+<div style="border: 1px solid var(--rule); background: var(--surface); padding: 12px; font-family: 'Source Serif 4', Georgia, serif; font-size: 17px; line-height: 1.5" lang="en">
+<p style="margin: 0"><span style="padding: 0 4px; border: 1.5px solid var(--ink); font-weight: 600">expansion</span> <span style="font: 600 11px 'Source Sans 3', sans-serif; letter-spacing: 0.08em; color: var(--muted)">DANH TỪ CHÍNH</span></p>
+<p style="margin: 4px 0 0 16px; padding-left: 10px; border-left: 1.5px dotted var(--ink)">the · rapid <span style="font: 12px 'Source Sans 3', sans-serif; color: var(--muted)">trước</span></p>
+<p style="margin: 2px 0 0 16px; padding-left: 10px; border-left: 1.5px dashed var(--ink)">of privately funded urban transport projects <span style="font: 12px 'Source Sans 3', sans-serif; color: var(--muted)">sau ①</span></p>
+<p style="margin: 2px 0 0 16px; padding-left: 10px; border-left: 1.5px dashed var(--ink)">in developing regions <span style="font: 12px 'Source Sans 3', sans-serif; color: var(--muted)">sau ②</span></p>
+</div>
+</div>
+
+<div style="width: 390px; height: 560px; box-sizing: border-box; border: 1px solid var(--ink); background: var(--paper); padding: 16px; flex-shrink: 0; overflow: hidden">
+<p class="lab" style="margin: 0 0 10px; color: var(--muted)">Hình 7 · cung đổi thành số mũ cặp</p>
+<div style="border: 1px solid var(--rule); background: var(--surface); padding: 12px">
+<p lang="en" class="sf" style="margin: 0; font-size: 18px; line-height: 1.7">The <span style="padding: 0 3px; border: 1.5px solid var(--ink); font-weight: 600">proportion<sup style="font: 600 11px 'Source Sans 3', sans-serif">①</sup></span> <span style="color: var(--muted)">of <span style="padding: 0 3px; border: 1.5px dashed var(--muted)">people<sup style="font: 600 11px 'Source Sans 3', sans-serif">②</sup></span> who <span style="border-bottom: 3px double var(--muted)">use<sup style="font: 600 11px 'Source Sans 3', sans-serif">②</sup></span> public transport</span> <span style="border-bottom: 4px double var(--accent); color: var(--accent); font-weight: 600">has<sup style="font: 600 11px 'Source Sans 3', sans-serif">①</sup></span> risen significantly.</p>
+<p style="margin: 10px 0 0; padding-top: 8px; border-top: 1px dashed var(--rule); font-size: 14px">① <span lang="en">proportion → has</span>: số ít<br>② <span lang="en">people → use</span>: số nhiều</p>
+</div>
+<p class="cap"><strong>Hình 7.</strong> Câu xuống dòng tự nhiên; cặp nhận ra bằng số mũ, giải nghĩa ở dòng dưới.</p>
+<p class="lab" style="margin: 18px 0 10px; color: var(--muted)">Hình 3 · trục thời gian thu theo bề ngang</p>
+<div style="border: 1px solid var(--rule); background: var(--surface); padding: 10px 12px">
+<svg viewBox="0 0 340 96" aria-hidden="true" style="display: block; width: 100%; height: auto">
+<line x1="6" y1="56" x2="334" y2="56" stroke="var(--ink)" stroke-width="1.4"></line>
+<line x1="256" y1="8" x2="256" y2="80" stroke="var(--ink)" stroke-width="1.2" stroke-dasharray="4 4"></line>
+<text x="256" y="94" text-anchor="middle" font-family="'Source Sans 3', sans-serif" font-size="13" font-weight="600" fill="var(--ink)">BÂY GIỜ</text>
+<line x1="150" y1="30" x2="256" y2="30" stroke="var(--accent)" stroke-width="6"></line><circle cx="150" cy="30" r="5" fill="var(--accent)"></circle>
+<text x="140" y="34" text-anchor="end" font-family="'Source Sans 3', sans-serif" font-size="13" font-weight="600" fill="var(--accent)">(a)</text>
+<rect x="40" y="70" width="90" height="8" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.3"></rect>
+<text x="30" y="78" text-anchor="end" font-family="'Source Sans 3', sans-serif" font-size="13" font-weight="600" fill="var(--ink)">(b)</text>
+</svg>
+<p lang="en" class="sf" style="margin: 8px 0 0; font-size: 16px">(a) She has lived in Da Nang since 2020.<br>(b) I lived in Hanoi for five years.</p>
+</div>
+</div>
+
+<div style="width: 390px; height: 560px; box-sizing: border-box; border: 1px solid var(--ink); background: var(--paper); padding: 16px; flex-shrink: 0; overflow: hidden">
+<p class="lab" style="margin: 0 0 10px; color: var(--muted)">Hình 8 · sai, đúng xếp dọc</p>
+<div style="border: 1px solid var(--rule); background: var(--surface); padding: 12px; font-size: 15px">
+<p style="margin: 0"><span class="lab" style="color: var(--danger)">Sai&nbsp;&nbsp;</span><span lang="en" class="sf" style="font-size: 18px">The accident <span style="text-decoration: line-through; text-decoration-color: var(--danger); border: 1.5px dashed var(--danger); padding: 0 2px">was happened</span> yesterday.</span></p>
+<p style="margin: 6px 0 0"><span class="lab" style="color: var(--ok)">Đúng&nbsp;&nbsp;</span><span lang="en" class="sf" style="font-size: 18px">The accident <span style="border-bottom: 4px double var(--ok); font-weight: 600">happened</span> yesterday.</span></p>
+<p style="margin: 6px 0 0; color: var(--muted)"><span class="lab">Vì sao&nbsp;&nbsp;</span><span lang="en">happen</span> không có dạng bị động.</p>
+</div>
+<p class="lab" style="margin: 18px 0 10px; color: var(--muted)">Hình 9 · dịch theo vai trò, mỗi vai trò một hàng</p>
+<div style="border: 1px solid var(--rule); background: var(--surface); padding: 4px 12px">
+<div style="display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 0 10px; padding: 8px 0; border-bottom: 1px solid var(--rule)"><span class="lab" style="color: var(--muted)">S</span><span><span lang="en" class="sf" style="font-size: 17px">A new bridge</span><br><span class="sf" style="font-size: 17px; color: var(--muted)">Một cây cầu mới</span></span></div>
+<div style="display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 0 10px; padding: 8px 0; border-bottom: 1px solid var(--rule)"><span class="lab" style="color: var(--accent)">V</span><span><span lang="en" class="sf" style="font-size: 17px; color: var(--accent); font-weight: 600">was built</span><br><span class="sf" style="font-size: 17px; color: var(--muted)">đã được xây</span></span></div>
+<div style="display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 0 10px; padding: 8px 0"><span class="lab" style="color: var(--muted)">A</span><span><span lang="en" class="sf" style="font-size: 17px">last year</span><br><span class="sf" style="font-size: 17px; color: var(--muted)">năm ngoái</span></span></div>
+</div>
+<p class="cap" style="margin-top: 12px">Chú thích luôn nằm ngay dưới hình, không ở lề. Chạm vào hình rộng (Hình 4, Hình 5) để mở cỡ lớn, cuộn ngang trong khung, có nút đóng.</p>
+</div>
+</div>
+</section>
+
+<!-- GHI CHÚ -->
+<section aria-labelledby="q3" style="border-top: 2px solid var(--ink); padding: 16px 64px 0">
+<h2 id="q3" class="h2s" style="margin-bottom: 10px">Ghi chú cho lập trình</h2>
+<ul style="margin: 0; padding-left: 20px; font-size: 15px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 48px">
+<li><strong>Một khối Markdown cho mỗi kiểu hình</strong> (ví dụ <span lang="en">sentence-anatomy</span>, <span lang="en">noun-phrase</span>, <span lang="en">timeline</span>, <span lang="en">voice-shift</span>, <span lang="en">clause-levels</span>, <span lang="en">morphemes</span>, <span lang="en">agreement</span>, <span lang="en">error-pair</span>, <span lang="en">role-translation</span>, <span lang="en">word-slot</span>): người biên tập ghi các khối và vai trò, renderer dựng hình. Không vẽ tay từng hình.</li>
+<li><strong>Màu chỉ qua biến</strong> của bảng màu (<span lang="en">--ink, --muted, --accent, --ok, --danger, --rule, --surface</span>). Bản in và chế độ in của trình duyệt dùng lớp đen trắng như nút "Bản in đen trắng" ở đầu tờ.</li>
+<li><strong>Trợ năng:</strong> mỗi hình <span lang="en">role="img"</span> và <span lang="en">aria-label</span> đọc thành câu theo thứ tự vai trò; phần SVG trang trí đặt <span lang="en">aria-hidden</span>. Chữ ví dụ có <span lang="en">lang="en"</span>.</li>
+<li><strong>Bề rộng:</strong> hình rộng tối đa bằng cột chữ (640px trong bài, 760px trong bài giảng). Dưới 600px áp dụng quy tắc điện thoại của từng kiểu; hình nào chưa có quy tắc thì mở cỡ lớn khi chạm.</li>
+<li><strong>Không trang trí:</strong> không ảnh, không biểu tượng thay chữ, không hiệu ứng chuyển động. Mỗi bài tối đa 4 hình; chỉ vẽ khi hình giải thích được quan hệ mà đoạn chữ khó nói.</li>
+<li><strong>Đánh số</strong> "Hình N" tự tăng theo thứ tự trong bài; liên kết chéo trong bài viết dạng "(Hình 2)" và nhảy tới hình.</li>
+</ul>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Navy + đỏ mận","Xanh teal"],"default":"Navy + đỏ mận"},"$preview":{"width":1280,"height":6400}}'>
+class Component extends DCLogic {
+constructor(p) { super(p); this.state = { bw: false }; }
+renderVals() {
+const s = this.state || {};
+const bw = !!s.bw;
+const views = [{ id: false, label: 'Màu' }, { id: true, label: 'Bản in đen trắng' }].map((v) => ({ label: v.label, on: v.id === bw ? 'true' : 'false', bg: v.id === bw ? 'var(--ink)' : 'var(--surface)', fg: v.id === bw ? 'var(--surface)' : 'var(--ink)', pick: () => this.setState({ bw: v.id }) }));
+return {
+pal: (this.props.palette ?? 'Navy + đỏ mận') === 'Xanh teal' ? 'pal-teal' : 'pal-navy',
+bwc: bw ? 'bw' : '',
+views
+};
+}
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Admin · Đơn đăng ký</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--accentH:#0B5953;--link:#0B5953;--mark:#8A4B08;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EDF3F1;--off:#E7E2D6}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--accentH:#11254A;--link:#1A3561;--mark:#8A1C1C;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EEF0F5;--off:#E8E2D5}
+a{color:var(--link)}a:hover{color:var(--ink)}
+.eb{margin:0 0 8px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;font-weight:600;color:var(--muted)}
+.cap{margin:0 0 8px;font-size:13px;color:var(--muted)}
+.b{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:0 16px;box-sizing:border-box;border:1px solid var(--ink);border-radius:2px;background:var(--surface);color:var(--ink);font:600 14px 'Source Sans 3',sans-serif;text-decoration:none;cursor:pointer;white-space:nowrap}
+.bp{border-color:var(--accent);background:var(--accent);color:var(--surface)}
+.bd{border-color:var(--danger);color:var(--danger)}
+.bdd{border-color:var(--danger);background:var(--danger);color:var(--surface)}
+.bl{min-height:40px;padding:0 4px;border:0;background:transparent;color:var(--link);font:600 14px 'Source Sans 3',sans-serif;text-decoration:underline;cursor:pointer}
+.inp{width:100%;min-height:40px;padding:0 12px;box-sizing:border-box;border:1px solid var(--muted);border-radius:2px;background:var(--surface);font:15px 'Source Sans 3',sans-serif;color:var(--ink)}
+.inpe{border:2px solid var(--danger)}
+.fl{display:flex;flex-direction:column;gap:6px;min-width:0}
+.lb{font-weight:600;font-size:14px}
+.hint{margin:0;font-size:13px;color:var(--muted)}
+.err{margin:0;font-size:13px;font-weight:600;color:var(--danger)}
+.tag{display:inline-flex;align-items:center;gap:6px;padding:2px 8px;border:1px solid currentColor;border-radius:2px;font-size:13px;font-weight:600;white-space:nowrap}
+.tbl{font-variant-numeric:tabular-nums}
+.hr{display:grid;grid-template-columns:var(--cols);border-top:1px solid var(--ink);border-bottom:1px solid var(--ink);font-size:13px;font-weight:600;color:var(--muted)}
+.br{display:grid;grid-template-columns:var(--cols);border-bottom:1px solid var(--rule);align-items:center}
+.c{padding:9px 12px 9px 0;min-width:0}
+.r{text-align:right}
+.note{display:flex;gap:12px;padding:10px 16px;border:1px solid var(--rule);background:var(--tint)}
+.warn{display:flex;gap:12px;padding:10px 16px;border:1px solid var(--mark);border-left:4px solid var(--mark);background:color-mix(in srgb,var(--mark) 7%,var(--surface))}
+.bad{display:flex;gap:12px;padding:10px 16px;border:1px solid var(--danger);border-left:4px solid var(--danger);background:color-mix(in srgb,var(--danger) 6%,var(--surface))}
+.good{display:flex;gap:12px;padding:10px 16px;border:1px solid var(--ok);border-left:4px solid var(--ok);background:var(--surface)}
+.kl{display:block;font-size:12px;letter-spacing:.08em;text-transform:uppercase;font-weight:600}
+.frame{border:1px solid var(--ink);background:var(--paper)}
+.tabs{display:flex;flex-wrap:wrap;gap:0 28px;border-bottom:1px solid var(--ink)}
+.tab{padding:10px 0;color:var(--muted);text-decoration:none}
+.tabon{padding:10px 0 8px;color:var(--ink);font-weight:600;text-decoration:none;border-bottom:3px solid var(--ink)}
+.dz{padding:16px 20px;border:1px solid var(--danger);background:var(--surface)}
+.dlg{padding:24px;border:1px solid var(--ink);background:var(--surface)}
+.dlgt{margin:0 0 8px;font-family:'Source Serif 4',Georgia,serif;font-size:22px;font-weight:600;line-height:1.25}
+ul.ls{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px}
+</style>
+</helmet>
+<div class="{{pal}}" style="width: 1440px; height: 5800px; box-sizing: border-box; padding: 48px 40px; background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 15px; line-height: 1.5; display: flex; flex-direction: column; gap: 44px">
+<header style="padding: 0 24px">
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Aver Learning · Bản in · admin · /admin/enrollments</p>
+<h1 style="margin: 4px 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 40px; font-weight: 600; line-height: 1.15">Admin · Đơn đăng ký</h1>
+<p style="margin: 0; color: var(--muted); max-width: 96ch">Hàng chờ đơn đăng ký khoá online và trang xử lý một đơn. Việc chính của admin: đối chiếu khoản chuyển khoản với đơn, rồi xác nhận để mở khoá, hoặc yêu cầu bổ sung. Xác nhận cấp quyền, cộng lượt và gửi email trong một lần: hoặc xong cả, hoặc chưa có gì thay đổi. Cấu hình học phí ở <a href="AdminKhoaHoc.dc.html">Admin · Khoá học</a>; học viên thấy đơn ở <a href="ThanhToan.dc.html">màn Thanh toán</a>.</p>
+</header>
+
+<section aria-labelledby="s1" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="s1" style="margin: 0 0 16px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">1 · Hàng chờ đơn · /admin/enrollments</h2>
+<div class="frame">
+<header style="display: flex; align-items: center; gap: 20px; min-height: 56px; padding: 0 24px; border-bottom: 1px solid var(--ink); background: var(--surface)">
+<span style="display: inline-flex; align-items: center; gap: 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 19px; font-weight: 600"><svg width="25" height="25" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<span style="padding: 2px 8px; border: 1px solid var(--ink); border-radius: 2px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600">Quản trị</span>
+<span style="padding: 2px 8px; background: var(--mark); color: var(--surface); border-radius: 2px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600">Production · dữ liệu thật</span>
+<label style="flex: 1 1 320px; max-width: 440px; display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--paper)">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 16px; height: 16px; flex-shrink: 0"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"></circle><path d="M16.5 16.5L21 21" stroke="currentColor" stroke-width="2"></path></svg>
+<input type="search" placeholder="Tìm học viên, lớp, bài nộp, đề…" aria-label="Tìm nhanh" style="flex-grow: 1; min-width: 0; border: 0; background: transparent; font: 15px 'Source Sans 3', sans-serif; color: var(--ink)">
+<kbd style="font: 12px 'Source Sans 3', sans-serif; color: var(--muted); border: 1px solid var(--rule); padding: 1px 6px; border-radius: 2px">⌘K</kbd>
+</label>
+<span style="flex-grow: 1"></span>
+<a href="Main.dc.html" style="display: inline-flex; align-items: center; min-height: 36px; font-size: 14px">Xem như học viên</a>
+<button aria-label="Mở menu tài khoản: đổi vai trò, đăng xuất" style="width: 40px; height: 40px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 13px 'Source Sans 3', sans-serif; cursor: pointer">VT</button>
+</header>
+<div style="display: flex">
+<nav aria-label="Điều hướng quản trị" style="flex: 0 0 248px; box-sizing: border-box; padding: 20px 0; border-right: 1px solid var(--rule)">
+<sc-for list="{{nav}}" as="g" hint-placeholder-count="8">
+<div>
+<button type="button" aria-expanded="{{g.exp}}" onClick="{{g.toggle}}" style="display: flex; align-items: center; gap: 8px; width: 100%; min-height: 36px; padding: 0 20px 0 16px; border: 0; background: transparent; color: {{g.headColor}}; font: 600 12px 'Source Sans 3', sans-serif; letter-spacing: 0.08em; text-transform: uppercase; text-align: left; cursor: pointer">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 14px; height: 14px; flex-shrink: 0"><path d="{{g.chev}}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<span style="flex-grow: 1">{{g.name}}</span>
+<span style="color: var(--mark); font-variant-numeric: tabular-nums; letter-spacing: 0">{{g.badgeShow}}</span>
+</button>
+<sc-if value="{{g.show}}" hint-placeholder-val="{{ false }}">
+<div role="group" aria-label="{{g.name}}" style="margin: 0 0 8px 23px; border-left: 1px solid var(--rule)">
+<sc-for list="{{g.items}}" as="i" hint-placeholder-count="3">
+<a href="{{i.href}}" aria-current="{{i.current}}" style="display: flex; justify-content: space-between; gap: 8px; margin-left: -2px; padding: 6px 20px 6px 21px; border-left: 3px solid {{i.bar}}; background: {{i.bg}}; color: var(--ink); font-weight: {{i.weight}}; text-decoration: none">{{i.label}}<span style="color: var(--mark); font-weight: 600; font-variant-numeric: tabular-nums">{{i.count}}</span></a>
+</sc-for>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</nav>
+<main style="flex: 1 1 auto; min-width: 0; padding: 24px 36px 48px">
+<nav aria-label="Vị trí trang" style="font-size: 14px; color: var(--muted); margin-bottom: 18px"><a href="AdminKhoaHoc.dc.html">Khoá học và đăng ký</a> › Đơn đăng ký</nav>
+<div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px">
+<div>
+<h1 style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 34px; font-weight: 600; line-height: 1.15">Đơn đăng ký</h1>
+<p style="margin: 6px 0 0; color: var(--muted); max-width: 72ch">Đơn cũ nhất lên đầu. Mở một đơn để đối chiếu chuyển khoản và xác nhận. Đơn chờ chuyển khoản quá hạn tự sang Hết hạn; đơn đã báo chuyển không tự hết hạn.</p>
+</div>
+<div class="fl" style="flex: 0 1 360px"><label for="q" class="lb">Tìm đơn</label><input id="q" type="search" class="inp" placeholder="Mã đơn AVER-… hoặc email"></div>
+</div>
+<div role="tablist" aria-label="Lọc đơn theo trạng thái" class="tabs" style="margin: 22px 0 0">
+<sc-for list="{{lanes}}" as="l" hint-placeholder-count="6">
+<button type="button" role="tab" aria-selected="{{l.sel}}" onClick="{{l.pick}}" style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 0 {{l.pb}}; border: 0; border-bottom: {{l.bb}}; background: transparent; color: {{l.fg}}; font: {{l.fw}} 15px 'Source Sans 3', sans-serif; cursor: pointer">{{l.t}}<span style="min-width: 22px; padding: 0 6px; box-sizing: border-box; border: 1px solid {{l.cb}}; border-radius: 2px; color: {{l.cc}}; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums">{{l.n}}</span></button>
+</sc-for>
+</div>
+<p style="margin: 12px 0 10px; font-size: 14px; color: var(--muted)">{{laneNote}}</p>
+<div role="table" aria-label="Đơn đăng ký" class="tbl" style="--cols: 1.15fr 2.1fr 1.5fr 0.9fr 1.35fr 1.35fr 56px">
+<div role="row" class="hr"><span role="columnheader" class="c">Mã đơn</span><span role="columnheader" class="c">Người đăng ký</span><span role="columnheader" class="c">Khoá</span><span role="columnheader" class="c r">Học phí</span><span role="columnheader" class="c">{{colA}}</span><span role="columnheader" class="c">{{colB}}</span><span role="columnheader" class="c"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Mở</span></span></div>
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="2">
+<div role="row" class="br">
+<span role="cell" class="c" style="font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: 0.02em"><a href="#s2" style="color: var(--ink)">{{r.code}}</a></span>
+<span role="cell" class="c">{{r.name}}<span style="display: block; font-size: 13px; color: var(--muted)">{{r.email}}</span></span>
+<span role="cell" class="c">{{r.course}}</span>
+<span role="cell" class="c r">XXX đ</span>
+<span role="cell" class="c">{{r.a}}</span>
+<span role="cell" class="c" style="color: {{r.bc}}; font-weight: {{r.bw}}"><span style="display: inline-flex; align-items: center; gap: 6px"><sc-if value="{{r.late}}" hint-placeholder-val="{{ false }}"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 16px; height: 16px; flex-shrink: 0"><path d="M12 3 2 20h20L12 3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"></path><path d="M12 10v4.5M12 17v.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></sc-if>{{r.b}}</span></span>
+<span role="cell" class="c"><a href="#s2" aria-label="Mở đơn {{r.code}}" style="display: inline-flex; align-items: center; min-height: 40px; font-weight: 600">Mở</a></span>
+</div>
+</sc-for>
+</div>
+<p class="hint" style="margin-top: 10px">Thời gian theo giờ Việt Nam. "Đã chờ" tính từ lúc học viên báo chuyển; quá 24 giờ thì có dấu cảnh báo. Mỗi dòng mở trang chi tiết đơn; không xác nhận ngay trên bảng.</p>
+</main>
+</div>
+</div>
+<p class="cap" style="margin-top: 10px">Bấm các thẻ trạng thái để xem cột thời gian đổi theo từng làn. Thẻ "Đã báo chuyển" mở sẵn vì đó là việc admin cần làm.</p>
+</section>
+
+<section aria-labelledby="s2" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="s2" style="margin: 0 0 16px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">2 · Chi tiết một đơn · /admin/enrollments/AVER-M5RD2K</h2>
+<div class="frame">
+<header style="display: flex; align-items: center; gap: 20px; min-height: 56px; padding: 0 24px; border-bottom: 1px solid var(--ink); background: var(--surface)">
+<span style="display: inline-flex; align-items: center; gap: 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 19px; font-weight: 600"><svg width="25" height="25" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<span style="padding: 2px 8px; border: 1px solid var(--ink); border-radius: 2px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600">Quản trị</span>
+<span style="padding: 2px 8px; background: var(--mark); color: var(--surface); border-radius: 2px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600">Production · dữ liệu thật</span>
+<label style="flex: 1 1 320px; max-width: 440px; display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--paper)">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 16px; height: 16px; flex-shrink: 0"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"></circle><path d="M16.5 16.5L21 21" stroke="currentColor" stroke-width="2"></path></svg>
+<input type="search" placeholder="Tìm học viên, lớp, bài nộp, đề…" aria-label="Tìm nhanh" style="flex-grow: 1; min-width: 0; border: 0; background: transparent; font: 15px 'Source Sans 3', sans-serif; color: var(--ink)">
+<kbd style="font: 12px 'Source Sans 3', sans-serif; color: var(--muted); border: 1px solid var(--rule); padding: 1px 6px; border-radius: 2px">⌘K</kbd>
+</label>
+<span style="flex-grow: 1"></span>
+<a href="Main.dc.html" style="display: inline-flex; align-items: center; min-height: 36px; font-size: 14px">Xem như học viên</a>
+<button aria-label="Mở menu tài khoản: đổi vai trò, đăng xuất" style="width: 40px; height: 40px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 13px 'Source Sans 3', sans-serif; cursor: pointer">VT</button>
+</header>
+<div style="display: flex">
+<nav aria-label="Điều hướng quản trị" style="flex: 0 0 248px; box-sizing: border-box; padding: 20px 0; border-right: 1px solid var(--rule)">
+<sc-for list="{{nav}}" as="g" hint-placeholder-count="8">
+<div>
+<button type="button" aria-expanded="{{g.exp}}" onClick="{{g.toggle}}" style="display: flex; align-items: center; gap: 8px; width: 100%; min-height: 36px; padding: 0 20px 0 16px; border: 0; background: transparent; color: {{g.headColor}}; font: 600 12px 'Source Sans 3', sans-serif; letter-spacing: 0.08em; text-transform: uppercase; text-align: left; cursor: pointer">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 14px; height: 14px; flex-shrink: 0"><path d="{{g.chev}}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<span style="flex-grow: 1">{{g.name}}</span>
+<span style="color: var(--mark); font-variant-numeric: tabular-nums; letter-spacing: 0">{{g.badgeShow}}</span>
+</button>
+<sc-if value="{{g.show}}" hint-placeholder-val="{{ false }}">
+<div role="group" aria-label="{{g.name}}" style="margin: 0 0 8px 23px; border-left: 1px solid var(--rule)">
+<sc-for list="{{g.items}}" as="i" hint-placeholder-count="3">
+<a href="{{i.href}}" aria-current="{{i.current}}" style="display: flex; justify-content: space-between; gap: 8px; margin-left: -2px; padding: 6px 20px 6px 21px; border-left: 3px solid {{i.bar}}; background: {{i.bg}}; color: var(--ink); font-weight: {{i.weight}}; text-decoration: none">{{i.label}}<span style="color: var(--mark); font-weight: 600; font-variant-numeric: tabular-nums">{{i.count}}</span></a>
+</sc-for>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</nav>
+<main style="flex: 1 1 auto; min-width: 0; padding: 24px 36px 48px">
+<nav aria-label="Vị trí trang" style="font-size: 14px; color: var(--muted); margin-bottom: 18px"><a href="AdminKhoaHoc.dc.html">Khoá học và đăng ký</a> › <a href="#s1">Đơn đăng ký</a> › AVER-M5RD2K</nav>
+<div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px">
+<div>
+<h1 style="margin: 0; display: flex; align-items: center; gap: 14px; font-family: 'Source Serif 4', Georgia, serif; font-size: 34px; font-weight: 600; line-height: 1.15">Đơn AVER-M5RD2K <span class="tag" style="font-family: 'Source Sans 3', sans-serif; color: var(--accent); background: var(--surface)">Đã báo chuyển</span></h1>
+<p style="margin: 6px 0 0; color: var(--muted)">Phạm Thu Trang · Khoá Writing for IELTS · báo đã chuyển 17/11/2026 08:14 · đã chờ 2 giờ</p>
+</div>
+<div style="display: flex; align-items: center; gap: 14px"><span style="font-size: 14px; color: var(--muted)">Đơn 2 / 2 trong hàng chờ · <kbd style="font: 12px 'Source Sans 3', sans-serif; border: 1px solid var(--rule); padding: 1px 6px; border-radius: 2px">K</kbd> đơn trước · <kbd style="font: 12px 'Source Sans 3', sans-serif; border: 1px solid var(--rule); padding: 1px 6px; border-radius: 2px">J</kbd> đơn kế tiếp</span><a href="#s1" class="b">‹ Về hàng chờ</a></div>
+</div>
+
+<div style="display: flex; gap: 40px; align-items: flex-start; margin-top: 28px">
+<div style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 32px">
+<section aria-labelledby="h-rec" style="border-top: 2px solid var(--ink); padding-top: 14px">
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px">
+<h2 id="h-rec" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">Đối chiếu chuyển khoản</h2>
+<div role="group" aria-label="Xem các trường hợp đối chiếu" style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted)">Xem trường hợp:
+<sc-for list="{{cases}}" as="x" hint-placeholder-count="4"><button type="button" aria-pressed="{{x.pressed}}" onClick="{{x.pick}}" style="min-height: 32px; padding: 0 10px; border: 1px solid {{x.bd}}; border-radius: 2px; background: {{x.bg}}; color: {{x.fg}}; font: 600 13px 'Source Sans 3', sans-serif; cursor: pointer">{{x.t}}</button></sc-for>
+</div>
+</div>
+<dl style="margin: 14px 0 18px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 24px">
+<div><dt style="font-size: 13px; color: var(--muted)">Học phí phải nhận</dt><dd style="margin: 0; font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums">XXX đ</dd></div>
+<div><dt style="font-size: 13px; color: var(--muted)">Nội dung chuyển khoản cần có</dt><dd style="margin: 0; font-size: 20px; font-weight: 600; letter-spacing: 0.02em">AVER-M5RD2K</dd></div>
+<div><dt style="font-size: 13px; color: var(--muted)">Tài khoản nhận</dt><dd style="margin: 0; font-size: 15px; padding-top: 4px">XXX · XXX · XXX</dd></div>
+</dl>
+<sc-if value="{{doneShow}}" hint-placeholder-val="{{ false }}">
+<div class="good" role="status" style="margin: 0 0 16px; align-items: center; justify-content: space-between; flex-wrap: wrap">
+<p style="margin: 0"><span class="kl" style="color: var(--ok)">Đã xác nhận</span><strong>Khoá Writing for IELTS đã mở cho Phạm Thu Trang.</strong> Đã gửi thư 6 "Khoá đã mở" tới thutrang@example.com.</p>
+<span style="display: inline-flex; align-items: center; gap: 12px"><a href="#s2" onClick="{{goNext}}" class="b bp">Đơn kế tiếp (còn 1) ›</a><span style="font-size: 13px; color: var(--muted)">hoặc phím J</span></span>
+</div>
+</sc-if>
+<div class="note" role="note" style="margin: 0 0 16px">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 20px; height: 20px; flex-shrink: 0; margin-top: 2px; color: var(--accent)"><path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"></path></svg>
+<p style="margin: 0"><span class="kl" style="color: var(--accent)">Lời nhắn của học viên · khi báo chuyển 17/11/2026 08:14</span>"Chuyển từ tài khoản của bố, tên Trần Văn Bình." <span style="color: var(--muted)">Tên người chuyển trên sao kê có thể khác tên học viên; đối chiếu với lời nhắn này.</span></p>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 0 0 12px">
+<button type="button" class="b" onClick="{{fill}}">Điền đúng học phí, mã đơn, hôm nay</button>
+<span class="hint">{{fillHint}}</span>
+</div>
+<div style="display: grid; grid-template-columns: 1fr 1.4fr 0.8fr; gap: 16px">
+<div class="fl"><label for="r-amt" class="lb">Số tiền đã nhận</label><div style="display: flex; align-items: center; gap: 8px"><input id="r-amt" class="inp" inputmode="numeric" value="{{cs.amt}}" placeholder="Số trên sao kê" onChange="{{noop}}"><span>đ</span></div><p class="hint">Gõ đúng số trên sao kê.</p></div>
+<div class="fl"><label for="r-memo" class="lb">Nội dung chuyển khoản đã nhận</label><input id="r-memo" class="inp" value="{{cs.memo}}" placeholder="Nguyên văn trên sao kê" onChange="{{noop}}"><p class="hint">Chép nguyên văn từ sao kê ngân hàng.</p></div>
+<div class="fl"><label for="r-day" class="lb">Ngày nhận</label><input id="r-day" class="inp" value="{{cs.day}}" placeholder="dd/mm/yyyy" onChange="{{noop}}"></div>
+</div>
+<div class="{{cs.box}}" role="status" style="margin-top: 16px">
+<sc-if value="{{cs.isNone}}" hint-placeholder-val="{{ false }}"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 20px; height: 20px; flex-shrink: 0; margin-top: 2px; color: var(--accent)"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"></circle><path d="M12 11v6M12 7.5v.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></sc-if>
+<sc-if value="{{cs.isOk}}" hint-placeholder-val="{{ true }}"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 20px; height: 20px; flex-shrink: 0; margin-top: 2px; color: var(--ok)"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"></circle><path d="M8 12.5l2.8 2.8L16.5 9" fill="none" stroke="currentColor" stroke-width="2"></path></svg></sc-if>
+<sc-if value="{{cs.isWarn}}" hint-placeholder-val="{{ false }}"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 20px; height: 20px; flex-shrink: 0; margin-top: 2px; color: var(--mark)"><path d="M12 3 2 20h20L12 3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"></path><path d="M12 10v4.5M12 17v.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></sc-if>
+<p style="margin: 0"><span class="kl" style="color: {{cs.kc}}">{{cs.k}}</span><strong>{{cs.head}}</strong> {{cs.body}}</p>
+</div>
+<sc-if value="{{cs.needCheck}}" hint-placeholder-val="{{ false }}">
+<label style="display: flex; align-items: center; gap: 10px; min-height: 40px; margin-top: 10px"><input type="checkbox" onChange="{{noop}}" style="width: 18px; height: 18px; accent-color: var(--accent)">Tôi đã đối chiếu tên người chuyển trên sao kê với người đăng ký</label>
+</sc-if>
+<div class="fl" style="margin-top: 14px"><label for="r-note" class="lb">Ghi chú xác nhận <span style="font-weight: 400; color: var(--muted)">{{cs.noteReq}}</span></label><textarea id="r-note" rows="2" class="inp" style="padding: 10px 12px" onChange="{{noop}}" placeholder="{{cs.notePh}}"></textarea><p class="hint">Chỉ admin thấy; ghi vào dòng thời gian của đơn.</p></div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 18px">
+<sc-if value="{{cs.canConfirm}}" hint-placeholder-val="{{ true }}"><a href="#d-confirm" class="b bp">Xác nhận và mở khoá</a></sc-if>
+<sc-if value="{{cs.noConfirm}}" hint-placeholder-val="{{ false }}"><button type="button" class="b bp" disabled="{{ true }}" aria-describedby="r-why" style="opacity: 0.5; cursor: not-allowed">Xác nhận và mở khoá</button></sc-if>
+<a href="#d-info" onClick="{{markNeeds}}" class="b">Cần bổ sung…</a>
+<a href="#d-info" onClick="{{markMis}}" class="b">Sai lệch…</a>
+<span id="r-why" style="font-size: 14px; color: var(--muted)">{{cs.why}}</span>
+</div>
+</section>
+
+<section aria-labelledby="h-tl" style="border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="h-tl" style="margin: 0 0 10px; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">Dòng thời gian</h2>
+<ol style="margin: 0; padding: 0; list-style: none">
+<sc-for list="{{timeline}}" as="e" hint-placeholder-count="4">
+<li style="display: grid; grid-template-columns: 150px 110px 1fr; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--rule)"><span style="font-variant-numeric: tabular-nums">{{e.at}}</span><span style="color: var(--muted)">{{e.who}}</span><span><strong style="font-weight: 600">{{e.t}}</strong><span style="display: block; font-size: 14px; color: var(--muted)">{{e.d}}</span></span></li>
+</sc-for>
+</ol>
+</section>
+</div>
+
+<aside style="flex: 0 0 300px; display: flex; flex-direction: column; gap: 26px">
+<section aria-labelledby="h-who" style="border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="h-who" class="eb" style="margin-bottom: 10px">Người đăng ký</h2>
+<p style="margin: 0 0 8px"><a href="HoSoHocVien.dc.html" style="font-weight: 600">Phạm Thu Trang</a><span style="display: block; color: var(--muted)">thutrang@example.com</span></p>
+<dl style="margin: 0; display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; font-size: 14px">
+<dt>Tài khoản tạo</dt><dd style="margin: 0">14/11/2026</dd>
+<dt>Khoá đang có</dt><dd style="margin: 0; color: var(--muted)">chưa có</dd>
+<dt>Đơn mở khác</dt><dd style="margin: 0; color: var(--muted)">không có</dd>
+<dt>Tài khoản</dt><dd style="margin: 0">Đang hoạt động</dd>
+</dl>
+</section>
+<section aria-labelledby="h-ord" style="border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="h-ord" class="eb" style="margin-bottom: 10px">Đơn</h2>
+<dl style="margin: 0; display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; font-size: 14px; font-variant-numeric: tabular-nums">
+<dt>Khoá</dt><dd style="margin: 0"><a href="AdminKhoaHoc.dc.html">Khoá Writing for IELTS</a></dd>
+<dt>Học phí lúc tạo đơn</dt><dd style="margin: 0; font-weight: 600">XXX đ</dd>
+<dt>Thời hạn</dt><dd style="margin: 0">XXX ngày</dd>
+<dt>Lượt chấm AI kèm</dt><dd style="margin: 0">XXX lượt</dd>
+<dt>Tạo lúc</dt><dd style="margin: 0">14/11/2026 21:02</dd>
+<dt>Hạn chuyển khoản</dt><dd style="margin: 0">17/11/2026 21:02</dd>
+<dt>Báo chuyển lúc</dt><dd style="margin: 0">17/11/2026 08:14</dd>
+</dl>
+<p class="hint" style="margin-top: 8px">Đơn giữ học phí, thời hạn và số lượt lúc tạo, kể cả khi cấu hình khoá đổi sau đó.</p>
+</section>
+</aside>
+</div>
+
+<section aria-labelledby="h-dz" class="dz" style="margin-top: 36px">
+<h2 id="h-dz" class="eb" style="color: var(--danger); margin-bottom: 4px">Vùng nguy hiểm</h2>
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px">
+<p style="margin: 0; max-width: 72ch">Huỷ đơn: học viên thấy lý do trên trang đơn và nhận thông báo trong ứng dụng (huỷ không gửi thư); đơn đã huỷ không mở lại được, kể cả khi sau đó có khoản chuyển khớp mã (khác đơn Hết hạn, xem mục 4). Nếu học viên đã chuyển tiền, hoàn tiền làm ngoài hệ thống.</p>
+<a href="#d-cancel" class="b bd">Huỷ đơn…</a>
+</div>
+</section>
+</main>
+</div>
+</div>
+<p class="cap" style="margin-top: 10px">Bấm Khớp · Thiếu · Thừa · Sai nội dung để xem khối kết quả, ô ghi chú và nút xác nhận đổi theo. Nút trên trang đưa tới các hộp ở mục 3.</p>
+</section>
+
+<section aria-labelledby="s3" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="s3" style="margin: 0 0 16px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">3 · Ba hộp hỏi lại của trang đơn</h2>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; align-items: start">
+<div>
+<p class="cap">3a · Xác nhận và mở khoá · hộp vừa</p>
+<div id="d-confirm" role="dialog" aria-labelledby="dc-t" class="dlg">
+<h3 id="dc-t" class="dlgt">Xác nhận đơn AVER-M5RD2K và mở Khoá Writing for IELTS?</h3>
+<p style="margin: 0 0 8px">Khi bạn bấm xác nhận, hệ thống làm cùng lúc:</p>
+<ul class="ls" style="margin-bottom: 12px"><li>Cấp quyền Khoá Writing for IELTS cho <strong>Phạm Thu Trang</strong> từ hôm nay 17/11/2026 tới hết ngày <strong>XXX</strong> (XXX ngày).</li><li>Cộng <strong>XXX lượt</strong> chấm AI vào sổ lượt của học viên (Writing và Speaking dùng chung, hạn dùng XXX).</li><li><strong>Kích hoạt tài khoản</strong>: mở luôn phần luyện Reading, Listening, ngữ pháp, từ vựng dành cho tài khoản đã kích hoạt.</li><li>Gửi <a href="EmailMau.dc.html#e6">thư 6 "Khoá đã mở"</a> tới thutrang@example.com.</li><li>Ghi vào dòng thời gian của đơn và nhật ký hồ sơ học viên.</li></ul>
+<p style="margin: 0 0 16px; font-size: 14px; color: var(--muted)">Năm việc cùng thành công, hoặc không việc nào xảy ra. Tài khoản đã kích hoạt từ trước thì bỏ qua bước kích hoạt.</p>
+<div style="display: flex; gap: 12px"><a href="#s2" onClick="{{confirm}}" class="b bp">Xác nhận và mở khoá</a><a href="#s2" class="b">Quay lại</a></div>
+<p class="hint" style="margin-top: 10px">Xác nhận xong, trang đơn hiện "Đơn kế tiếp (còn 1)"; phím J mở đơn kế tiếp, K đơn trước.</p>
+</div>
+</div>
+<div>
+<p class="cap">3b · Cần bổ sung hoặc Sai lệch · hộp vừa</p>
+<div id="d-info" role="dialog" aria-labelledby="di-t" class="dlg" style="display: flex; flex-direction: column; gap: 14px">
+<h3 id="di-t" class="dlgt" style="margin: 0">Đánh dấu đơn AVER-M5RD2K</h3>
+<div role="radiogroup" aria-labelledby="di-kl" style="display: flex; flex-direction: column; gap: 6px"><span id="di-kl" class="lb">Đánh dấu là</span>
+<sc-for list="{{marks}}" as="m" hint-placeholder-count="2"><button type="button" role="radio" aria-checked="{{m.on}}" onClick="{{m.pick}}" style="display: flex; align-items: flex-start; gap: 10px; min-height: 32px; padding: 0; border: 0; background: transparent; color: var(--ink); font: 15px 'Source Sans 3', sans-serif; text-align: left; cursor: pointer"><span aria-hidden="true" style="flex: none; width: 16px; height: 16px; margin-top: 3px; border: 1px solid var(--ink); border-radius: 50%; box-sizing: border-box; background: {{m.dot}}; outline: 3px solid var(--surface); outline-offset: -5px"></span><span><strong style="font-weight: 600">{{m.t}}</strong><span style="display: block; font-size: 13px; color: var(--muted)">{{m.d}}</span></span></button></sc-for>
+</div>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 12px; align-items: start">
+<div class="fl"><label for="di-m" class="lb">Lời nhắn cho học viên (bắt buộc)</label><textarea id="di-m" rows="5" class="inp" style="padding: 10px 12px" onChange="{{noop}}">{{mk.msg}}</textarea><p class="hint">Mẫu soạn sẵn theo lựa chọn; sửa được. Từ 3 đến 1000 ký tự. Lời nhắn được chép nguyên văn vào thư.</p></div>
+<div class="fl"><label for="di-d" class="lb">Hạn bổ sung</label><input id="di-d" class="inp" value="20/11/2026" placeholder="dd/mm/yyyy" onChange="{{noop}}"><p class="hint">Ghi trong thư và trang đơn.</p></div>
+</div>
+<div class="note" role="note"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 20px; height: 20px; flex-shrink: 0; margin-top: 2px; color: var(--accent)"><path d="M3 6h18v12H3z M3 7l9 6 9-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"></path></svg><p style="margin: 0; font-size: 14px">Học viên nhận <a href="EmailMau.dc.html#e14">thư 14 "Cần bổ sung / chưa tìm thấy khoản chuyển"</a> và thông báo trong ứng dụng, kèm lời nhắn trên (nguyên văn), hạn bổ sung và đường về trang đơn.</p></div>
+<p style="margin: 0; font-size: 14px">{{mk.after}}</p>
+<div style="display: flex; gap: 12px"><button type="button" class="b bp">{{mk.btn}}</button><a href="#s2" class="b">Quay lại</a></div>
+</div>
+</div>
+<div>
+<p class="cap" style="color: var(--danger)">3c · Huỷ đơn · gõ mã đơn để xác nhận</p>
+<div id="d-cancel" role="alertdialog" aria-labelledby="dx-t" class="dlg" style="display: flex; flex-direction: column; gap: 14px">
+<h3 id="dx-t" class="dlgt" style="margin: 0">Huỷ đơn AVER-M5RD2K?</h3>
+<p style="margin: 0">Học viên thấy đơn đã huỷ trên trang đơn và trong Thông báo, kèm lý do bạn ghi dưới đây (không gửi thư). Đơn đã huỷ <strong>không mở lại được</strong>, kể cả khi tiền về sau đó (khác đơn Hết hạn); muốn học, học viên phải tạo đơn mới.</p>
+<div class="warn" role="note"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 20px; height: 20px; flex-shrink: 0; margin-top: 2px; color: var(--mark)"><path d="M12 3 2 20h20L12 3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"></path><path d="M12 10v4.5M12 17v.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg><p style="margin: 0; font-size: 14px"><span class="kl" style="color: var(--mark)">Cảnh báo</span>Học viên đã báo chuyển khoản. Nếu tiền đã về, hoàn tiền làm ngoài hệ thống.</p></div>
+<div class="fl"><label for="dx-r" class="lb">Lý do huỷ (bắt buộc)</label><textarea id="dx-r" rows="2" class="inp" style="padding: 10px 12px" onChange="{{noop}}"></textarea></div>
+<div class="fl"><label for="dx-c" class="lb">Gõ AVER-M5RD2K để xác nhận</label><input id="dx-c" class="inp" value="{{cxText}}" onChange="{{cxType}}" autocomplete="off"><p class="hint">{{cxHint}}</p></div>
+<div style="display: flex; gap: 12px"><button type="button" class="b bdd" disabled="{{cxDisabled}}" style="opacity: {{cxOpacity}}">Huỷ đơn</button><a href="#s2" class="b">Quay lại</a></div>
+</div>
+</div>
+</div>
+<p class="hint" style="margin-top: 12px">Ba hộp mở giữa màn; hộp 3b mở từ cả nút "Cần bổ sung…" và "Sai lệch…" với lựa chọn chọn sẵn tương ứng. Hộp mở trên nền mờ, không chồng nhau. Nút chính của hộp xác nhận dùng màu nhấn vì đây là việc thường ngày; chỉ hộp huỷ đơn có nút đỏ. Gõ mã đơn vào ô ở hộp 3c để thấy nút bật.</p>
+</section>
+
+<section aria-labelledby="s4" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="s4" style="margin: 0 0 16px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">4 · Đơn hết hạn nhưng tiền đến muộn · tự mở lại · AVER-C7VB2N</h2>
+<div style="display: flex; gap: 32px; align-items: flex-start">
+<div class="frame" style="flex: 1 1 auto; min-width: 0; padding: 24px 36px 28px">
+<p class="cap">Chỉ vẽ vùng nội dung; khung như mục 2.</p>
+<h3 style="margin: 0; display: flex; align-items: center; gap: 12px; font-family: 'Source Serif 4', Georgia, serif; font-size: 28px; font-weight: 600">Đơn AVER-C7VB2N <span class="tag" style="font-family: 'Source Sans 3', sans-serif; color: var(--muted); background: var(--off)">Hết hạn</span></h3>
+<p style="margin: 4px 0 16px; color: var(--muted)">Ngô Hải Yến · haiyen@example.com · Khoá Ngữ pháp nền tảng</p>
+<div class="warn" role="note">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 20px; height: 20px; flex-shrink: 0; margin-top: 2px; color: var(--mark)"><path d="M12 3 2 20h20L12 3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"></path><path d="M12 10v4.5M12 17v.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>
+<p style="margin: 0"><span class="kl" style="color: var(--mark)">Cảnh báo</span><strong>Đơn đã hết hạn lúc 12/11/2026 09:00</strong> vì chưa báo chuyển khoản trong XXX giờ. Hết hạn không phải huỷ: khi ghi nhận khoản chuyển khớp mã đơn và đủ học phí, đơn tự mở lại, mở khoá và gửi <a href="EmailMau.dc.html#e6">thư 6 "Khoá đã mở"</a>. Đơn đã huỷ thì không mở lại.</p>
+</div>
+<dl style="margin: 16px 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 24px">
+<div><dt style="font-size: 13px; color: var(--muted)">Học phí lúc tạo đơn</dt><dd style="margin: 0; font-weight: 600">XXX đ <span style="font-weight: 400; color: var(--muted)">· hiện tại XXX đ</span></dd></div>
+<div><dt style="font-size: 13px; color: var(--muted)">Đã nhận</dt><dd style="margin: 0; font-weight: 600">XXX đ · ngày 13/11/2026</dd></div>
+<div><dt style="font-size: 13px; color: var(--muted)">Nội dung</dt><dd style="margin: 0; font-weight: 600">AVER-C7VB2N · khớp</dd></div>
+</dl>
+<ul class="ls" style="margin-bottom: 16px; font-size: 14px"><li>Học viên chưa có đơn mở khác cho Khoá Ngữ pháp nền tảng. Nếu có, huỷ đơn kia trước để không cấp quyền hai lần.</li><li>Khoá Ngữ pháp nền tảng đang mở đăng ký. Khoá tạm dừng vẫn xác nhận được đơn đã có.</li></ul>
+<a href="#d-late" class="b bp">Ghi nhận khoản chuyển…</a>
+</div>
+<div id="d-late" role="dialog" aria-labelledby="dl-t" class="dlg" style="flex: 0 0 470px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px">
+<h3 id="dl-t" class="dlgt" style="margin: 0">Ghi nhận khoản chuyển cho đơn hết hạn AVER-C7VB2N?</h3>
+<p style="margin: 0; font-size: 14px">Khoản chuyển khớp mã đơn, đủ học phí lúc tạo đơn. Hệ thống làm cùng lúc:</p>
+<ul class="ls"><li>Đơn tự mở lại, sang Đã xác nhận.</li><li>Cấp quyền Khoá Ngữ pháp nền tảng cho Ngô Hải Yến từ hôm nay 17/11/2026 tới hết ngày XXX. Hạn tính từ ngày xác nhận, không từ ngày tạo đơn.</li><li>Cộng XXX lượt chấm AI theo số lượt lúc tạo đơn.</li><li>Gửi <a href="EmailMau.dc.html#e6">thư 6 "Khoá đã mở"</a>.</li></ul>
+<label style="display: flex; align-items: flex-start; gap: 10px"><input type="checkbox" onChange="{{noop}}" style="width: 18px; height: 18px; margin-top: 3px; accent-color: var(--accent)">Tôi đã thấy khoản XXX đ về tài khoản ngày 13/11/2026</label>
+<div class="fl"><label for="dl-n" class="lb">Ghi chú <span style="font-weight: 400; color: var(--muted)">(tuỳ chọn)</span></label><textarea id="dl-n" rows="2" class="inp" style="padding: 10px 12px" onChange="{{noop}}" placeholder="Ví dụ: tiền về 13/11, sau hạn chuyển khoản"></textarea></div>
+<div style="display: flex; gap: 12px"><button type="button" class="b bp">Ghi nhận và mở khoá</button><a href="#s4" class="b">Quay lại</a></div>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="s5" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="s5" style="margin: 0 0 16px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">5 · Trạng thái phụ</h2>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 32px; align-items: start">
+
+<div>
+<p class="cap">5a · Không có đơn chờ · thẻ Đã báo chuyển</p>
+<div class="frame" style="padding: 24px">
+<div role="tablist" aria-label="Lọc đơn" class="tabs" style="margin-bottom: 0; font-size: 14px"><span class="tabon">Đã báo chuyển</span><span class="tab">Chờ chuyển khoản</span><span class="tab">Cần bổ sung</span></div>
+<div style="padding: 36px 24px; text-align: center; border-bottom: 1px solid var(--rule)">
+<h3 style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; font-weight: 600">Không có đơn nào chờ xác nhận</h3>
+<p style="margin: 0 0 12px; color: var(--muted)">Đơn mới hiện ở đây khi học viên báo đã chuyển khoản.</p>
+<button type="button" class="bl">Xem 2 đơn đang chờ chuyển khoản</button>
+</div>
+</div>
+</div>
+
+<div>
+<p class="cap">5b · Xác nhận trùng · người khác đã xác nhận trước</p>
+<div class="frame" style="padding: 24px; display: flex; flex-direction: column; gap: 14px">
+<div class="note" role="status">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 20px; height: 20px; flex-shrink: 0; margin-top: 2px; color: var(--accent)"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"></circle><path d="M12 11v6M12 7.5v.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>
+<p style="margin: 0"><span class="kl" style="color: var(--accent)">Đơn đã được xác nhận</span><strong>Một quản trị viên khác đã xác nhận đơn này lúc 10:41.</strong> Lần bấm của bạn không làm gì thêm: quyền và lượt chỉ được cấp một lần, email chỉ gửi một lần.</p>
+</div>
+<dl style="margin: 0; display: grid; grid-template-columns: 180px 1fr; gap: 6px 16px; font-size: 14px">
+<dt style="color: var(--muted)">Trạng thái</dt><dd style="margin: 0"><span class="tag" style="color: var(--ok); background: var(--surface)">Đã xác nhận</span></dd>
+<dt style="color: var(--muted)">Quyền</dt><dd style="margin: 0">Khoá Writing for IELTS tới hết ngày XXX</dd>
+<dt style="color: var(--muted)">Lượt đã cộng</dt><dd style="margin: 0">XXX lượt</dd>
+</dl>
+<div style="display: flex; gap: 10px"><a href="#s2" class="b">Tải lại đơn</a><a href="HoSoHocVien.dc.html" class="b">Mở hồ sơ học viên</a></div>
+</div>
+</div>
+
+<div>
+<p class="cap" style="color: var(--danger)">5c · Lỗi khi xác nhận · chưa có gì thay đổi</p>
+<div class="frame" style="padding: 24px; display: flex; flex-direction: column; gap: 14px">
+<div class="bad" role="alert">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 20px; height: 20px; flex-shrink: 0; margin-top: 2px; color: var(--danger)"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"></circle><path d="M12 7v6M12 16.5v.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>
+<div><span class="kl" style="color: var(--danger)">Lỗi</span><p style="margin: 0 0 6px"><strong>Chưa xác nhận được đơn AVER-M5RD2K.</strong> Chưa có gì thay đổi:</p>
+<ul class="ls" style="font-size: 14px"><li>Đơn vẫn ở trạng thái Đã báo chuyển.</li><li>Học viên chưa được mở khoá và chưa được cộng lượt.</li><li>Chưa có email nào được gửi.</li></ul>
+<p style="margin: 6px 0 0; font-size: 14px">Số tiền và ghi chú bạn đã nhập vẫn giữ trên trang. Thử lại sau ít phút; nếu vẫn lỗi, báo quản trị hệ thống.</p></div>
+</div>
+<div style="display: flex; gap: 10px"><button type="button" class="b bp">Thử lại</button><a href="#s2" class="b">Tải lại đơn</a></div>
+</div>
+</div>
+
+<div>
+<p class="cap">5d · Tài khoản người đăng ký đang bị khoá</p>
+<div class="frame" style="padding: 24px; display: flex; flex-direction: column; gap: 14px">
+<div class="warn" role="note">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 20px; height: 20px; flex-shrink: 0; margin-top: 2px; color: var(--mark)"><path d="M12 3 2 20h20L12 3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"></path><path d="M12 10v4.5M12 17v.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>
+<p style="margin: 0"><span class="kl" style="color: var(--mark)">Cảnh báo</span>Tài khoản của người đăng ký đang bị khoá nên chưa xác nhận được đơn. Mở khoá tài khoản trong <a href="HoSoHocVien.dc.html">hồ sơ học viên</a> trước, hoặc huỷ đơn.</p>
+</div>
+<button type="button" class="b bp" disabled="{{ true }}" style="align-self: flex-start; opacity: 0.5; cursor: not-allowed">Xác nhận và mở khoá</button>
+</div>
+<p class="cap" style="margin-top: 20px">5e · Đang tải hàng chờ</p>
+<div class="frame" style="padding: 20px 24px" aria-busy="true">
+<div role="status" style="margin-bottom: 6px; color: var(--muted); font-size: 14px">Đang tải đơn…</div>
+<sc-for list="{{skel}}" as="s" hint-placeholder-count="3"><div style="display: grid; grid-template-columns: 1fr 2fr 1.4fr 1fr; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--rule)"><span style="height: 12px; background: var(--off)"></span><span style="height: 12px; background: var(--off); width: {{s.w}}"></span><span style="height: 12px; background: var(--off)"></span><span style="height: 12px; background: var(--off)"></span></div></sc-for>
+</div>
+</div>
+
+</div>
+<p class="cap" style="margin-top: 24px">5f · Sau khi xác nhận · trang đơn giữ nguyên, đầu khối đối chiếu đổi thành</p>
+<div class="frame" style="padding: 20px 24px">
+<div class="good" role="status" style="align-items: center; justify-content: space-between; flex-wrap: wrap">
+<p style="margin: 0"><span class="kl" style="color: var(--ok)">Đã xác nhận</span><strong>Khoá Writing for IELTS đã mở cho Phạm Thu Trang.</strong> Đã gửi thư 6 "Khoá đã mở" tới thutrang@example.com.</p>
+<span style="display: inline-flex; align-items: center; gap: 12px"><a href="#s2" class="b bp">Đơn kế tiếp (còn 1) ›</a><span style="font-size: 13px; color: var(--muted)">hoặc phím J · K về đơn trước</span></span>
+</div>
+<p class="hint" style="margin-top: 8px">Đơn kế tiếp là AVER-W4ZC8B (Hoàng Mai Phương, đã chờ 2 ngày). Khi hàng chờ hết, nút đổi thành "Về hàng chờ" và hiện trạng thái 5a.</p>
+</div>
+</section>
+
+<section aria-labelledby="s6" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="s6" style="margin: 0 0 12px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">Ghi chú cho lập trình</h2>
+<ol style="margin: 0; padding-left: 22px; font-size: 15px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 40px">
+<li>Nhãn admin theo trạng thái đơn: awaiting_transfer "Chờ chuyển khoản", transfer_reported "Đã báo chuyển", needs_info "Cần bổ sung", confirmed "Đã xác nhận", expired "Hết hạn", cancelled "Đã huỷ". Học viên thấy "Chờ xác nhận" và "Đã mở khoá" cho hai trạng thái giữa (tờ Thanh toán).</li>
+<li>Chuyển trạng thái chỉ theo bảng của gói khoá học; nút không hợp lệ thì ẩn, không để bấm rồi báo lỗi. Đơn Đã xác nhận và Đã huỷ chỉ xem, không còn nút nào trừ link hồ sơ.</li>
+<li>Kết quả đối chiếu tính ở trình duyệt từ số tiền và nội dung admin nhập: Khớp (bằng học phí, có mã đơn), Thiếu, Thừa, Sai nội dung. Thiếu: nút xác nhận khoá. Thừa: xác nhận được, ghi chú bắt buộc, không tự hoàn tiền. Sai nội dung: xác nhận được sau khi đánh dấu đã đối chiếu người chuyển và ghi chú.</li>
+<li>Thư cho học viên về đơn: đúng bốn thư, cả bốn bắt buộc (tờ EmailMau, neo e4 · e5 · e14 · e6) — thư 4 Đã tạo đơn đăng ký; thư 5 nhắc chuyển khoản, một lần trước hạn; thư 14 "Cần bổ sung / chưa tìm thấy khoản chuyển" khi đơn sang Cần bổ sung hoặc ghi sai lệch số tiền, chép nguyên văn lời nhắn của admin, kèm hạn bổ sung và đường về trang đơn, song song có thông báo trong ứng dụng; thư 6 Khoá đã mở. Huỷ đơn và đơn tự hết hạn: chỉ thông báo trong ứng dụng và trang đơn, không gửi thư.</li>
+<li>Trang đơn: lời nhắn học viên ghi khi báo chuyển hiện ngay trên ba ô đối chiếu. Nút "Điền đúng học phí, mã đơn, hôm nay" điền ba ô bằng học phí lúc tạo đơn, mã đơn và ngày hôm nay; ô vẫn sửa được và kết quả đối chiếu tính lại theo giá trị trong ô.</li>
+<li>Sai lệch là một lý do của trạng thái needs_info (nhãn "Cần bổ sung · sai lệch"), không phải trạng thái riêng. Sau khi xác nhận: hiện "Đơn kế tiếp (còn N)" theo hàng chờ Đã báo chuyển, cũ nhất trước; phím J đơn kế tiếp, K đơn trước (như màn chấm), không bắt phím khi con trỏ đang trong ô nhập.</li>
+<li>Xác nhận gọi một lệnh duy nhất: đơn sang Đã xác nhận, cấp quyền (hạn = ngày xác nhận + thời hạn đã chụp; nối tiếp nếu đang có quyền cùng khoá), cộng lượt, ghi sự kiện và hàng email. Lỗi thì không có gì đổi (5c). Bấm lặp hoặc hai admin cùng bấm trả "đã xác nhận" (5b), không cấp hai lần.</li>
+<li>Hết hạn khác huỷ: khoản chuyển khớp mã của một đơn Hết hạn (đủ học phí lúc tạo đơn) làm đơn tự mở lại, mở khoá và gửi thư 6 (mục 4); đơn Đã huỷ không bao giờ mở lại. Đơn Chờ chuyển khoản quá hạn tự Hết hạn; Đã báo chuyển và Cần bổ sung không tự hết hạn.</li>
+<li>Xác nhận, yêu cầu bổ sung và huỷ đều đòi xác thực lại (step-up) khi máy chủ yêu cầu; mở hộp xác thực rồi gửi lại, giữ nguyên dữ liệu đã nhập. Huỷ đơn: lý do bắt buộc, gõ đúng mã đơn.</li>
+<li>"Đã chờ" tính từ lúc báo chuyển, làm tròn giờ dưới 1 ngày, theo ngày khi từ 1 ngày; quá 24 giờ thì có biểu tượng tam giác và chữ đậm. Số trên thẻ trạng thái lấy từ máy chủ; thẻ không có đơn ghi 0, không ẩn.</li>
+<li>Bản hẹp: theo khung admin chung (dưới 1200px sidebar chỉ biểu tượng). Trang đơn dưới 1100px đưa cột Người đăng ký và Đơn xuống dưới khối đối chiếu. Không vẽ riêng bản hẹp.</li>
+</ol>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Xanh teal","Navy + đỏ mận"],"default":"Navy + đỏ mận"},"$preview":{"width":1440,"height":5800}}'>
+class Component extends DCLogic {
+constructor(p) { super(p); this.state = { open: { kh: true }, lane: 'reported', rc: '', mk: 'needs', done: false, cxText: '' }; }
+renderVals() {
+const s = this.state || {};
+const open = s.open || { kh: true };
+const NAV = (cur, open) => [
+['tq', 'Tổng quan', [['Việc cần làm', 'AdminViecCanLam.dc.html', '']]],
+['hv', 'Học viên và quyền truy cập', [['Học viên', 'AdminDanhBa.dc.html', ''], ['Lớp', 'AdminLop.dc.html', ''], ['Giáo viên', 'AdminGiaoVienThongBao.dc.html', ''], ['Mã kích hoạt', 'AdminLuotVaMa.dc.html#s2', ''], ['Gửi thông báo', 'AdminGiaoVienThongBao.dc.html#m2', ''], ['Khảo sát và nhận xét', 'AdminKhaoSat.dc.html', '4']]],
+['kh', 'Khoá học và đăng ký', [['Khoá học', 'AdminKhoaHoc.dc.html', ''], ['Đơn đăng ký', 'AdminDonDangKy.dc.html', '2'], ['Lượt AI', 'AdminLuotVaMa.dc.html', '']]],
+['cb', 'Chấm bài', [['Writing', 'AdminChamWriting.dc.html', '3'], ['Speaking', 'AdminChamSpeakingThiThu.dc.html', '2'], ['Yêu cầu chấm lại', 'AdminChamLai.dc.html', '2']]],
+['nd', 'Nội dung', [['Listening', 'AdminNoiDung.dc.html', ''], ['Reading', 'AdminNoiDung.dc.html', ''], ['Writing', 'AdminNoiDungVietNoi.dc.html', ''], ['Speaking', 'AdminNoiDungVietNoi.dc.html#m5', ''], ['Từ vựng', 'AdminNoiDungTuVungNguPhap.dc.html', ''], ['Ngữ pháp', 'AdminNoiDungTuVungNguPhap.dc.html#m6', ''], ['Thư viện công khai', 'AdminThuVienCongKhai.dc.html', '']]],
+['tt', 'Thi thử', [['Kỳ thi', 'AdminKyThi.dc.html', '']]],
+['bc', 'Báo cáo', [['Hoạt động học viên', 'AdminBaoCao.dc.html#m1', ''], ['Lưu lượng', 'AdminBaoCao.dc.html#m2', ''], ['Chi phí AI', 'AdminBaoCao.dc.html#m3', ''], ['Chất lượng nội dung', 'AdminBaoCao.dc.html#m4', '']]],
+['ht', 'Hệ thống', [['Hộp thư sự cố', 'AdminSuCo.dc.html', '12'], ['AI và mô hình', 'AdminHeThong.dc.html', ''], ['Bảo mật', 'AdminHeThong.dc.html#m2', ''], ['Công cụ QA', 'AdminHeThong.dc.html#m3', ''], ['Cài đặt', 'AdminCaiDat.dc.html', '']]]
+].map(([id, name, rows]) => {
+const items = rows.map(([label, href, count]) => { const c = cur === id + '/' + label; return { label, href, count, current: c ? 'page' : 'false', bar: c ? 'var(--accent)' : 'transparent', bg: c ? 'var(--tint)' : 'transparent', weight: c ? 600 : 400 }; });
+const ex = !!open[id];
+const hasCur = items.some((x) => x.current === 'page');
+const badge = items.reduce((n, x) => n + (Number(x.count) || 0), 0);
+return { id, name, items, exp: ex ? 'true' : 'false', show: ex, chev: ex ? 'M6 9l6 6 6-6' : 'M9 6l6 6-6 6', badgeShow: !ex && badge ? String(badge) : '', headColor: hasCur ? 'var(--ink)' : 'var(--muted)', toggle: () => this.setState({ open: Object.assign({}, open, { [id]: !open[id] }) }) };
+});
+const lane = s.lane || 'reported';
+const O = [
+{ st: 'reported', code: 'AVER-W4ZC8B', name: 'Hoàng Mai Phương', email: 'maiphuong@example.com', course: 'Khoá Ngữ pháp nền tảng', a: '14/11/2026 21:40', b: 'Đã chờ 2 ngày', late: true },
+{ st: 'reported', code: 'AVER-M5RD2K', name: 'Phạm Thu Trang', email: 'thutrang@example.com', course: 'Khoá Writing for IELTS', a: '17/11/2026 08:14', b: 'Đã chờ 2 giờ' },
+{ st: 'awaiting', code: 'AVER-R2KX7T', name: 'Bùi Ngọc Ánh', email: 'ngocanh@example.com', course: 'Khoá Writing for IELTS', a: '15/11/2026 03:05', b: 'Hết hạn sau 17 giờ', late: true },
+{ st: 'awaiting', code: 'AVER-N6PJ3V', name: 'Vũ Đức Long', email: 'duclong@example.com', course: 'Khoá Ngữ pháp nền tảng', a: '16/11/2026 09:00', b: 'Hết hạn sau 1 ngày' },
+{ st: 'needs', code: 'AVER-H9DM5Q', name: 'Đặng Tuấn Kiệt', email: 'tuankiet@example.com', course: 'Khoá Writing for IELTS', a: '14/11/2026 15:20 · chuyển thiếu', b: 'Chờ học viên 3 ngày' },
+{ st: 'confirmed', code: 'AVER-3HPW9C', name: 'Nguyễn Thanh Mai', email: 'thanhmai@example.com', course: 'Khoá Writing for IELTS', a: '02/11/2026 09:31', b: 'Vũ Thanh Tâm' },
+{ st: 'confirmed', code: 'AVER-Q8TN4R', name: 'Cao Minh Đức', email: 'minhduc@example.com', course: 'Khoá Writing for IELTS', a: '12/10/2026 14:02', b: 'Vũ Thanh Tâm' },
+{ st: 'expired', code: 'AVER-C7VB2N', name: 'Ngô Hải Yến', email: 'haiyen@example.com', course: 'Khoá Ngữ pháp nền tảng', a: '12/11/2026 09:00', b: 'Tiền về 13/11 · cần xem', late: true },
+{ st: 'cancelled', code: 'AVER-K3TF6W', name: 'Trịnh Bảo Ngọc', email: 'baongoc@example.com', course: 'Khoá Ngữ pháp nền tảng', a: '09/11/2026 18:47', b: 'Học viên tự huỷ' }
+];
+const LN = [
+['awaiting', 'Chờ chuyển khoản', 'Tạo lúc', 'Hạn chuyển khoản', 'Học viên chưa báo đã chuyển. Hệ thống gửi một thư nhắc (thư 5) XXX giờ trước hạn; quá hạn thì đơn tự hết hạn. Thường không cần làm gì.'],
+['reported', 'Đã báo chuyển', 'Báo chuyển lúc', 'Đã chờ', 'Học viên báo đã chuyển khoản. Đối chiếu sao kê rồi xác nhận hoặc yêu cầu bổ sung.'],
+['needs', 'Cần bổ sung', 'Yêu cầu lúc · lý do', 'Chờ học viên', 'Đang chờ học viên bổ sung (đã nhận thư "Cần bổ sung / chưa tìm thấy khoản chuyển" và thông báo trong ứng dụng). Khi học viên bấm "Tôi đã bổ sung", đơn quay về Đã báo chuyển.'],
+['confirmed', 'Đã xác nhận', 'Xác nhận lúc', 'Người xác nhận', 'Đơn đã mở khoá. Chỉ xem; quyền và lượt quản lý trong hồ sơ học viên.'],
+['expired', 'Hết hạn', 'Hết hạn lúc', 'Ghi chú', 'Đơn quá hạn chuyển khoản. Nếu tiền đến muộn và khớp mã đơn, ghi nhận khoản chuyển: đơn tự mở lại, mở khoá và gửi thư 6. Khác đơn đã huỷ (không mở lại).'],
+['cancelled', 'Đã huỷ', 'Huỷ lúc', 'Người huỷ', 'Đơn đã huỷ không mở lại được.']
+];
+const cur = LN.find((x) => x[0] === lane) || LN[1];
+const rows = O.filter((o) => o.st === lane).map((o) => Object.assign({}, o, { late: !!o.late, bc: o.late ? 'var(--mark)' : 'var(--ink)', bw: o.late ? 600 : 400 }));
+const RC = {
+khop: { t: 'Khớp', amt: 'XXX', memo: 'AVER-M5RD2K TRAN VAN BINH', box: 'good', isOk: true, isWarn: false, kc: 'var(--ok)', k: 'Khớp', head: 'Đã nhận đủ XXX đ, nội dung có mã đơn.', body: 'Bạn có thể xác nhận và mở khoá.', needCheck: false, noteReq: '(tuỳ chọn)', notePh: 'Ví dụ: đã đối chiếu sao kê ngày 16/11', canConfirm: true, why: '' },
+thieu: { t: 'Thiếu', amt: 'XXX', memo: 'AVER-M5RD2K', box: 'warn', isOk: false, isWarn: true, kc: 'var(--mark)', k: 'Cảnh báo · Thiếu', head: 'Còn thiếu XXX đ so với học phí.', body: 'Chưa mở khoá được. Gửi yêu cầu bổ sung để học viên chuyển phần còn thiếu.', needCheck: false, noteReq: '(tuỳ chọn)', notePh: '', canConfirm: false, why: 'Nút xác nhận chỉ bật khi đã nhận đủ học phí.' },
+thua: { t: 'Thừa', amt: 'XXX', memo: 'AVER-M5RD2K', box: 'warn', isOk: false, isWarn: true, kc: 'var(--mark)', k: 'Cảnh báo · Thừa', head: 'Nhận thừa XXX đ.', body: 'Xác nhận được; ghi rõ khoản thừa vào ghi chú. Hệ thống không tự hoàn tiền.', needCheck: false, noteReq: '(bắt buộc)', notePh: 'Ví dụ: đã nhận thừa XXX đ, liên hệ học viên để hoàn', canConfirm: true, why: '' },
+sai: { t: 'Sai nội dung', amt: 'XXX', memo: 'CHUYEN TIEN HOC', box: 'warn', isOk: false, isWarn: true, kc: 'var(--mark)', k: 'Cảnh báo · Sai nội dung', head: 'Số tiền khớp nhưng nội dung không có mã đơn.', body: 'Chỉ xác nhận khi bạn đối chiếu được người chuyển với người đăng ký; nếu chưa chắc, yêu cầu bổ sung.', needCheck: true, noteReq: '(bắt buộc)', notePh: 'Ví dụ: người chuyển Trần Văn Bình, học viên xác nhận là bố', canConfirm: true, why: '' }
+};
+const NONE = { amt: '', memo: '', day: '', box: 'note', isOk: false, isWarn: false, isNone: true, kc: 'var(--accent)', k: 'Chưa đối chiếu', head: 'Nhập ba ô theo sao kê,', body: 'hoặc bấm "Điền đúng học phí, mã đơn, hôm nay" khi khoản chuyển đúng và đủ.', needCheck: false, noteReq: '(tuỳ chọn)', notePh: '', canConfirm: false, why: 'Nút xác nhận bật khi ba ô đã có giá trị.' };
+const rc = s.rc || '';
+const cs = Object.assign({ isNone: false, day: '17/11/2026' }, rc ? RC[rc] : NONE);
+cs.noConfirm = !cs.canConfirm;
+const MK = {
+needs: { t: 'Cần bổ sung', d: 'Đã thấy khoản chuyển nhưng thiếu tiền hoặc thiếu thông tin.', msg: 'Chúng tôi đã nhận XXX đ, còn thiếu XXX đ so với học phí Khoá Writing for IELTS. Bạn chuyển thêm phần còn thiếu với nội dung AVER-M5RD2K, rồi bấm "Tôi đã bổ sung" trong đơn.', after: 'Đơn chuyển sang Cần bổ sung và không tự hết hạn.', btn: 'Đánh dấu Cần bổ sung và gửi' },
+mis: { t: 'Sai lệch', d: 'Chưa tìm thấy khoản chuyển khớp với đơn trên sao kê.', msg: 'Chúng tôi chưa tìm thấy khoản chuyển khớp với đơn AVER-M5RD2K trên sao kê. Bạn gửi lại ảnh biên lai chuyển khoản (ngày, số tiền, tên người chuyển) trong đơn để chúng tôi đối chiếu.', after: 'Đơn chuyển sang Cần bổ sung · sai lệch và không tự hết hạn.', btn: 'Đánh dấu Sai lệch và gửi' }
+};
+const mkId = s.mk || 'needs';
+const cx = s.cxText || '';
+return {
+nav: NAV('kh/Đơn đăng ký', open),
+doneShow: !!s.done,
+goNext: () => this.setState({ done: false, rc: '' }),
+confirm: () => this.setState({ done: true }),
+fill: () => this.setState({ rc: 'khop' }),
+fillHint: rc ? 'Đã điền; sửa ô nào khác với sao kê.' : 'Một bấm điền ba ô; vẫn sửa được từng ô.',
+markNeeds: () => this.setState({ mk: 'needs' }),
+markMis: () => this.setState({ mk: 'mis' }),
+marks: Object.keys(MK).map((id) => ({ t: MK[id].t, d: MK[id].d, on: mkId === id ? 'true' : 'false', dot: mkId === id ? 'var(--accent)' : 'var(--surface)', pick: () => this.setState({ mk: id }) })),
+mk: MK[mkId],
+pal: (this.props.palette ?? 'Navy + đỏ mận') === 'Xanh teal' ? 'pal-teal' : 'pal-navy',
+noop: () => {},
+lanes: LN.map(([id, t]) => {
+const on = id === lane; const n = O.filter((o) => o.st === id).length; const hot = id === 'reported' && n > 0;
+return { t, n: String(n), sel: on ? 'true' : 'false', pb: on ? '7px' : '10px', bb: on ? '3px solid var(--ink)' : '0', fg: on ? 'var(--ink)' : 'var(--muted)', fw: on ? 600 : 400, cb: hot ? 'var(--mark)' : 'var(--rule)', cc: hot ? 'var(--mark)' : 'var(--muted)', pick: () => this.setState({ lane: id }) };
+}),
+laneNote: cur[4],
+colA: cur[2],
+colB: cur[3],
+rows,
+cases: Object.keys(RC).map((id) => ({ t: RC[id].t, pressed: rc === id ? 'true' : 'false', bd: rc === id ? 'var(--ink)' : 'var(--rule)', bg: rc === id ? 'var(--ink)' : 'var(--surface)', fg: rc === id ? 'var(--surface)' : 'var(--ink)', pick: () => this.setState({ rc: id }) })),
+cs,
+timeline: [
+{ at: '14/11/2026 21:02', who: 'Học viên', t: 'Tạo đơn', d: 'Học phí XXX đ, thời hạn XXX ngày, XXX lượt. Hạn chuyển khoản 17/11/2026 21:02. Đã gửi thư 4 "Đã tạo đơn đăng ký" (thông tin chuyển khoản).' },
+{ at: '17/11/2026 08:14', who: 'Học viên', t: 'Báo đã chuyển khoản', d: 'Lời nhắn của học viên (hiện trên khối đối chiếu): "Chuyển từ tài khoản của bố, tên Trần Văn Bình."' },
+{ at: '17/11/2026 08:14', who: 'Hệ thống', t: 'Đơn vào hàng chờ xác nhận', d: 'Đơn đã báo chuyển không tự hết hạn.' }
+],
+cxText: cx,
+cxType: (e) => this.setState({ cxText: (e && e.target ? e.target.value : '') }),
+cxHint: cx === '' ? 'Chữ hoa, có dấu gạch ngang.' : (cx.trim() === 'AVER-M5RD2K' ? 'Đã khớp mã đơn.' : 'Chưa khớp mã đơn.'),
+cxDisabled: cx.trim() !== 'AVER-M5RD2K',
+cxOpacity: cx.trim() === 'AVER-M5RD2K' ? 1 : 0.55,
+skel: [{ w: '70%' }, { w: '55%' }, { w: '80%' }]
+};
+}
+}
+</script>
+</body>
+</html>

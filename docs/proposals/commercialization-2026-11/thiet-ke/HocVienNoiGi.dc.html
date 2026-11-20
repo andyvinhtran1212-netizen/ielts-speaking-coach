@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Học viên nói gì</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--accentH:#0B5953;--link:#0B5953;--mark:#8A4B08;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EDF3F1;--off:#E7E2D6}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--accentH:#11254A;--link:#1A3561;--mark:#8A1C1C;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EEF0F5;--off:#E8E2D5}
+a{color:var(--link)}a:hover{color:var(--ink)}
+.sf{font-family:'Source Serif 4',Georgia,serif}
+.lab{margin:0;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)}
+.mut{color:var(--muted)}
+.h2s{margin:0 0 6px;font-family:'Source Serif 4',Georgia,serif;font-size:24px;font-weight:600}
+.h2p{margin:0;font-family:'Source Serif 4',Georgia,serif;font-size:28px;font-weight:600;line-height:1.2}
+.sec{border-top:2px solid var(--ink);padding-top:16px}
+.chip{display:inline-flex;align-items:center;min-height:44px;padding:0 16px;margin-right:-1px;border:1px solid var(--ink);border-radius:0;font:600 15px 'Source Sans 3',sans-serif;cursor:pointer}
+.nx{padding:20px 0;border-bottom:1px solid var(--rule)}
+.nx-q{margin:0;font-family:'Source Serif 4',Georgia,serif;font-size:19px;line-height:1.6;text-wrap:pretty}
+.nx-by{margin:10px 0 0;font-size:15px}
+.nx-fact{margin:10px 0 0;padding:8px 12px;border-left:3px solid var(--accent);background:var(--tint);font-size:14px}
+.nx-note{margin:8px 0 0;font-size:13px;color:var(--muted)}
+.ph{flex:0 0 56px;width:56px;height:56px;box-sizing:border-box;border:1px dashed var(--muted);display:flex;align-items:center;justify-content:center;text-align:center;font-size:11px;line-height:1.2;color:var(--muted)}
+.row{display:grid;grid-template-columns:minmax(0,2.4fr) minmax(0,1.4fr) minmax(0,1.8fr) minmax(0,1.8fr) minmax(0,1.6fr);gap:0 20px;align-items:baseline;padding:11px 0;border-bottom:1px solid var(--rule);font-size:15px;font-variant-numeric:tabular-nums}
+.tile{border-top:1px solid var(--ink);padding:12px 0 0}
+.tile b{display:block;font-family:'Source Serif 4',Georgia,serif;font-size:30px;font-weight:600;line-height:1.15;font-variant-numeric:tabular-nums}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 20px;border:1px solid var(--ink);border-radius:2px;background:var(--surface);color:var(--ink);font:600 16px 'Source Sans 3',sans-serif;text-decoration:none}
+.btn-p{border-color:var(--accent);background:var(--accent);color:var(--surface)}
+.warn{border:1px solid var(--mark);border-left-width:4px;padding:12px 16px;background:var(--surface)}
+.sk{display:block;height:14px;background:var(--off);border-radius:2px}
+.frame{border:1px solid var(--ink);background:var(--paper)}
+.phone{width:390px;box-sizing:border-box;border:1px solid var(--ink);overflow:hidden;background:var(--paper)}
+.notes{margin:0;padding-left:20px;font-size:15px;display:flex;flex-direction:column;gap:8px;max-width:112ch}
+.dt{display:grid;grid-template-columns:230px minmax(0,1fr);gap:0 20px;padding:8px 0;border-bottom:1px solid var(--rule);font-size:15px}
+</style>
+</helmet>
+<div class="{{pal}}" style="width: 1280px; height: 5900px; box-sizing: border-box; padding: 56px 64px; background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 16px; line-height: 1.5; display: flex; flex-direction: column; gap: 36px">
+
+<header>
+<p class="lab">Aver Learning · Bản in · trang công khai · đợt 15 · /hoc-vien-noi-gi</p>
+<h1 class="sf" style="margin: 4px 0 6px; font-size: 40px; font-weight: 600; line-height: 1.15">Học viên nói gì</h1>
+<p class="mut" style="margin: 0; max-width: 92ch">Trang công khai đăng nhận xét của học viên sau khoá và số liệu khảo sát của từng khoá. Mục đích là cho người lạ một chứng cứ kiểm được, nên trang đăng cả điều học viên chưa hài lòng, không có sao, không có band, không có con số tự khen. Mọi lời nhận xét trên bản vẽ là ô giữ chỗ; số liệu ghi XXX. Dẫn tới từ <a href="TrangChuCongKhai.dc.html">Trang chủ</a> và <a href="TrangKhoaHoc.dc.html">Trang một khoá</a>; phía quản trị ở <a href="AdminKhaoSat.dc.html">Admin · Khảo sát và nhận xét</a>.</p>
+</header>
+
+<section aria-labelledby="s1" class="sec">
+<h2 id="s1" class="h2s">1 · Màn chính · máy tính 1280px · bộ lọc bấm được</h2>
+<p class="mut" style="margin: 0 0 16px; font-size: 14px">Bấm một khoá để xem khối số liệu và danh sách đổi theo khoá. Course 5 trên bản vẽ là khoá chưa có nhận xét được đăng. Khối khoá online chỉ xuất hiện khi khoá online đầu tiên có nhận xét.</p>
+<div class="frame">
+<header style="border-bottom: 1px solid var(--ink)">
+<div style="display: flex; align-items: stretch; gap: 36px; height: 63px; padding: 0 32px">
+<a href="TrangChuCongKhai.dc.html" style="display: inline-flex; align-items: center; gap: 9px; align-self: center; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600; color: var(--ink); text-decoration: none"><svg width="29" height="29" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</a>
+<nav aria-label="Điều hướng công khai" style="display: flex; gap: 28px; flex-grow: 1">
+<a href="ThuVien.dc.html" style="display: flex; align-items: center; padding-top: 3px; border-bottom: 3px solid transparent; color: var(--muted); text-decoration: none">Thư viện</a>
+<a href="DanhMucKhoa.dc.html" style="display: flex; align-items: center; padding-top: 3px; border-bottom: 3px solid transparent; color: var(--muted); text-decoration: none">Khoá học</a>
+</nav>
+<div style="display: flex; align-items: center; gap: 20px">
+<a href="TrangChuCongKhai.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; color: var(--ink); font-weight: 600">Đăng nhập</a>
+<a href="DanhMucKhoa.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; border-radius: 2px; background: var(--accent); color: var(--surface); font-weight: 600; text-decoration: none">Xem các khoá</a>
+</div>
+</div>
+</header>
+
+<main style="max-width: 1024px; margin: 0 auto; padding: 36px 32px 56px">
+
+<p class="lab">Nhận xét sau khoá · nguyên văn</p>
+<h1 class="sf" style="margin: 6px 0 12px; font-size: 44px; font-weight: 600; line-height: 1.12">Học viên nói gì</h1>
+<p class="sf" style="margin: 0; font-size: 20px; line-height: 1.6; max-width: 66ch; text-wrap: pretty">Mỗi nhận xét dưới đây là nguyên văn lời học viên viết trong khảo sát sau khoá, chỉ đăng khi người viết đồng ý, và chúng tôi không chỉnh sửa câu chữ.</p>
+<dl style="margin: 20px 0 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 28px; font-size: 15px">
+<div style="border-top: 1px solid var(--ink); padding-top: 10px"><dt style="font-weight: 600">Thu khi nào</dt><dd class="mut" style="margin: 2px 0 0">Trong khảo sát gửi cho cả lớp khi khoá kết thúc. Nhận xét thu trước khi có khảo sát trên web được ghi rõ ở từng mục.</dd></div>
+<div style="border-top: 1px solid var(--ink); padding-top: 10px"><dt style="font-weight: 600">Ai được đăng</dt><dd class="mut" style="margin: 2px 0 0">Chỉ người chọn "đồng ý cho đăng". Người viết rút lại được bất cứ lúc nào; mục đó được gỡ.</dd></div>
+<div style="border-top: 1px solid var(--ink); padding-top: 10px"><dt style="font-weight: 600">Có sửa không</dt><dd class="mut" style="margin: 2px 0 0">Không sửa chữ, kể cả lỗi chính tả. Nhận xét dài có thể được rút gọn; chỗ lược bỏ ghi […].</dd></div>
+<div style="border-top: 1px solid var(--ink); padding-top: 10px"><dt style="font-weight: 600">Tên hiển thị</dt><dd class="mut" style="margin: 2px 0 0">Do người viết chọn: tên đầy đủ, tên và chữ cái đầu của họ, hoặc ẩn danh.</dd></div>
+</dl>
+
+<div style="margin-top: 32px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; border-top: 2px solid var(--ink); padding-top: 16px">
+<span class="lab" id="lb-loc">Lọc theo khoá</span>
+<div role="group" aria-labelledby="lb-loc" style="display: flex; flex-wrap: wrap">
+<sc-for list="{{chips}}" as="c" hint-placeholder-count="6">
+<button type="button" class="chip" aria-pressed="{{c.on}}" onClick="{{c.pick}}" style="background: {{c.bg}}; color: {{c.fg}}">{{c.label}}<span style="margin-left: 8px; font-weight: 400; font-variant-numeric: tabular-nums">{{c.count}}</span></button>
+</sc-for>
+</div>
+<span class="mut" style="font-size: 14px">Số trên nút là số nhận xét đang đăng.</span>
+</div>
+
+<section aria-labelledby="h-sl" style="margin-top: 28px">
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 24px">
+<h2 id="h-sl" class="h2p">{{statTitle}}</h2>
+<p class="mut" style="margin: 0; font-size: 14px">Từ khảo sát sau khoá · cập nhật XXX</p>
+</div>
+<sc-if value="{{isAll}}" hint-placeholder-val="{{ true }}">
+<div role="table" aria-label="Số liệu khảo sát theo khoá" style="margin-top: 12px">
+<div role="row" class="row" style="border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); font-weight: 600">
+<span role="columnheader">Khoá</span>
+<span role="columnheader">Người trả lời / sĩ số</span>
+<span role="columnheader">Thời gian làm bài mỗi buổi</span>
+<span role="columnheader">Dự định học tiếp</span>
+<span role="columnheader">Dự định dừng · chưa quyết</span>
+</div>
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="5">
+<div role="row" class="row">
+<span role="rowheader" style="font-weight: 600">{{r.name}}<span class="mut" style="display: block; font-weight: 400; font-size: 14px">{{r.cohorts}}</span></span>
+<span role="cell">{{r.resp}}</span>
+<span role="cell">{{r.mins}}</span>
+<span role="cell">{{r.cont}}</span>
+<span role="cell">{{r.stop}}</span>
+</div>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{isOne}}" hint-placeholder-val="{{ false }}">
+<div style="margin-top: 14px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 28px">
+<div class="tile"><b>XXX / XXX</b><span style="font-size: 15px">người trả lời trên sĩ số</span><span class="mut" style="display: block; font-size: 14px">gộp XXX lớp đã khảo sát</span></div>
+<div class="tile"><b>XXX phút</b><span style="font-size: 15px">làm bài mỗi buổi, trung bình tự báo</span><span class="mut" style="display: block; font-size: 14px">trung vị XXX phút · ít nhất XXX, nhiều nhất XXX</span></div>
+<div class="tile"><b>XXX / XXX</b><span style="font-size: 15px">dự định học tiếp khoá kế</span><span class="mut" style="display: block; font-size: 14px">trên số người trả lời</span></div>
+<div class="tile"><b>XXX · XXX</b><span style="font-size: 15px">dự định dừng · chưa quyết</span><span class="mut" style="display: block; font-size: 14px">lý do hay gặp nhất: XXX</span></div>
+</div>
+</sc-if>
+<sc-if value="{{isNoStat}}" hint-placeholder-val="{{ false }}">
+<p style="margin: 14px 0 0; padding: 14px 0; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule); font-size: 16px">Khoá này chưa có khảo sát trên web, nên chưa có số liệu. Chúng tôi không ước lượng thay.</p>
+</sc-if>
+<p class="mut" style="margin: 10px 0 0; font-size: 14px; max-width: 100ch">Cách đọc: số người trả lời trên sĩ số của các lớp đã khảo sát; thời gian làm bài là số phút học viên tự báo, không phải số đo của hệ thống; "dự định học tiếp" là ý định lúc trả lời, chưa phải số người thật sự đăng ký tiếp. Khoá chưa đủ XXX người trả lời thì chỉ ghi số người, không ghi tỉ lệ phần trăm.</p>
+</section>
+
+<sc-if value="{{hasItems}}" hint-placeholder-val="{{ true }}">
+<div style="margin-top: 36px; display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 56px; align-items: start">
+
+<section aria-labelledby="h-nx">
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 20px; border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="h-nx" class="h2p">{{listTitle}}</h2>
+<p class="mut" style="margin: 0; font-size: 14px">Mới nhất trước · {{listCount}}</p>
+</div>
+<div style="margin-top: 6px; border-top: 1px solid var(--rule)">
+<sc-for list="{{items}}" as="n" hint-placeholder-count="6">
+<article class="nx">
+<blockquote class="nx-q">{{n.text}}</blockquote>
+<div style="display: flex; align-items: center; gap: 12px; margin-top: 10px">
+<sc-if value="{{n.photo}}" hint-placeholder-val="{{ false }}"><span class="ph" role="img" aria-label="Ảnh do học viên gửi">Ảnh học viên gửi</span></sc-if>
+<p style="margin: 0; font-size: 15px"><span style="font-weight: 600">{{n.name}}</span><span class="mut" style="display: block">{{n.course}} · học xong {{n.cohort}}</span></p>
+</div>
+<sc-if value="{{n.hasFact}}" hint-placeholder-val="{{ true }}"><p class="nx-fact"><span style="font-weight: 600">Dữ kiện đi kèm.</span> {{n.fact}}</p></sc-if>
+<sc-if value="{{n.hasNote}}" hint-placeholder-val="{{ false }}"><p class="nx-note">{{n.note}}</p></sc-if>
+</article>
+</sc-for>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin-top: 20px">
+<button type="button" class="btn">Xem thêm 20 nhận xét</button>
+<span class="mut" style="font-size: 15px">Đang hiện XXX trên XXX nhận xét được đăng.</span>
+</div>
+</section>
+
+<aside aria-labelledby="h-ct" style="border: 1px solid var(--ink); background: var(--surface); padding: 20px 24px 8px">
+<p class="lab" style="color: var(--mark); font-weight: 600">Chưa hài lòng</p>
+<h2 id="h-ct" class="sf" style="margin: 2px 0 6px; font-size: 24px; font-weight: 600; line-height: 1.2">Điều học viên muốn cải thiện</h2>
+<p class="mut" style="margin: 0 0 4px; font-size: 14px">Trích nguyên văn câu trả lời cho câu hỏi "Điều bạn muốn khoá học cải thiện". Cùng quy tắc đồng ý và không sửa chữ.</p>
+<sc-for list="{{wishes}}" as="w" hint-placeholder-count="3">
+<div style="padding: 14px 0; border-top: 1px solid var(--rule)">
+<blockquote class="sf" style="margin: 0; font-size: 17px; line-height: 1.55">{{w.text}}</blockquote>
+<p style="margin: 6px 0 0; font-size: 14px"><span style="font-weight: 600">{{w.name}}</span> <span class="mut">· {{w.course}} · học xong {{w.cohort}}</span></p>
+<sc-if value="{{w.hasReply}}" hint-placeholder-val="{{ false }}"><p style="margin: 8px 0 0; padding-left: 12px; border-left: 2px solid var(--ink); font-size: 14px"><span style="font-weight: 600">Aver Learning trả lời · XXX:</span> [Việc đã làm hoặc chưa làm được sau góp ý này. XXX]</p></sc-if>
+</div>
+</sc-for>
+<p style="margin: 0; padding: 12px 0; border-top: 1px solid var(--rule); font-size: 14px"><span class="mut">Nhóm ý được nhắc nhiều nhất trong khảo sát: XXX (XXX lượt) · XXX (XXX lượt) · XXX (XXX lượt).</span></p>
+</aside>
+
+</div>
+</sc-if>
+
+<sc-if value="{{isEmpty}}" hint-placeholder-val="{{ false }}">
+<div style="margin-top: 36px; border-top: 2px solid var(--ink); border-bottom: 1px solid var(--rule); padding: 28px 0">
+<h2 class="h2p">{{emptyTitle}}</h2>
+<p style="margin: 8px 0 14px; max-width: 66ch">Khoá này chưa có nhận xét nào được học viên đồng ý cho đăng. Chúng tôi không lấy nhận xét của khoá khác để lấp chỗ trống.</p>
+<button type="button" class="btn" onClick="{{pickAll}}">Xem nhận xét của các khoá khác</button>
+</div>
+</sc-if>
+
+<div style="margin-top: 40px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; padding: 16px 0; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule)">
+<span style="flex: 1 1 320px; font-size: 15px">Sáu khoá học trên web dùng cùng bài giảng và cùng cách chữa bài với các khoá mà học viên nhận xét ở trên.</span>
+<a href="DanhMucKhoa.dc.html" class="btn">Xem các khoá học</a>
+<a href="ChamThuMienPhi.dc.html#s2" style="font-weight: 600">Chấm thử một bài miễn phí</a>
+</div>
+<p class="mut" style="margin: 12px 0 0; font-size: 14px">Bạn là học viên và muốn gỡ hoặc đổi cách hiển thị tên ở nhận xét của mình? Vào Tài khoản › Quyền riêng tư, hoặc viết cho chúng tôi: XXX.</p>
+
+</main>
+<footer style="padding: 20px 32px; border-top: 1px solid var(--ink)">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0 28px">
+<span style="display: inline-flex; align-items: center; gap: 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; font-weight: 600; margin-right: 12px"><svg width="26" height="26" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="currentColor"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<nav aria-label="Chân trang" style="display: flex; flex-wrap: wrap; gap: 0 24px">
+<a href="TrangChuCongKhai.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Giới thiệu</a>
+<a href="DanhMucKhoa.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Khoá học</a>
+<a href="ThuVien.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Thư viện</a>
+<a href="HocVienNoiGi.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Học viên nói gì</a>
+<a href="PhapLy.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Điều khoản</a>
+<a href="TrangChuCongKhai.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Quyền riêng tư</a>
+<a href="TrangChuCongKhai.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Liên hệ</a>
+</nav>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)">© 2026 Aver Learning. Bảo lưu mọi quyền.</p>
+</footer>
+</div>
+</section>
+
+<section aria-labelledby="s2" class="sec">
+<h2 id="s2" class="h2s">2 · Các dạng của một nhận xét và trạng thái của trang</h2>
+<p class="mut" style="margin: 0 0 16px; font-size: 14px">Hàng trên: bốn dạng của một mục nhận xét. Hàng dưới: khoá chưa có nhận xét · đang tải · lỗi tải. Tất cả nằm trong khung trang như màn 1.</p>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 28px; align-items: start">
+<div>
+<p class="lab" style="margin-bottom: 6px">Tên đầy đủ · có dữ kiện · không ảnh</p>
+<article class="nx" style="border-top: 1px solid var(--ink); padding-top: 14px">
+<blockquote class="nx-q" style="font-size: 17px">[Nguyên văn nhận xét của học viên. XXX]</blockquote>
+<p class="nx-by"><span style="font-weight: 600">Vũ Hải Đăng</span><span class="mut" style="display: block">Course 2 · XXX · học xong 09/2026</span></p>
+<p class="nx-fact"><span style="font-weight: 600">Dữ kiện đi kèm.</span> Nộp bài XXX / 20 buổi (dữ liệu hệ thống) · tự báo khoảng XXX phút làm bài mỗi buổi (khảo sát).</p>
+</article>
+</div>
+<div>
+<p class="lab" style="margin-bottom: 6px">Tên và chữ cái đầu · có ảnh học viên gửi</p>
+<article class="nx" style="border-top: 1px solid var(--ink); padding-top: 14px">
+<blockquote class="nx-q" style="font-size: 17px">[Nguyên văn nhận xét của học viên. XXX]</blockquote>
+<div style="display: flex; align-items: center; gap: 12px; margin-top: 10px">
+<span class="ph" role="img" aria-label="Ảnh do học viên gửi">Ảnh học viên gửi</span>
+<p style="margin: 0; font-size: 15px"><span style="font-weight: 600">Thuỳ Dương N.</span><span class="mut" style="display: block">Course 3 · XXX · học xong XXX</span></p>
+</div>
+<p class="nx-note">Ảnh vuông 56px, chỉ hiện khi học viên tự gửi kèm khảo sát và đồng ý đăng ảnh. Không dùng ảnh minh hoạ thay.</p>
+</article>
+</div>
+<div>
+<p class="lab" style="margin-bottom: 6px">Ẩn danh · đã rút gọn</p>
+<article class="nx" style="border-top: 1px solid var(--ink); padding-top: 14px">
+<blockquote class="nx-q" style="font-size: 17px">[Câu thứ nhất của nhận xét, nguyên văn. XXX] […] [Câu thứ ba, nguyên văn. XXX]</blockquote>
+<p class="nx-by"><span style="font-weight: 600">Học viên Course 1</span><span class="mut" style="display: block">Course 1 · XXX · học xong XXX</span></p>
+<p class="nx-note">Đã rút gọn, không sửa chữ. <a href="#s2">Đọc đủ nhận xét</a></p>
+</article>
+</div>
+<div>
+<p class="lab" style="margin-bottom: 6px">Thu trước khi có khảo sát trên web</p>
+<article class="nx" style="border-top: 1px solid var(--ink); padding-top: 14px">
+<blockquote class="nx-q" style="font-size: 17px">[Nguyên văn nhận xét của học viên. XXX]</blockquote>
+<p class="nx-by"><span style="font-weight: 600">Khoa B.</span><span class="mut" style="display: block">Course 4 · XXX · học xong XXX</span></p>
+<p class="nx-note">Thu bằng phiếu sau khoá, trước khi có khảo sát trên web; học viên đã đồng ý chia sẻ lúc thu. Không có dữ kiện đi kèm.</p>
+</article>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 28px; align-items: start; margin-top: 28px">
+<div>
+<p class="lab" style="margin-bottom: 6px">Khoá chưa có nhận xét</p>
+<div style="border-top: 2px solid var(--ink); border-bottom: 1px solid var(--rule); padding: 18px 0">
+<p class="sf" style="margin: 0; font-size: 22px; font-weight: 600">Course 5 chưa có nhận xét được đăng</p>
+<p style="margin: 6px 0 12px; font-size: 15px">Khoá này chưa có nhận xét nào được học viên đồng ý cho đăng. Chúng tôi không lấy nhận xét của khoá khác để lấp chỗ trống.</p>
+<span class="btn">Xem nhận xét của các khoá khác</span>
+</div>
+<p class="nx-note">Khối số liệu vẫn hiện nếu khoá đã có khảo sát; nếu chưa thì ghi "chưa có khảo sát trên web". Không hiện "0 nhận xét" trên nút lọc: nút của khoá đó không có số.</p>
+</div>
+<div>
+<p class="lab" style="margin-bottom: 6px">Đang tải</p>
+<div role="status" aria-label="Đang tải nhận xét" style="border-top: 2px solid var(--ink); padding: 18px 0; display: flex; flex-direction: column; gap: 10px">
+<span class="sk" style="width: 92%"></span><span class="sk" style="width: 100%"></span><span class="sk" style="width: 64%"></span>
+<span class="sk" style="width: 38%; height: 10px; margin-top: 6px"></span>
+<span style="border-top: 1px solid var(--rule); margin: 6px 0"></span>
+<span class="sk" style="width: 100%"></span><span class="sk" style="width: 80%"></span>
+<span class="sk" style="width: 38%; height: 10px; margin-top: 6px"></span>
+</div>
+<p class="nx-note">Tiêu đề, câu mở đầu và bộ lọc hiện ngay (nằm sẵn trong trang); chỉ khối số liệu và danh sách có khung chờ. Đổi bộ lọc: giữ danh sách cũ mờ đi tới khi có dữ liệu mới.</p>
+</div>
+<div>
+<p class="lab" style="margin-bottom: 6px">Lỗi tải</p>
+<div role="alert" class="warn" style="margin-top: 2px">
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--mark)">Cảnh báo</p>
+<p style="margin: 4px 0 10px; font-size: 15px">Chưa tải được nhận xét. Phần còn lại của trang vẫn dùng được.</p>
+<span class="btn" style="min-height: 40px; font-size: 15px">Tải lại danh sách</span>
+</div>
+<p class="nx-note">Lỗi chỉ thay vùng danh sách và khối số liệu. Không hiện mã lỗi. Không hiện số liệu cũ đã lưu tạm mà không ghi ngày.</p>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="s3" class="sec">
+<h2 id="s3" class="h2s">3 · Điện thoại 390px</h2>
+<p class="mut" style="margin: 0 0 16px; font-size: 14px">Khung trái: đầu trang, bộ lọc và số liệu khi chọn "Tất cả". Khung giữa: cuộn tới danh sách của một khoá và khối "Điều học viên muốn cải thiện".</p>
+<div style="display: flex; gap: 40px; align-items: flex-start">
+
+<div class="phone" style="height: 930px">
+<header style="flex-shrink: 0; display: flex; align-items: center; gap: 12px; height: 56px; box-sizing: border-box; padding: 0 16px; border-bottom: 1px solid var(--ink)">
+<span style="display: inline-flex; align-items: center; gap: 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; font-weight: 600; flex-grow: 1"><svg width="26" height="26" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<a href="TaiKhoanDangNhap.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; color: var(--ink); font-weight: 600">Đăng nhập</a>
+<button aria-label="Mở menu" aria-expanded="false" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); cursor: pointer"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 20px; height: 20px"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg></button>
+</header>
+<div style="padding: 20px 16px 0">
+<p class="lab" style="font-size: 12px">Nhận xét sau khoá · nguyên văn</p>
+<p class="sf" style="margin: 4px 0 8px; font-size: 30px; font-weight: 600; line-height: 1.15">Học viên nói gì</p>
+<p class="sf" style="margin: 0; font-size: 17px; line-height: 1.55">Mỗi nhận xét dưới đây là nguyên văn lời học viên viết trong khảo sát sau khoá, chỉ đăng khi người viết đồng ý, và chúng tôi không chỉnh sửa câu chữ.</p>
+<a href="#s3" style="display: inline-flex; align-items: center; min-height: 44px; font-size: 15px">Cách thu và đăng nhận xét</a>
+<label for="m-loc" class="lab" style="display: block; margin: 8px 0 6px">Lọc theo khoá</label>
+<div style="display: flex; align-items: center; justify-content: space-between; min-height: 48px; padding: 0 12px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface)"><span id="m-loc" style="font-weight: 600">Tất cả các khoá</span><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 18px; height: 18px"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></div>
+<p class="sf" style="margin: 22px 0 0; padding-top: 12px; border-top: 2px solid var(--ink); font-size: 22px; font-weight: 600">Số liệu khảo sát theo khoá</p>
+<div style="padding: 10px 0; border-bottom: 1px solid var(--rule); font-size: 15px"><span style="font-weight: 600">Course 1 · XXX</span><span style="display: block">XXX / XXX người trả lời · XXX phút mỗi buổi</span><span style="display: block">Học tiếp XXX · dừng XXX · chưa quyết XXX</span></div>
+<div style="padding: 10px 0; border-bottom: 1px solid var(--rule); font-size: 15px"><span style="font-weight: 600">Course 2 · XXX</span><span style="display: block">XXX / XXX người trả lời · XXX phút mỗi buổi</span><span style="display: block">Học tiếp XXX · dừng XXX · chưa quyết XXX</span></div>
+<div style="padding: 10px 0; border-bottom: 1px solid var(--rule); font-size: 15px"><span style="font-weight: 600">Course 3 · XXX</span><span style="display: block">XXX / XXX người trả lời · XXX phút mỗi buổi</span><span style="display: block">Học tiếp XXX · dừng XXX · chưa quyết XXX</span></div>
+<div style="padding: 10px 0; border-bottom: 1px solid var(--rule); font-size: 15px"><span style="font-weight: 600">Course 4 · XXX</span><span style="display: block">XXX / XXX người trả lời · XXX phút mỗi buổi</span><span style="display: block">Học tiếp XXX · dừng XXX · chưa quyết XXX</span></div>
+<div style="padding: 10px 0; border-bottom: 1px solid var(--rule); font-size: 15px"><span style="font-weight: 600">Course 5 · XXX</span><span class="mut" style="display: block">Chưa có khảo sát trên web</span></div>
+<p class="mut" style="margin: 8px 0 0; font-size: 13px">Số phút do học viên tự báo. "Học tiếp" là ý định lúc trả lời.</p>
+</div>
+</div>
+
+<div class="phone" style="height: 930px">
+<div style="padding: 16px 16px 0">
+<div style="display: flex; align-items: center; justify-content: space-between; min-height: 48px; padding: 0 12px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface)"><span style="font-weight: 600">Course 3 · XXX</span><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 18px; height: 18px"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></div>
+<p class="sf" style="margin: 18px 0 0; padding-top: 12px; border-top: 2px solid var(--ink); font-size: 22px; font-weight: 600">Nhận xét của Course 3</p>
+<article class="nx" style="padding: 14px 0">
+<blockquote class="nx-q" style="font-size: 17px">[Nguyên văn nhận xét của học viên. XXX]</blockquote>
+<div style="display: flex; align-items: center; gap: 12px; margin-top: 10px">
+<span class="ph" role="img" aria-label="Ảnh do học viên gửi">Ảnh học viên gửi</span>
+<p style="margin: 0; font-size: 15px"><span style="font-weight: 600">Thuỳ Dương N.</span><span class="mut" style="display: block">Course 3 · học xong XXX</span></p>
+</div>
+<p class="nx-fact">Nộp bài XXX / 20 buổi · tự báo khoảng XXX phút làm bài mỗi buổi.</p>
+</article>
+<article class="nx" style="padding: 14px 0">
+<blockquote class="nx-q" style="font-size: 17px">[Nguyên văn nhận xét của học viên. XXX]</blockquote>
+<p class="nx-by"><span style="font-weight: 600">Học viên Course 3</span><span class="mut" style="display: block">Course 3 · học xong XXX</span></p>
+</article>
+<span class="btn" style="display: flex; margin-top: 16px; min-height: 48px">Xem thêm 20 nhận xét</span>
+<div style="margin-top: 22px; border: 1px solid var(--ink); background: var(--surface); padding: 14px 16px 4px">
+<p class="lab" style="color: var(--mark); font-weight: 600; font-size: 12px">Chưa hài lòng</p>
+<p class="sf" style="margin: 2px 0 4px; font-size: 20px; font-weight: 600">Điều học viên muốn cải thiện</p>
+<div style="padding: 12px 0; border-top: 1px solid var(--rule)">
+<blockquote class="sf" style="margin: 0; font-size: 16px; line-height: 1.55">[Nguyên văn điều học viên muốn khoá cải thiện. XXX]</blockquote>
+<p style="margin: 6px 0 0; font-size: 14px"><span style="font-weight: 600">Minh L.</span> <span class="mut">· Course 3 · học xong XXX</span></p>
+</div>
+<div style="padding: 12px 0; border-top: 1px solid var(--rule)">
+<blockquote class="sf" style="margin: 0; font-size: 16px; line-height: 1.55">[Nguyên văn điều học viên muốn khoá cải thiện. XXX]</blockquote>
+<p style="margin: 6px 0 0; font-size: 14px"><span style="font-weight: 600">Học viên Course 3</span> <span class="mut">· học xong XXX</span></p>
+</div>
+</div>
+</div>
+</div>
+
+<div style="flex: 1 1 0; min-width: 0">
+<p class="lab" style="margin-bottom: 8px">Quy tắc trên điện thoại</p>
+<ul style="margin: 0; padding-left: 20px; font-size: 15px; display: flex; flex-direction: column; gap: 8px">
+<li>Bộ lọc là một ô chọn cao 48px mở danh sách khoá; không dùng dải nút cuộn ngang.</li>
+<li>Bốn ô "Thu khi nào…" thu vào một liên kết "Cách thu và đăng nhận xét", mở ngay bên dưới.</li>
+<li>Bảng số liệu đổi thành từng khối một khoá, ba dòng.</li>
+<li>Một cột: danh sách nhận xét trước, khối "Điều học viên muốn cải thiện" ngay sau lượt đầu (sau 5 nhận xét), không đẩy xuống cuối trang.</li>
+<li>Ảnh học viên gửi giữ 56px, nằm cạnh tên.</li>
+<li>Không có thanh dưới khi chưa đăng nhập.</li>
+</ul>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="s4" class="sec">
+<h2 id="s4" class="h2s" style="margin-bottom: 12px">Ghi chú cho lập trình</h2>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 48px; align-items: start">
+<div>
+<p class="lab" style="margin-bottom: 4px; color: var(--ink); font-weight: 600">Dữ liệu trang cần</p>
+<div class="dt" style="border-top: 1px solid var(--ink)"><span style="font-weight: 600">Nhận xét (đã đăng)</span><span>khoá · lớp và tháng/năm kết thúc · nguyên văn · các đoạn bị lược (vị trí) · loại: "có ích" hoặc "muốn cải thiện" · cách hiển thị tên · ảnh (nếu gửi và đồng ý) · nguồn: khảo sát trên web hoặc phiếu cũ · ngày đồng ý · ngày đăng · ghim (trang chủ, trang khoá)</span></div>
+<div class="dt"><span style="font-weight: 600">Dữ kiện đi kèm</span><span>số buổi có nộp bài trên tổng số buổi (từ hệ thống) · số phút tự báo (từ khảo sát). Chỉ có ở nhận xét từ khảo sát trên web và khi admin bật kèm.</span></div>
+<div class="dt"><span style="font-weight: 600">Số liệu theo khoá</span><span>số lớp đã khảo sát · sĩ số · số người trả lời · trung bình, trung vị, nhỏ nhất, lớn nhất số phút mỗi buổi · số người dự định học tiếp / dừng / chưa quyết · ngày cập nhật</span></div>
+<div class="dt"><span style="font-weight: 600">Trả lời của Aver Learning</span><span>không bắt buộc, chỉ cho mục "muốn cải thiện": nội dung, ngày.</span></div>
+<p class="lab" style="margin: 18px 0 4px; color: var(--ink); font-weight: 600">Quy tắc hiển thị tên</p>
+<div class="dt" style="border-top: 1px solid var(--ink)"><span style="font-weight: 600">Tên đầy đủ</span><span>Họ và tên trong hồ sơ lúc đăng, ví dụ "Vũ Hải Đăng".</span></div>
+<div class="dt"><span style="font-weight: 600">Tên và chữ cái đầu</span><span>Bỏ họ, giữ tên đệm và tên, thêm chữ cái đầu của họ: "Hải Đăng V.". Tên chỉ hai tiếng: "Đăng V.".</span></div>
+<div class="dt"><span style="font-weight: 600">Ẩn danh</span><span>"Học viên Course N". Không ảnh, không dữ kiện nào đủ để nhận ra người (lớp dưới XXX người thì bỏ cả tháng/năm lớp).</span></div>
+<div class="dt"><span style="font-weight: 600">Phiếu cũ không ghi lựa chọn</span><span>Mặc định "tên và chữ cái đầu"; không tự nâng lên tên đầy đủ.</span></div>
+</div>
+<ul class="notes">
+<li><strong>Không sửa chữ.</strong> Trang chỉ in đúng chuỗi nguyên văn đã lưu, kể cả lỗi chính tả và cách viết hoa. Việc duy nhất được làm với nội dung là lược bỏ nguyên câu; chỗ lược hiện "[…]" và mục có dòng "Đã rút gọn, không sửa chữ" kèm liên kết mở đủ nguyên văn tại chỗ.</li>
+<li>Điều kiện để một nhận xét lên trang: học viên đồng ý cho đăng, admin đã duyệt "Đã đăng", và sự đồng ý chưa bị rút. Rút đồng ý thì gỡ ngay ở cả ba nơi (trang này, trang chủ, trang khoá), không chờ admin.</li>
+<li>Không band, không điểm thi, không sao, không "X% hài lòng". Điểm đánh giá 1–5 trong khảo sát chỉ dùng nội bộ ở admin; nếu sau này muốn công bố thì công bố cả phân bố, không chỉ trung bình.</li>
+<li>Thứ tự: mới nhất trước theo ngày lớp kết thúc; không sắp theo mức khen. Mục ghim chỉ áp cho trang chủ và trang khoá, không đổi thứ tự ở trang này. Tải 20 mục một lượt, nút "Xem thêm".</li>
+<li>Quy tắc hiện nhận xét (đã chốt 18/11/2026): nhận xét đã đăng hiện ở trang này, trang chủ và trang của cả sáu khoá online; giao diện không ghi nhận xét là của lớp offline (dòng nguồn mỗi mục chỉ ghi tên khoá người viết đã học và thời điểm học xong). Cho tới khi một khoá online có nhận xét riêng được đăng, trang khoá đó dùng chung nhận xét của mọi khoá; khi đã có thì trang khoá đó chỉ lấy nhận xét của chính nó và bộ lọc ở đây thêm nút của khoá đó.</li>
+<li>Bộ lọc: Tất cả · Course 1–5 · rồi tới các khoá online đã có nhận xét riêng. Nhãn bộ lọc và tiêu đề không dùng chữ "lớp offline". Số trên nút là số nhận xét đang đăng; khoá chưa có thì nút không có số và mở trạng thái "chưa có nhận xét". Lọc đổi địa chỉ trang (dùng được để dẫn từ trang khoá: mở sẵn đúng khoá).</li>
+<li>Khối số liệu chỉ lấy từ khảo sát trên web. Khoá chưa có khảo sát ghi "Chưa có khảo sát trên web"; không ghi 0, không ghi "0 / 0". Dưới ngưỡng người trả lời (XXX, cấu hình) chỉ ghi số người, không ghi phần trăm.</li>
+<li>Khối "Điều học viên muốn cải thiện" luôn hiện khi có ít nhất một mục được đăng; không có thì ghi một dòng "Chưa có góp ý nào được đồng ý cho đăng", không ẩn tiêu đề. Dòng "nhóm ý được nhắc nhiều nhất" lấy từ nhãn admin gắn khi duyệt, tính trên mọi câu trả lời (kể cả người không cho đăng), chỉ là số đếm.</li>
+<li>Nội dung nhận xét nằm sẵn trong trang khi tải (để công cụ tìm kiếm đọc được); không gắn dữ liệu đánh giá sao cho công cụ tìm kiếm.</li>
+<li>Liên kết: Trang chủ (khối ba nhận xét) và Trang một khoá (khối "Học viên nói gì", luôn hiện) dẫn về đây; chân trang công khai thêm mục "Học viên nói gì".</li>
+</ul>
+</div>
+</section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Xanh teal","Navy + đỏ mận"],"default":"Navy + đỏ mận"},"$preview":{"width":1280,"height":5900}}'>
+class Component extends DCLogic {
+renderVals() {
+const s = this.state || {};
+const sel = s.sel || 'all';
+const Q = '[Nguyên văn nhận xét của học viên. XXX]';
+const F = 'Nộp bài XXX / 20 buổi (dữ liệu hệ thống) · tự báo khoảng XXX phút làm bài mỗi buổi (khảo sát).';
+const all = [
+{ c: 'c3', text: Q, name: 'Vũ Hải Đăng', cohort: '09/2026', photo: false, fact: F, note: '' },
+{ c: 'c2', text: Q, name: 'Thuỳ Dương N.', cohort: 'XXX', photo: true, fact: F, note: '' },
+{ c: 'c1', text: '[Câu thứ nhất của nhận xét, nguyên văn. XXX] […] [Câu thứ ba, nguyên văn. XXX]', name: 'Học viên Course 1', cohort: 'XXX', photo: false, fact: '', note: 'Đã rút gọn, không sửa chữ. Bấm để đọc đủ nhận xét.' },
+{ c: 'c3', text: Q, name: 'Mai Chi H.', cohort: '09/2026', photo: false, fact: F, note: '' },
+{ c: 'c4', text: Q, name: 'Khoa B.', cohort: 'XXX', photo: false, fact: '', note: 'Thu bằng phiếu sau khoá, trước khi có khảo sát trên web. Không có dữ kiện đi kèm.' },
+{ c: 'c1', text: Q, name: 'Đặng Phương Thảo', cohort: 'XXX', photo: true, fact: '', note: 'Thu bằng phiếu sau khoá, trước khi có khảo sát trên web. Không có dữ kiện đi kèm.' }
+];
+const W = '[Nguyên văn điều học viên muốn khoá cải thiện. XXX]';
+const wishAll = [
+{ c: 'c3', text: W, name: 'Minh L.', cohort: '09/2026', hasReply: true },
+{ c: 'c1', text: W, name: 'Học viên Course 1', cohort: 'XXX', hasReply: false },
+{ c: 'c2', text: W, name: 'Ngô Thuỳ Dương', cohort: 'XXX', hasReply: false },
+{ c: 'c4', text: W, name: 'Học viên Course 4', cohort: 'XXX', hasReply: false }
+];
+const cname = { c1: 'Course 1', c2: 'Course 2', c3: 'Course 3', c4: 'Course 4', c5: 'Course 5' };
+const pick = (id) => () => this.setState({ sel: id });
+const chips = [['all', 'Tất cả', 'XXX'], ['c1', 'Course 1', 'XXX'], ['c2', 'Course 2', 'XXX'], ['c3', 'Course 3', 'XXX'], ['c4', 'Course 4', 'XXX'], ['c5', 'Course 5', '']].map(([id, label, count]) => ({ label, count, on: sel === id ? 'true' : 'false', bg: sel === id ? 'var(--ink)' : 'var(--surface)', fg: sel === id ? 'var(--surface)' : 'var(--ink)', pick: pick(id) }));
+const view = (x) => Object.assign({}, x, { course: cname[x.c] + ' · XXX', hasFact: !!x.fact, hasNote: !!x.note });
+const items = all.filter((x) => sel === 'all' || x.c === sel).map(view);
+const wishes = wishAll.filter((x) => sel === 'all' || x.c === sel).slice(0, 3).map(view);
+const isAll = sel === 'all';
+return {
+pal: (this.props.palette ?? 'Navy + đỏ mận') === 'Xanh teal' ? 'pal-teal' : 'pal-navy',
+chips,
+isAll,
+isOne: !isAll && sel !== 'c5',
+isNoStat: sel === 'c5',
+hasItems: items.length > 0,
+isEmpty: items.length === 0,
+statTitle: isAll ? 'Số liệu khảo sát theo khoá' : 'Số liệu khảo sát · ' + cname[sel] + ' · XXX',
+listTitle: isAll ? 'Nhận xét của học viên' : 'Nhận xét của ' + cname[sel],
+listCount: 'XXX nhận xét',
+emptyTitle: isAll ? '' : cname[sel] + ' chưa có nhận xét được đăng',
+pickAll: pick('all'),
+rows: [
+{ name: 'Course 1 · XXX', cohorts: 'XXX lớp đã khảo sát', resp: 'XXX / XXX', mins: 'XXX phút (trung vị XXX)', cont: 'XXX / XXX người trả lời', stop: 'XXX · XXX' },
+{ name: 'Course 2 · XXX', cohorts: 'XXX lớp đã khảo sát', resp: 'XXX / XXX', mins: 'XXX phút (trung vị XXX)', cont: 'XXX / XXX người trả lời', stop: 'XXX · XXX' },
+{ name: 'Course 3 · XXX', cohorts: 'XXX lớp đã khảo sát', resp: 'XXX / XXX', mins: 'XXX phút (trung vị XXX)', cont: 'XXX / XXX người trả lời', stop: 'XXX · XXX' },
+{ name: 'Course 4 · XXX', cohorts: 'XXX lớp đã khảo sát', resp: 'XXX / XXX', mins: 'XXX phút (trung vị XXX)', cont: 'XXX / XXX người trả lời', stop: 'XXX · XXX' },
+{ name: 'Course 5 · XXX', cohorts: 'Chưa có khảo sát trên web', resp: '—', mins: '—', cont: '—', stop: '—' }
+],
+items,
+wishes
+};
+}
+}
+</script>
+</body>
+</html>

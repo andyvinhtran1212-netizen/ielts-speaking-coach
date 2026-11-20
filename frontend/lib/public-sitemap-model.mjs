@@ -1,4 +1,4 @@
-const SITE_ORIGIN = 'https://averlearning.com';
+const SITE_ORIGIN = 'https://www.averlearning.com';
 
 export const STATIC_PUBLIC_PATHS = Object.freeze([
   { path: '/', changeFrequency: 'weekly', priority: 1 },

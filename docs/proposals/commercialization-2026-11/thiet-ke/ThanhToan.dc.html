@@ -1,0 +1,599 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Đăng ký và thanh toán học phí</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--accentH:#0B5953;--link:#0B5953;--mark:#8A4B08;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EDF3F1;--off:#E7E2D6}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--accentH:#11254A;--link:#1A3561;--mark:#8A1C1C;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EEF0F5;--off:#E8E2D5}
+a{color:var(--link)}a:hover{color:var(--ink)}
+</style>
+</helmet>
+<div class="{{pal}}" style="width: 1280px; height: 7960px; box-sizing: border-box; padding: 56px 64px; background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 16px; line-height: 1.5; display: flex; flex-direction: column; gap: 36px">
+<header>
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Aver Learning · Bản in · đăng ký khoá</p>
+<h1 style="margin: 4px 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 40px; font-weight: 600; line-height: 1.15">Đăng ký khoá, thanh toán học phí và chờ xác nhận</h1>
+<p style="margin: 0; color: var(--muted); max-width: 84ch">Đăng ký từng khoá online (ví dụ Khoá Writing for IELTS), thanh toán học phí bằng chuyển khoản VietQR. Chưa có cổng tự động: admin đối chiếu sao kê rồi mở khoá. Màn nào cũng nói rõ khoản thanh toán đang ở bước nào và việc tiếp theo là của ai. Bộ từ dùng thống nhất: Đăng ký khoá · Đơn đăng ký · Học phí · Thanh toán; không dùng từ ngữ thương mại nào khác. Khoá của lớp offline (Course 1–5) không đi qua tờ này: học viên nhận mã kích hoạt từ admin.</p>
+<ol aria-label="Luồng đăng ký khoá" style="margin: 20px 0 0; padding: 14px 0 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px 10px; border-top: 1px solid var(--rule); font-size: 15px">
+<li><strong>Đăng ký khoá này</strong></li>
+<li aria-hidden="true" style="color: var(--muted)">→</li>
+<li>(chưa đăng nhập: <a href="TaiKhoanDangNhap.dc.html">đăng nhập, lần đầu là tạo tài khoản</a>)</li>
+<li aria-hidden="true" style="color: var(--muted)">→</li>
+<li>1 · Đơn đăng ký</li>
+<li aria-hidden="true" style="color: var(--muted)">→</li>
+<li>2 · Chuyển khoản học phí</li>
+<li aria-hidden="true" style="color: var(--muted)">→</li>
+<li>3 · Chờ xác nhận</li>
+<li aria-hidden="true" style="color: var(--muted)">→</li>
+<li>Admin đối chiếu</li>
+<li aria-hidden="true" style="color: var(--muted)">→</li>
+<li>4 · Đã mở khoá</li>
+</ol>
+</header>
+
+<section aria-labelledby="m1" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="m1" style="margin: 0 0 16px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">1 · Đơn đăng ký</h2>
+<div style="border: 1px solid var(--ink); background: var(--paper)">
+<header style="border-bottom: 1px solid var(--ink)">
+<div style="display: flex; align-items: stretch; gap: 36px; height: 63px; padding: 0 32px">
+<a href="#m1" style="display: inline-flex; align-items: center; gap: 9px; align-self: center; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600; color: var(--ink); text-decoration: none"><svg width="29" height="29" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</a>
+<nav aria-label="Điều hướng chính" style="display: flex; gap: 28px; flex-grow: 1">
+<a href="Main.dc.html" style="display: flex; align-items: center; padding-top: 3px; border-bottom: 3px solid transparent; color: var(--muted); text-decoration: none">Hôm nay</a>
+<a href="LoTrinh.dc.html" style="display: flex; align-items: center; padding-top: 3px; border-bottom: 3px solid transparent; color: var(--muted); text-decoration: none">Lộ trình</a>
+<a href="LuyenTap.dc.html" style="display: flex; align-items: center; padding-top: 3px; border-bottom: 3px solid transparent; color: var(--muted); text-decoration: none">Luyện tập</a>
+<a href="ThiThu.dc.html" style="display: flex; align-items: center; padding-top: 3px; border-bottom: 3px solid transparent; color: var(--muted); text-decoration: none">Thi thử</a>
+<a href="ThuVien.dc.html" style="display: flex; align-items: center; padding-top: 3px; border-bottom: 3px solid transparent; color: var(--muted); text-decoration: none">Thư viện</a>
+</nav>
+<div style="display: flex; align-items: center">
+<button aria-label="Mở menu tài khoản" style="width: 44px; height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer">MA</button>
+</div>
+</div>
+</header>
+<main style="padding: 18px 32px 32px">
+<nav aria-label="Vị trí trang" style="font-size: 14px; color: var(--muted)"><a href="#m1">Khoá học</a> › <a href="#m1">Khoá Writing for IELTS</a> › <span aria-current="page" style="color: var(--ink)">Đăng ký</span></nav>
+<h3 style="margin: 4px 0 16px; font-family: 'Source Serif 4', Georgia, serif; font-size: 34px; font-weight: 600; line-height: 1.15">Đăng ký Khoá Writing for IELTS</h3>
+<ol aria-label="Các bước đăng ký" style="margin: 0 0 22px; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; max-width: 760px">
+<sc-for list="{{steps1}}" as="x" hint-placeholder-count="3">
+<li aria-current="{{x.aria}}" style="display: flex; flex-direction: column; gap: 8px; padding-right: 12px">
+<div style="display: flex; align-items: center; gap: 8px">
+<span style="flex: none; width: 32px; height: 32px; box-sizing: border-box; border: {{x.bd}}; border-radius: 50%; background: {{x.bg}}; color: {{x.fg}}; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; font-variant-numeric: tabular-nums"><sc-if value="{{x.done}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="2"></path></svg></sc-if><sc-if value="{{x.notDone}}" hint-placeholder-val="{{true}}">{{x.n}}</sc-if></span>
+<sc-if value="{{x.notLast}}" hint-placeholder-val="{{true}}"><span aria-hidden="true" style="flex: 1; height: 2px; background: {{x.line}}"></span></sc-if>
+</div>
+<span style="font-weight: {{x.fw}}">{{x.t}}</span>
+<span style="margin-top: -8px; font-size: 14px; color: var(--muted)">{{x.stateT}}</span>
+</li>
+</sc-for>
+</ol>
+<div style="display: flex; flex-wrap: wrap; gap: 32px 56px; align-items: flex-start">
+<form aria-labelledby="h-buyer" style="flex: 999 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+<h4 id="h-buyer" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">Thông tin người đăng ký <span style="font-family: 'Source Sans 3', sans-serif; font-size: 15px; font-weight: 400; color: var(--muted)">· lấy sẵn từ tài khoản, dùng để đối chiếu và gửi email</span></h4>
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="b-name" style="font-weight: 600">Họ và tên</label><input id="b-name" type="text" value="Nguyễn Minh Anh" style="min-height: 44px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface); font: 16px 'Source Sans 3', sans-serif; color: var(--ink)"></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="b-mail" style="font-weight: 600; color: var(--muted)">Email</label><input id="b-mail" type="email" value="minhanh@example.com" disabled aria-describedby="b-mail-h" style="min-height: 44px; padding: 0 12px; border: 1px solid var(--rule); border-radius: 2px; background: var(--off); font: 16px 'Source Sans 3', sans-serif; color: var(--muted)"><span id="b-mail-h" style="font-size: 14px; color: var(--muted)">Email của tài khoản; khoá sẽ mở trên đúng tài khoản này.</span></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="b-phone" style="font-weight: 600">Số điện thoại</label><input id="b-phone" type="tel" placeholder="Ví dụ: 0912 345 678" aria-describedby="b-phone-h" style="min-height: 44px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface); font: 16px 'Source Sans 3', sans-serif; color: var(--ink); max-width: 320px"><span id="b-phone-h" style="font-size: 14px; color: var(--muted)">Chỉ dùng khi cần gọi lại về khoản chuyển.</span></div>
+<label style="display: flex; align-items: flex-start; gap: 12px; padding: 14px 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule)">
+<input type="checkbox" checked="{{agreed}}" onChange="{{toggleAgree}}" style="flex: none; width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--accent)">
+<span>Tôi đã đọc và đồng ý với <a href="#m1">Điều khoản sử dụng</a> và <a href="#m1">Chính sách hoàn tiền</a>. Khoá có thời hạn XXX kể từ ngày mở.</span>
+</label>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px">
+<button type="button" disabled="{{notAgreed}}" style="min-height: 44px; padding: 0 20px; border: 1px solid {{payBd}}; border-radius: 2px; background: {{payBg}}; color: {{payFg}}; font: 600 16px 'Source Sans 3', sans-serif; cursor: pointer">Tạo đơn và xem thông tin chuyển khoản</button>
+<span role="status" style="font-size: 14px; color: var(--muted)">{{agreeHint}}</span>
+</div>
+</form>
+<aside aria-labelledby="h-sum" style="flex: 1 1 340px; min-width: 0; border: 1px solid var(--ink); background: var(--surface); padding: 20px 24px">
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Bạn đang đăng ký</p>
+<h4 id="h-sum" style="margin: 4px 0 14px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1.2">Khoá Writing for IELTS</h4>
+<dl style="margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0">
+<dt style="padding: 10px 16px 10px 0; border-top: 1px solid var(--rule); color: var(--muted)">Trình độ</dt><dd style="margin: 0; padding: 10px 0; border-top: 1px solid var(--rule); text-align: right">XXX</dd>
+<dt style="padding: 10px 16px 10px 0; border-top: 1px solid var(--rule); color: var(--muted)">Thời hạn truy cập</dt><dd style="margin: 0; padding: 10px 0; border-top: 1px solid var(--rule); text-align: right">XXX ngày</dd>
+<dt style="padding: 10px 16px 10px 0; border-top: 1px solid var(--rule); color: var(--muted)">Lượt chấm AI kèm theo</dt><dd style="margin: 0; padding: 10px 0; border-top: 1px solid var(--rule); text-align: right">XXX lượt</dd>
+<dt style="padding: 12px 16px 4px 0; border-top: 2px solid var(--ink); font-weight: 600">Học phí cần chuyển</dt><dd style="margin: 0; padding: 12px 0 4px; border-top: 2px solid var(--ink); text-align: right; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums">XXX đ</dd>
+</dl>
+<p style="margin: 12px 0 0; font-size: 14px; color: var(--muted)">Lượt AI dùng để chấm bài Writing Task 1 và Task 2 trong khoá; AI chấm và trả kết quả ngay. Lượt hết hạn cùng khoá.</p>
+<a href="#m1" style="display: inline-flex; align-items: center; min-height: 44px; font-size: 15px">Đổi sang khoá khác</a>
+</aside>
+</div>
+</main>
+<footer style="display: flex; flex-wrap: wrap; align-items: center; gap: 0 24px; padding: 0 32px; border-top: 1px solid var(--rule); font-size: 14px">
+<span style="gap: 8px; display: inline-flex; align-items: center; color: var(--muted); flex-grow: 1"><svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none; color: var(--ink)"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>© 2026 Aver Learning</span>
+<nav aria-label="Chân trang" style="display: flex; gap: 0 24px">
+<a href="TroGiupLanDau.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Trợ giúp</a>
+<a href="PhapLy.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Điều khoản</a>
+<a href="PhapLy.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Quyền riêng tư</a>
+</nav>
+</footer>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)"><strong style="color: var(--ink); font-weight: 600">Bấm thử:</strong> ô đồng ý điều khoản bật và tắt nút tạo đơn. Đơn chưa được tạo cho tới khi bấm nút; rời trang ở đây không để lại đơn treo.</p>
+</section>
+
+<section aria-labelledby="m2" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="m2" style="margin: 0 0 16px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">2 · Chuyển khoản</h2>
+<div style="border: 1px solid var(--ink); background: var(--paper)">
+<header style="border-bottom: 1px solid var(--ink)">
+<div style="display: flex; align-items: stretch; gap: 36px; height: 63px; padding: 0 32px">
+<a href="#m2" style="display: inline-flex; align-items: center; gap: 9px; align-self: center; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600; color: var(--ink); text-decoration: none"><svg width="29" height="29" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</a>
+<nav aria-label="Điều hướng chính" style="display: flex; gap: 28px; flex-grow: 1">
+<a href="Main.dc.html" style="display: flex; align-items: center; padding-top: 3px; border-bottom: 3px solid transparent; color: var(--muted); text-decoration: none">Hôm nay</a>
+<a href="LoTrinh.dc.html" style="display: flex; align-items: center; padding-top: 3px; border-bottom: 3px solid transparent; color: var(--muted); text-decoration: none">Lộ trình</a>
+<a href="LuyenTap.dc.html" style="display: flex; align-items: center; padding-top: 3px; border-bottom: 3px solid transparent; color: var(--muted); text-decoration: none">Luyện tập</a>
+<a href="ThiThu.dc.html" style="display: flex; align-items: center; padding-top: 3px; border-bottom: 3px solid transparent; color: var(--muted); text-decoration: none">Thi thử</a>
+<a href="ThuVien.dc.html" style="display: flex; align-items: center; padding-top: 3px; border-bottom: 3px solid transparent; color: var(--muted); text-decoration: none">Thư viện</a>
+</nav>
+<div style="display: flex; align-items: center">
+<button aria-label="Mở menu tài khoản" style="width: 44px; height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer">MA</button>
+</div>
+</div>
+</header>
+<main style="padding: 18px 32px 32px">
+<nav aria-label="Vị trí trang" style="font-size: 14px; color: var(--muted)"><a href="#m2">Khoá học</a> › <a href="#m2">Khoá Writing for IELTS</a> › <span aria-current="page" style="color: var(--ink)">Thanh toán</span></nav>
+<h3 style="margin: 4px 0 16px; font-family: 'Source Serif 4', Georgia, serif; font-size: 34px; font-weight: 600; line-height: 1.15">Chuyển khoản cho đơn AVER-XXXXXX</h3>
+<p style="margin: -8px 0 16px; font-size: 15px; color: var(--muted)">Thông tin chuyển khoản này cũng đã gửi tới <strong style="color: var(--ink)">minhanh@example.com</strong> ngay khi tạo đơn, kèm đường dẫn quay lại trang này.</p>
+<ol aria-label="Các bước đăng ký" style="margin: 0 0 24px; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; max-width: 760px">
+<sc-for list="{{steps2}}" as="x" hint-placeholder-count="3">
+<li aria-current="{{x.aria}}" style="display: flex; flex-direction: column; gap: 8px; padding-right: 12px">
+<div style="display: flex; align-items: center; gap: 8px">
+<span style="flex: none; width: 32px; height: 32px; box-sizing: border-box; border: {{x.bd}}; border-radius: 50%; background: {{x.bg}}; color: {{x.fg}}; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; font-variant-numeric: tabular-nums"><sc-if value="{{x.done}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="2"></path></svg></sc-if><sc-if value="{{x.notDone}}" hint-placeholder-val="{{true}}">{{x.n}}</sc-if></span>
+<sc-if value="{{x.notLast}}" hint-placeholder-val="{{true}}"><span aria-hidden="true" style="flex: 1; height: 2px; background: {{x.line}}"></span></sc-if>
+</div>
+<span style="font-weight: {{x.fw}}">{{x.t}}</span>
+<span style="margin-top: -8px; font-size: 14px; color: var(--muted)">{{x.stateT}}</span>
+</li>
+</sc-for>
+</ol>
+<p style="margin: 0 0 24px; padding: 10px 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule)"><strong>Đơn đang được giữ tới XXX, ngày XXX</strong> <span style="color: var(--muted)">· XXX giờ kể từ lúc tạo. Quá hạn mà chưa báo chuyển khoản thì đơn hết hạn; nếu sau đó khoản chuyển đúng mã đơn tới nơi, đơn tự mở lại.</span></p>
+<div style="display: flex; flex-wrap: wrap; gap: 32px 48px; align-items: flex-start">
+<figure style="flex: none; margin: 0; width: 280px">
+<div role="img" aria-label="Chỗ đặt mã VietQR" style="width: 280px; height: 280px; box-sizing: border-box; border: 1px dashed var(--ink); background: var(--surface); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 24px; text-align: center">
+<span style="font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Mã VietQR</span>
+<span style="font-size: 14px; color: var(--muted)">Tạo tự động từ số tài khoản, số tiền và nội dung bên cạnh</span>
+</div>
+<figcaption style="margin-top: 10px; font-size: 14px; color: var(--muted)">Mở ứng dụng ngân hàng, chọn quét mã QR. Số tiền và nội dung được điền sẵn; xem lại trước khi xác nhận.</figcaption>
+</figure>
+<div style="flex: 999 1 480px; min-width: 0">
+<p style="margin: 0 0 6px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Hoặc chuyển tay theo thông tin này</p>
+<dl style="margin: 0; border-top: 1px solid var(--ink)">
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="5">
+<div style="display: grid; grid-template-columns: 180px minmax(0, 1fr) 140px; align-items: center; gap: 12px; padding: 6px 0 6px {{r.pad}}; border-bottom: 1px solid var(--rule); border-left: {{r.bl}}; background: {{r.bg}}">
+<dt style="color: var(--muted)">{{r.label}}</dt>
+<dd style="margin: 0; font-size: {{r.size}}; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: 0.02em">{{r.value}}</dd>
+<dd style="margin: 0; justify-self: end"><button type="button" onClick="{{r.copy}}" aria-label="{{r.aria}}" style="min-height: 36px; min-width: 120px; padding: 0 12px; border: 1px solid var(--ink); border-radius: 2px; background: {{r.btnBg}}; color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer">{{r.btn}}</button></dd>
+</div>
+</sc-for>
+</dl>
+<p role="status" style="margin: 6px 0 0; min-height: 22px; font-size: 14px; color: var(--ok)">{{copyStatus}}</p>
+<div role="note" style="margin-top: 10px; padding: 14px 16px; border-top: 2px solid var(--mark); border-bottom: 1px solid var(--mark); background: var(--surface)">
+<p style="margin: 0 0 6px; font-weight: 600; color: var(--mark)">Ghi đúng nội dung chuyển khoản: AVER-XXXXXX</p>
+<ul style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px">
+<li>Mã đơn là cách duy nhất để biết khoản tiền này của bạn. Không thêm tên khoá, không viết tắt.</li>
+<li>Chuyển đúng học phí XXX đ trong một lần. Nếu ngân hàng tự thêm chữ trước hay sau mã đơn thì vẫn được.</li>
+<li>Lỡ ghi sai hoặc thiếu mã: đừng chuyển lại. Bấm "Tôi đã chuyển khoản" rồi làm theo hướng dẫn ở màn chờ.</li>
+</ul>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; margin-top: 24px">
+<a href="#m3" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: var(--surface); font-weight: 600; text-decoration: none">Tôi đã chuyển khoản</a>
+<a href="#p1" style="display: inline-flex; align-items: center; min-height: 44px; font-size: 15px">Huỷ đơn này</a>
+</div>
+<p style="margin: 6px 0 0; font-size: 14px; color: var(--muted)">Bấm sau khi ngân hàng báo thành công. Nút này báo admin đối chiếu, chưa mở khoá ngay.</p>
+</div>
+</div>
+</main>
+<footer style="display: flex; flex-wrap: wrap; align-items: center; gap: 0 24px; padding: 0 32px; border-top: 1px solid var(--rule); font-size: 14px">
+<span style="gap: 8px; display: inline-flex; align-items: center; color: var(--muted); flex-grow: 1"><svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none; color: var(--ink)"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>© 2026 Aver Learning</span>
+<nav aria-label="Chân trang" style="display: flex; gap: 0 24px">
+<a href="TroGiupLanDau.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Trợ giúp</a>
+<a href="PhapLy.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Điều khoản</a>
+<a href="PhapLy.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Quyền riêng tư</a>
+</nav>
+</footer>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)"><strong style="color: var(--ink); font-weight: 600">Bấm thử:</strong> từng nút "Sao chép" đổi thành "Đã sao chép" và báo cho trình đọc màn hình. Số tài khoản sao chép không kèm dấu cách; số tiền sao chép chỉ gồm chữ số.</p>
+</section>
+
+<section aria-labelledby="m3" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="m3" style="margin: 0 0 16px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">3 · Chờ xác nhận</h2>
+<div style="border: 1px solid var(--ink); background: var(--paper)">
+<header style="border-bottom: 1px solid var(--ink)">
+<div style="display: flex; align-items: stretch; gap: 36px; height: 63px; padding: 0 32px">
+<a href="#m3" style="display: inline-flex; align-items: center; gap: 9px; align-self: center; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600; color: var(--ink); text-decoration: none"><svg width="29" height="29" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</a>
+<nav aria-label="Điều hướng chính" style="display: flex; gap: 28px; flex-grow: 1">
+<a href="Main.dc.html" style="display: flex; align-items: center; padding-top: 3px; border-bottom: 3px solid transparent; color: var(--muted); text-decoration: none">Hôm nay</a>
+<a href="LoTrinh.dc.html" style="display: flex; align-items: center; padding-top: 3px; border-bottom: 3px solid transparent; color: var(--muted); text-decoration: none">Lộ trình</a>
+<a href="LuyenTap.dc.html" style="display: flex; align-items: center; padding-top: 3px; border-bottom: 3px solid transparent; color: var(--muted); text-decoration: none">Luyện tập</a>
+<a href="ThiThu.dc.html" style="display: flex; align-items: center; padding-top: 3px; border-bottom: 3px solid transparent; color: var(--muted); text-decoration: none">Thi thử</a>
+<a href="ThuVien.dc.html" style="display: flex; align-items: center; padding-top: 3px; border-bottom: 3px solid transparent; color: var(--muted); text-decoration: none">Thư viện</a>
+</nav>
+<div style="display: flex; align-items: center">
+<button aria-label="Mở menu tài khoản" style="width: 44px; height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer">MA</button>
+</div>
+</div>
+</header>
+<main style="padding: 18px 32px 32px">
+<nav aria-label="Vị trí trang" style="font-size: 14px; color: var(--muted)"><a href="#m3">Tài khoản</a> › <a href="#m7">Đơn đăng ký của tôi</a> › <span aria-current="page" style="color: var(--ink)">AVER-XXXXXX</span></nav>
+<h3 style="margin: 4px 0 16px; font-family: 'Source Serif 4', Georgia, serif; font-size: 34px; font-weight: 600; line-height: 1.15">Đã ghi nhận, đang chờ xác nhận</h3>
+<ol aria-label="Các bước đăng ký" style="margin: 0 0 22px; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; max-width: 760px">
+<sc-for list="{{steps3}}" as="x" hint-placeholder-count="3">
+<li aria-current="{{x.aria}}" style="display: flex; flex-direction: column; gap: 8px; padding-right: 12px">
+<div style="display: flex; align-items: center; gap: 8px">
+<span style="flex: none; width: 32px; height: 32px; box-sizing: border-box; border: {{x.bd}}; border-radius: 50%; background: {{x.bg}}; color: {{x.fg}}; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; font-variant-numeric: tabular-nums"><sc-if value="{{x.done}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="2"></path></svg></sc-if><sc-if value="{{x.notDone}}" hint-placeholder-val="{{true}}">{{x.n}}</sc-if></span>
+<sc-if value="{{x.notLast}}" hint-placeholder-val="{{true}}"><span aria-hidden="true" style="flex: 1; height: 2px; background: {{x.line}}"></span></sc-if>
+</div>
+<span style="font-weight: {{x.fw}}">{{x.t}}</span>
+<span style="margin-top: -8px; font-size: 14px; color: var(--muted)">{{x.stateT}}</span>
+</li>
+</sc-for>
+</ol>
+<div style="display: flex; flex-wrap: wrap; gap: 32px 56px; align-items: flex-start">
+<div style="flex: 999 1 520px; min-width: 0">
+<h4 style="margin: 0 0 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">Điều gì sẽ xảy ra</h4>
+<ol style="margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; max-width: 64ch">
+<li>Admin đối chiếu sao kê ngân hàng: đúng học phí XXX đ và nội dung AVER-XXXXXX.</li>
+<li>Thường xong trong <strong>XXX</strong> (giờ làm việc XXX). Chuyển ngoài giờ thì xử lý vào đầu giờ làm việc kế tiếp.</li>
+<li>Khớp thì khoá mở ngay trên tài khoản này và bạn nhận email tại <strong>minhanh@example.com</strong>. Chưa tìm thấy khoản chuyển hoặc số tiền lệch, chúng tôi cũng gửi thư tới địa chỉ này, nói rõ bạn cần bổ sung gì. Bạn không cần ở lại trang này.</li>
+</ol>
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; margin: 28px 0 6px"><h4 style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">Học trước trong lúc chờ</h4><span style="padding: 1px 7px; border-radius: 2px; font-size: 12px; font-weight: 600; letter-spacing: 0.02em; border: 1px dashed var(--mark); color: var(--mark)">Đề xuất · chờ chủ dự án duyệt</span></div>
+<p style="margin: 0 0 10px; max-width: 64ch">Chương 1 của Khoá Writing for IELTS mở ngay ở chế độ như bài học thử: video, bài đọc và bài tập tự chấm. Phần AI chấm còn khoá tới khi đơn được xác nhận. Tiến độ được lưu vào tài khoản; khoá mở thì bạn học tiếp từ đó.</p>
+<ul style="margin: 0 0 18px; padding: 0; list-style: none; border-top: 1px solid var(--rule)"><li style="border-bottom: 1px solid var(--rule)"><a href="BaiHocThu.dc.html" style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; padding: 10px 0; color: var(--ink); text-decoration: none"><span style="font-family: 'Source Serif 4', Georgia, serif; font-size: 19px">Chương 1 · Bài 1 · XXX</span><span style="font-size: 14px; color: var(--muted)">Video và bài đọc</span></a></li><li style="border-bottom: 1px solid var(--rule)"><a href="BaiHocThu.dc.html" style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; padding: 10px 0; color: var(--ink); text-decoration: none"><span style="font-family: 'Source Serif 4', Georgia, serif; font-size: 19px">Chương 1 · Bài 2 · XXX</span><span style="font-size: 14px; color: var(--muted)">Video, bài tập tự chấm</span></a></li><li style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; padding: 10px 0; border-bottom: 1px solid var(--rule); color: var(--muted)"><span style="font-family: 'Source Serif 4', Georgia, serif; font-size: 19px">Bài viết của chương 1</span><span style="font-size: 14px">AI chấm · mở khi khoá mở</span></li></ul>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px">
+<a href="BaiHocThu.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: var(--surface); font-weight: 600; text-decoration: none">Học chương 1 ngay</a>
+<a href="ThuVien.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; font-size: 15px">Thư viện miễn phí</a>
+<a href="#m7" style="display: inline-flex; align-items: center; min-height: 44px; font-size: 15px">Xem đơn đăng ký của tôi</a>
+</div>
+</div>
+<aside aria-labelledby="h-st" style="flex: 1 1 340px; min-width: 0; border: 1px solid var(--ink); background: var(--surface); padding: 20px 24px">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
+<h4 id="h-st" style="margin: 0; font-size: 15px; font-weight: 600">Trạng thái đơn AVER-XXXXXX</h4>
+<span style="padding: 3px 10px; border: 1px solid var(--accent); border-radius: 2px; background: var(--tint); color: var(--accent); font-size: 14px; font-weight: 600">Chờ xác nhận</span>
+</div>
+<ol style="margin: 14px 0 0; padding: 0; list-style: none">
+<sc-for list="{{timeline}}" as="e" hint-placeholder-count="4">
+<li style="display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 12px; padding: 10px 0; border-top: 1px solid var(--rule)">
+<span aria-hidden="true" style="width: 12px; height: 12px; margin-top: 6px; box-sizing: border-box; border: 2px solid {{e.c}}; border-radius: 50%; background: {{e.fill}}"></span>
+<span><span style="display: block; font-weight: {{e.fw}}">{{e.t}}</span><span style="display: block; font-size: 14px; color: var(--muted)">{{e.d}}</span></span>
+</li>
+</sc-for>
+</ol>
+<p style="margin: 12px 0 0; padding-top: 12px; border-top: 1px solid var(--rule); font-size: 14px; color: var(--muted)">Quá XXX mà khoá chưa mở: liên hệ kèm mã đơn và ảnh biên lai.</p><div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--rule)"><p style="margin: 0 0 6px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Liên hệ trực tiếp</p><dl style="margin: 0; display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 4px 12px; font-size: 15px"><dt style="color: var(--muted)">Email</dt><dd style="margin: 0">XXX</dd><dt style="color: var(--muted)">Điện thoại</dt><dd style="margin: 0">XXX</dd><dt style="color: var(--muted)">Zalo</dt><dd style="margin: 0">XXX</dd><dt style="color: var(--muted)">Giờ trả lời</dt><dd style="margin: 0">XXX</dd></dl></div>
+</aside>
+</div>
+</main>
+<footer style="display: flex; flex-wrap: wrap; align-items: center; gap: 0 24px; padding: 0 32px; border-top: 1px solid var(--rule); font-size: 14px">
+<span style="gap: 8px; display: inline-flex; align-items: center; color: var(--muted); flex-grow: 1"><svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none; color: var(--ink)"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>© 2026 Aver Learning</span>
+<nav aria-label="Chân trang" style="display: flex; gap: 0 24px">
+<a href="TroGiupLanDau.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Trợ giúp</a>
+<a href="PhapLy.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Điều khoản</a>
+<a href="PhapLy.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Quyền riêng tư</a>
+</nav>
+</footer>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)"><strong style="color: var(--ink); font-weight: 600">Dùng khi nào:</strong> sau khi bấm "Tôi đã chuyển khoản", và mỗi lần mở lại đơn đang chờ. Trang tự đổi sang màn 4 khi admin xác nhận, không cần tải lại. Đã đăng nhập nên dùng thanh học viên 5 mục, kể cả khi tài khoản chưa có khoá nào.</p>
+</section>
+
+<section aria-labelledby="m4" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="m4" style="margin: 0 0 16px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">4 · Đã mở khoá</h2>
+<div style="border: 1px solid var(--ink); background: var(--paper)">
+<header style="border-bottom: 1px solid var(--ink)">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 36px; min-height: 63px; padding: 0 32px">
+<a href="#m4" style="display: inline-flex; align-items: center; gap: 9px; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600; color: var(--ink); text-decoration: none"><svg width="29" height="29" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</a>
+<nav aria-label="Điều hướng chính" style="display: flex; flex-wrap: wrap; gap: 4px 28px; flex-grow: 1">
+<a href="#m4" style="padding: 20px 0; color: var(--muted); text-decoration: none">Hôm nay</a>
+<a href="#m4" style="padding: 20px 0; color: var(--muted); text-decoration: none">Lộ trình</a>
+<a href="#m4" style="padding: 20px 0; color: var(--muted); text-decoration: none">Luyện tập</a>
+<a href="#m4" style="padding: 20px 0; color: var(--muted); text-decoration: none">Thi thử</a>
+<a href="#m4" style="padding: 20px 0; color: var(--muted); text-decoration: none">Thư viện</a>
+</nav>
+<div style="display: flex; align-items: center; gap: 16px">
+<span style="font-size: 14px; color: var(--muted)">Lượt chấm AI còn <strong style="color: var(--ink); font-variant-numeric: tabular-nums">XXX</strong></span>
+<button aria-label="Tra nhanh: từ, bài ngữ pháp, đề bài mẫu" title="Tra nhanh" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; box-sizing: border-box; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); cursor: pointer"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="1.6"></circle><path d="M15 15l5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path></svg></button>
+<span style="position: relative; flex: none; display: inline-flex"><a href="ThongBao.dc.html" aria-label="Thông báo, 4 chưa đọc" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; box-sizing: border-box; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink)"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15zM10 20.5a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></a><span aria-hidden="true" style="position: absolute; top: -7px; right: -7px; min-width: 20px; height: 20px; box-sizing: border-box; padding: 0 5px; border: 1px solid var(--paper); border-radius: 2px; background: var(--accent); color: var(--surface); font-size: 12px; font-weight: 600; line-height: 18px; text-align: center; font-variant-numeric: tabular-nums">4</span></span>
+<button aria-label="Mở menu tài khoản" style="width: 44px; height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer">MA</button>
+</div>
+</div>
+</header>
+<main style="padding: 36px 32px 40px; display: flex; justify-content: center">
+<div style="width: 100%; max-width: 620px">
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ok); font-weight: 600">Đơn AVER-XXXXXX · đã xác nhận</p>
+<h3 style="margin: 6px 0 12px; font-family: 'Source Serif 4', Georgia, serif; font-size: 40px; font-weight: 600; line-height: 1.15">Khoá Writing for IELTS đã mở</h3>
+<p style="margin: 0 0 20px; color: var(--muted)">Đã nhận đủ học phí XXX đ. Khoá nằm trong tài khoản của bạn từ bây giờ.</p>
+<dl style="margin: 0 0 28px; display: grid; grid-template-columns: auto minmax(0, 1fr); border-top: 1px solid var(--ink)">
+<dt style="padding: 12px 24px 12px 0; border-bottom: 1px solid var(--rule); color: var(--muted)">Học được tới</dt><dd style="margin: 0; padding: 12px 0; border-bottom: 1px solid var(--rule); font-weight: 600">hết ngày XXX</dd>
+<dt style="padding: 12px 24px 12px 0; border-bottom: 1px solid var(--rule); color: var(--muted)">Lượt chấm AI</dt><dd style="margin: 0; padding: 12px 0; border-bottom: 1px solid var(--rule); font-weight: 600">XXX lượt <span style="font-weight: 400; color: var(--muted)">· cộng vào số lượt bạn đang có; Writing và Speaking dùng chung, hạn dùng XXX</span></dd>
+<dt style="padding: 12px 24px 12px 0; border-bottom: 1px solid var(--rule); color: var(--muted)">Tài khoản</dt><dd style="margin: 0; padding: 12px 0; border-bottom: 1px solid var(--rule)"><strong style="font-weight: 600">Đã kích hoạt.</strong> Mở luôn phần luyện <a href="LuyenTap.dc.html">Reading, Listening</a>, <a href="NguPhapHocVien.dc.html">ngữ pháp</a> và <a href="TuVungHocVien.dc.html">từ vựng</a> dành cho tài khoản đã kích hoạt.</dd>
+<dt style="padding: 12px 24px 12px 0; border-bottom: 1px solid var(--rule); color: var(--muted)">Email xác nhận</dt><dd style="margin: 0; padding: 12px 0; border-bottom: 1px solid var(--rule)">đã gửi tới minhanh@example.com</dd>
+</dl>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px">
+<a href="#m4" style="display: inline-flex; align-items: center; min-height: 48px; padding: 0 28px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: var(--surface); font-weight: 600; font-size: 17px; text-decoration: none">Bắt đầu học</a>
+<a href="#m7" style="display: inline-flex; align-items: center; min-height: 44px; font-size: 15px">Xem đơn đăng ký của tôi</a>
+</div>
+<p style="margin: 12px 0 0; font-size: 14px; color: var(--muted)">"Bắt đầu học" mở Khoá Writing for IELTS ở bài đầu tiên.</p>
+</div>
+</main>
+<footer style="display: flex; flex-wrap: wrap; align-items: center; gap: 0 24px; padding: 0 32px; border-top: 1px solid var(--rule); font-size: 14px">
+<span style="gap: 8px; display: inline-flex; align-items: center; color: var(--muted); flex-grow: 1"><svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none; color: var(--ink)"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>© 2026 Aver Learning</span>
+<nav aria-label="Chân trang" style="display: flex; gap: 0 24px">
+<a href="#m4" style="display: inline-flex; align-items: center; min-height: 44px">Trợ giúp</a>
+<a href="#m4" style="display: inline-flex; align-items: center; min-height: 44px">Điều khoản</a>
+<a href="#m4" style="display: inline-flex; align-items: center; min-height: 44px">Quyền riêng tư</a>
+</nav>
+</footer>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)"><strong style="color: var(--ink); font-weight: 600">Dùng khi nào:</strong> lần mở đầu sau khi admin xác nhận. Thanh trên vẫn là thanh học viên như màn 1–3; từ đây có thêm số lượt chấm AI vì tài khoản đã có khoá.</p>
+</section>
+
+<section aria-labelledby="p1" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="p1" style="margin: 0 0 16px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">5 · Đơn hết hạn hoặc đã huỷ</h2>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px">
+<div style="border: 1px solid var(--ink); background: var(--surface); padding: 24px">
+<span style="padding: 3px 10px; border: 1px solid var(--muted); border-radius: 2px; color: var(--muted); font-size: 14px; font-weight: 600">Hết hạn</span>
+<h3 style="margin: 12px 0 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1.2">Đơn AVER-XXXXXX đã hết thời gian giữ</h3>
+<p style="margin: 0 0 10px">Sau XXX giờ chưa có báo chuyển khoản nên đơn tự đóng.</p>
+<p style="margin: 0 0 16px; padding: 10px 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); font-size: 15px"><strong>Đã chuyển tiền rồi?</strong> Đừng chuyển lại. Khi admin thấy khoản chuyển khớp mã AVER-XXXXXX, đơn tự mở lại và khoá mở, kể cả khi bạn chưa bấm nút. Bấm "Tôi đã chuyển cho đơn này" để được đối chiếu sớm hơn.</p>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px">
+<a href="#m1" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: var(--surface); font-weight: 600; text-decoration: none">Tạo đơn mới</a>
+<a href="#m3" style="display: inline-flex; align-items: center; min-height: 44px; font-size: 15px">Tôi đã chuyển cho đơn này</a>
+</div>
+</div>
+<div style="border: 1px solid var(--ink); background: var(--surface); padding: 24px">
+<span style="padding: 3px 10px; border: 1px solid var(--muted); border-radius: 2px; color: var(--muted); font-size: 14px; font-weight: 600">Đã huỷ</span>
+<h3 style="margin: 12px 0 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1.2">Đơn AVER-XXXXXX đã huỷ</h3>
+<p style="margin: 0 0 10px">Một trong hai lý do, ghi đúng lý do thật của đơn:</p>
+<ul style="margin: 0 0 16px; padding-left: 20px; display: flex; flex-direction: column; gap: 4px">
+<li>Bạn đã bấm "Huỷ đơn này" lúc XXX, ngày XXX.</li>
+<li>Admin không tìm thấy khoản chuyển khớp sau hạn bổ sung XXX (đã báo bạn qua thư “Đơn cần bạn bổ sung”). Nếu bạn có biên lai, liên hệ kèm mã đơn.</li>
+</ul>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px">
+<a href="#m1" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: var(--surface); font-weight: 600; text-decoration: none">Tạo đơn mới</a>
+<a href="#m7" style="display: inline-flex; align-items: center; min-height: 44px; font-size: 15px">Xem đơn đăng ký của tôi</a>
+</div>
+</div>
+</div>
+<p style="margin: 12px 0 0; font-size: 14px; color: var(--muted)">Huỷ đơn luôn hỏi lại một lần: "Huỷ đơn AVER-XXXXXX? Nếu bạn đã chuyển tiền, đừng huỷ mà báo đã chuyển." Nút xác nhận ghi "Huỷ đơn", nút còn lại "Giữ đơn".</p>
+</section>
+
+<section aria-labelledby="p2" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="p2" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">6 · Chuyển sai số tiền hoặc sai nội dung</h2>
+<p style="margin: 0 0 16px; color: var(--muted)">Hiện ở màn chờ thay khối "Điều gì sẽ xảy ra" khi admin ghi nhận sai lệch. Nói con số thật và việc cần làm; không bắt chuyển lại. Mỗi lần admin chuyển đơn sang Cần bổ sung hoặc đánh dấu sai lệch số tiền, hệ thống gửi thư 14 “Đơn cần bạn bổ sung” (EmailMau) với đúng câu ở đây.</p>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px">
+<div role="alert" style="border-top: 2px solid var(--mark); border-bottom: 1px solid var(--mark); background: var(--surface); padding: 16px 18px">
+<p style="margin: 0 0 6px; font-weight: 600; color: var(--mark)">Thiếu tiền · chưa mở khoá</p>
+<p style="margin: 0 0 8px">Đã nhận XXX đ, đơn cần XXX đ, còn thiếu <strong>XXX đ</strong>.</p>
+<p style="margin: 0 0 8px; font-size: 15px">Chuyển thêm phần còn thiếu với cùng nội dung AVER-XXXXXX trước <strong>XXX</strong>; khoá mở khi đủ. Hoặc liên hệ qua các kênh dưới đây để được hoàn khoản đã chuyển.</p><p style="margin: 0; font-size: 14px; color: var(--muted)">Chúng tôi đã gửi thư tới minhanh@example.com.</p>
+</div>
+<div role="alert" style="border-top: 2px solid var(--mark); border-bottom: 1px solid var(--mark); background: var(--surface); padding: 16px 18px">
+<p style="margin: 0 0 6px; font-weight: 600; color: var(--mark)">Thừa tiền · đã mở khoá</p>
+<p style="margin: 0 0 8px">Đã nhận XXX đ, đơn cần XXX đ, thừa <strong>XXX đ</strong>.</p>
+<p style="margin: 0 0 8px; font-size: 15px">Khoá đã mở bình thường. Phần thừa được hoàn về tài khoản đã chuyển trong XXX ngày làm việc; cần đổi tài khoản nhận thì báo qua các kênh dưới đây.</p><p style="margin: 0; font-size: 14px; color: var(--muted)">Thư “Khoá đã mở” đã gửi tới minhanh@example.com.</p>
+</div>
+<div role="alert" style="border-top: 2px solid var(--mark); border-bottom: 1px solid var(--mark); background: var(--surface); padding: 16px 18px">
+<p style="margin: 0 0 6px; font-weight: 600; color: var(--mark)">Chưa tìm thấy khoản chuyển khớp mã đơn</p>
+<p style="margin: 0 0 8px">Có thể nội dung bị thiếu hoặc ghi khác AVER-XXXXXX. Bạn không cần chuyển lại.</p>
+<p style="margin: 0 0 8px; font-size: 15px">Gửi mã đơn, số tiền, giờ chuyển và ảnh biên lai qua một trong các kênh dưới đây trước <strong>XXX</strong>. Admin tìm theo các thông tin này và trả lời trong XXX.</p><p style="margin: 0; font-size: 14px; color: var(--muted)">Chúng tôi đã gửi thư tới minhanh@example.com.</p>
+</div>
+</div>
+<div style="max-width: 520px"><div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--rule)"><p style="margin: 0 0 6px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Liên hệ trực tiếp · cùng khối ở Trợ giúp và trang Liên hệ</p><dl style="margin: 0; display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 4px 12px; font-size: 15px"><dt style="color: var(--muted)">Email</dt><dd style="margin: 0">XXX</dd><dt style="color: var(--muted)">Điện thoại</dt><dd style="margin: 0">XXX</dd><dt style="color: var(--muted)">Zalo</dt><dd style="margin: 0">XXX</dd><dt style="color: var(--muted)">Giờ trả lời</dt><dd style="margin: 0">XXX</dd></dl></div></div>
+</section>
+
+<section aria-labelledby="m7" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="m7" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">7 · Đơn đăng ký của tôi</h2>
+<p style="margin: 0 0 16px; color: var(--muted)">Trong menu tài khoản. Mới nhất ở trên. Mỗi dòng có đúng một việc tiếp theo, tuỳ trạng thái.</p>
+<div style="border: 1px solid var(--ink); background: var(--surface); overflow-x: auto">
+<table style="width: 100%; border-collapse: collapse; font-size: 15px">
+<caption style="text-align: left; padding: 14px 20px; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; font-weight: 600; border-bottom: 1px solid var(--ink)">Đơn đăng ký của tôi</caption>
+<thead>
+<tr>
+<th scope="col" style="text-align: left; padding: 10px 20px; border-bottom: 1px solid var(--ink); font-size: 14px; color: var(--muted); font-weight: 600">Mã đơn</th>
+<th scope="col" style="text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--ink); font-size: 14px; color: var(--muted); font-weight: 600">Khoá</th>
+<th scope="col" style="text-align: right; padding: 10px 12px; border-bottom: 1px solid var(--ink); font-size: 14px; color: var(--muted); font-weight: 600">Học phí</th>
+<th scope="col" style="text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--ink); font-size: 14px; color: var(--muted); font-weight: 600">Trạng thái</th>
+<th scope="col" style="text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--ink); font-size: 14px; color: var(--muted); font-weight: 600">Ngày tạo</th>
+<th scope="col" style="text-align: right; padding: 10px 20px; border-bottom: 1px solid var(--ink); font-size: 14px; color: var(--muted); font-weight: 600"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Việc tiếp theo</span></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="padding: 12px 20px; border-bottom: 1px solid var(--rule); font-weight: 600; font-variant-numeric: tabular-nums">AVER-XXXXXX</td>
+<td style="padding: 12px; border-bottom: 1px solid var(--rule)">Khoá Speaking for IELTS</td>
+<td style="padding: 12px; border-bottom: 1px solid var(--rule); text-align: right; font-variant-numeric: tabular-nums">XXX đ</td>
+<td style="padding: 12px; border-bottom: 1px solid var(--rule)"><span style="padding: 3px 10px; border: 1px solid var(--mark); border-radius: 2px; background: var(--surface); color: var(--mark); font-size: 14px; font-weight: 600; white-space: nowrap">Chờ chuyển khoản</span></td>
+<td style="padding: 12px; border-bottom: 1px solid var(--rule); color: var(--muted)">XXX</td>
+<td style="padding: 12px 20px; border-bottom: 1px solid var(--rule); text-align: right"><a href="#m2" style="display: inline-flex; align-items: center; min-height: 36px; font-weight: 600">Tiếp tục thanh toán</a></td>
+</tr>
+<tr>
+<td style="padding: 12px 20px; border-bottom: 1px solid var(--rule); font-weight: 600; font-variant-numeric: tabular-nums">AVER-XXXXXX</td>
+<td style="padding: 12px; border-bottom: 1px solid var(--rule)">Khoá Writing for IELTS</td>
+<td style="padding: 12px; border-bottom: 1px solid var(--rule); text-align: right; font-variant-numeric: tabular-nums">XXX đ</td>
+<td style="padding: 12px; border-bottom: 1px solid var(--rule)"><span style="padding: 3px 10px; border: 1px solid var(--accent); border-radius: 2px; background: var(--tint); color: var(--accent); font-size: 14px; font-weight: 600; white-space: nowrap">Chờ xác nhận</span></td>
+<td style="padding: 12px; border-bottom: 1px solid var(--rule); color: var(--muted)">XXX</td>
+<td style="padding: 12px 20px; border-bottom: 1px solid var(--rule); text-align: right"><a href="#m3" style="display: inline-flex; align-items: center; min-height: 36px; font-weight: 600">Xem trạng thái</a></td>
+</tr>
+<tr>
+<td style="padding: 12px 20px; border-bottom: 1px solid var(--rule); font-weight: 600; font-variant-numeric: tabular-nums">AVER-XXXXXX</td>
+<td style="padding: 12px; border-bottom: 1px solid var(--rule)">Khoá Listening for IELTS</td>
+<td style="padding: 12px; border-bottom: 1px solid var(--rule); text-align: right; font-variant-numeric: tabular-nums">XXX đ</td>
+<td style="padding: 12px; border-bottom: 1px solid var(--rule)"><span style="padding: 3px 10px; border: 1px solid var(--mark); border-radius: 2px; background: var(--surface); color: var(--mark); font-size: 14px; font-weight: 600; white-space: nowrap">Cần bổ sung</span></td>
+<td style="padding: 12px; border-bottom: 1px solid var(--rule); color: var(--muted)">XXX</td>
+<td style="padding: 12px 20px; border-bottom: 1px solid var(--rule); text-align: right"><a href="#p2" style="display: inline-flex; align-items: center; min-height: 36px; font-weight: 600">Xem hướng dẫn</a></td>
+</tr>
+<tr>
+<td style="padding: 12px 20px; border-bottom: 1px solid var(--rule); font-weight: 600; font-variant-numeric: tabular-nums">AVER-XXXXXX</td>
+<td style="padding: 12px; border-bottom: 1px solid var(--rule)">Khoá Ngữ pháp nền tảng</td>
+<td style="padding: 12px; border-bottom: 1px solid var(--rule); text-align: right; font-variant-numeric: tabular-nums">XXX đ</td>
+<td style="padding: 12px; border-bottom: 1px solid var(--rule)"><span style="padding: 3px 10px; border: 1px solid var(--ok); border-radius: 2px; background: var(--surface); color: var(--ok); font-size: 14px; font-weight: 600; white-space: nowrap">Đã mở khoá</span></td>
+<td style="padding: 12px; border-bottom: 1px solid var(--rule); color: var(--muted)">XXX</td>
+<td style="padding: 12px 20px; border-bottom: 1px solid var(--rule); text-align: right"><a href="#m4" style="display: inline-flex; align-items: center; min-height: 36px; font-weight: 600">Vào học</a></td>
+</tr>
+<tr>
+<td style="padding: 12px 20px; border-bottom: 1px solid var(--rule); font-weight: 600; font-variant-numeric: tabular-nums">AVER-XXXXXX</td>
+<td style="padding: 12px; border-bottom: 1px solid var(--rule)">Khoá Vocabulary Skills + Ideas for IELTS</td>
+<td style="padding: 12px; border-bottom: 1px solid var(--rule); text-align: right; font-variant-numeric: tabular-nums">XXX đ</td>
+<td style="padding: 12px; border-bottom: 1px solid var(--rule)"><span style="padding: 3px 10px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface); color: var(--muted); font-size: 14px; font-weight: 600; white-space: nowrap">Đã huỷ</span></td>
+<td style="padding: 12px; border-bottom: 1px solid var(--rule); color: var(--muted)">XXX</td>
+<td style="padding: 12px 20px; border-bottom: 1px solid var(--rule); text-align: right"><a href="#p1" style="display: inline-flex; align-items: center; min-height: 36px; font-weight: 600">Xem chi tiết</a></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p style="margin: 12px 0 0; font-size: 14px; color: var(--muted)"><strong style="color: var(--ink); font-weight: 600">Khi chưa có đơn:</strong> "Bạn chưa đăng ký khoá nào." kèm liên kết "Xem các khoá online" và "Nhập mã kích hoạt của lớp" (cho học viên lớp offline, mã do admin cấp). Không vẽ bảng rỗng.</p>
+</section>
+
+<section aria-labelledby="p4" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="p4" style="margin: 0 0 16px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">8 · Điện thoại 390px · Chuyển khoản, và bốn thư về đơn</h2>
+<div style="display: grid; grid-template-columns: 390px minmax(0, 1fr); gap: 48px; align-items: start">
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Điện thoại · màn 2</p>
+<div style="width: 390px; box-sizing: border-box; border: 1px solid var(--ink); background: var(--paper)">
+<header style="display: flex; align-items: center; gap: 12px; height: 56px; box-sizing: border-box; padding: 0 16px; border-bottom: 1px solid var(--ink)">
+<span style="display: inline-flex; align-items: center; gap: 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; font-weight: 600; flex-grow: 1"><svg width="26" height="26" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<a href="ThongBao.dc.html" aria-label="Thông báo" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; box-sizing: border-box; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink)"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15zM10 20.5a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></a>
+<button aria-label="Mở menu tài khoản" style="width: 44px; height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif">MA</button>
+</header>
+<div style="padding: 4px 16px 24px">
+<a href="#m1" style="display: inline-flex; align-items: center; min-height: 44px; font-size: 15px; font-weight: 600">‹ Khoá Writing for IELTS</a>
+<h3 style="margin: 0 0 10px; font-family: 'Source Serif 4', Georgia, serif; font-size: 26px; font-weight: 600; line-height: 1.2">Chuyển khoản cho đơn AVER-XXXXXX</h3>
+<p style="margin: 0 0 6px; font-size: 14px"><strong>Bước 2 trên 3</strong> · Chuyển khoản · giữ đơn tới <strong>XXX, ngày XXX</strong></p>
+<div aria-hidden="true" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; margin-bottom: 14px"><span style="height: 4px; background: var(--ink)"></span><span style="height: 4px; background: var(--accent)"></span><span style="height: 4px; background: var(--rule)"></span></div>
+<div role="img" aria-label="Chỗ đặt mã VietQR" style="width: 180px; height: 180px; margin: 0 auto; box-sizing: border-box; border: 1px dashed var(--ink); background: var(--surface); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 16px; text-align: center">
+<span style="font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Mã VietQR</span>
+<span style="font-size: 13px; color: var(--muted)">Tạo tự động</span>
+</div>
+<button type="button" style="display: flex; align-items: center; justify-content: center; width: 100%; min-height: 48px; margin: 12px 0 16px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif">Lưu ảnh mã QR</button>
+<dl style="margin: 0; border-top: 1px solid var(--ink)">
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="5">
+<div style="display: flex; align-items: center; gap: 10px; padding: 8px 0 8px {{r.pad}}; border-bottom: 1px solid var(--rule); border-left: {{r.bl}}; background: {{r.bg}}">
+<div style="flex: 1 1 auto; min-width: 0">
+<dt style="font-size: 14px; color: var(--muted)">{{r.label}}</dt>
+<dd style="margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere">{{r.value}}</dd>
+</div>
+<button type="button" onClick="{{r.copy}}" aria-label="{{r.aria}}" style="flex: none; min-height: 44px; min-width: 104px; padding: 0 10px; border: 1px solid var(--ink); border-radius: 2px; background: {{r.btnBg}}; color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif">{{r.btn}}</button>
+</div>
+</sc-for>
+</dl>
+<div role="note" style="margin-top: 16px; padding: 12px 14px; border-top: 2px solid var(--mark); border-bottom: 1px solid var(--mark); background: var(--surface); font-size: 15px">
+<p style="margin: 0 0 4px; font-weight: 600; color: var(--mark)">Ghi đúng nội dung: AVER-XXXXXX</p>
+<p style="margin: 0">Không thêm chữ khác, chuyển đúng học phí XXX đ một lần. Lỡ ghi sai: đừng chuyển lại.</p>
+</div>
+<a href="#m3" style="display: flex; align-items: center; justify-content: center; min-height: 48px; margin-top: 20px; border-radius: 2px; background: var(--accent); color: var(--surface); font-weight: 600; text-decoration: none">Tôi đã chuyển khoản</a>
+<a href="#p1" style="display: flex; align-items: center; justify-content: center; min-height: 44px; margin-top: 4px; font-size: 15px">Huỷ đơn này</a>
+</div>
+<nav aria-label="Điều hướng chính" style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); height: 64px; border-top: 1px solid var(--ink); background: var(--surface)">
+<a href="Main.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid transparent; color: var(--muted); font-size: 12px; text-decoration: none"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M4 11l8-7 8 7v9H4z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Hôm nay</a>
+<a href="LoTrinh.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid transparent; color: var(--muted); font-size: 12px; text-decoration: none"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M5 20V8M5 8h10l-2 3 2 3H5M19 20h-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Lộ trình</a>
+<a href="LuyenTap.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid transparent; color: var(--muted); font-size: 12px; text-decoration: none"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M4 19l4-1 11-11-3-3L5 15zM14 6l3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Luyện tập</a>
+<a href="ThiThu.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid transparent; color: var(--muted); font-size: 12px; text-decoration: none"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M12 7v5l3 2M12 3a9 9 0 100 18 9 9 0 000-18z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Thi thử</a>
+<a href="ThuVien.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid transparent; color: var(--muted); font-size: 12px; text-decoration: none"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M5 4h5v16H5zM10 4h5v16h-5zM16 6l3-1 3 14-3 1z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Thư viện</a>
+</nav>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 12px">
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Bốn thư về đơn · đều bắt buộc, không tắt được · mẫu ở EmailMau</p>
+<ol style="margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--ink); max-width: 640px">
+<li style="display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 4px 12px; padding: 10px 0; border-bottom: 1px solid var(--rule)"><span style="font-weight: 600; font-variant-numeric: tabular-nums">Thư 4</span><span><a href="EmailMau.dc.html#e4" style="font-weight: 600">Đã tạo đơn</a><span style="display: block; font-size: 15px; color: var(--muted)">Ngay khi tạo đơn: mã đơn, học phí, thông tin chuyển khoản, hạn giữ đơn, đường dẫn về màn 2.</span></span></li>
+<li style="display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 4px 12px; padding: 10px 0; border-bottom: 1px solid var(--rule)"><span style="font-weight: 600; font-variant-numeric: tabular-nums">Thư 5</span><span><a href="EmailMau.dc.html#e5" style="font-weight: 600">Nhắc chuyển khoản</a><span style="display: block; font-size: 15px; color: var(--muted)">Một lần, XXX giờ trước hạn giữ, chỉ khi đơn còn Chờ chuyển khoản. Có câu: “Đã chuyển rồi mà chưa bấm nút? Không sao, chúng tôi vẫn đối chiếu theo mã đơn.”</span></span></li>
+<li style="display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 4px 12px; padding: 10px 0; border-bottom: 1px solid var(--rule)"><span style="font-weight: 600; font-variant-numeric: tabular-nums">Thư 14</span><span><a href="EmailMau.dc.html#e14" style="font-weight: 600">Đơn cần bạn bổ sung</a><span style="display: block; font-size: 15px; color: var(--muted)">Khi admin chuyển đơn sang Cần bổ sung hoặc đánh dấu sai lệch số tiền: bạn cần làm gì, hạn bổ sung XXX, nút “Mở trang đơn”.</span></span></li>
+<li style="display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 4px 12px; padding: 10px 0; border-bottom: 1px solid var(--rule)"><span style="font-weight: 600; font-variant-numeric: tabular-nums">Thư 6</span><span><a href="EmailMau.dc.html#e6" style="font-weight: 600">Khoá đã mở</a><span style="display: block; font-size: 15px; color: var(--muted)">Khi admin xác nhận (kể cả đơn hết hạn được mở lại vì khoản chuyển khớp mã).</span></span></li>
+</ol>
+<p style="margin: 0; font-size: 14px; color: var(--muted); max-width: 640px">Báo đã chuyển, huỷ, hết hạn: chỉ trên trang đơn và trong Thông báo, không gửi thư. Điện thoại: “Lưu ảnh mã QR” để quét mã từ ảnh trong ứng dụng ngân hàng trên cùng máy. Thư chỉ có chữ và liên kết, không ảnh, không nút đồ hoạ.</p>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="dev" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="dev" style="margin: 0 0 12px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">Ghi chú cho lập trình</h2>
+<ul style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px">
+<li>"Đăng ký khoá này" khi chưa đăng nhập: sang Đăng nhập (tờ Tài khoản) kèm khoá đang đăng ký, xong thì về màn 1 của đúng khoá. Đơn chỉ được tạo khi bấm "Tạo đơn và xem thông tin chuyển khoản".</li>
+<li>Trạng thái đơn: Chờ chuyển khoản → Chờ xác nhận → Đã mở khoá; nhánh Hết hạn, Đã huỷ, Cần bổ sung. Chỉ admin chuyển sang Đã mở khoá. Hết hạn → Đã mở khoá được: admin ghi nhận khoản chuyển khớp mã của đơn đã hết hạn thì đơn tự mở lại và mở khoá như xác nhận thường, không cần học viên bấm nút (ghi nhật ký; tờ AdminDonDangKy). Giả định: nếu học viên đã có đơn mới đang mở cho cùng khoá, admin huỷ đơn mới khi mở lại đơn cũ.</li>
+<li>Mã đơn AVER- + 6 ký tự không dễ nhầm (bỏ 0/O, 1/I), cũng là nội dung chuyển khoản. VietQR sinh từ tài khoản nhận, số tiền, mã đơn.</li>
+<li>Chờ chuyển khoản quá XXX giờ thì tự Hết hạn; đơn đã báo chuyển không tự hết hạn. Một tài khoản có tối đa một đơn mở cho mỗi khoá.</li>
+<li>Bốn thư về đơn, đều bắt buộc (EmailMau): thư 4 "Đã tạo đơn" ngay khi tạo đơn (mã đơn, khoá, học phí, nội dung chuyển khoản, hạn giữ đơn, đường dẫn về màn 2); thư 5 "Nhắc chuyển khoản" một lần, XXX giờ trước hạn giữ, chỉ khi đơn còn Chờ chuyển khoản, có câu "Đã chuyển rồi mà chưa bấm nút? Không sao, chúng tôi vẫn đối chiếu theo mã đơn."; thư 14 "Đơn cần bạn bổ sung" khi admin chuyển sang Cần bổ sung hoặc đánh dấu sai lệch số tiền (việc cần làm, hạn bổ sung XXX, "Mở trang đơn"); thư 6 "Khoá đã mở" khi admin xác nhận. Báo đã chuyển, huỷ, hết hạn: chỉ trên trang đơn và trong Thông báo (ThongBao), không gửi thư.</li>
+<li>Đề xuất, chờ chủ dự án duyệt (màn 3): khi đơn ở Chờ xác nhận, chương 1 của khoá mở ở chế độ như bài học thử (BaiHocThu): video, bài đọc, bài tập tự chấm; nộp bài AI chấm còn khoá; tiến độ lưu theo tài khoản và giữ nguyên khi khoá mở. Đơn huỷ hoặc hết hạn thì chương 1 khoá lại, tiến độ vẫn giữ.</li>
+<li>Khung: đã đăng nhập thì mọi màn dùng thanh học viên 5 mục (ThanhPhanKhungTrang; điện thoại có thanh dưới), kể cả tài khoản chưa có khoá; số lượt chấm AI chỉ hiện khi đã có khoá. Thanh công khai chỉ cho người chưa đăng nhập. Kênh liên hệ ở màn 3 và 6 là khối dùng chung Email · Điện thoại · Zalo · Giờ trả lời (giá trị XXX).</li>
+<li>Màn chờ tự chuyển sang màn 4 khi admin xác nhận. Mở khoá: hạn = ngày xác nhận + thời hạn khoá; cộng lượt AI của khoá vào sổ lượt.</li>
+<li>Câu chữ: "Đăng ký khoá này" (nút trên trang khoá), "Đơn đăng ký" (đơn và mã AVER-), "Học phí" (số tiền), "Thanh toán" (bước chuyển khoản). Không dùng từ ngữ thương mại nào khác ở màn, email hay thông báo. Tờ này chỉ cho khoá online; khoá của lớp offline mở bằng mã kích hoạt (tờ Tài khoản, màn 6).</li>
+<li>"Sao chép" ghi giá trị thô (số tài khoản không dấu cách, số tiền chỉ chữ số), đổi nhãn "Đã sao chép" 3 giây, báo qua role="status".</li>
+</ul>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Xanh teal","Navy + đỏ mận"],"default":"Navy + đỏ mận"},"$preview":{"width":1280,"height":7960}}'>
+class Component extends DCLogic {
+constructor(p) { super(p); this.state = { agreed: false, copied: '' }; }
+renderVals() {
+const st = this.state || {};
+const agreed = !!st.agreed;
+const copied = st.copied || '';
+const names = ['Kiểm tra đơn đăng ký', 'Chuyển khoản học phí', 'Chờ xác nhận'];
+const mk = (cur) => names.map((t, i) => {
+const done = i < cur, now = i === cur;
+return {
+n: String(i + 1), t, done, notDone: !done, notLast: i < names.length - 1,
+aria: now ? 'step' : 'false',
+bd: done ? '1px solid var(--ink)' : now ? '2px solid var(--accent)' : '1px solid var(--rule)',
+bg: done ? 'var(--ink)' : 'var(--surface)',
+fg: done ? 'var(--surface)' : now ? 'var(--accent)' : 'var(--muted)',
+line: done ? 'var(--ink)' : 'var(--rule)',
+fw: now ? '600' : '400',
+stateT: done ? 'Xong' : now ? 'Đang làm' : 'Chưa tới'
+};
+});
+const rowDefs = [
+{ key: 'bank', label: 'Ngân hàng', value: 'XXX' },
+{ key: 'acct', label: 'Số tài khoản', value: 'XXX' },
+{ key: 'name', label: 'Chủ tài khoản', value: 'XXX' },
+{ key: 'amt', label: 'Học phí', value: 'XXX đ' },
+{ key: 'memo', label: 'Nội dung chuyển khoản', value: 'AVER-XXXXXX', hl: true }
+];
+const rows = rowDefs.map((r) => ({
+label: r.label, value: r.value,
+size: r.hl ? '20px' : '17px',
+pad: r.hl ? '12px' : '0',
+bl: r.hl ? '3px solid var(--mark)' : '0',
+bg: r.hl ? 'var(--surface)' : 'transparent',
+btn: copied === r.key ? 'Đã sao chép' : 'Sao chép',
+btnBg: copied === r.key ? 'var(--tint)' : 'var(--surface)',
+aria: 'Sao chép ' + r.label.toLowerCase(),
+copy: () => this.setState({ copied: r.key })
+}));
+const hit = rowDefs.find((r) => r.key === copied);
+const tag = (c, bg) => ({ c, bg });
+const orders = [
+Object.assign({ code: 'AVER-XXXXXX', course: 'Khoá Speaking for IELTS', status: 'Chờ chuyển khoản', action: 'Tiếp tục thanh toán', href: '#m2' }, tag('var(--mark)', 'var(--surface)')),
+Object.assign({ code: 'AVER-XXXXXX', course: 'Khoá Writing for IELTS', status: 'Chờ xác nhận', action: 'Xem trạng thái', href: '#m3' }, tag('var(--accent)', 'var(--tint)')),
+Object.assign({ code: 'AVER-XXXXXX', course: 'Khoá Listening for IELTS', status: 'Cần bổ sung', action: 'Xem hướng dẫn', href: '#p2' }, tag('var(--mark)', 'var(--surface)')),
+Object.assign({ code: 'AVER-XXXXXX', course: 'Khoá Ngữ pháp nền tảng', status: 'Đã mở khoá', action: 'Vào học', href: '#m4' }, tag('var(--ok)', 'var(--surface)')),
+Object.assign({ code: 'AVER-XXXXXX', course: 'Khoá Vocabulary Skills + Ideas for IELTS', status: 'Đã huỷ', action: 'Xem chi tiết', href: '#p1' }, tag('var(--muted)', 'var(--surface)'))
+];
+const ev = (t, d, kind) => ({
+t, d,
+c: kind === 'todo' ? 'var(--rule)' : kind === 'now' ? 'var(--accent)' : 'var(--ink)',
+fill: kind === 'done' ? 'var(--ink)' : 'var(--surface)',
+fw: kind === 'now' ? '600' : '400'
+});
+return {
+pal: (this.props.palette ?? 'Navy + đỏ mận') === 'Xanh teal' ? 'pal-teal' : 'pal-navy',
+steps1: mk(0), steps2: mk(1), steps3: mk(2),
+agreed, notAgreed: !agreed,
+toggleAgree: () => this.setState({ agreed: !agreed }),
+payBg: agreed ? 'var(--accent)' : 'var(--off)',
+payBd: agreed ? 'var(--accent)' : 'var(--off)',
+payFg: agreed ? 'var(--surface)' : 'var(--muted)',
+agreeHint: agreed ? 'Đơn sẽ được giữ XXX giờ sau khi tạo.' : 'Đánh dấu ô đồng ý điều khoản để tạo đơn.',
+rows,
+copyStatus: hit ? 'Đã sao chép ' + hit.label.toLowerCase() + '.' : '',
+orders,
+timeline: [
+ev('Tạo đơn · đã gửi thư thông tin chuyển khoản', 'XXX, ngày XXX', 'done'),
+ev('Bạn báo đã chuyển khoản', 'XXX, ngày XXX', 'done'),
+ev('Admin đối chiếu sao kê', 'Đang chờ · thường trong XXX', 'now'),
+ev('Mở khoá và gửi email', 'Chưa tới', 'todo')
+]
+};
+}
+}
+</script>
+</body>
+</html>

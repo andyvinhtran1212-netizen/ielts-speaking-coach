@@ -172,7 +172,7 @@ async def get_current_student(
     if not student:
         raise HTTPException(
             status_code=403,
-            detail="Em chưa được xếp lớp, Writing sẽ mở khi giáo viên giao bài",
+            detail="Bạn chưa được xếp lớp, Writing sẽ mở khi giáo viên giao bài",
         )
     if account_name:
         student = {**student, "account_name": account_name}
@@ -891,12 +891,12 @@ def _submission_receipt(assignment: dict, *, replayed: bool) -> dict:
     message = (
         (
             f"Bài đã nộp nhưng không được chấm do {explanation}. "
-            "Em vui lòng kiểm tra lại bài viết."
+            "Bạn vui lòng kiểm tra lại bài viết."
         )
         if is_flagged and explanation else
-        "Bài đã nộp nhưng không được chấm. Em vui lòng liên hệ giảng viên."
+        "Bài đã nộp nhưng không được chấm. Bạn vui lòng liên hệ giảng viên."
         if is_flagged else
-        "Bài viết đã được nộp. Em sẽ nhận kết quả sớm."
+        "Bài viết đã được nộp. Bạn sẽ nhận kết quả sớm."
     )
     return {
         "essay_id": str(essay_id),
@@ -1273,7 +1273,7 @@ def _persist_flagged_submission(
         "flag_reasons":   flags,
         "message":        (
             f"Bài đã nộp nhưng không được chấm do {explanation_vi}. "
-            f"Em vui lòng kiểm tra lại bài viết."
+            f"Bạn vui lòng kiểm tra lại bài viết."
         ),
         "replayed":       False,
     }
@@ -2130,7 +2130,7 @@ async def submit_my_assignment(
         "assignment_id": str(assignment_id),
         "status":        "submitted",
         "eta_seconds":   eta,
-        "message":       "Bài viết đã được nộp. Em sẽ nhận kết quả sớm.",
+        "message":       "Bài viết đã được nộp. Bạn sẽ nhận kết quả sớm.",
         "replayed":      False,
     }
 
@@ -2803,7 +2803,7 @@ async def request_regrade(
     except Exception as exc:
         msg = str(exc).lower()
         if "23505" in msg or "duplicate" in msg or "unique" in msg:
-            raise HTTPException(409, "Em đã gửi yêu cầu chấm lại cho bài này rồi.")
+            raise HTTPException(409, "Bạn đã gửi yêu cầu chấm lại cho bài này rồi.")
         logger.error("[regrade] insert failed essay=%s: %s", essay_id, exc)
         raise HTTPException(500, "Không gửi được yêu cầu. Vui lòng thử lại.")
     if not r.data:

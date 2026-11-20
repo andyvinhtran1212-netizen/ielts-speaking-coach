@@ -35,7 +35,8 @@ git remote -v
 ```
 
 Fetch the remote before choosing a base. Normal work starts from
-`origin/staging`, with a `codex/<task>` branch and a PR targeting `staging`.
+`origin/staging`, on a scoped topic branch (`codex/<task>`; use `preview/<slug>`
+only to request a Vercel preview) and a PR targeting `staging`.
 Use an isolated worktree when another task owns the current checkout or there
 is unrelated work. Inspect available task/session status when coordinating
 shared work; directory age alone does not establish abandonment.
@@ -97,6 +98,8 @@ cd ..
 python backend/scripts/validate_specs.py
 git diff --check
 ```
+
+Migration numbers: see `backend/migrations/register.tsv`.
 
 Use the relevant browser journey under `frontend/tooling/verify-*-flow.mjs` or
 the configured Playwright suite for UI changes. Follow the environment and
@@ -184,7 +187,8 @@ preset, local API and test environment; the generator rejects known production
 origins. Set both `AVER_SUPABASE_URL` and `AVER_SUPABASE_ANON_KEY` in the launch
 environment to use another non-production project, and match the backend to it.
 Partial pairs fail before startup; AVER_RUNTIME_CONFIG_OUT is cleared so the
-launcher always updates the served runtime file.
+launcher always updates the served runtime file. Before committing, restore
+the committed unconfigured default with `npm --prefix frontend run config:reset`.
 Environment files, caches and generated knowledge graphs remain outside version
 control.
 

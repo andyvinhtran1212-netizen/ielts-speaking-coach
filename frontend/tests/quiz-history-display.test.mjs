@@ -31,12 +31,21 @@ test('a historical title remains authoritative even when it differs from today�
   const title = 'Bài đã lưu: a different original title';
   assert.equal(quizHistoryBankDisplay('G-tenses-past-perfect~0123456789abcdef', title).label, title);
 });
-test('Vocabulary and unowned/unrecognized codes retain their exact existing code/title display', () => {
-  assert.deepEqual(quizHistoryBankDisplay('G-tenses-past-perfect~0123456789abcdef', 'Vocabulary title', 'vocab'), { label: 'G-tenses-past-perfect~0123456789abcdef', subtitle: 'Vocabulary title' });
+// G02-T08 (FR-02-007) changed this contract on purpose: an internal bank code
+// is never a learner-visible label. Non-Grammar or unrecognised banks show
+// their stored title, or a neutral "Bộ câu hỏi" when there is none.
+test('Vocabulary and unowned/unrecognized codes show their title, never the code', () => {
+  assert.deepEqual(quizHistoryBankDisplay('G-tenses-past-perfect~0123456789abcdef', 'Vocabulary title', 'vocab'), { label: 'Vocabulary title', subtitle: '' });
   for (const code of ['vocab-1', 'vocab~0123456789abcdef', 'G-unmanaged-topic~0123456789abcdef',
     'G-tenses-past-perfect~ABCDEF0123456789', 'G-tenses-past-perfect~short', 'G-tenses-past-perfect~0123456789abcdef-extra',
     ' G-tenses-past-perfect', '__proto__']) {
-    assert.deepEqual(quizHistoryBankDisplay(code, 'Original title'), { label: code, subtitle: 'Original title' });
+    assert.deepEqual(quizHistoryBankDisplay(code, 'Original title'), { label: 'Original title', subtitle: '' });
+    assert.deepEqual(quizHistoryBankDisplay(code), { label: 'Bộ câu hỏi', subtitle: '' }, code);
+    assert.deepEqual(quizHistoryBankDisplay(code, '   ', 'vocab'), { label: 'Bộ câu hỏi', subtitle: '' }, code);
   }
   assert.deepEqual(quizHistoryBankDisplay(null, null), { label: '', subtitle: '' });
+});
+test('a "-<16 hex>" revision tail resolves to the Grammar name like "~<16 hex>"', () => {
+  assert.equal(quizHistoryBankDisplay('G-tenses-past-perfect-0123456789abcdef').label, 'Quick Check — Past Perfect');
+  assert.equal(quizHistoryBankDisplay('G-error-clinic-affect-vs-effect-c87d4fdd24ddea27').label, 'Bộ câu hỏi');
 });

@@ -167,13 +167,15 @@ test.describe('C13R2-05 B13-T2 review marks', () => {
     // tab-scoped pending receipt must carry the mark across the reload.
     await page.reload();
     await page.getByRole('button', { name: 'Resume test' }).click();
-    // Either the keepalive flush landed, or the restored receipt is shown as
-    // unsaved with "Thử lại"; both keep the mark and replay one operation.
+    // The server can have applied the keepalive write while its ACK was lost
+    // on reload. Keep retrying until the restored client receipt is cleared
+    // by an ACK too, even when the server already has the mark.
     const retry = page.locator('.exam-review-flag-status').getByRole('button', { name: 'Thử lại' });
     await expect.poll(async () => {
       if (await retry.isVisible()) await retry.click();
-      return server.flaggedOn(ATTEMPT_A1);
-    }).toEqual([18]);
+      const pending = await page.evaluate((key) => sessionStorage.getItem(key), `aver:review-flags:${OWNER_A}:reading:${ATTEMPT_A1}`);
+      return { flagged: server.flaggedOn(ATTEMPT_A1), pending };
+    }).toEqual({ flagged: [18], pending: null });
     expect(new Set(calls.filter((call) => call.method === 'PATCH').map((call) => call.body.operation_id)).size).toBe(1);
     await expect(page.locator('.exam-review-flag-status')).toHaveCount(0);
     await expectFlags(page, [18], [19]);

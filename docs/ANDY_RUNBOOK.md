@@ -44,7 +44,7 @@ Mình cho 2 senior phản biện trực diện mọi thứ đã gửi. Họ đú
   cd backend && uvicorn main:app --reload --port 8000      # cửa sổ 1
   cd frontend && python3 -m http.server                    # cửa sổ 2, rồi mở trình duyệt
   ```
-- Bấm theo `SMOKE_TEST_CHECKLIST.md`. **Quan trọng nhất:** kiểm cả tính năng **CŨ** còn chạy không (lỗi hay nằm ở chỗ "tiện tay sửa luôn").
+- Bấm thử theo mục `## Normal release` của [`STAGING_FIRST_RELEASE_FLOW.md`](STAGING_FIRST_RELEASE_FLOW.md) (bước 4: merge vào `staging` chạy Staging E2E và staging smoke). **Quan trọng nhất:** kiểm cả tính năng **CŨ** còn chạy không (lỗi hay nằm ở chỗ "tiện tay sửa luôn").
 
 **4. CI phải XANH mới merge — lưới an toàn thật.**
 - Không bao giờ merge PR đỏ. Không "tắt check cho qua". Bạn đã có sẵn 3 luồng CI (pytest + node --test + Playwright) — đây là guardrail chắc chắn mà **không cần đọc code**. Đề cao quy tắc này hơn mọi thứ.
@@ -351,7 +351,7 @@ Mỗi việc: **Chế độ/lệnh** → **Mẫu câu** → **Xong khi**.
   cd backend && uvicorn main:app --reload --port 8000   # cửa sổ 1
   cd frontend && python3 -m http.server                 # cửa sổ 2 → mở trình duyệt
   ```
-- Bấm theo `SMOKE_TEST_CHECKLIST.md` (kiểm cả tính năng **cũ**). Rồi: `git add` → commit nhỏ → push → tạo PR → **đợi CI xanh** → merge → (deploy theo `DEPLOY_CHECKLIST.md`).
+- Bấm thử theo mục `## Normal release` của [`STAGING_FIRST_RELEASE_FLOW.md`](STAGING_FIRST_RELEASE_FLOW.md) (kiểm cả tính năng **cũ**). Rồi: `git add` → commit nhỏ → push → tạo PR vào `staging` → **đợi CI xanh** → merge → (lên production theo cùng tài liệu đó: PR `staging` → `main`).
 - **Mẫu bàn giao:** *"Tóm tắt: vừa đổi gì, mình cần bấm thử màn nào, tính năng cũ nào có thể bị ảnh hưởng, bước tiếp theo (commit/PR/deploy)?"*
 
 ### J) ⭐ Việc NHẠY CẢM (auth, mã truy cập `is_used/used_by`, payment, migration, xóa dữ liệu, logic chấm điểm)

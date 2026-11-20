@@ -153,6 +153,12 @@ await page.emulateMedia({ media: 'screen' });
 await page.setViewportSize({ width: 390, height: 844 });
 const mobile = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, viewport: innerWidth }));
 check('mobile không tràn ngang', mobile.width <= mobile.viewport, `${mobile.width}/${mobile.viewport}`);
+// G02-T12: a report link without its review goes back to the review tab of its exam.
+await page.goto(`${BASE}/admin/mock-reviews/report?mock_exam_id=exam-1`, { waitUntil: 'domcontentloaded' });
+await page.waitForURL((url) => url.pathname === '/admin/mock-tests');
+await page.getByRole('status').filter({ hasText: 'Liên kết bạn vừa mở chưa đủ thông tin nên bạn được đưa về trung tâm Mock Test.' }).waitFor();
+check('report thiếu review_id về tab duyệt bài của đúng đề', new URL(page.url()).search === '?tab=review&exam_id=exam-1', page.url());
+
 check('không có lỗi JavaScript', errors.length === 0, errors.join(' | '));
 
 await browser.close();

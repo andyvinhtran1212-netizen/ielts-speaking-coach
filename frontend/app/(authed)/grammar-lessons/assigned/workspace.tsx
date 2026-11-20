@@ -8,6 +8,7 @@ import type { ApiGetJson, ApiPostJson } from '@/lib/openapi-contract';
 import type { components } from '@/types/api';
 import { useAuth } from '@/lib/auth/auth-provider';
 import { GrammarLessonFeedback, GrammarText, type GrammarLessonQuestion } from '@/components/grammar-lesson-feedback';
+import { leaveForParent } from '@/lib/redirect-notice-model.mjs';
 
 type Lesson = ApiGetJson<'/api/grammar/lessons/items/{item_id}'>;
 type Started = ApiPostJson<'/api/grammar/lessons/items/{item_id}/start'>;
@@ -43,7 +44,8 @@ export function AssignedGrammarLesson() {
   const reload = useCallback(async () => {
     if (authStatus !== 'signed-in') return;
     const requestId = ++requestSequence.current;
-    if (!itemId) { setLoading(false); return; }
+    // G02-T11: a link without its assignment item goes back to My class.
+    if (!itemId) { leaveForParent('/my-class'); return; }
     setLoading(true); setLesson(null); setBusy(false); setError('');
     try {
       const value = await window.api.get<Lesson>(`/api/grammar/lessons/items/${encodeURIComponent(itemId)}`);
@@ -101,6 +103,8 @@ export function AssignedGrammarLesson() {
   if (authStatus === 'initial-loading' || loading) return <main className="agl-shell" role="status">Đang tải bài Grammar…</main>;
   if (authStatus === 'signed-out') return <main className="agl-shell"><p>Đăng nhập để mở bài Grammar được giao.</p><a href="/login">Đăng nhập</a></main>;
   // U-16: without ?assignment_item there is nothing to load or retry.
+  // G02-T11: the loader sends a link without its item back to My class;
+  // this card is only what shows while the browser leaves.
   if (!itemId) return <main className="agl-shell"><div className="agl-alert" role="alert">Đường dẫn này chưa cho biết bài Grammar nào được giao. Hãy mở bài từ trang Lớp của tôi.</div><a className="av-button av-button-primary" href="/my-class">← Về Lớp của tôi</a></main>;
   if (!lesson) return <main className="agl-shell"><a href="/my-class">← Lớp của tôi</a><div className="agl-alert" role="alert">{error || 'Không tìm thấy bài này.'}</div><button type="button" onClick={() => void reload()}>Thử lại</button></main>;
 

@@ -30,6 +30,7 @@ import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 import { MockPostTestCapture } from '@/components/mock-post-test-capture';
 import { useAttemptReviewFlags } from '@/lib/use-attempt-review-flags';
 import { AttemptReviewFlagStatus } from '@/components/attempt-review-flag-status';
+import { leaveForParent } from '@/lib/redirect-notice-model.mjs';
 
 type ListeningPhase = 'loading' | 'error' | 'prestart' | 'inprogress' | 'submitting' | 'capture' | 'results' | 'sealed';
 type AnswerMap = Map<number, string>;
@@ -483,7 +484,8 @@ export function ListeningTestSession() {
   useEffect(() => { answersRef.current = answers; }, [answers]);
   useEffect(() => {
     try { setParams(listeningTestParams(window.location.search)); }
-    catch { setError('No valid Listening test ID was provided.'); setPhase('error'); }
+    // G02-T11: no valid test in the link → back to Listening with a notice.
+    catch { leaveForParent('/listening'); }
   }, []);
 
   const flagApi = useAttemptReviewFlags({

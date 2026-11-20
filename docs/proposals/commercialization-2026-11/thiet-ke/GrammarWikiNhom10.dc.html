@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Grammar Wiki nhóm 10</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--accentH:#0B5953;--link:#0B5953;--mark:#8A4B08;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EDF3F1;--off:#E7E2D6}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--accentH:#11254A;--link:#1A3561;--mark:#8A1C1C;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EEF0F5;--off:#E8E2D5}
+a{color:var(--link)}a:hover{color:var(--ink)}
+.sf{font-family:'Source Serif 4',Georgia,serif}
+.kick{margin:0;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)}
+.h2s{margin:0 0 6px;font-family:'Source Serif 4',Georgia,serif;font-size:24px;font-weight:600}
+.lead{margin:0 0 16px;font-size:14px;color:var(--muted);max-width:110ch}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border:1px solid var(--ink);border-radius:2px;background:var(--surface);color:var(--ink);font:600 15px 'Source Sans 3',sans-serif;text-decoration:none;cursor:pointer;box-sizing:border-box}
+.btnp{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 20px;border:1px solid var(--accent);border-radius:2px;background:var(--accent);color:var(--surface);font:600 15px 'Source Sans 3',sans-serif;text-decoration:none;cursor:pointer;box-sizing:border-box}
+.body{font-family:'Source Serif 4',Georgia,serif;font-size:18px;line-height:29px}
+.body p{margin:0 0 14px}
+.h2a{margin:0 0 10px;font-family:'Source Serif 4',Georgia,serif;font-size:26px;font-weight:600;line-height:1.25}
+.h2a span{color:var(--muted);font-variant-numeric:tabular-nums}
+.h3a{margin:16px 0 4px;font-family:'Source Sans 3',sans-serif;font-size:16px;font-weight:600}
+.sup{font:600 12px 'Source Sans 3',sans-serif;color:var(--accent)}
+.note{margin:0;padding-top:8px;border-top:1px solid var(--rule);font-size:14px;line-height:1.5;color:var(--muted)}
+.cap{margin:8px 0 0;font-size:14px;line-height:1.5;color:var(--muted)}
+.fig{margin:6px 0 4px;padding:18px 20px 16px;border:1px solid var(--rule);background:var(--surface)}
+.tag{display:block;font:600 11px 'Source Sans 3',sans-serif;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);text-align:center;white-space:nowrap}
+.ch{display:flex;align-items:center;justify-content:center;box-sizing:border-box;height:38px;padding:0 8px;font-family:'Source Serif 4',Georgia,serif;font-size:20px;white-space:nowrap;color:var(--ink)}
+.rS{border:1.5px solid var(--ink)}
+.rV{border-bottom:4px double var(--accent);color:var(--accent);font-weight:600}
+.rO{border:1.5px dashed var(--ink)}
+.rC{border:1.5px dotted var(--ink)}
+.rA{color:var(--muted)}
+.rX{border:1.5px dashed var(--muted);color:var(--muted)}
+.cell{display:flex;flex-direction:column;align-items:center;gap:4px}
+.tb{width:100%;border-collapse:collapse;font-family:'Source Sans 3',sans-serif;font-size:16px;line-height:1.45}
+.tb th,.tb td{padding:5px 10px 5px 0;text-align:left;vertical-align:top;border-bottom:1px solid var(--rule)}
+.tb thead tr{border-top:2px solid var(--ink)}
+.tb thead th{border-bottom:1px solid var(--ink);font-weight:600}
+.tb tbody th{font-weight:600;color:var(--muted)}
+.tb caption{caption-side:bottom;text-align:left;padding-top:8px;font-size:14px;color:var(--muted)}
+.foot a{display:inline-flex;align-items:center;min-height:44px}
+.lab{font:600 13px 'Source Sans 3',sans-serif;letter-spacing:0.06em;text-transform:uppercase}
+.gr{display:grid;grid-template-columns:44px 236px 262px minmax(0,1fr) 52px 178px;column-gap:16px;padding:8px 0;border-bottom:1px solid var(--rule);font-size:14px;line-height:1.45}
+.gr>div{min-width:0}
+</style>
+</helmet>
+<div class="{{pal}}" style="width: 1280px; height: 5000px; box-sizing: border-box; padding: 40px 0; background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 16px; line-height: 1.5; display: flex; flex-direction: column; gap: 28px">
+<header style="padding: 0 64px">
+<p class="kick">Aver Learning · Bản in · đợt 8 · Thư viện công khai · Grammar Wiki</p>
+<h1 style="margin: 4px 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 40px; font-weight: 600; line-height: 1.15">Grammar Wiki · nhóm 10: Grammar for Reading — Giải mã câu trong bài đọc</h1>
+<p style="margin: 0; color: var(--muted); max-width: 112ch"><strong style="color: var(--ink)">14 bài thật</strong> · nhóm thứ 10 trong <span lang="en">backend/content/_groups.yaml</span> (slug <span lang="en">grammar-for-reading</span>). Các cấu trúc cản trở việc giải mã câu trong bài đọc học thuật: mệnh đề rút gọn, cụm danh từ dài, danh hoá, bị động học thuật, từ nối, tham chiếu và so sánh. Bài của nhóm này không dạy viết câu mà dạy gỡ câu: mỗi bài có một câu dài lấy làm mẫu, mục "Bẫy khi đọc" và cặp "hiểu sai / hiểu đúng". Sơ đồ chủ lực là mệnh đề lồng nhau và cụm danh từ mở rộng. Hai bài vẽ đủ cả trang ở tờ <a href="GrammarWikiNhom10-Bai1.dc.html">GrammarWikiNhom10-Bai1</a> và <a href="GrammarWikiNhom10-Bai2.dc.html">GrammarWikiNhom10-Bai2</a>; khuôn bài ở tờ <a href="GrammarWikiBai.dc.html">trang bài</a>; 10 kiểu sơ đồ ở tờ <a href="GrammarWikiMinhHoa.dc.html">minh hoạ câu chữ</a>; mục lục ở tờ <a href="GrammarWiki.dc.html">Grammar Wiki</a>.</p>
+</header>
+
+<section aria-labelledby="n1" style="border-top: 2px solid var(--ink); padding: 16px 64px 0">
+<h2 id="n1" class="h2s">1 · Tất cả 14 bài của nhóm</h2>
+<p class="lead">Cột "Khối nội dung" đếm trực tiếp từ file Markdown của từng bài (số bảng, số khối công thức, số câu đánh dấu sai, số mục H2, số từ). Cột "Sơ đồ đề nghị" ghi kiểu hình theo tờ minh hoạ và một câu có thật trong bài sẽ được vẽ; ký hiệu trong câu dùng đúng quy ước của tờ minh hoạ. Tổng đề nghị: <strong style="color: var(--ink)">37 hình</strong> cho 14 bài; dùng nhiều nhất: kiểu 5 (6 bài), kiểu 1 (5 bài), kiểu 7 (4 bài).</p>
+<div role="table" aria-label="Tất cả bài của nhóm" style="border-top: 2px solid var(--ink)">
+<div role="row" class="gr" style="border-bottom: 1px solid var(--ink); font-weight: 600"><div role="columnheader">Số</div><div role="columnheader">Bài (tên trong _groups.yaml)</div><div role="columnheader">Khối nội dung có trong file .md</div><div role="columnheader">Sơ đồ đề nghị · câu thật sẽ vẽ</div><div role="columnheader">Số hình</div><div role="columnheader">Ghi chú</div></div>
+<div role="row" class="gr"><div role="cell" style="color: var(--muted); font-variant-numeric: tabular-nums">10.1</div><div role="cell"><span lang="en" class="sf" style="font-size: 16px; font-weight: 600; line-height: 1.3">Reduced Relative Clauses</span><span style="display: block; color: var(--muted)">Mệnh đề quan hệ rút gọn</span><span class="lab" style="display: inline-block; margin-top: 4px; font-size: 11px; padding: 1px 5px; border: 1px solid var(--accent); color: var(--accent)">Vẽ phần đầu ở dưới</span></div><div role="cell" style="color: var(--muted)">Tóm tắt · Vì sao quan trọng · Cặp sai/đúng ×2 · Bẫy khi đọc · Lỗi người Việt · Bài tập + đáp án · Tóm tắt nhanh · Khối tương tác có sẵn: flow <span style="white-space: nowrap">· ≈ 1076 từ, 6 mục H2</span></div><div role="cell"><strong>Hình kiểu 4</strong> biến đổi, đổi chỗ + <strong>Hình kiểu 5</strong> mệnh đề lồng nhau<span lang="en" class="sf" style="display: block; font-size: 15px; line-height: 1.4; margin-top: 2px">The report <strong>submitted last week</strong> recommends new rules.</span></div><div role="cell" style="font: 600 18px 'Source Serif 4', Georgia, serif; text-align: center">3</div><div role="cell" style="color: var(--muted)">File đã có khối <em lang="en">flow</em> (Mở rộng mệnh đề rút gọn).</div></div>
+<div role="row" class="gr"><div role="cell" style="color: var(--muted); font-variant-numeric: tabular-nums">10.2</div><div role="cell"><span lang="en" class="sf" style="font-size: 16px; font-weight: 600; line-height: 1.3">Participle Clauses</span><span style="display: block; color: var(--muted)">Mệnh đề phân từ</span></div><div role="cell" style="color: var(--muted)">Tóm tắt (có bảng) · Bảng ×1 · Cặp sai/đúng ×2 · Bẫy khi đọc · Lỗi người Việt · Bài tập + đáp án · Tóm tắt nhanh <span style="white-space: nowrap">· ≈ 1045 từ, 5 mục H2</span></div><div role="cell"><strong>Hình kiểu 5</strong> mệnh đề lồng nhau + <strong>Hình kiểu 7</strong> cung nối (hoà hợp, tham chiếu)<span lang="en" class="sf" style="display: block; font-size: 15px; line-height: 1.4; margin-top: 2px"><strong>Having completed the survey</strong>, the participants received a small payment.</span></div><div role="cell" style="font: 600 18px 'Source Serif 4', Georgia, serif; text-align: center">3</div><div role="cell" style="color: var(--muted)">Trỏ sang 8.19 Dangling Modifiers.</div></div>
+<div role="row" class="gr"><div role="cell" style="color: var(--muted); font-variant-numeric: tabular-nums">10.3</div><div role="cell"><span lang="en" class="sf" style="font-size: 16px; font-weight: 600; line-height: 1.3">Untangling Complex Noun Phrases</span><span style="display: block; color: var(--muted)">Giải mã cụm danh từ dài</span><span class="lab" style="display: inline-block; margin-top: 4px; font-size: 11px; padding: 1px 5px; border: 1px solid var(--accent); color: var(--accent)">Vẽ phần đầu ở dưới</span></div><div role="cell" style="color: var(--muted)">Tóm tắt (có bảng) · Bảng ×1 · Cặp sai/đúng ×2 · Bẫy khi đọc · Lỗi người Việt · Bài tập + đáp án · Tóm tắt nhanh · Khối tương tác có sẵn: precheck, sentence-xray, microcheck, transfer <span style="white-space: nowrap">· ≈ 828 từ, 5 mục H2</span></div><div role="cell"><strong>Hình kiểu 2</strong> cụm danh từ mở rộng<span lang="en" class="sf" style="display: block; font-size: 15px; line-height: 1.4; margin-top: 2px">the recently discovered fossil fuel <strong>reserves</strong> beneath the Arctic ice</span></div><div role="cell" style="font: 600 18px 'Source Serif 4', Georgia, serif; text-align: center">3</div><div role="cell" style="color: var(--muted)">File đã có 4 khối tương tác (precheck, sentence-xray, microcheck, transfer).</div></div>
+<div role="row" class="gr"><div role="cell" style="color: var(--muted); font-variant-numeric: tabular-nums">10.4</div><div role="cell"><span lang="en" class="sf" style="font-size: 16px; font-weight: 600; line-height: 1.3">Nominalization</span><span style="display: block; color: var(--muted)">Danh hoá trong văn học thuật</span></div><div role="cell" style="color: var(--muted)">Tóm tắt (có bảng) · Bảng ×1 · Cặp sai/đúng ×2 · Bẫy khi đọc · Lỗi người Việt · Bài tập + đáp án · Tóm tắt nhanh <span style="white-space: nowrap">· ≈ 850 từ, 5 mục H2</span></div><div role="cell"><strong>Hình kiểu 4</strong> biến đổi, đổi chỗ + <strong>Hình kiểu 6</strong> hình vị trong từ<span lang="en" class="sf" style="display: block; font-size: 15px; line-height: 1.4; margin-top: 2px">Prices rose sharply. → the <strong>sharp rise</strong> in prices</span></div><div role="cell" style="font: 600 18px 'Source Serif 4', Georgia, serif; text-align: center">3</div><div role="cell" style="color: var(--muted)">Cùng phép đổi với 9.2 nhưng theo chiều đọc (mở gói danh từ).</div></div>
+<div role="row" class="gr"><div role="cell" style="color: var(--muted); font-variant-numeric: tabular-nums">10.5</div><div role="cell"><span lang="en" class="sf" style="font-size: 16px; font-weight: 600; line-height: 1.3">Passive in Academic Texts</span><span style="display: block; color: var(--muted)">Bị động trong văn học thuật</span></div><div role="cell" style="color: var(--muted)">Tóm tắt · Cặp sai/đúng ×2 · Bẫy khi đọc · Lỗi người Việt · Bài tập + đáp án · Tóm tắt nhanh <span style="white-space: nowrap">· ≈ 867 từ, 5 mục H2</span></div><div role="cell"><strong>Hình kiểu 4</strong> biến đổi, đổi chỗ + <strong>Hình kiểu 1</strong> bẻ câu theo vai trò<span lang="en" class="sf" style="display: block; font-size: 15px; line-height: 1.4; margin-top: 2px">In the UK, most of the energy <strong>consumed by households</strong> is used for heating.</span></div><div role="cell" style="font: 600 18px 'Source Serif 4', Georgia, serif; text-align: center">2</div><div role="cell" style="color: var(--muted)">Không có bảng; trùng một phần với bài Passive Voice đã vẽ.</div></div>
+<div role="row" class="gr"><div role="cell" style="color: var(--muted); font-variant-numeric: tabular-nums">10.6</div><div role="cell"><span lang="en" class="sf" style="font-size: 16px; font-weight: 600; line-height: 1.3">Long Sentence Untangling</span><span style="display: block; color: var(--muted)">Tách câu dài, tìm mệnh đề chính</span><span class="lab" style="display: inline-block; margin-top: 4px; font-size: 11px; padding: 1px 5px; border: 1px solid var(--accent); color: var(--accent)">Vẽ đủ ở tờ Bai1</span></div><div role="cell" style="color: var(--muted)">Tóm tắt · Cặp sai/đúng ×2 · Bẫy khi đọc · Lỗi người Việt · Bài tập + đáp án · Tóm tắt nhanh <span style="white-space: nowrap">· ≈ 1176 từ, 5 mục H2</span></div><div role="cell"><strong>Hình kiểu 5</strong> mệnh đề lồng nhau + <strong>Hình kiểu 1</strong> bẻ câu theo vai trò + <strong>Hình kiểu 7</strong> cung nối (hoà hợp, tham chiếu)<span lang="en" class="sf" style="display: block; font-size: 15px; line-height: 1.4; margin-top: 2px">Although the initial results, which were gathered over three years, seemed promising, the drug ultimately <strong>failed</strong> the final trial.</span></div><div role="cell" style="font: 600 18px 'Source Serif 4', Georgia, serif; text-align: center">4</div><div role="cell" style="color: var(--muted)">Bài trung tâm của nhóm; câu dài nhất 26 từ: phải kiểm bề ngang trên điện thoại.</div></div>
+<div role="row" class="gr"><div role="cell" style="color: var(--muted); font-variant-numeric: tabular-nums">10.7</div><div role="cell"><span lang="en" class="sf" style="font-size: 16px; font-weight: 600; line-height: 1.3">Reference Words</span><span style="display: block; color: var(--muted)">it / this / such / the former…</span><span class="lab" style="display: inline-block; margin-top: 4px; font-size: 11px; padding: 1px 5px; border: 1px solid var(--accent); color: var(--accent)">Vẽ phần đầu ở dưới</span></div><div role="cell" style="color: var(--muted)">Tóm tắt · Bẫy khi đọc · Lỗi người Việt · Bài tập + đáp án · Tóm tắt nhanh <span style="white-space: nowrap">· ≈ 840 từ, 5 mục H2</span></div><div role="cell"><strong>Hình kiểu 7</strong> cung nối (hoà hợp, tham chiếu)<span lang="en" class="sf" style="display: block; font-size: 15px; line-height: 1.4; margin-top: 2px">Bees pollinate most crops. <strong>This service</strong> is worth billions.</span></div><div role="cell" style="font: 600 18px 'Source Serif 4', Georgia, serif; text-align: center">3</div><div role="cell" style="color: var(--muted)">Không có cặp sai/đúng nào; cung kiểu 7 trỏ về cả một câu.</div></div>
+<div role="row" class="gr"><div role="cell" style="color: var(--muted); font-variant-numeric: tabular-nums">10.8</div><div role="cell"><span lang="en" class="sf" style="font-size: 16px; font-weight: 600; line-height: 1.3">Paraphrase Patterns</span><span style="display: block; color: var(--muted)">Nhận diện diễn đạt lại</span><span class="lab" style="display: inline-block; margin-top: 4px; font-size: 11px; padding: 1px 5px; border: 1px solid var(--accent); color: var(--accent)">Vẽ đủ ở tờ Bai2</span></div><div role="cell" style="color: var(--muted)">Tóm tắt (có bảng) · Bảng ×1 · Cặp sai/đúng ×2 · Bẫy khi đọc · Lỗi người Việt · Bài tập + đáp án · Tóm tắt nhanh <span style="white-space: nowrap">· ≈ 848 từ, 5 mục H2</span></div><div role="cell"><strong>Hình kiểu 9</strong> hai hàng đối chiếu theo vai trò + <strong>Hình kiểu 8</strong> sai và đúng cạnh nhau<span lang="en" class="sf" style="display: block; font-size: 15px; line-height: 1.4; margin-top: 2px">Sales <strong>rose</strong> sharply. ↔ There was a significant <strong>increase</strong> in sales.</span></div><div role="cell" style="font: 600 18px 'Source Serif 4', Georgia, serif; text-align: center">3</div><div role="cell" style="color: var(--muted)">Cần khối "bài đọc / câu hỏi" kèm nhãn TRUE, FALSE, NOT GIVEN.</div></div>
+<div role="row" class="gr"><div role="cell" style="color: var(--muted); font-variant-numeric: tabular-nums">10.9</div><div role="cell"><span lang="en" class="sf" style="font-size: 16px; font-weight: 600; line-height: 1.3">Logical Connectors</span><span style="display: block; color: var(--muted)">Đọc cấu trúc lập luận qua từ nối</span></div><div role="cell" style="color: var(--muted)">Tóm tắt (có bảng) · Bảng ×1 · Cặp sai/đúng ×2 · Bẫy khi đọc · Lỗi người Việt · Bài tập + đáp án · Tóm tắt nhanh <span style="white-space: nowrap">· ≈ 963 từ, 5 mục H2</span></div><div role="cell"><strong>Hình kiểu 5</strong> mệnh đề lồng nhau + <strong>Hình kiểu 1</strong> bẻ câu theo vai trò<span lang="en" class="sf" style="display: block; font-size: 15px; line-height: 1.4; margin-top: 2px"><strong>Although</strong> the treatment is expensive, it saves money in the long term.</span></div><div role="cell" style="font: 600 18px 'Source Serif 4', Georgia, serif; text-align: center">2</div><div role="cell" style="color: var(--muted)"></div></div>
+<div role="row" class="gr"><div role="cell" style="color: var(--muted); font-variant-numeric: tabular-nums">10.10</div><div role="cell"><span lang="en" class="sf" style="font-size: 16px; font-weight: 600; line-height: 1.3">Hedging &amp; Certainty</span><span style="display: block; color: var(--muted)">Mức chắc chắn của tác giả</span></div><div role="cell" style="color: var(--muted)">Tóm tắt (có bảng) · Bảng ×1 · Cặp sai/đúng ×1 · Bẫy khi đọc · Lỗi người Việt · Bài tập + đáp án · Tóm tắt nhanh <span style="white-space: nowrap">· ≈ 953 từ, 5 mục H2</span></div><div role="cell"><strong>Hình kiểu 8</strong> sai và đúng cạnh nhau<span lang="en" class="sf" style="display: block; font-size: 15px; line-height: 1.4; margin-top: 2px">The new drug <span style="padding: 0 3px; border-bottom: 4px double var(--ok); font-weight: 600; white-space: nowrap">may</span> reduce the risk of stroke. ↔ The new drug <span style="padding: 0 3px; border: 1.5px dashed var(--danger); text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px; white-space: nowrap">reduces</span> the risk of stroke.</span></div><div role="cell" style="font: 600 18px 'Source Serif 4', Georgia, serif; text-align: center">2</div><div role="cell" style="color: var(--muted)">Cặp "bài đọc / câu hỏi", kết quả NOT GIVEN. Cần thang mức chắc chắn (không thuộc 10 kiểu).</div></div>
+<div role="row" class="gr"><div role="cell" style="color: var(--muted); font-variant-numeric: tabular-nums">10.11</div><div role="cell"><span lang="en" class="sf" style="font-size: 16px; font-weight: 600; line-height: 1.3">Ellipsis &amp; Substitution</span><span style="display: block; color: var(--muted)">do so / one / so, neither</span></div><div role="cell" style="color: var(--muted)">Tóm tắt (có bảng) · Bảng ×1 · Cặp sai/đúng ×3 · Bẫy khi đọc · Lỗi người Việt · Bài tập + đáp án · Tóm tắt nhanh <span style="white-space: nowrap">· ≈ 810 từ, 5 mục H2</span></div><div role="cell"><strong>Hình kiểu 7</strong> cung nối (hoà hợp, tham chiếu)<span lang="en" class="sf" style="display: block; font-size: 15px; line-height: 1.4; margin-top: 2px">The population of Tokyo is larger than <strong>that</strong> of London.</span></div><div role="cell" style="font: 600 18px 'Source Serif 4', Georgia, serif; text-align: center">3</div><div role="cell" style="color: var(--muted)">Cung kiểu 7 nối từ thay thế (that, one, do so) về chữ được thay.</div></div>
+<div role="row" class="gr"><div role="cell" style="color: var(--muted); font-variant-numeric: tabular-nums">10.12</div><div role="cell"><span lang="en" class="sf" style="font-size: 16px; font-weight: 600; line-height: 1.3">Appositives</span><span style="display: block; color: var(--muted)">Thông tin chêm giữa câu</span></div><div role="cell" style="color: var(--muted)">Tóm tắt · Cặp sai/đúng ×2 · Bẫy khi đọc · Lỗi người Việt · Bài tập + đáp án · Tóm tắt nhanh <span style="white-space: nowrap">· ≈ 911 từ, 5 mục H2</span></div><div role="cell"><strong>Hình kiểu 5</strong> mệnh đề lồng nhau + <strong>Hình kiểu 1</strong> bẻ câu theo vai trò<span lang="en" class="sf" style="display: block; font-size: 15px; line-height: 1.4; margin-top: 2px">Marie Curie, <strong>the first woman to win a Nobel Prize</strong>, studied radiation.</span></div><div role="cell" style="font: 600 18px 'Source Serif 4', Georgia, serif; text-align: center">2</div><div role="cell" style="color: var(--muted)">Không có bảng.</div></div>
+<div role="row" class="gr"><div role="cell" style="color: var(--muted); font-variant-numeric: tabular-nums">10.13</div><div role="cell"><span lang="en" class="sf" style="font-size: 16px; font-weight: 600; line-height: 1.3">Punctuation Signals</span><span style="display: block; color: var(--muted)">Dấu câu báo hiệu nghĩa (— : ; ngoặc)</span></div><div role="cell" style="color: var(--muted)">Tóm tắt · Cặp sai/đúng ×3 · Bẫy khi đọc · Lỗi người Việt · Bài tập + đáp án · Tóm tắt nhanh <span style="white-space: nowrap">· ≈ 861 từ, 5 mục H2</span></div><div role="cell"><strong>Hình kiểu 5</strong> mệnh đề lồng nhau + <strong>Hình kiểu 1</strong> bẻ câu theo vai trò<span lang="en" class="sf" style="display: block; font-size: 15px; line-height: 1.4; margin-top: 2px">The results — surprisingly — contradicted the theory.</span></div><div role="cell" style="font: 600 18px 'Source Serif 4', Georgia, serif; text-align: center">2</div><div role="cell" style="color: var(--muted)">Không có bảng.</div></div>
+<div role="row" class="gr"><div role="cell" style="color: var(--muted); font-variant-numeric: tabular-nums">10.14</div><div role="cell"><span lang="en" class="sf" style="font-size: 16px; font-weight: 600; line-height: 1.3">Comparison in Data &amp; Argument</span><span style="display: block; color: var(--muted)">So sánh trong văn đọc</span></div><div role="cell" style="color: var(--muted)">Tóm tắt (có bảng) · Bảng ×1 · Cặp sai/đúng ×3 · Bẫy khi đọc · Lỗi người Việt · Bài tập + đáp án · Tóm tắt nhanh <span style="white-space: nowrap">· ≈ 918 từ, 5 mục H2</span></div><div role="cell"><strong>Hình kiểu 9</strong> hai hàng đối chiếu theo vai trò + <strong>Hình kiểu 8</strong> sai và đúng cạnh nhau<span lang="en" class="sf" style="display: block; font-size: 15px; line-height: 1.4; margin-top: 2px">City A is <strong>not as big as</strong> City B. (A &lt; B)</span></div><div role="cell" style="font: 600 18px 'Source Serif 4', Georgia, serif; text-align: center">2</div><div role="cell" style="color: var(--muted)">Cần ký hiệu quan hệ A &lt; B, A = B đặt cạnh câu.</div></div>
+</div>
+</section>
+
+<section aria-labelledby="n2" style="border-top: 2px solid var(--ink); padding: 16px 64px 0">
+<h2 id="n2" class="h2s">2 · Phần đầu ba bài khác trong nhóm</h2>
+<p class="lead">Tiêu đề Anh/Việt, dòng thông tin, tóm tắt và sơ đồ đầu tiên. Vẽ gọn: cột trái 420px, hình ở cột phải; trang thật vẫn theo khuôn cột chữ 640px với chú thích ở lề. Câu trong hình lấy nguyên văn từ bài.</p>
+<article aria-label="Phần đầu bài Reduced Relative Clauses" style="display: grid; grid-template-columns: 420px minmax(0, 1fr); column-gap: 40px; border-top: 1px solid var(--ink); padding: 14px 0 22px">
+<div>
+<p class="kick">Grammar Wiki · 10 Grammar for Reading · bài 10.1</p>
+<h3 class="sf" lang="en" style="margin: 6px 0 0; font-size: 28px; font-weight: 600; line-height: 1.15">Reduced Relative Clauses</h3>
+<p class="sf" style="margin: 0 0 8px; font-size: 20px; line-height: 1.3; color: var(--muted)">Mệnh đề quan hệ rút gọn</p>
+<p style="margin: 0 0 12px; font-size: 14px; color: var(--muted)">Trình độ nâng cao · đọc khoảng XXX phút · dùng nhiều trong Reading</p>
+<div style="padding: 10px 0 12px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule)">
+<p class="lab" style="margin: 0 0 4px; color: var(--accent)">Tóm tắt</p>
+<p class="body" style="margin: 0; font-size: 17px; line-height: 27px">Với mệnh đề quan hệ có đại từ quan hệ + to-be + phân từ, có thể rút gọn bằng cách bỏ đại từ quan hệ và <em lang="en">to-be</em>. Phần còn lại là một phân từ (V-ing hoặc V3) đứng ngay sau danh từ, bổ nghĩa cho nó.</p>
+</div>
+</div>
+<div>
+<h4 class="h2a" style="margin: 0 0 4px; font-size: 22px"><span>1</span>&nbsp;&nbsp;Rút gọn bị động: còn lại V3</h4>
+<figure style="margin: 0"><div class="fig" role="img" aria-label="Hình 1. Cụm The results that were published last year rút gọn thành The results published last year: bỏ that were, giữ danh từ và phân từ.">
+<div style="position: relative; width: 640px; height: 236px" lang="en">
+<span class="lab" style="position: absolute; left: 0; top: 0; color: var(--muted); font-size: 11px" lang="vi">Mệnh đề quan hệ đầy đủ</span>
+<div style="position: absolute; left: 0; top: 18px; display: flex; gap: 12px"><div style="width: 150px"><span class="tag">danh từ</span><span class="ch rS" style="margin-top: 4px">The results</span></div><div style="width: 120px"><span class="tag">bỏ được</span><span class="ch rX" style="margin-top: 4px">that were</span></div><div style="width: 220px"><span class="tag">phân từ V3</span><span class="ch " style="margin-top: 4px">published last year…</span></div></div>
+<svg aria-hidden="true" viewBox="0 0 640 70" style="position: absolute; left: 0; top: 80px; width: 640px; height: 70px">
+<defs><marker id="ah4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--ink)"></path></marker></defs>
+<path d="M75 4 L 75 64" fill="none" stroke="var(--muted)" stroke-width="1" marker-end="url(#ah4)"></path>
+<text x="83" y="38" font-family="'Source Sans 3', sans-serif" font-size="12" fill="var(--muted)">giữ chỗ</text>
+<path d="M404 4 L 272 64" fill="none" stroke="var(--muted)" stroke-width="1" marker-end="url(#ah4)"></path>
+<text x="346" y="38" font-family="'Source Sans 3', sans-serif" font-size="12" fill="var(--muted)">giữ chỗ</text>
+</svg>
+<div style="position: absolute; left: 0; top: 152px; display: flex; gap: 12px"><div style="width: 150px"><span class="ch rS">The results</span><span class="tag" style="margin-top: 4px">danh từ</span></div><div style="width: 220px"><span class="ch ">published last year…</span><span class="tag" style="margin-top: 4px">V3 bổ nghĩa cho results</span></div></div>
+<span class="lab" style="position: absolute; right: 0; top: 0; color: var(--muted); font-size: 11px" lang="vi">Rút gọn ↓</span>
+</div>
+</div><figcaption class="cap"><strong style="color: var(--ink)">Hình 1.</strong> Khối viền đứt <em lang="en">that were</em> biến mất; hai khối còn lại giữ nguyên chữ và thứ tự. Khi đọc, thêm lại <em lang="en">that were</em> trong đầu để thấy <em lang="en">published</em> không phải động từ chính. Kiểu 4.</figcaption></figure>
+</div>
+</article>
+<article aria-label="Phần đầu bài Untangling Complex Noun Phrases" style="display: grid; grid-template-columns: 420px minmax(0, 1fr); column-gap: 40px; border-top: 1px solid var(--ink); padding: 14px 0 22px">
+<div>
+<p class="kick">Grammar Wiki · 10 Grammar for Reading · bài 10.3</p>
+<h3 class="sf" lang="en" style="margin: 6px 0 0; font-size: 28px; font-weight: 600; line-height: 1.15">Untangling Complex Noun Phrases</h3>
+<p class="sf" style="margin: 0 0 8px; font-size: 20px; line-height: 1.3; color: var(--muted)">Giải mã cụm danh từ dài</p>
+<p style="margin: 0 0 12px; font-size: 14px; color: var(--muted)">Trình độ nâng cao · đọc khoảng XXX phút · dùng nhiều trong Reading</p>
+<div style="padding: 10px 0 12px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule)">
+<p class="lab" style="margin: 0 0 4px; color: var(--accent)">Tóm tắt</p>
+<p class="body" style="margin: 0; font-size: 17px; line-height: 27px">Văn học thuật dồn nhiều thông tin vào một cụm danh từ dài. Một cụm danh từ dài vẫn chỉ là <strong>một</strong> thành phần của câu; tìm được danh từ trung tâm (head noun) giúp bạn hiểu câu và trả lời đúng câu hỏi chi tiết.</p>
+</div>
+</div>
+<div>
+<h4 class="h2a" style="margin: 0 0 4px; font-size: 22px"><span>1</span>&nbsp;&nbsp;Tìm danh từ trung tâm</h4>
+<figure style="margin: 0"><div class="fig" role="img" aria-label="Hình 1. Cụm danh từ the recently discovered fossil fuel reserves beneath the Arctic ice. Danh từ chính là reserves; the, recently discovered, fossil fuel đứng trước; beneath the Arctic ice bổ nghĩa sau.">
+<div lang="en" style="display: flex; flex-direction: column; align-items: flex-start">
+<div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px; align-self: stretch"><span style="flex: 1 1 auto; height: 8px; border: 1.5px solid var(--ink); border-bottom: 0"></span><span class="lab" style="font-size: 12px; color: var(--ink)">cả cụm = một chủ ngữ</span><span style="flex: 1 1 auto; height: 8px; border: 1.5px solid var(--ink); border-bottom: 0"></span></div>
+<div style="display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px 6px">
+<div class="cell"><span class="ch" style="border-bottom: 1.5px dotted var(--ink); font-size: 19px; height: 37px; padding: 0 4px">the</span><span class="tag">hạn định</span></div>
+<div class="cell"><span class="ch" style="border-bottom: 1.5px dotted var(--ink); font-size: 19px; height: 37px; padding: 0 4px">recently discovered</span><span class="tag">tính từ</span></div>
+<div class="cell"><span class="ch" style="border-bottom: 1.5px dotted var(--ink); font-size: 19px; height: 37px; padding: 0 4px">fossil fuel</span><span class="tag">danh từ bổ nghĩa</span></div>
+<div class="cell"><span class="ch rS" style="font-weight: 600; font-size: 19px; height: 37px; padding: 0 4px; padding: 0 8px">reserves</span><span class="tag" style="color: var(--ink)">danh từ chính</span></div>
+<div class="cell"><span class="ch" style="border-bottom: 1.5px dashed var(--ink); font-size: 19px; height: 37px; padding: 0 4px">beneath the Arctic ice</span><span class="tag">← bổ nghĩa sau</span></div>
+</div>
+</div>
+<p style="margin: 12px 0 0; padding-top: 8px; border-top: 1px dashed var(--rule); font-family: 'Source Sans 3', sans-serif; font-size: 14px; line-height: 1.5; color: var(--muted)">Bỏ mọi thứ đứng trước (gạch chấm), bỏ cụm giới từ đứng sau (gạch đứt): danh từ còn lại là <em lang="en">reserves</em>.</p>
+</div><figcaption class="cap"><strong style="color: var(--ink)">Hình 1.</strong> Tám từ, một danh từ chính. Phần đứng trước gạch chấm, phần đứng sau gạch đứt có mũi tên chỉ về danh từ chính. Kiểu 2.</figcaption></figure>
+</div>
+</article>
+<article aria-label="Phần đầu bài Reference Words" style="display: grid; grid-template-columns: 420px minmax(0, 1fr); column-gap: 40px; border-top: 1px solid var(--ink); padding: 14px 0 22px">
+<div>
+<p class="kick">Grammar Wiki · 10 Grammar for Reading · bài 10.7</p>
+<h3 class="sf" lang="en" style="margin: 6px 0 0; font-size: 28px; font-weight: 600; line-height: 1.15">Reference Words</h3>
+<p class="sf" style="margin: 0 0 8px; font-size: 20px; line-height: 1.3; color: var(--muted)">it / this / such / the former…</p>
+<p style="margin: 0 0 12px; font-size: 14px; color: var(--muted)">Trình độ trung cấp · đọc khoảng XXX phút · dùng nhiều trong Reading</p>
+<div style="padding: 10px 0 12px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule)">
+<p class="lab" style="margin: 0 0 4px; color: var(--accent)">Tóm tắt</p>
+<p class="body" style="margin: 0; font-size: 17px; line-height: 27px">Để tránh lặp, văn bản dùng từ tham chiếu (<em lang="en">it, they, this, these, such, the former / latter</em>) trỏ ngược về thứ đã nêu. Hiểu câu là truy đúng "cái được thay".</p>
+</div>
+</div>
+<div>
+<h4 class="h2a" style="margin: 0 0 4px; font-size: 22px"><span>1</span>&nbsp;&nbsp;this / these / such thay cả một ý</h4>
+<figure style="margin: 0"><div class="fig" role="img" aria-label="Hình 1. Hai câu Bees pollinate most crops. This service is worth billions. Cung nối This service về cả câu trước.">
+<svg viewBox="0 0 640 130" aria-hidden="true" style="display: block; width: 100%; height: auto" lang="en">
+<rect x="16" y="80" width="241" height="34" fill="none" stroke="var(--muted)" stroke-width="1.4" stroke-dasharray="5 4"></rect>
+<text x="21" y="104" font-family="'Source Serif 4', Georgia, serif" font-size="20" fill="var(--muted)" textLength="231" lengthAdjust="spacingAndGlyphs">Bees pollinate most crops.</text>
+<rect x="264" y="80" width="124" height="34" fill="none" stroke="var(--ink)" stroke-width="1.5"></rect>
+<text x="269" y="104" font-family="'Source Serif 4', Georgia, serif" font-size="20" font-weight="600" fill="var(--ink)" textLength="114" lengthAdjust="spacingAndGlyphs">This service</text>
+<text x="396" y="104" font-family="'Source Serif 4', Georgia, serif" font-size="20" font-weight="600" fill="var(--accent)" textLength="17" lengthAdjust="spacingAndGlyphs">is</text>
+<line x1="396" y1="112" x2="413" y2="112" stroke="var(--accent)" stroke-width="1.4"></line><line x1="396" y1="116" x2="413" y2="116" stroke="var(--accent)" stroke-width="1.4"></line>
+<text x="420" y="104" font-family="'Source Serif 4', Georgia, serif" font-size="20" fill="var(--ink)" textLength="50" lengthAdjust="spacingAndGlyphs">worth</text>
+<text x="477" y="104" font-family="'Source Serif 4', Georgia, serif" font-size="20" fill="var(--ink)" textLength="71" lengthAdjust="spacingAndGlyphs">billions.</text>
+<path d="M136 76 C 136 22, 326 22, 326 76" fill="none" stroke="var(--muted)" stroke-width="1.6" stroke-dasharray="5 4"></path>
+<circle cx="136" cy="78" r="3" fill="var(--muted)"></circle><circle cx="326" cy="78" r="3" fill="var(--muted)"></circle>
+<text x="231" y="30" text-anchor="middle" font-family="'Source Sans 3', sans-serif" font-size="12" font-weight="600" fill="var(--muted)" lang="vi">① This service = việc ong thụ phấn cho cây trồng</text>
+</svg>
+</div><figcaption class="cap"><strong style="color: var(--ink)">Hình 1.</strong> Cung đứt ① đi ngược từ <em lang="en">This service</em> về cả câu trước, không về một danh từ riêng lẻ. Kiểu 7, cung vẽ qua hai câu.</figcaption></figure>
+</div>
+</article><div style="border-top: 1px solid var(--ink)"></div>
+</section>
+
+<section aria-labelledby="n3" style="border-top: 2px solid var(--ink); padding: 16px 64px 0">
+<h2 id="n3" class="h2s">3 · Điện thoại 390px · bài Long Sentence Untangling</h2>
+<p class="lead">Trái: đầu bài Long Sentence Untangling. Phải: Hình 1 (kiểu 5) ở bề ngang hẹp, câu gốc xuống dòng tự nhiên, ba bậc thụt 12px; câu tự kiểm tra với câu dài và lựa chọn cao 48px. Chú thích hình nằm ngay dưới hình, không ở lề.</p>
+<div style="display: flex; gap: 23px; align-items: flex-start"><div style="width: 390px; height: 820px; box-sizing: border-box; border: 1px solid var(--ink); display: flex; flex-direction: column; overflow: hidden; background: var(--paper); flex-shrink: 0">
+<header style="flex-shrink: 0; display: flex; align-items: center; gap: 12px; height: 56px; box-sizing: border-box; padding: 0 16px; border-bottom: 1px solid var(--ink)">
+<span class="sf" style="display: inline-flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 600; flex-grow: 1"><svg width="26" height="26" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<a href="TaiKhoanDangNhap.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; color: var(--ink); font-weight: 600">Đăng nhập</a>
+<button aria-label="Mở menu" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink)"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 20px; height: 20px"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg></button>
+</header>
+<div style="padding: 4px 16px 0">
+<a href="GrammarWiki.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; font-size: 15px; font-weight: 600">‹ Grammar for Reading</a>
+<p class="kick" style="font-size: 12px">Grammar Wiki · bài 10.6</p>
+<p class="sf" lang="en" style="margin: 4px 0 0; font-size: 28px; font-weight: 600; line-height: 1.15">Long Sentence Untangling</p>
+<p class="sf" style="margin: 0 0 6px; font-size: 18px; line-height: 1.3; color: var(--muted)">Tách câu dài, tìm mệnh đề chính</p>
+<p style="margin: 0 0 10px; font-size: 14px; color: var(--muted)">Trình độ nâng cao · đọc khoảng XXX phút · dùng nhiều trong Reading</p>
+<div style="border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink)">
+<button onClick="{{togglePhoneToc}}" aria-expanded="{{phoneTocLabel}}" style="display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 48px; padding: 0; border: 0; background: transparent; color: var(--ink); font: 600 15px 'Source Sans 3', sans-serif; cursor: pointer"><span>Trong bài này · 8 mục</span><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 20px; height: 20px"><path d="{{phoneTocIcon}}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+<sc-if value="{{phoneTocOpen}}" hint-placeholder-val="{{ false }}"><p style="margin: 0; padding: 8px 0 10px; border-top: 1px solid var(--rule); font-size: 14px; color: var(--muted)">Danh sách mục như cột trái bản máy tính, mỗi dòng cao 40px; chạm một mục thì cuộn tới và tự đóng.</p></sc-if>
+</div>
+<div style="padding: 10px 0; border-bottom: 1px solid var(--rule)">
+<p class="lab" style="margin: 0 0 4px; font-size: 12px; color: var(--accent)">Tóm tắt</p>
+<p class="body" style="margin: 0; font-size: 17px; line-height: 26px">Câu hoàn chỉnh có <strong>ít nhất một mệnh đề chính</strong>. Tìm chủ ngữ và động từ hữu hạn của nó để dựng khung, rồi ghép lại các phần bổ nghĩa khi đọc nghĩa.</p>
+</div><p class="sf" style="margin: 16px 0 6px; font-size: 21px; font-weight: 600; line-height: 1.25"><span style="color: var(--muted)">1</span>&nbsp;&nbsp;Bước 1: tìm mệnh đề chính</p><p style="margin: 0; font-size: 15px; color: var(--muted)">Hình 1 ở khung bên phải.</p>
+</div>
+</div>
+<div style="width: 390px; height: 820px; box-sizing: border-box; border: 1px solid var(--ink); display: flex; flex-direction: column; overflow: hidden; background: var(--paper); flex-shrink: 0"><div style="padding: 16px">
+<div style="margin-top: 10px; border: 1px solid var(--rule); background: var(--surface); padding: 12px" role="img" aria-label="Hình 1 ở bản điện thoại. Câu gốc xuống dòng tự nhiên; ba bậc thụt 12px, nhãn bậc lên dòng riêng.">
+<p lang="en" class="sf" style="margin: 0 0 10px; font-size: 17px; line-height: 1.65"><span style="color: var(--muted)">⟨</span>Although the initial results<span style="color: var(--muted)">(</span>, which were gathered over three years,<span style="color: var(--muted)">)</span> seemed promising,<span style="color: var(--muted)">⟩</span> <span style="padding: 1px 5px; border: 1.5px solid var(--ink); white-space: nowrap">the drug</span> ultimately <span style="border-bottom: 4px double var(--accent); color: var(--accent); font-weight: 600">failed</span> <span style="padding: 1px 5px; border: 1.5px dashed var(--ink); white-space: nowrap">the final trial</span>.</p><div lang="en" style="border-top: 1px solid var(--rule); padding-top: 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 17px; line-height: 1.5"><p class="lab" lang="vi" style="margin: 0 0 2px; font-size: 11px; color: var(--accent)">Bậc 1 · chính</p><p style="margin: 0 0 8px"><span style="padding: 1px 5px; border: 1.5px solid var(--ink); white-space: nowrap">the drug</span> ultimately <span style="border-bottom: 4px double var(--accent); color: var(--accent); font-weight: 600">failed</span> <span style="padding: 1px 5px; border: 1.5px dashed var(--ink); white-space: nowrap">the final trial</span>.</p><p class="lab" lang="vi" style="margin: 0 0 2px 12px; font-size: 11px; color: var(--muted)">Bậc 2 · phụ</p><p style="margin: 0 0 8px 12px; padding-left: 10px; border-left: 1.5px solid var(--muted)"><span style="color: var(--muted)">⟨</span> Although <span style="padding: 1px 5px; border: 1.5px solid var(--ink); white-space: nowrap">the initial results</span> <em>seemed</em> promising <span style="color: var(--muted)">⟩</span></p><p class="lab" lang="vi" style="margin: 0 0 2px 24px; font-size: 11px; color: var(--muted)">Bậc 3 · lồng</p><p style="margin: 0 0 0 24px; padding-left: 10px; border-left: 1.5px dashed var(--muted); color: var(--muted)">( which <em>were gathered</em> over three years )</p></div>
+</div>
+<p class="cap"><strong style="color: var(--ink)">Hình 1.</strong> Câu 21 từ xuống bốn dòng ở 390px; ngoặc không tách khỏi chữ. Thụt bậc giảm còn 12px, nhãn bậc lên dòng riêng phía trên. Khung S, V, O không bị cắt đôi.</p><p class="sf" style="margin: 16px 0 6px; font-size: 21px; font-weight: 600; line-height: 1.25"><span style="color: var(--muted)">5</span>&nbsp;&nbsp;Tự kiểm tra</p><p style="margin: 0 0 4px; font-size: 15px; color: var(--muted)">1. Động từ hữu hạn của mệnh đề chính là gì?</p><p lang="en" class="sf" style="margin: 0 0 6px; font-size: 18px">What surprised the researchers most was the speed at which the glacier was retreating.</p><div style="display: flex; flex-direction: column; gap: 6px" lang="en"><span style="display: flex; align-items: center; min-height: 48px; padding: 0 14px; border: 1px solid var(--rule); background: var(--surface); font-family: 'Source Serif 4', Georgia, serif; font-size: 17px">surprised</span><span style="display: flex; align-items: center; justify-content: space-between; min-height: 48px; padding: 0 14px; border: 2px solid var(--ok); background: var(--tint); font-family: 'Source Serif 4', Georgia, serif; font-size: 17px">was<span class="lab" lang="vi" style="font-size: 12px; color: var(--ok)">Đúng</span></span><span style="display: flex; align-items: center; min-height: 48px; padding: 0 14px; border: 1px solid var(--rule); background: var(--surface); font-family: 'Source Serif 4', Georgia, serif; font-size: 17px">was retreating</span></div>
+</div></div></div>
+</section>
+
+<section aria-labelledby="n4" style="border-top: 2px solid var(--ink); padding: 16px 64px 0">
+<h2 id="n4" class="h2s">Ghi chú cho lập trình</h2>
+<p class="lead">Kèm ghi chú cho người soạn: bài nào khuôn hiện tại không chứa nổi, cần khối mới gì, và ước lượng công vẽ.</p>
+<h3 class="h3a" style="margin-top: 0; font-size: 17px">Cho lập trình</h3><ul style="margin: 0; padding-left: 20px; font-size: 15px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 48px"><li><strong>Khối đã có trong mã:</strong> 10.1 có <em lang="en">flow</em>; 10.3 có <em lang="en">precheck</em>, <em lang="en">sentence-xray</em>, <em lang="en">microcheck</em>, <em lang="en">transfer</em>. <em lang="en">sentence-xray</em> của 10.3 (tách cụm dài thành bốn lớp) chính là dữ liệu của Hình kiểu 2: đổi cách vẽ, giữ dữ liệu.</li><li><strong>Kiểu 5 là hình mặc định của nhóm:</strong> 6 trên 14 bài đề nghị kiểu 5. Renderer cần nhận câu gốc có đánh dấu ranh giới và danh sách bậc; ngoặc nhọn, ngoặc tròn sinh tự động từ ranh giới.</li><li><strong>Cung kiểu 7 qua hai câu:</strong> 10.7, 10.11 cần cung nối từ tham chiếu về một cụm hoặc cả câu trước. Trên máy tính hai câu nằm một dòng; trên điện thoại đổi thành số mũ cặp như quy tắc của tờ minh hoạ.</li><li><strong>Trường <em lang="en">tested_in</em></strong> có ở cả 14 bài (<em lang="en">ielts_reading</em>; 11 bài có thêm <em lang="en">toeic_rc</em> hoặc <em lang="en">thpt_qg</em>), hiện chưa hiện ở đâu; <em lang="en">reading_relevance: high</em> cho dòng "dùng nhiều trong Reading". 6 trên 14 bài không có bảng nào: khuôn không được giả định bài nào cũng có bảng.</li><li><strong>Cặp "hiểu sai / hiểu đúng":</strong> trong file là hai dòng đánh dấu sai/đúng nhưng nội dung là cách hiểu bằng tiếng Việt, không phải câu tiếng Anh. Kiểu 8 không hợp; dựng thành hình kiểu 5 hoặc 7 kèm chú thích "Hiểu sai: …".</li><li><strong>Tên bài:</strong> <em lang="en">title</em> trong frontmatter khớp với <em lang="en">_groups.yaml</em> ở mọi bài của nhóm.</li></ul><h3 class="h3a" style="font-size: 17px">Cho người soạn nội dung</h3><ul style="margin: 0; padding-left: 20px; font-size: 15px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 48px"><li><strong>Khuôn hiện tại không chứa nổi:</strong> (1) 10.8 Paraphrase Patterns, 10.10 Hedging &amp; Certainty, 10.14 Comparison: cần khối "bài đọc / câu hỏi" có dòng kết quả TRUE / FALSE / NOT GIVEN; (2) 10.10: cần thang mức chắc chắn (will, may, might…), không thuộc 10 kiểu sơ đồ câu; (3) 10.14: cần ký hiệu quan hệ A &lt; B, A = B đặt cạnh câu; (4) 10.7 và 10.11: cung nối qua hai câu, hiện tờ minh hoạ chỉ vẽ trong một câu.</li><li><strong>Việc người soạn:</strong> mỗi bài chọn câu mẫu ở Tóm tắt làm Hình 1, hai câu ở "Lỗi người Việt hay mắc" làm Hình 2 và 3. Không vẽ hình cho mục "Bài tập luyện"; đáp án bài tập đã có khung S–V viết bằng chữ.</li><li><strong>Cần sửa trong bài thật:</strong> tên mục không thống nhất giữa các bài ("Lỗi người Việt hay mắc" ở 12 bài, "Lỗi người Việt hay gặp" ở 2 bài: 10.1 và 10.7); 10.1 có thêm mục "Tại sao khó khi đọc" mà các bài khác không có; phần tóm tắt trong frontmatter của 10.6 nói "nhiều mệnh đề chính" trong khi tóm tắt đầu bài nói "ít nhất một": hai câu không mâu thuẫn nhưng nên dùng một cách nói.</li></ul><h3 class="h3a" style="font-size: 17px">Ước lượng công vẽ sơ đồ cho nhóm</h3><p style="margin: 0; font-size: 15px; max-width: 120ch">Nhóm 10 đề nghị 37 hình cho 14 bài; kiểu 5 nhiều nhất. Đã vẽ 10 hình trên ba tờ (không kể bản điện thoại): 2 hình kiểu 5, 2 hình kiểu 9, 2 hình kiểu 7, 1 hình kiểu 8, 1 hình kiểu 1, 1 hình kiểu 2, 1 hình kiểu 4. Đây là nhóm tốn công hình nhất tính theo từng hình: kiểu 5 phải tự tách câu thành bậc (15–20 phút mỗi hình), kiểu 7 và kiểu 2 phải kiểm bề ngang với câu dài (20–30 phút). Ước lượng cả nhóm: khoảng 10–12 giờ soạn, chưa tính công viết renderer. Đây là ước lượng của người vẽ, chưa đo trên người soạn thật.</p>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Navy + đỏ mận","Xanh teal"],"default":"Navy + đỏ mận"},"$preview":{"width":1280,"height":5000}}'>
+class Component extends DCLogic {
+constructor(p) { super(p); this.state = { ans: {}, checked: {}, warn: {}, playing: '', phoneToc: false }; }
+renderVals() {
+const s = this.state || {};
+const QZ = {"a": [{"ask": "Động từ hữu hạn của mệnh đề chính là gì?", "prompt": "Although the city's population has doubled since 1990, the number of hospitals serving it has barely changed.", "opts": ["has doubled", "serving", "has (barely) changed"], "right": 2, "why": "S = the number (of hospitals). has doubled thuộc mệnh đề nhượng bộ Although…; serving it là cụm phân từ bổ nghĩa cho hospitals."}, {"ask": "Động từ hữu hạn của mệnh đề chính là gì?", "prompt": "What surprised the researchers most was the speed at which the glacier was retreating.", "opts": ["surprised", "was", "was retreating"], "right": 1, "why": "Cả mệnh đề What surprised the researchers most làm chủ ngữ; was retreating nằm trong mệnh đề at which… bổ nghĩa cho speed."}, {"ask": "Động từ hữu hạn của mệnh đề chính là gì?", "prompt": "The report, published by a team of economists working for an international development agency, argues that investment in rural roads reduces poverty more effectively than direct cash transfers.", "opts": ["published", "argues", "reduces"], "right": 1, "why": "S = The report. published… và working… là cụm phân từ; that investment… reduces poverty… là nội dung của argues, không bỏ được."}], "b": [{"ask": "Bài và câu hỏi: cùng ý hay không?", "prompt": "Bài: The bridge was not completed until 1932. — Câu hỏi: The bridge was finished before 1932.", "opts": ["Cùng ý", "Không cùng ý"], "right": 1, "why": "not … until 1932 = mãi đến năm 1932 mới xong, nên không phải xong trước 1932."}, {"ask": "Bài và câu hỏi: cùng ý hay không?", "prompt": "Bài: The disease is rarely fatal. — Câu hỏi: The disease seldom kills those who catch it.", "opts": ["Cùng ý", "Không cùng ý"], "right": 0, "why": "rarely fatal = hiếm khi gây tử vong = seldom kills."}, {"ask": "Bài và câu hỏi: cùng ý hay không?", "prompt": "Bài: Sales did not fall last year. — Câu hỏi: Sales increased last year.", "opts": ["Cùng ý", "Không cùng ý"], "right": 1, "why": "did not fall gồm cả trường hợp doanh số giữ nguyên, nên chưa suy ra được là doanh số tăng."}]};
+const AU = [];
+const TG = [];
+const qz = {};
+Object.keys(QZ).forEach((k) => {
+const Q = QZ[k];
+const ans = (s.ans || {})[k] || {};
+const checked = !!(s.checked || {})[k];
+const setAns = (qi, oi) => this.setState({ ans: Object.assign({}, this.state.ans || {}, { [k]: Object.assign({}, ((this.state.ans || {})[k]) || {}, { [qi]: oi }) }), checked: Object.assign({}, this.state.checked || {}, { [k]: false }), warn: Object.assign({}, this.state.warn || {}, { [k]: 0 }) });
+const items = Q.map((q, qi) => {
+const chosen = ans[qi];
+const done = checked && chosen !== undefined;
+const ok = done && chosen === q.right;
+return { n: String(qi + 1), ask: q.ask, prompt: q.prompt, aria: 'Câu ' + (qi + 1), done, res: ok ? 'Chính xác.' : 'Chưa đúng.', resc: ok ? 'var(--ok)' : 'var(--danger)', why: q.why,
+opts: q.opts.map((t, oi) => {
+const on = chosen === oi;
+const showRight = done && oi === q.right;
+const showWrong = done && on && oi !== q.right;
+return { t, on: on ? 'true' : 'false', bd: showRight ? 'var(--ok)' : (showWrong ? 'var(--danger)' : (on ? 'var(--ink)' : 'var(--rule)')), bg: on ? 'var(--tint)' : 'var(--surface)', tag: showRight ? 'Đúng' : (showWrong ? 'Sai' : ''), tagc: showRight ? 'var(--ok)' : 'var(--danger)', pick: () => setAns(qi, oi) };
+}) };
+});
+const missing = Q.filter((q, i) => ans[i] === undefined).length;
+const nRight = Q.filter((q, i) => ans[i] === q.right).length;
+const warn = (s.warn || {})[k] || 0;
+let msg = ''; let msgc = 'var(--muted)';
+if (warn) { msg = 'Còn ' + warn + ' câu chưa chọn.'; msgc = 'var(--mark)'; }
+else if (checked) { msg = 'Đúng ' + nRight + ' trên ' + Q.length + ' câu.'; msgc = 'var(--ink)'; }
+qz[k] = { items, msg, msgc,
+check: () => { if (missing) { this.setState({ warn: Object.assign({}, this.state.warn || {}, { [k]: missing }) }); } else { this.setState({ checked: Object.assign({}, this.state.checked || {}, { [k]: true }), warn: Object.assign({}, this.state.warn || {}, { [k]: 0 }) }); } },
+reset: () => this.setState({ ans: Object.assign({}, this.state.ans || {}, { [k]: {} }), checked: Object.assign({}, this.state.checked || {}, { [k]: false }), warn: Object.assign({}, this.state.warn || {}, { [k]: 0 }) }) };
+});
+const au = {};
+AU.forEach((k) => {
+const on = s.playing === k;
+au[k] = { on: on ? 'true' : 'false', label: on ? 'Dừng' : 'Nghe câu mẫu', icon: on ? 'M3 2h4v12H3zM9 2h4v12H9z' : 'M3 1.5v13l11-6.5z', bg: on ? 'var(--ink)' : 'var(--surface)', fg: on ? 'var(--surface)' : 'var(--ink)', pick: () => this.setState({ playing: on ? '' : k }) };
+});
+const tg = {};
+TG.forEach((x) => {
+const open = !!((s.tg || {})[x.k]);
+tg[x.k] = { open, exp: open ? 'true' : 'false', label: open ? x.b : x.a, pick: () => this.setState({ tg: Object.assign({}, this.state.tg || {}, { [x.k]: !open }) }) };
+});
+const phoneTocOpen = !!s.phoneToc;
+return {
+pal: (this.props.palette ?? 'Navy + đỏ mận') === 'Xanh teal' ? 'pal-teal' : 'pal-navy',
+qz, au, tg,
+phoneTocOpen, phoneTocIcon: phoneTocOpen ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6', phoneTocLabel: phoneTocOpen ? 'true' : 'false',
+togglePhoneToc: () => this.setState({ phoneToc: !phoneTocOpen })
+};
+}
+}
+</script>
+</body>
+</html>

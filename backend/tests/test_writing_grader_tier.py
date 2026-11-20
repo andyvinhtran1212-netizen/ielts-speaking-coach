@@ -28,6 +28,7 @@ from unittest.mock import patch
 import pytest
 
 from models.writing_feedback import (
+    GeneratedWritingFeedback,
     GraderConfig,
     GradingTier,
     WritingFeedback,
@@ -126,6 +127,7 @@ async def test_standard_tier_uses_pro_and_full_schema(
 
     async def fake_call(model_name, system_prompt, user_prompt, **_kw):
         captured["model_name"] = model_name
+        captured["parse_schema"] = _kw["parse_schema"]
         return json.dumps(VALID_FEEDBACK_STANDARD), {"input_tokens": 1, "output_tokens": 1}
 
     cfg = _standard_config(selected_model="gemini-2.5-pro")
@@ -133,7 +135,8 @@ async def test_standard_tier_uses_pro_and_full_schema(
         result = await grader.grade_essay(cfg)
 
     assert captured["model_name"] == "gemini-2.5-pro"
-    assert isinstance(result.feedback, WritingFeedback)
+    assert captured["parse_schema"] is GeneratedWritingFeedback
+    assert isinstance(result.feedback, GeneratedWritingFeedback)
     assert result.feedback.improvedEssay == "Improved version…"  # full-schema field
     assert result.prompt_version == "v2.3"
     assert "-quick" not in result.prompt_version  # removed in 2.7a.1

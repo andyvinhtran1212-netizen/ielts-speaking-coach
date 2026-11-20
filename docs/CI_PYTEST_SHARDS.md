@@ -88,7 +88,7 @@ rm -r "$reports_dir"
 `backend-pytest-weights` for inspection, but never changes the committed file.
 Review the snapshot diff, update provenance, run `tests/test_ci_pytest_shards.py`,
 then check all four shard wall times and parity on the PR's exact head. Keep
-the four required check names and 25-minute shard timeout unchanged. Do not
+the four required check names and 40-minute shard timeout unchanged. Do not
 skip tests or alter the PG17 advisory suite to improve the reported balance.
 
 ## PostgreSQL 17 advisory shards (PC-J582)
