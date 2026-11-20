@@ -32,6 +32,20 @@
 
 .sm { width: 400px; max-width: 100%; padding: var(--av2-space-8); }
 .md { width: 520px; max-width: 100%; }
+
+/*
+ * Modals never grow past the viewport: the page behind is scroll-locked, so a
+ * tall body (short screen, 200% zoom) scrolls inside and the footer buttons
+ * stay reachable.
+ */
+.sm, .md {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 2 * var(--av2-space-6));
+  /* Last resort when even the title and buttons do not fit: the frame scrolls. */
+  overflow-y: auto;
+}
+.body { min-height: 0; overflow-y: auto; }
 .drawer {
   width: 420px;
   max-width: 100%;
@@ -50,7 +64,8 @@
 }
 .close { margin: calc(-1 * var(--av2-space-4)) calc(-1 * var(--av2-space-5)) 0 0; }
 .body { margin: 0 0 var(--av2-space-7); }
-.body > p { margin: 0; }
+.head, .actions { flex: none; }
+.frame .body > p { margin: 0; }
 .actions { display: flex; flex-wrap: wrap; gap: var(--av2-space-5); }
 
 /* Medium modal and drawer: header, body and footer separated by rules. */

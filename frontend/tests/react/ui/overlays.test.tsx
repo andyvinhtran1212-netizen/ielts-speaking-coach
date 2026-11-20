@@ -72,6 +72,23 @@ describe('Dialog', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
+  it('stays in sync when the browser closes it natively (second Esc)', () => {
+    const onClose = vi.fn();
+    const { rerender } = render(<Dialog open onClose={onClose} title="Xem nhanh" />);
+    const dialog = screen.getByRole('dialog') as HTMLDialogElement;
+    dialog.removeAttribute('open');
+    fireEvent(dialog, new Event('close'));
+    expect(onClose).toHaveBeenCalledTimes(1);
+
+    rerender(<Dialog open busy onClose={onClose} title="Xem nhanh" />);
+    const calls = (HTMLDialogElement.prototype.showModal as ReturnType<typeof vi.fn>).mock.calls.length;
+    dialog.removeAttribute('open');
+    fireEvent(dialog, new Event('close'));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect((HTMLDialogElement.prototype.showModal as ReturnType<typeof vi.fn>).mock.calls.length).toBe(calls + 1);
+    expect(dialog.hasAttribute('open')).toBe(true);
+  });
+
   it('keeps Tab inside the dialog', async () => {
     render(<Opener />);
     fireEvent.click(screen.getByRole('button', { name: 'Mở' }));

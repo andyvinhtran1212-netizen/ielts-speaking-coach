@@ -120,6 +120,13 @@ export function Dialog({ open, onClose, initialFocusRef, role = 'dialog', descri
       className={cx(styles.dialog, frame.variant === 'drawer' && styles.dialogDrawer)}
       // Esc is handled by useDialogFocus (it respects `busy`); stop the native close.
       onCancel={(event) => event.preventDefault()}
+      // Chromium closes on a second Esc even when cancel is prevented. Keep the
+      // element in sync with `open`: reopen while busy, otherwise report it.
+      onClose={() => {
+        if (!open) return;
+        if (busy) ref.current?.showModal();
+        else onClose();
+      }}
       onClick={(event) => {
         if (event.target === ref.current && !busy) onClose();
       }}
