@@ -187,8 +187,9 @@ CREATE OR REPLACE TRIGGER trg_credit_cluster_members_guard
 
 -- ── credit_covered_requests: replay record of a "covered" answer (FR-014) ──
 -- A covered Speaking answer writes no reservation, so its request key is kept
--- here; a replay of that key returns the same answer without touching
--- regrade_count again.
+-- here; a replay of that key answers from the cover hold's current state
+-- (open → replay, committed → already_committed, released/expired →
+-- request_key_conflict) without touching regrade_count again.
 CREATE TABLE IF NOT EXISTS public.credit_covered_requests (
     id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id uuid NOT NULL REFERENCES public.users(id) ON DELETE RESTRICT,
@@ -412,6 +413,7 @@ AS $$
 DECLARE
     v_existing public.credit_reservations%ROWTYPE;
     v_covered public.credit_covered_requests%ROWTYPE;
+    v_status text;
     v_member public.credit_cluster_members%ROWTYPE;
     v_session uuid;
     v_part smallint;
@@ -452,8 +454,15 @@ BEGIN
         IF (v_covered.resource_type, v_covered.resource_id) IS DISTINCT FROM (p_resource_type, p_resource_id) THEN
             RETURN jsonb_build_object('status', 'request_key_conflict', 'reservation_id', v_covered.reservation_id);
         END IF;
-        RETURN jsonb_build_object('status', 'covered', 'replay', true, 'reservation_id', v_covered.reservation_id,
-                                  'cluster_k', v_covered.cluster_k, 'regrade_count', v_covered.regrade_count);
+        -- A replay never answers 'covered' (that tells the wrapper to grade):
+        -- it mirrors the cover hold's current state like a reservation replay.
+        SELECT r.status INTO v_status FROM public.credit_reservations r WHERE r.id = v_covered.reservation_id;
+        RETURN jsonb_build_object(
+            'status', CASE v_status WHEN 'open' THEN 'replay'
+                                    WHEN 'committed' THEN 'already_committed'
+                                    ELSE 'request_key_conflict' END,
+            'covered', true, 'reservation_id', v_covered.reservation_id,
+            'cluster_k', v_covered.cluster_k, 'regrade_count', v_covered.regrade_count);
     END IF;
 
     -- (1) owner, before anything is written.

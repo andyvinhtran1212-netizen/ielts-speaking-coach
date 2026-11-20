@@ -566,9 +566,9 @@ async def test_covered_replay_does_not_spend_another_free_regrade(pg):
     regrade = await pg.reserve(user, "speaking_cluster", f"{sid}:p1:q{q2}", key="q2-regrade-key")
     assert regrade["status"] == "covered" and regrade["regrade_count"] == 1
     rows = await con.fetchval("SELECT count(*) FROM credit_covered_requests")
-    for _ in range(3):  # replays: same answer, nothing written, no extra regrade spent
+    for _ in range(3):  # replays: never 'covered' again, nothing written, no extra regrade spent
         again = await pg.reserve(user, "speaking_cluster", f"{sid}:p1:q{q2}", key="q2-regrade-key")
-        assert (again["status"], again["regrade_count"], again["replay"]) == ("covered", 1, True)
+        assert (again["status"], again["regrade_count"], again["covered"]) == ("replay", 1, True)
         assert again["reservation_id"] == first["reservation_id"]
     assert await con.fetchval("SELECT count(*) FROM credit_covered_requests") == rows
     assert await con.fetchval("SELECT regrade_count FROM credit_cluster_members WHERE question_id = $1", q2) == 1
@@ -579,6 +579,35 @@ async def test_covered_replay_does_not_spend_another_free_regrade(pg):
         == "request_key_conflict"
     with pytest.raises(asyncpg.RaiseError, match="credit_covered_requests_append_only"):
         await con.execute("DELETE FROM credit_covered_requests")
+
+
+@pytest.mark.asyncio
+async def test_covered_replay_follows_the_cover_hold_state(pg):
+    """HOLD on 6277f9ea: a covered replay never tells the wrapper to grade again."""
+    user = await pg.user()
+    await pg.entitlement(user, await pg.product(), credits=5)
+    seen = []
+    for final in ("open", "committed", "released", "expired"):
+        sid = await pg.session(user)
+        first = await pg.reserve(user, "speaking_cluster", f"{sid}:p1:q{uuid4()}")
+        q2 = uuid4()
+        key = f"cover-{final}-key"
+        assert (await pg.reserve(user, "speaking_cluster", f"{sid}:p1:q{q2}", key=key))["status"] == "covered"
+        hold = _uuid(first["reservation_id"])
+        if final == "committed":
+            await pg.rpc("fn_credit_commit", hold)
+        elif final == "released":
+            await pg.rpc("fn_credit_release", hold, "grader_failed")
+        elif final == "expired":
+            await pg.con.execute("ALTER TABLE credit_reservations DISABLE TRIGGER trg_credit_reservations_guard")
+            await pg.con.execute("UPDATE credit_reservations SET expires_at = now() - interval '1 minute' "
+                                 "WHERE id = $1", hold)
+            await pg.con.execute("ALTER TABLE credit_reservations ENABLE TRIGGER trg_credit_reservations_guard")
+            assert (await pg.rpc("fn_credit_expire_reservations", 10))["expired"] == 1
+        again = await pg.reserve(user, "speaking_cluster", f"{sid}:p1:q{q2}", key=key)
+        assert again["covered"] is True and again["reservation_id"] == first["reservation_id"]
+        seen.append(again["status"])
+    assert seen == ["replay", "already_committed", "request_key_conflict", "request_key_conflict"]
 
 
 @pytest.mark.asyncio
