@@ -13,11 +13,12 @@ survive.
 
 import asyncio
 import logging
+import re
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Header, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from database import supabase_admin
 from models.cohorts import AdminCohortListOut, CohortArchivePreviewOut
@@ -61,6 +62,31 @@ class CohortPatchRequest(BaseModel):
     # this field is read via `exclude_unset` below, not by an is-not-None check
     # like its neighbours.
     course_id: str | None = None
+    # G09-T24 (mig 441). Explicit null clears each of these, so they are read
+    # from model_fields_set too. One teacher per class: instructor_id must be an
+    # active instructor or admin; the change is logged in class_action_log.
+    instructor_id: uuid.UUID | None = None
+    weekly_schedule: list["ScheduleSlot"] | None = Field(default=None, max_length=14)
+    start_date: date | None = None
+
+
+_START_RE = re.compile(r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+
+
+class ScheduleSlot(BaseModel):
+    # ISO weekday: 1 = Thứ Hai … 7 = Chủ nhật.
+    dow: int = Field(ge=1, le=7, strict=True)
+    start: str
+
+    @field_validator("start")
+    @classmethod
+    def _hh_mm(cls, value: str) -> str:
+        if not _START_RE.match(value):
+            raise ValueError("Giờ bắt đầu theo dạng HH:MM, ví dụ 19:30.")
+        return value
+
+
+CohortPatchRequest.model_rebuild()
 
 
 @router.get(
@@ -110,7 +136,37 @@ async def list_cohorts(
         result["cohorts"] = [
             c for c in result["cohorts"] if not test_data_visibility.is_test_label(c.get("name"))
         ]
+    names, failed = await asyncio.to_thread(
+        _teacher_names, [c.get("instructor_id") for c in result["cohorts"]])
+    for c in result["cohorts"]:
+        c["instructor"] = _teacher_of(c, names)
+    if failed:
+        result["instructor_lookup_failed"] = True
     return result
+
+
+def _teacher_names(ids) -> tuple[dict[str, str], bool]:
+    """{user_id: name} for class teachers (G09-T24), and whether the lookup
+    failed. Rows read before migration 441 carry no instructor_id."""
+    wanted = sorted({str(i) for i in ids if i})
+    if not wanted:
+        return {}, False
+    try:
+        rows = (
+            supabase_admin.table("users").select("id, display_name, email")
+            .in_("id", wanted).execute().data
+        ) or []
+    except Exception:
+        logger.error("[cohorts] teacher names lookup failed", exc_info=True)
+        return {}, True
+    return {r["id"]: (r.get("display_name") or r.get("email") or "") for r in rows}, False
+
+
+def _teacher_of(cohort: dict, names: dict[str, str]) -> dict | None:
+    teacher_id = cohort.get("instructor_id")
+    if not teacher_id:
+        return None
+    return {"id": str(teacher_id), "name": names.get(str(teacher_id))}
 
 
 @router.post("")
@@ -171,8 +227,15 @@ async def update_cohort(
     for field in ("code_prefix", "description", "course_id"):
         if field in body.model_fields_set:
             updates[field] = getattr(body, field)
+    if "weekly_schedule" in body.model_fields_set:
+        updates["weekly_schedule"] = (None if body.weekly_schedule is None
+                                      else [slot.model_dump() for slot in body.weekly_schedule])
+    if "start_date" in body.model_fields_set:
+        updates["start_date"] = body.start_date.isoformat() if body.start_date else None
+    teacher_change = "instructor_id" in body.model_fields_set
+    teacher_id = str(body.instructor_id) if body.instructor_id else None
 
-    if not updates and body.is_active is None:
+    if not updates and body.is_active is None and not teacher_change:
         raise HTTPException(400, "Không có trường nào để cập nhật")
     if body.is_active is None and body.archive_reason is not None:
         raise HTTPException(400, "Lý do chỉ dùng khi lưu trữ hoặc khôi phục lớp")
@@ -182,8 +245,33 @@ async def update_cohort(
         raise HTTPException(422, "Lý do lưu trữ tối đa 500 ký tự") from None
 
     actor_id = admin.get("id") if isinstance(admin, dict) else None
+    if teacher_change and teacher_id is not None:
+        await asyncio.to_thread(_require_teacher_candidate, teacher_id)
+    teacher = None
+    if teacher_change:
+        teacher = {"instructor_id": teacher_id,
+                   "actor_email": admin.get("email") if isinstance(admin, dict) else None}
     return await asyncio.to_thread(
-        _update_cohort_sync, cohort_id, updates, body.is_active, reason, actor_id)
+        _update_cohort_sync, cohort_id, updates, body.is_active, reason, actor_id, teacher)
+
+
+def _require_teacher_candidate(user_id: str) -> None:
+    """422 invalid_instructor unless ``user_id`` is an active instructor or
+    admin (plan 5.4). A learner can never be made a class teacher."""
+    try:
+        rows = (
+            supabase_admin.table("users").select("id, role, is_active")
+            .eq("id", user_id).limit(1).execute().data
+        ) or []
+    except Exception:
+        logger.error("[cohorts] teacher lookup failed", exc_info=True)
+        raise HTTPException(500, "Lỗi khi kiểm tra giáo viên. Vui lòng thử lại.") from None
+    row = rows[0] if rows else {}
+    if row.get("role") not in ("instructor", "admin") or row.get("is_active") is False:
+        raise HTTPException(422, {
+            "code": "invalid_instructor",
+            "message": "Người được chọn không phải giáo viên hoặc quản trị viên đang hoạt động.",
+        })
 
 
 def _is_uuid(value: str) -> bool:
@@ -208,6 +296,7 @@ def _update_cohort_sync(
     is_active: bool | None,
     reason: str | None,
     actor_id: str | None,
+    teacher: dict | None = None,
 ):
     receipt = None
     if is_active is not None:
@@ -226,13 +315,38 @@ def _update_cohort_sync(
         if receipt is None:
             raise HTTPException(404, "Không tìm thấy lớp")
 
+    teacher_receipt = None
+    if teacher is not None:
+        if not _is_uuid(cohort_id):
+            raise HTTPException(404, "Không tìm thấy lớp")
+        try:
+            teacher_receipt = supabase_admin.rpc("fn_set_cohort_teacher", {
+                "p_cohort_id": cohort_id, "p_instructor_id": teacher["instructor_id"],
+                "p_actor_id": actor_id, "p_actor_email": teacher.get("actor_email"),
+            }).execute().data
+        except Exception:
+            if receipt is not None and receipt.get("status") in ("archived", "restored"):
+                raise _lifecycle_failed(cohort_id, context="teacher after lifecycle") from None
+            raise _lifecycle_failed(cohort_id, context="teacher") from None
+        if teacher_receipt is None:
+            raise HTTPException(404, "Không tìm thấy lớp")
+
     # The class state changed in this request; a later failure must say so.
-    changed = receipt is not None and receipt.get("status") in ("archived", "restored")
+    changed = (receipt is not None and receipt.get("status") in ("archived", "restored")) or (
+        isinstance(teacher_receipt, dict) and teacher_receipt.get("status") == "changed")
 
     def _partial(context: str) -> HTTPException:
         ref = new_ref()
+        status = receipt.get("status") if receipt is not None else "teacher_change"
         logger.error("[cohorts] %s failed after %s ref=%s cohort=%s",
-                     context, receipt.get("status"), ref, cohort_id, exc_info=True)
+                     context, status, ref, cohort_id, exc_info=True)
+        if receipt is None:
+            return HTTPException(500, {
+                "error_code": "cohort_update_partial",
+                "message": "Đã đổi giáo viên của lớp nhưng chưa lưu được thay đổi khác. "
+                           "Vui lòng tải lại trang rồi thử lại.",
+                "ref": ref,
+            })
         done = "khôi phục" if is_active else "lưu trữ"
         return HTTPException(500, {
             "error_code": "cohort_update_partial",
@@ -270,6 +384,8 @@ def _update_cohort_sync(
     if not rows:
         raise HTTPException(404, "Không tìm thấy lớp")
     row = rows[0]
+    if teacher_receipt is not None:
+        row = {**row, "teacher_receipt": teacher_receipt}
     if receipt is None:
         return row
     return {**row, "archive_receipt": receipt}
@@ -338,6 +454,10 @@ async def cohort_members(cohort_id: str, authorization: str | None = Header(defa
         }
         for s in students
     ]
+    names, failed = await asyncio.to_thread(_teacher_names, [cohort.get("instructor_id")])
+    cohort = {**cohort, "instructor": _teacher_of(cohort, names)}
+    if failed:
+        cohort["instructor_lookup_failed"] = True
     return {"cohort": cohort, "member_count": len(members), "members": members}
 
 

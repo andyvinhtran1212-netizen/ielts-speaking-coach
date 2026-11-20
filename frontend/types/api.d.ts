@@ -13328,6 +13328,8 @@ export interface components {
             rollup_failed?: boolean | null;
             /** Course Lookup Failed */
             course_lookup_failed?: boolean | null;
+            /** Instructor Lookup Failed */
+            instructor_lookup_failed?: boolean | null;
         };
         /** AdminCohortOut */
         AdminCohortOut: {
@@ -13361,6 +13363,13 @@ export interface components {
             archived_by?: string | null;
             /** Archive Reason */
             archive_reason?: string | null;
+            /** Instructor Id */
+            instructor_id?: string | null;
+            /** Weekly Schedule */
+            weekly_schedule?: components["schemas"]["CohortScheduleSlotOut"][] | null;
+            /** Start Date */
+            start_date?: string | null;
+            instructor?: components["schemas"]["CohortTeacherOut"] | null;
             course?: components["schemas"]["CohortCourseOut"] | null;
             /** Member Count */
             member_count?: number | null;
@@ -15889,6 +15898,19 @@ export interface components {
             archive_reason?: string | null;
             /** Course Id */
             course_id?: string | null;
+            /** Instructor Id */
+            instructor_id?: string | null;
+            /** Weekly Schedule */
+            weekly_schedule?: components["schemas"]["ScheduleSlot"][] | null;
+            /** Start Date */
+            start_date?: string | null;
+        };
+        /** CohortScheduleSlotOut */
+        CohortScheduleSlotOut: {
+            /** Dow */
+            dow: number;
+            /** Start */
+            start: string;
         };
         /** CohortStudentCountOut */
         CohortStudentCountOut: {
@@ -15898,6 +15920,13 @@ export interface components {
             cohort_name?: string | null;
             /** Count */
             count: number;
+        };
+        /** CohortTeacherOut */
+        CohortTeacherOut: {
+            /** Id */
+            id: string;
+            /** Name */
+            name?: string | null;
         };
         /** CohortsBody */
         CohortsBody: {
@@ -21467,6 +21496,13 @@ export interface components {
              * Format: uuid
              */
             version_id: string;
+        };
+        /** ScheduleSlot */
+        ScheduleSlot: {
+            /** Dow */
+            dow: number;
+            /** Start */
+            start: string;
         };
         /** SectionSubmitBody */
         SectionSubmitBody: {
