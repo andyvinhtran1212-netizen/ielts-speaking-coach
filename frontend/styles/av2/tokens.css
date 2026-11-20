@@ -7,9 +7,13 @@
  * (FR-002/FR-003). This is the ONLY file under styles/ and components/ui/
  * allowed to hold raw hex (tests/hex-budget.test.mjs).
  *
- * Light values only. The dark block, the prefers-color-scheme block and the
- * extra surface tokens (highlight, warn/error/ok backgrounds, QR, logo) arrive
- * with G03-T18 (plan 5.9).
+ * Colour has two modes (plan 5.9, G03-T18). Same switch as the legacy tree:
+ * `data-theme` on <html> set by the existing anti-flash script from the
+ * `av-theme` key; with no attribute (JS not run yet, or "Theo thiết bị") the OS
+ * preference decides (FR-019, FR-020). Non-colour tokens have one value.
+ * `.av2-always-light` re-declares the light colours for areas that stay light
+ * whatever the site mode is: email previews, payment QR, Task 1 figures; print
+ * is always light too (FR-024).
  *
  * Breakpoints (CSS variables do not work inside @media, so they are constants;
  * the same numbers are exported from components/ui/breakpoints.ts):
@@ -19,25 +23,6 @@
  */
 
 :root {
-  /* Colour — 14 roles from the .pal-navy palette of the design sheets. */
-  --av2-paper: #FAF6EF;
-  --av2-surface: #FFFFFF;
-  --av2-ink: #1B1A17;
-  --av2-muted: #5E5A52;
-  --av2-rule: #D8D0C0;          /* separators only: 1.42:1 on paper */
-  --av2-accent: #1A3561;
-  --av2-accent-hover: #11254A;
-  --av2-link: #1A3561;
-  --av2-mark: #8A1C1C;
-  --av2-danger: #9B1C1C;
-  --av2-ok: #1F6B3A;
-  --av2-tint: #EEF0F5;
-  --av2-off: #E8E2D5;
-  --av2-on-accent: #FFFFFF;     /* text on accent/mark fills (plan 5.9 name; replaces --av2-on-dark) */
-
-  /* Input/select borders need 3:1 (WCAG 1.4.11); --av2-rule does not reach it. */
-  --av2-control-border: var(--av2-muted);
-
   /* Type scale (px). */
   --av2-fs-12: 12px;
   --av2-fs-13: 13px;
@@ -78,8 +63,7 @@
   --av2-rule-w: 1px;
   --av2-rule-strong-w: 2px;
 
-  /* Focus ring: use as `outline: var(--av2-focus); outline-offset: var(--av2-focus-offset);` */
-  --av2-focus: 3px solid var(--av2-ink);
+  /* Focus ring offset; the ring itself (--av2-focus) is a colour token below. */
   --av2-focus-offset: 2px;
 
   /* Control and row heights. */
@@ -100,6 +84,128 @@
   --av2-z-sticky: 10;
   --av2-z-overlay: 100;
   --av2-z-toast: 200;
+}
+
+/* Colour — light (default, explicit light, and always-light wrappers). */
+:root,
+:root[data-theme="light"],
+.av2-always-light {
+  --av2-paper: #FAF6EF;
+  --av2-surface: #FFFFFF;
+  --av2-ink: #1B1A17;
+  --av2-muted: #5E5A52;
+  --av2-rule: #D8D0C0;
+  --av2-accent: #1A3561;
+  --av2-accent-hover: #11254A;
+  --av2-link: #1A3561;
+  --av2-mark: #8A1C1C;
+  --av2-danger: #9B1C1C;
+  --av2-ok: #1F6B3A;
+  --av2-tint: #EEF0F5;
+  --av2-off: #E8E2D5;
+  --av2-on-accent: #FFFFFF;
+  --av2-highlight: #F6E3A1;
+  --av2-warn-bg: #F7EFEF;
+  --av2-error-bg: #F8EFEF;
+  --av2-ok-bg: #EFF5F1;
+  --av2-logo-mark: var(--av2-mark);
+  color-scheme: light;
+}
+
+/* Colour — dark, chosen on the site. */
+:root[data-theme="dark"] {
+  --av2-paper: #1C1A16;
+  --av2-surface: #24211C;
+  --av2-ink: #EDE6D6;
+  --av2-muted: #B2A994;
+  --av2-rule: #3F3A31;
+  --av2-accent: #A3B8DF;
+  --av2-accent-hover: #C0D0EC;
+  --av2-link: #AFC3E8;
+  --av2-mark: #E8A29A;
+  --av2-danger: #F2958B;
+  --av2-ok: #93CBA3;
+  --av2-tint: #262A33;
+  --av2-off: #2F2B25;
+  --av2-on-accent: #1C1A16;
+  --av2-highlight: #655120;
+  --av2-warn-bg: #3C302B;
+  --av2-error-bg: #3D2F29;
+  --av2-ok-bg: #31352C;
+  --av2-logo-mark: var(--av2-ink);
+  color-scheme: dark;
+}
+
+/* Colour — dark from the OS while no choice is stored (and before JS runs). */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --av2-paper: #1C1A16;
+    --av2-surface: #24211C;
+    --av2-ink: #EDE6D6;
+    --av2-muted: #B2A994;
+    --av2-rule: #3F3A31;
+    --av2-accent: #A3B8DF;
+    --av2-accent-hover: #C0D0EC;
+    --av2-link: #AFC3E8;
+    --av2-mark: #E8A29A;
+    --av2-danger: #F2958B;
+    --av2-ok: #93CBA3;
+    --av2-tint: #262A33;
+    --av2-off: #2F2B25;
+    --av2-on-accent: #1C1A16;
+    --av2-highlight: #655120;
+    --av2-warn-bg: #3C302B;
+    --av2-error-bg: #3D2F29;
+    --av2-ok-bg: #31352C;
+    --av2-logo-mark: var(--av2-ink);
+    color-scheme: dark;
+  }
+}
+
+/* Print is always light (FR-024). */
+@media print {
+  :root:not([data-theme]),
+  :root[data-theme="dark"] {
+    --av2-paper: #FAF6EF;
+    --av2-surface: #FFFFFF;
+    --av2-ink: #1B1A17;
+    --av2-muted: #5E5A52;
+    --av2-rule: #D8D0C0;
+    --av2-accent: #1A3561;
+    --av2-accent-hover: #11254A;
+    --av2-link: #1A3561;
+    --av2-mark: #8A1C1C;
+    --av2-danger: #9B1C1C;
+    --av2-ok: #1F6B3A;
+    --av2-tint: #EEF0F5;
+    --av2-off: #E8E2D5;
+    --av2-on-accent: #FFFFFF;
+    --av2-highlight: #F6E3A1;
+    --av2-warn-bg: #F7EFEF;
+    --av2-error-bg: #F8EFEF;
+    --av2-ok-bg: #EFF5F1;
+    --av2-logo-mark: var(--av2-mark);
+    color-scheme: light;
+  }
+}
+
+/*
+ * Tokens built from colour tokens. A var() inside a custom property resolves
+ * on the element that declares it, so they are re-declared on every
+ * always-light wrapper; otherwise they would inherit the dark values from <html>.
+ */
+:root,
+.av2-always-light {
+  /* Input/select borders need 3:1 (WCAG 1.4.11); --av2-rule does not reach it. */
+  --av2-control-border: var(--av2-muted);
+  /* Focus ring: use as `outline: var(--av2-focus); outline-offset: var(--av2-focus-offset);` */
+  --av2-focus: 3px solid var(--av2-ink);
+}
+
+/* QR codes stay black on white in every mode. */
+:root {
+  --av2-qr-bg: #FFFFFF;
+  --av2-qr-ink: #111111;
 }
 
 /*
