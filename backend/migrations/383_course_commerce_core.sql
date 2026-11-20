@@ -87,6 +87,27 @@ CREATE OR REPLACE TRIGGER trg_course_products_updated_at
     BEFORE UPDATE ON public.course_products
     FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
+-- FR-010 (CR/SA R1 F1): once a code, entitlement or order names a product, its
+-- kind and course are frozen, so a class product cannot become an online one
+-- under an existing code (or move to another course under its entitlements).
+CREATE OR REPLACE FUNCTION public.fn_course_products_kind_lock()
+RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, pg_temp
+AS $$
+BEGIN
+    IF (NEW.kind, NEW.course_id) IS DISTINCT FROM (OLD.kind, OLD.course_id)
+       AND (EXISTS (SELECT 1 FROM public.access_codes WHERE product_id = OLD.id)
+            OR (to_regclass('public.entitlements') IS NOT NULL
+                AND EXISTS (SELECT 1 FROM public.entitlements WHERE product_id = OLD.id))
+            OR (to_regclass('public.enrollment_orders') IS NOT NULL
+                AND EXISTS (SELECT 1 FROM public.enrollment_orders WHERE product_id = OLD.id))) THEN
+        RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'course_product_kind_locked';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
 -- ── entitlements ────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.entitlements (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -351,6 +372,10 @@ BEGIN
     END IF;
 
     SELECT * INTO STRICT v_product FROM public.course_products WHERE id = NEW.product_id;
+    -- Defence in depth for FR-010: a code never grants an online course.
+    IF v_product.kind NOT IN ('class', 'repractice') THEN
+        RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'access_code_product_kind';
+    END IF;
     v_days := coalesce(NEW.grant_days, v_product.access_days);
     v_starts := coalesce(NEW.used_at, statement_timestamp());
     INSERT INTO public.entitlements (user_id, product_id, course_id, source, source_ref,
@@ -551,6 +576,10 @@ CREATE TABLE IF NOT EXISTS public.learner_email_outbox (
 CREATE INDEX IF NOT EXISTS ix_learner_email_outbox_pending
     ON public.learner_email_outbox (status, next_attempt_at) WHERE status = 'pending';
 
+CREATE OR REPLACE TRIGGER trg_course_products_kind_lock
+    BEFORE UPDATE OF kind, course_id ON public.course_products
+    FOR EACH ROW EXECUTE FUNCTION public.fn_course_products_kind_lock();
+
 -- ── Privileges: backend (service_role) only ─────────────────────────────────
 -- No client policy: learners read through backend routes filtered by token.
 -- Entitlements, orders and their events are written only by the owner-run
@@ -592,6 +621,7 @@ REVOKE ALL ON FUNCTION public.fn_access_code_entitlement_sync() FROM PUBLIC, ano
 REVOKE ALL ON FUNCTION public.fn_code_assignment_entitlement_revoke()
     FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.fn_enrollment_orders_transition() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.fn_course_products_kind_lock() FROM PUBLIC, anon, authenticated, service_role;
 
 -- ── Postcondition ───────────────────────────────────────────────────────────
 DO $postcondition$
@@ -646,7 +676,8 @@ BEGIN
         'public.fn_access_code_entitlement_revoke(uuid,uuid,text)'::regprocedure,
         'public.fn_access_code_entitlement_sync()'::regprocedure,
         'public.fn_code_assignment_entitlement_revoke()'::regprocedure,
-        'public.fn_enrollment_orders_transition()'::regprocedure
+        'public.fn_enrollment_orders_transition()'::regprocedure,
+        'public.fn_course_products_kind_lock()'::regprocedure
     ] LOOP
         IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE oid = v_routine AND prosecdef
                           AND proconfig = ARRAY['search_path=pg_catalog, pg_temp']) THEN

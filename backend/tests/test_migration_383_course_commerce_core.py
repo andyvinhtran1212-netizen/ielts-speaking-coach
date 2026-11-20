@@ -23,7 +23,7 @@ NEW_TABLES = ("course_products", "entitlements", "entitlement_events", "enrollme
 FUNCTIONS = ("fn_entitlements_guard()", "fn_course_commerce_append_only()",
              "fn_access_codes_product_kind()", "fn_access_code_entitlement_revoke(uuid,uuid,text)",
              "fn_access_code_entitlement_sync()", "fn_code_assignment_entitlement_revoke()",
-             "fn_enrollment_orders_transition()")
+             "fn_enrollment_orders_transition()", "fn_course_products_kind_lock()")
 TEMPLATES = ("order_created", "order_pay_reminder", "order_needs_info", "order_confirmed",
              "course_open_alert", "result_ready_digest", "course_expiring", "course_expired",
              "staff_notice")
@@ -120,11 +120,14 @@ class Harness:
         await self.con.execute(self.sql(FORWARD))
 
     async def rollback(self, opt_in: bool = False):
-        script = self.sql(ROLLBACK)
-        if opt_in:
-            script = script.replace("SET LOCAL lock_timeout = '5s';",
-                                    "SET LOCAL lock_timeout = '5s';\nSET LOCAL aver.allow_commerce_rollback = 'on';", 1)
-        await self.con.execute(script)
+        # The operator opts in at session level before running the file.
+        await self.con.execute(f"SET aver.allow_commerce_rollback = '{'on' if opt_in else 'off'}'")
+        try:
+            await self.con.execute(self.sql(ROLLBACK))
+        finally:
+            if self.con.is_in_transaction():
+                await self.con.execute("ROLLBACK")
+            await self.con.execute("RESET aver.allow_commerce_rollback")
 
     async def user(self):
         uid = uuid4()
@@ -543,7 +546,6 @@ async def test_rollback_keeps_data_and_needs_opt_in_after_a_confirmed_order(migr
     await con.execute("UPDATE enrollment_orders SET status = 'confirmed', entitlement_id = $1 WHERE id = $2", ent, order)
     with pytest.raises(asyncpg.ObjectNotInPrerequisiteStateError, match="confirmed enrollment orders exist"):
         await migrated.rollback()
-    await con.execute("ROLLBACK")  # the refused script left its transaction open
     await migrated.rollback(opt_in=True)
     for table in NEW_TABLES:
         assert await con.fetchval("SELECT to_regclass($1) IS NOT NULL", f"{migrated.schema}.{table}")
@@ -552,6 +554,8 @@ async def test_rollback_keeps_data_and_needs_opt_in_after_a_confirmed_order(migr
     assert await con.fetchval("SELECT product_id FROM access_codes WHERE id = $1", code) == product
     assert not await con.fetchval("SELECT count(*) FROM pg_trigger WHERE tgrelid = $1::regclass AND NOT tgisinternal",
                                   f"{migrated.schema}.access_codes")
+    assert not await con.fetchval("SELECT count(*) FROM pg_trigger WHERE tgrelid = $1::regclass "
+                                  "AND tgname = 'trg_course_products_kind_lock'", f"{migrated.schema}.course_products")
     # Forward again restores the triggers.
     await migrated.forward()
     assert await con.fetchval("SELECT count(*) FROM pg_trigger WHERE tgrelid = $1::regclass AND NOT tgisinternal",
@@ -605,3 +609,46 @@ def test_activation_rpc_keeps_the_code_unused_when_the_entitlement_grant_fails()
         assert psql(f"SELECT sum(delta) FROM {schema}.credit_ledger") == "5"
     finally:
         psql(f"DROP SCHEMA IF EXISTS {schema} CASCADE")
+
+
+@pytest.mark.asyncio
+async def test_rollback_refuses_while_access_code_entitlements_are_active(migrated):
+    """CR/SA R1 F2: after rollback nothing would revoke them."""
+    con = migrated.con
+    learner = await migrated.user()
+    code = await migrated.code(await migrated.product("class"), used_by=learner)
+    with pytest.raises(asyncpg.ObjectNotInPrerequisiteStateError, match="active access-code entitlements exist"):
+        await migrated.rollback()
+    await con.execute("UPDATE access_codes SET is_revoked = true WHERE id = $1", code)
+    await migrated.rollback()  # only revoked ones left: allowed without opt-in
+    assert await con.fetchval("SELECT count(*) FROM entitlements") == 1
+
+
+@pytest.mark.asyncio
+async def test_product_kind_and_course_freeze_once_referenced(migrated):
+    """CR/SA R1 F1: a class product under a code can never become an online one."""
+    con = migrated.con
+    free = await migrated.product("class")
+    await con.execute("UPDATE course_products SET kind = 'repractice', course_id = $1 WHERE id = $2",
+                      await migrated.course(), free)  # nothing references it yet
+    coded = await migrated.product("class")
+    await migrated.code(coded)  # unused code
+    with pytest.raises(asyncpg.RaiseError, match="course_product_kind_locked"):
+        await con.execute("UPDATE course_products SET kind = 'online' WHERE id = $1", coded)
+    with pytest.raises(asyncpg.RaiseError, match="course_product_kind_locked"):
+        await con.execute("UPDATE course_products SET course_id = $1 WHERE id = $2", await migrated.course(), coded)
+    await con.execute("UPDATE course_products SET title = 'Đổi tên', status = 'closed' WHERE id = $1", coded)
+    ordered = await migrated.product("online")
+    await con.execute(
+        """INSERT INTO enrollment_orders (order_code, user_id, product_id, tuition_vnd, access_days, ai_credits,
+                                          product_title, request_key, pay_by)
+           VALUES ('AVER-WXYZ23', $1, $2, 1000, 30, 0, 'Khoá', 'req-kindlock', now())""",
+        await migrated.user(), ordered)
+    with pytest.raises(asyncpg.RaiseError, match="course_product_kind_locked"):
+        await con.execute("UPDATE course_products SET kind = 'class' WHERE id = $1", ordered)
+    # Defence in depth: even with the lock disabled, using the code refuses an online product.
+    await con.execute("ALTER TABLE course_products DISABLE TRIGGER trg_course_products_kind_lock")
+    await con.execute("UPDATE course_products SET kind = 'online' WHERE id = $1", coded)
+    with pytest.raises(asyncpg.RaiseError, match="access_code_product_kind"):
+        await con.execute("UPDATE access_codes SET is_used = true, used_by = $1 WHERE product_id = $2",
+                          await migrated.user(), coded)
