@@ -11,7 +11,7 @@ export default function AdvancedVocabularyPage() {
   return (
     <>
       {/* @ts-ignore — custom element supplied by the shared student chrome. */}
-      <aver-chrome active="my-class" />
+      <aver-chrome active="class" />
       <AdvancedVocabularyLesson />
     </>
   );

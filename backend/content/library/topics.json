@@ -1,0 +1,86 @@
+[
+  {
+    "slug": "environment",
+    "label_vi": "Môi trường",
+    "shelf": "writing",
+    "display_order": 1
+  },
+  {
+    "slug": "education",
+    "label_vi": "Giáo dục",
+    "shelf": "writing",
+    "display_order": 2
+  },
+  {
+    "slug": "technology",
+    "label_vi": "Công nghệ",
+    "shelf": "writing",
+    "display_order": 3
+  },
+  {
+    "slug": "health",
+    "label_vi": "Sức khoẻ",
+    "shelf": "writing",
+    "display_order": 4
+  },
+  {
+    "slug": "work",
+    "label_vi": "Công việc",
+    "shelf": "writing",
+    "display_order": 5
+  },
+  {
+    "slug": "society-family",
+    "label_vi": "Xã hội và gia đình",
+    "shelf": "writing",
+    "display_order": 6
+  },
+  {
+    "slug": "government-law",
+    "label_vi": "Chính phủ và luật",
+    "shelf": "writing",
+    "display_order": 7
+  },
+  {
+    "slug": "economy-consumers",
+    "label_vi": "Kinh tế và tiêu dùng",
+    "shelf": "writing",
+    "display_order": 8
+  },
+  {
+    "slug": "culture-arts",
+    "label_vi": "Văn hoá và nghệ thuật",
+    "shelf": "writing",
+    "display_order": 9
+  },
+  {
+    "slug": "cities-transport",
+    "label_vi": "Đô thị và giao thông",
+    "shelf": "writing",
+    "display_order": 10
+  },
+  {
+    "slug": "media",
+    "label_vi": "Truyền thông",
+    "shelf": "writing",
+    "display_order": 11
+  },
+  {
+    "slug": "science",
+    "label_vi": "Khoa học",
+    "shelf": "writing",
+    "display_order": 12
+  },
+  {
+    "slug": "travel-tourism",
+    "label_vi": "Du lịch",
+    "shelf": "writing",
+    "display_order": 13
+  },
+  {
+    "slug": "sport",
+    "label_vi": "Thể thao",
+    "shelf": "writing",
+    "display_order": 14
+  }
+]

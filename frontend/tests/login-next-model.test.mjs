@@ -22,6 +22,11 @@ describe('native login canonical model', () => {
     assert.equal(loginDestination({ isActive: false, onboardingCompleted: false }), 'activate');
     assert.equal(loginDestination({ isActive: true, onboardingCompleted: false }), '/onboarding');
     assert.equal(loginDestination({ isActive: true, onboardingCompleted: true }), '/home');
+    // G02-T15: a remembered page is used only once activation and onboarding are done.
+    assert.equal(loginDestination({ isActive: true, onboardingCompleted: true }, '/writing/dashboard'), '/writing/dashboard');
+    assert.equal(loginDestination({ isActive: true, onboardingCompleted: false }, '/writing/dashboard'), '/onboarding');
+    assert.equal(loginDestination({ isActive: false, onboardingCompleted: true }, '/writing/dashboard'), 'activate');
+    assert.equal(loginDestination({ isActive: true, onboardingCompleted: true }, '//evil.com'), '/home');
   });
 
   test('normalizes access codes without changing their internal identity', () => {

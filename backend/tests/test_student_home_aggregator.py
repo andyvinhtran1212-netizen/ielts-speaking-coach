@@ -844,3 +844,65 @@ def test_vocabulary_wallet_words_counts_only_the_wallet(fake_db, aggregator):
     assert v["wallet_words"] == 1
     assert v["quiz_words_mastered"] == 1
     assert v["words_learned"] == 2
+
+
+# ── G02-T04 (FR-02-003) — Reading/Listening band only with enough full tests ──
+
+
+def _seed_test(fake, table, user_id, *, band, days_ago=0, status="submitted"):
+    fake.tables[table].append({
+        "id": str(uuid4()), "user_id": user_id, "submitted_at": _days_ago_iso(days_ago),
+        "status": status, "band_estimate": band,
+    })
+
+
+def test_home_band_not_ready_without_a_banded_full_test(fake_db, aggregator):
+    user_id = str(uuid4())
+    for days in (1, 2, 3):  # three exercises, no full test
+        fake_db.tables["listening_attempts"].append({
+            "id": str(uuid4()), "user_id": user_id, "created_at": _days_ago_iso(days),
+        })
+    _seed_test(fake_db, "reading_test_attempts", user_id, band=None)  # mini test: no band
+    _seed_test(fake_db, "reading_test_attempts", user_id, band=7.0, status="in_progress")
+
+    skills = aggregator.get_home_summary(fake_db, user_id, name="X", email="x@x.com")["skills"]
+
+    assert (skills["listening"]["banded_tests_count"], skills["listening"]["band_ready"]) == (0, False)
+    assert skills["listening"]["attempts_count"] == 3
+    assert (skills["reading"]["banded_tests_count"], skills["reading"]["band_ready"]) == (0, False)
+
+
+def test_home_band_ready_counts_only_submitted_banded_tests(fake_db, aggregator):
+    user_id = str(uuid4())
+    _seed_test(fake_db, "listening_test_attempts", user_id, band=6.5, days_ago=2)
+    for days in range(6):  # 1 full test + 6 exercises
+        fake_db.tables["listening_attempts"].append({
+            "id": str(uuid4()), "user_id": user_id, "created_at": _days_ago_iso(days),
+        })
+    _seed_test(fake_db, "reading_test_attempts", user_id, band=6.0, days_ago=3)
+    _seed_test(fake_db, "reading_test_attempts", user_id, band=7.0, days_ago=2)
+    _seed_test(fake_db, "reading_test_attempts", user_id, band=None, days_ago=1)
+
+    skills = aggregator.get_home_summary(fake_db, user_id, name="X", email="x@x.com")["skills"]
+
+    listening = skills["listening"]
+    assert (listening["banded_tests_count"], listening["band_ready"], listening["attempts_count"]) == (1, True, 7)
+    reading = skills["reading"]
+    assert (reading["banded_tests_count"], reading["band_ready"]) == (2, True)
+    # last_band keeps its meaning: the latest submitted test (a mini test here).
+    assert reading["last_band"] is None
+
+
+def test_home_band_threshold_is_configurable(fake_db, aggregator, monkeypatch):
+    from config import settings
+
+    monkeypatch.setattr(settings, "HOME_SKILL_BAND_MIN_FULL_TESTS", 2)
+    user_id = str(uuid4())
+    _seed_test(fake_db, "listening_test_attempts", user_id, band=6.5)
+
+    listening = aggregator.get_home_summary(fake_db, user_id, name="X", email="x@x.com")["skills"]["listening"]
+    assert (listening["banded_tests_count"], listening["band_ready"]) == (1, False)
+
+    monkeypatch.setattr(settings, "HOME_SKILL_BAND_MIN_FULL_TESTS", 0)  # floor of 1
+    empty = aggregator.get_home_summary(fake_db, str(uuid4()), name="X", email="x@x.com")["skills"]["listening"]
+    assert empty["band_ready"] is False
