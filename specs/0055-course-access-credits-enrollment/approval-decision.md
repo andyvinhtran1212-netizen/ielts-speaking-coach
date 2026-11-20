@@ -25,8 +25,14 @@ The approved revision is `spec.md`, `plan.md`, `tasks.md`, `rollout.md`,
   "chờ anh Andy xác nhận", that default is now the decision.
 - Decisions Andy had already taken on 2026-11-18 and that the spec text asked
   to record here at approval:
-  - **Q13 (step-up MFA):** no MFA to confirm an order; step-up MFA only for a
-    credit grant above 50 credits in one request (`CONDITIONAL_STEP_UP_ROUTES`).
+  - **Q13 (step-up MFA):** no MFA to confirm an order. Step-up MFA
+    (`CONDITIONAL_STEP_UP_ROUTES`) applies exactly as the Q13 row of `spec.md`
+    and `plan.md` 5.9 state it, i.e. on all four conditions:
+    `POST /admin/entitlements` when `credits` is omitted/null or `credits > 50`;
+    `POST /admin/credits/adjust` when `abs(delta) > 50`;
+    `POST /admin/credits/grant-extra` when `cohort_id` is set or the total
+    `credits * len(user_ids or [1])` is above 50;
+    `POST /admin/credits/convert-class` when `credits_per_member > 0`.
   - **C2 (FR-052, account deletion):** deletion anonymises the account and
     keeps orders and the credit ledger linked to the anonymised id; order
     documents and the ledger are kept **10 years**.
@@ -51,7 +57,8 @@ FU-2281, so Andy assigned the real numbers on 2026-11-20 11:04:29
 | 387 | recent sign-ins | G04-T16 | **389** |
 | 385 | pronunciation sample window | G04-T13 | **502** |
 
-386 stays empty. Each migration PR adds its own `register.tsv` row; the
+386 stays empty. Where the spec or plan still calls 389 the package's spare
+number (for the 381/382 overflow), this table supersedes it: 389 is G04-T16. Each migration PR adds its own `register.tsv` row; the
 first one (G04-T01) reserves all seven. The order of application keeps the
 rule that a lower number never depends on a higher one.
 
