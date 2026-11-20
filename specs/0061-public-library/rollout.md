@@ -13,7 +13,7 @@ Thứ tự (gói mục 6 T01): migration staging → API → trang → nội dun
 
 1. Áp `400_public_library.sql` lên staging bằng runner có khoá advisory (AGENTS.md "Staging-first"), chạy postcondition và truy vấn ở `verification.md` "Data evidence" **trước** khi merge mã dùng bảng. Ghi DB staging chỉ khi anh Andy gõ duyệt trực tiếp trong thread chạy lệnh (quy trình máy anh).
 2. Merge API (T006, T011, T013, T016), rồi trang (T008–T015). Trang hoạt động với bảng rỗng: danh sách hiện trạng thái rỗng, `/library` ẩn số.
-3. T018: `--check` sạch → dry-run → `--execute` với `publish:false` hết → dry-run lại "không còn khác biệt" → lô đầu 50 bộ đã ký `publish:true` → kiểm 10 trang ngẫu nhiên 1280/390 → các lô còn lại. Speaking chỉ nhập khi có tệp theo hợp đồng từ repo VIDEO MAKING.
+3. T018: `--check` sạch → dry-run → `--execute` với `publish:false` hết → dry-run lại "không còn khác biệt" → lô đầu `publish:true` cho **tối đa 50 bộ đủ điều kiện** (`review.status='approved'` + `review.by/at`; hiện có 19 — N1 còn mở thì lô đầu là 19, 530 bộ còn lại giữ `publish:false`) → kiểm 10 trang ngẫu nhiên 1280/390 → các lô còn lại. Speaking chỉ nhập khi có tệp theo hợp đồng từ repo VIDEO MAKING.
 4. T017 (sitemap, robots) merge sau khi có bộ đã xuất bản trên staging.
 5. Quyền tải tệp (FR-064): với một đề thử, kiểm nháp (404) → đăng, tải tệp một lần để làm nóng cache (200, `no-store`) → gỡ → gọi lại đúng URL ngay và sau 300 s (404 cả hai); URL object công khai `.../storage/v1/object/public/library-media/...` lỗi ở mọi trạng thái. Ghi băng thông route tệp sau một tuần để biết chi phí đi qua backend.
 6. CSP Speaking: kiểm `curl -I` route `/library/speaking/<slug>` có `frame-src https://www.youtube-nocookie.com` và `/` không có, trên Preview/staging.

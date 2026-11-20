@@ -39,6 +39,8 @@ Not approved by this decision:
 Later edit: `4a1385fd` (after this record) changed only the wording of open
 question N3 to match `plan.md` §5.2 (row 400 `present` in the T02 PR) and added
 an allow-list case to the planned `tests/test_library_media.py`; no requirement
-changed.
+changed. A second later edit made T018's first publish batch "at most 50
+eligible sets (currently 19)" in `tasks.md` and `rollout.md`, consistent with N1
+staying open; the 10-page QA step is kept.
 
 No learner data is included here.
