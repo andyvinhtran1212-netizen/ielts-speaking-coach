@@ -25,7 +25,7 @@ const dashJs   = read('frontend/js/admin-listening-audit.js');
 const detHtml  = read('frontend/pages/admin/listening/audit-detail.html');
 const detJs    = read('frontend/js/admin-listening-audit-detail.js');
 const testsHtml = read('frontend/pages/admin/listening/tests.html');
-const router   = read('backend/routers/listening.py');
+const router   = read('backend/routers/listening/__init__.py');
 
 
 describe('audit dashboard', () => {

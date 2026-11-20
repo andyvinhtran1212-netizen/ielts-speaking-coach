@@ -213,7 +213,7 @@ def _src(rel: str) -> str:
 
 def test_the_three_browse_lists_filter_the_flag():
     assert '.eq("is_public", True)' in _src("routers/reading_student.py")
-    assert '.eq("is_public", True)' in _src("routers/listening.py")
+    assert '.eq("is_public", True)' in _src("routers/listening/__init__.py")
     assert '.eq("exam_only", False)' in _src("routers/writing_student.py")
 
 
@@ -242,7 +242,7 @@ def test_reading_detail_receives_the_caller():
 def test_listening_detail_dictation_and_attempt_start_are_gated():
     """Dictation matters as much as the paper: it is built from the transcript,
     which IS the answer key read aloud."""
-    src = _src("routers/listening.py")
+    src = _src("routers/listening/__init__.py")
     assert "def _assert_listening_exam_content_allowed(" in src
     for fn in ("async def get_published_listening_test(",
                "async def get_listening_test_dictation(",
@@ -341,14 +341,14 @@ def test_delivery_entitlement_does_not_grant_transcript_or_another_owner(monkeyp
 
 def test_the_attempt_start_query_actually_selects_the_flag():
     """A gate reading a column the query never fetched always sees None."""
-    src = _src("routers/listening.py")
+    src = _src("routers/listening/__init__.py")
     seg = src[src.index("async def start_listening_test_attempt("):]
     assert "exam_only" in seg[:seg.index("_assert_listening_exam_content_allowed(")]
 
 
 def test_admins_can_set_the_flag():
     assert "exam_only" in _src("routers/admin_writing_prompts.py")
-    ls = _src("routers/listening.py")
+    ls = _src("routers/listening/__init__.py")
     assert 'update["exam_only"] = bool(body.exam_only)' in ls
 
 
@@ -615,7 +615,7 @@ def test_every_dictation_route_goes_through_the_one_gated_loader():
     """Structural, not per-route: dictation exposes the transcript, so a NEW
     dictation route must inherit the gate instead of needing someone to remember
     it. The shared loader is the only way in."""
-    src = _src("routers/listening.py")
+    src = _src("routers/listening/__init__.py")
     loader = src[src.index("def _published_test_for_dictation("):]
     loader = loader[:loader.index("\ndef ", 1)]
     assert "exam_only" in loader, "the loader must project the column it gates on"
@@ -743,7 +743,7 @@ def test_all_three_endpoints_enforce_it_not_just_one():
     """Reading/Listening mutations use the atomic guard; Writing keeps its gate."""
     reading = _src("routers/admin_reading.py")
     assert 'mutate(supabase_admin, "reading"' in reading
-    listening = _src("routers/listening.py")
+    listening = _src("routers/listening/__init__.py")
     segment = listening[listening.index("async def admin_patch_listening_test("):]
     segment = segment[:segment.index("\n@")]
     assert 'mutate(supabase_admin, "listening"' in segment
@@ -759,7 +759,7 @@ def test_both_paper_flag_directions_use_the_atomic_policy_guard():
     segment = segment[:segment.index("\n@")]
     assert 'mutate(supabase_admin, "reading"' in segment
     assert 'if not value:' not in segment
-    listening = _src("routers/listening.py")
+    listening = _src("routers/listening/__init__.py")
     segment = listening[listening.index("async def admin_patch_listening_test("):]
     segment = segment[:segment.index("\n@")]
     assert 'mutate(supabase_admin, "listening"' in segment

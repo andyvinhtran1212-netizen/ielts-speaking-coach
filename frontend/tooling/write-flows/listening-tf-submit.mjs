@@ -11,7 +11,7 @@
 // MỘT ĐƯỜNG GHI, NĂM TRƯỜNG DỄ HỎNG:
 //   · `exercise_id` + `content_id` — sai là chấm vào bài khác.
 //   · `mode: 'true_false'` — KHÔNG phải `tf`. Backend chỉ nhận đúng chuỗi này
-//     (`routers/listening.py:571-576`), và nó cũng là tên `exercise_type` trong
+//     (`routers/listening/__init__.py:571-576`), và nó cũng là tên `exercise_type` trong
 //     câu GET, nên viết tắt là trang rỗng chứ không phải nộp sai.
 //   · `answers` — mảng CHUỖI 'T'/'F'/'NG', không phải chỉ số như bên MCQ.
 //   · `listen_count` — `Math.max(1, …)`: nộp mà CHƯA BẤM NGHE vẫn phải là 1.
@@ -92,7 +92,7 @@ export default {
         // PHẢI VẮNG — bài lẻ không thuộc phiên nào. Bộ so chỉ khớp TẬP CON nên
         // không ghim thì bản port gửi thừa trường này vẫn xanh.
         // PHẢI VẮNG hoặc null. `listening_session_id: str | None`
-        // (`routers/listening.py:331`) nên null LÀ hợp lệ — ghim "phải vắng hẳn" là
+        // (`routers/listening/__init__.py:331`) nên null LÀ hợp lệ — ghim "phải vắng hẳn" là
         // quá chặt, sẽ đỏ oan với một bản port tuần tự hoá đúng luật (bot bắt ở
         // #966). Thứ cần chặn là một session id THẬT: gửi kèm thì backend gắn
         // bài lẻ vào phiên và làm nhiễu thống kê (`listening.py:712-713`).

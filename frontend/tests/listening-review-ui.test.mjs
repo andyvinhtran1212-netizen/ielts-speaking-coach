@@ -25,7 +25,7 @@ const js = read('frontend/js/listening-review.js');
 const css = read('frontend/css/listening-review.css');
 const playerHtml = read('frontend/pages/listening-test.html');
 const playerJs = read('frontend/js/listening-test-player.js');
-const router = read('backend/routers/listening.py');
+const router = read('backend/routers/listening/__init__.py');
 
 
 describe('Phase B — review page (listening-review.html) reuses the exam chrome', () => {
