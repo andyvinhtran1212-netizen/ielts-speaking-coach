@@ -27,6 +27,7 @@ no aggregate table.
 
 from __future__ import annotations
 
+import functools
 import logging
 from datetime import datetime, timezone
 from email.utils import format_datetime
@@ -50,10 +51,32 @@ RELATED_LIMIT = 4
 # URL value -> stored task_type (FR-010: Task 2 · Task 1).
 TASK_PARAM = {"task2": "task2", "task1": "task1_academic"}
 TASK_URL = {v: k for k, v in TASK_PARAM.items()}
-QUESTION_TYPES = (
-    "opinion", "discussion", "problem_solution",
-    "advantages_disadvantages", "two_part", "positive_negative",
-)
+# Stored question_type -> public code (URL ``dang``, JSON) and English label.
+# Stored codes such as ``problem_solution`` never leave the backend (FR-015).
+QUESTION_TYPE_PUBLIC = {
+    "opinion": "opinion",
+    "discussion": "discussion",
+    "problem_solution": "problem-solution",
+    "advantages_disadvantages": "advantages-disadvantages",
+    "two_part": "two-part",
+    "positive_negative": "positive-negative",
+}
+QUESTION_TYPE_STORED = {v: k for k, v in QUESTION_TYPE_PUBLIC.items()}
+QUESTION_TYPE_LABELS = {
+    "opinion": "Opinion",
+    "discussion": "Discussion",
+    "problem-solution": "Problem and Solution",
+    "advantages-disadvantages": "Advantages and Disadvantages",
+    "two-part": "Two-part Question",
+    "positive-negative": "Positive or Negative Development",
+}
+QUESTION_TYPES = tuple(QUESTION_TYPE_STORED)  # public codes accepted by ``dang``
+
+# JSON routes revalidate on every use (ETag -> 304), so an unpublished set is
+# never replayed from a browser or CDN cache: the next request reaches the
+# backend and gets 404 (FR-019). Error and redirect answers are not stored.
+JSON_CACHE_CONTROL = "no-cache"
+NO_STORE = "no-store"
 
 _LIST_COLUMNS = (
     "slug, title_en, task_type, question_type, task1_subtype, topic_slug, "
@@ -141,13 +164,55 @@ def _writing_topics() -> dict[str, dict]:
     }
 
 
+def _public_question_type(row: dict) -> Optional[str]:
+    return QUESTION_TYPE_PUBLIC.get(row.get("question_type"))
+
+
+def _kind_fields(row: dict) -> dict:
+    """Public task / type fields: no stored code (``task1_academic``,
+    ``problem_solution``) is echoed (FR-015)."""
+    qtype = _public_question_type(row)
+    return {
+        "task": TASK_URL.get(row.get("task_type")),
+        "question_type": qtype,
+        "question_type_label": QUESTION_TYPE_LABELS.get(qtype) if qtype else None,
+        "task1_subtype": row.get("task1_subtype"),
+    }
+
+
+def _unavailable() -> JSONResponse:
+    return JSONResponse(
+        status_code=503, content={"detail": "library_unavailable"}, headers={"Cache-Control": NO_STORE}
+    )
+
+
+def _db_guard(handler):
+    """A database read that fails (e.g. tables not migrated yet, Supabase down)
+    answers 503 ``library_unavailable`` with no-store, logged, instead of a bare
+    500; validation errors (422) are raised before any read and pass through."""
+
+    @functools.wraps(handler)
+    def wrapper(*args, **kwargs):
+        try:
+            return handler(*args, **kwargs)
+        except HTTPException:
+            raise
+        except Exception:  # noqa: BLE001 - every client/DB error maps to one answer
+            logger.exception("[library] %s failed", handler.__name__)
+            return _unavailable()
+
+    return wrapper
+
+
+def _json(data: Any, request: Request, *, last_modified: str) -> Response:
+    return cacheable_json(data, request, last_modified=last_modified, cache_control=JSON_CACHE_CONTROL)
+
+
 def _list_item(row: dict) -> dict:
     return {
         "slug": row.get("slug"),
         "title_en": row.get("title_en"),
-        "task_type": row.get("task_type"),
-        "question_type": row.get("question_type"),
-        "task1_subtype": row.get("task1_subtype"),
+        **_kind_fields(row),
         "topic_slug": row.get("topic_slug"),
         "prompt_text": row.get("prompt_text"),
     }
@@ -156,7 +221,7 @@ def _list_item(row: dict) -> dict:
 def _matches(row: dict, *, task: Optional[str], dang: Optional[str], chude: Optional[str], needle: Optional[str]) -> bool:
     if task and row.get("task_type") != TASK_PARAM[task]:
         return False
-    if dang and row.get("question_type") != dang:
+    if dang and row.get("question_type") != QUESTION_TYPE_STORED[dang]:
         return False
     if chude and row.get("topic_slug") != chude:
         return False
@@ -244,13 +309,14 @@ def library_summary(request: Request):
         "grammar": _safe(_count_grammar),
         "vocabulary": _safe(_count_vocabulary),
     }
-    return cacheable_json(data, request, last_modified=_http_date([]))
+    return _json(data, request, last_modified=_http_date([]))
 
 
 # ── writing samples ─────────────────────────────────────────────────────────
 
 
 @router.get("/writing-samples")
+@_db_guard
 def list_writing_samples(
     request: Request,
     task: Optional[str] = Query(default=None),
@@ -268,7 +334,7 @@ def list_writing_samples(
     if task is not None and task not in TASK_PARAM:
         raise HTTPException(422, "task must be task2 or task1")
     if dang is not None and dang not in QUESTION_TYPES:
-        raise HTTPException(422, "dang is not a Task 2 question type")
+        raise HTTPException(422, "dang is not a Task 2 question type (" + ", ".join(QUESTION_TYPES) + ")")
     if dang is not None and task == "task1":
         raise HTTPException(422, "dang applies to Task 2 only")
     needle = (q or "").strip().casefold() or None
@@ -287,7 +353,7 @@ def list_writing_samples(
     )
     facet_type = _count(
         [r for r in rows if _matches(r, **{**filters, "dang": None})],
-        lambda r: r.get("question_type"),
+        _public_question_type,
     )
     facet_topic = _count(
         [r for r in rows if _matches(r, **{**filters, "chude": None})],
@@ -306,15 +372,16 @@ def list_writing_samples(
             for t in sorted(topics.values(), key=lambda t: (t.get("display_order") or 0, t["slug"]))
         ],
     }
-    return cacheable_json(data, request, last_modified=_http_date([r.get("updated_at") for r in rows]))
+    return _json(data, request, last_modified=_http_date([r.get("updated_at") for r in rows]))
 
 
 @router.get("/writing-samples/index")
+@_db_guard
 def writing_samples_index(request: Request):
     """``[{slug, updated_at}]`` of every published set, for the sitemap."""
     rows = _published_list()
     data = [{"slug": r.get("slug"), "updated_at": r.get("updated_at")} for r in rows]
-    return cacheable_json(data, request, last_modified=_http_date([r.get("updated_at") for r in rows]))
+    return _json(data, request, last_modified=_http_date([r.get("updated_at") for r in rows]))
 
 
 def _public_essays(raw: Any) -> dict:
@@ -389,10 +456,13 @@ def _related(current: dict, rows: list[dict]) -> list[dict]:
 
 
 def _sample_not_found() -> JSONResponse:
-    return JSONResponse(status_code=404, content={"detail": "sample_not_found"})
+    return JSONResponse(
+        status_code=404, content={"detail": "sample_not_found"}, headers={"Cache-Control": NO_STORE}
+    )
 
 
 @router.get("/writing-samples/{slug}")
+@_db_guard
 def get_writing_sample(slug: str, request: Request):
     """One published set (FR-013–FR-019). A slug renamed after publishing
     redirects with 308 to the current slug; anything else is 404."""
@@ -426,7 +496,9 @@ def get_writing_sample(slug: str, request: Request):
             )
             if target and target[0].get("slug") and target[0]["slug"] != slug:
                 return RedirectResponse(
-                    url=f"/api/library/writing-samples/{target[0]['slug']}", status_code=308
+                    url=f"/api/library/writing-samples/{target[0]['slug']}",
+                    status_code=308,
+                    headers={"Cache-Control": NO_STORE},
                 )
         return _sample_not_found()
 
@@ -440,9 +512,7 @@ def get_writing_sample(slug: str, request: Request):
     data = {
         "slug": row.get("slug"),
         "title_en": row.get("title_en"),
-        "task_type": task_type,
-        "question_type": row.get("question_type"),
-        "task1_subtype": row.get("task1_subtype"),
+        **_kind_fields(row),
         "topic_slug": row.get("topic_slug"),
         "prompt_text": row.get("prompt_text"),
         "figure_url": (
@@ -460,13 +530,14 @@ def get_writing_sample(slug: str, request: Request):
         "prev": _neighbour(prev_row),
         "next": _neighbour(next_row),
     }
-    return cacheable_json(data, request, last_modified=_http_date([row.get("updated_at")]))
+    return _json(data, request, last_modified=_http_date([row.get("updated_at")]))
 
 
 # ── media (FR-064) ──────────────────────────────────────────────────────────
 
 
 @router.get("/media/{shelf}/{key}/{asset}")
+@_db_guard
 def get_library_media(shelf: str, key: str, asset: str, request: Request) -> Response:
     """Figure or audio bytes of a PUBLISHED item, read fresh on every request.
 

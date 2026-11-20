@@ -67,7 +67,7 @@ TOPICS = [
 def _rows():
     return [
         _sample("alpha-schools", title="Alpha schools", qtype="opinion", topic="education"),
-        _sample("beta-uniforms", title="Beta uniforms", qtype="discussion", topic="education"),
+        _sample("beta-uniforms", title="Beta uniforms", qtype="problem_solution", topic="education"),
         _sample("gamma-climate", title="Gamma climate", qtype="opinion", topic="environment",
                 updated="2026-11-05T00:00:00+00:00"),
         _sample("delta-chart", title="Delta chart", task_type="task1_academic", subtype="bar",
@@ -114,6 +114,9 @@ FORBIDDEN = (
     "source_key", "content_hash", "source_review_status", "integrity_check",
     "difficulty_notes", "estimated_scores", "idea_codes", "score_estimate",
     "change_type", "error_group", "draft-secret", "Draft secret",
+    # stored codes (FR-015): only public codes/labels leave the backend
+    "problem_solution", "advantages_disadvantages", "two_part", "positive_negative",
+    "task1_academic", "task_type", "TR:", "GRA:",
 )
 
 
@@ -131,7 +134,7 @@ def _assert_clean(body):
 def test_list_returns_only_published_in_default_order_with_public_cache(client):
     r = client.get("/api/library/writing-samples")
     assert r.status_code == 200
-    assert r.headers["cache-control"].startswith("public, max-age=60")
+    assert r.headers["cache-control"] == "no-cache"
     assert r.headers.get("etag")
     body = r.json()
     assert [i["slug"] for i in body["items"]] == ["alpha-schools", "beta-uniforms", "gamma-climate", "delta-chart"]
@@ -145,7 +148,7 @@ def test_list_facets_ignore_their_own_filter(client):
     assert [i["slug"] for i in body["items"]] == ["alpha-schools", "beta-uniforms"]
     facets = body["facets"]
     assert facets["task"] == {"task2": 2}  # education only, any task
-    assert facets["question_type"] == {"opinion": 1, "discussion": 1}
+    assert facets["question_type"] == {"opinion": 1, "problem-solution": 1}
     assert facets["topic"] == {"education": 2, "environment": 1}  # task2, any topic
 
 
@@ -200,8 +203,10 @@ def test_index_lists_published_slugs_and_dates(client):
 def test_detail_allow_lists_payload_and_expands_criteria(client):
     r = client.get("/api/library/writing-samples/alpha-schools")
     assert r.status_code == 200
-    assert r.headers["cache-control"].startswith("public, max-age=60")
+    assert r.headers["cache-control"] == "no-cache"
     body = r.json()
+    assert body["task"] == "task2"
+    assert body["question_type"] == "opinion" and body["question_type_label"] == "Opinion"
     _assert_clean(body)
     assert set(body["essays"]) == {"7.5", "7.0", "6.0"}
     assert set(body["essays"]["7.5"]) == {"text", "word_count", "outline", "vocab_table", "structures"}
@@ -293,3 +298,94 @@ def test_routes_are_public_without_a_token(client):
         "/api/library/writing-samples/alpha-schools",
     ):
         assert client.get(path).status_code == 200, path
+
+
+# ── FR-015 public type codes ────────────────────────────────────────────────
+
+
+def test_list_uses_public_type_codes_and_labels(client):
+    body = client.get("/api/library/writing-samples?dang=problem-solution").json()
+    assert [i["slug"] for i in body["items"]] == ["beta-uniforms"]
+    item = body["items"][0]
+    assert item["task"] == "task2"
+    assert item["question_type"] == "problem-solution"
+    assert item["question_type_label"] == "Problem and Solution"
+    _assert_clean(body)
+
+
+def test_list_rejects_stored_type_code(client):
+    assert client.get("/api/library/writing-samples?dang=problem_solution").status_code == 422
+
+
+def test_detail_related_and_neighbours_carry_no_stored_codes(client):
+    body = client.get("/api/library/writing-samples/beta-uniforms").json()
+    assert body["question_type"] == "problem-solution"
+    _assert_clean(body)
+
+
+def test_task1_item_has_public_task_and_no_type(client):
+    item = client.get("/api/library/writing-samples?task=task1").json()["items"][0]
+    assert item["task"] == "task1" and item["question_type"] is None and item["question_type_label"] is None
+    assert item["task1_subtype"] == "bar"
+
+
+# ── FR-019 withdrawal is never replayed from cache ──────────────────────────
+
+
+def test_unpublished_detail_is_404_on_revalidation_of_a_cached_copy(client, db):
+    first = client.get("/api/library/writing-samples/alpha-schools")
+    assert first.status_code == 200 and first.headers["cache-control"] == "no-cache"
+    etag = first.headers["etag"]
+    assert client.get("/api/library/writing-samples/alpha-schools",
+                      headers={"If-None-Match": etag}).status_code == 304
+    db.tables["writing_samples"][0]["published"] = False
+    again = client.get("/api/library/writing-samples/alpha-schools", headers={"If-None-Match": etag})
+    assert again.status_code == 404
+    assert again.headers["cache-control"] == "no-store"
+    assert "etag" not in again.headers
+
+
+def test_list_drops_an_unpublished_set_on_the_next_request(client, db):
+    assert client.get("/api/library/writing-samples").json()["total"] == 4
+    db.tables["writing_samples"][0]["published"] = False
+    body = client.get("/api/library/writing-samples").json()
+    assert body["total"] == 3 and "alpha-schools" not in json.dumps(body)
+
+
+def test_redirect_and_404_are_not_stored(client, db):
+    moved = client.get("/api/library/writing-samples/alpha-old", follow_redirects=False)
+    assert moved.status_code == 308 and moved.headers["cache-control"] == "no-store"
+    db.tables["writing_samples"][0]["published"] = False
+    gone = client.get("/api/library/writing-samples/alpha-old", follow_redirects=False)
+    assert gone.status_code == 404 and gone.headers["cache-control"] == "no-store"
+
+
+@pytest.mark.parametrize("path", [
+    "/api/library/summary",
+    "/api/library/writing-samples",
+    "/api/library/writing-samples/index",
+    "/api/library/writing-samples/alpha-schools",
+])
+def test_every_json_route_revalidates(client, path):
+    assert client.get(path).headers["cache-control"] == "no-cache"
+
+
+# ── DB unavailable (e.g. migration 400 not applied yet) ─────────────────────
+
+
+@pytest.mark.parametrize("path", [
+    "/api/library/writing-samples",
+    "/api/library/writing-samples/index",
+    "/api/library/writing-samples/alpha-schools",
+])
+def test_db_failure_is_503_no_store(client, db, path):
+    db.broken.add("writing_samples")
+    r = client.get(path)
+    assert r.status_code == 503
+    assert r.json() == {"detail": "library_unavailable"}
+    assert r.headers["cache-control"] == "no-store"
+
+
+def test_db_failure_does_not_hide_422(client, db):
+    db.broken.add("writing_samples")
+    assert client.get("/api/library/writing-samples?task=task3").status_code == 422

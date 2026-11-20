@@ -135,3 +135,11 @@ def test_public_storage_url_is_never_emitted():
         source = open(module.__file__, encoding="utf-8").read()
         assert "get_public_url" not in source
         assert "create_signed_url" not in source
+
+
+def test_db_failure_is_503_no_store(client, db):
+    db.broken.add("writing_samples")
+    r = client.get(FIGURE)
+    assert r.status_code == 503
+    _no_store(r)
+    assert db.downloads == []
