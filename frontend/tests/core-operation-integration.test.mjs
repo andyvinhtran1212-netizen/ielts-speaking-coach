@@ -123,10 +123,14 @@ test('actual Listening submit does not record/send anything when answers have no
 });
 
 test('actual Writing draft uses the exact textarea snapshot and preserves retry across remount', async () => {
-  const h = harness(), calls = [], notices = [], textarea = { value: 'My exact essay text' };
-  // G02-T14: a failed draft save is reported in the modal, not with alert().
+  const h = harness(), calls = [], textarea = { value: 'My exact essay text' };
+  // G02-T14: a failed draft save is reported beside the Save button (in-page,
+  // not alert()), and the next successful save clears it.
+  const saveError = { shown: false, text: '' };
   const scope = { $: id => id === 'modal-essay-textarea' ? textarea : null, coreOperationRequest: h.request,
-    setTimeout() {}, showModalNotice: (kind, message) => notices.push([kind, message]), hideModalNotice() {},
+    setTimeout() {},
+    showDraftSaveError: (message) => { saveError.shown = true; saveError.text = message; },
+    hideDraftSaveError: () => { saveError.shown = false; saveError.text = ''; },
     window: { api: { patchWith: async (path, body, headers) => {
       calls.push({ path, body, headers });
       if (calls.length === 1) throw new Error('offline');
@@ -137,8 +141,10 @@ test('actual Writing draft uses the exact textarea snapshot and preserves retry 
   // the shared modal is still waiting for another assignment's admission.
   const ms = { assignmentId: h.attempt.attempt_id, accountId: h.user.id, workspaceReady: true, openGeneration: 1, dead: false };
   await actualHandler('writing', 'saveDraft', scope)(ms);
-  assert.deepEqual(notices, [['error', 'Không lưu được bản nháp: offline']]);
+  assert.deepEqual(saveError, { shown: true, text: 'Không lưu được bản nháp: offline' });
+  assert.equal(textarea.value, 'My exact essay text', 'a failed save must not touch the learner text');
   await actualHandler('writing', 'saveDraft', { ...scope, coreOperationRequest: harnessTransport(h) })(ms);
+  assert.deepEqual(saveError, { shown: false, text: '' }, 'a successful retry clears the save error');
   assert.deepEqual(calls[0], calls[1]);
   assert.deepEqual(calls[0].body, { draft_text: textarea.value });
   assert.ok(!JSON.stringify([...h.rows]).includes(textarea.value));

@@ -242,8 +242,8 @@ function hideSubmissionNotice() {
 }
 
 // The submit modal is full-screen, so the page-level notice above sits behind
-// it. Problems raised while the learner is writing (draft save, blocked paste)
-// go to the in-modal notice instead; it is cleared on every open/close.
+// it. A blocked paste is reported in the in-modal notice above the textarea
+// (where the learner just pasted); it is cleared on every open/close.
 function showModalNotice(kind: 'warning' | 'error', message: string) {
   const notice = $('modal-notice');
   if (!notice) return;
@@ -258,6 +258,24 @@ function hideModalNotice() {
   if (!notice) return;
   notice.classList.add('hidden');
   notice.textContent = '';
+}
+
+// A failed draft save is reported in the modal footer, beside "Lưu bản nháp":
+// on a phone the stacked layout puts the textarea (min 24rem) between the
+// top of the pane and the button, so a notice above the textarea can be off
+// screen exactly when the learner taps Save. Cleared by the next good save.
+function showDraftSaveError(message: string) {
+  const el = $('modal-save-error');
+  if (!el) return;
+  el.textContent = message;
+  el.classList.remove('hidden');
+}
+
+function hideDraftSaveError() {
+  const el = $('modal-save-error');
+  if (!el) return;
+  el.classList.add('hidden');
+  el.textContent = '';
 }
 
 function statusCode(err: any): number | null {
@@ -1090,7 +1108,7 @@ async function saveDraft(ms: ModalState) {
     if (pending) pending.classList.add('hidden');
     if (saved) saved.classList.remove('hidden');
     // A later successful save supersedes an earlier "draft not saved" error.
-    if ($('modal-notice')?.classList.contains('is-error')) hideModalNotice();
+    hideDraftSaveError();
     setTimeout(() => { if (isCurrent() && saved) saved.classList.add('hidden'); }, 2000);
   } catch (err: any) {
     if (!isCurrent()) return;
@@ -1101,7 +1119,7 @@ async function saveDraft(ms: ModalState) {
       await submitFromModal(ms, true);
       return;
     }
-    showModalNotice('error', 'Không lưu được bản nháp: ' + msg);
+    showDraftSaveError('Không lưu được bản nháp: ' + msg);
   }
 }
 
@@ -1381,6 +1399,7 @@ function closeModal(ms: ModalState) {
   const modal = $('submit-modal');
   if (modal) modal.classList.add('hidden');
   hideModalNotice();
+  hideDraftSaveError();
   ms.assignmentId = null;
   const returnFocus = ms.returnFocus;
   ms.returnFocus = null;
@@ -1578,6 +1597,7 @@ async function openSubmitModal(
   const staleTextarea = $('modal-essay-textarea') as HTMLTextAreaElement | null;
   if (staleTextarea) staleTextarea.value = '';
   hideModalNotice();
+  hideDraftSaveError();
   ms.allowSoftCheck = false;
   ms.dead = false;
   const accountId = ms.accountId;

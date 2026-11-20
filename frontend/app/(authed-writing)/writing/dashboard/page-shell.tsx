@@ -352,8 +352,8 @@ export function WritingShell() {
                   <span>Bài và bản nháp của bạn vẫn được giữ. Bài này không nhận bài nộp mới.</span>
                 </div>
 
-                {/* In-page notice for draft-save failures and blocked pastes
-                     (replaces the browser alert box; filled by showModalNotice). */}
+                {/* In-page notice for a blocked long paste (replaces the
+                     browser alert box; filled by showModalNotice). */}
                 <div id="modal-notice" className="wd-submit-notice hidden" role="status"></div>
 
                 {/* Essay textarea — Grammarly + autocorrect + spellcheck disabled */}
@@ -385,6 +385,9 @@ export function WritingShell() {
                   <div className="wd-modal-footer-meta">
                     <span id="modal-save-status" className="wd-modal-save-status hidden">Đã lưu bản nháp</span>
                     <span id="modal-save-pending" className="wd-modal-save-pending hidden">Đang lưu…</span>
+                    {/* Draft-save failure sits beside the Save button so it is
+                         on screen when the learner taps it, also on a phone. */}
+                    <span id="modal-save-error" className="wd-modal-save-error hidden" role="alert"></span>
                     <span className="wd-modal-autosave-hint">Bản nháp tự lưu khi bạn viết</span>
                   </div>
                   <div className="wd-modal-actions">
