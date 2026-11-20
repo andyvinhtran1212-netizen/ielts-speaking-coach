@@ -1,14 +1,14 @@
 ---
 id: COURSEACCESS-0055
 title: Learners get course access, one shared AI grading credit pool and bank-transfer enrollment orders confirmed by an admin, while existing access codes keep working
-status: draft
+status: approved
 risk: critical
 owner: product
 ---
 
 # Learners get course access, one shared AI grading credit pool and bank-transfer enrollment orders confirmed by an admin, while existing access codes keep working
 
-Status: **draft** — soạn ngày 18/11/2026 cho nhiệm vụ `G04-T00` (đợt A, thương mại hoá 2026-11), từ `docs/proposals/commercialization-2026-11/GOI-04-khoa-hoc-quyen-luot-ai-don-dang-ky.md` và `00-QUY-UOC-CHUNG.md` mục 2 (bản trên `staging` sau PR #2331). Chưa dòng mã nào chạy theo spec này; mọi hợp đồng kỹ thuật là đề xuất đã kiểm trên giấy (BAN-GIAO mục 7). Chỉ anh Andy duyệt; khi duyệt, câu trả lời ghi vào `approval-decision.md` cùng thư mục, nguyên văn kèm thời điểm, và `status` đổi sang `approved`. Số spec 0055 lấy từ sổ cấp số ở `01-KE-HOACH-TONG.md` mục 6. Số migration **không** do spec này tự cấp: các số 381–389 dưới đây là số đề xuất của gói, số thật lấy từ sổ `backend/migrations/register.tsv` (G01-T06) khi mở PR migration (Security Auditor SA-2335-R1 C3; 381/382 hiện đang được giữ cho FU-2281).
+Status: **approved** (anh Andy duyệt 20/11/2026 11:04 giờ Việt Nam, xem `approval-decision.md`) — soạn ngày 18/11/2026 cho nhiệm vụ `G04-T00` (đợt A, thương mại hoá 2026-11), từ `docs/proposals/commercialization-2026-11/GOI-04-khoa-hoc-quyen-luot-ai-don-dang-ky.md` và `00-QUY-UOC-CHUNG.md` mục 2 (bản trên `staging` sau PR #2331). Chưa dòng mã nào chạy theo spec này; mọi hợp đồng kỹ thuật là đề xuất đã kiểm trên giấy (BAN-GIAO mục 7). Chỉ anh Andy duyệt; khi duyệt, câu trả lời ghi vào `approval-decision.md` cùng thư mục, nguyên văn kèm thời điểm, và `status` đổi sang `approved`. Số spec 0055 lấy từ sổ cấp số ở `01-KE-HOACH-TONG.md` mục 6. Số migration **không** do spec này tự cấp: các số 381–389 dưới đây là số đề xuất của gói, số thật lấy từ sổ `backend/migrations/register.tsv` (G01-T06) khi mở PR migration (Security Auditor SA-2335-R1 C3; 381/382 hiện đang được giữ cho FU-2281).
 
 ## Tóm tắt (tiếng Việt)
 
