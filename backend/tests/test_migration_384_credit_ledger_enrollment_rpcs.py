@@ -886,6 +886,31 @@ async def test_confirm_is_idempotent_and_race_safe(pg):
 
 
 @pytest.mark.asyncio
+async def test_enrollment_order_trigger_stack(pg):
+    """383 transition + updated_at and 384 entitlement match, all enabled together."""
+    con = pg.con
+    user = await pg.user()
+    order = await pg.order(user, await pg.product())
+    confirmed = await _confirm(pg, _uuid(order["id"]))
+    stranger = await pg.order(await pg.user(), await pg.product())
+    # A transition the 383 guard allows still cannot point at another order's entitlement.
+    with pytest.raises(asyncpg.RaiseError, match="enrollment_order_entitlement_mismatch"):
+        await con.execute("UPDATE enrollment_orders SET status = 'confirmed', entitlement_id = $1 WHERE id = $2",
+                          _uuid(confirmed["entitlement_id"]), _uuid(stranger["id"]))
+    # Clearing the link passes the match check and is refused by the transition guard.
+    with pytest.raises(asyncpg.RaiseError, match="invalid_transition"):
+        await con.execute("UPDATE enrollment_orders SET entitlement_id = NULL WHERE id = $1", _uuid(order["id"]))
+    # A valid transition passes all three and bumps updated_at.
+    before = await con.fetchval("SELECT updated_at FROM enrollment_orders WHERE id = $1", _uuid(stranger["id"]))
+    await con.execute("UPDATE enrollment_orders SET status = 'transfer_reported' WHERE id = $1",
+                      _uuid(stranger["id"]))
+    row = await con.fetchrow("SELECT status, updated_at, entitlement_id FROM enrollment_orders WHERE id = $1",
+                             _uuid(stranger["id"]))
+    assert row["status"] == "transfer_reported" and row["entitlement_id"] is None
+    assert row["updated_at"] >= before
+
+
+@pytest.mark.asyncio
 async def test_confirm_chains_a_renewal_inside_the_window(pg):
     con = pg.con
     product = await pg.product(access_days=30)
