@@ -36,4 +36,9 @@ Not approved by this decision:
 - Running the import scripts with `--execute` on any database, and any
   production read, write or deploy.
 
+Later edit: `4a1385fd` (after this record) changed only the wording of open
+question N3 to match `plan.md` §5.2 (row 400 `present` in the T02 PR) and added
+an allow-list case to the planned `tests/test_library_media.py`; no requirement
+changed.
+
 No learner data is included here.
