@@ -301,6 +301,7 @@ Một số động từ chấp nhận cả gerund và to-infinitive với nghĩa
 - He **continued working** / He **continued to work**.
 
 > **Ngoại lệ:** Sau continuous tenses, thường dùng to-infinitive để tránh hai -ing liền nhau:
+>
 > - ❌ Awkward: I **was beginning crying**.
 > - ✅ Better: I **was beginning to cry**.
 
@@ -1585,6 +1586,7 @@ Khi gặp "remember + verb", hỏi một câu duy nhất:
 | Hành động **chưa xảy ra**, cần làm sau thời điểm nhớ? | Không | **remember + to do** | "Remember to lock the door." *(Nhớ khoá cửa nhé)* |
 
 > **Mẹo hình dung:**
+>
 > - `remember doing` → nhìn về **QUÁ KHỨ**, như xem lại đoạn băng ký ức
 > - `remember to do` → nhìn về **TƯƠNG LAI**, như xem lịch nhắc việc cần làm
 

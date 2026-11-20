@@ -26,6 +26,7 @@ import {
   InstructorInactiveState,
   useInstructorInactiveGuard,
 } from '@/app/(authed-instructor)/instructor/instructor-inactive';
+import { leaveForParent } from '@/lib/redirect-notice-model.mjs';
 
 type Phase = 'loading' | 'ready' | 'denied' | 'error';
 type Banner = { tone: 'success' | 'danger' | 'warning'; message: string } | null;
@@ -251,6 +252,12 @@ export function InstructorGrade() {
         if (requestId !== sequence.current || user.id !== accountRef.current) return;
         if (!['instructor', 'admin'].includes(profile.role)) {
           setPhase('denied');
+          return;
+        }
+        // G02-T11: a grading link without any essay goes back to the instructor
+        // home; a link with several ids keeps its own explanation.
+        if (!new URLSearchParams(queryKey).getAll('essay_id').some((id) => id.trim())) {
+          leaveForParent('/instructor');
           return;
         }
         const query = readInstructorGradeQuery(new URLSearchParams(queryKey));

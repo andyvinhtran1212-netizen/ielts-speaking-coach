@@ -288,15 +288,28 @@ describe('runner', () => {
     await screen.findByDisplayValue('Monday');
     expect(leave()).toBe(false);
     fireEvent.change(screen.getByDisplayValue('Monday'), { target: { value: 'Sunday' } });
+    await screen.findByText('Đang lưu…');
     expect(leave()).toBe(true);
     await screen.findByText(/^Chưa lưu\./, {}, { timeout: 2000 });
     expect(leave()).toBe(true);
     cleanup();
     const ok = spyApi();
+    let acknowledge!: () => void;
+    const saveAck = new Promise<void>((resolve) => { acknowledge = resolve; });
+    ok.api.saveAnswer.mockImplementation(async (...args: Parameters<ExerciseBookApi['saveAnswer']>) => {
+      await saveAck;
+      return ok.base.saveAnswer(...args);
+    });
     renderWith(ok.api, <ExerciseBookRunner testId={RESUME_TEST} classItem={ITEM} />);
     fireEvent.change(await screen.findByDisplayValue('Monday'), { target: { value: 'Sunday' } });
+    await screen.findByText('Đang lưu…');
+    await waitFor(() => expect(ok.api.saveAnswer).toHaveBeenCalledTimes(1));
+    expect(leave()).toBe(true);
+    // Observe a real pending save before releasing its ACK; the initial
+    // "Đã lưu" label cannot satisfy the saved-state assertion below.
+    await act(async () => { acknowledge(); await ok.api.saveAnswer.mock.results[0].value; });
     await screen.findByText('Đã lưu', {}, { timeout: 2000 });
-    expect(leave()).toBe(false);
+    await waitFor(() => expect(leave()).toBe(false));
   });
 
   it('confirms blanks, submits the latest answers and opens the review', async () => {

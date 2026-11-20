@@ -93,7 +93,7 @@ async function fixture(options = {}) {
 try {
   for (const studentError of [
     { code: 'student_archived', message: 'Hồ sơ học viên của bạn đã được lưu trữ. Vui lòng liên hệ giảng viên.' },
-    'Em chưa được xếp lớp, Writing sẽ mở khi giáo viên giao bài',
+    'Bạn chưa được xếp lớp, Writing sẽ mở khi giáo viên giao bài',
   ]) {
     const f = await fixture({ studentError });
     const message = typeof studentError === 'string' ? studentError : studentError.message;

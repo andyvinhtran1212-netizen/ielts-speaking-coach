@@ -28,6 +28,7 @@ import { AttemptReviewFlagStatus } from '@/components/attempt-review-flag-status
 import { formatReadingPassage } from '@/lib/reading-passage-presentation.mjs';
 import { numberedBlankPattern, plainDiagramPrompt } from '@/lib/numbered-blank.mjs';
 import { examResultNextStepTitle, examResultOutcomes } from '@/lib/exam-result-outcomes.mjs';
+import { leaveForParent } from '@/lib/redirect-notice-model.mjs';
 
 type AnswerMap = Map<number, string>;
 type SaveState = Map<number, 'pending' | 'retrying' | 'failed'>;
@@ -722,8 +723,8 @@ export function ReadingExamSession() {
       setDisplaySize(localStorage.getItem('ielts-text-size') || 'medium');
       setDisplayTheme(localStorage.getItem('ielts-exam-theme') || 'default');
     } catch {
-      setError('No valid test ID was provided.');
-      setPhase('error');
+      // G02-T11: no valid test in the link → back to Reading with a notice.
+      leaveForParent('/reading/test');
     }
   }, []);
 

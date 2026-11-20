@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Thư viện miễn phí</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--link:#0B5953;--mark:#8A4B08;--tint:#EDF3F1}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--link:#1A3561;--mark:#8A1C1C;--tint:#EEF0F5}
+a{color:var(--link)}a:hover{color:var(--ink)}
+</style>
+</helmet>
+<div class="{{pal}}" style="background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 16px; line-height: 1.55; min-height: 2338px">
+<header style="border-bottom: 1px solid var(--ink)">
+<div style="max-width: 1120px; margin: 0 auto; padding: 0 32px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 36px; min-height: 64px">
+<a href="Main.dc.html" style="display: inline-flex; align-items: center; gap: 9px; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600; color: var(--ink); text-decoration: none"><svg width="29" height="29" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</a>
+<nav aria-label="Điều hướng chính" style="display: flex; flex-wrap: wrap; gap: 4px 28px; flex-grow: 1">
+<a href="Main.dc.html" style="padding: 20px 0; color: var(--muted); text-decoration: none">Hôm nay</a>
+<a href="LoTrinh.dc.html" style="padding: 20px 0; color: var(--muted); text-decoration: none">Lộ trình</a>
+<a href="LuyenTap.dc.html" style="padding: 20px 0; color: var(--muted); text-decoration: none">Luyện tập</a>
+<a href="ThiThu.dc.html" style="padding: 20px 0; color: var(--muted); text-decoration: none">Thi thử</a>
+<a href="ThuVien.dc.html" aria-current="page" style="padding: 20px 0 17px; color: var(--ink); font-weight: 600; text-decoration: none; border-bottom: 3px solid var(--accent)">Thư viện</a>
+</nav>
+<div style="display: flex; align-items: center; gap: 16px">
+<span style="font-size: 14px; color: var(--muted)">Lượt chấm AI còn <strong style="color: var(--ink); font-variant-numeric: tabular-nums">XXX</strong></span>
+<button aria-label="Tra nhanh: từ, bài ngữ pháp, đề bài mẫu" title="Tra nhanh" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; box-sizing: border-box; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); cursor: pointer"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="1.6"></circle><path d="M15 15l5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path></svg></button>
+<span style="position: relative; flex: none; display: inline-flex"><a href="ThongBao.dc.html" aria-label="Thông báo, 4 chưa đọc" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; box-sizing: border-box; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink)"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15zM10 20.5a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></a><span aria-hidden="true" style="position: absolute; top: -7px; right: -7px; min-width: 20px; height: 20px; box-sizing: border-box; padding: 0 5px; border: 1px solid var(--paper); border-radius: 2px; background: var(--accent); color: var(--surface); font-size: 12px; font-weight: 600; line-height: 18px; text-align: center; font-variant-numeric: tabular-nums">4</span></span>
+<button aria-label="Mở menu tài khoản" style="width: 44px; height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer">MA</button>
+</div>
+</div>
+</header>
+<main style="max-width: 1120px; margin: 0 auto; padding: 48px 32px 72px">
+<h1 style="margin: 0 0 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 44px; font-weight: 600; line-height: 1.15">Thư viện</h1>
+<p style="margin: 0 0 20px; color: var(--muted); max-width: 66ch">Đọc và xem miễn phí, không cần tài khoản. Muốn nộp bài để được chấm thì cần một khoá học; tài khoản miễn phí được <a href="ChamThuMienPhi.dc.html">chấm thử miễn phí</a> XXX bài Writing và Speaking.</p>
+<nav aria-label="Các kệ trong thư viện" style="display: flex; flex-wrap: wrap; gap: 0 32px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule); margin-bottom: 44px">
+<a href="#mau" style="padding: 12px 0; color: var(--ink); font-weight: 600; text-decoration: none">Bài mẫu Writing</a>
+<a href="#kienthuc" style="padding: 12px 0; color: var(--ink); text-decoration: none">Kiến thức Writing</a>
+<a href="#speaking" style="padding: 12px 0; color: var(--ink); text-decoration: none">Đề Speaking và video</a>
+<a href="BaiGiang.dc.html" style="padding: 12px 0; color: var(--ink); text-decoration: none">Ngữ pháp</a>
+<a href="BaiGiang.dc.html" style="padding: 12px 0; color: var(--ink); text-decoration: none">Từ vựng</a>
+<a href="KienThucNen.dc.html" style="padding: 12px 0; color: var(--ink); text-decoration: none">Kiến thức nền</a>
+</nav>
+<section id="mau" aria-labelledby="h-mau" style="border-top: 2px solid var(--ink); padding-top: 20px">
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px">
+<h2 id="h-mau" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 30px; font-weight: 600">Bài mẫu Writing</h2>
+<p style="margin: 0; font-size: 14px; color: var(--muted)">549 đề, mở miễn phí toàn bộ · mỗi đề ba bản 7.5, 7.0 và 6.0</p>
+</div>
+<p style="margin: 8px 0 16px; max-width: 70ch">Cùng một đề, cùng ý, viết ở ba mức điểm. Chuyển qua lại để thấy đúng chỗ nào làm bài tụt band.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 28px">
+<sc-for list="{{types}}" as="t" hint-placeholder-count="5">
+<a href="#mau" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 14px; border: 1px solid {{t.border}}; border-radius: 2px; color: var(--ink); background: {{t.bg}}; text-decoration: none; font-size: 15px">{{t.label}}&nbsp;<span style="color: var(--muted); font-variant-numeric: tabular-nums">{{t.count}}</span></a>
+</sc-for>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 28px 48px; padding: 28px; border: 1px solid var(--ink); background: var(--surface)">
+<div style="flex: 999 1 480px; min-width: 0">
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Task 2 · Opinion · Công nghệ</p>
+<p lang="en" style="margin: 6px 0 18px; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; font-style: italic; line-height: 1.45">Some people think technology gives young people more job opportunities. To what extent do you agree or disagree?</p>
+<div role="group" aria-label="Chọn mức điểm" style="display: flex; gap: 0; margin-bottom: 18px">
+<sc-for list="{{bands}}" as="b" hint-placeholder-count="3">
+<button onClick="{{b.pick}}" aria-pressed="{{b.on}}" style="min-width: 88px; min-height: 44px; margin-right: -1px; border: 1px solid var(--ink); border-radius: 0; background: {{b.bg}}; color: {{b.fg}}; font: 600 16px 'Source Serif 4', Georgia, serif; font-variant-numeric: tabular-nums; cursor: pointer">Band {{b.label}}</button>
+</sc-for>
+</div>
+<p lang="en" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 19px; line-height: 1.7; max-width: 60ch">{{sample}}</p>
+</div>
+<aside style="flex: 1 1 260px; min-width: 0">
+<p style="margin: 0 0 6px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--mark)">{{deltaTitle}}</p>
+<ul style="margin: 0; padding: 0; list-style: none; font-size: 15px">
+<sc-for list="{{delta}}" as="d" hint-placeholder-count="3">
+<li style="padding: 10px 0; border-top: 1px solid var(--rule)">{{d}}</li>
+</sc-for>
+</ul>
+<a href="KetQuaWriting.dc.html" style="display: inline-block; margin-top: 14px; font-size: 15px">Đọc cả bài, dàn ý và bảng từ vựng</a>
+</aside>
+</div>
+</section>
+<section id="kienthuc" aria-labelledby="h-kt" style="margin-top: 56px; border-top: 2px solid var(--ink); padding-top: 20px">
+<h2 id="h-kt" style="margin: 0 0 4px; font-family: 'Source Serif 4', Georgia, serif; font-size: 30px; font-weight: 600">Kiến thức Writing</h2>
+<sc-for list="{{articles}}" as="a" hint-placeholder-count="3">
+<a href="BaiGiang.dc.html" style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 20px; padding: 16px 0; border-bottom: 1px solid var(--rule); color: var(--ink); text-decoration: none">
+<span style="width: 84px; font-size: 14px; color: var(--muted)">{{a.kind}}</span>
+<span style="flex: 1 1 320px; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px">{{a.title}}</span>
+<span style="font-size: 14px; color: var(--muted)">{{a.read}}</span>
+</a>
+</sc-for>
+</section>
+<section id="speaking" aria-labelledby="h-sp" style="margin-top: 56px; border-top: 2px solid var(--ink); padding-top: 20px">
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px">
+<h2 id="h-sp" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 30px; font-weight: 600">Đề Speaking và video trả lời mẫu</h2>
+<p style="margin: 0; font-size: 14px; color: var(--muted)">[SỐ ĐỀ] đề · Part 1, 2, 3</p>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 28px 48px; margin-top: 20px">
+<div style="flex: 1 1 360px; min-width: 0">
+<div style="aspect-ratio: 16 / 9; background: var(--ink); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px">
+<button aria-label="Phát video trả lời mẫu" style="width: 56px; height: 56px; border: 2px solid var(--surface); border-radius: 2px; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M8 5l12 7-12 7z" fill="var(--surface)"></path></svg></button>
+<p style="margin: 0; color: var(--surface); font-size: 14px">[VIDEO DEMO · nguồn: YouTube công khai] · Part 2 · 2:10</p>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)">Video trả lời mẫu có phụ đề, kèm phân tích ý và từ vựng. <a href="#speaking">Xem trên YouTube</a></p>
+</div>
+<div style="flex: 999 1 420px; min-width: 0">
+<sc-for list="{{topics}}" as="s" hint-placeholder-count="4">
+<a href="#speaking" style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 20px; padding: 14px 0; border-bottom: 1px solid var(--rule); color: var(--ink); text-decoration: none">
+<span style="width: 56px; font-size: 14px; color: var(--muted)">{{s.part}}</span>
+<span lang="en" style="flex: 1 1 240px; font-family: 'Source Serif 4', Georgia, serif; font-size: 19px">{{s.title}}</span>
+<span style="font-size: 14px; font-weight: 600; color: {{s.color}}">{{s.video}}</span>
+</a>
+</sc-for>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin-top: 20px">
+<a href="LoTrinh.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 22px; background: var(--accent); color: #FFFFFF; font-weight: 600; text-decoration: none; border-radius: 2px">Luyện nói đề này, AI chấm</a>
+<span style="font-size: 14px; color: var(--muted)">Dùng 1 lượt chấm AI của khoá (Writing và Speaking dùng chung).</span>
+</div>
+</div>
+</div>
+</section>
+<section id="hetluot" aria-labelledby="h-hl" style="margin-top: 56px; border-top: 2px solid var(--ink); padding-top: 20px">
+<h2 id="h-hl" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 28px; font-weight: 600">Khi đã đăng nhập và hết lượt chấm</h2>
+<p style="margin: 0 0 16px; color: var(--muted); max-width: 66ch">Ở “Luyện nói đề này, AI chấm”, nếu tài khoản hết lượt thì nút đó đổi thành khối dưới đây. Đọc và xem trong Thư viện vẫn tự do.</p>
+<div role="region" aria-label="Hết lượt chấm" style="max-width: 720px; padding: 20px 24px 22px; border: 1px solid var(--mark); border-left-width: 8px; background: color-mix(in srgb, var(--mark) 7%, var(--surface))">
+<p style="margin: 0 0 6px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--mark)">Hết lượt chấm</p>
+<p style="margin: 0 0 14px">Bài của bạn đã lưu nháp. Khi có lượt, bạn nộp lại từ đây.</p>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px">
+<a href="GiaHanThemLuot.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 22px; background: var(--accent); color: #FFFFFF; font-weight: 600; text-decoration: none; border-radius: 2px">Đăng ký thêm lượt chấm</a>
+<a href="DeSpeaking.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; font-weight: 600">Nghe câu trả lời mẫu của đề này</a>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)">Nếu chưa mở đăng ký thêm lượt lẻ, nút chính là “Đăng ký lại khoá · kèm XXX lượt”. Ở bài mẫu Writing, dòng cuối là “So bài nháp với bài mẫu 7.0 cùng đề”. Học viên lớp offline: “Bạn đã dùng hết lượt lớp cấp cho bạn. Liên hệ giáo viên để được cấp thêm.”, không có nút đăng ký.</p>
+</div>
+</section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Xanh teal","Navy + đỏ mận"],"default":"Navy + đỏ mận"},"$preview":{"width":1280,"height":2338}}'>
+class Component extends DCLogic {
+constructor(p) { super(p); this.state = { band: '7.5' }; }
+renderVals() {
+const band = (this.state && this.state.band) || '7.5';
+const text = {
+'7.5': 'Automation has undoubtedly removed some routine roles, yet it has opened far more doors than it has closed. Online marketplaces, for instance, allow a graduate with a laptop to sell designs to customers on another continent, an option that simply did not exist a generation ago.',
+'7.0': 'Automation has removed some routine jobs, but it has also created many new ones. For example, online marketplaces allow a graduate with a laptop to sell designs to customers in other countries, which was not possible a generation ago.',
+'6.0': 'Technology make some jobs disappear, but it also create many new jobs. For example, young people can sell things on the internet to customers in other country. This was not possible in the past.'
+};
+const delta = {
+'7.5': ['Nhượng bộ rồi phản biện trong một câu.', 'Cụm ẩn dụ dùng đúng chỗ: opened far more doors.', 'Ví dụ cụ thể, có mệnh đề bổ sung ở cuối.'],
+'7.0': ['Bỏ cụm ẩn dụ, thay bằng cách nói trực tiếp.', 'Từ nối an toàn hơn: but, for example.', 'Vẫn đủ ý và không sai ngữ pháp.'],
+'6.0': ['Sai hoà hợp chủ–vị: make, create.', 'Thiếu số nhiều: other country.', 'Từ chung chung: things, in the past.']
+};
+return {
+pal: (this.props.palette ?? 'Navy + đỏ mận') === 'Xanh teal' ? 'pal-teal' : 'pal-navy',
+sample: text[band], delta: delta[band],
+deltaTitle: band === '7.5' ? 'Vì sao đạt 7.5' : 'Khác gì so với bản trên',
+bands: ['7.5', '7.0', '6.0'].map((label) => ({ label, on: band === label, bg: band === label ? 'var(--ink)' : 'var(--surface)', fg: band === label ? '#FFFFFF' : 'var(--ink)', pick: () => this.setState({ band: label }) })),
+types: [
+{ label: 'Tất cả', count: '549', bg: 'var(--tint)', border: 'var(--ink)' },
+{ label: 'Opinion', count: '164', bg: 'transparent', border: 'var(--rule)' },
+{ label: 'Discussion', count: '110', bg: 'transparent', border: 'var(--rule)' },
+{ label: 'Problem – solution', count: '74', bg: 'transparent', border: 'var(--rule)' },
+{ label: 'Advantages – disadvantages', count: '63', bg: 'transparent', border: 'var(--rule)' },
+{ label: 'Two-part', count: '62', bg: 'transparent', border: 'var(--rule)' },
+{ label: 'Task 1', count: '70', bg: 'transparent', border: 'var(--rule)' }
+],
+articles: [
+{ kind: 'Task 2', title: '[BÀI VIẾT] Mở bài hai câu: diễn đạt lại đề và nêu quan điểm', read: '[PHÚT ĐỌC]' },
+{ kind: 'Task 1', title: '[BÀI VIẾT] Viết câu tổng quan cho biểu đồ đường', read: '[PHÚT ĐỌC]' },
+{ kind: 'Chấm điểm', title: '[BÀI VIẾT] Bốn tiêu chí chấm Writing, giải thích bằng ví dụ', read: '[PHÚT ĐỌC]' }
+],
+topics: [
+{ part: 'Part 1', title: 'Hometown', video: 'Có video', color: 'var(--accent)' },
+{ part: 'Part 2', title: 'Describe a place you often visit', video: 'Có video', color: 'var(--accent)' },
+{ part: 'Part 2', title: 'Describe a skill you learned recently', video: 'Chỉ có đề', color: 'var(--muted)' },
+{ part: 'Part 3', title: 'Public spaces in cities', video: 'Chỉ có đề', color: 'var(--muted)' }
+]
+};
+}
+}
+</script>
+</body>
+</html>

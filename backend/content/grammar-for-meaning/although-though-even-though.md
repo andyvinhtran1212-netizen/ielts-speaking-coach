@@ -118,6 +118,7 @@ Although + [subject + verb], [main clause].
 - He accepted the offer, **although** the salary was lower than expected.
 
 > **Lưu ý quan trọng:** Không dùng "but" cùng "although" trong một câu:
+>
 > - ❌ "**Although** he is rich, **but** he is not happy."
 > - ✅ "**Although** he is rich, he is not happy."
 > - ✅ "He is rich, **but** he is not happy."
@@ -200,6 +201,7 @@ Even though + [subject + verb], [main clause].
 - Many people support the policy. **However**, its implementation remains problematic.
 
 > ❌ Không dùng however như liên từ:
+>
 > - ❌ "I like this idea, **however** it has some drawbacks."
 > - ✅ "I like this idea. **However**, it has some drawbacks."
 > - ✅ "I like this idea**;** **however**, it has some drawbacks."
@@ -214,6 +216,7 @@ Despite / In spite of + noun phrase / V-ing, [main clause].
 - **In spite of** working hard, she did not achieve the desired result.
 
 > So sánh:
+>
 > - "**Although** the economy grew, poverty remains..." *(+ subject + verb)*
 > - "**Despite** economic growth, poverty remains..." *(+ noun phrase)*
 

@@ -155,6 +155,7 @@ Dùng: **say (that) / tell + O (that)**
 - "We will attend the conference." → He **told** me (that) they would attend the conference.
 
 > **say vs tell:**
+>
 > - **say**: say (that)... — không cần tân ngữ người
 > - **tell**: tell + PERSON + (that)... — luôn cần tân ngữ người
 > - ❌ She told that she was tired.
@@ -183,6 +184,7 @@ asked + wh-word + Subject + verb
 - "Why did you leave?" → She **asked** why I **had left**.
 
 > **Quan trọng:** Trong tường thuật câu hỏi, **không đảo ngữ** — viết như câu thông thường.
+>
 > - ❌ She asked where **did I live**.
 > - ✅ She asked where **I lived**.
 

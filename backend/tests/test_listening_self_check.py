@@ -208,6 +208,7 @@ def test_partial_mcq_multi_marker_excludes_entire_group(marked_q):
     assert [q["correct"] for q in result["per_question"]] == [None, None, True]
     assert [q.get("self_check") for q in result["per_question"]] == [True, True, None]
     assert [q["expected"] for q in result["per_question"]] == ["A", "B", "C"]
+    assert result["score_mode"] == "mixed" and result["self_check_count"] == 2
 
 
 def test_self_check_skip_is_independent_of_question_type():
@@ -277,8 +278,15 @@ def test_assigned_mini_submit_and_roster_reconciliation_complete_without_a_score
             {"q_num": 1, "user_answer": "my answer"}, {"q_num": 3, "user_answer": "B"}],
     })
     result = _run(listening.submit_listening_test_attempt("self-check-attempt", authorization=authz))
-    assert (result["score"], result["max_score"]) == ((0, 0) if all_self_check else (1, 1))
+    assert (result["score"], result["max_score"]) == ((None, 0) if all_self_check else (1, 1))
+    assert result["score_mode"] == ("self_check_only" if all_self_check else "mixed")
+    assert result["self_check_count"] == (3 if all_self_check else 2)
+    assert result["band_estimate"] is None
+    read = _run(listening.get_listening_test_attempt("self-check-attempt", authorization=authz))
+    for field in ("score", "max_score", "score_mode", "self_check_count"):
+        assert read[field] == result[field]
     stored = fake.tables["listening_test_attempts"][0]
+    assert stored["score"] == (0 if all_self_check else 1)
     assert stored["status"] == "submitted" and stored["submitted_at"]
     assert stored["grading_details"][0]["self_check"] is True
     assert stored["grading_details"][0]["correct"] is None
@@ -295,3 +303,50 @@ def test_assigned_mini_submit_and_roster_reconciliation_complete_without_a_score
     before_reload = dict(item)
     assert reconcile_test_attempts(ledger, [_rl_assignment(skill="listening")]) == 0
     assert ledger.tables["class_assignment_items"][0] == before_reload
+
+
+@pytest.mark.parametrize("flags,mode,scored,checks", [
+    ([], "scored", 0, 0), ([False, False], "scored", 2, 0),
+    ([True, False], "mixed", 1, 1), ([True, True], "self_check_only", 0, 2),
+])
+def test_display_score_fields_use_persisted_flags(flags, mode, scored, checks):
+    details = [{"self_check": flag, "correct": False} for flag in flags]
+    assert grader.score_mode(details) == mode
+    assert grader.self_check_count(details) == checks
+    assert grader.score_fields(0, details) == {
+        "score": None if mode == "self_check_only" else 0,
+        "max_score": scored, "score_mode": mode, "self_check_count": checks,
+    }
+
+
+@pytest.mark.parametrize("total,checks,correct,band,mode", [
+    (40, 0, 40, 9.0, "scored"), (40, 0, 35, 8.0, "scored"),
+    (40, 0, 9, None, "scored"), (40, 4, 36, None, "mixed"),
+    (12, 0, 12, None, "scored"), (39, 0, 39, None, "scored"),
+    (41, 1, 40, None, "mixed"),
+])
+def test_band_requires_exactly_forty_auto_scored_questions(total, checks, correct, band, mode):
+    key = [{"q_num": n, "answer": "blue", **({"scoring": "self_check"} if n > total - checks else {})}
+           for n in range(1, total + 1)]
+    answers = [{"q_num": n, "user_answer": "blue"} for n in range(1, correct + 1)]
+    result = grader.grade_attempt(answers, key)
+    assert result["band_estimate"] == band
+    assert result["score_mode"] == mode
+    assert result["score"] == correct and result["max_score"] == total - checks
+
+
+def test_teacher_score_fields_are_read_only_and_preserve_item_score(monkeypatch):
+    from routers import admin_class_assignments as classes
+    from test_class_assignment_service import _rl_db
+    db = _rl_db(attempts=[{"id": "attempt-1", "grading_details": [{"self_check": True}]}],
+                table="listening_test_attempts")
+    monkeypatch.setattr(classes, "supabase_admin", db)
+    items = [{"id": "item-1", "artifact_kind": "listening_attempt", "artifact_id": "attempt-1",
+              "state": "submitted", "score": None}]
+    db.tables.setdefault("listening_tests", [])
+    before = json.dumps(db.tables, sort_keys=True)
+    for _ in range(2):
+        assert classes._listening_item_score_fields(items) == {"item-1": {
+            "score_mode": "self_check_only", "max_score": 0, "self_check_count": 1}}
+        assert items[0]["state"] == "submitted" and items[0]["score"] is None
+    assert json.dumps(db.tables, sort_keys=True) == before

@@ -98,6 +98,7 @@ Diễn tả trạng thái tâm lý, cảm xúc, nhận thức, sở hữu — **
 - She is knowing the answer. ❌
 
 > **Lưu ý:** Một số động từ vừa là action vừa là stative tùy ngữ cảnh:
+>
 > - I **have** a car. (stative = sở hữu)
 > - I **am having** a meeting. (action = đang thực hiện)
 > - This soup **tastes** great. (stative)

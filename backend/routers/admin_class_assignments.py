@@ -1706,6 +1706,7 @@ async def assignment_tally(
 
     skill_drill = drill_config(assignment)
     drill_reports = await run_in_threadpool(report_by_item, supabase_admin, items, skill_drill) if skill_drill else {}
+    listening_fields = await run_in_threadpool(_listening_item_score_fields, items)
     grammar_attempts: dict[str, dict] = {}
     grammar_attempts_failed = False
     if (assignment.get("skill") == "grammar"
@@ -1949,6 +1950,7 @@ async def assignment_tally(
             # kèm vì mỗi kỹ năng mở ở một trang khác — đoán từ id là đoán sai.
             "artifact_kind": it.get("artifact_kind"),
             "artifact_id":   it.get("artifact_id"),
+            **listening_fields.get(it["id"], {}),
             **({"skill_drill": drill_reports[it["id"]]} if skill_drill else {}),
             "grammar_attempt_id": (grammar_attempts.get(str(it["id"])) or {}).get("id"),
             "grammar_answered": None if grammar_attempts_failed and str(it["id"]) not in grammar_attempts
@@ -2192,6 +2194,21 @@ def _longest_missing_run(cells: list[dict]) -> int:
     return best
 
 
+def _listening_item_score_fields(items):
+    """Read grading flags without changing the frozen class submission ledger."""
+    from services.listening_test_grader import score_fields
+    linked = {str(it["artifact_id"]): it["id"] for it in items
+              if it.get("artifact_kind") == "listening_attempt" and it.get("artifact_id")}
+    out = {}
+    ids = list(linked)
+    for start in range(0, len(ids), _ID_CHUNK):
+        for attempt in _paged(supabase_admin, "listening_test_attempts", "id,grading_details",
+                              lambda q, chunk=ids[start:start + _ID_CHUNK]: q.in_("id", chunk)):
+            fields = score_fields(None, attempt.get("grading_details") or [])
+            out[linked[str(attempt["id"])]] = {k: v for k, v in fields.items() if k != "score"}
+    return out
+
+
 @router.get("/{cohort_id}/students/{student_id}/work")
 async def student_work(
     cohort_id: str,
@@ -2263,6 +2280,8 @@ async def student_work(
         ):
             items_by_asg[it["assignment_id"]] = it
 
+    listening_fields = await run_in_threadpool(_listening_item_score_fields, list(items_by_asg.values()))
+
     # Mục nào có bài TỰ LUẬN đã chấm — một lượt đọc cho cả danh sách.
     item_ids = [it["id"] for it in items_by_asg.values()]
     writing_items: set = set()
@@ -2301,6 +2320,7 @@ async def student_work(
             "created_at":    a.get("created_at"),
             "archived":      a.get("status") == "archived",
             "status":        _hand_in_status(it, student, due, bool(due and now > due)),
+            **listening_fields.get(it["id"], {}),
             "submitted_at":  it.get("submitted_at"),
             "score":         it.get("score"),
             # `artifact_kind` đi kèm vì mỗi kỹ năng mở ở một trang khác — đoán

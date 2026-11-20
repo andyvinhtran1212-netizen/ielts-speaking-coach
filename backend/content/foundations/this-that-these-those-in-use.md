@@ -134,6 +134,7 @@ Khi không cần lặp lại danh từ:
 
 > **Kỹ thuật "this + summary noun":**
 > Thay vì chỉ viết "this", dùng "this + danh từ tóm tắt" sẽ vừa chỉ lại, vừa làm rõ ý:
+>
 > - This **issue** / This **problem** / This **trend** / This **situation** / This **approach**
 > - This **decision** / This **change** / This **development** / This **argument**
 

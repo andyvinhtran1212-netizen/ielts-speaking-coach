@@ -22,6 +22,7 @@ export function normalizeStudentWork(value, expectedStudentId) {
       archived: row.archived === true,
       status: text(row.status) || 'pending',
       submitted_at: nullableText(row.submitted_at),
+      score_mode: nullableText(row.score_mode), max_score: finite(row.max_score), self_check_count: finite(row.self_check_count),
       score: finite(row.score),
       artifact_kind: nullableText(row.artifact_kind),
       artifact_id: nullableText(row.artifact_id),

@@ -34,6 +34,7 @@
  * hamburger button is the only trigger.
  */
 
+import { readCuratedAvailability } from '/js/curated-availability.js';
 import { bindToggleButton } from '/js/theme-toggle.js';
 import { installPerfResourceHints } from '/js/components/perf-hints.js';
 
@@ -249,6 +250,8 @@ const STYLE = /* css */ `
   padding: var(--av-space-3) var(--av-space-3) var(--av-space-1);
   font-weight: var(--av-fw-semibold);
 }
+details.nav-group { display: block; }
+.nav-group-toggle { cursor: pointer; }
 .nav-item {
   display: flex; align-items: center;
   gap: var(--av-space-2);
@@ -307,7 +310,7 @@ const STYLE = /* css */ `
   :host([data-collapsed="1"]) .admin-body {
     grid-template-columns: var(--admin-sidebar-w-collapsed) 1fr;
   }
-  :host([data-collapsed="1"]) .nav-group-title,
+  :host([data-collapsed="1"]) .nav-group-title:not(.nav-group-toggle),
   :host([data-collapsed="1"]) .nav-label,
   :host([data-collapsed="1"]) .phase-b-tag { display: none; }
   :host([data-collapsed="1"]) .nav-item { justify-content: center; padding: var(--av-space-2); }
@@ -333,6 +336,7 @@ const STYLE = /* css */ `
   text-decoration: none;
   border: 1px solid transparent;
 }
+[data-curated-availability] { display: block; font-size: var(--av-fs-xs); }
 .nav-subitem:hover {
   background: var(--av-surface-sunken);
   color: var(--av-text-primary);
@@ -370,6 +374,8 @@ const STYLE = /* css */ `
     position: fixed;
     top: var(--admin-header-h); left: 0; bottom: 0;
     width: var(--admin-sidebar-w);
+    /* Keep expanded QA tools inside the drawer's scrollable viewport. */
+    align-self: stretch;
     height: auto;
     transform: translateX(-100%);
     visibility: hidden;
@@ -413,7 +419,9 @@ const STYLE = /* css */ `
  * Sidebar nav entries. Each entry: { section, label, href, group?,
  * phaseB?, subsections? }. `subsections` is a flat list under the
  * parent — sub-items render only when the parent is `active` (to keep
- * the sidebar manageable). The route convention matches §5 of
+ * the sidebar manageable). Groups with collapsedByDefault use a native
+ * disclosure; their items retain section + slug for page highlighting.
+ * The route convention matches §5 of
  * docs/sprint-12-0-admin-discovery.md.
  */
 const NAV_GROUPS = [
@@ -468,7 +476,6 @@ const NAV_GROUPS = [
           { slug: 'writing', label: 'Chấm Writing',    href: '/admin/mock-tests?tab=writing' },
         ],
       },
-      { section: 'instructors', label: 'Giảng viên', href: '/admin/instructors', icon: 'users' },
       { section: 'listening', label: 'Listening', href: '/admin/listening', icon: 'headphones',
         subsections: [
           { slug: 'content',   label: 'Quản lý nội dung', href: '/admin/listening' },
@@ -494,15 +501,11 @@ const NAV_GROUPS = [
           // pages mount active="vocab" without a subsection attribute, so
           // pathnameMatchesVocabSets supplies the highlight.
           { slug: 'sets',          label: 'Bộ từ theo lớp',   href: '/admin/vocab/sets' },
-          { slug: 'curated',       label: 'Curated Editorial', href: '/admin/vocab/curated' },
           { slug: 'topics',        label: 'Chủ đề (Topics)',  href: '/admin/vocab/topics' },
           { slug: 'content',       label: 'Nội dung từ vựng', href: '/admin/vocab/content' },
           { slug: 'quiz',          label: 'Quick-Check Quiz', href: '/admin/vocab/quiz' },
           { slug: 'quiz-analytics', label: 'Quiz — Học viên',  href: '/admin/vocab/quiz-analytics' },
           { slug: 'stats',         label: 'Stats',           href: '/admin/vocab/stats' },
-          { slug: 'd1-curation',   label: 'D1 Curation',     href: '/admin/vocab/d1-curation' },
-          { slug: 'lemmas',        label: 'Lemma Overrides', href: '/admin/vocab/lemmas' },
-          { slug: 'exercises',     label: 'D1 Exercises',    href: '/admin/vocab/exercises' },
         ],
       },
       // Native hub owns the clean route; child tools remain legacy until their
@@ -512,13 +515,12 @@ const NAV_GROUPS = [
           { slug: 'articles',         label: 'Articles',          href: '/admin/grammar/articles' },
           { slug: 'exercises',        label: 'Bài tập (Exercises)', href: '/admin/vocab/topics?skill_area=grammar' },
           { slug: 'analytics',        label: 'Analytics',         href: '/admin/grammar/analytics' },
-          { slug: 'recommend-test',   label: 'Recommendation tester', href: '/admin/grammar/recommend-test' },
         ],
       },
     ],
   },
   {
-    title: 'Người dùng',
+    title: 'Lớp & Người dùng',
     items: [
       { section: 'users',    label: 'Tất cả người dùng',  href: '/admin/users',                     icon: 'user-check' },
       // Sprint 18.1 — IA fold: the standalone "Học viên" (students) nav entry
@@ -536,6 +538,7 @@ const NAV_GROUPS = [
           { slug: 'classes',  label: 'Lớp',      href: '/admin/classes' },
           { slug: 'students', label: 'Học viên', href: '/admin/students' },
         ] },
+      { section: 'instructors', label: 'Giảng viên', href: '/admin/instructors', icon: 'users' },
     ],
   },
   // merge-codes PR-3 — the standalone "Mã kích hoạt" nav entry is removed:
@@ -544,7 +547,7 @@ const NAV_GROUPS = [
   // (vercel.json). 'access-codes' stays in VALID_ACTIVE for any deep link.
   // (Sprint 18.2 "Usage logs" + "Lưu lượng" remain folded into the Dashboard.)
   {
-    title: null,
+    title: 'Hệ thống',
     items: [
       // Native owner; the public HTML URL stays reachable as the rollback target.
       { section: 'error-logs', label: 'Báo lỗi',   href: '/admin/error-logs', icon: 'alert' },
@@ -552,8 +555,20 @@ const NAV_GROUPS = [
       // giải) for reading + listening, grouped by test. Not under a skill since
       // it spans both. Endpoint: GET/PATCH /api/admin/feedback (#458).
       { section: 'feedback',   label: 'Feedback',  href: '/admin/feedback', icon: 'message' },
-      // Sprint 18.2 — "Hệ thống" folded into the Dashboard (AI Usage is the
-      // cost-card drill-down). system / ai-usage / alerts stay in VALID_ACTIVE.
+      // The system dashboard remains in Tổng quan; these are cross-skill inboxes.
+    ],
+  },
+  {
+    title: 'Thí điểm & QA',
+    collapsedByDefault: true,
+    items: [
+      // Keep each page's existing active/subsection contract after the move.
+      { section: 'vocab', slug: 'curated', label: 'Curated Editorial', href: '/admin/vocab/curated', icon: 'book' },
+      { section: 'vocab', slug: 'pilot-metrics', label: 'Pilot metrics', href: '/admin/vocab/pilot-metrics', icon: 'activity' },
+      { section: 'vocab', slug: 'd1-curation', label: 'D1 Curation', href: '/admin/vocab/d1-curation', icon: 'book' },
+      { section: 'vocab', slug: 'exercises', label: 'D1 Exercises', href: '/admin/vocab/exercises', icon: 'book' },
+      { section: 'vocab', slug: 'lemmas', label: 'Lemma Overrides', href: '/admin/vocab/lemmas', icon: 'book' },
+      { section: 'grammar', slug: 'recommend-test', label: 'Recommendation tester', href: '/admin/grammar/recommend-test', icon: 'edit' },
     ],
   },
 ];
@@ -610,14 +625,14 @@ function renderNavItem(item, isActive, currentKind = null) {
     ? '<span class="phase-b-tag">Sắp ra mắt</span>'
     : '';
   return `
-    <a href="${item.href}" class="${cls}" data-section="${item.section}"
+    <a href="${item.href}" class="${cls}" data-section="${item.section}"${item.slug ? ` data-subsection="${item.slug}"` : ''}
        aria-label="${item.label}${item.phaseB ? ' — Phase B' : ''}"
        title="${item.label}"${currentKind ? ` aria-current="${currentKind}"` : ''}>
       <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
         ${ICONS[item.icon] || ''}
       </svg>
       <span class="nav-label">${item.label}</span>
-      ${tag}
+      ${tag}${item.section === 'vocab' && item.slug === 'curated' ? '<small data-curated-availability role="status"></small>' : ''}
     </a>
   `;
 }
@@ -639,8 +654,8 @@ function renderSubItem(parentSection, sub, isActive) {
 function renderSidebar(active, subsection) {
   return NAV_GROUPS.map((group) => {
     const items = group.items.map((item) => {
-      const isActive = item.section === active;
-      const parent = renderNavItem(item, isActive, isActive && !subsection ? 'page' : null);
+      const isActive = item.section === active && (!item.slug || item.slug === subsection);
+      const parent = renderNavItem(item, isActive, isActive && (item.slug || !subsection) ? 'page' : null);
       if (!isActive || !item.subsections || !item.subsections.length) {
         return parent;
       }
@@ -649,6 +664,9 @@ function renderSidebar(active, subsection) {
       ).join('');
       return `${parent}<div class="nav-subgroup">${subs}</div>`;
     }).join('');
+    if (group.collapsedByDefault) {
+      return `<details class="nav-group"><summary class="nav-group-title nav-group-toggle" aria-label="${group.title}"><span class="nav-label">${group.title}</span></summary>${items}</details>`;
+    }
     const title = group.title
       ? `<div class="nav-group-title">${group.title}</div>`
       : '';
@@ -789,6 +807,7 @@ export class AverAdminChrome extends HTMLElement {
       this._abortController.abort();
       this._abortController = null;
     }
+    this._curatedAvailability = null;
   }
 
   attributeChangedCallback(name, _prev, next) {
@@ -807,6 +826,7 @@ export class AverAdminChrome extends HTMLElement {
     this._bindCollapse();
     // Re-bind hamburger nav-item close handlers for the new DOM.
     this._rebindNavItemCloseHandlers();
+    this._updateCuratedAvailability();
   }
 
 
@@ -828,19 +848,56 @@ export class AverAdminChrome extends HTMLElement {
     document.head.appendChild(link);
   }
 
+  _updateCuratedAvailability() {
+    const badge = this.shadowRoot?.querySelector('[data-curated-availability]');
+    if (!badge) return;
+    const signal = this._abortController?.signal;
+    let tries = 0;
+    const tick = async () => {
+      if (signal?.aborted || !this.isConnected || !badge.isConnected) return;
+      if (!window.api?.getWith || !window.getSupabase?.()) {
+        if (++tries < POLL_MAX_TRIES) setTimeout(tick, POLL_INTERVAL_MS);
+        else badge.textContent = 'Không kiểm tra được khả dụng';
+        return;
+      }
+      try {
+        const { data } = await window.getSupabase().auth.getSession();
+        if (signal?.aborted || !badge.isConnected) return;
+        if (!data?.session) {
+          if (++tries < POLL_MAX_TRIES) setTimeout(tick, POLL_INTERVAL_MS);
+          return;
+        }
+        // Share the in-flight/result promise across sidebar redraws. Each
+        // connected chrome makes at most one lookup, including on non-Vocab pages.
+        this._curatedAvailability ||= readCuratedAvailability(() => window.api.getWith(
+          '/admin/vocabulary/curated-availability', undefined, { signal },
+        ));
+        const state = await this._curatedAvailability;
+        if (!signal?.aborted && badge.isConnected) {
+          badge.textContent = state === 'unavailable' ? 'Chưa khả dụng' : '';
+          badge.closest('a').setAttribute('aria-label', `Curated Editorial${state === 'unavailable' ? ' — Chưa khả dụng' : ''}`);
+        }
+      } catch {
+        if (!signal?.aborted && badge.isConnected) badge.textContent = 'Không kiểm tra được khả dụng';
+      }
+    };
+    void tick();
+  }
+
   _bindInteractiveChrome() {
     this._bindToggle();
     this._bindCollapse();
     this._bindHamburger();
     this._bindEscape();
     this._populateEmail();
+    this._updateCuratedAvailability();
   }
 
   _normalizeSubsection(value, active) {
     if (!value || !active) return null;
-    const group = NAV_GROUPS.flatMap((g) => g.items).find((i) => i.section === active);
-    if (!group || !group.subsections) return null;
-    return group.subsections.some((s) => s.slug === value) ? value : null;
+    return NAV_GROUPS.flatMap((g) => g.items).some((item) =>
+      item.section === active && (item.slug === value || item.subsections?.some((s) => s.slug === value))
+    ) ? value : null;
   }
 
   // An explicit, valid subsection wins. Sets pages omit the attribute, so
@@ -966,8 +1023,11 @@ export class AverAdminChrome extends HTMLElement {
       if (event.key !== 'Tab' || !this.shadowRoot) return;
       const sidebar = this.shadowRoot.getElementById('sidebar');
       if (!sidebar) return;
-      const focusable = Array.from(sidebar.querySelectorAll('a[href], button:not([disabled])'))
-        .filter((node) => node.getClientRects().length > 0);
+      const focusable = Array.from(sidebar.querySelectorAll('a[href], button:not([disabled]), summary'))
+        // Closed details can retain layout rectangles in Chromium. Only the
+        // summary participates in keyboard navigation until the group is open.
+        .filter((node) => node.getClientRects().length > 0
+          && (node.matches('summary') || !node.closest('details:not([open])')));
       if (!focusable.length) return;
       const first = focusable[0];
       const last = focusable[focusable.length - 1];

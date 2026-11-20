@@ -103,6 +103,7 @@ learning_blocks:
 > - **KHÔNG** (relative clause cần thiết để biết noun này là cái gì) → **DEFINING** → KHÔNG dấu phẩy → DÙNG "which/who/that"
 >
 > Ví dụ:
+>
 > - "My brother, **who lives in Hanoi**, called me yesterday." (non-defining: người anh đã được xác định trong ngữ cảnh, phần quan hệ bổ sung thông tin; dấu phẩy không chứng minh chỉ có một anh trai)
 > - "The book **that I borrowed** is interesting." (defining: nhiều sách → "that I borrowed" cần để biết SÁCH NÀO → KHÔNG phẩy)
 
@@ -211,6 +212,7 @@ Cung cấp thông tin **bổ sung** (có thể bỏ mà không ảnh hưởng đ
 Một số mệnh đề có relative pronoun làm chủ ngữ có thể chuyển thành phần bổ nghĩa không hữu hạn theo các mẫu dưới. Không tự xóa who/which/that + be ở mọi câu hoặc đổi mọi động từ chủ động thành -ing; kiểm tra thì, thể và quan hệ thời gian:
 
 **→ V-ing** (khi mệnh đề ở thể chủ động):
+
 - The man **who is standing** at the door is my father.
 - → The man **standing** at the door is my father.
 
@@ -218,6 +220,7 @@ Một số mệnh đề có relative pronoun làm chủ ngữ có thể chuyển
 - → Students **wanting** to improve should practise daily.
 
 **→ V3 (past participle)** (khi mệnh đề ở thể bị động):
+
 - The letter **that was written** in French was hard to read.
 - → The letter **written** in French was hard to read.
 

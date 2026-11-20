@@ -17,7 +17,10 @@ interface RawListeningTest {
   title?: unknown;
   band_target?: unknown;
   themes?: unknown;
+  source_item_count?: unknown;
   user_best_score?: unknown;
+  max_score?: unknown;
+  score_mode?: unknown;
   user_attempt_count?: unknown;
   user_submitted_attempt_count?: unknown;
 }
@@ -29,7 +32,10 @@ interface ListeningTest {
   title: string;
   bandTarget: string | null;
   themes: string | null;
+  sourceItemCount: number | null;
   bestScore: string | null;
+  maxScore: string | null;
+  scoreMode: string;
   attemptCount: number;
   submittedAttemptCount: number;
 }
@@ -75,7 +81,10 @@ function normalizeTests(items: unknown[]): ListeningTest[] {
       title: textValue(raw?.title) || 'Bài thi chưa có tên',
       bandTarget: displayValue(raw?.band_target),
       themes: themeSummary(raw?.themes) || null,
+      sourceItemCount: nonNegativeInteger(raw?.source_item_count) || null,
       bestScore: raw?.user_best_score == null ? null : displayValue(raw.user_best_score),
+      maxScore: displayValue(raw?.max_score),
+      scoreMode: textValue(raw?.score_mode),
       attemptCount: nonNegativeInteger(raw?.user_attempt_count),
       submittedAttemptCount: nonNegativeInteger(raw?.user_submitted_attempt_count),
     }];
@@ -230,14 +239,16 @@ function ListeningTestsLibrary({ accountKey }: { accountKey: string | null }) {
                   <h3 className="lt-card-title">{test.title}</h3>
                   <div className="lt-card-facts" aria-label="Cấu trúc đề thi">
                     <span>4 sections</span>
-                    <span>40 câu</span>
+                    {test.sourceItemCount != null ? <span>{test.sourceItemCount} câu</span> :
+                      test.maxScore != null && test.scoreMode !== 'self_check_only' ? <span>{test.maxScore} câu chấm điểm</span> : null}
                     <span>~30 phút</span>
                     {test.bandTarget ? <span>Band {test.bandTarget}</span> : null}
                   </div>
                   {test.themes ? <p className="lt-card-theme">{test.themes}</p> : null}
                   <div className="lt-card-stats">
-                    {test.bestScore != null ? (
-                      <span>Điểm tốt nhất <strong>{test.bestScore}/40</strong></span>
+                    {test.scoreMode === 'self_check_only' ? <span>Đã làm · Tự đối chiếu</span> : test.bestScore != null ? (
+                      <span>Điểm tốt nhất <strong>{test.bestScore}{test.maxScore == null ? '' : `/${test.maxScore}`}
+</strong></span>
                     ) : null}
                     {test.attemptCount > 0 ? (
                       <span><strong>{test.attemptCount}</strong> lượt làm</span>

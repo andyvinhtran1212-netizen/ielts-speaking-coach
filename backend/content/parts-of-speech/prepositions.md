@@ -106,6 +106,7 @@ at  → điểm cụ thể: at home, at work, at the corner, at 10 Main Street
 | **in** | Tháng, năm, mùa, thế kỷ, khoảng thời gian dài | in April, in 2024, in summer, in the morning |
 
 > **Mẹo nhớ AT-ON-IN cho thời gian:** nhỏ → lớn
+>
 > - **AT** = điểm thời gian nhỏ nhất (giờ, phút)
 > - **ON** = ngày
 > - **IN** = khoảng thời gian lớn (tháng, năm, mùa)
@@ -203,6 +204,7 @@ Các kết hợp cố định — phải học thuộc:
 | complain **about** | He always complains **about** the food. |
 
 > **Lưu ý "arrive":**
+>
 > - arrive **at** the airport / the station / the hotel ✅ (địa điểm cụ thể)
 > - arrive **in** Hanoi / Vietnam ✅ (thành phố / quốc gia)
 > - Không dùng arrive **to + địa điểm** trong các mẫu đích trên. **Arrive to find the door locked** có to mở động từ nguyên mẫu, không phải giới từ chỉ nơi chốn.

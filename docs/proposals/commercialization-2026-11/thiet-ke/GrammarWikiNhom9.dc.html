@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Grammar Wiki nhóm 9</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--accentH:#0B5953;--link:#0B5953;--mark:#8A4B08;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EDF3F1;--off:#E7E2D6}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--accentH:#11254A;--link:#1A3561;--mark:#8A1C1C;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EEF0F5;--off:#E8E2D5}
+a{color:var(--link)}a:hover{color:var(--ink)}
+.sf{font-family:'Source Serif 4',Georgia,serif}
+.kick{margin:0;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)}
+.h2s{margin:0 0 6px;font-family:'Source Serif 4',Georgia,serif;font-size:24px;font-weight:600}
+.lead{margin:0 0 16px;font-size:14px;color:var(--muted);max-width:110ch}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border:1px solid var(--ink);border-radius:2px;background:var(--surface);color:var(--ink);font:600 15px 'Source Sans 3',sans-serif;text-decoration:none;cursor:pointer;box-sizing:border-box}
+.btnp{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 20px;border:1px solid var(--accent);border-radius:2px;background:var(--accent);color:var(--surface);font:600 15px 'Source Sans 3',sans-serif;text-decoration:none;cursor:pointer;box-sizing:border-box}
+.body{font-family:'Source Serif 4',Georgia,serif;font-size:18px;line-height:29px}
+.body p{margin:0 0 14px}
+.h2a{margin:0 0 10px;font-family:'Source Serif 4',Georgia,serif;font-size:26px;font-weight:600;line-height:1.25}
+.h2a span{color:var(--muted);font-variant-numeric:tabular-nums}
+.h3a{margin:16px 0 4px;font-family:'Source Sans 3',sans-serif;font-size:16px;font-weight:600}
+.sup{font:600 12px 'Source Sans 3',sans-serif;color:var(--accent)}
+.note{margin:0;padding-top:8px;border-top:1px solid var(--rule);font-size:14px;line-height:1.5;color:var(--muted)}
+.cap{margin:8px 0 0;font-size:14px;line-height:1.5;color:var(--muted)}
+.fig{margin:6px 0 4px;padding:18px 20px 16px;border:1px solid var(--rule);background:var(--surface)}
+.tag{display:block;font:600 11px 'Source Sans 3',sans-serif;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);text-align:center;white-space:nowrap}
+.ch{display:flex;align-items:center;justify-content:center;box-sizing:border-box;height:38px;padding:0 8px;font-family:'Source Serif 4',Georgia,serif;font-size:20px;white-space:nowrap;color:var(--ink)}
+.rS{border:1.5px solid var(--ink)}
+.rV{border-bottom:4px double var(--accent);color:var(--accent);font-weight:600}
+.rO{border:1.5px dashed var(--ink)}
+.rC{border:1.5px dotted var(--ink)}
+.rA{color:var(--muted)}
+.rX{border:1.5px dashed var(--muted);color:var(--muted)}
+.cell{display:flex;flex-direction:column;align-items:center;gap:4px}
+.tb{width:100%;border-collapse:collapse;font-family:'Source Sans 3',sans-serif;font-size:16px;line-height:1.45}
+.tb th,.tb td{padding:5px 10px 5px 0;text-align:left;vertical-align:top;border-bottom:1px solid var(--rule)}
+.tb thead tr{border-top:2px solid var(--ink)}
+.tb thead th{border-bottom:1px solid var(--ink);font-weight:600}
+.tb tbody th{font-weight:600;color:var(--muted)}
+.tb caption{caption-side:bottom;text-align:left;padding-top:8px;font-size:14px;color:var(--muted)}
+.foot a{display:inline-flex;align-items:center;min-height:44px}
+.lab{font:600 13px 'Source Sans 3',sans-serif;letter-spacing:0.06em;text-transform:uppercase}
+.gr{display:grid;grid-template-columns:44px 236px 262px minmax(0,1fr) 52px 178px;column-gap:16px;padding:8px 0;border-bottom:1px solid var(--rule);font-size:14px;line-height:1.45}
+.gr>div{min-width:0}
+</style>
+</helmet>
+<div class="{{pal}}" style="width: 1280px; height: 4420px; box-sizing: border-box; padding: 40px 0; background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 16px; line-height: 1.5; display: flex; flex-direction: column; gap: 28px">
+<header style="padding: 0 64px">
+<p class="kick">Aver Learning · Bản in · đợt 8 · Thư viện công khai · Grammar Wiki</p>
+<h1 style="margin: 4px 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 40px; font-weight: 600; line-height: 1.15">Grammar Wiki · nhóm 9: IELTS Writing Lab</h1>
+<p style="margin: 0; color: var(--muted); max-width: 112ch"><strong style="color: var(--ink)">9 bài thật</strong> · nhóm thứ 9 trong <span lang="en">backend/content/_groups.yaml</span> (slug <span lang="en">grammar-for-writing</span>). Ngữ pháp thực chiến cho IELTS Writing — mô tả số liệu Task 1, ngôn ngữ xu hướng, và câu phức/cohesion cho essay Task 2. Ba bài đầu là bài tổng hợp dài cho Task 1 và Task 2; sáu bài sau theo một khuôn ngắn (6 mục H2). Bài Writing cần chỗ cho đoạn văn mẫu có chú giải. Hai bài vẽ đủ cả trang ở tờ <a href="GrammarWikiNhom9-Bai1.dc.html">GrammarWikiNhom9-Bai1</a> và <a href="GrammarWikiNhom9-Bai2.dc.html">GrammarWikiNhom9-Bai2</a>; khuôn bài ở tờ <a href="GrammarWikiBai.dc.html">trang bài</a>; 10 kiểu sơ đồ ở tờ <a href="GrammarWikiMinhHoa.dc.html">minh hoạ câu chữ</a>; mục lục ở tờ <a href="GrammarWiki.dc.html">Grammar Wiki</a>.</p>
+</header>
+
+<section aria-labelledby="n1" style="border-top: 2px solid var(--ink); padding: 16px 64px 0">
+<h2 id="n1" class="h2s">1 · Tất cả 9 bài của nhóm</h2>
+<p class="lead">Cột "Khối nội dung" đếm trực tiếp từ file Markdown của từng bài (số bảng, số khối công thức, số câu đánh dấu sai, số mục H2, số từ). Cột "Sơ đồ đề nghị" ghi kiểu hình theo tờ minh hoạ và một câu có thật trong bài sẽ được vẽ; ký hiệu trong câu dùng đúng quy ước của tờ minh hoạ. Tổng đề nghị: <strong style="color: var(--ink)">21 hình</strong> cho 9 bài; dùng nhiều nhất: kiểu 8 (9 bài), kiểu 5 (3 bài), kiểu 1 (2 bài).</p>
+<div role="table" aria-label="Tất cả bài của nhóm" style="border-top: 2px solid var(--ink)">
+<div role="row" class="gr" style="border-bottom: 1px solid var(--ink); font-weight: 600"><div role="columnheader">Số</div><div role="columnheader">Bài (tên trong _groups.yaml)</div><div role="columnheader">Khối nội dung có trong file .md</div><div role="columnheader">Sơ đồ đề nghị · câu thật sẽ vẽ</div><div role="columnheader">Số hình</div><div role="columnheader">Ghi chú</div></div>
+<div role="row" class="gr"><div role="cell" style="color: var(--muted); font-variant-numeric: tabular-nums">9.1</div><div role="cell"><span lang="en" class="sf" style="font-size: 16px; font-weight: 600; line-height: 1.3">Grammar in Task 1</span><span style="display: block; color: var(--muted)">Ngữ pháp cho IELTS Writing Task 1 (Academic)</span></div><div role="cell" style="color: var(--muted)">Tóm tắt (có bảng) · Vì sao quan trọng · Công thức ×1 · Bảng ×5 · Cặp sai/đúng ×9 · Lỗi hay gặp · Lỗi người Việt · Bài tập + đáp án · Tóm tắt nhanh · Khối tương tác có sẵn: precheck, chart-map, microcheck, transfer <span style="white-space: nowrap">· ≈ 1801 từ, 13 mục H2</span></div><div role="cell"><strong>Hình kiểu 8</strong> sai và đúng cạnh nhau + <strong>Hình kiểu 3</strong> dòng thời gian<span lang="en" class="sf" style="display: block; font-size: 15px; line-height: 1.4; margin-top: 2px">The graph <span style="padding: 0 3px; border: 1.5px dashed var(--danger); text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px; white-space: nowrap">showed</span> the population… → The graph <span style="padding: 0 3px; border-bottom: 4px double var(--ok); font-weight: 600; white-space: nowrap">shows</span> the population, which <strong>rose</strong> sharply after 2000.</span></div><div role="cell" style="font: 600 18px 'Source Serif 4', Georgia, serif; text-align: center">3</div><div role="cell" style="color: var(--muted)">File đã có 4 khối tương tác (precheck, chart-map, microcheck, transfer). Cần hình biểu đồ mẫu, không thuộc sơ đồ câu.</div></div>
+<div role="row" class="gr"><div role="cell" style="color: var(--muted); font-variant-numeric: tabular-nums">9.2</div><div role="cell"><span lang="en" class="sf" style="font-size: 16px; font-weight: 600; line-height: 1.3">Task 1 Trend Grammar</span><span style="display: block; color: var(--muted)">Ngữ pháp mô tả xu hướng trong Writing Task 1</span><span class="lab" style="display: inline-block; margin-top: 4px; font-size: 11px; padding: 1px 5px; border: 1px solid var(--accent); color: var(--accent)">Vẽ phần đầu ở dưới</span></div><div role="cell" style="color: var(--muted)">Tóm tắt (có bảng) · Vì sao quan trọng · Công thức ×2 · Bảng ×8 · Cặp sai/đúng ×7 · Lỗi hay gặp · Lỗi người Việt · Bài tập + đáp án · Tóm tắt nhanh <span style="white-space: nowrap">· ≈ 1778 từ, 13 mục H2</span></div><div role="cell"><strong>Hình kiểu 4</strong> biến đổi, đổi chỗ + <strong>Hình kiểu 8</strong> sai và đúng cạnh nhau<span lang="en" class="sf" style="display: block; font-size: 15px; line-height: 1.4; margin-top: 2px">The figure <strong>increased steadily</strong> = There was <strong>a steady increase in the figure</strong>.</span></div><div role="cell" style="font: 600 18px 'Source Serif 4', Georgia, serif; text-align: center">3</div><div role="cell" style="color: var(--muted)">8 bảng từ vựng xu hướng: bảng nhiều hơn hình.</div></div>
+<div role="row" class="gr"><div role="cell" style="color: var(--muted); font-variant-numeric: tabular-nums">9.3</div><div role="cell"><span lang="en" class="sf" style="font-size: 16px; font-weight: 600; line-height: 1.3">Grammar in Task 2</span><span style="display: block; color: var(--muted)">Ngữ pháp cho IELTS Writing Task 2 (Essay)</span><span class="lab" style="display: inline-block; margin-top: 4px; font-size: 11px; padding: 1px 5px; border: 1px solid var(--accent); color: var(--accent)">Vẽ đủ ở tờ Bai1</span></div><div role="cell" style="color: var(--muted)">Tóm tắt (có bảng) · Vì sao quan trọng · Công thức ×1 · Bảng ×5 · Cặp sai/đúng ×7 · Lỗi hay gặp · Lỗi người Việt · Câu trả lời/đoạn mẫu dài ×1 · Bài tập + đáp án · Tóm tắt nhanh · Khối tương tác có sẵn: flow <span style="white-space: nowrap">· ≈ 1824 từ, 14 mục H2</span></div><div role="cell"><strong>Hình kiểu 5</strong> mệnh đề lồng nhau + <strong>Hình kiểu 8</strong> sai và đúng cạnh nhau<span lang="en" class="sf" style="display: block; font-size: 15px; line-height: 1.4; margin-top: 2px">Governments should subsidise public transport, <strong>which</strong> would reduce both congestion and pollution.</span></div><div role="cell" style="font: 600 18px 'Source Serif 4', Georgia, serif; text-align: center">3</div><div role="cell" style="color: var(--muted)">Có đoạn body mẫu: cần khối "đoạn văn có chú giải". File đã có khối <em lang="en">flow</em>.</div></div>
+<div role="row" class="gr"><div role="cell" style="color: var(--muted); font-variant-numeric: tabular-nums">9.4</div><div role="cell"><span lang="en" class="sf" style="font-size: 16px; font-weight: 600; line-height: 1.3">Parallel Structure</span><span style="display: block; color: var(--muted)">Cấu trúc song song</span><span class="lab" style="display: inline-block; margin-top: 4px; font-size: 11px; padding: 1px 5px; border: 1px solid var(--accent); color: var(--accent)">Vẽ đủ ở tờ Bai2</span></div><div role="cell" style="color: var(--muted)">Tóm tắt (có bảng) · Bảng ×1 · Cặp sai/đúng ×6 · Lỗi hay gặp · Lỗi người Việt · Ứng dụng IELTS · Bài tập + đáp án · Tóm tắt nhanh <span style="white-space: nowrap">· ≈ 785 từ, 6 mục H2</span></div><div role="cell"><strong>Hình kiểu 1</strong> bẻ câu theo vai trò + <strong>Hình kiểu 8</strong> sai và đúng cạnh nhau<span lang="en" class="sf" style="display: block; font-size: 15px; line-height: 1.4; margin-top: 2px">She likes <span style="padding: 0 3px; border: 1.5px dashed var(--danger); text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px; white-space: nowrap">reading, to travel, and she paints</span>. → She likes <strong>reading</strong>, <strong>travelling</strong>, and <strong>painting</strong>.</span></div><div role="cell" style="font: 600 18px 'Source Serif 4', Georgia, serif; text-align: center">3</div><div role="cell" style="color: var(--muted)">Khuôn ngắn; mục "Ứng dụng" nhắc TOEIC Part 5.</div></div>
+<div role="row" class="gr"><div role="cell" style="color: var(--muted); font-variant-numeric: tabular-nums">9.5</div><div role="cell"><span lang="en" class="sf" style="font-size: 16px; font-weight: 600; line-height: 1.3">Relative Clauses in Writing</span><span style="display: block; color: var(--muted)">Mệnh đề quan hệ trong bài viết</span></div><div role="cell" style="color: var(--muted)">Tóm tắt (có bảng) · Bảng ×1 · Cặp sai/đúng ×3 · Lỗi hay gặp · Lỗi người Việt · Ứng dụng IELTS · Bài tập + đáp án · Tóm tắt nhanh <span style="white-space: nowrap">· ≈ 747 từ, 6 mục H2</span></div><div role="cell"><strong>Hình kiểu 5</strong> mệnh đề lồng nhau + <strong>Hình kiểu 8</strong> sai và đúng cạnh nhau<span lang="en" class="sf" style="display: block; font-size: 15px; line-height: 1.4; margin-top: 2px">The coat which I bought <span style="padding: 0 3px; border: 1.5px dashed var(--danger); text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px; white-space: nowrap">it</span> yesterday is warm. → The coat <strong>which I bought</strong> yesterday is warm.</span></div><div role="cell" style="font: 600 18px 'Source Serif 4', Georgia, serif; text-align: center">2</div><div role="cell" style="color: var(--muted)">Khuôn ngắn. Trùng một phần với bài Relative Clauses ở nhóm 3.</div></div>
+<div role="row" class="gr"><div role="cell" style="color: var(--muted); font-variant-numeric: tabular-nums">9.6</div><div role="cell"><span lang="en" class="sf" style="font-size: 16px; font-weight: 600; line-height: 1.3">Cohesion Devices</span><span style="display: block; color: var(--muted)">Liên kết câu và đoạn trong bài viết</span><span class="lab" style="display: inline-block; margin-top: 4px; font-size: 11px; padding: 1px 5px; border: 1px solid var(--accent); color: var(--accent)">Vẽ phần đầu ở dưới</span></div><div role="cell" style="color: var(--muted)">Tóm tắt (có bảng) · Bảng ×1 · Cặp sai/đúng ×1 · Lỗi hay gặp · Lỗi người Việt · Ứng dụng IELTS · Bài tập + đáp án · Tóm tắt nhanh <span style="white-space: nowrap">· ≈ 786 từ, 6 mục H2</span></div><div role="cell"><strong>Hình kiểu 7</strong> cung nối (hoà hợp, tham chiếu) + <strong>Hình kiểu 8</strong> sai và đúng cạnh nhau<span lang="en" class="sf" style="display: block; font-size: 15px; line-height: 1.4; margin-top: 2px">Governments have raised taxes. <strong>These taxes</strong> now fund new schools.</span></div><div role="cell" style="font: 600 18px 'Source Serif 4', Georgia, serif; text-align: center">2</div><div role="cell" style="color: var(--muted)">Khuôn ngắn; chỉ 1 cặp sai/đúng. Cung kiểu 7 vẽ qua hai câu.</div></div>
+<div role="row" class="gr"><div role="cell" style="color: var(--muted); font-variant-numeric: tabular-nums">9.7</div><div role="cell"><span lang="en" class="sf" style="font-size: 16px; font-weight: 600; line-height: 1.3">Punctuation for Writing</span><span style="display: block; color: var(--muted)">Dấu câu trong bài viết học thuật</span><span class="lab" style="display: inline-block; margin-top: 4px; font-size: 11px; padding: 1px 5px; border: 1px solid var(--accent); color: var(--accent)">Vẽ phần đầu ở dưới</span></div><div role="cell" style="color: var(--muted)">Tóm tắt (có bảng) · Bảng ×1 · Cặp sai/đúng ×7 · Lỗi hay gặp · Lỗi người Việt · Ứng dụng IELTS · Bài tập + đáp án · Tóm tắt nhanh <span style="white-space: nowrap">· ≈ 744 từ, 6 mục H2</span></div><div role="cell"><strong>Hình kiểu 8</strong> sai và đúng cạnh nhau + <strong>Hình kiểu 1</strong> bẻ câu theo vai trò<span lang="en" class="sf" style="display: block; font-size: 15px; line-height: 1.4; margin-top: 2px">Costs rose<span style="padding: 0 3px; border: 1.5px dashed var(--danger); text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px; white-space: nowrap">,</span> profits fell. → Costs rose<span style="padding: 0 3px; border-bottom: 4px double var(--ok); font-weight: 600; white-space: nowrap">;</span> profits fell.</span></div><div role="cell" style="font: 600 18px 'Source Serif 4', Georgia, serif; text-align: center">2</div><div role="cell" style="color: var(--muted)">Khuôn ngắn. Chỗ sai là một dấu câu: ô đánh dấu phải đủ rộng để thấy.</div></div>
+<div role="row" class="gr"><div role="cell" style="color: var(--muted); font-variant-numeric: tabular-nums">9.8</div><div role="cell"><span lang="en" class="sf" style="font-size: 16px; font-weight: 600; line-height: 1.3">Complex Sentences for Task 2</span><span style="display: block; color: var(--muted)">Câu phức cho essay</span></div><div role="cell" style="color: var(--muted)">Tóm tắt (có bảng) · Bảng ×1 · Cặp sai/đúng ×4 · Lỗi hay gặp · Lỗi người Việt · Ứng dụng IELTS · Bài tập + đáp án · Tóm tắt nhanh <span style="white-space: nowrap">· ≈ 795 từ, 6 mục H2</span></div><div role="cell"><strong>Hình kiểu 5</strong> mệnh đề lồng nhau + <strong>Hình kiểu 8</strong> sai và đúng cạnh nhau<span lang="en" class="sf" style="display: block; font-size: 15px; line-height: 1.4; margin-top: 2px">Although the policy was expensive, <strong>it worked</strong>.</span></div><div role="cell" style="font: 600 18px 'Source Serif 4', Georgia, serif; text-align: center">2</div><div role="cell" style="color: var(--muted)">Khuôn ngắn.</div></div>
+<div role="row" class="gr"><div role="cell" style="color: var(--muted); font-variant-numeric: tabular-nums">9.9</div><div role="cell"><span lang="en" class="sf" style="font-size: 16px; font-weight: 600; line-height: 1.3">Avoiding Informal Grammar</span><span style="display: block; color: var(--muted)">Tránh văn nói trong bài viết</span></div><div role="cell" style="color: var(--muted)">Tóm tắt (có bảng) · Bảng ×1 · Cặp sai/đúng ×2 · Lỗi hay gặp · Lỗi người Việt · Ứng dụng IELTS · Bài tập + đáp án · Tóm tắt nhanh <span style="white-space: nowrap">· ≈ 874 từ, 6 mục H2</span></div><div role="cell"><strong>Hình kiểu 8</strong> sai và đúng cạnh nhau<span lang="en" class="sf" style="display: block; font-size: 15px; line-height: 1.4; margin-top: 2px"><span style="padding: 0 3px; border: 1.5px dashed var(--danger); text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px; white-space: nowrap">It's</span> clear that governments <span style="padding: 0 3px; border: 1.5px dashed var(--danger); text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px; white-space: nowrap">shouldn't</span> ignore this. → <span style="padding: 0 3px; border-bottom: 4px double var(--ok); font-weight: 600; white-space: nowrap">It is</span> clear that governments <span style="padding: 0 3px; border-bottom: 4px double var(--ok); font-weight: 600; white-space: nowrap">should not</span> ignore this.</span></div><div role="cell" style="font: 600 18px 'Source Serif 4', Georgia, serif; text-align: center">1</div><div role="cell" style="color: var(--muted)">Khuôn ngắn. Cặp "thân mật / trang trọng".</div></div>
+</div>
+</section>
+
+<section aria-labelledby="n2" style="border-top: 2px solid var(--ink); padding: 16px 64px 0">
+<h2 id="n2" class="h2s">2 · Phần đầu ba bài khác trong nhóm</h2>
+<p class="lead">Tiêu đề Anh/Việt, dòng thông tin, tóm tắt và sơ đồ đầu tiên. Vẽ gọn: cột trái 420px, hình ở cột phải; trang thật vẫn theo khuôn cột chữ 640px với chú thích ở lề. Câu trong hình lấy nguyên văn từ bài.</p>
+<article aria-label="Phần đầu bài Task 1 Trend Grammar" style="display: grid; grid-template-columns: 420px minmax(0, 1fr); column-gap: 40px; border-top: 1px solid var(--ink); padding: 14px 0 22px">
+<div>
+<p class="kick">Grammar Wiki · 9 IELTS Writing Lab · bài 9.2</p>
+<h3 class="sf" lang="en" style="margin: 6px 0 0; font-size: 28px; font-weight: 600; line-height: 1.15">Task 1 Trend Grammar</h3>
+<p class="sf" style="margin: 0 0 8px; font-size: 20px; line-height: 1.3; color: var(--muted)">Ngữ pháp mô tả xu hướng trong Writing Task 1</p>
+<p style="margin: 0 0 12px; font-size: 14px; color: var(--muted)">Trình độ trung cấp · đọc khoảng XXX phút · dùng nhiều trong Writing</p>
+<div style="padding: 10px 0 12px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule)">
+<p class="lab" style="margin: 0 0 4px; color: var(--accent)">Tóm tắt</p>
+<p class="body" style="margin: 0; font-size: 17px; line-height: 27px">Mô tả thay đổi trên biểu đồ theo thời gian cần bốn mảng: động từ chỉ biến động, dạng danh từ, từ chỉ mức độ, và giới từ. Hai cách diễn đạt cùng một ý, động từ + trạng từ và danh từ + tính từ, luân phiên nhau giúp câu đa dạng.</p>
+</div>
+</div>
+<div>
+<h4 class="h2a" style="margin: 0 0 4px; font-size: 22px"><span>1</span>&nbsp;&nbsp;Hai cách nói cùng một ý</h4>
+<figure style="margin: 0"><div class="fig" role="img" aria-label="Hình 1. Câu The figure increased steadily chuyển thành There was a steady increase in the figure. Trạng từ thành tính từ, động từ thành danh từ, chủ ngữ cũ ra sau in.">
+<div style="position: relative; width: 640px; height: 236px" lang="en">
+<span class="lab" style="position: absolute; left: 0; top: 0; color: var(--muted); font-size: 11px" lang="vi">Động từ + trạng từ</span>
+<div style="position: absolute; left: 0; top: 18px; display: flex; gap: 12px"><div style="width: 150px"><span class="tag">S</span><span class="ch rS" style="margin-top: 4px">The figure</span></div><div style="width: 140px"><span class="tag" style="color: var(--accent)">V · động từ</span><span class="ch rV" style="margin-top: 4px">increased</span></div><div style="width: 130px"><span class="tag">trạng từ</span><span class="ch rA" style="margin-top: 4px">[ steadily ]</span></div></div>
+<svg aria-hidden="true" viewBox="0 0 640 70" style="position: absolute; left: 0; top: 80px; width: 640px; height: 70px">
+<defs><marker id="ah4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--ink)"></path></marker></defs>
+<path d="M379 4 C 379 38, 187 30, 187 64" fill="none" stroke="var(--ink)" stroke-width="1.6" marker-end="url(#ah4)"></path>
+<text x="363" y="18" font-family="'Source Sans 3', sans-serif" font-size="13" font-weight="600" fill="var(--ink)">1</text>
+<path d="M232 4 C 232 38, 309 30, 309 64" fill="none" stroke="var(--accent)" stroke-width="1.6" marker-end="url(#ah4)"></path>
+<text x="240" y="18" font-family="'Source Sans 3', sans-serif" font-size="13" font-weight="600" fill="var(--accent)">2</text>
+<path d="M75 4 C 75 38, 456 30, 456 64" fill="none" stroke="var(--muted)" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#ah4)"></path>
+<text x="83" y="18" font-family="'Source Sans 3', sans-serif" font-size="13" font-weight="600" fill="var(--muted)">3</text>
+</svg>
+<div style="position: absolute; left: 0; top: 152px; display: flex; gap: 12px"><div style="width: 120px"><span class="ch ">There was</span><span class="tag" style="margin-top: 4px"></span></div><div style="width: 110px"><span class="ch rC">a steady</span><span class="tag" style="margin-top: 4px">tính từ</span></div><div style="width: 110px"><span class="ch rS">increase</span><span class="tag" style="margin-top: 4px">danh từ</span></div><div style="width: 160px"><span class="ch rA">[ in the figure ]</span><span class="tag" style="margin-top: 4px">in + chủ đề</span></div></div>
+<span class="lab" style="position: absolute; right: 0; top: 0; color: var(--muted); font-size: 11px" lang="vi">Danh từ + tính từ ↓</span>
+</div>
+</div><figcaption class="cap"><strong style="color: var(--ink)">Hình 1.</strong> (1) trạng từ <em lang="en">steadily</em> thành tính từ <em lang="en">steady</em>; (2) động từ <em lang="en">increased</em> thành danh từ <em lang="en">increase</em>; (3) chủ ngữ cũ ra sau <em lang="en">in</em>. Kiểu 4.</figcaption></figure>
+</div>
+</article>
+<article aria-label="Phần đầu bài Cohesion Devices" style="display: grid; grid-template-columns: 420px minmax(0, 1fr); column-gap: 40px; border-top: 1px solid var(--ink); padding: 14px 0 22px">
+<div>
+<p class="kick">Grammar Wiki · 9 IELTS Writing Lab · bài 9.6</p>
+<h3 class="sf" lang="en" style="margin: 6px 0 0; font-size: 28px; font-weight: 600; line-height: 1.15">Cohesion Devices</h3>
+<p class="sf" style="margin: 0 0 8px; font-size: 20px; line-height: 1.3; color: var(--muted)">Liên kết câu và đoạn trong bài viết</p>
+<p style="margin: 0 0 12px; font-size: 14px; color: var(--muted)">Trình độ trung cấp · đọc khoảng XXX phút · dùng nhiều trong Writing</p>
+<div style="padding: 10px 0 12px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule)">
+<p class="lab" style="margin: 0 0 4px; color: var(--accent)">Tóm tắt</p>
+<p class="body" style="margin: 0; font-size: 17px; line-height: 27px">Cohesion (liên kết) là cách nối các câu và đoạn thành một dòng lập luận mượt: từ nối, đại từ tham chiếu, từ đồng nghĩa và cách xếp ý cũ trước, ý mới sau.</p>
+</div>
+</div>
+<div>
+<h4 class="h2a" style="margin: 0 0 4px; font-size: 22px"><span>1</span>&nbsp;&nbsp;Liên kết chủ đề: ý cũ trước, ý mới sau</h4>
+<figure style="margin: 0"><div class="fig" role="img" aria-label="Hình 1. Hai câu Governments have raised taxes. These taxes now fund new schools. Cung nối taxes ở cuối câu đầu với These taxes ở đầu câu sau.">
+<svg viewBox="0 0 640 130" aria-hidden="true" style="display: block; width: 100%; height: auto" lang="en">
+<text x="16" y="104" font-family="'Source Serif 4', Georgia, serif" font-size="20" fill="var(--ink)" textLength="108" lengthAdjust="spacingAndGlyphs">Governments</text>
+<text x="131" y="104" font-family="'Source Serif 4', Georgia, serif" font-size="20" fill="var(--ink)" textLength="39" lengthAdjust="spacingAndGlyphs">have</text>
+<text x="176" y="104" font-family="'Source Serif 4', Georgia, serif" font-size="20" fill="var(--ink)" textLength="51" lengthAdjust="spacingAndGlyphs">raised</text>
+<rect x="234" y="80" width="60" height="34" fill="none" stroke="var(--muted)" stroke-width="1.4" stroke-dasharray="5 4"></rect>
+<text x="239" y="104" font-family="'Source Serif 4', Georgia, serif" font-size="20" fill="var(--muted)" textLength="50" lengthAdjust="spacingAndGlyphs">taxes.</text>
+<rect x="301" y="80" width="116" height="34" fill="none" stroke="var(--ink)" stroke-width="1.5"></rect>
+<text x="306" y="104" font-family="'Source Serif 4', Georgia, serif" font-size="20" font-weight="600" fill="var(--ink)" textLength="106" lengthAdjust="spacingAndGlyphs">These taxes</text>
+<text x="423" y="104" font-family="'Source Serif 4', Georgia, serif" font-size="20" fill="var(--ink)" textLength="35" lengthAdjust="spacingAndGlyphs">now</text>
+<text x="465" y="104" font-family="'Source Serif 4', Georgia, serif" font-size="20" font-weight="600" fill="var(--accent)" textLength="38" lengthAdjust="spacingAndGlyphs">fund</text>
+<line x1="465" y1="112" x2="502" y2="112" stroke="var(--accent)" stroke-width="1.4"></line><line x1="465" y1="116" x2="502" y2="116" stroke="var(--accent)" stroke-width="1.4"></line>
+<text x="509" y="104" font-family="'Source Serif 4', Georgia, serif" font-size="20" fill="var(--ink)" textLength="109" lengthAdjust="spacingAndGlyphs">new schools.</text>
+<path d="M264 76 C 264 22, 359 22, 359 76" fill="none" stroke="var(--muted)" stroke-width="1.6" stroke-dasharray="5 4"></path>
+<circle cx="264" cy="78" r="3" fill="var(--muted)"></circle><circle cx="359" cy="78" r="3" fill="var(--muted)"></circle>
+<text x="311" y="30" text-anchor="middle" font-family="'Source Sans 3', sans-serif" font-size="12" font-weight="600" fill="var(--muted)" lang="vi">① ý cuối câu trước → mở đầu câu sau</text>
+</svg>
+</div><figcaption class="cap"><strong style="color: var(--ink)">Hình 1.</strong> <em lang="en">These taxes</em> nhắc lại <em lang="en">taxes</em> ở cuối câu trước (cung đứt ①), rồi mới đưa thông tin mới <em lang="en">new schools</em>. Kiểu 7, cung vẽ qua hai câu.</figcaption></figure>
+</div>
+</article>
+<article aria-label="Phần đầu bài Punctuation for Writing" style="display: grid; grid-template-columns: 420px minmax(0, 1fr); column-gap: 40px; border-top: 1px solid var(--ink); padding: 14px 0 22px">
+<div>
+<p class="kick">Grammar Wiki · 9 IELTS Writing Lab · bài 9.7</p>
+<h3 class="sf" lang="en" style="margin: 6px 0 0; font-size: 28px; font-weight: 600; line-height: 1.15">Punctuation for Writing</h3>
+<p class="sf" style="margin: 0 0 8px; font-size: 20px; line-height: 1.3; color: var(--muted)">Dấu câu trong bài viết học thuật</p>
+<p style="margin: 0 0 12px; font-size: 14px; color: var(--muted)">Trình độ trung cấp · đọc khoảng XXX phút · dùng nhiều trong Writing</p>
+<div style="padding: 10px 0 12px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule)">
+<p class="lab" style="margin: 0 0 4px; color: var(--accent)">Tóm tắt</p>
+<p class="body" style="margin: 0; font-size: 17px; line-height: 27px">Dùng dấu câu đúng (phẩy, chấm phẩy, hai chấm) giúp câu rõ ràng và tránh lỗi run-on, comma splice. Hai mệnh đề độc lập không được nối bằng mỗi dấu phẩy.</p>
+</div>
+</div>
+<div>
+<h4 class="h2a" style="margin: 0 0 4px; font-size: 22px"><span>1</span>&nbsp;&nbsp;Comma splice và run-on</h4>
+<figure style="margin: 0"><div class="fig" role="img" aria-label="Hình 1. Hai cặp sai đúng. Costs rose, profits fell sửa thành Costs rose; profits fell. If prices fall demand rises thiếu dấu phẩy sau fall.">
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px">
+<p class="lab" style="margin: 0 0 6px; color: var(--danger)">Sai</p>
+<p class="lab" style="margin: 0 0 6px; color: var(--ok)">Đúng</p>
+<p lang="en" class="sf" style="margin: 0; padding: 10px 0; border-top: 1.5px solid var(--danger); font-size: 19px; line-height: 1.5">Costs rose<span style="padding: 0 3px; border: 1.5px dashed var(--danger); text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px; white-space: nowrap">,</span> profits fell.</p>
+<p lang="en" class="sf" style="margin: 0; padding: 10px 0; border-top: 1.5px solid var(--ok); font-size: 19px; line-height: 1.5">Costs rose<span style="padding: 0 3px; border-bottom: 4px double var(--ok); font-weight: 600; white-space: nowrap">;</span> profits fell.</p>
+<p style="grid-column: span 2; margin: 0 0 12px; font: 14px/1.5 'Source Sans 3', sans-serif; color: var(--muted)"><span class="lab" style="color: var(--muted)">Vì sao&nbsp;&nbsp;</span>Comma splice. Ba cách sửa của bài: dấu chấm, chấm phẩy, hoặc liên từ (<em lang="en">Costs rose, <strong>so</strong> profits fell.</em>).</p>
+<p lang="en" class="sf" style="margin: 0; padding: 10px 0; border-top: 1.5px solid var(--danger); font-size: 19px; line-height: 1.5">If prices fall <span style="padding: 0 10px; border: 1.5px dashed var(--danger); color: var(--danger); font: 600 12px 'Source Sans 3', sans-serif; letter-spacing: 0.06em; white-space: nowrap">thiếu phẩy</span> demand rises.</p>
+<p lang="en" class="sf" style="margin: 0; padding: 10px 0; border-top: 1.5px solid var(--ok); font-size: 19px; line-height: 1.5">If prices fall<span style="padding: 0 3px; border-bottom: 4px double var(--ok); font-weight: 600; white-space: nowrap">,</span> demand rises.</p>
+<p style="grid-column: span 2; margin: 0; font: 14px/1.5 'Source Sans 3', sans-serif; color: var(--muted)"><span class="lab" style="color: var(--muted)">Vì sao&nbsp;&nbsp;</span>Thiếu phẩy sau mệnh đề phụ mở đầu.</p>
+</div>
+</div><figcaption class="cap"><strong style="color: var(--ink)">Hình 1.</strong> Chỗ sai chỉ là một dấu câu, nên ô đánh dấu bao riêng dấu đó; ô đỏ "thiếu phẩy" đánh dấu chỗ không có gì. Kiểu 8.</figcaption></figure>
+</div>
+</article><div style="border-top: 1px solid var(--ink)"></div>
+</section>
+
+<section aria-labelledby="n3" style="border-top: 2px solid var(--ink); padding: 16px 64px 0">
+<h2 id="n3" class="h2s">3 · Điện thoại 390px · bài Parallel Structure</h2>
+<p class="lead">Trái: đầu bài Parallel Structure; Hình 1 (kiểu 1) đổi từ hàng ngang sang cột dọc để thấy các thành phần song song thẳng hàng. Phải: Hình 3 (kiểu 8) xếp dọc; lựa chọn tự kiểm tra cao 48px. Chú thích hình nằm ngay dưới hình, không ở lề.</p>
+<div style="display: flex; gap: 23px; align-items: flex-start"><div style="width: 390px; height: 800px; box-sizing: border-box; border: 1px solid var(--ink); display: flex; flex-direction: column; overflow: hidden; background: var(--paper); flex-shrink: 0">
+<header style="flex-shrink: 0; display: flex; align-items: center; gap: 12px; height: 56px; box-sizing: border-box; padding: 0 16px; border-bottom: 1px solid var(--ink)">
+<span class="sf" style="display: inline-flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 600; flex-grow: 1"><svg width="26" height="26" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<a href="TaiKhoanDangNhap.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; color: var(--ink); font-weight: 600">Đăng nhập</a>
+<button aria-label="Mở menu" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink)"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 20px; height: 20px"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg></button>
+</header>
+<div style="padding: 4px 16px 0">
+<a href="GrammarWiki.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; font-size: 15px; font-weight: 600">‹ IELTS Writing Lab</a>
+<p class="kick" style="font-size: 12px">Grammar Wiki · bài 9.4</p>
+<p class="sf" lang="en" style="margin: 4px 0 0; font-size: 28px; font-weight: 600; line-height: 1.15">Parallel Structure</p>
+<p class="sf" style="margin: 0 0 6px; font-size: 18px; line-height: 1.3; color: var(--muted)">Cấu trúc song song</p>
+<p style="margin: 0 0 10px; font-size: 14px; color: var(--muted)">Trình độ trung cấp · đọc khoảng XXX phút · dùng nhiều trong Writing</p>
+<div style="border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink)">
+<button onClick="{{togglePhoneToc}}" aria-expanded="{{phoneTocLabel}}" style="display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 48px; padding: 0; border: 0; background: transparent; color: var(--ink); font: 600 15px 'Source Sans 3', sans-serif; cursor: pointer"><span>Trong bài này · 9 mục</span><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 20px; height: 20px"><path d="{{phoneTocIcon}}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+<sc-if value="{{phoneTocOpen}}" hint-placeholder-val="{{ false }}"><p style="margin: 0; padding: 8px 0 10px; border-top: 1px solid var(--rule); font-size: 14px; color: var(--muted)">Danh sách mục như cột trái bản máy tính, mỗi dòng cao 40px; chạm một mục thì cuộn tới và tự đóng.</p></sc-if>
+</div>
+<div style="padding: 10px 0; border-bottom: 1px solid var(--rule)">
+<p class="lab" style="margin: 0 0 4px; font-size: 12px; color: var(--accent)">Tóm tắt</p>
+<p class="body" style="margin: 0; font-size: 17px; line-height: 26px">Khi nối các ý bằng <em lang="en">and / or / but</em> hoặc liệt kê, các thành phần nên <strong>cùng dạng ngữ pháp</strong>.</p>
+</div><div style="margin-top: 10px; border: 1px solid var(--rule); background: var(--surface); padding: 12px" role="img" aria-label="Hình 1 ở bản điện thoại. Các thành phần song song xếp dọc dưới động từ chung.">
+<div lang="en"><p class="lab" lang="vi" style="margin: 0 0 4px; color: var(--danger)">Sai</p><p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; line-height: 1.5"><span style="padding: 1px 5px; border: 1.5px solid var(--ink); white-space: nowrap">She</span> <span style="border-bottom: 4px double var(--accent); color: var(--accent); font-weight: 600">likes</span></p><p style="margin: 4px 0 0 16px; padding-left: 10px; border-left: 1.5px solid var(--ink); font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; line-height: 1.5"><span style="padding: 1px 5px; border: 1.5px dashed var(--ink); white-space: nowrap">reading</span> <span lang="vi" style="font: 600 11px 'Source Sans 3', sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">V-ing</span></p><p style="margin: 4px 0 0 16px; padding-left: 10px; border-left: 1.5px solid var(--ink); font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; line-height: 1.5"><span style="padding: 0 3px; border: 1.5px dashed var(--danger); text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px; white-space: nowrap">to travel</span> <span lang="vi" style="font: 600 11px 'Source Sans 3', sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: var(--danger)">to + V</span></p><p style="margin: 4px 0 0 16px; padding-left: 10px; border-left: 1.5px solid var(--ink); font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; line-height: 1.5"><span style="padding: 0 3px; border: 1.5px dashed var(--danger); text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px; white-space: nowrap">she paints</span> <span lang="vi" style="font: 600 11px 'Source Sans 3', sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: var(--danger)">mệnh đề</span></p><p class="lab" lang="vi" style="margin: 12px 0 4px; padding-top: 10px; border-top: 1px dashed var(--rule); color: var(--ok)">Đúng</p><p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; line-height: 1.5"><span style="padding: 1px 5px; border: 1.5px solid var(--ink); white-space: nowrap">She</span> <span style="border-bottom: 4px double var(--accent); color: var(--accent); font-weight: 600">likes</span></p><p style="margin: 4px 0 0 16px; padding-left: 10px; border-left: 1.5px solid var(--ink); font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; line-height: 1.5"><span style="padding: 1px 5px; border: 1.5px dashed var(--ink); white-space: nowrap">reading</span> <span lang="vi" style="font: 600 11px 'Source Sans 3', sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">V-ing</span></p><p style="margin: 4px 0 0 16px; padding-left: 10px; border-left: 1.5px solid var(--ink); font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; line-height: 1.5"><span style="padding: 1px 5px; border: 1.5px dashed var(--ink); white-space: nowrap">travelling</span> <span lang="vi" style="font: 600 11px 'Source Sans 3', sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">V-ing</span></p><p style="margin: 4px 0 0 16px; padding-left: 10px; border-left: 1.5px solid var(--ink); font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; line-height: 1.5"><span style="padding: 1px 5px; border: 1.5px dashed var(--ink); white-space: nowrap">painting</span> <span lang="vi" style="font: 600 11px 'Source Sans 3', sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">V-ing</span></p></div>
+</div>
+<p class="cap"><strong style="color: var(--ink)">Hình 1.</strong> Trên điện thoại các thành phần song song xếp thành cột dưới <em lang="en">She likes</em>: cùng nhãn là song song, khác nhãn là lệch.</p>
+</div>
+</div>
+<div style="width: 390px; height: 800px; box-sizing: border-box; border: 1px solid var(--ink); display: flex; flex-direction: column; overflow: hidden; background: var(--paper); flex-shrink: 0"><div style="padding: 16px">
+<p class="sf" style="margin: 16px 0 6px; font-size: 21px; font-weight: 600; line-height: 1.25"><span style="color: var(--muted)">3</span>&nbsp;&nbsp;Lỗi thường gặp</p><div style="border: 1px solid var(--rule); background: var(--surface); padding: 12px"><p style="margin: 0"><span class="lab" style="color: var(--danger)">Sai&nbsp;&nbsp;</span><span lang="en" class="sf" style="font-size: 18px">both <span style="padding: 0 3px; border: 1.5px dashed var(--danger); text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px; white-space: nowrap">to save</span> money and reducing waste</span></p><p style="margin: 6px 0 0"><span class="lab" style="color: var(--ok)">Đúng&nbsp;&nbsp;</span><span lang="en" class="sf" style="font-size: 18px">both <span style="padding: 0 3px; border-bottom: 4px double var(--ok); font-weight: 600; white-space: nowrap">saving</span> money and reducing waste</span></p><p style="margin: 6px 0 0; font-size: 15px; color: var(--muted)"><span class="lab">Vì sao&nbsp;&nbsp;</span>Vế sau <em lang="en">both</em> bị lệch dạng.</p><p style="margin: 12px 0 0; padding-top: 10px; border-top: 1px dashed var(--rule)"><span class="lab" style="color: var(--danger)">Sai&nbsp;&nbsp;</span><span lang="en" class="sf" style="font-size: 18px">She analysed the data, <span style="padding: 0 3px; border: 1.5px dashed var(--danger); text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px; white-space: nowrap">writes</span> the report, and <span style="padding: 0 3px; border: 1.5px dashed var(--danger); text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px; white-space: nowrap">presents</span> it.</span></p><p style="margin: 6px 0 0"><span class="lab" style="color: var(--ok)">Đúng&nbsp;&nbsp;</span><span lang="en" class="sf" style="font-size: 18px">She analysed the data, <span style="padding: 0 3px; border-bottom: 4px double var(--ok); font-weight: 600; white-space: nowrap">wrote</span> the report, and <span style="padding: 0 3px; border-bottom: 4px double var(--ok); font-weight: 600; white-space: nowrap">presented</span> it.</span></p><p style="margin: 6px 0 0; font-size: 15px; color: var(--muted)"><span class="lab">Vì sao&nbsp;&nbsp;</span>Đổi thì vô cớ trong cùng một chuỗi.</p></div><p class="cap"><strong style="color: var(--ink)">Hình 3.</strong> Mỗi cặp xếp dọc Sai, Đúng, Vì sao.</p><p class="sf" style="margin: 16px 0 6px; font-size: 21px; font-weight: 600; line-height: 1.25"><span style="color: var(--muted)">6</span>&nbsp;&nbsp;Tự kiểm tra</p><p lang="en" class="sf" style="margin: 0 0 6px; font-size: 18px"><span style="font-family: 'Source Sans 3', sans-serif; font-size: 15px; color: var(--muted)">1.&nbsp;</span>Mai enjoys reading, swimming and ____.</p><div style="display: flex; flex-direction: column; gap: 6px" lang="en"><span style="display: flex; align-items: center; min-height: 48px; padding: 0 14px; border: 1px solid var(--rule); background: var(--surface); font-family: 'Source Serif 4', Georgia, serif; font-size: 17px">to cycle</span><span style="display: flex; align-items: center; justify-content: space-between; min-height: 48px; padding: 0 14px; border: 2px solid var(--ok); background: var(--tint); font-family: 'Source Serif 4', Georgia, serif; font-size: 17px">cycling<span class="lab" lang="vi" style="font-size: 12px; color: var(--ok)">Đúng</span></span></div>
+</div></div></div>
+</section>
+
+<section aria-labelledby="n4" style="border-top: 2px solid var(--ink); padding: 16px 64px 0">
+<h2 id="n4" class="h2s">Ghi chú cho lập trình</h2>
+<p class="lead">Kèm ghi chú cho người soạn: bài nào khuôn hiện tại không chứa nổi, cần khối mới gì, và ước lượng công vẽ.</p>
+<h3 class="h3a" style="margin-top: 0; font-size: 17px">Cho lập trình</h3><ul style="margin: 0; padding-left: 20px; font-size: 15px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 48px"><li><strong>Khối đã có trong mã:</strong> 9.1 có <em lang="en">precheck</em>, <em lang="en">chart-map</em>, <em lang="en">microcheck</em>, <em lang="en">transfer</em>; 9.3 có <em lang="en">flow</em>. <em lang="en">chart-map</em> là hình biểu đồ có nhãn, không phải sơ đồ câu; giữ là <em lang="en">variant</em> riêng.</li><li><strong>Khối mới "đoạn văn có chú giải":</strong> cần cho 9.3 và mọi bài Writing có đoạn mẫu (cả các bài mẫu trong Thư viện). Đoạn văn + danh sách chú giải đánh số; số mũ trong đoạn nhảy tới dòng chú giải và ngược lại.</li><li><strong>Sáu bài khuôn ngắn (9.4–9.9)</strong> có cùng sáu mục H2 và có trường <em lang="en">tested_in</em> trong frontmatter với giá trị <em lang="en">toeic_rc</em> và <em lang="en">thpt_qg</em> (không bài nào ghi kỳ thi IELTS). Luyện thi THPT đang hoãn: không hiện trường này cho người học cho tới khi có quyết định.</li><li><strong>Dấu câu là chỗ sai:</strong> ở kiểu 8, ô đánh dấu cho một dấu câu rộng tối thiểu 16px để nhìn thấy được; ô "thiếu phẩy" dùng lại ký hiệu chỗ thiếu của nhóm 8.</li><li><strong>Hình trong khối Tóm tắt:</strong> cho phép một hình ngay sau đoạn tóm tắt (xem tờ Bai2).</li><li><strong>Tên bài:</strong> <em lang="en">title</em> trong frontmatter khớp với <em lang="en">_groups.yaml</em> ở mọi bài của nhóm.</li></ul><h3 class="h3a" style="font-size: 17px">Cho người soạn nội dung</h3><ul style="margin: 0; padding-left: 20px; font-size: 15px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 48px"><li><strong>Khuôn hiện tại không chứa nổi:</strong> (1) 9.3 Grammar in Task 2: đoạn body mẫu cần khối "đoạn văn có chú giải"; (2) 9.1 Grammar in Task 1: cần hình biểu đồ mẫu có đánh dấu (khối <em lang="en">chart-map</em> đã có) vì câu mô tả số liệu vô nghĩa nếu không thấy số liệu; (3) 9.2 Task 1 Trend Grammar: 8 bảng từ vựng, cần bảng gập và bảng cuộn ngang trên điện thoại.</li><li><strong>Việc người soạn:</strong> sáu bài khuôn ngắn mỗi bài 1–3 hình, lấy từ cặp sai/đúng mở đầu bài. Ba bài dài: tối đa 3 hình cộng một đoạn văn có chú giải.</li><li><strong>Cần sửa trong bài thật:</strong> 9.4 nhắc TOEIC Part 5 và 8.19 nhắc THPT trong khi web hiện chỉ có IELTS; 9.6 phần tóm tắt trong frontmatter viết "liên kết chủ đề–vần" (có lẽ ý là đề–thuyết, theme–rheme); 9.3 mô tả "Hai phần tư điểm Task 2" nên viết rõ là hai trong bốn tiêu chí.</li></ul><h3 class="h3a" style="font-size: 17px">Ước lượng công vẽ sơ đồ cho nhóm</h3><p style="margin: 0; font-size: 15px; max-width: 120ch">Nhóm 9 đề nghị 21 hình cho 9 bài. Đã vẽ 8 hình trên ba tờ (không kể bản điện thoại): 3 hình kiểu 8, 2 hình kiểu 1, 1 hình kiểu 5, 1 hình kiểu 4, 1 hình kiểu 7, cộng một đoạn văn có chú giải. Kiểu 8 và kiểu 1 mỗi hình 5–10 phút; kiểu 4 và kiểu 7 khoảng 20 phút; đoạn văn có chú giải khoảng 15 phút mỗi đoạn. Ước lượng cả nhóm: khoảng 3–4 giờ soạn, chưa tính công viết renderer và hình biểu đồ mẫu cho hai bài Task 1. Đây là ước lượng của người vẽ, chưa đo trên người soạn thật.</p>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Navy + đỏ mận","Xanh teal"],"default":"Navy + đỏ mận"},"$preview":{"width":1280,"height":4420}}'>
+class Component extends DCLogic {
+constructor(p) { super(p); this.state = { ans: {}, checked: {}, warn: {}, playing: '', phoneToc: false }; }
+renderVals() {
+const s = this.state || {};
+const QZ = {"a": [{"ask": "Chọn dạng đúng cho vế if.", "prompt": "If the government ____ taxes, businesses will grow.", "opts": ["will reduce", "reduces"], "right": 1, "why": "Điều kiện loại 1 dùng hiện tại đơn trong vế if để nói tương lai; bỏ will ở vế này."}, {"ask": "Câu nào hợp văn phong Task 2 hơn?", "prompt": "", "opts": ["Kids spend a lot of time on phones and it's bad.", "Children spend a great deal of time on their phones, which can have negative effects."], "right": 1, "why": "Children trung tính hơn kids; không còn dạng rút gọn it's."}, {"ask": "Câu nào gộp đúng bằng although?", "prompt": "", "opts": ["Although the service is convenient, it is expensive.", "Although the service is convenient, but it is expensive."], "right": 0, "why": "Although theo sau bởi mệnh đề đầy đủ; không thêm but cho cùng quan hệ này."}], "b": [{"ask": "Chọn dạng giữ được song song.", "prompt": "Mai enjoys reading, swimming and ____.", "opts": ["to cycle", "cycling"], "right": 1, "why": "Ba hoạt động đều là bổ ngữ của enjoys, nên giữ chuỗi V-ing."}, {"ask": "Chọn dạng giữ được song song.", "prompt": "We can clean the room and ____ the chairs.", "opts": ["move", "moving"], "right": 0, "why": "Can chi phối cả clean và move; sau động từ khuyết thiếu dùng động từ nguyên mẫu không to."}, {"ask": "Chọn dạng giữ được song song.", "prompt": "The bag is light, strong and ____.", "opts": ["easy to carry", "carries easily"], "right": 0, "why": "Cụm tính từ này cùng miêu tả the bag, song song với light và strong."}]};
+const AU = [];
+const TG = [];
+const qz = {};
+Object.keys(QZ).forEach((k) => {
+const Q = QZ[k];
+const ans = (s.ans || {})[k] || {};
+const checked = !!(s.checked || {})[k];
+const setAns = (qi, oi) => this.setState({ ans: Object.assign({}, this.state.ans || {}, { [k]: Object.assign({}, ((this.state.ans || {})[k]) || {}, { [qi]: oi }) }), checked: Object.assign({}, this.state.checked || {}, { [k]: false }), warn: Object.assign({}, this.state.warn || {}, { [k]: 0 }) });
+const items = Q.map((q, qi) => {
+const chosen = ans[qi];
+const done = checked && chosen !== undefined;
+const ok = done && chosen === q.right;
+return { n: String(qi + 1), ask: q.ask, prompt: q.prompt, aria: 'Câu ' + (qi + 1), done, res: ok ? 'Chính xác.' : 'Chưa đúng.', resc: ok ? 'var(--ok)' : 'var(--danger)', why: q.why,
+opts: q.opts.map((t, oi) => {
+const on = chosen === oi;
+const showRight = done && oi === q.right;
+const showWrong = done && on && oi !== q.right;
+return { t, on: on ? 'true' : 'false', bd: showRight ? 'var(--ok)' : (showWrong ? 'var(--danger)' : (on ? 'var(--ink)' : 'var(--rule)')), bg: on ? 'var(--tint)' : 'var(--surface)', tag: showRight ? 'Đúng' : (showWrong ? 'Sai' : ''), tagc: showRight ? 'var(--ok)' : 'var(--danger)', pick: () => setAns(qi, oi) };
+}) };
+});
+const missing = Q.filter((q, i) => ans[i] === undefined).length;
+const nRight = Q.filter((q, i) => ans[i] === q.right).length;
+const warn = (s.warn || {})[k] || 0;
+let msg = ''; let msgc = 'var(--muted)';
+if (warn) { msg = 'Còn ' + warn + ' câu chưa chọn.'; msgc = 'var(--mark)'; }
+else if (checked) { msg = 'Đúng ' + nRight + ' trên ' + Q.length + ' câu.'; msgc = 'var(--ink)'; }
+qz[k] = { items, msg, msgc,
+check: () => { if (missing) { this.setState({ warn: Object.assign({}, this.state.warn || {}, { [k]: missing }) }); } else { this.setState({ checked: Object.assign({}, this.state.checked || {}, { [k]: true }), warn: Object.assign({}, this.state.warn || {}, { [k]: 0 }) }); } },
+reset: () => this.setState({ ans: Object.assign({}, this.state.ans || {}, { [k]: {} }), checked: Object.assign({}, this.state.checked || {}, { [k]: false }), warn: Object.assign({}, this.state.warn || {}, { [k]: 0 }) }) };
+});
+const au = {};
+AU.forEach((k) => {
+const on = s.playing === k;
+au[k] = { on: on ? 'true' : 'false', label: on ? 'Dừng' : 'Nghe câu mẫu', icon: on ? 'M3 2h4v12H3zM9 2h4v12H9z' : 'M3 1.5v13l11-6.5z', bg: on ? 'var(--ink)' : 'var(--surface)', fg: on ? 'var(--surface)' : 'var(--ink)', pick: () => this.setState({ playing: on ? '' : k }) };
+});
+const tg = {};
+TG.forEach((x) => {
+const open = !!((s.tg || {})[x.k]);
+tg[x.k] = { open, exp: open ? 'true' : 'false', label: open ? x.b : x.a, pick: () => this.setState({ tg: Object.assign({}, this.state.tg || {}, { [x.k]: !open }) }) };
+});
+const phoneTocOpen = !!s.phoneToc;
+return {
+pal: (this.props.palette ?? 'Navy + đỏ mận') === 'Xanh teal' ? 'pal-teal' : 'pal-navy',
+qz, au, tg,
+phoneTocOpen, phoneTocIcon: phoneTocOpen ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6', phoneTocLabel: phoneTocOpen ? 'true' : 'false',
+togglePhoneToc: () => this.setState({ phoneToc: !phoneTocOpen })
+};
+}
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Gói giáo viên chấm — Admin</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--link:#0B5953;--mark:#8A4B08;--tint:#EDF3F1;--on-accent:#FFFFFF}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--link:#1A3561;--mark:#8A1C1C;--tint:#EEF0F5;--on-accent:#FFFFFF}
+a{color:var(--link)}a:hover{color:var(--ink)}
+p{margin:0}
+.k{margin:0;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)}
+.kb{margin:0;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;color:var(--muted)}
+.m{color:var(--muted)}
+.s{font-size:14px;color:var(--muted)}
+.sf{font-family:'Source Serif 4',Georgia,serif}
+.num{font-variant-numeric:tabular-nums}
+.th{padding:8px 12px 8px 0;font-size:13px;font-weight:600;color:var(--muted);border-top:1px solid var(--ink);border-bottom:1px solid var(--ink)}
+.td{padding:10px 12px 10px 0;min-width:0}
+.tr{border-bottom:1px solid var(--rule)}
+.blk{border-top:2px solid var(--ink);padding-top:16px}
+.row{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 18px;padding:12px 0;border-bottom:1px solid var(--rule)}
+.box{border:1px solid var(--ink);background:var(--surface);padding:16px 18px}
+.qd{display:inline-block;padding:1px 7px;border:1px dashed var(--mark);border-radius:2px;font-size:12px;font-weight:600;letter-spacing:0.02em;color:var(--mark);background:var(--surface);white-space:nowrap}
+.tag{display:inline-block;padding:1px 7px;border:1px solid var(--muted);border-radius:2px;font-size:12px;font-weight:600;letter-spacing:0.02em;color:var(--muted);white-space:nowrap}
+.tagi{display:inline-block;padding:1px 7px;border:1px solid var(--ink);border-radius:2px;font-size:12px;font-weight:600;letter-spacing:0.02em;color:var(--ink);white-space:nowrap}
+.bp{display:inline-flex;align-items:center;justify-content:center;min-height:44px;box-sizing:border-box;padding:0 20px;border:1px solid var(--accent);border-radius:2px;background:var(--accent);color:var(--on-accent);font:600 16px 'Source Sans 3',sans-serif;text-decoration:none;cursor:pointer}
+.bp:hover{color:var(--on-accent)}
+.bg{display:inline-flex;align-items:center;justify-content:center;min-height:44px;box-sizing:border-box;padding:0 18px;border:1px solid var(--ink);border-radius:2px;background:var(--surface);color:var(--ink);font:600 16px 'Source Sans 3',sans-serif;text-decoration:none;cursor:pointer}
+.bm{display:inline-flex;align-items:center;justify-content:center;min-height:44px;box-sizing:border-box;padding:0 18px;border:1px solid var(--mark);border-radius:2px;background:var(--mark);color:var(--on-accent);font:600 16px 'Source Sans 3',sans-serif;text-decoration:none;cursor:pointer}
+.bm:hover{color:var(--on-accent)}
+.boff{display:inline-flex;align-items:center;justify-content:center;min-height:44px;box-sizing:border-box;padding:0 18px;border:1px solid var(--rule);border-radius:2px;background:var(--paper);color:var(--muted);font:600 16px 'Source Sans 3',sans-serif}
+.h1{margin:6px 0 8px;font-family:'Source Serif 4',Georgia,serif;font-size:40px;font-weight:600;line-height:1.15;text-wrap:balance}
+.h3{margin:0;font-family:'Source Serif 4',Georgia,serif;font-size:22px;font-weight:600;line-height:1.25}
+.cap{margin:10px 0 0;font-size:14px;color:var(--muted)}
+ul.n{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:5px}
+.seg{display:flex;gap:3px}
+.seg i{display:block;flex:1 1 0;height:10px;border:1px solid var(--ink);box-sizing:border-box}
+.seg i.on{background:var(--ink)}
+.seg i.ac{background:var(--accent);border-color:var(--accent)}
+.fld{display:flex;align-items:center;min-height:40px;box-sizing:border-box;padding:0 12px;border:1px solid var(--muted);border-radius:2px;background:var(--surface)}
+</style>
+</helmet>
+<div class="{{pal}}" style="background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 16px; line-height: 1.55; min-height: 4639px">
+<div style="max-width: 1376px; margin: 0 auto; padding: 32px 32px 22px">
+<p class="k">Aver Learning · Bản in · hướng phát triển 7 · Admin và giáo viên</p><p class="sf" style="margin: 2px 0 4px; font-size: 32px; font-weight: 600; line-height: 1.15">Gói giáo viên chấm · phía giáo viên và admin</p><p class="m" style="max-width: 96ch">Một thẻ mới trong Chấm bài › Writing. Trần số bài mỗi tuần là cấu hình; hàng chờ xếp theo hạn trả; số phút duyệt mỗi bài được đo; bài sắp trễ được cảnh báo; có nút ngừng nhận tuần này. Mỗi bài trả là một cặp điểm AI–giáo viên, ghi lại cho trang <a href="DoLechAIGiaoVien.dc.html">Độ lệch AI–giáo viên</a>. Phía học viên ở tờ <a href="GoiGiaoVienCham.dc.html">GoiGiaoVienCham</a>.</p></div>
+<section aria-labelledby="s1" style="border-top: 2px solid var(--ink)">
+<div style="max-width: 1376px; margin: 0 auto; padding: 18px 32px 12px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 16px"><h2 id="s1" class="sf" style="margin: 0; font-size: 24px; font-weight: 600">1 · Màn chính · thẻ "Gói giáo viên chấm"</h2><p style="flex: 1 1 400px; font-size: 14px; color: var(--muted)">Đủ khung admin. Bấm được: "Ngừng nhận tuần này…" và các nhóm sidebar.</p></div><div style="border-top: 1px solid var(--rule)">
+<div style="max-width: 1440px; margin: 0 auto; padding: 20px 32px 28px"><div style="border: 1px solid var(--ink); background: var(--paper)">
+<header style="display: flex; align-items: center; gap: 20px; min-height: 56px; padding: 0 24px; border-bottom: 1px solid var(--ink); background: var(--surface)"><span class="sf" style="display: inline-flex; align-items: center; gap: 8px; font-size: 19px; font-weight: 600"><svg width="25" height="25" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span><span style="padding: 2px 8px; border: 1px solid var(--ink); border-radius: 2px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600">Quản trị</span><span style="padding: 2px 8px; background: var(--mark); color: var(--surface); border-radius: 2px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600">Production · dữ liệu thật</span><label style="flex: 1 1 320px; max-width: 440px; display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--paper)"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 16px; height: 16px; flex-shrink: 0"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"></circle><path d="M16.5 16.5L21 21" stroke="currentColor" stroke-width="2"></path></svg><input type="search" placeholder="Tìm học viên, lớp, bài nộp, đề…" aria-label="Tìm nhanh" style="flex-grow: 1; min-width: 0; border: 0; background: transparent; font: 15px 'Source Sans 3', sans-serif; color: var(--ink)"><kbd style="font: 12px 'Source Sans 3', sans-serif; color: var(--muted); border: 1px solid var(--rule); padding: 1px 6px; border-radius: 2px">⌘K</kbd></label><span style="flex-grow: 1"></span><a href="Main.dc.html" style="display: inline-flex; align-items: center; min-height: 36px; font-size: 14px">Xem như học viên</a><button type="button" aria-label="Mở menu tài khoản: đổi vai trò, đăng xuất" style="width: 40px; height: 40px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 13px 'Source Sans 3', sans-serif; cursor: pointer">VT</button></header><div style="display: flex"><nav aria-label="Điều hướng quản trị" style="flex-shrink: 0; width: 248px; box-sizing: border-box; padding: 12px 0; border-right: 1px solid var(--rule); background: var(--surface)">
+<sc-for list="{{nav}}" as="g" hint-placeholder-count="8">
+<div>
+<button type="button" aria-expanded="{{g.exp}}" onClick="{{g.toggle}}" style="display: flex; align-items: center; gap: 8px; width: 100%; min-height: 36px; padding: 0 16px; border: 0; background: transparent; color: {{g.headColor}}; font: 600 12px 'Source Sans 3', sans-serif; letter-spacing: 0.08em; text-transform: uppercase; text-align: left; cursor: pointer">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 14px; height: 14px; flex-shrink: 0"><path d="{{g.chev}}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<span style="flex-grow: 1">{{g.name}}</span>
+<span style="color: var(--mark); font-variant-numeric: tabular-nums; letter-spacing: 0">{{g.badgeShow}}</span>
+</button>
+<sc-if value="{{g.show}}" hint-placeholder-val="{{ false }}">
+<div role="group" aria-label="{{g.name}}" style="margin: 0 0 6px 23px; border-left: 1px solid var(--rule)">
+<sc-for list="{{g.items}}" as="i" hint-placeholder-count="3">
+<a href="{{i.href}}" aria-current="{{i.current}}" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; padding: 0 16px 0 21px; margin-left: -2px; border-left: 3px solid {{i.bar}}; background: {{i.bg}}; color: var(--ink); font-weight: {{i.weight}}; text-decoration: none">{{i.label}}<span style="color: var(--mark); font-weight: 600; font-variant-numeric: tabular-nums">{{i.count}}</span></a>
+</sc-for>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</nav>
+<main style="flex-grow: 1; min-width: 0; padding: 20px 32px 36px">
+<nav aria-label="Vị trí trang" style="font-size: 14px; color: var(--muted); margin-bottom: 12px"><a href="AdminViecCanLam.dc.html">Tổng quan</a> › Chấm bài › <a href="AdminChamWriting.dc.html">Writing</a> › <span aria-current="page" style="color: var(--ink)">Gói giáo viên chấm</span></nav>
+<h1 class="sf" style="margin: 0; font-size: 32px; font-weight: 600; line-height: 1.15">Bài chờ duyệt · Writing</h1>
+<p class="m" style="margin-top: 4px">Thứ Ba 17/11/2026, 14:00 · tuần 16/11 – 22/11</p>
+<div role="tablist" aria-label="Hàng chờ Writing" style="display: flex; gap: 0 28px; margin: 14px 0 20px; border-bottom: 1px solid var(--ink)"><a href="#s1" role="tab" aria-selected="false" style="padding: 10px 0 10px; color: var(--muted); font-weight: 400; text-decoration: none; border-bottom: 0">Lớp offline <span class="num" style="color: var(--mark); font-weight: 600">3</span></a><a href="#s1" role="tab" aria-selected="true" style="padding: 10px 0 7px; color: var(--ink); font-weight: 600; text-decoration: none; border-bottom: 3px solid var(--accent)">Gói giáo viên chấm <span class="num" style="color: var(--mark); font-weight: 600">4</span></a><a href="#s1" role="tab" aria-selected="false" style="padding: 10px 0 10px; color: var(--muted); font-weight: 400; text-decoration: none; border-bottom: 0">AI lỗi cần chấm tay <span class="num" style="color: var(--mark); font-weight: 600">1</span></a></div>
+<div style="display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) minmax(0, 1.25fr); gap: 0 32px; align-items: start; margin-bottom: 18px">
+<section class="blk" aria-label="Chỗ tuần này">
+<p class="kb" style="margin-bottom: 8px">Chỗ tuần này</p>
+<p class="sf num" style="font-size: 30px; font-weight: 600; line-height: 1.1">5 <span style="font-size: 17px; font-weight: 400; color: var(--muted)">trên 8 bài đã nhận · còn 3 chỗ</span></p>
+<div style="margin: 10px 0 8px"><div class="seg" role="img" aria-label="5 trên 8"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class=""></i><i class=""></i><i class=""></i></div></div>
+<p style="font-size: 14px">Trần mỗi tuần: <strong>8 bài</strong> · <a href="#s2">Sửa trần</a></p>
+<p class="s" style="margin-top: 2px">Học viên đang thấy: “{{seenText}}”</p></section>
+<section class="blk" aria-label="Việc còn lại">
+<p class="kb" style="margin-bottom: 8px">Việc còn lại của bạn</p>
+<p class="sf num" style="font-size: 30px; font-weight: 600; line-height: 1.1">4 <span style="font-size: 17px; font-weight: 400; color: var(--muted)">bài chờ duyệt</span></p>
+<p style="font-size: 14px; margin-top: 10px">Ước lượng còn khoảng 70 phút, theo trung vị 17 phút mỗi bài.</p>
+<p class="s" style="margin-top: 2px">Tuần này đã trả 2 bài, đều đúng hạn, hết 37 phút.</p></section>
+<section class="blk" aria-label="Nhận bài">
+<p class="kb" style="margin-bottom: 8px">Nhận bài</p>
+<sc-if value="{{open}}" hint-placeholder-val="{{ true }}">
+<p><strong>Đang nhận bài.</strong> Tự ngừng khi đủ 8 bài; mở lại 00:00 Thứ Hai 23/11.</p>
+<div style="margin-top: 10px"><button type="button" class="bg" onClick="{{askStop}}">Ngừng nhận tuần này…</button></div>
+</sc-if>
+<sc-if value="{{asking}}" hint-placeholder-val="{{ false }}">
+<div role="alertdialog" aria-label="Xác nhận ngừng nhận" style="margin-top: 10px; padding: 12px 14px; border: 1px solid var(--ink); background: var(--surface)"><p style="font-weight: 600">Ngừng nhận bài tới hết Chủ nhật 22/11?</p><ul class="n" style="font-size: 14px; margin: 6px 0 10px">
+<li>Học viên thấy: “Tuần này giáo viên không nhận bài. Mở lại Thứ Hai 23/11.”</li>
+<li>4 bài đã nhận vẫn phải trả đúng hạn.</li>
+<li>1 đơn đăng ký đang chờ chuyển khoản vẫn giữ chỗ của mình.</li></ul><div style="display: flex; gap: 10px"><button type="button" class="bp" style="min-height: 40px" onClick="{{doStop}}">Ngừng nhận</button><button type="button" class="bg" style="min-height: 40px" onClick="{{cancel}}">Huỷ</button></div></div>
+</sc-if>
+<sc-if value="{{stopped}}" hint-placeholder-val="{{ false }}">
+<p role="status"><strong>Đã ngừng nhận từ 14:02 hôm nay.</strong> Mở lại 00:00 Thứ Hai 23/11. Hàng chờ bên dưới không đổi.</p>
+<div style="margin-top: 10px"><button type="button" class="bg" onClick="{{reopen}}">Mở nhận lại</button></div>
+</sc-if>
+</section>
+</div>
+<div role="alert" style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding: 12px 16px; border: 1px solid var(--mark); border-left: 4px solid var(--mark); background: color-mix(in srgb, var(--mark) 7%, var(--surface))"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 20px; height: 20px; flex-shrink: 0; color: var(--mark)"><path d="M12 3 2 20h20L12 3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"></path><path d="M12 10v4.5M12 17v.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg><p style="flex: 1 1 280px"><span style="display: block; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--mark)">Cảnh báo</span><strong style="color: var(--mark)">1 bài sắp trễ hạn trả.</strong> Bài của Bùi Đức Long phải trả trước 23:59 hôm nay, còn 10 giờ. Ngưỡng "sắp trễ" ở <a href="AdminCaiDat.dc.html#m6">Cài đặt › Ngưỡng vận hành</a>.</p><a class="bm" href="#s3">Duyệt bài này</a></div>
+<div style="margin-top: 18px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px">
+<p class="kb">Hàng chờ · xếp theo hạn trả</p><span class="s">4 bài · chờ tính từ lúc AI chấm xong · bài đầu hàng luôn là bài gần hạn nhất</span><span style="flex-grow: 1"></span><a class="bp" href="#s3" style="min-height: 40px">Duyệt bài đầu hàng</a></div>
+<div style="margin-top: 8px"><div role="table" aria-label="Hàng chờ gói giáo viên chấm" class="num"><div role="row" style="display: grid; grid-template-columns: 150px minmax(0, 1.55fr) minmax(0, 1.2fr) 128px 140px 112px 44px 62px"><div role="columnheader" class="th">Học viên</div><div role="columnheader" class="th">Bài</div><div role="columnheader" class="th">Điều muốn được chú ý</div><div role="columnheader" class="th">Nhận lúc</div><div role="columnheader" class="th">Hạn trả</div><div role="columnheader" class="th">Còn lại</div><div role="columnheader" class="th">AI</div><div role="columnheader" class="th"></div></div><div role="row" class="tr" style="display: grid; grid-template-columns: 150px minmax(0, 1.55fr) minmax(0, 1.2fr) 128px 140px 112px 44px 62px; align-items: baseline; background: color-mix(in srgb, var(--mark) 6%, var(--surface))"><div role="cell" class="td" style="padding-left: 8px"><a href="HoSoHocVien.dc.html" style="font-weight: 600">Bùi Đức Long</a><span class="s" style="display: block; font-size: 13px">nhận từ tuần trước</span></div><div role="cell" class="td"><span lang="en">Task 1 — Household energy use</span><span class="s" style="display: block; font-size: 13px">171 từ · lần gửi 1</span></div><div role="cell" class="td" style="font-size: 14px"><span class="m">Không ghi</span></div><div role="cell" class="td" style="font-size: 14px">15:30 Thứ Sáu 13/11</div><div role="cell" class="td" style="font-size: 14px">23:59 hôm nay</div><div role="cell" class="td" style="font-weight: 600; color: var(--mark)">còn 10 giờ · sắp trễ</div><div role="cell" class="td sf" style="font-size: 17px; font-weight: 600">5.5</div><div role="cell" class="td" style="padding-right: 0; text-align: right"><a href="#s3" style="font-weight: 600">Duyệt</a></div></div><div role="row" class="tr" style="display: grid; grid-template-columns: 150px minmax(0, 1.55fr) minmax(0, 1.2fr) 128px 140px 112px 44px 62px; align-items: baseline"><div role="cell" class="td" style="padding-left: 0"><a href="HoSoHocVien.dc.html" style="font-weight: 600">Vũ Ngọc Hân</a><span class="s" style="display: block; font-size: 13px">Khoá Writing for IELTS</span></div><div role="cell" class="td"><span lang="en">Task 2 — Technology and young people’s jobs</span><span class="s" style="display: block; font-size: 13px">268 từ · lần gửi 1</span></div><div role="cell" class="td" style="font-size: 14px">“Mình không chắc đoạn thân bài 2 đã trả lời vế takes jobs away chưa…”</div><div role="cell" class="td" style="font-size: 14px">10:12 Thứ Hai 16/11</div><div role="cell" class="td" style="font-size: 14px">23:59 Thứ Tư 18/11</div><div role="cell" class="td" style="font-weight: 600; color: var(--ink)">còn 1 ngày 10 giờ</div><div role="cell" class="td sf" style="font-size: 17px; font-weight: 600">6.0</div><div role="cell" class="td" style="padding-right: 0; text-align: right"><a href="#s3" style="font-weight: 600">Duyệt</a></div></div><div role="row" class="tr" style="display: grid; grid-template-columns: 150px minmax(0, 1.55fr) minmax(0, 1.2fr) 128px 140px 112px 44px 62px; align-items: baseline"><div role="cell" class="td" style="padding-left: 0"><a href="HoSoHocVien.dc.html" style="font-weight: 600">Ngô Thị Mai</a><span class="s" style="display: block; font-size: 13px">Khoá Writing for IELTS</span></div><div role="cell" class="td"><span lang="en">Task 2 — Working from home</span><span class="s" style="display: block; font-size: 13px">281 từ · lần gửi 1</span></div><div role="cell" class="td" style="font-size: 14px">“Xem giúp phần mở bài và cách dùng từ nối.”</div><div role="cell" class="td" style="font-size: 14px">20:41 Thứ Hai 16/11</div><div role="cell" class="td" style="font-size: 14px">23:59 Thứ Tư 18/11</div><div role="cell" class="td" style="font-weight: 600; color: var(--ink)">còn 1 ngày 10 giờ</div><div role="cell" class="td sf" style="font-size: 17px; font-weight: 600">6.5</div><div role="cell" class="td" style="padding-right: 0; text-align: right"><a href="#s3" style="font-weight: 600">Duyệt</a></div></div><div role="row" class="tr" style="display: grid; grid-template-columns: 150px minmax(0, 1.55fr) minmax(0, 1.2fr) 128px 140px 112px 44px 62px; align-items: baseline"><div role="cell" class="td" style="padding-left: 0"><a href="HoSoHocVien.dc.html" style="font-weight: 600">Đinh Quang Huy</a><span class="s" style="display: block; font-size: 13px">Khoá Writing for IELTS</span></div><div role="cell" class="td"><span lang="en">Task 1 — Home working in four countries</span><span class="s" style="display: block; font-size: 13px">158 từ · lần gửi 2</span></div><div role="cell" class="td" style="font-size: 14px"><span class="m">Không ghi</span></div><div role="cell" class="td" style="font-size: 14px">08:20 hôm nay</div><div role="cell" class="td" style="font-size: 14px">23:59 Thứ Năm 19/11</div><div role="cell" class="td" style="font-weight: 600; color: var(--ink)">còn 2 ngày 10 giờ</div><div role="cell" class="td sf" style="font-size: 17px; font-weight: 600">5.0</div><div role="cell" class="td" style="padding-right: 0; text-align: right"><a href="#s3" style="font-weight: 600">Duyệt</a></div></div></div></div>
+<p class="kb" style="margin: 26px 0 8px">Đã trả tuần này · 2 bài</p><div role="table" aria-label="Đã trả tuần này" class="num"><div role="row" style="display: grid; grid-template-columns: 170px minmax(0, 1.3fr) 150px 110px 110px minmax(0, 1.2fr) 150px"><div role="columnheader" class="th">Học viên</div><div role="columnheader" class="th">Bài</div><div role="columnheader" class="th">Trả lúc</div><div role="columnheader" class="th">Hạn</div><div role="columnheader" class="th">Phút duyệt</div><div role="columnheader" class="th">Cặp điểm AI → giáo viên</div><div role="columnheader" class="th"></div></div><div role="row" class="tr" style="display: grid; grid-template-columns: 170px minmax(0, 1.3fr) 150px 110px 110px minmax(0, 1.2fr) 150px; align-items: baseline"><div role="cell" class="td"><strong>Lý Thu Phương</strong></div><div role="cell" class="td" lang="en">Task 2 — Technology and young people’s jobs</div><div role="cell" class="td" style="font-size: 14px">09:40 hôm nay</div><div role="cell" class="td" style="font-size: 14px">đúng hạn</div><div role="cell" class="td">16 phút</div><div role="cell" class="td" style="font-size: 14px">Band 6.0 → 6.0 · sửa 1 tiêu chí</div><div role="cell" class="td" style="padding-right: 0; text-align: right; font-size: 14px"><a href="DoLechAIGiaoVien.dc.html">Xem ở Độ lệch</a></div></div><div role="row" class="tr" style="display: grid; grid-template-columns: 170px minmax(0, 1.3fr) 150px 110px 110px minmax(0, 1.2fr) 150px; align-items: baseline"><div role="cell" class="td"><strong>Trần Anh Khoa</strong></div><div role="cell" class="td" lang="en">Task 1 — Household energy use</div><div role="cell" class="td" style="font-size: 14px">21:15 Thứ Hai 16/11</div><div role="cell" class="td" style="font-size: 14px">đúng hạn</div><div role="cell" class="td">21 phút</div><div role="cell" class="td" style="font-size: 14px">Band 5.5 → 5.0 · sửa 2 tiêu chí</div><div role="cell" class="td" style="padding-right: 0; text-align: right; font-size: 14px"><a href="DoLechAIGiaoVien.dc.html">Xem ở Độ lệch</a></div></div></div>
+<div style="margin-top: 26px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 32px; align-items: start">
+<section class="blk">
+<p class="kb" style="margin-bottom: 8px">Số phút duyệt mỗi bài · đo</p>
+<dl class="num" style="margin: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px 16px; font-size: 15px"><dt class="m">Tuần này · 2 bài</dt><dd style="margin: 0; font-weight: 600; text-align: right">16 và 21 phút</dd><dt class="m">Trung vị 4 tuần gần nhất</dt><dd style="margin: 0; font-weight: 600; text-align: right">XXX phút</dd><dt class="m">Bài lâu nhất 4 tuần</dt><dd style="margin: 0; font-weight: 600; text-align: right">XXX phút</dd><dt class="m">Tổng giờ duyệt tuần này</dt><dd style="margin: 0; font-weight: 600; text-align: right">37 phút</dd></dl>
+<p class="cap">Đồng hồ chạy khi màn duyệt đang mở và có thao tác; tự dừng sau 2 phút không thao tác. Không hiện cho học viên.</p></section>
+<section class="blk">
+<p class="kb" style="margin-bottom: 8px">Giữ lời hứa · 4 tuần gần nhất</p>
+<dl class="num" style="margin: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px 16px; font-size: 15px"><dt class="m">Bài đã trả</dt><dd style="margin: 0; font-weight: 600; text-align: right">XXX</dd><dt class="m">Trả đúng hạn</dt><dd style="margin: 0; font-weight: 600; text-align: right">XXX%</dd><dt class="m">Bài trễ · đã hoàn lượt</dt><dd style="margin: 0; font-weight: 600; text-align: right">XXX</dd><dt class="m">Tuần phải ngừng nhận sớm</dt><dd style="margin: 0; font-weight: 600; text-align: right">XXX</dd></dl>
+<p class="cap">Trả đúng hạn dưới ngưỡng ở Cài đặt › Ngưỡng vận hành hai tuần liền: trang này đề nghị hạ trần, không tự hạ.</p></section>
+<section class="blk">
+<p class="kb" style="margin-bottom: 8px">Gói có đáng làm tiếp · 8 tuần</p>
+<dl class="num" style="margin: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px 16px; font-size: 15px"><dt class="m">Học viên đã đăng ký gói</dt><dd style="margin: 0; font-weight: 600; text-align: right">XXX</dd><dt class="m">Đăng ký lại sau khi hết lượt</dt><dd style="margin: 0; font-weight: 600; text-align: right">XXX%</dd><dt class="m">Có viết lại bài sau phiếu</dt><dd style="margin: 0; font-weight: 600; text-align: right">XXX%</dd><dt class="m">Cặp điểm AI–giáo viên đã thu</dt><dd style="margin: 0; font-weight: 600; text-align: right">XXX</dd></dl>
+<p class="cap">Mỗi bài trả là một cặp điểm theo bốn tiêu chí. <a href="DoLechAIGiaoVien.dc.html">Mở trang Độ lệch AI–giáo viên</a></p></section>
+</div></main></div></div></div></div></section>
+<section aria-labelledby="s2" style="border-top: 2px solid var(--ink)">
+<div style="max-width: 1376px; margin: 0 auto; padding: 18px 32px 12px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 16px"><h2 id="s2" class="sf" style="margin: 0; font-size: 24px; font-weight: 600">2 · Cấu hình và trạng thái phụ</h2><p style="flex: 1 1 400px; font-size: 14px; color: var(--muted)">Trần, hạn trả, lịch ngừng nhận; hàng chờ trống, đủ chỗ, quá hạn; khung giáo viên.</p></div><div style="border-top: 1px solid var(--rule)">
+<div style="max-width: 1376px; margin: 0 auto; padding: 20px 32px 28px"><div style="display: grid; grid-template-columns: 480px minmax(0, 1fr) minmax(0, 1fr); gap: 20px 40px; align-items: start">
+<div>
+<p class="k" style="margin-bottom: 8px">2a · Ngăn "Cấu hình gói" · mở từ "Sửa trần" · chỉ quản trị</p>
+<div class="box"><p class="h3" style="margin-bottom: 6px">Cấu hình gói giáo viên chấm</p>
+<div class="row" style="align-items: center; flex-wrap: nowrap"><span style="flex: 1 1 160px; min-width: 0"><strong>Trần số bài mỗi tuần</strong><span class="s" style="display: block">Áp từ tuần sau; tuần này chỉ được hạ xuống tới số đã nhận (5).</span></span><span style="flex: none; display: flex; align-items: center; gap: 8px"><span class="fld num" style="display: inline-flex; width: 90px; font-weight: 600">8</span><span class="s">bài</span></span></div><div class="row" style="align-items: center; flex-wrap: nowrap"><span style="flex: 1 1 160px; min-width: 0"><strong>Hạn trả</strong><span class="s" style="display: block">Tính từ lúc AI chấm xong; Thứ Bảy, Chủ nhật không tính.</span></span><span style="flex: none; display: flex; align-items: center; gap: 8px"><span class="fld num" style="display: inline-flex; width: 90px; font-weight: 600">XXX</span><span class="s">ngày làm việc</span></span></div><div class="row" style="align-items: center; flex-wrap: nowrap"><span style="flex: 1 1 160px; min-width: 0"><strong>Tuần mới mở chỗ</strong></span><span style="flex: none; display: flex; align-items: center; gap: 8px"><span class="fld num" style="display: inline-flex; width: 150px; font-weight: 600">Thứ Hai · 00:00</span></span></div><div class="row" style="align-items: center; flex-wrap: nowrap"><span style="flex: 1 1 160px; min-width: 0"><strong>Kỹ năng nhận</strong><span class="s" style="display: block">Speaking: <span class="qd">Chờ chủ dự án quyết</span></span></span><span style="flex: none; display: flex; align-items: center; gap: 8px"><span class="tagi">Writing · bật</span><span class="tag">Speaking · tắt</span></span></div><div class="row" style="align-items: center; flex-wrap: nowrap"><span style="flex: 1 1 160px; min-width: 0"><strong>Số lượt mỗi gói · học phí · hạn dùng</strong><span class="s" style="display: block">XXX lượt · XXX đ · XXX ngày</span></span><span style="flex: none; display: flex; align-items: center; gap: 8px"><a href="AdminKhoaHoc.dc.html">Sửa ở Khoá học</a></span></div><div class="row" style="align-items: center; flex-wrap: nowrap"><span style="flex: 1 1 160px; min-width: 0"><strong>Ngừng nhận theo lịch</strong><span class="s" style="display: block">Khi giáo viên nghỉ dài. Học viên thấy ngày mở lại; hạn dùng lượt được cộng thêm.</span></span><span style="flex: none; display: flex; align-items: center; gap: 8px"><span class="fld num" style="display: inline-flex; width: 80px; font-weight: 600">23/11</span><span class="s">đến</span><span class="fld num" style="display: inline-flex; width: 80px; font-weight: 600">06/12</span></span></div><div style="margin-top: 14px; display: flex; gap: 10px"><span class="bp" style="min-height: 40px">Lưu thay đổi…</span><span class="bg" style="min-height: 40px">Huỷ</span></div>
+</div>
+<p class="cap">Lưu đi qua bước xác nhận nói rõ ảnh hưởng và ghi nhật ký, như mọi ô ở AdminCaiDat. Hạ trần không bao giờ huỷ bài đã nhận hay chỗ đang giữ theo đơn.</p></div>
+<div>
+<p class="k" style="margin-bottom: 8px">2b · Hàng chờ trống</p>
+<div class="box"><p><strong>Không còn bài nào chờ duyệt.</strong></p><p class="s" style="margin-top: 4px">Tuần này đã nhận 5 trên 8 bài, đã trả cả 5. Bài mới vào đây ngay khi AI chấm xong.</p></div>
+<p class="k" style="margin: 22px 0 8px">2c · Đủ chỗ · tự ngừng</p>
+<div class="box"><p><strong>Đã đủ 8 bài tuần này.</strong> Hệ thống tự ngừng nhận lúc 19:20 Thứ Năm 19/11.</p><p class="s" style="margin-top: 4px">Học viên thấy: “Đã đủ chỗ tuần này. Mở lại Thứ Hai 23/11.” Muốn nhận thêm thì nâng trần cho riêng tuần này: <a href="#s2">Nhận thêm 1 bài</a></p></div>
+</div>
+<div><div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin-bottom: 8px">
+<p class="k">2d · Một bài đã quá hạn trả</p><span class="qd">Chờ chủ dự án quyết: cách bù</span></div>
+<div role="alert" style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding: 12px 16px; border: 1px solid var(--mark); border-left: 4px solid var(--mark); background: color-mix(in srgb, var(--mark) 7%, var(--surface))"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 20px; height: 20px; flex-shrink: 0; color: var(--mark)"><path d="M12 3 2 20h20L12 3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"></path><path d="M12 10v4.5M12 17v.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg><p style="flex: 1 1 280px"><span style="display: block; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--mark)">Quá hạn</span><strong style="color: var(--mark)">Bài của Bùi Đức Long đã quá hạn trả 9 giờ.</strong> Học viên đã nhận thông báo trễ hạn lúc 00:00 và được hoàn 1 lượt giáo viên chấm. Hạn mới bạn cần giữ: trước 12:00 Thứ Năm 19/11.</p><a class="bm" href="#s3">Duyệt ngay</a></div>
+<p class="cap">Hoàn lượt và thông báo chạy tự động đúng lúc quá hạn, không chờ admin bấm. Bài quá hạn ghim đầu hàng chờ và hiện ở AdminViecCanLam. Dòng của bài giữ nhãn "trễ, đã hoàn lượt" sau khi trả.</p>
+<p class="k" style="margin: 22px 0 8px">2e · Khung giáo viên</p>
+<p style="font-size: 15px">Giáo viên của khoá thấy đúng thẻ này trong "Chấm và duyệt bài", chỉ gồm bài của khoá mình dạy. Giáo viên được bấm "Ngừng nhận tuần này" và "Mở nhận lại"; sửa trần, hạn trả và học phí chỉ quản trị làm.</p>
+</div>
+</div></div></div></section>
+<section aria-labelledby="s3" style="border-top: 2px solid var(--ink)">
+<div style="max-width: 1376px; margin: 0 auto; padding: 18px 32px 12px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 16px"><h2 id="s3" class="sf" style="margin: 0; font-size: 24px; font-weight: 600">3 · Duyệt một bài của gói</h2><p style="flex: 1 1 400px; font-size: 14px; color: var(--muted)">Dùng lại màn chấm một bài của AdminChamWriting; ở đây chỉ vẽ phần khác: hạn trả, đồng hồ, điều học viên hỏi, cặp điểm, ký.</p></div><div style="border-top: 1px solid var(--rule)">
+<div style="max-width: 1376px; margin: 0 auto; padding: 20px 32px 28px"><div style="border: 1px solid var(--ink); background: var(--surface)">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px 20px; padding: 10px 18px; border-bottom: 1px solid var(--ink)"><span class="tagi">Gói giáo viên chấm</span><strong>Vũ Ngọc Hân · Writing Task 2 · 268 từ</strong><span class="s">Khoá Writing for IELTS · nhận 10:12 Thứ Hai 16/11</span><span style="flex-grow: 1"></span><span><strong>Hạn trả 23:59 Thứ Tư 18/11</strong> <span class="s">· còn 1 ngày 10 giờ</span></span><span class="num" style="padding: 3px 9px; border: 1px solid var(--ink)">Đang duyệt <strong>06:12</strong></span></div>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr) 300px; gap: 0; align-items: stretch">
+<div style="padding: 16px 18px; border-right: 1px solid var(--rule)">
+<p class="kb" style="margin-bottom: 8px">Học viên muốn bạn chú ý</p>
+<p style="padding-left: 12px; border-left: 4px solid var(--accent)">Mình không chắc đoạn thân bài 2 đã trả lời vế “takes jobs away” chưa. Vì sao Coherence chỉ được 6.0?</p>
+<p class="kb" style="margin: 18px 0 8px">Trả lời của bạn · bắt buộc khi học viên có hỏi</p>
+<div style="min-height: 110px; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--muted); border-radius: 2px; font-size: 15px">Chưa. Bài hiện chỉ có một đoạn thân bài, và cả đoạn nói về lợi ích. Vế mất việc cần một đoạn riêng với ít nhất một ví dụ…</div>
+<p class="kb" style="margin: 18px 0 8px">Bài viết có chú thích</p>
+<p class="s">Vùng bài viết, chú thích của AI (giữ · sửa · bỏ) và thêm chú thích của giáo viên dùng nguyên màn chấm một bài của <a href="AdminChamWriting.dc.html#s2">AdminChamWriting mục 2</a>; không vẽ lại ở đây. Chú thích bị bỏ không bị xoá: lưu kèm dấu "giáo viên đã bỏ" để hiện gạch ngang trên phiếu.</p>
+</div>
+<div style="padding: 16px 18px; border-right: 1px solid var(--rule)">
+<p class="kb" style="margin-bottom: 8px">Cặp điểm · AI đề xuất và điểm của bạn</p>
+<div role="table" aria-label="Cặp điểm" class="num"><div role="row" style="display: grid; grid-template-columns: minmax(0, 1.1fr) 56px 92px minmax(0, 1.8fr)"><div role="columnheader" class="th">Tiêu chí</div><div role="columnheader" class="th">AI</div><div role="columnheader" class="th">Bạn</div><div role="columnheader" class="th" style="padding-right: 0">Lý do · bắt buộc khi sửa</div></div>
+<div role="row" class="tr" style="display: grid; grid-template-columns: minmax(0, 1.1fr) 56px 92px minmax(0, 1.8fr); align-items: center"><div role="cell" class="td">Task Response</div><div role="cell" class="td m">6.0</div><div role="cell" class="td"><span class="fld sf num" style="display: inline-flex; width: 64px; min-height: 36px; font-size: 18px; font-weight: 600; border-color: var(--accent); border-width: 2px">5.5</span></div><div role="cell" class="td" style="padding-right: 0; font-size: 14px">Vế “takes jobs away” chỉ có một mệnh đề ở kết bài.</div></div><div role="row" class="tr" style="display: grid; grid-template-columns: minmax(0, 1.1fr) 56px 92px minmax(0, 1.8fr); align-items: center"><div role="cell" class="td">Coherence and Cohesion</div><div role="cell" class="td m">6.0</div><div role="cell" class="td"><span class="fld sf num" style="display: inline-flex; width: 64px; min-height: 36px; font-size: 18px; font-weight: 600; border-color: var(--accent); border-width: 2px">5.5</span></div><div role="cell" class="td" style="padding-right: 0; font-size: 14px">Đoạn thân bài không có câu chủ đề; “Moreover” nối một ý khác.</div></div><div role="row" class="tr" style="display: grid; grid-template-columns: minmax(0, 1.1fr) 56px 92px minmax(0, 1.8fr); align-items: center"><div role="cell" class="td">Lexical Resource</div><div role="cell" class="td m">6.0</div><div role="cell" class="td"><span class="fld sf num" style="display: inline-flex; width: 64px; min-height: 36px; font-size: 18px; font-weight: 600; border-color: var(--muted); border-width: 1px">6.0</span></div><div role="cell" class="td" style="padding-right: 0; font-size: 14px"><span class="m">Giữ điểm AI</span></div></div><div role="row" class="tr" style="display: grid; grid-template-columns: minmax(0, 1.1fr) 56px 92px minmax(0, 1.8fr); align-items: center"><div role="cell" class="td">Grammatical Range and Accuracy</div><div role="cell" class="td m">5.5</div><div role="cell" class="td"><span class="fld sf num" style="display: inline-flex; width: 64px; min-height: 36px; font-size: 18px; font-weight: 600; border-color: var(--muted); border-width: 1px">5.5</span></div><div role="cell" class="td" style="padding-right: 0; font-size: 14px"><span class="m">Giữ điểm AI</span></div></div><div role="row" style="display: grid; grid-template-columns: minmax(0, 1.1fr) 56px 92px minmax(0, 1.8fr); align-items: center; border-bottom: 2px solid var(--ink)"><div role="cell" class="td"><strong>Band của bài</strong></div><div role="cell" class="td m">6.0</div><div role="cell" class="td sf" style="font-size: 24px; font-weight: 600">5.5</div><div role="cell" class="td" style="padding-right: 0; font-size: 14px">Tính từ bốn điểm của bạn. Lệch so với AI: 0.5.</div></div></div>
+<p class="cap">"Giữ tất cả điểm AI" là một nút; sửa điểm nào thì ô lý do của điểm đó phải có chữ mới ký được. Cả bốn cặp điểm và band được ghi lại khi ký, kể cả khi bạn giữ nguyên.</p>
+</div>
+<div style="padding: 16px 18px; background: var(--paper)">
+<p class="kb" style="margin-bottom: 8px">Trước khi ký</p>
+<ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; font-size: 15px">
+<li><strong>Xong</strong> · Trả lời điều học viên hỏi</li>
+<li><strong>Xong</strong> · Lý do cho 2 điểm đã sửa</li>
+<li><strong>Xong</strong> · Ba việc nên làm (3 trên 3)</li>
+<li><strong>Xong</strong> · Một đoạn viết lại</li><li class="m">Tuỳ chọn · thêm chú thích</li></ul>
+<a class="bp" href="#s4" style="margin-top: 16px; width: 100%">Ký và trả bài</a>
+<span class="bg" style="margin-top: 8px; width: 100%; min-height: 40px">Lưu nháp</span>
+<p class="cap">Ký bằng tên tài khoản: <strong>Vũ Thanh Tâm</strong>. Thời điểm ký và số phút duyệt được ghi lại. Trả rồi không sửa âm thầm được; sửa sau khi trả tạo một bản mới có ghi ngày.</p>
+</div>
+</div>
+</div></div></div></section>
+<section aria-labelledby="s4" style="border-top: 2px solid var(--ink)">
+<div style="max-width: 1376px; margin: 0 auto; padding: 18px 32px 12px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 16px"><h2 id="s4" class="sf" style="margin: 0; font-size: 24px; font-weight: 600">4 · Sau khi trả · cặp điểm AI–giáo viên</h2><p style="flex: 1 1 400px; font-size: 14px; color: var(--muted)">Dữ liệu ghi lại cho trang độ lệch và các việc tự chạy khi ký.</p></div><div style="border-top: 1px solid var(--rule)">
+<div style="max-width: 1376px; margin: 0 auto; padding: 20px 32px 28px"><div style="display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 20px 48px; align-items: start">
+<div>
+<p class="k" style="margin-bottom: 8px">4a · Bản ghi của một bài đã trả · đây là thứ trang Độ lệch đọc</p>
+<div role="table" aria-label="Bản ghi cặp điểm" class="num" style="font-size: 14px"><div role="row" style="display: grid; grid-template-columns: minmax(0, 1.4fr) 90px 110px 90px minmax(0, 1.2fr)"><div role="columnheader" class="th">Tiêu chí</div><div role="columnheader" class="th">AI</div><div role="columnheader" class="th">Giáo viên</div><div role="columnheader" class="th">Lệch</div><div role="columnheader" class="th">Lý do giáo viên ghi</div></div><div role="row" class="tr" style="display: grid; grid-template-columns: minmax(0, 1.4fr) 90px 110px 90px minmax(0, 1.2fr); align-items: baseline"><div role="cell" class="td">Task Response</div><div role="cell" class="td">6.0</div><div role="cell" class="td">5.5</div><div role="cell" class="td">−0.5</div><div role="cell" class="td">Vế “takes jobs away” chỉ có một mệnh đề ở kết bài.</div></div><div role="row" class="tr" style="display: grid; grid-template-columns: minmax(0, 1.4fr) 90px 110px 90px minmax(0, 1.2fr); align-items: baseline"><div role="cell" class="td">Coherence and Cohesion</div><div role="cell" class="td">6.0</div><div role="cell" class="td">5.5</div><div role="cell" class="td">−0.5</div><div role="cell" class="td">Đoạn thân bài không có câu chủ đề.</div></div><div role="row" class="tr" style="display: grid; grid-template-columns: minmax(0, 1.4fr) 90px 110px 90px minmax(0, 1.2fr); align-items: baseline"><div role="cell" class="td">Lexical Resource</div><div role="cell" class="td">6.0</div><div role="cell" class="td">6.0</div><div role="cell" class="td">0</div><div role="cell" class="td"><span class="m">giữ</span></div></div><div role="row" class="tr" style="display: grid; grid-template-columns: minmax(0, 1.4fr) 90px 110px 90px minmax(0, 1.2fr); align-items: baseline"><div role="cell" class="td">Grammatical Range and Accuracy</div><div role="cell" class="td">5.5</div><div role="cell" class="td">5.5</div><div role="cell" class="td">0</div><div role="cell" class="td"><span class="m">giữ</span></div></div><div role="row" class="tr" style="display: grid; grid-template-columns: minmax(0, 1.4fr) 90px 110px 90px minmax(0, 1.2fr); align-items: baseline"><div role="cell" class="td"><strong>Band</strong></div><div role="cell" class="td">6.0</div><div role="cell" class="td"><strong>5.5</strong></div><div role="cell" class="td">−0.5</div><div role="cell" class="td">Chú thích AI: giữ 3 · bỏ 1 · giáo viên thêm 2</div></div></div>
+<p class="cap">Kèm theo: mã bài, đề, phiên bản mô hình AI và phiên bản rubric lúc chấm, người ký, thời điểm, số phút duyệt, nguồn "gói giáo viên chấm" (khác nguồn "lớp offline"). Trang <a href="DoLechAIGiaoVien.dc.html">Độ lệch AI–giáo viên</a> do người khác vẽ; tờ này chỉ bảo đảm dữ liệu đầu vào.</p></div>
+<div>
+<p class="k" style="margin-bottom: 8px">4b · Việc xảy ra khi bấm "Ký và trả bài"</p>
+<ol style="margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 6px; font-size: 15px">
+<li>Phiếu giáo viên thay bản AI ở trang kết quả của học viên; trạng thái bài thành "Đã trả".</li>
+<li>Học viên nhận thông báo trong ứng dụng và thư 10 "Giáo viên đã duyệt bài".</li>
+<li>Bản ghi cặp điểm ở 4a được lưu, không sửa được.</li>
+<li>Đồng hồ duyệt dừng; số phút vào thống kê.</li>
+<li>Hàng chờ mở bài kế tiếp theo hạn trả.</li></ol>
+<p class="cap">Chỗ của tuần không được trả lại khi bài đã trả: trần đếm số bài nhận trong tuần, không đếm số bài đang chờ.</p></div>
+</div></div></div></section>
+<section aria-labelledby="dev" style="border-top: 2px solid var(--ink)">
+<div style="max-width: 1376px; margin: 0 auto; padding: 18px 32px 32px"><h2 id="dev" class="sf" style="margin: 0 0 12px; font-size: 24px; font-weight: 600">Ghi chú cho lập trình</h2><div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px 32px; align-items: start; font-size: 14px; line-height: 1.5"><div>
+<p class="kb" style="margin-bottom: 8px">Dữ liệu và mã đã có</p><ul class="n">
+<li><strong>[NGAY]</strong> Hàng chờ duyệt Writing, giữ bài khi đang chấm, màn chấm một bài với chú thích và sửa điểm AI (AdminChamWriting).</li>
+<li><strong>[NGAY]</strong> Khung admin, sidebar chuẩn, bảng ngưỡng vận hành ở AdminCaiDat #m6, nhật ký thay đổi cài đặt.</li>
+<li><strong>[NGAY]</strong> Sổ lượt, hoàn lượt, đơn đăng ký và xác nhận chuyển khoản.</li>
+<li><strong>[NGAY]</strong> Thông báo trong ứng dụng, thư 10; danh sách việc ở AdminViecCanLam.</li></ul></div><div>
+<p class="kb" style="margin-bottom: 8px">Phải thêm</p><ul class="n">
+<li><strong>[THÊM]</strong> Thẻ "Gói giáo viên chấm" trong Chấm bài › Writing; nguồn bài "gói" bên cạnh nguồn "lớp offline"; xếp theo hạn trả.</li>
+<li><strong>[THÊM]</strong> Cấu hình gói: trần mỗi tuần, hạn trả theo ngày làm việc, kỹ năng, lịch ngừng nhận; trạng thái đang nhận / đủ chỗ / ngừng nhận và nhật ký của từng lần đổi.</li>
+<li><strong>[THÊM]</strong> Đồng hồ đo số phút duyệt (theo thao tác, tự dừng khi không thao tác) và thống kê trung vị.</li>
+<li><strong>[THÊM]</strong> Bản ghi cặp điểm bất biến khi ký: bốn tiêu chí và band của AI và giáo viên, lý do sửa, số chú thích giữ / bỏ / thêm, phiên bản mô hình và rubric, người ký, thời điểm.</li>
+<li><strong>[THÊM]</strong> Điều kiện ký: ô lý do khi sửa điểm, trả lời khi học viên có hỏi, ba việc nên làm.</li>
+<li><strong>[THÊM]</strong> Hai ngưỡng mới ở AdminCaiDat #m6: "sắp trễ hạn trả gói" và "tỉ lệ trả đúng hạn tối thiểu"; tác vụ phát hiện quá hạn, hoàn lượt và báo học viên.</li></ul></div><div>
+<p class="kb" style="margin-bottom: 8px">Chỉ số cho biết có tác dụng</p><ul class="n">
+<li>Số phút duyệt mỗi bài (trung vị, bài lâu nhất) và tổng giờ mỗi tuần.</li>
+<li>Tỉ lệ trả đúng hạn; số bài trễ; số tuần phải ngừng nhận sớm.</li>
+<li>Tỉ lệ đăng ký lại gói; tỉ lệ viết lại bài sau khi nhận phiếu.</li>
+<li>Số cặp điểm thu được mỗi tuần và độ lệch theo tiêu chí (đọc ở trang Độ lệch).</li></ul></div><div>
+<p class="kb" style="margin-bottom: 8px">Rủi ro</p><ul class="n">
+<li>Trần đặt cao hơn sức duyệt thật: bắt đầu thấp, chỉ nâng sau 4 tuần có số phút đo được.</li>
+<li>Người vận hành quên ngừng nhận trước khi nghỉ: có lịch ngừng nhận đặt trước, và tự ngừng khi đủ trần.</li>
+<li>Đo thời gian sai vì để màn mở: đồng hồ tự dừng khi không thao tác.</li>
+<li>Giáo viên giữ nguyên mọi điểm AI cho nhanh làm số độ lệch đẹp giả: thống kê tỉ lệ bài giữ nguyên cả bốn điểm và số phút duyệt của các bài đó.</li>
+<li>Số trên sidebar "Writing" sẽ gồm cả bài của gói: thẻ tách rõ từng nguồn để người chỉ dạy lớp offline không nhầm việc.</li></ul></div><div>
+<p class="kb" style="margin-bottom: 8px">Chờ chủ dự án quyết</p><ul class="n">
+<li>Trần mỗi tuần khởi điểm (vẽ: 8) và hạn trả (XXX ngày làm việc).</li>
+<li>Cách bù khi trễ (đề xuất: tự hoàn lượt, vẫn trả phiếu).</li>
+<li>Giáo viên (không phải quản trị) có được bấm ngừng nhận không (vẽ: có).</li>
+<li>Có cho "nhận thêm 1 bài" vượt trần trong tuần không (vẽ: có, chỉ quản trị).</li>
+<li>Nhận Speaking không.</li></ul></div><div>
+<p class="kb" style="margin-bottom: 8px">Giả định của tờ này</p><ul class="n">
+<li>Ngày mẫu theo CHUAN-ADMIN: Thứ Ba 17/11/2026, 14:00. Người vận hành: Vũ Thanh Tâm (quản trị, cũng là giáo viên của Khoá Writing for IELTS trong dữ liệu mẫu).</li>
+<li>Tên học viên khoá online trong hàng chờ là dữ liệu mẫu mới của tờ này; số của tuần đang xem là mẫu, số tổng hợp nhiều tuần ghi XXX.</li>
+<li>Sidebar giữ nguyên chuẩn (Writing 3); thẻ mới nằm trong trang Writing, không thêm mục sidebar.</li>
+<li>Tờ này không có khung điện thoại: duyệt bài làm trên máy tính; bản 1024px theo Admin1024.</li></ul></div></div></div></section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Xanh teal","Navy + đỏ mận"],"default":"Navy + đỏ mận"},"$preview":{"width":1440,"height":4639}}'>
+class Component extends DCLogic {
+constructor(p) { super(p); this.state = { open: { cb: true }, st: 'open' }; }
+renderVals() {
+const s = this.state || {};
+const pal = (this.props.palette ?? 'Navy + đỏ mận') === 'Xanh teal' ? 'pal-teal' : 'pal-navy';
+const open = s.open || { cb: true };
+const NAV = (cur, open) => [
+['tq', 'Tổng quan', [['Việc cần làm', 'AdminViecCanLam.dc.html', '']]],
+['hv', 'Học viên và quyền truy cập', [['Học viên', 'AdminDanhBa.dc.html', ''], ['Lớp', 'AdminLop.dc.html', ''], ['Giáo viên', 'AdminGiaoVienThongBao.dc.html', ''], ['Mã kích hoạt', 'AdminLuotVaMa.dc.html#s2', ''], ['Gửi thông báo', 'AdminGiaoVienThongBao.dc.html#m2', ''], ['Khảo sát và nhận xét', 'AdminKhaoSat.dc.html', '4']]],
+['kh', 'Khoá học và đăng ký', [['Khoá học', 'AdminKhoaHoc.dc.html', ''], ['Đơn đăng ký', 'AdminDonDangKy.dc.html', '2'], ['Lượt AI', 'AdminLuotVaMa.dc.html', '']]],
+['cb', 'Chấm bài', [['Writing', 'AdminChamWriting.dc.html', '3'], ['Speaking', 'AdminChamSpeakingThiThu.dc.html', '2'], ['Yêu cầu chấm lại', 'AdminChamLai.dc.html', '2']]],
+['nd', 'Nội dung', [['Listening', 'AdminNoiDung.dc.html', ''], ['Reading', 'AdminNoiDung.dc.html', ''], ['Writing', 'AdminNoiDungVietNoi.dc.html', ''], ['Speaking', 'AdminNoiDungVietNoi.dc.html#m5', ''], ['Từ vựng', 'AdminNoiDungTuVungNguPhap.dc.html', ''], ['Ngữ pháp', 'AdminNoiDungTuVungNguPhap.dc.html#m6', ''], ['Thư viện công khai', 'AdminThuVienCongKhai.dc.html', '']]],
+['tt', 'Thi thử', [['Kỳ thi', 'AdminKyThi.dc.html', '']]],
+['bc', 'Báo cáo', [['Hoạt động học viên', 'AdminBaoCao.dc.html#m1', ''], ['Lưu lượng', 'AdminBaoCao.dc.html#m2', ''], ['Chi phí AI', 'AdminBaoCao.dc.html#m3', ''], ['Chất lượng nội dung', 'AdminBaoCao.dc.html#m4', '']]],
+['ht', 'Hệ thống', [['Hộp thư sự cố', 'AdminSuCo.dc.html', '12'], ['AI và mô hình', 'AdminHeThong.dc.html', ''], ['Bảo mật', 'AdminHeThong.dc.html#m2', ''], ['Công cụ QA', 'AdminHeThong.dc.html#m3', ''], ['Cài đặt', 'AdminCaiDat.dc.html', '']]]
+].map(([id, name, rows]) => {
+const items = rows.map(([label, href, count]) => { const c = cur === id + '/' + label; return { label, href, count, current: c ? 'page' : 'false', bar: c ? 'var(--accent)' : 'transparent', bg: c ? 'var(--tint)' : 'transparent', weight: c ? 600 : 400 }; });
+const ex = !!open[id];
+const hasCur = items.some((x) => x.current === 'page');
+const badge = items.reduce((n, x) => n + (Number(x.count) || 0), 0);
+return { id, name, items, exp: ex ? 'true' : 'false', show: ex, chev: ex ? 'M6 9l6 6 6-6' : 'M9 6l6 6-6 6', badgeShow: !ex && badge ? String(badge) : '', headColor: hasCur ? 'var(--ink)' : 'var(--muted)', toggle: () => this.setState({ open: Object.assign({}, open, { [id]: !open[id] }) }) };
+});
+const st = s.st || 'open';
+return {
+pal,
+nav: NAV('cb/Writing', open),
+open: st === 'open', asking: st === 'ask', stopped: st === 'stopped',
+seenText: st === 'stopped' ? 'Tuần này giáo viên không nhận bài. Mở lại Thứ Hai 23/11.' : 'Tuần này còn 3 chỗ',
+askStop: () => this.setState({ st: 'ask' }), doStop: () => this.setState({ st: 'stopped' }), cancel: () => this.setState({ st: 'open' }), reopen: () => this.setState({ st: 'open' })
+};
+}
+}
+</script>
+</body>
+</html>
