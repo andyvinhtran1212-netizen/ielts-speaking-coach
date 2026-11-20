@@ -1,6 +1,6 @@
 // UIBASE-0056 G03-T18 part 2 (FR-020, FR-021, FR-026): ThemeMenu, ThemeChoiceGroup.
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AV2_THEME_COLOR, ThemeChoiceGroup, ThemeMenu } from '@/components/ui';
 
@@ -127,6 +127,36 @@ describe('ThemeMenu', () => {
     openMenu();
     fireEvent.pointerDown(screen.getByText('ngoài'));
     expect(screen.queryByRole('menu')).toBeNull();
+  });
+});
+
+describe('shared listeners', () => {
+  it('are attached once and removed when the last instance leaves, whichever unmounts first', () => {
+    const added = vi.spyOn(window, 'addEventListener');
+    const removed = vi.spyOn(window, 'removeEventListener');
+    const storageCount = (spy: typeof added) => spy.mock.calls.filter(([type]) => type === 'storage').length;
+
+    const first = render(<ThemeMenu />);
+    const second = render(<ThemeChoiceGroup />);
+    expect(storageCount(added)).toBe(1);
+    expect(deviceListeners.size).toBe(1);
+
+    first.unmount();
+    expect(storageCount(removed)).toBe(0);
+    expect(deviceListeners.size).toBe(1);
+    second.unmount();
+    expect(storageCount(removed)).toBe(1);
+    expect(deviceListeners.size).toBe(0);
+
+    // Remount: exactly one pair again, and it still works.
+    const again = render(<ThemeMenu />);
+    expect(storageCount(added)).toBe(2);
+    expect(deviceListeners.size).toBe(1);
+    otherTabSets('dark');
+    expect(theme()).toBe('dark');
+    again.unmount();
+    expect(storageCount(removed)).toBe(2);
+    expect(deviceListeners.size).toBe(0);
   });
 });
 

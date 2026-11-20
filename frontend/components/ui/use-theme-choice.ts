@@ -37,12 +37,11 @@ function notify(): void {
   for (const listener of listeners) listener();
 }
 
-function subscribe(listener: () => void): () => void {
-  const first = listeners.size === 0;
-  listeners.add(listener);
-  if (!first) return () => { listeners.delete(listener); };
+// Window listeners shared by every instance in the tab: attached by the first
+// subscriber, removed when the last one leaves, whichever instance that is.
+let detachShared: (() => void) | null = null;
 
-  // One set of window listeners for every instance in the tab.
+function attachShared(): () => void {
   syncThemeColor(currentChoice());
   const onStorage = (event: StorageEvent) => {
     if (event.key !== null && event.key !== STORAGE_KEY) return;
@@ -56,13 +55,21 @@ function subscribe(listener: () => void): () => void {
   };
   window.addEventListener('storage', onStorage);
   mq?.addEventListener?.('change', onDevice);
-  const detach = () => {
+  return () => {
     window.removeEventListener('storage', onStorage);
     mq?.removeEventListener?.('change', onDevice);
   };
+}
+
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener);
+  if (!detachShared) detachShared = attachShared();
   return () => {
     listeners.delete(listener);
-    if (listeners.size === 0) detach();
+    if (listeners.size === 0 && detachShared) {
+      detachShared();
+      detachShared = null;
+    }
   };
 }
 
