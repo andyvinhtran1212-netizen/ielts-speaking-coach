@@ -60,6 +60,7 @@ GUARD_NAMES = frozenset({
     "_me",                       # instructor.py: require_instructor, then impersonation
     "_require_curated_admin",    # vocab_units.py
     "_require_private_admin",    # admin_core_attempt_evidence.py
+    "resolve_staff_scope",       # services/staff_scope.py: require_instructor, then the class scope (G09-T24)
 })
 ADMIN_CHECK_NAMES = GUARD_NAMES | {"_is_admin", "holds_admin_privilege", "resolve_staff"}
 
@@ -282,6 +283,10 @@ def test_guard_wrappers_await_the_shared_guard_first():
         fn = _module_functions(module_name)[wrapper]
         call = _awaited_call(_first_statement(fn))
         assert call is not None and _call_name(call) in {"require_admin", "require_instructor"}, wrapper
+    scope = _module_functions("services.staff_scope")["resolve_staff_scope"]
+    call = _awaited_call(_first_statement(scope))
+    assert call is not None and _call_name(call) == "require_instructor"
+    assert [a.id for a in call.args if isinstance(a, ast.Name)] == ["authorization"]
     evidence = _module_functions("routers.admin_core_attempt_evidence")["_require_private_admin"]
     assert "require_admin" in {_call_name(n) for n in ast.walk(evidence.body[1].body[0]) if isinstance(n, ast.Call)}
 

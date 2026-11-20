@@ -158,7 +158,9 @@ def test_every_cohorts_column_any_migration_adds_is_a_model_field():
         "created_at", "updated_at"}
     assert added_by["175_courses.sql"] == {"course_id"}
     assert added_by["337_class_archive_enforcement.sql"] == set(ARCHIVE_FIELDS)
-    fields = set(AdminCohortOut.model_fields) - ROLLUP_ONLY
+    # `instructor` ({id, name}, G09-T24) is resolved by the route from
+    # cohorts.instructor_id, not read from a column.
+    fields = set(AdminCohortOut.model_fields) - ROLLUP_ONLY - {"instructor"}
     assert columns - fields == set(), "add the new cohorts column to AdminCohortOut"
     # ...and the model invents no column the table does not have.
     assert fields - columns == set()
