@@ -4,6 +4,7 @@ Static checks read the SQL; the PostgreSQL checks apply the migration verbatim
 (``public.`` rewritten to a throwaway schema) on a LOCAL disposable cluster:
 set TEST_PG_URL, and REQUIRE_PG=1 to forbid skips.
 """
+import asyncio
 import os
 import re
 from pathlib import Path
@@ -652,3 +653,47 @@ async def test_product_kind_and_course_freeze_once_referenced(migrated):
     with pytest.raises(asyncpg.RaiseError, match="access_code_product_kind"):
         await con.execute("UPDATE access_codes SET is_used = true, used_by = $1 WHERE product_id = $2",
                           await migrated.user(), coded)
+
+
+async def _blocked(task: "asyncio.Task") -> bool:
+    await asyncio.sleep(0.5)
+    return not task.done()
+
+
+@pytest.mark.asyncio
+async def test_concurrent_kind_change_and_code_creation_cannot_both_commit(migrated):
+    """CR/SA R2 (Codex P2): the FK's KEY SHARE lock does not conflict with an
+    UPDATE of kind, so the code checks read the product FOR SHARE."""
+    con = migrated.con
+    other = await asyncpg.connect(_url())
+    try:
+        await other.execute(f"SET search_path = {migrated.schema}, pg_catalog")
+
+        # 1. The kind change starts first: the code insert waits, then refuses.
+        product = await migrated.product("class", access_days=30)
+        await other.execute("BEGIN")
+        await other.execute("UPDATE course_products SET kind = 'online' WHERE id = $1", product)
+        insert = asyncio.create_task(migrated.code(product))
+        assert await _blocked(insert)
+        await other.execute("COMMIT")
+        with pytest.raises(asyncpg.RaiseError, match="access_code_product_kind"):
+            await insert
+
+        # 2. A used code is inserted first: the kind change waits, then refuses,
+        #    and the entitlement it granted stays on a class product.
+        product = await migrated.product("class", access_days=30)
+        learner = await migrated.user()
+        await con.execute("BEGIN")
+        code = await migrated.code(product, used_by=learner)
+        update = asyncio.create_task(
+            other.execute("UPDATE course_products SET kind = 'online' WHERE id = $1", product))
+        assert await _blocked(update)
+        await con.execute("COMMIT")
+        with pytest.raises(asyncpg.RaiseError, match="course_product_kind_locked"):
+            await update
+        assert await con.fetchval("SELECT kind FROM course_products WHERE id = $1", product) == "class"
+        assert len(await migrated.entitlements(code)) == 1
+    finally:
+        if other.is_in_transaction():
+            await other.execute("ROLLBACK")
+        await other.close()

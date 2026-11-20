@@ -307,9 +307,13 @@ BEGIN
            IS DISTINCT FROM (OLD.product_id, OLD.grant_days, OLD.grant_credits) THEN
         RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'access_code_product_locked';
     END IF;
+    -- FOR SHARE (not the FK's KEY SHARE) conflicts with a concurrent UPDATE of
+    -- kind/course_id, so the check waits for it and reads the committed kind;
+    -- an UPDATE that starts later waits for this row lock and then sees the code.
     IF NEW.product_id IS NOT NULL AND NOT EXISTS (
         SELECT 1 FROM public.course_products
-         WHERE id = NEW.product_id AND kind IN ('class', 'repractice')) THEN
+         WHERE id = NEW.product_id AND kind IN ('class', 'repractice')
+           FOR SHARE) THEN
         RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'access_code_product_kind';
     END IF;
     RETURN NEW;
@@ -371,7 +375,7 @@ BEGIN
         RETURN NULL;
     END IF;
 
-    SELECT * INTO STRICT v_product FROM public.course_products WHERE id = NEW.product_id;
+    SELECT * INTO STRICT v_product FROM public.course_products WHERE id = NEW.product_id FOR SHARE;
     -- Defence in depth for FR-010: a code never grants an online course.
     IF v_product.kind NOT IN ('class', 'repractice') THEN
         RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'access_code_product_kind';
