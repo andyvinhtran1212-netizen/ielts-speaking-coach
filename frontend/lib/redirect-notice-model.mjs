@@ -31,6 +31,12 @@ export const PARENT_LABELS = Object.freeze({
   '/vocabulary/hub': 'trang Từ vựng',
   '/my-class': 'trang Lớp học',
   '/instructor': 'trang Giảng dạy',
+  '/admin/mock-tests': 'trung tâm Mock Test',
+  // G02-T12: admin parents.
+  '/admin/reading/content': 'trang nội dung Reading',
+  '/admin/classes': 'trang Lớp',
+  '/admin/writing/queue': 'hàng chờ chấm Writing',
+  '/admin/writing/instructor-queue': 'hàng chờ của giảng viên',
 });
 
 const FALLBACK_LABEL = 'trang này';
@@ -64,6 +70,27 @@ export function redirectNoticeHref(parent, key = NOTICE_KEYS.missing) {
   const params = new URLSearchParams(query);
   params.set(NOTICE_PARAM, key);
   return `${path}?${params.toString()}${hash ? `#${hash}` : ''}`;
+}
+
+/**
+ * A required query value from a Server Component's `searchParams`, trimmed;
+ * '' when absent. A repeated parameter counts by its first value, as
+ * `URLSearchParams.get` does in the client component that uses it.
+ * @param {string | string[] | undefined} value
+ */
+export function searchParamText(value) {
+  const first = Array.isArray(value) ? value[0] : value;
+  return typeof first === 'string' ? first.trim() : '';
+}
+
+/**
+ * A `searchParams` object with each repeated parameter cut to its first value,
+ * for the href builders that expect one value per name.
+ * @param {Record<string, string | string[] | undefined>} params
+ * @returns {Record<string, string | undefined>}
+ */
+export function firstSearchParams(params) {
+  return Object.fromEntries(Object.entries(params || {}).map(([key, value]) => [key, Array.isArray(value) ? value[0] : value]));
 }
 
 /**

@@ -1,7 +1,10 @@
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 
 import { AdminAccessGate } from '@/components/admin-access-gate';
+import { mockTestsHref } from '@/lib/admin-mock-tests-model.mjs';
+import { redirectNoticeHref, searchParamText } from '@/lib/redirect-notice-model.mjs';
 import { AdminMockReviewReport } from './admin-mock-review-report';
 
 export const metadata: Metadata = {
@@ -11,8 +14,10 @@ export const metadata: Metadata = {
 
 async function Body({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const params = await searchParams;
-  const reviewId = typeof params.review_id === 'string' ? params.review_id.trim() : '';
-  const examId = typeof params.mock_exam_id === 'string' ? params.mock_exam_id.trim() : '';
+  const reviewId = searchParamText(params.review_id);
+  const examId = searchParamText(params.mock_exam_id);
+  // G02-T12: a report link without its review goes back to the review tab.
+  if (!reviewId) redirect(redirectNoticeHref(mockTestsHref('review', examId)));
   return (
     <aver-admin-chrome active="mock-tests" subsection="review">
       <AdminAccessGate><AdminMockReviewReport reviewId={reviewId} examId={examId} /></AdminAccessGate>
