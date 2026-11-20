@@ -9,7 +9,7 @@ Chép từ gói `GOI-06-thu-vien-cong-khai.md` mục 5, đối chiếu mã `stag
 - **Component dùng chung mới** `frontend/components/library/`: `reading-layout.tsx`, `margin-note.tsx`, `course-link-line.tsx`, `video-player.tsx`, hook `use-library-marks`; hàm thuần `frontend/lib/delta-highlight.mjs`, `activeCueIndex` (đặt trong `frontend/lib/library-cues.mjs`), mảng kệ `frontend/lib/library-shelves.mjs` (FR-063).
 - **Backend, router mới** `backend/routers/library.py` (prefix `/api/library`) và `backend/routers/admin_library.py` (prefix `/admin/library`); đăng ký trong `backend/main.py` với `dependencies=_ACTIVE_LEARNER` (dòng 266) như mọi router học viên, rồi khai từng route trong `ACTIVATION_EXEMPT_ROUTES` (`backend/services/activation_gate.py`) có chủ đích — route quên khai báo thì mặc định bị cổng chặn.
 - **Backend, script:** hoàn thiện `backend/scripts/import_writing_samples.py` (đã có `--check`, #2358) thêm dry-run và `--execute`; thêm `backend/scripts/import_speaking_samples.py` cùng khuôn.
-- **Hạ tầng dùng chung bị sửa:** `backend/services/storage_limits.py` (bucket `library-public`), `frontend/tooling/content-security-policy.mjs` + `frontend/next.config.ts` (CSP route Speaking), `frontend/app/sitemap.ts`, `frontend/lib/public-sitemap-model.mjs`, `frontend/app/robots.ts`, `docs/SITE_OVERVIEW.md`, `docs/CONTENT_SECURITY_POLICY.md`, `frontend/types/api.d.ts` (sinh lại). Các file này G05 cũng sửa: theo thứ tự phụ thuộc, bên sau rebase.
+- **Hạ tầng dùng chung bị sửa:** `backend/services/storage_limits.py` (bucket riêng tư `library-media`), `backend/services/library_media.py` (mới: ký URL tệp sau khi kiểm `published`), `frontend/tooling/content-security-policy.mjs` + `frontend/next.config.ts` (CSP route Speaking), `frontend/app/sitemap.ts`, `frontend/lib/public-sitemap-model.mjs`, `frontend/app/robots.ts`, `docs/SITE_OVERVIEW.md`, `docs/CONTENT_SECURITY_POLICY.md`, `frontend/types/api.d.ts` (sinh lại). Các file này G05 cũng sửa: theo thứ tự phụ thuộc, bên sau rebase.
 - **Không đụng:** `writing_prompts`, `topics`, `topic_questions`, `writing_tips` (chỉ đọc), `saved_articles` (giữ cho "đã lưu" Grammar), `backend/content/**` frontmatter, `lib/grammar-article-index.mjs`, `backend/services/grammar_learning_blocks.py`, `frontend/public/assets/advanced-vocab/**`, cấu trúc `backend/content_vocab/`, repo `ielts-pipeline`, repo VIDEO MAKING.
 
 ## Data and contracts
@@ -54,7 +54,7 @@ Nguồn: `backend/content/library/topics.json` (14 chủ đề, đã merge #2362
 | `task1_subtype` | text null | Task 1: `in ('bar','line','pie','table','process','map','mixed')` |
 | `topic_slug` | text | not null, FK `library_topics(slug)` |
 | `prompt_text` | text | not null |
-| `prompt_image_path` | text null | đường dẫn trong bucket `library-public`; Task 1 bắt buộc khi `published` (CHECK) |
+| `prompt_image_path` | text null | đường dẫn object trong bucket riêng tư `library-media` (không lưu URL); Task 1 bắt buộc khi `published` (CHECK) |
 | `essays` | jsonb | not null; khoá `7.5`, `7.0`, `6.0`, mỗi bài `{text, word_count, outline, vocab_table, structures}` |
 | `delta_75_70`, `delta_70_60` | jsonb | not null, mảng |
 | `justification` | jsonb | not null, chỉ `by_criterion` (bỏ `integrity_check`; `overrides.justification_jumps` của manifest đã gộp) |
@@ -87,7 +87,7 @@ Ràng buộc chéo: `check ((task_type='task2' and question_type is not null and
 | `duration_s` | int null | > 0 |
 | `transcript` | jsonb | not null; `[{start_ms|null, text, marks:[{kind:'vocab'|'structure', start, end, note}]}]` |
 | `sample_text` | text | not null, không rỗng (CHECK `length(btrim(sample_text)) > 0`) |
-| `audio_path` | text null | bucket `library-public` |
+| `audio_path` | text null | đường dẫn object trong bucket riêng tư `library-media` |
 | `voice` | text | not null default `'synthetic'`, `in ('synthetic')` **(khác gói: thêm để nhãn FR-036 đọc từ dữ liệu, theo `docs/SPEAKING_SAMPLE_CONTRACT.md`)** |
 | `outline`, `vocabulary`, `related_part3` | jsonb | default `'[]'` |
 | `source_note` | text null | "Nguồn đề: …" |
@@ -112,7 +112,12 @@ RLS bật trên cả năm bảng; không policy cho `anon`/`authenticated`; `REV
 
 ### 5.5 Ảnh Task 1 và audio công khai
 
-Bucket mới `library-public` (đọc công khai, ghi chỉ `service_role`), tạo trong migration 400 với `file_size_limit` và `allowed_mime_types`, và khai trong `backend/services/storage_limits.py` theo STORAGELIMITS-0038: png/webp ≤ 2 MB; mp3/m4a ≤ 10 MB. Không chuyển ảnh sang `writing-images` (riêng tư; mở nó sẽ lộ ảnh đề thi thử `exam_only`). Đường dẫn theo `source_key`: `writing-samples/<source_key>/figure.png`; audio `speaking-samples/<source_id>/answer.<ext>`. Ba hình T19 lấy từ `backend/content/library/figures/` qua `overrides.image_path`.
+**(khác gói — sửa theo review #2397, 20/11)** Gói đề xuất bucket công khai `library-public`. Bucket công khai của Supabase phục vụ tệp theo URL bất kể trạng thái bản ghi, nên tệp đã tải lên sẽ đọc được khi đề còn nháp và vẫn đọc được sau khi gỡ. Spec chốt cơ chế riêng tư, cùng khuôn `audio-responses` và `writing-images` (`backend/services/recording_audio.py`, `backend/services/writing_image_access.py`):
+
+- Bucket mới **`library-media`, `public = false`**, ghi chỉ `service_role`, tạo trong migration 400 với `file_size_limit` và `allowed_mime_types`, khai trong `backend/services/storage_limits.py` theo STORAGELIMITS-0038: png/webp ≤ 2 MB; mp3/m4a ≤ 10 MB. Không có policy `storage.objects` nào cho `anon`/`authenticated` trên bucket này.
+- DB và API chỉ lưu **đường dẫn object**, không lưu và không trả URL bền. Trang và API công khai trỏ tệp qua route backend `GET /api/library/media/{shelf}/{key}/{asset}` (`shelf` ∈ `writing-sample|speaking-sample`, `key` = slug hiện hành, `asset` ∈ `figure|audio`). Route đọc bản ghi **mỗi lần**: không có, hoặc `published = false` → 404 `{"detail":"media_not_found"}`; đã đăng → 302 tới URL ký của Storage hạn **`LIBRARY_MEDIA_SIGNED_URL_SECONDS` = 300 s**. Phản hồi 302 có `Cache-Control: private, max-age=0, no-store` để CDN và trình duyệt không giữ chuyển hướng; phản hồi 404 cũng `no-store`.
+- Hệ quả đo được: nháp không đọc được tệp ở bất kỳ thời điểm nào; đã đăng đọc được; **đã gỡ thì không còn tải được sau tối đa 300 s** (URL ký cũ hết hạn; không có URL bền nào để giữ lại). Đây là thời hạn thu hồi `LIBRARY_MEDIA_REVOKE_MAX_SECONDS` = 300 ghi trong verification. Trang HTML cache phía Next chỉ chứa URL route backend, không chứa URL ký, nên cache trang không kéo dài quyền đọc tệp.
+- Ảnh đề Task 1 và audio vẫn công khai với khách khi đề đã đăng (FR-001): route không cần đăng nhập, chỉ cần `published`. Không chuyển ảnh sang `writing-images` (riêng tư; mở nó sẽ lộ ảnh đề thi thử `exam_only`). Đường dẫn theo `source_key`: `writing-samples/<source_key>/figure.png`; audio `speaking-samples/<source_id>/answer.<ext>`. Ba hình T19 lấy từ `backend/content/library/figures/` qua `overrides.image_path`.
 
 ### 5.6 CSP cho video
 
@@ -124,7 +129,8 @@ Thêm có giới hạn trong `frontend/tooling/content-security-policy.mjs`: `fr
 | --- | --- | --- | --- |
 | `GET /summary` | không | `{writing_samples:{total, task2, task1}, writing_guides:{total}, speaking:{total, with_video}, grammar:{total}, vocabulary:{total}}`; trường null khi không đếm được | Cho `/library`. |
 | `GET /writing-samples` | không | `{items:[{slug,title_en,task_type,question_type,task1_subtype,topic_slug,prompt_text}], total, page, page_size:12, facets:{task:{…}, question_type:{…}, topic:{…}}}` | `task`, `dang`, `chude`, `q` (≤ 100 ký tự), `trang` ≥ 1; sai → 422. Facet "bỏ chính nhóm đó" (đếm mỗi nhóm khi bỏ bộ lọc của chính nhóm). |
-| `GET /writing-samples/{slug}` | không | bộ đề đã lọc trường (không `source_key`, `content_hash`, `source_review_status`, `integrity_check`, `difficulty_notes`, điểm ước tính) + `related[≤4]`, `prev`, `next`, `figure_url` | Slug cũ → 308 `Location`; không có → 404 `{"detail":"sample_not_found"}`. |
+| `GET /writing-samples/{slug}` | không | bộ đề đã lọc trường (không `source_key`, `content_hash`, `source_review_status`, `integrity_check`, `difficulty_notes`, điểm ước tính) + `related[≤4]`, `prev`, `next`, `figure_url` (đường dẫn route `/api/library/media/writing-sample/<slug>/figure`, không phải URL Storage) | Slug cũ → 308 `Location`; không có → 404 `{"detail":"sample_not_found"}`. |
+| `GET /media/{shelf}/{key}/{asset}` | không | 302 tới URL ký 300 s khi bản ghi `published`; 404 `media_not_found` khi nháp, gỡ, hoặc thiếu tệp | `Cache-Control: no-store`; kiểm `published` mỗi lần (5.5, FR-064). |
 | `GET /writing-samples/index` | không | `[{slug, updated_at}]` | Cho sitemap; khai route trước `/{slug}`. |
 | `GET /writing-guides`, `/{slug}` | không | `writing_tips` `published` có `content_type in ('knowledge','tip')`, kèm `groups[]` (Open question 4) | Không đụng hai route học viên hiện có. |
 | `GET /speaking`, `/speaking/{slug}`, `/speaking/index` | không | tương tự; mỗi đề có `voice` | Chỉ `published` và `sample_text` không rỗng. |
@@ -174,7 +180,7 @@ Chi tiết ở `rollout.md`: migration 400 lên staging trước dưới khoá a
 
 ## Verification strategy
 
-- Backend: `tests/test_library_schema.py` (ràng buộc chéo, slug sai mẫu, `anon` không đọc được bảng nào, khoá chính `library_marks`, `shelves` hợp lệ), `tests/test_import_writing_samples.py` (đã có cho `--check`; thêm dry-run/`--execute` với DB giả), `tests/test_library_writing_api.py`, `tests/test_library_speaking_api.py`, `tests/test_library_marks_api.py`, `tests/test_admin_library.py`, cùng `test_activation_gate_inventory.py`, `test_public_cache_headers.py`, `test_staff_guard_inventory.py`, `test_public_schema_create_guard.py`, test của STORAGELIMITS-0038.
+- Backend: `tests/test_library_schema.py` (ràng buộc chéo, slug sai mẫu, `anon` không đọc được bảng nào, khoá chính `library_marks`, `shelves` hợp lệ, bucket `library-media` có `public = false` và không policy client), `tests/test_library_media.py` (nháp 404, đã đăng 302 tới URL ký hạn 300 s, gỡ rồi 404, header `no-store`, không API nào trả URL Storage bền), `tests/test_import_writing_samples.py` (đã có cho `--check`; thêm dry-run/`--execute` với DB giả), `tests/test_library_writing_api.py`, `tests/test_library_speaking_api.py`, `tests/test_library_marks_api.py`, `tests/test_admin_library.py`, cùng `test_activation_gate_inventory.py`, `test_public_cache_headers.py`, `test_staff_guard_inventory.py`, `test_public_schema_create_guard.py`, test của STORAGELIMITS-0038.
 - Frontend: test hành vi (không so chuỗi lớp CSS, TESTPOLICY-0057) cho bộ lọc, phân trang, `delta-highlight`, `activeCueIndex`, trình phát, mục lục, gợi ý tra từ, dấu; `next-metadata.test.mjs`; test sitemap model; tooling `verify-grammar-404-ssr-flow.mjs`.
 - `curl` trên build local: mã HTTP của URL Grammar cũ, 404 slug lạ, header CSP chỉ có ở route Speaking, `grep` trường cấm trong HTML.
 - Staging: kịch bản `verification.md`, ảnh 10 trang ngẫu nhiên 1280/390 sau T18. Máy cloud hiện không vào được staging → bước xem staging ghi "chờ anh Andy kiểm tay trên staging" khi không có đường khác.

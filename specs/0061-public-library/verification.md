@@ -45,7 +45,8 @@ Mọi dòng ở trạng thái `PENDING`: spec đang ở `draft`, chưa có dòng
 | FR-060 | kind=test; ref=planned in T009, T013, T016; test React cột Của bạn/Bạn kèm chữ; kịch bản 9 | PENDING |
 | FR-061 | kind=test; ref=planned in T002, T016; test backend A không đọc/ghi dấu B, PUT hai lần một hàng, is_active=false dùng được, cascade | PENDING |
 | FR-062 | kind=test; ref=planned in T017; test sitemap model dữ liệu giả; curl sitemap.xml đếm /library/writing-samples/ = số published | PENDING |
-| FR-063 | kind=test; ref=planned in T008 frontend/lib/library-shelves.mjs; test React mảng thêm kệ giả → sáu kệ, 390px không vỡ; kịch bản 11 | PENDING |
+| FR-064 | kind=test; ref=planned in T002, T006 tests/test_library_media.py; nháp 404, đã đăng 302 URL ký 300 s, gỡ 404, no-store; staging journey: URL object công khai của bucket trả lỗi, URL ký cũ hết hạn ≤ 300 s sau khi gỡ; kịch bản 11 | PENDING |
+| FR-063 | kind=test; ref=planned in T008 frontend/lib/library-shelves.mjs; test React mảng thêm kệ giả → sáu kệ, 390px không vỡ; kịch bản 12 | PENDING |
 
 ## Contract evidence
 
@@ -54,7 +55,7 @@ Mọi dòng ở trạng thái `PENDING`: spec đang ở `draft`, chưa có dòng
 
 ## Data evidence
 
-- Migration/schema query: sau khi áp 400 trên staging — `select relname, relrowsecurity from pg_class where relname in ('library_topics','writing_samples','writing_sample_slug_history','speaking_samples','library_marks');` (cả năm `true`); `select grantee, privilege_type from information_schema.role_table_grants where table_name in (...) and grantee in ('anon','authenticated');` (rỗng); `select id, public, file_size_limit, allowed_mime_types from storage.buckets where id='library-public';`.
+- Migration/schema query: sau khi áp 400 trên staging — `select relname, relrowsecurity from pg_class where relname in ('library_topics','writing_samples','writing_sample_slug_history','speaking_samples','library_marks');` (cả năm `true`); `select grantee, privilege_type from information_schema.role_table_grants where table_name in (...) and grantee in ('anon','authenticated');` (rỗng); `select id, public, file_size_limit, allowed_mime_types from storage.buckets where id='library-media';` (`public = false`); `select policyname from pg_policies where schemaname='storage' and tablename='objects' and qual::text like '%library-media%';` (rỗng).
 - Immediate state versus full reload: sau `--execute`, chạy lại dry-run ra "không còn khác biệt"; số `published` trên staging = số `publish:true` trong manifest; sau bật/tắt dấu, tải lại trang vẫn đúng dấu.
 
 ## UI evidence

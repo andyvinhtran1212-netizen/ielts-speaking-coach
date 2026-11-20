@@ -15,7 +15,8 @@ Thứ tự (gói mục 6 T01): migration staging → API → trang → nội dun
 2. Merge API (T006, T011, T013, T016), rồi trang (T008–T015). Trang hoạt động với bảng rỗng: danh sách hiện trạng thái rỗng, `/library` ẩn số.
 3. T018: `--check` sạch → dry-run → `--execute` với `publish:false` hết → dry-run lại "không còn khác biệt" → lô đầu 50 bộ đã ký `publish:true` → kiểm 10 trang ngẫu nhiên 1280/390 → các lô còn lại. Speaking chỉ nhập khi có tệp theo hợp đồng từ repo VIDEO MAKING.
 4. T017 (sitemap, robots) merge sau khi có bộ đã xuất bản trên staging.
-5. CSP Speaking: kiểm `curl -I` route `/library/speaking/<slug>` có `frame-src https://www.youtube-nocookie.com` và `/` không có, trên Preview/staging.
+5. Quyền tải tệp (FR-064): với một đề thử, kiểm ba trạng thái nháp / đã đăng / đã gỡ bằng `curl -I` trên route `/api/library/media/...` và trên URL object công khai `.../storage/v1/object/public/library-media/...` (phải lỗi ở mọi trạng thái).
+6. CSP Speaking: kiểm `curl -I` route `/library/speaking/<slug>` có `frame-src https://www.youtube-nocookie.com` và `/` không có, trên Preview/staging.
 
 Máy cloud hiện không vào được staging: bước xem staging ghi "chờ anh Andy kiểm tay trên staging" nếu không có đường khác; không tự tạo tài khoản QA (04-VIEC-DE-LAI câu 11).
 
@@ -27,11 +28,11 @@ Máy cloud hiện không vào được staging: bước xem staging ghi "chờ a
 
 ## Rollback and repair
 
-- Gỡ nội dung nhanh: `published=false` hàng loạt qua `/admin/library` (T020) hoặc manifest `publish:false` + `--execute`; trang đề trả 404 ngay khi cache hết hạn (`cacheable_json`).
+- Gỡ nội dung nhanh: `published=false` hàng loạt qua `/admin/library` (T020) hoặc manifest `publish:false` + `--execute`; trang đề trả 404 ngay khi cache hết hạn (`cacheable_json`); route tệp trả 404 ngay vì đọc `published` mỗi lần, URL ký đã phát ra hết hạn trong tối đa 300 s (FR-064). Kiểm sau khi gỡ: route tệp 404, đợi 300 s rồi thử lại URL ký cũ → lỗi.
 - Code: migration 400 chỉ thêm bảng và bucket, không đổi bảng cũ → deploy lại bản trước được; route `/library*` biến mất, không ảnh hưởng trang khác.
 - Grammar/Vocabulary: mỗi PR T014 (a/b/c), T015 revert độc lập; URL và frontmatter không đổi nên không cần chuyển hướng.
 - CSP: revert PR CSP riêng của T013 → trang Speaking rơi về nhánh `<video>`/audio, không khung trống (FR-033).
-- Rollback schema (chỉ khi chưa có dữ liệu người dùng cần giữ): `backend/migrations/rollback/400_public_library.sql` xoá năm bảng và bucket rỗng. Trước khi chạy: `select count(*) from library_marks;` — có dấu của người dùng thì không chạy, chỉ tắt nội dung.
+- Rollback schema (chỉ khi chưa có dữ liệu người dùng cần giữ): `backend/migrations/rollback/400_public_library.sql` xoá năm bảng và bucket `library-media` (xoá object trước). Trước khi chạy: `select count(*) from library_marks;` — có dấu của người dùng thì không chạy, chỉ tắt nội dung.
 - Sửa lệch: dry-run in kế hoạch `INSERT/UPDATE/UNPUBLISH`; `--execute` đưa DB về manifest; `W_HASH` dừng bộ có nguồn đổi.
 
 ## Observability
