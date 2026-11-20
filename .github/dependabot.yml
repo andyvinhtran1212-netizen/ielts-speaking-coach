@@ -5,27 +5,27 @@ updates:
     directory: /frontend
     target-branch: staging
     schedule:
-      interval: weekly
-    open-pull-requests-limit: 3
+      interval: monthly
+    open-pull-requests-limit: 2
 
   - package-ecosystem: npm
     directory: /frontend/tooling/css
     target-branch: staging
     schedule:
-      interval: weekly
-    open-pull-requests-limit: 3
+      interval: monthly
+    open-pull-requests-limit: 2
 
   - package-ecosystem: pip
     directory: /backend
     target-branch: staging
     schedule:
-      interval: weekly
-    open-pull-requests-limit: 3
+      interval: monthly
+    open-pull-requests-limit: 2
 
   # GitHub Actions uses / to scan .github/workflows and root action manifests.
   - package-ecosystem: github-actions
     directory: /
     target-branch: staging
     schedule:
-      interval: weekly
-    open-pull-requests-limit: 3
+      interval: monthly
+    open-pull-requests-limit: 2
