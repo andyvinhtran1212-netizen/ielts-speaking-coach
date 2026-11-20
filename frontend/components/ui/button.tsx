@@ -17,7 +17,12 @@ type CommonProps = {
   variant?: ButtonVariant;
   /** 48 / 44 / 36 px: phone, default, admin tables. */
   size?: ButtonSize;
-  /** Busy: `aria-disabled`, clicks ignored, label swapped, width kept. */
+  /**
+   * Busy: `aria-disabled`, clicks ignored, label swapped. Passing `loading`
+   * (even `false`) or `loadingLabel` reserves the wider of the two labels, so
+   * the width does not jump when it turns busy; buttons that never load pass
+   * neither and keep their own width.
+   */
   loading?: boolean;
   /** Label while busy, e.g. "Đang nộp…". Defaults to "Đang xử lý…". */
   loadingLabel?: string;
@@ -59,7 +64,8 @@ export function Button(props: ButtonProps) {
     children,
     ...rest
   } = props;
-  const busy = loading && variant !== 'text';
+  const canBusy = variant !== 'text' && (props.loading !== undefined || props.loadingLabel !== undefined);
+  const busy = canBusy && loading;
   const classes = cx(styles.button, VARIANT[variant], SIZE[size], className);
   const content = (
     <span className={styles.stack}>
@@ -67,7 +73,12 @@ export function Button(props: ButtonProps) {
         {iconStart ? <span className={styles.icon} aria-hidden="true">{iconStart}</span> : null}
         {children}
       </span>
-      {busy ? <span className={styles.label}>{loadingLabel}</span> : null}
+      {/* In the grid whenever it can turn busy, so the wider label sets the width in both states. */}
+      {canBusy ? (
+        <span className={cx(styles.label, !busy && styles.hidden)} aria-hidden={!busy || undefined}>
+          {loadingLabel}
+        </span>
+      ) : null}
     </span>
   );
 
