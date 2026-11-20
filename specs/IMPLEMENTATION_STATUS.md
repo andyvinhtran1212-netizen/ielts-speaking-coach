@@ -131,7 +131,7 @@ unused.
 | [UIBASE-0056](0056-ui-foundation/verification.md) | draft | 0/11 | Draft spec only, merged to staging for review; no task is checked. |
 | [TESTPOLICY-0057](0057-test-policy-visual-baseline/verification.md) | draft | 0/3 | Draft spec only (G10-T01), merged to staging for review; no task is checked. |
 | [MIGNUM-0058](0058-migration-number-blocks/verification.md) | draft | 0/1 | Draft spec only (G10-T22), merged to staging for review; no task is checked. |
-| [LEGACYJS-0075](0075-legacy-public-js-retirement/verification.md) | draft | 0/7 | Draft spec only (G10-T05), for review; no task is checked. |
+| [LEGACYJS-0075](0075-legacy-public-js-retirement/verification.md) | approved | 0/7 | Approved by anh Andy 2026-11-20 (`approval-decision.md`); spec only (G10-T05), for review; no task is checked. |
 | [ADMINIA-0074](0074-admin-ia/verification.md) | draft | 0/30 | Draft spec only, merged to staging for review; no task is checked. |
 | [PHONEGATE-0081](0081-full-test-phone-gate/verification.md) | draft | 0/2 | Draft spec only, merged to staging for review; no task is checked. |
 | [COURSETESTRELEASE-0082](0082-course-test-result-release/verification.md) | draft | 0/7 | Draft spec only, merged to staging for review; no task is checked. |

@@ -1,14 +1,14 @@
 ---
 id: LEGACYJS-0075
 title: Legacy public scripts that no page loads are removed in reviewed batches, each file backed by reference and request evidence, without any page losing a script it needs
-status: draft
+status: approved
 risk: high
 owner: product
 ---
 
 # Legacy public scripts that no page loads are removed in reviewed batches, each file backed by reference and request evidence, without any page losing a script it needs
 
-Status: **draft** — soạn ngày 20/11/2026 cho nhiệm vụ `G10-T05` (thương mại hoá 2026-11), từ `docs/proposals/commercialization-2026-11/GOI-10-repo-pha-2-cau-truc.md` mục 4(b), G10-T05…T07 và `docs/audits/GATE_F_ASSET_AUDIT_2026-09-10.md` mục "Completion audit". Số liệu đo lại trên `staging @ 119ad352` (20/11). Chưa dòng mã nào chạy theo spec này. Chỉ anh Andy duyệt; khi duyệt, câu trả lời ghi vào `approval-decision.md` cùng thư mục, nguyên văn kèm thời điểm, và `status` đổi sang `approved`. Số spec lấy từ sổ cấp số ở `01-KE-HOACH-TONG.md` mục 6. Spec này không có migration.
+Status: **approved** — anh Andy duyệt ngày 20/11/2026 (`approval-decision.md`). Soạn ngày 20/11/2026 cho nhiệm vụ `G10-T05` (thương mại hoá 2026-11), từ `docs/proposals/commercialization-2026-11/GOI-10-repo-pha-2-cau-truc.md` mục 4(b), G10-T05…T07 và `docs/audits/GATE_F_ASSET_AUDIT_2026-09-10.md` mục "Completion audit". Số liệu đo lại trên `staging @ 119ad352` (20/11). Chưa dòng mã nào chạy theo spec này. Chỉ anh Andy duyệt; khi duyệt, câu trả lời ghi vào `approval-decision.md` cùng thư mục, nguyên văn kèm thời điểm, và `status` đổi sang `approved`. Số spec lấy từ sổ cấp số ở `01-KE-HOACH-TONG.md` mục 6. Spec này không có migration.
 
 ## Tóm tắt (tiếng Việt)
 
