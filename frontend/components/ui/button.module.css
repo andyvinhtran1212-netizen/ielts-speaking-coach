@@ -12,6 +12,17 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+/*
+ * A Button with `href` is an <a>, and base.css styles `.av2-root a` (0-1-1),
+ * which beats one class. Repeating the class restores the variant colours;
+ * these come before the state rules below so hover/disabled still win.
+ */
+.button.button { text-decoration: none; }
+.primary.primary { color: var(--av2-on-accent); }
+.secondary.secondary { color: var(--av2-ink); }
+.text.text { color: var(--av2-link); text-decoration: underline; }
+.danger.danger { color: var(--av2-danger); }
+
 .lg { min-height: var(--av2-control-lg); }
 .md { min-height: var(--av2-control-md); }
 .sm { min-height: var(--av2-control-sm); padding: 0 var(--av2-space-6); font-size: var(--av2-fs-15); }
