@@ -34,6 +34,7 @@ from google.generativeai.types import GenerationConfig
 
 from config import settings
 from models.writing_feedback import (
+    GeneratedWritingFeedback,
     GraderConfig,
     GradingResult,
     GradingTier,
@@ -372,7 +373,7 @@ class GeminiWritingGrader:
         config: GraderConfig,
         loader,
     ) -> GradingResult:
-        """Standard tier — single Gemini call, full WritingFeedback schema.
+        """Standard tier — single Gemini call, full GeneratedWritingFeedback schema.
 
         Extracted from the original `grade_essay()` body during Sprint
         2.7b so Deep tier (Pass 1) can reuse this exact path. The
@@ -402,7 +403,7 @@ class GeminiWritingGrader:
             model_name=model_name,
             system_prompt=system_prompt,
             user_prompt=user_prompt,
-            parse_schema=WritingFeedback,   # retry on truncated/malformed body
+            parse_schema=GeneratedWritingFeedback,   # retry on truncated/malformed body
             source_essay=config.essay_text,
             source_task_type=config.task_type,
             source_prompt=config.prompt_text,
@@ -414,7 +415,7 @@ class GeminiWritingGrader:
         # Truthful provenance when the Anthropic-primary attempt served it.
         model_name = usage.get("served_model") or model_name
 
-        feedback = self._parse_response(response_text, schema=WritingFeedback)
+        feedback = self._parse_response(response_text, schema=GeneratedWritingFeedback)
 
         # D7 — Task 1 Academic graded WITHOUT a chart (no URL or fetch
         # failed): surface a caveat so student + admin know content accuracy
@@ -1552,16 +1553,14 @@ class GeminiWritingGrader:
             **context,
         ))
 
-    def _parse_response(self, response_text: str, schema=WritingFeedback):
+    def _parse_response(self, response_text: str, schema=GeneratedWritingFeedback):
         """Parse Gemini JSON response → schema instance.
 
         Defensively extracts the outermost {...} even if Gemini adds prose
         around the JSON despite response_mime_type='application/json'.
 
-        Sprint 2.7a: takes a `schema` parameter so Quick tier can parse
-        into WritingFeedbackQuick (5-section subset) instead of the full
-        WritingFeedback. Default is WritingFeedback so historical
-        callers keep their pre-2.7a behaviour.
+        Defaults to full provider feedback; Deep passes 2 and 3 supply
+        their own schemas for refinements and rewrites.
         """
         first = response_text.find("{")
         if first == -1 or response_text.rfind("}") < first:

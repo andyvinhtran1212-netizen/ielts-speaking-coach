@@ -1,0 +1,29 @@
+{
+  "source_commit": "f2d62986566d422a3b99d43aeb024f21bf87fea9",
+  "builder_source_sha256": "cdc979a8c0a8119883047eb74a4c869b7bb335acbf49733e3b53f3013537b26b",
+  "capture_sha256": "2c2fafdbd2b2fd3b8a0ddd9539877ac11a93c1c200255bf236335a0400f4bcdb",
+  "changes": [
+    {
+      "target": "c03b-key",
+      "before_sha256": "376447b8567e871ea7bcd90f1191330ac7d9c76abbf1845a91fa3d279b8be554",
+      "after_sha256": "720153bd2938e30ef59e1bbe529ba3830d8e926d45814da254ab9b523804eea1",
+      "changed": true
+    },
+    {
+      "target": "c03b-object",
+      "before_sha256": "664c68bb2e6409a5315e491b86f6783556b06ee4d4c0d8d9e975383eb466f6d4",
+      "after_sha256": "6f52e080cb70a4aa303691872ffdf0ef341f46c7ff9fd5e96c972024e916073d",
+      "changed": true
+    },
+    {
+      "target": "v2b-object",
+      "before_sha256": "9cd46c05fbf01588e156634412de8370729d98968ba6b9e1d4217b05d4ebd4a8",
+      "after_sha256": "e1c8fdc2e0e0c29c379800dae9e2800ae1f65c64d009794f5bd1ccce3f99be24",
+      "changed": true
+    }
+  ],
+  "rollback_sql_sha256": "f1dae2d835141adcdce70706afba7625084b8c2d63e240df46e22aa9d691470f",
+  "v2b_sql_lines_sha256": "ac9cd01aa2a331d725584da2273dff7a9439ac1e00ff1b45d0b01e77c3e0c2a5",
+  "q8_answer_summary": "Đáp án chuẩn: 2.30.",
+  "q8_marking_note": null
+}

@@ -1,0 +1,1257 @@
+{
+ "attempt_id": "0d14596d-515e-4ea9-bc71-405d07f50247",
+ "test_id": "source-3b34037b-1466-539d-ad6d-c0508fce2967",
+ "title": "Day 54 — Ví dụ · Student services building",
+ "status": "submitted",
+ "score": null,
+ "max_score": 4,
+ "band_estimate": null,
+ "scoring_policy": "report_only",
+ "assisted": false,
+ "result_summary": {
+  "item_count": 4,
+  "blank_count": 0,
+  "checked_count": 0,
+  "correct_count": 0,
+  "unscored_count": 4,
+  "completion_count": 4,
+  "technical_error_count": 0
+ },
+ "programme_id": "ielts-80-days-listening",
+ "listening_lesson_id": "a1b0cc07-4002-433b-9359-a6ebcf20988b",
+ "form_purpose": "practice",
+ "replay_policy": "allowed",
+ "support_policy": "available",
+ "claim_policy": "report_only_no_band_cefr_mastery_or_full_progression_claim",
+ "trap_analytics": {},
+ "audio_granularity": "whole_day",
+ "audio_duration": 62,
+ "section_offsets": {},
+ "cue_points": [],
+ "band_conversion": [],
+ "sections": [
+  {
+   "section_num": 1,
+   "title": "Day 54 — Ví dụ · Student services building",
+   "theme": null,
+   "transcript": "",
+   "context_provenance": {
+    "section_num": "submission_snapshot",
+    "title": "submission_snapshot",
+    "theme": "unavailable",
+    "transcript": "submission_snapshot"
+   }
+  }
+ ],
+ "review": [
+  {
+   "fields": [],
+   "source_item_id": "80-days:day-54:map_matching:q-01",
+   "source_display_number": "1",
+   "review_status": "CONFIRMED",
+   "answer_provenance": "printed_key_verified",
+   "explanation": {
+    "printed_key": {
+     "answer": "A",
+     "source_pdf_page": null,
+     "source_ocr_line_index_1_based": null,
+     "evidence_tier": "PRINTED_EMBEDDED_KEY",
+     "visual_correction": false,
+     "source_lines": [
+      {
+       "pdf_page": 158,
+       "line_index_1_based": 41
+      }
+     ]
+    },
+    "answer": "A",
+    "evidence": [
+     {
+      "source_kind": "printed_transcript",
+      "pdf_page": 331,
+      "line_index_1_based": 3,
+      "quote": "go to the reception",
+      "relation": "supports",
+      "visual_reconstruction": null,
+      "source_image_path": "page-images/pdf-page-330.jpg",
+      "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+      "source_region": {
+       "x": 164.8,
+       "y": 280.8,
+       "width": 1149.7,
+       "height": 26.80000000000001
+      },
+      "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+      "upstream_review_state": null,
+      "raw_ocr_verbatim": null,
+      "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+      "source_line_id": null,
+      "insertion_after_line_index_1_based": null,
+      "line_index_unavailable_reason": null,
+      "start": null,
+      "end": null
+     },
+     {
+      "source_kind": "printed_transcript",
+      "pdf_page": 331,
+      "line_index_1_based": 5,
+      "quote": "on the left as you enter from Smith Street.",
+      "relation": "supports",
+      "visual_reconstruction": null,
+      "source_image_path": "page-images/pdf-page-330.jpg",
+      "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+      "source_region": {
+       "x": 251.3,
+       "y": 319,
+       "width": 958.4000000000001,
+       "height": 30.899999999999977
+      },
+      "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+      "upstream_review_state": null,
+      "raw_ocr_verbatim": null,
+      "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+      "source_line_id": null,
+      "insertion_after_line_index_1_based": null,
+      "line_index_unavailable_reason": null,
+      "start": null,
+      "end": null
+     },
+     {
+      "source_kind": "source_question_image",
+      "pdf_page": 156,
+      "line_index_1_based": null,
+      "quote": "A ở phía trái khi đi vào từ Smith Street; B nằm phía trong, kế Hairdresser.",
+      "relation": "supports",
+      "visual_reconstruction": null,
+      "source_image_path": "page-images/pdf-page-155.jpg",
+      "source_image_sha256": "d8b395dafd0b237cb5148e83476c4678de2ed2a4306b489089c03aa0ee17a747",
+      "source_region": {
+       "x": 110,
+       "y": 1005,
+       "width": 1200,
+       "height": 850
+      },
+      "text_validation_source": "Original plan visually inspected; quote is editorial spatial description",
+      "upstream_review_state": null,
+      "raw_ocr_verbatim": null,
+      "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+      "source_line_id": null,
+      "insertion_after_line_index_1_based": null,
+      "line_index_unavailable_reason": null,
+      "start": null,
+      "end": null
+     }
+    ],
+    "why_vi": "Đi vào từ Smith Street ở mép dưới sơ đồ, reception ở phía trái, ngay phía trong lối vào: A. Phải xác định trái theo hướng bước vào, không theo lối Robert Street đối diện.",
+    "distractors": [
+     {
+      "option": "A",
+      "text": "A",
+      "reason_vi": "A khớp phía trái từ lối vào Smith Street."
+     },
+     {
+      "option": "B",
+      "text": "B",
+      "reason_vi": "B ở xa lối vào hơn, cạnh Hairdresser, không phải vị trí ngay phía trong."
+     },
+     {
+      "option": "C",
+      "text": "C",
+      "reason_vi": "C nằm sâu hơn, giữa Games và Hairdresser."
+     },
+     {
+      "option": "D",
+      "text": "D",
+      "reason_vi": "D nằm gần Robert Street, giữa Games và WC."
+     },
+     {
+      "option": "E",
+      "text": "E",
+      "reason_vi": "E là khu vực giữa các escalators, không bên trái lối Smith."
+     },
+     {
+      "option": "F",
+      "text": "F",
+      "reason_vi": "F ở lối Robert Street, khác lối đang được chỉ."
+     },
+     {
+      "option": "G",
+      "text": "G",
+      "reason_vi": "G nằm bên phải phía Smith Street."
+     },
+     {
+      "option": "H",
+      "text": "H",
+      "reason_vi": "H cũng bên phải lối Smith Street."
+     }
+    ],
+    "paraphrase_vi": "",
+    "trap_vi": "Chốt đúng Smith Street trước khi xác định trái/phải.",
+    "format_vi": "",
+    "source_answer_warning_vi": null,
+    "next_action_vi": null
+   },
+   "audio_granularity": "whole_day",
+   "q_num": 1,
+   "self_check": false,
+   "alternatives": [],
+   "state": "unscored",
+   "correct": null,
+   "user_answer": "A",
+   "expected": "",
+   "question_type": "map_label",
+   "prompt": "Reception area, admissions",
+   "audio_window": null,
+   "section": null,
+   "transcript_anchor": null,
+   "solution": {},
+   "self_review": {
+    "rationale": "Đi vào từ Smith Street ở mép dưới sơ đồ, reception ở phía trái, ngay phía trong lối vào: A. Phải xác định trái theo hướng bước vào, không theo lối Robert Street đối diện.",
+    "reference_answers": [
+     "A"
+    ]
+   },
+   "first_answer": null,
+   "question_context": {
+    "question_id": "59422452-b4b8-4567-9705-a61540c74f0e:1",
+    "instructions": null,
+    "instruction": null,
+    "options": {
+     "A": "A",
+     "B": "B",
+     "C": "C",
+     "D": "D",
+     "E": "E",
+     "F": "F",
+     "G": "G",
+     "H": "H"
+    },
+    "template": null,
+    "max_words": null,
+    "paragraph_labels": null,
+    "labels": null,
+    "image_url": null,
+    "image_alt": null,
+    "template_kind": null,
+    "variant": "programme_form_v1",
+    "word_limit": null,
+    "word_limit_text": null,
+    "response_type": "map_label",
+    "map_svg": null,
+    "map_image_url": null,
+    "metadata": {},
+    "context_provenance": {
+     "question_id": "submission_snapshot",
+     "instructions": "unavailable",
+     "instruction": "unavailable",
+     "options": "submission_snapshot",
+     "template": "unavailable",
+     "max_words": "unavailable",
+     "paragraph_labels": "unavailable",
+     "labels": "unavailable",
+     "image_url": "unavailable",
+     "image_alt": "unavailable",
+     "template_kind": "unavailable",
+     "variant": "submission_snapshot",
+     "word_limit": "submission_snapshot",
+     "word_limit_text": "unavailable",
+     "response_type": "submission_snapshot",
+     "map_svg": "unavailable",
+     "map_image_url": "unavailable",
+     "metadata": "unavailable",
+     "metadata.flow_direction": "unavailable"
+    }
+   },
+   "context_provenance": {
+    "prompt": "submission_snapshot",
+    "question_type": "submission_snapshot",
+    "solution": "unavailable",
+    "audio_window": "unavailable",
+    "transcript_anchor": "unavailable",
+    "self_review": "submission_snapshot",
+    "explanation": "submission_snapshot",
+    "question_context": "submission_snapshot"
+   }
+  },
+  {
+   "fields": [],
+   "source_item_id": "80-days:day-54:map_matching:q-02",
+   "source_display_number": "2",
+   "review_status": "CONFIRMED",
+   "answer_provenance": "printed_key_verified",
+   "explanation": {
+    "printed_key": {
+     "answer": "D",
+     "source_pdf_page": null,
+     "source_ocr_line_index_1_based": null,
+     "evidence_tier": "PRINTED_EMBEDDED_KEY",
+     "visual_correction": false,
+     "source_lines": [
+      {
+       "pdf_page": 158,
+       "line_index_1_based": 41
+      }
+     ]
+    },
+    "answer": "D",
+    "evidence": [
+     {
+      "source_kind": "printed_transcript",
+      "pdf_page": 331,
+      "line_index_1_based": 7,
+      "quote": "Go past the escalators and you'll see a games shop.",
+      "relation": "supports",
+      "visual_reconstruction": null,
+      "source_image_path": "page-images/pdf-page-330.jpg",
+      "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+      "source_region": {
+       "x": 163.8,
+       "y": 402.6,
+       "width": 1151.8,
+       "height": 29.899999999999977
+      },
+      "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+      "upstream_review_state": null,
+      "raw_ocr_verbatim": null,
+      "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+      "source_line_id": null,
+      "insertion_after_line_index_1_based": null,
+      "line_index_unavailable_reason": null,
+      "start": null,
+      "end": null
+     },
+     {
+      "source_kind": "printed_transcript",
+      "pdf_page": 331,
+      "line_index_1_based": 8,
+      "quote": "The fees office is between the games shop and the toilets.",
+      "relation": "supports",
+      "visual_reconstruction": null,
+      "source_image_path": "page-images/pdf-page-330.jpg",
+      "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+      "source_region": {
+       "x": 258.4,
+       "y": 444.9,
+       "width": 671.5,
+       "height": 26.80000000000001
+      },
+      "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+      "upstream_review_state": null,
+      "raw_ocr_verbatim": null,
+      "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+      "source_line_id": null,
+      "insertion_after_line_index_1_based": null,
+      "line_index_unavailable_reason": null,
+      "start": null,
+      "end": null
+     },
+     {
+      "source_kind": "source_question_image",
+      "pdf_page": 156,
+      "line_index_1_based": null,
+      "quote": "D nằm giữa Games và WC ở phía Robert Street.",
+      "relation": "supports",
+      "visual_reconstruction": null,
+      "source_image_path": "page-images/pdf-page-155.jpg",
+      "source_image_sha256": "d8b395dafd0b237cb5148e83476c4678de2ed2a4306b489089c03aa0ee17a747",
+      "source_region": {
+       "x": 110,
+       "y": 1005,
+       "width": 1200,
+       "height": 850
+      },
+      "text_validation_source": "Original plan visually inspected; quote is editorial spatial description",
+      "upstream_review_state": null,
+      "raw_ocr_verbatim": null,
+      "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+      "source_line_id": null,
+      "insertion_after_line_index_1_based": null,
+      "line_index_unavailable_reason": null,
+      "start": null,
+      "end": null
+     }
+    ],
+    "why_vi": "Qua escalators rồi tìm Games. Fees office nằm giữa Games và toilets; WC trên sơ đồ là khu vệ sinh, nên chọn D.",
+    "distractors": [
+     {
+      "option": "A",
+      "text": "A",
+      "reason_vi": "A ở phía Smith Street, không giữa Games và WC."
+     },
+     {
+      "option": "B",
+      "text": "B",
+      "reason_vi": "B nằm giữa A và Hairdresser."
+     },
+     {
+      "option": "C",
+      "text": "C",
+      "reason_vi": "C ở dưới Games, giữa Games và Hairdresser, không giữa Games và toilets."
+     },
+     {
+      "option": "D",
+      "text": "D",
+      "reason_vi": "D đúng khoảng giữa Games và WC."
+     },
+     {
+      "option": "E",
+      "text": "E",
+      "reason_vi": "E ở giữa escalators."
+     },
+     {
+      "option": "F",
+      "text": "F",
+      "reason_vi": "F phía đối diện gần Robert Street, không nằm giữa Games và WC."
+     },
+     {
+      "option": "G",
+      "text": "G",
+      "reason_vi": "G ở khu Insurance Office phía Smith Street."
+     },
+     {
+      "option": "H",
+      "text": "H",
+      "reason_vi": "H nằm cạnh Insurance Office gần cửa Smith Street."
+     }
+    ],
+    "paraphrase_vi": "",
+    "trap_vi": "Same building không có nghĩa là cùng phía với reception.",
+    "format_vi": "",
+    "source_answer_warning_vi": null,
+    "next_action_vi": null
+   },
+   "audio_granularity": "whole_day",
+   "q_num": 2,
+   "self_check": false,
+   "alternatives": [],
+   "state": "unscored",
+   "correct": null,
+   "user_answer": "A",
+   "expected": "",
+   "question_type": "map_label",
+   "prompt": "Fees office",
+   "audio_window": null,
+   "section": null,
+   "transcript_anchor": null,
+   "solution": {},
+   "self_review": {
+    "rationale": "Qua escalators rồi tìm Games. Fees office nằm giữa Games và toilets; WC trên sơ đồ là khu vệ sinh, nên chọn D.",
+    "reference_answers": [
+     "D"
+    ]
+   },
+   "first_answer": null,
+   "question_context": {
+    "question_id": "59422452-b4b8-4567-9705-a61540c74f0e:2",
+    "instructions": null,
+    "instruction": null,
+    "options": {
+     "A": "A",
+     "B": "B",
+     "C": "C",
+     "D": "D",
+     "E": "E",
+     "F": "F",
+     "G": "G",
+     "H": "H"
+    },
+    "template": null,
+    "max_words": null,
+    "paragraph_labels": null,
+    "labels": null,
+    "image_url": null,
+    "image_alt": null,
+    "template_kind": null,
+    "variant": "programme_form_v1",
+    "word_limit": null,
+    "word_limit_text": null,
+    "response_type": "map_label",
+    "map_svg": null,
+    "map_image_url": null,
+    "metadata": {},
+    "context_provenance": {
+     "question_id": "submission_snapshot",
+     "instructions": "unavailable",
+     "instruction": "unavailable",
+     "options": "submission_snapshot",
+     "template": "unavailable",
+     "max_words": "unavailable",
+     "paragraph_labels": "unavailable",
+     "labels": "unavailable",
+     "image_url": "unavailable",
+     "image_alt": "unavailable",
+     "template_kind": "unavailable",
+     "variant": "submission_snapshot",
+     "word_limit": "submission_snapshot",
+     "word_limit_text": "unavailable",
+     "response_type": "submission_snapshot",
+     "map_svg": "unavailable",
+     "map_image_url": "unavailable",
+     "metadata": "unavailable",
+     "metadata.flow_direction": "unavailable"
+    }
+   },
+   "context_provenance": {
+    "prompt": "submission_snapshot",
+    "question_type": "submission_snapshot",
+    "solution": "unavailable",
+    "audio_window": "unavailable",
+    "transcript_anchor": "unavailable",
+    "self_review": "submission_snapshot",
+    "explanation": "submission_snapshot",
+    "question_context": "submission_snapshot"
+   }
+  },
+  {
+   "fields": [],
+   "source_item_id": "80-days:day-54:map_matching:q-03",
+   "source_display_number": "3",
+   "review_status": "CONFIRMED",
+   "answer_provenance": "printed_key_verified",
+   "explanation": {
+    "printed_key": {
+     "answer": "F",
+     "source_pdf_page": null,
+     "source_ocr_line_index_1_based": null,
+     "evidence_tier": "PRINTED_EMBEDDED_KEY",
+     "visual_correction": false,
+     "source_lines": [
+      {
+       "pdf_page": 158,
+       "line_index_1_based": 41
+      }
+     ]
+    },
+    "answer": "F",
+    "evidence": [
+     {
+      "source_kind": "printed_transcript",
+      "pdf_page": 331,
+      "line_index_1_based": 10,
+      "quote": "The bookshop is opposite the lifts.",
+      "relation": "supports",
+      "visual_reconstruction": null,
+      "source_image_path": "page-images/pdf-page-330.jpg",
+      "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+      "source_region": {
+       "x": 164.8,
+       "y": 524.4,
+       "width": 914.7,
+       "height": 32
+      },
+      "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+      "upstream_review_state": null,
+      "raw_ocr_verbatim": null,
+      "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+      "source_line_id": null,
+      "insertion_after_line_index_1_based": null,
+      "line_index_unavailable_reason": null,
+      "start": null,
+      "end": null
+     },
+     {
+      "source_kind": "printed_transcript",
+      "pdf_page": 331,
+      "line_index_1_based": 10,
+      "quote": "It's right next to the entrance from Robert Street.",
+      "relation": "supports",
+      "visual_reconstruction": null,
+      "source_image_path": "page-images/pdf-page-330.jpg",
+      "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+      "source_region": {
+       "x": 164.8,
+       "y": 524.4,
+       "width": 914.7,
+       "height": 32
+      },
+      "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+      "upstream_review_state": null,
+      "raw_ocr_verbatim": null,
+      "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+      "source_line_id": null,
+      "insertion_after_line_index_1_based": null,
+      "line_index_unavailable_reason": null,
+      "start": null,
+      "end": null
+     },
+     {
+      "source_kind": "source_question_image",
+      "pdf_page": 156,
+      "line_index_1_based": null,
+      "quote": "F đối diện Lift qua lối đi, ngay cạnh cửa vào Robert Street; G nằm cạnh Lift phía Smith Street.",
+      "relation": "supports",
+      "visual_reconstruction": null,
+      "source_image_path": "page-images/pdf-page-155.jpg",
+      "source_image_sha256": "d8b395dafd0b237cb5148e83476c4678de2ed2a4306b489089c03aa0ee17a747",
+      "source_region": {
+       "x": 110,
+       "y": 1005,
+       "width": 1200,
+       "height": 850
+      },
+      "text_validation_source": "Original plan visually inspected; quote is editorial spatial description",
+      "upstream_review_state": null,
+      "raw_ocr_verbatim": null,
+      "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+      "source_line_id": null,
+      "insertion_after_line_index_1_based": null,
+      "line_index_unavailable_reason": null,
+      "start": null,
+      "end": null
+     }
+    ],
+    "why_vi": "Cần đồng thời hai điều kiện: đối diện lifts và ngay cạnh lối vào Robert Street. Vị trí F thỏa cả hai. G gần lifts nhưng ở đầu Smith Street.",
+    "distractors": [
+     {
+      "option": "A",
+      "text": "A",
+      "reason_vi": "A ở đầu Smith Street."
+     },
+     {
+      "option": "B",
+      "text": "B",
+      "reason_vi": "B ở phía Hairdresser."
+     },
+     {
+      "option": "C",
+      "text": "C",
+      "reason_vi": "C không cạnh cửa Robert và không đối diện lifts."
+     },
+     {
+      "option": "D",
+      "text": "D",
+      "reason_vi": "D nằm giữa Games và WC, không phải khu đối diện lifts."
+     },
+     {
+      "option": "E",
+      "text": "E",
+      "reason_vi": "E là escalators ở giữa."
+     },
+     {
+      "option": "F",
+      "text": "F",
+      "reason_vi": "F đúng hai mốc opposite lifts và entrance from Robert Street."
+     },
+     {
+      "option": "G",
+      "text": "G",
+      "reason_vi": "G ở đầu Smith Street, không cửa Robert."
+     },
+     {
+      "option": "H",
+      "text": "H",
+      "reason_vi": "H cạnh Insurance Office phía Smith Street."
+     }
+    ],
+    "paraphrase_vi": "",
+    "trap_vi": "Phân biệt opposite với next to và hai cửa vào.",
+    "format_vi": "",
+    "source_answer_warning_vi": null,
+    "next_action_vi": null
+   },
+   "audio_granularity": "whole_day",
+   "q_num": 3,
+   "self_check": false,
+   "alternatives": [],
+   "state": "unscored",
+   "correct": null,
+   "user_answer": "A",
+   "expected": "",
+   "question_type": "map_label",
+   "prompt": "Book and stationery supply",
+   "audio_window": null,
+   "section": null,
+   "transcript_anchor": null,
+   "solution": {},
+   "self_review": {
+    "rationale": "Cần đồng thời hai điều kiện: đối diện lifts và ngay cạnh lối vào Robert Street. Vị trí F thỏa cả hai. G gần lifts nhưng ở đầu Smith Street.",
+    "reference_answers": [
+     "F"
+    ]
+   },
+   "first_answer": null,
+   "question_context": {
+    "question_id": "59422452-b4b8-4567-9705-a61540c74f0e:3",
+    "instructions": null,
+    "instruction": null,
+    "options": {
+     "A": "A",
+     "B": "B",
+     "C": "C",
+     "D": "D",
+     "E": "E",
+     "F": "F",
+     "G": "G",
+     "H": "H"
+    },
+    "template": null,
+    "max_words": null,
+    "paragraph_labels": null,
+    "labels": null,
+    "image_url": null,
+    "image_alt": null,
+    "template_kind": null,
+    "variant": "programme_form_v1",
+    "word_limit": null,
+    "word_limit_text": null,
+    "response_type": "map_label",
+    "map_svg": null,
+    "map_image_url": null,
+    "metadata": {},
+    "context_provenance": {
+     "question_id": "submission_snapshot",
+     "instructions": "unavailable",
+     "instruction": "unavailable",
+     "options": "submission_snapshot",
+     "template": "unavailable",
+     "max_words": "unavailable",
+     "paragraph_labels": "unavailable",
+     "labels": "unavailable",
+     "image_url": "unavailable",
+     "image_alt": "unavailable",
+     "template_kind": "unavailable",
+     "variant": "submission_snapshot",
+     "word_limit": "submission_snapshot",
+     "word_limit_text": "unavailable",
+     "response_type": "submission_snapshot",
+     "map_svg": "unavailable",
+     "map_image_url": "unavailable",
+     "metadata": "unavailable",
+     "metadata.flow_direction": "unavailable"
+    }
+   },
+   "context_provenance": {
+    "prompt": "submission_snapshot",
+    "question_type": "submission_snapshot",
+    "solution": "unavailable",
+    "audio_window": "unavailable",
+    "transcript_anchor": "unavailable",
+    "self_review": "submission_snapshot",
+    "explanation": "submission_snapshot",
+    "question_context": "submission_snapshot"
+   }
+  },
+  {
+   "fields": [],
+   "source_item_id": "80-days:day-54:map_matching:q-04",
+   "source_display_number": "4",
+   "review_status": "CONFIRMED",
+   "answer_provenance": "printed_key_verified",
+   "explanation": {
+    "printed_key": {
+     "answer": "G",
+     "source_pdf_page": null,
+     "source_ocr_line_index_1_based": null,
+     "evidence_tier": "PRINTED_EMBEDDED_KEY",
+     "visual_correction": false,
+     "source_lines": [
+      {
+       "pdf_page": 158,
+       "line_index_1_based": 41
+      }
+     ]
+    },
+    "answer": "G",
+    "evidence": [
+     {
+      "source_kind": "printed_transcript",
+      "pdf_page": 331,
+      "line_index_1_based": 14,
+      "quote": "The travel agency is at the Smith Street end of the building, on the corner next to the insurance",
+      "relation": "supports",
+      "visual_reconstruction": null,
+      "source_image_path": "page-images/pdf-page-330.jpg",
+      "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+      "source_region": {
+       "x": 161.8,
+       "y": 690.6,
+       "width": 1154.8,
+       "height": 30.899999999999977
+      },
+      "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+      "upstream_review_state": null,
+      "raw_ocr_verbatim": null,
+      "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+      "source_line_id": null,
+      "insertion_after_line_index_1_based": null,
+      "line_index_unavailable_reason": null,
+      "start": null,
+      "end": null
+     },
+     {
+      "source_kind": "printed_transcript",
+      "pdf_page": 331,
+      "line_index_1_based": 15,
+      "quote": "office.",
+      "relation": "supports",
+      "visual_reconstruction": null,
+      "source_image_path": "page-images/pdf-page-330.jpg",
+      "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+      "source_region": {
+       "x": 254.4,
+       "y": 730.8,
+       "width": 75.29999999999998,
+       "height": 34.10000000000002
+      },
+      "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+      "upstream_review_state": null,
+      "raw_ocr_verbatim": null,
+      "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+      "source_line_id": null,
+      "insertion_after_line_index_1_based": null,
+      "line_index_unavailable_reason": null,
+      "start": null,
+      "end": null
+     },
+     {
+      "source_kind": "source_question_image",
+      "pdf_page": 156,
+      "line_index_1_based": null,
+      "quote": "G ở góc phía Smith Street cạnh Insurance Office; H nằm giữa Insurance Office và cửa vào, không phải góc ngoài.",
+      "relation": "supports",
+      "visual_reconstruction": null,
+      "source_image_path": "page-images/pdf-page-155.jpg",
+      "source_image_sha256": "d8b395dafd0b237cb5148e83476c4678de2ed2a4306b489089c03aa0ee17a747",
+      "source_region": {
+       "x": 110,
+       "y": 1005,
+       "width": 1200,
+       "height": 850
+      },
+      "text_validation_source": "Original plan visually inspected; quote is editorial spatial description",
+      "upstream_review_state": null,
+      "raw_ocr_verbatim": null,
+      "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+      "source_line_id": null,
+      "insertion_after_line_index_1_based": null,
+      "line_index_unavailable_reason": null,
+      "start": null,
+      "end": null
+     }
+    ],
+    "why_vi": "Travel agency ở đầu Smith Street, tại góc bên cạnh Insurance Office: G. H cũng gần Insurance Office nhưng sát cửa vào và không phải góc ngoài được chỉ.",
+    "distractors": [
+     {
+      "option": "A",
+      "text": "A",
+      "reason_vi": "A ở góc phía Smith nhưng không cạnh Insurance Office."
+     },
+     {
+      "option": "B",
+      "text": "B",
+      "reason_vi": "B không cạnh Insurance Office."
+     },
+     {
+      "option": "C",
+      "text": "C",
+      "reason_vi": "C ở phía Games/Hairdresser."
+     },
+     {
+      "option": "D",
+      "text": "D",
+      "reason_vi": "D ở phía Robert Street."
+     },
+     {
+      "option": "E",
+      "text": "E",
+      "reason_vi": "E nằm giữa escalators."
+     },
+     {
+      "option": "F",
+      "text": "F",
+      "reason_vi": "F ở cửa Robert Street, khác đầu được nêu."
+     },
+     {
+      "option": "G",
+      "text": "G",
+      "reason_vi": "G đúng góc ngoài phía Smith, cạnh Insurance Office."
+     },
+     {
+      "option": "H",
+      "text": "H",
+      "reason_vi": "H ở phía trong cạnh cửa; không phải góc ngoài của tòa nhà."
+     }
+    ],
+    "paraphrase_vi": "",
+    "trap_vi": "Cần ghép đủ Smith Street end, corner và next to insurance.",
+    "format_vi": "",
+    "source_answer_warning_vi": null,
+    "next_action_vi": null
+   },
+   "audio_granularity": "whole_day",
+   "q_num": 4,
+   "self_check": false,
+   "alternatives": [],
+   "state": "unscored",
+   "correct": null,
+   "user_answer": "A",
+   "expected": "",
+   "question_type": "map_label",
+   "prompt": "Travel agency",
+   "audio_window": null,
+   "section": null,
+   "transcript_anchor": null,
+   "solution": {},
+   "self_review": {
+    "rationale": "Travel agency ở đầu Smith Street, tại góc bên cạnh Insurance Office: G. H cũng gần Insurance Office nhưng sát cửa vào và không phải góc ngoài được chỉ.",
+    "reference_answers": [
+     "G"
+    ]
+   },
+   "first_answer": null,
+   "question_context": {
+    "question_id": "59422452-b4b8-4567-9705-a61540c74f0e:4",
+    "instructions": null,
+    "instruction": null,
+    "options": {
+     "A": "A",
+     "B": "B",
+     "C": "C",
+     "D": "D",
+     "E": "E",
+     "F": "F",
+     "G": "G",
+     "H": "H"
+    },
+    "template": null,
+    "max_words": null,
+    "paragraph_labels": null,
+    "labels": null,
+    "image_url": null,
+    "image_alt": null,
+    "template_kind": null,
+    "variant": "programme_form_v1",
+    "word_limit": null,
+    "word_limit_text": null,
+    "response_type": "map_label",
+    "map_svg": null,
+    "map_image_url": null,
+    "metadata": {},
+    "context_provenance": {
+     "question_id": "submission_snapshot",
+     "instructions": "unavailable",
+     "instruction": "unavailable",
+     "options": "submission_snapshot",
+     "template": "unavailable",
+     "max_words": "unavailable",
+     "paragraph_labels": "unavailable",
+     "labels": "unavailable",
+     "image_url": "unavailable",
+     "image_alt": "unavailable",
+     "template_kind": "unavailable",
+     "variant": "submission_snapshot",
+     "word_limit": "submission_snapshot",
+     "word_limit_text": "unavailable",
+     "response_type": "submission_snapshot",
+     "map_svg": "unavailable",
+     "map_image_url": "unavailable",
+     "metadata": "unavailable",
+     "metadata.flow_direction": "unavailable"
+    }
+   },
+   "context_provenance": {
+    "prompt": "submission_snapshot",
+    "question_type": "submission_snapshot",
+    "solution": "unavailable",
+    "audio_window": "unavailable",
+    "transcript_anchor": "unavailable",
+    "self_review": "submission_snapshot",
+    "explanation": "submission_snapshot",
+    "question_context": "submission_snapshot"
+   }
+  }
+ ],
+ "controlled_transcripts": {
+  "80-days:day-54:audio": [
+   {
+    "source_kind": "printed_transcript",
+    "pdf_page": 330,
+    "line_index_1_based": 42,
+    "quote": "Denise: I'm sorry Vijay. What were you saying?",
+    "relation": "source_transcript",
+    "source_image_path": "page-images/pdf-page-329.jpg",
+    "source_image_sha256": "25c0d4374cca1482f6e864b807eb14fb2c7337180e4acdc4de6f4637fd60f2db",
+    "source_region": {
+     "x": 91.6,
+     "y": 1820.9,
+     "width": 489.4,
+     "height": 33
+    },
+    "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+    "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+    "text": "Denise: I'm sorry Vijay. What were you saying?"
+   },
+   {
+    "source_kind": "printed_transcript",
+    "pdf_page": 331,
+    "line_index_1_based": 1,
+    "quote": "Vijay: I wanted to know what else I had to do.",
+    "relation": "source_transcript",
+    "source_image_path": "page-images/pdf-page-330.jpg",
+    "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+    "source_region": {
+     "x": 164.8,
+     "y": 237.4,
+     "width": 477.2,
+     "height": 29.99999999999997
+    },
+    "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+    "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+    "text": "Vijay: I wanted to know what else I had to do."
+   },
+   {
+    "source_kind": "printed_transcript",
+    "pdf_page": 331,
+    "line_index_1_based": 3,
+    "quote": "Denise: Oh, of course. Please go to the building on the other side of Smith Street. I want you to go to the reception",
+    "relation": "source_transcript",
+    "source_image_path": "page-images/pdf-page-330.jpg",
+    "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+    "source_region": {
+     "x": 164.8,
+     "y": 280.8,
+     "width": 1149.7,
+     "height": 26.80000000000001
+    },
+    "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+    "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+    "text": "Denise: Oh, of course. Please go to the building on the other side of Smith Street. I want you to go to the reception"
+   },
+   {
+    "source_kind": "printed_transcript",
+    "pdf_page": 331,
+    "line_index_1_based": 5,
+    "quote": "area first. It's just inside the floor on the left as you enter from Smith Street. Give them this form.",
+    "relation": "source_transcript",
+    "source_image_path": "page-images/pdf-page-330.jpg",
+    "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+    "source_region": {
+     "x": 251.3,
+     "y": 319,
+     "width": 958.4000000000001,
+     "height": 30.899999999999977
+    },
+    "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+    "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+    "text": "area first. It's just inside the floor on the left as you enter from Smith Street. Give them this form."
+   },
+   {
+    "source_kind": "printed_transcript",
+    "pdf_page": 331,
+    "line_index_1_based": 6,
+    "quote": "Vijay: Okay, Do I pay my fees there?",
+    "relation": "source_transcript",
+    "source_image_path": "page-images/pdf-page-330.jpg",
+    "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+    "source_region": {
+     "x": 163.8,
+     "y": 362.3,
+     "width": 397.8,
+     "height": 28.899999999999977
+    },
+    "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+    "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+    "text": "Vijay: Okay, Do I pay my fees there?"
+   },
+   {
+    "source_kind": "printed_transcript",
+    "pdf_page": 331,
+    "line_index_1_based": 7,
+    "quote": "Denise: No, but the fees office is in the same building. Go past the escalators and you'll see a games shop. It's in",
+    "relation": "source_transcript",
+    "source_image_path": "page-images/pdf-page-330.jpg",
+    "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+    "source_region": {
+     "x": 163.8,
+     "y": 402.6,
+     "width": 1151.8,
+     "height": 29.899999999999977
+    },
+    "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+    "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+    "text": "Denise: No, but the fees office is in the same building. Go past the escalators and you'll see a games shop. It's in"
+   },
+   {
+    "source_kind": "printed_transcript",
+    "pdf_page": 331,
+    "line_index_1_based": 8,
+    "quote": "the corner. The fees office is between the games shop and the toilets.",
+    "relation": "source_transcript",
+    "source_image_path": "page-images/pdf-page-330.jpg",
+    "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+    "source_region": {
+     "x": 258.4,
+     "y": 444.9,
+     "width": 671.5,
+     "height": 26.80000000000001
+    },
+    "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+    "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+    "text": "the corner. The fees office is between the games shop and the toilets."
+   },
+   {
+    "source_kind": "printed_transcript",
+    "pdf_page": 331,
+    "line_index_1_based": 9,
+    "quote": "Vijay:Thanks. Er…Where can I buy books?",
+    "relation": "source_transcript",
+    "source_image_path": "page-images/pdf-page-330.jpg",
+    "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+    "source_region": {
+     "x": 165.8,
+     "y": 485.2,
+     "width": 460.90000000000003,
+     "height": 29.900000000000034
+    },
+    "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+    "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+    "text": "Vijay:Thanks. Er…Where can I buy books?"
+   },
+   {
+    "source_kind": "printed_transcript",
+    "pdf_page": 331,
+    "line_index_1_based": 10,
+    "quote": "Denise: The bookshop is opposite the lifts. It's right next to the entrance from Robert Street.",
+    "relation": "source_transcript",
+    "source_image_path": "page-images/pdf-page-330.jpg",
+    "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+    "source_region": {
+     "x": 164.8,
+     "y": 524.4,
+     "width": 914.7,
+     "height": 32
+    },
+    "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+    "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+    "text": "Denise: The bookshop is opposite the lifts. It's right next to the entrance from Robert Street."
+   },
+   {
+    "source_kind": "printed_transcript",
+    "pdf_page": 331,
+    "line_index_1_based": 11,
+    "quote": "Vijay: Your offices are spread out!",
+    "relation": "source_transcript",
+    "source_image_path": "page-images/pdf-page-330.jpg",
+    "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+    "source_region": {
+     "x": 165.8,
+     "y": 568.8,
+     "width": 367.3,
+     "height": 29.90000000000009
+    },
+    "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+    "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+    "text": "Vijay: Your offices are spread out!"
+   },
+   {
+    "source_kind": "printed_transcript",
+    "pdf_page": 331,
+    "line_index_1_based": 12,
+    "quote": "Denise: Not as badly as they used to be. By the way, we offer very competitive overseas travel rates to our students.",
+    "relation": "source_transcript",
+    "source_image_path": "page-images/pdf-page-330.jpg",
+    "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+    "source_region": {
+     "x": 165.8,
+     "y": 611.1,
+     "width": 1140.6000000000001,
+     "height": 26.799999999999955
+    },
+    "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+    "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+    "text": "Denise: Not as badly as they used to be. By the way, we offer very competitive overseas travel rates to our students."
+   },
+   {
+    "source_kind": "printed_transcript",
+    "pdf_page": 331,
+    "line_index_1_based": 13,
+    "quote": "Vijay: Oh, I'd like to look into that.",
+    "relation": "source_transcript",
+    "source_image_path": "page-images/pdf-page-330.jpg",
+    "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+    "source_region": {
+     "x": 164.8,
+     "y": 649.3,
+     "width": 387.7,
+     "height": 32
+    },
+    "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+    "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+    "text": "Vijay: Oh, I'd like to look into that."
+   },
+   {
+    "source_kind": "printed_transcript",
+    "pdf_page": 331,
+    "line_index_1_based": 14,
+    "quote": "Denise: Of course. The travel agency is at the Smith Street end of the building, on the corner next to the insurance",
+    "relation": "source_transcript",
+    "source_image_path": "page-images/pdf-page-330.jpg",
+    "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+    "source_region": {
+     "x": 161.8,
+     "y": 690.6,
+     "width": 1154.8,
+     "height": 30.899999999999977
+    },
+    "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+    "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+    "text": "Denise: Of course. The travel agency is at the Smith Street end of the building, on the corner next to the insurance"
+   },
+   {
+    "source_kind": "printed_transcript",
+    "pdf_page": 331,
+    "line_index_1_based": 15,
+    "quote": "office.",
+    "relation": "source_transcript",
+    "source_image_path": "page-images/pdf-page-330.jpg",
+    "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+    "source_region": {
+     "x": 254.4,
+     "y": 730.8,
+     "width": 75.29999999999998,
+     "height": 34.10000000000002
+    },
+    "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+    "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+    "text": "office."
+   },
+   {
+    "source_kind": "printed_transcript",
+    "pdf_page": 331,
+    "line_index_1_based": 16,
+    "quote": "Vijay: Thank you very much. Bye.",
+    "relation": "source_transcript",
+    "source_image_path": "page-images/pdf-page-330.jpg",
+    "source_image_sha256": "1550ac550332609a71e20ab01cc1c4b51b33a7f1402d8bbefb6ce2a5a16e2de1",
+    "source_region": {
+     "x": 166.9,
+     "y": 776.3,
+     "width": 353,
+     "height": 26.800000000000068
+    },
+    "text_validation_source": "days-reviewed curated source, original page visually inspected by author",
+    "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+    "text": "Vijay: Thank you very much. Bye."
+   }
+  ]
+ },
+ "web_explanation_access": {
+  "available": false,
+  "reason": "report_only"
+ },
+ "context_source": {
+  "provenance": "submission_snapshot",
+  "possibly_changed": false,
+  "paper_revision": 0,
+  "policy_revision": 0,
+  "context_sha256": "c4f091169de91cfc98c266555bb4d93409449657dda204ad0843768b6aea0f08",
+  "field_provenance": {
+   "audio_url": "submission_snapshot",
+   "audio_duration": "submission_snapshot",
+   "cue_points": "submission_snapshot",
+   "section_offsets": "unavailable"
+  }
+ },
+ "score_mode": "scored",
+ "self_check_count": 0
+}

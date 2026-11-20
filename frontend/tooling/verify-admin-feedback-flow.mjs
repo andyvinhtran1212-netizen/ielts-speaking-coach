@@ -22,6 +22,8 @@ const sourceRows = [
 ];
 let resolved = false;
 let delayNextPatch = true;
+let releasePatch;
+const patchGate = new Promise((resolve) => { releasePatch = resolve; });
 let rollbackReadMode = 'complete';
 let reads = 0;
 const requests = [];
@@ -56,7 +58,7 @@ await page.route('**/*', async (route) => {
   const match = parsed.pathname.match(/^\/api\/admin\/feedback\/([^/]+)$/);
   if (match && method === 'PATCH') {
     const body = request.postDataJSON();
-    if (delayNextPatch) { delayNextPatch = false; await new Promise((resolve) => setTimeout(resolve, 150)); }
+    if (delayNextPatch) { delayNextPatch = false; await patchGate; }
     resolved = body.status === 'resolved';
     return json({ id: decodeURIComponent(match[1]), status: body.status });
   }
@@ -74,8 +76,21 @@ check('nội dung độc hại được React escape', await page.locator('.afd-
 check('mobile không tràn ngang và hành động đủ 44px', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth && (document.querySelector('.afd-item__action button')?.getBoundingClientRect().height || 0) >= 44));
 
 const beforeMutationReads = reads;
+const patchRequest = page.waitForRequest((request) => request.method() === 'PATCH' && new URL(request.url()).pathname === `/api/admin/feedback/${sourceRows[0].id}`);
+const patchAck = page.waitForResponse((response) => response.request().method() === 'PATCH' && new URL(response.url()).pathname === `/api/admin/feedback/${sourceRows[0].id}` && response.ok());
 await page.getByRole('button', { name: 'Đánh dấu đã xử lý' }).first().click();
+await patchRequest;
+const filterRead = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/admin/feedback' && !new URL(response.url()).searchParams.has('status') && response.ok());
 await page.getByLabel('Trạng thái').selectOption('');
+await page.waitForURL((url) => url.searchParams.get('status') === 'all');
+await (await filterRead).finished();
+await page.getByRole('button', { name: 'Làm mới', exact: true }).waitFor({ state: 'visible' });
+// Keep the PATCH pending through the filter transition, then let its ACK
+// trigger a separate canonical readback in the settled filter scope.
+const mutationReadback = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/admin/feedback' && !new URL(response.url()).searchParams.has('status') && response.ok());
+releasePatch();
+await (await patchAck).finished();
+await (await mutationReadback).finished();
 await page.getByText('Đã xử lý và đồng bộ từ máy chủ.', { exact: true }).waitFor({ state: 'visible' });
 check('PATCH readback theo filter mới nhất khi filter đổi giữa mutation', requests.some((item) => item.method === 'PATCH' && item.path.endsWith(sourceRows[0].id)) && reads >= beforeMutationReads + 2 && new URL(page.url()).searchParams.get('status') === 'all' && await page.getByText(dangerous, { exact: true }).count() === 1);
 

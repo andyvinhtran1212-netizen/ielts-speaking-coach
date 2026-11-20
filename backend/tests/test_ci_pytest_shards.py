@@ -245,7 +245,7 @@ def test_workflow_matrix_run_and_verify_agree_on_shard_count():
     assert _shard_totals(jobs["backend-shard"], "run") == [str(total)]
     assert _shard_totals(jobs["backend"], "verify") == [str(total)]
     assert jobs["backend-shard"]["name"].endswith(f"/{total}")
-    assert jobs["backend-shard"]["timeout-minutes"] == 25
+    assert jobs["backend-shard"]["timeout-minutes"] == 40
     assert "--durations=20" in text
     # The required context for main and staging-promotion-gate.yml.
     assert jobs["backend"]["name"] == "Backend (pytest + anchor drift)"

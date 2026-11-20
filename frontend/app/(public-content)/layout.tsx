@@ -3,6 +3,7 @@ import Script from 'next/script';
 
 import { BodyClassBridge } from '@/components/body-class-bridge';
 import { NextPageViewBeacon } from '@/components/next-page-view-beacon';
+import { RedirectNotice } from '@/components/redirect-notice';
 import { SupabaseRuntimeBoundary } from '@/components/supabase-runtime-boundary';
 
 export const metadata = {
@@ -71,6 +72,8 @@ export default function PublicContentLayout({ children }: { children: ReactNode 
       />
       <BodyClassBridge className="av-page min-h-screen font-sans antialiased" />
       {children}
+      {/* G02-T11: the parent page's "đưa về trang cha" strip (`?notice=`). */}
+      <RedirectNotice />
     </>
   );
 }

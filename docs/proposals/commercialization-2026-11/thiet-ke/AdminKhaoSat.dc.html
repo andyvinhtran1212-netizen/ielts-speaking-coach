@@ -1,0 +1,641 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Admin · Khảo sát và nhận xét</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--accentH:#0B5953;--link:#0B5953;--mark:#8A4B08;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EDF3F1;--off:#E7E2D6}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--accentH:#11254A;--link:#1A3561;--mark:#8A1C1C;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EEF0F5;--off:#E8E2D5}
+a{color:var(--link)}a:hover{color:var(--ink)}
+.sf{font-family:'Source Serif 4',Georgia,serif}
+.lab{margin:0;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)}
+.mut{color:var(--muted)}
+.sec{border-top:2px solid var(--ink);padding-top:16px}
+.h2s{margin:0 0 6px;font-family:'Source Serif 4',Georgia,serif;font-size:24px;font-weight:600}
+.h1a{margin:0;font-family:'Source Serif 4',Georgia,serif;font-size:30px;font-weight:600;line-height:1.15}
+.h3a{margin:0;font-family:'Source Serif 4',Georgia,serif;font-size:20px;font-weight:600;line-height:1.25}
+.frame{border:1px solid var(--ink);background:var(--paper)}
+.part{border:1px solid var(--ink);background:var(--paper);padding:20px 28px 28px}
+.crumb{margin:0 0 10px;font-size:14px;color:var(--muted)}
+.tabs{display:flex;gap:0 28px;margin:16px 0 18px;border-bottom:1px solid var(--ink)}
+.tab{padding:10px 0;color:var(--muted);text-decoration:none}
+.tab-on{padding:10px 0 7px;border-bottom:3px solid var(--ink);color:var(--ink);font-weight:600;text-decoration:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:0 16px;border:1px solid var(--ink);border-radius:2px;background:var(--surface);color:var(--ink);font:600 15px 'Source Sans 3',sans-serif;text-decoration:none;cursor:pointer;box-sizing:border-box}
+.btn-p{border-color:var(--accent);background:var(--accent);color:var(--surface)}
+.btn-s{min-height:32px;padding:0 10px;font-size:14px}
+.st{display:inline-block;padding:1px 8px;border:1px solid var(--ink);border-radius:2px;font-size:13px;font-weight:600;white-space:nowrap}
+.st-open{border-color:var(--accent);color:var(--accent);background:var(--tint)}
+.st-wait{border-style:dashed;color:var(--muted);border-color:var(--muted)}
+.st-off{border-color:var(--rule);color:var(--muted)}
+.st-mark{border-color:var(--mark);color:var(--mark)}
+.tr{display:grid;gap:0 16px;align-items:center;min-height:48px;padding:6px 0;border-bottom:1px solid var(--rule);font-variant-numeric:tabular-nums;box-sizing:border-box}
+.th{min-height:40px;border-top:1px solid var(--ink);border-bottom:1px solid var(--ink);font-weight:600;font-size:14px}
+.g-ks{grid-template-columns:minmax(0,2.6fr) minmax(0,1.5fr) 96px minmax(0,1.6fr) minmax(0,1.5fr) minmax(0,2.4fr)}
+.g-nx{grid-template-columns:minmax(0,1.5fr) 56px 60px minmax(0,2.6fr) minmax(0,2.6fr) minmax(0,1.5fr) 96px}
+.g-lo{grid-template-columns:minmax(0,1.9fr) 84px minmax(0,1.1fr) minmax(0,1fr) 84px minmax(0,1.7fr) minmax(0,1.4fr) minmax(0,2.3fr)}
+.g-q{grid-template-columns:24px minmax(0,1fr) 88px}
+.fld{display:block;width:100%;box-sizing:border-box;min-height:40px;padding:8px 10px;border:1px solid var(--muted);border-radius:2px;background:var(--surface);color:var(--ink);font:15px 'Source Sans 3',sans-serif}
+.fl{display:block;margin:0 0 4px;font-weight:600;font-size:14px}
+.blk{border-top:1px solid var(--ink);padding:12px 0 12px}
+.fix{display:inline-block;margin-left:8px;padding:0 6px;border:1px solid var(--rule);border-radius:2px;font-size:12px;font-weight:600;color:var(--muted);vertical-align:2px}
+.hint{margin:4px 0 0;font-size:13px;color:var(--muted)}
+.sv{background:var(--surface);border:1px solid var(--ink);font-size:16px}
+.sv-q{margin:0 0 8px;font-family:'Source Serif 4',Georgia,serif;font-size:18px;font-weight:600;line-height:1.35}
+.sv-b{padding:14px 24px;border-top:1px solid var(--rule)}
+.opt{display:flex;align-items:flex-start;gap:10px;min-height:44px;padding:10px 12px;margin-top:-1px;border:1px solid var(--muted);background:var(--surface);box-sizing:border-box}
+.opt-on{border-color:var(--ink);background:var(--tint);position:relative}
+.rd{flex:0 0 16px;width:16px;height:16px;margin-top:3px;box-sizing:border-box;border:1px solid var(--ink);border-radius:50%;background:var(--surface)}
+.rd-on{border-width:5px}
+.cb{flex:0 0 16px;width:16px;height:16px;box-sizing:border-box;border:1px solid var(--ink);border-radius:2px;background:var(--surface);display:inline-block;vertical-align:-3px}
+.cb-on{background:var(--ink)}
+.num{display:flex;align-items:center;justify-content:center;flex:1 1 0;min-height:44px;margin-right:-1px;border:1px solid var(--ink);background:var(--surface);font:600 16px 'Source Sans 3',sans-serif}
+.ta{display:block;box-sizing:border-box;width:100%;min-height:56px;padding:8px 10px;border:1px solid var(--muted);border-radius:2px;background:var(--surface);color:var(--muted);font-size:15px}
+.tile{border-top:1px solid var(--ink);padding:10px 0 0}
+.tile b{display:block;font-family:'Source Serif 4',Georgia,serif;font-size:28px;font-weight:600;line-height:1.15;font-variant-numeric:tabular-nums}
+.bar{display:grid;grid-template-columns:92px minmax(0,1fr) 28px;gap:0 10px;align-items:center;min-height:28px;font-size:14px;font-variant-numeric:tabular-nums}
+.bar i{display:block;height:14px;background:var(--accent)}
+.warn{border:1px solid var(--mark);border-left-width:4px;padding:12px 16px;background:var(--surface)}
+.sk{display:block;height:12px;background:var(--off);border-radius:2px}
+.sen{display:block;width:100%;margin-top:-1px;padding:9px 12px;border:1px solid var(--muted);background:var(--surface);color:var(--ink);font:16px 'Source Serif 4',Georgia,serif;text-align:left;cursor:pointer;box-sizing:border-box}
+.dt{display:grid;grid-template-columns:120px minmax(0,1fr);gap:0 16px;padding:7px 0;border-bottom:1px solid var(--rule);font-size:14px}
+.notes{margin:0;padding-left:20px;font-size:14px;display:flex;flex-direction:column;gap:7px}
+.phone{width:390px;box-sizing:border-box;border:1px solid var(--ink);overflow:hidden;background:var(--paper)}
+</style>
+</helmet>
+<div class="{{pal}}" style="width: 1440px; height: 7980px; box-sizing: border-box; padding: 28px 40px; background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 15px; line-height: 1.5; display: flex; flex-direction: column; gap: 18px">
+
+<header>
+<p class="lab" style="font-size: 13px">Aver Learning · Bản in · Admin · đợt 15 · Học viên và quyền truy cập</p>
+<h1 class="sf" style="margin: 4px 0 6px; font-size: 40px; font-weight: 600; line-height: 1.15">Admin · Khảo sát và nhận xét</h1>
+<p class="mut" style="margin: 0; max-width: 150ch">Một trang, ba thẻ: Khảo sát · Duyệt nhận xét · Nhập nhận xét cũ. Admin bật khảo sát sau khoá cho từng lớp từ một mẫu cố định ba khối; câu trả lời có đồng ý cho đăng đi thẳng sang hàng chờ duyệt; nhận xét được duyệt hiện ở <a href="HocVienNoiGi.dc.html">Học viên nói gì</a>, <a href="TrangChuCongKhai.dc.html">Trang chủ</a> và <a href="TrangKhoaHoc.dc.html">Trang một khoá</a>. Mục mới trên sidebar: "Khảo sát và nhận xét", nhóm Học viên và quyền truy cập, sau "Gửi thông báo"; số bên cạnh là nhận xét chờ duyệt. Dữ liệu mẫu theo CHUAN-ADMIN (hôm nay Thứ Ba 17/11/2026); số người trả lời là số mẫu để vẽ, lời nhận xét là ô giữ chỗ. Liên quan: <a href="AdminLop.dc.html">Lớp</a> · <a href="HoSoHocVien.dc.html">Hồ sơ học viên</a>.</p>
+</header>
+
+<section id="m1" aria-labelledby="h-m1" class="sec">
+<h2 id="h-m1" class="h2s">1 · Thẻ Khảo sát · danh sách theo lớp · màn chính</h2>
+<p class="mut" style="margin: 0 0 14px">Mỗi lớp mỗi khoá một khảo sát. Ba trạng thái: Chưa gửi · Đang mở · Đã đóng. Sidebar bấm gập/mở được.</p>
+<div class="frame">
+<header style="display: flex; align-items: center; gap: 20px; min-height: 56px; padding: 0 24px; border-bottom: 1px solid var(--ink); background: var(--surface)">
+<span style="display: inline-flex; align-items: center; gap: 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 19px; font-weight: 600"><svg width="25" height="25" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<span style="padding: 2px 8px; border: 1px solid var(--ink); border-radius: 2px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600">Quản trị</span>
+<span style="padding: 2px 8px; background: var(--mark); color: var(--surface); border-radius: 2px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600">Production · dữ liệu thật</span>
+<label style="flex: 1 1 320px; max-width: 440px; display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--paper)">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 16px; height: 16px; flex-shrink: 0"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"></circle><path d="M16.5 16.5L21 21" stroke="currentColor" stroke-width="2"></path></svg>
+<input type="search" placeholder="Tìm học viên, lớp, bài nộp, đề…" aria-label="Tìm nhanh" style="flex-grow: 1; min-width: 0; border: 0; background: transparent; font: 15px 'Source Sans 3', sans-serif; color: var(--ink)">
+<kbd style="font: 12px 'Source Sans 3', sans-serif; color: var(--muted); border: 1px solid var(--rule); padding: 1px 6px; border-radius: 2px">⌘K</kbd>
+</label>
+<span style="flex-grow: 1"></span>
+<a href="Main.dc.html" style="display: inline-flex; align-items: center; min-height: 36px; font-size: 14px">Xem như học viên</a>
+<button type="button" aria-label="Mở menu tài khoản: đổi vai trò, đăng xuất" style="width: 40px; height: 40px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 13px 'Source Sans 3', sans-serif; cursor: pointer">VT</button>
+</header>
+<div style="display: flex">
+<nav aria-label="Điều hướng quản trị" style="flex-shrink: 0; width: 248px; box-sizing: border-box; padding: 12px 0; border-right: 1px solid var(--rule); background: var(--surface)">
+<sc-for list="{{nav}}" as="g" hint-placeholder-count="8">
+<div>
+<button type="button" aria-expanded="{{g.exp}}" onClick="{{g.toggle}}" style="display: flex; align-items: center; gap: 8px; width: 100%; min-height: 36px; padding: 0 16px; border: 0; background: transparent; color: {{g.headColor}}; font: 600 12px 'Source Sans 3', sans-serif; letter-spacing: 0.08em; text-transform: uppercase; text-align: left; cursor: pointer">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 14px; height: 14px; flex-shrink: 0"><path d="{{g.chev}}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<span style="flex-grow: 1">{{g.name}}</span>
+<span style="color: var(--mark); font-variant-numeric: tabular-nums; letter-spacing: 0">{{g.badgeShow}}</span>
+</button>
+<sc-if value="{{g.show}}" hint-placeholder-val="{{ false }}">
+<div role="group" aria-label="{{g.name}}" style="margin: 0 0 6px 23px; border-left: 1px solid var(--rule)">
+<sc-for list="{{g.items}}" as="i" hint-placeholder-count="3">
+<a href="{{i.href}}" aria-current="{{i.current}}" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; padding: 0 16px 0 21px; margin-left: -2px; border-left: 3px solid {{i.bar}}; background: {{i.bg}}; color: var(--ink); font-weight: {{i.weight}}; text-decoration: none">{{i.label}}<span style="color: var(--mark); font-weight: 600; font-variant-numeric: tabular-nums">{{i.count}}</span></a>
+</sc-for>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</nav>
+<main style="flex-grow: 1; min-width: 0; padding: 20px 32px 32px">
+<p class="crumb"><a href="#m1">Học viên và quyền truy cập</a> › <span style="color: var(--ink)">Khảo sát và nhận xét</span></p>
+<div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 20px">
+<div><h1 class="h1a">Khảo sát và nhận xét</h1><p class="mut" style="margin: 4px 0 0">Khảo sát sau khoá của các lớp offline, và nhận xét được đăng lên trang công khai.</p></div>
+<a href="#m2" class="btn btn-p">Tạo khảo sát cho một lớp</a>
+</div>
+<div role="tablist" aria-label="Thẻ khảo sát và nhận xét" class="tabs">
+<a href="#m1" role="tab" aria-selected="true" class="tab-on">Khảo sát</a>
+<a href="#m5" role="tab" aria-selected="false" class="tab">Duyệt nhận xét <span style="color: var(--mark); font-weight: 600">4</span></a>
+<a href="#m6" role="tab" aria-selected="false" class="tab">Nhập nhận xét cũ</a>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; margin-bottom: 12px; font-size: 14px">
+<span class="mut">Lọc:</span>
+<span style="font-weight: 600; border-bottom: 2px solid var(--ink)">Tất cả 4</span><a href="#m1">Chưa gửi 1</a><a href="#m1">Đang mở 1</a><a href="#m1">Đã đóng 2</a>
+<span style="flex-grow: 1"></span>
+<span class="mut">Sắp theo ngày đóng, gần nhất trước</span>
+</div>
+<div role="table" aria-label="Khảo sát theo lớp">
+<div role="row" class="tr th g-ks"><span role="columnheader">Lớp · khoá</span><span role="columnheader">Kết thúc khoá</span><span role="columnheader">Trạng thái</span><span role="columnheader">Mở – đóng</span><span role="columnheader">Đã trả lời</span><span role="columnheader">Việc làm tiếp</span></div>
+<div role="row" class="tr g-ks"><span role="rowheader"><a href="#m4" style="font-weight: 600">Sat 14:00 · Course 4 · XXX</a><span class="mut" style="display: block; font-size: 14px">Vũ Thanh Tâm · 8 học viên</span></span><span role="cell">14/11/2026</span><span role="cell"><span class="st st-open">Đang mở</span></span><span role="cell">14/11 – 28/11/2026<span class="mut" style="display: block; font-size: 14px">còn 11 ngày</span></span><span role="cell"><span style="font-weight: 600">5 / 8</span><span style="display: block; height: 6px; margin-top: 4px; background: var(--off)"><span style="display: block; height: 6px; width: 62%; background: var(--accent)"></span></span></span><span role="cell" style="display: flex; flex-wrap: wrap; gap: 6px"><span class="btn btn-s">Nhắc 3 người chưa trả lời</span><a href="#m4" class="btn btn-s">Kết quả</a></span></div>
+<div role="row" class="tr g-ks"><span role="rowheader"><a href="#m2" style="font-weight: 600">Tue–Thu 19:30 · Course 1 · XXX</a><span class="mut" style="display: block; font-size: 14px">Trần Thu Hà · 14 học viên · đang học buổi 11 / 20</span></span><span role="cell">dự kiến 17/12/2026</span><span role="cell"><span class="st st-wait">Chưa gửi</span></span><span role="cell">17/12 – 31/12/2026<span class="mut" style="display: block; font-size: 14px">tự mở vào ngày mở</span></span><span role="cell" class="mut">chưa mở</span><span role="cell" style="display: flex; flex-wrap: wrap; gap: 6px"><a href="#m2" class="btn btn-s">Sửa</a><a href="#m3" class="btn btn-s">Xem trước</a></span></div>
+<div role="row" class="tr g-ks"><span role="rowheader"><a href="#m4" style="font-weight: 600">Sat–Sun 09:00 · Course 1 · XXX</a><span class="mut" style="display: block; font-size: 14px">Vũ Thanh Tâm · 10 học viên</span></span><span role="cell">25/10/2026</span><span role="cell"><span class="st st-off">Đã đóng</span></span><span role="cell">25/10 – 08/11/2026</span><span role="cell"><span style="font-weight: 600">7 / 10</span><span style="display: block; height: 6px; margin-top: 4px; background: var(--off)"><span style="display: block; height: 6px; width: 70%; background: var(--muted)"></span></span></span><span role="cell" style="display: flex; flex-wrap: wrap; gap: 6px"><a href="#m4" class="btn btn-s">Kết quả</a><a href="#m5">1 nhận xét chờ duyệt</a></span></div>
+<div role="row" class="tr g-ks"><span role="rowheader"><a href="#m4" style="font-weight: 600">Mon–Wed 18:00 · Course 2 · XXX</a><span class="mut" style="display: block; font-size: 14px">Trần Thu Hà · 12 học viên</span></span><span role="cell">23/09/2026</span><span role="cell"><span class="st st-off">Đã đóng</span></span><span role="cell">23/09 – 07/10/2026</span><span role="cell"><span style="font-weight: 600">10 / 12</span><span style="display: block; height: 6px; margin-top: 4px; background: var(--off)"><span style="display: block; height: 6px; width: 83%; background: var(--muted)"></span></span></span><span role="cell" style="display: flex; flex-wrap: wrap; gap: 6px"><a href="#m4" class="btn btn-s">Kết quả</a><a href="#m5">3 nhận xét chờ duyệt</a></span></div>
+</div>
+<div style="margin-top: 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; padding: 10px 14px; border: 1px solid var(--rule); background: var(--surface)">
+<span style="font-weight: 600">Lớp sắp kết thúc khoá mà chưa có khảo sát</span>
+<span style="flex: 1 1 300px">Mon–Wed 18:00 · Course 3 · XXX — buổi kế tiếp 15 / 20, dự kiến kết thúc 07/12/2026.</span>
+<a href="#m2" class="btn btn-s">Tạo khảo sát</a>
+</div>
+<p class="hint">Dòng này hiện khi lớp còn từ 5 buổi trở xuống (ngưỡng ở <a href="AdminCaiDat.dc.html#m6">Cài đặt › Ngưỡng vận hành</a>) và cũng lên <a href="AdminViecCanLam.dc.html">Việc cần làm</a>. Khảo sát không tự tạo: admin bấm tạo cho từng lớp.</p>
+</main>
+</div>
+</div>
+</section>
+
+<section id="m2" aria-labelledby="h-m2" class="sec">
+<h2 id="h-m2" class="h2s">2 · Tạo khảo sát cho một lớp · mẫu cố định ba khối</h2>
+<p class="mut" style="margin: 0 0 14px">Vùng nội dung; khung quản trị như màn 1. Không phải trình tạo form: ba khối và kiểu trả lời là cố định, chỉ sửa câu chữ. Bấm được: thêm và bỏ câu hỏi mở (tối đa 3), bản xem trước đổi theo.</p>
+<div class="part">
+<p class="crumb"><a href="#m1">Khảo sát và nhận xét</a> › <span style="color: var(--ink)">Tạo khảo sát</span></p>
+<h1 class="h1a">Khảo sát sau khoá · Tue–Thu 19:30 · Course 1</h1>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 436px; gap: 40px; align-items: start; margin-top: 16px">
+<div>
+<div style="display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr); gap: 0 16px; padding-bottom: 16px">
+<div><label class="fl" for="f-lop">Lớp</label><div id="f-lop" class="fld" style="display: flex; justify-content: space-between; align-items: center">Tue–Thu 19:30 · Course 1 · 14 học viên<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 16px; height: 16px"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></div></div>
+<div><label class="fl" for="f-mo">Ngày mở</label><input id="f-mo" class="fld" value="17/12/2026"></div>
+<div><label class="fl" for="f-dong">Ngày đóng</label><input id="f-dong" class="fld" value="31/12/2026"></div>
+<p class="hint" style="grid-column: 1 / -1">Mặc định: mở vào ngày học buổi cuối, đóng sau 14 ngày. Tới ngày mở, khảo sát tự chuyển sang "Đang mở" và cả lớp nhận thông báo trong ứng dụng; trước ngày đóng 3 ngày, người chưa trả lời được nhắc một lần.</p>
+</div>
+
+<div class="blk">
+<h2 class="h3a">Khối 1 · Thời gian làm bài mỗi buổi<span class="fix">Cố định</span></h2>
+<label class="fl" for="q1" style="margin-top: 10px">Câu hỏi</label>
+<input id="q1" class="fld" value="Trung bình mỗi buổi học, bạn mất khoảng bao nhiêu phút để làm bài tập về nhà?">
+<p class="hint">Kiểu trả lời: một ô số phút, kèm nút chọn nhanh 30 · 45 · 60 · 90 · 120. Không đổi được kiểu trả lời.</p>
+</div>
+
+<div class="blk">
+<h2 class="h3a">Khối 2 · Đánh giá và nhận xét về khoá<span class="fix">Cố định</span></h2>
+<label class="fl" for="q2a" style="margin-top: 10px">Câu đánh giá · thang 1 đến 5</label>
+<input id="q2a" class="fld" value="Nhìn chung, bạn hài lòng với khoá học ở mức nào?">
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; margin-top: 8px"><div><label class="fl" for="q2l">Nhãn mức 1</label><input id="q2l" class="fld" value="Rất không hài lòng"></div><div><label class="fl" for="q2h">Nhãn mức 5</label><input id="q2h" class="fld" value="Rất hài lòng"></div></div>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; margin-top: 8px"><div><label class="fl" for="q2b">Câu nhận xét thứ nhất · viết tự do</label><input id="q2b" class="fld" value="Điều gì ở khoá học có ích nhất với bạn?"></div><div><label class="fl" for="q2c">Câu nhận xét thứ hai · viết tự do</label><input id="q2c" class="fld" value="Điều gì bạn muốn khoá học cải thiện?"></div></div>
+<p class="hint">Hai câu này là nguồn của nhận xét đăng công khai: câu thứ nhất vào danh sách nhận xét, câu thứ hai vào mục "Điều học viên muốn cải thiện". Điểm 1–5 chỉ dùng nội bộ, không đăng.</p>
+</div>
+
+<div class="blk">
+<h2 class="h3a">Khối 3 · Ý định học tiếp<span class="fix">Cố định</span></h2>
+<label class="fl" for="q3" style="margin-top: 10px">Câu hỏi</label>
+<input id="q3" class="fld" value="Hết khoá này, bạn dự định thế nào?">
+<p class="hint">Ba lựa chọn, không đổi được: "Học tiếp Course 2" (tên khoá kế tự điền theo lớp; lớp Course 5 ghi "Học tiếp ở Aver Learning") · "Chưa quyết" · "Dừng sau khoá này". Chọn hai ý sau thì hiện ô "Lý do (không bắt buộc)".</p>
+</div>
+
+<div class="blk">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 16px"><h2 class="h3a">Câu hỏi mở thêm</h2><span class="mut" style="font-size: 14px">{{extraCount}}</span></div>
+<sc-for list="{{extras}}" as="e" hint-placeholder-count="1">
+<div style="display: flex; gap: 8px; align-items: flex-end; margin-top: 10px">
+<div style="flex-grow: 1"><label class="fl">{{e.label}}</label><div class="fld">{{e.text}}</div></div>
+<button type="button" class="btn" onClick="{{e.remove}}">Bỏ</button>
+</div>
+</sc-for>
+<sc-if value="{{canAdd}}" hint-placeholder-val="{{ true }}"><button type="button" class="btn" style="margin-top: 12px" onClick="{{addExtra}}">Thêm câu hỏi mở</button></sc-if>
+<sc-if value="{{isFull}}" hint-placeholder-val="{{ false }}"><p class="hint" style="margin-top: 12px">Đã đủ 3 câu hỏi mở. Khảo sát giữ ngắn để học viên trả lời hết.</p></sc-if>
+<p class="hint">Câu hỏi mở thêm luôn là ô viết tự do, không bắt buộc, và không đi sang hàng duyệt nhận xét.</p>
+</div>
+
+<div class="blk" style="background: var(--tint); padding: 14px 16px 16px">
+<h2 class="h3a">Câu cuối · Đồng ý cho đăng và cách hiển thị tên<span class="fix">Khoá · không sửa, không bỏ</span></h2>
+<p style="margin: 8px 0 0">"Bạn có đồng ý cho Aver Learning đăng nhận xét của bạn ở khối 2 lên web không?" — Đồng ý / Không đồng ý, không chọn sẵn. Nếu đồng ý: chọn tên hiển thị (tên đầy đủ · tên và chữ cái đầu của họ · ẩn danh) và có thể gửi kèm một ảnh.</p>
+<p class="hint">Câu chữ của câu này dùng chung cho mọi khảo sát để sự đồng ý có cùng một nghĩa; muốn đổi thì đổi ở mẫu, kèm ngày hiệu lực.</p>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--ink)">
+<span class="btn btn-p">Lưu khảo sát</span><span class="btn">Lưu và mở ngay…</span><a href="#m1" style="margin-left: 4px">Huỷ</a>
+<span style="flex-grow: 1"></span><a href="#m2">Khôi phục câu chữ của mẫu</a>
+</div>
+<p class="hint">"Lưu khảo sát": trạng thái Chưa gửi, sửa được tới ngày mở. "Lưu và mở ngay…" hỏi lại một lần vì cả lớp sẽ nhận thông báo. Khi đã có người trả lời: chỉ còn sửa được ngày đóng.</p>
+</div>
+
+<aside aria-label="Xem trước như học viên thấy">
+<p class="lab" style="margin-bottom: 6px">Xem trước như học viên thấy · <a href="#m3" style="text-transform: none; letter-spacing: 0; font-size: 14px">mở cỡ thật</a></p>
+<div class="sv" style="font-size: 14px">
+<div style="padding: 14px 16px"><p class="sf" style="margin: 0; font-size: 18px; font-weight: 600">Khảo sát sau khoá · Course 1</p><p class="mut" style="margin: 2px 0 0">Lớp Tue–Thu 19:30 · khoảng 3 phút · mở tới hết 31/12/2026</p></div>
+<div style="padding: 12px 16px; border-top: 1px solid var(--rule)"><p style="margin: 0 0 6px; font-weight: 600">1. Trung bình mỗi buổi học, bạn mất khoảng bao nhiêu phút để làm bài tập về nhà?</p><div style="display: flex; align-items: center; gap: 8px"><span class="fld" style="width: 84px; min-height: 34px; padding: 5px 8px"> </span>phút<span class="mut" style="margin-left: auto">30 · 45 · 60 · 90 · 120</span></div></div>
+<div style="padding: 12px 16px; border-top: 1px solid var(--rule)"><p style="margin: 0 0 6px; font-weight: 600">2. Nhìn chung, bạn hài lòng với khoá học ở mức nào?</p><div style="display: flex"><span class="num" style="min-height: 34px">1</span><span class="num" style="min-height: 34px">2</span><span class="num" style="min-height: 34px">3</span><span class="num" style="min-height: 34px">4</span><span class="num" style="min-height: 34px; margin-right: 0">5</span></div><p class="mut" style="margin: 4px 0 0; display: flex; justify-content: space-between; font-size: 13px"><span>Rất không hài lòng</span><span>Rất hài lòng</span></p></div>
+<div style="padding: 12px 16px; border-top: 1px solid var(--rule)"><p style="margin: 0 0 6px; font-weight: 600">3. Điều gì ở khoá học có ích nhất với bạn?</p><span class="ta" style="min-height: 44px"> </span></div>
+<div style="padding: 12px 16px; border-top: 1px solid var(--rule)"><p style="margin: 0 0 6px; font-weight: 600">4. Điều gì bạn muốn khoá học cải thiện?</p><span class="ta" style="min-height: 44px"> </span></div>
+<div style="padding: 12px 16px; border-top: 1px solid var(--rule)"><p style="margin: 0 0 6px; font-weight: 600">5. Hết khoá này, bạn dự định thế nào?</p><p style="margin: 0"><span class="rd" style="display: inline-block; vertical-align: -3px; margin: 0 6px 0 0"></span>Học tiếp Course 2</p><p style="margin: 2px 0 0"><span class="rd" style="display: inline-block; vertical-align: -3px; margin: 0 6px 0 0"></span>Chưa quyết</p><p style="margin: 2px 0 0"><span class="rd" style="display: inline-block; vertical-align: -3px; margin: 0 6px 0 0"></span>Dừng sau khoá này</p></div>
+<sc-for list="{{extras}}" as="e" hint-placeholder-count="1">
+<div style="padding: 12px 16px; border-top: 1px solid var(--rule)"><p style="margin: 0 0 6px; font-weight: 600">{{e.num}}. {{e.text}} <span class="mut" style="font-weight: 400">(không bắt buộc)</span></p><span class="ta" style="min-height: 44px"> </span></div>
+</sc-for>
+<div style="padding: 12px 16px; border-top: 1px solid var(--ink); background: var(--tint)"><p style="margin: 0 0 6px; font-weight: 600">{{lastNum}}. Bạn có đồng ý cho Aver Learning đăng nhận xét của bạn (câu 3 và 4) lên web không?</p><p style="margin: 0"><span class="rd" style="display: inline-block; vertical-align: -3px; margin: 0 6px 0 0"></span>Đồng ý <span class="mut">→ chọn tên hiển thị, ảnh tuỳ ý</span></p><p style="margin: 2px 0 0"><span class="rd" style="display: inline-block; vertical-align: -3px; margin: 0 6px 0 0"></span>Không đồng ý</p></div>
+<div style="padding: 12px 16px; border-top: 1px solid var(--rule)"><span class="btn btn-p" style="width: 100%">Gửi khảo sát</span></div>
+</div>
+<p class="hint">Bản xem trước thu gọn. Câu chữ trong bản xem trước lấy từ các ô bên trái khi lưu.</p>
+</aside>
+</div>
+</div>
+</section>
+
+<section id="m3" aria-labelledby="h-m3" class="sec">
+<h2 id="h-m3" class="h2s">3 · Màn học viên trả lời · máy tính (khung nhỏ) và điện thoại 390px · kèm trạng thái phụ</h2>
+<p class="mut" style="margin: 0 0 14px">Học viên mở từ thông báo trong ứng dụng hoặc thẻ ở Hôm nay; phải đăng nhập. Trang một cột, thanh tập trung thay cho thanh 5 mục. Ví dụ: Lê Quang Minh, lớp Mon–Wed 18:00, Course 2.</p>
+<div style="display: grid; grid-template-columns: 640px minmax(0, 1fr); gap: 32px; align-items: start">
+
+<div>
+<p class="lab" style="margin-bottom: 6px">Máy tính · cột 640px · đang điền</p>
+<div class="sv">
+<div style="display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 24px; border-bottom: 1px solid var(--ink)"><span class="sf" style="font-size: 18px; font-weight: 600; flex-grow: 1">Aver Learning</span><span class="mut" style="font-size: 14px">Đã lưu nháp 20:14</span><a href="Main.dc.html" style="font-size: 15px">Để sau</a></div>
+<div style="padding: 20px 24px 18px">
+<p class="lab">Lớp Mon–Wed 18:00 · Course 2 · XXX</p>
+<h3 class="sf" style="margin: 4px 0 6px; font-size: 28px; font-weight: 600; line-height: 1.2">Khảo sát sau khoá</h3>
+<p style="margin: 0">Khoảng 3 phút. Giáo viên và quản trị đọc được câu trả lời kèm tên bạn. Bạn sửa được câu trả lời tới hết ngày 07/10/2026.</p>
+</div>
+<div class="sv-b">
+<p class="sv-q">1. Trung bình mỗi buổi học, bạn mất khoảng bao nhiêu phút để làm bài tập về nhà?</p>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px"><span class="fld" style="width: 96px; min-height: 44px; font-size: 16px; font-weight: 600; display: flex; align-items: center">60</span><span>phút</span><span class="mut" style="margin-left: 12px; font-size: 14px">Chọn nhanh:</span><span class="btn btn-s">30</span><span class="btn btn-s">45</span><span class="btn btn-s" style="background: var(--ink); color: var(--surface)">60</span><span class="btn btn-s">90</span><span class="btn btn-s">120</span></div>
+<p class="hint">Ước lượng là đủ. Tính cả lúc xem lại bài giảng nếu bạn xem để làm bài.</p>
+</div>
+<div class="sv-b">
+<p class="sv-q">2. Nhìn chung, bạn hài lòng với khoá học ở mức nào?</p>
+<div role="radiogroup" aria-label="Mức hài lòng từ 1 đến 5" style="display: flex; max-width: 420px"><span class="num">1</span><span class="num">2</span><span class="num">3</span><span class="num" style="background: var(--ink); color: var(--surface)">4</span><span class="num" style="margin-right: 0">5</span></div>
+<p class="mut" style="margin: 4px 0 0; max-width: 420px; display: flex; justify-content: space-between; font-size: 14px"><span>1 · Rất không hài lòng</span><span>5 · Rất hài lòng</span></p>
+</div>
+<div class="sv-b">
+<p class="sv-q">3. Điều gì ở khoá học có ích nhất với bạn?</p>
+<span class="ta">[Học viên viết ở đây]</span>
+</div>
+<div class="sv-b">
+<p class="sv-q">4. Điều gì bạn muốn khoá học cải thiện?</p>
+<span class="ta">[Học viên viết ở đây]</span>
+<p class="hint">Góp ý thẳng giúp lớp sau học tốt hơn. Câu trả lời này không ảnh hưởng tới điểm hay quyền học của bạn.</p>
+</div>
+<div class="sv-b">
+<p class="sv-q">5. Hết khoá này, bạn dự định thế nào?</p>
+<div role="radiogroup" aria-label="Ý định học tiếp">
+<div class="opt"><span class="rd"></span><span>Học tiếp Course 3</span></div>
+<div class="opt opt-on"><span class="rd rd-on"></span><span style="font-weight: 600">Chưa quyết</span></div>
+<div class="opt"><span class="rd"></span><span>Dừng sau khoá này</span></div>
+</div>
+<label class="fl" style="margin-top: 12px; font-size: 15px">Lý do <span class="mut" style="font-weight: 400">(không bắt buộc)</span></label>
+<span class="ta" style="min-height: 56px">[Học viên viết ở đây]</span>
+</div>
+<div class="sv-b" style="background: var(--tint); border-top-color: var(--ink)">
+<p class="sv-q">6. Bạn có đồng ý cho Aver Learning đăng nhận xét của bạn (câu 3 và câu 4) lên web không?</p>
+<p style="margin: 0 0 10px; font-size: 15px">Chúng tôi đăng nguyên văn. Nhận xét dài có thể được lược bớt câu, nhưng không sửa chữ của bạn. Bạn rút lại sự đồng ý lúc nào cũng được ở Tài khoản › Quyền riêng tư.</p>
+<div role="radiogroup" aria-label="Đồng ý cho đăng">
+<div class="opt opt-on"><span class="rd rd-on"></span><span style="font-weight: 600">Đồng ý cho đăng</span></div>
+<div class="opt"><span class="rd"></span><span>Không đồng ý. Chỉ giáo viên và quản trị đọc.</span></div>
+</div>
+<p class="fl" style="margin-top: 14px; font-size: 15px">Tên hiển thị cùng nhận xét</p>
+<div role="radiogroup" aria-label="Tên hiển thị">
+<div class="opt"><span class="rd"></span><span>Tên đầy đủ <span class="mut">· hiện là: Lê Quang Minh</span></span></div>
+<div class="opt opt-on"><span class="rd rd-on"></span><span><span style="font-weight: 600">Tên và chữ cái đầu của họ</span> <span class="mut">· hiện là: Quang Minh L.</span></span></div>
+<div class="opt"><span class="rd"></span><span>Ẩn danh <span class="mut">· hiện là: Học viên Course 2</span></span></div>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 14px"><span class="btn">Gửi kèm một ảnh của bạn</span><span class="mut" style="font-size: 14px">Không bắt buộc. Không gửi thì nhận xét không có ảnh.</span></div>
+</div>
+<div class="sv-b" style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px">
+<span class="btn btn-p" style="min-height: 48px; padding: 0 24px; font-size: 16px">Gửi khảo sát</span>
+<span class="mut" style="font-size: 14px">Bắt buộc: câu 1, 2, 5 và 6. Câu 3 và 4 bỏ trống được.</span>
+</div>
+</div>
+</div>
+
+<div>
+<div style="display: grid; grid-template-columns: 390px minmax(0, 1fr); gap: 32px; align-items: start">
+<div>
+<p class="lab" style="margin-bottom: 6px">Điện thoại 390px · cuộn tới câu 5 và 6</p>
+<div class="phone" style="font-size: 16px">
+<div style="display: flex; align-items: center; gap: 12px; height: 56px; padding: 0 16px; border-bottom: 1px solid var(--ink); background: var(--surface)"><span class="sf" style="font-size: 18px; font-weight: 600; flex-grow: 1">Khảo sát sau khoá</span><span class="mut" style="font-size: 14px">4 / 6</span><a href="Main.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Để sau</a></div>
+<div style="padding: 16px">
+<p class="sv-q">5. Hết khoá này, bạn dự định thế nào?</p>
+<div class="opt" style="min-height: 48px"><span class="rd"></span><span>Học tiếp Course 3</span></div>
+<div class="opt opt-on" style="min-height: 48px"><span class="rd rd-on"></span><span style="font-weight: 600">Chưa quyết</span></div>
+<div class="opt" style="min-height: 48px"><span class="rd"></span><span>Dừng sau khoá này</span></div>
+<label class="fl" style="margin-top: 12px; font-size: 15px">Lý do <span class="mut" style="font-weight: 400">(không bắt buộc)</span></label>
+<span class="ta" style="min-height: 56px">[Học viên viết ở đây]</span>
+</div>
+<div style="padding: 16px; border-top: 1px solid var(--ink); background: var(--tint)">
+<p class="sv-q">6. Bạn có đồng ý cho Aver Learning đăng nhận xét của bạn (câu 3 và câu 4) lên web không?</p>
+<p style="margin: 0 0 10px; font-size: 15px">Đăng nguyên văn, có thể lược bớt câu, không sửa chữ. Rút lại được ở Tài khoản.</p>
+<div class="opt opt-on" style="min-height: 48px"><span class="rd rd-on"></span><span style="font-weight: 600">Đồng ý cho đăng</span></div>
+<div class="opt" style="min-height: 48px"><span class="rd"></span><span>Không đồng ý</span></div>
+<p class="fl" style="margin-top: 14px; font-size: 15px">Tên hiển thị</p>
+<div class="opt" style="min-height: 48px"><span class="rd"></span><span>Tên đầy đủ <span class="mut">· Lê Quang Minh</span></span></div>
+<div class="opt opt-on" style="min-height: 48px"><span class="rd rd-on"></span><span><span style="font-weight: 600">Tên và chữ cái đầu</span> <span class="mut">· Quang Minh L.</span></span></div>
+<div class="opt" style="min-height: 48px"><span class="rd"></span><span>Ẩn danh <span class="mut">· Học viên Course 2</span></span></div>
+<span class="btn" style="display: flex; margin-top: 12px; min-height: 48px">Gửi kèm một ảnh của bạn</span>
+</div>
+<div style="padding: 12px 16px; border-top: 1px solid var(--ink); background: var(--surface)"><span class="btn btn-p" style="display: flex; min-height: 48px; font-size: 16px">Gửi khảo sát</span></div>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 18px">
+<div>
+<p class="lab" style="margin-bottom: 6px">Lời mời ở Hôm nay</p>
+<div style="padding: 12px 14px; border: 1px solid var(--ink); background: var(--surface)"><p style="margin: 0; font-weight: 600">Khảo sát sau khoá Course 2</p><p class="mut" style="margin: 2px 0 8px; font-size: 14px">Khoảng 3 phút · mở tới hết 07/10/2026</p><span class="btn btn-s">Trả lời khảo sát</span></div>
+</div>
+<div>
+<p class="lab" style="margin-bottom: 6px">Đã gửi</p>
+<div style="padding: 12px 14px; border: 1px solid var(--ink); background: var(--surface)"><p class="sf" style="margin: 0; font-size: 18px; font-weight: 600">Đã nhận câu trả lời của bạn</p><p style="margin: 4px 0 8px; font-size: 14px">Gửi lúc 20:16, 24/09/2026. Bạn đã đồng ý cho đăng nhận xét với tên "Quang Minh L."; nhận xét chỉ lên web sau khi được duyệt.</p><a href="#m3" style="font-size: 14px">Sửa câu trả lời</a> <span class="mut" style="font-size: 14px">· tới hết 07/10/2026</span></div>
+</div>
+<div>
+<p class="lab" style="margin-bottom: 6px">Khảo sát đã đóng</p>
+<div style="padding: 12px 14px; border: 1px solid var(--rule); background: var(--surface)"><p style="margin: 0; font-weight: 600">Khảo sát này đã đóng ngày 07/10/2026</p><p class="mut" style="margin: 2px 0 0; font-size: 14px">Muốn góp ý thêm, bạn nhắn giáo viên của lớp.</p></div>
+</div>
+<div>
+<p class="lab" style="margin-bottom: 6px">Thiếu câu bắt buộc</p>
+<div role="alert" class="warn" style="font-size: 14px"><p style="margin: 0; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--mark)">Cảnh báo</p><p style="margin: 2px 0 0">Còn câu 6 chưa trả lời. Bạn chọn "Đồng ý" hoặc "Không đồng ý" rồi gửi lại.</p></div>
+</div>
+<ul class="notes mut" style="font-size: 13px; gap: 5px">
+<li>Câu 6 không chọn sẵn. Phần tên và ảnh chỉ hiện sau khi chọn "Đồng ý".</li>
+<li>Tự lưu nháp; "Để sau" quay về Hôm nay.</li>
+<li>Mỗi học viên một câu trả lời cho mỗi khảo sát.</li>
+<li>Trên điện thoại nút gửi dính đáy, ô chọn cao 48px.</li>
+</ul>
+</div>
+</div>
+<div style="margin-top: 28px; border-top: 2px solid var(--ink); padding-top: 12px">
+<h3 class="h3a">Trạng thái phụ của phía quản trị · màn 1, 4 và 5</h3>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 28px; align-items: start; margin-top: 10px">
+<div>
+<p class="lab" style="margin-bottom: 6px">Chưa có khảo sát nào</p>
+<div style="border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule); padding: 14px 0"><p class="sf" style="margin: 0; font-size: 18px; font-weight: 600">Chưa có khảo sát nào</p><p style="margin: 4px 0 10px">Tạo khảo sát sau khoá cho lớp đầu tiên; mẫu ba khối đã có sẵn.</p><span class="btn btn-p btn-s">Tạo khảo sát cho một lớp</span></div>
+</div>
+<div>
+<p class="lab" style="margin-bottom: 6px">Kết quả · chưa ai trả lời</p>
+<div style="border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule); padding: 14px 0"><p class="sf" style="margin: 0; font-size: 18px; font-weight: 600">Chưa có câu trả lời</p><p style="margin: 4px 0 10px">Khảo sát mở từ 14/11/2026, 8 học viên đã nhận thông báo. Biểu đồ và trung bình hiện khi có câu trả lời đầu tiên.</p><span class="btn btn-s">Nhắc cả lớp</span></div>
+</div>
+<div>
+<p class="lab" style="margin-bottom: 6px">Hàng duyệt trống · đang tải</p>
+<div style="border-top: 1px solid var(--ink); padding: 14px 0 10px"><p style="margin: 0">Không còn nhận xét nào chờ duyệt.</p></div>
+<div role="status" aria-label="Đang tải" style="border-top: 1px solid var(--rule); padding: 12px 0; display: flex; flex-direction: column; gap: 8px"><span class="sk" style="width: 70%"></span><span class="sk" style="width: 100%"></span><span class="sk" style="width: 45%"></span></div>
+</div>
+<div>
+<p class="lab" style="margin-bottom: 6px">Lỗi · đăng không thành công</p>
+<div role="alert" class="warn"><p style="margin: 0; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--mark)">Cảnh báo</p><p style="margin: 2px 0 8px">Chưa đăng được nhận xét này. Mục vẫn ở "Chờ duyệt", phần lược bớt bạn chọn được giữ lại.</p><span class="btn btn-s">Thử lại</span></div>
+</div>
+</div>
+<p class="hint" style="margin-top: 12px">Bản hẹp 1024px: không vẽ riêng. Sidebar thu thành nút như các tờ admin khác; bảng khảo sát bỏ cột "Kết thúc khoá"; màn duyệt xếp danh sách trên, bảng chi tiết dưới; màn tạo khảo sát đưa bản xem trước xuống sau nút "Xem trước".</p>
+</div>
+</div>
+</div>
+</section>
+
+<section id="m4" aria-labelledby="h-m4" class="sec">
+<h2 id="h-m4" class="h2s">4 · Kết quả một khảo sát · Mon–Wed 18:00 · Course 2 · đã đóng</h2>
+<p class="mut" style="margin: 0 0 14px">Vùng nội dung. Đọc từ trên xuống: ai trả lời · làm bài bao lâu · ai dự định dừng · họ viết gì. Khi khảo sát đang mở, trang giống hệt, thêm nút "Nhắc người chưa trả lời".</p>
+<div class="part">
+<p class="crumb"><a href="#m1">Khảo sát và nhận xét</a> › <span style="color: var(--ink)">Mon–Wed 18:00 · Course 2</span></p>
+<div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 20px">
+<div><h1 class="h1a">Kết quả khảo sát · Mon–Wed 18:00 · Course 2 · XXX</h1><p class="mut" style="margin: 4px 0 0"><span class="st st-off">Đã đóng</span> Mở 23/09 – 07/10/2026 · giáo viên Trần Thu Hà · <a href="AdminLop.dc.html">trang lớp</a></p></div>
+<div style="display: flex; gap: 8px"><span class="btn">Tải bảng trả lời (CSV)</span><span class="btn">Mở lại khảo sát…</span></div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 28px; margin-top: 18px">
+<div class="tile"><b>10 / 12</b>đã trả lời<span class="mut" style="display: block; font-size: 14px">Chưa trả lời: <a href="HoSoHocVien.dc.html">Trịnh Gia Bảo</a>, <a href="HoSoHocVien.dc.html">Lý Ngọc Hân</a></span></div>
+<div class="tile"><b>65 phút</b>làm bài mỗi buổi, trung bình<span class="mut" style="display: block; font-size: 14px">trung vị 60 · ít nhất 20 · nhiều nhất 150</span></div>
+<div class="tile"><b>7 / 10</b>dự định học tiếp Course 3<span class="mut" style="display: block; font-size: 14px">2 chưa quyết · 1 dừng</span></div>
+<div class="tile"><b>8 / 10</b>đồng ý cho đăng nhận xét<span class="mut" style="display: block; font-size: 14px"><a href="#m5">2 chờ duyệt</a> · 5 đã đăng · 1 không đăng</span></div>
+</div>
+
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.5fr); gap: 0 36px; margin-top: 26px; align-items: start">
+<div>
+<h2 class="h3a" style="padding-bottom: 6px; border-bottom: 1px solid var(--ink)">Thời gian làm bài mỗi buổi</h2>
+<div role="img" aria-label="Phân bố số phút tự báo: dưới 30 phút 1 người, 30 đến 59 phút 3 người, 60 đến 89 phút 4 người, 90 đến 119 phút 1 người, từ 120 phút 1 người" style="margin-top: 8px">
+<div class="bar"><span>Dưới 30 phút</span><span><i style="width: 25%"></i></span><span>1</span></div>
+<div class="bar"><span>30 – 59</span><span><i style="width: 75%"></i></span><span>3</span></div>
+<div class="bar"><span>60 – 89</span><span><i style="width: 100%"></i></span><span>4</span></div>
+<div class="bar"><span>90 – 119</span><span><i style="width: 25%"></i></span><span>1</span></div>
+<div class="bar"><span>Từ 120 phút</span><span><i style="width: 25%"></i></span><span>1</span></div>
+</div>
+<p class="hint">Số phút học viên tự báo. Đối chiếu: thời gian làm bài hệ thống ghi được của lớp này, trung vị XXX phút mỗi buổi.</p>
+</div>
+<div>
+<h2 class="h3a" style="padding-bottom: 6px; border-bottom: 1px solid var(--ink)">Mức hài lòng 1–5</h2>
+<div role="img" aria-label="Phân bố mức hài lòng: mức 1 không ai, mức 2 một người, mức 3 một người, mức 4 năm người, mức 5 ba người" style="margin-top: 8px">
+<div class="bar"><span>5 · Rất hài lòng</span><span><i style="width: 60%"></i></span><span>3</span></div>
+<div class="bar"><span>4</span><span><i style="width: 100%"></i></span><span>5</span></div>
+<div class="bar"><span>3</span><span><i style="width: 20%"></i></span><span>1</span></div>
+<div class="bar"><span>2</span><span><i style="width: 20%"></i></span><span>1</span></div>
+<div class="bar"><span>1</span><span></span><span class="mut">–</span></div>
+</div>
+<p class="hint">Chỉ dùng nội bộ. Không tính phần trăm hay trung bình khi dưới 5 người trả lời (ngưỡng ở <a href="AdminCaiDat.dc.html#m6">Cài đặt › Ngưỡng vận hành</a>).</p>
+</div>
+<div>
+<h2 class="h3a" style="padding-bottom: 6px; border-bottom: 1px solid var(--ink)">Dự định dừng hoặc chưa quyết · 3 người</h2>
+<div style="display: grid; grid-template-columns: minmax(0, 1.3fr) 84px minmax(0, 2fr) 76px; gap: 0 12px; align-items: baseline; padding: 9px 0; border-bottom: 1px solid var(--rule)"><span style="font-weight: 600">Bùi Anh Khoa</span><span><span class="st st-mark">Dừng</span></span><span class="sf">[Nguyên văn lý do. XXX]</span><a href="HoSoHocVien.dc.html">Mở hồ sơ</a></div>
+<div style="display: grid; grid-template-columns: minmax(0, 1.3fr) 84px minmax(0, 2fr) 76px; gap: 0 12px; align-items: baseline; padding: 9px 0; border-bottom: 1px solid var(--rule)"><span style="font-weight: 600">Lê Quang Minh</span><span><span class="st st-wait">Chưa quyết</span></span><span class="sf">[Nguyên văn lý do. XXX]</span><a href="HoSoHocVien.dc.html">Mở hồ sơ</a></div>
+<div style="display: grid; grid-template-columns: minmax(0, 1.3fr) 84px minmax(0, 2fr) 76px; gap: 0 12px; align-items: baseline; padding: 9px 0; border-bottom: 1px solid var(--rule)"><span style="font-weight: 600">Đặng Phương Thảo</span><span><span class="st st-wait">Chưa quyết</span></span><span class="mut">không ghi lý do</span><a href="HoSoHocVien.dc.html">Mở hồ sơ</a></div>
+<p class="hint">Ý định được ghi vào hồ sơ học viên (mục ghi chú, kèm ngày) để giáo viên liên hệ trước khi khoá kế khai giảng. Bảy người dự định học tiếp: <a href="#m4">xem danh sách</a>.</p>
+</div>
+</div>
+
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-top: 26px">
+<h2 class="h3a">Toàn bộ nhận xét · 10 câu trả lời</h2>
+<span class="mut" style="font-size: 14px">Nguyên văn, không sửa được ở đây · sắp theo giờ gửi</span>
+</div>
+<div role="table" aria-label="Toàn bộ câu trả lời" style="margin-top: 8px; font-size: 14px">
+<div role="row" class="tr th g-nx"><span role="columnheader">Học viên</span><span role="columnheader">Phút</span><span role="columnheader">Mức</span><span role="columnheader">Điều có ích nhất</span><span role="columnheader">Điều muốn cải thiện</span><span role="columnheader">Cho đăng · tên</span><span role="columnheader">Duyệt</span></div>
+<div role="row" class="tr g-nx" style="align-items: baseline"><span role="rowheader"><a href="HoSoHocVien.dc.html">Hoàng Mai Chi</a></span><span role="cell">60</span><span role="cell">5</span><span role="cell" class="sf">[Nguyên văn. XXX]</span><span role="cell" class="sf">[Nguyên văn. XXX]</span><span role="cell">Có · Mai Chi H.</span><span role="cell"><span class="st st-open">Đã đăng</span></span></div>
+<div role="row" class="tr g-nx" style="align-items: baseline"><span role="rowheader"><a href="HoSoHocVien.dc.html">Lê Quang Minh</a></span><span role="cell">60</span><span role="cell">4</span><span role="cell" class="sf">[Nguyên văn. XXX]</span><span role="cell" class="sf">[Nguyên văn. XXX]</span><span role="cell">Có · Quang Minh L.</span><span role="cell"><a href="#m5" class="st st-wait" style="text-decoration: none">Chờ duyệt</a></span></div>
+<div role="row" class="tr g-nx" style="align-items: baseline"><span role="rowheader"><a href="HoSoHocVien.dc.html">Vũ Hải Đăng</a></span><span role="cell">90</span><span role="cell">4</span><span role="cell" class="sf">[Nguyên văn. XXX]</span><span role="cell" class="mut">bỏ trống</span><span role="cell">Có · Vũ Hải Đăng</span><span role="cell"><span class="st st-open">Đã đăng</span></span></div>
+<div role="row" class="tr g-nx" style="align-items: baseline"><span role="rowheader"><a href="HoSoHocVien.dc.html">Bùi Anh Khoa</a></span><span role="cell">20</span><span role="cell">2</span><span role="cell" class="mut">bỏ trống</span><span role="cell" class="sf">[Nguyên văn. XXX]</span><span role="cell">Có · ẩn danh</span><span role="cell"><a href="#m5" class="st st-wait" style="text-decoration: none">Chờ duyệt</a></span></div>
+<div role="row" class="tr g-nx" style="align-items: baseline"><span role="rowheader"><a href="HoSoHocVien.dc.html">Ngô Thuỳ Dương</a></span><span role="cell">150</span><span role="cell">3</span><span role="cell" class="sf">[Nguyên văn. XXX]</span><span role="cell" class="sf">[Nguyên văn. XXX]</span><span role="cell" class="mut">Không</span><span role="cell" class="mut">không vào hàng duyệt</span></div>
+</div>
+<p style="margin: 10px 0 0"><a href="#m4">Xem cả 10 câu trả lời</a> <span class="mut">· câu hỏi mở thêm (1 câu) nằm ở cuối mỗi dòng khi mở rộng</span></p>
+</div>
+</section>
+
+<section id="m5" aria-labelledby="h-m5" class="sec">
+<h2 id="h-m5" class="h2s">5 · Thẻ Duyệt nhận xét · hàng chờ để đăng</h2>
+<p class="mut" style="margin: 0 0 14px">Vùng nội dung. Ba trạng thái: Chờ duyệt · Đã đăng · Không đăng. Admin chỉ được lược bớt nguyên câu, không gõ được vào nguyên văn. Bấm được: bấm vào từng câu ở khối "Lược bớt" để bỏ hoặc giữ, bản sẽ đăng đổi theo.</p>
+<div class="part">
+<h1 class="h1a">Khảo sát và nhận xét</h1>
+<div role="tablist" aria-label="Thẻ khảo sát và nhận xét" class="tabs">
+<a href="#m1" role="tab" aria-selected="false" class="tab">Khảo sát</a>
+<a href="#m5" role="tab" aria-selected="true" class="tab-on">Duyệt nhận xét <span style="color: var(--mark)">4</span></a>
+<a href="#m6" role="tab" aria-selected="false" class="tab">Nhập nhận xét cũ</a>
+</div>
+<div style="display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 36px; align-items: start">
+<div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; font-size: 14px; margin-bottom: 10px">
+<span style="font-weight: 600; border-bottom: 2px solid var(--ink)">Chờ duyệt 4</span><a href="#m5">Đã đăng XXX</a><a href="#m5">Không đăng XXX</a>
+<span style="flex-grow: 1"></span><span class="mut">Khoá: Tất cả · Nguồn: Tất cả</span>
+</div>
+<div role="table" aria-label="Nhận xét chờ duyệt">
+<div role="row" class="tr th g-q"><span role="columnheader"><span class="cb" aria-label="Chọn tất cả"></span></span><span role="columnheader">Nhận xét</span><span role="columnheader">Loại</span></div>
+<div role="row" class="tr g-q" style="align-items: start; background: var(--tint); border-left: 3px solid var(--accent); padding-left: 8px; margin-left: -11px"><span role="cell"><span class="cb"></span></span><span role="cell"><span style="font-weight: 600">Lê Quang Minh</span> <span class="mut">· Course 2 · lớp 09/2026</span><span class="sf" style="display: block">[Câu thứ nhất, nguyên văn. XXX] [Câu thứ hai…</span><span class="mut" style="display: block; font-size: 13px">Khảo sát · tên và chữ cái đầu · 4 câu</span></span><span role="cell" style="font-size: 14px">Có ích</span></div>
+<div role="row" class="tr g-q" style="align-items: start"><span role="cell"><span class="cb"></span></span><span role="cell"><span style="font-weight: 600">Lê Quang Minh</span> <span class="mut">· Course 2 · lớp 09/2026</span><span class="sf" style="display: block">[Nguyên văn điều muốn cải thiện. XXX]</span><span class="mut" style="display: block; font-size: 13px">Khảo sát · tên và chữ cái đầu · 1 câu</span></span><span role="cell" style="font-size: 14px; color: var(--mark)">Muốn cải thiện</span></div>
+<div role="row" class="tr g-q" style="align-items: start"><span role="cell"><span class="cb"></span></span><span role="cell"><span style="font-weight: 600">Bùi Anh Khoa</span> <span class="mut">· Course 2 · lớp 09/2026</span><span class="sf" style="display: block">[Nguyên văn điều muốn cải thiện. XXX]</span><span class="mut" style="display: block; font-size: 13px">Khảo sát · ẩn danh · 2 câu</span></span><span role="cell" style="font-size: 14px; color: var(--mark)">Muốn cải thiện</span></div>
+<div role="row" class="tr g-q" style="align-items: start"><span role="cell"><span class="cb"></span></span><span role="cell"><span style="font-weight: 600">Phan Nhật Vy</span> <span class="mut">· Course 1 · lớp 10/2026</span><span class="sf" style="display: block">[Nguyên văn nhận xét. XXX]</span><span class="mut" style="display: block; font-size: 13px">Khảo sát · tên đầy đủ · có ảnh · 3 câu</span></span><span role="cell" style="font-size: 14px">Có ích</span></div>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 12px"><span class="btn btn-s" style="color: var(--muted); border-color: var(--rule)">Đăng các mục đã chọn</span><span class="mut" style="font-size: 14px">Chưa chọn mục nào. Đăng hàng loạt giữ nguyên văn, không lược bớt, không ghim.</span></div>
+<p class="hint" style="margin-top: 14px">Một câu trả lời có thể sinh hai mục: "Có ích" và "Muốn cải thiện", duyệt riêng. Mục "Muốn cải thiện" được duyệt theo cùng tiêu chí; không bỏ vì nội dung chê. Lý do "Không đăng" hợp lệ: nêu tên người khác, thông tin riêng tư, lời lẽ xúc phạm, không liên quan tới khoá, học viên rút đồng ý.</p>
+</div>
+
+<div style="border: 1px solid var(--ink); background: var(--surface); padding: 18px 22px 20px">
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px">
+<h2 class="h3a">Lê Quang Minh · Course 2 · Mon–Wed 18:00</h2>
+<span style="font-size: 14px"><a href="HoSoHocVien.dc.html">Hồ sơ</a> · <a href="#m4">Câu trả lời khảo sát</a></span>
+</div>
+<p class="mut" style="margin: 2px 0 12px; font-size: 14px">Gửi 24/09/2026 · đồng ý cho đăng 24/09/2026 · loại "Có ích" (câu 3 của khảo sát)</p>
+
+<p class="fl">Nguyên văn · chỉ đọc</p>
+<p class="sf" style="margin: 0; padding: 10px 12px; border: 1px solid var(--rule); background: var(--paper); font-size: 16px; line-height: 1.6">[Câu thứ nhất, nguyên văn. XXX] [Câu thứ hai, nguyên văn. XXX] [Câu thứ ba, nguyên văn. XXX] [Câu thứ tư, nguyên văn. XXX]</p>
+
+<p class="fl" style="margin-top: 14px">Lược bớt · bấm một câu để bỏ hoặc giữ <span class="mut" style="font-weight: 400">· {{cutInfo}}</span></p>
+<div role="group" aria-label="Chọn câu giữ lại">
+<sc-for list="{{sens}}" as="x" hint-placeholder-count="4">
+<button type="button" class="sen" aria-pressed="{{x.on}}" onClick="{{x.toggle}}" style="text-decoration: {{x.deco}}; color: {{x.fg}}; background: {{x.bg}}"><span style="font: 600 13px 'Source Sans 3', sans-serif; margin-right: 8px">{{x.tag}}</span>{{x.text}}</button>
+</sc-for>
+</div>
+<p class="hint">Chỉ bỏ được nguyên câu. Không có ô nào để gõ vào nguyên văn; lỗi chính tả của học viên giữ nguyên.</p>
+
+<p class="fl" style="margin-top: 14px">Bản sẽ đăng</p>
+<div style="padding: 12px 14px; border-left: 3px solid var(--accent); background: var(--tint)">
+<p class="sf" style="margin: 0; font-size: 17px; line-height: 1.6">{{preview}}</p>
+<p style="margin: 8px 0 0; font-size: 14px"><span style="font-weight: 600">Quang Minh L.</span> <span class="mut">· Course 2 · XXX · lớp kết thúc 09/2026</span></p>
+<p style="margin: 6px 0 0; font-size: 13px">Nộp bài 18 / 20 buổi (dữ liệu hệ thống) · tự báo khoảng 60 phút làm bài mỗi buổi (khảo sát).</p>
+<sc-if value="{{isCut}}" hint-placeholder-val="{{ true }}"><p class="mut" style="margin: 6px 0 0; font-size: 13px">Đã rút gọn, không sửa chữ. Đọc đủ nhận xét</p></sc-if>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px; margin-top: 14px">
+<div>
+<p class="fl">Tên hiển thị</p>
+<p style="margin: 0">Quang Minh L. <span class="mut">· học viên chọn "tên và chữ cái đầu". Admin không đổi được; chỉ hạ xuống ẩn danh được.</span></p>
+<p class="fl" style="margin-top: 12px">Dữ kiện đi kèm</p>
+<p style="margin: 0"><span class="cb cb-on"></span> Số buổi có nộp bài (18 / 20)</p>
+<p style="margin: 2px 0 0"><span class="cb cb-on"></span> Số phút tự báo (60)</p>
+</div>
+<div>
+<p class="fl">Ghim</p>
+<p style="margin: 0"><span class="cb"></span> Trang chủ <span class="mut">· đang ghim 2 / 3</span></p>
+<p style="margin: 2px 0 0"><span class="cb cb-on"></span> Trang các khoá online <span class="mut">· đang ghim 1 / 3</span></p>
+<p class="hint">Trang "Học viên nói gì" luôn hiện mọi nhận xét đã đăng. Trang chủ và trang sáu khoá online luôn có khối nhận xét, mỗi nơi tối đa 3 mục ghim; đủ 3 thì phải bỏ ghim một mục trước. Trang công khai không ghi nhận xét là của lớp offline.</p>
+</div>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--ink)">
+<span class="btn btn-p">Đăng nhận xét này</span><span class="btn">Không đăng…</span><span class="mut" style="font-size: 14px">"Không đăng…" hỏi lý do (chọn từ danh sách), lưu kèm tên người duyệt.</span>
+</div>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 36px; margin-top: 20px">
+<div>
+<p class="lab" style="margin-bottom: 4px">Một dòng ở thẻ Đã đăng</p>
+<div class="tr" style="grid-template-columns: minmax(0, 1fr) auto; border-top: 1px solid var(--ink); align-items: start"><span><span style="font-weight: 600">Hoàng Mai Chi</span> <span class="mut">· hiện là "Mai Chi H." · Course 2 · đăng 12/10/2026 bởi Vũ Thanh Tâm · ghim: trang chủ</span><span class="sf" style="display: block">[Nguyên văn nhận xét. XXX]</span></span><span style="display: flex; gap: 6px"><span class="btn btn-s">Đổi ghim</span><span class="btn btn-s">Gỡ khỏi web…</span></span></div>
+</div>
+<div>
+<p class="lab" style="margin-bottom: 4px">Một dòng ở thẻ Không đăng</p>
+<div class="tr" style="grid-template-columns: minmax(0, 1fr) auto; border-top: 1px solid var(--ink); align-items: start"><span><span style="font-weight: 600">Trần Bảo Ngọc</span> <span class="mut">· Course 1 · lý do: học viên rút đồng ý 02/11/2026 (tự động gỡ)</span><span class="sf" style="display: block">[Nguyên văn nhận xét. XXX]</span></span><span class="mut" style="font-size: 14px">không đăng lại được</span></div>
+</div>
+</div>
+</div>
+</section>
+
+<section id="m6" aria-labelledby="h-m6" class="sec">
+<h2 id="h-m6" class="h2s">6 · Thẻ Nhập nhận xét cũ · chỉ đọc</h2>
+<p class="mut" style="margin: 0 0 14px">Vùng nội dung. Khoảng 100 nhận xét mỗi khoá thu trước khi có khảo sát trên web được nhập bằng script backend. Trang này không có nút tải lên; mỗi lô nhập một dòng.</p>
+<div class="part">
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 20px">
+<h2 class="h3a">Các lô đã nhập</h2>
+<span class="mut" style="font-size: 14px">Nhập bằng script · không sửa được ở đây</span>
+</div>
+<div role="table" aria-label="Các lô nhận xét cũ đã nhập" style="margin-top: 8px">
+<div role="row" class="tr th g-lo"><span role="columnheader">Lô</span><span role="columnheader">Ngày nhập</span><span role="columnheader">Khoá</span><span role="columnheader">Lớp kết thúc</span><span role="columnheader">Số nhận xét</span><span role="columnheader">Đồng ý cho đăng (theo file)</span><span role="columnheader">Tên hiển thị</span><span role="columnheader">Trong hàng duyệt</span></div>
+<div role="row" class="tr g-lo"><span role="rowheader" style="font-weight: 600">Phiếu sau khoá Course 1</span><span role="cell">XXX</span><span role="cell">Course 1 · XXX</span><span role="cell">XXX – XXX</span><span role="cell">XXX</span><span role="cell">XXX có (từ lúc thu)</span><span role="cell">tên và chữ cái đầu</span><span role="cell"><a href="#m5">XXX chờ duyệt</a> · XXX đã đăng</span></div>
+<div role="row" class="tr g-lo"><span role="rowheader" style="font-weight: 600">Phiếu sau khoá Course 2</span><span role="cell">XXX</span><span role="cell">Course 2 · XXX</span><span role="cell">XXX – XXX</span><span role="cell">XXX</span><span role="cell">XXX có (từ lúc thu)</span><span role="cell">tên và chữ cái đầu</span><span role="cell"><a href="#m5">XXX chờ duyệt</a> · XXX đã đăng</span></div>
+<div role="row" class="tr g-lo"><span role="rowheader" style="font-weight: 600">Phiếu sau khoá Course 3</span><span role="cell">XXX</span><span role="cell">Course 3 · XXX</span><span role="cell">XXX – XXX</span><span role="cell">XXX</span><span role="cell">XXX có (từ lúc thu)</span><span role="cell">tên và chữ cái đầu</span><span role="cell"><a href="#m5">XXX chờ duyệt</a> · XXX đã đăng</span></div>
+<div role="row" class="tr g-lo"><span role="rowheader" style="font-weight: 600">Phiếu sau khoá Course 4</span><span role="cell">XXX</span><span role="cell">Course 4 · XXX</span><span role="cell">XXX – XXX</span><span role="cell">XXX</span><span role="cell">XXX có (từ lúc thu)</span><span role="cell">tên và chữ cái đầu</span><span role="cell"><a href="#m5">XXX chờ duyệt</a> · XXX đã đăng</span></div>
+<div role="row" class="tr g-lo"><span role="rowheader" style="font-weight: 600">Phiếu sau khoá Course 5</span><span role="cell" class="mut">chưa nhập</span><span role="cell">Course 5 · XXX</span><span role="cell" class="mut">—</span><span role="cell" class="mut">—</span><span role="cell" class="mut">—</span><span role="cell" class="mut">—</span><span role="cell" class="mut">—</span></div>
+</div>
+<p class="hint" style="max-width: 130ch">Nhận xét cũ vào hàng duyệt ở trạng thái "Chờ duyệt", nguồn "Phiếu cũ", không có dữ kiện đi kèm và không gắn với tài khoản học viên trừ khi script khớp được email. Nhận xét trong phiếu cũ đã có sự đồng ý chia sẻ từ lúc thu nên đều được đăng sau khi duyệt; cột đồng ý ghi "có (từ lúc thu)". Nhập lại cùng một file không tạo bản trùng. Muốn nhập thêm: gửi file cho người vận hành chạy script; không có đường tải lên từ trình duyệt.</p>
+</div>
+</section>
+
+<section id="m7" aria-labelledby="h-m7" class="sec">
+<h2 id="h-m7" class="h2s" style="margin-bottom: 12px">Ghi chú cho lập trình</h2>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); gap: 0 36px; align-items: start">
+<div>
+<p class="lab" style="margin-bottom: 4px; color: var(--ink); font-weight: 600">Bảng dữ liệu cần có</p>
+<div class="dt" style="border-top: 1px solid var(--ink)"><span style="font-weight: 600">Mẫu khảo sát</span><span>một bản duy nhất, có phiên bản: câu chữ mặc định của ba khối, câu đồng ý (khoá), ngày hiệu lực.</span></div>
+<div class="dt"><span style="font-weight: 600">Khảo sát</span><span>lớp · khoá · bản mẫu đã dùng · câu chữ đã sửa · tối đa 3 câu hỏi mở · ngày mở · ngày đóng · trạng thái (chưa gửi, đang mở, đã đóng) · người tạo. Mỗi lớp mỗi khoá tối đa một khảo sát.</span></div>
+<div class="dt"><span style="font-weight: 600">Câu trả lời</span><span>khảo sát · học viên · số phút · mức 1–5 · điều có ích · điều muốn cải thiện · ý định (học tiếp, chưa quyết, dừng) · lý do · trả lời câu hỏi mở · giờ gửi, giờ sửa cuối. Một học viên một câu trả lời.</span></div>
+<div class="dt"><span style="font-weight: 600">Đồng ý cho đăng</span><span>câu trả lời · có/không · ngày · tên hiển thị (đầy đủ, tên và chữ cái đầu, ẩn danh) · ảnh và đồng ý đăng ảnh · ngày rút (nếu có) · phiên bản câu đồng ý.</span></div>
+<div class="dt"><span style="font-weight: 600">Nhận xét</span><span>nguồn (khảo sát, phiếu cũ) · câu trả lời hoặc lô nhập · khoá · lớp, tháng/năm kết thúc · loại (có ích, muốn cải thiện) · nguyên văn (không ghi đè được) · danh sách câu bị lược · trạng thái (chờ duyệt, đã đăng, không đăng) · lý do không đăng · người duyệt, ngày · dữ kiện đi kèm bật/tắt · ghim trang chủ, ghim trang khoá · nhãn nhóm ý.</span></div>
+<div class="dt"><span style="font-weight: 600">Lô nhập</span><span>tên lô · ngày · khoá · khoảng thời gian lớp · số dòng · số có đồng ý · người chạy script.</span></div>
+</div>
+<ul class="notes">
+<li><strong>Không sửa chữ.</strong> Nguyên văn lưu một lần, không có thao tác ghi đè ở giao diện lẫn API quản trị. Lược bớt lưu thành danh sách câu bị bỏ (theo vị trí), áp lúc hiển thị; bỏ lược bớt là trở lại đủ nguyên văn. Tách câu theo dấu chấm, chấm hỏi, chấm than và xuống dòng; phải còn ít nhất một câu.</li>
+<li>Khảo sát là mẫu cố định: ba khối và kiểu trả lời không đổi, chỉ sửa câu chữ; thêm tối đa 3 câu hỏi mở dạng viết tự do. Không có kéo thả, không có kiểu câu hỏi khác, không có nhánh điều kiện ngoài ô "Lý do".</li>
+<li>Trạng thái: Chưa gửi → Đang mở (tới ngày mở hoặc "Lưu và mở ngay") → Đã đóng (hết ngày đóng hoặc "Đóng sớm"). "Mở lại khảo sát…" đặt ngày đóng mới. Khi đã có câu trả lời, câu chữ bị khoá.</li>
+<li>Thông báo: lúc mở gửi thông báo trong ứng dụng cho cả lớp; nhắc tự động một lần trước ngày đóng 3 ngày; "Nhắc … người chưa trả lời" bấm tay, mỗi khảo sát tối đa một lần mỗi ngày. Không gửi thư.</li>
+<li>Tỉ lệ trả lời = số câu trả lời đã gửi trên sĩ số lớp lúc mở khảo sát. Nháp chưa gửi không tính.</li>
+</ul>
+<div>
+<ul class="notes">
+<li>Câu trả lời có "đồng ý cho đăng" tự sinh mục ở hàng duyệt (một mục cho "có ích", một mục cho "muốn cải thiện", nếu ô đó không trống). Không đồng ý thì không sinh mục, admin vẫn đọc được ở trang kết quả.</li>
+<li>Học viên rút đồng ý: mục chuyển "Không đăng" ngay, gỡ khỏi mọi trang công khai, bỏ ghim; admin không đăng lại được.</li>
+<li>Ghim (sửa 18/11/2026): trang chủ và trang các khoá online (dùng chung cho sáu khoá), mỗi nơi tối đa 3 mục "Đã đăng". Hai khối này luôn hiện, không ghi là của lớp offline; thiếu mục ghim thì lấy mục đã đăng mới nhất. Khoá online nào có nhận xét riêng thì trang khoá đó tách ra, chỉ lấy nhận xét của chính nó.</li>
+<li>Dữ kiện đi kèm: số buổi có nộp bài lấy từ hệ thống, số phút lấy từ câu 1; chỉ có ở nguồn "khảo sát". Không gắn band, điểm thi hay kết quả học lên nhận xét.</li>
+<li>Ý định "Dừng" và "Chưa quyết" ghi một dòng vào ghi chú hồ sơ học viên; không tạo cảnh báo "Cần chú ý" mới (bảng ngưỡng ở Cài đặt giữ nguyên).</li>
+<li>Quyền: admin làm mọi việc ở trang này. Giáo viên xem kết quả khảo sát của lớp mình (liên kết từ trang lớp), không duyệt đăng.</li>
+<li>Nhập nhận xét cũ: chỉ qua script backend; trang chỉ đọc. Số chờ duyệt trên sidebar và thẻ = mục "Chờ duyệt" có đồng ý hợp lệ.</li>
+</ul>
+<p class="lab" style="margin: 14px 0 4px; color: var(--ink); font-weight: 600">Quy tắc hiển thị tên</p>
+<div class="dt" style="border-top: 1px solid var(--ink)"><span style="font-weight: 600">Ai chọn</span><span>Học viên, ở câu cuối khảo sát; đổi được sau ở Tài khoản › Quyền riêng tư. Admin không nâng mức lộ tên; chỉ hạ xuống ẩn danh.</span></div>
+<div class="dt"><span style="font-weight: 600">Ba cách</span><span>Tên đầy đủ "Lê Quang Minh" · tên và chữ cái đầu của họ "Quang Minh L." · ẩn danh "Học viên Course 2". Tính lúc hiển thị từ họ tên hồ sơ, không lưu chuỗi đã cắt.</span></div>
+<div class="dt"><span style="font-weight: 600">Phiếu cũ</span><span>Không ghi lựa chọn thì "tên và chữ cái đầu". Trong admin luôn thấy tên đầy đủ kèm dòng "hiện là …".</span></div>
+</div>
+</div>
+</section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Xanh teal","Navy + đỏ mận"],"default":"Navy + đỏ mận"},"$preview":{"width":1440,"height":7980}}'>
+class Component extends DCLogic {
+renderVals() {
+const s = this.state || {};
+const NAV = (cur, open) => [
+['tq', 'Tổng quan', [['Việc cần làm', 'AdminViecCanLam.dc.html', '']]],
+['hv', 'Học viên và quyền truy cập', [['Học viên', 'AdminDanhBa.dc.html', ''], ['Lớp', 'AdminLop.dc.html', ''], ['Giáo viên', 'AdminGiaoVienThongBao.dc.html', ''], ['Mã kích hoạt', 'AdminLuotVaMa.dc.html#s2', ''], ['Gửi thông báo', 'AdminGiaoVienThongBao.dc.html#m2', ''], ['Khảo sát và nhận xét', 'AdminKhaoSat.dc.html', '4']]],
+['kh', 'Khoá học và đăng ký', [['Khoá học', 'AdminKhoaHoc.dc.html', ''], ['Đơn đăng ký', 'AdminDonDangKy.dc.html', '2'], ['Lượt AI', 'AdminLuotVaMa.dc.html', '']]],
+['cb', 'Chấm bài', [['Writing', 'AdminChamWriting.dc.html', '3'], ['Speaking', 'AdminChamSpeakingThiThu.dc.html', '2'], ['Yêu cầu chấm lại', 'AdminChamLai.dc.html', '2']]],
+['nd', 'Nội dung', [['Listening', 'AdminNoiDung.dc.html', ''], ['Reading', 'AdminNoiDung.dc.html', ''], ['Writing', 'AdminNoiDungVietNoi.dc.html', ''], ['Speaking', 'AdminNoiDungVietNoi.dc.html#m5', ''], ['Từ vựng', 'AdminNoiDungTuVungNguPhap.dc.html', ''], ['Ngữ pháp', 'AdminNoiDungTuVungNguPhap.dc.html#m6', ''], ['Thư viện công khai', 'AdminThuVienCongKhai.dc.html', '']]],
+['tt', 'Thi thử', [['Kỳ thi', 'AdminKyThi.dc.html', '']]],
+['bc', 'Báo cáo', [['Hoạt động học viên', 'AdminBaoCao.dc.html#m1', ''], ['Lưu lượng', 'AdminBaoCao.dc.html#m2', ''], ['Chi phí AI', 'AdminBaoCao.dc.html#m3', ''], ['Chất lượng nội dung', 'AdminBaoCao.dc.html#m4', '']]],
+['ht', 'Hệ thống', [['Hộp thư sự cố', 'AdminSuCo.dc.html', '12'], ['AI và mô hình', 'AdminHeThong.dc.html', ''], ['Bảo mật', 'AdminHeThong.dc.html#m2', ''], ['Công cụ QA', 'AdminHeThong.dc.html#m3', ''], ['Cài đặt', 'AdminCaiDat.dc.html', '']]]
+].map(([id, name, rows]) => {
+const items = rows.map(([label, href, count]) => { const c = cur === id + '/' + label; return { label, href, count, current: c ? 'page' : 'false', bar: c ? 'var(--accent)' : 'transparent', bg: c ? 'var(--tint)' : 'transparent', weight: c ? 600 : 400 }; });
+const ex = !!open[id];
+const hasCur = items.some((x) => x.current === 'page');
+const badge = items.reduce((n, x) => n + (Number(x.count) || 0), 0);
+return { id, name, items, exp: ex ? 'true' : 'false', show: ex, chev: ex ? 'M6 9l6 6 6-6' : 'M9 6l6 6-6 6', badgeShow: !ex && badge ? String(badge) : '', headColor: hasCur ? 'var(--ink)' : 'var(--muted)', toggle: () => this.setState({ open: Object.assign({}, open, { [id]: !open[id] }) }) };
+});
+const pool = ['Bạn có muốn nhắn gì thêm cho giáo viên không?', 'Bạn học ở lớp này qua kênh nào?', 'Bạn muốn lịch học khoá kế thế nào?'];
+const nExtra = s.nExtra == null ? 1 : s.nExtra;
+const extras = pool.slice(0, nExtra).map((text, i) => ({ text, label: 'Câu hỏi mở ' + (i + 1), num: String(6 + i), remove: () => this.setState({ nExtra: nExtra - 1 }) }));
+const cut = s.cut || { 1: true };
+const raw = ['[Câu thứ nhất, nguyên văn. XXX]', '[Câu thứ hai, nguyên văn. XXX]', '[Câu thứ ba, nguyên văn. XXX]', '[Câu thứ tư, nguyên văn. XXX]'];
+const kept = raw.filter((_, i) => !cut[i]).length;
+const sens = raw.map((text, i) => { const off = !!cut[i]; const last = !off && kept === 1; return { text, on: off ? 'false' : 'true', tag: off ? 'Bỏ' : 'Giữ', deco: off ? 'line-through' : 'none', fg: off ? 'var(--muted)' : 'var(--ink)', bg: off ? 'var(--paper)' : 'var(--surface)', toggle: () => { if (!last) this.setState({ cut: Object.assign({}, cut, { [i]: !off }) }); } }; });
+const out = []; let gap = false;
+raw.forEach((t, i) => { if (cut[i]) { gap = true; } else { if (gap) out.push('[…]'); gap = false; out.push(t); } });
+if (gap) out.push('[…]');
+return {
+pal: (this.props.palette ?? 'Navy + đỏ mận') === 'Xanh teal' ? 'pal-teal' : 'pal-navy',
+nav: NAV('hv/Khảo sát và nhận xét', s.open || { hv: true }),
+extras,
+extraCount: nExtra + ' / 3 câu',
+canAdd: nExtra < 3,
+isFull: nExtra >= 3,
+addExtra: () => this.setState({ nExtra: nExtra + 1 }),
+lastNum: String(6 + nExtra),
+sens,
+preview: out.join(' '),
+isCut: kept < raw.length,
+cutInfo: 'giữ ' + kept + ' / ' + raw.length + ' câu'
+};
+}
+}
+</script>
+</body>
+</html>

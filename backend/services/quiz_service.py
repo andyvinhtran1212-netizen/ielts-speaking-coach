@@ -11,6 +11,7 @@ writes via service-role supabase_admin, so it must enforce user scoping in code)
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 import re
@@ -23,6 +24,7 @@ from fastapi import HTTPException
 
 from config import settings
 from services import course_writing_grader
+from services import sentence_lab_grader
 from services.class_assignment_service import (
     assignment_timer_state,
     is_accepting_submissions,
@@ -30,7 +32,9 @@ from services.class_assignment_service import (
     _at,
     mark_item_submitted,
 )
-from services.class_archive_service import cohort_archived_error, is_cohort_archived
+from services.class_archive_service import (
+    COHORT_ARCHIVED_CODE, cohort_archived_error, is_cohort_archived,
+)
 from services.class_membership_service import active_cohort_ids_for_student
 
 from database import supabase_admin
@@ -1428,6 +1432,13 @@ def get_bank_for_play(
     if isinstance(reading, dict):
         meta["short_reading"] = _course_reading_for_play(reading)
         bank = {**bank, "meta": meta}
+    # Kho viết câu Course 5: phần hướng dẫn/ví dụ làm mẫu chỉ đi qua
+    # `course_writing_state`, nơi biết bài đã nộp chưa (S01/S45 chỉ mở hướng
+    # dẫn SAU lượt nộp đầu để giữ chức năng chẩn đoán).
+    lab = meta.get("sentence_lab")
+    if isinstance(lab, dict) and "guide" in lab:
+        meta["sentence_lab"] = {k: v for k, v in lab.items() if k != "guide"}
+        bank = {**bank, "meta": meta}
 
     # BÀI NGHE THÊM: đáp án/transcript không đi cùng đề. Audio nằm trong bucket
     # riêng tư và chỉ được ký URL sau khi cổng bài-giao ở trên đã cho phép bank.
@@ -2443,6 +2454,10 @@ async def regrade_failed_course_writing(
     for r in rows:
         items = r.get("items") or []
         if not items or all(i.get("ok") is not None for i in items):
+            continue
+        # Kho viết câu Course 5 không bao giờ lưu câu chưa chấm (hỏng là không
+        # ghi gì), và bộ chấm Course 1 không hiểu khóa chấm của nó: bỏ qua.
+        if any(i.get("mode") in sentence_lab_grader.MODES for i in items):
             continue
         batch = [{"qid": i.get("qid"), "prompt": i.get("prompt") or "",
                   "explain": i.get("explain") or "", "answer": i.get("answer") or ""}
@@ -4002,10 +4017,12 @@ def course_writing_state(
     if assignment_item_id and not item:
         raise HTTPException(404, "Không tìm thấy bài đã nộp")
     attempt_no = course_section_attempt_no(item)
-    _bank_meta_for_review_or_404(bank_id, user_id)
+    bank = _bank_meta_for_review_or_404(bank_id, user_id)
+    lab = sentence_lab_grader.is_sentence_lab_bank(bank)
     try:
         qs = (supabase_admin.table("quiz_questions")
-              .select("qid, prompt, explain, points, item_key, subtype, order")
+              .select("qid, prompt, explain, points, item_key, subtype, order"
+                      + (", segments" if lab else ""))
               .eq("bank_id", bank_id).eq("type", "writing")
               .order("order").execute().data) or []
         all_rows = ((supabase_admin.table("course_writing_submissions")
@@ -4036,6 +4053,14 @@ def course_writing_state(
             # bản dự phòng" dẫn tới cùng một hành động — không cần cờ riêng.
             logger.warning("[quiz] đọc nháp tự luận hỏng item=%s: %s", item["id"], exc)
             draft = None
+    if lab:
+        return _sentence_lab_state(
+            revision_open=bool(item) and complete_sub
+            and not _lab_revision_done(sub)
+            and _lab_assignment_open(bank_id, user_id, item),
+            bank=bank, item=item, attempt_no=attempt_no, qs=qs, sub=sub,
+            complete_sub=complete_sub, draft=draft,
+        )
     return {
         # id MỤC BÀI GIAO — trang khoá bản nháp vào nó: giao lại cùng bộ bài là
         # một lượt MỚI, và nháp của lần trước không được rót vào lần này.
@@ -4067,6 +4092,244 @@ def course_writing_state(
             "clean":     sub.get("clean"),
             "graded_at": sub.get("graded_at"),
         } if complete_sub else None),
+    }
+
+
+# ── Kho viết câu Course 5 (sentence lab) ─────────────────────────────────────
+#
+# Cùng bảng, cùng một lượt nộp mỗi full attempt như phần tự luận Course 1. Hai
+# chỗ khác:
+#   · bộ chấm là `sentence_lab_grader` (GPT, khóa chấm riêng, chế độ coach);
+#   · sau lượt chấm, học viên được TỰ VIẾT LẠI tối đa 6 câu một lần (chế độ
+#     review). Bản viết lại ghi vào `items[i].revision`, KHÔNG ghi đè câu đầu,
+#     và KHÔNG đổi điểm của lượt nộp (README gói nội dung: lượt đầu là bằng
+#     chứng chẩn đoán). Khi lượt sửa đã chốt, mọi item mang khóa `revision`
+#     (None cho câu không viết lại) và đáp án tham khảo mới được hiện.
+
+
+def _lab_revision_done(sub: dict | None) -> bool:
+    items = (sub or {}).get("items") or []
+    return bool(items) and all("revision" in i for i in items)
+
+
+def _lab_segments(q: dict) -> dict:
+    seg = q.get("segments")
+    lab = seg.get("sentence_lab") if isinstance(seg, dict) else None
+    return lab if isinstance(lab, dict) else {}
+
+
+# Khóa chỉ dành cho máy chủ trong bản chụp lượt nộp (dấu vân tay khóa chấm).
+_LAB_SERVER_ONLY = frozenset({"key_sha"})
+
+
+def _lab_public_items(items: list, *, reveal: bool) -> list:
+    """Bản chụp trả cho học viên. Đáp án tham khảo (`explain`) chỉ đi kèm khi
+    lượt sửa đã chốt — trước đó học viên còn phải tự viết lại."""
+    hidden = _LAB_SERVER_ONLY if reveal else _LAB_SERVER_ONLY | {"explain"}
+    return [{k: v for k, v in (i or {}).items() if k not in hidden} for i in items]
+
+
+def _lab_assignment_open(bank_id: str, user_id: str, item: dict) -> bool:
+    """Bài giao còn nhận bài (chưa quá hạn, lớp chưa lưu trữ) — cùng cổng của
+    lượt nộp. Quá hạn thì không viết lại nữa (không tốn lượt gọi model), nhưng
+    vẫn chốt được để xem đáp án."""
+    try:
+        _bank_meta_or_404(bank_id, user_id)
+        live = _assignment_item_for(bank_id, user_id,
+                                    assignment_item_id=item.get("id"))
+    except HTTPException as exc:
+        # Lớp đã lưu trữ: cổng trả 409 `cohort_archived` (không phải 404). Đó
+        # cũng là "bài giao đã đóng" — học viên vẫn xem kết quả và chốt được.
+        detail = exc.detail if isinstance(exc.detail, dict) else {}
+        if exc.status_code == 404 or (
+                exc.status_code == 409
+                and detail.get("code") == COHORT_ARCHIVED_CODE):
+            return False
+        raise
+    return bool(live) and live.get("id") == item.get("id")
+
+
+def _sentence_lab_state(*, bank: dict, item: dict | None, attempt_no: int,
+                        qs: list, sub: dict | None, complete_sub: bool,
+                        draft: dict | None, revision_open: bool = False) -> dict:
+    lab = (bank.get("meta") or {}).get("sentence_lab") or {}
+    done = complete_sub and _lab_revision_done(sub)
+    show_guide = complete_sub or not lab.get("show_guidance_after_first_submission")
+    return {
+        "item_id": (item or {}).get("id"),
+        "attempt_no": attempt_no,
+        "questions": [{
+            "qid":      q["qid"],
+            "prompt":   q.get("prompt"),
+            "subtype":  q.get("subtype"),
+            "points":   q.get("points"),
+            "item_key": q.get("item_key"),
+            # Chỉ phần đề CÔNG KHAI; khóa chấm không bao giờ rời máy chủ.
+            "sentence_lab_item": _lab_segments(q).get("item"),
+            **({"explain": q.get("explain")} if done else {}),
+        } for q in qs],
+        "submitted": complete_sub,
+        "grader_failed": _writing_row_is_broken(sub),
+        "draft": ({"answers": draft.get("answers") or {},
+                   "updated_at": draft.get("updated_at")} if draft else None),
+        "submission": ({
+            "items":     _lab_public_items(sub.get("items") or [], reveal=done),
+            "total":     sub.get("total"),
+            "clean":     sub.get("clean"),
+            "graded_at": sub.get("graded_at"),
+        } if complete_sub else None),
+        "sentence_lab": {
+            "kind": lab.get("kind"),
+            "session_id": lab.get("session_id"),
+            "title": lab.get("title"),
+            "group_title": lab.get("group_title"),
+            "checkpoint": bool(lab.get("checkpoint")),
+            "guide": lab.get("guide") if show_guide else None,
+            "guide_locked": not show_guide,
+            "revision_done": done,
+            "revision_open": bool(revision_open),
+            "max_revision_items": sentence_lab_grader.MAX_REVISION_ITEMS,
+        },
+    }
+
+
+def _lab_revise_prepare(*, user_id: str, bank_id: str, answers: dict,
+                        assignment_item_id: str | None) -> tuple[dict, list, list]:
+    """Phần đọc + kiểm của lượt viết lại (đồng bộ; chạy trong thread)."""
+    bank = _bank_meta_for_review_or_404(bank_id, user_id, assignment_item_id)
+    if not sentence_lab_grader.is_sentence_lab_bank(bank):
+        raise HTTPException(404, "Bài này không có lượt viết lại.")
+    item = _assignment_item_for_review(bank_id, user_id, assignment_item_id)
+    if not item:
+        raise HTTPException(404, "Không tìm thấy bài đã nộp")
+    attempt_no = course_section_attempt_no(item)
+    try:
+        rows = _course_rows_for_attempt((supabase_admin.table("course_writing_submissions")
+                .select("id, items, graded_at, attempt_no")
+                .eq("class_assignment_item_id", item["id"])
+                .execute().data) or [], attempt_no)
+        qs = (supabase_admin.table("quiz_questions")
+              .select("qid, segments").eq("bank_id", bank_id).eq("type", "writing")
+              .execute().data) or []
+    except Exception as exc:  # noqa: BLE001
+        logger.error("[quiz] sentence-lab revise read failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi đọc bài đã nộp. Vui lòng thử lại.") from None
+    sub = rows[0] if rows else None
+    if not sub or _writing_row_is_broken(sub):
+        raise HTTPException(409, "Cần nộp và có kết quả chấm trước khi viết lại.")
+    if _lab_revision_done(sub):
+        raise HTTPException(409, "Lượt viết lại đã chốt rồi.")
+
+    items = list(sub.get("items") or [])
+    by_qid = {i.get("qid"): i for i in items}
+    chosen = {str(k): str(v or "").strip() for k, v in (answers or {}).items()
+              if str(v or "").strip()}
+    unknown = [q for q in chosen if q not in by_qid]
+    if unknown:
+        raise HTTPException(422, {"message": "Có câu không thuộc bài này.",
+                                  "unknown": unknown})
+    if len(chosen) > sentence_lab_grader.MAX_REVISION_ITEMS:
+        raise HTTPException(422, {"message": "Chỉ viết lại tối đa 6 câu."})
+    too_long = [q for q, v in chosen.items()
+                if len(v) > sentence_lab_grader.MAX_ANSWER_CHARS]
+    if too_long:
+        raise HTTPException(422, {"message": "Có câu dài quá 600 ký tự.",
+                                  "too_long": too_long})
+    # Viết lại tốn lượt gọi model → cùng cổng CHẶT của lượt nộp. Chốt rỗng
+    # (chỉ mở đáp án) không gọi gì nên vẫn được sau hạn.
+    if chosen and not _lab_assignment_open(bank_id, user_id, item):
+        raise HTTPException(404, "Bài giao đã đóng — không viết lại được nữa. "
+                                 "Bấm Chốt để xem đáp án.")
+
+    segs = {q["qid"]: _lab_segments(q) for q in qs}
+    entries = [{
+        "qid": qid,
+        "prompt": by_qid[qid].get("prompt") or "",
+        "explain": by_qid[qid].get("explain") or "",
+        "item": segs.get(qid, {}).get("item") or {},
+        "key": segs.get(qid, {}).get("key") or {},
+        "response": text,
+        "attempt": 2,
+        "previous_response": by_qid[qid].get("answer") or "",
+    } for qid, text in chosen.items()]
+    # Đề đã nhập lại khác bản chụp lúc nộp → không chấm câu viết lại theo đề
+    # MỚI cho một câu trả lời của đề CŨ (Codex #2371). Chốt rỗng vẫn được.
+    # Khóa chấm đổi mà đề công khai giữ nguyên cũng là "đề đã đổi": lượt nộp đã
+    # chấm theo khóa CŨ, chấm lượt viết lại theo khóa MỚI sẽ cho hai điểm theo
+    # hai đáp án khác nhau. Bản chụp thiếu dấu vân tay thì không chứng minh được
+    # khóa còn nguyên → cũng từ chối (chốt rỗng vẫn được).
+    changed = [e["qid"] for e in entries
+               if not e["key"]
+               or (by_qid[e["qid"]].get("item") is not None
+                   and by_qid[e["qid"]]["item"] != e["item"])
+               or by_qid[e["qid"]].get("key_sha")
+               != sentence_lab_grader.key_fingerprint(e["key"])]
+    if changed:
+        raise HTTPException(409, {
+            "message": "Đề của bài này đã thay đổi — không chấm lại được. "
+                       "Bấm Chốt để xem đáp án.",
+            "changed": changed,
+        })
+    return sub, items, entries
+
+
+def _lab_revise_save(sub: dict, new_items: list) -> None:
+    try:
+        q = (supabase_admin.table("course_writing_submissions")
+             .update({"items": new_items}).eq("id", sub["id"]))
+        q = (q.eq("graded_at", sub["graded_at"]) if sub.get("graded_at")
+             else q.is_("graded_at", "null"))
+        # So-và-đổi: chỉ ghi khi item đầu CHƯA có khóa `revision`. Hai tab cùng
+        # gửi thì tab sau nhận 409 thay vì đè bản viết lại của tab trước.
+        res = q.is_("items->0->revision", "null").execute()
+    except Exception as exc:  # noqa: BLE001
+        logger.error("[quiz] sentence-lab revise save failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi lưu bài viết lại. Vui lòng thử lại.") from None
+    if not (res.data or []):
+        raise HTTPException(409, "Lượt viết lại đã được gửi ở nơi khác. "
+                                 "Tải lại trang để xem kết quả.")
+
+
+async def revise_course_writing(*, user_id: str, bank_id: str, answers: dict,
+                                assignment_item_id: str | None = None) -> dict:
+    """Lượt TỰ VIẾT LẠI của kho viết câu Course 5 — một lần cho mỗi lượt nộp.
+
+    `answers` rỗng là hợp lệ: học viên chốt mà không viết lại câu nào (vd. mọi
+    câu đã đạt) và mở đáp án tham khảo. Không đổi điểm, không đổi sổ lớp.
+    """
+    sub, items, entries = await asyncio.to_thread(
+        _lab_revise_prepare, user_id=user_id, bank_id=bank_id, answers=answers,
+        assignment_item_id=assignment_item_id)
+    graded, model_name = ([], None)
+    if entries:
+        sentence_lab_grader.ensure_enabled()
+        async with sentence_lab_grader.single_flight(user_id):
+            budget = await asyncio.to_thread(
+                sentence_lab_grader.enforce_daily_call_cap, user_id,
+                sentence_lab_grader.planned_calls(len(entries)))
+            graded, model_name = await sentence_lab_grader.grade(
+                entries, mode="review", usage_user_id=user_id, call_budget=budget)
+        if any(g.get("ok") is None for g in graded):
+            raise HTTPException(503, {
+                "message": "Bộ chấm chưa đọc được đủ các câu viết lại. Bài vẫn "
+                           "còn nguyên — bấm Gửi lại sau ít phút.",
+                "grader_down": True,
+            })
+    now = _now()
+    review = {g["qid"]: {
+        "answer": g["answer"], "status": g.get("status"), "score": g.get("score"),
+        "ok": g.get("ok"), "corrected": g.get("corrected"),
+        "feedback": g.get("feedback"), "model": model_name, "graded_at": now,
+    } for g in graded}
+    new_items = [{**i, "revision": review.get(i.get("qid"))} for i in items]
+    await asyncio.to_thread(_lab_revise_save, sub, new_items)
+    return {
+        # Bản lưu giữ `key_sha`; phản hồi cho học viên thì không (CR #2375).
+        "items": _lab_public_items(new_items, reveal=True),
+        "total": sub.get("total"),
+        "clean": sum(1 for i in new_items if i.get("ok") is True),
+        "graded_at": sub.get("graded_at"),
+        "revision_done": True,
     }
 
 
@@ -4165,10 +4428,11 @@ async def submit_course_writing(*, user_id: str, bank_id: str,
     ĐỦ CÂU MỚI NHẬN. Thiếu một câu là 422 kèm danh sách còn thiếu — trang giữ
     bản nháp và chờ, chứ không tiêu mất lượt chấm duy nhất cho một bài dở dang.
     """
-    _bank_meta_or_404(bank_id, user_id)
+    bank = _bank_meta_or_404(bank_id, user_id)
+    lab = sentence_lab_grader.is_sentence_lab_bank(bank)
     try:
         qs = (supabase_admin.table("quiz_questions")
-              .select("qid, prompt, explain, order")
+              .select("qid, prompt, explain, order" + (", segments" if lab else ""))
               .eq("bank_id", bank_id).eq("type", "writing")
               .order("order").execute().data) or []
     except Exception as exc:  # noqa: BLE001
@@ -4179,7 +4443,10 @@ async def submit_course_writing(*, user_id: str, bank_id: str,
 
     answers = answers or {}
     missing = [q["qid"] for q in qs if not str(answers.get(q["qid"]) or "").strip()]
-    if missing:
+    # Kho viết câu (SENTLAB-0101 FR-003/FR-007): câu trống là `no_attempt`
+    # (0 điểm, không gọi model), nên bài nộp dở vẫn được nhận. Course 1 giữ luật
+    # "đủ câu mới nhận".
+    if missing and not lab:
         raise HTTPException(422, {
             "message": f"Còn {len(missing)} câu chưa viết.",
             "missing": missing,
@@ -4240,9 +4507,26 @@ async def submit_course_writing(*, user_id: str, bank_id: str,
     items = [{"qid": q["qid"], "prompt": q.get("prompt") or "",
               "explain": q.get("explain") or "",
               "answer": str(answers.get(q["qid"]) or "").strip()} for q in qs]
-    graded, model_name = await course_writing_grader.grade(
-        items, usage_user_id=user_id,
-    )
+    if lab:
+        # Kho viết câu Course 5: chấm theo khóa chấm riêng, chế độ coach (gợi ý
+        # tự sửa, chưa lộ câu sửa). 12 câu → 2 lượt gọi model.
+        sentence_lab_grader.ensure_enabled()
+        async with sentence_lab_grader.single_flight(user_id):
+            budget = await asyncio.to_thread(
+                sentence_lab_grader.enforce_daily_call_cap, user_id,
+                sentence_lab_grader.planned_calls(
+                    sum(1 for it in items if it["answer"])))
+            graded, model_name = await sentence_lab_grader.grade([{
+                "qid": it["qid"], "prompt": it["prompt"], "explain": it["explain"],
+                "item": _lab_segments(q).get("item") or {},
+                "key": _lab_segments(q).get("key") or {},
+                "response": it["answer"], "attempt": 1,
+            } for it, q in zip(items, qs)], mode="coach", usage_user_id=user_id,
+                call_budget=budget)
+    else:
+        graded, model_name = await course_writing_grader.grade(
+            items, usage_user_id=user_id,
+        )
 
     # ── CHƯA CHẤM ĐỦ THÌ KHÔNG TIÊU LƯỢT NỘP ────────────────────────────────
     #
@@ -4311,7 +4595,8 @@ async def submit_course_writing(*, user_id: str, bank_id: str,
     saved = (res.data or [{}])[0]
 
     result = {
-        "items":     graded,
+        # Kho viết câu: đáp án tham khảo chưa đi kèm — còn lượt tự viết lại.
+        "items":     _lab_public_items(graded, reveal=False) if lab else graded,
         "total":     row["total"],
         "clean":     row["clean"],
         "graded_at": saved.get("graded_at"),

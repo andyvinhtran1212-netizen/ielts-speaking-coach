@@ -1,0 +1,417 @@
+"""Nạp "Kho luyện viết câu IELTS Academic — 45 buổi" vào Course 5.
+
+    python -m scripts.import_sentence_lab_course5 --package <IELTS_45_buoi_Kho_bai_tap_AI.zip>
+    python -m scripts.import_sentence_lab_course5 --package <zip> --commit --publish --expect-ref <ref>
+
+MẶC ĐỊNH LÀ THỬ KHÔ: chỉ đọc gói, kiểm toàn bộ, in kế hoạch. Không đọc cũng
+không ghi cơ sở dữ liệu. Ghi thật phải nêu `--commit` (và cần phê duyệt ghi DB
+theo quy trình release).
+
+MỖI BUỔI = MỘT BANK của Course 5 (`code` = ``C5-SL-S01`` … ``C5-SL-S45``,
+`skill_area='course'`). `lesson_no` để NULL có chủ đích, giống Advanced
+Vocabulary: các ô (course_id, lesson_no) là lịch buổi canonical của lớp, còn kho
+này là bài bổ trợ giáo viên chọn giao. Bank được tìm lại theo `code`, nên chạy
+lại lệnh cập nhật đúng bank cũ.
+
+MỖI ITEM = MỘT CÂU `type='writing'` — đi đúng đường tự luận sẵn có
+(`course_writing_state` / `submit_course_writing` / bản nháp / bảng giáo viên).
+Phần khác duy nhất là bộ chấm: bank mang `meta.sentence_lab.kind` nên lượt nộp
+đi qua `services/sentence_lab_grader.py` (GPT, khóa chấm riêng) thay cho bộ soát
+ngữ pháp của Course 1.
+
+KHÓA CHẤM KHÔNG RỜI MÁY CHỦ. Đề công khai + khóa chấm nằm ở
+`quiz_questions.segments` — cột mà đường phát đề Course luôn giữ lại
+(`_COURSE_WITHHELD_FIELDS`), và `course_writing_state` không đọc. Đáp án tham
+khảo (`explain`) chỉ hiện sau khi học viên đã qua lượt sửa (xem quiz_service).
+
+KIỂM TRƯỚC KHI GHI: SHA-256 từng tệp khớp `manifest.json`; đủ 45 buổi × 12 câu;
+`id` duy nhất; mỗi đề có đúng một khóa chấm và ngược lại; `required` của đề và
+khóa giống nhau; course JSON và items JSONL nói cùng một nội dung.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import logging
+import re
+import sys
+import zipfile
+from pathlib import Path
+
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger("import-sentence-lab")
+
+KIND = "sentence_lab_v1"
+COURSE_CODE = "C5"
+CODE_PREFIX = "C5-SL-"
+SOURCE = "sentence-lab-45"
+_SESSIONS = 45
+_ITEMS_PER_SESSION = 12
+_ID = re.compile(r"^S(0[1-9]|[1-3][0-9]|4[0-5])-Q(0[1-9]|1[0-2])$")
+
+OPERATION_LABELS = {
+    "sua_loi": "Sửa lỗi",
+    "ghep_cau": "Ghép câu",
+    "tu_du_lieu": "Viết từ dữ liệu",
+    "tu_y": "Viết từ ý",
+    "viet_lai": "Viết lại câu",
+}
+TASK_LABELS = {"task1": "Task 1", "task2": "Task 2", "both": "Task 1 & 2"}
+_PUBLIC_ITEM_FIELDS = ("id", "session_id", "group_id", "stage", "operation",
+                       "task", "source", "instruction", "required", "review_of")
+_KEY_FIELDS = ("answer", "meaning", "required", "variants", "explanation",
+               "error_tags")
+_FILES = ("public/course_public.json", "public/items_public.jsonl",
+          "private/grading_keys.private.jsonl", "public/error_codes.json",
+          "private/ai_grader_prompt.md")
+
+
+class PackageError(SystemExit):
+    pass
+
+
+def _fail(msg: str) -> None:
+    raise PackageError(f"GÓI KHÔNG HỢP LỆ: {msg}")
+
+
+def read_package(path: Path) -> dict[str, bytes]:
+    """{đường dẫn trong gói: bytes} cho manifest + các tệp cần dùng."""
+    wanted = ("manifest.json",) + _FILES
+    out: dict[str, bytes] = {}
+    if path.is_dir():
+        for name in wanted:
+            f = path / name
+            if f.is_file():
+                out[name] = f.read_bytes()
+    elif zipfile.is_zipfile(path):
+        with zipfile.ZipFile(path) as zf:
+            all_names = [n for n in zf.namelist() if not n.endswith("/")]
+            for name in wanted:
+                # Gói có thể nằm ở gốc ZIP hoặc trong đúng một thư mục bọc.
+                hits = [n for n in all_names
+                        if n == name or n.endswith("/" + name)
+                        and n.count("/") == name.count("/") + 1]
+                if len(hits) > 1:
+                    _fail(f"ZIP có nhiều bản {name}.")
+                if hits:
+                    out[name] = zf.read(hits[0])
+    else:
+        _fail(f"{path} không phải thư mục hay tệp ZIP.")
+    missing = [n for n in wanted if n not in out]
+    if missing:
+        _fail("thiếu tệp " + ", ".join(missing))
+    return out
+
+
+def _jsonl(raw: bytes, label: str) -> list[dict]:
+    rows = []
+    for n, line in enumerate(raw.decode("utf-8").splitlines(), 1):
+        if not line.strip():
+            continue
+        try:
+            obj = json.loads(line)
+        except json.JSONDecodeError as exc:
+            _fail(f"{label} dòng {n} không phải JSON ({exc.msg}).")
+        if not isinstance(obj, dict):
+            _fail(f"{label} dòng {n} không phải object.")
+        rows.append(obj)
+    return rows
+
+
+def _text(value, label: str) -> str:
+    t = str(value or "").strip()
+    if not t:
+        _fail(f"{label} rỗng.")
+    return t
+
+
+def build_plan(files: dict[str, bytes]) -> dict:
+    """Kiểm toàn bộ gói và dựng 45 bank. Không chạm cơ sở dữ liệu."""
+    manifest = json.loads(files["manifest.json"])
+    declared = {f["path"]: f for f in manifest.get("files") or []}
+    for name in _FILES:
+        info = declared.get(name)
+        if not info:
+            _fail(f"manifest không khai {name}.")
+        digest = hashlib.sha256(files[name]).hexdigest()
+        if digest != info.get("sha256"):
+            _fail(f"SHA-256 của {name} không khớp manifest.")
+    content_version = _text(manifest.get("content_version"), "content_version")
+    schema_version = _text(manifest.get("schema_version"), "schema_version")
+
+    course = json.loads(files["public/course_public.json"])
+    if course.get("content_version") != content_version:
+        _fail("content_version của course_public.json khác manifest.")
+    items = _jsonl(files["public/items_public.jsonl"], "items_public.jsonl")
+    keys = _jsonl(files["private/grading_keys.private.jsonl"],
+                  "grading_keys.private.jsonl")
+
+    by_id: dict[str, dict] = {}
+    for it in items:
+        iid = str(it.get("id") or "")
+        if not _ID.match(iid):
+            _fail(f"id đề không hợp lệ {iid!r}.")
+        if iid in by_id:
+            _fail(f"id đề trùng {iid}.")
+        if not iid.startswith(str(it.get("session_id") or "") + "-"):
+            _fail(f"{iid} không thuộc buổi {it.get('session_id')!r}.")
+        if it.get("operation") not in OPERATION_LABELS:
+            _fail(f"{iid} có operation lạ {it.get('operation')!r}.")
+        if it.get("task") not in TASK_LABELS:
+            _fail(f"{iid} có task lạ {it.get('task')!r}.")
+        _text(it.get("source"), f"{iid}.source")
+        _text(it.get("instruction"), f"{iid}.instruction")
+        if not isinstance(it.get("required"), list) or not it["required"]:
+            _fail(f"{iid}.required phải là danh sách có nội dung.")
+        for k in ("answer", "explanation"):
+            if k in it:
+                _fail(f"{iid} (đề công khai) chứa trường khóa `{k}`.")
+        by_id[iid] = it
+
+    key_by_id: dict[str, dict] = {}
+    for k in keys:
+        iid = str(k.get("item_id") or "")
+        if iid in key_by_id:
+            _fail(f"khóa chấm trùng {iid}.")
+        if iid not in by_id:
+            _fail(f"khóa chấm {iid} không có đề tương ứng.")
+        _text(k.get("answer"), f"{iid}.answer")
+        if not isinstance(k.get("meaning"), list) or not k["meaning"]:
+            _fail(f"{iid}.meaning phải là danh sách có nội dung.")
+        if k.get("required") != by_id[iid]["required"]:
+            _fail(f"{iid}: required của khóa chấm khác đề công khai.")
+        v = k.get("variants")
+        if v is not None and not isinstance(v, str) and not (
+                isinstance(v, list) and all(isinstance(x, str) for x in v)):
+            _fail(f"{iid}.variants phải là chuỗi hoặc danh sách chuỗi.")
+        key_by_id[iid] = k
+    missing_keys = sorted(set(by_id) - set(key_by_id))
+    if missing_keys:
+        _fail(f"{len(missing_keys)} đề không có khóa chấm (vd. {missing_keys[0]}).")
+
+    sessions = course.get("sessions") or []
+    if len(sessions) != _SESSIONS:
+        _fail(f"cần {_SESSIONS} buổi, gói có {len(sessions)}.")
+    groups = {g.get("id"): g.get("title") for g in course.get("groups") or []}
+    banks = []
+    for s_no, s in enumerate(sessions, 1):
+        sid = f"S{s_no:02d}"
+        if s.get("id") != sid:
+            _fail(f"buổi thứ {s_no} mang id {s.get('id')!r}, cần {sid}.")
+        s_items = s.get("items") or []
+        if len(s_items) != _ITEMS_PER_SESSION:
+            _fail(f"{sid} có {len(s_items)} câu, cần {_ITEMS_PER_SESSION}.")
+        rows = []
+        for order, ci in enumerate(s_items, 1):
+            iid = f"{sid}-Q{order:02d}"
+            if ci.get("id") != iid:
+                _fail(f"{sid} câu {order} mang id {ci.get('id')!r}.")
+            pub = by_id.get(iid)
+            if not pub:
+                _fail(f"{iid} có trong course JSON nhưng không có trong items JSONL.")
+            for f in ("stage", "operation", "task", "source", "instruction",
+                      "required", "review_of"):
+                if ci.get(f) != pub.get(f):
+                    _fail(f"{iid}.{f} khác nhau giữa course JSON và items JSONL.")
+            rows.append(question_row(pub, key_by_id[iid], order))
+        worked = s.get("worked") or {}
+        banks.append({
+            "code": CODE_PREFIX + sid,
+            "title": f"Viết câu {sid} — {_text(s.get('title'), sid + '.title')}",
+            "meta": {
+                "nguon": "IELTS_45_buoi_Kho_bai_tap_AI",
+                "so_tu_luan": len(rows),
+                "sentence_lab": {
+                    "kind": KIND,
+                    "content_version": content_version,
+                    "schema_version": schema_version,
+                    "session_id": sid,
+                    "session_no": s_no,
+                    "group_id": s.get("group"),
+                    "group_title": groups.get(s.get("group")),
+                    "title": s.get("title"),
+                    "checkpoint": bool(s.get("checkpoint")),
+                    "show_guidance_after_first_submission":
+                        bool(s.get("show_guidance_after_first_submission")),
+                    "recall_from": s.get("recall_from") or [],
+                    "guide": {
+                        "objective": s.get("objective"),
+                        "ielts_use": s.get("ielts_use"),
+                        "focus": s.get("focus") or [],
+                        "mini_rules": s.get("mini_rules") or [],
+                        "worked": {k: worked.get(k) for k in
+                                   ("instruction", "source", "answer", "explanation")},
+                        "exit_check": s.get("exit_check") or [],
+                    },
+                },
+            },
+            "rows": rows,
+        })
+    total = sum(len(b["rows"]) for b in banks)
+    if total != len(by_id):
+        _fail(f"course JSON có {total} câu nhưng items JSONL có {len(by_id)}.")
+    return {"content_version": content_version, "banks": banks}
+
+
+def prompt_text(pub: dict) -> str:
+    """Bản chữ của đề — dùng cho mọi mặt đọc cũ (bảng giáo viên, bản chụp)."""
+    req = " · ".join(str(r).strip() for r in pub["required"])
+    return (f"**{pub['instruction'].strip()}**\n"
+            f"Câu/dữ kiện gốc: {pub['source'].strip()}\n"
+            f"Bắt buộc: {req}")
+
+
+def explain_text(key: dict) -> str:
+    parts = [f"**Đáp án tham khảo:** {key['answer'].strip()}"]
+    variants = key.get("variants")
+    shown = (variants.strip() if isinstance(variants, str)
+             else "; ".join(x.strip() for x in variants or [] if x.strip()))
+    if shown:
+        parts.append(f"**Cách viết khác:** {shown}")
+    if str(key.get("explanation") or "").strip():
+        parts.append(str(key["explanation"]).strip())
+    return "\n\n".join(parts)
+
+
+def question_row(pub: dict, key: dict, order: int) -> dict:
+    op = pub["operation"]
+    return {
+        "qid": pub["id"],
+        "item_key": op,
+        "type": "writing",
+        "subtype": f"{OPERATION_LABELS[op]} · {TASK_LABELS[pub['task']]}",
+        "input": "text",
+        "skill": "VIET-CAU",
+        "pair": None,
+        # Điểm luyện câu 0–10 không phải một đúng/sai trắc nghiệm.
+        "counts_toward_mastery": False,
+        "prompt": prompt_text(pub),
+        "hint": None,
+        "options": None,
+        "answer": None,
+        "accept": None,
+        "segments": {"sentence_lab": {
+            "item": {f: pub.get(f) for f in _PUBLIC_ITEM_FIELDS},
+            "key": {f: key.get(f) for f in _KEY_FIELDS},
+        }},
+        "mask": None,
+        "pairs": None,
+        "explain": explain_text(key),
+        "why_wrong": None,
+        "points": 1,
+        "audio_url": None,
+        "grammar_article_slug": None,
+        "order": order,
+    }
+
+
+def _course_row(db) -> dict:
+    rows = (db.table("courses").select("id, code, name")
+            .eq("code", COURSE_CODE).limit(1).execute().data) or []
+    if not rows:
+        raise SystemExit(f"Không có khoá nào mã {COURSE_CODE!r}.")
+    return rows[0]
+
+
+def check_target(expect_ref: str) -> None:
+    """Dừng trước khi ghi nếu SUPABASE_URL không phải môi trường đã nêu."""
+    from urllib.parse import urlparse
+    from config import settings
+    ref = (urlparse(getattr(settings, "SUPABASE_URL", "") or "").hostname
+           or "").split(".", 1)[0]
+    if ref != expect_ref:
+        raise SystemExit("Sai môi trường: SUPABASE_URL không khớp --expect-ref "
+                         f"{expect_ref!r} — không ghi gì.")
+
+
+def commit_plan(plan: dict, *, publish: bool) -> int:
+    from database import supabase_admin as db
+    course = _course_row(db)
+    logger.info("Khoá: %s — %s", course["code"], course["name"])
+    failures = 0
+    for bank in plan["banks"]:
+        payload = {
+            "code": bank["code"], "title": bank["title"], "skill_area": "course",
+            "course_id": course["id"], "lesson_no": None,
+            "words_count": len(bank["rows"]), "source": SOURCE,
+            "meta": bank["meta"],
+        }
+        existing = (db.table("quiz_banks").select("id, course_id, source")
+                    .eq("code", bank["code"]).eq("skill_area", "course")
+                    .limit(2).execute().data) or []
+        if len(existing) > 1:
+            logger.error("%s: có %d bank cùng mã — dừng buổi này.", bank["code"], len(existing))
+            failures += 1
+            continue
+        if existing and (existing[0].get("course_id") != course["id"]
+                         or existing[0].get("source") != SOURCE):
+            logger.error("%s: mã đã thuộc một bank khác (course/source lệch) — "
+                         "không ghi đè.", bank["code"])
+            failures += 1
+            continue
+        if existing:
+            # Bank đã có: KHÔNG đổi is_published (SA N-2). Chạy lại để sửa nội
+            # dung không được gỡ xuất bản bank học viên đang làm.
+            bank_id = existing[0]["id"]
+            db.table("quiz_banks").update(payload).eq("id", bank_id).execute()
+        else:
+            # Bank mới: nháp trước; chỉ xuất bản SAU khi RPC ghi đủ câu (giống
+            # import_course_exercise_bank) để không có bank rỗng mở được.
+            bank_id = db.table("quiz_banks").insert(
+                {**payload, "is_published": False}).execute().data[0]["id"]
+        try:
+            n = db.rpc("quiz_replace_questions",
+                       {"p_bank_id": bank_id, "p_rows": bank["rows"]}).execute().data
+        except Exception as exc:  # noqa: BLE001
+            logger.error("%s: HỎNG khi ghi câu (%s). Bank ở trạng thái NHÁP; "
+                         "chạy lại lệnh để hoàn tất.", bank["code"], exc)
+            failures += 1
+            continue
+        if n != len(bank["rows"]):
+            logger.error("%s: RPC báo %s câu, cần %d — giữ NHÁP.", bank["code"], n,
+                         len(bank["rows"]))
+            failures += 1
+            continue
+        if publish:
+            db.table("quiz_banks").update({"is_published": True}) \
+                .eq("id", bank_id).eq("is_published", False).execute()
+        logger.info("%s  %s  %d câu  %s", bank["code"], bank_id, n,
+                    "ĐÃ XUẤT BẢN" if publish else "NHÁP")
+    logger.info("Xong: %d/%d bank thành công.", len(plan["banks"]) - failures,
+                len(plan["banks"]))
+    return 1 if failures else 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--package", required=True,
+                    help="ZIP gói nội dung, hoặc thư mục đã giải nén.")
+    ap.add_argument("--commit", action="store_true", help="Ghi thật vào DB.")
+    ap.add_argument("--publish", action="store_true",
+                    help="Xuất bản sau khi ghi đủ câu (chỉ có tác dụng với --commit).")
+    ap.add_argument("--expect-ref",
+                    help="Project ref Supabase phải khớp (bắt buộc với --commit).")
+    args = ap.parse_args(argv)
+
+    plan = build_plan(read_package(Path(args.package)))
+    banks = plan["banks"]
+    logger.info("Gói %s: %d buổi · %d câu · mỗi khóa chấm đã khớp đề.",
+                plan["content_version"], len(banks), sum(len(b["rows"]) for b in banks))
+    for b in banks[:3] + [banks[-1]]:
+        logger.info("  %s  %s", b["code"], b["title"])
+    if not args.commit:
+        s = banks[0]["rows"][0]
+        logger.info("\n-- THỬ KHÔ. Câu mẫu %s (%s) --\n%s", s["qid"], s["subtype"], s["prompt"])
+        logger.info("\nThêm --commit (và --publish) để ghi thật. Cần phê duyệt ghi DB.")
+        return 0
+    if not args.expect_ref:
+        raise SystemExit("--commit cần --expect-ref <project ref> của môi trường đích.")
+    check_target(args.expect_ref)
+    return commit_plan(plan, publish=args.publish)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
