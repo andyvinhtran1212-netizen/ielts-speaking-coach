@@ -57,6 +57,7 @@ class _Q:
     def delete(self): self.op = "delete"; return self
     def eq(self, c, v): self.filters.append((c, v)); return self
     def is_(self, c, v): self.filters.append((c, ("__is__", v))); return self
+    def in_(self, c, v): self.filters.append((c, ("__in__", v))); return self
     def limit(self, n, *a, **k): self.limit_n = n; return self
     def order(self, *a, **k): return self
 
@@ -71,6 +72,9 @@ class _Q:
         for c, v in self.filters:
             if isinstance(v, tuple) and v and v[0] == "__is__":
                 if v[1] == "null" and r.get(c) is not None:
+                    return False
+            elif isinstance(v, tuple) and v and v[0] == "__in__":
+                if r.get(c) not in v[1]:
                     return False
             elif str(r.get(c)) != str(v):
                 return False
@@ -201,6 +205,79 @@ def test_bands_extracted_from_model():
         "band_coherence_cohesion": 7.0, "band_lexical_resource": 7.0,
         "band_grammatical_range": 7.0,
     }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", ["omitted", "null", 0, 1])
+async def test_reviewed_ai_analysis_round_trips_to_learner_and_exports(case):
+    from copy import deepcopy
+    from io import BytesIO
+    from unittest.mock import AsyncMock
+    from uuid import UUID
+
+    from docx import Document
+
+    from routers import admin_writing, writing_student
+    from services import essay_service
+
+    essay_id = UUID(EID)
+    student = {"id": "fixture-student"}
+    auth = "Bearer fixture"
+    original = _feedback().model_dump(mode="json")
+    payload = deepcopy(original)
+    expected = None if isinstance(case, str) else {"likelihood": case, "explanation": "Reviewed estimate"}
+    if case == "omitted":
+        payload.pop("aiContentAnalysis")
+    else:
+        payload["aiContentAnalysis"] = expected
+    store = _store([(1, "ai_pro", None, 7.0)])
+    essay = store["writing_essays"][0]
+    essay.update(student_id=student["id"], status="graded", task_type="task2",
+                 essay_text="Fixture essay.", prompt_text="Fixture prompt.")
+    store["writing_feedback"][0].update(
+        feedback_json=original,
+        **{k: 7.0 for k in ("band_main_criterion", "band_coherence_cohesion",
+                           "band_lexical_resource", "band_grammatical_range")},
+    )
+    original_ai = deepcopy(store["writing_feedback"][0])
+    fake = _FakeSB(store)
+
+    with patch.object(admin_writing, "require_admin", AsyncMock(return_value={"id": "fixture-admin"})), \
+         patch.object(admin_writing, "supabase_admin", fake), \
+         patch.object(writing_student, "supabase_admin", fake), \
+         patch.object(essay_service, "supabase_admin", fake), \
+         patch.object(admin_writing, "observe_writing_batch", AsyncMock()), \
+         patch("services.mock_review_workflow.sync_writing_band_for_essay"):
+        saved = await admin_writing.update_feedback(essay_id, payload, authorization=auth)
+        assert saved["status"] == "reviewed" and saved["is_manually_edited"]
+        canonical = (await admin_writing.get_essay(essay_id, authorization=auth))["feedback"]["feedback_json"]
+        assert canonical["aiContentAnalysis"] == expected
+        assert canonical["improvedEssay"] == original["improvedEssay"]
+        composed = deepcopy(store["writing_feedback"][1])
+        await admin_writing.update_feedback(essay_id, payload, authorization=auth)
+        await admin_writing.update_feedback(essay_id, canonical, authorization=auth)
+        assert store["writing_feedback"] == [original_ai, composed]
+        assert (await writing_student.get_my_essay(EID, student=student))["feedback"] is None
+
+        # Release only the in-memory fixture; delivery itself is a separate path.
+        essay["status"] = "delivered"
+        learner = await writing_student.get_my_essay(EID, student=student)
+        assert learner["feedback"]["feedback_json"]["aiContentAnalysis"] == expected
+        assert learner["feedback"]["band_source"] == "ai"
+        clipboard = await admin_writing.render_essay_output(essay_id, authorization=auth)
+        response = await writing_student.export_my_essay_docx(EID, student=student)
+        doc = Document(BytesIO(b"".join([chunk async for chunk in response.body_iterator])))
+        word = [p.text for p in doc.paragraphs]
+
+    for rendered in (clipboard["html"], clipboard["plain_text"], "\n".join(word)):
+        assert "Improved Essay" in rendered
+        if expected is None:
+            assert "Likelihood AI-generated:" not in rendered
+            assert "AI Content Analysis" not in rendered
+        else:
+            assert "AI Content Analysis" in rendered
+            assert f" {case}%" in rendered
+            assert " 100%" not in rendered
 
 
 # ── single source of truth: no admin_edits_json reader remains ────────
