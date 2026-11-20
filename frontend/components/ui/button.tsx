@@ -65,7 +65,12 @@ export function Button(props: ButtonProps) {
         {iconStart ? <span className={styles.icon} aria-hidden="true">{iconStart}</span> : null}
         {children}
       </span>
-      {busy ? <span className={styles.label}>{loadingLabel}</span> : null}
+      {/* Always in the grid so the wider of the two labels sets the width in both states. */}
+      {variant !== 'text' ? (
+        <span className={cx(styles.label, !busy && styles.hidden)} aria-hidden={!busy || undefined}>
+          {loadingLabel}
+        </span>
+      ) : null}
     </span>
   );
 

@@ -34,6 +34,20 @@ describe('Button', () => {
     expect(document.activeElement).toBe(button);
   });
 
+  it('keeps the busy label in the sizing grid while idle, hidden from view and from the accessible name', () => {
+    const { rerender } = render(<Button loadingLabel="Đang lưu bản nháp…">Lưu</Button>);
+    const idle = screen.getByRole('button', { name: 'Lưu' });
+    const idleBusyLabel = Array.from(idle.querySelectorAll('span')).find((el) => el.textContent === 'Đang lưu bản nháp…');
+    expect(idleBusyLabel).toBeTruthy();
+    expect(idleBusyLabel?.getAttribute('aria-hidden')).toBe('true');
+    rerender(<Button loading loadingLabel="Đang lưu bản nháp…">Lưu</Button>);
+    const busy = screen.getByRole('button', { name: 'Đang lưu bản nháp…' });
+    expect(busy).toBe(idle);
+    const busyLabel = Array.from(busy.querySelectorAll('span')).find((el) => el.textContent === 'Đang lưu bản nháp…');
+    expect(busyLabel).toBe(idleBusyLabel);
+    expect(busyLabel?.hasAttribute('aria-hidden')).toBe(false);
+  });
+
   it('text buttons have no loading state', () => {
     render(<Button variant="text" loading>Xem lại đáp án</Button>);
     const button = screen.getByRole('button', { name: 'Xem lại đáp án' });
