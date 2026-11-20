@@ -101,9 +101,11 @@ for (const queueStatus of ['pending', 'failed']) {
   check(`grade load lỗi giữ phạm vi ${queueStatus}/lớp/quá hạn/tìm kiếm/trang`, returnHref === `/admin/writing/queue?mocklane=1&cohort_id=c1&overdue=1&embed=1&queue_status=${queueStatus}&q=Lan+Anh&page=2&page_size=50`, returnHref || 'missing href');
 }
 
+// G02-T12: a status link without its essay goes back to the queue with one plain line.
 await page.goto(`${BASE}/admin/writing/status`, { waitUntil: 'domcontentloaded' });
-await page.getByRole('heading', { name: 'Không biết cần theo dõi bài nào' }).waitFor();
-check('thiếu essay_id fail closed không gọi status endpoint', await page.getByRole('link', { name: 'Mở hàng chờ' }).getAttribute('href') === '/admin/writing/queue?status=grading');
+await page.waitForURL((url) => url.pathname === '/admin/writing/queue');
+await page.getByRole('status').filter({ hasText: 'Liên kết bạn vừa mở chưa đủ thông tin nên bạn được đưa về hàng chờ chấm Writing.' }).waitFor();
+check('thiếu essay_id về hàng chờ kèm một dòng giải thích, bỏ notice khỏi URL', new URL(page.url()).search === '?status=grading', page.url());
 check('không có write ngoài telemetry contract', writes.length === 0, writes.join(', '));
 check('không có lỗi JS', pageErrors.length === 0, pageErrors.join(' | '));
 
