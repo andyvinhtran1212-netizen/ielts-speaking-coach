@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -23,7 +23,10 @@ const DETAIL = read('app', '(authed-admin-listening)', 'admin', 'listening', 'co
 const CSS = read('public', 'css', 'admin-listening-segments-next.css');
 const PLAYER = read('public', 'js', 'components', 'audio-player.js');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
-const BACKEND = readFileSync(join(here, '..', '..', 'backend', 'routers', 'listening', '__init__.py'), 'utf8');
+// routers.listening is a package split into submodules (BACKENDSPLIT-0076); read all of it.
+const LISTENING_PKG = join(here, '..', '..', 'backend', 'routers', 'listening');
+const BACKEND = readdirSync(LISTENING_PKG).filter((name) => name.endsWith('.py')).sort()
+  .map((name) => readFileSync(join(LISTENING_PKG, name), 'utf8')).join('\n');
 const MIGRATION = readFileSync(join(here, '..', '..', 'backend', 'migrations', '208_listening_exercise_block_identity.sql'), 'utf8');
 
 const content = (patch = {}) => ({
