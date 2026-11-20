@@ -69,6 +69,7 @@ class _Query:
             self.db.evidence_queries.append(",".join(str(v) for v in vs))
         return self._add(lambda r: str(r.get(c)) in {str(v) for v in vs})
     def is_(self, c, v): return self._add(lambda r: r.get(c) is None)
+    def gte(self, c, v): return self._add(lambda r: r.get(c) is not None and str(r.get(c)) >= str(v))
     def ilike(self, c, v): return self._add(lambda r: str(r.get(c) or "").lower() == v.replace("\\", "").lower())
 
     def order(self, c, desc=False):

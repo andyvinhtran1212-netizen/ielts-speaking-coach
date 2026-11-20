@@ -143,20 +143,29 @@ def _archived_cohorts(cohort_ids: set[str]) -> set[str]:
     return found
 
 
-def assignment_history(student_ids: Iterable[str], now: datetime,
-                       cohort_ids: Optional[frozenset[str]] = None) -> dict[str, AssignmentHistory]:
-    """Every published class assignment item whose deadline has passed, per
-    student, newest deadline first. An empty ledger row with durable on-time
-    evidence (see :func:`_evidence_at`) counts as handed in. Read only.
+def class_work(student_ids: Iterable[str], now: datetime,
+               cohort_ids: Optional[frozenset[str]] = None) -> dict[str, list[dict[str, Any]]]:
+    """Every published class assignment item of each student, with its
+    effective hand-in time: the ledger ``submitted_at``, or durable on-time
+    evidence when the ledger write failed (see :func:`_evidence_at`). A
+    completion after the deadline is not counted, as the ledger repair (which
+    refuses late completions there) leaves it. Read only.
+
     ``cohort_ids`` (a teacher's scope) keeps only those classes' work, before
     any evidence is read; it is filtered in the query. Work of an archived
     class (``is_active`` false and ``archived_at`` set, as
     ``class_archive_service`` reads it) is left out: it is history, not
     something the learner can still hand in. Raises when a table cannot be
-    read."""
+    read.
+
+    Each row: ``{item_id, assignment_id, cohort_id, title, due_at,
+    submitted_at, handed_in, unconfirmed}`` with datetimes (``due_at`` may be
+    ``None``). ``unconfirmed``: a lesson item (skill ``course``) with an empty
+    ledger but some linked lesson work, whose hand-in a read cannot decide
+    (``handed_in`` is then ``False`` and means nothing)."""
     ids = list(dict.fromkeys(str(s) for s in student_ids if s))
     if cohort_ids is not None and not cohort_ids:
-        return {sid: AssignmentHistory() for sid in ids}
+        return {sid: [] for sid in ids}
     items = _read_items(ids)
     assignment_ids = list({str(i["assignment_id"]) for i in items if i.get("assignment_id")})
     assignments: dict[str, dict] = {}
@@ -171,46 +180,61 @@ def assignment_history(student_ids: Iterable[str], now: datetime,
             return q.order("id")
 
         for row in _paged(build):
-            assignments[str(row["id"])] = row
+            if row.get("status") == "published":
+                assignments[str(row["id"])] = row
     archived = _archived_cohorts({str(a.get("cohort_id")) for a in assignments.values() if a.get("cohort_id")})
     assignments = {k: a for k, a in assignments.items() if str(a.get("cohort_id")) not in archived}
     items = [i for i in items if str(i.get("assignment_id")) in assignments]
     unledgered = [str(i["id"]) for i in items if not i.get("submitted_at") and i.get("id")]
-    lesson = {str(i["id"]) for i in items if str(i["id"]) in set(unledgered)
-              and assignments[str(i["assignment_id"])].get("skill") == "course"}
+    skill_of = {str(i["id"]): assignments[str(i["assignment_id"])].get("skill") for i in items}
+    lesson = {i for i in unledgered if skill_of.get(i) == "course"}
     others = [i for i in unledgered if i not in lesson]
     evidence = _evidence_at(others) if others else {}
     lesson_work = _evidence_at(sorted(lesson), tuple((t, c, None) for t, c in _LESSON_WORK)) if lesson else {}
 
-    out = {sid: AssignmentHistory() for sid in ids}
+    out: dict[str, list[dict[str, Any]]] = {sid: [] for sid in ids}
     for item in items:
-        a = assignments.get(str(item.get("assignment_id")))
-        if not a or a.get("status") != "published":
-            continue
+        a = assignments[str(item["assignment_id"])]
         due = _parse(a.get("due_at"))
-        if due is None or due > now:
-            continue
         submitted = _parse(item.get("submitted_at"))
-        history = out.setdefault(str(item["student_id"]), AssignmentHistory())
-        if submitted is None and str(item.get("id")) in lesson_work:
-            history.unconfirmed = True
-            continue
-        if submitted is None:
+        unconfirmed = submitted is None and str(item.get("id")) in lesson_work
+        if submitted is None and not unconfirmed:
             # A Speaking or Reading/Listening hand-in on time whose ledger write
-            # failed counts as on time. One after the deadline stays missing, as
-            # the ledger repair (which refuses late completions there) leaves it.
+            # failed counts as on time. One after the deadline stays missing.
             proof = evidence.get(str(item.get("id")))
-            if proof is not None and proof <= due:
+            if proof is not None and (due is None or proof <= due):
                 submitted = proof
-        handed_in = submitted is not None or item.get("state") in ("submitted", "graded")
-        history.past_due.append({
-            "title": a.get("title") or "", "due_at": due,
-            "cohort_id": str(a.get("cohort_id") or ""),
-            "missing": not handed_in,
-            "late": not handed_in or (submitted is not None and submitted > due),
+        out.setdefault(str(item["student_id"]), []).append({
+            "item_id": str(item.get("id")), "assignment_id": str(a["id"]),
+            "cohort_id": str(a.get("cohort_id") or ""), "title": a.get("title") or "",
+            "due_at": due, "submitted_at": submitted, "unconfirmed": unconfirmed,
+            "handed_in": not unconfirmed and (submitted is not None or item.get("state") in ("submitted", "graded")),
         })
-    for history in out.values():
-        history.past_due.sort(key=lambda r: r["due_at"], reverse=True)
+    return out
+
+
+def assignment_history(student_ids: Iterable[str], now: datetime,
+                       cohort_ids: Optional[frozenset[str]] = None) -> dict[str, AssignmentHistory]:
+    """The deadline-passed rows of :func:`class_work`, per student, newest
+    deadline first. An unconfirmed row is left out and marks the history
+    undecided."""
+    work = class_work(student_ids, now, cohort_ids)
+    out = {sid: AssignmentHistory() for sid in work}
+    for sid, rows in work.items():
+        for row in rows:
+            due = row["due_at"]
+            if due is None or due > now:
+                continue
+            if row["unconfirmed"]:
+                out[sid].unconfirmed = True
+                continue
+            submitted = row["submitted_at"]
+            out[sid].past_due.append({
+                "title": row["title"], "due_at": due, "cohort_id": row["cohort_id"],
+                "missing": not row["handed_in"],
+                "late": not row["handed_in"] or (submitted is not None and submitted > due),
+            })
+        out[sid].past_due.sort(key=lambda r: r["due_at"], reverse=True)
     return out
 
 
