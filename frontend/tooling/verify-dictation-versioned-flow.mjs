@@ -332,7 +332,14 @@ try {
   ]) await scenario(name, options, async (page, state) => {
     await page.goto(`${BASE}/listening/dictation/session?${query}`);
     const failure = options.ownerError || name.includes('query');
-    await (failure ? page.getByRole('heading', { name: 'Không mở được bài' }) : page.getByText('✓ Đã lưu & xác nhận', { exact: true })).waitFor();
+    // G02-T11: a link without one valid session goes back to Listening, which
+    // explains it in one line; a session the server refuses still errors here.
+    if (name.includes('query')) {
+      await page.waitForURL((url) => url.pathname === '/listening', { timeout: 15_000 });
+      await page.locator('.av-redirect-notice[role="status"]').waitFor();
+    } else {
+      await (failure ? page.getByRole('heading', { name: 'Không mở được bài' }) : page.getByText('✓ Đã lưu & xác nhận', { exact: true })).waitFor();
+    }
     check(`${name} has no learner writes, starts or policy negotiation`, state.calls.filter((c) => c.path.includes('dictation')).every((c) => c.method === 'GET' && c.path === `/api/listening/tests/dictation/session/${sid}`));
     if (options.erasedParent) check('erased owned parent keeps frozen report but cannot guess a content-feedback FK', await page.getByRole('button', { name: '⚑ Báo lỗi' }).isDisabled());
     if (!failure) { await page.reload(); await page.getByText('✓ Đã lưu & xác nhận', { exact: true }).waitFor(); check(`${name} report reload remains policy-specific`, await page.locator(`[data-dictation-policy="${options.legacy ? 'legacy-whitespace-v1' : 'lexical-v2'}"]`).count() === 1); }

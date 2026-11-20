@@ -5,19 +5,41 @@
 Measured at production `27b80a4625fe2d99def6730a7c19dc6d4e35000d`, before
 the hygiene patch. Counts are a dated baseline, not enforced limits.
 
-| Measure | Baseline |
-| --- | ---: |
-| Tracked entries | 7,210 (7,195 regular files, 15 symlinks) |
-| Tracked regular-file bytes | 461.1 MiB |
-| Application source lines | Approximately 252,934 physical lines, excluding tests, tooling, scripts, content, vendor and declarations |
-| Backend router / service Python files | 60 / 147 |
-| HTTP/WebSocket route decorators | 588 (not a count of unique public endpoints) |
-| Next pages / route handlers | 144 / 2 |
-| SQL migrations | 303 |
-| Backend test Python files / frontend test code files | 510 / 587 (including fixtures/helpers) |
-| Canonical feature specs | 11 |
-| Files under docs / Markdown under docs | 417 / 363 |
-| Public asset bytes | 374.1 MiB, about 81% of tracked bytes |
+The 2026-11-18 column was measured at `origin/staging` `cf37b46b` with the
+commands listed under the table. "Not re-measured" means the original method was
+not recorded precisely enough to reproduce; do not compare a new estimate with
+the baseline value.
+
+| Measure | 2026-09-26 baseline | 2026-11-18 (staging `cf37b46b`) |
+| --- | ---: | ---: |
+| Tracked entries | 7,210 (7,195 regular files, 15 symlinks) | 9,148 (9,134 regular files, 14 symlinks) |
+| Tracked regular-file bytes | 461.1 MiB | 541.3 MiB |
+| Application source lines | Approximately 252,934 physical lines, excluding tests, tooling, scripts, content, vendor and declarations | Not re-measured |
+| Backend router / service Python files | 60 / 147 | 67 / 213 |
+| HTTP/WebSocket route decorators | 588 (not a count of unique public endpoints) | Not re-measured |
+| Next pages / route handlers | 144 / 2 | 159 / 2 |
+| SQL migrations | 303 | 365 |
+| Backend test Python files / frontend test code files | 510 / 587 (including fixtures/helpers) | 817 / 797 (including fixtures/helpers) |
+| Canonical feature specs | 11 | 55 |
+| Files under docs / Markdown under docs | 417 / 363 | 603 / 408 |
+| Public asset bytes | 374.1 MiB, about 81% of tracked bytes | 379.4 MiB under `frontend/public`, about 70% of tracked bytes |
+
+Commands for the 2026-11-18 column, run from the repository root:
+
+```bash
+git ls-files | wc -l                                   # tracked entries
+git ls-files -s | awk '$1==120000' | wc -l             # symlinks
+git ls-files -s | awk '$1!=120000{print $4}' | tr '\n' '\0' | du -cb --files0-from=- | tail -1
+ls backend/routers/*.py | wc -l
+find backend/services -name '*.py' | wc -l
+find frontend/app -name page.tsx | wc -l               # route handlers: route.ts
+ls backend/migrations/*.sql | wc -l
+git ls-files backend/tests | grep -c '\.py$'
+git ls-files frontend/tests | grep -cE '\.(mjs|js|cjs|ts|tsx)$'
+ls -d specs/[0-9]*/ | wc -l
+git ls-files docs | wc -l; git ls-files docs | grep -c '\.md$'
+git ls-files -s frontend/public | awk '$1!=120000{print $4}' | tr '\n' '\0' | du -cb --files0-from=- | tail -1
+```
 
 Local virtualenvs, `node_modules`, `.next`, Git objects and recovery backups add
 several GiB. They are distinct from tracked product size. An ignored directory

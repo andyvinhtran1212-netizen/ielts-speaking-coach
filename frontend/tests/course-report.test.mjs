@@ -83,7 +83,7 @@ describe('màn hình nói được bốn điều học viên hỏi', () => {
   });
 
   test('em chọn gì · đáp án là gì · vì sao sai', () => {
-    assert.match(html, /Em chọn/);
+    assert.match(html, /Bạn chọn/);
     assert.match(html, /Đáp án/);
     assert.match(html, /vì sao sai/);
   });

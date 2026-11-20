@@ -101,7 +101,15 @@ is_applied() {
 count=0
 skipped=0
 policy_skipped=0
-for f in $(ls "$MIG_DIR"/*.sql | sort); do
+# Collect the files first, one path per line, so a checkout path with spaces
+# (e.g. "/Volumes/Kingston SSD/...") is not split into words. Plain `while
+# read` keeps this working on macOS bash 3.2, and the loop below reads no stdin
+# from this list, so psql inside it cannot consume file names.
+MIG_FILES=()
+while IFS= read -r f; do
+  MIG_FILES+=("$f")
+done < <(printf '%s\n' "$MIG_DIR"/*.sql | sort)
+for f in "${MIG_FILES[@]}"; do
   base="$(basename "$f")"
   [[ "$base" == "032_rollback.sql" ]] && continue
   # An entry already present in the immutable forward ledger is safe to skip.

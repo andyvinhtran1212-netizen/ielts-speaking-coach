@@ -38,6 +38,10 @@ const GUARDED = Object.freeze({
 const PUBLIC_BY_DESIGN = Object.freeze([
   '/',
   '/pricing',
+  '/terms',
+  '/privacy',
+  '/contact',
+  '/about',
   '/login',
   '/grammar',
   '/grammar/[category]/[slug]',

@@ -10,6 +10,7 @@ import { useSearchParams } from 'next/navigation';
 
 import { useAuth } from '@/lib/auth/auth-provider';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
+import { leaveForParent } from '@/lib/redirect-notice-model.mjs';
 
 type DisplayValue = string | number | null;
 
@@ -210,7 +211,8 @@ export function SpeakingResultBehavior() {
     setErrorState(null);
 
     if (!sittingId) {
-      setErrorState({ key: requestKey, value: 'Thiếu mã lượt thi.', retryable: false });
+      // G02-T11: a link without its sitting goes back to Speaking with a notice.
+      leaveForParent('/speaking');
       return () => controller.abort();
     }
 
