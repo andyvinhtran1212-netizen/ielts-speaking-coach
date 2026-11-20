@@ -2,7 +2,7 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  NOTICE_KEYS, PARENT_LABELS, redirectNoticeHref, redirectNoticeMessage, takeRedirectNotice,
+  NOTICE_KEYS, PARENT_LABELS, firstSearchParams, redirectNoticeHref, redirectNoticeMessage, searchParamText, takeRedirectNotice,
 } from '../lib/redirect-notice-model.mjs';
 
 // G02-T11 (FR-02-010): one plain sentence, page name from our own table.
@@ -12,6 +12,9 @@ describe('redirectNoticeMessage', () => {
       'Liên kết bạn vừa mở chưa đủ thông tin nên bạn được đưa về trang Speaking.');
     assert.equal(redirectNoticeMessage('khong-tim-thay', '/grammar/'),
       'Không tìm thấy nội dung bạn muốn mở nên bạn được đưa về Grammar Wiki.');
+    // G02-T10: a bare /admin/mock-reviews lands on the cockpit's review tab.
+    assert.equal(redirectNoticeMessage('lien-ket-thieu', '/admin/mock-tests'),
+      'Liên kết bạn vừa mở chưa đủ thông tin nên bạn được đưa về trung tâm Mock Test.');
   });
   test('an unknown key shows nothing; an unknown page gets a neutral name', () => {
     assert.equal(redirectNoticeMessage('<script>', '/speaking'), null);
@@ -51,4 +54,27 @@ describe('redirectNoticeHref / takeRedirectNotice', () => {
     assert.deepEqual(takeRedirectNotice('?tab=x'), { key: null, search: '?tab=x' });
     assert.deepEqual(takeRedirectNotice(''), { key: null, search: '' });
   });
+});
+
+// G02-T12: admin pages read their required parameter on the server.
+describe('searchParamText / admin parents', () => {
+  test('trims a value, takes the first of a repeated one, and is empty when absent', () => {
+    assert.equal(searchParamText(' abc '), 'abc');
+    assert.equal(searchParamText(['a', 'b']), 'a');
+    assert.equal(searchParamText([]), '');
+    assert.equal(searchParamText('   '), '');
+    assert.equal(searchParamText(undefined), '');
+  });
+  test('each admin parent has its own name', () => {
+    assert.equal(redirectNoticeMessage('lien-ket-thieu', '/admin/mock-tests'),
+      'Liên kết bạn vừa mở chưa đủ thông tin nên bạn được đưa về trung tâm Mock Test.');
+    for (const path of ['/admin/reading/content', '/admin/classes', '/admin/writing/queue', '/admin/writing/instructor-queue']) {
+      assert.doesNotMatch(redirectNoticeMessage('lien-ket-thieu', path), /trang này\.$/);
+    }
+  });
+});
+
+test('firstSearchParams keeps one value per name', () => {
+  assert.deepEqual(firstSearchParams({ a: ['1', '2'], b: '3', c: undefined }), { a: '1', b: '3', c: undefined });
+  assert.deepEqual(firstSearchParams(undefined), {});
 });

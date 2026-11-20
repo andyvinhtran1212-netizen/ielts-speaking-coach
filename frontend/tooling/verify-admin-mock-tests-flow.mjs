@@ -232,6 +232,20 @@ await page.getByText('Không có phòng thi đang mở').waitFor();
 await page.waitForTimeout(15_500);
 check('polling giữ scope Live rỗng thay vì phục hồi đề đầu tiên từ tab Manage', await page.getByText('Không có phòng thi đang mở').count() === 1 && await page.locator('iframe').count() === 0);
 
+// G02-T10 / G09-T02: the bare review URL (sidebar, old bookmark) lands on the
+// cockpit's review tab with one plain line, never a "missing parameter" error.
+await page.goto(`${BASE}/admin/mock-reviews`, { waitUntil: 'domcontentloaded' });
+await page.waitForURL((url) => url.pathname === '/admin/mock-tests');
+await page.getByRole('heading', { name: 'Trung tâm vận hành Mock Test' }).waitFor();
+const bareNotice = page.locator('.av-redirect-notice');
+await bareNotice.waitFor();
+await page.waitForFunction(() => !new URL(location.href).searchParams.has('notice'));
+check('/admin/mock-reviews trần về tab Nhận & chấm bài kèm một dòng giải thích',
+  new URL(page.url()).searchParams.get('tab') === 'review'
+    && (await bareNotice.innerText()).includes('trung tâm Mock Test')
+    && await page.getByText(/mock_exam_id/).count() === 0,
+  page.url());
+
 await page.setViewportSize({ width: 768, height: 900 });
 const tablet = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, viewport: innerWidth, columns: getComputedStyle(document.querySelector('.mts-cockpit')).gridTemplateColumns.split(' ').length }));
 check('tablet xếp rail và workspace một cột, không tràn ngang', tablet.width <= tablet.viewport && tablet.columns === 1, JSON.stringify(tablet));
