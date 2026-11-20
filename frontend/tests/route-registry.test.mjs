@@ -82,6 +82,12 @@ describe('route registry (FR-012)', () => {
     assert.deepEqual(bad, []);
   });
 
+  test('3c. an admin child is in its parent\'s section (the /admin hub excepted)', () => {
+    for (const e of ROUTES.filter((x) => x.audience === 'admin' && x.parent && x.parent !== '/admin')) {
+      assert.equal(e.section, byRoute.get(e.parent).section, `${e.route}: section ${e.section} but parent ${e.parent} is ${byRoute.get(e.parent).section}`);
+    }
+  });
+
   test('4. entries with requires have parentOnMissing → a live entry without requires', () => {
     for (const e of ROUTES.filter((x) => x.requires.length > 0)) {
       assert.ok(e.parentOnMissing, `${e.route}: requires ${e.requires.join(',')} but no parentOnMissing`);
