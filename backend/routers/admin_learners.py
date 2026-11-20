@@ -16,6 +16,7 @@ API, rather than answered with a guess.
 from __future__ import annotations
 
 import asyncio
+import functools
 import logging
 from typing import Literal, Optional
 from uuid import UUID
@@ -114,9 +115,12 @@ async def _assert_in_scope(scope: StaffScope, person: directory.Person) -> None:
         raise HTTPException(404, "Không tìm thấy học viên")
 
 
-async def _detail(ref: str, person: directory.Person) -> dict:
+async def _detail(ref: str, person: directory.Person, scope: StaffScope | None = None) -> dict:
+    """``scope`` None or admin: everything. A teacher: only their classes' work."""
     thresholds = await _thresholds()
-    summary, failed = await asyncio.to_thread(directory.summary, person, thresholds)
+    cohort_ids = None if scope is None or scope.is_admin else (scope.cohort_ids or frozenset())
+    summary, failed = await asyncio.to_thread(
+        functools.partial(directory.summary, person, thresholds, cohort_ids=cohort_ids))
     return {"ref": ref, "canonical_ref": person.ref, "summary": summary, "sources_failed": failed}
 
 
@@ -131,7 +135,7 @@ async def get_learner_summary(ref: str, authorization: str | None = Header(defau
     scope = await resolve_staff_scope(authorization)
     person = await _person(ref)
     await _assert_in_scope(scope, person)
-    detail = await _detail(ref, person)
+    detail = await _detail(ref, person, scope)
     return {**detail["summary"], "sources_failed": detail["sources_failed"]}
 
 
@@ -140,4 +144,4 @@ async def get_instructor_learner(ref: str, authorization: str | None = Header(de
     scope = await resolve_staff_scope(authorization)
     person = await _person(ref)
     await _assert_in_scope(scope, person)
-    return await _detail(ref, person)
+    return await _detail(ref, person, scope)

@@ -117,10 +117,10 @@ class _DB:
             "cohorts": [{"id": C_A, "name": "Tue–Thu 19:30", "instructor_id": U_TEACH},
                         {"id": C_B, "name": "Sat–Sun 09:00", "instructor_id": U_TEACH_B}],
             "class_assignments": [
-                {"id": "a1", "title": "Buổi 8 · Writing Task 2", "due_at": _ago(days=10), "status": "published"},
-                {"id": "a2", "title": "Buổi 9 · Reading", "due_at": _ago(days=5), "status": "published"},
-                {"id": "a3", "title": "Buổi 10 · Listening", "due_at": _ago(days=2), "status": "published"},
-                {"id": "a4", "title": "Buổi 11 · Speaking", "due_at": (NOW + timedelta(days=3)).isoformat(),
+                {"id": "a1", "cohort_id": C_A, "title": "Buổi 8 · Writing Task 2", "due_at": _ago(days=10), "status": "published"},
+                {"id": "a2", "cohort_id": C_A, "title": "Buổi 9 · Reading", "due_at": _ago(days=5), "status": "published"},
+                {"id": "a3", "cohort_id": C_A, "title": "Buổi 10 · Listening", "due_at": _ago(days=2), "status": "published"},
+                {"id": "a4", "cohort_id": C_A, "title": "Buổi 11 · Speaking", "due_at": (NOW + timedelta(days=3)).isoformat(),
                  "status": "published"},
             ],
             "class_assignment_items": [
@@ -356,6 +356,34 @@ def test_teacher_sees_only_learners_of_their_classes(db, monkeypatch):
             with pytest.raises(HTTPException) as caught:
                 asyncio.run(call(ref, "Bearer x"))
             assert caught.value.status_code == 404
+
+
+def test_a_learner_in_two_teachers_classes_shows_each_teacher_only_their_class(db, monkeypatch):
+    """FR-102: Lan is in Cô Hà's class (C_A) and Thầy Tâm's class (C_B). Each
+    teacher sees only their own class and its work; the admin sees both."""
+    db.rows["student_cohort_memberships"].append(
+        {"id": "m4", "student_id": S_LAN, "cohort_id": C_B, "is_active": True})
+    db.rows["class_assignments"].append(
+        {"id": "b1", "cohort_id": C_B, "title": "Lớp B · Mock test", "due_at": _ago(days=1), "status": "published"})
+    db.rows["class_assignment_items"].append(
+        {"id": "ib1", "assignment_id": "b1", "student_id": S_LAN, "state": "assigned", "submitted_at": None})
+
+    def summary_as(user_id):
+        _as(monkeypatch, db, user_id)
+        return asyncio.run(mod.get_learner_summary(f"u-{U_LAN}", "Bearer x"))
+
+    a = summary_as(U_TEACH)
+    assert [c["id"] for c in a["cohorts"]] == [C_A]
+    assert a["overdue"] == {"count": 2, "latest_title": "Buổi 10 · Listening"}
+    b = summary_as(U_TEACH_B)
+    assert [c["id"] for c in b["cohorts"]] == [C_B]
+    assert b["overdue"] == {"count": 1, "latest_title": "Lớp B · Mock test"}
+    assert "Tue–Thu 19:30" not in repr(b) and "Buổi" not in repr(b)
+    detail_b = asyncio.run(mod.get_instructor_learner(f"u-{U_LAN}", "Bearer x"))["summary"]
+    assert [c["id"] for c in detail_b["cohorts"]] == [C_B] and detail_b["overdue"]["count"] == 1
+    admin = summary_as(U_ADMIN)
+    assert sorted(c["id"] for c in admin["cohorts"]) == sorted([C_A, C_B])
+    assert admin["overdue"] == {"count": 3, "latest_title": "Lớp B · Mock test"}
 
 
 def test_admin_reads_any_summary(db, monkeypatch):

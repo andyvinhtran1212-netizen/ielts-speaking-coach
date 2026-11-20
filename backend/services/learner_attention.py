@@ -89,7 +89,7 @@ def assignment_history(student_ids: Iterable[str], now: datetime) -> dict[str, A
     for offset in range(0, len(assignment_ids), _ID_CHUNK):
         chunk = assignment_ids[offset:offset + _ID_CHUNK]
         for row in _paged(lambda c=chunk: supabase_admin.table("class_assignments")
-                          .select("id, title, due_at, status").in_("id", c).order("id")):
+                          .select("id, cohort_id, title, due_at, status").in_("id", c).order("id")):
             assignments[str(row["id"])] = row
 
     out = {sid: AssignmentHistory() for sid in ids}
@@ -104,12 +104,20 @@ def assignment_history(student_ids: Iterable[str], now: datetime) -> dict[str, A
         handed_in = submitted is not None or item.get("state") in ("submitted", "graded")
         out.setdefault(str(item["student_id"]), AssignmentHistory()).past_due.append({
             "title": a.get("title") or "", "due_at": due,
+            "cohort_id": str(a.get("cohort_id") or ""),
             "missing": not handed_in,
             "late": not handed_in or (submitted is not None and submitted > due),
         })
     for history in out.values():
         history.past_due.sort(key=lambda r: r["due_at"], reverse=True)
     return out
+
+
+def only_cohorts(history: dict[str, AssignmentHistory], cohort_ids: frozenset[str]) -> dict[str, AssignmentHistory]:
+    """The same histories keeping only the work of ``cohort_ids`` (a teacher's
+    classes, FR-102): another teacher's class work never reaches them."""
+    return {sid: AssignmentHistory([r for r in h.past_due if r.get("cohort_id") in cohort_ids])
+            for sid, h in history.items()}
 
 
 def _late_streak(history: AssignmentHistory) -> int:

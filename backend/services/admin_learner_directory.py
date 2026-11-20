@@ -320,9 +320,15 @@ def _speaking_bands(user_id: str) -> list[float]:
 
 
 def summary(person: Person, thresholds: Optional[dict[str, Optional[int]]],
-            *, now: Optional[datetime] = None) -> tuple[dict[str, Any], list[str]]:
+            *, now: Optional[datetime] = None,
+            cohort_ids: Optional[frozenset[str]] = None) -> tuple[dict[str, Any], list[str]]:
     """``(summary, sources_failed)``. A failed source leaves its field
-    ``null`` (and is named); an empty one is an empty list, never a guess."""
+    ``null`` (and is named); an empty one is an empty list, never a guess.
+
+    ``cohort_ids`` is a teacher's scope (``None`` for an admin). With it, the
+    classes, the overdue work and the late streak come only from those
+    classes (FR-102): a learner in two teachers' classes shows each teacher
+    only their own class."""
     now = now or datetime.now(timezone.utc)
     failed: list[str] = []
 
@@ -330,6 +336,8 @@ def summary(person: Person, thresholds: Optional[dict[str, Optional[int]]],
         cohorts: Optional[list[dict]] = cohorts_of([person]).get(person.student_id or "", [])
     except Exception:
         cohorts, failed = None, failed + ["cohorts"]
+    if cohorts is not None and cohort_ids is not None:
+        cohorts = [c for c in cohorts if str(c.get("id")) in cohort_ids]
 
     overdue: Optional[dict[str, Any]] = {"count": 0, "latest_title": None}
     history = {}
@@ -339,6 +347,8 @@ def summary(person: Person, thresholds: Optional[dict[str, Optional[int]]],
         except Exception:
             history, overdue = None, None
         else:
+            if cohort_ids is not None:
+                history = learner_attention.only_cohorts(history, cohort_ids)
             rows = history[person.student_id].overdue
             overdue = {"count": len(rows), "latest_title": rows[0]["title"] if rows else None}
     result = learner_attention.compute([person.attention_input()], thresholds, now=now, history=history)
