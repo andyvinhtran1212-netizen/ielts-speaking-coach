@@ -366,14 +366,17 @@ def test_summary_has_the_seven_fields_of_the_shared_block(db):
 
 
 
-def test_recent_speaking_bands_leave_out_mock_exam_sessions(db, monkeypatch):
-    """FR-104: a mock-exam Speaking session (sitting_id set) is exam work, not
-    a practice band, so neither the admin nor a teacher sees it here."""
+def test_recent_bands_leave_out_mock_exam_work(db):
+    """FR-104: a mock-exam Speaking session or Writing essay (sitting_id set) is
+    exam work, not a practice band."""
     db.rows["sessions"].append({"id": "x-mock", "user_id": U_LAN, "status": "completed", "overall_band": 9.0,
                                 "started_at": _ago(days=1), "sitting_id": "sit-1"})
-    _as(monkeypatch, db, U_TEACH)
-    assert asyncio.run(mod.get_learner_summary(f"u-{U_LAN}", "Bearer x"))["recent_bands"]["speaking"] == [6.5]
-    assert asyncio.run(mod.get_learner(f"u-{U_LAN}", "Bearer x"))["summary"]["recent_bands"]["speaking"] == [6.5]
+    db.rows["writing_essays"].append({"id": "e-mock", "student_id": S_LAN, "status": "delivered",
+                                      "is_flagged": False, "deleted_at": None, "delivered_at": _ago(hours=1),
+                                      "sitting_id": "sit-1", "writing_feedback": {"overall_band_score": 9.0}})
+    bands = asyncio.run(mod.get_learner(f"u-{U_LAN}", "Bearer x"))["summary"]["recent_bands"]
+    assert bands == {"writing": [6.5, 7.0, 7.5, 8.0], "speaking": [6.5]}
+
 
 def test_goal_sources(db):
     minh = asyncio.run(mod.get_learner(f"u-{U_MINH}", "Bearer x"))["summary"]
@@ -434,9 +437,14 @@ def test_a_learner_in_two_teachers_classes_shows_each_teacher_only_their_class(d
     assert "Tue–Thu 19:30" not in repr(b) and "Buổi" not in repr(b)
     detail_b = asyncio.run(mod.get_instructor_learner(f"u-{U_LAN}", "Bearer x"))["summary"]
     assert [c["id"] for c in detail_b["cohorts"]] == [C_B] and detail_b["overdue"]["count"] == 1
+    # Practice bands belong to no class, so neither teacher sees them, on
+    # either teacher route; the admin sees them all.
+    for summary in (a, b, detail_b):
+        assert summary["recent_bands"] == {"writing": None, "speaking": None}
     admin = summary_as(U_ADMIN)
     assert sorted(c["id"] for c in admin["cohorts"]) == sorted([C_A, C_B])
     assert admin["overdue"] == {"count": 3, "latest_title": "Lớp B · Mock test"}
+    assert admin["recent_bands"] == {"writing": [6.5, 7.0, 7.5, 8.0], "speaking": [6.5]}
 
 
 def test_admin_reads_any_summary(db, monkeypatch):

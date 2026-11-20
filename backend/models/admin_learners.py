@@ -61,7 +61,9 @@ class LearnerOverdue(BaseModel):
 
 
 class LearnerRecentBands(BaseModel):
-    # [] no returned work yet; null the source could not be read.
+    # [] no returned work yet. null: the source could not be read (named in
+    # sources_failed), or a teacher is reading (practice bands belong to no
+    # class, FR-102).
     writing: Optional[list[float]]
     speaking: Optional[list[float]]
 

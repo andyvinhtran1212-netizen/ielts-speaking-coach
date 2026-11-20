@@ -309,6 +309,7 @@ def _writing_bands(student_id: str) -> list[float]:
             .select("id, status, is_flagged, delivered_at, "
                     "writing_feedback:writing_feedback_current(overall_band_score)")
             .eq("student_id", student_id).eq("status", "delivered").is_("deleted_at", "null")
+            .is_("sitting_id", "null")   # a mock-exam essay is exam work (FR-104)
             .order("delivered_at", desc=True).limit(12).execute().data or [])
     bands: list[float] = []
     for row in rows:
@@ -370,12 +371,16 @@ def summary(person: Person, thresholds: Optional[dict[str, Optional[int]]],
     failed += result.sources_failed
 
     bands: dict[str, Optional[list[float]]] = {"writing": [], "speaking": []}
-    if person.student_id:
+    if cohort_ids is not None:
+        # A teacher sees only their classes' work (FR-102). Practice bands
+        # belong to no class, so a teacher gets none of them.
+        bands = {"writing": None, "speaking": None}
+    elif person.student_id:
         try:
             bands["writing"] = _writing_bands(person.student_id)
         except Exception:
             bands["writing"], failed = None, failed + ["writing"]
-    if person.user:
+    if person.user and cohort_ids is None:
         try:
             bands["speaking"] = _speaking_bands(str(person.user["id"]))
         except Exception:
