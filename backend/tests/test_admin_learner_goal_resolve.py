@@ -120,6 +120,24 @@ def test_a_failed_write_is_503_and_the_goals_stay(rpc):
     assert (user["target_band"], user["exam_date"]) == (7.5, "2027-02-01")
 
 
+def test_a_failed_read_after_the_write_says_it_was_saved(rpc, monkeypatch):
+    _conflict(rpc)
+    real = mod._person
+    calls = []
+
+    async def person(ref):
+        calls.append(ref)
+        if len(calls) > 2:   # _shown and the route's own lookup succeed; the refresh fails
+            raise HTTPException(503, {"code": "learners_unavailable"})
+        return await real(ref)
+
+    monkeypatch.setattr(mod, "_person", person)
+    with pytest.raises(HTTPException) as caught:
+        _resolve(f"u-{U_LAN}", "admin")
+    assert caught.value.status_code == 503 and caught.value.detail["code"] == "goal_saved_unreadable"
+    assert len(rpc.rpc_calls) == 1   # written once, not repeated
+
+
 def test_a_goal_changed_since_the_page_opened_is_409_and_writes_nothing(rpc):
     _conflict(rpc)
     shown = _shown(f"u-{U_LAN}")

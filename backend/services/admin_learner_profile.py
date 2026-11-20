@@ -32,7 +32,7 @@ from zoneinfo import ZoneInfo
 
 from database import supabase_admin
 from services import learner_attention
-from services.admin_learner_directory import Person
+from services.admin_learner_directory import Person, goals_conflict
 
 logger = logging.getLogger(__name__)
 
@@ -147,9 +147,8 @@ def goal(person: Person) -> dict[str, Any]:
     has_learner = any(v is not None for v in learner.values())
     # A field set on one side only is not a conflict: only a field both sides
     # hold with different values is (the same rule as fn_learner_goal_resolve).
-    pairs = ((admin["target_band"], learner["target_band"]), (admin["target_date"], learner["exam_date"]))
-    conflict = bool(has_admin and has_learner and any(
-        a is not None and b is not None and a != b for a, b in pairs))
+    conflict = bool(has_admin and has_learner and goals_conflict(
+        admin["target_band"], admin["target_date"], learner["target_band"], learner["exam_date"]))
     estimated = _released_mock_overall(str(user["id"])) if person.user else None
     return {"admin": admin, "learner": learner, "conflict": conflict, "estimated_band": estimated}
 

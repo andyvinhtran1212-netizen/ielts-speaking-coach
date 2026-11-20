@@ -81,9 +81,10 @@ async def resolve_learner_goal(ref: str, body: GoalResolveIn, authorization: str
         logger.exception("learner goal: resolve failed")
         raise HTTPException(503, {"code": "goal_write_failed",
                                   "message": "Chưa lưu được mục tiêu. Không có thay đổi nào được ghi; thử lại."}) from exc
-    # Canonical read-back: the goal as now stored, not the value sent.
-    fresh = await _person(person.ref)
+    # Canonical read-back: the goal as now stored, not the value sent. The
+    # write is already committed, so any failure from here on says so.
     try:
+        fresh = await _person(person.ref)
         goal = await asyncio.to_thread(profile.goal, fresh)
     except Exception as exc:
         logger.exception("learner goal: read-back failed")
