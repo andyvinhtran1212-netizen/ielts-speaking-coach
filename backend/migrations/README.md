@@ -29,6 +29,9 @@ taken from the reserve band 501+ of the commercialization register); 381 and 382
 numbers below 501 (bands 383–389, 400–499 and 500) are assigned only by the
 Leader from the commercialization register; the PR that takes one adds its
 row. `380` is Skill Drill homework, #2294.
+`400` is `pending_feature public_library` (LIBRARY-0061 T002, G06 band 400–419):
+five RLS-only Library tables reached only through service_role and the private
+`library-media` bucket; rollback refuses once `library_marks` or bucket objects exist.
 `501` is `pending_feature course_bank_service_write`: since 309 its CHECK
 `quiz_banks_grammar_revision_shape` calls `grammar_quiz_allowed_code`, whose
 EXECUTE the 309/314/339 blanket loops revoke from service_role, so every
