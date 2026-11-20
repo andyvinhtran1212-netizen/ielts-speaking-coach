@@ -12,7 +12,7 @@ export function TabsSection({ title }: { title: string }) {
   return (
     <section id="tabs" className={styles.section} aria-labelledby="tabs-h">
       <h2 id="tabs-h">{title}</h2>
-      <p className={styles.demoLabel}>Thẻ trong trang · ← → chuyển thẻ</p>
+      <p className={styles.demoLabel}>Thẻ trong trang · phím mũi tên trái, phải chuyển thẻ</p>
       <TabsDemo />
       <p className={styles.demoLabel}>Thẻ là liên kết (đổi địa chỉ trang)</p>
       <Tabs
@@ -41,7 +41,7 @@ export function BreadcrumbSection({ title }: { title: string }) {
       />
       <p className={styles.demoLabel}>Quay lại đứng riêng</p>
       <BackLink parentLabel="Listening" href="#breadcrumb" />
-      <p className={styles.note}>Không dùng “← Back”, “Quay lại” không nói về đâu, hay chỉ một mũi tên.</p>
+      <p className={styles.note}>Không dùng “Back” kèm mũi tên, “Quay lại” không nói về đâu, hay chỉ một mũi tên.</p>
     </section>
   );
 }
