@@ -40,6 +40,11 @@ _PAGE = 1000
 class AssignmentHistory:
     """The deadline-passed class assignments of one learner, newest first."""
     past_due: list[dict[str, Any]] = field(default_factory=list)  # {title, due_at, late, missing}
+    # A lesson item (skill "course") with an empty ledger but some linked lesson
+    # work: whether it was handed in, and when, is the ledger repair's call
+    # (all sections, late work allowed), which a read cannot make. Such an item
+    # is left out of past_due, and the learner's history is not decided.
+    unconfirmed: bool = False
 
     @property
     def overdue(self) -> list[dict[str, Any]]:
@@ -90,18 +95,19 @@ _EVIDENCE = (
     ("sessions", "completed_at", ("status", "completed")),
     ("reading_test_attempts", "submitted_at", ("status", "submitted")),
     ("listening_test_attempts", "submitted_at", ("status", "submitted")),
-    ("quiz_sessions", "ended_at", None),
 )
+# Lesson work linked to a lesson item; it can only say "something was done".
+_LESSON_WORK = (("quiz_sessions", "ended_at"), ("course_writing_submissions", "created_at"))
 
 
-def _evidence_at(item_ids: list[str]) -> dict[str, datetime]:
+def _evidence_at(item_ids: list[str], sources=_EVIDENCE) -> dict[str, datetime]:
     """Earliest durable hand-in per class item whose ledger ``submitted_at`` is
-    still empty: a completed Speaking session, a submitted Reading/Listening
-    attempt or a finished lesson quiz linked to the item. Read only: a GET
-    never repairs the ledger (the class pages do), it only refuses to read a
-    failed ledger write as missing work. Raises on a failed read."""
+    still empty: a completed Speaking session or a submitted Reading/Listening
+    attempt linked to the item. Read only: a GET never repairs the ledger (the
+    class pages do), it only refuses to read a failed ledger write as missing
+    work. Raises on a failed read."""
     found: dict[str, datetime] = {}
-    for table, col, extra in _EVIDENCE:
+    for table, col, extra in sources:
         for offset in range(0, len(item_ids), _ID_CHUNK):
             chunk = item_ids[offset:offset + _ID_CHUNK]
 
@@ -134,12 +140,16 @@ def assignment_history(student_ids: Iterable[str], now: datetime,
     for offset in range(0, len(assignment_ids), _ID_CHUNK):
         chunk = assignment_ids[offset:offset + _ID_CHUNK]
         for row in _paged(lambda c=chunk: supabase_admin.table("class_assignments")
-                          .select("id, cohort_id, title, due_at, status").in_("id", c).order("id")):
+                          .select("id, cohort_id, title, skill, due_at, status").in_("id", c).order("id")):
             if cohort_ids is None or str(row.get("cohort_id")) in cohort_ids:
                 assignments[str(row["id"])] = row
     items = [i for i in items if str(i.get("assignment_id")) in assignments]
     unledgered = [str(i["id"]) for i in items if not i.get("submitted_at") and i.get("id")]
-    evidence = _evidence_at(unledgered) if unledgered else {}
+    lesson = {str(i["id"]) for i in items if str(i["id"]) in set(unledgered)
+              and assignments[str(i["assignment_id"])].get("skill") == "course"}
+    others = [i for i in unledgered if i not in lesson]
+    evidence = _evidence_at(others) if others else {}
+    lesson_work = _evidence_at(sorted(lesson), tuple((t, c, None) for t, c in _LESSON_WORK)) if lesson else {}
 
     out = {sid: AssignmentHistory() for sid in ids}
     for item in items:
@@ -150,15 +160,19 @@ def assignment_history(student_ids: Iterable[str], now: datetime,
         if due is None or due > now:
             continue
         submitted = _parse(item.get("submitted_at"))
+        history = out.setdefault(str(item["student_id"]), AssignmentHistory())
+        if submitted is None and str(item.get("id")) in lesson_work:
+            history.unconfirmed = True
+            continue
         if submitted is None:
-            # A hand-in on time whose ledger write failed counts as on time. One
-            # after the deadline stays missing, as the ledger repair (which
-            # refuses late completions) would leave it.
+            # A Speaking or Reading/Listening hand-in on time whose ledger write
+            # failed counts as on time. One after the deadline stays missing, as
+            # the ledger repair (which refuses late completions there) leaves it.
             proof = evidence.get(str(item.get("id")))
             if proof is not None and proof <= due:
                 submitted = proof
         handed_in = submitted is not None or item.get("state") in ("submitted", "graded")
-        out.setdefault(str(item["student_id"]), AssignmentHistory()).past_due.append({
+        history.past_due.append({
             "title": a.get("title") or "", "due_at": due,
             "cohort_id": str(a.get("cohort_id") or ""),
             "missing": not handed_in,
@@ -205,6 +219,7 @@ def compute(learners: Iterable[dict[str, Any]], thresholds: Optional[dict[str, O
         except Exception as exc:
             logger.warning("learner_attention: assignment history unavailable (%s)", type(exc).__name__)
             history = None
+    history_read = history is not None
     if history is None:
         failed.append("assignments")
         history = {}
@@ -214,8 +229,12 @@ def compute(learners: Iterable[dict[str, Any]], thresholds: Optional[dict[str, O
     for p in people:
         found: dict[str, str] = {}
         sid = p.get("student_id")
-        if late_n is not None and sid and "assignments" not in failed:
-            streak = _late_streak(history.get(str(sid), AssignmentHistory()))
+        mine = history.get(str(sid), AssignmentHistory()) if sid else AssignmentHistory()
+        if mine.unconfirmed and "assignments" not in failed:
+            failed.append("assignments")
+        # Undecided only for this learner: the others' streaks are still read.
+        if late_n is not None and sid and history_read and not mine.unconfirmed:
+            streak = _late_streak(mine)
             if streak >= late_n:
                 found["late_streak"] = f"trễ {streak} bài liên tiếp"
         if idle_days is not None and p.get("has_account"):

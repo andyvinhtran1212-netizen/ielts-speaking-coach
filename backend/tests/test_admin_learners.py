@@ -334,10 +334,54 @@ def test_a_completion_after_the_deadline_stays_missing(db):
 
 
 def test_unreadable_hand_in_evidence_is_reported_not_read_as_missing(db):
-    db.fail.add("quiz_sessions")
+    db.fail.add("listening_test_attempts")
     detail = asyncio.run(mod.get_learner(f"u-{U_LAN}", "Bearer x"))
     assert detail["summary"]["overdue"] is None and detail["summary"]["status"]["level"] is None
     assert "assignments" in detail["sources_failed"]
+
+
+def _lesson_item(db, quiz_ended_at):
+    """Lan's Buổi 10 becomes a lesson item (skill "course") with an empty
+    ledger and one ended quiz session linked to it."""
+    for a in db.rows["class_assignments"]:
+        if a["id"] == "a3":
+            a["skill"] = "course"
+    db.rows["quiz_sessions"] = [{"id": "q1", "class_assignment_item_id": "i3", "ended_at": quiz_ended_at}]
+
+
+def test_one_ended_lesson_section_is_not_read_as_a_hand_in(db):
+    """A multi-section lesson with one section done: whether that is a hand-in
+    is the ledger repair's call. The read neither credits it nor counts it
+    missing or late; it says the assignment source is undecided."""
+    _lesson_item(db, _ago(days=3))
+    detail = asyncio.run(mod.get_learner(f"u-{U_LAN}", "Bearer x"))
+    assert "assignments" in detail["sources_failed"]
+    assert detail["summary"]["overdue"] is None
+    assert detail["summary"]["status"]["level"] is None
+    history = learner_attention.assignment_history([S_LAN], NOW)[S_LAN]
+    assert history.unconfirmed and "i3" not in {r["title"] for r in history.past_due}
+    assert [r["title"] for r in history.past_due] == ["Buổi 9 · Reading", "Buổi 8 · Writing Task 2"]
+
+
+def test_late_lesson_work_is_not_counted_missing(db):
+    """Lesson work after the deadline is late, not missing; a read cannot
+    tell which, so the item is left out and the source is reported."""
+    _lesson_item(db, _ago(days=1))
+    out = _list()
+    lan = next(r for r in out["items"] if r["ref"] == f"u-{U_LAN}")
+    assert "assignments" in out["sources_failed"]
+    assert not any(r["code"] == "late_streak" for r in lan["attention"])
+    history = learner_attention.assignment_history([S_LAN], NOW)[S_LAN]
+    assert history.unconfirmed and all(not r["missing"] for r in history.past_due if r["title"].startswith("Buổi 10"))
+    # Only that learner is undecided: another learner's streak is still raised.
+    late = {"title": "x", "due_at": NOW, "cohort_id": C_A, "missing": True, "late": True}
+    other = learner_attention.AssignmentHistory(past_due=[late, dict(late)])
+    res = learner_attention.compute(
+        [{"key": "a", "student_id": "sa", "has_account": False},
+         {"key": "b", "student_id": "sb", "has_account": False}],
+        dict(DEFAULTS), now=NOW, history={"sa": history, "sb": other})
+    assert res.reasons["a"] == [] and [r["code"] for r in res.reasons["b"]] == ["late_streak"]
+    assert res.sources_failed == ["assignments"]
 
 
 def test_teacher_reads_write_nothing(db, monkeypatch):

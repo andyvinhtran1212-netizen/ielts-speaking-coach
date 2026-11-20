@@ -363,8 +363,13 @@ def summary(person: Person, thresholds: Optional[dict[str, Optional[int]]],
         except Exception:
             history, overdue = None, None
         else:
+            if history[person.student_id].unconfirmed:
+                # A lesson item's hand-in cannot be confirmed by a read: say so.
+                failed.append("assignments")
+                overdue = None
             rows = history[person.student_id].overdue
-            overdue = {"count": len(rows), "latest_title": rows[0]["title"] if rows else None}
+            if overdue is not None:
+                overdue = {"count": len(rows), "latest_title": rows[0]["title"] if rows else None}
     result = learner_attention.compute([person.attention_input()], thresholds, now=now, history=history)
     failed += result.sources_failed
 
