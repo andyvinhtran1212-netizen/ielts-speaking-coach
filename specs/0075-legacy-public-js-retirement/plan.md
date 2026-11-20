@@ -28,7 +28,7 @@ Cột "file test nhắc tên" đếm bằng `git grep -l -F <basename> -- fronte
 
 **Lớp 1 — tham chiếu tĩnh/động.**
 
-1. Khôi phục collector Gate F: `git show ef47b02de^:frontend/tooling/gate-f-asset-inventory.mjs > frontend/tooling/gate-f-asset-inventory.mjs` (188 dòng, import `typescript` từ `frontend/node_modules`, gốc repo = `../..` từ file). Chạy `node frontend/tooling/gate-f-asset-inventory.mjs --summary` trên cây hiện tại; **CHƯA KIỂM** nó còn chạy được trên cây `119ad352` (nó được viết khi còn HTML trong `public`) — nếu lỗi, sửa tối thiểu trong T06 hoặc bỏ, ghi trong PR.
+1. Khôi phục collector Gate F cùng test của nó (cả hai bị xoá ở `ef47b02de`): `git show ef47b02de^:frontend/tooling/gate-f-asset-inventory.mjs > frontend/tooling/gate-f-asset-inventory.mjs` và `git show ef47b02de^:frontend/tests/gate-f-asset-inventory.test.mjs > frontend/tests/gate-f-asset-inventory.test.mjs` (130 dòng); test phải qua trên cây hiện tại, nếu không thì sửa tối thiểu cùng collector. Collector: 188 dòng, import `typescript` từ `frontend/node_modules`, gốc repo = `../..` từ file). Chạy `node frontend/tooling/gate-f-asset-inventory.mjs --summary` trên cây hiện tại; **CHƯA KIỂM** nó còn chạy được trên cây `119ad352` (nó được viết khi còn HTML trong `public`) — nếu lỗi, sửa tối thiểu trong T06 hoặc bỏ, ghi trong PR.
 2. Luôn chạy thêm lệnh tên file (FR-005), quét cả mã Next lẫn `public/js`:
 
 ```bash

@@ -2,7 +2,7 @@
 
 PR đợt dùng lớp `high-risk` (spec `risk: high`: xoá file đang được phục vụ công khai `/js/*`), `Spec: LEGACYJS-0075`, chỉ sau khi spec `approved`. T001 (bộ thu thập) không xoá gì nên làm được ngay sau khi spec duyệt dù Q-b1 chưa trả lời. G10-T05 là chính PR spec này. Chỉ một PR đợt mở tại một thời điểm.
 
-- [ ] T001 (G10-T06) Khôi phục collector Gate F từ `ef47b02de^` (hoặc ghi vì sao bỏ) và thêm `frontend/tooling/capture-public-js.mjs`; tự kiểm trên `verify-admin-classes-flow.mjs`. Không xoá file nào. `depends: spec approved`
+- [ ] T001 (G10-T06) Khôi phục collector Gate F **và test của nó** từ `ef47b02de^` (`frontend/tooling/gate-f-asset-inventory.mjs`, `frontend/tests/gate-f-asset-inventory.test.mjs` 130 dòng; hoặc ghi vì sao bỏ) và thêm `frontend/tooling/capture-public-js.mjs`; tự kiểm trên `verify-admin-classes-flow.mjs`. Không xoá file nào. `depends: spec approved`
 - [ ] T002 (G10-T07-W1) `admin-listening-*.js`. `depends: T001, Q-b1 = đồng ý`
 - [ ] T003 (G10-T07-W2) `admin-mock-*.js`, `admin-exam-content.js`. `depends: T002`
 - [ ] T004 (G10-T07-W3a/b) `admin-classes.js`, `admin-students-panel.js`, `admin-users.js`, `admin-access-codes.js`, `admin-codes-util.js`; sửa chú thích `tsconfig.legacy.json`. `depends: T003`

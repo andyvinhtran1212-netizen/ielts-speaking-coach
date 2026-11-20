@@ -16,7 +16,7 @@ Người dùng cuối **không thấy gì thay đổi**; nếu một trang mất
 
 Đo lại thấy ba điều gói việc ghi chưa đúng hoặc chưa có:
 
-1. Bộ thu thập Gate F **còn khôi phục được**: bị xoá ở commit `ef47b02de` (12/09/2026, "chore: retire migration-only frontend tooling"); bản trước đó (`ef47b02de^:frontend/tooling/gate-f-asset-inventory.mjs`, 188 dòng) dùng `typescript` để phân tích. Gói ghi "CHƯA KIỂM".
+1. Bộ thu thập Gate F và test của nó (`frontend/tests/gate-f-asset-inventory.test.mjs`) **còn khôi phục được**: cả hai bị xoá ở commit `ef47b02de` (12/09/2026, "chore: retire migration-only frontend tooling"); bản trước đó (`ef47b02de^:frontend/tooling/gate-f-asset-inventory.mjs`, 188 dòng) dùng `typescript` để phân tích. Gói ghi "CHƯA KIỂM".
 2. Đếm bằng tên file **tính cả chú thích**: ví dụ `app/(authed-mock-result)/mock/result/page.tsx:4` chỉ ghi trong chú thích rằng trang "không còn inject `/js/mock-result.js`", nhưng phép đếm vẫn xếp `mock-result.js` vào nhóm "được Next nhắc". Sai theo hướng an toàn (giữ thừa), nên đợt cuối cần lớp 2 để gỡ những file này.
 3. Script Next đang nạp có thể tự chèn script khác: `public/js/components/aver-admin-chrome.js:765` và `aver-chrome.js:526` chèn `/js/error-reporter.js` bằng `document.createElement('script')`. Lớp 1 phải quét cả `public/js`, không chỉ mã Next.
 
