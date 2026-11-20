@@ -1131,6 +1131,9 @@ BEGIN
          WHERE status = 'awaiting_transfer' AND pay_by > now()
            AND pay_by - now() <= make_interval(hours => p_hours_before)
            AND now() - created_at >= make_interval(hours => p_min_age_hours)
+           -- Already-queued orders never take a batch slot (Codex on 74a845c).
+           AND NOT EXISTS (SELECT 1 FROM public.learner_email_outbox o
+                            WHERE o.dedupe_key = 'order:' || enrollment_orders.id::text || ':pay_reminder')
          ORDER BY pay_by
          LIMIT p_limit
          FOR UPDATE SKIP LOCKED

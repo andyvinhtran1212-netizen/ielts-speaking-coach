@@ -807,6 +807,15 @@ async def test_pay_reminders(pg):
     await con.execute("ALTER TABLE enrollment_orders ENABLE TRIGGER trg_enrollment_orders_transition")
     assert await pg.rpc("fn_enrollment_order_pay_reminders", 24, 6, 100) == {"queued": 1}
     assert await pg.rpc("fn_enrollment_order_pay_reminders", 24, 6, 100) == {"queued": 0}
+    # Queued orders do not fill the batch: with p_limit = 1 each sweep queues a new one.
+    more = [await pg.order(user, await pg.product()) for _ in range(2)]
+    await con.execute("ALTER TABLE enrollment_orders DISABLE TRIGGER trg_enrollment_orders_transition")
+    await con.execute("UPDATE enrollment_orders SET created_at = now() - interval '7 hours', "
+                      "pay_by = now() + interval '20 hours' WHERE id = ANY($1::uuid[])",
+                      [_uuid(o["id"]) for o in more])
+    await con.execute("ALTER TABLE enrollment_orders ENABLE TRIGGER trg_enrollment_orders_transition")
+    assert [await pg.rpc("fn_enrollment_order_pay_reminders", 24, 6, 1) for _ in range(3)] \
+        == [{"queued": 1}, {"queued": 1}, {"queued": 0}]
 
 
 async def _confirm(pg, order_id, allow_expired=False, window=60, received=None, note=None, con=None):
