@@ -31,6 +31,7 @@ export const PARENT_LABELS = Object.freeze({
   '/vocabulary/hub': 'trang Từ vựng',
   '/my-class': 'trang Lớp học',
   '/instructor': 'trang Giảng dạy',
+  '/admin/mock-tests': 'trung tâm Mock Test',
 });
 
 const FALLBACK_LABEL = 'trang này';
