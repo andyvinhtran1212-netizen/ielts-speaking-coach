@@ -134,6 +134,7 @@ unused.
 | [ADMINIA-0074](0074-admin-ia/verification.md) | draft | 0/30 | Draft spec only, merged to staging for review; no task is checked. |
 | [PHONEGATE-0081](0081-full-test-phone-gate/verification.md) | draft | 0/2 | Draft spec only, merged to staging for review; no task is checked. |
 | [COURSETESTRELEASE-0082](0082-course-test-result-release/verification.md) | draft | 0/7 | Draft spec only, merged to staging for review; no task is checked. |
+| [MEDIAOUT-0078](0078-advanced-vocab-media-delivery/verification.md) | draft | 0/9 | Draft spec only (G10-T16/T17), for review; inventory numbers recorded in plan.md, no task is checked. |
 | [BRANDMARK-0083](0083-brand-mark-an-ky/verification.md) | draft | 0/2 | Draft spec only, merged to staging for review; no task is checked. |
 | [GRAMMARFIG-0084](0084-grammar-wiki-figures/verification.md) | draft | 0/2 | Draft spec only, merged to staging for review; no task is checked. |
 | [SENTLAB-0101](0101-course5-sentence-lab/verification.md) | approved | 0/6 | Frontmatter says `approved`; `spec.md` has no approval record section. No task is checked. |

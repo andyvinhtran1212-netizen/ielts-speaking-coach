@@ -1,0 +1,10 @@
+# Tasks
+
+Mỗi task là một PR vào `staging`, lớp `high-risk` (spec `risk: high`, vì bài giao của học viên phụ thuộc URL media bất biến), `Spec: MEDIAOUT-0078`, và chỉ làm sau khi spec `approved` và Q-e1 có câu trả lời. G10-T16 (bước 1 và 3, cùng phần repo của bước 2) và G10-T17 nằm trong chính PR spec này.
+
+- [ ] T001 (G10-T16 bước 2, DB) Chạy truy vấn đếm ở `plan.md` trên staging (Q-e2); anh Andy chạy bản production. Ghi kết quả vào `verification.md` FR-002. `depends: Q-e2`
+- [ ] T002 (G10-T18, D) Thêm `frontend/tooling/advanced-vocab-legacy-rewrites.mjs` và module bảng sinh từ `core30-manifest.json`; rule `beforeFiles` sau cờ `AVER_ADVANCED_VOCAB_LEGACY_REWRITE`; test: bảng khớp manifest, cờ tắt thì 0 rule; chạy `route-ownership-check.mjs`, `verify-csp-nonce-404-flow.mjs`. Thử Scenario 2 và 3 trên preview. `depends: spec approved, Q-e1 = D`
+- [ ] T003 (G10-T18, D) `sync_advanced_vocab_core30.py`: khi cờ bật, không ghi cây legacy, chỉ ghi `versions/` và manifest; giữ kiểm "đã từng deploy" bằng manifest thay vì `_PUBLIC.rglob`; cập nhật test sync. `depends: T002`
+- [ ] T004 (G10-T18) Bật cờ trên staging (anh Andy gõ duyệt env), chạy Scenario 1, 2, 4, 6 bằng tài khoản thử; rồi production sau khi anh duyệt promotion và env. `depends: T003, T001`
+- [ ] T005 (G10-T19, D) Sau 14 ngày production không lỗi (anh Andy xác nhận): `git rm -r` cây legacy (giữ `versions/`), đổi hai test FR-009 sang đọc bảng rewrite và cây `versions/`; cập nhật `README.md:56`, `docs/ADVANCED_VOCAB_CORE30_DEPLOY.md`. `depends: T004, Q-e1 duyệt bằng chữ`
+- [ ] T006 (G10-T18/T19, A hoặc B — chỉ khi anh chọn) Bucket, `upload_advanced_vocab_media.py`, cờ `AVER_ADVANCED_VOCAB_MEDIA_ORIGIN`, thử `Range` trên preview, rồi gỡ `versions/` theo cùng điều kiện 14 ngày. `depends: T005, Q-e1b`
