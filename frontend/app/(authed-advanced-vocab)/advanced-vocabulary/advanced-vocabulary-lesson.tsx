@@ -13,6 +13,7 @@ import {
 } from '@/lib/advanced-vocabulary-model.mjs';
 import type { ApiPostJson } from '@/lib/openapi-contract';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
+import { leaveForParent } from '@/lib/redirect-notice-model.mjs';
 
 type Json = Record<string, any>;
 type PracticeStartWire = ApiPostJson<'/api/advanced-vocab/practice/start'>;
@@ -393,7 +394,8 @@ export function AdvancedVocabularyLesson() {
   const load = useCallback(async () => {
     const params = new URLSearchParams(window.location.search);
     const bank = params.get('bank'); const item = params.get('item');
-    if (!bank || !item) { setError('Liên kết bài học thiếu bank hoặc item.'); setPhase('error'); return; }
+    // G02-T11: a lesson link without its bank or item goes back to Vocabulary.
+    if (!bank || !item) { leaveForParent('/vocabulary/hub'); return; }
     try {
       const ready = await whenGlobalReady(() => !!window.api?.get, 'window.api (Advanced Vocabulary)');
       if (!ready) throw new Error('Chưa thể khởi tạo bài học. Hãy tải lại trang.');

@@ -416,7 +416,7 @@ async def _grade_batch_gemini(
             logger.error("[course-writing] HỎNG CẤU HÌNH (%s): %s — sửa "
                          "COURSE_WRITING_MODEL / khoá API, nó sẽ KHÔNG tự khỏi", name, exc)
             return (_fallback(batch, "Bộ chấm đang lỗi cấu hình, đã báo quản trị. "
-                                     "Bài của em vẫn được lưu."), name,
+                                     "Bài của bạn vẫn được lưu."), name,
                     _BATCH_PROVIDER_FAILURE)
         logger.error("[course-writing] gọi model hỏng: %s", exc)
         return (_fallback(batch, "Bộ chấm tạm thời không dùng được."), name,

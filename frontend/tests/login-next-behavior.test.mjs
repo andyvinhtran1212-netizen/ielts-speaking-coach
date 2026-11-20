@@ -62,7 +62,8 @@ describe('/login native auth entry', () => {
   test('routes only from strict canonical /auth/me truth', () => {
     assert.match(BEHAVIOR, /fetch\(`\$\{window\.api\.base\}\/auth\/me`/);
     assert.match(BEHAVIOR, /normalizeLoginProfile\(payload(?: as AuthMeWire)?\)/);
-    assert.match(BEHAVIOR, /loginDestination\(profile\)/);
+    // G02-T15: the remembered page is passed in; loginDestination re-sanitizes it.
+    assert.match(BEHAVIOR, /loginDestination\(profile, readLoginNext\(\)\)/);
     assert.match(BEHAVIOR, /window\.location\.replace\(destination\)/);
     assert.doesNotMatch(BEHAVIOR, /data\.is_active|data\.onboarding_completed/);
     assert.match(BEHAVIOR, /\.finally\(\(\) => \{[\s\S]*if \(bootPromise === pendingBoot\) bootPromise = null/);

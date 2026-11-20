@@ -1,3 +1,5 @@
+import { sanitizeLearnerNext } from './safe-next.mjs';
+
 const record = (value) => value && typeof value === 'object' && !Array.isArray(value)
   ? value
   : null;
@@ -22,10 +24,15 @@ export function normalizeLoginProfile(value) {
   };
 }
 
-export function loginDestination(profile) {
+/**
+ * @param {{ isActive?: boolean, onboardingCompleted?: boolean } | null} profile
+ * @param {string | null} [next] the page the visitor meant to open; it is
+ *   sanitized again here, and activation and onboarding always come first.
+ */
+export function loginDestination(profile, next = null) {
   if (!profile?.isActive) return 'activate';
   if (!profile.onboardingCompleted) return '/onboarding';
-  return '/home';
+  return sanitizeLearnerNext(next) || '/home';
 }
 
 export function normalizeAccessCode(value) {

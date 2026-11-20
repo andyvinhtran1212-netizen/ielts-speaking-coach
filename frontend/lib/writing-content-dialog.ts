@@ -160,7 +160,7 @@ export function createWritingContentDialog(options: Options) {
       modal.dataset.contentState = 'ready'; modal.setAttribute('aria-busy', 'false');
     } catch (error: any) {
       if (current() && ticket === generation) show(kind, id, 'error',
-        error?.status === 403 ? 'Tài khoản hiện không có quyền đọc nội dung này.' : 'Không tải được nội dung. Em có thể đóng và thử mở lại.');
+        error?.status === 403 ? 'Tài khoản hiện không có quyền đọc nội dung này.' : 'Không tải được nội dung. Bạn có thể đóng và thử mở lại.');
     }
   }
   function activate(kind: Kind, id: string, card: HTMLElement) {

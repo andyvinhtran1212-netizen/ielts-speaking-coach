@@ -38,6 +38,7 @@ import {
   ReviewQuestionContext,
   reviewExplanationUnavailableReason,
 } from '@/components/review-attempt-context';
+import { leaveForParent } from '@/lib/redirect-notice-model.mjs';
 
 type Phase = 'loading' | 'ready' | 'empty' | 'error';
 type PassageMode = 'original' | 'translation';
@@ -530,8 +531,8 @@ export function ReadingReviewWorkspace() {
   useEffect(() => {
     if (!params) return;
     if (!params.attemptId && !params.adminTestId) {
-      setSnapshot(null);
-      setPhase('empty');
+      // G02-T11: a review link without its attempt goes back to Reading.
+      leaveForParent('/reading/test');
       return;
     }
     if (!params.anonId && status === 'initial-loading') return;
