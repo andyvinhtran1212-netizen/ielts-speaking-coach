@@ -21,8 +21,8 @@
 
 ## Rollback and repair
 
-- Trước T005: tắt cờ rồi redeploy. File vẫn trong `public/`, nên phục vụ như cũ. Nếu CDN giữ phản hồi lỗi, purge `/assets/advanced-vocab/*`.
-- Sau T005: `git revert` PR T005 để trả cây legacy về, rồi deploy. Bảng rewrite có thể giữ, vì `beforeFiles` trỏ tới file `versions/` vẫn còn.
+- Trước T005: tắt cờ rồi redeploy. Cây legacy trong `public/` đã được sync ghi đồng bộ với bản hiện hành, nên phục vụ đúng cả sau khi đã phát hành checksum mới (Scenario 6). Nếu CDN giữ phản hồi lỗi, purge `/assets/advanced-vocab/*`.
+- Sau T005: `git revert` PR T005, rồi chạy `sync_advanced_vocab_core30.py --restore-legacy` để dựng cây legacy từ `versions/<lesson>/<checksum hiện hành>/` (bản revert có thể cũ hơn nếu đã phát hành checksum mới sau T005), commit, deploy, rồi mới tắt cờ. Trong lúc đó cờ vẫn bật nên URL legacy không gián đoạn (Scenario 7).
 - Không dữ liệu DB nào phải sửa, vì DB chỉ giữ `lesson_id` và `content_checksum`.
 
 ## Observability

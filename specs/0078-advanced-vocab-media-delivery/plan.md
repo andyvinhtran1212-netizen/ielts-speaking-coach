@@ -73,7 +73,8 @@ Không thấy frontend app code nào dựng URL `/assets/advanced-vocab` riêng.
 - Cờ `AVER_ADVANCED_VOCAB_LEGACY_REWRITE=1` bật rule. Rỗng thì không rule nào (FR-006).
 - Rule nằm ở `beforeFiles`, nên có tác dụng cả khi file legacy còn trên đĩa. Nhờ vậy staging thử được trước T19.
 - `route-ownership-check.mjs` và `verify-csp-nonce-404-flow.mjs` đọc rewrites. T18 chạy cả hai.
-- Sau T19, `sync_advanced_vocab_core30.py` không ghi cây legacy nữa, chỉ ghi `versions/` và manifest. Bảng rewrite tự theo manifest.
+- Trước T19 (T005), `sync_advanced_vocab_core30.py` vẫn ghi cả `versions/` và cây legacy, nên tắt cờ bất cứ lúc nào cũng trả đúng bản hiện hành (FR-005).
+- Từ T19, sync chỉ ghi `versions/` và manifest; bảng rewrite tự theo manifest. `--restore-legacy` dựng lại cây legacy từ `versions/<lesson>/<checksum hiện hành>/` (chép đúng byte, kiểm SHA-256) khi cần rollback sau T19.
 
 ### Thiết kế A/B (chỉ khi Q-e1 chọn)
 
@@ -114,11 +115,12 @@ Xem `rollout.md`. Tóm tắt:
 ## Verification strategy
 
 - FR-001: bảng kê sinh lại bằng lệnh trên và so với tóm tắt ở đây (`3100`, `1482`, `391706682`).
-- FR-003: `curl -sI -H 'Range: bytes=0-99'` trên preview và staging cho mẫu URL sau, kèm so SHA-256 toàn file:
+- FR-003: hai hợp đồng kiểm riêng. URL có checksum so với SHA-256 trong bảng kê `5987bc018`. URL legacy so với file cùng đường dẫn ở `versions/<lesson>/<checksum hiện hành theo manifest lúc kiểm>/`. `curl -sI -H 'Range: bytes=0-99'` trên preview và staging cho mẫu URL sau, kèm so SHA-256 toàn file:
   - 30 URL legacy `full_test.mp3`;
   - 31 URL `versions/…/full_test.mp3`;
   - 30 URL `vocab/` ngẫu nhiên;
   - 2 hình ADV-T11 hai phiên bản.
+- FR-005: thứ tự bắt buộc trên staging: bật cờ → phát hành một checksum mới cho bài thử (Scenario 4) → tắt cờ → kiểm audio, ảnh, `Range` cho URL legacy và hai URL có checksum (Scenario 6). Scenario 7 chạy trên nhánh preview trước T005.
 - FR-006: so `routes-manifest.json` khi cờ tắt với `5987bc018`.
 - FR-007: test đơn vị của script tải lên (A/B), hoặc test bảng rewrite so manifest (D).
 - FR-009: hai test hiện có chuyển sang đọc bảng kê hoặc bảng rewrite; chạy cả trước và sau gỡ file.

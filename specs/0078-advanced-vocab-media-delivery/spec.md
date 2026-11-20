@@ -67,9 +67,16 @@ Media phải giữ URL bất biến (`docs/ADVANCED_VOCAB_CORE30_DEPLOY.md`). B�
   - Repo: làm trong PR này, xem `plan.md`.
   - Staging: chỉ `SELECT`, khi Q-e2 cho phép.
   - Production: chỉ `count`, do anh Andy chạy.
-- **FR-003:** Sau khi file rời khỏi cây, mọi URL `/assets/advanced-vocab/**` từng phục vụ ở `5987bc018`, cả dạng `/<lesson>/…` và `versions/<lesson>/<checksum>/…`, vẫn trả đúng byte của SHA-256 trong bảng kê. Request `Range` nhận 206 đúng đoạn (trực tiếp, hoặc sau một redirect 308 với phương án B).
-- **FR-004:** `sync_advanced_vocab_core30.py` ghi media của phiên bản mới tới nơi lưu mới và cập nhật bảng định tuyến (D: bảng rewrite legacy → checksum hiện hành), không ghi vào `frontend/public/assets/advanced-vocab` khi cờ bật.
-- **FR-005:** Có đường quay lại đã thử trên staging. Tắt cờ thì phục vụ lại từ `public/` (khi file còn). Sau T19, `git revert` PR gỡ file thì trả lại file.
+- **FR-003:** Sau khi file rời khỏi cây, mọi URL `/assets/advanced-vocab/**` từng phục vụ ở `5987bc018` vẫn trả 200/206, theo hai hợp đồng khác nhau:
+  - **URL có checksum** `versions/<lesson>/<checksum>/…`: byte **bất biến**, đúng SHA-256 trong bảng kê ở `5987bc018`, mãi mãi.
+  - **URL legacy** `/<lesson>/…`: byte của **phiên bản hiện hành** theo `core30-manifest.json` lúc phục vụ, tức là đúng file cùng đường dẫn tương đối ở `versions/<lesson>/<content_checksum hiện hành>/`. Ở `5987bc018`, hai cách hiểu này trùng nhau (plan.md, lệch 0). Sau khi phát hành checksum mới, URL legacy đổi theo, như hiện nay sync vẫn làm.
+  - Request `Range` nhận 206 đúng đoạn (trực tiếp, hoặc sau một redirect 308 với phương án B).
+- **FR-004:** `sync_advanced_vocab_core30.py` ghi media của phiên bản mới tới nơi lưu mới và cập nhật bảng định tuyến. Phạm vi cấm ghi khác nhau theo phương án:
+  - **D:** vẫn ghi `frontend/public/assets/advanced-vocab/versions/<lesson>/<checksum>/` như hiện nay. Bảng rewrite legacy trỏ checksum mới. Cây legacy `/<lesson>/` **vẫn được ghi đồng bộ** cho tới khi T005 gỡ nó; từ T005, sync không tạo lại file legacy nào.
+  - **A/B:** không ghi vào `frontend/public/assets/advanced-vocab` khi cờ bật.
+- **FR-005:** Có đường quay lại đã thử trên staging **sau khi đã phát hành ít nhất một checksum mới lúc cờ bật**:
+  - Trước T005: tắt cờ thì phục vụ lại từ `public/`. Cây legacy trên đĩa đúng phiên bản hiện hành, vì sync vẫn ghi đồng bộ (FR-004 D).
+  - Sau T005: `git revert` PR gỡ file rồi chạy `sync_advanced_vocab_core30.py --restore-legacy` để dựng lại cây legacy từ `versions/<lesson>/<checksum hiện hành theo manifest>/`. Lệnh chép đúng byte và kiểm SHA-256, không phụ thuộc bản cũ trong lịch sử Git. Chỉ sau đó mới tắt cờ.
 - **FR-006:** Cờ rỗng hoặc tắt nghĩa là hành vi giống hệt `5987bc018`: không rewrite, không redirect, file phục vụ từ `public/`.
 - **FR-007:** Một object đã phục vụ ở đường dẫn `versions/<lesson>/<checksum>/…` không bao giờ bị ghi đè bằng byte khác. Script tải lên và sync từ chối khi SHA-256 đích khác nguồn.
 - **FR-008:** CSP không phải nới: `media-src 'self' blob: https:` và `img-src 'self' data: blob: https:` đã cho nguồn https. Với D, mọi thứ cùng origin.
@@ -98,7 +105,7 @@ Media phải giữ URL bất biến (`docs/ADVANCED_VOCAB_CORE30_DEPLOY.md`). B�
 ### Scenario 4: phát hành phiên bản mới
 
 - **Given** cờ bật, khi `sync_advanced_vocab_core30.py --write` phát hành checksum mới cho một bài,
-- **Then** media của checksum mới có ở nơi lưu mới trước khi manifest đổi. Media của checksum cũ vẫn còn, không bị ghi đè. Bảng rewrite legacy (D) trỏ checksum mới.
+- **Then** media của checksum mới có ở nơi lưu mới (D: `versions/<lesson>/<checksum mới>/`) trước khi manifest đổi. Media của checksum cũ vẫn còn, không bị ghi đè. Bảng rewrite legacy (D) trỏ checksum mới. Trước T005, cây legacy trên đĩa cũng đã mang byte của checksum mới; sau T005, không file legacy nào được tạo.
 
 ### Scenario 5: tải lên bị lệch
 
@@ -106,11 +113,17 @@ Media phải giữ URL bất biến (`docs/ADVANCED_VOCAB_CORE30_DEPLOY.md`). B�
 - **When** chạy script tải lên (không `--dry-run`),
 - **Then** script dừng với mã lỗi khác 0, in đường dẫn lệch và không ghi đè (FR-007).
 
-### Scenario 6: rollback
+### Scenario 6: rollback sau khi đã phát hành bản mới
 
-- **Given** cờ bật trên staging,
+- **Given** cờ bật trên staging, và Scenario 4 vừa phát hành một checksum mới cho một bài (bài thử, nội dung đổi một file audio),
 - **When** tắt cờ và redeploy,
-- **Then** Scenario 1–2 vẫn qua, vì file còn trong `public/` trước T19.
+- **Then** URL legacy của bài đó trả byte của checksum **mới** (không quay về bản cũ, không 404 với file chỉ có ở bản mới), và audio, ảnh, `Range` → 206 đều qua cho cả URL legacy lẫn hai URL có checksum (cũ và mới).
+
+### Scenario 7: khôi phục sau khi đã gỡ cây legacy
+
+- **Given** T005 đã gỡ cây legacy (thử trên một nhánh preview), và đã có một checksum mới phát hành sau T005,
+- **When** revert PR T005, chạy `--restore-legacy`, rồi tắt cờ,
+- **Then** cây legacy trên đĩa trùng đúng byte với `versions/<lesson>/<checksum hiện hành>/` cho cả 30 bài, và các kiểm ở Scenario 6 đều qua.
 
 ## Edge cases
 
@@ -119,7 +132,7 @@ Media phải giữ URL bất biến (`docs/ADVANCED_VOCAB_CORE30_DEPLOY.md`). B�
 - Redirect 308 (phương án B) làm URL cuối khác origin. Trình phát `<audio>` theo redirect được. Một request `fetch` có `credentials` sẽ cần CORS ở bucket. Hiện frontend chỉ phát qua `new Audio(url)` (`components/vocabulary-audio-button.tsx:47`) và `<audio src>` (`advanced-vocabulary-lesson.tsx:292`), không `fetch`, nên không cần CORS. T18 kiểm lại điều này.
 - `ADV-T11` có hai checksum. Phiên bản cũ có 52 file, trong đó 51 trùng với phiên bản mới.
 - File lớn nhất là 6.630.129 byte (`ADV-T17/listening/full_test.mp3`), dưới giới hạn upload mặc định của Supabase Storage.
-- Với D, URL legacy luôn trỏ phiên bản **hiện hành**. Hiện cũng vậy, vì sync chép phiên bản mới đè lên cây legacy. Hành vi không đổi.
+- Với D, URL legacy luôn trỏ phiên bản **hiện hành** (FR-003). Hiện cũng vậy, vì sync chép phiên bản mới đè lên cây legacy. Hành vi không đổi. Bất biến byte chỉ áp cho URL có checksum.
 
 ## Success criteria
 
