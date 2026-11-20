@@ -1,14 +1,14 @@
 ---
 id: LIBRARY-0061
 title: Anyone can read the public Library of Writing samples, Writing guides, Speaking questions with synthetic-voice model answers, Grammar and Vocabulary without an account, and signed-in learners keep read and saved marks
-status: draft
+status: approved
 risk: high
 owner: product
 ---
 
 # Anyone can read the public Library of Writing samples, Writing guides, Speaking questions with synthetic-voice model answers, Grammar and Vocabulary without an account, and signed-in learners keep read and saved marks
 
-Status: **draft** — soạn ngày 20/11/2026 cho nhiệm vụ `G06-T01` (thương mại hoá 2026-11), từ `docs/proposals/commercialization-2026-11/GOI-06-thu-vien-cong-khai.md` mục 1–10 (bản trên `staging`, gồm các dòng "Khớp chéo 18/11" và "Cập nhật 18/11 chiều") và `00-QUY-UOC-CHUNG.md` mục 2. Chưa dòng mã nào của Thư viện công khai chạy theo spec này; các hợp đồng kỹ thuật là đề xuất đã kiểm trên giấy với mã ở `staging` ngày 20/11/2026. Chỉ anh Andy duyệt; khi duyệt, câu trả lời ghi vào `approval-decision.md` cùng thư mục, nguyên văn kèm thời điểm, và `status` đổi sang `approved`. Số spec `0061` và dải migration **400–419** lấy từ sổ cấp số ở `01-KE-HOACH-TONG.md` mục 6.
+Status: **approved** — anh Andy duyệt ngày 20/11/2026 lúc 16:49 (`approval-decision.md`). Soạn ngày 20/11/2026 cho nhiệm vụ `G06-T01` (thương mại hoá 2026-11), từ `docs/proposals/commercialization-2026-11/GOI-06-thu-vien-cong-khai.md` mục 1–10 (bản trên `staging`, gồm các dòng "Khớp chéo 18/11" và "Cập nhật 18/11 chiều") và `00-QUY-UOC-CHUNG.md` mục 2. Chưa dòng mã nào của Thư viện công khai chạy theo spec này; các hợp đồng kỹ thuật là đề xuất đã kiểm trên giấy với mã ở `staging` ngày 20/11/2026. Chỉ anh Andy duyệt; khi duyệt, câu trả lời ghi vào `approval-decision.md` cùng thư mục, nguyên văn kèm thời điểm, và `status` đổi sang `approved`. Số spec `0061` và dải migration **400–419** lấy từ sổ cấp số ở `01-KE-HOACH-TONG.md` mục 6.
 
 Đánh số yêu cầu: `FR-06-NNN` của gói → `FR-NNN`, giữ nguyên số. Yêu cầu có hậu tố chữ `FR-06-005b` nhận số mới **FR-063** (sau số cuối FR-062). Chỗ nào trong gói ghi `FR-06-005b` thì đọc là FR-063.
 
