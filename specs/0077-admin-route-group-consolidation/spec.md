@@ -23,7 +23,7 @@ Ngoài `(authed-admin-writing-grade)` (gói đã ghi), thêm hai group **giữ r
 
 ## Problem
 
-`frontend/app/` có 93 group ở `119ad352`; 39 là `(authed-admin-*)` với 75 `page.tsx`. Mỗi group có `layout.tsx` riêng; 38/39 layout gọi `AuthedShell` với cùng `chrome="admin"`, `bodyClass="av-page av-admin-surface"`, `utilityLayer={false}`, `tailwindLayer={false}`, cùng 4 sheet nền (`aver-design/admin-surface.css` có `dataAverAdminSurface`, `admin-components.css`, `admin-buttons.css`, `admin-status.css`) và 1–15 sheet trang; mọi layout có `export const instant = false;`.
+`frontend/app/` có 80 route group ở `119ad352`; 39 là `(authed-admin-*)` với 75 `page.tsx`. Mỗi group có `layout.tsx` riêng; 38/39 layout gọi `AuthedShell` với cùng `chrome="admin"`, `bodyClass="av-page av-admin-surface"`, `utilityLayer={false}`, `tailwindLayer={false}`, cùng 4 sheet nền (`aver-design/admin-surface.css` có `dataAverAdminSurface`, `admin-components.css`, `admin-buttons.css`, `admin-status.css`) và 1–15 sheet trang; mọi layout có `export const instant = false;`.
 
 Hệ quả:
 
@@ -57,7 +57,7 @@ Hệ quả:
 - **FR-002:** Trang admin mới (G09) đặt dưới `(authed-admin)` không cần tạo layout gọi `AuthedShell`; nếu cần sheet trang riêng, nó có group con với layout chỉ phát `<link>`.
 - **FR-003:** `(authed-admin-writing-grade)` (khác `bodyClass`, có Tailwind), `(authed-admin-reading-preview)` và `(authed-admin-writing-tips)` (có `extraScripts`) giữ group riêng.
 - **FR-004:** Sheet trang của một group cũ chỉ áp lên đúng các trang của group đó: không layout nào đặt theo đoạn URL dùng chung (`admin/`, `admin/writing/`, `admin/grammar/`, `admin/reading/`, `admin/speaking/`) phát sheet trang.
-- **FR-005:** Điều hướng phía client từ trang admin A sang trang admin B cho cùng tập stylesheet trong DOM và cùng ảnh chụp như tải trực tiếp B.
+- **FR-005:** Điều hướng phía client từ trang admin A sang trang admin B cho cùng tập stylesheet trong DOM và cùng ảnh chụp như tải trực tiếp B. Vì sau khi gộp `AuthedShell`, `AuthProvider` và `SupabaseRuntimeBoundary` **không còn remount** giữa hai trang admin trong `(authed-admin)` (hôm nay chúng remount ở mỗi lần đổi group), trạng thái giữ lại qua điều hướng cũng phải bằng tải trực tiếp: mục sidebar đang chọn của `aver-admin-chrome`, kết quả cổng kích hoạt tài khoản (`activationGate`) và class của `<body>` (`BodyClassBridge`).
 - **FR-006:** `route-ownership-check.mjs`, `route-ledger-matches-app.test.mjs`, `workflow-path-coverage.test.mjs`, `authed-shell.test.mjs` qua sau mỗi PR; mọi đường dẫn group cũ trong test/tooling/CI/ledger được đổi trong cùng PR (không để test qua vì không còn đọc file).
 - **FR-007:** Mỗi PR chuyển tối đa 6 group và sửa tối đa 30 file test.
 
@@ -73,7 +73,7 @@ Hệ quả:
 
 - **Given** đang ở `/admin/classes`
 - **When** bấm sidebar sang `/admin/feedback`
-- **Then** ảnh chụp `/admin/feedback` sau điều hướng client giống ảnh tải trực tiếp; `document.querySelectorAll('link[rel=stylesheet]')` cho cùng danh sách href như khi tải trực tiếp (FR-005)
+- **Then** ảnh chụp `/admin/feedback` sau điều hướng client giống ảnh tải trực tiếp; `document.querySelectorAll('link[rel=stylesheet]')` cho cùng danh sách href như khi tải trực tiếp; mục sidebar đang chọn là "feedback" (không còn "classes"), `document.body.className` bằng tải trực tiếp, và cổng kích hoạt cho cùng kết quả (tài khoản chưa kích hoạt vẫn bị chặn như khi tải trực tiếp) (FR-005)
 
 ### Scenario 3 — rời trang có nhiều sheet
 

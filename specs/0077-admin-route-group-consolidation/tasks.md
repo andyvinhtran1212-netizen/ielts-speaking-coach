@@ -2,7 +2,7 @@
 
 Mỗi task một PR vào `staging`, lớp `feature`, `Spec: ADMINGROUP-0077`, chỉ sau khi spec `approved`. G10-T13 là chính PR spec này.
 
-- [ ] T001 (G10-T14) Thí điểm: tạo `(authed-admin)/layout.tsx`; chuyển `(authed-admin-error-logs)`, `(authed-admin-feedback)`, `(authed-admin-foot-traffic)` thành group con với `<link>` thường; đo `<link precedence>` trên một nhánh tạm để so (không merge); dán `<head>` trước/sau, DOM sau điều hướng client, ảnh mốc. Nếu bằng chứng xấu → dừng, hỏi Q-d1 với phương án ~8 group. `depends: spec approved; ảnh mốc 3 trang (TESTPOLICY-0057 T03 hoặc thêm trong PR này)`
+- [ ] T001 (G10-T14) Thí điểm: tạo `(authed-admin)/layout.tsx`; chuyển `(authed-admin-error-logs)`, `(authed-admin-feedback)`, `(authed-admin-foot-traffic)` thành group con với `<link>` thường; đo `<link precedence>` trên một nhánh tạm để so (không merge); dán `<head>` trước/sau, DOM sau điều hướng client (stylesheet, mục sidebar đang chọn, class `<body>`, cổng kích hoạt với một tài khoản chưa kích hoạt trong fixture), ảnh mốc. Nếu bằng chứng xấu → dừng, hỏi Q-d1 với phương án ~8 group. `depends: spec approved; ảnh mốc 3 trang (TESTPOLICY-0057 T03 hoặc thêm trong PR này)`
 - [ ] T002 (G10-T15-1) hệ thống còn lại: `system`, `usage`, `mfa`, `overview`. `depends: T001, Andy trả lời Q-d1`
 - [ ] T003 (G10-T15-2) `users`, `students`, `classes`, `instructors`. `depends: T002`
 - [ ] T004 (G10-T15-3) `grammar`, `grammar-analytics`, `grammar-articles`, `grammar-recommend`, `vocab`. `depends: T003`
