@@ -1,7 +1,10 @@
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 
 import { AdminAccessGate } from '@/components/admin-access-gate';
+import { mockTestsHref } from '@/lib/admin-mock-tests-model.mjs';
+import { redirectNoticeHref, searchParamText } from '@/lib/redirect-notice-model.mjs';
 import { AdminMockPacing } from './admin-mock-pacing';
 
 export const metadata: Metadata = {
@@ -13,7 +16,9 @@ async function AdminMockPacingBody({ searchParams }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
-  const sittingId = typeof params.sitting === 'string' ? params.sitting : '';
+  const sittingId = searchParamText(params.sitting);
+  // G02-T12: pacing is opened from a student in the live room.
+  if (!sittingId) redirect(redirectNoticeHref(mockTestsHref('live')));
   return (
     <aver-admin-chrome active="mock-tests" subsection="live">
       <AdminAccessGate>
