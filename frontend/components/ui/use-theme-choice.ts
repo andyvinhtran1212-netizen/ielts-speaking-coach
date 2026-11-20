@@ -13,7 +13,7 @@
  */
 import { useCallback, useSyncExternalStore } from 'react';
 
-import { applyTheme, getEffectiveTheme, getStoredTheme, getSystemTheme, setStoredTheme } from '@/lib/theme-toggle.mjs';
+import { applyTheme, getStoredTheme, getSystemTheme, setStoredTheme } from '@/lib/theme-toggle.mjs';
 
 import { syncThemeColor } from './theme-color';
 
@@ -24,13 +24,18 @@ const STORAGE_KEY = 'av-theme';
 const DARK_QUERY = '(prefers-color-scheme: dark)';
 const listeners = new Set<() => void>();
 
+// Set only when localStorage refused the last choice (private mode, blocked
+// site data): the pick then lasts for this page instead of doing nothing.
+let memoryChoice: ThemeChoice | null = null;
+
 function currentChoice(): ThemeChoice {
-  return (getStoredTheme() as ThemeMode | null) ?? 'system';
+  return memoryChoice ?? (getStoredTheme() as ThemeMode | null) ?? 'system';
 }
 
 function applyCurrent(): void {
-  applyTheme(getEffectiveTheme());
-  syncThemeColor(currentChoice());
+  const choice = currentChoice();
+  applyTheme(choice === 'system' ? getSystemTheme() : choice);
+  syncThemeColor(choice);
 }
 
 function notify(): void {
@@ -50,7 +55,7 @@ function attachShared(): () => void {
   };
   const mq = typeof window.matchMedia === 'function' ? window.matchMedia(DARK_QUERY) : null;
   const onDevice = () => {
-    if (!getStoredTheme()) applyCurrent();
+    if (currentChoice() === 'system') applyCurrent();
     notify();
   };
   window.addEventListener('storage', onStorage);
@@ -89,7 +94,10 @@ export function useThemeChoice(): ThemeChoiceState {
   const value = useSyncExternalStore(subscribe, snapshot, serverSnapshot);
   const [choice, device] = value ? (value.split('|') as [ThemeChoice, ThemeMode]) : [null, 'light' as const];
   const setChoice = useCallback((next: ThemeChoice) => {
-    setStoredTheme(next === 'system' ? null : next);
+    const stored = next === 'system' ? null : next;
+    setStoredTheme(stored);
+    // setStoredTheme swallows storage errors; a read-back tells whether it held.
+    memoryChoice = getStoredTheme() === stored ? null : next;
     applyCurrent();
     notify();
   }, []);

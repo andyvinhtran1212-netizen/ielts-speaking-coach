@@ -173,3 +173,30 @@ describe('ThemeChoiceGroup', () => {
     expect(screen.getByRole('button', { name: 'Giao diện: Tối. Đổi giao diện' })).toBeTruthy();
   });
 });
+
+describe('blocked localStorage', () => {
+  it('Sáng/Tối still take effect for this page when every storage call throws', () => {
+    const blocked = () => { throw new DOMException('blocked', 'SecurityError'); };
+    const spies = (['getItem', 'setItem', 'removeItem'] as const).map((m) => vi.spyOn(Storage.prototype, m).mockImplementation(blocked));
+    try {
+      render(<ThemeMenu />);
+      fireEvent.click(within(openMenu()).getByRole('menuitemradio', { name: 'Tối' }));
+      expect(theme()).toBe('dark');
+      expect(metas()).toEqual([AV2_THEME_COLOR.dark, AV2_THEME_COLOR.dark]);
+      const items = within(openMenu()).getAllByRole('menuitemradio');
+      expect(items.map((i) => i.getAttribute('aria-checked'))).toEqual(['false', 'true', 'false']);
+      setDevice(true);
+      setDevice(false);
+      expect(theme()).toBe('dark');
+      fireEvent.click(within(screen.getByRole('menu')).getByRole('menuitemradio', { name: 'Theo thiết bị' }));
+      expect(theme()).toBe('light');
+      expect(screen.getByRole('button', { name: 'Giao diện: Theo thiết bị. Đổi giao diện' })).toBeTruthy();
+    } finally {
+      for (const spy of spies) spy.mockRestore();
+    }
+    // Storage works again: the next pick is stored and the page copy is dropped.
+    fireEvent.click(within(openMenu()).getByRole('menuitemradio', { name: 'Sáng' }));
+    expect(localStorage.getItem('av-theme')).toBe('light');
+    expect(theme()).toBe('light');
+  });
+});
