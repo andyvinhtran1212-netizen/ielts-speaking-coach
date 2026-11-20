@@ -127,6 +127,7 @@ draft -> approved -> implementing -> verified -> shipped
 | COURSETESTRELEASE-0082 | Course test results stay sealed on every learner read path until a teacher releases them at a chosen level, unless the test returns results on submit | draft | critical | [spec](0082-course-test-result-release/spec.md) |
 | BRANDMARK-0083 | The An ky mark is the one logo, favicon, app icon and link preview image of the site, generated from a single geometry source | draft | medium | [spec](0083-brand-mark-an-ky/spec.md) |
 | GRAMMARFIG-0084 | Grammar Wiki articles show numbered, accessible sentence diagrams written as semantic figure blocks, and a malformed block never hides the article | draft | medium | [spec](0084-grammar-wiki-figures/spec.md) |
+| CLASSRESULT-0085 | Teachers open one result page per class assignment with five blocks from one aggregate API, and give work to saved learner groups through one shared component | draft | high | [spec](0085-class-assignment-result/spec.md) |
 | SENTLAB-0101 | Course 5 learners practise 45 sentence-writing sessions with AI coaching that never reveals the answer before they rewrite | approved | high | [spec](0101-course5-sentence-lab/spec.md) |
 
 Progress and remaining acceptance are reconciled in [the implementation status ledger](IMPLEMENTATION_STATUS.md). A deployed application does not by itself close a feature acceptance gate.
