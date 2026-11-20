@@ -268,15 +268,30 @@ def _module_identity(path: str) -> tuple[str, str]:
 
 
 def _star_sources(body: list[ast.stmt], package: str) -> list[str]:
-    """Modules named by top-level ``from X import *`` (relative ones resolved)."""
+    """Modules named by top-level ``from X import *`` (relative ones resolved),
+    plus each ``from . import sub`` that a top-level ``_reexport(sub)`` copies
+    into the package (BACKENDSPLIT-0076)."""
+    def resolve(node: ast.ImportFrom) -> str:
+        base = node.module or ""
+        if node.level:
+            parent = package.split(".")[:len(package.split(".")) - node.level + 1]
+            base = ".".join(part for part in [*parent, base] if part)
+        return base
+
     found = []
+    submodules = {}
     for node in body:
         if isinstance(node, ast.ImportFrom) and any(alias.name == "*" for alias in node.names):
-            base = node.module or ""
-            if node.level:
-                parent = package.split(".")[:len(package.split(".")) - node.level + 1]
-                base = ".".join(part for part in [*parent, base] if part)
-            found.append(base)
+            found.append(resolve(node))
+        elif isinstance(node, ast.ImportFrom) and node.level:
+            for alias in node.names:
+                submodules[alias.asname or alias.name] = ".".join(
+                    part for part in [resolve(node), alias.name] if part)
+        elif (isinstance(node, ast.Expr) and isinstance(node.value, ast.Call)
+              and isinstance(node.value.func, ast.Name) and node.value.func.id == "_reexport"
+              and len(node.value.args) == 1 and isinstance(node.value.args[0], ast.Name)
+              and node.value.args[0].id in submodules):
+            found.append(submodules[node.value.args[0].id])
     return found
 
 

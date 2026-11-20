@@ -849,6 +849,19 @@ def test_star_reexported_package_names_are_followed():
     assert sorted(f.callee for f in findings) == ["app.pkg._common._helper", "app.services.work.load"]
 
 
+def test_reexported_submodule_names_are_followed():
+    # BACKENDSPLIT-0076: ``from . import sub`` + ``_reexport(sub)`` puts every name
+    # of a route submodule into the package; calls left in __init__ still reach them.
+    findings = scan_sources({
+        "app/pkg/__init__.py": ("from . import sub\n_reexport(sub)\n"
+                                "async def f():\n    _helper()\n    load()"),
+        "app/pkg/sub.py": ("from app.services.work import load\n"
+                           "def _helper():\n    db.table('x').select('*').execute()"),
+        "app/services/work.py": "def load():\n    db.table('y').select('*').execute()",
+    })
+    assert sorted(f.callee for f in findings) == ["app.pkg.sub._helper", "app.services.work.load"]
+
+
 def test_storage_signing_helpers_with_bucket_parameters_are_followed():
     findings = scan("""
         def sign(bucket):
