@@ -6,7 +6,8 @@
   and an unreadable scope fails closed (503), never "every class".
 * PATCH /admin/cohorts/{id} — instructor_id (an active instructor or admin,
   else 422 invalid_instructor), weekly_schedule and start_date; the teacher
-  change goes through fn_set_cohort_teacher, which logs it.
+  change goes through fn_set_cohort_teacher, which logs it. A teacher change
+  sent with is_active is refused (422) before anything is written.
 * GET /admin/cohorts and /{id}/members carry `instructor: {id, name} | null`.
 
 The SQL runs on PostgreSQL in test_migration_441_cohort_teacher_schedule.py.
@@ -250,6 +251,24 @@ async def test_a_failed_teacher_write_is_reported_and_nothing_else_is_saved(db):
         await _patch(COHORT_A, instructor_id=TEACHER_B, name="Lớp mới")
     assert caught.value.status_code == 500
     assert db.rows["cohorts"][0]["name"] == "IELTS 6.5 tối 2-4"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_active", [False, True])
+async def test_teacher_change_with_archive_or_restore_is_refused_before_any_write(
+        db, monkeypatch, is_active):
+    lifecycle_calls = []
+    monkeypatch.setattr(mod.class_archive_service, "archive_class",
+                        lambda *a, **k: lifecycle_calls.append(("archive", k)) or {"status": "archived"})
+    monkeypatch.setattr(mod.class_archive_service, "restore_class",
+                        lambda *a, **k: lifecycle_calls.append(("restore", k)) or {"status": "restored"})
+    before = [dict(r) for r in db.rows["cohorts"]]
+    with pytest.raises(HTTPException) as caught:
+        await _patch(COHORT_A, is_active=is_active, instructor_id=TEACHER_B)
+    assert caught.value.status_code == 422
+    assert caught.value.detail["code"] == "teacher_and_lifecycle_together"
+    assert lifecycle_calls == [] and db.rpc_calls == []
+    assert db.rows["cohorts"] == before
 
 
 # ── Reads ───────────────────────────────────────────────────────────────────

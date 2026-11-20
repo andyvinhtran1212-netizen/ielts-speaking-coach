@@ -239,6 +239,15 @@ async def update_cohort(
         raise HTTPException(400, "Không có trường nào để cập nhật")
     if body.is_active is None and body.archive_reason is not None:
         raise HTTPException(400, "Lý do chỉ dùng khi lưu trữ hoặc khôi phục lớp")
+    # Archive/restore and the teacher change are two RPCs in two transactions.
+    # Sent together, a failed teacher change would leave the class archived or
+    # restored behind a 500, so the pair is refused before anything is written.
+    if body.is_active is not None and teacher_change:
+        raise HTTPException(422, {
+            "code": "teacher_and_lifecycle_together",
+            "message": "Không thể đổi giáo viên cùng lúc với lưu trữ hoặc khôi phục lớp. "
+                       "Vui lòng thực hiện từng thao tác riêng.",
+        })
     try:
         reason = class_archive_service.normalize_reason(body.archive_reason)
     except ValueError:
@@ -325,8 +334,8 @@ def _update_cohort_sync(
                 "p_actor_id": actor_id, "p_actor_email": teacher.get("actor_email"),
             }).execute().data
         except Exception:
-            if receipt is not None and receipt.get("status") in ("archived", "restored"):
-                raise _lifecycle_failed(cohort_id, context="teacher after lifecycle") from None
+            # update_cohort refuses is_active + instructor_id together, so no
+            # archive/restore has committed when this RPC fails.
             raise _lifecycle_failed(cohort_id, context="teacher") from None
         if teacher_receipt is None:
             raise HTTPException(404, "Không tìm thấy lớp")
