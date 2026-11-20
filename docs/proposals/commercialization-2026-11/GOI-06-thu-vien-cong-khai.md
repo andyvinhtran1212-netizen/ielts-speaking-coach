@@ -228,7 +228,7 @@ Thêm có giới hạn trong `frontend/tooling/content-security-policy.mjs`: `fr
 | `GET /writing-guides`, `/{slug}` | không | bài `writing_tips` `published` có `content_type in ('knowledge','tip')`, kèm `groups[]` (mục 10 câu 4) | Không động vào hai route học viên hiện có. |
 | `GET /speaking`, `/{slug}`, `/speaking/index` | không | tương tự | Chỉ `published` và `sample_text` không rỗng. |
 | `GET /me/marks?shelf=` | có | `{marks:[{item_key, kind}]}` | Exempt khỏi cổng kích hoạt (tài khoản chưa có mã dùng được). |
-| `PUT /me/marks/{shelf}/{item_key}/{kind}` · `DELETE` cùng path | có | `204` | Idempotent; `item_key` phải tồn tại và `published` (không cho ghi rác). |
+| `PATCH /me/marks/{shelf}/{item_key}/{kind}` · `DELETE` cùng path | có | `204` | Idempotent; `item_key` phải tồn tại và `published` (không cho ghi rác). |
 
 Mọi GET công khai: `cacheable_json` + `Last-Modified` từ `max(updated_at)`; thêm vào `ACTIVATION_EXEMPT_ROUTES` (lý do: "public Library"). Router đăng ký với `dependencies=_ACTIVE_LEARNER` như mọi router học viên (`backend/main.py` dòng 266), để một route thêm sau này mà quên khai báo thì mặc định bị cổng chặn; mọi route của bảng trên (kể cả `me/*`) được thêm vào `ACTIVATION_EXEMPT_ROUTES` có chủ đích. Sinh lại `frontend/types/api.d.ts`.
 
@@ -375,8 +375,8 @@ Theo khuôn `import_writing_prompts.py`:
 
 ### G06-T16 — Dấu đã đọc/đã lưu và cột "Của bạn" (high-risk: ghi dữ liệu người dùng)
 - Đầu vào: mục 5.2 `library_marks`, 5.7 `me/marks`.
-- Việc làm: API `GET/PUT/DELETE /api/library/me/marks…` (exempt có chủ đích, kiểm `item_key` tồn tại + `published`); hook client `useLibraryMarks(shelf)`; cột "Của bạn" ở T09; "Đã đọc" ở T14 (a); Speaking cột "Bạn" chỉ có đã đọc/đã lưu (đề đã luyện: mục 10 câu 6).
-- Nghiệm thu: test backend: người A không đọc/ghi dấu của B; `item_key` không tồn tại → 404; PUT hai lần → một hàng; tài khoản `is_active=false` dùng được; xoá tài khoản → dấu xoá theo (FK cascade); test React: bật/tắt tại chỗ, trạng thái "Đang lưu…", lỗi trả lại trạng thái cũ và báo chữ.
+- Việc làm: API `GET/PATCH/DELETE /api/library/me/marks…` (exempt có chủ đích, kiểm `item_key` tồn tại + `published`); hook client `useLibraryMarks(shelf)`; cột "Của bạn" ở T09; "Đã đọc" ở T14 (a); Speaking cột "Bạn" chỉ có đã đọc/đã lưu (đề đã luyện: mục 10 câu 6).
+- Nghiệm thu: test backend: người A không đọc/ghi dấu của B; `item_key` không tồn tại → 404; PATCH hai lần → một hàng; tài khoản `is_active=false` dùng được; xoá tài khoản → dấu xoá theo (FK cascade); test React: bật/tắt tại chỗ, trạng thái "Đang lưu…", lỗi trả lại trạng thái cũ và báo chữ.
 - Vướng mắc → cách gỡ: client không được ghi thẳng Supabase REST (SECWRITE-0022, INACTIVEWRITE-0035) → chỉ qua backend; test `backend/tests/test_activation_gate_inventory.py` buộc mỗi route `me/*` có dòng exempt lý do "own library marks; no paid work".
 - Ước lượng: 1,5 phiên · 4.
 
