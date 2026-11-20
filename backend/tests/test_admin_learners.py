@@ -70,6 +70,9 @@ class _Query:
         return self._add(lambda r: str(r.get(c)) in {str(v) for v in vs})
     def is_(self, c, v): return self._add(lambda r: r.get(c) is None)
     def gte(self, c, v): return self._add(lambda r: r.get(c) is not None and str(r.get(c)) >= str(v))
+    # Only the blackeye hidden-test filter uses or_; no fixture holds such a
+    # test, so it keeps every row.
+    def or_(self, *_a, **_k): return self
     def ilike(self, c, v): return self._add(lambda r: str(r.get(c) or "").lower() == v.replace("\\", "").lower())
 
     def order(self, c, desc=False):
@@ -134,10 +137,10 @@ class _DB:
             "cohorts": [{"id": C_A, "name": "Tue–Thu 19:30", "instructor_id": U_TEACH},
                         {"id": C_B, "name": "Sat–Sun 09:00", "instructor_id": U_TEACH_B}],
             "class_assignments": [
-                {"id": "a1", "cohort_id": C_A, "title": "Buổi 8 · Writing Task 2", "due_at": _ago(days=10), "status": "published"},
-                {"id": "a2", "cohort_id": C_A, "title": "Buổi 9 · Reading", "due_at": _ago(days=5), "status": "published"},
-                {"id": "a3", "cohort_id": C_A, "title": "Buổi 10 · Listening", "due_at": _ago(days=2), "status": "published"},
-                {"id": "a4", "cohort_id": C_A, "title": "Buổi 11 · Speaking", "due_at": (NOW + timedelta(days=3)).isoformat(),
+                {"id": "a1", "cohort_id": C_A, "title": "Buổi 8 · Writing Task 2", "skill": "writing", "due_at": _ago(days=10), "status": "published"},
+                {"id": "a2", "cohort_id": C_A, "title": "Buổi 9 · Reading", "skill": "reading", "due_at": _ago(days=5), "status": "published"},
+                {"id": "a3", "cohort_id": C_A, "title": "Buổi 10 · Listening", "skill": "listening", "due_at": _ago(days=2), "status": "published"},
+                {"id": "a4", "cohort_id": C_A, "title": "Buổi 11 · Speaking", "skill": "speaking", "due_at": (NOW + timedelta(days=3)).isoformat(),
                  "status": "published"},
             ],
             "class_assignment_items": [
@@ -328,6 +331,38 @@ def test_an_on_time_hand_in_whose_ledger_write_failed_is_not_missing(db):
     s = asyncio.run(mod.get_learner(f"u-{U_LAN}", "Bearer x"))["summary"]
     assert s["overdue"] == {"count": 1, "latest_title": "Buổi 9 · Reading"}
     assert s["status"]["reasons"] == []
+
+
+def _drill_with_dictation(db, dictation):
+    """Lan's Buổi 10 is a Listening Skill Drill that requires dictation of
+    sections 1 and 2; her listening attempt was submitted on time (3 days
+    ago, due 2 days ago) but the ledger write failed."""
+    for a in db.rows["class_assignments"]:
+        if a["id"] == "a3":
+            a["content_config"] = {"skill_drill": {"dictation_required": True, "sections": [1, 2]}}
+    db.rows["listening_test_attempts"] = [{"id": "lt1", "class_assignment_item_id": "i3",
+                                           "status": "submitted", "submitted_at": _ago(days=3)}]
+    db.rows["dictation_sessions"] = [
+        {"id": f"d{n}", "class_assignment_item_id": "i3", "section_num": n, "completed_at": at}
+        for n, at in dictation]
+    return asyncio.run(mod.get_learner(f"u-{U_LAN}", "Bearer x"))["summary"]
+
+
+def test_a_drill_without_its_required_dictation_is_still_missing(db):
+    s = _drill_with_dictation(db, [(1, _ago(days=3, hours=-1))])   # section 2 never done
+    assert s["overdue"] == {"count": 2, "latest_title": "Buổi 10 · Listening"}
+    assert s["status"]["reasons"][0]["code"] == "late_streak"
+
+
+def test_a_drill_with_its_dictation_done_before_the_deadline_is_handed_in(db):
+    s = _drill_with_dictation(db, [(1, _ago(days=3, hours=-1)), (2, _ago(days=3, hours=-2))])
+    assert s["overdue"] == {"count": 1, "latest_title": "Buổi 9 · Reading"}
+    assert s["status"]["reasons"] == []
+
+
+def test_a_drill_whose_dictation_finished_after_the_deadline_stays_missing(db):
+    s = _drill_with_dictation(db, [(1, _ago(days=3, hours=-1)), (2, _ago(days=1))])
+    assert s["overdue"]["count"] == 2
 
 
 def test_a_completion_after_the_deadline_stays_missing(db):
