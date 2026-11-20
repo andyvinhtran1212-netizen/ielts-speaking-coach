@@ -36,7 +36,7 @@ COHORT_ARCHIVED_STAFF_MESSAGE = (
     "Lớp đã lưu trữ — khôi phục lớp trước khi thêm học viên hoặc giao bài."
 )
 COHORT_ARCHIVED_LEARNER_MESSAGE = (
-    "Lớp đã lưu trữ — bài này không nhận bài nộp mới. Bài và bản nháp của em vẫn được giữ."
+    "Lớp đã lưu trữ — bài này không nhận bài nộp mới. Bài và bản nháp của bạn vẫn được giữ."
 )
 
 _COUNT_KEYS = ("active_members", "open_writing_gives", "open_class_items", "unused_class_codes")

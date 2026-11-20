@@ -19,10 +19,22 @@ and must not be "filled in" by tooling:
 
 ## Finding the next number
 
-Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-11-12 the highest is `380`
-(Skill Drill homework, #2294); the next new migration is `381`, subject to the
-shared migration register (ask the Leader before taking it).
+Take the next number after the highest `present` or `reserved` row in
+[`register.tsv`](register.tsv), add your row (`reserved`, owner = your PR or
+task ID) in the same PR as the file, and change it to `present` when the file
+lands. Do **not** assume the sequence is dense. As of 2026-11-18 the highest is `501`
+(GRAMMARAUDIT-0019 FR-008 service_role EXECUTE on `grammar_quiz_allowed_code`,
+taken from the reserve band 501+ of the commercialization register); 381 and 382 are reserved for FU-2281
+(Leader decision, 2026-11-18), so the next new migration is `502`. The free
+numbers below 501 (bands 383–389, 400–499 and 500) are assigned only by the
+Leader from the commercialization register; the PR that takes one adds its
+row. `380` is Skill Drill homework, #2294.
+`501` is `pending_feature course_bank_service_write`: since 309 its CHECK
+`quiz_banks_grammar_revision_shape` calls `grammar_quiz_allowed_code`, whose
+EXECUTE the 309/314/339 blanket loops revoke from service_role, so every
+service_role write of `quiz_banks` failed with 42501. 501 grants that one
+predicate back (non-definer, immutable, reads no table); re-run it after any
+re-run of 309, 314 or 339.
 `379` is present: PC-J562, the 0037 FR-008 Listening import source skip
 (assigned by the Leader). Migration `376` is pending for BLACKEYE-0052 admission;
 377 is reserved for Black Eye PR2, renamed `377_exercise_book_cohort_grants.sql`.
@@ -41,13 +53,14 @@ It refuses published/public Black Eye content under SHARE locks with a 5-second
 lock timeout. Re-apply replaces the trigger atomically using DROP/CREATE and
 checks trigger/security/ACL postconditions before commit; a ledger change still
 requires a separate reviewed decision. No PostgreSQL 14+ live-version assumption
-is needed. Reservations 370–375 remain held by their owners; do not reuse them.
+is needed. Of 370–375, 371 is FREETRIAL-0047 and 372 is FLASHCARD-0048; 370 and
+373–375 were released on 2026-11-18 (see `register.tsv`). Do not reuse any of them.
 `369` is PC-J620, the 339 grammar_quiz definer search paths.
 `368` is PC-J619 (#2242); `367` is PC-J612 (#2243); `366` is PC-J611, #2241;
 `365` is PC-J603, #2238; `363` is PC-J538, `361` is PC-J358, #2180; `360` is
 PC-J192, INSTRUCTORGIVE-0044. Check staging, every open PR and the migration
-register before taking a number. 348–351 are reserved for other
-work, `364` is held by PC-J544 (#2240, SVCPRIV-0042 T001), and 353–359 without a file here may be held by open PRs: none may be
+register before taking a number. 349–350 are reserved (348 was released on
+2026-11-18), `364` is held by PC-J544 (#2240, SVCPRIV-0042 T001), and 354 was released on 2026-11-18: none of these may be
 reused.
 The runner applies any unapplied file regardless of order.
 Numbers 321–326 belong to 321 WRITINGRATE-0025, 322 AIOPS-0024 (#1837), 323
@@ -432,7 +445,7 @@ group: the Leader applies it with
 `MIGRATION_FEATURES=listening_import_source_skip` under the advisory-locked
 runner, staging first after 353; merging does not apply 379.
 
-348–350 remain allocated to other jobs; do not reuse them. 351 is PC-J220,
+349–350 remain allocated to other jobs (348 was released on 2026-11-18); do not reuse them. 351 is PC-J220,
 allocated by the Leader on 2026-10-29 (350 belongs to PC-J170).
 
 Migration `344` (PC-J131R, RLSCLEANUP-0039) drops the 29 policies calling

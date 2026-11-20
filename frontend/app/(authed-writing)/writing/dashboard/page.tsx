@@ -24,7 +24,7 @@ import { WritingBehavior } from './writing-behavior';
 
 export const metadata: Metadata = {
   // Byte-faithful với <title> của bản legacy
-  title: 'Bài viết của em — Aver Learning',
+  title: 'Bài viết của bạn — Aver Learning',
   robots: { index: false, follow: false },
 };
 

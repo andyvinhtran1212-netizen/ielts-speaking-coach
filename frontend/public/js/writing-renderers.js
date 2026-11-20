@@ -87,7 +87,7 @@
 
   function emptyShape(msg) {
     // audit #4.2 (+ Codex F4) — a NEUTRAL default: this helper is shared by
-    // REQUIRED renderers (overview, criteria, improved, ai-content) too, so we
+    // REQUIRED renderers (overview, criteria, improved) too, so we
     // must NOT claim "không áp dụng" — a required section rendering empty is a
     // regression, not an inapplicable section, and mislabelling it would hide the
     // bug. The old "Chưa có nội dung" read like a failed grade; this states
@@ -532,21 +532,36 @@
   }
 
   // ── Section 12 — AI Content ───────────────────────────────────────
-  function renderAIContent(v) {
-    if (isEmpty(v) || typeof v !== 'object' || Array.isArray(v)) return emptyShape();
-    var lik = parseFloat(v.likelihood);
-    if (isNaN(lik)) lik = 0;
-    if (lik > 0 && lik <= 1) lik = lik * 100;
-    lik = Math.max(0, Math.min(100, lik));
-    var fillCls = lik >= 70 ? 'likelihood-high' : (lik >= 30 ? 'likelihood-mid' : 'likelihood-low');
+  function readAIContent(v) {
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+    var lik = v.likelihood;
+    // Saved likelihood is an integer percentage. Historic integer strings
+    // are accepted by the export model too, but unrelated text/fractions are not.
+    if (typeof lik === 'string' && /^[+-]?\d+(?:\.0+)?$/.test(lik.trim())) lik = Number(lik);
+    var likelihood = Number.isInteger(lik) && lik >= 0 && lik <= 100 ? lik : null;
+    var explanation = typeof v.explanation === 'string' && v.explanation.trim() ? v.explanation : '';
+    return likelihood !== null || explanation ? { likelihood: likelihood, explanation: explanation } : null;
+  }
 
-    var html = '<div class="likelihood-row">' +
-      '<span class="likelihood-label">Xác suất AI viết</span>' +
-      '<div class="likelihood-track"><div class="likelihood-fill ' + fillCls + '" style="width:' + lik.toFixed(0) + '%;"></div></div>' +
-      '<span class="likelihood-pct">' + lik.toFixed(0) + '%</span>' +
-    '</div>';
-    if (v.explanation) {
-      html += '<div class="prose-block" style="margin-top:0.5rem;">' + renderString(String(v.explanation)) + '</div>';
+  function hasAIContent(v) {
+    return readAIContent(v) !== null;
+  }
+
+  function renderAIContent(v) {
+    var data = readAIContent(v);
+    if (!data) return emptyShape();
+    var lik = data.likelihood;
+    var html = '';
+    if (lik !== null) {
+      var fillCls = lik >= 70 ? 'likelihood-high' : (lik >= 30 ? 'likelihood-mid' : 'likelihood-low');
+      html = '<div class="likelihood-row">' +
+        '<span class="likelihood-label">Xác suất AI viết</span>' +
+        '<div class="likelihood-track"><div class="likelihood-fill ' + fillCls + '" style="width:' + lik + '%;"></div></div>' +
+        '<span class="likelihood-pct">' + lik + '%</span>' +
+      '</div>';
+    }
+    if (data.explanation) {
+      html += '<div class="prose-block" style="margin-top:0.5rem;">' + renderString(data.explanation) + '</div>';
     }
     return html;
   }
@@ -657,6 +672,7 @@
     SECTION_RENDERERS:        SECTION_RENDERERS,
     SECTION_KEYS:             SECTION_KEYS,
     renderInstructorNote:     renderInstructorNoteValue,
+    hasAIContent:             hasAIContent,
     isEmpty:                  isEmpty,
     emptyShape:               emptyShape,
   };

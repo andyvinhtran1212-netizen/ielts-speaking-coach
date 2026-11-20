@@ -320,7 +320,7 @@ def test_unlinked_writing_learner_keeps_the_not_linked_403(path):
         response = _client().get(f"/api/writing/{path}", headers=AUTH)
     assert response.status_code == 403
     assert response.json()["detail"] == (
-        "Em chưa được xếp lớp, Writing sẽ mở khi giáo viên giao bài"
+        "Bạn chưa được xếp lớp, Writing sẽ mở khi giáo viên giao bài"
     )
     assert db.writes() == []
 
@@ -338,7 +338,7 @@ def test_mass_code_writing_learner_without_a_class_gets_the_not_in_class_message
          patch.object(writing_student, "supabase_admin", db):
         response = _client().get(f"/api/writing/{path}", headers=AUTH)
     assert response.status_code == 403
-    assert response.json()["detail"] == "Em chưa được xếp lớp, Writing sẽ mở khi giáo viên giao bài"
+    assert response.json()["detail"] == "Bạn chưa được xếp lớp, Writing sẽ mở khi giáo viên giao bài"
     assert "chưa được link" not in response.text
     permissions.assert_not_called()
     assert db.writes() == []

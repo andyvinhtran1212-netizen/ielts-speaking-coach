@@ -281,6 +281,39 @@ async def log_unpriced_usage_async(**kwargs: Any) -> None:
     await _insert_async(_unpriced_row(**kwargs))
 
 
+def _openai_chat_row(
+    *, user_id: str | None, session_id: str | None, model: str,
+    input_tokens: int, output_tokens: int, cache_read_tokens: int = 0,
+    **context: Any,
+) -> dict[str, Any]:
+    """OpenAI Chat Completions. `input_tokens` excludes cached prompt tokens;
+    `output_tokens` already includes reasoning tokens (OpenAI bills them as
+    completion tokens). A model without a catalog row in `ai_pricing` is
+    recorded with its token counts and `cost_source='unpriced'`."""
+    cost, pricing_version = estimate_token_cost(
+        "openai", model,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        cache_read_tokens=cache_read_tokens,
+    )
+    return _row(
+        user_id=user_id,
+        session_id=session_id,
+        service="openai",
+        model=model,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        cache_read_tokens=cache_read_tokens,
+        cost_usd_est=cost,
+        pricing_version=pricing_version,
+        **context,
+    )
+
+
+async def log_openai_chat_async(**kwargs: Any) -> None:
+    await _insert_async(_openai_chat_row(**kwargs))
+
+
 def log_gemini_response(
     response: object,
     *,

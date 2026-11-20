@@ -17,7 +17,7 @@ from services.grammar_content import grammar_service
 
 router = APIRouter(tags=["sitemap"])
 
-_BASE = "https://averlearning.com"
+_BASE = "https://www.averlearning.com"
 _TODAY = datetime.now(timezone.utc).date().isoformat()  # Mục 32 (B7): UTC, not local date.today()
 
 

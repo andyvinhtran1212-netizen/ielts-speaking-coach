@@ -15,15 +15,18 @@ const GRAMMAR_TITLES = Object.freeze({
   'G-error-clinic-dangling-modifiers': 'Quick Check — Dangling Modifiers',
 });
 
+// G02-T08 (FR-02-007): a learner never sees a bank's internal code. Without a
+// known Grammar name the stored title is shown, else a neutral fallback.
+export const QUIZ_BANK_FALLBACK_LABEL = 'Bộ câu hỏi';
+
 /** @param {string | null | undefined} code @param {string | null | undefined} [title] @param {string | null | undefined} [skillArea] */
 export function quizHistoryBankDisplay(code, title, skillArea) {
-  const canonical = typeof code === 'string' ? code.replace(/~[a-f0-9]{16}$/, '') : '';
+  // Revision banks carry `~<16 hex>`; a `-<16 hex>` tail was reported in the
+  // 09b audit, so both resolve to the same canonical Grammar name.
+  const canonical = typeof code === 'string' ? code.replace(/[~-][a-f0-9]{16}$/, '') : '';
+  const ownTitle = typeof title === 'string' && title.trim() ? title : '';
   if ((skillArea == null || skillArea === 'grammar') && Object.hasOwn(GRAMMAR_TITLES, canonical)) {
-    return {
-      label: typeof title === 'string' && title.trim() ? title : GRAMMAR_TITLES[canonical],
-      subtitle: '',
-    };
+    return { label: ownTitle || GRAMMAR_TITLES[canonical], subtitle: '' };
   }
-  // Keep unmanaged/Vocabulary code + title presentation unchanged.
-  return { label: code || '', subtitle: title || '' };
+  return { label: ownTitle || (code ? QUIZ_BANK_FALLBACK_LABEL : ''), subtitle: '' };
 }
