@@ -154,6 +154,30 @@ def goal(person: Person) -> dict[str, Any]:
     return {"admin": admin, "learner": learner, "conflict": conflict, "estimated_band": estimated}
 
 
+class GoalNoConflict(Exception):
+    """There is nothing to resolve: one source is empty or both agree."""
+
+
+def resolve_goal(person: Person, use: str, actor_id: Optional[str]) -> None:
+    """FR-030 "Dùng giá trị này": copy the ``use`` source's goal onto both
+    ``students`` and ``users`` and log it, in one transaction
+    (``fn_learner_goal_resolve``, mig 452). The function re-checks the
+    conflict under row locks, so a stale page cannot overwrite a goal that
+    changed meanwhile. Raises :class:`GoalNoConflict`, or the database error
+    (452 not applied, a failed write)."""
+    if person.student is None or person.user is None:
+        raise GoalNoConflict()
+    try:
+        supabase_admin.rpc("fn_learner_goal_resolve", {
+            "p_student_id": str(person.student["id"]), "p_user_id": str(person.user["id"]),
+            "p_use": use, "p_actor": actor_id,
+        }).execute()
+    except Exception as exc:
+        if "no_conflict" in str(exc) or "learner_not_linked" in str(exc):
+            raise GoalNoConflict() from exc
+        raise
+
+
 # ── 3 · Continuity ─────────────────────────────────────────────────────────
 
 # (table, owner column, time column, seconds column or None). Writing essays

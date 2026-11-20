@@ -3345,6 +3345,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/learners/{ref}/goal/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resolve Learner Goal */
+        post: operations["resolve_learner_goal_admin_learners__ref__goal_resolve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/overview": {
         parameters: {
             query?: never;
@@ -18065,6 +18082,18 @@ export interface components {
              */
             mode: string;
         };
+        /** GoalResolveIn */
+        GoalResolveIn: {
+            /**
+             * Use
+             * @enum {string}
+             */
+            use: "admin" | "learner";
+        };
+        /** GoalResolveOut */
+        GoalResolveOut: {
+            goal: components["schemas"]["OverviewGoal"];
+        };
         /** GradeRatingBody */
         GradeRatingBody: {
             /** Rating */
@@ -30222,6 +30251,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LearnerOverview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resolve_learner_goal_admin_learners__ref__goal_resolve_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoalResolveIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalResolveOut"];
                 };
             };
             /** @description Validation Error */

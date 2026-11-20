@@ -52,6 +52,16 @@ class OverviewGoal(_StrictOut):
     estimated_band: Optional[float]
 
 
+class GoalResolveIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    use: Literal["admin", "learner"]
+
+
+class GoalResolveOut(_StrictOut):
+    # The goal block read back after the write (both sources now agree).
+    goal: OverviewGoal
+
+
 class OverviewContinuity(_StrictOut):
     # 8 weeks × 7 Vietnam-time days, Monday first, the current week last;
     # a day after today is null.

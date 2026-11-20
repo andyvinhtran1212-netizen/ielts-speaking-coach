@@ -5,6 +5,12 @@ G09-T04).
   goal, continuity, assigned work, scores over time and the right column.
   Each block is read on its own; a failed block is ``null`` and named in
   ``sources_failed`` while the others still answer (200). Read only.
+* ``POST /admin/learners/{ref}/goal/resolve`` — admin (G09-T04b, FR-030).
+  ``{use: 'admin'|'learner'}`` copies that goal onto both the profile and the
+  account and logs it (``fn_learner_goal_resolve``, mig 452), then answers the
+  goal block read back. 409 ``no_conflict`` when there is nothing to resolve;
+  503 ``goal_write_failed`` when the write did not happen (also before 452 is
+  applied).
 """
 
 from __future__ import annotations
@@ -14,9 +20,9 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Callable
 
-from fastapi import APIRouter, Header
+from fastapi import APIRouter, Header, HTTPException
 
-from models.admin_learner_profile import LearnerOverview
+from models.admin_learner_profile import GoalResolveIn, GoalResolveOut, LearnerOverview
 from routers.admin import require_admin
 from routers.admin_learners import _person, _thresholds
 from services import admin_learner_profile as profile
@@ -53,3 +59,27 @@ async def get_learner_overview(ref: str, authorization: str | None = Header(defa
         failed.append("assignments")
     return {"alerts": alerts, "goal": goal, "continuity": continuity, "assigned": assigned,
             "scores": scores, "side": profile.side(), "sources_failed": sorted(set(failed))}
+
+
+@router.post("/admin/learners/{ref}/goal/resolve", response_model=GoalResolveOut)
+async def resolve_learner_goal(ref: str, body: GoalResolveIn, authorization: str | None = Header(default=None)):
+    admin = await require_admin(authorization)
+    person = await _person(ref)
+    try:
+        await asyncio.to_thread(profile.resolve_goal, person, body.use, str(admin.get("id") or "") or None)
+    except profile.GoalNoConflict:
+        raise HTTPException(409, {"code": "no_conflict",
+                                  "message": "Hai nguồn mục tiêu đã khớp hoặc một nguồn còn trống. Tải lại trang."})
+    except Exception as exc:
+        logger.exception("learner goal: resolve failed")
+        raise HTTPException(503, {"code": "goal_write_failed",
+                                  "message": "Chưa lưu được mục tiêu. Không có thay đổi nào được ghi; thử lại."}) from exc
+    # Canonical read-back: the goal as now stored, not the value sent.
+    fresh = await _person(person.ref)
+    try:
+        goal = await asyncio.to_thread(profile.goal, fresh)
+    except Exception as exc:
+        logger.exception("learner goal: read-back failed")
+        raise HTTPException(503, {"code": "goal_saved_unreadable",
+                                  "message": "Đã lưu mục tiêu nhưng chưa đọc lại được. Tải lại trang."}) from exc
+    return {"goal": goal}
