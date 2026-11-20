@@ -26,7 +26,7 @@ const APP = path.join(ROOT, 'frontend', 'app');
 const LEDGER = readFileSync(path.join(ROOT, 'docs/ROUTE_LEDGER.md'), 'utf8');
 
 // Route KHÔNG phải trang thật của học viên — không cần có mặt trong sổ.
-const EXEMPT = new Set(['/next-probe', '/recorder-spike']);
+const EXEMPT = new Set(['/next-probe', '/recorder-spike', '/ui-library']);
 
 /** Đường dẫn `page.tsx` → URL route, bỏ các đoạn route-group `(...)`. */
 function routeOf(rel) {

@@ -763,6 +763,8 @@ jobs:
               - 'frontend/tooling/nonce-route-table.mjs'
               - 'frontend/tooling/runtime-origins.mjs'
               - 'frontend/playwright.reading-native.config.js'
+              - 'frontend/playwright.visual.config.js'
+              - 'frontend/styles/**'
               - 'frontend/package-lock.json'
               - 'frontend/package.json'
               - 'frontend/tsconfig.json'
@@ -824,8 +826,14 @@ jobs:
         if: env.RUN_BROWSER == 'true'
         run: npm ci
 
+      # UIBASE-0056 G03-T04: AVER_ENABLE_UI_LIBRARY opens only /ui-library for the
+      # screenshot step; /next-probe and /recorder-spike stay 404 (checked by
+      # verify-error-states-flow). Only this first build sets it; the CSP-enforce
+      # rebuild below does not, and checks /ui-library is a 404 there (FR-013).
       - name: Build Next với endpoint test cô lập
         if: env.RUN_BROWSER == 'true'
+        env:
+          AVER_ENABLE_UI_LIBRARY: '1'
         run: npm run build
 
       - name: Cài Chromium cho Playwright
@@ -857,6 +865,31 @@ jobs:
           done
           tail -40 /tmp/next-native-browser.log
           exit 1
+
+      # UIBASE-0056 FR-014: one screenshot per /ui-library section at 1280px and
+      # 390px against Linux baselines in tests/visual/__screenshots__/. A diff
+      # above maxDiffPixelRatio 0.002 fails this job; baselines change only in a
+      # PR that says why. Results (actual + diff) are uploaded on failure.
+      - name: Kiểm ảnh chụp thư viện component
+        if: env.RUN_BROWSER == 'true'
+        # fonts.conf cố định hinting/khử răng cưa để ảnh mẫu không phụ thuộc máy.
+        run: FONTCONFIG_FILE="$PWD/tests/visual/fonts.conf" UI_LIBRARY_BASE_URL="http://localhost:$TEST_PORT" npx playwright test -c playwright.visual.config.js
+
+      - name: Che + quét secret trong ảnh thư viện component trước khi nộp
+        id: ui_library_artifact_guard
+        if: ${{ failure() && env.RUN_BROWSER == 'true' && hashFiles('frontend/test-results/visual/**') != '' }}
+        run: |
+          node tooling/sanitize-artifacts.mjs test-results/visual
+          node tooling/scan-artifact-secrets.mjs test-results/visual
+
+      - name: Nộp ảnh thư viện component khi lỗi
+        if: ${{ failure() && steps.ui_library_artifact_guard.outcome == 'success' && env.RUN_BROWSER == 'true' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: ui-library-visual-${{ github.run_id }}-${{ github.run_attempt }}
+          path: frontend/test-results/visual
+          if-no-files-found: ignore
+          retention-days: 14
 
       # PC-J230 / J77 F1-F2: tự chạy next start và fixture riêng trên cổng trống,
       # không dùng server :3000 ở trên.
@@ -1612,6 +1645,15 @@ jobs:
       - name: Kiểm CSP trên trang 404 đã đăng nhập (enforce, baseline không nonce)
         if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-csp-nonce-404-flow.mjs --enforced "http://localhost:$TEST_PORT"
+
+      # UIBASE-0056 FR-013 / scenario 6: this rebuild has no AVER_ENABLE_UI_LIBRARY
+      # (nor the diagnostic flag), as on staging and production → real 404.
+      - name: Kiểm /ui-library là 404 khi build không bật cờ
+        if: env.RUN_BROWSER == 'true'
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:$TEST_PORT/ui-library")
+          echo "/ui-library → HTTP $code"
+          test "$code" = "404"
 
       # PC-J437: artifact không qua bộ che log của Actions. Che tại chỗ rồi
       # quét; còn bearer/JWT thì bước này đỏ và KHÔNG nộp artifact.
