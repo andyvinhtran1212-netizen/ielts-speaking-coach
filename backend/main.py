@@ -40,6 +40,8 @@ from services.server_timing import (
     start_request as start_server_timing_request,
 )
 from routers.sessions import router as sessions_router
+from routers.courses_public import router as courses_public_router
+from routers.me_access import router as me_access_router
 from routers.questions import router as questions_router
 from routers.grading import router as grading_router
 from routers.tts import router as tts_router
@@ -304,6 +306,8 @@ app.include_router(instructor_router)
 app.include_router(admin_instructors_router)
 app.include_router(admin_students_router)
 app.include_router(writing_student_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(courses_public_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(me_access_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(grammar_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(grammar_diagnostic_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(admin_grammar_diagnostic_router)

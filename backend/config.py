@@ -564,6 +564,18 @@ class Settings(BaseSettings):
     # URLs per request; nothing is persisted as a public URL.
     READING_IMAGES_BUCKET: str = "reading-images"
 
+    # ── COURSEACCESS-0055 (plan 5.10): course access and AI credits ─────
+    ENROLL_RENEW_WINDOW_DAYS: int = 30
+    CREDIT_COST_SPEAKING_UNIT: int = 1
+    CREDIT_COST_WRITING_ESSAY: int = 1
+    CREDIT_COST_SHORT_WRITING: int = 1
+    CREDIT_SPEAKING_CLUSTER_PARTS: str = "1,3"
+    CREDIT_SPEAKING_CLUSTER_SIZE: int = 3
+    CREDIT_CARRY_PERCENT: int = 100
+    CREDIT_CARRY_VALID_DAYS: int = 60
+    CREDIT_HOLD_TTL_SPEAKING_SECONDS: int = 600
+    CREDIT_HOLD_TTL_WRITING_SECONDS: int = 86400
+
     class Config:
         env_file = ".env"
 
@@ -576,6 +588,42 @@ class Settings(BaseSettings):
     @classmethod
     def _strict_step_up_minutes(cls, value):
         return _bounded_int_or_default("ADMIN_STEP_UP_MINUTES", value, 1, 15, 15)
+
+    @field_validator("ENROLL_RENEW_WINDOW_DAYS", mode="before")
+    @classmethod
+    def _strict_renew_window_days(cls, value):
+        return _bounded_int_or_default("ENROLL_RENEW_WINDOW_DAYS", value, 0, 3650, 30)
+
+    @field_validator("CREDIT_COST_SPEAKING_UNIT", "CREDIT_COST_WRITING_ESSAY", "CREDIT_COST_SHORT_WRITING",
+                     mode="before")
+    @classmethod
+    def _strict_credit_cost(cls, value, info):
+        return _bounded_int_or_default(info.field_name, value, 1, 20, 1)
+
+    @field_validator("CREDIT_SPEAKING_CLUSTER_SIZE", mode="before")
+    @classmethod
+    def _strict_cluster_size(cls, value):
+        return _bounded_int_or_default("CREDIT_SPEAKING_CLUSTER_SIZE", value, 2, 3, 3)
+
+    @field_validator("CREDIT_CARRY_PERCENT", mode="before")
+    @classmethod
+    def _strict_carry_percent(cls, value):
+        return _bounded_int_or_default("CREDIT_CARRY_PERCENT", value, 0, 100, 100)
+
+    @field_validator("CREDIT_CARRY_VALID_DAYS", mode="before")
+    @classmethod
+    def _strict_carry_valid_days(cls, value):
+        return _bounded_int_or_default("CREDIT_CARRY_VALID_DAYS", value, 0, 3650, 60)
+
+    @field_validator("CREDIT_HOLD_TTL_SPEAKING_SECONDS", mode="before")
+    @classmethod
+    def _strict_hold_ttl_speaking(cls, value):
+        return _bounded_int_or_default("CREDIT_HOLD_TTL_SPEAKING_SECONDS", value, 60, 86400, 600)
+
+    @field_validator("CREDIT_HOLD_TTL_WRITING_SECONDS", mode="before")
+    @classmethod
+    def _strict_hold_ttl_writing(cls, value):
+        return _bounded_int_or_default("CREDIT_HOLD_TTL_WRITING_SECONDS", value, 60, 86400, 86400)
 
     @field_validator("ADMIN_STEP_UP_ENFORCE", mode="before")
     @classmethod
