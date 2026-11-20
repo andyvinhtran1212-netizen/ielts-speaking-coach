@@ -1,0 +1,500 @@
+"""Public Library API (LIBRARY-0061, task T006 = G06-T06).
+
+Prefix ``/api/library``. Every route here is public (no account) and listed in
+``services/activation_gate.ACTIVATION_EXEMPT_ROUTES`` with reason
+"public Library"; the router is still registered behind ``_ACTIVE_LEARNER`` so
+a route added later without an exemption is gated by default.
+
+Routes in this task:
+
+* ``GET /summary``                     shelf counts for ``/library`` (null = not countable)
+* ``GET /writing-samples``             filtered, paged list with faceted counts
+* ``GET /writing-samples/index``       ``[{slug, updated_at}]`` for the sitemap
+* ``GET /writing-samples/{slug}``      one published set; old slug -> 308; else 404
+* ``GET /media/{shelf}/{key}/{asset}`` figure/audio bytes, only while published (FR-064)
+
+Source of truth is the database (migration 400) read as service_role. Only
+``published = true`` rows are ever returned. The public payload is built from an
+allow-list, so internal fields (``source_key``, ``content_hash``,
+``source_review_status``, ``integrity_check``, ``difficulty_notes``, idea codes,
+change-type codes, estimated per-criterion scores) never leave the backend
+(FR-015). Criterion codes are expanded to their full English names (FR-014).
+
+The 549-row corpus is small, so listing reads the published list columns once
+per request and filters, facets and pages in Python: one query, exact counts,
+no aggregate table.
+"""
+
+from __future__ import annotations
+
+import logging
+from datetime import datetime, timezone
+from email.utils import format_datetime
+from typing import Any, Optional
+
+from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.responses import JSONResponse, RedirectResponse, Response
+
+from database import supabase_admin
+from services import library_media
+from services.public_cache import cacheable_json
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/api/library", tags=["library"])
+
+PAGE_SIZE = 12
+Q_MAX_LENGTH = 100
+RELATED_LIMIT = 4
+
+# URL value -> stored task_type (FR-010: Task 2 · Task 1).
+TASK_PARAM = {"task2": "task2", "task1": "task1_academic"}
+TASK_URL = {v: k for k, v in TASK_PARAM.items()}
+QUESTION_TYPES = (
+    "opinion", "discussion", "problem_solution",
+    "advantages_disadvantages", "two_part", "positive_negative",
+)
+
+_LIST_COLUMNS = (
+    "slug, title_en, task_type, question_type, task1_subtype, topic_slug, "
+    "prompt_text, updated_at"
+)
+_DETAIL_COLUMNS = (
+    "id, slug, title_en, task_type, question_type, task1_subtype, topic_slug, "
+    "prompt_text, prompt_image_path, essays, delta_75_70, delta_70_60, "
+    "justification, task1_data, published_at, updated_at"
+)
+_BANDS = ("7.5", "7.0", "6.0")
+_ESSAY_KEYS = ("text", "word_count", "outline", "vocab_table", "structures")
+_DELTA_KEYS = ("before", "after", "why")
+_CHANGE_KEYS = ("lower_form", "higher_form", "why_vi")
+
+_CRITERION_NAMES = {
+    "CC": "Coherence and Cohesion",
+    "LR": "Lexical Resource",
+    "GRA": "Grammatical Range and Accuracy",
+    "TA": "Task Achievement",
+}
+
+
+# ── helpers ─────────────────────────────────────────────────────────────────
+
+
+def criterion_name(code: Any, task_type: str) -> Optional[str]:
+    """Full English criterion name for a stored code (TR depends on the task)."""
+    if not isinstance(code, str) or not code.strip():
+        return None
+    raw = code.strip()
+    upper = raw.upper()
+    if upper == "TR":
+        return "Task Achievement" if task_type == "task1_academic" else "Task Response"
+    if upper in _CRITERION_NAMES:
+        return _CRITERION_NAMES[upper]
+    # Already a full name (or an unknown label): never echo a short code.
+    return raw if len(raw) > 4 else None
+
+
+def _http_date(values: list[Any]) -> str:
+    newest: Optional[datetime] = None
+    for value in values:
+        if not isinstance(value, str) or not value:
+            continue
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        if newest is None or parsed > newest:
+            newest = parsed
+    return format_datetime(newest or datetime.now(timezone.utc), usegmt=True)
+
+
+def _default_order_key(row: dict) -> tuple:
+    """Default list order (FR-017 prev/next): Task 2 before Task 1, then title."""
+    return (0 if row.get("task_type") == "task2" else 1, str(row.get("title_en") or "").casefold(), row.get("slug") or "")
+
+
+def _published_list() -> list[dict]:
+    rows = (
+        supabase_admin.table("writing_samples")
+        .select(_LIST_COLUMNS)
+        .eq("published", True)
+        .execute()
+        .data
+        or []
+    )
+    return sorted(rows, key=_default_order_key)
+
+
+def _writing_topics() -> dict[str, dict]:
+    rows = (
+        supabase_admin.table("library_topics")
+        .select("slug, label_vi, shelves, display_order")
+        .execute()
+        .data
+        or []
+    )
+    return {
+        r["slug"]: r for r in rows
+        if isinstance(r, dict) and "writing" in (r.get("shelves") or [])
+    }
+
+
+def _list_item(row: dict) -> dict:
+    return {
+        "slug": row.get("slug"),
+        "title_en": row.get("title_en"),
+        "task_type": row.get("task_type"),
+        "question_type": row.get("question_type"),
+        "task1_subtype": row.get("task1_subtype"),
+        "topic_slug": row.get("topic_slug"),
+        "prompt_text": row.get("prompt_text"),
+    }
+
+
+def _matches(row: dict, *, task: Optional[str], dang: Optional[str], chude: Optional[str], needle: Optional[str]) -> bool:
+    if task and row.get("task_type") != TASK_PARAM[task]:
+        return False
+    if dang and row.get("question_type") != dang:
+        return False
+    if chude and row.get("topic_slug") != chude:
+        return False
+    if needle:
+        hay = f"{row.get('title_en') or ''}\n{row.get('prompt_text') or ''}".casefold()
+        if needle not in hay:
+            return False
+    return True
+
+
+def _count(rows: list[dict], key) -> dict[str, int]:
+    out: dict[str, int] = {}
+    for row in rows:
+        value = key(row)
+        if value:
+            out[value] = out.get(value, 0) + 1
+    return out
+
+
+# ── summary ─────────────────────────────────────────────────────────────────
+
+
+def _safe(fn):
+    try:
+        return fn()
+    except Exception as exc:  # noqa: BLE001 - one shelf must not break the page
+        logger.warning("[library] summary count failed: %s", type(exc).__name__)
+        return None
+
+
+def _count_writing_samples() -> dict:
+    rows = _published_list()
+    return {
+        "total": len(rows),
+        "task2": sum(1 for r in rows if r.get("task_type") == "task2"),
+        "task1": sum(1 for r in rows if r.get("task_type") == "task1_academic"),
+    }
+
+
+def _count_writing_guides() -> dict:
+    rows = (
+        supabase_admin.table("writing_tips")
+        .select("id")
+        .eq("published", True)
+        .in_("content_type", ["knowledge", "tip"])
+        .execute()
+        .data
+        or []
+    )
+    return {"total": len(rows)}
+
+
+def _count_speaking() -> dict:
+    rows = (
+        supabase_admin.table("speaking_samples")
+        .select("id, video_source")
+        .eq("published", True)
+        .execute()
+        .data
+        or []
+    )
+    return {"total": len(rows), "with_video": sum(1 for r in rows if r.get("video_source"))}
+
+
+def _count_grammar() -> dict:
+    from services.grammar_content import grammar_service
+
+    return {"total": len(grammar_service.articles_by_slug)}
+
+
+def _count_vocabulary() -> dict:
+    from services.vocab_content import vocab_service
+
+    return {"total": len(vocab_service.get_curated_articles())}
+
+
+@router.get("/summary")
+def library_summary(request: Request):
+    """Counts for the five shelves of ``/library``. A shelf that cannot be
+    counted is ``null`` so the page shows no number (FR-004)."""
+    data = {
+        "writing_samples": _safe(_count_writing_samples),
+        "writing_guides": _safe(_count_writing_guides),
+        "speaking": _safe(_count_speaking),
+        "grammar": _safe(_count_grammar),
+        "vocabulary": _safe(_count_vocabulary),
+    }
+    return cacheable_json(data, request, last_modified=_http_date([]))
+
+
+# ── writing samples ─────────────────────────────────────────────────────────
+
+
+@router.get("/writing-samples")
+def list_writing_samples(
+    request: Request,
+    task: Optional[str] = Query(default=None),
+    dang: Optional[str] = Query(default=None),
+    chude: Optional[str] = Query(default=None),
+    q: Optional[str] = Query(default=None, max_length=Q_MAX_LENGTH),
+    trang: int = Query(default=1, ge=1),
+):
+    """Published Writing sample sets, 12 per page (FR-010, FR-011).
+
+    Facets follow the usual faceted-search rule: each group is counted over the
+    rows that match every OTHER active filter (its own filter is left out), so
+    the counts say what choosing that value would return.
+    """
+    if task is not None and task not in TASK_PARAM:
+        raise HTTPException(422, "task must be task2 or task1")
+    if dang is not None and dang not in QUESTION_TYPES:
+        raise HTTPException(422, "dang is not a Task 2 question type")
+    if dang is not None and task == "task1":
+        raise HTTPException(422, "dang applies to Task 2 only")
+    needle = (q or "").strip().casefold() or None
+
+    rows = _published_list()
+    topics = _writing_topics()
+    if chude is not None and chude not in topics:
+        raise HTTPException(422, "chude is not a Writing topic")
+
+    filters = {"task": task, "dang": dang, "chude": chude, "needle": needle}
+    matched = [r for r in rows if _matches(r, **filters)]
+
+    facet_task = _count(
+        [r for r in rows if _matches(r, **{**filters, "task": None})],
+        lambda r: TASK_URL.get(r.get("task_type")),
+    )
+    facet_type = _count(
+        [r for r in rows if _matches(r, **{**filters, "dang": None})],
+        lambda r: r.get("question_type"),
+    )
+    facet_topic = _count(
+        [r for r in rows if _matches(r, **{**filters, "chude": None})],
+        lambda r: r.get("topic_slug"),
+    )
+
+    start = (trang - 1) * PAGE_SIZE
+    data = {
+        "items": [_list_item(r) for r in matched[start:start + PAGE_SIZE]],
+        "total": len(matched),
+        "page": trang,
+        "page_size": PAGE_SIZE,
+        "facets": {"task": facet_task, "question_type": facet_type, "topic": facet_topic},
+        "topics": [
+            {"slug": t["slug"], "label_vi": t.get("label_vi")}
+            for t in sorted(topics.values(), key=lambda t: (t.get("display_order") or 0, t["slug"]))
+        ],
+    }
+    return cacheable_json(data, request, last_modified=_http_date([r.get("updated_at") for r in rows]))
+
+
+@router.get("/writing-samples/index")
+def writing_samples_index(request: Request):
+    """``[{slug, updated_at}]`` of every published set, for the sitemap."""
+    rows = _published_list()
+    data = [{"slug": r.get("slug"), "updated_at": r.get("updated_at")} for r in rows]
+    return cacheable_json(data, request, last_modified=_http_date([r.get("updated_at") for r in rows]))
+
+
+def _public_essays(raw: Any) -> dict:
+    essays = raw if isinstance(raw, dict) else {}
+    out = {}
+    for band in _BANDS:
+        essay = essays.get(band)
+        if isinstance(essay, dict):
+            out[band] = {k: essay.get(k) for k in _ESSAY_KEYS}
+    return out
+
+
+def _public_delta(raw: Any, task_type: str) -> list[dict]:
+    out = []
+    for entry in raw if isinstance(raw, list) else []:
+        if not isinstance(entry, dict):
+            continue
+        item = {k: entry.get(k) for k in _DELTA_KEYS}
+        item["criterion"] = criterion_name(entry.get("criterion"), task_type)
+        out.append(item)
+    return out
+
+
+def _public_justification(raw: Any, task_type: str) -> list[dict]:
+    blocks = raw.get("by_criterion") if isinstance(raw, dict) else None
+    out = []
+    for block in blocks if isinstance(blocks, list) else []:
+        if not isinstance(block, dict):
+            continue
+        jumps = []
+        for jump in block.get("jumps") or []:
+            if not isinstance(jump, dict):
+                continue
+            changes = [
+                {k: change.get(k) for k in _CHANGE_KEYS}
+                for change in jump.get("changes") or []
+                if isinstance(change, dict)
+            ]
+            jumps.append({"pair": jump.get("pair"), "changes": changes})
+        out.append({
+            "criterion": criterion_name(block.get("criterion"), task_type),
+            "summary_vi": block.get("summary_vi"),
+            "jumps": jumps,
+        })
+    return out
+
+
+def _neighbour(row: Optional[dict]) -> Optional[dict]:
+    return {"slug": row.get("slug"), "title_en": row.get("title_en")} if row else None
+
+
+def _related(current: dict, rows: list[dict]) -> list[dict]:
+    """Same question type or same topic, max 4: both first, then type, then topic."""
+    others = [r for r in rows if r.get("slug") != current.get("slug")]
+
+    def rank(row: dict) -> Optional[int]:
+        same_type = bool(current.get("question_type")) and row.get("question_type") == current.get("question_type")
+        same_task1 = current.get("task_type") == "task1_academic" and row.get("task1_subtype") == current.get("task1_subtype")
+        same_topic = row.get("topic_slug") == current.get("topic_slug")
+        kind = same_type or same_task1
+        if kind and same_topic:
+            return 0
+        if kind:
+            return 1
+        if same_topic:
+            return 2
+        return None
+
+    ranked = [(rank(r), i, r) for i, r in enumerate(others)]
+    picked = sorted((t for t in ranked if t[0] is not None), key=lambda t: (t[0], t[1]))
+    return [_list_item(r) for _, _, r in picked[:RELATED_LIMIT]]
+
+
+def _sample_not_found() -> JSONResponse:
+    return JSONResponse(status_code=404, content={"detail": "sample_not_found"})
+
+
+@router.get("/writing-samples/{slug}")
+def get_writing_sample(slug: str, request: Request):
+    """One published set (FR-013–FR-019). A slug renamed after publishing
+    redirects with 308 to the current slug; anything else is 404."""
+    found = (
+        supabase_admin.table("writing_samples")
+        .select(_DETAIL_COLUMNS)
+        .eq("slug", slug)
+        .eq("published", True)
+        .execute()
+        .data
+        or []
+    )
+    if not found:
+        history = (
+            supabase_admin.table("writing_sample_slug_history")
+            .select("sample_id")
+            .eq("old_slug", slug)
+            .execute()
+            .data
+            or []
+        )
+        if history:
+            target = (
+                supabase_admin.table("writing_samples")
+                .select("slug")
+                .eq("id", history[0].get("sample_id"))
+                .eq("published", True)
+                .execute()
+                .data
+                or []
+            )
+            if target and target[0].get("slug") and target[0]["slug"] != slug:
+                return RedirectResponse(
+                    url=f"/api/library/writing-samples/{target[0]['slug']}", status_code=308
+                )
+        return _sample_not_found()
+
+    row = found[0]
+    task_type = row.get("task_type") or ""
+    rows = _published_list()
+    index = next((i for i, r in enumerate(rows) if r.get("slug") == row.get("slug")), None)
+    prev_row = rows[index - 1] if index is not None and index > 0 else None
+    next_row = rows[index + 1] if index is not None and index + 1 < len(rows) else None
+
+    data = {
+        "slug": row.get("slug"),
+        "title_en": row.get("title_en"),
+        "task_type": task_type,
+        "question_type": row.get("question_type"),
+        "task1_subtype": row.get("task1_subtype"),
+        "topic_slug": row.get("topic_slug"),
+        "prompt_text": row.get("prompt_text"),
+        "figure_url": (
+            library_media.media_path("writing-sample", row["slug"], "figure")
+            if row.get("prompt_image_path") else None
+        ),
+        "essays": _public_essays(row.get("essays")),
+        "delta_75_70": _public_delta(row.get("delta_75_70"), task_type),
+        "delta_70_60": _public_delta(row.get("delta_70_60"), task_type),
+        "justification": _public_justification(row.get("justification"), task_type),
+        "task1_data": row.get("task1_data") if task_type == "task1_academic" else None,
+        "published_at": row.get("published_at"),
+        "updated_at": row.get("updated_at"),
+        "related": _related(row, rows),
+        "prev": _neighbour(prev_row),
+        "next": _neighbour(next_row),
+    }
+    return cacheable_json(data, request, last_modified=_http_date([row.get("updated_at")]))
+
+
+# ── media (FR-064) ──────────────────────────────────────────────────────────
+
+
+@router.get("/media/{shelf}/{key}/{asset}")
+def get_library_media(shelf: str, key: str, asset: str, request: Request) -> Response:
+    """Figure or audio bytes of a PUBLISHED item, read fresh on every request.
+
+    Never cached (``no-store``) and never a redirect to Storage, so unpublishing
+    takes effect on the next request to the same URL. Unknown shelf/asset,
+    unpublished or missing item, and missing object are all 404.
+    """
+    target = library_media.MEDIA_ASSETS.get((shelf, asset))
+    if target is None:
+        return library_media.not_found()
+    table, column = target
+    rows = (
+        supabase_admin.table(table)
+        .select(f"slug, {column}")
+        .eq("slug", key)
+        .eq("published", True)
+        .execute()
+        .data
+        or []
+    )
+    object_path = rows[0].get(column) if rows else None
+    if not isinstance(object_path, str) or not object_path:
+        return library_media.not_found()
+    content_type = library_media.content_type_for(object_path)
+    if content_type is None:
+        logger.warning("[library_media] unsupported object type path=%s", object_path)
+        return library_media.not_found()
+    data = library_media.download(supabase_admin, object_path)
+    if data is None:
+        return library_media.not_found()
+    return library_media.build_response(data, content_type, request.headers.get("range"))

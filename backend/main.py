@@ -112,6 +112,7 @@ from routers.kp import router as kp_router
 from routers.exams import router as exams_router
 from routers.admin_exams import router as admin_exams_router
 from routers.mock_exams import router as mock_exams_router
+from routers.library import router as library_router
 from routers.admin_exam_content import router as admin_exam_content_router
 from routers.admin_mock_exams import router as admin_mock_exams_router
 from routers.admin_mock_reviews import router as admin_mock_reviews_router
@@ -335,6 +336,7 @@ app.include_router(kp_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(exams_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(admin_exams_router)
 app.include_router(mock_exams_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(library_router, dependencies=_ACTIVE_LEARNER)  # LIBRARY-0061; public routes exempted
 app.include_router(admin_exam_content_router)
 app.include_router(admin_mock_exams_router)
 app.include_router(admin_mock_reviews_router)
