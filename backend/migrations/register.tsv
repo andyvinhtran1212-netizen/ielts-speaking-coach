@@ -388,4 +388,5 @@ number	filename	state	owner	spec	note
 380	380_listening_skill_drill_homework.sql	present	-	-	-
 381	-	reserved	FU-2281	BLACKEYE-0052	FU-2281-NAMESPACE follow-up; Leader decision C3 on #2335, Andy approved 2026-11-18.
 382	-	reserved	FU-2281	BLACKEYE-0052	FU-2281-NAMESPACE follow-up; Leader decision C3 on #2335, Andy approved 2026-11-18.
+440	440_admin_settings.sql	present	G09-T22	ADMINIA-0074	Commercialization G09 band 440–459 (01-KE-HOACH-TONG mục 6); admin_settings + append-only admin_settings_log.
 501	501_grammar_quiz_allowed_code_service_execute.sql	present	-	-	-
