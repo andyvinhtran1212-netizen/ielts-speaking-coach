@@ -106,6 +106,11 @@ await page.goto(`${BASE}/admin/writing/status`, { waitUntil: 'domcontentloaded' 
 await page.waitForURL((url) => url.pathname === '/admin/writing/queue');
 await page.getByRole('status').filter({ hasText: 'Liên kết bạn vừa mở chưa đủ thông tin nên bạn được đưa về hàng chờ chấm Writing.' }).waitFor();
 check('thiếu essay_id về hàng chờ kèm một dòng giải thích, bỏ notice khỏi URL', new URL(page.url()).search === '?status=grading', page.url());
+// G02-T12: the grading workspace without an essay goes back to the queue it came from.
+await page.goto(`${BASE}/admin/writing/grade?from=queue&status=all&cohort_id=c1`, { waitUntil: 'domcontentloaded' });
+await page.waitForURL((url) => url.pathname === '/admin/writing/queue');
+await page.getByRole('status').filter({ hasText: 'Liên kết bạn vừa mở chưa đủ thông tin nên bạn được đưa về hàng chờ chấm Writing.' }).waitFor();
+check('grade thiếu essay về đúng hàng chờ, giữ bộ lọc', new URL(page.url()).search === '?status=all&cohort_id=c1', page.url());
 check('không có write ngoài telemetry contract', writes.length === 0, writes.join(', '));
 check('không có lỗi JS', pageErrors.length === 0, pageErrors.join(' | '));
 

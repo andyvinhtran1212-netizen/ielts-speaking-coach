@@ -63,6 +63,13 @@ check('dark mode vẫn có nền và chữ phân biệt', await page.evaluate(()
   const card = document.querySelector('.grh-card'); const style = getComputedStyle(card);
   return style.backgroundColor !== style.color && style.color !== 'rgba(0, 0, 0, 0)';
 }));
+// G02-T12: both Grammar reports opened without their record go back to the class list.
+for (const route of ['/admin/grammar-lessons', '/admin/grammar-diagnostic']) {
+  await page.goto(`${BASE}${route}`, { waitUntil: 'domcontentloaded' });
+  await page.waitForURL((url) => url.pathname === '/admin/classes');
+  await page.getByRole('status').filter({ hasText: 'Liên kết bạn vừa mở chưa đủ thông tin nên bạn được đưa về trang Lớp.' }).waitFor();
+  check(`${route} thiếu mã về trang Lớp kèm một dòng giải thích, bỏ notice khỏi URL`, new URL(page.url()).search === '', page.url());
+}
 check('không có write ngoài contract', unexpectedWrites.length === 0, unexpectedWrites.join(', '));
 check('không có lỗi JS', pageErrors.length === 0, pageErrors.join(' | '));
 
