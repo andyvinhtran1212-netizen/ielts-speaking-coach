@@ -152,7 +152,7 @@ Trạng thái đã đăng nhập, SEO
 - **FR-060:** Người đã đăng nhập thấy cột "Của bạn" và nhóm lọc "Của bạn" (đã đọc, đã lưu) ở danh sách Writing, cột "Bạn" ở danh sách Speaking; dấu luôn kèm chữ. Công tắc "Chỉ đề chưa luyện" chỉ có khi phiên Speaking ghi được `topic_id` (Open question 6).
 - **FR-061:** Dấu đã đọc/đã lưu ghi ở server, chỉ chủ tài khoản đọc và ghi được; tài khoản chưa có mã lớp (`is_active=false`) vẫn dùng được; xoá tài khoản thì dấu xoá theo.
 - **FR-062:** Sitemap có `/library`, các trang danh sách, mọi trang đề Writing/Speaking và bài Kiến thức Writing đã xuất bản; `robots` cho phép `/library`; mỗi trang có `title`, `description`, `canonical` theo plan mục 5.4; trang có `q=` là `noindex, follow`.
-- **FR-064:** Ảnh đề Task 1 và audio câu trả lời mẫu chỉ tải được khi bản ghi của chúng đang `published`: tệp của bản nháp không đọc được bằng bất kỳ URL nào; tệp của đề đã đăng đọc được không cần đăng nhập; sau khi gỡ, mọi URL đã phát ra ngừng tải được trong tối đa 300 giây.
+- **FR-064:** Ảnh đề Task 1 và audio câu trả lời mẫu chỉ tải được khi bản ghi của chúng đang `published`: tệp của bản nháp không đọc được bằng bất kỳ URL nào; tệp của đề đã đăng đọc được không cần đăng nhập; sau khi gỡ, mọi yêu cầu mới tới đúng URL đã phát ra trả 404 ngay, kể cả khi tệp đã được tải trước đó.
 - **FR-063:** `/library` dựng danh sách kệ từ một mảng cấu hình (không gõ cứng năm kệ trong JSX); ở đợt này mảng có đúng năm kệ, không hiện kệ trống hay nhãn "Sắp có"; thêm một phần tử vào mảng (kệ thứ sáu `/library/background` của GOI-13 phần C) thì trang vẽ sáu kệ mà không vỡ lưới ở 390px.
 
 ## Acceptance scenarios
@@ -223,7 +223,7 @@ Gói mục 9 viết lại theo Given/When/Then; bảng đầy đủ theo FR ở 
 
 - **Given** đề Task 1 đã nhập `publish:false` có ảnh trong `library-media`
 - **When** khách gọi `/api/library/media/writing-sample/<slug>/figure` hoặc thử URL object Storage công khai của bucket
-- **Then** cả hai không trả tệp (404 / bucket không công khai); **When** đề được đăng **Then** route trả 302 tới URL ký và ảnh tải được; **When** đề bị gỡ **Then** route trả 404 ngay và URL ký đã phát ra hết hiệu lực trong tối đa 300 giây (FR-064)
+- **Then** cả hai không trả tệp (404 / bucket không công khai); **When** đề được đăng **Then** route trả nội dung ảnh với `no-store`; **When** tải ảnh một lần (làm nóng mọi cache) rồi gỡ đề **Then** cùng URL đó trả 404 ngay và vẫn 404 khi thử lại sau 300 giây (FR-064)
 
 ### Scenario 12 — kệ thứ sáu
 
@@ -247,7 +247,7 @@ Gói mục 9 viết lại theo Given/When/Then; bảng đầy đủ theo FR ở 
 - Mọi URL Grammar cũ trả cùng mã HTTP; số URL Grammar trong sitemap không đổi.
 - Không API hay trang công khai nào chứa trường cấm của FR-015 (`grep` trên HTML và JSON của test).
 - `anon`/`authenticated` không đọc được bảng nào trong năm bảng mới (test schema).
-- Tệp của đề nháp hoặc đã gỡ không tải được; sau khi gỡ, không URL nào đã phát ra còn tải được quá 300 giây (FR-064).
+- Tệp của đề nháp hoặc đã gỡ không tải được; sau khi gỡ, yêu cầu mới tới URL cũ trả 404 ngay (FR-064).
 - Mọi FR có dòng kiểm ở `verification.md`; ảnh 1280px và 390px của mỗi màn đặt cạnh tờ thiết kế trong PR.
 
 ## Open questions
