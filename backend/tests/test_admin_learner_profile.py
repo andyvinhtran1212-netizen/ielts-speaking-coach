@@ -8,7 +8,7 @@ test_admin_learners. Made-up people only; no AI or network call.
 from __future__ import annotations
 
 import asyncio
-from datetime import timedelta
+from datetime import datetime, timedelta
 from unittest.mock import AsyncMock
 
 import pytest
@@ -37,6 +37,13 @@ def _overview(ref):
     return asyncio.run(mod.get_learner_overview(ref, "Bearer x"))
 
 
+def _utc_day(days_ago: int) -> str:
+    """Noon Vietnam time ``days_ago`` days before today there, written in UTC
+    like the database returns it."""
+    from datetime import timezone
+    return datetime.fromisoformat(_vn_day(days_ago)).astimezone(timezone.utc).isoformat()
+
+
 def _vn_day(days_ago: int) -> str:
     """An instant at noon Vietnam time, ``days_ago`` days before today there."""
     day = NOW.astimezone(profile.VN).date() - timedelta(days=days_ago)
@@ -51,7 +58,7 @@ def test_the_overview_has_every_block_and_nothing_failed(db):
     # Alerts: the one attention function's reason, with its action; inactive was checked and is off.
     assert out["alerts"] == {"open": [{"code": "late_streak", "text": "trễ 2 bài liên tiếp",
                                        "action": "Xem bài được giao"}],
-                             "checked_off": ["inactive"]}
+                             "checked_off": ["inactive"], "undecided": []}
     # No source yet: null, never 0.
     assert out["side"] == {"due_notes": None, "courses": None, "credits_left": None, "credits_carried": None}
 
@@ -78,8 +85,16 @@ def test_an_undecided_lesson_item_is_counted_apart_and_reported(db):
     assert (a["on_time"], a["late"], a["missing"], a["undecided"]) == (1, 0, 1, 1)
     assert [r["title"] for r in a["overdue"]] == ["Buổi 9 · Reading"]
     assert "assignments" in out["sources_failed"]
-    # The late streak is undecided too, so the alerts are not shown as fine.
-    assert out["alerts"] is None and "alerts" in out["sources_failed"]
+    # Only the late streak is undecided: it is neither open nor checked off,
+    # and a decided reason still shows.
+    assert out["alerts"]["undecided"] == ["late_streak"]
+    assert "late_streak" not in out["alerts"]["checked_off"]
+    assert all(r["code"] != "late_streak" for r in out["alerts"]["open"])
+    assert "alerts" not in out["sources_failed"]
+    user = next(u for u in db.rows["users"] if u["id"] == U_LAN)
+    user["last_seen_at"] = _ago(days=30)
+    out = _overview(f"u-{U_LAN}")
+    assert [r["code"] for r in out["alerts"]["open"]] == ["inactive"]
 
 
 def test_goal_shows_both_sources_and_a_conflict_is_not_an_alert(db):
@@ -90,6 +105,10 @@ def test_goal_shows_both_sources_and_a_conflict_is_not_an_alert(db):
     db.rows["users"][1]["target_band"] = 7.5          # Minh's own goal differs from the admin's
     out = _overview(f"u-{U_MINH}")
     assert out["goal"]["conflict"] is True
+    # A field set on one side only is not a conflict.
+    lan = next(u for u in db.rows["users"] if u["id"] == U_LAN)
+    lan.update(exam_date=None)
+    assert _overview(f"u-{U_LAN}")["goal"]["conflict"] is False
     assert all(a["code"] != "goal" for a in out["alerts"]["open"])
 
 
@@ -123,6 +142,17 @@ def test_continuity_grid_is_vietnam_days_with_the_current_week_last(db):
     assert c["minutes_this_week"] == 10 and c["minutes_last_week"] == 0
 
 
+def test_a_streak_longer_than_the_grid_is_counted_in_full(db):
+    """Ten weeks of daily practice: the grid shows 8 weeks, the streak counts
+    all 70 days (read further back), and a gap before them ends it."""
+    db.rows["sessions"] = [{"id": f"x{n}", "user_id": U_LAN, "status": "completed",
+                            "started_at": _utc_day(n)} for n in range(70)]
+    db.rows["class_assignment_items"] = []
+    c = _overview(f"u-{U_LAN}")["continuity"]
+    assert c["streak_days"] == 70
+    assert all(v is not False for week in c["weeks"] for v in week)    # every past day lit
+
+
 def test_scores_over_time(db):
     db.rows["quiz_banks"] = [{"id": "b-g", "skill_area": "grammar", "lesson_no": 4},
                              {"id": "b-v", "skill_area": "vocab", "lesson_no": None}]
@@ -130,13 +160,20 @@ def test_scores_over_time(db):
         {"id": "q1", "user_id": U_LAN, "bank_id": "b-g", "kind": "run", "ended_at": _ago(days=3), "accuracy": 0.75},
         {"id": "q2", "user_id": U_LAN, "bank_id": "b-g", "kind": "retake", "ended_at": _ago(days=2), "accuracy": 1},
         {"id": "q3", "user_id": U_LAN, "bank_id": "b-v", "kind": "run", "ended_at": _ago(days=1), "accuracy": 0.5},
+        # A paused and an abandoned run also carry ended_at and a partial accuracy.
+        {"id": "q4", "user_id": U_LAN, "bank_id": "b-g", "kind": "run", "ended_at": _ago(days=2),
+         "ended_by": "paused", "accuracy": 0.2},
+        {"id": "q5", "user_id": U_LAN, "bank_id": "b-g", "kind": "run", "ended_at": _ago(days=1),
+         "ended_by": "abandoned", "accuracy": 0.1},
+        {"id": "q6", "user_id": U_LAN, "bank_id": "b-g", "kind": "run", "ended_at": _ago(days=1),
+         "ended_by": "time_cap", "accuracy": 0.5},
     ]
     # A mock-exam essay is mock work, not a Writing practice band (FR-104).
     db.rows["writing_essays"].append({"id": "e-mock", "student_id": S_LAN, "status": "delivered",
                                       "is_flagged": False, "deleted_at": None, "sitting_id": "sit-1",
                                       "delivered_at": _ago(days=1), "writing_feedback": {"overall_band_score": 4.0}})
     s = _overview(f"u-{U_LAN}")["scores"]
-    assert [(p["pct"], p["lesson_no"]) for p in s["grammar"]] == [(75, 4)]   # first runs of grammar only
+    assert [(p["pct"], p["lesson_no"]) for p in s["grammar"]] == [(75, 4), (50, 4)]   # finished grammar runs only
     assert [p["band"] for p in s["writing"]] == [8.5, 8.0, 7.5, 7.0, 6.5]     # oldest first
     assert [p["band"] for p in s["speaking"]] == [6.5]
     assert s["milestones"] is None                                           # no source yet

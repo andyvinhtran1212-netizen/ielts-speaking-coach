@@ -29,6 +29,9 @@ class OverviewAlerts(_StrictOut):
     open: list[OverviewAlert]
     # Codes that were checked and did not fire ("Không bật").
     checked_off: list[_CODE]
+    # Codes a read cannot decide (a lesson item's hand-in): shown as "chưa
+    # xác định", never as "Không bật". The overview then names "assignments".
+    undecided: list[_CODE]
 
 
 class OverviewAdminGoal(_StrictOut):

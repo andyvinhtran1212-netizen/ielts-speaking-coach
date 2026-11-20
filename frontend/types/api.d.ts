@@ -20566,6 +20566,8 @@ export interface components {
             open: components["schemas"]["OverviewAlert"][];
             /** Checked Off */
             checked_off: ("late_streak" | "inactive" | "course_expiring" | "low_credits")[];
+            /** Undecided */
+            undecided: ("late_streak" | "inactive" | "course_expiring" | "low_credits")[];
         };
         /** OverviewAssigned */
         OverviewAssigned: {

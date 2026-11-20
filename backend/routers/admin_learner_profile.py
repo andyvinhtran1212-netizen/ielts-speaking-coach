@@ -49,7 +49,7 @@ async def get_learner_overview(ref: str, authorization: str | None = Header(defa
         _block("assigned", lambda: profile.assigned(person, now=now), failed),
         _block("scores", lambda: profile.scores(person), failed),
     )
-    if assigned and assigned["undecided"]:
+    if (assigned and assigned["undecided"]) or (alerts and alerts["undecided"]):
         failed.append("assignments")
     return {"alerts": alerts, "goal": goal, "continuity": continuity, "assigned": assigned,
-            "scores": scores, "side": profile.side(), "sources_failed": sorted(failed)}
+            "scores": scores, "side": profile.side(), "sources_failed": sorted(set(failed))}

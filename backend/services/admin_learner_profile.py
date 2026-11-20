@@ -41,6 +41,7 @@ WEEKS = 8
 _PAGE = 1000
 _ID_CHUNK = 200
 _SKILLS = ("listening", "reading", "writing", "speaking")
+_FINISHED = (None, "completed", "time_cap")   # quiz_sessions.ended_by of a finished run
 
 _ACTIONS = {
     "late_streak": "Xem bài được giao",
@@ -91,35 +92,44 @@ def alerts(person: Person, thresholds: Optional[dict], *, now: datetime) -> dict
     if thresholds is None:
         raise RuntimeError("thresholds unavailable")
     result = learner_attention.compute([person.attention_input()], thresholds, now=now)
-    if result.sources_failed:
-        raise RuntimeError("attention sources failed: " + ",".join(result.sources_failed))
+    if result.unread:
+        raise RuntimeError("attention sources unread: " + ",".join(result.unread))
     reasons = result.reasons.get(person.ref, [])
     fired = {r["code"] for r in reasons}
     checked: list[str] = []
-    if thresholds.get("late_streak_count") is not None and person.student_id:
+    # A lesson item a read cannot decide leaves only the late streak
+    # undecided: it is neither open nor checked off, and the other reasons
+    # still show.
+    undecided = ["late_streak"] if person.ref in result.undecided else []
+    if thresholds.get("late_streak_count") is not None and person.student_id and not undecided:
         checked.append("late_streak")
     if thresholds.get("inactive_days") is not None and person.user is not None:
         checked.append("inactive")
     return {
         "open": [{"code": r["code"], "text": r["text"], "action": _ACTIONS[r["code"]]} for r in reasons],
         "checked_off": [code for code in checked if code not in fired],
+        "undecided": undecided,
     }
 
 
 # ── 2 · Goal ───────────────────────────────────────────────────────────────
 
+def _released_sittings(user_id: str) -> list[str]:
+    return [str(s["id"]) for s in _paged(lambda: supabase_admin.table("mock_exam_sittings").select("id")
+                                         .eq("user_id", user_id).eq("status", "released").order("id"))
+            if s.get("id")]
+
+
 def _released_mock_overall(user_id: str) -> Optional[float]:
-    sittings = (supabase_admin.table("mock_exam_sittings").select("id")
-                .eq("user_id", user_id).eq("status", "released").execute().data or [])
-    ids = [str(s["id"]) for s in sittings if s.get("id")]
+    ids = _released_sittings(user_id)
     if not ids:
         return None
     reviews: list[dict] = []
     for offset in range(0, len(ids), _ID_CHUNK):
         chunk = ids[offset:offset + _ID_CHUNK]
-        reviews.extend(supabase_admin.table("mock_exam_reviews")
-                       .select("sitting_id, status, final_bands, released_at")
-                       .in_("sitting_id", chunk).eq("status", "released").execute().data or [])
+        reviews.extend(_paged(lambda c=chunk: supabase_admin.table("mock_exam_reviews")
+                              .select("id, sitting_id, status, final_bands, released_at")
+                              .in_("sitting_id", c).eq("status", "released").order("id")))
     reviews.sort(key=lambda r: _parse(r.get("released_at")) or datetime.min.replace(tzinfo=timezone.utc),
                  reverse=True)
     for review in reviews:
@@ -135,8 +145,11 @@ def goal(person: Person) -> dict[str, Any]:
     learner = {"target_band": _num(user.get("target_band")), "exam_date": user.get("exam_date") or None}
     has_admin = any(v is not None for v in admin.values())
     has_learner = any(v is not None for v in learner.values())
-    conflict = bool(has_admin and has_learner and (
-        admin["target_band"] != learner["target_band"] or admin["target_date"] != learner["exam_date"]))
+    # A field set on one side only is not a conflict: only a field both sides
+    # hold with different values is (the same rule as fn_learner_goal_resolve).
+    pairs = ((admin["target_band"], learner["target_band"]), (admin["target_date"], learner["exam_date"]))
+    conflict = bool(has_admin and has_learner and any(
+        a is not None and b is not None and a != b for a, b in pairs))
     estimated = _released_mock_overall(str(user["id"])) if person.user else None
     return {"admin": admin, "learner": learner, "conflict": conflict, "estimated_band": estimated}
 
@@ -146,7 +159,6 @@ def goal(person: Person) -> dict[str, Any]:
 # (table, owner column, time column, seconds column or None). Writing essays
 # are left out: an admin hands them in for the learner.
 _ACTIVITY = (
-    ("sessions", "user_id", "started_at", None),
     ("quiz_sessions", "user_id", "started_at", "duration_sec"),
     ("reading_test_attempts", "user_id", "submitted_at", "time_spent_seconds"),
     ("listening_test_attempts", "user_id", "submitted_at", "audio_duration_listened_seconds"),
@@ -158,54 +170,77 @@ def _week_start(day: date) -> date:
     return day - timedelta(days=day.weekday())
 
 
-def continuity(person: Person, *, now: datetime) -> dict[str, Any]:
-    today = now.astimezone(VN).date()
-    first = _week_start(today) - timedelta(weeks=WEEKS - 1)
-    since = datetime.combine(first, datetime.min.time(), VN).astimezone(timezone.utc).isoformat()
-    this_week, last_week = _week_start(today), _week_start(today) - timedelta(weeks=1)
+def _activity(person: Person, since: datetime, until: Optional[datetime]) -> list[tuple[datetime, float]]:
+    """Every study instant of the learner in ``[since, until)`` with its
+    recorded seconds (0 when the source has no duration)."""
+    lo = since.isoformat()
+    hi = until.isoformat() if until else None
+    out: list[tuple[datetime, float]] = []
 
-    days: set[date] = set()
-    seconds = {this_week: 0.0, last_week: 0.0}
+    def window(q, col):
+        q = q.gte(col, lo)
+        return q.lt(col, hi) if hi else q
 
     def add(ts: Any, secs: Any = None) -> None:
         when = _parse(ts)
         if when is None:
             return
-        day = when.astimezone(VN).date()
-        if first <= day <= today:
-            days.add(day)
-        week = _week_start(day)
-        if week in seconds and secs:
-            try:
-                seconds[week] += max(float(secs), 0.0)
-            except (TypeError, ValueError):
-                pass
+        try:
+            seconds = max(float(secs), 0.0) if secs else 0.0
+        except (TypeError, ValueError):
+            seconds = 0.0
+        out.append((when, seconds))
 
     if person.user:
         uid = str(person.user["id"])
         for table, owner, col, secs_col in _ACTIVITY:
             cols = ", ".join(c for c in ("id", col, secs_col) if c)
             for row in _paged(lambda t=table, o=owner, c=col, s=cols:
-                              supabase_admin.table(t).select(s).eq(o, uid).gte(c, since).order("id")):
+                              window(supabase_admin.table(t).select(s).eq(o, uid), c).order("id")):
                 add(row.get(col), row.get(secs_col) if secs_col else None)
-        # Speaking practice time is the length of the recorded answers.
-        session_ids = [str(r["id"]) for r in _paged(
-            lambda: supabase_admin.table("sessions").select("id").eq("user_id", uid)
-            .gte("started_at", since).order("id"))]
+        # Speaking sessions mark their day; their time is the length of the
+        # recorded answers. One read serves both.
+        sessions = _paged(lambda: window(supabase_admin.table("sessions").select("id, started_at")
+                                         .eq("user_id", uid), "started_at").order("id"))
+        for row in sessions:
+            add(row.get("started_at"))
+        session_ids = [str(r["id"]) for r in sessions]
         for offset in range(0, len(session_ids), _ID_CHUNK):
             chunk = session_ids[offset:offset + _ID_CHUNK]
             for row in _paged(lambda c=chunk: supabase_admin.table("responses")
                               .select("id, created_at, duration_seconds").in_("session_id", c).order("id")):
-                when = _parse(row.get("created_at"))
-                if when is not None and row.get("duration_seconds"):
-                    week = _week_start(when.astimezone(VN).date())
-                    if week in seconds:
-                        seconds[week] += max(float(row["duration_seconds"]), 0.0)
+                if row.get("duration_seconds"):
+                    add(row.get("created_at"), row["duration_seconds"])
     if person.student_id:
-        for row in _paged(lambda: supabase_admin.table("class_assignment_items")
-                          .select("id, submitted_at").eq("student_id", person.student_id)
-                          .gte("submitted_at", since).order("id")):
+        for row in _paged(lambda: window(supabase_admin.table("class_assignment_items")
+                                         .select("id, submitted_at").eq("student_id", person.student_id),
+                                         "submitted_at").order("id")):
             add(row.get("submitted_at"))
+    return out
+
+
+# A streak longer than the grid is read further back, 8 weeks at a time, up
+# to this many extra windows (about two years).
+_STREAK_WINDOWS = 13
+
+
+def continuity(person: Person, *, now: datetime) -> dict[str, Any]:
+    today = now.astimezone(VN).date()
+    first = _week_start(today) - timedelta(weeks=WEEKS - 1)
+
+    def start_of(day: date) -> datetime:
+        return datetime.combine(day, datetime.min.time(), VN).astimezone(timezone.utc)
+
+    this_week, last_week = _week_start(today), _week_start(today) - timedelta(weeks=1)
+    days: set[date] = set()
+    seconds = {this_week: 0.0, last_week: 0.0}
+    for when, secs in _activity(person, start_of(first), None):
+        day = when.astimezone(VN).date()
+        if first <= day <= today:
+            days.add(day)
+        week = _week_start(day)
+        if week in seconds:
+            seconds[week] += secs
 
     weeks = []
     for w in range(WEEKS):
@@ -219,6 +254,18 @@ def continuity(person: Person, *, now: datetime) -> dict[str, Any]:
     while cursor in days:
         streak += 1
         cursor -= timedelta(days=1)
+    # Reached the start of the grid: the streak may go on before it.
+    window_end = first
+    for _ in range(_STREAK_WINDOWS):
+        if cursor >= window_end:
+            break
+        window_start = window_end - timedelta(weeks=WEEKS)
+        older = {when.astimezone(VN).date()
+                 for when, _secs in _activity(person, start_of(window_start), start_of(window_end))}
+        while cursor in older:
+            streak += 1
+            cursor -= timedelta(days=1)
+        window_end = window_start
     return {"weeks": weeks, "streak_days": streak,
             "minutes_this_week": int(seconds[this_week] // 60),
             "minutes_last_week": int(seconds[last_week] // 60)}
@@ -268,9 +315,11 @@ def scores(person: Person) -> dict[str, Any]:
     if person.user:
         uid = str(person.user["id"])
         runs = _paged(lambda: supabase_admin.table("quiz_sessions")
-                      .select("id, bank_id, ended_at, accuracy, kind").eq("user_id", uid).order("id"))
+                      .select("id, bank_id, ended_at, ended_by, accuracy, kind").eq("user_id", uid).order("id"))
+        # A paused or abandoned run also has ended_at and a partial accuracy
+        # (quiz_service): only a finished run is a score.
         runs = [r for r in runs if (r.get("kind") or "run") == "run" and r.get("ended_at")
-                and r.get("accuracy") is not None]
+                and r.get("ended_by") in _FINISHED and r.get("accuracy") is not None]
         bank_ids = list({str(r["bank_id"]) for r in runs if r.get("bank_id")})
         banks: dict[str, dict] = {}
         for offset in range(0, len(bank_ids), _ID_CHUNK):
@@ -289,12 +338,12 @@ def scores(person: Person) -> dict[str, Any]:
             band = _num(s.get("overall_band"))
             if band is not None:
                 speaking.append({"at": _iso(s.get("started_at")), "band": band})
-        sittings = [str(s["id"]) for s in (supabase_admin.table("mock_exam_sittings").select("id")
-                    .eq("user_id", uid).eq("status", "released").execute().data or [])]
+        sittings = _released_sittings(uid)
         for offset in range(0, len(sittings), _ID_CHUNK):
             chunk = sittings[offset:offset + _ID_CHUNK]
-            for rv in (supabase_admin.table("mock_exam_reviews").select("sitting_id, final_bands, released_at")
-                       .in_("sitting_id", chunk).eq("status", "released").execute().data or []):
+            for rv in _paged(lambda c=chunk: supabase_admin.table("mock_exam_reviews")
+                             .select("id, sitting_id, final_bands, released_at")
+                             .in_("sitting_id", c).eq("status", "released").order("id")):
                 band = _num((rv.get("final_bands") or {}).get("overall"))
                 if band is not None and rv.get("released_at"):
                     mock.append({"at": _iso(rv["released_at"]), "band": band})
