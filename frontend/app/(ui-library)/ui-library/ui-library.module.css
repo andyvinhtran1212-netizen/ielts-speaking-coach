@@ -25,6 +25,13 @@
 .swOff { background: var(--av2-off); }
 .swOnAccent { background: var(--av2-on-accent); }
 .swControlBorder { background: var(--av2-control-border); }
+.swHighlight { background: var(--av2-highlight); }
+.swWarnBg { background: var(--av2-warn-bg); }
+.swErrorBg { background: var(--av2-error-bg); }
+.swOkBg { background: var(--av2-ok-bg); }
+.swLogoMark { background: var(--av2-logo-mark); }
+.swQrBg { background: var(--av2-qr-bg); }
+.swQrInk { background: var(--av2-qr-ink); }
 
 .typeGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--av2-space-9); }
 .sample { line-height: var(--av2-lh-tight); overflow-wrap: anywhere; }

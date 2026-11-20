@@ -41,6 +41,8 @@ const COLOUR_TOKENS = [
   ['rule', styles.swRule], ['accent', styles.swAccent], ['accent-hover', styles.swAccentHover], ['link', styles.swLink],
   ['mark', styles.swMark], ['danger', styles.swDanger], ['ok', styles.swOk], ['tint', styles.swTint],
   ['off', styles.swOff], ['on-accent', styles.swOnAccent], ['control-border', styles.swControlBorder],
+  ['highlight', styles.swHighlight], ['warn-bg', styles.swWarnBg], ['error-bg', styles.swErrorBg], ['ok-bg', styles.swOkBg],
+  ['logo-mark', styles.swLogoMark], ['qr-bg', styles.swQrBg], ['qr-ink', styles.swQrInk],
 ] as const;
 
 const TYPE_SIZES = [
