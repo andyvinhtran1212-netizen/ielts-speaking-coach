@@ -39,15 +39,15 @@ export function ButtonSection({ title }: { title: string }) {
               {row.name}
               {row.note ? <span className={styles.rowNote}>{row.note}</span> : null}
             </span>
-            <Cell state={STATES[0]}><Button variant={row.variant}>{row.label}</Button></Cell>
-            <Cell state={STATES[1]}><Button variant={row.variant} data-demo-state="hover">{row.label}</Button></Cell>
-            <Cell state={STATES[2]}><Button variant={row.variant} data-demo-state="focus">{row.label}</Button></Cell>
+            <Cell state={STATES[0]}><Button variant={row.variant} loadingLabel={row.busy ?? undefined}>{row.label}</Button></Cell>
+            <Cell state={STATES[1]}><Button variant={row.variant} loadingLabel={row.busy ?? undefined} data-demo-state="hover">{row.label}</Button></Cell>
+            <Cell state={STATES[2]}><Button variant={row.variant} loadingLabel={row.busy ?? undefined} data-demo-state="focus">{row.label}</Button></Cell>
             <Cell state={STATES[3]}>
               {row.busy
                 ? <Button variant={row.variant} loading loadingLabel={row.busy}>{row.label}</Button>
                 : <span className={styles.rowNote}>không dùng</span>}
             </Cell>
-            <Cell state={STATES[4]}><Button variant={row.variant} disabled>{row.label}</Button></Cell>
+            <Cell state={STATES[4]}><Button variant={row.variant} loadingLabel={row.busy ?? undefined} disabled>{row.label}</Button></Cell>
           </div>
         ))}
       </div>
@@ -57,6 +57,7 @@ export function ButtonSection({ title }: { title: string }) {
         <Button size="md">Bắt đầu (44px)</Button>
         <Button size="sm" variant="secondary">Sửa (36px)</Button>
         <Button variant="secondary" iconStart={<Icon name="plus" />}>Thêm câu hỏi</Button>
+        <Button href="#button">Vào khoá học</Button>
         <Button href="#button" variant="secondary">Xem các khoá</Button>
       </div>
       <p className={styles.note}>Cỡ: 48px trên điện thoại · 44px mặc định · 36px trong bảng admin. Nút chỉ có biểu tượng phải có nhãn đọc cho trình đọc màn hình.</p>

@@ -48,6 +48,12 @@ describe('Button', () => {
     expect(busyLabel?.hasAttribute('aria-hidden')).toBe(false);
   });
 
+  it('a button that never loads (no loading, no loadingLabel) reserves no busy label', () => {
+    render(<Button>Lưu</Button>);
+    const button = screen.getByRole('button', { name: 'Lưu' });
+    expect(button.textContent).toBe('Lưu');
+  });
+
   it('text buttons have no loading state', () => {
     render(<Button variant="text" loading>Xem lại đáp án</Button>);
     const button = screen.getByRole('button', { name: 'Xem lại đáp án' });
