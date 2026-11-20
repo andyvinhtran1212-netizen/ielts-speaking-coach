@@ -26,6 +26,8 @@ test('footer links only to public destinations', () => {
   const links = hrefs(footer);
   assert.ok(links.length > 0);
   for (const href of links) {
+    // The legal/contact pages are drafts (bodies still "XXX") and stay off the
+    // public footer until their content is final.
     assert.ok(['/', '/login', '/grammar'].includes(href) || href.startsWith('#'),
       `footer link ${href} is not a public landing destination`);
   }

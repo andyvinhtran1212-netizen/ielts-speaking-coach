@@ -39,7 +39,8 @@ describe('/grammar/compare native ownership', () => {
     for (const id of ['breadcrumb', 'compare-container', 'compare-title', 'compare-left', 'compare-right']) {
       assert.match(PAGE, new RegExp(`(?:id=|id:\\s*)["'{]${id}`));
     }
-    assert.match(PAGE, /Thiếu tham số slug\./);
+    // G02-T11: a missing slug now goes back to /grammar with a notice.
+    assert.match(PAGE, /if \(!slug\) redirect\(redirectNoticeHref\('\/grammar'\)\)/);
     assert.match(PAGE, /if \(!data\) notFound\(\)/);
     assert.match(PAGE, /dangerouslySetInnerHTML=\{\{ __html: article\.html \|\| '' \}\}/);
     assert.doesNotMatch(PAGE, /dangerouslySetInnerHTML[\s\S]{0,100}(article\.title|article\.summary)/);

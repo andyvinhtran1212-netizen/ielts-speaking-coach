@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 
 import { useAuth } from '@/lib/auth/auth-provider';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
+import { leaveForParent } from '@/lib/redirect-notice-model.mjs';
 
 type BandValue = number | string | null;
 
@@ -26,6 +27,9 @@ interface LrSkill {
 
 interface MockResultPayload {
   final_bands?: Record<string, BandValue>;
+  overall_min_skills?: number;
+  banded_skill_count?: number;
+  sitting_skills?: string[] | null;
   examiner_comment_vi?: string | null;
   per_skill_notes?: Record<string, unknown>;
   released_at?: string | null;
@@ -306,6 +310,21 @@ function ResultContent({ data, sittingId }: {
   const scored = SKILLS.filter((skill) => finalBands[skill.key] != null);
   const displayed = scored.length ? scored : SKILLS;
   const overall = finalBands.overall;
+  // G02-T05 (FR-02-004): an Overall is drawn only once enough skills carry a
+  // band. A payload without the readiness fields (older backend) needs all four.
+  const minSkills = typeof data.overall_min_skills === 'number' ? data.overall_min_skills : SKILLS.length;
+  const bandedCount = typeof data.banded_skill_count === 'number' ? data.banded_skill_count : scored.length;
+  const overallReady = overall != null && overall !== '' && bandedCount >= minSkills;
+  // Only the skills this sitting ran can be missing. Without that list (older
+  // backend, failed lookup) no skill is named rather than guessing one.
+  const sittingSkills = Array.isArray(data.sitting_skills) ? data.sitting_skills : null;
+  const sittingLabels = sittingSkills
+    ? SKILLS.filter((skill) => sittingSkills.includes(skill.key)).map((skill) => skill.label)
+    : [];
+  const missingSkills = sittingSkills
+    ? SKILLS.filter((skill) => sittingSkills.includes(skill.key) && finalBands[skill.key] == null).map((skill) => skill.label)
+    : [];
+  const fewerThanNeeded = sittingSkills != null && sittingSkills.length < minSkills;
   const overallDegrees = overall == null || overall === ''
     ? 0
     : Math.min(9, Math.max(0, Number(overall))) / 9 * 360;
@@ -324,14 +343,24 @@ function ResultContent({ data, sittingId }: {
         <div className="trf-card__head">
           <div>
             <div className="trf-eyebrow">Phiếu kết quả thi thử · TRF</div>
-            <h1 className="trf-h1">Kết quả bài thi thử của em</h1>
+            <h1 className="trf-h1">Kết quả bài thi thử của bạn</h1>
           </div>
           <p className="trf-stamp">{releasedAt}</p>
         </div>
         <div className="trf-card__body">
-          <div className="trf-ring" role="img" aria-label={`Overall ${fmtBand(overall)}`} style={ringStyle}>
-            <div><div><b>{fmtBand(overall)}</b><span>Overall</span></div></div>
-          </div>
+          {overallReady ? (
+            <div className="trf-ring" role="img" aria-label={`Overall ${fmtBand(overall)}`} style={ringStyle}>
+              <div><div><b>{fmtBand(overall)}</b><span>Overall</span></div></div>
+            </div>
+          ) : (
+            <div className="trf-overall-none" data-testid="overall-missing">
+              <b>Chưa có Overall{missingSkills.length ? ` · còn thiếu ${missingSkills.join(', ')}` : ''}</b>
+              <span>
+                Overall cần đủ {minSkills === 4 ? 'bốn' : minSkills} kỹ năng trong cùng đề thi thử.
+                {fewerThanNeeded ? ` Bài thi này chỉ gồm ${sittingLabels.join(', ')}.` : ''}
+              </span>
+            </div>
+          )}
           <div className="trf-skills">
             {displayed.map((skill) => {
               const value = finalBands[skill.key];
@@ -413,7 +442,8 @@ export function MockResultBehavior() {
     setPendingKey(null);
 
     if (!sittingId) {
-      setErrorState({ key: requestKey, value: 'Thiếu mã sitting.' });
+      // G02-T11: a link without its sitting goes back to Full Test.
+      leaveForParent('/full-test');
       return () => controller.abort();
     }
 
@@ -462,7 +492,7 @@ export function MockResultBehavior() {
         <div className="trf-state">
           <h1>Đang chờ giám khảo duyệt</h1>
           <p>
-            Bài của em đã được ghi nhận. Giám khảo sẽ chấm và công bố kết quả trong thời gian cam kết — em sẽ thấy điểm và phần chữa bài tại đây ngay khi có.
+            Bài của bạn đã được ghi nhận. Giám khảo sẽ chấm và công bố kết quả trong thời gian cam kết — bạn sẽ thấy điểm và phần chữa bài tại đây ngay khi có.
           </p>
         </div>
       </div>

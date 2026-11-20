@@ -1680,3 +1680,65 @@
   .cx-next { backdrop-filter: none; }
   .cp-progress i { transition: none; }
 }
+
+/* ── Kho viết câu Course 5 (sentence lab) ───────────────────────────────── */
+.sl-guide {
+  margin: 0 0 var(--av-space-4);
+  padding: var(--av-space-3) var(--av-space-4);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-lg);
+  background: var(--av-surface-card);
+  font-size: var(--av-fs-sm);
+  line-height: var(--av-lh-relaxed);
+  color: var(--av-text-secondary);
+}
+.sl-guide summary { cursor: pointer; font-weight: var(--av-fw-bold); color: var(--av-text-primary); }
+.sl-guide p, .sl-guide ul { margin: var(--av-space-2) 0 0; }
+.sl-ask { margin-bottom: var(--av-space-3); }
+.sl-ask .cw-item__ask { margin-bottom: var(--av-space-2); }
+.sl-source {
+  margin: 0 0 var(--av-space-2);
+  padding: var(--av-space-2) var(--av-space-3);
+  border-inline-start: 3px solid var(--av-border-strong);
+  background: var(--av-surface-sunken);
+  font-family: var(--av-font-mono);
+  font-size: var(--av-fs-sm);
+  color: var(--av-text-primary);
+  overflow-wrap: anywhere;
+}
+.sl-required {
+  margin: 0;
+  padding-inline-start: var(--av-space-6);
+  font-size: var(--av-fs-sm);
+  color: var(--av-text-secondary);
+}
+.sl-label {
+  display: block;
+  margin: var(--av-space-3) 0 var(--av-space-1);
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-bold);
+  letter-spacing: var(--av-tracking-wide);
+  color: var(--av-text-muted);
+}
+.sl-fb { display: flex; flex-direction: column; gap: var(--av-space-2);
+         font-size: var(--av-fs-sm); line-height: var(--av-lh-snug); }
+.sl-fb p { margin: 0; }
+.sl-head { display: flex; align-items: center; gap: var(--av-space-2); }
+.sl-badge {
+  padding: 1px 8px;
+  border-radius: var(--av-radius-pill);
+  background: var(--av-surface-sunken);
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-bold);
+  color: var(--av-text-primary);
+}
+.sl-fb[data-status='accepted'] .sl-badge { background: var(--av-success-soft, var(--av-surface-sunken)); color: var(--av-success); }
+.sl-fb[data-status='revise'] .sl-badge { color: var(--av-error); }
+.sl-fb[data-status='needs_review'] .sl-badge { color: var(--av-warning); }
+.sl-score { font-family: var(--av-font-mono); font-weight: var(--av-fw-bold); color: var(--av-text-primary); }
+.sl-next { color: var(--av-text-primary); }
+.sl-rev {
+  margin-top: var(--av-space-3);
+  padding-top: var(--av-space-2);
+  border-top: 1px dashed var(--av-border-subtle);
+}

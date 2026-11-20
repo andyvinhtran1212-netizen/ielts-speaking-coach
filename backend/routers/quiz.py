@@ -265,6 +265,20 @@ async def submit_course_writing(body: CourseWritingBody,
     )
 
 
+@router.post("/course/writing/revise")
+async def revise_course_writing(body: CourseWritingBody,
+                                authorization: str | None = Header(None)):
+    """Kho viết câu Course 5: gửi lượt TỰ VIẾT LẠI (tối đa 6 câu, một lần).
+
+    Không đổi điểm của lượt nộp; chấm chế độ review và mở đáp án tham khảo.
+    """
+    user = await get_supabase_user(authorization)
+    return await quiz_service.revise_course_writing(
+        user_id=user["id"], bank_id=body.bank_id, answers=body.answers,
+        assignment_item_id=body.class_item,
+    )
+
+
 @router.post("/course/writing/draft")
 async def save_course_writing_draft(
     body: CourseWritingBody, authorization: str | None = Header(None),

@@ -42,6 +42,8 @@ import logging
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Optional
 
+from config import settings
+
 logger = logging.getLogger(__name__)
 
 
@@ -536,6 +538,30 @@ def _build_vocabulary(sb, user_id: str) -> Dict[str, Any]:
     }
 
 
+def _banded_tests_count(sb, table: str, user_id: str) -> int:
+    """Submitted tests that carry a band_estimate. Only full 40-question tests
+    get one (`band_for` in reading/listening_test_grader), so this is the
+    number of tests the Home card's band can honestly be based on."""
+    res = (
+        sb.table(table)
+        .select("id", count="exact")
+        .eq("user_id", user_id)
+        .eq("status", "submitted")
+        .not_.is_("band_estimate", "null")
+        .limit(1)
+        .execute()
+    )
+    return int(res.count if res.count is not None else len(res.data or []))
+
+
+def _band_readiness(banded: int) -> Dict[str, Any]:
+    # Floor of 1: a misconfigured 0 must never show a band from zero tests.
+    return {
+        "banded_tests_count": banded,
+        "band_ready": banded >= max(1, int(settings.HOME_SKILL_BAND_MIN_FULL_TESTS)),
+    }
+
+
 def _build_reading(sb, user_id: str) -> Dict[str, Any]:
     res = (
         sb.table("reading_test_attempts")
@@ -556,6 +582,7 @@ def _build_reading(sb, user_id: str) -> Dict[str, Any]:
         "last_activity_at": last_activity,
         "last_band": float(last_band) if last_band is not None else None,
         "attempts_count": int(total),
+        **_band_readiness(_banded_tests_count(sb, "reading_test_attempts", user_id)),
         "primary_cta": "Đọc tiếp" if total else "Bắt đầu luyện đọc",
         "primary_cta_url": "/reading/vocab",
     }
@@ -600,6 +627,7 @@ def _build_listening(sb, user_id: str) -> Dict[str, Any]:
         "last_activity_at": last_activity,
         "last_band": float(last_band) if last_band is not None else None,
         "attempts_count": int(total),
+        **_band_readiness(_banded_tests_count(sb, "listening_test_attempts", user_id)),
         "primary_cta": "Nghe tiếp" if total else "Bắt đầu luyện nghe",
         "primary_cta_url": "/listening",
     }

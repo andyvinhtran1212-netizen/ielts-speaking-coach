@@ -59,9 +59,8 @@ function ExamCard({ exam }: { exam: MockExamSummary }) {
     <article className={`ft-card${exam.my_sitting_id ? ' is-active' : ''}${exam.blocked_by_sitting_id ? ' is-blocked' : ''}`}>
       <div className="ft-card__head">
         <span className={`ft-kind${retake ? ' is-retake' : ''}`}>{retake ? 'Bài thi lại' : 'Full test'}</span>
-        <span className="ft-code">{exam.code}</span>
       </div>
-      <h2 className="ft-title">{exam.title || exam.code}</h2>
+      <h2 className="ft-title">{exam.title || 'Bài thi thử'}</h2>
       <p className="ft-description">
         {retake
           ? 'Chỉ làm kỹ năng được giao. Đồng hồ vẫn chạy độc lập và hệ thống tự thu bài khi hết giờ.'

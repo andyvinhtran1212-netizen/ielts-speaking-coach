@@ -299,7 +299,7 @@ async function reconcilePendingSubmissions(accountId: string, api: any, ms: Moda
     showSubmissionNotice(
       confirmed > 0 ? 'success' : 'warning',
       confirmed > 0
-        ? 'Đã đối chiếu: bài viết của em đã được nộp thành công.'
+        ? 'Đã đối chiếu: bài viết của bạn đã được nộp thành công.'
         : 'Bài đã được nộp ở một tab khác. Danh sách đã được đồng bộ lại.'
     );
     await Promise.all([loadAssignments(api, ms), loadEssays(api, ms)]);
@@ -1258,9 +1258,9 @@ async function submitFromModal(ms: ModalState, force: boolean) {
 
   if (!force) {
     if (wc < 100) {
-      if (!confirm('Bài viết chỉ có ' + wc + ' từ.\nIELTS Task 2 yêu cầu tối thiểu 250 từ.\nEm chắc muốn nộp bài?')) return;
+      if (!confirm('Bài viết chỉ có ' + wc + ' từ.\nIELTS Task 2 yêu cầu tối thiểu 250 từ.\nBạn chắc muốn nộp bài?')) return;
     }
-    if (!confirm('Sau khi nộp em không thể chỉnh sửa. Em chắc muốn nộp bài?')) return;
+    if (!confirm('Sau khi nộp bạn không thể chỉnh sửa. Bạn chắc muốn nộp bài?')) return;
   }
 
   const submitBtn = $('modal-btn-submit') as HTMLButtonElement | null;
@@ -1302,7 +1302,7 @@ async function submitFromModal(ms: ModalState, force: boolean) {
       showSubmissionNotice(
         'warning',
         (result.message || 'Bài đã nộp nhưng không được chấm.') +
-        ' Nếu em nghĩ đây là lỗi, vui lòng liên hệ giảng viên.'
+        ' Nếu bạn nghĩ đây là lỗi, vui lòng liên hệ giảng viên.'
       );
     } else if (!force) {
       showSubmissionNotice('success', 'Đã gửi bài thành công! Giảng viên sẽ duyệt và trả bài trong 24–48 tiếng.');
@@ -1316,7 +1316,7 @@ async function submitFromModal(ms: ModalState, force: boolean) {
     try { ack = await reconcileSubmission(receipt, (window as any).api); } catch (_) {}
     if (!isCurrent()) return;
     if (ack) {
-      showSubmissionNotice('success', 'Đã đối chiếu: bài viết của em đã được nộp thành công.');
+      showSubmissionNotice('success', 'Đã đối chiếu: bài viết của bạn đã được nộp thành công.');
       closeModal(ms);
       await Promise.all([loadAssignments((window as any).api, ms), loadEssays((window as any).api, ms)]);
     } else if (statusCode(err) === 409) {
@@ -1330,7 +1330,7 @@ async function submitFromModal(ms: ModalState, force: boolean) {
     } else {
       showSubmissionNotice(
         'warning',
-        'Chưa nhận được xác nhận nộp bài. Nội dung đã được giữ lại; em có thể thử lại an toàn hoặc tải lại để đối chiếu.'
+        'Chưa nhận được xác nhận nộp bài. Nội dung đã được giữ lại; bạn có thể thử lại an toàn hoặc tải lại để đối chiếu.'
       );
     }
   } finally {
@@ -1577,7 +1577,7 @@ async function openSubmitModal(
       const ack = await reconcileSubmission(pending, api);
       if (!isCurrent()) return;
       if (ack) {
-        showSubmissionNotice('success', 'Đã đối chiếu: bài viết của em đã được nộp thành công.');
+        showSubmissionNotice('success', 'Đã đối chiếu: bài viết của bạn đã được nộp thành công.');
         closeModal(ms);
         await Promise.all([loadAssignments(api, ms), loadEssays(api, ms)]);
         return;
@@ -1650,7 +1650,7 @@ async function openSubmitModal(
     } else if (err?.detail?.code === 'cohort_archived') {
       // Archived after the read: nothing was written. The receipt is not a
       // submission, so it is kept and the learner is told why.
-      showSubmissionNotice('warning', err.detail.message || 'Lớp đã lưu trữ — bài này không nhận bài nộp mới. Bài và bản nháp của em vẫn được giữ.');
+      showSubmissionNotice('warning', err.detail.message || 'Lớp đã lưu trữ — bài này không nhận bài nộp mới. Bài và bản nháp của bạn vẫn được giữ.');
       await Promise.all([loadAssignments(api, ms), loadEssays(api, ms)]);
     } else if (statusCode(err) === 409) {
       (window as any).WritingSubmitReceipt?.remove(accountId, assignmentId);
