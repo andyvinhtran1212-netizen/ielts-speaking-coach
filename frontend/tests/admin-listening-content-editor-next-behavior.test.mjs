@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -20,7 +20,10 @@ const DETAIL = read('app', '(authed-admin-listening)', 'admin', 'listening', 'co
 const LIST = read('app', '(authed-admin-listening)', 'admin', 'listening', 'admin-listening-content.tsx');
 const LAYOUT = read('app', '(authed-admin-listening)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-listening-content-editor-next.css');
-const BACKEND = readFileSync(join(here, '..', '..', 'backend', 'routers', 'listening', '__init__.py'), 'utf8');
+// routers.listening is a package split into submodules (BACKENDSPLIT-0076); read all of it.
+const LISTENING_PKG = join(here, '..', '..', 'backend', 'routers', 'listening');
+const BACKEND = readdirSync(LISTENING_PKG).filter((name) => name.endsWith('.py')).sort()
+  .map((name) => readFileSync(join(LISTENING_PKG, name), 'utf8')).join('\n');
 
 const raw = (patch = {}) => ({
   id: 'content-1', title: 'Cambridge 19', transcript: '  Keep transcript spacing.\n',
