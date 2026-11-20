@@ -88,7 +88,7 @@ BEGIN
     SELECT s.value INTO previous FROM public.admin_settings s WHERE s.key = p_key FOR UPDATE;
     merged := COALESCE(previous, '{}'::jsonb) OPERATOR(pg_catalog.||) p_changes;
     IF previous IS NOT DISTINCT FROM merged THEN
-        RETURN merged;
+        RETURN pg_catalog.jsonb_build_object('value', merged, 'changed', false);
     END IF;
     INSERT INTO public.admin_settings AS s (key, value, updated_by, updated_at)
     VALUES (p_key, merged, p_actor, pg_catalog.now())
@@ -96,7 +96,7 @@ BEGIN
         SET value = EXCLUDED.value, updated_by = EXCLUDED.updated_by, updated_at = EXCLUDED.updated_at;
     INSERT INTO public.admin_settings_log (key, old_value, new_value, reason, actor_id)
     VALUES (p_key, previous, merged, p_reason, p_actor);
-    RETURN merged;
+    RETURN pg_catalog.jsonb_build_object('value', merged, 'changed', true);
 END;
 $$;
 REVOKE ALL ON FUNCTION public.fn_admin_settings_merge(text, jsonb, text, uuid)

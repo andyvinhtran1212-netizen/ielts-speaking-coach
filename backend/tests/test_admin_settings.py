@@ -79,7 +79,7 @@ class _Rpc:
         old = copy.deepcopy(row["value"]) if row else None
         merged = {**(old or {}), **p["p_changes"]}
         if old == merged:
-            return _Res(merged)
+            return _Res({"value": merged, "changed": False})
         if row:
             row["value"] = merged
         else:
@@ -87,7 +87,7 @@ class _Rpc:
         log = self.db.tables["admin_settings_log"]
         log.append({"id": len(log) + 1, "key": p["p_key"], "old_value": old, "new_value": merged,
                     "reason": p["p_reason"], "actor_id": p["p_actor"], "created_at": f"2026-11-20T0{len(log)}:00:00Z"})
-        return _Res(merged)
+        return _Res({"value": merged, "changed": True})
 
 
 class _DB:
@@ -279,6 +279,16 @@ def test_patch_saves_and_the_next_read_shows_it(client, db):
     assert _by_key(client.get("/admin/settings/thresholds").json())["writing_review_hours"]["value"] == 1
     (log,) = db.tables["admin_settings_log"]
     assert log["actor_id"] == "admin-1" and log["reason"] == "Theo quy trình đối chiếu mới"
+
+
+def test_patch_that_only_repeats_stored_values_is_a_422_no_op(client, db):
+    # Right after install regrade_hours is 48: saving 48 again changes nothing.
+    res = _patch(client, [{"key": "regrade_hours", "value": 48}])
+    assert res.status_code == 422 and res.json()["detail"]["code"] == "no_changes"
+    assert db.tables["admin_settings_log"] == []
+    assert _patch(client, [{"key": "regrade_hours", "value": 24}]).status_code == 200
+    assert _patch(client, [{"key": "regrade_hours", "value": 24}]).json()["detail"]["code"] == "no_changes"
+    assert len(db.tables["admin_settings_log"]) == 1
 
 
 def test_patch_is_admin_only(client, db):

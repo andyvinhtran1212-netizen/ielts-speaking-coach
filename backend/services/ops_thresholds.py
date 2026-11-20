@@ -249,7 +249,12 @@ async def set_many(changes: Iterable[tuple[str, Any]], reason: str, actor: Optio
     global _cache
     merged = validate_changes(changes)
     res = await asyncio.to_thread(_merge, merged, reason, actor)
-    stored = getattr(res, "data", None)
+    answer = getattr(res, "data", None)
+    # fn_admin_settings_merge answers {value, changed}; a request that only
+    # repeats the stored values wrote nothing and is said to be a no-op.
+    if isinstance(answer, dict) and answer.get("changed") is False:
+        raise ThresholdChangeError("no_changes", "Các giá trị này đã được lưu từ trước; không có gì thay đổi.")
+    stored = answer.get("value") if isinstance(answer, dict) else None
     if not isinstance(stored, dict):
         # The write committed but its answer is unreadable: drop the cache so
         # the next read goes to the database instead of guessing.

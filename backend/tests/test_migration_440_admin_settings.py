@@ -66,13 +66,16 @@ def _migrate(name: str) -> None:
     psql(_in(name, SQL))
 
 
-def _merge(name: str, changes: dict, reason: str = "Đổi theo quy trình mới") -> dict:
+def _merge(name: str, changes: dict, reason: str = "Đổi theo quy trình mới", *, changed: bool = True) -> dict:
+    """Run the merge as service_role; check its ``changed`` flag, return ``value``."""
     out = psql(
         "SET ROLE service_role; "
         f"SELECT {name}.fn_admin_settings_merge('ops_thresholds', '{json.dumps(changes)}'::jsonb, "
         f"'{reason}', '{ACTOR}'::uuid)::text"
     )
-    return json.loads(out.splitlines()[-1])
+    answer = json.loads(out.splitlines()[-1])
+    assert answer["changed"] is changed
+    return answer["value"]
 
 
 def _stored(name: str) -> dict:
@@ -110,7 +113,7 @@ def test_merge_writes_value_and_one_log_row_and_a_no_op_writes_nothing(schema):
     assert row[2:] == ["Đổi theo quy trình mới", ACTOR]
     assert psql(f"SELECT updated_by FROM {schema}.admin_settings WHERE key='ops_thresholds'") == ACTOR
 
-    _merge(schema, {"writing_review_hours": 24})
+    assert _merge(schema, {"writing_review_hours": 24}, changed=False) == merged
     assert _log_count(schema) == 1
 
     _merge(schema, {"too_fast_sec_per_question": None})  # back to "tắt lý do"
