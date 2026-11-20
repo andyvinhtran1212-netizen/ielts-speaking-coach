@@ -7,4 +7,12 @@ export const UI_LIBRARY_SECTIONS = Object.freeze([
   Object.freeze({ id: 'tokens-type', title: 'Cỡ chữ và độ đậm' }),
   Object.freeze({ id: 'tokens-vietnamese', title: 'Dấu tiếng Việt và IPA' }),
   Object.freeze({ id: 'tokens-space', title: 'Khoảng cách, bo góc, đường kẻ, focus' }),
+  Object.freeze({ id: 'button', title: 'Nút' }),
+  Object.freeze({ id: 'icon-button', title: 'Nút biểu tượng' }),
+  Object.freeze({ id: 'text-field', title: 'Ô nhập một dòng' }),
+  Object.freeze({ id: 'text-area', title: 'Ô nhập nhiều dòng' }),
+  Object.freeze({ id: 'select', title: 'Danh sách chọn' }),
+  Object.freeze({ id: 'search-field', title: 'Ô tìm' }),
+  Object.freeze({ id: 'choice-group', title: 'Chọn một, chọn nhiều' }),
+  Object.freeze({ id: 'status-badge', title: 'Nhãn trạng thái' }),
 ]);

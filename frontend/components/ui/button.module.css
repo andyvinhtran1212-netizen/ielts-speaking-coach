@@ -1,0 +1,67 @@
+/* UIBASE-0056 Button (ThanhPhan §1). Only var(--av2-*), no hex. Radius 2px, no shadow. */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--av2-space-8);
+  border: var(--av2-rule-w) solid transparent;
+  border-radius: var(--av2-radius);
+  font: var(--av2-fw-strong) var(--av2-fs-16) / 1.2 var(--av2-font-sans);
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.lg { min-height: var(--av2-control-lg); }
+.md { min-height: var(--av2-control-md); }
+.sm { min-height: var(--av2-control-sm); padding: 0 var(--av2-space-6); font-size: var(--av2-fs-15); }
+
+/* The busy label sits in the same grid cell as the normal one, so the button keeps its width. */
+.stack { display: inline-grid; }
+.stack > * { grid-area: 1 / 1; }
+.label { display: inline-flex; align-items: center; justify-content: center; gap: var(--av2-space-4); }
+.hidden { visibility: hidden; }
+.icon { display: inline-flex; }
+
+/* data-demo-state is only set by /ui-library, to show hover and focus in a static screenshot. */
+.button[data-demo-state='focus'] { outline: var(--av2-focus); outline-offset: var(--av2-focus-offset); }
+
+.primary { background: var(--av2-accent); border-color: var(--av2-accent); color: var(--av2-on-accent); }
+.primary:hover:not(:disabled):not([aria-disabled='true']),
+.primary[data-demo-state='hover'] { background: var(--av2-accent-hover); border-color: var(--av2-accent-hover); }
+.primary:disabled,
+.primary[aria-disabled='true']:not([aria-busy='true']) { background: var(--av2-off); border-color: var(--av2-off); color: var(--av2-muted); }
+
+.secondary { background: var(--av2-surface); border-color: var(--av2-ink); color: var(--av2-ink); }
+.secondary:hover:not(:disabled):not([aria-disabled='true']),
+.secondary[data-demo-state='hover'] { background: var(--av2-tint); }
+.secondary:disabled,
+.secondary[aria-disabled='true']:not([aria-busy='true']) { border-color: var(--av2-rule); color: var(--av2-muted); }
+
+.text {
+  min-height: var(--av2-control-md);
+  padding: 0;
+  background: transparent;
+  border: 0;
+  color: var(--av2-link);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.text.sm { min-height: var(--av2-control-sm); }
+.text.lg { min-height: var(--av2-control-lg); }
+.text:hover:not(:disabled):not([aria-disabled='true']),
+.text[data-demo-state='hover'] { color: var(--av2-ink); }
+.text:focus-visible,
+.text[data-demo-state='focus'] { padding: 0 var(--av2-space-2); }
+.text:disabled,
+.text[aria-disabled='true'] { color: var(--av2-muted); text-decoration: none; }
+
+.danger { background: var(--av2-surface); border-color: var(--av2-danger); color: var(--av2-danger); }
+.danger:hover:not(:disabled):not([aria-disabled='true']),
+.danger[data-demo-state='hover'] { background: var(--av2-danger); color: var(--av2-on-accent); }
+.danger:disabled,
+.danger[aria-disabled='true']:not([aria-busy='true']) { border-color: var(--av2-rule); color: var(--av2-muted); }
+
+.button:disabled,
+.button[aria-disabled='true'] { cursor: not-allowed; }
+.button[aria-busy='true'] { cursor: progress; }

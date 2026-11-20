@@ -7,6 +7,10 @@ import { av2FontClass } from '@/styles/av2/fonts';
 import { uiLibraryEnabled } from '@/lib/diagnostic-routes.mjs';
 import { UI_LIBRARY_SECTIONS } from '@/lib/ui-library-sections.mjs';
 
+import {
+  ButtonSection, ChoiceGroupSection, IconButtonSection, SearchFieldSection, SelectSection,
+  StatusBadgeSection, TextAreaSection, TextFieldSection,
+} from './component-sections';
 import styles from './ui-library.module.css';
 
 // Gate the metadata too, like /next-probe (BL-01): a disabled build ships the
@@ -128,6 +132,15 @@ export default function UiLibraryPage() {
             <a href="#tokens-space" className={styles.focusDemo}>Liên kết có vòng focus</a>
           </div>
         </section>
+
+        <ButtonSection title={title('button')} />
+        <IconButtonSection title={title('icon-button')} />
+        <TextFieldSection title={title('text-field')} />
+        <TextAreaSection title={title('text-area')} />
+        <SelectSection title={title('select')} />
+        <SearchFieldSection title={title('search-field')} />
+        <ChoiceGroupSection title={title('choice-group')} />
+        <StatusBadgeSection title={title('status-badge')} />
       </main>
     </div>
   );
