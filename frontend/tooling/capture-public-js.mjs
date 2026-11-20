@@ -6,10 +6,11 @@
 //     node tooling/verify-admin-classes-flow.mjs http://127.0.0.1:3000
 //   sort -u /tmp/js-req.txt
 //
-// Wraps `chromium.launch` / `launchPersistentContext` on the shared
-// playwright-core object (used by `playwright` and `@playwright/test`, and in
-// every test worker, since NODE_OPTIONS is inherited). Each context created
-// from it appends one request URL per line whose path contains `/js/`.
+// Wraps `launch` / `launchPersistentContext` of chromium, firefox and webkit
+// on the shared playwright-core object (used by `playwright` and
+// `@playwright/test`, and in every test worker, since NODE_OPTIONS is
+// inherited). Each context created from them appends one request URL per line
+// whose path contains `/js/`.
 // The flow's own launch options (e.g. `executablePath` on macOS) pass through.
 // An unwritable CAPTURE_OUT fails at start; a failed write later makes the
 // process exit 70 even if the flow passed. Use only captures of runs that
@@ -57,7 +58,7 @@ export function recordUrl(url) {
 }
 
 const require = createRequire(`${process.cwd()}/`);
-const { chromium } = require('playwright-core');
+const playwright = require('playwright-core');
 
 const record = (request) => recordUrl(request.url());
 const watched = new WeakSet();
@@ -66,16 +67,27 @@ const watch = (context) => {
   return context;
 };
 
-const launch = chromium.launch.bind(chromium);
-chromium.launch = async (...args) => {
-  const browser = await launch(...args);
-  const newContext = browser.newContext.bind(browser);
-  browser.newContext = async (...a) => watch(await newContext(...a));
-  // browser.newPage() makes its own context; watch it whichever path made it
-  // (the WeakSet keeps a context from being recorded twice).
-  const newPage = browser.newPage.bind(browser);
-  browser.newPage = async (...a) => { const page = await newPage(...a); watch(page.context()); return page; };
-  return browser;
-};
-const persistent = chromium.launchPersistentContext.bind(chromium);
-chromium.launchPersistentContext = async (...args) => watch(await persistent(...args));
+/** Marks a launcher this preload has wrapped (checked by the test, no browser needed). */
+export const WRAPPED = Symbol.for('capture-public-js.wrapped');
+/** Every browser type a flow can launch; a capture from an unwrapped one would read as "no request". */
+export const BROWSER_TYPES = Object.freeze(['chromium', 'firefox', 'webkit']);
+
+function wrapBrowserType(type) {
+  const launch = type.launch.bind(type);
+  type.launch = async (...args) => {
+    const browser = await launch(...args);
+    const newContext = browser.newContext.bind(browser);
+    browser.newContext = async (...a) => watch(await newContext(...a));
+    // browser.newPage() makes its own context; watch it whichever path made it
+    // (the WeakSet keeps a context from being recorded twice).
+    const newPage = browser.newPage.bind(browser);
+    browser.newPage = async (...a) => { const page = await newPage(...a); watch(page.context()); return page; };
+    return browser;
+  };
+  const persistent = type.launchPersistentContext.bind(type);
+  type.launchPersistentContext = async (...args) => watch(await persistent(...args));
+  type.launch[WRAPPED] = true;
+  type.launchPersistentContext[WRAPPED] = true;
+}
+
+for (const name of BROWSER_TYPES) wrapBrowserType(playwright[name]);

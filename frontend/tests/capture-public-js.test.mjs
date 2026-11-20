@@ -52,3 +52,16 @@ test('a write that fails mid-run makes the run exit non-zero even if the flow pa
   assert.match(r.stderr, /write to \/dev\/full failed/);
   assert.match(r.stderr, /2 write\(s\) to \/dev\/full failed; this capture is incomplete/);
 });
+
+test('wraps launch and launchPersistentContext of chromium, firefox and webkit', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'capture-js-'));
+  try {
+    const body = `const m = await import('${preload}');
+      const { createRequire } = await import('node:module');
+      const pw = createRequire(process.cwd() + '/')('playwright-core');
+      console.log(JSON.stringify(m.BROWSER_TYPES.map((n) => [n, !!pw[n].launch[m.WRAPPED], !!pw[n].launchPersistentContext[m.WRAPPED]])));`;
+    const r = run(path.join(dir, 'req.txt'), body);
+    assert.equal(r.status, 0, r.stderr);
+    assert.deepEqual(JSON.parse(r.stdout), [['chromium', true, true], ['firefox', true, true], ['webkit', true, true]]);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
