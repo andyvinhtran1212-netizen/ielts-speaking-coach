@@ -1,14 +1,14 @@
 ---
 id: BACKENDSPLIT-0076
 title: The three largest backend modules are split into packages without changing any route, import, OpenAPI contract or test patch target
-status: draft
+status: approved
 risk: high
 owner: product
 ---
 
 # The three largest backend modules are split into packages without changing any route, import, OpenAPI contract or test patch target
 
-Status: **draft** — soạn ngày 20/11/2026 cho nhiệm vụ `G10-T08` (thương mại hoá 2026-11), từ `docs/proposals/commercialization-2026-11/GOI-10-repo-pha-2-cau-truc.md` mục 4(c), 5.2 và G10-T08…T12. Số liệu đo lại trên `staging @ 119ad352` (20/11), không chép từ gói (gói đo ở `93c7085`). Chưa dòng mã nào chạy theo spec này. Chỉ anh Andy duyệt; khi duyệt, câu trả lời ghi vào `approval-decision.md` cùng thư mục, nguyên văn kèm thời điểm, và `status` đổi sang `approved`. Số spec lấy từ sổ cấp số ở `01-KE-HOACH-TONG.md` mục 6. Spec này không có migration.
+Status: **approved** — anh Andy duyệt ngày 20/11/2026 (`approval-decision.md`). Soạn ngày 20/11/2026 cho nhiệm vụ `G10-T08` (thương mại hoá 2026-11), từ `docs/proposals/commercialization-2026-11/GOI-10-repo-pha-2-cau-truc.md` mục 4(c), 5.2 và G10-T08…T12. Số liệu đo lại trên `staging @ 119ad352` (20/11), không chép từ gói (gói đo ở `93c7085`). Chưa dòng mã nào chạy theo spec này. Chỉ anh Andy duyệt; khi duyệt, câu trả lời ghi vào `approval-decision.md` cùng thư mục, nguyên văn kèm thời điểm, và `status` đổi sang `approved`. Số spec lấy từ sổ cấp số ở `01-KE-HOACH-TONG.md` mục 6. Spec này không có migration.
 
 ## Tóm tắt (tiếng Việt)
 
