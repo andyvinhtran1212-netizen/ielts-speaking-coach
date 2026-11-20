@@ -94,12 +94,13 @@ def _read_items(ids: list[str]) -> list[dict]:
     return items
 
 
-# Durable hand-in evidence the class ledger is repaired from (the class pages'
-# reconcilers). ``(table, time column, extra filter)``. Read only here.
+# Durable Speaking hand-in evidence the class ledger is repaired from
+# (reconcile_ledger_from_sessions). ``(table, time column, extra filter)``.
+# Reading/Listening hand-ins are decided by the repair's own read-only half,
+# class_assignment_service.test_attempt_handins (drill dictation, blackeye
+# tests, deadline, archive), so both always agree.
 _EVIDENCE = (
     ("sessions", "completed_at", ("status", "completed")),
-    ("reading_test_attempts", "submitted_at", ("status", "submitted")),
-    ("listening_test_attempts", "submitted_at", ("status", "submitted")),
 )
 # Lesson work linked to a lesson item; it can only say "something was done".
 _LESSON_WORK = (("quiz_sessions", "ended_at"), ("course_writing_submissions", "created_at"))
@@ -165,7 +166,7 @@ def assignment_history(student_ids: Iterable[str], now: datetime,
 
         def build(c=chunk):
             q = supabase_admin.table("class_assignments").select(
-                "id, cohort_id, title, skill, due_at, status").in_("id", c)
+                "id, cohort_id, title, skill, due_at, status, content_config").in_("id", c)
             if cohort_ids is not None:
                 q = q.in_("cohort_id", sorted(cohort_ids))
             return q.order("id")
@@ -180,6 +181,15 @@ def assignment_history(student_ids: Iterable[str], now: datetime,
               and assignments[str(i["assignment_id"])].get("skill") == "course"}
     others = [i for i in unledgered if i not in lesson]
     evidence = _evidence_at(others) if others else {}
+    if others:
+        from services.class_assignment_service import test_attempt_handins
+
+        pending = [{"id": str(i["id"]), "assignment_id": str(i["assignment_id"])}
+                   for i in items if str(i["id"]) in set(others)]
+        for item_id, hit in test_attempt_handins(supabase_admin, list(assignments.values()), pending).items():
+            at = _parse(hit.get("when"))
+            if at is not None and (item_id not in evidence or at < evidence[item_id]):
+                evidence[item_id] = at
     lesson_work = _evidence_at(sorted(lesson), tuple((t, c, None) for t, c in _LESSON_WORK)) if lesson else {}
 
     out = {sid: AssignmentHistory() for sid in ids}
