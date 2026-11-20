@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Grammar Wiki nhóm 8 bài 2</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--accentH:#0B5953;--link:#0B5953;--mark:#8A4B08;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EDF3F1;--off:#E7E2D6}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--accentH:#11254A;--link:#1A3561;--mark:#8A1C1C;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EEF0F5;--off:#E8E2D5}
+a{color:var(--link)}a:hover{color:var(--ink)}
+.sf{font-family:'Source Serif 4',Georgia,serif}
+.kick{margin:0;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)}
+.h2s{margin:0 0 6px;font-family:'Source Serif 4',Georgia,serif;font-size:24px;font-weight:600}
+.lead{margin:0 0 16px;font-size:14px;color:var(--muted);max-width:110ch}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border:1px solid var(--ink);border-radius:2px;background:var(--surface);color:var(--ink);font:600 15px 'Source Sans 3',sans-serif;text-decoration:none;cursor:pointer;box-sizing:border-box}
+.btnp{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 20px;border:1px solid var(--accent);border-radius:2px;background:var(--accent);color:var(--surface);font:600 15px 'Source Sans 3',sans-serif;text-decoration:none;cursor:pointer;box-sizing:border-box}
+.body{font-family:'Source Serif 4',Georgia,serif;font-size:18px;line-height:29px}
+.body p{margin:0 0 14px}
+.h2a{margin:0 0 10px;font-family:'Source Serif 4',Georgia,serif;font-size:26px;font-weight:600;line-height:1.25}
+.h2a span{color:var(--muted);font-variant-numeric:tabular-nums}
+.h3a{margin:16px 0 4px;font-family:'Source Sans 3',sans-serif;font-size:16px;font-weight:600}
+.sup{font:600 12px 'Source Sans 3',sans-serif;color:var(--accent)}
+.note{margin:0;padding-top:8px;border-top:1px solid var(--rule);font-size:14px;line-height:1.5;color:var(--muted)}
+.cap{margin:8px 0 0;font-size:14px;line-height:1.5;color:var(--muted)}
+.fig{margin:6px 0 4px;padding:18px 20px 16px;border:1px solid var(--rule);background:var(--surface)}
+.tag{display:block;font:600 11px 'Source Sans 3',sans-serif;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);text-align:center;white-space:nowrap}
+.ch{display:flex;align-items:center;justify-content:center;box-sizing:border-box;height:38px;padding:0 8px;font-family:'Source Serif 4',Georgia,serif;font-size:20px;white-space:nowrap;color:var(--ink)}
+.rS{border:1.5px solid var(--ink)}
+.rV{border-bottom:4px double var(--accent);color:var(--accent);font-weight:600}
+.rO{border:1.5px dashed var(--ink)}
+.rC{border:1.5px dotted var(--ink)}
+.rA{color:var(--muted)}
+.rX{border:1.5px dashed var(--muted);color:var(--muted)}
+.cell{display:flex;flex-direction:column;align-items:center;gap:4px}
+.tb{width:100%;border-collapse:collapse;font-family:'Source Sans 3',sans-serif;font-size:16px;line-height:1.45}
+.tb th,.tb td{padding:5px 10px 5px 0;text-align:left;vertical-align:top;border-bottom:1px solid var(--rule)}
+.tb thead tr{border-top:2px solid var(--ink)}
+.tb thead th{border-bottom:1px solid var(--ink);font-weight:600}
+.tb tbody th{font-weight:600;color:var(--muted)}
+.tb caption{caption-side:bottom;text-align:left;padding-top:8px;font-size:14px;color:var(--muted)}
+.foot a{display:inline-flex;align-items:center;min-height:44px}
+.lab{font:600 13px 'Source Sans 3',sans-serif;letter-spacing:0.06em;text-transform:uppercase}
+.gr{display:grid;grid-template-columns:44px 236px 262px minmax(0,1fr) 52px 178px;column-gap:16px;padding:8px 0;border-bottom:1px solid var(--rule);font-size:14px;line-height:1.45}
+.gr>div{min-width:0}
+</style>
+</helmet>
+<div class="{{pal}}" style="width: 1280px; height: 5140px; box-sizing: border-box; padding: 40px 0; background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 16px; line-height: 1.5; display: flex; flex-direction: column; gap: 28px">
+<header style="padding: 0 64px">
+<p class="kick">Aver Learning · Bản in · đợt 8 · Thư viện công khai · Grammar Wiki</p>
+<h1 style="margin: 4px 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 40px; font-weight: 600; line-height: 1.15">Grammar Wiki · nhóm 8 · bài vẽ đủ 2: Missing Subjects</h1>
+<p style="margin: 0; color: var(--muted); max-width: 112ch">Bài vẽ đủ thứ 2 trong hai bài khác loại của nhóm 8 · Error Clinic, theo khuôn <a href="GrammarWikiBai.dc.html">trang bài</a>. Nội dung rút gọn từ file Markdown thật; ví dụ tiếng Anh giữ nguyên văn. Bài còn lại (<span lang="en">Do vs. Make</span>) ở tờ <a href="GrammarWikiNhom8-Bai1.dc.html">GrammarWikiNhom8-Bai1</a>; bảng tất cả bài, ba phần đầu và bản điện thoại ở tờ <a href="GrammarWikiNhom8.dc.html">GrammarWikiNhom8</a>.</p>
+</header>
+
+<section aria-labelledby="b1" style="border-top: 2px solid var(--ink); padding-top: 16px"><div style="padding: 0 64px"><h2 id="b1" class="h2s">Trang bài Missing Subjects · máy tính 1280px · khách</h2><p class="lead">Bài lỗi cấu trúc câu: bốn kiểu thiếu chủ ngữ; Hình kiểu 9, kiểu 1 có ô "thiếu S", kiểu 5 và kiểu 8. Mục lục trong bài 208px bên trái; cột chữ 640px; lề chú thích 224px. Bấm được: câu tự kiểm tra (chấm ngay) và nút nghe câu mẫu nếu có. Xem với tư cách khách (thanh công khai).</p></div>
+<div style="border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); background: var(--paper)">
+<header style="border-bottom: 1px solid var(--ink)">
+<div style="display: flex; align-items: stretch; gap: 36px; height: 63px; padding: 0 32px">
+<a href="TrangChuCongKhai.dc.html" class="sf" style="display: inline-flex; align-items: center; gap: 9px; align-self: center; font-size: 22px; font-weight: 600; color: var(--ink); text-decoration: none"><svg width="29" height="29" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</a>
+<nav aria-label="Điều hướng công khai" style="display: flex; gap: 28px; flex-grow: 1">
+<a href="ThuVien.dc.html" aria-current="page" style="display: flex; align-items: center; padding-top: 3px; border-bottom: 3px solid var(--accent); color: var(--ink); font-weight: 600; text-decoration: none">Thư viện</a>
+<a href="DanhMucKhoa.dc.html" style="display: flex; align-items: center; padding-top: 3px; border-bottom: 3px solid transparent; color: var(--muted); text-decoration: none">Khoá học</a>
+</nav>
+<div style="display: flex; align-items: center; gap: 20px">
+<a href="TaiKhoanDangNhap.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; color: var(--ink); font-weight: 600">Đăng nhập</a>
+<a href="DanhMucKhoa.dc.html" class="btnp">Xem các khoá</a>
+</div>
+</div>
+</header>
+<main style="max-width: 1216px; margin: 0 auto; padding: 20px 32px 24px">
+<nav aria-label="Vị trí trang" style="font-size: 14px; color: var(--muted)"><a href="ThuVien.dc.html">Thư viện</a> › <a href="GrammarWiki.dc.html">Grammar Wiki</a> › <a href="GrammarWiki.dc.html">8 · Error Clinic</a> › <span aria-current="page" style="color: var(--ink)" lang="en">Missing Subjects</span></nav>
+<div style="display: grid; grid-template-columns: 208px minmax(0, 1fr); column-gap: 40px; margin-top: 20px; align-items: start">
+<nav aria-label="Trong bài này" style="position: sticky; top: 24px; border-top: 2px solid var(--ink); padding-top: 10px">
+<p class="kick" style="font-weight: 600; margin-bottom: 6px">Trong bài này</p>
+<ol style="margin: 0; padding: 0; list-style: none; font-size: 15px"><li><a href="#b-s0" aria-current="location" style="display: flex; gap: 8px; align-items: baseline; min-height: 36px; box-sizing: border-box; padding: 7px 0 7px 11px; border-left: 3px solid var(--accent); color: var(--ink); font-weight: 600; text-decoration: none; line-height: 1.35"><span style="width: 14px; flex-shrink: 0; font-variant-numeric: tabular-nums">·</span><span>Tóm tắt</span></a></li><li><a href="#b-s1" aria-current="false" style="display: flex; gap: 8px; align-items: baseline; min-height: 36px; box-sizing: border-box; padding: 7px 0 7px 11px; border-left: 3px solid transparent; color: var(--muted); font-weight: 400; text-decoration: none; line-height: 1.35"><span style="width: 14px; flex-shrink: 0; font-variant-numeric: tabular-nums">1</span><span>Vì sao người Việt hay bỏ chủ ngữ?</span></a></li><li><a href="#b-s2" aria-current="false" style="display: flex; gap: 8px; align-items: baseline; min-height: 36px; box-sizing: border-box; padding: 7px 0 7px 11px; border-left: 3px solid transparent; color: var(--muted); font-weight: 400; text-decoration: none; line-height: 1.35"><span style="width: 14px; flex-shrink: 0; font-variant-numeric: tabular-nums">2</span><span>Kiểu 1: ảnh hưởng tiếng Việt</span></a></li><li><a href="#b-s3" aria-current="false" style="display: flex; gap: 8px; align-items: baseline; min-height: 36px; box-sizing: border-box; padding: 7px 0 7px 11px; border-left: 3px solid transparent; color: var(--muted); font-weight: 400; text-decoration: none; line-height: 1.35"><span style="width: 14px; flex-shrink: 0; font-variant-numeric: tabular-nums">3</span><span>Kiểu 2: mệnh đề phụ</span></a></li><li><a href="#b-s4" aria-current="false" style="display: flex; gap: 8px; align-items: baseline; min-height: 36px; box-sizing: border-box; padding: 7px 0 7px 11px; border-left: 3px solid transparent; color: var(--muted); font-weight: 400; text-decoration: none; line-height: 1.35"><span style="width: 14px; flex-shrink: 0; font-variant-numeric: tabular-nums">4</span><span>Kiểu 3: vế sau của câu dài</span></a></li><li><a href="#b-s5" aria-current="false" style="display: flex; gap: 8px; align-items: baseline; min-height: 36px; box-sizing: border-box; padding: 7px 0 7px 11px; border-left: 3px solid transparent; color: var(--muted); font-weight: 400; text-decoration: none; line-height: 1.35"><span style="width: 14px; flex-shrink: 0; font-variant-numeric: tabular-nums">5</span><span>Kiểu 4: bỏ "it"</span></a></li><li><a href="#b-s6" aria-current="false" style="display: flex; gap: 8px; align-items: baseline; min-height: 36px; box-sizing: border-box; padding: 7px 0 7px 11px; border-left: 3px solid transparent; color: var(--muted); font-weight: 400; text-decoration: none; line-height: 1.35"><span style="width: 14px; flex-shrink: 0; font-variant-numeric: tabular-nums">6</span><span>Lỗi hay gặp trong IELTS</span></a></li><li><a href="#b-s7" aria-current="false" style="display: flex; gap: 8px; align-items: baseline; min-height: 36px; box-sizing: border-box; padding: 7px 0 7px 11px; border-left: 3px solid transparent; color: var(--muted); font-weight: 400; text-decoration: none; line-height: 1.35"><span style="width: 14px; flex-shrink: 0; font-variant-numeric: tabular-nums">7</span><span>Tự kiểm tra</span></a></li><li><a href="#b-s8" aria-current="false" style="display: flex; gap: 8px; align-items: baseline; min-height: 36px; box-sizing: border-box; padding: 7px 0 7px 11px; border-left: 3px solid transparent; color: var(--muted); font-weight: 400; text-decoration: none; line-height: 1.35"><span style="width: 14px; flex-shrink: 0; font-variant-numeric: tabular-nums">8</span><span>Bài liên quan</span></a></li></ol>
+<div style="margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--rule); font-size: 14px; color: var(--muted)">
+<p style="margin: 0 0 6px">Bài 8.14 trong nhóm <a href="GrammarWiki.dc.html">8 · Error Clinic</a></p>
+<p style="margin: 0">Nên đọc trước: <a href="GrammarWikiBai.dc.html" lang="en">Sentence Elements</a>, <a href="GrammarWikiBai.dc.html" lang="en">Simple Sentence</a></p>
+</div>
+</nav>
+<article aria-label="Missing Subjects" style="min-width: 0">
+<div style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px">
+<header style="padding-bottom: 14px; border-bottom: 1px solid var(--ink)">
+<p class="kick">Grammar Wiki · 8 · Error Clinic · bài 8.14</p>
+<h1 class="sf" style="margin: 6px 0 2px; font-size: 40px; font-weight: 600; line-height: 1.12" lang="en">Missing Subjects</h1>
+<p class="sf" style="margin: 0 0 10px; font-size: 23px; line-height: 1.3; color: var(--muted)">Lỗi thiếu chủ ngữ</p>
+<p style="margin: 0; font-size: 14px; color: var(--muted)">Trình độ sơ cấp · đọc khoảng XXX phút · cập nhật 19/04/2026 · dùng nhiều trong Speaking và Writing</p>
+</header>
+<div style="display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; padding-bottom: 14px; border-bottom: 1px solid var(--rule)"><p style="margin: 0; font-size: 14px; color: var(--muted)"><a href="TaiKhoanDangNhap.dc.html">Đăng nhập</a> để lưu bài và đánh dấu đã đọc.</p></div>
+</div>
+<div id="b-s0" style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px; padding-top: 16px">
+<div style="padding: 12px 0 14px; border-bottom: 1px solid var(--rule)">
+<p class="lab" style="margin: 0 0 4px; color: var(--accent)">Tóm tắt</p>
+<table class="tb" style="margin-bottom: 14px"><caption><strong style="color: var(--ink)">Bảng 1.</strong> Các kiểu thiếu chủ ngữ hay gặp (bảng Tóm tắt của bài).</caption><thead><tr><th scope="col" style="width: 190px">Kiểu lỗi</th><th scope="col" style="width: 250px">Ví dụ sai</th><th scope="col">Vấn đề</th></tr></thead><tbody><tr><th scope="row">Bỏ chủ ngữ do ảnh hưởng tiếng Việt</th><td lang="en">Is very important to study hard.</td><td>Không rõ ai, cái gì quan trọng</td></tr><tr><th scope="row">Mệnh đề phụ thiếu chủ ngữ riêng</th><td lang="en">Although studied hard, didn't pass.</td><td>Không rõ ai học, ai không qua</td></tr><tr><th scope="row">Câu dài mất chủ ngữ ở vế sau</th><td lang="en">The teacher explained the lesson and then gave a quiz, was very difficult.</td><td>Vế sau không có subject</td></tr></tbody></table>
+</div>
+<aside style="padding-top: 12px"></aside>
+</div>
+<div id="b-s1" style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px; padding-top: 18px">
+<div class="body">
+<h2 class="h2a"><span>1</span>&nbsp;&nbsp;Vì sao người Việt hay bỏ chủ ngữ?</h2>
+<p>Trong tiếng Việt, <strong>bỏ chủ ngữ là hoàn toàn bình thường</strong> khi người nghe đã hiểu từ ngữ cảnh: "Hôm qua đi học muộn." Ai đi? Không cần nói.</p><p>Mệnh đề hữu hạn trong văn viết tiếng Anh chuẩn thường cần chủ ngữ. Hội thoại có tỉnh lược khôi phục được (<em lang="en">Seems like it's changing fast</em>); câu mệnh lệnh và vị ngữ dùng chung chủ ngữ có quy tắc riêng.</p><figure style="margin: 14px 0 0"><div class="fig" role="img" aria-label="Hình 1. Câu tiếng Việt Hôm qua đi học muộn không có chủ ngữ. Dịch theo vai trò sang tiếng Anh phải thêm chủ ngữ I: I went to school late yesterday. Bản dịch Yesterday went to school late bị gạch.">
+<div style="display: grid; grid-template-columns: 84px 100px 170px 80px 110px; gap: 0 12px; align-items: end">
+<span></span>
+<span class="tag" style="margin-bottom: 4px">S</span>
+<span class="tag" style="color: var(--accent)" style="margin-bottom: 4px; color: var(--accent)">V</span>
+<span class="tag" style="margin-bottom: 4px">A</span>
+<span class="tag" style="margin-bottom: 4px">A</span>
+<span class="lab" style="font-size: 11px; color: var(--muted); align-self: center">Tiếng Việt</span>
+<span class="ch" style="width: 100%; border: 1.5px dashed var(--danger); color: var(--danger); font: 600 12px 'Source Sans 3', sans-serif; letter-spacing: 0.06em">∅ bỏ được</span>
+<span class="ch rV" style="font-size: 20px; width: 100%">đi học</span>
+<span class="ch rA" style="font-size: 20px; width: 100%">[ muộn ]</span>
+<span class="ch rA" style="font-size: 20px; width: 100%">[ hôm qua ]</span>
+<span></span>
+<span style="justify-self: center; width: 0; height: 24px; border-left: 1.5px solid var(--ink)"></span>
+<span style="justify-self: center; width: 0; height: 24px; border-left: 1.5px solid var(--accent)"></span>
+<span style="justify-self: center; width: 0; height: 24px; border-left: 1.5px solid var(--ink)"></span>
+<span style="justify-self: center; width: 0; height: 24px; border-left: 1.5px solid var(--ink)"></span>
+<span class="lab" style="font-size: 11px; color: var(--ok); align-self: center">Tiếng Anh</span>
+<span class="ch rS" lang="en" style="font-size: 20px; width: 100%">I</span>
+<span class="ch rV" lang="en" style="font-size: 20px; width: 100%">went to school</span>
+<span class="ch rA" lang="en" style="font-size: 20px; width: 100%">[ late ]</span>
+<span class="ch rA" lang="en" style="font-size: 20px; width: 100%">[ yesterday ]</span>
+</div>
+<p lang="en" style="margin: 14px 0 0; padding-top: 10px; border-top: 1px dashed var(--rule); display: flex; gap: 12px; align-items: baseline"><span class="lab" lang="vi" style="font-size: 11px; color: var(--danger); width: 84px; flex-shrink: 0">Không nói</span><span class="sf" style="font-size: 19px; text-decoration: line-through; text-decoration-color: var(--danger)">Yesterday went to school late.</span></p>
+</div></figure>
+</div>
+<aside style="display: flex; flex-direction: column; justify-content: flex-end; gap: 6px"><p class="note"><strong style="color: var(--ink)">Hình 1.</strong> Câu tiếng Việt gốc: "Hôm qua đi học muộn." Ô viền đứt đỏ là chỗ tiếng Việt để trống; sang tiếng Anh ô đó phải có chủ ngữ. Các khối còn lại nối thẳng theo vai trò.</p><p class="cap">Nguồn: Aver Learning biên soạn.</p></aside>
+</div>
+<div id="b-s2" style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px; padding-top: 18px">
+<div class="body">
+<h2 class="h2a"><span>2</span>&nbsp;&nbsp;Kiểu 1: bỏ chủ ngữ do ảnh hưởng tiếng Việt</h2>
+<p>Người học dịch thẳng từ tiếng Việt sang tiếng Anh mà không thêm chủ ngữ.</p><figure style="margin: 14px 0 0"><div class="fig" role="img" aria-label="Hình 2. Câu sai Is very important to study hard thiếu chủ ngữ trước Is. Câu đúng It is very important to study hard có It làm chủ ngữ.">
+<div style="display: flex; flex-direction: column; gap: 14px" lang="en">
+<div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 8px">
+<div class="cell"><span class="tag" style="color: var(--danger)">S</span><span class="ch" style="min-width: 76px; border: 1.5px dashed var(--danger); color: var(--danger); font: 600 12px 'Source Sans 3', sans-serif; letter-spacing: 0.06em; height: 36px">thiếu S</span></div>
+<div class="cell"><span class="tag" style="color: var(--accent)">V</span><span class="ch rV" style="font-size: 18px; height: 36px">Is</span></div>
+<div class="cell"><span class="tag">C</span><span class="ch rC" style="font-size: 18px; height: 36px">very important</span></div>
+<div class="cell"><span class="tag">&nbsp;</span><span class="ch" style="font-size: 18px; height: 36px">to study hard.</span></div>
+<span style="margin-left: auto; padding-bottom: 8px; font: 600 14px 'Source Sans 3', sans-serif; color: var(--muted)">Sai</span>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 8px">
+<div class="cell"><span class="tag">S</span><span class="ch rS" style="font-size: 18px; height: 36px">It</span></div>
+<div class="cell"><span class="tag" style="color: var(--accent)">V</span><span class="ch rV" style="font-size: 18px; height: 36px">is</span></div>
+<div class="cell"><span class="tag">C</span><span class="ch rC" style="font-size: 18px; height: 36px">very important</span></div>
+<div class="cell"><span class="tag">&nbsp;</span><span class="ch" style="font-size: 18px; height: 36px">to study hard.</span></div>
+<span style="margin-left: auto; padding-bottom: 8px; font: 600 14px 'Source Sans 3', sans-serif; color: var(--muted)">Đúng · S + V + C</span>
+</div>
+</div>
+</div></figure><div style="height: 14px"></div><table class="tb" style="margin-bottom: 14px"><caption><strong style="color: var(--ink)">Bảng 2.</strong> Thêm chủ ngữ phù hợp (trích 4 trong 6 dòng của bài).</caption><thead><tr><th scope="col" style="width: 280px">Thiếu chủ ngữ</th><th scope="col">Câu đúng</th></tr></thead><tbody><tr><th scope="row" lang="en">Learned English for five years.</th><td lang="en"><strong>I</strong> have learned English for five years.</td></tr><tr><th scope="row" lang="en">Don't know how to solve this problem.</th><td lang="en"><strong>I</strong> don't know how to solve this problem.</td></tr><tr><th scope="row" lang="en">Have many advantages and disadvantages.</th><td lang="en"><strong>This approach</strong> has many advantages and disadvantages.</td></tr><tr><th scope="row" lang="en">Need to invest more in education.</th><td lang="en"><strong>The government</strong> needs to invest more in education.</td></tr></tbody></table><p><strong>Mẹo nhận biết:</strong> câu bắt đầu bằng động từ (<em lang="en">Is, Was, Have, Need, Don't…</em>) mà không có chủ ngữ đứng trước là lỗi thiếu chủ ngữ.</p>
+</div>
+<aside style="display: flex; flex-direction: column; justify-content: flex-start; gap: 6px"><p class="note"><strong style="color: var(--ink)">Hình 2.</strong> Cùng một câu, bẻ theo vai trò. Ô viền đứt đỏ ghi "thiếu S" là chỗ trống trước động từ; hàng dưới lấp bằng <em lang="en">It</em>.</p><p class="cap">Nguồn: Aver Learning biên soạn.</p></aside>
+</div>
+<div id="b-s3" style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px; padding-top: 18px">
+<div class="body">
+<h2 class="h2a"><span>3</span>&nbsp;&nbsp;Kiểu 2: mệnh đề phụ thiếu chủ ngữ riêng</h2>
+<p>Trong câu phức, mỗi mệnh đề cần có chủ ngữ của riêng nó, trừ khi hai mệnh đề cùng chủ ngữ <strong>và</strong> câu được rút gọn theo đúng quy tắc.<sup class="sup">1</sup></p><figure style="margin: 14px 0 0"><div class="fig" role="img" aria-label="Hình 3. Câu Although she studied hard, she didn't pass the exam có hai mệnh đề. Mệnh đề chính: she didn't pass the exam. Mệnh đề phụ: Although she studied hard. Mỗi mệnh đề có chủ ngữ she riêng.">
+<p lang="en" class="sf" style="margin: 0 0 14px; font-size: 19px; line-height: 1.7">Although <span style="padding: 0 10px; border: 1.5px dashed var(--danger); color: var(--danger); font: 600 12px 'Source Sans 3', sans-serif; letter-spacing: 0.06em; white-space: nowrap">thiếu S</span> studied hard, <span style="padding: 0 10px; border: 1.5px dashed var(--danger); color: var(--danger); font: 600 12px 'Source Sans 3', sans-serif; letter-spacing: 0.06em; white-space: nowrap">thiếu S</span> didn't pass the exam.</p>
+<div lang="en" style="font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; line-height: 1.45; border-top: 1px solid var(--rule)">
+<div style="display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 0 12px; padding: 8px 0; border-bottom: 1px solid var(--rule)"><span class="lab" lang="vi" style="font-size: 12px; color: var(--accent); padding-top: 4px">Bậc 1 · chính</span><span><span style="padding: 1px 5px; border: 1.5px solid var(--ink); white-space: nowrap">she</span> <span style="border-bottom: 4px double var(--accent); color: var(--accent); font-weight: 600">didn't pass</span> <span style="padding: 1px 5px; border: 1.5px dashed var(--ink); white-space: nowrap">the exam</span>.</span></div>
+<div style="display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 0 12px; padding: 8px 0"><span class="lab" lang="vi" style="font-size: 12px; color: var(--muted); padding-top: 4px">Bậc 2 · phụ</span><span style="padding-left: 20px; border-left: 1.5px solid var(--muted)"><span style="color: var(--muted)">⟨</span> Although <span style="padding: 1px 5px; border: 1.5px solid var(--ink); white-space: nowrap">she</span> <em>studied</em> hard <span style="color: var(--muted)">⟩</span> <span lang="vi" style="font: 14px 'Source Sans 3', sans-serif; color: var(--muted)">nhượng bộ; cần chủ ngữ riêng</span></span></div>
+</div>
+</div></figure><div style="height: 14px"></div><ul lang="en" style="margin: 0 0 14px; padding: 0; list-style: none; border-top: 1px solid var(--rule)"><li style="padding: 5px 0; border-bottom: 1px solid var(--rule); font-size: 17px; line-height: 1.5">When <strong>he</strong> arrived, everyone clapped.</li><li style="padding: 5px 0; border-bottom: 1px solid var(--rule); font-size: 17px; line-height: 1.5">If <strong>you</strong> study every day, <strong>you</strong> will improve fast.</li></ul>
+</div>
+<aside style="display: flex; flex-direction: column; justify-content: flex-end; gap: 6px"><p class="note"><strong style="color: var(--accent)">1</strong> Rút gọn bằng V-ing hoặc to-infinitive là cách nâng cao. Với người mới học, cứ viết đủ chủ ngữ cho mỗi mệnh đề.</p><p class="note"><strong style="color: var(--ink)">Hình 3.</strong> Dòng trên là câu sai, hai ô đỏ là hai chỗ thiếu. Bên dưới tách thành hai bậc: mỗi bậc một khung chủ ngữ.</p><p class="cap">Nguồn: Aver Learning biên soạn.</p></aside>
+</div>
+<div id="b-s4" style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px; padding-top: 18px">
+<div class="body">
+<h2 class="h2a"><span>4</span>&nbsp;&nbsp;Kiểu 3: câu dài mất chủ ngữ ở vế sau</h2>
+<p>Khi câu có nhiều vế, người học hay quên chủ ngữ cho vế sau, nhất là sau <em lang="en">and, but, which, that</em>.</p><ol style="margin: 0 0 14px; padding: 0; list-style: none; border-top: 1px solid var(--ink)"><li style="display: grid; grid-template-columns: 28px 56px minmax(0, 1fr); gap: 0 8px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--rule); line-height: 26px"><span style="grid-row: span 3; font-family: 'Source Sans 3', sans-serif; font-size: 15px; color: var(--muted)">1</span><span class="lab" style="color: var(--danger)">Sai</span><p lang="en" style="margin: 0"><span style="text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 1.5px">I went to the market and bought vegetables, were fresh.</span></p><span class="lab" style="color: var(--ok)">Đúng</span><p lang="en" style="margin: 0">I went to the market and bought vegetables <strong>that</strong> were fresh.</p><span class="lab" style="color: var(--muted)">Vì sao</span><p style="margin: 0; font-family: 'Source Sans 3', sans-serif; font-size: 15px; line-height: 1.45; color: var(--muted)">Vế sau nói về vegetables: cần <em lang="en">that</em> làm chủ ngữ của <em lang="en">were</em>.</p></li><li style="display: grid; grid-template-columns: 28px 56px minmax(0, 1fr); gap: 0 8px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--rule); line-height: 26px"><span style="grid-row: span 3; font-family: 'Source Sans 3', sans-serif; font-size: 15px; color: var(--muted)">2</span><span class="lab" style="color: var(--danger)">Sai</span><p lang="en" style="margin: 0"><span style="text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 1.5px">He studied economics at university, helped him get a good job.</span></p><span class="lab" style="color: var(--ok)">Đúng</span><p lang="en" style="margin: 0">He studied economics at university, <strong>which</strong> helped him get a good job.</p><span class="lab" style="color: var(--muted)">Vì sao</span><p style="margin: 0; font-family: 'Source Sans 3', sans-serif; font-size: 15px; line-height: 1.45; color: var(--muted)"><em lang="en">which</em> thay cho cả việc học kinh tế.</p></li></ol><p>Nếu vị ngữ sau dùng chung chủ ngữ đã rõ thì không phải lỗi: <em lang="en">She cooked and washed the dishes</em>.</p>
+</div>
+<aside style="display: flex; flex-direction: column; justify-content: flex-end; gap: 6px"></aside>
+</div>
+<div id="b-s5" style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px; padding-top: 18px">
+<div class="body">
+<h2 class="h2a"><span>5</span>&nbsp;&nbsp;Kiểu 4: bỏ "it" khi cần chủ ngữ hình thức</h2>
+<p><em lang="en">It</em> làm chủ ngữ hình thức (dummy subject) trong nhiều cấu trúc. Người Việt hay bỏ vì tiếng Việt không có từ tương đương.</p><ul lang="en" style="margin: 0 0 14px; padding: 0; list-style: none; border-top: 1px solid var(--rule)"><li style="padding: 5px 0; border-bottom: 1px solid var(--rule); font-size: 17px; line-height: 1.5"><strong>It</strong> is raining outside.</li><li style="padding: 5px 0; border-bottom: 1px solid var(--rule); font-size: 17px; line-height: 1.5"><strong>It</strong> takes a long time to become fluent.</li><li style="padding: 5px 0; border-bottom: 1px solid var(--rule); font-size: 17px; line-height: 1.5"><strong>It</strong> is clear that more action is needed.</li></ul>
+</div>
+<aside style="display: flex; flex-direction: column; justify-content: flex-end; gap: 6px"></aside>
+</div>
+<div id="b-s6" style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px; padding-top: 18px">
+<div class="body">
+<h2 class="h2a"><span>6</span>&nbsp;&nbsp;Lỗi hay gặp trong IELTS</h2>
+<figure style="margin: 14px 0 0"><div class="fig" role="img" aria-label="Hình 4. Hai cặp sai và đúng trong IELTS. Is important that governments take action thiếu It. Makes me feel relaxed thiếu It sau câu I really enjoy travelling.">
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px">
+<p class="lab" style="margin: 0 0 6px; color: var(--danger)">Sai</p>
+<p class="lab" style="margin: 0 0 6px; color: var(--ok)">Đúng</p>
+<p lang="en" class="sf" style="margin: 0; padding: 10px 0; border-top: 1.5px solid var(--danger); font-size: 18px; line-height: 1.5"><span style="padding: 0 10px; border: 1.5px dashed var(--danger); color: var(--danger); font: 600 12px 'Source Sans 3', sans-serif; letter-spacing: 0.06em; white-space: nowrap">thiếu S</span> Is important that governments take action.</p>
+<p lang="en" class="sf" style="margin: 0; padding: 10px 0; border-top: 1.5px solid var(--ok); font-size: 18px; line-height: 1.5"><span style="padding: 0 3px; border-bottom: 4px double var(--ok); font-weight: 600; white-space: nowrap">It</span> is important that governments take action.</p>
+<p style="grid-column: span 2; margin: 0 0 12px; font: 14px/1.5 'Source Sans 3', sans-serif; color: var(--muted)"><span class="lab" style="color: var(--muted)">Vì sao&nbsp;&nbsp;</span>Câu bắt đầu bằng <em lang="en">Is/Are/Was/Were</em> cần chủ ngữ đứng trước.</p>
+<p lang="en" class="sf" style="margin: 0; padding: 10px 0; border-top: 1.5px solid var(--danger); font-size: 18px; line-height: 1.5">I really enjoy travelling. <span style="padding: 0 10px; border: 1.5px dashed var(--danger); color: var(--danger); font: 600 12px 'Source Sans 3', sans-serif; letter-spacing: 0.06em; white-space: nowrap">thiếu S</span> Makes me feel relaxed.</p>
+<p lang="en" class="sf" style="margin: 0; padding: 10px 0; border-top: 1.5px solid var(--ok); font-size: 18px; line-height: 1.5">I really enjoy travelling. <span style="padding: 0 3px; border-bottom: 4px double var(--ok); font-weight: 600; white-space: nowrap">It</span> makes me feel relaxed.</p>
+<p style="grid-column: span 2; margin: 0; font: 14px/1.5 'Source Sans 3', sans-serif; color: var(--muted)"><span class="lab" style="color: var(--muted)">Vì sao&nbsp;&nbsp;</span>Khi chuyển ý trong Speaking, câu mới vẫn cần chủ ngữ.</p>
+</div>
+</div></figure><div style="height: 14px"></div><ol style="margin: 0 0 14px; padding: 0; list-style: none; border-top: 1px solid var(--ink)"><li style="display: grid; grid-template-columns: 28px 56px minmax(0, 1fr); gap: 0 8px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--rule); line-height: 26px"><span style="grid-row: span 3; font-family: 'Source Sans 3', sans-serif; font-size: 15px; color: var(--muted)">1</span><span class="lab" style="color: var(--danger)">Sai</span><p lang="en" style="margin: 0"><span style="text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 1.5px">Has many advantages.</span></p><span class="lab" style="color: var(--ok)">Đúng</span><p lang="en" style="margin: 0"><strong>Working from home</strong> has many advantages.</p><span class="lab" style="color: var(--muted)">Vì sao</span><p style="margin: 0; font-family: 'Source Sans 3', sans-serif; font-size: 15px; line-height: 1.45; color: var(--muted)">Câu chủ đề (topic sentence) thiếu chủ ngữ.</p></li><li style="display: grid; grid-template-columns: 28px 56px minmax(0, 1fr); gap: 0 8px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--rule); line-height: 26px"><span style="grid-row: span 3; font-family: 'Source Sans 3', sans-serif; font-size: 15px; color: var(--muted)">2</span><span class="lab" style="color: var(--danger)">Sai</span><p lang="en" style="margin: 0"><span style="text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 1.5px">If invest in education, will see results in the future.</span></p><span class="lab" style="color: var(--ok)">Đúng</span><p lang="en" style="margin: 0">If <strong>governments</strong> invest in education, <strong>they</strong> will see results in the future.</p><span class="lab" style="color: var(--muted)">Vì sao</span><p style="margin: 0; font-family: 'Source Sans 3', sans-serif; font-size: 15px; line-height: 1.45; color: var(--muted)">Câu điều kiện thiếu chủ ngữ ở cả hai vế.</p></li></ol>
+</div>
+<aside style="display: flex; flex-direction: column; justify-content: flex-start; gap: 6px"><p class="note"><strong style="color: var(--ink)">Hình 4.</strong> Lỗi 1 và lỗi 4 của bài. Chỗ thiếu được đánh dấu bằng ô "thiếu S" chứ không gạch chữ, vì ở đây không có chữ nào sai, chỉ có chữ bị bỏ.</p><p class="cap">Nguồn: Aver Learning biên soạn.</p></aside>
+</div>
+<div id="b-s7" style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px; padding-top: 18px">
+<div class="body">
+<h2 class="h2a"><span>7</span>&nbsp;&nbsp;Tự kiểm tra</h2>
+<p style="font-family: 'Source Sans 3', sans-serif; font-size: 16px; line-height: 1.5; color: var(--muted)">Ba câu lấy từ mục "Bài tập luyện" của bài, đổi thành dạng chọn. Chấm ngay trên trang, không lưu kết quả.</p>
+<ol style="margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--ink)">
+<sc-for list="{{qz.b.items}}" as="q" hint-placeholder-count="3">
+<li style="padding: 10px 0; border-bottom: 1px solid var(--rule)">
+<p style="margin: 0 0 6px"><span style="font-family: 'Source Sans 3', sans-serif; color: var(--muted)">{{q.n}}.&nbsp;</span><span style="font-family: 'Source Sans 3', sans-serif; font-size: 16px">{{q.ask}}</span><br><span lang="en">{{q.prompt}}</span></p>
+<div role="radiogroup" aria-label="{{q.aria}}" style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{q.opts}}" as="o" hint-placeholder-count="3">
+<button role="radio" aria-checked="{{o.on}}" onClick="{{o.pick}}" lang="en" style="display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border: 1px solid {{o.bd}}; border-radius: 2px; background: {{o.bg}}; color: var(--ink); font: 400 17px 'Source Serif 4', Georgia, serif; cursor: pointer">{{o.t}}<span style="font: 600 12px 'Source Sans 3', sans-serif; letter-spacing: 0.06em; text-transform: uppercase; color: {{o.tagc}}">{{o.tag}}</span></button>
+</sc-for>
+</div>
+<sc-if value="{{q.done}}" hint-placeholder-val="{{ false }}"><p style="margin: 8px 0 0; font-family: 'Source Sans 3', sans-serif; font-size: 16px; line-height: 1.5"><strong style="color: {{q.resc}}">{{q.res}}</strong> {{q.why}}</p></sc-if>
+</li>
+</sc-for>
+</ol>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin-top: 12px; font-family: 'Source Sans 3', sans-serif; font-size: 16px">
+<button onClick="{{qz.b.check}}" class="btnp">Kiểm tra</button>
+<button onClick="{{qz.b.reset}}" class="btn">Làm lại</button>
+<span aria-live="polite" style="color: {{qz.b.msgc}}">{{qz.b.msg}}</span>
+</div>
+</div>
+<aside style="display: flex; flex-direction: column; justify-content: flex-end; gap: 6px"></aside>
+</div>
+<div id="b-s8" style="display: grid; grid-template-columns: 640px 224px; column-gap: 40px; padding-top: 18px"><div><h2 class="h2a"><span>8</span>&nbsp;&nbsp;Bài liên quan</h2><div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 24px"><div style="border-top: 1px solid var(--ink); padding-top: 8px"><p class="kick" style="font-size: 12px">Nên đọc trước</p><ul style="margin: 4px 0 0; padding: 0; list-style: none"><li style="padding: 5px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="sf" style="font-size: 16px; color: var(--ink); text-decoration-color: var(--rule); text-underline-offset: 4px">Sentence Elements</a><span style="display: block; font-size: 14px; color: var(--muted)">Thành phần câu</span></li><li style="padding: 5px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="sf" style="font-size: 16px; color: var(--ink); text-decoration-color: var(--rule); text-underline-offset: 4px">Simple Sentence</a><span style="display: block; font-size: 14px; color: var(--muted)">Câu đơn</span></li></ul></div><div style="border-top: 1px solid var(--ink); padding-top: 8px"><p class="kick" style="font-size: 12px">Liên quan</p><ul style="margin: 4px 0 0; padding: 0; list-style: none"><li style="padding: 5px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="sf" style="font-size: 16px; color: var(--ink); text-decoration-color: var(--rule); text-underline-offset: 4px">Sentence Fragments</a><span style="display: block; font-size: 14px; color: var(--muted)">Câu không hoàn chỉnh</span></li><li style="padding: 5px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="sf" style="font-size: 16px; color: var(--ink); text-decoration-color: var(--rule); text-underline-offset: 4px">Double Subject Errors</a><span style="display: block; font-size: 14px; color: var(--muted)">Lỗi lặp chủ ngữ</span></li></ul></div><div style="border-top: 1px solid var(--ink); padding-top: 8px"><p class="kick" style="font-size: 12px">Cùng chủ đề, nhóm khác</p><ul style="margin: 4px 0 0; padding: 0; list-style: none"><li style="padding: 5px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="sf" style="font-size: 16px; color: var(--ink); text-decoration-color: var(--rule); text-underline-offset: 4px">There is vs. It is</a><span style="display: block; font-size: 14px; color: var(--muted)">Nền tảng</span></li><li style="padding: 5px 0; border-bottom: 1px solid var(--rule)"><a href="GrammarWikiBai.dc.html" lang="en" class="sf" style="font-size: 16px; color: var(--ink); text-decoration-color: var(--rule); text-underline-offset: 4px">Word Order</a><span style="display: block; font-size: 14px; color: var(--muted)">Nền tảng</span></li></ul></div></div><nav aria-label="Bài trước và bài sau" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-top: 16px"><a href="GrammarWikiBai.dc.html" style="display: block; padding: 10px 0; border-top: 2px solid var(--ink); color: var(--ink); text-decoration: none"><span class="kick" style="font-size: 12px">‹ Bài trước · 8.13</span><span class="sf" lang="en" style="display: block; font-size: 20px; font-weight: 600">Sentence Fragments</span><span style="font-size: 14px; color: var(--muted)">Câu không hoàn chỉnh</span></a><a href="GrammarWikiBai.dc.html" style="display: block; padding: 10px 0; border-top: 2px solid var(--ink); color: var(--ink); text-decoration: none; text-align: right"><span class="kick" style="font-size: 12px">Bài sau · 8.15 ›</span><span class="sf" lang="en" style="display: block; font-size: 20px; font-weight: 600">Missing Main Verbs</span><span style="font-size: 14px; color: var(--muted)">Lỗi thiếu động từ chính</span></a></nav><p style="margin: 14px 0 0; font-size: 14px; color: var(--muted)">Nguồn: Aver Learning biên soạn. Cập nhật 19/04/2026.</p></div><aside></aside></div>
+</article>
+</div>
+</main>
+<footer style="padding: 16px 32px; border-top: 1px solid var(--ink)">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0 28px">
+<span class="sf" style="display: inline-flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 600; margin-right: 12px"><svg width="26" height="26" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="currentColor"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<nav aria-label="Chân trang" class="foot" style="display: flex; flex-wrap: wrap; gap: 0 24px">
+<a href="TrangChuCongKhai.dc.html">Giới thiệu</a><a href="DanhMucKhoa.dc.html">Khoá học</a><a href="ThuVien.dc.html">Thư viện</a><a href="HocVienNoiGi.dc.html">Học viên nói gì</a><a href="PhapLy.dc.html">Điều khoản</a><a href="PhapLy.dc.html">Quyền riêng tư</a><a href="PhapLy.dc.html">Liên hệ</a>
+</nav>
+</div>
+<p style="margin: 6px 0 0; font-size: 14px; color: var(--muted)">© 2026 Aver Learning. Bảo lưu mọi quyền.</p>
+</footer>
+</div>
+</section>
+
+<section aria-labelledby="b3" style="border-top: 2px solid var(--ink); padding: 16px 64px 0">
+<h2 id="b3" class="h2s">Ghi chú cho lập trình</h2>
+<p class="lead">Ghi chú đầy đủ cho nhóm ở tờ GrammarWikiNhom8. Ở đây chỉ ghi điều riêng của trang này. Bản điện thoại 390px của nhóm ở tờ GrammarWikiNhom8, mục 3.</p>
+<ul style="margin: 0; padding-left: 20px; font-size: 15px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 48px"><li><strong>Bảng Tóm tắt:</strong> nhiều bài Error Clinic mở bằng một bảng thay cho đoạn văn. Khối "Tóm tắt" nhận cả đoạn văn lẫn bảng; bảng dùng khuôn <em lang="en">.tb</em>, đánh số "Bảng 1".</li><li><strong>Ô "thiếu S":</strong> là một khối của kiểu 1, 5, 8 và 9, có nhãn đọc là "thiếu chủ ngữ"; không dùng màu làm tín hiệu duy nhất (luôn có chữ).</li><li><strong>Tự kiểm tra với lựa chọn là cả câu:</strong> nút cao tối thiểu 44px, chữ xuống dòng trong nút; trên điện thoại mỗi lựa chọn một hàng.</li><li><strong>Trang này không có dòng mời khoá cuối bài</strong> để cho thấy trạng thái bài chưa gắn khoá nào; chân trang giống bài vẽ đủ 1.</li></ul>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Navy + đỏ mận","Xanh teal"],"default":"Navy + đỏ mận"},"$preview":{"width":1280,"height":5140}}'>
+class Component extends DCLogic {
+constructor(p) { super(p); this.state = { ans: {}, checked: {}, warn: {}, playing: '', phoneToc: false }; }
+renderVals() {
+const s = this.state || {};
+const QZ = {"a": [{"ask": "Chọn do hoặc make.", "prompt": "Could you ____ me a favour and help with these boxes?", "opts": ["do", "make"], "right": 0, "why": "Do someone a favour: một việc cần thực hiện, không phải thứ được tạo ra."}, {"ask": "Chọn dạng đúng.", "prompt": "She ____ a lot of mistakes in her first draft.", "opts": ["did", "made"], "right": 1, "why": "Mistake là kết quả được \"tạo ra\", nên dùng make."}, {"ask": "Chọn do hoặc make.", "prompt": "We should ____ more research before publishing.", "opts": ["do", "make"], "right": 0, "why": "Research là một hoạt động, nên dùng do."}, {"ask": "Chọn do hoặc make.", "prompt": "The new policy will ____ a real difference.", "opts": ["do", "make"], "right": 1, "why": "Make a difference: gây ra kết quả, thay đổi trạng thái."}], "b": [{"ask": "Câu nào đủ chủ ngữ?", "prompt": "", "opts": ["Is very challenging to find a work-life balance.", "It is very challenging to find a work-life balance."], "right": 1, "why": "Cần \"it\" làm chủ ngữ hình thức đứng trước \"is\"."}, {"ask": "Câu nào đủ chủ ngữ?", "prompt": "", "opts": ["Although he worked hard, he couldn't finish on time.", "Although worked hard, couldn't finish on time."], "right": 0, "why": "Mỗi mệnh đề cần chủ ngữ của riêng nó."}, {"ask": "Câu nào đủ chủ ngữ?", "prompt": "", "opts": ["Need to exercise more to stay healthy.", "We need to exercise more to stay healthy."], "right": 1, "why": "Câu bắt đầu bằng động từ mà không phải câu mệnh lệnh là thiếu chủ ngữ."}]};
+const AU = [];
+const TG = [{"k": "more", "a": "Xem đủ 34 cụm", "b": "Thu gọn bảng"}];
+const qz = {};
+Object.keys(QZ).forEach((k) => {
+const Q = QZ[k];
+const ans = (s.ans || {})[k] || {};
+const checked = !!(s.checked || {})[k];
+const setAns = (qi, oi) => this.setState({ ans: Object.assign({}, this.state.ans || {}, { [k]: Object.assign({}, ((this.state.ans || {})[k]) || {}, { [qi]: oi }) }), checked: Object.assign({}, this.state.checked || {}, { [k]: false }), warn: Object.assign({}, this.state.warn || {}, { [k]: 0 }) });
+const items = Q.map((q, qi) => {
+const chosen = ans[qi];
+const done = checked && chosen !== undefined;
+const ok = done && chosen === q.right;
+return { n: String(qi + 1), ask: q.ask, prompt: q.prompt, aria: 'Câu ' + (qi + 1), done, res: ok ? 'Chính xác.' : 'Chưa đúng.', resc: ok ? 'var(--ok)' : 'var(--danger)', why: q.why,
+opts: q.opts.map((t, oi) => {
+const on = chosen === oi;
+const showRight = done && oi === q.right;
+const showWrong = done && on && oi !== q.right;
+return { t, on: on ? 'true' : 'false', bd: showRight ? 'var(--ok)' : (showWrong ? 'var(--danger)' : (on ? 'var(--ink)' : 'var(--rule)')), bg: on ? 'var(--tint)' : 'var(--surface)', tag: showRight ? 'Đúng' : (showWrong ? 'Sai' : ''), tagc: showRight ? 'var(--ok)' : 'var(--danger)', pick: () => setAns(qi, oi) };
+}) };
+});
+const missing = Q.filter((q, i) => ans[i] === undefined).length;
+const nRight = Q.filter((q, i) => ans[i] === q.right).length;
+const warn = (s.warn || {})[k] || 0;
+let msg = ''; let msgc = 'var(--muted)';
+if (warn) { msg = 'Còn ' + warn + ' câu chưa chọn.'; msgc = 'var(--mark)'; }
+else if (checked) { msg = 'Đúng ' + nRight + ' trên ' + Q.length + ' câu.'; msgc = 'var(--ink)'; }
+qz[k] = { items, msg, msgc,
+check: () => { if (missing) { this.setState({ warn: Object.assign({}, this.state.warn || {}, { [k]: missing }) }); } else { this.setState({ checked: Object.assign({}, this.state.checked || {}, { [k]: true }), warn: Object.assign({}, this.state.warn || {}, { [k]: 0 }) }); } },
+reset: () => this.setState({ ans: Object.assign({}, this.state.ans || {}, { [k]: {} }), checked: Object.assign({}, this.state.checked || {}, { [k]: false }), warn: Object.assign({}, this.state.warn || {}, { [k]: 0 }) }) };
+});
+const au = {};
+AU.forEach((k) => {
+const on = s.playing === k;
+au[k] = { on: on ? 'true' : 'false', label: on ? 'Dừng' : 'Nghe câu mẫu', icon: on ? 'M3 2h4v12H3zM9 2h4v12H9z' : 'M3 1.5v13l11-6.5z', bg: on ? 'var(--ink)' : 'var(--surface)', fg: on ? 'var(--surface)' : 'var(--ink)', pick: () => this.setState({ playing: on ? '' : k }) };
+});
+const tg = {};
+TG.forEach((x) => {
+const open = !!((s.tg || {})[x.k]);
+tg[x.k] = { open, exp: open ? 'true' : 'false', label: open ? x.b : x.a, pick: () => this.setState({ tg: Object.assign({}, this.state.tg || {}, { [x.k]: !open }) }) };
+});
+const phoneTocOpen = !!s.phoneToc;
+return {
+pal: (this.props.palette ?? 'Navy + đỏ mận') === 'Xanh teal' ? 'pal-teal' : 'pal-navy',
+qz, au, tg,
+phoneTocOpen, phoneTocIcon: phoneTocOpen ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6', phoneTocLabel: phoneTocOpen ? 'true' : 'false',
+togglePhoneToc: () => this.setState({ phoneToc: !phoneTocOpen })
+};
+}
+}
+</script>
+</body>
+</html>

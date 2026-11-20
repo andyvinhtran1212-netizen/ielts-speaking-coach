@@ -34,6 +34,7 @@ import {
   ReviewQuestionContext,
   reviewExplanationUnavailableReason,
 } from '@/components/review-attempt-context';
+import { leaveForParent } from '@/lib/redirect-notice-model.mjs';
 
 type Phase = 'loading' | 'ready' | 'empty' | 'error';
 type Filter = 'wrong' | 'blank' | 'all' | 'correct';
@@ -353,8 +354,8 @@ export function ListeningReviewWorkspace() {
   useEffect(() => {
     if (!params) return;
     if (!params.attemptId && !params.adminTestId) {
-      setSnapshot(null);
-      setPhase('empty');
+      // G02-T11: a review link without its attempt goes back to Listening.
+      leaveForParent('/listening');
       return;
     }
     if (status === 'initial-loading') return;

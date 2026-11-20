@@ -116,7 +116,7 @@ export function AdminMockReviews({ examId, embedded }: { examId: string; embedde
   }, [examId, profile.id]);
 
   const loadRoster = useCallback(async (silent = false) => {
-    if (!examId) { setLoading(false); setRosterLoaded(false); setRosterError('Thiếu mock_exam_id; chọn một kỳ thi từ workspace Mock Test.'); return null; }
+    if (!examId) { setLoading(false); setRosterLoaded(false); setRosterError('Chọn một kỳ thi để duyệt bài.'); return null; }
     const request = ++requestRef.current;
     const account = profile.id;
     if (!silent) { setLoading(true); setRosterLoaded(false); }
@@ -137,7 +137,7 @@ export function AdminMockReviews({ examId, embedded }: { examId: string; embedde
     let dead = false;
     const account = profile.id;
     setExamTitle(''); setDetail(null); setNotice(null); setSkips([]); setSummary(null); setSummaryError(''); setRosterLoaded(false);
-    if (!examId) { setLoading(false); setRosterError('Thiếu mock_exam_id; chọn một kỳ thi từ workspace Mock Test.'); return () => { dead = true; }; }
+    if (!examId) { setLoading(false); setRosterError('Chọn một kỳ thi để duyệt bài.'); return () => { dead = true; }; }
     void loadRoster(); void loadSummary();
     (async () => {
       try {

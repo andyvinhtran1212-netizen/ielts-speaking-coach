@@ -1,7 +1,10 @@
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 
 import { AdminAccessGate } from '@/components/admin-access-gate';
+import { writingStatusHref } from '@/lib/admin-writing-status-model.mjs';
+import { firstSearchParams, redirectNoticeHref, searchParamText } from '@/lib/redirect-notice-model.mjs';
 
 import { AdminWritingStatus } from './admin-writing-status';
 
@@ -16,6 +19,10 @@ async function AdminWritingStatusBody({ searchParams }: {
 }) {
   const params = await searchParams;
   const embed = params.embed === '1';
+  // G02-T12: without an essay, back to the queue it came from (filters kept).
+  if (!searchParamText(params.essay_id) && !searchParamText(params.id)) {
+    redirect(redirectNoticeHref(writingStatusHref('queue', firstSearchParams(params))));
+  }
   return <aver-admin-chrome active="writing" subsection="queue" embed={embed ? '' : undefined}>
     <AdminAccessGate><AdminWritingStatus /></AdminAccessGate>
   </aver-admin-chrome>;

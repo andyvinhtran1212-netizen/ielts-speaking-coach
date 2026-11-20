@@ -27,7 +27,12 @@ from __future__ import annotations
 import time
 from typing import Optional
 
-from models.writing_feedback import GraderConfig, GradingResult, WritingFeedback
+from models.writing_feedback import (
+    GeneratedWritingFeedback,
+    GraderConfig,
+    GradingResult,
+    WritingFeedback,
+)
 
 # Fields each pass OWNS in the merge.
 _JUDGMENT_FIELDS = (
@@ -72,7 +77,7 @@ counterargumentAnalysis: null.
 """
 
 
-def merge_passes(judgment: WritingFeedback, mechanical: WritingFeedback) -> WritingFeedback:
+def merge_passes(judgment: WritingFeedback, mechanical: WritingFeedback) -> GeneratedWritingFeedback:
     """Assemble one WritingFeedback from the two passes — judgment fields from
     the strong pass, mechanical fields from the cheap pass. Pure (no IO)."""
     data = {}
@@ -80,11 +85,11 @@ def merge_passes(judgment: WritingFeedback, mechanical: WritingFeedback) -> Writ
         data[f] = getattr(judgment, f)
     for f in _MECHANICAL_FIELDS:
         data[f] = getattr(mechanical, f)
-    return WritingFeedback(**data)
+    return GeneratedWritingFeedback(**data)
 
 
 async def _grade_pass(grader, loader, config: GraderConfig, directive: str,
-                      *, image) -> tuple[WritingFeedback, dict, str, int]:
+                      *, image) -> tuple[GeneratedWritingFeedback, dict, str, int]:
     """Run one pass: base system prompt + directive, reusing the grader's call
     + parse path. Returns (feedback, usage, model, duration_ms)."""
     start = time.time()
@@ -97,10 +102,10 @@ async def _grade_pass(grader, loader, config: GraderConfig, directive: str,
         model_name=config.selected_model,
         system_prompt=system_prompt,
         user_prompt=user_prompt,
-        parse_schema=WritingFeedback,
+        parse_schema=GeneratedWritingFeedback,
         **extra,
     )
-    feedback = grader._parse_response(response_text, schema=WritingFeedback)
+    feedback = grader._parse_response(response_text, schema=GeneratedWritingFeedback)
     return feedback, usage, config.selected_model, int((time.time() - start) * 1000)
 
 

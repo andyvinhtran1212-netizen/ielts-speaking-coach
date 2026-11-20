@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Phiếu kết quả Writing</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--link:#0B5953;--mark:#8A4B08;--tint:#EDF3F1;--on-accent:#FFFFFF}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--link:#1A3561;--mark:#8A1C1C;--tint:#EEF0F5;--on-accent:#FFFFFF}
+a{color:var(--link)}a:hover{color:var(--ink)}
+button:disabled{opacity:0.5;cursor:not-allowed}
+</style>
+</helmet>
+<div class="{{pal}}" style="background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 16px; line-height: 1.55; min-height: 4127px">
+<header style="border-bottom: 1px solid var(--ink)">
+<div style="max-width: 1120px; margin: 0 auto; padding: 0 32px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 36px; min-height: 64px">
+<a href="Main.dc.html" style="display: inline-flex; align-items: center; gap: 9px; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600; color: var(--ink); text-decoration: none"><svg width="29" height="29" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</a>
+<nav aria-label="Điều hướng chính" style="display: flex; flex-wrap: wrap; gap: 4px 28px; flex-grow: 1">
+<a href="Main.dc.html" style="padding: 20px 0; color: var(--muted); text-decoration: none">Hôm nay</a>
+<a href="LoTrinh.dc.html" style="padding: 20px 0; color: var(--muted); text-decoration: none">Lộ trình</a>
+<a href="LuyenTap.dc.html" aria-current="page" style="padding: 20px 0 17px; color: var(--ink); font-weight: 600; text-decoration: none; border-bottom: 3px solid var(--accent)">Luyện tập</a>
+<a href="ThiThu.dc.html" style="padding: 20px 0; color: var(--muted); text-decoration: none">Thi thử</a>
+<a href="ThuVien.dc.html" style="padding: 20px 0; color: var(--muted); text-decoration: none">Thư viện</a>
+</nav>
+<div style="display: flex; align-items: center; gap: 16px">
+<span style="font-size: 14px; color: var(--muted)">Lượt chấm AI còn <strong style="color: var(--ink); font-variant-numeric: tabular-nums">XXX</strong></span>
+<button aria-label="Tra nhanh: từ, bài ngữ pháp, đề bài mẫu" title="Tra nhanh" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; box-sizing: border-box; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); cursor: pointer"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="1.6"></circle><path d="M15 15l5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path></svg></button>
+<span style="position: relative; flex: none; display: inline-flex"><a href="ThongBao.dc.html" aria-label="Thông báo, 4 chưa đọc" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; box-sizing: border-box; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink)"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15zM10 20.5a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></a><span aria-hidden="true" style="position: absolute; top: -7px; right: -7px; min-width: 20px; height: 20px; box-sizing: border-box; padding: 0 5px; border: 1px solid var(--paper); border-radius: 2px; background: var(--accent); color: var(--on-accent); font-size: 12px; font-weight: 600; line-height: 18px; text-align: center; font-variant-numeric: tabular-nums">4</span></span>
+<button aria-label="Mở menu tài khoản" style="width: 44px; height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer">MA</button>
+</div>
+</div>
+</header>
+<main style="max-width: 1120px; margin: 0 auto; padding: 28px 32px 72px">
+<nav aria-label="Vị trí trang" style="font-size: 14px; color: var(--muted); margin-bottom: 28px"><a href="LuyenTap.dc.html">Luyện tập</a> › <a href="BaiGiang.dc.html">Writing</a> › Kết quả</nav>
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Phiếu nhận xét · Writing Task 2 · nộp 15/11/2026</p>
+<h1 lang="en" style="margin: 6px 0 10px; font-family: 'Source Serif 4', Georgia, serif; font-size: 40px; font-weight: 600; line-height: 1.15; text-wrap: balance; max-width: 26ch">Technology and young people's jobs</h1>
+<details open style="margin: 0 0 18px; max-width: 760px; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule)">
+<summary style="padding: 10px 0; font-size: 15px; font-weight: 600; cursor: pointer">Đề bài</summary>
+<p lang="en" style="margin: 0 0 12px; font-family: 'Source Serif 4', Georgia, serif; font-size: 17px; line-height: 1.6">Technology is changing the way young people work. Some people think this is a positive development, while others believe it takes jobs away from young workers. Discuss both views and give your own opinion.</p>
+</details>
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0 0 8px; font-size: 15px">
+<span style="font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Nguồn chấm</span>
+<strong>{{flowLabel}}</strong>
+<span style="color: var(--muted)">{{flowSub}}</span>
+</div>
+<p style="margin: 0 0 36px; color: var(--muted); max-width: 70ch">{{flowNote}}</p>
+<sc-if value="{{isPending}}" hint-placeholder-val="{{ false }}">
+<section aria-labelledby="h-pending" style="margin: 0 0 36px; padding: 20px 24px; border: 1px solid var(--rule); border-left: 4px solid var(--accent); background: var(--surface); max-width: 760px">
+<h2 id="h-pending" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">Đang chờ giáo viên duyệt</h2>
+<p style="margin: 0 0 10px">AI đã chấm xong lúc 21:40, 15/11. Giáo viên lớp của bạn sẽ xem lại điểm và nhận xét trước khi trả. Phiếu hiện đầy đủ khi giáo viên duyệt xong; bạn sẽ nhận thông báo.</p>
+<ol style="margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px 24px; font-size: 14px">
+<li><strong>1.</strong> Đã nộp 21:38</li>
+<li><strong>2.</strong> AI đã chấm 21:40</li>
+<li style="color: var(--accent); font-weight: 600">3. Giáo viên đang duyệt</li>
+<li style="color: var(--muted)">4. Trả kết quả</li>
+</ol>
+</section>
+</sc-if>
+<sc-if value="{{showResult}}" hint-placeholder-val="{{ true }}">
+<section aria-labelledby="h-band" style="display: flex; flex-wrap: wrap; gap: 24px 56px; padding: 24px 0; border-top: 2px solid var(--ink); border-bottom: 1px solid var(--ink)">
+<div style="flex: 0 0 auto">
+<h2 id="h-band" style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Band ước lượng</h2>
+<p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 96px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums">6.0</p>
+<p style="margin: 6px 0 0; font-size: 14px; color: var(--muted)">Bài trước: 5.5 · 268 từ</p>
+</div>
+<div style="flex: 1 1 520px; min-width: 0; overflow-x: auto">
+<div role="table" aria-label="Band theo tiêu chí" style="min-width: 480px">
+<sc-for list="{{criteria}}" as="c" hint-placeholder-count="4">
+<div role="row" style="display: grid; grid-template-columns: max-content 48px minmax(0, 1fr); align-items: baseline; border-bottom: 1px solid var(--rule)">
+<div role="rowheader" style="padding: 10px 16px 10px 0; font-weight: 600; white-space: nowrap">{{c.name}}</div>
+<div role="cell" style="padding: 10px 16px 10px 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums">{{c.band}}</div>
+<div role="cell" style="padding: 10px 0; color: var(--muted); font-size: 15px">{{c.note}}</div>
+</div>
+</sc-for>
+</div>
+</div>
+</section>
+<section aria-labelledby="h-prio" style="padding: 32px 0 8px">
+<h2 id="h-prio" style="margin: 0 0 12px; font-family: 'Source Serif 4', Georgia, serif; font-size: 28px; font-weight: 600">Ba việc nên sửa trước</h2>
+<ol style="margin: 0; padding: 0; list-style: none; max-width: 760px">
+<li style="display: flex; gap: 18px; padding: 14px 0; border-top: 1px solid var(--rule)"><span style="font-family: 'Source Serif 4', Georgia, serif; font-size: 26px; line-height: 1.1; color: var(--accent)">1</span><p style="margin: 0"><strong>Trả lời đủ cả hai vế của đề.</strong> Bài mới bàn về lợi ích; phần "người trẻ mất việc" chỉ có một câu ở kết bài. <a href="KienThucWriting.dc.html">Kiến thức Writing · Discuss both views: chia đủ hai vế</a></p></li>
+<li style="display: flex; gap: 18px; padding: 14px 0; border-top: 1px solid var(--rule)"><span style="font-family: 'Source Serif 4', Georgia, serif; font-size: 26px; line-height: 1.1; color: var(--accent)">2</span><p style="margin: 0"><strong>Hoà hợp chủ ngữ và động từ.</strong> Lỗi này lặp 4 lần. <a href="GrammarWikiBai.dc.html#g-s5">Grammar Wiki · Hoà hợp chủ ngữ và động từ, mục chữa lỗi</a> · <a href="BaiGiang.dc.html">Ôn bài 14 trong lộ trình</a></p></li>
+<li style="display: flex; gap: 18px; padding: 14px 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule)"><span style="font-family: 'Source Serif 4', Georgia, serif; font-size: 26px; line-height: 1.1; color: var(--accent)">3</span><p style="margin: 0"><strong>Bớt lặp từ <em lang="en">technology</em>.</strong> Xuất hiện 11 lần; thử <em lang="en">automation</em>, <em lang="en">digital tools</em>. <a href="TuVung.dc.html">Từ vựng · chủ đề Technology</a></p></li>
+</ol>
+</section>
+<section aria-labelledby="h-essay" style="padding-top: 36px">
+<div role="tablist" aria-label="Phần của phiếu nhận xét" style="display: flex; flex-wrap: wrap; gap: 0 32px; border-bottom: 1px solid var(--rule); margin-bottom: 28px">
+<a href="#h-essay" role="tab" aria-selected="true" style="padding: 12px 0 10px; color: var(--ink); font-weight: 600; text-decoration: none; border-bottom: 3px solid var(--ink)">Bài viết có chú thích</a>
+<a href="#h-essay" role="tab" aria-selected="false" style="padding: 12px 0; color: var(--muted); text-decoration: none">Lỗi cần sửa (9)</a>
+<a href="#h-essay" role="tab" aria-selected="false" style="padding: 12px 0; color: var(--muted); text-decoration: none">Phân tích sâu</a>
+<a href="ThuVien.dc.html" role="tab" aria-selected="false" style="padding: 12px 0; color: var(--muted); text-decoration: none">Bài mẫu cùng đề</a>
+</div>
+<h2 id="h-essay" style="margin: 0 0 16px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Bài của bạn</h2>
+<div style="display: flex; flex-wrap: wrap; gap: 24px 48px">
+<div lang="en" style="flex: 999 1 480px; min-width: 0; max-width: 640px; font-family: 'Source Serif 4', Georgia, serif; font-size: 19px; line-height: 1.75">
+<p style="margin: 0 0 18px">Nowadays technology <span style="border-bottom: 2px solid var(--mark)">have changed</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--mark)"> 1</sup> the way young people work. Some people think this is a positive development, while others believe it takes jobs away from them.</p>
+<p style="margin: 0 0 18px">On the one hand, technology creates many new jobs. <span style="border-bottom: 2px solid var(--mark)">The number of online shops are increasing</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--mark)"> 2</sup> every year, so young people can work as designers or sellers. <span style="background: var(--tint)">Moreover, they can learn new skills from free courses on the internet.</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--accent)"> 3</sup></p>
+<p style="margin: 0">In conclusion, although some jobs disappear, I believe technology brings more benefits than <span style="border-bottom: 2px solid var(--mark)">drawback</span><sup style="font: 600 12px 'Source Sans 3', sans-serif; color: var(--mark)"> 4</sup> for young workers.</p>
+</div>
+<ol aria-label="Chú thích" style="flex: 1 1 280px; min-width: 0; margin: 0; padding: 0; list-style: none; font-size: 15px">
+<sc-for list="{{notes}}" as="n" hint-placeholder-count="4">
+<li style="display: flex; gap: 12px; padding: 12px 0; border-top: 1px solid var(--rule)">
+<span style="font-weight: 600; color: {{n.color}}; font-variant-numeric: tabular-nums">{{n.n}}</span>
+<div style="min-width: 0"><p style="margin: 0; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: {{n.color}}">{{n.kind}}</p><p style="margin: 2px 0 0">{{n.text}}</p></div>
+</li>
+</sc-for>
+</ol>
+</div>
+</section>
+</sc-if>
+<section aria-labelledby="h-nextstep" style="margin-top: 48px; padding-top: 20px; border-top: 2px solid var(--ink)">
+<h2 id="h-nextstep" style="margin: 0 0 16px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Làm gì tiếp</h2>
+<div style="display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: center">
+<a href="PhongThi.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 22px; background: var(--accent); color: var(--on-accent); font-weight: 600; text-decoration: none; border-radius: 2px">Viết lại bài này</a>
+<a href="ThuVien.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 22px; border: 1px solid var(--ink); color: var(--ink); font-weight: 600; text-decoration: none; border-radius: 2px">Đọc bài mẫu 7.5 cùng đề</a>
+<a href="Main.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 22px; border: 1px solid var(--ink); color: var(--ink); font-weight: 600; text-decoration: none; border-radius: 2px">Bài được giao tiếp theo</a>
+<sc-if value="{{rgCanOpen}}" hint-placeholder-val="{{ true }}">
+<button type="button" onClick="{{rgOpen}}" aria-expanded="false" aria-controls="rg-panel" style="margin-left: 8px; min-height: 44px; padding: 0 4px; border: 0; background: none; color: var(--link); font: 400 15px 'Source Sans 3', sans-serif; text-decoration: underline; cursor: pointer">Gửi yêu cầu chấm lại</button>
+</sc-if>
+</div>
+<p style="margin: 14px 0 0; font-size: 14px; color: var(--muted)">{{creditLine}}</p>
+<sc-if value="{{rgIsOpen}}" hint-placeholder-val="{{ false }}">
+<section id="rg-panel" role="dialog" aria-labelledby="h-rg" style="margin-top: 24px; max-width: 640px; padding: 24px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface)">
+<h3 id="h-rg" style="margin: 0 0 4px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">Gửi yêu cầu chấm lại</h3>
+<p style="margin: 0 0 16px; font-size: 15px; color: var(--muted)">{{rgTo}} Không trừ lượt chấm AI.</p>
+<fieldset style="margin: 0 0 16px; padding: 0; border: 0">
+<legend style="margin: 0 0 6px; font-weight: 600">Lý do</legend>
+<sc-for list="{{reasons}}" as="r" hint-placeholder-count="5">
+<label style="display: flex; align-items: center; gap: 10px; min-height: 40px; cursor: pointer"><input type="radio" name="rg-reason" checked="{{r.on}}" onChange="{{r.pick}}" style="width: 18px; height: 18px; margin: 0; accent-color: var(--accent)"><span>{{r.label}}</span></label>
+</sc-for>
+</fieldset>
+<label for="rg-note" style="display: block; margin: 0 0 6px; font-weight: 600">Ghi chú thêm <span style="font-weight: 400; color: var(--muted)">{{noteHint}}</span></label>
+<textarea id="rg-note" rows="3" maxlength="300" value="{{note}}" onChange="{{onNote}}" placeholder="Ví dụ: đoạn thân bài 2 đã nói về người trẻ mất việc nhưng phiếu ghi là chưa có." style="box-sizing: border-box; width: 100%; padding: 10px 12px; border: 1px solid var(--ink); border-radius: 2px; background: var(--paper); color: var(--ink); font: 400 15px/1.5 'Source Sans 3', sans-serif; resize: vertical"></textarea>
+<p style="margin: 4px 0 16px; font-size: 13px; color: var(--muted)">Tối đa 300 ký tự.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center">
+<button type="button" onClick="{{rgSend}}" disabled="{{rgCantSend}}" style="min-height: 44px; padding: 0 22px; border: 0; border-radius: 2px; background: var(--accent); color: var(--surface); font: 600 16px 'Source Sans 3', sans-serif; cursor: pointer">Gửi</button>
+<button type="button" onClick="{{rgClose}}" style="min-height: 44px; padding: 0 22px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif; cursor: pointer">Huỷ</button>
+<span style="font-size: 14px; color: var(--muted)">{{rgHint}}</span>
+</div>
+</section>
+</sc-if>
+<sc-if value="{{rgIsSent}}" hint-placeholder-val="{{ false }}">
+<section role="status" aria-labelledby="h-rgs" style="margin-top: 24px; max-width: 640px; padding: 18px 24px; border: 1px solid var(--rule); border-left: 4px solid var(--accent); background: var(--surface)">
+<h3 id="h-rgs" style="margin: 0 0 4px; font-size: 17px; font-weight: 600">Đã gửi yêu cầu chấm lại · 16/11, 09:12</h3>
+<p style="margin: 0; font-size: 15px">Lý do: {{reasonLabel}}{{noteShown}}</p>
+<p style="margin: 4px 0 0; font-size: 14px; color: var(--muted)">Trạng thái: đang chờ giáo viên xem lại. Điểm trên phiếu giữ nguyên đến khi có kết quả mới; bạn sẽ nhận thông báo. Mỗi bài gửi yêu cầu chấm lại một lần.</p>
+</section>
+</sc-if>
+</section>
+</main>
+<section aria-labelledby="h-mobile" style="max-width: 1120px; margin: 0 auto; padding: 32px 32px 72px; border-top: 2px solid var(--ink)">
+<h2 id="h-mobile" style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">Điện thoại 390px · phiếu đã trả</h2>
+<p style="margin: 0 0 16px; font-size: 14px; color: var(--muted)">Trái: đầu phiếu, "Ba việc nên sửa trước" ngay dưới band. Phải: cuộn xuống, bốn tiêu chí thành hàng cuộn ngang, chú thích thành khối ngay dưới đoạn. Bấm số chú thích để khoanh câu (bấm thử được).</p>
+<div style="display: flex; flex-wrap: wrap; gap: 32px; align-items: flex-start">
+<div aria-label="Điện thoại · đầu phiếu" style="flex: none; width: 390px; height: 844px; box-sizing: border-box; border: 1px solid var(--ink); display: flex; flex-direction: column; overflow: hidden; background: var(--paper)">
+<header style="flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; height: 56px; box-sizing: border-box; padding: 0 16px; border-bottom: 1px solid var(--ink)">
+<span style="display: inline-flex; align-items: center; gap: 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; font-weight: 600"><svg width="26" height="26" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<div style="display: flex; align-items: center; gap: 12px">
+<span style="font-size: 13px; color: var(--muted)">Lượt AI <strong style="color: var(--ink)">XXX</strong></span>
+<span style="position: relative; flex: none; display: inline-flex"><a href="ThongBao.dc.html" aria-label="Thông báo, 4 chưa đọc" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; box-sizing: border-box; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink)"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15zM10 20.5a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></a><span aria-hidden="true" style="position: absolute; top: -7px; right: -7px; min-width: 20px; height: 20px; box-sizing: border-box; padding: 0 5px; border: 1px solid var(--paper); border-radius: 2px; background: var(--accent); color: var(--on-accent); font-size: 12px; font-weight: 600; line-height: 18px; text-align: center; font-variant-numeric: tabular-nums">4</span></span>
+<button aria-label="Mở menu tài khoản" style="width: 44px; height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif">MA</button>
+</div>
+</header>
+<div style="flex-grow: 1; min-height: 0; overflow-y: auto; padding: 8px 16px 16px">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<a href="LuyenTap.dc.html" style="display: inline-flex; align-items: center; align-self: flex-start; min-height: 44px; font-size: 15px">‹ Luyện tập Writing</a>
+<p style="margin: 0; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Phiếu nhận xét · Task 2 · nộp 15/11</p>
+<p lang="en" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 26px; font-weight: 600; line-height: 1.2">Technology and young people's jobs</p>
+<p style="margin: 0; font-size: 14px"><strong>{{flowLabel}}</strong> <span style="color: var(--muted)">· điểm ước lượng, không phải điểm thi</span></p>
+<div style="display: flex; align-items: baseline; gap: 14px; padding: 12px 0; border-top: 2px solid var(--ink); border-bottom: 1px solid var(--ink)">
+<p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 64px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums">6.0</p>
+<p style="margin: 0; font-size: 14px; color: var(--muted)">Band ước lượng<br>Bài trước: 5.5 · 268 từ</p>
+</div>
+<p style="margin: 6px 0 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">Ba việc nên sửa trước</p>
+<ol style="margin: 0; padding: 0; list-style: none">
+<li style="display: flex; gap: 12px; padding: 10px 0 2px; border-top: 1px solid var(--rule)"><span style="font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; line-height: 1.1; color: var(--accent)">1</span><div style="min-width: 0"><p style="margin: 0; font-size: 15px"><strong>Trả lời đủ cả hai vế của đề.</strong> Phần "người trẻ mất việc" mới có một câu ở kết bài.</p><a href="KienThucWriting.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; font-size: 14px; font-weight: 600">Kiến thức Writing · chia đủ hai vế</a></div></li>
+<li style="display: flex; gap: 12px; padding: 10px 0 2px; border-top: 1px solid var(--rule)"><span style="font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; line-height: 1.1; color: var(--accent)">2</span><div style="min-width: 0"><p style="margin: 0; font-size: 15px"><strong>Hoà hợp chủ ngữ và động từ.</strong> Lỗi này lặp 4 lần.</p><p style="margin: 0; display: flex; flex-wrap: wrap; gap: 0 14px"><a href="GrammarWikiBai.dc.html#g-s5" style="display: inline-flex; align-items: center; min-height: 44px; font-size: 14px; font-weight: 600">Grammar Wiki · mục chữa lỗi</a><a href="BaiGiang.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; font-size: 14px; font-weight: 600">Ôn bài 14 trong lộ trình</a></p></div></li>
+<li style="display: flex; gap: 12px; padding: 10px 0 2px; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule)"><span style="font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; line-height: 1.1; color: var(--accent)">3</span><div style="min-width: 0"><p style="margin: 0; font-size: 15px"><strong>Bớt lặp từ <em lang="en">technology</em>.</strong> 11 lần; thử <em lang="en">automation</em>, <em lang="en">digital tools</em>.</p><a href="TuVung.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; font-size: 14px; font-weight: 600">Từ vựng · chủ đề Technology</a></div></li>
+</ol>
+</div>
+</div>
+<nav aria-label="Điều hướng chính" style="flex-shrink: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); height: 64px; border-top: 1px solid var(--ink); background: var(--surface)">
+<a href="Main.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid transparent; color: var(--muted); font-size: 12px; font-weight: 400; text-decoration: none"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M4 11l8-7 8 7v9H4z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Hôm nay</a>
+<a href="LoTrinh.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid transparent; color: var(--muted); font-size: 12px; font-weight: 400; text-decoration: none"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M5 20V8M5 8h10l-2 3 2 3H5M19 20h-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Lộ trình</a>
+<a href="LuyenTap.dc.html" aria-current="page" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid var(--accent); color: var(--ink); font-size: 12px; font-weight: 600; text-decoration: none"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M4 19l4-1 11-11-3-3L5 15zM14 6l3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Luyện tập</a>
+<a href="ThiThu.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid transparent; color: var(--muted); font-size: 12px; font-weight: 400; text-decoration: none"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M12 7v5l3 2M12 3a9 9 0 100 18 9 9 0 000-18z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Thi thử</a>
+<a href="ThuVien.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid transparent; color: var(--muted); font-size: 12px; font-weight: 400; text-decoration: none"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M5 4h5v16H5zM10 4h5v16h-5zM16 6l3-1 3 14-3 1z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Thư viện</a>
+</nav>
+</div>
+<div aria-label="Điện thoại · bài viết có chú thích" style="flex: none; width: 390px; height: 844px; box-sizing: border-box; border: 1px solid var(--ink); display: flex; flex-direction: column; overflow: hidden; background: var(--paper)">
+<header style="flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; height: 56px; box-sizing: border-box; padding: 0 16px; border-bottom: 1px solid var(--ink)">
+<span style="display: inline-flex; align-items: center; gap: 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; font-weight: 600"><svg width="26" height="26" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<div style="display: flex; align-items: center; gap: 12px">
+<span style="font-size: 13px; color: var(--muted)">Lượt AI <strong style="color: var(--ink)">XXX</strong></span>
+<span style="position: relative; flex: none; display: inline-flex"><a href="ThongBao.dc.html" aria-label="Thông báo, 4 chưa đọc" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; box-sizing: border-box; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink)"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15zM10 20.5a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></a><span aria-hidden="true" style="position: absolute; top: -7px; right: -7px; min-width: 20px; height: 20px; box-sizing: border-box; padding: 0 5px; border: 1px solid var(--paper); border-radius: 2px; background: var(--accent); color: var(--on-accent); font-size: 12px; font-weight: 600; line-height: 18px; text-align: center; font-variant-numeric: tabular-nums">4</span></span>
+<button aria-label="Mở menu tài khoản" style="width: 44px; height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif">MA</button>
+</div>
+</header>
+<div style="flex-grow: 1; min-height: 0; overflow-y: auto; padding: 8px 16px 16px">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<p style="margin: 0; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600">Band theo tiêu chí</p>
+<div role="list" aria-label="Band theo tiêu chí, cuộn ngang" style="display: flex; gap: 14px; overflow-x: auto; margin: 0 -16px; padding: 0 16px 6px; scroll-snap-type: x mandatory; scroll-padding: 0 16px">
+<sc-for list="{{criteria}}" as="c" hint-placeholder-count="4">
+<div role="listitem" style="flex: 0 0 148px; scroll-snap-align: start; padding-top: 8px; border-top: 2px solid var(--ink)">
+<p style="margin: 0; font-size: 13px; font-weight: 600; line-height: 1.3">{{c.name}}</p>
+<p style="margin: 2px 0 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 28px; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums">{{c.band}}</p>
+<p style="margin: 2px 0 0; font-size: 13px; color: var(--muted)">{{c.note}}</p>
+</div>
+</sc-for>
+</div>
+<p style="margin: 0; font-size: 13px; color: var(--muted)">Vuốt ngang để xem đủ bốn tiêu chí.</p>
+<div role="tablist" aria-label="Phần của phiếu nhận xét" style="display: flex; gap: 0 22px; overflow-x: auto; white-space: nowrap; border-bottom: 1px solid var(--rule); font-size: 15px">
+<a href="#m-essay" role="tab" aria-selected="true" style="display: inline-flex; align-items: center; min-height: 44px; color: var(--ink); font-weight: 600; text-decoration: none; border-bottom: 3px solid var(--ink)">Bài viết có chú thích</a>
+<a href="#m-essay" role="tab" aria-selected="false" style="display: inline-flex; align-items: center; min-height: 44px; color: var(--muted); text-decoration: none">Lỗi cần sửa (9)</a>
+<a href="#m-essay" role="tab" aria-selected="false" style="display: inline-flex; align-items: center; min-height: 44px; color: var(--muted); text-decoration: none">Phân tích sâu</a>
+</div>
+<p id="m-essay" style="margin: 0; display: flex; justify-content: space-between; font-size: 13px; color: var(--muted)"><span>Đoạn 1 · Mở bài</span><span>Bấm số để khoanh câu</span></p>
+<p lang="en" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 17px; line-height: 27px">Nowadays technology <span style="border-bottom: 2px solid var(--mark); outline: {{hl1}}; outline-offset: 3px">have changed</span><sup style="font: 600 11px 'Source Sans 3', sans-serif; color: var(--mark)"> 1</sup> the way young people work. Some people think this is a positive development, while others believe it takes jobs away from them.</p>
+<ol aria-label="Chú thích của đoạn 1" style="margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--ink)">
+<sc-for list="{{mNotes1}}" as="n" hint-placeholder-count="1">
+<li style="display: flex; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--rule)">
+<button type="button" onClick="{{n.pick}}" aria-pressed="{{n.on}}" aria-label="{{n.label}}" style="flex: none; width: 44px; height: 44px; border: 1px solid {{n.color}}; border-radius: 2px; background: {{n.bg}}; color: {{n.fg}}; font: 600 15px 'Source Sans 3', sans-serif; cursor: pointer">{{n.n}}</button>
+<div style="min-width: 0"><p style="margin: 0; font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600; color: {{n.color}}">{{n.kind}}</p><p style="margin: 2px 0 0; font-size: 14px">{{n.text}}</p></div>
+</li>
+</sc-for>
+</ol>
+<p style="margin: 6px 0 0; font-size: 13px; color: var(--muted)">Đoạn 2 · Thân bài 1</p>
+<p lang="en" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 17px; line-height: 27px">On the one hand, technology creates many new jobs. <span style="border-bottom: 2px solid var(--mark); outline: {{hl2}}; outline-offset: 3px">The number of online shops are increasing</span><sup style="font: 600 11px 'Source Sans 3', sans-serif; color: var(--mark)"> 2</sup> every year, so young people can work as designers or sellers. <span style="background: var(--tint); outline: {{hl3}}; outline-offset: 3px">Moreover, they can learn new skills from free courses on the internet.</span><sup style="font: 600 11px 'Source Sans 3', sans-serif; color: var(--accent)"> 3</sup></p>
+<ol aria-label="Chú thích của đoạn 2" style="margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--ink)">
+<sc-for list="{{mNotes2}}" as="n" hint-placeholder-count="2">
+<li style="display: flex; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--rule)">
+<button type="button" onClick="{{n.pick}}" aria-pressed="{{n.on}}" aria-label="{{n.label}}" style="flex: none; width: 44px; height: 44px; border: 1px solid {{n.color}}; border-radius: 2px; background: {{n.bg}}; color: {{n.fg}}; font: 600 15px 'Source Sans 3', sans-serif; cursor: pointer">{{n.n}}</button>
+<div style="min-width: 0"><p style="margin: 0; font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600; color: {{n.color}}">{{n.kind}}</p><p style="margin: 2px 0 0; font-size: 14px">{{n.text}}</p></div>
+</li>
+</sc-for>
+</ol>
+</div>
+</div>
+<nav aria-label="Điều hướng chính" style="flex-shrink: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); height: 64px; border-top: 1px solid var(--ink); background: var(--surface)">
+<a href="Main.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid transparent; color: var(--muted); font-size: 12px; font-weight: 400; text-decoration: none"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M4 11l8-7 8 7v9H4z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Hôm nay</a>
+<a href="LoTrinh.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid transparent; color: var(--muted); font-size: 12px; font-weight: 400; text-decoration: none"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M5 20V8M5 8h10l-2 3 2 3H5M19 20h-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Lộ trình</a>
+<a href="LuyenTap.dc.html" aria-current="page" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid var(--accent); color: var(--ink); font-size: 12px; font-weight: 600; text-decoration: none"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M4 19l4-1 11-11-3-3L5 15zM14 6l3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Luyện tập</a>
+<a href="ThiThu.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid transparent; color: var(--muted); font-size: 12px; font-weight: 400; text-decoration: none"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M12 7v5l3 2M12 3a9 9 0 100 18 9 9 0 000-18z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Thi thử</a>
+<a href="ThuVien.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid transparent; color: var(--muted); font-size: 12px; font-weight: 400; text-decoration: none"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M5 4h5v16H5zM10 4h5v16h-5zM16 6l3-1 3 14-3 1z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Thư viện</a>
+</nav>
+</div>
+</div>
+<p style="margin: 24px 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Quy tắc bản điện thoại</p>
+<ul style="margin: 0; padding-left: 18px; font-size: 15px; display: flex; flex-direction: column; gap: 6px; max-width: 86ch">
+<li>Thứ tự trên điện thoại: đề bài (gập) → nguồn chấm → band → Ba việc nên sửa trước → bốn tiêu chí → bài viết có chú thích → Làm gì tiếp. "Ba việc nên sửa" lên trước bảng tiêu chí.</li>
+<li>Bốn tiêu chí thành hàng cuộn ngang, mỗi thẻ rộng 148px, thẻ thứ ba lộ một phần để báo còn nữa; không bảng ba cột.</li>
+<li>Chú thích lề thành khối ngay dưới đoạn chứa nó, theo cách BaiMauWriting màn 4. Số trên bài khớp số trong khối; bấm số thì cuộn tới và khoanh đúng câu, bấm lại thì bỏ khoanh.</li>
+<li>Mỗi việc nên sửa hiện liên kết học thành dòng riêng cao 44px; việc ngữ pháp có thể có thêm "Ôn bài N trong lộ trình".</li>
+<li>Thẻ phần phiếu cuộn ngang trên một dòng. Làm gì tiếp xếp dọc, rộng hết khung, cao 48px; hộp Gửi yêu cầu chấm lại mở toàn màn.</li>
+<li>Thanh dưới năm mục của học viên, Luyện tập đang chọn; không có thanh công khai.</li>
+</ul>
+<p style="margin: 20px 0 0; padding-top: 12px; border-top: 1px solid var(--rule); font-size: 14px; color: var(--muted); max-width: 100ch"><strong style="color: var(--ink)">Ghi chú cho lập trình.</strong> Liên kết học của "Việc nên sửa" (HV-29): mỗi việc có đúng một liên kết học. Lỗi ngữ pháp → mục chữa lỗi trong Grammar Wiki (GrammarWikiBai.dc.html, neo tới mục chữa lỗi); nếu người học có khoá chứa bài đó thì thêm "Ôn bài N trong lộ trình" (BaiGiang.dc.html). Lỗi từ vựng → mục từ hoặc chủ đề trong TuVung.dc.html. Lỗi bố cục/ý → bài Kiến thức Writing tương ứng (KienThucWriting.dc.html). Không khớp được bài nào thì không hiện liên kết, không hiện liên kết chung chung. Ánh xạ loại lỗi → bài lấy từ bảng nội dung do admin quản lý.</p>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Xanh teal","Navy + đỏ mận"],"default":"Navy + đỏ mận"},"flow":{"editor":"enum","options":["AI chấm, trả ngay","Chờ giáo viên duyệt","Giáo viên đã duyệt"],"default":"Giáo viên đã duyệt","section":"Minh hoạ"},"regrade":{"editor":"enum","options":["Chưa mở","Đang điền yêu cầu","Đã gửi"],"default":"Đang điền yêu cầu","section":"Minh hoạ"},"$preview":{"width":1280,"height":4127}}'>
+class Component extends DCLogic {
+renderVals() {
+const m = 'var(--mark)', a = 'var(--accent)';
+const flow = this.props.flow ?? 'Giáo viên đã duyệt';
+const rgMap = { 'Chưa mở': 'closed', 'Đang điền yêu cầu': 'open', 'Đã gửi': 'sent' };
+const rg = this.state.rg ?? rgMap[this.props.regrade ?? 'Đang điền yêu cầu'] ?? 'closed';
+const reasonList = ['Điểm thấp hơn mình nghĩ', 'Nhận xét không khớp với bài viết', 'AI đánh dấu nhầm một lỗi', 'Bài bị nhận sai (thiếu đoạn, sai đề)', 'Khác'];
+const reason = this.state.reason ?? 0;
+const note = this.state.note ?? '';
+const isOther = reason === reasonList.length - 1;
+const isAi = flow === 'AI chấm, trả ngay';
+const isPending = flow === 'Chờ giáo viên duyệt';
+const mPick = this.state.mNote === undefined ? '1' : this.state.mNote;
+const mAll = [
+{ n: '1', kind: 'Ngữ pháp', color: m, text: 'technology là số ít: has changed.' },
+{ n: '2', kind: 'Ngữ pháp', color: m, text: 'Chủ ngữ thật là "the number": is increasing.' },
+{ n: '3', kind: 'Làm tốt', color: a, text: 'Ý phụ có ví dụ cụ thể, nối câu tự nhiên.' }
+];
+const mn = (ids) => mAll.filter((x) => ids.includes(x.n)).map((x) => ({ ...x, on: mPick === x.n, bg: mPick === x.n ? x.color : 'var(--surface)', fg: mPick === x.n ? 'var(--surface)' : x.color, label: (mPick === x.n ? 'Bỏ khoanh câu ' : 'Khoanh câu ') + x.n, pick: () => this.setState({ mNote: mPick === x.n ? null : x.n }) }));
+const hl = (id) => mPick === id ? '2px solid var(--ink)' : '0';
+return {
+creditLine: isAi ? 'Viết lại và nộp chấm sẽ dùng 1 lượt chấm AI. Bạn còn XXX lượt, Writing và Speaking dùng chung.' : 'Viết lại và nộp chấm sẽ dùng 1 lượt trong số lượt lớp cấp cho bạn. Bạn còn XXX lượt; hết thì liên hệ giáo viên để được cấp thêm.',
+flowLabel: isAi ? 'AI chấm, trả ngay' : 'AI chấm, giáo viên duyệt rồi trả',
+flowSub: isAi ? '· Khoá Writing for IELTS (online)' : '· Lớp offline Course 3, học viên được gán mã',
+flowNote: isAi ? 'AI chấm theo bốn tiêu chí của IELTS lúc 21:40, 15/11 và trả ngay. Đây là điểm ước lượng cho bài này, không phải điểm thi.' : (isPending ? 'AI đã chấm; phiếu chưa trả vì đang chờ giáo viên duyệt.' : 'AI chấm theo bốn tiêu chí của IELTS, giáo viên đã duyệt ngày 16/11. Đây là điểm ước lượng cho bài này, không phải điểm thi.'),
+isPending: isPending,
+showResult: !isPending,
+rgCanOpen: !isPending && rg === 'closed',
+rgIsOpen: !isPending && rg === 'open',
+rgIsSent: !isPending && rg === 'sent',
+rgTo: isAi ? 'Giáo viên của Aver sẽ đọc lại bài và trả lời trong XXX ngày làm việc.' : 'Yêu cầu gửi tới giáo viên lớp của bạn, trả lời trong XXX ngày làm việc.',
+rgOpen: () => this.setState({ rg: 'open' }),
+rgClose: () => this.setState({ rg: 'closed' }),
+rgSend: () => this.setState({ rg: 'sent' }),
+rgCantSend: isOther && note.trim() === '',
+rgHint: isOther && note.trim() === '' ? 'Chọn Khác thì cần ghi vài chữ lý do.' : '',
+noteHint: isOther ? '(bắt buộc khi chọn Khác)' : '(không bắt buộc)',
+note: note,
+onNote: (e) => this.setState({ note: e.target.value }),
+reasons: reasonList.map((label, i) => ({ label: label, on: i === reason, pick: () => this.setState({ reason: i }) })),
+reasonLabel: reasonList[reason],
+noteShown: note.trim() ? ' · Ghi chú: ' + note.trim() : '',
+mNotes1: mn(['1']),
+mNotes2: mn(['2', '3']),
+hl1: hl('1'), hl2: hl('2'), hl3: hl('3'),
+pal: (this.props.palette ?? 'Navy + đỏ mận') === 'Xanh teal' ? 'pal-teal' : 'pal-navy',
+criteria: [
+{ name: 'Task Response', band: '5.5', note: 'Chưa bàn đủ vế thứ hai của đề.' },
+{ name: 'Coherence and Cohesion', band: '6.0', note: 'Bố cục rõ; thân bài 2 còn thiếu.' },
+{ name: 'Lexical Resource', band: '6.0', note: 'Đủ dùng, lặp từ khoá nhiều.' },
+{ name: 'Grammatical Range and Accuracy', band: '6.0', note: 'Có câu phức; sai hoà hợp chủ–vị 4 lần.' }
+],
+notes: [
+{ n: '1', kind: 'Ngữ pháp', color: m, text: 'technology là số ít: has changed.' },
+{ n: '2', kind: 'Ngữ pháp', color: m, text: 'Chủ ngữ thật là "the number": is increasing.' },
+{ n: '3', kind: 'Làm tốt', color: a, text: 'Ý phụ có ví dụ cụ thể, nối câu tự nhiên.' },
+{ n: '4', kind: 'Từ vựng', color: m, text: 'Cần số nhiều: drawbacks.' }
+]
+};
+}
+}
+</script>
+</body>
+</html>

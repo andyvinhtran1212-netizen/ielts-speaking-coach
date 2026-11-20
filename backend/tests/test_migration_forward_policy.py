@@ -37,9 +37,11 @@ def test_readme_next_migration_number_matches_directory_maximum():
 
     assert f"the highest is `{highest}`" in readme
     # 377 is reserved for BLACKEYE PR2 in the shared register (Leader decision).
-    # Keep exact next-number enforcement while accounting for that reservation.
-    reserved = {377}
+    # 381/382 are reserved for FU-2281 (Leader decision C3 on #2335, Andy 18/11).
+    # Keep exact next-number enforcement while accounting for those reservations.
+    reserved = {377, 381, 382}
     assert "377 is reserved for Black Eye PR2" in readme
+    assert "381 and 382 are reserved for FU-2281" in readme
     assert f"migration is `{max(highest, *reserved) + 1}`" in readme
 
 

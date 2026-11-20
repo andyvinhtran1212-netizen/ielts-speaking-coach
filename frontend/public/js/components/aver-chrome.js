@@ -66,7 +66,7 @@ import { sharedAuthMe } from '/js/auth-me-single-flight.js';
 // and Grammar (DEBT-LISTENING-MODULE foundation 1/5). Page shell lives
 // at /pages/listening.html; user-facing routes (dictation, gist, T/F,
 // MCQ, mini test) land in Sprint 11.2-11.4.
-const VALID_ACTIVE = ['home', 'writing', 'class', 'speaking', 'listening', 'grammar', 'vocabulary'];
+const VALID_ACTIVE = ['home', 'writing', 'class', 'speaking', 'listening', 'grammar', 'vocabulary', 'reading'];
 
 // Supabase polling — ~3s ceiling matches Sprint 7.8-hotfix bootstrap
 // pattern. 50ms tick × 60 tries.

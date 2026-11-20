@@ -32,6 +32,7 @@ import {
   topDictationWords,
 } from '@/lib/listening-dictation-controller.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
+import { leaveForParent } from '@/lib/redirect-notice-model.mjs';
 
 type Phase = 'loading' | 'error' | 'picker' | 'ready' | 'complete';
 type AudioPlayerElement = HTMLElement & { pause?: () => void; mediaElement?: HTMLMediaElement };
@@ -155,6 +156,11 @@ export function ListeningDictationSession() {
     try { return dictationParams(`?${searchParams?.toString() || ''}`); }
     catch { return null; }
   }, [searchParams]);
+
+  // G02-T11: a link without a valid test or session goes back to Listening.
+  useEffect(() => {
+    if (!params) leaveForParent('/listening');
+  }, [params]);
 
   const classItem = params?.classItem;
   const classQuery = classItem ? `&class_item=${encodeURIComponent(classItem)}` : '';

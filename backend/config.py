@@ -276,6 +276,23 @@ class Settings(BaseSettings):
     # dùng được" và mất lượt nộp DUY NHẤT (em Lê Chinh).
     COURSE_WRITING_MODEL: str = "gemini-3.5-flash-lite"
 
+    # SENTENCE_LAB_MODEL — Course 5 "Kho luyện viết câu 45 buổi": chấm ngữ
+    # nghĩa + ngữ pháp + yêu cầu bài theo khóa chấm riêng (services/
+    # sentence_lab_grader.py). OpenAI Chat Completions + Structured Outputs; 12
+    # câu đi thành 2 lượt gọi (6+6), lượt sửa là 1 lượt. Đổi model bằng env,
+    # không cần deploy code. Reasoning effort chỉ áp cho model gpt-5*/o*.
+    SENTENCE_LAB_MODEL: str = "gpt-5-mini"
+    SENTENCE_LAB_REASONING_EFFORT: str = "medium"  # 20/20 ca hiệu chỉnh (low: 15–17/20), 18/11
+    # Trần lượt gọi model của kho viết câu cho MỘT học viên mỗi ngày UTC
+    # (SENTLAB-0101 FR-007). Một buổi dùng 3–5 lượt; 40 ≈ tám buổi kể cả gọi lại.
+    SENTENCE_LAB_MAX_CALLS_PER_USER_PER_DAY: int = 40
+    # Công tắc tắt khẩn (rollback không gỡ code): False → nộp/viết lại bank lab
+    # trả 503, không gọi model, bài vẫn còn nguyên.
+    SENTENCE_LAB_ENABLED: bool = True
+    # Prompt chấm của gói (private/ai_grader_prompt.md). Bí mật nội dung: chỉ đặt
+    # trên server (Railway), không commit. Trống → chấm lab tạm dừng (503).
+    SENTENCE_LAB_PROMPT: str = ""
+
     # Controlled Rewrite in Advanced Vocabulary: all 20 answers are reviewed
     # in one low-cost structured request, once per learner/unit.
     ADVANCED_VOCAB_REWRITE_MODEL: str = "gemini-3.5-flash-lite"
@@ -351,6 +368,14 @@ class Settings(BaseSettings):
     # MAX_SESSIONS_PER_USER_PER_DAY env var is set (e.g. on Railway) it WINS
     # over this default, so update/remove that var to roll the production value.
     MAX_SESSIONS_PER_USER_PER_DAY: int = 24
+    # G02-T04 (FR-02-003) — the Home Reading/Listening card shows a band only
+    # once the learner has at least this many submitted full (40-question)
+    # tests with a band_estimate; below it the card shows no band number.
+    HOME_SKILL_BAND_MIN_FULL_TESTS: int = 1
+    # G02-T05 (FR-02-004) — the student mock result and the Home mock tile draw
+    # an Overall only once this many of the four skills carry a final band.
+    # Display-only: the stored final_bands.overall is never changed.
+    MOCK_OVERALL_MIN_SKILLS: int = 4
     MAX_AUDIO_DURATION_SECONDS: int = 300
     # B5 / Mục 5 — daily cap on the expensive grading pipeline (Whisper + Claude)
     # per user. Generous: a real student rarely exceeds a few dozen gradings/day;

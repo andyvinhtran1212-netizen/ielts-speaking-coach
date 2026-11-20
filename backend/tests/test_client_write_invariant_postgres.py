@@ -380,6 +380,9 @@ def _pre_320() -> str:
             FOR EACH ROW EXECUTE FUNCTION grammar_quiz_guard_bank();
         CREATE FUNCTION grammar_quiz_validate_receipt_envelope(jsonb, uuid, uuid) RETURNS void
             LANGUAGE plpgsql AS $$ BEGIN END $$;
+        -- 501 grants service_role EXECUTE on 309/314's quiz_banks CHECK predicate.
+        CREATE FUNCTION grammar_quiz_allowed_code(text) RETURNS boolean
+            LANGUAGE sql IMMUTABLE AS $$ SELECT false $$;
         {"".join(f'''
         CREATE FUNCTION grammar_quiz_{name}({args}) RETURNS jsonb LANGUAGE sql AS $$ SELECT NULL::jsonb $$;'''
                  for name, args in (("receipt_data", "uuid"), ("start_service", "uuid, uuid, text, text"),

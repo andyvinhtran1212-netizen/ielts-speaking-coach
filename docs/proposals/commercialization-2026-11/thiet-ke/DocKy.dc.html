@@ -1,0 +1,722 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Đọc kỹ</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--link:#0B5953;--mark:#8A4B08;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EDF3F1;--off:#E7E2D6;--on-accent:#FFFFFF}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--link:#1A3561;--mark:#8A1C1C;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EEF0F5;--off:#E8E2D5;--on-accent:#FFFFFF}
+a{color:var(--link)}a:hover{color:var(--ink)}
+.sf{font-family:'Source Serif 4',Georgia,serif}
+.kick{margin:0;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)}
+.lab{font:600 12px 'Source Sans 3',sans-serif;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted)}
+.wrap{max-width:1120px;margin:0 auto;padding:0 32px}
+.sh{max-width:1120px;margin:0 auto;padding:18px 32px 14px;display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 16px}
+.sh h2{margin:0;font-family:'Source Serif 4',Georgia,serif;font-size:24px;font-weight:600}
+.sh p{margin:0;flex:1 1 400px;font-size:14px;color:var(--muted)}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;box-sizing:border-box;padding:0 16px;border:1px solid var(--ink);border-radius:2px;background:var(--surface);color:var(--ink);font:600 15px 'Source Sans 3',sans-serif;text-decoration:none;cursor:pointer}
+.btn.on{background:var(--ink);color:var(--surface)}
+.btn.pri{border-color:var(--accent);background:var(--accent);color:var(--on-accent)}
+.btn.sm{min-height:36px;padding:0 12px;font-size:14px}
+.step{padding:22px 0 26px;border-top:2px solid var(--ink)}
+.step h3{margin:0 0 4px;font-family:'Source Serif 4',Georgia,serif;font-size:24px;font-weight:600}
+.step .sub{margin:0 0 16px;font-size:15px;color:var(--muted);max-width:92ch}
+.ck{display:inline-flex;align-items:center;min-height:44px;box-sizing:border-box;padding:0 10px;border:1.5px dotted var(--muted);border-radius:0;background:var(--surface);color:var(--ink);font:20px 'Source Serif 4',Georgia,serif;cursor:pointer}
+.ck.rS,.bl.rS{border:1.5px solid var(--ink)}
+.ck.rV,.bl.rV{border:0;border-bottom:4px double var(--accent);background:transparent;color:var(--accent);font-weight:600}
+.ck.rA,.bl.rA{border:0;background:transparent;color:var(--muted)}
+.bl{display:flex;align-items:center;justify-content:center;min-height:40px;white-space:nowrap;box-sizing:border-box;padding:2px 10px;font:19px/1.3 'Source Serif 4',Georgia,serif;text-align:center;color:var(--ink)}
+.bl.rN{white-space:normal;border:1.5px dotted var(--rule);color:var(--muted);font:14px 'Source Sans 3',sans-serif}
+.bl.rX{white-space:normal;border:1.5px dashed var(--muted);color:var(--muted);font:14px 'Source Sans 3',sans-serif}
+.tag{display:block;margin-bottom:4px;font:600 11px 'Source Sans 3',sans-serif;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);text-align:center}
+.mk{margin:0;padding:0 1px;line-height:1.25;border:0;border-bottom:2px dotted var(--ink);border-radius:0;background:transparent;color:var(--ink);font:inherit;cursor:pointer}
+.mk.on{border-bottom:2px solid var(--accent);background:var(--tint);color:var(--accent);font-weight:600}
+.mk sup{margin-left:1px;font:600 11px 'Source Sans 3',sans-serif;color:var(--muted)}
+.fb{margin:0;padding:10px 14px;border-left:3px solid var(--ink);background:var(--surface);font-size:15px}
+.fb.ok{border-left-color:var(--ok)}
+.fb.no{border-left-color:var(--danger)}
+.row6{display:grid;grid-template-columns:34px minmax(0,2fr) minmax(0,1fr) minmax(0,1.1fr) 84px;gap:0 20px;padding:9px 0;border-bottom:1px solid var(--rule);font-size:15px;align-items:start}
+.rr{display:grid;grid-template-columns:34px minmax(0,1fr);gap:0 10px;padding:8px 0;border-bottom:1px solid var(--rule)}
+.note li{margin:0 0 6px}
+</style>
+</helmet>
+<div class="{{pal}}" style="width: 1280px; height: 7870px; box-sizing: border-box; overflow: hidden; background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 16px; line-height: 1.55">
+
+<div style="max-width: 1120px; margin: 0 auto; padding: 32px 32px 22px">
+<p class="kick">Aver Learning · Bản in · trang học viên · tính năng mới, chờ duyệt</p>
+<p class="sf" style="margin: 2px 0 4px; font-size: 32px; font-weight: 600; line-height: 1.15">Đọc kỹ · dịch theo khung câu và dấu hiệu ngữ pháp</p>
+<p style="margin: 0; color: var(--muted); max-width: 104ch">Chế độ luyện đọc từng câu: tách khung câu, đọc từng dấu hiệu ngữ pháp góp nghĩa gì, tự dịch, rồi đối chiếu với bản dịch mẫu xếp theo vai trò. Đọc kỹ gắn theo 20 mô đun của dàn 381 bài (đã chốt 18/11/2026); đơn vị là mô đun, không phải buổi học của lớp. Bản mẫu này gắn với <strong style="color: var(--ink)">Mô đun 9 · Hoà hợp, bị động, đọc chuỗi động từ</strong>. Nội dung chú giải soạn sẵn, không sinh lúc bạn đang làm; không dùng AI chấm. Người học chỉ thấy tên bài; mã bài trong dàn bài chỉ ghi ở mục 6 để đối chiếu.</p>
+</div>
+
+<!-- 1 · LỐI VÀO -->
+<section aria-labelledby="s1" style="border-top: 2px solid var(--ink); padding-bottom: 32px">
+<div class="sh"><h2 id="s1">1 · Hai lối vào</h2><p>Từ trang của mô đun (bộ 6 câu) và từ một bài Reading luyện tập (một câu khó đã có chú giải). Khung bên phải bấm được: chọn câu.</p></div>
+<div class="wrap" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px">
+
+<div style="border: 1px solid var(--rule); background: var(--paper); padding: 18px 22px 20px">
+<p class="lab" style="margin: 0 0 8px">A · cuối trang mô đun 9</p>
+<p style="margin: 0 0 4px; font-size: 14px; color: var(--muted)"><a href="LoTrinh.dc.html">Lộ trình</a> › Mô đun 9</p>
+<p class="sf" style="margin: 0 0 10px; font-size: 24px; font-weight: 600; line-height: 1.2">Hoà hợp, bị động, đọc chuỗi động từ</p>
+<p style="margin: 0 0 6px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted); border-bottom: 1px solid var(--ink); padding-bottom: 6px">Luyện tập của mô đun này</p>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 16px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--rule)">
+<p style="margin: 0"><strong>Bài tập trắc nghiệm</strong> · 12 câu<br><span style="font-size: 14px; color: var(--muted)">Đã làm xong</span></p>
+<a class="btn sm" href="LoTrinhBaiDuocGiao.dc.html">Xem lại</a>
+</div>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 16px; align-items: center; padding: 12px 0 0">
+<p style="margin: 0"><strong>Đọc kỹ · 6 câu của mô đun này</strong><br><span style="font-size: 14px; color: var(--muted)">Tách khung câu, đọc dấu hiệu bị động và thì, rồi tự dịch. Đã xong 3 trên 6 câu.</span></p>
+<a class="btn pri" href="#s2">Làm tiếp câu 4</a>
+</div>
+<p style="margin: 14px 0 0; font-size: 14px; color: var(--muted)">Khối này nằm sau phần bài tập, cùng kiểu hàng với các mục luyện khác ở <a href="BaiGiang.dc.html">trang bài giảng</a>. Chưa làm câu nào thì nút là "Bắt đầu"; xong cả 6 thì là "Xem tổng kết".</p>
+</div>
+
+<div style="border: 1px solid var(--rule); background: var(--paper); padding: 18px 22px 20px">
+<p class="lab" style="margin: 0 0 8px">B · trong bài Reading luyện tập</p>
+<p style="margin: 0 0 8px; font-size: 14px; color: var(--muted)">Câu có vạch đôi ở lề đã có chú giải Đọc kỹ (mỗi bài đọc tối đa 2 câu). Bấm một câu để chọn.</p>
+<div lang="en" class="sf" style="padding: 6px 10px; border: 1px solid var(--rule); background: var(--surface); font-size: 17px; line-height: 1.45">
+<sc-for list="{{rsents}}" as="r" hint-placeholder-count="3"><button onClick="{{r.pick}}" aria-pressed="{{r.on}}" style="display: block; width: 100%; margin: 0; padding: 4px 8px 4px 12px; border: 0; border-left: {{r.bar}}; background: {{r.bg}}; color: var(--ink); font: inherit; text-align: left; cursor: pointer">{{r.en}}</button></sc-for>
+</div>
+<div style="margin-top: 10px; padding: 12px 14px; border: 1px solid var(--ink); background: var(--surface)">
+<p style="margin: 0 0 8px; font-size: 15px"><span class="lab">Dịch câu</span><br>{{rcur.vi}}</p>
+<sc-if value="{{rcur.has}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px"><a class="btn pri sm" href="#s2">Đọc kỹ câu này</a><span style="font-size: 14px; color: var(--muted)">{{rcur.why}}</span></div>
+</sc-if>
+<sc-if value="{{rcur.none}}" hint-placeholder-val="{{false}}">
+<p style="margin: 0; font-size: 14px; color: var(--muted)">Câu này chưa có chú giải Đọc kỹ. Bạn vẫn xem được bản dịch và tra từ như ở <a href="BaiTapReading.dc.html">bài Reading</a>.</p>
+</sc-if>
+</div>
+</div>
+</div>
+</section>
+
+<!-- 2 · MÀN CHÍNH -->
+<section aria-labelledby="s2" style="border-top: 2px solid var(--ink)">
+<div class="sh"><h2 id="s2">2 · Màn chính · câu 4 của mô đun 9</h2><p>Bấm được cả bốn bước. Tờ mở sẵn cả bốn để duyệt; người học thật thấy từng bước mở dần.</p>
+<div role="group" aria-label="Chế độ xem tờ" style="flex-basis: 100%; display: flex; align-items: center; gap: 12px; margin-top: 8px"><span style="font-size: 14px; color: var(--muted)">Xem như</span><div style="display: flex"><sc-for list="{{views}}" as="v" hint-placeholder-count="2"><button onClick="{{v.pick}}" aria-pressed="{{v.on}}" class="btn sm {{v.cls}}" style="margin-right: -1px; border-radius: 0">{{v.label}}</button></sc-for></div></div>
+</div>
+<div style="border-top: 1px solid var(--rule); background: var(--paper)">
+<header style="border-bottom: 1px solid var(--ink)">
+<div style="max-width: 1120px; margin: 0 auto; padding: 0 32px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 36px; min-height: 64px">
+<a href="Main.dc.html" style="display: inline-flex; align-items: center; gap: 9px; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600; color: var(--ink); text-decoration: none"><svg width="29" height="29" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</a>
+<nav aria-label="Điều hướng chính" style="display: flex; flex-wrap: wrap; gap: 4px 28px; flex-grow: 1">
+<a href="Main.dc.html" style="padding: 20px 0; color: var(--muted); text-decoration: none">Hôm nay</a>
+<a href="LoTrinh.dc.html" aria-current="page" style="padding: 20px 0 17px; color: var(--ink); font-weight: 600; text-decoration: none; border-bottom: 3px solid var(--accent)">Lộ trình</a>
+<a href="LuyenTap.dc.html" style="padding: 20px 0; color: var(--muted); text-decoration: none">Luyện tập</a>
+<a href="ThiThu.dc.html" style="padding: 20px 0; color: var(--muted); text-decoration: none">Thi thử</a>
+<a href="ThuVien.dc.html" style="padding: 20px 0; color: var(--muted); text-decoration: none">Thư viện</a>
+</nav>
+<div style="display: flex; align-items: center; gap: 16px">
+<span style="font-size: 14px; color: var(--muted)">Lượt chấm AI còn <strong style="color: var(--ink); font-variant-numeric: tabular-nums">XXX</strong></span>
+<button aria-label="Tra nhanh: từ, bài ngữ pháp, đề bài mẫu" title="Tra nhanh" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; box-sizing: border-box; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); cursor: pointer"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="1.6"></circle><path d="M15 15l5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path></svg></button>
+<span style="position: relative; flex: none; display: inline-flex"><a href="ThongBao.dc.html" aria-label="Thông báo, 4 chưa đọc" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; box-sizing: border-box; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink)"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15zM10 20.5a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></a><span aria-hidden="true" style="position: absolute; top: -7px; right: -7px; min-width: 20px; height: 20px; box-sizing: border-box; padding: 0 5px; border: 1px solid var(--paper); border-radius: 2px; background: var(--accent); color: var(--on-accent); font-size: 12px; font-weight: 600; line-height: 18px; text-align: center; font-variant-numeric: tabular-nums">4</span></span>
+<button aria-label="Mở menu tài khoản" style="width: 44px; height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer">MA</button>
+</div>
+</div>
+</header>
+
+<main class="wrap" style="padding-top: 22px; padding-bottom: 40px">
+<nav aria-label="Vị trí trang" style="font-size: 14px; color: var(--muted); margin-bottom: 14px"><a href="LoTrinh.dc.html">Lộ trình</a> › <a href="BaiGiang.dc.html">Mô đun 9 · Hoà hợp, bị động, đọc chuỗi động từ</a> › Đọc kỹ</nav>
+<div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 32px; margin-bottom: 16px">
+<div>
+<h1 class="sf" style="margin: 0; font-size: 36px; font-weight: 600; line-height: 1.15">Đọc kỹ · câu 4 trên 6</h1>
+<p style="margin: 4px 0 0; color: var(--muted)">Dịch đúng từng thành phần trước, dịch hay để sau. Mỗi câu khoảng 5 đến 8 phút.</p>
+</div>
+<ol aria-label="Các câu của mô đun" style="display: flex; gap: 0; margin: 0; padding: 0; list-style: none">
+<sc-for list="{{dots}}" as="d" hint-placeholder-count="6"><li style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 64px; height: 52px; margin-right: -1px; border: 1px solid var(--ink); background: {{d.bg}}; color: {{d.fg}}"><strong style="font-size: 16px; line-height: 1.1">{{d.n}}</strong><span style="font-size: 12px; line-height: 1.2">{{d.st}}</span></li></sc-for>
+</ol>
+</div>
+<ol aria-label="Bốn bước" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; margin: 0 0 22px; padding: 0; list-style: none; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink)">
+<sc-for list="{{stepper}}" as="p" hint-placeholder-count="4"><li style="padding: 10px 12px 10px 0"><a href="{{p.href}}" style="color: var(--ink); text-decoration: none"><strong>{{p.label}}</strong></a><br><span style="font-size: 14px; color: var(--muted)">{{p.st}}</span></li></sc-for>
+</ol>
+
+<!-- BƯỚC 1 -->
+<section id="b1" class="step" aria-labelledby="b1h">
+<h3 id="b1h">Bước 1 · Tách khung câu</h3>
+<p class="sub">Chọn một vai trò, rồi bấm vào các mảnh của câu giữ vai trò đó. Mỗi lần bấm có phản hồi ngay; sơ đồ bên dưới hiện dần theo các mảnh bạn chọn đúng.</p>
+<div lang="en" role="group" aria-label="Câu cần tách, bấm từng mảnh" style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px 8px; padding: 18px 20px; border: 1px solid var(--rule); background: var(--surface)">
+<sc-for list="{{chunks}}" as="c" hint-placeholder-count="6"><button onClick="{{c.pick}}" aria-label="{{c.aria}}" class="ck {{c.cls}}">{{c.show}}</button></sc-for><span class="sf" style="font-size: 20px">.</span>
+</div>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px 40px; margin-top: 14px; align-items: start">
+<div>
+<p class="lab" style="margin: 0 0 6px">Vai trò đang chọn</p>
+<div role="group" aria-label="Chọn vai trò" style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{tools}}" as="t" hint-placeholder-count="4"><button onClick="{{t.pick}}" aria-pressed="{{t.on}}" class="btn {{t.cls}}">{{t.label}}</button></sc-for>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px">
+<button onClick="{{sayNoO}}" aria-pressed="{{noO}}" class="btn sm {{noOCls}}">Câu này không có tân ngữ, bổ ngữ</button>
+<button onClick="{{reveal1}}" class="btn sm">Hiện đáp án</button>
+<button onClick="{{reset1}}" class="btn sm">Làm lại</button>
+</div>
+</div>
+<div aria-live="polite">
+<p class="lab" style="margin: 0 0 6px">Phản hồi</p>
+<p class="fb {{msgCls}}"><strong style="color: {{msgColor}}">{{msgHead}}</strong> {{msgBody}}</p>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)">{{prog1}}</p>
+</div>
+</div>
+<div role="img" aria-label="{{diagAria}}" style="margin-top: 18px; padding: 16px 20px 18px; border: 1px solid var(--rule); background: var(--surface)">
+<p class="lab" style="margin: 0 0 10px">Sơ đồ khung câu · hiện dần</p>
+<div lang="en" style="display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr) minmax(0, 1.2fr) minmax(0, 1.2fr) minmax(0, 0.9fr); gap: 0 12px; align-items: end">
+<sc-for list="{{slots}}" as="s" hint-placeholder-count="5"><div><span class="tag" lang="vi" style="color: {{s.tagColor}}">{{s.tag}}</span><span class="bl {{s.cls}}">{{s.txt}}</span></div></sc-for>
+</div>
+<sc-if value="{{done1}}" hint-placeholder-val="{{false}}">
+<p style="margin: 14px 0 0; padding-top: 10px; border-top: 1px dashed var(--rule); font-size: 15px"><strong>Khung câu: S + V (bị động) + A + A.</strong> Chủ ngữ dài 5 từ nhưng chỉ có một danh từ chính, <span lang="en" class="sf">collection</span>. Sau động từ không có tân ngữ: bên nhận tác động đã đứng ở vị trí chủ ngữ. Hai phần bổ sung trả lời "ai làm" và "từ khi nào".</p>
+</sc-if>
+</div>
+</section>
+
+<!-- BƯỚC 2 -->
+<sc-if value="{{lock2}}" hint-placeholder-val="{{false}}">
+<section class="step"><h3>Bước 2 · Đọc dấu hiệu ngữ pháp</h3><p class="sub" style="margin: 0">Mở sau khi bạn tách xong khung câu ở bước 1.</p></section>
+</sc-if>
+<sc-if value="{{show2}}" hint-placeholder-val="{{true}}">
+<section id="b2" class="step" aria-labelledby="b2h">
+<h3 id="b2h">Bước 2 · Đọc dấu hiệu ngữ pháp</h3>
+<p class="sub">Các mẩu gạch chân chấm là dấu hiệu. Bấm từng mẩu (hoặc từng số bên dưới) để xem nó góp nghĩa gì cho câu. Một mẩu có thể mang hai dấu hiệu: bấm lần nữa để chuyển.</p>
+<div style="display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 0 40px; align-items: start">
+<div>
+<p lang="en" class="sf" style="margin: 0; padding: 18px 20px; border: 1px solid var(--rule); background: var(--surface); font-size: 24px; line-height: 2"><sc-for list="{{pieces}}" as="p" hint-placeholder-count="16"><sc-if value="{{p.plain}}" hint-placeholder-val="{{true}}"><span>{{p.t}}</span></sc-if><sc-if value="{{p.mark}}" hint-placeholder-val="{{false}}"><button onClick="{{p.pick}}" aria-label="{{p.aria}}" class="mk {{p.cls}}">{{p.t}}<sup>{{p.n}}</sup></button></sc-if></sc-for></p>
+<div role="group" aria-label="Danh sách dấu hiệu" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px">
+<sc-for list="{{sigs}}" as="g" hint-placeholder-count="8"><button onClick="{{g.pick}}" aria-pressed="{{g.on}}" class="btn sm {{g.cls}}" style="gap: 6px"><span style="font-variant-numeric: tabular-nums">{{g.n}}</span><span lang="en" class="sf" style="font-weight: 400">{{g.name}}</span><span style="font-weight: 400; font-size: 12px">{{g.seen}}</span></button></sc-for>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)">{{seenLine}}</p>
+<sc-if value="{{stepMode}}" hint-placeholder-val="{{false}}">
+<button onClick="{{finish2}}" class="btn pri" style="margin-top: 12px">Tôi đã đọc các dấu hiệu, sang bước 3</button>
+</sc-if>
+</div>
+<div aria-live="polite" style="padding: 16px 20px 18px; border: 1px solid var(--ink); background: var(--surface)">
+<p class="lab" style="margin: 0">Dấu hiệu {{cur.n}} trên 8</p>
+<p lang="en" class="sf" style="margin: 2px 0 10px; font-size: 26px; font-weight: 600; color: var(--accent)">{{cur.name}}</p>
+<p style="margin: 0 0 2px" class="lab">Nó góp nghĩa gì cho câu</p>
+<p style="margin: 0 0 10px; font-size: 17px">{{cur.gop}}</p>
+<p style="margin: 0 0 2px" class="lab">Khi dịch</p>
+<p class="sf" style="margin: 0 0 12px; font-size: 17px">{{cur.dich}}</p>
+<sc-if value="{{cur.hasParts}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; align-items: flex-end; gap: 6px; margin: 0 0 12px; padding: 10px 0; border-top: 1px dashed var(--rule); border-bottom: 1px dashed var(--rule)">
+<span class="lab" style="align-self: center; margin-right: 8px">Bẻ từ</span>
+<sc-for list="{{cur.parts}}" as="m" hint-placeholder-count="2"><div style="text-align: center"><span lang="en" class="sf" style="display: block; padding: 2px 10px; border: 1.5px solid var(--ink); font-size: 19px; font-weight: {{m.w}}">{{m.t}}</span><span style="font-size: 13px; color: var(--muted)">{{m.g}}</span></div></sc-for>
+</div>
+</sc-if>
+<p style="margin: 0 0 2px" class="lab">Học lại ở đâu</p>
+<p style="margin: 0; font-size: 15px"><a href="BaiGiang.dc.html">{{cur.title}}</a><br><span style="color: var(--muted)">Thuộc {{cur.where}}</span></p>
+<p style="margin: 6px 0 0; font-size: 15px"><a href="GrammarWikiBai.dc.html">Grammar Wiki · <span lang="en">{{cur.wiki}}</span></a></p>
+</div>
+</div>
+</section>
+</sc-if>
+
+<!-- BƯỚC 3 -->
+<sc-if value="{{lock3}}" hint-placeholder-val="{{false}}">
+<section class="step"><h3>Bước 3 · Tự dịch</h3><p class="sub" style="margin: 0">Mở sau khi bạn đọc xong các dấu hiệu ở bước 2.</p></section>
+</sc-if>
+<sc-if value="{{show3}}" hint-placeholder-val="{{true}}">
+<section id="b3" class="step" aria-labelledby="b3h">
+<h3 id="b3h">Bước 3 · Tự dịch</h3>
+<p class="sub">Dịch đủ từng thành phần, chưa cần hay. Câu có 4 khối (S, V, A, A): bản dịch của bạn nên có đủ 4 khối và giữ nghĩa của các dấu hiệu bạn vừa đọc. Bản dịch mẫu chỉ hiện sau khi bạn bấm "Đối chiếu".</p>
+<div style="display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 0 40px; align-items: start">
+<div>
+<p lang="en" class="sf" style="margin: 0 0 10px; font-size: 20px">The collection of old manuscripts has been catalogued by two librarians since 2021.</p>
+<label for="dk-draft" class="lab" style="display: block; margin-bottom: 4px">Bản dịch tiếng Việt của bạn</label>
+<textarea id="dk-draft" rows="3" value="{{draft}}" onChange="{{onDraft}}" placeholder="Gõ bản dịch của bạn ở đây" style="display: block; box-sizing: border-box; width: 100%; padding: 10px 12px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 18px/1.5 'Source Serif 4', Georgia, serif"></textarea>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-top: 10px">
+<button onClick="{{compare}}" class="btn pri">Đối chiếu với bản mẫu</button>
+<span style="font-size: 14px; color: var(--muted)">{{draftLine}}</span>
+</div>
+</div>
+<div>
+<p class="lab" style="margin: 0 0 6px">Nhắc trước khi dịch</p>
+<ul style="margin: 0; padding-left: 20px; font-size: 15px">
+<li>Bắt đầu từ danh từ chính của chủ ngữ, rồi mới thêm phần bổ nghĩa.</li>
+<li>Động từ có ba từ: mỗi từ góp một nghĩa (thời điểm nhìn, bị động, hành động).</li>
+<li>Từ chưa biết: tra bằng nút Tra nhanh; tra từ không làm lộ bản dịch mẫu.</li>
+</ul>
+</div>
+</div>
+</section>
+</sc-if>
+
+<!-- BƯỚC 4 -->
+<sc-if value="{{lock4}}" hint-placeholder-val="{{false}}">
+<section class="step"><h3>Bước 4 · Đối chiếu</h3><p class="sub" style="margin: 0">Mở sau khi bạn gõ bản dịch và bấm "Đối chiếu với bản mẫu".</p></section>
+</sc-if>
+<sc-if value="{{show4}}" hint-placeholder-val="{{true}}">
+<section id="b4" class="step" aria-labelledby="b4h" style="padding-bottom: 8px">
+<h3 id="b4h">Bước 4 · Đối chiếu</h3>
+<p class="sub">Đặt bản dịch của bạn cạnh bản mẫu xếp theo vai trò. Tự soát từng dòng bên dưới: bạn đã giữ được nghĩa của dấu hiệu đó chưa. Ở đây không có điểm.</p>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 40px">
+<div style="padding: 12px 16px; border: 1px solid var(--ink); background: var(--surface)">
+<p class="lab" style="margin: 0 0 4px">Bản dịch của bạn</p>
+<sc-if value="{{hasDraft}}" hint-placeholder-val="{{true}}"><p class="sf" style="margin: 0; font-size: 19px">{{draft}}</p></sc-if>
+<sc-if value="{{noDraft}}" hint-placeholder-val="{{false}}"><p style="margin: 0; color: var(--muted)">Bạn chưa gõ bản dịch. Quay lại <a href="#b3">bước 3</a>.</p></sc-if>
+</div>
+<div style="padding: 12px 16px; border: 1px solid var(--rule); background: var(--tint)">
+<p class="lab" style="margin: 0 0 4px">Bản mẫu · câu tự nhiên</p>
+<p class="sf" style="margin: 0; font-size: 19px">Bộ sưu tập bản thảo cổ đã được hai thủ thư lập danh mục từ năm 2021.</p>
+</div>
+</div>
+<figure style="margin: 16px 0 0">
+<div role="img" aria-label="Bản dịch mẫu xếp theo vai trò. Chủ ngữ: The collection of old manuscripts, Bộ sưu tập các bản thảo cổ. Động từ bị động: has been catalogued, đã được lập danh mục. Phần bổ sung: by two librarians, bởi hai thủ thư. Phần bổ sung: since 2021, từ năm 2021." style="padding: 18px 20px; border: 1px solid var(--rule); background: var(--surface)">
+<div style="display: grid; grid-template-columns: 78px 310px 220px 210px 150px; gap: 0 12px; align-items: center">
+<span class="lab" style="font-size: 11px">Tiếng Anh</span>
+<div><span class="tag">S</span><span class="bl rS" lang="en">The collection of old manuscripts</span></div>
+<div><span class="tag" style="color: var(--accent)">V · bị động</span><span class="bl rV" lang="en">has been catalogued</span></div>
+<div><span class="tag">A · ai làm</span><span class="bl rA" lang="en">[ by two librarians ]</span></div>
+<div><span class="tag">A · từ khi nào</span><span class="bl rA" lang="en">[ since 2021 ]</span></div>
+<span></span>
+<span style="justify-self: center; width: 0; height: 20px; border-left: 1.5px solid var(--ink)"></span>
+<span style="justify-self: center; width: 0; height: 20px; border-left: 1.5px solid var(--accent)"></span>
+<span style="justify-self: center; width: 0; height: 20px; border-left: 1.5px solid var(--muted)"></span>
+<span style="justify-self: center; width: 0; height: 20px; border-left: 1.5px solid var(--muted)"></span>
+<span class="lab" style="font-size: 11px">Sát từng khối</span>
+<span class="bl rS">Bộ sưu tập các bản thảo cổ</span>
+<span class="bl rV">đã được lập danh mục</span>
+<span class="bl rA">[ bởi hai thủ thư ]</span>
+<span class="bl rA">[ từ năm 2021 ]</span>
+</div>
+<div style="display: grid; grid-template-columns: 78px 470px minmax(0, 1fr); gap: 0 12px; margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--rule)">
+<span class="lab" style="font-size: 11px; padding-top: 6px">Trong khối S</span>
+<svg viewBox="0 0 470 92" aria-hidden="true" style="display: block; width: 470px; height: 92px">
+<text x="26" y="22" text-anchor="middle" font-family="'Source Serif 4', Georgia, serif" font-size="19" fill="var(--muted)" lang="en">the</text>
+<text x="110" y="22" text-anchor="middle" font-family="'Source Serif 4', Georgia, serif" font-size="19" font-weight="600" fill="var(--ink)" lang="en">collection</text>
+<text x="188" y="22" text-anchor="middle" font-family="'Source Serif 4', Georgia, serif" font-size="19" fill="var(--muted)" lang="en">of</text>
+<text x="240" y="22" text-anchor="middle" font-family="'Source Serif 4', Georgia, serif" font-size="19" fill="var(--ink)" lang="en">old</text>
+<text x="340" y="22" text-anchor="middle" font-family="'Source Serif 4', Georgia, serif" font-size="19" fill="var(--ink)" lang="en">manuscripts</text>
+<line x1="110" y1="30" x2="80" y2="64" stroke="var(--ink)" stroke-width="1.6"></line>
+<line x1="240" y1="30" x2="340" y2="64" stroke="var(--ink)" stroke-width="1.4" stroke-dasharray="5 4"></line>
+<line x1="340" y1="30" x2="222" y2="64" stroke="var(--ink)" stroke-width="1.4"></line>
+<text x="80" y="84" text-anchor="middle" font-family="'Source Serif 4', Georgia, serif" font-size="19" font-weight="600" fill="var(--ink)">bộ sưu tập</text>
+<text x="222" y="84" text-anchor="middle" font-family="'Source Serif 4', Georgia, serif" font-size="19" fill="var(--ink)">các bản thảo</text>
+<text x="340" y="84" text-anchor="middle" font-family="'Source Serif 4', Georgia, serif" font-size="19" fill="var(--ink)">cổ</text>
+</svg>
+<p style="margin: 0; padding-top: 4px; font-size: 14px; color: var(--muted)">Danh từ chính <span lang="en">collection</span> đứng đầu cả hai bên. Tính từ <span lang="en">old</span> đổi chỗ ra sau danh từ (đường đứt). <span lang="en">the</span> và <span lang="en">of</span> không thành chữ riêng trong tiếng Việt. Ở câu tự nhiên, người làm chen vào giữa: "được <em>hai thủ thư</em> lập danh mục".</p>
+</div>
+</div>
+<figcaption style="margin: 8px 0 0; font-size: 14px; color: var(--muted)"><strong style="color: var(--ink)">Hình 1.</strong> Bốn khối giữ cùng thứ tự ở hai ngôn ngữ; đổi trật tự chỉ xảy ra bên trong khối. Nguồn: Aver Learning biên soạn.</figcaption>
+</figure>
+
+<div style="display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 0 40px; margin-top: 22px; align-items: start">
+<div>
+<p style="margin: 0 0 2px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted); border-bottom: 1px solid var(--ink); padding-bottom: 6px">Tôi đã bỏ sót gì · tự đánh dấu</p>
+<sc-for list="{{checks}}" as="k" hint-placeholder-count="5">
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; padding: 10px 0; border-bottom: 1px solid var(--rule); align-items: start">
+<div>
+<p style="margin: 0; font-size: 16px"><strong>{{k.label}}</strong></p>
+<sc-if value="{{k.hint}}" hint-placeholder-val="{{true}}"><p style="margin: 2px 0 0; font-size: 14px; color: var(--mark)">So chữ: {{k.hintText}}</p></sc-if>
+<sc-if value="{{k.missed}}" hint-placeholder-val="{{false}}"><p style="margin: 4px 0 0; font-size: 14px">Xem lại: <button onClick="{{k.goSig}}" style="padding: 0; border: 0; background: transparent; color: var(--link); font: inherit; text-decoration: underline; cursor: pointer">{{k.sigLabel}}</button> · <a href="BaiGiang.dc.html">{{k.lesson}}</a></p></sc-if>
+</div>
+<div role="group" aria-label="{{k.aria}}" style="display: flex">
+<button onClick="{{k.setCo}}" aria-pressed="{{k.isCo}}" class="btn sm {{k.coCls}}" style="margin-right: -1px; border-radius: 0">Đã có</button>
+<button onClick="{{k.setSot}}" aria-pressed="{{k.isSot}}" class="btn sm {{k.sotCls}}" style="border-radius: 0">Tôi bỏ sót</button>
+</div>
+</div>
+</sc-for>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-top: 14px">
+<a class="btn pri" href="#s3">Lưu và sang câu 5</a>
+<span style="font-size: 14px; color: var(--muted)">{{markLine}}</span>
+</div>
+</div>
+<div>
+<p style="margin: 0 0 8px; font-size: 14px; color: var(--muted)">Dòng "So chữ" chỉ là máy dò chữ trong bản dịch của bạn (ví dụ có chữ "được" hay không), không phải nhận xét của AI. Bạn là người quyết định mình có bỏ sót hay không; bản dịch khác bản mẫu vẫn có thể đúng.</p>
+</div>
+</div>
+</section>
+</sc-if>
+</main>
+</div>
+</section>
+
+<!-- 3 · BỘ 6 CÂU -->
+<section aria-labelledby="s3" style="border-top: 2px solid var(--ink); padding-bottom: 32px">
+<div class="sh"><h2 id="s3">3 · Bộ 6 câu của mô đun 9</h2><p>Sáu câu tăng dần độ khó. Câu 1, 3, 5 lấy từ ví dụ có sẵn trong dàn bài và ghi chú của mô đun 9; câu 2, 4, 6 soạn mới cho tờ này.</p></div>
+<div class="wrap">
+<div role="table" aria-label="Sáu câu của mô đun 9" style="border-top: 1px solid var(--ink)">
+<div role="row" class="row6" style="padding: 8px 0; border-bottom: 1px solid var(--ink)"><span role="columnheader" class="lab">Câu</span><span role="columnheader" class="lab">Câu tiếng Anh và bản mẫu tự nhiên</span><span role="columnheader" class="lab">Dấu hiệu trọng tâm</span><span role="columnheader" class="lab">Bài liên quan</span><span role="columnheader" class="lab">Trạng thái</span></div>
+<sc-for list="{{six}}" as="q" hint-placeholder-count="6">
+<div role="row" class="row6">
+<strong role="cell" class="sf" style="font-size: 20px">{{q.n}}</strong>
+<span role="cell"><span lang="en" class="sf" style="font-size: 18px">{{q.en}}</span><br><span style="color: var(--muted)">{{q.vi}}</span></span>
+<span role="cell">{{q.focus}}</span>
+<span role="cell" style="font-size: 14px">{{q.codes}}</span>
+<span role="cell" style="font-size: 14px; font-weight: 600; color: {{q.stColor}}">{{q.st}}</span>
+</div>
+</sc-for>
+</div>
+
+<p class="lab" style="margin: 24px 0 10px">Hai câu đã hoàn thành · dạng rút gọn khi xem lại</p>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px">
+<sc-for list="{{doneCards}}" as="d" hint-placeholder-count="2">
+<div style="padding: 14px 18px 16px; border: 1px solid var(--ink); background: var(--surface)">
+<p style="margin: 0 0 6px; display: flex; justify-content: space-between; gap: 12px"><strong>Câu {{d.n}} · đã xong</strong><a href="#s2" style="font-size: 14px">Mở lại đủ bốn bước</a></p>
+<p lang="en" class="sf" style="margin: 0 0 8px; font-size: 19px">{{d.en}}</p>
+<div style="border-top: 1px solid var(--rule)">
+<sc-for list="{{d.rows}}" as="w" hint-placeholder-count="3">
+<div class="rr"><span class="lab" style="color: {{w.c}}">{{w.r}}</span><span><span lang="en" class="sf" style="font-size: 17px; color: {{w.c}}; font-weight: {{w.w}}">{{w.en}}</span><br><span class="sf" style="font-size: 17px; color: var(--muted)">{{w.vi}}</span></span></div>
+</sc-for>
+</div>
+<p style="margin: 10px 0 0; font-size: 15px"><span class="lab">Dấu hiệu đã đọc</span><br>{{d.sig}}</p>
+<p style="margin: 8px 0 0; font-size: 15px"><span class="lab">Bản dịch của bạn</span><br><span class="sf" style="font-size: 17px">{{d.mine}}</span></p>
+<p style="margin: 8px 0 0; font-size: 15px"><span class="lab">Bạn tự đánh dấu</span><br><span style="color: {{d.markColor}}; font-weight: 600">{{d.mark}}</span> {{d.markNote}}</p>
+</div>
+</sc-for>
+</div>
+</div>
+</section>
+
+<!-- 4 · TỔNG KẾT -->
+<section aria-labelledby="s4" style="border-top: 2px solid var(--ink); padding-bottom: 32px">
+<div class="sh"><h2 id="s4">4 · Tổng kết sau bộ câu</h2><p>Không có điểm số, không có tỉ lệ. Chỉ nói dấu hiệu nào bạn tự nhận là hay bỏ sót, ở câu nào, và ôn ở bài nào.</p></div>
+<div class="wrap" style="display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 40px; align-items: start">
+<div>
+<h3 class="sf" style="margin: 0 0 4px; font-size: 26px; font-weight: 600">Bạn đã đọc kỹ xong 6 câu của mô đun 9</h3>
+<p style="margin: 0 0 14px; color: var(--muted)">Dựa trên những gì bạn tự đánh dấu ở bước 4.</p>
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted); border-bottom: 1px solid var(--ink); padding-bottom: 6px">Dấu hiệu bạn hay bỏ sót</p>
+<sc-for list="{{sumMiss}}" as="m" hint-placeholder-count="3">
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 24px; padding: 12px 0; border-bottom: 1px solid var(--rule)">
+<p style="margin: 0"><strong lang="en" class="sf" style="font-size: 19px">{{m.name}}</strong><br><span style="font-size: 15px">{{m.what}}</span><br><span style="font-size: 14px; color: var(--muted)">Bỏ sót ở {{m.at}}</span></p>
+<p style="margin: 0; font-size: 15px"><span class="lab">Nên ôn</span><br><a href="BaiGiang.dc.html">{{m.l1}}</a><br><a href="BaiGiang.dc.html">{{m.l2}}</a></p>
+</div>
+</sc-for>
+<p style="margin: 18px 0 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted); border-bottom: 1px solid var(--ink); padding-bottom: 6px">Dấu hiệu bạn đọc chắc</p>
+<p style="margin: 10px 0 0; font-size: 15px"><span lang="en" class="sf">by</span> + người làm (câu 3, 4, 5) · <span lang="en" class="sf">is being</span> + V3, "đang được" (câu 3) · <span lang="en" class="sf">-s</span> số nhiều (câu 1, 4, 6).</p>
+</div>
+<div>
+<div style="padding: 14px 16px; border: 1px solid var(--ink); background: var(--surface)">
+<p class="lab" style="margin: 0 0 6px">Việc nên làm tiếp</p>
+<p style="margin: 0 0 10px">Ôn bài “Bị động tiếp diễn và hoàn thành” rồi làm lại câu 2 và câu 4 mà không nhìn bản dịch cũ.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 8px"><a class="btn pri" href="BaiGiang.dc.html">Ôn bài này</a><a class="btn" href="#s2">Làm lại câu 2 và 4</a></div>
+</div>
+<p style="margin: 12px 0 0; font-size: 14px; color: var(--muted)">Khung câu: bạn tách đúng ngay ở câu 1, 2, 3, 5; cần xem gợi ý ở câu 4 và 6 (chủ ngữ dài). Giáo viên của lớp thấy cùng bảng này.</p>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)">Trạng thái rỗng: bạn không đánh dấu bỏ sót gì thì phần đầu ghi "Bạn không đánh dấu bỏ sót dấu hiệu nào ở 6 câu này" và chỉ còn nút sang mô đun sau.</p>
+</div>
+</div>
+</section>
+
+<!-- 5 · ĐIỆN THOẠI -->
+<section aria-labelledby="s5" style="border-top: 2px solid var(--ink); padding-bottom: 32px">
+<div class="sh"><h2 id="s5">5 · Điện thoại 390px · bước 1 và bước 4</h2><p>Khung trái dùng chung trạng thái với bước 1 ở trên: bấm ở đâu, bên kia đổi theo.</p></div>
+<div class="wrap" style="display: flex; gap: 32px; align-items: flex-start">
+
+<div aria-label="Điện thoại · bước 1" style="flex: none; width: 390px; box-sizing: border-box; border: 1px solid var(--ink); display: flex; flex-direction: column; background: var(--paper)">
+<div style="display: flex; align-items: center; justify-content: space-between; height: 56px; box-sizing: border-box; padding: 0 16px; border-bottom: 1px solid var(--ink)">
+<a href="BaiGiang.dc.html" style="font-size: 15px">‹ Mô đun 9</a><strong>Đọc kỹ · câu 4 trên 6</strong><span style="font-size: 14px; color: var(--muted)">Bước 1/4</span>
+</div>
+<div style="padding: 14px 16px 18px">
+<p class="sf" style="margin: 0 0 2px; font-size: 20px; font-weight: 600">Tách khung câu</p>
+<p style="margin: 0 0 10px; font-size: 14px; color: var(--muted)">Chọn vai trò, rồi chạm các mảnh giữ vai trò đó.</p>
+<div lang="en" style="display: flex; flex-wrap: wrap; gap: 8px 6px; padding: 12px; border: 1px solid var(--rule); background: var(--surface)">
+<sc-for list="{{chunks}}" as="c" hint-placeholder-count="6"><button onClick="{{c.pick}}" aria-label="{{c.aria}}" class="ck {{c.cls}}" style="font-size: 18px; padding: 0 8px">{{c.show}}</button></sc-for>
+</div>
+<div role="group" aria-label="Chọn vai trò" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-top: 10px">
+<sc-for list="{{tools}}" as="t" hint-placeholder-count="4"><button onClick="{{t.pick}}" aria-pressed="{{t.on}}" class="btn {{t.cls}}" style="padding: 0 8px; font-size: 14px">{{t.short}}</button></sc-for>
+</div>
+<button onClick="{{sayNoO}}" aria-pressed="{{noO}}" class="btn {{noOCls}}" style="width: 100%; margin-top: 6px; font-size: 14px">Câu này không có tân ngữ, bổ ngữ</button>
+<p class="fb {{msgCls}}" style="margin-top: 10px; font-size: 14px"><strong style="color: {{msgColor}}">{{msgHead}}</strong> {{msgBody}}</p>
+<p class="lab" style="margin: 14px 0 4px">Sơ đồ khung câu</p>
+<div style="border-top: 1px solid var(--rule)">
+<sc-for list="{{slots}}" as="s" hint-placeholder-count="5">
+<div class="rr" style="grid-template-columns: 96px minmax(0, 1fr); align-items: center"><span class="lab" style="font-size: 11px; color: {{s.tagColor}}">{{s.tag}}</span><span lang="en" class="sf" style="font-size: 17px; color: {{s.txtColor}}">{{s.txt}}</span></div>
+</sc-for>
+</div>
+</div>
+<nav aria-label="Điều hướng chính" style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); height: 64px; border-top: 1px solid var(--ink); background: var(--surface)">
+<sc-for list="{{navM}}" as="n" hint-placeholder-count="5"><a href="{{n.href}}" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-top: 3px solid {{n.bar}}; color: {{n.fg}}; font-size: 12px; font-weight: {{n.w}}; text-decoration: none"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="{{n.d}}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>{{n.label}}</a></sc-for>
+</nav>
+</div>
+
+<div aria-label="Điện thoại · bước 4" style="flex: none; width: 390px; box-sizing: border-box; border: 1px solid var(--ink); display: flex; flex-direction: column; background: var(--paper)">
+<div style="display: flex; align-items: center; justify-content: space-between; height: 56px; box-sizing: border-box; padding: 0 16px; border-bottom: 1px solid var(--ink)">
+<a href="BaiGiang.dc.html" style="font-size: 15px">‹ Mô đun 9</a><strong>Đọc kỹ · câu 4 trên 6</strong><span style="font-size: 14px; color: var(--muted)">Bước 4/4</span>
+</div>
+<div style="padding: 14px 16px 18px">
+<p class="sf" style="margin: 0 0 8px; font-size: 20px; font-weight: 600">Đối chiếu</p>
+<div style="padding: 10px 12px; border: 1px solid var(--ink); background: var(--surface)">
+<p class="lab" style="margin: 0 0 2px">Bản dịch của bạn</p>
+<p class="sf" style="margin: 0; font-size: 17px">{{draftShown}}</p>
+</div>
+<p class="lab" style="margin: 14px 0 4px">Bản mẫu theo vai trò · mỗi vai trò một hàng</p>
+<div style="border: 1px solid var(--rule); background: var(--surface); padding: 2px 12px">
+<div class="rr"><span class="lab">S</span><span><span lang="en" class="sf" style="font-size: 17px">The collection of old manuscripts</span><br><span class="sf" style="font-size: 17px; color: var(--muted)">Bộ sưu tập các bản thảo cổ</span></span></div>
+<div class="rr"><span class="lab" style="color: var(--accent)">V</span><span><span lang="en" class="sf" style="font-size: 17px; color: var(--accent); font-weight: 600">has been catalogued</span><br><span class="sf" style="font-size: 17px; color: var(--muted)">đã được lập danh mục</span></span></div>
+<div class="rr"><span class="lab">A</span><span><span lang="en" class="sf" style="font-size: 17px">by two librarians</span><br><span class="sf" style="font-size: 17px; color: var(--muted)">bởi hai thủ thư</span></span></div>
+<div class="rr" style="border-bottom: 0"><span class="lab">A</span><span><span lang="en" class="sf" style="font-size: 17px">since 2021</span><br><span class="sf" style="font-size: 17px; color: var(--muted)">từ năm 2021</span></span></div>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)">Câu tự nhiên: Bộ sưu tập bản thảo cổ đã được hai thủ thư lập danh mục từ năm 2021.</p>
+<p class="lab" style="margin: 14px 0 0; padding-bottom: 4px; border-bottom: 1px solid var(--ink)">Tôi đã bỏ sót gì</p>
+<sc-for list="{{checksM}}" as="k" hint-placeholder-count="3">
+<div style="padding: 8px 0; border-bottom: 1px solid var(--rule)">
+<p style="margin: 0; font-size: 15px"><strong>{{k.label}}</strong></p>
+<sc-if value="{{k.hint}}" hint-placeholder-val="{{true}}"><p style="margin: 2px 0 0; font-size: 13px; color: var(--mark)">So chữ: {{k.hintText}}</p></sc-if>
+<div role="group" aria-label="{{k.aria}}" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 6px">
+<button onClick="{{k.setCo}}" aria-pressed="{{k.isCo}}" class="btn {{k.coCls}}" style="margin-right: -1px; border-radius: 0; font-size: 14px">Đã có</button>
+<button onClick="{{k.setSot}}" aria-pressed="{{k.isSot}}" class="btn {{k.sotCls}}" style="border-radius: 0; font-size: 14px">Tôi bỏ sót</button>
+</div>
+</div>
+</sc-for>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)">Cuộn tiếp: 2 dòng tự soát nữa, rồi nút "Lưu và sang câu 5" rộng hết bề ngang.</p>
+</div>
+</div>
+
+<div style="flex: 1 1 0; min-width: 0">
+<p class="lab" style="margin: 0 0 8px">Câu dài xuống dòng thế nào</p>
+<ul class="note" style="margin: 0; padding-left: 20px; font-size: 15px">
+<li><strong>Bước 1:</strong> mỗi mảnh là một nút cao 44px; câu xuống dòng giữa các mảnh, không cắt ngang một mảnh. Mảnh dài hơn bề ngang (hiếm) mới được xuống dòng bên trong.</li>
+<li>Bốn vai trò xếp lưới 2 × 2, nhãn rút gọn; nút "không có tân ngữ" chiếm cả hàng.</li>
+<li>Sơ đồ khung câu đổi từ hàng ngang sang danh sách dọc: nhãn vai trò bên trái, chữ bên phải.</li>
+<li><strong>Bước 2</strong> (không vẽ): câu chạy tự nhiên cỡ 20px, giãn dòng 2; thẻ giải thích dấu hiệu trượt lên từ đáy màn hình như thẻ nghĩa của từ ở bài Reading.</li>
+<li><strong>Bước 4:</strong> bản mẫu theo vai trò đổi thành mỗi vai trò một hàng, tiếng Anh trên, tiếng Việt dưới (kiểu Hình 9 bản điện thoại ở tờ Minh hoạ câu chữ). Hình "trong khối S" mở bằng một lần chạm, cuộn ngang trong khung.</li>
+<li>Hai nút "Đã có" và "Tôi bỏ sót" chia đôi bề ngang, cao 44px.</li>
+<li>Thanh dưới 5 mục giữ nguyên; trang cuộn dọc, không có thanh cố định che câu.</li>
+</ul>
+</div>
+</div>
+</section>
+
+<!-- 6 · GHI CHÚ -->
+<section aria-labelledby="s6" style="border-top: 2px solid var(--ink); padding-bottom: 40px">
+<div class="sh"><h2 id="s6">6 · Ghi chú cho lập trình và cho người soạn</h2><p></p></div>
+<div class="wrap" style="display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) minmax(0, 1fr); gap: 28px 32px; align-items: start; font-size: 14px; line-height: 1.5">
+<div>
+<p class="lab" style="margin: 0 0 6px">Cấu trúc dữ liệu chú giải một câu</p>
+<pre style="margin: 0; padding: 12px 14px; border: 1px solid var(--rule); background: var(--surface); font: 13px/1.5 'Source Sans 3', sans-serif; white-space: pre-wrap">{{schema}}</pre>
+<p style="margin: 8px 0 0; color: var(--muted)">Vị trí (start, end) tính theo ký tự của câu gốc; một ký tự được thuộc nhiều dấu hiệu (has: 3 và 4). Mảnh ở bước 1 không chồng nhau và phủ kín câu trừ dấu chấm.</p>
+<p class="lab" style="margin: 16px 0 6px">Dùng lại từ dữ liệu dịch câu của Reading</p>
+<ul class="note" style="margin: 0; padding-left: 20px">
+<li>Mỗi đơn vị dịch của Reading đã có: mã đơn vị, câu gốc, bản dịch tiếng Việt, mức chính xác (câu hoặc đoạn) và tối đa 24 cặp cụm Anh, Việt. Bản dịch tự nhiên và các cặp cụm dùng thẳng làm "bản mẫu tự nhiên" và "bản mẫu theo đoạn".</li>
+<li>Cơ chế băm văn bản gốc và bản dịch để phát hiện chú giải lệch khi bài đọc bị sửa: dùng lại nguyên. Lệch thì ẩn nút "Đọc kỹ câu này", không gắn chú giải cũ vào câu mới.</li>
+<li>Chỉ đơn vị mức "câu" mới được gắn Đọc kỹ; đơn vị mức "đoạn" thì không.</li>
+<li>Phải soạn thêm: vai trò từng mảnh, lời nhắc khi chọn sai, danh sách dấu hiệu, dòng tự soát, mã bài liên quan.</li>
+<li>Mã bài chỉ lưu trong dữ liệu và hiện ở admin; mọi màn của người học chỉ hiện tên bài. Mã dùng trong mẫu này: B056 Danh từ số ít và số nhiều · B126 Quá khứ đơn cho việc đã xảy ra · B137 Hiện tại hoàn thành và quá khứ đơn · B143 For và since · B148 Tìm danh từ hạt nhân của chủ ngữ · B151 A number of và the number of · B154 Chữa lỗi hòa hợp ở chủ ngữ dài · B155 (câu 6, tên theo dàn bài) · B156 Ba bước chuyển câu SVO · B157 Bị động ở thì đơn · B158 Bị động tiếp diễn và hoàn thành · B159 Bị động câu có hai tân ngữ · B165 Thuật toán đọc cụm động từ · B271 Đại từ quan hệ làm chủ ngữ.</li>
+</ul>
+</div>
+<div>
+<p class="lab" style="margin: 0 0 6px">Hành vi</p>
+<ul class="note" style="margin: 0; padding-left: 20px">
+<li>Bước sau mở khi bước trước xong: bước 2 sau khi gán đúng đủ mảnh và xác nhận câu không có tân ngữ; bước 3 sau khi bấm "đã đọc các dấu hiệu"; bước 4 sau khi gõ bản dịch và bấm "Đối chiếu". Bản dịch mẫu không tải về máy trước lúc đó.</li>
+<li>Sau khi đối chiếu, bản dịch đầu bị khoá và được lưu; làm lại câu thì lưu thành lần mới.</li>
+<li>Chọn sai ở bước 1 không bị trừ gì; "Hiện đáp án" luôn có, và câu được ghi là "cần gợi ý" ở tổng kết.</li>
+<li>"So chữ" là dò từ khoá soạn sẵn trên bản dịch, chạy ở trình duyệt; không gọi AI, không trừ lượt chấm.</li>
+<li>Đơn vị là mô đun của dàn 381 bài (20 mô đun, mỗi mô đun một bộ 6 câu), không theo buổi học của lớp. AI nhận xét bản dịch: để sau (đã chốt 18/11/2026), không có trong bản này.</li>
+<li>Không có điểm, không có phần trăm; tổng kết chỉ liệt kê dấu hiệu và số thứ tự câu.</li>
+<li>Từ Reading: chỉ câu đã có chú giải được duyệt mới có nút; mỗi bài đọc tối đa 2 câu. Trong phòng thi và full test: tắt hẳn.</li>
+<li>Trạng thái lỗi: không lưu được thì giữ nguyên bản dịch trên màn hình, báo "Chưa lưu được, thử lại". Đang tải: khung câu hiện trước, các bước hiện sau.</li>
+</ul>
+</div>
+<div>
+<p class="lab" style="margin: 0 0 6px">Công soạn · ước lượng từ chính 6 câu này</p>
+<ul class="note" style="margin: 0; padding-left: 20px">
+<li>Câu 4 (đủ bốn bước): 6 mảnh, 6 lời khen và 6 lời nhắc khi sai, 8 dấu hiệu với 8 dòng nghĩa và 8 dòng "khi dịch", 8 mã bài phải tra trong dàn bài, 2 bản dịch, 5 dòng tự soát. Khoảng 45 đến 60 phút cho người đã quen dàn bài.</li>
+<li>Câu ngắn (1 đến 3): 3 đến 4 dấu hiệu, khoảng 15 đến 20 phút mỗi câu. Câu dài (5, 6): 40 đến 60 phút.</li>
+<li>Một bộ 6 câu: khoảng 3 đến 3,5 giờ soạn, thêm khoảng 1 giờ để người thứ hai duyệt. 20 mô đun của dàn 381 bài: khoảng 60 đến 70 giờ soạn và 20 giờ duyệt.</li>
+<li>Đây là ước lượng, chưa bấm giờ với người soạn thật. Nên bấm giờ trên 20 câu đầu rồi mới quyết quy mô.</li>
+</ul>
+<p class="lab" style="margin: 16px 0 6px">Rủi ro</p>
+<ul class="note" style="margin: 0; padding-left: 20px">
+<li><strong>Bản mẫu cứng nhắc:</strong> bản "sát từng khối" nghe gượng ("bởi hai thủ thư"). Vì vậy luôn kèm bản tự nhiên và ghi rõ chỗ khác nhau; dòng tự soát hỏi về nghĩa, không hỏi về chữ.</li>
+<li><strong>Người học chép:</strong> bản mẫu chỉ hiện sau khi nộp bản dịch đầu; không có điểm nên chép không được gì; tổng kết dựa trên tự đánh dấu.</li>
+<li><strong>Tự đánh dấu sai:</strong> người học có thể bấm "Đã có" cho xong. "So chữ" nhắc nhẹ; giáo viên lớp offline xem được bản dịch đầu.</li>
+<li><strong>Chậm, dễ bỏ:</strong> giữ 6 câu mỗi mô đun, 2 câu mỗi bài đọc; dừng giữa chừng được, làm tiếp từ câu đang dở.</li>
+</ul>
+</div>
+</div>
+</section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Navy + đỏ mận","Xanh teal"],"default":"Navy + đỏ mận"},"$preview":{"width":1280,"height":7870}}'>
+class Component extends DCLogic {
+constructor(p) {
+super(p);
+this.state = {
+view: 'all', tool: 'O', asg: { c1: 'S', c3: 'V' }, noO: false,
+msg: { ok: false, text: 'Cụm "of old manuscripts" đứng sau of và nói rõ đó là bộ sưu tập gì. Nó bám vào danh từ đứng ngay trước, chưa phải một thành phần riêng của câu.' },
+sig: 5, seen: { 5: true }, s2done: false,
+draft: 'Các bản thảo cổ đã lập danh mục vào năm 2021.', compared: false,
+marks: { k2: 'sot' }, rsel: 3
+};
+}
+renderVals() {
+const s = this.state;
+const all = s.view === 'all';
+const CH = [
+{ id: 'c1', t: 'The collection', r: 'S', ok: 'collection là danh từ chính của chủ ngữ: câu nói về bộ sưu tập.', no: 'Hỏi: cái gì đã được lập danh mục? Câu trả lời bắt đầu từ mảnh này.' },
+{ id: 'c2', t: 'of old manuscripts', r: 'S', ok: 'Cụm sau of bổ nghĩa cho collection nên vẫn nằm trong chủ ngữ.', no: 'Cụm "of old manuscripts" đứng sau of và nói rõ đó là bộ sưu tập gì. Nó bám vào danh từ đứng ngay trước, chưa phải một thành phần riêng của câu.' },
+{ id: 'c3', t: 'has been', r: 'V', ok: 'has là từ được chia theo chủ ngữ; has been mở đầu chuỗi động từ.', no: 'has là từ duy nhất trong câu được chia theo chủ ngữ. Từ được chia thuộc về thành phần nào?' },
+{ id: 'c4', t: 'catalogued', r: 'V', ok: 'catalogued là V3 đi cùng has been: ba từ là một chuỗi động từ.', no: 'Đứng ngay sau been, từ đuôi -ed này là V3 của chuỗi động từ; nó không mô tả danh từ nào.' },
+{ id: 'c5', t: 'by two librarians', r: 'A', ok: 'by + người làm là phần bổ sung: bỏ đi câu vẫn đủ khung.', no: 'Thử bỏ cụm này: câu vẫn đứng được. Hai thủ thư là người làm việc, nhưng trong câu này họ đứng sau by.' },
+{ id: 'c6', t: 'since 2021', r: 'A', ok: 'since + mốc thời gian là phần bổ sung chỉ thời gian.', no: 'Cụm này trả lời câu hỏi "từ khi nào"; bỏ đi câu vẫn đủ khung.' }
+];
+const ROLE = { S: 'chủ ngữ', V: 'động từ chính', O: 'tân ngữ hoặc bổ ngữ', A: 'phần bổ sung' };
+const asg = s.asg || {};
+const pickChunk = (c) => () => {
+if (asg[c.id]) { this.setState({ msg: { ok: true, text: 'Mảnh "' + c.t + '" đã được gán là ' + ROLE[c.r] + '.' } }); return; }
+if (s.tool === c.r) { this.setState({ asg: Object.assign({}, asg, { [c.id]: c.r }), msg: { ok: true, text: c.ok } }); }
+else { this.setState({ msg: { ok: false, text: c.no } }); }
+};
+const chunks = CH.map((c) => {
+const r = asg[c.id];
+return { show: r === 'A' ? '[ ' + c.t + ' ]' : c.t, cls: r ? 'r' + r : '', aria: c.t + (r ? ', ' + ROLE[r] : ', chưa gán'), pick: pickChunk(c) };
+});
+const nAsg = CH.filter((c) => asg[c.id]).length;
+const done1 = nAsg === CH.length && !!s.noO;
+const tools = [
+{ id: 'S', label: 'S · Chủ ngữ', short: 'S · Chủ ngữ' }, { id: 'V', label: 'V · Động từ chính', short: 'V · Động từ' },
+{ id: 'O', label: 'O, C · Tân ngữ hoặc bổ ngữ', short: 'O, C · Tân ngữ' }, { id: 'A', label: 'A · Phần bổ sung', short: 'A · Bổ sung' }
+].map((t) => ({ label: t.label, short: t.short, on: s.tool === t.id ? 'true' : 'false', cls: s.tool === t.id ? 'on' : '', pick: () => this.setState({ tool: t.id }) }));
+const txt = (ids) => ids.filter((i) => asg[i]).map((i) => CH.find((c) => c.id === i).t).join(' ');
+const slot = (tag, ids, cls, accent) => {
+const t = txt(ids);
+return { tag, txt: t ? (cls === 'rA' ? '[ ' + t + ' ]' : t) : 'chưa chọn', cls: t ? cls : 'rN', tagColor: accent ? 'var(--accent)' : 'var(--muted)', txtColor: t ? (accent ? 'var(--accent)' : 'var(--ink)') : 'var(--muted)' };
+};
+const slots = [
+slot('S · chủ ngữ', ['c1', 'c2'], 'rS'), slot('V · động từ', ['c3', 'c4'], 'rV', true),
+{ tag: 'O, C · tân ngữ, bổ ngữ', txt: s.noO ? 'không có (câu bị động)' : 'chưa xét', cls: s.noO ? 'rX' : 'rN', tagColor: 'var(--muted)', txtColor: 'var(--muted)' },
+slot('A · ai làm', ['c5'], 'rA'), slot('A · từ khi nào', ['c6'], 'rA')
+];
+const msg = s.msg;
+const P = [
+{ t: 'The', s: [1] }, { t: ' collection ' }, { t: 'of', s: [1] }, { t: ' old manuscript' }, { t: 's', s: [2] }, { t: ' ' },
+{ t: 'has', s: [3, 4] }, { t: ' ' }, { t: 'been', s: [4, 5] }, { t: ' catalogu' }, { t: 'ed', s: [5, 6] }, { t: ' ' },
+{ t: 'by', s: [7] }, { t: ' two librarians ' }, { t: 'since', s: [8] }, { t: ' 2021.' }
+];
+const SIG = [
+{ n: 1, name: 'the … of …', gop: 'Gói cả cụm thành một chủ ngữ. Danh từ chính là collection; phần sau of chỉ nói bộ sưu tập gồm những gì.', dich: 'bộ sưu tập (các) bản thảo cổ: bắt đầu từ danh từ chính', title: 'Tìm danh từ hạt nhân của chủ ngữ', where: 'mô đun 9', wiki: 'Noun Phrase Basics' },
+{ n: 2, name: '-s', gop: 'Cho biết có nhiều bản thảo, không phải một.', dich: 'các bản thảo; tiếng Việt được lược "các" khi đã rõ là nhiều', title: 'Danh từ số ít và số nhiều', where: 'mô đun 4', wiki: 'Singular vs Plural', parts: [{ t: 'manuscript', g: 'bản thảo', w: 600 }, { t: '-s', g: 'nhiều', w: 400 }] },
+{ n: 3, name: 'has (không phải have)', gop: 'Động từ chia số ít, tức là chia theo collection chứ không theo manuscripts đứng ngay trước nó.', dich: 'không thành chữ; dùng để kiểm lại bạn đã chọn đúng chủ ngữ', title: 'Chữa lỗi hòa hợp ở chủ ngữ dài', where: 'mô đun 9', wiki: 'Subject-Verb Agreement' },
+{ n: 4, name: 'has been', gop: 'have + V3: việc bắt đầu trước đây và được nhìn từ hiện tại. Câu không nói việc đã dừng.', dich: 'đã … (tính đến nay); không gắn với một thời điểm đã qua', title: 'Hiện tại hoàn thành và quá khứ đơn', where: 'mô đun 8', wiki: 'Present Perfect' },
+{ n: 5, name: 'been catalogued', gop: 'be + V3: chủ ngữ là bên nhận tác động. Bộ sưu tập không tự lập danh mục; nó được lập danh mục.', dich: 'được + động từ: được lập danh mục', title: 'Bị động tiếp diễn và hoàn thành', where: 'mô đun 9', wiki: 'Passive Voice' },
+{ n: 6, name: '-ed', gop: 'Đứng sau been, đuôi -ed là dạng V3, không phải dấu quá khứ đơn. Thì của câu nằm ở has.', dich: 'đừng thêm "đã" vì đuôi -ed này; "đã" đến từ has been', title: 'Thuật toán đọc cụm động từ', where: 'mô đun 9', wiki: 'Verbs', parts: [{ t: 'catalogue', g: 'lập danh mục', w: 600 }, { t: '-d', g: 'dạng V3', w: 400 }] },
+{ n: 7, name: 'by …', gop: 'Đưa người làm việc ra sau động từ. Bỏ cụm này câu vẫn đủ nghĩa chính.', dich: 'bởi hai thủ thư; câu tự nhiên: được hai thủ thư lập danh mục', title: 'Ba bước chuyển câu SVO', where: 'mô đun 9', wiki: 'Passive Voice' },
+{ n: 8, name: 'since …', gop: 'Đặt mốc bắt đầu là năm 2021. Đi cùng has been nên việc kéo từ mốc đó tới nay.', dich: 'từ năm 2021 (đến nay); không phải "vào năm 2021"', title: 'For và since', where: 'mô đun 8', wiki: 'Present Perfect' }
+];
+const seen = s.seen || {};
+const setSig = (n) => this.setState({ sig: n, seen: Object.assign({}, seen, { [n]: true }) });
+const pieces = P.map((p) => {
+if (!p.s) return { plain: true, mark: false, t: p.t };
+const on = p.s.indexOf(s.sig) >= 0;
+const next = on ? p.s[(p.s.indexOf(s.sig) + 1) % p.s.length] : p.s[0];
+return { plain: false, mark: true, t: p.t, n: p.s.join('·'), cls: on ? 'on' : '', aria: p.t + ', dấu hiệu ' + p.s.join(' và '), pick: () => setSig(next) };
+});
+const sigs = SIG.map((g) => ({ n: g.n, name: g.name, on: s.sig === g.n ? 'true' : 'false', cls: s.sig === g.n ? 'on' : '', seen: seen[g.n] ? 'đã xem' : '', pick: () => setSig(g.n) }));
+const c0 = SIG.find((g) => g.n === s.sig) || SIG[0];
+const cur = Object.assign({}, c0, { hasParts: !!c0.parts, parts: c0.parts || [] });
+const nSeen = SIG.filter((g) => seen[g.n]).length;
+const draft = s.draft || '';
+const low = draft.toLowerCase();
+const has = (kws) => kws.some((k) => low.indexOf(k) >= 0);
+const marks = s.marks || {};
+const K = [
+{ id: 'k1', label: 'Chủ ngữ là "bộ sưu tập", không phải "các bản thảo"', kw: ['bộ sưu tập'], miss: 'không thấy "bộ sưu tập" trong bản dịch của bạn.', sig: 1, sigLabel: 'dấu hiệu 1, the … of …', lesson: 'bài Tìm danh từ hạt nhân của chủ ngữ' },
+{ id: 'k2', label: 'Có nghĩa bị động: "được"', kw: ['được'], miss: 'không thấy "được" trong bản dịch của bạn.', sig: 5, sigLabel: 'dấu hiệu 5, been catalogued', lesson: 'bài Bị động tiếp diễn và hoàn thành' },
+{ id: 'k3', label: 'Việc kéo từ 2021 tới nay: "đã … từ năm 2021"', kw: ['từ năm', 'từ 2021', 'kể từ'], miss: 'không thấy "từ năm 2021"; "vào năm 2021" là một thời điểm đã qua.', sig: 8, sigLabel: 'dấu hiệu 4 và 8, has been, since', lesson: 'bài Hiện tại hoàn thành và quá khứ đơn; For và since' },
+{ id: 'k4', label: 'Có người làm: "hai thủ thư"', kw: ['thủ thư'], miss: 'không thấy "thủ thư" trong bản dịch của bạn.', sig: 7, sigLabel: 'dấu hiệu 7, by …', lesson: 'bài Ba bước chuyển câu SVO' },
+{ id: 'k5', label: 'Từ vựng: tôi đã biết "catalogue" và "manuscript"', kw: null, sig: 2, sigLabel: 'lưu hai từ vào sổ từ', lesson: 'Sổ từ của bạn' }
+];
+const setMark = (id, v) => () => this.setState({ marks: Object.assign({}, marks, { [id]: marks[id] === v ? null : v }) });
+const checks = K.map((k) => ({
+label: k.label, aria: k.label,
+hint: !!k.kw && draft.trim().length > 0 && !has(k.kw) && marks[k.id] !== 'co', hintText: k.miss || '',
+missed: marks[k.id] === 'sot', sigLabel: k.sigLabel, lesson: k.lesson, goSig: () => setSig(k.sig),
+isCo: marks[k.id] === 'co' ? 'true' : 'false', isSot: marks[k.id] === 'sot' ? 'true' : 'false',
+coCls: marks[k.id] === 'co' ? 'on' : '', sotCls: marks[k.id] === 'sot' ? 'on' : '',
+setCo: setMark(k.id, 'co'), setSot: setMark(k.id, 'sot')
+}));
+const nMark = K.filter((k) => marks[k.id]).length;
+const nSot = K.filter((k) => marks[k.id] === 'sot').length;
+const show2 = all || done1, show3 = all || !!s.s2done, show4 = all || !!s.compared;
+const R = [
+{ n: 1, en: 'Tidal mills did not vanish overnight; their numbers dwindled over several decades.', vi: 'Cối xay thuỷ triều không biến mất chỉ sau một đêm; số lượng của chúng giảm dần trong vài thập kỷ.', has: false },
+{ n: 2, en: 'As estuaries filled with mud, the ponds could no longer retain enough water to turn a wheel.', vi: 'Khi các cửa sông bị bùn lấp đầy, hồ chứa không còn giữ đủ nước để quay bánh xe.', has: false },
+{ n: 3, en: 'A few survive today as museums, kept running by volunteers.', vi: 'Một số ít còn tồn tại đến nay dưới dạng bảo tàng, được các tình nguyện viên duy trì hoạt động.', has: true, why: 'Câu có V3 "kept" đứng sau dấu phẩy và "by": bị động rút gọn.' }
+];
+const rsents = R.map((r) => ({ en: r.en, on: s.rsel === r.n ? 'true' : 'false', bg: s.rsel === r.n ? 'var(--tint)' : 'transparent', bar: r.has ? '4px double var(--accent)' : '4px solid transparent', pick: () => this.setState({ rsel: r.n }) }));
+const r0 = R.find((r) => r.n === s.rsel) || R[2];
+const stepSt = (done, open, cur) => done ? 'đã xong' : (open ? (cur ? 'đang làm' : 'đang mở') : 'chưa mở');
+const navM = [
+{ label: 'Hôm nay', href: 'Main.dc.html', d: 'M4 11l8-7 8 7v9H4z' },
+{ label: 'Lộ trình', href: 'LoTrinh.dc.html', d: 'M5 20V8M5 8h10l-2 3 2 3H5M19 20h-4', on: true },
+{ label: 'Luyện tập', href: 'LuyenTap.dc.html', d: 'M4 19l4-1 11-11-3-3L5 15zM14 6l3 3' },
+{ label: 'Thi thử', href: 'ThiThu.dc.html', d: 'M12 7v5l3 2M12 3a9 9 0 100 18 9 9 0 000-18z' },
+{ label: 'Thư viện', href: 'ThuVien.dc.html', d: 'M5 4h5v16H5zM10 4h5v16h-5zM16 6l3-1 3 14-3 1z' }
+].map((n) => Object.assign(n, { bar: n.on ? 'var(--accent)' : 'transparent', fg: n.on ? 'var(--ink)' : 'var(--muted)', w: n.on ? 600 : 400 }));
+const six = [
+{ n: 1, en: 'The rooms are cleaned every morning.', vi: 'Các phòng được dọn mỗi sáng.', focus: 'are + V3 (bị động, hiện tại đơn) · -s số nhiều', codes: 'Bị động ở thì đơn · Danh từ số ít và số nhiều', st: 'Đã xong' },
+{ n: 2, en: 'The old bridge was repaired last year.', vi: 'Cây cầu cũ đã được sửa năm ngoái.', focus: 'was + V3 (bị động, quá khứ) · last year', codes: 'Bị động ở thì đơn · Quá khứ đơn cho việc đã xảy ra', st: 'Đã xong' },
+{ n: 3, en: 'The lift is being serviced by two technicians.', vi: 'Thang máy đang được hai kỹ thuật viên bảo dưỡng.', focus: 'is being + V3 (đang được) · by + người làm', codes: 'Bị động tiếp diễn và hoàn thành · Ba bước chuyển câu SVO', st: 'Đã xong' },
+{ n: 4, en: 'The collection of old manuscripts has been catalogued by two librarians since 2021.', vi: 'Bộ sưu tập bản thảo cổ đã được hai thủ thư lập danh mục từ năm 2021.', focus: 'the … of … · has been + V3 · by · since', codes: 'Bị động tiếp diễn và hoàn thành · For và since · và 4 bài khác', st: 'Đang làm', cur: true },
+{ n: 5, en: 'Leila was awarded a scholarship by the school in 2023.', vi: 'Leila đã được trường trao một suất học bổng năm 2023.', focus: 'Người nhận lên làm chủ ngữ; a scholarship vẫn là tân ngữ', codes: 'Bị động câu có hai tân ngữ · Bị động ở thì đơn', st: 'Chưa làm' },
+{ n: 6, en: 'The number of books which are borrowed by first-year students has risen sharply since the new library was opened.', vi: 'Số sách mà sinh viên năm nhất mượn đã tăng mạnh kể từ khi thư viện mới được mở.', focus: 'the number of → has · which + are borrowed · has risen là chủ động · since + was opened', codes: 'A number of và the number of · For và since · Đại từ quan hệ làm chủ ngữ (mô đun 16, học sau: chỉ cần nhận ra which mở phần bổ nghĩa cho books)', st: 'Chưa làm' }
+].map((q) => Object.assign(q, { stColor: q.cur ? 'var(--accent)' : (q.st === 'Đã xong' ? 'var(--ok)' : 'var(--muted)') }));
+const row = (r, en, vi, v) => ({ r, en, vi, c: v ? 'var(--accent)' : 'var(--ink)', w: v ? 600 : 400 });
+const doneCards = [
+{ n: 2, en: 'The old bridge was repaired last year.', rows: [row('S', 'The old bridge', 'Cây cầu cũ'), row('V', 'was repaired', 'đã được sửa', true), row('A', 'last year', 'năm ngoái')], sig: 'was + V3: bị động ở quá khứ, "đã được" · last year: mốc đã qua', mine: 'Cây cầu cũ sửa năm ngoái.', mark: 'Bỏ sót 1 dấu hiệu:', markColor: 'var(--mark)', markNote: 'nghĩa bị động "được" (was + V3).' },
+{ n: 3, en: 'The lift is being serviced by two technicians.', rows: [row('S', 'The lift', 'Thang máy'), row('V', 'is being serviced', 'đang được bảo dưỡng', true), row('A', 'by two technicians', 'bởi hai kỹ thuật viên')], sig: 'is being + V3: việc đang diễn ra, "đang được" · by: người làm', mine: 'Thang máy đang được hai kỹ thuật viên bảo dưỡng.', mark: 'Không bỏ sót.', markColor: 'var(--ok)', markNote: 'Bạn giữ đủ "đang", "được" và người làm.' }
+];
+const sumMiss = [
+{ name: 'be + V3', what: 'Nghĩa bị động: "được"', at: 'câu 2 và câu 4', l1: 'Bị động ở thì đơn', l2: 'Bị động tiếp diễn và hoàn thành' },
+{ name: 'have + V3 · since', what: 'Việc kéo từ một mốc tới nay', at: 'câu 4 và câu 6', l1: 'Hiện tại hoàn thành và quá khứ đơn', l2: 'For và since' },
+{ name: 'the … of …', what: 'Danh từ chính của chủ ngữ dài', at: 'câu 4 và câu 6', l1: 'Tìm danh từ hạt nhân của chủ ngữ', l2: 'A number of và the number of' }
+];
+const schema = [
+'cau_doc_ky',
+'  id, mo_dun, thu_tu                (mô đun 9, câu 4)',
+'  nguon: câu gốc · ma_bam_nguon      (như đơn vị dịch của Reading)',
+'  manh[]: id, start, end, vai_tro (S | V | O | C | A),',
+'          loi_khi_dung, loi_nhac_khi_sai',
+'  khong_co_tan_ngu: true/false + lời giải thích',
+'  dau_hieu[]: id, nhan, vi_tri[[start, end]…], gop_nghia (1 dòng),',
+'          khi_dich (1 dòng), be_tu[] (tuỳ chọn),',
+'          ma_bai[] (B158…), bai_wiki (slug)',
+'  ban_mau: theo_manh[]: { manh_ids, vi } · tu_nhien · ghi_chu_trat_tu',
+'  tu_soat[]: id, nhan, dau_hieu_ids[], tu_khoa[] (cho "so chữ"), tuy_chon',
+'  duyet: nguoi_soan, nguoi_duyet, ngay_duyet',
+'ket_qua_hoc_vien (mỗi lần làm)',
+'  cau_id, lan, can_goi_y_buoc_1, dau_hieu_da_xem[],',
+'  ban_dich_dau, bo_sot[] (id dòng tự soát), thoi_diem'
+].join('\n');
+return {
+pal: (this.props.palette ?? 'Navy + đỏ mận') === 'Xanh teal' ? 'pal-teal' : 'pal-navy',
+views: [{ id: 'all', label: 'Cả bốn bước mở (để duyệt)' }, { id: 'step', label: 'Mở dần như người học' }].map((v) => ({ label: v.label, on: s.view === v.id ? 'true' : 'false', cls: s.view === v.id ? 'on' : '', pick: () => this.setState({ view: v.id }) })),
+stepMode: !all,
+rsents, rcur: { vi: r0.vi, has: !!r0.has, none: !r0.has, why: r0.why || '' },
+dots: [1, 2, 3, 4, 5, 6].map((n) => ({ n, st: n < 4 ? 'xong' : (n === 4 ? 'đang làm' : 'chưa làm'), bg: n === 4 ? 'var(--ink)' : (n < 4 ? 'var(--tint)' : 'var(--surface)'), fg: n === 4 ? 'var(--surface)' : (n < 4 ? 'var(--ink)' : 'var(--muted)') })),
+stepper: [
+{ label: '1 · Tách khung câu', href: '#b1', st: stepSt(done1, true, true) },
+{ label: '2 · Đọc dấu hiệu', href: '#b2', st: all ? 'đã xem ' + nSeen + ' trên 8' : stepSt(!!s.s2done, show2, true) },
+{ label: '3 · Tự dịch', href: '#b3', st: stepSt(!!s.compared, show3, true) },
+{ label: '4 · Đối chiếu', href: '#b4', st: show4 ? 'đã đánh dấu ' + nMark + ' trên 5 dòng' : 'chưa mở' }
+],
+chunks, tools, slots, done1,
+noO: s.noO ? 'true' : 'false', noOCls: s.noO ? 'on' : '',
+sayNoO: () => this.setState({ noO: true, msg: { ok: true, text: 'Câu bị động: bên nhận tác động (bộ sưu tập) đã lên làm chủ ngữ, nên sau động từ không còn tân ngữ.' } }),
+reveal1: () => this.setState({ asg: { c1: 'S', c2: 'S', c3: 'V', c4: 'V', c5: 'A', c6: 'A' }, noO: true, msg: { ok: true, text: 'Đã hiện đáp án. Câu này được ghi là "cần gợi ý" ở tổng kết.' } }),
+reset1: () => this.setState({ asg: {}, noO: false, tool: 'S', msg: null }),
+msgCls: msg ? (msg.ok ? 'ok' : 'no') : '',
+msgColor: msg ? (msg.ok ? 'var(--ok)' : 'var(--danger)') : 'var(--ink)',
+msgHead: msg ? (msg.ok ? 'Đúng.' : 'Chưa đúng.') : 'Bắt đầu:',
+msgBody: msg ? msg.text : 'chọn "S · Chủ ngữ" rồi bấm mảnh mà cả câu đang nói về.',
+prog1: done1 ? 'Đã tách xong khung câu.' : 'Đã gán đúng ' + nAsg + ' trên 6 mảnh' + (s.noO ? '; đã xác nhận câu không có tân ngữ.' : '; chưa xét tân ngữ, bổ ngữ.'),
+diagAria: 'Sơ đồ khung câu, đã điền ' + nAsg + ' trên 6 mảnh',
+lock2: !show2, show2, lock3: !show3, show3, lock4: !show4, show4,
+pieces, sigs, cur,
+seenLine: 'Đã xem ' + nSeen + ' trên 8 dấu hiệu.' + (nSeen < 8 ? ' Bạn sang bước 3 lúc nào cũng được, nhưng nên xem hết.' : ''),
+finish2: () => this.setState({ s2done: true }),
+draft, onDraft: (e) => { if (!s.compared || all) this.setState({ draft: e.target.value }); },
+draftLine: draft.trim() ? (s.compared ? 'Đã đối chiếu. Bản dịch đầu của bạn được giữ lại.' : 'Chưa đối chiếu. Sau khi bấm, bản dịch đầu của bạn được giữ lại.') : 'Gõ bản dịch trước, rồi mới đối chiếu được.',
+compare: () => { if (draft.trim()) this.setState({ compared: true }); },
+hasDraft: draft.trim().length > 0, noDraft: draft.trim().length === 0,
+draftShown: draft.trim() ? draft : 'Bạn chưa gõ bản dịch.',
+checks, checksM: checks.slice(0, 3),
+markLine: 'Đã đánh dấu ' + nMark + ' trên 5 dòng' + (nSot ? '; bạn tự nhận bỏ sót ' + nSot + ' chỗ.' : '.'),
+navM, six, doneCards, sumMiss, schema
+};
+}
+}
+</script>
+</body>
+</html>

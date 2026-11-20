@@ -18,6 +18,7 @@ import {
   practiceRunParams,
 } from '@/lib/listening-practice-run-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
+import { leaveForParent } from '@/lib/redirect-notice-model.mjs';
 
 type Phase = 'loading' | 'ready' | 'summary' | 'error' | 'start-uncertain' | 'submit-retry' | 'submit-uncertain';
 type AudioPlayerElement = HTMLElement & {
@@ -52,6 +53,11 @@ export function ListeningPracticeRun() {
     try { return practiceRunParams(`?${searchParams?.toString() || ''}`); }
     catch { return null; }
   }, [searchParams]);
+
+  // G02-T11: a link without its practice test goes back to quick practice.
+  useEffect(() => {
+    if (status === 'signed-in' && !params) leaveForParent('/listening/practice');
+  }, [params, status]);
 
   useEffect(() => {
     if (status === 'signed-out') window.location.replace('/login');

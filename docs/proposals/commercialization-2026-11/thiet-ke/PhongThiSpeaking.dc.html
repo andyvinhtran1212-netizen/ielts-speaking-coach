@@ -1,0 +1,487 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Phòng thi Speaking</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--link:#0B5953;--mark:#8A4B08;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EDF3F1;--off:#E7E2D6}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--link:#1A3561;--mark:#8A1C1C;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EEF0F5;--off:#E8E2D5}
+a{color:var(--link)}a:hover{color:var(--ink)}
+.lab{margin:0;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.h2{margin:0;font-family:'Source Serif 4',Georgia,serif;font-size:24px;font-weight:600}
+.sub{margin:4px 0 16px;font-size:14px;color:var(--muted);max-width:104ch}
+.sec{border-top:2px solid var(--ink);padding-top:16px;margin:0 64px 48px}
+.bar{height:56px;flex-shrink:0;box-sizing:border-box;display:flex;align-items:center;gap:18px;padding:0 20px;background:var(--ink);color:var(--surface)}
+.exit{display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border:1px solid var(--surface);border-radius:2px;color:var(--surface);text-decoration:none;font-size:15px;white-space:nowrap}
+.timer{margin:0;padding:4px 14px;background:var(--surface);color:var(--ink);font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;border-radius:2px;white-space:nowrap}
+.small{margin:0;font-size:13px;opacity:.85;white-space:nowrap}
+.pill{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 12px;border:1px solid var(--surface);border-radius:2px;font-size:14px;font-weight:600;white-space:nowrap}
+.dot{display:inline-block;width:10px;height:10px;background:var(--danger)}
+.btnp{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 20px;border:1px solid var(--accent);border-radius:2px;background:var(--accent);color:var(--surface);font:600 15px 'Source Sans 3',sans-serif;text-decoration:none;white-space:nowrap;cursor:pointer}
+.btno{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 18px;border:1px solid var(--ink);border-radius:2px;background:var(--surface);color:var(--ink);font:600 15px 'Source Sans 3',sans-serif;text-decoration:none;white-space:nowrap;cursor:pointer}
+.btnd{display:inline-flex;align-items:center;min-height:44px;padding:0 18px;border:1px solid var(--mark);border-radius:2px;background:var(--surface);color:var(--mark);font:600 15px 'Source Sans 3',sans-serif;white-space:nowrap;cursor:pointer}
+.off{display:inline-flex;align-items:center;min-height:44px;padding:0 18px;border:1px solid var(--off);border-radius:2px;background:var(--off);color:var(--muted);font:600 15px 'Source Sans 3',sans-serif;white-space:nowrap}
+.li{padding:9px 0;border-top:1px solid var(--rule)}
+.serif{font-family:'Source Serif 4',Georgia,serif}
+.foot{height:72px;flex-shrink:0;box-sizing:border-box;display:flex;align-items:center;gap:16px;padding:0 20px;border-top:1px solid var(--ink);background:var(--surface)}
+.frame{box-sizing:border-box;border:1px solid var(--ink);background:var(--paper);display:flex;flex-direction:column;overflow:hidden;position:relative}
+.warn{box-sizing:border-box;padding:14px 18px 16px;border:2px solid var(--mark);border-left-width:8px;border-radius:2px;background:var(--surface)}
+.wl{margin:0 0 4px;display:flex;align-items:center;gap:8px;color:var(--mark);font-weight:600;letter-spacing:.06em;text-transform:uppercase;font-size:13px}
+.big{margin:0;font-family:'Source Serif 4',Georgia,serif;font-size:56px;font-weight:600;line-height:1.1;font-variant-numeric:tabular-nums}
+.cell{min-width:32px;height:44px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;padding:0 6px;border:1px solid var(--ink);border-radius:2px;font:600 14px 'Source Sans 3',sans-serif;font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div class="{{pal}}" style="width: 1280px; height: 8000px; box-sizing: border-box; display: flex; flex-direction: column; background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 16px; line-height: 1.5">
+
+<div style="padding: 48px 64px 28px">
+<p class="lab">Aver Learning · Bản in · phòng thi full test, tờ 3</p>
+<h1 style="margin: 6px 0 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 34px; font-weight: 600; line-height: 1.2">Phòng thi · Speaking full test (ghi âm trên máy)</h1>
+<p style="margin: 0; max-width: 104ch; color: var(--muted)">Người thi trả lời bằng micro trên máy của mình, từng câu được ghi và tải lên ngay (như trình Speaking hiện có, cũng là phần Speaking của mock test được giao). Dùng thanh trên và thanh dưới của <a href="PhongThi.dc.html">PhongThi</a>; Speaking không có cột câu hỏi để kéo, nên không có tay nắm. Luồng: Microphone check → Part 1 → Part 2 → Part 3 → Section complete. Trong khung mọi chữ tiếng Anh; ghi chú tiếng Việt. Bốn trạng thái xin quyền micro theo <a href="BaiTapSpeaking.dc.html">BaiTapSpeaking</a> mục 3, chữ dịch sang tiếng Anh.</p>
+</div>
+
+<section aria-labelledby="s1" class="sec">
+<h2 id="s1" class="h2">1 · Microphone check</h2>
+<p class="sub">Trước Part 1, chưa tính giờ. Đây là chỗ duy nhất được nghe lại tiếng mình. Bản ghi thử không gửi đi, không chấm.</p>
+<div lang="en" class="frame" style="width: 1152px; height: 470px">
+<header class="bar"><a href="ThiThu.dc.html" class="exit">‹ Leave test</a><p style="margin: 0; flex-grow: 1; font-size: 15px"><strong>Speaking · Academic Test 1</strong> <span style="opacity: 0.85">· Microphone check</span></p><p class="small">The test timer starts after this check</p></header>
+<div style="flex-grow: 1; display: flex; background: var(--surface)">
+<div style="width: 50%; box-sizing: border-box; padding: 24px 32px; border-right: 1px solid var(--rule)">
+<p class="serif" style="margin: 0; font-size: 22px; font-weight: 600">Check your microphone</p>
+<p lang="vi" style="margin: 0 0 8px; font-size: 13px; color: var(--muted)">Kiểm tra micro trước khi thi. Chưa tính giờ; bản ghi thử không gửi đi.</p>
+<ol style="margin: 0; padding: 0; list-style: none">
+<li class="li" style="display: flex; gap: 12px"><strong style="width: 20px">1</strong><span>Allow microphone access. <strong style="color: var(--ok)">Done · Built-in microphone</strong> <a href="#s1">Change</a></span></li>
+<li class="li" style="display: flex; gap: 12px"><strong style="width: 20px">2</strong><span>Select Record test and read this sentence aloud:<br><span class="serif" style="font-size: 18px">“I am ready to start my speaking test.”</span></span></li>
+<li class="li" style="display: flex; gap: 12px; border-bottom: 1px solid var(--rule)"><strong style="width: 20px">3</strong><span>Play it back. If you cannot hear yourself clearly, move to a quieter place or change the microphone.</span></li>
+</ol>
+</div>
+<div style="flex-grow: 1; padding: 24px 32px">
+<p style="margin: 0 0 6px; font-size: 14px; color: var(--muted)">Input level</p>
+<div role="img" aria-label="Input level: good" style="display: flex; align-items: flex-end; gap: 3px; height: 48px; margin-bottom: 10px; border-bottom: 1px solid var(--ink)">
+<sc-for list="{{checkBars}}" as="b" hint-placeholder-count="30"><div style="width: 8px; height: {{b.h}}; background: var(--ink)"></div></sc-for>
+</div>
+<p role="status" style="margin: 0 0 14px"><strong style="color: var(--ok)">We can hear you clearly.</strong> Test recording: 0:04.</p>
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px"><span class="btno">Record test again</span><span class="btno">Play back</span></div>
+<p style="margin: 0 0 14px; font-size: 15px; color: var(--muted)">After you start, each answer is recorded once and cannot be played back.</p>
+<a href="#s2" class="btnp">Start Speaking test</a>
+</div>
+</div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; margin-top: 14px; font-size: 15px">
+<p lang="en" style="margin: 0; padding: 10px 14px; border-left: 4px solid var(--mark); background: var(--surface)"><strong>Too quiet.</strong> We could not hear you. Move closer to the microphone and record the test again.</p>
+<p lang="en" style="margin: 0; padding: 10px 14px; border-left: 4px solid var(--mark); background: var(--surface)"><strong>Microphone blocked.</strong> Your browser is blocking the microphone. Follow the three steps to allow it, then select Try again.</p>
+<p lang="en" style="margin: 0; padding: 10px 14px; border-left: 4px solid var(--mark); background: var(--surface)"><strong>No microphone found.</strong> Connect a microphone or headset, then select Try again.</p>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)">"Start Speaking test" chỉ bật khi đã có quyền micro và bản thử nghe được tiếng (mức vào vượt ngưỡng). Nếu đang trong mock test được giao và kiểm tra thất bại: "Contact your invigilator" thay cho nút thoát.</p>
+</section>
+
+<section aria-labelledby="s2" class="sec">
+<h2 id="s2" class="h2">2 · Part 1 · từng câu hỏi, ghi âm từng câu</h2>
+<p class="sub">Màn chính, bấm thử được. Câu hỏi hiện bằng chữ và đọc bằng audio một lần; người thi bấm Start recording, nói, bấm Finish answer; hết thời gian tối đa thì tự dừng. Mỗi câu tải lên ngay sau khi ghi, không chờ cuối phần. Đổi trạng thái ghi âm bằng hàng nút dưới (hoặc bằng chính các nút trong khung).</p>
+<div role="group" aria-label="Xem thử trạng thái ghi âm" style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px">
+<span style="font-size: 14px; color: var(--muted); margin-right: 4px">Xem thử:</span>
+<sc-for list="{{demo}}" as="d" hint-placeholder-count="7">
+<button onClick="{{d.go}}" aria-pressed="{{d.on}}" style="min-height: 40px; padding: 0 14px; border: {{d.bw}} solid var(--ink); border-radius: 2px; background: {{d.bg}}; color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer">{{d.t}}</button>
+</sc-for>
+</div>
+<div lang="en" class="frame" style="width: 1280px; height: 700px; margin: 0 -64px; border-left: 0; border-right: 0">
+<header class="bar">
+<a href="ThiThu.dc.html" class="exit">‹ Leave test</a>
+<p style="margin: 0; flex-grow: 1; font-size: 15px"><strong>Speaking · Part 1 of 3</strong> <span style="opacity: 0.85">· Question 3 of 3</span></p>
+<span class="pill" aria-live="polite"><sc-if value="{{isRec}}" hint-placeholder-val="{{false}}"><span class="dot"></span></sc-if>{{pill}}</span>
+<p class="small">Uploads: {{upl}}</p>
+<p class="small">Answer time</p>
+<p role="timer" aria-label="Answer time" class="timer">{{ansTime}}</p>
+</header>
+<div style="flex-grow: 1; min-height: 0; display: flex">
+<section aria-label="Question" style="width: 46%; box-sizing: border-box; padding: 28px 36px; border-right: 1px solid var(--ink); background: var(--surface)">
+<p class="lab">Part 1 · Question 3 of 3</p>
+<p class="serif" style="margin: 8px 0 20px; font-size: 28px; font-weight: 600; line-height: 1.3">Do you enjoy spending time outdoors?</p>
+<div style="padding: 12px 14px; border: 1px solid var(--rule)">
+<div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z"></path><path d="M16.5 8.5a5 5 0 0 1 0 7"></path></svg><strong style="font-size: 15px">{{qAudio}}</strong><span style="margin-left: auto; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums">{{qAudioTime}}</span></div>
+<div aria-hidden="true" style="height: 4px; background: var(--off)"><div style="width: {{qAudioProg}}; height: 4px; background: var(--accent)"></div></div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)">The question is played once. It cannot be replayed.</p>
+</div>
+<p style="margin: 20px 0 0; font-size: 15px; color: var(--muted)">Answer in full sentences. Part 1 answers are usually 20–40 seconds. Recording stops automatically at 0:45.</p>
+</section>
+<section aria-label="Your answer" style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 28px 36px">
+<p class="lab">Your answer</p>
+<p class="big" style="margin-top: 4px">{{bigTime}}</p>
+<p style="margin: 0 0 6px; font-size: 14px; color: var(--muted)">{{bigNote}}</p>
+<div role="img" aria-label="{{waveLabel}}" style="display: flex; align-items: flex-end; gap: 3px; height: 56px; margin: 6px 0 18px; border-bottom: 1px solid var(--ink)">
+<sc-for list="{{wave}}" as="b" hint-placeholder-count="40"><div style="width: 7px; height: {{b.h}}; background: {{b.c}}"></div></sc-for>
+</div>
+
+<sc-if value="{{isReady}}" hint-placeholder-val="{{true}}">
+<p role="status" style="margin: 0 0 16px"><strong>Ready to record.</strong> Select Start recording when you are ready to answer. Each answer is recorded once.</p>
+<button onClick="{{toRec}}" class="btnp"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg>Start recording</button>
+</sc-if>
+
+<sc-if value="{{isRec}}" hint-placeholder-val="{{false}}">
+<p role="status" style="margin: 0 0 6px"><span class="dot" style="margin-right: 8px"></span><strong style="color: var(--danger)">Recording.</strong> The microphone is on.</p>
+<p style="margin: 0 0 16px; font-size: 15px; color: var(--muted)">Keep speaking: answers in Part 1 need at least 15 seconds. 4 seconds to go.</p>
+<button onClick="{{toShort}}" class="btnp"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="5" y="5" width="14" height="14"></rect></svg>Finish answer</button>
+</sc-if>
+
+<sc-if value="{{isShort}}" hint-placeholder-val="{{false}}">
+<div role="alertdialog" aria-labelledby="sw1" class="warn">
+<p class="wl"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3l10 18H2z"></path><path d="M12 10v5M12 18h.01"></path></svg>Warning</p>
+<p id="sw1" style="margin: 0 0 4px; font-weight: 600">This answer is too short</p>
+<p style="margin: 0 0 12px">You have spoken for 0:11. Answers in Part 1 need at least 15 seconds to be marked. The recording is still running.</p>
+<div style="display: flex; gap: 10px; flex-wrap: wrap"><button onClick="{{toRec}}" class="btnp">Keep speaking</button><button onClick="{{toDone}}" class="btnd">Finish anyway</button></div>
+</div>
+</sc-if>
+
+<sc-if value="{{isDone}}" hint-placeholder-val="{{false}}">
+<p role="status" style="margin: 0 0 16px"><strong style="color: var(--ok)">Answer recorded · 0:32 · saved.</strong> You cannot listen to it or record it again.</p>
+<button onClick="{{toUp}}" class="btnp">Next question</button>
+</sc-if>
+
+<sc-if value="{{isUp}}" hint-placeholder-val="{{false}}">
+<p role="status" style="margin: 0 0 6px"><strong>Saving your answer… 64%</strong></p>
+<div aria-hidden="true" style="height: 4px; margin-bottom: 8px; background: var(--off)"><div style="width: 64%; height: 4px; background: var(--accent)"></div></div>
+<p style="margin: 0 0 16px; font-size: 15px; color: var(--muted)">You can go on. Your answer keeps saving in the background.</p>
+<div style="display: flex; gap: 10px; flex-wrap: wrap"><button onClick="{{toFail}}" class="btnp">Next question</button></div>
+</sc-if>
+
+<sc-if value="{{isFail}}" hint-placeholder-val="{{false}}">
+<div role="alert" class="warn">
+<p class="wl"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3l10 18H2z"></path><path d="M12 10v5M12 18h.01"></path></svg>Warning</p>
+<p style="margin: 0 0 4px; font-weight: 600">Your answer has not been saved yet</p>
+<p style="margin: 0 0 12px">The recording (0:32) is still on this computer and has not been lost. Check your connection, then select Try again. Do not close this tab.</p>
+<div style="display: flex; gap: 10px; flex-wrap: wrap"><button onClick="{{toUp}}" class="btnp">Try again</button><button onClick="{{toReady}}" class="btno">Next question</button></div>
+</div>
+</sc-if>
+
+<sc-if value="{{isMic}}" hint-placeholder-val="{{false}}">
+<div role="alert" class="warn">
+<p class="wl"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3l10 18H2z"></path><path d="M12 10v5M12 18h.01"></path></svg>Warning</p>
+<p style="margin: 0 0 4px; font-weight: 600">Microphone disconnected</p>
+<p style="margin: 0 0 12px">Your recording up to 0:21 has been kept. Reconnect your microphone or allow access again, then select Continue recording. The answer time is paused.</p>
+<div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center"><button onClick="{{toRec}}" class="btnp">Continue recording</button><a href="BaiTapSpeaking.dc.html">How to allow the microphone</a></div>
+</div>
+</sc-if>
+</section>
+</div>
+<footer class="foot">
+<nav aria-label="Speaking progress" style="display: flex; align-items: center; gap: 6px; flex-grow: 1">
+<div role="group" aria-label="Part 1" style="display: flex; align-items: center; gap: 4px; padding-right: 10px; margin-right: 4px; border-right: 1px solid var(--rule)">
+<span style="margin-right: 6px; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600">Part 1</span>
+<sc-for list="{{p1}}" as="n" hint-placeholder-count="3">
+<span aria-label="{{n.aria}}" class="cell" style="border-bottom: 4px solid {{n.bar}}; background: {{n.bg}}; color: {{n.fg}}; outline: {{n.outline}}; outline-offset: 2px">{{n.n}}</span>
+</sc-for>
+</div>
+<span class="cell" style="padding: 0 12px; border-color: var(--rule); background: var(--paper)">Part 2 · 0/1</span>
+<span class="cell" style="padding: 0 12px; border-color: var(--rule); background: var(--paper)">Part 3 · 0/2</span>
+</nav>
+<p style="margin: 0; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums">Answered <strong style="color: var(--ink)">{{answeredN}}</strong> of 6</p>
+</footer>
+</div>
+<p style="margin: 12px 0 0; font-size: 14px; color: var(--muted)">Dải dưới chỉ để biết tiến độ: ô không bấm được vì không quay lại câu đã trả lời. Không có nút "Submit test": hết Part 3 thì sang Section complete (mục 5). Ô có vạch đỏ mận là câu chưa tải lên xong.</p>
+</section>
+
+<section aria-labelledby="s3" class="sec">
+<h2 id="s3" class="h2">3 · Part 2 · cue card, 1 phút chuẩn bị, nói 1–2 phút</h2>
+<p class="sub">Hết 1 phút chuẩn bị thì tự bắt đầu ghi (có đếm ngược 3 giây và tiếng báo); người thi có thể bấm "Start speaking now" sớm hơn. Ghi chú gõ được trong lúc chuẩn bị, chỉ để người thi xem, không chấm, xoá sau bài thi. Tối thiểu 1:20 theo quy tắc hiện có; tới 2:00 tự dừng.</p>
+<div style="display: flex; flex-direction: column; gap: 18px">
+<div>
+<p class="lab" style="margin-bottom: 6px">3a · đang chuẩn bị</p>
+<div lang="en" class="frame" style="width: 1152px; height: 390px">
+<header class="bar"><span class="exit">‹ Leave test</span><p style="margin: 0; flex-grow: 1; font-size: 15px"><strong>Speaking · Part 2 of 3</strong> <span style="opacity: 0.85">· Preparation</span></p><span class="pill">Microphone off</span><p class="small">Preparation time</p><p role="timer" class="timer">0:38</p></header>
+<div style="flex-grow: 1; display: flex">
+<div style="width: 50%; box-sizing: border-box; padding: 22px 30px; border-right: 1px solid var(--ink); background: var(--surface)">
+<p class="lab">Cue card</p>
+<div class="serif" style="margin-top: 8px; padding: 14px 18px; border: 1px solid var(--ink); font-size: 17px; line-height: 1.5">
+<p style="margin: 0 0 6px; font-size: 19px; font-weight: 600">Describe a place where you go to relax.</p>
+<p style="margin: 0 0 2px">You should say:</p>
+<ul style="margin: 0; padding-left: 22px"><li>where this place is</li><li>how often you go there</li><li>what you usually do there</li><li>and explain why this place helps you relax.</li></ul>
+</div>
+</div>
+<div style="flex-grow: 1; display: flex; flex-direction: column; gap: 8px; padding: 22px 30px">
+<p style="margin: 0; font-weight: 600">Your notes <span style="font-weight: 400; color: var(--muted)">· not marked, deleted after the test</span></p>
+<div class="serif" style="flex-grow: 1; padding: 10px 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--surface); font-size: 17px; white-space: pre-line">small park by the river
+most weekends, early morning
+walk, read, no phone
+quiet, trees, clears my head</div>
+<div style="display: flex; align-items: center; gap: 12px"><span style="font-size: 14px; color: var(--muted)">Recording starts automatically when preparation time ends.</span><span class="btno" style="margin-left: auto">Start speaking now</span></div>
+</div>
+</div>
+</div>
+</div>
+<div>
+<p class="lab" style="margin-bottom: 6px">3b · đang nói · đã quá mức tối thiểu</p>
+<div lang="en" class="frame" style="width: 1152px; height: 330px">
+<header class="bar"><span class="exit">‹ Leave test</span><p style="margin: 0; flex-grow: 1; font-size: 15px"><strong>Speaking · Part 2 of 3</strong> <span style="opacity: 0.85">· Long turn</span></p><span class="pill"><span class="dot"></span>Recording</span><p class="small">Uploads: 3 saved</p><p class="small">Speaking time</p><p role="timer" class="timer">1:24 / 2:00</p></header>
+<div style="flex-grow: 1; display: flex">
+<div style="width: 50%; box-sizing: border-box; padding: 18px 30px; border-right: 1px solid var(--ink); background: var(--surface)">
+<p class="serif" style="margin: 0 0 6px; font-size: 19px; font-weight: 600">Describe a place where you go to relax.</p>
+<p class="serif" style="margin: 0 0 12px; font-size: 16px; color: var(--muted)">where · how often · what you do · why it helps you relax</p>
+<p style="margin: 0 0 4px; font-size: 14px; color: var(--muted)">Your notes</p>
+<p class="serif" style="margin: 0; padding: 8px 12px; background: var(--tint); font-size: 16px">small park by the river · most weekends, early morning · walk, read, no phone · quiet, trees, clears my head</p>
+</div>
+<div style="flex-grow: 1; padding: 18px 30px">
+<p class="big" style="font-size: 52px">1:24</p>
+<div aria-hidden="true" style="position: relative; height: 10px; margin: 8px 0 4px; background: var(--off)"><div style="width: 70%; height: 10px; background: var(--ink)"></div><span style="position: absolute; left: 66.6%; top: -6px; width: 2px; height: 22px; background: var(--accent)"></span><span style="position: absolute; left: 50%; top: -6px; width: 1px; height: 22px; background: var(--muted)"></span></div>
+<p style="margin: 0 0 14px; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums">1:00 · <strong style="color: var(--accent)">1:20 minimum reached</strong> · stops at 2:00</p>
+<p style="margin: 0 0 12px; font-size: 15px">Keep talking until you have covered all the points. The recording stops at 2:00.</p>
+<span class="btnp">Finish answer</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)">Dưới 1:20 mà bấm Finish answer: hộp Warning như mục 2 ("You have spoken for 0:52. Part 2 answers need at least 1 minute 20 seconds…"). Tới 2:00 tự dừng và hiện "Time is up for this part", rồi tự tải lên và sang Part 3 sau 3 giây.</p>
+</section>
+
+<section aria-labelledby="s4" class="sec">
+<h2 id="s4" class="h2">4 · Part 3 · thảo luận</h2>
+<p class="sub">Cùng bố cục Part 1 (một câu một bản ghi), câu hỏi gắn với chủ đề Part 2. Tối đa 1:15, tối thiểu 0:25 mỗi câu.</p>
+<div lang="en" class="frame" style="width: 1152px; height: 300px">
+<header class="bar"><span class="exit">‹ Leave test</span><p style="margin: 0; flex-grow: 1; font-size: 15px"><strong>Speaking · Part 3 of 3</strong> <span style="opacity: 0.85">· Question 2 of 2</span></p><span class="pill">Saving…</span><p class="small">Uploads: 5 saved · 1 saving</p><p class="small">Answer time</p><p class="timer">0:48 / 1:15</p></header>
+<div style="flex-grow: 1; display: flex">
+<div style="width: 46%; box-sizing: border-box; padding: 22px 30px; border-right: 1px solid var(--ink); background: var(--surface)"><p class="lab">Part 3 · Question 2 of 2</p><p class="serif" style="margin: 8px 0 0; font-size: 24px; font-weight: 600; line-height: 1.3">Why do some people find it hard to relax, even on holiday?</p><p style="margin: 12px 0 0; font-size: 14px; color: var(--muted)">Question played. It cannot be replayed.</p></div>
+<div style="flex-grow: 1; padding: 22px 30px"><p role="status" style="margin: 0 0 6px"><strong style="color: var(--ok)">Answer recorded · 0:48.</strong> Saving… 80%</p><div aria-hidden="true" style="height: 4px; margin-bottom: 14px; background: var(--off)"><div style="width: 80%; height: 4px; background: var(--accent)"></div></div><span class="btnp">Next question</span></div>
+</div>
+<div class="foot" style="height: 64px"><p style="margin: 0; flex-grow: 1; color: var(--muted); font-variant-numeric: tabular-nums">Part 1 · 3/3 &nbsp; Part 2 · 1/1 &nbsp; <strong style="color: var(--ink)">Part 3 · 2/2</strong></p><p style="margin: 0; font-size: 14px; color: var(--muted)">Answered <strong style="color: var(--ink)">6</strong> of 6</p></div>
+</div>
+</section>
+
+<section aria-labelledby="s5" class="sec">
+<h2 id="s5" class="h2">5 · Section complete</h2>
+<p class="sub">Sau câu cuối Part 3. Không kết thúc khi còn bản ghi chưa tải lên: nút "Finish test" chờ tới khi đủ, bản lỗi có "Try again" ngay tại dòng đó.</p>
+<div lang="en" class="frame" style="width: 1152px; height: 410px">
+<header class="bar"><p style="margin: 0; flex-grow: 1; font-size: 15px"><strong>Speaking · Academic Test 1</strong> <span style="opacity: 0.85">· Section complete</span></p><span class="pill">Microphone off</span></header>
+<div style="flex-grow: 1; display: flex; gap: 40px; padding: 24px 32px; background: var(--surface)">
+<div style="width: 46%">
+<p class="serif" style="margin: 0 0 8px; font-size: 24px; font-weight: 600">You have finished the Speaking section</p>
+<p style="margin: 0 0 14px">We are saving your last answers. Keep this tab open until all 6 answers are saved.</p>
+<p role="status" style="margin: 0 0 14px; font-weight: 600; font-variant-numeric: tabular-nums">5 of 6 answers saved · 1 not saved</p>
+<div style="display: flex; gap: 10px; flex-wrap: wrap"><span aria-disabled="true" title="All answers must be saved first." class="off">Finish test · waiting for 1 answer</span></div>
+<p style="margin: 16px 0 0; font-size: 14px; color: var(--muted)">When all answers are saved: “Your Speaking answers have been saved. You will be told when your results are ready.” · <a href="ThiThuTruocGio.dc.html">Test submitted</a></p>
+</div>
+<div role="table" aria-label="Your answers" style="flex-grow: 1; font-size: 15px">
+<div role="row" style="display: grid; grid-template-columns: 120px 80px 1fr; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--ink); font-weight: 600"><span role="columnheader">Answer</span><span role="columnheader">Length</span><span role="columnheader">Status</span></div>
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="4">
+<div role="row" style="display: grid; grid-template-columns: 120px 80px 1fr; gap: 12px; align-items: center; min-height: 34px; border-bottom: 1px solid var(--rule)"><span role="cell">{{r.q}}</span><span role="cell" style="font-variant-numeric: tabular-nums">{{r.len}}</span><span role="cell" style="color: {{r.color}}; font-weight: {{r.fw}}">{{r.st}}<sc-if value="{{r.retry}}" hint-placeholder-val="{{false}}"> · <a href="#s5">Try again</a></sc-if></span></div>
+</sc-for>
+</div>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="s6" class="sec">
+<h2 id="s6" class="h2">6 · Bảy trạng thái ghi âm · đứng yên</h2>
+<p class="sub">Bản đứng yên của khung bên phải ở mục 2, kèm chữ ở thanh trên. Số giây tối thiểu và tối đa lấy từ cấu hình hiện có: Part 1 0:15–0:45, Part 2 1:20–2:00, Part 3 0:25–1:15 (backend trả <code>audio_too_short</code> kèm <code>min_seconds</code>).</p>
+<div lang="en" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 24px">
+<sc-for list="{{states}}" as="x" hint-placeholder-count="7">
+<div style="padding: 14px 18px; border: 1px solid var(--rule); border-left: 4px solid {{x.bar}}; background: var(--surface)">
+<p style="margin: 0 0 2px; display: flex; gap: 10px; align-items: baseline"><strong lang="vi">{{x.vi}}</strong><span style="margin-left: auto; font-size: 13px; color: var(--muted)">Top bar: {{x.pill}}</span></p>
+<p style="margin: 0 0 6px; font-weight: 600; color: {{x.color}}">{{x.title}}</p>
+<p style="margin: 0 0 8px; font-size: 15px">{{x.text}}</p>
+<p style="margin: 0; font-size: 14px; color: var(--muted)">Buttons: {{x.buttons}}</p>
+</div>
+</sc-for>
+</div>
+</section>
+
+<section aria-labelledby="s7" class="sec">
+<h2 id="s7" class="h2">7 · Quy tắc trong thi · cần anh quyết</h2>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px">
+<div style="padding: 14px 18px; border: 1px solid var(--rule); border-left: 4px solid var(--mark); background: var(--surface)">
+<p style="margin: 0 0 6px"><strong style="color: var(--mark)">XXX · Không nghe lại, không ghi lại.</strong></p>
+<p style="margin: 0 0 8px; font-size: 15px">Đề xuất mặc định cho full test và mock test: mỗi câu ghi một lần, không nghe lại bản của mình, không ghi lại, câu hỏi audio phát một lần. Lý do: giống thi thật, và đồng hồ phần không bị kéo dài. Chế độ luyện (BaiTapSpeaking) vẫn có nghe lại và "Ghi lại".</p>
+<p style="margin: 0; font-size: 15px">Cách khác: cho ghi lại một lần mỗi câu, chỉ trong Part 1. Nếu chọn cách này, thêm nút "Record again (1 left)" ở trạng thái Đã ghi và hộp hỏi trước khi xoá bản cũ.</p>
+</div>
+<div style="padding: 14px 18px; border: 1px solid var(--rule); border-left: 4px solid var(--mark); background: var(--surface)">
+<p style="margin: 0 0 6px"><strong style="color: var(--mark)">XXX · Bản ghi quá ngắn khi không được ghi lại.</strong></p>
+<p style="margin: 0 0 8px; font-size: 15px">Ở chế độ luyện, bản dưới mức tối thiểu bị chặn nộp và phải ghi lại (Part 2 quay về cue card). Trong thi không ghi lại được, nên đề xuất: cảnh báo trước khi dừng (đang ghi vẫn chạy, "Keep speaking" là nút chính); nếu chọn "Finish anyway" thì vẫn lưu bản ghi, đánh dấu "Too short · not marked".</p>
+<p style="margin: 0; font-size: 15px">Cần đổi backend: hiện API trả 422 và không lưu bản dưới mức. Cần quyết: lưu kèm cờ quá ngắn (đề xuất), hay vẫn từ chối và để câu đó trống.</p>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="s7b" class="sec">
+<h2 id="s7b" class="h2">7b · Bỏ bài và hết giờ · Speaking (HV-32)</h2>
+<p class="sub">Cùng mẫu với <a href="ThiThuTruocGio.dc.html#s6b">ThiThuTruocGio</a> 6b, <a href="PhongThiNgheViet.dc.html#n7d">PhongThiNgheViet</a> 7d–7f và <a href="PhongThi.dc.html#pt-ab">PhongThi</a> mục 4. Chỉ đề tự chọn (full test Speaking) có "Abandon test" và hộp chọn khi hết giờ; mock test được giao không có nút bỏ, hết giờ là tự nộp các câu đã ghi. Đồng hồ không dừng ở hộp nào. Trong khung toàn bộ tiếng Anh.</p>
+<p class="lab" style="margin-bottom: 8px">7b-1 · thanh trên của đề tự chọn có thêm "Abandon test"</p>
+<div lang="en" class="frame" style="height: 56px; margin-bottom: 8px">
+<header class="bar"><span class="exit">‹ Leave test</span><button type="button" class="exit" style="background: none; font-family: 'Source Sans 3', sans-serif; cursor: pointer">Abandon test</button><p style="margin: 0; flex-grow: 1; font-size: 15px"><strong>Speaking · Academic Test 1</strong> <span style="opacity: 0.85">· self-selected · Part 3 of 3 · Question 1 of 2</span></p><span class="pill">Microphone ready</span><p class="small">Section time</p><p class="timer">03:12</p></header>
+</div>
+<p style="margin: 0 0 20px; font-size: 14px; color: var(--muted)">Thanh trên không có nút lưu rồi thoát: "Leave test" mở hộp "Leave this test?" nói rõ đồng hồ vẫn chạy trên máy chủ (PhongThi mục 4a). "Abandon test" là nút viền trắng cùng kiểu. Đang ghi âm mà bấm "Abandon test": bản ghi vẫn chạy sau hộp; chọn "Return to test" thì không mất gì, chọn "Abandon test" thì dừng ghi và bỏ luôn câu đang ghi.</p>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; align-items: start">
+<div>
+<p class="lab" style="margin-bottom: 8px">7b-2 · hỏi lại trước khi bỏ · đề tự chọn</p>
+<div lang="en" role="alertdialog" aria-label="Abandon this test?" class="warn">
+<p class="wl"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3l10 18H2z"></path><path d="M12 10v5M12 18h.01"></path></svg>Warning</p>
+<p class="serif" style="margin: 0 0 8px; font-size: 20px; font-weight: 600">Abandon this test?</p>
+<p style="margin: 0 0 6px">You have recorded <strong>6 answers</strong> (Part 1 and Part 2). If you abandon:</p>
+<ul style="margin: 0 0 8px; padding-left: 20px; display: flex; flex-direction: column; gap: 4px">
+<li>your recordings will not be marked and <strong>no credit will be used</strong>;</li>
+<li>your recordings will be deleted and cannot be recovered;</li>
+<li>this attempt will not appear in your results, and you cannot return to it.</li>
+</ul>
+<p style="margin: 0 0 14px; color: var(--muted)">You can start this test again later as a new attempt.</p>
+<div style="display: flex; gap: 12px; flex-wrap: wrap"><span class="btnp">Return to test</span><span class="btnd">Abandon test</span></div>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)">Focus vào "Return to test". Bỏ xong về màn "Attempt discarded" (ThiThuTruocGio 6b).</p>
+</div>
+<div>
+<p class="lab" style="margin-bottom: 8px">7b-3 · hết giờ · đề tự chọn · còn Part chưa ghi</p>
+<div lang="en" class="frame">
+<header class="bar" style="height: 52px; gap: 12px; padding: 0 16px"><p style="margin: 0; flex-grow: 1; font-size: 14px"><strong>Speaking</strong> · Academic Test 1 · self-selected</p><p class="timer" style="font-size: 18px; padding: 2px 10px; color: var(--mark)">00:00</p></header>
+<div role="alertdialog" aria-label="Time is up" style="padding: 16px 20px; background: var(--surface)">
+<p class="serif" style="margin: 0 0 6px; font-size: 22px; font-weight: 600">Time is up</p>
+<p style="margin: 0 0 8px">Part 3 was not fully recorded, so your Speaking has not been sent for marking.</p>
+<dl style="margin: 0 0 12px; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 16px; font-variant-numeric: tabular-nums"><dt style="color: var(--muted)">Part 1</dt><dd style="margin: 0; font-weight: 600">Recorded · 3 of 3 answers</dd><dt style="color: var(--muted)">Part 2</dt><dd style="margin: 0; font-weight: 600">Recorded · 1:47</dd><dt style="color: var(--muted)">Part 3</dt><dd style="margin: 0; font-weight: 600; color: var(--mark)">1 of 2 answers recorded</dd></dl>
+<div style="display: flex; flex-direction: column; gap: 8px"><span class="btnp" style="justify-content: center">Mark what I recorded (uses 2 credits)</span><span class="btno" style="justify-content: center">Discard this attempt (no credit used)</span></div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)">Credits left: XXX. Part 1 uses 1 credit and Part 2 uses 1. Part 3 has too few answers to be marked. Only the answers you recorded are marked. A discarded attempt is not marked, its recordings are deleted, and it does not appear in your results.</p>
+</div>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)">Không có nút đóng. Hai nút chỉ bật khi mọi bản ghi đã tải lên xong ("Saving your last answer…" trong lúc chờ). Câu đang ghi lúc hết giờ: dừng và lưu như một câu đã ghi.</p>
+</div>
+<div>
+<p class="lab" style="margin-bottom: 8px">7b-4 · hết giờ · mock test được giao · tự nộp</p>
+<div lang="en" class="frame">
+<header class="bar" style="height: 52px; gap: 12px; padding: 0 16px"><p style="margin: 0; flex-grow: 1; font-size: 14px"><strong>Speaking</strong> · Academic Mock Test 4 · assigned</p><p class="timer" style="font-size: 18px; padding: 2px 10px; color: var(--mark)">00:00</p></header>
+<div role="alertdialog" aria-label="Time is up" style="padding: 16px 20px; background: var(--surface)">
+<p class="serif" style="margin: 0 0 6px; font-size: 22px; font-weight: 600">Time is up</p>
+<p style="margin: 0 0 8px">Your Speaking has been saved and submitted. You can no longer record answers.</p>
+<dl style="margin: 0 0 12px; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 16px; font-variant-numeric: tabular-nums"><dt style="color: var(--muted)">Part 1</dt><dd style="margin: 0; font-weight: 600">Recorded · 3 of 3 answers</dd><dt style="color: var(--muted)">Part 2</dt><dd style="margin: 0; font-weight: 600">Recorded · 1:47</dd><dt style="color: var(--muted)">Part 3</dt><dd style="margin: 0; font-weight: 600; color: var(--mark)">1 of 2 answers recorded</dd></dl>
+<span class="btnp" style="display: flex; justify-content: center">Continue</span>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)">Your teacher marks the answers you recorded. Answers that were not recorded count as not answered.</p>
+</div>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)">Không hỏi lại, không có lựa chọn bỏ. "Continue" sang màn Test submitted hoặc về trang kỳ thi (<a href="MockTestDuocGiao.dc.html">MockTestDuocGiao</a>).</p>
+</div>
+</div>
+<div style="margin-top: 22px; padding: 14px 18px; border: 1px solid var(--rule); border-left: 4px solid var(--mark); background: var(--surface)">
+<p style="margin: 0 0 6px"><strong style="color: var(--mark)">Quy tắc đề xuất · các câu đã ghi âm khi bỏ giữa chừng hoặc hết giờ (giả định, cần anh duyệt).</strong></p>
+<ul style="margin: 0; padding-left: 20px; font-size: 15px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 40px">
+<li><strong>Bỏ bài (Abandon test hoặc Discard this attempt):</strong> các bản ghi đã tải lên không gửi chấm, không trừ lượt, không hiện cho học viên hay giáo viên, và bị xoá khỏi kho lưu trong vòng 24 giờ. Không áp hạn giữ 60 ngày cho bản ghi của lượt đã bỏ.</li>
+<li><strong>Đơn vị lượt (đã chốt):</strong> 1 lượt = 1 bài Part 2, hoặc 1 cụm Part 1 hoặc Part 3 gồm 2–3 câu. Full test Speaking mô phỏng (đã chốt 18/11): 3 câu Part 1, 1 bài Part 2, 2 câu Part 3 = 3 lượt, mỗi Part một lượt; số lượt hiện trước khi bắt đầu.</li>
+<li><strong>"Mark what I recorded":</strong> chỉ trừ lượt cho các Part đã ghi đủ (Part 1 hoặc Part 3 còn dưới 2 câu thì không chấm, không trừ: giả định), chỉ chấm các câu đã ghi; phiếu ghi rõ câu nào "Not recorded" và nói band ước lượng từ ít câu hơn. Chỉ bật khi có ít nhất một Part ghi đủ; nếu không, nút tắt kèm lý do, chỉ còn "Discard".</li>
+<li><strong>Đóng tab mà chưa chọn:</strong> lượt thi ở trạng thái chờ chọn, bản ghi giữ nguyên; mở lại Thi thử thì hỏi lại hộp 7b-3. Sau 7 ngày không chọn: tự bỏ, không trừ lượt, xoá bản ghi.</li>
+<li><strong>Mock test được giao:</strong> hết giờ phần (hoặc hết khoảng mở, với cách thi "Làm trong khoảng thời gian") tự nộp các câu đã ghi; giáo viên chấm từ bản ghi, câu thiếu tính là không trả lời. Rời bài giữa phần ("Leave test"): câu đã ghi vẫn lưu, đồng hồ vẫn chạy, quay lại thì làm tiếp từ câu chưa ghi, không ghi lại câu cũ.</li>
+<li><strong>Bài đã nộp</strong> (kể cả nộp thiếu): bản ghi giữ tối đa 60 ngày như đã chốt.</li>
+<li><strong>Bản ghi còn kẹt trên máy</strong> (tải lên lỗi) lúc bỏ bài: xoá khỏi bộ nhớ trang, không tải lên nữa.</li>
+</ul>
+</div>
+</section>
+
+<section aria-labelledby="s8" class="sec">
+<h2 id="s8" class="h2">8 · Điện thoại: chặn Speaking full test · tablet vào thi</h2>
+<p class="sub">Đã chốt: full test và thi thử không làm trên điện thoại. Dưới 768px (ngưỡng đề xuất) Speaking dừng ở màn chặn này trước Microphone check; không xin quyền micro, không chạy đồng hồ. Tablet, iPad từ 768px vào thi như máy tính.</p>
+<div style="display: flex; gap: 40px; align-items: flex-start">
+<div lang="en" class="frame" style="width: 390px; height: 700px; flex-shrink: 0">
+<header class="bar" style="gap: 10px; padding: 0 12px"><a href="ThiThu.dc.html" aria-label="Go back" class="exit" style="padding: 0 10px; text-decoration: none">‹ Back</a><p style="margin: 0; flex-grow: 1; font-size: 14px"><strong>Speaking · Academic Test 1</strong></p></header>
+<div style="flex-grow: 1; padding: 22px 18px; background: var(--paper)">
+<div role="alert" style="display: flex; gap: 12px; padding: 14px 16px; margin-bottom: 18px; border: 1px solid var(--mark); border-left: 4px solid var(--mark); background: color-mix(in srgb, var(--mark) 7%, var(--surface))">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 20px; height: 20px; flex-shrink: 0; margin-top: 2px; color: var(--mark)"><path d="M12 3 2 20h20L12 3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"></path><path d="M12 10v4.5M12 17v.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>
+<p style="margin: 0"><span style="display: block; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--mark)">Warning</span><strong style="color: var(--mark)">Full tests cannot be taken on a phone.</strong></p>
+</div>
+<p class="serif" style="margin: 0 0 10px; font-size: 26px; font-weight: 600; line-height: 1.2">Use a larger screen</p>
+<p style="margin: 0 0 2px">This test needs a screen at least 768 pixels wide: a computer or a tablet with a microphone.</p>
+<p lang="vi" style="margin: 0 0 10px; font-size: 13px; color: var(--muted)">Bài thi này cần màn hình rộng từ 768px: máy tính hoặc tablet có micro. Bài chưa bắt đầu, chưa trừ lượt.</p>
+<p style="margin: 0 0 20px; color: var(--muted)">Your test has not started. No time and no AI marking credits have been used.</p>
+<a href="ThiThu.dc.html" style="display: flex; align-items: center; justify-content: center; min-height: 48px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font-weight: 600; text-decoration: none">‹ Go back</a>
+<div style="margin-top: 22px; border-top: 2px solid var(--ink); padding-top: 12px">
+<p style="margin: 0 0 4px; font-weight: 600">Practise on your phone instead</p>
+<p style="margin: 0 0 12px; font-size: 15px; color: var(--muted)">Single-skill Speaking practice works on a phone.</p>
+<a href="LuyenTap.dc.html" style="display: flex; align-items: center; justify-content: center; min-height: 48px; border-radius: 2px; background: var(--accent); color: var(--surface); font-weight: 600; text-decoration: none">Go to practice</a>
+</div>
+</div>
+</div>
+<ul style="margin: 0; padding: 0; list-style: none; font-size: 15px; flex-grow: 1">
+<li class="li"><strong>Điện thoại (dưới 768px):</strong> không vào bài. Cùng màn chặn chung ở <a href="ThiThuTruocGio.dc.html">ThiThuTruocGio</a> mục 9; ở đây ghi rõ thêm “with a microphone” và lượt AI chưa bị trừ.</li>
+<li class="li"><strong>Tablet, iPad (768–1023px):</strong> dùng màn 3–6 ở một cột: câu hỏi → đồng hồ lớn → sóng âm → nút chính ở đáy, cao 52px. Thanh trên: "Exit", Part và số câu, đồng hồ câu.</li>
+<li class="li"><strong>Khoá màn hình, chuyển ứng dụng, cuộc gọi đến trên tablet:</strong> micro bị hệ điều hành ngắt; xử lý như "Microphone disconnected" (giữ phần đã ghi, dừng đồng hồ câu). Giữ màn hình sáng trong lúc thi (Wake Lock nếu trình duyệt hỗ trợ).</li>
+<li class="li"><strong>Part 2 trên tablet:</strong> cue card ở trên, ghi chú gập lại thành một dòng khi bắt đầu nói; bấm để mở.</li>
+<li class="li" style="border-bottom: 1px solid var(--rule)"><strong>Luyện Speaking từng phần</strong> (Luyện tập, đề Speaking) vẫn ghi âm được trên điện thoại; quy tắc chặn chỉ áp cho full test và thi thử.</li>
+</ul>
+</div>
+</section>
+
+<section aria-labelledby="s9" class="sec" style="margin-bottom: 56px">
+<h2 id="s9" class="h2">Ghi chú cho lập trình</h2>
+<ul style="margin: 8px 0 0; padding: 0 0 0 20px; max-width: 108ch">
+<li style="margin-bottom: 6px">Dùng lại trình ghi của Speaking hiện có (một phiên mỗi Part, tải lên từng câu ngay sau khi ghi, theo dõi câu tải lỗi). Trong mock test được giao, phiên gắn với sitting như hiện tại; không đổi thứ tự gắn.</li>
+<li style="margin-bottom: 6px">Trạng thái mỗi câu: <code>ready</code> → <code>recording</code> → (<code>too_short_warning</code>) → <code>recorded</code> → <code>uploading</code> → <code>saved</code> | <code>upload_failed</code>; nhánh <code>mic_lost</code> từ <code>recording</code>. Bản ghi lỗi giữ trong bộ nhớ trang tới khi tải được; rời trang khi còn bản chưa lưu thì hộp trong trang hỏi lại, không dùng <code>window.confirm</code>.</li>
+<li style="margin-bottom: 6px">Ngưỡng lấy từ cấu hình hiện có: tối thiểu 15 / 80 / 25 giây, tối đa 45 / 120 / 75 giây, chuẩn bị Part 2 60 giây. Hiện cảnh báo quá ngắn theo đồng hồ máy; backend vẫn là nơi quyết (<code>audio_too_short</code>, <code>min_seconds</code>). Không viết cứng số ở chỗ mới.</li>
+<li style="margin-bottom: 6px">Câu hỏi audio: phát một lần, cần cử chỉ người dùng cho lần phát đầu (nút "Start Speaking test"). Chữ câu hỏi hiện cùng lúc với audio (giả định). Không có nút nghe lại câu hỏi hay bản ghi trong thi (chờ quyết XXX ở mục 7).</li>
+<li style="margin-bottom: 6px">Micro mất quyền hoặc rút thiết bị (<code>track.onended</code>, <code>devicechange</code>): dừng ghi, giữ phần đã ghi thành một đoạn, dừng đồng hồ câu; "Continue recording" ghi tiếp và nối đoạn khi tải lên.</li>
+<li style="margin-bottom: 6px">Bỏ bài và hết giờ (mục 7b): lượt thi thêm trạng thái <code>abandoned</code> và <code>awaiting_choice</code>; lượt chỉ bị trừ khi nộp chấm, mỗi Part một lượt (1 bài Part 2, hoặc 1 cụm 2–3 câu Part 1/Part 3; full test đủ ba Part là 3 lượt). Bỏ thì đánh dấu bản ghi để xoá (tác vụ nền trong 24 giờ), không gọi chấm. Hộp hết giờ chờ mọi bản ghi <code>saved</code> rồi mới bật nút. Mock test được giao: không có đường bỏ, hết giờ tự nộp.</li>
+<li style="margin-bottom: 6px">Dòng phụ tiếng Việt (<code>lang="vi"</code>, 13px, màu phụ) chỉ ở màn ngoài bài thi: Microphone check và màn chặn điện thoại. Từ Part 1 trở đi toàn tiếng Anh. Không có nút lưu rồi thoát; "Leave test" không dừng đồng hồ máy chủ.</li>
+<li style="margin-bottom: 6px">Section complete chỉ cho "Finish test" khi mọi câu đã <code>saved</code>; câu lỗi có "Try again" tại hàng. Mọi chuỗi trong khung lấy từ bộ chuỗi tiếng Anh, kể cả <code>aria-label</code>.</li>
+</ul>
+</section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Xanh teal","Navy + đỏ mận"],"default":"Navy + đỏ mận"},"$preview":{"width":1280,"height":8000}}'>
+class Component extends DCLogic {
+constructor(p) { super(p); this.state = { rec: 'rec' }; }
+bars(n, seed, max, min) {
+const out = []; let x = seed;
+for (let i = 0; i < n; i++) { x = (x * 9301 + 49297) % 233280; out.push(Math.round(min + (x / 233280) * (max - min))); }
+return out;
+}
+renderVals() {
+const st = (this.state && this.state.rec) || 'rec';
+const go = (k) => () => this.setState({ rec: k });
+const DEMO = [['ready', 'Sẵn sàng'], ['rec', 'Đang ghi'], ['short', 'Quá ngắn'], ['done', 'Đã ghi'], ['up', 'Đang tải lên'], ['fail', 'Lỗi tải lên'], ['mic', 'Mất micro']];
+const INFO = {
+ready: { pill: 'Microphone ready', ansTime: '0:00 / 0:45', big: '0:00', note: 'Maximum 0:45 · minimum 0:15', wave: 0, upl: '2 saved', qAudio: 'Question played', qProg: '100%', qTime: '0:04 / 0:04' },
+rec: { pill: 'Recording', ansTime: '0:11 / 0:45', big: '0:11', note: 'Maximum 0:45 · minimum 0:15 · stops automatically at 0:45', wave: 1, upl: '2 saved', qAudio: 'Question played', qProg: '100%', qTime: '0:04 / 0:04' },
+short: { pill: 'Recording', ansTime: '0:11 / 0:45', big: '0:11', note: 'Maximum 0:45 · minimum 0:15', wave: 1, upl: '2 saved', qAudio: 'Question played', qProg: '100%', qTime: '0:04 / 0:04' },
+done: { pill: 'Answer recorded', ansTime: '0:32 / 0:45', big: '0:32', note: 'Recorded once · cannot be replayed', wave: 2, upl: '3 saved', qAudio: 'Question played', qProg: '100%', qTime: '0:04 / 0:04' },
+up: { pill: 'Saving…', ansTime: '0:32 / 0:45', big: '0:32', note: 'Recorded once · cannot be replayed', wave: 2, upl: '2 saved · 1 saving', qAudio: 'Question played', qProg: '100%', qTime: '0:04 / 0:04' },
+fail: { pill: 'Not saved', ansTime: '0:32 / 0:45', big: '0:32', note: 'Recorded once · kept on this computer', wave: 2, upl: '2 saved · 1 not saved', qAudio: 'Question played', qProg: '100%', qTime: '0:04 / 0:04' },
+mic: { pill: 'Microphone off', ansTime: '0:21 / 0:45 · paused', big: '0:21', note: 'Recording paused · your answer so far is kept', wave: 2, upl: '2 saved', qAudio: 'Question played', qProg: '100%', qTime: '0:04 / 0:04' }
+}[st];
+const raw = this.bars(40, 7, 52, 6);
+const recN = INFO.wave === 1 ? 14 : (INFO.wave === 2 ? 40 : 0);
+const wave = raw.map((h, i) => ({ h: (i < recN ? h : 3) + 'px', c: i < recN ? (INFO.wave === 1 && i === recN - 1 ? 'var(--danger)' : 'var(--ink)') : 'var(--rule)' }));
+const p1done = st === 'ready' || st === 'rec' || st === 'short' || st === 'mic' ? 2 : 3;
+const p1 = [1, 2, 3].map((n) => {
+const d = n <= p1done, c = n === 3, failBar = n === 3 && st === 'fail', upBar = n === 3 && st === 'up';
+return { n, aria: 'Question ' + n + (d ? ', answered' : ', not answered') + (c ? ', current' : ''), bg: d ? 'var(--ink)' : 'var(--surface)', fg: d ? 'var(--surface)' : 'var(--ink)', bar: failBar ? 'var(--mark)' : (upBar ? 'var(--accent)' : (d ? 'var(--ink)' : 'var(--rule)')), outline: c ? '3px solid var(--accent)' : '0 solid transparent' };
+});
+const ok = { color: 'var(--ok)', fw: '600' }, warn = { color: 'var(--mark)', fw: '600' }, plain = { color: 'var(--ink)', fw: '400' };
+return {
+pal: (this.props.palette ?? 'Navy + đỏ mận') === 'Xanh teal' ? 'pal-teal' : 'pal-navy',
+checkBars: this.bars(30, 3, 44, 4).map((h) => ({ h: h + 'px' })),
+phoneWave: this.bars(30, 11, 50, 6).map((h, i) => ({ h: (i < 18 ? h : 3) + 'px' })),
+demo: DEMO.map(([k, t]) => ({ t, on: st === k, bw: st === k ? '2px' : '1px', bg: st === k ? 'var(--tint)' : 'var(--surface)', go: go(k) })),
+isReady: st === 'ready', isRec: st === 'rec', isShort: st === 'short', isDone: st === 'done', isUp: st === 'up', isFail: st === 'fail', isMic: st === 'mic',
+toRec: go('rec'), toShort: go('short'), toDone: go('done'), toUp: go('up'), toFail: go('fail'), toReady: go('ready'),
+pill: INFO.pill, ansTime: INFO.ansTime, bigTime: INFO.big, bigNote: INFO.note, upl: INFO.upl,
+qAudio: INFO.qAudio, qAudioProg: INFO.qProg, qAudioTime: INFO.qTime,
+wave, waveLabel: INFO.wave === 1 ? 'Recording level: speaking' : (INFO.wave === 2 ? 'Recorded answer' : 'Not recording'),
+p1, answeredN: p1done,
+rows: [
+{ q: 'Part 1 · Q1–Q3', len: '1:38', st: 'Saved', retry: false, ...ok },
+{ q: 'Part 2', len: '1:47', st: 'Saved', retry: false, ...ok },
+{ q: 'Part 3 · Q1', len: '0:52', st: 'Saved', retry: false, ...ok },
+{ q: 'Part 3 · Q2', len: '0:48', st: 'Not saved', retry: true, ...warn }
+],
+states: [
+{ vi: 'Sẵn sàng', pill: 'Microphone ready', bar: 'var(--rule)', color: 'var(--ink)', title: 'Ready to record.', text: 'Select Start recording when you are ready to answer. Each answer is recorded once.', buttons: 'Start recording' },
+{ vi: 'Đang ghi', pill: 'Recording + red square', bar: 'var(--danger)', color: 'var(--danger)', title: 'Recording. The microphone is on.', text: 'Large timer, live waveform. Under the minimum: "Keep speaking: answers in Part 1 need at least 15 seconds. 4 seconds to go." Stops automatically at the maximum.', buttons: 'Finish answer' },
+{ vi: 'Quá ngắn (cảnh báo)', pill: 'Recording', bar: 'var(--mark)', color: 'var(--mark)', title: 'Warning · This answer is too short', text: 'You have spoken for 0:11. Answers in Part 1 need at least 15 seconds to be marked. The recording is still running.', buttons: 'Keep speaking (primary) · Finish anyway' },
+{ vi: 'Đã ghi', pill: 'Answer recorded', bar: 'var(--ok)', color: 'var(--ok)', title: 'Answer recorded · 0:32 · saved.', text: 'You cannot listen to it or record it again.', buttons: 'Next question' },
+{ vi: 'Đang tải lên', pill: 'Saving…', bar: 'var(--accent)', color: 'var(--ink)', title: 'Saving your answer… 64%', text: 'You can go on. Your answer keeps saving in the background.', buttons: 'Next question' },
+{ vi: 'Lỗi tải lên', pill: 'Not saved', bar: 'var(--mark)', color: 'var(--mark)', title: 'Warning · Your answer has not been saved yet', text: 'The recording (0:32) is still on this computer and has not been lost. Check your connection, then select Try again. Do not close this tab.', buttons: 'Try again (primary) · Next question' },
+{ vi: 'Mất micro giữa chừng', pill: 'Microphone off', bar: 'var(--mark)', color: 'var(--mark)', title: 'Warning · Microphone disconnected', text: 'Your recording up to 0:21 has been kept. Reconnect your microphone or allow access again, then select Continue recording. The answer time is paused.', buttons: 'Continue recording · How to allow the microphone' }
+]
+};
+}
+}
+</script>
+</body>
+</html>

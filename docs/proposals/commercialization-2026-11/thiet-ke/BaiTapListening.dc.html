@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Bài tập Listening</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--link:#0B5953;--mark:#8A4B08;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EDF3F1;--off:#E7E2D6}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--link:#1A3561;--mark:#8A1C1C;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EEF0F5;--off:#E8E2D5}
+a{color:var(--link)}a:hover{color:var(--ink)}
+</style>
+</helmet>
+<div class="{{pal}}" style="width: 1280px; height: 3720px; box-sizing: border-box; padding: 56px 64px; background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 16px; line-height: 1.5">
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Aver Learning · Bản in · dạng bài tập, tờ 2</p>
+<h1 style="margin: 4px 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 40px; font-weight: 600; line-height: 1.15">Listening · 5 dạng</h1>
+<p style="margin: 0 0 36px; color: var(--muted); max-width: 86ch">Bài luyện từng phần: nhãn tiếng Việt, nội dung bài nghe tiếng Anh; bài full test: mọi nhãn tiếng Anh (đổi bằng nút chế độ bên dưới, áp cho khối 1, 2 và 5). Một trình phát dùng chung đứng trên mọi dạng. Mỗi dạng có hai trạng thái: đang làm và sau khi chấm. Sau khi chấm luôn có ba thứ: đúng hay sai bằng chữ, đáp án đúng, và một dòng giải thích.</p>
+<div role="group" aria-label="Chế độ hiển thị nhãn" style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin: -12px 0 36px; padding: 14px 16px; border: 1px solid var(--ink); background: var(--surface)">
+<span style="font-weight: 600; margin-right: 4px">Đang xem bản (bấm để đổi):</span>
+<button onClick="{{toPractice}}" aria-pressed="{{isPractice}}" style="min-height: 44px; padding: 0 16px; border: 1px solid var(--ink); border-radius: 2px; background: {{pBg}}; color: {{pFg}}; font: 600 15px 'Source Sans 3', sans-serif; cursor: pointer">Luyện từng phần</button>
+<button onClick="{{toTest}}" aria-pressed="{{isTest}}" style="min-height: 44px; padding: 0 16px; border: 1px solid var(--ink); border-radius: 2px; background: {{tBg}}; color: {{tFg}}; font: 600 15px 'Source Sans 3', sans-serif; cursor: pointer">Full test</button>
+<p style="flex-basis: 100%; margin: 0; font-size: 14px; color: var(--muted)">{{modeNote}}</p>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px 48px">
+
+<section aria-labelledby="l1" style="grid-column: span 2; border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="l1" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">1. Trình phát bài nghe dùng chung</h2>
+<p style="margin: 0 0 14px; font-size: 14px; color: var(--muted)">{{sub1}}</p>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 48px">
+<div>
+<sc-if value="{{isTest}}" hint-placeholder-val="{{false}}">
+<div lang="en" style="padding: 16px 18px 12px; border: 1px solid var(--ink); background: var(--surface)">
+<p style="margin: 0 0 10px; font-size: 14px; color: var(--muted)">Listening · Part 2 · <span style="font-family: 'Source Serif 4', Georgia, serif; font-size: 16px; color: var(--ink)">A tour of the community centre</span></p>
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px"><span role="status" style="font-weight: 600">Audio is playing. You will hear the recording once only.</span><span style="font: 600 16px 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums">1:12 / 3:40</span></div>
+<div aria-hidden="true" style="height: 4px; background: var(--off)"><div style="width: 33%; height: 4px; background: var(--accent)"></div></div>
+<label style="display: flex; align-items: center; gap: 12px; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--rule)"><span style="font-size: 14px; color: var(--muted)">Volume</span><input type="range" min="0" max="100" value="80" style="flex-grow: 1; height: 44px; margin: 0; accent-color: var(--accent)"></label>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)">Full test: bài nghe tự phát khi bắt đầu từng Part, không tạm dừng, không tua, không đổi tốc độ; người thi chỉ chỉnh được âm lượng. Toàn bộ nhãn tiếng Anh.</p>
+</sc-if>
+<sc-if value="{{isPractice}}" hint-placeholder-val="{{true}}">
+<div style="padding: 16px 18px 10px; border: 1px solid var(--ink); background: var(--surface)">
+<p style="margin: 0 0 10px; font-size: 14px; color: var(--muted)">Bài nghe · <span lang="en" style="font-family: 'Source Serif 4', Georgia, serif; font-size: 16px; color: var(--ink)">A tour of the community centre</span></p>
+<div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap">
+<button onClick="{{back}}" aria-label="Lùi 5 giây" style="display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v5h5"></path></svg>5 giây</button>
+<button onClick="{{toggle}}" aria-label="{{playLabel}}" style="display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 132px; min-height: 48px; padding: 0 18px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: #FFFFFF; font: 600 16px 'Source Sans 3', sans-serif; cursor: pointer"><sc-if value="{{paused}}" hint-placeholder-val="{{true}}"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M7 4l13 8-13 8z"></path></svg></sc-if><sc-if value="{{playing}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M8 5v14M16 5v14"></path></svg></sc-if>{{playText}}</button>
+<button onClick="{{fwd}}" aria-label="Tới 5 giây" style="display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer">5 giây<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7"></path><path d="M21 4v5h-5"></path></svg></button>
+<span style="margin-left: auto; font: 600 16px 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums">{{now}} / {{total}}</span>
+</div>
+<label style="display: block; margin-top: 4px"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden">Vị trí trong bài nghe</span><input type="range" min="0" max="{{dur}}" step="1" value="{{t}}" onChange="{{seek}}" style="display: block; width: 100%; height: 44px; margin: 0; accent-color: var(--accent)"></label>
+<div role="group" aria-label="Tốc độ phát" style="display: flex; align-items: center; gap: 8px; padding-top: 8px; border-top: 1px solid var(--rule)">
+<span style="font-size: 14px; color: var(--muted); margin-right: 4px">Tốc độ</span>
+<sc-for list="{{speeds}}" as="s" hint-placeholder-count="4">
+<button onClick="{{s.pick}}" aria-pressed="{{s.on}}" style="min-width: 56px; min-height: 44px; padding: 0 10px; border: 1px solid var(--ink); border-radius: 2px; background: {{s.bg}}; color: {{s.fg}}; font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer">{{s.label}}</button>
+</sc-for>
+</div>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px; color: var(--muted)">Trình phát đứng yên ở đầu trang khi cuộn câu hỏi. Phím cách phát hoặc tạm dừng khi con trỏ không nằm trong ô nhập. Tốc độ đã chọn được nhớ cho bài sau.</p>
+</sc-if>
+</div>
+<div style="display: flex; flex-direction: column; gap: 20px">
+<div aria-busy="true" lang="{{L.lang}}" style="padding: 16px 18px; border: 1px solid var(--rule); background: var(--surface)">
+<p style="margin: 0 0 10px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">{{L.loadHead}}</p>
+<div style="display: flex; align-items: center; gap: 14px">
+<button disabled style="min-width: 132px; min-height: 48px; padding: 0 18px; border: 1px solid var(--off); border-radius: 2px; background: var(--off); color: var(--muted); font: 600 16px 'Source Sans 3', sans-serif">{{L.loadBtn}}</button>
+<div style="flex-grow: 1"><div style="height: 4px; background: var(--off)"></div><p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)">{{L.loadText}}</p></div>
+</div>
+</div>
+<div role="alert" lang="{{L.lang}}" style="padding: 16px 18px; border: 1px solid var(--danger); background: var(--surface)">
+<p style="margin: 0 0 4px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--danger)">{{L.errHead}}</p>
+<p style="margin: 0 0 4px; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; font-weight: 600">{{L.errTitle}}</p>
+<p style="margin: 0 0 12px; color: var(--muted)">{{L.errText}}</p>
+<div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap">
+<button style="min-height: 44px; padding: 0 20px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif">{{L.reload}}</button>
+<a href="#l1" style="display: inline-flex; align-items: center; min-height: 44px; font-weight: 600">{{L.report}}</a>
+</div>
+</div>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="l2" style="border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="l2" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">2. Gắn nhãn bản đồ, sơ đồ</h2>
+<p style="margin: 0 0 14px; font-size: 14px; color: var(--muted)">Listening Part 2 · sơ đồ luôn nhìn thấy khi chọn chữ cái · câu 11 bấm thử được</p>
+<p lang="en" style="margin: 0 0 8px; font-size: 14px; font-weight: 600">Label the plan. Choose the correct letter, A–F.</p>
+<svg role="img" aria-label="{{L.planAria}}" lang="en" viewBox="0 0 360 232" style="display: block; width: 100%; border: 1px solid var(--ink); background: var(--surface)">
+<path d="M150 164H14V14H346V164H210" style="fill: none; stroke: var(--ink); stroke-width: 2"></path>
+<path d="M14 74H346M14 100H346M110 14V74M250 14V74M96 100V164M150 100V164M210 100V164M280 100V164" style="fill: none; stroke: var(--ink); stroke-width: 1"></path>
+<rect x="14" y="180" width="110" height="40" style="fill: none; stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 3"></rect>
+<rect x="236" y="180" width="110" height="40" style="fill: none; stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 3"></rect>
+<path d="M180 204V170M174 177l6-7 6 7" style="fill: none; stroke: var(--ink); stroke-width: 1.5"></path>
+<text x="180" y="48" text-anchor="middle" style="font: 600 11px 'Source Sans 3', sans-serif; fill: var(--ink)">Main hall</text>
+<text x="180" y="91" text-anchor="middle" style="font: 10px 'Source Sans 3', sans-serif; fill: var(--muted)">Corridor</text>
+<text x="123" y="136" text-anchor="middle" style="font: 600 10px 'Source Sans 3', sans-serif; fill: var(--ink)">Reception</text>
+<text x="180" y="218" text-anchor="middle" style="font: 600 10px 'Source Sans 3', sans-serif; fill: var(--ink)">Entrance</text>
+<text x="69" y="204" text-anchor="middle" style="font: 10px 'Source Sans 3', sans-serif; fill: var(--muted)">Car park</text>
+<circle cx="62" cy="44" r="11" style="fill: var(--tint); stroke: var(--ink); stroke-width: 1.5"></circle><text x="62" y="48" text-anchor="middle" style="font: 600 12px 'Source Sans 3', sans-serif; fill: var(--ink)">A</text>
+<circle cx="298" cy="44" r="11" style="fill: var(--tint); stroke: var(--ink); stroke-width: 1.5"></circle><text x="298" y="48" text-anchor="middle" style="font: 600 12px 'Source Sans 3', sans-serif; fill: var(--ink)">B</text>
+<circle cx="55" cy="132" r="11" style="fill: var(--tint); stroke: var(--ink); stroke-width: 1.5"></circle><text x="55" y="136" text-anchor="middle" style="font: 600 12px 'Source Sans 3', sans-serif; fill: var(--ink)">C</text>
+<circle cx="245" cy="132" r="11" style="fill: var(--tint); stroke: var(--ink); stroke-width: 1.5"></circle><text x="245" y="136" text-anchor="middle" style="font: 600 12px 'Source Sans 3', sans-serif; fill: var(--ink)">D</text>
+<circle cx="313" cy="132" r="11" style="fill: var(--tint); stroke: var(--ink); stroke-width: 1.5"></circle><text x="313" y="136" text-anchor="middle" style="font: 600 12px 'Source Sans 3', sans-serif; fill: var(--ink)">E</text>
+<circle cx="291" cy="200" r="11" style="fill: var(--tint); stroke: var(--ink); stroke-width: 1.5"></circle><text x="291" y="204" text-anchor="middle" style="font: 600 12px 'Source Sans 3', sans-serif; fill: var(--ink)">F</text>
+</svg>
+<div style="margin-top: 14px; display: flex; flex-direction: column; gap: 8px">
+<div role="group" lang="{{L.lang}}" aria-label="{{L.g11}}" style="display: flex; align-items: center; gap: 6px">
+<span lang="en" style="flex-grow: 1; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px"><strong>11</strong>&nbsp;&nbsp;café</span>
+<sc-for list="{{letters}}" as="o" hint-placeholder-count="6">
+<button onClick="{{o.pick}}" aria-pressed="{{o.on}}" style="width: 44px; height: 44px; padding: 0; border: 1px solid var(--ink); border-radius: 2px; background: {{o.bg}}; color: {{o.fg}}; font: 600 15px 'Source Sans 3', sans-serif; cursor: pointer">{{o.k}}</button>
+</sc-for>
+</div>
+<div role="group" lang="{{L.lang}}" aria-label="{{L.g12}}" style="display: flex; align-items: center; gap: 6px">
+<span lang="en" style="flex-grow: 1; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px"><strong>12</strong>&nbsp;&nbsp;library</span>
+<button aria-pressed="false" style="width: 44px; height: 44px; padding: 0; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 15px 'Source Sans 3', sans-serif">A</button>
+<button aria-pressed="true" style="width: 44px; height: 44px; padding: 0; border: 1px solid var(--ink); border-radius: 2px; background: var(--ink); color: #FFFFFF; font: 600 15px 'Source Sans 3', sans-serif">B</button>
+<button aria-pressed="false" style="width: 44px; height: 44px; padding: 0; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 15px 'Source Sans 3', sans-serif">C</button>
+<button aria-pressed="false" style="width: 44px; height: 44px; padding: 0; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 15px 'Source Sans 3', sans-serif">D</button>
+<button aria-pressed="false" style="width: 44px; height: 44px; padding: 0; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 15px 'Source Sans 3', sans-serif">E</button>
+<button aria-pressed="false" style="width: 44px; height: 44px; padding: 0; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 15px 'Source Sans 3', sans-serif">F</button>
+</div>
+<div role="group" lang="{{L.lang}}" aria-label="{{L.g13}}" style="display: flex; align-items: center; gap: 6px">
+<span lang="en" style="flex-grow: 1; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px"><strong>13</strong>&nbsp;&nbsp;meeting room</span>
+<button aria-pressed="false" style="width: 44px; height: 44px; padding: 0; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 15px 'Source Sans 3', sans-serif">A</button>
+<button aria-pressed="false" style="width: 44px; height: 44px; padding: 0; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 15px 'Source Sans 3', sans-serif">B</button>
+<button aria-pressed="false" style="width: 44px; height: 44px; padding: 0; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 15px 'Source Sans 3', sans-serif">C</button>
+<button aria-pressed="false" style="width: 44px; height: 44px; padding: 0; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 15px 'Source Sans 3', sans-serif">D</button>
+<button aria-pressed="false" style="width: 44px; height: 44px; padding: 0; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 15px 'Source Sans 3', sans-serif">E</button>
+<button aria-pressed="false" style="width: 44px; height: 44px; padding: 0; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 15px 'Source Sans 3', sans-serif">F</button>
+</div>
+</div>
+<p lang="{{L.lang}}" style="margin: 8px 0 0; font-size: 14px; color: var(--muted)">{{L.ans23}}</p>
+<p style="margin: 14px 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Sau khi chấm</p>
+<p style="margin: 0 0 6px; font-size: 15px"><strong style="color: var(--ok)">11 · Đúng.</strong> Bạn chọn D. <strong>Vì sao:</strong> bài nghe nói quán nằm <em lang="en">directly opposite reception</em>, tức bên phải lối vào.</p>
+<p style="margin: 0 0 6px; font-size: 15px"><strong style="color: var(--danger)">12 · Sai.</strong> Bạn chọn B, đáp án đúng là <strong>E</strong>. <strong>Vì sao:</strong> <em lang="en">the last room on that side</em> là phòng cuối cùng phía quán café; B nằm bên kia hành lang. <a href="#l6">Nghe lại đoạn 0:22</a></p>
+<p style="margin: 0; font-size: 15px"><strong style="color: var(--mark)">13 · Chưa trả lời.</strong> Đáp án đúng là <strong>A</strong>. <strong>Vì sao:</strong> phòng họp ở góc trong cùng bên trái, cạnh <em lang="en">main hall</em>.</p>
+</section>
+
+<section aria-labelledby="l3" style="border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="l3" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">3. Chép chính tả</h2>
+<p style="margin: 0 0 14px; font-size: 14px; color: var(--muted)">Luyện nghe từng câu · mỗi lần chỉ phát một câu, nghe lại không giới hạn</p>
+<p style="margin: 0 0 8px; font-weight: 600">Câu 3 trên 8</p>
+<div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px">
+<button style="display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: #FFFFFF; font: 600 16px 'Source Sans 3', sans-serif"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M7 4l13 8-13 8z"></path></svg>Nghe câu này</button>
+<button style="min-height: 44px; padding: 0 16px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif">Nghe chậm 0,75×</button>
+<span style="font-size: 14px; color: var(--muted)">Đã nghe 2 lần</span>
+</div>
+<label for="dict" style="display: block; margin-bottom: 6px; font-weight: 600">Gõ lại câu bạn vừa nghe</label>
+<input id="dict" type="text" lang="en" value="The coach leaves from north gate at fifty minutes past nine." autocomplete="off" spellcheck="false" style="box-sizing: border-box; width: 100%; min-height: 48px; padding: 0 12px; border: 2px solid var(--ink); border-radius: 2px; background: var(--surface); font: 17px 'Source Serif 4', Georgia, serif; color: var(--ink)">
+<p style="margin: 6px 0 12px; font-size: 14px; color: var(--muted)">Không tính chữ hoa, chữ thường và dấu câu. Số viết bằng chữ hay bằng số đều được.</p>
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
+<button style="min-height: 44px; padding: 0 20px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: #FFFFFF; font: 600 16px 'Source Sans 3', sans-serif">Kiểm tra câu này</button>
+<button style="min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--link); font: 600 16px 'Source Sans 3', sans-serif; text-decoration: underline">Bỏ qua, xem đáp án</button>
+</div>
+<p style="margin: 14px 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Sau khi chấm</p>
+<p style="margin: 0 0 8px; font-size: 15px"><strong style="color: var(--mark)">Đúng 9 trên 11 từ.</strong> Một từ sai, một từ thiếu.</p>
+<p lang="en" style="margin: 0 0 8px; padding: 12px 14px; border: 1px solid var(--rule); background: var(--surface); font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; line-height: 2">The coach leaves from <strong style="padding: 2px 6px; border: 1px dashed var(--mark); color: var(--mark)">the</strong> north gate at <span style="text-decoration: line-through; color: var(--danger)">fifty</span> <strong style="padding: 2px 6px; border: 1px solid var(--ok); color: var(--ok)">fifteen</strong> minutes past nine.</p>
+<p style="margin: 0 0 8px; font-size: 14px; color: var(--muted)">Chú giải: chữ gạch ngang là từ bạn gõ sai · khung liền là từ đúng · khung đứt là từ bạn bỏ sót.</p>
+<p style="margin: 0 0 12px; font-size: 15px"><strong>Vì sao:</strong> <em lang="en">fifteen</em> nhấn âm tiết sau và kéo dài, <em lang="en">fifty</em> nhấn âm tiết đầu. Từ <em lang="en">the</em> đọc lướt nên dễ sót: nghe nhịp câu để nhận ra còn một âm tiết yếu trước <em lang="en">north</em>.</p>
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
+<button style="min-height: 44px; padding: 0 20px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif">Gõ lại câu này</button>
+<button style="min-height: 44px; padding: 0 20px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: #FFFFFF; font: 600 16px 'Source Sans 3', sans-serif">Câu tiếp theo</button>
+</div>
+<p style="margin: 20px 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Ô trống khi bấm kiểm tra</p>
+<p style="margin: 0; font-size: 15px; font-weight: 600; color: var(--danger)">Bạn chưa gõ gì. Nghe câu rồi gõ lại, hoặc bấm Bỏ qua để xem đáp án.</p>
+</section>
+
+<section aria-labelledby="l4" style="border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="l4" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">4. Nghe ý chính</h2>
+<p style="margin: 0 0 14px; font-size: 14px; color: var(--muted)">Đoạn ngắn dưới một phút · chọn tóm tắt đúng, không cần bắt từng từ · bấm thử được</p>
+<div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px; padding: 8px 12px; border: 1px solid var(--ink); background: var(--surface)">
+<button aria-label="Phát đoạn nghe" style="display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: #FFFFFF"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M7 4l13 8-13 8z"></path></svg></button>
+<div style="flex-grow: 1"><div style="height: 4px; background: var(--off)"><div style="width: 100%; height: 4px; background: var(--accent)"></div></div></div>
+<span style="font: 600 14px 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums">0:38 / 0:38</span>
+</div>
+<fieldset style="margin: 0; padding: 0; border: 0">
+<legend lang="en" style="padding: 0; margin-bottom: 10px; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px"><strong>1</strong>&nbsp;&nbsp;Which summary best matches the announcement?</legend>
+<sc-for list="{{gist}}" as="o" hint-placeholder-count="3">
+<button onClick="{{o.pick}}" aria-pressed="{{o.on}}" lang="en" style="display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; margin-bottom: 8px; padding: 8px 14px; border: {{o.bw}} solid var(--ink); border-radius: 2px; background: {{o.bg}}; color: var(--ink); font: 17px 'Source Serif 4', Georgia, serif; text-align: left; cursor: pointer"><span style="font: 600 14px 'Source Sans 3', sans-serif; width: 18px">{{o.k}}</span><span>{{o.t}}</span></button>
+</sc-for>
+</fieldset>
+<div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap">
+<button style="min-height: 44px; padding: 0 20px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: #FFFFFF; font: 600 16px 'Source Sans 3', sans-serif">Nộp bài</button>
+<button style="min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--link); font: 600 14px 'Source Sans 3', sans-serif; text-decoration: underline">Đánh dấu xem lại</button>
+</div>
+<p style="margin: 14px 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Sau khi chấm</p>
+<div lang="en" style="display: flex; align-items: center; gap: 12px; min-height: 48px; margin-bottom: 8px; padding: 8px 14px; border: 2px solid var(--danger); background: var(--surface); font: 17px 'Source Serif 4', Georgia, serif"><span style="font: 600 14px 'Source Sans 3', sans-serif; width: 18px">A</span><span style="flex-grow: 1">The library is closing because too few people use it.</span><span lang="vi" style="flex-shrink: 0; font: 600 14px 'Source Sans 3', sans-serif; color: var(--danger)">Bạn chọn · Sai</span></div>
+<div lang="en" style="display: flex; align-items: center; gap: 12px; min-height: 48px; margin-bottom: 8px; padding: 8px 14px; border: 2px solid var(--ok); background: var(--surface); font: 17px 'Source Serif 4', Georgia, serif"><span style="font: 600 14px 'Source Sans 3', sans-serif; width: 18px">B</span><span style="flex-grow: 1">The library is moving to a larger room and volunteers are needed.</span><span lang="vi" style="flex-shrink: 0; font: 600 14px 'Source Sans 3', sans-serif; color: var(--ok)">Đáp án đúng</span></div>
+<p style="margin: 0; font-size: 15px"><strong>Vì sao:</strong> người nói có nhắc <em lang="en">closed</em>, nhưng chỉ đóng một tuần để chuyển phòng. Ý lặp lại suốt đoạn là phòng mới rộng hơn và cần người giúp chuyển sách. <a href="#l6">Xem lời thoại</a></p>
+</section>
+
+<section aria-labelledby="l5" style="border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="l5" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">5. Nghe một lần</h2>
+<p style="margin: 0 0 14px; font-size: 14px; color: var(--muted)">{{sub5}}</p>
+<div lang="{{L.lang}}">
+<p style="margin: 0 0 14px; padding: 10px 14px; border: 1px solid var(--mark); background: var(--surface); font-weight: 600; color: var(--mark)">{{L.once}}</p>
+<p lang="vi" style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Bước 1 · hộp hỏi lại trước khi bắt đầu</p>
+<div style="margin-bottom: 18px; padding: 18px 20px; border: 2px solid var(--ink); background: var(--surface)">
+<p style="margin: 0 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; font-weight: 600">{{L.startHead}}</p>
+<p style="margin: 0 0 12px">{{L.startText}}</p>
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
+<button style="min-height: 44px; padding: 0 20px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: #FFFFFF; font: 600 16px 'Source Sans 3', sans-serif">{{L.start}}</button>
+<button style="min-height: 44px; padding: 0 20px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 16px 'Source Sans 3', sans-serif">{{L.later}}</button>
+<button style="min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--link); font: 600 16px 'Source Sans 3', sans-serif; text-decoration: underline">{{L.sound}}</button>
+</div>
+</div>
+<p lang="vi" style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Bước 2 · đang phát</p>
+<div style="margin-bottom: 18px; padding: 12px 14px; border: 1px solid var(--ink); background: var(--surface)">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px"><span style="font-weight: 600">{{L.playing}}</span><span style="font: 600 14px 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums">1:12 / 3:40</span></div>
+<div style="height: 4px; background: var(--off)"><div style="width: 33%; height: 4px; background: var(--accent)"></div></div>
+</div>
+<p lang="vi" style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Bước 3 · sau khi nghe xong</p>
+<div style="padding: 12px 14px; border: 1px solid var(--rule); background: var(--surface)">
+<div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap">
+<button disabled style="display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border: 1px solid var(--off); border-radius: 2px; background: var(--off); color: var(--muted); font: 600 16px 'Source Sans 3', sans-serif"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="1"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>{{L.locked}}</button>
+<span style="font: 600 14px 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums; color: var(--muted)">3:40 / 3:40</span>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)">{{L.after}}</p>
+</div>
+</div>
+<p style="margin: 14px 0 0; font-size: 14px; color: var(--muted)">Nếu mất kết nối giữa chừng: báo rõ bài dừng ở phút nào và cho nghe tiếp từ đúng chỗ đó, không phát lại từ đầu.</p>
+</section>
+
+<section aria-labelledby="l6" style="border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="l6" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">6. Xem lời thoại sau khi nộp</h2>
+<p style="margin: 0 0 14px; font-size: 14px; color: var(--muted)">Chỉ mở sau khi nộp bài · bấm một câu để nghe lại đúng đoạn đó · bấm thử được</p>
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 10px">
+<button onClick="{{toggleVi}}" aria-pressed="{{showVi}}" style="min-height: 44px; padding: 0 16px; border: 1px solid var(--ink); border-radius: 2px; background: {{viBg}}; color: {{viFg}}; font: 600 15px 'Source Sans 3', sans-serif; cursor: pointer">{{viLabel}}</button>
+<span style="font-size: 14px; color: var(--muted)">Nền nhạt và nhãn: câu chứa đáp án</span>
+</div>
+<p aria-live="polite" style="margin: 0 0 10px; padding: 8px 12px; border: 1px solid var(--rule); background: var(--surface); font-size: 15px"><strong>{{replayHead}}</strong> {{replayText}}</p>
+<div style="border-top: 1px solid var(--rule)">
+<sc-for list="{{lines}}" as="s" hint-placeholder-count="6">
+<button onClick="{{s.play}}" aria-pressed="{{s.on}}" style="display: flex; align-items: flex-start; gap: 12px; width: 100%; min-height: 48px; padding: 10px 10px; border: 0; border-bottom: 1px solid var(--rule); outline: {{s.ring}}; outline-offset: -2px; border-radius: 0; background: {{s.bg}}; color: var(--ink); text-align: left; cursor: pointer">
+<span style="flex-shrink: 0; width: 38px; padding-top: 3px; font: 600 14px 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums; color: var(--link)">{{s.at}}</span>
+<span style="flex-grow: 1">
+<span lang="en" style="display: block; font: 17px/1.5 'Source Serif 4', Georgia, serif">{{s.a}}<span style="font-weight: 600; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px">{{s.k}}</span>{{s.b}}</span>
+<sc-if value="{{s.vi}}" hint-placeholder-val="{{true}}"><span style="display: block; margin-top: 2px; font: 15px/1.5 'Source Sans 3', sans-serif; color: var(--muted)">{{s.viText}}</span></sc-if>
+<sc-if value="{{s.ans}}" hint-placeholder-val="{{false}}"><span style="display: block; margin-top: 4px; font: 600 13px 'Source Sans 3', sans-serif; color: {{s.tagColor}}">{{s.tag}}</span></sc-if>
+</span>
+</button>
+</sc-for>
+</div>
+<p style="margin: 12px 0 0; font-size: 14px; color: var(--muted)">Phần gạch chân là cụm từ quyết định đáp án. Bản dịch mặc định ẩn để bạn tự đọc tiếng Anh trước.</p>
+<p style="margin: 20px 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Trước khi nộp</p>
+<p style="margin: 0 0 16px; padding: 12px 14px; border: 1px solid var(--rule); background: var(--surface); color: var(--muted)">Lời thoại mở sau khi bạn nộp bài. Hiện còn 1 câu chưa trả lời.</p>
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Bài chưa có lời thoại</p>
+<p style="margin: 0; padding: 12px 14px; border: 1px solid var(--rule); background: var(--surface); color: var(--muted)">Bài nghe này chưa có lời thoại. Bạn vẫn xem được đáp án và giải thích từng câu.</p>
+</section>
+
+<section aria-labelledby="l7" style="border-top: 2px solid var(--ink); padding-top: 14px">
+<h2 id="l7" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600">Bản điện thoại · gắn nhãn sơ đồ</h2>
+<p style="margin: 0 0 14px; font-size: 14px; color: var(--muted)">Rộng 390px · trình phát thu gọn đứng yên trên cùng, sơ đồ ngay dưới, mỗi lần một câu</p>
+<div style="width: 390px; box-sizing: border-box; border: 1px solid var(--ink); background: var(--paper)">
+<div style="padding: 10px 16px 6px; border-bottom: 1px solid var(--ink); background: var(--surface)">
+<div style="display: flex; align-items: center; gap: 8px">
+<button onClick="{{back}}" aria-label="Lùi 5 giây" style="display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); cursor: pointer"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v5h5"></path></svg></button>
+<button onClick="{{toggle}}" aria-label="{{playLabel}}" style="display: flex; align-items: center; justify-content: center; width: 56px; height: 44px; padding: 0; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: #FFFFFF; cursor: pointer"><sc-if value="{{paused}}" hint-placeholder-val="{{true}}"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M7 4l13 8-13 8z"></path></svg></sc-if><sc-if value="{{playing}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M8 5v14M16 5v14"></path></svg></sc-if></button>
+<button onClick="{{fwd}}" aria-label="Tới 5 giây" style="display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); cursor: pointer"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7"></path><path d="M21 4v5h-5"></path></svg></button>
+<span style="margin-left: auto; font: 600 14px 'Source Sans 3', sans-serif; font-variant-numeric: tabular-nums">{{now}} / {{total}}</span>
+<button onClick="{{cycleSpeed}}" aria-label="{{speedAria}}" style="min-width: 56px; height: 44px; padding: 0 8px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif; cursor: pointer">{{speedLabel}}</button>
+</div>
+<label style="display: block"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden">Vị trí trong bài nghe</span><input type="range" min="0" max="{{dur}}" step="1" value="{{t}}" onChange="{{seek}}" style="display: block; width: 100%; height: 44px; margin: 0; accent-color: var(--accent)"></label>
+</div>
+<div style="padding: 14px 16px 16px">
+<p lang="en" style="margin: 0 0 8px; font-size: 14px; font-weight: 600">Label the plan. Choose the correct letter, A–F.</p>
+<svg role="img" aria-label="Sơ đồ mặt bằng trung tâm cộng đồng với sáu vị trí đánh dấu từ A đến F" lang="en" viewBox="0 0 360 232" style="display: block; width: 100%; border: 1px solid var(--ink); background: var(--surface)">
+<path d="M150 164H14V14H346V164H210" style="fill: none; stroke: var(--ink); stroke-width: 2"></path>
+<path d="M14 74H346M14 100H346M110 14V74M250 14V74M96 100V164M150 100V164M210 100V164M280 100V164" style="fill: none; stroke: var(--ink); stroke-width: 1"></path>
+<rect x="14" y="180" width="110" height="40" style="fill: none; stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 3"></rect>
+<rect x="236" y="180" width="110" height="40" style="fill: none; stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 3"></rect>
+<path d="M180 204V170M174 177l6-7 6 7" style="fill: none; stroke: var(--ink); stroke-width: 1.5"></path>
+<text x="180" y="48" text-anchor="middle" style="font: 600 12px 'Source Sans 3', sans-serif; fill: var(--ink)">Main hall</text>
+<text x="180" y="91" text-anchor="middle" style="font: 12px 'Source Sans 3', sans-serif; fill: var(--muted)">Corridor</text>
+<text x="123" y="136" text-anchor="middle" style="font: 600 11px 'Source Sans 3', sans-serif; fill: var(--ink)">Reception</text>
+<text x="180" y="219" text-anchor="middle" style="font: 600 12px 'Source Sans 3', sans-serif; fill: var(--ink)">Entrance</text>
+<text x="69" y="204" text-anchor="middle" style="font: 12px 'Source Sans 3', sans-serif; fill: var(--muted)">Car park</text>
+<circle cx="62" cy="44" r="12" style="fill: var(--tint); stroke: var(--ink); stroke-width: 1.5"></circle><text x="62" y="49" text-anchor="middle" style="font: 600 13px 'Source Sans 3', sans-serif; fill: var(--ink)">A</text>
+<circle cx="298" cy="44" r="12" style="fill: var(--tint); stroke: var(--ink); stroke-width: 1.5"></circle><text x="298" y="49" text-anchor="middle" style="font: 600 13px 'Source Sans 3', sans-serif; fill: var(--ink)">B</text>
+<circle cx="55" cy="132" r="12" style="fill: var(--tint); stroke: var(--ink); stroke-width: 1.5"></circle><text x="55" y="137" text-anchor="middle" style="font: 600 13px 'Source Sans 3', sans-serif; fill: var(--ink)">C</text>
+<circle cx="245" cy="132" r="12" style="fill: var(--tint); stroke: var(--ink); stroke-width: 1.5"></circle><text x="245" y="137" text-anchor="middle" style="font: 600 13px 'Source Sans 3', sans-serif; fill: var(--ink)">D</text>
+<circle cx="313" cy="132" r="12" style="fill: var(--tint); stroke: var(--ink); stroke-width: 1.5"></circle><text x="313" y="137" text-anchor="middle" style="font: 600 13px 'Source Sans 3', sans-serif; fill: var(--ink)">E</text>
+<circle cx="291" cy="200" r="12" style="fill: var(--tint); stroke: var(--ink); stroke-width: 1.5"></circle><text x="291" y="205" text-anchor="middle" style="font: 600 13px 'Source Sans 3', sans-serif; fill: var(--ink)">F</text>
+</svg>
+<p style="margin: 12px 0 2px; font-size: 14px; color: var(--muted)">Câu 11 trên 13</p>
+<p lang="en" style="margin: 0 0 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px"><strong>11</strong>&nbsp;&nbsp;café</p>
+<div role="group" aria-label="Câu 11, chọn chữ cái" style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px">
+<sc-for list="{{letters}}" as="o" hint-placeholder-count="6">
+<button onClick="{{o.pick}}" aria-pressed="{{o.on}}" style="height: 48px; padding: 0; border: 1px solid var(--ink); border-radius: 2px; background: {{o.bg}}; color: {{o.fg}}; font: 600 16px 'Source Sans 3', sans-serif; cursor: pointer">{{o.k}}</button>
+</sc-for>
+</div>
+<p style="margin: 14px 0 6px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Sau khi chấm</p>
+<p style="margin: 0; font-size: 15px"><strong style="color: var(--ok)">11 · Đúng.</strong> Bạn chọn D. <strong>Vì sao:</strong> quán nằm <em lang="en">directly opposite reception</em>.</p>
+</div>
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 16px; border-top: 1px solid var(--ink); background: var(--surface)">
+<button style="min-height: 44px; padding: 0 14px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 15px 'Source Sans 3', sans-serif">Câu trước</button>
+<button style="min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--link); font: 600 14px 'Source Sans 3', sans-serif; text-decoration: underline">Đánh dấu xem lại</button>
+<button style="min-height: 44px; padding: 0 14px; border: 1px solid var(--accent); border-radius: 2px; background: var(--accent); color: #FFFFFF; font: 600 15px 'Source Sans 3', sans-serif">Câu sau</button>
+</div>
+</div>
+<p style="margin: 12px 0 0; font-size: 14px; color: var(--muted); max-width: 390px">Trên điện thoại, tốc độ gộp thành một nút bấm để đổi lần lượt. Hai nút tua chỉ còn biểu tượng nhưng vẫn có tên đọc cho trình đọc màn hình.</p>
+</section>
+</div>
+<p style="margin: 36px 0 0; padding-top: 16px; border-top: 1px solid var(--rule); font-size: 14px; color: var(--muted)">Quy tắc chung: bài luyện được nghe lại, tua và đổi tốc độ; bài nghe một lần thì không và phải nói trước khi bắt đầu. Bài nghe không tự phát khi mở trang. Lỗi tải bài nghe không làm mất câu trả lời đã nhập. Lời thoại và bản dịch chỉ mở sau khi nộp. Kết quả ghi "đúng 9 trên 13 câu"; chỉ quy ra band khi làm đủ một đề 40 câu.</p>
+<p style="margin: 12px 0 0; font-size: 14px; color: var(--muted)">Quy tắc ngôn ngữ: bài luyện từng phần dùng nhãn tiếng Việt; bài full test (thi thử, phòng thi) dùng tiếng Anh cho toàn bộ nhãn, hướng dẫn, trạng thái và chữ cho trình đọc màn hình, số câu ghi "Q11" hoặc "Question 11". Trên tờ này nút chế độ đổi khối 1, 2 và 5; khối 3, 4, 6 chỉ có ở bài luyện. Phần "Sau khi chấm" là màn kết quả sau khi nộp, thuộc chế độ học nên vẫn tiếng Việt.</p>
+<p style="margin: 12px 0 0; font-size: 14px; color: var(--muted)"><strong style="color: var(--ink)">Ghi chú cho lập trình:</strong> trình phát và các dạng câu hỏi nhận chế độ của bài (practice hoặc test). Ở test: dùng trình phát một lần (không tạm dừng, tua, đổi tốc độ; chỉ có âm lượng), mọi chuỗi lấy từ bộ chuỗi tiếng Anh, kể cả trạng thái tải, lỗi, hộp hỏi lại trước khi nghe và aria-label ("Question 11, choose a letter"). Ở practice giữ bộ chuỗi tiếng Việt như hiện tại.</p>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Xanh teal","Navy + đỏ mận"],"default":"Navy + đỏ mận"},"$preview":{"width":1280,"height":3720}}'>
+class Component extends DCLogic {
+constructor(p) { super(p); this.state = { mode: 'test', t: 72, playing: false, speed: 1, letter: 'D', gist: 'A', vi: false, line: -1 }; this.timer = null; }
+componentWillUnmount() { if (this.timer) clearInterval(this.timer); }
+renderVals() {
+const st = this.state || {};
+const dur = 220;
+const t = Math.max(0, Math.min(dur, st.t == null ? 72 : st.t));
+const playing = !!st.playing;
+const speed = st.speed || 1;
+const fmt = (s) => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+const vn = (n) => String(n).replace('.', ',') + '×';
+const stop = () => { if (this.timer) { clearInterval(this.timer); this.timer = null; } };
+const jump = (d) => () => this.setState((s) => ({ t: Math.max(0, Math.min(dur, (s.t == null ? 72 : s.t) + d)) }));
+const toggle = () => {
+if (playing) { stop(); this.setState({ playing: false }); return; }
+stop();
+this.timer = setInterval(() => {
+const s = this.state || {};
+const next = Math.min(dur, (s.t || 0) + (s.speed || 1));
+if (next >= dur) { stop(); this.setState({ t: dur, playing: false }); } else { this.setState({ t: next }); }
+}, 1000);
+this.setState({ playing: true, t: t >= dur ? 0 : t });
+};
+const speedList = [0.75, 1, 1.25, 1.5];
+const letter = st.letter || '';
+const gistPick = st.gist || '';
+const gistOpts = [['A', 'The library is closing because too few people use it.'], ['B', 'The library is moving to a larger room and volunteers are needed.'], ['C', 'The centre wants more people to join its reading club.']];
+const showVi = !!st.vi;
+const cur = st.line == null ? -1 : st.line;
+const script = [
+{ at: 4, end: 8, a: 'Welcome to Marlow Community Centre, everyone.', k: '', b: '', viText: 'Chào mừng mọi người đến Trung tâm Cộng đồng Marlow.', q: 0 },
+{ at: 9, end: 14, a: 'As you come in through the main entrance, reception is immediately on your left.', k: '', b: '', viText: 'Khi bạn đi vào qua lối vào chính, quầy lễ tân ở ngay bên tay trái.', q: 0 },
+{ at: 15, end: 21, a: 'The café is ', k: 'directly opposite reception', b: ', on the right of the entrance.', viText: 'Quán café nằm đối diện ngay quầy lễ tân, bên phải lối vào.', q: 11, res: 'Bạn làm đúng', ok: true },
+{ at: 22, end: 29, a: 'If you carry on past the café, the library is ', k: 'the last room on that side', b: '.', viText: 'Nếu bạn đi tiếp qua quán café, thư viện là phòng cuối cùng ở phía đó.', q: 12, res: 'Bạn làm sai', ok: false },
+{ at: 30, end: 36, a: 'The meeting room is at the back, ', k: 'in the left-hand corner beside the main hall', b: '.', viText: 'Phòng họp ở phía trong cùng, tại góc bên trái cạnh hội trường chính.', q: 13, res: 'Bạn chưa trả lời', ok: false },
+{ at: 37, end: 42, a: 'Please note that the car park closes at nine in the evening.', k: '', b: '', viText: 'Xin lưu ý bãi đỗ xe đóng cửa lúc chín giờ tối.', q: 0 }
+];
+const T = st.mode === 'test';
+const L = T ? {
+lang: 'en', loadHead: 'Loading', loadBtn: 'Loading…', loadText: 'Loading the recording. You can read the questions while you wait.',
+errHead: 'Error', errTitle: 'The recording could not be loaded', errText: 'Check your connection and try again. Your answers have been kept.',
+reload: 'Reload recording', report: 'Report a problem with this recording',
+planAria: 'Plan of the community centre with six locations marked A to F',
+g11: 'Question 11, choose a letter', g12: 'Question 12, choose a letter', g13: 'Question 13, choose a letter',
+ans23: 'Answered 2 of 3. You may not need all the letters.',
+once: 'You will hear the recording once only. You cannot pause, rewind or change the speed.',
+startHead: 'Start listening now?', startText: 'The recording lasts 3:40 and plays once only. Make sure your headphones are on and you have read the questions.',
+start: 'Start listening', later: 'Not yet', sound: 'Check sound first', playing: 'Playing · cannot be paused',
+locked: 'Played · audio locked', after: 'You can change your answers until you submit. The transcript opens after you submit.'
+} : {
+lang: 'vi', loadHead: 'Đang tải', loadBtn: 'Đang tải…', loadText: 'Đang tải bài nghe. Bạn đọc trước câu hỏi trong lúc chờ.',
+errHead: 'Lỗi', errTitle: 'Chưa tải được bài nghe', errText: 'Kiểm tra kết nối mạng rồi thử lại. Câu trả lời bạn đã nhập vẫn được giữ.',
+reload: 'Tải lại bài nghe', report: 'Báo lỗi bài nghe này',
+planAria: 'Sơ đồ mặt bằng trung tâm cộng đồng với sáu vị trí đánh dấu từ A đến F',
+g11: 'Câu 11, chọn chữ cái', g12: 'Câu 12, chọn chữ cái', g13: 'Câu 13, chọn chữ cái',
+ans23: 'Đã trả lời 2 trên 3 câu. Một chữ cái có thể không dùng tới.',
+once: 'Bài này chỉ được nghe một lần. Không tạm dừng, không tua lại, không đổi tốc độ.',
+startHead: 'Bắt đầu nghe ngay bây giờ?', startText: 'Bài nghe dài 3:40 và chỉ phát một lần. Hãy chắc là bạn đã đeo tai nghe và đọc xong câu hỏi.',
+start: 'Bắt đầu nghe', later: 'Chưa, để sau', sound: 'Thử âm thanh trước', playing: 'Đang phát · không tạm dừng được',
+locked: 'Đã nghe · nút phát đã khoá', after: 'Bạn vẫn sửa được câu trả lời cho tới khi nộp bài. Nộp xong sẽ mở lời thoại và cho nghe lại từng câu.'
+};
+return {
+L, isTest: T, isPractice: !T,
+toPractice: () => this.setState({ mode: 'practice' }), toTest: () => { if (this.timer) { clearInterval(this.timer); this.timer = null; } this.setState({ mode: 'test', playing: false }); },
+pBg: T ? 'var(--surface)' : 'var(--ink)', pFg: T ? 'var(--ink)' : 'var(--surface)',
+tBg: T ? 'var(--ink)' : 'var(--surface)', tFg: T ? 'var(--surface)' : 'var(--ink)',
+modeNote: T ? 'Full test: khối 1 đổi sang trình phát một lần, khối 1, 2 và 5 dùng toàn bộ nhãn tiếng Anh, số câu ghi "Q11". Các dòng "Sau khi chấm" là màn kết quả sau khi nộp, thuộc chế độ học nên vẫn tiếng Việt. Khối 3, 4, 6 chỉ có ở bài luyện.' : 'Luyện từng phần: nhãn tiếng Việt, nghe lại, tua và đổi tốc độ được. Bấm "Full test" để xem bộ nhãn tiếng Anh và trình phát một lần.',
+sub1: T ? 'Full test · nghe một lần, tự phát theo Part · toàn bộ nhãn tiếng Anh' : 'Mọi bài luyện Listening · nghe lại bao nhiêu lần cũng được · bấm thử được',
+sub5: T ? 'Full test · ba bước: hỏi lại, đang phát, đã khoá · toàn bộ nhãn tiếng Anh' : 'Bài General · giống điều kiện thi thật · ba bước: hỏi lại, đang phát, đã khoá',
+pal: (this.props.palette ?? 'Navy + đỏ mận') === 'Xanh teal' ? 'pal-teal' : 'pal-navy',
+t, dur, playing, paused: !playing,
+now: fmt(t), total: fmt(dur),
+playText: playing ? 'Tạm dừng' : 'Phát',
+playLabel: playing ? 'Tạm dừng bài nghe' : 'Phát bài nghe',
+toggle, back: jump(-5), fwd: jump(5),
+seek: (e) => this.setState({ t: Number(e.target.value) }),
+speeds: speedList.map((v) => ({ label: vn(v), on: speed === v, bg: speed === v ? 'var(--ink)' : 'var(--surface)', fg: speed === v ? '#FFFFFF' : 'var(--ink)', pick: () => this.setState({ speed: v }) })),
+speedLabel: vn(speed),
+speedAria: 'Tốc độ ' + vn(speed) + ', bấm để đổi',
+cycleSpeed: () => this.setState({ speed: speedList[(speedList.indexOf(speed) + 1) % speedList.length] }),
+letters: ['A', 'B', 'C', 'D', 'E', 'F'].map((k) => ({ k, on: letter === k, bg: letter === k ? 'var(--ink)' : 'var(--surface)', fg: letter === k ? '#FFFFFF' : 'var(--ink)', pick: () => this.setState({ letter: k }) })),
+gist: gistOpts.map(([k, tx]) => ({ k, t: tx, on: gistPick === k, bg: gistPick === k ? 'var(--tint)' : 'var(--surface)', bw: gistPick === k ? '2px' : '1px', pick: () => this.setState({ gist: k }) })),
+showVi,
+viLabel: showVi ? 'Ẩn bản dịch tiếng Việt' : 'Hiện bản dịch tiếng Việt',
+viBg: showVi ? 'var(--ink)' : 'var(--surface)',
+viFg: showVi ? '#FFFFFF' : 'var(--ink)',
+toggleVi: () => this.setState({ vi: !showVi }),
+replayHead: cur < 0 ? 'Chưa chọn câu nào.' : 'Đang nghe lại ' + fmt(script[cur].at) + '–' + fmt(script[cur].end) + '.',
+replayText: cur < 0 ? 'Bấm một câu bên dưới để nghe lại đúng đoạn đó.' : 'Bấm câu khác để chuyển, bấm lại câu này để dừng.',
+lines: script.map((s, i) => ({
+at: fmt(s.at), a: s.a, k: s.k, b: s.b, viText: s.viText, vi: showVi,
+ans: s.q > 0,
+tag: s.q > 0 ? 'Đáp án câu ' + s.q + ' · ' + s.res : '',
+tagColor: s.ok ? 'var(--ok)' : 'var(--danger)',
+on: cur === i,
+bg: s.q > 0 ? 'var(--tint)' : 'transparent',
+ring: cur === i ? '2px solid var(--ink)' : '0 solid transparent',
+play: () => this.setState({ line: cur === i ? -1 : i, t: s.at })
+}))
+};
+}
+}
+</script>
+</body>
+</html>

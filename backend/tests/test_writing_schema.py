@@ -6,9 +6,11 @@ from pydantic import ValidationError
 from models.writing_feedback import (
     CoherenceAnalysisItem,
     CounterargumentAnalysis,
+    GeneratedWritingFeedback,
     GraderConfig,
     SuggestionInstructionExample,
     WritingFeedback,
+    WritingFeedbackDeep,
 )
 
 
@@ -40,6 +42,28 @@ def test_minimal_level_1_feedback_validates():
     assert feedback.coherenceAnalysis is None
     assert feedback.lexicalAnalysis is None
     assert feedback.bandTrajectoryAnalysis is None  # Phase 1.5 forward-compat
+
+
+@pytest.mark.parametrize("omitted", [True, False])
+def test_saved_feedback_accepts_no_ai_analysis_without_relaxing_provider_schema(omitted):
+    payload = _minimal_l1_payload()
+    if omitted:
+        payload.pop("aiContentAnalysis")
+    else:
+        payload["aiContentAnalysis"] = None
+    assert WritingFeedback(**payload).model_dump(mode="json")["aiContentAnalysis"] is None
+    for schema in (GeneratedWritingFeedback, WritingFeedbackDeep):
+        assert "aiContentAnalysis" in schema.model_json_schema()["required"]
+        with pytest.raises(ValidationError, match="aiContentAnalysis"):
+            schema(**payload)
+
+
+@pytest.mark.parametrize("analysis", [{}, {"explanation": "No estimate"},
+                                      {"likelihood": -1, "explanation": "n"},
+                                      {"likelihood": 101, "explanation": "n"}])
+def test_present_saved_ai_analysis_still_requires_a_valid_estimate(analysis):
+    with pytest.raises(ValidationError, match="aiContentAnalysis.likelihood"):
+        WritingFeedback(**{**_minimal_l1_payload(), "aiContentAnalysis": analysis})
 
 
 def test_band_score_out_of_range_rejected():
