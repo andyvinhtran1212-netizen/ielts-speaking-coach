@@ -1,14 +1,14 @@
 ---
 id: ADMINGROUP-0077
 title: Admin pages share one route group and one shell layout while every page keeps its URL, its stylesheets in the same cascade order and its current look
-status: draft
+status: approved
 risk: medium
 owner: product
 ---
 
 # Admin pages share one route group and one shell layout while every page keeps its URL, its stylesheets in the same cascade order and its current look
 
-Status: **draft** — soạn ngày 20/11/2026 cho nhiệm vụ `G10-T13` (thương mại hoá 2026-11), từ `docs/proposals/commercialization-2026-11/GOI-10-repo-pha-2-cau-truc.md` mục 4(d), 5.3, G10-T13…T15 và `docs/audits/nextjs-optimization-remediation-2026-09-14.md` (NXT-06). Số liệu đo lại trên `staging @ 119ad352` (20/11). Chưa dòng mã nào chạy theo spec này. Chỉ anh Andy duyệt; khi duyệt, câu trả lời ghi vào `approval-decision.md` cùng thư mục, nguyên văn kèm thời điểm, và `status` đổi sang `approved`. Số spec lấy từ sổ cấp số ở `01-KE-HOACH-TONG.md` mục 6. Spec này không có migration.
+Status: **approved** — anh Andy duyệt ngày 20/11/2026 (`approval-decision.md`). Soạn ngày 20/11/2026 cho nhiệm vụ `G10-T13` (thương mại hoá 2026-11), từ `docs/proposals/commercialization-2026-11/GOI-10-repo-pha-2-cau-truc.md` mục 4(d), 5.3, G10-T13…T15 và `docs/audits/nextjs-optimization-remediation-2026-09-14.md` (NXT-06). Số liệu đo lại trên `staging @ 119ad352` (20/11). Chưa dòng mã nào chạy theo spec này. Chỉ anh Andy duyệt; khi duyệt, câu trả lời ghi vào `approval-decision.md` cùng thư mục, nguyên văn kèm thời điểm, và `status` đổi sang `approved`. Số spec lấy từ sổ cấp số ở `01-KE-HOACH-TONG.md` mục 6. Spec này không có migration.
 
 ## Tóm tắt (tiếng Việt)
 
