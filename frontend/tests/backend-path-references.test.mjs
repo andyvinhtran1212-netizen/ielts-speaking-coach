@@ -7,6 +7,14 @@
 // both spellings in every file under frontend/tests and frontend/tooling, quoted 'backend/...' literals (optionally
 // behind ../) and calls whose arguments include 'backend' followed by literal
 // path segments, and requires each named path to exist in the repository.
+//
+// Not covered (a path built these ways is not checked; prefer a literal or
+// join(..., 'backend', 'dir', 'file') so this test can see it):
+// - template literals with interpolation, e.g. `backend/routers/${name}.py`;
+// - string concatenation, e.g. path.resolve(ROOT, 'backend/' + file);
+// - array joins, e.g. ['backend', 'routers', 'x.py'].join('/').
+// When a variable sits mid-path in a call, only the literal prefix before it
+// is checked.
 import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
