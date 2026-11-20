@@ -396,5 +396,6 @@ number	filename	state	owner	spec	note
 388	-	reserved	G04-T09	COURSEACCESS-0055	Spec label 384: one session per learner account. Andy 2026-11-20.
 389	-	reserved	G04-T16	COURSEACCESS-0055	Spec label 387: recent sign-ins (learner_login_events). Andy 2026-11-20.
 400	400_public_library.sql	present	G06-T02	LIBRARY-0061	Public Library schema + private library-media bucket; G06 band 400-419.
+440	440_admin_settings.sql	present	G09-T22	ADMINIA-0074	Commercialization G09 band 440–459 (01-KE-HOACH-TONG mục 6); admin_settings + append-only admin_settings_log.
 501	501_grammar_quiz_allowed_code_service_execute.sql	present	-	-	-
 502	-	reserved	G04-T13	COURSEACCESS-0055	Spec label 385: pronunciation sample window. Andy 2026-11-20.

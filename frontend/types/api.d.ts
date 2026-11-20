@@ -3225,6 +3225,41 @@ export interface paths {
         patch: operations["patch_flag_admin_runtime_flags__key__patch"];
         trace?: never;
     };
+    "/admin/settings/thresholds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Thresholds */
+        get: operations["get_thresholds_admin_settings_thresholds_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Thresholds */
+        patch: operations["patch_thresholds_admin_settings_thresholds_patch"];
+        trace?: never;
+    };
+    "/admin/settings/log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Settings Log */
+        get: operations["get_settings_log_admin_settings_log_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/overview": {
         parameters: {
             query?: never;
@@ -22051,6 +22086,39 @@ export interface components {
             /** Cohort Ids */
             cohort_ids?: string[];
         };
+        /** SettingsLog */
+        SettingsLog: {
+            /** Items */
+            items: components["schemas"]["SettingsLogItem"][];
+            /** Next Cursor */
+            next_cursor: number | null;
+        };
+        /** SettingsLogChange */
+        SettingsLogChange: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Old */
+            old?: unknown;
+            /** New */
+            new?: unknown;
+        };
+        /** SettingsLogItem */
+        SettingsLogItem: {
+            /** Id */
+            id: number;
+            /** At */
+            at: string;
+            /** Actor Name */
+            actor_name: string | null;
+            /** Section */
+            section: string;
+            /** Changes */
+            changes: components["schemas"]["SettingsLogChange"][];
+            /** Reason */
+            reason: string;
+        };
         /** SharedCard */
         SharedCard: {
             /** Id */
@@ -23061,6 +23129,46 @@ export interface components {
             client_id: string;
             /** Answers */
             answers: string[];
+        };
+        /** ThresholdChange */
+        ThresholdChange: {
+            /** Key */
+            key: string;
+            /** Value */
+            value: number | null;
+        };
+        /** ThresholdItem */
+        ThresholdItem: {
+            /** Key */
+            key: string;
+            /** Group */
+            group: string;
+            /** Label */
+            label: string;
+            /** Anchor */
+            anchor: string;
+            /** Value */
+            value: number | null;
+            /** Unit */
+            unit: string;
+            /** Min */
+            min: number | null;
+            /** Max */
+            max: number | null;
+            /** Fixed */
+            fixed: boolean;
+        };
+        /** ThresholdList */
+        ThresholdList: {
+            /** Items */
+            items: components["schemas"]["ThresholdItem"][];
+        };
+        /** ThresholdUpdate */
+        ThresholdUpdate: {
+            /** Changes */
+            changes: components["schemas"]["ThresholdChange"][];
+            /** Reason */
+            reason: string;
         };
         /** TipCreate */
         TipCreate: {
@@ -29510,6 +29618,106 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_thresholds_admin_settings_thresholds_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ThresholdList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_thresholds_admin_settings_thresholds_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ThresholdUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ThresholdList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_settings_log_admin_settings_log_get: {
+        parameters: {
+            query?: {
+                section?: string | null;
+                cursor?: number | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsLog"];
                 };
             };
             /** @description Validation Error */

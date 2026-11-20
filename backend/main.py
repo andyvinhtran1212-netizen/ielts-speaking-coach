@@ -60,6 +60,7 @@ from routers.advanced_vocab import (
 )
 from routers.error_logs import router as error_logs_router
 from routers.admin_flags import router as admin_flags_router
+from routers.admin_settings import router as admin_settings_router
 from routers.admin_overview import router as admin_overview_router
 from routers.admin_ai import router as admin_ai_router
 from routers.admin_writing import router as admin_writing_router
@@ -291,6 +292,7 @@ app.include_router(advanced_vocab_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(admin_advanced_vocab_router)
 app.include_router(error_logs_router)
 app.include_router(admin_flags_router)
+app.include_router(admin_settings_router)
 app.include_router(admin_overview_router)
 app.include_router(admin_ai_router)
 app.include_router(admin_writing_router)
