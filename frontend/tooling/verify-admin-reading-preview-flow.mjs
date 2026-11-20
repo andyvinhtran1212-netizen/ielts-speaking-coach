@@ -118,6 +118,12 @@ await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' });
 await page.reload({ waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Academic Reading QA', exact: true }).waitFor();
 check('dark mode giữ surface/text phân biệt', await page.evaluate(() => { const node = document.querySelector('.arp-question'); const style = getComputedStyle(node); return style.backgroundColor !== style.color && style.color !== 'rgba(0, 0, 0, 0)'; }));
+// G02-T12: preview without a test goes back to the Reading library with one plain line.
+await page.goto(`${BASE}/admin/reading/preview`, { waitUntil: 'domcontentloaded' });
+await page.waitForURL((url) => url.pathname === '/admin/reading/content');
+await page.getByRole('status').filter({ hasText: 'Liên kết bạn vừa mở chưa đủ thông tin nên bạn được đưa về trang nội dung Reading.' }).waitFor();
+check('preview thiếu test_id về thư viện Reading kèm một dòng giải thích', new URL(page.url()).search === '', page.url());
+
 check('không có write ngoài hai mutation contract', writes.length === 2, writes.join(', '));
 check('không có lỗi JS', errors.length === 0, errors.join(' | '));
 
