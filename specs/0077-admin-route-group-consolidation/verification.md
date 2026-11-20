@@ -48,3 +48,23 @@ pilot commit, each built with the CI fixture environment
   comparison of the client-navigation scene is still to be recorded with the
   TESTPOLICY-0057 baseline. Removing the leftover page sheets is a separate
   task outside this spec.
+
+## T002 wave 1 evidence (G10-T15-1, 2026-11-20)
+
+`usage` and `overview` moved; `system` and `mfa` stay in their own groups for
+now, per the owner's decision of 2026-11-21 ("keep separate, fix the UI
+later"). At the time `(authed-admin-system)` loaded no `admin-buttons.css` and
+`(authed-admin-mfa)` no `admin-status.css`, so moving either under the
+four-base-sheet parent could change what they render (FR-001); they join in a
+later wave.
+
+- Scenario 5: `<link rel="stylesheet">` lists for `/admin`, `/admin/usage`,
+  `/admin/feedback`, `/admin/error-logs`, `/admin/foot-traffic`, `/admin/users`
+  are identical on base `344a75fd` and this change (nonce stripped); `/admin`
+  sheets do not reach other admin pages (FR-004).
+- Direct-load screenshots 1280×800: `/admin`, `/admin/usage`, `/admin/feedback`,
+  `/admin/foot-traffic` pixel-identical; `/admin/error-logs` differs by 2 pixels
+  of value 1 (anti-aliasing).
+- `verify-admin-route-group-flow.mjs` over the five moved pages: 114/114 checks
+  pass (94/114 on the base); all 20 client navigations leave only the previous
+  page's own sheets, as accepted for FR-005 on 2026-11-20.
