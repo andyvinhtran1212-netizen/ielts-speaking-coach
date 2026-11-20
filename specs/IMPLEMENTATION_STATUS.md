@@ -195,7 +195,7 @@ still open; **blocked** = the named condition stops the next step;
 | [GIVEARCHIVE-0031](0031-archived-learner-give-guard/tasks.md) | shipped-pending-evidence | 6/8 | 001, 005 | #1756, #1932, #2000 | Executor: T007 R1–R4 read-only checks and the W1–W5 journey on staging; T008 production read-back at the next promotion (owner). |
 | [ACTIVATELIMIT-0034](0034-activate-attempt-rate-limit/tasks.md) | shipped-pending-evidence | 6/7 | — | #1847, #1921 | Executor: T006 11-attempt QA probe on staging. |
 | [INACTIVEWRITE-0035](0035-inactive-learner-rest-write-guard/tasks.md) | shipped-pending-evidence | 4/5 | 001 | #1829, #1917, #1923 | Executor: T004 inactive 403 / active 201 REST probes on staging with QA accounts. |
-| [PAPERUPDATEDAT-0037](0037-mock-paper-updated-at-and-hide-warning/tasks.md) | blocked | 7/11 | 001, 006–008 | #1877, #2204, #2284 | T011 depends on migration 379, which the owner's standing rule says never to apply (376–379). Owner: decide whether FR-008 needs a new migration number or is dropped. Executor: T005 visibility-toggle probe and T008 evidence from #2204. |
+| [PAPERUPDATEDAT-0037](0037-mock-paper-updated-at-and-hide-warning/tasks.md) | blocked | 7/11 | 001, 006–008 | #1877, #2204, #2284 | T011 needs migration 379 applied on staging (`forward-policy.tsv`: `pending_feature`, staging apply after CR). The team process rule ("migrations 376–379 are never applied", team PIPELINE/TEAM-WORKFLOW, 2026-11-17) blocks that; COURSEACCESS-0055 `approval-decision.md` repeats it only for its own scope. Owner: confirm whether the rule was meant for the Black Eye 376–378 chain only, so 379 can follow its normal staging gate. Executor: T005 visibility-toggle probe and T008 evidence from #2204. |
 | [STORAGELIMITS-0038](0038-storage-bucket-limits/tasks.md) | shipped-pending-evidence | 2/7 | 001, 002, 004–007 | #2107, #2188, #2244 | Metadata mismatch corrected above (`spec.md` is `approved`, seven tasks). Executor: T006 evidence from #2188; MANUAL evidence needed: `SELECT filename, applied_at FROM _schema_migrations WHERE filename ~ '^(343|362)_'` on staging, then `SELECT id, file_size_limit FROM storage.buckets WHERE id = 'listening-audio'` (T007). |
 
 ### Owner decisions proposed by this review
@@ -205,7 +205,9 @@ still open; **blocked** = the named condition stops the next step;
   both as moved out of 0029 so its remaining gate is only T008.
 - REVEXPLAIN-0022 T008 is open-ended ("on request only"). Proposal: close it
   out of the spec so 0022 can be checked for `verified`.
-- PAPERUPDATEDAT-0037 T011 waits on migration 379, which must not be applied.
+- PAPERUPDATEDAT-0037 T011 waits on a staging apply of migration 379, which the
+  team rule "376–379 are never applied" currently blocks; the owner confirms
+  whether that rule covers 379.
 - AI-0004 T009 needs a paid gold-set run.
 - MASTER30-0003 T007 needs the activation decision.
 
