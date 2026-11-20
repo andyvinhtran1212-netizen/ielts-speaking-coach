@@ -12,6 +12,9 @@ describe('redirectNoticeMessage', () => {
       'Liên kết bạn vừa mở chưa đủ thông tin nên bạn được đưa về trang Speaking.');
     assert.equal(redirectNoticeMessage('khong-tim-thay', '/grammar/'),
       'Không tìm thấy nội dung bạn muốn mở nên bạn được đưa về Grammar Wiki.');
+    // G02-T10: a bare /admin/mock-reviews lands on the cockpit's review tab.
+    assert.equal(redirectNoticeMessage('lien-ket-thieu', '/admin/mock-tests'),
+      'Liên kết bạn vừa mở chưa đủ thông tin nên bạn được đưa về trung tâm Mock Test.');
   });
   test('an unknown key shows nothing; an unknown page gets a neutral name', () => {
     assert.equal(redirectNoticeMessage('<script>', '/speaking'), null);
