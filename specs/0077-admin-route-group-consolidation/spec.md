@@ -57,7 +57,7 @@ Hệ quả:
 - **FR-002:** Trang admin mới (G09) đặt dưới `(authed-admin)` không cần tạo layout gọi `AuthedShell`; nếu cần sheet trang riêng, nó có group con với layout chỉ phát `<link>`.
 - **FR-003:** `(authed-admin-writing-grade)` (khác `bodyClass`, có Tailwind), `(authed-admin-reading-preview)` và `(authed-admin-writing-tips)` (có `extraScripts`) giữ group riêng.
 - **FR-004:** Sheet trang của một group cũ chỉ áp lên đúng các trang của group đó: không layout nào đặt theo đoạn URL dùng chung (`admin/`, `admin/writing/`, `admin/grammar/`, `admin/reading/`, `admin/speaking/`) phát sheet trang.
-- **FR-005:** Điều hướng phía client từ trang admin A sang trang admin B cho cùng tập stylesheet trong DOM và cùng ảnh chụp như tải trực tiếp B. Vì sau khi gộp `AuthedShell`, `AuthProvider` và `SupabaseRuntimeBoundary` **không còn remount** giữa hai trang admin trong `(authed-admin)` (hôm nay chúng remount ở mỗi lần đổi group), trạng thái giữ lại qua điều hướng cũng phải bằng tải trực tiếp: mục sidebar đang chọn của `aver-admin-chrome`, kết quả cổng kích hoạt tài khoản (`activationGate`) và class của `<body>` (`BodyClassBridge`).
+- **FR-005:** *(sửa theo quyết định của anh Andy 20/11, `approval-decision.md` mục "Amendment")* Điều hướng phía client giữa hai trang admin **không kém hôm nay**: ảnh chụp trang B sau điều hướng client giống ảnh chụp cùng cảnh trên SHA trước PR, và 4 sheet nền **không bao giờ bị nhân đôi** trong DOM sau điều hướng client (mỗi href nền xuất hiện đúng một lần). Sheet trang của route trước do `cacheComponents` giữ lại (trang trước ở dạng ẩn) **không** thuộc FR này; gỡ chúng là việc riêng, ngoài spec. Vì sau khi gộp `AuthedShell`, `AuthProvider` và `SupabaseRuntimeBoundary` **không còn remount** giữa hai trang admin trong `(authed-admin)` (hôm nay chúng remount ở mỗi lần đổi group), trạng thái giữ lại qua điều hướng vẫn phải bằng tải trực tiếp: mục sidebar đang chọn của `aver-admin-chrome`, kết quả cổng kích hoạt tài khoản (`activationGate`) và class của `<body>` (`BodyClassBridge`).
 - **FR-006:** `route-ownership-check.mjs`, `route-ledger-matches-app.test.mjs`, `workflow-path-coverage.test.mjs`, `authed-shell.test.mjs` qua sau mỗi PR; mọi đường dẫn group cũ trong test/tooling/CI/ledger được đổi trong cùng PR (không để test qua vì không còn đọc file).
 - **FR-007:** Mỗi PR chuyển tối đa 6 group và sửa tối đa 30 file test.
 
@@ -73,13 +73,13 @@ Hệ quả:
 
 - **Given** đang ở `/admin/classes`
 - **When** bấm sidebar sang `/admin/feedback`
-- **Then** ảnh chụp `/admin/feedback` sau điều hướng client giống ảnh tải trực tiếp; `document.querySelectorAll('link[rel=stylesheet]')` cho cùng danh sách href như khi tải trực tiếp; mục sidebar đang chọn là "feedback" (không còn "classes"), `document.body.className` bằng tải trực tiếp, và cổng kích hoạt cho cùng kết quả (tài khoản chưa kích hoạt vẫn bị chặn như khi tải trực tiếp) (FR-005)
+- **Then** ảnh chụp `/admin/feedback` sau điều hướng client giống ảnh cùng cảnh trên SHA trước PR; trong `document.querySelectorAll('link[rel=stylesheet]')` mỗi href của 4 sheet nền xuất hiện đúng một lần (sheet trang của route trước còn lại do `cacheComponents` được ghi vào PR, không làm hỏng scenario); mục sidebar đang chọn là "feedback" (không còn "classes"), `document.body.className` bằng tải trực tiếp, và cổng kích hoạt cho cùng kết quả (tài khoản chưa kích hoạt vẫn bị chặn như khi tải trực tiếp) (FR-005)
 
 ### Scenario 3 — rời trang có nhiều sheet
 
 - **Given** đang ở `/admin/listening/tests` (group listening, 15 sheet trang)
 - **When** điều hướng client sang `/admin/feedback`
-- **Then** không còn sheet `admin-listening-*` nào trong DOM; nếu thí điểm dùng `<link precedence>` mà sheet còn ở lại, phương án đó bị loại (FR-005)
+- **Then** số sheet `admin-listening-*` còn trong DOM không nhiều hơn cùng cảnh trên SHA trước PR, 4 sheet nền mỗi href đúng một lần, và ảnh chụp `/admin/feedback` giống ảnh cùng cảnh trên SHA trước PR; nếu thí điểm dùng `<link precedence>` mà làm số sheet còn lại tăng so với hôm nay, phương án đó bị loại (FR-005). Gỡ hết sheet của route trước là việc riêng (xem FR-005)
 
 ### Scenario 4 — URL lồng giữa hai group
 
@@ -128,5 +128,5 @@ Hệ quả:
 
 | # | Câu hỏi | Phương án đề nghị | Mặc định tạm |
 | --- | --- | --- | --- |
-| Q-d1 | Gộp 39 group admin thành **1** group cha (với group con giữ sheet trang) hay thành **khoảng 8** group theo 8 nhóm sidebar? | 1 group cha + group con dùng `<link>` thường (không cần `<link precedence>`), nếu thí điểm T14 cho `<head>` giống hệt và ảnh không đổi; nếu không, ~8 group theo nhóm sidebar | Thí điểm T14 rồi dừng hỏi |
+| Q-d1 | Gộp 39 group admin thành **1** group cha (với group con giữ sheet trang) hay thành **khoảng 8** group theo 8 nhóm sidebar? | **Đã trả lời (anh Andy, 20/11, `approval-decision.md` mục "Amendment"): 1 group cha** `(authed-admin)` + group con dùng `<link>` thường | 1 group cha |
 | Q-d2 | Cho giữ riêng `(authed-admin-reading-preview)` và `(authed-admin-writing-tips)` (có `extraScripts`) cùng `(authed-admin-writing-grade)`, thay vì sửa `authed-shell.tsx` để layout con truyền script? | Đồng ý giữ riêng; xem lại khi 0074 thay khung | Giữ riêng |

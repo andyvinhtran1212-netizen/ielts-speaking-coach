@@ -12,6 +12,6 @@ theo mẫu ở `specs/_templates/verification.md`.
 | FR-002 | kind=check; ref=first G09 page under (authed-admin) without shell layout passes route-ownership-check.mjs (ADMINIA-0074); scenario 6 | PENDING |
 | FR-003 | kind=check; ref=ls frontend/app shows the three kept groups after T007 | PENDING |
 | FR-004 | kind=journey; ref=/admin/writing/queue and /admin links contain no parent-prefix page sheet (T001–T007); scenario 4 | PENDING |
-| FR-005 | kind=journey; ref=frontend/tests/visual/admin.spec.js client-navigation screenshot + DOM link list equals direct load (T001); scenario 2, 3 | PENDING |
+| FR-005 | kind=journey; ref=frontend/tests/visual/admin.spec.js client-navigation screenshot equals the same scene on the pre-PR SHA, each of the 4 base sheet hrefs exactly once, previous-route page sheets not more than pre-PR (T001); scenario 2, 3 | PENDING |
 | FR-006 | kind=test; ref=route-ownership-check.mjs, route-ledger-matches-app, workflow-path-coverage, authed-shell tests per PR (T001–T007) | PENDING |
 | FR-007 | kind=check; ref=group and edited-test counts per PR (T001–T007) | PENDING |
