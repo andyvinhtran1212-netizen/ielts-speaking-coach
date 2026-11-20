@@ -3,7 +3,8 @@
 Reconciled on **2026-09-26** (0000–0008), **2026-10-31** (0009–0036, staging
 `11bbfd227fbe39815758f4ffa470cffaa7059cb3`) and **2026-11-02** (0037–0044,
 staging `b636255a6206314aa31e9691a912eee99a535d34`) and **2026-11-18/19** (0045–0101,
-staging `3666fa705`). This is a navigation ledger, not a replacement for
+staging `3666fa705`); the 30 `implementing` specs in 0001–0037 plus STORAGELIMITS-0038 were reviewed on
+**2026-11-20** (staging `119ad352`). This is a navigation ledger, not a replacement for
 each feature's tasks or requirement evidence. `implementing` includes an existing
 candidate or deployed implementation with unfinished acceptance. It does not
 authorize activation, paid evaluation, content publication or schema changes.
@@ -101,8 +102,8 @@ tasks; this refresh makes no new production claim.
 | [ACTIVATELIMIT-0034](0034-activate-attempt-rate-limit/verification.md) | implementing (was approved) | 6/7 | #1847 (migration 334). T006 11-attempt probe pending. |
 | [INACTIVEWRITE-0035](0035-inactive-learner-rest-write-guard/verification.md) | implementing (was approved) | 4/5 | #1829 (migration 335), tests #1917. T004 REST probes pending. |
 | [ASYNCAUTH-0036](0036-async-db-auth-layer/verification.md) | approved (*deferred*, #2097) | 5/7 | #1857, #1890, #1910, Revision 2 #1929. Status change left to #2097. |
-| [PAPERUPDATEDAT-0037](0037-mock-paper-updated-at-and-hide-warning/verification.md) | implementing | 6/7 | #1877 (migration 338) merged; T005 QA visibility-toggle probe remains open. Amendments FR-006 (#2014) and FR-007 (#2193) merged as specs; migration 353 implementation remains in open #2204. |
-| [STORAGELIMITS-0038](0038-storage-bucket-limits/verification.md) | implementing (was approved) | 2/5 | #2107 (migration 343, upload limits) merged. Migration register records staging apply on 2026-11-02 08:51 UTC+7; T003 full staging acceptance, T004 production and T005 wording review remain unchecked. Open #2188 carries the Listening bucket-cap follow-up (migration 362). |
+| [PAPERUPDATEDAT-0037](0037-mock-paper-updated-at-and-hide-warning/verification.md) | implementing | 7/11 | #1877 (migration 338), #2204 (migration 353, merged 2026-11-03) and #2284 (migration 379, merged 2026-11-12) are on staging; amendments FR-006 (#2014), FR-007 (#2193) and FR-008 merged as specs. T005, T008, T009 and T011 remain open; see the 2026-11-20 review. |
+| [STORAGELIMITS-0038](0038-storage-bucket-limits/verification.md) | approved (`spec.md` metadata; implementation merged, see 2026-11-20 review) | 2/7 | #2107 (migration 343, upload limits), #2188 (migration 362, Listening 50 MiB cap) and #2244 (per-route 415 contract) merged. The earlier "implementing (was approved)" label and 2/5 count were stale: `spec.md` still says `approved` and `tasks.md` has seven tasks. Migration register records 343 staging apply on 2026-11-02 08:51 UTC+7; T003 staging acceptance, T004 production, T005 wording review, T006 tick and T007 staging apply of 362 remain unchecked. |
 | [RLSCLEANUP-0039](0039-rls-admin-policy-cleanup/verification.md) | implementing (was approved) | 3/5 | #2117 (migration 344) merged. T003 staging apply and read-only catalog/ACL comparison recorded in [tasks](0039-rls-admin-policy-cleanup/tasks.md): ledger 2026-11-02 01:49:14Z, 21 tables retain RLS, no helper/BL-11 policies or client privileges; later 356 explains the reduced class-action-log ACL. T004 learner/instructor JWT probes and T005 production remain unchecked. |
 | [VOCABGUARD-0040](0040-vocab-curated-published-child-guard/verification.md) | implementing (was approved) | 1/3 | #2114 (migration 355) merged; #2202 reconciled T001. Migration register records staging apply on 2026-11-01 17:37 UTC+7; T002 staging function-body postcheck and T003 production remain unchecked. |
 | [CALAPPEND-0041](0041-class-action-log-append-only/verification.md) | implementing (was approved) | 0/3 | #2173 (migration 356) merged; #2189 amended rollout/SA acceptance. Read-only staging ledger records 356 at 2026-11-02 11:47:54Z, after 344. T001 implementation checklist remains unreconciled; T002 complete staging/SA acceptance and T003 production remain unchecked. |
@@ -138,6 +139,78 @@ unused.
 | [BRANDMARK-0083](0083-brand-mark-an-ky/verification.md) | draft | 0/2 | Draft spec only, merged to staging for review; no task is checked. |
 | [GRAMMARFIG-0084](0084-grammar-wiki-figures/verification.md) | draft | 0/2 | Draft spec only, merged to staging for review; no task is checked. |
 | [SENTLAB-0101](0101-course5-sentence-lab/verification.md) | approved | 0/6 | Frontmatter says `approved`; `spec.md` has no approval record section. No task is checked. |
+
+## Implementing-spec review — 2026-11-20 (G10-T20, G10-T21)
+
+Checked against staging `119ad352` from each spec's `spec.md` frontmatter,
+`tasks.md` checkboxes, the Result column of `verification.md`, and merged pull
+requests found by spec ID. No task box, FR result or `spec.md` status was
+changed; code presence alone was not counted as evidence. Hosted state was not
+queried: rows that need it say "MANUAL evidence needed" with the read-only
+query to run against the environment's `_schema_migrations` ledger
+(`backend/scripts/apply_migrations.sh`). The owner (Andy, written "Vinh" in
+older task text) holds every production, migration-apply and paid-evaluation
+gate.
+
+Classes (GOI-10 FR-10f-001): **shipped-pending-evidence** = implementation is
+deployed, acceptance evidence missing; **in-progress** = implementation tasks
+still open; **blocked** = the named condition stops the next step;
+**superseded-proposed** = proposed replacement, waiting for the owner.
+"Pending FR" lists FR numbers whose Result is `PENDING`.
+
+### Wave 1 (0001–0013)
+
+| Spec | Class | Tasks | Pending FR | Merged PRs | Remaining acceptance / next action (who) |
+| --- | --- | --- | --- | --- | --- |
+| [GRAMMAR-0001](0001-timed-grammar-midterm-assessments/tasks.md) | shipped-pending-evidence | 0/10 | 001–011 | #1425, #1454, #1456; related #1622 | Executor: reconcile T001–T010 one at a time against #1425/#1454/#1456 and their tests, ticking only tasks with recorded evidence; then a viewport/theme/keyboard run for T010. |
+| [AVOC-0002](0002-advanced-vocabulary-self-paced/tasks.md) | in-progress | 2/11 | 001, 002, 004–011 | #1424, #1467, #1533, #1535 | Executor: T003 staging review of migration 281 and `quiz_banks` policy proof. MANUAL evidence needed: `SELECT filename, applied_at FROM _schema_migrations WHERE filename = '281_advanced_vocab_stage_progress.sql'` on staging. T004B gold cohort needs dual human labels (teacher); T008 needs the owner's go/no-go. |
+| [MASTER30-0003](0003-master30-grammar-diagnostic/tasks.md) | shipped-pending-evidence | 6/7 | — | #1447, #1450 | Owner: decide whether to enable the assigned diagnostic (T007). Before that, MANUAL evidence needed: current flag and release/count readback on production. |
+| [AI-0004](0004-ai-model-usage-observability/tasks.md) | shipped-pending-evidence | 6/9 | 001–007 | #1452, #1711, #1718 (FR-005), #1653 | Executor: T007/T008 test and staging evidence for migration 286 and the Claude-primary order (#1718 shipped by #1731). Owner: authorize or decline the paid gold-set run (T009). MANUAL evidence needed: `SELECT filename, applied_at FROM _schema_migrations WHERE filename = '286_ai_usage_ledger.sql'` on staging and production. |
+| [LISTENING-0005](0005-listening-content-programmes/tasks.md) | shipped-pending-evidence | 10/12 | 014 | #2298, #2299 (since last reconcile) | Executor: T011 reconcile import counts against current package manifests on staging (read-only); T012 learner/admin journeys and rollback drill. |
+| [MOCKOPS-0006](0006-admin-mock-test-operations/tasks.md) | shipped-pending-evidence | 6/7 | — | migrations 297–302 (see verification) | Executor with owner sign-in: T007 authenticated production operator journey (Mock Writing drill-down, return context, reload agrees). |
+| [LISTENING-0006](0006-listening-guided-feedback/tasks.md) | shipped-pending-evidence | 8/9 | — | #1490 | Executor: T009 hosted migration/route/protected-content and authenticated journey evidence at an exact SHA. |
+| [LISTENING-0007](0007-listening-editorial-revision/tasks.md) | shipped-pending-evidence | 2/9 | 005, 007–009 | #1524 (status record) | Executor: reconcile T002 and T004–T009 one at a time against the v1.1 release record; failed-publish rollback rehearsal and mobile/screen-reader acceptance still missing. |
+| [WRITINGNAV-0007](0007-writing-navigation-contract/tasks.md) | shipped-pending-evidence | 4/5 | — | #1495, #1497, #1500, #1503 | Executor with owner sign-in: T005 authenticated Writing Queue → Status/Grade → Queue journey and reload. |
+| [MOCKATTACH-0008](0008-mock-attempt-integrity/tasks.md) | shipped-pending-evidence | 5/6 | 001–003 | promoted (see verification) | Executor: T006 production marker plus the learner/operator persisted-link and reload journey; record FR-001–003 results. |
+| [LISTENING80-0009](0009-listening-80-days/tasks.md) | shipped-pending-evidence | 7/10 | 001–020 | #1558, #1591, #1605, #1634, #1640 | Executor: T008 independent review and staged journeys, then T010 FR audit. MANUAL evidence needed: `SELECT filename, applied_at FROM _schema_migrations WHERE filename = '304_listening_80_days_source_collection.sql'` on staging and production. |
+| [LEARNERDRAFT-0010](0010-learner-draft-preservation/tasks.md) | in-progress | 5/8 | 001–007 | #1576, #1578, #1580, #1582 | Executor: T005 browser/interaction/account/tab evidence, then T006 whole-contract review. |
+| [DICTATIONTOKEN-0011](0011-versioned-dictation-token-grading/tasks.md) | shipped-pending-evidence | 7/9 | 006, 008–010 | #1561 | Executor: T008 contract review and exact-SHA staging acceptance. MANUAL evidence needed: `SELECT filename, applied_at FROM _schema_migrations WHERE filename = '305_dictation_frozen_grading_policy.sql'` on staging and production. |
+| [READINGGRAMMAR-0012](0012-reading-grammar-focus-edit/tasks.md) | in-progress | 5/8 | 008, 009 | #1556 | Executor: T006 staging synthetic journey; T007 correction needs the owner's authorization and a teacher's academic acceptance (T008). |
+| [WRITINGMODAL-0013](0013-writing-content-modal-history/tasks.md) | shipped-pending-evidence | 5/6 | 007 | #1557 | Executor: T006 record the deployed SHA and run the FR-007 journey on staging. |
+
+### Wave 2 (0015–0038)
+
+| Spec | Class | Tasks | Pending FR | Merged PRs | Remaining acceptance / next action (who) |
+| --- | --- | --- | --- | --- | --- |
+| [GRAMMARTEXT-0015](0015-grammar-exact-form-policy/tasks.md) | blocked | 21/25 | 001–012 | #1563, #1979 | Blocked on the owner-authorized per-code cutover (T015) and the single final12 bundle (T021, shared with GRAMMARCUTOVER-0014). Executor: T014 staging SHA record first. |
+| [MOCKREPAIR-0016](0016-mock-content-remediation/tasks.md) | in-progress | 6/13 | 001–019 | #1574, #1597, #1886, #1891, #1893, #1951, #1956, #2263 (docs) | Executor: finish T007 (typed receipts) and T008 finding validation, then T009 PostgreSQL matrix. MANUAL evidence needed: `SELECT filename, applied_at FROM _schema_migrations WHERE filename ~ '^(306|307|308|310|311|315|316)_'` on staging and production. |
+| [GRAMMARAUDIT-0019](0019-grammar-audit-remediation/tasks.md) | blocked | 7/17 | 001–005, 007–009 | #1623, #1625, #1861, #1850, #1940, #2262, #2368 | Revision 3 (T015) is blocked: its migration number was to come from the former Leader; take the next free number from `backend/migrations/register.tsv`. Owner: record the 2026-10-30 "FR007 ok" in `approval-decision.md` (T010/T014). |
+| [VOCABSETS-0020](0020-vocabulary-class-sets/tasks.md) | shipped-pending-evidence | 7/9 | — | #1662, #1664, #1663, #1669 | Executor: record T008/T009 staging and production journey evidence; `verification.md:44` still calls #1663 open although it merged 2026-10-14. |
+| [READINGPRACTICE-0021](0021-reading-practice-support/tasks.md) | shipped-pending-evidence | 8/9 | — | #1666, #1667, #1677, #1680 | Executor: T009 says #1667 is open but it merged 2026-10-14; record live acceptance and QA cleanup, then the spec can be checked for `verified`. |
+| [SECWRITE-0022](0022-client-write-privilege-lockdown/tasks.md) | in-progress | 5/10 | 001–012 | #1719, #1721, #2112 (migration 351, T009) | Executor: T009 evidence from #2112; T010 (migration 349, FR-012) is still only reserved in `register.tsv`. MANUAL evidence needed: `SELECT filename, applied_at FROM _schema_migrations WHERE filename ~ '^(320|351)_'` on staging and production for T005–T007. |
+| [REVEXPLAIN-0022](0022-revision-explanation-binding/tasks.md) | shipped-pending-evidence | 7/8 | — | #1692, #1708, #1709, #1723 | Every FR passes; only on-request T008 (further REV papers) is open. Owner: decide whether T008 stays open-ended or the spec closes. |
+| [AIOPS-0024](0024-admin-ai-model-control/tasks.md) | shipped-pending-evidence | 8/9 | 010 | #1837, #1916, #2050, #2180 | Executor: T008 staging journey from `rollout.md` and FR-010 record. MANUAL evidence needed: `SELECT filename, applied_at FROM _schema_migrations WHERE filename = '322_ai_model_overrides_and_failures.sql'` on staging. |
+| [WRITINGRATE-0025](0025-writing-grade-ratings-feedback-version/tasks.md) | shipped-pending-evidence | 3/5 | 009 | #1834, #1922, #2001, #2031 | Executor: T003 rate-and-reload round trip on staging (task text still says "merge #1727"; #1834 replaced it), then T005 record. |
+| [ROLECHECK-0026](0026-users-role-single-check/tasks.md) | shipped-pending-evidence | 7/8 | — | #1743, #1770, #1895 | Owner: one real instructor promotion with the P1/P3 checks (T008). |
+| [STUDENTARCHIVE-0029](0029-student-archive/tasks.md) | in-progress | 9/12 | 001–005 | #1746, #1751, #1920, #2241 | Executor: T008 staging AC-1…AC-14. T010 (GDPR erase) and T011 (delivered by CLASSARCHIVE-0030) are proposed to leave this spec, see below. |
+| [GIVEARCHIVE-0031](0031-archived-learner-give-guard/tasks.md) | shipped-pending-evidence | 6/8 | 001, 005 | #1756, #1932, #2000 | Executor: T007 R1–R4 read-only checks and the W1–W5 journey on staging; T008 production read-back at the next promotion (owner). |
+| [ACTIVATELIMIT-0034](0034-activate-attempt-rate-limit/tasks.md) | shipped-pending-evidence | 6/7 | — | #1847, #1921 | Executor: T006 11-attempt QA probe on staging. |
+| [INACTIVEWRITE-0035](0035-inactive-learner-rest-write-guard/tasks.md) | shipped-pending-evidence | 4/5 | 001 | #1829, #1917, #1923 | Executor: T004 inactive 403 / active 201 REST probes on staging with QA accounts. |
+| [PAPERUPDATEDAT-0037](0037-mock-paper-updated-at-and-hide-warning/tasks.md) | blocked | 7/11 | 001, 006–008 | #1877, #2204, #2284 | T011 needs migration 379 applied on staging (`forward-policy.tsv`: `pending_feature`, staging apply after CR). The team process rule ("migrations 376–379 are never applied", team PIPELINE/TEAM-WORKFLOW, 2026-11-17) blocks that; COURSEACCESS-0055 `approval-decision.md` repeats it only for its own scope. Owner: confirm whether the rule was meant for the Black Eye 376–378 chain only, so 379 can follow its normal staging gate. Executor: T005 visibility-toggle probe and T008 evidence from #2204. |
+| [STORAGELIMITS-0038](0038-storage-bucket-limits/tasks.md) | shipped-pending-evidence | 2/7 | 001, 002, 004–007 | #2107, #2188, #2244 | Metadata mismatch corrected above (`spec.md` is `approved`, seven tasks). Executor: T006 evidence from #2188; MANUAL evidence needed: `SELECT filename, applied_at FROM _schema_migrations WHERE filename ~ '^(343|362)_'` on staging, then `SELECT id, file_size_limit FROM storage.buckets WHERE id = 'listening-audio'` (T007). |
+
+### Owner decisions proposed by this review
+
+- **superseded-proposed**: STUDENTARCHIVE-0029 T011 is delivered by
+  CLASSARCHIVE-0030 T002/AC-10, and T010 is "a separate spec". Proposal: mark
+  both as moved out of 0029 so its remaining gate is only T008.
+- REVEXPLAIN-0022 T008 is open-ended ("on request only"). Proposal: close it
+  out of the spec so 0022 can be checked for `verified`.
+- PAPERUPDATEDAT-0037 T011 waits on a staging apply of migration 379, which the
+  team rule "376–379 are never applied" currently blocks; the owner confirms
+  whether that rule covers 379.
+- AI-0004 T009 needs a paid gold-set run.
+- MASTER30-0003 T007 needs the activation decision.
 
 ## Closing a row
 
