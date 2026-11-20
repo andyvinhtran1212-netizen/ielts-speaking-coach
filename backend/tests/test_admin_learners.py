@@ -156,6 +156,8 @@ def db(monkeypatch):
         monkeypatch.setattr(module, "supabase_admin", fake)
     monkeypatch.setattr(ops_thresholds, "get", AsyncMock(return_value=dict(DEFAULTS)))
     monkeypatch.setattr(test_data_visibility, "hide_for", lambda **_k: False)
+    # The ledger repairs have their own tests; here they find nothing to fix.
+    monkeypatch.setattr(learner_attention, "_repair_ledger", lambda _assignments: 0)
     monkeypatch.setattr(mod, "require_admin", AsyncMock(return_value={"id": U_ADMIN, "email": "admin@example.test"}))
     return fake
 
@@ -240,6 +242,18 @@ def test_search_ignores_accents_and_finds_codes_and_emails(db):
     assert set(_by_ref(_list(q="aver-lan1"))) == {f"u-{U_LAN}"}   # activation code
 
 
+
+def test_code_search_follows_current_ownership_not_a_former_holder(db):
+    """A reassigned code belongs to its active assignment; its old used_by is a
+    former holder and is not found. A legacy code with no assignment row still
+    finds its used_by."""
+    db.rows["access_codes"] += [{"id": "k2", "code": "AVER-MOVED", "used_by": U_MINH},
+                                {"id": "k3", "code": "AVER-OLD1", "used_by": U_MINH}]
+    db.rows["user_code_assignments"] += [{"code_id": "k2", "user_id": U_MINH, "is_active": False},
+                                         {"code_id": "k2", "user_id": U_LAN, "is_active": True}]
+    assert set(_by_ref(_list(q="aver-moved"))) == {f"u-{U_LAN}"}
+    assert set(_by_ref(_list(q="aver-old1"))) == {f"u-{U_MINH}"}
+
 def test_filters_by_class_and_archive(db):
     assert set(_by_ref(_list(cohort_id=C_A))) == {f"u-{U_LAN}", f"s-{S_OFFLINE}"}
     db.rows["students"][3]["archived_at"] = _ago(days=1)   # Đức leaves
@@ -287,6 +301,35 @@ def test_unreadable_attention_is_never_shown_as_fine(db, monkeypatch):
     assert "thresholds" in _list()["sources_failed"]
 
 
+def test_the_ledger_is_repaired_before_hand_ins_are_read(db, monkeypatch):
+    """A hand-in whose best-effort ledger write failed is repaired first (the
+    class pages' reconcilers), so it is not counted as missing or late."""
+    seen = []
+
+    def repair(assignments):
+        seen.append(sorted(a["id"] for a in assignments))
+        for item in db.rows["class_assignment_items"]:
+            if item["id"] == "i3":   # Lan's Buổi 10 Listening was handed in on time
+                item.update(state="submitted", submitted_at=_ago(days=3))
+        return 1
+
+    monkeypatch.setattr(learner_attention, "_repair_ledger", repair)
+    s = asyncio.run(mod.get_learner(f"u-{U_LAN}", "Bearer x"))["summary"]
+    assert seen and "a3" in seen[0]
+    assert s["overdue"] == {"count": 1, "latest_title": "Buổi 9 · Reading"}
+    assert s["status"]["reasons"] == []      # the streak is broken by the repaired hand-in
+
+
+def test_a_failed_ledger_repair_is_reported_not_read_as_missing(db, monkeypatch):
+    def repair(_assignments):
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(learner_attention, "_repair_ledger", repair)
+    detail = asyncio.run(mod.get_learner(f"u-{U_LAN}", "Bearer x"))
+    s = detail["summary"]
+    assert s["overdue"] is None and s["status"]["level"] is None
+    assert "assignments" in detail["sources_failed"]
+
 def test_an_unreadable_directory_is_503(db):
     db.fail.add("users")
     with pytest.raises(HTTPException) as caught:
@@ -321,6 +364,16 @@ def test_summary_has_the_seven_fields_of_the_shared_block(db):
     assert s["latest_note"] is None and s["courses"] is None
     assert detail["sources_failed"] == []
 
+
+
+def test_recent_speaking_bands_leave_out_mock_exam_sessions(db, monkeypatch):
+    """FR-104: a mock-exam Speaking session (sitting_id set) is exam work, not
+    a practice band, so neither the admin nor a teacher sees it here."""
+    db.rows["sessions"].append({"id": "x-mock", "user_id": U_LAN, "status": "completed", "overall_band": 9.0,
+                                "started_at": _ago(days=1), "sitting_id": "sit-1"})
+    _as(monkeypatch, db, U_TEACH)
+    assert asyncio.run(mod.get_learner_summary(f"u-{U_LAN}", "Bearer x"))["recent_bands"]["speaking"] == [6.5]
+    assert asyncio.run(mod.get_learner(f"u-{U_LAN}", "Bearer x"))["summary"]["recent_bands"]["speaking"] == [6.5]
 
 def test_goal_sources(db):
     minh = asyncio.run(mod.get_learner(f"u-{U_MINH}", "Bearer x"))["summary"]

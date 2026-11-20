@@ -74,23 +74,49 @@ def _paged(build) -> list[dict]:
         start += _PAGE
 
 
-def assignment_history(student_ids: Iterable[str], now: datetime) -> dict[str, AssignmentHistory]:
-    """Every published class assignment item whose deadline has passed, per
-    student, newest deadline first. Raises when either table cannot be read."""
-    ids = list(dict.fromkeys(str(s) for s in student_ids if s))
+def _read_items(ids: list[str]) -> list[dict]:
     items: list[dict] = []
     for offset in range(0, len(ids), _ID_CHUNK):
         chunk = ids[offset:offset + _ID_CHUNK]
         items.extend(_paged(lambda c=chunk: supabase_admin.table("class_assignment_items")
                             .select("id, assignment_id, student_id, state, submitted_at")
                             .in_("student_id", c).order("id")))
+    return items
+
+
+def _repair_ledger(assignments: list[dict]) -> int:
+    """Run the same three ledger repairs the class pages run before they read
+    hand-ins (Speaking sessions, Reading/Listening attempts, lesson items), so
+    a hand-in whose best-effort ledger write failed is not read as missing.
+    Any repair that fails raises: an unrepaired ledger would make a learner
+    look late when they are not, so the caller reports the source failed."""
+    from services.class_assignment_service import reconcile_ledger_from_sessions, reconcile_test_attempts
+    from services.quiz_service import reconcile_course_items
+
+    ids = [a["id"] for a in assignments]
+    if not ids:
+        return 0
+    return (reconcile_ledger_from_sessions(supabase_admin, ids)
+            + reconcile_test_attempts(supabase_admin, assignments)
+            + reconcile_course_items(supabase_admin, ids))
+
+
+def assignment_history(student_ids: Iterable[str], now: datetime) -> dict[str, AssignmentHistory]:
+    """Every published class assignment item whose deadline has passed, per
+    student, newest deadline first. The ledger is repaired first, as the class
+    pages do. Raises when a table cannot be read or a repair fails."""
+    ids = list(dict.fromkeys(str(s) for s in student_ids if s))
+    items = _read_items(ids)
     assignment_ids = list({str(i["assignment_id"]) for i in items if i.get("assignment_id")})
     assignments: dict[str, dict] = {}
     for offset in range(0, len(assignment_ids), _ID_CHUNK):
         chunk = assignment_ids[offset:offset + _ID_CHUNK]
         for row in _paged(lambda c=chunk: supabase_admin.table("class_assignments")
-                          .select("id, cohort_id, title, due_at, status").in_("id", c).order("id")):
+                          .select("id, cohort_id, title, skill, due_at, status, content_id, content_config")
+                          .in_("id", c).order("id")):
             assignments[str(row["id"])] = row
+    if _repair_ledger(list(assignments.values())):
+        items = _read_items(ids)
 
     out = {sid: AssignmentHistory() for sid in ids}
     for item in items:

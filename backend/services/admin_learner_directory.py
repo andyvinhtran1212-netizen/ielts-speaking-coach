@@ -180,17 +180,29 @@ def cohorts_of(people: Iterable[Person]) -> dict[str, list[dict]]:
 
 
 def code_owner_user_ids(q: str) -> set[str]:
-    """Accounts that redeemed the activation code ``q`` (exact, any case):
-    active ``user_code_assignments`` rows and the legacy ``used_by``."""
+    """Accounts that hold the activation code ``q`` (exact, any case), by the
+    canonical ownership rule: a code's active ``user_code_assignments`` rows
+    when it has any, else its legacy ``used_by``. A former holder of a code
+    that was reassigned is not an owner. A failed assignment read raises (the
+    caller fails), it never falls back to ``used_by``."""
     codes = (supabase_admin.table("access_codes").select("id, used_by")
              .ilike("code", q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_"))
              .limit(5).execute().data or [])
-    owners = {str(c["used_by"]) for c in codes if c.get("used_by")}
     ids = [str(c["id"]) for c in codes]
+    active: dict[str, set[str]] = {}
     if ids:
-        rows = (supabase_admin.table("user_code_assignments").select("user_id")
+        rows = (supabase_admin.table("user_code_assignments").select("code_id, user_id")
                 .in_("code_id", ids).eq("is_active", True).execute().data or [])
-        owners |= {str(r["user_id"]) for r in rows if r.get("user_id")}
+        for r in rows:
+            if r.get("user_id"):
+                active.setdefault(str(r.get("code_id")), set()).add(str(r["user_id"]))
+    owners: set[str] = set()
+    for c in codes:
+        held = active.get(str(c["id"]))
+        if held:
+            owners |= held
+        elif c.get("used_by"):
+            owners.add(str(c["used_by"]))
     return owners
 
 
@@ -313,8 +325,11 @@ def _writing_bands(student_id: str) -> list[float]:
 
 
 def _speaking_bands(user_id: str) -> list[float]:
+    # Practice sessions only: a mock-exam Speaking session (sitting_id set)
+    # is exam work, not a practice band (FR-104).
     rows = (supabase_admin.table("sessions").select("id, overall_band, started_at")
             .eq("user_id", user_id).eq("status", "completed").not_.is_("overall_band", "null")
+            .is_("sitting_id", "null")
             .order("started_at", desc=True).limit(_RECENT_BANDS).execute().data or [])
     return [b for b in (_num(r.get("overall_band")) for r in rows) if b is not None]
 
