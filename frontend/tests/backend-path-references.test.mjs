@@ -5,14 +5,14 @@
 // When a backend file moves, a test that builds the old path from segments is
 // missed by a plain grep and fails only at run time with ENOENT. This test finds
 // both spellings in every file under frontend/tests and frontend/tooling, quoted 'backend/...' literals (optionally
-// behind ../) and calls whose arguments include 'backend' followed by literal
-// path segments, and requires each named path to exist in the repository.
+// behind ../), calls whose arguments include 'backend' followed by literal
+// path segments, and arrays of such segments joined afterwards
+// (['backend', 'dir', 'file'].join('/')), and requires each named path to exist in the repository.
 //
 // Not covered (a path built these ways is not checked; prefer a literal or
 // join(..., 'backend', 'dir', 'file') so this test can see it):
 // - template literals with interpolation, e.g. `backend/routers/${name}.py`;
-// - string concatenation, e.g. path.resolve(ROOT, 'backend/' + file);
-// - array joins, e.g. ['backend', 'routers', 'x.py'].join('/').
+// - string concatenation, e.g. path.resolve(ROOT, 'backend/' + file).
 // When a variable sits mid-path in a call, only the literal prefix before it
 // is checked.
 import assert from 'node:assert/strict';
@@ -37,6 +37,9 @@ const SYNTHETIC = new Map([
 
 const LITERAL = /['"`]((?:\.\.\/)*backend\/[A-Za-z0-9_./-]+)['"`]/g;
 const SEGMENTS = /\(([^()]*?)['"]backend['"]((?:\s*,\s*['"][^'"`]+['"])+)\s*[,)]/g;
+// Only arrays that are joined, so a plain list such as ['backend', 'frontend']
+// is not read as a path.
+const ARRAY_JOIN = /\[\s*['"]backend['"]((?:\s*,\s*['"][^'"`]+['"])+)\s*,?\s*\]\s*\.join\(/g;
 
 function sourceFiles(dir) {
   return readdirSync(dir).flatMap((name) => {
@@ -56,6 +59,10 @@ export function backendReferences(source) {
     const parts = [...match[2].matchAll(/['"]([^'"`]+)['"]/g)].map((part) => part[1]);
     found.push(['backend', ...parts].join('/'));
   }
+  for (const match of source.matchAll(ARRAY_JOIN)) {
+    const parts = [...match[1].matchAll(/['"]([^'"`]+)['"]/g)].map((part) => part[1]);
+    found.push(['backend', ...parts].join('/'));
+  }
   return found;
 }
 
@@ -66,8 +73,15 @@ test('the scanner sees literal and segment-built backend paths', () => {
       const be = read('..', 'backend', 'services', 'x.py');
       fs.readFileSync(new URL('../../backend/main.py', import.meta.url));
       const glob = 'backend/routers/**';
+      const source_path = ['backend', 'content', 'tenses', 'past-perfect.md'].join('/');
+      const roots = ['backend', 'frontend'];
     `),
-    ['backend/main.py', 'backend/routers/listening.py', 'backend/services/x.py'],
+    [
+      'backend/main.py',
+      'backend/routers/listening.py',
+      'backend/services/x.py',
+      'backend/content/tenses/past-perfect.md',
+    ],
   );
 });
 
