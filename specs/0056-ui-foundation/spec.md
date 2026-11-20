@@ -1,14 +1,14 @@
 ---
 id: UIBASE-0056
 title: New pages share one Ban in design foundation of tokens, fonts, components and four page shells, while every existing page keeps its current look
-status: draft
+status: approved
 risk: medium
 owner: product
 ---
 
 # New pages share one Ban in design foundation of tokens, fonts, components and four page shells, while every existing page keeps its current look
 
-Status: **draft** — soạn ngày 18/11/2026 cho nhiệm vụ `G03-T01` (đợt A, thương mại hoá 2026-11), từ `docs/proposals/commercialization-2026-11/GOI-03-nen-giao-dien.md` và `00-QUY-UOC-CHUNG.md` mục 2 (bản trên `staging` sau PR #2331). Chưa dòng mã nào chạy theo spec này; mọi hợp đồng kỹ thuật là đề xuất đã kiểm trên giấy (BAN-GIAO mục 7). Chỉ anh Andy duyệt; khi duyệt, câu trả lời ghi vào `approval-decision.md` cùng thư mục, nguyên văn kèm thời điểm, và `status` đổi sang `approved`. Số spec 0056 lấy từ sổ cấp số ở `01-KE-HOACH-TONG.md` mục 6. Gói này không có migration.
+Status: **approved** — anh Andy duyệt ngày 20/11/2026 lúc 11:04 giờ Việt Nam (04:04:45 UTC), nguyên văn ở [`approval-decision.md`](approval-decision.md). Soạn ngày 18/11/2026 cho nhiệm vụ `G03-T01` (đợt A, thương mại hoá 2026-11), từ `docs/proposals/commercialization-2026-11/GOI-03-nen-giao-dien.md` và `00-QUY-UOC-CHUNG.md` mục 2 (bản trên `staging` sau PR #2331). Chưa dòng mã nào chạy theo spec này; mọi hợp đồng kỹ thuật là đề xuất đã kiểm trên giấy (BAN-GIAO mục 7). Chỉ anh Andy duyệt; khi duyệt, câu trả lời ghi vào `approval-decision.md` cùng thư mục, nguyên văn kèm thời điểm, và `status` đổi sang `approved`. Số spec 0056 lấy từ sổ cấp số ở `01-KE-HOACH-TONG.md` mục 6. Gói này không có migration.
 
 ## Tóm tắt (tiếng Việt)
 
