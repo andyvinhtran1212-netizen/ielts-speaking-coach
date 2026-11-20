@@ -7,10 +7,11 @@
 -- Five tables, all RLS-enabled with no client policies and no client grants:
 -- every read and write goes through the FastAPI backend as service_role.
 -- library-media is private (public = false). Media is served by the backend
--- after it checks `published` (FR-064), never by a Storage URL, so no
--- storage.objects policy for anon/authenticated may name this bucket.
+-- after it checks `published` (FR-064), never by a Storage URL. A RESTRICTIVE
+-- storage.objects policy keeps every client role out of this bucket even if a
+-- broad permissive policy exists; no permissive policy may name it.
 -- Re-runnable: IF NOT EXISTS / ON CONFLICT, postconditions at the end.
--- Rollback: rollback/400_public_library.sql (refuses once marks or objects exist).
+-- Rollback: rollback/400_public_library.sql (schema only while Library data tables are empty).
 
 BEGIN;
 SET LOCAL lock_timeout = '5s';
@@ -153,6 +154,16 @@ ON CONFLICT (id) DO UPDATE
         file_size_limit = EXCLUDED.file_size_limit,
         allowed_mime_types = EXCLUDED.allowed_mime_types;
 
+-- Fail-closed guard (FR-064): a RESTRICTIVE policy is ANDed with every
+-- permissive policy, so even a broad client policy on storage.objects (for
+-- example USING (true)) cannot reach library-media rows. Other buckets are
+-- untouched; service_role bypasses RLS and keeps backend access.
+DROP POLICY IF EXISTS library_media_backend_only ON storage.objects;
+CREATE POLICY library_media_backend_only ON storage.objects
+    AS RESTRICTIVE FOR ALL TO PUBLIC
+    USING (bucket_id IS DISTINCT FROM 'library-media')
+    WITH CHECK (bucket_id IS DISTINCT FROM 'library-media');
+
 DO $$
 DECLARE
     tbl regclass;
@@ -195,12 +206,23 @@ BEGIN
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = '400 library-media bucket postcondition failed';
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_class
+                    WHERE oid = 'storage.objects'::regclass AND relrowsecurity)
+       OR NOT EXISTS (
+        SELECT 1 FROM pg_catalog.pg_policy p
+         WHERE p.polrelid = 'storage.objects'::regclass AND p.polname = 'library_media_backend_only'
+           AND NOT p.polpermissive AND p.polcmd = '*' AND p.polroles = ARRAY[0::oid]
+           AND pg_get_expr(p.polqual, p.polrelid) LIKE '%IS DISTINCT FROM%library-media%'
+           AND pg_get_expr(p.polwithcheck, p.polrelid) LIKE '%IS DISTINCT FROM%library-media%'
+    ) THEN
+        RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = '400 library-media restrictive storage guard missing';
+    END IF;
     IF EXISTS (
         SELECT 1 FROM pg_catalog.pg_policies
-         WHERE schemaname = 'storage' AND tablename = 'objects'
+         WHERE schemaname = 'storage' AND tablename = 'objects' AND permissive = 'PERMISSIVE'
            AND (coalesce(qual, '') || ' ' || coalesce(with_check, '')) LIKE '%library-media%'
     ) THEN
-        RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = '400 a storage.objects policy names library-media';
+        RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = '400 a permissive storage.objects policy names library-media';
     END IF;
 END;
 $$;

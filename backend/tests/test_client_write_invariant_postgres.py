@@ -162,10 +162,16 @@ def _pre_320() -> str:
     dictation_active_index = re.search(
         r"CREATE UNIQUE INDEX IF NOT EXISTS uq_dictation_attempts_one_active_section\b[^;]*;",
         (MIGRATIONS / "220_dictation_attempt_affinity.sql").read_text(encoding="utf-8"))[0]
+    # 383 revokes access-code entitlements when 009's assignment row is deactivated.
+    user_code_assignments = re.search(
+        r"CREATE TABLE IF NOT EXISTS user_code_assignments \(.*?^\);",
+        (MIGRATIONS / "009_access_code_upgrade.sql").read_text(encoding="utf-8"), re.S | re.M)[0]
     return f"""
         SET search_path = public, pg_temp;
         CREATE TABLE _schema_migrations (filename text PRIMARY KEY,
                                          applied_at timestamptz NOT NULL DEFAULT now());
+        -- topics: 002's Speaking topic bank, the parent of 400's speaking_samples.topic_id.
+        CREATE TABLE topics (id uuid PRIMARY KEY);
         -- users: the union of the 320/326/332/336 harness columns.
         CREATE TABLE users (
             id uuid PRIMARY KEY, email text,
@@ -324,7 +330,11 @@ def _pre_320() -> str:
         ALTER TABLE access_codes
             ADD COLUMN cohort_id uuid REFERENCES cohorts(id) ON DELETE SET NULL,
             ADD COLUMN is_active boolean NOT NULL DEFAULT true,
-            ADD COLUMN is_revoked boolean DEFAULT false;
+            ADD COLUMN is_revoked boolean DEFAULT false,
+            -- 383 triggers on the activation columns (dashboard-created on
+            -- staging; 009's backfill reads them) and on 009's assignments.
+            ADD COLUMN used_by uuid REFERENCES users(id), ADD COLUMN used_at timestamptz;
+        {user_code_assignments}
         -- 338 minimal shape: 033's trigger function, 306's paper guard, 208's trigger.
         {m338.FUNCTION_033}
         ALTER FUNCTION update_updated_at_column() SET search_path = public, pg_temp;
@@ -464,7 +474,11 @@ def _create_database() -> tuple[str, bool]:
       IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '{OWNER}') THEN
         CREATE ROLE {OWNER} NOSUPERUSER NOBYPASSRLS NOLOGIN;
       END IF;
-    END $$;""")
+      IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'supabase_storage_admin') THEN
+        CREATE ROLE supabase_storage_admin NOLOGIN;
+      END IF;
+    END $$;
+    GRANT supabase_storage_admin TO {OWNER};""")
     database = f"inv94_{uuid4().hex[:12]}"
     sql("postgres", f"CREATE DATABASE {database}")
     # Supabase: the runner (hosted `postgres`, NOSUPERUSER) owns the app schema
@@ -503,8 +517,14 @@ def _create_database() -> tuple[str, bool]:
             SELECT bucket, bucket, bucket = 'vocab-audio' FROM unnest(ARRAY['audio-responses',
                 'listening-audio', 'listening-images', 'reading-images', 'writing-images',
                 'vocab-audio']) AS bucket;
+        -- 400: storage.objects is owned by supabase_storage_admin, whose member the
+        -- hosted runner is (Supabase documents SQL bucket inserts and objects policies).
+        CREATE TABLE storage.objects (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            bucket_id text REFERENCES storage.buckets(id), name text);
+        ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE storage.objects OWNER TO supabase_storage_admin;
         GRANT USAGE ON SCHEMA storage TO {OWNER};
-        GRANT SELECT, UPDATE ON storage.buckets TO {OWNER};
+        GRANT SELECT, INSERT, UPDATE, DELETE ON storage.buckets TO {OWNER};
         CREATE FOREIGN DATA WRAPPER client_invariant_fdw;
         CREATE SERVER client_invariant_server FOREIGN DATA WRAPPER client_invariant_fdw;
         GRANT USAGE ON FOREIGN SERVER client_invariant_server TO {OWNER};""")
