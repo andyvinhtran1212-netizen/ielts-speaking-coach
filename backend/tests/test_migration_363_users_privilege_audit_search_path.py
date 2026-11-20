@@ -360,7 +360,8 @@ def _rows(s: str, ids: dict[str, str]) -> list[tuple[str, str, str]]:
     result = []
     for key, uid in ids.items():
         for row in _audit(s, uid):
-            if not row["id"].endswith(("aaaa", "bbbb")):   # random unless set by evidence
+            # random unless set by evidence: <target id>[:-4] + aaaa / bbbb
+            if row["id"] not in (uid[:-4] + "aaaa", uid[:-4] + "bbbb"):
                 row.pop("id")
             result.append((key, "audit", name(json.dumps(row, sort_keys=True))))
         for row in _outbox(s, uid):
@@ -369,6 +370,19 @@ def _rows(s: str, ids: dict[str, str]) -> list[tuple[str, str, str]]:
             row["payload"].pop("occurred_at", None)
             result.append((key, "outbox", name(json.dumps(row, sort_keys=True))))
     return result
+
+
+def test_rows_keep_only_evidence_ids_not_random_ids_with_the_same_tail(monkeypatch):
+    """CI run 42642548055 (attempt 1): a gen_random_uuid() audit id ending in
+    bbbb was kept like an evidence id and broke the 361/363 comparison."""
+    uid = str(uuid4())
+    audit = [{"id": uid[:-4] + "bbbb", "event": "e"}, {"id": str(uuid4())[:-4] + "bbbb", "event": "e"}]
+    monkeypatch.setitem(globals(), "_audit", lambda s, u: [dict(row) for row in audit])
+    monkeypatch.setitem(globals(), "_outbox", lambda s, u: [])
+    assert _rows("s", {"target": uid}) == [
+        ("target", "audit", '{"event": "e", "id": "<target:>bbbb"}'),
+        ("target", "audit", '{"event": "e"}'),
+    ]
 
 
 # ── PostgreSQL: SA-2180-R3-2 ────────────────────────────────────────────────

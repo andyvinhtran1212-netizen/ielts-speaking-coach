@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { runInNewContext } from 'node:vm';
 import { StrictMode } from 'react';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 import { AdminWritingGradeBehavior } from '@/app/(authed-admin-writing-grade)/admin/writing/grade/writing-grade-behavior';
@@ -106,6 +106,45 @@ it('BL-22 shows "Đã sửa" right after a save the backend recorded as an edit'
 
   fireEvent.click(await screen.findByRole('button', { name: /Lưu & duyệt/ }));
   await waitFor(() => expect(document.querySelector('.badge-manual')?.textContent).toBe('✏ Đã sửa'));
+});
+
+it('clears the optional AI estimate and reads the same blank state back after save', async () => {
+  const initial = essay();
+  const feedback = { ...initial.feedback.feedback_json, aiContentAnalysis: { likelihood: 1, explanation: 'Initial estimate' } };
+  const get = vi.fn().mockResolvedValue({ ...initial, feedback: { ...initial.feedback, feedback_json: feedback } });
+  const patch = vi.fn(async () => {
+    get.mockResolvedValue({ ...initial, status: 'reviewed', feedback: {
+      ...initial.feedback, feedback_json: { ...feedback, aiContentAnalysis: null },
+    } });
+    return { status: 'reviewed', is_manually_edited: true };
+  });
+  Object.defineProperty(window, 'api', { configurable: true, value: { get, post: vi.fn(), patch } });
+  render(<StrictMode><AdminWritingGradeBehavior /></StrictMode>);
+
+  fireEvent.click(await screen.findByRole('tab', { name: /Bài mẫu tham khảo/ }));
+  const ai = within(document.getElementById('section-ai-content')!);
+  const open = () => fireEvent.click(ai.getByRole('button', { name: /Sửa JSON/ }));
+  const draft = () => ai.getByRole('textbox', { name: 'Sửa JSON: AI check' }) as HTMLTextAreaElement;
+  expect(ai.getByText('1%')).toBeTruthy();
+
+  open();
+  expect(draft().getAttribute('aria-describedby')).toBe('hint-ai-content');
+  expect(ai.getByText(/Có thể xóa toàn bộ nội dung mục này/)).toBeTruthy();
+  fireEvent.change(draft(), { target: { value: '' } });
+  fireEvent.click(ai.getByRole('button', { name: 'Hủy' }));
+  expect(ai.getByText('1%')).toBeTruthy();
+  expect(patch).not.toHaveBeenCalled();
+
+  open();
+  fireEvent.change(draft(), { target: { value: '' } });
+  fireEvent.click(ai.getByRole('button', { name: 'Lưu vào draft' }));
+  fireEvent.click(screen.getByRole('button', { name: /Lưu & duyệt/ }));
+  await waitFor(() => expect(document.getElementById('status-pill')?.textContent).toBe('reviewed'));
+  expect(patch).toHaveBeenCalledExactlyOnceWith('/admin/writing/essays/essay-1/feedback', { ...feedback, aiContentAnalysis: null });
+  expect(get).toHaveBeenCalledTimes(2);
+  expect(ai.queryByText('0%')).toBeNull();
+  open();
+  expect(draft().value).toBe('');
 });
 
 it('AI-LOG never presents the requested model as the one that graded', async () => {

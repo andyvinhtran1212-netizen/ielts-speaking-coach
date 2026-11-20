@@ -42,6 +42,6 @@ describe('Writing assignment handoff entry points', () => {
   test('learner Writing remains the canonical inbox for Writing assignments', () => {
     assert.match(learnerWriting, /id="tab-assignments"/);
     assert.match(learnerWriting, /id="content-assignments"/);
-    assert.match(learnerWriting, /Khi giảng viên giao đề, em sẽ thấy ở đây\./);
+    assert.match(learnerWriting, /Khi giảng viên giao đề, bạn sẽ thấy ở đây\./);
   });
 });

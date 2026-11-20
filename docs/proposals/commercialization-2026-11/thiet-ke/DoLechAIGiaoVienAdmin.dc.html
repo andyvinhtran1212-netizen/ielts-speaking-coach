@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Admin · Độ lệch AI–giáo viên</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--link:#0B5953;--mark:#8A4B08;--tint:#EDF3F1;--on-accent:#FFFFFF}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--link:#1A3561;--mark:#8A1C1C;--tint:#EEF0F5;--on-accent:#FFFFFF}
+a{color:var(--link)}a:hover{color:var(--ink)}
+</style>
+</helmet>
+<div class="{{pal}}" style="background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 16px; line-height: 1.55; min-height: 3300px">
+<div style="max-width: 1376px; margin: 0 auto; padding: 24px 32px 20px">
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Aver Learning · Bản in · hướng phát triển 3 · khu quản trị</p>
+<p style="margin: 2px 0 4px; font-family: 'Source Serif 4', Georgia, serif; font-size: 32px; font-weight: 600; line-height: 1.15">Admin · Độ lệch AI–giáo viên</p>
+<p style="margin: 0; color: var(--muted); font-size: 15px">Bảng theo dõi nội bộ của phép đo "điểm AI lệch điểm giáo viên bao nhiêu" trên các bài Writing của lớp: theo tiêu chí, theo tháng, danh sách bài lệch nhiều nhất để xem lại, và công tắc công bố trang công khai kèm điều kiện tối thiểu. Nguyên tắc: độ lệch xấu thì sửa chấm trước, không công bố. Hôm nay Thứ Ba 17/11/2026. Trang công khai ở tờ DoLechAIGiaoVien.</p>
+</div>
+<section id="m1" aria-labelledby="h-m1" style="border-top: 2px solid var(--ink)">
+<div style="max-width: 1376px; margin: 0 auto; padding: 16px 32px 27px">
+<h2 id="h-m1" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">1 · Màn chính · thẻ "Độ lệch AI–giáo viên" của trang Writing</h2>
+<p style="margin: 4px 0 18px; font-size: 14px; color: var(--muted); max-width: 110ch">Trạng thái mẫu: chưa đủ điều kiện công bố. Bấm được: mở và gập nhóm sidebar.</p>
+<div style="border: 1px solid var(--ink); background: var(--paper)">
+<header style="display: flex; align-items: center; gap: 20px; min-height: 56px; padding: 0 24px; border-bottom: 1px solid var(--ink); background: var(--surface)">
+<span style="display: inline-flex; align-items: center; gap: 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 19px; font-weight: 600"><svg width="25" height="25" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<span style="padding: 2px 8px; border: 1px solid var(--ink); border-radius: 2px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600">Quản trị</span>
+<span style="padding: 2px 8px; background: var(--mark); color: var(--surface); border-radius: 2px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600">Production · dữ liệu thật</span>
+<label style="flex: 1 1 320px; max-width: 440px; display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--paper)">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 16px; height: 16px; flex-shrink: 0"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"></circle><path d="M16.5 16.5L21 21" stroke="currentColor" stroke-width="2"></path></svg>
+<input type="search" placeholder="Tìm học viên, lớp, bài nộp, đề…" aria-label="Tìm nhanh" style="flex-grow: 1; min-width: 0; border: 0; background: transparent; font: 15px 'Source Sans 3', sans-serif; color: var(--ink)">
+<kbd style="font: 12px 'Source Sans 3', sans-serif; color: var(--muted); border: 1px solid var(--rule); padding: 1px 6px; border-radius: 2px">⌘K</kbd>
+</label>
+<span style="flex-grow: 1"></span>
+<a href="Main.dc.html" style="display: inline-flex; align-items: center; min-height: 36px; font-size: 14px">Xem như học viên</a>
+<button type="button" aria-label="Mở menu tài khoản: đổi vai trò, đăng xuất" style="width: 40px; height: 40px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 13px 'Source Sans 3', sans-serif; cursor: pointer">VT</button>
+</header>
+<div style="display: flex">
+<nav aria-label="Điều hướng quản trị" style="flex-shrink: 0; width: 248px; box-sizing: border-box; padding: 12px 0; border-right: 1px solid var(--rule); background: var(--surface)">
+<sc-for list="{{nav}}" as="g" hint-placeholder-count="8">
+<div>
+<button type="button" aria-expanded="{{g.exp}}" onClick="{{g.toggle}}" style="display: flex; align-items: center; gap: 8px; width: 100%; min-height: 36px; padding: 0 16px; border: 0; background: transparent; color: {{g.headColor}}; font: 600 12px 'Source Sans 3', sans-serif; letter-spacing: 0.08em; text-transform: uppercase; text-align: left; cursor: pointer">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 14px; height: 14px; flex-shrink: 0"><path d="{{g.chev}}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<span style="flex-grow: 1">{{g.name}}</span>
+<span style="color: var(--mark); font-variant-numeric: tabular-nums; letter-spacing: 0">{{g.badgeShow}}</span>
+</button>
+<sc-if value="{{g.show}}" hint-placeholder-val="{{ false }}">
+<div role="group" aria-label="{{g.name}}" style="margin: 0 0 6px 23px; border-left: 1px solid var(--rule)">
+<sc-for list="{{g.items}}" as="i" hint-placeholder-count="3">
+<a href="{{i.href}}" aria-current="{{i.current}}" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; padding: 0 16px 0 21px; margin-left: -2px; border-left: 3px solid {{i.bar}}; background: {{i.bg}}; color: var(--ink); font-weight: {{i.weight}}; text-decoration: none">{{i.label}}<span style="color: var(--mark); font-weight: 600; font-variant-numeric: tabular-nums">{{i.count}}</span></a>
+</sc-for>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</nav>
+<main style="flex-grow: 1; min-width: 0; padding: 20px 32px 36px">
+<nav aria-label="Vị trí trang" style="font-size: 14px; color: var(--muted); margin-bottom: 10px"><a href="AdminChamWriting.dc.html">Chấm bài</a> › <a href="AdminChamWriting.dc.html">Writing</a> › <span aria-current="page" style="color: var(--ink)">Độ lệch AI–giáo viên</span></nav>
+<h1 style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 32px; font-weight: 600; line-height: 1.15">Writing</h1>
+<div role="tablist" aria-label="Thẻ của trang Writing" style="display: flex; gap: 0 28px; margin: 14px 0 18px; border-bottom: 1px solid var(--ink)">
+<a href="AdminChamWriting.dc.html" role="tab" aria-selected="false" style="padding: 10px 0; color: var(--muted); text-decoration: none">Chờ duyệt <span style="color: var(--mark); font-weight: 600">3</span></a>
+<a href="AdminChamWriting.dc.html" role="tab" aria-selected="false" style="padding: 10px 0; color: var(--muted); text-decoration: none">Đã trả</a>
+<a href="#m1" role="tab" aria-selected="true" style="padding: 10px 0 7px; color: var(--ink); font-weight: 600; text-decoration: none; border-bottom: 3px solid var(--ink)">Độ lệch AI–giáo viên</a>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: 14.5px">
+<span style="color: var(--muted)">Kỳ đo</span><span style="display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface)">6 tháng gần nhất</span>
+<span style="color: var(--muted); margin-left: 8px">Lớp</span><span style="display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface)">Mọi lớp</span>
+<span style="color: var(--muted); margin-left: 8px">Loại bài</span><span style="display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface)">Task 1 và Task 2</span>
+<span style="color: var(--muted); margin-left: 8px">Phiên bản chấm</span><span style="display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface)">Hiện hành · từ XXX</span>
+<span style="flex-grow: 1"></span><span style="color: var(--muted)">Cập nhật 17/11, 10:42 · tính lại mỗi đêm</span>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 24px 36px; margin-top: 16px">
+<div style="flex: 999 1 600px; min-width: 0">
+<div style="display: flex; flex-wrap: wrap; gap: 0 24px; border-top: 2px solid var(--ink); border-bottom: 1px solid var(--ink)">
+<div style="flex: 1 1 150px; min-width: 0; padding: 10px 0"><p style="margin: 0; font-size: 13px; color: var(--muted)">Bài có cặp điểm</p><p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 28px; font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums">XXX</p><p style="margin: 0; font-size: 13px; color: var(--muted)">cần 50 để công bố</p></div>
+<div style="flex: 1 1 150px; min-width: 0; padding: 10px 0"><p style="margin: 0; font-size: 13px; color: var(--muted)">Lệch trung bình · band chung</p><p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 28px; font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums">XXX</p><p style="margin: 0; font-size: 13px; color: var(--muted)">band</p></div>
+<div style="flex: 1 1 150px; min-width: 0; padding: 10px 0"><p style="margin: 0; font-size: 13px; color: var(--muted)">Trong 0.5 band</p><p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 28px; font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums">XXX</p><p style="margin: 0; font-size: 13px; color: var(--muted)">phần trăm số bài</p></div>
+<div style="flex: 1 1 150px; min-width: 0; padding: 10px 0"><p style="margin: 0; font-size: 13px; color: var(--muted)">Lệch từ 1.0 band</p><p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 28px; font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums">XXX</p><p style="margin: 0; font-size: 13px; color: var(--muted)">bài cần xem lại</p></div>
+</div>
+<h2 style="margin: 22px 0 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; font-weight: 600">Theo tiêu chí</h2>
+<div role="table" aria-label="Độ lệch theo tiêu chí" style="border-top: 2px solid var(--ink); font-size: 15px">
+<div role="row" style="display: flex; gap: 6px 14px; padding: 8px 0; border-bottom: 1px solid var(--ink); font-size: 12.5px; letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600; color: var(--muted)"><span role="columnheader" style="flex: 999 1 200px; min-width: 0">Tiêu chí</span><span role="columnheader" style="flex: 1 1 60px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">Số bài</span><span role="columnheader" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">Lệch TB</span><span role="columnheader" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">Lệch có dấu</span><span role="columnheader" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">Trong 0.5</span><span role="columnheader" style="flex: 1 1 80px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">AI cao hơn</span><span role="columnheader" style="flex: 1 1 80px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">AI thấp hơn</span><span role="columnheader" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">Lệch từ 1.0</span></div>
+<div role="row" style="display: flex; gap: 6px 14px; padding: 8px 0; border-bottom: 1px solid var(--rule); "><span role="cell" style="flex: 999 1 200px; min-width: 0">Task Response / Task Achievement</span><span role="cell" style="flex: 1 1 60px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX%</span><span role="cell" style="flex: 1 1 80px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX%</span><span role="cell" style="flex: 1 1 80px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX%</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX bài</span></div>
+<div role="row" style="display: flex; gap: 6px 14px; padding: 8px 0; border-bottom: 1px solid var(--rule); "><span role="cell" style="flex: 999 1 200px; min-width: 0">Coherence and Cohesion</span><span role="cell" style="flex: 1 1 60px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX%</span><span role="cell" style="flex: 1 1 80px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX%</span><span role="cell" style="flex: 1 1 80px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX%</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX bài</span></div>
+<div role="row" style="display: flex; gap: 6px 14px; padding: 8px 0; border-bottom: 1px solid var(--rule); "><span role="cell" style="flex: 999 1 200px; min-width: 0">Lexical Resource</span><span role="cell" style="flex: 1 1 60px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX%</span><span role="cell" style="flex: 1 1 80px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX%</span><span role="cell" style="flex: 1 1 80px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX%</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX bài</span></div>
+<div role="row" style="display: flex; gap: 6px 14px; padding: 8px 0; border-bottom: 1px solid var(--rule); "><span role="cell" style="flex: 999 1 200px; min-width: 0">Grammatical Range and Accuracy</span><span role="cell" style="flex: 1 1 60px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX%</span><span role="cell" style="flex: 1 1 80px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX%</span><span role="cell" style="flex: 1 1 80px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX%</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX bài</span></div>
+<div role="row" style="display: flex; gap: 6px 14px; padding: 8px 0; border-bottom: 1px solid var(--ink); font-weight: 600"><span role="cell" style="flex: 999 1 200px; min-width: 0">Band chung của bài</span><span role="cell" style="flex: 1 1 60px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX%</span><span role="cell" style="flex: 1 1 80px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX%</span><span role="cell" style="flex: 1 1 80px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX%</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX bài</span></div>
+</div>
+<p style="margin: 6px 0 0; font-size: 13.5px; color: var(--muted)">Lệch TB = trung bình của |AI − giáo viên|. Lệch có dấu = trung bình của (AI − giáo viên): dương là AI cho cao hơn. Dòng dưới 30 bài ghi "chưa đủ bài" thay cho số.</p>
+<h2 style="margin: 22px 0 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; font-weight: 600">Theo tháng · lệch trung bình</h2>
+<div role="table" aria-label="Độ lệch theo tháng" style="border-top: 2px solid var(--ink); font-size: 15px">
+<div role="row" style="display: flex; gap: 6px 14px; padding: 8px 0; border-bottom: 1px solid var(--ink); font-size: 12.5px; letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600; color: var(--muted)"><span role="columnheader" style="flex: 999 1 120px; min-width: 0">Tháng</span><span role="columnheader" style="flex: 1 1 70px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">Số bài</span><span role="columnheader" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">Band chung</span><span role="columnheader" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">TR</span><span role="columnheader" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">CC</span><span role="columnheader" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">LR</span><span role="columnheader" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">GRA</span><span role="columnheader" style="flex: 1 1 150px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">Phiên bản chấm</span></div>
+<div role="row" style="display: flex; gap: 6px 14px; padding: 8px 0; border-bottom: 1px solid var(--rule); "><span role="cell" style="flex: 999 1 120px; min-width: 0">11/2026 (đến 17/11)</span><span role="cell" style="flex: 1 1 70px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 150px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span></div>
+<div role="row" style="display: flex; gap: 6px 14px; padding: 8px 0; border-bottom: 1px solid var(--rule); "><span role="cell" style="flex: 999 1 120px; min-width: 0">10/2026</span><span role="cell" style="flex: 1 1 70px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 150px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span></div>
+<div role="row" style="display: flex; gap: 6px 14px; padding: 8px 0; border-bottom: 1px solid var(--rule); "><span role="cell" style="flex: 999 1 120px; min-width: 0">09/2026</span><span role="cell" style="flex: 1 1 70px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 150px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span></div>
+<div role="row" style="display: flex; gap: 6px 14px; padding: 8px 0; border-bottom: 1px solid var(--rule); "><span role="cell" style="flex: 999 1 120px; min-width: 0">08/2026</span><span role="cell" style="flex: 1 1 70px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 90px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span><span role="cell" style="flex: 1 1 150px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">XXX</span></div>
+</div>
+<p style="margin: 6px 0 0; font-size: 13.5px; color: var(--muted)">Tháng dưới 10 bài hiện số bài, các ô lệch ghi "ít bài". Cột phiên bản chấm cho thấy tháng nào đổi mô hình hoặc prompt; số trước và sau ngày đổi không cộng chung.</p>
+<h2 style="margin: 22px 0 4px; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; font-weight: 600">Bài lệch nhiều nhất · để xem lại</h2>
+<p style="margin: 0 0 8px; font-size: 14px; color: var(--muted)">Sắp theo độ lệch band chung, rồi theo độ lệch của một tiêu chí. Bốn dòng dưới là dữ liệu mẫu để thấy khuôn. "Mở bài" sang đúng bài trong hàng chờ chấm Writing, mở sẵn hai cột điểm.</p>
+<div role="table" aria-label="Bài lệch nhiều nhất" style="border-top: 2px solid var(--ink); font-size: 15px">
+<div role="row" style="display: flex; gap: 6px 14px; padding: 8px 0; border-bottom: 1px solid var(--ink); font-size: 12.5px; letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600; color: var(--muted)"><span role="columnheader" style="flex: 999 1 190px; min-width: 0">Học viên</span><span role="columnheader" style="flex: 1 1 150px; min-width: 0">Bài</span><span role="columnheader" style="flex: 0 0 60px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">AI</span><span role="columnheader" style="flex: 0 0 60px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">Giáo viên</span><span role="columnheader" style="flex: 0 0 64px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">Lệch</span><span role="columnheader" style="flex: 1 1 190px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">Tiêu chí lệch nhất</span><span role="columnheader" style="flex: 0 0 110px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums"></span></div>
+<div role="row" style="display: flex; gap: 6px 14px; padding: 8px 0; border-bottom: 1px solid var(--rule); "><span role="cell" style="flex: 999 1 190px; min-width: 0"><strong>Phạm Gia Huy</strong><span style="display: block; font-size: 13.5px; color: var(--muted); font-weight: 400">Tue–Thu 19:30 · duyệt 12/11</span></span><span role="cell" style="flex: 1 1 150px; min-width: 0">Task 2 · Buổi 10</span><span role="cell" style="flex: 0 0 60px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">6.5</span><span role="cell" style="flex: 0 0 60px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">5.5</span><span role="cell" style="flex: 0 0 64px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums"><strong style="color: var(--mark)">+1.0</strong></span><span role="cell" style="flex: 1 1 190px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">Task Response · AI 6.5, giáo viên 5.0</span><span role="cell" style="flex: 0 0 110px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums"><a href="AdminChamWriting.dc.html">Mở bài</a></span></div>
+<div role="row" style="display: flex; gap: 6px 14px; padding: 8px 0; border-bottom: 1px solid var(--rule); "><span role="cell" style="flex: 999 1 190px; min-width: 0"><strong>Trần Bảo Ngọc</strong><span style="display: block; font-size: 13.5px; color: var(--muted); font-weight: 400">Tue–Thu 19:30 · duyệt 12/11</span></span><span role="cell" style="flex: 1 1 150px; min-width: 0">Task 1 · Buổi 9</span><span role="cell" style="flex: 0 0 60px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">5.5</span><span role="cell" style="flex: 0 0 60px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">6.5</span><span role="cell" style="flex: 0 0 64px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums"><strong style="color: var(--mark)">−1.0</strong></span><span role="cell" style="flex: 1 1 190px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">Coherence and Cohesion · AI 5.0, giáo viên 6.5</span><span role="cell" style="flex: 0 0 110px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums"><a href="AdminChamWriting.dc.html">Mở bài</a></span></div>
+<div role="row" style="display: flex; gap: 6px 14px; padding: 8px 0; border-bottom: 1px solid var(--rule); "><span role="cell" style="flex: 999 1 190px; min-width: 0"><strong>Lê Quang Minh</strong><span style="display: block; font-size: 13.5px; color: var(--muted); font-weight: 400">Mon–Wed 18:00 · duyệt 09/11</span></span><span role="cell" style="flex: 1 1 150px; min-width: 0">Task 2 · Buổi 13</span><span role="cell" style="flex: 0 0 60px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">6.5</span><span role="cell" style="flex: 0 0 60px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">6.0</span><span role="cell" style="flex: 0 0 64px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums"><strong style="color: var(--mark)">+0.5</strong></span><span role="cell" style="flex: 1 1 190px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">Task Response · AI 7.0, giáo viên 6.0</span><span role="cell" style="flex: 0 0 110px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums"><span style="color: var(--muted)">Đã xem lại</span></span></div>
+<div role="row" style="display: flex; gap: 6px 14px; padding: 8px 0; border-bottom: 1px solid var(--rule); "><span role="cell" style="flex: 999 1 190px; min-width: 0"><strong>Hoàng Mai Chi</strong><span style="display: block; font-size: 13.5px; color: var(--muted); font-weight: 400">Mon–Wed 18:00 · duyệt 04/11</span></span><span role="cell" style="flex: 1 1 150px; min-width: 0">Task 2 · Buổi 12</span><span role="cell" style="flex: 0 0 60px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">6.0</span><span role="cell" style="flex: 0 0 60px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">6.5</span><span role="cell" style="flex: 0 0 64px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums"><strong style="color: var(--mark)">−0.5</strong></span><span role="cell" style="flex: 1 1 190px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums">Lexical Resource · AI 5.5, giáo viên 6.5</span><span role="cell" style="flex: 0 0 110px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums"><a href="AdminChamWriting.dc.html">Mở bài</a></span></div>
+</div>
+<p style="margin: 10px 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; font-size: 14.5px"><a href="AdminChamWriting.dc.html" style="font-weight: 600">Xem cả XXX bài lệch từ 0.5 band</a><a href="AdminChamLai.dc.html">Yêu cầu chấm lại liên quan (2)</a><a href="#m1">Xuất CSV</a></p>
+</div>
+<aside style="flex: 1 1 320px; min-width: 0; max-width: 380px">
+<section aria-labelledby="h-pub" style="padding: 16px 18px 18px; border: 1px solid var(--ink); background: var(--surface)">
+<h2 id="h-pub" style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Trang công khai</h2>
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
+<p style="margin: 0; font-weight: 600">Công bố trang "Chúng tôi chấm bài thế nào"</p><span role="switch" aria-checked="false" aria-disabled="true" style="flex: none; display: inline-flex; align-items: center; width: 46px; height: 26px; box-sizing: border-box; border: 1.5px solid var(--muted); border-radius: 2px; background: var(--surface)"><span style="width: 18px; height: 18px; margin-left: 2px; background: var(--muted)"></span></span>
+</div>
+<p style="margin: 6px 0 10px; font-size: 14px; color: var(--muted)">Đang tắt. Công tắc chỉ bật được khi đủ bốn điều kiện dưới đây.</p>
+<ul style="margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--ink); font-size: 15px">
+<li style="display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--rule)"><span style="min-width: 0">Từ 50 bài có cặp điểm trong kỳ đo<span style="display: block; font-size: 13.5px; color: var(--muted)">Hiện có XXX bài</span></span><span style="flex: none; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--muted)">chưa có số</span></li>
+<li style="display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--rule)"><span style="min-width: 0">Lệch trung bình band chung không quá 0.5<span style="display: block; font-size: 13.5px; color: var(--muted)">Hiện XXX band</span></span><span style="flex: none; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--muted)">chưa có số</span></li>
+<li style="display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--rule)"><span style="min-width: 0">Đã xem lại mọi bài lệch từ 1.0 band<span style="display: block; font-size: 13.5px; color: var(--muted)">Còn 2 bài chưa xem lại</span></span><span style="flex: none; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--mark)">chưa đạt</span></li>
+<li style="display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--rule)"><span style="min-width: 0">Đã viết phần "Điều AI chấm kém"<span style="display: block; font-size: 13.5px; color: var(--muted)">Chưa có bản nháp</span></span><span style="flex: none; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--mark)">chưa đạt</span></li>
+</ul>
+<p style="margin: 10px 0 0; font-size: 14px"><span style="display: inline-block; padding: 1px 7px; border: 1px solid var(--mark); border-radius: 2px; color: var(--mark); font: 600 12px 'Source Sans 3', sans-serif; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap">Chờ chủ dự án quyết</span> <span style="color: var(--muted)">Ngưỡng 50 bài và 0.5 band là đề xuất; sửa ở Cài đặt › Ngưỡng vận hành.</span></p>
+<p style="margin: 12px 0 0; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center"><a href="DoLechAIGiaoVien.dc.html" style="display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; border: 1px solid var(--ink); background: var(--surface); color: var(--ink); font-weight: 600; text-decoration: none; border-radius: 2px">Xem trước trang công khai</a><a href="AdminCaiDat.dc.html#m6" style="font-size: 14px">Ngưỡng vận hành</a></p>
+</section>
+<section style="margin-top: 16px; padding: 14px 18px 16px; border: 1px solid var(--rule); background: var(--surface)">
+<h2 style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Mẫu chấm mù <span style="display: inline-block; padding: 1px 7px; border: 1px solid var(--ink); border-radius: 2px; color: var(--ink); font: 600 12px 'Source Sans 3', sans-serif; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap">Đề xuất</span></h2>
+<p style="margin: 0; font-size: 14.5px">Mỗi tháng XXX bài, giáo viên cho điểm trước khi thấy điểm AI. Số đo trên mẫu này không bị điểm AI kéo theo, dùng để kiểm con số chính. Trong hàng chờ, các bài này ẩn điểm AI cho tới khi giáo viên nhập điểm.</p>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)">Chưa bật. Lệch trên mẫu mù: chưa có số.</p>
+</section>
+</aside>
+</div>
+</main>
+</div>
+</div>
+
+</div>
+</section>
+<section id="m2" aria-labelledby="h-m2" style="border-top: 2px solid var(--ink)">
+<div style="max-width: 1376px; margin: 0 auto; padding: 16px 32px 27px">
+<h2 id="h-m2" style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">2 · Khối công bố và các trạng thái khác</h2>
+<p style="margin: 4px 0 18px; font-size: 14px; color: var(--muted); max-width: 110ch">Ba trạng thái của khối bên phải, rồi ba mảnh nhỏ: chưa có cặp điểm, đang công bố, dòng cảnh báo ở Việc cần làm.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 20px 28px">
+<div style="flex: 1 1 380px; min-width: 0">
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted); min-height: 38px">Độ lệch xấu · đủ bài nhưng vượt ngưỡng. Cảnh báo thay phần đầu khối, công tắc khoá.</p>
+<div role="alert" style="padding: 16px 18px 18px; border: 1px solid var(--mark); border-left-width: 8px; background: color-mix(in srgb, var(--mark) 7%, var(--surface))">
+<p style="margin: 0 0 6px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--mark)">Chưa nên công bố · sửa chấm trước</p>
+<p style="margin: 0; font-size: 15px">Lệch trung bình band chung đang là XXX band, vượt ngưỡng 0.5. Công bố lúc này là đưa ra một con số mà chính mình chưa tin.</p>
+<ol style="margin: 10px 0 0; padding-left: 20px; font-size: 15px; display: flex; flex-direction: column; gap: 4px">
+<li>Xem lại các bài lệch từ 1.0 band, ghi kiểu sai chung.</li>
+<li>Sửa hướng dẫn chấm ở <a href="AdminHeThong.dc.html">AI và mô hình</a>.</li>
+<li>Chấm lại bằng AI trên các bài đã có điểm giáo viên, đo lại.</li>
+<li>Đạt ngưỡng thì kỳ đo mới bắt đầu từ ngày đổi.</li>
+</ol>
+<p style="margin: 12px 0 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 10px; border-top: 1px solid var(--mark)"><span style="font-weight: 600">Công bố trang</span><span role="switch" aria-checked="false" aria-disabled="true" style="flex: none; display: inline-flex; align-items: center; width: 46px; height: 26px; box-sizing: border-box; border: 1.5px solid var(--muted); border-radius: 2px; background: var(--surface)"><span style="width: 18px; height: 18px; margin-left: 2px; background: var(--muted)"></span></span></p>
+</div>
+</div>
+<div style="flex: 1 1 380px; min-width: 0">
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted); min-height: 38px">Đủ điều kiện · công tắc bật được. Bật thì mở hộp xác nhận (bên phải).</p>
+<div style="padding: 16px 18px 18px; border: 1px solid var(--ink); background: var(--surface)">
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">Trang công khai</p>
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px"><p style="margin: 0; font-weight: 600">Công bố trang "Chúng tôi chấm bài thế nào"</p><span role="switch" aria-checked="false" style="flex: none; display: inline-flex; align-items: center; width: 46px; height: 26px; box-sizing: border-box; border: 1.5px solid var(--ink); border-radius: 2px; background: var(--surface)"><span style="width: 18px; height: 18px; margin-left: 2px; background: var(--ink)"></span></span></div>
+<p style="margin: 6px 0 10px; font-size: 14px; color: var(--muted)">Đang tắt. Đủ bốn điều kiện từ XXX.</p>
+<ul style="margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--ink); font-size: 15px">
+<li style="display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--rule)"><span style="min-width: 0">Từ 50 bài có cặp điểm trong kỳ đo<span style="display: block; font-size: 13.5px; color: var(--muted)">XXX bài</span></span><span style="flex: none; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--ink)">đạt</span></li>
+<li style="display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--rule)"><span style="min-width: 0">Lệch trung bình band chung không quá 0.5<span style="display: block; font-size: 13.5px; color: var(--muted)">XXX band</span></span><span style="flex: none; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--ink)">đạt</span></li>
+<li style="display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--rule)"><span style="min-width: 0">Đã xem lại mọi bài lệch từ 1.0 band<span style="display: block; font-size: 13.5px; color: var(--muted)">XXX trên XXX bài</span></span><span style="flex: none; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--ink)">đạt</span></li>
+<li style="display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--rule)"><span style="min-width: 0">Đã viết phần "Điều AI chấm kém"<span style="display: block; font-size: 13.5px; color: var(--muted)">Sửa lần cuối XXX</span></span><span style="flex: none; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--ink)">đạt</span></li>
+</ul>
+</div>
+</div>
+<div style="flex: 1 1 380px; min-width: 0">
+<p style="margin: 0 0 8px; font-size: 13px; color: var(--muted); min-height: 38px">Hộp xác nhận khi bật · nói rõ ảnh hưởng</p>
+<div role="dialog" aria-label="Xác nhận công bố" style="padding: 18px 20px 20px; border: 2px solid var(--ink); background: var(--surface)">
+<p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; font-weight: 600; line-height: 1.25">Công bố độ lệch AI–giáo viên?</p>
+<ul style="margin: 10px 0 0; padding-left: 20px; font-size: 15px; display: flex; flex-direction: column; gap: 4px">
+<li>Trang "Chúng tôi chấm bài thế nào" mở cho mọi người, không cần đăng nhập.</li>
+<li>Mọi phiếu Writing do AI chấm trả ngay có thêm dòng "AI lệch trung bình XXX band".</li>
+<li>Số tự cập nhật mỗi tháng. Số xấu đi thì trang vẫn hiện số mới; bạn nhận cảnh báo ở Việc cần làm.</li>
+</ul>
+<p style="margin: 14px 0 0; display: flex; flex-wrap: wrap; gap: 10px 14px"><a href="#m2" style="display: inline-flex; align-items: center; min-height: 40px; padding: 0 22px; background: var(--accent); color: var(--on-accent); font-weight: 600; text-decoration: none; border-radius: 2px">Công bố</a><a href="#m2" style="display: inline-flex; align-items: center; min-height: 40px; padding: 0 22px; border: 1px solid var(--ink); background: var(--surface); color: var(--ink); font-weight: 600; text-decoration: none; border-radius: 2px">Huỷ</a></p>
+</div>
+<p style="margin: 10px 0 0; font-size: 14px"><span style="display: inline-block; padding: 1px 7px; border: 1px solid var(--mark); border-radius: 2px; color: var(--mark); font: 600 12px 'Source Sans 3', sans-serif; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap">Chờ chủ dự án quyết</span> <span style="color: var(--muted)">Sau khi đã công bố mà độ lệch vượt ngưỡng: tờ vẽ "vẫn hiện số mới, admin tự quyết tắt"; phương án khác là tự tạm ẩn. Tự ẩn khi số xấu thì trang mất ý nghĩa trung thực.</span></p>
+</div>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 14px 40px; margin-top: 18px; font-size: 14.5px">
+<div style="flex: 1 1 400px; min-width: 0; padding: 14px 16px; border: 1px solid var(--ink); background: var(--paper)">
+<p style="margin: 0 0 4px; font-size: 13px; color: var(--muted)">Chưa có bài nào có cặp điểm · thay cả phần bảng</p>
+<p style="margin: 0; font-weight: 600">Chưa có cặp điểm nào</p>
+<p style="margin: 4px 0 0">Cặp điểm được ghi từ lúc bật lưu điểm AI gốc (XXX). Bài giáo viên đã duyệt trước ngày đó không tính được vì điểm AI gốc không còn.</p>
+</div>
+<div style="flex: 1 1 400px; min-width: 0; padding: 14px 16px; border: 1px solid var(--ink); background: var(--paper)">
+<p style="margin: 0 0 4px; font-size: 13px; color: var(--muted)">Đang công bố · dòng đầu khối</p>
+<p style="margin: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px"><span style="font-weight: 600">Đang công bố từ XXX</span><span role="switch" aria-checked="true" style="flex: none; display: inline-flex; align-items: center; width: 46px; height: 26px; box-sizing: border-box; border: 1.5px solid var(--ink); border-radius: 2px; background: var(--accent)"><span style="width: 18px; height: 18px; margin-left: 22px; background: var(--surface)"></span></span></p>
+<p style="margin: 4px 0 0">Số trên trang công khai: lệch trung bình XXX band · XXX bài · cập nhật XXX. <a href="DoLechAIGiaoVien.dc.html">Mở trang</a></p>
+</div>
+<div style="flex: 1 1 400px; min-width: 0; padding: 14px 16px; border: 1px solid var(--ink); background: var(--paper)">
+<p style="margin: 0 0 4px; font-size: 13px; color: var(--muted)">Dòng ở Việc cần làm khi vượt ngưỡng</p>
+<p style="margin: 0; font-weight: 600; color: var(--mark)">Độ lệch AI–giáo viên vượt ngưỡng</p>
+<p style="margin: 4px 0 0">Band chung lệch XXX band trong 30 ngày qua. <a href="#m1">Xem bài lệch nhiều nhất</a></p>
+</div>
+</div>
+
+</div>
+</section>
+<section id="notes" aria-labelledby="h-notes" style="border-top: 2px solid var(--ink)">
+<div style="max-width: 1376px; margin: 0 auto; padding: 16px 32px 30px">
+<h2 id="h-notes" style="margin: 0 0 10px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">Ghi chú cho lập trình</h2>
+<div style="columns: 2; column-gap: 44px; font-size: 14px; line-height: 1.5">
+<p style="margin: 0 0 9px; break-inside: avoid"><strong>Vị trí.</strong> Một thẻ thứ ba của trang Chấm bài › Writing (AdminChamWriting), cạnh "Chờ duyệt" và "Đã trả"; không thêm mục vào sidebar chuẩn. Người dùng: quản trị và giáo viên (giáo viên chỉ thấy lớp của mình, không thấy công tắc công bố). Khung, sidebar, dữ liệu mẫu theo CHUAN-ADMIN.</p>
+<p style="margin: 0 0 9px; break-inside: avoid"><strong>Đã có [NGAY].</strong> Hàng chờ duyệt Writing và trạng thái duyệt (<code>instructor_reviews</code>); band AI theo bốn tiêu chí; <code>prompt_version</code> trên phiếu; yêu cầu chấm lại; bảng ngưỡng ở Cài đặt › Ngưỡng vận hành; Việc cần làm. Bài viết của thi thử không cho cặp điểm dùng được (bản AI bị ghi lại từ bản đã sửa, chỉ có band chung); cặp điểm chỉ tính từ bài tập Writing của lớp (GOI-12 phần C).</p>
+<p style="margin: 0 0 9px; break-inside: avoid"><strong>Phải thêm [THÊM].</strong> (1) Lưu điểm AI gốc (bốn tiêu chí, band chung, phiên bản chấm) tách khỏi điểm giáo viên chốt; đây là việc phải làm trước mọi thứ khác và nên bật ngay ở chặng 1 ("chỉ ghi, chưa công bố"). (2) Tác vụ tính lại mỗi đêm và bảng tổng hợp theo kỳ, tháng, tiêu chí, lớp, Task, phiên bản chấm. (3) Cờ "đã xem lại" cho bài lệch từ 1.0 band. (4) Công tắc công bố, bốn điều kiện, nhật ký bật/tắt. (5) Ô soạn phần chữ "Điều AI chấm kém". (6) Hai ngưỡng mới trong bảng Ngưỡng vận hành. (7) Cảnh báo ở Việc cần làm. (8) Mẫu chấm mù (đề xuất): ẩn điểm AI trong hàng chờ cho một phần bài.</p>
+<p style="margin: 0 0 9px; break-inside: avoid"><strong>Chỉ số.</strong> Độ lệch theo tiêu chí và theo tháng (trang này); số bài lệch từ 1.0 band còn chưa xem lại; sau mỗi lần sửa hướng dẫn chấm, độ lệch trên cùng tập bài có giảm không. Nếu có mẫu chấm mù: chênh giữa độ lệch thường và độ lệch mù cho biết mức giáo viên bị neo theo AI.</p>
+<p style="margin: 0 0 9px; break-inside: avoid"><strong>Rủi ro.</strong> Ghi đè điểm AI khi giáo viên sửa thì mất dữ liệu vĩnh viễn: ưu tiên số 1. Trộn số của nhiều phiên bản chấm: tách theo phiên bản. Số đẹp vì giáo viên giữ nguyên điểm AI cho nhanh: theo dõi tỉ lệ "bằng nhau" và thời gian duyệt mỗi bài. Tối ưu AI cho khớp một giáo viên: nói rõ trên trang công khai rằng đây là một người chấm.</p>
+<p style="margin: 0 0 9px; break-inside: avoid"><strong>Chờ chủ dự án quyết.</strong> Ngưỡng công bố (50 bài; lệch trung bình không quá 0.5 band) · đã công bố mà số xấu đi thì vẫn hiện hay tự tạm ẩn (đang vẽ: vẫn hiện) · có làm mẫu chấm mù không, bao nhiêu bài mỗi tháng · giáo viên có xem được thẻ này không (đang vẽ: có, chỉ lớp mình) · vị trí là thẻ của Writing hay một mục riêng trong Báo cáo.</p>
+<p style="margin: 0 0 9px; break-inside: avoid"><strong>Liên kết.</strong> AdminChamWriting.dc.html (hàng chờ; "Mở bài" mở đúng bài với hai cột điểm) · AdminChamLai.dc.html · AdminHeThong.dc.html (AI và mô hình) · AdminCaiDat.dc.html#m6 · AdminViecCanLam.dc.html · trang công khai DoLechAIGiaoVien.dc.html. Số tổng hợp là XXX; bốn dòng "bài lệch nhiều nhất" là dữ liệu mẫu theo bộ học viên chuẩn. Tờ admin không có khung điện thoại, như các tờ admin khác.</p>
+</div>
+</div>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Xanh teal","Navy + đỏ mận"],"default":"Navy + đỏ mận"},"$preview":{"width":1440,"height":3300}}'>
+class Component extends DCLogic {
+renderVals() {
+const open = this.state.open || { cb: true };
+const NAV = (cur, open) => [
+['tq', 'Tổng quan', [['Việc cần làm', 'AdminViecCanLam.dc.html', '']]],
+['hv', 'Học viên và quyền truy cập', [['Học viên', 'AdminDanhBa.dc.html', ''], ['Lớp', 'AdminLop.dc.html', ''], ['Giáo viên', 'AdminGiaoVienThongBao.dc.html', ''], ['Mã kích hoạt', 'AdminLuotVaMa.dc.html#s2', ''], ['Gửi thông báo', 'AdminGiaoVienThongBao.dc.html#m2', ''], ['Khảo sát và nhận xét', 'AdminKhaoSat.dc.html', '4']]],
+['kh', 'Khoá học và đăng ký', [['Khoá học', 'AdminKhoaHoc.dc.html', ''], ['Đơn đăng ký', 'AdminDonDangKy.dc.html', '2'], ['Lượt AI', 'AdminLuotVaMa.dc.html', '']]],
+['cb', 'Chấm bài', [['Writing', 'AdminChamWriting.dc.html', '3'], ['Speaking', 'AdminChamSpeakingThiThu.dc.html', '2'], ['Yêu cầu chấm lại', 'AdminChamLai.dc.html', '2']]],
+['nd', 'Nội dung', [['Listening', 'AdminNoiDung.dc.html', ''], ['Reading', 'AdminNoiDung.dc.html', ''], ['Writing', 'AdminNoiDungVietNoi.dc.html', ''], ['Speaking', 'AdminNoiDungVietNoi.dc.html#m5', ''], ['Từ vựng', 'AdminNoiDungTuVungNguPhap.dc.html', ''], ['Ngữ pháp', 'AdminNoiDungTuVungNguPhap.dc.html#m6', ''], ['Thư viện công khai', 'AdminThuVienCongKhai.dc.html', '']]],
+['tt', 'Thi thử', [['Kỳ thi', 'AdminKyThi.dc.html', '']]],
+['bc', 'Báo cáo', [['Hoạt động học viên', 'AdminBaoCao.dc.html#m1', ''], ['Lưu lượng', 'AdminBaoCao.dc.html#m2', ''], ['Chi phí AI', 'AdminBaoCao.dc.html#m3', ''], ['Chất lượng nội dung', 'AdminBaoCao.dc.html#m4', '']]],
+['ht', 'Hệ thống', [['Hộp thư sự cố', 'AdminSuCo.dc.html', '12'], ['AI và mô hình', 'AdminHeThong.dc.html', ''], ['Bảo mật', 'AdminHeThong.dc.html#m2', ''], ['Công cụ QA', 'AdminHeThong.dc.html#m3', ''], ['Cài đặt', 'AdminCaiDat.dc.html', '']]]
+].map(([id, name, rows]) => {
+const items = rows.map(([label, href, count]) => { const c = cur === id + '/' + label; return { label, href, count, current: c ? 'page' : 'false', bar: c ? 'var(--accent)' : 'transparent', bg: c ? 'var(--tint)' : 'transparent', weight: c ? 600 : 400 }; });
+const ex = !!open[id];
+const hasCur = items.some((x) => x.current === 'page');
+const badge = items.reduce((n, x) => n + (Number(x.count) || 0), 0);
+return { id, name, items, exp: ex ? 'true' : 'false', show: ex, chev: ex ? 'M6 9l6 6 6-6' : 'M9 6l6 6-6 6', badgeShow: !ex && badge ? String(badge) : '', headColor: hasCur ? 'var(--ink)' : 'var(--muted)', toggle: () => this.setState({ open: Object.assign({}, open, { [id]: !open[id] }) }) };
+});
+return {
+pal: (this.props.palette ?? 'Navy + đỏ mận') === 'Xanh teal' ? 'pal-teal' : 'pal-navy',
+nav: NAV('cb/Writing', open)
+};
+}
+}
+</script>
+</body>
+</html>

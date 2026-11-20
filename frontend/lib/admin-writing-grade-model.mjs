@@ -10,7 +10,7 @@ export const ADMIN_GRADE_SECTIONS = [
   { key: 'idea-development', tab: 'nangcao', title: '💡 Idea Development', rows: 12 },
   { key: 'counterargument', tab: 'nangcao', title: '⚖ Counterargument', rows: 10 },
   { key: 'improved', tab: 'baimau', title: '✨ Bài cải thiện', rows: 20, string: true },
-  { key: 'ai-content', tab: 'baimau', title: '🤖 AI check', rows: 6 },
+  { key: 'ai-content', tab: 'baimau', title: '🤖 AI check', rows: 6, hint: 'Có thể xóa toàn bộ nội dung mục này và lưu bản nháp. Nếu để trống, mục này sẽ không hiển thị với học viên.' },
   { key: 'key-takeaways', tab: 'baimau', title: '🎓 Key takeaways', rows: 8 },
 ];
 

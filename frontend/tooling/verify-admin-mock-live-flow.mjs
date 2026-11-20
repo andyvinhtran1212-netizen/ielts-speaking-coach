@@ -241,6 +241,17 @@ const invalidCallsBefore = requests.filter((item) => item.path === '/admin/mock-
 await page.goto(`${BASE}/admin/mock-live?exam_id=invalid`, { waitUntil: 'domcontentloaded' });
 await page.getByText(/Kỳ thi trong URL chưa publish/).waitFor();
 check('invalid deep-link fail-closed, không âm thầm fallback sang lớp khác', requests.filter((item) => item.path === '/admin/mock-exams/invalid/live').length === invalidCallsBefore && await page.locator('.mlv-identity').count() === 0);
+// G02-T12: exam_id is optional on the live room; a bare URL keeps the exam picker.
+await page.goto(`${BASE}/admin/mock-live`, { waitUntil: 'domcontentloaded' });
+await page.getByRole('option', { name: 'Chọn kỳ thi' }).waitFor({ state: 'attached' });
+check('mock-live không có exam_id vẫn ở lại và hiện ô chọn kỳ thi', new URL(page.url()).pathname === '/admin/mock-live', page.url());
+
+// G02-T12: pacing without a sitting goes back to the live tab with one plain line.
+await page.goto(`${BASE}/admin/mock-pacing`, { waitUntil: 'domcontentloaded' });
+await page.waitForURL((url) => url.pathname === '/admin/mock-tests');
+await page.getByRole('status').filter({ hasText: 'Liên kết bạn vừa mở chưa đủ thông tin nên bạn được đưa về trung tâm Mock Test.' }).waitFor();
+check('pacing thiếu sitting về tab phòng thi kèm một dòng giải thích', new URL(page.url()).search === '?tab=live', page.url());
+
 check('không có lỗi JavaScript', errors.length === 0, errors.join(' | '));
 
 await browser.close();

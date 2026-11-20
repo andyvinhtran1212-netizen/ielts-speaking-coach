@@ -138,6 +138,7 @@ Nhấn mạnh vào kết quả — vật được làm (không đề cập ai l�
 - He **had** his laptop **repaired** at the shop.
 
 > **Phân biệt:**
+>
 > - **have sb do sth** = nhờ người cụ thể làm
 > - **have sth done** = để vật được làm (không quan tâm ai làm)
 
@@ -167,6 +168,7 @@ Subject + get + Object (bên nhận hành động) + past participle
 - He **got** his phone **replaced** under warranty.
 
 > **Have vs Get + sth done:**
+>
 > - Cả hai đều diễn đạt "để vật được làm"
 > - **have** = trung tính, cả formal và informal
 > - **get** = informal hơn, thường trong spoken English
@@ -188,6 +190,7 @@ Nghĩa mạnh hơn: **bắt buộc, không có lựa chọn**.
 - The law **makes** drivers **wear** seat belts.
 
 > **Lưu ý:** Trong passive voice, "make" dùng **to-infinitive**:
+>
 > - Active: She **made** him **apologise**.
 > - Passive: He **was made to apologise** (by her).
 
@@ -208,6 +211,7 @@ Cho phép ai làm gì — không ngăn cản.
 - Parents should **let** children **make** their own decisions.
 
 > **let vs allow:**
+>
 > - **let + bare inf:** Let me know. (informal)
 > - **allow + O + to-inf:** They allowed me to leave.
 > - **allow bị động + to-inf:** I was allowed to leave. (formal)

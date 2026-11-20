@@ -201,6 +201,7 @@ Khi viết IELTS, tránh lặp lại "because / because of" — thay bằng các
 | **given that** | **Given that** resources are limited, priorities must be set. |
 
 > **Lưu ý mức độ trang trọng:**
+>
 > - **since / as** — trung tính, thường gặp trong writing học thuật
 > - **due to** — rất trang trọng, phổ biến trong writing
 > - **on account of** — rất trang trọng, ít dùng hơn

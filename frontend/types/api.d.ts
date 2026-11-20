@@ -6477,6 +6477,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/vocabulary/curated-availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Get Curated Availability */
+        get: operations["admin_get_curated_availability_admin_vocabulary_curated_availability_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/vocabulary/pilot-metrics": {
         parameters: {
             query?: never;
@@ -10645,6 +10662,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/quiz/course/writing/revise": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revise Course Writing
+         * @description Kho viết câu Course 5: gửi lượt TỰ VIẾT LẠI (tối đa 6 câu, một lần).
+         *
+         *     Không đổi điểm của lượt nộp; chấm chế độ review và mở đáp án tham khảo.
+         */
+        post: operations["revise_course_writing_api_quiz_course_writing_revise_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/quiz/course/writing/draft": {
         parameters: {
             query?: never;
@@ -13623,6 +13662,22 @@ export interface components {
             scoring_policy: "diagnostic" | "report_only";
             /** Score */
             score: number | null;
+            /**
+             * Max Score
+             * @default 0
+             */
+            max_score: number;
+            /**
+             * Score Mode
+             * @default scored
+             * @enum {string}
+             */
+            score_mode: "scored" | "mixed" | "self_check_only";
+            /**
+             * Self Check Count
+             * @default 0
+             */
+            self_check_count: number;
             /** Total Questions */
             total_questions: number | null;
             /** Accuracy */
@@ -13666,6 +13721,22 @@ export interface components {
             scoring_policy: "diagnostic" | "report_only";
             /** Score */
             score: number | null;
+            /**
+             * Max Score
+             * @default 0
+             */
+            max_score: number;
+            /**
+             * Score Mode
+             * @default scored
+             * @enum {string}
+             */
+            score_mode: "scored" | "mixed" | "self_check_only";
+            /**
+             * Self Check Count
+             * @default 0
+             */
+            self_check_count: number;
             /** Total Questions */
             total_questions: number | null;
             /** Accuracy */
@@ -16324,6 +16395,11 @@ export interface components {
             topic: string;
             /** Bullets */
             bullets?: string[];
+        };
+        /** CuratedAvailability */
+        CuratedAvailability: {
+            /** Available */
+            available: boolean;
         };
         /** CuratedCohortRequest */
         CuratedCohortRequest: {
@@ -34968,6 +35044,37 @@ export interface operations {
             };
         };
     };
+    admin_get_curated_availability_admin_vocabulary_curated_availability_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CuratedAvailability"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     admin_get_vocab_pilot_metrics_admin_vocabulary_pilot_metrics_get: {
         parameters: {
             query?: {
@@ -42226,6 +42333,41 @@ export interface operations {
         };
     };
     submit_course_writing_api_quiz_course_writing_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseWritingBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revise_course_writing_api_quiz_course_writing_revise_post: {
         parameters: {
             query?: never;
             header?: {

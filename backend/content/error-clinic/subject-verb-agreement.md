@@ -125,6 +125,7 @@ Khi có cụm giới từ (prepositional phrase) nằm giữa chủ ngữ và đ
 - Problems **with the new system** **were** reported.
 
 > **Lưu ý "the number of" vs "a number of":**
+>
 > - **The number of** + plural noun → động từ **số ít** (the number IS)
 > - **A number of** + plural noun → động từ **số nhiều** (a number of students ARE)
 

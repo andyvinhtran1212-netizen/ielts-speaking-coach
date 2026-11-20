@@ -45,6 +45,7 @@ def test_service_passes_create_only_copy_command_to_one_atomic_rpc(monkeypatch):
 
 def test_cached_package_source_returns_actionable_bad_request(monkeypatch):
     identity_reads = []
+    scoring_reads = []
 
     class IdentityRead:
         def select(self, columns):
@@ -65,9 +66,44 @@ def test_cached_package_source_returns_actionable_bad_request(monkeypatch):
                 "id": "package-form", "programme_id": "ielts", "metadata": {},
             }]})()
 
+    class ScoringRead:
+        def __init__(self, name):
+            self.name = name
+
+        def select(self, columns):
+            assert columns == {"listening_content": "id,test_id",
+                               "listening_exercises": "id,content_id,payload"}[self.name]
+            return self
+
+        def in_(self, column, values):
+            assert (column, values) == {
+                "listening_content": ("test_id", ["package-form"]),
+                "listening_exercises": ("content_id", ["content-1"]),
+            }[self.name]
+            return self
+
+        def order(self, column):
+            assert column == "id"
+            return self
+
+        def range(self, start, end):
+            assert (start, end) == (0, 499)
+            return self
+
+        def execute(self):
+            scoring_reads.append(self.name)
+            rows = {
+                "listening_content": [{"id": "content-1", "test_id": "package-form"}],
+                "listening_exercises": [{"id": "exercise-1", "content_id": "content-1",
+                    "payload": {"answers": [{"q_num": 1, "answer": "blue"}]}}],
+            }
+            return type("Response", (), {"data": rows[self.name]})()
+
     def table(name):
-        assert name == "listening_tests"
-        return IdentityRead()
+        if name == "listening_tests":
+            return IdentityRead()
+        assert name in {"listening_content", "listening_exercises"}
+        return ScoringRead(name)
 
     class Result:
         def execute(self):
@@ -81,3 +117,4 @@ def test_cached_package_source_returns_actionable_bad_request(monkeypatch):
         mock_exam_service.admin_create_exam({"code": "C1", "title": "Class mock",
             "listening_test_id": "package-form", "private_content_copy": True}, "admin-1")
     assert identity_reads == ["package-form"]
+    assert scoring_reads == ["listening_content", "listening_exercises"]

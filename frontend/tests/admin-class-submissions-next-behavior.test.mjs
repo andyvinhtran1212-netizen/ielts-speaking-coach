@@ -350,3 +350,15 @@ describe('admin class submissions integration contracts', () => {
     assert.doesNotMatch(UI, /dangerouslySetInnerHTML|\.innerHTML|window\.confirm|alert\(/);
   });
 });
+
+
+test('teacher tally keeps self-check and mixed labels separate from below-table scores', async () => {
+  const { listeningSubmissionLabel } = await import('../lib/admin-class-submissions-model.mjs');
+  for (const [score_mode, expected] of [['self_check_only', 'Đã nộp · tự đối chiếu'], ['mixed', 'Đã nộp · Không quy đổi band · tự đối chiếu']]) {
+    const tally = normalizeTally({ assignment: { id: 'a1', title: 'Listening', skill: 'listening' },
+      students: [{ student_id: 's1', status: 'submitted', score: null, score_mode, max_score: 0, self_check_count: 2 }], counts: {} });
+    assert.equal(listeningSubmissionLabel(tally.students[0], 'Đã nộp'), expected);
+    assert.equal(tally.students[0].score, null);
+  }
+  assert.equal(listeningSubmissionLabel({ status: 'submitted', score_mode: 'scored' }, 'Đã nộp'), 'Đã nộp');
+});

@@ -123,6 +123,15 @@ await page.route('**/*', async (route) => {
             prompt: 'Synthetic listening question', solution: { why_correct: 'Đây là lời giải tham khảo.' } }] }),
       });
     }
+    if (id === 'full-paper') {
+      return route.fulfill({ status: 200, contentType: 'application/json', headers: cors,
+        body: JSON.stringify({ ...baseReview, attempt_id: id, score: 23, max_score: 40, band_estimate: 5.5,
+          review: Array.from({ length: 40 }, (_, index) => ({
+            ...baseReview.review[1], q_num: index + 1, correct: index < 23,
+            user_answer: index < 23 ? 'A' : 'B',
+          })) }),
+      });
+    }
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(baseReview), headers: cors });
   }
   if (request.method() === 'GET' && url.pathname === `/admin/listening/tests/${ADMIN_TEST_ID}/preview`) {
@@ -149,8 +158,8 @@ check('reads the canonical attempt once and preserves the mini-test return',
     && await page.getByRole('link', { name: '← Mini tests' }).getAttribute('href') === '/listening/mini-test');
 const summaryText = (await page.locator('.lr-summary span').allInnerTexts()).join('|');
 check('canonical score, band and weakness summary render',
-  summaryText.includes('Band 5.5') && summaryText.includes('1/2 câu')
-    && (await page.getByRole('region', { name: 'Kĩ năng cần luyện' }).innerText()).includes('K2'));
+  summaryText.includes('Không quy đổi band') && summaryText.includes('1/2 câu') && !summaryText.includes('Band')
+    && (await page.getByRole('region', { name: 'Kĩ năng cần luyện' }).innerText()).includes('K2'), summaryText);
 check('wrong-answer focus is the student default',
   await page.locator('.lr-card').count() === 1
     && await page.getByRole('button', { name: 'Cần xem lại' }).getAttribute('aria-pressed') === 'true');
@@ -186,6 +195,12 @@ check('an empty authored solution preserves the explicit expandable fallback',
 await page.setViewportSize({ width: 375, height: 812 });
 check('mobile review stays within the viewport', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
 
+await page.goto(`${BASE}/listening/review?attempt_id=full-paper`, { waitUntil: 'domcontentloaded' });
+await page.getByRole('heading', { name: 'Nghe lại, nhận ra tín hiệu' }).waitFor();
+const fullPaperSummary = (await page.locator('.lr-summary span').allInnerTexts()).join('|');
+check('full 40-question paper retains its canonical score and band',
+  fullPaperSummary.includes('Band 5.5') && fullPaperSummary.includes('23/40 câu'), fullPaperSummary);
+
 await page.goto(`${BASE}/listening/review?admin_test_id=${ADMIN_TEST_ID}`, { waitUntil: 'domcontentloaded' });
 await page.getByText('XEM TRƯỚC', { exact: false }).waitFor();
 check('admin preview is neutral and scoreless',
@@ -204,11 +219,13 @@ const selfCheckEvidence = {
   referenceVisible: await page.getByText('Reference answer', { exact: true }).isVisible(),
   explanationVisible: await page.getByText('Đây là lời giải tham khảo.', { exact: true }).isVisible(),
   summary: await page.locator('.lr-summary').textContent(),
+  resultSpans: await page.locator('.lr-summary span').filter({ hasText: 'Kết quả' }).count(),
   markedCards: await page.locator('.lr-card.is-correct, .lr-card.is-incorrect, .lr-card[data-correct]').count(),
 };
 check('self-check review shows answer, reference and Vietnamese explanation without a mark',
   selfCheckEvidence.userVisible && selfCheckEvidence.referenceVisible && selfCheckEvidence.explanationVisible
-    && selfCheckEvidence.summary.includes('0/0 câu') && selfCheckEvidence.summary.includes('Không chấm điểm')
+    && !selfCheckEvidence.summary.includes('/0 câu') && selfCheckEvidence.summary.includes('Không chấm điểm')
+    && selfCheckEvidence.resultSpans === 0
     && selfCheckEvidence.markedCards === 0, JSON.stringify(selfCheckEvidence));
 
 await page.goto(`${BASE}/listening/review?attempt_id=not-submitted`, { waitUntil: 'domcontentloaded' });

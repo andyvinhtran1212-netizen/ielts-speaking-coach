@@ -1,3 +1,10 @@
+export function listeningSubmissionLabel(row, fallback) {
+  if (!['submitted', 'late'].includes(row.status)) return fallback;
+  if (row.score_mode === 'self_check_only') return `${fallback} · tự đối chiếu`;
+  if (row.score_mode === 'mixed') return `${fallback} · Không quy đổi band · tự đối chiếu`;
+  return fallback;
+}
+
 const object = (value) => value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 const text = (value) => typeof value === 'string' ? value : '';
 const nullableText = (value) => text(value).trim() || null;
@@ -25,6 +32,7 @@ export function normalizeTally(value) {
     return {
       student_id: id, name: text(row.name), student_code: nullableText(row.student_code),
       status: text(row.status) || 'pending', submitted_at: nullableText(row.submitted_at),
+      score_mode: nullableText(row.score_mode), max_score: finite(row.max_score), self_check_count: finite(row.self_check_count),
       score: finite(row.score), ...(row.skill_drill ? { skill_drill: row.skill_drill } : {}), flags: Array.isArray(row.flags) ? row.flags.map((flag) => {
         const f = object(flag);
         return { code: text(f.code), severity: text(f.severity), label: text(f.label), why: text(f.why), action: text(f.action) };

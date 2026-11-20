@@ -143,9 +143,11 @@ function FeedbackSection({
       {!editing ? <RenderedFeedback sectionKey={section.key} value={value} /> : null}
       {editing ? (
         <div className="section-edit" id={`edit-${section.key}`}>
+          {section.hint ? <p id={`hint-${section.key}`} className="aw-subtitle text-xs mb-2">{section.hint}</p> : null}
           <textarea
             autoFocus
             aria-label={`${section.string ? 'Sửa' : 'Sửa JSON'}: ${section.title.replace(/^\S+\s/, '')}`}
+            aria-describedby={section.hint ? `hint-${section.key}` : undefined}
             className={section.string ? 'text-edit' : 'json-edit'}
             rows={section.rows}
             value={editRaw}

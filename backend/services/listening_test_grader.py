@@ -358,6 +358,37 @@ def scored_question_count(per_question: list[dict[str, Any]]) -> int:
     return sum(1 for row in per_question if not row.get("self_check"))
 
 
+def self_check_count(per_question: list[dict[str, Any]]) -> int:
+    return len(per_question) - scored_question_count(per_question)
+
+
+def score_mode(per_question: list[dict[str, Any]]) -> str:
+    scored = scored_question_count(per_question)
+    if per_question and scored == 0:
+        return "self_check_only"
+    if 0 < scored < len(per_question):
+        return "mixed"
+    return "scored"
+
+
+def band_for(per_question: list[dict[str, Any]]) -> float | None:
+    """The official raw/40 table applies only to a fully auto-scored paper."""
+    if len(per_question) != 40 or scored_question_count(per_question) != 40:
+        return None
+    return band_estimate(sum(1 for row in per_question if row.get("correct")))
+
+
+def score_fields(score: int | None, per_question: list[dict[str, Any]]) -> dict[str, Any]:
+    """Read-time display contract; never changes the persisted score/history."""
+    mode = score_mode(per_question)
+    return {
+        "score": None if mode == "self_check_only" else score,
+        "max_score": scored_question_count(per_question),
+        "score_mode": mode,
+        "self_check_count": self_check_count(per_question),
+    }
+
+
 def grade_attempt(
     user_answers:    list[dict[str, Any]],
     answer_key:      list[dict[str, Any]],
@@ -507,7 +538,9 @@ def grade_attempt(
     return {
         "score":             score,
         "max_score":         max_score,
-        "band_estimate":     band_estimate(score) if max_score else None,
+        "score_mode":        score_mode(per_question),
+        "self_check_count":  self_check_count(per_question),
+        "band_estimate":     band_for(per_question),
         "per_question":      per_question,
         "trap_analytics":    rollup_trap_analytics(per_question),
         "section_breakdown": section_breakdown(per_question),

@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Khung trang</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pal-teal{--paper:#FBF9F4;--surface:#FFFFFF;--ink:#1C1B19;--muted:#5F5B53;--rule:#D9D3C5;--accent:#0F766E;--accentH:#0B5953;--link:#0B5953;--mark:#8A4B08;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EDF3F1;--off:#E7E2D6}
+.pal-navy{--paper:#FAF6EF;--surface:#FFFFFF;--ink:#1B1A17;--muted:#5E5A52;--rule:#D8D0C0;--accent:#1A3561;--accentH:#11254A;--link:#1A3561;--mark:#8A1C1C;--danger:#9B1C1C;--ok:#1F6B3A;--tint:#EEF0F5;--off:#E8E2D5}
+a{color:var(--link)}a:hover{color:var(--ink)}
+</style>
+</helmet>
+<div class="{{pal}}" style="width: 1280px; height: 4800px; box-sizing: border-box; padding: 56px 64px; background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', system-ui, sans-serif; font-size: 16px; line-height: 1.5; display: flex; flex-direction: column; gap: 44px">
+<header>
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Aver Learning · Bản in · tờ 4</p>
+<h1 style="margin: 4px 0 6px; font-family: 'Source Serif 4', Georgia, serif; font-size: 40px; font-weight: 600; line-height: 1.15">Thành phần · khung trang · phần 2</h1>
+<p style="margin: 0; color: var(--muted); max-width: 80ch">Khung là phần lặp lại quanh mọi trang: thanh trên, thanh dưới điện thoại, thanh tập trung, khung admin và chân trang. Mỗi vai trò có đúng một khung; mỗi khung chỉ dùng một ngôn ngữ nhãn. Mục đang ở luôn có gạch và chữ đậm, không chỉ đổi màu.</p>
+</header>
+
+<section aria-labelledby="k7" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="k7" style="margin: 0 0 16px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">7. Khung admin</h2>
+<div style="display: flex; flex-direction: column; gap: 28px">
+
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Thanh trên · Production · ô tìm nhanh đóng</p>
+<div style="box-sizing: border-box; border: 1px solid var(--ink)">
+<header style="display: flex; align-items: center; gap: 20px; min-height: 56px; padding: 0 24px; background: var(--surface)">
+<span style="display: inline-flex; align-items: center; gap: 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 19px; font-weight: 600"><svg width="25" height="25" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<span style="padding: 2px 8px; border: 1px solid var(--ink); border-radius: 2px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600">Quản trị</span>
+<span style="padding: 2px 8px; background: var(--mark); color: #FFFFFF; border-radius: 2px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600">Production · dữ liệu thật</span>
+<label style="flex: 1 1 320px; max-width: 440px; display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--paper)">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 16px; height: 16px; flex-shrink: 0"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"></circle><path d="M16.5 16.5L21 21" stroke="currentColor" stroke-width="2"></path></svg>
+<input type="search" placeholder="Tìm học viên, lớp, bài nộp, đề…" aria-label="Tìm nhanh" style="flex-grow: 1; min-width: 0; border: 0; background: transparent; font: 15px 'Source Sans 3', sans-serif; color: var(--ink)">
+<kbd style="font: 12px 'Source Sans 3', sans-serif; color: var(--muted); border: 1px solid var(--rule); padding: 1px 6px; border-radius: 2px">⌘K</kbd>
+</label>
+<span style="flex-grow: 1"></span>
+<a href="#k1" style="display: inline-flex; align-items: center; min-height: 36px; font-size: 14px">Xem như học viên</a>
+<button aria-label="Mở menu tài khoản: đổi vai trò, đăng xuất" style="width: 40px; height: 40px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 13px 'Source Sans 3', sans-serif">VT</button>
+</header>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)"><strong style="color: var(--ink); font-weight: 600">Dùng khi nào:</strong> mọi trang quản trị trên môi trường thật. Nền thanh trắng, nhãn đặc màu đỏ mận ghi "Production · dữ liệu thật".</p>
+</div>
+
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Thanh trên · Staging</p>
+<div style="box-sizing: border-box; border: 1px solid var(--ink)">
+<header style="display: flex; align-items: center; gap: 20px; min-height: 56px; padding: 0 24px; background: var(--off)">
+<span style="display: inline-flex; align-items: center; gap: 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 19px; font-weight: 600"><svg width="25" height="25" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<span style="padding: 2px 8px; border: 1px solid var(--ink); border-radius: 2px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600">Quản trị</span>
+<span style="padding: 1px 8px; border: 1px dashed var(--ink); background: var(--paper); color: var(--ink); border-radius: 2px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600">Staging · dữ liệu thử</span>
+<label style="flex: 1 1 320px; max-width: 440px; display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--paper)">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 16px; height: 16px; flex-shrink: 0"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"></circle><path d="M16.5 16.5L21 21" stroke="currentColor" stroke-width="2"></path></svg>
+<input type="search" placeholder="Tìm học viên, lớp, bài nộp, đề…" aria-label="Tìm nhanh" style="flex-grow: 1; min-width: 0; border: 0; background: transparent; font: 15px 'Source Sans 3', sans-serif; color: var(--ink)">
+<kbd style="font: 12px 'Source Sans 3', sans-serif; color: var(--muted); border: 1px solid var(--rule); padding: 1px 6px; border-radius: 2px">⌘K</kbd>
+</label>
+<span style="flex-grow: 1"></span>
+<a href="#k1" style="display: inline-flex; align-items: center; min-height: 36px; font-size: 14px">Xem như học viên</a>
+<button aria-label="Mở menu tài khoản: đổi vai trò, đăng xuất" style="width: 40px; height: 40px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 13px 'Source Sans 3', sans-serif">VT</button>
+</header>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)"><strong style="color: var(--ink); font-weight: 600">Dùng khi nào:</strong> môi trường thử. Nền thanh xám giấy, nhãn viền đứt ghi "Staging · dữ liệu thử"; khác Production cả chữ lẫn kiểu nền.</p>
+</div>
+
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Ô tìm nhanh mở · sidebar thu hẹp chỉ icon</p>
+<div style="height: 420px; box-sizing: border-box; border: 1px solid var(--ink); display: flex; flex-direction: column; overflow: hidden">
+<header style="flex-shrink: 0; display: flex; align-items: center; gap: 20px; height: 56px; box-sizing: border-box; padding: 0 24px; border-bottom: 1px solid var(--ink); background: var(--surface)">
+<span style="display: inline-flex; align-items: center; gap: 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 19px; font-weight: 600"><svg width="25" height="25" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<span style="padding: 2px 8px; border: 1px solid var(--ink); border-radius: 2px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600">Quản trị</span>
+<span style="padding: 2px 8px; background: var(--mark); color: #FFFFFF; border-radius: 2px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600">Production · dữ liệu thật</span>
+<div style="position: relative; flex: 1 1 320px; max-width: 440px">
+<label style="display: flex; align-items: center; gap: 10px; min-height: 40px; box-sizing: border-box; padding: 0 11px; border: 2px solid var(--ink); border-radius: 2px; background: var(--surface)">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 16px; height: 16px; flex-shrink: 0"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"></circle><path d="M16.5 16.5L21 21" stroke="currentColor" stroke-width="2"></path></svg>
+<input type="search" role="combobox" value="minh" aria-label="Tìm nhanh" aria-expanded="true" aria-controls="qs-list" style="flex-grow: 1; min-width: 0; border: 0; background: transparent; font: 15px 'Source Sans 3', sans-serif; color: var(--ink)">
+<kbd style="font: 12px 'Source Sans 3', sans-serif; color: var(--muted); border: 1px solid var(--rule); padding: 1px 6px; border-radius: 2px">Esc</kbd>
+</label>
+<div id="qs-list" style="position: absolute; z-index: 5; top: 46px; left: 0; width: 560px; box-sizing: border-box; padding: 4px 0; border: 1px solid var(--ink); background: var(--surface)">
+<sc-for list="{{search}}" as="g" hint-placeholder-count="4">
+<p style="margin: 0; padding: 8px 16px 2px; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted)">{{g.group}}</p>
+<sc-for list="{{g.items}}" as="r" hint-placeholder-count="2">
+<a href="#k7" style="display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 16px 0 13px; border-left: 3px solid {{r.bar}}; background: {{r.bg}}; color: var(--ink); text-decoration: none; font-size: 15px; white-space: nowrap; overflow: hidden"><strong style="font-weight: 600">{{r.title}}</strong><span style="color: var(--muted); font-size: 14px; overflow: hidden; text-overflow: ellipsis">{{r.meta}}</span></a>
+</sc-for>
+</sc-for>
+<p style="margin: 4px 0 0; padding: 8px 16px 4px; border-top: 1px solid var(--rule); font-size: 13px; color: var(--muted)">↑ ↓ để chọn · Enter để mở · Esc để đóng</p>
+</div>
+</div>
+<span style="flex-grow: 1"></span>
+<a href="#k1" style="display: inline-flex; align-items: center; min-height: 36px; font-size: 14px">Xem như học viên</a>
+<button aria-label="Mở menu tài khoản: đổi vai trò, đăng xuất" style="width: 40px; height: 40px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 13px 'Source Sans 3', sans-serif">VT</button>
+</header>
+<div style="flex-grow: 1; min-height: 0; display: flex">
+<nav aria-label="Điều hướng quản trị" style="flex-shrink: 0; width: 56px; display: flex; flex-direction: column; border-right: 1px solid var(--rule); background: var(--surface)">
+<sc-for list="{{rail}}" as="r" hint-placeholder-count="8">
+<a href="#k7" aria-label="{{r.name}}" title="{{r.name}}" aria-current="{{r.cur}}" style="position: relative; display: flex; align-items: center; justify-content: center; height: 38px; border-left: 3px solid {{r.bar}}; background: {{r.bg}}; color: var(--ink)">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 20px; height: 20px"><path d="{{r.icon}}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<span aria-hidden="true" style="position: absolute; top: 2px; right: 4px; font-size: 11px; font-weight: 600; color: var(--mark); font-variant-numeric: tabular-nums">{{r.badge}}</span>
+</a>
+</sc-for>
+<button aria-label="Mở rộng thanh bên" style="margin-top: auto; height: 38px; border: 0; border-top: 1px solid var(--rule); background: transparent; color: var(--ink); cursor: pointer"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 18px; height: 18px"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+</nav>
+<div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; padding: 16px 24px">
+<nav aria-label="Vị trí trang" style="font-size: 14px; color: var(--muted)"><a href="#k7">Khoá học và đăng ký</a> › <span aria-current="page" style="color: var(--ink)">Đơn đăng ký</span></nav>
+<p style="margin: 4px 0 12px; font-family: 'Source Serif 4', Georgia, serif; font-size: 26px; font-weight: 600; line-height: 1.2">Đơn đăng ký</p>
+<div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; border: 1px dashed var(--rule); color: var(--muted); font-size: 13px; letter-spacing: 0.08em">[NỘI DUNG TRANG]</div>
+</div>
+</div>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)"><strong style="color: var(--ink); font-weight: 600">Dùng khi nào:</strong> ⌘K hoặc bấm vào ô. Kết quả gom theo Học viên · Lớp · Bài nộp · Đề, tối đa ba dòng mỗi nhóm. Thanh bên chỉ icon khi màn hẹp hơn 1200px hoặc người dùng tự thu.</p>
+</div>
+
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Bản chuẩn sidebar admin (AD-37) · 8 nhóm · bấm tên nhóm để thu hoặc mở</p>
+<div style="height: 460px; box-sizing: border-box; border: 1px solid var(--ink); display: flex; overflow: hidden">
+<nav aria-label="Điều hướng quản trị" style="flex-shrink: 0; width: 248px; box-sizing: border-box; padding: 12px 0; border-right: 1px solid var(--rule); background: var(--surface)">
+<sc-for list="{{nav}}" as="g" hint-placeholder-count="8">
+<div>
+<button type="button" aria-expanded="{{g.exp}}" onClick="{{g.toggle}}" style="display: flex; align-items: center; gap: 8px; width: 100%; min-height: 36px; padding: 0 16px; border: 0; background: transparent; color: {{g.headColor}}; font: 600 12px 'Source Sans 3', sans-serif; letter-spacing: 0.08em; text-transform: uppercase; text-align: left; cursor: pointer">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 14px; height: 14px; flex-shrink: 0"><path d="{{g.chev}}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<span style="flex-grow: 1">{{g.name}}</span>
+<span style="color: var(--mark); font-variant-numeric: tabular-nums; letter-spacing: 0">{{g.badgeShow}}</span>
+</button>
+<sc-if value="{{g.show}}" hint-placeholder-val="{{ false }}">
+<div role="group" aria-label="{{g.name}}" style="margin: 0 0 6px 23px; border-left: 1px solid var(--rule)">
+<sc-for list="{{g.items}}" as="i" hint-placeholder-count="3">
+<a href="{{i.href}}" aria-current="{{i.current}}" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; padding: 0 16px 0 21px; margin-left: -2px; border-left: 3px solid {{i.bar}}; background: {{i.bg}}; color: var(--ink); font-weight: {{i.weight}}; text-decoration: none">{{i.label}}<span style="color: var(--mark); font-weight: 600; font-variant-numeric: tabular-nums">{{i.count}}</span></a>
+</sc-for>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</nav>
+<div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; padding: 12px 24px 16px">
+<div style="display: flex; align-items: center; gap: 12px">
+<button aria-label="Thu hẹp thanh bên" style="display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border: 1px solid var(--rule); border-radius: 2px; background: var(--surface); color: var(--ink)"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 18px; height: 18px"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+<nav aria-label="Vị trí trang" style="font-size: 14px; color: var(--muted)"><a href="#k7">Khoá học và đăng ký</a> › <span aria-current="page" style="color: var(--ink)">Đơn đăng ký</span></nav>
+</div>
+<p style="margin: 8px 0 12px; font-family: 'Source Serif 4', Georgia, serif; font-size: 26px; font-weight: 600; line-height: 1.2">Đơn đăng ký</p>
+<div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; border: 1px dashed var(--rule); color: var(--muted); font-size: 13px; letter-spacing: 0.08em">[NỘI DUNG TRANG]</div>
+</div>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)"><strong style="color: var(--ink); font-weight: 600">Dùng khi nào:</strong> nằm ngay dưới thanh trên admin. Nhóm chứa trang hiện tại luôn mở; nhóm thu hiện tổng số việc chờ; mục đang ở có gạch trái và chữ đậm. Trang con thụt vào 10px so với tên nhóm, nằm trên một đường dọc mảnh thẳng dưới mũi tên nhóm (dùng chung cho admin ở mọi trang, kể cả ngăn kéo điện thoại).</p>
+<div style="margin-top: 12px; padding: 14px 18px; border: 1px solid var(--ink); background: var(--surface); font-size: 14px">
+<p style="margin: 0 0 6px; font-weight: 600">Bản chuẩn — mọi tờ admin chép nguyên khối này; đã bỏ Giáo viên duyệt, Chấm bài › Thi thử; nhóm Nội dung không có mục tải lên/nhập hàng loạt (nội dung nhập bằng script backend); nhóm Hệ thống có Cài đặt; có Gửi thông báo; mục cuối nhóm Học viên và quyền truy cập là Khảo sát và nhận xét (AdminKhaoSat.dc.html, số đếm 4 = nhận xét chờ duyệt, cộng vào số của nhóm khi nhóm đóng và ở bản chỉ biểu tượng).</p>
+<p style="margin: 0; line-height: 1.6"><span style="color: var(--muted)">Danh sách chốt:</span> Tổng quan: Việc cần làm · Học viên và quyền truy cập: Học viên, Lớp, Giáo viên, Mã kích hoạt, Gửi thông báo, Khảo sát và nhận xét (4) · Khoá học và đăng ký: Khoá học, Đơn đăng ký (2), Lượt AI · Chấm bài: Writing (3), Speaking (2), Yêu cầu chấm lại (2) · Nội dung: Listening, Reading, Writing, Speaking, Từ vựng, Ngữ pháp, Thư viện công khai · Thi thử: Kỳ thi · Báo cáo: Hoạt động học viên, Lưu lượng, Chi phí AI, Chất lượng nội dung · Hệ thống: Hộp thư sự cố (12), AI và mô hình, Bảo mật, Công cụ QA, Cài đặt.</p>
+<p style="margin: 6px 0 0; color: var(--muted)">Mã: khối <code>&lt;nav aria-label="Điều hướng quản trị"&gt;</code> lặp <code>nav</code>, và hàm <code>NAV(mụcHiệnTại, nhómĐangMở)</code> trong renderVals của tờ này; nhóm chứa trang hiện tại mở sẵn trong state khởi tạo. Số cạnh mục là số việc chờ, khớp hàng chờ thật.</p>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: 390px 390px minmax(0, 1fr); gap: 32px; align-items: start">
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Điện thoại · ngăn kéo đóng</p>
+<div style="width: 390px; height: 560px; box-sizing: border-box; border: 1px solid var(--ink); display: flex; flex-direction: column; overflow: hidden; background: var(--paper)">
+<header style="flex-shrink: 0; display: flex; align-items: center; gap: 8px; height: 56px; box-sizing: border-box; padding: 0 12px; border-bottom: 1px solid var(--ink); background: var(--surface)">
+<button aria-label="Mở menu quản trị" aria-expanded="false" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink)"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 20px; height: 20px"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg></button>
+<span style="display: inline-flex; align-items: center; gap: 7px; flex-grow: 1; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; font-weight: 600"><svg width="23" height="23" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<button aria-label="Tìm nhanh" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 1px solid var(--rule); border-radius: 2px; background: var(--surface); color: var(--ink)"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 18px; height: 18px"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"></circle><path d="M16.5 16.5L21 21" stroke="currentColor" stroke-width="2"></path></svg></button>
+<button aria-label="Mở menu tài khoản" style="width: 44px; height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 13px 'Source Sans 3', sans-serif">VT</button>
+</header>
+<p style="margin: 0; flex-shrink: 0; padding: 3px 12px; background: var(--mark); color: #FFFFFF; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600">Quản trị · Production · dữ liệu thật</p>
+<div style="flex-grow: 1; min-height: 0; display: flex; flex-direction: column; padding: 4px 16px 16px">
+<a href="#k7" style="display: inline-flex; align-items: center; align-self: flex-start; min-height: 44px; font-size: 15px; font-weight: 600">‹ Đơn đăng ký</a>
+<p style="margin: 0 0 10px; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600; line-height: 1.2">Chi tiết đơn đăng ký</p>
+<div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; border: 1px dashed var(--rule); color: var(--muted); font-size: 13px; letter-spacing: 0.08em">[NỘI DUNG TRANG]</div>
+</div>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)"><strong style="color: var(--ink); font-weight: 600">Dùng khi nào:</strong> admin dưới 768px. Nhãn môi trường thành dải ngang dưới thanh; tìm nhanh thành nút icon.</p>
+</div>
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Điện thoại · ngăn kéo mở</p>
+<div style="position: relative; width: 390px; height: 560px; box-sizing: border-box; border: 1px solid var(--ink); overflow: hidden; background: var(--paper)">
+<div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: var(--ink); opacity: 0.45"></div>
+<nav aria-label="Điều hướng quản trị" style="position: absolute; top: 0; left: 0; bottom: 0; width: 304px; box-sizing: border-box; border-right: 1px solid var(--ink); background: var(--surface); overflow: hidden">
+<div style="display: flex; align-items: center; justify-content: space-between; height: 56px; box-sizing: border-box; padding: 0 8px 0 16px; border-bottom: 1px solid var(--ink)">
+<span style="font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; font-weight: 600">Menu quản trị</span>
+<button aria-label="Đóng menu quản trị" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink)"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 20px; height: 20px"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg></button>
+</div>
+<sc-for list="{{drawer}}" as="g" hint-placeholder-count="8">
+<div>
+<button aria-expanded="{{g.exp}}" style="display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 0 16px; border: 0; border-bottom: 1px solid var(--rule); background: transparent; color: {{g.headColor}}; font: 600 13px 'Source Sans 3', sans-serif; letter-spacing: 0.06em; text-transform: uppercase; text-align: left">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 14px; height: 14px; flex-shrink: 0"><path d="{{g.chev}}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<span style="flex-grow: 1">{{g.name}}</span>
+<span style="color: var(--mark); font-variant-numeric: tabular-nums; letter-spacing: 0">{{g.badgeShow}}</span>
+</button>
+<sc-if value="{{g.show}}" hint-placeholder-val="{{ false }}">
+<div role="group" aria-label="{{g.name}}" style="margin-left: 23px; border-left: 1px solid var(--rule)">
+<sc-for list="{{g.items}}" as="i" hint-placeholder-count="3">
+<a href="#k7" aria-current="{{i.cur}}" style="display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding: 0 16px 0 21px; margin-left: -2px; border-left: 3px solid {{i.bar}}; background: {{i.bg}}; color: var(--ink); font-weight: {{i.weight}}; text-decoration: none">{{i.label}}<span style="color: var(--mark); font-weight: 600">{{i.count}}</span></a>
+</sc-for>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</nav>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)"><strong style="color: var(--ink); font-weight: 600">Dùng khi nào:</strong> bấm nút menu trên điện thoại. Cùng 8 nhóm như máy tính, dòng cao 44px; chỉ nhóm của trang hiện tại mở sẵn.</p>
+</div>
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Quy tắc khung admin</p>
+<ul style="margin: 0; padding-left: 20px; font-size: 15px; display: flex; flex-direction: column; gap: 8px">
+<li>Thanh trên: tên · nhãn vai trò · nhãn môi trường · tìm nhanh ⌘K · "Xem như học viên" · nút tài khoản (đổi vai trò, đăng xuất).</li>
+<li>Tám nhóm cố định: Tổng quan · Học viên và quyền truy cập · Khoá học và đăng ký · Chấm bài · Nội dung · Thi thử · Báo cáo · Hệ thống.</li>
+<li>Số việc chờ màu đỏ mận, đứng sau tên mục; nhóm thu cộng dồn số của các mục con.</li>
+<li>Dòng sidebar 36px trên máy tính, 44px trên điện thoại.</li>
+<li>Admin không có chân trang.</li>
+</ul>
+</div>
+</div>
+
+</div>
+<p style="margin: 18px 0 0; font-size: 14px; color: var(--muted)">Quy tắc: nhãn môi trường không bao giờ ẩn, kể cả khi thanh bên thu hẹp hoặc trên điện thoại. Production và Staging khác nhau bằng chữ và kiểu nền, không chỉ bằng màu.</p>
+</section>
+
+<section aria-labelledby="k8" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="k8" style="margin: 0 0 16px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">8. Khung giáo viên</h2>
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Cùng khung admin · sidebar phẳng 5 mục · trang đầu Việc của tôi</p>
+<div style="height: 360px; box-sizing: border-box; border: 1px solid var(--ink); display: flex; flex-direction: column; overflow: hidden">
+<header style="flex-shrink: 0; display: flex; align-items: center; gap: 20px; height: 56px; box-sizing: border-box; padding: 0 24px; border-bottom: 1px solid var(--ink); background: var(--surface)">
+<span style="display: inline-flex; align-items: center; gap: 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 19px; font-weight: 600"><svg width="25" height="25" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<span style="padding: 2px 8px; border: 1px solid var(--ink); border-radius: 2px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600">Giáo viên</span>
+<span style="padding: 2px 8px; background: var(--mark); color: #FFFFFF; border-radius: 2px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600">Production · dữ liệu thật</span>
+<label style="flex: 1 1 320px; max-width: 440px; display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 12px; border: 1px solid var(--muted); border-radius: 2px; background: var(--paper)">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 16px; height: 16px; flex-shrink: 0"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"></circle><path d="M16.5 16.5L21 21" stroke="currentColor" stroke-width="2"></path></svg>
+<input type="search" placeholder="Tìm học viên, lớp, bài nộp…" aria-label="Tìm nhanh" style="flex-grow: 1; min-width: 0; border: 0; background: transparent; font: 15px 'Source Sans 3', sans-serif; color: var(--ink)">
+<kbd style="font: 12px 'Source Sans 3', sans-serif; color: var(--muted); border: 1px solid var(--rule); padding: 1px 6px; border-radius: 2px">⌘K</kbd>
+</label>
+<span style="flex-grow: 1"></span>
+<a href="#k1" style="display: inline-flex; align-items: center; min-height: 36px; font-size: 14px">Xem như học viên</a>
+<button aria-label="Mở menu tài khoản: đổi vai trò, đăng xuất" style="width: 40px; height: 40px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 13px 'Source Sans 3', sans-serif">TH</button>
+</header>
+<div style="flex-grow: 1; min-height: 0; display: flex">
+<nav aria-label="Điều hướng giáo viên" style="flex-shrink: 0; width: 248px; box-sizing: border-box; padding: 12px 0; border-right: 1px solid var(--rule); background: var(--surface)">
+<a href="GiaoVien.dc.html" aria-current="page" style="display: flex; align-items: center; justify-content: space-between; min-height: 36px; padding: 0 16px 0 21px; border-left: 3px solid var(--accent); background: var(--tint); color: var(--ink); font-weight: 600; text-decoration: none">Việc của tôi</a>
+<a href="GiaoVien.dc.html#m1" style="display: flex; align-items: center; justify-content: space-between; min-height: 36px; padding: 0 16px 0 21px; border-left: 3px solid transparent; color: var(--ink); text-decoration: none">Lớp của tôi</a>
+<a href="GiaoVien.dc.html#m3" style="display: flex; align-items: center; justify-content: space-between; min-height: 36px; padding: 0 16px 0 21px; border-left: 3px solid transparent; color: var(--ink); text-decoration: none">Học viên</a>
+<a href="GiaoVien.dc.html#m2" style="display: flex; align-items: center; justify-content: space-between; min-height: 36px; padding: 0 16px 0 21px; border-left: 3px solid transparent; color: var(--ink); text-decoration: none">Giao bài</a>
+<a href="GiaoVien.dc.html#m4" style="display: flex; align-items: center; justify-content: space-between; min-height: 36px; padding: 0 16px 0 21px; border-left: 3px solid transparent; color: var(--ink); text-decoration: none">Chấm và duyệt bài<span style="color: var(--mark); font-weight: 600; font-variant-numeric: tabular-nums">5</span></a>
+</nav>
+<div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; padding: 16px 24px">
+<p style="margin: 0 0 12px; font-family: 'Source Serif 4', Georgia, serif; font-size: 26px; font-weight: 600; line-height: 1.2">Việc của tôi</p>
+<div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; border: 1px dashed var(--rule); color: var(--muted); font-size: 13px; letter-spacing: 0.08em">[NỘI DUNG TRANG]</div>
+</div>
+</div>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)"><strong style="color: var(--ink); font-weight: 600">Dùng khi nào:</strong> người chỉ có vai trò giáo viên (Trần Thu Hà, TH). Năm mục phẳng, không chia nhóm: Việc của tôi · Lớp của tôi · Học viên · Giao bài · Chấm và duyệt bài; trang đầu là Việc của tôi. Số 5 = việc chấm của các lớp mình: Writing chờ duyệt 3 + Speaking thi thử chờ chấm 2 (Speaking luyện tập của lớp AI trả ngay, không vào hàng chờ); bài AI lỗi đi về admin. Nhãn vai trò ghi "Giáo viên" thay cho "Quản trị". Mọi tờ vẽ khung giáo viên dùng đúng năm mục này.</p>
+</div>
+<p style="margin: 18px 0 0; font-size: 14px; color: var(--muted)">Quy tắc: thanh trên, tìm nhanh, nhãn môi trường và bản điện thoại giống hệt admin. Tìm nhanh của giáo viên chỉ trả về học viên, lớp và bài nộp trong lớp của mình.</p>
+</section>
+
+<section aria-labelledby="k9" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="k9" style="margin: 0 0 16px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">9. Chân trang</h2>
+<div style="display: flex; flex-direction: column; gap: 28px">
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Công khai · đầy đủ</p>
+<div style="height: 240px; box-sizing: border-box; border: 1px solid var(--ink); display: flex; flex-direction: column; overflow: hidden">
+<div style="flex-grow: 1; min-height: 0; display: flex; padding: 16px 32px">
+<div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; border: 1px dashed var(--rule); color: var(--muted); font-size: 13px; letter-spacing: 0.08em">[NỘI DUNG TRANG]</div>
+</div>
+<footer style="flex-shrink: 0; padding: 20px 32px; border-top: 1px solid var(--ink)">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0 28px">
+<span style="display: inline-flex; align-items: center; gap: 8px; font-family: 'Source Serif 4', Georgia, serif; font-size: 20px; font-weight: 600; margin-right: 12px"><svg width="26" height="26" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="currentColor"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</span>
+<nav aria-label="Chân trang" style="display: flex; flex-wrap: wrap; gap: 0 24px">
+<a href="#k9" style="display: inline-flex; align-items: center; min-height: 44px">Giới thiệu</a>
+<a href="#k9" style="display: inline-flex; align-items: center; min-height: 44px">Khoá học</a>
+<a href="#k9" style="display: inline-flex; align-items: center; min-height: 44px">Thư viện</a>
+<a href="HocVienNoiGi.dc.html" style="display: inline-flex; align-items: center; min-height: 44px">Học viên nói gì</a>
+<a href="#k9" style="display: inline-flex; align-items: center; min-height: 44px">Điều khoản</a>
+<a href="#k9" style="display: inline-flex; align-items: center; min-height: 44px">Quyền riêng tư</a>
+<a href="#k9" style="display: inline-flex; align-items: center; min-height: 44px">Liên hệ</a>
+</nav>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)">© 2026 Aver Learning. Bảo lưu mọi quyền.</p>
+</footer>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)"><strong style="color: var(--ink); font-weight: 600">Dùng khi nào:</strong> khu công khai (Thư viện khi chưa đăng nhập, trang khoá học, giới thiệu, đăng nhập). Thứ tự liên kết cố định ở mọi bản: Giới thiệu · Khoá học · Thư viện · Học viên nói gì (HocVienNoiGi.dc.html) · Điều khoản · Quyền riêng tư · Liên hệ. Trên điện thoại vẫn đủ bảy liên kết theo thứ tự này, xuống dòng, mỗi dòng cao 44px.</p>
+</div>
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Sau đăng nhập · gọn một dòng</p>
+<div style="height: 200px; box-sizing: border-box; border: 1px solid var(--ink); display: flex; flex-direction: column; overflow: hidden">
+<div style="flex-grow: 1; min-height: 0; display: flex; padding: 16px 32px">
+<div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; border: 1px dashed var(--rule); color: var(--muted); font-size: 13px; letter-spacing: 0.08em">[NỘI DUNG TRANG]</div>
+</div>
+<footer style="flex-shrink: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0 24px; padding: 0 32px; border-top: 1px solid var(--rule); font-size: 14px">
+<span style="gap: 8px; display: inline-flex; align-items: center; color: var(--muted); flex-grow: 1"><svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none; color: var(--ink)"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>© 2026 Aver Learning</span>
+<nav aria-label="Chân trang" style="display: flex; gap: 0 24px">
+<a href="#k9" style="display: inline-flex; align-items: center; min-height: 44px">Trợ giúp</a>
+<a href="#k9" style="display: inline-flex; align-items: center; min-height: 44px">Điều khoản</a>
+<a href="#k9" style="display: inline-flex; align-items: center; min-height: 44px">Quyền riêng tư</a>
+</nav>
+</footer>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)"><strong style="color: var(--ink); font-weight: 600">Dùng khi nào:</strong> mọi trang học viên đã đăng nhập, kể cả kết quả và xem lại. Trên điện thoại nằm trên thanh dưới, không bị thanh dưới che.</p>
+</div>
+</div>
+<p style="margin: 18px 0 0; font-size: 14px; color: var(--muted)">Quy tắc: không có chân trang trong chế độ tập trung (luyện có giờ, ghi âm, phòng thi) và trong khung admin, giáo viên.</p>
+</section>
+
+<section aria-labelledby="k10" style="border-top: 2px solid var(--ink); padding-top: 16px">
+<h2 id="k10" style="margin: 0 0 16px; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">10. Thiếu quyền hoặc thiếu tham số</h2>
+<div style="display: flex; flex-direction: column; gap: 28px">
+<div>
+<p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Đưa về trang cha · dải thông báo</p>
+<div style="height: 320px; box-sizing: border-box; border: 1px solid var(--ink); display: flex; flex-direction: column; overflow: hidden">
+<header style="flex-shrink: 0; border-bottom: 1px solid var(--ink)">
+<div style="display: flex; align-items: stretch; gap: 36px; height: 63px; padding: 0 32px">
+<a href="#k10" style="display: inline-flex; align-items: center; gap: 9px; align-self: center; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600; color: var(--ink); text-decoration: none"><svg width="29" height="29" viewBox="0 0 48 48" aria-hidden="true" style="display: block; flex: none"><rect x="1.5" y="1.5" width="45" height="45" fill="none" stroke="currentColor" stroke-width="3"/><rect x="16" y="28" width="13" height="3.5" fill="var(--mark)"/><polygon points="20.5,9 24,9 14.5,38 11,38" fill="currentColor"/><polygon points="21.5,9 28,9 37.5,38 30.5,38" fill="currentColor"/><rect x="8" y="36" width="10" height="3" fill="currentColor"/><rect x="28" y="36" width="12.5" height="3" fill="currentColor"/></svg>Aver Learning</a>
+<nav aria-label="Điều hướng chính" style="display: flex; gap: 28px; flex-grow: 1">
+<sc-for list="{{navPractice}}" as="x" hint-placeholder-count="5">
+<a href="#k10" aria-current="{{x.cur}}" style="display: flex; align-items: center; padding-top: 3px; border-bottom: 3px solid {{x.bar}}; color: {{x.color}}; font-weight: {{x.weight}}; text-decoration: none">{{x.label}}</a>
+</sc-for>
+</nav>
+<div style="display: flex; align-items: center; gap: 16px">
+<span style="font-size: 14px; color: var(--muted)">Lượt chấm AI còn <strong style="color: var(--ink)">XXX</strong></span>
+<button aria-label="Mở menu tài khoản" style="width: 44px; height: 44px; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 14px 'Source Sans 3', sans-serif">MA</button>
+</div>
+</div>
+</header>
+<div role="status" style="flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 4px 8px 4px 32px; border-bottom: 1px solid var(--ink); background: var(--tint)">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 20px; height: 20px; flex-shrink: 0"><path d="M12 3a9 9 0 100 18 9 9 0 000-18zM12 11v5M12 8h.01" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg>
+<p style="margin: 0; flex-grow: 1">Khoá của bạn chưa gồm bài vừa chọn nên bạn được đưa về Luyện tập. <a href="#k10">Xem các khoá</a></p>
+<button aria-label="Đóng thông báo" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 0; background: transparent; color: var(--ink)"><svg aria-hidden="true" viewBox="0 0 24 24" style="width: 18px; height: 18px"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg></button>
+</div>
+<div style="flex-grow: 1; min-height: 0; display: flex; flex-direction: column; padding: 16px 32px">
+<p style="margin: 0 0 12px; font-family: 'Source Serif 4', Georgia, serif; font-size: 26px; font-weight: 600; line-height: 1.2">Luyện tập</p>
+<div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; border: 1px dashed var(--rule); color: var(--muted); font-size: 13px; letter-spacing: 0.08em">[NỘI DUNG TRANG]</div>
+</div>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)"><strong style="color: var(--ink); font-weight: 600">Dùng khi nào:</strong> mở liên kết tới bài không có quyền. Trang cha mở bình thường, mục đang ở là trang cha; dải nằm ngay dưới thanh trên đến khi bạn đóng hoặc rời trang.</p>
+</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px">
+<div>
+<p style="margin: 0 0 6px; font-size: 13px; color: var(--muted)">Thiếu tham số · học viên</p>
+<div role="status" style="display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 12px; border: 1px solid var(--ink); background: var(--tint); font-size: 15px">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 18px; height: 18px; flex-shrink: 0"><path d="M12 3a9 9 0 100 18 9 9 0 000-18zM12 11v5M12 8h.01" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg>
+<span>Không tìm thấy đề bạn muốn mở nên bạn được đưa về Thi thử.</span>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)"><strong style="color: var(--ink); font-weight: 600">Dùng khi nào:</strong> liên kết hỏng, thiếu hoặc sai mã đề.</p>
+</div>
+<div>
+<p style="margin: 0 0 6px; font-size: 13px; color: var(--muted)">Thiếu quyền · admin</p>
+<div role="status" style="display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 12px; border: 1px solid var(--ink); background: var(--tint); font-size: 15px">
+<svg aria-hidden="true" viewBox="0 0 24 24" style="width: 18px; height: 18px; flex-shrink: 0"><path d="M12 3a9 9 0 100 18 9 9 0 000-18zM12 11v5M12 8h.01" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg>
+<span>Tài khoản của bạn chưa được xem Chi phí AI nên bạn được đưa về Báo cáo.</span>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)"><strong style="color: var(--ink); font-weight: 600">Dùng khi nào:</strong> vai trò không có quyền vào trang con trong khung admin.</p>
+</div>
+<div>
+<p style="margin: 0 0 6px; font-size: 13px; color: var(--danger)">Không dùng</p>
+<div style="display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 12px; border: 1px solid var(--danger); background: var(--surface); font-size: 15px">
+<span style="font-weight: 600; color: var(--danger)">Lỗi 400: thiếu tham số examId</span>
+</div>
+<p style="margin: 8px 0 0; font-size: 14px; color: var(--muted)"><strong style="color: var(--danger); font-weight: 600">Không dùng:</strong> trang trắng báo lỗi, mã lỗi hay tên tham số nội bộ.</p>
+</div>
+</div>
+</div>
+<p style="margin: 18px 0 0; font-size: 14px; color: var(--muted)">Quy tắc: luôn đưa về trang cha gần nhất mà người dùng được mở, kèm đúng một dòng giải thích bằng lời thường. Không hiện tên tham số, mã lỗi hay mã nội bộ.</p>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Xanh teal","Navy + đỏ mận"],"default":"Navy + đỏ mận"},"$preview":{"width":1280,"height":4800}}'>
+class Component extends DCLogic {
+renderVals() {
+const s = this.state || {};
+const menuOpen = s.menuOpen === undefined ? true : s.menuOpen;
+const exitOpen = s.exitOpen === undefined ? true : s.exitOpen;
+const open = s.open || { kh: true };
+const NAV = (cur, open) => [
+['tq', 'Tổng quan', [['Việc cần làm', 'AdminViecCanLam.dc.html', '']]],
+['hv', 'Học viên và quyền truy cập', [['Học viên', 'AdminDanhBa.dc.html', ''], ['Lớp', 'AdminLop.dc.html', ''], ['Giáo viên', 'AdminGiaoVienThongBao.dc.html', ''], ['Mã kích hoạt', 'AdminLuotVaMa.dc.html#s2', ''], ['Gửi thông báo', 'AdminGiaoVienThongBao.dc.html#m2', ''], ['Khảo sát và nhận xét', 'AdminKhaoSat.dc.html', '4']]],
+['kh', 'Khoá học và đăng ký', [['Khoá học', 'AdminKhoaHoc.dc.html', ''], ['Đơn đăng ký', 'AdminDonDangKy.dc.html', '2'], ['Lượt AI', 'AdminLuotVaMa.dc.html', '']]],
+['cb', 'Chấm bài', [['Writing', 'AdminChamWriting.dc.html', '3'], ['Speaking', 'AdminChamSpeakingThiThu.dc.html', '2'], ['Yêu cầu chấm lại', 'AdminChamLai.dc.html', '2']]],
+['nd', 'Nội dung', [['Listening', 'AdminNoiDung.dc.html', ''], ['Reading', 'AdminNoiDung.dc.html', ''], ['Writing', 'AdminNoiDungVietNoi.dc.html', ''], ['Speaking', 'AdminNoiDungVietNoi.dc.html#m5', ''], ['Từ vựng', 'AdminNoiDungTuVungNguPhap.dc.html', ''], ['Ngữ pháp', 'AdminNoiDungTuVungNguPhap.dc.html#m6', ''], ['Thư viện công khai', 'AdminThuVienCongKhai.dc.html', '']]],
+['tt', 'Thi thử', [['Kỳ thi', 'AdminKyThi.dc.html', '']]],
+['bc', 'Báo cáo', [['Hoạt động học viên', 'AdminBaoCao.dc.html#m1', ''], ['Lưu lượng', 'AdminBaoCao.dc.html#m2', ''], ['Chi phí AI', 'AdminBaoCao.dc.html#m3', ''], ['Chất lượng nội dung', 'AdminBaoCao.dc.html#m4', '']]],
+['ht', 'Hệ thống', [['Hộp thư sự cố', 'AdminSuCo.dc.html', '12'], ['AI và mô hình', 'AdminHeThong.dc.html', ''], ['Bảo mật', 'AdminHeThong.dc.html#m2', ''], ['Công cụ QA', 'AdminHeThong.dc.html#m3', ''], ['Cài đặt', 'AdminCaiDat.dc.html', '']]]
+].map(([id, name, rows]) => {
+const items = rows.map(([label, href, count]) => { const c = cur === id + '/' + label; return { label, href, count, current: c ? 'page' : 'false', bar: c ? 'var(--accent)' : 'transparent', bg: c ? 'var(--tint)' : 'transparent', weight: c ? 600 : 400 }; });
+const ex = !!open[id];
+const hasCur = items.some((x) => x.current === 'page');
+const badge = items.reduce((n, x) => n + (Number(x.count) || 0), 0);
+return { id, name, items, exp: ex ? 'true' : 'false', show: ex, chev: ex ? 'M6 9l6 6 6-6' : 'M9 6l6 6-6 6', badgeShow: !ex && badge ? String(badge) : '', headColor: hasCur ? 'var(--ink)' : 'var(--muted)', toggle: () => this.setState({ open: Object.assign({}, open, { [id]: !open[id] }) }) };
+});
+const names = ['Hôm nay', 'Lộ trình', 'Luyện tập', 'Thi thử', 'Thư viện'];
+const navFor = (k) => names.map((m, j) => ({ label: m, cur: j === k ? 'page' : 'false', bar: j === k ? 'var(--accent)' : 'transparent', color: j === k ? 'var(--ink)' : 'var(--muted)', weight: j === k ? 600 : 400 }));
+const tab = (label, icon, cur) => ({ label, icon, current: cur ? 'page' : 'false', bar: cur ? 'var(--accent)' : 'transparent', color: cur ? 'var(--ink)' : 'var(--muted)', weight: cur ? 600 : 400 });
+const it = (label, count, cur) => ({ label, count: count || '', cur: cur ? 'page' : 'false', bar: cur ? 'var(--ink)' : 'transparent', bg: cur ? 'var(--tint)' : 'transparent', weight: cur ? 600 : 400 });
+const G = [
+{ id: 'home', name: 'Tổng quan', badge: '', icon: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z', items: [it('Việc cần làm')] },
+{ id: 'users', name: 'Học viên và quyền truy cập', badge: '4', icon: 'M12 12a4 4 0 100-8 4 4 0 000 8zM4 20c1-4 4-6 8-6s7 2 8 6', items: [it('Học viên'), it('Lớp'), it('Giáo viên'), it('Mã kích hoạt'), it('Gửi thông báo'), it('Khảo sát và nhận xét', '4')] },
+{ id: 'sales', name: 'Khoá học và đăng ký', badge: '2', icon: 'M5 8h14l-1 12H6zM9 8V6a3 3 0 016 0v2', items: [it('Khoá học'), it('Đơn đăng ký', '2', true), it('Lượt AI')] },
+{ id: 'grade', name: 'Chấm bài', badge: '7', icon: 'M6 3h9l4 4v14H6zM9 13l2 2 4-4', items: [it('Writing', '3'), it('Speaking', '2'), it('Yêu cầu chấm lại', '2')] },
+{ id: 'content', name: 'Nội dung', badge: '', icon: 'M5 4h11a3 3 0 013 3v13H8a3 3 0 01-3-3zM5 17a3 3 0 013-3h11', items: [it('Listening'), it('Reading'), it('Writing'), it('Speaking'), it('Từ vựng'), it('Ngữ pháp'), it('Thư viện công khai')] },
+{ id: 'exam', name: 'Thi thử', badge: '', icon: 'M12 7v5l3 2M12 3a9 9 0 100 18 9 9 0 000-18z', items: [it('Kỳ thi')] },
+{ id: 'report', name: 'Báo cáo', badge: '', icon: 'M5 20V10M12 20V4M19 20v-7', items: [it('Hoạt động học viên'), it('Lưu lượng'), it('Chi phí AI'), it('Chất lượng nội dung')] },
+{ id: 'sys', name: 'Hệ thống', badge: '12', icon: 'M4 7h10M18 7h2M4 17h4M12 17h8M16 5v4M10 15v4', items: [it('Hộp thư sự cố', '12'), it('AI và mô hình'), it('Bảo mật'), it('Công cụ QA'), it('Cài đặt')] }
+];
+const shape = (g, ex, toggle) => {
+const hasCur = g.items.some((i) => i.cur === 'page');
+return { name: g.name, items: g.items, exp: ex ? 'true' : 'false', show: ex, chev: ex ? 'M6 9l6 6 6-6' : 'M9 6l6 6-6 6', badgeShow: !ex && g.badge ? g.badge : '', headColor: hasCur ? 'var(--ink)' : 'var(--muted)', toggle };
+};
+const row = (title, meta, sel) => ({ title, meta, bar: sel ? 'var(--ink)' : 'transparent', bg: sel ? 'var(--tint)' : 'transparent' });
+return {
+pal: (this.props.palette ?? 'Navy + đỏ mận') === 'Xanh teal' ? 'pal-teal' : 'pal-navy',
+navRows: names.map((n, k) => ({ name: 'Đang ở ' + n, aria: 'Mẫu: đang ở ' + n, items: navFor(k) })),
+navToday: navFor(0),
+navPractice: navFor(2),
+menuOpen,
+acctExp: menuOpen ? 'true' : 'false',
+acctLabel: menuOpen ? 'Đóng menu tài khoản' : 'Mở menu tài khoản',
+acctBg: menuOpen ? 'var(--ink)' : 'var(--surface)',
+acctFg: menuOpen ? '#FFFFFF' : 'var(--ink)',
+toggleMenu: () => this.setState({ menuOpen: !menuOpen }),
+exitOpen,
+openExit: () => this.setState({ exitOpen: true }),
+closeExit: () => this.setState({ exitOpen: false }),
+tabs: [
+tab('Hôm nay', 'M4 11l8-7 8 7v9H4z'),
+tab('Lộ trình', 'M5 20V8M5 8h10l-2 3 2 3H5M19 20h-4'),
+tab('Luyện tập', 'M4 19l4-1 11-11-3-3L5 15zM14 6l3 3', true),
+tab('Thi thử', 'M12 7v5l3 2M12 3a9 9 0 100 18 9 9 0 000-18z'),
+tab('Thư viện', 'M5 4h5v16H5zM10 4h5v16h-5zM16 6l3-1 3 14-3 1z')
+],
+nav: NAV('kh/Đơn đăng ký', open),
+drawer: G.map((g) => shape(g, g.id === 'sales', null)),
+rail: G.map((g) => ({ name: g.name, icon: g.icon, badge: g.badge, cur: g.id === 'sales' ? 'page' : 'false', bar: g.id === 'sales' ? 'var(--ink)' : 'transparent', bg: g.id === 'sales' ? 'var(--tint)' : 'transparent' })),
+search: [
+{ group: 'Học viên', items: [row('Nguyễn Minh Anh', 'minhanh@example.com · Lớp Tue–Thu 19:30', true), row('Trần Minh Quân', 'minhquan@example.com · Lớp Mon–Wed 18:00')] },
+{ group: 'Lớp', items: [row('Lớp Tue–Thu 19:30', 'có học viên Nguyễn Minh Anh')] },
+{ group: 'Bài nộp', items: [row('Writing Task 2 · Nguyễn Minh Anh', 'nộp 15/11 · Đã trả bài')] },
+{ group: 'Đề', items: [row('Writing Task 1 · Bản đồ khu Minh Khai', 'Nội dung · Writing')] }
+]
+};
+}
+}
+</script>
+</body>
+</html>

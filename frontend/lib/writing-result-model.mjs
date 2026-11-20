@@ -155,7 +155,7 @@ export function regradeStatusText(request) {
     return `Yêu cầu chấm lại bị từ chối: ${request.admin_response || '—'}`;
   }
   if (request.status === 'fulfilled') {
-    return '✓ Bài đã được chấm lại theo yêu cầu của em.';
+    return '✓ Bài đã được chấm lại theo yêu cầu của bạn.';
   }
   return '';
 }

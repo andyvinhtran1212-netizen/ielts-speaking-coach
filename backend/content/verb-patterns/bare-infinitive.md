@@ -172,6 +172,7 @@ make + object + bare infinitive (= khiến ai làm gì — bắt buộc)
 - What **made** you **change** your mind?
 
 > **Chú ý quan trọng:** Khi dùng ở dạng **bị động**, "make" đổi sang **to-infinitive**:
+>
 > - Active: They **made** us **work** overtime. *(bare infinitive)*
 > - Passive: We **were made to work** overtime. *(to-infinitive)*
 

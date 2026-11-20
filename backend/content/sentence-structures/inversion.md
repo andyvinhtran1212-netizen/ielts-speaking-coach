@@ -164,6 +164,7 @@ Bỏ "if" và đảo trợ động từ lên trước chủ ngữ — phổ bi�
 - **Had** stricter regulations **been** in place, the accident could have been prevented.
 
 > **Lưu ý:** "Were...to" chỉ dùng trong điều kiện giả định (formal):
+>
 > - Were she **to apply** for the position, she would certainly be considered.
 
 ## Loại 3: Đảo ngữ "So...that" và "Such...that"
