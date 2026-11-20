@@ -114,6 +114,7 @@ draft -> approved -> implementing -> verified -> shipped
 | FREETRIAL-0047 | Accounts outside classes can try free Speaking and Writing grading within quotas without affecting class learners | approved | high | [spec](0047-free-trial-grading/spec.md) |
 | FLASHCARD-0048 | Flashcard kiểu Quizlet bản MVP — admin dán hàng loạt thẻ vào bộ từ, gán lớp hoặc thư viện chung, học viên lật thẻ và tự đánh dấu Đã nhớ/Chưa nhớ | draft | high | [spec](0048-flashcards-mvp/spec.md) |
 | WRITINGBAND-0050 | Saving reviewed Writing criteria keeps the total and feedback consistent | approved | high | [spec](0050-writing-band-save-consistency/spec.md) |
+| AUDIODEPR-0051 | Speaking read-aloud and Speaking transcription keep working after OpenAI retires tts-1 and whisper-1 | approved | high | [spec](0051-openai-tts-stt-deprecation/spec.md) |
 | BLACKEYE-0052 | Black Eye Listening Unit 1 exercises are assigned to a class, reviewed after submission and stay locked until each gate passes | approved | high | [spec](0052-blackeye-u1/spec.md) |
 | SKILLDRILLS-0054 | Assign published Listening Skill Drills across courses | approved | high | [spec](0054-listening-skill-drill-homework/spec.md) |
 | COURSEACCESS-0055 | Learners get course access, one shared AI grading credit pool and bank-transfer enrollment orders confirmed by an admin, while existing access codes keep working | approved | critical | [spec](0055-course-access-credits-enrollment/spec.md) |
@@ -128,10 +129,12 @@ draft -> approved -> implementing -> verified -> shipped
 | BRANDMARK-0083 | The An ky mark is the one logo, favicon, app icon and link preview image of the site, generated from a single geometry source | draft | medium | [spec](0083-brand-mark-an-ky/spec.md) |
 | GRAMMARFIG-0084 | Grammar Wiki articles show numbered, accessible sentence diagrams written as semantic figure blocks, and a malformed block never hides the article | draft | medium | [spec](0084-grammar-wiki-figures/spec.md) |
 | CLASSRESULT-0085 | Teachers open one result page per class assignment with five blocks from one aggregate API, and give work to saved learner groups through one shared component | draft | high | [spec](0085-class-assignment-result/spec.md) |
+| MOCKORG-0086 | Admins organise assigned mock exams for classes, single learners and saved groups, run live or self-paced sittings without breaks, and release results from one tab | draft | high | [spec](0086-mock-exam-organisation/spec.md) |
+| CONTENTBATCH-0087 | Admins see every content import script run as a read-only batch and work one review queue per question on the four-tab content pages | draft | high | [spec](0087-content-import-batches/spec.md) |
 | SENTLAB-0101 | Course 5 learners practise 45 sentence-writing sessions with AI coaching that never reveals the answer before they rewrite | approved | high | [spec](0101-course5-sentence-lab/spec.md) |
 
 Progress and remaining acceptance are reconciled in [the implementation status ledger](IMPLEMENTATION_STATUS.md). A deployed application does not by itself close a feature acceptance gate.
 
 Spec numbers 0006, 0007 and 0022 are each used by two features; the ID, not the
-number, is unique. 0049 is reserved by open PR #2254 (ADMINSIMPLE-0049) and 0051
-by open PR #2274 (AUDIODEPR-0051); 0053 is unused.
+number, is unique. 0049 is reserved by closed PR #2254 (ADMINSIMPLE-0049, superseded by
+ADMINIA-0074); 0053 is unused.
