@@ -25,4 +25,5 @@ export const UI_LIBRARY_SECTIONS = Object.freeze([
   Object.freeze({ id: 'pagination', title: 'Phân trang' }),
   Object.freeze({ id: 'progress-bar', title: 'Thanh tiến độ' }),
   Object.freeze({ id: 'stepper', title: 'Quy trình nhiều bước' }),
+  Object.freeze({ id: 'theme', title: 'Sáng, tối, theo thiết bị' }),
 ]);

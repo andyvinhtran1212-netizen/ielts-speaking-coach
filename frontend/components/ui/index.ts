@@ -21,3 +21,8 @@ export { Pagination, type PaginationProps } from './pagination';
 export { ProgressBar, type ProgressBarProps } from './progress-bar';
 export { Stepper, type Step, type StepperProps, type StepStatus } from './stepper';
 export { Tabs, type TabItem, type TabsProps } from './tabs';
+export { AV2_THEME_COLOR, AV2_VIEWPORT, syncThemeColor } from './theme-color';
+export { ThemeChoiceGroup, type ThemeChoiceGroupProps } from './theme-choice';
+export { ThemeMenu, ThemeMenuList, type ThemeMenuListProps, type ThemeMenuProps } from './theme-menu';
+export { THEME_SCRIPT, ThemeScript } from './theme-script';
+export { useThemeChoice, type ThemeChoice, type ThemeChoiceState, type ThemeMode } from './use-theme-choice';
