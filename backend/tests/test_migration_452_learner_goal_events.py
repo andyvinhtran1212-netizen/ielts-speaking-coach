@@ -7,7 +7,8 @@ REQUIRE_PG=1 a missing cluster is a failure, not a skip), transplanted from
 033). It checks what the migration promises: one call copies the chosen
 source onto both rows and writes one event; it refuses when there is no
 conflict, when the profile is not that account's, and for an unknown source,
-leaving everything unchanged; the events cannot be changed or emptied; client
+leaving everything unchanged, and when either goal changed after the page
+showed it; the events cannot be changed or emptied; client
 roles see nothing; the file re-runs; the rollback refuses once a goal was
 resolved.
 """
@@ -80,9 +81,22 @@ def _migrate(name: str) -> None:
     psql(_in(name, SQL))
 
 
+def _seen(name: str) -> str:
+    """Both goals as a page would show them now (the overview's shape)."""
+    return psql(f"""SELECT jsonb_build_object(
+        'admin', (SELECT jsonb_build_object('target_band', target_band, 'target_date', target_date)
+                    FROM {name}.students WHERE id='{STUDENT}'),
+        'learner', (SELECT jsonb_build_object('target_band', target_band, 'exam_date', exam_date)
+                      FROM {name}.users WHERE id='{USER}'))::text""")
+
+
+def _call(name: str, use: str, seen: str, *, user: str = USER) -> str:
+    return (f"SET ROLE service_role; SELECT {name}.fn_learner_goal_resolve("
+            f"'{STUDENT}'::uuid, '{user}'::uuid, '{use}', '{seen}'::jsonb, '{ACTOR}'::uuid)::text")
+
+
 def _resolve(name: str, use: str, *, user: str = USER) -> dict:
-    out = psql(f"SET ROLE service_role; SELECT {name}.fn_learner_goal_resolve("
-               f"'{STUDENT}'::uuid, '{user}'::uuid, '{use}', '{ACTOR}'::uuid)::text")
+    out = psql(_call(name, use, _seen(name), user=user))
     return json.loads(out.splitlines()[-1])
 
 
@@ -113,8 +127,7 @@ def test_resolve_copies_one_source_to_both_rows_with_one_event(schema):
     assert json.loads(row[2]) == {"target_band": 7.5, "target_date": "2027-02-01"}
     assert row[3] == ACTOR
     # The sources now agree: a second resolve is refused and writes nothing.
-    assert "no_conflict" in _fails(f"SET ROLE service_role; SELECT {schema}.fn_learner_goal_resolve("
-                                   f"'{STUDENT}', '{USER}', 'admin', NULL)")
+    assert "no_conflict" in _fails(_call(schema, "admin", _seen(schema)))
     assert _events(schema) == 1
 
 
@@ -127,18 +140,47 @@ def test_using_the_admin_goal_overwrites_the_learner_goal(schema):
 def test_refusals_change_nothing(schema):
     _migrate(schema)
     before = _goals(schema)
-    call = f"SET ROLE service_role; SELECT {schema}.fn_learner_goal_resolve"
-    assert "learner_goal_use_invalid" in _fails(f"{call}('{STUDENT}', '{USER}', 'both', NULL)")
+    seen = _seen(schema)
+    assert "learner_goal_use_invalid" in _fails(_call(schema, "both", seen))
+    # The page must say what it showed: both sources, every field.
+    for bad in ('{}', '{"admin": {"target_band": 7.0, "target_date": "2027-01-10"}}',
+                '{"admin": {"target_band": 7.0}, "learner": {"target_band": 7.5, "exam_date": "2027-02-01"}}'):
+        assert "learner_goal_seen_invalid" in _fails(_call(schema, "admin", bad))
     # A profile that is not this account's is not resolved against it.
-    assert "learner_not_linked" in _fails(f"{call}('{STUDENT}', '{OTHER_USER}', 'admin', NULL)")
+    assert "learner_not_linked" in _fails(_call(schema, "admin", seen, user=OTHER_USER))
     # One side empty is not a conflict (the overview says the same), nor is a
     # field set on one side only.
     psql(f"UPDATE {schema}.users SET target_band=NULL, exam_date=NULL WHERE id='{USER}'")
-    assert "no_conflict" in _fails(f"{call}('{STUDENT}', '{USER}', 'admin', NULL)")
+    assert "no_conflict" in _fails(_call(schema, "admin", _seen(schema)))
     psql(f"UPDATE {schema}.users SET target_band=7.0, exam_date=NULL WHERE id='{USER}'")
-    assert "no_conflict" in _fails(f"{call}('{STUDENT}', '{USER}', 'admin', NULL)")
+    assert "no_conflict" in _fails(_call(schema, "admin", _seen(schema)))
     psql(f"UPDATE {schema}.users SET target_band=7.5, exam_date='2027-02-01' WHERE id='{USER}'")
     assert _goals(schema) == before and _events(schema) == 0
+
+
+def test_a_goal_changed_after_the_page_opened_is_not_overwritten(schema):
+    _migrate(schema)
+    shown = _seen(schema)   # admin 7.0 / 2027-01-10, learner 7.5 / 2027-02-01
+    # Each source edited meanwhile, still in conflict: the choice is refused,
+    # neither row changes and no event is written.
+    for edit in (f"UPDATE {schema}.users SET target_band=8.0 WHERE id='{USER}'",
+                 f"UPDATE {schema}.students SET target_date='2027-03-01' WHERE id='{STUDENT}'"):
+        psql(edit)
+        now = _goals(schema)
+        for use in ("admin", "learner"):
+            assert "goal_changed" in _fails(_call(schema, use, shown))
+        assert _goals(schema) == now and _events(schema) == 0
+    # A field cleared since the page opened counts as a change too.
+    psql(f"UPDATE {schema}.users SET target_band=7.5, exam_date=NULL WHERE id='{USER}'")
+    psql(f"UPDATE {schema}.students SET target_date='2027-01-10' WHERE id='{STUDENT}'")
+    assert "goal_changed" in _fails(_call(schema, "learner", shown))
+    assert _events(schema) == 0
+    # The same values written as 7 and 7.00 are the same goal, not a change.
+    psql(f"UPDATE {schema}.users SET exam_date='2027-02-01' WHERE id='{USER}'")
+    same = shown.replace('"target_band": 7.0', '"target_band": 7').replace('"target_band": 7.5', '"target_band": 7.50')
+    assert same.count('"target_band": 7,') == 1 and '"target_band": 7.50' in same
+    assert json.loads(psql(_call(schema, "admin", same)).splitlines()[-1])["target_band"] == 7.0
+    assert _events(schema) == 1
 
 
 def test_a_field_the_chosen_source_leaves_empty_keeps_the_other_value(schema):
@@ -166,7 +208,7 @@ def test_client_roles_see_nothing_and_cannot_resolve(schema):
     for role in ("anon", "authenticated"):
         assert "permission denied" in _fails(f"SET ROLE {role}; SELECT * FROM {schema}.learner_goal_events")
         assert "permission denied" in _fails(
-            f"SET ROLE {role}; SELECT {schema}.fn_learner_goal_resolve('{STUDENT}', '{USER}', 'admin', NULL)")
+            _call(schema, "admin", _seen(schema)).replace("SET ROLE service_role", f"SET ROLE {role}"))
     assert psql(f"SELECT count(*) FROM pg_policy WHERE polrelid = '{schema}.learner_goal_events'::regclass") == "0"
 
 

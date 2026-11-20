@@ -18089,10 +18089,20 @@ export interface components {
              * @enum {string}
              */
             use: "admin" | "learner";
+            seen: components["schemas"]["GoalSeen"];
         };
         /** GoalResolveOut */
         GoalResolveOut: {
             goal: components["schemas"]["OverviewGoal"];
+        };
+        /**
+         * GoalSeen
+         * @description Both goals as the page showed them (the overview's goal.admin and
+         *     goal.learner, every field present, null included).
+         */
+        GoalSeen: {
+            admin: components["schemas"]["_SeenAdminGoal"];
+            learner: components["schemas"]["_SeenLearnerGoal"];
         };
         /** GradeRatingBody */
         GradeRatingBody: {
@@ -24186,6 +24196,20 @@ export interface components {
             purpose?: ("practice" | "assigned_practice" | "mock_delivery") | null;
             /** Mock Sitting Id */
             mock_sitting_id?: string | null;
+        };
+        /** _SeenAdminGoal */
+        _SeenAdminGoal: {
+            /** Target Band */
+            target_band: number | null;
+            /** Target Date */
+            target_date: string | null;
+        };
+        /** _SeenLearnerGoal */
+        _SeenLearnerGoal: {
+            /** Target Band */
+            target_band: number | null;
+            /** Exam Date */
+            exam_date: string | null;
         };
         /** _SubmitAnswerItem */
         _SubmitAnswerItem: {

@@ -70,9 +70,13 @@ GRANT SELECT, INSERT ON public.learner_goal_events TO service_role;
 -- with `learner_not_linked` unless the profile belongs to that account. A
 -- field the chosen source leaves empty keeps the other source's value, so
 -- choosing never erases information. Both rows are locked first, so two
--- admins resolving at once cannot interleave.
+-- admins resolving at once cannot interleave. `p_seen` is the pair of goals
+-- the admin's page showed ({admin: {target_band, target_date}, learner:
+-- {target_band, exam_date}}); under the locks every field is compared with
+-- it, and any difference refuses with `goal_changed`, so a choice is never
+-- applied to values the admin did not see.
 CREATE OR REPLACE FUNCTION public.fn_learner_goal_resolve(
-    p_student_id uuid, p_user_id uuid, p_use text, p_actor uuid
+    p_student_id uuid, p_user_id uuid, p_use text, p_seen jsonb, p_actor uuid
 ) RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY INVOKER
@@ -90,6 +94,13 @@ BEGIN
     IF p_use IS NULL OR p_use NOT IN ('admin', 'learner') THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'learner_goal_use_invalid';
     END IF;
+    IF p_seen IS NULL OR pg_catalog.jsonb_typeof(p_seen) <> 'object'
+       OR pg_catalog.jsonb_typeof(p_seen->'admin') IS DISTINCT FROM 'object'
+       OR pg_catalog.jsonb_typeof(p_seen->'learner') IS DISTINCT FROM 'object'
+       OR NOT (p_seen->'admin' ?& ARRAY['target_band', 'target_date'])
+       OR NOT (p_seen->'learner' ?& ARRAY['target_band', 'exam_date']) THEN
+        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'learner_goal_seen_invalid';
+    END IF;
     SELECT s.target_band, s.target_date INTO s_band, s_date
       FROM public.students s
      WHERE s.id = p_student_id AND s.user_id = p_user_id
@@ -101,6 +112,13 @@ BEGIN
       FROM public.users u WHERE u.id = p_user_id FOR UPDATE;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = 'P0002', MESSAGE = 'learner_not_linked';
+    END IF;
+    -- The page is stale when any field differs from what it showed.
+    IF s_band IS DISTINCT FROM (p_seen->'admin'->>'target_band')::numeric
+       OR s_date IS DISTINCT FROM (p_seen->'admin'->>'target_date')::date
+       OR u_band IS DISTINCT FROM (p_seen->'learner'->>'target_band')::numeric
+       OR u_date IS DISTINCT FROM (p_seen->'learner'->>'exam_date')::date THEN
+        RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'goal_changed';
     END IF;
     IF NOT ((s_band IS NOT NULL AND u_band IS NOT NULL AND s_band <> u_band)
             OR (s_date IS NOT NULL AND u_date IS NOT NULL AND s_date <> u_date)) THEN
@@ -125,9 +143,9 @@ BEGIN
     RETURN chosen;
 END;
 $$;
-REVOKE ALL ON FUNCTION public.fn_learner_goal_resolve(uuid, uuid, text, uuid)
+REVOKE ALL ON FUNCTION public.fn_learner_goal_resolve(uuid, uuid, text, jsonb, uuid)
     FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.fn_learner_goal_resolve(uuid, uuid, text, uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION public.fn_learner_goal_resolve(uuid, uuid, text, jsonb, uuid) TO service_role;
 
 DO $postcondition$
 BEGIN
@@ -142,8 +160,8 @@ BEGIN
        OR has_table_privilege('authenticated', 'public.learner_goal_events', 'SELECT')
        OR has_table_privilege('service_role', 'public.learner_goal_events', 'UPDATE')
        OR has_table_privilege('service_role', 'public.learner_goal_events', 'DELETE')
-       OR has_function_privilege('anon', 'public.fn_learner_goal_resolve(uuid, uuid, text, uuid)', 'EXECUTE')
-       OR has_function_privilege('authenticated', 'public.fn_learner_goal_resolve(uuid, uuid, text, uuid)', 'EXECUTE') THEN
+       OR has_function_privilege('anon', 'public.fn_learner_goal_resolve(uuid, uuid, text, jsonb, uuid)', 'EXECUTE')
+       OR has_function_privilege('authenticated', 'public.fn_learner_goal_resolve(uuid, uuid, text, jsonb, uuid)', 'EXECUTE') THEN
         RAISE EXCEPTION 'learner_goal_events_452_unexpected_privilege';
     END IF;
 END;

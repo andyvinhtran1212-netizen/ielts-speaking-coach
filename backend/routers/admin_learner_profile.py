@@ -66,7 +66,14 @@ async def resolve_learner_goal(ref: str, body: GoalResolveIn, authorization: str
     admin = await require_admin(authorization)
     person = await _person(ref)
     try:
-        await asyncio.to_thread(profile.resolve_goal, person, body.use, str(admin.get("id") or "") or None)
+        await asyncio.to_thread(profile.resolve_goal, person, body.use,
+                                body.seen.model_dump(mode="json"), str(admin.get("id") or "") or None)
+    except profile.GoalChanged:
+        raise HTTPException(409, {"code": "goal_changed",
+                                  "message": "Mục tiêu vừa được sửa sau khi trang mở. Chưa ghi gì; tải lại trang rồi chọn lại."})
+    except profile.GoalNotLinked:
+        raise HTTPException(409, {"code": "learner_not_linked",
+                                  "message": "Hồ sơ này không còn gắn với tài khoản đó. Chưa ghi gì; tải lại trang."})
     except profile.GoalNoConflict:
         raise HTTPException(409, {"code": "no_conflict",
                                   "message": "Hai nguồn mục tiêu đã khớp hoặc một nguồn còn trống. Tải lại trang."})

@@ -15,7 +15,7 @@ BEGIN
 END;
 $$;
 
-DROP FUNCTION IF EXISTS public.fn_learner_goal_resolve(uuid, uuid, text, uuid);
+DROP FUNCTION IF EXISTS public.fn_learner_goal_resolve(uuid, uuid, text, jsonb, uuid);
 DROP TABLE public.learner_goal_events;
 DROP FUNCTION IF EXISTS public.fn_learner_goal_events_append_only();
 

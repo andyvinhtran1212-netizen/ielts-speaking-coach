@@ -158,22 +158,36 @@ class GoalNoConflict(Exception):
     """There is nothing to resolve: one source is empty or both agree."""
 
 
-def resolve_goal(person: Person, use: str, actor_id: Optional[str]) -> None:
+class GoalChanged(Exception):
+    """A goal changed after the page showed it: the choice is not applied."""
+
+
+class GoalNotLinked(Exception):
+    """The profile is no longer that account's: the choice is not applied."""
+
+
+def resolve_goal(person: Person, use: str, seen: dict[str, Any], actor_id: Optional[str]) -> None:
     """FR-030 "Dùng giá trị này": copy the ``use`` source's goal onto both
     ``students`` and ``users`` and log it, in one transaction
-    (``fn_learner_goal_resolve``, mig 452). The function re-checks the
-    conflict under row locks, so a stale page cannot overwrite a goal that
-    changed meanwhile. Raises :class:`GoalNoConflict`, or the database error
+    (``fn_learner_goal_resolve``, mig 452). ``seen`` is both goals as the
+    page showed them; the function compares them under the row locks, so a
+    goal edited since (even one still in conflict) is never overwritten with
+    values the admin did not see. Raises :class:`GoalChanged`,
+    :class:`GoalNotLinked`, :class:`GoalNoConflict`, or the database error
     (452 not applied, a failed write)."""
     if person.student is None or person.user is None:
         raise GoalNoConflict()
     try:
         supabase_admin.rpc("fn_learner_goal_resolve", {
             "p_student_id": str(person.student["id"]), "p_user_id": str(person.user["id"]),
-            "p_use": use, "p_actor": actor_id,
+            "p_use": use, "p_seen": seen, "p_actor": actor_id,
         }).execute()
     except Exception as exc:
-        if "no_conflict" in str(exc) or "learner_not_linked" in str(exc):
+        if "goal_changed" in str(exc):
+            raise GoalChanged() from exc
+        if "learner_not_linked" in str(exc):
+            raise GoalNotLinked() from exc
+        if "no_conflict" in str(exc):
             raise GoalNoConflict() from exc
         raise
 
