@@ -14,6 +14,9 @@ import {
 import {
   ConfirmDialogSection, DialogSection, MediaPlaceholderSection, NoticeSection, PageStateSection,
 } from './feedback-sections';
+import {
+  BreadcrumbSection, PaginationSection, ProgressBarSection, StepperSection, TabsSection,
+} from './nav-sections';
 import styles from './ui-library.module.css';
 
 // Gate the metadata too, like /next-probe (BL-01): a disabled build ships the
@@ -149,6 +152,11 @@ export default function UiLibraryPage() {
         <ConfirmDialogSection title={title('confirm-dialog')} />
         <PageStateSection title={title('page-state')} />
         <MediaPlaceholderSection title={title('media-placeholder')} />
+        <TabsSection title={title('tabs')} />
+        <BreadcrumbSection title={title('breadcrumb')} />
+        <PaginationSection title={title('pagination')} />
+        <ProgressBarSection title={title('progress-bar')} />
+        <StepperSection title={title('stepper')} />
       </main>
     </div>
   );

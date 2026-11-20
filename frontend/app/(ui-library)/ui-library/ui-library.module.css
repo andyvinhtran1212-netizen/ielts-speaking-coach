@@ -101,6 +101,15 @@
 .pendingTitle { margin: 0 0 var(--av2-space-3); font-weight: var(--av2-fw-strong); }
 .pendingBody { margin: 0; color: var(--av2-muted); }
 
+/* G03-T07 navigation and progress sections. */
+.stack { display: flex; flex-direction: column; gap: var(--av2-space-7); }
+.progressGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--av2-space-10); }
+.panelText { margin: 0; }
+/* .section raises specificity over base.css `.av2-root p`. */
+.section .demoLabel { display: block; margin: var(--av2-space-9) 0 var(--av2-space-4); font-size: var(--av2-fs-13); color: var(--av2-muted); }
+.section h2 + .demoLabel { margin-top: 0; }
+.gapTop { margin-top: var(--av2-space-7); }
+
 @media (max-width: 767px) {
   .stateGrid { grid-template-columns: 1fr; }
   .stateHead { display: none; }
@@ -111,4 +120,5 @@
   .badgeGrid { grid-template-columns: 1fr; }
   .overlayGrid { grid-template-columns: minmax(0, 1fr); }
   .drawerStage { height: 480px; }
+  .progressGrid { grid-template-columns: minmax(0, 1fr); }
 }
