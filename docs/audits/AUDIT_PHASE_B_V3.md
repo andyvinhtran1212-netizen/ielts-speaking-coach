@@ -1,7 +1,7 @@
 # Audit Phase B V3
 
 Branch audited: `feature/vocab-phase-b-v3`  
-Spec audited against: [PHASE_B_V3_PLAN.md](/Users/trantrongvinh/Documents/ielts-speaking-coach/PHASE_B_V3_PLAN.md), [PHASE_B_V3_COMPLETION.md](/Users/trantrongvinh/Documents/ielts-speaking-coach/PHASE_B_V3_COMPLETION.md), [VOCAB_PLAN_V3.md](/Users/trantrongvinh/Documents/ielts-speaking-coach/VOCAB_PLAN_V3.md)
+Spec audited against: [PHASE_B_V3_PLAN.md](../history/root/PHASE_B_V3_PLAN.md), [PHASE_B_V3_COMPLETION.md](../history/root/PHASE_B_V3_COMPLETION.md), [VOCAB_PLAN_V3.md](../history/root/VOCAB_PLAN_V3.md)
 
 ## Overall verdict
 
@@ -276,8 +276,8 @@ The branch stays mostly inside Phase B scope, uses Haiku as planned, keeps the m
 - Impact:
   The acceptance criterion “RLS 2-user test PASS” is currently an unverified claim, not demonstrated evidence.
 - Impacted files:
-  - [PHASE_B_V3_COMPLETION.md:49](/Users/trantrongvinh/Documents/ielts-speaking-coach/PHASE_B_V3_COMPLETION.md:49)
-  - [VOCAB_PLAN_V3.md:266](/Users/trantrongvinh/Documents/ielts-speaking-coach/VOCAB_PLAN_V3.md:266)
+  - [PHASE_B_V3_COMPLETION.md:49](../history/root/PHASE_B_V3_COMPLETION.md:49)
+  - [VOCAB_PLAN_V3.md:266](../history/root/VOCAB_PLAN_V3.md:266)
 - Suggested minimal fix:
   Add a reproducible integration script or test plan that uses two real JWTs against Supabase/PostgREST.
 - Verification:

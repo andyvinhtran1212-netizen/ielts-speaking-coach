@@ -45,7 +45,8 @@ The date in a report describes its observation window, not today's deployment.
 ## Historical evidence
 
 Dated reports and plans in the top level of `docs/` or, when nothing else in
-the repository links to them, under `docs/history/<family>/`, grouped by family. They
+the repository links to them, under `docs/history/<family>/` (former
+repository-root files under `docs/history/root/`), grouped by family. They
 record what was observed or planned on the date shown; current code, tests,
 specs and the runbooks under "Start here" take precedence. "Superseded by" is
 filled only where the file itself names its replacement. A date marked
@@ -127,6 +128,16 @@ date.
 | Other dated report | [TRAFFIC_BASELINE_2026-07-13.md](TRAFFIC_BASELINE_2026-07-13.md) | 2026-07-13 | - |
 | Other dated report | [PARITY_WRITING_PAIR_2026-08-05.md](history/other/PARITY_WRITING_PAIR_2026-08-05.md) | 2026-08-05 | `.github/workflows/next-native-browser.yml` (self-declared 2026-09-12) |
 | Other dated report | [CLASS_UI_REDESIGN_2026-08-06.md](history/other/CLASS_UI_REDESIGN_2026-08-06.md) | 2026-08-06 | - |
+| Root (vocab V3 and deploy) | [DEPLOY_CHECKLIST.md](history/root/DEPLOY_CHECKLIST.md) | 2026-09-26 (last commit) | [Staging-first release flow](STAGING_FIRST_RELEASE_FLOW.md) (self-declared) |
+| Root (vocab V3 and deploy) | [SMOKE_TEST_CHECKLIST.md](history/root/SMOKE_TEST_CHECKLIST.md) | 2026-04-20 (last commit) | - |
+| Root (vocab V3 and deploy) | [VOCAB_PLAN_V3.md](history/root/VOCAB_PLAN_V3.md) | 2026-04-24 (last commit) | - |
+| Root (vocab V3 and deploy) | [PHASE_A_V3_PLAN.md](history/root/PHASE_A_V3_PLAN.md) | 2026-04-24 (last commit) | - |
+| Root (vocab V3 and deploy) | [PHASE_A_V3_COMPLETION.md](history/root/PHASE_A_V3_COMPLETION.md) | 2026-04-24 (last commit) | - |
+| Root (vocab V3 and deploy) | [PHASE_B_V3_PLAN.md](history/root/PHASE_B_V3_PLAN.md) | 2026-04-24 (last commit) | - |
+| Root (vocab V3 and deploy) | [PHASE_B_V3_COMPLETION.md](history/root/PHASE_B_V3_COMPLETION.md) | 2026-04-24 (last commit) | - |
+| Root (vocab V3 and deploy) | [PHASE_B_V3_FINAL_STATUS.md](history/root/PHASE_B_V3_FINAL_STATUS.md) | 2026-04-24 (last commit) | - |
+| Root (vocab V3 and deploy) | [PHASE_D_V3_PLAN.md](history/root/PHASE_D_V3_PLAN.md) | 2026-04-27 (last commit) | - |
+| Root (vocab V3 and deploy) | [PHASE_D_WAVE_2_PLAN.md](history/root/PHASE_D_WAVE_2_PLAN.md) | 2026-04-27 (last commit) | - |
 
 Domain documents beyond this navigation table remain useful references; verify
 their statements against the current implementation before acting on them.
