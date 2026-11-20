@@ -185,6 +185,32 @@ CREATE OR REPLACE TRIGGER trg_credit_cluster_members_guard
     BEFORE UPDATE ON public.credit_cluster_members
     FOR EACH ROW EXECUTE FUNCTION public.fn_credit_cluster_members_guard();
 
+-- ── credit_covered_requests: replay record of a "covered" answer (FR-014) ──
+-- A covered Speaking answer writes no reservation, so its request key is kept
+-- here; a replay of that key returns the same answer without touching
+-- regrade_count again.
+CREATE TABLE IF NOT EXISTS public.credit_covered_requests (
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id uuid NOT NULL REFERENCES public.users(id) ON DELETE RESTRICT,
+    feature text NOT NULL CONSTRAINT credit_covered_requests_feature_check
+        CHECK (feature IN ('speaking_grading', 'writing_grading', 'short_writing_feedback')),
+    request_key text NOT NULL CONSTRAINT credit_covered_requests_request_key_check
+        CHECK (char_length(request_key) BETWEEN 8 AND 120),
+    resource_type text NOT NULL,
+    resource_id text NOT NULL,
+    reservation_id uuid NOT NULL REFERENCES public.credit_reservations(id) ON DELETE RESTRICT,
+    cluster_k integer NOT NULL,
+    regrade_count smallint NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT credit_covered_requests_request_key UNIQUE (user_id, feature, request_key)
+);
+CREATE OR REPLACE TRIGGER trg_credit_covered_requests_append_only
+    BEFORE UPDATE OR DELETE ON public.credit_covered_requests
+    FOR EACH ROW EXECUTE FUNCTION public.fn_course_commerce_append_only();
+CREATE OR REPLACE TRIGGER trg_credit_covered_requests_no_truncate
+    BEFORE TRUNCATE ON public.credit_covered_requests
+    FOR EACH STATEMENT EXECUTE FUNCTION public.fn_course_commerce_append_only();
+
 -- ── writing_essays.review_mode ──────────────────────────────────────────────
 -- NULL = the existing flow (class assignments, admin review).
 ALTER TABLE public.writing_essays ADD COLUMN IF NOT EXISTS review_mode text;
@@ -385,6 +411,7 @@ SET search_path = pg_catalog, pg_temp
 AS $$
 DECLARE
     v_existing public.credit_reservations%ROWTYPE;
+    v_covered public.credit_covered_requests%ROWTYPE;
     v_member public.credit_cluster_members%ROWTYPE;
     v_session uuid;
     v_part smallint;
@@ -419,6 +446,15 @@ BEGIN
         END IF;
         RETURN jsonb_build_object('status', 'replay', 'reservation_id', v_existing.id);
     END IF;
+    SELECT * INTO v_covered FROM public.credit_covered_requests
+     WHERE user_id = p_user_id AND feature = p_feature AND request_key = p_request_key;
+    IF FOUND THEN
+        IF (v_covered.resource_type, v_covered.resource_id) IS DISTINCT FROM (p_resource_type, p_resource_id) THEN
+            RETURN jsonb_build_object('status', 'request_key_conflict', 'reservation_id', v_covered.reservation_id);
+        END IF;
+        RETURN jsonb_build_object('status', 'covered', 'replay', true, 'reservation_id', v_covered.reservation_id,
+                                  'cluster_k', v_covered.cluster_k, 'regrade_count', v_covered.regrade_count);
+    END IF;
 
     -- (1) owner, before anything is written.
     IF NOT public.fn_credit_resource_owned(p_user_id, p_resource_type, p_resource_id) THEN
@@ -452,13 +488,30 @@ BEGIN
                       WHERE session_id = v_session AND part = v_part) / p_cluster_size)
             RETURNING * INTO v_member;
         END IF;
-        SELECT r.id INTO v_cover
-          FROM public.credit_cluster_members m
-          JOIN public.credit_reservations r ON r.id = m.reservation_id
-         WHERE m.session_id = v_session AND m.part = v_part AND m.cluster_k = v_member.cluster_k
-           AND r.status IN ('open', 'committed')
-         ORDER BY r.created_at
-         LIMIT 1;
+        -- FOR SHARE: a concurrent release or expiry of the covering hold
+        -- (FOR UPDATE on that row) either finishes first, and then the hold
+        -- no longer qualifies on re-check, or waits until this answer is
+        -- recorded. Lock order is the same everywhere: user lock, then
+        -- reservation row; release and expiry take only the row lock.
+        FOR i IN 1..3 LOOP
+            SELECT r.id INTO v_cover
+              FROM public.credit_reservations r
+             WHERE r.id IN (SELECT m.reservation_id FROM public.credit_cluster_members m
+                             WHERE m.session_id = v_session AND m.part = v_part
+                               AND m.cluster_k = v_member.cluster_k AND m.reservation_id IS NOT NULL)
+               AND r.status IN ('open', 'committed')
+             ORDER BY r.created_at
+             LIMIT 1
+               FOR SHARE;
+            EXIT WHEN v_cover IS NOT NULL
+                   OR NOT EXISTS (SELECT 1 FROM public.credit_cluster_members m
+                                    JOIN public.credit_reservations r ON r.id = m.reservation_id
+                                   WHERE m.session_id = v_session AND m.part = v_part
+                                     AND m.cluster_k = v_member.cluster_k
+                                     AND r.status IN ('open', 'committed'));
+        END LOOP;
+        -- The question's own link may have been cleared by that release.
+        SELECT * INTO v_member FROM public.credit_cluster_members WHERE id = v_member.id;
         IF v_cover IS NOT NULL THEN
             IF v_member.reservation_id IS NOT NULL THEN
                 -- The question was already graded under this cluster (N-3).
@@ -472,8 +525,13 @@ BEGIN
                  WHERE id = v_member.id
                 RETURNING * INTO v_member;
             ELSE
-                UPDATE public.credit_cluster_members SET reservation_id = v_cover WHERE id = v_member.id;
+                UPDATE public.credit_cluster_members SET reservation_id = v_cover WHERE id = v_member.id
+                RETURNING * INTO v_member;
             END IF;
+            INSERT INTO public.credit_covered_requests (user_id, feature, request_key, resource_type, resource_id,
+                                                        reservation_id, cluster_k, regrade_count)
+            VALUES (p_user_id, p_feature, p_request_key, p_resource_type, p_resource_id, v_cover,
+                    v_member.cluster_k, v_member.regrade_count);
             RETURN jsonb_build_object('status', 'covered', 'reservation_id', v_cover,
                                       'cluster_k', v_member.cluster_k,
                                       'regrade_count', v_member.regrade_count);
@@ -1285,16 +1343,20 @@ $$;
 ALTER TABLE public.credit_reservations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.credit_ledger ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.credit_cluster_members ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON public.credit_reservations, public.credit_ledger, public.credit_cluster_members
+ALTER TABLE public.credit_covered_requests ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.credit_reservations, public.credit_ledger, public.credit_cluster_members,
+              public.credit_covered_requests
     FROM PUBLIC, anon, authenticated, service_role;
-GRANT SELECT ON public.credit_reservations, public.credit_ledger, public.credit_cluster_members TO service_role;
+GRANT SELECT ON public.credit_reservations, public.credit_ledger, public.credit_cluster_members,
+                public.credit_covered_requests TO service_role;
 DO $sequences$
 DECLARE
     v_seq text;
 BEGIN
     FOREACH v_seq IN ARRAY ARRAY[
         pg_get_serial_sequence('public.credit_ledger', 'id'),
-        pg_get_serial_sequence('public.credit_cluster_members', 'id')
+        pg_get_serial_sequence('public.credit_cluster_members', 'id'),
+        pg_get_serial_sequence('public.credit_covered_requests', 'id')
     ] LOOP
         EXECUTE format('REVOKE ALL ON SEQUENCE %s FROM PUBLIC, anon, authenticated, service_role', v_seq);
     END LOOP;
@@ -1361,7 +1423,7 @@ DECLARE
 BEGIN
     FOREACH v_table IN ARRAY ARRAY[
         'public.credit_reservations'::regclass, 'public.credit_ledger'::regclass,
-        'public.credit_cluster_members'::regclass
+        'public.credit_cluster_members'::regclass, 'public.credit_covered_requests'::regclass
     ] LOOP
         IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid = v_table) THEN
             RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = '384 postcondition: RLS off on ' || v_table;

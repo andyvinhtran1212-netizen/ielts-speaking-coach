@@ -2,7 +2,7 @@
 -- Run only after the preceding backend is deployed, after rolling back every
 -- later course_commerce file (rollout.md order), and before rollback/383.
 -- Keeps every table and row: credit_reservations, credit_ledger,
--- credit_cluster_members and writing_essays.review_mode stay, with their guard
+-- credit_cluster_members, credit_covered_requests and writing_essays.review_mode stay, with their guard
 -- triggers, as accounting evidence (the ledger stays append-only). It drops the
 -- RPCs and their helpers, so nothing can reserve, settle, confirm or grant.
 -- Refuses while credit_ledger holds any row unless the operator opts in first,

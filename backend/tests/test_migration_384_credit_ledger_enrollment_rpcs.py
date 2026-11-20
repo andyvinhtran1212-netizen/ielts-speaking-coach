@@ -23,7 +23,7 @@ NAME = "384_credit_ledger_enrollment_rpcs.sql"
 FORWARD = (MIGRATIONS / NAME).read_text(encoding="utf-8")
 ROLLBACK = (MIGRATIONS / "rollback" / NAME).read_text(encoding="utf-8")
 M1 = (MIGRATIONS / "383_course_commerce_core.sql").read_text(encoding="utf-8")
-NEW_TABLES = ("credit_reservations", "credit_ledger", "credit_cluster_members")
+NEW_TABLES = ("credit_reservations", "credit_ledger", "credit_cluster_members", "credit_covered_requests")
 INTERNAL = ("fn_credit_reservations_guard()", "fn_credit_cluster_members_guard()",
             "fn_enrollment_order_entitlement_match()", "fn_credit_lock_user(uuid)",
             "fn_entitlement_credit_usable(public.entitlements)", "fn_credit_feature_skill(text)",
@@ -550,6 +550,74 @@ async def test_cluster_seats_stay_fixed_when_a_hold_is_released(pg):
     # Members are fixed: no update of the seat itself.
     with pytest.raises(asyncpg.RaiseError, match="credit_cluster_member_immutable"):
         await con.execute("UPDATE credit_cluster_members SET cluster_k = 9")
+
+
+@pytest.mark.asyncio
+async def test_covered_replay_does_not_spend_another_free_regrade(pg):
+    """FR-014 (review on 74a845c): a covered answer is replayed by its request key."""
+    con = pg.con
+    user = await pg.user()
+    await pg.entitlement(user, await pg.product(), credits=1)
+    sid = await pg.session(user)
+    q1, q2 = uuid4(), uuid4()
+    first = await pg.reserve(user, "speaking_cluster", f"{sid}:p1:q{q1}")
+    covered = await pg.reserve(user, "speaking_cluster", f"{sid}:p1:q{q2}", key="q2-first-key")
+    assert covered["status"] == "covered" and covered["regrade_count"] == 0
+    regrade = await pg.reserve(user, "speaking_cluster", f"{sid}:p1:q{q2}", key="q2-regrade-key")
+    assert regrade["status"] == "covered" and regrade["regrade_count"] == 1
+    rows = await con.fetchval("SELECT count(*) FROM credit_covered_requests")
+    for _ in range(3):  # replays: same answer, nothing written, no extra regrade spent
+        again = await pg.reserve(user, "speaking_cluster", f"{sid}:p1:q{q2}", key="q2-regrade-key")
+        assert (again["status"], again["regrade_count"], again["replay"]) == ("covered", 1, True)
+        assert again["reservation_id"] == first["reservation_id"]
+    assert await con.fetchval("SELECT count(*) FROM credit_covered_requests") == rows
+    assert await con.fetchval("SELECT regrade_count FROM credit_cluster_members WHERE question_id = $1", q2) == 1
+    assert (await pg.reserve(user, "speaking_cluster", f"{sid}:p1:q{q2}", key="q2-third-key"))["status"] \
+        == "regrade_limit"
+    # The covered key cannot be reused for another resource.
+    assert (await pg.reserve(user, "speaking_cluster", f"{sid}:p1:q{uuid4()}", key="q2-first-key"))["status"] \
+        == "request_key_conflict"
+    with pytest.raises(asyncpg.RaiseError, match="credit_covered_requests_append_only"):
+        await con.execute("DELETE FROM credit_covered_requests")
+
+
+@pytest.mark.asyncio
+async def test_no_coverage_from_a_hold_released_concurrently(pg):
+    """Review on 74a845c: covered never points at a released hold."""
+    con = pg.con
+    user = await pg.user()
+    await pg.entitlement(user, await pg.product(), credits=50)
+    other = await pg.connect()
+    for _ in range(20):
+        sid = await pg.session(user)
+        opener = await pg.reserve(user, "speaking_cluster", f"{sid}:p1:q{uuid4()}")
+        assert opener["status"] == "reserved"
+        # The release runs first and holds the row: the covering check waits, then
+        # sees the released hold and charges a new credit for the cluster.
+        await other.execute("BEGIN")
+        await pg.rpc("fn_credit_release", _uuid(opener["reservation_id"]), "grader_failed", con=other)
+        follower = asyncio.create_task(pg.reserve(user, "speaking_cluster", f"{sid}:p1:q{uuid4()}"))
+        await asyncio.sleep(0.2)
+        assert not follower.done()
+        await other.execute("COMMIT")
+        result = await follower
+        assert result["status"] == "reserved", result
+        assert await con.fetchval("SELECT status FROM credit_reservations WHERE id = $1",
+                                  _uuid(result["reservation_id"])) == "open"
+    # The covering answer runs first: a release of its hold waits for it.
+    sid = await pg.session(user)
+    opener = await pg.reserve(user, "speaking_cluster", f"{sid}:p1:q{uuid4()}")
+    await con.execute("BEGIN")
+    covered = await pg.reserve(user, "speaking_cluster", f"{sid}:p1:q{uuid4()}")
+    assert covered["status"] == "covered"
+    release = asyncio.create_task(pg.rpc("fn_credit_release", _uuid(opener["reservation_id"]), "grader_failed",
+                                         con=other))
+    await asyncio.sleep(0.2)
+    assert not release.done()
+    await con.execute("COMMIT")
+    assert (await release)["status"] == "released"
+    assert await con.fetchval("SELECT count(*) FROM credit_cluster_members WHERE reservation_id = $1",
+                              _uuid(opener["reservation_id"])) == 0
 
 
 @pytest.mark.asyncio
