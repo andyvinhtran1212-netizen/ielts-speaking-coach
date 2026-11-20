@@ -23,7 +23,7 @@ const CSS = read('public', 'css', 'admin-listening-true-false-next.css');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 const LEDGER = readFileSync(join(here, '..', '..', 'docs', 'ROUTE_LEDGER.md'), 'utf8');
 const WORKFLOW = readFileSync(join(here, '..', '..', '.github', 'workflows', 'next-native-browser.yml'), 'utf8');
-const BACKEND = readFileSync(join(here, '..', '..', 'backend', 'routers', 'listening.py'), 'utf8');
+const BACKEND = readFileSync(join(here, '..', '..', 'backend', 'routers', 'listening', '__init__.py'), 'utf8');
 const MIGRATION = readFileSync(join(here, '..', '..', 'backend', 'migrations', '209_listening_single_published_standalone_block.sql'), 'utf8');
 
 const content = (patch = {}) => ({

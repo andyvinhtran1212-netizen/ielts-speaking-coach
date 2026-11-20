@@ -23,7 +23,7 @@ const DETAIL = read('app', '(authed-admin-listening)', 'admin', 'listening', 'co
 const CSS = read('public', 'css', 'admin-listening-segments-next.css');
 const PLAYER = read('public', 'js', 'components', 'audio-player.js');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
-const BACKEND = readFileSync(join(here, '..', '..', 'backend', 'routers', 'listening.py'), 'utf8');
+const BACKEND = readFileSync(join(here, '..', '..', 'backend', 'routers', 'listening', '__init__.py'), 'utf8');
 const MIGRATION = readFileSync(join(here, '..', '..', 'backend', 'migrations', '208_listening_exercise_block_identity.sql'), 'utf8');
 
 const content = (patch = {}) => ({
