@@ -32,7 +32,10 @@ def test_transaction_rls_grants_and_bucket_contract():
         assert f"CREATE TABLE IF NOT EXISTS public.{table} (" in CODE
         assert f"ALTER TABLE public.{table} ENABLE ROW LEVEL SECURITY;" in CODE
     assert "FROM PUBLIC, anon, authenticated, service_role;" in CODE
-    assert not re.search(r"\bCREATE POLICY\b", CODE, re.I)
+    # The only policy is the restrictive storage guard; the tables get none.
+    assert re.findall(r"\bCREATE POLICY\s+(\w+)\s+ON\s+([\w.]+)", CODE, re.I) == [
+        ("library_media_backend_only", "storage.objects")]
+    assert "AS RESTRICTIVE FOR ALL TO PUBLIC" in CODE
     assert not re.search(r"\bGRANT\b[^;]*\bTO\b[^;]*\b(anon|authenticated|PUBLIC)\b", CODE, re.I)
     assert "'library-media', 'library-media', false" in CODE
     assert "SET public = false" in CODE
@@ -46,7 +49,10 @@ def test_register_policy_and_rollback_rows():
               if line.startswith(NAME)]
     assert len(policy) == 1 and policy[0][1:3] == ["pending_feature", "public_library"]
     assert "No apply on merge" in policy[0][3]
-    assert "FROM public.library_marks" in DOWN and "bucket_id = 'library-media'" in DOWN
+    for table in ("writing_samples", "speaking_samples", "writing_sample_slug_history", "library_marks"):
+        assert f"EXISTS (SELECT 1 FROM public.{table})" in DOWN
+    assert "bucket_id = 'library-media'" in DOWN
+    assert "DROP POLICY IF EXISTS library_media_backend_only ON storage.objects;" in DOWN
 
 
 def test_library_media_storage_policy_and_type_caps():
@@ -107,6 +113,8 @@ def pg():
                                         file_size_limit bigint, allowed_mime_types text[]);
           CREATE TABLE storage.objects (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), bucket_id text, name text);
           ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+          GRANT USAGE ON SCHEMA storage TO anon, authenticated, service_role;
+          GRANT SELECT, INSERT, UPDATE, DELETE ON storage.objects TO anon, authenticated, service_role;
           INSERT INTO storage.buckets (id, name, public) VALUES ('writing-images', 'writing-images', false);
         """)
         yield lambda sql, check=True: run(db, sql, check)
@@ -157,11 +165,37 @@ def test_reapply_makes_an_existing_public_bucket_private(pg):
     assert _json(pg, "SELECT json_agg(public) FROM storage.buckets WHERE id = 'library-media';") == [False]
 
 
-def test_client_policy_on_library_media_aborts_the_migration(pg):
+def test_permissive_policy_naming_library_media_aborts_the_migration(pg):
     pg("""CREATE POLICY leak ON storage.objects FOR SELECT TO anon USING (bucket_id = 'library-media');""")
     result = pg(SQL, check=False)
-    assert result.returncode != 0 and "names library-media" in result.stderr
+    assert result.returncode != 0 and "permissive storage.objects policy names library-media" in result.stderr
     assert _json(pg, "SELECT to_regclass('public.library_topics');") is None
+
+
+OBJECTS = "SELECT coalesce(json_agg(bucket_id ORDER BY bucket_id), '[]') FROM storage.objects;"
+
+
+@pytest.mark.parametrize("role", ["anon", "authenticated"])
+def test_broad_client_policy_cannot_reach_library_media(pg, role):
+    # A pre-existing over-broad policy (no bucket filter) must not expose this bucket.
+    pg("""CREATE POLICY broad_read ON storage.objects FOR SELECT TO anon, authenticated USING (true);
+          CREATE POLICY broad_write ON storage.objects FOR INSERT TO anon, authenticated WITH CHECK (true);
+          CREATE POLICY broad_change ON storage.objects FOR UPDATE TO anon, authenticated USING (true) WITH CHECK (true);
+          CREATE POLICY broad_delete ON storage.objects FOR DELETE TO anon, authenticated USING (true);
+          INSERT INTO storage.objects (bucket_id, name) VALUES
+            ('library-media', 'task1/draft.png'), ('writing-images', 'chart.png');""")
+    pg(SQL)
+    assert _json(pg, f"SET ROLE {role}; {OBJECTS}") == ["writing-images"]
+    for sql in ("INSERT INTO storage.objects (bucket_id, name) VALUES ('library-media', 'x.png');",
+                "UPDATE storage.objects SET bucket_id = 'library-media' WHERE bucket_id = 'writing-images';"):
+        result = pg(f"SET ROLE {role}; {sql}", check=False)
+        assert result.returncode != 0 and "row-level security" in result.stderr, sql
+    pg(f"SET ROLE {role}; DELETE FROM storage.objects WHERE bucket_id = 'library-media';")
+    assert _json(pg, OBJECTS) == ["library-media", "writing-images"]
+    # Other buckets keep their client access; the backend role keeps full access.
+    pg(f"SET ROLE {role}; INSERT INTO storage.objects (bucket_id, name) VALUES ('writing-images', 'b.png');")
+    assert _json(pg, f"SET ROLE service_role; {OBJECTS}") == ["library-media", "writing-images", "writing-images"]
+    pg("SET ROLE service_role; INSERT INTO storage.objects (bucket_id, name) VALUES ('library-media', 'a.mp3');")
 
 
 @pytest.mark.parametrize("bad", [
@@ -248,6 +282,25 @@ def test_marks_primary_key_and_user_cascade(pg):
     assert _json(pg, "SELECT count(*) FROM public.library_marks;") == 0
 
 
+@pytest.mark.parametrize("content", [
+    TOPIC + writing(pub="true"),
+    speaking() + "UPDATE public.speaking_samples SET published = true;",
+    TOPIC + writing() + """INSERT INTO public.writing_sample_slug_history (old_slug, sample_id)
+        SELECT 'old-remote', id FROM public.writing_samples;""",
+])
+def test_rollback_refuses_content_without_marks_or_media(pg, content):
+    # Task 2 and YouTube-only Speaking have no media; slug history is not in the manifests.
+    pg(SQL)
+    pg(content)
+    count = ("SELECT (SELECT count(*) FROM public.writing_samples) + (SELECT count(*) FROM public.speaking_samples)"
+             " + (SELECT count(*) FROM public.writing_sample_slug_history);")
+    before = _json(pg, count)
+    assert before > 0
+    result = pg(DOWN, check=False)
+    assert result.returncode != 0 and "keep schema and roll back the application" in result.stderr
+    assert _json(pg, count) == before
+
+
 def test_rollback_refuses_marks_or_objects_then_removes_everything(pg):
     pg(SQL)
     user = str(uuid4())
@@ -259,11 +312,12 @@ def test_rollback_refuses_marks_or_objects_then_removes_everything(pg):
        "VALUES ('library-media', 'task1/a.png');")
     result = pg(DOWN, check=False)
     assert result.returncode != 0 and "still has objects" in result.stderr
-    pg("DELETE FROM storage.objects;" + TOPIC + writing())
+    pg("DELETE FROM storage.objects;" + TOPIC)
     pg(DOWN)
     remaining = _json(pg, """SELECT json_agg(relname) FROM pg_class WHERE relnamespace = 'public'::regnamespace
                              AND relname IN ('library_topics','writing_samples','writing_sample_slug_history',
                                              'speaking_samples','library_marks');""")
     assert remaining is None
     assert _json(pg, "SELECT json_agg(id) FROM storage.buckets;") == ["writing-images"]
+    assert _json(pg, "SELECT count(*) FROM pg_policy WHERE polrelid = 'storage.objects'::regclass;") == 0
     pg(SQL)

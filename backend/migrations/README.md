@@ -31,7 +31,8 @@ Leader from the commercialization register; the PR that takes one adds its
 row. `380` is Skill Drill homework, #2294.
 `400` is `pending_feature public_library` (LIBRARY-0061 T002, G06 band 400–419):
 five RLS-only Library tables reached only through service_role and the private
-`library-media` bucket; rollback refuses once `library_marks` or bucket objects exist.
+`library-media` bucket guarded by a RESTRICTIVE `storage.objects` policy; the schema
+rollback refuses while any Library content, slug history, mark or bucket object exists.
 `501` is `pending_feature course_bank_service_write`: since 309 its CHECK
 `quiz_banks_grammar_revision_shape` calls `grammar_quiz_allowed_code`, whose
 EXECUTE the 309/314/339 blanket loops revoke from service_role, so every
