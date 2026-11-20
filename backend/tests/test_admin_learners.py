@@ -299,8 +299,11 @@ def test_attention_column_and_filter_use_the_thresholds(db, monkeypatch):
 def test_a_failed_class_lookup_still_lists_and_says_so(db):
     db.fail.add("cohorts")
     out = _list()
-    assert out["sources_failed"] == ["cohorts"]
+    # The class table also says which classes are archived, so the late
+    # streak is not decided either: both sources are named.
+    assert out["sources_failed"] == ["assignments", "cohorts"]
     assert all(row["cohorts"] is None for row in out["items"])
+    assert all(not any(r["code"] == "late_streak" for r in row["attention"]) for row in out["items"])
 
 
 def test_unreadable_attention_is_never_shown_as_fine(db, monkeypatch):
@@ -382,6 +385,34 @@ def test_late_lesson_work_is_not_counted_missing(db):
         dict(DEFAULTS), now=NOW, history={"sa": history, "sb": other})
     assert res.reasons["a"] == [] and [r["code"] for r in res.reasons["b"]] == ["late_streak"]
     assert res.sources_failed == ["assignments"]
+
+
+def test_an_undecided_learner_does_not_take_down_the_attention_filter(db):
+    """One learner with an undecided lesson item (a quiz started, not
+    finished) must not make the filtered directory 503: that learner is left
+    out of the result and named in ``undecided``; everyone else is decided."""
+    _lesson_item(db, _ago(days=3))
+    for attention in ("any", "late_streak"):
+        out = _list(attention=attention)
+        assert f"u-{U_LAN}" not in _by_ref(out)
+        assert out["undecided"] == [f"u-{U_LAN}"]
+        assert "assignments" in out["sources_failed"]
+    # Inactivity does not depend on the class ledger: nobody is undecided.
+    out = _list(attention="inactive")
+    assert out["undecided"] == [] and f"u-{U_MINH}" in _by_ref(out)
+    # Without a lesson item Lan is decided and listed, and nobody is undecided.
+    db.rows["quiz_sessions"] = []
+    out = _list(attention="late_streak")
+    assert f"u-{U_LAN}" in _by_ref(out) and out["undecided"] == []
+
+
+def test_an_archived_class_work_is_not_counted_missing(db):
+    for c in db.rows["cohorts"]:
+        if c["id"] == C_A:
+            c.update(is_active=False, archived_at=_ago(days=1))
+    s = asyncio.run(mod.get_learner(f"u-{U_LAN}", "Bearer x"))["summary"]
+    assert s["overdue"] == {"count": 0, "latest_title": None}
+    assert s["status"]["reasons"] == []
 
 
 def test_teacher_reads_write_nothing(db, monkeypatch):

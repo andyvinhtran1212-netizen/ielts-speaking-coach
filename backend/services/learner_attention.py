@@ -56,6 +56,11 @@ class AttentionResult:
     reasons: dict[str, list[dict[str, str]]]      # learner key -> [{code, text}], heaviest first
     sources_failed: list[str]
     history: dict[str, AssignmentHistory]          # student id -> history (when read)
+    # Learners whose late streak a read cannot decide (a lesson item, see
+    # AssignmentHistory.unconfirmed). Their other reasons are still decided.
+    undecided: set[str] = field(default_factory=set)
+    # Sources that could not be read at all: nothing they feed is decided.
+    unread: list[str] = field(default_factory=list)
 
 
 def _parse(value: Any) -> Optional[datetime]:
@@ -126,23 +131,49 @@ def _evidence_at(item_ids: list[str], sources=_EVIDENCE) -> dict[str, datetime]:
     return found
 
 
+def _archived_cohorts(cohort_ids: set[str]) -> set[str]:
+    found: set[str] = set()
+    ids = sorted(cohort_ids)
+    for offset in range(0, len(ids), _ID_CHUNK):
+        chunk = ids[offset:offset + _ID_CHUNK]
+        for row in _paged(lambda c=chunk: supabase_admin.table("cohorts")
+                          .select("id, is_active, archived_at").in_("id", c).order("id")):
+            if row.get("is_active") is False and row.get("archived_at"):
+                found.add(str(row["id"]))
+    return found
+
+
 def assignment_history(student_ids: Iterable[str], now: datetime,
                        cohort_ids: Optional[frozenset[str]] = None) -> dict[str, AssignmentHistory]:
     """Every published class assignment item whose deadline has passed, per
     student, newest deadline first. An empty ledger row with durable on-time
     evidence (see :func:`_evidence_at`) counts as handed in. Read only.
     ``cohort_ids`` (a teacher's scope) keeps only those classes' work, before
-    any evidence is read. Raises when a table cannot be read."""
+    any evidence is read; it is filtered in the query. Work of an archived
+    class (``is_active`` false and ``archived_at`` set, as
+    ``class_archive_service`` reads it) is left out: it is history, not
+    something the learner can still hand in. Raises when a table cannot be
+    read."""
     ids = list(dict.fromkeys(str(s) for s in student_ids if s))
+    if cohort_ids is not None and not cohort_ids:
+        return {sid: AssignmentHistory() for sid in ids}
     items = _read_items(ids)
     assignment_ids = list({str(i["assignment_id"]) for i in items if i.get("assignment_id")})
     assignments: dict[str, dict] = {}
     for offset in range(0, len(assignment_ids), _ID_CHUNK):
         chunk = assignment_ids[offset:offset + _ID_CHUNK]
-        for row in _paged(lambda c=chunk: supabase_admin.table("class_assignments")
-                          .select("id, cohort_id, title, skill, due_at, status").in_("id", c).order("id")):
-            if cohort_ids is None or str(row.get("cohort_id")) in cohort_ids:
-                assignments[str(row["id"])] = row
+
+        def build(c=chunk):
+            q = supabase_admin.table("class_assignments").select(
+                "id, cohort_id, title, skill, due_at, status").in_("id", c)
+            if cohort_ids is not None:
+                q = q.in_("cohort_id", sorted(cohort_ids))
+            return q.order("id")
+
+        for row in _paged(build):
+            assignments[str(row["id"])] = row
+    archived = _archived_cohorts({str(a.get("cohort_id")) for a in assignments.values() if a.get("cohort_id")})
+    assignments = {k: a for k, a in assignments.items() if str(a.get("cohort_id")) not in archived}
     items = [i for i in items if str(i.get("assignment_id")) in assignments]
     unledgered = [str(i["id"]) for i in items if not i.get("submitted_at") and i.get("id")]
     lesson = {str(i["id"]) for i in items if str(i["id"]) in set(unledgered)
@@ -209,7 +240,7 @@ def compute(learners: Iterable[dict[str, Any]], thresholds: Optional[dict[str, O
     people = list(learners)
     reasons: dict[str, list[dict[str, str]]] = {p["key"]: [] for p in people}
     if thresholds is None:
-        return AttentionResult(reasons, ["thresholds"], {})
+        return AttentionResult(reasons, ["thresholds"], {}, unread=["thresholds"])
     failed: list[str] = []
 
     if history is _UNREAD:
@@ -224,14 +255,18 @@ def compute(learners: Iterable[dict[str, Any]], thresholds: Optional[dict[str, O
         failed.append("assignments")
         history = {}
 
+    unread = list(failed)
+    undecided: set[str] = set()
     late_n = thresholds.get("late_streak_count")
     idle_days = thresholds.get("inactive_days")
     for p in people:
         found: dict[str, str] = {}
         sid = p.get("student_id")
         mine = history.get(str(sid), AssignmentHistory()) if sid else AssignmentHistory()
-        if mine.unconfirmed and "assignments" not in failed:
-            failed.append("assignments")
+        if mine.unconfirmed:
+            undecided.add(p["key"])
+            if "assignments" not in failed:
+                failed.append("assignments")
         # Undecided only for this learner: the others' streaks are still read.
         if late_n is not None and sid and history_read and not mine.unconfirmed:
             streak = _late_streak(mine)
@@ -244,7 +279,7 @@ def compute(learners: Iterable[dict[str, Any]], thresholds: Optional[dict[str, O
                 if days >= idle_days:
                     found["inactive"] = f"không hoạt động {days} ngày"
         reasons[p["key"]] = [{"code": code, "text": found[code]} for code in ORDER if code in found]
-    return AttentionResult(reasons, failed, history)
+    return AttentionResult(reasons, failed, history, undecided, unread)
 
 
 def status_line(reasons: list[dict[str, str]], failed: list[str]) -> dict[str, Any]:

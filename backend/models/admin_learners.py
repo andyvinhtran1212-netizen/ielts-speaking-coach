@@ -41,6 +41,9 @@ class LearnerDirectory(BaseModel):
     page: int
     page_size: int
     sources_failed: list[str]
+    # With ?attention=late_streak or any: refs of learners left out because a
+    # read cannot decide their late streak (a lesson item). [] otherwise.
+    undecided: list[str]
 
 
 class LearnerStatus(BaseModel):

@@ -259,14 +259,24 @@ def directory(*, q: Optional[str], cohort_id: Optional[str], archived: bool, att
         people = [p for p in people if p.student_id and any(c["id"] == cohort_id for c in cohorts.get(p.student_id, []))]
 
     people.sort(key=sort_key)
+    undecided: list[str] = []
     if attention:
         result = learner_attention.compute([p.attention_input() for p in people], thresholds)
         failed += result.sources_failed
-        if result.sources_failed:
+        if result.unread:
             raise HTTPException(503, {"code": "attention_unavailable",
                                       "message": "Chưa tính được danh sách cần chú ý. Thử lại sau ít phút."})
-        people = [p for p in people if any(attention == "any" or r["code"] == attention
-                                           for r in result.reasons[p.ref])]
+
+        def matches(p: Person) -> bool:
+            return any(attention == "any" or r["code"] == attention for r in result.reasons[p.ref])
+
+        # A learner whose late streak a read cannot decide is neither listed
+        # nor dropped silently: unless a decided reason already matches, they
+        # are named in ``undecided`` (only the late streak can be undecided,
+        # so the "inactive" filter decides everyone).
+        if attention in ("any", "late_streak"):
+            undecided = [p.ref for p in people if p.ref in result.undecided and not matches(p)]
+        people = [p for p in people if matches(p)]
         page_people = people[(page - 1) * PAGE_SIZE: page * PAGE_SIZE]
     else:
         page_people = people[(page - 1) * PAGE_SIZE: page * PAGE_SIZE]
@@ -276,7 +286,7 @@ def directory(*, q: Optional[str], cohort_id: Optional[str], archived: bool, att
     items = [learner_row(p, None if cohorts is None else cohorts.get(p.student_id or "", []),
                          result.reasons.get(p.ref, [])) for p in page_people]
     return {"items": items, "total": len(people), "page": page, "page_size": PAGE_SIZE,
-            "sources_failed": sorted(set(failed))}
+            "sources_failed": sorted(set(failed)), "undecided": undecided}
 
 
 # ── Summary (CHUAN-ADMIN mục H: exactly seven fields) ─────────────────────

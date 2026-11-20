@@ -18864,6 +18864,8 @@ export interface components {
             page_size: number;
             /** Sources Failed */
             sources_failed: string[];
+            /** Undecided */
+            undecided: string[];
         };
         /** LearnerGoal */
         LearnerGoal: {
