@@ -162,6 +162,10 @@ def _pre_320() -> str:
     dictation_active_index = re.search(
         r"CREATE UNIQUE INDEX IF NOT EXISTS uq_dictation_attempts_one_active_section\b[^;]*;",
         (MIGRATIONS / "220_dictation_attempt_affinity.sql").read_text(encoding="utf-8"))[0]
+    # 383 revokes access-code entitlements when 009's assignment row is deactivated.
+    user_code_assignments = re.search(
+        r"CREATE TABLE IF NOT EXISTS user_code_assignments \(.*?^\);",
+        (MIGRATIONS / "009_access_code_upgrade.sql").read_text(encoding="utf-8"), re.S | re.M)[0]
     return f"""
         SET search_path = public, pg_temp;
         CREATE TABLE _schema_migrations (filename text PRIMARY KEY,
@@ -324,7 +328,11 @@ def _pre_320() -> str:
         ALTER TABLE access_codes
             ADD COLUMN cohort_id uuid REFERENCES cohorts(id) ON DELETE SET NULL,
             ADD COLUMN is_active boolean NOT NULL DEFAULT true,
-            ADD COLUMN is_revoked boolean DEFAULT false;
+            ADD COLUMN is_revoked boolean DEFAULT false,
+            -- 383 triggers on the activation columns (dashboard-created on
+            -- staging; 009's backfill reads them) and on 009's assignments.
+            ADD COLUMN used_by uuid REFERENCES users(id), ADD COLUMN used_at timestamptz;
+        {user_code_assignments}
         -- 338 minimal shape: 033's trigger function, 306's paper guard, 208's trigger.
         {m338.FUNCTION_033}
         ALTER FUNCTION update_updated_at_column() SET search_path = public, pg_temp;
