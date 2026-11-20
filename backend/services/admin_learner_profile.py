@@ -208,9 +208,9 @@ def _activity(person: Person, since: datetime, until: Optional[datetime]) -> lis
         for offset in range(0, len(session_ids), _ID_CHUNK):
             chunk = session_ids[offset:offset + _ID_CHUNK]
             for row in _paged(lambda c=chunk: supabase_admin.table("responses")
-                              .select("id, created_at, duration_seconds").in_("session_id", c).order("id")):
+                              .select("id, recorded_at, duration_seconds").in_("session_id", c).order("id")):
                 if row.get("duration_seconds"):
-                    add(row.get("created_at"), row["duration_seconds"])
+                    add(row.get("recorded_at"), row["duration_seconds"])
     if person.student_id:
         for row in _paged(lambda: window(supabase_admin.table("class_assignment_items")
                                          .select("id, submitted_at").eq("student_id", person.student_id),

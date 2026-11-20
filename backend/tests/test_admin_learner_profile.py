@@ -132,6 +132,8 @@ def test_continuity_grid_is_vietnam_days_with_the_current_week_last(db):
                            for i in (0, 1, 2, 9)]
     db.rows["quiz_sessions"] = [{"id": "q1", "user_id": U_LAN, "bank_id": "b-g", "started_at": _vn_day(0),
                                  "duration_sec": 600, "kind": "run", "ended_at": _vn_day(0), "accuracy": 0.8}]
+    # A recorded Speaking answer adds its length (responses' time column is recorded_at).
+    db.rows["responses"] = [{"id": "r1", "session_id": "x0", "recorded_at": _vn_day(0), "duration_seconds": 300}]
     c = _overview(f"u-{U_LAN}")["continuity"]
     assert len(c["weeks"]) == 8 and all(len(w) == 7 for w in c["weeks"])
     today = NOW.astimezone(profile.VN).date()
@@ -139,7 +141,7 @@ def test_continuity_grid_is_vietnam_days_with_the_current_week_last(db):
     assert last[today.weekday()] is True
     assert all(v is None for v in last[today.weekday() + 1:])          # days after today are empty
     assert c["streak_days"] == 3
-    assert c["minutes_this_week"] == 10 and c["minutes_last_week"] == 0
+    assert c["minutes_this_week"] == 15 and c["minutes_last_week"] == 0
 
 
 def test_a_streak_longer_than_the_grid_is_counted_in_full(db):
