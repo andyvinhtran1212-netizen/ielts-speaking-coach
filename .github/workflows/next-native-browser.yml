@@ -307,10 +307,10 @@ jobs:
               - 'frontend/app/(authed-admin-usage)/**'
               - 'frontend/lib/admin-usage-model.mjs'
               - 'frontend/public/css/admin-usage-next.css'
-              - 'frontend/app/(authed-admin-foot-traffic)/**'
+              - 'frontend/app/(authed-admin)/(foot-traffic)/**'
               - 'frontend/lib/admin-foot-traffic-model.mjs'
               - 'frontend/public/css/admin-foot-traffic-next.css'
-              - 'frontend/app/(authed-admin-feedback)/**'
+              - 'frontend/app/(authed-admin)/(feedback)/**'
               - 'frontend/lib/admin-feedback-model.mjs'
               - 'frontend/public/css/admin-feedback-next.css'
               - 'frontend/public/pages/admin/feedback/index.html'
@@ -605,7 +605,7 @@ jobs:
               - 'frontend/public/pages/admin/grammar/recommend-test.html'
               - 'frontend/public/js/admin-grammar-recommend.js'
               - 'frontend/tooling/verify-admin-grammar-recommend-flow.mjs'
-              - 'frontend/app/(authed-admin-error-logs)/**'
+              - 'frontend/app/(authed-admin)/(error-logs)/**'
               - 'frontend/lib/admin-error-logs-model.mjs'
               - 'frontend/public/css/admin-error-logs-next.css'
               - 'frontend/app/(authed-admin-users)/**'
@@ -650,6 +650,8 @@ jobs:
               - 'frontend/public/css/grammar-wiki.css'
               - 'frontend/tooling/verify-mobile-layout-flow.mjs'
               - 'frontend/components/authed-shell.tsx'
+              - 'frontend/app/(authed-admin)/layout.tsx'
+              - 'frontend/tooling/verify-admin-route-group-flow.mjs'
               - 'frontend/components/supabase-runtime-boundary.tsx'
               - 'frontend/tooling/verify-chrome-staff-link-race-flow.mjs'
               - 'frontend/public/js/theme-toggle.js'
@@ -1225,6 +1227,14 @@ jobs:
       - name: Kiểm luồng Admin Feedback native
         if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-feedback-flow.mjs "http://localhost:$TEST_PORT" --next-only
+
+      # ADMINGROUP-0077 T001: one `(authed-admin)` shell for error-logs,
+      # feedback and foot-traffic. Direct loads keep the 4 base sheets then the
+      # page sheet; client navigation keeps the new page's cascade intact and
+      # never duplicates the base sheets (FR-005 leftovers are reported).
+      - name: Kiểm thí điểm route group admin (ADMINGROUP-0077)
+        if: env.RUN_BROWSER == 'true'
+        run: node tooling/verify-admin-route-group-flow.mjs "http://localhost:$TEST_PORT"
 
       - name: Kiểm luồng Admin Reading Attempts native + rollback
         if: env.RUN_BROWSER == 'true'
