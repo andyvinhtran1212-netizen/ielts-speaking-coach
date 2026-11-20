@@ -388,5 +388,13 @@ number	filename	state	owner	spec	note
 380	380_listening_skill_drill_homework.sql	present	-	-	-
 381	-	reserved	FU-2281	BLACKEYE-0052	FU-2281-NAMESPACE follow-up; Leader decision C3 on #2335, Andy approved 2026-11-18.
 382	-	reserved	FU-2281	BLACKEYE-0052	FU-2281-NAMESPACE follow-up; Leader decision C3 on #2335, Andy approved 2026-11-18.
+383	383_course_commerce_core.sql	present	-	COURSEACCESS-0055	G04-T01 (spec label M1/381); Andy assigned 383-389 and 502 to G04 on 2026-11-20 (approval-decision.md).
+384	-	reserved	G04-T02	COURSEACCESS-0055	Spec label M2/382: credit ledger, reservations, RPCs. Andy 2026-11-20.
+385	-	reserved	G04-T12	COURSEACCESS-0055	Spec label 383: credit lifecycle (expire, carry-over, grant extra). Andy 2026-11-20.
+386	-	abandoned	-	COURSEACCESS-0055	Left empty on purpose (G04-T14 dropped 2026-11-18); do not reuse without asking Andy.
+387	-	reserved	G04-T15	COURSEACCESS-0055	Spec label 388: convert a legacy-code class to credit metering. Andy 2026-11-20.
+388	-	reserved	G04-T09	COURSEACCESS-0055	Spec label 384: one session per learner account. Andy 2026-11-20.
+389	-	reserved	G04-T16	COURSEACCESS-0055	Spec label 387: recent sign-ins (learner_login_events). Andy 2026-11-20.
 440	440_admin_settings.sql	present	G09-T22	ADMINIA-0074	Commercialization G09 band 440–459 (01-KE-HOACH-TONG mục 6); admin_settings + append-only admin_settings_log.
 501	501_grammar_quiz_allowed_code_service_execute.sql	present	-	-	-
+502	-	reserved	G04-T13	COURSEACCESS-0055	Spec label 385: pronunciation sample window. Andy 2026-11-20.
