@@ -11,6 +11,9 @@ import {
   ButtonSection, ChoiceGroupSection, IconButtonSection, SearchFieldSection, SelectSection,
   StatusBadgeSection, TextAreaSection, TextFieldSection,
 } from './component-sections';
+import {
+  ConfirmDialogSection, DialogSection, MediaPlaceholderSection, NoticeSection, PageStateSection,
+} from './feedback-sections';
 import styles from './ui-library.module.css';
 
 // Gate the metadata too, like /next-probe (BL-01): a disabled build ships the
@@ -141,6 +144,11 @@ export default function UiLibraryPage() {
         <SearchFieldSection title={title('search-field')} />
         <ChoiceGroupSection title={title('choice-group')} />
         <StatusBadgeSection title={title('status-badge')} />
+        <NoticeSection title={title('notice')} />
+        <DialogSection title={title('dialog')} />
+        <ConfirmDialogSection title={title('confirm-dialog')} />
+        <PageStateSection title={title('page-state')} />
+        <MediaPlaceholderSection title={title('media-placeholder')} />
       </main>
     </div>
   );

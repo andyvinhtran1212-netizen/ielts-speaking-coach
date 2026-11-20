@@ -1,6 +1,6 @@
 'use client';
 
-import type { AnchorHTMLAttributes, ButtonHTMLAttributes, MouseEvent, ReactNode } from 'react';
+import type { AnchorHTMLAttributes, ButtonHTMLAttributes, MouseEvent, ReactNode, Ref } from 'react';
 
 import styles from './button.module.css';
 import { cx } from './cx';
@@ -31,6 +31,8 @@ type CommonProps = {
 type AsButton = CommonProps &
   Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'style' | 'className' | 'children' | 'disabled'> & {
     href?: undefined;
+    /** React 19 ref-as-prop, e.g. the initial focus of a dialog. */
+    ref?: Ref<HTMLButtonElement>;
   };
 
 type AsLink = CommonProps &

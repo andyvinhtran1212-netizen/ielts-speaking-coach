@@ -1,0 +1,43 @@
+/* UIBASE-0056 PageState (ThanhPhan §5). Only var(--av2-*). */
+.state {
+  padding: var(--av2-space-8);
+  border: var(--av2-rule-w) solid var(--av2-rule);
+  background: var(--av2-surface);
+  color: var(--av2-ink);
+}
+.locked { border-color: var(--av2-ink); }
+
+.label {
+  margin: 0 0 var(--av2-space-2);
+  font-size: var(--av2-fs-13);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--av2-muted);
+}
+.labelError { color: var(--av2-danger); }
+
+.title {
+  margin: 0 0 var(--av2-space-3);
+  font: var(--av2-fw-strong) var(--av2-fs-20) / var(--av2-lh-tight) var(--av2-font-serif);
+}
+.body { margin: 0 0 var(--av2-space-5); color: var(--av2-muted); }
+.action a { color: var(--av2-link); }
+
+.skeleton { display: flex; flex-direction: column; gap: var(--av2-space-4); margin-top: var(--av2-space-5); }
+.barTitle, .bar { display: block; background: var(--av2-off); }
+.barTitle { height: 18px; width: 70%; margin-bottom: var(--av2-space-2); }
+.bar { height: 12px; width: 100%; }
+.w86 { width: 86%; }
+.w54 { width: 54%; }
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}

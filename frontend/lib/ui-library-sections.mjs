@@ -15,4 +15,9 @@ export const UI_LIBRARY_SECTIONS = Object.freeze([
   Object.freeze({ id: 'search-field', title: 'Ô tìm' }),
   Object.freeze({ id: 'choice-group', title: 'Chọn một, chọn nhiều' }),
   Object.freeze({ id: 'status-badge', title: 'Nhãn trạng thái' }),
+  Object.freeze({ id: 'notice', title: 'Thông báo' }),
+  Object.freeze({ id: 'dialog', title: 'Lớp phủ: modal và ngăn kéo' }),
+  Object.freeze({ id: 'confirm-dialog', title: 'Hộp hỏi lại' }),
+  Object.freeze({ id: 'page-state', title: 'Trạng thái trang' }),
+  Object.freeze({ id: 'media-placeholder', title: 'Chỗ trống nội dung' }),
 ]);
