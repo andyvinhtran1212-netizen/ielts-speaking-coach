@@ -52,8 +52,22 @@ class _Query:
         return self
 
     def select(self, *_a, **_k): return self
+
+    def _write(self, kind):
+        def record(*_a, **_k):
+            self.db.writes.append((kind, self.name))
+            return self
+        return record
+
+    insert = property(lambda self: self._write("insert"))
+    update = property(lambda self: self._write("update"))
+    upsert = property(lambda self: self._write("upsert"))
+    delete = property(lambda self: self._write("delete"))
     def eq(self, c, v): return self._add(lambda r: str(r.get(c)) == str(v) if not isinstance(v, bool) else r.get(c) is v)
-    def in_(self, c, vs): return self._add(lambda r: str(r.get(c)) in {str(v) for v in vs})
+    def in_(self, c, vs):
+        if c == "class_assignment_item_id":
+            self.db.evidence_queries.append(",".join(str(v) for v in vs))
+        return self._add(lambda r: str(r.get(c)) in {str(v) for v in vs})
     def is_(self, c, v): return self._add(lambda r: r.get(c) is None)
     def ilike(self, c, v): return self._add(lambda r: str(r.get(c) or "").lower() == v.replace("\\", "").lower())
 
@@ -86,6 +100,8 @@ class _Query:
 class _DB:
     def __init__(self):
         self.fail: set[str] = set()
+        self.writes: list[tuple[str, str]] = []
+        self.evidence_queries: list[str] = []
         user = lambda uid, email, role="user", name=None, **kw: {
             "id": uid, "email": email, "display_name": name, "role": role, "is_active": True,
             "last_seen_at": _ago(days=1), "created_at": _ago(days=90), "target_band": None, "exam_date": None, **kw}
@@ -156,8 +172,6 @@ def db(monkeypatch):
         monkeypatch.setattr(module, "supabase_admin", fake)
     monkeypatch.setattr(ops_thresholds, "get", AsyncMock(return_value=dict(DEFAULTS)))
     monkeypatch.setattr(test_data_visibility, "hide_for", lambda **_k: False)
-    # The ledger repairs have their own tests; here they find nothing to fix.
-    monkeypatch.setattr(learner_attention, "_repair_ledger", lambda _assignments: 0)
     monkeypatch.setattr(mod, "require_admin", AsyncMock(return_value={"id": U_ADMIN, "email": "admin@example.test"}))
     return fake
 
@@ -301,34 +315,46 @@ def test_unreadable_attention_is_never_shown_as_fine(db, monkeypatch):
     assert "thresholds" in _list()["sources_failed"]
 
 
-def test_the_ledger_is_repaired_before_hand_ins_are_read(db, monkeypatch):
-    """A hand-in whose best-effort ledger write failed is repaired first (the
-    class pages' reconcilers), so it is not counted as missing or late."""
-    seen = []
-
-    def repair(assignments):
-        seen.append(sorted(a["id"] for a in assignments))
-        for item in db.rows["class_assignment_items"]:
-            if item["id"] == "i3":   # Lan's Buổi 10 Listening was handed in on time
-                item.update(state="submitted", submitted_at=_ago(days=3))
-        return 1
-
-    monkeypatch.setattr(learner_attention, "_repair_ledger", repair)
+def test_an_on_time_hand_in_whose_ledger_write_failed_is_not_missing(db):
+    """Lan's Buổi 10 Listening has no ledger submitted_at, but her submitted
+    attempt linked to that item (on time) is durable evidence: it counts as
+    handed in, read only, so the streak breaks and the overdue count drops."""
+    db.rows["listening_test_attempts"] = [{"id": "lt1", "class_assignment_item_id": "i3",
+                                           "status": "submitted", "submitted_at": _ago(days=3)}]
     s = asyncio.run(mod.get_learner(f"u-{U_LAN}", "Bearer x"))["summary"]
-    assert seen and "a3" in seen[0]
     assert s["overdue"] == {"count": 1, "latest_title": "Buổi 9 · Reading"}
-    assert s["status"]["reasons"] == []      # the streak is broken by the repaired hand-in
+    assert s["status"]["reasons"] == []
 
 
-def test_a_failed_ledger_repair_is_reported_not_read_as_missing(db, monkeypatch):
-    def repair(_assignments):
-        raise RuntimeError("db down")
+def test_a_completion_after_the_deadline_stays_missing(db):
+    db.rows["sessions"].append({"id": "x-late", "user_id": U_LAN, "class_assignment_item_id": "i3",
+                                "status": "completed", "completed_at": _ago(days=1), "started_at": _ago(days=1)})
+    s = asyncio.run(mod.get_learner(f"u-{U_LAN}", "Bearer x"))["summary"]
+    assert s["overdue"]["count"] == 2
 
-    monkeypatch.setattr(learner_attention, "_repair_ledger", repair)
+
+def test_unreadable_hand_in_evidence_is_reported_not_read_as_missing(db):
+    db.fail.add("quiz_sessions")
     detail = asyncio.run(mod.get_learner(f"u-{U_LAN}", "Bearer x"))
-    s = detail["summary"]
-    assert s["overdue"] is None and s["status"]["level"] is None
+    assert detail["summary"]["overdue"] is None and detail["summary"]["status"]["level"] is None
     assert "assignments" in detail["sources_failed"]
+
+
+def test_teacher_reads_write_nothing(db, monkeypatch):
+    """A teacher's GET never writes, for any class: the ledger is not repaired
+    here, and out-of-scope classes are not even read for evidence."""
+    db.rows["student_cohort_memberships"].append(
+        {"id": "m4", "student_id": S_LAN, "cohort_id": C_B, "is_active": True})
+    db.rows["class_assignments"].append(
+        {"id": "b1", "cohort_id": C_B, "title": "Lớp B", "due_at": _ago(days=1), "status": "published"})
+    db.rows["class_assignment_items"].append(
+        {"id": "ib1", "assignment_id": "b1", "student_id": S_LAN, "state": "assigned", "submitted_at": None})
+    _as(monkeypatch, db, U_TEACH)
+    asyncio.run(mod.get_learner_summary(f"u-{U_LAN}", "Bearer x"))
+    asyncio.run(mod.get_instructor_learner(f"u-{U_LAN}", "Bearer x"))
+    assert db.writes == []
+    assert not any("ib1" in q for q in db.evidence_queries)
+
 
 def test_an_unreadable_directory_is_503(db):
     db.fail.add("users")

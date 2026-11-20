@@ -359,12 +359,10 @@ def summary(person: Person, thresholds: Optional[dict[str, Optional[int]]],
     history = {}
     if person.student_id:
         try:
-            history = learner_attention.assignment_history([person.student_id], now)
+            history = learner_attention.assignment_history([person.student_id], now, cohort_ids)
         except Exception:
             history, overdue = None, None
         else:
-            if cohort_ids is not None:
-                history = learner_attention.only_cohorts(history, cohort_ids)
             rows = history[person.student_id].overdue
             overdue = {"count": len(rows), "latest_title": rows[0]["title"] if rows else None}
     result = learner_attention.compute([person.attention_input()], thresholds, now=now, history=history)

@@ -84,27 +84,49 @@ def _read_items(ids: list[str]) -> list[dict]:
     return items
 
 
-def _repair_ledger(assignments: list[dict]) -> int:
-    """Run the same three ledger repairs the class pages run before they read
-    hand-ins (Speaking sessions, Reading/Listening attempts, lesson items), so
-    a hand-in whose best-effort ledger write failed is not read as missing.
-    Any repair that fails raises: an unrepaired ledger would make a learner
-    look late when they are not, so the caller reports the source failed."""
-    from services.class_assignment_service import reconcile_ledger_from_sessions, reconcile_test_attempts
-    from services.quiz_service import reconcile_course_items
-
-    ids = [a["id"] for a in assignments]
-    if not ids:
-        return 0
-    return (reconcile_ledger_from_sessions(supabase_admin, ids)
-            + reconcile_test_attempts(supabase_admin, assignments)
-            + reconcile_course_items(supabase_admin, ids))
+# Durable hand-in evidence the class ledger is repaired from (the class pages'
+# reconcilers). ``(table, time column, extra filter)``. Read only here.
+_EVIDENCE = (
+    ("sessions", "completed_at", ("status", "completed")),
+    ("reading_test_attempts", "submitted_at", ("status", "submitted")),
+    ("listening_test_attempts", "submitted_at", ("status", "submitted")),
+    ("quiz_sessions", "ended_at", None),
+)
 
 
-def assignment_history(student_ids: Iterable[str], now: datetime) -> dict[str, AssignmentHistory]:
+def _evidence_at(item_ids: list[str]) -> dict[str, datetime]:
+    """Earliest durable hand-in per class item whose ledger ``submitted_at`` is
+    still empty: a completed Speaking session, a submitted Reading/Listening
+    attempt or a finished lesson quiz linked to the item. Read only: a GET
+    never repairs the ledger (the class pages do), it only refuses to read a
+    failed ledger write as missing work. Raises on a failed read."""
+    found: dict[str, datetime] = {}
+    for table, col, extra in _EVIDENCE:
+        for offset in range(0, len(item_ids), _ID_CHUNK):
+            chunk = item_ids[offset:offset + _ID_CHUNK]
+
+            def build(c=chunk, t=table, tc=col, x=extra):
+                q = (supabase_admin.table(t).select(f"id, class_assignment_item_id, {tc}")
+                     .in_("class_assignment_item_id", c))
+                if x:
+                    q = q.eq(*x)
+                return q.order("id")
+
+            for row in _paged(build):
+                at = _parse(row.get(col))
+                key = str(row.get("class_assignment_item_id") or "")
+                if at is not None and key and (key not in found or at < found[key]):
+                    found[key] = at
+    return found
+
+
+def assignment_history(student_ids: Iterable[str], now: datetime,
+                       cohort_ids: Optional[frozenset[str]] = None) -> dict[str, AssignmentHistory]:
     """Every published class assignment item whose deadline has passed, per
-    student, newest deadline first. The ledger is repaired first, as the class
-    pages do. Raises when a table cannot be read or a repair fails."""
+    student, newest deadline first. An empty ledger row with durable on-time
+    evidence (see :func:`_evidence_at`) counts as handed in. Read only.
+    ``cohort_ids`` (a teacher's scope) keeps only those classes' work, before
+    any evidence is read. Raises when a table cannot be read."""
     ids = list(dict.fromkeys(str(s) for s in student_ids if s))
     items = _read_items(ids)
     assignment_ids = list({str(i["assignment_id"]) for i in items if i.get("assignment_id")})
@@ -112,11 +134,12 @@ def assignment_history(student_ids: Iterable[str], now: datetime) -> dict[str, A
     for offset in range(0, len(assignment_ids), _ID_CHUNK):
         chunk = assignment_ids[offset:offset + _ID_CHUNK]
         for row in _paged(lambda c=chunk: supabase_admin.table("class_assignments")
-                          .select("id, cohort_id, title, skill, due_at, status, content_id, content_config")
-                          .in_("id", c).order("id")):
-            assignments[str(row["id"])] = row
-    if _repair_ledger(list(assignments.values())):
-        items = _read_items(ids)
+                          .select("id, cohort_id, title, due_at, status").in_("id", c).order("id")):
+            if cohort_ids is None or str(row.get("cohort_id")) in cohort_ids:
+                assignments[str(row["id"])] = row
+    items = [i for i in items if str(i.get("assignment_id")) in assignments]
+    unledgered = [str(i["id"]) for i in items if not i.get("submitted_at") and i.get("id")]
+    evidence = _evidence_at(unledgered) if unledgered else {}
 
     out = {sid: AssignmentHistory() for sid in ids}
     for item in items:
@@ -127,6 +150,13 @@ def assignment_history(student_ids: Iterable[str], now: datetime) -> dict[str, A
         if due is None or due > now:
             continue
         submitted = _parse(item.get("submitted_at"))
+        if submitted is None:
+            # A hand-in on time whose ledger write failed counts as on time. One
+            # after the deadline stays missing, as the ledger repair (which
+            # refuses late completions) would leave it.
+            proof = evidence.get(str(item.get("id")))
+            if proof is not None and proof <= due:
+                submitted = proof
         handed_in = submitted is not None or item.get("state") in ("submitted", "graded")
         out.setdefault(str(item["student_id"]), AssignmentHistory()).past_due.append({
             "title": a.get("title") or "", "due_at": due,
@@ -137,13 +167,6 @@ def assignment_history(student_ids: Iterable[str], now: datetime) -> dict[str, A
     for history in out.values():
         history.past_due.sort(key=lambda r: r["due_at"], reverse=True)
     return out
-
-
-def only_cohorts(history: dict[str, AssignmentHistory], cohort_ids: frozenset[str]) -> dict[str, AssignmentHistory]:
-    """The same histories keeping only the work of ``cohort_ids`` (a teacher's
-    classes, FR-102): another teacher's class work never reaches them."""
-    return {sid: AssignmentHistory([r for r in h.past_due if r.get("cohort_id") in cohort_ids])
-            for sid, h in history.items()}
 
 
 def _late_streak(history: AssignmentHistory) -> int:
