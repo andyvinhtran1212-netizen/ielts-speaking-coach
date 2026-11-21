@@ -855,8 +855,14 @@ jobs:
           cat /tmp/next-native-fixture-api.log
           exit 1
 
+      # G03-T12: /profile/v2-pilot renders per request (AuthedShell), so its
+      # uiLibraryEnabled() gate reads the server's env, not the build's: this
+      # server needs the same flag as the build above (/ui-library is static
+      # and was decided at build time). The CSP-enforce restart below has none.
       - name: Khởi động Next
         if: env.RUN_BROWSER == 'true'
+        env:
+          AVER_ENABLE_UI_LIBRARY: '1'
         run: |
           npx next start -p "$TEST_PORT" > /tmp/next-native-browser.log 2>&1 &
           echo $! > /tmp/next-native-browser.pid
@@ -1656,6 +1662,12 @@ jobs:
           code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:$TEST_PORT/ui-library")
           echo "/ui-library → HTTP $code"
           test "$code" = "404"
+          # G03-T12 pilot: per-request (AuthedShell), so a disabled build gives
+          # Next's soft 404 (HTTP 200 + noindex) without the page's content.
+          pilot=$(curl -s "http://localhost:$TEST_PORT/profile/v2-pilot")
+          if grep -q 'data-testid="v2-pilot"' <<<"$pilot"; then echo "/profile/v2-pilot rendered on a disabled build"; exit 1; fi
+          grep -q '<meta name="robots" content="noindex"' <<<"$pilot"
+          echo "/profile/v2-pilot → not-found UI, noindex"
 
       # PC-J437: artifact không qua bộ che log của Actions. Che tại chỗ rồi
       # quét; còn bearer/JWT thì bước này đỏ và KHÔNG nộp artifact.
