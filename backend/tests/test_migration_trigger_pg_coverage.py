@@ -104,6 +104,7 @@ STACK_TESTS = {
     "reading_tests": "backend/tests/test_migration_338_paper_updated_at_triggers.py",
     "reading_passages": "backend/tests/test_migration_338_paper_updated_at_triggers.py",
     "reading_questions": "backend/tests/test_migration_338_paper_updated_at_triggers.py",
+    "enrollment_orders": "backend/tests/test_migration_384_credit_ledger_enrollment_rpcs.py",
 }
 # table -> (reason, ticket, expected stack-test path or None).
 KNOWN_UNSTACKED = {
