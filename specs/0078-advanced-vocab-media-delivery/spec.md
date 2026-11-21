@@ -1,14 +1,14 @@
 ---
 id: MEDIAOUT-0078
 title: Advanced Vocabulary media leaves the Git working tree while every existing media URL keeps playing, seeking and loading
-status: draft
+status: approved
 risk: high
 owner: product
 ---
 
 # Advanced Vocabulary media leaves the Git working tree while every existing media URL keeps playing, seeking and loading
 
-Status: **draft**, soạn ngày 20/11/2026 cho nhiệm vụ `G10-T16` và `G10-T17` (thương mại hoá 2026-11). Nguồn: `docs/proposals/commercialization-2026-11/GOI-10-repo-pha-2-cau-truc.md` mục 4(e), G10-T16…T19 và `docs/REPOSITORY_MAINTENANCE.md` mục "Media follow-up". Mọi số liệu đo lại trên `staging @ 5987bc018` (20/11). Bước 2 của T16 (đọc DB staging) **chưa làm**: hàng chờ Q10 loại bước này vì cần Q-e2. Chưa có dòng mã nào chạy theo spec này.
+Status: **approved**: anh Andy duyệt ngày 21/11/2026 (`approval-decision.md`; Q-e1, Q-e1b, Q-e2 vẫn mở). Soạn ngày 20/11/2026 cho nhiệm vụ `G10-T16` và `G10-T17` (thương mại hoá 2026-11). Nguồn: `docs/proposals/commercialization-2026-11/GOI-10-repo-pha-2-cau-truc.md` mục 4(e), G10-T16…T19 và `docs/REPOSITORY_MAINTENANCE.md` mục "Media follow-up". Mọi số liệu đo lại trên `staging @ 5987bc018` (20/11). Bước 2 của T16 (đọc DB staging) **chưa làm**: hàng chờ Q10 loại bước này vì cần Q-e2. Chưa có dòng mã nào chạy theo spec này.
 
 Chỉ anh Andy duyệt spec. Khi duyệt, câu trả lời ghi vào `approval-decision.md` cùng thư mục, nguyên văn kèm thời điểm, rồi `status` đổi sang `approved`. Số spec lấy từ sổ cấp số `01-KE-HOACH-TONG.md` mục 6. Spec không có migration và không đổi biến môi trường hiện có. Nó thêm một biến mới, mặc định rỗng.
 
