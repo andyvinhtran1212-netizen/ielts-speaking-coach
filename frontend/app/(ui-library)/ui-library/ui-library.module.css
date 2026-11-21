@@ -85,6 +85,22 @@
 .fieldGrid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--av2-space-9); }
 .badgeGrid { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: var(--av2-space-6) var(--av2-space-7); align-items: center; }
 
+/* G03-T06 feedback and overlay sections. */
+.overlayGrid { display: grid; grid-template-columns: 400px 520px; gap: var(--av2-space-9); align-items: start; }
+.overlayGrid > div:last-child { grid-column: 1 / -1; }
+.overlayGrid .rowNote, .fieldGrid2 .rowNote { display: block; margin: 0 0 var(--av2-space-4); }
+.stage { margin-bottom: var(--av2-space-5); }
+.drawerStage { display: flex; justify-content: flex-end; height: 420px; margin-bottom: var(--av2-space-5); padding: 0; border: var(--av2-rule-w) solid var(--av2-ink); background: var(--av2-paper); }
+.formStack { display: flex; flex-direction: column; gap: var(--av2-space-7); }
+.summary { display: grid; grid-template-columns: 148px minmax(0, 1fr); margin: 0; font-variant-numeric: tabular-nums; }
+.summary dt { padding: var(--av2-space-3) 0; color: var(--av2-muted); border-top: var(--av2-rule-w) solid var(--av2-rule); }
+.summary dd { margin: 0; padding: var(--av2-space-3) 0; border-top: var(--av2-rule-w) solid var(--av2-rule); }
+.summary dt:first-of-type, .summary dd:first-of-type { border-top: 0; }
+.fieldGrid2 > div > [role='group'] { margin-bottom: var(--av2-space-5); }
+.pendingBox { padding: var(--av2-space-8); border: var(--av2-rule-w) dashed var(--av2-muted); }
+.pendingTitle { margin: 0 0 var(--av2-space-3); font-weight: var(--av2-fw-strong); }
+.pendingBody { margin: 0; color: var(--av2-muted); }
+
 @media (max-width: 767px) {
   .stateGrid { grid-template-columns: 1fr; }
   .stateHead { display: none; }
@@ -93,4 +109,6 @@
   .stateLabel { display: block; }
   .fieldGrid, .fieldGrid2 { grid-template-columns: 1fr; }
   .badgeGrid { grid-template-columns: 1fr; }
+  .overlayGrid { grid-template-columns: minmax(0, 1fr); }
+  .drawerStage { height: 480px; }
 }

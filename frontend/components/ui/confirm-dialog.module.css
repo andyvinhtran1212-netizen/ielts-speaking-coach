@@ -1,0 +1,8 @@
+/* UIBASE-0056 ConfirmDialog (ThanhPhan §4). Only var(--av2-*). */
+
+/*
+ * Warning tone: the confirm button is filled mark ("nút nền đỏ mận"), unlike
+ * the outlined `danger` Button elsewhere. Doubled class to beat the variant.
+ */
+.markFill.markFill { background: var(--av2-mark); border-color: var(--av2-mark); color: var(--av2-on-accent); }
+.markFill.markFill:hover:not(:disabled):not([aria-disabled='true']) { background: var(--av2-danger); border-color: var(--av2-danger); }

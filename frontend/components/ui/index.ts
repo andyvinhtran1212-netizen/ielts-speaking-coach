@@ -10,3 +10,8 @@ export { StatusBadge, STATUS_BADGE_SETS, type StatusBadgeProps } from './status-
 export { TextArea, type TextAreaProps } from './text-area';
 export { TextField, type TextFieldProps } from './text-field';
 export { AV2_BREAKPOINTS, av2MinWidth } from './breakpoints';
+export { ConfirmDialog, ConfirmDialogFrame, type ConfirmDialogProps, type ConfirmDialogTone } from './confirm-dialog';
+export { Dialog, DialogFrame, type DialogProps, type DialogVariant } from './dialog';
+export { MediaPlaceholder, PendingValue, type MediaPlaceholderKind, type MediaPlaceholderProps } from './media-placeholder';
+export { Notice, type NoticeKind, type NoticeProps } from './notice';
+export { PageState, type PageStateKind, type PageStateProps } from './page-state';
