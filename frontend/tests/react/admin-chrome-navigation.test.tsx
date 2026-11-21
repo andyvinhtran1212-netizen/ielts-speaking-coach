@@ -1,5 +1,10 @@
-import { afterEach, beforeAll, expect, it, vi } from 'vitest';
+import { act, render } from '@testing-library/react';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { ChromeNavigationBridge } from '@/components/chrome-navigation-bridge';
+
+const router = vi.hoisted(() => ({ push: vi.fn(), prefetch: vi.fn() }));
+vi.mock('next/navigation', () => ({ useRouter: () => router }));
 vi.mock('@/public/js/theme-toggle.js', () => ({ bindToggleButton: () => () => {} }));
 vi.mock('@/public/js/components/perf-hints.js', () => ({ installPerfResourceHints: () => {} }));
 
@@ -106,4 +111,56 @@ it('traps mobile focus at the summary when closed and the final tool when open',
   expect(root.activeElement).toBe(first);
   tab(true);
   expect(root.activeElement).toBe(last);
+});
+
+// UIBASE-0056 FR-015 (G03-T12): the bridge keeps App Router navigation inside
+// one UI tree, and leaves a click that crosses the v1 / v2 boundary to the
+// browser, so the legacy and "Bản in" stylesheets never share a document.
+describe('ChromeNavigationBridge at the v1 / v2 boundary', () => {
+  afterEach(() => {
+    router.push.mockReset();
+    router.prefetch.mockReset();
+    window.history.replaceState(null, '', '/');
+  });
+
+  function clickChromeLink(from: string, href: string) {
+    window.history.replaceState(null, '', from);
+    const { root } = mount();
+    render(<ChromeNavigationBridge />);
+    const link = document.createElement('a');
+    link.href = href;
+    root.append(link);
+    let nativeKept: boolean | undefined;
+    // Record what the bridge decided, then stop jsdom's own navigation.
+    const settle = (event: Event) => { nativeKept = !event.defaultPrevented; event.preventDefault(); };
+    document.addEventListener('click', settle);
+    act(() => {
+      link.dispatchEvent(new MouseEvent('pointerover', { bubbles: true, composed: true }));
+      link.click();
+    });
+    document.removeEventListener('click', settle);
+    return nativeKept;
+  }
+
+  it('soft-navigates between two v1 routes', () => {
+    expect(clickChromeLink('/admin', '/admin/users')).toBe(false);
+    expect(router.push).toHaveBeenCalledWith('/admin/users');
+    expect(router.prefetch).toHaveBeenCalledWith('/admin/users');
+  });
+
+  it.each([
+    ['/admin', '/profile/v2-pilot'],
+    ['/flashcard-study', '/ui-library?tab=1'],
+    ['/profile/v2-pilot', '/flashcard-study'],
+    ['/ui-library/', '/admin/users'],
+  ])('leaves %s → %s to a full page load', (from, href) => {
+    expect(clickChromeLink(from, href)).toBe(true);
+    expect(router.push).not.toHaveBeenCalled();
+    expect(router.prefetch).not.toHaveBeenCalled();
+  });
+
+  it('soft-navigates between two v2 routes', () => {
+    expect(clickChromeLink('/ui-library', '/profile/v2-pilot')).toBe(false);
+    expect(router.push).toHaveBeenCalledWith('/profile/v2-pilot');
+  });
 });

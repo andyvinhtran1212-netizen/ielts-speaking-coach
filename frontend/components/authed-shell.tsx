@@ -73,22 +73,47 @@ async function requestNonce() {
 const SUPABASE_URL = 'https://huwsmtubwulikhlmcirx.supabase.co';
 const SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
 
+type ShellProps = {
+  /**
+   * `'v1'` (default): the legacy cascade above, byte for byte. `'v2'`: the
+   * "Bản in" tree (UIBASE-0056 FR-002, plan 5.7.1). No legacy `<link>`, no
+   * `aver-chrome.js` / `aver-admin-chrome.js`, no Lucide runtime; the meta,
+   * anti-flash script, runtime boundary, body-class script and AuthProvider
+   * stay, so the page still has exactly two inline scripts. The v2 layout
+   * imports `styles/av2/*.css` itself and wraps its children in `.av2-root`.
+   * Moving between the trees is a full reload (ChromeNavigationBridge,
+   * `isV2Path`), because the two cascades must never share a document.
+   */
+  design?: 'v1' | 'v2';
+};
+
+type LegacyProps = {
+  design?: 'v1';
+  /**
+   * CSS riêng của trang, chèn giữa `ds.css` và `tailwind.build.css`.
+   * Nhiều tệp thì theo đúng thứ tự trang legacy nạp chúng.
+   */
+  pageStylesheets: PageStylesheet[];
+};
+
+type V2Props = {
+  design: 'v2';
+  /** The v2 tree loads no legacy stylesheet. */
+  pageStylesheets?: never;
+};
+
 export async function AuthedShell({
-  pageStylesheets,
+  design = 'v1',
+  pageStylesheets = [],
   extraScripts,
   utilityLayer = true,
   tailwindLayer = utilityLayer,
   chrome = 'student',
   authGated = true,
   lucideRuntime = false,
-  bodyClass = 'av-page font-sans min-h-screen',
+  bodyClass = design === 'v2' ? 'av2-body' : 'av-page font-sans min-h-screen',
   children,
-}: {
-  /**
-   * CSS riêng của trang, chèn giữa `ds.css` và `tailwind.build.css`.
-   * Nhiều tệp thì theo đúng thứ tự trang legacy nạp chúng.
-   */
-  pageStylesheets: PageStylesheet[];
+}: ShellProps & (LegacyProps | V2Props) & {
   /**
    * Thẻ script thêm cho riêng route-group. CHỈ dùng cho script KHÔNG tự gọi
    * API lúc nạp — một script tự-khởi-động-và-gọi-API sẽ bắn request trước khi
@@ -138,6 +163,9 @@ export async function AuthedShell({
   children: ReactNode;
 }) {
   const nonce = await requestNonce();
+  // Each legacy element keeps its own `v1 &&` guard (no wrapping fragment), so
+  // the v1 element tree and its HTML stay exactly as before (FR-003).
+  const v1 = design === 'v1';
   return (
     <>
       {/* Route-scoped hint for the adaptive student chrome. Without it the
@@ -148,10 +176,10 @@ export async function AuthedShell({
 
       {/* Cascade của Aver Design System (tokens trước components trước CSS
           trang; Tailwind tĩnh CUỐI CÙNG để utilities/.hidden thắng — P0-3 C-3.4) */}
-      <link rel="stylesheet" href="/css/aver-design/tokens.css" />
-      <link rel="stylesheet" href="/css/aver-design/components.css" />
-      {utilityLayer && <link rel="stylesheet" href="/css/ds.css" />}
-      {pageStylesheets.map((stylesheet) => {
+      {v1 && <link rel="stylesheet" href="/css/aver-design/tokens.css" />}
+      {v1 && <link rel="stylesheet" href="/css/aver-design/components.css" />}
+      {v1 && utilityLayer && <link rel="stylesheet" href="/css/ds.css" />}
+      {v1 && pageStylesheets.map((stylesheet) => {
         const href = typeof stylesheet === 'string' ? stylesheet : stylesheet.href;
         const dataAverAdminSurface = typeof stylesheet === 'string'
           ? undefined
@@ -167,18 +195,18 @@ export async function AuthedShell({
           />
         );
       })}
-      {tailwindLayer && <link rel="stylesheet" href="/css/tailwind.build.css" />}
+      {v1 && tailwindLayer && <link rel="stylesheet" href="/css/tailwind.build.css" />}
 
       {/* Next Script executes on hard load and App Router client navigation.
           Lucide is independent; auth/API globals below remain strictly
           ordered and fail closed before route-specific scripts are exposed. */}
-      {lucideRuntime && <Script src="/vendor/lucide.min.js" strategy="afterInteractive" />}
+      {v1 && lucideRuntime && <Script src="/vendor/lucide.min.js" strategy="afterInteractive" />}
       {/* U-21 — the student header must not wait for runtime-config → client →
           api.js (4–8s on slow mobile, hamburger dead meanwhile). The chrome
           renders on its own and fills the account pill once the boundary
           announces `aver:supabase-runtime-ready`. crossOrigin makes the SSR
           preload match the module fetch, so the file downloads once. */}
-      {chrome === 'student' && (
+      {v1 && chrome === 'student' && (
         <Script type="module" src="/js/components/aver-chrome.js" strategy="afterInteractive" crossOrigin="anonymous" />
       )}
       <SupabaseRuntimeBoundary
@@ -187,7 +215,7 @@ export async function AuthedShell({
       >
         {extraScripts}
         <NextPageViewBeacon />
-        {chrome === 'admin' && (
+        {v1 && chrome === 'admin' && (
           <Script type="module" src="/js/components/aver-admin-chrome.js" strategy="afterInteractive" />
         )}
       </SupabaseRuntimeBoundary>
