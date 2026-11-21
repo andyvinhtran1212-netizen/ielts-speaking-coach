@@ -63,11 +63,15 @@ def cacheable_json(
     request: Request,
     *,
     last_modified: str,
+    cache_control: str = CACHE_CONTROL,
 ) -> Response:
-    """Return a JSON response with public cache headers and ETag validation."""
+    """Return a JSON response with public cache headers and ETag validation.
+
+    ``cache_control`` lets a route that must not be replayed after content is
+    withdrawn (``no-cache``: revalidate every use) keep ETag/304."""
     etag = _etag(data)
     headers = {
-        "Cache-Control": CACHE_CONTROL,
+        "Cache-Control": cache_control,
         "ETag": etag,
         "Last-Modified": last_modified,
     }
