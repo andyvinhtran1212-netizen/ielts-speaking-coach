@@ -231,11 +231,16 @@ def test_allow_listed_routes_that_exist_admit_an_aal1_admin(aal1_admin):
 def _module_functions(module_name: str) -> dict[str, ast.AST]:
     import importlib
 
-    source = inspect.getsource(importlib.import_module(module_name))
-    return {
-        n.name: n for n in ast.parse(source).body
-        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
-    }
+    # A split package (BACKENDSPLIT-0076, routers.listening) lists its
+    # submodules in _SUBMODULES; read the module-level functions of all of them.
+    module = importlib.import_module(module_name)
+    functions = {}
+    for part in (module, *getattr(module, "_SUBMODULES", ())):
+        for n in ast.parse(inspect.getsource(part)).body:
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                assert n.name not in functions, n.name
+                functions[n.name] = n
+    return functions
 
 
 def _first_statement(fn: ast.AST):

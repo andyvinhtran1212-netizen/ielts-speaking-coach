@@ -1,8 +1,8 @@
 # IELTS Speaking Coach — Historical Phase Deploy Checklists
 
 These phase checklists are retained as historical rollout evidence. For every
-current release, use [docs/STAGING_FIRST_RELEASE_FLOW.md](docs/STAGING_FIRST_RELEASE_FLOW.md)
-and [backend/migrations/README.md](backend/migrations/README.md).
+current release, use [docs/STAGING_FIRST_RELEASE_FLOW.md](../../STAGING_FIRST_RELEASE_FLOW.md)
+and [backend/migrations/README.md](../../../backend/migrations/README.md).
 Old direct-to-main, static-frontend and manual SQL steps below do not override
 the current staging/promotion and advisory-locked migration procedure. Validate
 any phase-specific smoke or rollback step against today's implementation before

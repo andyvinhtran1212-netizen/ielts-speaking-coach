@@ -257,10 +257,17 @@ def test_dictation_session_target_denied_before_full_report(admin_env):
 
 def test_identifier_admin_routes_use_module_staff_guard():
     """Every route authenticates as its first await, before any database read."""
-    assert lr.require_admin.__module__ == lr.__name__
-    tree = ast.parse(inspect.getsource(lr))
-    functions = {node.name: node for node in tree.body
-                 if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
+    # BACKENDSPLIT-0076 Scenario 8: the guard is the Listening wrapper defined in
+    # the package (now in _common), not routers.admin.require_admin; read the
+    # module-level functions of every module of the package.
+    assert lr.require_admin is lr._common.require_admin
+    assert lr.require_admin.__module__ == lr._common.__name__
+    functions = {}
+    for module in (lr, *lr._SUBMODULES):
+        for node in ast.parse(inspect.getsource(module)).body:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                assert node.name not in functions, node.name
+                functions[node.name] = node
 
     def first_guard(name, seen):
         assert name not in seen, name
@@ -282,7 +289,10 @@ def test_identifier_admin_routes_use_module_staff_guard():
     routes = list(lr.admin_router.routes)
     assert routes
     for route in routes:
-        first_guard(inspect.unwrap(route.endpoint).__name__, set())
+        endpoint = inspect.unwrap(route.endpoint)
+        # FR-009: the name each endpoint calls resolves to the package's guard.
+        assert endpoint.__globals__["require_admin"] is lr.require_admin, endpoint.__name__
+        first_guard(endpoint.__name__, set())
 
 
 @pytest.mark.parametrize("key,method,path,table", [
