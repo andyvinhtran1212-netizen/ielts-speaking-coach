@@ -114,25 +114,31 @@ draft -> approved -> implementing -> verified -> shipped
 | FREETRIAL-0047 | Accounts outside classes can try free Speaking and Writing grading within quotas without affecting class learners | approved | high | [spec](0047-free-trial-grading/spec.md) |
 | FLASHCARD-0048 | Flashcard kiểu Quizlet bản MVP — admin dán hàng loạt thẻ vào bộ từ, gán lớp hoặc thư viện chung, học viên lật thẻ và tự đánh dấu Đã nhớ/Chưa nhớ | draft | high | [spec](0048-flashcards-mvp/spec.md) |
 | WRITINGBAND-0050 | Saving reviewed Writing criteria keeps the total and feedback consistent | approved | high | [spec](0050-writing-band-save-consistency/spec.md) |
+| AUDIODEPR-0051 | Speaking read-aloud and Speaking transcription keep working after OpenAI retires tts-1 and whisper-1 | approved | high | [spec](0051-openai-tts-stt-deprecation/spec.md) |
 | BLACKEYE-0052 | Black Eye Listening Unit 1 exercises are assigned to a class, reviewed after submission and stay locked until each gate passes | approved | high | [spec](0052-blackeye-u1/spec.md) |
 | SKILLDRILLS-0054 | Assign published Listening Skill Drills across courses | approved | high | [spec](0054-listening-skill-drill-homework/spec.md) |
 | COURSEACCESS-0055 | Learners get course access, one shared AI grading credit pool and bank-transfer enrollment orders confirmed by an admin, while existing access codes keep working | approved | critical | [spec](0055-course-access-credits-enrollment/spec.md) |
 | UIBASE-0056 | New pages share one Ban in design foundation of tokens, fonts, components and four page shells, while every existing page keeps its current look | approved | medium | [spec](0056-ui-foundation/spec.md) |
 | TESTPOLICY-0057 | New tests check behaviour instead of source text, and an advisory visual baseline shows every intended or accidental change to key screens | draft | medium | [spec](0057-test-policy-visual-baseline/spec.md) |
 | MIGNUM-0058 | Each work package takes migration numbers only from its own block, and the migration register test rejects a number outside or in another package's block | draft | high | [spec](0058-migration-number-blocks/spec.md) |
+| LIBRARY-0061 | Anyone can read the public Library of Writing samples, Writing guides, Speaking questions with synthetic-voice model answers, Grammar and Vocabulary without an account, and signed-in learners keep read and saved marks | approved | high | [spec](0061-public-library/spec.md) |
 | LEGACYJS-0075 | Legacy public scripts that no page loads are removed in reviewed batches, each file backed by reference and request evidence, without any page losing a script it needs | approved | high | [spec](0075-legacy-public-js-retirement/spec.md) |
 | ADMINIA-0074 | Admins and the class teacher run daily work from one admin frame with eight sidebar groups, a unified learner directory and profile, and canonical queues | approved | high | [spec](0074-admin-ia/spec.md) |
+| BACKENDSPLIT-0076 | The three largest backend modules are split into packages without changing any route, import, OpenAPI contract or test patch target | approved | high | [spec](0076-backend-module-split/spec.md) |
 | NOTIFY-0079 | Learners see one bell of in-app notifications and an overdue count, and staff send reminders to a class or chosen learners exactly once | draft | high | [spec](0079-learner-notifications/spec.md) |
+| ADMINGROUP-0077 | Admin pages share one route group and one shell layout while every page keeps its URL, its stylesheets in the same cascade order and its current look | approved | medium | [spec](0077-admin-route-group-consolidation/spec.md) |
 | TRIALCAP-0080 | Free trial grading stops at configurable per-person, per-day and site-wide daily cost caps that admins change and pause from Settings with an audit log | draft | high | [spec](0080-free-trial-caps-settings/spec.md) |
 | PHONEGATE-0081 | Full tests open only on screens at least the configured width, while mini tests, practice and course tests stay available on phones | draft | medium | [spec](0081-full-test-phone-gate/spec.md) |
 | COURSETESTRELEASE-0082 | Course test results stay sealed on every learner read path until a teacher releases them at a chosen level, unless the test returns results on submit | draft | critical | [spec](0082-course-test-result-release/spec.md) |
 | BRANDMARK-0083 | The An ky mark is the one logo, favicon, app icon and link preview image of the site, generated from a single geometry source | draft | medium | [spec](0083-brand-mark-an-ky/spec.md) |
 | GRAMMARFIG-0084 | Grammar Wiki articles show numbered, accessible sentence diagrams written as semantic figure blocks, and a malformed block never hides the article | draft | medium | [spec](0084-grammar-wiki-figures/spec.md) |
 | CLASSRESULT-0085 | Teachers open one result page per class assignment with five blocks from one aggregate API, and give work to saved learner groups through one shared component | draft | high | [spec](0085-class-assignment-result/spec.md) |
+| MOCKORG-0086 | Admins organise assigned mock exams for classes, single learners and saved groups, run live or self-paced sittings without breaks, and release results from one tab | draft | high | [spec](0086-mock-exam-organisation/spec.md) |
+| CONTENTBATCH-0087 | Admins see every content import script run as a read-only batch and work one review queue per question on the four-tab content pages | draft | high | [spec](0087-content-import-batches/spec.md) |
 | SENTLAB-0101 | Course 5 learners practise 45 sentence-writing sessions with AI coaching that never reveals the answer before they rewrite | approved | high | [spec](0101-course5-sentence-lab/spec.md) |
 
 Progress and remaining acceptance are reconciled in [the implementation status ledger](IMPLEMENTATION_STATUS.md). A deployed application does not by itself close a feature acceptance gate.
 
 Spec numbers 0006, 0007 and 0022 are each used by two features; the ID, not the
-number, is unique. 0049 is reserved by open PR #2254 (ADMINSIMPLE-0049) and 0051
-by open PR #2274 (AUDIODEPR-0051); 0053 is unused.
+number, is unique. 0049 is reserved by closed PR #2254 (ADMINSIMPLE-0049, superseded by
+ADMINIA-0074); 0053 is unused.

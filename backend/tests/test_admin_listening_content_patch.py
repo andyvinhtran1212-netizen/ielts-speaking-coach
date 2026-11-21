@@ -27,7 +27,7 @@ class _Resp:
 
 class _TableQuery:
     """Mimics enough of the Supabase Python client surface that
-    routers/listening.py exercises during PATCH. Supports:
+    routers/listening/__init__.py exercises during PATCH. Supports:
       .select(...).eq(...).limit(...).execute()
       .update({...}).eq(...).execute()
     """

@@ -140,8 +140,13 @@ def _seed():
             {"id": AB, "assigned_by": B, "essay_id": EB, "student_id": SB, "prompt_id": PB},
         ],
         "cohorts": [
-            {"id": CA, "created_by": A, "name": "Lop A"},
-            {"id": CB, "created_by": B, "name": "Lop B"},
+            {"id": CA, "created_by": A, "name": "Lop A", "instructor_id": A},
+            {"id": CB, "created_by": B, "name": "Lop B", "instructor_id": B},
+        ],
+        # G09-T24/T03: class membership drives the shared staff scope.
+        "student_cohort_memberships": [
+            {"id": _u(91), "student_id": SA, "cohort_id": CA, "is_active": True},
+            {"id": _u(92), "student_id": SB, "cohort_id": CB, "is_active": True},
         ],
         "students": [
             {"id": SA, "instructor_id": A, "cohort_id": CA, "full_name": "SA", "student_code": "SA", "user_id": None},
@@ -210,6 +215,8 @@ ROUTES = [
     ("POST",   "/instructor/reviews/{id}/release",     "action", RA, None, None),
     ("POST",   "/instructor/reviews/{id}/deliver",     "action", RA,
         {"essay_id": EA, "instructor_note": "teacher note"}, None),
+    # G09-T03: learner detail through services/staff_scope (path param is {ref}).
+    ("GET",    "/instructor/learners/{id}",            "read1",  f"s-{SA}", None, None),
 ]
 
 
@@ -225,10 +232,21 @@ def _as(me, store):
         "services.instructor_access.supabase_admin",
         "services.essay_service.supabase_admin",
         "services.instructor_workflow.supabase_admin",
+        "services.staff_scope.supabase_admin",
+        "services.admin_learner_directory.supabase_admin",
+        "services.learner_attention.supabase_admin",
+        "services.ops_thresholds.supabase_admin",
     ]
+
+    async def role_row(uid):
+        return _Result([{"role": u["role"]} for u in store["users"] if u["id"] == uid])
+
     with contextlib.ExitStack() as es:
         es.enter_context(patch("routers.instructor.require_instructor",
                                new=AsyncMock(return_value={"id": me})))
+        es.enter_context(patch("services.staff_scope.require_instructor",
+                               new=AsyncMock(return_value={"id": me})))
+        es.enter_context(patch("services.staff_scope._staff_role_row", new=role_row))
         for t in targets:
             es.enter_context(patch(t, fake))
         from main import app
@@ -309,6 +327,15 @@ def test_matrix_B_sees_own_objects():
             r = client.get(path, headers={"Authorization": "Bearer x"})
             assert r.status_code == 200, r.text
             assert marker in {row.get("id") for row in r.json()}, f"{path} missing B's own"
+
+
+def test_teacher_reads_a_learner_of_their_own_class():
+    """G09-T03: the learner route is not "block everything" either."""
+    store = _seed()
+    with _as(B, store) as (client, _st):
+        r = client.get(f"/instructor/learners/s-{SB}", headers={"Authorization": "Bearer x"})
+    assert r.status_code == 200, r.text
+    assert r.json()["summary"]["name"] == "SB" and r.json()["canonical_ref"] == f"s-{SB}"
 
 
 # ── focused: queue scoping + claim-time essay-owner + 403 shape ──────────────

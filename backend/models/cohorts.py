@@ -1,6 +1,6 @@
 """Typed superset for the admin cohort picker and rollup directory."""
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -19,6 +19,20 @@ class CohortCourseOut(_StrictOut):
 
 
 ARCHIVE_FIELDS = ("archived_at", "archived_by", "archive_reason")
+# Migration 441 + the route's `instructor`: always emitted (null before 441
+# and for a class without a teacher), so the picker shape does not change
+# when the migration lands.
+TEACHER_FIELDS = ("instructor_id", "weekly_schedule", "start_date", "instructor")
+
+
+class CohortTeacherOut(_StrictOut):
+    id: str
+    name: str | None = None
+
+
+class CohortScheduleSlotOut(_StrictOut):
+    dow: int
+    start: str
 
 
 class AdminCohortOut(_StrictOut):
@@ -40,6 +54,13 @@ class AdminCohortOut(_StrictOut):
     archived_at: datetime | None = None
     archived_by: str | None = None
     archive_reason: str | None = None
+    # Migration 441 (G09-T24): select("*") returns these once 441 is applied,
+    # so they are accepted (null before). `instructor` is the class teacher,
+    # resolved by the route; `name` is null when the user row is missing.
+    instructor_id: str | None = None
+    weekly_schedule: list[CohortScheduleSlotOut] | None = None
+    start_date: date | None = None
+    instructor: CohortTeacherOut | None = None
     # Rollup-only fields are omitted from picker responses through
     # response_model_exclude_unset=True on the route.
     course: CohortCourseOut | None = None
@@ -51,7 +72,7 @@ class AdminCohortOut(_StrictOut):
     def _archive_fields_always_present(cls, data: Any) -> Any:
         # Supplied as input, they count as set, so exclude_unset keeps them.
         if isinstance(data, dict):
-            data = {key: None for key in ARCHIVE_FIELDS} | data
+            data = {key: None for key in ARCHIVE_FIELDS + TEACHER_FIELDS} | data
         return data
 
 
@@ -59,6 +80,8 @@ class AdminCohortListOut(_StrictOut):
     cohorts: list[AdminCohortOut]
     rollup_failed: bool | None = None
     course_lookup_failed: bool | None = None
+    # G09-T24: teacher names could not be read; `instructor.name` is null.
+    instructor_lookup_failed: bool | None = None
 
 
 class CohortArchiveCountsOut(_StrictOut):
