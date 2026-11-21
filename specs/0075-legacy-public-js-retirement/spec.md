@@ -135,5 +135,5 @@ Rủi ro ngược lại là thật: một file không ai nhắc tên vẫn có t
 
 | # | Câu hỏi | Phương án đề nghị | Mặc định tạm |
 | --- | --- | --- | --- |
-| Q-b1 | Cho gỡ JS cũ `frontend/public/js` theo đợt (thay `deletionAuthorized: false` của Gate F)? Hệ quả: URL `/js/<file>` của file bị gỡ trả 404; test cũ chỉ kiểm file đó được retire theo ADR-005. | Đồng ý, theo đợt W1–W6, mỗi đợt một PR anh duyệt merge | Chỉ làm T06 (bộ thu thập + bằng chứng), không xoá file |
+| Q-b1 | Cho gỡ JS cũ `frontend/public/js` theo đợt (thay `deletionAuthorized: false` của Gate F)? Hệ quả: URL `/js/<file>` của file bị gỡ trả 404; test cũ chỉ kiểm file đó được retire theo ADR-005. | Đồng ý, theo đợt W1–W6, mỗi đợt một PR anh duyệt merge | **Đã trả lời 21/11: đồng ý theo đợt** (`approval-decision.md`) |
 | Q-b2 | Cho người thực thi đọc log truy cập Vercel (14–30 ngày) cho `/js/*` làm lớp bằng chứng 3? Ai cấp quyền/xuất log? | Anh xuất log một lần cho production (Vercel → Logs, lọc path bắt đầu `/js/`) và đặt file vào thư mục dự án; người thực thi chỉ đọc | Chỉ dùng lớp 1–2, ghi "chưa có log" trong PR |
