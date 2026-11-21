@@ -351,3 +351,13 @@ test('review accepts null self-check score, hides historical short bands, and la
   const mixed = normalizeListeningReview(fixture({ score: 1, max_score: 1, score_mode: 'mixed', review: [item, { q_num: 2, correct: true }] }));
   assert.equal(listeningBandLabel(mixed), 'Không quy đổi band · 1 câu tự đối chiếu');
 });
+
+
+test('mobile review keeps both summary labels visible in a wrapping second row', () => {
+  assert.doesNotMatch(NEXT_CSS, /\.lr-summary span:(?:first|last)-child\s*\{\s*display:\s*none/);
+  const mobile = NEXT_CSS.slice(NEXT_CSS.indexOf('@media (max-width: 560px)'));
+  assert.match(mobile, /\.lr-topbar\s*\{[^}]*flex-wrap:\s*wrap/);
+  assert.match(mobile, /\.lr-topbar__right\s*\{[^}]*width:\s*100%/);
+  assert.match(mobile, /\.lr-summary\s*\{[^}]*white-space:\s*normal/);
+  assert.match(mobile, /\.lr-summary span\s*\{[^}]*min-width:\s*0;[^}]*overflow-wrap:\s*anywhere/);
+});

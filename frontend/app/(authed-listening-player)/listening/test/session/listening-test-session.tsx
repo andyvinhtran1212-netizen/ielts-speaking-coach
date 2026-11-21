@@ -400,13 +400,15 @@ export function ResultView({ result, attempt, test, from, sittingId, classItem }
   const bandLabel = selfCheckOnly ? 'Không chấm điểm' : mixed ? `Không quy đổi band · ${selfCheckCount} câu tự đối chiếu` : maxScore !== 40 ? 'Không quy đổi band' : result?.band_estimate == null ? '<4.0' : Number(result.band_estimate).toFixed(1);
   const outcomes = examResultOutcomes(scoredRows);
   const accuracy = maxScore ? Math.round((score / maxScore) * 100) : 0;
-  const sections = Object.entries(result?.section_breakdown || {});
+  const fullTest = !isPracticeListeningTest(test) && maxScore === 40;
+  const textBandLabel = selfCheckOnly || mixed || maxScore !== 40;
+  const sections = Object.entries(result?.section_breakdown || {}).filter(([, value]: [string, any]) => Number(value?.total || 0) > 0);
   return <main className="exam-result-shell listening-next-result">
     <section className="exam-result-page" aria-labelledby="listening-result-title">
-      <header className="exam-result-heading"><div><p className="exam-result-eyebrow">LISTENING · FULL TEST COMPLETE</p><h1 id="listening-result-title">Test results</h1><p>{test.title}</p></div><span className="exam-result-status">{drill?.dictation_required ? "Đã nộp phần nghe · Còn chép chính tả" : "Submitted"}</span></header>
+      <header className="exam-result-heading"><div><p className="exam-result-eyebrow">{fullTest ? 'LISTENING · FULL TEST COMPLETE' : 'LISTENING · TEST COMPLETE'}</p><h1 id="listening-result-title">Test results</h1><p>{test.title}</p></div><span className="exam-result-status">{drill?.dictation_required ? "Đã nộp phần nghe · Còn chép chính tả" : "Submitted"}</span></header>
 
       <section className="exam-result-hero" aria-label="Results overview">
-        <div className="exam-result-band"><span>Estimated band</span><strong>{bandLabel}</strong><small>Practice result</small></div>
+        <div className="exam-result-band"><span>Estimated band</span><strong className={textBandLabel ? 'listening-next-band-label' : undefined}>{bandLabel}</strong><small>Practice result</small></div>
         {selfCheckOnly ? <p>Đã hoàn thành · {selfCheckCount} câu tự đối chiếu</p> : <div className="exam-result-metrics">
           <div><span>Correct</span><strong>{score}<small>/{maxScore}</small></strong></div>
           <div><span>Accuracy</span><strong>{maxScore === 0 ? '—' : <>{accuracy}<small>%</small></>}</strong></div>

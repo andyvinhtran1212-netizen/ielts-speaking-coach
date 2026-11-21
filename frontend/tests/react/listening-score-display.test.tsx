@@ -85,3 +85,26 @@ it.each(['self_check_only', 'mixed_no_band'])('mock gap explains %s without the 
   expect(await screen.findByText(state === 'self_check_only' ? 'Listening — Tự đối chiếu: đề này không tính band' : 'Listening — Không quy đổi band · 4 câu tự đối chiếu')).toBeTruthy();
   expect(view.container.textContent).not.toMatch(/0\/40|36\/40|dưới mức thấp nhất/);
 });
+
+
+it.each(['drill', 'mini', 'practice'])('shows only authored parts and a compact band label for %s', (testType) => {
+  const view = render(<ResultView result={{ score: 1, max_score: 1,
+    per_question: [{ q_num: 1, correct: true, user_answer: 'library' }],
+    section_breakdown: { section_1: { total: 0, correct: 0 }, section_2: { total: 1, correct: 1 }, section_3: { total: 0, correct: 0 }, section_4: { total: 0, correct: 0 } } }}
+    attempt={null} test={{ id: 't1', title: 'Short paper', test_type: testType, sections: [{ section_num: 2 }] }} from={null} sittingId={null} />);
+  expect(screen.getByText('LISTENING · TEST COMPLETE')).toBeTruthy();
+  expect([...view.container.querySelectorAll('.exam-result-part')].map(part => part.textContent)).toEqual(['Part 21/1']);
+  expect(screen.getByText('Không quy đổi band').classList.contains('listening-next-band-label')).toBe(true);
+  expect(view.container.textContent).not.toContain('0/0');
+});
+
+it('preserves the full 40-question heading, numeric band style and four-part breakdown', () => {
+  const view = render(<ResultView result={{ score: 32, max_score: 40, band_estimate: 7.5,
+    per_question: Array.from({ length: 40 }, (_, i) => ({ q_num: i + 1, correct: i < 32, user_answer: 'A' })),
+    section_breakdown: Object.fromEntries([1, 2, 3, 4].map(n => [`section_${n}`, { total: 10, correct: 8 }])) }}
+    attempt={null} test={{ id: 't1', title: 'Full paper', test_type: 'full', sections: [1, 2, 3, 4].map(section_num => ({ section_num })) }} from={null} sittingId={null} />);
+  expect(screen.getByText('LISTENING · FULL TEST COMPLETE')).toBeTruthy();
+  expect(screen.getByText('7.5').className).toBe('');
+  expect([...view.container.querySelectorAll('.exam-result-part')].map(part => part.textContent)).toEqual([1, 2, 3, 4].map(n => `Part ${n}8/10`));
+  expect(view.container.querySelector('.exam-result-metrics')?.textContent).toContain('32/40');
+});
