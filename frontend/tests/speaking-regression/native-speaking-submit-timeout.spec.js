@@ -21,7 +21,7 @@ async function installRecordedTake(page) {
     let onRecorded;
     window.PracticeRecorder.start = async (options) => { onRecorded = options.onRecorded; return true; };
     window.PracticeRecorder.getAnalyser = () => null;
-    window.PracticeRecorder.stop = () => { onRecorded(blob); return true; };
+    window.PracticeRecorder.stop = () => { onRecorded(blob, 120); return true; };
     window.PracticeRecorder.getBlob = () => blob;
   });
 }
