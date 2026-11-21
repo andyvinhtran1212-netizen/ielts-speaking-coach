@@ -1,0 +1,20 @@
+/* UIBASE-0056 Breadcrumb + BackLink (ThanhPhan §6, KhungTrang §5). Only var(--av2-*). */
+.trail { font-size: var(--av2-fs-14); color: var(--av2-muted); }
+.list { display: flex; flex-wrap: wrap; align-items: center; margin: 0; padding: 0; list-style: none; }
+.item { display: inline-flex; align-items: center; }
+.sep { padding: 0 var(--av2-space-3); }
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--av2-space-2);
+  min-height: var(--av2-control-md);
+  font-size: var(--av2-fs-15);
+}
+
+.phoneOnly { display: none; }
+
+@media (max-width: 767px) {
+  .trail { display: none; }
+  .phoneOnly { display: inline-flex; }
+}

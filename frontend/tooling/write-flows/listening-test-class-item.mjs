@@ -7,7 +7,7 @@
 // đáp án lưu được, bài chấm ra điểm — chỉ có sổ bài giao là mãi mãi trống, và em
 // học viên bị ghi là chưa nộp.
 //
-// Backend nói rõ điều này ở `routers/listening.py:5053-5090`: `class_item` là
+// Backend nói rõ điều này ở `routers/listening/__init__.py:5053-5090`: `class_item` là
 // THAM SỐ TRUY VẤN, và khi có mặt nó được `validate_class_item_for_test` kiểm.
 // Không có tham số thì không có gì để kiểm — backend không thể tự đoán ra, và
 // chú thích ngay trong `listening-test-player.js:187-191` cũng nói đúng vậy:

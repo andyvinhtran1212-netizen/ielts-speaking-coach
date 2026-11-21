@@ -382,6 +382,18 @@ section { margin-bottom: var(--av-space-12); }
   line-height: var(--av-lh-normal);
   margin: 0;
 }
+/* In-card notice shown when a learner clicks the locked Writing card. */
+.skill-card .lock-note:empty { display: none; }
+.skill-card .lock-note {
+  margin: var(--av-space-3) 0 0;
+  padding: var(--av-space-2) var(--av-space-3);
+  border: 1px solid var(--av-warning);
+  border-radius: var(--av-radius-md);
+  background: var(--av-surface-card);
+  color: var(--av-text-primary);
+  font-size: var(--av-fs-sm);
+  line-height: var(--av-lh-normal);
+}
 
 /* Locked variant — set by home.js when permission is missing. The
    data-locked attribute is the explicit signal; we also keep the legacy

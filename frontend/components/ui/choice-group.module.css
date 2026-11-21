@@ -1,0 +1,8 @@
+/* UIBASE-0056 ChoiceGroup (ThanhPhan §2). Only var(--av2-*). */
+.group { margin: 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: var(--av2-space-2); min-width: 0; }
+.legend { padding: 0; margin-bottom: var(--av2-space-2); font-weight: var(--av2-fw-strong); }
+.option { display: flex; align-items: center; gap: var(--av2-space-5); min-height: var(--av2-control-md); cursor: pointer; }
+.input { width: 20px; height: 20px; margin: 0; flex-shrink: 0; accent-color: var(--av2-accent); cursor: inherit; }
+.disabled { color: var(--av2-muted); cursor: not-allowed; }
+.hint { font-size: var(--av2-fs-14); color: var(--av2-muted); }
+.error { font-size: var(--av2-fs-14); font-weight: var(--av2-fw-strong); color: var(--av2-danger); }

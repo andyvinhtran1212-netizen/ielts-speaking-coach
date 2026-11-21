@@ -1,0 +1,6 @@
+/* UIBASE-0056 Icon (FR-006). Colour follows the text (currentColor). */
+.icon { display: inline-block; flex-shrink: 0; vertical-align: middle; }
+.s16 { width: 16px; height: 16px; }
+.s20 { width: 20px; height: 20px; }
+.s22 { width: 22px; height: 22px; }
+.s24 { width: 24px; height: 24px; }
