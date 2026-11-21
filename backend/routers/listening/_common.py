@@ -696,3 +696,384 @@ class ListeningExerciseUpsertRequest(BaseModel):
     expected_absent: bool = Field(default=False)
 
 
+def _upload_audio_to_bucket(storage_path: str, mp3_bytes: bytes) -> None:
+    """Wrapper around the Supabase Storage upload that surfaces a clean
+    503 when the bucket is missing (mirrors Sprint 13.2 + 13.3 helpers).
+    """
+    from services.storage_limits import check_upload, raise_storage_error
+    check_upload("listening-audio", len(mp3_bytes), "audio/mpeg")
+    try:
+        supabase_admin.storage.from_(settings.LISTENING_AUDIO_BUCKET).upload(
+            storage_path,
+            mp3_bytes,
+            {"content-type": "audio/mpeg", "x-upsert": "true"},
+        )
+    except Exception as exc:
+        raise_storage_error("listening-audio", exc)
+        msg = str(exc).lower()
+        if "not found" in msg or "bucket" in msg:
+            logger.error(
+                "[listening] storage bucket '%s' missing on audio upload",
+                settings.LISTENING_AUDIO_BUCKET,
+            )
+            raise HTTPException(503, "Listening audio storage not configured.")
+        # Some clients return 409 / 'duplicate' on re-upload — re-raise.
+        logger.error("[listening] audio upload failed path=%s: %s", storage_path, exc, exc_info=True)
+        raise HTTPException(500, "Không tải được file lên kho lưu trữ. Vui lòng thử lại.") from None
+
+
+def _sign_map_image_url(storage_path: str | None, expires_in: int = 3600) -> str | None:
+    """Best-effort signed URL for a map image. Returns None on any failure."""
+    if not storage_path:
+        return None
+    try:
+        signed = supabase_admin.storage.from_(
+            settings.LISTENING_IMAGES_BUCKET
+        ).create_signed_url(storage_path, expires_in)
+    except Exception as exc:                                                  # pragma: no cover
+        logger.warning("[map_image] signed URL mint failed: %s", exc)
+        return None
+    return (signed or {}).get("signedURL") or (signed or {}).get("signed_url")
+
+
+def _student_audio_url_for_test(test_row: dict) -> tuple[str | None, str | None, int | None]:
+    """Pick the right audio for a student player.
+
+    Preference: ``assembled_audio_storage_path`` (mode=parts_auto_assembled)
+    over ``full_audio_storage_path`` (mode=full_premixed). Returns
+    ``(signed_url, storage_path, duration_seconds)``. ``signed_url=None``
+    if the test has no audio yet.
+    """
+    storage_path = (
+        test_row.get("assembled_audio_storage_path")
+        or test_row.get("full_audio_storage_path")
+    )
+    duration = test_row.get("full_audio_duration_seconds")
+    if not storage_path:
+        return None, None, None
+    try:
+        signed = supabase_admin.storage.from_(
+            settings.LISTENING_AUDIO_BUCKET
+        ).create_signed_url(storage_path, 7200)                              # 2h for test session
+    except Exception as exc:                                                 # pragma: no cover
+        logger.warning("[listening] student signed URL mint failed: %s", exc)
+        return None, storage_path, duration
+    url = (signed or {}).get("signedURL") or (signed or {}).get("signed_url")
+    return url, storage_path, duration
+
+
+def _rows_by_id(
+    table: str,
+    ids: list,
+    cols: str,
+    *,
+    lookup_failures: set[str] | None = None,
+) -> dict:
+    """Batch-resolve id → row (lô 100/lần — tránh URL dài + PostgREST cap)."""
+    out: dict = {}
+    uniq = sorted({i for i in ids if i})
+    for i in range(0, len(uniq), 100):
+        try:
+            res = (supabase_admin.table(table).select(cols)
+                   .in_("id", uniq[i:i + 100]).execute())
+        except Exception as exc:  # noqa: BLE001 — join lỗi không được 500 cả list
+            logger.warning("[listening] admin join %s failed: %s", table, exc)
+            if lookup_failures is not None:
+                lookup_failures.add(table)
+            return out
+        for r in (res.data or []):
+            out[r["id"]] = r
+    return out
+
+
+def _fetch_attempt_or_404(attempt_id: str, user_id: str) -> dict:
+    res = (
+        supabase_admin.table("listening_test_attempts")
+        .select("*")
+        .eq("id", attempt_id)
+        .eq("user_id", user_id)
+        .limit(1)
+        .execute()
+    )
+    if not res.data:
+        raise HTTPException(404, "Attempt not found", headers={"Cache-Control": "private, no-store"})
+    row = res.data[0]
+    return row
+
+
+def _rebase_audio_window(win: dict | None, is_mini: bool, section_offsets: dict) -> dict | None:
+    """Rebase a per-question replay window for the review player.
+
+    Stored windows are full-test-ABSOLUTE (= section-relative + section_offset),
+    correct for a full test whose premixed audio holds every section at its
+    absolute position. A MINI test's audio is its single section premixed alone
+    (the mp3 starts at ~0), so seeking the absolute time lands `section_offset`
+    seconds too late — every replay misses its answer. For a mini, subtract the
+    section's offset to get a section-relative seek. Full tests pass through.
+    """
+    if not win or not is_mini:
+        return win
+    off = (section_offsets or {}).get(win.get("section")) or 0
+    if not off:
+        return win
+    return {**win,
+            "start": round(win["start"] - off, 2),
+            "end":   round(win["end"]   - off, 2)}
+
+
+def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
+    """Build the chữa-bài payload from an attempt + its test.
+
+    Split out of the student endpoint so the ADMIN PREVIEW can reuse it byte for
+    byte (mig 170 / Đợt 2). Rebuilding the same shape a second time is how the
+    two drift: the preview would quietly stop matching what a student sees,
+    which is the one thing the preview exists to show.
+
+    Takes an attempt-SHAPED dict, not necessarily a real row — the preview
+    passes a synthetic one whose grading_details come from the answer key with
+    every user_answer blank. `attempt_id` is None there, and the caller owns all
+    authorisation: this function checks nothing.
+    """
+    from services.mock_review_context import (
+        attach_review_web_explanations, context_reference, load_review_snapshot,
+        provenance, question_context,
+    )
+    snapshot = load_review_snapshot(supabase_admin, "listening", attempt)
+    test_id = attempt["test_id"]
+    if snapshot is not None:
+        test_row = snapshot["paper_row"]
+        content_rows = snapshot["source_rows"]
+        exercise_rows = snapshot["marking_rows"]
+    else:
+        test_res = (
+            supabase_admin.table("listening_tests")
+            .select("id,test_id,title,band_target,cue_points,metadata,test_type,"
+                    "full_audio_storage_path,assembled_audio_storage_path,"
+                    "full_audio_duration_seconds,themes,programme_id,scoring_policy,"
+                    "form_purpose,replay_policy,support_policy,claim_policy,"
+                    "listening_lesson_id")
+            .eq("id", test_id).limit(1).execute()
+        )
+        test_row = (test_res.data or [{}])[0]
+        content_res = (
+            supabase_admin.table("listening_content")
+            .select("id,section_num,title,transcript,metadata")
+            .eq("test_id", test_id).order("section_num").execute()
+        )
+        content_rows = content_res.data or []
+        section_ids = [row["id"] for row in content_rows]
+        exercise_rows = []
+        if section_ids:
+            ex_res = (supabase_admin.table("listening_exercises")
+                      .select("id,payload").in_("content_id", section_ids).execute())
+            exercise_rows = ex_res.data or []
+    audio_url, _, audio_duration = _student_audio_url_for_test(test_row)
+    scoring_policy = attempt.get("scoring_policy") or test_row.get("scoring_policy") or "diagnostic"
+    if scoring_policy == "report_only" and not audio_url:
+        raise HTTPException(
+            503,
+            "Chưa tải được audio để tự đối chiếu. Hãy thử lại sau.",
+        )
+    meta = test_row.get("metadata") or {}
+
+    # Per-section transcripts (content rows).
+    sections = []
+    for c in content_rows:
+        cmeta = c.get("metadata") or {}
+        section = {
+            "section_num": c.get("section_num"),
+            "title":       c.get("title"),
+            "theme":       cmeta.get("theme"),
+            "transcript":  c.get("transcript"),
+        }
+        section["context_provenance"] = {key: provenance(value, snapshot,
+            present=(key in cmeta if key == "theme" else key in c))
+            for key, value in section.items()}
+        sections.append(section)
+
+    # Per-question solution + audio window + prompt/type (from exercise payloads).
+    solutions_by_q: dict[int, dict] = {}
+    windows_by_q: dict[int, dict] = {}
+    anchors_by_q: dict[int, int] = {}
+    prompt_by_q: dict[int, str] = {}
+    type_by_q: dict[int, str] = {}
+    source_questions_by_q: dict[int, dict] = {}
+    question_context_by_q: dict[int, dict] = {}
+    self_review_by_q: dict[int, dict] = {}
+    controlled_transcripts: dict[str, list] = {}
+    if exercise_rows:
+        for row in exercise_rows:
+            p = row.get("payload") or {}
+            # Callers already enforced review access. Sign this selected
+            # revision's raster map on a runtime copy, never on stored rows.
+            storage_path = p.get("map_image_storage_path")
+            inline_map = p.get("map_svg")
+            if storage_path and not (isinstance(inline_map, str) and inline_map.strip()):
+                p = dict(p)
+                p["map_image_url"] = _sign_map_image_url(storage_path, expires_in=7200)
+            # Older imports can retain an adjacent block's solution copy.
+            # Only this exercise's actual slots may contribute review fields;
+            # otherwise unordered DB rows can overwrite a corrected owner.
+            owned_questions = {
+                int(item["q_num"])
+                for rows in (p.get("questions"), p.get("answers"))
+                if isinstance(rows, list)
+                for item in rows
+                if isinstance(item, dict) and item.get("q_num") is not None
+            }
+            if isinstance(p.get("answers"), dict):
+                owned_questions.update(int(q) for q in p["answers"] if str(q).isdigit())
+            for q, sol in (p.get("solutions") or {}).items():
+                if int(q) in owned_questions:
+                    solutions_by_q[int(q)] = sol
+            for q, w in (p.get("audio_windows") or {}).items():
+                if int(q) in owned_questions:
+                    windows_by_q[int(q)] = w
+            for q, idx in (p.get("transcript_anchors") or {}).items():
+                if int(q) in owned_questions:
+                    anchors_by_q[int(q)] = idx
+            for q, value in (p.get("self_review") or {}).items():
+                self_review_by_q[int(q)] = value
+            for stimulus_id, value in (p.get("controlled_transcripts") or {}).items():
+                if isinstance(value, list):
+                    if test_row.get("programme_id") == SOURCE_PROGRAMME:
+                        from services.listening_source_collection import safe_source_transcript
+                        value = safe_source_transcript(value)
+                    controlled_transcripts[str(stimulus_id)] = value
+            variant = p.get("variant")
+            for qq in (p.get("questions") or []):
+                if qq.get("q_num") is not None:
+                    prompt_by_q[qq["q_num"]] = qq.get("prompt")
+                    type_by_q[qq["q_num"]] = qq.get("response_type") or variant
+                    source_questions_by_q[qq["q_num"]] = qq
+                    authored = {**qq, "payload": p}
+                    if not authored.get("id") and row.get("id"):
+                        authored["id"] = qq.get("question_id") or f'{row["id"]}:{qq["q_num"]}'
+                    question_context_by_q[qq["q_num"]] = question_context(authored, snapshot)
+
+    # A mini test's audio is its SINGLE section premixed alone (the mp3 starts at
+    # ~0), but the stored audio_window is full-test-ABSOLUTE (= section-relative +
+    # section_offset). Seeking the absolute time in a section-only mp3 lands
+    # section_offset seconds too late (every replay misses its answer). Rebase the
+    # window to section-relative for a mini so the review player seeks the right
+    # spot. Full tests keep absolute windows — their premixed audio holds every
+    # section at its absolute position, so no rebase.
+    is_mini = test_row.get("test_type") == "mini"
+    sec_offsets = meta.get("section_offsets") or {}
+
+    # Assisted provenance is one immutable row per revealed question. Never
+    # infer it from a client flag or from a mutable result-summary snapshot.
+    first_answers_by_q: dict[int, str] = {}
+    if scoring_policy == "report_only" and attempt_id is not None:
+        revealed = (
+            supabase_admin.table("listening_programme_feedback_reveals")
+            .select("q_num,first_answer").eq("attempt_id", str(attempt_id))
+            .execute().data or []
+        )
+        first_answers_by_q = {
+            int(value["q_num"]): str(value["first_answer"])
+            for value in revealed if value.get("q_num") is not None
+        }
+
+    # Join grading_details with the per-question solution + window.
+    review = []
+    for g in (attempt.get("grading_details") or []):
+        q = g.get("q_num")
+        rationale_q = g.get("rationale_q_num")
+        solution_q = rationale_q if type(rationale_q) is int else q
+        win = _rebase_audio_window(windows_by_q.get(solution_q), is_mini, sec_offsets)
+        source_fields = {}
+        source_explanation_present = False
+        if test_row.get("programme_id") == SOURCE_PROGRAMME:
+            from services.listening_source_collection import source_explanation, source_response_fields
+            question = source_questions_by_q.get(q) or {}
+            protected = solutions_by_q.get(solution_q) or self_review_by_q.get(solution_q)
+            protected = protected or {}
+            source_explanation_present = "explanation" in protected
+            explanation = source_explanation(protected.get("explanation"), item_id=question.get("source_item_id"))
+            try:
+                fields = source_response_fields(question, reference_answer=(explanation or {}).get("answer"))
+            except ValueError:
+                raise HTTPException(503, "Chưa tải được thông tin chỗ trống để đối chiếu. Hãy thử lại.") from None
+            source_fields = {"fields": fields, "source_item_id": question.get("source_item_id"), "source_display_number": question.get("source_display_number"),
+                "review_status": protected.get("review_status"), "answer_provenance": protected.get("answer_provenance"),
+                "explanation": explanation, "audio_granularity": (win or {}).get("granularity") or meta.get("timing_granularity")}
+        item = {
+            **source_fields,
+            "q_num":         q,
+            "state":         g.get("state"),
+            "correct":       g.get("correct"),
+            **({"self_check": True, "alternatives": g.get("alternatives") or []}
+               if g.get("self_check") else {}),
+            "user_answer":   g.get("user_answer") or "",
+            "expected":      g.get("expected") or "",
+            "question_type": type_by_q.get(q),
+            "prompt":        prompt_by_q.get(q),
+            **({"printed_value": (source_questions_by_q.get(q) or {}).get("printed_value", prompt_by_q.get(q))}
+               if type_by_q.get(q) == "keep_change" else {}),
+            "audio_window":  win,                       # {start,end,section} — absolute (full) / section-relative (mini)
+            "section":       (win or {}).get("section"),
+            "transcript_anchor": anchors_by_q.get(solution_q),
+            "solution":      ({key: value for key, value in (solutions_by_q.get(solution_q) or {}).items() if key in {"expected", "rationale"}}
+                               if test_row.get("programme_id") == SOURCE_PROGRAMME else solutions_by_q.get(solution_q) or {}),
+            "self_review":   ({key: value for key, value in (self_review_by_q.get(solution_q) or {}).items() if key in {"reference_answers", "rationale", "required_facts", "optional_facts"}}
+                               if test_row.get("programme_id") == SOURCE_PROGRAMME else self_review_by_q.get(solution_q) or g.get("self_review") or {}),
+            "first_answer":  first_answers_by_q.get(q),
+            "question_context": question_context_by_q.get(q),
+        }
+        item["context_provenance"] = {
+            "prompt": provenance(item["prompt"], snapshot, present=q in prompt_by_q),
+            "question_type": provenance(item["question_type"], snapshot, present=q in type_by_q),
+            "solution": provenance(item["solution"], snapshot, present=solution_q in solutions_by_q),
+            "audio_window": provenance(win, snapshot, present=solution_q in windows_by_q),
+            "transcript_anchor": provenance(item["transcript_anchor"], snapshot, present=solution_q in anchors_by_q),
+            "self_review": provenance(item["self_review"], snapshot, persisted="self_review" in g,
+                present=solution_q in self_review_by_q or "self_review" in g),
+            "explanation": provenance(item.get("explanation"), snapshot, present=source_explanation_present),
+            "question_context": provenance(item["question_context"], snapshot, present=q in question_context_by_q),
+        }
+        if "self_review" in g and test_row.get("programme_id") != SOURCE_PROGRAMME:
+            item["self_review"] = g["self_review"] or {}
+            item["context_provenance"]["self_review"] = "submission_snapshot"
+        review.append(item)
+
+    if scoring_policy == "report_only":
+        web_access = {"available": False, "reason": "report_only"}
+    else:
+        web_access = attach_review_web_explanations("listening", attempt, review, snapshot)
+
+    return {
+        "attempt_id":      attempt_id,
+        "test_id":         test_row.get("test_id"),
+        "title":           test_row.get("title"),
+        "status":          attempt.get("status"),
+        **listening_score_fields(attempt.get("score"), attempt.get("grading_details") or []),
+        "band_estimate":   attempt.get("band_estimate"),
+        "scoring_policy":  scoring_policy,
+        "assisted":        bool(first_answers_by_q),
+        "result_summary":  attempt.get("result_summary") or {},
+        "programme_id":    test_row.get("programme_id") or "ielts",
+        "listening_lesson_id": test_row.get("listening_lesson_id"),
+        "form_purpose":    test_row.get("form_purpose"),
+        "replay_policy":   test_row.get("replay_policy"),
+        "support_policy":  test_row.get("support_policy"),
+        "claim_policy":    test_row.get("claim_policy"),
+        "trap_analytics":  attempt.get("trap_analytics") or {},
+        "audio_url":       audio_url,
+        "audio_granularity": meta.get("timing_granularity") if test_row.get("programme_id") == SOURCE_PROGRAMME else None,
+        "audio_duration":  audio_duration,
+        "section_offsets": meta.get("section_offsets") or {},
+        "cue_points":      test_row.get("cue_points") or [],
+        "band_conversion": meta.get("band_conversion") or [],
+        "sections":        sections,
+        "review":          review,
+        "controlled_transcripts": controlled_transcripts,
+        "web_explanation_access": web_access,
+        "context_source": {**context_reference(snapshot), "field_provenance": {
+            "audio_url": provenance(audio_url, snapshot,
+                present=bool(test_row.get("full_audio_storage_path") or test_row.get("assembled_audio_storage_path"))),
+            "audio_duration": provenance(audio_duration, snapshot, present="full_audio_duration_seconds" in test_row),
+            "cue_points": provenance(test_row.get("cue_points"), snapshot, present="cue_points" in test_row),
+            "section_offsets": provenance(meta.get("section_offsets"), snapshot, present="section_offsets" in meta),
+        }},
+    }
