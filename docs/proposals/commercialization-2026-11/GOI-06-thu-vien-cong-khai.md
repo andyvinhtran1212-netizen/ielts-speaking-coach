@@ -228,7 +228,7 @@ Thêm có giới hạn trong `frontend/tooling/content-security-policy.mjs`: `fr
 | `GET /writing-guides`, `/{slug}` | không | bài `writing_tips` `published` có `content_type in ('knowledge','tip')`, kèm `groups[]` (mục 10 câu 4) | Không động vào hai route học viên hiện có. |
 | `GET /speaking`, `/{slug}`, `/speaking/index` | không | tương tự | Chỉ `published` và `sample_text` không rỗng. |
 | `GET /me/marks?shelf=` | có | `{marks:[{item_key, kind}]}` | Exempt khỏi cổng kích hoạt (tài khoản chưa có mã dùng được). |
-| `PATCH /me/marks/{shelf}/{kind}` · `DELETE` cùng path, body `{item_key}` | có | `204` | Idempotent; `item_key` phải tồn tại và `published`, không thì 404. `item_key` nằm trong body JSON, không trong path, vì khoá Grammar `<category>/<slug>` có `/` (theo spec 0061 §5.4). Dùng `PATCH` thay `PUT` vì CORS backend không cho `PUT`; spec 0061 (#2397) vẫn ghi `PUT`, chờ amendment. |
+| `PATCH /me/marks/{shelf}/{kind}` · `DELETE` cùng path, body `{item_key}` | có | `204` | Idempotent; `item_key` phải tồn tại và `published`, không thì 404. `item_key` nằm trong body JSON, không trong path, vì khoá Grammar `<category>/<slug>` có `/` (theo spec 0061 §5.4). Dùng `PATCH` thay `PUT` vì CORS backend không cho `PUT`; spec 0061 đã sửa theo (Amendment 1, anh Andy duyệt 21/11). |
 
 Mọi GET công khai: `cacheable_json` + `Last-Modified` từ `max(updated_at)`; thêm vào `ACTIVATION_EXEMPT_ROUTES` (lý do: "public Library"). Router đăng ký với `dependencies=_ACTIVE_LEARNER` như mọi router học viên (`backend/main.py` dòng 266), để một route thêm sau này mà quên khai báo thì mặc định bị cổng chặn; mọi route của bảng trên (kể cả `me/*`) được thêm vào `ACTIVATION_EXEMPT_ROUTES` có chủ đích. Sinh lại `frontend/types/api.d.ts`.
 

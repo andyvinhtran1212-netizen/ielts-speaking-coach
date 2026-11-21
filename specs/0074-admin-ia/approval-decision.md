@@ -30,4 +30,27 @@ Not approved by this decision:
   typed approval for that window.
 - Any production read, write or deploy.
 
+## Amendment 1 — planned `PUT` routes become `PATCH` (2026-11-21)
+
+On 2026-11-21 at 08:28 Asia/Saigon (01:28:29 UTC), anh Andy wrote in the project
+chat of the Averlearning Claude Code project, verbatim:
+
+> duyệt spec 0078; duyệt PATCH 0074 0061; đồng ý Q-b1 theo đợt
+
+This approves "PATCH 0074": every planned `PUT` route in `plan.md` now reads `PATCH`.
+Paths, request bodies, responses, errors and roles are unchanged, and so is every
+requirement. Changed in `plan.md` (sha256 before this amendment
+`bc49791aff12016eef69be25c15541949771ebc45958c9d9312cf606400f4e4d`):
+
+- line 242: `PATCH /admin/settings/thresholds` (matches the route #2393 shipped);
+- line 243: `GET /admin/settings/{section}` · `PATCH`, and "`payment` chỉ có PATCH khi Q20 được duyệt";
+- line 297: `PATCH /admin/cohorts/{c}/lessons/{lesson_id}/review-items`;
+- line 317: `PATCH /admin/mock-exams/{id}/audience`;
+- lines 409–410: the two read-only rows say a `PATCH` sending that key returns 422.
+
+Reason: the backend CORS allow-list (`backend/main.py` `_CORS_METHODS` =
+GET, POST, PATCH, DELETE, OPTIONS) has no `PUT`, so a browser preflight for a `PUT`
+route fails. #2393 already shipped `PATCH /admin/settings/thresholds`. The GOI docs
+were changed the same way in #2423 (GOI-09/11) and #2424 (GOI-06/07/12/13).
+
 No learner data is included here.

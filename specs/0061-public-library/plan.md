@@ -135,7 +135,7 @@ Thêm có giới hạn trong `frontend/tooling/content-security-policy.mjs`: `fr
 | `GET /writing-guides`, `/{slug}` | không | `writing_tips` `published` có `content_type in ('knowledge','tip')`, kèm `groups[]` (Open question 4) | Không đụng hai route học viên hiện có. |
 | `GET /speaking`, `/speaking/{slug}`, `/speaking/index` | không | tương tự; mỗi đề có `voice` | Chỉ `published` và `sample_text` không rỗng. |
 | `GET /me/marks?shelf=` | có | `{marks:[{item_key, kind}]}` | Exempt, lý do "own library marks; no paid work". |
-| `PUT /me/marks/{shelf}/{kind}` · `DELETE` cùng path, body `{item_key}` | có | `204` | Idempotent; `item_key` phải tồn tại và `published`, không thì 404. `item_key` nằm trong body JSON (không trong path) vì khoá Grammar `<category>/<slug>` có `/`, mà Starlette giải mã `%2F` trước khi khớp route nên khoá trong path đoạn đơn sẽ 404. Test route-level đặt và bỏ dấu với khoá Grammar thật (`tenses/past-perfect`). |
+| `PATCH /me/marks/{shelf}/{kind}` · `DELETE` cùng path, body `{item_key}` | có | `204` | Idempotent; `item_key` phải tồn tại và `published`, không thì 404. `item_key` nằm trong body JSON (không trong path) vì khoá Grammar `<category>/<slug>` có `/`, mà Starlette giải mã `%2F` trước khi khớp route nên khoá trong path đoạn đơn sẽ 404. Test route-level đặt và bỏ dấu với khoá Grammar thật (`tenses/past-perfect`). |
 
 Mọi GET công khai: `cacheable_json` + `Last-Modified` từ `max(updated_at)` (`backend/services/public_cache.py`); mỗi route một dòng `ACTIVATION_EXEMPT_ROUTES` lý do "public Library". Sinh lại `frontend/types/api.d.ts` như GOI-05 mục 8.
 
