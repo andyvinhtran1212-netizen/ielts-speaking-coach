@@ -554,7 +554,7 @@ routers/instructor.py::student_summary::db.execute	1	G6	Existing inline sync DB 
 routers/instructor.py::student_summary::services.essay_service.get_student_summary	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/instructor.py::update_instructor_note::db.execute	2	G6	Existing inline sync DB execution; offload in G6.
 routers/instructor.py::update_instructor_note::services.instructor_access.assert_essay_owned	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
-routers/listening/__init__.py::_change_listening_package_status::services.listening_package_import.set_package_status	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening/student_fulltest.py::_change_listening_package_status::services.listening_package_import.set_package_status	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/admin_import.py::_publish_drill::db.execute	9	G1	Existing inline sync DB execution; offload in G1.
 routers/listening/__init__.py::acknowledge_listening_attempt_playback_started::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
 routers/listening/__init__.py::acknowledge_listening_attempt_playback_started::routers.listening._common._fetch_attempt_or_404	2	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
@@ -606,8 +606,8 @@ routers/listening/__init__.py::admin_list_listening_attempts::routers.listening.
 routers/listening/__init__.py::admin_list_listening_content::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
 routers/listening/__init__.py::admin_list_listening_exercises::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
 routers/listening/admin_import.py::admin_list_listening_tests::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
-routers/listening/__init__.py::admin_listening_player_preview::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
-routers/listening/__init__.py::admin_listening_player_preview::routers.listening._assemble_listening_player_payload	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening/student_fulltest.py::admin_listening_player_preview::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
+routers/listening/student_fulltest.py::admin_listening_player_preview::routers.listening.student_fulltest._assemble_listening_player_payload	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::admin_patch_listening_content::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
 routers/listening/__init__.py::admin_patch_listening_content_status::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
 routers/listening/admin_import.py::admin_patch_listening_test::db.execute	3	G1	Existing inline sync DB execution; offload in G1.
@@ -660,7 +660,7 @@ routers/listening/__init__.py::get_in_progress_listening_attempt::db.execute	1	G
 routers/listening/__init__.py::get_in_progress_listening_attempt::services.mock_attempt_flags.review_flag_state	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::get_in_progress_listening_attempt::services.mock_paper_policy.guard_owned_attempt	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::get_listening_analytics::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
-routers/listening/__init__.py::get_listening_analytics::routers.listening._assisted_programme_attempt_ids	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening/__init__.py::get_listening_analytics::routers.listening.student_fulltest._assisted_programme_attempt_ids	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::get_listening_analytics::routers.listening._common._rows_by_id	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::get_listening_content::routers.listening._fetch_published_listening_content_with_signed_url	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::get_listening_dictation_session::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
@@ -669,8 +669,8 @@ routers/listening/__init__.py::get_listening_dictation_session_by_request::route
 routers/listening/__init__.py::get_listening_exercises::routers.listening._fetch_published_exercises_for_student	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::get_listening_programme_guided_state::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
 routers/listening/__init__.py::get_listening_programme_guided_state::routers.listening._common._fetch_attempt_or_404	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
-routers/listening/__init__.py::get_listening_programme_lesson::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
-routers/listening/__init__.py::get_listening_programme_lesson::routers.listening._programme_attempt_state	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening/student_fulltest.py::get_listening_programme_lesson::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
+routers/listening/student_fulltest.py::get_listening_programme_lesson::routers.listening.student_fulltest._programme_attempt_state	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::get_listening_test_attempt::routers.listening._common._fetch_attempt_or_404	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::get_listening_test_attempt::routers.listening._mock_sealed	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::get_listening_test_attempt_review::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
@@ -679,25 +679,25 @@ routers/listening/__init__.py::get_listening_test_attempt_review::routers.listen
 routers/listening/__init__.py::get_listening_test_attempt_review::routers.listening._mock_sealed	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::get_listening_test_attempt_review::services.mock_correction_service.capture_required_envelope	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::get_listening_test_dictation::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
-routers/listening/__init__.py::get_listening_test_dictation::routers.listening._assert_listening_exam_content_allowed	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening/__init__.py::get_listening_test_dictation::routers.listening.student_fulltest._assert_listening_exam_content_allowed	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::get_listening_test_dictation::routers.listening._common._student_audio_url_for_test	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::get_practice_audio_windows::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
-routers/listening/__init__.py::get_practice_audio_windows::routers.listening._assert_listening_exam_content_allowed	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening/__init__.py::get_practice_audio_windows::routers.listening.student_fulltest._assert_listening_exam_content_allowed	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::get_practice_audio_windows::routers.listening._practice_exercise_payloads	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
-routers/listening/__init__.py::get_published_listening_test::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
-routers/listening/__init__.py::get_published_listening_test::routers.listening._assemble_listening_player_payload	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
-routers/listening/__init__.py::get_published_listening_test::routers.listening._assert_listening_exam_content_allowed	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
-routers/listening/__init__.py::get_published_listening_test::routers.listening._common._fetch_attempt_or_404	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
-routers/listening/__init__.py::get_published_listening_test::services.mock_attempt_flags.review_flag_state	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
-routers/listening/__init__.py::get_published_listening_test::services.mock_paper_policy.owned_delivery_snapshot	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening/student_fulltest.py::get_published_listening_test::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
+routers/listening/student_fulltest.py::get_published_listening_test::routers.listening.student_fulltest._assemble_listening_player_payload	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening/student_fulltest.py::get_published_listening_test::routers.listening.student_fulltest._assert_listening_exam_content_allowed	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening/student_fulltest.py::get_published_listening_test::routers.listening._common._fetch_attempt_or_404	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening/student_fulltest.py::get_published_listening_test::services.mock_attempt_flags.review_flag_state	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening/student_fulltest.py::get_published_listening_test::services.mock_paper_policy.owned_delivery_snapshot	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::grade_and_save_dictation_attempt_sentence::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
 routers/listening/__init__.py::grade_and_save_dictation_attempt_sentence::routers.listening._dictation_attempt_or_404	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::grade_and_save_dictation_attempt_sentence::routers.listening._published_test_for_dictation	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::grade_listening_test_dictation::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
 routers/listening/__init__.py::grade_listening_test_dictation::routers.listening._published_test_for_dictation	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
-routers/listening/__init__.py::list_listening_programme_lessons::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
-routers/listening/__init__.py::list_listening_programme_lessons::routers.listening._programme_attempt_state	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
-routers/listening/__init__.py::list_published_listening_tests::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
+routers/listening/student_fulltest.py::list_listening_programme_lessons::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
+routers/listening/student_fulltest.py::list_listening_programme_lessons::routers.listening.student_fulltest._programme_attempt_state	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening/student_fulltest.py::list_published_listening_tests::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
 routers/listening/__init__.py::patch_listening_test_attempt_answer::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
 routers/listening/__init__.py::patch_listening_test_attempt_answer::routers.listening._attempt_test_type	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::patch_listening_test_attempt_answer::routers.listening._common._fetch_attempt_or_404	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
@@ -716,7 +716,7 @@ routers/listening/__init__.py::start_dictation_attempt::routers.listening._find_
 routers/listening/__init__.py::start_dictation_attempt::routers.listening._find_latest_in_progress_dictation_attempt	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::start_dictation_attempt::routers.listening._published_test_for_dictation	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::start_listening_test_attempt::db.execute	4	G1	Existing inline sync DB execution; offload in G1.
-routers/listening/__init__.py::start_listening_test_attempt::routers.listening._assert_listening_exam_content_allowed	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening/__init__.py::start_listening_test_attempt::routers.listening.student_fulltest._assert_listening_exam_content_allowed	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::start_listening_test_attempt::routers.listening._common._fetch_attempt_or_404	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::start_listening_test_attempt::services.class_assignment_service.validate_class_item_for_test	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::start_listening_test_attempt::services.mock_attempt_flags.review_flag_state	3	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
