@@ -69,6 +69,8 @@ class _Query:
             self.db.evidence_queries.append(",".join(str(v) for v in vs))
         return self._add(lambda r: str(r.get(c)) in {str(v) for v in vs})
     def is_(self, c, v): return self._add(lambda r: r.get(c) is None)
+    def gte(self, c, v): return self._add(lambda r: r.get(c) is not None and str(r.get(c)) >= str(v))
+    def lt(self, c, v): return self._add(lambda r: r.get(c) is not None and str(r.get(c)) < str(v))
     # Only the blackeye hidden-test filter uses or_; no fixture holds such a
     # test, so it keeps every row.
     def or_(self, *_a, **_k): return self
@@ -520,6 +522,12 @@ def test_goal_sources(db):
     db.rows["users"][1]["target_band"] = 7.5
     minh = asyncio.run(mod.get_learner(f"u-{U_MINH}", "Bearer x"))["summary"]
     assert minh["goal"]["source"] == "conflict"
+    # Same band, the date set on the learner's side only: not a conflict (the
+    # overview and fn_learner_goal_resolve use the same rule), and the summary
+    # keeps the one date there is.
+    db.rows["users"][1].update(target_band=6.5, exam_date="2027-03-01")
+    minh = asyncio.run(mod.get_learner(f"u-{U_MINH}", "Bearer x"))["summary"]
+    assert minh["goal"] == {"target_band": 6.5, "exam_date": "2027-03-01", "source": "both_equal"}
     only = asyncio.run(mod.get_learner(f"u-{U_ONLY}", "Bearer x"))["summary"]
     assert only["goal"] == {"target_band": None, "exam_date": None, "source": "none"}
     assert only["recent_bands"] == {"writing": [], "speaking": []}   # nothing yet, not a band

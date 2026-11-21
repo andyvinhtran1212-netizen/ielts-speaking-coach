@@ -3328,6 +3328,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/learners/{ref}/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Learner Overview */
+        get: operations["get_learner_overview_admin_learners__ref__overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/learners/{ref}/goal/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resolve Learner Goal */
+        post: operations["resolve_learner_goal_admin_learners__ref__goal_resolve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/overview": {
         parameters: {
             query?: never;
@@ -15182,6 +15216,13 @@ export interface components {
             /** Student Ids */
             student_ids?: string[] | null;
         };
+        /** BandPoint */
+        BandPoint: {
+            /** At */
+            at: string | null;
+            /** Band */
+            band: number;
+        };
         /** BankUpdate */
         BankUpdate: {
             /** Title */
@@ -16520,6 +16561,13 @@ export interface components {
              * @default true
              */
             is_active: boolean;
+        };
+        /** CreditsCarried */
+        CreditsCarried: {
+            /** Amount */
+            amount: number;
+            /** Expires At */
+            expires_at: string;
         };
         /** CueCardQuestion */
         CueCardQuestion: {
@@ -18034,6 +18082,28 @@ export interface components {
              */
             mode: string;
         };
+        /** GoalResolveIn */
+        GoalResolveIn: {
+            /**
+             * Use
+             * @enum {string}
+             */
+            use: "admin" | "learner";
+            seen: components["schemas"]["GoalSeen"];
+        };
+        /** GoalResolveOut */
+        GoalResolveOut: {
+            goal: components["schemas"]["OverviewGoal"];
+        };
+        /**
+         * GoalSeen
+         * @description Both goals as the page showed them (the overview's goal.admin and
+         *     goal.learner, every field present, null included).
+         */
+        GoalSeen: {
+            admin: components["schemas"]["_SeenAdminGoal"];
+            learner: components["schemas"]["_SeenLearnerGoal"];
+        };
         /** GradeRatingBody */
         GradeRatingBody: {
             /** Rating */
@@ -18277,6 +18347,15 @@ export interface components {
         GrammarOverviewOut: {
             /** Articles Viewed 7D */
             articles_viewed_7d: number;
+        };
+        /** GrammarPoint */
+        GrammarPoint: {
+            /** At */
+            at: string | null;
+            /** Pct */
+            pct: number;
+            /** Lesson No */
+            lesson_no: number | null;
         };
         /** GrammarRecommendPayload */
         GrammarRecommendPayload: {
@@ -18903,6 +18982,17 @@ export interface components {
             count: number;
             /** Latest Title */
             latest_title: string | null;
+        };
+        /** LearnerOverview */
+        LearnerOverview: {
+            alerts: components["schemas"]["OverviewAlerts"] | null;
+            goal: components["schemas"]["OverviewGoal"] | null;
+            continuity: components["schemas"]["OverviewContinuity"] | null;
+            assigned: components["schemas"]["OverviewAssigned"] | null;
+            scores: components["schemas"]["OverviewScores"] | null;
+            side: components["schemas"]["OverviewSide"];
+            /** Sources Failed */
+            sources_failed: string[];
         };
         /** LearnerRecentBands */
         LearnerRecentBands: {
@@ -20271,6 +20361,13 @@ export interface components {
             /** Answers */
             answers?: components["schemas"]["MicrocheckAnswer"][];
         };
+        /** Milestone */
+        Milestone: {
+            /** At */
+            at: string;
+            /** Label */
+            label: string;
+        };
         /** MockPolicyPatch */
         MockPolicyPatch: {
             /** Web Explanation Mode */
@@ -20482,6 +20579,125 @@ export interface components {
         OutcomesOut: {
             /** Learners */
             learners: components["schemas"]["LearnerOutcome"][];
+        };
+        /** OverviewAdminGoal */
+        OverviewAdminGoal: {
+            /** Target Band */
+            target_band: number | null;
+            /** Target Date */
+            target_date: string | null;
+        };
+        /** OverviewAlert */
+        OverviewAlert: {
+            /**
+             * Code
+             * @enum {string}
+             */
+            code: "late_streak" | "inactive" | "course_expiring" | "low_credits";
+            /** Text */
+            text: string;
+            /** Action */
+            action: string;
+        };
+        /** OverviewAlerts */
+        OverviewAlerts: {
+            /** Open */
+            open: components["schemas"]["OverviewAlert"][];
+            /** Checked Off */
+            checked_off: ("late_streak" | "inactive" | "course_expiring" | "low_credits")[];
+            /** Undecided */
+            undecided: ("late_streak" | "inactive" | "course_expiring" | "low_credits")[];
+        };
+        /** OverviewAssigned */
+        OverviewAssigned: {
+            /** On Time */
+            on_time: number;
+            /** Late */
+            late: number;
+            /** Missing */
+            missing: number;
+            /** Undecided */
+            undecided: number;
+            /** Open */
+            open: components["schemas"]["OverviewAssignment"][];
+            /** Overdue */
+            overdue: components["schemas"]["OverviewOverdue"][];
+        };
+        /** OverviewAssignment */
+        OverviewAssignment: {
+            /** Assignment Id */
+            assignment_id: string;
+            /** Title */
+            title: string;
+            /** Due At */
+            due_at: string | null;
+        };
+        /** OverviewContinuity */
+        OverviewContinuity: {
+            /** Weeks */
+            weeks: (boolean | null)[][];
+            /** Streak Days */
+            streak_days: number;
+            /** Minutes This Week */
+            minutes_this_week: number;
+            /** Minutes Last Week */
+            minutes_last_week: number;
+        };
+        /** OverviewGoal */
+        OverviewGoal: {
+            admin: components["schemas"]["OverviewAdminGoal"];
+            learner: components["schemas"]["OverviewLearnerGoal"];
+            /** Conflict */
+            conflict: boolean;
+            /** Estimated Band */
+            estimated_band: number | null;
+        };
+        /** OverviewLearnerGoal */
+        OverviewLearnerGoal: {
+            /** Target Band */
+            target_band: number | null;
+            /** Exam Date */
+            exam_date: string | null;
+        };
+        /** OverviewOverdue */
+        OverviewOverdue: {
+            /** Assignment Id */
+            assignment_id: string;
+            /** Title */
+            title: string;
+            /** Due At */
+            due_at: string | null;
+            /** Days Overdue */
+            days_overdue: number;
+            /** Last Reminded At */
+            last_reminded_at: string | null;
+        };
+        /** OverviewScores */
+        OverviewScores: {
+            /** Grammar */
+            grammar: components["schemas"]["GrammarPoint"][];
+            /** Writing */
+            writing: components["schemas"]["BandPoint"][];
+            /** Speaking */
+            speaking: components["schemas"]["BandPoint"][];
+            /** Mock */
+            mock: components["schemas"]["BandPoint"][];
+            /** Milestones */
+            milestones: components["schemas"]["Milestone"][] | null;
+        };
+        /** OverviewSide */
+        OverviewSide: {
+            /** Due Notes */
+            due_notes: {
+                [key: string]: unknown;
+            }[] | null;
+            /** Courses */
+            courses: {
+                [key: string]: unknown;
+            }[] | null;
+            /** Credits Left */
+            credits_left: number | null;
+            credits_carried: components["schemas"]["CreditsCarried"] | null;
         };
         /** PaperPolicyDependency */
         PaperPolicyDependency: {
@@ -23980,6 +24196,20 @@ export interface components {
             purpose?: ("practice" | "assigned_practice" | "mock_delivery") | null;
             /** Mock Sitting Id */
             mock_sitting_id?: string | null;
+        };
+        /** _SeenAdminGoal */
+        _SeenAdminGoal: {
+            /** Target Band */
+            target_band: number | null;
+            /** Target Date */
+            target_date: string | null;
+        };
+        /** _SeenLearnerGoal */
+        _SeenLearnerGoal: {
+            /** Target Band */
+            target_band: number | null;
+            /** Exam Date */
+            exam_date: string | null;
         };
         /** _SubmitAnswerItem */
         _SubmitAnswerItem: {
@@ -30012,6 +30242,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LearnerDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_learner_overview_admin_learners__ref__overview_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearnerOverview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resolve_learner_goal_admin_learners__ref__goal_resolve_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoalResolveIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalResolveOut"];
                 };
             };
             /** @description Validation Error */

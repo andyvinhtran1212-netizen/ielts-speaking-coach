@@ -298,6 +298,14 @@ def _num(value: Any) -> Optional[float]:
         return None
 
 
+def goals_conflict(admin_band: Any, admin_date: Any, learner_band: Any, learner_date: Any) -> bool:
+    """The goal-conflict rule shared by the summary, the overview and
+    ``fn_learner_goal_resolve`` (mig 452): some field held by both sources
+    with different values. A field set on one side only is not a conflict."""
+    return any(a is not None and b is not None and a != b
+               for a, b in ((admin_band, learner_band), (admin_date, learner_date)))
+
+
 def goal_of(person: Person) -> dict[str, Any]:
     """The admin goal (``students``) and the learner's own (``users``)."""
     admin = {"target_band": _num((person.student or {}).get("target_band")),
@@ -309,8 +317,11 @@ def goal_of(person: Person) -> dict[str, Any]:
     if not has_admin and not has_learner:
         return {"target_band": None, "exam_date": None, "source": "none"}
     if has_admin and has_learner:
-        source = "both_equal" if admin == learner else "conflict"
-        return {**admin, "source": source}
+        if goals_conflict(admin["target_band"], admin["exam_date"], learner["target_band"], learner["exam_date"]):
+            return {**admin, "source": "conflict"}
+        # The two agree wherever both hold a value; a field one side leaves
+        # empty takes the other side's value.
+        return {k: admin[k] if admin[k] is not None else learner[k] for k in admin} | {"source": "both_equal"}
     return {**(admin if has_admin else learner), "source": "admin" if has_admin else "learner"}
 
 
