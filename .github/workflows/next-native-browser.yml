@@ -651,6 +651,8 @@ jobs:
               - 'frontend/tooling/verify-mobile-layout-flow.mjs'
               - 'frontend/components/authed-shell.tsx'
               - 'frontend/components/supabase-runtime-boundary.tsx'
+              - 'frontend/components/chrome-navigation-bridge.tsx'
+              - 'frontend/lib/v2-routes.mjs'
               - 'frontend/tooling/verify-chrome-staff-link-race-flow.mjs'
               - 'frontend/public/js/theme-toggle.js'
               - 'frontend/public/js/user-pill.js'
