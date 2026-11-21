@@ -116,8 +116,14 @@ function renderSkillCard(
         + '<span class="lock-tag">🔒 Chưa kích hoạt</span>'
       + '</div>'
       + '<h3>' + meta.name + '</h3>'
-      + '<p class="desc">Quyền Writing chưa được kích hoạt cho tài khoản này. Liên hệ giảng viên để được hỗ trợ.</p>';
-    const lockedAlert = () => alert('Quyền Writing chưa được kích hoạt. Liên hệ admin để được hỗ trợ.');
+      + '<p class="desc">Quyền Writing chưa được kích hoạt cho tài khoản này. Liên hệ giảng viên để được hỗ trợ.</p>'
+      // Live region exists (empty) before the click so screen readers announce
+      // the text when it is filled. Replaces the old browser alert box.
+      + '<p class="lock-note" role="status"></p>';
+    const lockedAlert = () => {
+      const note = card.querySelector<HTMLElement>('.lock-note');
+      if (note) note.textContent = 'Bạn chưa có quyền dùng Writing. Hỏi giáo viên hoặc quản trị viên lớp để được mở.';
+    };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); lockedAlert(); }
     };
