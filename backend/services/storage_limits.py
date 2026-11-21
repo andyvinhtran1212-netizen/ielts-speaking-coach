@@ -27,6 +27,14 @@ BUCKET_LIMITS: dict[str, tuple[int, tuple[str, ...]]] = {
     "reading-images": (5 * 1024 * 1024, ("image/png", "image/jpeg", "image/webp")),
     "writing-images": (5 * 1024 * 1024, ("image/png", "image/jpeg", "image/webp")),
     "vocab-audio": (5 * 1024 * 1024, ("audio/mpeg",)),
+    # LIBRARY-0061 (migration 400): private; served only by the backend after a
+    # `published` check. The bucket cap is the largest per-type cap below.
+    "library-media": (10 * 1024 * 1024, ("image/png", "image/webp", "audio/mpeg", "audio/mp4")),
+}
+
+# Per-MIME caps tighter than the bucket cap; Storage only knows one limit.
+TYPE_LIMITS: dict[str, dict[str, int]] = {
+    "library-media": {"image/png": 2 * 1024 * 1024, "image/webp": 2 * 1024 * 1024},
 }
 
 _CONFIGURED_BUCKETS = (
@@ -120,6 +128,9 @@ def check_upload(bucket: str, size: int, content_type: str | None) -> None:
         raise upload_error(bucket, 413, size=size)
     if not _allowed(bucket, content_type):
         raise upload_error(bucket, 415)
+    type_cap = TYPE_LIMITS.get(_require_policy(bucket)[0], {}).get(_mime(content_type))
+    if type_cap is not None and size > type_cap:
+        raise upload_error(bucket, 413, size=size, max_bytes=type_cap)
 
 
 def _refuse_over_cap(data: bytes, max_bytes: int, too_large: Callable[[int], HTTPException]) -> bytes:

@@ -170,6 +170,8 @@ def _pre_320() -> str:
         SET search_path = public, pg_temp;
         CREATE TABLE _schema_migrations (filename text PRIMARY KEY,
                                          applied_at timestamptz NOT NULL DEFAULT now());
+        -- topics: 002's Speaking topic bank, the parent of 400's speaking_samples.topic_id.
+        CREATE TABLE topics (id uuid PRIMARY KEY);
         -- users: the union of the 320/326/332/336 harness columns.
         CREATE TABLE users (
             id uuid PRIMARY KEY, email text,
@@ -472,7 +474,11 @@ def _create_database() -> tuple[str, bool]:
       IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '{OWNER}') THEN
         CREATE ROLE {OWNER} NOSUPERUSER NOBYPASSRLS NOLOGIN;
       END IF;
-    END $$;""")
+      IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'supabase_storage_admin') THEN
+        CREATE ROLE supabase_storage_admin NOLOGIN;
+      END IF;
+    END $$;
+    GRANT supabase_storage_admin TO {OWNER};""")
     database = f"inv94_{uuid4().hex[:12]}"
     sql("postgres", f"CREATE DATABASE {database}")
     # Supabase: the runner (hosted `postgres`, NOSUPERUSER) owns the app schema
@@ -511,8 +517,14 @@ def _create_database() -> tuple[str, bool]:
             SELECT bucket, bucket, bucket = 'vocab-audio' FROM unnest(ARRAY['audio-responses',
                 'listening-audio', 'listening-images', 'reading-images', 'writing-images',
                 'vocab-audio']) AS bucket;
+        -- 400: storage.objects is owned by supabase_storage_admin, whose member the
+        -- hosted runner is (Supabase documents SQL bucket inserts and objects policies).
+        CREATE TABLE storage.objects (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            bucket_id text REFERENCES storage.buckets(id), name text);
+        ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE storage.objects OWNER TO supabase_storage_admin;
         GRANT USAGE ON SCHEMA storage TO {OWNER};
-        GRANT SELECT, UPDATE ON storage.buckets TO {OWNER};
+        GRANT SELECT, INSERT, UPDATE, DELETE ON storage.buckets TO {OWNER};
         CREATE FOREIGN DATA WRAPPER client_invariant_fdw;
         CREATE SERVER client_invariant_server FOREIGN DATA WRAPPER client_invariant_fdw;
         GRANT USAGE ON FOREIGN SERVER client_invariant_server TO {OWNER};""")
