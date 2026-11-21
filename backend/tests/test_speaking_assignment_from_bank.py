@@ -882,7 +882,10 @@ def test_all_three_creation_routes_catch_the_deadline_error():
     from routers import listening, reading_student, sessions
 
     for mod in (listening, reading_student, sessions):
-        src = re.sub(r"#[^\n]*", "", inspect.getsource(mod))
+        # A split package (routers.listening, BACKENDSPLIT-0076) keeps its
+        # routes in the submodules listed in _SUBMODULES; read all of them.
+        parts = (mod, *getattr(mod, "_SUBMODULES", ()))
+        src = re.sub(r"#[^\n]*", "", "\n".join(inspect.getsource(p) for p in parts))
         m = re.search(r"except DeadlinePassedError[\s\S]{0,200}?HTTPException\(\s*409", src)
         assert m, f"{mod.__name__} chưa map DeadlinePassedError → 409"
 
