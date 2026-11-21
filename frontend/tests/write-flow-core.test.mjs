@@ -168,7 +168,7 @@ describe('cổng đường-ghi — phán xét lượt chạy', () => {
 describe('NO_LIST / NO_TEXT — trường chéo-chế-độ không được mang dữ liệu', () => {
   // codex cục bộ (#966): ghim "phải vắng" bằng `(v) => v == null` nhận CẢ
   // `answers: null` — thân request mà production trả 422 (`answers: list[str]`,
-  // `routers/listening.py:327`).
+  // `routers/listening/__init__.py:327`).
   // Bot #966 vòng 2: ghim "phải vắng hẳn" lại quá chặt với
   // `listening_session_id: str | None` (331), vốn CHO PHÉP null.
   // Bot #966 vòng 3: một ký hiệu nhận cả `''` lẫn `[]` thì MÙ KIỂU — `answers: ''`

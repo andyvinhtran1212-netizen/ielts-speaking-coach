@@ -85,7 +85,7 @@ export const NON_EMPTY = Symbol('non-empty');
  *
  * VÌ SAO `null` LUÔN ĐỎ: cả ba trường đều khai kiểu KHÔNG cho null
  * (`user_transcript: str`, `answers: list[str]`, `mcq_answers: list[int]` —
- * `routers/listening.py:326-329`). Nhận null tức bản khai xanh cho một thân
+ * `routers/listening/__init__.py:326-329`). Nhận null tức bản khai xanh cho một thân
  * request không tồn tại được — đúng loại lỗi ba vòng review ở #962 đã bắt.
  *
  * Ngược lại, `listening_session_id: str | None` (dòng 331) CHO PHÉP null, nên

@@ -1336,7 +1336,9 @@ def test_ownership_is_never_inferred_from_the_paper_or_the_clock():
 def test_item_ids_are_chunked_for_the_url():
     import inspect
     from services import class_assignment_service as mod
-    src = code_only(inspect.getsource(mod.reconcile_test_attempts))
+    # The reads moved into test_attempt_handins (shared with the read-only
+    # learner directory); reconcile_test_attempts only writes its decisions.
+    src = code_only(inspect.getsource(mod.test_attempt_handins))
     assert src.count("_ID_CHUNK") >= 2, "both the item read and the attempt read"
 
 

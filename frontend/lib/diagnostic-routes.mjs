@@ -15,3 +15,17 @@
 export function diagnosticRoutesEnabled(env = process.env) {
   return env.NODE_ENV === 'development' || env.AVER_ENABLE_DIAGNOSTIC_ROUTES === '1';
 }
+
+/**
+ * Gate for the component library `/ui-library` (UIBASE-0056 FR-013, G03-T04).
+ * Open whenever the diagnostic routes are, plus one narrower opt-in,
+ * AVER_ENABLE_UI_LIBRARY=1, so the CI browser job can screenshot the library
+ * without also opening `/next-probe` and `/recorder-spike` (that job asserts
+ * those two stay 404 on its production build). Never set on staging/production.
+ *
+ * @param {{ NODE_ENV?: string, AVER_ENABLE_DIAGNOSTIC_ROUTES?: string, AVER_ENABLE_UI_LIBRARY?: string }} [env]
+ * @returns {boolean}
+ */
+export function uiLibraryEnabled(env = process.env) {
+  return diagnosticRoutesEnabled(env) || env.AVER_ENABLE_UI_LIBRARY === '1';
+}

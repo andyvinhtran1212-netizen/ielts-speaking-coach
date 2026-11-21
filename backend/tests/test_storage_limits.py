@@ -222,7 +222,7 @@ def speaking(monkeypatch):
     monkeypatch.setattr(grading, "enforce_grading_rate_limit", lambda *_: None)
     monkeypatch.setattr(grading, "record_grading_attempt", lambda *_: None)
     monkeypatch.setattr(grading, "note_owned_speaking_audio", AsyncMock())
-    stt = AsyncMock(return_value={"transcript": "Synthetic recording", "duration_seconds": 10})
+    stt = AsyncMock(return_value={"transcript": "Synthetic recording", "duration_seconds": 15})
     monkeypatch.setattr(grading, "transcribe_from_bytes", stt)
     monkeypatch.setattr(grading.claude_grader, "grade_response", AsyncMock())
     whisper_usage = MagicMock(return_value="whisper-usage")
@@ -254,7 +254,7 @@ def test_speaking_storage_refusal_returns_error_without_grading(speaking, status
     # The paid Whisper call is still recorded (AI-0004) although grading stops.
     speaking.whisper_usage.assert_called_once()
     assert speaking.whisper_usage.call_args.kwargs["feature"] == "speaking_stt"
-    assert speaking.whisper_usage.call_args.kwargs["audio_seconds"] == 10
+    assert speaking.whisper_usage.call_args.kwargs["audio_seconds"] == 15
     speaking.schedule.assert_called_once_with("whisper-usage")
     speaking.grader.assert_not_called()
     assert speaking.db.responses == []

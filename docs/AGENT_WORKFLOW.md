@@ -9,7 +9,8 @@ entry points and prompt templates follow the same agreement.
 1. Read the user's current task and retained authorization, root `AGENTS.md`,
    and instructions in the directories being changed.
 2. Use [README.md](../README.md) for setup and [CLAUDE.md](../CLAUDE.md) for
-   navigation. Read only the domain references needed for the task.
+   code navigation only; conventions and invariants live in `AGENTS.md`. Read
+   only the domain references needed for the task.
 3. Check [specs/README.md](../specs/README.md) and the applicable approved spec.
    The constitution governs the spec lifecycle. Historical plans under `docs/`
    are evidence, not replacement approval or current implementation truth.

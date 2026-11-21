@@ -1,0 +1,58 @@
+/* UIBASE-0056 shared field layout: TextField, TextArea, Select, SearchField (ThanhPhan §2).
+   Only var(--av2-*), no hex. */
+.field { display: flex; flex-direction: column; gap: var(--av2-space-3); min-width: 0; }
+.label { font-weight: var(--av2-fw-strong); }
+.labelMuted { color: var(--av2-muted); }
+.hint { font-size: var(--av2-fs-14); color: var(--av2-muted); }
+.error { font-size: var(--av2-fs-14); font-weight: var(--av2-fw-strong); color: var(--av2-danger); }
+
+.control {
+  width: 100%;
+  min-height: var(--av2-control-md);
+  margin: 0;
+  padding: 0 var(--av2-space-6);
+  border: var(--av2-rule-w) solid var(--av2-control-border);
+  border-radius: var(--av2-radius);
+  background: var(--av2-surface);
+  color: var(--av2-ink);
+  font: var(--av2-fw-regular) var(--av2-fs-16) / var(--av2-lh-body) var(--av2-font-sans);
+}
+.control::placeholder { color: var(--av2-muted); }
+
+/* "Đang nhập: viền đậm 2px" — the 2px border is the focus indicator for fields;
+   padding drops by 1px so the text does not move. */
+.field .control:focus,
+.field .control[data-demo-state='focus'] {
+  outline: none;
+  border-width: var(--av2-rule-strong-w);
+  border-color: var(--av2-ink);
+  padding-left: calc(var(--av2-space-6) - 1px);
+  padding-right: calc(var(--av2-space-6) - 1px);
+}
+.field .control[aria-invalid='true'] {
+  border-width: var(--av2-rule-strong-w);
+  border-color: var(--av2-danger);
+  padding-left: calc(var(--av2-space-6) - 1px);
+  padding-right: calc(var(--av2-space-6) - 1px);
+}
+.field .control:read-only:not(select),
+.field .control:disabled {
+  border-width: var(--av2-rule-w);
+  border-color: var(--av2-rule);
+  background: var(--av2-off);
+  color: var(--av2-muted);
+  padding-left: var(--av2-space-6);
+  padding-right: var(--av2-space-6);
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
