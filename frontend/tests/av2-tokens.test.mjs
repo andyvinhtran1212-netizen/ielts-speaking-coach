@@ -94,6 +94,13 @@ describe('av2 tokens — groups of plan 5.2 (FR-001)', () => {
     for (const t of [...COLOURS, 'av2-control-border', 'av2-qr-bg', 'av2-qr-ink']) hexOf(MODES.light, t);
   });
 
+  test('/ui-library "Màu" shows a swatch for every colour token (FR-013)', () => {
+    const page = readFileSync(path.join(FRONTEND, 'app', '(ui-library)', 'ui-library', 'page.tsx'), 'utf8');
+    const missing = [...COLOURS, 'av2-control-border', 'av2-qr-bg', 'av2-qr-ink']
+      .filter((t) => !page.includes(`['${t.slice('av2-'.length)}', styles.sw`));
+    assert.deepEqual(missing, []);
+  });
+
   test('type, spacing, shape, focus, controls, shell and z groups', () => {
     const need = [
       ...[12, 13, 14, 15, 16, 18, 20, 24, 40].map((n) => `fs-${n}`),
