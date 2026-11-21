@@ -45,7 +45,7 @@ def test_the_student_review_body_was_extracted_not_copied():
 
 
 def test_the_previews_call_that_same_builder():
-    assert "_assemble_listening_review(synthetic, None)" in _src("routers/listening.py")
+    assert "_assemble_listening_review(synthetic, None)" in _src("routers/listening/__init__.py")
     assert "_assemble_reading_review(synthetic, None)" in _src("routers/admin_reading.py")
 
 
@@ -75,7 +75,7 @@ def _preview_src(rel: str, fn: str) -> str:
 def test_neither_preview_writes_anything():
     """A preview that consumes an attempt slot or lands in a student's history
     is a trap for the admin using it."""
-    for rel, fn in (("routers/listening.py", "admin_preview_listening_test"),
+    for rel, fn in (("routers/listening/__init__.py", "admin_preview_listening_test"),
                     ("routers/admin_reading.py", "admin_preview_reading_test")):
         body = _preview_src(rel, fn)
         assert ".insert(" not in body, f"{fn} inserts"
@@ -84,13 +84,13 @@ def test_neither_preview_writes_anything():
 
 
 def test_both_previews_are_admin_only():
-    for rel, fn in (("routers/listening.py", "admin_preview_listening_test"),
+    for rel, fn in (("routers/listening/__init__.py", "admin_preview_listening_test"),
                     ("routers/admin_reading.py", "admin_preview_reading_test")):
         assert "require_admin(authorization)" in _preview_src(rel, fn), fn
 
 
 def test_both_previews_404_a_missing_test():
-    for rel, fn in (("routers/listening.py", "admin_preview_listening_test"),
+    for rel, fn in (("routers/listening/__init__.py", "admin_preview_listening_test"),
                     ("routers/admin_reading.py", "admin_preview_reading_test")):
         assert "404" in _preview_src(rel, fn), fn
 
@@ -100,7 +100,7 @@ def test_both_previews_404_a_missing_test():
 
 def test_the_synthetic_carries_no_score():
     """Showing a score for a paper nobody sat would be a fabricated result."""
-    for rel, fn in (("routers/listening.py", "admin_preview_listening_test"),
+    for rel, fn in (("routers/listening/__init__.py", "admin_preview_listening_test"),
                     ("routers/admin_reading.py", "admin_preview_reading_test")):
         body = _preview_src(rel, fn)
         assert re.search(r'"score":\s*None', body), fn
@@ -109,7 +109,7 @@ def test_the_synthetic_carries_no_score():
 
 def test_the_response_says_it_is_a_preview():
     """So the page can label itself rather than looking like a real result."""
-    for rel, fn in (("routers/listening.py", "admin_preview_listening_test"),
+    for rel, fn in (("routers/listening/__init__.py", "admin_preview_listening_test"),
                     ("routers/admin_reading.py", "admin_preview_reading_test")):
         assert 'out["preview"] = True' in _preview_src(rel, fn), fn
 
@@ -124,7 +124,7 @@ def test_reading_grades_an_empty_submission_with_the_real_grader():
 
 
 def test_listening_builds_its_key_from_the_graders_own_source():
-    body = _preview_src("routers/listening.py", "admin_preview_listening_test")
+    body = _preview_src("routers/listening/__init__.py", "admin_preview_listening_test")
     assert "grader.collect_answer_key(" in body
     assert '"user_answer": ""' in body, "nobody sat this — the answers must be blank"
 
@@ -161,7 +161,7 @@ def test_the_student_branch_is_untouched():
 def test_the_preview_urls_match_the_endpoints_that_exist():
     """A path typo here is invisible until an admin clicks it."""
     assert "/admin/listening/tests/' + encodeURIComponent(previewId) + '/preview'" in _js("listening-review.js")
-    assert '@admin_router.get("/tests/{test_id}/preview")' in _src("routers/listening.py")
+    assert '@admin_router.get("/tests/{test_id}/preview")' in _src("routers/listening/__init__.py")
 
     assert "/admin/reading/content/tests/' + encodeURIComponent(previewId) + '/preview'" in _js("reading-review.js")
     rd = _src("routers/admin_reading.py")

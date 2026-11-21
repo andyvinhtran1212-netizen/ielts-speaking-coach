@@ -25,7 +25,7 @@ const read = (rel) => readFileSync(path.join(REPO, rel), 'utf8');
 const html      = read('frontend/pages/admin/listening/import-drills.html');
 const js        = read('frontend/js/admin-listening-drills-import.js');
 const testsHtml = read('frontend/pages/admin/listening/tests.html');
-const router    = read('backend/routers/listening.py');
+const router    = read('backend/routers/listening/__init__.py');
 
 
 describe('import-drills page shell', () => {

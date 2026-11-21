@@ -1116,7 +1116,7 @@ describe('Sprint 13.5.8 — plan-label suppresses map_description from student v
   });
 
   it('backend student endpoint strips map_description (defense-in-depth)', () => {
-    const BACKEND_PATH = join(__dirname, '..', '..', 'backend', 'routers', 'listening.py');
+    const BACKEND_PATH = join(__dirname, '..', '..', 'backend', 'routers', 'listening', '__init__.py');
     const PY = readFileSync(BACKEND_PATH, 'utf8');
     // The student endpoint must call .pop("map_description", None) on
     // the payload (and on payload.metadata if present) for plan-label

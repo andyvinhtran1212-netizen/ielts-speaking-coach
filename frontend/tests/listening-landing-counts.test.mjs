@@ -470,7 +470,7 @@ describe('analytics covers every persisted test type', () => {
   });
 
   it('backend and frontend enumerate the same modes', () => {
-    const be = read('..', 'backend', 'routers', 'listening.py');
+    const be = read('..', 'backend', 'routers', 'listening', '__init__.py');
     assert.match(be, /types = \("mini", "drill", "full", "practice"\)/);
   });
 });

@@ -23,7 +23,7 @@ const CSS = read('public', 'css', 'admin-listening-gist-next.css');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 const LEDGER = readFileSync(join(here, '..', '..', 'docs', 'ROUTE_LEDGER.md'), 'utf8');
 const WORKFLOW = readFileSync(join(here, '..', '..', '.github', 'workflows', 'next-native-browser.yml'), 'utf8');
-const BACKEND = readFileSync(join(here, '..', '..', 'backend', 'routers', 'listening.py'), 'utf8');
+const BACKEND = readFileSync(join(here, '..', '..', 'backend', 'routers', 'listening', '__init__.py'), 'utf8');
 
 const content = (patch = {}) => ({
   id: 'content-1', title: 'Coastal erosion', transcript: 'The coast is changing.',
