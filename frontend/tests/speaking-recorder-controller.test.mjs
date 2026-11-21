@@ -131,6 +131,58 @@ describe('SpeakingRecorderController', () => {
     assert.equal(h.timers.size, 0);
   });
 
+  test('uncapped takes count elapsed, keep ticking and reset on the next take', async () => {
+    const h = harness();
+    const ticks = [], recorded = [];
+    await h.controller.start({
+      maxSeconds: 0,
+      onTick: (n) => ticks.push(n),
+      onRecorded: (blob, elapsed) => recorded.push({ blob, elapsed }),
+    });
+    for (let i = 0; i < 120; i++) h.tick();
+    assert.equal(h.controller.isRecording(), true);
+    assert.equal(h.controller.getElapsed(), 120);
+    assert.deepEqual(ticks, Array.from({ length: 121 }, (_, i) => i));
+    assert.equal(recorded.length, 0);
+    h.controller.stop();
+    assert.equal(recorded.length, 1);
+    assert.equal(recorded[0].elapsed, 120);
+    assert.ok(recorded[0].blob.size > 0);
+    assert.equal(h.timers.size, 0);
+    await h.controller.start();
+    assert.equal(h.controller.getElapsed(), 0);
+    h.tick();
+    assert.equal(h.controller.getElapsed(), 1);
+    h.controller.reset();
+    assert.equal(h.timers.size, 0);
+  });
+
+  const caps = JSON.parse(PRACTICE.match(/var MAX_RECORD_SEC = (\{[^;]+\});/)[1]
+    .replace(/(\d+):/g, '"$1":'));
+  for (const part of [1, 3]) {
+    test(`Part ${part} retains its tick sequence and hard cap at ${caps[part]}s`, async () => {
+      const h = harness();
+      const ticks = [], recorded = [];
+      await h.controller.start({
+        maxSeconds: caps[part],
+        onTick: (n) => ticks.push(n),
+        onRecorded: (blob, elapsed) => recorded.push({ blob, elapsed }),
+      });
+      for (let i = 0; i < caps[part] - 1; i++) h.tick();
+      assert.equal(h.controller.isRecording(), true);
+      assert.equal(recorded.length, 0);
+      h.tick();
+      assert.equal(h.controller.isRecording(), false);
+      assert.deepEqual(ticks, Array.from({ length: caps[part] + 1 }, (_, i) => i));
+      assert.equal(recorded.length, 1);
+      assert.equal(recorded[0].elapsed, caps[part]);
+      assert.equal(h.timers.size, 0);
+      h.tick();
+      assert.equal(recorded.length, 1);
+      h.controller.destroy();
+    });
+  }
+
   test('reuses the live stream across recordings', async () => {
     const h = harness();
     await h.controller.start();

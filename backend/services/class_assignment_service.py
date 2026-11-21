@@ -1300,26 +1300,16 @@ def _archived_class_by_item(db, assignments: List[Dict[str, Any]],
             if str(cohort_of.get(i.get("assignment_id"))) in archived}
 
 
-def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
-    """Repair Reading/Listening hand-ins whose ledger write failed.
-
-    Reading and Listening have no completion hook of their own the way Speaking
-    does — the test page submits, and the write into `class_assignment_items`
-    is best-effort. This is the repair pass, and it runs on read.
-
-    WHICH ATTEMPT BELONGS TO WHICH GIVE IS NOT DECIDED HERE. The attempt row
-    carries `class_assignment_item_id`, stamped when the student opened the task
-    from their class page (mig 181). This function follows that link; it never
-    infers ownership from timing, from the paper, or from who the student is.
-
-    That distinction is the whole point. The inference version had to answer
-    "when was it given, when was it revealed, was it archived and reopened, has
-    the student since changed class, was the same paper given twice, which give
-    claims this attempt" — and every answer was another way to be wrong. The
-    link answers all of them at once, and answers them at the moment the student
-    actually started the work.
-
-    Idempotent: `mark_item_submitted` only writes while `submitted_at IS NULL`.
+def test_attempt_handins(db, assignments: List[Dict[str, Any]],
+                         items: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Dict[str, Any]]:
+    """The Reading/Listening hand-ins the ledger repair would record, without
+    writing: ``{item_id: {attempt, when, artifact_kind}}``. Every rule of the
+    repair is here (the attempt's item link, the earliest submitted attempt,
+    a Listening Skill Drill's required dictation, the deadline, the class
+    archive), so a read-only caller (the learner directory) and the repair
+    decide the same way. ``items`` (``{id, assignment_id}`` rows with an empty
+    ledger) narrows the read to those items; by default every empty item of
+    ``assignments`` is read. A DB error propagates.
     """
     from services.listening_drill_homework import completed_at, drill_config, evidence_by_item
 
@@ -1331,17 +1321,21 @@ def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
             seen.add(a["id"])
             item_ids.append(a["id"])
     if not item_ids:
-        return 0
+        return {}
 
-    items = []
-    for chunk in (item_ids[i:i + _ID_CHUNK]
-                  for i in range(0, len(item_ids), _ID_CHUNK)):
-        items.extend(_paged(
-            db, "class_assignment_items", "id, assignment_id",
-            lambda q, c=chunk: q.in_("assignment_id", c).is_("submitted_at", "null"),
-        ))
+    if items is None:
+        items = []
+        for chunk in (item_ids[i:i + _ID_CHUNK]
+                      for i in range(0, len(item_ids), _ID_CHUNK)):
+            items.extend(_paged(
+                db, "class_assignment_items", "id, assignment_id",
+                lambda q, c=chunk: q.in_("assignment_id", c).is_("submitted_at", "null"),
+            ))
+    else:
+        wanted = set(item_ids)
+        items = [i for i in items if i.get("assignment_id") in wanted]
     if not items:
-        return 0
+        return {}
 
     drill_by_item = {i["id"]: drill_by_assignment[i["assignment_id"]]
                      for i in items if i["assignment_id"] in drill_by_assignment}
@@ -1353,7 +1347,7 @@ def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
     due_of_assignment = {a["id"]: _at(a.get("due_at")) for a in assignments}
     due_by_item = {i["id"]: due_of_assignment.get(i["assignment_id"]) for i in items}
     archived_by_item = _archived_class_by_item(db, assignments, items)
-    fixed = 0
+    found: Dict[str, Dict[str, Any]] = {}
 
     for skill, (table, artifact_kind) in _TEST_ARTIFACTS.items():
         attempts: List[Dict[str, Any]] = []
@@ -1400,17 +1394,45 @@ def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
             if cohort_archived_by(archived_by_item.get(item_id), at.get("submitted_at")):
                 logger.info("[class] repair skipped, class archived item=%s", item_id)
                 continue
-            try:
-                when = datetime.fromisoformat(when_value)
-            except (ValueError, TypeError):
-                # Stamp nothing rather than stamping now: "now" would make a
-                # hand-in that met the deadline read as late.
-                when = None
-            if mark_item_submitted(
-                db, item_id=item_id, artifact_kind=artifact_kind,
-                artifact_id=at["id"], score=at.get("band_estimate"), now=when,
-            ):
-                fixed += 1
+            found.setdefault(item_id, {"attempt": at, "when": when_value, "artifact_kind": artifact_kind})
+    return found
+
+
+def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
+    """Repair Reading/Listening hand-ins whose ledger write failed.
+
+    Reading and Listening have no completion hook of their own the way Speaking
+    does — the test page submits, and the write into `class_assignment_items`
+    is best-effort. This is the repair pass, and it runs on read.
+
+    WHICH ATTEMPT BELONGS TO WHICH GIVE IS NOT DECIDED HERE. The attempt row
+    carries `class_assignment_item_id`, stamped when the student opened the task
+    from their class page (mig 181). This function follows that link; it never
+    infers ownership from timing, from the paper, or from who the student is.
+
+    That distinction is the whole point. The inference version had to answer
+    "when was it given, when was it revealed, was it archived and reopened, has
+    the student since changed class, was the same paper given twice, which give
+    claims this attempt" — and every answer was another way to be wrong. The
+    link answers all of them at once, and answers them at the moment the student
+    actually started the work.
+
+    Idempotent: `mark_item_submitted` only writes while `submitted_at IS NULL`.
+    """
+    fixed = 0
+    for item_id, hit in test_attempt_handins(db, assignments).items():
+        at, when_value, artifact_kind = hit["attempt"], hit["when"], hit["artifact_kind"]
+        try:
+            when = datetime.fromisoformat(when_value)
+        except (ValueError, TypeError):
+            # Stamp nothing rather than stamping now: "now" would make a
+            # hand-in that met the deadline read as late.
+            when = None
+        if mark_item_submitted(
+            db, item_id=item_id, artifact_kind=artifact_kind,
+            artifact_id=at["id"], score=at.get("band_estimate"), now=when,
+        ):
+            fixed += 1
 
     if fixed:
         logger.info("[class] recorded %s test hand-in(s) from attempts", fixed)

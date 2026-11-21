@@ -3,6 +3,7 @@
 export const NON_PRODUCT_APP_PAGE_ROUTES = Object.freeze([
   '/next-probe',
   '/recorder-spike',
+  '/ui-library',
 ]);
 
 export function appPageRoute(relativeFile) {

@@ -51,7 +51,6 @@
   .lr-preview-banner {
     max-width: min(62vw, 280px);
   }
-  .lr-summary span:last-child { display: none; }
   .exam-review-guide { grid-template-columns: 1fr; }
 }
 
@@ -199,8 +198,10 @@
 }
 
 @media (max-width: 560px) {
-  .lr-summary span:first-child { display: none; }
-  .lr-summary span { min-width: 0; }
+  .lr-topbar { flex-wrap: wrap; gap: var(--av-space-1); }
+  .lr-topbar__right { width: 100%; min-width: 0; justify-content: flex-start; }
+  .lr-summary { flex-wrap: wrap; max-width: 100%; white-space: normal; }
+  .lr-summary span { min-width: 0; overflow-wrap: anywhere; font-size: var(--av-fs-sm); }
   .lr-review-header { position: static; }
   .lr-card { padding: var(--av-space-3); }
   .lr-card__answers { grid-template-columns: 1fr; }
