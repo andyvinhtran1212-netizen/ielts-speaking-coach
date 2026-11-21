@@ -555,7 +555,7 @@ routers/instructor.py::student_summary::services.essay_service.get_student_summa
 routers/instructor.py::update_instructor_note::db.execute	2	G6	Existing inline sync DB execution; offload in G6.
 routers/instructor.py::update_instructor_note::services.instructor_access.assert_essay_owned	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/listening/__init__.py::_change_listening_package_status::services.listening_package_import.set_package_status	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
-routers/listening/__init__.py::_publish_drill::db.execute	9	G1	Existing inline sync DB execution; offload in G1.
+routers/listening/admin_import.py::_publish_drill::db.execute	9	G1	Existing inline sync DB execution; offload in G1.
 routers/listening/__init__.py::acknowledge_listening_attempt_playback_started::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
 routers/listening/__init__.py::acknowledge_listening_attempt_playback_started::routers.listening._common._fetch_attempt_or_404	2	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::admin_assemble_test_audio::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
@@ -563,8 +563,8 @@ routers/listening/__init__.py::admin_assemble_test_audio::routers.listening._fet
 routers/listening/__init__.py::admin_assemble_test_audio::routers.listening._common._upload_audio_to_bucket	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::admin_assemble_test_audio::storage.download	1	G1	Existing sync Storage network call; offload in G1.
 routers/listening/__init__.py::admin_delete_listening_exercise::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
-routers/listening/__init__.py::admin_delete_listening_test::db.execute	3	G1	Existing inline sync DB execution; offload in G1.
-routers/listening/__init__.py::admin_delete_listening_test::services.class_assignment_service.active_exam_assignment_references	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening/admin_import.py::admin_delete_listening_test::db.execute	3	G1	Existing inline sync DB execution; offload in G1.
+routers/listening/admin_import.py::admin_delete_listening_test::services.class_assignment_service.active_exam_assignment_references	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::admin_delete_map_image::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
 routers/listening/__init__.py::admin_delete_map_image::routers.listening._fetch_exercise_or_404	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::admin_delete_map_image::storage.remove	1	G1	Existing sync Storage network call; offload in G1.
@@ -578,7 +578,7 @@ routers/listening/__init__.py::admin_get_listening_attempt::db.execute	1	G1	Exis
 routers/listening/__init__.py::admin_get_listening_attempt::routers.listening._common._rows_by_id	2	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::admin_get_listening_content::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
 routers/listening/__init__.py::admin_get_listening_content::storage.create_signed_url	1	G1	Existing sync Storage network call; offload in G1.
-routers/listening/__init__.py::admin_get_listening_test::db.execute	4	G1	Existing inline sync DB execution; offload in G1.
+routers/listening/admin_import.py::admin_get_listening_test::db.execute	4	G1	Existing inline sync DB execution; offload in G1.
 routers/listening/__init__.py::admin_get_map_image_signed_url::routers.listening._fetch_exercise_or_404	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::admin_get_map_image_signed_url::routers.listening._common._sign_map_image_url	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::admin_get_test_audio_signed_urls::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
@@ -586,17 +586,17 @@ routers/listening/__init__.py::admin_get_test_audio_signed_urls::routers.listeni
 routers/listening/__init__.py::admin_get_test_audio_signed_urls::routers.listening.admin_get_test_audio_signed_urls._sign	3	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::admin_get_test_audit::routers.listening._fetch_test_audit_rows	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::admin_get_test_audit::routers.listening._load_audit_row	2	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
-routers/listening/__init__.py::admin_hard_delete_listening_test::db.execute	5	G1	Existing inline sync DB execution; offload in G1.
-routers/listening/__init__.py::admin_hard_delete_listening_test::services.class_assignment_service.active_exam_assignment_references	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
-routers/listening/__init__.py::admin_hard_delete_listening_test::storage.remove	1	G1	Existing sync Storage network call; offload in G1.
-routers/listening/__init__.py::admin_import_drill_commit::db.execute	4	G1	Existing inline sync DB execution; offload in G1.
-routers/listening/__init__.py::admin_import_drill_commit::routers.listening._common._upload_audio_to_bucket	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
-routers/listening/__init__.py::admin_import_drill_commit::routers.listening.admin_import_drill_commit._rollback	2	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
-routers/listening/__init__.py::admin_import_drill_dry_run::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
-routers/listening/__init__.py::admin_import_fulltest_commit::db.execute	4	G1	Existing inline sync DB execution; offload in G1.
-routers/listening/__init__.py::admin_import_fulltest_commit::routers.listening._common._upload_audio_to_bucket	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
-routers/listening/__init__.py::admin_import_fulltest_commit::routers.listening.admin_import_fulltest_commit._rollback	2	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
-routers/listening/__init__.py::admin_import_fulltest_dry_run::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
+routers/listening/admin_import.py::admin_hard_delete_listening_test::db.execute	5	G1	Existing inline sync DB execution; offload in G1.
+routers/listening/admin_import.py::admin_hard_delete_listening_test::services.class_assignment_service.active_exam_assignment_references	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening/admin_import.py::admin_hard_delete_listening_test::storage.remove	1	G1	Existing sync Storage network call; offload in G1.
+routers/listening/admin_import.py::admin_import_drill_commit::db.execute	4	G1	Existing inline sync DB execution; offload in G1.
+routers/listening/admin_import.py::admin_import_drill_commit::routers.listening._common._upload_audio_to_bucket	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening/admin_import.py::admin_import_drill_commit::routers.listening.admin_import.admin_import_drill_commit._rollback	2	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening/admin_import.py::admin_import_drill_dry_run::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
+routers/listening/admin_import.py::admin_import_fulltest_commit::db.execute	4	G1	Existing inline sync DB execution; offload in G1.
+routers/listening/admin_import.py::admin_import_fulltest_commit::routers.listening._common._upload_audio_to_bucket	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening/admin_import.py::admin_import_fulltest_commit::routers.listening.admin_import.admin_import_fulltest_commit._rollback	2	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening/admin_import.py::admin_import_fulltest_dry_run::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
 routers/listening/__init__.py::admin_list_dictation_reports::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
 routers/listening/__init__.py::admin_list_dictation_reports::routers.listening._all_dictation_user_ids	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::admin_list_dictation_reports::routers.listening._dictation_list_rows_for_users	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
@@ -605,15 +605,15 @@ routers/listening/__init__.py::admin_list_listening_attempts::db.execute	3	G1	Ex
 routers/listening/__init__.py::admin_list_listening_attempts::routers.listening._common._rows_by_id	2	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::admin_list_listening_content::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
 routers/listening/__init__.py::admin_list_listening_exercises::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
-routers/listening/__init__.py::admin_list_listening_tests::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
+routers/listening/admin_import.py::admin_list_listening_tests::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
 routers/listening/__init__.py::admin_listening_player_preview::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
 routers/listening/__init__.py::admin_listening_player_preview::routers.listening._assemble_listening_player_payload	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::admin_patch_listening_content::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
 routers/listening/__init__.py::admin_patch_listening_content_status::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
-routers/listening/__init__.py::admin_patch_listening_test::db.execute	3	G1	Existing inline sync DB execution; offload in G1.
-routers/listening/__init__.py::admin_patch_listening_test::services.mock_paper_policy.mutate	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
-routers/listening/__init__.py::admin_patch_listening_test_status::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
-routers/listening/__init__.py::admin_patch_listening_test_status::services.class_assignment_service.active_exam_assignment_references	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening/admin_import.py::admin_patch_listening_test::db.execute	3	G1	Existing inline sync DB execution; offload in G1.
+routers/listening/admin_import.py::admin_patch_listening_test::services.mock_paper_policy.mutate	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening/admin_import.py::admin_patch_listening_test_status::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
+routers/listening/admin_import.py::admin_patch_listening_test_status::services.class_assignment_service.active_exam_assignment_references	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::admin_patch_test_audio_mode::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
 routers/listening/__init__.py::admin_patch_test_audio_mode::routers.listening._fetch_test_or_404	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::admin_preview_listening_test::db.execute	3	G1	Existing inline sync DB execution; offload in G1.
@@ -621,9 +621,9 @@ routers/listening/__init__.py::admin_preview_listening_test::routers.listening._
 routers/listening/__init__.py::admin_run_test_audit::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
 routers/listening/__init__.py::admin_run_test_audit::routers.listening._fetch_test_audit_rows	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::admin_run_test_audit::routers.listening._load_audit_row	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
-routers/listening/__init__.py::admin_sync_drill::db.execute	12	G1	Existing inline sync DB execution; offload in G1.
-routers/listening/__init__.py::admin_sync_drill::routers.listening._common._upload_audio_to_bucket	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
-routers/listening/__init__.py::admin_sync_drill::routers.listening.admin_sync_drill.release_owner	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening/admin_import.py::admin_sync_drill::db.execute	12	G1	Existing inline sync DB execution; offload in G1.
+routers/listening/admin_import.py::admin_sync_drill::routers.listening._common._upload_audio_to_bucket	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening/admin_import.py::admin_sync_drill::routers.listening.admin_import.admin_sync_drill.release_owner	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::admin_triage_test_audit::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
 routers/listening/__init__.py::admin_triage_test_audit::routers.listening._load_audit_row	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening/__init__.py::admin_upload_map_image::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
