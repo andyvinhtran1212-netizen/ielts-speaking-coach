@@ -31,6 +31,7 @@ export function Icon({ name, size = 20, title, className }: IconProps) {
     >
       {title ? <title>{title}</title> : null}
       {shape.paths.map((d) => <path key={d} d={d} />)}
+      {shape.fills?.map((d) => <path key={d} d={d} fill="currentColor" />)}
       {shape.circles?.map(([cx_, cy, r]) => <circle key={`${cx_}-${cy}-${r}`} cx={cx_} cy={cy} r={r} />)}
     </svg>
   );

@@ -25,6 +25,13 @@
 .swOff { background: var(--av2-off); }
 .swOnAccent { background: var(--av2-on-accent); }
 .swControlBorder { background: var(--av2-control-border); }
+.swHighlight { background: var(--av2-highlight); }
+.swWarnBg { background: var(--av2-warn-bg); }
+.swErrorBg { background: var(--av2-error-bg); }
+.swOkBg { background: var(--av2-ok-bg); }
+.swLogoMark { background: var(--av2-logo-mark); }
+.swQrBg { background: var(--av2-qr-bg); }
+.swQrInk { background: var(--av2-qr-ink); }
 
 .typeGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--av2-space-9); }
 .sample { line-height: var(--av2-lh-tight); overflow-wrap: anywhere; }
@@ -110,6 +117,13 @@
 .section h2 + .demoLabel { margin-top: 0; }
 .gapTop { margin-top: var(--av2-space-7); }
 
+/* G03-T18 theme section and page header switch. */
+.headRow { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--av2-space-7); }
+.themeGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--av2-space-10); }
+.themeGrid .demoLabel:first-child { margin-top: 0; }
+/* The wrapper re-declares the light colours; it still has to paint them. */
+.alwaysLight { padding: var(--av2-space-7); border: var(--av2-rule-w) solid var(--av2-rule); background: var(--av2-paper); color: var(--av2-ink); }
+
 @media (max-width: 767px) {
   .stateGrid { grid-template-columns: 1fr; }
   .stateHead { display: none; }
@@ -121,4 +135,5 @@
   .overlayGrid { grid-template-columns: minmax(0, 1fr); }
   .drawerStage { height: 480px; }
   .progressGrid { grid-template-columns: minmax(0, 1fr); }
+  .themeGrid { grid-template-columns: minmax(0, 1fr); }
 }

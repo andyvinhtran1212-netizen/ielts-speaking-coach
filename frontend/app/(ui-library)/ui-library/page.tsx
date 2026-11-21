@@ -1,9 +1,10 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { notFound } from 'next/navigation';
 
 import '@/styles/av2/tokens.css';
 import '@/styles/av2/base.css';
 import { av2FontClass } from '@/styles/av2/fonts';
+import { AV2_VIEWPORT, ThemeMenu, ThemeScript } from '@/components/ui';
 import { uiLibraryEnabled } from '@/lib/diagnostic-routes.mjs';
 import { UI_LIBRARY_SECTIONS } from '@/lib/ui-library-sections.mjs';
 
@@ -17,6 +18,7 @@ import {
 import {
   BreadcrumbSection, PaginationSection, ProgressBarSection, StepperSection, TabsSection,
 } from './nav-sections';
+import { ThemeSection } from './theme-sections';
 import styles from './ui-library.module.css';
 
 // Gate the metadata too, like /next-probe (BL-01): a disabled build ships the
@@ -29,11 +31,18 @@ export function generateMetadata(): Metadata {
   };
 }
 
+// Two theme-color metas, one per OS mode (FR-026); ThemeMenu re-points them.
+export function generateViewport(): Viewport {
+  return AV2_VIEWPORT;
+}
+
 const COLOUR_TOKENS = [
   ['paper', styles.swPaper], ['surface', styles.swSurface], ['ink', styles.swInk], ['muted', styles.swMuted],
   ['rule', styles.swRule], ['accent', styles.swAccent], ['accent-hover', styles.swAccentHover], ['link', styles.swLink],
   ['mark', styles.swMark], ['danger', styles.swDanger], ['ok', styles.swOk], ['tint', styles.swTint],
   ['off', styles.swOff], ['on-accent', styles.swOnAccent], ['control-border', styles.swControlBorder],
+  ['highlight', styles.swHighlight], ['warn-bg', styles.swWarnBg], ['error-bg', styles.swErrorBg], ['ok-bg', styles.swOkBg],
+  ['logo-mark', styles.swLogoMark], ['qr-bg', styles.swQrBg], ['qr-ink', styles.swQrInk],
 ] as const;
 
 const TYPE_SIZES = [
@@ -65,99 +74,107 @@ const title = (id: string) => UI_LIBRARY_SECTIONS.find((s) => s.id === id)?.titl
 export default function UiLibraryPage() {
   if (!uiLibraryEnabled()) notFound();
   return (
-    <div className={`av2-root ${av2FontClass}`}>
-      <main className={styles.page}>
-        <header className={styles.head}>
-          <h1>Thư viện giao diện</h1>
-          <p className={styles.lead}>Token và thành phần của giao diện &ldquo;Bản in&rdquo; (UIBASE-0056). Trang nội bộ cho kỹ sư, không có trên staging và production.</p>
-        </header>
-
-        <section id="tokens-colour" className={styles.section} aria-labelledby="tokens-colour-h">
-          <h2 id="tokens-colour-h">{title('tokens-colour')}</h2>
-          <ul className={styles.swatches}>
-            {COLOUR_TOKENS.map(([name, cls]) => (
-              <li key={name} className={styles.swatch}>
-                <span className={`${styles.chip} ${cls}`} aria-hidden="true" />
-                <code>--av2-{name}</code>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <section id="tokens-type" className={styles.section} aria-labelledby="tokens-type-h">
-          <h2 id="tokens-type-h">{title('tokens-type')}</h2>
-          <div className={styles.typeGrid}>
-            <div>
-              <h3>Source Sans 3</h3>
-              {TYPE_SIZES.map(([size, cls]) => (
-                <p key={size} className={`${styles.sample} ${styles.sans} ${cls}`}><span className={styles.tag}>{size}</span> Bài viết</p>
-              ))}
+    <>
+      {/* Before the page root, so a stored or device dark never flashes light (FR-020). */}
+      <ThemeScript />
+      <div className={`av2-root ${av2FontClass}`}>
+        <main className={styles.page}>
+          <header className={styles.head}>
+            <div className={styles.headRow}>
+              <h1>Thư viện giao diện</h1>
+              <ThemeMenu />
             </div>
-            <div>
-              <h3>Source Serif 4</h3>
-              {TYPE_SIZES.map(([size, cls]) => (
-                <p key={size} className={`${styles.sample} ${styles.serif} ${cls}`}><span className={styles.tag}>{size}</span> Bài viết</p>
-              ))}
-            </div>
-          </div>
-          <p className={`${styles.sans} ${styles.fs16}`}>Thường (400) · <strong className={styles.strong}>Đậm (600)</strong></p>
-          <p className={`${styles.serif} ${styles.fs16}`}>Thường (400) · <strong className={styles.strong}>Đậm (600)</strong></p>
-        </section>
+            <p className={styles.lead}>Token và thành phần của giao diện &ldquo;Bản in&rdquo; (UIBASE-0056). Trang nội bộ cho kỹ sư, không có trên staging và production.</p>
+          </header>
 
-        <section id="tokens-vietnamese" className={styles.section} aria-labelledby="tokens-vietnamese-h">
-          <h2 id="tokens-vietnamese-h">{title('tokens-vietnamese')}</h2>
-          {(['13', '14', '16', '24', '40'] as const).map((size) => {
-            const cls = TYPE_SIZES.find(([s]) => s === size)![1];
-            return (
-              <div key={size} className={styles.viRow}>
-                <span className={styles.tag}>{size}px</span>
-                <p className={`${styles.sans} ${cls}`}>{VI_SAMPLE}</p>
-                <p className={`${styles.sans} ${styles.strong} ${cls}`}>{VI_SAMPLE}</p>
-                <p className={`${styles.serif} ${cls}`}>{VI_SAMPLE}</p>
-                <p className={`${styles.serif} ${styles.strong} ${cls}`}>{VI_SAMPLE}</p>
+          <section id="tokens-colour" className={styles.section} aria-labelledby="tokens-colour-h">
+            <h2 id="tokens-colour-h">{title('tokens-colour')}</h2>
+            <ul className={styles.swatches}>
+              {COLOUR_TOKENS.map(([name, cls]) => (
+                <li key={name} className={styles.swatch}>
+                  <span className={`${styles.chip} ${cls}`} aria-hidden="true" />
+                  <code>--av2-{name}</code>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <section id="tokens-type" className={styles.section} aria-labelledby="tokens-type-h">
+            <h2 id="tokens-type-h">{title('tokens-type')}</h2>
+            <div className={styles.typeGrid}>
+              <div>
+                <h3>Source Sans 3</h3>
+                {TYPE_SIZES.map(([size, cls]) => (
+                  <p key={size} className={`${styles.sample} ${styles.sans} ${cls}`}><span className={styles.tag}>{size}</span> Bài viết</p>
+                ))}
               </div>
-            );
-          })}
-          <p className={`${styles.serif} ${styles.strong} ${styles.fsBandLg}`}>Ước 6.5</p>
-          <p className={`av2-ipa ${styles.fs20}`}>{IPA_SAMPLE}</p>
-        </section>
+              <div>
+                <h3>Source Serif 4</h3>
+                {TYPE_SIZES.map(([size, cls]) => (
+                  <p key={size} className={`${styles.sample} ${styles.serif} ${cls}`}><span className={styles.tag}>{size}</span> Bài viết</p>
+                ))}
+              </div>
+            </div>
+            <p className={`${styles.sans} ${styles.fs16}`}>Thường (400) · <strong className={styles.strong}>Đậm (600)</strong></p>
+            <p className={`${styles.serif} ${styles.fs16}`}>Thường (400) · <strong className={styles.strong}>Đậm (600)</strong></p>
+          </section>
 
-        <section id="tokens-space" className={styles.section} aria-labelledby="tokens-space-h">
-          <h2 id="tokens-space-h">{title('tokens-space')}</h2>
-          <ul className={styles.spaces}>
-            {SPACE_STEPS.map(([step, cls]) => (
-              <li key={step} className={styles.spaceRow}>
-                <code>--av2-space-{step}</code>
-                <span className={`${styles.bar} ${cls}`} aria-hidden="true" />
-              </li>
-            ))}
-          </ul>
-          <div className={styles.shapes}>
-            <div className={styles.box}>bo góc 2px · kẻ 1px</div>
-            <div className={`${styles.box} ${styles.boxStrong}`}>kẻ đậm 2px</div>
-            <a href="#tokens-space" className={styles.focusDemo}>Liên kết có vòng focus</a>
-          </div>
-        </section>
+          <section id="tokens-vietnamese" className={styles.section} aria-labelledby="tokens-vietnamese-h">
+            <h2 id="tokens-vietnamese-h">{title('tokens-vietnamese')}</h2>
+            {(['13', '14', '16', '24', '40'] as const).map((size) => {
+              const cls = TYPE_SIZES.find(([s]) => s === size)![1];
+              return (
+                <div key={size} className={styles.viRow}>
+                  <span className={styles.tag}>{size}px</span>
+                  <p className={`${styles.sans} ${cls}`}>{VI_SAMPLE}</p>
+                  <p className={`${styles.sans} ${styles.strong} ${cls}`}>{VI_SAMPLE}</p>
+                  <p className={`${styles.serif} ${cls}`}>{VI_SAMPLE}</p>
+                  <p className={`${styles.serif} ${styles.strong} ${cls}`}>{VI_SAMPLE}</p>
+                </div>
+              );
+            })}
+            <p className={`${styles.serif} ${styles.strong} ${styles.fsBandLg}`}>Ước 6.5</p>
+            <p className={`av2-ipa ${styles.fs20}`}>{IPA_SAMPLE}</p>
+          </section>
 
-        <ButtonSection title={title('button')} />
-        <IconButtonSection title={title('icon-button')} />
-        <TextFieldSection title={title('text-field')} />
-        <TextAreaSection title={title('text-area')} />
-        <SelectSection title={title('select')} />
-        <SearchFieldSection title={title('search-field')} />
-        <ChoiceGroupSection title={title('choice-group')} />
-        <StatusBadgeSection title={title('status-badge')} />
-        <NoticeSection title={title('notice')} />
-        <DialogSection title={title('dialog')} />
-        <ConfirmDialogSection title={title('confirm-dialog')} />
-        <PageStateSection title={title('page-state')} />
-        <MediaPlaceholderSection title={title('media-placeholder')} />
-        <TabsSection title={title('tabs')} />
-        <BreadcrumbSection title={title('breadcrumb')} />
-        <PaginationSection title={title('pagination')} />
-        <ProgressBarSection title={title('progress-bar')} />
-        <StepperSection title={title('stepper')} />
-      </main>
-    </div>
+          <section id="tokens-space" className={styles.section} aria-labelledby="tokens-space-h">
+            <h2 id="tokens-space-h">{title('tokens-space')}</h2>
+            <ul className={styles.spaces}>
+              {SPACE_STEPS.map(([step, cls]) => (
+                <li key={step} className={styles.spaceRow}>
+                  <code>--av2-space-{step}</code>
+                  <span className={`${styles.bar} ${cls}`} aria-hidden="true" />
+                </li>
+              ))}
+            </ul>
+            <div className={styles.shapes}>
+              <div className={styles.box}>bo góc 2px · kẻ 1px</div>
+              <div className={`${styles.box} ${styles.boxStrong}`}>kẻ đậm 2px</div>
+              <a href="#tokens-space" className={styles.focusDemo}>Liên kết có vòng focus</a>
+            </div>
+          </section>
+
+          <ButtonSection title={title('button')} />
+          <IconButtonSection title={title('icon-button')} />
+          <TextFieldSection title={title('text-field')} />
+          <TextAreaSection title={title('text-area')} />
+          <SelectSection title={title('select')} />
+          <SearchFieldSection title={title('search-field')} />
+          <ChoiceGroupSection title={title('choice-group')} />
+          <StatusBadgeSection title={title('status-badge')} />
+          <NoticeSection title={title('notice')} />
+          <DialogSection title={title('dialog')} />
+          <ConfirmDialogSection title={title('confirm-dialog')} />
+          <PageStateSection title={title('page-state')} />
+          <MediaPlaceholderSection title={title('media-placeholder')} />
+          <TabsSection title={title('tabs')} />
+          <BreadcrumbSection title={title('breadcrumb')} />
+          <PaginationSection title={title('pagination')} />
+          <ProgressBarSection title={title('progress-bar')} />
+          <StepperSection title={title('stepper')} />
+          <ThemeSection title={title('theme')} />
+        </main>
+      </div>
+    </>
   );
 }
