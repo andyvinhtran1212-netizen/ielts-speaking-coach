@@ -347,3 +347,9 @@ describe('native Listening test route contract', () => {
     assert.match(page, /window\.addEventListener\('online', online\)/);
   });
 });
+
+
+test('text band outcomes use a scoped compact style without changing numeric bands', () => {
+  const css = read('frontend/public/css/listening-test-next.css');
+  assert.match(css, /\.listening-next-result \.exam-result-band strong\.listening-next-band-label\s*\{[^}]*font-size:\s*var\(--av-fs-xl\);[^}]*line-height:\s*var\(--av-lh-snug\)/);
+});

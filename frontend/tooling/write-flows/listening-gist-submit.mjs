@@ -74,7 +74,7 @@ export default {
         user_transcript: ANSWER,
         listen_count: 1,
         // PHẢI VẮNG hoặc null. `listening_session_id: str | None`
-        // (`routers/listening.py:331`) nên null LÀ hợp lệ — ghim "phải vắng hẳn" là
+        // (`routers/listening/__init__.py:331`) nên null LÀ hợp lệ — ghim "phải vắng hẳn" là
         // quá chặt, sẽ đỏ oan với một bản port tuần tự hoá đúng luật (bot bắt ở
         // #966). Thứ cần chặn là một session id THẬT: gửi kèm thì backend gắn
         // bài lẻ vào phiên và làm nhiễu thống kê (`listening.py:712-713`).

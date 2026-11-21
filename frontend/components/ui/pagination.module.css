@@ -1,0 +1,9 @@
+/* UIBASE-0056 Pagination (ThanhPhan §6). Only var(--av2-*). */
+.pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--av2-space-4);
+  font-variant-numeric: tabular-nums;
+}
+.status { padding: 0 var(--av2-space-5); }

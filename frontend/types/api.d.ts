@@ -3260,6 +3260,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/learners": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Learners */
+        get: operations["list_learners_admin_learners_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/learners/{ref}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Learner */
+        get: operations["get_learner_admin_learners__ref__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/learners/{ref}/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Learner Summary */
+        get: operations["get_learner_summary_admin_learners__ref__summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/instructor/learners/{ref}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Instructor Learner */
+        get: operations["get_instructor_learner_instructor_learners__ref__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/overview": {
         parameters: {
             query?: never;
@@ -13363,6 +13431,8 @@ export interface components {
             rollup_failed?: boolean | null;
             /** Course Lookup Failed */
             course_lookup_failed?: boolean | null;
+            /** Instructor Lookup Failed */
+            instructor_lookup_failed?: boolean | null;
         };
         /** AdminCohortOut */
         AdminCohortOut: {
@@ -13396,6 +13466,13 @@ export interface components {
             archived_by?: string | null;
             /** Archive Reason */
             archive_reason?: string | null;
+            /** Instructor Id */
+            instructor_id?: string | null;
+            /** Weekly Schedule */
+            weekly_schedule?: components["schemas"]["CohortScheduleSlotOut"][] | null;
+            /** Start Date */
+            start_date?: string | null;
+            instructor?: components["schemas"]["CohortTeacherOut"] | null;
             course?: components["schemas"]["CohortCourseOut"] | null;
             /** Member Count */
             member_count?: number | null;
@@ -14895,6 +14972,16 @@ export interface components {
             attempt_id: string;
             response: components["schemas"]["LearnerAnswer"];
         };
+        /** AttentionReason */
+        AttentionReason: {
+            /**
+             * Code
+             * @enum {string}
+             */
+            code: "late_streak" | "inactive" | "course_expiring" | "low_credits";
+            /** Text */
+            text: string;
+        };
         /** AttributeEvidenceResponse */
         AttributeEvidenceResponse: {
             /** State */
@@ -15924,6 +16011,19 @@ export interface components {
             archive_reason?: string | null;
             /** Course Id */
             course_id?: string | null;
+            /** Instructor Id */
+            instructor_id?: string | null;
+            /** Weekly Schedule */
+            weekly_schedule?: components["schemas"]["ScheduleSlot"][] | null;
+            /** Start Date */
+            start_date?: string | null;
+        };
+        /** CohortScheduleSlotOut */
+        CohortScheduleSlotOut: {
+            /** Dow */
+            dow: number;
+            /** Start */
+            start: string;
         };
         /** CohortStudentCountOut */
         CohortStudentCountOut: {
@@ -15933,6 +16033,13 @@ export interface components {
             cohort_name?: string | null;
             /** Count */
             count: number;
+        };
+        /** CohortTeacherOut */
+        CohortTeacherOut: {
+            /** Id */
+            id: string;
+            /** Name */
+            name?: string | null;
         };
         /** CohortsBody */
         CohortsBody: {
@@ -18728,6 +18835,59 @@ export interface components {
             /** Answer */
             answer: string;
         };
+        /** LearnerCohort */
+        LearnerCohort: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string | null;
+        };
+        /** LearnerDetail */
+        LearnerDetail: {
+            /** Ref */
+            ref: string;
+            /** Canonical Ref */
+            canonical_ref: string;
+            summary: components["schemas"]["LearnerSummary"];
+            /** Sources Failed */
+            sources_failed: string[];
+        };
+        /** LearnerDirectory */
+        LearnerDirectory: {
+            /** Items */
+            items: components["schemas"]["LearnerRow"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Sources Failed */
+            sources_failed: string[];
+            /** Undecided */
+            undecided: string[];
+        };
+        /** LearnerGoal */
+        LearnerGoal: {
+            /** Target Band */
+            target_band: number | null;
+            /** Exam Date */
+            exam_date: string | null;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "admin" | "learner" | "both_equal" | "conflict" | "none";
+        };
+        /** LearnerNote */
+        LearnerNote: {
+            /** Author */
+            author: string | null;
+            /** At */
+            at: string;
+            /** Text */
+            text: string;
+        };
         /** LearnerOutcome */
         LearnerOutcome: {
             /** User Id */
@@ -18736,6 +18896,20 @@ export interface components {
             name: string;
             /** Sessions */
             sessions: components["schemas"]["SessionBrief"][];
+        };
+        /** LearnerOverdue */
+        LearnerOverdue: {
+            /** Count */
+            count: number;
+            /** Latest Title */
+            latest_title: string | null;
+        };
+        /** LearnerRecentBands */
+        LearnerRecentBands: {
+            /** Writing */
+            writing: number[] | null;
+            /** Speaking */
+            speaking: number[] | null;
         };
         /** LearnerReportResponse */
         LearnerReportResponse: {
@@ -18809,6 +18983,89 @@ export interface components {
             insufficient_evidence: components["schemas"]["InsufficientEvidenceResponse"][];
             /** Productive Note */
             productive_note: string;
+        };
+        /** LearnerRow */
+        LearnerRow: {
+            /** Ref */
+            ref: string;
+            /** Name */
+            name: string;
+            /** Email */
+            email: string | null;
+            /** Student Code */
+            student_code: string | null;
+            /**
+             * Account State
+             * @enum {string}
+             */
+            account_state: "active" | "locked" | "none";
+            /**
+             * Profile State
+             * @enum {string}
+             */
+            profile_state: "active" | "archived" | "none";
+            /** Kind */
+            kind: ("offline" | "online" | "both" | "none") | null;
+            /** Courses */
+            courses: {
+                [key: string]: unknown;
+            }[] | null;
+            /** Credits Left */
+            credits_left: number | null;
+            /** Cohorts */
+            cohorts: components["schemas"]["LearnerCohort"][] | null;
+            /** Attention */
+            attention: components["schemas"]["AttentionReason"][];
+            /** Last Active At */
+            last_active_at: string | null;
+        };
+        /** LearnerStatus */
+        LearnerStatus: {
+            /** Level */
+            level: ("ok" | "attention") | null;
+            /** Reasons */
+            reasons: components["schemas"]["AttentionReason"][];
+        };
+        /**
+         * LearnerSummary
+         * @description CHUAN-ADMIN mục H: exactly these seven fields (name and classes count as one).
+         */
+        LearnerSummary: {
+            /** Name */
+            name: string;
+            /** Cohorts */
+            cohorts: components["schemas"]["LearnerCohort"][] | null;
+            /** Courses */
+            courses: {
+                [key: string]: unknown;
+            }[] | null;
+            status: components["schemas"]["LearnerStatus"];
+            goal: components["schemas"]["LearnerGoal"];
+            overdue: components["schemas"]["LearnerOverdue"] | null;
+            recent_bands: components["schemas"]["LearnerRecentBands"];
+            /** Last Active At */
+            last_active_at: string | null;
+            latest_note: components["schemas"]["LearnerNote"] | null;
+        };
+        /** LearnerSummaryOut */
+        LearnerSummaryOut: {
+            /** Name */
+            name: string;
+            /** Cohorts */
+            cohorts: components["schemas"]["LearnerCohort"][] | null;
+            /** Courses */
+            courses: {
+                [key: string]: unknown;
+            }[] | null;
+            status: components["schemas"]["LearnerStatus"];
+            goal: components["schemas"]["LearnerGoal"];
+            overdue: components["schemas"]["LearnerOverdue"] | null;
+            recent_bands: components["schemas"]["LearnerRecentBands"];
+            /** Last Active At */
+            last_active_at: string | null;
+            latest_note: components["schemas"]["LearnerNote"] | null;
+            /** Sources Failed */
+            sources_failed: string[];
         };
         /** LemmaOverridePayload */
         LemmaOverridePayload: {
@@ -21502,6 +21759,13 @@ export interface components {
              * Format: uuid
              */
             version_id: string;
+        };
+        /** ScheduleSlot */
+        ScheduleSlot: {
+            /** Dow */
+            dow: number;
+            /** Start */
+            start: string;
         };
         /** SectionSubmitBody */
         SectionSubmitBody: {
@@ -29608,6 +29872,146 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SettingsLog"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_learners_admin_learners_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                cohort_id?: string | null;
+                kind?: ("offline" | "online" | "both" | "none") | null;
+                status?: ("active" | "expiring" | "expired" | "archived") | null;
+                attention?: ("any" | "late_streak" | "inactive" | "expiring" | "low_credits") | null;
+                credits_max?: number | null;
+                role?: string;
+                page?: number;
+                page_size?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearnerDirectory"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_learner_admin_learners__ref__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearnerDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_learner_summary_admin_learners__ref__summary_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearnerSummaryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_instructor_learner_instructor_learners__ref__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearnerDetail"];
                 };
             };
             /** @description Validation Error */

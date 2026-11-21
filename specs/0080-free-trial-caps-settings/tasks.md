@@ -58,7 +58,7 @@ Bảng phụ thuộc của cả gói và chi tiết từng nhiệm vụ (gói m�
 ### G11-T16 — `/admin/settings` thẻ Chấm thử
 - Mục đích: 5.2.3 (route admin), 5.2.4 (trang).
 - Đầu vào: tờ `AdminCaiDat` mục 5, 8, 9; khung admin G09 (`ADMIN_FRAME_V2`, sổ điều hướng `frontend/lib/admin-nav-registry.mjs` của G09); `backend/routers/admin_flags.py`.
-- Việc làm: route `GET/PUT /admin/settings/trial`, `POST /admin/settings/trial/pause`; trang `frontend/app/(authed-admin-settings)/admin/settings/page.tsx` với thẻ `?tab=`; thêm "Cài đặt" vào nhóm Hệ thống trong sổ điều hướng G09; hộp xác nhận liệt kê cũ → mới; nhật ký.
+- Việc làm: route `GET/PATCH /admin/settings/trial`, `POST /admin/settings/trial/pause`; trang `frontend/app/(authed-admin-settings)/admin/settings/page.tsx` với thẻ `?tab=`; thêm "Cài đặt" vào nhóm Hệ thống trong sổ điều hướng G09; hộp xác nhận liệt kê cũ → mới; nhật ký.
 - Đầu ra: 1 PR.
 - Nghiệm thu: test backend: ràng buộc FR-020 trả 422 tiếng Việt; lưu ghi một dòng log; người không phải admin → 403; test React: nhập `per_user_daily > per_user_total` → lỗi dưới ô, nút Lưu không gửi; bước bấm trên staging: đổi trần ngày của Writing Task 2 → lần nộp kế tiếp của tài khoản thử theo trần mới.
 - Không làm: không dựng nội dung sáu thẻ khác (G09-T23); không tạo router `/admin/settings` thứ hai nếu G09-T22 đã có — thêm route `trial` vào router đó.

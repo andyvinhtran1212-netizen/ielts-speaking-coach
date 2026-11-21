@@ -311,7 +311,7 @@ describe('Part 2 nhiều đề vẫn có nội dung để làm', () => {
  * một lần nào (codex PR 942, vòng 4).
  */
 async function recordTake(startState, {
-  part = 1, seconds = 15, error = new Error('mạng đứt'), nextBlob,
+  part = 1, seconds = 15, error = new Error('mạng đứt'), nextBlob, retryError,
 } = {}) {
   const from = JS.indexOf('  async function _sheetToggleRec(');
   const to = JS.indexOf('  /**\n   * Xem lại một câu của phiếu');
@@ -333,7 +333,8 @@ async function recordTake(startState, {
     ${JS.slice(from, to)}
     return { toggle: _sheetToggleRec, onRecorded: _sheetOnRecorded,
       retry: _sheetRetrySubmission, recordedBlob: () => _recordedBlob,
-      replaceRecordedBlob: (value) => { _recordedBlob = value; } };
+      replaceRecordedBlob: (value) => { _recordedBlob = value; },
+      setElapsed: (value) => { _elapsedSecs = value; } };
   `;
   const api = new Function(
     '_sheet', '_renderSheet', 'startRecording', 'stopRecording',
@@ -341,7 +342,7 @@ async function recordTake(startState, {
     '_showFeedback', '_respToFeedbackData', '_sheetReviewIdx',
     '_playerGeneration', '_playerActive', '_sessionData', '_elapsedSecs', '_recordedBlob', body)(
       _sheet, () => {}, async () => true, () => {},
-      () => { calls += 1; return error ? Promise.reject(error) : Promise.resolve({ overall_band: 6 }); }, 'sess', console,
+      () => { calls += 1; const failure = calls > 1 ? retryError : error; return failure ? Promise.reject(failure) : Promise.resolve({ overall_band: 6 }); }, 'sess', console,
       { api: { get: async () => [] }, scrollTo() {} }, () => null, null,
       () => {}, (x) => x, 0, 1, true, { part }, seconds, blob);
 
@@ -420,6 +421,25 @@ describe('bản ghi quá ngắn phải ghi lại, không gửi lại', () => {
     assert.equal(slot.error, 'Bản ghi quá ngắn cho Part 1 (15.0s < 15s tối thiểu). Hãy ghi âm lại');
     assert.equal(slot.retryBlob, null);
   });
+
+  for (const serverSeconds of [undefined, 8.2]) {
+    test(`manual retry uses take A duration; server duration ${serverSeconds} wins when present`, async () => {
+      const detail = { code: 'audio_too_short' };
+      if (serverSeconds !== undefined) detail.duration_seconds = serverSeconds;
+      const { slot, api, blob, submissionCalls } = await recordTake('idle', {
+        seconds: 18, retryError: { status: 422, detail },
+      });
+      assert.equal(slot.retryBlob, blob);
+      assert.equal(slot.retryDuration, 18);
+      api.setElapsed(60);
+      api.replaceRecordedBlob({});
+      api.retry(0);
+      for (let k = 0; k < 8; k++) await Promise.resolve();
+      assert.equal(submissionCalls(), 2);
+      assert.ok(slot.error.includes(`${(serverSeconds ?? 18).toFixed(1)}s < 15s`));
+      assert.equal(slot.retryDuration, null);
+    });
+  }
 
   test('422 về muộn không xoá bản ghi mới của câu khác', async () => {
     const nextBlob = {};

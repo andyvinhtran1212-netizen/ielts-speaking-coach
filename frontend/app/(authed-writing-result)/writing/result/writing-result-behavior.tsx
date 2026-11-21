@@ -173,6 +173,7 @@ function WritingResultReady({ view, essayId }: { view: Extract<ResultView, { kin
   const [tips, setTips] = useState<Tip[]>([]);
   const [selectedTip, setSelectedTip] = useState<Tip | null>(null);
   const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState('');
   const essayRef = useRef<HTMLPreElement>(null);
   const regradeSendingRef = useRef(false);
   const regradeDialogRef = useRef<HTMLDivElement>(null);
@@ -273,6 +274,7 @@ function WritingResultReady({ view, essayId }: { view: Extract<ResultView, { kin
 
   const handleDownload = async () => {
     setDownloading(true);
+    setDownloadError('');
     try {
       const sb = window.getSupabase() as any;
       const session = (await sb.auth.getSession()).data.session;
@@ -300,7 +302,7 @@ function WritingResultReady({ view, essayId }: { view: Extract<ResultView, { kin
       URL.revokeObjectURL(objectUrl);
     } catch (caught) {
       console.error('[writing-result] download failed', caught);
-      alert(`Lỗi tải file: ${messageOf(caught)}`);
+      setDownloadError(`Lỗi tải file: ${messageOf(caught)}`);
     } finally {
       setDownloading(false);
     }
@@ -345,6 +347,7 @@ function WritingResultReady({ view, essayId }: { view: Extract<ResultView, { kin
             <button id="btn-download" className="btn-icon" title="Tải file Word" disabled={downloading} onClick={handleDownload}>
               <ActionIcon kind="download" /> {downloading ? 'Đang tải...' : 'Tải .docx'}
             </button>
+            {downloadError ? <span id="download-error" className="download-error" role="alert">{downloadError}</span> : null}
             <button id="btn-print" className="btn-icon" title="In bài viết" onClick={() => window.print()}><ActionIcon kind="print" /> In</button>
             {regradeRequest === null ? (
               <button id="btn-regrade-request" className="btn-icon" title="Yêu cầu giảng viên chấm lại bài này" onClick={() => { setRegradeError(''); setRegradeModal(true); }}>

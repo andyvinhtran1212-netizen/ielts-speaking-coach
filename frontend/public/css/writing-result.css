@@ -776,3 +776,13 @@ main.result-content {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
+/* In-page download failure next to "Tải .docx" (replaces browser alert()). */
+.download-error {
+  flex-basis: 100%;
+  order: 99;
+  font-size: var(--av-fs-sm);
+  color: var(--av-error);
+  text-align: right;
+}
+@media print { .download-error { display: none; } }
