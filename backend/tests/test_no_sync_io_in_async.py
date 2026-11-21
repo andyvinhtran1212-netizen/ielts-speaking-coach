@@ -837,6 +837,18 @@ def test_package_relative_imports_are_followed():
     assert findings[0].callee == "app.services.work.top"
 
 
+def test_star_reexported_package_names_are_followed():
+    # BACKENDSPLIT-0076: a package re-exports every submodule name (underscored
+    # ones too); calls in __init__ keep reaching helpers and imports of _common.
+    findings = scan_sources({
+        "app/pkg/__init__.py": "from ._common import *\nasync def f():\n    _helper()\n    load()",
+        "app/pkg/_common.py": ("from app.services.work import load\n"
+                               "def _helper():\n    db.table('x').select('*').execute()"),
+        "app/services/work.py": "def load():\n    db.table('y').select('*').execute()",
+    })
+    assert sorted(f.callee for f in findings) == ["app.pkg._common._helper", "app.services.work.load"]
+
+
 def test_storage_signing_helpers_with_bucket_parameters_are_followed():
     findings = scan("""
         def sign(bucket):
