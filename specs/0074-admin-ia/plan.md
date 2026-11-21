@@ -239,8 +239,8 @@ Gắn giáo viên vào lớp: `PATCH /admin/cohorts/{cohort_id}` hiện có (`ro
 |---|---|---|
 | `GET /admin/attention` | admin; giáo viên gọi `GET /instructor/attention` (cùng service, lọc `cohort_ids`, bỏ trường admin) | `{ queues: { exams_today: Q, writing_review: Q & {ai_failed: int}, speaking_mock_pending: Q, course_tests_awaiting_release: Q, assignments_overdue: Q, regrade_new: Q, enrollments_reported: Q, care_due_today: Q, incident_groups_open: Q, feedback_open: Q, entitlements_expiring: Q, classes_unmetered: Q }, classes_week: [{ cohort_id, name, next_lesson: {lesson_id, lesson_no, date, starts_at?}, following_lesson?, has_assignment: bool, pending_review: int, last_assignment_id? }], attention_learners: [{ ref, name, cohort, reasons: [...] }] (≤8), ops_week: { on_time_rate: {value, lowest_cohort_id}\|null, … }, generated_at }` với `Q = { count: int\|null, oldest_at: str\|null, overdue: bool, error: bool, unavailable: bool }`. `count = null` khi nguồn lỗi (`error: true`) hoặc gói phụ thuộc chưa có (`unavailable: true`). `classes_unmetered.count` = số lớp chưa lưu trữ còn thành viên active dùng mã cũ chưa có nơi nhận lượt (FR-058); chỉ có ở bản admin. |
 | `GET /admin/settings/thresholds` | admin, giáo viên (chỉ đọc) | `{ items: [{ key, group, label, anchor, value, unit, min, max, fixed: bool }] }` |
-| `PUT /admin/settings/thresholds` | admin (AAL2) | `{ changes: [{key, value}], reason }` → `{ items }`; 422 `out_of_range` kèm thông điệp tiếng Việt; ghi `admin_settings_log` |
-| `GET /admin/settings/{section}` · `PUT` (`section` ∈ `email`, `notices`, `payment`) | admin | đọc/ghi một khoá của `admin_settings`; `payment` chỉ có PUT khi Q20 được duyệt |
+| `PATCH /admin/settings/thresholds` | admin (AAL2) | `{ changes: [{key, value}], reason }` → `{ items }`; 422 `out_of_range` kèm thông điệp tiếng Việt; ghi `admin_settings_log` |
+| `GET /admin/settings/{section}` · `PATCH` (`section` ∈ `email`, `notices`, `payment`) | admin | đọc/ghi một khoá của `admin_settings`; `payment` chỉ có PATCH khi Q20 được duyệt |
 | `GET /admin/settings/log` | admin | `?section&cursor` → `{ items: [{at, actor_name, section, changes, reason}] }`. Khai báo route này (và `/thresholds`, `/trial` của GOI-11) **trước** route `/{section}`; `section` là enum nên `log` không bao giờ khớp nhầm. |
 | `GET /admin/search` | admin | `q` (≥2) → `{ learners[≤3], classes[≤3], submissions[≤3], content[≤3], orders[≤3] }` mỗi dòng `{title, meta, href}`; 422 q ngắn |
 | `GET /instructor/search` | giáo viên | như trên, không có `content`, `orders`; lọc theo `cohort_ids` |
@@ -294,7 +294,7 @@ API đi kèm:
 
 | Method · path | Quyền | Request → Response |
 |---|---|---|
-| `PUT /admin/cohorts/{c}/lessons/{lesson_id}/review-items` | admin, giáo viên của lớp | `{ items: [{bank_id, qid, source_assignment_id}] }` → `{ lesson }` |
+| `PATCH /admin/cohorts/{c}/lessons/{lesson_id}/review-items` | admin, giáo viên của lớp | `{ items: [{bank_id, qid, source_assignment_id}] }` → `{ lesson }` |
 | `POST /admin/cohorts/{c}/assignments/{a}/remind` | admin, giáo viên của lớp | `{ student_ids: [uuid] \| null }` (null = mọi người chưa nộp đã qua hạn) → `{ sent: int, skipped_already_today: int, skipped_no_account: int }`; ghi `class_assignment_reminders`; tạo thông báo `reminder` qua service của GOI-11 phần A (khoá chống trùng `remind:{assignment}:{student}:{ngày VN}`) |
 | `GET /admin/cohorts/{c}/assignment-matrix` | admin, giáo viên của lớp | `{ assignments: [{id,title,due_at}], rows: [{student_id, name, cells: [{state_text}], done: int, due: int}] }` — bảng học viên × bài |
 
@@ -314,7 +314,7 @@ Ba API cũ (`tally`, `attempt-report`, `students/{u}/report`): **không xoá** t
 | `POST /admin/mock-exams` (sửa) | Nhận `exam_mode: "live"\|"self_paced"` (vẫn nhận tên cũ, ánh xạ sang tên mới); cho phép thiếu đề của kỹ năng không dự thi; `skills: [..]` (≥1); tạo ở trạng thái `draft` không cần người thi. |
 | `GET /admin/mock-exams` (sửa) | Mỗi kỳ thêm `display_state` ∈ `draft`, `scheduled`, `open`, `running`, `grading`, `released`; `audience_count`; `exam_mode` tên mới. |
 | `GET /admin/mock-exams/{id}/audience` | `{ items: [{ user_id, student_id, name, cohort?, source: {kind: 'cohort'\|'learner'\|'group', label}, skills: [...], selected: bool, excluded_reason?, open_from?, open_until? }], practice_overlap: [{ skill, count }] }` |
-| `PUT /admin/mock-exams/{id}/audience` | `{ add_cohort_ids?: [], add_student_ids?: [], add_group_ids?: [], set: [{user_id, selected?, skills?}], window?: {open_from, open_until} }` → như GET. 409 `exam_locked` khi đề đã khoá (thêm người sau khi phòng mở vẫn được, ghi `mock_exam_events`). |
+| `PATCH /admin/mock-exams/{id}/audience` | `{ add_cohort_ids?: [], add_student_ids?: [], add_group_ids?: [], set: [{user_id, selected?, skills?}], window?: {open_from, open_until} }` → như GET. 409 `exam_locked` khi đề đã khoá (thêm người sau khi phòng mở vẫn được, ghi `mock_exam_events`). |
 | `POST /admin/mock-exams/{id}/schedule` | Kiểm điều kiện FR-144; 422 `not_ready` kèm `missing: [...]`; chuyển `status='published'`; gửi thông báo cho người được chọn (GOI-11). |
 | `POST /admin/mock-exams/{id}/extra-time` | `{ sitting_id, section, seconds, reason }`. Kỳ `self_paced`: `section` phải là phần **đang chạy** của sitting đó, không thì 409 `section_not_running`; các phần sau lùi theo (5.5). |
 | `GET /admin/mock-exams/{id}/live` (sửa) | Kỳ `self_paced`: mỗi người thêm `self_paced_state` ∈ `not_started` \| `in_progress` \| `submitted` \| `missed`, `current_section`, `section_time_left_seconds`, `started_at`, `expected_end_at`. `submitted` = mọi phần của người đó đã nộp, hoặc giờ cả bài đã hết (phần bỏ dở được tự nộp); `missed` = khoảng mở đã đóng mà chưa bắt đầu. Không có giá trị nào cho "nghỉ giữa phần" (FR-151). Thêm `idle_threshold_minutes` (T33). |
@@ -406,8 +406,8 @@ Giá trị dưới đây là **mặc định đề xuất** từ tờ AdminCaiDa
 | `low_credits` | Sắp hết lượt chấm AI | 3 lượt | 0–100 |
 | `code_expiring_days` | Mã kích hoạt chưa dùng sắp hết hạn | 14 ngày | 1–90 |
 | `exam_idle_minutes` | Thí sinh đứng yên (phòng live) | 5 phút | 1–60 |
-| `audio_retention_days` | Giữ bản ghi âm Speaking · từ lúc ghi (đã chốt tối đa 60) — dòng **chỉ đọc** (`fixed: true`): API đọc từ cấu hình G04 `RETENTION_AUDIO_DAYS`, **không** lưu trong `ops_thresholds`, `PUT` gửi khoá này → 422 | theo cấu hình G04 (tối đa 60) | cố định |
-| `content_retention_after_expiry_days` | Giữ bài làm sau khi khoá hết hạn (chốt ở điểm 23) — dòng **chỉ đọc** (`fixed: true`): API đọc từ cấu hình G04 `RETENTION_CONTENT_DAYS_AFTER_EXPIRY`, **không** lưu trong `ops_thresholds`, `PUT` gửi khoá này → 422 | 45 ngày | cố định |
+| `audio_retention_days` | Giữ bản ghi âm Speaking · từ lúc ghi (đã chốt tối đa 60) — dòng **chỉ đọc** (`fixed: true`): API đọc từ cấu hình G04 `RETENTION_AUDIO_DAYS`, **không** lưu trong `ops_thresholds`, `PATCH` gửi khoá này → 422 | theo cấu hình G04 (tối đa 60) | cố định |
+| `content_retention_after_expiry_days` | Giữ bài làm sau khi khoá hết hạn (chốt ở điểm 23) — dòng **chỉ đọc** (`fixed: true`): API đọc từ cấu hình G04 `RETENTION_CONTENT_DAYS_AFTER_EXPIRY`, **không** lưu trong `ops_thresholds`, `PATCH` gửi khoá này → 422 | 45 ngày | cố định |
 | `import_error_report_days` | Giữ báo cáo lỗi nhập liệu | 30 ngày | 7–365 |
 | `too_fast_sec_per_question` | Làm quá nhanh (kết quả bài giao) — **chưa có trên tờ** | `null` (tắt lý do) | 1–60 |
 | `many_retakes_count` | Làm lại nhiều lần — **chưa có trên tờ** | `null` (tắt lý do) | 2–20 |
