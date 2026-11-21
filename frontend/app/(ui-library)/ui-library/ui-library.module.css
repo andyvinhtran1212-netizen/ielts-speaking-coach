@@ -67,3 +67,30 @@
 .box { padding: var(--av2-space-7); background: var(--av2-surface); border: var(--av2-rule-w) solid var(--av2-control-border); border-radius: var(--av2-radius); }
 .boxStrong { border-width: var(--av2-rule-strong-w); border-color: var(--av2-ink); }
 .focusDemo { outline: var(--av2-focus); outline-offset: var(--av2-focus-offset); padding: var(--av2-space-2); }
+
+/* G03-T05 component sections. */
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--av2-space-6); }
+.note { font-size: var(--av2-fs-14); color: var(--av2-muted); margin-top: var(--av2-space-7); }
+.rowName { font-weight: var(--av2-fw-strong); display: flex; flex-direction: column; }
+.rowNote { font-weight: var(--av2-fw-regular); font-size: var(--av2-fs-13); color: var(--av2-muted); }
+.stateGrid + .subhead { margin-top: var(--av2-space-9); }
+
+.stateGrid { display: grid; grid-template-columns: 150px repeat(5, minmax(0, 1fr)); gap: var(--av2-space-6) var(--av2-space-7); align-items: center; }
+.stateRow { display: contents; }
+.stateHead { font-size: var(--av2-fs-13); color: var(--av2-muted); }
+.stateCell { display: flex; flex-direction: column; align-items: flex-start; gap: var(--av2-space-2); }
+.stateLabel { display: none; font-size: var(--av2-fs-13); color: var(--av2-muted); }
+
+.fieldGrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--av2-space-9); }
+.fieldGrid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--av2-space-9); }
+.badgeGrid { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: var(--av2-space-6) var(--av2-space-7); align-items: center; }
+
+@media (max-width: 767px) {
+  .stateGrid { grid-template-columns: 1fr; }
+  .stateHead { display: none; }
+  .stateRow { display: flex; flex-wrap: wrap; gap: var(--av2-space-6); padding-bottom: var(--av2-space-7); border-bottom: var(--av2-rule-w) solid var(--av2-rule); }
+  .stateRow > .rowName { flex-basis: 100%; }
+  .stateLabel { display: block; }
+  .fieldGrid, .fieldGrid2 { grid-template-columns: 1fr; }
+  .badgeGrid { grid-template-columns: 1fr; }
+}

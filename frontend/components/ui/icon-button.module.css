@@ -1,0 +1,22 @@
+/* UIBASE-0056 IconButton (ThanhPhan §1). Only var(--av2-*), no hex. */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: var(--av2-rule-w) solid transparent;
+  border-radius: var(--av2-radius);
+  background: transparent;
+  color: var(--av2-ink);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.lg { width: var(--av2-control-lg); height: var(--av2-control-lg); }
+.md { width: var(--av2-control-md); height: var(--av2-control-md); }
+.sm { width: var(--av2-control-sm); height: var(--av2-control-sm); }
+.outline { border-color: var(--av2-ink); background: var(--av2-surface); }
+.button:hover:not(:disabled),
+.button[data-demo-state='hover'] { background: var(--av2-tint); }
+.button[data-demo-state='focus'] { outline: var(--av2-focus); outline-offset: var(--av2-focus-offset); }
+.button:disabled { color: var(--av2-muted); cursor: not-allowed; }
+.outline:disabled { border-color: var(--av2-rule); }
