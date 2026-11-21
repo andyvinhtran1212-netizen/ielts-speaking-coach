@@ -236,7 +236,7 @@ Gói mục 9 viết lại theo Given/When/Then; bảng đầy đủ theo FR ở 
 - Nguồn đổi sau khi đã duyệt (`W_HASH`): bộ đó dừng xuất bản tới khi người duyệt xác nhận lại.
 - Bài mẫu bị gỡ khi trang Kiến thức đang trích: thẻ trích bị bỏ khỏi HTML (FR-022).
 - API backend lỗi khi build hoặc khi render: trang danh sách hiện trạng thái lỗi có "Tải lại"; sitemap bỏ qua phần lỗi như Grammar; `next build` không cần backend (`connection()` + Suspense như `vocabulary/page.tsx`).
-- `PUT` dấu hai lần → một hàng; `item_key` không tồn tại hoặc chưa xuất bản → 404; lỗi ghi → giao diện trả lại trạng thái cũ và báo bằng chữ (không lạc quan).
+- `PATCH` dấu hai lần → một hàng; `item_key` không tồn tại hoặc chưa xuất bản → 404; lỗi ghi → giao diện trả lại trạng thái cũ và báo bằng chữ (không lạc quan).
 - Kệ Speaking chưa có đề nào có `sample_text` (hiện 0/210) → kệ hiện "Chưa có đề nào", `/library` không hiện số cho kệ đó.
 - G04/G08/G05-T21/G11-T33/G09-T36 chưa merge → trạng thái dự phòng ghi ở `plan.md` mục "Phụ thuộc chưa có", không chặn trang đọc.
 - Trùng route `/library` với G07 → chỉ một route ở `(public-library)`.
