@@ -433,7 +433,7 @@ test('every staging-e2e spec imports test/expect from the redacting fixture', ()
 const UPLOAD_GUARDS = {
   '.github/workflows/staging-release-smoke.yml': 2,
   '.github/workflows/e2e.yml': 2,
-  '.github/workflows/next-native-browser.yml': 2,
+  '.github/workflows/next-native-browser.yml': 3,
 };
 
 function missingGuardSecrets(workflow, file) {

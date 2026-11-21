@@ -1548,7 +1548,7 @@ async def admin_generate_d1_batch(
     if not body.words:
         raise HTTPException(400, "Provide at least one word.")
 
-    # Cost estimate per PHASE_D_V3_PLAN §19: ~$0.0005 / item for Gemini Flash.
+    # Cost estimate per docs/history/root/PHASE_D_V3_PLAN.md §19: ~$0.0005 / item for Gemini Flash.
     estimated_cost_usd = round(0.0005 * body.count, 4)
     job_id = str(uuid.uuid4())
 

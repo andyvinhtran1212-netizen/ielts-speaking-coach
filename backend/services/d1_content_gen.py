@@ -12,7 +12,7 @@ split the input into chunks of CHUNK_SIZE words and call Gemini per chunk.
 The on_chunk_validated callback lets the caller persist results incrementally
 instead of risking 50 items lost when the last chunk fails.
 
-Never auto-publish.  See PHASE_D_V3_PLAN.md §5 and §8.
+Never auto-publish.  See docs/history/root/PHASE_D_V3_PLAN.md §5 and §8.
 """
 
 import json

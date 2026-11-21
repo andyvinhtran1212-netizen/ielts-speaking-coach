@@ -7,7 +7,7 @@ upserting the result.  Keeping side effects out of this module is what makes
 test_srs_algorithm.py able to lock the algorithm contract with a deterministic
 sequential walk.
 
-Algorithm (matches PHASE_D_WAVE_2_PLAN.md §4):
+Algorithm (matches docs/history/root/PHASE_D_WAVE_2_PLAN.md §4):
 
     rating='again' →  interval=0, ease=max(1.3, e-0.2),     lapse++
     rating='hard'  →  interval=max(1, int(i * 1.2)),        ease=max(1.3, e-0.15)

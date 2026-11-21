@@ -1,0 +1,7 @@
+/* UIBASE-0056 SearchField (ThanhPhan §2). Only var(--av2-*). */
+.wrap { position: relative; display: block; }
+.wrap .input { padding-right: calc(var(--av2-control-sm) + var(--av2-space-4)); }
+.wrap .input.input:focus { padding-right: calc(var(--av2-control-sm) + var(--av2-space-4) - 1px); }
+/* The browser's own clear cross would duplicate ours. */
+.input::-webkit-search-cancel-button { appearance: none; }
+.clear { position: absolute; top: 50%; right: var(--av2-space-2); transform: translateY(-50%); }

@@ -216,18 +216,17 @@ export class SpeakingRecorderController {
 
       recorder.start(250);
       if (this.onTick) this.onTick(0);
-      if (Number(maxSeconds) > 0) {
-        const cap = Number(maxSeconds);
-        this.timer = this.setIntervalFn(() => {
-          this.elapsed += 1;
-          try {
-            if (this.onTick) this.onTick(this.elapsed);
-          } finally {
-            // A rendering callback must never defeat the recording hard cap.
-            if (this.elapsed >= cap) this.stop();
-          }
-        }, 1000);
-      }
+      // Uncapped takes (Part 2) still need elapsed time for submission gates.
+      const cap = Number(maxSeconds);
+      this.timer = this.setIntervalFn(() => {
+        this.elapsed += 1;
+        try {
+          if (this.onTick) this.onTick(this.elapsed);
+        } finally {
+          // A rendering callback must never defeat the recording hard cap.
+          if (cap > 0 && this.elapsed >= cap) this.stop();
+        }
+      }, 1000);
       return true;
     } catch (error) {
       // A reset/release while permission or AudioContext setup was pending is

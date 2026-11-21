@@ -20,11 +20,16 @@
  *
  * This guards every later consolidation phase: no phase may add new hex, and the
  * budget only moves down.
+ *
+ * New UI tree (UIBASE-0056 "Bản in", plan 5.8): styles/ and components/ui/ have
+ * a budget of ZERO with no fixture entries. The single exemption is the v2
+ * token-definition file styles/av2/tokens.css (maps --av2-* → #hex). CSS
+ * Modules and base CSS there must use var(--av2-*) only.
  */
 
 import { test, describe, before } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -62,6 +67,11 @@ function walkCss(dir, rel, out) {
 function isExempt(rel) {
   return EXEMPT_PATHS.has(rel);
 }
+
+// New UI tree roots (relative to frontend/) scanned at budget 0. Compared by full
+// relative path so no other tokens.css inherits the exemption.
+const V2_ROOTS = ['styles', 'components/ui'];
+const V2_EXEMPT_PATHS = new Set(['styles/av2/tokens.css']);
 
 describe('hex-budget ratchet (A4 governance)', () => {
   let budget, files;
@@ -108,5 +118,33 @@ describe('hex-budget ratchet (A4 governance)', () => {
       stale, [],
       `\nHex budget has stale headroom (design-system A4 ratchet must only move DOWN):\n  ${stale.join('\n  ')}\n`,
     );
+  });
+});
+
+describe('hex-budget — new UI tree (UIBASE-0056) holds zero raw hex', () => {
+  let v2Files;
+  before(() => {
+    v2Files = [];
+    for (const root of V2_ROOTS) {
+      const dir = path.join(FRONTEND, root);
+      if (existsSync(dir)) walkCss(dir, root, v2Files);
+    }
+  });
+
+  test('the v2 token file exists and is the only place hex is allowed', () => {
+    const rels = v2Files.map((f) => f.rel);
+    assert.ok(rels.includes('styles/av2/tokens.css'), 'styles/av2/tokens.css must exist');
+    const tokens = stripComments(readFileSync(path.join(FRONTEND, 'styles/av2/tokens.css'), 'utf8'));
+    assert.ok((tokens.match(HEX) || []).length > 0, 'sanity: tokens.css defines --av2-* colours as hex');
+  });
+
+  test('no CSS file under styles/ or components/ui/ (besides tokens.css) has raw hex', () => {
+    const violations = [];
+    for (const { full, rel } of v2Files) {
+      if (V2_EXEMPT_PATHS.has(rel)) continue;
+      const count = (stripComments(readFileSync(full, 'utf8')).match(HEX) || []).length;
+      if (count > 0) violations.push(`${rel}: ${count} hex — use var(--av2-*), not raw hex`);
+    }
+    assert.deepEqual(violations, [], `\nRaw hex in the new UI tree:\n  ${violations.join('\n  ')}\n`);
   });
 });

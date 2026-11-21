@@ -107,7 +107,7 @@ API đi kèm:
 
 | Method · path | Quyền | Request → Response |
 |---|---|---|
-| `PUT /admin/cohorts/{c}/lessons/{lesson_id}/review-items` | admin, giáo viên của lớp | `{ items: [{bank_id, qid, source_assignment_id}] }` → `{ lesson }` |
+| `PATCH /admin/cohorts/{c}/lessons/{lesson_id}/review-items` | admin, giáo viên của lớp | `{ items: [{bank_id, qid, source_assignment_id}] }` → `{ lesson }` |
 | `POST /admin/cohorts/{c}/assignments/{a}/remind` | admin, giáo viên của lớp | `{ student_ids: [uuid] \| null }` (null = mọi người chưa nộp đã qua hạn) → `{ sent: int, skipped_already_today: int, skipped_no_account: int }`; ghi `class_assignment_reminders`; tạo thông báo `reminder` qua service của GOI-11 phần A (khoá chống trùng `remind:{assignment}:{student}:{ngày VN}`) |
 | `GET /admin/cohorts/{c}/assignment-matrix` | admin, giáo viên của lớp | `{ assignments: [{id,title,due_at}], rows: [{student_id, name, cells: [{state_text}], done: int, due: int}] }` — bảng học viên × bài |
 

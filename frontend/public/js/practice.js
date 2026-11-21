@@ -1093,6 +1093,14 @@
 
   // ── Recording: submit for grading ─────────────────────────────────────────────
 
+  function _checkRecordedLength() {
+    var part = _sessionData && _sessionData.part;
+    var minSec = MIN_RECORD_SEC[part];
+    if (!minSec || typeof _elapsedSecs !== 'number' || _elapsedSecs >= minSec) return false;
+    _handleAudioTooShort({ part: part, duration_seconds: _elapsedSecs, min_seconds: minSec });
+    return true;
+  }
+
   function submitRecording() {
     if (!_recordedBlob) {
       _showRecError('Chưa có bản ghi âm. Hãy nhấn "Bắt đầu ghi âm" và ghi âm câu trả lời trước.');
@@ -1103,6 +1111,8 @@
       _showRecError('Lỗi: không xác định được câu hỏi hiện tại. Hãy tải lại trang.');
       return;
     }
+
+    if (_checkRecordedLength()) return;
 
     // Test modes: advance immediately (no grading spinner)
     if (_testMode === 'test_full') {
@@ -1168,6 +1178,7 @@
     var data = null;
     var nativeSubmission = _getNativeSubmission();
     try {
+      if (_checkRecordedLength()) return;
       data = await _submitResponseTransport(_sessionId, questionId, blob, {
         priorResponseId: _knownResponseId(questionId),
       });
@@ -3285,10 +3296,13 @@
     _startP2Speaking();
   }
 
-  function _handleP2RecordedBlob(blob) {
+  function _handleP2RecordedBlob(blob, elapsed) {
     _recordedBlob = blob;
+    if (typeof elapsed === 'number') _elapsedSecs = elapsed;
     _stopWaveform();
     var questionId = _currentQ && (_currentQ.id || _currentQ.question_id);
+
+    if (_checkRecordedLength()) return;
 
     // Test modes: advance immediately (no grading spinner)
     if (_testMode === 'test_full') {
@@ -3382,9 +3396,11 @@
       if (e.data && e.data.size > 0) _audioChunks.push(e.data);
     };
 
+    var p2RecordingStartedAt = Date.now();
     _recorder.onstop = function () {
       var type = (_recorder.mimeType && _recorder.mimeType !== '') ? _recorder.mimeType : 'audio/webm';
-      _handleP2RecordedBlob(new Blob(_audioChunks, { type: type }));
+      _handleP2RecordedBlob(new Blob(_audioChunks, { type: type }),
+        Math.floor((Date.now() - p2RecordingStartedAt) / 1000));
     };
 
     _recorder.start(250);
@@ -5046,6 +5062,7 @@
       // locally retained failed take. Do not discard it before the microphone
       // actually starts: permission failure must leave the retry option intact.
       s.retryBlob = null;
+      s.retryDuration = null;
       s.retryHadWork = null;
     }
   }
@@ -5062,20 +5079,20 @@
     if (!s) return;
     s.prevState = null;
     _sheet.recIdx = -1;
-    if (_sheetCheckLength(s, blob, hadWork)) return;
-    _sheetSubmitBlob(s, blob, hadWork);
+    _sheetSubmitBlob(s, blob, hadWork, typeof _elapsedSecs === 'number' ? _elapsedSecs : undefined);
   }
 
   function _sheetRetrySubmission(i) {
     var s = _sheet && _sheet.slots[i];
     if (!s || !s.retryBlob || s.state === 'grading') return;
-    _sheetSubmitBlob(s, s.retryBlob, s.retryHadWork || null);
+    _sheetSubmitBlob(s, s.retryBlob, s.retryHadWork || null, s.retryDuration);
   }
 
-  function _sheetSubmitBlob(s, blob, hadWork) {
+  function _sheetSubmitBlob(s, blob, hadWork, duration) {
     var generation = _playerGeneration;
-    var duration = typeof _elapsedSecs === 'number' ? _elapsedSecs : 0;
+    if (_sheetCheckLength(s, blob, hadWork, duration)) return;
     s.retryBlob = null;
+    s.retryDuration = null;
     s.retryHadWork = null;
     s.state = 'grading';
     s.error = null;
@@ -5114,6 +5131,7 @@
         // để `_sheetReview` khỏi cố dựng lại từ một dòng cơ sở dữ liệu.
         s.resp = g ? Object.assign({}, g, { _live: true }) : null;
         s.retryBlob = null;
+        s.retryDuration = null;
         s.retryHadWork = null;
       })
       .catch(function (err) {
@@ -5131,6 +5149,7 @@
         // TIÊN giữ trạng thái retry cùng chính blob ấy.
         s.state = hadWork || 'retry';
         s.retryBlob = blob;
+        s.retryDuration = duration;
         s.retryHadWork = hadWork;
         s.error = hadWork
           ? 'Lần ghi âm lại này chưa gửi được — bản ghi trước vẫn còn. Bạn có thể gửi lại bản mới.'
@@ -5145,6 +5164,7 @@
     var part = detail.part || (_sessionData && _sessionData.part);
     s.state = hadWork || 'idle';
     s.retryBlob = null;
+    s.retryDuration = null;
     s.retryHadWork = null;
     s.error = 'Bản ghi quá ngắn cho Part ' + part + ' (' +
       Number(detail.duration_seconds).toFixed(1) + 's < ' +
@@ -5153,12 +5173,12 @@
     if (_recordedBlob === blob) _resetRecorder();
   }
 
-  function _sheetCheckLength(s, blob, hadWork) {
-    if (typeof _elapsedSecs !== 'number') return false;
+  function _sheetCheckLength(s, blob, hadWork, duration) {
+    if (typeof duration !== 'number') return false;
     var part = _sessionData && _sessionData.part;
-    if (!MIN_RECORD_SEC[part] || _elapsedSecs >= MIN_RECORD_SEC[part]) return false;
+    if (!MIN_RECORD_SEC[part] || duration >= MIN_RECORD_SEC[part]) return false;
     _sheetAudioTooShort(s, blob, hadWork, {
-      part: part, duration_seconds: _elapsedSecs, min_seconds: MIN_RECORD_SEC[part],
+      part: part, duration_seconds: duration, min_seconds: MIN_RECORD_SEC[part],
     });
     _renderSheet();
     return true;
