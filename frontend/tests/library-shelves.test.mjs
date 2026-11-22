@@ -72,10 +72,13 @@ describe('Library frame (FR-001, FR-002, FR-003)', () => {
     assert.equal(routeFor('/library')?.audience, 'public');
   });
 
-  test('session-aware header: the layout renders <aver-chrome> with its legacy tokens', () => {
-    assert.match(LAYOUT, /<aver-chrome \/>/);
-    assert.match(LAYOUT, /\/js\/components\/aver-chrome\.js/);
-    assert.match(LAYOUT, /\/css\/aver-design\/tokens\.css/);
+  test('page frame: the "Bản in" PublicShell with Thư viện marked, and no legacy cascade', () => {
+    const code = LAYOUT.split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
+    assert.match(code, /<PublicShell active="library">/);
+    assert.match(code, /from '@\/components\/ui\/shell\/public-shell'/);
+    assert.doesNotMatch(code, /aver-chrome|aver-admin-chrome|\/css\/|tailwind|lucide/i);
+    // PublicShell owns <main>; the page must not add a second one.
+    assert.doesNotMatch(PAGE, /<main\b/);
   });
 
   test('exactly one course link, after the shelves', () => {

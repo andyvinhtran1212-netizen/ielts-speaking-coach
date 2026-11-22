@@ -1,10 +1,7 @@
 /* LIBRARY-0061 T008 `/library` (tờ ThuVien). Only var(--av2-*).
-   Shelves stack in one column at every width, so a sixth shelf (FR-063) adds a row, never a column. */
-.page {
-  max-width: 1120px;
-  margin: 0 auto;
-  padding: var(--av2-space-10) var(--av2-space-6) var(--av2-space-12);
-}
+   Shelves stack in one column at every width, so a sixth shelf (FR-063) adds a row, never a column.
+   PublicShell's <main> owns the width (1200px) and side padding; this adds the top space only. */
+.page { padding-top: var(--av2-space-10); }
 
 .intro { max-width: 640px; }
 .intro h1 { margin: 0 0 var(--av2-space-3); }
@@ -104,7 +101,7 @@
 .criterion { display: block; font-size: var(--av2-fs-12); font-weight: var(--av2-fw-strong); }
 
 @media (max-width: 767px) {
-  .page { padding: var(--av2-space-8) var(--av2-space-4) var(--av2-space-10); }
+  .page { padding-top: var(--av2-space-8); }
   .excerpt { grid-template-columns: minmax(0, 1fr); padding: var(--av2-space-4); }
   .shelfTitle { font-size: var(--av2-fs-20); }
 }
