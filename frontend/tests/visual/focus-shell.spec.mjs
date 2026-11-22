@@ -19,7 +19,8 @@ test('practice · leave box opens on "Thoát", stay is focused, Esc closes', asy
   const box = page.getByRole('alertdialog', { name: 'Thoát khi đang ghi âm?' });
   await expect(box).toBeVisible();
   await expect(box.getByRole('button', { name: 'Ở lại ghi tiếp' })).toBeFocused();
-  await expect(page).toHaveScreenshot(`focus-practice-leave${isPhone(viewport) ? '' : '-1280'}.png`);
+  // The box only: the page behind the backdrop changes whenever a section is added above.
+  await expect(box).toHaveScreenshot(`focus-practice-leave${isPhone(viewport) ? '' : '-1280'}.png`);
   await page.keyboard.press('Escape');
   await expect(box).toBeHidden();
 });
@@ -33,7 +34,7 @@ test('exam · leave box in English, no "Save and exit"', async ({ page, viewport
   const box = page.getByRole('alertdialog', { name: 'Leave this test?' });
   await expect(box).toContainText('The timer keeps running on our server while you are away.');
   await expect(page.getByText(/save and exit/i)).toHaveCount(0);
-  await expect(page).toHaveScreenshot('focus-exam-leave.png');
+  await expect(box).toHaveScreenshot('focus-exam-leave.png');
 });
 
 test('FR-025: with the site dark, the full-test bar stays light and practice follows the site', async ({ page }) => {
