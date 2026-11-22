@@ -77,6 +77,8 @@ export function FocusShell({
 }: FocusShellProps) {
   const words = FOCUS_WORDS[mode];
   const [asking, setAsking] = useState(false);
+  // Read when the box opens: the exam room only says answers are saved when they are.
+  const [askedUnsaved, setAskedUnsaved] = useState(false);
   const unsaved = useRef(hasUnsavedWork);
   const leaving = useRef(false);
   unsaved.current = hasUnsavedWork;
@@ -98,11 +100,16 @@ export function FocusShell({
   }, [exitHref, onLeave]);
 
   const requestExit = () => {
-    if (mode === 'exam' || unsaved.current()) setAsking(true);
+    const lose = unsaved.current();
+    setAskedUnsaved(lose);
+    if (mode === 'exam' || lose) setAsking(true);
     else leave();
   };
 
-  const copy: FocusLeaveCopy = { ...words.leave, ...leaveCopy };
+  const defaults: FocusLeaveCopy = mode === 'exam' && askedUnsaved
+    ? { ...words.leave, body: undefined }
+    : words.leave;
+  const copy: FocusLeaveCopy = { ...defaults, ...leaveCopy };
   const light = mode === 'exam' && fullTestRoom && !EXAM_ROOM_FOLLOWS_THEME;
 
   return (

@@ -106,6 +106,19 @@ describe('exam mode (English only, ink bar)', () => {
     expect(assign).toHaveBeenCalledWith('/tests');
   });
 
+  it('with unsaved answers the box does not claim they are saved; the page can add its own line', () => {
+    exam({ hasUnsavedWork: () => true });
+    fireEvent.click(screen.getByRole('button', { name: 'Leave test' }));
+    let box = screen.getByRole('alertdialog', { name: 'Leave this test?' });
+    expect(box.textContent).toContain('The timer keeps running on our server while you are away.');
+    expect(box.textContent).not.toContain('Your answers so far are saved.');
+    cleanup();
+    exam({ hasUnsavedWork: () => true, leaveCopy: { body: '2 answers are not saved yet.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Leave test' }));
+    box = screen.getByRole('alertdialog', { name: 'Leave this test?' });
+    expect(box.textContent).toContain('2 answers are not saved yet.');
+  });
+
   it('no Vietnamese letter anywhere, with the leave box open', () => {
     const { container } = exam({ onAbandon: () => {} });
     fireEvent.click(screen.getByRole('button', { name: 'Leave test' }));

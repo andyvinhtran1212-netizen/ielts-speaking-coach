@@ -7,7 +7,8 @@ export type FocusLeaveCopy = {
   title: string;
   /** Bold first sentence, e.g. the exam room's running-timer warning. */
   lead?: string;
-  body: ReactNode;
+  /** Empty in the exam room while work is unsaved (G08 passes the unsaved count). */
+  body?: ReactNode;
   /** Muted line after the text, e.g. "Come back before 11:05 to continue." */
   note?: ReactNode;
   /** The way back: the primary button, focused when the box opens. */
