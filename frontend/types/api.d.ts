@@ -12000,6 +12000,116 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/library/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Library Summary
+         * @description Counts for the five shelves of ``/library``. A shelf that cannot be
+         *     counted is ``null`` so the page shows no number (FR-004).
+         */
+        get: operations["library_summary_api_library_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/library/writing-samples": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Writing Samples
+         * @description Published Writing sample sets, 12 per page (FR-010, FR-011).
+         *
+         *     Facets follow the usual faceted-search rule: each group is counted over the
+         *     rows that match every OTHER active filter (its own filter is left out), so
+         *     the counts say what choosing that value would return.
+         */
+        get: operations["list_writing_samples_api_library_writing_samples_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/library/writing-samples/index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Writing Samples Index
+         * @description ``[{slug, updated_at}]`` of every published set, for the sitemap.
+         */
+        get: operations["writing_samples_index_api_library_writing_samples_index_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/library/writing-samples/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Writing Sample
+         * @description One published set (FR-013–FR-019). A slug renamed after publishing
+         *     redirects with 308 to the current slug; anything else is 404.
+         */
+        get: operations["get_writing_sample_api_library_writing_samples__slug__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/library/media/{shelf}/{key}/{asset}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Library Media
+         * @description Figure or audio bytes of a PUBLISHED item, read fresh on every request.
+         *
+         *     Never cached (``no-store``) and never a redirect to Storage, so unpublishing
+         *     takes effect on the next request to the same URL. Unknown shelf/asset,
+         *     unpublished or missing item, and missing object are all 404.
+         */
+        get: operations["get_library_media_api_library_media__shelf___key___asset__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/exam-content": {
         parameters: {
             query?: never;
@@ -45298,6 +45408,145 @@ export interface operations {
             };
             path: {
                 sitting_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    library_summary_api_library_summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    list_writing_samples_api_library_writing_samples_get: {
+        parameters: {
+            query?: {
+                task?: string | null;
+                dang?: string | null;
+                chude?: string | null;
+                q?: string | null;
+                trang?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    writing_samples_index_api_library_writing_samples_index_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    get_writing_sample_api_library_writing_samples__slug__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_library_media_api_library_media__shelf___key___asset__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shelf: string;
+                key: string;
+                asset: string;
             };
             cookie?: never;
         };

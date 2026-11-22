@@ -28,7 +28,7 @@ Máy cloud hiện không vào được staging: bước xem staging ghi "chờ a
 
 ## Rollback and repair
 
-- Gỡ nội dung nhanh: `published=false` hàng loạt qua `/admin/library` (T020) hoặc manifest `publish:false` + `--execute`; trang đề trả 404 ngay khi cache hết hạn (`cacheable_json`); route tệp trả 404 ngay vì đọc `published` mỗi yêu cầu và không phát URL Storage nào (FR-064). Kiểm: tải tệp trước khi gỡ để làm nóng cache, gỡ, gọi lại đúng URL ngay và sau 300 s → cả hai 404.
+- Gỡ nội dung nhanh: `published=false` hàng loạt qua `/admin/library` (T020) hoặc manifest `publish:false` + `--execute`; API đề trả 404 ngay ở yêu cầu kế tiếp (`no-cache`, mỗi lần dùng đều hỏi lại backend); route tệp trả 404 ngay vì đọc `published` mỗi yêu cầu và không phát URL Storage nào (FR-064). Kiểm: tải tệp trước khi gỡ để làm nóng cache, gỡ, gọi lại đúng URL ngay và sau 300 s → cả hai 404.
 - Code: migration 400 chỉ thêm bảng và bucket, không đổi bảng cũ → deploy lại bản trước được; route `/library*` biến mất, không ảnh hưởng trang khác.
 - Grammar/Vocabulary: mỗi PR T014 (a/b/c), T015 revert độc lập; URL và frontmatter không đổi nên không cần chuyển hướng.
 - CSP: revert PR CSP riêng của T013 → trang Speaking rơi về nhánh `<video>`/audio, không khung trống (FR-033).

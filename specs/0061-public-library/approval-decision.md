@@ -43,6 +43,12 @@ changed. A second later edit made T018's first publish batch "at most 50
 eligible sets (currently 19)" in `tasks.md` and `rollout.md`, consistent with N1
 staying open; the 10-page QA step is kept.
 
+During T006 review (PR #2415) `plan.md` §5.7 and `rollout.md` were aligned with
+FR-015 and FR-019, which did not change: public JSON routes use
+`Cache-Control: no-cache` (revalidate every use, so a withdrawn set is 404 on
+the next request) instead of the 60 s public cache, and the API returns public
+type codes (`problem-solution`, …) and `task2|task1`, never stored codes.
+
 ## Amendment 1 — the marks route uses `PATCH` instead of `PUT` (2026-11-21)
 
 On 2026-11-21 at 08:28 Asia/Saigon (01:28:29 UTC), anh Andy wrote in the project
