@@ -13,6 +13,7 @@ import logging
 import math
 import uuid
 from pathlib import Path
+from datetime import date
 
 import httpx
 import pytest
@@ -362,7 +363,12 @@ def test_haiku_5_5_long_prompt_multiplier_is_in_the_bound():
     assert est == pytest.approx((120_000 + ai_budget.REQUEST_OVERHEAD_TOKENS) * 0.125 / 1e6 * 5, abs=1e-6)
 
 
-def test_images_add_the_catalog_image_token_bound():
+def test_images_add_the_catalog_image_token_bound(monkeypatch):
+    # gemini-2.5-flash counts image tiles only until Google's 2026-12-01
+    # reroute to 3.5 Flash-Lite; pin the pricing day inside that period.
+    original = ai_pricing._as_date
+    monkeypatch.setattr(ai_pricing, "_as_date",
+                        lambda at=None: date(2026, 11, 22) if at is None else original(at))
     base = ai_budget.estimate("anthropic", "claude-sonnet-5-5", input_tokens=1000, max_tokens=100)
     with_image = ai_budget.estimate("anthropic", "claude-sonnet-5-5", input_tokens=1000, max_tokens=100,
                                     images=[(1400, 1000)])
