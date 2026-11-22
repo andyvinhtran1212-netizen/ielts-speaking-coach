@@ -40,9 +40,9 @@ def db(monkeypatch):
          "created_at": "2026-11-11T08:00:00+00:00", "deleted_at": None},
     ]
     fake.rows["writing_assignments"] = [
-        {"id": "w1", "student_id": S_LAN, "cohort_id": C_A, "essay_id": "e-class"},
-        {"id": "w2", "student_id": S_MINH, "cohort_id": C_B, "essay_id": "e-minh"},
-        {"id": "w3", "student_id": S_LAN, "cohort_id": C_A, "essay_id": None},
+        {"id": "w1", "student_id": S_LAN, "cohort_id": C_A, "essay_id": "e-class", "assigned_by": U_TEACH},
+        {"id": "w2", "student_id": S_MINH, "cohort_id": C_B, "essay_id": "e-minh", "assigned_by": U_TEACH_B},
+        {"id": "w3", "student_id": S_LAN, "cohort_id": C_A, "essay_id": None, "assigned_by": U_TEACH},
     ]
     fake.rows["writing_prompts"] = [{"id": "p1", "title": "Tue–Thu chart: energy use", "task_type": "task1_academic",
                                      "is_active": True}]
@@ -223,7 +223,8 @@ def test_search_writes_nothing(db, monkeypatch):
 
 def test_a_teachers_essay_reads_are_chunked_by_essay(db, monkeypatch):
     """Review N2: a long Writing history never goes into one ``in_`` list."""
-    db.rows["writing_assignments"] += [{"id": f"wx{i}", "student_id": S_LAN, "cohort_id": C_A, "essay_id": f"e-old{i}"}
+    db.rows["writing_assignments"] += [{"id": f"wx{i}", "student_id": S_LAN, "cohort_id": C_A, "essay_id": f"e-old{i}",
+                                        "assigned_by": U_TEACH}
                                        for i in range(450)]
     sizes: list[int] = []
     real_in = db.table("writing_essays").__class__.in_
@@ -237,3 +238,45 @@ def test_a_teachers_essay_reads_are_chunked_by_essay(db, monkeypatch):
     out = _teacher(monkeypatch, db, U_TEACH, "lan")
     assert [r["href"] for r in out["submissions"]] == ["/instructor/grade?essay_id=e-class"]
     assert sizes and max(sizes) <= 200 and sum(sizes) == 451
+
+
+def test_a_teachers_class_work_is_read_past_the_first_page(db, monkeypatch):
+    """Review R3-1: more than one PostgREST page (1,000 rows) of class work
+    for one chunk of learners; the newest essay is on the second page."""
+    db.rows["writing_assignments"] += [{"id": f"wa{i:04d}", "student_id": S_LAN, "cohort_id": C_A,
+                                        "essay_id": f"e-pad{i}", "assigned_by": U_TEACH} for i in range(1200)]
+    db.rows["writing_assignments"].append({"id": "wz-last", "student_id": S_LAN, "cohort_id": C_A,
+                                           "essay_id": "e-newest", "assigned_by": U_TEACH})
+    db.rows["writing_essays"].append({"id": "e-newest", "student_id": S_LAN, "task_type": "task2",
+                                      "status": "pending", "created_at": "2026-11-20T08:00:00+00:00",
+                                      "deleted_at": None})
+    query_cls = db.table("x").__class__
+    real_execute = query_cls.execute
+
+    def capped(self):   # PostgREST answers at most 1,000 rows per request
+        resp = real_execute(self)
+        resp.data = resp.data[:directory._PAGE]
+        return resp
+
+    monkeypatch.setattr(query_cls, "execute", capped)
+    out = _teacher(monkeypatch, db, U_TEACH, "lan")
+    assert [r["href"] for r in out["submissions"]] == ["/instructor/grade?essay_id=e-newest",
+                                                       "/instructor/grade?essay_id=e-class"]
+
+
+def test_a_teacher_sees_only_class_work_their_grading_page_opens(db, monkeypatch):
+    """Review R3-2: an essay given to the teacher's class by someone else
+    opens on /instructor/essays/{id} only when the learner's
+    students.instructor_id is the teacher, so the search follows that rule."""
+    db.rows["writing_assignments"].append({"id": "w-adm", "student_id": S_LAN, "cohort_id": C_A,
+                                           "essay_id": "e-by-admin", "assigned_by": U_ADMIN})
+    db.rows["writing_essays"].append({"id": "e-by-admin", "student_id": S_LAN, "task_type": "task2",
+                                      "status": "pending", "created_at": "2026-11-20T08:00:00+00:00",
+                                      "deleted_at": None})
+    hrefs = lambda: [r["href"] for r in _teacher(monkeypatch, db, U_TEACH, "lan")["submissions"]]
+    assert hrefs() == ["/instructor/grade?essay_id=e-class"]
+    lan = next(s for s in db.rows["students"] if s["id"] == S_LAN)
+    lan["instructor_id"] = U_TEACH_B          # another teacher's Writing learner
+    assert hrefs() == ["/instructor/grade?essay_id=e-class"]
+    lan["instructor_id"] = U_TEACH            # the teacher's own Writing learner
+    assert hrefs() == ["/instructor/grade?essay_id=e-by-admin", "/instructor/grade?essay_id=e-class"]

@@ -9,6 +9,7 @@ Groups, at most three rows each, every row ``{title, meta, href}``:
   for admins or teachers: that lookup stays on ``GET /admin/learners?q=``.
 * ``classes``: ``cohorts`` by name or code prefix.
 * ``submissions``: ``writing_essays`` of the matched learners, newest first.
+  A teacher sees only class work they can open on their grading page.
 * ``content`` (admin only): Writing prompts, Speaking topics, Reading
   passages and Listening tests by title.
 * ``orders`` (admin only): G04 enrollment orders. G04 has no read API yet, so
@@ -115,34 +116,62 @@ def classes(needle: str, *, cohort_ids: Optional[frozenset[str]]) -> list[dict]:
             for r in found[:GROUP_LIMIT]]
 
 
-def submissions(people: list[directory.Person], *, cohort_ids: Optional[frozenset[str]]) -> list[dict]:
+def _teacher_essays(ids: list[str], *, cohort_ids: frozenset[str], viewer_id: Optional[str]) -> list[dict]:
+    """Writing work given to one of the teacher's classes
+    (``writing_assignments.cohort_id``) that the teacher can also open: the
+    grading page (``instructor_access.assert_essay_owned``) needs an assignment
+    the teacher gave, or the essay's learner to have ``students.instructor_id``
+    set to the teacher. Migration 441 does not update the second one when a
+    class changes teacher, so a class essay can fail it. Every read is paged
+    and chunked: nothing is cut at PostgREST's page size."""
+    if not cohort_ids or not viewer_id:
+        return []
+    classes_sorted = sorted(cohort_ids)
+    given: list[dict] = []
+    for offset in range(0, len(ids), _ID_CHUNK):
+        chunk = ids[offset:offset + _ID_CHUNK]
+        given += directory._paged(
+            lambda c=chunk: supabase_admin.table("writing_assignments")
+            .select("id, essay_id, assigned_by").in_("student_id", c)
+            .in_("cohort_id", classes_sorted).not_.is_("essay_id", "null").order("id"))
+    essay_ids = sorted({str(r["essay_id"]) for r in given if r.get("essay_id")})
+    if not essay_ids:
+        return []
+    # Fail closed: only an assignment given to this class counts here, even
+    # if the teacher gave the same essay elsewhere.
+    given_by_me = {str(r["essay_id"]) for r in given if r.get("essay_id") and str(r.get("assigned_by")) == viewer_id}
+    essays: list[dict] = []
+    for offset in range(0, len(essay_ids), _ID_CHUNK):
+        chunk = essay_ids[offset:offset + _ID_CHUNK]
+        essays += directory._paged(
+            lambda c=chunk: supabase_admin.table("writing_essays").select("id, student_id, task_type, status, created_at")
+            .in_("id", c).is_("deleted_at", "null").order("id"))
+    others = sorted({str(e["student_id"]) for e in essays if e.get("student_id") and str(e["id"]) not in given_by_me})
+    mine: set[str] = set()
+    for offset in range(0, len(others), _ID_CHUNK):
+        rows = (supabase_admin.table("students").select("id").in_("id", others[offset:offset + _ID_CHUNK])
+                .eq("instructor_id", viewer_id).execute().data or [])
+        mine |= {str(r["id"]) for r in rows if r.get("id")}
+    return [e for e in essays if str(e["id"]) in given_by_me or str(e.get("student_id")) in mine]
+
+
+def submissions(people: list[directory.Person], *, cohort_ids: Optional[frozenset[str]],
+                viewer_id: Optional[str] = None) -> list[dict]:
     # Every matched learner: the three newest essays may belong to anyone in
     # the match, not only to the first names in alphabetical order.
     by_student = {p.student_id: p for p in people if p.student_id}
     if not by_student:
         return []
     ids = list(by_student)
-    essay_ids: Optional[set[str]] = None
-    if cohort_ids is not None:
-        # A teacher: only Writing work given to one of their classes.
-        if not cohort_ids:
-            return []
-        essay_ids = set()
-        for offset in range(0, len(ids), _ID_CHUNK):
-            given = (supabase_admin.table("writing_assignments").select("essay_id, cohort_id")
-                     .in_("student_id", ids[offset:offset + _ID_CHUNK])
-                     .in_("cohort_id", sorted(cohort_ids)).not_.is_("essay_id", "null").execute().data or [])
-            essay_ids |= {str(r["essay_id"]) for r in given if r.get("essay_id")}
-        if not essay_ids:
-            return []
-    # Chunked by learner (admin) or by essay (teacher, already limited to the
-    # matched learners' class work), so no URL grows with the history.
-    column, keys = ("student_id", ids) if essay_ids is None else ("id", sorted(essay_ids))
     essays: list[dict] = []
-    for offset in range(0, len(keys), _ID_CHUNK):
-        essays += (supabase_admin.table("writing_essays").select("id, student_id, task_type, status, created_at")
-                   .in_(column, keys[offset:offset + _ID_CHUNK]).is_("deleted_at", "null")
-                   .order("created_at", desc=True).limit(GROUP_LIMIT).execute().data or [])
+    if cohort_ids is None:
+        # An admin: chunked by learner, the newest three of each chunk.
+        for offset in range(0, len(ids), _ID_CHUNK):
+            essays += (supabase_admin.table("writing_essays").select("id, student_id, task_type, status, created_at")
+                       .in_("student_id", ids[offset:offset + _ID_CHUNK]).is_("deleted_at", "null")
+                       .order("created_at", desc=True).limit(GROUP_LIMIT).execute().data or [])
+    else:
+        essays = _teacher_essays(ids, cohort_ids=cohort_ids, viewer_id=viewer_id)
     essays.sort(key=lambda e: (str(e.get("created_at") or ""), str(e.get("id"))), reverse=True)
     rows = []
     for e in essays[:GROUP_LIMIT]:
@@ -195,8 +224,10 @@ def content(needle: str) -> tuple[list[dict], list[str]]:
 
 # ── Entry point ────────────────────────────────────────────────────────────
 
-def search(q: str, *, cohort_ids: Optional[frozenset[str]], hide_test: bool) -> dict[str, Any]:
-    """``cohort_ids`` None: an admin. Otherwise a teacher's classes."""
+def search(q: str, *, cohort_ids: Optional[frozenset[str]], hide_test: bool,
+           viewer_id: Optional[str] = None) -> dict[str, Any]:
+    """``cohort_ids`` None: an admin. Otherwise a teacher's classes, and
+    ``viewer_id`` is that teacher (their submissions must open for them)."""
     needle = directory.fold(q)
     failed: list[str] = []
     out: dict[str, Any] = {"learners": [], "classes": [], "submissions": []}
@@ -222,7 +253,7 @@ def search(q: str, *, cohort_ids: Optional[frozenset[str]], hide_test: bool) -> 
     if "learners" in failed:
         failed.append("submissions")
     else:
-        out["submissions"] = attempt("submissions", lambda: submissions(people, cohort_ids=cohort_ids), [])
+        out["submissions"] = attempt("submissions", lambda: submissions(people, cohort_ids=cohort_ids, viewer_id=viewer_id), [])
     out["classes"] = attempt("classes", lambda: classes(needle, cohort_ids=cohort_ids), [])
     unavailable: list[str] = []
     if cohort_ids is None:

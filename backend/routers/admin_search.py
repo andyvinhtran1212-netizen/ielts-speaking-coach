@@ -37,9 +37,10 @@ def _query(q: str) -> str:
     return q
 
 
-async def _run(q: str, *, role: str, cohort_ids, hide: bool) -> dict:
+async def _run(q: str, *, role: str, cohort_ids, hide: bool, viewer_id=None) -> dict:
     try:
-        out = await asyncio.to_thread(admin_search.search, q, cohort_ids=cohort_ids, hide_test=hide)
+        out = await asyncio.to_thread(admin_search.search, q, cohort_ids=cohort_ids, hide_test=hide,
+                                      viewer_id=viewer_id)
     except Exception as exc:
         logger.exception("admin search: search failed")
         raise HTTPException(503, {"code": "search_unavailable",
@@ -65,7 +66,8 @@ async def search_instructor(q: str = Query(default="", max_length=admin_search.M
     scope = await resolve_staff_scope(authorization)
     q = _query(q)
     hide = await asyncio.to_thread(test_data_visibility.hide_for, user_id=scope.user_id, is_admin=scope.is_admin)
-    out = await _run(q, role=scope.role, cohort_ids=scope.cohort_ids, hide=hide)
+    out = await _run(q, role=scope.role, cohort_ids=scope.cohort_ids, hide=hide,
+                     viewer_id=scope.user_id)
     # An admin on the teacher door still gets the teacher shape.
     shaped = {k: out[k] for k in InstructorSearchOut.model_fields}
     shaped["unavailable"] = []   # orders are not part of this door
