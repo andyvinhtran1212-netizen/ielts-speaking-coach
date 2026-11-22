@@ -3328,6 +3328,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search Admin */
+        get: operations["search_admin_admin_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/instructor/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search Instructor */
+        get: operations["search_instructor_instructor_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/learners/{ref}/overview": {
         parameters: {
             query?: never;
@@ -14075,6 +14109,23 @@ export interface components {
             /** Session Band */
             session_band: number | null;
         };
+        /** AdminSearchOut */
+        AdminSearchOut: {
+            /** Learners */
+            learners: components["schemas"]["SearchHit"][];
+            /** Classes */
+            classes: components["schemas"]["SearchHit"][];
+            /** Submissions */
+            submissions: components["schemas"]["SearchHit"][];
+            /** Sources Failed */
+            sources_failed: string[];
+            /** Unavailable */
+            unavailable: "orders"[];
+            /** Content */
+            content: components["schemas"]["SearchHit"][];
+            /** Orders */
+            orders: components["schemas"]["SearchHit"][];
+        };
         /** AdminSessionRegradeResponse */
         AdminSessionRegradeResponse: {
             /** Ok */
@@ -18814,6 +18865,19 @@ export interface components {
          * @enum {string}
          */
         InstructorReviewStatus: "queued" | "claimed" | "edited" | "delivered" | "released";
+        /** InstructorSearchOut */
+        InstructorSearchOut: {
+            /** Learners */
+            learners: components["schemas"]["SearchHit"][];
+            /** Classes */
+            classes: components["schemas"]["SearchHit"][];
+            /** Submissions */
+            submissions: components["schemas"]["SearchHit"][];
+            /** Sources Failed */
+            sources_failed: string[];
+            /** Unavailable */
+            unavailable: "orders"[];
+        };
         /** InsufficientEvidenceResponse */
         InsufficientEvidenceResponse: {
             /** Attribute Id */
@@ -21943,6 +22007,15 @@ export interface components {
             dow: number;
             /** Start */
             start: string;
+        };
+        /** SearchHit */
+        SearchHit: {
+            /** Title */
+            title: string;
+            /** Meta */
+            meta: string | null;
+            /** Href */
+            href: string;
         };
         /** SectionSubmitBody */
         SectionSubmitBody: {
@@ -30189,6 +30262,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LearnerDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_admin_admin_search_get: {
+        parameters: {
+            query?: {
+                q?: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminSearchOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_instructor_instructor_search_get: {
+        parameters: {
+            query?: {
+                q?: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstructorSearchOut"];
                 };
             };
             /** @description Validation Error */

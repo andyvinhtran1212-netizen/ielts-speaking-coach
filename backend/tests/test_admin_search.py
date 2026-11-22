@@ -1,0 +1,199 @@
+"""G09-T05 (ADMINIA-0074 FR-075, FR-102): quick search for admins and teachers.
+
+Runs the real service (services/admin_search.py over the T03 directory) and
+routes (routers/admin_search.py) over the in-memory stand-in of the T03
+tests. All names and addresses are made up; no AI or network call.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+from unittest.mock import AsyncMock
+
+import pytest
+from fastapi import HTTPException
+
+from routers import admin_search as mod
+from services import admin_learner_directory as directory
+from services import admin_search, staff_scope, test_data_visibility
+from tests.test_admin_learners import C_A, C_B, S_LAN, S_MINH, U_ADMIN, U_LAN, U_MINH, U_TEACH, U_TEACH_B, _as, _DB
+
+EMPTY = {"learners": [], "classes": [], "submissions": []}
+
+
+@pytest.fixture
+def db(monkeypatch):
+    fake = _DB()
+    fake.rows["cohorts"][0].update(code_prefix="TT19", is_active=True)
+    fake.rows["cohorts"][1].update(code_prefix="SS09", is_active=True)
+    fake.rows["writing_essays"] = [
+        # Lan: one essay given to class A, one practice essay of her own.
+        {"id": "e-class", "student_id": S_LAN, "task_type": "task2", "status": "delivered",
+         "created_at": "2026-11-10T08:00:00+00:00", "deleted_at": None},
+        {"id": "e-practice", "student_id": S_LAN, "task_type": "task1_academic", "status": "graded",
+         "created_at": "2026-11-12T08:00:00+00:00", "deleted_at": None},
+        {"id": "e-gone", "student_id": S_LAN, "task_type": "task2", "status": "delivered",
+         "created_at": "2026-11-13T08:00:00+00:00", "deleted_at": "2026-11-14T08:00:00+00:00"},
+        # Minh: work given to class B.
+        {"id": "e-minh", "student_id": S_MINH, "task_type": "task2", "status": "pending",
+         "created_at": "2026-11-11T08:00:00+00:00", "deleted_at": None},
+    ]
+    fake.rows["writing_assignments"] = [
+        {"id": "w1", "student_id": S_LAN, "cohort_id": C_A, "essay_id": "e-class"},
+        {"id": "w2", "student_id": S_MINH, "cohort_id": C_B, "essay_id": "e-minh"},
+        {"id": "w3", "student_id": S_LAN, "cohort_id": C_A, "essay_id": None},
+    ]
+    fake.rows["writing_prompts"] = [{"id": "p1", "title": "Tue–Thu chart: energy use", "task_type": "task1_academic",
+                                     "is_active": True}]
+    fake.rows["topics"] = [{"id": "t1", "title": "Hometown", "part": 1, "is_active": True}]
+    fake.rows["reading_passages"] = [{"id": "r1", "title": "The history of tea", "library": "l2_skill"}]
+    fake.rows["listening_tests"] = [{"id": "l1", "title": "Cambridge 18 Test 1", "test_id": "C18-T1"}]
+    for module in (directory, admin_search, staff_scope):
+        monkeypatch.setattr(module, "supabase_admin", fake)
+    monkeypatch.setattr(test_data_visibility, "hide_for", lambda **_k: False)
+    monkeypatch.setattr(mod, "require_admin", AsyncMock(return_value={"id": U_ADMIN, "email": "admin@example.test"}))
+    return fake
+
+
+def _admin(q):
+    return asyncio.run(mod.search_admin(q=q, authorization="Bearer x"))
+
+
+def _teacher(monkeypatch, db, user_id, q):
+    _as(monkeypatch, db, user_id)
+    return asyncio.run(mod.search_instructor(q=q, authorization="Bearer x"))
+
+
+def _titles(out, group):
+    return [row["title"] for row in out[group]]
+
+
+def test_admin_finds_each_group_without_accents(db):
+    out = _admin("lan")
+    assert _titles(out, "learners") == ["Nguyễn Thị Lan"]
+    assert out["learners"][0] == {"title": "Nguyễn Thị Lan", "meta": "HV001 · Tue–Thu 19:30",
+                                  "href": f"/admin/learners/u-{U_LAN}"}
+    # Newest first; a deleted essay is not listed.
+    assert [r["href"] for r in out["submissions"]] == ["/admin/writing/grade?essay_id=e-practice",
+                                                      "/admin/writing/grade?essay_id=e-class"]
+    assert out["submissions"][1]["title"] == "Writing · Task 2 · Nguyễn Thị Lan"
+    assert out["orders"] == [] and out["unavailable"] == ["orders"] and out["sources_failed"] == []
+
+    assert _titles(_admin("tue thu"), "classes") == []   # "–" is not a space
+    classes = _admin("tue–thu")
+    assert classes["classes"] == [{"title": "Tue–Thu 19:30", "meta": "TT19", "href": f"/admin/classes/{C_A}"}]
+    assert _titles(classes, "content") == ["Tue–Thu chart: energy use"]
+    assert _titles(_admin("ss09"), "classes") == ["Sat–Sun 09:00"]
+    assert [r["href"] for r in _admin("tea")["content"]] == ["/admin/reading/content?passage_id=r1"]
+    assert _admin("c18")["content"] == []    # titles only
+    assert _admin("cambridge")["content"][0]["meta"] == "Đề Listening · C18-T1"
+
+
+def test_every_group_has_at_most_three_rows(db):
+    db.rows["cohorts"] += [{"id": f"30000000-0000-0000-0000-0000000000c{i}", "name": f"Lớp tối {i}",
+                            "code_prefix": None, "is_active": True} for i in range(5)]
+    db.rows["writing_essays"] += [{"id": f"e-x{i}", "student_id": S_LAN, "task_type": "task2", "status": "pending",
+                                   "created_at": f"2026-11-0{i + 1}T08:00:00+00:00", "deleted_at": None}
+                                  for i in range(5)]
+    assert len(_admin("lop toi")["classes"]) == 3
+    assert len(_admin("lan")["submissions"]) == 3
+
+
+def test_a_teacher_sees_only_their_classes(db, monkeypatch):
+    """Acceptance: teacher A does not see a learner of class B."""
+    a = _teacher(monkeypatch, db, U_TEACH, "tran van minh")
+    assert a["learners"] == [] and a["submissions"] == []
+    a = _teacher(monkeypatch, db, U_TEACH, "sat")
+    assert a["classes"] == []
+    assert set(a) == {"learners", "classes", "submissions", "sources_failed", "unavailable"}
+
+    b = _teacher(monkeypatch, db, U_TEACH_B, "minh")
+    assert b["learners"] == [{"title": "Trần Văn Minh", "meta": "HV002 · Sat–Sun 09:00",
+                              "href": f"/instructor?tab=students&learner=u-{U_MINH}"}]
+    assert [r["href"] for r in b["submissions"]] == ["/instructor?tab=grading&essay_id=e-minh"]
+    assert _teacher(monkeypatch, db, U_TEACH_B, "lan")["learners"] == []
+
+
+def test_a_teacher_sees_class_work_not_practice_essays(db, monkeypatch):
+    out = _teacher(monkeypatch, db, U_TEACH, "lan")
+    assert _titles(out, "learners") == ["Nguyễn Thị Lan"]
+    assert [r["href"] for r in out["submissions"]] == ["/instructor?tab=grading&essay_id=e-class"]
+    assert out["classes"] == []   # "lan" names no class
+
+
+def test_a_teacher_without_a_class_finds_nothing(db, monkeypatch):
+    for c in db.rows["cohorts"]:
+        c["instructor_id"] = None
+    out = _teacher(monkeypatch, db, U_TEACH, "lan")
+    assert {k: out[k] for k in EMPTY} == EMPTY and out["sources_failed"] == []
+
+
+@pytest.mark.parametrize("q", ["", "a", " a ", "đ"])
+def test_a_query_under_two_characters_is_422(db, monkeypatch, q):
+    with pytest.raises(HTTPException) as caught:
+        _admin(q)
+    assert caught.value.status_code == 422 and caught.value.detail["code"] == "query_too_short"
+    with pytest.raises(HTTPException) as caught:
+        _teacher(monkeypatch, db, U_TEACH, q)
+    assert caught.value.status_code == 422
+
+
+@pytest.mark.parametrize("q", ["%%", "__", "%a", "l_n", "**", "*n"])
+def test_like_wildcards_are_plain_characters(db, q):
+    out = _admin(q)
+    for group in ("learners", "classes", "submissions", "content"):
+        assert out[group] == [], (q, group)
+
+
+def test_a_failed_group_is_named_and_the_others_still_answer(db):
+    db.fail.add("writing_essays")
+    out = _admin("lan")
+    assert out["sources_failed"] == ["submissions"] and out["submissions"] == []
+    assert _titles(out, "learners") == ["Nguyễn Thị Lan"]
+    db.fail = {"listening_tests"}
+    out = _admin("tue–thu")
+    assert out["sources_failed"] == ["content:listening_tests"]
+    assert _titles(out, "content") == ["Tue–Thu chart: energy use"]
+
+
+def test_an_unreadable_teacher_roster_is_never_shown_as_no_result(db, monkeypatch):
+    db.fail.add("student_cohort_memberships")
+    out = _teacher(monkeypatch, db, U_TEACH, "lan")
+    assert out["sources_failed"] == ["learners", "submissions"]
+    assert out["learners"] == [] and out["submissions"] == []
+
+
+def test_an_unreadable_teacher_scope_fails_closed(db, monkeypatch):
+    db.fail.add("cohorts")
+    with pytest.raises(HTTPException) as caught:
+        _teacher(monkeypatch, db, U_TEACH, "lan")
+    assert caught.value.status_code == 503
+
+
+def test_roles(db, monkeypatch):
+    with pytest.raises(HTTPException) as caught:
+        _teacher(monkeypatch, db, U_LAN, "lan")
+    assert caught.value.status_code == 403
+    admin_door = _teacher(monkeypatch, db, U_ADMIN, "minh")   # an admin on the teacher door
+    assert _titles(admin_door, "learners") == ["Trần Văn Minh"] and "content" not in admin_door
+    assert admin_door["unavailable"] == []
+    monkeypatch.setattr(mod, "require_admin", AsyncMock(side_effect=HTTPException(403, "admin only")))
+    with pytest.raises(HTTPException) as caught:
+        _admin("lan")
+    assert caught.value.status_code == 403
+
+
+def test_the_log_line_never_holds_the_query(db, monkeypatch, caplog):
+    with caplog.at_level(logging.INFO, logger="routers.admin_search"):
+        _admin("nguyen thi lan")
+        _teacher(monkeypatch, db, U_TEACH, "nguyen thi lan")
+    lines = [r.getMessage() for r in caplog.records if r.name == "routers.admin_search"]
+    assert len(lines) == 2 and all("admin_search" in line and "q_len=14" in line for line in lines)
+    assert not any("nguyen" in line.lower() or "lan" in line.lower() for line in lines)
+
+
+def test_search_writes_nothing(db, monkeypatch):
+    _admin("lan")
+    _teacher(monkeypatch, db, U_TEACH, "lan")
+    assert db.writes == []
