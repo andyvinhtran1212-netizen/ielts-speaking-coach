@@ -24,6 +24,8 @@ EXPECTED = {
     "writing-images": (5242880, ("image/png", "image/jpeg", "image/webp")),
     "vocab-audio": (5242880, ("audio/mpeg",)),
 }
+# Migration 400 bucket; kept apart because the 343/362 tests replay EXPECTED.
+LIBRARY_MEDIA = (10485760, ("image/png", "image/webp", "audio/mpeg", "audio/mp4"))
 
 
 def assert_refusal(exc, status, bucket, maximum=None, allowed=None):
@@ -49,7 +51,7 @@ def upload_file(data, filename="image.png", content_type="image/png"):
 
 @pytest.mark.parametrize("bucket", EXPECTED)
 def test_policy_boundaries_and_wrong_types(bucket):
-    assert limits.BUCKET_LIMITS == EXPECTED
+    assert limits.BUCKET_LIMITS == {**EXPECTED, "library-media": LIBRARY_MEDIA}
     maximum, types = EXPECTED[bucket]
     for content_type in types:
         limits.check_upload(bucket, maximum, content_type.replace("*", "x-custom") + ";codecs=opus")

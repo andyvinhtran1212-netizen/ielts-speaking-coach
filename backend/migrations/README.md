@@ -28,7 +28,7 @@ taken from the reserve band 501+ of the commercialization register); 381 and 382
 (Leader decision, 2026-11-18), and 383–389 plus 502 belong to COURSEACCESS-0055
 (383 and 384 present; 385, 387, 388, 389 and 502 reserved; 386 abandoned; Andy,
 2026-11-20, `specs/0055-course-access-credits-enrollment/approval-decision.md`),
-so the next new migration is `503`. The free numbers below 501 (bands 400–499
+so the next new migration is `503`. The free numbers below 501 (bands 401–499
 and 500) are assigned only by the Leader from the commercialization register;
 the PR that takes one adds its row.
 `383` is `pending_feature course_commerce` (COURSEACCESS-0055 T001, spec label
@@ -55,6 +55,10 @@ per-user write takes a transaction advisory lock; a trigger ties an order's
 same run. The rollback drops the RPCs, keeps every table and row, and refuses
 while `credit_ledger` has rows unless `aver.allow_commerce_rollback = 'on'`.
 `380` is Skill Drill homework, #2294.
+`400` is `pending_feature public_library` (LIBRARY-0061 T002, G06 band 400–419):
+five RLS-only Library tables reached only through service_role and the private
+`library-media` bucket guarded by a RESTRICTIVE `storage.objects` policy; the schema
+rollback refuses while any Library content, slug history, mark or bucket object exists.
 `501` is `pending_feature course_bank_service_write`: since 309 its CHECK
 `quiz_banks_grammar_revision_shape` calls `grammar_quiz_allowed_code`, whose
 EXECUTE the 309/314/339 blanket loops revoke from service_role, so every

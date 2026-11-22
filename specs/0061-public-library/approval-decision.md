@@ -43,4 +43,26 @@ changed. A second later edit made T018's first publish batch "at most 50
 eligible sets (currently 19)" in `tasks.md` and `rollout.md`, consistent with N1
 staying open; the 10-page QA step is kept.
 
+## Amendment 1 — the marks route uses `PATCH` instead of `PUT` (2026-11-21)
+
+On 2026-11-21 at 08:28 Asia/Saigon (01:28:29 UTC), anh Andy wrote in the project
+chat of the Averlearning Claude Code project, verbatim:
+
+> duyệt spec 0078; duyệt PATCH 0074 0061; đồng ý Q-b1 theo đợt
+
+This approves "PATCH 0061": the Library marks route `PUT /me/marks/{shelf}/{kind}`
+becomes `PATCH /me/marks/{shelf}/{kind}`. The path, the JSON body `{item_key}`,
+the `204` response, idempotency ("twice → one row") and the 404 rule are unchanged,
+and so is every requirement. Changed (sha256 before this amendment):
+
+- `plan.md` line 138, §5.4 route table (`165e526d228028603066c6979dca8597349ddbae33ccd14d5cd307801009e340`);
+- `spec.md` line 239, "`PATCH` dấu hai lần → một hàng" (`3af26be976f7e1cf2bf3c604695ef24e6f90c02e35d4643fa2171bbc318a352a`);
+- `tasks.md` T016, `GET/PATCH/DELETE /api/library/me/marks…` (`5ac33ff302de74499d531169e99cde10d68d881c217c5eff8684a3e7924129a6`);
+- `verification.md` FR-061 row, "PATCH hai lần một hàng" (`71d9aee0f492de68102a0d3e3150b820f571d631e06d5fad5385d05ac5ffb918`).
+
+Reason: the backend CORS allow-list (`backend/main.py` `_CORS_METHODS` =
+GET, POST, PATCH, DELETE, OPTIONS) has no `PUT`, so a browser preflight for a `PUT`
+route fails. #2393 already shipped `PATCH /admin/settings/thresholds`. The GOI docs
+were changed the same way in #2423 (GOI-09/11) and #2424 (GOI-06/07/12/13).
+
 No learner data is included here.
