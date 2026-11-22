@@ -8,6 +8,7 @@ milestones) is ``null`` too, and is never reported as failed.
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict
@@ -50,6 +51,38 @@ class OverviewGoal(_StrictOut):
     conflict: bool
     # Overall of the latest released mock exam with all four skills.
     estimated_band: Optional[float]
+
+
+class _SeenAdminGoal(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    target_band: Optional[float]
+    target_date: Optional[date]
+
+
+class _SeenLearnerGoal(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    target_band: Optional[float]
+    exam_date: Optional[date]
+
+
+class GoalSeen(BaseModel):
+    """Both goals as the page showed them (the overview's goal.admin and
+    goal.learner, every field present, null included)."""
+    model_config = ConfigDict(extra="forbid")
+    admin: _SeenAdminGoal
+    learner: _SeenLearnerGoal
+
+
+class GoalResolveIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    use: Literal["admin", "learner"]
+    # Compared under the row locks: a goal that changed since is refused.
+    seen: GoalSeen
+
+
+class GoalResolveOut(_StrictOut):
+    # The goal block read back after the write (both sources now agree).
+    goal: OverviewGoal
 
 
 class OverviewContinuity(_StrictOut):
