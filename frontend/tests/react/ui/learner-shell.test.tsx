@@ -7,7 +7,7 @@ vi.mock('next/navigation', () => ({ usePathname: () => nav.pathname }));
 
 import { LearnerShell, type LearnerShellProps } from '@/components/ui/shell/learner-shell';
 import { useLearnerShellPanel } from '@/components/ui/shell/learner-panel';
-import { LOOKUP_EMPTY, type LookupGroup } from '@/components/ui/shell/quick-lookup';
+import { LOOKUP_EMPTY, LOOKUP_FAILED, type LookupGroup } from '@/components/ui/shell/quick-lookup';
 
 const USER = { name: 'Trần Quốc Bảo', email: 'quocbao@example.com', initials: 'QB' };
 const GROUPS: LookupGroup[] = [
@@ -42,7 +42,7 @@ const sections = () => screen.getByRole('navigation', { name: 'Mục chính' });
 const accountButton = () => screen.getByRole('button', { name: `Tài khoản: ${USER.name}` });
 
 beforeEach(() => { nav.pathname = '/speaking'; });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe('sections', () => {
   it('shows the five fixed sections, in order, on the bar and the phone bar', () => {
@@ -196,6 +196,35 @@ describe('slots and credits', () => {
   });
 });
 
+describe('account menu on a phone', () => {
+  it('is a modal sheet: Tab and Shift+Tab stay inside, Esc closes from anywhere, focus returns', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query === '(max-width: 767px)', media: query,
+      addEventListener: () => {}, removeEventListener: () => {},
+    }));
+    // jsdom has no layout; report a box so the trap sees the controls as visible.
+    vi.spyOn(Element.prototype, 'getClientRects').mockReturnValue([{}] as unknown as DOMRectList);
+    renderShell();
+    fireEvent.click(accountButton());
+    const sheet = screen.getByRole('dialog', { name: 'Tài khoản' });
+    expect(sheet.getAttribute('aria-modal')).toBe('true');
+
+    const close = within(sheet).getByRole('button', { name: 'Đóng' });
+    const first = within(sheet).getAllByRole('link')[0];
+    close.focus();
+    fireEvent.keyDown(document.activeElement!, { key: 'Tab' });
+    expect(document.activeElement).toBe(first);
+    fireEvent.keyDown(document.activeElement!, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(close);
+
+    // Focus somewhere outside the sheet's wrapper: Esc still closes it.
+    (document.activeElement as HTMLElement).blur();
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'Tài khoản' })).toBeNull();
+    expect(document.activeElement).toBe(accountButton());
+  });
+});
+
 describe('quick lookup', () => {
   it('"/" opens it with focus in the field, but not while typing in a field', () => {
     renderShell({ lookup: async () => [] });
@@ -236,5 +265,35 @@ describe('quick lookup', () => {
       fireEvent.change(screen.getByRole('combobox', { name: 'Tra nhanh' }), { target: { value: 'zzz' } });
     });
     expect(screen.getByRole('status').textContent).toBe(LOOKUP_EMPTY);
+  });
+
+  it('a failed search says so and is not "Không thấy kết quả"', async () => {
+    renderShell({ lookup: () => Promise.reject(new Error('offline')) });
+    fireEvent.click(screen.getByRole('button', { name: 'Tra nhanh (phím /)' }));
+    await act(async () => {
+      fireEvent.change(screen.getByRole('combobox', { name: 'Tra nhanh' }), { target: { value: 'agr' } });
+    });
+    expect(screen.getByRole('alert').textContent).toBe(LOOKUP_FAILED);
+    expect(screen.queryByText(LOOKUP_EMPTY)).toBeNull();
+    expect(screen.queryByRole('listbox')).toBeNull();
+  });
+
+  it('a request still pending when the panel closes cannot refill it or be opened with Enter', async () => {
+    const assign = vi.fn();
+    vi.stubGlobal('location', { ...window.location, assign });
+    let resolve: (groups: LookupGroup[]) => void = () => {};
+    renderShell({ lookup: () => new Promise<LookupGroup[]>((done) => { resolve = done; }) });
+    const trigger = screen.getByRole('button', { name: 'Tra nhanh (phím /)' });
+    fireEvent.click(trigger);
+    fireEvent.change(screen.getByRole('combobox', { name: 'Tra nhanh' }), { target: { value: 'agr' } });
+    fireEvent.keyDown(screen.getByRole('combobox', { name: 'Tra nhanh' }), { key: 'Escape' });
+    await act(async () => { resolve([{ group: 'grammar', items: [{ title: 'SVA', href: '/g/sva' }] }]); });
+
+    fireEvent.click(trigger);
+    const box = screen.getByRole('combobox', { name: 'Tra nhanh' });
+    expect(box).toHaveProperty('value', '');
+    expect(screen.queryByRole('listbox')).toBeNull();
+    fireEvent.keyDown(box, { key: 'Enter' });
+    expect(assign).not.toHaveBeenCalled();
   });
 });

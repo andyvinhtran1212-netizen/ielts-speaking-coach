@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 
 import { signOutFromShell } from '@/lib/auth/shell-sign-out';
+import { useDialogFocus } from '@/lib/use-dialog-focus';
 
 import { ThemeChoiceGroup } from '../theme-choice';
 import { useLearnerShellPanel } from './learner-panel';
@@ -22,18 +23,41 @@ export type AccountMenuProps = {
  * email on top, then Tiến độ · Khoá học và lượt AI · Hồ sơ · Trợ giúp ·
  * (Đổi vai trò, admins only, no gap otherwise) · theme · Đăng xuất below a rule.
  * A 288px popover from 768px; a bottom sheet with "Đóng" on a phone. Closes on
- * the button, a click outside or Esc, and focus returns to the button.
+ * the button, a click outside or Esc, and focus returns to the button. The
+ * phone sheet is modal (focus trap, Esc from anywhere, no page scroll).
  */
+const PHONE = '(max-width: 767px)';
+
+/** True below 768px, where the menu is a modal bottom sheet. */
+function usePhoneSheet() {
+  const [phone, setPhone] = useState(false);
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return undefined;
+    const query = window.matchMedia(PHONE);
+    const update = () => setPhone(query.matches);
+    update();
+    query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, []);
+  return phone;
+}
+
 export function AccountMenu({ user, canSwitchToAdmin }: AccountMenuProps) {
   const [open, setOpen] = useLearnerShellPanel('account');
   const [signingOut, setSigningOut] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
   const menuId = useId();
+  const phone = usePhoneSheet();
 
   const close = (refocus: boolean) => {
     setOpen(false);
     if (refocus) wrap.current?.querySelector<HTMLButtonElement>('[data-account-trigger]')?.focus();
   };
+
+  // Phone: the sheet is modal. Tab stays inside, Esc closes from anywhere,
+  // the page does not scroll behind it and focus returns to the button.
+  useDialogFocus({ open: open && phone, onClose: () => close(true), dialogRef: menu });
 
   // Focus the first entry when the menu opens.
   useEffect(() => {
@@ -51,7 +75,7 @@ export function AccountMenu({ user, canSwitchToAdmin }: AccountMenuProps) {
   }, [open, setOpen]);
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (open && event.key === 'Escape') {
+    if (open && !phone && event.key === 'Escape') {
       event.preventDefault();
       close(true);
     }
@@ -79,7 +103,15 @@ export function AccountMenu({ user, canSwitchToAdmin }: AccountMenuProps) {
       {open ? (
         <>
           <div className={styles.backdrop} data-account-backdrop="" aria-hidden="true" />
-          <div id={menuId} className={styles.accountMenu} data-account-menu="" role="dialog" aria-label="Tài khoản">
+          <div
+            ref={menu}
+            id={menuId}
+            className={styles.accountMenu}
+            data-account-menu=""
+            role="dialog"
+            aria-label="Tài khoản"
+            aria-modal={phone || undefined}
+          >
             <div className={styles.accountHead}>
               <p className={styles.accountName}>{user.name}</p>
               {canSwitchToAdmin ? <span className={styles.adminTag}>Admin</span> : null}

@@ -18,6 +18,7 @@ const GROUPS: readonly { id: LookupGroupId; label: string }[] = [
 ];
 const ROWS_PER_GROUP = 2;
 export const LOOKUP_EMPTY = 'Không thấy kết quả. Thử từ khác hoặc vào Thư viện.';
+export const LOOKUP_FAILED = 'Chưa tra được. Kiểm tra kết nối mạng rồi gõ lại.';
 
 function isTyping(target: EventTarget | null) {
   const el = target as HTMLElement | null;
@@ -37,6 +38,7 @@ export function QuickLookup({ lookup }: { lookup: LookupFn }) {
   const [query, setQuery] = useState('');
   const [groups, setGroups] = useState<readonly LookupGroup[] | null>(null);
   const [active, setActive] = useState(-1);
+  const [failed, setFailed] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const seq = useRef(0);
@@ -49,9 +51,12 @@ export function QuickLookup({ lookup }: { lookup: LookupFn }) {
   const flat = shown.flatMap((g) => g.items);
 
   const close = (refocus: boolean) => {
+    // A request still in flight must not refill the panel after it closes.
+    seq.current += 1;
     setOpen(false);
     setQuery('');
     setGroups(null);
+    setFailed(false);
     setActive(-1);
     if (refocus) wrap.current?.querySelector<HTMLButtonElement>('[data-lookup-trigger]')?.focus();
   };
@@ -83,11 +88,13 @@ export function QuickLookup({ lookup }: { lookup: LookupFn }) {
   const search = (value: string) => {
     setQuery(value);
     setActive(-1);
+    setFailed(false);
     const id = ++seq.current;
     if (!value.trim()) { setGroups(null); return; }
     lookup(value.trim()).then(
       (result) => { if (id === seq.current) setGroups(result); },
-      () => { if (id === seq.current) setGroups([]); },
+      // A failed search is not an empty one: say so instead of "Không thấy kết quả".
+      () => { if (id === seq.current) { setGroups(null); setFailed(true); } },
     );
   };
 
@@ -135,6 +142,9 @@ export function QuickLookup({ lookup }: { lookup: LookupFn }) {
             onChange={(event) => search(event.target.value)}
             onKeyDown={onKeyDown}
           />
+          {failed ? (
+            <p className={styles.lookupEmpty} role="alert">{LOOKUP_FAILED}</p>
+          ) : null}
           {groups !== null ? (
             <div id={listId} role="listbox" aria-label="Gợi ý" className={styles.lookupList}>
               {shown.length === 0 ? (
