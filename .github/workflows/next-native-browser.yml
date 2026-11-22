@@ -70,6 +70,8 @@ jobs:
           filters: |
             run_tests:
               - 'frontend/app/(public-content)/**'
+              - 'frontend/app/(public-v2)/**'
+              - 'frontend/tests/visual/**'
               - 'frontend/app/(marketing)/page.tsx'
               - 'frontend/app/(authed-vocab-curated)/**'
               - 'frontend/app/(marketing)/pricing/**'
