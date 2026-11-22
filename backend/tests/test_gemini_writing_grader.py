@@ -172,10 +172,30 @@ def test_parse_response_coerces_bare_list_wrapped_fields(grader):
 
 # ── _calculate_cost (planner-verified pricing) ───────────────────────
 
-def test_calculate_cost_pro_model(grader):
-    """gemini-2.5-pro: 3000 input @ $1.25/M + 2000 output @ $10/M."""
+def _pin_pricing_day(monkeypatch, day):
+    from services import ai_pricing
+
+    original = ai_pricing._as_date
+    monkeypatch.setattr(ai_pricing, "_as_date", lambda at=None: day if at is None else original(at))
+
+
+def test_calculate_cost_pro_model(grader, monkeypatch):
+    """gemini-2.5-pro before Google's 2026-12-01 reroute: 3000 input @ $1.25/M + 2000 output @ $10/M."""
+    from datetime import date
+
+    _pin_pricing_day(monkeypatch, date(2026, 11, 30))
     cost = grader._calculate_cost("gemini-2.5-pro", tokens_in=3000, tokens_out=2000)
     expected = (3000 / 1_000_000) * 1.25 + (2000 / 1_000_000) * 10.00
+    assert abs(cost - expected) < 1e-6
+
+
+def test_calculate_cost_pro_model_after_reroute_bills_at_38_flash(grader, monkeypatch):
+    """From 2026-12-01 Google serves gemini-2.5-pro as 3.8 Flash ($0.75/M in, $3.75/M out)."""
+    from datetime import date
+
+    _pin_pricing_day(monkeypatch, date(2026, 12, 1))
+    cost = grader._calculate_cost("gemini-2.5-pro", tokens_in=3000, tokens_out=2000)
+    expected = (3000 / 1_000_000) * 0.75 + (2000 / 1_000_000) * 3.75
     assert abs(cost - expected) < 1e-6
 
 
