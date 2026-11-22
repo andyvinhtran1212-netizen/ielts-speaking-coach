@@ -13,9 +13,9 @@ import {
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
-const CLIENT = read('app', '(authed-admin-foot-traffic)', 'admin', 'foot-traffic', 'admin-foot-traffic.tsx');
-const PAGE = read('app', '(authed-admin-foot-traffic)', 'admin', 'foot-traffic', 'page.tsx');
-const LAYOUT = read('app', '(authed-admin-foot-traffic)', 'layout.tsx');
+const CLIENT = read('app', '(authed-admin)', '(foot-traffic)', 'admin', 'foot-traffic', 'admin-foot-traffic.tsx');
+const PAGE = read('app', '(authed-admin)', '(foot-traffic)', 'admin', 'foot-traffic', 'page.tsx');
+const LAYOUT = read('app', '(authed-admin)', 'layout.tsx') + read('app', '(authed-admin)', '(foot-traffic)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-foot-traffic-next.css');
 const OVERVIEW = read('app', '(authed-admin-overview)', 'admin', 'admin-overview.tsx');
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
@@ -33,7 +33,7 @@ describe('/admin/foot-traffic native contract', () => {
     assert.match(CLIENT, /nextFrom > defaults\.to/);
     assert.match(CLIENT, /type="date" max=\{defaults\.to\}/);
     assert.match(LAYOUT, /admin-foot-traffic-next\.css/);
-    assert.match(WORKFLOW, /frontend\/app\/\(authed-admin-foot-traffic\)\/\*\*/);
+    assert.match(WORKFLOW, /frontend\/app\/\(authed-admin\)\/\(foot-traffic\)\/\*\*/);
     assert.match(WORKFLOW, /node tooling\/verify-admin-foot-traffic-flow\.mjs/);
   });
 

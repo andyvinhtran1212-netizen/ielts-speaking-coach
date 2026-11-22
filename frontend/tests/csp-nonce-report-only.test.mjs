@@ -6,7 +6,7 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile, spawnSync } from 'node:child_process';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -277,7 +277,16 @@ describe('AuthedShell routes', () => {
   });
 
   test('every AuthedShell layout opts out of the static-shell check so it can render per request', () => {
-    const groups = shellGroups();
+    // ADMINGROUP-0077: a consolidated shell group such as `(authed-admin)` keeps
+    // its former groups as child groups whose layouts only add stylesheets;
+    // each of those keeps the opt-out too, so the floor counts both.
+    const groups = shellGroups().flatMap((group) => [
+      group,
+      ...readdirSync(path.join(FRONTEND, 'app', group))
+        .filter((child) => /^\(.+\)$/.test(child)
+          && existsSync(path.join(FRONTEND, 'app', group, child, 'layout.tsx')))
+        .map((child) => path.join(group, child)),
+    ]);
     assert.ok(groups.length >= 75, `${groups.length} groups`);
     const missing = groups.filter((group) => !/^export const instant = false;$/m.test(read('app', group, 'layout.tsx')));
     assert.deepEqual(missing, []);
