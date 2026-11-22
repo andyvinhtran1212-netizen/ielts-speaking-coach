@@ -29,7 +29,7 @@ describe('/admin/system — native read-only admin pilot', () => {
     assert.match(LAYOUT, /utilityLayer=\{false\}/);
     assert.match(LAYOUT, /tailwindLayer=\{false\}/);
     const order = [
-      'admin-surface.css', 'admin-components.css', 'admin-status.css',
+      'admin-surface.css', 'admin-components.css', 'admin-buttons.css', 'admin-status.css',
       'admin-hub.css', 'admin-system.css',
     ];
     let cursor = -1;

@@ -1,0 +1,11 @@
+/* LIBRARY-0061 T007 course link line (FR-003). Only var(--av2-*). */
+.line {
+  max-width: 640px;
+  margin: var(--av2-space-8) 0 0;
+  font-family: var(--av2-font-sans);
+  font-size: var(--av2-fs-15);
+  line-height: var(--av2-lh-body);
+  color: var(--av2-ink);
+}
+
+.link { color: var(--av2-link); font-weight: var(--av2-fw-strong); text-decoration: underline; }

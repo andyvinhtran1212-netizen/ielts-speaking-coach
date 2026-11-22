@@ -253,3 +253,21 @@ def test_unpriced_model_has_no_image_bound():
     assert image_input_tokens_bound("google", "gemini-future", 100, 100) is None
     assert image_input_tokens_bound("anthropic", "claude-sonnet-5-5", 100, 100,
                                     at=date(2026, 9, 1)) is None
+
+
+def test_gemini_25_ids_bill_at_their_reroute_targets_from_december():
+    # Google routes gemini-2.5-pro → 3.8 Flash and gemini-2.5-flash →
+    # 3.5 Flash-Lite on 2026-12-01, billed at the target's rates.
+    old_pro = token_rate("google", "gemini-2.5-pro", at=date(2026, 11, 30))
+    assert (old_pro.input_per_million, old_pro.output_per_million) == (1.25, 10.00)
+    for day in (date(2026, 12, 1), date(2027, 1, 1)):
+        pro = token_rate("google", "gemini-2.5-pro", at=day)
+        target = token_rate("google", "gemini-3.8-flash", at=day)
+        assert (pro.input_per_million, pro.output_per_million) == (
+            target.input_per_million, target.output_per_million)
+        assert pro.image_rule == target.image_rule
+        flash = token_rate("google", "gemini-2.5-flash", at=day)
+        lite = token_rate("google", "gemini-3.5-flash-lite", at=day)
+        assert (flash.input_per_million, flash.output_per_million) == (
+            lite.input_per_million, lite.output_per_million)
+        assert flash.image_rule == lite.image_rule

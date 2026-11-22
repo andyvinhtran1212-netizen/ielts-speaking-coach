@@ -24,7 +24,7 @@
  * namespace, checked by a second block: definitions come from
  * styles/av2/tokens.css plus the two --av2-ff-* variables that next/font
  * generates from styles/av2/fonts.ts; references are scanned in styles/,
- * components/ui/, app/(authed-v2-*), app/(public-v2) and app/(ui-library). The legacy REF_RE
+ * components/ui/, components/library/ (LIBRARY-0061), app/(authed-v2-*), app/(public-v2) and app/(ui-library). The legacy REF_RE
  * (`--av-`) never matches `--av2-`, so the two namespaces stay separate.
  */
 
@@ -143,7 +143,7 @@ const V2_FONT_SOURCE = 'styles/av2/fonts.ts';
 const V2_EXTS = ['.css', '.ts', '.tsx', '.mjs'];
 
 function v2ScanRoots() {
-  const roots = ['styles', 'components/ui'];
+  const roots = ['styles', 'components/ui', 'components/library'];
   const appDir = path.join(FRONTEND, 'app');
   for (const ent of readdirSync(appDir, { withFileTypes: true })) {
     if (ent.isDirectory() && (/^\(authed-v2-/.test(ent.name) || ent.name === '(public-v2)' || ent.name === '(ui-library)')) {

@@ -17,10 +17,19 @@ Vinh (t1540u) giao phần thiết kế. Số spec **0051** đã ghi trong
 (xem "Thay đổi dữ liệu, config, migration").
 
 Theo quy trình `specs/README.md`, spec phải được merge vào `staging` trước khi
-làm code. Leader quyết định (11:29 ngày 10/11/2026) FD mở PR spec chỉ gồm
-docs; CR review rồi merge. Code ticket
-chỉ được xếp hàng sau bước đó và do Leader xếp. Hiện trạng code đọc từ
+làm code (PR spec đã merge). Code ticket được xếp trong `team/JOB-REGISTRY.md`;
+việc nào gọi API trả phí, đọc prod hay đổi env thì cần anh Andy gõ duyệt trước.
+Hiện trạng code đọc từ
 `origin/staging` @ `7243b3364` (fetch lúc 10:59 ngày 10/11/2026, giờ Việt Nam).
+
+> **Quy trình hiện tại (22/11/2026, Q44).** Từ 19/11/2026 đội bot cũ (Leader,
+> FD, `newjob`, thư mục `/workspace/cc-jobs`) không còn; anh Andy là owner duy
+> nhất, các thread Claude làm CR/SA/CM và xếp việc trong `team/JOB-REGISTRY.md`.
+> Mọi chỗ trước đây ghi "Leader xác nhận/xếp" hoặc "anh Vinh duyệt" cho việc
+> **sắp làm** nay là **anh Andy gõ duyệt trực tiếp** trong thread làm việc đó
+> (lời chuyển lại từ Claude khác hay thẻ bấm không tính). Các dòng ghi lại việc
+> **đã xảy ra** ngày 10/11/2026 (lời duyệt, snapshot Q7, Changelog) giữ nguyên
+> để đối chiếu.
 
 ## Quyết định của anh Vinh
 
@@ -38,11 +47,21 @@ Anh Vinh duyệt AUDIODEPR-0051 và chốt Q1–Q8 theo khuyến nghị của FD
 | Q7 | Cấp quyền đọc env prod (biến không bí mật và việc có hay không `ELEVENLABS_API_KEY`); **owner: Release Manager**. **Đã xong** lúc 11:26 ngày 10/11/2026, snapshot `/workspace/cc-jobs/reports/railway-env-20261110-1126-audio.txt` (kết quả ở mục Hiện trạng code) |
 | Q8 | Chấp nhận để word timestamps vô hiệu đến khi có spec riêng |
 
+*Ghi chú 22/11/2026 về Q2 (Q44, bảng trên giữ nguyên văn 10/11):* "Leader xác
+nhận" nay đọc là anh Andy gõ duyệt trực tiếp trước **mỗi lần** chạy gọi API trả
+phí (T001, T005, T007), mỗi lần một lời duyệt riêng; trần 30 USD giữ nguyên.
+
 Các điều kiện kèm theo quyết định:
 
 - **T001** chạy chỉ trên staging, tối đa 5 lần gọi API, không đổi env, không ghi
   prod, hạn 17/11/2026. Nếu T001 là job code thì Leader phải xếp hàng; FD không
   tự tạo job.
+  *Ghi chú 22/11/2026 (Q44, dòng trên giữ nguyên văn 10/11):* hạn 17/11 đã qua
+  mà T001 chưa có kết quả trong verification.md. Theo registry Q44
+  (`team/JOB-REGISTRY.md`), hạn làm việc ghi lại là **25/11/2026** (trước
+  T002, 27/11); đây là mốc của registry, chưa phải lời duyệt của anh Andy.
+  Không còn Leader/FD: việc xếp trong registry, và T001 chỉ chạy sau khi anh
+  Andy gõ duyệt lần chạy đó (Q2).
 - **T005** đọc dữ liệu prod chỉ sau khi Security Auditor duyệt script trích dữ
   liệu ẩn danh (T005a). Không có bước SA thì T005 chỉ dùng dữ liệu staging hoặc
   dữ liệu nội bộ.
@@ -50,6 +69,8 @@ Các điều kiện kèm theo quyết định:
   prod.
 - Lên prod (T012, T013) vẫn cần anh Vinh duyệt trực tiếp cho từng lần; lời duyệt
   bot khác chuyển lại không tính.
+  *Ghi chú 22/11/2026 (Q44, dòng trên giữ nguyên văn 10/11):* nay là anh Andy gõ
+  duyệt trực tiếp; lời Claude khác chuyển lại hay thẻ bấm không tính.
 
 ## Tóm tắt (tiếng Việt)
 
@@ -165,14 +186,14 @@ snapshot này; các ý dưới đây theo bản tóm tắt Leader chuyển:
 
 Hệ quả:
 
-- **Đổi STT** có hai cách, đều đi qua quy trình release và cần anh Vinh duyệt
+- **Đổi STT** có hai cách, đều đi qua quy trình release và cần anh Andy duyệt
   lần lên prod (T013): (1) đổi giá trị mặc định trong code
   (`config.py:287`); hoặc (2) Release Manager đặt env
   `WHISPER_STT_MODEL=gpt-transcribe`. Spec ưu tiên (2) cho lần chuyển, vì
   rollback chỉ cần xoá hoặc đổi env. T014 đổi mặc định code sau khi ổn định.
 - **ElevenLabs Flash (Q1-a)** và một dự phòng STT bằng Azure (nếu sau này có spec
   riêng) **không cần thêm secret** trên prod. Việc có dùng hay không vẫn theo
-  kết quả A/B và lời duyệt của anh Vinh. Key có sẵn không phải là quyền dùng.
+  kết quả A/B và lời duyệt của anh Andy. Key có sẵn không phải là quyền dùng.
 
 ## Scope
 
@@ -206,7 +227,7 @@ Hệ quả:
 - **Học viên luyện Speaking (practice):** bấm nghe đề → `POST /tts` → nghe giọng
   AI. Nếu lỗi, trình duyệt đọc bằng `speechSynthesis`. Sau thay đổi: nghe giọng
   của engine mới (giọng khác `nova`). Có thêm dòng nhỏ "Giọng đọc do AI tạo"
-  nếu anh Vinh duyệt Q6. Nếu engine tắt hoặc lỗi thì vẫn dự phòng như cũ, không
+  theo Q6 (đã duyệt). Nếu engine tắt hoặc lỗi thì vẫn dự phòng như cũ, không
   có màn hình lỗi.
 - **Học viên làm bài Part 1/3 nghe đề (lớp):** phát `audio_url` sinh sẵn. Không
   đổi gì.
@@ -219,7 +240,7 @@ Hệ quả:
   (`admin_class_assignments.py:491-493`) đã hướng dẫn việc này.
 - **Admin chạy lại chấm (regrade):** transcript chạy lại bằng model mới, usage
   log ghi đúng model.
-- **Vận hành (Leader/Release):** đổi model bằng env, tắt TTS AI bằng runtime
+- **Vận hành (Release, anh Andy duyệt):** đổi model bằng env, tắt TTS AI bằng runtime
   flag, xem chi phí theo model trên dashboard AI.
 
 ## So sánh phương án
@@ -269,13 +290,13 @@ nếu A/B của `gpt-transcribe` trượt.
   - Hợp đồng REST/mp3 giống `tts-1`.
   - Đã có giá, usage log và scope ngân sách.
   - Chạy được trên Railway ngay.
-- **A** là phương án thứ hai nếu C trượt chất lượng, hoặc nếu anh Vinh không
+- **A** là phương án thứ hai nếu C trượt chất lượng, hoặc nếu anh Andy không
   muốn tăng chi phí. A cần thêm client Realtime và loại giá theo token, nên lát
   job lớn hơn (L).
 - **B** chỉ giữ cho mẻ pregen offline như hiện nay. Không đưa lên Railway trước
   06/01/2027 vì rủi ro hạ tầng.
 - **D** luôn là lớp dự phòng cuối.
-- Đổi engine là đổi chi phí và đổi giọng, nên cần anh Vinh quyết (Q1).
+- Đổi engine là đổi chi phí và đổi giọng, nên cần owner quyết (Q1, đã chốt 10/11/2026).
 
 ## Requirements
 
@@ -295,9 +316,9 @@ nếu A/B của `gpt-transcribe` trượt.
 - **FR-014:** Mỗi lần gọi TTS ghi `ai_usage_logs` với `service` và `model` **thật** của engine đã chạy, thay cho chuỗi cứng `"tts-1"` ở `tts.py:217`, cùng `text_chars`. Engine tính tiền theo token thì ghi `input_tokens`/`output_tokens` từ usage provider trả về. Engine tự host ghi `cost_usd_est = 0` kèm `pricing_version` riêng. Quota `TTS_DAILY_LIMIT_PER_USER` vẫn đếm `feature="question_tts"` như cũ, không phụ thuộc engine.
 - **FR-015:** Backend có một bảng ngày tắt model trong code: `tts-1`, `tts-1-hd`, `gpt-4o-mini-tts` → 2027-01-06; `whisper-1`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`, `gpt-4o-transcribe-diarize` → 2027-02-26. Từ 30 ngày trước ngày tắt, mỗi tiến trình ghi một cảnh báo mỗi ngày khi model đó đang được cấu hình làm model chính hoặc dự phòng. Từ ngày tắt (giờ UTC), backend không gọi model đó nữa: với STT dự phòng thì bỏ qua; với TTS thì coi như `off`; với STT chính thì log `config_invalid` và trả 502 như FR-001, không gửi request vào model đã chết. Test dùng đồng hồ giả.
 - **FR-016:** Runtime flag `question_tts_ai` (mặc định bật khi chưa có hàng) khi tắt làm `POST /tts` trả 503 `{error_code: "tts_disabled"}` trước mọi lệnh gọi provider. Khi nhận 503 này, frontend đọc bằng `speechSynthesis` mà không hiện thông báo lỗi. Đọc flag lỗi thì coi như tắt (theo AIBUDGET-0033 FR-006).
-- **FR-017:** Không log audio, không log nội dung transcript hay chữ TTS ở mức INFO/ERROR ngoài những gì đã log hôm nay (độ dài, số đoạn). Không log API key. Audio học viên chỉ gửi tới endpoint OpenAI có "Data used for training: No" trong bảng your-data. Gửi audio học viên tới bất kỳ provider mới nào cần anh Vinh duyệt riêng.
-- **FR-018:** Nếu anh Vinh duyệt Q6, mọi chỗ phát giọng TTS AI cho học viên hiện dòng "Giọng đọc do AI tạo". Dòng này đáp ứng yêu cầu công bố giọng AI trong usage policies mà TTS guide của OpenAI dẫn. Nếu không duyệt, ghi quyết định vào verification.
-- **FR-019:** Trước khi đổi model trên prod, verification ghi một báo cáo A/B đạt các tiêu chí trong plan.md (STT: WER, độ lệch band, nhãn độ tin cậy, duration, độ trễ; TTS: nguyên văn, chất lượng nghe, độ trễ, chi phí đo từ usage thật), kèm tổng chi phí A/B thực tế không vượt trần Leader đã xác nhận.
+- **FR-017:** Không log audio, không log nội dung transcript hay chữ TTS ở mức INFO/ERROR ngoài những gì đã log hôm nay (độ dài, số đoạn). Không log API key. Audio học viên chỉ gửi tới endpoint OpenAI có "Data used for training: No" trong bảng your-data. Gửi audio học viên tới bất kỳ provider mới nào cần anh Andy duyệt riêng.
+- **FR-018:** Nếu Q6 được duyệt (đã duyệt 10/11/2026), mọi chỗ phát giọng TTS AI cho học viên hiện dòng "Giọng đọc do AI tạo". Dòng này đáp ứng yêu cầu công bố giọng AI trong usage policies mà TTS guide của OpenAI dẫn. Nếu không duyệt, ghi quyết định vào verification.
+- **FR-019:** Trước khi đổi model trên prod, verification ghi một báo cáo A/B đạt các tiêu chí trong plan.md (STT: WER, độ lệch band, nhãn độ tin cậy, duration, độ trễ; TTS: nguyên văn, chất lượng nghe, độ trễ, chi phí đo từ usage thật), kèm tổng chi phí A/B thực tế không vượt trần đã duyệt ở Q2 (30 USD).
 
 ## Acceptance scenarios
 
@@ -357,9 +378,9 @@ nếu A/B của `gpt-transcribe` trượt.
 
 ## Thay đổi dữ liệu, config, migration
 
-- **Migration:** không cần. `ai_usage_logs` đã có `service`/`model` kiểu text cùng `input_tokens`/`output_tokens`/`text_chars`/`audio_seconds` (`migrations/031_ai_usage_logs.sql:20-34`); `transcript_model` là TEXT (`migrations/006`); runtime flag mặc định bật khi chưa có hàng (`runtime_flags.is_enabled(default=True)`). Nếu lúc làm phát hiện cần migration thì dừng lại và xin Leader cấp số. Không tự tạo.
+- **Migration:** không cần. `ai_usage_logs` đã có `service`/`model` kiểu text cùng `input_tokens`/`output_tokens`/`text_chars`/`audio_seconds` (`migrations/031_ai_usage_logs.sql:20-34`); `transcript_model` là TEXT (`migrations/006`); runtime flag mặc định bật khi chưa có hàng (`runtime_flags.is_enabled(default=True)`). Nếu lúc làm phát hiện cần migration thì dừng lại, lấy số theo `backend/migrations/register.tsv` và xin anh Andy duyệt. Không tự tạo.
 - **Config mới (code):** `QUESTION_TTS_ENGINE`, `QUESTION_TTS_VOICE` (giọng đã duyệt của engine mới), `STT_FALLBACK_MODEL`, bảng ngày tắt model (hằng số trong code, không phải env).
-- **Env prod cần đổi (Release Manager làm, cần anh Vinh duyệt):** `WHISPER_STT_MODEL=gpt-transcribe`; `QUESTION_TTS_ENGINE=<engine Q1>`; `STT_FALLBACK_MODEL=whisper-1` (nếu Q4 = có) rồi xoá trước 26/02/2027. Prod hiện chưa đặt `WHISPER_STT_MODEL` (mặc định code là `whisper-1`, Q7). Nếu chọn C: `ELEVENLABS_API_KEY` đã có trên prod (Q7), chỉ cần chốt trần `AI_BUDGET_MONTHLY_USD_ELEVENLABS`.
+- **Env prod cần đổi (Release Manager làm, cần anh Andy gõ duyệt):** `WHISPER_STT_MODEL=gpt-transcribe`; `QUESTION_TTS_ENGINE=<engine Q1>`; `STT_FALLBACK_MODEL=whisper-1` (nếu Q4 = có) rồi xoá trước 26/02/2027. Prod hiện chưa đặt `WHISPER_STT_MODEL` (mặc định code là `whisper-1`, Q7). Nếu chọn C: `ELEVENLABS_API_KEY` đã có trên prod (Q7), chỉ cần chốt trần `AI_BUDGET_MONTHLY_USD_ELEVENLABS`.
 - **Dữ liệu:** không ghi DB ngoài usage log và kết quả chấm như hôm nay. Không backfill, không render lại.
 
 ## API và contract
@@ -371,20 +392,20 @@ nếu A/B của `gpt-transcribe` trượt.
 
 ## Rủi ro bảo mật và riêng tư
 
-- **Audio học viên gửi bên thứ ba:** hôm nay đã gửi OpenAI (`whisper-1`). `gpt-transcribe` đi cùng endpoint, chính sách giống hôm nay (không train, abuse retention "None", đủ điều kiện ZDR theo bảng your-data đọc 10/11/2026). `gpt-live-transcribe` (Realtime) có retention 30 ngày, nên không chọn. Mọi dự phòng sang provider khác cho audio học viên đều cần anh Vinh duyệt (FR-017).
-- **Audio dùng cho A/B:** chỉ lấy bản ghi staging hoặc bản ghi prod đã được anh Vinh cho phép (Q3). Lưu ở thư mục private trên box (không git, không bucket public), tên file chỉ dùng ID ẩn danh, xoá sau 30 ngày kể từ báo cáo. Transcript tham chiếu do người gõ cũng là dữ liệu cá nhân, xử lý giống audio.
-- **Key:** không cần key OpenAI mới. Nếu chọn C thì dùng `ELEVENLABS_API_KEY` đã có trên prod (Q7, 10/11/2026); `AZURE_SPEECH_KEY`/`AZURE_SPEECH_REGION` cũng đã có. Job A/B dùng key staging do Release/Leader cấp qua env, không in, không ghi vào báo cáo. Không đọc `/workspace/qa/creds/*`.
+- **Audio học viên gửi bên thứ ba:** hôm nay đã gửi OpenAI (`whisper-1`). `gpt-transcribe` đi cùng endpoint, chính sách giống hôm nay (không train, abuse retention "None", đủ điều kiện ZDR theo bảng your-data đọc 10/11/2026). `gpt-live-transcribe` (Realtime) có retention 30 ngày, nên không chọn. Mọi dự phòng sang provider khác cho audio học viên đều cần anh Andy duyệt (FR-017).
+- **Audio dùng cho A/B:** chỉ lấy bản ghi staging hoặc bản ghi prod đã được cho phép ở Q3. Lưu ở thư mục private trên box (không git, không bucket public), tên file chỉ dùng ID ẩn danh, xoá sau 30 ngày kể từ báo cáo. Transcript tham chiếu do người gõ cũng là dữ liệu cá nhân, xử lý giống audio.
+- **Key:** không cần key OpenAI mới. Nếu chọn C thì dùng `ELEVENLABS_API_KEY` đã có trên prod (Q7, 10/11/2026); `AZURE_SPEECH_KEY`/`AZURE_SPEECH_REGION` cũng đã có. Job A/B dùng key staging được cấp qua env sau khi anh Andy duyệt lần chạy, không in, không ghi vào báo cáo. Không đọc `/workspace/qa/creds/*`.
 - **Log:** giữ mức log hiện tại (độ dài, số đoạn, độ tin cậy). Không log transcript hay chữ TTS. Lỗi provider log `str(e)` như hiện tại (`grading.py:622`), cần kiểm để chắc không chứa header Authorization.
 - **TTS:** chỉ gửi chữ đề, không có dữ liệu học viên. Rủi ro thấp.
 - **Công bố giọng AI:** theo usage policies OpenAI (TTS guide). Áp dụng cho cả `tts-1` hôm nay (Q6).
 
 ## Success criteria
 
-- Trước 06/01/2027: prod không còn gọi `tts-1`. Theo dõi `ai_usage_logs` (service `tts`, model `tts-1`) = 0 dòng mới sau ngày chuyển (Release đọc với quyền anh Vinh cấp). `/tts` có tỉ lệ 2xx ≥ 99 % trong 48 giờ đầu.
+- Trước 06/01/2027: prod không còn gọi `tts-1`. Theo dõi `ai_usage_logs` (service `tts`, model `tts-1`) = 0 dòng mới sau ngày chuyển (Release đọc với quyền anh Andy cấp). `/tts` có tỉ lệ 2xx ≥ 99 % trong 48 giờ đầu.
 - Trước 26/02/2027: prod không còn gọi `whisper-1` làm model chính. Mọi lượt chấm có `transcript_model` thuộc model được hỗ trợ.
 - Báo cáo A/B STT đạt: WER của `gpt-transcribe` không kém `whisper-1` quá 1 điểm phần trăm tuyệt đối; độ lệch band overall trung bình ≤ 0,25; ≥ 90 % mẫu lệch trong ±0,5; số mẫu đổi phía mốc 6/7 ≤ 5 %; mẫu audio xấu vẫn ra "low" 100 %; duration không biết = 0.
-- Báo cáo A/B TTS đạt: phiên âm ngược đúng nguyên văn (WER ≤ 2 %, không thêm từ) trên 100 % mẫu; điểm nghe mù không thấp hơn `tts-1`; p95 thời gian trả đủ audio cho câu ~150 ký tự ≤ 6 giây (mục tiêu, Leader xác nhận).
-- Chi phí A/B thực tế ≤ trần Leader xác nhận.
+- Báo cáo A/B TTS đạt: phiên âm ngược đúng nguyên văn (WER ≤ 2 %, không thêm từ) trên 100 % mẫu; điểm nghe mù không thấp hơn `tts-1`; p95 thời gian trả đủ audio cho câu ~150 ký tự ≤ 6 giây (mục tiêu).
+- Chi phí A/B thực tế ≤ trần đã duyệt ở Q2 (30 USD).
 - Kill switch TTS và rollback env STT đều được diễn tập trên staging và ghi vào verification.
 
 ## Open questions
@@ -417,7 +438,8 @@ xem "Quyết định của anh Vinh"). Nội dung gốc giữ lại bên dưới
 - **Q2 (chi phí, để anh biết) — ĐÃ CHỐT theo khuyến nghị (t1543s5028):** A/B gọi API trả phí ở mức tối thiểu, trần đề
   xuất **30 USD tổng** (STT kèm chấm lại ≤ 25 USD, TTS ≤ 5 USD; chi tiết ở
   plan.md "Verification strategy"). Leader xác nhận trước khi chạy, không chạy
-  khi chưa có xác nhận. **Khuyến nghị: duyệt trần này.**
+  khi chưa có xác nhận. *(Ghi chú 22/11/2026: xem ghi chú Q2 dưới bảng "Quyết
+  định của anh Vinh".)* **Khuyến nghị: duyệt trần này.**
 - **Q3 (dữ liệu, quyền) — ĐÃ CHỐT theo khuyến nghị (t1543s5028):** cho phép lấy khoảng 60 bản ghi Speaking thật trên prod
   (chỉ đọc, ẩn danh, lưu private, xoá sau 30 ngày) cùng transcript chấm sẵn để
   A/B STT? Nếu không, A/B chỉ dùng bản ghi staging và bản ghi nội bộ, kém đại
@@ -460,3 +482,10 @@ xem "Quyết định của anh Vinh"). Nội dung gốc giữ lại bên dưới
 - 10/11/2026 11:29 (giờ Việt Nam): Leader quyết định chuyển việc review UI của
   T010 từ UI Auditor (đã nghỉ) sang Product QA, và để FD mở PR spec vào
   `staging`. Đã sửa plan.md và tasks.md. Không đổi FR.
+- 22/11/2026 (Q44, theo CR-2274-R1): bỏ chữ quy trình đội bot cũ ở các bước
+  sắp làm (Leader xác nhận/xếp, `newjob`, `/workspace/cc-jobs`, anh Vinh duyệt →
+  anh Andy gõ duyệt trực tiếp); thêm ghi chú "Quy trình hiện tại"; ghi hạn
+  T001 25/11/2026 theo registry Q44 (hạn 17/11 đã qua); Q2 đọc là anh Andy gõ
+  duyệt trước mỗi lần gọi API trả phí. Dòng Q2 và điều kiện T001 trong "Quyết
+  định của anh Vinh" giữ nguyên văn, chỉ thêm ghi chú ngày 22/11. Giữ nguyên bản ghi việc đã xảy ra ngày 10/11/2026. Không đổi FR về hành
+  vi, phạm vi hay risk.

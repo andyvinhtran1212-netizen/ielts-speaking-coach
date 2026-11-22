@@ -12,7 +12,8 @@
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
+import { readListeningRouterSource } from './fixtures/listening-router-source.mjs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -25,10 +26,7 @@ const js = read('frontend/js/listening-review.js');
 const css = read('frontend/css/listening-review.css');
 const playerHtml = read('frontend/pages/listening-test.html');
 const playerJs = read('frontend/js/listening-test-player.js');
-// routers.listening is a package split into submodules (BACKENDSPLIT-0076); read all of it.
-const LISTENING_PKG = path.join(REPO, 'backend', 'routers', 'listening');
-const router = readdirSync(LISTENING_PKG).filter((name) => name.endsWith('.py')).sort()
-  .map((name) => readFileSync(path.join(LISTENING_PKG, name), 'utf8')).join('\n');
+const router = readListeningRouterSource();
 
 
 describe('Phase B — review page (listening-review.html) reuses the exam chrome', () => {

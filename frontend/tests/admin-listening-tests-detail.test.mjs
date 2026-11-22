@@ -12,7 +12,8 @@
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
+import { readListeningRouterSource } from './fixtures/listening-router-source.mjs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -264,10 +265,7 @@ describe('Sprint 13.4.3.1 — backend mode toggle is soft', () => {
   // Sentinel that the docstring + behaviour pivot is reflected in
   // services/listening_audio.py + the router. We pin via the router
   // source because that's the authoritative behaviour change.
-  // routers.listening is a package split into submodules (BACKENDSPLIT-0076); read all of it.
-  const pkg = path.join(__dirname, '..', '..', 'backend', 'routers', 'listening');
-  const py = readdirSync(pkg).filter((name) => name.endsWith('.py')).sort()
-    .map((name) => readFileSync(path.join(pkg, name), 'utf8')).join('\n');
+  const py = readListeningRouterSource();
 
   test('admin_patch_test_audio_mode docstring marks the toggle soft', () => {
     assert.match(py, /Sprint 13\.4\.3\.1 — soft validation/);
