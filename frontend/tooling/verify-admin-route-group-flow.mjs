@@ -27,8 +27,9 @@ const check = (name, ok, detail = '') => { results.push({ name, ok }); console.l
 // App Router keeps the previous route mounted but hidden, so after a client
 // navigation the previous page's stylesheets stay in the DOM (before the
 // pilot, its whole shell: 4 base sheets + page sheet; after it, only the page
-// sheet). FR-005 asks for the same sheets as a direct load; until the owner
-// decides how to close that, these checks are reported, not enforced.
+// sheet). FR-005 (amended 20/11) only requires "no worse than today" and the
+// base sheets never duplicated (enforced below); the leftover page sheets are
+// a separate task, so these exact-match checks are reported, not enforced.
 const notes = [];
 const observe = (name, ok, detail = '') => { notes.push({ name, ok }); console.log(`  ${ok ? '✓' : '⚠'} ${name}${detail ? ` — ${detail}` : ''}`); };
 async function launchChromium() { try { return await chromium.launch(); } catch (error) { const localChrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'; if (process.platform === 'darwin' && existsSync(localChrome)) return chromium.launch({ executablePath: localChrome }); throw error; } }

@@ -36,11 +36,15 @@ pilot commit, each built with the CI fixture environment
   equal the direct load, and an inactive account is still sent to `/login`
   (39/39 pass after; 33/39 on the base, whose six failures are duplicated
   base sheets).
-- **FR-005 is not met on either build:** with `cacheComponents: true` the App
-  Router keeps the previous route mounted but hidden, so its stylesheets stay
-  in the DOM after a client navigation. On the base the previous page leaves
-  its whole shell (tokens, components, 4 admin base sheets and its page sheet);
-  after the pilot it leaves only its page sheet. The client-navigation
-  screenshot differs from the direct load by the same 9,972 pixels
-  (`(12, 132, 1224, 727)`) on both builds. Q-d1 / the FR-005 wording is the
-  owner's decision before T001 is ticked.
+- **FR-005 (amended 20/11, "no worse than today"):** with `cacheComponents: true`
+  the App Router keeps the previous route mounted but hidden, so its
+  stylesheets stay in the DOM after a client navigation. On the base the
+  previous page leaves its whole shell (tokens, components, 4 admin base sheets
+  and its page sheet, so base sheets are duplicated); after the pilot it leaves
+  only its page sheet and each base sheet href appears exactly once (enforced
+  by the verifier). Leftover page sheets are therefore fewer than before. The
+  client-navigation screenshot differs from the direct load by the same 9,972
+  pixels (`(12, 132, 1224, 727)`) on both builds; a direct before/after
+  comparison of the client-navigation scene is still to be recorded with the
+  TESTPOLICY-0057 baseline. Removing the leftover page sheets is a separate
+  task outside this spec.
