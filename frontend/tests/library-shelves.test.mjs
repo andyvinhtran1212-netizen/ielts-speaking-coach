@@ -69,6 +69,7 @@ describe('Library frame (FR-001, FR-002, FR-003)', () => {
     const matcher = PROXY.slice(PROXY.indexOf('matcher:'));
     assert.doesNotMatch(matcher, /library/);
     assert.equal(routeFor('/library')?.status, 'live');
+    assert.equal(routeFor('/library')?.audience, 'public');
   });
 
   test('session-aware header: the layout renders <aver-chrome> with its legacy tokens', () => {
