@@ -131,3 +131,26 @@ def test_malformed_records_are_safe_for_both_formatters(args):
     assert AccessLogRedactionFilter().filter(record) is True
     for formatter in (logging.Formatter("%(message)s"), AccessFormatter("%(request_line)s %(status_code)s")):
         assert "bad-marker-398" not in formatter.format(record)
+
+
+@pytest.mark.parametrize("target,expected", [
+    ("/admin/search?q=Nguyen%20Thi%20Lan", "/admin/search"),
+    ("/instructor/search?q=lan%40example.test", "/instructor/search"),
+    ("/api/admin/search?q=HV001&x=1", "/api/admin/search"),
+    ("/admin/search/?q=lan", "/admin/search/"),
+    ("/admin/%73earch?q=lan", "/admin/%73earch"),
+    ("/ADMIN/Search?q=lan&q=minh", "/ADMIN/Search"),
+])
+def test_quick_search_logs_the_path_and_status_only(access_output, target, expected):
+    """G09-T05: a search for a learner never reaches the access log."""
+    output = access_output(target, status=200)
+
+    assert f"GET {expected} HTTP/1.1" in output
+    assert "200" in output
+    for marker in ("?", "q=", "Nguyen", "lan", "minh", "HV001", "example"):
+        assert marker not in output
+
+
+def test_other_search_like_paths_keep_their_query(access_output):
+    target = "/admin/searches?q=1"
+    assert f"GET {target} HTTP/1.1" in access_output(target)

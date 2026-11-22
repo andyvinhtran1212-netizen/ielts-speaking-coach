@@ -10,6 +10,11 @@ _ACCESS_MESSAGE = '%s - "%s %s HTTP/%s" %d'
 # Router audit: reading_student.py's /api/reading/test/share/{share_token}
 # boot and attempts endpoints are the only token-bearing router paths.
 _SHARE_PATH = re.compile(r"(/test/share/)[^/?#\s]+")
+# Quick search (ADMINIA-0074 FR-075, G09-T05): every query value can be a
+# learner's name, e-mail or code, so the whole query string is dropped. The
+# path is matched after decoding, on its last two segments, so a prefix
+# (``/api/admin/search``), a trailing slash or an encoded letter still match.
+_SEARCH_PATH = re.compile(r"(?:^|/)(?:admin|instructor)/+search/*$")
 _SECRET_QUERY_NAMES = frozenset({
     "token", "access_token", "refresh_token", "share", "code", "key",
     "signature", "sig", "otp",
@@ -22,6 +27,8 @@ def _redact_target(target: str) -> str:
     # Log a fixed surface, never a client-controlled path/query (FR-026).
     if "/listening" in unquote_plus(path).lower():
         return "/listening/[private]"
+    if _SEARCH_PATH.search(unquote_plus(path).lower()):
+        return path
     path = _SHARE_PATH.sub(r"\1<redacted>", path)
     if not separator:
         return path
