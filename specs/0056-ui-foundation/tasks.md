@@ -130,6 +130,7 @@ Mỗi đợt một PR; mỗi component có: file `.tsx` + `.module.css` (chỉ `
 - **Việc làm:** dựng `FocusBar`, `LeaveConfirm`; `hasUnsavedWork()` false → thoát ngay; true → hỏi lại (luyện: "Ở lại ghi tiếp" chính, "Bỏ đoạn ghi và thoát" nguy hiểm; thi: "Continue test" / "Leave test" kèm câu "The timer keeps running while you are away." — không còn "Save and exit"; nút "Abandon test" là prop tuỳ chọn do G08 truyền cho đề tự chọn); đăng ký `registerNavigationGuard` để cầu điều hướng cũng hỏi. Không in email/tên tài khoản.
 - **Đầu ra:** 1 PR. **Nghiệm thu:** test React cả hai `mode` (không chữ tiếng Việt trong `mode='exam'`, kiểm bằng regex ký tự có dấu trên `textContent`); ảnh chụp.
 - **Ước lượng:** 1 phiên · độ khó 3.
+- **Ghi chú 22/11/2026 (PR #2446):** theo hai tờ `ThanhPhanKhungTrang` §6 và `PhongThi` §4a, phòng thi luôn hỏi lại khi bấm "Leave test" (kể cả khi `hasUnsavedWork()` là false) và nút ở lại là "Stay in test", không phải "Continue test". Khi còn bài chưa lưu, hộp không in câu "Your answers so far are saved." để G08 điền số câu chưa lưu. GOI-08 FR-08-011, bảng chữ của nó và kịch bản 12 vẫn ghi "Continue test": phải theo nhãn "Stay in test" của khung.
 
 ### G03-T16 — `StaffShell` (admin, giáo viên)
 - **Đầu vào:** `ThanhPhanKhungTrang2.dc.html` §7–8; `aver-admin-chrome.js` (thu sidebar lưu `localStorage`, ngăn kéo); `public/js/runtime-config.js`. Phụ thuộc T05–T07.
