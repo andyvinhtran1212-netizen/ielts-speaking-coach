@@ -22,7 +22,7 @@
 | FR-016 | kind=test; ref=test /tts flag tắt và lỗi đọc flag → 503 tts_disabled, provider giả không gọi + journey staging trình duyệt dùng speechSynthesis không toast | PENDING |
 | FR-017 | kind=check; ref=review CR+SA đường log STT/TTS (không log transcript, chữ TTS, key) + grep log staging sau QA | PENDING |
 | FR-018 | kind=screenshot; ref=ảnh staging dòng "Giọng đọc do AI tạo" ở 360 px và desktop, hoặc ghi quyết định Q6 = không | PENDING |
-| FR-019 | kind=report; ref=báo cáo A/B STT và TTS trong verification.md, kèm chi phí thực tế ≤ trần Leader xác nhận | PENDING |
+| FR-019 | kind=report; ref=báo cáo A/B STT và TTS trong verification.md, kèm chi phí thực tế ≤ trần đã duyệt ở Q2 (30 USD) | PENDING |
 
 ## Contract evidence
 

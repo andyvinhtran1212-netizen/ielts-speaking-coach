@@ -20,6 +20,16 @@ test('/admin/mfa is not wrapped in AdminAccessGate (the gate redirects there)', 
   assert.match(read('app', '(authed-admin-mfa)', 'layout.tsx'), /AuthedShell/);
 });
 
+test('/admin/mfa links the shared admin base sheets in cascade order (Q47)', () => {
+  const layout = read('app', '(authed-admin-mfa)', 'layout.tsx');
+  let cursor = -1;
+  for (const sheet of ['admin-surface.css', 'admin-components.css', 'admin-buttons.css', 'admin-status.css', 'admin-mfa-next.css']) {
+    const index = layout.indexOf(sheet);
+    assert.ok(index > cursor, `${sheet} cascade`);
+    cursor = index;
+  }
+});
+
 test('the page runs its own signed-in + admin + active gate and reads the backend status', () => {
   assert.match(VIEW, /status === 'signed-out'\) window\.location\.replace\('\/login'\)/);
   assert.match(VIEW, /identity\.role !== 'admin' \|\| identity\.is_active === false/);

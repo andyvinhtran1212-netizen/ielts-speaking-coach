@@ -15,9 +15,9 @@ import {
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
-const CLIENT = read('app', '(authed-admin-feedback)', 'admin', 'feedback', 'admin-feedback.tsx');
-const PAGE = read('app', '(authed-admin-feedback)', 'admin', 'feedback', 'page.tsx');
-const LAYOUT = read('app', '(authed-admin-feedback)', 'layout.tsx');
+const CLIENT = read('app', '(authed-admin)', '(feedback)', 'admin', 'feedback', 'admin-feedback.tsx');
+const PAGE = read('app', '(authed-admin)', '(feedback)', 'admin', 'feedback', 'page.tsx');
+const LAYOUT = read('app', '(authed-admin)', 'layout.tsx') + read('app', '(authed-admin)', '(feedback)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-feedback-next.css');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
@@ -62,7 +62,7 @@ describe('/admin/feedback native ownership', () => {
     assert.match(CLIENT, /Không kết luận từ dữ liệu thiếu/);
     assert.match(CSS, /@media\(max-width:640px\)/);
     assert.match(CSS, /min-height:44px/);
-    assert.match(WORKFLOW, /frontend\/app\/\(authed-admin-feedback\)\/\*\*/);
+    assert.match(WORKFLOW, /frontend\/app\/\(authed-admin\)\/\(feedback\)\/\*\*/);
     assert.match(WORKFLOW, /verify-admin-feedback-flow\.mjs/);
     assert.match(VERIFIER, /const desktopFilterResponse = page\.waitForResponse/);
     assert.match(VERIFIER, /await desktopFilterResponse/);

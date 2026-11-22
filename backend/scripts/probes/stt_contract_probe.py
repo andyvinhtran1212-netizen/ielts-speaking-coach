@@ -75,13 +75,14 @@ def check_environment(env: dict) -> str | None:
     return None
 
 
-def build_form(params: dict) -> list[tuple[str, str]]:
-    form: list[tuple[str, str]] = []
+def build_form(params: dict) -> dict[str, str | list[str]]:
+    """Multipart fields for httpx: list values become repeated `key[]` parts."""
+    form: dict[str, str | list[str]] = {}
     for key, value in params.items():
         if isinstance(value, list):
-            form.extend((f"{key}[]", str(v)) for v in value)
+            form[f"{key}[]"] = [str(v) for v in value]
         else:
-            form.append((key, str(value)))
+            form[key] = str(value)
     return form
 
 
@@ -194,7 +195,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"REFUSED: counter unavailable or exhausted ({type(exc).__name__})", file=sys.stderr)
         return 3
 
-    import requests  # local import: unit tests need no network stack
+    import httpx  # pinned in backend/requirements.txt; local import keeps tests offline
 
     params = PLAN[args.step]
     started = datetime.now(TZ_VN)
@@ -209,7 +210,7 @@ def main(argv: list[str] | None = None) -> int:
     }
     try:
         with args.audio.open("rb") as fh:
-            resp = requests.post(
+            resp = httpx.post(
                 ENDPOINT,
                 headers={"Authorization": "Bearer " + os.environ["OPENAI_API_KEY"]},
                 data=build_form(params),
@@ -221,10 +222,10 @@ def main(argv: list[str] | None = None) -> int:
             body = resp.json()
         except ValueError:
             body = None
-        if resp.ok and isinstance(body, dict):
+        if resp.is_success and isinstance(body, dict):
             record["schema"] = schema(body)
             record["response"] = sanitize(body)
-        elif resp.ok:
+        elif resp.is_success:
             record["response_text_chars"] = len(resp.text)
         else:
             record["response"] = sanitize_error(body)

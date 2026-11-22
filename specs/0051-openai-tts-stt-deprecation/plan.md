@@ -101,7 +101,7 @@ job, M ≈ 1 ngày, L ≈ 2 ngày. Mức review: **CR** = Code Reviewer;
 
 | Lát | Nội dung (FR) | Owner | Cỡ / rủi ro / review | Phụ thuộc | Hạn |
 | --- | --- | --- | --- | --- | --- |
-| T001 | Thăm dò hợp đồng `gpt-transcribe` **chỉ trên staging**, ≤ 5 lần gọi, không đổi env, Leader xếp hàng nếu là job code; ghi các trường trả về, cách xử lý `language`, `usage.type` (FR-001) | Claude (script chỉ đọc) + Leader cấp key staging | S / thấp / CR | Leader xác nhận ngân sách | 17/11/2026 |
+| T001 | Thăm dò hợp đồng `gpt-transcribe` **chỉ trên staging**, ≤ 5 lần gọi, không đổi env; ghi các trường trả về, cách xử lý `language`, `usage.type` (FR-001) | Claude (script chỉ đọc) + key staging cấp qua env | S / thấp / CR | Anh Andy gõ duyệt lần chạy (Q2) | 25/11/2026 theo registry Q44 (hạn cũ 17/11 đã qua) |
 | T002 | Adapter STT theo bảng năng lực, `transcript_model` thật, word-timestamp chỉ với whisper-1, ffprobe check, admin regrade dùng chung (FR-001, 002, 004, 005, 008) | Codex | M / cao (chấm) / CR+FD | T001 | 27/11/2026 |
 | T003 | Hiệu chỉnh độ tin cậy khi không có tín hiệu đoạn (FR-003) | Claude | M–L / cao (đổi điểm) / CR+FD | T001, dữ liệu T005 | 11/12/2026 |
 | T004 | Bảng ngày tắt model + cảnh báo + chặn gọi model đã tắt (FR-015) | Codex | S / trung bình / CR | — | 27/11/2026 |
@@ -113,9 +113,9 @@ job, M ≈ 1 ngày, L ≈ 2 ngày. Mức review: **CR** = Code Reviewer;
 | T009 | Render admin bằng engine mới, khoá provider mới, giữ tag cũ, nhóm giọng khi giao bài (FR-012, 013) | Codex | S–M / trung bình / CR+FD | T008 | 11/12/2026 |
 | T010 | Frontend: im lặng khi 503 `tts_disabled`, dòng công bố giọng AI nếu Q6 = có, cập nhật `api.d.ts` (FR-016, 018) | Claude | S / thấp / CR + Product QA (review UI; UI Auditor đã nghỉ) | T008, Q6 | 11/12/2026 |
 | T011a | QA staging TTS: hành trình học viên đọc đề, admin tạo audio, kill switch, giao bài nhiều giọng | Product QA | S / — / FD đọc kết quả | T008–T010 | 16/12/2026 |
-| T012 | Release TTS lên prod: đặt env, deploy SHA đã QA, đọc lại env và usage 48 giờ (cần anh Vinh duyệt) | Release Manager | S / cao (prod) / Leader | T011a, anh Vinh duyệt | 18/12/2026 |
+| T012 | Release TTS lên prod: đặt env, deploy SHA đã QA, đọc lại env và usage 48 giờ (cần anh Andy gõ duyệt) | Release Manager | S / cao (prod) / anh Andy | T011a, anh Andy duyệt | 18/12/2026 |
 | T011b | QA staging STT: hành trình nộp bài Part 1/2/3, audio xấu, regrade admin, dự phòng, rollback env | Product QA | S / — / FD đọc kết quả | T002–T006, báo cáo T005 | 08/01/2027 |
-| T013 | Release STT lên prod: đặt env `WHISPER_STT_MODEL=gpt-transcribe` (prod chưa đặt, Q7), theo dõi 72 giờ, gỡ `STT_FALLBACK_MODEL` trước 19/02 (cần anh Vinh duyệt) | Release Manager | S / cao (prod, chấm) / Leader | T011b, anh Vinh duyệt (23/12) | chuyển 11/01, xong 22/01/2027 |
+| T013 | Release STT lên prod: đặt env `WHISPER_STT_MODEL=gpt-transcribe` (prod chưa đặt, Q7), theo dõi 72 giờ, gỡ `STT_FALLBACK_MODEL` trước 19/02 (cần anh Andy gõ duyệt) | Release Manager | S / cao (prod, chấm) / anh Andy | T011b, anh Andy duyệt (23/12) | chuyển 11/01, xong 22/01/2027 |
 | T014 | Đổi mặc định code sang `gpt-transcribe`; dọn code sau ngày tắt: bỏ nhánh `tts-1`/`whisper-1` khỏi đường gọi (giữ giá để tính lại log cũ, giữ tag nhận diện clip cũ) | Codex | S / thấp / CR | 26/02/2027 | 12/03/2027 |
 
 Thứ tự ưu tiên: các lát STT (T001 → T002 → T005 → T003) được ưu tiên review và
@@ -138,11 +138,11 @@ Mốc lùi từ hai ngày tắt:
 
 | Mốc | TTS (tắt 06/01/2027, thứ Tư) | STT (tắt 26/02/2027, thứ Sáu) |
 | --- | --- | --- |
-| Anh Vinh trả lời Q1–Q8, Leader xác nhận ngân sách | 13/11/2026 | 13/11/2026 |
-| Thăm dò / A/B | A/B TTS 16–24/11, quyết 27/11 | T001 17/11; A/B STT chạy 07–18/12 |
+| Trả lời Q1–Q8 và trần ngân sách (xong 10/11/2026) | 13/11/2026 | 13/11/2026 |
+| Thăm dò / A/B | A/B TTS 16–24/11, quyết 27/11 | T001 25/11 theo registry Q44 (hạn cũ 17/11); A/B STT chạy 07–18/12 |
 | Code lên staging | 11/12/2026 | T002 27/11, T003 + T006 11/12 |
 | QA staging | 14–16/12/2026 | soak 21/12/2026–08/01/2027 |
-| Anh Vinh duyệt prod | 17/12/2026 | 23/12/2026 |
+| Anh Andy duyệt prod | 17/12/2026 | 23/12/2026 |
 | Lên prod | **18/12/2026** (đệm 19 ngày, gồm kỳ nghỉ cuối năm) | chuyển 11/01/2027, **xong 22/01/2027** (trước Tết 06/02/2027) |
 | Hết đường rollback model cũ | 05/01/2027 | 25/02/2027 (gỡ dự phòng trước 19/02/2027) |
 | Dọn code | 12/03/2027 | 12/03/2027 |
@@ -189,7 +189,7 @@ Mốc lùi từ hai ngày tắt:
       `tts-1`.
     - p95 thời gian trả đủ audio cho câu ~150 ký tự ≤ 6 giây.
     - Chi phí mỗi 1K ký tự đo từ usage thật.
-- **Ngân sách gọi API, cần Leader xác nhận trước khi chạy.** Tính từ giá công
+- **Ngân sách gọi API, anh Andy gõ duyệt trước mỗi lần chạy (Q2).** Tính từ giá công
   khai, với giả định ghi rõ:
 
 | Hạng mục | Giả định | Ước tính |
@@ -197,7 +197,7 @@ Mốc lùi từ hai ngày tắt:
 | T001 thăm dò | ≤ 5 lần × ≤ 2 phút | ≤ 0,06 USD |
 | A/B STT `whisper-1` | 60 bản ghi × trung bình ≤ 2 phút × 3 lượt = 360 phút × 0,006 | ≤ 2,16 USD |
 | A/B STT `gpt-transcribe` | 360 phút × 0,0045 | ≤ 1,62 USD |
-| Chấm lại để đo độ lệch band | 60 × 2 transcript × 1 lượt = 120 lần chấm; giá mỗi lần chấm **chưa xác minh** (Leader đọc trung bình `cost_usd_est` của `speaking_grading` trên ledger staging) | trần **20 USD**, dừng khi chạm |
+| Chấm lại để đo độ lệch band | 60 × 2 transcript × 1 lượt = 120 lần chấm; giá mỗi lần chấm **chưa xác minh** (đọc trung bình `cost_usd_est` của `speaking_grading` trên ledger staging) | trần **20 USD**, dừng khi chạm |
 | A/B TTS `tts-1` | 50 câu × ≤ 200 ký tự × 2 lượt = 20 000 ký tự × 15/1M | ≤ 0,30 USD |
 | A/B TTS ElevenLabs Flash | 20 000 ký tự × 0,04/1K | ≤ 0,80 USD |
 | A/B TTS `gpt-realtime-2.1-mini` | giá mỗi câu **chưa xác minh** | trần **2,50 USD**, dừng khi chạm |
@@ -205,7 +205,7 @@ Mốc lùi từ hai ngày tắt:
 | **Tổng trần đề xuất** | STT ≤ 25 USD, TTS ≤ 5 USD | **≤ 30 USD** |
 
 - `gpt-live-transcribe` **không** nằm trong A/B (khuyến nghị không dùng). Nếu
-  Leader muốn đo thì cộng thêm khoảng 20 bản ghi × 2 phút × 0,017 ≈ 0,68 USD và
+  anh Andy muốn đo thì cộng thêm khoảng 20 bản ghi × 2 phút × 0,017 ≈ 0,68 USD và
   cần một harness Realtime riêng.
 - **Bằng chứng prod:** Release Manager đọc lại env (Q7, owner RM; lần đọc đầu 11:26 ngày 10/11/2026), xem usage 48 giờ (TTS)
   và 72 giờ (STT) theo model, tỉ lệ 2xx, tỉ lệ nhãn độ tin cậy so với tuần

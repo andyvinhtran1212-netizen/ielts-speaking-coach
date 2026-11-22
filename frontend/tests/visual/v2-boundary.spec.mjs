@@ -1,7 +1,8 @@
 // UIBASE-0056 G03-T12 (FR-002, FR-015; acceptance scenarios 1–2): moving
 // between the legacy tree and the "Bản in" tree is a full page load, and each
 // document carries only its own tree's stylesheets. Uses the diagnostic page
-// /profile/v2-pilot (same gate as /ui-library; removed in G03-T14) and the
+// /profile/v2-pilot (same gate as /ui-library; removed once G07 has a real
+// LearnerShell page) and the
 // public legacy page /flashcard-study, whose <aver-chrome> is the link source
 // ChromeNavigationBridge would otherwise soft-navigate. No screenshots.
 import { test, expect } from '@playwright/test';
@@ -74,4 +75,20 @@ test('v2 → v1 is a full load and leaves no v2 token (scenario 2)', async ({ pa
   expect(after.av2Paper).toBe('');
   expect(after.body).not.toMatch(/\bav2-body\b/);
   expect(after.sheets.some((href) => LEGACY_CSS.test(href))).toBe(true);
+});
+
+// G03-T13 (acceptance scenario 2): the legal pages are the first real v2
+// pages. A link to /terms from the legacy chrome must load a new document.
+test('legacy chrome → /terms is a full load with no legacy stylesheet (scenario 2)', async ({ page }) => {
+  await page.goto('/flashcard-study', { waitUntil: 'networkidle' });
+  let loads = 0;
+  page.on('load', () => { loads += 1; });
+  await clickChromeLink(page, '/terms');
+  await page.waitForURL('**/terms');
+  await page.waitForLoadState('networkidle');
+  const after = await tree(page);
+  expect(loads, 'a new load event').toBeGreaterThan(0);
+  expect(after.marker).toBeNull();
+  expect(after.sheets.filter((href) => LEGACY_CSS.test(href) || /flashcard-study\.css/.test(href))).toEqual([]);
+  expect(after.body.split(/\s+/)).toContain('av2-body');
 });

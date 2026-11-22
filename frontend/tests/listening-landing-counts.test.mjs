@@ -12,7 +12,8 @@
 
 import { describe, it, before } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { readdirSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
+import { readListeningRouterSource } from './fixtures/listening-router-source.mjs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -470,10 +471,7 @@ describe('analytics covers every persisted test type', () => {
   });
 
   it('backend and frontend enumerate the same modes', () => {
-    // routers.listening is a package split into submodules (BACKENDSPLIT-0076); read all of it.
-    const pkg = join(__dirname, '..', '..', 'backend', 'routers', 'listening');
-    const be = readdirSync(pkg).filter((name) => name.endsWith('.py')).sort()
-      .map((name) => readFileSync(join(pkg, name), 'utf8')).join('\n');
+    const be = readListeningRouterSource();
     assert.match(be, /types = \("mini", "drill", "full", "practice"\)/);
   });
 });

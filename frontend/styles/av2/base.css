@@ -56,3 +56,8 @@
 .av2-root .av2-ipa {
   font-family: var(--av2-font-sans);
 }
+
+/* A v2 layout may put .av2-root on <body> itself; drop the UA margin there. */
+.av2-root:where(body) {
+  margin: 0;
+}
