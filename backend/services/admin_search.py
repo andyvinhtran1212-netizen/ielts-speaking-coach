@@ -43,9 +43,6 @@ GROUP_LIMIT = 3
 MIN_QUERY = 2
 MAX_QUERY = 128
 _ID_CHUNK = 200
-# Learners whose essays are looked up: enough for a common first name, small
-# enough to stay one or two reads.
-_ESSAY_LEARNERS = 50
 
 _TASK_LABEL = {"task1_academic": "Task 1 Academic", "task1_general": "Task 1 General", "task2": "Task 2"}
 _ESSAY_STATE = {"pending": "Chờ chấm", "grading": "Đang chấm", "graded": "Chờ duyệt",
@@ -89,8 +86,9 @@ def learners(needle: str, *, cohort_ids: Optional[frozenset[str]], hide_test: bo
         meta = _join(code, ", ".join(c["name"] or "" for c in classes) or None)
         if p.student and p.student.get("archived_at"):
             meta = _join(meta, "Đã lưu trữ")
-        href = (f"/admin/learners/{_q(p.ref)}" if cohort_ids is None
-                else f"/instructor?tab=students&learner={_q(p.ref)}")
+        # The teacher dashboard has no learner deep link yet: it opens on
+        # its roster.
+        href = f"/admin/learners/{_q(p.ref)}" if cohort_ids is None else "/instructor"
         rows.append(_row(p.name, meta, href))
     return rows, people
 
@@ -112,13 +110,14 @@ def classes(needle: str, *, cohort_ids: Optional[frozenset[str]]) -> list[dict]:
     # Open classes first, then by name.
     found.sort(key=lambda r: (r.get("is_active") is False, directory.fold(r.get("name")), str(r["id"])))
     return [_row(r.get("name"), _join(r.get("code_prefix"), None if r.get("is_active", True) else "Đã lưu trữ"),
-                 f"/admin/classes/{_q(r['id'])}" if cohort_ids is None
-                 else f"/instructor?tab=classes&cohort_id={_q(r['id'])}")
+                 f"/admin/classes/{_q(r['id'])}" if cohort_ids is None else "/instructor")
             for r in found[:GROUP_LIMIT]]
 
 
 def submissions(people: list[directory.Person], *, cohort_ids: Optional[frozenset[str]]) -> list[dict]:
-    by_student = {p.student_id: p for p in people[:_ESSAY_LEARNERS] if p.student_id}
+    # Every matched learner: the three newest essays may belong to anyone in
+    # the match, not only to the first names in alphabetical order.
+    by_student = {p.student_id: p for p in people if p.student_id}
     if not by_student:
         return []
     ids = list(by_student)
@@ -149,7 +148,8 @@ def submissions(people: list[directory.Person], *, cohort_ids: Optional[frozense
         title = _join("Writing", _TASK_LABEL.get(e.get("task_type") or ""), person.name if person else None)
         meta = _join(_ESSAY_STATE.get(e.get("status") or "", e.get("status")), str(e.get("created_at") or "")[:10] or None)
         href = (f"/admin/writing/grade?essay_id={_q(e['id'])}" if cohort_ids is None
-                else f"/instructor?tab=grading&essay_id={_q(e['id'])}")
+                # The teacher grading page finds the review from the queue.
+                else f"/instructor/grade?essay_id={_q(e['id'])}")
         rows.append(_row(title, meta, href))
     return rows
 
@@ -157,11 +157,11 @@ def submissions(people: list[directory.Person], *, cohort_ids: Optional[frozense
 # (table, columns, title column, label, href builder)
 _CONTENT: list[tuple[str, str, str, str, Callable[[dict], str]]] = [
     ("writing_prompts", "id, title, task_type, is_active", "title", "Đề Writing",
-     lambda r: f"/admin/writing/prompts?prompt_id={_q(r['id'])}"),
+     lambda r: f"/admin/writing/prompts?q={_q(r.get('title') or '')}"),
     ("topics", "id, title, part, is_active", "title", "Chủ đề Speaking",
-     lambda r: f"/admin/speaking/topics?topic_id={_q(r['id'])}"),
+     lambda r: f"/admin/speaking/topics?part={_q(r.get('part') or 1)}&topic={_q(r['id'])}"),
     ("reading_passages", "id, title, library", "title", "Bài đọc",
-     lambda r: f"/admin/reading/content?passage_id={_q(r['id'])}"),
+     lambda r: f"/admin/reading/content?library={_q(r.get('library') or '')}"),
     ("listening_tests", "id, title, test_id", "title", "Đề Listening",
      lambda r: f"/admin/listening/tests/{_q(r['id'])}"),
 ]

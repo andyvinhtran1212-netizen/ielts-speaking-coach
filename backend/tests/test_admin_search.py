@@ -85,9 +85,31 @@ def test_admin_finds_each_group_without_accents(db):
     assert classes["classes"] == [{"title": "Tue–Thu 19:30", "meta": "TT19", "href": f"/admin/classes/{C_A}"}]
     assert _titles(classes, "content") == ["Tue–Thu chart: energy use"]
     assert _titles(_admin("ss09"), "classes") == ["Sat–Sun 09:00"]
-    assert [r["href"] for r in _admin("tea")["content"]] == ["/admin/reading/content?passage_id=r1"]
+    assert [r["href"] for r in _admin("tea")["content"]] == ["/admin/reading/content?library=l2_skill"]
+    assert [r["href"] for r in _admin("energy")["content"]] == ["/admin/writing/prompts?q=Tue%E2%80%93Thu%20chart%3A%20energy%20use"]
     assert _admin("c18")["content"] == []    # titles only
     assert _admin("cambridge")["content"][0]["meta"] == "Đề Listening · C18-T1"
+
+
+def test_content_links_open_the_matching_item(db):
+    db.rows["topics"].append({"id": "t2", "title": "Describe a hometown festival", "part": 2, "is_active": True})
+    hrefs = [r["href"] for r in _admin("hometown")["content"]]
+    # Open topics by title: "Describe…" before "Hometown"; each keeps its part.
+    assert hrefs == ["/admin/speaking/topics?part=2&topic=t2", "/admin/speaking/topics?part=1&topic=t1"]
+
+
+def test_the_newest_submissions_come_from_every_matched_learner(db):
+    """More matches than any cut-off: the newest essay belongs to the learner
+    sorted last by name, and it is still listed first."""
+    many = [f"40000000-0000-0000-0000-{i:012d}" for i in range(260)]
+    db.rows["students"] += [{"id": sid, "user_id": None, "student_code": f"HV9{i:03d}", "full_name": f"Học viên Lan {i:03d}",
+                             "target_band": None, "target_date": None, "archived_at": None, "created_at": "2026-01-01"}
+                            for i, sid in enumerate(many)]
+    db.rows["writing_essays"].append({"id": "e-last", "student_id": many[-1], "task_type": "task2", "status": "pending",
+                                      "created_at": "2026-11-20T08:00:00+00:00", "deleted_at": None})
+    out = _admin("lan")
+    assert out["submissions"][0]["href"] == "/admin/writing/grade?essay_id=e-last"
+    assert len(out["submissions"]) == 3 and out["sources_failed"] == []
 
 
 def test_every_group_has_at_most_three_rows(db):
@@ -110,15 +132,15 @@ def test_a_teacher_sees_only_their_classes(db, monkeypatch):
 
     b = _teacher(monkeypatch, db, U_TEACH_B, "minh")
     assert b["learners"] == [{"title": "Trần Văn Minh", "meta": "HV002 · Sat–Sun 09:00",
-                              "href": f"/instructor?tab=students&learner=u-{U_MINH}"}]
-    assert [r["href"] for r in b["submissions"]] == ["/instructor?tab=grading&essay_id=e-minh"]
+                              "href": "/instructor"}]
+    assert [r["href"] for r in b["submissions"]] == ["/instructor/grade?essay_id=e-minh"]
     assert _teacher(monkeypatch, db, U_TEACH_B, "lan")["learners"] == []
 
 
 def test_a_teacher_sees_class_work_not_practice_essays(db, monkeypatch):
     out = _teacher(monkeypatch, db, U_TEACH, "lan")
     assert _titles(out, "learners") == ["Nguyễn Thị Lan"]
-    assert [r["href"] for r in out["submissions"]] == ["/instructor?tab=grading&essay_id=e-class"]
+    assert [r["href"] for r in out["submissions"]] == ["/instructor/grade?essay_id=e-class"]
     assert out["classes"] == []   # "lan" names no class
 
 
