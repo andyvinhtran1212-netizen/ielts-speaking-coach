@@ -71,7 +71,7 @@ describe('PublicFooter', () => {
     render(<PublicShell><p /></PublicShell>);
     const footer = screen.getByRole('navigation', { name: 'Chân trang' });
     expect(names(footer)).toEqual(['Giới thiệu', 'Khoá học', 'Thư viện', 'Điều khoản', 'Quyền riêng tư', 'Liên hệ']);
-    expect(hrefs(footer)).toEqual(['/about', '/', '/grammar', '/terms', '/privacy', '/contact']);
+    expect(hrefs(footer)).toEqual(['/about', '/', '/library', '/terms', '/privacy', '/contact']);
     expect(screen.getByRole('contentinfo').textContent).toContain('© 2026 Aver Learning');
   });
 });

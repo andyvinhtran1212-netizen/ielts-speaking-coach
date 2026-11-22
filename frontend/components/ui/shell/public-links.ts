@@ -2,15 +2,14 @@
 //
 // CẦN ANH ANDY QUYẾT (spec 0056 mục 10, câu 5): "Khoá học" and "Xem các khoá"
 // belong on /courses, which G05 builds. Until then both point to the home page.
-// "Thư viện" belongs on /library (G07, PR #2443); until that route is live it
-// points to the Grammar Wiki, the public part of the library that exists today.
+// "Thư viện" points to the public Library hub /library (LIBRARY-0061 T008).
 //
 // Every href here is rendered as a plain <a>: the public shell is on the v2
 // tree and most destinations are still legacy pages, so a click must be a full
 // page load (FR-015), never a next/link soft navigation.
 export const PUBLIC_HREF = Object.freeze({
   home: '/',
-  library: '/grammar',
+  library: '/library',
   courses: '/',
   login: '/login',
   about: '/about',
