@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
 import { navigationGuardBlocks } from '@/lib/navigation-guard';
+import { isV2Path } from '@/lib/v2-routes.mjs';
 
 const CHROME_SELECTOR = 'aver-chrome, aver-admin-chrome';
 
@@ -35,6 +36,16 @@ function internalDestination(anchor: HTMLAnchorElement): URL | null {
 }
 
 /**
+ * True when `url` is on the other side of the legacy / "Bản in" boundary
+ * (UIBASE-0056 FR-015). The two trees' stylesheets must never share a
+ * document, and React keeps hoisted `<link rel="stylesheet">` after a soft
+ * navigation, so such a click is left to the browser: a full page load.
+ */
+function crossesUiBoundary(url: URL): boolean {
+  return isV2Path(url.pathname) !== isV2Path(window.location.pathname);
+}
+
+/**
  * Gives the migration-era Shadow DOM chrome a Next-native navigation owner.
  * Modified/middle clicks, downloads, cross-origin URLs and in-page anchors keep
  * their browser semantics; ordinary same-origin clicks use App Router state.
@@ -61,6 +72,7 @@ export function ChromeNavigationBridge() {
         // Guarded pages keep the native click so beforeunload can present the
         // browser confirmation and retain state when the user cancels.
         if (navigationGuardBlocks()) return;
+        if (crossesUiBoundary(url)) return;
         event.preventDefault();
         const href = `${url.pathname}${url.search}${url.hash}`;
         if (href !== `${window.location.pathname}${window.location.search}${window.location.hash}`) {
@@ -72,7 +84,7 @@ export function ChromeNavigationBridge() {
         const anchor = eventAnchor(event);
         if (!anchor) return;
         const url = internalDestination(anchor);
-        if (!url) return;
+        if (!url || crossesUiBoundary(url)) return;
         router.prefetch(`${url.pathname}${url.search}`);
       };
 

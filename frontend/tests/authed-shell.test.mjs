@@ -122,4 +122,38 @@ describe('AuthedShell — khung dùng chung cho route cần đăng nhập', () =
     }
     assert.match(SHELL, /pageStylesheets: PageStylesheet\[\]/);
   });
+
+  test('design="v2" bỏ toàn bộ CSS/script cũ, giữ nguyên phần còn lại (UIBASE-0056 FR-002)', () => {
+    // Mỗi thẻ cũ tự mang `v1 &&` (không bọc fragment) nên cây v1 giữ nguyên
+    // byte (FR-003, so <head> trong PR G03-T12). Ở đây giữ: mọi <link> cũ,
+    // pageStylesheets, Lucide, aver-chrome và aver-admin-chrome đều có cổng v1.
+    assert.match(SHELL, /design = 'v1'/);
+    assert.match(SHELL, /const v1 = design === 'v1';/);
+    for (const href of ['tokens.css', 'components.css', 'ds.css', 'tailwind.build.css']) {
+      const line = SHELL.split('\n').find((l) => l.includes(`/css/${href.startsWith('tokens') || href.startsWith('components') ? 'aver-design/' : ''}${href}`));
+      assert.ok(line && /\{v1 && /.test(line), `${href} phải nằm sau \`v1 &&\``);
+    }
+    assert.match(SHELL, /\{v1 && pageStylesheets\.map\(/);
+    assert.match(SHELL, /\{v1 && lucideRuntime && <Script src="\/vendor\/lucide\.min\.js"/);
+    assert.match(SHELL, /\{v1 && chrome === 'student' && \(/);
+    assert.match(SHELL, /\{v1 && chrome === 'admin' && \(/);
+    assert.equal((SHELL.match(/<link\b/g) || []).length, 5, 'chỉ 5 <link>, cả 5 đều có cổng v1');
+    assert.equal((SHELL.match(/<Script\b/g) || []).length, 3, 'chỉ 3 <Script>, cả 3 đều có cổng v1');
+    // Khung v2 không nhận CSS cũ và gắn class body của cây v2.
+    assert.match(SHELL, /design: 'v2';\s*pageStylesheets\?: never;/);
+    assert.match(SHELL, /bodyClass = design === 'v2' \? 'av2-body' : 'av-page font-sans min-h-screen'/);
+  });
+
+  test('layout v2 dùng design="v2", tự nạp CSS v2 và bọc .av2-root', () => {
+    const v2 = authedLayouts().filter(({ file }) => /design="v2"/.test(readFileSync(file, 'utf8')));
+    assert.ok(v2.length >= 1, 'G03-T12 có ít nhất trang thử (authed-v2-pilot)');
+    for (const { group, file } of v2) {
+      const src = stripComments(readFileSync(file, 'utf8'));
+      assert.match(group, /^\(authed-v2-/, `${group}: route group v2 đặt tên (authed-v2-<khu>) (plan 5.7.2)`);
+      assert.match(src, /import '@\/styles\/av2\/tokens\.css';/);
+      assert.match(src, /import '@\/styles\/av2\/base\.css';/);
+      assert.match(src, /className=\{`av2-root \$\{av2FontClass\}`\}/);
+      assert.doesNotMatch(src, /pageStylesheets|\/css\//, `${group}: cây v2 không nạp CSS cũ`);
+    }
+  });
 });
