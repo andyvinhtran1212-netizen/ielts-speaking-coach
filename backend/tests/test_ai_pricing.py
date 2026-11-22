@@ -201,8 +201,15 @@ def test_unit_rate_version_without_tier_is_unchanged():
     assert version == "openai:whisper-1:2023-03-01:open"
 
 
+# OpenAI chat rows are text-only (Sentence Lab); their image budget is refused.
+_TEXT_ONLY_TOKEN_MODELS = {("openai", "gpt-6.1-terra")}
+
+
 def test_every_token_model_has_a_dated_image_rule():
     for rate in TOKEN_RATES:
+        if (rate.provider, rate.model) in _TEXT_ONLY_TOKEN_MODELS:
+            assert rate.image_rule is None
+            continue
         rule = rate.image_rule
         assert rule is not None, rate.model
         assert rule.source_url.startswith("https://")
@@ -271,3 +278,17 @@ def test_gemini_25_ids_bill_at_their_reroute_targets_from_december():
         assert (flash.input_per_million, flash.output_per_million) == (
             lite.input_per_million, lite.output_per_million)
         assert flash.image_rule == lite.image_rule
+
+
+def test_gpt_61_terra_uses_standard_short_context_rates():
+    # Sentence Lab default from 2026-11-22 (gpt-5-mini shuts down 2026-12-11).
+    rate = token_rate("openai", "gpt-6.1-terra", at=date(2026, 11, 22))
+    assert (rate.input_per_million, rate.output_per_million,
+            rate.cache_read_per_million) == (1.00, 5.00, 0.05)
+    cost, version = estimate_token_cost(
+        "openai", "gpt-6.1-terra", input_tokens=1_000_000,
+        output_tokens=1_000_000, cache_read_tokens=1_000_000, at=date(2026, 11, 22),
+    )
+    assert cost == pytest.approx(1.00 + 5.00 + 0.05)
+    assert version == "openai:gpt-6.1-terra:2026-11-22:open"
+    assert image_input_tokens_bound("openai", "gpt-6.1-terra", 100, 100) is None

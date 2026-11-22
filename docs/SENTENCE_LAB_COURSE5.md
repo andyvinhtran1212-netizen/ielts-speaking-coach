@@ -45,8 +45,11 @@ Tổng số lượt gọi cho một bài: 1–3.
 
 ## Model
 
-`SENTENCE_LAB_MODEL` (mặc định `gpt-5-mini`), `SENTENCE_LAB_REASONING_EFFORT`
-(mặc định `medium`: 20/20 ca hiệu chỉnh ngày 18/11, `low` chỉ 15–17/20, chỉ áp cho model `gpt-5*`/`gpt-6*`/`o*`). Dùng
+`SENTENCE_LAB_MODEL` (mặc định `gpt-6.1-terra`), `SENTENCE_LAB_REASONING_EFFORT`
+(mặc định `medium`, chỉ áp cho model `gpt-5*`/`gpt-6*`/`o*`). Hiệu chỉnh: `gpt-5-mini`
+đạt 20/20 ca gói ngày 18/11 (`low` chỉ 15–17/20). OpenAI tắt `gpt-5-mini` ngày
+11/12/2026; `gpt-6.1-terra` đạt 19/20 ca gói + 3/3 ca tấn công ngày 22/11 ở cả
+`medium` và `high` (ca C12 đúng status `revise` nhưng thiếu mã MODAL/SCOPE). Dùng
 `OPENAI_API_KEY` sẵn có (Whisper). **Prompt chấm** là nội dung private, không nằm
 trong repo: biến `SENTENCE_LAB_PROMPT` trên Railway chứa prompt v2.2 đã được SA
 review và hiệu chỉnh (sha256 `e60e85992308196d006cbbdea0d8bf5119b624584b2ba6f162767bee43c61de1`), KHÔNG phải `private/ai_grader_prompt.md` gốc của gói

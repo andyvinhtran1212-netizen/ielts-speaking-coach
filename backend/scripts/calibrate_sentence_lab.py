@@ -2,7 +2,9 @@
 
     OPENAI_API_KEY=… python -m scripts.calibrate_sentence_lab --package <zip>
 
-Chỉ GỌI MODEL, không đọc/ghi cơ sở dữ liệu. Mỗi ca là một lượt gọi riêng (các
+Không đọc/ghi bài học viên, nhưng MỖI lượt gọi model vẫn xếp lịch ghi một dòng
+chi phí vào `ai_usage_logs` (sentence_lab_grader._log_usage) của môi trường mà
+biến Supabase đang trỏ tới, ví dụ staging khi chạy qua `railway run`. Mỗi ca là một lượt gọi riêng (các
 ca dùng chung item_id). So `status`, mã lỗi kỳ vọng (ít nhất một mã), tổng điểm
 khi gói có nêu, và việc coach không lộ lời giải (bộ kiểm đầu ra đã chặn sẵn).
 Các tiêu chí `critical_checks` bằng lời in ra để người duyệt đọc cùng phản hồi.
