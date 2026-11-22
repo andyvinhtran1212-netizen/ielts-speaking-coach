@@ -10,11 +10,15 @@
 
 /** @type {readonly string[]} */
 export const V2_ROUTES = Object.freeze([
+  '/about',
+  '/contact',
   '/library',
   '/library/speaking',
   '/library/writing-guides',
   '/library/writing-samples',
+  '/privacy',
   '/profile/v2-pilot',
+  '/terms',
   '/ui-library',
 ]);
 

@@ -1,6 +1,6 @@
 // G02-T13 — khung tạm cho bốn trang công khai Điều khoản, Quyền riêng tư,
-// Liên hệ, Giới thiệu. Tên các điều và câu "mục này nói về…" lấy theo tờ
-// thiết kế `thiet-ke/PhapLy.dc.html`. Mọi thân bài, ngày tháng và thông tin
+// Liên hệ, Giới thiệu; G03-T13 chuyển chúng sang cây "Bản in" `(public-v2)`.
+// Tên các điều và câu "mục này nói về…" lấy theo tờ thiết kế `thiet-ke/PhapLy.dc.html`. Mọi thân bài, ngày tháng và thông tin
 // liên hệ còn là XXX: đây KHÔNG phải nội dung pháp lý; toàn bộ phải qua rà
 // soát pháp lý trước khi bỏ `noindex`.
 
@@ -9,13 +9,6 @@ export type LegalArticle = { title: string; about: string; clauses: LegalClause[
 export type LegalDocument = { title: string; articles: LegalArticle[] };
 
 export const PLACEHOLDER = 'XXX';
-
-export const LEGAL_LINKS = [
-  { href: '/about', label: 'Giới thiệu' },
-  { href: '/terms', label: 'Điều khoản' },
-  { href: '/privacy', label: 'Quyền riêng tư' },
-  { href: '/contact', label: 'Liên hệ' },
-] as const;
 
 export const TERMS: LegalDocument = {
   title: 'Điều khoản sử dụng',

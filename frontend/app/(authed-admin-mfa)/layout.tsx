@@ -13,6 +13,7 @@ export default function AdminMfaLayout({ children }: { children: ReactNode }) {
         { href: '/css/aver-design/admin-surface.css', dataAverAdminSurface: true },
         '/css/aver-design/admin-components.css',
         '/css/aver-design/admin-buttons.css',
+        '/css/aver-design/admin-status.css',
         '/css/admin-mfa-next.css',
         '/css/admin-mfa-dialog.css',
       ]}

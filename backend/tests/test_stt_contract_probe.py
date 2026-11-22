@@ -31,8 +31,19 @@ def test_counter_refuses_sixth_call(tmp_path):
 
 def test_build_form_encodes_lists_as_array_fields():
     form = probe.build_form({"model": "m", "languages": ["en"], "timestamp_granularities": ["segment", "word"]})
-    assert form == [("model", "m"), ("languages[]", "en"),
-                    ("timestamp_granularities[]", "segment"), ("timestamp_granularities[]", "word")]
+    assert form == {"model": "m", "languages[]": ["en"],
+                    "timestamp_granularities[]": ["segment", "word"]}
+
+
+def test_build_form_sends_repeated_array_parts_with_httpx():
+    import httpx
+
+    form = probe.build_form({"model": "m", "timestamp_granularities": ["segment", "word"]})
+    request = httpx.Request("POST", probe.ENDPOINT, data=form,
+                            files={"file": ("a.mp3", b"x", "audio/mpeg")})
+    body = request.read()
+    assert body.count(b'name="timestamp_granularities[]"') == 2
+    assert b'name="model"' in body and b"segment" in body and b"word" in body
 
 
 def test_sanitize_truncates_and_error_keeps_safe_keys():
@@ -65,7 +76,7 @@ def test_counter_atomic_across_processes(tmp_path):
 def send_setup(tmp_path, monkeypatch):
     from unittest.mock import Mock
     from services import ai_usage_logger
-    import requests
+    import httpx
 
     fixture_root = tmp_path / "fixtures"
     fixture_root.mkdir()
@@ -79,11 +90,11 @@ def send_setup(tmp_path, monkeypatch):
     monkeypatch.setattr(probe, "audio_duration", lambda _: 8.1)
     monkeypatch.setenv("RAILWAY_ENVIRONMENT_NAME", "staging")
     monkeypatch.setenv("OPENAI_API_KEY", "offline-sentinel-key")
-    post = Mock(return_value=Mock(status_code=200, ok=True, json=lambda: {
+    post = Mock(return_value=Mock(status_code=200, is_success=True, json=lambda: {
         "text": "synthetic speech", "usage": {"type": "duration", "seconds": 9},
     }))
     log = Mock()
-    monkeypatch.setattr(requests, "post", post)
+    monkeypatch.setattr(httpx, "post", post)
     monkeypatch.setattr(ai_usage_logger, "log_whisper", log)
     return audio, counter, post, log
 
@@ -94,15 +105,15 @@ def _send(audio, out):
 
 @pytest.mark.parametrize("outcome", ["success", "http_error", "network_error", "logger_error"])
 def test_send_logs_once_without_secrets_or_retry(send_setup, tmp_path, capsys, outcome):
-    import requests
+    import httpx
 
     audio, counter, post, log = send_setup
     if outcome == "http_error":
         post.return_value.status_code = 400
-        post.return_value.ok = False
+        post.return_value.is_success = False
         post.return_value.json = lambda: {"error": {"code": "unsupported_value", "extra": "drop"}}
     elif outcome == "network_error":
-        post.side_effect = requests.Timeout("offline-sentinel-key Authorization Bearer")
+        post.side_effect = httpx.ReadTimeout("offline-sentinel-key Authorization Bearer")
     elif outcome == "logger_error":
         log.side_effect = RuntimeError("offline-sentinel-key Authorization Bearer")
     out = tmp_path / "out"
@@ -115,7 +126,7 @@ def test_send_logs_once_without_secrets_or_retry(send_setup, tmp_path, capsys, o
     assert usage["status"] == ("error" if outcome in ("http_error", "network_error") else "success")
     assert usage["metadata"]["call_no"] == 1
     assert post.call_args.args == (probe.ENDPOINT,)
-    assert ("languages[]", "en") in post.call_args.kwargs["data"]
+    assert post.call_args.kwargs["data"]["languages[]"] == ["en"]
     assert post.call_args.kwargs["timeout"] == 120
     captured = capsys.readouterr()
     record_text = (out / "call1_step1.json").read_text()
@@ -125,7 +136,7 @@ def test_send_logs_once_without_secrets_or_retry(send_setup, tmp_path, capsys, o
     assert json.loads(counter.read_text()) == {"calls": 1}
     record = json.loads(record_text)
     if outcome == "network_error":
-        assert record["exception"] == "Timeout"
+        assert record["exception"] == "ReadTimeout"
     if outcome == "logger_error":
         assert "usage logging failed (RuntimeError)" in captured.err
         assert record["http_status"] == 200

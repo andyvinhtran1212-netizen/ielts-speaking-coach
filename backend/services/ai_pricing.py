@@ -117,10 +117,22 @@ TOKEN_RATES: tuple[TokenRate, ...] = (
     TokenRate("anthropic", "claude-sonnet-5-5", date(2026, 9, 28), None,
               2.00, 10.00, cache_read_per_million=0.10, cache_write_per_million=2.50,
               image_rule=_CLAUDE_HIGH_RES_IMAGES),
-    TokenRate("google", "gemini-2.5-flash", date(2025, 6, 17), None, 0.30, 2.50,
+    TokenRate("google", "gemini-2.5-flash", date(2025, 6, 17), date(2026, 11, 30), 0.30, 2.50,
               image_rule=_GEMINI_TILE_IMAGES),
-    TokenRate("google", "gemini-2.5-pro", date(2025, 6, 17), None, 1.25, 10.00,
+    TokenRate("google", "gemini-2.5-pro", date(2025, 6, 17), date(2026, 11, 30), 1.25, 10.00,
               image_rule=_GEMINI_TILE_IMAGES),
+    # https://ai.google.dev/gemini-api/docs/deprecations and /pricing — checked
+    # 2026-11-22: from 2026-12-01 requests to the two 2.5 ids are routed
+    # server-side and billed at the target's rates. gemini-2.5-pro → Gemini
+    # 3.8 Flash, gemini-2.5-flash → Gemini 3.5 Flash-Lite. The rows mirror the
+    # target periods (and its image accounting) so the requested id keeps
+    # pricing truthfully.
+    TokenRate("google", "gemini-2.5-flash", date(2026, 12, 1), None, 0.30, 2.50,
+              image_rule=_GEMINI_3_DEFAULT_IMAGES),
+    TokenRate("google", "gemini-2.5-pro", date(2026, 12, 1), date(2026, 12, 31), 0.75, 3.75,
+              image_rule=_GEMINI_3_DEFAULT_IMAGES),
+    TokenRate("google", "gemini-2.5-pro", date(2027, 1, 1), None, 1.50, 7.50,
+              image_rule=_GEMINI_3_DEFAULT_IMAGES),
     TokenRate("google", "gemini-3.1-flash-lite", date(2026, 5, 7), None, 0.25, 1.50,
               image_rule=_GEMINI_3_DEFAULT_IMAGES),
     TokenRate("google", "gemini-3.5-flash-lite", date(2026, 7, 21), None, 0.30, 2.50,

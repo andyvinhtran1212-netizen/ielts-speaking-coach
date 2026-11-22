@@ -16,9 +16,9 @@ import {
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
-const PAGE = read('app', '(authed-admin-error-logs)', 'admin', 'error-logs', 'page.tsx');
-const BEHAVIOR = read('app', '(authed-admin-error-logs)', 'admin', 'error-logs', 'admin-error-logs.tsx');
-const LAYOUT = read('app', '(authed-admin-error-logs)', 'layout.tsx');
+const PAGE = read('app', '(authed-admin)', '(error-logs)', 'admin', 'error-logs', 'page.tsx');
+const BEHAVIOR = read('app', '(authed-admin)', '(error-logs)', 'admin', 'error-logs', 'admin-error-logs.tsx');
+const LAYOUT = read('app', '(authed-admin)', 'layout.tsx') + read('app', '(authed-admin)', '(error-logs)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-error-logs-next.css');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 const OVERVIEW = read('app', '(authed-admin-overview)', 'admin', 'admin-overview.tsx');
@@ -52,7 +52,7 @@ describe('/admin/error-logs — native ownership', () => {
   });
 
   test('records native ownership and rollback in the route ledger', () => {
-    assert.match(LEDGER, /`\/admin\/error-logs`[^\n]+authed-admin-error-logs[^\n]+native React ownership/);
+    assert.match(LEDGER, /`\/admin\/error-logs`[^\n]+\(authed-admin\)\/\(error-logs\)[^\n]+native React ownership/);
     assert.match(LEDGER, /`\/pages\/admin\/error-logs\/index\.html` remains rollback target/);
     assert.match(LEDGER, /server `limit\/offset` pagination/);
   });
@@ -96,7 +96,7 @@ describe('/admin/error-logs — canonical behavior', () => {
   });
 
   test('gates a fixture-backed browser contract in CI', () => {
-    assert.match(WORKFLOW, /frontend\/app\/\(authed-admin-error-logs\)\/\*\*/);
+    assert.match(WORKFLOW, /frontend\/app\/\(authed-admin\)\/\(error-logs\)\/\*\*/);
     assert.match(WORKFLOW, /frontend\/public\/css\/admin-error-logs-next\.css/);
     assert.match(WORKFLOW, /node tooling\/verify-admin-error-logs-flow\.mjs/);
     assert.match(BROWSER_FLOW, /parsed\.pathname === '\/auth\/me'/);

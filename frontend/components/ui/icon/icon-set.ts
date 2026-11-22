@@ -2,7 +2,7 @@
 // `iconGroups` array of thiet-ke/ThanhPhanNenTang.dc.html; the sheet's
 // c(x, y, r) helper is stored as a circle.
 //
-// PARTIAL on purpose: G03-T05/T06/T18 need only these. G11-T32 replaces this file
+// PARTIAL on purpose: G03-T05/T06/T13/T18 need only these. G11-T32 replaces this file
 // with the full 94-icon set and keeps the same names and the same `Icon` API.
 // `fills` are drawn filled with currentColor (the half-filled "device" disc).
 export type IconShape = {
@@ -13,6 +13,8 @@ export type IconShape = {
 
 export const ICON_SET = {
   close: { paths: ['M6 6l12 12M18 6L6 18'] },
+  menu: { paths: ['M4 7h16M4 12h16M4 17h16'] },
+  'chev-down': { paths: ['M6 9l6 6 6-6'] },
   search: { paths: ['M16.5 16.5L21 21'], circles: [[11, 11, 7]] },
   plus: { paths: ['M12 5v14M5 12h14'] },
   pencil: { paths: ['M4 20l4-1 11-11-3-3L5 16zM14 6l3 3'] },

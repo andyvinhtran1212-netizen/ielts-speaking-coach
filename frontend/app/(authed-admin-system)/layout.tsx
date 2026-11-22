@@ -15,6 +15,7 @@ export default function AdminSystemLayout({ children }: { children: ReactNode })
           dataAverAdminSurface: true,
         },
         '/css/aver-design/admin-components.css',
+        '/css/aver-design/admin-buttons.css',
         '/css/aver-design/admin-status.css',
         '/css/aver-design/admin-hub.css',
         '/css/admin-system.css',

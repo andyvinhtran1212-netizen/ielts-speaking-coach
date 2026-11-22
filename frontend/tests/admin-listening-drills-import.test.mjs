@@ -14,7 +14,8 @@
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
+import { readListeningRouterSource } from './fixtures/listening-router-source.mjs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -25,10 +26,7 @@ const read = (rel) => readFileSync(path.join(REPO, rel), 'utf8');
 const html      = read('frontend/pages/admin/listening/import-drills.html');
 const js        = read('frontend/js/admin-listening-drills-import.js');
 const testsHtml = read('frontend/pages/admin/listening/tests.html');
-// routers.listening is a package split into submodules (BACKENDSPLIT-0076); read all of it.
-const LISTENING_PKG = path.join(REPO, 'backend', 'routers', 'listening');
-const router    = readdirSync(LISTENING_PKG).filter((name) => name.endsWith('.py')).sort()
-  .map((name) => readFileSync(path.join(LISTENING_PKG, name), 'utf8')).join('\n');
+const router = readListeningRouterSource();
 
 
 describe('import-drills page shell', () => {
