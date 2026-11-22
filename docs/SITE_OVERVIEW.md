@@ -161,6 +161,12 @@ to `/`; the historical source file is not a separately served marketing page.
 | `/grammar/search` | all | Search the wiki. |
 | `/grammar/exercises` | all | Grammar practice directory linked from the reference wiki. |
 
+### 4.7a Public — Library
+
+| Page | Audience | Purpose · operation |
+|---|---|---|
+| `/library` | all | Free Library hub, no login: shelves for Writing samples, Writing guides, Speaking, Grammar and Vocabulary with live counts (`/api/library/summary`) and one Writing sample excerpt across bands 7.5/7.0/6.0. |
+
 ### 4.7b Student — classes and course work
 
 | Page | Audience | Purpose · operation |
