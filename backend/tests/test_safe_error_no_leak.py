@@ -117,3 +117,31 @@ def test_unhandled_handler_no_longer_leaks_exc_string():
     assert 'f"Internal server error: {exc}"' not in src
     assert "@app.exception_handler(StarletteHTTPException)" in src
     assert "safe_detail(" in src
+
+
+def _route_request(template, path, query):
+    return Request({
+        "type": "http", "method": "GET", "path": path, "query_string": query, "headers": [],
+        "route": type("Route", (), {"path": template})(),
+    })
+
+
+def test_error_context_never_stores_a_learner_search():
+    """G09-T05 review N1: ``q`` on the learner search routes is a name, e-mail
+    or learner code, so error_logs keeps only that it was there."""
+    import main
+    for template in ("/admin/search", "/instructor/search", "/admin/learners"):
+        request = _route_request(template, template,
+                                 b"q=Nguyen%20Thi%20Lan&Q=lan%40example.test&cohort_id=c1&page=2")
+        path, query = main._safe_error_request_context(request)
+        assert path == template
+        assert query == {"q": "[redacted]", "Q": "[redacted]", "cohort_id": "c1", "page": "2"}
+        assert "Lan" not in str(query) and "example" not in str(query)
+
+
+def test_error_context_keeps_q_on_other_routes():
+    import main
+    request = _route_request("/admin/learners/{ref}", "/admin/learners/u-1", b"q=kept")
+    assert main._safe_error_request_context(request)[1] == {"q": "kept"}
+    request = _route_request("/api/reading/tests", "/api/reading/tests", b"q=travel")
+    assert main._safe_error_request_context(request)[1] == {"q": "travel"}

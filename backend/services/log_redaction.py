@@ -15,6 +15,10 @@ _SHARE_PATH = re.compile(r"(/test/share/)[^/?#\s]+")
 # path is matched after decoding, on its last two segments, so a prefix
 # (``/api/admin/search``), a trailing slash or an encoded letter still match.
 _SEARCH_PATH = re.compile(r"(?:^|/)(?:admin|instructor)/+search/*$")
+# The learner directory (G09-T03): its ``q`` is a learner search too, but its
+# other filters (class, status, page) are kept for diagnostics.
+_LEARNER_DIRECTORY_PATH = re.compile(r"(?:^|/)admin/+learners/*$")
+_LEARNER_QUERY_NAMES = frozenset({"q"})
 _SECRET_QUERY_NAMES = frozenset({
     "token", "access_token", "refresh_token", "share", "code", "key",
     "signature", "sig", "otp",
@@ -35,10 +39,13 @@ def _redact_target(target: str) -> str:
 
     # Work on raw fields so ordinary query values, ordering, repeated keys and
     # percent escapes remain unchanged. Decode names to catch e.g. %74oken.
+    redact = _SECRET_QUERY_NAMES
+    if _LEARNER_DIRECTORY_PATH.search(unquote_plus(path).lower()):
+        redact = _SECRET_QUERY_NAMES | _LEARNER_QUERY_NAMES
     fields = []
     for field in query.split("&"):
         name, equals, value = field.partition("=")
-        if equals and unquote_plus(name).lower() in _SECRET_QUERY_NAMES:
+        if equals and unquote_plus(name).lower() in redact:
             value = _REDACTED
             field = f"{name}={value}"
         fields.append(field)

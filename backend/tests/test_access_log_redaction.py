@@ -154,3 +154,23 @@ def test_quick_search_logs_the_path_and_status_only(access_output, target, expec
 def test_other_search_like_paths_keep_their_query(access_output):
     target = "/admin/searches?q=1"
     assert f"GET {target} HTTP/1.1" in access_output(target)
+
+
+@pytest.mark.parametrize("target,expected", [
+    ("/admin/learners?q=Nguyen%20Thi%20Lan&cohort_id=c1&page=2", "/admin/learners?q=<redacted>&cohort_id=c1&page=2"),
+    ("/admin/learners/?page=2&q=lan%40example.test", "/admin/learners/?page=2&q=<redacted>"),
+    ("/api/admin/learners?%71=HV001", "/api/admin/learners?%71=<redacted>"),
+    ("/admin/learners?status=archived", "/admin/learners?status=archived"),
+])
+def test_learner_directory_logs_its_filters_but_not_the_search(access_output, target, expected):
+    """G09-T05 review N1: the T03 directory's ``q`` is a learner search."""
+    output = access_output(target)
+
+    assert f"GET {expected} HTTP/1.1" in output
+    for marker in ("Nguyen", "lan%40", "example", "HV001"):
+        assert marker not in output
+
+
+def test_learner_detail_query_is_unchanged(access_output):
+    target = "/admin/learners/u-1/attempts?q=kept"
+    assert f"GET {target} HTTP/1.1" in access_output(target)
