@@ -1,0 +1,78 @@
+/* LIBRARY-0061 T007 margin notes (FR-021, FR-022; tờ KienThucWriting §2–3). Only var(--av2-*). */
+.ref { font-family: var(--av2-font-sans); font-size: 0.65em; line-height: 0; }
+
+.note { margin: 0; color: var(--av2-ink); }
+.noteNum { font-weight: var(--av2-fw-strong); }
+
+.label {
+  margin: 0 0 var(--av2-space-3);
+  font-family: var(--av2-font-sans);
+  font-size: var(--av2-fs-12);
+  font-weight: var(--av2-fw-strong);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sample { margin: 0; }
+
+.on { background: var(--av2-highlight); color: var(--av2-ink); }
+
+.supButton {
+  margin: 0;
+  padding: 0 0.1em;
+  border: 0;
+  background: transparent;
+  color: var(--av2-ink);
+  font-family: var(--av2-font-sans);
+  font-size: 0.65em;
+  font-weight: var(--av2-fw-strong);
+  vertical-align: super;
+  line-height: 0;
+  cursor: pointer;
+}
+
+.supButton[aria-pressed='true'] { background: var(--av2-highlight); }
+
+.supButton:focus-visible,
+.numButton:focus-visible {
+  outline: 2px solid var(--av2-focus);
+  outline-offset: var(--av2-focus-offset);
+}
+
+.sampleNotes { display: grid; row-gap: var(--av2-space-4); margin: 0; padding: 0; list-style: none; }
+
+.sampleNote { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--av2-space-3); align-items: start; }
+
+.numButton,
+.numStatic {
+  min-width: var(--av2-control-sm);
+  min-height: var(--av2-control-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--av2-font-sans);
+  font-size: var(--av2-fs-14);
+  font-weight: var(--av2-fw-strong);
+  color: var(--av2-ink);
+}
+
+.numButton {
+  border: var(--av2-rule-w) solid var(--av2-control-border);
+  border-radius: var(--av2-radius);
+  background: var(--av2-tint);
+  cursor: pointer;
+}
+
+.numButton[aria-pressed='true'] { background: var(--av2-highlight); border-color: var(--av2-ink); }
+
+.kind {
+  margin: 0 0 var(--av2-space-1);
+  font-size: var(--av2-fs-12);
+  font-weight: var(--av2-fw-strong);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.chosen .kind { color: var(--av2-ink); }
+
+.noteText { color: var(--av2-ink); }
