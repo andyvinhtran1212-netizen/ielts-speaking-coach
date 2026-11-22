@@ -10,6 +10,10 @@
 
 /** @type {readonly string[]} */
 export const V2_ROUTES = Object.freeze([
+  '/library',
+  '/library/speaking',
+  '/library/writing-guides',
+  '/library/writing-samples',
   '/profile/v2-pilot',
   '/ui-library',
 ]);
