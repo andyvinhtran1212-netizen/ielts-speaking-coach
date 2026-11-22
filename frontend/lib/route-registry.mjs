@@ -44,10 +44,10 @@ export const LEARNER_SECTIONS = Object.freeze(['home', 'course', 'practice', 'te
 /** @type {readonly RouteEntry[]} */
 export const ROUTES = Object.freeze([
   { route: '/', owner: 'app/(marketing)/page.tsx', status: 'live', audience: 'public', kind: 'nav', section: 'public', parent: null, requires: [], parentOnMissing: null, ui: 'v1' },
-  { route: '/about', owner: 'app/(marketing)/about/page.tsx', status: 'live', audience: 'public', kind: 'child', section: 'public', parent: '/', requires: [], parentOnMissing: null, ui: 'v1' },
-  { route: '/contact', owner: 'app/(marketing)/contact/page.tsx', status: 'live', audience: 'public', kind: 'child', section: 'public', parent: '/', requires: [], parentOnMissing: null, ui: 'v1' },
-  { route: '/privacy', owner: 'app/(marketing)/privacy/page.tsx', status: 'live', audience: 'public', kind: 'child', section: 'public', parent: '/', requires: [], parentOnMissing: null, ui: 'v1' },
-  { route: '/terms', owner: 'app/(marketing)/terms/page.tsx', status: 'live', audience: 'public', kind: 'child', section: 'public', parent: '/', requires: [], parentOnMissing: null, ui: 'v1' },
+  { route: '/about', owner: 'app/(public-v2)/about/page.tsx', status: 'live', audience: 'public', kind: 'child', section: 'public', parent: '/', requires: [], parentOnMissing: null, ui: 'v2' },
+  { route: '/contact', owner: 'app/(public-v2)/contact/page.tsx', status: 'live', audience: 'public', kind: 'child', section: 'public', parent: '/', requires: [], parentOnMissing: null, ui: 'v2' },
+  { route: '/privacy', owner: 'app/(public-v2)/privacy/page.tsx', status: 'live', audience: 'public', kind: 'child', section: 'public', parent: '/', requires: [], parentOnMissing: null, ui: 'v2' },
+  { route: '/terms', owner: 'app/(public-v2)/terms/page.tsx', status: 'live', audience: 'public', kind: 'child', section: 'public', parent: '/', requires: [], parentOnMissing: null, ui: 'v2' },
   { route: '/pricing', owner: 'app/(marketing)/pricing/page.tsx', status: 'live', audience: 'public', kind: 'child', section: 'public', parent: '/', requires: [], parentOnMissing: null, ui: 'v1' },
   { route: '/login', owner: 'app/(public-auth)/login/page.tsx', status: 'live', audience: 'public', kind: 'child', section: 'public', parent: '/', requires: [], parentOnMissing: null, ui: 'v1' },
   { route: '/courses', owner: null, status: 'planned', audience: 'public', kind: 'child', section: 'public', parent: '/', requires: [], parentOnMissing: null, ui: 'v1', note: 'G05: trang khoá học công khai' },

@@ -10,7 +10,11 @@
 
 /** @type {readonly string[]} */
 export const V2_ROUTES = Object.freeze([
+  '/about',
+  '/contact',
+  '/privacy',
   '/profile/v2-pilot',
+  '/terms',
   '/ui-library',
 ]);
 
