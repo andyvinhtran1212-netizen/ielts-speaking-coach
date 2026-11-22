@@ -3345,6 +3345,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/learners/{ref}/goal/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resolve Learner Goal */
+        post: operations["resolve_learner_goal_admin_learners__ref__goal_resolve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/overview": {
         parameters: {
             query?: never;
@@ -18175,6 +18192,28 @@ export interface components {
              */
             mode: string;
         };
+        /** GoalResolveIn */
+        GoalResolveIn: {
+            /**
+             * Use
+             * @enum {string}
+             */
+            use: "admin" | "learner";
+            seen: components["schemas"]["GoalSeen"];
+        };
+        /** GoalResolveOut */
+        GoalResolveOut: {
+            goal: components["schemas"]["OverviewGoal"];
+        };
+        /**
+         * GoalSeen
+         * @description Both goals as the page showed them (the overview's goal.admin and
+         *     goal.learner, every field present, null included).
+         */
+        GoalSeen: {
+            admin: components["schemas"]["_SeenAdminGoal"];
+            learner: components["schemas"]["_SeenLearnerGoal"];
+        };
         /** GradeRatingBody */
         GradeRatingBody: {
             /** Rating */
@@ -24268,6 +24307,20 @@ export interface components {
             /** Mock Sitting Id */
             mock_sitting_id?: string | null;
         };
+        /** _SeenAdminGoal */
+        _SeenAdminGoal: {
+            /** Target Band */
+            target_band: number | null;
+            /** Target Date */
+            target_date: string | null;
+        };
+        /** _SeenLearnerGoal */
+        _SeenLearnerGoal: {
+            /** Target Band */
+            target_band: number | null;
+            /** Exam Date */
+            exam_date: string | null;
+        };
         /** _SubmitAnswerItem */
         _SubmitAnswerItem: {
             /** Q Num */
@@ -30332,6 +30385,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LearnerOverview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resolve_learner_goal_admin_learners__ref__goal_resolve_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoalResolveIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalResolveOut"];
                 };
             };
             /** @description Validation Error */

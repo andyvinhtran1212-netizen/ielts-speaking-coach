@@ -61,8 +61,10 @@ const DEBUG_GATED = Object.freeze({
   // UIBASE-0056 G03-T04: the component library. Its gate also opens with the
   // narrower AVER_ENABLE_UI_LIBRARY=1 (CI screenshots) — see uiLibraryEnabled.
   '/ui-library': 'app/(ui-library)/ui-library/page.tsx',
+  // G03-T12: the v1/v2 boundary pilot, same gate; removed in G03-T14.
+  '/profile/v2-pilot': 'app/(authed-v2-pilot)/profile/v2-pilot/page.tsx',
 });
-const DEBUG_GATE_FN = Object.freeze({ '/ui-library': 'uiLibraryEnabled' });
+const DEBUG_GATE_FN = Object.freeze({ '/ui-library': 'uiLibraryEnabled', '/profile/v2-pilot': 'uiLibraryEnabled' });
 
 const SIGNED_OUT_GUARD = /useEffect\(\(\) => \{\s*if \(status === 'signed-out'\) window\.location\.replace\('\/login'\);\s*\}, \[status\]\);/;
 const UNCONDITIONAL_GUARD = /if \(status === 'signed-out'\)/;

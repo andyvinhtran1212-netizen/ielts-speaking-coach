@@ -32,7 +32,7 @@ from zoneinfo import ZoneInfo
 
 from database import supabase_admin
 from services import learner_attention
-from services.admin_learner_directory import Person
+from services.admin_learner_directory import Person, goals_conflict
 
 logger = logging.getLogger(__name__)
 
@@ -147,11 +147,48 @@ def goal(person: Person) -> dict[str, Any]:
     has_learner = any(v is not None for v in learner.values())
     # A field set on one side only is not a conflict: only a field both sides
     # hold with different values is (the same rule as fn_learner_goal_resolve).
-    pairs = ((admin["target_band"], learner["target_band"]), (admin["target_date"], learner["exam_date"]))
-    conflict = bool(has_admin and has_learner and any(
-        a is not None and b is not None and a != b for a, b in pairs))
+    conflict = bool(has_admin and has_learner and goals_conflict(
+        admin["target_band"], admin["target_date"], learner["target_band"], learner["exam_date"]))
     estimated = _released_mock_overall(str(user["id"])) if person.user else None
     return {"admin": admin, "learner": learner, "conflict": conflict, "estimated_band": estimated}
+
+
+class GoalNoConflict(Exception):
+    """There is nothing to resolve: one source is empty or both agree."""
+
+
+class GoalChanged(Exception):
+    """A goal changed after the page showed it: the choice is not applied."""
+
+
+class GoalNotLinked(Exception):
+    """The profile is no longer that account's: the choice is not applied."""
+
+
+def resolve_goal(person: Person, use: str, seen: dict[str, Any], actor_id: Optional[str]) -> None:
+    """FR-030 "Dùng giá trị này": copy the ``use`` source's goal onto both
+    ``students`` and ``users`` and log it, in one transaction
+    (``fn_learner_goal_resolve``, mig 452). ``seen`` is both goals as the
+    page showed them; the function compares them under the row locks, so a
+    goal edited since (even one still in conflict) is never overwritten with
+    values the admin did not see. Raises :class:`GoalChanged`,
+    :class:`GoalNotLinked`, :class:`GoalNoConflict`, or the database error
+    (452 not applied, a failed write)."""
+    if person.student is None or person.user is None:
+        raise GoalNoConflict()
+    try:
+        supabase_admin.rpc("fn_learner_goal_resolve", {
+            "p_student_id": str(person.student["id"]), "p_user_id": str(person.user["id"]),
+            "p_use": use, "p_seen": seen, "p_actor": actor_id,
+        }).execute()
+    except Exception as exc:
+        if "goal_changed" in str(exc):
+            raise GoalChanged() from exc
+        if "learner_not_linked" in str(exc):
+            raise GoalNotLinked() from exc
+        if "no_conflict" in str(exc):
+            raise GoalNoConflict() from exc
+        raise
 
 
 # ── 3 · Continuity ─────────────────────────────────────────────────────────
