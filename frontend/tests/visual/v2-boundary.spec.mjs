@@ -1,7 +1,8 @@
 // UIBASE-0056 G03-T12 (FR-002, FR-015; acceptance scenarios 1–2): moving
 // between the legacy tree and the "Bản in" tree is a full page load, and each
 // document carries only its own tree's stylesheets. Uses the diagnostic page
-// /profile/v2-pilot (same gate as /ui-library; removed in G03-T14) and the
+// /profile/v2-pilot (same gate as /ui-library; removed once G07 has a real
+// LearnerShell page) and the
 // public legacy page /flashcard-study, whose <aver-chrome> is the link source
 // ChromeNavigationBridge would otherwise soft-navigate. No screenshots.
 import { test, expect } from '@playwright/test';

@@ -1,6 +1,7 @@
 // UIBASE-0056 G03-T12: the first layout on the "Bản in" tree. It exists to
-// prove the coexistence contract (plan 5.7) on a diagnostic page before the
-// real learner shell lands; G03-T14 removes this group with its page.
+// prove the coexistence contract (plan 5.7) on a diagnostic page; from G03-T14
+// it also hosts LearnerShell with sample data. Removed with its page when G07
+// puts the first real learner page on LearnerShell.
 import type { ReactNode } from 'react';
 
 import '@/styles/av2/tokens.css';
