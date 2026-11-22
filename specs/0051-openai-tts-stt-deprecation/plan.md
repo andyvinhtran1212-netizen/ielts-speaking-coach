@@ -101,7 +101,7 @@ job, M ≈ 1 ngày, L ≈ 2 ngày. Mức review: **CR** = Code Reviewer;
 
 | Lát | Nội dung (FR) | Owner | Cỡ / rủi ro / review | Phụ thuộc | Hạn |
 | --- | --- | --- | --- | --- | --- |
-| T001 | Thăm dò hợp đồng `gpt-transcribe` **chỉ trên staging**, ≤ 5 lần gọi, không đổi env; ghi các trường trả về, cách xử lý `language`, `usage.type` (FR-001) | Claude (script chỉ đọc) + key staging cấp qua env | S / thấp / CR | Anh Andy gõ duyệt lần chạy (Q2) | 25/11/2026 (hạn cũ 17/11) |
+| T001 | Thăm dò hợp đồng `gpt-transcribe` **chỉ trên staging**, ≤ 5 lần gọi, không đổi env; ghi các trường trả về, cách xử lý `language`, `usage.type` (FR-001) | Claude (script chỉ đọc) + key staging cấp qua env | S / thấp / CR | Anh Andy gõ duyệt lần chạy (Q2) | 25/11/2026 theo registry Q44 (hạn cũ 17/11 đã qua) |
 | T002 | Adapter STT theo bảng năng lực, `transcript_model` thật, word-timestamp chỉ với whisper-1, ffprobe check, admin regrade dùng chung (FR-001, 002, 004, 005, 008) | Codex | M / cao (chấm) / CR+FD | T001 | 27/11/2026 |
 | T003 | Hiệu chỉnh độ tin cậy khi không có tín hiệu đoạn (FR-003) | Claude | M–L / cao (đổi điểm) / CR+FD | T001, dữ liệu T005 | 11/12/2026 |
 | T004 | Bảng ngày tắt model + cảnh báo + chặn gọi model đã tắt (FR-015) | Codex | S / trung bình / CR | — | 27/11/2026 |
@@ -139,7 +139,7 @@ Mốc lùi từ hai ngày tắt:
 | Mốc | TTS (tắt 06/01/2027, thứ Tư) | STT (tắt 26/02/2027, thứ Sáu) |
 | --- | --- | --- |
 | Trả lời Q1–Q8 và trần ngân sách (xong 10/11/2026) | 13/11/2026 | 13/11/2026 |
-| Thăm dò / A/B | A/B TTS 16–24/11, quyết 27/11 | T001 25/11 (hạn cũ 17/11); A/B STT chạy 07–18/12 |
+| Thăm dò / A/B | A/B TTS 16–24/11, quyết 27/11 | T001 25/11 theo registry Q44 (hạn cũ 17/11); A/B STT chạy 07–18/12 |
 | Code lên staging | 11/12/2026 | T002 27/11, T003 + T006 11/12 |
 | QA staging | 14–16/12/2026 | soak 21/12/2026–08/01/2027 |
 | Anh Andy duyệt prod | 17/12/2026 | 23/12/2026 |

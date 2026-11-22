@@ -39,7 +39,7 @@ Anh Vinh duyệt AUDIODEPR-0051 và chốt Q1–Q8 theo khuyến nghị của FD
 | Câu | Chốt |
 | --- | --- |
 | Q1 | (a) ElevenLabs Flash v2.5 cho `/tts` và render admin, nếu A/B TTS đạt; trượt thì (b) `gpt-realtime-2.1-mini`; giọng trình duyệt giữ làm dự phòng |
-| Q2 | Trần A/B **30 USD** (STT 25 USD, TTS 5 USD); anh Andy gõ duyệt trực tiếp trước **mỗi lần** chạy gọi API trả phí (T001, T005, T007), mỗi lần một lời duyệt riêng |
+| Q2 | Trần A/B **30 USD** (STT 25 USD, TTS 5 USD); Leader xác nhận trước mỗi lần chạy |
 | Q3 | Cho lấy khoảng 60 bản ghi Speaking prod, **chỉ ở T005**. Bước trích dữ liệu ẩn danh phải được Security Auditor kiểm **trước** khi đọc dữ liệu prod (T005a) |
 | Q4 | Có dự phòng `whisper-1` một lần, gỡ trước 19/02/2027 |
 | Q5 | Chấp nhận nhãn độ tin cậy tính lại, với điều kiện A/B đạt ngưỡng |
@@ -47,18 +47,30 @@ Anh Vinh duyệt AUDIODEPR-0051 và chốt Q1–Q8 theo khuyến nghị của FD
 | Q7 | Cấp quyền đọc env prod (biến không bí mật và việc có hay không `ELEVENLABS_API_KEY`); **owner: Release Manager**. **Đã xong** lúc 11:26 ngày 10/11/2026, snapshot `/workspace/cc-jobs/reports/railway-env-20261110-1126-audio.txt` (kết quả ở mục Hiện trạng code) |
 | Q8 | Chấp nhận để word timestamps vô hiệu đến khi có spec riêng |
 
+*Ghi chú 22/11/2026 về Q2 (Q44, bảng trên giữ nguyên văn 10/11):* "Leader xác
+nhận" nay đọc là anh Andy gõ duyệt trực tiếp trước **mỗi lần** chạy gọi API trả
+phí (T001, T005, T007), mỗi lần một lời duyệt riêng; trần 30 USD giữ nguyên.
+
 Các điều kiện kèm theo quyết định:
 
 - **T001** chạy chỉ trên staging, tối đa 5 lần gọi API, không đổi env, không ghi
-  prod. Hạn cũ 17/11/2026 đã qua; hạn mới **25/11/2026** (trước T002,
-  27/11/2026). T001 chỉ chạy sau khi anh Andy gõ duyệt lần chạy đó (Q2).
+  prod, hạn 17/11/2026. Nếu T001 là job code thì Leader phải xếp hàng; FD không
+  tự tạo job.
+  *Ghi chú 22/11/2026 (Q44, dòng trên giữ nguyên văn 10/11):* hạn 17/11 đã qua
+  mà T001 chưa có kết quả trong verification.md. Theo registry Q44
+  (`team/JOB-REGISTRY.md`), hạn làm việc ghi lại là **25/11/2026** (trước
+  T002, 27/11); đây là mốc của registry, chưa phải lời duyệt của anh Andy.
+  Không còn Leader/FD: việc xếp trong registry, và T001 chỉ chạy sau khi anh
+  Andy gõ duyệt lần chạy đó (Q2).
 - **T005** đọc dữ liệu prod chỉ sau khi Security Auditor duyệt script trích dữ
   liệu ẩn danh (T005a). Không có bước SA thì T005 chỉ dùng dữ liệu staging hoặc
   dữ liệu nội bộ.
 - **Q7:** Release Manager giữ quyền đọc env prod. FD và job code không đọc env
   prod.
-- Lên prod (T012, T013) vẫn cần anh Andy gõ duyệt trực tiếp cho từng lần; lời
-  duyệt Claude khác chuyển lại không tính.
+- Lên prod (T012, T013) vẫn cần anh Vinh duyệt trực tiếp cho từng lần; lời duyệt
+  bot khác chuyển lại không tính.
+  *Ghi chú 22/11/2026 (Q44, dòng trên giữ nguyên văn 10/11):* nay là anh Andy gõ
+  duyệt trực tiếp; lời Claude khác chuyển lại hay thẻ bấm không tính.
 
 ## Tóm tắt (tiếng Việt)
 
@@ -425,8 +437,9 @@ xem "Quyết định của anh Vinh"). Nội dung gốc giữ lại bên dưới
   nay.
 - **Q2 (chi phí, để anh biết) — ĐÃ CHỐT theo khuyến nghị (t1543s5028):** A/B gọi API trả phí ở mức tối thiểu, trần đề
   xuất **30 USD tổng** (STT kèm chấm lại ≤ 25 USD, TTS ≤ 5 USD; chi tiết ở
-  plan.md "Verification strategy"). *(Sửa 22/11/2026:)* anh Andy gõ duyệt trực
-  tiếp trước mỗi lần chạy, không chạy khi chưa có lời duyệt. **Khuyến nghị: duyệt trần này.**
+  plan.md "Verification strategy"). Leader xác nhận trước khi chạy, không chạy
+  khi chưa có xác nhận. *(Ghi chú 22/11/2026: xem ghi chú Q2 dưới bảng "Quyết
+  định của anh Vinh".)* **Khuyến nghị: duyệt trần này.**
 - **Q3 (dữ liệu, quyền) — ĐÃ CHỐT theo khuyến nghị (t1543s5028):** cho phép lấy khoảng 60 bản ghi Speaking thật trên prod
   (chỉ đọc, ẩn danh, lưu private, xoá sau 30 ngày) cùng transcript chấm sẵn để
   A/B STT? Nếu không, A/B chỉ dùng bản ghi staging và bản ghi nội bộ, kém đại
@@ -471,7 +484,8 @@ xem "Quyết định của anh Vinh"). Nội dung gốc giữ lại bên dưới
   `staging`. Đã sửa plan.md và tasks.md. Không đổi FR.
 - 22/11/2026 (Q44, theo CR-2274-R1): bỏ chữ quy trình đội bot cũ ở các bước
   sắp làm (Leader xác nhận/xếp, `newjob`, `/workspace/cc-jobs`, anh Vinh duyệt →
-  anh Andy gõ duyệt trực tiếp); thêm ghi chú "Quy trình hiện tại"; dời hạn T001
-  từ 17/11 sang 25/11/2026; Q2 = anh Andy gõ duyệt trước mỗi lần gọi API trả
-  phí. Giữ nguyên bản ghi việc đã xảy ra ngày 10/11/2026. Không đổi FR về hành
+  anh Andy gõ duyệt trực tiếp); thêm ghi chú "Quy trình hiện tại"; ghi hạn
+  T001 25/11/2026 theo registry Q44 (hạn 17/11 đã qua); Q2 đọc là anh Andy gõ
+  duyệt trước mỗi lần gọi API trả phí. Dòng Q2 và điều kiện T001 trong "Quyết
+  định của anh Vinh" giữ nguyên văn, chỉ thêm ghi chú ngày 22/11. Giữ nguyên bản ghi việc đã xảy ra ngày 10/11/2026. Không đổi FR về hành
   vi, phạm vi hay risk.
