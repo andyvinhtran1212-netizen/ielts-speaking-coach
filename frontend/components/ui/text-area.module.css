@@ -1,0 +1,9 @@
+/* UIBASE-0056 TextArea (ThanhPhan §2): answer text in the serif face. Only var(--av2-*). */
+.area {
+  padding-top: var(--av2-space-6);
+  padding-bottom: var(--av2-space-6);
+  font: var(--av2-fw-regular) var(--av2-fs-18) / 1.6 var(--av2-font-serif);
+  resize: vertical;
+}
+.meta { display: flex; justify-content: space-between; gap: var(--av2-space-6); font-size: var(--av2-fs-14); color: var(--av2-muted); }
+.count { font-variant-numeric: tabular-nums; margin-left: auto; }

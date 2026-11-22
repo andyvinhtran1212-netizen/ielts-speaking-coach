@@ -319,7 +319,7 @@ Chỉ mục: `(status, kind, published_at DESC)`; `(status, cohort_ended_on DESC
 |---|---|---|---|
 | `GET /api/surveys/open` | — | `{items:[{survey_id, course_name, closes_at}]}` | 401 |
 | `GET /api/surveys/{id}` | — | `{survey: SurveyView, response: null\|{answers, consent, status, submitted_at}, can_edit_until}` | 401; 404 `survey_not_found` (cả khi không phải thành viên, để không lộ khảo sát tồn tại) |
-| `PUT /api/surveys/{id}/draft` | `{answers}` | `{saved_at}` | 409 `survey_closed` |
+| `PATCH /api/surveys/{id}/draft` | `{answers}` | `{saved_at}` | 409 `survey_closed` |
 | `POST /api/surveys/{id}/submit` | `{answers, consent:{granted, name_display?}, request_key}` | `{status:"submitted"\|"updated", testimonials_created: int}` | 409 `survey_closed`; 422 `incomplete` kèm `missing:[1,2,5,6]` |
 
 **Hồ sơ** — `backend/routers/me_testimonials.py`, prefix `/api/me/testimonials`
@@ -579,7 +579,7 @@ Dùng lại 0021:
 | `POST /api/close-read/items/{id}/check-segment` `{start, end, role}` | `{correct, message_vi}` | Kiểm ở máy chủ để đáp án bước 1 không nằm sẵn trên trình duyệt |
 | `POST /api/close-read/items/{id}/reveal-frame` | `{segments: [...]}`, ghi `needs_hint` | |
 | `POST /api/close-read/items/{id}/attempts` `{translation_vi, step1_hints_used}` | 201 `{attempt_id, model_natural_vi, model_by_role, inner_map, self_check:[{label_vi, signal_n, keywords_vi, lesson_title, wiki_href}]}` | Chỉ lúc này mới trả bản mẫu (FR-13-D02) |
-| `PUT /api/close-read/attempts/{id}/marks` `{marks:{<signal_n>: "ok"\|"missed"}}` | 204 | |
+| `PATCH /api/close-read/attempts/{id}/marks` `{marks:{<signal_n>: "ok"\|"missed"}}` | 204 | |
 | `GET /api/close-read/modules/{m}/summary` | `{missed:[{signal_name, at:[order], lessons:[title]}], solid:[…], hints_needed:[order]}` | Không có điểm |
 | `GET /api/close-read/for-reading/{reading_id}` | `{units:[{unit_id, item_id}] ≤2}` (chỉ câu `status='published'` và đơn vị qua kiểm băm (sửa 18/11 theo rà soát: tờ thắng về giao diện)) | Lối vào B |
 

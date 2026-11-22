@@ -40,7 +40,7 @@ const FX = JSON.parse(readFileSync(
 const CONTENT = FX.content_id;
 const EXERCISE = FX.exercise_id;
 // UI đọc `stem` và `idx` (`listening-mcq.js:82-83`); backend bảo đảm ĐÚNG 4 lựa
-// chọn và bắt buộc `answer_idx` (`routers/listening.py:163-171`). Cả bốn ràng
+// chọn và bắt buộc `answer_idx` (`routers/listening/__init__.py:163-171`). Cả bốn ràng
 // buộc nay do chốt backend giữ, không còn do tôi nhớ.
 const QUESTIONS = FX.payload.questions;
 
@@ -97,11 +97,11 @@ export default {
         listen_count: 1,
         // PHẢI VẮNG. Bài làm lẻ không thuộc phiên nào; gửi kèm session id là
         // backend gắn nó vào phiên và làm nhiễu thống kê
-        // (`routers/listening.py:712-713`). Bộ so chỉ khớp TẬP CON nên không
+        // (`routers/listening/__init__.py:712-713`). Bộ so chỉ khớp TẬP CON nên không
         // ghim thì một bản port gửi thừa trường này vẫn xanh.
         //
         // PHẢI VẮNG hoặc null. `listening_session_id: str | None`
-        // (`routers/listening.py:331`) nên null LÀ hợp lệ — ghim "phải vắng hẳn" là
+        // (`routers/listening/__init__.py:331`) nên null LÀ hợp lệ — ghim "phải vắng hẳn" là
         // quá chặt, sẽ đỏ oan với một bản port tuần tự hoá đúng luật (bot bắt ở
         // #966). Thứ cần chặn là một session id THẬT: gửi kèm thì backend gắn
         // bài lẻ vào phiên và làm nhiễu thống kê (`listening.py:712-713`).

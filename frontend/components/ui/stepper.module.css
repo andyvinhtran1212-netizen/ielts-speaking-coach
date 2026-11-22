@@ -1,0 +1,45 @@
+/* UIBASE-0056 Stepper (ThanhPhanDuLieu §8). Only var(--av2-*). */
+.list {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.step { display: flex; flex-direction: column; gap: var(--av2-space-2); padding-right: var(--av2-space-5); }
+.track { display: flex; align-items: center; gap: var(--av2-space-4); margin-bottom: var(--av2-space-2); }
+
+.marker {
+  flex: none;
+  box-sizing: border-box;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: var(--av2-rule-w) solid var(--av2-rule);
+  border-radius: 50%;
+  background: var(--av2-surface);
+  color: var(--av2-muted);
+  font-weight: var(--av2-fw-strong);
+  font-variant-numeric: tabular-nums;
+}
+.line { flex: 1; height: 2px; background: var(--av2-rule); }
+.note { font-size: var(--av2-fs-14); color: var(--av2-muted); }
+
+.done .marker { border-color: var(--av2-ink); background: var(--av2-ink); color: var(--av2-surface); }
+.done .line { background: var(--av2-ink); }
+
+.current .marker { border: var(--av2-rule-strong-w) solid var(--av2-accent); color: var(--av2-accent); }
+.current .name { font-weight: var(--av2-fw-strong); }
+
+.error .marker { border: var(--av2-rule-strong-w) solid var(--av2-danger); color: var(--av2-danger); }
+.error .name, .error .note { font-weight: var(--av2-fw-strong); color: var(--av2-danger); }
+
+.compact { display: none; }
+
+@media (max-width: 767px) {
+  .list { display: none; }
+  .compact { display: block; }
+}

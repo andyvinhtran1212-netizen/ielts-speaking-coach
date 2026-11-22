@@ -153,7 +153,7 @@ it('Listening: disabled mode names the reason instead of a bare "no solution"', 
 
 it('Listening: a report_only paper says it has no detailed solution, not that one will open later', async () => {
   window.history.replaceState(null, '', '/listening/review?attempt_id=rv02-listening');
-  // Exact shape from backend/routers/listening.py for scoring_policy == "report_only".
+  // Exact shape from backend/routers/listening/__init__.py for scoring_policy == "report_only".
   getWith.mockResolvedValue(listeningFixture({ available: false, reason: 'report_only' }));
   const view = render(<ListeningReviewWorkspace />);
   await screen.findByRole('button', { name: 'Câu 2 — sai', exact: true });
@@ -173,7 +173,7 @@ it.each([
   [{ allowed: false, reason: 'content_release_gates_blocked' }, 'Lời giải chi tiết của đề này đang được biên tập, chưa phát hành.'],
   [{ allowed: false, reason: 'content_version_unavailable' }, 'Phiên bản lời giải dành cho bài này chưa sẵn sàng.'],
   [{ allowed: false, reason: 'invalid_policy' }, 'Lời giải chi tiết chưa mở cho bài này.'],
-  // Listening report_only papers (backend/routers/listening.py) use `available`, not `allowed`.
+  // Listening report_only papers (backend/routers/listening/__init__.py) use `available`, not `allowed`.
   [{ available: false, reason: 'report_only' }, 'Bài này chỉ báo cáo kết quả, không có lời giải chi tiết.'],
   [{ allowed: false, reason: 'report_only' }, 'Bài này chỉ báo cáo kết quả, không có lời giải chi tiết.'],
   [{ available: true }, 'Câu này chưa có lời giải chi tiết.'],

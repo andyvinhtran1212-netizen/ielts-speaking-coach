@@ -24,4 +24,39 @@ Not approved by this decision:
 - Merging any PR (each needs anh Andy's own "merge #N").
 - Any database read or write, environment change, production read, write or deploy.
 
+## Amendment — FR-005 and Q-d1 (pilot result)
+
+On 2026-11-20 at 17:59 Asia/Saigon (10:59:53 UTC), anh Andy answered a decision card
+in the project thread "Rà 30 spec đang triển khai dở" by pressing the option
+(verbatim):
+
+> Chấp nhận thí điểm, sửa FR-005
+
+The card asked "Thí điểm gộp group admin: chấp nhận và sửa FR-005, hay sửa lỗi sheet
+trước?" and that option read, verbatim: "Mở PR thí điểm khi #2402 merge; FR-005 đổi
+thành không kém hôm nay, không nhân đôi sheet nền; chọn 1 group cha (Q-d1); sửa sheet
+còn sót là việc riêng."
+
+Why: the G10-T14 pilot showed that, with `cacheComponents`, the previous route's
+stylesheets stay in the DOM after client navigation. This already happens on
+`staging` today, where the 4 base sheets are also duplicated. The pilot reduces it, and
+the client-navigation screenshots before and after are identical.
+
+Changes recorded by this amendment (`spec.md` sha256
+`ad5c257036d3c98bd3de69184de6b126712e059afc08a959692b58c5288149f6` before it):
+
+- FR-005: client navigation between two admin pages is no worse than today. The
+  screenshot matches the same scene on the pre-PR SHA, and each of the 4 base sheets
+  appears exactly once after any client navigation. Previous-route sheets kept by
+  `cacheComponents` are out of scope here. Removing them is a separate task. The
+  sidebar selection, activation gate and `<body>` class after navigation must still
+  equal a direct load.
+- Scenarios 2 and 3 are restated against that bar. `verification.md`, `plan.md` and
+  `tasks.md` (T002 dependency) follow.
+- Q-d1 is answered: one parent group `(authed-admin)`, with child groups using
+  plain `<link>`.
+
+The rest of the approval above is unchanged: merges, database, environment and
+production still need anh Andy's own typed approval.
+
 No learner data is included here.

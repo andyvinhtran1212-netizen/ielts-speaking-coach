@@ -151,7 +151,7 @@ def _check_listening_test(fx):
 
     Nối tới CHÍNH model production nhận thân request lưu đáp án
     (`TestAttemptAnswerPatchRequest`) và CHÍNH chốt khoảng của route
-    (`routers/listening.py:5194` — `1 <= q_num <= 40`). Không viết lại bộ kiểm:
+    (`routers/listening/__init__.py:5194` — `1 <= q_num <= 40`). Không viết lại bộ kiểm:
     một bản sao thứ hai rồi cũng trôi khỏi bản gốc.
     """
     from pydantic import ValidationError
@@ -166,7 +166,7 @@ def _check_listening_test(fx):
         except ValidationError as e:
             raise AssertionError(f"đáp án {a!r} không qua được model thật: {e}") from e
         assert 1 <= m.q_num <= 40, (
-            f"q_num={m.q_num} ngoài khoảng route chấp nhận (routers/listening.py:5194)")
+            f"q_num={m.q_num} ngoài khoảng route chấp nhận (routers/listening/__init__.py:5194)")
 
     # Câu hỏi trong đề phải PHỦ đúng các q_num mà luồng sẽ gõ; thiếu thì bước
     # `fill` không tìm thấy ô nhập và luồng đỏ vì lý do sai.

@@ -362,7 +362,7 @@ describe('native stop lỗi không làm kẹt phễu hoặc phiếu', () => {
 });
 
 describe('nộp phiếu luôn nhả micro nhưng không huỷ controller', () => {
-  test('PATCH lỗi vẫn tắt track và lần ghi tiếp theo mở lại được', async () => {
+  test('PATCH lỗi vẫn tắt track và lần ghi tiếp theo mở lại được', async (t) => {
     const start = JS.indexOf('  async function _sheetSubmit() {');
     const end = JS.indexOf('  async function finishSession() {');
     assert.ok(start !== -1 && end > start, 'không tìm thấy submit + cleanup');
@@ -382,6 +382,7 @@ describe('nộp phiếu luôn nhả micro nhưng không huỷ controller', () =>
       MediaRecorderCtor: MediaRecorder,
       BlobCtor: Blob,
     });
+    t.after(() => controller.destroy());
     await controller.start();
 
     const button = { disabled: false, textContent: 'Nộp bài' };

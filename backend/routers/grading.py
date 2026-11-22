@@ -657,6 +657,28 @@ async def grade_response_endpoint(
             resource_id=question_id,
         ))
 
+        # Reject known short takes before archival; paid STT usage stays logged.
+        step = "duration_check"
+        # F2 (audit 2026-07-02): only enforce the too-SHORT gate when duration is
+        # KNOWN (> 0). A non-verbose STT model (WHISPER_STT_MODEL != whisper-1)
+        # with ffprobe unavailable yields duration_sec == 0 — treating that as
+        # "too short" would 422-reject every valid recording. Genuinely empty
+        # audio is still caught below by the empty-transcript check.
+        if duration_sec > 0:
+            try:
+                validate_audio_duration(duration_sec, part)
+            except AudioTooShortError as too_short:
+                logger.info(
+                    "[grading] audio rejected — too short: part=%d duration=%.2fs min=%ds",
+                    too_short.part, too_short.duration_seconds, too_short.min_seconds,
+                )
+                raise HTTPException(status_code=422, detail=too_short.to_detail())
+        else:
+            logger.warning(
+                "[grading] duration unknown (0s) — skipping too-short gate "
+                "(non-verbose STT without ffprobe?); relying on empty-transcript check",
+            )
+
         # ── STEP 4: Upload to Supabase Storage (archival — non-blocking) ─────
         step = "storage_upload"
         audio_uploaded = False
@@ -716,26 +738,6 @@ async def grade_response_endpoint(
             raise HTTPException(
                 422,
                 f"Audio quá dài ({duration_sec:.0f}s). Giới hạn là {max_dur}s."
-            )
-
-        # F2 (audit 2026-07-02): only enforce the too-SHORT gate when duration is
-        # KNOWN (> 0). A non-verbose STT model (WHISPER_STT_MODEL != whisper-1)
-        # with ffprobe unavailable yields duration_sec == 0 — treating that as
-        # "too short" would 422-reject every valid recording. Genuinely empty
-        # audio is still caught below by the empty-transcript check.
-        if duration_sec > 0:
-            try:
-                validate_audio_duration(duration_sec, part)
-            except AudioTooShortError as too_short:
-                logger.info(
-                    "[grading] audio rejected — too short: part=%d duration=%.2fs min=%ds",
-                    too_short.part, too_short.duration_seconds, too_short.min_seconds,
-                )
-                raise HTTPException(status_code=422, detail=too_short.to_detail())
-        else:
-            logger.warning(
-                "[grading] duration unknown (0s) — skipping too-short gate "
-                "(non-verbose STT without ffprobe?); relying on empty-transcript check",
             )
 
         if not transcript:
