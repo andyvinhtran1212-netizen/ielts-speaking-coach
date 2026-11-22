@@ -5,7 +5,8 @@ Groups, at most three rows each, every row ``{title, meta, href}``:
 
 * ``learners``: the T03 directory people (``services.admin_learner_directory``),
   matched the way the directory search matches (name, e-mail, learner code,
-  without Vietnamese accents).
+  without Vietnamese accents). Activation-code ownership is not searched here,
+  for admins or teachers: that lookup stays on ``GET /admin/learners?q=``.
 * ``classes``: ``cohorts`` by name or code prefix.
 * ``submissions``: ``writing_essays`` of the matched learners, newest first.
 * ``content`` (admin only): Writing prompts, Speaking topics, Reading
@@ -134,13 +135,14 @@ def submissions(people: list[directory.Person], *, cohort_ids: Optional[frozense
             essay_ids |= {str(r["essay_id"]) for r in given if r.get("essay_id")}
         if not essay_ids:
             return []
+    # Chunked by learner (admin) or by essay (teacher, already limited to the
+    # matched learners' class work), so no URL grows with the history.
+    column, keys = ("student_id", ids) if essay_ids is None else ("id", sorted(essay_ids))
     essays: list[dict] = []
-    for offset in range(0, len(ids), _ID_CHUNK):
-        query = (supabase_admin.table("writing_essays").select("id, student_id, task_type, status, created_at")
-                 .in_("student_id", ids[offset:offset + _ID_CHUNK]).is_("deleted_at", "null"))
-        if essay_ids is not None:
-            query = query.in_("id", sorted(essay_ids))
-        essays += query.order("created_at", desc=True).limit(GROUP_LIMIT).execute().data or []
+    for offset in range(0, len(keys), _ID_CHUNK):
+        essays += (supabase_admin.table("writing_essays").select("id, student_id, task_type, status, created_at")
+                   .in_(column, keys[offset:offset + _ID_CHUNK]).is_("deleted_at", "null")
+                   .order("created_at", desc=True).limit(GROUP_LIMIT).execute().data or [])
     essays.sort(key=lambda e: (str(e.get("created_at") or ""), str(e.get("id"))), reverse=True)
     rows = []
     for e in essays[:GROUP_LIMIT]:

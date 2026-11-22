@@ -219,3 +219,21 @@ def test_search_writes_nothing(db, monkeypatch):
     _admin("lan")
     _teacher(monkeypatch, db, U_TEACH, "lan")
     assert db.writes == []
+
+
+def test_a_teachers_essay_reads_are_chunked_by_essay(db, monkeypatch):
+    """Review N2: a long Writing history never goes into one ``in_`` list."""
+    db.rows["writing_assignments"] += [{"id": f"wx{i}", "student_id": S_LAN, "cohort_id": C_A, "essay_id": f"e-old{i}"}
+                                       for i in range(450)]
+    sizes: list[int] = []
+    real_in = db.table("writing_essays").__class__.in_
+
+    def spy(self, c, vs):
+        if self.name == "writing_essays":
+            sizes.append(len(list(vs)))
+        return real_in(self, c, vs)
+
+    monkeypatch.setattr(db.table("x").__class__, "in_", spy)
+    out = _teacher(monkeypatch, db, U_TEACH, "lan")
+    assert [r["href"] for r in out["submissions"]] == ["/instructor/grade?essay_id=e-class"]
+    assert sizes and max(sizes) <= 200 and sum(sizes) == 451
