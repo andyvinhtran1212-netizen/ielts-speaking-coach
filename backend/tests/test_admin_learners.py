@@ -69,6 +69,8 @@ class _Query:
             self.db.evidence_queries.append(",".join(str(v) for v in vs))
         return self._add(lambda r: str(r.get(c)) in {str(v) for v in vs})
     def is_(self, c, v): return self._add(lambda r: r.get(c) is None)
+    def gte(self, c, v): return self._add(lambda r: r.get(c) is not None and str(r.get(c)) >= str(v))
+    def lt(self, c, v): return self._add(lambda r: r.get(c) is not None and str(r.get(c)) < str(v))
     # Only the blackeye hidden-test filter uses or_; no fixture holds such a
     # test, so it keeps every row.
     def or_(self, *_a, **_k): return self
