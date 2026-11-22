@@ -1,0 +1,113 @@
+/* LIBRARY-0061 T007 reading layout (FR-021; tờ KienThucWriting §2–3, NguPhap). Only var(--av2-*).
+   Wide (>=1024px): contents 224 | text 640 | notes 248. Narrow: one column. */
+.layout {
+  display: grid;
+  grid-template-columns: 224px minmax(0, 1fr);
+  column-gap: var(--av2-space-8);
+  align-items: start;
+  color: var(--av2-ink);
+}
+
+.noToc { grid-template-columns: minmax(0, 1fr); }
+
+.tocColumn { align-self: stretch; }
+
+.tocWide {
+  position: sticky;
+  top: calc(var(--av2-topbar-h) + var(--av2-space-6));
+  font-family: var(--av2-font-sans);
+  font-size: var(--av2-fs-14);
+}
+
+.tocHeading {
+  margin: 0 0 var(--av2-space-3);
+  font-size: var(--av2-fs-12);
+  font-weight: var(--av2-fw-strong);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tocList { margin: 0; padding: 0; list-style: none; }
+
+.tocItem a {
+  display: flex;
+  gap: var(--av2-space-2);
+  min-height: var(--av2-control-sm);
+  align-items: center;
+  padding-left: var(--av2-space-3);
+  border-left: 3px solid transparent;
+  color: var(--av2-ink);
+  text-decoration: none;
+}
+
+.tocItem a:hover { text-decoration: underline; }
+
+.tocCurrent a {
+  border-left-color: var(--av2-ink);
+  font-weight: var(--av2-fw-strong);
+}
+
+.tocNum { min-width: 2ch; color: var(--av2-muted); }
+
+.tocFooter {
+  margin-top: var(--av2-space-6);
+  color: var(--av2-muted);
+  font-size: var(--av2-fs-13);
+}
+
+.article { min-width: 0; }
+
+.header { max-width: 640px; margin-bottom: var(--av2-space-8); }
+
+.tocNarrow { display: none; }
+
+.body { display: grid; row-gap: var(--av2-space-6); }
+
+.block {
+  display: grid;
+  grid-template-columns: minmax(0, 640px) 248px;
+  column-gap: var(--av2-space-10);
+  align-items: start;
+}
+
+.text {
+  font-family: var(--av2-font-serif);
+  font-size: var(--av2-fs-18);
+  line-height: calc(29 / 18);
+  min-width: 0;
+}
+
+.notes {
+  display: grid;
+  row-gap: var(--av2-space-4);
+  font-family: var(--av2-font-sans);
+  font-size: var(--av2-fs-13);
+  line-height: var(--av2-lh-body);
+}
+
+@media (max-width: 1023px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .tocColumn { display: none; }
+
+  .tocNarrow {
+    display: block;
+    margin-bottom: var(--av2-space-6);
+    border-top: var(--av2-rule-w) solid var(--av2-rule);
+    border-bottom: var(--av2-rule-w) solid var(--av2-rule);
+    font-family: var(--av2-font-sans);
+    font-size: var(--av2-fs-15);
+  }
+
+  .tocNarrow summary {
+    min-height: var(--av2-control-md);
+    display: flex;
+    align-items: center;
+    font-weight: var(--av2-fw-strong);
+    cursor: pointer;
+  }
+
+  .tocNarrow nav { padding-bottom: var(--av2-space-3); }
+
+  .block { grid-template-columns: minmax(0, 1fr); row-gap: var(--av2-space-3); }
+  .text { font-size: var(--av2-fs-16); line-height: calc(26 / 16); }
+}
