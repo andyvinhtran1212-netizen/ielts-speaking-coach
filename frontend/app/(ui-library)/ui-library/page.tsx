@@ -18,6 +18,7 @@ import {
 import {
   BreadcrumbSection, PaginationSection, ProgressBarSection, StepperSection, TabsSection,
 } from './nav-sections';
+import { FocusShellSection } from './focus-demo';
 import { ThemeSection } from './theme-sections';
 import styles from './ui-library.module.css';
 
@@ -173,6 +174,7 @@ export default function UiLibraryPage() {
           <ProgressBarSection title={title('progress-bar')} />
           <StepperSection title={title('stepper')} />
           <ThemeSection title={title('theme')} />
+          <FocusShellSection title={title('focus-shell')} />
         </main>
       </div>
     </>

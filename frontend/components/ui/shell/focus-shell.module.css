@@ -1,0 +1,209 @@
+/*
+ * UIBASE-0056 FocusShell (FR-009; ThanhPhanKhungTrang §6, PhongThi §4a).
+ * Only var(--av2-*), no hex. Practice: paper bar, Vietnamese. Exam: ink bar,
+ * English; the full-test room adds .av2-always-light on .shell (FR-025), so
+ * colour is set on .shell itself to resolve against the light values.
+ */
+
+body:has(.shell:not([data-demo])) { margin: 0; }
+
+.shell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--av2-paper);
+  color: var(--av2-ink);
+  font-family: var(--av2-font-sans);
+}
+.shell[data-demo] {
+  min-height: 320px;
+  border: var(--av2-rule-w) solid var(--av2-ink);
+}
+/* On the library page the bars stay in the frame instead of sticking to the window. */
+.shell[data-demo] .bar,
+.shell[data-demo] .bottom { position: static; }
+
+.skip {
+  position: absolute;
+  left: var(--av2-space-7);
+  top: calc(-1 * var(--av2-control-lg));
+  z-index: var(--av2-z-toast);
+  padding: var(--av2-space-4) var(--av2-space-7);
+  background: var(--av2-surface);
+  color: var(--av2-ink);
+  border: var(--av2-rule-w) solid var(--av2-ink);
+}
+.skip:focus { top: var(--av2-space-4); }
+
+/* Exit left, title centred, slot right. Side tracks keep their content; the title gives way with "…". */
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: var(--av2-z-sticky);
+  flex-shrink: 0;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr);
+  align-items: center;
+  gap: var(--av2-space-7);
+  height: var(--av2-row);
+  padding: 0 var(--av2-space-7);
+}
+.practice .bar {
+  background: var(--av2-surface);
+  border-bottom: var(--av2-rule-w) solid var(--av2-ink);
+}
+.exam .bar {
+  height: var(--av2-space-12);
+  padding: 0 var(--av2-space-8);
+  background: var(--av2-ink);
+  color: var(--av2-surface);
+}
+
+.start {
+  display: flex;
+  align-items: center;
+  gap: var(--av2-space-4);
+  justify-self: start;
+}
+.end {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--av2-space-7);
+  justify-self: end;
+  font-size: var(--av2-fs-14);
+  white-space: nowrap;
+}
+
+.exit {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--av2-space-2);
+  box-sizing: border-box;
+  min-height: var(--av2-control-md);
+  padding: 0 var(--av2-space-7);
+  border: var(--av2-rule-w) solid var(--av2-ink);
+  border-radius: var(--av2-radius);
+  background: var(--av2-surface);
+  color: var(--av2-ink);
+  font: var(--av2-fw-strong) var(--av2-fs-15) / 1 var(--av2-font-sans);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.exit:hover { background: var(--av2-tint); }
+.exit:focus-visible { outline: var(--av2-focus); outline-offset: var(--av2-focus-offset); }
+.exam .exit {
+  border-color: var(--av2-surface);
+  background: transparent;
+  color: var(--av2-surface);
+  font-weight: var(--av2-fw-regular);
+}
+.exam .exit:hover { background: var(--av2-surface); color: var(--av2-ink); }
+.exam .exit:focus-visible { outline-color: var(--av2-surface); }
+
+/* Doubled to beat type rules on p in page styles. */
+.title.title {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--av2-fs-15);
+  font-weight: var(--av2-fw-strong);
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.exam .title { font-weight: var(--av2-fw-regular); }
+.title strong { font-weight: var(--av2-fw-strong); }
+
+.timerGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--av2-space-6);
+}
+.timerLabel { font-size: var(--av2-fs-13); }
+.practice .timerLabel { font-size: var(--av2-fs-14); font-weight: var(--av2-fw-strong); }
+.timer {
+  font-weight: var(--av2-fw-strong);
+  font-variant-numeric: tabular-nums;
+}
+.exam .timer {
+  padding: var(--av2-space-1) var(--av2-space-6);
+  border-radius: var(--av2-radius);
+  background: var(--av2-surface);
+  color: var(--av2-ink);
+  font-size: var(--av2-fs-20);
+}
+
+.status { font-size: var(--av2-fs-14); }
+.practice .status { color: var(--av2-muted); }
+.exam .status { font-size: var(--av2-fs-13); }
+.status.recording {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--av2-space-3);
+  color: var(--av2-danger);
+  font-weight: var(--av2-fw-strong);
+  font-variant-numeric: tabular-nums;
+}
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--av2-danger);
+}
+
+.content {
+  flex-grow: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--av2-space-6);
+  padding: var(--av2-space-8) var(--av2-space-9);
+}
+.content:focus { outline: none; }
+
+.bottom {
+  position: sticky;
+  bottom: 0;
+  z-index: var(--av2-z-sticky);
+  flex-shrink: 0;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--av2-space-6);
+  min-height: 60px;
+  padding: var(--av2-space-4) var(--av2-space-7);
+  border-top: var(--av2-rule-w) solid var(--av2-ink);
+  background: var(--av2-surface);
+}
+
+.subline { display: none; }
+
+.leaveText.leaveText { margin: 0; }
+.leaveText strong { font-weight: var(--av2-fw-strong); }
+.leaveNote.leaveNote { margin: var(--av2-space-3) 0 0; color: var(--av2-muted); }
+
+@media (max-width: 767px) {
+  .bar {
+    gap: var(--av2-space-5);
+    padding: 0 var(--av2-space-6);
+  }
+  .exit { padding: 0 var(--av2-space-6); }
+  .content { padding: var(--av2-space-7); }
+  /* Room for the title: plain statuses and the timer label leave the bar (the sheet's phone bar). */
+  .end .status:not(.recording),
+  .timerLabel { display: none; }
+  .subline.subline {
+    display: block;
+    flex-shrink: 0;
+    margin: 0;
+    padding: var(--av2-space-3) var(--av2-space-7);
+    border-bottom: var(--av2-rule-w) solid var(--av2-rule);
+    color: var(--av2-muted);
+    font-size: var(--av2-fs-13);
+  }
+}
