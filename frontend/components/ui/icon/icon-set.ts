@@ -2,7 +2,7 @@
 // `iconGroups` array of thiet-ke/ThanhPhanNenTang.dc.html; the sheet's
 // c(x, y, r) helper is stored as a circle.
 //
-// PARTIAL on purpose: G03-T05/T06/T13/T18 need only these. G11-T32 replaces this file
+// PARTIAL on purpose: G03-T05/T06/T13/T14/T18 need only these. G11-T32 replaces this file
 // with the full 94-icon set and keeps the same names and the same `Icon` API.
 // `fills` are drawn filled with currentColor (the half-filled "device" disc).
 export type IconShape = {
@@ -15,6 +15,14 @@ export const ICON_SET = {
   close: { paths: ['M6 6l12 12M18 6L6 18'] },
   menu: { paths: ['M4 7h16M4 12h16M4 17h16'] },
   'chev-down': { paths: ['M6 9l6 6 6-6'] },
+  // Learner shell (G03-T14): the five sections, bell, account and sign-out.
+  home: { paths: ['M4 11l8-7 8 7v9H4z'] },
+  route: { paths: ['M8 19h7a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h7'], circles: [[6, 19, 2], [18, 5, 2]] },
+  timer: { paths: ['M12 9v4l3 2M9 2h6'], circles: [[12, 13, 8]] },
+  books: { paths: ['M4 4h5v16H4zM9 4h5v16H9zM15 6l3-1 3 14-3 1z'] },
+  bell: { paths: ['M6 16v-5a6 6 0 0 1 12 0v5l2 2H4zM10 21h4'] },
+  user: { paths: ['M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1'], circles: [[12, 8, 4]] },
+  logout: { paths: ['M9 4H4v16h5M16 8l4 4-4 4M20 12H9'] },
   search: { paths: ['M16.5 16.5L21 21'], circles: [[11, 11, 7]] },
   plus: { paths: ['M12 5v14M5 12h14'] },
   pencil: { paths: ['M4 20l4-1 11-11-3-3L5 16zM14 6l3 3'] },

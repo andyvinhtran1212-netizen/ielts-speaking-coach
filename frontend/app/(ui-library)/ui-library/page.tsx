@@ -18,6 +18,7 @@ import {
 import {
   BreadcrumbSection, PaginationSection, ProgressBarSection, StepperSection, TabsSection,
 } from './nav-sections';
+import { LearnerShellSection } from './shell-sections';
 import { ThemeSection } from './theme-sections';
 import styles from './ui-library.module.css';
 
@@ -173,6 +174,7 @@ export default function UiLibraryPage() {
           <ProgressBarSection title={title('progress-bar')} />
           <StepperSection title={title('stepper')} />
           <ThemeSection title={title('theme')} />
+          <LearnerShellSection title={title('learner-shell')} />
         </main>
       </div>
     </>
