@@ -77,6 +77,8 @@ describe('Library frame (FR-001, FR-002, FR-003)', () => {
     assert.match(code, /<PublicShell active="library">/);
     assert.match(code, /from '@\/components\/ui\/shell\/public-shell'/);
     assert.doesNotMatch(code, /aver-chrome|aver-admin-chrome|\/css\/|tailwind|lucide/i);
+    // RedirectNotice is styled with legacy --av-* tokens only, which this tree does not load.
+    assert.doesNotMatch(code, /RedirectNotice/);
     // PublicShell owns <main>; the page must not add a second one.
     assert.doesNotMatch(PAGE, /<main\b/);
   });
