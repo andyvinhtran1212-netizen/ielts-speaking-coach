@@ -137,3 +137,14 @@
   .progressGrid { grid-template-columns: minmax(0, 1fr); }
   .themeGrid { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* G03-T14 LearnerShell demo. The frame scrolls, so the sticky phone bar sits at its bottom. */
+.shellFrame { height: 560px; overflow: auto; border: var(--av2-rule-w) solid var(--av2-rule); background: var(--av2-paper); }
+.demoContent { color: var(--av2-muted); text-align: center; letter-spacing: 0.08em; text-transform: uppercase; font-size: var(--av2-fs-13); padding: var(--av2-space-12) 0 240px; }
+.demoRow { display: flex; flex-wrap: wrap; align-items: center; gap: var(--av2-space-9); padding: var(--av2-space-6) 0; }
+.bellWrap { position: relative; display: inline-flex; }
+.bell { position: relative; display: inline-flex; align-items: center; justify-content: center; width: var(--av2-control-md); height: var(--av2-control-md); border: 0; border-radius: var(--av2-radius); background: transparent; color: var(--av2-ink); cursor: pointer; }
+.bell:hover { background: var(--av2-tint); }
+.bellCount { position: absolute; top: 4px; right: 2px; min-width: 18px; padding: 0 var(--av2-space-2); border-radius: 9px; background: var(--av2-mark); color: var(--av2-on-accent); font-size: var(--av2-fs-12); font-weight: var(--av2-fw-strong); line-height: 18px; text-align: center; }
+.bellPanel { position: absolute; top: calc(100% + var(--av2-space-3)); right: 0; z-index: var(--av2-z-overlay); width: 260px; padding: var(--av2-space-7); border: var(--av2-rule-w) solid var(--av2-ink); background: var(--av2-surface); font-size: var(--av2-fs-14); }
+.section a.overdue { display: inline-flex; align-items: center; min-height: 28px; padding: 0 var(--av2-space-4); border: var(--av2-rule-w) solid var(--av2-mark); background: var(--av2-warn-bg); color: var(--av2-ink); font-size: var(--av2-fs-13); font-weight: var(--av2-fw-strong); text-decoration: none; white-space: nowrap; }
