@@ -1,0 +1,139 @@
+/* /ui-library page layout (UIBASE-0056 G03-T04). Only var(--av2-*), no hex. */
+.page { max-width: 1200px; margin: 0 auto; padding: var(--av2-space-10) var(--av2-space-7); }
+.head { margin-bottom: var(--av2-space-10); }
+.lead { color: var(--av2-muted); margin: var(--av2-space-4) 0 0; }
+.section { padding: var(--av2-space-9) 0; border-top: var(--av2-rule-w) solid var(--av2-rule); }
+.section h2 { margin-bottom: var(--av2-space-7); }
+.section h3 { margin-bottom: var(--av2-space-4); }
+.section p { margin: 0 0 var(--av2-space-4); }
+
+.swatches { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: var(--av2-space-7); }
+.swatch { display: flex; flex-direction: column; gap: var(--av2-space-3); font-size: var(--av2-fs-13); }
+.chip { display: block; height: 56px; border: var(--av2-rule-w) solid var(--av2-control-border); border-radius: var(--av2-radius); }
+.swPaper { background: var(--av2-paper); }
+.swSurface { background: var(--av2-surface); }
+.swInk { background: var(--av2-ink); }
+.swMuted { background: var(--av2-muted); }
+.swRule { background: var(--av2-rule); }
+.swAccent { background: var(--av2-accent); }
+.swAccentHover { background: var(--av2-accent-hover); }
+.swLink { background: var(--av2-link); }
+.swMark { background: var(--av2-mark); }
+.swDanger { background: var(--av2-danger); }
+.swOk { background: var(--av2-ok); }
+.swTint { background: var(--av2-tint); }
+.swOff { background: var(--av2-off); }
+.swOnAccent { background: var(--av2-on-accent); }
+.swControlBorder { background: var(--av2-control-border); }
+.swHighlight { background: var(--av2-highlight); }
+.swWarnBg { background: var(--av2-warn-bg); }
+.swErrorBg { background: var(--av2-error-bg); }
+.swOkBg { background: var(--av2-ok-bg); }
+.swLogoMark { background: var(--av2-logo-mark); }
+.swQrBg { background: var(--av2-qr-bg); }
+.swQrInk { background: var(--av2-qr-ink); }
+
+.typeGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--av2-space-9); }
+.sample { line-height: var(--av2-lh-tight); overflow-wrap: anywhere; }
+.sans { font-family: var(--av2-font-sans); }
+.serif { font-family: var(--av2-font-serif); }
+.strong { font-weight: var(--av2-fw-strong); }
+.tag { display: inline-block; min-width: 3.5em; font-family: var(--av2-font-sans); font-size: var(--av2-fs-12); color: var(--av2-muted); font-weight: var(--av2-fw-regular); }
+.fs12 { font-size: var(--av2-fs-12); }
+.fs13 { font-size: var(--av2-fs-13); }
+.fs14 { font-size: var(--av2-fs-14); }
+.fs15 { font-size: var(--av2-fs-15); }
+.fs16 { font-size: var(--av2-fs-16); }
+.fs18 { font-size: var(--av2-fs-18); }
+.fs20 { font-size: var(--av2-fs-20); }
+.fs24 { font-size: var(--av2-fs-24); }
+.fs40 { font-size: var(--av2-fs-40); }
+.fsBandPhone { font-size: var(--av2-fs-band-phone); }
+.fsBandLg { font-size: var(--av2-fs-band-lg); }
+
+.viRow { padding: var(--av2-space-4) 0; border-bottom: var(--av2-rule-w) solid var(--av2-rule); }
+.viRow p { margin: 0; line-height: var(--av2-lh-body); }
+
+.spaces { list-style: none; margin: 0 0 var(--av2-space-9); padding: 0; display: grid; gap: var(--av2-space-3); }
+.spaceRow { display: grid; grid-template-columns: 140px 1fr; align-items: center; font-size: var(--av2-fs-13); }
+.bar { display: block; height: var(--av2-space-7); background: var(--av2-accent); }
+.sp1 { width: var(--av2-space-1); }
+.sp2 { width: var(--av2-space-2); }
+.sp3 { width: var(--av2-space-3); }
+.sp4 { width: var(--av2-space-4); }
+.sp5 { width: var(--av2-space-5); }
+.sp6 { width: var(--av2-space-6); }
+.sp7 { width: var(--av2-space-7); }
+.sp8 { width: var(--av2-space-8); }
+.sp9 { width: var(--av2-space-9); }
+.sp10 { width: var(--av2-space-10); }
+.sp11 { width: var(--av2-space-11); }
+.sp12 { width: var(--av2-space-12); }
+
+.shapes { display: flex; flex-wrap: wrap; gap: var(--av2-space-7); align-items: center; }
+.box { padding: var(--av2-space-7); background: var(--av2-surface); border: var(--av2-rule-w) solid var(--av2-control-border); border-radius: var(--av2-radius); }
+.boxStrong { border-width: var(--av2-rule-strong-w); border-color: var(--av2-ink); }
+.focusDemo { outline: var(--av2-focus); outline-offset: var(--av2-focus-offset); padding: var(--av2-space-2); }
+
+/* G03-T05 component sections. */
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--av2-space-6); }
+.note { font-size: var(--av2-fs-14); color: var(--av2-muted); margin-top: var(--av2-space-7); }
+.rowName { font-weight: var(--av2-fw-strong); display: flex; flex-direction: column; }
+.rowNote { font-weight: var(--av2-fw-regular); font-size: var(--av2-fs-13); color: var(--av2-muted); }
+.stateGrid + .subhead { margin-top: var(--av2-space-9); }
+
+.stateGrid { display: grid; grid-template-columns: 150px repeat(5, minmax(0, 1fr)); gap: var(--av2-space-6) var(--av2-space-7); align-items: center; }
+.stateRow { display: contents; }
+.stateHead { font-size: var(--av2-fs-13); color: var(--av2-muted); }
+.stateCell { display: flex; flex-direction: column; align-items: flex-start; gap: var(--av2-space-2); }
+.stateLabel { display: none; font-size: var(--av2-fs-13); color: var(--av2-muted); }
+
+.fieldGrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--av2-space-9); }
+.fieldGrid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--av2-space-9); }
+.badgeGrid { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: var(--av2-space-6) var(--av2-space-7); align-items: center; }
+
+/* G03-T06 feedback and overlay sections. */
+.overlayGrid { display: grid; grid-template-columns: 400px 520px; gap: var(--av2-space-9); align-items: start; }
+.overlayGrid > div:last-child { grid-column: 1 / -1; }
+.overlayGrid .rowNote, .fieldGrid2 .rowNote { display: block; margin: 0 0 var(--av2-space-4); }
+.stage { margin-bottom: var(--av2-space-5); }
+.drawerStage { display: flex; justify-content: flex-end; height: 420px; margin-bottom: var(--av2-space-5); padding: 0; border: var(--av2-rule-w) solid var(--av2-ink); background: var(--av2-paper); }
+.formStack { display: flex; flex-direction: column; gap: var(--av2-space-7); }
+.summary { display: grid; grid-template-columns: 148px minmax(0, 1fr); margin: 0; font-variant-numeric: tabular-nums; }
+.summary dt { padding: var(--av2-space-3) 0; color: var(--av2-muted); border-top: var(--av2-rule-w) solid var(--av2-rule); }
+.summary dd { margin: 0; padding: var(--av2-space-3) 0; border-top: var(--av2-rule-w) solid var(--av2-rule); }
+.summary dt:first-of-type, .summary dd:first-of-type { border-top: 0; }
+.fieldGrid2 > div > [role='group'] { margin-bottom: var(--av2-space-5); }
+.pendingBox { padding: var(--av2-space-8); border: var(--av2-rule-w) dashed var(--av2-muted); }
+.pendingTitle { margin: 0 0 var(--av2-space-3); font-weight: var(--av2-fw-strong); }
+.pendingBody { margin: 0; color: var(--av2-muted); }
+
+/* G03-T07 navigation and progress sections. */
+.stack { display: flex; flex-direction: column; gap: var(--av2-space-7); }
+.progressGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--av2-space-10); }
+.panelText { margin: 0; }
+/* .section raises specificity over base.css `.av2-root p`. */
+.section .demoLabel { display: block; margin: var(--av2-space-9) 0 var(--av2-space-4); font-size: var(--av2-fs-13); color: var(--av2-muted); }
+.section h2 + .demoLabel { margin-top: 0; }
+.gapTop { margin-top: var(--av2-space-7); }
+
+/* G03-T18 theme section and page header switch. */
+.headRow { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--av2-space-7); }
+.themeGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--av2-space-10); }
+.themeGrid .demoLabel:first-child { margin-top: 0; }
+/* The wrapper re-declares the light colours; it still has to paint them. */
+.alwaysLight { padding: var(--av2-space-7); border: var(--av2-rule-w) solid var(--av2-rule); background: var(--av2-paper); color: var(--av2-ink); }
+
+@media (max-width: 767px) {
+  .stateGrid { grid-template-columns: 1fr; }
+  .stateHead { display: none; }
+  .stateRow { display: flex; flex-wrap: wrap; gap: var(--av2-space-6); padding-bottom: var(--av2-space-7); border-bottom: var(--av2-rule-w) solid var(--av2-rule); }
+  .stateRow > .rowName { flex-basis: 100%; }
+  .stateLabel { display: block; }
+  .fieldGrid, .fieldGrid2 { grid-template-columns: 1fr; }
+  .badgeGrid { grid-template-columns: 1fr; }
+  .overlayGrid { grid-template-columns: minmax(0, 1fr); }
+  .drawerStage { height: 480px; }
+  .progressGrid { grid-template-columns: minmax(0, 1fr); }
+  .themeGrid { grid-template-columns: minmax(0, 1fr); }
+}

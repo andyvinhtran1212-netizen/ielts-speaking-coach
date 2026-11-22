@@ -1,0 +1,43 @@
+/* UIBASE-0056 Notice (ThanhPhan §4). Only var(--av2-*). */
+.notice {
+  display: flex;
+  gap: var(--av2-space-5);
+  padding: var(--av2-space-5) var(--av2-space-7);
+  color: var(--av2-ink);
+}
+
+.body { margin: 0; }
+.title { font-weight: var(--av2-fw-strong); }
+.action a { color: var(--av2-link); }
+.icon { flex-shrink: 0; margin-top: var(--av2-space-1); }
+
+.label {
+  display: block;
+  font-size: var(--av2-fs-12);
+  font-weight: var(--av2-fw-strong);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.info {
+  border-top: var(--av2-rule-w) solid var(--av2-accent);
+  border-bottom: var(--av2-rule-w) solid var(--av2-accent);
+  background: var(--av2-tint);
+}
+
+.success {
+  border-top: var(--av2-rule-w) solid var(--av2-ok);
+  border-bottom: var(--av2-rule-w) solid var(--av2-ok);
+  background: var(--av2-surface);
+}
+.success .title { color: var(--av2-ok); }
+
+.warning,
+.error {
+  border: var(--av2-rule-w) solid currentColor;
+  border-left-width: 4px;
+}
+.warning { border-color: var(--av2-mark); background: var(--av2-warn-bg); }
+.error { border-color: var(--av2-danger); background: var(--av2-error-bg); }
+.warning .icon, .warning .label, .warning .title { color: var(--av2-mark); }
+.error .icon, .error .label, .error .title { color: var(--av2-danger); }

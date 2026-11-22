@@ -1,8 +1,11 @@
 # IELTS Speaking Coach — Project Guide for Claude
 
-Read `AGENTS.md` for the shared working agreement and domain invariants.
+@AGENTS.md
+
+Read `AGENTS.md` for the shared working agreement and domain invariants; it is
+imported above and is the only home of the conventions this file points to.
 `docs/AGENT_WORKFLOW.md` covers worktrees, authorization, verification and
-completion evidence; this file provides implementation context. Tool-specific
+completion evidence; this file provides code navigation only. Tool-specific
 guidance follows that agreement.
 
 ## What this project is
@@ -13,28 +16,9 @@ Listening. The production frontend is Next.js 16 App Router on Vercel; FastAPI
 on Railway remains the canonical business backend, with Supabase providing
 PostgreSQL, Auth, and Storage. Legacy HTML bodies live under test fixtures;
 root-level compatibility aliases are symlinks into that archive and are not
-deployed.
-
-**Most important quality expectations:**
-- Feedback must be truthful and non-misleading. False-positive grammar flags harm user trust.
-- Admin must see accurate, canonical data — especially for access-code ownership.
-- Grading and session-persistence flows must not fail silently.
-- Grammar Wiki metadata must be internally consistent. Stale links must not exist.
-
-### Release flow
-
-- Create normal work from `origin/staging` and open the PR against `staging`.
-- Wait for the merged staging SHA to pass integrated CI and live Staging E2E.
-- Release production only through a `staging` → `main` promotion PR. Direct feature PRs to `main` are rejected by CI.
-- Database migrations go to staging first, then production under the advisory lock before dependent code is promoted.
-- Full procedure: `docs/STAGING_FIRST_RELEASE_FLOW.md`.
-
-### Product direction (pivot — 2026-06-27)
-- **Scope is no longer Speaking-only.** Speaking, Writing, Reading and Listening
-  are live product areas. Grammar content may support any of these skills;
-  consult the active spec for the scope of a particular change.
-- This **supersedes the "FREEZE non-Speaking content" gate** in `docs/GRAMMAR_HANDOFF_consolidated_2026-06-27.md` §I.3, which was written for the Speaking-only era. Grammar Wiki articles targeting Writing (e.g. Task 1 / Task 2 grammar) are valid, intended content — not scope-creep.
-- The pivot **widens scope without lowering quality bars**: truthful feedback, canonical admin data, no silent failures, and internally-consistent Grammar Wiki metadata all still hold.
+deployed. Product direction (2026-06-27 pivot) and quality bars: `AGENTS.md` ›
+Project. Release flow: `AGENTS.md` › Staging-first release flow and
+`docs/STAGING_FIRST_RELEASE_FLOW.md`.
 
 ---
 
@@ -137,24 +121,9 @@ HTML document.
 
 ## High-priority standing rules
 
-### Patch scope
-- Keep every patch scoped to its stated task.
-- Do not mix unrelated cleanup, style fixes, or refactors into a task patch.
-- One issue = one patch. Audit review becomes impossible if patches are broad.
-
-### Backend/frontend contract
-- When a UI bug is reported, always inspect both backend output shape and frontend consumption together.
-- Shape mismatches (e.g., `assignments[]` vs `assigned_users[]`) and silent failures are the most common root cause.
-- Never fix only the rendering layer when the data source is wrong.
-
-### Canonical truth
-- Prefer fixing the source of truth (database write, backend response) over patching the display.
-- Do not use optimistic local state that can diverge from backend truth. After mutations, refetch canonical state.
-- `access_codes.is_used`, `used_by`, and `used_at` are immutable after activation. Never clear them.
-- Course-exercise weighting is frozen per assignment in `content_config`
-  (`weight_policy`, `section_counts`, `section_weights`). Completed attempts keep
-  their stored section weights, and a revision must not derive new weights from
-  its smaller question sample.
+See `AGENTS.md` › Working style (patch scope, backend/frontend contract) and
+`AGENTS.md` › Source of truth expectations (canonical truth, immutable
+redemption fields, frozen course-exercise weights).
 
 ### Feedback-related bugs — inspection checklist
 When debugging a feedback-quality issue, inspect all five layers in order:
@@ -170,35 +139,17 @@ When debugging a feedback-quality issue, inspect all five layers in order:
 A prompt-only fix is insufficient if the real problem is in post-processing or persistence.
 
 ### Grammar Wiki changes — inspection checklist
-When editing Grammar Wiki content or metadata, always check:
-1. **Content body** — accuracy, clarity, IELTS relevance
-2. **Frontmatter metadata** — `category`, `slug`, `related_pages`, `next_articles`, `compare_with`, `prerequisites`, `pathways`
-3. **Progression graph** — do referenced slugs exist as real files?
-4. **Frontend routes/rendering** — do the App Router grammar pages under
-   `frontend/app/(public-content)/grammar/` resolve category/slug correctly?
+Check content body and frontmatter per `AGENTS.md` › Grammar Wiki conventions,
+then confirm the App Router grammar pages under
+`frontend/app/(public-content)/grammar/` resolve category/slug correctly.
 
 ---
 
 ## Current product realities (do not regress these)
 
-### Grammar Wiki
-- Has gone through multiple remediation batches (A–E, April 2026). Metadata is now substantially cleaned.
-- All slug references in frontmatter must point to real files. Verify before adding new cross-links. (`test_grammar_wiki_ref_drift` fails CI if any `related_pages`/`next_articles`/`compare_with`/`prerequisites` slug doesn't resolve to a live article.)
-- Category values must match the actual filesystem directory the file lives in.
-- **Serves all skills, not Speaking-only.** Articles may target Writing (`grammar-for-writing` category), Reading, etc. Use `speaking_relevance` / `writing_relevance` frontmatter to flag the skill; a Writing-focused article with `writing_relevance: high` is intended content. Categories auto-derive from the directory and auto-humanise via `_prettify` (`grammar-for-writing` → "Grammar For Writing") — there is no category map to maintain.
-
-### Feedback quality
-- `_filter_false_article_flags` in `claude_grader.py` has been carefully tuned.
-- `_QUOTE_RE` uses a four-alternation regex with possessive-aware lookahead — do not simplify it.
-- Group extraction uses `next(g for g in m.groups() if g is not None)` — not `or`-chaining, which fails on empty strings.
-- There is a hard cap on article-family recommendations per response. Do not remove it without understanding the false-positive rate it controls.
-
-### Admin access-code ownership
-- Modern codes: canonical ownership is in `user_code_assignments` (active rows).
-- Legacy codes: fallback is `access_codes.used_by` — synthesized by both list and detail endpoints when no active assignment row exists.
-- The fallback synthesis condition in the **detail endpoint** is: **no active assignment rows** (not: no rows at all). This matters after a remove-user operation leaves only inactive rows. It also must NOT fire when the assignment lookup itself errored — the detail endpoint now sets `association_lookup_failed: true` in that case (audit 2026-07-03 L5) rather than synthesizing stale ownership.
-- Admin production surfaces are Next routes under `frontend/app/(authed-admin-*)/`. Access-code ownership rendering is owned by `admin-access-codes-panel.tsx`; it refetches the canonical list through `loadCodes()` after mutations rather than transforming the detail shape in place.
-- `association_lookup_failed: true` is returned by **both** the list and detail endpoints on DB failure. Render as `⚠ lookup failed`, never as `—`.
+Grammar Wiki, feedback-quality and admin access-code invariants: see
+`AGENTS.md` › Grammar Wiki conventions, › Feedback-quality conventions and
+› Admin conventions.
 
 ### Practice and result flows
 - The grading pipeline (`grading.py`) is the only official route for submitting recordings. (The unused legacy `responses.py` audio-only route was removed in cleanup.)
@@ -210,15 +161,7 @@ When editing Grammar Wiki content or metadata, always check:
 
 ## Expected output style
 
-For any non-trivial fix, Claude's response should include:
-
-1. **Root cause** — exact, not vague ("the fallback condition checked `not assignments` but should check `not has_active`")
-2. **Exact files changed** — file paths, function names
-3. **Backend/frontend contract — before vs after** — what shape did the backend return, what did the frontend expect, how does it differ now
-4. **Verification steps** — concrete steps to confirm the fix works (specific URL to hit, specific UI action to take, specific DB query to run)
-5. **Changes minimal and reviewable** — no unrequested refactors included
-
-Keep fixes reviewable. A 5-line diff with a clear explanation is better than a 50-line diff with a vague summary.
+See `AGENTS.md` › Review / audit output format.
 
 ---
 
@@ -244,16 +187,11 @@ install both ignored agent entry points. Personal settings remain ignored.
 - Full Test: the player and result are Next routes; when changing aggregation,
   verify the complete session chain and persisted finalization contract.
 - PDF export: `GET /sessions/{session_id}/export/pdf` — works. Uses ReportLab (`backend/services/pdf_generator.py`), pure Python, zero system deps (`fonts-dejavu-core` must be present in the Railway image for Vietnamese glyphs — Railway builds with Railpack, which does not read `backend/nixpacks.toml`; see README "Local setup"). Migrated off WeasyPrint in commit `a1208a2b`; keep its content aligned with the current Next result surface.
-- Grammar recommendations: server-side (`grammar_recommendations` table, persisted per practice response); frontend keyword matching in `frontend/public/js/practice.js` is fallback only
 - Progress surfaces differ by domain; inspect the relevant dashboard/progress
   route and persisted aggregates before claiming a feature is absent.
 - `sessions.tokens_used` column must exist in Supabase for token tracking to work
-- `audio-responses` is private. Authorized playback uses short-lived signed URLs
-  from `backend/services/recording_audio.py`; never restore public-bucket access
-  or use a persisted public URL as an error fallback.
-- `writing-images` (Task 1 charts) is private too. Persist object paths; sign
-  only after authorizing the reader via `backend/services/writing_image_access.py`
-  (runbook: `docs/WRITING_IMAGE_PRIVATE_BUCKET.md`).
+- Grammar recommendations and the private `audio-responses` / `writing-images`
+  buckets: see `AGENTS.md` › Source of truth expectations.
 
 ---
 

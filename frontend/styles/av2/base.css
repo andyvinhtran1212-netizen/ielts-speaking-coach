@@ -1,0 +1,58 @@
+/*
+ * frontend/styles/av2/base.css — element rules for the new UI tree (UIBASE-0056, G03-T02).
+ *
+ * Every rule is scoped under .av2-root so nothing leaks into legacy pages or
+ * fights home.css / ds.css. Colours only via var(--av2-*), never raw hex.
+ */
+
+.av2-root {
+  background: var(--av2-paper);
+  color: var(--av2-ink);
+  font: var(--av2-fw-regular) var(--av2-fs-16) / var(--av2-lh-body) var(--av2-font-sans);
+  -webkit-text-size-adjust: 100%;
+}
+
+.av2-root *,
+.av2-root *::before,
+.av2-root *::after {
+  box-sizing: border-box;
+}
+
+.av2-root h1,
+.av2-root h2,
+.av2-root h3 {
+  font-family: var(--av2-font-serif);
+  font-weight: var(--av2-fw-strong);
+  margin: 0;
+}
+
+.av2-root h1 {
+  font-size: var(--av2-fs-40);
+  line-height: var(--av2-lh-tight);
+}
+
+.av2-root h2 {
+  font-size: var(--av2-fs-24);
+  line-height: 1.25;
+}
+
+.av2-root h3 {
+  font-size: var(--av2-fs-20);
+  line-height: 1.3;
+}
+
+.av2-root a {
+  color: var(--av2-link);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.av2-root :focus-visible {
+  outline: var(--av2-focus);
+  outline-offset: var(--av2-focus-offset);
+}
+
+/* IPA glyphs (ə ʃ ʒ θ ð ŋ ˈ ˌ ː) always render in Source Sans 3 (FR-004). */
+.av2-root .av2-ipa {
+  font-family: var(--av2-font-sans);
+}

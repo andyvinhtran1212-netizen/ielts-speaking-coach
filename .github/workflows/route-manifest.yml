@@ -36,6 +36,9 @@ on:
       # component đó là đổi chunk đã dựng và đổi kết quả quét — mà glob cũ không
       # kích hoạt job (Codex bắt ở #946 vòng 3).
       - 'frontend/components/**'
+      # UIBASE-0056: CSS/fonts of the new UI tree (`@/styles/av2/*`), imported by
+      # app/(ui-library)/layout.tsx, are bundle inputs too.
+      - 'frontend/styles/**'
       # Review #882 (vòng 6): public/js/** được phục vụ NGUYÊN XI (không qua
       # bundler) và trang legacy KHÔNG nạp instrumentation-client ⇒ cú pháp
       # vượt sàn ở đây là chết cả file. Đợt này tìm ra lookbehind trong

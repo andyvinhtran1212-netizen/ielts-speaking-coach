@@ -1,0 +1,21 @@
+/* UIBASE-0056 MediaPlaceholder + PendingValue (ThanhPhan §5). Only var(--av2-*). */
+.media {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--av2-space-5);
+  padding: var(--av2-space-5);
+  font-size: var(--av2-fs-14);
+  text-align: center;
+}
+
+.illustration { border: var(--av2-rule-w) solid var(--av2-rule); background: var(--av2-surface); color: var(--av2-muted); }
+/* Surface on ink reads in both themes: ink is dark in light mode and light in dark mode. */
+.video { background: var(--av2-ink); color: var(--av2-surface); }
+.chart { border: var(--av2-rule-w) dashed var(--av2-muted); color: var(--av2-muted); }
+
+.caption { font-size: var(--av2-fs-13); color: var(--av2-muted); }
+
+.pending { text-decoration: none; cursor: help; }

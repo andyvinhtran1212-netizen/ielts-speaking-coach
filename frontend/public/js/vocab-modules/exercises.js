@@ -161,7 +161,7 @@ export async function mount(container, opts = {}) {
       if (!d1 && !flashcards) { showState('disabled'); return; }
 
       // Default-deny: REMOVE the D1 card from the DOM when its flag is off
-      // (mirror anti-pattern alert from PHASE_D_V3_PLAN — feature flag must
+      // (mirror anti-pattern alert from docs/history/root/PHASE_D_V3_PLAN.md — feature flag must
       // remove DOM, not display:none).
       if (!d1) {
         const card = $('[data-card="d1"]');

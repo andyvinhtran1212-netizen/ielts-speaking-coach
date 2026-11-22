@@ -1,0 +1,28 @@
+/* UIBASE-0056 Tabs (ThanhPhan §6). Only var(--av2-*). */
+.tabs {
+  display: flex;
+  gap: 0 var(--av2-space-9);
+  border-bottom: var(--av2-rule-w) solid var(--av2-rule);
+  overflow-x: auto;
+}
+
+.tab {
+  flex: none;
+  min-height: var(--av2-control-md);
+  padding: var(--av2-space-5) 0 var(--av2-space-4);
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  color: var(--av2-muted);
+  font: var(--av2-fw-regular) var(--av2-fs-16) / var(--av2-lh-tight) var(--av2-font-sans);
+  text-decoration: none;
+  cursor: pointer;
+}
+/* Links: beat `.av2-root a` (base.css) with a repeated class. */
+.tab.tab { color: var(--av2-muted); text-decoration: none; }
+.tab.tab:hover { color: var(--av2-ink); }
+.tab.active.active { color: var(--av2-ink); font-weight: var(--av2-fw-strong); border-bottom-color: var(--av2-ink); }
+.tab:focus-visible { outline: var(--av2-focus); outline-offset: calc(-1 * var(--av2-focus-offset)); }
+
+.panel { padding-top: var(--av2-space-7); }
+.panel:focus-visible { outline: var(--av2-focus); outline-offset: var(--av2-focus-offset); }

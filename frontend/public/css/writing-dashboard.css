@@ -801,6 +801,12 @@ main { position: relative; z-index: 1; }
 }
 .wd-modal-save-status { color: var(--av-success); font-weight: var(--av-fw-semibold); }
 .wd-modal-save-pending { color: var(--av-warning); }
+.wd-modal-save-error {
+  flex-basis: 100%;
+  color: var(--av-error);
+  font-size: var(--av-fs-sm);
+  font-weight: var(--av-fw-semibold);
+}
 .wd-modal-actions { display: flex; gap: var(--av-space-2); }
 
 .wd-modal-btn-save,
