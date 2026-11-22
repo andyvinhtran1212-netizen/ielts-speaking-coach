@@ -1,7 +1,7 @@
 /**
  * frontend/tests/speaking-length-gate.test.mjs — Sprint 14.2.
  *
- * Source-regex sentinels for the audio-playback + per-Q length-gate
+ * Source-regex sentinels and recorder integration for the audio-playback + per-Q length-gate
  * feature. Pins the surface contract between:
  *
  *   - backend/services/audio_validation.py — owns the cap table
@@ -13,8 +13,8 @@
  *   - frontend/pages/practice.html — hosts <audio id="rec-playback">,
  *     #rec-length-hint, and #rec-submit-btn that the JS targets
  *
- * Vanilla static HTML — no headless browser in CI, so all assertions
- * are source-level. Same approach as Sprint 14.1.
+ * No headless browser required: source contracts plus runtime submission
+ * checks with the real recorder controller and fake media/timers.
  */
 
 import { describe, test } from 'node:test';
@@ -22,6 +22,7 @@ import assert from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { SpeakingRecorderController } from '../lib/speaking-recorder-controller.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 function readFront(...parts) {
@@ -246,4 +247,159 @@ describe('Sprint 14.2 — backend grading.py wires the validator', () => {
     );
   });
 
+});
+
+
+describe('submission entry points enforce the existing duration floor', () => {
+  const helper = PRACTICE_JS.slice(PRACTICE_JS.indexOf('  function _checkRecordedLength()'),
+    PRACTICE_JS.indexOf('  function submitRecording()'));
+  const minimums = PRACTICE_JS.match(/var MIN_RECORD_SEC\s*=\s*(\{[^;]+\});/)[1];
+  const entries = [
+    ['submitRecording', '  // ── Error banner'],
+    ['_handleP2RecordedBlob', '  async function _startP2Speaking'],
+    ['_uploadAndGrade', '  // A server 200'],
+  ];
+  for (const [name, end] of entries) {
+    for (const mode of [null, 'test_part', 'test_full']) {
+      for (const [part, min] of [[1, 15], [2, 80], [3, 25]]) {
+        test(`${name} Part ${part} ${mode}: blocks short take and permits floor`, async () => {
+          for (const seconds of [min - 0.1, min]) {
+            let submitted = 0, advanced = 0, rejected;
+            const env = {
+              _sessionData: { part }, _elapsedSecs: seconds, _recordedBlob: {},
+              _currentQ: { id: 'q' }, _testMode: mode, _sessionId: 's',
+              _playerActive: true, _playerGeneration: 1, _processingRun: 1,
+              _processingTimer: null, _recordingDirty: true,
+              _handleAudioTooShort: (detail) => { rejected = detail; },
+              _showRecError: () => assert.fail('unexpected recording error'),
+              _startProcessing: () => { submitted++; },
+              _submitGradingEager: () => { submitted++; },
+              _advanceTestMode: () => { advanced++; },
+              _stopWaveform: () => {}, _getNativeSubmission: () => null,
+              _knownResponseId: () => null,
+              _submitResponseTransport: async () => { submitted++; return { response_id: 'r' }; },
+              _gradeMissingPersist: () => false, _clearP2SubmissionRetry: () => {},
+              _showFeedback: () => {},
+            };
+            const start = PRACTICE_JS.indexOf(`function ${name}(`);
+            const body = PRACTICE_JS.slice(start, PRACTICE_JS.indexOf(end, start));
+            const run = new Function(...Object.keys(env), `
+              var MIN_RECORD_SEC = ${minimums};
+              ${helper}
+              ${name === '_uploadAndGrade' ? 'async ' : ''}${body}
+              return ${name};
+            `)(...Object.values(env));
+            await run({}, name === '_handleP2RecordedBlob' ? seconds : 'q', 1, 1);
+            assert.equal(submitted, seconds < min ? 0 : 1);
+            assert.equal(advanced, seconds >= min && mode === 'test_full' && name !== '_uploadAndGrade' ? 1 : 0);
+            assert.deepEqual(rejected, seconds < min
+              ? { part, duration_seconds: seconds, min_seconds: min } : undefined);
+          }
+        });
+      }
+    }
+  }
+});
+
+describe('Part 2 recorder-to-submission duration gate', () => {
+  const lengthGate = PRACTICE_JS.slice(PRACTICE_JS.indexOf('  function _checkRecordedLength()'),
+    PRACTICE_JS.indexOf('  function submitRecording()'));
+  const part2 = PRACTICE_JS.slice(PRACTICE_JS.indexOf('  function _handleP2RecordedBlob('),
+    PRACTICE_JS.indexOf('  function _renderP2SpeakTimer()'));
+  const stop = PRACTICE_JS.slice(PRACTICE_JS.indexOf('  function stopP2SpeakingEarly()'),
+    PRACTICE_JS.indexOf('  function _startP2Waveform()'));
+  const minimums = PRACTICE_JS.match(/var MIN_RECORD_SEC\s*=\s*(\{[^;]+\});/)[1];
+
+  for (const native of [true, false]) {
+    for (const mode of [null, 'test_part', 'test_full']) {
+      for (const seconds of [79, 80, 120]) {
+        test(`${native ? 'native' : 'legacy'} Part 2 ${mode}: ${seconds}s take`, async () => {
+          let now = 0, nextTimer = 0;
+          const timers = new Map();
+          const submissions = [], rejections = [];
+          let advanced = 0;
+          class FakeMediaRecorder {
+            static isTypeSupported() { return true; }
+            constructor() { this.state = 'inactive'; this.mimeType = 'audio/webm'; }
+            start() { this.state = 'recording'; }
+            stop() {
+              assert.equal(this.state, 'recording');
+              this.state = 'inactive';
+              this.ondataavailable({ data: new Blob(['audio']) });
+              this.onstop();
+            }
+          }
+          const stream = { active: true, getTracks: () => [{ stop() {} }] };
+          const controller = new SpeakingRecorderController({
+            mediaDevices: { getUserMedia: async () => stream },
+            MediaRecorderCtor: FakeMediaRecorder,
+            BlobCtor: Blob,
+            setIntervalFn(fn, ms) {
+              assert.equal(ms, 1000);
+              timers.set(++nextTimer, fn);
+              return nextTimer;
+            },
+            clearIntervalFn(id) { timers.delete(id); },
+          });
+          const env = {
+            _sessionData: { part: 2 }, _currentQ: { id: 'q2' }, _sessionId: 's',
+            _testMode: mode, _playerGeneration: 1, _playerActive: true,
+            _audioChunks: [], _recordedBlob: null, _recordingDirty: false,
+            _elapsedSecs: 999, _analyser: null, _stream: null, _audioCtx: null,
+            _recorder: null, _p2SpeakTimerId: null, _p2SpeakSecsLeft: 0,
+            P2_SPEAK_SEC: 120,
+            _getNativeRecorder: () => native ? controller : null,
+            _getNativePlayer: () => native ? {} : null,
+            _startManagedCountdown: () => 1, _startManagedInterval: () => 1,
+            _startManagedTimeout: () => {}, _clearManagedEffect: () => {},
+            _renderP2SpeakTimer: () => {}, _startP2Waveform: () => {},
+            _stopWaveform: () => {}, showState: () => {}, _tts: () => {},
+            _handleAudioTooShort: (detail) => rejections.push(detail),
+            _startProcessing: (blob, questionId) => submissions.push({ blob, questionId }),
+            _submitGradingEager: (sessionId, questionId, blob) => {
+              assert.equal(sessionId, 's');
+              submissions.push({ blob, questionId });
+            },
+            _advanceTestMode: () => { advanced++; },
+            showError: (message) => assert.fail(message),
+            _releaseRecorderResources: () => assert.fail('unexpected recorder release'),
+            navigator: { mediaDevices: { getUserMedia: async () => stream } },
+            window: {}, MediaRecorder: FakeMediaRecorder, Blob,
+            Date: { now: () => now }, _mimeCandidates: () => ['audio/webm'],
+          };
+          const player = new Function(...Object.keys(env), `
+            var MIN_RECORD_SEC = ${minimums};
+            ${lengthGate}
+            ${part2}
+            ${stop}
+            return { start: _startP2Speaking, stop: stopP2SpeakingEarly,
+              elapsed: () => _elapsedSecs };
+          `)(...Object.values(env));
+          try {
+            await player.start();
+            assert.equal(player.elapsed(), 0, 'new take clears stale duration');
+            for (let i = 0; i < seconds; i++) {
+              now += 1000;
+              for (const tick of [...timers.values()]) tick();
+            }
+            if (native) assert.equal(controller.isRecording(), true, 'Part 2 has no recorder cap');
+            player.stop();
+            assert.equal(player.elapsed(), seconds);
+            assert.equal(submissions.length, seconds >= 80 ? 1 : 0);
+            assert.deepEqual(rejections, seconds < 80
+              ? [{ part: 2, duration_seconds: seconds, min_seconds: 80 }] : []);
+            assert.equal(advanced, seconds >= 80 && mode === 'test_full' ? 1 : 0);
+            if (submissions.length) {
+              assert.equal(submissions[0].questionId, 'q2');
+              assert.ok(submissions[0].blob instanceof Blob);
+              assert.ok(submissions[0].blob.size > 0);
+            }
+            assert.equal(timers.size, 0, 'stop clears elapsed timer');
+          } finally {
+            controller.destroy();
+          }
+        });
+      }
+    }
+  }
 });

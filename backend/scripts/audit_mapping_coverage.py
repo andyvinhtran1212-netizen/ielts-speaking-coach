@@ -2,7 +2,8 @@
 
 Inventory every grammar wiki article (`backend/content/**/*.md`, excluding
 reading seeds under `backend/content/reading/`) against
-`feedback-anchor-mapping.yaml`. Two outputs:
+`feedback-anchor-mapping.yaml`. Two outputs, written under
+`backend/.audit-output/` (git-ignored, regenerated on every run):
 
   1. MAPPING_COVERAGE_GAP_REPORT.md — markdown report grouping missing
      slugs by category and bucketing each as "ready" (≥1 frontmatter
@@ -40,8 +41,9 @@ import yaml
 ROOT          = Path(__file__).resolve().parents[2]
 CONTENT_DIR   = ROOT / "backend" / "content"
 MAPPING_FILE  = CONTENT_DIR / "feedback-anchor-mapping.yaml"
-REPORT_OUT    = ROOT / "MAPPING_COVERAGE_GAP_REPORT.md"
-SKELETON_OUT  = ROOT / "MAPPING_SKELETONS_SPRINT_7.yaml"
+OUT_DIR       = ROOT / "backend" / ".audit-output"
+REPORT_OUT    = OUT_DIR / "MAPPING_COVERAGE_GAP_REPORT.md"
+SKELETON_OUT  = OUT_DIR / "MAPPING_SKELETONS_SPRINT_7.yaml"
 
 GENERATED_DATE = "2026-05-05"
 EXCLUDED_TOP_LEVEL_DIRS = {"reading", "exams"}
@@ -291,6 +293,7 @@ def main() -> int:
     starting_id = next_mapping_id(raw_mappings)
 
     report = render_report(articles, covered, active_count)
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
     REPORT_OUT.write_text(report, encoding="utf-8")
 
     ready = [a for a in articles if a["slug"] not in covered and a["anchors"]]

@@ -277,7 +277,7 @@ Khi G03 chưa có trang đích (ví dụ `/library` của G06 chưa merge), mụ
 ### 5.4 API bài học (sau T18)
 - `GET /api/course/{course_code}/lessons` → `{course, stages:[{stage_no, title, lessons:[{lesson_code, lesson_no, title, video_seconds, practice_items, state: "done|current|next|todo"}]}]}` — không có `locked` theo thứ tự (FR-07-043 ĐÃ BỎ); bài kiểm tra giữa chặng có thể có `gate: {"text_vi": "…"}` nếu giữ điều kiện (mục 10 câu 15).
 - `GET /api/course/{course_code}/lessons/{lesson_code}` → nội dung bài (`body_md`, video `{source, ref, seconds}`, `practice: {bank_id|null}`, `prev`, `next`). 403 khi không có quyền (thông điệp tiếng Việt, không mã lỗi trên giao diện).
-- `PUT /api/course/lessons/{lesson_id}/progress` body `{video_position_seconds:int ≥0, completed?:bool}`; idempotent, chỉ tăng `video_position_seconds` khi lớn hơn giá trị cũ hoặc `completed` chuyển true.
+- `PATCH /api/course/lessons/{lesson_id}/progress` body `{video_position_seconds:int ≥0, completed?:bool}`; idempotent, chỉ tăng `video_position_seconds` khi lớn hơn giá trị cũ hoặc `completed` chuyển true.
 - Router mới `backend/routers/course_learner.py`, prefix `/api/course`, gắn vào `main.py` cùng `_ACTIVE_LEARNER` như các router học viên khác.
 - Hàm đọc cho trang khoá công khai (FR-07-044): `services/course_outline.py::public_outline(course_id) -> {"lesson_count": int, "chapters": [...]}`; T19 nối vào `routers/courses_public.py::_outline_for` của G04 (sửa đúng thân hàm đó, kèm test; G04-T03 chưa merge thì để hàm sẵn và nối sau). `kind` suy từ bài: có `video_source` → `video`; có `practice_bank_id` mà không video → `practice`; còn lại → `reading`. `duration_min = ceil(video_seconds/60)`. `preview_href` chỉ có khi `is_preview`.
 

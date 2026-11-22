@@ -3,6 +3,8 @@
 export const NON_PRODUCT_APP_PAGE_ROUTES = Object.freeze([
   '/next-probe',
   '/recorder-spike',
+  '/ui-library',
+  '/profile/v2-pilot',
 ]);
 
 export function appPageRoute(relativeFile) {

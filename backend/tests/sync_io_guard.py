@@ -259,17 +259,56 @@ def _method_factory(path: str, module: str, package: str, qualified: str,
     return specialize
 
 
+def _module_identity(path: str) -> tuple[str, str]:
+    module = path.removesuffix(".py").replace("/", ".")
+    is_package = module.endswith(".__init__")
+    if is_package:
+        module = module.removesuffix(".__init__")
+    return module, module if is_package else module.rpartition(".")[0]
+
+
+def _star_sources(body: list[ast.stmt], package: str) -> list[str]:
+    """Modules named by top-level ``from X import *`` (relative ones resolved),
+    plus each ``from . import sub`` that a top-level ``_reexport(sub)`` copies
+    into the package (BACKENDSPLIT-0076)."""
+    def resolve(node: ast.ImportFrom) -> str:
+        base = node.module or ""
+        if node.level:
+            parent = package.split(".")[:len(package.split(".")) - node.level + 1]
+            base = ".".join(part for part in [*parent, base] if part)
+        return base
+
+    found = []
+    submodules = {}
+    for node in body:
+        if isinstance(node, ast.ImportFrom) and any(alias.name == "*" for alias in node.names):
+            found.append(resolve(node))
+        elif isinstance(node, ast.ImportFrom) and node.level:
+            for alias in node.names:
+                submodules[alias.asname or alias.name] = ".".join(
+                    part for part in [resolve(node), alias.name] if part)
+        elif (isinstance(node, ast.Expr) and isinstance(node.value, ast.Call)
+              and isinstance(node.value.func, ast.Name) and node.value.func.id == "_reexport"
+              and len(node.value.args) == 1 and isinstance(node.value.args[0], ast.Name)
+              and node.value.args[0].id in submodules):
+            found.append(submodules[node.value.args[0].id])
+    return found
+
+
 def _functions(sources: dict[str, str], bindings: dict[str, str] | None = None,
                bases: dict[str, list[str]] | None = None) -> dict[str, Function]:
     """Index functions; optionally record module-level bindings and class bases."""
     functions = {}
-    for path, source in sorted(sources.items()):
-        tree = ast.parse(source, filename=path)  # Syntax errors must fail the gate.
-        module = path.removesuffix(".py").replace("/", ".")
-        is_package = module.endswith(".__init__")
-        if is_package:
-            module = module.removesuffix(".__init__")
-        package = module if is_package else module.rpartition(".")[0]
+    trees = {path: ast.parse(source, filename=path)  # Syntax errors must fail the gate.
+             for path, source in sorted(sources.items())}
+    # A package that splits one module into submodules re-exports every name of
+    # each submodule (``from ._common import *`` plus routers.listening._reexport,
+    # BACKENDSPLIT-0076), so a star import inherits all of that module's
+    # top-level bindings, underscore names included; local bindings win.
+    top_level = {_module_identity(path)[0]: (tree, _module_identity(path)[1])
+                 for path, tree in trees.items()}
+    for path, tree in trees.items():
+        module, package = _module_identity(path)
 
         def collect(body, inherited, prefix=""):
             symbols = _symbols(body, inherited, module, prefix, package)
@@ -290,7 +329,14 @@ def _functions(sources: dict[str, str], bindings: dict[str, str] | None = None,
                         bases[f"{module}.{prefix}{node.name}"] = [_name(base, symbols) for base in node.bases]
                     collect(node.body, symbols, prefix + node.name + ".")
 
-        collect(tree.body, {})
+        star = {}
+        for source_module in _star_sources(tree.body, package):
+            if source_module in top_level:
+                source_tree, source_package = top_level[source_module]
+                star.update({name: value for name, value in _symbols(
+                    source_tree.body, {}, source_module, "", source_package).items()
+                    if not name.startswith("__")})
+        collect(tree.body, star)
     return functions
 
 
