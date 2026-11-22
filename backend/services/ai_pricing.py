@@ -143,6 +143,14 @@ TOKEN_RATES: tuple[TokenRate, ...] = (
               0.75, 3.75, image_rule=_GEMINI_3_DEFAULT_IMAGES),
     TokenRate("google", "gemini-3.8-flash", date(2027, 1, 1), None, 1.50, 7.50,
               image_rule=_GEMINI_3_DEFAULT_IMAGES),
+    # https://developers.openai.com/api/docs/pricing — read 2026-11-22 (Flagship
+    # models, Standard tab, Short context): input $1.00, cached input $0.05,
+    # output $5.00 per 1M. Long context is $2.00 / $0.10 / $7.50; the page does
+    # not state the threshold and Sentence Lab prompts are short, so it is not
+    # modelled. Text only: no image rule, so an image budget for it is refused.
+    # Batch/Flex ($0.50 / $2.50) are not used by the synchronous lab.
+    TokenRate("openai", "gpt-6.1-terra", date(2026, 11, 22), None, 1.00, 5.00,
+              cache_read_per_million=0.05),
     TokenRate("google", "gemini-3.1-pro-preview", date(2026, 2, 19), None, 2.00, 12.00,
               image_rule=_GEMINI_3_DEFAULT_IMAGES),
 )
