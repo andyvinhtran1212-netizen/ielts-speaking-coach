@@ -40,18 +40,26 @@ export function practiceProducts(products, { excludeCourseIds = [], users = [], 
 
 /**
  * Course ids a learner holds in force, from G04 `GET /admin/users/{id}/access`
- * items matched to `/admin/course-products` by product slug (the access read
- * names the product by slug, not by id).
+ * items. An entitlement names its product by slug, matched to
+ * `/admin/course-products`. Access with no product (a legacy class code) names
+ * only the course code, matched to `/admin/courses` (`courses`: id and code).
  */
-export function heldFromAccess(items, products) {
+export function heldFromAccess(items, products, courses = []) {
   const bySlug = new Map((products ?? []).filter((p) => p.slug).map((p) => [String(p.slug), String(p.course_id)]));
+  const byCode = new Map((courses ?? []).filter((c) => c?.code).map((c) => [String(c.code), String(c.id)]));
   const out = new Set();
   for (const item of items ?? []) {
-    if (item?.state !== 'active' || !item.product_slug) continue;
-    const course = bySlug.get(String(item.product_slug));
+    if (item?.state !== 'active') continue;
+    const course = item.product_slug ? bySlug.get(String(item.product_slug))
+      : item.course_code ? byCode.get(String(item.course_code)) : undefined;
     if (course) out.add(course);
   }
   return [...out];
+}
+
+/** True when an access item in force can only be matched by its course code (FR-045 legacy class code). */
+export function needsCourseCodes(items) {
+  return (items ?? []).some((item) => item?.state === 'active' && !item.product_slug && item.course_code);
 }
 
 export function grantDraft(products) {

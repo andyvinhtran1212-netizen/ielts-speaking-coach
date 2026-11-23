@@ -40,10 +40,13 @@ export declare function practiceProducts(
   products: CourseProductWire[] | null | undefined,
   options?: { excludeCourseIds?: string[]; users?: GrantUser[]; heldCourseIds?: HeldCourseIds },
 ): PracticeProduct[];
+export type AccessHolding = { state?: string | null; product_slug?: string | null; course_code?: string | null };
 export declare function heldFromAccess(
-  items: { state?: string | null; product_slug?: string | null }[] | null | undefined,
+  items: AccessHolding[] | null | undefined,
   products: CourseProductWire[] | null | undefined,
+  courses?: { id: string; code?: string | null }[] | null,
 ): string[];
+export declare function needsCourseCodes(items: AccessHolding[] | null | undefined): boolean;
 export declare function grantDraft(products: PracticeProduct[]): GrantDraft;
 export declare function validateGrant(draft: GrantDraft, products: PracticeProduct[], users: GrantUser[], heldCourseIds?: HeldCourseIds): GrantCheck;
 export declare function grantBody(body: GrantRequest, userId: string, key: string): Record<string, unknown>;

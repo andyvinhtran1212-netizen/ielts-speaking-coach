@@ -11,10 +11,12 @@ const products = [
   { id: 'p1', course_id: C1, slug: 'c1-re', kind: 'repractice', short_title: 'Course 1', status: 'open', access_days: 14, review_mode: 'ai_instant', archived_at: null },
   { id: 'p2', course_id: C2, slug: 'c2-re', kind: 'repractice', short_title: 'Course 2', status: 'open', access_days: 30, review_mode: 'ai_instant', archived_at: null },
 ];
-let access: Record<string, { entitlement_id: string | null; product_slug: string | null; state: string }[]> = {};
+let access: Record<string, { entitlement_id: string | null; product_slug: string | null; course_code?: string | null; state: string }[]> = {};
+const courses = [{ id: C1, code: 'C1' }, { id: C2, code: 'C2' }];
 const routeGet = (list: unknown[] = products) => (path: string) => {
   const m = /^\/admin\/users\/([^/]+)\/access$/.exec(path);
   if (m) return Promise.resolve({ items: access[decodeURIComponent(m[1])] ?? [] });
+  if (path === '/admin/courses') return Promise.resolve({ courses });
   return Promise.resolve({ items: list });
 };
 const users = [{ id: 'u-a', name: 'Lan' }, { id: 'u-b', name: 'Minh' }, { id: 'u-c', name: 'Hoa' }];
@@ -101,6 +103,35 @@ describe('PracticeGrantForm', () => {
     view.rerender(<PracticeGrantForm open users={[users[0]]} excludeCourseIds={[C1]} onClose={() => {}} />);
     expect(await screen.findByText('Không còn khoá luyện lại nào để cấp cho người đã chọn.')).toBeTruthy();
     expect(api.post).toHaveBeenCalledTimes(1);
+  });
+
+  it('a learner holding the course through a legacy class code is skipped too (matched by course code)', async () => {
+    access = { 'u-b': [{ entitlement_id: null, product_slug: null, course_code: 'C2', state: 'active' }] };
+    render(<PracticeGrantForm open users={users} excludeCourseIds={[C1]} onClose={() => {}} />);
+    const confirm = await fillAndConfirm();
+    expect(within(confirm).getByText(/cho 2 người.*Bỏ qua 1 người đã có quyền\./)).toBeTruthy();
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Cấp quyền' }));
+    await screen.findByText('Đã cấp cho 2/2 người.');
+    expect(api.post.mock.calls.map(([, body]) => body.user_id)).toEqual(['u-a', 'u-c']);
+  });
+
+  it('a single legacy holder is offered no course; a failed course-code read blocks the form', async () => {
+    access = { 'u-a': [{ entitlement_id: null, product_slug: null, course_code: 'C2', state: 'active' }] };
+    const view = render(<PracticeGrantForm open users={[users[0]]} excludeCourseIds={[C1]} onClose={() => {}} />);
+    expect(await screen.findByText('Không còn khoá luyện lại nào để cấp cho người đã chọn.')).toBeTruthy();
+    view.unmount();
+    api.getWith.mockImplementation((path: string) => (path === '/admin/courses'
+      ? Promise.reject(new Error('Máy chủ chưa sẵn sàng.')) : routeGet()(path)));
+    render(<PracticeGrantForm open users={[users[0]]} excludeCourseIds={[C1]} onClose={() => {}} />);
+    expect((await screen.findByRole('alert')).textContent).toMatch(/Máy chủ chưa sẵn sàng/);
+    expect(screen.queryByRole('combobox')).toBeNull();
+    expect(api.post).not.toHaveBeenCalled();
+  });
+
+  it('no legacy holding, no course-code read', async () => {
+    render(<PracticeGrantForm open users={users} excludeCourseIds={[C1]} onClose={() => {}} />);
+    await screen.findByRole('combobox');
+    expect(api.getWith.mock.calls.some(([p]) => p === '/admin/courses')).toBe(false);
   });
 
   it('a failed access read blocks the form with Tải lại instead of guessing', async () => {

@@ -21,10 +21,15 @@ export function getCourseProducts() {
   return window.api.getWith<{ items: CourseProductWire[] }>('/admin/course-products');
 }
 
-/** G04 course access of one learner; only `state` and `product_slug` are read here. */
+/** G04 course access of one learner; only `state`, `product_slug` and `course_code` are read here. */
 export function getUserAccess(userId: string) {
-  return window.api.getWith<{ items: { entitlement_id: string | null; product_slug: string | null; state: string }[] }>(
+  return window.api.getWith<{ items: { entitlement_id: string | null; product_slug: string | null; course_code?: string | null; state: string }[] }>(
     `/admin/users/${encodeURIComponent(userId)}/access`);
+}
+
+/** Course ids and codes (`GET /admin/courses`), read only to match a legacy class-code holding to its course. */
+export function getCourseCodes() {
+  return window.api.getWith<{ courses: { id: string; code: string | null }[] }>('/admin/courses');
 }
 
 export function postGrant(body: Record<string, unknown>) {

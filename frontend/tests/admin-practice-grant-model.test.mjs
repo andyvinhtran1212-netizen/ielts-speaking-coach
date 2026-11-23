@@ -6,6 +6,7 @@ import {
   grantBody,
   grantDraft,
   heldFromAccess,
+  needsCourseCodes,
   practiceProducts,
   runSummary,
   validateGrant,
@@ -39,6 +40,15 @@ test('held courses come from access items in force, matched by product slug', ()
     { product_slug: 'a', state: 'active' }, { product_slug: 'b', state: 'revoked' },
     { product_slug: null, state: 'active' }, { product_slug: 'zz', state: 'active' }], prods), [C1]);
   assert.deepEqual(heldFromAccess(null, prods), []);
+});
+
+test('a legacy class-code holding (no product) is matched by course code', () => {
+  const prods = [{ id: 'p1', course_id: C1, slug: 'a' }, { id: 'p2', course_id: C2, slug: 'b' }];
+  const legacy = [{ product_slug: null, course_code: 'K2', state: 'active' }, { product_slug: null, course_code: 'K1', state: 'expired' }];
+  assert.equal(needsCourseCodes(legacy), true);
+  assert.equal(needsCourseCodes([{ product_slug: 'a', course_code: 'K1', state: 'active' }]), false);
+  assert.deepEqual(heldFromAccess(legacy, prods, [{ id: C1, code: 'K1' }, { id: C2, code: 'K2' }]), [C2]);
+  assert.deepEqual(heldFromAccess(legacy, prods), [], 'no course list, nothing guessed');
 });
 
 test('a single course is preselected with its own review mode', () => {
