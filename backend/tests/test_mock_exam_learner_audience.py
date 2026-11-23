@@ -305,3 +305,106 @@ def test_flag_off_state_has_no_self_paced_block(fake_db, svc, monkeypatch):
     state = mock_router._sitting_state_sync(sitting["id"], str(learner))
     assert state["self_paced"] is None
     assert state["exam_mode"] == "retake" and state["exam_mode_v2"] == "self_paced"
+
+
+# ── audience read failure and the reaper's one read (CR #2581 items 2, 4) ──
+
+
+def _audience_table_fails(monkeypatch, fake):
+    calls = {"audience": 0}
+    original = type(fake).table
+
+    def table(self, name):
+        if name == "mock_exam_audiences":
+            calls["audience"] += 1
+            raise RuntimeError('relation "mock_exam_audiences" does not exist')
+        return original(self, name)
+
+    monkeypatch.setattr(type(fake), "table", table)
+    return calls
+
+
+def test_unreadable_audience_list_is_a_503_never_a_500_or_an_open_gate(
+        fake_db, svc, flag_on, monkeypatch):
+    import asyncio
+    from fastapi import HTTPException
+
+    learner = uuid4()
+    _self_paced_exam(fake_db, learner)
+    _audience_table_fails(monkeypatch, fake_db)
+    with pytest.raises(svc.AudienceUnavailableError):
+        svc.list_open_exams(str(learner))
+    with pytest.raises(svc.AudienceUnavailableError):
+        svc.create_sitting(learner, "MOCK-TEST-A")
+    assert fake_db.rows("mock_exam_sittings") == []
+
+    async def user(_authorization):
+        return {"id": str(learner)}
+
+    monkeypatch.setattr(mock_router, "get_supabase_user", user)
+    for call in (mock_router.list_open(authorization="Bearer x"),
+                 mock_router.open_sitting("MOCK-TEST-A", authorization="Bearer x")):
+        with pytest.raises(HTTPException) as error:
+            asyncio.run(call)
+        assert error.value.status_code == 503
+        assert "danh sách thí sinh" in error.value.detail
+
+
+def test_state_of_a_sitting_with_unreadable_audience_is_a_503(fake_db, svc, flag_on, monkeypatch):
+    import asyncio
+    from fastapi import HTTPException
+
+    learner = uuid4()
+    _exam, sitting = _chain_sitting(fake_db, svc, learner)
+    _audience_table_fails(monkeypatch, fake_db)
+
+    async def user(_authorization):
+        return {"id": str(learner)}
+
+    monkeypatch.setattr(mock_router, "get_supabase_user", user)
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(mock_router.get_sitting_state(sitting["id"], authorization="Bearer x"))
+    assert error.value.status_code == 503
+
+
+def test_reaper_reads_the_audience_rows_once_per_sweep(fake_db, svc, flag_on, monkeypatch):
+    sittings = []
+    first = uuid4()
+    exam = _self_paced_exam(fake_db, first)
+    for index in range(3):
+        learner = first if index == 0 else uuid4()
+        if index:
+            _audience(fake_db, exam, learner, skills=["reading", "writing"])
+        sitting = svc.create_sitting(learner, "MOCK-TEST-A")
+        _set(fake_db, sitting["id"], status="lrw_in_progress",
+             reading_started_at=_iso(NOW - timedelta(minutes=70)))
+        sittings.append(sitting)
+    calls = {"audience": 0}
+    original = type(fake_db).table
+
+    def table(self, name):
+        if name == "mock_exam_audiences":
+            calls["audience"] += 1
+        return original(self, name)
+
+    monkeypatch.setattr(type(fake_db), "table", table)
+    svc.reap_expired_retake_sittings(grace_seconds=0)
+
+    assert calls["audience"] == 1
+    for sitting in sittings:
+        assert svc.get_sitting(sitting["id"])["reading_submitted_at"]
+
+
+def test_reaper_skips_the_sweep_when_the_audience_rows_cannot_be_read(
+        fake_db, svc, flag_on, monkeypatch):
+    learner = uuid4()
+    _exam, sitting = _chain_sitting(fake_db, svc, learner)
+    _set(fake_db, sitting["id"], status="lrw_in_progress",
+         reading_started_at=_iso(NOW - timedelta(minutes=70)))
+    _audience_table_fails(monkeypatch, fake_db)
+
+    svc.reap_expired_retake_sittings(grace_seconds=0)
+
+    # Nothing is reaped by the old per-section rule while the chain is unknown.
+    row = svc.get_sitting(sitting["id"])
+    assert not row.get("reading_submitted_at") and not row.get("writing_started_at")
