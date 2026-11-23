@@ -32,6 +32,7 @@ import {
   isEmbedSearch,
 } from '@/lib/admin-frame-model.mjs';
 import { useAuth } from '@/lib/auth/auth-provider';
+import { postBrowserJsonAt } from '@/lib/browser-api';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 import styles from './admin-frame.module.css';
@@ -77,7 +78,7 @@ export function HiddenImportBanner({ pattern, children }: { pattern: string; chi
     try { window.sessionStorage.setItem(key, '1'); } catch { /* lasts until reload */ }
     setOpened(true);
     try {
-      void window.api?.post?.('/api/analytics/events', hiddenImportEvent(pattern))?.catch?.(() => undefined);
+      void postBrowserJsonAt('/api/analytics/events', '/api/analytics/events', hiddenImportEvent(pattern)).catch(() => undefined);
     } catch { /* telemetry never blocks the page */ }
   }, [key, pattern]);
 
@@ -104,7 +105,15 @@ export function AdminFrame({ children }: { children: ReactNode }) {
   const embed = isEmbedSearch(search);
   const counts = useAttentionCounts(!embed && status === 'signed-in');
   const [environment, setEnvironment] = useState<StaffEnvironment>('production');
-  useEffect(() => { setEnvironment(runtimeStaffEnvironment()); }, []);
+  // The frame can mount before /js/runtime-config.js has run (it is outside
+  // SupabaseRuntimeBoundary): read now and again when the config is ready, so
+  // a staging tab never keeps the production fallback label.
+  useEffect(() => {
+    const read = () => setEnvironment(runtimeStaffEnvironment());
+    read();
+    window.addEventListener('aver:runtime-config-ready', read);
+    return () => window.removeEventListener('aver:runtime-config-ready', read);
+  }, []);
 
   const nav = useMemo(() => adminStaffNav(counts), [counts]);
   const current = adminCurrentHref(pathname, search);
