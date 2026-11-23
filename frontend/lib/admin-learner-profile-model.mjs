@@ -133,12 +133,16 @@ export function goalConfirmText(view, use) {
   return `Ghi band ${row.band}, ngày thi ${row.date} (${row.source.toLowerCase()}) vào cả hồ sơ lớp và trang Tài khoản của học viên? Giá trị cũ ghi vào Nhật ký hệ thống.`;
 }
 
-const GOAL_ERRORS = new Set(['goal_changed', 'learner_not_linked', 'no_conflict', 'goal_write_failed', 'goal_saved_unreadable']);
-/** The API's own sentence for a refused or failed write; never "đã lưu" unless it was. */
+// Only a 409 refusal says for sure that nothing was written. A 5xx reaches the
+// client as `internal_error` (safe_detail() drops the route's own code), and a
+// network failure says nothing, so the write may have committed: say the
+// outcome is unknown and let the reload show the canonical goal.
+const GOAL_REFUSED = new Set(['goal_changed', 'learner_not_linked', 'no_conflict']);
+/** The API's own sentence for a refused write; outcome-unknown wording otherwise. */
 export function goalErrorText(caught) {
   const err = /** @type {any} */ (caught) || {};
-  if (GOAL_ERRORS.has(err.code) && err.message) return err.message;
-  return `Chưa lưu được mục tiêu: ${err.message || 'lỗi không xác định'}. Không có gì được ghi; thử lại.`;
+  if (GOAL_REFUSED.has(err.code) && err.message) return err.message;
+  return `Chưa chắc mục tiêu đã được lưu (${err.message || 'lỗi không xác định'}). Đã tải lại hồ sơ để xem giá trị hiện tại; kiểm tra lại trước khi thử lần nữa.`;
 }
 
 const WEEKDAYS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];

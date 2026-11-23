@@ -125,7 +125,9 @@ export function AdminLearnerProfile({ learnerRef }: { learnerRef: string }) {
       void loadDetail();
     } catch (caught) {
       setBanner({ kind: 'error', text: goalErrorText(caught) });
+      // The write may have committed (5xx after commit): reload both.
       void loadOverview();
+      void loadDetail();
     } finally {
       setBusy(false);
       setPick(null);

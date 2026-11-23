@@ -112,6 +112,20 @@ describe('AdminLearnerProfile', () => {
     await waitFor(() => expect(api.getWith.mock.calls.filter(([p]) => String(p).endsWith('/overview')).length).toBe(2));
   });
 
+  it('a 5xx goal write says the outcome is unknown and reloads overview and header', async () => {
+    api.post.mockRejectedValue(Object.assign(new Error('Lỗi máy chủ.'), { status: 503, code: 'internal_error' }));
+    render(<AdminLearnerProfile learnerRef={U} />);
+    await screen.findByText(/Hai nguồn đang lệch/);
+    const detailCalls = () => api.getWith.mock.calls.filter(([p]) => String(p) === `/admin/learners/${U}`).length;
+    const before = detailCalls();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Dùng giá trị này' })[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu' }));
+    await screen.findByText(/Chưa chắc mục tiêu đã được lưu/);
+    expect(screen.queryByText(/Không có gì được ghi|Đã ghi mục tiêu/)).toBeNull();
+    await waitFor(() => expect(api.getWith.mock.calls.filter(([p]) => String(p).endsWith('/overview')).length).toBe(2));
+    await waitFor(() => expect(detailCalls()).toBe(before + 1));
+  });
+
   it('a failed block reports itself with Tải lại; the other blocks still show', async () => {
     api.getWith.mockImplementation((path: string) =>
       Promise.resolve(path.endsWith('/overview') ? overview({ scores: null, sources_failed: ['scores'] }) : detail()));

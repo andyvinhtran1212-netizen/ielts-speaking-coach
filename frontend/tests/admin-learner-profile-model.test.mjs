@@ -58,7 +58,13 @@ describe('Tổng quan blocks (FR-024)', () => {
 
   it('a refused or failed goal write keeps the API sentence and never says saved', () => {
     assert.equal(goalErrorText({ code: 'goal_changed', message: 'Mục tiêu vừa được sửa sau khi trang mở.' }), 'Mục tiêu vừa được sửa sau khi trang mở.');
-    assert.match(goalErrorText(new Error('Network down')), /^Chưa lưu được mục tiêu: Network down/);
+    // A 5xx (code replaced by internal_error) or a network failure may have
+    // committed: never "nothing was written".
+    for (const err of [new Error('Network down'), { status: 503, code: 'internal_error', message: 'Lỗi máy chủ.' }, { status: 503, code: 'goal_saved_unreadable', message: 'x' }]) {
+      const text = goalErrorText(err);
+      assert.match(text, /^Chưa chắc mục tiêu đã được lưu/);
+      assert.doesNotMatch(text, /Không có gì được ghi/);
+    }
   });
 
   it('continuity: 8 × 7 grid, future days empty, minutes compared (FR-031)', () => {
