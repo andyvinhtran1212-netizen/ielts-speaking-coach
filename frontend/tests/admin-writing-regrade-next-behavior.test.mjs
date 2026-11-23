@@ -14,7 +14,7 @@ const LAYOUT = read('app', '(authed-admin-writing-regrade)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-writing-regrade-next.css');
 const CONFIG = read('next.config.ts');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
-const HUB = read('app', '(authed-admin-writing)', 'admin', 'writing', 'page.tsx');
+const HUB = read('app', '(authed-admin)/(writing)', 'admin', 'writing', 'page.tsx');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
 const MIGRATION = read('..', 'backend', 'migrations', '205_writing_regrade_atomic_transitions.sql');
 

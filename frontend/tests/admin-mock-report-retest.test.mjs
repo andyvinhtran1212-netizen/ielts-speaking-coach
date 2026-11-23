@@ -8,7 +8,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');
 const JS = readFileSync(join(root, 'public', 'js', 'admin-mock-report.js'), 'utf8');
 const HTML = readFileSync(join(root, 'public', 'pages', 'admin', 'mock-reviews', 'report.html'), 'utf8');
-const NEXT = readFileSync(join(root, 'app', '(authed-admin-mock-reviews)', 'admin', 'mock-reviews', 'report', 'admin-mock-review-report.tsx'), 'utf8');
+const NEXT = readFileSync(join(root, 'app', '(authed-admin)/(mock-reviews)', 'admin', 'mock-reviews', 'report', 'admin-mock-review-report.tsx'), 'utf8');
 
 const lift = (source, regex, label) => {
   const match = source.match(regex);

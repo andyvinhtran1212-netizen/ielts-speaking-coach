@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { StrictMode, useLayoutEffect, useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { Dialog as UsersPageDialog } from '@/app/(authed-admin-users)/admin/users/admin-user-ui';
+import { Dialog as UsersPageDialog } from '@/app/(authed-admin)/(users)/admin/users/admin-user-ui';
 import { Dialog } from '@/components/admin-directory-ui';
 
 afterEach(cleanup);
