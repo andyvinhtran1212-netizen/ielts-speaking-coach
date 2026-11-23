@@ -1,3 +1,6 @@
+// Client-only helper of the /speaking route (not a public content loader, so
+// it lives next to its one caller rather than in lib/, whose files must load
+// through lib/backend.ts).
 // Reads `/auth/me` through the shared single flight (PC-J147), so the profile
 // lands in the registry that `useLearnerV2` and other observers read.
 // `/speaking` fetches its own profile (`role-source="page"`, Perf P1.1), so
