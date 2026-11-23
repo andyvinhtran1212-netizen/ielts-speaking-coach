@@ -15313,6 +15313,11 @@ export interface components {
              * @default false
              */
             suspended: boolean;
+            /**
+             * Learner V2 Enabled
+             * @default false
+             */
+            learner_v2_enabled: boolean;
         };
         /** AuthMeResponse */
         AuthMeResponse: {

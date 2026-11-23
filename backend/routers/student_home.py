@@ -27,7 +27,7 @@ from services.access_code_permissions import aget_account_permissions_summary
 from services.student_home_aggregator import get_home_summary_concurrent
 from services.student_service import account_display_name
 from models.student_today import StudentTodayResponse, TodaySeenRequest
-from services import student_today
+from services import activation_gate, student_today
 
 
 router = APIRouter(prefix="/api/student", tags=["student-home"])
@@ -83,11 +83,15 @@ async def today(response: Response, authorization: str | None = Header(default=N
     """
     response.headers["Cache-Control"] = "private, no-store"
     auth_user = await get_supabase_user(authorization)
+    # FR-094: exempt from the router gate, so the caller is checked here
+    # (503 on a failed read, 403 when suspended or inactive without learner_v2).
+    status = await activation_gate.aopen_learner_status(auth_user["id"])
     email = auth_user.get("email") or ""
     account_name = account_display_name(auth_user)
     name = account_name or (email.split("@", 1)[0] if email else "bạn")
     return await student_today.get_today_concurrent(
         thread_supabase_admin, auth_user["id"], name=name, account_name=account_name,
+        active=status == activation_gate.OPEN_ACTIVE,
     )
 
 
