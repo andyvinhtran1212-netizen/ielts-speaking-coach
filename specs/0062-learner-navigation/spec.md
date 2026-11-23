@@ -1,14 +1,14 @@
 ---
 id: LEARNERNAV-0062
 title: Signed-in learners find every page under the same five sections, and 17 old learner URLs move to their new home while every bookmark and shared link still opens the right page
-status: draft
+status: approved
 risk: high
 owner: product
 ---
 
 # Signed-in learners find every page under the same five sections, and 17 old learner URLs move to their new home while every bookmark and shared link still opens the right page
 
-Status: **draft** — soạn ngày 23/11/2026 cho nhiệm vụ `G07-T01` (thương mại hoá 2026-11), từ `docs/proposals/commercialization-2026-11/GOI-07-loi-hoc-vien.md` mục 4.1–4.2, 5.1, 5.2, 7, 8, 9 và mục 10 câu 1–4. Chưa dòng mã nào chạy theo spec này. Chỉ anh Andy duyệt; khi duyệt, câu trả lời ghi nguyên văn kèm thời điểm vào `approval-decision.md` cùng thư mục và `status` đổi sang `approved`. Số spec 0062 lấy từ sổ cấp số ở `01-KE-HOACH-TONG.md` mục 6. Spec này không có migration.
+Status: **approved** — anh Andy duyệt 23/11/2026 16:16 giờ VN (xem `approval-decision.md`); soạn ngày 23/11/2026 cho nhiệm vụ `G07-T01` (thương mại hoá 2026-11), từ `docs/proposals/commercialization-2026-11/GOI-07-loi-hoc-vien.md` mục 4.1–4.2, 5.1, 5.2, 7, 8, 9 và mục 10 câu 1–4. Chưa dòng mã nào chạy theo spec này. Chỉ anh Andy duyệt; khi duyệt, câu trả lời ghi nguyên văn kèm thời điểm vào `approval-decision.md` cùng thư mục và `status` đổi sang `approved`. Số spec 0062 lấy từ sổ cấp số ở `01-KE-HOACH-TONG.md` mục 6. Spec này không có migration.
 
 `risk: high` vì đợt 7b dời phòng thi thử đang chạy (`/mock-exam`), luồng kết thúc bài thi thuộc nhóm high-risk của `specs/README.md`. Các đợt khác là mức feature nhưng nằm chung spec để một sổ đường dẫn có một chủ.
 
