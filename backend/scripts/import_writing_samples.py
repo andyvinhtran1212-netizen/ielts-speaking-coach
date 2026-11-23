@@ -73,6 +73,7 @@ from __future__ import annotations
 import argparse
 import copy
 import csv
+import datetime as dt
 import hashlib
 import json
 import math
@@ -286,11 +287,16 @@ def check_set(item: SourceSet, entry: Optional[dict], *, topics: set[str],
     if not src.get("review_status") and review.get("status") != "approved":
         codes["E_NO_REVIEW"] = "source has no review_status and manifest is not approved"
     if res.publish:
+        # Only the manifest signature approves publishing. The source's own
+        # ``review_status`` (e.g. "revised_20261017") records editing history;
+        # it never stands in for a reviewer's sign-off (HOLD on #2497).
         unsigned = [k for k in ("by", "at") if not str(review.get(k) or "").strip()]
         if review.get("status") != "approved":
             codes["E_NOT_APPROVED"] = f"publish with review.status {review.get('status')!r}"
         elif unsigned:
             codes["E_NOT_APPROVED"] = "publish without review." + " and review.".join(unsigned)
+        elif not _is_iso_date(review.get("at")):
+            codes["E_NOT_APPROVED"] = f"review.at {review.get('at')!r} is not an ISO date"
 
     # title / slug
     title = entry.get("title_en")
@@ -603,6 +609,19 @@ class PlanItem:
     figure: Optional[tuple[str, bytes, str]] = None  # (object path, bytes, content type) to upload
     first_publish: bool = False
     conflict: bool = False  # slug taken or reserved: the manifest needs a fix
+
+
+def _is_iso_date(value: Any) -> bool:
+    """``review.at`` is a date (``2026-11-20``) or an ISO timestamp."""
+    text = str(value or "").strip()
+    try:
+        if len(text) == 10:
+            dt.date.fromisoformat(text)
+        else:
+            dt.datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return True
 
 
 def plan_topics(topic_rows: list[dict], db_topics: list[dict]) -> list[dict]:

@@ -543,6 +543,27 @@ def test_not_approved_publish_is_blocked(tree):
     assert status == 0 and not any("E_NOT_APPROVED" in r.codes for r in res.values())
 
 
+def test_source_review_status_never_approves_publishing(tree):
+    # The source says it was reviewed, but nobody signed the manifest (HOLD on #2497).
+    data = make_set()
+    data["review_status"] = "approved"
+    for key in ("absent", "pending", "nobody", "bad_date"):
+        tree["write"](key, copy.deepcopy(data))
+    manifest = [
+        entry("absent", publish=True, review=None),
+        entry("pending", publish=True),
+        entry("nobody", publish=True, review={"status": "approved", "by": "", "at": "2026-11-20"}),
+        entry("bad_date", publish=True, review={"status": "approved", "by": "andy", "at": "yesterday"}),
+    ]
+    status, res, _ = run(tree, manifest)
+    assert status == 1
+    for key in ("absent", "pending", "nobody", "bad_date"):
+        assert "E_NOT_APPROVED" in res[key].codes, key
+    store = FakeStore()
+    status, lines = do_import(tree, manifest, store, execute=True)
+    assert status != 0 and store.writes == [] and store.objects == {}
+
+
 def test_dry_run_plans_and_writes_nothing(tree):
     store = FakeStore()
     status, lines = do_import(tree, two_sets(tree), store)
