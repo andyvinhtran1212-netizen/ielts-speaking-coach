@@ -105,11 +105,16 @@ def _visible_assignments_for(user_id: str, account_name: str, now: datetime):
 
 
 def build_assigned(rows: List[Dict[str, Any]], now: datetime) -> Dict[str, Any]:
+    # A submitted course exercise that the teacher reopened (deadline
+    # extended after a failed or incomplete hand-in) keeps its receipt but
+    # comes back with a work action; it is still open, as /api/class/me counts it.
+    from routers.class_student import _COURSE_WORK_ACTIONS
+
     horizon = _end_of_tomorrow_vn(now)
     soon: List[Tuple[Tuple, Dict[str, Any]]] = []
     later = 0
     for row in rows:
-        if row.get("submitted_at"):
+        if row.get("submitted_at") and row.get("course_action") not in _COURSE_WORK_ACTIONS:
             continue
         due = _parse_ts((row.get("assignment") or {}).get("due_at"))
         overdue = bool(row.get("is_missing")) or (due is not None and due < now)
@@ -132,9 +137,9 @@ def build_assigned(rows: List[Dict[str, Any]], now: datetime) -> Dict[str, Any]:
 _RESUME_SOURCES = (
     # (kind, table, extra columns)
     ("speaking", "sessions", "part, mode"),
-    ("reading", "reading_test_attempts", "test_id"),
-    ("listening", "listening_test_attempts", "test_id"),
-    ("dictation", "dictation_attempts", "test_id, section_num"),
+    ("reading", "reading_test_attempts", "test_id, class_assignment_item_id"),
+    ("listening", "listening_test_attempts", "test_id, class_assignment_item_id"),
+    ("dictation", "dictation_attempts", "test_id, section_num, class_assignment_item_id"),
 )
 
 
@@ -185,18 +190,23 @@ def build_resume(sb, user_id: str, now: datetime) -> List[Dict[str, Any]]:
                 continue
             title = titles.get(test_id) or {"reading": "Bài Reading", "listening": "Bài Listening",
                                             "dictation": "Chép chính tả"}[kind]
+            # Homework attempts keep their class scope: without class_item the
+            # players look only for standalone attempts (dictation and drills)
+            # and would not find the one Today advertises.
+            scope = ({"class_item": str(r["class_assignment_item_id"])}
+                     if r.get("class_assignment_item_id") else {})
             if kind == "reading":
                 code = codes.get(test_id)
                 if not code:
                     continue  # no live paper to resume into: never a 404 link
-                href = _launch("reading_exam", test_id=code)
+                href = _launch("reading_exam", test_id=code, **scope)
             elif kind == "listening":
-                href = _launch("listening_test", id=test_id)
+                href = _launch("listening_test", id=test_id, **scope)
             else:
                 query = {"test_id": test_id}
                 if r.get("section_num"):
                     query["section"] = str(r["section_num"])
-                href = _launch("listening_dictation", **query)
+                href = _launch("listening_dictation", **query, **scope)
             items.append(_resume_item(kind, title, r, href))
     items.sort(key=lambda item: item.pop("_started") or datetime.min.replace(tzinfo=timezone.utc),
                reverse=True)
