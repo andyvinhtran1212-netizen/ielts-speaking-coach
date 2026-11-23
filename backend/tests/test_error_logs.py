@@ -528,6 +528,12 @@ class TestStats:
 
 
 class TestDogfoodEndpoint:
+    @pytest.fixture(autouse=True)
+    def _no_railway_tier(self, monkeypatch):
+        # The guard reads RAILWAY_ENVIRONMENT_NAME too; a value in the
+        # caller's shell must not decide these tests (CR delta nit, #2655).
+        monkeypatch.delenv("RAILWAY_ENVIRONMENT_NAME", raising=False)
+
     def test_warning_inserts_row(self, client, fake_db):
         r = client.post("/admin/error-logs/test?error_type=warning", headers=_ADMIN_AUTH)
         assert r.status_code == 200

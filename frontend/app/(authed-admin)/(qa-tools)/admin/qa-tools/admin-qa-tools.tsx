@@ -10,8 +10,29 @@ import { useEffect, useRef, useState } from 'react';
 type TestErrorState =
   | { kind: 'idle' }
   | { kind: 'sending' }
-  | { kind: 'sent' }
-  | { kind: 'refused'; text: string };
+  | { kind: 'received'; status: number }
+  | { kind: 'failed'; text: string };
+
+/**
+ * What the admin is told after the POST. The transport cannot tell the
+ * backend's deliberate 500 from any other 5xx, so a 5xx only says "the
+ * server answered N, check the inbox" — never "created". Everything else
+ * (no answer at all, 401/403, another 4xx, or an unexpected 2xx) says that
+ * no test error was confirmed.
+ */
+export function testErrorOutcome(caught: unknown, resolved: boolean): TestErrorState {
+  if (resolved) {
+    return { kind: 'failed', text: 'Máy chủ trả về thành công thay vì lỗi 500 như dự kiến, nên không xác nhận được lỗi thử. Kiểm tra Báo lỗi trước khi thử lại.' };
+  }
+  const status = (caught as { status?: unknown } | null)?.status;
+  if (typeof status !== 'number' || !Number.isInteger(status) || status <= 0) {
+    return { kind: 'failed', text: 'Không gửi được tới máy chủ (mất mạng hoặc lỗi kết nối). Không có lỗi thử nào được tạo.' };
+  }
+  if (status >= 500) return { kind: 'received', status };
+  if (status === 403) return { kind: 'failed', text: 'Máy chủ từ chối: không tạo lỗi thử trên Production, hoặc tài khoản không có quyền admin. Không có lỗi thử nào được tạo.' };
+  if (status === 401) return { kind: 'failed', text: 'Phiên đăng nhập đã hết hạn. Đăng nhập lại rồi thử lại. Không có lỗi thử nào được tạo.' };
+  return { kind: 'failed', text: `Máy chủ từ chối yêu cầu (HTTP ${status}). Không có lỗi thử nào được tạo.` };
+}
 
 /**
  * Whether this build may offer "Tạo lỗi thử". An unconfigured build has no
@@ -57,15 +78,14 @@ export function AdminQaTools() {
   const sendTestError = async () => {
     if (state.kind === 'sending' || !allowed) return;
     setState({ kind: 'sending' });
-    let next: TestErrorState = { kind: 'sent' };
+    // A 5xx is the expected answer: the backend raises on purpose so the
+    // global exception path records the row.
+    let next: TestErrorState;
     try {
       await window.api.post('/admin/error-logs/test?error_type=exception', {});
+      next = testErrorOutcome(null, true);
     } catch (caught) {
-      // A 5xx is the expected answer: the backend raises on purpose so the
-      // global exception path records the row. 401/403 mean nothing was made.
-      const status = (caught as { status?: number } | null)?.status;
-      if (status === 403) next = { kind: 'refused', text: 'Máy chủ từ chối: không tạo lỗi thử trên Production, hoặc tài khoản không có quyền admin.' };
-      else if (status === 401) next = { kind: 'refused', text: 'Phiên đăng nhập đã hết hạn. Đăng nhập lại rồi thử lại.' };
+      next = testErrorOutcome(caught, false);
     }
     if (mounted.current) setState(next);
   };
@@ -110,12 +130,12 @@ export function AdminQaTools() {
               : 'Chưa xác định được môi trường của bản này nên nút được ẩn.'}
           </p>
         )}
-        {state.kind === 'sent' && (
+        {state.kind === 'received' && (
           <p className="aqa-status" role="status">
-            Đã gửi lỗi thử. Mở <Link href="/admin/error-logs">Báo lỗi</Link> sau vài giây để thấy dòng &ldquo;Thử nghiệm&rdquo;.
+            Máy chủ trả lỗi {state.status} như dự kiến. Mở <Link href="/admin/error-logs">Báo lỗi</Link> sau vài giây và kiểm tra có dòng &ldquo;Thử nghiệm&rdquo; mới. Không thấy dòng nào nghĩa là đường ghi lỗi chưa chạy.
           </p>
         )}
-        {state.kind === 'refused' && <p className="aqa-status is-error" role="alert">{state.text}</p>}
+        {state.kind === 'failed' && <p className="aqa-status is-error" role="alert">{state.text}</p>}
       </section>
     </main>
   );

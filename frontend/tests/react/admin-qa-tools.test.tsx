@@ -48,7 +48,10 @@ describe('AdminQaTools', () => {
     expect(post).toHaveBeenCalledTimes(1);
     expect(post).toHaveBeenCalledWith('/admin/error-logs/test?error_type=exception', {});
     // The 500 is the expected answer: the backend raises on purpose.
-    expect(screen.getByRole('status').textContent).toContain('Đã gửi lỗi thử');
+    // It only says the server answered 500, never that a row was created.
+    const status = screen.getByRole('status').textContent || '';
+    expect(status).toContain('Máy chủ trả lỗi 500 như dự kiến');
+    expect(status).not.toMatch(/Đã gửi|đã tạo/i);
   });
 
   it('has no button on Production and makes no request', async () => {
@@ -71,6 +74,31 @@ describe('AdminQaTools', () => {
     render(<AdminQaTools />);
     await act(async () => { fireEvent.click(await screen.findByRole('button', { name: 'Tạo lỗi thử' })); });
     expect(screen.getByRole('alert').textContent).toContain('Máy chủ từ chối');
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  async function clickWith(post: ReturnType<typeof vi.fn>) {
+    setRuntime('staging', post);
+    render(<AdminQaTools />);
+    await act(async () => { fireEvent.click(await screen.findByRole('button', { name: 'Tạo lỗi thử' })); });
+  }
+
+  it('reports a network failure with no HTTP status as nothing created', async () => {
+    await clickWith(vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
+    expect(screen.getByRole('alert').textContent).toContain('Không gửi được tới máy chủ');
+    expect(screen.getByRole('alert').textContent).toContain('Không có lỗi thử nào được tạo');
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  it('reports another 4xx (429) as refused, not as success', async () => {
+    await clickWith(vi.fn().mockRejectedValue(Object.assign(new Error('HTTP 429'), { status: 429 })));
+    expect(screen.getByRole('alert').textContent).toContain('HTTP 429');
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  it('does not confirm a test error when the server unexpectedly answers 2xx', async () => {
+    await clickWith(vi.fn().mockResolvedValue({ ok: true }));
+    expect(screen.getByRole('alert').textContent).toContain('không xác nhận được lỗi thử');
     expect(screen.queryByRole('status')).toBeNull();
   });
 });
