@@ -106,6 +106,23 @@ class DuplicateExamCodeError(MockExamError):
     """An exam already owns the requested unique code."""
 
 
+class AudienceUnavailableError(MockExamError):
+    """The audience list (``mock_exam_audiences``) could not be read. The
+    learner routes answer 503: never an open gate, never a 500."""
+
+
+_AUDIENCE_UNAVAILABLE_MESSAGE = "Chưa đọc được danh sách thí sinh của kỳ thi. Bạn thử lại sau ít phút."
+
+
+def _audience_read(build):
+    """Run one audience query; any failure is AudienceUnavailableError."""
+    try:
+        return build()
+    except Exception as exc:  # noqa: BLE001 — re-raised as a typed error
+        logger.warning("[mock-exams] audience read failed: %s", exc.__class__.__name__)
+        raise AudienceUnavailableError(_AUDIENCE_UNAVAILABLE_MESSAGE) from exc
+
+
 # ── Helpers ───────────────────────────────────────────────────────────
 
 
@@ -792,8 +809,9 @@ def _exams_with_audience(exam_ids) -> set:
     out: set = set()
     for i in range(0, len(ids), _ID_CHUNK):
         chunk = ids[i:i + _ID_CHUNK]
-        rows = _paged(lambda c=chunk: supabase_admin.table("mock_exam_audiences")
-                      .select("exam_id").in_("exam_id", c).order("exam_id"))
+        rows = _audience_read(lambda c=chunk: _paged(
+            lambda: supabase_admin.table("mock_exam_audiences")
+            .select("exam_id").in_("exam_id", c).order("exam_id")))
         out.update(str(r["exam_id"]) for r in rows)
     return out
 
@@ -807,8 +825,9 @@ def _pick_audience(rows: list) -> Optional[dict]:
 
 def _audience_rows_for_user(user_id: str) -> dict:
     """{exam_id: [rows]} of this learner's audience rows."""
-    rows = _paged(lambda: supabase_admin.table("mock_exam_audiences").select(_AUDIENCE_COLS)
-                  .eq("user_id", str(user_id)).order("exam_id"))
+    rows = _audience_read(lambda: _paged(
+        lambda: supabase_admin.table("mock_exam_audiences").select(_AUDIENCE_COLS)
+        .eq("user_id", str(user_id)).order("exam_id")))
     out: dict = {}
     for r in rows:
         out.setdefault(str(r["exam_id"]), []).append(r)
@@ -816,9 +835,9 @@ def _audience_rows_for_user(user_id: str) -> dict:
 
 
 def _audience_row(exam_id, user_id) -> Optional[dict]:
-    rows = supabase_admin.table("mock_exam_audiences").select(_AUDIENCE_COLS).eq(
+    rows = _audience_read(lambda: supabase_admin.table("mock_exam_audiences").select(_AUDIENCE_COLS).eq(
         "exam_id", str(exam_id),
-    ).eq("user_id", str(user_id)).execute().data or []
+    ).eq("user_id", str(user_id)).execute().data or [])
     return _pick_audience(rows)
 
 
@@ -844,7 +863,28 @@ def _audience_window_open(row: dict) -> bool:
     return not ((of and now < of) or (ou and now > ou))
 
 
-def is_self_paced_chain(sitting: dict, exam: dict) -> bool:
+def _audience_added_index(exam_ids) -> dict:
+    """{(exam_id, user_id): earliest added_at} for every audience row of
+    ``exam_ids``: one paged read per chunk, for a whole reaper sweep (CR #2581
+    item 4) instead of one read per sitting."""
+    ids = [str(e) for e in exam_ids if e]
+    out: dict = {}
+    for i in range(0, len(ids), _ID_CHUNK):
+        chunk = ids[i:i + _ID_CHUNK]
+        rows = _audience_read(lambda c=chunk: _paged(
+            lambda: supabase_admin.table("mock_exam_audiences")
+            .select("exam_id, user_id, added_at").in_("exam_id", c).order("exam_id")))
+        for r in rows:
+            added = _parse_ts(r.get("added_at"))
+            if added is None or not r.get("user_id"):
+                continue
+            key = (str(r["exam_id"]), str(r["user_id"]))
+            if key not in out or added < out[key]:
+                out[key] = added
+    return out
+
+
+def is_self_paced_chain(sitting: dict, exam: dict, added_index: Optional[dict] = None) -> bool:
     """True when this sitting runs its sections back to back (plan 5.5).
 
     Only with the flag on, on a self-paced exam that has an audience row for
@@ -865,9 +905,12 @@ def is_self_paced_chain(sitting: dict, exam: dict) -> bool:
     created = _parse_ts(sitting.get("created_at"))
     if created is None:
         return False
-    rows = supabase_admin.table("mock_exam_audiences").select(_AUDIENCE_COLS).eq(
+    if added_index is not None:
+        first = added_index.get((str(sitting.get("mock_exam_id")), str(sitting.get("user_id"))))
+        return first is not None and created >= first
+    rows = _audience_read(lambda: supabase_admin.table("mock_exam_audiences").select(_AUDIENCE_COLS).eq(
         "exam_id", str(sitting.get("mock_exam_id")),
-    ).eq("user_id", str(sitting.get("user_id"))).execute().data or []
+    ).eq("user_id", str(sitting.get("user_id"))).execute().data or [])
     added = [t for t in (_parse_ts(r.get("added_at")) for r in rows) if t is not None]
     return bool(added) and created >= min(added)
 
@@ -3918,6 +3961,17 @@ def reap_expired_retake_sittings(grace_seconds: int = 30) -> dict:
         logger.exception("[retake-reaper] lookup failed")
         return _done(0, 0)
 
+    # FR-014: which sittings run back to back, from one read of the audience
+    # rows for the whole sweep. Unreadable: skip this sweep rather than reap a
+    # chain sitting by the old per-section rule.
+    added_index: Optional[dict] = None
+    if audiences_learner_enabled():
+        try:
+            added_index = _audience_added_index({str(r["mock_exam_id"]) for r in rows})
+        except AudienceUnavailableError:
+            logger.exception("[retake-reaper] audience lookup failed")
+            return _done(0, 0)
+
     now = _now()
     # Retake has a clock per sitting, but all due papers for one exam/section
     # share a configured test. Read possible missed attachments once per group
@@ -3933,7 +3987,7 @@ def reap_expired_retake_sittings(grace_seconds: int = 30) -> dict:
             continue
         window_until = _parse_ts(sitting.get("retake_open_until"))
         window_closed = bool(window_until and now > window_until)
-        if is_self_paced_chain(sitting, exam):
+        if added_index is not None and is_self_paced_chain(sitting, exam, added_index):
             # Plan 5.5: stamp every start that is due, so an expired section is
             # seen below; a started chain runs to its end past open_until.
             try:

@@ -84,6 +84,8 @@ _UNEXPECTED_ERROR_MESSAGE = "Không xử lý được yêu cầu kỳ thi. Vui l
 
 def _raise_for(e: Exception):
     """Translate a service error into the right HTTP status."""
+    if isinstance(e, svc.AudienceUnavailableError):
+        raise HTTPException(503, str(e))
     if isinstance(e, svc.NotFoundError):
         raise HTTPException(404, str(e))
     if isinstance(e, (svc.WindowClosedError, svc.NotEligibleError, PermissionError)):
@@ -140,7 +142,10 @@ class IntegrityBody(BaseModel):
 async def list_open(authorization: str | None = Header(default=None)):
     """Open exams the student can start (published + is_open + cohort-eligible)."""
     user = await get_supabase_user(authorization)
-    return {"exams": await asyncio.to_thread(svc.list_open_exams, user["id"])}
+    try:
+        return {"exams": await asyncio.to_thread(svc.list_open_exams, user["id"])}
+    except svc.AudienceUnavailableError as e:
+        raise HTTPException(503, str(e))
 
 
 @router.get("/my-sittings")
@@ -165,7 +170,10 @@ async def get_sitting_state(
     sitting_id: str, authorization: str | None = Header(default=None),
 ):
     user = await get_supabase_user(authorization)
-    return await asyncio.to_thread(_sitting_state_sync, sitting_id, user["id"])
+    try:
+        return await asyncio.to_thread(_sitting_state_sync, sitting_id, user["id"])
+    except svc.AudienceUnavailableError as e:
+        raise HTTPException(503, str(e))
 
 
 def _sitting_state_sync(sitting_id: str, user_id) -> dict:
