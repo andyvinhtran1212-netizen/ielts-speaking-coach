@@ -117,28 +117,16 @@ export function DataExportBlock({ onUnavailable }: { onUnavailable?: () => void 
     if (busy) return;
     setBusy(true);
     setMessage(null);
-    const abort = new AbortController();
     let target: string | null = null;
     let code: string | null = null;
     try {
-      const { data } = await (window as any).getSupabase().auth.getSession();
-      const token = data?.session?.access_token;
-      if (!token) throw new Error('missing-session');
-      // A 302 to a signed Storage URL (60 s). fetch follows it without the
-      // bearer; only the final URL is kept, the body is never read here.
-      const response = await fetch(`${window.api.base || ''}${downloadPath(exportId)}`, {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: 'no-store',
-        signal: abort.signal,
-      });
-      if (response.ok && response.redirected && response.url) {
-        target = response.url;
-        abort.abort();
-      } else if (!response.ok) {
-        try { code = errorCode({ detail: (await response.json())?.detail }); } catch { code = null; }
-      }
-    } catch {
-      target = null;
+      // #2600: `Accept: application/json` returns {url, expires_in_seconds}
+      // (a signed Storage URL, 60 s) instead of the 302, so the browser opens
+      // the link itself and nothing is pulled through fetch here.
+      const reply = await window.api.getWith<{ url?: unknown }>(downloadPath(exportId), { Accept: 'application/json' });
+      target = typeof reply?.url === 'string' && /^https:\/\//.test(reply.url) ? reply.url : null;
+    } catch (error) {
+      code = errorCode(error);
     }
     if (!alive.current) return;
     setBusy(false);

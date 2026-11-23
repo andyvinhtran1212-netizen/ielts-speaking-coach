@@ -23,7 +23,7 @@ const replace = vi.fn();
 const assign = vi.fn();
 const signOut = vi.fn(async () => ({ error: null }));
 
-const getWith = vi.fn(async (path: string) => {
+const getWithImpl = async (path: string, _headers?: unknown) => {
   urls.push(path);
   if (path === '/api/account/deletion-request') {
     if (state.deletionError) throw state.deletionError;
@@ -36,7 +36,8 @@ const getWith = vi.fn(async (path: string) => {
   if (path === '/api/me/courses') throw Object.assign(new Error('HTTP 404'), { status: 404 });
   if (path.startsWith('/api/class/me')) return { has_class: false };
   throw new Error(`unexpected ${path}`);
-});
+};
+const getWith = vi.fn(getWithImpl);
 const postWith = vi.fn(async (path: string, body: unknown) => {
   posts.push({ path, body });
   if (state.postError[path]) throw state.postError[path];
@@ -66,6 +67,7 @@ beforeEach(() => {
   state.postReply = {};
   urls.length = 0;
   posts.length = 0;
+  getWith.mockImplementation(getWithImpl);
   replace.mockClear();
   assign.mockClear();
   signOut.mockClear();
@@ -249,22 +251,30 @@ describe('/account: Dữ liệu của tôi (FR-010…FR-012)', () => {
     expect(dataBlock().textContent).toMatch(/Bạn yêu cầu gói mới được từ \d{2}:\d{2}, \d{2}\/\d{2}\/\d{4}\./);
   });
 
-  it('ready → "Tải xuống" follows the 302 and opens the signed URL; 410 asks for a new package', async () => {
+  it('ready → "Tải xuống" asks for the JSON link and opens the signed URL; 410 asks for a new package', async () => {
     state.exportJob = { status: 'ready', export_id: 'e-9', requested_at: null, ready_at: '2026-11-23T05:00:00Z', expires_at: '2026-11-30T05:00:00Z', size_bytes: 12_900_000 };
-    const fetchMock = vi.fn(async () => ({ ok: true, redirected: true, url: 'https://storage.fixture/sign/e-9.zip?token=t' }));
+    const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
+    const downloads: Array<{ path: string; headers: unknown }> = [];
+    let downloadReply: () => Promise<unknown> = async () => ({ url: 'https://storage.fixture/sign/e-9.zip?token=t', expires_in_seconds: 60 });
+    getWith.mockImplementation(async (path: string, headers?: unknown) => {
+      if (path.endsWith('/download')) { downloads.push({ path, headers }); return downloadReply(); }
+      urls.push(path);
+      if (path === '/api/account/deletion-request') return state.deletion;
+      if (path === '/api/account/data-export') return state.exportJob;
+      if (path === '/api/me/courses') throw Object.assign(new Error('HTTP 404'), { status: 404 });
+      if (path.startsWith('/api/class/me')) return { has_class: false };
+      throw new Error(`unexpected ${path}`);
+    });
     await mount();
     expect(dataBlock().textContent).toContain('Gói dữ liệu đã sẵn sàng (12,3 MB).');
     await act(async () => { fireEvent.click(within(dataBlock()).getByRole('button', { name: 'Tải xuống' })); });
     await settle();
-    expect(fetchMock).toHaveBeenCalledWith('https://api.fixture/api/account/data-export/e-9/download', expect.objectContaining({
-      headers: { Authorization: 'Bearer tok' },
-    }));
+    expect(downloads).toEqual([{ path: '/api/account/data-export/e-9/download', headers: { Accept: 'application/json' } }]);
     expect(assign).toHaveBeenCalledWith('https://storage.fixture/sign/e-9.zip?token=t');
+    expect(fetchMock).not.toHaveBeenCalled();
 
-    fetchMock.mockImplementationOnce(async () => ({
-      ok: false, redirected: false, url: '', json: async () => ({ detail: { error_code: 'export_expired' } }),
-    }) as any);
+    downloadReply = async () => { throw apiError(410, { error_code: 'export_expired' }); };
     state.exportJob = { status: 'expired', export_id: 'e-9', requested_at: null, ready_at: null, expires_at: '2026-11-22T05:00:00Z', size_bytes: null };
     await act(async () => { fireEvent.click(within(dataBlock()).getByRole('button', { name: 'Tải xuống' })); });
     await settle();
