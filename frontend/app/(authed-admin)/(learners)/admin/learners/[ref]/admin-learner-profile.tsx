@@ -71,7 +71,14 @@ export function AdminLearnerProfile({ learnerRef }: { learnerRef: string }) {
   const [overviewError, setOverviewError] = useState<string | null>(null);
   const [pick, setPick] = useState<'admin' | 'learner' | null>(null);
   const [busy, setBusy] = useState(false);
-  const [banner, setBanner] = useState<Banner>(null);
+  // A result banner belongs to the profile it was written on; after a change
+  // of profile it is not shown.
+  const [bannerFor, setBannerFor] = useState<{ ref: string; banner: Banner } | null>(null);
+  const banner = bannerFor && bannerFor.ref === learnerRef ? bannerFor.banner : null;
+  const setBanner = useCallback((next: Banner) => setBannerFor({ ref: learnerRef, banner: next }), [learnerRef]);
+  const detailSeq = useRef(0);
+  const learnerRefNow = useRef(learnerRef);
+  learnerRefNow.current = learnerRef;
   const overviewSeq = useRef(0);
   // Read through refs: the router object and the query are not stable across renders.
   const routerRef = useRef(router);
@@ -80,13 +87,19 @@ export function AdminLearnerProfile({ learnerRef }: { learnerRef: string }) {
   queryRef.current = query;
 
   const loadDetail = useCallback(async () => {
+    // Only the newest read is shown: an older answer (another profile, or a
+    // reload overtaken by a later one) is dropped.
+    const id = ++detailSeq.current;
     setDetailError(null);
     try {
       const out = await getLearnerDetail(learnerRef);
+      // A reload started on the previous profile (an old write's answer) is dropped too.
+      if (id !== detailSeq.current || learnerRef !== learnerRefNow.current) return;
       const canonical = canonicalHref(learnerRef, out.canonical_ref, queryRef.current);
       if (canonical) { routerRef.current.replace(canonical); return; }
       setDetail(out);
     } catch (caught) {
+      if (id !== detailSeq.current || learnerRef !== learnerRefNow.current) return;
       console.warn('[admin-learner-profile] detail load failed', caught);
       setDetailError((caught as { status?: number })?.status === 404 ? 'Không tìm thấy học viên này.' : messageOf(caught));
     }
@@ -181,7 +194,7 @@ export function AdminLearnerProfile({ learnerRef }: { learnerRef: string }) {
       <StatusBanner banner={banner} />
 
       {tab === 'khoa-va-quyen' ? (
-        <LearnerAccessTab detail={detail} onChanged={async (next) => { if (next) setBanner(next); await loadDetail(); }} />
+        <LearnerAccessTab learnerRef={learnerRef} detail={detail} onChanged={async (next) => { if (next) setBanner(next); await loadDetail(); }} />
       ) : tab !== 'tong-quan' ? (
         <section className="lp-pending" aria-label={PROFILE_TABS.find((t) => t.id === tab)?.label}>
           <p className="la-note" role="status">Chưa mở. {TAB_PENDING[tab]}</p>
