@@ -5,7 +5,7 @@
 // The save request belongs to the runner (`saveWriting`); this file keeps the
 // boxes, the save rhythm of the old workspace (15 s after typing, at once
 // after 400 characters, 5 s retries up to 6) and the copy.
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import type { ExamRoomSaveStatus } from '@/components/exam-room/types';
 import { Button } from '@/components/ui/button';
@@ -110,6 +110,35 @@ export function openWritingCopies({ state, ownerKey, storage, now = Date.now() }
     }
   }
   return { texts, server, resend: plan.resend.map((r) => r.task as WritingTask), ask: plan.ask as Ask[] };
+}
+
+/**
+ * FR-010/FR-013 when this tab gains the write right: the runner has just
+ * reloaded the server text (`reloadFromServer` runs before the guard says
+ * `writer`), so the boxes are compared with it before they unlock or submit.
+ * Per task: same text → nothing; this tab had nothing unsaved → take the server
+ * text; unsaved here and the server still at our last ack → keep ours and
+ * re-send; unsaved here and the server moved on → show the server text and ask,
+ * never overwriting either side.
+ */
+export function reconcileOnWriteRight({ texts, acked, server }: { texts: Texts; acked: Texts; server: Texts }) {
+  const next: Texts = { ...texts };
+  const nextAcked: Texts = { ...acked };
+  const resend: WritingTask[] = [];
+  const ask: Ask[] = [];
+  for (const t of TASKS) {
+    nextAcked[t] = server[t];
+    if (texts[t] === server[t]) continue;
+    if (texts[t] === acked[t]) { next[t] = server[t]; continue; }
+    if (server[t] === acked[t]) { nextAcked[t] = acked[t]; resend.push(t); continue; }
+    next[t] = server[t];
+    ask.push({ task: t, local: texts[t], server: server[t], source: 'copy' });
+  }
+  return { texts: next, acked: nextAcked, resend, ask };
+}
+
+function serverTexts(state: MockState): Texts {
+  return { task1: state.sitting.writingSubmission.task1.text || '', task2: state.sitting.writingSubmission.task2.text || '' };
 }
 
 export function MockWritingRoom(props: MockWritingRoomProps) {
@@ -227,6 +256,30 @@ export function MockWritingRoom(props: MockWritingRoomProps) {
       if (row.source === 'legacy') removeLegacy(storage, sittingId, row.task);
     }
   }, [flush, scope, sittingId, storage]);
+
+  // Gaining the write right (FR-013): compare the boxes with the server text
+  // the runner reloaded before the guard said `writer`. Layout effect: runs
+  // before the learner can type into the unlocked boxes or a submit reads them.
+  const wasReadOnlyRef = useRef(readOnly);
+  useLayoutEffect(() => {
+    const gained = wasReadOnlyRef.current && !readOnly;
+    wasReadOnlyRef.current = readOnly;
+    if (!gained || finalizedRef.current) return;
+    const plan = reconcileOnWriteRight({ texts: textsRef.current, acked: ackedRef.current, server: serverTexts(state) });
+    cancelTimer();
+    textsRef.current = plan.texts;
+    ackedRef.current = plan.acked;
+    setTexts(plan.texts);
+    for (const row of plan.ask) {
+      // Keep the device text without a base, so a later open asks again
+      // instead of treating the moved server text as newer.
+      removeAckedFromCopy(storage, { ...scope, entries: [{ q: row.task, value: row.local }] });
+      if (ownerKey) writeLocalCopy(storage, { ...scope, answers: { [row.task]: { value: row.local } as LocalCopyAnswer }, expiresAt: localCopyExpiry({}) });
+    }
+    if (plan.ask.length) setAsks((rows) => [...rows.filter((r) => !plan.ask.some((a) => a.task === r.task)), ...plan.ask]);
+    dirtyRef.current = plan.resend.length > 0;
+    if (dirtyRef.current) void flush();
+  }, [readOnly]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // A copy re-sent on open (server still held its base) goes out at once.
   useEffect(() => { if (opened.resend.length) void flush(); }, [flush, opened.resend.length]);

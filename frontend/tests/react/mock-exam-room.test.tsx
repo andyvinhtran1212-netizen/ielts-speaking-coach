@@ -352,3 +352,53 @@ describe('session, other tab, dialogs (FR-012, FR-013, FR-017)', () => {
     check();
   });
 });
+
+describe('write right gained after another tab (FR-010, FR-013, HOLD #2555)', () => {
+  it('tab opened earlier, the other tab saves, takeover, timer collects with no typing: both boxes are the server text', async () => {
+    // This tab opened while the other tab held the right: it saw the old text.
+    const p = writingProps({ readOnly: true, state: writingState('old one', 'old two') });
+    const { rerender } = render(<MockWritingRoom {...p} />);
+    expect((screen.getByLabelText('Answer for Task 1') as HTMLTextAreaElement).value).toBe('old one');
+    // The other tab saved new text; the guard reloads the server, then grants the right.
+    const reloaded = writingState('new one from the other tab', 'new two from the other tab');
+    rerender(<MockWritingRoom {...p} state={reloaded} />);
+    rerender(<MockWritingRoom {...p} state={reloaded} readOnly={false} />);
+    expect((screen.getByLabelText('Answer for Task 1') as HTMLTextAreaElement).value).toBe('new one from the other tab');
+    // The timer collects without any typing: the submit payload holds both new boxes.
+    await expect(p.bridge.current!.finalize()).resolves.toEqual({ task1_text: 'new one from the other tab', task2_text: 'new two from the other tab' });
+    expect(p.saveWriting).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: 'Use the text on this device' })).toBeNull();
+  });
+
+  it('unsaved text here and the server moved on: shows the server text, keeps ours and asks', async () => {
+    vi.useFakeTimers();
+    const storage = new MemoryStorage();
+    const p = writingProps({ storage, saveWriting: vi.fn(() => Promise.reject(new Error('offline'))) });
+    const { rerender } = render(<MockWritingRoom {...p} />);
+    fireEvent.change(screen.getByLabelText('Answer for Task 1'), { target: { value: 'typed here, never saved' } });
+    // Right lost before the save got through, then the other tab saved its own text.
+    rerender(<MockWritingRoom {...p} readOnly />);
+    const reloaded = writingState('saved by the other tab', '');
+    rerender(<MockWritingRoom {...p} state={reloaded} readOnly />);
+    rerender(<MockWritingRoom {...p} state={reloaded} readOnly={false} />);
+    expect((screen.getByLabelText('Answer for Task 1') as HTMLTextAreaElement).value).toBe('saved by the other tab');
+    expect(screen.getByRole('button', { name: 'Use the text on this device' })).toBeTruthy();
+    // Ours is kept on this device with no base, so a later open asks again.
+    const copy = readLocalCopy(storage, SCOPE)!;
+    expect(copy.answers.task1.value).toBe('typed here, never saved');
+    expect(copy.answers.task1).not.toHaveProperty('baseValue');
+    await expect(p.bridge.current!.finalize()).resolves.toEqual({ task1_text: 'saved by the other tab', task2_text: '' });
+    vi.useRealTimers();
+  });
+
+  it('unsaved text here and the server still at our last save: keeps ours and re-sends it', async () => {
+    const p = writingProps({ saveWriting: vi.fn(() => Promise.reject(new Error('offline'))) });
+    const { rerender } = render(<MockWritingRoom {...p} />);
+    fireEvent.change(screen.getByLabelText('Answer for Task 1'), { target: { value: 'server one plus mine' } });
+    rerender(<MockWritingRoom {...p} readOnly />);
+    const save = vi.fn(() => Promise.resolve({}));
+    rerender(<MockWritingRoom {...p} saveWriting={save} readOnly={false} />);
+    expect((screen.getByLabelText('Answer for Task 1') as HTMLTextAreaElement).value).toBe('server one plus mine');
+    await waitFor(() => expect(save).toHaveBeenCalledWith({ task1_text: 'server one plus mine', task2_text: '' }, expect.anything()));
+  });
+});
