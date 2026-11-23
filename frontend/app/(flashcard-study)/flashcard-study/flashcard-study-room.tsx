@@ -6,8 +6,11 @@
 // stay in flashcard-study-player.tsx (FR-001). Rating opens only after the
 // card was turned (FR-003); the card scrolls inside while the flip and rating
 // buttons stay on the first screen (FR-004).
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
 
+// The room runs on the "Bản in" tokens; legacy layouts do not load them (UIBASE-0056 FR-003),
+// so the room brings them, in its own lazily loaded chunk.
+import '@/styles/av2/tokens.css';
 import { ExamRoomShell } from '@/components/exam-room/exam-room-shell';
 import { trackExamRoomEvent } from '@/components/exam-room/track';
 import type { ExamRoomSaveStatus, ExamRoomSession } from '@/components/exam-room/types';
@@ -97,12 +100,42 @@ function useHidePageChrome() {
   }, []);
 }
 
+/**
+ * FR-004: the stage takes exactly the height the window leaves after the room's
+ * bars, banners and padding, so the flip and rating buttons are on the first
+ * screen with no page scroll. Measured rather than guessed, because the bar is
+ * taller on a phone and grows when a save row or banner appears.
+ */
+function useFitStage(active: boolean) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  useLayoutEffect(() => {
+    const stage = ref.current;
+    if (!active || !stage) return undefined;
+    const fit = () => {
+      // Make the stage one window tall first: the page then overflows by exactly
+      // what sits around the stage (scrollHeight never reports less than the window).
+      const viewport = window.innerHeight;
+      stage.style.height = `${viewport}px`;
+      const others = document.documentElement.scrollHeight - stage.offsetHeight;
+      const height = Math.max(360, Math.floor(viewport - others));
+      stage.style.height = `${height}px`;
+    };
+    fit();
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(fit) : null;
+    observer?.observe(document.body);
+    window.addEventListener('resize', fit);
+    return () => { observer?.disconnect(); window.removeEventListener('resize', fit); };
+  }, [active]);
+  return ref;
+}
+
 export function FlashcardStudyRoom(props: FlashcardStudyRoomProps) {
   useHidePageChrome();
   const { phase, cards, index, flipped, revealed, publicMode } = props;
   const card = cards[index] || null;
   const counter = phase === 'active' && cards.length ? `Thẻ ${index + 1} trên ${cards.length}` : undefined;
   const ratingLocked = !revealed || props.busy || props.hasPending;
+  const stageRef = useFitStage(phase === 'active' && Boolean(card));
 
   let body: ReactNode = null;
   if (phase === 'loading') {
@@ -147,7 +180,7 @@ export function FlashcardStudyRoom(props: FlashcardStudyRoomProps) {
   } else if (card) {
     const personalContent = !publicMode && Boolean(card.definitionVi || card.definitionEn || card.example);
     body = (
-      <div className={styles.stage}>
+      <div ref={stageRef} className={styles.stage}>
         <div className={styles.card} data-flipped={flipped ? '' : undefined}>
           {!flipped ? (
             <button type="button" className={styles.front} onClick={props.onFlip} aria-label={`${card.headword}. Lật thẻ để xem nghĩa`}>

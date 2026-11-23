@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -36,7 +36,10 @@ import { buildReviewList } from '../../../public/js/quiz-review.js';
 import { leaveForParent } from '@/lib/redirect-notice-model.mjs';
 import { examRoomEnabled } from '@/lib/exam-room/flags.mjs';
 import type { ExamRoomSaveStatus } from '@/components/exam-room/types';
-import { QuizRoom } from './quiz-room';
+
+// EXAMDRILL-0073: the room (and the "Bản in" tokens it needs) loads only when the
+// 'drill' flag is on, so the page with the flag off loads exactly what it did.
+const QuizRoom = lazy(() => import('./quiz-room').then((module) => ({ default: module.QuizRoom })));
 
 type Phase = 'loading' | 'error' | 'gate' | 'play' | 'finishing' | 'summary';
 type AnyRow = Record<string, any>;
@@ -593,6 +596,7 @@ export function QuizPlayer() {
       ? { state: 'retrying', unsaved, lastSavedAt }
       : lastSavedAt ? { state: 'saved', lastSavedAt } : { state: 'idle' };
     return (
+      <Suspense fallback={<QuizPlayerLoading />}>
       <QuizRoom
         phase={phase}
         ownerKey={scopeRef.current?.accountId || user?.id || ''}
@@ -636,6 +640,7 @@ export function QuizPlayer() {
         promptRef={promptRef}
         summaryHeadingRef={summaryHeadingRef}
       />
+      </Suspense>
     );
   }
 

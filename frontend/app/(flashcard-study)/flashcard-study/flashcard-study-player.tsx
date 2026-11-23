@@ -1,7 +1,7 @@
 'use client';
 import { VocabularyAudioButton as AudioButton } from '@/components/vocabulary-audio-button';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
 import {
@@ -14,7 +14,11 @@ import {
 } from '@/lib/flashcard-study-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 import { examRoomEnabled } from '@/lib/exam-room/flags.mjs';
-import { FlashcardStudyRoom } from './flashcard-study-room';
+
+// EXAMDRILL-0073: the room (and the "Bản in" tokens it needs) loads only when the
+// 'drill' flag is on, so the page with the flag off loads exactly what it did.
+const FlashcardStudyRoom = lazy(() => import('./flashcard-study-room').then((module) => ({ default: module.FlashcardStudyRoom })));
+const roomLoading = <main className="fcs-width fcs-main"><p role="status">Đang chuẩn bị bộ thẻ…</p></main>;
 
 type Phase = 'loading' | 'active' | 'summary' | 'empty' | 'disabled' | 'error';
 type Rating = 'again' | 'hard' | 'good' | 'easy';
@@ -459,6 +463,7 @@ export function FlashcardStudyPlayer() {
     const loading = phase === 'loading' || Boolean(stack && renderOwner !== accountKey);
     const sourceCard = cards[index] || null;
     return (
+      <Suspense fallback={roomLoading}>
       <FlashcardStudyRoom
         phase={loading ? 'loading' : phase}
         title={title}
@@ -496,6 +501,7 @@ export function FlashcardStudyPlayer() {
           </div>
         ) : null}
       />
+      </Suspense>
     );
   }
   if (phase === 'loading' || (stack && renderOwner !== accountKey)) {

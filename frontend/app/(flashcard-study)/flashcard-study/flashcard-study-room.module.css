@@ -2,7 +2,8 @@
  * EXAMDRILL-0073 flashcards in the practice room (FR-003, FR-004, FR-015).
  * Only var(--av2-*), no hex. The card fills what the window leaves under the
  * room's bar and scrolls inside; flip and rating buttons stay below it, so at
- * 1280x800 and 390x844 they are on the first screen whatever the back holds.
+ * 1280x800 and 390x844 they are on the first screen whatever the back holds
+ * (the height is measured in the room; see useFitStage).
  * No 3D turn: the faces swap, with a short fade unless motion is reduced.
  */
 .body { max-width: 880px; width: 100%; margin-inline: auto; }
@@ -16,8 +17,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--av2-space-6);
-  /* window - room bar - the single layout's padding (top and bottom) */
-  height: calc(100dvh - var(--av2-row) - 2 * var(--av2-space-7) - var(--av2-rule-w));
+  /* height is set by useFitStage to what the window leaves under the bars */
   min-height: 360px;
 }
 .card {
@@ -97,6 +97,8 @@
   .word { font-size: var(--av2-fs-24); }
   .back { padding: var(--av2-space-7); }
   .rate kbd { display: none; }
+  .stage { gap: var(--av2-space-4); }
+  .rate { padding: var(--av2-space-3) var(--av2-space-4); }
 }
 @media (prefers-reduced-motion: reduce) {
   .front, .back { animation: none; }
