@@ -45,7 +45,11 @@ const NO_HELD: HeldCourseIds = {};
 export function PracticeGrantForm({ open, users, excludeCourseIds = NO_IDS, heldCourseIds = NO_HELD, onClose, onGranted }: Props) {
   const [products, setProducts] = useState<CourseProductWire[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [draft, setDraft] = useState<GrantDraft & { error?: string }>({ productId: '', days: '', reviewMode: 'ai_instant', reason: '' });
+  // '' in productId / reviewMode means "not chosen": the single course on offer
+  // and that course's own review mode apply. Derived at render, never written
+  // back by an effect, so a late product list cannot overwrite what was typed.
+  const [draft, setDraft] = useState<{ productId: string; days: string; reviewMode: GrantDraft['reviewMode'] | ''; reason: string; error?: string }>(
+    { productId: '', days: '', reviewMode: '', reason: '' });
   const [confirm, setConfirm] = useState<Extract<GrantCheck, { ok: true }> | null>(null);
   const [run, setRun] = useState<Run | null>(null);
   const [busy, setBusy] = useState(false);
@@ -63,6 +67,7 @@ export function PracticeGrantForm({ open, users, excludeCourseIds = NO_IDS, held
     if (!open) return;
     let live = true;
     setProducts(null); setLoadError(null); setConfirm(null); setRun(null);
+    setDraft({ productId: '', days: '', reviewMode: '', reason: '' });
     keys.current = {};
     getCourseProducts()
       .then((out) => { if (live) setProducts(out.items ?? []); })
@@ -74,11 +79,19 @@ export function PracticeGrantForm({ open, users, excludeCourseIds = NO_IDS, held
     return () => { live = false; };
   }, [open]);
 
-  useEffect(() => { if (products) setDraft(grantDraft(options)); }, [products, options]); // options is content-keyed
+  const preset = grantDraft(options);
+  const productId = draft.productId || preset.productId;
+  const chosen = options.find((p) => p.id === productId);
+  const effective: GrantDraft = {
+    productId,
+    days: draft.days,
+    reviewMode: draft.reviewMode || chosen?.reviewMode || preset.reviewMode,
+    reason: draft.reason,
+  };
 
   const review = (event: FormEvent) => {
     event.preventDefault();
-    const check = validateGrant(draft, options, users, heldCourseIds);
+    const check = validateGrant(effective, options, users, heldCourseIds);
     if (!check.ok) { setDraft({ ...draft, error: check.error }); return; }
     setConfirm(check);
   };
@@ -174,7 +187,7 @@ export function PracticeGrantForm({ open, users, excludeCourseIds = NO_IDS, held
         {products && options.length ? (
           <form id="practice-grant-form" onSubmit={review}>
             <Field label="Khoá">
-              <select value={draft.productId} onChange={(e) => setDraft({ ...draft, productId: e.target.value, error: '' })}>
+              <select value={effective.productId} onChange={(e) => setDraft({ ...draft, productId: e.target.value, reviewMode: '', error: '' })}>
                 {options.length > 1 ? <option value="">Chọn khoá…</option> : null}
                 {options.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
               </select>
@@ -186,7 +199,7 @@ export function PracticeGrantForm({ open, users, excludeCourseIds = NO_IDS, held
               <legend>Luồng chấm</legend>
               {REVIEW_MODES.map((m) => (
                 <label key={m.value}>
-                  <input type="radio" name="practice-grant-mode" checked={draft.reviewMode === m.value}
+                  <input type="radio" name="practice-grant-mode" checked={effective.reviewMode === m.value}
                     onChange={() => setDraft({ ...draft, reviewMode: m.value, error: '' })} /> {m.label}
                 </label>
               ))}

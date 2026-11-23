@@ -79,6 +79,21 @@ describe('PracticeGrantForm', () => {
     expect(screen.getByText('Bỏ qua vì đã có quyền: Hoa')).toBeTruthy();
   });
 
+  it('choosing a course takes its own review mode until the admin picks one', async () => {
+    api.getWith.mockReset().mockResolvedValue({ items: [products[0], { ...products[1], review_mode: 'teacher_review' }] });
+    render(<PracticeGrantForm open users={[users[0]]} onClose={() => {}} />);
+    const dialog = await screen.findByRole('dialog', { name: 'Cấp quyền luyện lại' });
+    const select = await within(dialog).findByRole('combobox');
+    fireEvent.change(select, { target: { value: 'p2' } });
+    expect((within(dialog).getByRole('radio', { name: /Qua giáo viên duyệt/ }) as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(within(dialog).getByRole('radio', { name: /AI trả ngay/ }));
+    fireEvent.change(within(dialog).getByRole('textbox', { name: /Lý do/ }), { target: { value: 'Luyện lại trước kỳ thi' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Tiếp tục' }));
+    fireEvent.click(within(await screen.findByRole('dialog', { name: 'Xác nhận cấp quyền' })).getByRole('button', { name: 'Cấp quyền' }));
+    await screen.findByText('Đã cấp cho 1/1 người.');
+    expect(api.post.mock.calls[0][1]).toMatchObject({ product_id: 'p2', review_mode: 'ai_instant' });
+  });
+
   it('a short reason stays in the form; a failed product list says so', async () => {
     render(<PracticeGrantForm open users={[users[0]]} excludeCourseIds={[C1]} onClose={() => {}} />);
     const dialog = await screen.findByRole('dialog', { name: 'Cấp quyền luyện lại' });
