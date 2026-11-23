@@ -16,7 +16,7 @@
 | FR-010 | kind=test; ref=test tạo việc xuất, trả việc đang có, 429 cooldown | PENDING |
 | FR-011 | kind=test; ref=test nội dung ZIP và manifest, bỏ ghi âm khi vượt trần | PENDING |
 | FR-012 | kind=test; ref=test 404 người khác, 409 chưa xong, 410 quá hạn, 302 no-store | PENDING |
-| FR-014 | kind=test; ref=test hai tiến trình xoá, job xuất đang chạy khi sang `erasing`, tiền tố `account-exports/<user_id>/` rỗng sau `erased` | PENDING |
+| FR-014 | kind=test; ref=test hai tiến trình xoá; job xuất đang chạy khi sang `erasing`; tiến trình xuất cũ hoàn tất sau khi tiến trình mới `ready`; tiến trình xuất chết sau khi tải lên trong lúc xoá; dọn định kỳ; tiền tố `account-exports/<user_id>/` rỗng sau `erased` | PENDING |
 | FR-013 | kind=test; ref=test 401 không phiên, OpenAPI drift, log không chứa email | PENDING |
 
 ## Contract evidence
