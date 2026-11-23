@@ -28,5 +28,5 @@
 ## Observability
 
 - Log mỗi lần gọi `/api/student/today`: thời gian từng phần, tên phần lỗi trong `degraded`, không ghi tên, email, nội dung bài. Đếm tỉ lệ phản hồi có `degraded` không rỗng; > 5% trong một giờ trên staging → dừng bật thêm người.
-- Log ghi `today_seen_at` thất bại (mức warning, có `user_id` băm hoặc id nội bộ, không email).
+- Log `POST /api/student/today/seen` thất bại (mức warning, có `user_id` băm hoặc id nội bộ, không email).
 - Bật/tắt cờ lẻ ghi log admin như `vocab-flag` hiện có.

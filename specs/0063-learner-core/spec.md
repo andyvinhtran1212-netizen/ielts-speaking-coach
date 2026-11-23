@@ -23,7 +23,7 @@ Status: **draft** — soạn ngày 23/11/2026 cho nhiệm vụ `G07-T02` (thươ
 
 **Vì sao `risk: high`.** Gói ghi `medium`, nhưng khi đối chiếu staging `e940c936`: cột "lần vào Hôm nay trước" (`users.today_seen_at`) mà FR-025 cần **chưa có** → cần một migration nhỏ (dải 420–439 của G07), và mọi PR có file migration bị cổng spec buộc lớp `high-risk`, nên spec phải `high`. Câu hỏi mở 1 hỏi anh có muốn bỏ migration (dùng cửa sổ thời gian) để hạ về `medium` không.
 
-**Đã có ở staging `e940c936`.** Khung `LearnerShell` của G03 (#2445); mục tiêu band và ngày thi đã lưu ở `users.target_band`, `users.exam_date` (mig 005; mig 452 đồng bộ mục tiêu admin ↔ học viên); bài làm dở có `resume_expires_at` (mig 224); bài được giao qua `routers/class_student.py`. **Chưa có:** API khoá/lượt/đơn của G04 (`/api/me/courses`, `/api/me/credits`, `/api/enrollment-orders/me`), `services/learner_overdue.py` và `services/trial_caps.py` của GOI-11, sổ lỗi của GOI-12, bảng `course_lessons` của G07-T18, cờ `learner_v2` (grep `learner_v2|shell_v2` không ra gì ở `backend/services`, `frontend/lib`).
+**Đã có ở staging `e940c936`.** Khung `LearnerShell` của G03 (#2445); mục tiêu band và ngày thi đã lưu ở `users.target_band`, `users.exam_date` (mig 005; mig 452 đồng bộ mục tiêu admin ↔ học viên); bài làm dở có `resume_expires_at` (mig 224); bài được giao qua `routers/class_student.py`. **Chưa có:** API khoá/lượt/đơn của G04 (`/api/me/courses`, `/api/me/credits`, `/api/enrollment-orders/me`), `services/learner_overdue.py`, `services/trial_caps.py` và `frontend/lib/course-access-labels.mjs` của GOI-11, sổ lỗi của GOI-12, bảng `course_lessons` của G07-T18, cờ `learner_v2` (grep `learner_v2|shell_v2` không ra gì ở `backend/services`, `frontend/lib`).
 
 **Ngôn ngữ và đánh số.** Thân viết tiếng Việt theo gói; tiêu đề mục giữ tiếng Anh cho `validate_specs.py`. `FR-07-019…029` → `FR-019…FR-029` giữ số; `FR-07-029a`, `029b` và các yêu cầu rút từ hợp đồng 5.3, 5.6, 5.8 nhận số mới từ `FR-070` (chừa `FR-030…036`, `FR-060…066` cho bản sửa đổi theo đúng số của gói).
 
@@ -43,7 +43,7 @@ Trang chủ học viên hiện là bảng điểm (`GET /api/student/home-summar
 ## Scope
 
 - Cờ giao diện `learner_v2` theo tiền lệ hai khoá của `vocab_curated`, trường `learner_v2_enabled` trong `/auth/me`, endpoint admin bật/tắt theo người, hàm đọc mềm ở frontend.
-- API đọc `GET /api/student/today` (một lần gọi cho cả trang, phần lỗi vào `degraded`) và cột `users.today_seen_at`.
+- API đọc `GET /api/student/today` (một lần gọi cho cả trang, phần lỗi vào `degraded`, chỉ đọc), API ghi mốc `POST /api/student/today/seen` và cột `users.today_seen_at`.
 - Cây Hôm nay mới ở `/home` (sau cờ), năm trạng thái, các khối FR-019…FR-029, FR-070, FR-071; bản máy tính và điện thoại theo tờ Main, HomNayTrangThai, Mobile, GiaHanThemLuot.
 
 ## Non-goals
@@ -68,9 +68,9 @@ Trang chủ học viên hiện là bảng điểm (`GET /api/student/home-summar
 - **FR-020:** Tiêu đề "Chào <tên>. Hôm nay bạn có <N> việc." với N = số bài được giao chưa nộp có hạn hôm nay hoặc ngày mai, cộng bài đã quá hạn, cộng 1 nếu còn bài tiếp theo của lộ trình; "Làm tiếp khi rảnh" không đếm. N = 0 → "Hôm nay không có bài đến hạn."; không bao giờ hiện "0 việc". Bài quá hạn xác định bằng `services/learner_overdue.py` của NOTIFY-0079 khi đã có, để chuông, Hôm nay, Lộ trình cho cùng một số; chưa có thì dùng `is_missing` của `_decorate`. Ngày "hôm nay"/"ngày mai" tính theo giờ Việt Nam.
 - **FR-021:** Thẻ "Bài tiếp theo trong lộ trình" hiện khoá, chặng, số bài, tên bài, thời lượng video, số câu luyện, vị trí xem dở; nút "Học tiếp từ phút M" hoặc "Bắt đầu bài". Ẩn hẳn khi `next_lesson` là null (không khoá online, hoặc bảng bài học chưa có).
 - **FR-022:** Khối "Bài được giao, hạn hôm nay và ngày mai": tối đa 5 dòng, quá hạn lên đầu có nhãn chữ "Đã quá hạn", rồi hạn gần nhất; dòng dưới "Còn n bài hạn sau ngày mai, không tính vào việc hôm nay." kèm "Xem bài được giao"; nút mở **đúng bài** (href dựng bằng hàm của `frontend/lib/my-class-model.mjs`, không viết bộ dựng URL thứ hai). Dòng kỳ thi được giao (`mock_exams`) nằm trong khối suốt khoảng mở, không cộng vào N; kỳ có phần đang dở thì khối cảnh báo "bài thi đang dở" thắng dòng này. Bài kiểm tra của khoá ở chế độ "giáo viên công bố" không hiện `score` thô.
-- **FR-023:** Khối "Làm tiếp khi rảnh" liệt kê bài có `resume_expires_at > now()` của chính người đó, tối đa 4, mới nhất trước, nút "Làm tiếp".
+- **FR-023:** Khối "Làm tiếp khi rảnh" liệt kê bài có `resume_expires_at > now()` của chính người đó ở bốn loại có cột này (mig 224: Speaking `sessions`, Reading, Listening, chép chính tả), tối đa 4, mới nhất trước, nút "Làm tiếp". Bài Writing đang viết dở không có cột hạn làm tiếp nên không vào khối này; bài Writing được giao chưa nộp hiện ở khối bài được giao (FR-022).
 - **FR-024:** Khối lượt chấm AI hiện một con số còn lại, một kho chung cho Writing và Speaking. Học viên lớp: nhãn "Lượt chấm AI lớp cấp cho bạn · cấp kèm mã lớp" và câu "Hết lượt thì liên hệ giáo viên để được cấp thêm"; học viên online: nhãn theo khoá, kèm hạn dùng lượt khi có. Có cả hai nguồn → hai dòng theo `credits.by_kind`. Dòng "Luyện Listening, Reading, từ vựng và ngữ pháp không tính lượt." Học viên lớp mã cũ không kèm lượt: ẩn khối. API lượt chưa có hoặc lỗi: ẩn khối, không hiện 0.
-- **FR-025:** Khối "Vừa có kết quả": tối đa hai bài được trả kể từ lần vào Hôm nay trước (`users.today_seen_at`), mới nhất trước, nút "Mở phiếu" mở thẳng phiếu; không có bài mới thì ẩn cả khối. Writing chỉ tính bài `delivered`; bài kiểm tra khoá ở chế độ công bố không vào đây. Band theo kỹ năng không nằm ở Hôm nay.
+- **FR-025:** Khối "Vừa có kết quả": các bài được trả sau mốc đã xem (`users.today_seen_at`), mỗi lần tối đa hai bài **cũ nhất trong số chưa xem** (để không bài nào bị bỏ qua), vẽ mới nhất trước; nút "Mở phiếu" mở thẳng phiếu; không có bài mới thì ẩn cả khối. Writing chỉ tính bài `delivered`; bài kiểm tra khoá ở chế độ công bố không vào đây. Band theo kỹ năng không nằm ở Hôm nay.
 - **FR-026:** Một phần dữ liệu lỗi chỉ làm hỏng khối của nó (API liệt kê phần đó trong `degraded`); các khối khác vẫn hiện. Phần chưa có (dịch vụ của gói khác chưa merge) không vào `degraded` và khối ẩn.
 - **FR-027:** Trạng thái "Chưa có khoá" thay các khối học bằng lối "Xem các khoá" (`/courses`), "Nhập mã kích hoạt của lớp" (`/activate`), lối Thư viện và khối chấm thử; thanh trên thay "Lượt chấm AI còn" bằng "Chấm thử hôm nay còn N bài" khi `trial_today_left` có giá trị, không thì dùng câu biến thể của tờ. Lối tới trang chưa có (`/courses`, `/activate` của G05) theo quy tắc liên kết sống của G03 (không trỏ tới 404).
 - **FR-028:** Trạng thái "Đơn chờ xác nhận / cần bổ sung" hiện mã đơn, khoá, trạng thái đơn theo nhãn học viên của G04, nút "Mở trang đơn" (`/enroll/[orderCode]`); đơn `needs_info` có nhãn Cảnh báo và hạn bổ sung (`supplement_by`). Thanh trên không có số lượt.
@@ -83,7 +83,7 @@ Trang chủ học viên hiện là bảng điểm (`GET /api/student/home-summar
 - **FR-075:** Cờ chỉ quyết định cây giao diện nào được vẽ ở `/home`; tắt cờ thì `/home` là giao diện cũ y nguyên (không đổi CSS, dữ liệu, lời gọi API của cây cũ). Chuyển hướng URL của LEARNERNAV-0062 không theo cờ.
 - **FR-076:** `GET /api/student/today` chỉ đọc dữ liệu của chính người gọi (mọi truy vấn lọc tường minh theo `user_id`/`student_id`), chạy các phần song song, trả đúng khung ở plan.md với `response_model` khai báo; danh sách của gói khác chưa có trả `[]`/`null`. Cổng một phiên của G04 (khi có) vẫn áp: 409 `session_not_current` được frontend xử lý bằng màn của G05-T20, không phải lỗi trang.
 - **FR-077:** Mọi khối G07 hiện band theo quy tắc gói 5.6: Writing ≥ 1 bài `delivered` có band; Speaking ≥ 1 buổi đã chấm có band; Listening/Reading ≥ 1 đề đủ 40 câu; Overall chỉ ở mock test được giao đủ bốn kỹ năng có band. Không bao giờ hiện "0/0", "—" đứng một mình, mã đề nội bộ, số lượt, band hay ngày hết hạn tự bịa khi API chưa có.
-- **FR-078:** `users.today_seen_at` được cập nhật thành thời điểm trả lời sau khi `/api/student/today` tính xong `new_results` cho người đó; lỗi khi ghi cột không làm hỏng phản hồi (ghi log, phản hồi vẫn 200) và lần sau tính lại từ giá trị cũ.
+- **FR-078:** `GET /api/student/today` chỉ đọc, không ghi gì. Mốc đã xem chỉ tiến lên khi khối "Vừa có kết quả" đã thật sự vẽ: frontend gọi `POST /api/student/today/seen` với `seen_until` = `returned_at` mới nhất trong các bài vừa vẽ; máy chủ chỉ đặt `today_seen_at = max(today_seen_at, seen_until)` và không nhận giá trị trong tương lai. Bài tải về mà không vẽ (lỗi vẽ, rời trang trước khi vẽ) và bài thứ ba trở đi vẫn hiện ở lần sau. Lỗi khi ghi mốc không hiện cho học viên (ghi log); lần sau khối hiện lại cùng bài.
 
 ## Acceptance scenarios
 
@@ -134,8 +134,9 @@ Trang chủ học viên hiện là bảng điểm (`GET /api/student/home-summar
 - Tên khoá/bài dài trên 390px: cắt "…", không tràn ngang.
 - `/auth/me` từ backend cũ (chưa có trường) khi frontend lên trước: `learner_v2_enabled` coi là false, không ai bị đẩy ra `/login`.
 - 409 `session_not_current` ở `/api/student/today` (sau khi G04 có cổng một phiên).
-- Ghi `today_seen_at` thất bại: phản hồi vẫn đúng, lần sau có thể thấy lại cùng bài mới (chấp nhận, không mất bài).
-- Hai tab mở cùng lúc: tab sau có thể không còn "Vừa có kết quả" (đúng theo FR-025).
+- Ghi mốc đã xem thất bại: lần sau thấy lại cùng bài (chấp nhận, không mất bài).
+- Có ba bài mới trở lên: lần này hiện hai bài cũ nhất, lần sau hiện bài kế tiếp (FR-025).
+- Hai tab mở cùng lúc: mốc chỉ tiến lên, tab gửi `seen_until` nhỏ hơn không kéo lùi mốc.
 - Không thực hiện trên production: bật cờ, chạy migration, nộp bài.
 
 ## Success criteria
@@ -164,4 +165,6 @@ Trang chủ học viên hiện là bảng điểm (`GET /api/student/home-summar
 | 3 | (gói câu 14, phần còn mở) Khối "Lỗi đang lặp lại" bật ngay khi GOI-12 merge, hay chờ anh xem dữ liệu thật trên staging trước? | Bật theo dữ liệu: có dữ liệu sổ lỗi thì hiện | `repeat_error = null`, ẩn tới khi API sổ lỗi có dữ liệu |
 | 4 | (mới, khi soạn) Phần còn lại của LEARNERCORE (Lộ trình, hub, Tài khoản, Tiến độ, Trợ giúp, "Lần đầu vào", mở `/home` cho tài khoản chưa kích hoạt) viết thành bản sửa đổi spec này hay một spec số mới? | Bản sửa đổi của 0063 trước G07-T15: giữ đúng số FR của gói và một chỗ cho Hôm nay | Bản sửa đổi |
 
-Câu 9, 11, 12 của gói đã được trả lời (mục "Quyết định đã có").
+| 5 | (mới, khi soạn) Lần đầu vào Hôm nay (mốc đã xem còn trống), "Vừa có kết quả" lấy bài trả trong bao lâu trước đó? | 7 ngày gần nhất: đủ để thấy bài vừa trả, không đổ cả lịch sử | 7 ngày |
+
+Câu 9, 11, 12 của gói đã được trả lời (mục "Quyết định đã có"). Lộ trình, hub, Tài khoản, Tiến độ, Trợ giúp, "Lần đầu vào" (G07-T15, T16, T17) và T26 đến cùng bản sửa đổi của spec này (câu 4); LEARNERNAV-0062 chỉ dời URL của các trang đó.

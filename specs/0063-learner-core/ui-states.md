@@ -7,4 +7,4 @@
 | Trạng thái "Chưa có khoá", "Đơn chờ" (dữ liệu giả tới G07-T26) | như trên | — | lối "Xem các khoá", "Nhập mã kích hoạt", Thư viện; hoặc thẻ đơn có nhãn Cảnh báo và hạn bổ sung | lỗi đơn: ẩn thẻ đơn, giữ lối "Xem các khoá" | chỉ đơn của chính người đó | như trên |
 | `/home` khi cờ tắt | như hiện có | như hiện có | giao diện cũ y nguyên | như hiện có | như hiện có | ảnh trước/sau giống nhau |
 
-Dữ liệu canonical là `/api/student/today`; trang không giữ trạng thái lạc quan. Tải lại trang gọi lại API và cho cùng kết quả, trừ khối "Vừa có kết quả" (đã xem lần trước thì không hiện lại — FR-025). Bấm nút trong khối là điều hướng, không có thao tác ghi trên trang này.
+Dữ liệu canonical là `/api/student/today`; trang không giữ trạng thái lạc quan. Tải lại trang gọi lại API và cho cùng kết quả, trừ khối "Vừa có kết quả" (đã xem lần trước thì không hiện lại — FR-025). Bấm nút trong khối là điều hướng. Thao tác ghi duy nhất là `POST /api/student/today/seen` chạy ngầm sau khi khối "Vừa có kết quả" vẽ xong (không có trạng thái chờ trên màn; lỗi chỉ ghi log, lần sau khối hiện lại).

@@ -28,7 +28,7 @@ Nullable, không default, không index (đọc theo khoá chính). Ghi chỉ t�
   "next_lesson": null,
   "assigned": [ { "...": "đúng dạng một phần tử assignments của /api/class/my-assignments" } ],
   "assigned_total_open": 3,
-  "resume": [ {"kind": "listening|reading|speaking|dictation|writing", "title": "…", "progress": {"done": 1, "total": 4}, "href": "/listening/…", "expires_at": "2026-11-17T09:00:00Z"} ],
+  "resume": [ {"kind": "listening|reading|speaking|dictation", "title": "…", "progress": {"done": 1, "total": 4}, "href": "/listening/…", "expires_at": "2026-11-17T09:00:00Z"} ],
   "state": "learning|first_day|order_pending|no_course",
   "banner": null,
   "access": [],
@@ -47,11 +47,12 @@ Khi có dữ liệu: `next_lesson` = `{course_code, course_name, stage_no, lesso
 
 Quy tắc từng phần:
 - `assigned`: `_visible_assignments(student, now, cohort_ids)` qua hàm bọc; lọc chưa nộp; quá hạn trước rồi hạn gần nhất; cắt 5; `assigned_total_open` là tổng trước khi cắt. Không lớp → `[]`, `0`.
-- `resume`: đọc 5 bảng có `resume_expires_at` (mig 224: `sessions`, `reading_test_attempts`, `listening_test_attempts`, `dictation_attempts`, `writing_assignments`) với `resume_expires_at > now()` và trạng thái đang làm của người đó; cắt 4, mới nhất trước. Tên cột trạng thái và tiêu đề từng bảng: người thực thi đọc migration tạo bảng trước khi viết (gói ghi `CHƯA KIỂM`).
+- `resume`: đọc 4 bảng có `resume_expires_at` (mig 224: `sessions`, `reading_test_attempts`, `listening_test_attempts`, `dictation_attempts`; `writing_assignments` ở mig 224 chỉ có cột `renderer_affinity_*`, không có hạn làm tiếp nên Writing không vào `resume`) với `resume_expires_at > now()` và trạng thái đang làm của người đó; cắt 4, mới nhất trước. Tên cột trạng thái và tiêu đề từng bảng: người thực thi đọc migration tạo bảng trước khi viết (gói ghi `CHƯA KIỂM`).
 - `state`: theo FR-019; `first_day` = có quyền online còn hạn và chưa có dòng `course_lesson_progress` nào (trước COURSELESSON-0064: không bao giờ `first_day`). Không có dữ liệu G04 → học viên có lớp đang hoạt động là `learning`, không lớp và không quyền là `no_course`.
 - `banner`: `expiring` khi có quyền online `can_renew` và chưa hết hạn, không có đơn đăng ký lại đang mở; `expired` khi mọi quyền online đã hết hạn; `out_of_credits` khi `credits.total = 0` và người đó có nguồn lượt.
 - `goal`: `users.target_band`, `users.exam_date` (mig 005; đồng bộ với mục tiêu admin qua mig 452). `target_band` null → `goal: null`. `weeks_left = ceil((exam_date − hôm nay VN)/7)`, null khi không có ngày thi hoặc ngày đã qua.
-- `new_results`: bài Writing `delivered` và phiên Speaking có kết quả, thời điểm trả > `users.today_seen_at` (null → 7 ngày gần nhất — đề xuất khi soạn spec, để lần vào đầu không đổ cả lịch sử); tối đa 2; bài kiểm tra khoá chế độ công bố bị loại. Sau khi tính xong, ghi `today_seen_at = now()` (FR-078).
+- `new_results`: bài Writing `delivered` và phiên Speaking có kết quả, thời điểm trả > `users.today_seen_at` (mốc trống → 7 ngày gần nhất, câu hỏi mở 5); lấy hai bài **cũ nhất** trong số đó, trả về sắp mới nhất trước, kèm `returned_at` từng bài. Route GET không ghi gì (FR-078).
+- `POST /api/student/today/seen` body `{seen_until: timestamptz}` → `204`. Máy chủ: `seen_until > now() + 1 phút` → 422; còn lại `UPDATE users SET today_seen_at = greatest(coalesce(today_seen_at, '-infinity'), seen_until) WHERE id = <người gọi>` (chỉ tiến lên, idempotent). Route ghi đúng một cột của chính người gọi; frontend gọi sau khi khối "Vừa có kết quả" đã vẽ.
 - `trial_today_left`: chỉ khi `state = 'no_course'`; nguồn chưa có, tạm dừng hoặc không đủ điều kiện → `null`.
 - `degraded`: tên phần (`assigned`, `resume`, `credits`, `access`, `orders_open`, `new_results`, `goal`, `mock_exams`) ném lỗi khi đọc. Nguồn chưa có không vào đây. `repeat_error` không bao giờ vào đây (FR-071).
 - Sau khi thêm model: sinh lại `frontend/types/api.d.ts` trong cùng PR (lệnh ở gói mục 7, dòng "Kiểu API lệch").
@@ -73,7 +74,7 @@ Quy tắc từng phần:
 | Task | Nhiệm vụ gói | Nội dung | Phụ thuộc |
 |---|---|---|---|
 | T05 | G07-T05 | cờ `learner_v2`, `/auth/me`, endpoint admin, `learnerV2Enabled` | spec duyệt |
-| T13 | G07-T13 | migration `today_seen_at`, service, model, route, pytest, `api.d.ts` | spec duyệt (song song T05) |
+| T13 | G07-T13 | migration `today_seen_at`, service, model, route GET + POST `seen`, pytest, `api.d.ts` | spec duyệt (song song T05) |
 | T14 | G07-T14 | cây Hôm nay mới, năm trạng thái, test React, ảnh | T05, T13, G03 (đã có) |
 
 T05 và T13 không chung file (trừ `api.d.ts` sinh lại — PR sau rebase và sinh lại). Mỗi task một PR vào `staging`, lớp `high-risk` (spec `risk: high`), `Spec: LEARNERCORE-0063`.
@@ -87,5 +88,5 @@ Chi tiết ở `rollout.md`. Tóm tắt: migration lên staging trước (anh An
 ## Verification strategy
 
 - T05: `cd backend && python -m pytest tests/test_auth_response_models.py tests/test_activation_gate_inventory.py -q`; pytest mới cho 4 tổ hợp cờ (`learner_v2_all` × lẻ × công tắc) ở cả hai nhánh DB; pytest endpoint admin (admin 200, học viên 403, đọc lại đúng); `node --test frontend/tests/auth-wire-model.test.mjs` có ca "thiếu trường → false, không null".
-- T13: pytest với supabase giả theo mẫu `backend/tests/test_student_home_aggregator.py`: không lớp; lớp + 2 bài quá hạn + 1 bài đã nộp; một phần ném lỗi → `degraded`; bài dở hết hạn bị bỏ; bốn `state` theo thứ tự FR-019; `credits` một con số chung; đơn `needs_info` có `supplement_by`; `_repeat_error_for` trả `None` → null; trả một lỗi → đúng khung; ném lỗi → null và `degraded` không đổi; `new_results` trước/sau `today_seen_at`; ghi `today_seen_at` lỗi → vẫn 200. `test_activation_gate_inventory.py` qua (route chưa miễn). `git diff --exit-code frontend/types/api.d.ts` sau sinh lại. Migration: chạy hai lần không lỗi, rollback chạy được (test PG theo mẫu `test_*_postgres.py`).
+- T13: pytest với supabase giả theo mẫu `backend/tests/test_student_home_aggregator.py`: không lớp; lớp + 2 bài quá hạn + 1 bài đã nộp; một phần ném lỗi → `degraded`; bài dở hết hạn bị bỏ; bốn `state` theo thứ tự FR-019; `credits` một con số chung; đơn `needs_info` có `supplement_by`; `_repeat_error_for` trả `None` → null; trả một lỗi → đúng khung; ném lỗi → null và `degraded` không đổi; `new_results` trước/sau mốc, ba bài mới → hai bài cũ nhất rồi bài thứ ba ở lần sau; GET không ghi (đếm lời gọi update = 0); `POST seen` chỉ tiến lên, giá trị nhỏ hơn không kéo lùi, giá trị tương lai 422, chỉ ghi dòng của người gọi. `test_activation_gate_inventory.py` qua (route chưa miễn). `git diff --exit-code frontend/types/api.d.ts` sau sinh lại. Migration: chạy hai lần không lỗi, rollback chạy được (test PG theo mẫu `test_*_postgres.py`).
 - T14: `frontend/tests/react/today-v2.test.tsx`: bốn `state`, ba `banner`, một khối hỏng, N = 0 → "Hôm nay không có bài đến hạn.", quá hạn lên đầu, học viên lớp mã cũ không có khối lượt, có mục tiêu không có ngày thi, mỗi nguồn null → khối ẩn; `npm --prefix frontend run test:react`. Staging: bật cờ cho QA → ảnh 1280px và 390px khớp tờ (ghi khác biệt); tắt cờ → giao diện cũ y nguyên (ảnh trước/sau).
