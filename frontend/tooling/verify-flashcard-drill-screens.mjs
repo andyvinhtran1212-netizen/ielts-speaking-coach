@@ -104,6 +104,77 @@ for (const [label, viewport] of [['1280x800', { width: 1280, height: 800 }], ['3
     await run.context.close();
   }
 }
+// Codex P1/P2 on #2597, personal stack with a signed-in synthetic account:
+// a review the server keeps refusing with 401 must not loop while the account
+// still reads as signed in, and a pending rating (failed or sending) guards reload.
+async function openPersonal(reviewStatus) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  await context.addInitScript({ content: `window.__AVER_SUPABASE_CLIENT__ = { auth: {
+    getSession: async function () { return { data: { session: { access_token: 'fixture-token', user: { id: 'fc-user', email: 'fc@example.com' } } }, error: null }; },
+    onAuthStateChange: function () { return { data: { subscription: { unsubscribe: function () {} } } }; },
+    signOut: async function () { return { error: null }; }
+  } };` });
+  const page = await context.newPage();
+  const state = { reviews: 0, status: reviewStatus, dialogs: 0, errors: [] };
+  page.on('pageerror', (error) => state.errors.push(String(error)));
+  page.on('dialog', (dialog) => { state.dialogs += 1; void dialog.dismiss(); });
+  await context.route('**/*', async (route) => {
+    const request = route.request(); const url = new URL(request.url());
+    if (url.origin === BASE) {
+      if (url.pathname === '/js/runtime-config.js') {
+        return route.fulfill({ contentType: 'application/javascript', body: `window.__AVER_RUNTIME_CONFIG__=Object.freeze({apiBase:${JSON.stringify(API)},environment:'staging',examRoomSurfaces:['drill']});` });
+      }
+      if (request.isNavigationRequest() && url.pathname === '/login') return route.fulfill({ status: 200, contentType: 'text/html', body: '<title>login</title>' });
+      return route.continue();
+    }
+    if (url.origin !== API) return route.abort();
+    const headers = { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'GET,POST,OPTIONS', 'access-control-allow-headers': 'authorization,content-type,x-request-id' };
+    if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers, body: '' });
+    const json = (body, status = 200) => route.fulfill({ status, headers, contentType: 'application/json', body: JSON.stringify(body) });
+    if (url.pathname.startsWith('/api/flashcards/stacks/')) {
+      return json({ stack_id: 'auto:due', cards: [
+        { id: '11111111-1111-4111-8111-111111111111', headword: 'resilient', definition_vi: 'kiên cường', source_type: 'needs_review', review: null },
+        { id: '22222222-2222-4222-8222-222222222222', headword: 'mitigate', definition_vi: 'giảm nhẹ', source_type: 'needs_review', review: null },
+      ] });
+    }
+    const review = /^\/api\/flashcards\/([^/]+)\/review$/.exec(url.pathname);
+    if (review && request.method() === 'POST') {
+      state.reviews += 1;
+      if (state.status === 200) return json({ vocab_id: review[1], status: 'success', replayed: false, interval_days: 1, ease_factor: 2.5, review_count: 1, next_review_at: '2026-11-24T00:00:00Z' });
+      return json({ detail: 'refused' }, state.status);
+    }
+    return json({});
+  });
+  await page.goto(`${BASE}/flashcard-study?stack=auto:due`, { waitUntil: 'domcontentloaded' });
+  await page.getByText(/Thẻ 1 trên 2/).waitFor();
+  await page.getByRole('button', { name: 'Lật thẻ', exact: true }).click();
+  await page.getByRole('button', { name: /^Tốt/ }).click();
+  return { context, page, state };
+}
+const reloadGuarded = (page) => page.evaluate(() => { const event = new Event('beforeunload', { cancelable: true }); window.dispatchEvent(event); return event.defaultPrevented; });
+
+const refused = await openPersonal(401);
+await refused.page.getByText('Phiên đăng nhập đã hết hạn').waitFor();
+await refused.page.waitForTimeout(1500);
+const afterWait = refused.state.reviews;
+await refused.page.evaluate(() => window.dispatchEvent(new Event('focus')));
+await refused.page.waitForTimeout(1000);
+check('personal: a review refused with 401 is not retried in a loop; one retry per focus (Codex P1)',
+  afterWait === 1 && refused.state.reviews === 2 && await refused.page.getByText('Phiên đăng nhập đã hết hạn').count() > 0 && new URL(refused.page.url()).pathname === '/flashcard-study',
+  `before focus=${afterWait}; after=${refused.state.reviews}`);
+check('personal 401: reload is guarded while the rating waits', await reloadGuarded(refused.page));
+check('personal 401: no browser dialog, no JS error', refused.state.dialogs === 0 && refused.state.errors.length === 0, refused.state.errors.join(' | '));
+await refused.context.close();
+
+const failing = await openPersonal(503);
+await failing.page.getByText('Chưa lưu được đánh giá. Kiểm tra mạng rồi bấm Thử lưu lại.').waitFor();
+check('personal: a failed rating guards reload and the bar says it is not saved (Codex P2)', await reloadGuarded(failing.page) && await failing.page.getByText(/Đã lưu/).count() === 0);
+failing.state.status = 200;
+await failing.page.getByRole('button', { name: 'Thử lưu lại' }).click();
+await failing.page.getByText(/Thẻ 2 trên 2/).waitFor();
+check('personal: once saved, reload is no longer guarded', !await reloadGuarded(failing.page) && failing.state.reviews === 2);
+await failing.context.close();
+
 await browser.close();
 const failed = results.filter((row) => !row.ok);
 console.log(`\nFlashcard drill screens: ${results.length - failed.length}/${results.length} checks passed`);

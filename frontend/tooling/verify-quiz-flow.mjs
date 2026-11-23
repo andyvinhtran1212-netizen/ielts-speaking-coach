@@ -390,6 +390,24 @@ check('drill: Thoát khi còn câu chưa lưu thì hỏi kèm số câu, không 
   new URL(drillOffline.page.url()).pathname === '/quiz' && drillOffline.dialogs === 0);
 await drillOffline.context.close();
 
+// Codex P2 on #2597: an answer still in the outbox (below the batch size) is not
+// "saved"; reload is guarded, while Thoát still flushes first and leaves at once.
+const drillQueued = await fixture({ drill: true });
+await drillQueued.page.goto(`${BASE}/quiz?bank=bank-1`, { waitUntil: 'domcontentloaded' });
+await drillQueued.page.getByText(ROOM_PROMPT).waitFor();
+const queuedPrompt = await drillQueued.page.getByText(ROOM_PROMPT).innerText();
+if (queuedPrompt.includes('Choose alpha')) await drillQueued.page.getByRole('button', { name: 'Correct choice' }).click();
+else { await drillQueued.page.getByRole('textbox', { name: 'Đáp án của bạn' }).fill('answer'); await drillQueued.page.getByRole('button', { name: 'Kiểm tra' }).click(); }
+await drillQueued.page.getByRole('button', { name: 'Câu tiếp theo' }).waitFor();
+const reloadGuarded = await drillQueued.page.evaluate(() => { const event = new Event('beforeunload', { cancelable: true }); window.dispatchEvent(event); return event.defaultPrevented; });
+const saidSaved = await drillQueued.page.getByText(/Đã lưu/).count();
+check('drill: câu còn trong outbox chặn tải lại trang và thanh trên không báo "Đã lưu"',
+  reloadGuarded && saidSaved === 0 && drillQueued.progressBodies.length === 0, `guarded=${reloadGuarded}; saved=${saidSaved}; posts=${drillQueued.progressBodies.length}`);
+await drillQueued.page.getByRole('button', { name: /Thoát/ }).first().click();
+await drillQueued.page.waitForURL((url) => url.pathname !== '/quiz');
+check('drill: Thoát vẫn lưu trước rồi rời trang ngay, không hỏi', drillQueued.progressBodies.length === 1 && drillQueued.dialogs === 0);
+await drillQueued.context.close();
+
 const drillExpired = await fixture({ progressFailures: 99, progressStatus: 401, drill: true });
 await drillExpired.page.goto(`${BASE}/quiz?bank=bank-1`, { waitUntil: 'domcontentloaded' });
 await drillExpired.page.getByText(ROOM_PROMPT).waitFor();
