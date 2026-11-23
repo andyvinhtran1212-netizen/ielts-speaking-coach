@@ -14,7 +14,11 @@
 - Backend (chỉ cho FR-012, PR riêng G08-T23):
   - `backend/routers/reading_student.py`: `POST /api/reading/test/attempts/{attempt_id}/abandon`,
     `response_model` cụ thể, xác thực như `submit` (chủ lượt), từ chối lượt gắn
-    `sitting_id`, `class_item` hoặc lượt khách.
+    `sitting_id`, `class_item` hoặc lượt khách. Handler gọi
+    `await _learner_write(await _attempt_write_keys(attempt_id, user, None), _abandon_reading_test_attempt_sync, ...)`
+    như `submit`; thân `_sync` đọc lại lượt dưới khoá.
+  - `_fetch_in_progress_payload` thêm `submit_deadline_passed: bool` (cùng phép so với
+    `_SUBMIT_GRACE_SECONDS` của `submit`); sinh lại type. Trường thêm, không đổi trường cũ.
   - Sinh lại `frontend/types/api.d.ts`.
 
 ## Data and contracts

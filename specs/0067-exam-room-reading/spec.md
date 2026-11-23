@@ -94,6 +94,18 @@ viên mất bài, nộp nhầm hay lộ thông tin. Đã kiểm `reading-exam-se
   nút phụ. Khi có lượt dở, "Start a new attempt" mở hộp trong trang ("Start a new
   attempt? Your current attempt will be discarded and replaced." với "Continue current
   attempt" là nút chính) thay `window.confirm`; chỉ khi xác nhận mới gọi `startFresh`.
+  - Lượt dở đã quá hạn nộp (máy chủ sẽ trả 422 như FR-010: quá `time_limit` + 5 phút ân
+    hạn): màn trước khi bắt đầu chỉ có **một nút "Start a new attempt"**, kèm dòng "Your
+    previous attempt ran out of time and was not submitted. It has no score." Không có
+    "Resume test"/"Continue current attempt", không hộp hỏi lại (không còn gì để mất), bản
+    sao tại máy của lượt đó bị xoá. Bấm nút gọi `startFresh` như hôm nay (lượt cũ thành
+    `abandoned` khi tạo lượt mới). Nút thoát của thanh trên vẫn có.
+  - Quá hạn hay chưa do **máy chủ** quyết: payload `in_progress` thêm trường
+    `submit_deadline_passed: boolean`, tính bằng đúng phép so của `submit`
+    (`elapsed > time_limit + _SUBMIT_GRACE_SECONDS`), không dựa vào đồng hồ máy học viên.
+    Trường này thêm trong PR backend T003; trước khi nó có, nhánh mới không bật ở đâu.
+  - Hết `time_limit` nhưng còn trong 5 phút ân hạn: "Resume test" vào thẳng màn hết giờ
+    tự nộp của FR-010 (không cho làm thêm).
 - **FR-006:** Hai cột dùng tay nắm của khung (30–70%, tỉ lệ lưu theo `attempt_id`,
   dưới 900px là hai thẻ "Passage"/"Questions").
 - **FR-007:** Dải câu sinh từ `readingDisplayQuestionRuns` theo Passage, không viết cứng
@@ -135,6 +147,11 @@ viên mất bài, nộp nhầm hay lộ thông tin. Đã kiểm `reading-exam-se
   không có `class_item`, `sitting_id`, `share`, `admin_preview`): nút "Abandon test" và hộp
   hỏi lại của khung. Xác nhận thì gọi route mới `POST /api/reading/test/attempts/{id}/abandon`;
   `status='abandoned'` đã có trong CHECK của mig 087, không cần migration; không chấm.
+  - Route chạy thân ghi đồng bộ qua `_learner_write` với khoá
+    `_attempt_write_keys(attempt_id, user, None)`, đúng như `submit`
+    (`reading_student.py` L1511), nên bỏ và nộp của cùng lượt được xếp hàng trong cùng một
+    tiến trình; thân ghi đọc lại lượt sau khi giữ khoá. Khoá trong tiến trình không thay
+    điều kiện trong câu UPDATE (nhiều worker vẫn có thể chạy song song), hai lớp cùng giữ.
   - Mọi điều kiện nằm **trong chính câu UPDATE**, cùng cách điều phối với `submit` (UPDATE
     có điều kiện, đọc lại khi không có dòng nào đổi): `id`, chủ lượt, `status =
     'in_progress'`, không gắn `sitting_id`/bài giao, không phải lượt khách, `resume_expires_at
@@ -286,6 +303,13 @@ viên mất bài, nộp nhầm hay lộ thông tin. Đã kiểm `reading-exam-se
 - **Then** 409 `time_expired`, lượt không bị bỏ.
 - **Given** nộp và bỏ gửi cùng lúc
 - **Then** đúng một bên thắng; bên kia nhận 409 kèm trạng thái thật.
+
+### Scenario 12: mở lại đề khi lượt dở đã quá hạn nộp
+
+- **Given** lượt `in_progress` có `submit_deadline_passed = true`
+- **When** học viên mở đề
+- **Then** màn trước khi bắt đầu chỉ có nút "Start a new attempt" và dòng báo lượt cũ không
+  được nộp; không có "Resume test", không hộp hỏi lại; bấm nút tạo lượt mới.
 
 ## Edge cases
 
