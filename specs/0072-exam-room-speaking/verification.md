@@ -3,7 +3,8 @@
 ## Requirement coverage
 
 Review độc lập 0072 T005 (READY-QUEUE R152, 23/11/2026), trên cây gộp `cbff3629` (#2642, đã
-gồm #2615 `69218093` và #2599 `765b3c4f`) + `f935d3d0` (#2626), merge cục bộ sạch. Người review
+gồm #2615 `69218093` và #2599 `765b3c4f`) + `f935d3d0` (#2626), merge cục bộ sạch; bổ sung cùng ngày
+trên #2649 `97d79c67` (gồm #2642 `5f65bc69`): node 1071/1071 + 3/3 FR-009, vitest 1484/1484, tsc sạch. Người review
 không viết mã của chuỗi này. Kết quả chạy trên cây đó:
 
 - `node --test` 69 tệp `practice*`, `speaking*`, `exam-room*`, `core-player*`: 1051/1051 qua.
@@ -28,7 +29,7 @@ nghiệm thu staging (T004) cần anh Andy bật cờ. Kết quả review ghi cu
 | FR-006 | kind=test; ref=frontend/tests/practice-exam-room-boxes.test.mjs "an unsent take opens the box and keeps the take", "no take: no box", "Part 2 …"; react "re-record: …" ("Giữ bản ghi" là nút chính). Review R152: đạt (cục bộ) | PENDING |
 | FR-007 | kind=test; ref=frontend/tests/practice-exam-room-boxes.test.mjs "a link with unsent work opens the box; never window.confirm", "nothing unsent: leave at once", "a navigation that never leaves guards the page again"; react "leave box from a link", "a link in the page with unsent work asks practice.js first…". Review R152: đạt (cục bộ) | PENDING |
 | FR-008 | kind=test; ref=frontend/tests/practice-exam-room-boxes.test.mjs "Nộp opens the box with the count, and nothing is completed yet", "closing the box submits nothing"; react "submit with failed re-records: the count…"; lần ghi đầu gửi lỗi giữ Nộp khoá bằng chữ "Đã lưu N/M câu — lưu nốt rồi mới nộp được." của nhánh cũ. Câu về lượt chưa có (cần G04). Review R152: đạt (cục bộ), trừ câu lượt | PENDING |
-| FR-009 | kind=review; `practice.js` không ghi âm thanh vào `localStorage`/`sessionStorage`/IndexedDB (chỉ `ielts_qmode` và chuỗi id full test); không chuỗi nào của phòng hứa giữ bản ghi khi tải lại. Chưa có test riêng. Review R152: đạt (review), thiếu test | PENDING |
+| FR-009 | kind=test; ref=frontend/tests/practice-exam-room-fr009.test.mjs (#2649 @ `97d79c67`, thêm sau review: mọi `setItem` của `practice.js` là khoá đã biết chứa id/chế độ; không nguồn nào của phòng dùng IndexedDB, Cache API hay biến âm thanh thành chuỗi; không chuỗi VI/EN nào hứa giữ bản ghi khi tải lại; hộp rời bài nói bản chưa gửi sẽ mất). Review R152: đạt (cục bộ), 3/3 | PENDING |
 | FR-010 | kind=test; ref=frontend/tests/practice-exam-room-boxes.test.mjs "complete answers 401: the sign-in box opens, nothing navigates", "upload auth_required with an unsent take counts it…", "finishSession signed out in the room…"; react "401 with an unsent take: says it would be lost…". Review R152: đạt (cục bộ) | PENDING |
 | FR-011 | kind=test; ref=frontend/tests/exam-room-strings-speaking.test.mjs "mode: only test_full is English", "English has no Vietnamese letters"; react "a full test uses the English room words", "a full test asks in English". Review R152: đạt (cục bộ) | PENDING |
 | FR-012 | kind=journey; ref=frontend/tooling/verify-speaking-flow.mjs "phòng (cờ bật): không hộp thoại trình duyệt nào (FR-012)" (bắt sự kiện `dialog`); boxes test "no window.confirm, alert or prompt is reached in the room branch…". `playwright.speaking-regression.config.js` chưa chạy trong review này. Review R152: đạt (cục bộ); regression config pending | PENDING |
@@ -38,10 +39,10 @@ Edge cases:
 
 | Edge case | Evidence | Result |
 | --- | --- | --- |
-| Micro bị rút giữa lúc ghi | #2642 (R139); frontend/tests/practice-exam-room-mic-lost.test.mjs 9 test; ảnh `mic-lost-3s.png`, `mic-lost-17s.png`. Còn một điểm thấp: đường `_recorder` cũ không xoá `_timerId` P1/P3 ở nhánh `stopping` (đường native, đường thật của trang Next, không bị) | Đạt (cục bộ), một điểm thấp mở |
+| Micro bị rút giữa lúc ghi | #2642 (R139) @ `5f65bc69`; frontend/tests/practice-exam-room-mic-lost.test.mjs; ảnh `mic-lost-3s.png`, `mic-lost-17s.png`. Điểm thấp `_timerId` đường `_recorder` cũ đã sửa ở `5f65bc69`; còn một điểm thấp mới: `init()` chưa đặt lại `_roomMicLostShown` (CR #2642) | Đạt (cục bộ), một điểm thấp mở |
 | Không có `navigator.permissions` | events test "no navigator.permissions starts at…" | Đạt (cục bộ) |
 | Recorder native có trước | events test "native start emits no mic event and keeps the old error text"; mic-lost đọc `PracticeRecorder.stream`, `onstop` gọi `onRecorded` trước `#releaseMedia` | Đạt (cục bộ) |
-| Hai tab cùng phiên | R149 (G08-T19c), chưa có PR | PENDING |
+| Hai tab cùng phiên | #2649 (R149) @ `97d79c67`: khoá `surface='speaking'`, `attemptKey=session_id` qua `createTabGuard`; `roomFlush` không bao giờ `secured` khi còn bản ghi đang ghi/chưa gửi/đang tải → tab cũ từ chối, tab mới `stuck` với câu của spec; frontend/tests/practice-exam-room-tab.test.mjs, frontend/tests/react/speaking-tab-guard.test.tsx. Còn một điểm Medium: tab chỉ-đọc vẫn gọi được `_sheetSubmit`/`finishSession` (nộp), trái 0066 FR-017 (CR #2649) | Chưa đạt, chờ sửa |
 | Test đọc nguồn `practice.js` | 1051 test node của nhóm practice/speaking/exam-room qua, không test nào bị bỏ qua | Đạt (cục bộ) |
 
 Đối chiếu số FR của GOI-08 ↔ spec này:
