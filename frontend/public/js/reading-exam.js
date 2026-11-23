@@ -1682,6 +1682,7 @@
     }
     var card = document.getElementById('q-' + qNum);
     if (card) card.classList.toggle('is-answered', !!answered);
+    _postMockAnswers();
   }
   // ── DEBT-2026-07-22-D — auto-save must not fail silently ────────────
   // The comment that used to sit in patchAnswer's catch ("the source of
@@ -2117,6 +2118,31 @@
   // its own label + buttons. Falls back gracefully to a flat layout if
   // `questions` is absent (legacy callers or partial test bundles).
   function renderPalette(totalQs, questions) {
+    _renderPaletteGrid(totalQs, questions);
+    _postMockAnswers();
+  }
+  // EXAMMOCK-0071 FR-014: inside the mock exam room the parent's "Submit
+  // section" box lists the blank questions. This page owns the answers, so it
+  // reports {q, answered} for every palette question to the same-origin parent
+  // (coalesced to one message per task); the parent checks source and origin.
+  var _mockAnswersQueued = false;
+  function _postMockAnswers() {
+    if (window.parent === window || _mockAnswersQueued) return;
+    _mockAnswersQueued = true;
+    setTimeout(function () {
+      _mockAnswersQueued = false;
+      var questions = [];
+      document.querySelectorAll('.exam-palette__q').forEach(function (btn) {
+        var q = Number(btn.dataset.q);
+        if (Number.isInteger(q) && q > 0) questions.push({ q: q, answered: SESSION.answers.has(q) });
+      });
+      if (!questions.length) return;  // paper not drawn yet: no list rather than "none blank"
+      try {
+        window.parent.postMessage({ type: 'mock-answers', section: 'reading', questions: questions }, window.location.origin);
+      } catch (e) { /* the parent's box then has no list; submit still works */ }
+    }, 0);
+  }
+  function _renderPaletteGrid(totalQs, questions) {
     var grid = $('exam-palette-grid'); grid.innerHTML = '';
     var groups = _groupQuestionsByPart(totalQs, questions);
     if (groups.length === 1) {
@@ -3427,6 +3453,10 @@
   // FLUSH its debounced auto-saves before it submits the attempt — so an answer
   // typed just before "Nộp toàn bộ" isn't stranded in the debounce queue.
   window.addEventListener('message', function (ev) {
+    if (ev.data && ev.data.type === 'mock-answers-request' && ev.source === window.parent) {
+      _postMockAnswers();
+      return;
+    }
     if (!ev.data || ev.data.type !== 'mock-flush') return;
     _flushPendingSavesForMock().then(function (clean) {
       if (!ev.source) return;

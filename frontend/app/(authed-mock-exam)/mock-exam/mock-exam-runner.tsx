@@ -29,6 +29,7 @@ import {
   isMockSubmitSettled,
   mockExamParams,
   mockExamView,
+  mockFrameQuestions,
   mockPlayerHref,
   mockSpeakingHref,
   mockSpeakingTopic,
@@ -38,6 +39,7 @@ import {
   normalizeIntegrity,
   normalizeMockExamState,
   parseLocalWritingDraft,
+  selfPacedView,
   submittedAtFor,
 } from '@/lib/mock-exam-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
@@ -92,6 +94,8 @@ export interface MockSelfPaced {
   startedAt: string | null;
   expectedEndAt: string | null;
   currentSection: Section | null;
+  /** > 0 only inside a gap before the current section opens. */
+  startsInSeconds: number;
   gapSeconds: number;
   openUntil: string | null;
   totalSeconds: number;
@@ -765,7 +769,10 @@ export function MockExamRunner() {
 
   stateRef.current = state;
   const view = state ? mockExamView(state) : 'loading';
-  const activeSection = view === 'section' ? state?.activeSection as Section : null;
+  // FR-014, exam room only: inside a gap the server already names the next
+  // section, but it opens after the countdown, so nothing runs before then.
+  const inGap = Boolean(examRoom && state && selfPacedView(state) === 'gap');
+  const activeSection = view === 'section' && !inGap ? state?.activeSection as Section : null;
   const pendingCollectionSection = state
     && (state.collectedSection === 'listening'
       || state.collectedSection === 'reading'
@@ -1265,6 +1272,55 @@ export function MockExamRunner() {
     return () => window.clearInterval(interval);
   }, [activeSection, state?.sectionTimeLeftSeconds]);
 
+  // FR-014 gap > 0: a fixed countdown from the server's relative seconds; at
+  // zero the state is read again, and the server stamps and opens the section.
+  // A failed read is left to the poll, which shows the connection notice.
+  const [gapRemaining, setGapRemaining] = useState<number | null>(null);
+  const gapSeconds = inGap ? state?.selfPaced?.startsInSeconds ?? 0 : null;
+  useEffect(() => {
+    if (gapSeconds == null) { setGapRemaining(null); return undefined; }
+    const at = Date.now();
+    let reread = false;
+    const tick = () => {
+      const left = Math.max(0, gapSeconds - Math.floor((Date.now() - at) / 1_000));
+      setGapRemaining(left);
+      if (left === 0 && !reread) {
+        reread = true;
+        void loadState().catch(() => {});
+      }
+    };
+    tick();
+    const interval = window.setInterval(tick, 500);
+    return () => window.clearInterval(interval);
+  }, [gapSeconds, loadState, state?.selfPaced?.currentSection]);
+
+  // FR-014: the embedded Reading/Listening page reports its questions
+  // ({type:'mock-answers'}) so the "Submit section" box can list the blank
+  // ones. Only from this frame, this origin and the open section.
+  const [frameQuestions, setFrameQuestions] = useState<{ section: Section; list: { q: number; answered: boolean }[] } | null>(null);
+  const answersSection = examRoom && state?.selfPaced && renderedSection && renderedSection !== 'writing' ? renderedSection : null;
+  useEffect(() => {
+    setFrameQuestions(null);
+    if (!answersSection) return undefined;
+    const message = (event: MessageEvent) => {
+      const frame = frameRef.current;
+      if (!frame || event.origin !== window.location.origin || event.source !== frame.contentWindow) return;
+      const list = mockFrameQuestions(event.data, answersSection);
+      if (list) setFrameQuestions({ section: answersSection, list });
+    };
+    const ask = () => {
+      try { frameRef.current?.contentWindow?.postMessage({ type: 'mock-answers-request' }, window.location.origin); } catch { /* the page reports on its own too */ }
+    };
+    window.addEventListener('message', message);
+    const frame = frameRef.current;
+    frame?.addEventListener('load', ask);
+    ask();
+    return () => {
+      window.removeEventListener('message', message);
+      frame?.removeEventListener('load', ask);
+    };
+  }, [answersSection]);
+
   useEffect(() => {
     const settled = isMockSubmitSettled(state, 'writing');
     if (settled || (activeSection === 'writing' && !submittingRef.current)) {
@@ -1418,6 +1474,8 @@ export function MockExamRunner() {
         onRetrySubmit={retrySubmit}
         flushForExit={flushForExit}
         onSubmitSection={submitSection}
+        gapRemaining={gapRemaining}
+        frameQuestions={frameQuestions && frameQuestions.section === renderedSection ? frameQuestions.list : null}
       />
     );
   }
