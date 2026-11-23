@@ -1,9 +1,10 @@
 """ADMINIA-0074 FR-055 — revoke a code that is in use, from the danger zone.
 
 `POST /admin/access-codes/{id}/revoke-used` needs the code retyped and a
-reason. It revokes the code in one write (a revoked code grants nothing), never
-touches redemption history or assignments, writes the reason and the people who
-lose access to access_code_audit, and says so when that audit write fails.
+reason. It writes the reason and the people who lose access to
+access_code_audit first and revokes the code (one write; a revoked code grants
+nothing) only once that row exists. It never touches redemption history or
+assignments, and a replay never claims an audit row it has not seen.
 """
 from __future__ import annotations
 
@@ -66,6 +67,7 @@ class _DB:
         self.fail = set(fail)
         self.writes: list = []
         self.audits: list = []
+        self.order: list = []
 
     def table(self, name):
         return _Q(self, name)
@@ -78,6 +80,7 @@ class _DB:
             return _Res([dict(self.code)] if ("id", self.code["id"]) in q.filters else [])
         if q.table == "access_codes" and q.op == "update":
             self.writes.append((q.table, q.payload, list(q.filters)))
+            self.order.append("revoke")
             if ("is_revoked", False) in q.filters and self.code.get("is_revoked"):
                 return _Res([])
             self.code.update(q.payload)
@@ -87,7 +90,11 @@ class _DB:
             return _Res([a for a in self.assignments if not want_active or a["is_active"]])
         if q.table == "access_code_audit" and q.op == "insert":
             self.audits.append(q.payload)
+            self.order.append("audit")
             return _Res([q.payload])
+        if q.table == "access_code_audit" and q.op == "select":
+            return _Res([a for a in self.audits
+                         if all(a.get(col) == val for col, val in q.filters)])
         if q.op != "select":
             self.writes.append((q.table, q.payload, list(q.filters)))
         return _Res([])
@@ -202,12 +209,29 @@ def test_unknown_code_is_404(monkeypatch):
     assert db.writes == []
 
 
-def test_already_revoked_is_idempotent_and_writes_nothing(monkeypatch):
+def test_replay_on_revoked_code_without_audit_row_does_not_claim_one(monkeypatch):
     db = _DB({**CODE, "is_revoked": True, "is_active": False}, ASSIGNMENTS)
     _wire(monkeypatch, db)
     out = _call()
     assert out["already_revoked"] is True and out["is_revoked"] is True
+    assert out["audit_recorded"] is False
     assert db.writes == [] and db.audits == []
+
+
+def test_replay_after_a_recorded_revoke_reports_the_audit(monkeypatch):
+    db = _DB(CODE, ASSIGNMENTS)
+    _wire(monkeypatch, db)
+    _call()
+    out = _call()
+    assert out["already_revoked"] is True and out["audit_recorded"] is True
+    assert len(db.audits) == 1 and len(db.writes) == 1
+
+
+def test_replay_audit_lookup_error_answers_not_recorded(monkeypatch):
+    db = _DB({**CODE, "is_revoked": True, "is_active": False}, ASSIGNMENTS,
+             fail={"access_code_audit.select"})
+    _wire(monkeypatch, db)
+    assert _call()["audit_recorded"] is False
 
 
 def test_assignment_lookup_failure_fails_closed(monkeypatch):
@@ -219,7 +243,33 @@ def test_assignment_lookup_failure_fails_closed(monkeypatch):
     assert db.writes == [] and db.code["is_revoked"] is False
 
 
-def test_concurrent_revoke_reports_already_revoked_without_audit(monkeypatch):
+def test_reason_is_recorded_before_the_code_is_revoked(monkeypatch):
+    db = _DB(CODE, ASSIGNMENTS)
+    _wire(monkeypatch, db)
+    _call()
+    assert db.order == ["audit", "revoke"]
+
+
+def test_audit_failure_leaves_the_code_usable(monkeypatch):
+    db = _DB(CODE, ASSIGNMENTS, fail={"access_code_audit.insert"})
+    _wire(monkeypatch, db)
+    with pytest.raises(HTTPException) as exc:
+        _call()
+    assert exc.value.status_code == 500
+    assert exc.value.detail["code"] == "audit_not_recorded"
+    assert db.writes == [] and db.code["is_revoked"] is False and db.code["is_active"] is True
+
+
+def test_revoke_failure_after_audit_is_reported(monkeypatch):
+    db = _DB(CODE, ASSIGNMENTS, fail={"access_codes.update"})
+    _wire(monkeypatch, db)
+    with pytest.raises(HTTPException) as exc:
+        _call()
+    assert exc.value.status_code == 500 and exc.value.detail["code"] == "revoke_failed"
+    assert db.code["is_revoked"] is False
+
+
+def test_concurrent_revoke_reports_already_revoked_with_this_requests_audit(monkeypatch):
     db = _DB(CODE, ASSIGNMENTS)
     _wire(monkeypatch, db)
     original = db.resolve
@@ -230,16 +280,8 @@ def test_concurrent_revoke_reports_already_revoked_without_audit(monkeypatch):
         return original(q)
     db.resolve = racing
     out = _call()
-    assert out["already_revoked"] is True
-    assert db.audits == []
-
-
-def test_audit_failure_is_reported_not_hidden(monkeypatch):
-    db = _DB(CODE, ASSIGNMENTS, fail={"access_code_audit.insert"})
-    _wire(monkeypatch, db)
-    out = _call()
-    assert out["is_revoked"] is True and out["audit_recorded"] is False
-    assert db.code["is_revoked"] is True
+    assert out["already_revoked"] is True and out["audit_recorded"] is True
+    assert len(db.audits) == 1
 
 
 def test_route_is_registered_with_step_up_responses():

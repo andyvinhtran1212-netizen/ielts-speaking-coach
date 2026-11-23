@@ -2490,8 +2490,9 @@ async def delete_access_code(
 # page's danger zone. The admin retypes the code and gives a reason; the code
 # is revoked in one write (a revoked code grants nothing, see
 # services/access_code_permissions.py), assignments and redemption history
-# (is_used / used_by / used_at) stay as they are, and the reason goes to
-# access_code_audit together with the number of people who lose access.
+# (is_used / used_by / used_at) stay as they are. The reason and the people
+# who lose access go to access_code_audit FIRST; the code is revoked only once
+# that row exists, so a failed audit leaves the code usable.
 
 REVOKE_REASON_MIN = 10
 REVOKE_REASON_MAX = 500
@@ -2556,9 +2557,11 @@ async def revoke_used_access_code(
         })
 
     if row.get("is_revoked"):
+        # A replay never claims an audit row it has not seen.
         return {
             "id": row["id"], "code": code_value, "is_revoked": True,
-            "already_revoked": True, "affected_user_count": 0, "audit_recorded": True,
+            "already_revoked": True, "affected_user_count": 0,
+            "audit_recorded": _revoke_audit_exists(code_id),
         }
 
     # Fail closed: the count goes into the audit and the confirmation the
@@ -2583,27 +2586,10 @@ async def revoke_used_access_code(
         logger.warning("revoke_used_access_code: active-assignment lookup failed code=%s: %s", code_id, exc)
         raise HTTPException(500, "Không kiểm tra được ai đang dùng mã — thử lại sau.") from None
 
+    # The reason is written BEFORE the revoke: if the audit insert fails, the
+    # code stays usable and nobody loses access without a recorded reason.
     try:
-        upd = (
-            supabase_admin.table("access_codes")
-            .update({"is_revoked": True, "is_active": False})
-            .eq("id", code_id)
-            .eq("is_revoked", False)
-            .execute()
-        )
-    except Exception as exc:
-        logger.error("[admin] revoke-used access code failed: %s", exc, exc_info=True)
-        raise HTTPException(500, "Lỗi khi thu hồi mã. Vui lòng thử lại.") from None
-    if not upd.data:
-        # Another admin revoked it between the read and the write.
-        return {
-            "id": row["id"], "code": code_value, "is_revoked": True,
-            "already_revoked": True, "affected_user_count": 0, "audit_recorded": True,
-        }
-
-    audit_recorded = True
-    try:
-        supabase_admin.table("access_code_audit").insert({
+        audit_res = supabase_admin.table("access_code_audit").insert({
             "actor_user_id": _actor_id(admin),
             "action": "revoke",
             "code_id": code_id,
@@ -2616,15 +2602,59 @@ async def revoke_used_access_code(
             },
         }).execute()
     except Exception as exc:
-        # The revoke already happened; say so instead of hiding the gap.
-        audit_recorded = False
         logger.error("access_code_audit insert failed (revoke-used code=%s): %s", code_id, exc)
+        audit_res = None
+    if audit_res is None or not getattr(audit_res, "data", None):
+        raise HTTPException(500, {
+            "code": "audit_not_recorded",
+            "message": "Không ghi được lý do thu hồi nên mã CHƯA bị thu hồi. Thử lại sau.",
+        })
+
+    try:
+        upd = (
+            supabase_admin.table("access_codes")
+            .update({"is_revoked": True, "is_active": False})
+            .eq("id", code_id)
+            .eq("is_revoked", False)
+            .execute()
+        )
+    except Exception as exc:
+        logger.error("[admin] revoke-used access code failed after audit (code=%s): %s", code_id, exc, exc_info=True)
+        raise HTTPException(500, {
+            "code": "revoke_failed",
+            "message": "Đã ghi lý do nhưng thu hồi mã bị lỗi; mã có thể vẫn dùng được. Tải lại trang để xem trạng thái thật.",
+        }) from None
+    if not upd.data:
+        # Another admin revoked it between the read and the write; their
+        # request wrote its own audit row, and this one wrote ours.
+        return {
+            "id": row["id"], "code": code_value, "is_revoked": True,
+            "already_revoked": True, "affected_user_count": 0, "audit_recorded": True,
+        }
 
     return {
         "id": row["id"], "code": code_value, "is_revoked": True,
         "already_revoked": False, "affected_user_count": len(affected),
-        "audit_recorded": audit_recorded,
+        "audit_recorded": True,
     }
+
+
+def _revoke_audit_exists(code_id: str) -> bool:
+    """Whether access_code_audit holds a revoke row for this code. A lookup
+    error answers False: the response must not claim a record it cannot see."""
+    try:
+        res = (
+            supabase_admin.table("access_code_audit")
+            .select("id")
+            .eq("code_id", code_id)
+            .eq("action", "revoke")
+            .limit(1)
+            .execute()
+        )
+        return bool(res.data)
+    except Exception as exc:
+        logger.warning("revoke_used_access_code: audit lookup failed code=%s: %s", code_id, exc)
+        return False
 
 
 # ── GET /admin/access-codes/{code_id} ─────────────────────────────────────────

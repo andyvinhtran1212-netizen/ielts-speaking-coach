@@ -357,7 +357,11 @@ export function revokeUsedDraftError({ code, confirmCode, reason }) {
 export function revokeUsedResultMessage(result) {
   const row = object(result);
   const code = text(row.code);
-  if (row.already_revoked) return { kind: 'success', text: `Mã ${code} đã được thu hồi từ trước.` };
+  if (row.already_revoked) {
+    return row.audit_recorded === false
+      ? { kind: 'error', text: `Mã ${code} đã được thu hồi từ trước, nhưng không thấy lý do thu hồi trong nhật ký mã.` }
+      : { kind: 'success', text: `Mã ${code} đã được thu hồi từ trước.` };
+  }
   const count = Math.max(0, finite(row.affected_user_count));
   const base = `Đã thu hồi mã ${code}. ${count} học viên mất quyền từ mã này.`;
   if (row.audit_recorded === false) {

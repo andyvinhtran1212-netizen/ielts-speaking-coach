@@ -125,6 +125,9 @@ export function AdminActivationCodeDetail({ codeId }: { codeId: string }) {
       setBanner(revokeUsedResultMessage(result) as Banner);
     } catch (caught) {
       setFormError(messageOf(caught));
+      // The backend writes the reason first; reload so the page shows the
+      // code's real state and history whatever step failed.
+      await load();
     } finally {
       setBusy(false);
     }

@@ -184,12 +184,13 @@ await page.route('**/*', async (route) => {
     const code = codes.find((item) => item.id === revokeUsed[1]);
     if (!code) return json({ detail: 'Mã kích hoạt không tồn tại' }, 404);
     if (String(body.confirm_code || '').toUpperCase() !== code.code) return json({ detail: { code: 'confirm_code_mismatch', message: 'Mã gõ lại không khớp.' } }, 422);
-    if (code.is_revoked) return json({ id: code.id, code: code.code, is_revoked: true, already_revoked: true, affected_user_count: 0, audit_recorded: true });
+    if (code.is_revoked) return json({ id: code.id, code: code.code, is_revoked: true, already_revoked: true, affected_user_count: 0, audit_recorded: audits.some((entry) => entry.code_id === code.id && entry.action === 'revoke') });
     const affected = code.assigned_users.filter((user) => user.removable || user.is_fallback_used_by).map((user) => user.user_id);
+    // Mirrors the backend: the reason is written first; no audit row, no revoke.
+    if (auditFails.has(code.id)) return json({ detail: { code: 'audit_not_recorded', message: 'Không ghi được lý do thu hồi nên mã CHƯA bị thu hồi. Thử lại sau.' } }, 500);
+    audits.push({ id: `a${audits.length + 1}`, code_id: code.id, action: 'revoke', actor_user_id: adminId, target_user_id: null, before: { is_revoked: false }, after: { is_revoked: true, reason: body.reason, affected_user_ids: affected, source: 'danger_zone' }, created_at: '2026-11-23T10:00:00Z' });
     code.is_revoked = true; code.is_active = false;
-    const recorded = !auditFails.has(code.id);
-    if (recorded) audits.push({ id: `a${audits.length + 1}`, code_id: code.id, action: 'revoke', actor_user_id: adminId, target_user_id: null, before: { is_revoked: false }, after: { is_revoked: true, reason: body.reason, affected_user_ids: affected, source: 'danger_zone' }, created_at: '2026-11-23T10:00:00Z' });
-    return json({ id: code.id, code: code.code, is_revoked: true, already_revoked: false, affected_user_count: affected.length, audit_recorded: recorded });
+    return json({ id: code.id, code: code.code, is_revoked: true, already_revoked: false, affected_user_count: affected.length, audit_recorded: true });
   }
   const detailMatch = parsed.pathname.match(/^\/admin\/access-codes\/([^/]+)$/);
   if (detailMatch && method === 'GET') {
@@ -466,9 +467,12 @@ await danger.waitFor({ state: 'visible' });
 await danger.getByLabel('Gõ lại mã ACTIVE-001 để xác nhận').fill('ACTIVE-001');
 await danger.getByLabel('Lý do thu hồi (bắt buộc)').fill('Mã bị lộ trên nhóm chat lớp');
 await danger.getByRole('button', { name: 'Thu hồi mã đã dùng' }).click();
-const auditGap = page.getByRole('alert').filter({ hasText: 'Chưa ghi được lý do vào nhật ký mã' });
+const auditGap = danger.getByRole('alert').filter({ hasText: 'Không ghi được lý do thu hồi nên mã CHƯA bị thu hồi' });
 await auditGap.waitFor({ state: 'visible' });
-check('audit không ghi được: báo rõ, không giả vờ thành công', /Đã thu hồi mã ACTIVE-001\. 0 học viên/.test(await auditGap.innerText()));
+check('audit không ghi được: báo lỗi, mã vẫn Đã dùng, không có dòng thu hồi',
+  codes.find((item) => item.id === 'c1')?.is_revoked === false
+    && await page.locator('.au-header [data-ledger-state="used"]').filter({ visible: true }).count() === 1
+    && await page.getByRole('button', { name: 'Thu hồi mã đã dùng' }).isEnabled());
 
 await page.goto(`${BASE}/admin/activation-codes/missing-code`, { waitUntil: 'domcontentloaded' });
 await page.getByText('Mã kích hoạt không tồn tại.', { exact: true }).waitFor({ state: 'visible' });

@@ -320,7 +320,8 @@ describe('ADMINIA-0074 FR-055 code page and danger-zone revoke', () => {
     assert.deepEqual(revokeUsedResultMessage({ code: 'A', affected_user_count: 2, audit_recorded: true }), { kind: 'success', text: 'Đã thu hồi mã A. 2 học viên mất quyền từ mã này.' });
     assert.equal(revokeUsedResultMessage({ code: 'A', affected_user_count: 0, audit_recorded: false }).kind, 'error');
     assert.match(revokeUsedResultMessage({ code: 'A', audit_recorded: false }).text, /Chưa ghi được lý do vào nhật ký mã/);
-    assert.equal(revokeUsedResultMessage({ code: 'A', already_revoked: true }).text, 'Mã A đã được thu hồi từ trước.');
+    assert.equal(revokeUsedResultMessage({ code: 'A', already_revoked: true, audit_recorded: true }).text, 'Mã A đã được thu hồi từ trước.');
+    assert.equal(revokeUsedResultMessage({ code: 'A', already_revoked: true, audit_recorded: false }).kind, 'error');
   });
 
   test('the page keeps /new a 404, reloads canonically and offers the danger zone only for a used code', () => {
