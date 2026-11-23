@@ -1,14 +1,17 @@
 /**
  * ui-v2-font-subset-glyphs.test.mjs — Q46 (CR-2409-R2 nit).
  *
- * The root layout loads its fonts with `subsets: ['latin', 'vietnamese']`.
- * A v2 component under `components/ui/` that renders a character outside
- * those subsets (an arrow such as U+2190/U+2192, a maths symbol, …) falls
+ * v2 components under `components/ui/` render with `--av2-font-sans` /
+ * `--av2-font-serif` (tokens.css), i.e. Source Sans 3 / Source Serif 4 from
+ * `styles/av2/fonts.ts`, loaded with `subsets: ['latin', 'latin-ext',
+ * 'vietnamese']` (latin-ext carries the IPA block). A component that renders
+ * a character outside those subsets (an arrow such as U+2190/U+2192, a maths symbol, …) falls
  * back to the machine's system font, so the baseline screenshots start to
  * depend on the runner. Such glyphs must be drawn with `<Icon>` (SVG) or the
  * subset must be widened deliberately.
  *
- * Ranges mirror the Google Fonts `latin` and `vietnamese` unicode-range sets.
+ * Ranges mirror the Google Fonts `latin`, `latin-ext` and `vietnamese`
+ * unicode-range sets.
  * Comments are stripped first: a `→` in JSDoc is never rendered.
  */
 import { test } from 'node:test';
@@ -34,7 +37,14 @@ const VIETNAMESE = [
   [0x0308, 0x0309], [0x0323, 0x0323], [0x0329, 0x0329], [0x1ea0, 0x1ef9],
   [0x20ab, 0x20ab],
 ];
-const ALLOWED = [...LATIN, ...VIETNAMESE];
+const LATIN_EXT = [
+  [0x0100, 0x02ba], [0x02bd, 0x02c5], [0x02c7, 0x02cc], [0x02ce, 0x02d7],
+  [0x02dd, 0x02ff], [0x0304, 0x0304], [0x0308, 0x0308], [0x0329, 0x0329],
+  [0x1d00, 0x1dbf], [0x1e00, 0x1e9f], [0x1ef2, 0x1eff], [0x2020, 0x2020],
+  [0x20a0, 0x20ab], [0x20ad, 0x20c0], [0x2113, 0x2113], [0x2c60, 0x2c7f],
+  [0xa720, 0xa7ff],
+];
+const ALLOWED = [...LATIN, ...LATIN_EXT, ...VIETNAMESE];
 const inSubset = (cp) => ALLOWED.some(([lo, hi]) => cp >= lo && cp <= hi);
 
 function sourceFiles(dir) {
@@ -51,12 +61,12 @@ function stripComments(src) {
     .replace(/(^|[^:\\])\/\/.*$/gm, '$1');
 }
 
-test('root layout still loads only the latin + vietnamese subsets', () => {
-  const layout = readFileSync(join(FRONTEND, 'app', 'layout.tsx'), 'utf8');
-  const subsets = [...layout.matchAll(/subsets:\s*\[([^\]]*)\]/g)].map((m) => m[1].replace(/\s/g, ''));
-  assert.ok(subsets.length > 0, 'expected next/font subsets in app/layout.tsx');
+test('v2 fonts still load the latin + latin-ext + vietnamese subsets', () => {
+  const fonts = readFileSync(join(FRONTEND, 'styles', 'av2', 'fonts.ts'), 'utf8');
+  const subsets = [...fonts.matchAll(/subsets:\s*\[([^\]]*)\]/g)].map((m) => m[1].replace(/\s/g, ''));
+  assert.equal(subsets.length, 2, 'expected the two v2 families (Source Serif 4, Source Sans 3) in styles/av2/fonts.ts');
   for (const s of subsets) {
-    assert.equal(s, "'latin','vietnamese'", 'subset changed: update the ranges in this test to match');
+    assert.equal(s, "'latin','latin-ext','vietnamese'", 'subset changed: update the ranges in this test to match');
   }
 });
 
