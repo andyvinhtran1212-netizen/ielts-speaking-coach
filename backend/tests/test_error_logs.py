@@ -544,16 +544,41 @@ class TestDogfoodEndpoint:
         r = client.post("/admin/error-logs/test?error_type=weird", headers=_ADMIN_AUTH)
         assert r.status_code == 422
 
-    @pytest.mark.parametrize("environment", ["production", " Production "])
-    def test_refused_on_production(self, client, fake_db, monkeypatch, environment):
-        # ADMINIA-0074 FR-073: the server blocks the dogfood helper on Production.
+    @pytest.mark.parametrize(
+        ("environment", "railway"),
+        [
+            ("production", None),
+            (" Production ", None),
+            # Railway production sets no ENVIRONMENT: the config default stays.
+            ("development", "production"),
+            ("", "production"),
+            # A Railway environment that is neither staging nor production.
+            ("development", "pr-2655"),
+            ("qa", None),
+        ],
+    )
+    def test_refused_outside_staging_and_development(self, client, fake_db, monkeypatch, environment, railway):
+        # ADMINIA-0074 FR-073: the server blocks the dogfood helper on
+        # Production and fails closed on an unknown tier.
         monkeypatch.setattr("routers.error_logs.settings.ENVIRONMENT", environment)
+        if railway is None:
+            monkeypatch.delenv("RAILWAY_ENVIRONMENT_NAME", raising=False)
+        else:
+            monkeypatch.setenv("RAILWAY_ENVIRONMENT_NAME", railway)
         for error_type in ("warning", "exception"):
             r = client.post(f"/admin/error-logs/test?error_type={error_type}", headers=_ADMIN_AUTH)
             assert r.status_code == 403
         assert fake_db.tables.get("error_logs", []) == []
 
-    def test_allowed_on_staging(self, client, fake_db, monkeypatch):
-        monkeypatch.setattr("routers.error_logs.settings.ENVIRONMENT", "staging")
+    @pytest.mark.parametrize(
+        ("environment", "railway"),
+        [("staging", None), ("development", "staging"), ("development", None), ("test", None)],
+    )
+    def test_allowed_on_staging_and_development(self, client, fake_db, monkeypatch, environment, railway):
+        monkeypatch.setattr("routers.error_logs.settings.ENVIRONMENT", environment)
+        if railway is None:
+            monkeypatch.delenv("RAILWAY_ENVIRONMENT_NAME", raising=False)
+        else:
+            monkeypatch.setenv("RAILWAY_ENVIRONMENT_NAME", railway)
         r = client.post("/admin/error-logs/test?error_type=warning", headers=_ADMIN_AUTH)
         assert r.status_code == 200
