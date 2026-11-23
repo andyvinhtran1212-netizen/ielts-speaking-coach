@@ -40,6 +40,7 @@ from uuid import UUID
 
 from config import settings
 from database import supabase_admin
+from services import mock_exam_modes
 from services.errors import clip_user_value
 from services.listening_test_grader import scored_question_count, score_mode, self_check_count
 
@@ -680,7 +681,9 @@ def section_time_remaining_seconds(exam: dict, section: str) -> Optional[int]:
 
 
 def is_retake(exam: Optional[dict]) -> bool:
-    return (exam or {}).get("exam_mode") == "retake"
+    """True for a self-paced exam under either name (``retake`` before
+    migration 446, ``self_paced`` after it; MOCKORG-0086 plan 5.5)."""
+    return mock_exam_modes.is_self_paced((exam or {}).get("exam_mode"))
 
 
 def _sitting_sections(sitting: dict, exam: dict) -> list[str]:
@@ -2542,7 +2545,10 @@ def admin_update_exam(exam_id: str, patch: dict, actor_id: str | None = None) ->
         current = get_published_exam_by_id(exam_id)
         if not current:
             raise NotFoundError(f"Mock exam {exam_id} không tồn tại.")
-        if (current.get("exam_mode") or "sequential") != upd["exam_mode"]:
+        # Compare under one naming: a stored legacy name and the same mode
+        # sent under its new name are not a change.
+        if (mock_exam_modes.normalize(current.get("exam_mode") or "sequential")
+                != mock_exam_modes.normalize(upd["exam_mode"])):
             # ONE STATEMENT (mig 169), not read-then-write. Checking for
             # dependents and then PATCHing were two PostgREST requests, and a
             # sitting inserted between them is read under the WRONG mode — the
@@ -2552,7 +2558,8 @@ def admin_update_exam(exam_id: str, patch: dict, actor_id: str | None = None) ->
             try:
                 changed = supabase_admin.rpc("fn_set_exam_mode", {
                     "p_exam_id": str(exam_id),
-                    "p_mode":    upd["exam_mode"],
+                    # Legacy name until migration 446 widens fn_set_exam_mode.
+                    "p_mode":    mock_exam_modes.legacy_name(upd["exam_mode"]),
                 }).execute().data
             except Exception as exc:  # noqa: BLE001
                 # FAIL CLOSED. Not knowing whether the exam is free is not the
@@ -3645,7 +3652,7 @@ def reap_expired_retake_sittings(grace_seconds: int = 30) -> dict:
         retake_exams = {
             e["id"]: e for e in _paged(
                 lambda: supabase_admin.table("mock_exams").select("*")
-                .eq("exam_mode", "retake").order("id")
+                .in_("exam_mode", list(mock_exam_modes.SELF_PACED_NAMES)).order("id")
             )
         }
     except Exception:  # noqa: BLE001
@@ -3905,7 +3912,7 @@ def _advance_from(exam_id: str, admin_id: str, current: str) -> dict:
     # so this never silently excludes a legacy row.
     query = supabase_admin.table("mock_exams").update(update).eq(
         "id", str(exam_id),
-    ).eq("active_section", current).neq("exam_mode", "retake")
+    ).eq("active_section", current).neq("exam_mode", "retake").neq("exam_mode", "self_paced")
     # Close the collect/advance TOCTOU gap. Every transition out of an LRW
     # section requires BOTH the collected marker and the completed sweep token;
     # direct Advance can therefore never bypass the final-save ACK grace.
@@ -4352,7 +4359,10 @@ def admin_live_monitor(exam_id: str) -> dict:
     return {
         "exam": {
             "id": exam["id"], "code": exam.get("code"), "title": exam.get("title"),
-            "exam_mode": exam.get("exam_mode") or "sequential",
+            # Legacy name for the current console; the new name beside it
+            # (MOCKORG-0086 plan 5.5 point 2) until T32/T34 switch the UI.
+            "exam_mode": mock_exam_modes.legacy_name(exam.get("exam_mode") or "sequential"),
+            "exam_mode_v2": mock_exam_modes.normalize(exam.get("exam_mode") or "sequential"),
             "status": exam.get("status"), "is_open": bool(exam.get("is_open")),
             "active_section": active,
             # The pause between "thu bài" and "mở phần sau". active_section is
