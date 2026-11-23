@@ -1,4 +1,4 @@
-// Two request-time jobs that Next 16 can only do before rendering starts.
+// Request-time jobs that Next 16 can only do before rendering starts.
 //
 // 1. Real HTTP 404 for unknown Grammar articles (content audit 2026-10-27).
 //    Under cacheComponents the article route serves its App Shell
@@ -10,6 +10,15 @@
 //    its full server HTML. If the list is unavailable, confirm a miss from
 //    the article endpoint itself (its JSON article-not-found, not a gateway
 //    404); articles and backend errors pass through.
+//
+// 1b. Real HTTP 404 / 308 for Library Writing samples (LIBRARY-0061 FR-019,
+//    G06-T10). `/library/writing-samples/[slug]` is a partial prerender, so
+//    its notFound() / permanentRedirect() can only be a soft 404 (200 +
+//    noindex) or a client redirect (measured 23/11). The proxy asks the
+//    backend detail endpoint, uncached, so unpublishing takes effect on the
+//    next request: its own `sample_not_found` 404 → the root 404; its 308 to
+//    the current slug → a 308 to the current page. Anything else (200, other
+//    statuses, timeout) passes through to the page's own handling.
 //
 // 2. SEC-CSP-NONCE: a per-request nonce for the AuthedShell route groups.
 //    Step 2 may enforce it on staging/previews only. Setting the blocking
@@ -105,6 +114,60 @@ async function grammarArticle(request: NextRequest) {
     : NextResponse.next();
 }
 
+// Library Writing samples (FR-019). The backend's own miss is the JSON body
+// `{"detail": "sample_not_found"}` (routers/library.py); a gateway or host 404
+// is not evidence that the set is gone.
+const SAMPLE_API_PATH = '/api/library/writing-samples/';
+const SAMPLE_PAGE_PATH = '/library/writing-samples/';
+
+async function isBackendSampleMiss(res: Response) {
+  if (res.status !== 404 || !/^application\/json\b/i.test(res.headers.get('content-type') ?? '')) return false;
+  const body = (await res.json().catch(() => null)) as { detail?: unknown } | null;
+  return body?.detail === 'sample_not_found';
+}
+
+/** Current slug from the backend's 308 `Location`, or null when it is not one of ours. */
+function movedSampleSlug(res: Response, slug: string) {
+  if (res.status !== 308) return null;
+  const location = res.headers.get('location') ?? '';
+  const at = location.indexOf(SAMPLE_API_PATH);
+  if (at < 0) return null;
+  const moved = segment(location.slice(at + SAMPLE_API_PATH.length).split(/[?#]/, 1)[0]);
+  return moved && !moved.includes('/') && moved !== slug ? moved : null;
+}
+
+async function writingSample(request: NextRequest) {
+  const raw = request.nextUrl.pathname.slice(SAMPLE_PAGE_PATH.length);
+  const slug = segment(raw);
+  // Not valid percent-encoding, or more than one segment: no set can have it.
+  if (slug === null || !slug || slug.includes('/')) {
+    return NextResponse.rewrite(new URL(GRAMMAR_ARTICLE_NOT_FOUND_PATH, request.url));
+  }
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${SAMPLE_API_PATH}${encodeURIComponent(slug)}`, {
+      signal: AbortSignal.timeout(INDEX_TIMEOUT_MS),
+      cache: 'no-store',
+      redirect: 'manual',
+    });
+  } catch {
+    // Backend/network error: the page's own loader decides (it fails closed).
+    return NextResponse.next();
+  }
+  const moved = movedSampleSlug(res, slug);
+  if (moved) {
+    await res.body?.cancel();
+    const target = new URL(`${SAMPLE_PAGE_PATH}${encodeURIComponent(moved)}`, request.url);
+    target.search = request.nextUrl.search;
+    return NextResponse.redirect(target, 308);
+  }
+  if (await isBackendSampleMiss(res)) {
+    return NextResponse.rewrite(new URL(GRAMMAR_ARTICLE_NOT_FOUND_PATH, request.url));
+  }
+  await res.body?.cancel().catch(() => undefined);
+  return NextResponse.next();
+}
+
 // Inlined at build by next.config.ts `env` (tooling/nonce-route-table.mjs).
 // Unusable → null, which keeps the nonce policy on every prefixed URL.
 const nonceRoutes = parseNonceRouteTable(process.env.AVER_CSP_NONCE_ROUTES);
@@ -168,6 +231,7 @@ function noncePolicy(request: NextRequest) {
 }
 
 export async function proxy(request: NextRequest) {
+  if (request.nextUrl.pathname.startsWith(SAMPLE_PAGE_PATH)) return writingSample(request);
   return request.nextUrl.pathname.startsWith('/grammar/')
     ? grammarArticle(request)
     : noncePolicy(request);
@@ -181,6 +245,7 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     '/grammar/:category/:slug',
+    '/library/writing-samples/:slug',
     {
       source: '/:section(admin|advanced-vocabulary|course-exercises|d1-exercise|exam|exercises|flashcard-study|flashcards|full-test|full-test-result|grammar-checkup|grammar-lessons|home|instructor|listening|mock|mock-exam|my-class|onboarding|practice|profile|quiz|reading|result|speaking|writing)/:path*',
       missing: [{ type: 'host', value: '(?:www\\.)?averlearning\\.com' }],
