@@ -16,6 +16,8 @@ SELF_PACED = "self_paced"
 _LEGACY_TO_NEW = {"sequential": LIVE, "retake": SELF_PACED}
 _NEW_TO_LEGACY = {new: old for old, new in _LEGACY_TO_NEW.items()}
 MODES = frozenset({LIVE, SELF_PACED})
+# Every stored value that means self-paced, for database filters.
+SELF_PACED_NAMES = ("retake", SELF_PACED)
 
 # Fixed section order; Speaking is not part of the timed chain.
 SECTION_ORDER = ("listening", "reading", "writing")
@@ -119,14 +121,17 @@ def self_paced_timeline(
       Started before the window closed → runs to the end regardless.
     - Extra time: ``sitting["extra_seconds"][section]`` lengthens that section
       and so moves every later section and ``expected_end_at``.
+    - No timed section (Speaking only): ``not_started``, or ``missed`` once the
+      window has closed; never ``submitted``.
     """
     now = _ts(now)
     if now is None:
         raise ValueError("now is required")
     sections = sitting_sections(sitting, exam)
-    if not sections:
-        return SelfPacedTimeline(state=SUBMITTED)
-    started = _ts(sitting.get(f"{sections[0]}_started_at"))
+    # No timed section (a Speaking-only sitting: Speaking is session-based and
+    # outside this chain) has no clock to report, so it is never shown as
+    # submitted from the start (CR #2565 nit); it reads as not started/missed.
+    started = _ts(sitting.get(f"{sections[0]}_started_at")) if sections else None
     if started is None:
         closes = _ts(open_until)
         state = MISSED if closes is not None and now >= closes else NOT_STARTED

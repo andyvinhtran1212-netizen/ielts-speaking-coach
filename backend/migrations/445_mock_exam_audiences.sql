@@ -97,6 +97,31 @@ CREATE TABLE IF NOT EXISTS public.mock_exam_audiences (
         CHECK (user_id IS NOT NULL OR NOT selected)
 );
 
+-- Deleting a users row sets user_id NULL (FK action). A row that was still
+-- selected would then break mock_exam_audiences_account_to_select and block the
+-- user delete; instead the row stays visible and becomes "no account"
+-- (CR #2565). Only that transition is rewritten: a direct write of a NULL
+-- user_id with selected=true still fails the CHECK.
+CREATE OR REPLACE FUNCTION public.fn_mock_exam_audiences_account_removed()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = pg_catalog, pg_temp
+AS $fn$
+BEGIN
+    IF OLD.user_id IS NOT NULL AND NEW.user_id IS NULL AND NEW.selected THEN
+        NEW.selected := false;
+        NEW.excluded_reason := 'no_account';
+    END IF;
+    RETURN NEW;
+END;
+$fn$;
+REVOKE ALL ON FUNCTION public.fn_mock_exam_audiences_account_removed() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS trg_mock_exam_audiences_account_removed ON public.mock_exam_audiences;
+CREATE TRIGGER trg_mock_exam_audiences_account_removed
+    BEFORE UPDATE OF user_id ON public.mock_exam_audiences
+    FOR EACH ROW EXECUTE FUNCTION public.fn_mock_exam_audiences_account_removed();
+
 CREATE INDEX IF NOT EXISTS idx_mock_exam_audiences_exam
     ON public.mock_exam_audiences (exam_id);
 CREATE INDEX IF NOT EXISTS idx_mock_exam_audiences_user
@@ -125,6 +150,11 @@ BEGIN
     IF has_table_privilege('anon', 'public.mock_exam_audiences', 'SELECT')
        OR has_table_privilege('authenticated', 'public.mock_exam_audiences', 'SELECT') THEN
         RAISE EXCEPTION 'mock_exam_audiences_445_client_grant';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger
+                    WHERE tgrelid = 'public.mock_exam_audiences'::regclass
+                      AND tgname = 'trg_mock_exam_audiences_account_removed' AND NOT tgisinternal) THEN
+        RAISE EXCEPTION 'mock_exam_audiences_445_account_trigger_missing';
     END IF;
     IF (SELECT count(*) FROM information_schema.columns
          WHERE table_schema = 'public' AND table_name = 'mock_exams'

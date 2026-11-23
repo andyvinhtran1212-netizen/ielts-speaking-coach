@@ -138,3 +138,10 @@ def test_exam_skills_used_when_sitting_has_none():
 def test_now_is_required():
     with pytest.raises(ValueError):
         self_paced_timeline(sitting(), EXAM, None, durations=DUR)
+
+
+def test_speaking_only_sitting_is_never_submitted_from_the_start():
+    """CR #2565 nit: no timed section → not_started, then missed; never submitted."""
+    s = {"assigned_skills": ["speaking"]}
+    assert timeline(s, 0, open_until=iso(60)).state == NOT_STARTED
+    assert timeline(s, 61, open_until=iso(60)).state == MISSED

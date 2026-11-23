@@ -158,6 +158,19 @@ def test_audience_constraints(pg):
     assert pg("SELECT count(*) FROM public.mock_exam_audiences;").stdout.strip() == "0"
 
 
+def test_deleting_a_user_keeps_the_row_as_no_account(pg):
+    """CR #2565: ON DELETE SET NULL must not collide with the selected CHECK."""
+    pg(SQL)
+    pg(_audience())
+    pg(f"UPDATE public.students SET user_id = NULL WHERE id = {STUDENT};")
+    pg(f"DELETE FROM public.users WHERE id = {USER};")
+    assert pg("SELECT user_id IS NULL, selected, excluded_reason FROM public.mock_exam_audiences;"
+              ).stdout.strip() == "t|f|no_account"
+    # A direct write of a missing account while selected is still refused.
+    assert pg(_audience(student_id=NO_ACCOUNT, user_id="NULL"), check=False).returncode != 0
+    assert pg("UPDATE public.mock_exam_audiences SET selected = true;", check=False).returncode != 0
+
+
 def test_drifted_mode_check_is_refused(pg):
     pg("ALTER TABLE public.mock_exams DROP CONSTRAINT mock_exams_exam_mode_chk;")
     result = pg(SQL, check=False)
@@ -178,5 +191,7 @@ def test_rollback_guards_then_restores(pg):
     pg("UPDATE public.mock_exams SET starts_at = NULL;")
     pg(DOWN)
     assert pg("SELECT to_regclass('public.mock_exam_audiences') IS NULL;").stdout.strip() == "t"
+    assert pg("SELECT to_regprocedure('public.fn_mock_exam_audiences_account_removed()') IS NULL;"
+              ).stdout.strip() == "t"
     assert pg("INSERT INTO public.mock_exams (exam_mode) VALUES ('live');", check=False).returncode != 0
     pg(SQL)  # re-applies cleanly

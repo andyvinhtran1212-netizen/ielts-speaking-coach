@@ -27,6 +27,7 @@ END;
 $guard$;
 
 DROP TABLE IF EXISTS public.mock_exam_audiences;
+DROP FUNCTION IF EXISTS public.fn_mock_exam_audiences_account_removed();
 
 ALTER TABLE public.mock_exams DROP CONSTRAINT IF EXISTS mock_exams_exam_mode_chk;
 ALTER TABLE public.mock_exams ADD CONSTRAINT mock_exams_exam_mode_chk
