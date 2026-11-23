@@ -36,6 +36,9 @@ const EXACT_REPLACEMENTS = Object.freeze({
   '/pages/my-class.html': '/course/assigned',
   // LEARNERNAV-0062 đợt 5: kết quả Speaking full test nằm dưới /speaking.
   '/pages/full-test-result.html': '/speaking/full-test/result',
+  // LEARNERNAV-0062 đợt 7a: Full Test và trình đề /exam cũ về Thi thử.
+  '/pages/full-test.html': '/tests',
+  '/pages/exam.html': '/tests',
 });
 
 const NESTED_LEGACY_FAMILY = /^\/pages\/(grammar|listening|reading)-(.+)\.html$/;
@@ -65,11 +68,11 @@ export function replacementOwner(nextPath) {
   if (route === '/writing' || route.startsWith('/writing/')
       || route === '/instructor' || route.startsWith('/instructor/')) return 'writing';
   if (route === '/mock-exam' || route.startsWith('/mock/')
-      || route === '/full-test' || route.startsWith('/full-test')) return 'mock-exam';
+      || route === '/full-test' || route.startsWith('/full-test')
+      || route === '/tests' || route.startsWith('/tests/')) return 'mock-exam';
   if (route === '/vocabulary' || route.startsWith('/vocabulary/')
       || route === '/exercises'
       || route === '/quiz' || route.startsWith('/quiz/')) return 'vocabulary';
-  if (route === '/exam') return 'exam-platform';
   if (route === '/course/exercises') return 'course-exercises';
   if (route === '/speaking' || route.startsWith('/speaking/')
       || route === '/practice/session' || route === '/result') return 'speaking';

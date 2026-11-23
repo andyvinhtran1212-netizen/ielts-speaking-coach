@@ -1,4 +1,4 @@
-/** Regression gate for `/full-test` native React launcher behavior. */
+/** Regression gate for the `/tests` (was `/full-test`, LEARNERNAV-0062 batch 7a) native React launcher behavior. */
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -7,11 +7,11 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
-const PAGE = read('app', '(authed-full-test)', 'full-test', 'page.tsx');
-const BEHAVIOR = read('app', '(authed-full-test)', 'full-test', 'full-test-behavior.tsx');
+const PAGE = read('app', '(authed-full-test)', 'tests', 'page.tsx');
+const BEHAVIOR = read('app', '(authed-full-test)', 'tests', 'full-test-behavior.tsx');
 const HARD_NAV_GATE = read('tests', 'legacy-module-routes-need-hard-nav.test.mjs');
 
-describe('/full-test — native React behavior', () => {
+describe('/tests — native React behavior', () => {
   test('does not inject the legacy module or watchdog', () => {
     assert.doesNotMatch(PAGE, /watchdogScript|<script|dangerouslySetInnerHTML/);
     assert.doesNotMatch(BEHAVIOR, /full-test\.js|<script|dangerouslySetInnerHTML/);
@@ -51,12 +51,13 @@ describe('/full-test — native React behavior', () => {
   });
 });
 
-describe('/full-test — canonical entry points', () => {
+describe('/tests — canonical entry points', () => {
   test('both Home variants target the canonical route', () => {
     const nextHome = read('app', '(authed-home)', 'home', 'page-shell.tsx');
     const legacyHome = read('public', 'pages', 'home.html');
-    for (const source of [nextHome, legacyHome]) {
-      assert.match(source, /href=["']\/full-test["']/);
+    // The archived legacy Home keeps /full-test, which now 307s to /tests.
+    for (const [source, href] of [[nextHome, /href=["']\/tests["']/], [legacyHome, /href=["']\/full-test["']/]]) {
+      assert.match(source, href);
       assert.doesNotMatch(source, /\/pages\/full-test\.html/);
     }
   });
