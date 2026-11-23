@@ -128,6 +128,44 @@ describe('AdminTodo', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
+  it('a row retry that comes back after a full Làm mới is dropped', async () => {
+    let stale: (v: unknown) => void = () => {};
+    let full: (v: unknown) => void = () => {};
+    api.getWith
+      .mockResolvedValueOnce(body({ regrade_new: ok(null, { error: true }) }))
+      .mockReturnValueOnce(new Promise((r) => { stale = r; }))
+      .mockReturnValueOnce(new Promise((r) => { full = r; }));
+    render(<AdminTodo />);
+    await screen.findByRole('button', { name: 'Tải lại dòng này' });
+    fireEvent.click(screen.getByRole('button', { name: 'Tải lại dòng này' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Làm mới' }));
+    full(body({ regrade_new: ok(7) }));
+    await waitFor(() => expect(row(/^Yêu cầu chấm lại$/).textContent).toContain('7'));
+    stale(body({ regrade_new: ok(1) }));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(row(/^Yêu cầu chấm lại$/).textContent).toContain('7');
+    expect(row(/^Yêu cầu chấm lại$/).textContent).not.toContain('Lần thử cuối');
+  });
+
+  it('a row retry that fails again keeps the warning; the next one fills the row', async () => {
+    let older: (v: unknown) => void = () => {};
+    let newer: (v: unknown) => void = () => {};
+    api.getWith
+      .mockResolvedValueOnce(body({ regrade_new: ok(null, { error: true }) }))
+      .mockReturnValueOnce(new Promise((r) => { older = r; }))
+      .mockReturnValueOnce(new Promise((r) => { newer = r; }));
+    render(<AdminTodo />);
+    const button = await screen.findByRole('button', { name: 'Tải lại dòng này' });
+    fireEvent.click(button);
+    // The row is busy while its retry runs, so one row has one retry at a time.
+    expect((button as HTMLButtonElement).disabled).toBe(true);
+    older(body({ regrade_new: ok(null, { error: true }) }));
+    const again = await screen.findByRole('button', { name: 'Tải lại dòng này' });
+    fireEvent.click(again);
+    newer(body({ regrade_new: ok(3) }));
+    await waitFor(() => expect(row(/^Yêu cầu chấm lại$/).textContent).toContain('3'));
+  });
+
   it('only the newest read fills the page', async () => {
     let first: (v: unknown) => void = () => {};
     api.getWith.mockReturnValueOnce(new Promise((r) => { first = r; })).mockResolvedValueOnce(body({ regrade_new: ok(5) }));

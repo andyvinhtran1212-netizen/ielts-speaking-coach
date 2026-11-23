@@ -32,11 +32,18 @@ async function readAttention(): Promise<Attention | null> {
 export function AdminTodo() {
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
   const [rowTried, setRowTried] = useState<Partial<Record<QueueKey, Date>>>({});
-  const [rowBusy, setRowBusy] = useState<QueueKey | null>(null);
+  const [rowBusy, setRowBusy] = useState<Partial<Record<QueueKey, true>>>({});
+  /** The page snapshot: a full read bumps it, and every older answer is dropped. */
   const sequence = useRef(0);
+  /** Per row: only the newest "Tải lại dòng này" of that row may write it. */
+  const rowRequest = useRef<Partial<Record<QueueKey, number>>>({});
+  const rowCounter = useRef(0);
 
   const refresh = useCallback(async () => {
     const id = ++sequence.current;
+    // A full read makes every row retry still in flight stale.
+    rowRequest.current = {};
+    setRowBusy({});
     try {
       const data = await readAttention();
       if (id !== sequence.current) return;
@@ -52,22 +59,32 @@ export function AdminTodo() {
 
   useEffect(() => { void refresh(); }, [refresh]);
 
-  /** "Tải lại dòng này": reads again and takes only that row from the answer. */
+  /**
+   * "Tải lại dòng này": reads again and takes only that row from the answer.
+   * The answer is dropped when a full read started after it (the snapshot
+   * moved) or a newer retry of the same row did.
+   */
   const reloadRow = async (key: QueueKey) => {
-    setRowBusy(key);
+    const snapshot = sequence.current;
+    const request = ++rowCounter.current;
+    rowRequest.current = { ...rowRequest.current, [key]: request };
+    const current = () => snapshot === sequence.current && rowRequest.current[key] === request;
+    setRowBusy((prev) => ({ ...prev, [key]: true }));
+    let fresh: Attention | null = null;
     try {
-      const fresh = await readAttention();
-      if (fresh) {
-        setLoad((prev) => (prev.kind === 'ready'
-          ? { ...prev, data: { ...prev.data, queues: { ...prev.data.queues, [key]: fresh.queues[key] } } }
-          : prev));
-      }
+      fresh = await readAttention();
     } catch (caught) {
-      console.warn('[admin-todo] row reload failed', key, caught);
-    } finally {
-      setRowTried((prev) => ({ ...prev, [key]: new Date() }));
-      setRowBusy(null);
+      if (current()) console.warn('[admin-todo] row reload failed', key, caught);
     }
+    if (!current()) return;
+    if (fresh) {
+      const row = fresh.queues[key];
+      setLoad((prev) => (prev.kind === 'ready'
+        ? { ...prev, data: { ...prev.data, queues: { ...prev.data.queues, [key]: row } } }
+        : prev));
+    }
+    setRowTried((prev) => ({ ...prev, [key]: new Date() }));
+    setRowBusy((prev) => { const next = { ...prev }; delete next[key]; return next; });
   };
 
   const now = new Date();
@@ -113,7 +130,7 @@ export function AdminTodo() {
 }
 
 function QueueTable({ data, at, tried, busy, onReload, now }: {
-  data: Attention; at: Date; tried: Partial<Record<QueueKey, Date>>; busy: QueueKey | null;
+  data: Attention; at: Date; tried: Partial<Record<QueueKey, Date>>; busy: Partial<Record<QueueKey, true>>;
   onReload: (key: QueueKey) => void; now: Date;
 }) {
   const rows = visibleRows(data);
@@ -134,7 +151,7 @@ function QueueTable({ data, at, tried, busy, onReload, now }: {
           </thead>
           <tbody>
             {rows.map((row) => (
-              <QueueRow key={row.key} row={row} data={data} at={tried[row.key] ?? at} busy={busy === row.key} onReload={onReload} now={now} />
+              <QueueRow key={row.key} row={row} data={data} at={tried[row.key] ?? at} busy={busy[row.key] === true} onReload={onReload} now={now} />
             ))}
           </tbody>
         </table>
