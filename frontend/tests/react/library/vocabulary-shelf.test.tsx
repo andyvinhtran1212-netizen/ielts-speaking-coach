@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ListenButton } from '@/components/library/listen-button';
-import { PENDING_SAVE_KEY, SaveWordButton, takePendingSave } from '@/components/library/save-word-button';
+import { NOTEBOOK_PATH, PENDING_SAVE_KEY, PENDING_SAVE_TTL_MS, SaveWordButton, takePendingSave } from '@/components/library/save-word-button';
 import type { VocabularyArticle } from '@/lib/vocabulary-types';
 
 vi.mock('@/lib/browser-api', () => ({
@@ -148,7 +148,7 @@ describe('SaveWordButton (FR-053)', () => {
     expect((link).getAttribute('href')).toBe(`/login?next=${encodeURIComponent('/vocabulary?cat=environment&slug=mitigate')}`);
     link.addEventListener('click', (event) => event.preventDefault()); // jsdom has no navigation
     fireEvent.click(link);
-    expect(JSON.parse(window.sessionStorage.getItem(PENDING_SAVE_KEY)!)).toEqual({ category: 'environment', slug: 'mitigate' });
+    expect(JSON.parse(window.sessionStorage.getItem(PENDING_SAVE_KEY)!)).toEqual({ category: 'environment', slug: 'mitigate', at: expect.any(Number) });
     fireEvent.click(screen.getByRole('button', { name: 'Để sau' }));
     expect(screen.queryByRole('link', { name: 'Đăng nhập để lưu' })).toBeNull();
   });
@@ -162,7 +162,7 @@ describe('SaveWordButton (FR-053)', () => {
   });
 
   it('after sign-in the pending save for this entry runs once, then toggles in place', async () => {
-    window.sessionStorage.setItem(PENDING_SAVE_KEY, JSON.stringify({ category: 'environment', slug: 'mitigate' }));
+    window.sessionStorage.setItem(PENDING_SAVE_KEY, JSON.stringify({ category: 'environment', slug: 'mitigate', at: Date.now() }));
     api.getWith.mockImplementation(async (path: string) => (path.endsWith('/stats') ? { total: 0 } : []));
     api.post.mockResolvedValueOnce({ id: 'row-1', headword: 'mitigate' });
     render(<SaveWordButton target={target} />);
@@ -175,10 +175,65 @@ describe('SaveWordButton (FR-053)', () => {
     expect(api.delete).toHaveBeenCalledWith('/api/vocabulary/bank/row-1');
   });
 
-  it('a pending save for another entry is left alone', () => {
-    window.sessionStorage.setItem(PENDING_SAVE_KEY, JSON.stringify({ category: 'environment', slug: 'other' }));
-    expect(takePendingSave(target)).toBe(false);
-    expect(window.sessionStorage.getItem(PENDING_SAVE_KEY)).not.toBeNull();
+  it('a pending save is cleared on any entry, and only a fresh one for this entry counts', () => {
+    const now = 1_000_000_000;
+    window.sessionStorage.setItem(PENDING_SAVE_KEY, JSON.stringify({ category: 'environment', slug: 'other', at: now }));
+    expect(takePendingSave(target, now)).toBe(false);
+    expect(window.sessionStorage.getItem(PENDING_SAVE_KEY)).toBeNull();
+    window.sessionStorage.setItem(PENDING_SAVE_KEY, JSON.stringify({ category: 'environment', slug: 'mitigate', at: now }));
+    expect(takePendingSave(target, now + PENDING_SAVE_TTL_MS + 1)).toBe(false);
+    window.sessionStorage.setItem(PENDING_SAVE_KEY, JSON.stringify({ category: 'environment', slug: 'mitigate' }));
+    expect(takePendingSave(target, now)).toBe(false); // an intent without a time is stale
+    window.sessionStorage.setItem(PENDING_SAVE_KEY, JSON.stringify({ category: 'environment', slug: 'mitigate', at: now }));
+    expect(takePendingSave(target, now + 1000)).toBe(true);
+    expect(window.sessionStorage.getItem(PENDING_SAVE_KEY)).toBeNull();
+  });
+
+  it('a word already saved clears the pending intent, so removing it later never re-saves it', async () => {
+    window.sessionStorage.setItem(PENDING_SAVE_KEY, JSON.stringify({ category: 'environment', slug: 'mitigate', at: Date.now() }));
+    api.getWith.mockImplementation(async (path: string) => (path.endsWith('/stats') ? { total: 1 } : [{ id: 'row-1', headword: 'mitigate' }]));
+    const first = render(<SaveWordButton target={target} />);
+    await screen.findByRole('button', { name: 'Đã lưu vào sổ từ' });
+    expect(window.sessionStorage.getItem(PENDING_SAVE_KEY)).toBeNull();
+    first.unmount();
+    // Removed elsewhere, then the entry is opened again: nothing is saved.
+    api.getWith.mockImplementation(async (path: string) => (path.endsWith('/stats') ? { total: 0 } : []));
+    render(<SaveWordButton target={target} />);
+    await screen.findByRole('button', { name: 'Lưu vào sổ từ' });
+    expect(api.post).not.toHaveBeenCalled();
+  });
+
+  it('409 with no visible row: says the word is hidden in the notebook and links there', async () => {
+    api.getWith.mockImplementation(async (path: string) => (path.endsWith('/stats') ? { total: 0 } : []));
+    api.post.mockRejectedValueOnce(httpError(409));
+    render(<SaveWordButton target={target} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Lưu vào sổ từ' }));
+    const note = await screen.findByText(/đã có trong sổ từ của bạn nhưng đang ẩn/);
+    expect(note.querySelector('a')?.getAttribute('href')).toBe(NOTEBOOK_PATH);
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Lưu vào sổ từ' }).getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('409 after sign-in (pending save) shows the same note', async () => {
+    window.sessionStorage.setItem(PENDING_SAVE_KEY, JSON.stringify({ category: 'environment', slug: 'mitigate', at: Date.now() }));
+    api.getWith.mockImplementation(async (path: string) => (path.endsWith('/stats') ? { total: 0 } : []));
+    api.post.mockRejectedValueOnce(httpError(409));
+    render(<SaveWordButton target={target} />);
+    expect(await screen.findByText(/đã có trong sổ từ của bạn nhưng đang ẩn/)).toBeTruthy();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('409 with the row visible shows it as saved', async () => {
+    let calls = 0;
+    api.getWith.mockImplementation(async (path: string) => {
+      if (path.endsWith('/stats')) return { total: 1 };
+      calls += 1;
+      return calls === 1 ? [] : [{ id: 'row-9', headword: 'Mitigate' }];
+    });
+    api.post.mockRejectedValueOnce(httpError(409));
+    render(<SaveWordButton target={target} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Lưu vào sổ từ' }));
+    expect(await screen.findByRole('button', { name: 'Đã lưu vào sổ từ' })).toBeTruthy();
   });
 });
 

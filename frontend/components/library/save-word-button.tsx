@@ -10,8 +10,12 @@
  *   the bank itself, never kept only in the page.
  * - 401: a guest → the button opens a prompt right under it (no pop-up) that
  *   leads to sign-in with `next` = this entry; the intent to save is kept in
- *   sessionStorage and carried out when they come back, after checking it is
- *   for this same entry.
+ *   sessionStorage for 30 minutes and carried out when they come back, after
+ *   checking it is for this same entry. Opening any entry clears it, so it
+ *   runs at most once and never after the reader later removes the word.
+ * - 409 on save with no visible row: the word is in the bank but hidden there
+ *   (archived, pending, skipped or "cần xem lại"); the button says so and
+ *   links to the notebook instead of silently showing "Lưu vào sổ từ".
  * - anything else (bank off, account not activated, lookup failed): no button.
  */
 import { useCallback, useEffect, useState } from 'react';
@@ -20,6 +24,12 @@ import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 import styles from './save-word-button.module.css';
 
 export const PENDING_SAVE_KEY = 'aver-pending-save-word';
+/** How long a guest's "save after sign-in" intent stays valid. */
+export const PENDING_SAVE_TTL_MS = 30 * 60 * 1000;
+export const NOTEBOOK_PATH = '/vocabulary/hub';
+
+/** Raised when the bank already holds the word in a state GET /bank/ hides. */
+class HiddenInBank extends Error {}
 
 export type SaveWordTarget = {
   category: string;
@@ -34,7 +44,7 @@ type Status =
   | { kind: 'checking' }
   | { kind: 'hidden' }
   | { kind: 'guest'; prompt: boolean }
-  | { kind: 'ready'; savedId: string | null; busy: boolean; error: boolean };
+  | { kind: 'ready'; savedId: string | null; busy: boolean; error: boolean; hidden?: boolean };
 
 const NO_REDIRECT = { noRedirect: true };
 
@@ -48,15 +58,25 @@ export function entryPath(target: Pick<SaveWordTarget, 'category' | 'slug'>): st
   return `/vocabulary?cat=${encodeURIComponent(target.category)}&slug=${encodeURIComponent(target.slug)}`;
 }
 
-/** Reads and clears a pending save that belongs to this entry. Exported for tests. */
-export function takePendingSave(target: Pick<SaveWordTarget, 'category' | 'slug'>): boolean {
+/** Writes the intent to save this entry after sign-in. Exported for tests. */
+export function storePendingSave(target: Pick<SaveWordTarget, 'category' | 'slug'>, now = Date.now()): void {
+  try {
+    window.sessionStorage.setItem(PENDING_SAVE_KEY, JSON.stringify({ category: target.category, slug: target.slug, at: now }));
+  } catch { /* no storage: sign-in still returns here, the reader saves by hand */ }
+}
+
+/**
+ * Reads and ALWAYS clears the pending save; true only when it belongs to this
+ * entry and is younger than PENDING_SAVE_TTL_MS. Exported for tests.
+ */
+export function takePendingSave(target: Pick<SaveWordTarget, 'category' | 'slug'>, now = Date.now()): boolean {
   try {
     const raw = window.sessionStorage.getItem(PENDING_SAVE_KEY);
     if (!raw) return false;
-    const pending = JSON.parse(raw) as { category?: unknown; slug?: unknown };
-    if (pending?.category !== target.category || pending?.slug !== target.slug) return false;
     window.sessionStorage.removeItem(PENDING_SAVE_KEY);
-    return true;
+    const pending = JSON.parse(raw) as { category?: unknown; slug?: unknown; at?: unknown };
+    if (pending?.category !== target.category || pending?.slug !== target.slug) return false;
+    return typeof pending.at === 'number' && now - pending.at >= 0 && now - pending.at <= PENDING_SAVE_TTL_MS;
   } catch {
     return false;
   }
@@ -87,8 +107,14 @@ export function SaveWordButton({ target }: { target: SaveWordTarget }) {
       }) as BankRow | null;
       return typeof row?.id === 'string' ? row.id : await readSaved();
     } catch (caught) {
-      // Already in the bank (unique headword): show the canonical row.
-      if (statusOf(caught) === 409) return readSaved();
+      // Already in the bank (unique headword): show the canonical row. When
+      // the list does not show it, the row is hidden there (archived,
+      // pending, skipped, needs review): say so rather than look unsaved.
+      if (statusOf(caught) === 409) {
+        const id = await readSaved();
+        if (id) return id;
+        throw new HiddenInBank();
+      }
       throw caught;
     }
   }, [readSaved, target.definitionVi, target.example, target.headword]);
@@ -105,15 +131,18 @@ export function SaveWordButton({ target }: { target: SaveWordTarget }) {
         if (!cancelled) setStatus(statusOf(caught) === 401 ? { kind: 'guest', prompt: false } : { kind: 'hidden' });
         return;
       }
+      // Taken (and cleared) before anything else, so the intent never
+      // outlives this visit, whatever the bank says.
+      const pending = takePendingSave(target);
       try {
         let savedId = await readSaved();
-        if (!savedId && takePendingSave(target)) {
+        if (!savedId && pending) {
           if (!cancelled) setStatus({ kind: 'ready', savedId: null, busy: true, error: false });
           savedId = await save();
         }
         if (!cancelled) setStatus({ kind: 'ready', savedId, busy: false, error: false });
-      } catch {
-        if (!cancelled) setStatus({ kind: 'ready', savedId: null, busy: false, error: true });
+      } catch (caught) {
+        if (!cancelled) setStatus({ kind: 'ready', savedId: null, busy: false, error: !(caught instanceof HiddenInBank), hidden: caught instanceof HiddenInBank });
       }
     })();
     return () => { cancelled = true; };
@@ -128,8 +157,9 @@ export function SaveWordButton({ target }: { target: SaveWordTarget }) {
       } else {
         setStatus({ kind: 'ready', savedId: await save(), busy: false, error: false });
       }
-    } catch {
-      setStatus({ ...current, busy: false, error: true });
+    } catch (caught) {
+      if (caught instanceof HiddenInBank) setStatus({ ...current, busy: false, error: false, hidden: true });
+      else setStatus({ ...current, busy: false, error: true });
     }
   }
 
@@ -148,11 +178,7 @@ export function SaveWordButton({ target }: { target: SaveWordTarget }) {
             <p>Cần đăng nhập để lưu. Đọc và nghe mục từ không cần tài khoản.</p>
             <p>Đăng nhập xong, bạn quay lại đúng mục từ này và “{target.headword}” đã nằm trong sổ từ.</p>
             <p className={styles.actions}>
-              <a href={`/login?next=${encodeURIComponent(next)}`} onClick={() => {
-                try {
-                  window.sessionStorage.setItem(PENDING_SAVE_KEY, JSON.stringify({ category: target.category, slug: target.slug }));
-                } catch { /* no storage: sign-in still returns here, the reader saves by hand */ }
-              }}>Đăng nhập để lưu</a>
+              <a href={`/login?next=${encodeURIComponent(next)}`} onClick={() => storePendingSave(target)}>Đăng nhập để lưu</a>
               <button type="button" className={styles.later} onClick={() => setStatus({ kind: 'guest', prompt: false })}>Để sau</button>
             </p>
           </div>
@@ -169,6 +195,12 @@ export function SaveWordButton({ target }: { target: SaveWordTarget }) {
         {status.busy ? 'Đang lưu…' : saved ? 'Đã lưu vào sổ từ' : 'Lưu vào sổ từ'}
       </button>
       {status.error ? <p className={styles.error} role="alert">Không lưu được. Thử lại sau.</p> : null}
+      {status.hidden ? (
+        <p className={styles.error} role="status">
+          “{target.headword}” đã có trong sổ từ của bạn nhưng đang ẩn (đã lưu trữ, đang chờ xác nhận hoặc cần xem lại).{' '}
+          <a href={NOTEBOOK_PATH}>Mở sổ từ</a>
+        </p>
+      ) : null}
     </div>
   );
 }
