@@ -183,6 +183,17 @@ def test_more_than_fifty_credits_steps_up(client, world):
     assert world["step_up"] == ["admin-1"]
 
 
+def test_step_up_counts_each_request_not_the_admins_running_total(client, world):
+    # Andy 23/11 17:00Z: step-up is per request (Q13). Two grants of 30 by the
+    # same admin add up to 60, yet neither request alone exceeds 50.
+    world["db"].tables["entitlements"].append(_ent("e0000000-0000-4000-8000-000000000001", U1, "p-class"))
+    world["balances"]["e0000000-0000-4000-8000-000000000001"] = 0
+    for key in ("9a9a9a9a-0000-4000-8000-000000000011", "9a9a9a9a-0000-4000-8000-000000000012"):
+        assert _post(client, user_ids=[U1], entitlement_id="e0000000-0000-4000-8000-000000000001",
+                     credits=30, request_key=key).status_code == 200
+    assert world["step_up"] == []
+
+
 @pytest.mark.parametrize("body", [
     {"cohort_id": COHORT, "reason": "  "},            # no reason
     {"cohort_id": COHORT, "reason": "ab"},            # too short
