@@ -18,6 +18,7 @@ import {
 import {
   BreadcrumbSection, PaginationSection, ProgressBarSection, StepperSection, TabsSection,
 } from './nav-sections';
+import { DataTableSection, StatCardSection } from './data-sections';
 import { LearnerShellSection } from './shell-sections';
 import { FocusShellSection } from './focus-demo';
 import { ThemeSection } from './theme-sections';
@@ -174,6 +175,8 @@ export default function UiLibraryPage() {
           <PaginationSection title={title('pagination')} />
           <ProgressBarSection title={title('progress-bar')} />
           <StepperSection title={title('stepper')} />
+          <DataTableSection title={title('data-table')} />
+          <StatCardSection title={title('stat-card')} />
           <ThemeSection title={title('theme')} />
           <LearnerShellSection title={title('learner-shell')} />
           <FocusShellSection title={title('focus-shell')} />

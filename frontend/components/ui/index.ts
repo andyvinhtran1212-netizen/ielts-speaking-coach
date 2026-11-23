@@ -26,3 +26,8 @@ export { ThemeChoiceGroup, type ThemeChoiceGroupProps } from './theme-choice';
 export { ThemeMenu, ThemeMenuList, type ThemeMenuListProps, type ThemeMenuProps } from './theme-menu';
 export { THEME_SCRIPT, ThemeScript } from './theme-script';
 export { useThemeChoice, type ThemeChoice, type ThemeChoiceState, type ThemeMode } from './use-theme-choice';
+export {
+  DataTable, DataTableEmpty, givenName, nextSort, sortRows,
+  type DataTableAlign, type DataTableColumn, type DataTableFilter, type DataTableProps, type DataTableSort, type DataTableSortDirection,
+} from './data-table';
+export { StatCard, StatCardGrid, type StatCardProps, type StatTrend } from './stat-card';

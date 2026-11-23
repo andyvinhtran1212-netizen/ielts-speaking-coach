@@ -163,3 +163,8 @@
 .focusMuted { color: var(--av2-muted); font-size: var(--av2-fs-14); }
 .focusLeaveGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--av2-space-9); align-items: start; }
 @media (max-width: 767px) { .focusLeaveGrid { grid-template-columns: minmax(0, 1fr); } }
+
+/* G03-T08 DataTable / StatCard demos. */
+.tableStates { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--av2-space-7); }
+.narrowFrame { width: 100%; max-width: 358px; }
+.tableIssue { margin-left: var(--av2-space-2); color: var(--av2-danger); }
