@@ -51,6 +51,13 @@ import {
 } from '@/lib/writing-dashboard-bootstrap.mjs';
 import type { WritingBootstrapView } from '@/lib/writing-dashboard-bootstrap.mjs';
 import { writingGreetingParts, writingStudentCode } from '@/lib/writing-dashboard-student.mjs';
+import { registerDraftSaver } from '@/lib/auth/draft-savers.mjs';
+import {
+  clearLocalDraft,
+  keepLocalDraft,
+  localDraftDecision,
+  readLocalDraft,
+} from '@/lib/writing-local-draft.mjs';
 
 /** Trạng thái toàn trang — giữ trong object để cleanup dứt điểm. */
 type ModalState = {
@@ -65,6 +72,8 @@ type ModalState = {
   openGeneration: number;
   workspaceReady: boolean;
   admission: ReturnType<typeof createWritingAdmissionController> | null;
+  /** `updated_at` of the server draft the textarea text is based on (R119). */
+  draftBase: string | null;
 };
 
 type PageState = {
@@ -107,6 +116,7 @@ function createModalState(page: PageState): ModalState {
     assignmentId: null, accountId: null, autoSaveTimer: null,
     countdownInterval: null, allowSoftCheck: false, returnFocus: null,
     dead: false, openGeneration: 0, workspaceReady: false, admission: null,
+    draftBase: null,
   };
 }
 
@@ -244,7 +254,7 @@ function hideSubmissionNotice() {
 // The submit modal is full-screen, so the page-level notice above sits behind
 // it. A blocked paste is reported in the in-modal notice above the textarea
 // (where the learner just pasted); it is cleared on every open/close.
-function showModalNotice(kind: 'warning' | 'error', message: string) {
+function showModalNotice(kind: 'success' | 'warning' | 'error', message: string) {
   const notice = $('modal-notice');
   if (!notice) return;
   notice.className = 'wd-submit-notice is-' + kind;
@@ -276,6 +286,69 @@ function hideDraftSaveError() {
   if (!el) return;
   el.classList.add('hidden');
   el.textContent = '';
+}
+
+// R119 (ENROLL-0060 FR-052): the tab-local copy of text the server has not
+// acknowledged yet. See lib/writing-local-draft.mjs for the rules.
+function draftStorage(): Storage | null {
+  try { return window.sessionStorage; } catch { return null; }
+}
+
+/** Keeps the textarea text locally; a blank editor keeps nothing. */
+function keepModalLocalDraft(ms: ModalState): boolean {
+  if (ms.dead || !ms.workspaceReady || !ms.assignmentId || !ms.accountId) return false;
+  const textarea = $('modal-essay-textarea') as HTMLTextAreaElement | null;
+  const text = textarea ? textarea.value || '' : '';
+  const storage = draftStorage();
+  if (!text.trim()) {
+    clearLocalDraft(storage, ms.accountId, ms.assignmentId);
+    return false;
+  }
+  return keepLocalDraft(storage, {
+    accountId: ms.accountId, assignmentId: ms.assignmentId, text, base: ms.draftBase,
+  });
+}
+
+/** After a server ack: drop the copy if it is that text, else rebase it. */
+function settleModalLocalDraft(ms: ModalState, assignmentId: string, savedText: string, updatedAt: unknown) {
+  if (typeof updatedAt === 'string' && updatedAt) ms.draftBase = updatedAt;
+  const storage = draftStorage();
+  const local = readLocalDraft(storage, ms.accountId, assignmentId);
+  if (!local) return;
+  if (local.text === savedText) {
+    clearLocalDraft(storage, ms.accountId, assignmentId);
+  } else {
+    keepLocalDraft(storage, {
+      accountId: ms.accountId, assignmentId, text: local.text, base: ms.draftBase,
+    });
+  }
+}
+
+/** The server draft changed after the local copy: offer it, never apply it silently. */
+function offerLocalDraft(ms: ModalState, text: string) {
+  const notice = $('modal-notice');
+  if (!notice) return;
+  showModalNotice(
+    'warning',
+    'Bài này đã được lưu ở nơi khác sau lần bạn viết trên máy này, nên đang hiện bản đã lưu. ',
+  );
+  const generation = ms.openGeneration;
+  const useLocal = document.createElement('button');
+  useLocal.type = 'button';
+  useLocal.className = 'wd-notice-action';
+  useLocal.textContent = 'Dùng bản viết dở trên máy này';
+  useLocal.addEventListener('click', () => {
+    if (ms.dead || !ms.workspaceReady || ms.openGeneration !== generation) return;
+    const textarea = $('modal-essay-textarea') as HTMLTextAreaElement | null;
+    if (!textarea) return;
+    textarea.value = text;
+    updateModalWordCount();
+    hideModalNotice();
+    keepModalLocalDraft(ms);
+    scheduleModalAutoSave(ms);
+    textarea.focus();
+  });
+  notice.appendChild(useLocal);
 }
 
 function statusCode(err: any): number | null {
@@ -1100,11 +1173,12 @@ async function saveDraft(ms: ModalState) {
   try {
     const path = '/api/writing/my-assignments/' + encodeURIComponent(assignmentId) + '/draft';
     const body = { draft_text: textarea ? textarea.value || '' : '' };
-    await coreOperationRequest({
+    const reply: any = await coreOperationRequest({
       accountId: ms.accountId, method: 'PATCH', path, input: body,
       acknowledged: (reply: any) => reply?.assignment_id === assignmentId,
     }, (headers: Record<string, string>) => (window as any).api.patchWith(path, body, headers));
     if (!isCurrent()) return;
+    settleModalLocalDraft(ms, assignmentId, body.draft_text, reply?.updated_at);
     if (pending) pending.classList.add('hidden');
     if (saved) saved.classList.remove('hidden');
     // A later successful save supersedes an earlier "draft not saved" error.
@@ -1331,6 +1405,7 @@ async function submitFromModal(ms: ModalState, force: boolean) {
     const result = helper.normalizeAck(raw, assignmentId);
     if (!result) throw new Error('Phản hồi nộp bài không khớp assignment.');
     helper.remove(accountId, assignmentId);
+    clearLocalDraft(draftStorage(), accountId, assignmentId);
 
     if (ms.countdownInterval) {
       clearInterval(ms.countdownInterval);
@@ -1355,6 +1430,7 @@ async function submitFromModal(ms: ModalState, force: boolean) {
     try { ack = await reconcileSubmission(receipt, (window as any).api); } catch (_) {}
     if (!isCurrent()) return;
     if (ack) {
+      clearLocalDraft(draftStorage(), accountId, assignmentId);
       showSubmissionNotice('success', 'Đã đối chiếu: bài viết của bạn đã được nộp thành công.');
       closeModal(ms);
       await Promise.all([loadAssignments((window as any).api, ms), loadEssays((window as any).api, ms)]);
@@ -1499,8 +1575,17 @@ function renderModal(data: any, ms: ModalState, freshTimer: any, readOnly: boole
   const textarea = $('modal-essay-textarea') as HTMLTextAreaElement | null;
   // A read-only open (archived class, FR-004) shows the stored draft only.
   const pending = readOnly ? null : (window as any).WritingSubmitReceipt?.read(ms.accountId, ms.assignmentId);
+  // R119: text typed here that the server never acknowledged (for example
+  // the device was signed out because another device took the session).
+  // A pending submit receipt wins; a read-only open shows the server draft.
+  ms.draftBase = typeof draft.updated_at === 'string' && draft.updated_at ? draft.updated_at : null;
+  const local = readOnly || pending ? null : readLocalDraft(draftStorage(), ms.accountId, ms.assignmentId);
+  const localDecision = localDraftDecision(local, draft.draft_text, draft.updated_at);
+  if (localDecision === 'none' && local) clearLocalDraft(draftStorage(), ms.accountId, ms.assignmentId);
   if (textarea) {
-    textarea.value = pending ? pending.essayText : (draft.draft_text || '');
+    textarea.value = pending
+      ? pending.essayText
+      : (localDecision === 'restore' && local ? local.text : (draft.draft_text || ''));
     textarea.readOnly = readOnly;
     textarea.dataset.wordTarget = prompt.task_type === 'task2' ? '250' : '150';
   }
@@ -1508,6 +1593,12 @@ function renderModal(data: any, ms: ModalState, freshTimer: any, readOnly: boole
   // cannot save or submit even if a control is reached.
   ms.workspaceReady = !readOnly;
   updateModalWordCount();
+  if (localDecision === 'restore') {
+    showModalNotice('success', 'Đã khôi phục phần bài bạn viết dở trên máy này. Bài sẽ được lưu lên máy chủ sau vài giây.');
+    scheduleModalAutoSave(ms);
+  } else if (localDecision === 'offer' && local) {
+    offerLocalDraft(ms, local.text);
+  }
 
   const archivedEl = $('modal-archived');
   if (archivedEl) archivedEl.classList.toggle('hidden', !readOnly);
@@ -2012,6 +2103,11 @@ export function WritingBehavior() {
       el.addEventListener(ev, fn);
       cleanups.push(() => el.removeEventListener(ev, fn));
     };
+    // R119 (ENROLL-0060 FR-052): when the server says another device took
+    // the session, AuthProvider runs this before the local sign-out. It keeps
+    // the open editor's text in this tab; `false` (nothing open or blank)
+    // keeps /login from claiming a draft was saved.
+    cleanups.push(registerDraftSaver(() => keepModalLocalDraft(ms)));
 
     const isCurrent = () => !ps.dead && ps.generation === generation && ms.accountId === user.id;
     // Wired once `prepare` has the globals; `load` and the tail below reuse them.
@@ -2110,6 +2206,7 @@ export function WritingBehavior() {
       if (textarea) {
         on(textarea, 'input', () => {
           updateModalWordCount();
+          keepModalLocalDraft(ms);
           scheduleModalAutoSave(ms);
         });
         setupAntiPaste(textarea, ms, on);
@@ -2205,3 +2302,8 @@ export function WritingBehavior() {
 
   return null;
 }
+
+// Test seams (R119): exported here, not on the declarations, so the source
+// extractors in tests/core-operation-integration.test.mjs still see plain
+// function declarations.
+export { createModalState, createPageState, keepModalLocalDraft, renderModal, saveDraft };

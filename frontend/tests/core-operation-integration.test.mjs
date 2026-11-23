@@ -131,6 +131,8 @@ test('actual Writing draft uses the exact textarea snapshot and preserves retry 
     setTimeout() {},
     showDraftSaveError: (message) => { saveError.shown = true; saveError.text = message; },
     hideDraftSaveError: () => { saveError.shown = false; saveError.text = ''; },
+    // R119: the tab-local copy is covered in tests/react/writing-local-draft.test.tsx.
+    settleModalLocalDraft() {},
     window: { api: { patchWith: async (path, body, headers) => {
       calls.push({ path, body, headers });
       if (calls.length === 1) throw new Error('offline');
@@ -180,6 +182,7 @@ test('actual Writing submit forwards its existing receipt unchanged across lost 
     const submit = actualHandler('writing', 'submitFromModal', {
       $: id => id === 'modal-essay-textarea' ? { value: 'Unsaved new editor text' } : null,
       countWords: () => 300, showSubmissionNotice() {}, coreOperationHeaders,
+      clearLocalDraft() {}, draftStorage: () => null,
       reconcileSubmission: async () => null, statusCode: () => 0, isDefinitiveSubmitRejection: () => false,
       closeModal: () => { closed++; ms.assignmentId = null; }, loadAssignments: async () => {}, loadEssays: async () => {},
       window: { WritingSubmitReceipt: { begin: () => receipt, normalizeAck: () => ({ isFlagged: false }), remove: () => { removed++; } },
