@@ -254,6 +254,9 @@ class CreditHold:
     entitlement_id: Optional[str] = None
     balance_after: Optional[int] = None
     settled: Optional[str] = None
+    # The request key this hold was reserved (or covered) under; the key of
+    # the attempt for fn_credit_settle_attempt (migration 503).
+    request_key: Optional[str] = None
 
     async def commit(self) -> None:
         if self.covered or self.reservation_id is None or self.settled:
@@ -272,6 +275,35 @@ class CreditHold:
         if result["status"] not in ("released", "already_released", "not_open"):
             raise CreditUnavailable(f"release_{result['status']}")
         self.settled = "released"
+
+
+_SETTLE_STATUSES = ("committed", "already_committed", "released", "pending", "not_open")
+
+
+async def settle_attempt(hold: Optional[CreditHold], outcome: str, reason: Optional[str] = None) -> Optional[str]:
+    """Settle one grading attempt of a hold (G04-T07, FR-015, migration 503).
+
+    ``graded`` commits the hold if it is still open. ``failed`` records the
+    attempt and releases the hold only when every answer it covers has failed
+    (a Speaking cluster keeps its credit held while another answer may still
+    be saved). Works for a ``covered`` hold too: the attempt is the covered
+    request key. Returns the RPC status; raises CreditUnavailable on a
+    transport error or an unexpected status."""
+    if hold is None or hold.reservation_id is None or hold.request_key is None or hold.settled:
+        return None
+    if outcome not in ("graded", "failed"):
+        raise ValueError(f"unknown attempt outcome {outcome!r}")
+    if outcome == "failed" and reason not in _RELEASE_REASONS:
+        raise ValueError(f"unknown release reason {reason!r}")
+    result = await _rpc("fn_credit_settle_attempt", {
+        "p_reservation_id": hold.reservation_id, "p_request_key": hold.request_key,
+        "p_outcome": outcome, "p_reason": reason if outcome == "failed" else None,
+    })
+    status = result["status"]
+    if status not in _SETTLE_STATUSES:
+        raise CreditUnavailable(f"settle_{status}")
+    hold.settled = outcome
+    return status
 
 
 async def release_if_open(hold: Optional[CreditHold], reason: str) -> None:
@@ -351,9 +383,9 @@ async def reserve(user_id: UUID | str, feature: str, *, request_key: str, resour
             raise CreditReplay(replay, result.get("reservation_id"))
     if status == "reserved":
         return CreditHold(reservation_id=result.get("reservation_id"), entitlement_id=result.get("entitlement_id"),
-                          balance_after=result.get("balance_after"))
+                          balance_after=result.get("balance_after"), request_key=request_key)
     if status == "covered":
-        return CreditHold(reservation_id=result.get("reservation_id"), covered=True)
+        return CreditHold(reservation_id=result.get("reservation_id"), covered=True, request_key=request_key)
     if status == "replay":
         raise CreditReplay("grading_in_progress", result.get("reservation_id"))
     if status == "already_committed":
