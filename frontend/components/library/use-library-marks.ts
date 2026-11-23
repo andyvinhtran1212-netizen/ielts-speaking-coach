@@ -7,7 +7,7 @@
 // chữ"): after the server answered 204 the shelf is read again and the screen
 // shows what the server holds (canonical truth, AGENTS.md); a failed write
 // keeps the old state and says so in words. One write per mark at a time.
-// Every read and write belongs to a generation (shelf, sign-in, reload); an
+// Every read and write belongs to a generation (shelf, account, reload); an
 // answer from an older generation changes nothing, and a new generation starts
 // with nothing pending. Reads and writes pass `noRedirect`, so an expired
 // session on a public page never sends the visitor to /login (FR-001): the
@@ -30,7 +30,16 @@ export const MARK_GONE_ERROR = 'Bài này không còn trong Thư viện.';
 const slot = (itemKey: string, kind: LibraryMarkKind) => `${kind}\u0000${itemKey}`;
 const statusOf = (error: unknown) => (error && typeof error === 'object' && 'status' in error ? Number((error as { status: unknown }).status) : 0);
 
-export function useLibraryMarks(shelf: LibraryMarkShelf, { signedIn }: { signedIn: boolean }) {
+/**
+ * `accountId` is the signed-in user's id. Switching account (A signs out, B
+ * signs in without a reload) starts a new generation: A's marks are cleared at
+ * once and any answer still in flight for A is dropped, so B never sees A's
+ * marks.
+ */
+export function useLibraryMarks(
+  shelf: LibraryMarkShelf,
+  { signedIn, accountId = null }: { signedIn: boolean; accountId?: string | null },
+) {
   const [status, setStatus] = useState<LibraryMarksStatus>(signedIn ? 'loading' : 'idle');
   const [marks, setMarks] = useState<ReadonlySet<string>>(() => new Set());
   const [pending, setPending] = useState<ReadonlySet<string>>(() => new Set());
@@ -64,7 +73,8 @@ export function useLibraryMarks(shelf: LibraryMarkShelf, { signedIn }: { signedI
       if (mine !== generation.current) return;
       setStatus(statusOf(error) === 401 ? 'signed-out' : 'error');
     });
-  }, [fetchMarks, signedIn]);
+    // accountId is a dependency on purpose: a new account is a new generation.
+  }, [fetchMarks, signedIn, accountId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     load();
@@ -106,6 +116,10 @@ export function useLibraryMarks(shelf: LibraryMarkShelf, { signedIn }: { signedI
       done();
       return false;
     }
+    // A write of an older generation (other account, shelf or reload) must not
+    // touch readSeq: that would make the new generation's first read look stale
+    // and leave the shelf stuck in loading.
+    if (!current()) { done(); return false; }
     // The server took it: read the shelf again and show what it holds.
     const seq = ++readSeq.current;
     try {

@@ -45,8 +45,8 @@ afterEach(() => {
 });
 
 let hook: ReturnType<typeof useLibraryMarks>;
-function Probe({ shelf = 'writing_sample', signedIn = true }: { shelf?: LibraryMarkShelf; signedIn?: boolean }) {
-  hook = useLibraryMarks(shelf, { signedIn });
+function Probe({ shelf = 'writing_sample', signedIn = true, accountId = 'user-a' }: { shelf?: LibraryMarkShelf; signedIn?: boolean; accountId?: string | null }) {
+  hook = useLibraryMarks(shelf, { signedIn, accountId });
   return (
     <output data-testid="probe">
       {hook.status}|{hook.has('alpha-schools', 'read') ? 'read' : '-'}|{hook.has('alpha-schools', 'saved') ? 'saved' : '-'}|{hook.isPending('alpha-schools', 'saved') ? 'pending' : '-'}|{hook.errorFor('alpha-schools', 'saved')}
@@ -199,5 +199,55 @@ describe('useLibraryMarks', () => {
     act(() => { hook.reload(); });
     await flush();
     expect(probe()).toBe('ready|read|-|-|');
+  });
+  it('account A to B without a reload: A\'s marks go at once and A\'s late answer is dropped', async () => {
+    const { rerender } = render(<Probe accountId="user-a" />);
+    await flush();
+    expect(probe()).toBe('ready|read|-|-|');
+    // B's first read is slow; A's marks must not stay on screen meanwhile.
+    const bRead = deferred();
+    api.getWith.mockImplementationOnce(async () => { await bRead.promise; return { marks: [] }; });
+    rerender(<Probe accountId="user-b" />);
+    expect(probe()).toBe('loading|-|-|-|');
+    await act(async () => { bRead.resolve(); });
+    await flush();
+    expect(probe()).toBe('ready|-|-|-|');
+  });
+
+  it('account switch while A\'s first read is in flight: A\'s answer never reaches B', async () => {
+    const aRead = deferred();
+    api.getWith.mockImplementationOnce(async () => { await aRead.promise; return serverMarks(); });
+    api.getWith.mockImplementationOnce(async () => ({ marks: [] }));
+    const { rerender } = render(<Probe accountId="user-a" />);
+    rerender(<Probe accountId="user-b" />);
+    await flush();
+    expect(probe()).toBe('ready|-|-|-|');
+    await act(async () => { aRead.resolve(); });
+    await flush();
+    expect(probe()).toBe('ready|-|-|-|');
+  });
+
+  it('a write of the old generation that lands after the new read started never leaves the shelf loading', async () => {
+    const write = deferred();
+    api.patchWith.mockImplementationOnce(async (path: string, body: { item_key: string }) => {
+      await write.promise;
+      server.add(key(body.item_key, path.split('/').pop()!));
+      return null;
+    });
+    const { rerender } = render(<Probe accountId="user-a" />);
+    await flush();
+    let done!: Promise<boolean>;
+    act(() => { done = hook.setMark('alpha-schools', 'saved', true); });
+    // New generation whose first read is still in flight when the old write lands.
+    const bRead = deferred();
+    api.getWith.mockImplementationOnce(async () => { await bRead.promise; return { marks: [] }; });
+    rerender(<Probe accountId="user-b" />);
+    await act(async () => { write.resolve(); });
+    await act(async () => { expect(await done).toBe(false); });
+    await act(async () => { bRead.resolve(); });
+    await flush();
+    expect(probe()).toBe('ready|-|-|-|');
+    // The old write did not trigger a reread of its own.
+    expect(api.getWith).toHaveBeenCalledTimes(2);
   });
 });
