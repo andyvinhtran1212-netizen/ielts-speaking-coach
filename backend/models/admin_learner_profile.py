@@ -203,3 +203,32 @@ class LearnerLog(_StrictOut):
     sources_failed: list[str]
     # Sources with no read API yet (G04): not an empty history.
     sources_unavailable: list[LogSource]
+
+
+# ── Học tập: attempts (FR-025; G09-T04c) ───────────────────────────────────
+
+AttemptSkill = Literal["speaking", "writing", "reading", "listening", "mock"]
+AttemptState = Literal["in_progress", "submitted", "done", "failed", "abandoned", "other"]
+
+
+class LearnerAttempt(_StrictOut):
+    skill: AttemptSkill
+    # practice | full_test (Speaking), essay, test (Reading/Listening), sitting (mock).
+    kind: str
+    id: str
+    title: str
+    state: AttemptState
+    # e.g. "Band 6.5 · 30/40"; null until a result is out.
+    result_text: Optional[str]
+    submitted_at: Optional[str]
+    # The admin view that opens this attempt; null when none exists yet.
+    open_href: Optional[str]
+
+
+class LearnerAttempts(_StrictOut):
+    items: list[LearnerAttempt]
+    next_cursor: Optional[str]
+    # No source persists these per learner yet: null, never [].
+    writing_repeated_errors: Optional[list[dict]]
+    weak_grammar_groups: Optional[list[dict]]
+    sources_failed: list[str]

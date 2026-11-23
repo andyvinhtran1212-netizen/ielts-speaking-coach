@@ -3430,6 +3430,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/learners/{ref}/attempts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Learner Attempts */
+        get: operations["get_learner_attempts_admin_learners__ref__attempts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/overview": {
         parameters: {
             query?: never;
@@ -19147,6 +19164,48 @@ export interface components {
             /** Answer */
             answer: string;
         };
+        /** LearnerAttempt */
+        LearnerAttempt: {
+            /**
+             * Skill
+             * @enum {string}
+             */
+            skill: "speaking" | "writing" | "reading" | "listening" | "mock";
+            /** Kind */
+            kind: string;
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "in_progress" | "submitted" | "done" | "failed" | "abandoned" | "other";
+            /** Result Text */
+            result_text: string | null;
+            /** Submitted At */
+            submitted_at: string | null;
+            /** Open Href */
+            open_href: string | null;
+        };
+        /** LearnerAttempts */
+        LearnerAttempts: {
+            /** Items */
+            items: components["schemas"]["LearnerAttempt"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+            /** Writing Repeated Errors */
+            writing_repeated_errors: {
+                [key: string]: unknown;
+            }[] | null;
+            /** Weak Grammar Groups */
+            weak_grammar_groups: {
+                [key: string]: unknown;
+            }[] | null;
+            /** Sources Failed */
+            sources_failed: string[];
+        };
         /** LearnerCohort */
         LearnerCohort: {
             /** Id */
@@ -30734,6 +30793,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LearnerLog"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_learner_attempts_admin_learners__ref__attempts_get: {
+        parameters: {
+            query?: {
+                skill?: ("speaking" | "writing" | "reading" | "listening" | "mock") | null;
+                state?: ("in_progress" | "submitted" | "done" | "failed" | "abandoned" | "other") | null;
+                cursor?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearnerAttempts"];
                 };
             };
             /** @description Validation Error */
