@@ -1,0 +1,21 @@
+/* ACCOUNTDATA-0100 blocks on /account ("Bản in" tokens only). */
+.section { margin-top: var(--av2-space-10); }
+.danger {
+  margin-top: var(--av2-space-10);
+  padding-top: var(--av2-space-2);
+}
+.sectionTitle {
+  margin: 0 0 var(--av2-space-6);
+  padding-bottom: var(--av2-space-4);
+  border-bottom: var(--av2-rule-strong-w) solid var(--av2-ink);
+  font-family: var(--av2-font-serif);
+  font-size: var(--av2-fs-20);
+  font-weight: var(--av2-fw-strong);
+  color: var(--av2-ink);
+}
+.body { display: grid; gap: var(--av2-space-5); }
+.text { margin: 0; color: var(--av2-ink); }
+.muted { margin: 0; color: var(--av2-muted); }
+.actions { display: flex; flex-wrap: wrap; gap: var(--av2-space-4); margin-top: var(--av2-space-6); }
+.pending { display: grid; gap: var(--av2-space-4); margin-top: var(--av2-space-7); outline: none; }
+.pending:focus-visible { outline: 2px solid var(--av2-focus); outline-offset: var(--av2-focus-offset); }
