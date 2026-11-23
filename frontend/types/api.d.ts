@@ -14205,6 +14205,8 @@ export interface components {
             display_state?: ("draft" | "scheduled" | "open" | "running" | "grading" | "released" | "ended" | "archived") | null;
             /** Audience Count */
             audience_count?: number | null;
+            /** Listening Seconds */
+            listening_seconds?: number | null;
         } & {
             [key: string]: unknown;
         };

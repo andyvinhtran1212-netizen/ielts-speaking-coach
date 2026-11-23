@@ -126,6 +126,17 @@ describe('setup form', () => {
     assert.equal(modeLine({ ...formFromExam(exam), mode: 'live' }, exam), null);
   });
 
+  test('Listening counts its real seat clock (CR #2640 deviation 4)', () => {
+    const exam = normalizeOrgExam(row({ reading_minutes: 60, listening_seconds: 2520 }));
+    const form = { ...formFromExam(exam), mode: 'self_paced', skills: ['listening', 'reading'] };
+    assert.equal(exam.listeningSeconds, 2520);
+    assert.equal(modeLine(form, exam), 'Người thi cần một quãng liền khoảng 102 phút.');
+    assert.equal(modeLine(form, exam, 40 * 60 + 120), 'Người thi cần một quãng liền khoảng 102 phút.');
+    assert.equal(modeLine(form, exam, 20 * 60 + 120), 'Người thi cần một quãng liền khoảng 82 phút.');
+    const unknown = normalizeOrgExam(row({ reading_minutes: 60 }));
+    assert.equal(modeLine({ ...form }, unknown), 'Người thi cần một quãng liền khoảng 92 phút.');
+  });
+
   test('machine code is stable in shape', () => {
     assert.match(newExamCode(Date.parse('2026-11-23T12:00:00Z'), () => 0.5), /^KT20261123-[0-9A-Z]{4}$/);
   });

@@ -221,6 +221,8 @@ class AdminMockExamListRow(BaseModel):
     display_state: Literal["draft", "scheduled", "open", "running", "grading",
                            "released", "ended", "archived"] | None = None
     audience_count: int | None = None
+    # FR-143: the Listening seat clock (audio + buffer); None without Listening.
+    listening_seconds: int | None = None
 
 
 class AdminMockExamListResponse(BaseModel):

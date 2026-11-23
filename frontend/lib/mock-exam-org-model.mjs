@@ -81,6 +81,8 @@ export function normalizeOrgExam(raw) {
     writingTask2PromptId: text(raw.writing_task2_prompt_id),
     hasSpeakingPaper: Boolean(raw.speaking_topic_set && typeof raw.speaking_topic_set === 'object'
       && !Array.isArray(raw.speaking_topic_set) && Object.keys(raw.speaking_topic_set).length),
+    // Listening seat clock from the server (audio + buffer); null = no paper or unread.
+    listeningSeconds: int(raw.listening_seconds),
     readingMinutes: Number.isInteger(raw.reading_minutes) && raw.reading_minutes > 0 ? raw.reading_minutes : 60,
     writingMinutes: Number.isInteger(raw.writing_minutes) && raw.writing_minutes > 0 ? raw.writing_minutes : 60,
     allowEarlyAdvance: raw.allow_early_advance === true,
@@ -216,7 +218,7 @@ export function vnLocalToIso(value) {
   return Number.isFinite(Date.parse(iso)) ? iso : null;
 }
 
-/** Toggle one skill, keeping at least one and the fixed order. */
+/** Toggle one skill in the fixed order; may return none (saving refuses an empty list). */
 export function toggleSkill(skills, skill) {
   const next = skills.includes(skill) ? skills.filter((s) => s !== skill) : [...skills, skill];
   return SKILLS.filter((s) => next.includes(s));
@@ -283,18 +285,28 @@ export function buildPatchBody(form, exam, step) {
   return { ok: true, value: body };
 }
 
-/** Minutes a self-paced learner needs in one go (FR-143 "khoảng N phút"); Listening by its default. */
-export function sittingMinutes(exam, skills) {
+/** Listening buffer and default length, as `_section_duration_seconds` in the service. */
+export const LISTENING_BUFFER_SECONDS = 120;
+const LISTENING_DEFAULT_SECONDS = 30 * 60 + LISTENING_BUFFER_SECONDS;
+
+/**
+ * Minutes a self-paced learner needs in one go (FR-143 "khoảng N phút").
+ * Listening counts its seat clock: `listeningSeconds` (audio + buffer) when
+ * known, else the exam's stored value, else the server default of 30 + 2.
+ */
+export function sittingMinutes(exam, skills, listeningSeconds = null) {
   let total = 0;
-  if (skills.includes('listening')) total += 32;
+  if (skills.includes('listening')) {
+    total += Math.round((listeningSeconds || exam?.listeningSeconds || LISTENING_DEFAULT_SECONDS) / 60);
+  }
   if (skills.includes('reading')) total += exam?.readingMinutes || 60;
   if (skills.includes('writing')) total += exam?.writingMinutes || 60;
   return total;
 }
 
-export function modeLine(form, exam) {
+export function modeLine(form, exam, listeningSeconds = null) {
   if (form.mode !== 'self_paced') return null;
-  const n = sittingMinutes(exam, form.skills);
+  const n = sittingMinutes(exam, form.skills, listeningSeconds);
   const extra = form.skills.includes('speaking') ? ', chưa tính Speaking' : '';
   return n ? `Người thi cần một quãng liền khoảng ${n} phút${extra}.` : null;
 }

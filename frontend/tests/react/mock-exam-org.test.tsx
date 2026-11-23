@@ -189,6 +189,65 @@ describe('Tổ chức kỳ thi (FR-141…FR-144)', () => {
     expect(document.body.textContent).not.toMatch(/(?<!không )nghỉ giữa các phần|số lần làm/i);
   });
 
+  // CR #2640 (Medium): every selected self-paced row must carry the window.
+  const selfPaced = (over: Record<string, unknown> = {}) => exam({
+    exam_mode: 'retake', exam_mode_v2: 'self_paced', skills: ['reading'], reading_test_id: 'R1',
+    open_until: '2026-11-27T16:59:00Z', ...over,
+  });
+  const WINDOW = { open_until: '2026-11-27T23:59:00+07:00' };
+
+  it('self-paced: "Cập nhật theo lớp" sends the window, and Lên lịch re-sends it before scheduling', async () => {
+    routes({ '/admin/mock-exams/e1/audience': audience([person()]), '/admin/mock-exams': { exams: [selfPaced({ draft_state: { step: 'audience' } })] } });
+    patch.mockResolvedValue({ ...audience([person()]), mirror_failed: false });
+    post.mockResolvedValue({ ok: true });
+    window.history.replaceState(null, '', '/admin/mock-tests/e1/setup?step=audience');
+    render(<MockExamSetup examId="e1" />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Cập nhật theo lớp' }));
+    await waitFor(() => expect(patch).toHaveBeenCalledWith('/admin/mock-exams/e1/audience', { refresh_cohorts: true, window: WINDOW }));
+    patch.mockClear();
+    fireEvent.click(screen.getByRole('button', { name: /Xem lại/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Lên lịch' }));
+    await waitFor(() => expect(post).toHaveBeenCalledWith('/admin/mock-exams/e1/schedule', {}));
+    expect(patch).toHaveBeenCalledWith('/admin/mock-exams/e1/audience', { window: WINDOW });
+    expect(patch.mock.invocationCallOrder.at(-1)!).toBeLessThan(post.mock.invocationCallOrder.at(-1)!);
+  });
+
+  it('self-paced: a window PATCH that is refused or not mirrored stops Lên lịch', async () => {
+    routes({ '/admin/mock-exams/e1/audience': audience([person()]), '/admin/mock-exams': { exams: [selfPaced()] } });
+    patch.mockResolvedValue({ ...audience([person()]), mirror_failed: true });
+    window.history.replaceState(null, '', '/admin/mock-tests/e1/setup?step=review');
+    render(<MockExamSetup examId="e1" />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Lên lịch' }));
+    expect(await screen.findByText(/Chưa cập nhật được khoảng mở cho danh sách người thi: đã lưu danh sách nhưng chưa ghi được lượt giao/)).toBeTruthy();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('self-paced: an unread list is not an empty one; the window waits for a read, then goes to every row', async () => {
+    let failing = true;
+    let stored = selfPaced();
+    routes({
+      '/admin/mock-exams/e1/audience': () => { if (failing) throw new Error('mất kết nối'); return audience([person()]); },
+      '/admin/mock-exams': () => ({ exams: [stored] }),
+    });
+    patch.mockImplementation(async (path: string, body: Record<string, unknown>) => {
+      if (path === '/admin/mock-exams/e1') { stored = selfPaced({ open_until: '2026-11-28T16:59:00Z' }); return stored; }
+      return { ...audience([person()]), mirror_failed: false, echo: body };
+    });
+    window.history.replaceState(null, '', '/admin/mock-tests/e1/setup?step=mode');
+    render(<MockExamSetup examId="e1" />);
+    const until = await screen.findByLabelText('Đến (giờ Việt Nam)');
+    fireEvent.change(until, { target: { value: '2026-11-28T23:59' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu nháp' }));
+    expect(await screen.findByText(/Chưa đọc được danh sách người thi nên chưa đổi khoảng mở/)).toBeTruthy();
+    expect(patch).not.toHaveBeenCalled();
+    failing = false;
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu nháp' }));
+    const next = { window: { open_until: '2026-11-28T23:59:00+07:00' } };
+    await waitFor(() => expect(patch).toHaveBeenCalledWith('/admin/mock-exams/e1/audience', next));
+    expect(patch).toHaveBeenCalledWith('/admin/mock-exams/e1', expect.objectContaining({ open_until: '2026-11-28T23:59:00+07:00' }));
+    expect(patch).not.toHaveBeenCalledWith('/admin/mock-exams/e1/audience', { window: WINDOW });
+  });
+
   it('flag off: the people step says the list is not on', async () => {
     routes({ '/admin/mock-exams': { exams: [exam()] } });
     get.mockImplementation(async (path: string) => {
