@@ -116,9 +116,9 @@
   padding: var(--av2-space-3) var(--av2-space-7);
 }
 .navigator { display: flex; flex-wrap: wrap; align-items: center; gap: var(--av2-space-4); flex: 1 1 auto; min-width: 0; }
-/* A Part with 40 questions is wider than the strip at 1024–1440px: its cells
-   wrap inside the group, so the page never scrolls sideways and Submit stays
-   on screen. */
+/* A long section (one Listening Part of 40 questions) wraps its cells onto
+   more rows inside the strip instead of widening the page past the submit
+   button (0070 overflow journey, 1024–1440px). */
 .section { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; max-width: 100%; }
 .sectionName { font-size: var(--av2-fs-13); font-weight: var(--av2-fw-strong); margin-inline-end: var(--av2-space-2); }
 .chip {
