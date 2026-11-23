@@ -554,7 +554,10 @@ function ProgrammeFormView({ testId, status, userId, active, embedded, supplemen
       if (!queue || !canWriteRef.current) return { unsaved: Object.keys(pending.current).length };
       Object.values(pending.current).forEach(window.clearTimeout);
       pending.current = {};
-      try { await queue.flush(programmeAnswerFlushEntries(form.questions, answers)); return { unsaved: 0 }; }
+      // Leaving or handing over sends only what the server has not acked yet; the
+      // final submit still flushes every answer (FR-004).
+      const unacked = programmeAnswerFlushEntries(form.questions, answers).filter(({ qNum, value }) => baseRef.current[qNum] !== value);
+      try { await queue.flush(unacked); return { unsaved: 0 }; }
       catch (error) { noteError(error); return { unsaved: 1 }; }
     };
     return <ProgrammeFormRoom

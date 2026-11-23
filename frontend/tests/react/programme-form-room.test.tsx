@@ -299,6 +299,15 @@ describe('flag on', () => {
     expect(screen.queryByRole('button', { name: /Tạm dừng|Pause/ })).toBeNull();
   });
 
+  it('leaving sends no PATCH for answers the server already acked', async () => {
+    setup({ answers: [{ q_num: 1, user_answer: 'A' }] });
+    render(<ProgrammeFormRunner testId="t1" />);
+    await ready();
+    fireEvent.click(screen.getByRole('button', { name: /Thoát/ }));
+    await waitFor(() => expect(assign).toHaveBeenCalledTimes(1));
+    expect(api.patchWith).not.toHaveBeenCalled();
+  });
+
   it('an inactive runner offers no submit (FR-011)', async () => {
     setup();
     render(<ProgrammeFormRunner testId="t1" active={false} />);
