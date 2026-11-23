@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 from fastapi import APIRouter, Header, HTTPException, Path, Response
@@ -176,10 +176,14 @@ async def create_data_export(authorization: Optional[str] = Header(None)):
     return export.body(job, datetime.now(timezone.utc))
 
 
+_VIETNAM_TIME = timezone(timedelta(hours=7))  # the learner's date (no DST)
+
+
 def export_filename(now: Optional[datetime] = None) -> str:
     """What the browser saves the package as (CR nit on #2613): never the
     claim token that names the object."""
-    return f"averlearning-du-lieu-tai-khoan-{(now or datetime.now(timezone.utc)):%Y%m%d}.zip"
+    local = (now or datetime.now(timezone.utc)).astimezone(_VIETNAM_TIME)
+    return f"averlearning-du-lieu-tai-khoan-{local:%Y%m%d}.zip"
 
 
 def sign_export_url(path: str, seconds: int) -> Optional[str]:
@@ -226,7 +230,8 @@ async def download_data_export(export_id: str = Path(..., pattern=_UUID),
         raise _unavailable(RuntimeError("no signed url"), "data-export sign")
     seconds = int(settings.ACCOUNT_EXPORT_SIGNED_URL_SECONDS)
     if "application/json" in (accept or "").lower():
-        return JSONResponse({"url": url, "expires_in_seconds": seconds}, headers={"Cache-Control": "no-store"})
-    return RedirectResponse(url, status_code=302, headers={"Cache-Control": "no-store"})
+        return JSONResponse({"url": url, "expires_in_seconds": seconds},
+                            headers={"Cache-Control": "no-store", "Vary": "Accept"})
+    return RedirectResponse(url, status_code=302, headers={"Cache-Control": "no-store", "Vary": "Accept"})
 
 

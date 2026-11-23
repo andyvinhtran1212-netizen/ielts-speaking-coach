@@ -184,7 +184,7 @@ def test_download(env):
     assert signed[0][0].startswith(f"{U1}/{job}/") and signed[0][1] == 60
     j = env.client.get(f"/api/account/data-export/{job}/download",
                        headers={**_h("t1"), "Accept": "application/json"}, follow_redirects=False)
-    assert j.status_code == 200 and j.headers["cache-control"] == "no-store"
+    assert j.status_code == 200 and j.headers["cache-control"] == "no-store" and j.headers["vary"] == "Accept"
     assert j.json() == {"url": "https://storage.example/signed?token=x", "expires_in_seconds": 60}
     other = env.client.get(f"/api/account/data-export/{job}/download", headers=_h("t2"), follow_redirects=False)
     assert other.status_code == 404 and other.json()["detail"]["error_code"] == "export_not_found"
@@ -222,3 +222,6 @@ def test_signed_url_downloads_under_a_readable_name(monkeypatch):
     assert name.endswith(".zip") and "token" not in name and calls[0][:2] == ("u/e/token.zip", 60)
     assert account_data.export_filename(datetime(2026, 11, 23, tzinfo=timezone.utc)) == \
         "averlearning-du-lieu-tai-khoan-20261123.zip"
+    # 18:30 UTC is already the next day in Vietnam.
+    assert account_data.export_filename(datetime(2026, 11, 23, 18, 30, tzinfo=timezone.utc)) == \
+        "averlearning-du-lieu-tai-khoan-20261124.zip"
