@@ -127,7 +127,7 @@ Mỗi task một PR vào `staging`, sau khi spec `approved`, lớp `high-risk`, 
 
 #### G05-T22 — (mới) "Báo cho tôi khi mở" và việc xếp thư "khoá đã mở đăng ký" (high-risk: migration)
 - Mục đích: PUBLICSITE-0059 FR-022, FR-060.
-- Đầu vào: `thiet-ke/DanhMucKhoaMoiMotKhoa.dc.html` và ghi chú ("khoá mở đăng ký thì gửi đúng một thư"); mục 5.7; migration 381 của G04 (`course_products`, `entitlements`, `learner_email_outbox`) đã ở staging; GOI-04 mục 5.2 (cột của ba bảng đó), 5.11 (các bước của `scripts/enrollment_sweep.py`); T04, T05.
+- Đầu vào: `thiet-ke/DanhMucKhoaMoiMotKhoa.dc.html` và ghi chú ("khoá mở đăng ký thì gửi đúng một thư"); mục 5.7; migration 383 của G04 (`course_products`, `entitlements`, `learner_email_outbox`) đã ở staging; GOI-04 mục 5.2 (cột của ba bảng đó), 5.11 (các bước của `scripts/enrollment_sweep.py`); T04, T05.
 - Việc làm:
   1. Migration dự kiến 394: bảng `course_open_alerts` và hàm `fn_course_open_alerts_enqueue(p_limit int)` đúng mục 5.7 + rollback (rollback bỏ hàm trước, bảng sau; không đụng dòng outbox đã xếp).
   2. Ba route `open-alerts` ở 5.7 trong `backend/routers/course_open_alerts.py`; exempt.
@@ -139,7 +139,7 @@ Mỗi task một PR vào `staging`, sau khi spec `approved`, lớp `high-risk`, 
 - Đầu ra: 1 PR + 1 migration.
 - Nghiệm thu: test backend và test hàm ở việc 3, 4 qua; test React bốn trạng thái của tờ (khách mở ô, đã đăng ký, chưa bấm, đã đăng nhập); mở `/courses/<slug>#bo-nhan=abc` → đúng một request `DELETE`, hash bị xoá, dải hiện; không cửa sổ bật lên; email sai định dạng báo lỗi dưới ô khi bấm; trên staging (sau khi G04 nối bước quét và T14 có mẫu): đăng ký nhận báo bằng hộp thư thử, admin mở đăng ký sản phẩm thử, trong ≤ 10 phút hộp thư nhận đúng một thư, bấm liên kết bỏ nhận → dòng có `unsubscribed_at`.
 - Không làm: route của G05 không gửi thư và không gọi Resend (chỉ xếp dòng outbox qua hàm); không viết dispatcher; không dùng email thu được cho việc khác; không hiện "email này đã đăng ký"; không gửi thư cho người đã có quyền học khoá đó.
-- Vướng mắc → cách gỡ: G04-T01 chưa merge → không viết migration (FK và outbox chưa có); làm component với API giả, PR draft. Tên cột trạng thái mở đăng ký hoặc điều kiện "quyền còn hiệu lực" của G04 khác mục 5.7 → theo migration 381 thật (`\d+ course_products`, `\d+ entitlements` trên staging), sửa hàm cho khớp và ghi trong PR. Mẫu thư chưa có lúc dispatcher chạy → G04 đánh dấu `failed` với `template_missing` (GOI-04 mục 5.11), không gửi thư trắng; vì vậy T14 phải merge trước khi mở đăng ký khoá thật (ghi vào `rollout.md`).
+- Vướng mắc → cách gỡ: G04-T01 chưa merge → không viết migration (FK và outbox chưa có); làm component với API giả, PR draft. Tên cột trạng thái mở đăng ký hoặc điều kiện "quyền còn hiệu lực" của G04 khác mục 5.7 → theo migration 383 thật (`\d+ course_products`, `\d+ entitlements` trên staging), sửa hàm cho khớp và ghi trong PR. Mẫu thư chưa có lúc dispatcher chạy → G04 đánh dấu `failed` với `template_missing` (GOI-04 mục 5.11), không gửi thư trắng; vì vậy T14 phải merge trước khi mở đăng ký khoá thật (ghi vào `rollout.md`).
 - Ước lượng: 2 phiên · 3 (trước là 1,5; thêm hàm xếp thư và lối bỏ nhận từ thư).
 
 #### G05-T14 — Mẫu thư: mã đăng nhập, mã đổi email, bốn thư đơn (câu chữ + `.html`), hai thư mới; đối chiếu câu chữ về thư

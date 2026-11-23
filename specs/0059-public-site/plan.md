@@ -33,7 +33,7 @@ Không còn route `/welcome`. `/trial/*` thuộc spec 0047, G05 chỉ liên kế
 
 Quy tắc bắt buộc cho mọi layout ở trên: gắn `AuthProvider` **không** có `activationGate` (người đăng ký online chưa được xác nhận có `users.is_active=false`; gắn cổng là họ bị đẩy về `/login`). Nếu `LearnerShell` của G03 được dựng trên `AuthedShell` thì truyền `authGated={false}` và thêm tiền tố route vào `proxy.ts` matcher + `nonceRouteAllowed`, chạy `frontend/tests/csp-nonce-report-only.test.mjs`. `CHƯA KIỂM` `LearnerShell` dựng trên gì: `grep -rn "AuthedShell\|AuthProvider" frontend/components | grep -i learner`.
 
-Cờ build `AVER_PUBLIC_COMMERCE` (khai trong `next.config.ts` → `env`, giống cách `AVER_CSP_NONCE_*` đang làm): `'1'` thì `/courses*`, `/enroll/*`, `/account/orders` hoạt động; `'0'` (mặc định production tới khi anh Andy bật) thì các `page.tsx` đó gọi `notFound()` và `/pricing` giữ `redirect('/')`. Trang chủ khi cờ tắt ẩn mục khoá học và bảng học phí (không vẽ khối rỗng).
+Cờ build `AVER_PUBLIC_COMMERCE` (khai trong `next.config.ts` → `env`, giống cách `AVER_CSP_NONCE_*` đang làm): `'1'` thì `/courses*`, `/enroll/*`, `/account/orders` hoạt động; `'0'` (mặc định production tới khi anh Andy bật) thì các `page.tsx` đó gọi `notFound()` và `/pricing` giữ `redirect('/')`. Trang chủ khi cờ tắt ẩn mục khoá học và bảng học phí (không vẽ khối rỗng). Đọc cờ một chỗ: `frontend/lib/public-commerce.mjs` export `publicCommerceEnabled()` và `coursesHref()` (tắt → `null` để nơi gọi ẩn lối, hoặc `/` cho "Khoá học" của `PublicShell`); `public-links.ts`, trang chủ, `sitemap.ts` và Hôm nay (LEARNERCORE-0063 FR-027) đều dùng helper này (FR-029).
 
 
 #### 5.3 Lớp dữ liệu và dữ liệu giả

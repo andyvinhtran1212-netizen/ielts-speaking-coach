@@ -17,6 +17,7 @@ Migration của gói (dải 390–399 theo `01-KE-HOACH-TONG.md` mục 6; số d
 | 391 | `login_code_state` + `fn_login_code_send_check`, `fn_login_code_verify_check`, `fn_login_code_invalidate` | T18 | — |
 | 392 | thay thân `fn_activate_attempt_check`: 5 lần / 15 phút | T09 | 334 (đã có) |
 | 393 | `account_email_changes` | T24 | — |
+| 394 | `course_open_alerts` + `fn_course_open_alerts_enqueue` | T22 | G04 mig 383 (đã có: `course_products`, `learner_email_outbox`) |
 
 Thứ tự áp theo thứ tự làm: 390 (T07) → 391 (T18) → 393 (T24) → 392 (T09) → 394 (T22). Mỗi migration: staging trước qua runner có khoá advisory, sau khi anh Andy gõ duyệt cho đúng lần áp; đọc lại bằng truy vấn chỉ đọc; production trước khi promote mã phụ thuộc, cũng cần anh gõ duyệt.
 

@@ -85,7 +85,7 @@ Mỗi task một PR vào `staging`, sau khi spec `approved`, lớp `feature`, `S
 - Ước lượng: 2 phiên · 3.
 
 #### G05-T16 — SEO và `/pricing`
-- Mục đích: FR-019, 020.
+- Mục đích: FR-019, 020, 029 (sitemap chỉ có `/courses*` khi `publicCommerceEnabled()`).
 - Đầu vào: `app/sitemap.ts`, `lib/public-sitemap-model.mjs`, `app/robots.ts`, `tests/next-metadata.test.mjs`, các chỗ ghim `/pricing` ở mục 2.
 - Việc làm: thêm `/courses`, các `/courses/<slug>` công khai (đọc `GET /api/courses`, lỗi thì bỏ qua như Grammar), `/terms`, `/privacy`, `/contact`, `/about` vào sitemap (trang placeholder không vào); `robots.ts` thêm allow `/courses`, `/terms`, `/privacy`, `/contact`, `/about`, thêm vào `PRIVATE_PREFIXES`: `/enroll`, `/account`, `/activate`; `/pricing`: chuyển về `/courses` khi cờ `AVER_PUBLIC_COMMERCE='1'` (giữ `redirect('/')` khi tắt), sửa `tests/pricing-next-behavior.test.mjs`, `tooling/verify-pricing-redirect-flow.mjs`, dòng `docs/ROUTE_LEDGER.md`.
 - Đầu ra: 1 PR.

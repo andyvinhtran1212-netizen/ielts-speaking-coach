@@ -34,6 +34,7 @@ Mọi dòng `PENDING`: spec đang `draft`. Cột bằng chứng là bằng chứ
 | FR-026 | kind=test; ref=planned in G05-T23; scenarios in this file | PENDING |
 | FR-027 | kind=test; ref=planned in G05-T03..T06 screenshots light/dark; scenarios in this file | PENDING |
 | FR-028 | kind=test; ref=planned in G05-T02; scenarios in this file | PENDING |
+| FR-029 | kind=test; ref=planned frontend/tests/public-commerce-flag.test.mjs: flag off → PUBLIC_HREF.courses '/', home has no /courses link, sitemap has no /courses*, today-v2 no-course state has no /courses link; flag on → all point to /courses (G05-T03, T04, T15) | PENDING |
 
 ## Kịch bản (gói mục 9, phần của spec này)
 
