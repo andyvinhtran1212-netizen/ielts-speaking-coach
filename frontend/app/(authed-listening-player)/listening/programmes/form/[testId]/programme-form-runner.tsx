@@ -397,15 +397,14 @@ function ProgrammeFormView({ testId, status, userId, active, embedded, supplemen
       return false;
     }
   }
-  // FR-012: once this tab holds the write lock, read the attempt's answers again
-  // (the same resume-or-create request the page opened with) without a reload.
-  async function reloadAnswers(info?: { initial: boolean }) {
+  // FR-012: on every grant of the write lock (the first one after opening too) read
+  // the attempt's answers again before this tab may write: another tab may have saved
+  // and closed after the page's own load. A plain read of the attempt, so the page
+  // still admits exactly once (FR-001).
+  async function reloadAnswers() {
     const scope = scopeRef.current;
     if (state.status !== 'ready' || !current(scope)) return;
-    // FR-001: the first grant right after opening comes with the answers the page just
-    // read (and the replay list planned from them), so it sends no second request.
-    if (info?.initial) return;
-    const attempt = row(await window.api.postWith<unknown>(`/api/listening/tests/${encodeURIComponent(testId)}/attempts?standalone=true`, {}, undefined, apiOpts(scope)));
+    const attempt = row(await window.api.getWith<unknown>(`/api/listening/tests/attempts/${encodeURIComponent(state.attemptId)}`, undefined, apiOpts(scope)));
     if (!current(scope) || String(attempt.attempt_id || '') !== state.attemptId) return;
     const restored: Record<number, string> = {};
     for (const value of (Array.isArray(attempt.answers) ? attempt.answers : [])) { const answer = row(value); restored[Number(answer.q_num)] = String(answer.user_answer || ''); }
@@ -555,9 +554,15 @@ function ProgrammeFormView({ testId, status, userId, active, embedded, supplemen
       Object.values(pending.current).forEach(window.clearTimeout);
       pending.current = {};
       // Leaving or handing over sends only what the server has not acked yet; the
-      // final submit still flushes every answer (FR-004).
-      const unacked = programmeAnswerFlushEntries(form.questions, answers).filter(({ qNum, value }) => baseRef.current[qNum] !== value);
-      try { await queue.flush(unacked); return { unsaved: 0 }; }
+      // final submit still flushes every answer (FR-004). Let the PATCHes already in
+      // flight settle first: one of them may land a value the learner has since
+      // changed back, so the acked base is only known once they are done (CR #2558).
+      try {
+        await queue.flush([]);
+        const unacked = programmeAnswerFlushEntries(form.questions, answers).filter(({ qNum, value }) => baseRef.current[qNum] !== value);
+        await queue.flush(unacked);
+        return { unsaved: 0 };
+      }
       catch (error) { noteError(error); return { unsaved: 1 }; }
     };
     return <ProgrammeFormRoom

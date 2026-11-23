@@ -146,7 +146,7 @@ export interface ProgrammeFormRoomProps {
   /** Writes every current answer into the local copy and reads it back. */
   secureCopy(): boolean;
   session: ExamRoomSession;
-  reloadFromServer(info?: { initial: boolean }): Promise<unknown>;
+  reloadFromServer(): Promise<unknown>;
   onWriteRightChange(canWrite: boolean): void;
   ask: ProgrammeAskItem[];
   onAskChoice(item: ProgrammeAskItem, choice: 'use-local' | 'keep-saved'): void;
