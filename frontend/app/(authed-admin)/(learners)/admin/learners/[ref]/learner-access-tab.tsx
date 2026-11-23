@@ -5,7 +5,7 @@
 // PATCH /admin/users/{id}/role (step-up through AdminAccessGate) and
 // DELETE /admin/cohorts/{id}/students/{student_id}. Every write is followed by
 // a canonical reload of the profile.
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useAdminProfile } from '@/components/admin-access-gate';
 import { Dialog, messageOf } from '@/components/admin-directory-ui';
@@ -29,8 +29,10 @@ type Pending =
   | { kind: 'remove'; cohortId: string; cohortName: string }
   | null;
 
-export function LearnerAccessTab({ detail, onChanged }: {
+export function LearnerAccessTab({ detail, reloadKey = 0, onChanged }: {
   detail: LearnerDetailWire;
+  /** Changes after a write elsewhere on the profile (a grant): read access again. */
+  reloadKey?: number;
   /** Shows the result and reloads the canonical profile. */
   onChanged: (banner: Banner | null) => Promise<void> | void;
 }) {
@@ -53,12 +55,17 @@ export function LearnerAccessTab({ detail, onChanged }: {
   const userId = account?.user_id ?? null;
   const [entitlements, setEntitlements] = useState<RevocableEntitlement[] | null>(null);
   const [accessError, setAccessError] = useState('');
-  const [revoking, setRevoking] = useState<RevocableEntitlement | null>(null);
+  // The revoke dialog is tied to the learner it was opened for (CR
+  // 7102582818): another learner closes it, and a late answer is ignored.
+  const [revoking, setRevoking] = useState<(RevocableEntitlement & { userId: string }) | null>(null);
   const [accessTick, setAccessTick] = useState(0);
+  const userRef = useRef(userId);
+  userRef.current = userId;
   useEffect(() => {
+    setRevoking((r) => (r && r.userId !== userId ? null : r));
+    setEntitlements(null); setAccessError('');
     if (!userId) return;
     let live = true;
-    setEntitlements(null); setAccessError('');
     getUserAccess(userId)
       .then((out) => { if (live) setEntitlements(revocableEntitlements(out.items)); })
       .catch((caught) => {
@@ -67,7 +74,7 @@ export function LearnerAccessTab({ detail, onChanged }: {
         setAccessError(messageOf(caught));
       });
     return () => { live = false; };
-  }, [userId, accessTick]);
+  }, [userId, accessTick, reloadKey]);
 
   const confirm = async () => {
     if (!pending) return;
@@ -135,7 +142,7 @@ export function LearnerAccessTab({ detail, onChanged }: {
             <div className="lp-danger__actions">
               {entitlements.map((e) => (
                 <button key={e.entitlementId} type="button" className="adm-btn-secondary" disabled={busy}
-                  onClick={() => setRevoking(e)}>Thu hồi {e.title}</button>
+                  onClick={() => userId && setRevoking({ ...e, userId })}>Thu hồi {e.title}</button>
               ))}
             </div>
           ) : null}
@@ -171,7 +178,7 @@ export function LearnerAccessTab({ detail, onChanged }: {
         </div>
       </section>
 
-      {revoking ? (
+      {revoking && revoking.userId === userId ? (
         <RevokeAccessForm
           open
           entitlementId={revoking.entitlementId}
@@ -179,6 +186,7 @@ export function LearnerAccessTab({ detail, onChanged }: {
           learnerName={name}
           onClose={() => setRevoking(null)}
           onRevoked={async () => {
+            if (userRef.current !== revoking.userId) return;
             setAccessTick((n) => n + 1);
             await onChanged({ kind: 'success', text: `Đã thu hồi quyền khoá ${revoking.title} của ${name}.` });
           }}

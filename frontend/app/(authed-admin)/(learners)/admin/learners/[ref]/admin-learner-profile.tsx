@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
+import { useAdminProfile } from '@/components/admin-access-gate';
 import { messageOf, StatusBanner } from '@/components/admin-directory-ui';
 import { liveHref } from '@/components/ui/shell/learner-sections';
 import { LearnerSummary } from '@/components/admin/learner-summary';
@@ -73,9 +74,15 @@ export function AdminLearnerProfile({ learnerRef }: { learnerRef: string }) {
   const [pick, setPick] = useState<'admin' | 'learner' | null>(null);
   const [busy, setBusy] = useState(false);
   const [banner, setBanner] = useState<Banner>(null);
+  const admin = useAdminProfile();
   // FR-045: one learner's re-practice grant. The form reads the learner's G04
   // access itself and leaves out what they already hold.
-  const [grantOpen, setGrantOpen] = useState(false);
+  // The grant is tied to the admin/learner pair it was opened for (CR
+  // 7102582818): another learner closes the form, and a late result of the
+  // old run neither shows a banner nor reloads.
+  const [grantFor, setGrantFor] = useState<{ pair: string; name: string } | null>(null);
+  // Bumped after a grant so the "Khoá và quyền" tab reads access again (Codex).
+  const [accessReload, setAccessReload] = useState(0);
   const overviewSeq = useRef(0);
   // Read through refs: the router object and the query are not stable across renders.
   const routerRef = useRef(router);
@@ -148,6 +155,11 @@ export function AdminLearnerProfile({ learnerRef }: { learnerRef: string }) {
     } catch { /* the page still opens with the ref in the URL */ }
   };
 
+  const pair = `${admin.id}:${learnerRef}:${detail?.account?.user_id ?? ''}`;
+  const pairRef = useRef(pair);
+  pairRef.current = pair;
+  useEffect(() => { setGrantFor((g) => (g && g.pair !== pair ? null : g)); }, [pair]);
+
   const grantUsers = useMemo(
     () => (detail?.account?.user_id ? [{ id: detail.account.user_id, name: detail.summary.name }] : []),
     [detail?.account?.user_id, detail?.summary.name],
@@ -178,19 +190,21 @@ export function AdminLearnerProfile({ learnerRef }: { learnerRef: string }) {
           : null}
         <a className="adm-btn-secondary" href={assignmentHref({}, detail.student_id ? { studentId: detail.student_id } : {})}>Giao bài</a>
         {detail.account?.user_id ? (
-          <button type="button" className="adm-btn-secondary" onClick={() => setGrantOpen(true)}>Cấp quyền luyện lại</button>
+          <button type="button" className="adm-btn-secondary" onClick={() => setGrantFor({ pair, name: detail.summary.name })}>Cấp quyền luyện lại</button>
         ) : (
           <button type="button" className="adm-btn-secondary" disabled title="Người này chưa có tài khoản đăng nhập">Cấp quyền luyện lại</button>
         )}
       </div>
 
-      {grantOpen && grantUsers.length ? (
+      {grantFor && grantFor.pair === pair && grantUsers.length ? (
         <PracticeGrantForm
           open
           users={grantUsers}
-          onClose={() => setGrantOpen(false)}
+          onClose={() => setGrantFor(null)}
           onGranted={() => {
-            setBanner({ kind: 'success', text: `Đã cấp quyền luyện lại cho ${detail.summary.name}.` });
+            if (pairRef.current !== grantFor.pair) return;
+            setBanner({ kind: 'success', text: `Đã cấp quyền luyện lại cho ${grantFor.name}.` });
+            setAccessReload((n) => n + 1);
             void loadDetail();
           }}
         />
@@ -206,7 +220,7 @@ export function AdminLearnerProfile({ learnerRef }: { learnerRef: string }) {
       <StatusBanner banner={banner} />
 
       {tab === 'khoa-va-quyen' ? (
-        <LearnerAccessTab detail={detail} onChanged={async (next) => { if (next) setBanner(next); await loadDetail(); }} />
+        <LearnerAccessTab detail={detail} reloadKey={accessReload} onChanged={async (next) => { if (next) setBanner(next); await loadDetail(); }} />
       ) : tab !== 'tong-quan' ? (
         <section className="lp-pending" aria-label={PROFILE_TABS.find((t) => t.id === tab)?.label}>
           <p className="la-note" role="status">Chưa mở. {TAB_PENDING[tab]}</p>

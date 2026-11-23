@@ -19,6 +19,10 @@ const C1 = 'c1000000-0000-4000-8000-000000000001';
 const C2 = 'c2000000-0000-4000-8000-000000000002';
 const E1 = 'e1000000-0000-4000-8000-000000000001';
 const U = `u-${UID}`;
+const UID2 = '30000000-0000-0000-0000-000000000003';
+const U2 = `u-${UID2}`;
+const E2 = 'e2000000-0000-4000-8000-000000000002';
+const courses = [{ id: C1, code: 'C1' }, { id: C2, code: 'C2' }, { id: 'c3000000-0000-4000-8000-000000000003', code: 'C3' }];
 const summary = {
   name: 'Nguyễn Minh Anh', cohorts: [], courses: null,
   status: { level: 'ok', reasons: [] }, goal: { target_band: null, exam_date: null, source: 'none' },
@@ -45,6 +49,7 @@ beforeEach(() => {
   api.getWith.mockReset().mockImplementation((path: string) => {
     if (path.endsWith('/access')) return Promise.resolve({ items: accessItems, credits: { total: 0, by_kind: { online: 0, class: 0 } } });
     if (path === '/admin/course-products') return Promise.resolve({ items: products });
+    if (path === '/admin/courses') return Promise.resolve({ courses });
     return Promise.resolve(detail());
   });
   api.post.mockReset().mockImplementation((path: string) => {
@@ -113,5 +118,105 @@ describe('Hồ sơ: cấp quyền luyện lại và thu hồi quyền (G09-T14b)
     fail = false;
     fireEvent.click(within(zone).getByRole('button', { name: 'Tải lại' }));
     await within(zone).findByRole('button', { name: 'Thu hồi Course 1' });
+  });
+
+  it('a grant adds the new access to the revoke rows without leaving the tab (Codex)', async () => {
+    render(<AdminLearnerProfile learnerRef={U} />);
+    const zone = await screen.findByRole('region', { name: 'Vùng nguy hiểm' });
+    await within(zone).findByRole('button', { name: 'Thu hồi Course 1' });
+    api.post.mockImplementation(() => {
+      accessItems = [...accessItems, { entitlement_id: E2, product_slug: 'c2-repractice', course_code: 'C2', title: 'Course 2 luyện lại', short_title: 'Course 2', kind: 'repractice', state: 'active', expires_at: null }];
+      return Promise.resolve({ status: 'granted' });
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Cấp quyền luyện lại' }));
+    const form = await screen.findByRole('dialog', { name: 'Cấp quyền luyện lại' });
+    await within(form).findByRole('combobox');
+    fireEvent.change(within(form).getByRole('textbox', { name: /Lý do/ }), { target: { value: 'Luyện lại trước kỳ thi' } });
+    fireEvent.click(within(form).getByRole('button', { name: 'Tiếp tục' }));
+    fireEvent.click(within(await screen.findByRole('dialog', { name: 'Xác nhận cấp quyền' })).getByRole('button', { name: 'Cấp quyền' }));
+    await screen.findByText('Đã cấp quyền luyện lại cho Nguyễn Minh Anh.');
+    await within(zone).findByRole('button', { name: 'Thu hồi Course 2' });
+  });
+});
+
+describe('Hồ sơ: đổi học viên A → B giữa chừng (CR 7102582818)', () => {
+  const detailB = () => detail({ ref: U2, canonical_ref: U2, account: { user_id: UID2, role: 'student', is_active: true },
+    summary: { ...summary, name: 'Trần Bảo' } });
+  const routeWith = (extra: (path: string) => Promise<unknown> | null) => (path: string) => {
+    const hit = extra(path);
+    if (hit) return hit;
+    if (path.endsWith('/access')) return Promise.resolve({ items: path.includes(UID2) ? [] : accessItems });
+    if (path === '/admin/course-products') return Promise.resolve({ items: products });
+    if (path === '/admin/courses') return Promise.resolve({ courses });
+    return Promise.resolve(path === `/admin/learners/${U2}` ? detailB() : detail());
+  };
+
+  it('switching while the grant form is still reading closes it; the late read opens nothing', async () => {
+    let release: (v: unknown) => void = () => {};
+    api.getWith.mockImplementation(routeWith((path) => (path === '/admin/course-products'
+      ? new Promise((resolve) => { release = resolve; }) : null)));
+    const view = render(<AdminLearnerProfile learnerRef={U} />);
+    await screen.findByText('Vùng nguy hiểm');
+    fireEvent.click(screen.getByRole('button', { name: 'Cấp quyền luyện lại' }));
+    await screen.findByRole('dialog', { name: 'Cấp quyền luyện lại' });
+    view.rerender(<AdminLearnerProfile learnerRef={U2} />);
+    await screen.findByText(/Không có quyền học nào đang hiệu lực/);
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Cấp quyền luyện lại' })).toBeNull());
+    release({ items: products });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.queryByRole('dialog', { name: 'Cấp quyền luyện lại' })).toBeNull();
+    expect(api.post).not.toHaveBeenCalled();
+  });
+
+  it('a grant for A that answers after the switch shows no banner on B', async () => {
+    let answer: (v: unknown) => void = () => {};
+    api.getWith.mockImplementation(routeWith(() => null));
+    api.post.mockImplementation(() => new Promise((resolve) => { answer = resolve; }));
+    const view = render(<AdminLearnerProfile learnerRef={U} />);
+    await screen.findByText('Vùng nguy hiểm');
+    fireEvent.click(screen.getByRole('button', { name: 'Cấp quyền luyện lại' }));
+    const form = await screen.findByRole('dialog', { name: 'Cấp quyền luyện lại' });
+    await within(form).findByRole('combobox');
+    fireEvent.change(within(form).getByRole('textbox', { name: /Lý do/ }), { target: { value: 'Luyện lại trước kỳ thi' } });
+    fireEvent.click(within(form).getByRole('button', { name: 'Tiếp tục' }));
+    fireEvent.click(within(await screen.findByRole('dialog', { name: 'Xác nhận cấp quyền' })).getByRole('button', { name: 'Cấp quyền' }));
+    await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
+    expect(api.post.mock.calls[0][1]).toMatchObject({ user_id: UID });
+    view.rerender(<AdminLearnerProfile learnerRef={U2} />);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    answer({ status: 'granted' });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.queryByText(/Đã cấp quyền luyện lại cho/)).toBeNull();
+  });
+
+  it('switching while the revoke dialog is open closes it; nothing is revoked under B\'s name', async () => {
+    api.getWith.mockImplementation(routeWith(() => null));
+    const view = render(<AdminLearnerProfile learnerRef={U} />);
+    const zone = await screen.findByRole('region', { name: 'Vùng nguy hiểm' });
+    fireEvent.click(await within(zone).findByRole('button', { name: 'Thu hồi Course 1' }));
+    expect(screen.getByRole('dialog', { name: 'Thu hồi quyền học' })).toBeTruthy();
+    view.rerender(<AdminLearnerProfile learnerRef={U2} />);
+    await screen.findByText(/Không có quyền học nào đang hiệu lực/);
+    expect(screen.queryByRole('dialog', { name: 'Thu hồi quyền học' })).toBeNull();
+    expect(api.post).not.toHaveBeenCalled();
+  });
+
+  it('a revoke for A that answers after the switch shows no banner on B', async () => {
+    let answer: (v: unknown) => void = () => {};
+    api.getWith.mockImplementation(routeWith(() => null));
+    api.post.mockImplementation(() => new Promise((resolve) => { answer = resolve; }));
+    const view = render(<AdminLearnerProfile learnerRef={U} />);
+    const zone = await screen.findByRole('region', { name: 'Vùng nguy hiểm' });
+    fireEvent.click(await within(zone).findByRole('button', { name: 'Thu hồi Course 1' }));
+    const dialog = screen.getByRole('dialog', { name: 'Thu hồi quyền học' });
+    fireEvent.change(within(dialog).getByRole('textbox', { name: /Gõ đúng họ tên/ }), { target: { value: 'Nguyễn Minh Anh' } });
+    fireEvent.change(within(dialog).getByRole('textbox', { name: /Lý do/ }), { target: { value: 'Học viên xin dừng khoá' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Thu hồi quyền' }));
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith(`/admin/entitlements/${E1}/revoke`, { reason: 'Học viên xin dừng khoá' }));
+    view.rerender(<AdminLearnerProfile learnerRef={U2} />);
+    await screen.findByText(/Không có quyền học nào đang hiệu lực/);
+    answer({ status: 'revoked' });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.queryByText(/Đã thu hồi quyền khoá/)).toBeNull();
   });
 });
