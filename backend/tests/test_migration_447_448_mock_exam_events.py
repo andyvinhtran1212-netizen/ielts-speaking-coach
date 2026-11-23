@@ -137,6 +137,8 @@ def test_apply_twice_and_constraints(pg):
         "UPDATE public.mock_exam_sittings SET extra_seconds = '{\"reading\": -1}';",
         "UPDATE public.mock_exam_sittings SET extra_seconds = '{\"reading\": 1.5}';",
         "UPDATE public.mock_exam_sittings SET extra_seconds = '{\"reading\": 86401}';",
+        "UPDATE public.mock_exam_sittings SET extra_seconds = '{\"reading\": [1]}';",
+        "UPDATE public.mock_exam_sittings SET extra_seconds = '{\"reading\": {\"a\": 1}}';",
         "UPDATE public.mock_exam_sittings SET extra_seconds = '{\"speaking\": 60}';",
         "UPDATE public.mock_exam_sittings SET released_skills = ARRAY['reading','reading'];",
         "UPDATE public.mock_exam_sittings SET released_skills = ARRAY['listening','reading','listening'];",

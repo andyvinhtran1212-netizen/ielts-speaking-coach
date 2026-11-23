@@ -38,9 +38,10 @@ BEGIN
                    -- only the three timed sections (Speaking is session-based)
                    AND NOT (extra_seconds - ARRAY['listening', 'reading', 'writing']
                             <> '{}'::jsonb)
-                   -- whole seconds, 0 to 24 h: the timeline reads them with int()
+                   -- whole seconds, 0 to 24 h: the timeline reads them with int();
+                   -- strict, because lax mode unwraps arrays ({"reading": [1]})
                    AND NOT jsonb_path_exists(extra_seconds,
-                       '$.* ? (@.type() != "number" || @ < 0 || @ > 86400 || @.floor() != @)'));
+                       'strict $.* ? (@.type() != "number" || @ < 0 || @ > 86400 || @.floor() != @)'));
     END IF;
 END;
 $chk$;
