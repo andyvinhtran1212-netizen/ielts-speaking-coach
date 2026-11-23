@@ -42,7 +42,7 @@ Yêu cầu chấm lại Writing hiện là một ô chữ 50–500 ký tự, xư
 
 - Khung phiếu dùng chung: "Làm gì tiếp", "Nguồn chấm", trạng thái chờ giáo viên duyệt. Áp lên phiếu Writing, phiếu Speaking và phiếu thi thử.
 - Quy tắc hiện band (gói 5.6) và Overall chỉ ở mock test được giao.
-- Yêu cầu chấm lại Writing có 5 lý do và ghi chú. Gồm một migration trong dải 420–439, API nhận hai dạng body, màn học viên và màn admin.
+- Yêu cầu chấm lại Writing có 5 lý do và ghi chú. Gồm một migration (số 507 đã giữ chỗ), API nhận hai dạng body, màn học viên và màn admin.
 - Khối "Hết lượt chấm" dùng chung (`CreditsEmptyNotice`) và liên kết học cho "việc nên sửa" (`fixLink`).
 - Dòng đoạn được chấm phát âm trên phiếu Speaking (khi G04-T13 đã có dữ liệu) và dòng lượt ở lối "làm lại".
 

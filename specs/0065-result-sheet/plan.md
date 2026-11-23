@@ -44,9 +44,9 @@ Nguồn: gói mục 4.6, 5.6, 5.7, 5.9 (phần T27). Đã đối chiếu với s
 - **Hàm thuần:** `overallLine(result) -> {kind:'band', value} | {kind:'pending', skills:[...]} | null`. Mọi phiếu và Hôm nay dùng chung hàm này.
 - **Không bao giờ hiện:** "0/0", "—" đứng một mình, `NaN`, mã đề nội bộ. Test quét chuỗi trên HTML đã vẽ của ba phiếu.
 
-### 5.2 Migration chấm lại (T21, một file trong dải 420–439)
+### 5.2 Migration chấm lại (T21, số 507 đã giữ chỗ trong `register.tsv`)
 
-Lấy số trống đầu tiên lúc viết PR. Ngày 23/11, 420 đã thuộc LEARNERCORE-0063 và 421 thuộc `review_notes_flag_once` ở nhánh đang mở; 0064 lấy số kế tiếp. Đối chiếu `register.tsv` và các PR đang mở trước khi đặt tên file, và thêm dòng `reserved` sớm để không trùng. Thêm dòng `register.tsv`. Có file rollback.
+File là `507_essay_regrade_reason_code.sql`. Số 507 được giữ chỗ trong `register.tsv` ngày 23/11 (PR giữ số riêng); PR T21 đổi dòng đó từ `reserved` sang `present`. Dải 420–439 không dùng: 420 đã thuộc LEARNERCORE-0063 và 421 thuộc `review_notes_flag_once`. Có file rollback.
 
 ```sql
 ALTER TABLE public.essay_regrade_requests
