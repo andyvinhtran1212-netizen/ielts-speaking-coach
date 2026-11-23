@@ -38,6 +38,7 @@ import routers.admin_commerce as commerce_module
 import routers.auth as auth_module
 from config import settings
 from services import activation_gate, staff_guard
+from services import credits as credits_module
 from services.activation_gate import is_staff_path
 
 from tests.test_staff_guard import (  # shared fakes
@@ -398,6 +399,18 @@ CONDITIONAL_STEP_UP_ROUTES = {
         "normalize": "step_up_credits = CREDIT_STEP_UP_THRESHOLD + 1 if body.credits is None else body.credits",
         "condition": "step_up_credits > CREDIT_STEP_UP_THRESHOLD",
     },
+    # COURSEACCESS-0055 Q13 (G04-T12): a class grant always, else > 50 credits.
+    ("POST", "/admin/credits/grant-extra"): {
+        "guarded": lambda: {"body": commerce_module.GrantExtra(
+            cohort_id="11111111-1111-1111-1111-111111111111", credits=1, reason="bù bài lỗi",
+            request_key="22222222-2222-2222-2222-222222222222")},
+        "ordinary": lambda: {"body": commerce_module.GrantExtra(
+            user_ids=["33333333-3333-3333-3333-333333333333"],
+            entitlement_id="44444444-4444-4444-4444-444444444444", credits=50, reason="bù bài lỗi",
+            request_key="22222222-2222-2222-2222-222222222222")},
+        "normalize": "needs_step_up = body.needs_step_up",
+        "condition": "needs_step_up",
+    },
 }
 ALL_STEP_UP_ROUTES = STEP_UP_ROUTES | frozenset(CONDITIONAL_STEP_UP_ROUTES)
 
@@ -530,7 +543,8 @@ def _refuse_every_step_up_route(token: str) -> dict:
 def step_up_db(live_activation_gate, monkeypatch):
     TOKENS.clear()
     db = _DB()
-    for module in (admin_module, activation_gate, commerce_module):
+    # services.credits: the grant-extra handler's own DB reads (G04-T12).
+    for module in (admin_module, activation_gate, credits_module, commerce_module):
         monkeypatch.setattr(module, "supabase_admin", db)
     monkeypatch.setattr(auth_module, "_get_auth_http_client", lambda: _AuthClient([]))
     monkeypatch.setattr(settings, "ADMIN_AAL2_ENFORCE", True)

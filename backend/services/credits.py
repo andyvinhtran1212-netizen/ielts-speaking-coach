@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
@@ -354,3 +355,123 @@ async def reserve(user_id: UUID | str, feature: str, *, request_key: str, resour
     if status in ("no_entitlement", "request_key_conflict", "not_owner"):
         raise CreditRefused(status, source)
     raise CreditUnavailable(f"reserve_{status}")
+
+
+# ── Extra credits (plan 5.15, G04-T12) ───────────────────────────────────────
+
+CREDIT_STEP_UP_THRESHOLD = 50  # Q13: a constant, not an env value
+_CLASS_KINDS = ("class", "repractice")
+
+
+class GrantExtraRefused(Exception):
+    """A request the admin must change: 404 ``cohort_not_found`` /
+    ``entitlement_not_found`` or 422 ``not_in_cohort``."""
+
+    def __init__(self, status_code: int, error_code: str):
+        super().__init__(error_code)
+        self.status_code = status_code
+        self.error_code = error_code
+
+
+@dataclass
+class GrantExtraResult:
+    granted: list[dict]
+    skipped: list[dict]
+
+
+def _cohort_user_ids(cohort_id: str) -> list[str]:
+    from services import class_membership_service as cms
+    rows = cms.active_students_for_cohort(supabase_admin, cohort_id, columns="id, user_id")
+    return sorted({str(r["user_id"]) for r in rows if isinstance(r, dict) and r.get("user_id")})
+
+
+_IN_FILTER_LOT = 100
+
+
+def _class_entitlements(user_ids: list[str], course_id: str) -> dict[str, str]:
+    """Per learner, the class or re-practice entitlement of the course that can
+    still take credits; several → the one that ends last (no end = last)."""
+    rows: list[dict] = []
+    # Lots of 100: 500 UUIDs in one in.() filter make a URL of about 18 KB.
+    for start in range(0, len(user_ids), _IN_FILTER_LOT):
+        res = (
+            supabase_admin.table("entitlements").select(ent._ENTITLEMENT_COLUMNS)
+            .in_("user_id", user_ids[start:start + _IN_FILTER_LOT])
+            .eq("course_id", course_id).eq("status", "active").execute()
+        )
+        rows.extend(res.data or [])
+    if not rows:
+        return {}
+    products = ent.fetch_products(r.get("product_id") for r in rows)
+    now = datetime.now(timezone.utc)
+    best: dict[str, tuple] = {}
+    for row in rows:
+        if products.get(str(row.get("product_id")), {}).get("kind") not in _CLASS_KINDS:
+            continue
+        if not ent._credit_usable(row, now):
+            continue
+        ends = ent.parse_ts(row.get("expires_at"))
+        key = (ends is None, ends or now, str(row["id"]))
+        user = str(row["user_id"])
+        if user not in best or key > best[user][0]:
+            best[user] = (key, str(row["id"]))
+    return {user: value[1] for user, value in best.items()}
+
+
+def _grant_one(admin_id: str, entitlement_id: str, credits: int, reason: str, request_key: str) -> dict:
+    raw = supabase_admin.rpc("fn_credit_grant_extra", {
+        "p_actor_id": admin_id, "p_actor_kind": "admin", "p_entitlement_id": entitlement_id,
+        "p_credits": credits, "p_reason": reason, "p_request_key": request_key,
+    }).execute().data
+    return _unwrap(raw)
+
+
+def grant_extra_for(*, admin_id: str, credits: int, reason: str, request_key: str,
+                    cohort_id: Optional[str] = None, user_ids: Optional[list[str]] = None,
+                    entitlement_id: Optional[str] = None) -> GrantExtraResult:
+    """``POST /admin/credits/grant-extra``. One RPC per learner with the same
+    request key, so calling the whole batch again adds nothing. Sync (run it in
+    a thread); a transport or PostgREST failure raises as is."""
+    targets: list[tuple[str, str]] = []
+    skipped: list[dict] = []
+    if cohort_id:
+        cohort = _first(supabase_admin.table("cohorts").select("id, course_id")
+                        .eq("id", cohort_id).limit(1).execute())
+        if cohort is None:
+            raise GrantExtraRefused(404, "cohort_not_found")
+        members = _cohort_user_ids(cohort_id)
+        if user_ids:
+            wanted = sorted({str(u) for u in user_ids})
+            if set(wanted) - set(members):
+                raise GrantExtraRefused(422, "not_in_cohort")
+            members = wanted
+        course_id = str(cohort["course_id"]) if cohort.get("course_id") else None
+        chosen = _class_entitlements(members, course_id) if course_id else {}
+        for user in members:
+            if user in chosen:
+                targets.append((user, chosen[user]))
+            else:
+                skipped.append({"user_id": user, "reason": "no_class_entitlement"})
+    else:
+        user = str(user_ids[0])
+        row = _first(supabase_admin.table("entitlements").select("id, user_id")
+                     .eq("id", entitlement_id).limit(1).execute())
+        if row is None or str(row.get("user_id")) != user:
+            raise GrantExtraRefused(404, "entitlement_not_found")
+        targets.append((user, str(entitlement_id)))
+    granted: list[dict] = []
+    for user, entitlement in targets:
+        result = _grant_one(admin_id, entitlement, credits, reason, request_key)
+        if result["status"] in ("granted", "replay"):
+            # A replay names the entitlement the first call credited, which may
+            # not be the one chosen now (the key is per learner, not per entitlement).
+            granted.append({"user_id": user, "entitlement_id": str(result.get("entitlement_id") or entitlement),
+                            "balance": int(result.get("balance") or 0)})
+        elif result["status"] == "request_key_conflict":
+            raise GrantExtraRefused(409, "request_key_conflict")
+        elif result["status"] in ("not_usable", "not_found"):
+            skipped.append({"user_id": user, "reason": "not_usable"})
+        else:
+            raise CreditUnavailable(f"grant_extra_{result['status']}")
+    logger.info("[credits] lifecycle=grant_extra count=%s skipped=%s", len(granted), len(skipped))
+    return GrantExtraResult(granted=granted, skipped=skipped)

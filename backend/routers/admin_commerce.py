@@ -3,13 +3,15 @@
 ``/admin/enrollment-orders``: list with search, counts per status, one order
 with its events, and the three admin actions (confirm, request-info,
 cancel). Each action is one 384 RPC, which writes the event row and the
-learner letter in the same transaction. Products, entitlements and credits
-(G04-T05) join this router later.
+learner letter in the same transaction. ``POST /admin/credits/grant-extra``
+(G04-T12, plan 5.15) grants extra credits through 385's RPC. Products,
+entitlements and the other credit routes (G04-T05) join this router later.
 
 Every handler awaits ``require_admin`` as its first statement
 (``tests/test_staff_guard_inventory.py``). The actions are not step-up
 routes yet (Q13), but declare ``STEP_UP_RESPONSES`` so turning it on later
-does not change the contract.
+does not change the contract. grant-extra is a conditional step-up route
+(Q13): a class grant, or more than 50 credits in one request.
 """
 
 from __future__ import annotations
@@ -22,11 +24,12 @@ from typing import Literal, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Header, HTTPException, Path, Query
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from config import settings
 from database import supabase_admin
 from routers.admin import require_admin
+from services import credits
 from services import enrollment_orders as eo
 from services import entitlements as ent
 from services import staff_guard
@@ -966,3 +969,75 @@ async def post_adjust(body: AdjustCredits, authorization: Optional[str] = Header
     result = await _run(adjust_credits, str(admin["id"]), body)
     logger.info("[admin-commerce] credits %s", result["status"])
     return result
+
+
+# ── Extra credits (plan 5.15, G04-T12) ───────────────────────────────────────
+
+
+class GrantExtra(BaseModel):
+    """With ``cohort_id``: the whole class, or the listed members of it. Without:
+    exactly one learner and the ``entitlement_id`` to credit (profile page)."""
+
+    cohort_id: Optional[str] = Field(default=None, pattern=_UUID)
+    user_ids: Optional[list[str]] = Field(default=None, max_length=500)
+    entitlement_id: Optional[str] = Field(default=None, pattern=_UUID)
+    credits: int = Field(ge=1, le=100_000)
+    reason: str = Field(min_length=3, max_length=500)
+    request_key: UUID
+
+    @field_validator("user_ids")
+    @classmethod
+    def _user_ids_are_uuids(cls, value):
+        if value is not None:
+            for item in value:
+                if not re.fullmatch(_UUID, item or ""):
+                    raise ValueError("user_ids must be UUIDs")
+        return value
+
+    @field_validator("reason")
+    @classmethod
+    def _reason_trimmed(cls, value: str) -> str:
+        value = value.strip()
+        if len(value) < 3:
+            raise ValueError("reason needs 3..500 characters")
+        return value
+
+    @model_validator(mode="after")
+    def _target(self):
+        if self.cohort_id is None and (not self.user_ids or len(self.user_ids) != 1 or not self.entitlement_id):
+            raise ValueError("without cohort_id, send exactly one user_id and its entitlement_id")
+        if self.cohort_id is not None and self.entitlement_id is not None:
+            raise ValueError("entitlement_id is only for one learner without cohort_id")
+        return self
+
+    @property
+    def needs_step_up(self) -> bool:
+        # Q13: a class grant always (its size is unknown before a DB read);
+        # otherwise when the credits granted by this request exceed 50.
+        return self.cohort_id is not None or \
+            self.credits * len(self.user_ids or [1]) > credits.CREDIT_STEP_UP_THRESHOLD
+
+
+@router.post("/credits/grant-extra", responses=staff_guard.STEP_UP_RESPONSES)
+async def grant_extra(body: GrantExtra, authorization: Optional[str] = Header(None)):
+    admin = await require_admin(authorization)
+    needs_step_up = body.needs_step_up
+    if needs_step_up:
+        staff_guard.require_recent_mfa(admin, authorization)
+    try:
+        result = await asyncio.to_thread(
+            credits.grant_extra_for, admin_id=str(admin["id"]), credits=body.credits, reason=body.reason,
+            request_key=str(body.request_key), cohort_id=body.cohort_id, user_ids=body.user_ids,
+            entitlement_id=body.entitlement_id)
+    except credits.GrantExtraRefused as exc:
+        messages = {
+            "cohort_not_found": "Không tìm thấy lớp.",
+            "entitlement_not_found": "Không tìm thấy quyền học này của học viên.",
+            "not_in_cohort": "Có học viên không thuộc lớp này.",
+            "request_key_conflict": "Mã yêu cầu này đã dùng với số lượt hoặc lý do khác. Tải lại trang rồi cấp lại.",
+        }
+        raise _error(exc.status_code, exc.error_code, messages[exc.error_code]) from None
+    except Exception as exc:
+        logger.warning("[credits] grant_extra failed: %s", type(exc).__name__)
+        raise _error(503, "credits_unavailable", "Chưa cấp được lượt. Vui lòng thử lại.") from None
+    return {"granted": result.granted, "skipped": result.skipped}

@@ -2281,6 +2281,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/credits/grant-extra": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Grant Extra */
+        post: operations["grant_extra_admin_credits_grant_extra_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/cohorts/{cohort_id}/lessons": {
         parameters: {
             query?: never;
@@ -19323,6 +19340,28 @@ export interface components {
              */
             request_key: string;
         };
+        /**
+         * GrantExtra
+         * @description With ``cohort_id``: the whole class, or the listed members of it. Without:
+         *     exactly one learner and the ``entitlement_id`` to credit (profile page).
+         */
+        GrantExtra: {
+            /** Cohort Id */
+            cohort_id?: string | null;
+            /** User Ids */
+            user_ids?: string[] | null;
+            /** Entitlement Id */
+            entitlement_id?: string | null;
+            /** Credits */
+            credits: number;
+            /** Reason */
+            reason: string;
+            /**
+             * Request Key
+             * Format: uuid
+             */
+            request_key: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -29518,6 +29557,50 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["AdjustCredits"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Not an active admin, `mfa_required` (FR-012), or `step_up_required` under ADMIN_STEP_UP_ENFORCE (FR-020; `reason: new_factor_cooloff` for a factor under 24 hours old) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffForbiddenResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    grant_extra_admin_credits_grant_extra_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrantExtra"];
             };
         };
         responses: {
