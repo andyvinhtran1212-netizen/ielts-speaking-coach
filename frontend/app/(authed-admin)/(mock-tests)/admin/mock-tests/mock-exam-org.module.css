@@ -1,0 +1,311 @@
+/* MOCKORG-0086 T032: Kỳ thi list and "Tổ chức kỳ thi". Tokens only (--av2-*). */
+.page {
+  display: grid;
+  gap: var(--av2-space-5);
+  padding: var(--av2-space-6);
+  font-family: var(--av2-font-sans);
+  color: var(--av2-ink);
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--av2-space-4);
+}
+
+.head h1 {
+  margin: 0;
+  font-family: var(--av2-font-serif);
+  font-size: var(--av2-fs-20);
+  line-height: var(--av2-lh-tight);
+}
+
+.head p {
+  margin: var(--av2-space-1) 0 0;
+  color: var(--av2-muted);
+  font-size: var(--av2-fs-14);
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--av2-space-2);
+}
+
+.chip {
+  min-height: var(--av2-control-sm);
+  padding: 0 var(--av2-space-3);
+  border: var(--av2-rule-w) solid var(--av2-rule);
+  border-radius: var(--av2-radius);
+  background: var(--av2-surface);
+  color: var(--av2-ink);
+  font: inherit;
+  font-size: var(--av2-fs-14);
+  cursor: pointer;
+}
+
+.chip[aria-pressed='true'] {
+  border-color: var(--av2-ink);
+  font-weight: var(--av2-fw-strong);
+}
+
+.chip span {
+  margin-left: var(--av2-space-1);
+  color: var(--av2-muted);
+}
+
+.chip:focus-visible,
+.stepButton:focus-visible,
+.skill:focus-visible {
+  outline: var(--av2-rule-strong-w) solid var(--av2-focus);
+  outline-offset: var(--av2-focus-offset);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--av2-fs-14);
+}
+
+.table th,
+.table td {
+  padding: var(--av2-space-3);
+  border-bottom: var(--av2-rule-w) solid var(--av2-rule);
+  text-align: left;
+  vertical-align: top;
+}
+
+.table th {
+  color: var(--av2-muted);
+  font-weight: var(--av2-fw-strong);
+  font-size: var(--av2-fs-13);
+}
+
+.table a {
+  color: var(--av2-link);
+  font-weight: var(--av2-fw-strong);
+}
+
+.sub {
+  display: block;
+  color: var(--av2-muted);
+  font-size: var(--av2-fs-13);
+}
+
+.state {
+  white-space: nowrap;
+}
+
+.legend {
+  margin: 0;
+  color: var(--av2-muted);
+  font-size: var(--av2-fs-13);
+}
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--av2-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stepButton {
+  width: 100%;
+  min-height: var(--av2-control-lg);
+  padding: var(--av2-space-2) var(--av2-space-3);
+  border: var(--av2-rule-w) solid var(--av2-rule);
+  border-radius: var(--av2-radius);
+  background: var(--av2-surface);
+  color: var(--av2-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.stepButton[aria-current='step'] {
+  border-color: var(--av2-ink);
+  border-width: var(--av2-rule-strong-w);
+}
+
+.stepButton strong {
+  display: block;
+}
+
+.stepButton small {
+  color: var(--av2-muted);
+  font-size: var(--av2-fs-12);
+}
+
+.section {
+  display: grid;
+  gap: var(--av2-space-4);
+  padding: var(--av2-space-5);
+  border: var(--av2-rule-w) solid var(--av2-rule);
+  border-radius: var(--av2-radius);
+  background: var(--av2-surface);
+}
+
+.section h2 {
+  margin: 0;
+  font-size: var(--av2-fs-16);
+}
+
+.skills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--av2-space-2);
+}
+
+.skill {
+  min-height: var(--av2-control-sm);
+  padding: 0 var(--av2-space-3);
+  border: var(--av2-rule-w) solid var(--av2-rule);
+  border-radius: var(--av2-radius);
+  background: var(--av2-surface);
+  color: var(--av2-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.skill[aria-pressed='true'] {
+  border-color: var(--av2-ink);
+  color: var(--av2-ink);
+  font-weight: var(--av2-fw-strong);
+}
+
+.skill:disabled {
+  cursor: not-allowed;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--av2-space-3);
+  align-items: flex-end;
+}
+
+.modes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--av2-space-3);
+}
+
+.mode {
+  display: grid;
+  gap: var(--av2-space-1);
+  padding: var(--av2-space-4);
+  border: var(--av2-rule-w) solid var(--av2-rule);
+  border-radius: var(--av2-radius);
+  cursor: pointer;
+}
+
+.mode:has(input:checked) {
+  border-color: var(--av2-ink);
+  border-width: var(--av2-rule-strong-w);
+}
+
+.mode small,
+.help {
+  color: var(--av2-muted);
+  font-size: var(--av2-fs-13);
+}
+
+.field {
+  display: grid;
+  gap: var(--av2-space-1);
+  font-size: var(--av2-fs-14);
+}
+
+.field input,
+.field select {
+  min-height: var(--av2-control-md);
+  padding: 0 var(--av2-space-2);
+  border: var(--av2-rule-w) solid var(--av2-rule);
+  border-radius: var(--av2-radius);
+  background: var(--av2-surface);
+  color: var(--av2-ink);
+  font: inherit;
+}
+
+.summary {
+  display: grid;
+  gap: var(--av2-space-3);
+  margin: 0;
+}
+
+.summary div {
+  display: grid;
+  grid-template-columns: 10rem minmax(0, 1fr) auto;
+  gap: var(--av2-space-3);
+  align-items: baseline;
+}
+
+.summary dt {
+  color: var(--av2-muted);
+}
+
+.summary dd {
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--av2-space-3);
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.saved {
+  color: var(--av2-muted);
+  font-size: var(--av2-fs-13);
+}
+
+.missing {
+  margin: 0;
+  padding-left: var(--av2-space-5);
+}
+
+@media (max-width: 1100px) {
+  .page {
+    padding: var(--av2-space-4);
+  }
+
+  .hideNarrow {
+    display: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .steps,
+  .modes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .table thead {
+    display: none;
+  }
+
+  .table tr {
+    display: grid;
+    padding: var(--av2-space-3) 0;
+    border-bottom: var(--av2-rule-w) solid var(--av2-rule);
+  }
+
+  .table td {
+    padding: var(--av2-space-1) 0;
+    border: 0;
+  }
+
+  .summary div {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .summary dt {
+    grid-column: 1 / -1;
+  }
+}
