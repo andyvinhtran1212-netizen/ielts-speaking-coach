@@ -125,8 +125,12 @@ export function WritingSamplesBrowser({ query, data, notice = null, detailLive }
   }
 
   function change(patch: Partial<ListQuery>) {
+    // A search still inside its 300 ms wait goes along with the filter change
+    // instead of being dropped; an explicit q in the patch (its chip) wins.
+    const pendingSearch = timer.current ? { q: text } : {};
     if (timer.current) clearTimeout(timer.current);
-    go(changeListQuery(shown, patch) as ListQuery);
+    timer.current = null;
+    go(changeListQuery(shown, { ...pendingSearch, ...patch }) as ListQuery);
   }
 
   function typed(value: string) {

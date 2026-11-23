@@ -92,6 +92,18 @@ describe('Writing sample list', () => {
     expect(router.replace).toHaveBeenCalledWith('/library/writing-samples?q=work', { scroll: false });
   });
 
+  it('a filter chosen while a search is still waiting keeps that search', () => {
+    vi.useFakeTimers();
+    render(<WritingSamplesBrowser query={q()} data={list(30)} detailLive={false} />);
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Tìm trong đề' }), { target: { value: 'work' } });
+    act(() => { vi.advanceTimersByTime(100); });
+    fireEvent.click(screen.getByRole('radio', { name: /^Task 2/ }));
+    expect(router.replace).toHaveBeenCalledTimes(1);
+    expect(router.replace).toHaveBeenCalledWith('/library/writing-samples?task=task2&q=work', { scroll: false });
+    act(() => { vi.advanceTimersByTime(400); });
+    expect(router.replace).toHaveBeenCalledTimes(1);
+  });
+
   it('one page: no pagination; more pages: links keep the filters', () => {
     const { unmount } = render(<WritingSamplesBrowser query={q()} data={list(9)} detailLive={false} />);
     expect(screen.queryByRole('navigation', { name: 'Phân trang' })).toBeNull();
