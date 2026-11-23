@@ -67,11 +67,21 @@ export function AdminLearnerProfile({ learnerRef }: { learnerRef: string }) {
   const query = search?.toString() ?? '';
   const tab = useMemo(() => parseTab(query), [query]);
 
-  const [detail, setDetail] = useState<LearnerDetailWire | null>(null);
-  const [detailError, setDetailError] = useState<string | null>(null);
-  const [overview, setOverview] = useState<LearnerOverviewWire | null>(null);
-  const [overviewError, setOverviewError] = useState<string | null>(null);
-  const [pick, setPick] = useState<'admin' | 'learner' | null>(null);
+  // A read answers for the ref it was made on. While the page is on another
+  // ref (client navigation, before its own read is back) nothing of the old
+  // profile is rendered, so no action can be started from the old person's data.
+  const [detailFor, setDetailFor] = useState<{ ref: string; detail: LearnerDetailWire } | null>(null);
+  const detail = detailFor && detailFor.ref === learnerRef ? detailFor.detail : null;
+  const [errorFor, setErrorFor] = useState<{ ref: string; text: string } | null>(null);
+  const detailError = errorFor && errorFor.ref === learnerRef ? errorFor.text : null;
+  // Same rule for the overview: shown only on the ref it was read for.
+  const [overviewFor, setOverviewFor] = useState<{ ref: string; overview: LearnerOverviewWire | null; error: string | null } | null>(null);
+  const overview = overviewFor && overviewFor.ref === learnerRef ? overviewFor.overview : null;
+  const overviewError = overviewFor && overviewFor.ref === learnerRef ? overviewFor.error : null;
+  // The goal confirm belongs to the profile it was opened on, like the banner.
+  const [pickFor, setPickFor] = useState<{ ref: string; use: 'admin' | 'learner' } | null>(null);
+  const pick = pickFor && pickFor.ref === learnerRef ? pickFor.use : null;
+  const setPick = useCallback((use: 'admin' | 'learner' | null) => setPickFor(use ? { ref: learnerRef, use } : null), [learnerRef]);
   const [busy, setBusy] = useState(false);
   // A result banner belongs to the profile it was written on; after a change
   // of profile it is not shown.
@@ -100,33 +110,36 @@ export function AdminLearnerProfile({ learnerRef }: { learnerRef: string }) {
   const loadDetail = useCallback(async () => {
     // Only the newest read is shown: an older answer (another profile, or a
     // reload overtaken by a later one) is dropped.
+    // A reload asked for by the previous profile (an old write's answer) starts
+    // nothing: it must not overtake the read of the profile now on screen.
+    if (learnerRef !== learnerRefNow.current) return;
     const id = ++detailSeq.current;
-    setDetailError(null);
+    setErrorFor(null);
     try {
       const out = await getLearnerDetail(learnerRef);
       // A reload started on the previous profile (an old write's answer) is dropped too.
       if (id !== detailSeq.current || learnerRef !== learnerRefNow.current) return;
       const canonical = canonicalHref(learnerRef, out.canonical_ref, queryRef.current);
       if (canonical) { routerRef.current.replace(canonical); return; }
-      setDetail(out);
+      setDetailFor({ ref: learnerRef, detail: out });
     } catch (caught) {
       if (id !== detailSeq.current || learnerRef !== learnerRefNow.current) return;
       console.warn('[admin-learner-profile] detail load failed', caught);
-      setDetailError((caught as { status?: number })?.status === 404 ? 'Không tìm thấy học viên này.' : messageOf(caught));
+      setErrorFor({ ref: learnerRef, text: (caught as { status?: number })?.status === 404 ? 'Không tìm thấy học viên này.' : messageOf(caught) });
     }
   }, [learnerRef]);
 
   const loadOverview = useCallback(async () => {
+    if (learnerRef !== learnerRefNow.current) return;
     const id = ++overviewSeq.current;
-    setOverviewError(null);
+    setOverviewFor((prev) => (prev && prev.ref === learnerRef ? { ...prev, error: null } : null));
     try {
       const out = await getLearnerOverview(learnerRef);
-      if (id === overviewSeq.current) setOverview(out);
+      if (id === overviewSeq.current) setOverviewFor({ ref: learnerRef, overview: out, error: null });
     } catch (caught) {
       if (id !== overviewSeq.current) return;
       console.warn('[admin-learner-profile] overview load failed', caught);
-      setOverview(null);
-      setOverviewError(messageOf(caught));
+      setOverviewFor({ ref: learnerRef, overview: null, error: messageOf(caught) });
     }
   }, [learnerRef]);
 
@@ -148,7 +161,7 @@ export function AdminLearnerProfile({ learnerRef }: { learnerRef: string }) {
     try {
       const out = await resolveLearnerGoal(learnerRef, use, goalSeen(overview.goal));
       setBanner({ kind: 'success', text: 'Đã ghi mục tiêu vào cả hồ sơ lớp và trang Tài khoản. Nhật ký hệ thống có dòng mới.' });
-      setOverview((prev) => (prev ? { ...prev, goal: out.goal } : prev));
+      setOverviewFor((prev) => (prev && prev.ref === learnerRef && prev.overview ? { ...prev, overview: { ...prev.overview, goal: out.goal } } : prev));
       void loadDetail();
     } catch (caught) {
       setBanner({ kind: 'error', text: goalErrorText(caught) });
@@ -157,7 +170,7 @@ export function AdminLearnerProfile({ learnerRef }: { learnerRef: string }) {
       void loadDetail();
     } finally {
       setBusy(false);
-      setPick(null);
+      setPickFor((prev) => (prev && prev.ref === learnerRef ? null : prev));
     }
   };
 

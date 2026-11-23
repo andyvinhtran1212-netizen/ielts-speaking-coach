@@ -56,6 +56,13 @@ export function LearnerAccessTab({ learnerRef, detail, reloadKey = 0, onChanged 
   const ctx = accessContext(profile.id, learnerRef, detail);
   const ctxRef = useRef(ctx);
   ctxRef.current = ctx;
+  // The tab unmounts while another profile loads; an answer that comes back
+  // after that belongs to nobody on screen.
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
   // The pick is kept with the profile and the role it was made against, so a
   // reload that changes the server's role, or another profile, starts the
   // select again from the server's role. Derived in render, not reset in an
@@ -72,7 +79,8 @@ export function LearnerAccessTab({ learnerRef, detail, reloadKey = 0, onChanged 
   // profile does not bring an old pick or an old dialog back (state adjusted
   // during render, React's pattern for a prop change).
   if (stored && stored.ctx !== ctx) { setPending(null); setError(''); }
-  if (choice && choice.ctx !== ctx) setChoice(null);
+  // Also once the server's role moved: a pick made on A is not brought back by a later A -> B -> A.
+  if (choice && (choice.ctx !== ctx || choice.from !== currentRole)) setChoice(null);
 
   const open = (next: NonNullable<Pending>) => { setError(''); setPending(next); };
   const close = () => { if (!busy) { setPending(null); setError(''); } };
@@ -108,7 +116,7 @@ export function LearnerAccessTab({ learnerRef, detail, reloadKey = 0, onChanged 
     // The answer belongs to the profile the confirm was opened on; after a
     // change of profile it is dropped (no banner, no error, no reload of the
     // new profile with the old result).
-    const current = () => ctxRef.current === sent.ctx;
+    const current = () => mounted.current && ctxRef.current === sent.ctx;
     setBusy(true);
     setError('');
     try {
