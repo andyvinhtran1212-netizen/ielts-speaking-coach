@@ -95,7 +95,9 @@ chiếu ở `verification.md`.
   `test`, tiếng Anh: "Mock test · <tên kỳ thi>", "Section i of n: <tên phần>", "Time remaining"
   từ `sectionTimeLeftSeconds` của máy chủ (neo như hôm nay), mốc 5 phút và 0 theo 0066 FR-018,
   kèm câu hiện có "This section will be submitted automatically." Không in email hay tên.
-  `isFullTest` luôn đúng (màn chặn điện thoại PHONEGATE-0081, phòng thi luôn sáng). Trang con
+  `isFullTest` luôn đúng: phòng thi luôn sáng; màn chặn điện thoại của PHONEGATE-0081 chỉ gắn khi
+  spec đó đã lên `staging`. Trước đó theo phương án dự phòng 0066 FR-024: không chặn, chỉ luôn sáng,
+  và thân bài dưới 768px vẫn dùng được (iframe cuộn dọc). Trang con
   nhúng chạy chế độ `embedded` của khung (0067, 0070): không thanh trên, không đồng hồ, không
   nộp, không thoát.
 - **FR-004:** Không có nút nộp tay ở kỳ `sequential`, `live` và `retake`: một phần kết thúc khi
@@ -112,15 +114,24 @@ chiếu ở `verification.md`.
   hỏi; "Time is up. Your test has been submitted." kèm số từ từng task chỉ hiện khi nộp được xác
   nhận (FR-007).
 - **FR-007:** Trạng thái nộp theo EXAMROOM-0066 FR-034, suy từ `submitSection` hiện có:
-  - `confirmed`: `isMockSubmitSettled` đúng sau `loadState` và phần đó có `submittedAt` (hoặc
-    giám thị thu sau khi `flush-ack` của tab này thành công).
+  - `confirmed` cần **cả hai**: (1) trạng thái nộp từ máy chủ cho đúng sitting và đúng phần —
+    `loadState` thấy `*SubmittedAt` của phần đó (Writing: `writingSubmittedAt`; Reading/Listening:
+    `readingSubmittedAt`/`listeningSubmittedAt`, cùng lượt domain ở `submitted`), kể cả khi giám thị
+    thu; và (2) bằng chứng câu cuối đã được giữ: lần `mock-flushed` gần nhất báo `unsaved: 0` (hoặc
+    Writing `bridge.flush` thành công với đúng chữ trong ô) **trước** mốc nộp đó. `flush-ack` thành
+    công chỉ là báo lần lưu cuối cho đợt thu, **không** phải xác nhận đã nộp: chỉ có ACK thì vẫn
+    `submitting`/chờ, không hiện "submitted". `isMockSubmitSettled` (đúng cả khi `activeSection`
+    đã đổi) không đủ một mình cho `confirmed` ở nhánh mới.
   - `unconfirmed`: lỗi tạm, offline, 401, mất phản hồi. Nhánh mới tự thử lại tối đa 3 lần (theo
     0066 FR-034, nhánh cũ giữ 4), cùng ý định hai bước của `coreOperationRequest`; rồi
     `unconfirmed_manual` với "Try again" (gọi lại `submitSection`).
-  - `closed_unconfirmed`: máy chủ đã đóng phần (giám thị thu, hoặc phần quá giờ và máy chủ tự
-    nộp) trong khi tab này còn câu chưa lưu (flush thất bại hoặc `unsaved > 0`): "This section
-    was closed by our server at HH:MM. Your answers were saved up to HH:MM." Không thử lại,
-    không nói "submitted" cho phần chưa lưu.
+  - `closed_unconfirmed`: máy chủ đã đóng phần (có `*SubmittedAt`, giám thị thu, hoặc sitting
+    không còn ở trạng thái làm bài) mà câu cuối chưa được xác nhận theo (2): "This section was
+    closed by our server at HH:MM." với HH:MM là mốc `*SubmittedAt` máy chủ trả. Câu "Your answers
+    were saved up to HH:MM" chỉ hiện khi máy chủ trả mốc lưu đó; trình **không tự suy** giờ lưu từ
+    đồng hồ máy hay từ lần ACK. Không thử lại, không nói "submitted".
+  - Máy chủ chưa đóng phần mà domain submit lỗi hoặc xác nhận phần thi chưa tới (dù `flush-ack`
+    đã thành công): ở `unconfirmed`/`unconfirmed_manual`, không hiện đã nộp.
   - 403/404: giữ thông điệp hiện có ("Contact your invigilator."), không thêm thử lại.
 - **FR-008:** Lối thoát (FR-08-011): "Leave test" mở hộp "Leave the test?" với "Continue test"
   (chính) và "Leave test", câu "Your answers so far are saved. The timer keeps running while
@@ -130,12 +141,17 @@ chiếu ở `verification.md`.
   `SubmittedCard`); quay lại trong giờ thì `loadState` vào đúng phần với thời gian còn lại theo
   máy chủ.
 - **FR-009:** Thu bài của giám thị: trong lúc chờ `flush-ack`, khung khoá thân bài (`inert` như
-  hôm nay) và hiện "Saving your final answers…"; không mở hộp nào chặn.
+  hôm nay) và hiện "Saving your final answers…"; không mở hộp nào chặn. Hộp đang mở (ví dụ
+  "Leave the test?") khi giám thị thu thì tự đóng rồi chuyển sang "Saving your final answers…";
+  lối thoát không tiếp tục điều hướng trong lúc thu.
 - **FR-010:** Bản sao Writing theo 0066 FR-035, khoá
   `exam-room:local-copy:mock:{ownerKey}:{sittingId}`, mỗi task có `baseText` (đúng chữ máy chủ
   ack lần cuối, hoặc chữ đọc lúc mở phần) và `baseSavedAt` (chỉ để hiện giờ). Khôi phục so chữ
   máy chủ với `baseText`, không so dấu thời gian (bỏ phép so `submittedAt` với `ts` của máy học
   viên trong nhánh mới; nhánh cũ giữ `chooseWritingDraft`).
+  - Trong `answers` của bản sao (lib của 0066 đánh khoá theo `q`), hai task là `q = 'task1'` và
+    `q = 'task2'`. So theo chữ là đề xuất sửa đổi 1 mục (c) của 0066 (bên review soạn); tới khi
+    mục đó được duyệt, T001 không gửi lại tự động bản trên máy mà hỏi học viên khi chữ khác.
   - Khoá cũ `mock-writing:{sittingId}:{task}` không có mốc: chỉ đọc khi sitting thuộc tài khoản
     đang đăng nhập; bằng chữ máy chủ thì bỏ; khác thì không tự ghi đè, hỏi học viên ("Use the
     text on this device" / "Keep the saved text"); khoá cũ chỉ bị xoá sau khi khoá mới đọc lại
@@ -154,7 +170,9 @@ chiếu ở `verification.md`.
   `attemptKey=sittingId`). Tab chỉ-đọc không lưu Writing, không gửi `flush-ack`, không nộp, và
   không nạp iframe (iframe tự giữ khoá của trang con).
 - **FR-014:** Phía học viên của kỳ thi được giao (FR-08-043, G08-T22, sau G09-T31 và cờ
-  `mock_exam_audiences_learner`; cờ tắt thì đường `cohort_id`/`mock_exam_assignments` y nguyên):
+  `mock_exam_audiences_learner`; cờ tắt thì đường `cohort_id`/`mock_exam_assignments` y nguyên).
+  Phần này **chỉ được viết code sau khi MOCKORG-0086 được anh Andy duyệt** và G09-T31 lên
+  `staging`; `self_paced_timeline` và `mock_exam_audiences` là hợp đồng của 0086, đổi theo 0086:
   - Cổng vào và API kỳ thi của học viên đọc `mock_exam_audiences`; người không trong danh sách
     nhận 404 như kỳ không tồn tại.
   - `live`: phòng chờ, giám thị mở từng phần, như FR-004.
@@ -193,8 +211,10 @@ chiếu ở `verification.md`.
 
 - **Given** giám thị thu phần Listening, tab này offline và còn 2 câu chưa lưu
 - **When** có mạng lại sau khi máy chủ đã đóng phần
-- **Then** "This section was closed by our server at HH:MM. Your answers were saved up to
-  HH:MM."; không thử lại, không "submitted".
+- **Then** "This section was closed by our server at HH:MM." (mốc của máy chủ); không thử lại,
+  không "submitted", không tự suy giờ lưu.
+- **Given** `flush-ack` thành công nhưng domain submit lỗi, hoặc `*SubmittedAt` của phần chưa tới
+- **Then** không hiện đã nộp; ở `unconfirmed` rồi `unconfirmed_manual`.
 
 ### Scenario 3: rời giữa phần Writing
 
