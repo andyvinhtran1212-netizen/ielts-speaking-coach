@@ -81,6 +81,13 @@ Mọi dòng ở trạng thái `PENDING`: spec đang `draft`, chưa có dòng mã
 | FR-116 | kind=test; ref=planned React out-of-credits shows CreditsEmptyNotice under the title, other blocks unchanged (T25) | PENDING |
 | FR-117 | kind=test; ref=planned React no "Cần Khoá" copy when access.blocked is false; blocked true renders screen 4 (T25) | PENDING |
 | FR-118 | kind=test; ref=planned pytest response_model, caller-only data, 422 for an unknown skill, degraded per block (T25) | PENDING |
+| FR-119 | kind=test; ref=planned React class-sessions-v2 flag off replaces URL to /my-class, has_class false shows the Notice, third tab only when has_class (T30c) | PENDING |
+| FR-120 | kind=test; ref=planned node class picker default and unknown ?class=; React header shows "Đã học n buổi" and no teacher/schedule line (T30c) | PENDING |
+| FR-121 | kind=test; ref=planned node date labels around Vietnam midnight and the four default-session branches (T30c) | PENDING |
+| FR-122 | kind=test; ref=planned node YouTube host allowlist; React null-url attachment row without the path, links open with noopener (T30c) | PENDING |
+| FR-123 | kind=test; ref=planned pytest lesson_id on /api/student/assigned rows; node join by lesson_id, null lesson_id joins no session, block hidden when no row of the class has lesson_id (T30c) | PENDING |
+| FR-124 | kind=test; ref=planned React one read per API on entry, degraded lessons or assignments fails only its block (T30c) | PENDING |
+| FR-125 | kind=test; ref=planned React no teacher-comment, course-test or ended-class copy; 390px list then session with back button (T30c) | PENDING |
 
 ## Kịch bản staging (gói 9.1 mục 1, 3, 3b, 3c, 8; 9.4)
 
@@ -106,6 +113,8 @@ Tài khoản QA và dữ liệu thử; không bật cờ cho học viên thật.
 14. **Xem lại bài làm** (bản sửa đổi 4). Kịch bản 19 của spec trên staging với lượt thử của QA; trước khi áp migration ghi kết quả truy vấn đếm dòng `flag` trùng (số, không nội dung); ảnh 1280px và 390px.
 
 15. **Bốn hub kỹ năng** (bản sửa đổi 5). Kịch bản 20, 21 của spec trên staging; ảnh 1280px và 390px cho bốn hub ở trạng thái có dữ liệu, lần đầu và hết lượt (dữ liệu thử).
+
+16. **Buổi học và tài liệu lớp** (bản sửa đổi 6). Kịch bản 22 của spec trên một lớp staging có buổi đã đăng (dữ liệu do admin nhập qua màn hiện có, anh gõ duyệt nếu cần ghi); ảnh 1280px và 390px.
 
 ## Contract evidence
 
