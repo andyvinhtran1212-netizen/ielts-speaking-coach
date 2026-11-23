@@ -474,10 +474,11 @@ const TEMPLATE = /* html */ `
         </button>
         <div class="user-menu-dropdown" role="menu" hidden>
           <a href="/profile" class="user-menu-item" role="menuitem">Hồ sơ</a>
-          <!-- W-6b / Q-40: the role-gated "Trang giảng viên" link (#instructor-link)
-               is NOT in this template — _applyRole() inserts it here, before
-               logout, ONLY for instructor/admin, so a learner's DOM never
-               carries <a href="/instructor"> (mirrors require_instructor). -->
+          <!-- W-6b / Q-40: the role-gated staff links (#instructor-link
+               "Sang khu giáo viên", #admin-link "Sang khu quản trị") are NOT
+               in this template — _applyRole() inserts them here, before
+               logout, only for the roles allowed, so a learner's DOM never
+               carries <a href="/instructor"> or <a href="/admin">. -->
           <button type="button" class="user-menu-item user-menu-item--danger"
                   id="user-menu-logout" role="menuitem">Đăng xuất</button>
         </div>
@@ -690,11 +691,12 @@ export class AverChrome extends HTMLElement {
   }
 
   /**
-   * W-2 — role-gate the "Trang giảng viên" menu item. Rendered ONLY for
-   * role 'instructor' or 'admin' (admin ⊃ instructor); for any other role it
-   * is removed from the shadow DOM, not merely hidden (Q-40). Stores the role
-   * so a pre-connect call (page bootstrap before the element upgrades)
-   * applies on connect.
+   * W-2 — role-gate the staff menu items. "Sang khu giáo viên" (/instructor)
+   * renders ONLY for role 'instructor' or 'admin' (admin ⊃ instructor);
+   * "Sang khu quản trị" (/admin) ONLY for 'admin' (ADMINIA-0074 FR-004,
+   * G09-T09). For any other role a link is removed from the shadow DOM, not
+   * merely hidden (Q-40). Stores the role so a pre-connect call (page
+   * bootstrap before the element upgrades) applies on connect.
    */
   setRole(role) {
     this._role = role || null;
@@ -704,8 +706,13 @@ export class AverChrome extends HTMLElement {
   _applyRole() {
     const root = this.shadowRoot;
     if (!root) return; // pre-connect; connectedCallback re-applies
-    const existing = root.getElementById('instructor-link');
-    const show = this._role === 'instructor' || this._role === 'admin';
+    const staff = this._role === 'instructor' || this._role === 'admin';
+    this._applyRoleLink(root, 'instructor-link', '/instructor', 'Sang khu giáo viên', staff);
+    this._applyRoleLink(root, 'admin-link', '/admin', 'Sang khu quản trị', this._role === 'admin');
+  }
+
+  _applyRoleLink(root, id, href, label, show) {
+    const existing = root.getElementById(id);
     if (!show) {
       existing?.remove();
       return;
@@ -714,11 +721,11 @@ export class AverChrome extends HTMLElement {
     const logout = root.getElementById('user-menu-logout');
     if (!logout) return;
     const link = document.createElement('a');
-    link.href = '/instructor';
+    link.href = href;
     link.className = 'user-menu-item';
-    link.id = 'instructor-link';
+    link.id = id;
     link.setAttribute('role', 'menuitem');
-    link.textContent = 'Trang giảng viên';
+    link.textContent = label;
     logout.before(link);
   }
 

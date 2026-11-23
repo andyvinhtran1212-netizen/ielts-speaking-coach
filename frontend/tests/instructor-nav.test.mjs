@@ -4,8 +4,10 @@
  * Static source contract (matches the repo's chrome-test convention):
  *   - the template carries no instructor link (Q-40: absent, not hidden,
  *     for learners);
- *   - setRole() renders a real /instructor link ONLY for role 'instructor'
- *     or 'admin', and removes it for any other role;
+ *   - setRole() renders a real /instructor link ("Sang khu giáo viên") ONLY
+ *     for role 'instructor' or 'admin', and a real /admin link ("Sang khu
+ *     quản trị") ONLY for 'admin' (ADMINIA-0074 FR-004); both are removed
+ *     for any other role;
  *   - setUser() forwards an optional role to setRole();
  *   - the canonical page (speaking.html) passes the /auth/me role through.
  */
@@ -30,11 +32,12 @@ describe('W-6b — instructor nav item (aver-chrome)', () => {
     const markup = template[1].replace(/<!--[\s\S]*?-->/g, '');
     assert.doesNotMatch(markup, /id="instructor-link"/, 'no #instructor-link in the template');
     assert.doesNotMatch(markup, /href="\/instructor"/, 'no /instructor href in the template');
+    assert.doesNotMatch(markup, /id="admin-link"|href="\/admin"/, 'no admin link in the template');
   });
 
-  it('setRole renders the link ONLY for instructor or admin, and removes it otherwise', () => {
+  it('setRole renders the staff links ONLY for the roles allowed, and removes them otherwise', () => {
     assert.match(CHROME, /setRole\(role\)/, 'setRole method exists');
-    // the gate must accept exactly instructor + admin
+    // the teacher-area gate accepts exactly instructor + admin (admin ⊃ instructor)
     assert.match(
       CHROME,
       /_role === 'instructor' \|\| this\._role === 'admin'/,
@@ -42,17 +45,23 @@ describe('W-6b — instructor nav item (aver-chrome)', () => {
     );
     const apply = CHROME.match(/  _applyRole\(\) \{([\s\S]*?)\n  \}/);
     assert.ok(apply, '_applyRole method exists');
-    const body = apply[1];
-    // non-staff → the node is detached, not hidden
+    // ADMINIA-0074 FR-004 (G09-T09): teacher area for staff, admin area for admin only
+    assert.match(apply[1], /'instructor-link', '\/instructor', 'Sang khu giáo viên', staff\)/);
+    assert.match(apply[1], /'admin-link', '\/admin', 'Sang khu quản trị', this\._role === 'admin'\)/);
+    const link = CHROME.match(/  _applyRoleLink\(root, id, href, label, show\) \{([\s\S]*?)\n  \}/);
+    assert.ok(link, '_applyRoleLink method exists');
+    const body = link[1];
+    // not allowed → the node is detached, not hidden
     assert.match(body, /if \(!show\) \{\s*existing\?\.remove\(\);\s*return;\s*\}/);
     assert.doesNotMatch(body, /'hidden'/, 'no hidden-attribute toggling');
-    // staff → a real link to the instructor area, inserted before logout
-    assert.match(body, /link\.href = '\/instructor';/);
-    assert.match(body, /link\.id = 'instructor-link';/);
+    // allowed → a real link, inserted before logout
+    assert.match(body, /link\.href = href;/);
+    assert.match(body, /link\.id = id;/);
     assert.match(body, /link\.setAttribute\('role', 'menuitem'\);/);
-    assert.match(body, /link\.textContent = 'Trang giảng viên';/);
+    assert.match(body, /link\.textContent = label;/);
     assert.match(body, /logout\.before\(link\);/);
     assert.match(body, /if \(existing\) return;/, 'idempotent — never inserts a second link');
+    assert.doesNotMatch(CHROME, /'Trang giảng viên'/, 'old label is gone from the chrome');
   });
 
   it('setUser forwards an optional role to setRole', () => {
