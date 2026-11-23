@@ -27,8 +27,11 @@ export async function getAuthorizationIdentity(signal?: AbortSignal): Promise<Au
 }
 
 /** Always reads canonical, private identity through the bearer-aware browser transport. */
-export async function getCurrentUser(signal?: AbortSignal): Promise<AuthMeWire> {
-  const normalized = normalizeAuthMe(await getBrowserJson('/auth/me', undefined, signal));
+export async function getCurrentUser(
+  signal?: AbortSignal,
+  options?: { noRedirect?: boolean },
+): Promise<AuthMeWire> {
+  const normalized = normalizeAuthMe(await getBrowserJson('/auth/me', undefined, signal, options));
   if (!normalized) throw new Error('Backend trả dữ liệu /auth/me không đúng định dạng.');
   return normalized as AuthMeWire;
 }
