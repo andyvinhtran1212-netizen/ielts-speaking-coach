@@ -476,8 +476,11 @@ export function normalizeClassStartResponse(value, expectedItemId) {
 
   const grammarLessonPath = textOf(row.grammar_lesson_path);
   if (grammarLessonPath && skill === 'grammar') {
-    const expected = `/grammar-lessons/assigned?assignment_item=${encodeURIComponent(expectedItemId)}`;
-    if (grammarLessonPath !== expected) return null;
+    // LEARNERNAV-0062 FR-012: the backend may still send the pre-move path
+    // until its own PR lands; both forms open the page at its new URL.
+    const query = `?assignment_item=${encodeURIComponent(expectedItemId)}`;
+    const expected = `/course/grammar-lesson${query}`;
+    if (grammarLessonPath !== expected && grammarLessonPath !== `/grammar-lessons/assigned${query}`) return null;
     return { kind: 'grammar-lesson', url: expected };
   }
 

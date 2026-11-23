@@ -5,7 +5,7 @@ import test from 'node:test';
 import { createPronunciation } from '../public/js/course-pronunciation.js';
 
 const behaviorSource = readFileSync(new URL(
-  '../app/(authed)/course-exercises/course-behavior.tsx', import.meta.url,
+  '../app/(authed)/course/exercises/course-behavior.tsx', import.meta.url,
 ), 'utf8');
 
 

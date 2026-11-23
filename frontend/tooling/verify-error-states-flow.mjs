@@ -1,6 +1,6 @@
 // Hermetic browser regression for PC-J13 error states (U-16, BL-01, BL-08, BL-13).
 //
-// U-16: /quiz, /mock-exam and /grammar-lessons/assigned opened without their
+// U-16: /quiz, /mock-exam and /course/grammar-lesson opened without their
 //       query parameter showed a raw message ("Thiếu tham số bank.", "Missing
 //       test code or attempt ID.") next to a retry button that could never
 //       succeed. They now explain what is missing and offer only a way back.
@@ -165,20 +165,20 @@ try {
       await page.context().close();
     }
 
-    // ── U-16 → G02-T11 /grammar-lessons/assigned ───────────────────────
+    // ── U-16 → G02-T11 /course/grammar-lesson ───────────────────────
     {
       const { page, requests } = await newPage(browser, { width, user: USER_A });
-      await page.goto(`${BASE}/grammar-lessons/assigned`, { waitUntil: 'networkidle' });
+      await page.goto(`${BASE}/course/grammar-lesson`, { waitUntil: 'networkidle' });
       await page.waitForURL((url) => url.pathname === '/course/assigned', { timeout: 15_000 }).catch(() => {});
       const notice = page.locator('.av-redirect-notice[role="status"]');
       await notice.waitFor({ timeout: 15_000 }).catch(() => {});
       const text = (await notice.count()) ? await notice.innerText() : '';
       const landed = new URL(page.url());
-      check(`${tag} /grammar-lessons/assigned returns to My class`, landed.pathname === '/course/assigned' && !landed.searchParams.has('notice'), page.url());
-      check(`${tag} /grammar-lessons/assigned explains in one plain line`,
+      check(`${tag} /course/grammar-lesson returns to My class`, landed.pathname === '/course/assigned' && !landed.searchParams.has('notice'), page.url());
+      check(`${tag} /course/grammar-lesson explains in one plain line`,
         text.includes('Liên kết bạn vừa mở chưa đủ thông tin nên bạn được đưa về trang Lớp học.') && !/Thiếu mã/.test(text), JSON.stringify(text));
-      check(`${tag} /grammar-lessons/assigned calls no lesson API`, !requests.some((row) => row.includes('/api/grammar/lessons')), requests.join(' | '));
-      check(`${tag} /grammar-lessons/assigned has no horizontal overflow`, await overflowOf(page) <= 1);
+      check(`${tag} /course/grammar-lesson calls no lesson API`, !requests.some((row) => row.includes('/api/grammar/lessons')), requests.join(' | '));
+      check(`${tag} /course/grammar-lesson has no horizontal overflow`, await overflowOf(page) <= 1);
       if (SHOT_DIR) await page.screenshot({ path: join(SHOT_DIR, `grammar-lesson-missing-${width}.png`) });
       await page.context().close();
     }

@@ -212,7 +212,7 @@ async function run(lessonId, width = 1366, theme = 'light', keyboard = false) {
   page.on('pageerror', (error) => errors.push(String(error)));
   page.setDefaultTimeout(15000);
   try {
-    await page.goto(`${BASE}/grammar-lessons/assigned?assignment_item=fixture-item`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${BASE}/course/grammar-lesson?assignment_item=fixture-item`, { waitUntil: 'domcontentloaded' });
     await page.getByRole('heading', { name: `${lessonId} · ${lesson.title}`, exact: true }).waitFor();
     check(`${lessonId}: requested ${theme} theme is active`,await page.locator('html').getAttribute('data-theme')===theme);
     await page.locator('.agl-notes h2,.agl-notes h3').first().waitFor();

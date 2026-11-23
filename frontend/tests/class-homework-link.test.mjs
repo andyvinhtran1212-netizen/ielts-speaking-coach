@@ -123,11 +123,11 @@ describe('mở bài tập theo buổi', () => {
   test('nhận bank_id thì đi thẳng tới trang bài tập', () => {
     // Không có phiên nào phải dựng trước — chính bài giao vừa được xác nhận ở
     // lệnh /start là thứ cho phép trang kia đọc được bank ấy.
-    assert.match(MC, /if \(r && r\.bank_id\)[\s\S]{0,200}?\/course-exercises\?bank=/);
+    assert.match(MC, /if \(r && r\.bank_id\)[\s\S]{0,200}?\/course\/exercises\?bank=/);
   });
 
   test('bank_id được mã hoá vào URL', () => {
-    assert.match(MC, /course-exercises\?bank=' \+ encodeURIComponent\(r\.bank_id\)/);
+    assert.match(MC, /course\/exercises\?bank=' \+ encodeURIComponent\(r\.bank_id\)/);
   });
 
   test('nhánh này đứng TRƯỚC nhánh dựng phiên Speaking', () => {

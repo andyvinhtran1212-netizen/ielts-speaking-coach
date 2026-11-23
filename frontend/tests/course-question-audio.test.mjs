@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 
 
 const BEHAVIOR = readFileSync(
-  new URL('../app/(authed)/course-exercises/course-behavior.tsx', import.meta.url),
+  new URL('../app/(authed)/course/exercises/course-behavior.tsx', import.meta.url),
   'utf8',
 );
 const CSS = readFileSync(
