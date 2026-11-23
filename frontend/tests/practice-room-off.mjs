@@ -16,4 +16,8 @@ export const PRACTICE_ROOM_OFF = `
   var _roomMicState = 'unknown';
   var _ROOM_LEVEL_MS = 200;
   var _roomLevelTimer = null;
+  var _roomDialogKind = null;
+  var _roomLeaveHref = '';
+  var _roomLeaving = false;
+  var _roomConfirmed = false;
 ${JS.slice(start, end)}`;

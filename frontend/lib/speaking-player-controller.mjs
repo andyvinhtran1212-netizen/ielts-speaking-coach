@@ -73,6 +73,12 @@ export const SPEAKING_PLAYER_INITIAL_VIEW = Object.freeze({
   mic: Object.freeze({
     state: 'unknown',
   }),
+  // Exam room only (EXAMSPEAK-0072 FR-006–FR-008, FR-010): the box the room is
+  // asking about, or null. `unsent` counts the recordings it is about.
+  dialog: Object.freeze({
+    kind: null,
+    unsent: 0,
+  }),
   processing: Object.freeze({
     text: '',
   }),

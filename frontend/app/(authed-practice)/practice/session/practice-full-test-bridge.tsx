@@ -40,6 +40,8 @@ export function PracticeFullTestBridge() {
     });
 
     const warnBeforeUnload = (event: BeforeUnloadEvent) => {
+      // EXAMSPEAK-0072 FR-007: the learner already chose to drop the recordings in the room's box.
+      if (win.PracticeApp?.leaveConfirmed?.() === true) return;
       if (!controller.hasUnsavedAudio() && !win.PracticeApp?.hasUnsavedWork?.()) return;
       event.preventDefault();
       event.returnValue = '';
