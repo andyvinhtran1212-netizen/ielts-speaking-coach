@@ -1,4 +1,4 @@
-/** Regression gate for the `/mock/result` native React TRF behavior. */
+/** Regression gate for the `/tests/mock/result` native React TRF behavior. */
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -7,13 +7,13 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
-const PAGE = read('app', '(authed-mock-result)', 'mock', 'result', 'page.tsx');
+const PAGE = read('app', '(authed-mock-result)', 'tests', 'mock', 'result', 'page.tsx');
 const BEHAVIOR = read(
-  'app', '(authed-mock-result)', 'mock', 'result', 'mock-result-behavior.tsx',
+  'app', '(authed-mock-result)', 'tests', 'mock', 'result', 'mock-result-behavior.tsx',
 );
 const HARD_NAV_GATE = read('tests', 'legacy-module-routes-need-hard-nav.test.mjs');
 
-describe('/mock/result — native React behavior', () => {
+describe('/tests/mock/result — native React behavior', () => {
   test('does not inject the legacy module or watchdog', () => {
     assert.doesNotMatch(PAGE, /watchdogScript|HydratedSignal|<script|dangerouslySetInnerHTML/);
     assert.doesNotMatch(BEHAVIOR, /mock-result\.js|<script|dangerouslySetInnerHTML/);
@@ -21,7 +21,7 @@ describe('/mock/result — native React behavior', () => {
 
   test('is no longer classified as hard-navigation-only', () => {
     const list = HARD_NAV_GATE.match(/const LEGACY_MODULE_ROUTES = \[([\s\S]*?)\];/)?.[1] || '';
-    assert.doesNotMatch(list, /['"]\/mock\/result['"]/);
+    assert.doesNotMatch(list, /['"]\/tests\/mock\/result['"]/);
   });
 
   test('keys the canonical authenticated read by user + sitting and aborts stale work', () => {
@@ -62,7 +62,7 @@ describe('/mock/result — native React behavior', () => {
     assert.match(BEHAVIOR, /\/reading\/review\?attempt_id=/);
     assert.match(BEHAVIOR, /\/writing\/result\?id=/);
     assert.doesNotMatch(BEHAVIOR, /\/pages\/writing-result\.html/);
-    assert.match(BEHAVIOR, /\/speaking\/result\?sitting=/);
+    assert.match(BEHAVIOR, /\/tests\/mock\/speaking-report\?sitting=/);
     assert.match(BEHAVIOR, /rel="noopener"/);
   });
 
@@ -79,7 +79,7 @@ describe('/mock/result — native React behavior', () => {
   });
 });
 
-describe('/mock/result — canonical entry points', () => {
+describe('/tests/mock/result — canonical entry points', () => {
   test('Home, runner and review callers target the canonical route', () => {
     const callers = [
       read('app', '(authed-home)', 'home', 'home-behavior.tsx'),
@@ -90,7 +90,7 @@ describe('/mock/result — canonical entry points', () => {
       read('public', 'js', 'speaking-result.js'),
     ];
     for (const source of callers) {
-      assert.match(source, /\/mock\/result/);
+      assert.match(source, /\/tests\/mock\/result/);
       assert.doesNotMatch(source, /\/pages\/mock-result\.html/);
     }
   });

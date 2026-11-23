@@ -743,7 +743,7 @@ export function MockExamRunner() {
     stateRef.current = next;
     setState(next);
     if (next.sitting.status === 'released') {
-      window.location.replace(`/mock/result?sitting=${encodeURIComponent(next.sitting.id)}`);
+      window.location.replace(`/tests/mock/result?sitting=${encodeURIComponent(next.sitting.id)}`);
     }
     return next;
   }, []);

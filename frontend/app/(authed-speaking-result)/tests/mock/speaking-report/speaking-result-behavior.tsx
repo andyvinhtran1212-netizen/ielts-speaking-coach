@@ -1,6 +1,6 @@
 'use client';
 
-// React behavior cho `/speaking/result`.
+// React behavior cho `/tests/mock/speaking-report`.
 //
 // Component sở hữu state và vòng đời request. Không sửa DOM trực tiếp, không
 // chờ DOMContentLoaded, và request bị abort khi logout, đổi tài khoản, đổi
@@ -96,7 +96,7 @@ function SpeakingResultContent({ speaking, sittingId }: {
     <>
       <header className="subpage-header">
         <div className="subpage-header__lhs">
-          <a className="subpage-header__back" href={`/mock/result?sitting=${encodeURIComponent(sittingId)}`}>
+          <a className="subpage-header__back" href={`/tests/mock/result?sitting=${encodeURIComponent(sittingId)}`}>
             <span aria-hidden="true">←</span><span>Kết quả tổng</span>
           </a>
         </div>
@@ -275,7 +275,7 @@ export function SpeakingResultBehavior() {
           <div><strong>Chưa mở được báo cáo Speaking</strong><p>{error.value}</p></div>
           <div className="spr-state__actions">
             {sittingId
-              ? <a href={`/mock/result?sitting=${encodeURIComponent(sittingId)}`}>Về kết quả tổng</a>
+              ? <a href={`/tests/mock/result?sitting=${encodeURIComponent(sittingId)}`}>Về kết quả tổng</a>
               : <a href="/tests">Về danh sách kỳ thi</a>}
             {error.retryable ? <button type="button" onClick={() => setReloadVersion((value) => value + 1)}>Thử lại</button> : null}
           </div>

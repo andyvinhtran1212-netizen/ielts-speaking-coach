@@ -271,7 +271,7 @@ export function readingReviewHref(attemptId, { anonId = null, from = null, sitti
 /** @param {string | null | undefined} from @param {string | null | undefined} [sittingId] */
 export function readingLibraryHref(from, sittingId = null) {
   if (from === 'mini') return '/reading/mini-test';
-  if (from === 'mock' && sittingId) return `/mock/result?sitting=${encodeURIComponent(String(sittingId))}`;
+  if (from === 'mock' && sittingId) return `/tests/mock/result?sitting=${encodeURIComponent(String(sittingId))}`;
   return '/reading/test';
 }
 

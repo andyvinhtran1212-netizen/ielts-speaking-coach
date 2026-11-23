@@ -182,7 +182,7 @@ export const config = {
   matcher: [
     '/grammar/:category/:slug',
     {
-      source: '/:section(admin|course|exercises|home|instructor|listening|mock|mock-exam|onboarding|practice|profile|quiz|reading|result|speaking|tests|writing)/:path*',
+      source: '/:section(admin|course|exercises|home|instructor|listening|mock-exam|onboarding|practice|profile|quiz|reading|result|speaking|tests|writing)/:path*',
       missing: [{ type: 'host', value: '(?:www\\.)?averlearning\\.com' }],
     },
     {

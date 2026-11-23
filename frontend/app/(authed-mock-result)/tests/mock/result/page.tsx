@@ -1,4 +1,4 @@
-// Trang "Kết quả thi thử" (phiếu điểm TRF) trên Next — `/mock/result`.
+// Trang "Kết quả thi thử" (phiếu điểm TRF) trên Next — `/tests/mock/result`.
 //
 // Behavior đã được port sang React trong `mock-result-behavior.tsx`; route
 // không còn inject `/js/mock-result.js`, nên soft navigation không phụ thuộc

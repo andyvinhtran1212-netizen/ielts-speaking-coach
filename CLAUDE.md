@@ -30,7 +30,7 @@ Project. Release flow: `AGENTS.md` › Staging-first release flow and
 | Login / auth callback | `frontend/app/(public-auth)/login/page.tsx` |
 | Student home | `frontend/app/(authed-home)/home/page.tsx` |
 | Speaking practice session | `frontend/app/(authed-practice)/practice/session/page.tsx` |
-| Speaking result | `frontend/app/(authed-speaking-result)/speaking/result/page.tsx` |
+| Speaking result (mock) | `frontend/app/(authed-speaking-result)/tests/mock/speaking-report/page.tsx` (`/speaking/result` 307s there) |
 | Full Test / result | `frontend/app/(authed-full-test)/tests/page.tsx` (`/tests`; `/full-test` 307s there), `frontend/app/(authed-full-test-result)/speaking/full-test/result/page.tsx` (`/full-test-result` 307s there) |
 | Grammar Wiki | `frontend/app/(public-content)/grammar/` |
 | Admin dashboard | `frontend/app/(authed-admin-overview)/admin/page.tsx` |

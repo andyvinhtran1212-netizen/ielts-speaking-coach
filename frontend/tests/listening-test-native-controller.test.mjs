@@ -76,7 +76,7 @@ describe('native Listening test controller', () => {
     assert.equal(isPracticeListeningTest({ test_type: 'mini' }), true);
     assert.equal(isPracticeListeningTest({ test_type: 'full' }), false);
     assert.equal(listeningLibraryHref('drill'), '/listening/skills');
-    assert.equal(listeningLibraryHref('mock', 's/1'), '/mock/result?sitting=s%2F1');
+    assert.equal(listeningLibraryHref('mock', 's/1'), '/tests/mock/result?sitting=s%2F1');
     assert.equal(listeningLibraryHref('https://evil.test'), '/listening/tests');
     assert.equal(listeningReviewHref('a 1', 'mini'), '/listening/review?attempt_id=a+1&from=mini');
     assert.equal(listeningReviewHref('a1', 'https://evil.test'), '/listening/review?attempt_id=a1&from=full');

@@ -179,7 +179,7 @@
     mini:     { href: '/listening/mini-test', label: '← Mini tests' },
     drill:    { href: '/listening/skills',    label: '← Luyện kĩ năng' },
     practice: { href: '/listening/practice',  label: '← Luyện nhanh' },
-    mock:     { href: '/mock/result',                    label: '← Kết quả thi thử' },
+    mock:     { href: '/tests/mock/result',                    label: '← Kết quả thi thử' },
     'my-class': { href: '/course/assigned',           label: '← Lớp học của tôi' },
     admin:     { href: '/admin/classes',       label: '← Quản lý lớp' },
   };

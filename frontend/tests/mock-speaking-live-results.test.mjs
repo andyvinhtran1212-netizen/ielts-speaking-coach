@@ -54,7 +54,7 @@ describe('TRF học viên — Speaking là thẻ mở trang riêng (bản duyệ
   const SPR_HTML = pub('pages', 'speaking-result.html');
 
   test('TRF đẩy thẻ Speaking vào Việc tiếp theo, KHÔNG render inline nữa', () => {
-    assert.match(TRF, /href:\s*'\/speaking\/result\?sitting='/);
+    assert.match(TRF, /href:\s*'\/tests\/mock\/speaking-report\?sitting='/);
     assert.doesNotMatch(TRF, /pages\/speaking-result\.html\?sitting=/);
     assert.match(TRF, /typeof notes\.speaking === 'object'/);
     assert.doesNotMatch(TRF, /function renderSpeaking/);
@@ -78,7 +78,7 @@ describe('TRF học viên — Speaking là thẻ mở trang riêng (bản duyệ
   test('trang riêng gate đúng: thiếu sitting hay không có nhận xét đều báo rõ', () => {
     assert.match(SPR, /Thiếu mã lượt thi/);
     assert.match(SPR, /không có nhận xét Speaking/);
-    assert.match(SPR, /\/mock\/result\?sitting='/);
+    assert.match(SPR, /\/tests\/mock\/result\?sitting='/);
     assert.doesNotMatch(SPR, /\/pages\/mock-result\.html\?sitting=/);
   });
 
