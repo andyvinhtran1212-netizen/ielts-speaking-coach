@@ -3362,6 +3362,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/incidents/groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Groups */
+        get: operations["list_groups_admin_incidents_groups_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/incidents/groups/{source}/{fingerprint}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Group Detail */
+        get: operations["group_detail_admin_incidents_groups__source___fingerprint__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/incidents/groups/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Bulk Action */
+        post: operations["bulk_action_admin_incidents_groups_bulk_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/learners/{ref}/overview": {
         parameters: {
             query?: never;
@@ -18891,6 +18942,192 @@ export interface components {
             distinct_known_releases: number;
             operation_correlation?: components["schemas"]["OperationCorrelationSummary"] | null;
         };
+        /** IncidentBulkIn */
+        IncidentBulkIn: {
+            /** Groups */
+            groups: components["schemas"]["IncidentGroupRef"][];
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "resolve" | "claim" | "ignore" | "reopen";
+            /** Note */
+            note?: string | null;
+        };
+        /** IncidentBulkOut */
+        IncidentBulkOut: {
+            /** Changed */
+            changed: number;
+            /** Conflicts */
+            conflicts: components["schemas"]["IncidentConflict"][];
+            /** Dismiss Failed */
+            dismiss_failed: string[];
+        };
+        /** IncidentConflict */
+        IncidentConflict: {
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "errors" | "grading" | "feedback";
+            /** Fingerprint */
+            fingerprint: string;
+            /** Status */
+            status: number;
+            /**
+             * Code
+             * @enum {string}
+             */
+            code: "count_changed" | "not_found" | "write_failed";
+            /** Expected Count */
+            expected_count?: number | null;
+            /** Actual Count */
+            actual_count?: number | null;
+        };
+        /**
+         * IncidentCounts
+         * @description Open (Mới + Đang xem) groups per source; ``None`` when the source failed.
+         */
+        IncidentCounts: {
+            /** Errors */
+            errors: number | null;
+            /** Grading */
+            grading: number | null;
+            /** Feedback */
+            feedback: number | null;
+        };
+        /** IncidentGroupDetail */
+        IncidentGroupDetail: {
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "errors" | "grading" | "feedback";
+            /** Fingerprint */
+            fingerprint: string;
+            /** Title */
+            title: string;
+            /** Area */
+            area: string;
+            /** Level */
+            level?: string | null;
+            /** Count */
+            count: number;
+            /** Learners */
+            learners: number;
+            /** First At */
+            first_at: string | null;
+            /** Last At */
+            last_at: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "new" | "in_review" | "resolved" | "ignored";
+            /** Claimed By Name */
+            claimed_by_name?: string | null;
+            /** Overdue */
+            overdue: boolean;
+            /** Description */
+            description: string;
+            /** Claimed At */
+            claimed_at?: string | null;
+            /** Resolved At */
+            resolved_at?: string | null;
+            /** Learner List */
+            learner_list: components["schemas"]["IncidentLearner"][];
+            /** Technical */
+            technical: {
+                [key: string]: unknown;
+            };
+            /** Notes */
+            notes: components["schemas"]["IncidentNote"][];
+        };
+        /** IncidentGroupItem */
+        IncidentGroupItem: {
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "errors" | "grading" | "feedback";
+            /** Fingerprint */
+            fingerprint: string;
+            /** Title */
+            title: string;
+            /** Area */
+            area: string;
+            /** Level */
+            level?: string | null;
+            /** Count */
+            count: number;
+            /** Learners */
+            learners: number;
+            /** First At */
+            first_at: string | null;
+            /** Last At */
+            last_at: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "new" | "in_review" | "resolved" | "ignored";
+            /** Claimed By Name */
+            claimed_by_name?: string | null;
+            /** Overdue */
+            overdue: boolean;
+        };
+        /** IncidentGroupRef */
+        IncidentGroupRef: {
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "errors" | "grading" | "feedback";
+            /** Fingerprint */
+            fingerprint: string;
+            /** Expected Count */
+            expected_count: number;
+        };
+        /** IncidentGroupsOut */
+        IncidentGroupsOut: {
+            /** Items */
+            items: components["schemas"]["IncidentGroupItem"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            counts: components["schemas"]["IncidentCounts"];
+            /** Review Items Open */
+            review_items_open: number | null;
+            /** Sources Failed */
+            sources_failed: ("errors" | "grading" | "feedback")[];
+            /** Truncated */
+            truncated: boolean;
+            /** Sources Truncated */
+            sources_truncated: ("errors" | "grading" | "feedback")[];
+            /** Generated At */
+            generated_at: string;
+        };
+        /** IncidentLearner */
+        IncidentLearner: {
+            /** Ref */
+            ref: string;
+            /** Name */
+            name: string;
+        };
+        /** IncidentNote */
+        IncidentNote: {
+            /** Body */
+            body: string;
+            /** Auto */
+            auto: boolean;
+            /** Actor Name */
+            actor_name?: string | null;
+            /** Created At */
+            created_at?: string | null;
+        };
         /** InstructorDeliverBody */
         InstructorDeliverBody: {
             /**
@@ -30509,6 +30746,111 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InstructorSearchOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_groups_admin_incidents_groups_get: {
+        parameters: {
+            query?: {
+                source?: ("errors" | "grading" | "feedback") | null;
+                status?: "open" | "new" | "in_review" | "resolved" | "ignored" | "all";
+                sort?: "learners" | "last" | "count";
+                page?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IncidentGroupsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    group_detail_admin_incidents_groups__source___fingerprint__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                source: "errors" | "grading" | "feedback";
+                fingerprint: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IncidentGroupDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_action_admin_incidents_groups_bulk_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IncidentBulkIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IncidentBulkOut"];
                 };
             };
             /** @description Validation Error */
