@@ -11,7 +11,8 @@ const check = (name, ok, detail = '') => {
 };
 
 async function launch() {
-  try { return await chromium.launch(); } catch (error) {
+  // CHROMIUM_EXECUTABLE: a preinstalled Chromium when the pinned Playwright build is absent.
+  try { return await chromium.launch(process.env.CHROMIUM_EXECUTABLE ? { executablePath: process.env.CHROMIUM_EXECUTABLE } : {}); } catch (error) {
     const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
     if (process.platform === 'darwin' && existsSync(chrome)) return chromium.launch({ executablePath: chrome });
     throw error;
@@ -63,12 +64,18 @@ async function fixture({
   sessionDelayMs = 0,
   endDelayMs = 0,
   viewport = { width: 390, height: 844 },
+  // EXAMDRILL-0073: the practice-room branch ('drill' in examRoomSurfaces).
+  drill = false,
+  progressStatus = 503,
 } = {}) {
   const context = await browser.newContext({ viewport });
   const pageErrors = [];
   const sessionBodies = [];
   const progressBodies = [];
   const endBodies = [];
+  // Learner API calls in order (telemetry and error logs left out): FR-001 compares both branches.
+  const calls = [];
+  let dialogs = 0;
   let resumeState = structuredClone(resume);
   let resetPosts = 0;
   let resumeReads = 0;
@@ -91,7 +98,7 @@ window.__AVER_SUPABASE_CLIENT__ = { auth: {
         return route.fulfill({
           status: 200,
           contentType: 'application/javascript',
-          body: `window.__AVER_RUNTIME_CONFIG__=Object.freeze({apiBase:${JSON.stringify(API)}});`,
+          body: `window.__AVER_RUNTIME_CONFIG__=Object.freeze({apiBase:${JSON.stringify(API)}${drill ? ",environment:'staging',examRoomSurfaces:['drill']" : ''}});`,
         });
       }
       if (request.isNavigationRequest() && url.pathname === '/login') {
@@ -108,6 +115,7 @@ window.__AVER_SUPABASE_CLIENT__ = { auth: {
     if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers, body: '' });
     const json = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', headers, body: JSON.stringify(body) });
     const body = () => JSON.parse(request.postData() || '{}');
+    if (!['/api/analytics/events', '/api/error-logs'].includes(url.pathname)) calls.push(`${request.method()} ${url.pathname}`);
 
     if (request.method() === 'GET' && url.pathname === '/api/quiz/banks/bank-1') return json(bank);
     if (request.method() === 'GET' && url.pathname === '/api/quiz/banks/bank-1/resume') {
@@ -123,7 +131,7 @@ window.__AVER_SUPABASE_CLIENT__ = { auth: {
       progressBodies.push(body());
       if (remainingProgressFailures > 0) {
         remainingProgressFailures -= 1;
-        return json({ detail: 'temporary' }, 503);
+        return json({ detail: 'temporary' }, progressStatus);
       }
       return json({ ok: true });
     }
@@ -144,8 +152,10 @@ window.__AVER_SUPABASE_CLIENT__ = { auth: {
 
   const page = await context.newPage();
   page.on('pageerror', (error) => pageErrors.push(String(error)));
+  page.on('dialog', (dialog) => { dialogs += 1; if (drill) void dialog.dismiss(); });
   return {
-    context, page, pageErrors, sessionBodies, progressBodies, endBodies,
+    context, page, pageErrors, sessionBodies, progressBodies, endBodies, calls,
+    get dialogs() { return dialogs; },
     get resetPosts() { return resetPosts; },
     get resumeReads() { return resumeReads; },
   };
@@ -228,6 +238,8 @@ check('modal trap/khôi phục focus, mobile không tràn và không có lỗi J
   `modal=${modalContract}; contained=${mobileContained}; errors=${run.pageErrors.join(' | ')}`);
 check('normal boot chỉ tạo đúng một session và summary không báo lưu lỗi',
   run.sessionBodies.length === 1 && await run.page.locator('.qz-save-warning').count() === 0);
+const oldBranchCalls = [...run.calls];
+check('cờ tắt: trang cũ, không có khung phòng luyện', await run.page.locator('[data-exam-room]').count() === 0);
 await run.context.close();
 
 const gateReview = await fixture({ resume: masteredResume, sessionDelayMs: 150 });
@@ -260,6 +272,136 @@ check('reset mất ACK được reconcile, không replay mutation và khởi đ�
 check('gate/reset không có lỗi JavaScript', gateReview.pageErrors.length === 0 && gateReset.pageErrors.length === 0,
   [...gateReview.pageErrors, ...gateReset.pageErrors].join(' | '));
 await gateReset.context.close();
+
+// ---- EXAMDRILL-0073: the same flows in the practice room ('drill' on) ----
+const ROOM_PROMPT = /Choose alpha|Type the answer/;
+const ROOM_SUMMARY = { name: 'Xong phiên' };
+
+const drillSignedOut = await fixture({ signedIn: false, drill: true });
+await drillSignedOut.page.goto(`${BASE}/quiz?bank=bank-1`, { waitUntil: 'domcontentloaded' });
+await drillSignedOut.page.waitForURL('**/login');
+check('drill: chưa đăng nhập lúc tải trang vẫn về /login, không hộp', drillSignedOut.sessionBodies.length === 0 && drillSignedOut.dialogs === 0);
+await drillSignedOut.context.close();
+
+const drillRun = await fixture({ progressFailures: 1, endDelayMs: 150, drill: true });
+await drillRun.page.goto(`${BASE}/quiz?bank=bank-1`, { waitUntil: 'domcontentloaded' });
+await drillRun.page.locator('[data-exam-room][data-surface="drill"][data-mode="practice"]').waitFor();
+const bar = drillRun.page.locator('header').first();
+check('drill: thanh trên có Thoát, tên bài và "Câu 1"',
+  await bar.getByRole('button', { name: /Thoát/ }).count() === 1
+    && (await bar.innerText()).includes('Fixture Quick-Check') && /Câu 1 · Đã thuộc 0\/2/.test(await bar.innerText()),
+  await bar.innerText());
+let drillAnswered = 0;
+let drillWrong = false;
+let drillCard = false;
+const counters = [];
+for (let guard = 0; guard < 8; guard += 1) {
+  await drillRun.page.getByText(ROOM_PROMPT).or(drillRun.page.getByRole('heading', ROOM_SUMMARY)).first().waitFor();
+  if (await drillRun.page.getByRole('heading', ROOM_SUMMARY).count()) break;
+  counters.push((/Câu (\d+)/.exec(await bar.innerText()) || [])[1]);
+  const prompt = await drillRun.page.getByText(ROOM_PROMPT).innerText();
+  if (prompt.includes('Choose alpha')) {
+    await drillRun.page.getByRole('button', { name: drillWrong ? 'Correct choice' : 'Distractor' }).click();
+    if (!drillWrong) {
+      drillWrong = true;
+      const opener = drillRun.page.getByRole('button', { name: 'Xem nhanh thẻ từ' });
+      await opener.click();
+      const dialog = drillRun.page.getByRole('dialog', { name: 'alpha' });
+      await dialog.waitFor();
+      await drillRun.page.keyboard.press('Escape');
+      await dialog.waitFor({ state: 'hidden' });
+      drillCard = await opener.evaluate((node) => document.activeElement === node);
+    }
+    check(`drill: phản hồi "Đúng."/"Sai." sau câu ${drillAnswered + 1}`, await drillRun.page.getByText(/^(Đúng|Sai)\.$/).count() === 1);
+  } else {
+    const input = drillRun.page.getByRole('textbox', { name: 'Đáp án của bạn' });
+    await input.fill('answer');
+    await input.press('Enter');
+  }
+  drillAnswered += 1;
+  const next = drillRun.page.getByRole('button', { name: 'Câu tiếp theo' });
+  await next.waitFor({ timeout: 5_000 });
+  await next.evaluate((node) => {
+    node.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    node.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    node.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
+  await next.waitFor({ state: 'detached' });
+}
+await drillRun.page.getByRole('heading', ROOM_SUMMARY).waitFor();
+await drillRun.page.getByRole('button', { name: /Hiện tất cả/ }).click();
+const drillReview = await drillRun.page.locator('.qz-review-item').allInnerTexts();
+const drillAttempts = drillRun.progressBodies.flatMap((payload) => payload.attempts || []);
+check('drill: làm đủ choice + text, "Câu N" tăng theo từng câu, bấm lặp không bỏ câu',
+  drillAnswered === 3 && new Set(drillAttempts.map((row) => row.client_id)).size === 3 && counters.join(',') === '1,2,3',
+  `answered=${drillAnswered}; counters=${counters.join(',')}`);
+check('drill: progress lỗi một lần được retry trước khi chốt session',
+  drillRun.progressBodies.length === 2 && drillRun.endBodies.length === 1 && drillRun.endBodies[0].ended_by === 'completed');
+check('drill: tổng kết giữ câu sai, đáp án và giải thích',
+  drillReview.some((text) => text.includes('Từng trả lời sai') && text.includes('Why the correct choice is right'))
+    && drillReview.some((text) => text.includes('Type it exactly like this')));
+check('drill: thẻ từ đóng bằng Esc và trả tiêu điểm', drillCard);
+// The two /auth/ reads come from the shared auth runtime and race each other, so
+// they are compared as a set; every quiz call must match in the same order.
+const quizCalls = (calls) => calls.filter((call) => !call.includes(' /auth/'));
+const authCalls = (calls) => calls.filter((call) => call.includes(' /auth/')).sort();
+check('drill: cùng request, cùng thứ tự như cờ tắt (FR-001)',
+  JSON.stringify(quizCalls(drillRun.calls)) === JSON.stringify(quizCalls(oldBranchCalls))
+    && JSON.stringify(authCalls(drillRun.calls)) === JSON.stringify(authCalls(oldBranchCalls)),
+  `off=${oldBranchCalls.join(' > ')} | on=${drillRun.calls.join(' > ')}`);
+check('drill: điện thoại không tràn ngang, 0 hộp gốc trình duyệt, không lỗi JS',
+  await drillRun.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth) && drillRun.dialogs === 0 && drillRun.pageErrors.length === 0,
+  `dialogs=${drillRun.dialogs}; errors=${drillRun.pageErrors.join(' | ')}`);
+await drillRun.context.close();
+
+const drillReset = await fixture({ resume: masteredResume, resetAmbiguous: true, sessionDelayMs: 100, drill: true });
+await drillReset.page.goto(`${BASE}/quiz?bank=bank-1`, { waitUntil: 'domcontentloaded' });
+const drillResetButton = drillReset.page.getByRole('button', { name: 'Làm lại từ đầu' });
+await drillResetButton.waitFor();
+await drillResetButton.evaluate((node) => {
+  node.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  node.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+});
+const resetBox = drillReset.page.getByRole('alertdialog', { name: 'Xoá tiến độ của bài này?' });
+await resetBox.waitFor();
+const keepFocused = await resetBox.getByRole('button', { name: 'Giữ tiến độ' }).evaluate((node) => document.activeElement === node);
+await resetBox.getByRole('button', { name: 'Giữ tiến độ' }).click();
+const keptPosts = drillReset.resetPosts;
+await drillResetButton.click();
+await resetBox.getByRole('button', { name: 'Xoá và làm lại' }).click();
+await drillReset.page.getByText(ROOM_PROMPT).waitFor();
+check('drill: làm lại hỏi bằng hộp trong trang, "Giữ tiến độ" là tiêu điểm đầu và không gọi reset',
+  keepFocused && keptPosts === 0);
+check('drill: reset mất ACK được reconcile, một lần reset, một phiên mới, 0 hộp gốc',
+  drillReset.resetPosts === 1 && drillReset.resumeReads === 2 && drillReset.sessionBodies.length === 1 && drillReset.dialogs === 0,
+  `reset=${drillReset.resetPosts}; reads=${drillReset.resumeReads}; sessions=${drillReset.sessionBodies.length}; dialogs=${drillReset.dialogs}`);
+await drillReset.context.close();
+
+const drillOffline = await fixture({ progressFailures: 99, drill: true });
+await drillOffline.page.goto(`${BASE}/quiz?bank=bank-1`, { waitUntil: 'domcontentloaded' });
+await drillOffline.page.getByText(ROOM_PROMPT).waitFor();
+const offlinePrompt = await drillOffline.page.getByText(ROOM_PROMPT).innerText();
+if (offlinePrompt.includes('Choose alpha')) await drillOffline.page.getByRole('button', { name: 'Correct choice' }).click();
+else { await drillOffline.page.getByRole('textbox', { name: 'Đáp án của bạn' }).fill('answer'); await drillOffline.page.getByRole('button', { name: 'Kiểm tra' }).click(); }
+await drillOffline.page.getByRole('button', { name: 'Câu tiếp theo' }).waitFor();
+await drillOffline.page.getByRole('button', { name: /Thoát/ }).first().click();
+await drillOffline.page.getByText(/Còn 1 câu chưa lưu/).waitFor();
+check('drill: Thoát khi còn câu chưa lưu thì hỏi kèm số câu, không rời trang',
+  new URL(drillOffline.page.url()).pathname === '/quiz' && drillOffline.dialogs === 0);
+await drillOffline.context.close();
+
+const drillExpired = await fixture({ progressFailures: 99, progressStatus: 401, drill: true });
+await drillExpired.page.goto(`${BASE}/quiz?bank=bank-1`, { waitUntil: 'domcontentloaded' });
+await drillExpired.page.getByText(ROOM_PROMPT).waitFor();
+const expiredPrompt = await drillExpired.page.getByText(ROOM_PROMPT).innerText();
+if (expiredPrompt.includes('Choose alpha')) await drillExpired.page.getByRole('button', { name: 'Correct choice' }).click();
+else { await drillExpired.page.getByRole('textbox', { name: 'Đáp án của bạn' }).fill('answer'); await drillExpired.page.getByRole('button', { name: 'Kiểm tra' }).click(); }
+await drillExpired.page.getByRole('button', { name: 'Câu tiếp theo' }).waitFor();
+await drillExpired.page.getByRole('button', { name: /Thoát/ }).first().click();
+await drillExpired.page.getByText('Phiên đăng nhập đã hết hạn').waitFor();
+check('drill: 401 giữa bài hiện hộp đăng nhập lại, không chuyển sang /login, bài còn trên trang',
+  new URL(drillExpired.page.url()).pathname === '/quiz' && await drillExpired.page.getByText(ROOM_PROMPT).count() === 1 && drillExpired.dialogs === 0);
+await drillExpired.context.close();
 
 await browser.close();
 const failed = results.filter((item) => !item.ok);
