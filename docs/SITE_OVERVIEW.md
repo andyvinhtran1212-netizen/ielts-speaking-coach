@@ -166,6 +166,8 @@ to `/`; the historical source file is not a separately served marketing page.
 | Page | Audience | Purpose · operation |
 |---|---|---|
 | `/library` | all | Free Library hub, no login: shelves for Writing samples, Writing guides, Speaking, Grammar and Vocabulary with live counts (`/api/library/summary`) and one Writing sample excerpt across bands 7.5/7.0/6.0. |
+| `/library/writing-guides` | all | Kiến thức Writing, no login: guides in four groups (Task 1, Task 2, Tiêu chí chấm, Dạng đề) from `/api/library/writing-guides`. |
+| `/library/writing-guides/[slug]` | all | One Writing guide, no login: reading layout with contents, quotes from published Writing samples, prev/next within its group. |
 
 ### 4.7b Student — classes and course work
 

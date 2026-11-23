@@ -12,10 +12,15 @@ test('V2_ROUTES is exactly the registry entries with ui: v2', () => {
   assert.deepEqual([...V2_ROUTES].sort(), [...registryV2].sort());
 });
 
-test('every v2 route is static, so a Set lookup matches isV2Route', () => {
-  // A dynamic v2 route needs the registry matcher here too; extend
-  // lib/v2-routes.mjs before adding one.
-  assert.deepEqual(registryV2.filter((route) => route.includes('[')), []);
+test('a dynamic v2 route uses only plain [param] segments', () => {
+  // lib/v2-routes.mjs matches `[x]` as exactly one segment; a catch-all
+  // (`[...x]`, `[[...x]]`) needs the registry matcher there first.
+  const dynamic = registryV2.filter((route) => route.includes('['));
+  for (const route of dynamic) {
+    for (const segment of route.slice(1).split('/')) {
+      if (segment.includes('[')) assert.match(segment, /^\[[^.[\]]+\]$/, route);
+    }
+  }
 });
 
 test('isV2Path agrees with isV2Route on every registry route and its variants', () => {
@@ -29,6 +34,10 @@ test('isV2Path agrees with isV2Route on every registry route and its variants', 
   assert.equal(isV2Path('/profile'), false);
   assert.equal(isV2Path('/profile/v2-pilot/extra'), false);
   assert.equal(isV2Path(''), false);
+  // Dynamic v2 route: one segment only.
+  assert.equal(isV2Path('/library/writing-guides/cach-viet-mo-bai'), true);
+  assert.equal(isV2Path('/library/writing-guides/cach-viet-mo-bai/'), true);
+  assert.equal(isV2Path('/library/writing-guides/a/b'), false);
 });
 
 test('the navigation bridge reads the slim list, not the registry', async () => {
