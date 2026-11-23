@@ -279,10 +279,14 @@ export function roleConfirmText(name, from, to) {
  * @returns {{ kind: 'success' | 'error', text: string }}
  */
 export function roleResultText(response, to) {
-  if (response && response.changed === false) return { kind: 'success', text: `Vai trò đã là ${roleLabel(to)}; không có gì thay đổi.` };
+  // Checked first: a retried demotion can answer changed:false with
+  // sessions_revoked:false (the route retries revocation when the role
+  // already matches), and that failure must not read as "nothing changed".
   if (response && response.sessions_revoked === false) {
-    return { kind: 'error', text: `Đã đổi vai trò sang ${roleLabel(to)} nhưng chưa thu hồi được phiên đăng nhập. Thu hồi phiên ở trang Người dùng.` };
+    const head = response.changed === false ? `Vai trò đã là ${roleLabel(to)}` : `Đã đổi vai trò sang ${roleLabel(to)}`;
+    return { kind: 'error', text: `${head} nhưng chưa thu hồi được phiên đăng nhập. Thu hồi phiên ở trang Người dùng.` };
   }
+  if (response && response.changed === false) return { kind: 'success', text: `Vai trò đã là ${roleLabel(to)}; không có gì thay đổi.` };
   return { kind: 'success', text: `Đã đổi vai trò sang ${roleLabel(to)}.` };
 }
 

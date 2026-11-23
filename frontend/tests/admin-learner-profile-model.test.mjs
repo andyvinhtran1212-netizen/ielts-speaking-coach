@@ -148,6 +148,9 @@ describe('Khoá và quyền (FR-033; G09-T11b)', () => {
   it('the result is truthful: unchanged, revocation failed, refused', () => {
     assert.equal(roleResultText({ changed: false }, 'student').text, 'Vai trò đã là Học viên; không có gì thay đổi.');
     assert.equal(roleResultText({ changed: true, sessions_revoked: false }, 'student').kind, 'error');
+    // A retried demotion: role already matches but revocation still failed.
+    assert.deepEqual(roleResultText({ changed: false, sessions_revoked: false }, 'student'),
+      { kind: 'error', text: 'Vai trò đã là Học viên nhưng chưa thu hồi được phiên đăng nhập. Thu hồi phiên ở trang Người dùng.' });
     assert.equal(roleResultText({ changed: true, sessions_revoked: true }, 'student').text, 'Đã đổi vai trò sang Học viên.');
     assert.match(roleErrorText({ code: 'step_up_required' }), /mã hai bước/);
     assert.equal(roleErrorText({ code: 'step_up_required', reason: 'new_factor_cooloff', message: 'Mã hai bước vừa đổi; thử lại sau 23 giờ.' }),
