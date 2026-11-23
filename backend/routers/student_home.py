@@ -76,8 +76,10 @@ async def my_permissions(authorization: str | None = Header(default=None)):
 async def today(response: Response, authorization: str | None = Header(default=None)):
     """New Today page payload (LEARNERCORE-0063 FR-019..FR-029, FR-070..FR-078).
 
-    Read-only: nothing here writes, not even the seen cursor (FR-078). Each part
-    runs in its own worker; a failing part lands in `degraded`.
+    Writes nothing of its own, not even the seen cursor (FR-078). The only write
+    is the class-ledger reconcile inside `_visible_assignments` (FR-078 exception,
+    amendment 3, #2484). Each part runs in its own worker; a failing part lands
+    in `degraded`.
     """
     response.headers["Cache-Control"] = "private, no-store"
     auth_user = await get_supabase_user(authorization)

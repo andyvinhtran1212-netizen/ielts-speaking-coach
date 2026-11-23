@@ -3,7 +3,12 @@
     GET  /api/student/today        -> get_today_concurrent(...)
     POST /api/student/today/seen   -> advance_seen_cursor(...)
 
-Read-only except the seen cursor. Every query filters explicitly by the
+GET writes nothing of its own; POST writes only the caller's seen cursor.
+The one write GET can trigger is the ledger reconcile that
+routers.class_student._visible_assignments already performs for every caller
+of /api/class/my-assignments (reconcile_test_attempts, reconcile_course_items).
+That exception is FR-078 as amended by 0063 amendment 3 (#2484), so #2484
+merges before this module. Every query filters explicitly by the
 caller (`user_id` / `student_id`), runs on the service role like
 services/student_home_aggregator, and each part runs in its own worker thread.
 A part that raises lands in `degraded` and keeps its empty default; a source
@@ -78,7 +83,10 @@ def _launch(surface: str, **query: str) -> str:
 
 def _visible_assignments_for(user_id: str, account_name: str, now: datetime):
     """Thin wrapper over routers.class_student (unchanged): returns
-    (has_class, rows). Imported here to avoid an import cycle."""
+    (has_class, rows). Imported here to avoid an import cycle.
+
+    _visible_assignments reconciles the class ledger as it reads (the FR-078
+    exception of amendment 3, #2484); nothing else in this module writes."""
     from routers.class_student import _student_for_user, _visible_assignments
     from services.class_archive_service import active_cohort_ids_for_student
     from database import supabase_admin

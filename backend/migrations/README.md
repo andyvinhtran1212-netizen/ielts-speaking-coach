@@ -59,6 +59,9 @@ while `credit_ledger` has rows unless `aver.allow_commerce_rollback = 'on'`.
 five RLS-only Library tables reached only through service_role and the private
 `library-media` bucket guarded by a RESTRICTIVE `storage.objects` policy; the schema
 rollback refuses while any Library content, slug history, mark or bucket object exists.
+`420` is `pending_feature learner_today` (LEARNERCORE-0063 T13, G07 band 420–439):
+two nullable `users` columns, `today_seen_at` and `today_seen_key`, the forward-only
+seen cursor of the Today page; no apply on merge, staging first with Andy's typed approval.
 `501` is `pending_feature course_bank_service_write`: since 309 its CHECK
 `quiz_banks_grammar_revision_shape` calls `grammar_quiz_allowed_code`, whose
 EXECUTE the 309/314/339 blanket loops revoke from service_role, so every

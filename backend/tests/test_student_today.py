@@ -483,3 +483,15 @@ def test_migration_420_is_idempotent_and_rollback_drops_both_columns():
     assert "DEFAULT" not in forward.split("BEGIN;", 1)[1].upper().replace("DEFAULT PRIVILEGES", "")
     assert "DROP COLUMN IF EXISTS today_seen_key" in rollback
     assert "DROP COLUMN IF EXISTS today_seen_at" in rollback
+
+
+def test_migration_420_is_held_out_of_the_normal_apply_run():
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1] / "migrations"
+    policy = [line.split("\t") for line in (root / "forward-policy.tsv").read_text().splitlines()
+              if line.startswith("420_")]
+    assert len(policy) == 1 and policy[0][:3] == ["420_users_today_seen_at.sql", "pending_feature", "learner_today"]
+    assert "No apply on merge" in policy[0][3]
+    readme = (root / "README.md").read_text()
+    assert "`420` is `pending_feature learner_today`" in readme
