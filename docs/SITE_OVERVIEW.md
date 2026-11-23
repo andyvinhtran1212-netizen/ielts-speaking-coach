@@ -127,13 +127,12 @@ to `/`; the historical source file is not a separately served marketing page.
 | `/reading/mini-test` | student | Mini-test selection and practice workspace. |
 | `/reading/exam/session` | student **or anonymous** | L3 exam: boot + start + auto-save + submit (`/api/reading/test/{id}/boot`, `/attempts`, `/answers`, `/submit`). Locked tests prompt a password; `?share=<token>` → anonymous boot/start via `/api/reading/test/share/{token}/*` carrying `X-Reading-Anon`. |
 | `/reading/review` | student **or anonymous**, plus admin preview | Native post-submit chữa-bài: score/band/skill + rich per-Q solution (`GET /api/reading/test/attempts/{id}/review`; `?anon=` → `X-Reading-Anon`). `?admin_test_id=` opens the honest no-score admin preview. Solution is stripped during the test, revealed only here; old HTML URLs are permanently redirected to their native owners. |
-| `/exam` | student | Native multi-source exam player (Phase 3; TOEIC Part 5 first). `?id=` plays an exam (MCQ → submit → caller-owned result + KP-aware review stepper); no id lists published exams and `?source=` filters them (`GET /api/exams[?source]`, `/api/exams/{id}`, `POST /{id}/attempts`, `/attempts/{id}/review`). React guards account/request staleness and double-submit; a review-read failure retries only the safe GET, never the attempt POST. A right/wrong answer feeds `kp_evidence`. |
 
 ### 4.5b Student — Mock Test (4-skill, sealed)
 
 | Page | Audience | Purpose · operation |
 |---|---|---|
-| `/full-test` | student | Full-test **entry** — lists the currently-open mock exams (`GET /api/mock-exams`, published + `is_open` + cohort-eligible) and links to the runner. Reachable from a card on `/home`. |
+| `/tests` | student | Thi thử / full-test **entry** — lists the currently-open mock exams (`GET /api/mock-exams`, published + `is_open` + cohort-eligible) and links to the runner. Reachable from a card on `/home`. Old `/full-test` and the retired `/exam` player 307 to `/tests` (LEARNERNAV-0062 batch 7a). |
 | `/mock-exam` | student | Native 4-skill mock **runner** (SEQUENTIAL, admin-gated). `?code=` opens/resumes a sitting; there is no student "Start" — the admin opens Listening → Reading → Writing one at a time (`POST /admin/mock-exams/{id}/advance`), and the runner polls canonical state under the shared server clock. Reading/Listening run through stable core-player admission and flush pending answers before collection; Writing keeps local + server drafts and reuses one immutable final payload across lost-ACK reconciliation. Retake mode exposes only assigned skills, scores stay sealed until release; historical source retention is tracked separately by Gate F. |
 | `/tests/mock/result` | student | Mock TRF result (old `/mock/result` 307s here, LEARNERNAV-0062) — 4 bands + overall + examiner comment. `GET /api/mock-exams/sittings/{id}/result` returns 403 until an admin releases the sitting. |
 

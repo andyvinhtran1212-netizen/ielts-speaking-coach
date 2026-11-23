@@ -76,13 +76,15 @@ test('explicit URL manifest preserves all 139 pre-refactor redirect rules byte f
   // /vocabulary/fill-in (was d80b4fdf…0450de).
   // Batch 8 changed exactly one more (rule 113): /pages/my-class.html →
   // /course/assigned (was e2bf5d6c…63bd6a).
+  // Batch 7a changed exactly two more (rules 80, 85): /pages/exam.html and
+  // /pages/full-test.html → /tests (was adf1c476…bf7573).
   // Batch 5 changed exactly one more (rule 84): /pages/full-test-result.html →
-  // /speaking/full-test/result (was adf1c476…bf7573).
+  // /speaking/full-test/result (was 60bc47bc…c3d870).
   // Batch 6 changed exactly two more (rules 112, 129): /pages/mock-result.html
   // → /tests/mock/result and /pages/speaking-result.html →
-  // /tests/mock/speaking-report (was 972feb3e…fa7387).
+  // /tests/mock/speaking-report (was 2a9c1a62…32fd2a).
   assert.equal(createHash('sha256').update(JSON.stringify(independentRules)).digest('hex'),
-    'e0292928f5434b84de6c1a0e352199f6d3b37b2d0cab6930b23309b2a3b28509');
+    '2a7c96205c47e693f65a55a39cdea1772a69026bcf067da8107d6b4bd118c0b9');
   assert.match(nextConfig, /buildLegacyRetirementRedirects\([\s\S]*?LEGACY_RETIREMENT_PATHS,/);
   assert.doesNotMatch(nextConfig, /discoverLegacyHtmlPaths|readdirSync/);
 });

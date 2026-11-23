@@ -35,6 +35,10 @@ const MOVES = [
   { from: '/grammar-checkup', to: '/course/grammar-checkup', legacy: null },
   // Batch 5 (G07-T10)
   { from: '/full-test-result', to: '/speaking/full-test/result', legacy: '/pages/full-test-result.html' },
+  // Batch 7a (G07-T12a): /tests starts as the existing exam chooser, and the
+  // retired /exam player goes there too (decided 18/11, 00 section 2 point 22).
+  { from: '/full-test', to: '/tests', legacy: '/pages/full-test.html' },
+  { from: '/exam', to: '/tests', legacy: '/pages/exam.html' },
   // Batch 6 (G07-T11)
   { from: '/speaking/result', to: '/tests/mock/speaking-report', legacy: '/pages/speaking-result.html' },
   { from: '/mock/result', to: '/tests/mock/result', legacy: '/pages/mock-result.html' },
@@ -119,6 +123,28 @@ describe('learner route moves (LEARNERNAV-0062)', async () => {
     assert.doesNotMatch(player, /d1-exercise['"`?]/, 'the player never builds the old path');
     assert.deepEqual(follow(redirects, '/d1-exercise?session=abc-123'),
       { status: 307, location: '/vocabulary/fill-in?session=abc-123' });
+  });
+
+  // Batch 7a: Thi thử needs no stand-in (/tests is live), the exam room's
+  // "Back to Full Test" and every in-app link use /tests, and the /exam
+  // player is gone with no import left outside its old folder (CR-2460-R1).
+  test('/full-test and /exam: Thi thử has no stand-in and links use /tests', () => {
+    assert.match(read('components', 'ui', 'shell', 'learner-sections.ts'),
+      /\{ id: 'tests', label: 'Thi thử', href: '\/tests', today: null, icon: 'timer' \}/);
+    assert.match(read('app', '(authed-mock-exam)', 'mock-exam', 'mock-exam-runner.tsx'),
+      /back=\{\{ href: '\/tests', label: 'Back to Full Test' \}\}/);
+    assert.ok(!pages.has('/exam'));
+    const sources = (root) => readdirSync(root, { withFileTypes: true, recursive: true })
+      .filter((e) => e.isFile() && /\.(tsx?|mjs)$/.test(e.name))
+      .map((e) => readFileSync(path.join(e.parentPath, e.name), 'utf8'));
+    for (const source of [...sources(path.join(FRONTEND, 'app')), ...sources(path.join(FRONTEND, 'components')), ...sources(path.join(FRONTEND, 'lib'))]) {
+      assert.doesNotMatch(source, /\(authed-exam\)|from ['"][^'"]*exam-player['"]/);
+      assert.doesNotMatch(source, /(?:href=|href:\s*|leaveForParent\()['"]\/(?:full-test|exam)['"?]/);
+    }
+    for (const prefix of ['/full-test', '/exam']) {
+      assert.ok(!read('app', 'robots.ts').includes(`'${prefix}',`), `robots no longer lists ${prefix}`);
+    }
+    assert.match(read('app', 'robots.ts'), /^  '\/tests',$/m);
   });
 
   // Batch 8: the class page sits under Lộ trình. The nav item no longer needs
