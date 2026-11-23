@@ -1081,6 +1081,7 @@ _CONVERT_MESSAGES = {
     "no_class_product": "Khoá của lớp chưa có sản phẩm loại lớp. Tạo sản phẩm ở trang Khoá học trước.",
     "product_ambiguous": "Khoá của lớp có nhiều sản phẩm loại lớp: chọn một sản phẩm.",
     "product_invalid": "Sản phẩm này không phải sản phẩm lớp của khoá, hoặc đã lưu trữ.",
+    "request_key_conflict": "Mã yêu cầu này đã dùng cho một lần chuyển lớp khác. Tải lại trang rồi làm lại.",
 }
 
 
@@ -1117,9 +1118,9 @@ async def convert_class_preview(cohort_id: str = Query(pattern=_UUID), authoriza
 @router.post("/credits/convert-class", responses=staff_guard.STEP_UP_RESPONSES)
 async def convert_class(body: ConvertClass, authorization: Optional[str] = Header(None)):
     admin = await require_admin(authorization)
-    step_up_credits = body.credits_per_member
-    if step_up_credits > 0:
-        staff_guard.require_recent_mfa(admin, authorization)
+    # Q13 amendment (Andy, 23/11 11:39Z): every conversion is a bulk grant, so
+    # every call needs step-up, zero credits included.
+    staff_guard.require_recent_mfa(admin, authorization)
     return await _convert_call(
         credits.convert_class, admin_id=str(admin["id"]), cohort_id=body.cohort_id,
         credits_per_member=body.credits_per_member, request_key=str(body.request_key), product_id=body.product_id)

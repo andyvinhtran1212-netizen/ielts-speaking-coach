@@ -692,7 +692,7 @@ def convert_class(*, admin_id: str, cohort_id: str, credits_per_member: int, req
                 "skipped": list(result.get("skipped") or [])}
     if status == "cohort_not_found":
         raise ConvertClassRefused(404, status)
-    if status in ("cohort_archived", "cohort_has_no_course"):
+    if status in ("cohort_archived", "cohort_has_no_course", "request_key_conflict"):
         raise ConvertClassRefused(409, status)
     if status == "product_invalid":
         raise ConvertClassRefused(422, status)

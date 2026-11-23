@@ -8,9 +8,11 @@
 -- credits. fn_credit_convert_class gives every active member with an account
 -- one class entitlement (source 'class_conversion', source_ref = the cohort)
 -- plus the credits the admin typed; from then on charge_plan step 4 (plan 5.4)
--- meters that class's assigned work. One RPC, no table, no column, no seed,
--- no change to any existing row: access_codes, user_code_assignments and
--- student_cohort_memberships are only read.
+-- meters that class's assigned work. One RPC and one append-only request log
+-- (credit_class_conversions, one row per request_key holding the scope and the
+-- result of the first call); no column, no seed, no change to any existing
+-- row: access_codes, user_code_assignments and student_cohort_memberships are
+-- only read.
 --
 -- Forward: pending_feature class_credit_conversion (a group of its own, so a
 -- course_commerce run of 383 + 384 never picks it up). No apply on merge.
@@ -23,7 +25,9 @@
 -- the entitlements, events and ledger rows it wrote stay).
 --
 -- Locking (same rules as 384 and 385):
---   * the cohort row is locked FOR UPDATE first, so two calls for one class
+--   * the request key's advisory lock first ('aver.convert:' || key), so two
+--     calls with one key queue even for two different classes;
+--   * then the cohort row is locked FOR UPDATE first, so two calls for one class
 --     (two admins, or a double click) queue and the second sees the first's
 --     rows;
 --   * then each member's per-user advisory lock (fn_credit_lock_user, the key
@@ -39,6 +43,7 @@ SET LOCAL search_path = pg_catalog, pg_temp;
 DO $precondition$
 BEGIN
     IF to_regprocedure('public.fn_credit_lock_user(uuid)') IS NULL
+       OR to_regprocedure('public.fn_course_commerce_append_only()') IS NULL
        OR to_regprocedure('public.fn_entitlement_credit_usable(public.entitlements)') IS NULL
        OR to_regprocedure('public.fn_credit_usable_balance(uuid)') IS NULL
        OR to_regclass('public.credit_ledger') IS NULL
@@ -54,10 +59,39 @@ BEGIN
 END;
 $precondition$;
 
+-- ── credit_class_conversions: one row per request ──────────────────────────
+-- Written in the same transaction as the conversion it records, before the
+-- RPC returns; never updated or deleted. A resend of the same request_key is
+-- answered from this row, under the key lock and before any write, so a retry
+-- never reaches members who joined the class after the first call.
+CREATE TABLE IF NOT EXISTS public.credit_class_conversions (
+    request_key uuid PRIMARY KEY,
+    cohort_id uuid NOT NULL REFERENCES public.cohorts(id) ON DELETE RESTRICT,
+    product_id uuid NOT NULL REFERENCES public.course_products(id) ON DELETE RESTRICT,
+    credits_per_member integer NOT NULL CONSTRAINT credit_class_conversions_credits_check
+        CHECK (credits_per_member BETWEEN 0 AND 100000),
+    admin_id uuid NOT NULL,
+    result jsonb NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE OR REPLACE TRIGGER trg_credit_class_conversions_append_only
+    BEFORE UPDATE OR DELETE ON public.credit_class_conversions
+    FOR EACH ROW EXECUTE FUNCTION public.fn_course_commerce_append_only();
+CREATE OR REPLACE TRIGGER trg_credit_class_conversions_no_truncate
+    BEFORE TRUNCATE ON public.credit_class_conversions
+    FOR EACH STATEMENT EXECUTE FUNCTION public.fn_course_commerce_append_only();
+-- Read and written only by the SECURITY DEFINER RPC below.
+ALTER TABLE public.credit_class_conversions ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.credit_class_conversions FROM PUBLIC, anon, authenticated, service_role;
+GRANT SELECT ON public.credit_class_conversions TO service_role;
+
 -- ── fn_credit_convert_class (plan 5.18) ─────────────────────────────────────
--- Statuses: converted (+converted[], skipped[]), replay (same shape, converted
--- empty), cohort_not_found, cohort_archived, cohort_has_no_course,
--- product_invalid. The backend picks the product before calling (409
+-- Statuses: converted (+converted[], skipped[]), replay (the first call's
+-- converted[] and skipped[] exactly, balances as they were then; nothing is
+-- written), request_key_conflict (the key was used with another class,
+-- product, credit amount or admin; nothing is written), cohort_not_found,
+-- cohort_archived, cohort_has_no_course, product_invalid. Refusals record
+-- nothing, so the same key can be sent again once the class is fixed. The backend picks the product before calling (409
 -- no_class_product / product_ambiguous there).
 --
 -- Per active member (students joined through student_cohort_memberships):
@@ -93,10 +127,21 @@ DECLARE
     v_balance integer;
     v_converted jsonb := '[]'::jsonb;
     v_skipped jsonb := '[]'::jsonb;
+    v_prior public.credit_class_conversions%ROWTYPE;
+    v_result jsonb;
 BEGIN
     IF p_admin_id IS NULL OR p_cohort_id IS NULL OR p_product_id IS NULL OR p_request_key IS NULL
        OR p_credits_per_member IS NULL OR p_credits_per_member NOT BETWEEN 0 AND 100000 THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'credit_convert_class_invalid_argument';
+    END IF;
+    PERFORM pg_advisory_xact_lock(hashtextextended('aver.convert:' || p_request_key::text, 0));
+    SELECT * INTO v_prior FROM public.credit_class_conversions WHERE request_key = p_request_key;
+    IF FOUND THEN
+        IF v_prior.cohort_id = p_cohort_id AND v_prior.product_id = p_product_id
+           AND v_prior.credits_per_member = p_credits_per_member AND v_prior.admin_id = p_admin_id THEN
+            RETURN v_prior.result || jsonb_build_object('status', 'replay');
+        END IF;
+        RETURN jsonb_build_object('status', 'request_key_conflict');
     END IF;
     SELECT c.course_id, c.archived_at INTO v_course, v_archived
       FROM public.cohorts c WHERE c.id = p_cohort_id FOR UPDATE;
@@ -174,14 +219,11 @@ BEGIN
                                                          'expires_at', v_ent.expires_at, 'balance', v_balance);
     END LOOP;
 
-    IF jsonb_array_length(v_converted) = 0 AND EXISTS (
-        SELECT 1 FROM public.entitlement_events ev
-          JOIN public.entitlements e ON e.id = ev.entitlement_id
-         WHERE e.source = 'class_conversion' AND e.source_ref = p_cohort_id
-           AND ev.action = 'grant' AND ev.after ->> 'request_key' = p_request_key::text) THEN
-        RETURN jsonb_build_object('status', 'replay', 'converted', v_converted, 'skipped', v_skipped);
-    END IF;
-    RETURN jsonb_build_object('status', 'converted', 'converted', v_converted, 'skipped', v_skipped);
+    v_result := jsonb_build_object('status', 'converted', 'converted', v_converted, 'skipped', v_skipped);
+    INSERT INTO public.credit_class_conversions (request_key, cohort_id, product_id, credits_per_member,
+                                                 admin_id, result)
+    VALUES (p_request_key, p_cohort_id, p_product_id, p_credits_per_member, p_admin_id, v_result);
+    RETURN v_result;
 END;
 $$;
 
@@ -213,6 +255,16 @@ BEGIN
        OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'entitlements_source_ref_user_key'
                        AND conrelid = 'public.entitlements'::regclass) THEN
         RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = '387 postcondition: entitlements constraints';
+    END IF;
+    IF to_regclass('public.credit_class_conversions') IS NULL
+       OR NOT (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.credit_class_conversions'::regclass)
+       OR has_table_privilege('anon', 'public.credit_class_conversions', 'SELECT')
+       OR has_table_privilege('authenticated', 'public.credit_class_conversions', 'SELECT')
+       OR has_table_privilege('service_role', 'public.credit_class_conversions', 'INSERT')
+       OR (SELECT count(*) FROM pg_trigger WHERE tgrelid = 'public.credit_class_conversions'::regclass
+             AND tgname IN ('trg_credit_class_conversions_append_only',
+                            'trg_credit_class_conversions_no_truncate')) <> 2 THEN
+        RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = '387 postcondition: credit_class_conversions';
     END IF;
 END;
 $postcondition$;

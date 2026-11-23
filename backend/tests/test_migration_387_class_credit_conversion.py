@@ -54,7 +54,10 @@ def test_one_transaction_one_definer_rpc_service_role_only():
     header = body.split("CREATE OR REPLACE FUNCTION ", 1)[1].split("AS $$", 1)[0]
     assert "SECURITY DEFINER" in header and "SET search_path = pg_catalog, pg_temp" in header
     assert f"'public.{RPC}'::regprocedure" in body
-    assert not re.search(r"\b(CREATE TABLE|ALTER TABLE|DROP TABLE)\b", body)
+    # One new table, the append-only request log; no other table is created or changed.
+    assert re.findall(r"CREATE TABLE IF NOT EXISTS public\.(\w+)", body) == ["credit_class_conversions"]
+    assert re.findall(r"ALTER TABLE public\.(\w+)", body) == ["credit_class_conversions"]
+    assert not re.search(r"\bDROP TABLE\b", body)
     assert not re.search(r"pg_advisory_lock\(", body)
     # Codes, assignments and memberships are only read.
     assert not re.search(r"\b(UPDATE|INSERT INTO|DELETE FROM)\s+public\.(access_codes|user_code_assignments|"
@@ -74,6 +77,12 @@ def test_constant_reason_and_source_and_the_lock_order():
     assert "FOR UPDATE" in body.split("FROM public.cohorts", 1)[1].split(";", 1)[0]
     assert "ORDER BY s.user_id NULLS LAST" in body
     assert "public.fn_credit_lock_user(v_member.user_id)" in body
+    # The key is checked under its own lock before the class is touched.
+    function = body.split("AS $$", 1)[1]
+    assert (function.index("pg_advisory_xact_lock(hashtextextended('aver.convert:'")
+            < function.index("FROM public.credit_class_conversions WHERE request_key")
+            < function.index("FROM public.cohorts")
+            < function.index("INSERT INTO public.entitlements"))
 
 
 def test_register_policy_readme_and_rollback():
@@ -230,8 +239,7 @@ async def test_four_members_replay_new_key_and_a_new_member(pg):
     assert len(events) == 1 and events[0]["action"] == "grant" and events[0]["actor_kind"] == "admin"
 
     again = await pg.convert(world["cohort"], world["product"], 10, key)
-    assert again["status"] == "replay" and again["converted"] == []
-    assert {s["reason"] for s in again["skipped"]} == {"already_metered", "no_account"}
+    assert again == {**result, "status": "replay"}
     other_key = await pg.convert(world["cohort"], world["product"], 25)
     assert other_key["status"] == "converted" and other_key["converted"] == []
     for user in (world["a"], world["b"], world["c"]):
@@ -247,6 +255,42 @@ async def test_four_members_replay_new_key_and_a_new_member(pg):
     e_student = await pg.con.fetchval("SELECT id FROM students WHERE user_id = $1", e)
     await pg.con.execute("DELETE FROM student_cohort_memberships WHERE student_id = $1", e_student)
     assert await pg.fingerprint() == before
+
+
+@pytest.mark.asyncio
+async def test_a_resent_key_keeps_the_first_scope_and_a_changed_one_is_a_conflict(pg):
+    """HOLD 11:34Z: a member who joined after the first call is not reached by
+    a resend of the same request_key; the same key with any other argument is
+    request_key_conflict; neither writes a row."""
+    world = await _class(pg)
+    key = uuid4()
+    first = await pg.convert(world["cohort"], world["product"], 10, key)
+    assert first["status"] == "converted" and len(first["converted"]) == 3
+    e = await pg.user()
+    await pg.member(world["cohort"], e)
+
+    async def counts():
+        return [await pg.con.fetchval(f"SELECT count(*) FROM {t}")
+                for t in ("entitlements", "credit_ledger", "entitlement_events", "credit_class_conversions")]
+
+    before = await counts()
+    again = await pg.convert(world["cohort"], world["product"], 10, key)
+    assert again == {**first, "status": "replay"} and await pg.ents(e) == []
+    second = await pg.cohort(world["course"], name="Lớp tối")
+    other = await pg.product(kind="class", course=world["course"])
+    for args in ((world["cohort"], world["product"], 11), (world["cohort"], other, 10),
+                 (second, world["product"], 10)):
+        assert (await pg.convert(*args, key))["status"] == "request_key_conflict", args
+    other_admin = await pg.user()
+    assert (await pg.rpc("fn_credit_convert_class", other_admin, world["cohort"], world["product"], 10,
+                         key))["status"] == "request_key_conflict"
+    assert await counts() == before
+    # A refusal records nothing: the key still works once the class is fixed.
+    fresh = uuid4()
+    assert (await pg.convert(world["cohort"], uuid4(), 1, fresh))["status"] == "product_invalid"
+    assert list(_by_user(await pg.convert(world["cohort"], world["product"], 3, fresh))) == [e]
+    with pytest.raises(asyncpg.exceptions.RaiseError):
+        await pg.con.execute("UPDATE credit_class_conversions SET credits_per_member = 0")
 
 
 @pytest.mark.asyncio
@@ -339,7 +383,9 @@ async def test_rollback_keeps_the_rows(pg):
     assert await pg.con.fetchval("SELECT to_regprocedure($1)", f"{pg.schema}.{RPC}") is None
     assert await pg.con.fetchval("SELECT count(*) FROM entitlements WHERE source = 'class_conversion'") == 3
     assert await pg.con.fetchval("SELECT count(*) FROM credit_ledger") == 3
+    assert await pg.con.fetchval("SELECT count(*) FROM credit_class_conversions") == 1
     await pg.con.execute(pg.sql(FORWARD))
+    assert await pg.con.fetchval("SELECT count(*) FROM credit_class_conversions") == 1
 
 
 @pytest.mark.asyncio

@@ -359,6 +359,8 @@ STEP_UP_ROUTES = frozenset({
     ("PATCH", "/admin/users/{user_id}/role"),
     ("PATCH", "/admin/users/{user_id}/active"),
     ("POST", "/admin/users/{user_id}/revoke-sessions"),
+    # COURSEACCESS-0055 Q13 amendment (G04-T15): every class conversion.
+    ("POST", "/admin/credits/convert-class"),
 })
 
 # Amendment 2 (FR-020, option c): routes whose step-up depends on the request.
@@ -410,17 +412,6 @@ CONDITIONAL_STEP_UP_ROUTES = {
             request_key="22222222-2222-2222-2222-222222222222")},
         "normalize": "needs_step_up = body.needs_step_up",
         "condition": "needs_step_up",
-    },
-    # COURSEACCESS-0055 Q13 (G04-T15): any credits per member is a bulk grant.
-    ("POST", "/admin/credits/convert-class"): {
-        "guarded": lambda: {"body": commerce_module.ConvertClass(
-            cohort_id="11111111-1111-1111-1111-111111111111", credits_per_member=1,
-            request_key="22222222-2222-2222-2222-222222222222")},
-        "ordinary": lambda: {"body": commerce_module.ConvertClass(
-            cohort_id="11111111-1111-1111-1111-111111111111", credits_per_member=0,
-            request_key="22222222-2222-2222-2222-222222222222")},
-        "normalize": "step_up_credits = body.credits_per_member",
-        "condition": "step_up_credits > 0",
     },
 }
 ALL_STEP_UP_ROUTES = STEP_UP_ROUTES | frozenset(CONDITIONAL_STEP_UP_ROUTES)

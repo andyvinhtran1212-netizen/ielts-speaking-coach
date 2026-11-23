@@ -184,8 +184,9 @@ def test_product_choice(client, world):
     assert world["db"].rpcs[0][1]["p_credits_per_member"] == 10 and world["db"].rpcs[0][1]["p_admin_id"] == "admin-1"
 
 
-def test_zero_credits_needs_no_step_up_and_a_failed_rpc_is_503(client, world):
-    assert _post(client, credits_per_member=0).status_code == 200 and world["step_up"] == []
+def test_zero_credits_still_needs_step_up_and_a_failed_rpc_is_503(client, world):
+    # Q13 amendment: every conversion takes step-up, zero credits included.
+    assert _post(client, credits_per_member=0).status_code == 200 and world["step_up"] == ["admin-1"]
     world["db"].handlers["fn_credit_convert_class"] = lambda params: RuntimeError("down")
     res = client.post("/admin/credits/convert-class", headers=AUTH,
                       json={"cohort_id": COHORT, "credits_per_member": 1,
@@ -194,6 +195,10 @@ def test_zero_credits_needs_no_step_up_and_a_failed_rpc_is_503(client, world):
     world["db"].handlers["fn_credit_convert_class"] = lambda params: {"status": "product_invalid"}
     res = _post(client, product_id=PRODUCT)
     assert res.status_code == 422 and res.json()["detail"]["error_code"] == "product_invalid"
+    world["db"].handlers["fn_credit_convert_class"] = lambda params: {"status": "request_key_conflict"}
+    res = _post(client, product_id=PRODUCT)
+    assert res.status_code == 409 and res.json()["detail"]["error_code"] == "request_key_conflict"
+    assert "Tải lại trang" in res.json()["detail"]["message"]
 
 
 def test_after_conversion_class_work_is_metered_and_shows_one_row(client, world, monkeypatch):
