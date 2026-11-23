@@ -35,6 +35,30 @@
 | FR-08-015 (khung) | FR-015 |
 | FR khung khác áp cho Listening test (EXAMROOM-0066) | FR-001, 002, 004, 005, 008, 011, 016…019 |
 
+## Independent review (T006)
+
+Review độc lập lần 1, ngày 23/11/2026 (R142), người review không phải tác giả chuỗi 0070. Đối tượng: #2542 (T001, `7d0c5d60`) → #2557 (T002, `a2e09fad`) → #2584 (T003, head `da419152`, đã gồm cả #2549 T004 phần backend, `b19e81ba`). Chỉ xét phần riêng của 0070: `listening-test-controller.mjs`, `listening-test-room.tsx`, `listening-test-session.tsx`, route `abandon`, test và hai journey. Ghi chép đầy đủ ở bình luận review trên #2557.
+
+- Lệnh chạy lại trên `da419152`:
+  - `node --test` các file `listening-test*`, `core-operation*`, `mock-exam-next*`: 317 pass.
+  - `vitest` `listening-test-room` và `exam-room*`: 88/88.
+  - `pytest test_listening_abandon_attempt.py test_listening_blackeye_boundaries.py`: 130 pass.
+  - Journey **chưa chạy lại** trong lần review này. Theo PR #2584, journey session đạt 20/20, journey overflow đạt 272/278. 6 lỗi khi bật cờ là do dải câu của khung tràn ngang với một Part 40 ô ở 1024–1440 px; lỗi này thuộc khung 0066 (#2518/#2528) và đang được sửa ở chuỗi đó.
+- **F1 (Medium, FR-010 và FR-014), còn mở.** Nộp bài gặp 401 thì trạng thái là `unconfirmed` với `waitFor: 'signin'`. Không có lần thử lại nào được hẹn, trong khi khung hiện `unconfirmed` mà không có nút và khoá ô. Học viên chọn ở lại trong bài thì kẹt, không có "Try again", cho tới khi tải lại trang. Cách sửa: khi chờ đăng nhập thì chuyển sang `unconfirmed_manual` (có "Try again"), hoặc tự nộp lại khi phiên trở lại; kèm một test React ở mức `listening-test-session`.
+- **F2 (Medium, FR-004 và FR-010), còn mở.** Chuỗi tiếng Anh `unconfirmed` của khung là "Time is up. We have not confirmed your submission yet…". Listening không có hạn giờ phía máy chủ, nên khi mất phản hồi hay offline, học viên Listening đọc "Time is up" là sai. Cách sửa: khung cho bề mặt không có đồng hồ một câu không nhắc hết giờ (ví dụ "We have not confirmed your submission yet. Keep this page open while we try again."), và test chuỗi cho Listening.
+- **F3 (Low, FR-011), còn mở.** Câu "The recording keeps playing on our side while you are away…" đang nằm trong thân trang, không nằm trong hộp rời bài. `ExamRoomExit.note` có sẵn cho đúng việc này nhưng chưa dùng. Cách sửa: `exit.note = isFullTest ? AWAY_NOTE : undefined`.
+- **F4 (Low, FR-010).** Trong vòng tự thử lại, nếu đọc lại lượt thất bại (`{status: 'unknown'}`), trạng thái chuyển ngay sang `unconfirmed_manual`, nên ngừng thử trước khi dùng hết 3 lần.
+- Nit, không chặn:
+  - Nhãn nút là "Submit answers", còn Scenario 1 ghi "Submit test".
+  - Kỳ thi gắn sitting dùng đề mini thì `policy='test'` nhưng biến `practice` vẫn đúng. Hệ quả: offset khi tải lại, trạng thái hết audio và luật ở màn đầu theo kiểu luyện tập, không khớp trình phát.
+- **Thiếu test.** Phần logic mới ở mức phiên chưa có test React: `runRoomSubmit`, `abandonRoom`, gửi lại từ bản sao (`planLocalCopyReplay`), `saveRoomLocalCopy`, `reloadRoomFromServer`, `onRoomWriteRight`. Các dòng FR-007, FR-008, FR-013, FR-014, FR-015, FR-019 ở bảng trên trỏ tới `listening-test-room.test.tsx`, nhưng file đó chưa có các ca này.
+- **Đã kiểm khớp, không thấy lỗi:**
+  - FR-001: boot có `bootKeyRef` giữ; khi cờ tắt, các đường cũ không đổi.
+  - FR-002, FR-003, FR-005; FR-006 ở mức hàm thuần; FR-009; FR-016; FR-017.
+  - FR-012 phía backend: một câu UPDATE CAS; các mã `reason` của 409 khớp với chỗ frontend đọc `detail.reason`; lượt bỏ không vào lịch sử, Tiến độ hay review. FR-012 vẫn chờ anh Andy gỡ HOLD trên #2549.
+- **Chưa kiểm ở lần này:** FR-018 (cần journey), FR-019 (sự kiện), `/ui-review` trên ảnh chụp (cần staging, T005).
+- Các dòng PENDING ở bảng trên giữ nguyên PENDING cho tới khi F1–F3 được sửa và qua nghiệm thu staging (T005).
+
 ## Contract evidence
 
 - OpenAPI/type drift: một route mới `POST /api/listening/tests/attempts/{attempt_id}/abandon`;
