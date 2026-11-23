@@ -14,18 +14,46 @@
 --    service_role only (CR nit on #2501).
 -- 2. A narrow pass in the guards that refuse DELETE to keep grading evidence
 --    (and in the class_action_log append-only guard, for student_name only).
---    The function sets a transaction-local context naming the learner and
---    its owner; fn_account_erasure_row_allowed is true only for a row of
---    that learner while that learner's request is 'erasing' under that
---    owner. Every other UPDATE or DELETE is refused exactly as before. The
---    pass is injected into the deployed definition (pg_get_functiondef) so
---    it follows whatever the database holds; a guard that does not exist
---    here is skipped.
+--    fn_account_erasure_row_allowed is true only for a row of the learner
+--    whose request the CURRENT TRANSACTION is erasing: the function stamps
+--    pg_current_xact_id() into the locked request row (erasing_xact), and
+--    no other session can see or forge that value (SA-2 on #2600). The
+--    transaction-local GUC aver.account_erasure_user is only a cheap hint:
+--    the pass is a nested IF, so ordinary DML never reaches (or needs
+--    EXECUTE on) the check functions (SA-1). Every other INSERT, UPDATE or
+--    DELETE is handled exactly as before. The pass is injected into the
+--    deployed definition (pg_get_functiondef) so it follows whatever the
+--    database holds; a guard that does not exist here is skipped.
+-- 3. The plan only names tables; its key columns must be the learner's own
+--    (user_id, student_id, learner_id, user_feedback.created_by, users.id),
+--    and a child delete must follow a real foreign key to its parent (SA-4).
 -- Re-runnable: CREATE OR REPLACE, the injected pass carries a marker and is
 -- never added twice. Rollback: rollback/504_account_erasure.sql removes the
 -- pass from every guard and drops the three functions.
 BEGIN;
 SET LOCAL lock_timeout = '5s';
+
+-- SA-2: the transaction that is erasing this request (uncommitted, so only
+-- that transaction sees it; an xid8 is never reused).
+ALTER TABLE public.account_deletion_requests ADD COLUMN IF NOT EXISTS erasing_xact xid8;
+
+-- Only fn_account_erase_learner (running as its owner) may write
+-- erasing_xact; service_role updates the table but cannot stamp its own
+-- transaction into it to open the narrow pass.
+CREATE OR REPLACE FUNCTION public.fn_account_deletion_requests_xact_guard()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+    IF NEW.erasing_xact IS DISTINCT FROM (CASE WHEN TG_OP = 'UPDATE' THEN OLD.erasing_xact END)
+       AND current_user <> (SELECT p.proowner::regrole::name FROM pg_proc p
+                             WHERE p.oid = 'public.fn_account_erase_learner(uuid,text,jsonb)'::regprocedure) THEN
+        RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'erasing_xact is written by fn_account_erase_learner only';
+    END IF;
+    RETURN NEW;
+END;
+$$;
 
 CREATE OR REPLACE FUNCTION public.fn_account_erasure_user()
 RETURNS uuid
@@ -43,6 +71,7 @@ BEGIN
         SELECT 1 FROM public.account_deletion_requests d
          WHERE d.user_id = uid AND d.status = 'erasing'
            AND d.erasing_owner = current_setting('aver.account_erasure_owner', true)
+           AND d.erasing_xact = pg_current_xact_id_if_assigned()
     ) THEN
         RETURN NULL;
     END IF;
@@ -83,6 +112,22 @@ BEGIN
 END;
 $$;
 
+-- SA-4: the only key columns a plan may use. Not SECURITY DEFINER; only
+-- fn_account_erase_learner calls it.
+CREATE OR REPLACE FUNCTION public.fn_account_erasure_key_ok(p_table text, p_key text, p_subject text)
+RETURNS boolean
+LANGUAGE sql IMMUTABLE
+SET search_path = public, pg_temp
+AS $$
+    SELECT CASE
+        WHEN p_key = 'student_id' THEN p_subject = 'student'
+        WHEN p_key IN ('user_id', 'learner_id') THEN p_subject = 'user'
+        WHEN p_table = 'user_feedback' AND p_key = 'created_by' THEN p_subject = 'user'
+        WHEN p_table = 'users' AND p_key = 'id' THEN p_subject = 'user'
+        ELSE false
+    END
+$$;
+
 CREATE OR REPLACE FUNCTION public.fn_account_erase_learner(p_request uuid, p_owner text, p_plan jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER
@@ -91,6 +136,8 @@ AS $$
 DECLARE
     req record;
     uid uuid;
+    key_table text;
+    key_col text;
     student_ids uuid[];
     login_email text;
     item jsonb;
@@ -117,6 +164,31 @@ BEGIN
     IF EXISTS (SELECT 1 FROM public.account_data_exports WHERE user_id = uid AND lease_until >= now()) THEN
         RETURN jsonb_build_object('waiting_export', true);
     END IF;
+    -- SA-4: check every key column before any change.
+    FOR item IN SELECT * FROM jsonb_array_elements(coalesce(p_plan -> 'delete', '[]'::jsonb)) LOOP
+        key_table := CASE WHEN item ? 'parent' THEN item ->> 'parent' ELSE item ->> 'table' END;
+        key_col := CASE WHEN item ? 'parent' THEN item ->> 'parent_column' ELSE item ->> 'column' END;
+        IF NOT coalesce(public.fn_account_erasure_key_ok(key_table, key_col, item ->> 'subject'), false)
+           OR (item ? 'parent' AND to_regclass(format('public.%I', item ->> 'table')) IS NOT NULL
+               AND NOT EXISTS (
+                   SELECT 1 FROM pg_constraint k
+                     JOIN pg_attribute a ON a.attrelid = k.conrelid AND a.attnum = k.conkey[1]
+                    WHERE k.contype = 'f' AND cardinality(k.conkey) = 1
+                      AND k.conrelid = format('public.%I', item ->> 'table')::regclass
+                      AND k.confrelid = to_regclass(format('public.%I', item ->> 'parent'))
+                      AND a.attname = item ->> 'column')) THEN
+            RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = format('account_erasure_bad_key: %s', item);
+        END IF;
+    END LOOP;
+    FOR item IN SELECT * FROM jsonb_array_elements(coalesce(p_plan -> 'scrub', '[]'::jsonb))
+                UNION ALL SELECT * FROM jsonb_array_elements(coalesce(p_plan -> 'anonymize', '[]'::jsonb)) LOOP
+        IF NOT coalesce(public.fn_account_erasure_key_ok(item ->> 'table', item ->> 'match', item ->> 'subject'), false) THEN
+            RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = format('account_erasure_bad_key: %s', item);
+        END IF;
+    END LOOP;
+
+    -- SA-2: bind the narrow pass to this transaction.
+    UPDATE public.account_deletion_requests SET erasing_xact = pg_current_xact_id() WHERE id = p_request;
     PERFORM set_config('aver.account_erasure_user', uid::text, true);
     PERFORM set_config('aver.account_erasure_owner', p_owner, true);
     SELECT coalesce(array_agg(s.id), '{}') INTO student_ids FROM public.students s WHERE s.user_id = uid;
@@ -227,16 +299,33 @@ $$;
 REVOKE ALL ON FUNCTION public.fn_account_erasure_user() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.fn_account_erasure_row_allowed(jsonb) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.fn_account_erasure_scrub_allowed(text, jsonb, jsonb) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.fn_account_erasure_key_ok(text, text, text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.fn_account_erase_learner(uuid, text, jsonb) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.fn_account_erase_learner(uuid, text, jsonb) TO service_role;
+-- SA-1: the backend's own writes may reach the inner check (only after it
+-- set the hint GUC itself); grant it explicitly rather than relying on
+-- default privileges. A forged hint still fails: the check needs erasing_xact.
+GRANT EXECUTE ON FUNCTION public.fn_account_erasure_user() TO service_role;
+GRANT EXECUTE ON FUNCTION public.fn_account_erasure_row_allowed(jsonb) TO service_role;
+GRANT EXECUTE ON FUNCTION public.fn_account_erasure_scrub_allowed(text, jsonb, jsonb) TO service_role;
+REVOKE ALL ON FUNCTION public.fn_account_deletion_requests_xact_guard() FROM PUBLIC, anon, authenticated;
+CREATE OR REPLACE TRIGGER trg_account_deletion_requests_xact_guard
+    BEFORE INSERT OR UPDATE ON public.account_deletion_requests
+    FOR EACH ROW EXECUTE FUNCTION public.fn_account_deletion_requests_xact_guard();
 
 -- The narrow pass, injected right after each guard's top-level BEGIN.
 DO $$
 DECLARE
+    -- Nested IF (SA-1): PL/pgSQL prepares an expression only when it is
+    -- reached, so without the hint GUC no check function is initialised and
+    -- no EXECUTE privilege is needed. Keep these strings in step with the
+    -- rollback, which removes them verbatim.
     delete_pass CONSTANT text := ' /* ACCOUNTDATA-0100 erasure pass */ IF TG_OP = ''DELETE'' AND '
-        'public.fn_account_erasure_row_allowed(to_jsonb(OLD)) THEN RETURN OLD; END IF;';
+        'coalesce(current_setting(''aver.account_erasure_user'', true), '''') <> '''' THEN '
+        'IF public.fn_account_erasure_row_allowed(to_jsonb(OLD)) THEN RETURN OLD; END IF; END IF;';
     scrub_pass CONSTANT text := ' /* ACCOUNTDATA-0100 erasure pass */ IF TG_OP = ''UPDATE'' AND '
-        'public.fn_account_erasure_scrub_allowed(TG_TABLE_NAME, to_jsonb(OLD), to_jsonb(NEW)) THEN RETURN NEW; END IF;';
+        'coalesce(current_setting(''aver.account_erasure_user'', true), '''') <> '''' THEN '
+        'IF public.fn_account_erasure_scrub_allowed(TG_TABLE_NAME, to_jsonb(OLD), to_jsonb(NEW)) THEN RETURN NEW; END IF; END IF;';
     guards CONSTANT text[] := ARRAY[
         'advanced_vocab_guard_listening_attempt', 'advanced_vocab_guard_selection',
         'advanced_vocab_guard_question_attempt', 'advanced_vocab_guard_stage_progress',
@@ -288,8 +377,20 @@ BEGIN
             RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = format('504 function postcondition failed: %s', f);
         END IF;
     END LOOP;
-    IF NOT has_function_privilege('service_role', 'public.fn_account_erase_learner(uuid,text,jsonb)', 'EXECUTE') THEN
-        RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = '504 service_role cannot run the erasure function';
+    FOREACH f IN ARRAY ARRAY['fn_account_erase_learner(uuid,text,jsonb)', 'fn_account_erasure_user()',
+                             'fn_account_erasure_row_allowed(jsonb)',
+                             'fn_account_erasure_scrub_allowed(text,jsonb,jsonb)'] LOOP
+        IF NOT has_function_privilege('service_role', 'public.' || f, 'EXECUTE') THEN
+            RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = format('504 service_role cannot run %s', f);
+        END IF;
+    END LOOP;
+    IF has_function_privilege('anon', 'public.fn_account_erasure_key_ok(text,text,text)', 'EXECUTE')
+       OR has_function_privilege('authenticated', 'public.fn_account_erasure_key_ok(text,text,text)', 'EXECUTE')
+       OR NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'public.account_deletion_requests'::regclass
+                       AND attname = 'erasing_xact' AND atttypid = 'xid8'::regtype AND NOT attisdropped)
+       OR NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid = 'public.account_deletion_requests'::regclass
+                       AND tgname = 'trg_account_deletion_requests_xact_guard' AND NOT tgisinternal) THEN
+        RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = '504 key check or erasing_xact postcondition failed';
     END IF;
     IF EXISTS (
         SELECT 1 FROM pg_proc p

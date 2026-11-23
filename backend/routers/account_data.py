@@ -15,7 +15,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from fastapi import APIRouter, Header, HTTPException, Path
+from fastapi import APIRouter, Header, HTTPException, Path, Response
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import text
@@ -69,7 +69,8 @@ class DeletionRequestBody(BaseModel):
 
 
 @router.get("/deletion-request")
-async def get_deletion_request(authorization: Optional[str] = Header(None)):
+async def get_deletion_request(response: Response, authorization: Optional[str] = Header(None)):
+    response.headers["Cache-Control"] = "no-store"  # per-learner state (CR nit on #2600)
     user = await get_supabase_user(authorization)
     engine = require_engine()
     try:
@@ -150,7 +151,8 @@ async def cancel_deletion_request(authorization: Optional[str] = Header(None)):
 
 
 @router.get("/data-export")
-async def get_data_export(authorization: Optional[str] = Header(None)):
+async def get_data_export(response: Response, authorization: Optional[str] = Header(None)):
+    response.headers["Cache-Control"] = "no-store"
     user = await get_supabase_user(authorization)
     engine = require_engine()
     try:

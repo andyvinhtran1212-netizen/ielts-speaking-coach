@@ -5,12 +5,15 @@ The database holds a small slice of the real schema: tables of each kind
 (delete, keep, anonymize, child with a RESTRICT foreign key) and stand-ins
 for the guards migration 504 patches. Each stand-in refuses every UPDATE or
 DELETE, like the strictest real guard; after 504 the erasure function gets
-through for the erased learner only.
+through for the erased learner only. Runs on TEST_PG_URL (see
+tests/account_data_pg.py); test_a_forged_context_never_opens_the_pass covers
+trg_account_deletion_requests_xact_guard.
 """
 
 from __future__ import annotations
 
 import asyncio
+import json
 import threading
 import time
 from pathlib import Path
@@ -108,6 +111,23 @@ END;
 $$;
 CREATE TRIGGER trg_cal BEFORE UPDATE OR DELETE ON public.class_action_log
     FOR EACH ROW EXECUTE FUNCTION public.fn_class_action_log_append_only();
+-- Like the real quiz and advanced-vocab guards: fires on INSERT too.
+CREATE TABLE public.quiz_word_stats (id bigserial PRIMARY KEY, user_id uuid NOT NULL, hits int NOT NULL DEFAULT 0);
+INSERT INTO public.quiz_word_stats (user_id) VALUES ('{U1}'), ('{U2}');
+CREATE FUNCTION public.grammar_quiz_guard_progress() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        RETURN NEW;
+    END IF;
+    RAISE EXCEPTION 'quiz progress is append-only';
+END;
+$$;
+CREATE TRIGGER trg_qws BEFORE INSERT OR UPDATE OR DELETE ON public.quiz_word_stats
+    FOR EACH ROW EXECUTE FUNCTION public.grammar_quiz_guard_progress();
+-- A real non-superuser service_role (SA-3 on #2600): explicit table grants,
+-- no default privileges, so a missing function grant shows up.
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO service_role;
+GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO service_role;
 """
 
 
@@ -428,6 +448,87 @@ def test_erase_function_refuses_while_an_export_lease_is_live(env):
     assert env.run(f"SELECT step_done IS NULL FROM public.account_deletion_requests WHERE id = '{req}'") == "t"
 
 
+def _as_service_role(env, *statements, setup=""):
+    """Run statements as the non-superuser service_role in one transaction;
+    returns the error message of the first failing one, or 'ok'."""
+    body = " ".join(statements)
+    return env.run(
+        "SET ROLE service_role; BEGIN; " + setup +
+        f" DO $t$ BEGIN {body} PERFORM set_config('t.msg', 'ok', true); "
+        "EXCEPTION WHEN OTHERS THEN PERFORM set_config('t.msg', SQLERRM, true); END $t$; "
+        "SELECT current_setting('t.msg'); COMMIT;")
+
+
+def test_the_session_is_not_superuser_for_these_checks(env):
+    assert env.run("SET ROLE service_role; SELECT rolsuper FROM pg_roles WHERE rolname = current_user") == "f"
+    assert env.run("SELECT count(*) FROM pg_default_acl") == "0"
+
+
+def test_ordinary_writes_as_service_role_never_need_the_check_functions(env):
+    """SA-1: outside an erasure every write on a guarded table gets the
+    guard's own answer, never 'permission denied for function'."""
+    assert _as_service_role(env, f"INSERT INTO public.quiz_word_stats (user_id) VALUES ('{U2}');") == "ok"
+    assert _as_service_role(env, f"UPDATE public.quiz_word_stats SET hits = 1 WHERE user_id = '{U2}';") == \
+        "quiz progress is append-only"
+    assert _as_service_role(env, f"DELETE FROM public.learner_goal_events WHERE user_id = '{U2}';") == \
+        "learner_goal_events is append-only"
+    assert _as_service_role(env, f"UPDATE public.class_action_log SET action = 'x' WHERE student_id = '{S2}';") == \
+        "class_action_log chỉ THÊM"
+    assert _as_service_role(env, f"DELETE FROM public.class_assignment_items WHERE id = '{ITEM2}';") == \
+        "cannot delete assignment item with advanced vocabulary evidence"
+
+
+def test_service_role_runs_the_erasure_function(env):
+    """SA-3 (b): the function itself works for the non-superuser caller."""
+    req = _request(env)
+    env.run(f"UPDATE public.account_deletion_requests SET status = 'erasing', erasing_owner = 'w1', "
+            f"lease_until = now() + interval '5 minutes' WHERE id = '{req}'")
+    plan = json.dumps(asyncio.run(er.build_plan(env.engine))).replace("'", "''")
+    assert _as_service_role(env, f"PERFORM public.fn_account_erase_learner('{req}', 'w1', '{plan}'::jsonb);") == "ok"
+    assert env.run(f"SELECT count(*) FROM public.learner_goal_events WHERE user_id = '{U1}'") == "0"
+    assert env.run(f"SELECT count(*) FROM public.quiz_word_stats WHERE user_id = '{U1}'") == "0"
+    assert env.run(f"SELECT count(*) FROM public.quiz_word_stats WHERE user_id = '{U2}'") == "1"
+    assert env.run(f"SELECT student_name IS NULL FROM public.class_action_log WHERE student_id = '{S1}'") == "t"
+
+
+def test_a_forged_context_never_opens_the_pass(env):
+    """SA-2: another session that sets both GUCs while the request is
+    'erasing' (and knows the owner token) is still refused, and cannot stamp
+    its own transaction into erasing_xact either."""
+    req = _request(env)
+    env.run(f"UPDATE public.account_deletion_requests SET status = 'erasing', erasing_owner = 'host:abc', "
+            f"lease_until = now() + interval '5 minutes' WHERE id = '{req}'")
+    forged = (f"PERFORM set_config('aver.account_erasure_user', '{U1}', true); "
+              f"PERFORM set_config('aver.account_erasure_owner', 'host:abc', true);")
+    assert _as_service_role(env, forged, f"DELETE FROM public.learner_goal_events WHERE user_id = '{U1}';") == \
+        "learner_goal_events is append-only"
+    assert _as_service_role(env, forged, f"UPDATE public.class_action_log SET student_name = NULL "
+                                         f"WHERE student_id = '{S1}';") == "class_action_log chỉ THÊM"
+    assert _as_service_role(env, f"UPDATE public.account_deletion_requests SET erasing_xact = pg_current_xact_id() "
+                                 f"WHERE id = '{req}';") == "erasing_xact is written by fn_account_erase_learner only"
+    assert env.run(f"SELECT count(*) FROM public.learner_goal_events WHERE user_id = '{U1}'") == "1"
+
+
+def test_plan_key_columns_must_be_the_learners_own(env):
+    """SA-4: a plan keyed by someone else's column is refused before any
+    change."""
+    req = _request(env)
+    env.run(f"UPDATE public.account_deletion_requests SET status = 'erasing', erasing_owner = 'w1', "
+            f"lease_until = now() + interval '5 minutes' WHERE id = '{req}'")
+    good = asyncio.run(er.build_plan(env.engine))
+    bad_plans = [
+        {**good, "anonymize": [{"table": "users", "match": "invited_by", "subject": "user"}]},
+        {**good, "delete": [{"table": "class_assignment_items", "column": "assigned_by", "subject": "user"}]},
+        {**good, "delete": [{"table": "sessions", "column": "user_id", "subject": "student"}]},
+        {**good, "delete": [{"table": "listening_drill_playback", "column": "id", "parent": "class_assignment_items",
+                             "parent_column": "student_id", "subject": "student"}]},
+    ]
+    for plan in bad_plans:
+        with pytest.raises(Exception, match="account_erasure_bad_key"):
+            asyncio.run(er.erase_database(env.engine, req, "w1", plan))
+    assert env.run(f"SELECT count(*) FROM public.sessions WHERE user_id = '{U1}'") == "1"
+
+
 def test_dry_run_counts_without_changing(env):
     _request(env)
     out = asyncio.run(er.dry_run(env.engine))
@@ -441,10 +542,16 @@ def test_rollback_removes_the_pass(env):
     env.run(DOWN_504)
     assert env.run("SELECT count(*) FROM pg_proc WHERE prosrc LIKE '%ACCOUNTDATA-0100 erasure pass%'") == "0"
     assert env.run("SELECT count(*) FROM pg_proc WHERE proname LIKE 'fn_account_eras%'") == "0"
+    assert env.run("SELECT count(*) FROM pg_attribute WHERE attrelid = 'public.account_deletion_requests'::regclass "
+                   "AND attname = 'erasing_xact' AND NOT attisdropped") == "0"
+    # The guards work again exactly as before 504.
+    assert env.run(f"DO $t$ BEGIN DELETE FROM public.learner_goal_events WHERE user_id = '{U1}'; "
+                   f"EXCEPTION WHEN OTHERS THEN PERFORM set_config('t.msg', SQLERRM, false); END $t$; "
+                   f"SELECT current_setting('t.msg')") == "learner_goal_events is append-only"
     env.run(SQL_504)
     env.run(SQL_504)  # re-runnable, the pass is never added twice
     assert env.run("SELECT sum((length(prosrc) - length(replace(prosrc, 'erasure pass', ''))) / 12) "
-                   "FROM pg_proc WHERE prosrc LIKE '%erasure pass%'") == "3"
+                   "FROM pg_proc WHERE prosrc LIKE '%erasure pass%'") == "4"
     assert env.run("SELECT has_function_privilege('authenticated', "
                    "'public.fn_account_erase_learner(uuid,text,jsonb)', 'EXECUTE')") == "f"
 

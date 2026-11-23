@@ -73,7 +73,7 @@ transaction of erasure step 5 (SECURITY DEFINER, `service_role` only), and a
 narrow pass injected after the top-level `BEGIN` of the guards that refuse
 DELETE on grading evidence (and of the `class_action_log` append-only guard,
 for `student_name → NULL` only). The pass lets through only rows of the learner
-whose request is `erasing` under the calling owner. The rollback removes the
+whose request the current transaction is erasing (`erasing_xact = pg_current_xact_id()`, written only by the function); the pass is a nested IF on a hint GUC, so ordinary DML never needs EXECUTE on the check functions, which are granted to `service_role` explicitly. The rollback removes the
 pass and drops the functions; it refuses while an erasure is running.
 `501` is `pending_feature course_bank_service_write`: since 309 its CHECK
 `quiz_banks_grammar_revision_shape` calls `grammar_quiz_allowed_code`, whose

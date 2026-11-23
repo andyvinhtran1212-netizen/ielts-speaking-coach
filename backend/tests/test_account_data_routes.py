@@ -68,6 +68,8 @@ def _h(token):
 def test_get_without_request_is_none(env):
     r = env.client.get("/api/account/deletion-request", headers=_h("t1"))
     assert r.status_code == 200 and r.json() == {"status": "none", "requested_at": None, "erase_after": None}
+    assert r.headers["cache-control"] == "no-store"
+    assert env.client.get("/api/account/data-export", headers=_h("t1")).headers["cache-control"] == "no-store"
 
 
 def test_create_checks_email_and_staff(env):
