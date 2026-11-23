@@ -2066,7 +2066,7 @@ function main() {
 // FLUSH its debounced auto-saves before it submits the attempt, so a just-typed
 // answer isn't stranded in the debounce queue.
 window.addEventListener('message', async (ev) => {
-  if (ev.data && ev.data.type === 'mock-answers-request' && ev.source === window.parent) {
+  if (ev.data && ev.data.type === 'mock-answers-request' && ev.source === window.parent && ev.origin === location.origin) {
     postMockAnswers();
     return;
   }
