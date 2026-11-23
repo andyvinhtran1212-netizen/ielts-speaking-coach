@@ -251,6 +251,41 @@ def test_a_row_claimed_by_another_run_is_not_sent(world, monkeypatch):
     assert summary.lost == 1 and world["sent"] == []
 
 
+def test_a_row_already_at_five_attempts_fails_without_a_sixth_and_the_batch_still_sends(world):
+    # Migration 383: CHECK (attempts BETWEEN 0 AND 5). A row left pending at 5
+    # (crash after its last claim, or a read failure on it) is closed as
+    # failed without a new attempt; the next row of the batch still goes out.
+    world["outbox"].extend([_row("r5", attempts=le.MAX_ATTEMPTS), _row("r1")])
+    summary = world["dispatch"]()
+    assert (summary.failed, summary.sent) == (1, 1)
+    exhausted, ok = world["outbox"]
+    assert (exhausted["status"], exhausted["attempts"], exhausted["last_error_code"]) == \
+        ("failed", le.MAX_ATTEMPTS, "attempts_exhausted")
+    assert ok["status"] == "sent" and [r["body"]["to"] for r in world["sent"]] == [["minhanh@example.com"]]
+
+
+def test_a_failing_claim_write_does_not_stop_the_batch(world, monkeypatch):
+    world["outbox"].extend([_row("r1"), _row("r2")])
+    real_claim = le.claim
+
+    def flaky(row, now):
+        if row["id"] == "r1":
+            raise RuntimeError("PostgREST 500")
+        return real_claim(row, now)
+
+    monkeypatch.setattr(le, "claim", flaky)
+    summary = world["dispatch"]()
+    assert (summary.retry, summary.sent) == (1, 1)
+    assert [r["status"] for r in world["outbox"]] == ["pending", "sent"]
+
+
+def test_no_sender_address_does_not_spend_an_attempt(world, monkeypatch):
+    monkeypatch.setattr(le.settings, "LEARNER_EMAIL_FROM", "")
+    world["outbox"].append(_row("r5", attempts=le.MAX_ATTEMPTS))
+    assert world["dispatch"]().skipped == 1
+    assert (world["outbox"][0]["status"], world["outbox"][0]["attempts"]) == ("skipped", le.MAX_ATTEMPTS)
+
+
 def test_not_due_rows_wait(world):
     row = _row("r1")
     row["next_attempt_at"] = (NOW + timedelta(minutes=5)).isoformat()

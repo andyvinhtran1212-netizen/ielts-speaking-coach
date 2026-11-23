@@ -93,6 +93,15 @@ def _create(user_id: str, body: CreateOrder, cfg: eo.EnrollmentConfig) -> tuple[
     if not product or product.get("kind") != "online" or not product.get("is_public") \
             or product.get("archived_at"):
         raise _error(404, "course_not_found", "Không tìm thấy khoá học này.")
+    # A retry of a request that already made an order is a replay, whatever
+    # happened since (confirmed, course closed): answer it before the checks
+    # that only gate a NEW order. The same key for another course is a conflict.
+    earlier = eo.fetch_order_by_request_key(user_id, body.request_key)
+    if earlier is not None:
+        if str(earlier.get("product_id")) != str(product["id"]):
+            raise _error(409, "request_key_conflict",
+                         "Yêu cầu này đã dùng cho một khoá khác. Bạn tải lại trang nhé.")
+        return 200, {"order": _view(earlier)}
     if product.get("status") != "open":
         raise _error(409, "course_not_open", "Khoá này chưa mở đăng ký.")
     rows = eo.fetch_product_entitlements(user_id, str(product["id"]))

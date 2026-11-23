@@ -228,6 +228,16 @@ def fetch_entitlement_expiries(entitlement_ids: Iterable[str]) -> dict[str, Opti
     return {str(r["id"]): r.get("expires_at") for r in (res.data or [])}
 
 
+def fetch_order_by_request_key(user_id: str, request_key: str) -> Optional[dict]:
+    """The caller's own order created with ``request_key`` (unique per user)."""
+    res = (
+        supabase_admin.table("enrollment_orders").select(ORDER_COLUMNS)
+        .eq("user_id", user_id).eq("request_key", request_key).limit(1).execute()
+    )
+    rows = res.data or []
+    return rows[0] if rows else None
+
+
 def fetch_product_entitlements(user_id: str, product_id: str) -> list[dict]:
     res = (
         supabase_admin.table("entitlements").select("id, status, starts_at, expires_at")

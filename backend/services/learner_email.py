@@ -280,6 +280,20 @@ def claim(row: dict, now: datetime) -> bool:
     return False
 
 
+def settle_unclaimed(row: dict, status: str, error: str) -> bool:
+    """Close a row WITHOUT a new attempt, under the same read-value condition
+    as ``claim``. Used for a row already at MAX_ATTEMPTS (a crash after its
+    last claim, or a read failure on it): claiming it again would write
+    attempts = MAX_ATTEMPTS + 1, which migration 383's CHECK (0..5) rejects."""
+    res = (
+        supabase_admin.table("learner_email_outbox")
+        .update({"status": status, "last_error_code": error})
+        .eq("id", row["id"]).eq("status", "pending").eq("attempts", int(row.get("attempts") or 0))
+        .execute()
+    )
+    return bool(res.data)
+
+
 def finish(row: dict, status: str, error: Optional[str] = None, now: Optional[datetime] = None) -> None:
     values: dict[str, Any] = {"status": status, "last_error_code": error}
     if status == "sent":
@@ -349,6 +363,8 @@ class DispatchSummary:
 
 async def _send_row(row: dict, config: TransportConfig, now: datetime, client: Any) -> str:
     run = asyncio.to_thread
+    if int(row.get("attempts") or 0) >= MAX_ATTEMPTS:
+        return "failed" if await run(settle_unclaimed, row, "failed", "attempts_exhausted") else "lost"
     if not await run(claim, row, now):
         return "lost"
     try:
@@ -397,16 +413,22 @@ async def dispatch_due(limit: int = 50, *, client: Any = None, now: Optional[dat
     if not sender_address():
         # No sender address: nothing may go out; the rows are not retried.
         for row in rows:
-            if await asyncio.to_thread(claim, row, now):
-                await asyncio.to_thread(finish, row, "skipped", "sender_unconfigured")
-                summary.skipped += 1
+            try:
+                if await asyncio.to_thread(settle_unclaimed, row, "skipped", "sender_unconfigured"):
+                    summary.skipped += 1
+            except Exception as exc:  # one row never stops the batch
+                logger.warning("[mail] row=%s skip failed: %s", row.get("id"), type(exc).__name__)
         return summary
     if config.missing:
         logger.warning("learner_email_transport_unconfigured missing=%s", ",".join(config.missing))
         summary.unconfigured = config.missing
         return summary
     for row in rows:
-        outcome = await _send_row(row, config, now, client)
+        try:
+            outcome = await _send_row(row, config, now, client)
+        except Exception as exc:  # e.g. the claim write failed: retried next run, the batch goes on
+            logger.warning("[mail] row=%s dispatch failed: %s", row.get("id"), type(exc).__name__)
+            outcome = "retry"
         setattr(summary, outcome, getattr(summary, outcome) + 1)
     logger.info("[mail] due=%d sent=%d retry=%d failed=%d skipped=%d lost=%d", summary.due, summary.sent,
                 summary.retry, summary.failed, summary.skipped, summary.lost)

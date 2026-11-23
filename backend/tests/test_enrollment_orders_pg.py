@@ -125,6 +125,9 @@ async def test_create_report_needs_info_supplement_confirm_and_mail(pg, wire):  
     again = await _call(client, "post", f"/admin/enrollment-orders/{order_id}/confirm", json={},
                         headers=ADMIN_AUTH)
     assert again.json()["status"] == "already_confirmed"
+    retried = await _call(client, "post", "/api/enrollment-orders", json=body, headers=AUTH)
+    assert retried.status_code == 200, retried.text   # a retry after confirm replays, never already_enrolled
+    assert retried.json()["order"]["order_code"] == code and retried.json()["order"]["status"] == "confirmed"
 
     courses = await _call(client, "get", "/api/me/courses", headers=AUTH)
     assert courses.status_code == 200, courses.text
@@ -140,6 +143,12 @@ async def test_create_report_needs_info_supplement_confirm_and_mail(pg, wire):  
     assert [e["action"] for e in detail.json()["events"]] == \
         ["create", "report_transfer", "request_info", "supplement", "confirm"]
 
+    # A row left pending at the CHECK ceiling (attempts 5) is closed without a
+    # sixth attempt, and the batch still sends the other three.
+    await pg.con.execute(
+        "INSERT INTO learner_email_outbox (user_id, template, dedupe_key, payload, attempts, next_attempt_at) "
+        "VALUES ($1, 'order_confirmed', 'test:exhausted', '{}'::jsonb, 5, now() - interval '1 minute')", user)
+
     sent = []
 
     def resend(request):
@@ -151,10 +160,12 @@ async def test_create_report_needs_info_supplement_confirm_and_mail(pg, wire):  
             return await le.dispatch_due(50, client=http)
 
     summary = await asyncio.to_thread(asyncio.run, dispatch())
-    assert summary.sent == 3, summary
+    assert (summary.sent, summary.failed) == (3, 1), summary
+    assert await pg.con.fetchrow("SELECT status, attempts, last_error_code FROM learner_email_outbox "
+                                 "WHERE dedupe_key = 'test:exhausted'") == ("failed", 5, "attempts_exhausted")
     assert {m["to"][0] for m in sent} == {f"{str(user)[:8]}@example.test"}
     assert any("Bạn chuyển thiếu 490.000 đ.\nChuyển thêm giúp nhé." in m["text"] for m in sent)
-    assert [s for _, s, _ in await _outbox(pg.con)] == ["sent", "sent", "sent"]
+    assert sorted(s for _, s, _ in await _outbox(pg.con)) == ["failed", "sent", "sent", "sent"]
 
 
 @pytest.mark.asyncio

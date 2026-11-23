@@ -207,6 +207,31 @@ def test_already_enrolled_unless_inside_the_renew_window(client, world):
     assert _create(client, key="key-after-revoke").status_code == 200  # the open order again
 
 
+def test_a_retry_after_the_order_was_confirmed_replays_it(client, world):
+    first = _create(client)
+    code = first.json()["order"]["order_code"]
+    order = world["db"].tables["enrollment_orders"][0]
+    order.update(status="confirmed", confirmed_at=NOW.isoformat())
+    world["db"].tables["entitlements"].append({
+        "id": "e1", "user_id": "u1", "product_id": "p1", "status": "active",
+        "starts_at": NOW.isoformat(), "expires_at": (NOW + timedelta(days=180)).isoformat()})
+    world["db"].tables["course_products"][0]["status"] = "coming_soon"   # closed since, too
+    calls = len(world["db"].rpcs)
+    again = _create(client)
+    assert again.status_code == 200, again.text
+    assert again.json()["order"]["order_code"] == code and again.json()["order"]["status"] == "confirmed"
+    assert len(world["db"].rpcs) == calls        # answered from the stored order, no new create
+    # A new key is a new order and meets the checks.
+    assert _create(client, key="key-new-0001").json()["detail"]["error_code"] == "course_not_open"
+
+
+def test_the_same_key_for_another_course_is_a_conflict_before_the_checks(client, world):
+    _create(client)
+    world["db"].tables["course_products"].append({**PRODUCT, "id": "p2", "slug": "ielts-7", "status": "coming_soon"})
+    res = _create(client, slug="ielts-7")
+    assert res.status_code == 409 and res.json()["detail"]["error_code"] == "request_key_conflict"
+
+
 def test_rpc_answers_map_to_errors(client, world):
     for answer, status, code in (({"status": "account_suspended"}, 403, "account_suspended"),
                                  ({"status": "product_unavailable"}, 409, "course_not_open"),
