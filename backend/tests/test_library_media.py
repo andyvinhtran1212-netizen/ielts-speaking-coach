@@ -191,6 +191,38 @@ def test_failed_download_is_not_cached(client, db):
     assert r.status_code == 200 and r.content == PNG
 
 
+def test_concurrent_misses_download_once(db, monkeypatch):
+    import threading
+    import time as _time
+
+    import services.library_media as media
+
+    calls = []
+    real = media.download
+
+    def slow_download(client, path):
+        calls.append(path)
+        _time.sleep(0.05)  # hold the flight open while the others arrive
+        return real(client, path)
+
+    monkeypatch.setattr(media, "download", slow_download)
+    start = threading.Barrier(8)
+    results = []
+
+    def worker():
+        start.wait()
+        results.append(media.cached_download(db, "speaking/p1-hobbies/audio.mp3"))
+
+    threads = [threading.Thread(target=worker) for _ in range(8)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(5)
+    assert results == [MP3] * 8
+    assert calls == ["speaking/p1-hobbies/audio.mp3"]
+    assert media._inflight == {}
+
+
 def test_cache_is_bounded_by_bytes(monkeypatch):
     import services.library_media as media
 

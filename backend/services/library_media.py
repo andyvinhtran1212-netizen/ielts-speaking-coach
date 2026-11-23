@@ -135,6 +135,9 @@ CACHE_MAX_BYTES = 48 * 1024 * 1024
 _cache: "OrderedDict[str, tuple[float, bytes]]" = OrderedDict()
 _cache_bytes = 0
 _cache_lock = threading.Lock()
+# Single-flight: one Storage download per object path at a time, so N
+# concurrent misses (a player's parallel Range requests) cost one download.
+_inflight: dict[str, threading.Lock] = {}
 
 
 def _cache_get(object_path: str) -> Optional[bytes]:
@@ -175,18 +178,33 @@ def reset_state() -> None:
         _ip_hits.clear()
     with _cache_lock:
         _cache.clear()
+        _inflight.clear()
         _cache_bytes = 0
 
 
 def cached_download(db, object_path: str) -> Optional[bytes]:
     """``download()`` behind the short byte cache. Call only after this
-    request confirmed the item is published. Failures are not cached."""
+    request confirmed the item is published. Failures are not cached.
+
+    Concurrent misses for one path wait on a per-path lock and re-check the
+    cache, so only the first downloads."""
     data = _cache_get(object_path)
     if data is not None:
         return data
-    data = download(db, object_path)
-    if data is not None:
-        _cache_put(object_path, data)
+    with _cache_lock:
+        flight = _inflight.setdefault(object_path, threading.Lock())
+    with flight:
+        data = _cache_get(object_path)
+        if data is not None:
+            return data
+        try:
+            data = download(db, object_path)
+            if data is not None:
+                _cache_put(object_path, data)
+        finally:
+            with _cache_lock:
+                if _inflight.get(object_path) is flight:
+                    del _inflight[object_path]
     return data
 
 
