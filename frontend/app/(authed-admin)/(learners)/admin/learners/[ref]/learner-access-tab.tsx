@@ -9,6 +9,8 @@ import { useEffect, useState } from 'react';
 
 import { useAdminProfile } from '@/components/admin-access-gate';
 import { Dialog, messageOf } from '@/components/admin-directory-ui';
+import { RevokeAccessForm } from '@/components/admin/revoke-access-form';
+import { getUserAccess, revocableEntitlements, type RevocableEntitlement } from '@/lib/admin-learner-entitlements';
 import { changeUserRole, removeFromCohort, type LearnerDetailWire } from '@/lib/admin-learners-api';
 import {
   ROLE_OPTIONS,
@@ -46,6 +48,26 @@ export function LearnerAccessTab({ detail, onChanged }: {
   const [error, setError] = useState('');
 
   const close = () => { if (!busy) { setPending(null); setError(''); } };
+
+  // G04 course access (FR-046): which entitlements in force can be revoked.
+  const userId = account?.user_id ?? null;
+  const [entitlements, setEntitlements] = useState<RevocableEntitlement[] | null>(null);
+  const [accessError, setAccessError] = useState('');
+  const [revoking, setRevoking] = useState<RevocableEntitlement | null>(null);
+  const [accessTick, setAccessTick] = useState(0);
+  useEffect(() => {
+    if (!userId) return;
+    let live = true;
+    setEntitlements(null); setAccessError('');
+    getUserAccess(userId)
+      .then((out) => { if (live) setEntitlements(revocableEntitlements(out.items)); })
+      .catch((caught) => {
+        if (!live) return;
+        console.warn('[learner-access] access read failed', caught);
+        setAccessError(messageOf(caught));
+      });
+    return () => { live = false; };
+  }, [userId, accessTick]);
 
   const confirm = async () => {
     if (!pending) return;
@@ -100,9 +122,23 @@ export function LearnerAccessTab({ detail, onChanged }: {
         <div className="lp-danger__row">
           <div>
             <strong>Thu hồi quyền học</strong>
-            <p className="la-note">Chưa có: cần dữ liệu khoá học (G04).</p>
+            <p>Học viên mất quyền vào khoá ngay; lượt còn lại của quyền đó không dùng được nữa. Phải gõ đúng họ tên và ghi lý do.</p>
+            {!userId ? <p className="la-note">Người này chưa có tài khoản đăng nhập nên chưa có quyền học để thu hồi.</p>
+              : accessError ? (
+                <p className="la-warning" role="alert">Chưa đọc được quyền học: {accessError}{' '}
+                  <button type="button" className="adm-btn-secondary" onClick={() => setAccessTick((n) => n + 1)}>Tải lại</button>
+                </p>
+              ) : entitlements === null ? <p className="la-note" role="status">Đang đọc quyền học…</p>
+                : !entitlements.length ? <p className="la-note">Không có quyền học nào đang hiệu lực (quyền từ mã lớp cũ không thu hồi ở đây).</p> : null}
           </div>
-          <button type="button" className="adm-btn-secondary" disabled>Thu hồi quyền học</button>
+          {entitlements?.length ? (
+            <div className="lp-danger__actions">
+              {entitlements.map((e) => (
+                <button key={e.entitlementId} type="button" className="adm-btn-secondary" disabled={busy}
+                  onClick={() => setRevoking(e)}>Thu hồi {e.title}</button>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         <div className="lp-danger__row">
@@ -134,6 +170,20 @@ export function LearnerAccessTab({ detail, onChanged }: {
           <button type="button" className="adm-btn-secondary" disabled>Khoá tài khoản</button>
         </div>
       </section>
+
+      {revoking ? (
+        <RevokeAccessForm
+          open
+          entitlementId={revoking.entitlementId}
+          courseTitle={revoking.title}
+          learnerName={name}
+          onClose={() => setRevoking(null)}
+          onRevoked={async () => {
+            setAccessTick((n) => n + 1);
+            await onChanged({ kind: 'success', text: `Đã thu hồi quyền khoá ${revoking.title} của ${name}.` });
+          }}
+        />
+      ) : null}
 
       <Dialog
         open={pending !== null}
