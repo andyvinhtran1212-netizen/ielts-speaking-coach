@@ -35,6 +35,10 @@ PAGE = 20
 # Each source reads up to PAGE rows past the cursor plus room for rows that tie
 # the cursor's timestamp (they are re-read by `lte` and filtered here).
 _SCAN = PAGE + 1 + 20
+# A source keeps reading batches until it holds the page it owes (rows it
+# drops, such as drills or programme forms, do not count). The bound only
+# stops a runaway read: 25 batches is about 1 000 attempts of one learner.
+_MAX_BATCHES = 25
 _MOCK_SCAN = 200  # a learner's own mock sittings: small, ordered here, not in SQL
 
 _DEGRADABLE = ("assigned_exams", "results", "credits")
@@ -141,16 +145,57 @@ def _result(kind: str, row_id: str, title: str, ts: datetime, href: str, **extra
     return base
 
 
-def _self_chosen_attempts(sb, table: str, user_id: str, cols: str,
-                          before: Optional[Tuple[datetime, str, str]]) -> List[Dict[str, Any]]:
+def _scan(make_query: Callable[[], Any], ts_col: str, before: Optional[Tuple[datetime, str, str]],
+          convert: Callable[[List[Dict[str, Any]]], List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
+    """Read one result source in keyset order (`ts_col` desc, `id`) until
+    the rows it converts settle the next page.
+
+    A batch reads the rest of the current timestamp tie group (`id` after
+    the last one read), then older rows, so a group larger than a batch is
+    read in full and never again. Rows `convert` drops (drills, programme
+    forms, a missing Part 1) do not end the scan. It stops when the source
+    is exhausted, or when PAGE + 1 rows sort after the cursor and every
+    unread row is strictly older than the last of them."""
+
+    def batch(state: Optional[Tuple[Any, Optional[str]]]) -> List[Dict[str, Any]]:
+        if state is None:
+            return (make_query().order(ts_col, desc=True).order("id").limit(_SCAN)
+                    .execute().data or [])
+        ts, last_id = state
+        q = make_query().eq(ts_col, ts)
+        if last_id is not None:
+            q = q.gt("id", last_id)
+        rows = q.order("id").limit(_SCAN).execute().data or []
+        if len(rows) < _SCAN:
+            rows += (make_query().lt(ts_col, ts).order(ts_col, desc=True).order("id")
+                     .limit(_SCAN - len(rows)).execute().data or [])
+        return rows
+
+    out: List[Dict[str, Any]] = []
+    state: Optional[Tuple[Any, Optional[str]]] = None if before is None else (_iso(before[0]), None)
+    for _ in range(_MAX_BATCHES):
+        rows = batch(state)
+        if not rows:
+            return out
+        out.extend(convert(rows))
+        if len(rows) < _SCAN:
+            return out  # both reads came back short: the source is exhausted
+        last = rows[-1]
+        state = (last[ts_col], str(last["id"]))
+        kept = sorted((r for r in out if _after(r, before)), key=_sort_key)
+        last_ts = student_today._parse_ts(last[ts_col])
+        if len(kept) > PAGE and last_ts is not None and last_ts < kept[PAGE]["_ts"]:
+            return out
+    logger.warning("[student_tests] %s scan stopped after %d batches", ts_col, _MAX_BATCHES)
+    return out
+
+
+def _self_chosen(sb, table: str, user_id: str, cols: str) -> Callable[[], Any]:
     """Submitted attempts the learner chose themselves: not a mock section
     (`sitting_id`, mig 148) and not class homework (`class_assignment_item_id`, mig 181)."""
-    q = (sb.table(table).select(cols).eq("user_id", user_id).eq("status", "submitted")
-         .is_("sitting_id", "null").is_("class_assignment_item_id", "null")
-         .not_.is_("submitted_at", "null"))
-    if before is not None:
-        q = q.lte("submitted_at", _iso(before[0]))
-    return q.order("submitted_at", desc=True).limit(_SCAN).execute().data or []
+    return lambda: (sb.table(table).select(cols).eq("user_id", user_id).eq("status", "submitted")
+                    .is_("sitting_id", "null").is_("class_assignment_item_id", "null")
+                    .not_.is_("submitted_at", "null"))
 
 
 def _tests_by_id(sb, table: str, cols: str, ids: List[str]) -> Dict[str, Dict[str, Any]]:
@@ -163,9 +208,12 @@ def _tests_by_id(sb, table: str, cols: str, ids: List[str]) -> Dict[str, Dict[st
 def listening_results(sb, user_id: str, before) -> List[Dict[str, Any]]:
     from services.listening_test_grader import scored_question_count
 
-    attempts = _self_chosen_attempts(
-        sb, "listening_test_attempts", user_id,
-        "id, test_id, score, band_estimate, grading_details, submitted_at, scoring_policy", before)
+    make = _self_chosen(sb, "listening_test_attempts", user_id,
+                        "id, test_id, score, band_estimate, grading_details, submitted_at, scoring_policy")
+    return _scan(make, "submitted_at", before, lambda batch: _listening_rows(sb, batch, scored_question_count))
+
+
+def _listening_rows(sb, attempts: List[Dict[str, Any]], scored_question_count) -> List[Dict[str, Any]]:
     tests = _tests_by_id(sb, "listening_tests", "id, title, test_type",
                          sorted({str(a["test_id"]) for a in attempts if a.get("test_id")}))
     out = []
@@ -192,8 +240,11 @@ def listening_results(sb, user_id: str, before) -> List[Dict[str, Any]]:
 
 
 def reading_results(sb, user_id: str, before) -> List[Dict[str, Any]]:
-    attempts = _self_chosen_attempts(
-        sb, "reading_test_attempts", user_id, "id, test_id, score, band_estimate, submitted_at", before)
+    make = _self_chosen(sb, "reading_test_attempts", user_id, "id, test_id, score, band_estimate, submitted_at")
+    return _scan(make, "submitted_at", before, lambda batch: _reading_rows(sb, batch))
+
+
+def _reading_rows(sb, attempts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     tests = _tests_by_id(sb, "reading_tests", "id, title, test_type, total_questions",
                          sorted({str(a["test_id"]) for a in attempts if a.get("test_id")}))
     out = []
@@ -202,6 +253,7 @@ def reading_results(sb, user_id: str, before) -> List[Dict[str, Any]]:
         test = tests.get(str(a.get("test_id")))
         if ts is None or test is None:
             continue
+        # Papers from before mig 158 carry no test_type: they are full papers.
         test_type = test.get("test_type") or "full"
         if test_type not in ("full", "mini"):
             continue
@@ -225,13 +277,16 @@ def speaking_results(sb, user_id: str, before) -> List[Dict[str, Any]]:
     The band is the rounded mean of the three Part bands, the rule of the
     Full Test result (`GET /sessions/{p1}/full-test-summary`), and only when all
     three are completed with a band; otherwise the row is still grading."""
-    q = (sb.table("sessions").select("id, full_test_attempt_id, completed_at")
-         .eq("user_id", user_id).eq("mode", "test_full").eq("part", 3).eq("status", "completed")
-         .is_("sitting_id", "null").is_("class_assignment_item_id", "null")
-         .not_.is_("completed_at", "null"))
-    if before is not None:
-        q = q.lte("completed_at", _iso(before[0]))
-    anchors = q.order("completed_at", desc=True).limit(_SCAN).execute().data or []
+    def make():
+        return (sb.table("sessions").select("id, full_test_attempt_id, completed_at")
+                .eq("user_id", user_id).eq("mode", "test_full").eq("part", 3).eq("status", "completed")
+                .is_("sitting_id", "null").is_("class_assignment_item_id", "null")
+                .not_.is_("completed_at", "null"))
+
+    return _scan(make, "completed_at", before, lambda batch: _speaking_rows(sb, user_id, batch))
+
+
+def _speaking_rows(sb, user_id: str, anchors: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     attempt_ids = sorted({str(a["full_test_attempt_id"]) for a in anchors if a.get("full_test_attempt_id")})
     parts: Dict[str, Dict[int, Dict[str, Any]]] = {}
     if attempt_ids:

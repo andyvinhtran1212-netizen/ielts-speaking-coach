@@ -36,7 +36,7 @@ class _Res:
 class _Q:
     def __init__(self, db, table):
         self.db, self.table, self.filters = db, table, []
-        self.n, self.order_by, self.negate = None, None, False
+        self.n, self.order_by, self.negate = None, [], False
 
     def _add(self, fn):
         if self.negate:
@@ -55,7 +55,15 @@ class _Q:
         return self
 
     def eq(self, f, v):
+        if f.endswith("_at"):  # PostgREST compares timestamptz values, not their spelling
+            return self._add(lambda r: r.get(f) is not None and _ts(r[f]) == _ts(v))
         return self._add(lambda r: str(r.get(f)) == str(v))
+
+    def gt(self, f, v):
+        return self._add(lambda r: r.get(f) is not None and str(r[f]) > str(v))
+
+    def lt(self, f, v):
+        return self._add(lambda r: r.get(f) is not None and _ts(r[f]) < _ts(v))
 
     def in_(self, f, vs):
         vs = {str(v) for v in vs}
@@ -69,7 +77,7 @@ class _Q:
         return self._add(lambda r: r.get(f) is not None and _ts(r[f]) <= _ts(v))
 
     def order(self, f, desc=False):
-        self.order_by = (f, desc)
+        self.order_by.append((f, desc))
         return self
 
     def limit(self, n):
@@ -81,9 +89,8 @@ class _Q:
             raise RuntimeError("boom")
         rows = [dict(r) for r in self.db.tables.get(self.table, []) if all(f(r) for f in self.filters)]
         self.db.reads.append((self.table, [r.get("id") or r.get("sitting_id") for r in rows]))
-        if self.order_by:
-            f, desc = self.order_by
-            rows.sort(key=lambda r: _ts(r[f]), reverse=desc)
+        for f, desc in reversed(self.order_by):  # stable sorts: last key first
+            rows.sort(key=lambda r, f=f: _ts(r[f]) if f.endswith("_at") else str(r[f]), reverse=desc)
         return _Res(rows[: self.n] if self.n else rows)
 
 
@@ -275,6 +282,35 @@ def test_pages_of_twenty_newest_first_with_an_opaque_cursor_and_no_overlap():
     assert second["results_next_cursor"] is None
     ids = [r["id"] for r in first["results"]] + [r["id"] for r in second["results"]]
     assert len(ids) == len(set(ids)) == 27  # 25 + both tie rows, each exactly once
+
+
+def test_dropped_rows_never_hide_an_older_result():
+    # Codex on #2603: 41 newer drills and programme forms must not end the scan.
+    tests = [{"id": "lt", "title": "L", "test_type": "full"}, {"id": "dr", "title": "D", "test_type": "drill"}]
+    attempts = [_attempt(f"d{i:02d}", "dr", i) for i in range(30)]
+    attempts += [_attempt(f"p{i:02d}", "lt", 30 + i, scoring_policy="report_only") for i in range(20)]
+    attempts.append(_attempt("real", "lt", 100, band=7.0, scored=40))
+    out = _results(_DB({"listening_tests": tests, "listening_test_attempts": attempts}))
+    assert [r["id"] for r in out["results"]] == ["real"] and out["results_next_cursor"] is None
+
+
+def test_a_tie_group_larger_than_a_batch_is_paged_exactly_once():
+    # Codex on #2603: 60 attempts on one submitted_at, more than one read (41).
+    tests = [{"id": "lt", "title": "L", "test_type": "full"}]
+    attempts = [_attempt(f"t{i:02d}", "lt", 5, band=6.0, scored=40) for i in range(60)]
+    attempts.append(_attempt("older", "lt", 9, band=6.0, scored=40))
+    db = _DB({"listening_tests": tests, "listening_test_attempts": attempts})
+    seen, cursor, pages = [], None, 0
+    while True:
+        page = _results(db, cursor)
+        seen += [r["id"] for r in page["results"]]
+        pages += 1
+        cursor = page["results_next_cursor"]
+        if cursor is None:
+            break
+        assert pages < 10
+    assert len(seen) == len(set(seen)) == 61 and seen[-1] == "older"
+    assert seen[:60] == sorted(seen[:60])
 
 
 def test_a_cursor_that_was_not_issued_is_rejected():
