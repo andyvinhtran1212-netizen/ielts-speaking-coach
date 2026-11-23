@@ -80,6 +80,16 @@ describe('AdminFrame', () => {
     await waitFor(() => expect(screen.getByText('Staging · dữ liệu thử')).toBeTruthy());
   });
 
+  it('updates the environment label when the runtime config arrives late', async () => {
+    Object.assign(window, { __AVER_RUNTIME_CONFIG__: undefined });
+    renderFrame();
+    await waitFor(() => expect(api.getWith).toHaveBeenCalled());
+    expect(screen.queryByText('Staging · dữ liệu thử')).toBeNull();
+    Object.assign(window, { __AVER_RUNTIME_CONFIG__: { environment: 'staging' } });
+    act(() => { window.dispatchEvent(new Event('aver:runtime-config-ready')); });
+    await waitFor(() => expect(screen.getByText('Staging · dữ liệu thử')).toBeTruthy());
+  });
+
   it('closes the phone drawer with Esc', () => {
     renderFrame();
     fireEvent.click(screen.getByRole('button', { name: 'Mở menu quản trị' }));
