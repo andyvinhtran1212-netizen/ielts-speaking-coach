@@ -1,0 +1,17 @@
+# UI state matrix
+
+Bảng dưới là trạng thái của khung. Trình lắp khung (spec 0067–0073) cung cấp dữ liệu; khung chỉ hiển thị. Dữ liệu chuẩn là server: tải lại luôn hiện đúng câu trả lời, cờ và thời gian còn lại từ server (FR-021); chỉ tỉ lệ cột, ghi chú và bản sao tạm là của trình duyệt (FR-032).
+
+| Surface | Loading | Empty | Success | Error/retry | Permission | Responsive/theme/a11y |
+| --- | --- | --- | --- | --- | --- | --- |
+| Thanh trên và đồng hồ (`loading`, `prestart`, `inprogress`, `time-up`) | Khung hiện thanh trên với tên bài, đồng hồ chưa chạy cho tới khi trình đưa thời gian từ server | Không có đồng hồ khi bài không giờ (`timer` null) | "Time remaining" mm:ss; mốc 5 phút có chữ và đọc một lần; về 0 hiện "Time is up" | Đồng hồ không tự chạy khi thiếu dữ liệu server; trình báo lỗi tải bằng màn lỗi của trình | Không in email, tên, mã học viên | Full test luôn sáng; chuỗi đúng chế độ; số đều cột; không nhấp nháy; 390px gọn |
+| Trạng thái lưu (`saving`) | "Saving…"/"Đang lưu…" | `idle`: không hiện chữ | "Saved at HH:MM"/"Đã lưu lúc HH:MM" | "Not saved. Retrying…", rồi nút "Retry" khi hết lượt thử | — | Chữ, không chỉ màu; vùng `aria-live="polite"` |
+| Dải câu và ô câu (`inprogress`) | Chưa có cấu trúc đề thì không hiện dải | Đề không có câu (Writing, Speaking): không có dải | Phần hiện tại bung, phần khác gọn kèm đếm; bốn trạng thái ô | — | — | 1280/1024/768/390 theo FR-008; nhãn đọc đủ trạng thái; `aria-current` |
+| Hộp nộp (`submitting`) | Nút khoá, chữ "Submitting…" trong lúc `onSubmit` chạy; Esc không đóng | Không còn câu trống: hộp thường | Trình chuyển tới trang kết quả của nó | Nộp lỗi: hộp giữ mở, báo lỗi bằng chữ, cho thử lại; mất mạng: nút "Waiting for connection" | Không có `submit` (nhúng, admin preview): không có nút nộp | Bẫy tiêu điểm, tiêu điểm đầu ở nút an toàn, trả tiêu điểm khi đóng |
+| Hộp thoát | Đang flush: nút "Leave test" khoá | Chế độ luyện đã lưu hết: thoát ngay, không hộp | Điều hướng tới `exit.href` sau khi flush xong | Còn câu chưa lưu: hộp nêu số câu, không thoát âm thầm | Mock test được giao: không có "Abandon test" | Bẫy tiêu điểm; Esc đóng |
+| Dải mất mạng (`offline`) | — | — | Có mạng lại: "Back online…" 5 giây | "Connection lost. Your work was saved up to HH:MM…"; không che ô làm bài | — | `role="status"`; không đẩy bố cục làm mất chỗ đang gõ |
+| Hộp phiên hết hạn (`session-expired`) | Đang đăng nhập lại: đồng hồ vẫn chạy | — | Đăng nhập xong: ở đúng URL, bản sao máy được lưu lại | Đăng nhập lỗi: thông điệp của component đăng nhập, thử lại được | Phiên bị chiếm: màn 8a/8b/8c của G05-T20 | Hộp chặn, bẫy tiêu điểm; chuỗi theo chế độ |
+| Thông báo tab khác (`other-tab`) | — | Trình duyệt không có BroadcastChannel: không hiện, không chặn | "Use this tab": tab này ghi, tab kia chỉ-đọc | — | — | `role="alert"` một lần |
+| Màn hết giờ có lựa chọn (`time-up`, Writing/Speaking tự chọn) | Đang gửi lựa chọn: hai nút khoá | — | Trình hiện kết quả lựa chọn | Lỗi: báo bằng chữ, thử lại được, không mất bài | — | Tiêu điểm vào nút đầu; chuỗi tiếng Anh |
+| Trình phát audio | Đang tải audio: nút phát khoá có chữ | Không có audio: không hiện trình phát | Phát theo `policy` | Không tự phát được: nút "Play" cần thao tác; mất mạng ở `once`: báo phút dừng, nghe tiếp từ đó | — | Phím cách chỉ ở `practice`; nút có nhãn đọc; giảm chuyển động |
+| Lỗi khung (`error`) | — | — | — | Bộ nhớ trình duyệt hỏng: khung vẫn chạy không có tính năng phụ | — | Không chặn làm bài |
