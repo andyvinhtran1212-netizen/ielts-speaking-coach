@@ -2165,6 +2165,13 @@ async def submit_my_assignment(
             "essay=%s: %s — assignment is linked, manual regrade required",
             essay_id, exc,
         )
+        if credit_hold is not None:
+            # CR+SA nit 1 on 9d69881a: the credit stays held with no job. An
+            # admin re-queue within the TTL commits it; otherwise the expiry
+            # sweep refunds it and that later grade is free. Logged so the
+            # two can be reconciled.
+            logger.warning("[credits] decision=hold_without_job essay=%s reservation=%s",
+                           essay_id, credit_hold.reservation_id)
 
     # Delete the draft now that it's been promoted to an essay.
     # Best-effort — a stale draft after submit is recoverable, but

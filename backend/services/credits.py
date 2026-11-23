@@ -149,8 +149,15 @@ def _class_cohort(session: Optional[dict], assignment: Optional[dict]) -> tuple[
     """(is class work, cohort_id or None)."""
     if session and session.get("class_assignment_item_id"):
         return True, fetch_class_item_cohort(str(session["class_assignment_item_id"]))
-    if assignment and assignment.get("cohort_id"):
-        return True, str(assignment["cohort_id"])
+    if assignment is not None:
+        # Every writing assignment is class work, also one given to a single
+        # learner without a cohort_id (Andy, 2026-11-23 11:52Z on #2593:
+        # "bài giao riêng không có cohort_id tính là bài trong lớp"). With no
+        # cohort there is no class course, so it is not metered
+        # (legacy_class, logged class_work_unmapped) unless the feature is
+        # never free.
+        cohort_id = assignment.get("cohort_id")
+        return True, str(cohort_id) if cohort_id else None
     return False, None
 
 

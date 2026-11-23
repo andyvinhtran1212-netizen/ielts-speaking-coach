@@ -120,7 +120,7 @@ def world(monkeypatch):
     return w
 
 
-def _submit(monkeypatch, world, *, cohort_id=COHORT, client=None):
+def _submit(monkeypatch, world, *, cohort_id=COHORT, client=None, schedule_fails=False):
     client = client or _CohortClient(assignment_status="in_progress", cohort_id=cohort_id,
                                      drafts_data=[{"assignment_id": "assign-uuid-cccc",
                                                    "draft_text": _LONG, "paste_events": []}])
@@ -129,7 +129,7 @@ def _submit(monkeypatch, world, *, cohort_id=COHORT, client=None):
     _patch_saga_service(
         monkeypatch,
         on_row_only=lambda kw: (row_kwargs.append(kw), world.events.append("essay_row")),
-        on_schedule=lambda _kw: world.events.append("schedule_job"),
+        on_schedule=lambda _kw: _schedule(world, schedule_fails),
     )
     bg = MagicMock()
     bg.add_task = MagicMock(side_effect=lambda *_a, **_k: world.events.append("bg_task"))
@@ -143,12 +143,31 @@ def _submit(monkeypatch, world, *, cohort_id=COHORT, client=None):
     return out
 
 
+def _schedule(world, fails):
+    world.events.append("schedule_job")
+    if fails:
+        raise RuntimeError("queue down")
+
+
 def _db(out, table, action):
     return [rec for _k, rec in out.client.calls if rec["table"] == table and rec["action"] == action]
 
 
 def _claims(out):
     return [rec for rec in _db(out, "writing_assignments", "update") if rec.get("in")]
+
+
+def test_job_scheduling_failure_keeps_the_hold_and_logs_it(monkeypatch, world, caplog):
+    """CR+SA nit 1 on 9d69881a: SAGA 3 fails after the hold. The submission
+    still succeeds (today's trade-off), the hold stays open for an admin
+    re-queue or the expiry sweep, and the case is logged for reconciliation."""
+    with caplog.at_level("WARNING"):
+        out = _submit(monkeypatch, world, schedule_fails=True)
+    assert out.error is None and out.result["status"] == "submitted"
+    assert world.events == ["essay_row", "fn_credit_reserve", "schedule_job"]
+    assert world.fake.holds == {"res-0": "open"}
+    assert any("decision=hold_without_job" in r.getMessage() and _ESSAY_ID in r.getMessage()
+               for r in caplog.records)
 
 
 # ── Not metered: today's flow, no credit RPC (FR-018, FR-019) ───────────────
@@ -168,6 +187,25 @@ def test_unmetered_class_work_keeps_todays_flow(monkeypatch, world, case):
     assert world.fake.calls == []
     assert world.events == ["essay_row", "schedule_job", "bg_task"]
     assert "review_mode" not in out.row_kwargs[0]
+
+
+@pytest.mark.parametrize("legacy", [(), ("writing",)])
+def test_individual_assignment_without_a_cohort_is_class_work(monkeypatch, world, legacy, caplog):
+    """Andy 2026-11-23 11:52Z on #2593: an assignment given to one learner
+    (no cohort_id) counts as class work. There is no class course to meter,
+    so it is not metered, with or without a legacy Writing code, and never
+    403 no_entitlement."""
+    world.legacy = legacy
+    with caplog.at_level("INFO"):
+        out = _submit(monkeypatch, world, cohort_id=None)
+    assert out.error is None and out.result["status"] == "submitted"
+    assert world.fake.calls == []
+    assert world.events == ["essay_row", "schedule_job", "bg_task"]
+    assert any("class_work_unmapped" in r.getMessage() for r in caplog.records)
+    assert credits.charge_plan(_USER_ID, "writing_grading", assignment={"cohort_id": None}).reason == "legacy_class"
+    # A never-free feature still meters on any entitlement.
+    assert credits.charge_plan(_USER_ID, "writing_grading", assignment={"cohort_id": None},
+                               new_feature=True).reason == "entitlement"
 
 
 # ── Class entitlement holder (FR-019, FR-020) ───────────────────────────────
@@ -237,12 +275,13 @@ def test_lost_claim_race_returns_the_credit(monkeypatch, world):
     assert _db(out, "writing_essays", "delete")
 
 
-def test_entitlement_learner_without_codes_reserves_on_any_course(monkeypatch, world):
-    """No class, no legacy code: step 6 of plan 5.4 (any usable entitlement)."""
-    out = _submit(monkeypatch, world, cohort_id=None)
-    assert out.error is None
-    (params,) = world.fake.names("fn_credit_reserve")
-    assert params["p_course_ids"] is None and params["p_kinds"] is None
+def test_writing_outside_an_assignment_reserves_on_any_course(world):
+    """No assignment (G08 self-practice), no legacy code: step 6 of plan 5.4,
+    any usable entitlement. Since Andy's 11:52Z decision every assignment is
+    class work, so the submit route itself never reaches this step."""
+    plan = credits.charge_plan(_USER_ID, "writing_grading")
+    assert plan.metered and plan.reason == "entitlement"
+    assert plan.course_ids is None and plan.kinds is None
 
 
 # ── New features are never free (C1 e) ──────────────────────────────────────
