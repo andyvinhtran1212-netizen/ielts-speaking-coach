@@ -62,6 +62,8 @@ MESSAGES = {
     "E_NO_TITLE_SPEAKING": "Tiêu đề tiếng Anh thiếu hoặc có dấu tiếng Việt.",
     "E_TOPIC": "Chủ đề không có trong danh sách chủ đề của kệ này.",
     "E_NO_REVIEW": "Bộ bài chưa được duyệt nội dung.",
+    "E_NOT_APPROVED": ("Chưa có dấu duyệt xuất bản (review.status = approved) lưu trong cơ sở dữ liệu, "
+                       "nên trang này chưa đăng được bài mẫu Writing. Bài đã duyệt được đăng qua script nhập."),
     "E_FIGURE": "Đề Task 1 chưa có hình đề.",
     "E_ESSAYS": "Thiếu một trong ba bài 7.5 / 7.0 / 6.0.",
     "E_PAIR": "Thiếu nhật ký khác biệt giữa các mức điểm.",
@@ -238,8 +240,16 @@ def _topics(shelf: str) -> dict[str, dict]:
 
 def _writing_blockers(row: dict, *, topics: dict, taken: set[str], full: bool) -> list[dict]:
     """Publish conditions for one Writing set. ``full`` adds the checks that
-    need the heavy jsonb columns (run only on the rows being published)."""
-    out = []
+    need the heavy jsonb columns (run only on the rows being published).
+
+    HOLD on #2497 (Andy) / spec 0061 N1: the condition to publish is the
+    manifest's ``review.status = 'approved'`` (signed ``review.by/at``), and
+    ``source_review_status`` is a different, source-level review that the 530
+    ``needs_review`` sets also carry. ``writing_samples`` stores no manifest
+    approval, so this console cannot tell an approved set from an unsigned one
+    and every Writing publish is refused with ``E_NOT_APPROVED`` until the DB
+    records that mark. Unpublishing stays open."""
+    out = [_blocker("E_NOT_APPROVED")]
     if _title_problem(row.get("title_en"), taken=taken):
         out.append(_blocker("E_NO_TITLE"))
     if row.get("topic_slug") not in topics:
@@ -499,7 +509,7 @@ async def _publish(table: str, shelf: str, body: PublishRequest, admin: dict) ->
     columns = _WRITING_GATE_COLUMNS if shelf == "writing" else _SPEAKING_GATE_COLUMNS
     # A non-uuid id cannot exist; keep it out of the query (Postgres would
     # reject the whole batch) and refuse it below as not found.
-    lookup = [sid for sid in ids if _is_uuid(sid)]
+    lookup = [str(uuid.UUID(sid)) for sid in ids if _is_uuid(sid)]
 
     def read():
         targets = (supabase_admin.table(table).select(columns).in_("id", lookup).execute().data or []
@@ -516,7 +526,8 @@ async def _publish(table: str, shelf: str, body: PublishRequest, admin: dict) ->
 
     rejected, ready, unchanged = [], [], []
     for sid in ids:
-        row = by_id.get(sid)
+        # Match on the canonical lower-case form; answer with the id as sent.
+        row = by_id.get(str(uuid.UUID(sid))) if _is_uuid(sid) else None
         if row is None:
             rejected.append({"id": sid, "slug": None, "reasons": [_blocker("E_NOT_FOUND")]})
             continue

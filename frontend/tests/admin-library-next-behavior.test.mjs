@@ -96,7 +96,9 @@ describe('admin library wiring', () => {
   test('client calls the typed admin API and refetches after every mutation', () => {
     assert.match(CLIENT, /'\/admin\/library\/writing-samples'/);
     assert.match(CLIENT, /'\/admin\/library\/speaking-samples'/);
-    assert.match(CLIENT, /window\.api\.post<unknown>\(`\$\{API\[shelf\]\}\/publish`/);
+    assert.match(CLIENT, /postBrowserJsonAt\(CONTRACT\[shelf\]\.publish, `\$\{API\[shelf\]\}\/publish`/);
+    assert.match(CLIENT, /from '@\/lib\/browser-api'/); // typed adapter, not raw window.api
+    assert.doesNotMatch(CLIENT, /window\.api\./);
     assert.match(CLIENT, /await load\(\); \/\/ canonical state after every mutation/);
     assert.match(CLIENT, /Chưa có dữ liệu lô nhập\./);
     assert.match(CLIENT, /Chưa có ở đợt này\./);

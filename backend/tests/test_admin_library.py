@@ -199,9 +199,10 @@ def test_writing_list_counts_and_blockers_come_from_the_server(client):
     assert body["counts"] == {"all": 5, "published": 1, "draft": 4}
     assert body["total"] == 5 and body["page_size"] == 50
     by_id = {i["id"]: i for i in body["items"]}
-    assert _codes(by_id[U["w2"]]) == []
-    assert _codes(by_id[U["w3"]]) == ["E_FIGURE"]
-    assert _codes(by_id[U["w4"]]) == ["E_NO_REVIEW"]
+    # HOLD #2497: no manifest approval is stored, so every Writing row says so.
+    assert _codes(by_id[U["w2"]]) == ["E_NOT_APPROVED"]
+    assert _codes(by_id[U["w3"]]) == ["E_NOT_APPROVED", "E_FIGURE"]
+    assert _codes(by_id[U["w4"]]) == ["E_NOT_APPROVED", "E_NO_REVIEW"]
     assert [t["slug"] for t in body["topics"]] == ["education", "environment"]  # writing shelf only
     assert "essays" not in by_id[U["w2"]] and "source_review_status" not in by_id[U["w2"]]
 
@@ -301,23 +302,32 @@ def test_publish_rechecks_conditions_and_returns_refusals(client, db):
     r = client.post("/admin/library/writing-samples/publish", headers=H,
                     json={"ids": [U["w2"], U["w3"], U["w4"], U["w5"], U["w1"], "missing", U["w2"]], "published": True})
     body = r.json()
-    assert body["changed"] == [U["w2"]] and body["unchanged"] == [U["w1"]]
+    # w2 meets every stored condition (title, topic, source review, essays,
+    # deltas) yet is refused: source_review_status is not the manifest approval.
+    assert body["changed"] == [] and body["unchanged"] == [U["w1"]]
     rejected = {x["id"]: [c["code"] for c in x["reasons"]] for x in body["rejected"]}
-    assert rejected == {U["w3"]: ["E_FIGURE"], U["w4"]: ["E_NO_REVIEW"], U["w5"]: ["E_ESSAYS", "E_PAIR"],
+    assert rejected == {U["w2"]: ["E_NOT_APPROVED"], U["w3"]: ["E_NOT_APPROVED", "E_FIGURE"],
+                        U["w4"]: ["E_NOT_APPROVED", "E_NO_REVIEW"],
+                        U["w5"]: ["E_NOT_APPROVED", "E_ESSAYS", "E_PAIR"],
                         "missing": ["E_NOT_FOUND"]}
     rows = {x["id"]: x for x in db.tables["writing_samples"]}
-    assert rows[U["w2"]]["published"] is True and rows[U["w2"]]["published_at"]
-    assert not any(rows[i]["published"] for i in (U["w3"], U["w4"], U["w5"]))  # refused rows untouched
-    (audit,) = db.tables["governance_audit"]
-    assert audit["action"] == "library_publish"
-    assert json.loads(audit["detail"])["ids"] == [U["w2"]]
+    assert not any(rows[i]["published"] for i in (U["w2"], U["w3"], U["w4"], U["w5"]))  # all untouched
+    assert db.updates == [] and db.tables["governance_audit"] == []
+
+
+def test_publish_matches_upper_case_uuids(client, db):
+    # CR-2497 R2 nit: an upper-case uuid is the same row, not E_NOT_FOUND.
+    body = client.post("/admin/library/writing-samples/publish", headers=H,
+                       json={"ids": [U["w1"].upper()], "published": False}).json()
+    assert body["changed"] == [U["w1"]] and body["rejected"] == []
 
 
 def test_publish_refuses_a_title_another_set_already_uses(client, db):
     db.tables["writing_samples"][1]["title_en"] = "Online Learning"
     body = client.post("/admin/library/writing-samples/publish", headers=H,
                        json={"ids": [U["w2"]], "published": True}).json()
-    assert body["changed"] == [] and body["rejected"][0]["reasons"][0]["code"] == "E_NO_TITLE"
+    codes = [c["code"] for c in body["rejected"][0]["reasons"]]
+    assert body["changed"] == [] and codes == ["E_NOT_APPROVED", "E_NO_TITLE"]
     assert db.updates == [] and db.tables["governance_audit"] == []
 
 
@@ -338,7 +348,7 @@ def test_publish_batch_size_is_bounded(client, ids):
 
 def test_publish_write_failure_is_503(client, db):
     db.fail.add(("writing_samples", "update"))
-    r = client.post("/admin/library/writing-samples/publish", headers=H, json={"ids": [U["w2"]], "published": True})
+    r = client.post("/admin/library/writing-samples/publish", headers=H, json={"ids": [U["w1"]], "published": False})
     assert r.status_code == 503 and db.tables["governance_audit"] == []
 
 

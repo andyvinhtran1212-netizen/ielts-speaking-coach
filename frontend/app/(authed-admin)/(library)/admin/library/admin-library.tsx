@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
+import { getBrowserJsonAt, patchBrowserJsonAt, postBrowserJsonAt } from '@/lib/browser-api';
+
 import {
   BULK_MAX,
   TABS,
@@ -34,6 +36,19 @@ type PublishResult = {
 type Banner = { kind: 'success' | 'warning' | 'error'; text: string; rejected?: PublishResult['rejected'] };
 
 const API = { writing: '/admin/library/writing-samples', speaking: '/admin/library/speaking-samples' } as const;
+// Generated OpenAPI paths that bind each call's response type (frontend/AGENTS.md).
+const CONTRACT = {
+  writing: {
+    list: '/admin/library/writing-samples',
+    edit: '/admin/library/writing-samples/{sample_id}',
+    publish: '/admin/library/writing-samples/publish',
+  },
+  speaking: {
+    list: '/admin/library/speaking-samples',
+    edit: '/admin/library/speaking-samples/{sample_id}',
+    publish: '/admin/library/speaking-samples/publish',
+  },
+} as const;
 const STATUS_LABEL: Record<string, string> = { all: 'Tất cả', published: 'Đã đăng', draft: 'Bản nháp' };
 const TASK_LABEL: Record<string, string> = { task2: 'Task 2', task1_academic: 'Task 1' };
 
@@ -69,7 +84,7 @@ function EditRow({ shelf, row, topics, onCancel, onSaved }: {
     setSaving(true);
     setError(null);
     try {
-      const result = await window.api.patch<{ changed?: unknown; audit_logged?: unknown }>(`${API[shelf]}/${encodeURIComponent(row.id)}`, body);
+      const result: { changed?: unknown; audit_logged?: unknown } | null = await patchBrowserJsonAt(CONTRACT[shelf].edit, `${API[shelf]}/${encodeURIComponent(row.id)}`, body);
       if (!result || !Array.isArray(result.changed) || typeof result.audit_logged !== 'boolean') throw new Error('Phản hồi máy chủ không đúng định dạng');
       onSaved(result.audit_logged
         ? { kind: 'success', text: `Đã lưu “${row.slug}”.` }
@@ -128,7 +143,7 @@ function ShelfPanel({ shelf }: { shelf: Shelf }) {
     setLoading(true);
     setError(null);
     try {
-      const normalized = normalizeLibraryList(shelf, await window.api.get<unknown>(`${API[shelf]}${query ? `?${query}` : ''}`)) as LibraryList | null;
+      const normalized = normalizeLibraryList(shelf, await getBrowserJsonAt(CONTRACT[shelf].list, `${API[shelf]}${query ? `?${query}` : ''}`)) as LibraryList | null;
       if (!normalized) throw new Error('Phản hồi máy chủ không đúng định dạng');
       if (requestId !== sequence.current) return;
       setSnapshot({ key, value: normalized });
@@ -154,7 +169,7 @@ function ShelfPanel({ shelf }: { shelf: Shelf }) {
     setBusy(true);
     setBanner(null);
     try {
-      const result = normalizePublishResult(await window.api.post<unknown>(`${API[shelf]}/publish`, { ids, published })) as PublishResult | null;
+      const result = normalizePublishResult(await postBrowserJsonAt(CONTRACT[shelf].publish, `${API[shelf]}/publish`, { ids, published })) as PublishResult | null;
       if (!result) throw new Error('Phản hồi máy chủ không đúng định dạng');
       const kind = !result.auditLogged || result.rejected.length ? 'warning' : 'success';
       const text = publishSummary(result, { published }) + (result.auditLogged ? '' : ' · chưa ghi được nhật ký admin, báo kỹ thuật kiểm tra');
