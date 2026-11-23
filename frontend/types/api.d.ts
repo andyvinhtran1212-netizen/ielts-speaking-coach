@@ -3335,10 +3335,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Search Admin */
-        get: operations["search_admin_admin_search_get"];
+        get?: never;
         put?: never;
-        post?: never;
+        /** Search Admin */
+        post: operations["search_admin_admin_search_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3352,10 +3352,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Search Instructor */
-        get: operations["search_instructor_instructor_search_get"];
+        get?: never;
         put?: never;
-        post?: never;
+        /** Search Instructor */
+        post: operations["search_instructor_instructor_search_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -13688,6 +13688,8 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** Kind */
+            kind?: ("class" | "online") | null;
         };
         /** AdminDictationReportDetailResponse */
         AdminDictationReportDetailResponse: {
@@ -22166,6 +22168,18 @@ export interface components {
             /** Href */
             href: string;
         };
+        /**
+         * SearchIn
+         * @description The query travels in the JSON body, never in the URL, so no access or
+         *     platform HTTP log can keep a learner's name or e-mail.
+         */
+        SearchIn: {
+            /**
+             * Q
+             * @default
+             */
+            q: string;
+        };
         /** SectionSubmitBody */
         SectionSubmitBody: {
             /**
@@ -30438,18 +30452,20 @@ export interface operations {
             };
         };
     };
-    search_admin_admin_search_get: {
+    search_admin_admin_search_post: {
         parameters: {
-            query?: {
-                q?: string;
-            };
+            query?: never;
             header?: {
                 authorization?: string | null;
             };
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SearchIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -30471,18 +30487,20 @@ export interface operations {
             };
         };
     };
-    search_instructor_instructor_search_get: {
+    search_instructor_instructor_search_post: {
         parameters: {
-            query?: {
-                q?: string;
-            };
+            query?: never;
             header?: {
                 authorization?: string | null;
             };
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SearchIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

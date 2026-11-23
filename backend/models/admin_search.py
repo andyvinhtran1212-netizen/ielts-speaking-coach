@@ -8,6 +8,12 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field
 
 
+class SearchIn(BaseModel):
+    """The query travels in the JSON body, never in the URL, so no access or
+    platform HTTP log can keep a learner's name or e-mail."""
+    q: str = Field(default="", max_length=128)
+
+
 class SearchHit(BaseModel):
     title: str
     meta: Optional[str]
