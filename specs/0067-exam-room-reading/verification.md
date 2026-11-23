@@ -13,9 +13,9 @@
 | FR-007 | kind=test; ref=frontend/tests/reading-native/exam-room.spec.js (navigator by passage, one flag control, flags restore on resume) | PENDING |
 | FR-008 | kind=test; ref=frontend/tests/react/exam-room-questions.test.tsx (answer strings equal current Reading renderer) | PENDING |
 | FR-009 | kind=test; ref=frontend/tests/reading-native/exam-room.spec.js (Saved at HH:MM, retry on failed) | PENDING |
-| FR-010 | kind=test; ref=frontend/tests/reading-native/exam-room.spec.js (blank list; page.clock time up while typing; outcome confirmed only after submit ack or re-read; offline at 0 queues auto-submit) | PENDING |
+| FR-010 | kind=test; ref=frontend/tests/reading-native/exam-room.spec.js (blank list; page.clock time up while typing; confirmed only after submit ack or re-read; offline at 0 queues auto-submit; 5-minute grace copy) | PENDING |
 | FR-011 | kind=test; ref=frontend/tests/reading-native/exam-room.spec.js (leave flushes, unsaved count) | PENDING |
-| FR-012 | kind=test; ref=backend/tests/test_reading_abandon_attempt.py + exam-room.spec.js (abandon self-selected only, 404/409 cases, excluded from results) | PENDING |
+| FR-012 | kind=test; ref=backend/tests/test_reading_abandon_attempt.py + exam-room.spec.js (abandon self-selected only, deadline checked in the UPDATE, started-before-written-after-deadline 409, concurrent submit/abandon one winner, 404/409 cases, excluded from results/history/progress) | PENDING |
 | FR-013 | kind=test; ref=frontend/tests/reading-native/exam-room.spec.js (offline → online) | PENDING |
 | FR-014 | kind=test; ref=frontend/tests/reading-native/exam-room.spec.js (401 on PATCH, URL unchanged, local copy keyed by ownerKey, resend only unchanged answers after same-account sign-in, other account cannot see it) | PENDING |
 | FR-015 | kind=test; ref=frontend/tests/reading-native/exam-room.spec.js (two tabs; old tab flushes before releasing the lock; no lock in 5 s keeps new tab read-only) | PENDING |
@@ -24,6 +24,8 @@
 | FR-018 | kind=test; ref=frontend/tests/reading-native/exam-room.spec.js (highlight and note survive reload) | PENDING |
 | FR-019 | kind=journey; ref=exam-room.spec.js Playwright dialog listener count = 0 | PENDING |
 | FR-020 | kind=test; ref=frontend/tests/reading-native/exam-room.spec.js (analytics events surface=reading, no answers) | PENDING |
+| FR-021 | kind=test; ref=frontend/tests/reading-native/exam-room.spec.js (offline past limit+5 min → submit 422 → expired_unsubmitted copy, no "submitted", local copy deleted) | PENDING |
+| FR-022 | kind=test; ref=frontend/tests/reading-native/exam-room.spec.js (locked test: in-page password, sessionStorage key reading-pw:{testId}, wrong password message, dialog = 0; flag off keeps window.prompt) | PENDING |
 
 Đối chiếu với GOI-08: FR-08-030 → FR-001, 002, 016, 017; FR-08-031 → FR-005; FR-08-041
 (phần Reading) → FR-012; FR khung áp cho Reading (EXAMROOM-0066) → FR-003, 004, 006…011,
