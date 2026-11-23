@@ -134,7 +134,7 @@ test('orderHref is the one link to an order page (G05-T12a contract)', () => {
 test('enrollErrorView words the G04 create-order refusals and keeps retrying open for the rest', () => {
   const err = (status, error_code) => ({ status, detail: error_code ? { error_code, message: 'x' } : null });
   assert.deepEqual(enrollErrorView(err(503, 'orders_paused')), { code: 'orders_paused', message: 'Đăng ký khoá đang tạm dừng. Bạn quay lại sau nhé.', final: false, newKey: false });
-  for (const code of ['course_not_open', 'already_enrolled', 'account_suspended']) assert.equal(enrollErrorView(err(409, code)).final, true, code);
+  for (const code of ['course_not_found', 'course_not_open', 'already_enrolled', 'account_suspended']) assert.equal(enrollErrorView(err(409, code)).final, true, code);
   assert.equal(enrollErrorView(err(409, 'request_key_conflict')).newKey, true);
   for (const e of [err(503, 'orders_unavailable'), err(500, null), new TypeError('network'), null]) {
     const view = enrollErrorView(e);

@@ -155,7 +155,9 @@ export function EnrollPage({ course: initial }: { course: CourseDetail }) {
       () => undefined,
     );
     return () => { generation.current += 1; abort.abort(); };
-  }, [accountId, initial, loadViewer]);
+  // initial.slug, not the object: a parent re-render must not reset the step.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountId, initial.slug, loadViewer]);
 
   const submit = useCallback(() => {
     if (!agreed || inFlight.current || failure?.final) return;
@@ -168,7 +170,9 @@ export function EnrollPage({ course: initial }: { course: CourseDetail }) {
         if (gen !== generation.current) return;
         const code = answer?.order?.order_code;
         if (typeof code === 'string' && code) {
-          window.location.assign(orderHref(code));
+          // replace: Back from the order page returns to the course, not to a
+          // form whose order already exists.
+          window.location.replace(orderHref(code));
           return;
         }
         inFlight.current = false;

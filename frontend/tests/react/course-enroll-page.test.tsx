@@ -102,7 +102,7 @@ it('two quick clicks make one request; the order page opens at /enroll/<order_co
   expect(posts[0].body.product_slug).toBe('khoa-a');
   expect(posts[0].body.request_key.length).toBeGreaterThanOrEqual(8);
   await act(async () => { resolve({ order: { order_code: 'AVER-K7QM2X' } }); });
-  expect(assign).toHaveBeenCalledWith('/enroll/AVER-K7QM2X');
+  expect(replace).toHaveBeenCalledWith('/enroll/AVER-K7QM2X');
 });
 
 it('a failed create keeps the ticked box; the retry sends the same request_key', async () => {
@@ -114,7 +114,7 @@ it('a failed create keeps the ticked box; the retry sends the same request_key',
   expect((agree() as HTMLInputElement).checked).toBe(true);
   postAnswer = async () => ({ order: { order_code: 'AVER-K7QM2X' } });
   fireEvent.click(button());
-  await vi.waitFor(() => expect(assign).toHaveBeenCalledWith('/enroll/AVER-K7QM2X'));
+  await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/enroll/AVER-K7QM2X'));
   expect(posts).toHaveLength(2);
   expect(posts[1].body.request_key).toBe(posts[0].body.request_key);
 });
@@ -171,6 +171,19 @@ it('a failed session read creates nothing and offers "Thử lại"', async () =>
   fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
   expect(await screen.findByRole('checkbox')).toBeTruthy();
   expect(posts).toEqual([]);
+});
+
+it('a parent re-render with a new course object keeps the ticked box and the same request_key', async () => {
+  postAnswer = async () => { throw apiError(503, 'orders_unavailable'); };
+  const view = render(<EnrollPage course={OPEN} />);
+  fireEvent.click(await screen.findByRole('checkbox'));
+  fireEvent.click(button());
+  await screen.findByText(/Chưa tạo được đơn đăng ký/);
+  view.rerender(<EnrollPage course={{ ...OPEN }} />);
+  expect((agree() as HTMLInputElement).checked).toBe(true);
+  fireEvent.click(button());
+  await vi.waitFor(() => expect(posts).toHaveLength(2));
+  expect(posts[1].body.request_key).toBe(posts[0].body.request_key);
 });
 
 it('A → B: the next account starts over with a new request_key and an unticked box', async () => {

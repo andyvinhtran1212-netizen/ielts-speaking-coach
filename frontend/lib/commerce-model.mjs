@@ -207,6 +207,7 @@ export function orderHref(orderCode) {
 /** The G04 create-order refusals the enrol step words itself (FR-035). */
 const ENROLL_ERRORS = Object.freeze({
   orders_paused: 'Đăng ký khoá đang tạm dừng. Bạn quay lại sau nhé.',
+  course_not_found: 'Không tìm thấy khoá học này.',
   course_not_open: 'Khoá này chưa mở đăng ký.',
   already_enrolled: 'Bạn đang học khoá này. Bạn đăng ký lại được khi khoá gần hết hạn.',
   account_suspended: 'Tài khoản đang tạm khoá nên chưa tạo được đơn đăng ký.',
@@ -229,7 +230,7 @@ export function enrollErrorView(error) {
     return {
       code,
       message: ENROLL_ERRORS[/** @type {keyof typeof ENROLL_ERRORS} */ (code)],
-      final: code === 'course_not_open' || code === 'already_enrolled' || code === 'account_suspended',
+      final: code === 'course_not_found' || code === 'course_not_open' || code === 'already_enrolled' || code === 'account_suspended',
       newKey: code === 'request_key_conflict',
     };
   }
