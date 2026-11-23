@@ -1070,3 +1070,56 @@ async def grant_extra(body: GrantExtra, authorization: Optional[str] = Header(No
         logger.warning("[credits] grant_extra failed: %s", type(exc).__name__)
         raise _error(503, "credits_unavailable", "Chưa cấp được lượt. Vui lòng thử lại.") from None
     return {"granted": result.granted, "skipped": result.skipped}
+
+
+# ── Convert a legacy-code class to credit metering (plan 5.18, G04-T15) ──────
+
+_CONVERT_MESSAGES = {
+    "cohort_not_found": "Không tìm thấy lớp.",
+    "cohort_archived": "Lớp đã lưu trữ, không chuyển được.",
+    "cohort_has_no_course": "Lớp chưa gắn khoá học, chưa chuyển sang tính lượt được.",
+    "no_class_product": "Khoá của lớp chưa có sản phẩm loại lớp. Tạo sản phẩm ở trang Khoá học trước.",
+    "product_ambiguous": "Khoá của lớp có nhiều sản phẩm loại lớp: chọn một sản phẩm.",
+    "product_invalid": "Sản phẩm này không phải sản phẩm lớp của khoá, hoặc đã lưu trữ.",
+}
+
+
+class ConvertClass(BaseModel):
+    model_config = {"extra": "forbid"}
+    cohort_id: str = Field(pattern=_UUID)
+    credits_per_member: int = Field(ge=0, le=100_000)
+    request_key: UUID
+    product_id: Optional[str] = Field(default=None, pattern=_UUID)
+
+
+async def _convert_call(fn, *args, **kwargs):
+    try:
+        return await asyncio.to_thread(fn, *args, **kwargs)
+    except credits.ConvertClassRefused as exc:
+        raise _error(exc.status_code, exc.error_code, _CONVERT_MESSAGES[exc.error_code]) from None
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[credits] convert_class %s failed: %s", getattr(fn, "__name__", "call"), type(exc).__name__)
+        raise _error(503, "credits_unavailable", "Chưa xử lý được việc chuyển lớp. Vui lòng thử lại.") from None
+
+
+@router.get("/credits/convert-class/pending")
+async def convert_class_pending(authorization: Optional[str] = Header(None)):
+    await require_admin(authorization)
+    return {"items": await _convert_call(credits.list_classes_pending_conversion)}
+
+
+@router.get("/credits/convert-class/preview")
+async def convert_class_preview(cohort_id: str = Query(pattern=_UUID), authorization: Optional[str] = Header(None)):
+    await require_admin(authorization)
+    return await _convert_call(credits.convert_class_preview, cohort_id)
+
+
+@router.post("/credits/convert-class", responses=staff_guard.STEP_UP_RESPONSES)
+async def convert_class(body: ConvertClass, authorization: Optional[str] = Header(None)):
+    admin = await require_admin(authorization)
+    step_up_credits = body.credits_per_member
+    if step_up_credits > 0:
+        staff_guard.require_recent_mfa(admin, authorization)
+    return await _convert_call(
+        credits.convert_class, admin_id=str(admin["id"]), cohort_id=body.cohort_id,
+        credits_per_member=body.credits_per_member, request_key=str(body.request_key), product_id=body.product_id)
