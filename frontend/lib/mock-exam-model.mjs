@@ -1,4 +1,5 @@
 import { admitCorePlayer } from './core-player-affinity.mjs';
+import { planLocalCopyReplay } from './exam-room/local-copy.mjs';
 
 export const MOCK_SECTION_ORDER = Object.freeze(['listening', 'reading', 'writing']);
 export const MOCK_LIVE_STATUSES = Object.freeze(['registered', 'lrw_in_progress']);
@@ -313,4 +314,127 @@ export function normalizeIntegrity(raw) {
     out[key] = Number.isFinite(number) && number >= 0 ? number : 0;
   }
   return out;
+}
+
+// ── EXAMMOCK-0071 T001: exam-room branch helpers (pure) ──────────────────────
+
+/** FR-007: the new branch retries a failed submit 3 times on its own (0066 FR-034); the old branch keeps 4. */
+export const MOCK_SUBMIT_AUTO_RETRIES = 3;
+
+/**
+ * Submit state of one section for the exam-room branch (EXAMMOCK-0071 FR-007,
+ * EXAMROOM-0066 FR-034). Never infers "submitted" from a call having been made.
+ * - `confirmed` needs both the server's `*SubmittedAt` for this section of this
+ *   sitting and proof the last answers were held: a flush that reported
+ *   `unsaved: 0` (Writing: `bridge.flush` with the exact text) before the
+ *   submit (`finalFlushSecured`). A `flush-ack` alone is not that proof.
+ * - Server closed the section (`*SubmittedAt`, or the sitting is no longer
+ *   live) without that proof → `closed_unconfirmed`, with the server's
+ *   timestamp only; `savedUpTo` only when the server sent one.
+ * - Collected by the invigilator but not submitted yet, no error → `submitting`.
+ * - 403/404 → `denied` (the surface keeps "Contact your invigilator.").
+ * - Other error → `unconfirmed` (auto retry) up to 3 retries, then
+ *   `unconfirmed_manual` ("Try again" calls `submitSection` again).
+ * - Rule (2) only applies to a submit this tab started or watched
+ *   (`observed`). A section submitted before the tab opened shows only
+ *   "✓ Submitted" on the strip: `idle` with `sectionSubmitted: true`.
+ * @param {{
+ *   state: any,
+ *   section: 'listening' | 'reading' | 'writing',
+ *   observed: boolean,
+ *   finalFlushSecured: boolean,
+ *   retries?: number,
+ *   error?: { status?: number | null } | null,
+ *   serverSavedUpTo?: string | null,
+ * }} input
+ * @returns {{ outcome: 'idle' | 'submitting' | 'confirmed' | 'unconfirmed' | 'unconfirmed_manual' | 'closed_unconfirmed' | 'denied', retry: boolean, closedAt: string | null, savedUpTo: string | null, sectionSubmitted: boolean }}
+ */
+export function mockSubmitOutcome({ state, section, observed, finalFlushSecured, retries = 0, error = null, serverSavedUpTo = null }) {
+  const submittedAt = submittedAtFor(state, section);
+  const live = Boolean(state) && MOCK_LIVE_STATUSES.includes(state.sitting?.status);
+  const savedUpTo = typeof serverSavedUpTo === 'string' && serverSavedUpTo ? serverSavedUpTo : null;
+  const base = { retry: false, closedAt: null, savedUpTo, sectionSubmitted: Boolean(submittedAt) };
+  if (!observed) return { ...base, outcome: 'idle' };
+  if (submittedAt || !live) {
+    if (submittedAt && finalFlushSecured) return { ...base, outcome: 'confirmed' };
+    return { ...base, outcome: 'closed_unconfirmed', closedAt: submittedAt || null };
+  }
+  const status = Number(error?.status);
+  if (status === 403 || status === 404) return { ...base, outcome: 'denied' };
+  if (error) {
+    return retries < MOCK_SUBMIT_AUTO_RETRIES
+      ? { ...base, outcome: 'unconfirmed', retry: true }
+      : { ...base, outcome: 'unconfirmed_manual' };
+  }
+  return { ...base, outcome: 'submitting' };
+}
+
+/** The two Writing tasks, as `q` keys of the 0066 local copy (FR-010). */
+export const MOCK_WRITING_COPY_TASKS = Object.freeze(['task1', 'task2']);
+
+/** Old-branch key, read only for the signed-in owner's sitting. */
+export function legacyMockWritingKey(sittingId, task) {
+  return `mock-writing:${sittingId}:${task}`;
+}
+
+/**
+ * What to do with the Writing copies when a mock sitting opens in the
+ * exam-room branch (EXAMMOCK-0071 FR-010, EXAMROOM-0066 FR-035 amendment 1 (c)).
+ * Compared by text only, never by timestamps.
+ * - New copy (`exam-room:local-copy:mock:{ownerKey}:{sittingId}`, `q` =
+ *   task1/task2, `baseValue` = the spec's `baseText`): re-sent only while the
+ *   server text still equals `baseValue`; server changed → keep server; base
+ *   unknown and different → ask.
+ * - Legacy key `mock-writing:{sittingId}:{task}` (no base): read only when the
+ *   sitting belongs to the signed-in account (`ownerMatches`). Equal to the
+ *   server → drop it now. Different → never written over the server: ask the
+ *   learner, and copy it into the new key first; the legacy key goes only
+ *   after that write reads back (`legacyRemovable`) or the server acked it.
+ *   A task that already has a new-key entry ignores its older legacy key.
+ * - Section closed (`server.open` false): send nothing, clear everything.
+ * @param {{
+ *   copy: import('./exam-room/local-copy.mjs').LocalCopy | null,
+ *   legacy: Partial<Record<'task1' | 'task2', { text: string } | null>>,
+ *   server: { open: boolean, task1?: string | null, task2?: string | null },
+ *   ownerMatches: boolean,
+ * }} input
+ */
+export function reconcileMockWritingCopy({ copy, legacy, server, ownerMatches }) {
+  const serverAnswers = Object.fromEntries(MOCK_WRITING_COPY_TASKS.map((task) => [task, { value: server[task] ?? null }]));
+  const plan = planLocalCopyReplay(copy, { open: server.open, answers: serverAnswers });
+  /** @type {{ task: string, local: string, server: string, source: 'copy' | 'legacy' }[]} */
+  const ask = plan.ask.map((a) => ({ task: a.q, local: a.local, server: a.server, source: 'copy' }));
+  /** @type {string[]} legacy keys to delete now */
+  const dropLegacy = [];
+  /** @type {{ q: string, value: string }[]} legacy texts to write into the new key (base unknown) */
+  const migrate = [];
+  if (ownerMatches) {
+    for (const task of MOCK_WRITING_COPY_TASKS) {
+      const draft = legacy?.[task];
+      if (!draft || typeof draft.text !== 'string') continue;
+      const inCopy = Boolean(copy?.answers && Object.prototype.hasOwnProperty.call(copy.answers, task));
+      const serverText = typeof server[task] === 'string' ? server[task] : '';
+      if (!server.open || inCopy || draft.text === serverText) { dropLegacy.push(task); continue; }
+      migrate.push({ q: task, value: draft.text });
+      ask.push({ task, local: draft.text, server: serverText, source: 'legacy' });
+    }
+  }
+  return Object.freeze({
+    resend: plan.resend.map((r) => ({ task: r.q, value: r.value })),
+    keepServer: plan.keepServer,
+    ask,
+    dropFromCopy: plan.drop,
+    clearCopy: !server.open,
+    dropLegacy,
+    migrate,
+  });
+}
+
+/**
+ * A legacy key may be deleted only once its text is held elsewhere: the new
+ * key read back the same text, or the server acked exactly that text.
+ * @param {{ legacyText: string, readBack?: string | null, ackedText?: string | null }} input
+ */
+export function legacyRemovable({ legacyText, readBack = null, ackedText = null }) {
+  return readBack === legacyText || ackedText === legacyText;
 }
