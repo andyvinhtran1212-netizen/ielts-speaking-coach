@@ -182,6 +182,8 @@ def db(monkeypatch):
                         lambda sid: ["listening", "reading", "writing", "speaking"])
     monkeypatch.setattr(exam_svc, "_section_duration_seconds", lambda exam, s: 3600)
     monkeypatch.setattr(room, "_now", lambda: NOW)
+    # One paper is enough in these fixtures; the gate has its own tests.
+    monkeypatch.setattr(room, "_min_papers", lambda: 1)
     return fake
 
 
@@ -531,7 +533,7 @@ def test_writing_criteria_median_per_task(db, monkeypatch):
     monkeypatch.setattr(exam_svc, "sitting_pacing", lambda sid: None)
     _sitting(db, S_DONE)["essay_task2_id"] = U(801)
     _sitting(db, S_TIMED_OUT)["essay_task2_id"] = U(802)
-    db.tables["writing_feedback"] = [
+    db.tables["writing_feedback_current"] = [
         {"essay_id": U(801), "band_main_criterion": 6.0, "band_coherence_cohesion": 6.5,
          "band_lexical_resource": 6.0, "band_grammatical_range": 5.5},
         {"essay_id": U(802), "band_main_criterion": 7.0, "band_coherence_cohesion": 6.5,
@@ -567,10 +569,102 @@ def test_vs_previous_compares_shared_learners_only(db, monkeypatch):
                                         "delta": 1.0}
 
 
+def test_writing_criteria_count_only_the_current_version(db, monkeypatch):
+    """CR #2631: a regraded essay has 2 rows in writing_feedback; only the one
+    at writing_essays.current_version (the view of migration 109) counts."""
+    monkeypatch.setattr(exam_svc, "sitting_pacing", lambda sid: None)
+    _sitting(db, S_DONE)["essay_task2_id"] = U(801)
+    old = {"essay_id": U(801), "version": 1, "band_main_criterion": 4.0, "band_coherence_cohesion": 4.0,
+           "band_lexical_resource": 4.0, "band_grammatical_range": 4.0}
+    new = {**old, "version": 2, "band_main_criterion": 6.5, "band_coherence_cohesion": 6.0,
+           "band_lexical_resource": 6.0, "band_grammatical_range": 6.0}
+    db.tables["writing_essays"] = [{"id": U(801), "current_version": 2}]
+    db.tables["writing_feedback"] = [old, new]
+    db.tables["writing_feedback_current"] = [
+        f for f in db.tables["writing_feedback"]
+        if any(e["id"] == f["essay_id"] and e["current_version"] == f["version"]
+               for e in db.tables["writing_essays"])]
+    out = room.analysis(EXAM)["writing_criteria_median"]
+    assert out["task2"] == {"essays": 1, "main_criterion": 6.5, "coherence_cohesion": 6.0,
+                            "lexical_resource": 6.0, "grammatical_range": 6.0}
+
+
+def test_new_parts_use_the_distribution_threshold(db, monkeypatch):
+    """CR #2631: under band_dist_min_papers the question stats are null, and
+    the Writing and comparison parts keep their counts with null medians."""
+    monkeypatch.setattr(exam_svc, "sitting_pacing", lambda sid: None)
+    _with_attempts(db)
+    _sitting(db, S_DONE)["essay_task2_id"] = U(801)
+    db.tables["writing_feedback_current"] = [
+        {"essay_id": U(801), "band_main_criterion": 6.0, "band_coherence_cohesion": 6.5,
+         "band_lexical_resource": 6.0, "band_grammatical_range": 5.5}]
+    _exam(db)["created_at"] = "2026-12-01T00:00:00+00:00"
+    db.tables["mock_exams"].append({"id": U(950), "title": "Trước", "created_at": "2026-11-01T00:00:00+00:00"})
+    db.tables["mock_exam_sittings"].append(
+        {"id": U(161), "mock_exam_id": U(950), "user_id": U(201), "status": "submitted"})
+    db.tables["mock_exam_reviews"].append(
+        {"id": U(361), "sitting_id": U(161), "status": "released", "final_bands": _bands(writing=5.0)})
+    monkeypatch.setattr(room, "_min_papers", lambda: 3)
+    out = room.analysis(EXAM)
+    assert out["top_wrong"]["reading"] is None and out["by_question_type"]["reading"] is None
+    assert out["writing_criteria_median"]["task2"] == {
+        "essays": 1, "main_criterion": None, "coherence_cohesion": None,
+        "lexical_resource": None, "grammatical_range": None}
+    assert out["vs_previous"]["skills"]["writing"] == {
+        "learners": 1, "previous_median": None, "median": None, "delta": None}
+    monkeypatch.setattr(room, "_min_papers", lambda: 2)
+    out = room.analysis(EXAM)
+    assert [t["q_num"] for t in out["top_wrong"]["reading"]] == [2, 1, 3]
+    assert out["writing_criteria_median"]["task2"]["main_criterion"] is None
+
+
+def test_vs_previous_uses_the_latest_sitting_of_a_retake(db, monkeypatch):
+    """CR #2631: two non-void sittings of one learner in the earlier exam; the
+    later one counts whatever order the rows come back in."""
+    monkeypatch.setattr(exam_svc, "sitting_pacing", lambda sid: None)
+    prev = U(950)
+    _exam(db)["created_at"] = "2026-12-01T00:00:00+00:00"
+    db.tables["mock_exams"].append({"id": prev, "title": "Trước", "created_at": "2026-11-01T00:00:00+00:00"})
+    db.tables["mock_exam_sittings"] += [
+        {"id": U(162), "mock_exam_id": prev, "user_id": U(201), "status": "released",
+         "created_at": "2026-11-03T00:00:00+00:00"},
+        {"id": U(161), "mock_exam_id": prev, "user_id": U(201), "status": "released",
+         "created_at": "2026-11-01T00:00:00+00:00"},
+    ]
+    db.tables["mock_exam_reviews"] += [
+        {"id": U(361), "sitting_id": U(161), "status": "released", "final_bands": _bands(writing=4.0)},
+        {"id": U(362), "sitting_id": U(162), "status": "released", "final_bands": _bands(writing=5.5)},
+    ]
+    out = room.analysis(EXAM)["vs_previous"]
+    assert out["skills"]["writing"]["previous_median"] == 5.5
+
+
+def test_vs_previous_looks_back_at_most_five_exams(db, monkeypatch):
+    """CR #2631: earlier exams without a band are not scanned without end, and
+    their reviews are read in one batch, not one query per learner."""
+    monkeypatch.setattr(exam_svc, "sitting_pacing", lambda sid: None)
+    _exam(db)["created_at"] = "2026-12-01T00:00:00+00:00"
+    for n in range(6):
+        eid = U(950 + n)
+        db.tables["mock_exams"].append({"id": eid, "title": f"Kỳ {n}",
+                                        "created_at": f"2026-11-{20 - n:02d}T00:00:00+00:00"})
+        db.tables["mock_exam_sittings"].append(
+            {"id": U(160 + n), "mock_exam_id": eid, "user_id": U(201), "status": "submitted"})
+    # Only the sixth earlier exam has a band: past the limit.
+    db.tables["mock_exam_reviews"].append(
+        {"id": U(365), "sitting_id": U(165), "status": "released", "final_bands": _bands()})
+    calls = []
+    monkeypatch.setattr(wf, "get_review_for_sitting",
+                        lambda sid: calls.append(sid) or next(
+                            (r for r in db.tables["mock_exam_reviews"] if r["sitting_id"] == sid), None))
+    assert room.analysis(EXAM)["vs_previous"] is None
+    assert not {U(160 + n) for n in range(6)} & set(calls)
+
+
 def test_a_failing_source_is_named_not_hidden(db, monkeypatch):
     monkeypatch.setattr(exam_svc, "sitting_pacing", lambda sid: None)
     _sitting(db, S_DONE)["essay_task1_id"] = U(801)
-    db.down.add("writing_feedback")
+    db.down.add("writing_feedback_current")
     out = room.analysis(EXAM)
     assert out["writing_criteria_median"] is None
     assert out["sources_failed"] == ["writing_criteria"]

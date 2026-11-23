@@ -462,11 +462,17 @@ def _question_types(skill: str, attempt: dict, cache: dict) -> dict:
     return cache[ck]
 
 
-def _question_stats(sittings: list[dict]) -> tuple[dict, dict]:
+def _shown(count: int, threshold: Optional[int]) -> bool:
+    """The same gate as the band distribution: a figure over fewer than
+    ``band_dist_min_papers`` papers is one person's result (CR #2631)."""
+    return count > 0 and threshold is not None and count >= threshold
+
+
+def _question_stats(sittings: list[dict], threshold: Optional[int]) -> tuple[dict, dict]:
     """``top_wrong`` and ``by_question_type`` for Listening and Reading from
     the per-question marking each attempt stored (``grading_details``).
     Self-check rows (``correct`` null) are not marked and are left out. A skill
-    with no marked attempt is null."""
+    with no marked attempt, or fewer than ``threshold`` of them, is null."""
     top: dict[str, Optional[list]] = {}
     types: dict[str, Optional[list]] = {}
     cache: dict = {}
@@ -502,7 +508,7 @@ def _question_stats(sittings: list[dict]) -> tuple[dict, dict]:
                 t = per_type.setdefault(qtype, {"question_type": qtype, "correct": 0, "total": 0})
                 t["total"] += 1
                 t["correct"] += 1 if r.get("correct") else 0
-        if not marked:
+        if not _shown(marked, threshold):
             top[skill] = types[skill] = None
             continue
         ranked = sorted((v for v in per_q.values() if v["wrong"]),
@@ -521,23 +527,28 @@ def _question_stats(sittings: list[dict]) -> tuple[dict, dict]:
     return top, types
 
 
-def _writing_criteria(sittings: list[dict]) -> Optional[dict]:
+def _writing_criteria(sittings: list[dict], threshold: Optional[int]) -> Optional[dict]:
     """Median of each Writing criterion per task over graded essays; null
-    when no essay of this exam has feedback."""
+    when no essay of this exam has feedback. Reads ``writing_feedback_current``
+    (migration 109): a regraded essay keeps up to 3 versions in
+    ``writing_feedback`` and only ``writing_essays.current_version`` counts.
+    Under ``threshold`` essays the count stays and the medians are null."""
     out: dict = {}
     for task, col in (("task1", "essay_task1_id"), ("task2", "essay_task2_id")):
-        ids = [s[col] for s in sittings if s.get(col)]
+        ids = sorted({s[col] for s in sittings if s.get(col)})
         rows = []
         for i in range(0, len(ids), 100):
-            rows += (supabase_admin.table("writing_feedback").select("essay_id, " + ", ".join(_CRITERIA))
+            rows += (supabase_admin.table("writing_feedback_current")
+                     .select("essay_id, " + ", ".join(_CRITERIA))
                      .in_("essay_id", ids[i:i + 100]).execute().data or [])
         if not rows:
             out[task] = None
             continue
         out[task] = {"essays": len(rows)}
+        shown = _shown(len(rows), threshold)
         for c in _CRITERIA:
             vals = [float(r[c]) for r in rows if r.get(c) is not None]
-            out[task][c.removeprefix("band_")] = statistics.median(vals) if vals else None
+            out[task][c.removeprefix("band_")] = statistics.median(vals) if vals and shown else None
     return out if any(out.values()) else None
 
 
@@ -548,39 +559,74 @@ def _banded(review: Optional[dict], skill: str) -> Optional[float]:
     return float(value) if value is not None else None
 
 
-def _vs_previous(exam: dict, sittings: list[dict], reviews: dict) -> Optional[dict]:
-    """The latest earlier exam (by ``created_at``) that shares at least one
-    learner with this one, compared on those shared learners only: median band
-    per skill there and here, and the difference. Null when there is none."""
-    users = {s["user_id"] for s in sittings if s.get("user_id")}
-    if not users or not exam.get("created_at"):
+_VS_PREVIOUS_MAX_EXAMS = 5
+
+
+def _latest(rows: list[dict]) -> dict:
+    """user_id → that learner's most recent sitting (``created_at``, then id),
+    so a retake decides and PostgREST row order does not (CR #2631)."""
+    out: dict = {}
+    for r in sorted(rows, key=lambda r: (str(r.get("created_at") or ""), str(r["id"]))):
+        if r.get("user_id"):
+            out[r["user_id"]] = r
+    return out
+
+
+def _reviews_for(sitting_ids: list[str]) -> dict:
+    """sitting_id → review, read in batches of 100 (one query per batch)."""
+    out: dict = {}
+    for i in range(0, len(sitting_ids), 100):
+        for r in (supabase_admin.table("mock_exam_reviews").select("*")
+                  .in_("sitting_id", sitting_ids[i:i + 100]).execute().data or []):
+            out.setdefault(r["sitting_id"], r)
+    return out
+
+
+def _vs_previous(exam: dict, sittings: list[dict], reviews: dict,
+                 threshold: Optional[int]) -> Optional[dict]:
+    """The latest earlier exam (by ``created_at``, at most
+    ``_VS_PREVIOUS_MAX_EXAMS`` back) that shares at least one banded learner
+    with this one, compared on those shared learners only: median band per
+    skill there and here, and the difference. Each learner counts with their
+    latest sitting on each side. Under ``threshold`` learners a skill keeps its
+    count and its medians are null. Null when there is none."""
+    mine = _latest(sittings)
+    if not mine or not exam.get("created_at"):
         return None
     other = []
-    ulist = sorted(users)
+    ulist = sorted(mine)
     for i in range(0, len(ulist), 100):
-        other += (supabase_admin.table("mock_exam_sittings").select("id, mock_exam_id, user_id, status")
+        other += (supabase_admin.table("mock_exam_sittings")
+                  .select("id, mock_exam_id, user_id, status, created_at")
                   .in_("user_id", ulist[i:i + 100]).neq("mock_exam_id", exam["id"])
                   .neq("status", "void").execute().data or [])
     if not other:
         return None
     exam_ids = sorted({o["mock_exam_id"] for o in other})
-    exams = (supabase_admin.table("mock_exams").select("id, title, created_at")
-             .in_("id", exam_ids).execute().data or [])
+    exams = []
+    for i in range(0, len(exam_ids), 100):
+        exams += (supabase_admin.table("mock_exams").select("id, title, created_at")
+                  .in_("id", exam_ids[i:i + 100]).execute().data or [])
     earlier = sorted((e for e in exams if e.get("created_at") and e["created_at"] < exam["created_at"]),
-                     key=lambda e: e["created_at"], reverse=True)
+                     key=lambda e: (e["created_at"], e["id"]), reverse=True)[:_VS_PREVIOUS_MAX_EXAMS]
+    if not earlier:
+        return None
+    theirs = {e["id"]: _latest([o for o in other if o["mock_exam_id"] == e["id"]]) for e in earlier}
+    prev_reviews = _reviews_for(sorted(o["id"] for t in theirs.values() for o in t.values()))
     for prev in earlier:
-        theirs = {o["user_id"]: o for o in other if o["mock_exam_id"] == prev["id"]}
-        prev_reviews = {uid: wf.get_review_for_sitting(o["id"]) for uid, o in theirs.items()}
-        here = {s["user_id"]: reviews.get(s["id"]) for s in sittings if s.get("user_id") in theirs}
+        shared = theirs[prev["id"]]
+        here = {u: reviews.get(s["id"]) for u, s in mine.items() if u in shared}
         skills = {}
         for skill in SKILLS:
-            pairs = [(_banded(prev_reviews.get(u), skill), _banded(r, skill)) for u, r in here.items()]
+            pairs = [(_banded(prev_reviews.get(shared[u]["id"]), skill), _banded(r, skill))
+                     for u, r in here.items()]
             pairs = [(a, b) for a, b in pairs if a is not None and b is not None]
             if pairs:
-                before = statistics.median(a for a, _ in pairs)
-                now = statistics.median(b for _, b in pairs)
-                skills[skill] = {"learners": len(pairs), "previous_median": before,
-                                 "median": now, "delta": round(now - before, 2)}
+                shown = _shown(len(pairs), threshold)
+                before = statistics.median(a for a, _ in pairs) if shown else None
+                now = statistics.median(b for _, b in pairs) if shown else None
+                skills[skill] = {"learners": len(pairs), "previous_median": before, "median": now,
+                                 "delta": round(now - before, 2) if shown else None}
         if skills:
             return {"exam_id": prev["id"], "title": prev.get("title"),
                     "shared_learners": len(here), "skills": skills}
@@ -593,13 +639,15 @@ def analysis(exam_id: str) -> dict:
     medians, per-sitting pacing, the questions most often wrong and the rate
     per question type (Listening/Reading), the Writing criterion medians, and
     the comparison with the previous exam of the same learners. No overall
-    band here (FR-147). A part that could not be read is null and named in
+    band here (FR-147). The question stats, the Writing medians and the
+    comparison use the same ``band_dist_min_papers`` gate as the distribution.
+    A part that could not be read is null and named in
     ``sources_failed``, so the page never shows a gap as "nothing wrong"."""
     _require_enabled()
     exam = _load_exam(exam_id)
     sittings = (supabase_admin.table("mock_exam_sittings")
-                .select("id, user_id, status, listening_attempt_id, reading_attempt_id, "
-                        "essay_task1_id, essay_task2_id")
+                .select("id, user_id, status, created_at, listening_attempt_id, "
+                        "reading_attempt_id, essay_task1_id, essay_task2_id")
                 .eq("mock_exam_id", exam["id"]).neq("status", "void").execute()).data or []
     by_sitting = {s["id"]: wf.get_review_for_sitting(s["id"]) for s in sittings}
     reviews = list(by_sitting.values())
@@ -635,7 +683,7 @@ def analysis(exam_id: str) -> dict:
             failed.append(name)
             return default
 
-    top_wrong, by_type = guarded("question_stats", _question_stats, sittings, default=(None, None))
+    top_wrong, by_type = guarded("question_stats", _question_stats, sittings, threshold, default=(None, None))
     return {
         "band_dist_min_papers": threshold,
         "band_distribution": dist,
@@ -643,8 +691,8 @@ def analysis(exam_id: str) -> dict:
         "top_wrong": top_wrong,
         "by_question_type": by_type,
         "pacing": pacing,
-        "vs_previous": guarded("vs_previous", _vs_previous, exam, sittings, by_sitting),
-        "writing_criteria_median": guarded("writing_criteria", _writing_criteria, sittings),
+        "vs_previous": guarded("vs_previous", _vs_previous, exam, sittings, by_sitting, threshold),
+        "writing_criteria_median": guarded("writing_criteria", _writing_criteria, sittings, threshold),
         "sources_failed": failed,
     }
 
