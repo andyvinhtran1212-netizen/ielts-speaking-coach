@@ -257,6 +257,7 @@ def build_new_results(sb, user_id: str, now: datetime) -> Dict[str, Any]:
             .select("id, task_type, delivered_at")
             .in_("student_id", student_ids)
             .eq("status", "delivered")
+            .is_("deleted_at", "null")  # soft-deleted: its result page is a 404
             .gte("delivered_at", _iso(floor))
             .order("delivered_at")
             .limit(NEW_RESULTS_SCAN)
