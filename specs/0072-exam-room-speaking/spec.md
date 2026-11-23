@@ -1,14 +1,15 @@
 ---
 id: EXAMSPEAK-0072
 title: Speaking practice shows clear microphone and recording states, blocks too-short answers with a reason, and asks in the page before discarding unsent recordings, behind a flag and with the same uploads and grading
-status: draft
+status: approved
 risk: high
 owner: product
 ---
 
 # Speaking: micro, ghi âm, rời bài và nộp trong khung chung
 
-Status: **draft**. Soạn ngày 23/11/2026 theo nhiệm vụ G08-T17 của
+Status: **approved** (anh Andy, 23/11/2026 17:57 giờ VN; nguyên văn trong
+[`approval-decision.md`](approval-decision.md)). Soạn ngày 23/11/2026 theo nhiệm vụ G08-T17 của
 `docs/proposals/commercialization-2026-11/GOI-08-phong-thi-va-trinh-luyen.md` (spec S6; số 0072
 theo sổ `01-KE-HOACH-TONG.md` mục 6, đã kiểm còn trống trong `specs/` và trong các PR đang mở).
 Chưa dòng mã nào chạy theo spec này. Chỉ anh Andy duyệt. Khi anh duyệt, câu trả lời được ghi
