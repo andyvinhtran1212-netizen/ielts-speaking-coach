@@ -76,6 +76,7 @@
   var _ROOM_LEVEL_MS = 200;
   var _roomLevelTimer = null;
   var _roomMicLostDone = false;
+  var _roomMicLostShown = false;
   // FR-006–FR-008: a box the room has open, and what it will do when answered.
   var _roomDialogKind = null;
   var _roomLeaveHref = '';
@@ -287,7 +288,10 @@
   function _roomMic(state) {
     if (!_examRoomMode) return;
     _roomMicState = state;
-    _updateNativeView('mic', { state: state, lost: false });
+    // R139 CR: "Mất kết nối micro" stays until the microphone works again, so
+    // an error on a later "Thử lại" does not hide why the take stopped.
+    if (state === 'granted') _roomMicLostShown = false;
+    _updateNativeView('mic', { state: state, lost: _roomMicLostShown });
   }
 
   // Recorder error -> mic case (FR-003). Unknown failures keep the old message
@@ -435,9 +439,12 @@
   function _roomMicLost(stopping) {
     if (!_examRoomMode || _roomMicLostDone) return false;
     _roomMicLostDone = true;
+    _roomMicLostShown = true;
     _roomMicState = 'not_found';
     _updateNativeView('mic', { state: 'not_found', lost: true });
     if (stopping) {
+      // The legacy recorder's onstop does not clear the P1/P3 elapsed timer.
+      if (_timerId) { _clearManagedEffect('recording-elapsed', _timerId, 'interval'); _timerId = null; }
       // The Part 2 countdown would otherwise try to stop the recorder again at
       // the end and report a failure over the kept take.
       if (_currentState === 'p2c') {

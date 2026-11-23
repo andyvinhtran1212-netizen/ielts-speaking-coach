@@ -38,13 +38,13 @@ function sandbox({ on = true, state = 'prep', sub = 'recording', recorderState =
   };
   const api = new Function(...Object.keys(env), `
     var _examRoomMode = ${on ? 'true' : 'false'};
-    var _roomMicState = 'granted', _ROOM_LEVEL_MS = 200, _roomLevelTimer = null, _roomMicLostDone = false;
+    var _roomMicState = 'granted', _ROOM_LEVEL_MS = 200, _roomLevelTimer = null, _roomMicLostDone = false, _roomMicLostShown = false;
     var _roomDialogKind = null, _roomLeaveHref = '', _roomLeaving = false, _roomConfirmed = false, _ROOM_LEAVE_RESET_MS = 4000;
     var _playerGeneration = 1, _playerActive = true, _analyser = null, _recorder = null, _stream = null;
     var _currentState = ${JSON.stringify(state)}, _recSubState = ${JSON.stringify(sub)};
     var _timerId = 'elapsed', _p2SpeakTimerId = 'p2';
     ${ROOM}
-    return { startLevel: _startRoomLevel, stopLevel: _stopRoomLevel, mic: (s) => _roomMic(s), micState: () => _roomMicState };
+    return { startLevel: _startRoomLevel, stopLevel: _stopRoomLevel, mic: (s) => _roomMic(s), micState: () => _roomMicState, timerId: () => _timerId };
   `)(...Object.values(env));
   const tick = () => intervals.at(-1).fn();
   const micViews = () => views.filter(([s]) => s === 'mic').map(([, p]) => p);
@@ -117,6 +117,30 @@ describe('flag on: the microphone is unplugged while recording', () => {
     tick();
     assert.ok(!log.some(([k]) => k === 'stopP2'));
     assert.ok(log.some(([k, key]) => k === 'clear' && key === 'p2-speak-countdown'));
+  });
+
+  test('legacy recorder stopped by itself: the P1/P3 elapsed timer is cleared too', () => {
+    const { api, log, audio } = sandbox({ recorderState: 'inactive' });
+    api.startLevel();
+    audio.readyState = 'ended';
+    api.stopLevel();
+    assert.ok(log.some(([k, key]) => k === 'clear' && key === 'recording-elapsed'));
+    assert.equal(api.timerId(), null);
+  });
+
+  test('an error on a later "Thử lại" keeps "Mất kết nối micro" until the mic works again', () => {
+    const { api, tick, micViews } = sandbox({ audio: track('ended') });
+    api.startLevel();
+    tick();
+    api.mic('pending');
+    api.mic('busy');
+    assert.deepEqual(micViews().slice(-2), [{ state: 'pending', lost: true }, { state: 'busy', lost: true }]);
+    api.mic('denied');
+    assert.deepEqual(micViews().at(-1), { state: 'denied', lost: true });
+    api.mic('granted');
+    assert.deepEqual(micViews().at(-1), { state: 'granted', lost: false });
+    api.mic('busy');
+    assert.deepEqual(micViews().at(-1), { state: 'busy', lost: false }, 'a later, unrelated error says nothing about a lost mic');
   });
 
   test('a new take clears "lost" and can report a second unplug', () => {

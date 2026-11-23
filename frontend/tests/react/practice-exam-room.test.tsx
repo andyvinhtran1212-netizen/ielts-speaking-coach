@@ -362,10 +362,25 @@ describe('MicStatus (FR-003)', () => {
     expect(screen.getByText(VI.micLost)).toBeTruthy();
     expect(screen.getByText(VI.micNotFound)).toBeTruthy();
     expect(screen.getByRole('button', { name: VI.micRetry })).toBeTruthy();
+    expect(document.querySelector('[data-mic-tone]')?.getAttribute('data-mic-tone')).toBe('warning');
+    cleanup();
+    p.updateView('mic', { state: 'busy', lost: true });
+    shell(p);
+    expect(screen.getByText(VI.micLost)).toBeTruthy();
+    expect(screen.getByText(VI.micBusy)).toBeTruthy();
+    cleanup();
+    p.updateView('mic', { state: 'denied', lost: true });
+    shell(p);
+    expect(screen.getByRole('alert').textContent).toContain(VI.micLost);
     cleanup();
     p.updateView('mic', { state: 'granted', lost: false });
     shell(p);
     expect(screen.queryByText(VI.micLost)).toBeNull();
+  });
+
+  it('a plain not-found keeps the info tone', () => {
+    mic('not_found');
+    expect(document.querySelector('[data-mic-tone]')?.getAttribute('data-mic-tone')).toBe('info');
   });
 
   it('unsupported: the reason, no button', () => {
