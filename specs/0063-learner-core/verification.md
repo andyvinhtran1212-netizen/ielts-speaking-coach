@@ -7,9 +7,9 @@ Mọi dòng ở trạng thái `PENDING`: spec đang `draft`, chưa có dòng mã
 | Requirement | Evidence | Result |
 | --- | --- | --- |
 | FR-019 | kind=test; ref=planned backend pytest four state values in FR-019 order (T13) and React state cases (T14) | PENDING |
-| FR-020 | kind=test; ref=planned React today-v2 heading N and N=0 copy (T14); pytest overdue/due-tomorrow counting in VN time (T13) | PENDING |
+| FR-020 | kind=test; ref=planned React today-v2 heading N and N=0 copy (T14); pytest overdue/due-tomorrow counting in VN time and assigned_due_soon counted before the cap of 5 (T13) | PENDING |
 | FR-021 | kind=test; ref=planned React next_lesson null hides card, present shows resume minute (T14) | PENDING |
-| FR-022 | kind=test; ref=planned pytest assigned order and cap 5 (T13); React overdue first and exact-item href via my-class-model (T14) | PENDING |
+| FR-022 | kind=test; ref=planned pytest assigned order and cap 5, later deadlines only in assigned_due_later (T13); React overdue first and exact-item href via my-class-model (T14) | PENDING |
 | FR-023 | kind=test; ref=planned pytest expired resume dropped, cap 4 newest first, four mig-224 tables only (T13) | PENDING |
 | FR-024 | kind=test; ref=planned React credits one total, two rows by_kind, legacy class code hides block, null hides block (T14) | PENDING |
 | FR-025 | kind=test; ref=planned pytest new_results oldest-two-unseen, delivered-only Writing (T13); journey=staging scenario 5 | PENDING |
