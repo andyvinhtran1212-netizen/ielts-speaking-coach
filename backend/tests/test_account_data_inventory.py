@@ -129,3 +129,30 @@ def test_unclassified_new_column_would_fail(monkeypatch):
         assert "brand_new_attempts" in str(exc)
     else:  # pragma: no cover
         raise AssertionError("an unclassified column must fail FR-006")
+
+
+def _migration_text() -> str:
+    return "\n".join(p.read_text(encoding="utf-8") for p in scan_mod.migration_files())
+
+
+def test_child_tables_hang_off_deleted_parents_and_exist():
+    """T001 gate 2: every child is a real table under a ``delete`` parent."""
+    text = _migration_text()
+    delete_tables = {e.table for e in inv.INVENTORY if e.action == "delete"}
+    for child, parent in inv.CHILD_TABLES.items():
+        assert parent in delete_tables, (child, parent)
+        assert f"public.{child}" in text or f"TABLE {child}" in text or f"EXISTS {child}" in text, child
+        own = [e for e in inv.INVENTORY if e.table == child and e.action not in ("staff_actor", "staff_only")]
+        assert not own, f"{child} has its own learner column: {own}"
+
+
+def test_text_columns_and_json_paths_are_valid():
+    text = _migration_text()
+    for col in inv.TEXT_COLUMNS:
+        assert col.action in inv.ACTIONS and col.column in text, col
+    keys = [(c.table, c.column) for c in inv.TEXT_COLUMNS]
+    assert len(keys) == len(set(keys))
+    assert inv.TEXT_COLUMNS[0] == inv.TextColumn(
+        "enrollment_orders", "learner_note", "anonymize", inv.TEXT_COLUMNS[0].note)
+    for path in inv.JSON_PATHS:
+        assert path.action in inv.ACTIONS, path

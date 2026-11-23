@@ -34,7 +34,7 @@ from typing import Literal, Optional
 Action = Literal["delete", "anonymize", "keep", "staff_actor", "staff_only"]
 ACTIONS: frozenset[str] = frozenset({"delete", "anonymize", "keep", "staff_actor", "staff_only"})
 
-INVENTORY_VERSION = "2026-11-23.1"
+INVENTORY_VERSION = "2026-11-23.2"
 
 
 @dataclass(frozen=True)
@@ -199,9 +199,49 @@ INVENTORY: tuple[Entry, ...] = tuple(
     )
 )
 
+# T001 gate 3 (staging catalog 2026-11-23, key names and counts only): every
+# top-level key of the jsonb columns of the kept logs. Keys not listed here
+# hold flags, enums, counts or staff-side ids (staff_security_audit,
+# class_lifecycle_audit, student_lifecycle_audit, access_code_audit code
+# fields) and are kept as they are.
 JSON_PATHS: tuple[JsonPath, ...] = (
     JsonPath("access_code_audit", "before", "assigned_user", "keep", "id only"),
     JsonPath("access_code_audit", "after", "assigned_user", "keep", "id only"),
+    JsonPath("access_code_audit", "after", "intended_email", "anonymize",
+             "an email; erasure drops the key where it equals the learner's email (1 row on staging)"),
+    JsonPath("access_code_audit", "after", "notes", "keep",
+             "staff note written when the code was made (1 row on staging); not about an account"),
+    JsonPath("ai_usage_logs", "metadata", "student_id", "keep", "id only; points at the anonymised student"),
+    JsonPath("ai_usage_logs", "metadata", "essay_id", "keep", "id only; the essay row is deleted"),
+    JsonPath("ai_usage_logs", "metadata", "prompt_id", "keep", "content id"),
+    JsonPath("ai_usage_logs", "metadata", "error_detail", "keep",
+             "ai_router.rejection_detail: field paths and error types, never model output"),
+)
+
+# Free-text columns of kept tables that can hold a learner's words or name
+# (T001 gate 2). Erasure applies ``action`` to the learner's rows.
+@dataclass(frozen=True)
+class TextColumn:
+    table: str
+    column: str
+    action: Action
+    note: str = ""
+
+
+TEXT_COLUMNS: tuple[TextColumn, ...] = (
+    TextColumn("enrollment_orders", "learner_note", "anonymize",
+               "set to NULL (CR/SA); 0 rows on staging 2026-11-23"),
+    TextColumn("class_action_log", "student_name", "anonymize",
+               "learner name copied into an append-only log (mig 198); needs an owner decision"),
+    TextColumn("enrollment_order_events", "note", "keep",
+               "append-only (mig 383); written by staff or the system; 0 rows on staging"),
+    TextColumn("enrollment_orders", "admin_message", "keep", "staff words to the learner"),
+    TextColumn("enrollment_orders", "cancel_reason", "keep", "staff or system reason"),
+    TextColumn("credit_ledger", "note", "keep", "admin words shown to the learner (me_access)"),
+    TextColumn("class_action_log", "assignment_title", "keep", "content title"),
+    TextColumn("class_action_log", "actor_email", "keep", "staff email"),
+    TextColumn("student_lifecycle_audit", "reason", "keep", "staff reason"),
+    TextColumn("class_lifecycle_audit", "reason", "keep", "staff reason"),
 )
 
 # Columns from tables older than the migration system. FR-006: listed by
@@ -211,12 +251,23 @@ PRE_MIGRATION: frozenset[tuple[str, str]] = frozenset(
 )
 
 # Tables reached only through a parent's foreign key (no user column of
-# their own). Erasure deletes them before the parent. T001 completes this
-# list from the catalog; the FR-006 test does not cover it.
+# their own). Erasure deletes them before the parent. Completed from the
+# staging catalog 2026-11-23 (T001 gate 2, every FK into a ``delete`` table).
+# All cascade except ``listening_drill_playback`` (ON DELETE RESTRICT, mig
+# 380): it must go before ``class_assignment_items`` or the delete fails.
 CHILD_TABLES: dict[str, str] = {
     "responses": "sessions",
+    "questions": "sessions",
     "dictation_attempt_answers": "dictation_attempts",
     "instructor_reviews": "writing_essays",
+    "writing_feedback": "writing_essays",
+    "writing_grade_ratings": "writing_essays",
+    "writing_jobs": "writing_essays",
+    "flashcard_cards": "flashcard_stacks",
+    "reading_attempt_answers": "reading_test_attempts",
+    "listening_programme_feedback_reveals": "listening_test_attempts",
+    "mock_exam_reviews": "mock_exam_sittings",
+    "listening_drill_playback": "class_assignment_items",
 }
 
 # Classified ahead of packages not merged yet. Each moves into the lists above
