@@ -141,7 +141,7 @@ Tổng: 204 PR mở vào staging hoặc nhánh khác (không tính #2450). 78 PR
 ## Lô 8: xếp chồng tầng 3 (8 PR, CI xanh 1)
 | PR | Mã | Tiêu đề | Vào trước | Rủi ro | CI hiện tại | Nghiệm thu |
 |---|---|---|---|---|---|---|
-| #2468 | COURSELESSON-0064, G07-T03 | spec: draft COURSELESSON-0064 (G07-T03) | #2461, #2463, #2460 | 1 tài liệu | đang chạy/xếp hàng (5) | local (CR khớp head) |
+| #2468 | COURSELESSON-0064, G07-T03 | spec: draft COURSELESSON-0064 (G07-T03) | #2460, #2463, #2461 | 1 tài liệu | đang chạy/xếp hàng (5) | local (CR khớp head) |
 | #2567 | G10-T15, ADMINGROUP-0077 T005 | G10-T15-4: move the speaking admin groups under (authed-admin), keep l | #2553, #2535, #2480 | 2 giao diện · không thấy cờ | đang chạy/xếp hàng (7) | local (CR khớp head) |
 | #2456 | — | fix(admin): reconcile Claude-led Writing spend and label it by provide | #2529, #2455 | 3 backend/CI | xanh | local (CR khớp head) |
 | #2539 | LIBRARY-0061, G06-T13 | LIBRARY-0061 G06-T13 follow-up (proxy): real HTTP 404 for an unknown S | #2521 | 3 backend/CI | đang chạy/xếp hàng (7) | local (CR khớp head) |
@@ -153,7 +153,7 @@ Tổng: 204 PR mở vào staging hoặc nhánh khác (không tính #2450). 78 PR
 ## Lô 9: xếp chồng tầng 4 (5 PR, CI xanh 0)
 | PR | Mã | Tiêu đề | Vào trước | Rủi ro | CI hiện tại | Nghiệm thu |
 |---|---|---|---|---|---|---|
-| #2469 | RESULTSHEET-0065, G07-T04 | spec: draft RESULTSHEET-0065 (G07-T04) | #2461, #2463, #2468, #2460 | 1 tài liệu | đang chạy/xếp hàng (5) | local (CR khớp head) |
+| #2469 | RESULTSHEET-0065, G07-T04 | spec: draft RESULTSHEET-0065 (G07-T04) | #2460, #2463, #2461, #2468 | 1 tài liệu | đang chạy/xếp hàng (5) | local (CR khớp head) |
 | #2617 | — | docs(specs/0064): sửa câu chữ trước khi duyệt (can_renew, lesson_code, | #2468 | 1 tài liệu | đang chạy/xếp hàng (4) | local (CR khớp head) |
 | #2572 | G07-T17 | feat(G07-T17): /account và /progress (PR 2/3) | #2556 | 2 giao diện · không thấy cờ | đang chạy/xếp hàng (6) | local (CR khớp head) |
 | #2594 | G10-T15, ADMINGROUP-0077 T006 | G10-T15-5: move reading and mock admin groups under (authed-admin), ke | #2567, #2553, #2535, #2480 | 2 giao diện · không thấy cờ | đang chạy/xếp hàng (7) | local (CR khớp head) |
@@ -162,7 +162,7 @@ Tổng: 204 PR mở vào staging hoặc nhánh khác (không tính #2450). 78 PR
 ## Lô 10: xếp chồng tầng 5 (5 PR, CI xanh 0)
 | PR | Mã | Tiêu đề | Vào trước | Rủi ro | CI hiện tại | Nghiệm thu |
 |---|---|---|---|---|---|---|
-| #2481 | LEARNERCORE-0063, G07-T15, G07-T16 | specs: LEARNERCORE-0063 amendment 1, course path and practice/tests hu | #2469, #2461, #2463, #2468, #2460 | 1 tài liệu | đang chạy/xếp hàng (5) | local (CR khớp head) |
+| #2481 | LEARNERCORE-0063, G07-T15, G07-T16 | specs: LEARNERCORE-0063 amendment 1, course path and practice/tests hu | #2469, #2460, #2463, #2461, #2468 | 1 tài liệu | đang chạy/xếp hàng (5) | local (CR khớp head) |
 | #2618 | — | docs(specs/0065): sửa câu chữ trước khi duyệt (review_mode, nguồn can_ | #2460, #2461, #2463, #2468, #2469 | 1 tài liệu | đang chạy/xếp hàng (4) | local (CR khớp head) |
 | #2607 | G05-T02 | G05-T02: commerce data layer for the public course pages | #2598, #2463, #2591 | 2 giao diện · cờ | đang chạy/xếp hàng (6) | local (CR khớp head) |
 | #2611 | ADMINGROUP-0077 T007 | ADMINGROUP-0077 T007: move mock-tests, writing, writing-new under (aut | #2594, #2567, #2553, #2535, #2480 | 2 giao diện · không thấy cờ | đang chạy/xếp hàng (7) | local (CR khớp head) |
@@ -171,21 +171,21 @@ Tổng: 204 PR mở vào staging hoặc nhánh khác (không tính #2450). 78 PR
 ## Lô 11: xếp chồng tầng 6 (2 PR, CI xanh 0)
 | PR | Mã | Tiêu đề | Vào trước | Rủi ro | CI hiện tại | Nghiệm thu |
 |---|---|---|---|---|---|---|
-| #2482 | LEARNERCORE-0063, G07-T17, G07-T26 | specs: LEARNERCORE-0063 amendment 2, account pages, first visit and in | #2481, #2461, #2463, #2468, #2469, #2460 | 1 tài liệu | đang chạy/xếp hàng (5) | local (CR khớp head) |
+| #2482 | LEARNERCORE-0063, G07-T17, G07-T26 | specs: LEARNERCORE-0063 amendment 2, account pages, first visit and in | #2481, #2460, #2463, #2461, #2468, #2469 | 1 tài liệu | đang chạy/xếp hàng (5) | local (CR khớp head) |
 | #2623 | G05-T04 | G05-T04: trang danh mục /courses (sau cờ AVER_PUBLIC_COMMERCE) + nút b | #2463, #2607, #2591, #2598 | 2 giao diện · cờ | đang chạy/xếp hàng (6) | local (CR delta khớp head, comment 7102743922) |
 
 ## Lô 12: xếp chồng tầng 7 (2 PR, CI xanh 0)
 | PR | Mã | Tiêu đề | Vào trước | Rủi ro | CI hiện tại | Nghiệm thu |
 |---|---|---|---|---|---|---|
-| #2484 | LEARNERCORE-0063, G07-T30 | specs: LEARNERCORE-0063 amendment 3, assigned work page and self-pract | #2482, #2461, #2463, #2468, #2469, #2460, #2481 | 1 tài liệu | đang chạy/xếp hàng (5) | local (CR khớp head) |
+| #2484 | LEARNERCORE-0063, G07-T30 | specs: LEARNERCORE-0063 amendment 3, assigned work page and self-pract | #2482, #2460, #2463, #2461, #2468, #2469, #2481 | 1 tài liệu | đang chạy/xếp hàng (5) | local (CR khớp head) |
 | #2637 | G05-T05 | G05-T05: trang một khoá /courses/[slug] (404 thật qua proxy) + 3 nit C | #2463, #2623, #2591, #2598, #2607 | 2 giao diện · cờ | đang chạy/xếp hàng (6) | local (CR delta khớp head, comment 7102744271) |
 
 ## Lô 13: xếp chồng tầng 8 (3 PR, CI xanh 0)
 | PR | Mã | Tiêu đề | Vào trước | Rủi ro | CI hiện tại | Nghiệm thu |
 |---|---|---|---|---|---|---|
-| #2489 | LEARNERCORE-0063, G07-T31 | specs: LEARNERCORE-0063 amendment 4, review pages with personal notes  | #2461, #2463, #2468, #2469, #2460, #2484 | 1 tài liệu | đang chạy/xếp hàng (5) | local (CR khớp head) |
+| #2489 | LEARNERCORE-0063, G07-T31 | specs: LEARNERCORE-0063 amendment 4, review pages with personal notes  | #2460, #2463, #2461, #2468, #2469, #2484 | 1 tài liệu | đang chạy/xếp hàng (5) | local (CR khớp head) |
 | #2648 | G05-T12 | G05-T12 màn 1: bước đăng ký /courses/[slug]/enroll | #2463, #2637, #2591, #2598, #2607, #2623 | 2 giao diện · cờ | đang chạy/xếp hàng (6) | local (CR delta khớp head, comment 7102744735) |
-| #2573 | G07-T30a | feat(G07-T30a): GET /api/student/assigned (backend half) | #2525, #2461, #2463, #2468, #2469, #2484 | 3 backend/CI | đang chạy/xếp hàng (6) | local (CR khớp head) |
+| #2573 | G07-T30a | feat(G07-T30a): GET /api/student/assigned (backend half) | #2525, #2463, #2461, #2468, #2469, #2484 | 3 backend/CI | đang chạy/xếp hàng (6) | local (CR khớp head) |
 
 ## Lô 14: xếp chồng tầng 9 (2 PR, CI xanh 0)
 | PR | Mã | Tiêu đề | Vào trước | Rủi ro | CI hiện tại | Nghiệm thu |
@@ -233,61 +233,61 @@ Lý do ghi ở cột cuối. "Phụ thuộc PR chưa đủ điều kiện" nghĩ
 | #2504 | G08-T10, EXAMLISTENP-0069 | spec(G08-T10): EXAMLISTENP-0069 Listening practice in the shared pract | #2487, #2495, #2500 | 1 tài liệu | đang chạy/xếp hàng (5) | local (CR khớp head) | phụ thuộc PR chưa đủ điều kiện: #2495, #2500 |
 | #2609 | EXAMWRITE-0068 | spec(EXAMWRITE-0068): readiness-review fixes into #2500 | #2500 | 1 tài liệu | đang chạy/xếp hàng (4) | local (CR khớp head) | phụ thuộc PR chưa đủ điều kiện: #2495, #2500 |
 | #2528 | EXAMROOM-0066 T004, G08-T05 | EXAMROOM-0066 T004 (G08-T05): exam-room audio policy and Highlight/Not | #2492, #2518, #2507, #2487 | 2 giao diện · không thấy cờ | đang chạy/xếp hàng (8) | local (duyệt cũ đã bị chặn lại) | review/CR chặn mới hơn duyệt cũ (13:21Z: ## CHẶN MERGE @79ce8004c23eba050d69032a4791b74d940c44f4: R150-1 (P1) v) |
-| #2560 | G09-T08 | G09-T08: new admin frame and navigation registry (behind ADMIN_FRAME_V | #2537, #2465 | 2 giao diện · cờ | đang chạy/xếp hàng (7) | local (CR khớp head) | 1 thread mở |
+| #2560 | G09-T08 | G09-T08: new admin frame and navigation registry (behind ADMIN_FRAME_V | #2462, #2516, #2537, #2465 | 2 giao diện · cờ | đang chạy/xếp hàng (7) | local (CR khớp head) | 1 thread mở |
 | #2631 | G09-T33b | G09-T33b: mock exam analysis fills top wrong, question types, Writing  | #2612, #2595, #2565, #2563 | 4 migration (mig 445, 446, 447, 448) | đang chạy/xếp hàng (7) | local (CR khớp head) | nháp |
 | #2571 | COURSEACCESS-0055 T005 | COURSEACCESS-0055 T005: admin API for course products, entitlements an | #2550, #2526, #2485 | 5 tiền/lượt/auth/xoá | đang chạy/xếp hàng (7) | local (CR khớp head) | chặn của anh Andy chưa gỡ |
 | #2624 | COURSEACCESS-0055, G04-T10b | COURSEACCESS-0055 G04-T10b: xoá nội dung theo hạn khoá học qua RPC có  | #2554, #2550, #2526, #2485, #2620 | 5 tiền/lượt/auth/xoá (mig 505) | đang chạy/xếp hàng (7) | local (CR khớp head) | 1 thread mở; sổ 505 xung đột với dòng reserved của #2554 |
 | #2646 | LEGACYJS-0075 | chore(legacy-js): retire the class and student scripts (LEGACYJS-0075  | #2629, #2568, #2510 | 5 tiền/lượt/auth/xoá | đang chạy/xếp hàng (8) | local (CR khớp head) | phụ thuộc PR chưa đủ điều kiện: #2568, #2629 |
 | #2658 | G05-T23 | G05-T23: khối liên hệ chung và GET /api/public/site-info | #2463 | 5 tiền/lượt/auth/xoá | đang chạy/xếp hàng (6) | local (CR khớp head) | 1 thread mở |
-| #2508 | G08-T12, EXAMLISTENT-0070 | spec(G08-T12): EXAMLISTENT-0070 Listening test in the shared exam room | #2495, #2487, #2504, #2500 | 1 tài liệu | đang chạy/xếp hàng (5) | local (CR khớp head) | phụ thuộc PR chưa đủ điều kiện: #2495, #2500, #2504 |
+| #2508 | G08-T12, EXAMLISTENT-0070 | spec(G08-T12): EXAMLISTENT-0070 Listening test in the shared exam room | #2487, #2495, #2500, #2504 | 1 tài liệu | đang chạy/xếp hàng (5) | local (CR khớp head) | phụ thuộc PR chưa đủ điều kiện: #2495, #2500, #2504 |
 | #2538 | EXAMLISTENP-0069 T001, G08-T11 | EXAMLISTENP-0069 T001 (G08-T11): move the legacy Listening practice dr | #2487, #2495, #2500, #2504 | 2 giao diện · không thấy cờ | đang chạy/xếp hàng (8) | local (CR khớp head) | phụ thuộc PR chưa đủ điều kiện: #2495, #2500, #2504 |
-| #2561 | G09-T16 | G09-T16: Hộp thư sự cố /admin/incidents | #2560, #2537, #2465 | 2 giao diện · không thấy cờ | đang chạy/xếp hàng (7) | local (CR khớp head) | 1 thread mở; chặn của anh Andy chưa gỡ |
+| #2561 | G09-T16 | G09-T16: Hộp thư sự cố /admin/incidents | #2462, #2516, #2560, #2537, #2465 | 2 giao diện · không thấy cờ | đang chạy/xếp hàng (7) | local (CR khớp head) | 1 thread mở; chặn của anh Andy chưa gỡ |
 | #2586 | G08-T05, EXAMROOM-0066 | G08-T05 fix: 40-question Part wraps in the exam-room strip; bare-mode  | #2528 | 2 giao diện · không thấy cờ | đang chạy/xếp hàng (6) | local (CR khớp head) | xung đột |
 | #2626 | G08-T18 | G08-T18 T002 (R85): Speaking journey on /practice/session with a fake  | #2487, #2615, #2599, #2528 | 2 giao diện · cờ | đang chạy/xếp hàng (8) | local (CR khớp head) | phụ thuộc PR chưa đủ điều kiện: #2518, #2528, #2599, #2615 |
 | #2585 | COURSEACCESS-0055 T013 | COURSEACCESS-0055 T013: convert a legacy-code class to credit metering | #2571, #2552, #2550, #2526, #2485 | 5 tiền/lượt/auth/xoá (mig 385, 387) | đang chạy/xếp hàng (7) | local (CR khớp head) | chặn của anh Andy chưa gỡ |
 | #2643 | ADMINIA-0074, G09-T15 | ADMINIA-0074 G09-T15: Sổ lượt AI /admin/credits | #2560, #2537, #2465 | 5 tiền/lượt/auth/xoá | đang chạy/xếp hàng (7) | local (CR khớp head) | phụ thuộc PR chưa đủ điều kiện: #2560 |
 | #2654 | ADMINIA-0074, G09-T14 | ADMINIA-0074 G09-T14: shared re-practice grant and revoke forms | #2571 | 5 tiền/lượt/auth/xoá | đang chạy/xếp hàng (6) | local (CR khớp head) | 1 thread mở; chặn của anh Andy chưa gỡ |
 | #2657 | LEGACYJS-0075 | chore(legacy-js): retire the overview, system and traffic scripts (LEG | #2646, #2629, #2568, #2510 | 5 tiền/lượt/auth/xoá | đang chạy/xếp hàng (8) | local (CR khớp head) | phụ thuộc PR chưa đủ điều kiện: #2568, #2629, #2646 |
-| #2509 | G08-T15, EXAMMOCK-0071 | spec(G08-T15): EXAMMOCK-0071 assigned mock tests in the shared exam ro | #2495, #2487, #2504, #2508, #2500 | 1 tài liệu | đang chạy/xếp hàng (5) | local (CR khớp head) | phụ thuộc PR chưa đủ điều kiện: #2495, #2500, #2504, #2508 |
+| #2509 | G08-T15, EXAMMOCK-0071 | spec(G08-T15): EXAMMOCK-0071 assigned mock tests in the shared exam ro | #2487, #2508, #2495, #2500, #2504 | 1 tài liệu | đang chạy/xếp hàng (5) | local (CR khớp head) | phụ thuộc PR chưa đủ điều kiện: #2495, #2500, #2504, #2508 |
 | #2639 | — | docs(specs/0070): ghi kết quả review độc lập T006 lần 1 | #2508 | 1 tài liệu | đang chạy/xếp hàng (4) | local (CR khớp head) | phụ thuộc PR chưa đủ điều kiện: #2495, #2500, #2504, #2508 |
 | #2613 | G07-T17, ACCOUNTDATA-0100, R127 | feat(account): pending-deletion notice, data export and delete request | #2572, #2600 | 2 giao diện · không thấy cờ | đang chạy/xếp hàng (7) | local (CR khớp head) | nháp |
 | #2653 | G09-T41 | G09-T41: Báo cáo /admin/reports | #2561, #2465, #2537, #2560 | 2 giao diện · không thấy cờ | đang chạy/xếp hàng (7) | local (CR khớp head) | nháp; chặn của anh Andy chưa gỡ |
 | #2549 | EXAMLISTENT-0070 T004 | feat(listening): abandon route for a self-selected Listening test (EXA | #2508 | 3 backend/CI | đang chạy/xếp hàng (6) | local (CR khớp head) | chặn của anh Andy chưa gỡ |
-| #2557 | G08-T14, 0070 | feat(G08-T14): Listening test in the exam room behind a flag (0070 T00 | #2495, #2487, #2504, #2508, #2500 | 3 backend/CI | đang chạy/xếp hàng (8) | chưa | nháp; CR yêu cầu sửa; chặn của anh Andy chưa gỡ |
+| #2557 | G08-T14, 0070 | feat(G08-T14): Listening test in the exam room behind a flag (0070 T00 | #2487, #2508, #2495, #2500, #2504 | 3 backend/CI | đang chạy/xếp hàng (8) | chưa | nháp; CR yêu cầu sửa; chặn của anh Andy chưa gỡ |
 | #2558 | EXAMLISTENP-0069 T002, G08-T11 | EXAMLISTENP-0069 T002 (G08-T11): exam-room branch of the Listening pra | #2487, #2495, #2500, #2504, #2538, #2528, #2518, #2507, #2492 | 3 backend/CI | đang chạy/xếp hàng (8) | local (CR khớp head) | phụ thuộc PR chưa đủ điều kiện: #2495, #2500, #2504, #2518, #2528, #2538 |
 | #2576 | G09-T10 | G09-T10: Danh bạ học viên /admin/learners | #2561, #2560, #2537, #2465 | 3 backend/CI | đang chạy/xếp hàng (7) | local (CR khớp head) | phụ thuộc PR chưa đủ điều kiện: #2560, #2561 |
 | #2627 | G05-T13 | feat(account): Đơn đăng ký của tôi at /account/orders (G05-T13) | #2463, #2572, #2526 | 5 tiền/lượt/auth/xoá | đang chạy/xếp hàng (6) | local (CR khớp head) | nháp |
-| #2511 | G08-T17, EXAMSPEAK-0072 | spec(G08-T17): EXAMSPEAK-0072 Speaking microphone, recording and leave | #2495, #2487, #2509, #2504, #2508, #2500 | 1 tài liệu | đang chạy/xếp hàng (5) | local (CR khớp head) | nháp |
+| #2511 | G08-T17, EXAMSPEAK-0072 | spec(G08-T17): EXAMSPEAK-0072 Speaking microphone, recording and leave | #2487, #2509, #2508, #2495, #2500, #2504 | 1 tài liệu | đang chạy/xếp hàng (5) | local (CR khớp head) | nháp |
 | #2625 | — | docs(specs/0071): ghi kết quả review độc lập T007 lần 1 | #2509 | 1 tài liệu | đang chạy/xếp hàng (4) | local (CR khớp head) | phụ thuộc PR chưa đủ điều kiện: #2495, #2500, #2504, #2508, #2509 |
-| #2540 | EXAMMOCK-0071 T001, G08-T16 | EXAMMOCK-0071 T001 (G08-T16): mockSubmitOutcome and reconcileMockWriti | #2495, #2487, #2509, #2504, #2508, #2500, #2507 | 2 giao diện · không thấy cờ | đang chạy/xếp hàng (8) | local (CR khớp head) | nháp; chặn của anh Andy chưa gỡ |
+| #2540 | EXAMMOCK-0071 T001, G08-T16 | EXAMMOCK-0071 T001 (G08-T16): mockSubmitOutcome and reconcileMockWriti | #2487, #2509, #2508, #2495, #2500, #2504, #2507 | 2 giao diện · không thấy cờ | đang chạy/xếp hàng (8) | local (CR khớp head) | nháp; chặn của anh Andy chưa gỡ |
 | #2587 | G09-T11a | G09-T11a: Hồ sơ học viên /admin/learners/[ref] (Tổng quan, read only) | #2576, #2561, #2560, #2537, #2465 | 2 giao diện · không thấy cờ | đang chạy/xếp hàng (7) | local (CR khớp head) | phụ thuộc PR chưa đủ điều kiện: #2560, #2561, #2576 |
-| #2584 | G08-T14, 0070 | test(G08-T14): Listening journeys with the exam room on (0070 T003) | #2495, #2487, #2504, #2508, #2500, #2557, #2528, #2542, #2549 | 3 backend/CI | đang chạy/xếp hàng (8) | chưa | nháp; CR yêu cầu sửa |
+| #2584 | G08-T14, 0070 | test(G08-T14): Listening journeys with the exam room on (0070 T003) | #2487, #2508, #2495, #2500, #2504, #2557, #2528, #2542, #2549 | 3 backend/CI | đang chạy/xếp hàng (8) | chưa | nháp; CR yêu cầu sửa |
 | #2592 | G08-T11, EXAMLISTENP-0069 T003 | G08-T11: EXAMLISTENP-0069 T003, Listening programme context journey wi | #2487, #2495, #2500, #2504, #2558, #2538, #2528, #2518, #2507, #2492 | 3 backend/CI | đang chạy/xếp hàng (8) | local (CR khớp head) | phụ thuộc PR chưa đủ điều kiện: #2495, #2500, #2504, #2518, #2528, #2538 |
-| #2581 | EXAMMOCK-0071 T004, G08-T22 | EXAMMOCK-0071 T004 (G08-T22 PR 1): learner gate reads mock_exam_audien | #2565, #2495, #2487, #2509, #2504, #2508, #2500 | 4 migration (mig 445) | đang chạy/xếp hàng (7) | local (CR khớp head) | nháp; mang bản 445 cũ: merge staging vào sau #2565 rồi CR delta |
+| #2581 | EXAMMOCK-0071 T004, G08-T22 | EXAMMOCK-0071 T004 (G08-T22 PR 1): learner gate reads mock_exam_audien | #2565, #2487, #2509, #2508, #2495, #2500, #2504 | 4 migration (mig 445) | đang chạy/xếp hàng (7) | local (CR khớp head) | nháp; mang bản 445 cũ: merge staging vào sau #2565 rồi CR delta |
 | #2590 | G05-T20 | feat(auth): sign out everywhere and the displaced-session notice (G05- | #2579, #2556, #2572 | 5 tiền/lượt/auth/xoá | đang chạy/xếp hàng (7) | local (CR khớp head) | nháp; chặn của anh Andy chưa gỡ |
 | #2640 | G09-T32, MOCKORG-0086 | G09-T32: Kỳ thi list and four-step setup behind ADMIN_FRAME_V2 (MOCKOR | #2565, #2611, #2560 | 5 tiền/lượt/auth/xoá (mig 445) | đang chạy/xếp hàng (8) | local (CR khớp head) | nháp; chặn của anh Andy chưa gỡ |
 | #2641 | G05-T12 | feat(enroll): order page /enroll/[orderCode], screens 2–6 (G05-T12) | #2627, #2526 | 5 tiền/lượt/auth/xoá | đang chạy/xếp hàng (6) | local (CR khớp head) | nháp |
-| #2541 | G08-T20, EXAMDRILL-0073 | spec(G08-T20): EXAMDRILL-0073 Quick Check and flashcards in the shared | #2495, #2487, #2511, #2509, #2504, #2508, #2500 | 1 tài liệu | đang chạy/xếp hàng (5) | local (CR khớp head) | nháp |
+| #2541 | G08-T20, EXAMDRILL-0073 | spec(G08-T20): EXAMDRILL-0073 Quick Check and flashcards in the shared | #2487, #2509, #2508, #2495, #2500, #2511, #2504 | 1 tài liệu | đang chạy/xếp hàng (5) | local (CR khớp head) | nháp |
 | #2650 | 0072, R152 | spec(0072 T005, R152): independent review evidence for the Speaking ex | #2511 | 1 tài liệu | đang chạy/xếp hàng (4) | local (CR ở head cũ) | cần CR delta (head đổi) |
-| #2551 | EXAMMOCK-0071 T002, G08-T16 | EXAMMOCK-0071 T002 part A (G08-T16): mock runner in the shared exam ro | #2495, #2487, #2509, #2504, #2508, #2500, #2518, #2540, #2507 | 2 giao diện · cờ | đang chạy/xếp hàng (8) | local (CR khớp head) | nháp; chặn của anh Andy chưa gỡ |
+| #2551 | EXAMMOCK-0071 T002, G08-T16 | EXAMMOCK-0071 T002 part A (G08-T16): mock runner in the shared exam ro | #2487, #2509, #2508, #2495, #2500, #2504, #2518, #2540, #2507 | 2 giao diện · cờ | đang chạy/xếp hàng (8) | local (CR khớp head) | nháp; chặn của anh Andy chưa gỡ |
 | #2605 | G05-T20, R119 | feat(writing): keep unsaved Writing text when the device is signed out | #2590 | 2 giao diện · không thấy cờ | đang chạy/xếp hàng (7) | local (CR khớp head) | nháp |
 | #2601 | G09-T11b | G09-T11b: learner profile Khoá và quyền: role change with a confirm, d | #2587, #2576, #2561, #2560, #2537, #2465 | 3 backend/CI | đang chạy/xếp hàng (7) | local (CR delta khớp head, comment review 6023232695 @cf296d01) | phụ thuộc PR chưa đủ điều kiện: #2560, #2561, #2576, #2587 |
 | #2661 | G09-T34 | G09-T34 PR 1: trang một kỳ thi (Đề, Thí sinh, Theo dõi, Nhật ký) behin | #2640, #2612 | 5 tiền/lượt/auth/xoá (mig 445, 446, 447, 448) | đang chạy/xếp hàng (8) | local (CR khớp head) | nháp |
 | #2662 | 0073, R164 | spec(0073 T004): independent review evidence for the drill room (R164) | #2541 | 1 tài liệu | đang chạy/xếp hàng (4) | chưa | chưa CR |
-| #2555 | EXAMMOCK-0071 T002, G08-T16 | EXAMMOCK-0071 T002 part B (G08-T16): mock Writing room, account-bound  | #2495, #2487, #2509, #2504, #2508, #2500, #2551, #2518, #2540 | 2 giao diện · cờ | đang chạy/xếp hàng (8) | local (CR khớp head) | nháp; chặn của anh Andy chưa gỡ |
-| #2597 | EXAMDRILL-0073 T001 | EXAMDRILL-0073 T001: Quick Check và flashcard trong phòng luyện (cờ dr | #2495, #2487, #2541, #2511, #2509, #2504, #2508, #2500 | 2 giao diện · cờ | đang chạy/xếp hàng (8) | local (duyệt cũ đã bị chặn lại) | review/CR chặn mới hơn duyệt cũ (13:15Z: **Focus ring is never drawn (P1, accessibility).** These rules use `ou) |
-| #2614 | EXAMDRILL-0073 T002 | EXAMDRILL-0073 T002: hành trình hai nhánh cờ và ảnh flashcard (phòng l | #2495, #2487, #2541, #2511, #2509, #2504, #2508, #2500 | 2 giao diện · cờ | đang chạy/xếp hàng (8) | local (CR khớp head) | phụ thuộc PR chưa đủ điều kiện: #2495, #2500, #2504, #2508, #2509, #2511 |
+| #2555 | EXAMMOCK-0071 T002, G08-T16 | EXAMMOCK-0071 T002 part B (G08-T16): mock Writing room, account-bound  | #2487, #2509, #2508, #2495, #2500, #2504, #2551, #2518, #2540 | 2 giao diện · cờ | đang chạy/xếp hàng (8) | local (CR khớp head) | nháp; chặn của anh Andy chưa gỡ |
+| #2597 | EXAMDRILL-0073 T001 | EXAMDRILL-0073 T001: Quick Check và flashcard trong phòng luyện (cờ dr | #2487, #2509, #2508, #2495, #2500, #2511, #2504, #2541 | 2 giao diện · cờ | đang chạy/xếp hàng (8) | local (duyệt cũ đã bị chặn lại) | review/CR chặn mới hơn duyệt cũ (13:15Z: **Focus ring is never drawn (P1, accessibility).** These rules use `ou) |
+| #2614 | EXAMDRILL-0073 T002 | EXAMDRILL-0073 T002: hành trình hai nhánh cờ và ảnh flashcard (phòng l | #2487, #2509, #2508, #2495, #2500, #2511, #2504, #2541 | 2 giao diện · cờ | đang chạy/xếp hàng (8) | local (CR khớp head) | phụ thuộc PR chưa đủ điều kiện: #2495, #2500, #2504, #2508, #2509, #2511 |
 | #2656 | G09-T23 | G09-T23: Settings page: operations-threshold table, settings log, Thre | #2601, #2587, #2576, #2561, #2560, #2537, #2465 | 2 giao diện · cờ | đang chạy/xếp hàng (7) | local (CR khớp head) | phụ thuộc PR chưa đủ điều kiện: #2560, #2561, #2576, #2587, #2601 |
 | #2543 | G07-T14 | feat(G07-T14): new Today page at /home behind learner_v2 | #2525, #2524, #2484 | 5 tiền/lượt/auth/xoá | đang chạy/xếp hàng (6) | local (duyệt cũ đã bị chặn lại) | review/CR chặn mới hơn duyệt cũ (13:15Z: **Focus ring is never drawn (P1, accessibility).** In `frontend/app/(a) |
 | #2660 | ADMINIA-0074, G09-T14b | ADMINIA-0074 G09-T14b: grant re-practice and revoke access from the le | #2601 | 5 tiền/lượt/auth/xoá | đang chạy/xếp hàng (6) | local (CR delta khớp head, comment 7103378673) | phụ thuộc PR chưa đủ điều kiện: #2560, #2561, #2576, #2587, #2601 |
-| #2491 | LEARNERCORE-0063, G07-T25, G07-T30c | specs: LEARNERCORE-0063 amendments 5 and 6, skill hubs (G07-T25) and c | #2461, #2463, #2468, #2469, #2460, #2489, #2481, #2482, #2484 | 1 tài liệu | đang chạy/xếp hàng (5) | local (CR khớp head) | OQ17 đã duyệt theo mặc định 17:00Z; chờ tác giả ghi vào spec rồi CR delta |
-| #2575 | EXAMMOCK-0071 T003, G08-T16 | EXAMMOCK-0071 T003 (G08-T16): flag-on steps in the mock exam journey | #2495, #2487, #2509, #2504, #2508, #2500, #2555, #2551, #2518, #2540 | 2 giao diện · cờ | đang chạy/xếp hàng (8) | local (CR khớp head) | nháp |
+| #2491 | LEARNERCORE-0063, G07-T25, G07-T30c | specs: LEARNERCORE-0063 amendments 5 and 6, skill hubs (G07-T25) and c | #2460, #2463, #2461, #2468, #2469, #2489, #2481, #2482, #2484 | 1 tài liệu | đang chạy/xếp hàng (5) | local (CR khớp head) | OQ17 đã duyệt theo mặc định 17:00Z; chờ tác giả ghi vào spec rồi CR delta |
+| #2575 | EXAMMOCK-0071 T003, G08-T16 | EXAMMOCK-0071 T003 (G08-T16): flag-on steps in the mock exam journey | #2487, #2509, #2508, #2495, #2500, #2504, #2555, #2551, #2518, #2540 | 2 giao diện · cờ | đang chạy/xếp hàng (8) | local (CR khớp head) | nháp |
 | #2570 | G07-T15 | feat(G07-T15): Lộ trình page at /course behind learner_v2 | #2543 | 3 backend/CI | đang chạy/xếp hàng (6) | local (duyệt cũ đã bị chặn lại) | review/CR chặn mới hơn duyệt cũ (13:15Z: **Focus ring is never drawn (P1, accessibility).** In `frontend/app/(a) |
-| #2589 | EXAMMOCK-0071 T005, G08-T22 | EXAMMOCK-0071 T005 (G08-T22 PR 2): self-paced mock runs its sections b | #2565, #2495, #2487, #2509, #2504, #2508, #2500, #2555, #2581 | 4 migration (mig 445) | đang chạy/xếp hàng (8) | local (CR khớp head) | nháp; mang bản 445 cũ: merge staging vào sau #2565 rồi CR delta |
+| #2589 | EXAMMOCK-0071 T005, G08-T22 | EXAMMOCK-0071 T005 (G08-T22 PR 2): self-paced mock runs its sections b | #2565, #2487, #2509, #2508, #2495, #2500, #2504, #2555, #2581 | 4 migration (mig 445) | đang chạy/xếp hàng (8) | local (CR khớp head) | nháp; mang bản 445 cũ: merge staging vào sau #2565 rồi CR delta |
 | #2583 | G07-T16 | feat(G07-T16): Luyện tập hub at /practice behind learner_v2 | #2570 | 2 giao diện · cờ | đang chạy/xếp hàng (6) | local (duyệt cũ đã bị chặn lại) | review/CR chặn mới hơn duyệt cũ (13:15Z: **Focus ring is never drawn (P1, accessibility).** In `frontend/app/(a) |
 | #2647 | LEARNERCORE-0063 T31 | feat(LEARNERCORE-0063 T31): review pages' new tree, "Chỉ câu sai", not | #2606 | 2 giao diện · cờ | đang chạy/xếp hàng (7) | local (duyệt cũ đã bị chặn lại) | review/CR chặn mới hơn duyệt cũ (13:15Z: **Focus ring is never drawn (P1, accessibility).** In `frontend/compon) |
 | #2603 | G07-T16 | feat(G07-T16): GET /api/student/tests for the Thi thử page | #2570 | 3 backend/CI | đang chạy/xếp hàng (6) | local (CR khớp head) | phụ thuộc PR chưa đủ điều kiện: #2543, #2570 |
-| #2616 | EXAMMOCK-0071 | fix(mock): same-origin parent only for mock-flush in child papers (EXA | #2565, #2495, #2487, #2509, #2504, #2508, #2500, #2589, #2555, #2581 | 4 migration (mig 445) | đang chạy/xếp hàng (8) | local (CR khớp head) | nháp; mang bản 445 cũ: merge staging vào sau #2565 rồi CR delta |
+| #2616 | EXAMMOCK-0071 | fix(mock): same-origin parent only for mock-flush in child papers (EXA | #2565, #2487, #2509, #2508, #2495, #2500, #2504, #2589, #2555, #2581 | 4 migration (mig 445) | đang chạy/xếp hàng (8) | local (CR khớp head) | nháp; mang bản 445 cũ: merge staging vào sau #2565 rồi CR delta |
 | #2578 | G07-T25 | feat(G07-T25): skill hubs for Speaking, Writing, Listening and Reading | #2525, #2491, #2524 | 5 tiền/lượt/auth/xoá (mig 420) | đang chạy/xếp hàng (6) | local (CR khớp head) | phụ thuộc PR chưa đủ điều kiện: #2491 |
 | #2588 | LEARNERNAV-0062, G07-T15u | LEARNERNAV-0062 G07-T15u: move My Class under /course/assigned (batch  | #2570, #2525, #2533, #2512, #2460 | 5 tiền/lượt/auth/xoá | xanh | local (CR khớp head) | xung đột |
 | #2604 | G07-T26, LEARNERCORE-0063 | feat(G07-T26): open Hôm nay to inactive learner_v2 accounts, "Cần có k | #2491, #2482, #2524, #2525, #2543, #2556, #2572 | 5 tiền/lượt/auth/xoá (mig 420) | đang chạy/xếp hàng (6) | local (CR khớp head) | phụ thuộc PR chưa đủ điều kiện: #2491, #2543 |
@@ -670,6 +670,36 @@ Lý do ghi ở cột cuối. "Phụ thuộc PR chưa đủ điều kiện" nghĩ
   - #2593 G04-T08, COURSEACCESS-0055 T008 [5 tiền/lượt/auth/xoá] ✓
   - #2624 COURSEACCESS-0055, G04-T10b [5 tiền/lượt/auth/xoá, mig 505] ✗
 ```
+### Gốc #2464 (G09-T04c, thread codex/g09-t04c): 14 PR chồng lên
+```
+- #2464 G09-T04c [3 backend/CI] ✓
+  - #2467 G09-T04c [3 backend/CI] ✓
+  - #2471 G09-T35 [4 migration, mig 442] ✓
+    - #2516 G09-T07, ADMINIA-0074 [4 migration, mig 451] ✓
+      - #2560 G09-T08 [2 giao diện] ✗
+        - #2561 G09-T16 [2 giao diện] ✗
+          - #2576 G09-T10 [3 backend/CI] ✗
+            - #2587 G09-T11a [2 giao diện] ✗
+              - #2601 G09-T11b [3 backend/CI] ✗
+                - #2656 G09-T23 [2 giao diện] ✗
+                - #2660 ADMINIA-0074, G09-T14b [5 tiền/lượt/auth/xoá] ✗
+              - #2656 G09-T23 [2 giao diện] ✗
+            - #2601 G09-T11b [3 backend/CI] ✗
+            - #2656 G09-T23 [2 giao diện] ✗
+          - #2587 G09-T11a [2 giao diện] ✗
+          - #2601 G09-T11b [3 backend/CI] ✗
+          - #2653 G09-T41 [2 giao diện] ✗
+          - #2656 G09-T23 [2 giao diện] ✗
+        - #2576 G09-T10 [3 backend/CI] ✗
+        - #2587 G09-T11a [2 giao diện] ✗
+        - #2601 G09-T11b [3 backend/CI] ✗
+        - #2640 G09-T32, MOCKORG-0086 [5 tiền/lượt/auth/xoá, mig 445] ✗
+          - #2661 G09-T34 [5 tiền/lượt/auth/xoá, mig 445/446/447/448] ✗
+        - #2643 ADMINIA-0074, G09-T15 [5 tiền/lượt/auth/xoá] ✗
+        - #2653 G09-T41 [2 giao diện] ✗
+        - #2656 G09-T23 [2 giao diện] ✗
+      - #2561 G09-T16 [2 giao diện] ✗
+```
 ### Gốc #2466 (G09-T19, thread mlct8t): 13 PR chồng lên
 ```
 - #2466 G09-T19 [2 giao diện] ✓
@@ -712,6 +742,33 @@ Lý do ghi ở cột cuối. "Phụ thuộc PR chưa đủ điều kiện" nghĩ
     - #2643 ADMINIA-0074, G09-T15 [5 tiền/lượt/auth/xoá] ✗
     - #2653 G09-T41 [2 giao diện] ✗
     - #2656 G09-T23 [2 giao diện] ✗
+```
+### Gốc #2462 (G09-T06, thread qk9jb5): 11 PR chồng lên
+```
+- #2462 G09-T06 [5 tiền/lượt/auth/xoá] ✓
+  - #2560 G09-T08 [2 giao diện] ✗
+    - #2561 G09-T16 [2 giao diện] ✗
+      - #2576 G09-T10 [3 backend/CI] ✗
+        - #2587 G09-T11a [2 giao diện] ✗
+          - #2601 G09-T11b [3 backend/CI] ✗
+            - #2656 G09-T23 [2 giao diện] ✗
+            - #2660 ADMINIA-0074, G09-T14b [5 tiền/lượt/auth/xoá] ✗
+          - #2656 G09-T23 [2 giao diện] ✗
+        - #2601 G09-T11b [3 backend/CI] ✗
+        - #2656 G09-T23 [2 giao diện] ✗
+      - #2587 G09-T11a [2 giao diện] ✗
+      - #2601 G09-T11b [3 backend/CI] ✗
+      - #2653 G09-T41 [2 giao diện] ✗
+      - #2656 G09-T23 [2 giao diện] ✗
+    - #2576 G09-T10 [3 backend/CI] ✗
+    - #2587 G09-T11a [2 giao diện] ✗
+    - #2601 G09-T11b [3 backend/CI] ✗
+    - #2640 G09-T32, MOCKORG-0086 [5 tiền/lượt/auth/xoá, mig 445] ✗
+      - #2661 G09-T34 [5 tiền/lượt/auth/xoá, mig 445/446/447/448] ✗
+    - #2643 ADMINIA-0074, G09-T15 [5 tiền/lượt/auth/xoá] ✗
+    - #2653 G09-T41 [2 giao diện] ✗
+    - #2656 G09-T23 [2 giao diện] ✗
+  - #2561 G09-T16 [2 giao diện] ✗
 ```
 ### Gốc #2565 (G09-T31, MOCKORG-0086, thread qk9jb5): 8 PR chồng lên
 ```
@@ -809,13 +866,6 @@ Lý do ghi ở cột cuối. "Phụ thuộc PR chưa đủ điều kiện" nghĩ
     - #2529 0076 [5 tiền/lượt/auth/xoá] ✓
       - #2456 — [3 backend/CI] ✓
   - #2529 0076 [5 tiền/lượt/auth/xoá] ✓
-```
-### Gốc #2464 (G09-T04c, thread codex/g09-t04c): 3 PR chồng lên
-```
-- #2464 G09-T04c [3 backend/CI] ✓
-  - #2467 G09-T04c [3 backend/CI] ✓
-  - #2471 G09-T35 [4 migration, mig 442] ✓
-    - #2516 G09-T07, ADMINIA-0074 [4 migration, mig 451] ✓
 ```
 ### Gốc #2501 (G04-T18, ACCOUNTDATA-0100, thread claude/g04-t18-spec-): 3 PR chồng lên
 ```
@@ -1050,6 +1100,7 @@ Ghi kết quả vào hàng của từng PR: đạt hay chưa đạt, SHA staging
 - **Rà PR chưa xếp, nửa trên** (`team/queue/lots-input-unplaced-hi.md`): đưa vào lô #2619 (lô 2), #2623 → #2637 → #2648 (lô 11–13, mức 2 sau cờ `AVER_PUBLIC_COMMERCE` tắt mặc định; chỉ bật cờ sau khi #2485 lên). #2660: anh Andy gỡ chặn 13:49Z, CR delta @39bbac14 duyệt, thread đã resolve, nhưng vẫn chờ #2601 vào lô. #2601: anh Andy gỡ cả hai chặn (13:57Z, 14:04Z) lúc 14:19:38Z, head mới cf296d01 (CR delta đạt, review 6023232695, 0 thread mở); #2601 vẫn chưa vào lô vì chuỗi bên dưới còn #2560 (1 thread mở) và #2561 (1 thread mở, chặn của anh chưa gỡ). Tác giả #2660 đã được báo merge #2601 @cf296d01 vào. Cần CR delta: #2655 #2658 #2570 #2583. Còn lỗi viền focus: #2597 #2622 #2596 #2647. #2649: nội dung chặn đã sửa, CR duyệt, chờ anh Andy gỡ chặn. #2586 và #2588 merge-tree sạch với staging nhưng vẫn phụ thuộc #2528 / #2570, #2543.
 - **#2573 (G07-T30a backend, lô 13): "Spec and PR metadata" đỏ không do code của PR** (issuecomment-7104065309). Base của nó là #2525 (`94m6ux-g07-t13`), không mang các duyệt amendment 0063 và spec 0064/0065 mà nhánh `94m6ux-g07-t30` mang theo. Vì vậy #2573 phải merge **sau chuỗi amendment** #2460 → #2461 → #2463 → #2468 → #2469 → #2481 → #2482 → #2484, và sau #2525. Bảng đã xếp #2573 ở lô 13, sau #2484 (lô 12). Khi các PR đó vào staging: đổi base #2573 sang `staging`, chạy lại check, kiểm check xanh rồi mới báo "merge #2573". Không sửa spec trong #2573.
 - **#2518 và #2528** đi sau #2487 (spec 0066) rồi #2507; check "Spec and PR metadata" của hai PR này sẽ đỏ cho tới khi #2487 vào staging. Đọc lại check sau khi #2487 merge. Cả hai hiện vẫn ngoài lô vì CHẶN MERGE R150-1 (P1) mới hơn lần duyệt.
+- **#2560 và #2561 (G09, y6b53y) vào sau #2462 và #2516.** Codex P1 (typed adapter) cần các endpoint của hai PR đó có trong `api.d.ts`. Theo phương án A, sau khi #2462 và #2516 merge, tác giả y6b53y sinh lại `api.d.ts`, push, rồi CR delta. **#2516 mang migration 451: merge không áp migration; đến lượt áp lên staging hay production thì cần anh Andy gõ duyệt riêng.**
 - **Đọc diff thật lô 10 và 11** (thread CR/SA, `team/queue/lots-input-lot10-11-diff.md`): cột "Vào trước" đúng, không chuỗi ẩn. Merge thử riêng chuỗi 17 PR: không xung đột, validate_specs pass (83 spec), tsc sạch, node test 155/155.
   - **Chuỗi A sửa lại:** #2460 → #2461 → #2463 → #2468 → #2469 → #2481 → #2482. Head #2482 `e3b0b07f` chứa cả #2461 và #2481, nên "merge #2482" là merge luôn hai PR đó. #2618 chứa #2460, #2461, #2463, #2468, #2469 (không chứa #2481); cột "Vào trước" của #2618 đã sửa.
   - #2481 và #2482 có 11–20 PR chồng lên head cũ (ví dụ #2556 #2572 #2573 #2579 #2580 #2590 #2596 #2605 #2613 #2627 #2641): sau khi #2481/#2482 vào, các PR đó merge staging vào và chạy lại CI.
