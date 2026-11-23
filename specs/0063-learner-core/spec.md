@@ -8,7 +8,7 @@ owner: product
 
 # Signed-in learners open Today to see what to do now in one of five states, from one read API, behind a per-learner switch that an admin can turn off in seconds
 
-Status: **draft** — soạn ngày 23/11/2026 cho nhiệm vụ `G07-T02` (thương mại hoá 2026-11), từ `docs/proposals/commercialization-2026-11/GOI-07-loi-hoc-vien.md` mục 4.3, 5.3, 5.6, 5.8, 6 (T05, T13, T14), 9 và mục 10. Chưa dòng mã nào chạy theo spec này. Chỉ anh Andy duyệt; khi duyệt, câu trả lời ghi nguyên văn kèm thời điểm vào `approval-decision.md` cùng thư mục và `status` đổi sang `approved`. Số spec 0063 lấy từ sổ cấp số ở `01-KE-HOACH-TONG.md` mục 6. **Bản sửa đổi 1** (23/11/2026, nhiệm vụ `G07-T15`, `G07-T16`, gói mục 4.4 và 6) thêm Lộ trình và hai hub Luyện tập, Thi thử; phần đó cũng chưa có dòng mã nào và chờ duyệt cùng spec.
+Status: **draft** — soạn ngày 23/11/2026 cho nhiệm vụ `G07-T02` (thương mại hoá 2026-11), từ `docs/proposals/commercialization-2026-11/GOI-07-loi-hoc-vien.md` mục 4.3, 5.3, 5.6, 5.8, 6 (T05, T13, T14), 9 và mục 10. Chưa dòng mã nào chạy theo spec này. Chỉ anh Andy duyệt; khi duyệt, câu trả lời ghi nguyên văn kèm thời điểm vào `approval-decision.md` cùng thư mục và `status` đổi sang `approved`. Số spec 0063 lấy từ sổ cấp số ở `01-KE-HOACH-TONG.md` mục 6. **Bản sửa đổi 1** (23/11/2026, nhiệm vụ `G07-T15`, `G07-T16`, gói mục 4.4 và 6) thêm Lộ trình và hai hub Luyện tập, Thi thử. **Bản sửa đổi 2** (23/11/2026, `G07-T17`, `G07-T26`, gói mục 4.7, 5.9 và 6) thêm Tài khoản, Tiến độ, Trợ giúp, Hồ sơ, "Lần đầu vào" và mở `/home` cho tài khoản chưa kích hoạt. Hai bản sửa đổi cũng chưa có dòng mã nào và chờ duyệt cùng spec.
 
 ## Tóm tắt (tiếng Việt)
 
@@ -28,11 +28,20 @@ Status: **draft** — soạn ngày 23/11/2026 cho nhiệm vụ `G07-T02` (thươ
 - Ba trang này chỉ vẽ giao diện mới khi cờ `learner_v2` bật; tắt cờ thì như hôm nay (câu hỏi mở 6).
 - Hai API đọc mới: `GET /api/student/course`, `GET /api/student/tests`. Không migration mới.
 
+**Bản sửa đổi 2: Tài khoản, Tiến độ, Trợ giúp, Hồ sơ, "Lần đầu vào", tài khoản chưa kích hoạt (G07-T17, G07-T26).** Người dùng thấy:
+- Tài khoản `/account`: hai nhóm "Khoá online", "Khoá của lớp"; một con số lượt chấm AI chung cho Writing và Speaking, tách dòng theo nguồn; lịch sử lượt 20 dòng mỗi lần với nhãn máy chủ trả; dòng lượt chuyển từ kỳ trước; nút "Nhập mã kích hoạt của lớp", "Đăng ký thêm khoá", "Đơn đăng ký của tôi".
+- Tiến độ `/progress`: mỗi kỹ năng một dòng (số bài, kết quả gần nhất theo quy tắc band), mục tiêu band và ngày thi sửa được.
+- Trợ giúp `/help`: câu hỏi thường gặp sáu nhóm, tìm không phân biệt hoa thường và dấu, khối liên hệ dùng chung.
+- Hồ sơ `/profile` trong khung mới: khối "Phiên đăng nhập" (3 lần đăng nhập gần đây, "Đăng xuất khỏi mọi thiết bị"), "Đổi email đăng nhập" (gắn thành phần của G05).
+- "Lần đầu vào" `/start`: hiện một lần sau lần đăng nhập đầu, mỗi bước một trang thường, "Bỏ qua" về Hôm nay. Không có ô hay công tắc đồng ý dùng bản ghi âm.
+- Tài khoản chưa kích hoạt (chưa có khoá, chưa nhập mã lớp) được bật cờ: vào được Hôm nay, "Lần đầu vào", Tài khoản, Hồ sơ, Trợ giúp; bấm sang trang học khác thấy màn "Cần có khoá" với hai lối "Xem các khoá" và "Nhập mã kích hoạt", không bị đăng xuất. Cờ tắt thì như hôm nay (về `/login`).
+- Không migration mới. Phần mở cổng kích hoạt là thay đổi auth, có rollout riêng.
+
 **Vì sao `risk: high`.** Gói ghi `medium`, nhưng khi đối chiếu staging `e940c936`: cột "lần vào Hôm nay trước" (`users.today_seen_at`) mà FR-025 cần **chưa có** → cần một migration nhỏ (dải 420–439 của G07), và mọi PR có file migration bị cổng spec buộc lớp `high-risk`, nên spec phải `high`. Câu hỏi mở 1 hỏi anh có muốn bỏ migration (dùng cửa sổ thời gian) để hạ về `medium` không.
 
 **Đã có ở staging `e940c936`.** Khung `LearnerShell` của G03 (#2445); mục tiêu band và ngày thi đã lưu ở `users.target_band`, `users.exam_date` (mig 005; mig 452 đồng bộ mục tiêu admin ↔ học viên); bài làm dở có `resume_expires_at` (mig 224); bài được giao qua `routers/class_student.py`. **Chưa có:** API khoá/lượt/đơn của G04 (`/api/me/courses`, `/api/me/credits`, `/api/enrollment-orders/me`), `services/learner_overdue.py`, `services/trial_caps.py` và `frontend/lib/course-access-labels.mjs` của GOI-11, sổ lỗi của GOI-12, bảng `course_lessons` của G07-T18, cờ `learner_v2` (grep `learner_v2|shell_v2` không ra gì ở `backend/services`, `frontend/lib`).
 
-**Ngôn ngữ và đánh số.** Thân viết tiếng Việt theo gói; tiêu đề mục giữ tiếng Anh cho `validate_specs.py`. `FR-07-019…029` → `FR-019…FR-029` giữ số; `FR-07-029a`, `029b` và các yêu cầu rút từ hợp đồng 5.3, 5.6, 5.8 nhận số mới từ `FR-070` (chừa `FR-030…037`, `FR-060…066` cho bản sửa đổi theo đúng số của gói). Bản sửa đổi 1: `FR-07-030…037` → `FR-030…FR-037` giữ số; hub Luyện tập, Thi thử (gói chỉ ghi ở nhiệm vụ G07-T16, không có số FR) nhận số mới từ `FR-079`. `FR-060…066` vẫn chừa cho bản sửa đổi 2.
+**Ngôn ngữ và đánh số.** Thân viết tiếng Việt theo gói; tiêu đề mục giữ tiếng Anh cho `validate_specs.py`. `FR-07-019…029` → `FR-019…FR-029` giữ số; `FR-07-029a`, `029b` và các yêu cầu rút từ hợp đồng 5.3, 5.6, 5.8 nhận số mới từ `FR-070` (chừa `FR-030…037`, `FR-060…066` cho bản sửa đổi theo đúng số của gói). Bản sửa đổi 1: `FR-07-030…037` → `FR-030…FR-037` giữ số; hub Luyện tập, Thi thử (gói chỉ ghi ở nhiệm vụ G07-T16, không có số FR) nhận số mới từ `FR-079`. Bản sửa đổi 2: `FR-07-060…066` → `FR-060…FR-066` giữ số (FR-063, FR-066 là yêu cầu "không dựng" vì gói đã bỏ); `FR-07-060b`, `064b`, khối dữ liệu của tôi, `/start` và G07-T26 nhận số mới từ `FR-087` (bộ kiểm spec chỉ nhận dạng `FR-NNN`).
 
 ## Quyết định đã có
 
@@ -53,13 +62,15 @@ Trang chủ học viên hiện là bảng điểm (`GET /api/student/home-summar
 - API đọc `GET /api/student/today` (một lần gọi cho cả trang, phần lỗi vào `degraded`, chỉ đọc), API ghi mốc `POST /api/student/today/seen` và hai cột con trỏ `users.today_seen_at`, `users.today_seen_key`.
 - Cây Hôm nay mới ở `/home` (sau cờ), năm trạng thái, các khối FR-019…FR-029, FR-070, FR-071; bản máy tính và điện thoại theo tờ Main, HomNayTrangThai, Mobile, GiaHanThemLuot.
 - (Bản sửa đổi 1, G07-T15) Lộ trình `/course` trong nhóm route mới `app/(authed-course)/`, API đọc `GET /api/student/course`; danh sách bài đọc `GET /api/course/{course_code}/lessons` của COURSELESSON-0064 khi API đó có. Theo tờ LoTrinh.
+- (Bản sửa đổi 2, G07-T17) `/account`, `/progress`, `/help`, `/start` (nhóm route mới, mỗi trang một nhóm có `AuthedShell`), cây Hồ sơ mới ở `/profile` sau cờ; chỉ đọc API sẵn có hoặc của G04, G05.
+- (Bản sửa đổi 2, G07-T26) Mở `/home`, `/start`, `/account`, `/profile`, `/help` cho tài khoản `is_active=false` có cờ `learner_v2`; màn "Cần có khoá" cho trang học viên khác; miễn cổng cho `GET /api/student/today` và `PATCH /auth/profile`; `/auth/check-active` thêm `learner_v2_enabled`.
 - (Bản sửa đổi 1, G07-T16) Hub `/practice` trong nhóm route mới `app/(authed-practice-hub)/`, hub `/tests` (trang LEARNERNAV-0062 T12a đã dời), API đọc `GET /api/student/tests`. Theo tờ LuyenTap, ThiThu, MockTestDuocGiao.
 
 ## Non-goals
 
 - Không sửa `GET /api/student/home-summary` và cây Home cũ; xoá cây cũ là G07-T24 khi `learner_v2_all` bật ≥ 14 ngày không lỗi.
 - Không sửa `_visible_assignments` hay `_decorate` của `routers/class_student.py`.
-- Không mở `/home` hoặc `/api/student/today` cho tài khoản `is_active=false` (G07-T26, bản sửa đổi, high-risk auth). Ở spec này route mới vẫn chịu cổng kích hoạt như mọi route học viên.
+- Ở T05, T13, T14 không mở `/home` hoặc `/api/student/today` cho tài khoản `is_active=false`: route mới vẫn chịu cổng kích hoạt như mọi route học viên. Phần mở cổng chỉ ở G07-T26 (bản sửa đổi 2, FR-091…FR-094, high-risk auth), PR cuối cùng của spec.
 - Không dựng bảng khoá/lượt/đơn, API số dư (G04), chuông và bộ đếm quá hạn (NOTIFY-0079), trần chấm thử (TRIALCAP-0080), sổ lỗi (GOI-12), bảng bài học (COURSELESSON-0064), khảo sát (GOI-13), danh sách kỳ thi được giao (G08/G09). Spec chỉ chừa trường và đọc khi có.
 - Không dựng khối "Học trước trong lúc chờ" và không hiện band theo kỹ năng ở Hôm nay.
 - Không bật `learner_v2_all` ở bất kỳ môi trường nào trong spec này.
@@ -67,6 +78,8 @@ Trang chủ học viên hiện là bảng điểm (`GET /api/student/home-summar
 - (Bản sửa đổi 1) Không dựng trang bài giảng, bảng `course_lessons`, API bài học (COURSELESSON-0064).
 - (Bản sửa đổi 1) Không có đề bốn kỹ năng tự chọn, không nút "Thi thử 4 kỹ năng" (00 mục 2 điểm 22; tờ ThiThu còn vẽ: 00 thắng, PR ghi khác biệt). Không dựng bảng người dự thi `mock_exam_audiences` (G09-T31), không đổi cổng vào kỳ thi hay trình làm bài (G08), không đổi cổng điện thoại (PHONEGATE-0081) hay `CreditsEmptyNotice` (G07-T27, RESULTSHEET-0065): chỉ dùng.
 - (Bản sửa đổi 1) Không sửa layout `(authed-practice)` (đang nạp `practice.js`) và các hub kỹ năng hiện có.
+- (Bản sửa đổi 2) Không dựng công tắc hay ô hỏi đồng ý dùng bản ghi âm (gói FR-07-063, 066 đã bỏ; quyết định 18/11/2026). Không dựng lại hộp "Đăng xuất khỏi mọi thiết bị" (G05-T20) hay luồng đổi email (G05-T24); không ghi `learner_login_events`; không hiện cột "nơi gần đúng"; không gõ cứng 45, 60, 100 ngày.
+- (Bản sửa đổi 2) Không đổi `require_active_learner`, không mở route nộp bài, luyện tập, phòng thi, Lộ trình cho tài khoản chưa kích hoạt; không sửa thứ tự lớp trong `authed-shell.tsx`. Không gỡ `/onboarding` (G07-T24 gỡ khi `learner_v2_all` đã bật đủ lâu).
 
 ## Users and journeys
 
@@ -119,6 +132,27 @@ Trang chủ học viên hiện là bảng điểm (`GET /api/student/home-summar
 - **FR-084:** Không đủ lượt: dòng full test Writing (2 lượt) hoặc Speaking (3 lượt, đơn vị của G04) khi `credits.total` nhỏ hơn số lượt cần vẫn hiện, ghi "Không đủ lượt", nút vào thay bằng "Xem cách thêm lượt" mở `CreditsEmptyNotice` (chưa có thì `Notice` của G03 cùng câu chữ, như T14). `credits` null (G04 chưa có, lỗi, học viên lớp mã cũ) → không đánh dấu dòng nào; máy chủ vẫn là nơi chặn (402 `insufficient_credits`). Listening, Reading và khối 2 không xét lượt ở trang này.
 - **FR-085:** `GET /api/student/course` và `GET /api/student/tests` theo đúng FR-076: chỉ đọc, chỉ dữ liệu của người gọi (lọc tường minh theo `user_id`/`student_id`), `response_model` khai báo, phần lỗi vào `degraded`, nguồn của gói khác chưa có trả rỗng hoặc `null` (không vào `degraded`), cùng cổng kích hoạt và cổng một phiên như mọi route học viên. Mỗi điểm ghép với gói khác là một hàm trong service.
 - **FR-086:** Cờ: `/course`, `/practice`, `/tests` vẽ cây mới chỉ khi `learnerV2Enabled(me)` (FR-073). Tắt cờ: `/tests` vẽ trang tạm Thi thử của LEARNERNAV-0062 T12a y nguyên; `/course` và `/practice` (chưa có trang cũ) thay URL tới trang tạm hiện nay của mục đó trong `NAV_PLAN` (`/my-class`, hoặc `/course/assigned` sau Đợt 8; `/speaking`) và không gọi API mới. PR T15, T16 đổi `/course`, `/practice` sang `live` trong `route-registry.mjs` cùng commit với trang (thanh 5 mục trỏ thẳng tới hai URL đó).
+
+### Bản sửa đổi 2 — Tài khoản, Tiến độ, Trợ giúp, Hồ sơ, "Lần đầu vào" (G07-T17)
+
+- **FR-060:** (FR-07-060) `/account` (tờ TaiKhoan): hai nhóm "Khoá online" và "Khoá của lớp" từ `GET /api/me/courses` (còn hạn và sắp hết hạn lên đầu, rồi đã hết hạn). Khoá online có "còn N ngày" và nút "Đăng ký lại" khi `can_renew`; khoá của lớp ghi "mã do admin cấp", không có nút "Đăng ký lại". "Lượt chấm AI còn lại": một số chung cho Writing và Speaking, tách dòng theo nguồn `online`/`class` (`credits.by_kind`). Lịch sử lượt từ `GET /api/me/credits`: mới nhất trước, 20 dòng mỗi lần và nút "Xem thêm", nhãn dòng in đúng `label_vi` máy chủ trả, cột số dư sau dòng (`balance_after`), không có cột kỹ năng, không có chuỗi "50%". Khoá online có `credits.carry_balance > 0` thêm dòng "Trong đó N lượt chuyển từ kỳ trước, dùng đến hết <ngày của `carry_expires_at`>."; bằng 0 hoặc thiếu trường thì không có dòng. Khoá online sắp hoặc đã hết hạn mà còn lượt: câu giải thích cạnh nút "Đăng ký lại" lấy từ `course-access-labels.mjs` (số ngày đọc `credit_carry_valid_days` của `GET /api/courses`; thiếu số thì bỏ vế đó). Nút "Nhập mã kích hoạt của lớp" (`/activate`), "Đăng ký thêm khoá" (`coursesHref()`), "Đơn đăng ký của tôi" (`/account/orders`), mỗi nút chỉ hiện khi đích `live`. G04 chưa có API: nhóm "Khoá của lớp" từ `/api/class/me` và câu "Thông tin khoá online sẽ có khi bạn đăng ký", không hiện số 0.
+- **FR-061:** (FR-07-061) `/progress`: mỗi kỹ năng một dòng: số bài đã làm, kết quả gần nhất theo FR-077, liên kết tới lịch sử hiện có; chỉ dùng API sẵn có (`/api/quiz/progress`, `/api/listening/overview`, `/api/writing/my-essays`, lịch sử Speaking hiện có). Mục tiêu band và ngày thi sửa được, ghi qua `PATCH /auth/profile` (cùng chỗ lưu với "Lần đầu vào" và Hôm nay FR-070); cờ `profile_update` tắt → hai ô chỉ xem, có câu báo tạm khoá sửa. Một nguồn lỗi chỉ làm dòng kỹ năng đó báo lỗi.
+- **FR-062:** (FR-07-062) `/help` (tờ TroGiupLanDau màn 1): câu hỏi thường gặp sáu nhóm cố định; ô tìm không phân biệt hoa thường và dấu tiếng Việt; không có kết quả → câu báo và khối liên hệ. Khối liên hệ dùng component và `site-info` của G05-T23 (không gõ lại số điện thoại, email); G05-T23 chưa merge → không có khối liên hệ.
+- **FR-063:** (FR-07-063, gói đã bỏ) Tài khoản và Hồ sơ không có công tắc "cho phép dùng bản ghi âm đã ẩn danh để cải thiện chấm bài" và không gọi API đồng ý nào. Câu về lưu trữ chỉ ghi: bản ghi âm giữ tối đa 60 ngày rồi xoá (số đọc từ G04 khi có).
+- **FR-064:** (FR-07-064) Hồ sơ có khối "Phiên đăng nhập": "Cách đăng nhập đang dùng" (Google nếu đã từng vào bằng Google, mã qua email; không có mật khẩu); "Lần đăng nhập gần đây" 3 dòng từ `GET /api/account/login-events?limit=3` (G04-T16): nhãn thiết bị (`device_label`, thiếu thì theo `device_kind`: "Máy tính", "Điện thoại", "Máy tính bảng", "Thiết bị khác"), giờ Việt Nam, cách đăng nhập (`google` → "Google", `email_code` → "Mã qua email", `unknown` → không ghi), kết quả theo `outcome` đúng câu của gói mục 4.7 (`signed_in`, `pending`, `claimed`, `claim_refused_timed`, `displaced`, `signed_out_all`; giá trị lạ → chỉ thiết bị và giờ); dòng `is_current` ghi thêm "Thiết bị này"; không có cột nơi. `enabled=false`, `items` rỗng, API lỗi hoặc G04-T16 chưa merge → ẩn khối con này, phần còn lại của Hồ sơ vẫn hiện. Nút "Đăng xuất khỏi mọi thiết bị" là component của G05-T20; chưa merge thì không có nút.
+- **FR-065:** (FR-07-065) "Lần đầu vào" ở `/start` (tờ TroGiupLanDau màn 2): hiện một lần sau lần đăng nhập đầu (`onboarding_completed=false`), trừ khi có `next` hợp lệ (ENROLL-0060 FR-031). Mỗi bước là một trang thường, không tour, không lớp phủ. Bước mục tiêu là tuỳ chọn. Bước chọn hướng chọn sẵn theo dữ liệu: có quyền online → "đã đăng ký khoá online"; có lớp → ẩn bước và kết thúc ở bài được giao; không có gì → "chưa có khoá nào". "Bỏ qua" ở bước nào cũng ghi `onboarding_completed=true` rồi về `/home`, không hiện lại. Chạy được với tài khoản chưa kích hoạt (FR-091).
+- **FR-066:** (FR-07-066, gói đã bỏ) "Lần đầu vào" không có ô hỏi đồng ý dùng bản ghi âm và không gọi API nào có chữ `consent`.
+- **FR-087:** (FR-07-060b) Khi `GET /api/me/courses` trả `content_visible_until` khác null, `/account` và `/progress` hiện "Bài đã nộp và nhận xét xem được đến hết <ngày>." (số ngày đọc `content_days_after_expiry`, không gõ cứng 45); null → không có dòng. Trang nhận 410 `content_expired` khi mở phiếu hay lịch sử → "Bài này đã hết thời hạn xem." kèm lối về `/progress`, không hiện mã lỗi.
+- **FR-088:** (FR-07-064b) Khối "Email đăng nhập" ở Hồ sơ gắn thành phần `ChangeEmail` của G05-T24 (ENROLL-0060 FR-059); không dựng lại luồng, không gọi thẳng route đổi email. Đổi xong trang đọc lại `/auth/me` để hiện email mới. G05-T24 chưa merge hoặc cờ của luồng đó tắt → khối chỉ hiện email hiện tại, không có nút "Đổi email đăng nhập".
+- **FR-089:** (gói G07-T17, phương án A 18/11 chờ anh Andy xác nhận) `/account` có khối "Dữ liệu của tôi", "Yêu cầu xoá tài khoản và dữ liệu" và nút "Tải các phiếu của khoá này (PDF)" theo tờ TaiKhoan, GiaHanThemLuot, gọi API của G04-T18 (FR-04-052). G04-T18 chưa merge hoặc anh chọn để sau → ẩn cả hai khối và nút (câu hỏi mở 10).
+- **FR-090:** `/account`, `/progress`, `/help`, `/start` mỗi trang một nhóm route mới có `AuthedShell` (stylesheet v2 của G03), thêm vào hai regex nonce, robots thêm đúng tiền tố có gạch chéo cuối. Bốn trang mới vẽ cho mọi người đã đăng nhập khi `live` (không có trang cũ để giữ; câu hỏi mở 9). `/profile` vẽ cây mới khi `learnerV2Enabled(me)`, tắt cờ thì cây cũ y nguyên; cây mới ghi "buổi mỗi tuần" thay "SESSIONS/TUẦN". Đích "lần đầu" sau đăng nhập là `/start` khi `learnerV2Enabled(me)`, còn lại vẫn `/onboarding` (cả hai đường tồn tại tới G07-T24).
+
+### Bản sửa đổi 2 — Tài khoản chưa kích hoạt (G07-T26, high-risk auth)
+
+- **FR-091:** Tài khoản đã đăng nhập, `is_active=false`, có `learner_v2_enabled=true` mở `/home`, `/start`, `/account`, `/profile`, `/help` thì trang vẽ, không bị đẩy về `/login`. Hôm nay hiện trạng thái `no_course` hoặc `order_pending` (FR-019, FR-027, FR-028). Vẫn bắt buộc đăng nhập.
+- **FR-092:** Tài khoản đó mở mọi trang học viên khác (Lộ trình, Luyện tập, Thi thử, phòng thi, hub kỹ năng…) thấy màn "Cần có khoá" ngay tại URL đó, thay cho nội dung trang: hai lối "Xem các khoá" (`coursesHref()`, ẩn khi cờ thương mại tắt) và "Nhập mã kích hoạt" (`/activate` khi `live`, không thì lối mã kích hoạt hiện có ở `/login`), cộng lối về Hôm nay. Không đăng xuất, không gọi API của trang đó (không có 403 nào nổi lên).
+- **FR-093:** Cờ tắt, thiếu trường `learner_v2_enabled` hoặc không đọc được: hành vi như hôm nay (tài khoản chưa kích hoạt về `/login` mở hộp nhập mã). Lỗi mạng khi dò kích hoạt vẫn mở như hiện có (`unknown` → vẽ trang; máy chủ vẫn chặn).
+- **FR-094:** Máy chủ: thêm `("GET", "/api/student/today")` và `("PATCH", "/auth/profile")` vào `ACTIVATION_EXEMPT_ROUTES` kèm lý do, cập nhật `test_activation_gate_inventory.py`. Với tài khoản chưa kích hoạt, `/api/student/today` chỉ đọc phần không cần bài làm (`student`, `state`, `goal`, `access`, `credits`, `orders_open`, `trial_today_left`) và không truy vấn bảng bài làm, lớp hay kết quả (các danh sách đó trả rỗng). `PATCH /auth/profile` giữ nguyên danh sách cột được sửa và cờ `profile_update`. `/auth/check-active` thêm `learner_v2_enabled: bool` (mặc định false, cùng công thức FR-072). Mọi route học viên khác vẫn 403 với tài khoản chưa kích hoạt; `require_active_learner` không đổi.
 
 ## Acceptance scenarios
 
@@ -194,6 +228,30 @@ Trang chủ học viên hiện là bảng điểm (`GET /api/student/home-summar
 - **When** mở `/course`, `/practice`, `/tests`
 - **Then** lần lượt về trang tạm của Lộ trình, `/speaking`, và trang tạm Thi thử y nguyên; không có lời gọi `/api/student/course` hay `/api/student/tests`
 
+### Scenario 13 — Tài khoản, lượt và lịch sử (dữ liệu giả tới khi G04 có)
+
+- **Given** API trả một khoá online `can_renew` có `carry_balance` 7, một khoá của lớp, lịch sử 25 dòng
+- **When** mở `/account`
+- **Then** khoá lớp không có nút "Đăng ký lại"; lượt hiện một số chung và hai dòng theo nguồn; có dòng "Trong đó 7 lượt chuyển từ kỳ trước…"; lịch sử hiện 20 dòng và nút "Xem thêm", không cột kỹ năng, không chuỗi "50%"
+
+### Scenario 14 — Phiên đăng nhập
+
+- **Given** `login-events` trả 3 dòng `signed_in`, `claim_refused_timed`, `displaced`, dòng đầu `is_current`
+- **When** mở `/profile` với cờ bật
+- **Then** ba dòng đúng câu, dòng đầu có "Thiết bị này", không có cột nơi; khi API trả `enabled=false` hoặc 500 thì không có tiêu đề "Lần đăng nhập gần đây", phần còn lại của Hồ sơ vẫn hiện
+
+### Scenario 15 — Lần đầu vào
+
+- **Given** tài khoản mới `onboarding_completed=false`, không có `next`, cờ bật
+- **When** đăng nhập xong
+- **Then** tới `/start`; bấm "Bỏ qua" về `/home`; đăng nhập lần sau không tới `/start`; không có lời gọi API nào có chữ `consent`
+
+### Scenario 16 — Tài khoản chưa kích hoạt có cờ
+
+- **Given** tài khoản QA mới tạo bằng mã email, `is_active=false`, admin bật cờ lẻ cho người đó trên staging
+- **When** mở `/home`, rồi `/course`, rồi gọi một route học viên khác bằng token đó
+- **Then** `/home` hiện "Chưa có khoá"; `/course` hiện màn "Cần có khoá" tại chỗ, không bị đăng xuất; route khác vẫn 403; tắt cờ thì mở `/home` về `/login` như hôm nay
+
 ## Edge cases
 
 - Học viên vừa lớp vừa online: hai dòng lượt theo nguồn, một tổng.
@@ -213,6 +271,10 @@ Trang chủ học viên hiện là bảng điểm (`GET /api/student/home-summar
 - (Bản sửa đổi 1) Kỳ thi `live` đã qua giờ đóng mà học viên chưa thi: "Đã đóng, bạn chưa thi", không nút (trước G09-T31 trạng thái này chưa tính được, kỳ không hiện; câu hỏi mở 8).
 - (Bản sửa đổi 1) Lượt full test Listening chưa đủ 40 câu (nộp sớm): ghi "Đúng a trên b câu", không band.
 - (Bản sửa đổi 1) Mở `/practice/session` (trình luyện Speaking) không bị ảnh hưởng bởi trang `/practice` ở nhóm khác: kiểm `route-ownership-check --manifest` sau build.
+- (Bản sửa đổi 2) Tài khoản chưa kích hoạt có đơn `needs_info` mở `/account`: thấy đơn qua "Đơn đăng ký của tôi"; `/api/class/me` trả 403 cho tài khoản này → nhóm lớp hiện câu trống, không báo lỗi.
+- (Bản sửa đổi 2) Người vừa kích hoạt (nhập mã) trong lúc đang ở màn "Cần có khoá": tải lại thì vào trang như thường (dấu "đã kích hoạt" của tab được ghi như hiện có).
+- (Bản sửa đổi 2) `/start` mở bằng tay khi `onboarding_completed=true`: hiện trang, "Bỏ qua" về `/home`, không ghi gì thêm.
+- (Bản sửa đổi 2) Frontend lên trước backend: `/auth/check-active` chưa có `learner_v2_enabled` → coi là false, tài khoản chưa kích hoạt về `/login` như cũ.
 - Không thực hiện trên production: bật cờ, chạy migration, nộp bài.
 
 ## Success criteria
@@ -222,6 +284,8 @@ Trang chủ học viên hiện là bảng điểm (`GET /api/student/home-summar
 - Không khối nào hiện số 0, band hay hạn tự bịa khi API nguồn chưa có (kiểm bằng test React với từng nguồn null).
 - (Bản sửa đổi 1) Trên staging, tài khoản QA chỉ lớp, chỉ online (khi G04 có dữ liệu thử) và cả hai thấy đúng nhóm khoá ở `/course`; `/tests` của tài khoản không được giao kỳ nào không có khối 2, có kỳ thì đúng trạng thái; ảnh 1280px và 390px.
 - (Bản sửa đổi 1) Test React chứng minh không có đề bốn kỹ năng tự chọn ở mọi tổ hợp dữ liệu và Overall chỉ ở dòng mock test được giao đủ bốn kỹ năng.
+- (Bản sửa đổi 2) Trên staging, tài khoản QA chưa kích hoạt có cờ vào được năm trang mở và thấy "Cần có khoá" ở trang khác; tài khoản chưa kích hoạt không cờ vẫn về `/login`; `test_activation_gate_inventory.py` qua với đúng hai dòng miễn mới.
+- (Bản sửa đổi 2) Test React của `/account`, `/profile`, `/start` qua các ca nghiệm thu của gói G07-T17.
 - `GET /api/student/today` p95 ≤ 800 ms (ngưỡng đề xuất, chưa có số đo) trên staging với một học viên có lớp (đo trong log, ghi vào PR T13).
 
 ## Related specifications
@@ -234,6 +298,7 @@ Trang chủ học viên hiện là bảng điểm (`GET /api/student/home-summar
 - CLASSARCHIVE-0030: lớp lưu trữ không hiện với học viên.
 - ADMINIA-0074 / mig 452: mục tiêu band đồng bộ admin ↔ học viên.
 - (Bản sửa đổi 1) COURSELESSON-0064: `GET /api/course/{course_code}/lessons`, trang bài giảng, chặn bài khi hết quyền. RESULTSHEET-0065 / G07-T27: `CreditsEmptyNotice`. PHONEGATE-0081: cổng điện thoại FR-050…053. G09-T31 / G08: danh sách người dự thi, API kỳ thi phía học viên. LEARNERNAV-0062 T12a (trang tạm `/tests`), T15u (Đợt 8).
+- (Bản sửa đổi 2) COURSEACCESS-0055: `/api/me/courses`, `/api/me/credits`, `/api/account/login-events` (G04-T16), xuất dữ liệu (G04-T18). ENROLL-0060: FR-031 đích sau đăng nhập, FR-059 `ChangeEmail` (G05-T24), hộp đăng xuất mọi thiết bị (G05-T20), khối liên hệ (G05-T23), cờ tạm `AVER_HOME_OPEN_TO_INACTIVE` (G05 gỡ sau khi FR-091 bật). ASYNCAUTH-0036 / W-03: cổng kích hoạt hiện có.
 
 ## Open questions
 
@@ -243,10 +308,11 @@ Trang chủ học viên hiện là bảng điểm (`GET /api/student/home-summar
 | 2 | (gói câu 13) Bật giao diện mới theo người là đủ, hay cần theo lớp? | Theo người, cộng script chạy vòng thành viên một lớp khi cần | Theo người |
 | 3 | (gói câu 14, phần còn mở) Khối "Lỗi đang lặp lại" bật ngay khi GOI-12 merge, hay chờ anh xem dữ liệu thật trên staging trước? | Bật theo dữ liệu: có dữ liệu sổ lỗi thì hiện | `repeat_error = null`, ẩn tới khi API sổ lỗi có dữ liệu |
 | 4 | (mới, khi soạn) Phần còn lại của LEARNERCORE (Lộ trình, hub, Tài khoản, Tiến độ, Trợ giúp, "Lần đầu vào", mở `/home` cho tài khoản chưa kích hoạt) viết thành bản sửa đổi spec này hay một spec số mới? | Bản sửa đổi của 0063, chia hai bản để mỗi lần duyệt nhỏ: bản 1 (T15, T16) có ở đây, bản 2 (T17, T26) sau | Bản sửa đổi |
-
 | 5 | (mới, khi soạn) Lần đầu vào Hôm nay (mốc đã xem còn trống), "Vừa có kết quả" lấy bài trả trong bao lâu trước đó? | 7 ngày gần nhất: đủ để thấy bài vừa trả, không đổ cả lịch sử | 7 ngày |
 | 6 | (bản sửa đổi 1) `/course`, `/practice`, `/tests` có theo cờ `learner_v2` không? | Theo cờ (FR-086): cùng một công tắc bật theo người và tắt khẩn như Hôm nay; người tắt cờ chỉ thêm một lần đổi URL về trang tạm như hôm nay | Theo cờ |
 | 7 | (gói câu 15) Bài kiểm tra giữa chặng của khoá online có giữ điều kiện "học xong các bài của chặng" không? | Không giữ ở đợt đầu: khớp "bài nào cũng mở được" của tờ LoTrinh | Không giữ (API không trả `gate`) |
 | 8 | (bản sửa đổi 1) Trước khi G09-T31 có danh sách người dự thi, khối "Mock test được giao" lấy dữ liệu nào? | Dùng đúng điều kiện trang Thi thử hiện nay đang dùng (`list_open_exams` cộng lượt thi của chính người đó), `mode` null; chỉ hiện được Đang mở, Đã thi chờ kết quả, Đã có kết quả. G09-T31 merge thì thay một hàm `_assigned_exams_for` | Dữ liệu hiện có, ghi trong PR T16 |
+| 9 | (bản sửa đổi 2) `/account`, `/progress`, `/help`, `/start` có theo cờ `learner_v2` không? | Không theo cờ cho bốn trang mới (chỉ thêm, không có trang cũ để giữ, chỉ đọc); `/profile` và đích "lần đầu" theo cờ vì có cây cũ đang chạy | Bốn trang mới không theo cờ |
+| 10 | (gói G07-T17, phương án A 18/11) Dựng khối "Dữ liệu của tôi", "Yêu cầu xoá tài khoản" và nút tải PDF phiếu ở `/account` ngay khi G04-T18 có? | Có, theo phương án A: anh đã để mặc định này; ẩn được nếu anh muốn để sau | Dựng khi G04-T18 có |
 
-Câu 9, 11, 12 của gói đã được trả lời (mục "Quyết định đã có"). Lộ trình và hai hub (G07-T15, T16) có ở bản sửa đổi 1; Tài khoản, Tiến độ, Trợ giúp, Hồ sơ, "Lần đầu vào" (G07-T17) và T26 đến ở bản sửa đổi 2 (câu 4); LEARNERNAV-0062 chỉ dời URL của các trang đó.
+Câu 9, 11, 12 của gói đã được trả lời (mục "Quyết định đã có"). Lộ trình và hai hub (G07-T15, T16) có ở bản sửa đổi 1; Tài khoản, Tiến độ, Trợ giúp, Hồ sơ, "Lần đầu vào" (G07-T17) và T26 có ở bản sửa đổi 2 (câu 4); LEARNERNAV-0062 chỉ dời URL của các trang đó.

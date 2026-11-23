@@ -42,6 +42,21 @@ Mọi dòng ở trạng thái `PENDING`: spec đang `draft`, chưa có dòng mã
 | FR-084 | kind=test; ref=planned React credits.total 1 marks Writing full "Không đủ lượt" with CreditsEmptyNotice, credits null marks nothing (T16) | PENDING |
 | FR-085 | kind=test; ref=planned pytest response_model shapes, caller-only filters, degraded vs missing source for student_course and student_tests (T15, T16) | PENDING |
 | FR-086 | kind=test; ref=planned React flag off: /tests renders T12a page unchanged, /course and /practice replace URL with no new API call (T15, T16); registry guard test after /course and /practice go live | PENDING |
+| FR-060 | kind=test; ref=planned React account-page two groups, one shared credit total with by-source lines, history label_vi and balance_after, no skill column, carry line, no "50%" (T17) | PENDING |
+| FR-061 | kind=test; ref=planned React progress one row per skill with FR-077 rule, goal edit via PATCH /auth/profile, profile_update off makes fields read-only (T17) | PENDING |
+| FR-062 | kind=test; ref=planned node help-search-model accent and case insensitive; React six fixed groups, no contact block before G05-T23 (T17) | PENDING |
+| FR-063 | kind=test; ref=planned React account and profile have no consent toggle and make no consent call (T17) | PENDING |
+| FR-064 | kind=test; ref=planned React profile-v2 login-events outcomes, is_current label, no location column, hidden on enabled=false or 500 (T17) | PENDING |
+| FR-065 | kind=test; ref=planned React start-page skip writes onboarding_completed then /home, class learner skips direction step; node login-model first sign-in target (T17) | PENDING |
+| FR-066 | kind=test; ref=planned React start-page makes no request whose URL contains consent (T17) | PENDING |
+| FR-087 | kind=test; ref=planned React content_visible_until line present or absent on /account and /progress; 410 content_expired copy (T17) | PENDING |
+| FR-088 | kind=test; ref=planned React mocked ChangeEmail rendered when its flag is on and absent when off; /auth/me re-read after change (T17) | PENDING |
+| FR-089 | kind=test; ref=planned React data and deletion blocks hidden until G04-T18 API exists (T17) | PENDING |
+| FR-090 | kind=test; ref=planned nonce and robots tests for the four new prefixes; React /profile flag off renders old tree; login-model flag on /start, off /onboarding (T17) | PENDING |
+| FR-091 | kind=test; ref=planned React auth-provider inactive_open on /home renders the page; staging scenario 16 (T26) | PENDING |
+| FR-092 | kind=test; ref=planned React auth-provider inactive_open on /course renders NeedsCourseScreen and the page never mounts (T26) | PENDING |
+| FR-093 | kind=test; ref=planned node activation-gate missing learner_v2_enabled gives inactive and /login; unknown stays open (T26) | PENDING |
+| FR-094 | kind=test; ref=planned pytest activation gate inventory with exactly two new exemptions, today for inactive queries no work tables, other learner route still 403, check-active flag field in both DB branches (T26) | PENDING |
 
 ## Kịch bản staging (gói 9.1 mục 1, 3, 3b, 3c, 8; 9.4)
 
@@ -57,6 +72,10 @@ Tài khoản QA và dữ liệu thử; không bật cờ cho học viên thật.
 7. **Lộ trình** (bản sửa đổi 1). Given QA chỉ lớp, cờ bật. When mở `/course`. Then URL đổi sang trang bài được giao. Given QA chỉ online (khi G04 có dữ liệu thử). Then nhóm lớp thu gọn, dòng khoá có "còn X ngày"; ảnh 1280px và 390px.
 8. **Thi thử** (bản sửa đổi 1). Given QA không được giao kỳ nào. When mở `/tests`. Then không có khối "Mock test được giao", không có đề bốn kỹ năng. Given QA được giao một kỳ thử trên staging (không thi trên production). Then dòng kỳ đúng trạng thái; ở 390px nút full test là dòng cảnh báo, mini test vẫn vào được.
 9. **Tắt cờ ba trang mới** (bản sửa đổi 1). Given cờ tắt. When mở `/course`, `/practice`, `/tests`. Then về trang tạm như hôm nay, không có lời gọi API mới (xem tab mạng).
+
+10. **Tài khoản và Hồ sơ** (bản sửa đổi 2). Given QA có lớp, cờ bật. When mở `/account`, `/profile`. Then đúng nhóm khoá, lượt một số chung; khối phiên đăng nhập hiện hoặc ẩn đúng theo G04-T16; ảnh 1280px và 390px.
+11. **Lần đầu vào** (bản sửa đổi 2). Given tài khoản QA mới, cờ bật. When đăng nhập. Then tới `/start`, "Bỏ qua" về `/home`, lần sau không tới `/start`.
+12. **Chưa kích hoạt** (bản sửa đổi 2, high-risk auth). Kịch bản 16 của spec trên staging, bằng tài khoản QA mới tạo; ghi SHA, giờ bật/tắt cờ; gọi một route học viên khác bằng token đó và ghi mã 403.
 
 ## Contract evidence
 
