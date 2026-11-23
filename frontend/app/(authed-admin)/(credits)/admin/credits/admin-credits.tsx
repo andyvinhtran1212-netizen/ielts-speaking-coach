@@ -67,7 +67,13 @@ export function AdminCredits() {
   const [confirm, setConfirm] = useState<Confirm | null>(null);
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Bumped by every load and every change of learner: a late "Tải thêm"
+  // answer for an earlier learner or an earlier load is dropped.
   const sequence = useRef(0);
+  // The key of an adjustment not yet confirmed by the server. Re-confirming
+  // the same learner, course, delta and reason (after a timeout, say) reuses
+  // it, so the server replays instead of writing a second row.
+  const pendingKey = useRef<{ userId: string; body: string; key: string } | null>(null);
 
   const load = useCallback(async (id: string) => {
     const seq = ++sequence.current;
@@ -90,7 +96,7 @@ export function AdminCredits() {
   }, []);
 
   useEffect(() => {
-    setAccess(null); setLedger(null); setBanner(null);
+    setAccess(null); setLedger(null); setBanner(null); setMoreBusy(false);
     if (userId) void load(userId);
     else sequence.current += 1;
   }, [load, userId, admin.id]);
@@ -119,13 +125,16 @@ export function AdminCredits() {
 
   const more = async () => {
     if (!userId || !ledger?.nextCursor || moreBusy) return;
+    const seq = sequence.current;
     setMoreBusy(true);
     try {
       const c = await getUserCredits(userId, HISTORY_PAGE_SIZE, ledger.nextCursor);
+      if (seq !== sequence.current) return;
       setLedger((cur) => (cur ? { balance: c.balance, items: [...cur.items, ...(c.items ?? [])], nextCursor: c.next_cursor ?? null } : cur));
     } catch (caught) {
+      if (seq !== sequence.current) return;
       setBanner({ kind: 'error', text: `Chưa tải thêm được lịch sử: ${messageOf(caught)}` });
-    } finally { setMoreBusy(false); }
+    } finally { if (seq === sequence.current) setMoreBusy(false); }
   };
 
   const review = (event: FormEvent) => {
@@ -133,9 +142,13 @@ export function AdminCredits() {
     if (!draft) return;
     const check = validateAdjust(draft, courses);
     if (!check.ok) { setDraft({ ...draft, error: check.error }); return; }
-    // One key per confirmation: a retry of the same confirmation replays, a
-    // new confirmation is a new adjustment.
-    setConfirm({ body: check.body, text: check.confirmText, requestKey: newRequestKey() });
+    // Same learner and same adjustment as one the server has not confirmed →
+    // same key (a retry replays); anything else is a new adjustment.
+    const body = JSON.stringify(check.body);
+    const pending = pendingKey.current;
+    const requestKey = pending && userId && pending.userId === userId && pending.body === body ? pending.key : newRequestKey();
+    if (userId) pendingKey.current = { userId, body, key: requestKey };
+    setConfirm({ body: check.body, text: check.confirmText, requestKey });
     setConfirmError(null);
   };
 
@@ -144,6 +157,7 @@ export function AdminCredits() {
     setBusy(true); setConfirmError(null);
     try {
       await postCreditAdjust({ ...confirm.body, request_key: confirm.requestKey });
+      pendingKey.current = null;
       setConfirm(null); setDraft(null);
       const fresh = await load(userId);
       setBanner(fresh ? { kind: 'success', text: 'Đã ghi điều chỉnh vào sổ lượt.' }

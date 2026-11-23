@@ -145,4 +145,57 @@ describe('AdminCredits', () => {
     expect(api.post.mock.calls[1][1].request_key).toBe(api.post.mock.calls[0][1].request_key);
     expect(cardBalance()).toBe('42 lượt');
   });
+  it('a late "Tải thêm" answer for an earlier learner is dropped', async () => {
+    const U2 = '40000000-0000-4000-8000-000000000002';
+    let releaseMore: (value: unknown) => void = () => {};
+    api.getWith.mockImplementation((path: string) => {
+      if (path.endsWith('/access')) return Promise.resolve(access(balance));
+      if (path.includes('cursor=')) return new Promise((resolve) => { releaseMore = resolve; });
+      if (path.startsWith(`/admin/users/${U}/credits`)) return Promise.resolve({ ...credits(balance), next_cursor: '7' });
+      return Promise.resolve({ balance: 3, next_cursor: null, items: [
+        { at: '2026-11-22T03:00:00Z', delta: 3, reason: 'grant', label_vi: 'Cộng kèm mã lớp', balance_after: 3,
+          course_code: 'C1', feature: null, note: null, entitlement_id: E1, actor: null }] });
+    });
+    const view = render(<AdminCredits />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Tải thêm' }));
+    nav.search = `ref=u-${U2}`;
+    view.rerender(<AdminCredits />);
+    await screen.findByText('Cộng kèm mã lớp');
+    releaseMore({ balance: 42, next_cursor: null, items: [
+      { at: '2026-10-01T03:00:00Z', delta: 9, reason: 'grant_extra', label_vi: 'Cấp thêm bởi admin', balance_after: 9,
+        course_code: 'C6', feature: null, note: 'của học viên trước', entitlement_id: E1, actor: null }] });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(screen.queryByText('Cấp thêm bởi admin')).toBeNull();
+    expect(screen.getByRole('table').querySelectorAll('tbody tr')).toHaveLength(1);
+  });
+
+  it('re-confirming the same adjustment after a timeout keeps the key; a changed one gets a new key', async () => {
+    api.post.mockReset().mockRejectedValueOnce(new Error('Hết thời gian chờ máy chủ.'))
+      .mockImplementation(() => { balance = 47; return Promise.resolve({ status: 'replay', balance: 47 }); });
+    const dialog = await openAdjust();
+    fireEvent.change(within(dialog).getByRole('textbox', { name: /Số lượt/ }), { target: { value: '5' } });
+    fireEvent.change(within(dialog).getByRole('textbox', { name: /Lý do/ }), { target: { value: 'Bù lượt do lỗi chấm' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Tiếp tục' }));
+    let confirm = await screen.findByRole('dialog', { name: 'Xác nhận điều chỉnh' });
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Xác nhận' }));
+    await waitFor(() => expect(within(confirm).getByRole('alert').textContent).toBe('Hết thời gian chờ máy chủ.'));
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Quay lại' }));
+    const again = screen.getByRole('dialog', { name: 'Điều chỉnh lượt' });
+    fireEvent.click(within(again).getByRole('button', { name: 'Tiếp tục' }));
+    confirm = await screen.findByRole('dialog', { name: 'Xác nhận điều chỉnh' });
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Xác nhận' }));
+    await balanceIs('47 lượt');
+    expect(api.post).toHaveBeenCalledTimes(2);
+    expect(api.post.mock.calls[1][1].request_key).toBe(api.post.mock.calls[0][1].request_key);
+
+    // After the server confirmed it, the same values are a new adjustment.
+    fireEvent.click(screen.getByRole('button', { name: 'Điều chỉnh lượt' }));
+    const next = screen.getByRole('dialog', { name: 'Điều chỉnh lượt' });
+    fireEvent.change(within(next).getByRole('textbox', { name: /Số lượt/ }), { target: { value: '5' } });
+    fireEvent.change(within(next).getByRole('textbox', { name: /Lý do/ }), { target: { value: 'Bù lượt do lỗi chấm' } });
+    fireEvent.click(within(next).getByRole('button', { name: 'Tiếp tục' }));
+    fireEvent.click(within(await screen.findByRole('dialog', { name: 'Xác nhận điều chỉnh' })).getByRole('button', { name: 'Xác nhận' }));
+    await waitFor(() => expect(api.post).toHaveBeenCalledTimes(3));
+    expect(api.post.mock.calls[2][1].request_key).not.toBe(api.post.mock.calls[0][1].request_key);
+  });
 });
