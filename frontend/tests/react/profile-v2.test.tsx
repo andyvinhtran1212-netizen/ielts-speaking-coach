@@ -1,4 +1,5 @@
-// LEARNERCORE-0063 FR-063 / FR-064 / FR-088 / FR-090: the new Hồ sơ tree behind learner_v2.
+// LEARNERCORE-0063 FR-063 / FR-064 / FR-088 / FR-090: the new Hồ sơ tree behind learner_v2
+// (+ ENROLL-0060 G05-T20: the sign-out-everywhere entry).
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -16,6 +17,7 @@ const state = vi.hoisted(() => ({
   patchError: null as unknown,
   providers: ['google', 'email'] as string[] | null,
   me: null as unknown,
+  sessionStatus: { enabled: false } as unknown,
 }));
 vi.mock('@/lib/auth/auth-me-single-flight.mjs', () => ({
   getAuthMeProfile: () => state.me,
@@ -33,6 +35,7 @@ const profile = {
 const getWith = vi.fn(async (path: string) => {
   urls.push(path);
   if (path === '/auth/profile') return profile;
+  if (path === '/api/account/session/status') return state.sessionStatus;
   if (path.startsWith('/api/account/login-events')) {
     if (state.eventsStatus) throw Object.assign(new Error('HTTP'), { status: state.eventsStatus });
     return state.events;
@@ -65,6 +68,7 @@ beforeEach(() => {
   state.patchError = null;
   state.providers = ['google', 'email'];
   state.me = null;
+  state.sessionStatus = { enabled: false };
   urls.length = 0;
   patches.length = 0;
   (window as any).api = { getWith, get: getWith, patch, patchWith: patch };
@@ -148,6 +152,15 @@ describe('/profile new tree', () => {
     expect(screen.queryByRole('switch')).toBeNull();
     expect(urls.some((u) => /consent/i.test(u))).toBe(false);
     expect(screen.getByText('Bản ghi âm bài nói được giữ tối đa 60 ngày rồi xoá.')).toBeTruthy();
+  });
+
+  it('"Đăng xuất khỏi mọi thiết bị" sits under Phiên đăng nhập only when the one-session rule applies', async () => {
+    await mount();
+    expect(screen.queryByRole('button', { name: 'Đăng xuất khỏi mọi thiết bị' })).toBeNull();
+    cleanup();
+    state.sessionStatus = { enabled: true, state: 'current', other_session: null, timed_activity: null };
+    await mount();
+    expect(screen.getByRole('button', { name: 'Đăng xuất khỏi mọi thiết bị' })).toBeTruthy();
   });
 
   it('G05-T24 not merged: "Email đăng nhập" shows the current email and no change button', async () => {
