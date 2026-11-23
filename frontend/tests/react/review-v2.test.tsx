@@ -353,3 +353,48 @@ it('a 409 already_flagged turns the button into "Đã báo lỗi"; another error
   expect(post).toHaveBeenCalledWith('/api/feedback', { skill: 'reading', attempt_id: 'att-r1', type: 'flag', q_num: 2 });
   host.card.remove();
 });
+
+// ── Codex #2647: a saved note survives the card unmounting; no edit is lost mid-save ──
+
+it('a saved or deleted note is what the card shows after a filter hides and brings it back', async () => {
+  window.history.replaceState(null, '', '/reading/review?attempt_id=att-r1');
+  serve({ review: readingReview(), notes: { notes: [{ q_num: 3, body: 'cũ', updated_at: null }] } });
+  const view = render(<V2><ReadingReviewWorkspace /></V2>);
+  await screen.findByText('Reading T31');
+  const box3 = () => within(card(view.container, 3)!).getByLabelText('Ghi chú của bạn') as HTMLTextAreaElement;
+  await waitFor(() => expect(box3().value).toBe('cũ'));
+
+  fireEvent.change(box3(), { target: { value: 'mới' } });
+  patch.mockResolvedValueOnce({ q_num: 3, body: 'mới', updated_at: '2026-11-23T12:00:00Z' });
+  await act(async () => { fireEvent.click(within(card(view.container, 3)!).getByRole('button', { name: 'Lưu ghi chú' })); });
+  const toggle = screen.getByRole('button', { name: 'Chỉ câu sai' });
+  fireEvent.click(toggle);                    // question 3 (correct) unmounts
+  expect(card(view.container, 3)).toBeNull();
+  fireEvent.click(toggle);                    // and comes back
+  expect(box3().value).toBe('mới');
+
+  fireEvent.change(box3(), { target: { value: '' } });
+  patch.mockResolvedValueOnce({ q_num: 3, body: null, updated_at: null });
+  await act(async () => { fireEvent.click(within(card(view.container, 3)!).getByRole('button', { name: 'Lưu ghi chú' })); });
+  fireEvent.click(toggle);
+  fireEvent.click(toggle);
+  expect(box3().value).toBe('');
+  expect(notesCalls()).toHaveLength(1);       // no refetch: the server's answers were kept
+});
+
+it('the box is read-only while a save is in flight', async () => {
+  window.history.replaceState(null, '', '/reading/review?attempt_id=att-r1');
+  serve({ review: readingReview() });
+  const view = render(<V2><ReadingReviewWorkspace /></V2>);
+  await screen.findByText('Reading T31');
+  const box = await within(card(view.container, 1)!).findByLabelText('Ghi chú của bạn') as HTMLTextAreaElement;
+  await waitFor(() => expect(box.disabled).toBe(false));
+  fireEvent.change(box, { target: { value: 'đang lưu' } });
+  let finish: (value: unknown) => void = () => {};
+  patch.mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
+  fireEvent.click(within(card(view.container, 1)!).getByRole('button', { name: 'Lưu ghi chú' }));
+  expect(box.readOnly).toBe(true);
+  await act(async () => { finish({ q_num: 1, body: 'đang lưu', updated_at: null }); });
+  expect(box.readOnly).toBe(false);
+  expect(box.value).toBe('đang lưu');
+});

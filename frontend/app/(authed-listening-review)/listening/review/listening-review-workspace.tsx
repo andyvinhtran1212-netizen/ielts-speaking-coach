@@ -534,7 +534,8 @@ export function ListeningReviewWorkspace() {
               flagged={flaggedSet.has(item.q_num)}
               note={notesEnabled && (notes.status === 'loading' || notes.status === 'ready')
                 ? <ReviewNote skill="listening" attemptId={data.attemptId} qNum={item.q_num}
-                  stored={notes.notes.get(item.q_num) ?? null} loading={notes.status === 'loading'} />
+                  stored={notes.notes.get(item.q_num) ?? null} loading={notes.status === 'loading'}
+                  onSaved={(note) => notes.remember(item.q_num, note)} />
                 : null}
               onToggle={() => {
                 setCurrentQuestion(item.q_num);

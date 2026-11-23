@@ -7,7 +7,7 @@
 // (a failed read hides the boxes; the review itself still shows). A save
 // shows what the server returned, never the typed value (no optimistic
 // state); a failed save keeps the typed text and says why at the box.
-import { useEffect, useId, useState } from 'react';
+import { useCallback, useEffect, useId, useState } from 'react';
 
 import { getBrowserJson, patchBrowserJsonAt } from '@/lib/browser-api';
 import {
@@ -20,16 +20,30 @@ import {
 
 type Skill = 'listening' | 'reading';
 type StoredNote = { body: string; updatedAt: string | null };
-export type ReviewNotesState =
+type NotesValue =
   | { status: 'off' | 'loading' | 'failed'; notes: Map<number, StoredNote> }
   | { status: 'ready'; notes: Map<number, StoredNote> };
+export type ReviewNotesState = NotesValue & {
+  /** Keep what the server returned after a save (null after a delete), so a
+   *  card that unmounts (filter, passage) shows it again when it comes back. */
+  remember(qNum: number, note: StoredNote | null): void;
+};
 
 const EMPTY = new Map<number, StoredNote>();
 
 /** One read per attempt; `enabled` false (old tree, preview, share link) → no request. */
 export function useReviewNotes(skill: Skill, attemptId: string | null, enabled: boolean): ReviewNotesState {
   const key = enabled && attemptId ? `${skill}:${attemptId}` : null;
-  const [state, setState] = useState<{ key: string; value: ReviewNotesState } | null>(null);
+  const [state, setState] = useState<{ key: string; value: NotesValue } | null>(null);
+
+  const remember = useCallback((qNum: number, note: StoredNote | null) => {
+    setState((previous) => {
+      if (!previous || previous.key !== key || previous.value.status !== 'ready') return previous;
+      const notes = new Map(previous.value.notes);
+      if (note) notes.set(qNum, note); else notes.delete(qNum);
+      return { key: previous.key, value: { status: 'ready', notes } };
+    });
+  }, [key]);
 
   useEffect(() => {
     if (!key || !attemptId) return undefined;
@@ -50,8 +64,8 @@ export function useReviewNotes(skill: Skill, attemptId: string | null, enabled: 
     return () => abort.abort();
   }, [attemptId, key, skill]);
 
-  if (!key) return { status: 'off', notes: EMPTY };
-  return state && state.key === key ? state.value : { status: 'loading', notes: EMPTY };
+  if (!key) return { status: 'off', notes: EMPTY, remember };
+  return { ...(state && state.key === key ? state.value : { status: 'loading', notes: EMPTY }), remember };
 }
 
 /** Cut to the 500 characters the learner sees (code points), so typing stops there. */
@@ -60,12 +74,14 @@ function capped(text: string): string {
   return chars.length > NOTE_MAX_CHARS ? chars.slice(0, NOTE_MAX_CHARS).join('') : text;
 }
 
-export function ReviewNote({ skill, attemptId, qNum, stored, loading }: {
+export function ReviewNote({ skill, attemptId, qNum, stored, loading, onSaved }: {
   skill: Skill;
   attemptId: string;
   qNum: number;
   stored: StoredNote | null;
   loading: boolean;
+  /** The server's result after a save or delete (null), for the shared notes. */
+  onSaved?(note: StoredNote | null): void;
 }) {
   const id = useId();
   const [saved, setSaved] = useState<string>(stored?.body ?? '');
@@ -96,6 +112,7 @@ export function ReviewNote({ skill, attemptId, qNum, stored, loading }: {
       setSaved(body);
       setDraft(body);
       setPhase(result.body === null ? 'deleted' : 'saved');
+      onSaved?.(result.body === null ? null : { body: result.body, updatedAt: result.updatedAt });
     } catch (error) {
       setPhase('error');
       setMessage(noteSaveError(error));
@@ -111,6 +128,8 @@ export function ReviewNote({ skill, attemptId, qNum, stored, loading }: {
         value={draft}
         rows={3}
         disabled={loading}
+        readOnly={phase === 'saving'}
+        aria-busy={phase === 'saving' || undefined}
         placeholder={loading ? 'Đang tải ghi chú…' : 'Ghi lại điều cần nhớ ở câu này, ví dụ từ bạn nghe nhầm.'}
         aria-describedby={`${id}-count ${id}-status`}
         onChange={(event) => {
