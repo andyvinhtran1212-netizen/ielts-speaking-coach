@@ -20,13 +20,15 @@ export type SubmitDialogProps = {
   questions: ExamRoomQuestion[];
   strings: ExamRoomStrings;
   confirmLabel: string;
+  title?: string;
+  cancelLabel?: string;
   costNote?: string;
   extraWarning?: ReactNode;
   onConfirm(): void;
   onCancel(): void;
 };
 
-export function SubmitDialog({ open, busy, error, questions, strings, confirmLabel, costNote, extraWarning, onConfirm, onCancel }: SubmitDialogProps) {
+export function SubmitDialog({ open, busy, error, questions, strings, confirmLabel, title, cancelLabel, costNote, extraWarning, onConfirm, onCancel }: SubmitDialogProps) {
   const model = submitDialogModel({ questions, strings, costNote: costNote ?? null });
   const body = (
     <>
@@ -41,10 +43,10 @@ export function SubmitDialog({ open, busy, error, questions, strings, confirmLab
       open={open}
       tone={model.kind === 'warning' ? 'warning' : 'default'}
       lang={strings.lang === 'en' ? 'en' : 'vi'}
-      title={model.title}
+      title={model.kind === 'plain' && title ? title : model.title}
       body={body}
       confirmLabel={confirmLabel}
-      cancelLabel={model.cancel}
+      cancelLabel={cancelLabel ?? model.cancel}
       busyLabel={strings.submitBusySubmitting}
       busy={busy}
       onConfirm={onConfirm}

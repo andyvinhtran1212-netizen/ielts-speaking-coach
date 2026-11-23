@@ -144,6 +144,23 @@ describe('submit (FR-010, FR-014, FR-034)', () => {
     expect(within(dialog).queryByText('Warning')).toBeNull();
   });
 
+  it('submit.title and submit.cancelLabel replace the plain title and the stay button; the blank title stays', async () => {
+    const all = qs({ 3: { answered: true }, 4: { answered: true }, 5: { answered: true }, 6: { answered: true } });
+    const submit = { label: 'Finish', title: 'Finish this set?', cancelLabel: 'Keep working', onSubmit: vi.fn(() => Promise.resolve()) };
+    const { unmount } = render(<ExamRoomShell {...base({ questions: all, submit })} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
+    let dialog = await screen.findByRole('alertdialog');
+    expect(within(dialog).getByText('Finish this set?')).toBeTruthy();
+    expect(within(dialog).getByRole('button', { name: 'Keep working' })).toBeTruthy();
+    expect(within(dialog).queryByRole('button', { name: 'Return to test' })).toBeNull();
+    unmount();
+    render(<ExamRoomShell {...base({ submit })} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
+    dialog = await screen.findByRole('alertdialog');
+    expect(within(dialog).getByText('Submit with 4 unanswered questions?')).toBeTruthy();
+    expect(within(dialog).getByRole('button', { name: 'Keep working' })).toBeTruthy();
+  });
+
   it('a failed submit keeps the box open with the reason in words', async () => {
     const onSubmit = vi.fn(() => Promise.reject(new Error('net')));
     render(<ExamRoomShell {...base({ submit: { label: 'Submit test', onSubmit } })} />);
@@ -498,6 +515,36 @@ describe('split (FR-003–FR-005)', () => {
   });
 });
 
+describe('bare (host keeps its top bar, 0069 FR-011)', () => {
+  it('no FocusShell bar or leave button; save status, navigator, submit box and session box stay', async () => {
+    render(<ExamRoomShell {...base({ bare: true })} />);
+    expect(screen.queryByRole('button', { name: /Leave test/ })).toBeNull();
+    expect(screen.queryByRole('banner')).toBeNull();
+    expect(screen.getByText('Passage text')).toBeTruthy();
+    expect(screen.getByText(/Saved at 10:42/)).toBeTruthy();
+    expect(screen.getByRole('timer')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Submit test' }));
+    expect(await screen.findByRole('alertdialog')).toBeTruthy();
+  });
+
+  it('warns on page close only while work is unsaved', () => {
+    const { rerender } = render(<ExamRoomShell {...base({ bare: true })} />);
+    const clean = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(clean);
+    expect(clean.defaultPrevented).toBe(false);
+    rerender(<ExamRoomShell {...base({ bare: true, saveStatus: { state: 'retrying', unsaved: 1 } })} />);
+    const dirty = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(dirty);
+    expect(dirty.defaultPrevented).toBe(true);
+  });
+
+  it('shows the session box with Sign in again when the copy is kept', async () => {
+    render(<ExamRoomShell {...base({ bare: true, session: 'expired', onSessionExpired: { saveLocalCopy: () => true, returnUrl: '/r' } })} />);
+    const dialog = await screen.findByRole('alertdialog');
+    expect(within(dialog).getByRole('link', { name: 'Sign in again' })).toBeTruthy();
+  });
+});
+
 describe('session (FR-015, FR-016)', () => {
   it('expired: saves the local copy first, then a blocking box with Sign in again', async () => {
     const saveLocalCopy = vi.fn(() => true);
@@ -518,6 +565,27 @@ describe('session (FR-015, FR-016)', () => {
     const dialog = await screen.findByRole('alertdialog');
     expect(within(dialog).getByText(/could not keep a copy of your answers/)).toBeTruthy();
     expect(within(dialog).getByRole('link', { name: 'Sign in again' })).toBeTruthy();
+  });
+
+  it('401 + refused storage with unsaved answers: only Stay, never navigates (amendment 2)', async () => {
+    const assign = stubAssign();
+    const props = base({
+      session: 'expired',
+      saveStatus: { state: 'retrying', unsaved: 2, lastSavedAt: new Date(2026, 10, 23, 10, 42) },
+      onSessionExpired: { saveLocalCopy: () => false, returnUrl: '/r' },
+    });
+    const { rerender } = render(<ExamRoomShell {...props} />);
+    const dialog = await screen.findByRole('alertdialog');
+    expect(within(dialog).getByText(/could not keep a copy of your answers/)).toBeTruthy();
+    expect(within(dialog).queryByRole('link', { name: 'Sign in again' })).toBeNull();
+    expect(within(dialog).queryByText(/Sign in again to continue/)).toBeNull();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Stay' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(assign).not.toHaveBeenCalled();
+    expect(screen.queryByRole('link', { name: 'Sign in again' })).toBeNull();
+    // Everything reached the server after all: signing in is safe again.
+    rerender(<ExamRoomShell {...{ ...props, saveStatus: { state: 'saved', lastSavedAt: new Date(2026, 10, 23, 10, 50) } }} />);
+    expect(await screen.findByRole('link', { name: 'Sign in again' })).toBeTruthy();
   });
 
   it('not current: in-page notice with Back, no work area', () => {

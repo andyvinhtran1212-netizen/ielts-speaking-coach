@@ -33,6 +33,10 @@ export type ExamRoomLayout =
 
 export interface ExamRoomSubmit {
   label: string;
+  /** Title of the submit box when no question is blank (default "Submit test?" / "Nộp bài?"). The blank-count title stays. */
+  title?: string;
+  /** The box's stay button (default "Return to test" / its Vietnamese line). */
+  cancelLabel?: string;
   onSubmit(): Promise<void>;
   disabledReason?: string;
   costNote?: string;
@@ -79,6 +83,12 @@ export interface ExamRoomShellProps {
   mode: ExamRoomMode;
   surface: ExamRoomSurface;
   embedded?: boolean;
+  /**
+   * The host page keeps its own top bar (e.g. the Listening 80-day page, 0069 FR-011):
+   * no FocusShell bar, leave box or abandon button; the host owns navigation. Banners,
+   * save status, navigator, submit box, session box and the tab guard stay.
+   */
+  bare?: boolean;
   isFullTest?: boolean;
   attemptKey: string;
   title: string;
