@@ -20,9 +20,12 @@ on:
 permissions:
   contents: read
 
+# PR runs cancel the same PR's older run; push, schedule and dispatch runs get
+# a group per run_id, so a staging/main SHA the promotion gate needs is never
+# cancelled when two merges land close together (CR nit 1 on #2630).
 concurrency:
-  group: next-native-browser-${{ github.ref }}-${{ github.event_name }}
-  cancel-in-progress: true
+  group: next-native-browser-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # A verifier that misses one of its mocked requests must fail locally; it must
 # never read or write staging/production as an accidental fallback.
