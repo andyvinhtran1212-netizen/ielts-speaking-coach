@@ -107,6 +107,9 @@ ACTIVATION_EXEMPT_ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/library/writing-samples/index"): "public Library",
     ("GET", "/api/library/writing-samples/{slug}"): "public Library",
     ("GET", "/api/library/media/{shelf}/{key}/{asset}"): "public Library",
+    ("GET", "/api/library/speaking"): "public Library",
+    ("GET", "/api/library/speaking/index"): "public Library",
+    ("GET", "/api/library/speaking/{slug}"): "public Library",
     ("POST", "/api/feedback"): "content-error reports; anonymous Reading/Vocabulary reports allowed by design",
     # ── Reading share links (anonymous capability, X-Reading-Anon) ───────
     # These accept an anonymous share-link attempt OR the caller's own attempt.
