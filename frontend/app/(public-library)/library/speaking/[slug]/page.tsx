@@ -40,9 +40,10 @@ async function loadDetail(slug: string) {
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { slug } = await params;
   const found = await loadDetail(slug);
-  // A missing question: the 404 body and noindex. Under cacheComponents the
-  // status is already committed by the shell (HTTP 200), as on the Grammar
-  // article route; a hard 404 needs a proxy check (follow-up, like PC-J526).
+  // A missing question: proxy.ts already answers a real HTTP 404 from the
+  // published-question index. This stays as the fallback when the index and
+  // the detail read were both unavailable there: the 404 body and noindex
+  // (HTTP 200 under cacheComponents, as on the Grammar article route).
   if (!found.ok && found.status === 404) notFound();
   if (!found.ok) return { title: 'Đề Speaking | Aver Learning', robots: { index: false, follow: true } };
   const q = found.data;

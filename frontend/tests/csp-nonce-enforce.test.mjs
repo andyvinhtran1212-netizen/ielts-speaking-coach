@@ -174,7 +174,8 @@ describe('enforced proxy behavior', () => {
     const routes = globSync('app/**/page.tsx', { cwd: FRONTEND }).map((file) => `/${file.split(path.sep)
       .slice(1, -1).filter((part) => !part.startsWith('(')).map((part) => part.startsWith('[') ? 'sample' : part).join('/')}`);
     for (const url of [...routes, ...PUBLIC_PATHS, '/homework', '/vocabulary/', '/vocabulary/hub', '/admin/a/b', '/reading-other']) {
-      if (url.startsWith('/grammar/')) continue;
+      // The 404 branches (Grammar articles, Speaking questions) are matched on purpose.
+      if (url.startsWith('/grammar/') || /^\/library\/speaking\/[^/]+$/.test(url)) continue;
       assert.equal(csp.nonceRouteAllowed(url), matches({ config, url, headers: { host: 'staging.averlearning.com' } }), url);
     }
   });

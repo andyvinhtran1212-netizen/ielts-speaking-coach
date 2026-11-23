@@ -247,7 +247,7 @@ describe('proxy.ts', () => {
     const routes = pageRoutes();
     assert.ok(routes.filter((r) => r.shell).length > 100, 'route discovery found the signed-in routes');
     const wrong = routes
-      .filter((r) => !r.url.startsWith('/grammar/'))
+      .filter((r) => !r.url.startsWith('/grammar/') && !/^\/library\/speaking\/[^/]+$/.test(r.url))
       .filter((r) => proxyMatches(r.url, 'staging.averlearning.com') !== r.shell)
       .map((r) => `${r.url} (${r.shell ? 'AuthedShell, not matched' : 'not AuthedShell, matched'})`);
     assert.deepEqual(wrong, []);
@@ -262,6 +262,8 @@ describe('proxy.ts', () => {
         assert.equal(proxyMatches(url, host), false, `${host}${url}`);
       }
       assert.equal(proxyMatches('/grammar/tenses/present-simple', host), true);
+      assert.equal(proxyMatches('/library/speaking/a-city-part-2', host), true);
+      assert.equal(proxyMatches('/library/speaking', host), false);
     }
     assert.equal(proxyMatches('/admin', 'ielts-git-staging.vercel.app'), true);
   });

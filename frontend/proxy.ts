@@ -11,6 +11,12 @@
 //    the article endpoint itself (its JSON article-not-found, not a gateway
 //    404); articles and backend errors pass through.
 //
+//    The same applies to a Speaking question, `/library/speaking/:slug`
+//    (LIBRARY-0061 T013): a slug missing from a fresh published-question
+//    index (`/api/library/speaking/index`) is rewritten to the same 404
+//    path; if the index is unavailable, only the backend's own
+//    `speaking_not_found` JSON 404 counts as a miss.
+//
 // 2. SEC-CSP-NONCE: a per-request nonce for the AuthedShell route groups.
 //    Step 2 may enforce it on staging/previews only. Setting the blocking
 //    response header also supplies the nonce to Vercel's PPR resume render;
@@ -105,6 +111,56 @@ async function grammarArticle(request: NextRequest) {
     : NextResponse.next();
 }
 
+// LIBRARY-0061 T013: published Speaking questions, keyed `speaking/<slug>`
+// so the shared index helper can hold them. An empty shelf is a valid list
+// (every slug is then a miss), unlike the Grammar article list.
+const speakingIndex = createArticleIndex({
+  async load() {
+    const res = await fetch(`${API_BASE}/api/library/speaking/index`, {
+      signal: AbortSignal.timeout(INDEX_TIMEOUT_MS),
+      cache: 'no-store',
+    });
+    if (!res.ok) throw new Error(`backend ${res.status} for /api/library/speaking/index`);
+    const rows = await res.json();
+    if (!Array.isArray(rows)) throw new TypeError('speaking index payload must be an array');
+    return new Set(rows.flatMap((row) => (typeof row?.slug === 'string' ? [`speaking/${row.slug}`] : [])));
+  },
+});
+
+// routers/library.py `_speaking_not_found`: a JSON 404 `{"detail": "speaking_not_found"}`.
+async function isBackendSpeakingMiss(res: Response) {
+  if (res.status !== 404 || !/^application\/json\b/i.test(res.headers.get('content-type') ?? '')) {
+    await res.body?.cancel();
+    return false;
+  }
+  const body = (await res.json().catch(() => null)) as { detail?: unknown } | null;
+  return body?.detail === 'speaking_not_found';
+}
+
+async function speakingQuestion(request: NextRequest) {
+  const [, , , rawSlug = ''] = request.nextUrl.pathname.split('/');
+  const slug = segment(rawSlug);
+  const indexed = slug === null ? false : await speakingIndex.has('speaking', slug);
+  let missing = indexed === false;
+  if (indexed === null) {
+    // Same rule as PC-J526: only the backend's own miss is a 404 here; any
+    // other outcome leaves the page's own loading and error handling.
+    try {
+      const res = await fetch(`${API_BASE}/api/library/speaking/${encodeURIComponent(slug!)}`, {
+        signal: AbortSignal.timeout(INDEX_TIMEOUT_MS),
+        cache: 'no-store',
+        redirect: 'manual',
+      });
+      missing = await isBackendSpeakingMiss(res);
+    } catch {
+      // Network or timeout: the page shows its own error state.
+    }
+  }
+  return missing
+    ? NextResponse.rewrite(new URL(GRAMMAR_ARTICLE_NOT_FOUND_PATH, request.url))
+    : NextResponse.next();
+}
+
 // Inlined at build by next.config.ts `env` (tooling/nonce-route-table.mjs).
 // Unusable → null, which keeps the nonce policy on every prefixed URL.
 const nonceRoutes = parseNonceRouteTable(process.env.AVER_CSP_NONCE_ROUTES);
@@ -168,6 +224,8 @@ function noncePolicy(request: NextRequest) {
 }
 
 export async function proxy(request: NextRequest) {
+  // One segment only, as the matcher; never a nonce route (public Library).
+  if (request.nextUrl.pathname.startsWith('/library/speaking/')) return speakingQuestion(request);
   return request.nextUrl.pathname.startsWith('/grammar/')
     ? grammarArticle(request)
     : noncePolicy(request);
@@ -181,6 +239,7 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     '/grammar/:category/:slug',
+    '/library/speaking/:slug',
     {
       source: '/:section(admin|advanced-vocabulary|course-exercises|d1-exercise|exam|exercises|flashcard-study|flashcards|full-test|full-test-result|grammar-checkup|grammar-lessons|home|instructor|listening|mock|mock-exam|my-class|onboarding|practice|profile|quiz|reading|result|speaking|writing)/:path*',
       missing: [{ type: 'host', value: '(?:www\\.)?averlearning\\.com' }],

@@ -60,6 +60,15 @@ check('đề sau / đề trước là tải lại cả trang',
     && documents.filter((p) => p === '/library/speaking/a-city-part-2').length === 2, documents.join(', '));
 check('không có điều hướng mềm (RSC) nào vào trang đề', softLoads.length === 0, softLoads.join(', '));
 
+// G06-T13 follow-up: an unknown question is a real HTTP 404 (proxy.ts), with
+// the root 404 page's HTML, not a 200 soft 404.
+const missing = await page.request.get(`${BASE}/library/speaking/no-such-question`, { maxRedirects: 0 });
+const missingHtml = await missing.text();
+check('đề không tồn tại trả HTTP 404 thật', missing.status() === 404, `HTTP ${missing.status()}`);
+check('trang 404 có nội dung server, không lộ dữ liệu đề', /<h1/i.test(missingHtml) && !missingHtml.includes('Describe a city'));
+const known = await page.request.get(`${BASE}/library/speaking/a-city-part-2`, { maxRedirects: 0 });
+check('đề có thật vẫn trả 200', known.status() === 200, `HTTP ${known.status()}`);
+
 await page.setViewportSize({ width: 390, height: 844 });
 check('390 px không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
 check('không có lỗi JS', errors.length === 0, errors.join(' | '));

@@ -68,7 +68,9 @@ describe('Library frame (FR-001, FR-002, FR-003)', () => {
     const code = LAYOUT.split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
     assert.doesNotMatch(code, /AuthedShell|AuthProvider|activationGate|AdminAccessGate/);
     const matcher = PROXY.slice(PROXY.indexOf('matcher:'));
-    assert.doesNotMatch(matcher, /library/);
+    // The only Library entry is the Speaking question 404 check (G06-T13),
+    // one segment deep; it never reaches the auth or nonce branch.
+    assert.deepEqual(matcher.match(/'[^']*library[^']*'/g), ["'/library/speaking/:slug'"]);
     assert.equal(routeFor('/library')?.status, 'live');
     assert.equal(routeFor('/library')?.audience, 'public');
   });
