@@ -4,7 +4,6 @@
 
 | Requirement | Evidence | Result |
 | --- | --- | --- |
-| FR-000 | kind=test; ref=frontend/tests/react/programme-form-room.test.tsx (LISTENING_PRACTICE_SURFACE is the only place the name appears; before 0066 amendment 1(b) it is 'listening') | PENDING |
 | FR-001 | kind=test; ref=existing listening-programme-form-scope.test.tsx, listening-programme-replay-stop.test.tsx, verify-listening-programme-context-flow.mjs with flag off (unchanged) | PENDING |
 | FR-002 | kind=test; ref=frontend/tests/react/programme-form-room.test.tsx (blank list, Esc no submit, supplements not counted) | PENDING |
 | FR-003 | kind=test; ref=frontend/tests/react/programme-form-room.test.tsx (reveal pending locks confirm, unlocks after) | PENDING |
@@ -19,6 +18,7 @@
 | FR-012 | kind=test; ref=frontend/tests/react/programme-form-room.test.tsx (second tab gets the same attempt_id from resume-or-create and is read-only; sends no PATCH/reveal/playback-started/submit) | PENDING |
 | FR-013 | kind=journey; ref=verify-listening-programme-context-flow.mjs flag on, Playwright dialog count = 0 | PENDING |
 | FR-014 | kind=test; ref=frontend/tests/react/programme-form-room.test.tsx (event names, surface, no answers in payload) | PENDING |
+| FR-015 | kind=test; ref=frontend/tests/react/programme-form-room.test.tsx (LISTENING_PRACTICE_SURFACE is the only place the name appears; before 0066 amendment 1(b) it is 'listening') | PENDING |
 
 Đối chiếu số FR của GOI-08 ↔ spec này:
 

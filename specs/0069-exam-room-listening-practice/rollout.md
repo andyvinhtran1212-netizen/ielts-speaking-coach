@@ -2,7 +2,7 @@
 
 ## Preconditions
 
-- EXAMROOM-0066 và spec này `approved` trên `staging`; quyết định về tên cờ (câu hỏi mở 4): trước khi sửa đổi 1 mục (b) của 0066 lên `staging`, dùng `listening` theo FR-000 và chỉ bật khi EXAMLISTENT-0070 cũng sẵn sàng.
+- EXAMROOM-0066 và spec này `approved` trên `staging`; quyết định về tên cờ (câu hỏi mở 4): trước khi sửa đổi 1 mục (b) của 0066 lên `staging`, dùng `listening` theo FR-015 và chỉ bật khi EXAMLISTENT-0070 cũng sẵn sàng.
 - G08-T02…T05 và `AudioPlayer` (#2492) đã merge vào `staging`.
 - Không migration, không đổi backend.
 
