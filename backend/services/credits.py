@@ -33,6 +33,11 @@ _RELEASE_REASONS = ("grader_failed", "stt_failed", "request_failed", "budget_ref
 # Set once the flag has been read as on in this process, so a later "off" is
 # visibly logged as a deliberate stop (plan 5.4 step 1).
 _metering_seen_on = False
+# The last value read successfully in this process. A later lookup error
+# reuses it, so a runtime_flags outage does not turn every grading request
+# into a 503 while the flag is off; only a process that has never read the
+# flag answers 503 (CreditUnavailable), and a read error is never "off".
+_metering_last: Optional[bool] = None
 
 
 class CreditUnavailable(Exception):
@@ -85,11 +90,15 @@ class ChargePlan:
 
 
 def _metering_on() -> bool:
-    global _metering_seen_on
+    global _metering_seen_on, _metering_last
     try:
         on = runtime_flags.is_enabled_strict(METERING_FLAG, default=False)
     except runtime_flags.FlagLookupError as exc:
-        raise CreditUnavailable(METERING_FLAG) from exc
+        if _metering_last is None:
+            raise CreditUnavailable(METERING_FLAG) from exc
+        logger.warning("[credits] flag lookup failed, using last value=%s", _metering_last)
+        return _metering_last
+    _metering_last = on
     if on:
         _metering_seen_on = True
     return on
