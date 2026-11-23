@@ -740,8 +740,11 @@ export function MockExamRunner() {
   // sign-in box after the Writing copy is kept.
   const [session, setSession] = useState<'active' | 'expired'>('active');
   // FR-013: false while another tab of this sitting holds the write right.
-  const [canWrite, setCanWrite] = useState(true);
-  const canWriteRef = useRef(true);
+  // Starts false: the shell's tab guard reports writer/unsupported on its first
+  // effect, so a second tab never mounts the frame or an editable Writing box
+  // for one render before turning read-only. The old branch never reads it.
+  const [canWrite, setCanWrite] = useState(false);
+  const canWriteRef = useRef(false);
   canWriteRef.current = canWrite;
   const noteAuthError = useCallback((caught: unknown) => {
     if (examRoomRef.current && statusOf(caught) === 401) setSession('expired');
@@ -1116,6 +1119,9 @@ export function MockExamRunner() {
         `/api/mock-exams/sittings/${encodeURIComponent(sittingId)}/sections/writing/submit`,
         finalWritingBodyRef.current,
       );
+      // FR-007 (2): the exact text reached the server. A lost reply leaves this
+      // unset, so the outcome stays closed_unconfirmed instead of "submitted".
+      if (examRoomRef.current) flushSecuredRef.current.add('writing');
       clearLocalDrafts(sittingId);
       return;
     }
@@ -1164,10 +1170,10 @@ export function MockExamRunner() {
     const track = examRoomRef.current;
     if (track) {
       observedSubmitRef.current.add(section);
-      // A new submit needs a new flush; Writing's submit body carries the exact
-      // text of both boxes, so it is its own final save.
+      // A new submit needs a new flush. Writing's submit body carries the exact
+      // text of both boxes, so it is its own final save, but only once the
+      // server has taken it: doSubmit marks it after the POST succeeds (FR-007).
       if (attempt === 0) flushSecuredRef.current.delete(section);
-      if (section === 'writing') flushSecuredRef.current.add('writing');
       setSubmitTrack({ section, retries: attempt, error: null });
     }
     try {

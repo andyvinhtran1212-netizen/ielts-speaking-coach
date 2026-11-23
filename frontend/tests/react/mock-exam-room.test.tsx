@@ -2,12 +2,14 @@
 // the runner's own state; it never calls an API, a clock of its own or a browser dialog.
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { createRef } from 'react';
+import { readFileSync } from 'node:fs';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { MockExamRoom, type MockExamRoomProps } from '@/app/(authed-mock-exam)/mock-exam/mock-exam-room';
 import { MockWritingRoom, type MockWritingBridge, type MockWritingRoomProps } from '@/app/(authed-mock-exam)/mock-exam/mock-writing-room';
 import { localCopyKey, readLocalCopy, writeLocalCopy } from '@/lib/exam-room/local-copy.mjs';
 import type { MockState } from '@/app/(authed-mock-exam)/mock-exam/mock-exam-runner';
+import { mockSubmitOutcome } from '@/lib/mock-exam-model.mjs';
 
 beforeAll(() => {
   const proto = HTMLDialogElement.prototype as HTMLDialogElement & { showModal: () => void; close: () => void };
@@ -131,6 +133,30 @@ describe('submit outcome (FR-007)', () => {
     expect(screen.getByText(`This section was closed by our server at ${hhmm(T)}.`)).toBeTruthy();
     expect(screen.queryByText(/saved up to/)).toBeNull();
     expect(screen.queryByText(/has been submitted/i)).toBeNull();
+  });
+});
+
+describe('Writing final save only after the submit reached the server (FR-007 F1)', () => {
+  const RUNNER = readFileSync('app/(authed-mock-exam)/mock-exam/mock-exam-runner.tsx', 'utf8');
+
+  it('the runner marks Writing secured after the POST, never before doSubmit', () => {
+    const submitSection = RUNNER.slice(RUNNER.indexOf('const submitSection = useCallback'), RUNNER.indexOf('await doSubmit(section);'));
+    expect(submitSection).not.toMatch(/flushSecuredRef\.current\.add\('writing'\)/);
+    const doSubmit = RUNNER.slice(RUNNER.indexOf('const doSubmit = useCallback'), RUNNER.indexOf('const submitSection = useCallback'));
+    const post = doSubmit.indexOf('/sections/writing/submit');
+    const mark = doSubmit.indexOf("flushSecuredRef.current.add('writing')");
+    expect(post).toBeGreaterThan(-1);
+    expect(mark).toBeGreaterThan(post);
+  });
+
+  it('a Writing submit that failed offline, then closed by the server, reads closed_unconfirmed, not submitted', () => {
+    const state = mockState({ readingSubmittedAt: T, writingSubmittedAt: T, status: 'lrw_submitted' }, { activeSection: 'done' });
+    // The POST never succeeded, so the runner never set the secured flag.
+    const outcome = mockSubmitOutcome({ state, section: 'writing', observed: true, finalFlushSecured: false, retries: 3, error: null });
+    expect(outcome.outcome).toBe('closed_unconfirmed');
+    render(<MockExamRoom {...props({ state, view: 'waiting', section: null, outcome })} />);
+    expect(screen.queryByText(/has been submitted/i)).toBeNull();
+    expect(screen.getByText(`This section was closed by our server at ${hhmm(T)}.`)).toBeTruthy();
   });
 });
 
@@ -326,6 +352,12 @@ describe('session, other tab, dialogs (FR-012, FR-013, FR-017)', () => {
     render(<MockExamRoom {...props({ state, section: 'writing', session: 'expired', saveLocalCopy, renderWriting: () => <p>editor</p> })} />);
     await waitFor(() => expect(saveLocalCopy).toHaveBeenCalledTimes(1));
     expect(document.querySelector('dialog[open]')).toBeTruthy();
+  });
+
+  it('the runner starts without the write right until the tab guard reports (review R134 nit 1)', () => {
+    const runner = readFileSync('app/(authed-mock-exam)/mock-exam/mock-exam-runner.tsx', 'utf8');
+    expect(runner).toMatch(/const \[canWrite, setCanWrite\] = useState\(false\);/);
+    expect(runner).toMatch(/const canWriteRef = useRef\(false\);/);
   });
 
   it('a read-only tab does not load the child player', () => {
