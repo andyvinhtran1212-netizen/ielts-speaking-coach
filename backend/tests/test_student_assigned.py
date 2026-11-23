@@ -61,6 +61,8 @@ def _writing(item_id, *, due=None, submitted=None, status="pending", review_stat
 
 
 def _get(monkeypatch, rows, *, has_class=True, stale=False):
+    # No paper is open to self-practice unless a test says so (T30b has its own tests).
+    monkeypatch.setattr(sa, "_self_practice_open_ids", lambda _rows: set())
     monkeypatch.setattr(st, "_visible_assignments_for",
                         lambda *_a: (has_class, rows, stale))
     return sa.get_assigned("u-1", "A", NOW)
@@ -193,10 +195,10 @@ def test_writing_returned_with_result_path(monkeypatch):
     assert (item["group"], item["action"], item["band"]) == ("returned", "result", 6.5)
 
 
-# ── self-practice (T30b) ──────────────────────────────────────────────────────
+# ── self-practice hook ──────────────────────────────────────────────────────
 
 
-def test_self_practice_is_hidden_until_t30b(monkeypatch):
+def test_self_practice_is_hidden_when_no_paper_is_open(monkeypatch):
     rows = [_row("closed", "reading", due=NOW - timedelta(hours=1)),
             _row("c", "course", due=NOW - timedelta(hours=1), course_action="closed")]
     for item in _get(monkeypatch, rows)["items"]:

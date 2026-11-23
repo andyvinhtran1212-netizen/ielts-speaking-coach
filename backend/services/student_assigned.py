@@ -14,9 +14,10 @@ adds four fields per row so the page never derives them in the browser:
 - ``group``: overdue | todo | awaiting_review | returned (FR-096, plan.md).
 - ``action``: start | resume | review_submitted | result | self_practice | none
   (FR-097), matching the target the current /my-class page opens.
-- ``self_practice_available``: always false in T30a. T30b adds
-  ``class_self_practice.paper_open_for_self_practice`` and the route behind
-  "Tự luyện bài này"; until then the button stays hidden (tasks.md T30a).
+- ``self_practice_available``: an unsubmitted row that no longer accepts, of a
+  self-practice skill, whose paper is open to public self-practice right now
+  (``class_self_practice.paper_open_for_self_practice``, T30b). Writing stays
+  false until G08 ships its self-practice prompt bank.
 
 Read-only except for the ledger reconcile ``_visible_assignments`` performs
 itself (FR-103 exception, HOLD patch approved 23/11).
@@ -26,7 +27,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Set, Tuple
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from services.class_assignment_service import is_accepting_submissions
 from services import student_today
@@ -130,15 +131,23 @@ def action_for(row: Dict[str, Any], accepting: bool, self_practice: bool) -> str
 
 
 def _self_practice_open_ids(rows: List[Dict[str, Any]]) -> Set[str]:
-    """Item ids whose paper is open for public self-practice right now. T30b
-    replaces this with `class_self_practice.paper_open_for_self_practice`
-    (one read for the whole list); T30a ships the button hidden."""
-    return set()
+    """Item ids whose paper is open for public self-practice right now (T30b,
+    `class_self_practice.paper_open_for_self_practice`, one read per skill for
+    the whole list). A failed read hides the button rather than failing the
+    page: the route re-checks at call time anyway."""
+    from database import supabase_admin
+    from services.class_self_practice import paper_open_for_self_practice
+    try:
+        return paper_open_for_self_practice(supabase_admin, rows)
+    except Exception as exc:
+        logger.warning("[student-assigned] self-practice paper read failed: %s", exc)
+        return set()
 
 
 def decorate(rows: List[Dict[str, Any]], now: datetime,
-             open_ids: Callable[[List[Dict[str, Any]]], Set[str]] = _self_practice_open_ids,
+             open_ids: Optional[Callable[[List[Dict[str, Any]]], Set[str]]] = None,
              ) -> List[Dict[str, Any]]:
+    open_ids = open_ids or _self_practice_open_ids
     candidates: List[Dict[str, Any]] = []
     flags: List[Tuple[Dict[str, Any], bool]] = []
     for row in rows:
