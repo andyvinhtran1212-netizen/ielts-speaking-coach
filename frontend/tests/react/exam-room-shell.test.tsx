@@ -218,6 +218,15 @@ describe('submit (FR-010, FR-014, FR-034)', () => {
     expect(screen.getByText('Your answers have been saved and submitted.')).toBeTruthy();
   });
 
+  it('unconfirmed says "Time is up" only after time ran out; an untimed room says it plainly (0070 FR-010)', () => {
+    const submit = { label: 'Submit test', onSubmit: vi.fn(() => Promise.resolve()), outcome: 'unconfirmed' as const };
+    const { rerender } = render(<ExamRoomShell {...base({ timer: null, submit })} />);
+    expect(screen.getByText('We have not confirmed your submission yet. Keep this page open while we try again.')).toBeTruthy();
+    expect(screen.queryByText(/Time is up/)).toBeNull();
+    rerender(<ExamRoomShell {...base({ timer: { kind: 'countdown', remainingSeconds: 0, onExpire: vi.fn() }, submit })} />);
+    expect(screen.getByText('Time is up. We have not confirmed your submission yet. Keep this page open while we try again.')).toBeTruthy();
+  });
+
   it('expired_unsubmitted: no retry, never "submitted", back to exit, and the device copy goes (amendment 1 (a))', () => {
     const scope = { surface: 'listening-practice', ownerKey: 'user-1', attemptKey: 'att-1' };
     const other = { ...scope, attemptKey: 'att-2' };
