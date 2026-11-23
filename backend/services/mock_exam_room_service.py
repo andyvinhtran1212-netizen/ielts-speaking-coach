@@ -15,6 +15,7 @@ Notifications (GOI-11) are never sent from here: the sweep reads
 """
 from __future__ import annotations
 
+import json
 import logging
 import statistics
 from datetime import datetime, timezone
@@ -145,6 +146,15 @@ def add_extra_time(exam_id: str, sitting_id: str, section: str, seconds: int,
         raise AudienceError("live_extra_time_unsupported",
                             "Phòng thi cùng giờ chưa cộng giờ riêng được: thu bài cả phòng "
                             "chưa bỏ qua người còn giờ cộng.", status=409)
+    if not aud.learner_gate_enabled():
+        # The learner clock and the auto-submit sweep (retake_time_remaining_seconds,
+        # _retake_section_expired) do not read extra_seconds until G08-T22 moves
+        # them onto self_paced_timeline behind mock_exam_audiences_learner. Saying
+        # "added" now would be untrue: the learner's paper would still close on the
+        # old time (CR #2612).
+        raise AudienceError("learner_clock_not_ready",
+                            "Đồng hồ phía học viên chưa tính giờ cộng (cờ "
+                            "mock_exam_audiences_learner tắt); chưa cộng giờ.", status=409)
     sitting = _sitting(exam["id"], sitting_id)
     if sitting.get("status") == "void":
         raise AudienceError("section_not_running", "Lượt thi đã huỷ.", status=409)
@@ -160,10 +170,15 @@ def add_extra_time(exam_id: str, sitting_id: str, section: str, seconds: int,
                             current_section=timeline.current_section)
     before = dict(sitting.get("extra_seconds") or {})
     after = {**before, section: int(before.get(section) or 0) + seconds}
+    if after[section] > 86400:  # 447 CHECK: whole seconds 0..86400 per section
+        raise AudienceError("invalid_seconds", "Tổng giờ cộng của phần này vượt 24 giờ.")
     # Compare-and-set on the value read, so two proctors adding at once do not
     # lose one of the additions.
     res = (supabase_admin.table("mock_exam_sittings").update({"extra_seconds": after})
-           .eq("id", sitting["id"]).eq("extra_seconds", before).execute())
+           # jsonb filter: PostgREST needs JSON text, not the Python repr
+           # (CR #2612: str(dict) uses single quotes → 22P02 on the second add).
+           .eq("id", sitting["id"]).eq("extra_seconds", json.dumps(before, sort_keys=True))
+           .execute())
     if not (res.data or []):
         raise AudienceError("extra_time_conflict",
                             "Giờ cộng của người này vừa thay đổi; tải lại rồi thử lại.", status=409)
@@ -212,6 +227,18 @@ def _release_summary(exam_id: str, request_key: str) -> Optional[dict]:
     raise AudienceError("release_in_progress",
                         "Lần trả kết quả với mã yêu cầu này đang chạy hoặc đã dừng giữa chừng; "
                         "tải lại trang để xem kết quả rồi trả lại với yêu cầu mới.", status=409)
+
+
+def _missed(exam: dict, sitting: dict) -> bool:
+    """A self-paced sitting whose window closed before it started (FR-151)."""
+    if not mock_exam_modes.is_self_paced(exam.get("exam_mode")):
+        return False
+    try:
+        timeline = mock_exam_modes.self_paced_timeline(
+            sitting, exam, _now(), durations={}, open_until=sitting.get("retake_open_until"))
+    except Exception:  # noqa: BLE001 — unknown reads as "not ready", never as missed
+        return False
+    return timeline.state == mock_exam_modes.MISSED
 
 
 def _final_skills(review: Optional[dict]) -> list[str]:
@@ -272,7 +299,7 @@ def release(exam_id: str, mode: str, confirm_title: str, request_key: str,
         raise unavailable from None
 
     sittings = (supabase_admin.table("mock_exam_sittings")
-                .select("id, status, released_skills").eq("mock_exam_id", exam["id"])
+                .select("*").eq("mock_exam_id", exam["id"])
                 .neq("status", "void").execute()).data or []
     reviews = {}
     for s in sittings:
@@ -282,24 +309,39 @@ def release(exam_id: str, mode: str, confirm_title: str, request_key: str,
     already = {s["id"] for s in sittings if (reviews.get(s["id"]) or {}).get("status") == "released"}
     out = wf.bulk_release_sittings(ready, actor_id) if ready else {"released": [], "skipped": []}
     released = set(out["released"])
-    skipped_items = list(out["skipped"])
+    skipped_items = [{**i, "reason_code": i.get("reason_code") or "release_gate"}
+                     for i in out["skipped"]]
     partial = 0
     for s in sittings:
         sid = s["id"]
         if sid in released or sid in already or sid in ready:
             continue
+        if not reviews.get(sid) and _missed(exam, s):
+            # FR-148: "Không dự thi" is not waiting for marking; T34 shows it apart.
+            skipped_items.append({"sitting_id": sid, "reason": "Không dự thi.",
+                                  "reason_code": "missed"})
+            continue
         skills = _final_skills(reviews.get(sid))
         if mode != "include_partial" or not skills:
-            skipped_items.append({"sitting_id": sid, "reason": "Chưa đủ điểm để trả."})
+            skipped_items.append({"sitting_id": sid, "reason": "Chưa đủ điểm để trả.",
+                                  "reason_code": "not_ready"})
             continue
         merged = sorted(set(s.get("released_skills") or []) | set(skills), key=SKILLS.index)
         try:
-            supabase_admin.table("mock_exam_sittings").update({"released_skills": merged}) \
-                .eq("id", sid).neq("status", "void").execute()
-            partial += 1
+            res = (supabase_admin.table("mock_exam_sittings").update({"released_skills": merged})
+                   .eq("id", sid).neq("status", "void").execute())
         except Exception as e:  # noqa: BLE001 — report per sitting, like bulk-release
             logger.exception("[mock-release] partial release failed sitting=%s", sid)
-            skipped_items.append({"sitting_id": sid, "reason": f"Lỗi: {e}"})
+            skipped_items.append({"sitting_id": sid, "reason": f"Lỗi: {e}", "reason_code": "error"})
+            continue
+        if not (res.data or []):
+            # Voided (or removed) between the read and this write: PostgREST
+            # answers 0 rows without an error, so count only rows written
+            # (CR #2612).
+            skipped_items.append({"sitting_id": sid, "reason": "Lượt thi vừa bị huỷ hoặc thay đổi.",
+                                  "reason_code": "changed"})
+            continue
+        partial += 1
     summary = {"released": len(released), "partial": partial, "skipped": len(skipped_items),
                "skipped_items": skipped_items}
     record_event_quietly(exam["id"], "release_summary",
@@ -568,9 +610,11 @@ def analysis(exam_id: str) -> dict:
         bands = [float(r["final_bands"][skill]) for r in reviews
                  if r and r.get("status") in ("reviewed", "released")
                  and (r.get("final_bands") or {}).get(skill) is not None]
-        dist[skill] = (_distribution(bands) if threshold is not None and len(bands) >= threshold
-                       else None)
-        medians[skill] = statistics.median(bands) if bands else None
+        # The median of one or two papers is a person's band: hide it under the
+        # same threshold as the distribution (CR #2612).
+        shown = bool(bands) and threshold is not None and len(bands) >= threshold
+        dist[skill] = _distribution(bands) if shown else None
+        medians[skill] = statistics.median(bands) if shown else None
     names = wf.resolve_display_names({s["user_id"] for s in sittings if s.get("user_id")})
     pacing = []
     for s in sittings:

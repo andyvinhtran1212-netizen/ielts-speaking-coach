@@ -584,7 +584,9 @@ async def collect_section(
 
     info = await _claim_then_dispatch(_collect, background_tasks)
     await _note(exam_id, "section_collected",
-                {"section": info.get("section"), "from_section": from_section}, admin["id"])
+                # Queued, not done: the sweep runs after the flush grace (CR #2612).
+                {"section": info.get("section"), "from_section": from_section, "queued": True},
+                admin["id"])
     return {**info, "queued": True}
 
 

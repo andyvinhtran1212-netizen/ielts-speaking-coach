@@ -11,8 +11,9 @@
 --     sweep turns some kinds into notifications (never inside the writer's
 --     transaction). service_role may SELECT and INSERT only.
 --   * mock_exam_sittings.extra_seconds: extra time per section for one person,
---     {"listening": 300, ...}; the self-paced timeline pushes later sections
---     back by it (plan 5.5 point 8).
+--     {"listening": 300, ...}, keys among the three timed sections, whole
+--     seconds 0..86400; the self-paced timeline pushes later sections back by
+--     it (plan 5.5 point 8).
 --   * mock_exam_room_messages: messages the proctor sends to a live room.
 -- All backend-only (spec 0039): RLS on, no policy.
 -- Re-runnable; postconditions at the end.
@@ -34,8 +35,12 @@ BEGIN
                       AND conname = 'mock_exam_sittings_extra_seconds_shape') THEN
         ALTER TABLE public.mock_exam_sittings ADD CONSTRAINT mock_exam_sittings_extra_seconds_shape
             CHECK (jsonb_typeof(extra_seconds) = 'object'
-                   AND NOT (extra_seconds - ARRAY['listening', 'reading', 'writing', 'speaking']
-                            <> '{}'::jsonb));
+                   -- only the three timed sections (Speaking is session-based)
+                   AND NOT (extra_seconds - ARRAY['listening', 'reading', 'writing']
+                            <> '{}'::jsonb)
+                   -- whole seconds, 0 to 24 h: the timeline reads them with int()
+                   AND NOT jsonb_path_exists(extra_seconds,
+                       '$.* ? (@.type() != "number" || @ < 0 || @ > 86400 || @.floor() != @)'));
     END IF;
 END;
 $chk$;

@@ -126,10 +126,20 @@ def test_apply_twice_and_constraints(pg):
                    "FROM public.mock_exam_sittings;") == "t"
     pg(f"UPDATE public.mock_exam_sittings SET extra_seconds = '{{\"reading\": 300}}', "
        "released_skills = ARRAY['listening','reading'];")
+    pg("UPDATE public.mock_exam_sittings SET extra_seconds = '{\"reading\": 300, \"writing\": 0}', "
+       "released_skills = ARRAY['listening','reading','writing','speaking'];")
     refused = [
         "UPDATE public.mock_exam_sittings SET extra_seconds = '[]';",
         "UPDATE public.mock_exam_sittings SET extra_seconds = '{\"maths\": 1}';",
         "UPDATE public.mock_exam_sittings SET released_skills = ARRAY['maths'];",
+        # SA #2612 nits: value type and range, no Speaking key, no skill twice.
+        "UPDATE public.mock_exam_sittings SET extra_seconds = '{\"reading\": \"abc\"}';",
+        "UPDATE public.mock_exam_sittings SET extra_seconds = '{\"reading\": -1}';",
+        "UPDATE public.mock_exam_sittings SET extra_seconds = '{\"reading\": 1.5}';",
+        "UPDATE public.mock_exam_sittings SET extra_seconds = '{\"reading\": 86401}';",
+        "UPDATE public.mock_exam_sittings SET extra_seconds = '{\"speaking\": 60}';",
+        "UPDATE public.mock_exam_sittings SET released_skills = ARRAY['reading','reading'];",
+        "UPDATE public.mock_exam_sittings SET released_skills = ARRAY['listening','reading','listening'];",
         f"INSERT INTO public.mock_exam_events (exam_id, kind) VALUES ({EXAM}, 'Bad Kind');",
         f"INSERT INTO public.mock_exam_events (exam_id, kind, payload) VALUES ({EXAM}, 'room_opened', '[]');",
         f"INSERT INTO public.mock_exam_room_messages (exam_id, body) VALUES ({EXAM}, '   ');",

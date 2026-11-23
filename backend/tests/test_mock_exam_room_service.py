@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import json
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -30,7 +31,16 @@ S_DONE, S_NO_SPEAK, S_NO_REVIEW, S_TIMED_OUT, S_VOID = U(101), U(102), U(103), U
 NOW = datetime(2026, 12, 1, 9, 0, tzinfo=timezone.utc)
 
 
+JSONB = {"extra_seconds", "final_bands", "payload"}
+
+
 def _match(row, col, val):
+    if col in JSONB:
+        # PostgREST sends the filter value as text and Postgres parses it as
+        # JSON: a Python dict (repr with single quotes) fails there, so fail here.
+        if not isinstance(val, str):
+            raise RuntimeError(f"22P02 invalid input syntax for type json: {val!r}")
+        return row.get(col) == json.loads(val)
     if "->>" in col:
         base, key = col.split("->>", 1)
         got = (row.get(base) or {}).get(key)
@@ -151,7 +161,8 @@ def db(monkeypatch):
     fake.tables["mock_exam_room_messages"] = []
     for mod in (room, aud, exam_svc, wf):
         monkeypatch.setattr(mod, "supabase_admin", fake)
-    flags = {"mock_exam_audiences": True, "mock_partial_release": False}
+    flags = {"mock_exam_audiences": True, "mock_partial_release": False,
+             "mock_exam_audiences_learner": True}
     monkeypatch.setattr(aud.runtime_flags, "is_enabled",
                         lambda key, default=False, on_error=False: flags.get(key, default))
     fake.flags = flags
@@ -388,7 +399,8 @@ def test_analysis_hides_distribution_below_the_threshold(db, monkeypatch):
     monkeypatch.setattr(room, "_min_papers", lambda: None)
     out = room.analysis(EXAM)
     assert out["band_distribution"] == {s: None for s in room.SKILLS}
-    assert out["band_median"]["writing"] == 5.75
+    # Median hidden under the same threshold as the distribution (CR #2612).
+    assert out["band_median"] == {s: None for s in room.SKILLS}
     # No marked attempt, essay or earlier exam in this fixture (G09-T33b).
     assert out["top_wrong"] == {"listening": None, "reading": None}
     assert out["by_question_type"] == {"listening": None, "reading": None}
@@ -562,4 +574,58 @@ def test_a_failing_source_is_named_not_hidden(db, monkeypatch):
     out = room.analysis(EXAM)
     assert out["writing_criteria_median"] is None
     assert out["sources_failed"] == ["writing_criteria"]
-    assert out["band_median"]["writing"] == 5.75
+    assert out["pacing"] and out["top_wrong"] == {"listening": None, "reading": None}
+
+# --- CR #2612 --------------------------------------------------------------------
+
+def test_extra_time_waits_for_the_learner_clock(db):
+    db.flags["mock_exam_audiences_learner"] = False
+    _start_reading(db)
+    e = _err(lambda: room.add_extra_time(EXAM, S_DONE, "reading", 300, "mất mạng", ADMIN))
+    assert e.code == "learner_clock_not_ready" and e.status == 409
+    assert _sitting(db, S_DONE)["extra_seconds"] == {} and db.events() == []
+
+
+def test_extra_time_filter_is_json_text(db):
+    _start_reading(db)
+    _sitting(db, S_DONE)["extra_seconds"] = {"reading": 60}
+    out = room.add_extra_time(EXAM, S_DONE, "reading", 60, "mất mạng", ADMIN)
+    assert out["extra_seconds"] == {"reading": 120}
+
+
+def test_partial_release_counts_only_rows_written(db, monkeypatch):
+    db.flags["mock_partial_release"] = True
+    real = _Q.execute
+
+    def void_before_write(self):
+        if self.table == "mock_exam_sittings" and self.op == "update" and "released_skills" in self.payload:
+            _sitting(db, S_NO_SPEAK)["status"] = "void"
+        return real(self)
+    monkeypatch.setattr(_Q, "execute", void_before_write)
+    out = room.release(EXAM, "include_partial", "Thi thử tháng 12", "req-00000006", ADMIN)
+    assert out["partial"] == 0
+    changed = [i for i in out["skipped_items"] if i["sitting_id"] == S_NO_SPEAK]
+    assert changed[0]["reason_code"] == "changed"
+    again = room.release(EXAM, "include_partial", "Thi thử tháng 12", "req-00000006", ADMIN)
+    assert again["replayed"] is True and again["partial"] == 0
+    assert any(i["reason_code"] == "changed" for i in again["skipped_items"])
+
+
+def test_missed_self_paced_sitting_has_its_own_reason(db):
+    s = _sitting(db, S_NO_REVIEW)
+    s.update({"status": "not_started", "retake_open_until": (NOW - timedelta(days=1)).isoformat()})
+    out = room.release(EXAM, "complete_only", "Thi thử tháng 12", "req-00000007", ADMIN)
+    codes = {i["sitting_id"]: i["reason_code"] for i in out["skipped_items"]}
+    assert codes == {S_NO_REVIEW: "missed", S_NO_SPEAK: "not_ready"}
+
+
+def test_collect_event_says_queued(admin, db, monkeypatch):
+    from routers import admin_mock_exams as r
+
+    async def fake_dispatch(fn, background_tasks):
+        return {"section": "reading"}
+    monkeypatch.setattr(r, "_claim_then_dispatch", fake_dispatch)
+    asyncio.run(r.collect_section(EXAM, background_tasks=None, from_section="reading",
+                                  section=None, authorization="x"))
+    ev = db.events("section_collected")[0]
+    assert ev["payload"] == {"section": "reading", "from_section": "reading", "queued": True}

@@ -44,7 +44,9 @@ BEGIN
                     WHERE conrelid = 'public.mock_exam_sittings'::regclass
                       AND conname = 'mock_exam_sittings_released_skills_valid') THEN
         ALTER TABLE public.mock_exam_sittings ADD CONSTRAINT mock_exam_sittings_released_skills_valid
-            CHECK (released_skills <@ ARRAY['listening', 'reading', 'writing', 'speaking']::text[]);
+            CHECK (released_skills <@ ARRAY['listening', 'reading', 'writing', 'speaking']::text[]
+                   -- no skill twice (a CHECK cannot use a subquery: back-reference)
+                   AND array_to_string(released_skills, ',') !~ '(^|,)([a-z]+),(.*,)?\2(,|$)');
     END IF;
 END;
 $chk$;
@@ -52,6 +54,8 @@ $chk$;
 -- 2. Score edits after release (append-only) --------------------------------
 CREATE TABLE IF NOT EXISTS public.mock_exam_score_edits (
     id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    -- CASCADE on purpose: a sitting is deleted only with the learner's data
+    -- (account deletion), and its edit log goes with it. Voiding keeps the row.
     sitting_id uuid NOT NULL REFERENCES public.mock_exam_sittings(id) ON DELETE CASCADE,
     skill      text NOT NULL,
     old_band   numeric(2,1),
@@ -156,6 +160,11 @@ BEGIN
     END IF;
     IF to_regprocedure('public.fn_mock_exam_score_edit(uuid,uuid,text,text,uuid,jsonb,jsonb)') IS NULL THEN
         RAISE EXCEPTION 'mock_exam_448_score_edit_function_missing';
+    END IF;
+    IF has_function_privilege('anon', 'public.fn_mock_exam_score_edit(uuid,uuid,text,text,uuid,jsonb,jsonb)', 'EXECUTE')
+       OR has_function_privilege('authenticated', 'public.fn_mock_exam_score_edit(uuid,uuid,text,text,uuid,jsonb,jsonb)', 'EXECUTE')
+       OR NOT has_function_privilege('service_role', 'public.fn_mock_exam_score_edit(uuid,uuid,text,text,uuid,jsonb,jsonb)', 'EXECUTE') THEN
+        RAISE EXCEPTION 'mock_exam_448_score_edit_function_grant';
     END IF;
     IF to_regclass('public.uq_mock_exam_events_release_key') IS NULL THEN
         RAISE EXCEPTION 'mock_exam_448_release_key_index_missing';
