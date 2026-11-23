@@ -29,8 +29,15 @@ export type StaffShellProps = {
   user: StaffUser;
   /** "Đổi vai trò" entries, only for roles the server profile grants. */
   switchTo?: readonly StaffRoleSwitch[];
-  /** Quick search data (G09); without it there is no search field. */
+  /** Built-in quick search field (data from G09); without it there is no field. */
   search?: StaffSearchFn;
+  /**
+   * Replaces the built-in field with the page's own quick-search trigger, e.g.
+   * G09-T19's `QuickSearchButton` when AuthedShell already mounts its ⌘K
+   * dialog (#2466). Wins over `search`; never pass both a dialog and `search`,
+   * or ⌘K would open two searches.
+   */
+  searchSlot?: ReactNode;
   /**
    * /ui-library and tests only: the current entry instead of the pathname's,
    * the content in a <div> (the library page has its own <main>), and the
@@ -61,7 +68,7 @@ function writeCollapsed(collapsed: boolean) {
  * quick search, account menu and drawer is open. The content area never
  * scrolls the page sideways; wide tables scroll inside their own frame.
  */
-export function StaffShell({ role, nav, environment, user, switchTo = [], search, demo, children }: StaffShellProps) {
+export function StaffShell({ role, nav, environment, user, switchTo = [], search, searchSlot, demo, children }: StaffShellProps) {
   const pathname = usePathname() ?? '';
   const current = demo ? demo.current : currentStaffHref(nav, pathname);
   const [collapsed, setCollapsed] = useState(demo?.collapsed ?? false);
@@ -84,7 +91,8 @@ export function StaffShell({ role, nav, environment, user, switchTo = [], search
         environment={environment}
         user={user}
         switchTo={switchTo}
-        search={search}
+        search={searchSlot ? undefined : search}
+        searchSlot={searchSlot}
         panel={panel}
         setPanel={setPanel}
       />

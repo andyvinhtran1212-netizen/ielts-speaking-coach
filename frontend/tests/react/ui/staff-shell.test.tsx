@@ -12,7 +12,7 @@ import {
   SIDEBAR_COLLAPSED_KEY, currentStaffHref, staffEnvironmentFrom,
 } from '@/components/ui/shell/staff-nav';
 import {
-  STAFF_SEARCH_EMPTY, STAFF_SEARCH_FAILED, type StaffSearchGroup,
+  STAFF_SEARCH_EMPTY, STAFF_SEARCH_FAILED, STAFF_SEARCH_PENDING, type StaffSearchGroup,
 } from '@/components/ui/shell/staff-quick-search';
 import { routeFor } from '@/lib/route-registry.mjs';
 import { StaffShellDemo } from '@/app/(ui-library)/ui-library/staff-demo';
@@ -56,7 +56,7 @@ function renderShell(props: Partial<StaffShellProps> = {}) {
 }
 
 const sidebar = () => screen.getAllByRole('navigation', { name: 'Điều hướng quản trị' })[0];
-const groupButton = (name: RegExp) => within(sidebar()).getByRole('button', { name });
+const groupButton = (name: RegExp) => within(sidebar()).getAllByRole('button', { name }).find((b) => !b.hasAttribute('data-rail-group'))!;
 
 beforeEach(() => {
   nav.pathname = '/admin/writing/queue';
@@ -71,7 +71,7 @@ describe('sidebar groups', () => {
     const group = within(sidebar()).getByRole('group', { name: 'Chấm bài' });
     const current = within(group).getByRole('link', { name: /Writing/ });
     expect(current.getAttribute('aria-current')).toBe('page');
-    expect(sidebar().querySelectorAll('[aria-current="page"]')).toHaveLength(2); // full list + rail
+    expect(sidebar().querySelectorAll('[aria-current="page"]')).toHaveLength(1);
     expect(groupButton(/Hệ thống/).getAttribute('aria-expanded')).toBe('false');
     expect(within(sidebar()).queryByRole('group', { name: 'Hệ thống' })).toBeNull();
   });
@@ -105,10 +105,43 @@ describe('sidebar groups', () => {
 
   it('the rail has one named icon per group with the summed count', () => {
     renderShell();
-    const rail = sidebar().querySelectorAll<HTMLAnchorElement>('a[title]');
-    expect([...rail].map((a) => a.getAttribute('aria-label'))).toEqual([
-      'Tổng quan', 'Học viên và quyền truy cập, 4 việc chờ', 'Chấm bài, 5 việc chờ', 'Hệ thống, 12 việc chờ',
+    const rail = sidebar().querySelectorAll<HTMLButtonElement>('[data-rail-group]');
+    expect([...rail].map((b) => [b.getAttribute('aria-label'), b.getAttribute('title')])).toEqual([
+      ['Tổng quan', 'Tổng quan'], ['Học viên và quyền truy cập, 4 việc chờ', 'Học viên và quyền truy cập'],
+      ['Chấm bài, 5 việc chờ', 'Chấm bài'], ['Hệ thống, 12 việc chờ', 'Hệ thống'],
     ]);
+  });
+
+  it('FR-018: at 768–1199px every entry stays reachable through the rail flyouts', () => {
+    const { container } = renderShell();
+    const rail = container.querySelector('[data-rail-group]')!.closest('div[class]')!.parentElement as HTMLElement;
+    const reached = new Set<string>();
+    for (const button of [...rail.querySelectorAll<HTMLButtonElement>('[data-rail-group]')]) {
+      fireEvent.click(button);
+      expect(button.getAttribute('aria-expanded')).toBe('true');
+      const flyout = document.getElementById(button.getAttribute('aria-controls') as string) as HTMLElement;
+      expect(flyout.getAttribute('aria-label')).toBe(button.getAttribute('title'));
+      for (const a of flyout.querySelectorAll('a')) reached.add(a.getAttribute('href') as string);
+    }
+    expect([...reached].sort()).toEqual(NAV.flatMap((g) => g.items.map((i) => i.href)).sort());
+  });
+
+  it('a rail flyout: one open at a time, current entry marked, Esc closes and returns focus', () => {
+    renderShell();
+    const grading = within(sidebar()).getByRole('button', { name: 'Chấm bài, 5 việc chờ' });
+    const system = within(sidebar()).getByRole('button', { name: 'Hệ thống, 12 việc chờ' });
+    fireEvent.click(system);
+    fireEvent.click(grading);
+    expect(system.getAttribute('aria-expanded')).toBe('false');
+    const flyout = document.getElementById(grading.getAttribute('aria-controls') as string) as HTMLElement;
+    expect(within(flyout).getByRole('link', { name: /Writing/ }).getAttribute('aria-current')).toBe('page');
+    expect(within(flyout).getByRole('link', { name: /Speaking/ }).getAttribute('href')).toBe('/admin/speaking/sessions');
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(grading.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(grading);
+    fireEvent.click(grading);
+    fireEvent.pointerDown(document.body);
+    expect(grading.getAttribute('aria-expanded')).toBe('false');
   });
 });
 
@@ -229,11 +262,57 @@ describe('quick search', () => {
     let fail = true;
     renderShell({ search: async () => { if (fail) throw new Error('offline'); return []; } });
     const box = screen.getByRole('combobox', { name: 'Tìm nhanh' });
-    await act(async () => { fireEvent.change(box, { target: { value: 'x' } }); });
+    await act(async () => { fireEvent.change(box, { target: { value: 'xy' } }); });
     expect(screen.getByRole('alert').textContent).toBe(STAFF_SEARCH_FAILED);
     fail = false;
-    await act(async () => { fireEvent.change(box, { target: { value: 'xy' } }); });
+    await act(async () => { fireEvent.change(box, { target: { value: 'xyz' } }); });
     expect(screen.getByRole('status').textContent).toBe(STAFF_SEARCH_EMPTY);
+  });
+
+  it('under two characters it never calls search, so no false network error', async () => {
+    const search = vi.fn(async () => RESULTS);
+    renderShell({ search });
+    const box = screen.getByRole('combobox', { name: 'Tìm nhanh' });
+    await act(async () => { fireEvent.change(box, { target: { value: 'm' } }); });
+    await act(async () => { fireEvent.change(box, { target: { value: ' m ' } }); });
+    expect(search).not.toHaveBeenCalled();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.queryByRole('listbox')).toBeNull();
+    await act(async () => { fireEvent.change(box, { target: { value: 'mi' } }); });
+    expect(search).toHaveBeenCalledWith('mi');
+  });
+
+  it('while a newer query is pending, the old results cannot be clicked or opened with Enter', async () => {
+    const assign = vi.fn();
+    vi.stubGlobal('location', { ...window.location, assign });
+    const single: StaffSearchGroup[] = [{ group: 'Học viên', items: [{ title: 'Nguyễn Minh Anh', href: '/s/old' }] }];
+    let resolveSecond: (value: readonly StaffSearchGroup[]) => void = () => {};
+    const search = vi.fn()
+      .mockImplementationOnce(async () => single)
+      .mockImplementationOnce(() => new Promise<readonly StaffSearchGroup[]>((resolve) => { resolveSecond = resolve; }));
+    renderShell({ search });
+    const box = screen.getByRole('combobox', { name: 'Tìm nhanh' });
+    await act(async () => { fireEvent.change(box, { target: { value: 'minh' } }); });
+    expect(screen.getAllByRole('option')).toHaveLength(1);
+    await act(async () => { fireEvent.change(box, { target: { value: 'minh q' } }); });
+    // Second request still pending: no old option to click, Enter opens nothing.
+    expect(screen.queryAllByRole('option')).toHaveLength(0);
+    expect(screen.getByRole('status').textContent).toBe(STAFF_SEARCH_PENDING);
+    fireEvent.keyDown(box, { key: 'Enter' });
+    expect(assign).not.toHaveBeenCalled();
+    await act(async () => { resolveSecond([{ group: 'Học viên', items: [{ title: 'Trần Minh Quân', href: '/s/new' }] }]); });
+    expect(screen.getAllByRole('option').map((o) => o.getAttribute('href'))).toEqual(['/s/new']);
+    fireEvent.keyDown(box, { key: 'Enter' });
+    expect(assign).toHaveBeenCalledWith('/s/new');
+  });
+
+  it('searchSlot (G09-T19 dialog trigger) replaces the built-in field, so ⌘K opens one search only', async () => {
+    const search = vi.fn(async () => RESULTS);
+    renderShell({ search, searchSlot: <button type="button">Tìm nhanh (G09)</button> });
+    expect(screen.queryByRole('combobox')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Tìm nhanh (G09)' })).toBeTruthy();
+    await act(async () => { fireEvent.keyDown(document, { key: 'k', ctrlKey: true }); });
+    expect(search).not.toHaveBeenCalled();
   });
 
   it('no search function, no field', () => {
@@ -263,9 +342,14 @@ describe('live links only (registry Q53)', () => {
       if (head.textContent && !head.getAttribute('aria-label')) fireEvent.click(head); // unfold every group
     }
     fireEvent.click(screen.getAllByRole('button', { name: /^Tài khoản:/ })[0]);
-    const hrefs = [...document.querySelectorAll('a[href]')]
+    const collect = () => [...document.querySelectorAll('a[href]')]
       .map((a) => a.getAttribute('href') as string)
       .filter((href) => href.startsWith('/'));
+    const hrefs = collect();
+    for (const railButton of document.querySelectorAll<HTMLButtonElement>('[data-rail-group]')) {
+      fireEvent.click(railButton); // each rail flyout in turn (one open at a time)
+      hrefs.push(...collect());
+    }
     expect(hrefs.length).toBeGreaterThan(40);
     expect(hrefs.filter((href) => routeFor(href)?.status !== 'live')).toEqual([]);
   });

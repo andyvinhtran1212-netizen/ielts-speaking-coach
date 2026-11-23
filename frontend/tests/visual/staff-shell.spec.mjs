@@ -23,13 +23,28 @@ for (const width of [1280, 1100, 1024]) {
     await expect(label).toBeVisible();
     const rail = width < 1200;
     const side = frame.getByRole('navigation', { name: 'Điều hướng quản trị' });
-    await expect(side.getByRole('button', { name: /Chấm bài/ })).toBeVisible({ visible: !rail });
-    await expect(side.getByRole('link', { name: 'Chấm bài, 7 việc chờ' })).toBeVisible({ visible: rail });
+    await expect(side.locator('button:not([data-rail-group])', { hasText: 'Chấm bài' })).toBeVisible({ visible: !rail });
+    await expect(side.getByRole('button', { name: 'Chấm bài, 7 việc chờ', exact: true })).toBeVisible({ visible: rail });
     // FR-018: the shell never scrolls sideways (other library sections are not this test's business).
     expect(await frame.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
     await expect(frame).toHaveScreenshot(`staff-admin-${width}.png`);
   });
 }
+
+test('staff admin · 1024px rail flyout (FR-018: every entry reachable)', async ({ page, viewport }) => {
+  test.skip(isPhone(viewport), 'desktop project resized');
+  await page.setViewportSize({ width: 1024, height: 800 });
+  await open(page);
+  const side = admin(page).getByRole('navigation', { name: 'Điều hướng quản trị' });
+  const icon = side.getByRole('button', { name: 'Chấm bài, 7 việc chờ', exact: true });
+  await icon.click();
+  const flyout = side.getByRole('group', { name: 'Chấm bài' });
+  await expect(flyout.getByRole('link')).toHaveCount(3);
+  await expect(admin(page)).toHaveScreenshot('staff-admin-1024-flyout.png');
+  await page.keyboard.press('Escape');
+  await expect(flyout).toHaveCount(0);
+  await expect(icon).toBeFocused();
+});
 
 test('staff admin · quick search open (⌘K, "minh")', async ({ page, viewport }) => {
   test.skip(isPhone(viewport), 'desktop project only');

@@ -113,6 +113,7 @@ body:has(.shell:not([data-demo])) { margin: 0; }
 
 .search { position: relative; flex: 1 1 320px; min-width: 0; max-width: 440px; }
 .searchToggle { display: none; }
+.searchSlot { display: inline-flex; align-items: center; }
 .searchBox { position: relative; }
 .searchField {
   display: flex;
@@ -332,17 +333,64 @@ body:has(.shell:not([data-demo])) { margin: 0; }
 .navListPhone .navItem { min-height: var(--av2-sidebar-row-phone); }
 
 .rail { display: flex; flex-direction: column; }
+.railCell { position: relative; }
 .rail .railItem {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
   height: 38px;
+  padding: 0;
+  border: 0;
   border-left: 3px solid transparent;
+  background: transparent;
   color: var(--av2-ink);
+  cursor: pointer;
 }
 .rail .railItem:hover { background: var(--av2-tint); }
 .rail .railItemCurrent { border-left-color: var(--av2-ink); background: var(--av2-tint); }
+.rail .railItem[aria-expanded='true'] { background: var(--av2-tint); }
+/* Admin1024 "Sidebar": the temporary flyout over the content, never pushing the page. */
+.flyout {
+  position: absolute;
+  top: 0;
+  left: 100%;
+  z-index: var(--av2-z-overlay);
+  width: 236px;
+  border: var(--av2-rule-w) solid var(--av2-ink);
+  background: var(--av2-surface);
+}
+.flyoutHead {
+  margin: 0;
+  padding: var(--av2-space-4) var(--av2-space-7) var(--av2-space-2);
+  color: var(--av2-muted);
+  font-size: var(--av2-fs-12);
+  font-weight: var(--av2-fw-strong);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.flyout .flyoutItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--av2-space-4);
+  min-height: 40px;
+  padding: 0 var(--av2-space-7) 0 calc(var(--av2-space-7) - 3px);
+  border-top: var(--av2-rule-w) solid var(--av2-rule);
+  border-left: 3px solid transparent;
+  color: var(--av2-ink);
+  text-decoration: none;
+}
+.flyout .flyoutItem:hover { background: var(--av2-tint); }
+.flyout .flyoutItemCurrent { border-left-color: var(--av2-accent); background: var(--av2-tint); font-weight: var(--av2-fw-strong); }
+.flyoutNote {
+  margin: 0;
+  padding: var(--av2-space-3) var(--av2-space-7) var(--av2-space-4);
+  border-top: var(--av2-rule-w) solid var(--av2-rule);
+  color: var(--av2-muted);
+  font-size: var(--av2-fs-13);
+}
 .railCount {
   position: absolute;
   top: var(--av2-space-1);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 import { useDialogFocus } from '@/lib/use-dialog-focus';
 
@@ -78,40 +78,106 @@ function NavList({ nav, current, size }: ListProps) {
   );
 }
 
-/** One icon per group (or per flat entry): name in `aria-label` and tooltip, summed count. */
+/**
+ * The icon rail (FR-018, Admin1024.dc.html "Sidebar"): one icon per group, its
+ * name in `aria-label` and tooltip, the summed count in the corner. A group
+ * icon is a button that opens a temporary flyout over the content with every
+ * entry of the group ("Mở tạm · Esc để đóng"), so no entry is out of reach at
+ * 768–1199px; Esc or a click outside closes it and Esc returns focus to the
+ * icon. A flat entry (instructor) is a plain link.
+ */
 function NavRail({ nav, current }: { nav: readonly StaffNavGroup[]; current: string | null }) {
-  const cells = nav.flatMap((group) => (group.label
-    ? [{
-        key: group.id,
-        label: group.label,
-        icon: group.icon,
-        href: group.items.find((i) => isCurrent(i, current))?.href ?? group.items[0]?.href,
-        count: groupCount(group),
-        current: hasCurrent(group, current),
-      }]
-    : group.items.map((item) => ({
-        key: item.href,
-        label: item.label,
-        icon: item.icon ?? group.icon,
-        href: item.href,
-        count: item.count && item.count > 0 ? item.count : 0,
-        current: isCurrent(item, current),
-      }))));
+  const [flyout, setFlyout] = useState<string | null>(null);
+  const wrap = useRef<HTMLDivElement>(null);
+  const baseId = useId();
+
+  useEffect(() => {
+    if (!flyout) return undefined;
+    const onDown = (event: PointerEvent) => {
+      if (!wrap.current?.contains(event.target as Node)) setFlyout(null);
+    };
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      const id = flyout;
+      setFlyout(null);
+      wrap.current?.querySelector<HTMLButtonElement>(`[data-rail-group="${id}"]`)?.focus();
+    };
+    document.addEventListener('pointerdown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [flyout]);
+
+  const badge = (count: number) => (count > 0 ? <span className={styles.railCount} aria-hidden="true">{count}</span> : null);
+  const name = (label: string, count: number) => (count > 0 ? `${label}, ${count} việc chờ` : label);
+
   return (
-    <div className={styles.rail}>
-      {cells.filter((c) => c.href).map((c) => (
-        <a
-          key={c.key}
-          href={c.href}
-          aria-label={c.count > 0 ? `${c.label}, ${c.count} việc chờ` : c.label}
-          title={c.label}
-          aria-current={c.current ? 'page' : undefined}
-          className={cx(styles.railItem, c.current && styles.railItemCurrent)}
-        >
-          <Icon name={c.icon} />
-          {c.count > 0 ? <span className={styles.railCount} aria-hidden="true">{c.count}</span> : null}
-        </a>
-      ))}
+    <div ref={wrap} className={styles.rail}>
+      {nav.map((group) => {
+        if (!group.label) {
+          return group.items.map((item) => {
+            const count = item.count && item.count > 0 ? item.count : 0;
+            const cur = isCurrent(item, current);
+            return (
+              <a
+                key={item.href}
+                href={item.href}
+                aria-label={name(item.label, count)}
+                title={item.label}
+                aria-current={cur ? 'page' : undefined}
+                className={cx(styles.railItem, cur && styles.railItemCurrent)}
+              >
+                <Icon name={item.icon ?? group.icon} />
+                {badge(count)}
+              </a>
+            );
+          });
+        }
+        if (group.items.length === 0) return null;
+        const count = groupCount(group);
+        const open = flyout === group.id;
+        const panelId = `${baseId}-${group.id}`;
+        return (
+          <div key={group.id} className={styles.railCell}>
+            <button
+              type="button"
+              data-rail-group={group.id}
+              aria-label={name(group.label, count)}
+              title={group.label}
+              aria-expanded={open}
+              aria-controls={open ? panelId : undefined}
+              className={cx(styles.railItem, hasCurrent(group, current) && styles.railItemCurrent)}
+              onClick={() => setFlyout(open ? null : group.id)}
+            >
+              <Icon name={group.icon} />
+              {badge(count)}
+            </button>
+            {open ? (
+              <div id={panelId} role="group" aria-label={group.label} className={styles.flyout}>
+                <p className={styles.flyoutHead}>{group.label}</p>
+                {group.items.map((item) => {
+                  const cur = isCurrent(item, current);
+                  return (
+                    <a
+                      key={item.href}
+                      href={item.href}
+                      aria-current={cur ? 'page' : undefined}
+                      className={cx(styles.flyoutItem, cur && styles.flyoutItemCurrent)}
+                    >
+                      <span>{item.label}</span>
+                      {item.count && item.count > 0 ? <span className={styles.count}>{item.count}</span> : null}
+                    </a>
+                  );
+                })}
+                <p className={styles.flyoutNote}>Mở tạm · Esc để đóng</p>
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
     </div>
   );
 }

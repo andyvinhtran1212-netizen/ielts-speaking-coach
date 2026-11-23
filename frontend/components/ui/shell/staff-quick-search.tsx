@@ -11,6 +11,9 @@ export type StaffSearchGroup = { group: string; items: readonly StaffSearchItem[
 export type StaffSearchFn = (query: string) => Promise<readonly StaffSearchGroup[]>;
 
 const ROWS_PER_GROUP = 3;
+/** Same floor as the backend (admin_search.MIN_QUERY = 2, which answers 422 below it). */
+export const STAFF_SEARCH_MIN_QUERY = 2;
+export const STAFF_SEARCH_PENDING = 'Đang tìm…';
 export const STAFF_SEARCH_EMPTY = 'Không thấy kết quả. Thử tên, email hoặc mã khác.';
 export const STAFF_SEARCH_FAILED = 'Chưa tìm được. Kiểm tra kết nối mạng rồi gõ lại.';
 
@@ -31,11 +34,18 @@ function isMac() {
  * ⌘K / Ctrl+K or a click focuses the field; results come grouped, at most
  * three rows a group; ↑ ↓ choose, Enter opens, Esc closes and clears. The data
  * comes from `search` (G09); a failed search says so instead of "no results".
+ *
+ * `search` runs on each change once the query has STAFF_SEARCH_MIN_QUERY
+ * characters (shorter queries never call it, so no false "network" error);
+ * debouncing, if wanted, belongs in G09's function. While a query is pending
+ * the previous results are gone, so a click or Enter can never open a result
+ * of an earlier query (the wrong learner).
  */
 export function StaffQuickSearch({ search, placeholder, open, onOpenChange }: StaffQuickSearchProps) {
   const [query, setQuery] = useState('');
   const [groups, setGroups] = useState<readonly StaffSearchGroup[] | null>(null);
   const [failed, setFailed] = useState(false);
+  const [pending, setPending] = useState(false);
   const [active, setActive] = useState(-1);
   const [mac, setMac] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
@@ -49,7 +59,7 @@ export function StaffQuickSearch({ search, placeholder, open, onOpenChange }: St
     .map((g) => ({ ...g, items: g.items.slice(0, ROWS_PER_GROUP) }))
     .filter((g) => g.items.length > 0);
   const flat = shown.flatMap((g) => g.items);
-  const expanded = open && (groups !== null || failed);
+  const expanded = open && (groups !== null || failed || pending);
 
   const close = (blur: boolean) => {
     // A request still in flight must not refill the list after it closes.
@@ -57,6 +67,7 @@ export function StaffQuickSearch({ search, placeholder, open, onOpenChange }: St
     setQuery('');
     setGroups(null);
     setFailed(false);
+    setPending(false);
     setActive(-1);
     onOpenChange(false);
     if (blur) input.current?.blur();
@@ -76,25 +87,31 @@ export function StaffQuickSearch({ search, placeholder, open, onOpenChange }: St
 
   useEffect(() => { if (open) input.current?.focus(); }, [open]);
 
+  const closeRef = useRef(close);
+  closeRef.current = close;
   useEffect(() => {
     if (!open) return undefined;
     const onDown = (event: PointerEvent) => {
-      if (!wrap.current?.contains(event.target as Node)) close(false);
+      if (!wrap.current?.contains(event.target as Node)) closeRef.current(false);
     };
     document.addEventListener('pointerdown', onDown);
     return () => document.removeEventListener('pointerdown', onDown);
-  });
+  }, [open]);
 
   const run = (value: string) => {
     setQuery(value);
     setActive(-1);
     setFailed(false);
     onOpenChange(true);
+    // Drop the shown results at once: until the new answer arrives nothing is selectable.
+    setGroups(null);
     const id = ++seq.current;
-    if (!value.trim()) { setGroups(null); return; }
-    search(value.trim()).then(
-      (result) => { if (id === seq.current) setGroups(result); },
-      () => { if (id === seq.current) { setGroups(null); setFailed(true); } },
+    const q = value.trim();
+    if (q.length < STAFF_SEARCH_MIN_QUERY) { setPending(false); return; }
+    setPending(true);
+    search(q).then(
+      (result) => { if (id === seq.current) { setPending(false); setGroups(result); } },
+      () => { if (id === seq.current) { setPending(false); setFailed(true); } },
     );
   };
 
@@ -150,6 +167,7 @@ export function StaffQuickSearch({ search, placeholder, open, onOpenChange }: St
         </label>
         {expanded ? (
           <div className={styles.searchPanel}>
+            {pending ? <p className={styles.searchNote} role="status">{STAFF_SEARCH_PENDING}</p> : null}
             {failed ? <p className={styles.searchNote} role="alert">{STAFF_SEARCH_FAILED}</p> : null}
             {groups !== null ? (
               <div id={listId} role="listbox" aria-label="Kết quả tìm nhanh">

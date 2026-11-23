@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 
 import { signOutFromShell } from '@/lib/auth/shell-sign-out';
 
@@ -107,6 +107,7 @@ export type StaffTopBarProps = {
   user: StaffUser;
   switchTo: readonly StaffRoleSwitch[];
   search?: StaffSearchFn;
+  searchSlot?: ReactNode;
   panel: StaffPanel | null;
   setPanel: (panel: StaffPanel | null) => void;
 };
@@ -117,7 +118,7 @@ export type StaffTopBarProps = {
  * Staging and local draw the bar on --av2-off. Below 768px: menu button,
  * brand, search and account buttons, and the role + environment as a strip.
  */
-export function StaffTopBar({ role, environment, user, switchTo, search, panel, setPanel }: StaffTopBarProps) {
+export function StaffTopBar({ role, environment, user, switchTo, search, searchSlot, panel, setPanel }: StaffTopBarProps) {
   const toggle = (name: StaffPanel) => (open: boolean) => setPanel(open ? name : panel === name ? null : panel);
   return (
     <header className={styles.topbar} data-env={environment}>
@@ -137,7 +138,7 @@ export function StaffTopBar({ role, environment, user, switchTo, search, panel, 
         </a>
         <span className={styles.role}>{ROLE_LABEL[role]}</span>
         <EnvBadge environment={environment} className={styles.envInBar} />
-        {search ? (
+        {searchSlot ? <span className={styles.searchSlot}>{searchSlot}</span> : search ? (
           <StaffQuickSearch
             search={search}
             placeholder={SEARCH_PLACEHOLDER[role]}
