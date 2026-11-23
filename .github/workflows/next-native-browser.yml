@@ -718,6 +718,9 @@ jobs:
               - 'frontend/tooling/admin-mfa-stub.mjs'
               - 'frontend/tooling/verify-admin-mfa-flow.mjs'
               - 'frontend/tooling/verify-admin-classes-flow.mjs'
+              - 'frontend/tooling/verify-staff-quick-search-flow.mjs'
+              - 'frontend/components/staff-quick-search.tsx'
+              - 'frontend/components/staff-quick-search.module.css'
               - 'frontend/tooling/verify-admin-class-detail-flow.mjs'
               - 'frontend/tooling/verify-admin-class-homework-flow.mjs'
               - 'frontend/tooling/verify-admin-class-submissions-flow.mjs'
@@ -1577,6 +1580,11 @@ jobs:
       - name: Kiểm luồng Admin Classes native
         if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-classes-flow.mjs "http://localhost:$TEST_PORT"
+
+      # G09-T19: Ctrl/⌘K quick search on admin and teacher pages; q only in the POST body.
+      - name: Kiểm luồng Tìm nhanh (admin + giáo viên)
+        if: env.RUN_BROWSER == 'true'
+        run: node tooling/verify-staff-quick-search-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/admin/classes/[cohortId]` có ba nguồn độc lập và mutations roster/
       # lesson. Fixture ghim partial failure, nullable clears, chuyển lớp và
