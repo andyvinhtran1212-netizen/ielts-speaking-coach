@@ -8,7 +8,7 @@ owner: product
 
 # Signed-in learners open Today to see what to do now in one of five states, from one read API, behind a per-learner switch that an admin can turn off in seconds
 
-Status: **draft** — soạn ngày 23/11/2026 cho nhiệm vụ `G07-T02` (thương mại hoá 2026-11), từ `docs/proposals/commercialization-2026-11/GOI-07-loi-hoc-vien.md` mục 4.3, 5.3, 5.6, 5.8, 6 (T05, T13, T14), 9 và mục 10. Chưa dòng mã nào chạy theo spec này. Chỉ anh Andy duyệt; khi duyệt, câu trả lời ghi nguyên văn kèm thời điểm vào `approval-decision.md` cùng thư mục và `status` đổi sang `approved`. Số spec 0063 lấy từ sổ cấp số ở `01-KE-HOACH-TONG.md` mục 6. **Bản sửa đổi 1** (23/11/2026, nhiệm vụ `G07-T15`, `G07-T16`, gói mục 4.4 và 6) thêm Lộ trình và hai hub Luyện tập, Thi thử. **Bản sửa đổi 2** (23/11/2026, `G07-T17`, `G07-T26`, gói mục 4.7, 5.9 và 6) thêm Tài khoản, Tiến độ, Trợ giúp, Hồ sơ, "Lần đầu vào" và mở `/home` cho tài khoản chưa kích hoạt. Hai bản sửa đổi cũng chưa có dòng mã nào và chờ duyệt cùng spec.
+Status: **draft** — soạn ngày 23/11/2026 cho nhiệm vụ `G07-T02` (thương mại hoá 2026-11), từ `docs/proposals/commercialization-2026-11/GOI-07-loi-hoc-vien.md` mục 4.3, 5.3, 5.6, 5.8, 6 (T05, T13, T14), 9 và mục 10. Chưa dòng mã nào chạy theo spec này. Chỉ anh Andy duyệt; khi duyệt, câu trả lời ghi nguyên văn kèm thời điểm vào `approval-decision.md` cùng thư mục và `status` đổi sang `approved`. Số spec 0063 lấy từ sổ cấp số ở `01-KE-HOACH-TONG.md` mục 6. **Bản sửa đổi 1** (23/11/2026, nhiệm vụ `G07-T15`, `G07-T16`, gói mục 4.4 và 6) thêm Lộ trình và hai hub Luyện tập, Thi thử. **Bản sửa đổi 2** (23/11/2026, `G07-T17`, `G07-T26`, gói mục 4.7, 5.9 và 6) thêm Tài khoản, Tiến độ, Trợ giúp, Hồ sơ, "Lần đầu vào" và mở `/home` cho tài khoản chưa kích hoạt. **Bản sửa đổi 3** (23/11/2026, `G07-T30`) dựng lại trang Bài được giao theo tờ LoTrinhBaiDuocGiao và thêm "Tự luyện bài này" cho bài đã đóng; phần buổi học, tài liệu lớp và hạn nhận bài trễ của hai tờ LoTrinhBaiDuocGiao, LopBuoiHoc chưa có dữ liệu ở backend nên để ở câu hỏi mở 11, 12. Ba bản sửa đổi chưa có dòng mã nào và chờ duyệt cùng spec.
 
 ## Tóm tắt (tiếng Việt)
 
@@ -37,11 +37,17 @@ Status: **draft** — soạn ngày 23/11/2026 cho nhiệm vụ `G07-T02` (thươ
 - Tài khoản chưa kích hoạt (chưa có khoá, chưa nhập mã lớp) được bật cờ: vào được Hôm nay, "Lần đầu vào", Tài khoản, Hồ sơ, Trợ giúp; bấm sang trang học khác thấy màn "Cần có khoá" với hai lối "Xem các khoá" và "Nhập mã kích hoạt", không bị đăng xuất. Cờ tắt thì như hôm nay (về `/login`).
 - Không migration mới. Phần mở cổng kích hoạt là thay đổi auth, có rollout riêng.
 
+**Bản sửa đổi 3: Bài được giao theo tờ, "Tự luyện bài này" (G07-T30).** Người dùng thấy:
+- `/course/assigned` (cờ bật): mọi bài giáo viên giao, xếp bốn nhóm Quá hạn · Cần làm · Chờ giáo viên duyệt · Đã trả; bộ lọc theo kỹ năng và trạng thái; mỗi dòng một nút theo trạng thái ("Làm bài", "Làm tiếp", "Xem bài đã nộp", "Xem kết quả").
+- Bài đã đóng (quá hạn, không còn nhận bài theo luật hiện có) ghi "Không còn nhận bài" và có nút "Tự luyện bài này": làm lại cùng đề như bài tự luyện, không tính vào bài giao, trạng thái bài giao không đổi. Writing và Speaking tự luyện dùng lượt như mọi bài tự luyện.
+- Khối "Khoá được cấp quyền luyện lại" và khối "Bài của lớp được chấm thế nào" (4 bước).
+- Không có: danh sách buổi học, tài liệu lớp, nhận xét theo buổi (thẻ "Buổi học và tài liệu lớp" vẫn ẩn), dải "Bài nộp trễ" kèm hạn nhận bài trễ (hiện hệ thống không nhận bài sau hạn, trừ luật riêng đang có của Writing). Hai phần này chờ anh quyết (câu hỏi mở 11, 12).
+
 **Vì sao `risk: high`.** Gói ghi `medium`, nhưng khi đối chiếu staging `e940c936`: cột "lần vào Hôm nay trước" (`users.today_seen_at`) mà FR-025 cần **chưa có** → cần một migration nhỏ (dải 420–439 của G07), và mọi PR có file migration bị cổng spec buộc lớp `high-risk`, nên spec phải `high`. Câu hỏi mở 1 hỏi anh có muốn bỏ migration (dùng cửa sổ thời gian) để hạ về `medium` không.
 
 **Đã có ở staging `e940c936`.** Khung `LearnerShell` của G03 (#2445); mục tiêu band và ngày thi đã lưu ở `users.target_band`, `users.exam_date` (mig 005; mig 452 đồng bộ mục tiêu admin ↔ học viên); bài làm dở có `resume_expires_at` (mig 224); bài được giao qua `routers/class_student.py`. **Chưa có:** API khoá/lượt/đơn của G04 (`/api/me/courses`, `/api/me/credits`, `/api/enrollment-orders/me`), `services/learner_overdue.py`, `services/trial_caps.py` và `frontend/lib/course-access-labels.mjs` của GOI-11, sổ lỗi của GOI-12, bảng `course_lessons` của G07-T18, cờ `learner_v2` (grep `learner_v2|shell_v2` không ra gì ở `backend/services`, `frontend/lib`).
 
-**Ngôn ngữ và đánh số.** Thân viết tiếng Việt theo gói; tiêu đề mục giữ tiếng Anh cho `validate_specs.py`. `FR-07-019…029` → `FR-019…FR-029` giữ số; `FR-07-029a`, `029b` và các yêu cầu rút từ hợp đồng 5.3, 5.6, 5.8 nhận số mới từ `FR-070` (chừa `FR-030…037`, `FR-060…066` cho bản sửa đổi theo đúng số của gói). Bản sửa đổi 1: `FR-07-030…037` → `FR-030…FR-037` giữ số; hub Luyện tập, Thi thử (gói chỉ ghi ở nhiệm vụ G07-T16, không có số FR) nhận số mới từ `FR-079`. Bản sửa đổi 2: `FR-07-060…066` → `FR-060…FR-066` giữ số (FR-063, FR-066 là yêu cầu "không dựng" vì gói đã bỏ); `FR-07-060b`, `064b`, khối dữ liệu của tôi, `/start` và G07-T26 nhận số mới từ `FR-087` (bộ kiểm spec chỉ nhận dạng `FR-NNN`).
+**Ngôn ngữ và đánh số.** Thân viết tiếng Việt theo gói; tiêu đề mục giữ tiếng Anh cho `validate_specs.py`. `FR-07-019…029` → `FR-019…FR-029` giữ số; `FR-07-029a`, `029b` và các yêu cầu rút từ hợp đồng 5.3, 5.6, 5.8 nhận số mới từ `FR-070` (chừa `FR-030…037`, `FR-060…066` cho bản sửa đổi theo đúng số của gói). Bản sửa đổi 1: `FR-07-030…037` → `FR-030…FR-037` giữ số; hub Luyện tập, Thi thử (gói chỉ ghi ở nhiệm vụ G07-T16, không có số FR) nhận số mới từ `FR-079`. Bản sửa đổi 2: `FR-07-060…066` → `FR-060…FR-066` giữ số (FR-063, FR-066 là yêu cầu "không dựng" vì gói đã bỏ); `FR-07-060b`, `064b`, khối dữ liệu của tôi, `/start` và G07-T26 nhận số mới từ `FR-087` (bộ kiểm spec chỉ nhận dạng `FR-NNN`). Bản sửa đổi 3 (G07-T30, gói không có số FR) nhận số từ `FR-095`.
 
 ## Quyết định đã có
 
@@ -64,6 +70,7 @@ Trang chủ học viên hiện là bảng điểm (`GET /api/student/home-summar
 - (Bản sửa đổi 1, G07-T15) Lộ trình `/course` trong nhóm route mới `app/(authed-course)/`, API đọc `GET /api/student/course`; danh sách bài đọc `GET /api/course/{course_code}/lessons` của COURSELESSON-0064 khi API đó có. Theo tờ LoTrinh.
 - (Bản sửa đổi 2, G07-T17) `/account`, `/progress`, `/help`, `/start` (nhóm route mới, mỗi trang một nhóm có `AuthedShell`), cây Hồ sơ mới ở `/profile` sau cờ; chỉ đọc API sẵn có hoặc của G04, G05.
 - (Bản sửa đổi 2, G07-T26) Mở `/home`, `/start`, `/account`, `/profile`, `/help` cho tài khoản `is_active=false` có cờ `learner_v2`; màn "Cần có khoá" cho trang học viên khác; miễn cổng cho `GET /api/student/today` và `PATCH /auth/profile`; `/auth/check-active` thêm `learner_v2_enabled`.
+- (Bản sửa đổi 3, G07-T30) Cây Bài được giao mới ở `/course/assigned` sau cờ (cây `MyClassWorkspace` giữ khi tắt), API đọc `GET /api/student/assigned`, route `POST /api/class/assignments/{item_id}/self-practice` cho bài đã đóng.
 - (Bản sửa đổi 1, G07-T16) Hub `/practice` trong nhóm route mới `app/(authed-practice-hub)/`, hub `/tests` (trang LEARNERNAV-0062 T12a đã dời), API đọc `GET /api/student/tests`. Theo tờ LuyenTap, ThiThu, MockTestDuocGiao.
 
 ## Non-goals
@@ -79,6 +86,7 @@ Trang chủ học viên hiện là bảng điểm (`GET /api/student/home-summar
 - (Bản sửa đổi 1) Không có đề bốn kỹ năng tự chọn, không nút "Thi thử 4 kỹ năng" (00 mục 2 điểm 22; tờ ThiThu còn vẽ: 00 thắng, PR ghi khác biệt). Không dựng bảng người dự thi `mock_exam_audiences` (G09-T31), không đổi cổng vào kỳ thi hay trình làm bài (G08), không đổi cổng điện thoại (PHONEGATE-0081) hay `CreditsEmptyNotice` (G07-T27, RESULTSHEET-0065): chỉ dùng.
 - (Bản sửa đổi 1) Không sửa layout `(authed-practice)` (đang nạp `practice.js`) và các hub kỹ năng hiện có.
 - (Bản sửa đổi 2) Không dựng công tắc hay ô hỏi đồng ý dùng bản ghi âm (gói FR-07-063, 066 đã bỏ; quyết định 18/11/2026). Không dựng lại hộp "Đăng xuất khỏi mọi thiết bị" (G05-T20) hay luồng đổi email (G05-T24); không ghi `learner_login_events`; không hiện cột "nơi gần đúng"; không gõ cứng 45, 60, 100 ngày.
+- (Bản sửa đổi 3) Không dựng buổi học, tài liệu lớp, nhận xét theo buổi, hạn nhận bài trễ (không có bảng hay luật ở backend; câu hỏi mở 11, 12). Không sửa `_visible_assignments`, `_decorate`, luật nhận bài `is_accepting_submissions`, luồng chấm bài giao hay sổ nộp bài của lớp. Không mở "Tự luyện" cho bài `course` (bộ câu khoá chỉ mở qua bài giao; gói câu 6).
 - (Bản sửa đổi 2) Không đổi `require_active_learner`, không mở route nộp bài, luyện tập, phòng thi, Lộ trình cho tài khoản chưa kích hoạt; không sửa thứ tự lớp trong `authed-shell.tsx`. Không gỡ `/onboarding` (G07-T24 gỡ khi `learner_v2_all` đã bật đủ lâu).
 
 ## Users and journeys
@@ -153,6 +161,18 @@ Trang chủ học viên hiện là bảng điểm (`GET /api/student/home-summar
 - **FR-092:** Tài khoản đó mở mọi trang học viên khác (Lộ trình, Luyện tập, Thi thử, phòng thi, hub kỹ năng…) thấy màn "Cần có khoá" ngay tại URL đó, thay cho nội dung trang: hai lối "Xem các khoá" (`coursesHref()`, ẩn khi cờ thương mại tắt) và "Nhập mã kích hoạt" (`/activate` khi `live`, không thì lối mã kích hoạt hiện có ở `/login`), cộng lối về Hôm nay. Không đăng xuất, không gọi API của trang đó (không có 403 nào nổi lên).
 - **FR-093:** Cờ tắt, thiếu trường `learner_v2_enabled` hoặc không đọc được: hành vi như hôm nay (tài khoản chưa kích hoạt về `/login` mở hộp nhập mã). Lỗi mạng khi dò kích hoạt vẫn mở như hiện có (`unknown` → vẽ trang; máy chủ vẫn chặn).
 - **FR-094:** Máy chủ: thêm `("GET", "/api/student/today")` và `("PATCH", "/auth/profile")` vào `ACTIVATION_EXEMPT_ROUTES` kèm lý do, cập nhật `test_activation_gate_inventory.py`. Với tài khoản chưa kích hoạt, `/api/student/today` chỉ đọc phần không cần bài làm (`student`, `state`, `goal`, `access`, `credits`, `orders_open`, `trial_today_left`) và không truy vấn bảng bài làm, lớp hay kết quả (các danh sách đó trả rỗng). `PATCH /auth/profile` giữ nguyên danh sách cột được sửa và cờ `profile_update`. `/auth/check-active` thêm `learner_v2_enabled: bool` (mặc định false, cùng công thức FR-072). Mọi route học viên khác vẫn 403 với tài khoản chưa kích hoạt; `require_active_learner` không đổi.
+
+### Bản sửa đổi 3 — Bài được giao theo tờ và "Tự luyện bài này" (G07-T30)
+
+- **FR-095:** `/course/assigned` vẽ cây mới khi `learnerV2Enabled(me)`, đầu trang là đầu thẻ Lộ trình (FR-030); cờ tắt thì `MyClassWorkspace` y nguyên. Cây mới đọc `GET /api/student/assigned` đúng một lần khi vào trang.
+- **FR-096:** Bốn nhóm theo `group` máy chủ trả, thứ tự cố định: "Quá hạn" (chưa nộp, đã qua hạn; có dải Cảnh báo "Quá hạn · n bài chưa nộp"), "Cần làm" (chưa nộp, còn nhận bài; hạn gần nhất trước, không hạn xếp cuối), "Chờ giáo viên duyệt" (đã nộp, chưa có kết quả trả cho học viên: Writing `review_state` ∈ `submitted`, `graded`; bài course chế độ công bố ở `awaiting_release` của COURSETESTRELEASE-0082), "Đã trả" (có kết quả trả cho học viên). Nhóm rỗng không hiện. Không bài nào: "Giáo viên chưa giao bài nào cho lớp của bạn."
+- **FR-097:** Mỗi dòng: kỹ năng, tên bài, trạng thái bằng chữ, hạn (giờ Việt Nam), nhãn "Nộp trễ n ngày" khi `is_late`; nút theo `action` máy chủ trả: `start` → "Làm bài", `resume` → "Làm tiếp", `review_submitted` → "Xem bài đã nộp", `result` → "Xem kết quả", `self_practice` → "Tự luyện bài này", `none` → không nút. Href lấy qua `lib/my-class-model.mjs` (cùng đích cây cũ đang mở), không ghép tay. Band chỉ hiện khi máy chủ trả (Writing chỉ khi `returned`), theo FR-077.
+- **FR-098:** Bộ lọc "Kỹ năng" và "Trạng thái" lọc ở trình duyệt trên dữ liệu đã tải, mỗi lựa chọn có số đếm; không khớp → "Không có bài nào khớp bộ lọc" và nút "Bỏ lọc". Lựa chọn lọc ghi vào query (`?skill=`, `?state=`) để tải lại giữ nguyên.
+- **FR-099:** Bài chưa nộp mà máy chủ không còn nhận (`accepting=false` theo đúng luật hiện có của loại bài đó) ghi "Không còn nhận bài" và chỉ có nút "Tự luyện bài này" (khi `self_practice_available`). Trang không tự suy luật nhận bài từ hạn.
+- **FR-100:** "Tự luyện bài này" gọi `POST /api/class/assignments/{item_id}/self-practice`: máy chủ kiểm bài thuộc người gọi, bài vẫn hiện với học viên (`is_assignment_open`) và **không** còn nhận bài, kỹ năng ∈ `speaking`, `writing`, `listening`, `reading`, `vocab`, `grammar` (không `course`), lớp chưa lưu trữ hoặc đã lưu trữ đều được (chỉ xem lại và tự luyện), rồi trả tham số mở cùng đề ở chế độ tự luyện (dạng như `start_assignment` nhưng không có `class_assignment_item_id`). Route không ghi gì vào `class_assignment_items`, `class_assignments`, sổ nộp bài; lượt làm tự luyện tạo ra không gắn với bài giao nên hook hoàn tất không đổi trạng thái bài giao. Bài còn nhận bài → 409 `assignment_still_open`; không thuộc người gọi → 404; `course` → 422 `self_practice_unsupported`.
+- **FR-101:** Lượt Writing, Speaking tự luyện đi qua route tạo phiên, nộp bài hiện có, nên trừ lượt, trần ngày, cổng một phiên và `charge_plan` của G04 như mọi bài tự luyện (nguồn lượt lớp khi người đó chỉ có lượt lớp). Không đủ lượt → `CreditsEmptyNotice` ở màn nộp như FR-084; dòng tự luyện ở trang không hiện số lượt.
+- **FR-102:** Khối "Khoá được cấp quyền luyện lại" (quyền nguồn `class` của G04, cùng dữ liệu `repractice` của FR-032; rỗng hoặc G04 chưa có → ẩn) với câu "Bài trong khoá luyện lại không phải bài được giao: không có hạn nộp…" của tờ. Khối "Bài của lớp được chấm thế nào" 4 bước, câu chữ theo tờ, Writing ghi giáo viên duyệt rồi trả, Speaking AI trả ngay (FR-036).
+- **FR-103:** `GET /api/student/assigned` chỉ đọc, chỉ bài của chính người gọi, lấy danh sách từ `_visible_assignments` qua hàm bọc (như T13; không sửa hàm đó), thêm cho mỗi dòng `group`, `action`, `accepting`, `self_practice_available` tính trong service mới bằng các hàm luật hiện có (`is_accepting_submissions`, luật nhận bài Writing, `course_action`, trạng thái công bố của 0082 khi có), `response_model` khai báo, lỗi một phần vào `degraded`, `homework_stale` của nguồn chuyển nguyên.
 
 ## Acceptance scenarios
 
@@ -252,6 +272,18 @@ Trang chủ học viên hiện là bảng điểm (`GET /api/student/home-summar
 - **When** mở `/home`, rồi `/course`, rồi gọi một route học viên khác bằng token đó
 - **Then** `/home` hiện "Chưa có khoá"; `/course` hiện màn "Cần có khoá" tại chỗ, không bị đăng xuất; route khác vẫn 403; tắt cờ thì mở `/home` về `/login` như hôm nay
 
+### Scenario 17 — Bốn nhóm bài được giao
+
+- **Given** QA lớp có 1 bài Listening quá hạn chưa nộp, 2 bài còn hạn, 1 bài Writing đã nộp AI đã chấm chưa trả, 1 bài Speaking đã chấm, cờ bật
+- **When** mở `/course/assigned`
+- **Then** thấy đúng bốn nhóm theo thứ tự; bài Writing ở "Chờ giáo viên duyệt" không có band, nút "Xem bài đã nộp"; bài Listening quá hạn ghi "Không còn nhận bài" và nút "Tự luyện bài này"
+
+### Scenario 18 — Tự luyện không đổi bài giao
+
+- **Given** bài Listening ở kịch bản 17
+- **When** bấm "Tự luyện bài này", làm và nộp
+- **Then** có kết quả tự luyện; tải lại `/course/assigned` thì bài giao vẫn "Không còn nhận bài", bảng nộp bài của giáo viên không đổi; gọi route với bài còn hạn → 409
+
 ## Edge cases
 
 - Học viên vừa lớp vừa online: hai dòng lượt theo nguồn, một tổng.
@@ -275,6 +307,9 @@ Trang chủ học viên hiện là bảng điểm (`GET /api/student/home-summar
 - (Bản sửa đổi 2) Người vừa kích hoạt (nhập mã) trong lúc đang ở màn "Cần có khoá": tải lại thì vào trang như thường (dấu "đã kích hoạt" của tab được ghi như hiện có).
 - (Bản sửa đổi 2) `/start` mở bằng tay khi `onboarding_completed=true`: hiện trang, "Bỏ qua" về `/home`, không ghi gì thêm.
 - (Bản sửa đổi 2) Frontend lên trước backend: `/auth/check-active` chưa có `learner_v2_enabled` → coi là false, tài khoản chưa kích hoạt về `/login` như cũ.
+- (Bản sửa đổi 3) Lớp đã lưu trữ: bài vẫn hiện để xem lại (theo CLASSARCHIVE-0030 hiện có), "Làm bài" không có, "Tự luyện bài này" có cho bài chưa nộp.
+- (Bản sửa đổi 3) `homework_stale` từ nguồn: trang ghi một dòng "Danh sách có thể chưa cập nhật, tải lại sau ít phút." và vẫn vẽ.
+- (Bản sửa đổi 3) Bài Speaking quá hạn đã có phiên dở: giữ luật hiện có (mở lại chính phiên để xem), "Tự luyện" tạo lượt mới tách rời.
 - Không thực hiện trên production: bật cờ, chạy migration, nộp bài.
 
 ## Success criteria
@@ -314,5 +349,7 @@ Trang chủ học viên hiện là bảng điểm (`GET /api/student/home-summar
 | 8 | (bản sửa đổi 1) Trước khi G09-T31 có danh sách người dự thi, khối "Mock test được giao" lấy dữ liệu nào? | Dùng đúng điều kiện trang Thi thử hiện nay đang dùng (`list_open_exams` cộng lượt thi của chính người đó), `mode` null; chỉ hiện được Đang mở, Đã thi chờ kết quả, Đã có kết quả. G09-T31 merge thì thay một hàm `_assigned_exams_for` | Dữ liệu hiện có, ghi trong PR T16 |
 | 9 | (bản sửa đổi 2) `/account`, `/progress`, `/help`, `/start` có theo cờ `learner_v2` không? | Không theo cờ cho bốn trang mới (chỉ thêm, không có trang cũ để giữ, chỉ đọc); `/profile` và đích "lần đầu" theo cờ vì có cây cũ đang chạy | Bốn trang mới không theo cờ |
 | 10 | (gói G07-T17, phương án A 18/11) Dựng khối "Dữ liệu của tôi", "Yêu cầu xoá tài khoản" và nút tải PDF phiếu ở `/account` ngay khi G04-T18 có? | Có, theo phương án A: anh đã để mặc định này; ẩn được nếu anh muốn để sau | Dựng khi G04-T18 có |
+| 11 | (bản sửa đổi 3) Tờ LopBuoiHoc cần danh sách buổi học có lịch, tài liệu từng buổi (slide, audio, video), nhận xét của giáo viên cho cả lớp và riêng từng người. Backend chưa có bảng nào cho các thứ này. Làm spec riêng (có migration, giáo viên nhập liệu) hay bỏ khỏi đợt này? | Spec riêng sau khi thương mại hoá chạy ổn; thẻ "Buổi học và tài liệu lớp" ẩn tới khi có | Ẩn thẻ, không dựng |
+| 12 | (bản sửa đổi 3) Tờ LoTrinhBaiDuocGiao vẽ "hạn nhận bài trễ" và nộp trễ được tới hạn đó. Hiện máy chủ cố ý không nhận bài sau hạn (`is_accepting_submissions`, để bảng nộp bài của lớp chốt ngay khi tới hạn), trừ luật riêng của Writing. Đổi luật này không? | Giữ luật hiện có; bài quá hạn có "Tự luyện bài này". Nếu cần nộp trễ thì làm spec riêng (thêm cột hạn nhận bài trễ, đổi chỗ chặn nộp và bảng giáo viên) | Giữ luật hiện có |
 
 Câu 9, 11, 12 của gói đã được trả lời (mục "Quyết định đã có"). Lộ trình và hai hub (G07-T15, T16) có ở bản sửa đổi 1; Tài khoản, Tiến độ, Trợ giúp, Hồ sơ, "Lần đầu vào" (G07-T17) và T26 có ở bản sửa đổi 2 (câu 4); LEARNERNAV-0062 chỉ dời URL của các trang đó.

@@ -57,6 +57,15 @@ Mọi dòng ở trạng thái `PENDING`: spec đang `draft`, chưa có dòng mã
 | FR-092 | kind=test; ref=planned React auth-provider inactive_open on /course renders NeedsCourseScreen and the page never mounts (T26) | PENDING |
 | FR-093 | kind=test; ref=planned node activation-gate missing learner_v2_enabled gives inactive and /login; unknown stays open (T26) | PENDING |
 | FR-094 | kind=test; ref=planned pytest activation gate inventory with exactly two new exemptions, today for inactive queries no work tables, other learner route still 403, check-active flag field in both DB branches (T26) | PENDING |
+| FR-095 | kind=test; ref=planned React assigned-v2 flag on draws new tree with course tabs, flag off draws MyClassWorkspace (T30a) | PENDING |
+| FR-096 | kind=test; ref=planned pytest student_assigned four groups; React group order, empty groups hidden, overdue banner count (T30a) | PENDING |
+| FR-097 | kind=test; ref=planned React button per action and hrefs via my-class-model; Writing band only when returned (T30a) | PENDING |
+| FR-098 | kind=test; ref=planned React skill and state filters with counts, clear filter, query keeps selection (T30a) | PENDING |
+| FR-099 | kind=test; ref=planned React accepting=false shows "Không còn nhận bài" and only the self-practice button (T30a) | PENDING |
+| FR-100 | kind=test; ref=planned pytest self-practice route 404, 409, 422, launch params without class_assignment_item_id, zero writes, completion leaves item state unchanged (T30b) | PENDING |
+| FR-101 | kind=test; ref=planned pytest Speaking self-practice session goes through POST /sessions quota and charge_plan like any self practice (T30b) | PENDING |
+| FR-102 | kind=test; ref=planned React repractice block hidden when empty, grading steps copy (T30a) | PENDING |
+| FR-103 | kind=test; ref=planned pytest response_model shape, caller-only rows, degraded part, homework_stale passthrough, _visible_assignments unchanged (T30a) | PENDING |
 
 ## Kịch bản staging (gói 9.1 mục 1, 3, 3b, 3c, 8; 9.4)
 
@@ -76,6 +85,8 @@ Tài khoản QA và dữ liệu thử; không bật cờ cho học viên thật.
 10. **Tài khoản và Hồ sơ** (bản sửa đổi 2). Given QA có lớp, cờ bật. When mở `/account`, `/profile`. Then đúng nhóm khoá, lượt một số chung; khối phiên đăng nhập hiện hoặc ẩn đúng theo G04-T16; ảnh 1280px và 390px.
 11. **Lần đầu vào** (bản sửa đổi 2). Given tài khoản QA mới, cờ bật. When đăng nhập. Then tới `/start`, "Bỏ qua" về `/home`, lần sau không tới `/start`.
 12. **Chưa kích hoạt** (bản sửa đổi 2, high-risk auth). Kịch bản 16 của spec trên staging, bằng tài khoản QA mới tạo; ghi SHA, giờ bật/tắt cờ; gọi một route học viên khác bằng token đó và ghi mã 403.
+
+13. **Bài được giao** (bản sửa đổi 3). Kịch bản 17, 18 của spec trên staging với lớp thử; ảnh 1280px và 390px; ghi bảng nộp bài của giáo viên trước và sau khi tự luyện (không đổi).
 
 ## Contract evidence
 
