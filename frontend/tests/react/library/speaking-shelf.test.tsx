@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { YOUTUBE_READY_TIMEOUT_MS } from '@/components/library/video-player';
 import { SpeakingAnswer } from '@/app/(public-library)/library/speaking/[slug]/speaking-answer';
 import { speakingSections } from '@/app/(public-library)/library/speaking/[slug]/speaking-sections';
 import type { SpeakingDetail, TranscriptLine } from '@/app/(public-library)/library/speaking/speaking-data';
@@ -103,6 +104,54 @@ describe('SpeakingAnswer', () => {
     expect(html).toContain('I go back every summer.');
     expect(html).not.toContain('<button');
     expect(html).not.toContain('Câu trả lời mẫu');
+  });
+});
+
+describe('YouTube player readiness', () => {
+  afterEach(() => {
+    delete (window as { YT?: unknown }).YT;
+  });
+
+  function renderYouTube() {
+    return render(
+      <SpeakingAnswer
+        slug="a-city-part-2"
+        title="A city"
+        source={{ kind: 'youtube', id: 'abcdefghijk' }}
+        durationS={60}
+        transcript={LINES}
+        timed
+        {...sections}
+      />,
+    );
+  }
+
+  it('a player that never reports ready or an error ends in the broken state', async () => {
+    vi.useFakeTimers();
+    // The API is there, but the embed is blocked: no callback ever fires.
+    (window as { YT?: unknown }).YT = { Player: vi.fn(function Player() { return { destroy: vi.fn() }; }), PlayerState: { PLAYING: 1 } };
+    renderYouTube();
+    await act(async () => { await Promise.resolve(); });
+    expect(screen.queryByText('Không mở được video từ YouTube')).toBeNull();
+    expect(screen.getAllByRole('button').some((b) => /^0:0\d/.test(b.textContent ?? ''))).toBe(true);
+    await act(async () => { vi.advanceTimersByTime(YOUTUBE_READY_TIMEOUT_MS); });
+    expect(screen.getByText('Không mở được video từ YouTube')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Thử tải lại' })).toBeTruthy();
+  });
+
+  it('a ready player cancels the timeout', async () => {
+    vi.useFakeTimers();
+    (window as { YT?: unknown }).YT = {
+      Player: vi.fn(function Player(_el: HTMLElement, options: { events: { onReady: () => void } }) {
+        options.events.onReady();
+        return { destroy: vi.fn() };
+      }),
+      PlayerState: { PLAYING: 1 },
+    };
+    renderYouTube();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(YOUTUBE_READY_TIMEOUT_MS * 2); });
+    expect(screen.queryByText('Không mở được video từ YouTube')).toBeNull();
   });
 });
 

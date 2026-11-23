@@ -47,6 +47,8 @@ const POSITION_PREFIX = 'aver-speaking-position:';
 const RESUME_MIN_S = 5;
 const RETRY_AFTER_MS = 5000;
 const POLL_MS = 250;
+/** Longest wait for the YouTube API + player to report ready before the frame says it failed. */
+export const YOUTUBE_READY_TIMEOUT_MS = 15000;
 
 // ── remembered position (self-hosted video only) ───────────────────────────
 
@@ -160,6 +162,16 @@ export const VideoPlayer = forwardRef<PlayerHandle, VideoPlayerProps>(function V
       if (timer) clearInterval(timer);
       timer = null;
     };
+    // A blocked embed may never call onReady or onError: bound the wait, so the
+    // frame always ends up playable or saying it failed, never empty.
+    let readyTimer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+      readyTimer = null;
+      if (!cancelled) markBroken(true);
+    }, YOUTUBE_READY_TIMEOUT_MS);
+    const stopReadyTimer = () => {
+      if (readyTimer) clearTimeout(readyTimer);
+      readyTimer = null;
+    };
     loadYouTubeApi().then((YT) => {
       if (cancelled || !ytHost.current) return;
       const target = document.createElement('div');
@@ -171,8 +183,12 @@ export const VideoPlayer = forwardRef<PlayerHandle, VideoPlayerProps>(function V
         height: '100%',
         playerVars: { autoplay: 0, rel: 0, playsinline: 1, cc_lang_pref: 'en' },
         events: {
-          onReady: () => markBroken(false),
+          onReady: () => {
+            stopReadyTimer();
+            markBroken(false);
+          },
           onError: () => {
+            stopReadyTimer();
             stopPolling();
             markBroken(true);
           },
@@ -188,10 +204,12 @@ export const VideoPlayer = forwardRef<PlayerHandle, VideoPlayerProps>(function V
         },
       });
     }).catch(() => {
+      stopReadyTimer();
       if (!cancelled) markBroken(true);
     });
     return () => {
       cancelled = true;
+      stopReadyTimer();
       stopPolling();
       ytPlayer.current?.destroy();
       ytPlayer.current = null;

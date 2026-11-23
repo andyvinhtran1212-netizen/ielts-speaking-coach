@@ -216,6 +216,14 @@ class _Q:
         self.filters.append(lambda r: r.get(col) == value)
         return self
 
+    def order(self, _col):
+        return self
+
+    def range(self, start, end):
+        self.window = (start, end)
+        self.db.ranges.append((self.table, start, end))
+        return self
+
     def insert(self, payload):
         self.op, self.payload = "insert", payload
         return self
@@ -234,12 +242,16 @@ class _Q:
                 if all(f(r) for f in self.filters):
                     r.update(self.payload)
             self.db.writes.append(("update", self.payload["slug"]))
-        return type("R", (), {"data": [dict(r) for r in rows if all(f(r) for f in self.filters)]})()
+        data = [dict(r) for r in rows if all(f(r) for f in self.filters)]
+        window = getattr(self, "window", None)
+        if window:
+            data = data[window[0]:window[1] + 1]
+        return type("R", (), {"data": data})()
 
 
 class FakeDB:
     def __init__(self, tables):
-        self.tables, self.writes, self.uploads = tables, [], []
+        self.tables, self.writes, self.uploads, self.ranges = tables, [], [], []
         db = self
 
         class _Bucket:
@@ -248,6 +260,7 @@ class FakeDB:
 
             def upload(self, path, data, opts):
                 db.uploads.append((self.name, path, opts["content-type"]))
+                db.writes.append(("upload", path))
 
         self.storage = type("S", (), {"from_": staticmethod(lambda name: _Bucket(name))})()
 
@@ -285,7 +298,7 @@ def test_execute_inserts_unpublished_uploads_audio_and_reads_back(tmp_path, caps
     capsys.readouterr()
     assert iss.main(["--source", str(folder), "--execute"], db=db) == 0
     assert f"SAME     {SLUG}" in capsys.readouterr().out
-    assert db.writes == [("insert", SLUG)]
+    assert db.writes == [("insert", SLUG), ("upload", "speaking-samples/p2-001/answer.mp3")]
 
 
 def test_published_row_is_not_changed_without_flag(tmp_path, capsys):
@@ -309,3 +322,29 @@ def test_topic_slug_must_be_on_the_speaking_shelf(tmp_path, monkeypatch, capsys)
 def test_check_mode_needs_no_database(tmp_path, capsys):
     assert iss.main(["--check", "--source", str(deliver(tmp_path, make_item()))], db=None) == 0
     assert "OK       " + SLUG in capsys.readouterr().out
+
+
+def test_a_non_string_answer_is_reported_and_the_rest_still_imports(tmp_path):
+    other = next(slug for slug in iss.load_manifest(iss.DEFAULT_MANIFEST) if slug != SLUG)
+    folder = deliver(tmp_path, make_item(), make_item(slug=other, sample_text=123))
+    _problems, items = iss.read_delivery(folder, iss.load_manifest(iss.DEFAULT_MANIFEST), {})
+    by_slug = {i.slug: i for i in items}
+    assert any(c.startswith("E_NO_TEXT") for c in by_slug[other].codes)
+    assert not by_slug[SLUG].blocked
+
+
+def test_execute_writes_the_row_before_uploading_its_audio(tmp_path):
+    db = _db()
+    item = make_item(media={"audio_file": f"{SLUG}.mp3", "duration_ms": 6100})
+    folder = deliver(tmp_path, item, extra_files={f"{SLUG}.mp3": b"ID3"})
+    assert iss.main(["--source", str(folder), "--execute"], db=db) == 0
+    kinds = [w[0] for w in db.writes]
+    assert "upload" in kinds and kinds.index("insert") < kinds.index("upload")
+
+
+def test_topics_are_read_in_pages(tmp_path):
+    db = _db()
+    db.tables["topics"] = [{"id": f"t-x{n}", "title": f"Other {n}", "part": 1} for n in range(1500)] + db.tables["topics"]
+    folder = deliver(tmp_path, make_item())
+    assert iss.main(["--source", str(folder)], db=db) == 0
+    assert ("topics", 1000, 1999) in db.ranges

@@ -27,3 +27,22 @@ test('groupByTopic follows shelf topic order, other topics last, empty groups dr
 test('describeFilters says the active filters in words', () => {
   assert.equal(describeFilters({ part: '3', chude: 'places', video: true, q: 'zoo' }, 'Nơi chốn'), 'Part 3 · chủ đề Nơi chốn · chỉ đề có video · có chữ “zoo”');
 });
+
+test('links into a question page are plain anchors (CSP is per document)', async () => {
+  // The YouTube sources are sent only with the question page's own response;
+  // a next/link soft navigation would keep the previous page's policy.
+  const { readdirSync, readFileSync, statSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const root = new URL('../app/(public-library)/library/speaking/', import.meta.url).pathname;
+  const files = [];
+  const walk = (dir) => {
+    for (const name of readdirSync(dir)) {
+      const path = join(dir, name);
+      if (statSync(path).isDirectory()) walk(path);
+      else if (/\.(tsx?|mjs)$/.test(name)) files.push(path);
+    }
+  };
+  walk(root);
+  assert.ok(files.length > 3);
+  for (const file of files) assert.doesNotMatch(readFileSync(file, 'utf8'), /from 'next\/link'/, file);
+});

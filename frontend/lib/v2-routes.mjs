@@ -5,9 +5,9 @@
 // and ChromeNavigationBridge sits in the root layout, so importing it there
 // would ship the whole registry to every page. This list is the slim copy;
 // `tests/v2-routes.test.mjs` fails when it drifts from the registry. Static
-// routes are a Set lookup; the few dynamic ones (`[param]` = exactly one
-// non-empty segment, the same rule as the registry matcher) are listed in
-// V2_DYNAMIC_ROUTES and matched segment by segment.
+// routes are a Set lookup; a dynamic route may use only plain `[param]`
+// segments (one path segment each, no catch-all), matched segment by segment,
+// so the answer stays the same as `isV2Route`.
 
 /** @type {readonly string[]} */
 export const V2_ROUTES = Object.freeze([
@@ -15,6 +15,7 @@ export const V2_ROUTES = Object.freeze([
   '/contact',
   '/library',
   '/library/speaking',
+  '/library/speaking/[slug]',
   '/library/writing-guides',
   '/library/writing-samples',
   '/privacy',
@@ -23,29 +24,31 @@ export const V2_ROUTES = Object.freeze([
   '/ui-library',
 ]);
 
-/** Dynamic v2 routes: one `[param]` stands for one path segment. @type {readonly string[]} */
-export const V2_DYNAMIC_ROUTES = Object.freeze([
-  '/library/speaking/[slug]',
-]);
+const isDynamic = (route) => route.includes('[');
+const V2_SET = new Set(V2_ROUTES.filter((route) => !isDynamic(route)));
+const V2_DYNAMIC = V2_ROUTES.filter(isDynamic).map((route) => route.slice(1).split('/'));
 
-const V2_SET = new Set(V2_ROUTES);
-const V2_PATTERNS = V2_DYNAMIC_ROUTES.map((route) => route.split('/'));
-
-/** @param {string} path @returns {boolean} */
-function matchesDynamic(path) {
-  const parts = path.split('/');
-  return V2_PATTERNS.some((pattern) => pattern.length === parts.length
-    && pattern.every((seg, i) => (/^\[[^\].]+\]$/.test(seg) ? parts[i] !== '' : seg === parts[i])));
+/** A concrete pathname's segments against a pattern whose `[x]` segments match any one segment. */
+function matchesPattern(segments, pattern) {
+  return (
+    segments.length === pattern.length &&
+    pattern.every((part, i) => (part.startsWith('[') ? segments[i] !== '' : part === segments[i]))
+  );
 }
 
 /**
  * Same answer as `isV2Route` from route-registry.mjs, for a pathname
- * (query/hash and trailing slashes ignored).
+ * (query/hash and trailing slashes ignored). A static v1 route never shares a
+ * prefix-and-length with a v2 pattern today; the drift test checks every
+ * registry route, so a clash would fail there.
  * @param {string} pathname @returns {boolean}
  */
 export function isV2Path(pathname) {
   const raw = String(pathname ?? '').split(/[?#]/, 1)[0];
   const trimmed = raw.replace(/\/+$/, '');
   const path = trimmed === '' ? '/' : trimmed;
-  return V2_SET.has(path) || matchesDynamic(path);
+  if (V2_SET.has(path)) return true;
+  if (V2_DYNAMIC.length === 0 || path === '/') return false;
+  const segments = path.slice(1).split('/');
+  return V2_DYNAMIC.some((pattern) => matchesPattern(segments, pattern));
 }

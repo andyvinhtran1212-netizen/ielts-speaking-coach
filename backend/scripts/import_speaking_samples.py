@@ -11,7 +11,7 @@ Modes
 (default)       dry run: the checks, then a plan against the database
                 (INSERT / UPDATE / SAME per slug, the ``topics`` row matched by
                 title + part for "Luyện nói đề này"). Writes nothing.
-``--execute``   the plan above, then: upload each audio file to the private
+``--execute``   the plan above, then: write each row, upload its audio file to the private
                 ``library-media`` bucket at ``speaking-samples/<source_id>/answer.<ext>``,
                 upsert the rows, read them back and compare ``content_hash``.
 
@@ -234,7 +234,9 @@ def check_item(path: Path, manifest: dict[str, dict], cue_cards: dict[str, dict]
     elif data["source_id"] != entry.get("source_id") or data["part"] != entry.get("part"):
         item.codes.append("E_MANIFEST source_id or part does not match the manifest")
     if not isinstance(data["sample_text"], str) or not data["sample_text"].strip():
-        item.codes.append("E_NO_TEXT sample_text is empty")
+        # Stop here: the transcript checks below compare against this text.
+        item.codes.append("E_NO_TEXT sample_text is empty or not a string")
+        return item
     if data["voice"] != "synthetic":
         item.codes.append("E_VOICE voice must be synthetic")
     media_codes, media_cols, audio = check_media(data, path.parent)
@@ -317,6 +319,21 @@ def read_delivery(source: Path, manifest: dict[str, dict], cue_cards: dict[str, 
 # ── database ────────────────────────────────────────────────────────────────
 
 
+_PAGE = 1000
+
+
+def _paged(query_factory, order_by: str) -> list[dict]:
+    """Every row of a select, read in pages: PostgREST caps one read at 1000."""
+    rows: list[dict] = []
+    start = 0
+    while True:
+        page = query_factory().order(order_by).range(start, start + _PAGE - 1).execute().data or []
+        rows.extend(page)
+        if len(page) < _PAGE:
+            return rows
+        start += _PAGE
+
+
 def plan(db, items: list[Item], *, allow_published_update: bool) -> None:
     """Fills ``action`` (INSERT / UPDATE / SAME) and the DB-only codes."""
     ready = [i for i in items if not i.blocked]
@@ -328,12 +345,8 @@ def plan(db, items: list[Item], *, allow_published_update: bool) -> None:
             .in_("source_id", [i.row["source_id"] for i in ready]).execute().data or []
         )
     }
-    topics = {
-        r["slug"]: r for r in (
-            db.table("library_topics").select("slug, shelves").execute().data or []
-        )
-    }
-    bank = db.table("topics").select("id, title, part").execute().data or []
+    topics = {r["slug"]: r for r in _paged(lambda: db.table("library_topics").select("slug, shelves"), "slug")}
+    bank = _paged(lambda: db.table("topics").select("id, title, part"), "id")
     by_title = {}
     for t in bank:
         by_title.setdefault((str(t.get("title") or "").casefold().strip(), t.get("part")), []).append(t.get("id"))
@@ -362,21 +375,25 @@ def plan(db, items: list[Item], *, allow_published_update: bool) -> None:
 
 
 def execute(db, items: list[Item]) -> list[str]:
-    """Uploads audio, upserts rows (new rows unpublished), reads back."""
+    """Upserts rows (new rows unpublished), then uploads audio, then reads back.
+
+    The row is written first, so a failed write never leaves an orphan object in
+    the bucket. A new row is unpublished, so its audio being uploaded a moment
+    later is never seen; the media route answers 404 until the object exists."""
     failures: list[str] = []
     todo = [i for i in items if not i.blocked and i.action in ("INSERT", "UPDATE")]
     for item in todo:
-        if item.audio is not None:
-            db.storage.from_(BUCKET).upload(
-                item.row["audio_path"], item.audio.read_bytes(),
-                {"content-type": AUDIO_TYPES[item.audio.suffix.lower()], "upsert": "true"},
-            )
         payload = dict(item.row)
         if item.action == "INSERT":
             payload["published"] = False
             db.table(TABLE).insert(payload).execute()
         else:
             db.table(TABLE).update(payload).eq("source_id", payload["source_id"]).execute()
+        if item.audio is not None:
+            db.storage.from_(BUCKET).upload(
+                item.row["audio_path"], item.audio.read_bytes(),
+                {"content-type": AUDIO_TYPES[item.audio.suffix.lower()], "upsert": "true"},
+            )
     if todo:
         back = {
             r["source_id"]: r for r in (
