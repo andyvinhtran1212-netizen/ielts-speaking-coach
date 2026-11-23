@@ -19,6 +19,7 @@ import {
   BreadcrumbSection, PaginationSection, ProgressBarSection, StepperSection, TabsSection,
 } from './nav-sections';
 import { DataTableSection, StatCardSection } from './data-sections';
+import { ChartSection, DateFieldsSection, FileUploadSection } from './data-sections-2';
 import { LearnerShellSection } from './shell-sections';
 import { FocusShellSection } from './focus-demo';
 import { ThemeSection } from './theme-sections';
@@ -177,6 +178,9 @@ export default function UiLibraryPage() {
           <StepperSection title={title('stepper')} />
           <DataTableSection title={title('data-table')} />
           <StatCardSection title={title('stat-card')} />
+          <ChartSection title={title('chart')} />
+          <FileUploadSection title={title('file-upload')} />
+          <DateFieldsSection title={title('date-fields')} />
           <ThemeSection title={title('theme')} />
           <LearnerShellSection title={title('learner-shell')} />
           <FocusShellSection title={title('focus-shell')} />

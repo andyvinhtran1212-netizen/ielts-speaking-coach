@@ -168,3 +168,7 @@
 .tableStates { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--av2-space-7); }
 .narrowFrame { width: 100%; max-width: 358px; }
 .tableIssue { margin-left: var(--av2-space-2); color: var(--av2-danger); }
+.chartGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--av2-space-8); align-items: start; }
+.chartGrid .demoLabel { margin-top: 0; line-height: 20px; }
+.uploadFrame { max-width: 720px; }
+.dateGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--av2-space-7); align-items: start; }

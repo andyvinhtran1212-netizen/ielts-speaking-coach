@@ -168,7 +168,7 @@
 .chosen:hover .cell { background: var(--av2-tint); }
 .missing { color: var(--av2-muted); }
 
-.selectCell { width: var(--dt-select-w); padding: 0 0 0 var(--av2-space-1); }
+.selectCell { width: var(--dt-select-w); min-width: var(--dt-select-w); max-width: var(--dt-select-w); padding: 0 0 0 var(--av2-space-1); }
 .check {
   display: inline-flex;
   align-items: center;
