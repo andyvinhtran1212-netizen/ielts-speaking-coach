@@ -23,9 +23,9 @@ Hợp đồng dưới đây lấy từ gói mục 5.4, 5.5 và đối chiếu v�
 
 ## Data and contracts
 
-### 5.1 Migration (T18, một file trong dải 420–439)
+### 5.1 Migration (T18, số 506 đã giữ chỗ trong `register.tsv`)
 
-Lấy số trống đầu tiên của dải lúc viết PR. Ngày 23/11, 420 đã thuộc `users.today_seen_at` của LEARNERCORE-0063 và 421 thuộc `review_notes_flag_once` ở nhánh đang mở. Trước khi đặt tên file, đối chiếu `register.tsv` và các PR đang mở có file trong dải. Thêm dòng `reserved` vào `register.tsv` ngay trong PR spec hoặc PR đầu tiên của T18, để 0064 và 0065 không chọn trùng số. Thêm dòng `register.tsv` cùng PR. Có file rollback `backend/migrations/rollback/<số>_course_lessons.sql`. Rollback từ chối khi `course_lesson_progress` có dòng, trừ khi `aver.allow_course_lessons_rollback = 'on'`, theo mẫu rollback của mig 383.
+File là `506_course_lessons.sql`. Số 506 được giữ chỗ trong `register.tsv` ngày 23/11 (PR giữ số riêng); PR T18 đổi dòng đó từ `reserved` sang `present`. Dải 420–439 không dùng: 420 đã thuộc LEARNERCORE-0063 và 421 thuộc `review_notes_flag_once`. Thêm dòng `register.tsv` cùng PR. Có file rollback `backend/migrations/rollback/<số>_course_lessons.sql`. Rollback từ chối khi `course_lesson_progress` có dòng, trừ khi `aver.allow_course_lessons_rollback = 'on'`, theo mẫu rollback của mig 383.
 
 ```sql
 CREATE TABLE IF NOT EXISTS public.course_lessons (

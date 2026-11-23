@@ -34,7 +34,7 @@ Khoá online (G04, `course_products.kind = 'online'`) bán được nhưng chưa
 
 ## Scope
 
-- Hai bảng `course_lessons` và `course_lesson_progress`, kèm RLS (một migration trong dải 420–439 của G07).
+- Hai bảng `course_lessons` và `course_lesson_progress`, kèm RLS (một migration, số 506 đã giữ chỗ).
 - API học viên `/api/course/...`: danh sách bài theo chặng, một bài, ghi tiến độ.
 - Trang bài giảng `/course/learn/[courseCode]/[lessonCode]`, trình phát hai nguồn và đổi CSP `frame-src`.
 - `services/course_outline.py`, gồm hai phần:
