@@ -138,6 +138,46 @@ def _pre_320() -> str:
         rf"CREATE TABLE IF NOT EXISTS {table} \(.*?^\);",
         (MIGRATIONS / filename).read_text(encoding="utf-8"), re.S | re.M)[0]
         for filename, table in admin_tables)
+    # 445 (MOCKORG-0086) widens 154's exam_mode CHECK and refuses any other
+    # definition, so the mock_exams shape carries 154's column and CHECK verbatim.
+    exam_mode = re.search(
+        r"^ALTER TABLE mock_exams\s+ADD COLUMN IF NOT EXISTS exam_mode.*?END \$\$;",
+        (MIGRATIONS / "154_mock_exam_retake_mode.sql").read_text(encoding="utf-8"), re.S | re.M)[0]
+    # 446 rewrites the exam_mode comparison inside these pre-320 functions and
+    # refuses when one is missing, so they are created verbatim (302, 306) with
+    # the sitting and review tables 302's SQL body reads (146, 147).
+    mock_tables = "\n".join(re.search(
+        rf"CREATE TABLE IF NOT EXISTS {table} \(.*?^\);",
+        (MIGRATIONS / filename).read_text(encoding="utf-8"), re.S | re.M)[0]
+        for filename, table in (("146_mock_exam_sittings.sql", "mock_exam_sittings"),
+                                ("147_mock_exam_reviews.sql", "mock_exam_reviews")))
+    # Every column the mock tables gained before 320 (149–245), in file order:
+    # 302's body reads is_open/active_section, and 445–448 read the rest.
+    mock_columns = "\n".join(
+        match[0]
+        for path in sorted(MIGRATIONS.glob("[0-9][0-9][0-9]_*.sql"))
+        if 145 < int(path.name[:3]) < FIRST and not path.name.endswith("_rollback.sql")
+        for match in re.finditer(
+            r"ALTER TABLE (?:public\.)?(?:mock_exams|mock_exam_sittings|mock_exam_reviews)"
+            r"\s+ADD COLUMN IF NOT EXISTS[^;]*;", path.read_text(encoding="utf-8")))
+    mock_functions = []
+    for filename, name in (("302_admin_mock_review_list_snapshot.sql",
+                            "fn_admin_mock_exams_with_review_eligibility"),
+                           ("306_mock_paper_policy_and_admission.sql", "fn_mock_section_valid"),
+                           ("306_mock_paper_policy_and_admission.sql", "fn_mock_paper_dependencies"),
+                           ("306_mock_paper_policy_and_admission.sql", "fn_guard_mock_paper_policy"),
+                           ("306_mock_paper_policy_and_admission.sql", "fn_guard_owned_mock_attempt")):
+        mock_functions.append(re.search(
+            rf"^CREATE OR REPLACE FUNCTION public\.{name}\(.*?\$\$;",
+            (MIGRATIONS / filename).read_text(encoding="utf-8"), re.S | re.M)[0])
+        # 302 and 306 revoke client EXECUTE on every definer they create.
+        mock_functions.append(
+            "DO $r$ DECLARE f regprocedure; BEGIN "
+            f"SELECT p.oid::regprocedure INTO f FROM pg_proc p WHERE p.proname = '{name}' "
+            "AND p.pronamespace = 'public'::regnamespace; "
+            "EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC, anon, authenticated', f); "
+            "END $r$;")
+    mock_functions = "\n".join(mock_functions)
     admin_helpers = "\n".join(re.search(
         rf"CREATE OR REPLACE FUNCTION public.{helper}\(\).*?"
         r"\$\$ LANGUAGE plpgsql SECURITY DEFINER STABLE;",
@@ -417,6 +457,10 @@ def _pre_320() -> str:
         GRANT EXECUTE ON FUNCTION fn_finalize_d1_attempt(uuid, uuid, integer, real, integer,
             timestamptz, timestamptz, jsonb) TO authenticated;
         {admin_schema}
+        {exam_mode}
+        {mock_tables}
+        {mock_columns}
+        {mock_functions}
         {admin_helpers}
         {helper_revokes}
         {"".join(f'ALTER TABLE {table} ENABLE ROW LEVEL SECURITY;'
