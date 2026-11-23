@@ -81,8 +81,10 @@ nộp FR-08-034, thanh tập trung). Bảng đối chiếu ở `verification.md`
   `callPractice` cho việc này, vì `callPractice` bỏ qua khi app chưa nạp và sự kiện `mic` có
   thể phát ngay khi `init` chạy. `practice.js` không tự đọc
   `__AVER_RUNTIME_CONFIG__` hay `?exam_room` (để quy tắc `?exam_room` chỉ ngoài production của
-  0066 giữ ở một nơi). Nhánh mới chỉ thêm lời gọi `_updateNativeView('mic', {...})` và
-  `_updateNativeView('recording', { level })` khi chế độ đó đã được đặt (một dòng mỗi chỗ); test
+  0066 giữ ở một nơi). Nhánh mới thêm lời gọi `_updateNativeView('mic', {...})` và
+  `_updateNativeView('recording', { level })` khi chế độ đó đã được đặt (một dòng mỗi chỗ), và lời
+  gọi tải lên (`POST /sessions/{id}/responses`) cùng hoàn tất (`PATCH /sessions/{id}/complete`)
+  rẽ theo cùng cờ đó để truyền `{ noRedirect: true }` (FR-010); nhánh cờ tắt gọi như hôm nay; test
   `node --test`: bootstrap không có `examRoomMode: true` thì không phát sự kiện mới nào. Thêm các lệnh mới `requestLeave`, `confirmLeave`, `confirmRerecord`,
   `confirmSubmitWithUnsent` mà cầu nối gọi qua `callPractice`. Chuỗi tiếng Việt của nhánh cũ giữ
   trong `practice.js` cho test đọc nguồn.
@@ -98,7 +100,9 @@ nộp FR-08-034, thanh tập trung). Bảng đối chiếu ở `verification.md`
   Đã cho phép rồi (`navigator.permissions` trả `granted` khi trình duyệt hỗ trợ) thì bỏ qua bước
   đầu. Trình duyệt không có `getUserMedia`/`MediaRecorder`: chuỗi hiện có, không ghi được.
 - **FR-004:** Trạng thái ghi âm bằng chữ, không chỉ màu: "Sẵn sàng", "Đang ghi" kèm đồng hồ,
-  "Không nghe thấy tiếng" khi mức âm dưới ngưỡng quá 3 giây liên tục (đọc từ `AnalyserNode` đã có
+  "Không nghe thấy tiếng" khi mức âm dưới ngưỡng quá 3 giây liên tục. Mức âm là RMS của
+  `getByteTimeDomainData` quy về 0–1 (`|byte − 128| / 128`); ngưỡng là hằng `SILENCE_RMS = 0.02`
+  trong `recording-status.tsx` (câu hỏi mở 4), để test dùng số cố định (đọc từ `AnalyserNode` đã có
   cho dạng sóng; không có `AudioContext`, hoặc recorder native (`_getNativeRecorder`) không cho
   `AnalyserNode`, thì không báo im lặng), "Tạm dừng" khi rãnh micro bị
   `mute` hoặc `MediaRecorder` ở `paused` do trình duyệt (không thêm nút tạm dừng), "Đã ghi" kèm

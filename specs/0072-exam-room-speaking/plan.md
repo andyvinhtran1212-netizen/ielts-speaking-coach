@@ -24,7 +24,8 @@
   `POST /sessions/{id}/renderer-affinity`, báo về sitting như hôm nay.
 - Không lưu âm thanh trong bộ nhớ trình duyệt. Khoá ghi `exam-room:speaking:{session_id}` (0066
   FR-017).
-- Ngưỡng im lặng và thời gian là hằng trong `recording-status.tsx`.
+- Ngưỡng im lặng (`SILENCE_RMS = 0.02`, RMS của `getByteTimeDomainData` quy về 0–1) và thời gian
+  (3 giây) là hằng trong `recording-status.tsx`.
 
 ## UI and interaction
 
