@@ -130,8 +130,17 @@ const nextConfig: NextConfig = {
       { source: '/pages/admin-listening-gist.html', destination: '/pages/admin/listening/gist.html', permanent: true },
       { source: '/pages/admin-listening-tf.html', destination: '/pages/admin/listening/tf.html', permanent: true },
       { source: '/pages/admin-listening-mcq.html', destination: '/pages/admin/listening/mcq.html', permanent: true },
-      // Canonical clean alias; no Legacy rollback renderer remains.
-      { source: '/admin/access-codes', destination: '/admin/users?tab=codes', permanent: true },
+      // Canonical clean alias; no Legacy rollback renderer remains. ADMINIA-0074
+      // FR-048 moved the code ledger to its own page.
+      { source: '/admin/access-codes', destination: '/admin/activation-codes', permanent: true },
+      // The former users-page codes tab, including browsers that cached the
+      // old 308 above. Temporary so /admin/users itself stays uncached.
+      {
+        source: '/admin/users',
+        has: [{ type: 'query', key: 'tab', value: 'codes' }],
+        destination: '/admin/activation-codes',
+        permanent: false,
+      },
       // U-14 / BL-03: section prefixes with no index page. Without these the
       // bare URL fell through to the root not-found page. Temporary (307) so a
       // future native index route is not shadowed by cached 308s.

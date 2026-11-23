@@ -1,4 +1,5 @@
-// Fixture-backed browser contract for native `/admin/users`.
+// Fixture-backed browser contract for native `/admin/users` and the
+// `/admin/activation-codes` ledger (ADMINIA-0074 FR-048/055).
 // It never reads or mutates production data.
 //
 //   node tooling/verify-admin-users-flow.mjs [base]
@@ -24,6 +25,7 @@ const check = (name, ok, detail = '') => {
 };
 
 async function launchChromium() {
+  if (process.env.CHROMIUM_EXECUTABLE) return chromium.launch({ executablePath: process.env.CHROMIUM_EXECUTABLE });
   try { return await chromium.launch(); }
   catch (error) {
     const localChrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
@@ -43,10 +45,13 @@ const users = [
 const suspended = new Set(['u3']);
 const SUSPENDED_ROLE_MESSAGE = 'Không thể đổi vai trò của tài khoản đang bị tạm khóa. Hãy mở khóa tài khoản trước, rồi đổi vai trò.';
 
+const DAY = 86_400_000;
+const inDays = (days) => new Date(Date.now() + days * DAY).toISOString();
 let codes = [
   { id: 'c1', code: 'ACTIVE-001', is_used: true, is_revoked: false, is_active: true, used_by: 'u2', used_at: '2026-07-02T00:00:00Z', created_at: '2026-07-01T00:00:00Z', permissions: ['all'], session_limit: 10, expires_at: null, code_type: 'direct', cohort_id: 'co1', cohort_name: 'Khoá 1', notes: '<script>alert(1)</script>', association_lookup_failed: false, assigned_users: [{ user_id: 'u2', name: 'Bob', email: 'bob@example.test', is_fallback_used_by: false, removable: true, quota: { used: 3, limit: 10, remaining: 7, limit_type: 'per_user_via_code' } }] },
-  { id: 'c2', code: 'POOL-002', is_used: false, is_revoked: false, is_active: true, used_by: null, used_at: null, created_at: '2026-08-02T00:00:00Z', permissions: ['writing'], session_limit: null, expires_at: null, code_type: 'mass', cohort_id: null, cohort_name: null, notes: null, association_lookup_failed: true, assigned_users: [] },
+  { id: 'c2', code: 'POOL-002', is_used: false, is_revoked: false, is_active: true, used_by: null, used_at: null, created_at: '2026-08-02T00:00:00Z', permissions: ['writing'], session_limit: null, expires_at: inDays(20), grant_credits: 500, code_type: 'mass', cohort_id: null, cohort_name: null, notes: null, association_lookup_failed: true, assigned_users: [] },
   { id: 'c3', code: 'OLD-003', is_used: true, is_revoked: true, is_active: false, used_by: 'u1', used_at: '2026-06-02T00:00:00Z', created_at: '2026-06-01T00:00:00Z', permissions: ['all'], session_limit: 5, expires_at: null, code_type: 'mass', cohort_id: null, cohort_name: null, notes: null, association_lookup_failed: false, assigned_users: [] },
+  { id: 'c6', code: 'LATE-006', is_used: false, is_revoked: false, is_active: true, used_by: null, used_at: null, created_at: '2026-04-01T00:00:00Z', permissions: ['all'], session_limit: null, expires_at: inDays(-2), code_type: 'mass', cohort_id: null, cohort_name: null, notes: null, association_lookup_failed: false, assigned_users: [] },
   { id: 'c4', code: 'LEGACY-004', is_used: true, is_revoked: false, is_active: true, used_by: 'u1', used_at: '2026-05-02T00:00:00Z', created_at: '2026-05-01T00:00:00Z', permissions: ['all'], session_limit: 5, expires_at: null, code_type: 'mass', cohort_id: null, cohort_name: null, notes: null, association_lookup_failed: false, assigned_users: [{ user_id: 'u1', name: 'Alice', email: 'alice@example.test', is_fallback_used_by: true, removable: false, quota: { used: 2, limit: 5, remaining: 3, limit_type: 'per_user_via_code' } }] },
 ];
 
@@ -72,7 +77,7 @@ const unexpectedWrites = [];
 const allowedWrites = [
   /^PATCH \/admin\/users\/[^/]+\/role$/,
   /^POST \/admin\/students$/,
-  /^POST \/admin\/access-codes\/(generate|generate-and-assign)$/,
+  /^POST \/admin\/access-codes\/generate-and-assign$/,
   /^PATCH \/admin\/access-codes\/[^/]+$/,
   /^DELETE \/admin\/access-codes\/[^/]+$/,
   /^DELETE \/admin\/access-codes\/[^/]+\/users\/[^/]+$/,
@@ -108,6 +113,9 @@ await page.route('**/*', async (route) => {
   if (parsed.pathname === '/auth/me') return json({ id: adminId, email: 'admin-users@local', role: 'admin' });
   if (parsed.pathname === '/admin/cohorts') return json({ cohorts: [{ id: 'co1', name: 'Khoá 1' }, { id: 'co2', name: 'Khoá 2' }] });
   if (parsed.pathname === '/admin/users' && method === 'GET') return json(usersPayload());
+  if (parsed.pathname === '/admin/settings/thresholds' && method === 'GET') {
+    return json({ items: [{ key: 'code_expiring_days', group: 'expiring', label: 'Mã kích hoạt chưa dùng', anchor: '', value: 30, unit: 'ngày', min: 1, max: 90, fixed: false }] });
+  }
   if (parsed.pathname === '/admin/access-codes' && method === 'GET') return json(codes.map((code) => ({ ...code, assigned_user_count: code.assigned_users.length })));
 
   const roleMatch = parsed.pathname.match(/^\/admin\/users\/([^/]+)\/role$/);
@@ -181,7 +189,7 @@ const writeHasLaterRead = (method, pathPattern, readPath) => {
 };
 
 await page.goto(`${BASE}/admin/users`, { waitUntil: 'domcontentloaded' });
-try { await page.getByRole('heading', { name: /Người dùng.*Mã kích hoạt/ }).waitFor({ state: 'visible' }); }
+try { await page.getByRole('heading', { name: 'Người dùng', exact: true }).waitFor({ state: 'visible' }); }
 catch (error) {
   console.error('  URL:', page.url());
   console.error('  Body:', (await page.locator('body').innerText().catch(() => '')).slice(0, 1200));
@@ -194,17 +202,9 @@ check('backend-owned admin gate chạy trước surface', requests.some((item) =
 check('đọc users, cohorts và số liệu canonical', ['/admin/users', '/admin/cohorts'].every((path) => requests.some((item) => item.path === path)));
 check('dữ liệu độc hại được React escape', await page.locator('.au-shell img, .au-shell script').count() === 0);
 
-await page.getByRole('tab', { name: /Người dùng/ }).focus();
-await page.keyboard.press('ArrowRight');
-await page.getByText('ACTIVE-001', { exact: true }).waitFor({ state: 'visible' });
-check('phím mũi tên chuyển tab và focus đúng panel mã',
-  await page.getByRole('tab', { name: /Mã kích hoạt/ }).evaluate((element) => document.activeElement === element)
-    && await page.getByRole('tabpanel', { name: /Mã kích hoạt/ }).count() === 1);
-await page.keyboard.press('ArrowLeft');
-await page.getByText('alice@example.test', { exact: true }).waitFor({ state: 'visible' });
-check('phím mũi tên quay lại tab người dùng',
-  await page.getByRole('tab', { name: /Người dùng/ }).evaluate((element) => document.activeElement === element)
-    && await page.getByRole('tabpanel', { name: /Người dùng/ }).count() === 1);
+check('trang người dùng không còn tab mã, có link sang sổ mã',
+  await page.getByRole('tab').count() === 0
+    && await page.getByRole('link', { name: 'Mở sổ tra cứu mã kích hoạt' }).getAttribute('href') === '/admin/activation-codes');
 
 const selfRow = page.locator('tr').filter({ hasText: 'admin-users@local' });
 await selfRow.locator('select').selectOption('instructor');
@@ -259,28 +259,78 @@ check('generate-and-assign POST rồi canonical reload users',
   writeHasLaterRead('POST', /^\/admin\/access-codes\/generate-and-assign$/, '/admin/users')
     && await aliceRow.getByText('ASSIGNED-004', { exact: true }).count() === 1);
 
-await page.getByRole('tab', { name: /Mã kích hoạt/ }).click();
+// ADMINIA-0074 FR-048: both old doors land on the ledger.
+for (const legacy of ['/admin/users?tab=codes', '/admin/access-codes']) {
+  const response = await page.request.get(`${BASE}${legacy}`, { maxRedirects: 0 });
+  const location = response.headers().location || '';
+  check(`${legacy} chuyển hướng ${legacy.includes('?') ? '307' : '308'} tới sổ mã`,
+    response.status() === (legacy.includes('?') ? 307 : 308) && new URL(location, BASE).pathname === '/admin/activation-codes',
+    `${response.status()} ${location}`);
+}
+const noCreate = await page.request.get(`${BASE}/admin/activation-codes/new`, { maxRedirects: 0 });
+check('không có trang /admin/activation-codes/new', noCreate.status() === 404, String(noCreate.status()));
+
+await page.goto(`${BASE}/admin/users?tab=codes`, { waitUntil: 'domcontentloaded' });
+await page.getByRole('heading', { name: /Mã kích hoạt/ }).waitFor({ state: 'visible' });
 await page.getByText('ACTIVE-001', { exact: true }).waitFor({ state: 'visible' });
-check('tab mã đọc list canonical và mặc định ẩn mã revoked',
-  requests.some((item) => item.path === '/admin/access-codes')
-    && await page.getByText('OLD-003', { exact: true }).count() === 0);
+check('mở sổ mã qua đường cũ, đọc list canonical và ngưỡng',
+  new URL(page.url()).pathname === '/admin/activation-codes'
+    && requests.some((item) => item.path === '/admin/access-codes')
+    && requests.some((item) => item.path === '/admin/settings/thresholds'));
+check('sổ mã không có form tạo mã', await page.getByRole('button', { name: 'Tạo mã mới' }).count() === 0);
+check('sổ mặc định hiện cả mã đã thu hồi', await page.getByText('OLD-003', { exact: true }).count() === 1);
 check('association_lookup_failed hiển thị cảnh báo thật', await page.getByText('⚠ lookup failed', { exact: true }).count() === 1);
 check('payload độc hại ở ghi chú không tạo script', await page.locator('.au-codes-table script').count() === 0);
 
+const stateOf = (code) => page.locator('tr').filter({ hasText: code }).locator('[data-ledger-state]');
+check('trạng thái sổ: Chưa dùng · Đã dùng (ngày) · Hết hạn nhập · Đã thu hồi',
+  await stateOf('POOL-002').getAttribute('data-ledger-state') === 'unused'
+    && await stateOf('ACTIVE-001').getAttribute('data-ledger-state') === 'used'
+    && /ngày 0?2\/0?7\/2026/.test(await stateOf('ACTIVE-001').innerText())
+    && await stateOf('LATE-006').getAttribute('data-ledger-state') === 'expired'
+    && await stateOf('OLD-003').getAttribute('data-ledger-state') === 'revoked');
+check('nhãn sắp hết hạn theo code_expiring_days (30 ngày)',
+  await page.locator('tr').filter({ hasText: 'POOL-002' }).getByTestId('code-expiring').count() === 1
+    && await page.getByTestId('code-expiring').count() === 1);
+check('cột Số lượt chấm cấp kèm mã: có số hoặc "chưa có"',
+  await page.getByRole('columnheader', { name: 'Số lượt chấm cấp kèm mã' }).count() === 1
+    && await page.locator('tr').filter({ hasText: 'POOL-002' }).getByText(/^500 lượt$/).count() === 1
+    && await page.locator('tr').filter({ hasText: 'LATE-006' }).getByText('chưa có', { exact: true }).count() === 1);
+
+const openMenu = async (code) => {
+  await page.locator('tr').filter({ hasText: code }).getByRole('button', { name: `Thao tác khác với mã ${code}` }).click();
+  const menu = page.getByRole('menu', { name: `Thao tác khác với mã ${code}` });
+  await menu.waitFor({ state: 'visible' });
+  return menu;
+};
+
+let menu = await openMenu('ACTIVE-001');
+const items = await menu.getByRole('menuitem').allInnerTexts();
+check('menu ⋯: Thu hồi là mục cuối; mã đang dùng không thu hồi được',
+  /^Thu hồi mã/.test(items.at(-1) || '')
+    && await menu.getByRole('menuitem', { name: /Thu hồi mã/ }).getAttribute('aria-disabled') === 'true',
+  items.join(' | '));
+check('menu ⋯ focus mục đầu khi mở', await menu.getByRole('menuitem').first().evaluate((element) => document.activeElement === element));
+await page.keyboard.press('Escape');
+check('Esc đóng menu và trả focus về nút ⋯',
+  await page.getByRole('menu').count() === 0
+    && await page.getByRole('button', { name: 'Thao tác khác với mã ACTIVE-001' }).evaluate((element) => document.activeElement === element));
+
 const legacyRow = page.locator('tr').filter({ hasText: 'LEGACY-004' });
-check('fallback owner chỉ là lịch sử, không có nút gỡ và vẫn cho thu hồi mã',
+check('fallback owner chỉ là lịch sử, không có nút gỡ',
   await legacyRow.getByText('lịch sử kích hoạt', { exact: true }).count() === 1
-    && await legacyRow.getByRole('button', { name: 'Gỡ', exact: true }).count() === 0
-    && await legacyRow.getByRole('button', { name: 'Thu hồi', exact: true }).isEnabled());
-await legacyRow.getByRole('button', { name: 'Thu hồi', exact: true }).click();
+    && await legacyRow.getByRole('button', { name: 'Gỡ', exact: true }).count() === 0);
+menu = await openMenu('LEGACY-004');
+check('fallback-only code vẫn cho thu hồi', await menu.getByRole('menuitem', { name: /Thu hồi mã/ }).getAttribute('aria-disabled') === null);
+await menu.getByRole('menuitem', { name: /Thu hồi mã/ }).click();
 await page.getByRole('button', { name: 'Thu hồi', exact: true }).last().click();
 await page.getByText('Đã thu hồi mã.', { exact: true }).waitFor({ state: 'visible' });
 check('fallback-only code thu hồi qua backend rồi canonical reload',
   writeHasLaterRead('DELETE', /^\/admin\/access-codes\/c4$/, '/admin/access-codes')
-    && await page.getByText('LEGACY-004', { exact: true }).count() === 0);
+    && await stateOf('LEGACY-004').getAttribute('data-ledger-state') === 'revoked');
 
-let activeRow = page.locator('tr').filter({ hasText: 'ACTIVE-001' });
-await activeRow.getByRole('button', { name: 'Sửa quyền' }).click();
+menu = await openMenu('ACTIVE-001');
+await menu.getByRole('menuitem', { name: 'Sửa quyền' }).click();
 const editDialog = page.getByRole('dialog', { name: 'Sửa quyền của mã' });
 await editDialog.getByRole('button', { name: 'Đóng' }).focus();
 await page.keyboard.press('Shift+Tab');
@@ -296,7 +346,7 @@ check('sửa quyền PATCH rồi canonical reload code list',
   writeHasLaterRead('PATCH', /^\/admin\/access-codes\/c1$/, '/admin/access-codes')
     && codes.find((item) => item.id === 'c1')?.session_limit === 12);
 
-activeRow = page.locator('tr').filter({ hasText: 'ACTIVE-001' });
+let activeRow = page.locator('tr').filter({ hasText: 'ACTIVE-001' });
 await activeRow.getByRole('button', { name: 'Gỡ' }).click();
 await page.getByRole('button', { name: 'Gỡ khỏi mã' }).click();
 await page.getByText('Đã gỡ người dùng khỏi mã.', { exact: true }).waitFor({ state: 'visible' });
@@ -305,33 +355,30 @@ check('gỡ user DELETE rồi canonical reload, không sửa redemption history'
     && codes.find((item) => item.id === 'c1')?.used_by === 'u2'
     && codes.find((item) => item.id === 'c1')?.is_used === true);
 
-activeRow = page.locator('tr').filter({ hasText: 'ACTIVE-001' });
-await activeRow.getByRole('button', { name: 'Cấp mã mới' }).click();
+menu = await openMenu('ACTIVE-001');
+await menu.getByRole('menuitem', { name: 'Cấp mã mới' }).click();
 await page.getByRole('button', { name: 'Cấp mã mới', exact: true }).last().click();
 await page.getByText('Đã cấp mã mới.', { exact: true }).waitFor({ state: 'visible' });
 check('refill POST tạo mã mới rồi canonical reload',
   writeHasLaterRead('POST', /^\/admin\/access-codes\/c1\/refill$/, '/admin/access-codes')
     && await page.getByText('REFILL-005', { exact: true }).count() === 1);
 
-activeRow = page.locator('tr').filter({ hasText: 'ACTIVE-001' });
-await activeRow.getByRole('button', { name: 'Thu hồi' }).click();
+menu = await openMenu('ACTIVE-001');
+await menu.getByRole('menuitem', { name: /Thu hồi mã/ }).click();
 await page.getByRole('button', { name: 'Thu hồi', exact: true }).last().click();
 await page.getByText('Đã thu hồi mã.', { exact: true }).waitFor({ state: 'visible' });
-check('thu hồi DELETE rồi mã biến khỏi default view sau canonical reload',
+check('thu hồi DELETE rồi sổ hiện Đã thu hồi sau canonical reload',
   writeHasLaterRead('DELETE', /^\/admin\/access-codes\/c1$/, '/admin/access-codes')
-    && await page.getByText('ACTIVE-001', { exact: true }).count() === 0);
+    && await stateOf('ACTIVE-001').getAttribute('data-ledger-state') === 'revoked');
 
-await page.getByRole('button', { name: 'Tạo mã mới' }).click();
-await page.getByLabel('Số lượng').fill('2');
-await page.getByRole('button', { name: 'Tạo mã', exact: true }).click();
-await page.getByText('Đã tạo 2 mã mới.', { exact: true }).waitFor({ state: 'visible' });
-check('tạo batch POST rồi canonical reload code list',
-  writeHasLaterRead('POST', /^\/admin\/access-codes\/generate$/, '/admin/access-codes')
-    && await page.getByText('GENERATED-2', { exact: true }).count() === 1);
-
+await page.getByRole('combobox', { name: 'Trạng thái', exact: true }).selectOption('expired');
+await page.getByText('LATE-006', { exact: true }).waitFor({ state: 'visible' });
+check('lọc Hết hạn nhập chỉ còn mã quá hạn chưa dùng',
+  await page.locator('[data-ledger-state]').count() === 1);
 await page.getByRole('combobox', { name: 'Trạng thái', exact: true }).selectOption('revoked');
 await page.getByText('OLD-003', { exact: true }).waitFor({ state: 'visible' });
 check('filter revoked vẫn cho audit lịch sử', await page.getByText('ACTIVE-001', { exact: true }).count() === 1);
+await page.getByRole('combobox', { name: 'Trạng thái', exact: true }).selectOption('');
 
 const desktop = await page.evaluate(() => ({ client: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth, right: document.querySelector('.au-shell')?.getBoundingClientRect().right || 0 }));
 check('desktop không tràn ngang', desktop.client === desktop.scroll && desktop.right <= desktop.client);
@@ -341,6 +388,18 @@ const mobile = await page.evaluate(() => ({ client: document.documentElement.cli
 check('mobile không tràn ngang', mobile.client === mobile.scroll && mobile.right <= mobile.client);
 const tableScrolls = await page.locator('[data-testid="codes-table-scroll"]').evaluate((element) => { element.scrollLeft = 80; return element.scrollWidth > element.clientWidth && element.scrollLeft > 0; });
 check('bảng rộng cuộn ngang bên trong', tableScrolls);
+await page.setViewportSize({ width: 1365, height: 900 });
+await page.route(`${BASE}/admin/classes/**`, (route) => route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><title>class</title>' }));
+await page.getByRole('button', { name: 'Tạo mã cho một lớp' }).click();
+const classDialog = page.getByRole('dialog', { name: 'Tạo mã cho một lớp' });
+await classDialog.getByRole('button', { name: 'Mở trang lớp' }).click();
+check('chưa chọn lớp thì báo lỗi, không rời trang', await classDialog.getByRole('alert').innerText() === 'Chọn một lớp trước.');
+await classDialog.getByLabel('Lớp').selectOption('co2');
+await Promise.all([
+  page.waitForURL(`${BASE}/admin/classes/co2`),
+  classDialog.getByRole('button', { name: 'Mở trang lớp' }).click(),
+]);
+check('Tạo mã cho một lớp → chọn lớp → mở trang lớp (tạm thời, chờ T029)', new URL(page.url()).pathname === '/admin/classes/co2');
 check('không phát mutation ngoài contract', unexpectedWrites.length === 0, unexpectedWrites.join(', '));
 check('không có lỗi JS chưa bắt', pageErrors.length === 0, pageErrors[0] || '');
 
