@@ -133,6 +133,14 @@ describe('learner route moves (LEARNERNAV-0062)', async () => {
       { status: 307, location: '/course/assigned?notice=assignment-missing' });
   });
 
+  // Batch 3: a page opened without its query goes back to the parent the
+  // registry names for that case, not to its pre-move parent.
+  test('/course/vocabulary without bank/item leaves for /course/assigned', () => {
+    assert.equal(routeFor('/course/vocabulary')?.parentOnMissing, '/course/assigned');
+    assert.match(read('app', '(authed-advanced-vocab)', 'course', 'vocabulary', 'advanced-vocabulary-lesson.tsx'),
+      /if \(!bank \|\| !item\) \{ leaveForParent\('\/course\/assigned'\); return; \}/);
+  });
+
   test('robots hides /course/ pages without hiding the public /courses catalogue', () => {
     const robots = read('app', 'robots.ts');
     assert.match(robots, /^  '\/course\/',$/m);
