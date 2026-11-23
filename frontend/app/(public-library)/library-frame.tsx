@@ -16,7 +16,7 @@ import type { LearnerUser } from '@/components/ui/shell/account-menu';
 import { getCurrentUser } from '@/lib/auth-api';
 import { AuthProvider, useAuth } from '@/lib/auth/auth-provider';
 
-type Profile = { accountId: string; displayName: string | null; isAdmin: boolean };
+type Profile = { accountId: string; displayName: string | null; isAdmin: boolean; expired?: boolean };
 
 /** Two initials from the name ("Vũ Thu Trang" → "VT"), else the email's first letter. */
 export function learnerInitials(name: string | null, email: string): string {
@@ -33,12 +33,20 @@ function Frame({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!accountId) return undefined;
     const abort = new AbortController();
-    getCurrentUser(abort.signal).then(
+    // noRedirect: a 401 (expired session) must not move a reader off the
+    // public Library to /login (FR-001); it lands in the failure branch.
+    getCurrentUser(abort.signal, { noRedirect: true }).then(
       (me) => setProfile({ accountId, displayName: me.display_name, isAdmin: me.role === 'admin' }),
       // Profile unreadable: keep the learner frame with the email and no admin
       // switch (fail closed), and leave a trace instead of failing silently.
       (error) => {
         if (abort.signal.aborted) return;
+        // 401: the server no longer accepts this session, so the reader is a
+        // guest here. Expected after a long absence; not an error to report.
+        if ((error as { status?: number } | null)?.status === 401) {
+          setProfile({ accountId, displayName: null, isAdmin: false, expired: true });
+          return;
+        }
         (window as any).aver?.reportError?.('library frame: /auth/me failed', {
           type: 'library_frame_profile_failed',
           detail: error instanceof Error ? error.message : String(error ?? ''),
@@ -49,10 +57,10 @@ function Frame({ children }: { children: ReactNode }) {
     return () => abort.abort();
   }, [accountId]);
 
-  if (!accountId || !user) return <PublicShell active="library">{children}</PublicShell>;
-
   // A profile read for another account (switch in another tab) is never shown.
-  const own = profile?.accountId === accountId ? profile : null;
+  const own = accountId && profile?.accountId === accountId ? profile : null;
+  if (!accountId || !user || own?.expired) return <PublicShell active="library">{children}</PublicShell>;
+
   const email = user.email ?? '';
   const name = own?.displayName?.trim() || email;
   const learner: LearnerUser = { name, email, initials: learnerInitials(own?.displayName ?? null, email) };
