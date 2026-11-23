@@ -11,6 +11,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { PageState } from '@/components/ui/page-state';
 import { liveHref } from '@/components/ui/shell/learner-sections';
+import { useAuth } from '@/lib/auth/auth-provider';
 import {
   formatVnd,
   normalizeOrderPage,
@@ -49,7 +50,29 @@ function NextStep({ order }: { order: OrderRow }) {
   return <a className={styles.action} href={step.href}>{step.label}</a>;
 }
 
+/**
+ * The list hangs under a key of the signed-in account: a session change or
+ * sign-out unmounts it in the same render, so the previous account's orders
+ * never stay on screen, and its late replies land in an unmounted tree
+ * (their requests are aborted too). Same pattern as /account (77940ba2).
+ */
 export function OrdersPage() {
+  const { status, user } = useAuth();
+  const accountId = status === 'signed-in' ? user?.id ?? null : null;
+  useEffect(() => {
+    if (status === 'signed-out') window.location.replace('/login');
+  }, [status]);
+  if (!accountId) {
+    return (
+      <div className={styles.page}>
+        <PageState kind="loading" title="Đang tải đơn đăng ký…" />
+      </div>
+    );
+  }
+  return <OrdersContent key={accountId} />;
+}
+
+function OrdersContent() {
   const [state, setState] = useState<State>({ kind: 'loading' });
   const [attempt, setAttempt] = useState(0);
   const alive = useRef<AbortController | null>(null);

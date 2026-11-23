@@ -2,17 +2,22 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+const auth = vi.hoisted(() => ({ value: { status: 'signed-in', user: { id: 'A' } } as { status: string; user: { id: string } | null } }));
+vi.mock('client-only', () => ({}));
+vi.mock('@/lib/auth/auth-provider', () => ({ useAuth: () => auth.value }));
+
 import { OrdersPage } from '@/app/(authed-v2-orders)/account/orders/orders-page';
 
 const urls: string[] = [];
 let pages: Record<string, unknown> = {};
 let failures: Record<string, number> = {};
-const getWith = vi.fn(async (path: string) => {
+const readFixture = async (path: string) => {
   urls.push(path);
   const key = new URL(path, 'https://x.test').searchParams.get('cursor') ?? 'first';
   if (failures[key]) { failures[key] -= 1; throw Object.assign(new Error('fail'), { status: 503 }); }
   return pages[key];
-});
+};
+const getWith = vi.fn(readFixture);
 
 const order = (over: object = {}) => ({
   order_code: 'AV-0001', status: 'awaiting_transfer', tuition_vnd: 1200000, created_at: '2026-11-22T18:30:00Z',
@@ -28,6 +33,8 @@ async function mount() {
 }
 
 beforeEach(() => {
+  auth.value = { status: 'signed-in', user: { id: 'A' } };
+  getWith.mockImplementation(readFixture);
   urls.length = 0;
   pages = {};
   failures = {};
@@ -105,5 +112,38 @@ describe('/account/orders', () => {
     pages.first = { orders: [] };
     await mount();
     expect(screen.getByText('Chưa tải được đơn đăng ký')).toBeTruthy();
+  });
+
+  it('orders belong to one account: a switch drops A\'s rows in the same render and shows B\'s own read; signed out → /login', async () => {
+    pages.first = { items: [order({ order_code: 'A-ORDER' })], next_cursor: null };
+    const view = render(<OrdersPage />);
+    await settle();
+    expect(screen.getByText('A-ORDER')).toBeTruthy();
+
+    // B's read is held, so nothing of A may show while it is pending.
+    let releaseB: (value: unknown) => void = () => {};
+    getWith.mockImplementation(async (path: string) => { urls.push(path); return new Promise((r) => { releaseB = r; }); });
+    auth.value = { status: 'signed-in', user: { id: 'B' } };
+    view.rerender(<OrdersPage />);
+    expect(screen.queryByText('A-ORDER')).toBeNull();
+    expect(screen.queryByRole('table')).toBeNull();
+    await settle();
+    await act(async () => { releaseB({ items: [order({ order_code: 'B-ORDER' })], next_cursor: null }); });
+    await settle();
+    expect(screen.getByText('B-ORDER')).toBeTruthy();
+    expect(screen.queryByText('A-ORDER')).toBeNull();
+
+    const original = window.location;
+    const replace = vi.fn();
+    Object.defineProperty(window, 'location', { configurable: true, value: { ...original, replace } });
+    try {
+      auth.value = { status: 'signed-out', user: null };
+      view.rerender(<OrdersPage />);
+      await settle();
+      expect(replace).toHaveBeenCalledWith('/login');
+      expect(screen.queryByText('B-ORDER')).toBeNull();
+    } finally {
+      Object.defineProperty(window, 'location', { configurable: true, value: original });
+    }
   });
 });
