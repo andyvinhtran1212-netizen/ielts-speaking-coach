@@ -29,7 +29,8 @@ taken from the reserve band 501+ of the commercialization register); 381 and 382
 (Leader decision, 2026-11-18), and 383–389 plus 502 belong to COURSEACCESS-0055
 (383 and 384 present; 385, 387, 388, 389 and 502 reserved; 386 abandoned; Andy,
 2026-11-20, `specs/0055-course-access-credits-enrollment/approval-decision.md`),
-so the next new migration is `504`. The free numbers below 501 (bands 401–499
+504 is reserved for #2600 and 505 for COURSEACCESS-0055 G04-T10b,
+so the next new migration is `506`. The free numbers below 501 (bands 401–499
 and 500) are assigned only by the Leader from the commercialization register;
 the PR that takes one adds its row.
 `383` is `pending_feature course_commerce` (COURSEACCESS-0055 T001, spec label
