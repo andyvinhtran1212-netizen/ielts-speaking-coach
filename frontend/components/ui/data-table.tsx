@@ -22,7 +22,8 @@ export type DataTableColumn<Row> = {
 export type DataTableSortDirection = 'ascending' | 'descending';
 export type DataTableSort = { key: string; direction: DataTableSortDirection } | null;
 
-export type DataTableFilter = { label: string; onRemove: () => void };
+/** `key` defaults to `label`; pass one when two filters can share a label. */
+export type DataTableFilter = { key?: string; label: string; onRemove: () => void };
 
 export type DataTableProps<Row> = {
   /** Says what the table lists and how it is sorted. Visible unless `captionHidden`. */
@@ -214,7 +215,7 @@ export function DataTable<Row>({
               <span className={styles.filterWord}>Đang lọc:</span>
               {filters.length === 0 ? <span className={styles.filterNone}>chưa có bộ lọc nào.</span> : null}
               {filters.map((f) => (
-                <span key={f.label} className={styles.chip}>
+                <span key={f.key ?? f.label} className={styles.chip}>
                   {f.label}
                   <button type="button" className={styles.chipRemove} aria-label={`Bỏ lọc ${f.label}`} onClick={f.onRemove}>
                     <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 3l8 8M11 3l-8 8" fill="none" stroke="currentColor" strokeWidth="1.75" /></svg>
@@ -248,7 +249,7 @@ export function DataTable<Row>({
         </div>
       ) : null}
 
-      <div className={styles.frame}>
+      <div className={styles.frame} role="region" aria-label={caption} tabIndex={0}>
         <table className={styles.table} aria-busy={loading || undefined}>
           <caption className={cx(styles.caption, captionHidden && styles.visuallyHidden)}>{caption}</caption>
           <thead>

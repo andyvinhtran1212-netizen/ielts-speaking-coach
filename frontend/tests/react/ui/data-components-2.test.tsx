@@ -29,7 +29,7 @@ describe('Chart', () => {
     expect(screen.getByRole('heading', { name: 'Bài nộp tăng đều 3 tuần gần đây' })).toBeTruthy();
     const img = screen.getByRole('img');
     expect(img.getAttribute('aria-label')).toBe('Biểu đồ cột: Số bài nộp mỗi tuần, 2 tuần từ 02/11 đến 09/11: 31, 35. Thấp nhất 31, cao nhất 35.');
-    const table = screen.getByRole('table', { name: 'Số liệu của biểu đồ' });
+    const table = screen.getByRole('table', { name: 'Số liệu: Bài nộp tăng đều 3 tuần gần đây' });
     expect(within(table).getByRole('rowheader', { name: 'Bài đã nộp' }).parentElement!.textContent).toBe('Bài đã nộp3135');
     expect(screen.getByText('Nguồn: bài nộp trên Aver Learning').tagName).toBe('FIGCAPTION');
   });
@@ -104,9 +104,9 @@ describe('FileUpload', () => {
   });
 });
 
-function DateHarness({ initial = '', min, max }: { initial?: string; min?: string; max?: string }) {
+function DateHarness({ initial = '', min, max, error }: { initial?: string; min?: string; max?: string; error?: string }) {
   const [value, setValue] = useState(initial);
-  return <><DateField label="Hạn nộp" value={value} onChange={setValue} min={min} max={max} today="2026-11-17" /><output data-testid="value">{value}</output></>;
+  return <><DateField label="Hạn nộp" value={value} onChange={setValue} min={min} max={max} error={error} today="2026-11-17" /><output data-testid="value">{value}</output></>;
 }
 
 describe('DateField', () => {
@@ -177,6 +177,21 @@ describe('DateField keyboard and resync', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Tháng trước' }));
     const back = within(dialog).getAllByRole('button').filter((b) => b.getAttribute('tabindex') === '0' && b.hasAttribute('data-day'));
     expect(back.map((b) => (b as HTMLButtonElement).disabled)).toEqual([false]);
+  });
+
+  it('opening the calendar moves focus to its one tab stop (the picked day, else today)', () => {
+    render(<DateHarness initial="2026-11-24" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Mở lịch chọn hạn nộp' }));
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Thứ Ba, 24/11/2026, đang chọn' }));
+    cleanup();
+    render(<DateHarness />);
+    fireEvent.click(screen.getByRole('button', { name: 'Mở lịch chọn hạn nộp' }));
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Thứ Ba, 17/11/2026, hôm nay' }));
+  });
+
+  it('an empty error string keeps the dd/mm/yyyy hint', () => {
+    render(<DateHarness error="" />);
+    expect(screen.getByText('dd/mm/yyyy')).toBeTruthy();
   });
 
   it('picking the current date after a refused edit puts the good text back and clears the error', () => {

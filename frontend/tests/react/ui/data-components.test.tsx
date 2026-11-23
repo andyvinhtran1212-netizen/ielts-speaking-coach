@@ -216,6 +216,23 @@ describe('DataTable', () => {
     expect(plain.container.querySelectorAll('[class*="pinned"]')).toHaveLength(0);
   });
 
+  it('the scroll frame is a named, focusable region, so a read-only table scrolls by keyboard (WCAG 2.1.1)', () => {
+    render(<DataTable caption="Band theo lớp" columns={COLUMNS} rows={ROWS} rowKey={(r) => r.id} />);
+    expect(within(screen.getByRole('table')).queryAllByRole('button')).toHaveLength(0);
+    const frame = screen.getByRole('region', { name: 'Band theo lớp' });
+    expect(frame.getAttribute('tabindex')).toBe('0');
+    expect(frame.contains(screen.getByRole('table'))).toBe(true);
+  });
+
+  it('filter chips take an optional key, so two filters may share a label', () => {
+    const onRemove = vi.fn();
+    render(
+      <DataTable caption="Bài nộp" columns={COLUMNS} rows={ROWS} rowKey={(r) => r.id}
+        filters={[{ key: 'a', label: 'Lớp A', onRemove }, { key: 'b', label: 'Lớp A', onRemove }]} />,
+    );
+    expect(screen.getAllByRole('button', { name: 'Bỏ lọc Lớp A' })).toHaveLength(2);
+  });
+
   it('helpers: nextSort cycles, sortRows keeps empties last and does not mutate', () => {
     expect(nextSort(null, 'band')).toEqual({ key: 'band', direction: 'ascending' });
     expect(nextSort({ key: 'band', direction: 'ascending' }, 'band')).toEqual({ key: 'band', direction: 'descending' });

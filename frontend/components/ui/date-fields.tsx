@@ -86,6 +86,11 @@ function Calendar({
     if (!days.includes(focus) || isDisabled(focus)) setFocus(tabStop([days.find((d) => mark(d) === 'one' || mark(d) === 'start'), today]));
   }, [month]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Opening the calendar moves focus to its tab stop, as TimeField does for its list.
+  useEffect(() => {
+    grid.current?.querySelector<HTMLButtonElement>('button[tabindex="0"]')?.focus();
+  }, []);
+
   useEffect(() => {
     if (!keyNav.current) return;
     keyNav.current = false;
@@ -215,7 +220,7 @@ export function DateField({ label, value, onChange, min, max, today, error, id, 
   };
 
   const shown = typingError || error;
-  const note = shown ?? `dd/mm/yyyy${splitIso(value) ? ` · ${weekdayName(value)}` : ''}`;
+  const note = shown || `dd/mm/yyyy${splitIso(value) ? ` · ${weekdayName(value)}` : ''}`;
   const now = today ?? todayIso();
 
   return (
@@ -367,7 +372,7 @@ export function TimeField({ label, value, onChange, step = 15, from = '06:00', t
           <ClockIcon />
         </button>
       </div>
-      <span id={noteId} className={shown ? fieldStyles.error : fieldStyles.hint}>{shown ?? '24 giờ, ví dụ 07:05 hoặc 19:30'}</span>
+      <span id={noteId} className={shown ? fieldStyles.error : fieldStyles.hint}>{shown || '24 giờ, ví dụ 07:05 hoặc 19:30'}</span>
       {pop.open ? (
         <div className={cx(styles.popover, styles.timePopover)}>
           <ul ref={list} id={listId} className={styles.times} aria-label={`Chọn ${label.toLowerCase()}`}>
@@ -531,7 +536,7 @@ export function DateRangeField({
             </span>
           </span>
         </div>
-        <span id={noteId} className={shown ? fieldStyles.error : fieldStyles.hint}>{shown ?? `${startLabel} – ${endLabel.toLowerCase()}, dd/mm/yyyy`}</span>
+        <span id={noteId} className={shown ? fieldStyles.error : fieldStyles.hint}>{shown || `${startLabel} – ${endLabel.toLowerCase()}, dd/mm/yyyy`}</span>
       </fieldset>
       {pop.open ? (
         <div id={dialogId} role="dialog" aria-label="Chọn khoảng ngày" className={styles.popover}>

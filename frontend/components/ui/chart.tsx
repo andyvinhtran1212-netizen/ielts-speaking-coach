@@ -159,7 +159,7 @@ export function Chart({
       <figcaption className={styles.source}>{source}</figcaption>
       <div className={styles.tableFrame}>
         <table className={styles.table}>
-          <caption className={styles.tableCaption}>Số liệu của biểu đồ</caption>
+          <caption className={styles.tableCaption}>{`Số liệu: ${title}`}</caption>
           <tbody>
             <tr>
               <th scope="row">{categoryLabel}</th>
