@@ -69,3 +69,6 @@ docs/content-samples/**/*.mp3
 
 # PC-J409 load-test outputs (never committed)
 loadtest/results/
+
+# Reading release apply SQL is generated and already applied (G01-T15); recover from Git history.
+backend/content/reading-practice/**/release/*-apply.sql
