@@ -145,9 +145,22 @@ export function lateCopy(row: ClassRow): string | null {
   return `Nộp trễ ${Math.max(1, Math.ceil(late / 86_400_000))} ngày`;
 }
 
-/** Band only when the server sends one (FR-077: a Writing band only once returned). */
+// Skills whose ledger `score` is an IELTS band (the session's overall band for
+// Speaking), as the legacy tree shows it. Course and grammar scores are
+// percentages, never labelled as a band.
+const SCORE_IS_BAND = new Set(['speaking', 'listening', 'reading']);
+
+/**
+ * Band only when the server sends one, in "Đã trả": Writing reads `band`, which
+ * the server sends only once the essay is returned (FR-077); Speaking,
+ * Listening and Reading read the returned `score`.
+ */
 export function bandCopy(entry: AssignedItem): string | null {
-  return entry.group === 'returned' && typeof entry.row.band === 'number' ? `Band ${entry.row.band}` : null;
+  if (entry.group !== 'returned') return null;
+  const { row } = entry;
+  const band = row.assignment.skill === 'writing' ? row.band
+    : SCORE_IS_BAND.has(row.assignment.skill) ? row.score : null;
+  return typeof band === 'number' ? `Band ${band}` : null;
 }
 
 function time(value: string | null | undefined, fallback: number): number {

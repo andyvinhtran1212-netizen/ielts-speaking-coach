@@ -290,6 +290,32 @@ it('back from the player via the bfcache releases the open lock', async () => {
   await waitFor(() => expect(assign).toHaveBeenCalledTimes(2));
 });
 
+it('a pending open is dropped when the page unmounts: no session, no navigation', async () => {
+  const view = mount(payload([item('sp', 'overdue', 'self_practice', { skill: 'speaking', due: PAST })]));
+  const overdue = await screen.findByRole('region', { name: 'Quá hạn' });
+  let release: (value: unknown) => void = () => {};
+  post.mockImplementation((url: string) => (url === '/sessions' ? Promise.resolve({ id: 'sess-1' })
+    : new Promise((resolve) => { release = resolve; })));
+  fireEvent.click(within(overdue).getByRole('button', { name: 'Tự luyện bài này' }));
+  await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+  view.unmount();
+  release({ skill: 'speaking', launch: { session_params: { mode: 'practice', part: 1, topic: 'T1' } } });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(post).not.toHaveBeenCalledWith('/sessions', expect.anything());
+  expect(push).not.toHaveBeenCalled();
+  expect(assign).not.toHaveBeenCalled();
+});
+
+it('returned Speaking shows its score as the band; a course percentage never does', async () => {
+  mount(payload([
+    item('s1', 'returned', 'result', { skill: 'speaking', submitted: '2026-11-22T10:00:00Z', score: 6.5 }),
+    item('c1', 'returned', 'result', { skill: 'course', submitted: '2026-11-21T10:00:00Z', score: 80, course_action: 'review' }),
+  ]));
+  const returned = await screen.findByRole('region', { name: 'Đã trả' });
+  expect(within(returned).getByText(/Band 6\.5/)).toBeTruthy();
+  expect(within(returned).queryByText(/Band 80/)).toBeNull(); expect(within(returned).getAllByRole('listitem').length).toBe(2);
+});
+
 it('self-practice: a refusal shows the server sentence and keeps the page', async () => {
   mount(payload([item('closed', 'overdue', 'self_practice', { skill: 'reading', due: PAST })]));
   const overdue = await screen.findByRole('region', { name: 'Quá hạn' });
