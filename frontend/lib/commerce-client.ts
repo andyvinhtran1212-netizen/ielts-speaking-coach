@@ -11,7 +11,7 @@
 // hand-written types of lib/commerce-types.ts; when it lands, switch them to
 // getBrowserJson/getBrowserJsonAt (same shape, same noRedirect).
 
-import type { CourseCatalog, CourseDetail, MyCourses } from './commerce-types';
+import type { CourseCatalog, CourseDetail, MyCourses, Order } from './commerce-types';
 import { whenGlobalReady } from './when-global-ready.mjs';
 
 async function transportReady(): Promise<void> {
@@ -35,4 +35,15 @@ export async function fetchCourseForViewer(slug: string): Promise<CourseDetail> 
 export async function fetchMyCourses(): Promise<MyCourses> {
   await transportReady();
   return window.api.getWith<MyCourses>('/api/me/courses', undefined, { noRedirect: true });
+}
+
+/** `POST /api/enrollment-orders` (G04 #2526): 201 a new order, 200 the open one (FR-036). */
+export async function createEnrollmentOrder(productSlug: string, requestKey: string): Promise<{ order: Order }> {
+  await transportReady();
+  return window.api.postWith<{ order: Order }>(
+    '/api/enrollment-orders',
+    { product_slug: productSlug, request_key: requestKey },
+    undefined,
+    { noRedirect: true },
+  );
 }

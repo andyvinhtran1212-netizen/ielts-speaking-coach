@@ -254,7 +254,7 @@ describe('proxy.ts', () => {
       .filter((r) => proxyMatches(r.url, 'staging.averlearning.com') !== r.shell)
       .map((r) => `${r.url} (${r.shell ? 'AuthedShell, not matched' : 'not AuthedShell, matched'})`);
     assert.deepEqual(wrong, []);
-    for (const url of ['/', '/login', '/grammar', '/courses', '/courses/khoa-a/enroll', '/vocabulary', '/pricing', '/core-player/launch', '/api/health', '/js/api.js', '/css/ds.css', '/_next/static/chunks/x.js']) {
+    for (const url of ['/', '/login', '/grammar', '/courses', '/courses/khoa-a/enroll/x', '/vocabulary', '/pricing', '/core-player/launch', '/api/health', '/js/api.js', '/css/ds.css', '/_next/static/chunks/x.js']) {
       assert.equal(proxyMatches(url, 'staging.averlearning.com'), false, url);
     }
   });

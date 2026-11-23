@@ -21,7 +21,7 @@ import { Button, Notice } from '@/components/ui';
 import { useAuth } from '@/lib/auth/auth-provider';
 import { fetchCourseForViewer, fetchMyCourses } from '@/lib/commerce-client';
 import {
-  carryOverSentence, courseRowLabel, courseRowState, enrollHref, formatViDate, formatVnd, internalHref,
+  carryOverSentence, courseRowLabel, courseRowState, enrollHref, formatViDate, formatVnd, internalHref, orderHref,
 } from '@/lib/commerce-model.mjs';
 import type { CourseChapter, CourseDetail } from '@/lib/commerce-types';
 import { COURSE_ACCESS_ACTIONS, accessActionLabel } from '@/lib/course-access-labels.mjs';
@@ -136,7 +136,7 @@ function primaryAction(course: CourseDetail, state: PanelState, signedIn: boolea
     case 'open':
       return { label: accessActionLabel('can_enroll') ?? COURSE_ACCESS_ACTIONS.enroll, href: enrollHref(course.slug, signedIn) };
     case 'open_order':
-      return { label: CONTINUE_PAYMENT, href: `/enroll/${encodeURIComponent(course.viewer.open_order_code ?? '')}` };
+      return { label: CONTINUE_PAYMENT, href: orderHref(course.viewer.open_order_code ?? '') };
     case 'learning':
       return { label: accessActionLabel('enrolled') ?? COURSE_ACCESS_ACTIONS.continue, href: LEARN_HREF };
     case 'expired':

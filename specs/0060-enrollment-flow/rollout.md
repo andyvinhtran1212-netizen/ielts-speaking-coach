@@ -6,6 +6,7 @@
 - Số 390–395 còn trống trong `backend/migrations/register.tsv`; mỗi PR migration thêm dòng `present` cùng PR. 394 cần G04 mig 383 (đã có trên staging).
 - Cờ tắt mặc định: runtime flag `email_code_login`, cờ build `AVER_PUBLIC_COMMERCE`, `enroll_prelearn_chapter1`.
 - Cờ build `AVER_PUBLIC_COMMERCE` chỉ bật ở một môi trường sau khi G04 #2485 (`courses_public`: `GET /api/courses`, `GET /api/courses/<slug>`) đã chạy ở đó (CR #2637). Trước đó backend trả 404 mặc định của FastAPI, `getPublicJson` coi mọi 404 là "không có khoá", nên mọi trang khoá thành soft 404 (200 + noindex), và kết quả đó còn được cache 60 giây.
+- Bước "Tạo đơn và xem thông tin chuyển khoản" ở `/courses/<slug>/enroll` gọi `POST /api/enrollment-orders` của G04 #2526 và mở `/enroll/<order_code>` (G05-T12a): bật cờ chỉ khi cả hai đã có ở môi trường đó. Thiếu route tạo đơn thì nút chỉ báo "Chưa tạo được đơn đăng ký…", không có đơn nào được tạo.
 - Biến bí mật `LOGIN_CODE_HASH_PEPPER` (rỗng → route trả 503) do anh đặt trên Railway staging rồi production; người thực thi không đặt.
 
 ### Migration và thứ tự áp

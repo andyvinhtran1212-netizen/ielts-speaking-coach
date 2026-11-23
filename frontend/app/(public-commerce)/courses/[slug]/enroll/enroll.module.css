@@ -1,0 +1,69 @@
+/* ENROLL-0060 G05-T12 màn 1 `/courses/[slug]/enroll` (tờ ThanhToan màn 1). Only var(--av2-*).
+   From 1024px: form column + the course summary beside it. Below: the summary
+   stacks under the form. */
+.page { padding-top: var(--av2-space-8); padding-bottom: var(--av2-space-10); }
+
+.crumb { margin: 0 0 var(--av2-space-6); font-size: var(--av2-fs-14); color: var(--av2-muted); }
+.crumb a { color: var(--av2-link); }
+
+.layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--av2-space-8); }
+.main { min-width: 0; max-width: 680px; }
+
+.title { margin: 0 0 var(--av2-space-6); font-family: var(--av2-font-serif); }
+.steps { margin-bottom: var(--av2-space-8); }
+
+.section { padding-top: var(--av2-space-6); border-top: var(--av2-rule-w) solid var(--av2-rule); }
+.section + .section { margin-top: var(--av2-space-6); }
+.section h2 { margin: 0 0 var(--av2-space-2); font-family: var(--av2-font-serif); font-size: var(--av2-fs-24); }
+
+.muted { margin: 0; color: var(--av2-muted); font-size: var(--av2-fs-14); }
+
+.who { margin: var(--av2-space-4) 0 0; display: grid; gap: var(--av2-space-4); }
+.who dt { color: var(--av2-muted); font-size: var(--av2-fs-14); }
+.who dd { margin: 0; font-weight: var(--av2-fw-strong); overflow-wrap: anywhere; }
+.who dd + dd { margin-top: var(--av2-space-1); font-weight: normal; }
+
+.agree {
+  display: flex;
+  gap: var(--av2-space-3);
+  align-items: flex-start;
+  min-height: var(--av2-control-md);
+  cursor: pointer;
+}
+.agree input { flex: none; width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--av2-accent); }
+.agree input:focus-visible { outline: var(--av2-rule-strong-w) solid var(--av2-focus); outline-offset: var(--av2-focus-offset); }
+.agree a { color: var(--av2-link); }
+
+.submit { display: grid; gap: var(--av2-space-2); margin-top: var(--av2-space-6); }
+.agree + * { margin-top: var(--av2-space-4); }
+
+.summary {
+  align-self: start;
+  padding: var(--av2-space-6);
+  background: var(--av2-surface);
+  border: var(--av2-rule-w) solid var(--av2-rule);
+  border-radius: var(--av2-radius);
+}
+.summary > * + * { margin-top: var(--av2-space-3); }
+.summaryLabel {
+  margin: 0;
+  font-size: var(--av2-fs-12);
+  font-weight: var(--av2-fw-strong);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--av2-muted);
+}
+.summaryTitle { margin: 0; font-family: var(--av2-font-serif); font-size: var(--av2-fs-20); font-weight: var(--av2-fw-strong); }
+
+.facts { margin: 0; display: grid; gap: var(--av2-space-2); }
+.facts div { display: flex; justify-content: space-between; gap: var(--av2-space-3); }
+.facts dt { color: var(--av2-muted); font-size: var(--av2-fs-14); }
+.facts dd { margin: 0; font-weight: var(--av2-fw-strong); text-align: right; }
+
+.note { margin: 0; color: var(--av2-muted); font-size: var(--av2-fs-14); }
+.note a { color: var(--av2-link); }
+
+@media (min-width: 1024px) {
+  .layout { grid-template-columns: minmax(0, 1fr) 340px; }
+  .summary { position: sticky; top: calc(var(--av2-topbar-h) + var(--av2-space-4)); }
+}

@@ -28,6 +28,7 @@ export const V2_ROUTES = Object.freeze([
 /** @type {readonly string[]} */
 export const V2_DYNAMIC_ROUTES = Object.freeze([
   '/courses/[slug]',
+  '/courses/[slug]/enroll',
 ]);
 
 const V2_SET = new Set(V2_ROUTES);
