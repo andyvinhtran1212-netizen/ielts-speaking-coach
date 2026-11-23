@@ -201,6 +201,8 @@ function OrderContent({ code, email }: { code: string; email: string | null }) {
     return ok;
   }, [path, read, show]);
 
+  const cancelOpen = confirmCancel && screen === 'transfer';
+
   if (load.kind === 'loading') {
     return <div className={styles.page}><PageState kind="loading" title="Đang tải đơn đăng ký…" /></div>;
   }
@@ -220,7 +222,7 @@ function OrderContent({ code, email }: { code: string; email: string | null }) {
   return (
     <div className={styles.page}>
       <p className={styles.back}><a href={ORDERS}>‹ Đơn đăng ký của tôi</a></p>
-      {message ? <Notice kind={message.kind} live={message.kind === "error" ? "alert" : "status"} className={styles.message}>{message.text}</Notice> : null}
+      {message && !(cancelOpen && message.kind === 'error') ? <Notice kind={message.kind} live={message.kind === "error" ? "alert" : "status"} className={styles.message}>{message.text}</Notice> : null}
 
       {screen === 'transfer' ? (
         <TransferScreen
@@ -247,18 +249,25 @@ function OrderContent({ code, email }: { code: string; email: string | null }) {
       ) : null}
 
       <ConfirmDialog
-        open={confirmCancel}
+        open={cancelOpen}
         tone="warning"
         title={`Huỷ đơn ${order.code}?`}
-        body="Nếu bạn đã chuyển tiền, đừng huỷ mà báo đã chuyển."
+        body={(
+          <>
+            Nếu bạn đã chuyển tiền, đừng huỷ mà báo đã chuyển.
+            {message?.kind === 'error' ? <><br /><strong role="alert">{message.text}</strong></> : null}
+          </>
+        )}
         confirmLabel="Huỷ đơn"
         cancelLabel="Giữ đơn"
         busy={busy === 'cancel'}
         busyLabel="Đang huỷ…"
-        onCancel={() => setConfirmCancel(false)}
+        onCancel={() => { setConfirmCancel(false); setMessage(null); }}
         onConfirm={async () => {
-          await act('cancel', {});
-          setConfirmCancel(false);
+          // Closes only once the server took the cancel. A failed request keeps
+          // the question open with the reason; a 409 that moved the order on
+          // leaves screen 2, which closes it (CR #2641 nit a).
+          if (await act('cancel', {})) setConfirmCancel(false);
         }}
       />
     </div>
@@ -445,7 +454,14 @@ function WaitingScreen({ order, email, busy, pollStopped, onCheck, onSupplement 
         title={needsInfo ? 'Đơn cần bạn bổ sung' : 'Đã ghi nhận, đang chờ xác nhận'}
       />
       {needsInfo ? (
-        <NeedsInfo order={order} email={email} busy={busy} onSupplement={onSupplement} />
+        <NeedsInfo
+          // A new admin question (message or deadline) is a new form: "sent" resets (CR #2641 nit b).
+          key={`${order.adminMessage ?? ''}|${order.supplementBy ?? ''}`}
+          order={order}
+          email={email}
+          busy={busy}
+          onSupplement={onSupplement}
+        />
       ) : (
         <section className={styles.block} aria-labelledby="next-title">
           <h2 id="next-title" className={styles.blockTitle}>Điều gì sẽ xảy ra</h2>

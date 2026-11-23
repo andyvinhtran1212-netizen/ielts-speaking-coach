@@ -153,6 +153,24 @@ describe('/enroll/[orderCode] screen 2 (awaiting_transfer)', () => {
     expect(screen.getByText('Bạn đã bấm “Huỷ đơn này” lúc 15:00, ngày 23/11/2026.')).toBeTruthy();
   });
 
+  it('a failed cancel keeps the question open with the reason; a later success closes it', async () => {
+    postErrors[`${ORDER_PATH}/cancel`] = apiError(503, { error_code: 'upstream' });
+    await mount();
+    fireEvent.click(screen.getByRole('button', { name: 'Huỷ đơn này' }));
+    await act(async () => { fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Huỷ đơn' })); });
+    await settle();
+    const dialog = screen.getByRole('alertdialog', { name: `Huỷ đơn ${CODE}?` });
+    expect(within(dialog).getByRole('alert').textContent).toBe('Chưa gửi được. Thử lại.');
+    expect(screen.getByRole('heading', { level: 1 }).textContent).not.toContain('đã huỷ');
+    delete postErrors[`${ORDER_PATH}/cancel`];
+    replies[`${ORDER_PATH}/cancel`] = { order: order({ status: 'cancelled', cancel_reason: 'learner', cancelled_at: '2026-11-23T08:00:00Z' }) };
+    await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Huỷ đơn' })); });
+    await settle();
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(screen.getByRole('heading', { level: 1, name: `Đơn ${CODE} đã huỷ` })).toBeTruthy();
+    expect(posts.map((p) => p.path)).toEqual([`${ORDER_PATH}/cancel`, `${ORDER_PATH}/cancel`]);
+  });
+
   it('409 invalid_transition reads the order again and says it moved on', async () => {
     postErrors[`${ORDER_PATH}/report-transfer`] = apiError(409, { error_code: 'invalid_transition' });
     await mount();
@@ -231,6 +249,26 @@ describe('/enroll/[orderCode] screen 3 (transfer_reported, needs_info)', () => {
     await settle();
     expect(posts).toEqual([{ path: `${ORDER_PATH}/supplement`, body: { note: 'Đã chuyển thêm 200.000 đ lúc 14:30' } }]);
     expect(screen.getByText('Đã gửi phần bổ sung. Admin sẽ đối chiếu lại đơn này.')).toBeTruthy();
+  });
+
+  it('needs_info: a second admin question while the page is open shows the supplement form again', async () => {
+    current = order({ status: 'needs_info', info_kind: 'other', admin_message: 'Gửi ảnh biên lai giúp mình.', supplement_by: '2026-11-26T05:00:00Z' });
+    replies[`${ORDER_PATH}/supplement`] = { order: current };
+    vi.useFakeTimers({ shouldAdvanceTime: false });
+    try {
+      render(<EnrollOrderPage code={CODE} />);
+      await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+      fireEvent.change(screen.getByLabelText('Bạn đã bổ sung gì?'), { target: { value: 'Đã gửi biên lai qua email' } });
+      await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Tôi đã bổ sung' })); });
+      await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+      expect(screen.queryByLabelText('Bạn đã bổ sung gì?')).toBeNull();
+      current = order({ status: 'needs_info', info_kind: 'other', admin_message: 'Biên lai bị mờ, gửi lại giúp mình.', supplement_by: '2026-11-27T05:00:00Z' });
+      await act(async () => { await vi.advanceTimersByTimeAsync(POLL_MS); });
+      expect(screen.getByText('Biên lai bị mờ, gửi lại giúp mình.')).toBeTruthy();
+      expect(screen.getByLabelText('Bạn đã bổ sung gì?')).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('needs_info not_found: says not to transfer again', async () => {
