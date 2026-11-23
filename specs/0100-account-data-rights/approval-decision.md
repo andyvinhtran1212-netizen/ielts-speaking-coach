@@ -56,7 +56,7 @@ Andy chose option A on the decision card "Cho job xoá tài khoản đi qua các
 trigger 'không được xoá' của bài làm?": **"Hàm xoá + cửa hẹp ở trigger"**.
 
 Decision:
-- Migration 501 (file only, not applied) adds one `SECURITY DEFINER`
+- Migration 504 (file only, not applied; first drafted as 501, renumbered because 501 and 503 were taken) adds one `SECURITY DEFINER`
   function that runs plan step 5 (deletes, anonymisation, `student_name`
   from amendment 1) in one transaction. `EXECUTE` is revoked from `PUBLIC`,
   `anon` and `authenticated`; only `service_role` may call it (CR nit).
@@ -64,4 +64,4 @@ Decision:
   Each blocking guard gains one early return that lets through only rows of
   that learner while that context is set. Every other update or delete is
   refused exactly as before.
-- Applying migration 501 follows the rule above (Andy's typed approval).
+- Applying migration 504 follows the rule above (Andy's typed approval).
