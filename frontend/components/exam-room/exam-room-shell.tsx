@@ -126,10 +126,6 @@ export function ExamRoomShell(props: ExamRoomShellProps) {
   useEffect(() => {
     if (!guardOn) { setGuardState('unsupported'); return undefined; }
     let reported = false;
-    // The first grant right after opening, with no other writer seen, comes with
-    // the data the page just loaded, so the surface may skip the re-read.
-    let firstGrant = true;
-    let sawOtherWriter = false;
     const guard = createTabGuard({
       surface,
       attemptKey,
@@ -138,15 +134,10 @@ export function ExamRoomShell(props: ExamRoomShellProps) {
         if (own) return own();
         return exitRef.current.flush().then((r) => ({ secured: r.unsaved === 0, unsaved: r.unsaved }));
       },
-      reloadFromServer: () => {
-        const initial = firstGrant && !sawOtherWriter;
-        firstGrant = false;
-        return tabGuardRef.current?.reloadFromServer({ initial }) ?? Promise.resolve();
-      },
+      reloadFromServer: () => tabGuardRef.current?.reloadFromServer() ?? Promise.resolve(),
       onChange: (next: TabGuardState) => {
         setGuardState(next);
         if (next !== 'writer') setHandoverRefused(false);
-        if (next === 'read-only' || next === 'stuck') sawOtherWriter = true;
         if (next === 'read-only' && !reported) { reported = true; trackRef.current('exam_room_other_tab', { surface }); }
       },
       onHandoverRefused: () => setHandoverRefused(true),

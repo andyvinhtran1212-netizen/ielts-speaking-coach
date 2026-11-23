@@ -640,7 +640,7 @@ describe('other tab (FR-017)', () => {
     expect(screen.getByLabelText('Answer 1').matches(':disabled')).toBe(false);
     expect(screen.queryByText('This test is open in another tab.')).toBeNull();
   });
-  it('the first grant after opening says initial: the page load was the read', async () => {
+  it('the first grant after opening still reads the server: the page load is not proof the data is fresh (CR #2558)', async () => {
     const request = vi.fn((_name: string, _opts: unknown, cb: (lock: unknown) => unknown) => {
       cb({ name: 'x' });
       return new Promise(() => {});
@@ -649,21 +649,7 @@ describe('other tab (FR-017)', () => {
     const reloadFromServer = vi.fn(() => Promise.resolve());
     render(<ExamRoomShell {...base({ tabGuard: { reloadFromServer } })} />);
     await waitFor(() => expect(reloadFromServer).toHaveBeenCalledTimes(1));
-    expect(reloadFromServer).toHaveBeenCalledWith({ initial: true });
-  });
-
-  it('a grant after another tab wrote is not initial, so the surface reads again', async () => {
-    const request = vi.fn((_name: string, opts: { ifAvailable?: boolean }, cb: (lock: unknown) => unknown) => {
-      if (opts?.ifAvailable) return Promise.resolve(cb(null));
-      cb({ name: 'x' });
-      return new Promise(() => {});
-    });
-    vi.stubGlobal('navigator', { ...navigator, onLine: true, locks: { request } });
-    const reloadFromServer = vi.fn(() => Promise.resolve());
-    render(<ExamRoomShell {...base({ tabGuard: { reloadFromServer } })} />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Use this tab' }));
-    await waitFor(() => expect(reloadFromServer).toHaveBeenCalledTimes(1));
-    expect(reloadFromServer).toHaveBeenCalledWith({ initial: false });
+    expect(reloadFromServer).toHaveBeenCalledWith();
   });
 
   it('read-only below 900px: pane tabs still switch, answers stay disabled (Codex)', async () => {
