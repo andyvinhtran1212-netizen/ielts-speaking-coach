@@ -38,9 +38,12 @@ def db(monkeypatch):
         },
     )
     import routers.library as library
+    import services.library_media as media
 
     monkeypatch.setattr(library, "supabase_admin", fake)
-    return fake
+    media.reset_state()
+    yield fake
+    media.reset_state()
 
 
 @pytest.fixture()
@@ -143,3 +146,92 @@ def test_db_failure_is_503_no_store(client, db):
     assert r.status_code == 503
     _no_store(r)
     assert db.downloads == []
+
+
+# ── abuse bounds (weekly SA 2026-11-23, S-1) ────────────────────────────────
+
+
+def test_range_burst_downloads_the_object_once(client, db):
+    for header in ("bytes=0-99", "bytes=100-199", "bytes=500-", "bytes=-27"):
+        r = client.get(AUDIO, headers={"Range": header})
+        assert r.status_code == 206
+        _no_store(r)
+    assert client.get(AUDIO).content == MP3
+    assert db.downloads == [("library-media", "speaking/p1-hobbies/audio.mp3")]
+
+
+def test_cached_bytes_never_outlive_unpublish(client, db):
+    assert client.get(FIGURE).status_code == 200
+    db.tables["writing_samples"][0]["published"] = False
+    r = client.get(FIGURE)
+    assert r.status_code == 404
+    _no_store(r)
+    assert len(db.downloads) == 1  # 404 came from the publish check, not Storage
+
+
+def test_cache_expires_after_ttl(client, db, monkeypatch):
+    import services.library_media as media
+
+    now = [1000.0]
+    monkeypatch.setattr(media.time, "monotonic", lambda: now[0])
+    assert client.get(FIGURE).status_code == 200
+    now[0] += media.CACHE_TTL_SECONDS - 1
+    assert client.get(FIGURE).status_code == 200
+    assert len(db.downloads) == 1
+    now[0] += 2
+    assert client.get(FIGURE).status_code == 200
+    assert len(db.downloads) == 2
+
+
+def test_failed_download_is_not_cached(client, db):
+    path = "/api/library/media/writing-sample/lost-object/figure"
+    assert client.get(path).status_code == 404
+    db.objects[("library-media", "writing/lost/figure.png")] = PNG
+    r = client.get(path)
+    assert r.status_code == 200 and r.content == PNG
+
+
+def test_cache_is_bounded_by_bytes(monkeypatch):
+    import services.library_media as media
+
+    media.reset_state()
+    monkeypatch.setattr(media, "CACHE_MAX_BYTES", 10)
+    media._cache_put("a", b"12345")
+    media._cache_put("b", b"12345")
+    media._cache_put("c", b"12345")      # evicts the least recent ("a")
+    media._cache_put("big", b"x" * 11)   # larger than the cap: never stored
+    assert list(media._cache) == ["b", "c"]
+    assert media._cache_bytes == 10
+    media.reset_state()
+
+
+def test_one_client_is_throttled_before_any_read(client, db, monkeypatch):
+    import services.library_media as media
+
+    monkeypatch.setattr(media, "IP_MAX_PER_MINUTE", 3)
+    flood = {"X-Real-IP": "203.0.113.7"}
+    for _ in range(3):
+        assert client.get(FIGURE, headers=flood).status_code == 200
+    calls_before = len(db.calls)
+    r = client.get(FIGURE, headers=flood)
+    assert r.status_code == 429
+    assert r.json()["detail"] == "media_rate_limited"
+    assert int(r.headers["retry-after"]) >= 1
+    _no_store(r)
+    assert len(db.calls) == calls_before  # no DB lookup for a throttled call
+    other = client.get(FIGURE, headers={"X-Real-IP": "198.51.100.9"})
+    assert other.status_code == 200
+
+
+def test_throttle_window_slides(client, db, monkeypatch):
+    import services.library_media as media
+
+    now = [5000.0]
+    monkeypatch.setattr(media.time, "monotonic", lambda: now[0])
+    monkeypatch.setattr(media, "IP_MAX_PER_MINUTE", 2)
+    ip = {"X-Real-IP": "203.0.113.8"}
+    assert client.get(FIGURE, headers=ip).status_code == 200
+    assert client.get(FIGURE, headers=ip).status_code == 200
+    assert client.get(FIGURE, headers=ip).status_code == 429
+    now[0] += media._IP_WINDOW_SECONDS + 1
+    assert client.get(FIGURE, headers=ip).status_code == 200
