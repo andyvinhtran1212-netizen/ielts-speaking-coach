@@ -3,9 +3,11 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('client-only', () => ({}));
-vi.mock('@/lib/auth/auth-provider', () => ({ useAuth: () => ({ status: 'signed-in', user: { id: 'A', email: 'a@x.test' } }) }));
+vi.mock('@/lib/auth/auth-provider', () => ({ useAuth: () => state.auth }));
 
 const state = vi.hoisted(() => ({
+  auth: { status: 'signed-in', user: { id: 'A', email: 'a@x.test' } } as { status: string; user: { id: string; email: string } | null },
+  clsFails: false,
   courses: null as unknown,
   coursesStatus: 404,
   credits: [] as unknown[],
@@ -13,7 +15,7 @@ const state = vi.hoisted(() => ({
 }));
 const urls: string[] = [];
 
-const getWith = vi.fn(async (path: string) => {
+const getWithImpl = async (path: string) => {
   urls.push(path);
   if (path === '/api/me/courses') {
     if (state.courses === null) throw Object.assign(new Error('HTTP'), { status: state.coursesStatus });
@@ -24,9 +26,13 @@ const getWith = vi.fn(async (path: string) => {
     if (!page) throw Object.assign(new Error('HTTP 404'), { status: 404 });
     return page;
   }
-  if (path.startsWith('/api/class/me')) return state.cls;
+  if (path.startsWith('/api/class/me')) {
+    if (state.clsFails) throw Object.assign(new Error('HTTP 503'), { status: 503 });
+    return state.cls;
+  }
   throw new Error(`unexpected ${path}`);
-});
+};
+const getWith = vi.fn(getWithImpl);
 
 import { AccountPage } from '@/app/(authed-v2-account)/account/account-page';
 
@@ -58,6 +64,9 @@ const creditRow = (over: object) => ({
 });
 
 beforeEach(() => {
+  getWith.mockImplementation(getWithImpl);
+  state.auth = { status: 'signed-in', user: { id: 'A', email: 'a@x.test' } };
+  state.clsFails = false;
   state.courses = null;
   state.coursesStatus = 404;
   state.credits = [];
@@ -197,5 +206,48 @@ describe('/account', () => {
     expect(screen.queryByRole('link', { name: 'Nhập mã kích hoạt của lớp' })).toBeNull();
     expect(screen.queryByRole('link', { name: 'Đơn đăng ký của tôi' })).toBeNull();
     expect(screen.getByText('Còn 8 ngày')).toBeTruthy();
+  });
+
+  it('G04 not there and the class read fails or is degraded: a warning, never "Bạn chưa ở lớp nào"', async () => {
+    state.clsFails = true;
+    await mount();
+    let classes = screen.getByRole('region', { name: 'Khoá của lớp' });
+    expect(within(classes).getByText('Chưa tải đủ thông tin lớp của bạn. Tải lại trang để thử lại.')).toBeTruthy();
+    expect(within(classes).queryByText('Bạn chưa ở lớp nào.')).toBeNull();
+    cleanup();
+    state.clsFails = false;
+    state.cls = { has_class: true, degraded: ['class'], classes: [{ id: 'k1', name: null }] };
+    await mount();
+    classes = screen.getByRole('region', { name: 'Khoá của lớp' });
+    expect(within(classes).getByText('Chưa tải đủ thông tin lớp của bạn. Tải lại trang để thử lại.')).toBeTruthy();
+    expect(within(classes).queryByText('Bạn chưa ở lớp nào.')).toBeNull();
+    cleanup();
+    state.cls = { has_class: false };
+    await mount();
+    classes = screen.getByRole('region', { name: 'Khoá của lớp' });
+    expect(within(classes).getByText('Bạn chưa ở lớp nào.')).toBeTruthy();
+    expect(within(classes).queryByText(/Chưa tải đủ/)).toBeNull();
+  });
+
+  it('a session change drops the previous account\'s courses and credits in the same render; signed out → /login', async () => {
+    state.courses = coursesPayload();
+    state.credits = [{ balance: 17, items: [creditRow({})], next_cursor: null }];
+    const view = render(<AccountPage />);
+    await act(async () => { for (let i = 0; i < 4; i += 1) await new Promise((r) => setTimeout(r, 0)); });
+    expect(screen.getByText('Writing 6.5')).toBeTruthy();
+    expect(screen.getByRole('table')).toBeTruthy();
+    const replace = vi.fn();
+    Object.defineProperty(window, 'location', { configurable: true, value: { ...window.location, replace } });
+    getWith.mockImplementation(async (path: string) => { urls.push(path); return new Promise(() => {}); });
+    state.auth = { status: 'signed-in', user: { id: 'B', email: 'b@x.test' } };
+    view.rerender(<AccountPage />);
+    expect(screen.queryByText('Writing 6.5')).toBeNull();
+    expect(screen.queryByRole('table')).toBeNull();
+    expect(screen.queryByText(/17/)).toBeNull();
+    state.auth = { status: 'signed-out', user: null };
+    view.rerender(<AccountPage />);
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    expect(replace).toHaveBeenCalledWith('/login');
+    expect(screen.queryByText('Writing 6.5')).toBeNull();
   });
 });

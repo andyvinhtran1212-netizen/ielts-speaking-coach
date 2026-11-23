@@ -28,3 +28,4 @@ export function creditSourceLines(courses: MyCourses): { key: 'online' | 'class'
 export function normalizeCreditPage(raw: unknown): { items: CreditRow[]; nextCursor: string | null } | null;
 export function formatDelta(delta: number | null): string;
 export function classesFromClassMe(raw: unknown): { id: string; name: string; course: string | null }[];
+export function classMeIncomplete(raw: unknown): boolean;

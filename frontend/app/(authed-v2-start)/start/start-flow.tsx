@@ -11,6 +11,9 @@
 //   online"; a class → step 3 is hidden and the flow ends at the assigned
 //   work; nothing → "chưa có khoá nào". `GET /api/me/courses` is G04's: until
 //   it exists the read fails and counts as "no online course" (nothing guessed).
+//   A failed `/api/class/me` is NOT "no class": it shows the error with "Thử lại".
+// - Signed out → /login, like the other learner pages; an account change
+//   drops the steps drawn for the previous one.
 // - Every way out ("Bỏ qua", "Để sau", the step-3 links) first writes
 //   `onboarding_completed=true`, then leaves; a failed write keeps the learner
 //   here with an error and a retry, never a silent loop.
@@ -62,6 +65,18 @@ async function readOptional(path: string): Promise<unknown> {
   }
 }
 
+// The class read is an existing route: `{has_class:false}` is a real "no
+// class", so a failure must not be taken for one (it would send a class
+// member down the no-class steps and finish onboarding there).
+const CLASS_READ_FAILED = Symbol('class-read-failed');
+async function readClass(): Promise<unknown> {
+  try {
+    return await window.api.getWith<unknown>('/api/class/me?summary=true', undefined, undefined);
+  } catch {
+    return CLASS_READ_FAILED;
+  }
+}
+
 export function StartFlow() {
   const { status, user } = useAuth();
   const accountId = status === 'signed-in' ? user?.id ?? null : null;
@@ -76,8 +91,13 @@ export function StartFlow() {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const dateId = useId();
   const firstStep = useRef(true);
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
+    // Never keep a step of another (or no) account on screen.
+    setPhase({ kind: 'loading' });
+    setStep(1);
+    if (status === 'signed-out') { window.location.replace('/login'); return undefined; }
     if (!accountId) return undefined;
     const abort = new AbortController();
     (async () => {
@@ -94,14 +114,15 @@ export function StartFlow() {
       if (abort.signal.aborted) return;
       const target = startRedirect(me, new URLSearchParams(window.location.search).get('next'));
       if (target) { window.location.replace(target); return; }
-      const [courses, cls] = await Promise.all([readOptional('/api/me/courses'), readOptional('/api/class/me?summary=true')]);
+      const [courses, cls] = await Promise.all([readOptional('/api/me/courses'), readClass()]);
       if (abort.signal.aborted) return;
+      if (cls === CLASS_READ_FAILED) { setPhase({ kind: 'error' }); return; }
       const point = startingPoint({ online: hasActiveOnlineCourse(courses), inClass: hasClass(cls) });
       setStart(point === 'online' ? 'online' : 'none');
       setPhase({ kind: 'ready', me, point });
     })();
     return () => abort.abort();
-  }, [accountId]);
+  }, [accountId, status, retry]);
 
   // Each step is a new page for a screen reader: focus its heading.
   useEffect(() => {
@@ -155,7 +176,12 @@ export function StartFlow() {
           kind="error"
           title="Chưa mở được trang bắt đầu."
           body="Bạn vẫn vào trang chính được; trang này sẽ hiện lại lần sau."
-          action={<Button href={HOME} variant="primary">Vào trang chính</Button>}
+          action={(
+            <>
+              <Button variant="primary" onClick={() => setRetry((n) => n + 1)}>Thử lại</Button>
+              <Button href={HOME} variant="secondary">Vào trang chính</Button>
+            </>
+          )}
         />
       </main>
     );

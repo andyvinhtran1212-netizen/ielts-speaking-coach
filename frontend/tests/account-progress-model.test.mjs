@@ -114,3 +114,13 @@ describe('progress model (FR-077)', () => {
     assert.equal(isContentExpired({ status: 404, detail: 'content_expired' }), false);
   });
 });
+
+test('classMeIncomplete: degraded, unnamed rows or no list are a warning; a real "no class" is not', async () => {
+  const { classMeIncomplete } = await import('../lib/account-model.mjs');
+  assert.equal(classMeIncomplete({ has_class: true, degraded: ['class'], classes: [{ id: 'k', name: 'Lớp tối' }] }), true);
+  assert.equal(classMeIncomplete({ has_class: true, classes: [{ id: 'k', name: null }] }), true);
+  assert.equal(classMeIncomplete({ has_class: true }), true);
+  assert.equal(classMeIncomplete({ has_class: true, classes: [{ id: 'k', name: 'Lớp tối' }] }), false);
+  assert.equal(classMeIncomplete({ has_class: false }), false);
+  assert.equal(classMeIncomplete(null), false);
+});

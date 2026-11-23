@@ -22,7 +22,8 @@ import { Select } from '@/components/ui/select';
 import { liveHref } from '@/components/ui/shell/learner-sections';
 import { useLearnerMe } from '@/components/learner/learner-frame';
 import { useAuth } from '@/lib/auth/auth-provider';
-import { patchBrowserJsonAt } from '@/lib/browser-api';
+import { getCurrentProfile } from '@/lib/auth-api';
+import { getBrowserJson, patchBrowserJsonAt } from '@/lib/browser-api';
 import { contentVisibleLine, formatVnDate, normalizeMyCourses } from '@/lib/account-model.mjs';
 import {
   goalFromMe,
@@ -45,13 +46,17 @@ type RowState =
   | { kind: 'ready'; facts: SkillFacts }
   | { kind: 'error'; expired: boolean };
 
-type Skill = { id: SkillId; name: string; path: string; build: (raw: unknown) => SkillFacts | null; href: string | null; linkLabel: string };
+type SkillPath = '/sessions' | '/api/writing/my-essays' | '/api/listening/overview' | '/api/quiz/progress';
+type Skill = {
+  id: SkillId; name: string; path: SkillPath; query: Record<string, string> | null;
+  build: (raw: unknown) => SkillFacts | null; href: string | null; linkLabel: string;
+};
 
 const SKILLS: readonly Skill[] = [
-  { id: 'speaking', name: 'Speaking', path: '/sessions?status=completed&page=1&page_size=5', build: speakingRow, href: liveHref({ href: '/speaking', today: null }), linkLabel: 'Xem lịch sử Speaking' },
-  { id: 'writing', name: 'Writing', path: '/api/writing/my-essays', build: writingRow, href: liveHref({ href: '/writing/dashboard', today: null }), linkLabel: 'Xem bài Writing' },
-  { id: 'listening', name: 'Listening', path: '/api/listening/overview', build: listeningRow, href: liveHref({ href: '/listening', today: null }), linkLabel: 'Xem Listening' },
-  { id: 'vocab', name: 'Từ vựng', path: '/api/quiz/progress?skill_area=vocab', build: vocabRow, href: liveHref({ href: '/vocabulary/hub', today: null }), linkLabel: 'Xem Từ vựng' },
+  { id: 'speaking', name: 'Speaking', path: '/sessions', query: { status: 'completed', page: '1', page_size: '5' }, build: speakingRow, href: liveHref({ href: '/speaking', today: null }), linkLabel: 'Xem lịch sử Speaking' },
+  { id: 'writing', name: 'Writing', path: '/api/writing/my-essays', query: null, build: writingRow, href: liveHref({ href: '/writing/dashboard', today: null }), linkLabel: 'Xem bài Writing' },
+  { id: 'listening', name: 'Listening', path: '/api/listening/overview', query: null, build: listeningRow, href: liveHref({ href: '/listening', today: null }), linkLabel: 'Xem Listening' },
+  { id: 'vocab', name: 'Từ vựng', path: '/api/quiz/progress', query: { skill_area: 'vocab' }, build: vocabRow, href: liveHref({ href: '/vocabulary/hub', today: null }), linkLabel: 'Xem Từ vựng' },
 ];
 const READING = liveHref({ href: '/reading/test', today: '/reading' });
 
@@ -93,23 +98,35 @@ function GoalBlock({ me }: { me: unknown }) {
   const [examDate, setExamDate] = useState(saved.examDate);
   const [mode, setMode] = useState<GoalMode>('edit');
   const [busy, setBusy] = useState(false);
-  const [note, setNote] = useState<'saved' | 'error' | null>(null);
+  const [note, setNote] = useState<'saved' | 'kept' | 'reload' | 'error' | null>(null);
 
+  // PATCH /auth/profile ignores null fields, so an emptied band or date cannot
+  // be cleared there: send only real values, then show what the server holds
+  // (canonical reconcile), and say so when an emptied field was kept.
   const save = useCallback(async () => {
     if (busy) return;
     setBusy(true);
     setNote(null);
-    const body = {
-      target_band: START_BANDS.includes(band) ? Number(band) : null,
-      exam_date: /^\d{4}-\d{2}-\d{2}$/.test(examDate) ? examDate : null,
-    };
+    const body: { target_band?: number; exam_date?: string } = {};
+    if (START_BANDS.includes(band)) body.target_band = Number(band);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(examDate)) body.exam_date = examDate;
     try {
-      await patchBrowserJsonAt('/auth/profile', '/auth/profile', body);
-      setSaved({ band: body.target_band === null ? '' : band, examDate: body.exam_date ?? '' });
-      setNote('saved');
+      if (Object.keys(body).length) await patchBrowserJsonAt('/auth/profile', '/auth/profile', body);
     } catch (error) {
       if (isFeatureDisabled(error)) setMode('locked');
       else setNote('error');
+      setBusy(false);
+      return;
+    }
+    try {
+      const canonical = goalFromMe(await getCurrentProfile());
+      const kept = (!band && !!canonical.band) || (!examDate && !!canonical.examDate);
+      setSaved(canonical);
+      setBand(canonical.band);
+      setExamDate(canonical.examDate);
+      setNote(kept ? 'kept' : 'saved');
+    } catch {
+      setNote('reload');
     } finally {
       setBusy(false);
     }
@@ -147,6 +164,16 @@ function GoalBlock({ me }: { me: unknown }) {
         </div>
       </div>
       {note === 'error' ? <Notice kind="error" live="alert" className={styles.notice}>Chưa lưu được mục tiêu. Thử lại.</Notice> : null}
+      {note === 'kept' ? (
+        <Notice kind="warning" live="alert" className={styles.notice}>
+          Mục tiêu đã lưu không bỏ trống được. Bạn có thể đổi sang band hoặc ngày khác.
+        </Notice>
+      ) : null}
+      {note === 'reload' ? (
+        <Notice kind="warning" live="alert" className={styles.notice}>
+          Đã lưu, nhưng chưa tải lại được mục tiêu. Tải lại trang để xem.
+        </Notice>
+      ) : null}
       <div className={styles.actions}>
         <Button variant="primary" onClick={() => void save()} loading={busy} loadingLabel="Đang lưu…">Lưu mục tiêu</Button>
         <p role="status" className={styles.muted}>{note === 'saved' ? 'Đã lưu mục tiêu.' : ''}</p>
@@ -155,15 +182,33 @@ function GoalBlock({ me }: { me: unknown }) {
   );
 }
 
+/**
+ * The private rows hang under a key of the signed-in account: a session change
+ * or sign-out unmounts them in the same render, so another account's numbers
+ * never stay on screen (late replies land in an unmounted, aborted tree).
+ */
 export function ProgressPage() {
   const { status, user } = useAuth();
   const accountId = status === 'signed-in' ? user?.id ?? null : null;
+  useEffect(() => {
+    if (status === 'signed-out') window.location.replace('/login');
+  }, [status]);
+  if (!accountId) {
+    return (
+      <div className={styles.page}>
+        <p role="status" className={styles.muted}>Đang tải tiến độ…</p>
+      </div>
+    );
+  }
+  return <ProgressContent key={accountId} accountId={accountId} />;
+}
+
+function ProgressContent({ accountId }: { accountId: string }) {
   const learner = useLearnerMe();
   const [rows, setRows] = useState<Record<SkillId, RowState>>(INITIAL_ROWS);
   const [visibleLine, setVisibleLine] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!accountId) return undefined;
     const abort = new AbortController();
     setRows(INITIAL_ROWS);
     setVisibleLine(null);
@@ -182,7 +227,8 @@ export function ProgressPage() {
         ...SKILLS.map(async (skill) => {
           let next: RowState;
           try {
-            const facts = skill.build(await window.api.getWith<unknown>(skill.path, undefined, opts));
+            const query = skill.query ? new URLSearchParams(skill.query) : undefined;
+            const facts = skill.build(await getBrowserJson(skill.path, query, abort.signal));
             next = facts ? { kind: 'ready', facts } : { kind: 'error', expired: false };
           } catch (error) {
             next = { kind: 'error', expired: isContentExpired(error) };
@@ -234,7 +280,7 @@ export function ProgressPage() {
         {learner.status === 'error' ? (
           <Notice kind="error" live="alert">Chưa tải được mục tiêu đã lưu. Tải lại trang để thử lại.</Notice>
         ) : null}
-        {learner.status === 'ready' ? <GoalBlock key={learner.me.id} me={learner.me} /> : null}
+        {learner.status === 'ready' && learner.me.id === accountId ? <GoalBlock key={learner.me.id} me={learner.me} /> : null}
       </section>
     </div>
   );
