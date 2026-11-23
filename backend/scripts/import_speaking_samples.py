@@ -374,26 +374,42 @@ def plan(db, items: list[Item], *, allow_published_update: bool) -> None:
                 item.codes.append("E_PUBLISHED row is published; rerun with --allow-published-update")
 
 
+# A row whose audio is not uploaded yet carries this marker instead of its
+# content hash, so a rerun after a failed upload plans UPDATE (not SAME) and
+# uploads again. The column is NOT NULL, hence a marker and not NULL.
+PENDING_UPLOAD = "pending-upload:"
+
+
 def execute(db, items: list[Item]) -> list[str]:
     """Upserts rows (new rows unpublished), then uploads audio, then reads back.
 
     The row is written first, so a failed write never leaves an orphan object in
     the bucket. A new row is unpublished, so its audio being uploaded a moment
-    later is never seen; the media route answers 404 until the object exists."""
+    later is never seen; the media route answers 404 until the object exists.
+    A row with audio gets its real ``content_hash`` only after the upload
+    succeeds, so a failed upload stays visible to the next run."""
     failures: list[str] = []
     todo = [i for i in items if not i.blocked and i.action in ("INSERT", "UPDATE")]
     for item in todo:
         payload = dict(item.row)
+        if item.audio is not None:
+            payload["content_hash"] = PENDING_UPLOAD + item.row["content_hash"]
         if item.action == "INSERT":
             payload["published"] = False
             db.table(TABLE).insert(payload).execute()
         else:
             db.table(TABLE).update(payload).eq("source_id", payload["source_id"]).execute()
         if item.audio is not None:
-            db.storage.from_(BUCKET).upload(
-                item.row["audio_path"], item.audio.read_bytes(),
-                {"content-type": AUDIO_TYPES[item.audio.suffix.lower()], "upsert": "true"},
-            )
+            try:
+                db.storage.from_(BUCKET).upload(
+                    item.row["audio_path"], item.audio.read_bytes(),
+                    {"content-type": AUDIO_TYPES[item.audio.suffix.lower()], "upsert": "true"},
+                )
+            except Exception as exc:  # noqa: BLE001 - reported per item; the run goes on
+                failures.append(f"{item.slug}: audio upload failed ({type(exc).__name__}); rerun to retry")
+                continue
+            db.table(TABLE).update({"content_hash": item.row["content_hash"]}).eq(
+                "source_id", item.row["source_id"]).execute()
     if todo:
         back = {
             r["source_id"]: r for r in (
@@ -401,9 +417,10 @@ def execute(db, items: list[Item]) -> list[str]:
                 .in_("source_id", [i.row["source_id"] for i in todo]).execute().data or []
             )
         }
+        failed = {f.split(":", 1)[0] for f in failures}
         for item in todo:
             got = back.get(item.row["source_id"], {}).get("content_hash")
-            if got != item.row["content_hash"]:
+            if item.slug not in failed and got != item.row["content_hash"]:
                 failures.append(f"{item.slug}: read-back content_hash {got!r} differs")
     return failures
 
