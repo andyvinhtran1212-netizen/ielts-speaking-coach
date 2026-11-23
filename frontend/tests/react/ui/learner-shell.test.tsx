@@ -336,6 +336,7 @@ describe('live links only (registry Q53)', () => {
       expect(liveHref({ href: '/courses', today: '/library' })).toBe('/library');
       vi.stubEnv('AVER_PUBLIC_COMMERCE', '1');
       expect(liveHref({ href: '/courses', today: null })).toBe('/courses');
+      expect(liveHref({ href: '/courses/khoa-a', today: null })).toBe('/courses/khoa-a');
     } finally {
       vi.unstubAllEnvs();
     }
