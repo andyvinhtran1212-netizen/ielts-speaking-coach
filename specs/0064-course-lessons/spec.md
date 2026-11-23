@@ -209,11 +209,13 @@ Khoá online (G04, `course_products.kind = 'online'`) bán được nhưng chưa
 
 ## Open questions
 
+Cả 6 câu đã chốt theo đề xuất: anh Andy gõ "duyệt 0064 Q1–Q6 … theo đề xuất" lúc 23/11 13:21Z. Cột cuối giữ đúng giá trị người thực thi dùng.
+
 | # | Câu hỏi | Đề xuất | Mặc định tạm |
 |---|---|---|---|
-| 1 | Học viên lớp offline có cùng `course_id` với một khoá online có xem được bài giảng online không? `has_course_access` của G04 gồm quyền suy ra từ thành viên lớp | Có: dùng đúng `has_course_access` như G04 định ("dùng để mở nội dung"), một quy tắc quyền cho cả nền tảng | Dùng `has_course_access` |
-| 2 | (gói câu 6) Khối luyện tập trong bài: đi đường tự học mới có kiểm quyền G04 hay tạo "bài giao cá nhân"? | Đường tự học mới, spec riêng (đụng chấm bài) | Ẩn nút "Bắt đầu luyện" |
-| 3 | (gói câu 10) Máy chủ video riêng là dịch vụ nào (origin, cách ký URL)? | Bản này tắt `private_host` ở backend, không trả `ref`; spec riêng khi chọn dịch vụ (quyền tại nguồn, URL ngắn hạn do server cấp, chính sách video bài thử) | Chỉ YouTube chạy |
-| 4 | (gói câu 15) Bài kiểm tra giữa chặng có giữ điều kiện "học xong chặng" không? | Không giữ ở đợt đầu | Không giữ |
-| 5 | Trang bài học thử có cho máy tìm kiếm lập chỉ mục không? | `noindex` tới khi nội dung thật ổn định | `noindex` |
-| 6 | Ngưỡng "xem đủ" để bài có video là "Đã xong" | 90% độ dài video | `COURSE_LESSON_DONE_RATIO = 0.9` |
+| 1 | Học viên lớp offline có cùng `course_id` với một khoá online có xem được bài giảng online không? `has_course_access` của G04 gồm quyền suy ra từ thành viên lớp | Có: dùng đúng `has_course_access` như G04 định ("dùng để mở nội dung"), một quy tắc quyền cho cả nền tảng | **Đã chốt 23/11 13:21Z** (anh Andy duyệt theo đề xuất): Dùng `has_course_access` |
+| 2 | (gói câu 6) Khối luyện tập trong bài: đi đường tự học mới có kiểm quyền G04 hay tạo "bài giao cá nhân"? | Đường tự học mới, spec riêng (đụng chấm bài) | **Đã chốt 23/11 13:21Z** (anh Andy duyệt theo đề xuất): Ẩn nút "Bắt đầu luyện" |
+| 3 | (gói câu 10) Máy chủ video riêng là dịch vụ nào (origin, cách ký URL)? | Bản này tắt `private_host` ở backend, không trả `ref`; spec riêng khi chọn dịch vụ (quyền tại nguồn, URL ngắn hạn do server cấp, chính sách video bài thử) | **Đã chốt 23/11 13:21Z** (anh Andy duyệt theo đề xuất): Chỉ YouTube chạy |
+| 4 | (gói câu 15) Bài kiểm tra giữa chặng có giữ điều kiện "học xong chặng" không? | Không giữ ở đợt đầu | **Đã chốt 23/11 13:21Z** (anh Andy duyệt theo đề xuất): Không giữ |
+| 5 | Trang bài học thử có cho máy tìm kiếm lập chỉ mục không? | `noindex` tới khi nội dung thật ổn định | **Đã chốt 23/11 13:21Z** (anh Andy duyệt theo đề xuất): `noindex` |
+| 6 | Ngưỡng "xem đủ" để bài có video là "Đã xong" | 90% độ dài video | **Đã chốt 23/11 13:21Z** (anh Andy duyệt theo đề xuất): `COURSE_LESSON_DONE_RATIO = 0.9` |
