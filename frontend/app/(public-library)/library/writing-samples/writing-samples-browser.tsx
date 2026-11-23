@@ -58,8 +58,12 @@ export type SampleList = {
   topics?: { slug: string; label_vi: string | null }[];
 };
 
+/** `topic-gone`: the link named a topic the API no longer has; the list shows every topic. */
+export type ListNotice = 'topic-gone' | null;
+
 type Props = {
   query: ListQuery;
+  notice?: ListNotice;
   /** `null`: the list could not be read (error state, filters kept). */
   data: SampleList | null;
   /** True once the sample page (T010) is served; rows link to it only then. */
@@ -95,7 +99,7 @@ function plural(count: number | undefined): string {
   return typeof count === 'number' ? count.toLocaleString('vi-VN') : '';
 }
 
-export function WritingSamplesBrowser({ query, data, detailLive }: Props) {
+export function WritingSamplesBrowser({ query, data, notice = null, detailLive }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   // What the filters show: the server's query, or the change being applied.
@@ -330,6 +334,9 @@ export function WritingSamplesBrowser({ query, data, detailLive }: Props) {
       </div>
 
       <section className={styles.results} aria-label="Danh sách đề" aria-busy={pending || undefined}>
+        {notice === 'topic-gone' && !pending ? (
+          <p role="status" className={styles.notice}>Chủ đề này không còn. Danh sách đang hiện đề của mọi chủ đề.</p>
+        ) : null}
         {!pending && data ? (
           <div className={styles.summary}>
             <p className={styles.count}>{countText(data.total, shown)}</p>

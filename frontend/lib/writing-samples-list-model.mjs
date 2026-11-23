@@ -127,3 +127,32 @@ export function activeChips(query, topics) {
   if (query.q) chips.push({ key: 'q', label: `“${query.q}”`, change: { q: '' } });
   return chips;
 }
+
+/**
+ * Read the list for a query and decide what the page shows (FR-011).
+ * `fetchList(apiPath)` resolves to `{ data, status }` (`data` null on any
+ * failure, `status` the HTTP code or null when there was no answer).
+ *
+ * - A topic the API no longer knows (422 with `chude`) is not a server
+ *   failure: read again without it and say so (`notice: 'topic-gone'`).
+ *   "Tải lại" would otherwise repeat the same refused query forever.
+ * - A page past the end of a non-empty result (`?trang=99`) goes to the last
+ *   page (`redirectTo`) instead of an empty state that blames the filters.
+ */
+export async function loadListState(query, fetchList) {
+  let shown = query;
+  let notice = null;
+  let { data, status } = await fetchList(listApiPath(shown));
+  if (status === 422 && shown.chude) {
+    shown = Object.freeze({ ...shown, chude: null, trang: 1 });
+    notice = 'topic-gone';
+    ({ data } = await fetchList(listApiPath(shown)));
+  }
+  if (data && data.total > 0 && Array.isArray(data.items) && data.items.length === 0 && shown.trang > 1) {
+    const last = totalPages(data.total);
+    if (last < shown.trang) {
+      return { query: shown, data, notice, redirectTo: listHref({ ...shown, trang: last }) };
+    }
+  }
+  return { query: shown, data, notice, redirectTo: null };
+}

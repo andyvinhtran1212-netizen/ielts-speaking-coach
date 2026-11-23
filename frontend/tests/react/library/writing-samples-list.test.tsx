@@ -137,6 +137,13 @@ describe('Writing sample list', () => {
     expect(screen.getByRole('radio', { name: /^Task 2/ }).closest('label')?.textContent ?? '').toMatch(/^Task 2$/);
   });
 
+  it('a topic that no longer exists: the list shows every topic and says why', () => {
+    render(<WritingSamplesBrowser query={q({ task: 'task2' })} data={list(30)} notice="topic-gone" detailLive={false} />);
+    expect(screen.getByRole('status').textContent).toContain('Chủ đề này không còn');
+    expect((screen.getByRole('combobox', { name: 'Chủ đề' }) as HTMLSelectElement).value).toBe('');
+    expect(screen.queryByRole('heading', { name: 'Chưa tải được danh sách đề' })).toBeNull();
+  });
+
   it('never shows a stored question-type code', () => {
     render(<WritingSamplesBrowser query={q()} data={list(3)} detailLive={false} />);
     expect(document.body.innerHTML).not.toMatch(/problem_solution|advantages_disadvantages|positive_negative|two_part/);

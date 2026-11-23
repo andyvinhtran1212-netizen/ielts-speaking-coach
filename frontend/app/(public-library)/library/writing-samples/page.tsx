@@ -13,6 +13,7 @@
 // - The "Của bạn" column and filter group wait for T016 (marks API) and are
 //   not rendered yet.
 import type { Metadata } from 'next';
+import { redirect, RedirectType } from 'next/navigation';
 import { connection } from 'next/server';
 import { Suspense } from 'react';
 
@@ -20,9 +21,15 @@ import { CourseLinkLine } from '@/components/library/course-link-line';
 import { Breadcrumb } from '@/components/ui';
 import { API_BASE, ABORT_MS } from '@/lib/backend';
 import { routeFor } from '@/lib/route-registry.mjs';
-import { listApiPath, parseListQuery } from '@/lib/writing-samples-list-model.mjs';
+import { loadListState, parseListQuery } from '@/lib/writing-samples-list-model.mjs';
 
-import { WritingSamplesBrowser, WritingSamplesSkeleton, type SampleList } from './writing-samples-browser';
+import {
+  WritingSamplesBrowser,
+  WritingSamplesSkeleton,
+  type ListNotice,
+  type ListQuery,
+  type SampleList,
+} from './writing-samples-browser';
 import styles from './writing-samples.module.css';
 
 export const metadata: Metadata = {
@@ -34,29 +41,37 @@ export const metadata: Metadata = {
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
-async function loadList(path: string): Promise<SampleList | null> {
+async function loadList(path: string): Promise<{ data: SampleList | null; status: number | null }> {
   try {
     const res = await fetch(`${API_BASE}${path}`, { cache: 'no-store', signal: AbortSignal.timeout(ABORT_MS) });
     if (!res.ok) {
       console.error(`[library] ${path} → HTTP ${res.status}`);
-      return null;
+      return { data: null, status: res.status };
     }
     const data = (await res.json()) as SampleList;
-    return Array.isArray(data?.items) && typeof data.total === 'number' ? data : null;
+    return { data: Array.isArray(data?.items) && typeof data.total === 'number' ? data : null, status: res.status };
   } catch (error) {
     console.error(`[library] ${path} failed`, error);
-    return null;
+    return { data: null, status: null };
   }
 }
 
 async function ListBody({ searchParams }: { searchParams: SearchParams }) {
   // Per request: never prerendered at build, so `next build` needs no backend.
   await connection();
-  const query = parseListQuery(await searchParams);
-  const data = await loadList(listApiPath(query));
+  const state = await loadListState(parseListQuery(await searchParams), loadList);
+  // A page past the end of the result goes to the last page.
+  if (state.redirectTo) redirect(state.redirectTo, RedirectType.replace);
   // Rows link to a sample's page only once T010 serves it (no link to a 404).
   const detailLive = routeFor('/library/writing-samples/x')?.status === 'live';
-  return <WritingSamplesBrowser query={query} data={data} detailLive={detailLive} />;
+  return (
+    <WritingSamplesBrowser
+      query={state.query as ListQuery}
+      data={state.data as SampleList | null}
+      notice={state.notice as ListNotice}
+      detailLive={detailLive}
+    />
+  );
 }
 
 export default function WritingSamplesPage({ searchParams }: { searchParams: SearchParams }) {

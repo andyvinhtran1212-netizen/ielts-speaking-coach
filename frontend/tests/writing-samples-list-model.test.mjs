@@ -8,6 +8,7 @@ import {
   countText,
   listApiPath,
   listHref,
+  loadListState,
   parseListQuery,
   rowNumber,
   totalPages,
@@ -85,5 +86,59 @@ describe('list numbers and counts (FR-011)', () => {
     ]);
     assert.deepEqual(chips.map((c) => c.label), ['Task 2', 'Problem and Solution', 'Môi trường', '“tax”']);
     assert.ok(chips.every((c) => !/_/.test(c.label)));
+  });
+});
+
+describe('loadListState: what a read means for the page', () => {
+  const page = (total, items) => ({ items: Array.from({ length: items }, (_, i) => ({ slug: `s${i}` })), total, page: 1, page_size: 12 });
+  const fake = (answers) => {
+    const asked = [];
+    return { asked, fetchList: async (path) => { asked.push(path); return answers(path); } };
+  };
+
+  test('a topic the API no longer has: read again without it and say so', async () => {
+    const { asked, fetchList } = fake((path) => (path.includes('chude=') ? { data: null, status: 422 } : { data: page(30, 12), status: 200 }));
+    const state = await loadListState(parseListQuery({ task: 'task2', chude: 'old-topic', trang: '2' }), fetchList);
+    assert.deepEqual(asked, ['/api/library/writing-samples?task=task2&chude=old-topic&trang=2', '/api/library/writing-samples?task=task2']);
+    assert.equal(state.notice, 'topic-gone');
+    assert.equal(state.query.chude, null);
+    assert.equal(state.query.trang, 1);
+    assert.equal(state.data.total, 30);
+    assert.equal(state.redirectTo, null);
+  });
+
+  test('a server failure stays a failure: no second read, no notice', async () => {
+    const { asked, fetchList } = fake(() => ({ data: null, status: 503 }));
+    const state = await loadListState(parseListQuery({ chude: 'work' }), fetchList);
+    assert.equal(asked.length, 1);
+    assert.equal(state.data, null);
+    assert.equal(state.notice, null);
+  });
+
+  test('422 without a topic is not treated as a lost topic', async () => {
+    const { asked, fetchList } = fake(() => ({ data: null, status: 422 }));
+    const state = await loadListState(parseListQuery({ task: 'task2' }), fetchList);
+    assert.equal(asked.length, 1);
+    assert.equal(state.notice, null);
+    assert.equal(state.data, null);
+  });
+
+  test('a page past the end of a non-empty result goes to the last page, filters kept', async () => {
+    const { fetchList } = fake(() => ({ data: page(30, 0), status: 200 }));
+    const state = await loadListState(parseListQuery({ dang: 'opinion', trang: '99' }), fetchList);
+    assert.equal(state.redirectTo, '/library/writing-samples?dang=opinion&trang=3');
+  });
+
+  test('last page one: the redirect leaves out trang', async () => {
+    const { fetchList } = fake(() => ({ data: page(5, 0), status: 200 }));
+    const state = await loadListState(parseListQuery({ q: 'work', trang: '4' }), fetchList);
+    assert.equal(state.redirectTo, '/library/writing-samples?q=work');
+  });
+
+  test('no result at all is the empty state, not a redirect', async () => {
+    const { fetchList } = fake(() => ({ data: page(0, 0), status: 200 }));
+    const state = await loadListState(parseListQuery({ q: 'zzz', trang: '3' }), fetchList);
+    assert.equal(state.redirectTo, null);
+    assert.equal(state.data.total, 0);
   });
 });
