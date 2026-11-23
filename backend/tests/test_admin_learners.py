@@ -17,7 +17,7 @@ from fastapi import HTTPException
 
 from routers import admin_learners as mod
 from services import admin_learner_directory as directory
-from services import learner_attention, ops_thresholds, staff_scope, test_data_visibility
+from services import learner_attention, learner_care_notes, ops_thresholds, staff_scope, test_data_visibility
 
 NOW = datetime.now(timezone.utc)
 U_LAN, U_MINH, U_ONLY, U_TEACH, U_ADMIN, U_E2E = (f"10000000-0000-0000-0000-00000000000{i}" for i in range(1, 7))
@@ -173,7 +173,7 @@ class _DB:
 @pytest.fixture
 def db(monkeypatch):
     fake = _DB()
-    for module in (directory, learner_attention, staff_scope):
+    for module in (directory, learner_attention, staff_scope, learner_care_notes):
         monkeypatch.setattr(module, "supabase_admin", fake)
     monkeypatch.setattr(ops_thresholds, "get", AsyncMock(return_value=dict(DEFAULTS)))
     monkeypatch.setattr(test_data_visibility, "hide_for", lambda **_k: False)
