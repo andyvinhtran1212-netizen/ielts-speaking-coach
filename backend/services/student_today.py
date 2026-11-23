@@ -91,7 +91,7 @@ def _visible_assignments_for(user_id: str, account_name: str, now: datetime):
     _visible_assignments reconciles the class ledger as it reads (the FR-078
     exception of amendment 3, #2484); nothing else in this module writes."""
     from routers.class_student import _student_for_user, _visible_assignments
-    from services.class_archive_service import active_cohort_ids_for_student
+    from services.class_membership_service import active_cohort_ids_for_student
     from database import supabase_admin
 
     student = _student_for_user(user_id, account_name)
