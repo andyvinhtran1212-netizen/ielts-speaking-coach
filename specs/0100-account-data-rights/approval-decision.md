@@ -42,3 +42,26 @@ Decision: the code PR adds one narrow function in a migration. It sets
 when the erasure job calls it. The append-only trigger stays on for every
 other update and delete. The migration is written as a file only; applying
 it follows the rule above.
+
+## Amendment 2 — erasure through append-only and immutability triggers (2026-11-23 11:29 UTC)
+
+While writing T005, about ten tables that FR-005 deletes turned out to carry
+triggers that refuse DELETE to protect grading evidence: grammar diagnostic
+and lesson history (283, 313), advanced vocabulary evidence (281, 282, 291),
+`learner_goal_events` (452), Listening feedback reveals (296) and grammar
+quiz progress (309). Without a change, the erasure job cannot delete the
+learner's work.
+
+Andy chose option A on the decision card "Cho job xoá tài khoản đi qua các
+trigger 'không được xoá' của bài làm?": **"Hàm xoá + cửa hẹp ở trigger"**.
+
+Decision:
+- Migration 501 (file only, not applied) adds one `SECURITY DEFINER`
+  function that runs plan step 5 (deletes, anonymisation, `student_name`
+  from amendment 1) in one transaction. `EXECUTE` is revoked from `PUBLIC`,
+  `anon` and `authenticated`; only `service_role` may call it (CR nit).
+- The function sets a transaction-local erasure context naming the learner.
+  Each blocking guard gains one early return that lets through only rows of
+  that learner while that context is set. Every other update or delete is
+  refused exactly as before.
+- Applying migration 501 follows the rule above (Andy's typed approval).
