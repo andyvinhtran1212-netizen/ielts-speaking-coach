@@ -1,0 +1,16 @@
+# UI state matrix
+
+Dữ liệu chuẩn là server: câu trả lời, cờ xem lại, `started_at` và thời gian giới hạn đọc lại từ boot; tải lại luôn hiện đúng các giá trị đó. Chỉ tỉ lệ cột, Highlight/Note và bản sao tạm khi 401 ở trình duyệt (EXAMROOM-0066 FR-032). Các trạng thái dưới chỉ áp cho nhánh cờ bật; nhánh cờ tắt giữ nguyên hôm nay.
+
+| Surface | Loading | Empty | Success | Error/retry | Permission | Responsive/theme/a11y |
+| --- | --- | --- | --- | --- | --- | --- |
+| Màn trước khi bắt đầu (`prestart`) | Khung với tên đề, nút khoá tới khi boot xong | Đề không có câu: màn lỗi "This test is not available" với "Back" | "Start test" chính, "Back" phụ; có lượt dở thì "Continue" và "Start a new attempt" mở hộp trong trang | Boot lỗi: màn lỗi hiện có với "Retry" (`bootWithRecovery`) | 409 `admission_required`, 403: màn hiện có của trình; khách 403/404: thông điệp hiện có | Full test dưới 768px: màn chặn (PHONEGATE-0081); full test luôn sáng; tiếng Anh |
+| Đang làm (`inprogress`) | Câu hỏi hiện khi boot xong; cờ chưa sẵn sàng thì điều khiển cờ khoá | — | Hai cột, dải câu theo Passage, trạng thái lưu "Saved at HH:MM" | Lưu lỗi: "Not saved. Retrying…" rồi "Retry"; cờ lỗi: `AttemptReviewFlagStatus` với nút thử lại | Admin xem trước: dải "Admin preview", không lưu, không nộp | 1280/1024/768/390 theo khung; dưới 900px hai thẻ; nhãn đọc ô câu |
+| Nộp (`submitting`) | Nút khoá, "Submitting…" | Không câu trống: hộp thường | Chuyển sang màn kết quả hiện có (`ResultView`) | Nộp lỗi: hộp giữ mở với lỗi và thử lại; offline: "Waiting for connection" | Nhúng, xem trước: không có nút nộp | Bẫy tiêu điểm; Esc không đóng khi đang nộp |
+| Hết giờ | — | — | "Time is up", tự nộp qua đường hiện có, không hỏi | Nộp lỗi sau hết giờ: thông báo và thử lại; server vẫn đóng lượt theo giờ của nó | — | Đọc "Time is up" một lần |
+| Thoát và bỏ bài | Đang flush: "Leave test" trong hộp khoá | — | Rời về `backHref`; bỏ bài: lượt `abandoned`, về màn trước khi bắt đầu | Còn câu chưa lưu: hộp nêu số câu; route bỏ trả 409: thông báo "This attempt has already been submitted." và mở kết quả | Bài giao, sitting, link chia sẻ: không có "Abandon test" | Hộp của khung, tiếng Anh |
+| Mất mạng (`offline`) | — | — | "Back online…" 5 giây, câu chưa lưu được lưu | Dải "Connection lost. Your work was saved up to HH:MM…" | — | Không che ô làm bài |
+| Phiên hết hạn (`session-expired`) | Đang đăng nhập: đồng hồ vẫn chạy | — | Đăng nhập xong: cùng URL, câu chưa lưu được gửi lại | Đăng nhập lỗi: thông điệp của component đăng nhập | Khách link chia sẻ: không áp dụng | Hộp chặn của khung |
+| Tab khác (`other-tab`) | — | Không có BroadcastChannel: không hiện | "Use this tab": tab này ghi, tab kia chỉ-đọc | — | — | Thông báo một lần |
+| Nhúng thi thử (`mock_embed=1`) | Như hôm nay | — | Không thanh trên, đồng hồ, nộp, thoát; trả lời `mock-flush` | Như hôm nay | Thứ tự gắn sitting theo MOCKATTACH-0008 | Như hôm nay |
+| `sealed`, `capture`, `results` | Giữ nguyên hôm nay | Giữ nguyên | Giữ nguyên | Giữ nguyên | Giữ nguyên | Giữ nguyên (G07) |
