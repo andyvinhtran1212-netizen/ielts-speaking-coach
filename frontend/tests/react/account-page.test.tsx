@@ -122,6 +122,20 @@ describe('/account', () => {
     expect(screen.getByText('Bạn chưa có khoá online nào.')).toBeTruthy();
   });
 
+  it('kind=null rows (class membership, legacy class code) land in "Khoá của lớp", not dropped', async () => {
+    state.courses = coursesPayload({ items: [
+      course({ course_code: 'M1', title: 'Lớp sáng 3-5-7', kind: null, source: 'class_membership', can_renew: false, days_left: null }),
+      course({ course_code: 'L1', title: 'Lớp mã cũ', kind: null, source: 'legacy_access_code', can_renew: false, days_left: 12 }),
+    ] });
+    state.credits = [{ balance: 0, items: [], next_cursor: null }];
+    await mount();
+    const classes = screen.getByRole('region', { name: 'Khoá của lớp' });
+    expect(within(classes).getByText('Lớp sáng 3-5-7')).toBeTruthy();
+    expect(within(classes).getByText('Lớp mã cũ')).toBeTruthy();
+    expect(within(classes).queryByText('Bạn chưa ở lớp nào.')).toBeNull();
+    expect(screen.getByText('Bạn chưa có khoá online nào.')).toBeTruthy();
+  });
+
   it('carry_balance 7 prints the carried line, 0 prints nothing', async () => {
     state.courses = coursesPayload({
       items: [course({ credits: { balance: 11, carry_balance: 7, carry_expires_at: '2027-01-30T16:59:59Z' } })],

@@ -77,6 +77,7 @@ function SkillRow({ skill, state }: { skill: Skill; state: RowState }) {
             {state.facts.result ? <span className={styles.result}>Gần nhất: {state.facts.result}</span> : null}
           </p>
         ) : null}
+        {state.kind === 'ready' && state.facts.warning ? <p className={styles.error}>{state.facts.warning}</p> : null}
       </div>
       {skill.href ? <a href={skill.href} className={styles.link}>{skill.linkLabel}</a> : null}
     </li>

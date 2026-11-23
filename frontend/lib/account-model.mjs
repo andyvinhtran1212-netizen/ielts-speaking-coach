@@ -29,7 +29,7 @@ function normalizeCourse(row) {
   return {
     code: typeof row.course_code === 'string' ? row.course_code : '',
     title: String(row.title || row.short_title || row.course_code || ''),
-    kind: row.kind,
+    kind: row.kind ?? null,
     state: row.state,
     expiresAt: typeof row.expires_at === 'string' ? row.expires_at : null,
     daysLeft: int(row.days_left),
@@ -67,7 +67,9 @@ export function normalizeMyCourses(raw) {
   const byKind = credits.by_kind && typeof credits.by_kind === 'object' ? credits.by_kind : {};
   return {
     online: rows.filter((c) => c.kind === 'online').sort(byUrgency),
-    classes: rows.filter((c) => c.kind === 'class' || c.kind === 'repractice').sort(byUrgency),
+    // `kind: null` is G04's class membership or a legacy class code: a class
+    // course, never an online purchase (online rows always carry `kind`).
+    classes: rows.filter((c) => c.kind === 'class' || c.kind === 'repractice' || c.kind === null).sort(byUrgency),
     total: int(credits.total),
     byKind: { online: int(byKind.online), class: int(byKind.class) },
     contentVisibleUntil: typeof raw.content_visible_until === 'string' ? raw.content_visible_until : null,

@@ -1,4 +1,4 @@
-export type SkillFacts = { done: string; result: string | null };
+export type SkillFacts = { done: string; result: string | null; warning?: string };
 export function speakingRow(raw: unknown): SkillFacts | null;
 export function writingRow(raw: unknown): SkillFacts | null;
 export function listeningRow(raw: unknown): SkillFacts | null;

@@ -100,6 +100,18 @@ describe('/progress', () => {
     }
   });
 
+  it('Listening partial read with programmes still shows the numbers plus a warning', async () => {
+    const saved = DATA['/api/listening/overview'];
+    DATA['/api/listening/overview'] = { programmes: [{ completed_form_count: 2 }], recent: [], partial_data: true };
+    try {
+      await mount();
+      expect(screen.getByText('2 bài trong lộ trình nghe')).toBeTruthy();
+      expect(screen.getByText('Một phần số liệu Listening chưa tải được, số trên có thể thiếu.')).toBeTruthy();
+    } finally {
+      DATA['/api/listening/overview'] = saved;
+    }
+  });
+
   it('410 content_expired on a row says the view period is over, no error code', async () => {
     state.expired = new Set(['/sessions']);
     await mount();
