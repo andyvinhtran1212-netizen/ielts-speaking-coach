@@ -1,14 +1,15 @@
 ---
 id: EXAMLISTENT-0070
 title: Listening full tests, mini tests and drills run in the shared exam room behind a flag, with the same requests, audio rules and results as today
-status: draft
+status: approved
 risk: high
 owner: product
 ---
 
 # Listening full test, mini test và drill chạy trong khung phòng thi chung
 
-Status: **draft**. Soạn ngày 23/11/2026 theo nhiệm vụ G08-T12 (kèm ghi chú dữ liệu thử của
+Status: **approved** (anh Andy, 23/11/2026 17:08 giờ VN; nguyên văn trong
+[`approval-decision.md`](approval-decision.md)). Soạn ngày 23/11/2026 theo nhiệm vụ G08-T12 (kèm ghi chú dữ liệu thử của
 G08-T13) của `docs/proposals/commercialization-2026-11/GOI-08-phong-thi-va-trinh-luyen.md`
 (spec S4; số 0070 theo sổ `01-KE-HOACH-TONG.md` mục 6, đã kiểm còn trống trong `specs/` và
 trong các PR đang mở). Chưa dòng mã nào chạy theo spec này. Chỉ anh Andy duyệt. Khi anh
