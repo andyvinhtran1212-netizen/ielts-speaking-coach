@@ -39,6 +39,17 @@ export type FocusShellProps = {
   /** Replaces words of the leave box for this page. */
   leaveCopy?: Partial<FocusLeaveCopy>;
   /**
+   * EXAMROOM-0066 FR-011: called when the leave box opens, so the exam room can
+   * start saving what is left and show the real unsaved count in `leaveCopy`.
+   */
+  onLeaveOpen?: () => void;
+  /**
+   * EXAMROOM-0066 FR-011: awaited after the learner confirms leaving and before
+   * the page goes; the leave button shows it is busy meanwhile. A rejection
+   * keeps the learner on the page with the box open.
+   */
+  beforeLeave?: () => Promise<unknown>;
+  /**
    * The full-test room, which stays light (FR-025). Default: on in `exam`.
    * Course tests pass `false` to follow the site theme.
    */
@@ -71,6 +82,8 @@ export function FocusShell({
   onAbandon,
   onLeave,
   leaveCopy,
+  onLeaveOpen,
+  beforeLeave,
   fullTestRoom = mode === 'exam',
   demo = false,
   children,
@@ -92,17 +105,26 @@ export function FocusShell({
     });
   }, [demo]);
 
-  const leave = useCallback(() => {
+  const [flushing, setFlushing] = useState(false);
+  const go = useCallback(() => {
     setAsking(false);
     leaving.current = true;
     onLeave?.();
     window.location.assign(exitHref);
   }, [exitHref, onLeave]);
+  const leave = useCallback(() => {
+    if (!beforeLeave) { go(); return; }
+    setFlushing(true);
+    beforeLeave().then(
+      () => { setFlushing(false); go(); },
+      () => { setFlushing(false); },
+    );
+  }, [beforeLeave, go]);
 
   const requestExit = () => {
     const lose = unsaved.current();
     setAskedUnsaved(lose);
-    if (mode === 'exam' || lose) setAsking(true);
+    if (mode === 'exam' || lose) { setAsking(true); onLeaveOpen?.(); }
     else leave();
   };
 
@@ -141,7 +163,7 @@ export function FocusShell({
         ? <div className={styles.content}>{children}</div>
         : <main id="focus-content" tabIndex={-1} className={styles.content}>{children}</main>}
       {bottom ? <div className={styles.bottom}>{bottom}</div> : null}
-      <LeaveConfirm open={asking} mode={mode} copy={copy} onStay={() => setAsking(false)} onLeave={leave} />
+      <LeaveConfirm open={asking} mode={mode} copy={copy} busy={beforeLeave ? flushing : undefined} onStay={() => setAsking(false)} onLeave={leave} />
     </div>
   );
 }
