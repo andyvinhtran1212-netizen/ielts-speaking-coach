@@ -206,7 +206,7 @@ giáo viên chốt tại thời điểm trả bài. Đã kiểm trên `staging` 
   `overall` bắt buộc.
 - Không nối được bài với bài giao: `context='self_practice'`, `cohort_id` NULL;
   không đoán.
-- Cờ đổi giữa chừng (cache 30–60 s của `runtime_flags`): bài trả trong lúc cache
+- Cờ đổi giữa chừng (cache 15 s của `runtime_flags`): bài trả trong lúc cache
   còn cũ được đối soát ghi bù.
 - Xoá cứng bài hoặc xoá tài khoản kéo theo xoá bài: hai bảng xoá theo dây chuyền;
   `reviewer_id` về NULL khi người trả bị xoá.

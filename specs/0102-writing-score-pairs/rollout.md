@@ -38,7 +38,7 @@
 
 ## Rollback and repair
 
-- Ngừng ghi cặp: tắt cờ (có hiệu lực trong 30–60 s, không cần deploy).
+- Ngừng ghi cặp: tắt cờ (có hiệu lực trong khoảng 15 s, cache của `runtime_flags`, không cần deploy).
 - Rollback mã: revert PR G12-C03; trả bài trở về đúng như trước.
 - Rollback migration: `rollback/480_writing_score_pairs.sql` từ chối khi
   `writing_score_pairs` có dòng, trừ khi phiên đặt
