@@ -76,7 +76,10 @@ export function PracticeExamRoom({
   const strings = speakingRoomStrings(mode);
   const elapsed = useElapsed(activeState !== 'loading' && activeState !== 'error');
   const title = typeof view.frame?.contextLabel === 'string' && view.frame.contextLabel ? view.frame.contextLabel : 'Speaking';
-  const detail = view.header?.visible && view.header.info ? String(view.header.info) : undefined;
+  // practice.js writes "Part 1 · <topic>"; with no topic it leaves "Part 1 · ",
+  // which the bar would print as "Speaking · Part 1 ·".
+  const info = view.header?.visible && view.header.info ? String(view.header.info).replace(/\s*·\s*$/, '').trim() : '';
+  const detail = info || undefined;
   const progress = view.header?.visible && view.header.progress ? String(view.header.progress) : '';
   // FR-007: "‹ Thoát" with unsent recordings says so; the exam bar always asks,
   // so its words depend on what was unsent when the box opened.

@@ -171,6 +171,15 @@ describe('flag on', () => {
     expect(container.querySelector('#rec-duration-display')?.textContent).toBe('Thời lượng ghi âm: 0:20');
   });
 
+  it('no topic: the bar title has no trailing "·"', () => {
+    const p = roomPlayer();
+    p.updateView('header', { visible: true, info: 'Part 1 · ', progress: '1 / 1' });
+    const { container } = shell(p);
+    const bar = container.querySelector('[data-speaking-room-root]') as HTMLElement;
+    expect(bar.textContent).toContain('Part 1');
+    expect(bar.textContent).not.toMatch(/Part 1\s*·\s*(1 \/ 1|$)/);
+  });
+
   it('a full test uses the English room words (FR-011)', () => {
     const p = roomPlayer();
     p.updateView('frame', { examRoomSessionMode: 'test_full' });
