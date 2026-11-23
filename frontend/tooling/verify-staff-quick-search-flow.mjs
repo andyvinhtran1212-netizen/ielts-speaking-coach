@@ -14,8 +14,11 @@ const shotsAt = process.argv.indexOf('--shots');
 const SHOTS = shotsAt > 0 ? process.argv[shotsAt + 1] : null;
 if (SHOTS) mkdirSync(SHOTS, { recursive: true });
 const FIXTURE_API_PREFIX = '/__fixture_api';
-const fixtureRuntime = `window.__AVER_RUNTIME_CONFIG__=Object.freeze({environment:'local-test',apiBase:${JSON.stringify(`${BASE}${FIXTURE_API_PREFIX}`)},supabaseUrl:null,supabaseAnonKey:null,release:null,gitRef:null,coreOperationCorrelationEnabled:false,writingAdmissionEnabled:false});`;
-const SB = process.env.SUPABASE_URL || 'https://zjphffoujxkpltixsbzj.supabase.co';
+// Same project URL as the stored session key (storageKey(SB)): with a null URL the
+// app falls back to another project, finds no session and sends the page to /login.
+const SB = process.env.SUPABASE_URL || 'https://huwsmtubwulikhlmcirx.supabase.co';
+const ANON = process.env.AVER_SUPABASE_ANON_KEY || 'test-anon-key';
+const fixtureRuntime = `window.__AVER_RUNTIME_CONFIG__=Object.freeze({environment:'local-test',apiBase:${JSON.stringify(`${BASE}${FIXTURE_API_PREFIX}`)},supabaseUrl:${JSON.stringify(SB)},supabaseAnonKey:${JSON.stringify(ANON)},release:null,gitRef:null,coreOperationCorrelationEnabled:false,writingAdmissionEnabled:false});`;
 
 const results = [];
 const check = (name, ok, detail = '') => {
