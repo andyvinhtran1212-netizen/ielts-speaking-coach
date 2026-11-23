@@ -39,7 +39,7 @@ let post: ReturnType<typeof vi.fn>;
 function mount(body: unknown) {
   get = vi.fn(async () => body);
   post = vi.fn(async () => undefined);
-  Object.defineProperty(window, 'api', { configurable: true, value: { get, post } });
+  Object.defineProperty(window, 'api', { configurable: true, value: { get, getWith: get, post } });
   return render(<TodayV2 accountId="learner-1" />);
 }
 
@@ -59,7 +59,7 @@ it('reads /api/student/today exactly once and writes nothing on load', async () 
   mount(payload());
   await screen.findByRole('heading', { level: 1 });
   expect(get).toHaveBeenCalledTimes(1);
-  expect(get).toHaveBeenCalledWith('/api/student/today');
+  expect(get.mock.calls[0][0]).toBe('/api/student/today');
   expect(post).not.toHaveBeenCalled();
 });
 
@@ -240,7 +240,7 @@ it('a failed load shows one notice with a retry that calls the API again', async
   get = vi.fn().mockRejectedValueOnce(Object.assign(new Error('HTTP 500'), { status: 500 }))
     .mockResolvedValueOnce(payload());
   post = vi.fn();
-  Object.defineProperty(window, 'api', { configurable: true, value: { get, post } });
+  Object.defineProperty(window, 'api', { configurable: true, value: { get, getWith: get, post } });
   render(<TodayV2 accountId="learner-1" />);
   expect(await screen.findByText('Chưa tải được việc hôm nay')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
@@ -251,6 +251,70 @@ it('a failed load shows one notice with a retry that calls the API again', async
 it('a response outside the contract is an error, not a blank page', async () => {
   mount({ state: 'unknown' });
   expect(await screen.findByText('Chưa tải được việc hôm nay')).toBeTruthy();
+});
+
+it('a failed class read under no_course shows the assigned warning, not only "no course"', async () => {
+  mount(payload({ state: 'no_course', degraded: ['assigned'] }));
+  const block = await screen.findByRole('region', { name: 'Bài được giao, hạn hôm nay và ngày mai' });
+  expect(within(block).getByText('Bài được giao')).toBeTruthy();
+});
+
+it('settles owed Speaking reports after an authenticated read, never after a failed one', async () => {
+  const retryAll = vi.fn();
+  Object.defineProperty(window, 'SpeakingDebt', { configurable: true, value: { retryAll } });
+  mount(payload());
+  await screen.findByRole('heading', { level: 1 });
+  expect(retryAll).toHaveBeenCalledTimes(1);
+  cleanup();
+  retryAll.mockReset();
+  get = vi.fn().mockRejectedValue(Object.assign(new Error('HTTP 500'), { status: 500 }));
+  Object.defineProperty(window, 'api', { configurable: true, value: { get, getWith: get, post } });
+  render(<TodayV2 accountId="learner-1" />);
+  await screen.findByText('Chưa tải được việc hôm nay');
+  expect(retryAll).not.toHaveBeenCalled();
+  Reflect.deleteProperty(window, 'SpeakingDebt');
+});
+
+it('switching between two opted-in accounts never shows or marks the old account\'s data', async () => {
+  const resultsA = payload({
+    student: { name: 'Tài khoản A' },
+    new_results: [{ kind: 'writing', title: 'Bài của A', returned_at: '2026-11-23T01:00:00Z',
+      key: 'writing:a1', href: '/writing/result?essay_id=a1' }],
+    new_results_cursor: { seen_until: '2026-11-23T01:00:00Z', seen_key: 'writing:a1' },
+  });
+  let releaseA: (value: unknown) => void = () => {};
+  let releaseB: (value: unknown) => void = () => {};
+  const signals: AbortSignal[] = [];
+  get = vi.fn((_path: string, _q: unknown, opts?: { signal?: AbortSignal }) => {
+    if (opts?.signal) signals.push(opts.signal);
+    return new Promise((resolve) => {
+      if (get.mock.calls.length === 1) releaseA = resolve; else releaseB = resolve;
+    });
+  });
+  post = vi.fn(async () => undefined);
+  Object.defineProperty(window, 'api', { configurable: true, value: { get, getWith: get, post } });
+  const view = render(<TodayV2 accountId="account-a" />);
+  await waitFor(() => expect(get).toHaveBeenCalledTimes(1));
+  view.rerender(<TodayV2 accountId="account-b" />);
+  await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+  expect(signals[0]?.aborted).toBe(true);
+  await act(async () => { releaseA(resultsA); });
+  expect(screen.queryByText('Bài của A')).toBeNull();
+  expect(screen.queryByText(/Tài khoản A/)).toBeNull();
+  await act(async () => { releaseB(payload({ student: { name: 'Tài khoản B' } })); });
+  expect(await screen.findByRole('heading', { level: 1 })).toBeTruthy();
+  expect(screen.queryByText('Bài của A')).toBeNull();
+  expect(post).not.toHaveBeenCalledWith('/api/student/today/seen', expect.objectContaining({ seen_key: 'writing:a1' }));
+});
+
+it('unmount aborts the pending Today read', async () => {
+  let signal: AbortSignal | undefined;
+  get = vi.fn((_p: string, _q: unknown, opts?: { signal?: AbortSignal }) => { signal = opts?.signal; return new Promise(() => {}); });
+  Object.defineProperty(window, 'api', { configurable: true, value: { get, getWith: get, post: vi.fn() } });
+  const view = render(<TodayV2 accountId="learner-1" />);
+  await waitFor(() => expect(get).toHaveBeenCalledTimes(1));
+  view.unmount();
+  expect(signal?.aborted).toBe(true);
 });
 
 // ── /home switch (FR-075) ─────────────────────────────────────────────────────
@@ -293,4 +357,18 @@ it("another account's profile never turns the new tree on", async () => {
   profile.current = { id: 'someone-else', learner_v2_enabled: true };
   render(<HomeTreeSwitch><p>legacy home</p></HomeTreeSwitch>);
   expect(screen.getByText('legacy home')).toBeTruthy();
+});
+
+it('a switch to another opted-in account mounts a fresh Today tree', async () => {
+  const { HomeTreeSwitch } = await import('@/app/(authed-home)/home/home-tree-switch');
+  profile.current = { id: 'learner-1', learner_v2_enabled: true };
+  const view = render(<HomeTreeSwitch><p>legacy home</p></HomeTreeSwitch>);
+  const first = screen.getByText('new tree for learner-1');
+  auth.user = { id: 'learner-2', email: null };
+  profile.current = { id: 'learner-2', learner_v2_enabled: true };
+  view.rerender(<HomeTreeSwitch><p>legacy home</p></HomeTreeSwitch>);
+  const second = screen.getByText('new tree for learner-2');
+  expect(second).not.toBe(first);
+  expect(first.isConnected).toBe(false);
+  auth.user = { id: 'learner-1', email: null };
 });
