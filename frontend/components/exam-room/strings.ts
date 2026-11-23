@@ -25,7 +25,10 @@ const SHELL_EN = {
   handoverRefused: 'Another tab asked to continue this test. Some answers are not saved yet, so you can keep working here.',
 } as const;
 
-const SHELL_VI: typeof SHELL_EN = {
+/** The Vietnamese set has the same keys and shapes, not the English literals. */
+type ShellStrings = { [K in keyof typeof SHELL_EN]: (typeof SHELL_EN)[K] extends (...args: infer A) => string ? (...args: A) => string : string };
+
+const SHELL_VI: ShellStrings = {
   leaveUnsaved: (n: number) => `Còn ${n} câu chưa lưu. Nếu thoát bây giờ, các câu này có thể mất.`,
   leaveTitle: 'Thoát bài luyện?',
   leaveStay: 'Ở lại làm tiếp',
@@ -39,7 +42,7 @@ const SHELL_VI: typeof SHELL_EN = {
   handoverRefused: 'Một tab khác muốn làm tiếp bài này. Vẫn còn câu chưa lưu nên bạn làm tiếp ở tab này.',
 };
 
-export type ExamRoomStrings = typeof EXAM_ROOM_STRINGS_EN & { shell: typeof SHELL_EN };
+export type ExamRoomStrings = typeof EXAM_ROOM_STRINGS_EN & { shell: ShellStrings };
 
 export function examRoomStrings(mode: ExamRoomMode): ExamRoomStrings {
   return mode === 'test'
