@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import timedelta
+from datetime import datetime, time, timedelta, timezone
 from unittest.mock import AsyncMock
 
 import pytest
@@ -66,10 +66,14 @@ def db(monkeypatch):
         {"id": "f1", "status": "new", "created_at": _ago(hours=80)},
         {"id": "f2", "status": "resolved", "created_at": _ago(hours=90)},
     ]
+    # Exam times are stored as UTC (as PostgREST returns them); "today" is the
+    # Vietnam day, so the fixture uses noon VN today, never NOW + 1 minute,
+    # which falls on the next VN day from 16:59Z.
+    vn_noon = datetime.combine(VN_TODAY, time(12), tzinfo=staff_attention.VN).astimezone(timezone.utc)
     fake.rows["mock_exams"] = [
-        {"id": "x-today", "status": "published", "open_from": (NOW + timedelta(minutes=1)).isoformat()},
-        {"id": "x-draft", "status": "draft", "open_from": (NOW + timedelta(minutes=1)).isoformat()},
-        {"id": "x-later", "status": "published", "open_from": (NOW + timedelta(days=3)).isoformat()},
+        {"id": "x-today", "status": "published", "open_from": vn_noon.isoformat()},
+        {"id": "x-draft", "status": "draft", "open_from": vn_noon.isoformat()},
+        {"id": "x-later", "status": "published", "open_from": (vn_noon + timedelta(days=3)).isoformat()},
     ]
     fake.rows["class_lessons"] = [
         {"id": "l-a-today", "cohort_id": C_A, "lesson_no": 11, "lesson_date": _day(0), "starts_at": "19:30:00"},
@@ -128,6 +132,27 @@ def test_admin_queue_rows_count_real_sources(db):
     # a2 and a3 are past due and Lan has not handed them in; a1 is all handed in.
     assert q["assignments_overdue"]["count"] == 2 and q["assignments_overdue"]["overdue"] is True
     assert out["sources_failed"] == []
+
+
+@pytest.mark.parametrize("utc_hour", [1, 16, 17, 18, 23])
+def test_exams_today_uses_the_vietnam_day_at_any_utc_hour(db, utc_hour):
+    """From 17:00Z the UTC date is a day behind Vietnam. An exam at 08:00 VN
+    (01:00Z) on the VN day counts; one at 23:30 VN the day before, or 00:30 VN
+    the day after, does not. Bounds are +07:00, stored times are UTC."""
+    now = datetime(2026, 11, 23, utc_hour, 0, tzinfo=timezone.utc)
+    vn_day = staff_attention.vn_today(now)
+    at = lambda d, h, m=0: datetime.combine(vn_day + timedelta(days=d), time(h, m),  # noqa: E731
+                                           tzinfo=staff_attention.VN).astimezone(timezone.utc).isoformat()
+    db.rows["mock_exams"] = [
+        {"id": "x-morning", "status": "published", "open_from": at(0, 8)},
+        {"id": "x-late", "status": "published", "open_from": at(0, 23, 59)},
+        {"id": "x-yesterday", "status": "published", "open_from": at(-1, 23, 30)},
+        {"id": "x-tomorrow", "status": "published", "open_from": at(1, 0, 30)},
+    ]
+    ctx = staff_attention._Ctx(now=now, thresholds=dict(DEFAULTS), cohort_ids=None,
+                               viewer_id=None, hide_test=False)
+    row = staff_attention.q_exams_today(ctx)
+    assert row["count"] == 2, (utc_hour, vn_day)
 
 
 def test_rows_without_a_source_yet_are_unavailable_never_zero(db):
