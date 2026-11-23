@@ -31,7 +31,7 @@ Người thực thi không đổi cài đặt dự án Supabase và không tạo
 - [ ] Authentication › Providers › Email: bật; **giữ bật "Confirm email"**; nếu OTP cho email mới không chạy khi nó bật thì dừng rollout và báo anh, không tắt bảo vệ; độ dài mã 6; thời hạn mã = `LOGIN_CODE_TTL_MINUTES`.
 - [ ] Authentication › Email Templates: mẫu "Magic Link" (dùng cho OTP đăng nhập) và mẫu "Change Email Address" (dùng cho T24) chỉ chứa `{{ .Token }}`, không có `{{ .ConfirmationURL }}`; dán nội dung từ `docs/auth/login-code-email.*` và `docs/auth/email-change-code-email.*` (T14).
 - [ ] "Secure email change": giữ nguyên ở mọi môi trường (đổi email không dùng cơ chế của GoTrue, plan 5.6b).
-- [ ] Cờ `runtime_flags('email_change')`: mặc định tắt ở mọi môi trường; bật trên staging để thử T24; bật production chỉ khi anh duyệt riêng sau kịch bản 5.6b.
+- [ ] Cờ `runtime_flags('email_change')`: mặc định tắt ở mọi môi trường; bật trên staging để thử T24; bật production chỉ khi anh duyệt riêng sau kịch bản 5.6b. Điều kiện trước khi bật ở bất kỳ môi trường nào: migration 394 (`course_open_alerts`, `fn_course_open_alerts_rekey`) đã áp ở môi trường đó (`SELECT to_regclass('public.course_open_alerts')` khác null) và T22 đã merge; `verify` cũng tự kiểm và trả 503 nếu thiếu.
 - [ ] Bật gộp tài khoản cùng email đã xác minh (điểm (d)).
 - [ ] Giới hạn của Supabase Auth (Rate Limits): **không nới**, ghi lại giá trị hiện tại. Production giữ nguyên cấu hình; đổi chỉ khi anh duyệt riêng kèm số đo staging.
 
