@@ -223,17 +223,48 @@ def sweep_audio() -> dict:
             "objects": objects, "errors": errors}
 
 
+def _still_purgeable(session: dict) -> bool:
+    """Guard at the purge itself (FR-048): the batch decision in ``_eligible``
+    may be stale once a course is granted or renewed while the run goes on.
+    Re-read this session and its owner's window now, through the same client
+    and rule, and purge only if both still say so. Unreadable → keep."""
+    sid = session["id"]
+    fresh = (
+        supabase_admin.table("sessions")
+        .select(
+            "id, user_id, status, started_at, resume_expires_at, "
+            "last_accessed_at, audio_purged_at, content_purged_at"
+        )
+        .eq("id", sid)
+        .execute()
+        .data
+    ) or []
+    if not fresh or fresh[0].get("content_purged_at"):
+        return False
+    row = fresh[0]
+    window = retention_policy.content_windows([row.get("user_id")], db=supabase_admin).get(
+        str(row.get("user_id")))
+    if window is None:
+        return False
+    return bool(compute_expiry(row, policy=RetentionPolicy(window=window))["is_content_purged"])
+
+
 def sweep_content() -> dict:
     eligible = _eligible("content_purged_at", RETENTION_CONTENT_DAYS, "is_content_purged", per_user=True)
-    purged, errors = 0, []
+    purged, kept, errors = 0, 0, []
     for s in eligible:
         try:
+            if not _still_purgeable(s):
+                kept += 1
+                continue
             _purge_content(s)
             purged += 1
         except Exception as exc:  # noqa: BLE001
             errors.append({"session_id": s["id"], "error": str(exc)})
             logger.warning("[sweep] content purge failed session=%s: %s", s["id"], exc)
-    return {"op": "content", "eligible": len(eligible), "purged": purged, "errors": errors}
+    if kept:
+        logger.warning("[sweep] content kept=%d sessions (window changed or unreadable at purge time)", kept)
+    return {"op": "content", "eligible": len(eligible), "purged": purged, "kept": kept, "errors": errors}
 
 
 def main() -> dict:

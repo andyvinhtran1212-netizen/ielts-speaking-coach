@@ -73,7 +73,7 @@ def flag(monkeypatch):
 
 @pytest.fixture
 def access(monkeypatch):
-    state = {"items": [], "error": False}
+    state = {"items": [], "members": [], "error": False}
 
     def list_access(user_id):
         if state["error"]:
@@ -81,6 +81,7 @@ def access(monkeypatch):
         return state["items"]
 
     monkeypatch.setattr(rp.ent, "list_access", list_access)
+    monkeypatch.setattr(rp.ent, "fetch_membership_course_ids", lambda user_id: list(state["members"]))
     return state
 
 
@@ -90,7 +91,7 @@ def sweep_db(monkeypatch):
     db = FakeDB(tables={
         "runtime_flags": [{"key": rp.FLAG, "enabled": True}],
         "entitlements": [], "students": [], "student_cohort_memberships": [], "cohorts": [],
-        "sessions": [], "responses": [],
+        "sessions": [], "responses": [], "course_products": [{"id": "p1", "kind": "online"}],
     })
     monkeypatch.setattr(sweep, "supabase_admin", db)
     monkeypatch.setattr(sweep, "DRY_RUN", True)
@@ -309,3 +310,107 @@ def test_10_a_failed_lookup_hides_nothing_new_and_the_sweep_skips(flag, access, 
     sweep_db.legacy["error"] = False
     sweep_db.tables["runtime_flags"][0]["enabled"] = False           # flag off: today's rule purges
     assert _swept(sweep_db) == ["s100"]
+
+
+# ── HOLD FR-048 (PR #2550): the window is re-read at the purge itself ─────
+
+
+def test_11_a_course_renewed_after_selection_keeps_the_content(flag, access, sweep_db, monkeypatch):
+    """A learner renews between ``_eligible`` (batch decision) and the purge:
+    the guard re-reads the window and keeps the content. Without a renewal the
+    same run purges it."""
+    monkeypatch.setattr(sweep, "DRY_RUN", False)
+    sweep_db.tables["entitlements"].append(_ent_row("e1", expires=_ago(50)))
+    sweep_db.tables["sessions"].append(_session("s70", 70))
+    sweep_db.tables["responses"].append({"id": "r1", "session_id": "s70", "transcript": "hello",
+                                         "raw_transcript_text": "hello", "feedback": {"x": 1},
+                                         "pronunciation_payload": None})
+    selected = sweep._eligible
+
+    def select_then_renew(*args, **kwargs):
+        rows = selected(*args, **kwargs)
+        assert [r["id"] for r in rows] == ["s70"]                      # the batch says purge
+        sweep_db.tables["entitlements"].append(_ent_row("e2", expires=NOW + timedelta(days=180)))
+        return rows
+
+    monkeypatch.setattr(sweep, "_eligible", select_then_renew)
+    res = sweep.sweep_content()
+    assert (res["eligible"], res["purged"], res["kept"]) == (1, 0, 1)
+    assert sweep_db.tables["responses"][0]["transcript"] == "hello"
+    assert sweep_db.tables["sessions"][0]["content_purged_at"] is None
+    assert not any(t == "responses" and op == "update" for t, op in sweep_db.calls)
+
+    # The guard reads the window fresh: an unreadable window at purge time keeps it too.
+    monkeypatch.setattr(sweep, "_eligible", selected)
+    sweep_db.tables["entitlements"].pop()                              # renewal gone: expired again
+    real_windows = rp.content_windows
+    calls = {"n": 0}
+
+    def windows(user_ids, now=None, *, db=None):
+        calls["n"] += 1
+        sweep_db.legacy["error"] = calls["n"] > 1                     # batch ok, purge-time read fails
+        return real_windows(user_ids, now, db=db)
+
+    monkeypatch.setattr(sweep.retention_policy, "content_windows", windows)
+    res = sweep.sweep_content()
+    assert (res["purged"], res["kept"]) == (0, 1)
+    assert sweep_db.tables["responses"][0]["transcript"] == "hello"
+
+    # Control: nothing changed between selection and purge → purged.
+    monkeypatch.setattr(sweep.retention_policy, "content_windows", real_windows)
+    sweep_db.legacy["error"] = False
+    res = sweep.sweep_content()
+    assert (res["eligible"], res["purged"], res["kept"]) == (1, 1, 0)
+    assert sweep_db.tables["responses"][0]["transcript"] is None
+    assert sweep_db.tables["sessions"][0]["content_purged_at"] is not None
+
+
+# ── Codex P1 (PR #2550): a live class on the SAME course as an expired row ─
+
+
+def test_12_a_live_class_on_the_same_course_as_an_expired_row_stays_open(flag, access, sweep_db):
+    """``build_access`` lists the course once (plan 5.18, display), dropping
+    the membership; retention must still see the live class."""
+    access["items"] = _items(_ent_row("e1", expires=_ago(200)), members=["c1"])
+    assert [i.source for i in access["items"]] == ["enrollment_order"]   # membership deduplicated
+    access["members"] = ["c1"]
+    assert rp.content_window(USER) == OPEN_WINDOW
+    assert rp.window_view(access["items"], NOW, USER) == (None, 45)
+    assert rp.window_view(access["items"], NOW)[0] is not None           # without the re-read: a cut-off
+    sweep_db.tables["students"].append({"id": "st1", "user_id": USER})
+    sweep_db.tables["student_cohort_memberships"].append(
+        {"id": "m1", "student_id": "st1", "cohort_id": "k1", "is_active": True})
+    sweep_db.tables["cohorts"].append({"id": "k1", "course_id": "c1", "archived_at": None})
+    sweep_db.tables["entitlements"].append(_ent_row("e1", expires=_ago(200)))
+    sweep_db.tables["sessions"].append(_session("s100", 100))
+    assert rp.content_windows([USER], NOW, db=sweep_db)[USER] == OPEN_WINDOW
+    assert _swept(sweep_db) == []
+    access["members"] = []
+    assert rp.content_window(USER).mode == "until"
+
+
+# ── SA R1 Medium (PR #2550): lists longer than one PostgREST response ──────
+
+
+def test_13_rows_past_the_response_cap_are_read_before_any_purge(flag, access, sweep_db, monkeypatch):
+    """With a 3-row cap, the live row is the 5th: an unpaged read would see
+    only expired rows and purge a learner who is studying."""
+    sweep_db.max_rows = 3
+    monkeypatch.setattr(rp, "_PAGE", 3)
+    for n in range(4):
+        sweep_db.tables["entitlements"].append(_ent_row(f"e{n}", expires=_ago(300 + n)))
+    sweep_db.tables["entitlements"].append(_ent_row("e9", expires=NOW + timedelta(days=90)))
+    sweep_db.tables["sessions"].append(_session("s100", 100))
+    assert rp.content_windows([USER], NOW, db=sweep_db)[USER] == OPEN_WINDOW
+    assert _swept(sweep_db) == []
+    pages = [c for c in sweep_db.calls if c == ("entitlements", "select")]
+    assert len(pages) >= 2
+    # Class rows are paged the same way.
+    sweep_db.tables["entitlements"].pop()
+    sweep_db.tables["students"].append({"id": "st1", "user_id": USER})
+    for n in range(4):
+        sweep_db.tables["student_cohort_memberships"].append(
+            {"id": f"m{n}", "student_id": "st1", "cohort_id": f"k{n}", "is_active": True})
+        sweep_db.tables["cohorts"].append({"id": f"k{n}", "course_id": f"c{n}",
+                                           "archived_at": _iso(_ago(5)) if n < 3 else None})
+    assert rp.content_windows([USER], NOW, db=sweep_db)[USER] == OPEN_WINDOW

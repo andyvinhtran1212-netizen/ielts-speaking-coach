@@ -154,7 +154,7 @@ def build_my_courses(items: list[ent.AccessItem], balance: dict, courses: dict[s
 def _my_courses_reads(user_id: str):
     items = ent.list_access(user_id)
     return (items, fetch_credit_balance(user_id), fetch_courses(i.course_id for i in items),
-            ent.fetch_open_orders(user_id), retention_policy.window_view(items, datetime.now(timezone.utc)))
+            ent.fetch_open_orders(user_id), retention_policy.window_view(items, datetime.now(timezone.utc), user_id))
 
 
 @router.get("/courses")
