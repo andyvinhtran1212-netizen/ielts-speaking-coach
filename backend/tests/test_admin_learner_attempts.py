@@ -62,11 +62,19 @@ def _seed(db):
          "started_at": _ago(days=6, hours=1), "submitted_at": _ago(days=6)},
         {"id": "r2", "user_id": U_LAN, "test_id": "rt1", "status": "in_progress", "score": None,
          "band_estimate": None, "started_at": _ago(days=1, hours=2)},
+        # The Reading part of mock sitting s2 (not yet released): no row, no band.
+        {"id": "r3", "user_id": U_LAN, "test_id": "rt1", "status": "submitted", "score": 35, "band_estimate": 8.0,
+         "grading_details": [{"q": i} for i in range(40)], "sitting_id": "s2",
+         "started_at": _ago(days=8, hours=1), "submitted_at": _ago(days=8)},
     ]
     db.rows["reading_tests"] = [{"id": "rt1", "title": "Cambridge 18 Test 1"}]
     db.rows["listening_test_attempts"] = [
         {"id": "l1", "user_id": U_LAN, "test_id": "lt1", "status": "abandoned", "score": None, "band_estimate": None,
-         "started_at": _ago(days=7)}]
+         "started_at": _ago(days=7)},
+        # The Listening part of mock sitting s2.
+        {"id": "l2", "user_id": U_LAN, "test_id": "lt1", "status": "submitted", "score": 33, "band_estimate": 7.5,
+         "grading_details": [], "sitting_id": "s2", "started_at": _ago(days=8, hours=2),
+         "submitted_at": _ago(days=8, hours=1)}]
     db.rows["listening_tests"] = [{"id": "lt1", "title": "Full Listening 3"}]
     db.rows["mock_exam_sittings"] = [
         {"id": "s1", "user_id": U_LAN, "mock_exam_id": "m1", "status": "released", "created_at": _ago(days=10)},
@@ -105,7 +113,8 @@ def test_every_skill_is_one_table_newest_first_with_the_view_that_opens_it(db):
     ]
     assert out["sources_failed"] == [] and out["next_cursor"] is None
     # The mock's Speaking session and a deleted essay are not rows of their own.
-    assert not {"x3", "e4"} & {i["id"] for i in out["items"]}
+    # Nor are the mock's Reading and Listening parts, whose bands wait for release.
+    assert not {"x3", "e4", "r3", "l2"} & {i["id"] for i in out["items"]}
 
 
 def test_skill_and_state_filters(db):

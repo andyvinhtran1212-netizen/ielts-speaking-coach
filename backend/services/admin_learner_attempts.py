@@ -180,7 +180,10 @@ def _test(person: Person, skill: str) -> list[dict]:
     cols = "id, test_id, status, score, band_estimate, grading_details, started_at, submitted_at"
     if skill == "listening":
         cols += ", scoring_policy"
-    rows = _paged(lambda: supabase_admin.table(table).select(cols).eq("user_id", uid))
+    # A mock sitting's Reading/Listening part belongs to the mock row, whose
+    # band stays hidden until the review is released: never a row of its own.
+    rows = _paged(lambda: supabase_admin.table(table).select(cols).eq("user_id", uid)
+                  .is_("sitting_id", "null"))
     titles = _titles(tests, {str(r["test_id"]) for r in rows if r.get("test_id")})
     out = []
     for r in rows:
