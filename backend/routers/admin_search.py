@@ -1,12 +1,14 @@
 """Quick search (ADMINIA-0074 FR-075, FR-102; plan 5.4; G09-T05). Read only.
 
-* ``GET /admin/search?q=`` — admin. Learners, classes, submissions, content,
+* ``POST /admin/search`` with ``{"q": ...}`` — admin. Learners, classes, submissions, content,
   orders; at most three rows each.
-* ``GET /instructor/search?q=`` — a teacher (or an admin through the same
+* ``POST /instructor/search`` with ``{"q": ...}`` — a teacher (or an admin through the same
   scope). Learners, classes and submissions of the caller's classes only
   (``services.staff_scope``); no content and no orders.
 
-``q`` must have at least two characters after trimming, else 422
+``q`` is sent in the JSON body, not the URL: the hosting platform's HTTP
+log keeps request URLs, and no app filter reaches it (a deviation from plan
+5.4's ``GET ?q=``; no page called the GET form). ``q`` must have at least two characters after trimming, else 422
 ``query_too_short``. The ``admin_search`` log line records the length of
 ``q`` and the number of results, never ``q`` itself.
 """
@@ -17,9 +19,9 @@ import asyncio
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Header, HTTPException, Query
+from fastapi import APIRouter, Header, HTTPException
 
-from models.admin_search import AdminSearchOut, InstructorSearchOut
+from models.admin_search import AdminSearchOut, InstructorSearchOut, SearchIn
 from routers.admin import require_admin
 from services import admin_search, test_data_visibility
 from services.staff_scope import resolve_staff_scope
@@ -51,20 +53,18 @@ async def _run(q: str, *, role: str, cohort_ids, hide: bool, viewer_id=None) -> 
     return out
 
 
-@router.get("/admin/search", response_model=AdminSearchOut)
-async def search_admin(q: str = Query(default="", max_length=admin_search.MAX_QUERY),
-                       authorization: Optional[str] = Header(default=None)):
+@router.post("/admin/search", response_model=AdminSearchOut)
+async def search_admin(body: SearchIn, authorization: Optional[str] = Header(default=None)):
     admin = await require_admin(authorization)
-    q = _query(q)
+    q = _query(body.q)
     hide = await asyncio.to_thread(test_data_visibility.hide_for, email=admin.get("email"), is_admin=True)
     return await _run(q, role="admin", cohort_ids=None, hide=hide)
 
 
-@router.get("/instructor/search", response_model=InstructorSearchOut)
-async def search_instructor(q: str = Query(default="", max_length=admin_search.MAX_QUERY),
-                            authorization: Optional[str] = Header(default=None)):
+@router.post("/instructor/search", response_model=InstructorSearchOut)
+async def search_instructor(body: SearchIn, authorization: Optional[str] = Header(default=None)):
     scope = await resolve_staff_scope(authorization)
-    q = _query(q)
+    q = _query(body.q)
     hide = await asyncio.to_thread(test_data_visibility.hide_for, user_id=scope.user_id, is_admin=scope.is_admin)
     out = await _run(q, role=scope.role, cohort_ids=scope.cohort_ids, hide=hide,
                      viewer_id=scope.user_id)
