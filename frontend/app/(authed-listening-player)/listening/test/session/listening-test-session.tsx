@@ -11,6 +11,8 @@ import { examResultNextStepTitle, examResultOutcomes } from '@/lib/exam-result-o
 import {
   createListeningSaveCoordinator,
   isPracticeListeningTest,
+  listeningAudioPolicy,
+  listeningSubmitOutcome,
   listeningAnswersFromRows,
   listeningDictationHref,
   listeningInlineTokens,
@@ -31,6 +33,13 @@ import { MockPostTestCapture } from '@/components/mock-post-test-capture';
 import { useAttemptReviewFlags } from '@/lib/use-attempt-review-flags';
 import { AttemptReviewFlagStatus } from '@/components/attempt-review-flag-status';
 import { leaveForParent } from '@/lib/redirect-notice-model.mjs';
+import { examRoomEnabled } from '@/lib/exam-room/flags.mjs';
+import {
+  clearForeignLocalCopies, clearLocalCopy, localCopyExpiry, planLocalCopyReplay, readLocalCopy,
+  removeAckedFromCopy, writeLocalCopy,
+} from '@/lib/exam-room/local-copy.mjs';
+import type { ExamRoomSession } from '@/components/exam-room/types';
+import { ListeningTestRoom, type ListeningRoomSubmit } from './listening-test-room';
 
 type ListeningPhase = 'loading' | 'error' | 'prestart' | 'inprogress' | 'submitting' | 'capture' | 'results' | 'sealed';
 type AnswerMap = Map<number, string>;
@@ -44,6 +53,17 @@ function withQuery(path: string, pairs: Array<[string, string | null]>) {
   const suffix = query.toString();
   return suffix ? `${path}?${suffix}` : path;
 }
+
+// EXAMLISTENT-0070 FR-014: the on-device copy before "Sign in again".
+function roomStorage(): Storage | null {
+  try { return window.localStorage; } catch { return null; }
+}
+const ROOM_RESUME_WINDOW_MS = 24 * 60 * 60 * 1000;
+const ROOM_ABANDON_MESSAGES: Record<string, string> = {
+  not_self_selected: 'This attempt belongs to an assignment or a test session and cannot be abandoned.',
+  resume_expired: 'This attempt has expired and can no longer be changed.',
+  attempt_changed: 'This attempt changed in another tab. Reload the page, then try again.',
+};
 
 function formatTime(seconds: number) {
   if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
@@ -464,6 +484,18 @@ export function ListeningTestSession() {
   const [audioReloadKey, setAudioReloadKey] = useState(0);
   const [resumeOffset, setResumeOffset] = useState<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  // EXAMLISTENT-0070 FR-001: read once with the link; flag off keeps every
+  // request and the DOM of the existing player.
+  const [examRoom, setExamRoom] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [roomSession, setRoomSession] = useState<ExamRoomSession>('active');
+  const [roomSubmit, setRoomSubmit] = useState<{ outcome: ListeningRoomSubmit['outcome']; message: string | null }>({ outcome: 'idle', message: null });
+  const [roomNotice, setRoomNotice] = useState('');
+  const ackedRef = useRef<Map<number, string>>(new Map());
+  const replayRef = useRef<Array<{ q: string; value: string; server: string }>>([]);
+  const ackedForRef = useRef<string | null>(null);
+  const canWriteRef = useRef(true);
+  const roomRetryRef = useRef<{ timer?: ReturnType<typeof setTimeout>; online?: () => void }>({});
   const drillPlayback = useListeningDrillPlayback(
     testData?.skill_drill_homework ? attempt?.attempt_id : undefined,
     'listening', ['inprogress', 'submitting'].includes(phase), () => audioRef.current,
@@ -478,12 +510,12 @@ export function ListeningTestSession() {
   const submitDialogRef = useRef<HTMLElement>(null);
   const submitCancelRef = useRef<HTMLButtonElement>(null);
 
-  useDialogFocus({ open: audioPromptOpen, busy: true, onClose: () => {}, dialogRef: audioDialogRef, initialFocusRef: audioPlayRef });
-  useDialogFocus({ open: submitOpen, busy: phase === 'submitting', onClose: () => setSubmitOpen(false), dialogRef: submitDialogRef, initialFocusRef: submitCancelRef });
+  useDialogFocus({ open: audioPromptOpen && !examRoom, busy: true, onClose: () => {}, dialogRef: audioDialogRef, initialFocusRef: audioPlayRef });
+  useDialogFocus({ open: submitOpen && !examRoom, busy: phase === 'submitting', onClose: () => setSubmitOpen(false), dialogRef: submitDialogRef, initialFocusRef: submitCancelRef });
 
   useEffect(() => { answersRef.current = answers; }, [answers]);
   useEffect(() => {
-    try { setParams(listeningTestParams(window.location.search)); }
+    try { setExamRoom(examRoomEnabled('listening')); setParams(listeningTestParams(window.location.search)); }
     // G02-T11: no valid test in the link → back to Listening with a notice.
     catch { leaveForParent('/listening'); }
   }, []);
@@ -554,6 +586,22 @@ export function ListeningTestSession() {
       if (!affinity) return;
       const ownedAttempt = { ...normalizedAttempt, renderer_affinity: affinity };
       const restored = listeningAnswersFromRows(ownedAttempt.answers);
+      replayRef.current = [];
+      if (examRoom && user?.id) {
+        // FR-014: re-send an answer from the on-device copy only while the server
+        // still holds the value it last acked for it (compared by value).
+        const storage = roomStorage();
+        clearForeignLocalCopies(storage, user.id);
+        const scope = { surface: 'listening', ownerKey: user.id, attemptKey: ownedAttempt.attempt_id };
+        const plan = planLocalCopyReplay(readLocalCopy(storage, scope), {
+          open: true, answers: Object.fromEntries([...restored].map(([q, value]) => [String(q), { value }])),
+        });
+        if (plan.drop.length) removeAckedFromCopy(storage, { ...scope, entries: plan.drop });
+        // Listening answers are strings; anything else in a copy is not ours to send.
+        const resend = plan.resend.filter((entry) => typeof entry.value === 'string') as Array<{ q: string; value: string }>;
+        replayRef.current = resend.map(({ q, value }) => ({ q, value, server: restored.get(Number(q)) || '' }));
+        for (const { q, value } of resend) { if (value) restored.set(Number(q), value); else restored.delete(Number(q)); }
+      }
       answersRef.current = restored;
       setAnswers(new Map(restored));
       setAttempt(ownedAttempt);
@@ -563,7 +611,7 @@ export function ListeningTestSession() {
     }
     setAdmissionRequired(false);
     setPhase('prestart');
-  }, [claimNextRenderer, params, resumePath]);
+  }, [claimNextRenderer, examRoom, params, resumePath, user?.id]);
 
   const bootWithRecovery = useCallback(async () => {
     setPhase('loading'); setError('');
@@ -598,11 +646,36 @@ export function ListeningTestSession() {
     ));
   }, [attempt, user?.id]);
 
+  // EXAMLISTENT-0070 FR-009/FR-014 (flag on only): the same save; its ack
+  // branch records the acked value and "Saved at", a 401 opens "Sign in again".
+  const saveAnswerInRoom = useCallback((qNum: number, value: string, options: { keepalive?: boolean; signal?: AbortSignal }) => {
+    const request = saveAnswer(qNum, value, options);
+    if (!request || !attempt) return request;
+    return request.then((reply: any) => {
+      if (value) ackedRef.current.set(qNum, value); else ackedRef.current.delete(qNum);
+      setLastSavedAt(new Date());
+      if (user?.id) removeAckedFromCopy(roomStorage(), { surface: 'listening', ownerKey: user.id, attemptKey: attempt.attempt_id, entries: [{ q: qNum, value }] });
+      return reply;
+    }, (caught: any) => {
+      if (caught?.status === 401) setRoomSession('expired');
+      throw caught;
+    });
+  }, [attempt, saveAnswer, user?.id]);
+
   useEffect(() => {
     coordinatorRef.current?.dispose?.();
     if (!attempt || phase === 'results' || phase === 'sealed') return undefined;
-    const coordinator = createListeningSaveCoordinator({ save: saveAnswer });
+    const coordinator = createListeningSaveCoordinator({ save: examRoom ? saveAnswerInRoom : saveAnswer });
     coordinator.seed(answersRef.current);
+    if (examRoom && ackedForRef.current !== attempt.attempt_id) {
+      // FR-014 `baseValue`: what the server holds for this attempt right now.
+      ackedForRef.current = attempt.attempt_id;
+      const acked = new Map(answersRef.current);
+      for (const { q, server } of replayRef.current) { if (server) acked.set(Number(q), server); else acked.delete(Number(q)); }
+      ackedRef.current = acked;
+      for (const { q, value } of replayRef.current) coordinator.update(Number(q), value);
+      replayRef.current = [];
+    }
     const unsubscribe = coordinator.subscribe((snapshot: SaveMap) => setSaveStates(new Map(snapshot)));
     coordinatorRef.current = coordinator;
     const flushPage = () => { void coordinator.flush({ keepalive: true }); };
@@ -619,7 +692,7 @@ export function ListeningTestSession() {
       window.removeEventListener('online', retryOnline);
       document.removeEventListener('visibilitychange', flushHidden);
     };
-  }, [attempt?.attempt_id, phase === 'results' || phase === 'sealed', saveAnswer]);
+  }, [attempt?.attempt_id, phase === 'results' || phase === 'sealed', saveAnswer, examRoom, saveAnswerInRoom]);
 
   const resolveAudioOffset = useCallback(async (nextAttempt: Attempt, nextTest: ListeningTest | null) => {
     const hook = (window as any).MockHook;
@@ -894,6 +967,179 @@ export function ListeningTestSession() {
     return () => document.body.classList.remove('listening-next-testing');
   }, [phase]);
 
+  // ---- EXAMLISTENT-0070 exam room (flag on only) ------------------------
+  const roomScope = useMemo(() => (attempt && user?.id
+    ? { surface: 'listening', ownerKey: user.id, attemptKey: attempt.attempt_id } : null), [attempt, user?.id]);
+  const clearRoomRetry = useCallback(() => {
+    const pending = roomRetryRef.current;
+    if (pending.timer) clearTimeout(pending.timer);
+    if (pending.online) window.removeEventListener('online', pending.online);
+    roomRetryRef.current = {};
+  }, []);
+  useEffect(() => clearRoomRetry, [clearRoomRetry]);
+
+  const finishRoomSubmit = useCallback((response: any) => {
+    audioRef.current?.pause();
+    if (roomScope) clearLocalCopy(roomStorage(), roomScope);
+    const hook = (window as any).MockHook;
+    if (hook?.isSealedResponse?.(response)) {
+      setPhase('sealed');
+      if (!params?.mockEmbed) hook.showSealedAndReturn('listening');
+      return;
+    }
+    if (response?.post_test_capture_required) { setResult(response); setPhase('capture'); return; }
+    if (response && typeof response === 'object' && response.attempt_id) { setResult(response); setPhase('results'); return; }
+    // Confirmed by the re-read only: the result lives on the review page.
+    if (attempt) window.location.assign(listeningReviewHref(attempt.attempt_id, params?.from || null));
+  }, [attempt, params?.from, params?.mockEmbed, roomScope]);
+
+  // FR-010: one submit, then the re-read and the automatic retries the pure
+  // `listeningSubmitOutcome` asks for; never the full-page error.
+  const runRoomSubmit = useCallback(async (autoRetries: number): Promise<void> => {
+    if (!attempt) return;
+    clearRoomRetry();
+    const id = encodeURIComponent(attempt.attempt_id);
+    const path = `/api/listening/tests/attempts/${id}/submit`;
+    setRoomSubmit({ outcome: 'submitting', message: null });
+    let reply: any = null;
+    let error: any = null;
+    try {
+      reply = await coreOperationRequest({
+        accountId: user?.id, method: 'POST', path,
+        input: [...answersRef.current].sort(([a], [b]) => a - b),
+        acknowledged: (r: any) => r?.attempt_id === attempt.attempt_id || (r?.received === true && r?.sealed === true),
+      }, (headers: Record<string, string>) => window.api.postWith(path, {}, headers, { noRedirect: true }));
+    } catch (caught) { error = caught; }
+    const online = typeof navigator === 'undefined' ? true : navigator.onLine;
+    let state = listeningSubmitOutcome({ attemptId: attempt.attempt_id, reply, error, autoRetries, online });
+    const reread = async () => {
+      try { return await window.api.getWith<any>(`/api/listening/tests/attempts/${id}`, {}, { noRedirect: true }); }
+      catch (caught: any) { if (caught?.status === 401) setRoomSession('expired'); return { status: 'unknown' }; }
+    };
+    if (state.next === 'reread') state = listeningSubmitOutcome({ attemptId: attempt.attempt_id, reply, error, autoRetries, online, reread: await reread() });
+    if (error?.status === 401) setRoomSession('expired');
+    if (state.next === 'results') { setRoomSubmit({ outcome: 'confirmed', message: null }); finishRoomSubmit(reply); return; }
+    if (state.next === 'resubmit') { setRoomSubmit({ outcome: 'idle', message: null }); setPhase('inprogress'); return; }
+    if (state.next === 'back') {
+      audioRef.current?.pause();
+      if (state.clearLocalCopy && roomScope) clearLocalCopy(roomStorage(), roomScope);
+      setRoomSubmit({ outcome: state.outcome as ListeningRoomSubmit['outcome'], message: state.message });
+      return;
+    }
+    setRoomSubmit({ outcome: state.outcome as ListeningRoomSubmit['outcome'], message: state.message });
+    if (state.next !== 'retry' || state.waitFor === 'signin') return;
+    const again = async () => {
+      clearRoomRetry();
+      const truth: any = await reread();
+      const checked = listeningSubmitOutcome({ attemptId: attempt.attempt_id, reply: null, error: { status: 409 }, autoRetries: autoRetries + 1, reread: truth });
+      if (truth?.status === 'in_progress') { void runRoomSubmit(autoRetries + 1); return; }
+      if (checked.next === 'results') { setRoomSubmit({ outcome: 'confirmed', message: null }); finishRoomSubmit(null); return; }
+      if (checked.next === 'back') {
+        if (checked.clearLocalCopy && roomScope) clearLocalCopy(roomStorage(), roomScope);
+        setRoomSubmit({ outcome: checked.outcome as ListeningRoomSubmit['outcome'], message: checked.message });
+        return;
+      }
+      setRoomSubmit({ outcome: 'unconfirmed_manual', message: null });
+    };
+    if (state.waitFor === 'online') {
+      const onOnline = () => { void again(); };
+      roomRetryRef.current = { online: onOnline };
+      window.addEventListener('online', onOnline, { once: true });
+    } else {
+      roomRetryRef.current = { timer: setTimeout(() => { void again(); }, 2000 * (autoRetries + 1)) };
+    }
+  }, [attempt, clearRoomRetry, finishRoomSubmit, roomScope, user?.id]);
+
+  const submitRoom = useCallback(async () => {
+    if (!attempt || ['submitting', 'results', 'sealed'].includes(phase)) return;
+    setSubmitBlocked('');
+    const [clean] = await Promise.all([coordinatorRef.current?.flush?.(), flagApi.flush()]);
+    if (!clean) {
+      setSubmitBlocked('Some answers have not been saved. Check your connection, select “Retry”, then submit again to avoid losing answers.');
+      return;
+    }
+    setPhase('submitting');
+    if (testData?.skill_drill_homework) {
+      audioRef.current?.pause();
+      await drillPlayback.current().catch(() => {});
+    }
+    await runRoomSubmit(0);
+  }, [attempt, drillPlayback, flagApi.flush, phase, runRoomSubmit, testData?.skill_drill_homework]);
+
+  const retryRoomSubmit = useCallback(() => { void runRoomSubmit(0); }, [runRoomSubmit]);
+
+  const roomFlush = useCallback(async () => {
+    const coordinator = coordinatorRef.current;
+    if (!coordinator) return { unsaved: 0 };
+    const clean = await coordinator.flush?.();
+    return { unsaved: clean ? 0 : Math.max(1, coordinator.snapshot?.().size ?? 1) };
+  }, []);
+
+  // FR-014: write every answer the server has not acked yet, read it back.
+  const saveRoomLocalCopy = useCallback(() => {
+    if (!roomScope || !attempt) return false;
+    void coordinatorRef.current?.flush?.({ keepalive: true });
+    const entries: Record<string, { value: string; baseValue: string | null }> = {};
+    const keys = new Set<number>([...answersRef.current.keys(), ...ackedRef.current.keys()]);
+    for (const q of keys) {
+      const value = answersRef.current.get(q) || '';
+      const base = ackedRef.current.get(q) ?? null;
+      if (value !== (base ?? '')) entries[String(q)] = { value, baseValue: base };
+    }
+    if (!Object.keys(entries).length) return true;
+    const started = Date.parse(attempt.started_at);
+    const expiresAt = localCopyExpiry({ deadline: Number.isFinite(started) ? started + ROOM_RESUME_WINDOW_MS : null });
+    return writeLocalCopy(roomStorage(), { ...roomScope, answers: entries, expiresAt });
+  }, [attempt, roomScope]);
+
+  const selfSelected = !!attempt && !params?.classItem && !params?.sittingId && !params?.adminPreview && !params?.mockEmbed
+    && attempt.attempt_purpose !== 'mock_delivery';
+  // FR-012: "Abandon test" for a learner's own self-selected attempt (route of G08-T23).
+  const abandonRoom = useCallback(async () => {
+    if (!attempt) return;
+    const id = encodeURIComponent(attempt.attempt_id);
+    try {
+      await window.api.postWith(`/api/listening/tests/attempts/${id}/abandon`, undefined, {}, { noRedirect: true });
+    } catch (caught: any) {
+      if (caught?.status === 401) { setRoomSession('expired'); throw caught; }
+      const reason = String(caught?.detail?.reason || '');
+      if (caught?.status === 409 && reason === 'already_submitted') {
+        window.location.assign(listeningReviewHref(attempt.attempt_id, params?.from || null));
+        return;
+      }
+      if (caught?.status === 409 && reason === 'resume_expired') {
+        audioRef.current?.pause();
+        setRoomSubmit({ outcome: 'expired', message: ROOM_ABANDON_MESSAGES.resume_expired });
+        return;
+      }
+      if (caught?.status === 409) { setRoomNotice(ROOM_ABANDON_MESSAGES[reason] || ROOM_ABANDON_MESSAGES.attempt_changed); return; }
+      setRoomNotice('Unable to abandon the test. Check your connection and try again.');
+      throw caught;
+    }
+    collectionFrozenRef.current = true;
+    coordinatorRef.current?.dispose?.();
+    audioRef.current?.pause();
+    if (roomScope) clearLocalCopy(roomStorage(), roomScope);
+    window.location.assign(backHref);
+  }, [attempt, backHref, params?.from, roomScope]);
+
+  // FR-015: a read-only tab reloads the canonical answers and stays silent.
+  const reloadRoomFromServer = useCallback(async () => {
+    if (!params || !attempt) return;
+    const payload = await window.api.getWith<any>(resumePath(params), {}, { noRedirect: true });
+    const canonical = normalizeListeningResume(payload);
+    if (!canonical || canonical.attempt_id !== attempt.attempt_id) return;
+    const restored = listeningAnswersFromRows(canonical.answers);
+    ackedRef.current = new Map(restored);
+    answersRef.current = restored;
+    setAnswers(new Map(restored));
+    coordinatorRef.current?.seed?.(restored);
+  }, [attempt, params, resumePath]);
+  const onRoomWriteRight = useCallback((canWrite: boolean) => {
+    canWriteRef.current = canWrite;
+    if (!canWrite) { audioRef.current?.pause(); setPlaying(false); }
+  }, []);
+
   if (phase === 'results' && testData) return <ResultView result={result} attempt={attempt} test={testData} from={params?.from || null} sittingId={params?.sittingId || null} classItem={params?.classItem} />;
   if (phase === 'capture' && result) return <MockPostTestCapture
     skill="listening"
@@ -903,6 +1149,95 @@ export function ListeningTestSession() {
       else setPhase('sealed');
     }}
   />;
+
+  const audioElement = testData ? <audio
+      key={`${testData.audio_url}:${audioReloadKey}`}
+      ref={audioRef}
+      src={testData.audio_url}
+      preload="auto"
+      onLoadedMetadata={(event) => {
+        const audio = event.currentTarget; setDuration(Number.isFinite(audio.duration) ? audio.duration : testData.audio_duration_seconds || 0);
+        if (resumeOffset != null && !practice) { const target = Math.min(resumeOffset, Math.max(0, audio.duration - 0.25)); try { audio.currentTime = target; setCurrentTime(target); } catch {} }
+        setAudioError(''); setAudioRetrying(false);
+      }}
+      onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
+      onPlay={() => { setPlaying(true); setAudioEnded(false); }} onPause={() => setPlaying(false)}
+      onEnded={() => { setPlaying(false); setAudioEnded(!practice); if (practice) setPlaybackStarted(false); }}
+      onError={() => setAudioError(navigator.onLine
+        ? 'Unable to load audio. Reload the audio; the test timer continues.'
+        : 'You are offline and audio was interrupted. Keep this tab open; audio will reload when the connection returns.')}
+    /> : null;
+
+  if (examRoom) {
+    // FR-001: the single branch point, after every hook.
+    const questionsBySection = new Map<number, number[]>(sections.map((section: any) => [
+      Number(section.section_num), questionsForSection(section).map((question: any) => Number(question.q_num)).filter(Number.isFinite),
+    ]));
+    const policy = testData ? listeningAudioPolicy(testData, { sittingId: params?.sittingId }) : 'practice';
+    const fullTest = !!testData && testData.test_type === 'full' && !params?.mockEmbed && !params?.adminPreview;
+    return <ListeningTestRoom
+      phase={phase === 'submitting' ? 'inprogress' : phase}
+      error={error}
+      title={testData?.title || 'Listening Test'}
+      practice={practice}
+      isFullTest={fullTest}
+      adminPreview={!!params?.adminPreview}
+      embedded={!!params?.mockEmbed}
+      attemptId={attempt?.attempt_id || null}
+      ownerKey={user?.id || ''}
+      backHref={backHref}
+      sectionNums={sections.map((section: any) => Number(section.section_num))}
+      activeSection={activeSection}
+      questionsBySection={questionsBySection}
+      answers={answers}
+      saveStates={saveStates}
+      lastSavedAt={lastSavedAt}
+      currentQuestion={currentQuestion}
+      reviewQuestions={reviewQuestions}
+      flagsReady={!!params?.adminPreview || flagApi.ready}
+      resumeAvailable={resumeAvailable}
+      admissionRequired={admissionRequired}
+      savedAnswerCount={answers.size}
+      submitBlocked={roomNotice || submitBlocked}
+      session={roomSession}
+      audio={{
+        policy,
+        playing,
+        started: playbackStarted,
+        ended: audioEnded,
+        current: currentTime,
+        duration,
+        error: audioError,
+        retrying: audioRetrying,
+        needsGesture: audioPromptOpen,
+        element: audioElement,
+        onPlay: () => { if (canWriteRef.current) void startAudio(); },
+        onPause: () => { if (policy === 'practice') { audioRef.current?.pause(); setPlaying(false); } },
+        onSeek: (seconds: number) => { if (policy === 'practice' && audioRef.current) { audioRef.current.currentTime = seconds; setCurrentTime(seconds); } },
+        onRetry: () => { void retryAudio(); },
+      }}
+      submit={{ outcome: roomSubmit.outcome, message: roomSubmit.message, onSubmit: submitRoom, onRetry: retryRoomSubmit }}
+      renderSection={(sectionNum: number) => <div onFocusCapture={(event) => {
+        const target = (event.target as HTMLElement).closest<HTMLElement>('[data-q-num]');
+        const qNum = Number(target?.dataset.qNum || 0);
+        if (qNum) setCurrentQuestion(qNum);
+      }}>{sections.filter((section: any) => Number(section.section_num) === sectionNum).map((section: any) => <section className="ielts-section" key={section.section_num}>
+        <div className="ielts-section-label">PART {section.section_num}</div><h2 className="ielts-section-title">{questionRange(section)}</h2>
+        {(section.exercises || []).map((exercise: any, index: number) => <Exercise key={exercise.id || index} exercise={exercise} answers={answers} saveStates={saveStates} onAnswer={(q: number, v: string) => { if (canWriteRef.current) updateAnswer(q, v); }} />)}
+      </section>)}</div>}
+      onStartFresh={() => { void startFresh(); }}
+      onResume={resume}
+      onReload={() => { void bootWithRecovery(); }}
+      onJump={jumpToQuestion}
+      onToggleFlag={toggleFlag}
+      onRetrySaves={() => { setRoomNotice(''); coordinatorRef.current?.retryFailed?.(); }}
+      flush={roomFlush}
+      abandon={selfSelected ? abandonRoom : undefined}
+      saveLocalCopy={saveRoomLocalCopy}
+      reloadFromServer={reloadRoomFromServer}
+      onWriteRightChange={onRoomWriteRight}
+    />;
+  }
 
   const activeSectionData = sections.find((section: any) => Number(section.section_num) === activeSection);
   const activeSectionQuestions = questionsForSection(activeSectionData);
@@ -953,23 +1288,7 @@ export function ListeningTestSession() {
               : !audioPromptOpen && !playing && !audioEnded ? <button className="ft-control-btn" type="button" onClick={startAudio}>{playbackStarted ? 'Resume' : '▶ Play'}</button> : null}
             <label>Volume <input aria-label="Volume" type="range" min="0" max="100" defaultValue="100" onChange={(event) => { if (audioRef.current) audioRef.current.volume = Number(event.target.value) / 100; }} /></label>
           </div>
-          <audio
-            key={`${testData.audio_url}:${audioReloadKey}`}
-            ref={audioRef}
-            src={testData.audio_url}
-            preload="auto"
-            onLoadedMetadata={(event) => {
-              const audio = event.currentTarget; setDuration(Number.isFinite(audio.duration) ? audio.duration : testData.audio_duration_seconds || 0);
-              if (resumeOffset != null && !practice) { const target = Math.min(resumeOffset, Math.max(0, audio.duration - 0.25)); try { audio.currentTime = target; setCurrentTime(target); } catch {} }
-              setAudioError(''); setAudioRetrying(false);
-            }}
-            onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
-            onPlay={() => { setPlaying(true); setAudioEnded(false); }} onPause={() => setPlaying(false)}
-            onEnded={() => { setPlaying(false); setAudioEnded(!practice); if (practice) setPlaybackStarted(false); }}
-            onError={() => setAudioError(navigator.onLine
-              ? 'Unable to load audio. Reload the audio; the test timer continues.'
-              : 'You are offline and audio was interrupted. Keep this tab open; audio will reload when the connection returns.')}
-          />
+          {audioElement}
         </section>
         <div className="ielts-test-paper" id="listening-paper" onFocusCapture={(event) => {
           const target = (event.target as HTMLElement).closest<HTMLElement>('[data-q-num]');
