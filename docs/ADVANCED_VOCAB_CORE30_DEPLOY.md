@@ -29,6 +29,18 @@ Its deploy media is frozen under
 Assignments resolve both frozen paths, so a later versioned release cannot
 replace the content or media needed to reopen work already in progress.
 
+The legacy media URLs `/assets/advanced-vocab/{lesson_id}/…` still serve the
+current version from the legacy tree in `public/`. MEDIAOUT-0078 option D adds
+an off-by-default build flag, `AVER_ADVANCED_VOCAB_LEGACY_REWRITE=1`, that
+rewrites them (Next `beforeFiles`) to
+`versions/{lesson_id}/{current content_checksum}/…` from the static table
+`frontend/tooling/advanced-vocab-legacy-table.mjs`. The sync command rewrites
+that table with the manifest and keeps writing the legacy tree until the tree
+is removed (0078 T005). To rebuild the legacy tree from the current version
+directories, byte for byte with SHA-256 checks, run
+`python backend/scripts/sync_advanced_vocab_core30.py --restore-legacy`
+(dry-run) and then with `--write`.
+
 ## Pre-deploy verification
 
 The deployable source of truth is the checksum-versioned snapshot already
