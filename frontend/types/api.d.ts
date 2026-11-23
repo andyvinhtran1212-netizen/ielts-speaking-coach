@@ -13435,8 +13435,10 @@ export interface paths {
          * Today
          * @description New Today page payload (LEARNERCORE-0063 FR-019..FR-029, FR-070..FR-078).
          *
-         *     Read-only: nothing here writes, not even the seen cursor (FR-078). Each part
-         *     runs in its own worker; a failing part lands in `degraded`.
+         *     Writes nothing of its own, not even the seen cursor (FR-078). The only write
+         *     is the class-ledger reconcile inside `_visible_assignments` (FR-078 exception,
+         *     amendment 3, #2484). Each part runs in its own worker; a failing part lands
+         *     in `degraded`.
          */
         get: operations["today_api_student_today_get"];
         put?: never;
