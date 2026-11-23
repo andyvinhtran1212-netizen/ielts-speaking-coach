@@ -241,8 +241,20 @@ def test_abandoned_attempt_gives_no_score_in_listening_history(db, monkeypatch):
     assert full["scored_count"] == 0 and full["avg_score"] is None
     assert full["completion"] == 0.0
     assert out["weakest_mode"] is None
-    (row,) = out["recent_attempts"]
-    assert row["status"] == "abandoned" and row["accuracy"] is None
+    assert out["recent_attempts"] == []
+    assert out["total_attempts"] == 1        # engagement still counts it
+
+
+def test_abandoned_attempt_is_left_out_of_history_next_to_a_submitted_one(db, monkeypatch):
+    monkeypatch.setattr(lr, "_assisted_programme_attempt_ids", lambda ids: set())
+    _abandon()
+    done = "00000000-0000-0000-0000-0000000000d1"
+    db.tables["listening_test_attempts"].append(_attempt(
+        id=done, status="submitted", score=1, created_at=_iso(-20), submitted_at=_iso(-15),
+        grading_details=[{"q_num": 1, "correct": True}]))
+    out = asyncio.run(lr.get_listening_analytics(time_range="all", authorization="Bearer t"))
+    assert [r["id"] for r in out["recent_attempts"]] == [done]
+    assert out["recent_attempts"][0]["status"] == "submitted"
 
 
 def test_abandoned_attempt_is_not_counted_in_progress(db):
