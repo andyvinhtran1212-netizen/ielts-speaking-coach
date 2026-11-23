@@ -488,7 +488,7 @@ describe('lưu hỏng thì nói ra', () => {
     const toggle = new Function(
       '_sheet', '_renderSheet', 'startRecording', 'stopRecording',
       '_getNativeRecorder', '_analyser', '_playerGeneration', '_playerActive',
-      JS.slice(from, to) + ' return _sheetToggleRec;',
+      PRACTICE_ROOM_OFF + JS.slice(from, to) + ' return _sheetToggleRec;',
     )(
       sheet, () => {}, async () => false, () => {},
       () => null, null, 1, true,
@@ -610,7 +610,8 @@ describe('đường HỎNG — chỗ dễ mất bài của học viên nhất', 
     // — nó hạ một bài đã lưu xuống 'chưa làm'. Nay ghim BẤT BIẾN: nhớ trạng
     // thái cũ rồi trả lại đúng nó.
     const i = CODE.indexOf('function _sheetToggleRec');
-    const body = CODE.slice(i, i + 1200);
+    // 1400: the room's read-only guard (R149) adds a line at the top.
+    const body = CODE.slice(i, i + 1400);
     assert.match(body, /var prevState = s\.state;/, 'phải nhớ trạng thái cũ');
     assert.match(body, /s\.state = prevState;/, 'và trả lại đúng nó');
     assert.ok(!/s\.band === null/.test(body),

@@ -77,6 +77,7 @@
   var _roomLevelTimer = null;
   var _roomMicLostDone = false;
   var _roomMicLostShown = false;
+  var _roomWriteRight = true;   // R149: false while another tab holds the write right
   // FR-006–FR-008: a box the room has open, and what it will do when answered.
   var _roomDialogKind = null;
   var _roomLeaveHref = '';
@@ -341,6 +342,7 @@
   // "Cho phép micro" (FR-003): ask the browser once, then let go of the device;
   // the recorder opens its own stream on "Bắt đầu ghi âm".
   async function requestMicrophone() {
+    if (_roomReadOnly()) return false;
     if (!_examRoomMode || _roomMicState === 'pending') return false;
     var before = _roomMicState;
     var md = navigator.mediaDevices;
@@ -583,6 +585,32 @@
     _roomLeaveHref = '';
     _roomDialog('expired', _roomUnsentCount());
     return true;
+  }
+
+  // R149 (EXAMSPEAK-0072 "Hai tab cùng phiên", EXAMROOM-0066 FR-017): the room
+  // holds the one-writing-tab lock and tells practice.js whether this tab may
+  // write. A read-only tab opens no microphone and uploads nothing.
+  function _roomReadOnly() {
+    return _examRoomMode && _roomWriteRight === false;
+  }
+
+  function setWriteRight(allowed) {
+    if (!_examRoomMode) return;
+    _roomWriteRight = allowed !== false;
+  }
+
+  // The hand-over flush. Speaking keeps unsent takes only in page memory
+  // (FR-009), so they can never be "secured" by a flush: with any take still
+  // recording, unsent, or uploading, this tab refuses to hand over.
+  function roomFlush() {
+    var busy = _roomUnsentCount();
+    if (_sheet && Array.isArray(_sheet.slots)) {
+      busy += _sheet.slots.filter(function (slot) {
+        return !slot.retryBlob && (slot.state === 'grading' || slot.state === 'recording');
+      }).length;
+    }
+    if (_hasUnsentWork() && busy === 0) busy = 1;
+    return Promise.resolve({ secured: busy === 0, unsaved: busy });
   }
 
   // Full Test answers already handed to the upload queue but not confirmed
@@ -1167,6 +1195,7 @@
 
   async function startRecording() {
     if (_recSubState === 'recording') return false;
+    if (_roomReadOnly()) return false;
     _stopAITts();
     _cancelSpeech();
     _clearRecError();
@@ -1462,6 +1491,7 @@
   }
 
   function submitRecording() {
+    if (_roomReadOnly()) return;
     if (!_recordedBlob) {
       _showRecError('Chưa có bản ghi âm. Hãy nhấn "Bắt đầu ghi âm" và ghi âm câu trả lời trước.');
       return;
@@ -3576,6 +3606,7 @@
   }
 
   function retryP2Submission() {
+    if (_roomReadOnly()) return;
     if (!_recordedBlob || !_p2RetryQuestionId) {
       discardP2SubmissionRetry();
       showError('Không còn bản ghi để gửi lại. Hãy ghi âm lại câu trả lời.');
@@ -3591,6 +3622,7 @@
     _showP2Cue();
   }
   function startP2Prep() {
+    if (_roomReadOnly()) return;
     _clearP2SubmissionRetry();
     _roomView('part2', { tooShort: null });
     _stopAITts();
@@ -3684,6 +3716,7 @@
   }
 
   async function _startP2Speaking() {
+    if (_roomReadOnly()) return;
     var generation = _playerGeneration;
     // Part 2 has its own recorder entry point, so clear any previous take even
     // when the native controller owns the device lifecycle.
@@ -4234,6 +4267,7 @@
   }
 
   function retryFullTestSubmissions() {
+    if (_roomReadOnly()) return;
     if (_fullTestRetryInFlight) return;
     var nativeFullTest = _getNativeFullTest();
     if (!nativeFullTest) return;
@@ -5373,6 +5407,7 @@
     var generation = _playerGeneration;
     var s = _sheet && _sheet.slots[i];
     if (!s) return;
+    if (_roomReadOnly() && _sheet.recIdx !== i) return; // R149: stop only
     if (_sheet.recIdx === i) {
       var pendingRecorder = _getNativeRecorder();
       if (pendingRecorder && pendingRecorder.isStarting()) {
@@ -5454,6 +5489,7 @@
   }
 
   function _sheetRetrySubmission(i) {
+    if (_roomReadOnly()) return;
     var s = _sheet && _sheet.slots[i];
     if (!s || !s.retryBlob || s.state === 'grading') return;
     _sheetSubmitBlob(s, s.retryBlob, s.retryHadWork || null, s.retryDuration);
@@ -6335,6 +6371,8 @@
     hasUnsavedWork:       _hasUnsentWork,
     canLeave:             _canLeave,
     requestMicrophone:    requestMicrophone,
+    setWriteRight:        setWriteRight,
+    roomFlush:            roomFlush,
     requestLeave:         requestLeave,
     confirmLeave:         confirmLeave,
     leaveConfirmed:       leaveConfirmed,
