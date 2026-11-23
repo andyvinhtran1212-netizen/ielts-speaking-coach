@@ -69,6 +69,37 @@ See [wave 7 mapping and evidence](audits/GATE_F_PRICING_RETIREMENT_REHEARSAL_202
 See [wave 3 asset audit](audits/GATE_F_ASSET_AUDIT_2026-09-10.md) for the current
 read-only inventory; it grants no deletion approval.
 
+## LEGACYJS-0075 W3a — 2026-11-23
+
+Spec `specs/0075-legacy-public-js-retirement` T004 (G10-T07-W3a) deletes the 3
+users/codes scripts in `frontend/public/js/`: `admin-users.js`,
+`admin-access-codes.js` and `admin-codes-util.js`. `/admin/users` (both tabs)
+is owned by the Next panels under `frontend/app/(authed-admin-users)/` with
+`lib/admin-users-model.mjs`, and `/admin/access-codes` redirects to
+`/admin/users?tab=codes`; no Next code, kept `public/js` file or browser flow
+loads these scripts. Retired HTML fixtures stay (ADR-005); assertions on them
+are kept. `tsconfig.legacy.json` now names only `api.js` as `// @ts-check`.
+One row per test edited in the same PR (FR-002):
+
+| Test file | Assertions removed (only those reading a deleted script) | Disposition | Replacement that holds the invariant now |
+|---|---|---|---|
+| `admin-access-codes.test.mjs` | the controller pins (cohort/list/generate endpoints, direct-needs-cohort guard, revoke/remove-user toasts, silent refetch, edit-perms PATCH shape, session-limit validation) and the retired page's markup pins | port, part retire | same file: the deletion, the edit PATCH (`permissions` + `session_limit` only, no redemption field), remove-user copy and DELETE, revoke toast + `loadCodes(true)`, no full reload, all on `admin-access-codes-panel.tsx`; page shape and endpoints are in `admin-users-next-behavior.test.mjs`; the direct/cohort guard is `validateCodeDraft` there. The Amendment 2 step-up block is unchanged |
+| `admin-users-next-behavior.test.mjs` | "legacy controllers still exist" | flip | same assertion, now `existsSync(...) === false` for `admin-users.js` and `admin-access-codes.js` |
+| `design-fix-1-admin-primitives.test.mjs` | access-code chip, status pills and row-action pins on `admin-access-codes.js` | port | same tests on `admin-access-codes-panel.tsx` (`adm-chip` + `is-direct`, the three `adm-status-pill` states, `adm-btn-secondary adm-btn-sm`); the row-action wrapper is `.au-row-actions` (was `.adm-action-group`) |
+| `sprint-17-1-admin-codes.test.mjs` | `quotaLabel` / `codeMatchesSearch` / `compareCodesBy` / `statusRank` imported from `admin-codes-util.js`, controller wiring pins | port | same cases on `quotaLabel`, `selectCodes` (search, sort, null `expires_at` last) and `codeStatusRank` in `lib/admin-users-model.mjs`, and the panel wiring (model import, email + quota + lookup-failure + "Chưa gán", no injected HTML, no inline colour) |
+| `sprint-17-2-usage.test.mjs` | codes UI drills into usage via `/pages/admin/usage/index.html?code_id=` | port | same test: the panel links `/admin/usage?code_id=<encoded id>` |
+| `admin-confirm-danger.test.mjs` | `window.confirmDanger` pins on the two controllers; native `confirm()` kept for refill and role change; the retired access-codes and users pages loading `confirm-danger.js` | port | revoke and remove-user (codes tab) and remove-from-code (users tab) go through the shared React dialog with `danger: true` and the action only in `run`; refill is a non-danger confirm; a role change is danger only for self-demotion; no native `confirm()` in either panel. The classes assertions are unchanged (W3b) |
+| `admin-progressive-loading-toggle.test.mjs` | `#codes-table-wrap` and `#usr-table-wrap` toggle-back rows | retire (Next owner) | the Next panels render their tables from React state with no hidden-toggle wrapper; empty and error states are pinned in `admin-users-next-behavior.test.mjs` |
+| `admin-toast.test.mjs` | `showBanner → showToast` delegation for the two controllers, the 4 s access-codes timing, the retired access-codes page loading `toast.js` | retire (Next owner) | the Next panels show inline `role="status"` / `role="alert"` banners (`admin-users-next-behavior.test.mjs`); the 10 remaining legacy files keep their pins |
+| `admin-students-redesign.test.mjs` | `admin-users.js` renders `cohort_name` with "—" | port | same test on `admin-users-panel.tsx` (`Lớp` sort header, `user.cohort_name \|\| '—'`) |
+| `admin-system-extract.test.mjs` | `admin-users.js` wires GET `/admin/users` + PATCH role | port | same test: `getBrowserJson('/admin/users')` in `lib/admin-users-api.ts`, `getAdminUsers()` and the role PATCH on `/admin/users/${encodeURIComponent(user.id)}/role` in the panel |
+| `admin-users-codes-reskin.test.mjs` | revoked-hidden filter, util exports, `reflectSort` aria-sort, keydown sort activation, generate/convert/remove delegation attributes, code-tab hazard pins on the controllers | port | same tests on the model (`!status && code.is_revoked`, `codeStatusRank`, `selectCodes`) and panels (`SortButton` with "Sắp xếp theo" label and ↑/↓/↕ state, native `<button>` for keyboard, generate/convert/remove handlers, lookup failure, `loadCodes(true)`, `user.removable`, "tất cả người dùng" scope warning). **Gap:** the Next sort header does not set `aria-sort` on the `<th>`; recorded here, not fixed in a retirement wave |
+| `generate-and-assign-code.test.mjs` | button-visibility, delegation, POST body, direct/cohort guard, refetch and cohort-source pins on `admin-users.js` | port | same tests on the panel (`!summary.has_active_code` gate, `setGenerate`, `user_id: generate.user.id`, `validateCodeDraft`, `await loadUsers(true)`) and shell (`getAdminCohorts({ isActive: true })`) |
+| `merge-codes-users-tabs.test.mjs` | user-tab code columns, no code-wide mutation, remove-from-code, two-criteria sort on `admin-users.js` | port | same tests on the panel (`code_summary`, "Không có mã active", no refill / code PATCH / code-wide DELETE, remove-from-code DELETE + `loadUsers(true)`) and `selectUsers` (`code_type`, `code_status`) |
+| `sprint-17-5-reassignment.test.mjs` | reassign absent, refill wiring and no inline colour on `admin-access-codes.js` | port | same tests on the codes panel ("Cấp mã mới" → POST `/refill`, edit-perms opener, no `reassign`, no inline colour) |
+| `sprint-18-1-ia.test.mjs` | convert button, POST `/admin/students` with `user_id`, 409 handling, no inline colour on `admin-users.js` | port | same tests on the users panel (`setConvert`, `submitConvert`, `user_id: convert.user.id`, "đã là học viên") |
+| `sprint-18-3-components.test.mjs` | `admin-access-codes.js` in the no-inline-colour list | retire (covered) | the codes panel's no-inline-colour pin in `sprint-17-5-reassignment.test.mjs` |
+
 ## LEGACYJS-0075 W2 — 2026-11-23
 
 Spec `specs/0075-legacy-public-js-retirement` T003 (G10-T07-W2) deletes the 7
@@ -102,6 +133,7 @@ Every `/admin/mock-*` URL has been owned by a Next route under
 | `mock-roster-retest-picker.test.mjs` | `retestCell` run from `admin-mock-reviews.js`, `setRetestSkills`, `placeRetestMenu`, popover CSS on the retired HTML page, bulk release pins | port, part retire | same file, now on the inline per-skill checkboxes, `setRetestFlags` (`/retest-flags`, full picture, canonical readback via `retestFlagConfirmed`, refetch on failure), the release `Dialog` (count, "thu hồi") and the skip list. The popover (`<details>` menu, flip-up placement, its CSS) has no Next counterpart and is retired. The Next picker also offers Speaking |
 | `mock-speaking-live-results.test.mjs` | the four console tests on `admin-mock-reviews.js` (`bandSkills`, live-Speaking trigger, `collectBands`, source label) | port | same file, now runs `reviewBandSkills` / `buildFinalBandsPayload` and pins `const bandSkills = reviewBandSkills(detail)` and the "Bài chấm trực tiếp" label; the TRF tests are untouched |
 | `backend/tests/test_exam_content_level_cohort.py` | `test_the_verb_used_by_the_page_is_in_the_cors_allowlist` read `admin-exam-content.js` | port | same test, now reads `exam-content-library.tsx`: every `window.api.<verb>` is in `_CORS_METHODS`, `patch` is used, `put` is not |
+
 
 ## LEGACYJS-0075 W1 — 2026-11-23
 

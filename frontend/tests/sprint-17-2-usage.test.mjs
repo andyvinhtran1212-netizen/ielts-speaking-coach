@@ -17,7 +17,8 @@ import { usdLabel, countLabel, lastActiveLabel, userMatchesSearch, compareUsersB
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const front = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
 const USAGE = front('js', 'admin-usage.js');
-const CODES = front('js', 'admin-access-codes.js');
+// LEGACYJS-0075 W3a: the codes table is the Next panel now.
+const CODES = front('app', '(authed-admin-users)', 'admin', 'users', 'admin-access-codes-panel.tsx');
 const CHROME = front('js', 'components', 'aver-admin-chrome.js');
 const HTML = front('pages', 'admin', 'usage', 'index.html');
 
@@ -81,7 +82,7 @@ describe('Sprint 17.2 — admin-usage.js wiring', () => {
 
 describe('Sprint 17.2 — integrations', () => {
   test('codes UI drills into per-code usage via ?code_id', () => {
-    assert.match(CODES, /\/pages\/admin\/usage\/index\.html\?code_id=\$\{c\.id\}/);
+    assert.match(CODES, /href=\{`\/admin\/usage\?code_id=\$\{encodeURIComponent\(code\.id\)\}`\}/);
   });
   test('nav activated usage (not in PHASE_B_SECTIONS)', () => {
     // Robust to other sections also graduating (e.g. cohorts in 17.3): assert

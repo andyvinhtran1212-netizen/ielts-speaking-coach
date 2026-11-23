@@ -44,8 +44,9 @@ describe('/admin/users — native ownership', () => {
     assert.match(PAGE, /<aver-admin-chrome active="users">/);
     assert.ok(existsSync(join(ROOT, 'tests', 'fixtures', 'legacy-html-retired',
       'pages', 'admin', 'users', 'index.html')));
-    assert.ok(existsSync(join(ROOT, 'public', 'js', 'admin-users.js')));
-    assert.ok(existsSync(join(ROOT, 'public', 'js', 'admin-access-codes.js')));
+    // LEGACYJS-0075 W3a retired the legacy controllers; the fixture stays (ADR-005).
+    assert.equal(existsSync(join(ROOT, 'public', 'js', 'admin-users.js')), false);
+    assert.equal(existsSync(join(ROOT, 'public', 'js', 'admin-access-codes.js')), false);
     assert.match(CHROME, /section: 'users'[^\n]+href: '\/admin\/users'/);
     assert.doesNotMatch(CHROME, /section: 'users'[^\n]+href: '\/pages\/admin\/users/);
   });

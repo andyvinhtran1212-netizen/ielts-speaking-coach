@@ -13,7 +13,8 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const front = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
-const CODES = front('js', 'admin-access-codes.js');
+// LEGACYJS-0075 W3a: admin-access-codes.js is deleted; the codes tab is the Next panel.
+const CODES = front('app', '(authed-admin-users)', 'admin', 'users', 'admin-access-codes-panel.tsx');
 const COHORTS = front('js', 'admin-classes.js');
 const CODES_HTML = front('pages', 'admin', 'access-codes', 'index.html');
 const COHORTS_HTML = front('pages', 'admin', 'classes', 'index.html');
@@ -24,22 +25,21 @@ describe('Sprint 17.5 — codes UI refill (reassign replaced by edit-perms)', ()
   // are now edited PER-CODE via "Sửa quyền". Pin that the reassign wiring is
   // gone so it can't silently regress, and that refill is untouched.
   test('reassign action + modal fully removed', () => {
-    assert.doesNotMatch(CODES, /data-action="reassign"/);
-    assert.doesNotMatch(CODES, /_reassignCtx/);
+    assert.doesNotMatch(CODES, /reassign/i);
     assert.doesNotMatch(CODES_HTML, /id="reassign-backdrop"/);
     assert.doesNotMatch(CODES_HTML, /id="ra-to"/);
   });
   test('refill button calls /refill', () => {
-    assert.match(CODES, /data-action="refill"/);
-    assert.match(CODES, /\/admin\/access-codes\/'\s*\+\s*codeId\s*\+\s*'\/refill/);
+    assert.match(CODES, />Cấp mã mới<\/button>/);
+    assert.match(CODES, /window\.api\.post\(`\/admin\/access-codes\/\$\{encodeURIComponent\(code\.id\)\}\/refill`, \{\}\)/);
   });
-  test('click handler dispatches edit-perms + refill', () => {
-    assert.match(CODES, /dataset\.action === 'edit-perms'/);
-    assert.match(CODES, /dataset\.action === 'refill'/);
+  test('row actions open edit-perms + refill', () => {
+    assert.match(CODES, /onClick=\{\(\) => setEdit\(\{ code, permissions:/);
+    assert.match(CODES, /title: 'Cấp mã mới',/);
   });
   test('Pattern #26 — no inline colour/bg/hex', () => {
-    assert.doesNotMatch(CODES, /style\s*=\s*["'][^"']*color\s*:/);
-    assert.doesNotMatch(CODES, /style\s*=\s*["'][^"']*background/);
+    assert.doesNotMatch(CODES, /style=\{\{[^}]*color\s*:/);
+    assert.doesNotMatch(CODES, /style=\{\{[^}]*background/);
     assert.doesNotMatch(CODES, /rgba\(\s*\d+\s*,/);
   });
 });

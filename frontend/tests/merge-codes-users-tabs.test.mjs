@@ -18,7 +18,10 @@ import {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const read = (...r) => readFileSync(join(__dirname, '..', ...r), 'utf8');
 const HTML = read('pages', 'admin', 'users', 'index.html');
-const JS = read('js', 'admin-users.js');
+// LEGACYJS-0075 W3a: admin-users.js and admin-access-codes.js are deleted; the
+// Users tab is the Next panel and the sort lives in the model.
+const JS = read('app', '(authed-admin-users)', 'admin', 'users', 'admin-users-panel.tsx');
+const MODEL = read('lib', 'admin-users-model.mjs');
 
 
 describe('merge-codes — 2-tab shell', () => {
@@ -39,8 +42,8 @@ describe('merge-codes — 2-tab shell', () => {
 
 
 describe('merge-codes — access-code module relocated VERBATIM (5 hazards intact)', () => {
-  // The module's own JS (admin-access-codes.js) is unchanged; here we assert its
-  // markup landed in the users page so its logic still finds its ids.
+  // Retired page markup (fixture, ADR-005); the live codes tab is the Next
+  // panel, pinned in admin-users-next-behavior.test.mjs.
   test('code table + toolbar present', () => {
     assert.match(HTML, /id="codes-tbody"/);
     assert.match(HTML, /id="btn-create"/);
@@ -69,24 +72,27 @@ describe('merge-codes — user tab merged code columns (READ-ONLY)', () => {
     assert.match(HTML, /<th>Quyền<\/th>/);
   });
   test('row renders code/type/permissions/status from code_summary', () => {
-    assert.match(JS, /u\.code_summary/);
-    assert.match(JS, /cs\.permissions/);
-    assert.match(JS, /has_active_code/);
-    assert.match(JS, /không có mã active/);   // inactive marker
+    assert.match(JS, /const summary = user\.code_summary;/);
+    assert.match(JS, /summary\.permissions/);
+    assert.match(JS, /summary\.has_active_code/);
+    assert.match(JS, /Không có mã active/);   // inactive marker
   });
   test('NO code-wide mutation on the user tab (no edit-perms/revoke/refill calls)', () => {
-    assert.doesNotMatch(JS, /\/refill|PATCH.*access-codes|revoke/i);
+    assert.doesNotMatch(JS, /\/refill/);
+    assert.doesNotMatch(JS, /patch[^\n]*access-codes/i);
+    assert.doesNotMatch(JS, /delete\(`\/admin\/access-codes\/\$\{[^}]+\}`\)/);   // code-wide revoke
   });
   test('"Gỡ khỏi mã" hits DELETE /access-codes/{id}/users/{uid} + refetches', () => {
-    assert.match(JS, /data-removecode=/);
-    assert.match(JS, /\/admin\/access-codes\/'[\s\S]*?\/users\/'/);
-    assert.match(JS, /function removeFromCode[\s\S]*?loadList\(\)/);   // canonical refetch
+    assert.match(JS, />Gỡ khỏi mã<\/button>/);
+    assert.match(JS, /window\.api\.delete\(`\/admin\/access-codes\/\$\{encodeURIComponent\(primary\.id\)\}\/users\/\$\{encodeURIComponent\(user\.id\)\}`\)/);
+    assert.match(JS, /await action\(\);[\s\S]+await loadUsers\(true\)/);   // canonical refetch
   });
   test('2-criteria sort (user + code) wired on sortable headers', () => {
-    assert.match(JS, /function compareUsers/);
-    assert.match(JS, /case 'code_type'/);
-    assert.match(JS, /case 'code_status'/);
-    assert.match(JS, /th\.usr-sortable\[data-sort\]/);
+    assert.match(MODEL, /export function selectUsers/);
+    assert.match(MODEL, /field === 'code_type'/);
+    assert.match(MODEL, /field === 'code_status'/);
+    assert.match(JS, /<SortButton field="code_type"/);
+    assert.match(JS, /<SortButton field="code_status"/);
   });
 });
 

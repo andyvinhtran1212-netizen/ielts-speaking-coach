@@ -59,3 +59,16 @@ The 7 mock-cockpit scripts in `frontend/public/js/` (2,880 lines) are deleted: `
 - Gaps found, not fixed here (no product change in a retirement wave): the Next review form does not show the legacy "Chưa có band tự tính — cần bạn nhập" caption, a Writing-specific blankable reason or "(overall sẽ để trống theo)". Recorded in the ledger row of `mock-review-band-prefill.test.mjs`.
 - FR-004: no Non-goals file in the diff. Retired HTML fixtures are kept.
 - Not checked: Vercel preview 404 and staging console (after the preview build), WebKit (Q40).
+
+## W3a (T004, G10-T07-W3a) — 2026-11-23, base W2 `9dde03f0`
+
+The 3 users/codes scripts in `frontend/public/js/` (998 lines) are deleted: `admin-users.js` (432), `admin-access-codes.js` (509), `admin-codes-util.js` (57). `/admin/users` (both tabs) is owned by the Next panels under `frontend/app/(authed-admin-users)/` with `lib/admin-users-model.mjs`; `/admin/access-codes` redirects to `/admin/users?tab=codes`. `tsconfig.legacy.json` now names only `api.js` as checked. W3b (`admin-classes.js`, `admin-students-panel.js`) follows in its own PR; the split is recorded in `tasks.md`.
+
+- Layer 1 (FR-005): no name or `/js/…` path of the 3 files in Next code (`app`, `components`, `lib`, `proxy.ts`, `next.config.ts`, `instrumentation-client.ts`). In kept `public/js`, the only mention was a comment in `admin-feedback.js` ("Pattern reused from admin-access-codes.js"), reworded here; `admin-codes-util.js` was imported only by `admin-access-codes.js`. No dynamic `/js/${…}` URL in `app`, `components`, `lib` or `public/js`. No CI path filter names the 3 files. Remaining mentions: retired HTML fixtures (kept, ADR-005), dated audits and historical docs (not changed).
+- Layer 2 (FR-001): the W1 capture (all 120 browser-regression steps plus the three Playwright suites, on staging `cc6dd4c8` with these files present, job env of `next-native-browser.yml`) contains **no request to any of the 3 files**. W1 and W2 only delete files, so they cannot add a request; the capture was not repeated.
+- Layer 3: no access log yet (Q-b2 open).
+- After the deletion: `run-flow-repeat.mjs --runs 2` passes for `verify-admin-users-flow` and `verify-admin-accessibility-remediation-flow` (each also 2/2 run directly against `next start`). On `next start`, `/js/admin-users.js`, `/js/admin-access-codes.js`, `/js/admin-codes-util.js` → 404, `/js/api.js` → 200. Node contract suite: 13,880 tests, 13,878 pass, 1 fail (env-only `hook pre-push`). `npm run test:react` 1337/1337, `tsc --noEmit` clean, `tsc -p tsconfig.legacy.json --noEmit` clean, `npm run build` ok.
+- FR-002 / FR-007: 16 test files edited (limit 30), one ledger row each in `docs/TEST_INVARIANT_LEDGER.md` › "LEGACYJS-0075 W3a — 2026-11-23". The pure helpers of `admin-codes-util.js` are pinned on their model twins (`quotaLabel`, `selectCodes`, `codeStatusRank`).
+- Gap found, not fixed here (no product change in a retirement wave): the Next sort header sets no `aria-sort` on the `<th>` (legacy did); recorded in the ledger row of `admin-users-codes-reskin.test.mjs`.
+- FR-004: no Non-goals file in the diff. Retired HTML fixtures are kept.
+- Not checked: Vercel preview 404 and staging console (preview builds only on a `[preview]` commit), WebKit (Q40).

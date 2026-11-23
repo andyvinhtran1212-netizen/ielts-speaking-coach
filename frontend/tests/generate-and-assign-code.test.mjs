@@ -16,17 +16,18 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const read = (...r) => readFileSync(join(__dirname, '..', ...r), 'utf8');
 const HTML = read('pages', 'admin', 'users', 'index.html');
-const JS = read('js', 'admin-users.js');
+// LEGACYJS-0075 W3a: admin-users.js is deleted; the Users tab is the Next panel.
+const JS = read('app', '(authed-admin-users)', 'admin', 'users', 'admin-users-panel.tsx');
+const SHELL = read('app', '(authed-admin-users)', 'admin', 'users', 'admin-users.tsx');
+const MODEL = read('lib', 'admin-users-model.mjs');
 
 
 describe('Tạo + gán mã — action visibility', () => {
   test('button shows ONLY when the user has no active code', () => {
-    assert.match(JS, /const genBtn = !cs\.has_active_code/);
-    assert.match(JS, /data-gencode=/);
+    assert.match(JS, /\{!summary\.has_active_code && <button[^>]+onClick=\{\(\) => setGenerate\(\{ user,/);
   });
-  test('click delegated off the tbody → openGen', () => {
-    assert.match(JS, /button\[data-gencode\]/);
-    assert.match(JS, /openGen\(/);
+  test('the action opens the generate dialog for that user', () => {
+    assert.match(JS, /const \[generate, setGenerate\] = useState<GenerateDraft \| null>\(null\)/);
   });
 });
 
@@ -51,18 +52,17 @@ describe('Tạo + gán mã — modal markup (ga-* ids, no collision with m-*)', 
 
 describe('Tạo + gán mã — wiring + canonical contract', () => {
   test('POSTs to /admin/access-codes/generate-and-assign with user_id', () => {
-    assert.match(JS, /\/admin\/access-codes\/generate-and-assign/);
-    assert.match(JS, /user_id: _genCtx\.userId/);
+    assert.match(JS, /'\/admin\/access-codes\/generate-and-assign', \{\s*user_id: generate\.user\.id,/);
   });
   test('direct ⇒ cohort guard mirrors the server combo rule', () => {
-    assert.match(JS, /code_type === 'direct' && !cohort_id/);
-    assert.match(JS, /code_type !== 'direct' && cohort_id/);
+    assert.match(JS, /const validation = validateCodeDraft\(\{\s*codeType: generate\.codeType,/);
+    assert.match(MODEL, /codeType === 'direct' && !cohortId/);
+    assert.match(MODEL, /codeType !== 'direct' && cohortId/);
   });
   test('refetches canonical state after success (no optimistic)', () => {
-    assert.match(JS, /function submitGen[\s\S]*?loadList\(\)/);
+    assert.match(JS, /const submitGenerate = async \(\) => \{[\s\S]*?await loadUsers\(true\)/);
   });
   test('cohort select sourced from /admin/cohorts?is_active=true', () => {
-    assert.match(JS, /\/admin\/cohorts\?is_active=true/);
-    assert.match(JS, /function loadCohorts/);
+    assert.match(SHELL, /getAdminCohorts\(\{ isActive: true \}\)/);
   });
 });

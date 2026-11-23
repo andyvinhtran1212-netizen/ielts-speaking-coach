@@ -37,7 +37,8 @@ before(() => {
   adminCss   = read('frontend/css/aver-design/admin-components.css');
   readingCss = read('frontend/css/admin-reading.css');
   writingCss = read('frontend/css/admin-writing.css');
-  codesJs    = read('frontend/js/admin-access-codes.js');
+  // LEGACYJS-0075 W3a: the codes table is the Next panel now.
+  codesJs    = read('frontend/app/(authed-admin-users)/admin/users/admin-access-codes-panel.tsx');
   readingJs  = read('frontend/js/admin-reading.js');
   for (const p of ['index', 'tests', 'content-detail', 'tests-detail']) {
     listening[p] = read(`frontend/pages/admin/listening/${p}.html`);
@@ -108,9 +109,8 @@ describe('admin-components.css / danger token fix (B2, audit row 5)', () => {
 
 describe('access codes / chip + action semantics (B2, audit rows 1,3,4)', () => {
   test('type chip uses canonical .adm-chip (no unstyled ac-chip)', () => {
-    assert.ok(!/['"]ac-chip/.test(codesJs), 'ac-chip had no CSS rule — must use adm-chip');
-    assert.match(codesJs, /class="\$\{cls\}"/);
-    assert.match(codesJs, /'adm-chip is-direct'\s*:\s*'adm-chip'/);
+    assert.ok(!/['"`]ac-chip/.test(codesJs), 'ac-chip had no CSS rule — must use adm-chip');
+    assert.match(codesJs, /className=\{`adm-chip\$\{code\.code_type === 'direct' \? ' is-direct' : ''\}`\}/);
   });
 
   test('status uses .adm-status-pill state modifiers, not is-direct overload', () => {
@@ -119,8 +119,8 @@ describe('access codes / chip + action semantics (B2, audit rows 1,3,4)', () => 
     assert.match(codesJs, /adm-status-pill is-active/);
   });
 
-  test('row actions wrapped in .adm-action-group with consistent sizing', () => {
-    assert.match(codesJs, /<div class="adm-action-group">/);
+  test('row actions sit in one wrapper with consistent sizing', () => {
+    assert.match(codesJs, /className="au-row-actions"/);
     assert.match(codesJs, /adm-btn-secondary adm-btn-sm/);
   });
 });

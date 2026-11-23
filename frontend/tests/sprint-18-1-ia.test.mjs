@@ -3,7 +3,7 @@
  *
  * Source-scan of the four IA changes (all controllers are auto-running /
  * DOM-coupled, so we pin wiring + contracts rather than execute):
- *   B  Convert thành học viên  — users page modal + admin-users.js POST
+ *   B  Convert thành học viên  — users page modal + POST (Next panel since LEGACYJS-0075 W3a)
  *   D  User dropdown            — cohorts add-member <select> + /admin/users fetch
  *   A  Tab bar                  — "Lớp & Học viên" segmented sibling tabs on both pages
  *      Nav fold                 — students nav item removed, cohorts relabelled, students still valid
@@ -17,7 +17,8 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const front = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
 
-const USERS_JS    = front('js', 'admin-users.js');
+// LEGACYJS-0075 W3a: admin-users.js is deleted; the Users tab is the Next panel.
+const USERS_JS    = front('app', '(authed-admin-users)', 'admin', 'users', 'admin-users-panel.tsx');
 const USERS_HTML  = front('pages', 'admin', 'users', 'index.html');
 const COHORTS_JS  = front('js', 'admin-classes.js');
 const COHORTS_HTML = front('pages', 'admin', 'classes', 'index.html');
@@ -37,16 +38,16 @@ describe('Sprint 18.1 B — convert user → học viên', () => {
     assert.match(USERS_HTML, /id="btn-cv-submit"/);
   });
   test('per-row convert button + opens modal', () => {
-    assert.match(USERS_JS, /data-convert=/);
-    assert.match(USERS_JS, /openConvert\(/);
+    assert.match(USERS_JS, /onClick=\{\(\) => setConvert\(\{ user,/);
+    assert.match(USERS_JS, /const submitConvert = async/);
   });
   test('submits user_id to POST /admin/students + handles the 409 already-student case', () => {
-    assert.match(USERS_JS, /api\.post\('\/admin\/students',\s*\{\s*user_id/);
+    assert.match(USERS_JS, /'\/admin\/students',\s*\{\s*user_id: convert\.user\.id/);
     assert.match(USERS_JS, /409|đã là học viên/);
   });
-  test('Pattern #26 — no inline colour/bg in admin-users.js', () => {
-    assert.doesNotMatch(USERS_JS, /style\s*=\s*["'][^"']*color\s*:/);
-    assert.doesNotMatch(USERS_JS, /style\s*=\s*["'][^"']*background/);
+  test('Pattern #26 — no inline colour/bg in the users panel', () => {
+    assert.doesNotMatch(USERS_JS, /style=\{\{[^}]*color\s*:/);
+    assert.doesNotMatch(USERS_JS, /style=\{\{[^}]*background/);
     assert.doesNotMatch(USERS_JS, /rgba\(\s*\d+\s*,/);
   });
 });

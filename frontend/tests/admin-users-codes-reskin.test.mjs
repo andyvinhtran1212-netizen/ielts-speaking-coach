@@ -13,8 +13,13 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const read = (...r) => readFileSync(join(__dirname, '..', ...r), 'utf8');
 const HTML = read('pages', 'admin', 'users', 'index.html');
-const USERS_JS = read('js', 'admin-users.js');
-const CODES_JS = read('js', 'admin-access-codes.js');
+// LEGACYJS-0075 W3a: the two legacy controllers are deleted; the same
+// contracts are pinned on the Next panels and model that own /admin/users.
+const PANEL = (name) => read('app', '(authed-admin-users)', 'admin', 'users', name);
+const USERS_JS = PANEL('admin-users-panel.tsx');
+const CODES_JS = PANEL('admin-access-codes-panel.tsx');
+const UI = PANEL('admin-user-ui.tsx');
+const MODEL = read('lib', 'admin-users-model.mjs');
 
 
 describe('re-skin — styling regression fix (code-tab primitives now styled)', () => {
@@ -26,15 +31,15 @@ describe('re-skin — styling regression fix (code-tab primitives now styled)', 
 
 describe('re-skin — revoked hidden by default, still reachable (single behavior change)', () => {
   test('default "Tất cả" view filters out revoked rows', () => {
-    assert.match(CODES_JS, /if \(!f\.status && row\.is_revoked\) return false;/);
+    assert.match(MODEL, /if \(!status && code\.is_revoked\) return false;/);
+    assert.match(CODES_JS, /<option value="">Đang dùng<\/option>/);
   });
   test('explicit "Đã thu hồi" filter option preserved (audit still reachable)', () => {
     assert.match(HTML, /<option value="revoked">Đã thu hồi<\/option>/);
   });
-  test('did NOT touch the pure sort/rank util (compareCodesBy/statusRank intact)', () => {
-    const UTIL = read('js', 'admin-codes-util.js');
-    assert.match(UTIL, /export function statusRank/);
-    assert.match(UTIL, /export function compareCodesBy/);
+  test('the sort/rank helpers live in the model (codeStatusRank/selectCodes)', () => {
+    assert.match(MODEL, /export function codeStatusRank/);
+    assert.match(MODEL, /export function selectCodes/);
   });
 });
 
@@ -44,13 +49,15 @@ describe('re-skin — a11y fold (aria-sort + keyboard + focus ring)', () => {
     assert.match(HTML, /class="usr-sortable" data-sort="display_name" tabindex="0" aria-sort="none"/);
     assert.match(HTML, /class="ac-sortable" data-sort="status" tabindex="0" aria-sort="none"/);
   });
-  test('both controllers reflect real sort state onto aria-sort', () => {
-    assert.match(USERS_JS, /function reflectSort[\s\S]*?th\.usr-sortable\[data-sort\][\s\S]*?aria-sort/);
-    assert.match(CODES_JS, /function reflectSort[\s\S]*?th\.ac-sortable\[data-sort\][\s\S]*?aria-sort/);
+  test('both panels sort through one labelled SortButton that shows the sort state', () => {
+    assert.match(USERS_JS, /<SortButton field="display_name"/);
+    assert.match(CODES_JS, /<SortButton field="status"/);
+    assert.match(UI, /aria-label=\{`Sắp xếp theo \$\{String\(children\)\}`\}/);
+    assert.match(UI, /active \? \(sort\.order === 'asc' \? '↑' : '↓'\) : '↕'/);
   });
-  test('keyboard activation (Enter/Space) on sortable headers', () => {
-    assert.match(USERS_JS, /keydown[\s\S]*?(Enter|' ')[\s\S]*?th\.click\(\)/);
-    assert.match(CODES_JS, /keydown[\s\S]*?(Enter|' ')[\s\S]*?th\.click\(\)/);
+  test('keyboard activation (Enter/Space) comes from a native button', () => {
+    assert.match(UI, /<button\s+className=\{`au-sort/);
+    assert.match(UI, /type="button"/);
   });
   test('focus-visible ring uses the canonical --av-shadow-focus token', () => {
     assert.match(HTML, /:focus-visible[\s\S]*?var\(--av-shadow-focus\)/);
@@ -62,20 +69,20 @@ describe('re-skin — preserved ids / handlers / hazards (no logic regressed)', 
   test('user-tab ids + the #482 generate-and-assign action survive', () => {
     assert.match(HTML, /id="usr-tbody"/);
     assert.match(HTML, /id="ga-backdrop"/);
-    assert.match(USERS_JS, /data-gencode=/);
-    assert.match(USERS_JS, /\/admin\/access-codes\/generate-and-assign/);
+    assert.match(USERS_JS, /onClick=\{\(\) => setGenerate\(\{ user,/);
+    assert.match(USERS_JS, /'\/admin\/access-codes\/generate-and-assign'/);
   });
   test('code-tab 5 hazards intact in the controller', () => {
     assert.match(CODES_JS, /association_lookup_failed/);     // → ⚠ lookup failed
     assert.match(CODES_JS, /⚠ lookup failed/);
-    assert.match(CODES_JS, /function assignedCell/);          // assigned-users cell
+    assert.match(CODES_JS, /code\.assigned_users\.map\(/);     // assigned-users cell
     assert.match(CODES_JS, /loadCodes\(true\)/);              // silent refetch (not optimistic)
-    assert.match(CODES_JS, /u\.removable/);                   // #442 used_by fallback gate
-    assert.match(HTML, /TẤT CẢ người dùng của mã/);           // edit-perms scope warning
+    assert.match(CODES_JS, /user\.removable &&/);              // #442 used_by fallback gate
+    assert.match(CODES_JS, /Thay đổi áp dụng ngay cho <strong>tất cả người dùng<\/strong> của mã/); // edit-perms scope warning
   });
   test('row actions wrapped but delegation targets unchanged', () => {
-    assert.match(USERS_JS, /class="usr-actions"/);
-    assert.match(USERS_JS, /data-removecode=/);
-    assert.match(USERS_JS, /data-convert=/);
+    assert.match(USERS_JS, /<div className="au-row-actions">/);
+    assert.match(USERS_JS, /title: 'Gỡ người dùng khỏi mã'/);
+    assert.match(USERS_JS, /onClick=\{\(\) => setConvert\(\{ user,/);
   });
 });
