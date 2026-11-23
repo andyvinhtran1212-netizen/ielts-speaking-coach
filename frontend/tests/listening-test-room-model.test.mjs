@@ -1,0 +1,123 @@
+// EXAMLISTENT-0070 T001: pure exam-room model for the Listening test room.
+import { describe, test } from 'node:test';
+import assert from 'node:assert/strict';
+
+import {
+  LISTENING_ABANDONED_MESSAGE,
+  LISTENING_SUBMIT_AUTO_RETRIES,
+  listeningAudioPolicy,
+  listeningSubmitOutcome,
+} from '../lib/listening-test-controller.mjs';
+
+const ID = '11111111-2222-4333-8444-555555555555';
+const httpError = (status, detail) => Object.assign(new Error(typeof detail === 'string' ? detail : `HTTP ${status}`), { status, detail });
+
+describe('listeningAudioPolicy (FR-006)', () => {
+  test('full test plays as a test', () => {
+    assert.equal(listeningAudioPolicy({ test_type: 'full' }), 'test');
+  });
+  test('mini test, drill and practice play as practice', () => {
+    for (const type of ['mini', 'drill', 'practice']) assert.equal(listeningAudioPolicy({ test_type: type }), 'practice', type);
+  });
+  test('a full-type class assignment plays as a test; an assigned mini test stays practice', () => {
+    assert.equal(listeningAudioPolicy({ test_type: 'full' }, { classItem: 'item-1' }), 'test');
+    assert.equal(listeningAudioPolicy({ test_type: 'mini' }, { classItem: 'item-1' }), 'practice');
+  });
+  test('a mock sitting always plays as a test', () => {
+    assert.equal(listeningAudioPolicy({ test_type: 'full' }, { sittingId: 'sit-1' }), 'test');
+    assert.equal(listeningAudioPolicy({ test_type: 'mini' }, { sittingId: 'sit-1' }), 'test');
+  });
+  test('missing or unknown type fails closed to test', () => {
+    assert.equal(listeningAudioPolicy({}), 'test');
+    assert.equal(listeningAudioPolicy(null), 'test');
+    assert.equal(listeningAudioPolicy({ test_type: 'surprise' }), 'test');
+  });
+});
+
+describe('listeningSubmitOutcome (FR-010)', () => {
+  test('matching attempt_id is confirmed', () => {
+    const s = listeningSubmitOutcome({ attemptId: ID, reply: { attempt_id: ID, score: 30 } });
+    assert.deepEqual({ ...s }, { outcome: 'confirmed', next: 'results', waitFor: null, message: null, sealed: false, clearLocalCopy: false });
+    assert.ok(Object.isFrozen(s));
+  });
+  test('a sealed mock receipt is confirmed and flagged sealed', () => {
+    const s = listeningSubmitOutcome({ attemptId: ID, reply: { received: true, sitting_id: 's', sealed: true } });
+    assert.equal(s.outcome, 'confirmed');
+    assert.equal(s.sealed, true);
+  });
+  test('a re-read showing submitted is confirmed', () => {
+    const s = listeningSubmitOutcome({ attemptId: ID, error: new TypeError('Failed to fetch'), reread: { status: 'submitted' } });
+    assert.equal(s.outcome, 'confirmed');
+    assert.equal(s.next, 'results');
+  });
+  test('offline / network error stays in the test and retries when online', () => {
+    const s = listeningSubmitOutcome({ attemptId: ID, error: new TypeError('Failed to fetch') });
+    assert.equal(s.outcome, 'unconfirmed');
+    assert.equal(s.next, 'retry');
+    assert.equal(s.waitFor, 'online');
+    assert.equal(listeningSubmitOutcome({ attemptId: ID, error: httpError(503), online: false }).waitFor, 'online');
+  });
+  test('401 retries after sign-in', () => {
+    const s = listeningSubmitOutcome({ attemptId: ID, error: httpError(401) });
+    assert.equal(s.outcome, 'unconfirmed');
+    assert.equal(s.waitFor, 'signin');
+  });
+  test('temporary errors retry after backoff', () => {
+    for (const status of [408, 425, 429, 500, 502, 503]) {
+      const s = listeningSubmitOutcome({ attemptId: ID, error: httpError(status) });
+      assert.equal(s.outcome, 'unconfirmed', String(status));
+      assert.equal(s.waitFor, null);
+    }
+  });
+  test('a lost response (no matching acknowledgement) is unconfirmed, never confirmed', () => {
+    for (const reply of [undefined, null, {}, { attempt_id: 'other' }, { received: true }, { sealed: true }]) {
+      assert.equal(listeningSubmitOutcome({ attemptId: ID, reply }).outcome, 'unconfirmed', JSON.stringify(reply));
+    }
+  });
+  test(`after ${LISTENING_SUBMIT_AUTO_RETRIES} automatic retries it becomes unconfirmed_manual`, () => {
+    assert.equal(listeningSubmitOutcome({ attemptId: ID, error: httpError(503), autoRetries: LISTENING_SUBMIT_AUTO_RETRIES - 1 }).next, 'retry');
+    const s = listeningSubmitOutcome({ attemptId: ID, error: httpError(503), autoRetries: LISTENING_SUBMIT_AUTO_RETRIES });
+    assert.equal(s.outcome, 'unconfirmed_manual');
+    assert.equal(s.next, 'manual');
+  });
+  test('409 asks for a re-read; in_progress then allows a resubmit, submitted is confirmed', () => {
+    const conflict = httpError(409, 'Attempt đã thay đổi; hãy tải lại trạng thái.');
+    assert.deepEqual([listeningSubmitOutcome({ attemptId: ID, error: conflict }).outcome, listeningSubmitOutcome({ attemptId: ID, error: conflict }).next], ['unconfirmed', 'reread']);
+    const open = listeningSubmitOutcome({ attemptId: ID, error: conflict, reread: { status: 'in_progress' } });
+    assert.deepEqual([open.outcome, open.next], ['idle', 'resubmit']);
+    assert.equal(listeningSubmitOutcome({ attemptId: ID, error: conflict, reread: { status: 'submitted' } }).outcome, 'confirmed');
+  });
+  test('422 already-submitted replay re-reads and confirms from the re-read', () => {
+    const replay = httpError(422, 'Attempt đã submit rồi — không thể submit lại.');
+    assert.equal(listeningSubmitOutcome({ attemptId: ID, error: replay }).next, 'reread');
+    assert.equal(listeningSubmitOutcome({ attemptId: ID, error: replay, reread: { status: 'submitted' } }).outcome, 'confirmed');
+    assert.equal(listeningSubmitOutcome({ attemptId: ID, error: replay, reread: { status: 'in_progress' } }).outcome, 'unconfirmed_manual');
+  });
+  test('a re-read showing abandoned is never confirmed and clears the local copy', () => {
+    const s = listeningSubmitOutcome({ attemptId: ID, error: httpError(422, 'Attempt status không hợp lệ.'), reread: { status: 'abandoned' } });
+    assert.deepEqual({ ...s }, { outcome: 'abandoned', next: 'back', waitFor: null, message: LISTENING_ABANDONED_MESSAGE, sealed: false, clearLocalCopy: true });
+    assert.equal(listeningSubmitOutcome({ attemptId: ID, reply: { attempt_id: ID }, reread: { status: 'abandoned' } }).outcome, 'abandoned');
+  });
+  test('24 h resume expiry (410) shows the server message with Back', () => {
+    const detail = 'Phiên làm bài đã hết thời gian tiếp tục. Dữ liệu cũ vẫn được lưu; hãy bắt đầu một phiên mới.';
+    const s = listeningSubmitOutcome({ attemptId: ID, error: httpError(410, detail) });
+    assert.deepEqual([s.outcome, s.next, s.message], ['expired', 'back', detail]);
+  });
+  test('other refusals stop retrying with the server message, no full-page error', () => {
+    const s = listeningSubmitOutcome({ attemptId: ID, error: httpError(403, { message: 'Lớp đã lưu trữ.' }) });
+    assert.deepEqual([s.outcome, s.next, s.message], ['unconfirmed_manual', 'manual', 'Lớp đã lưu trữ.']);
+  });
+  test('never returns the timed-close outcomes Listening does not use', () => {
+    const inputs = [
+      { reply: { attempt_id: ID } }, { error: new TypeError('x') }, { error: httpError(401) }, { error: httpError(409) },
+      { error: httpError(410) }, { error: httpError(422) }, { error: httpError(403) }, { error: httpError(500), autoRetries: 9 },
+      { reread: { status: 'weird' } },
+    ];
+    for (const input of inputs) {
+      assert.ok(!['closed_unconfirmed', 'expired_unsubmitted'].includes(listeningSubmitOutcome({ attemptId: ID, ...input }).outcome));
+    }
+  });
+  test('requires the attempt id', () => {
+    assert.throws(() => listeningSubmitOutcome({ attemptId: '', reply: {} }), /missing-listening-attempt/);
+  });
+});
