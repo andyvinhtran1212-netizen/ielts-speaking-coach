@@ -35,9 +35,6 @@ export function speakingAttemptKey(): string {
 export function useSpeakingTabGuard(attemptKey: string) {
   const [state, setState] = useState<SpeakingTabState>(attemptKey ? 'pending' : 'unsupported');
   const [refused, setRefused] = useState(false);
-  // The first answer ends the opening check; a later `pending` is a takeover
-  // waiting for the other tab, which must not write yet.
-  const [settled, setSettled] = useState(false);
   const guardRef = useRef<ReturnType<typeof createTabGuard> | null>(null);
 
   useEffect(() => {
@@ -62,7 +59,6 @@ export function useSpeakingTabGuard(attemptKey: string) {
       onChange: (next: SpeakingTabState) => {
         if (next === 'read-only' || next === 'stuck') behind = true;
         setState(next);
-        if (next !== 'pending') setSettled(true);
         if (next !== 'writer') setRefused(false);
         if (next === 'read-only' && !reported) { reported = true; trackExamRoomEvent('exam_room_other_tab', { surface: 'speaking' }); }
       },
@@ -86,12 +82,11 @@ export function useSpeakingTabGuard(attemptKey: string) {
     return () => window.clearInterval(id);
   }, [state]);
 
-  // The opening `pending` writes too: checking takes a moment and must not lock
-  // the mic of the only tab; a second tab turns read-only as soon as the guard
-  // answers. A takeover's `pending`, `acquiring` (reloading) and `releasing` do
-  // not: hand-over only starts with nothing unsent, and no new take may start
-  // while it runs.
-  const canWrite = state === 'writer' || state === 'unsupported' || (state === 'pending' && !settled);
+  // Nothing records or sends until the lock answers (CR #2649): only the tab
+  // that holds the right writes, or every tab when there is no lock to take.
+  // `pending`, `acquiring` and `releasing` never do; the notice says the tab
+  // is being checked, so the only tab does not look like a broken mic.
+  const canWrite = state === 'writer' || state === 'unsupported';
   useEffect(() => { callApp('setWriteRight', canWrite); }, [canWrite]);
   useEffect(() => () => { callApp('setWriteRight', true); }, []);
 
@@ -112,7 +107,9 @@ export function SpeakingTabNotice({ state, refused, strings, lang, onTakeover, o
   onReload(): void;
 }) {
   let body = null;
-  if (state === 'read-only') {
+  if (state === 'pending' || state === 'acquiring') {
+    body = <Notice kind="info" lang={lang}>{strings.checkingTab}</Notice>;
+  } else if (state === 'read-only') {
     body = <Notice kind="warning" lang={lang} action={<Button variant="secondary" size="sm" onClick={onTakeover}>{strings.useThisTab}</Button>}>{strings.otherTab}</Notice>;
   } else if (state === 'stuck') {
     body = <Notice kind="warning" lang={lang} action={<Button variant="secondary" size="sm" onClick={onReload}>{strings.reload}</Button>}>{strings.otherTabStuck}</Notice>;

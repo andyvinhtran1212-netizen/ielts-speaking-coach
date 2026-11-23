@@ -609,6 +609,11 @@
         return !slot.retryBlob && (slot.state === 'grading' || slot.state === 'recording');
       }).length;
     }
+    // Part 2 keeps its take outside the answer sheet (CR #2649, Codex P2):
+    // speaking (the recorder may still be starting), uploading, or kept for a
+    // retry after a failed send.
+    if (_currentState === 'p2c' || _currentState === 'processing') busy += 1;
+    if (_p2RetryQuestionId) busy += 1;
     if (_hasUnsentWork() && busy === 0) busy = 1;
     return Promise.resolve({ secured: busy === 0, unsaved: busy });
   }
@@ -6052,6 +6057,9 @@
       _rendererAffinity = 'next';
       _navigate = typeof bootstrap.navigate === 'function' ? bootstrap.navigate : null;
       _examRoomMode = bootstrap.examRoomMode === true;
+      // R149 CR: with the room on, nothing records or sends until the tab
+      // lock answers; the room grants the right (writer, or no lock to take).
+      _roomWriteRight = !_examRoomMode;
       _roomDetectMic();
     } else {
       var sb = window.getSupabase && window.getSupabase();

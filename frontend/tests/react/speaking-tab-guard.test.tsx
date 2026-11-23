@@ -35,8 +35,16 @@ describe('SpeakingTabNotice', () => {
     expect(screen.getByText(EN.handoverRefused)).toBeTruthy();
   });
 
-  it('nothing to say while writing, checking or with no guard', () => {
-    for (const state of ['writer', 'pending', 'acquiring', 'releasing', 'unsupported'] as const) {
+  it('checking: says the tab is being checked, so the only tab does not look like a broken mic', () => {
+    for (const state of ['pending', 'acquiring'] as const) {
+      render(<SpeakingTabNotice state={state} refused={false} strings={VI} lang="vi" onTakeover={noop} onReload={noop} />);
+      expect(screen.getByText('Đang kiểm tra tab…')).toBeTruthy();
+      cleanup();
+    }
+  });
+
+  it('nothing to say while writing, releasing or with no guard', () => {
+    for (const state of ['writer', 'releasing', 'unsupported'] as const) {
       const { container } = render(<SpeakingTabNotice state={state} refused={false} strings={VI} lang="vi" onTakeover={noop} onReload={noop} />);
       expect(container.querySelector('[data-room-tab-notice]')).toBeNull();
       cleanup();
@@ -84,11 +92,26 @@ describe('useSpeakingTabGuard', () => {
     expect(reload).not.toHaveBeenCalled();
   });
 
+  it('until the lock answers, nothing records or sends; the right opens only for writer (CR #2649)', async () => {
+    let grant: ((lock: unknown) => void) | null = null;
+    const slow = { request: (_name: string, _opts: unknown, cb: (lock: unknown) => unknown) => new Promise((resolve) => { grant = (lock) => { resolve(cb(lock)); }; }) };
+    Object.defineProperty(navigator, 'locks', { value: slow, configurable: true });
+    const a = renderHook(() => useSpeakingTabGuard('s-1'));
+    expect(a.result.current.state).toBe('pending');
+    expect(writeRight).toEqual([false]);
+    expect(writeRight).not.toContain(true);
+    act(() => { grant!({ name: 'exam-room:speaking:s-1' }); });
+    await waitFor(() => expect(a.result.current.state).toBe('writer'));
+    expect(writeRight.at(-1)).toBe(true);
+  });
+
   it('a second tab is read-only: no microphone, no upload', async () => {
     const a = renderHook(() => useSpeakingTabGuard('s-1'));
     await waitFor(() => expect(a.result.current.state).toBe('writer'));
+    const before = writeRight.length;
     const b = renderHook(() => useSpeakingTabGuard('s-1'));
     await waitFor(() => expect(b.result.current.state).toBe('read-only'));
+    expect(writeRight.slice(before)).not.toContain(true);
     expect(writeRight.at(-1)).toBe(false);
   });
 

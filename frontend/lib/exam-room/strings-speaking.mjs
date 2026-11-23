@@ -25,6 +25,7 @@ const VI = Object.freeze({
   micNotFound: 'Không tìm thấy micro. Hãy cắm micro rồi bấm Thử lại.',
   micLost: 'Mất kết nối micro.',
   // R149 (one writing tab, EXAMROOM-0066 FR-017); the spec's words for stuck.
+  checkingTab: 'Đang kiểm tra tab…',
   otherTab: 'Bài này đang mở ở tab khác.',
   useThisTab: 'Dùng tab này',
   otherTabStuck: 'Bài này đang mở ở tab khác và còn bản ghi chưa gửi. Hãy gửi hoặc bỏ bản ghi ở tab đó.',
@@ -81,6 +82,7 @@ const EN = Object.freeze({
   micDeniedKept: 'Answers you have already sent are kept.',
   micNotFound: 'No microphone found. Plug in a microphone, then click Try again.',
   micLost: 'The microphone was disconnected.',
+  checkingTab: 'Checking for other tabs…',
   otherTab: 'This test is open in another tab.',
   useThisTab: 'Use this tab',
   otherTabStuck: 'This test is open in another tab with recordings not sent yet. Send or discard them in that tab.',

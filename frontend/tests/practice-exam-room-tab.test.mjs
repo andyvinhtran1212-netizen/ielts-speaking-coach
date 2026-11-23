@@ -16,7 +16,7 @@ const end = JS.indexOf('  function _hasUnsentWork() {');
 assert.ok(start !== -1 && end > start);
 const ROOM = JS.slice(start, end);
 
-function sandbox({ on = true, sub = 'idle', dirty = false, slots = null, fullTest = null, unsent = false } = {}) {
+function sandbox({ on = true, sub = 'idle', dirty = false, slots = null, fullTest = null, unsent = false, state = 'prep', p2Retry = null } = {}) {
   const env = {
     navigator: {},
     MediaRecorder: function () {},
@@ -33,7 +33,8 @@ function sandbox({ on = true, sub = 'idle', dirty = false, slots = null, fullTes
     var _roomWriteRight = true;
     var _roomDialogKind = null, _roomLeaveHref = '', _roomLeaving = false, _roomConfirmed = false, _ROOM_LEAVE_RESET_MS = 4000;
     var _playerGeneration = 1, _playerActive = true, _analyser = null, _recorder = null, _stream = null;
-    var _currentState = 'prep', _recSubState = ${JSON.stringify(sub)}, _recordingDirty = ${dirty ? 'true' : 'false'};
+    var _p2RetryQuestionId = ${JSON.stringify(p2Retry)};
+    var _currentState = ${JSON.stringify(state)}, _recSubState = ${JSON.stringify(sub)}, _recordingDirty = ${dirty ? 'true' : 'false'};
     var _sheet = ${slots ? JSON.stringify({ slots }) : 'null'};
     var _timerId = null, _p2SpeakTimerId = null;
     ${ROOM}
@@ -70,6 +71,13 @@ describe('flag on: the hand-over flush', () => {
 
   test('Full Test answers still uploading or waiting for a retry refuse the hand-over', async () => {
     assert.deepEqual(await sandbox({ fullTest: { pendingCount: 1, retryCount: 1 } }).flush(), { secured: false, unsaved: 2 });
+  });
+
+  test('Part 2 speaking, any take uploading, or a Part 2 take kept for a retry refuses (CR #2649 Codex P2)', async () => {
+    assert.deepEqual(await sandbox({ state: 'p2c' }).flush(), { secured: false, unsaved: 1 });
+    assert.deepEqual(await sandbox({ state: 'processing' }).flush(), { secured: false, unsaved: 1 });
+    assert.deepEqual(await sandbox({ state: 'p2a', p2Retry: 'q-2' }).flush(), { secured: false, unsaved: 1 });
+    assert.deepEqual(await sandbox({ state: 'p2a' }).flush(), { secured: true, unsaved: 0 });
   });
 
   test('any other unsent work the leave guard knows about refuses too', async () => {
@@ -167,4 +175,10 @@ describe('tab B presses "Nộp bài" while tab A still has an unsent take (CR #2
     await run();
     assert.deepEqual(calls.map(([k]) => k), ['release', 'complete', 'navigate']);
   });
+});
+
+test('boot: with the room on, nothing records or sends until the tab lock answers (CR #2649)', () => {
+  const at = JS.indexOf('_examRoomMode = bootstrap.examRoomMode === true;');
+  assert.ok(at !== -1);
+  assert.match(JS.slice(at, at + 400), /_roomWriteRight = !_examRoomMode;/);
 });
