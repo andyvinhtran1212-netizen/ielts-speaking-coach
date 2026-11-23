@@ -26,9 +26,9 @@ Thứ tự áp theo thứ tự làm: 390 (T07) → 391 (T18) → 395 (T18) → 3
 
 Người thực thi không đổi cài đặt dự án Supabase và không tạo khoá Resend (gói mục 8). Danh sách đánh dấu được (chép từ gói 5.6, áp cho đường A):
 
-- [ ] Authentication › Hooks: bật Send Email Hook (`/auth/hooks/send-email`, secret qua kênh bí mật) và Custom Access Token Hook (`fn_auth_access_token_hook`, sau mig 395) — **chỉ staging** cho tới khi anh duyệt bằng chứng điểm h–k (plan 5.6). Với hook, bước SMTP dưới chỉ là dự phòng.
+- [ ] Authentication › Hooks: bật Send Email Hook (`/auth/hooks/send-email`, secret qua kênh bí mật) và Custom Access Token Hook (`fn_auth_access_token_hook`, sau mig 395) — **chỉ staging** cho tới khi anh duyệt bằng chứng điểm h–o (plan 5.6). Với hook, bước SMTP dưới chỉ là dự phòng.
 - [ ] (Dự phòng) Authentication › SMTP: bật SMTP tuỳ chỉnh trỏ vào Resend — máy chủ `smtp.resend.com`, cổng 465, tên đăng nhập `resend`, mật khẩu là một khoá API của Resend (nên tạo khoá riêng chỉ có quyền gửi, không dùng lại khoá của backend), địa chỉ gửi và tên người gửi theo mục 10 câu 5 (`CHƯA KIỂM` thông số SMTP với tài liệu Resend hiện hành; người thực thi ghi nguồn vào `rollout.md`).
-- [ ] Authentication › Providers › Email: bật; tắt "Confirm email" bằng liên kết nếu nó chặn OTP cho email mới (`CHƯA KIỂM`, điểm (b) ở trên); độ dài mã 6; thời hạn mã = `LOGIN_CODE_TTL_MINUTES`.
+- [ ] Authentication › Providers › Email: bật; **giữ bật "Confirm email"**; nếu OTP cho email mới không chạy khi nó bật thì dừng rollout và báo anh, không tắt bảo vệ; độ dài mã 6; thời hạn mã = `LOGIN_CODE_TTL_MINUTES`.
 - [ ] Authentication › Email Templates: mẫu "Magic Link" (dùng cho OTP đăng nhập) và mẫu "Change Email Address" (dùng cho T24) chỉ chứa `{{ .Token }}`, không có `{{ .ConfirmationURL }}`; dán nội dung từ `docs/auth/login-code-email.*` và `docs/auth/email-change-code-email.*` (T14).
 - [ ] "Secure email change": tắt **chỉ trên staging** để thử T24; production giữ bật cho tới khi anh duyệt riêng sau kịch bản đối soát (plan 5.6b).
 - [ ] Bật gộp tài khoản cùng email đã xác minh (điểm (d)).
