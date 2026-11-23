@@ -46,7 +46,7 @@ The approval covers spec text only. It does not authorize applying a migration, 
 Mig 441 (ADMINIA-0074 G09-T24) is applied on staging. It adds `cohorts.instructor_id`, `weekly_schedule` (`dow` 1–7, `start` "HH:MM"), `start_date` and `class_lessons.starts_at`, so open question 17 was out of date. This patch to amendment 6 (#2491) changes the spec text only:
 
 - FR-120: the `/course/class` card shows the teacher and the weekly start times from 441 ("Thứ Hai và Thứ Tư, 18:30"), next to "Đã học n buổi". End time, room and the planned number of sessions stay hidden.
-- `GET /api/class/me` gains two read fields per class, `instructor: {name} | null` and `weekly_schedule: [{dow, start}]`. No other field changes. T30c now depends on G09-T24 (mig 441 applied).
+- `GET /api/class/me` gains two read fields per class, `instructor: {name} | null` and `weekly_schedule: [{dow, start}]`. If reading the 441 columns or `users` fails, both are empty and `degraded` gains `class_meta` (CR). No other field changes. T30c now depends on G09-T24 (mig 441 applied).
 - Open question 17 is reduced to the three missing columns (end time, room, planned sessions). The default is still to add none, until the class edit screen of G09.
 - T25 lists G04-T03 (#2485, `charge_plan` of 0055) in its depends (CR nit on the HOLD patch).
 
