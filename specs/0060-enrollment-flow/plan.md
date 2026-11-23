@@ -1,0 +1,223 @@
+# Implementation plan
+
+Hợp đồng dưới đây chép nguyên văn từ gói (bản 18/11 chiều, đo ở staging `93c7085`, kiểm lại ở `c3bc71574`); chỗ ghi `CHƯA KIỂM` là việc người thực thi kiểm ở task tương ứng trước khi viết mã. Đối chiếu ở staging `31725a9b` (23/11/2026): số migration nhãn 381/382 của G04 nay là **383**/**384** (đã có); dải 390–399 còn trống trong `backend/migrations/register.tsv`; mỗi migration thêm dòng `register.tsv` cùng PR.
+
+## Architecture impact
+
+- Frontend: `/login` (`app/(public-auth)/login/login-behavior.tsx`, `lib/login-model.mjs`, `lib/supabase-browser.ts` không đổi `BROWSER_AUTH_OPTIONS`), route mới `/activate`, `/courses/[slug]/enroll`, `/enroll/[orderCode]`, `/account/orders`; thành phần `ChangeEmail`, màn 8a–8c và hộp "Đăng xuất khỏi mọi thiết bị" cấp cho G07 gắn. Route mới vào `lib/route-registry.mjs`, `lib/v2-routes.mjs`, `proxy.ts` matcher (khi dùng `AuthedShell`), `docs/SITE_OVERVIEW.md`.
+- Backend: `routers/login_code.py` (prefix `/auth/login-code`), `/auth/email-change/*`, `POST /auth/activate/preview`, `POST /api/contact`, `GET /api/public/site-info` (PUBLICSITE-0059 dùng), `/api/courses/{slug}/open-alerts`, `GET /api/me/open-alerts`, `services/vietqr.py`. Mỗi route mới có dòng `ACTIVATION_EXEMPT_ROUTES` kèm lý do khi cần (tài khoản chưa kích hoạt phải gọi được).
+- Dữ liệu: năm migration 390–394 (bảng dưới). Thư đi qua `learner_email.send_direct` / `learner_email_outbox` của G04; G05 không gọi Resend trực tiếp.
+
+## Data and contracts
+
+### Migration của gói
+
+Migration của gói (dải 390–399 theo `01-KE-HOACH-TONG.md` mục 6; số dưới đây là dự kiến theo thứ tự làm, người thực thi kiểm sổ số và số cao nhất trong `backend/migrations/` trước khi dùng; 395–399 để trống):
+
+| Số dự kiến | Nội dung | Nhiệm vụ | Phụ thuộc |
+|---|---|---|---|
+| 390 | `contact_messages` | T07 | — |
+| 391 | `login_code_state` + `fn_login_code_send_check`, `fn_login_code_verify_check`, `fn_login_code_invalidate` | T18 | — |
+| 392 | thay thân `fn_activate_attempt_check`: 5 lần / 15 phút | T09 | 334 (đã có) |
+| 393 | `account_email_changes` | T24 | — |
+
+#### 5.2 API G05 gọi tới G04 (đã đối chiếu với GOI-04 bản 18/11 mục 5.9; lệch thì theo G04 và báo)
+
+| Method · path | Auth | G05 dùng | Lỗi cần phân biệt |
+|---|---|---|---|
+| `GET /api/courses` | tuỳ chọn | `{items:[{slug, title, summary, status:'open'\|'coming_soon'\|'closed', tuition_vnd\|null, access_days\|null, ai_credits, features, expected_open_on\|null, viewer:{state:'guest'\|'can_enroll'\|'open_order'\|'enrolled'\|'expired', days_left\|null, open_order_code\|null}}]}` | 503 `catalog_unavailable` |
+| `GET /api/courses/{slug}` | tuỳ chọn | một item như trên | 404 `course_not_found` (cả khoá không công khai) |
+| `GET /api/me/courses` | có | khoá đang có, `days_left`, `credits.total` | 401; 503 `access_unavailable` |
+| `POST /api/enrollment-orders` | có | body `{product_slug, request_key}` → 201 `{order}`; đơn mở sẵn/gửi lặp → 200 cùng hình | 403 `account_suspended`, `sign_in_again`; 404 `course_not_found`; 409 `course_not_open`, `already_enrolled`; 503 `orders_paused`, `orders_unavailable` |
+| `GET /api/enrollment-orders/me` | có | `{items:[Order], next_cursor}` | 401 |
+| `GET /api/enrollment-orders/{order_code}` | chủ đơn | `{order}` | 404 `order_not_found` (không phải chủ cũng 404) |
+| `POST …/{order_code}/report-transfer` | chủ đơn | body `{note\|null}` → `{order, late}` (đơn `expired`: `late=true`, trạng thái không đổi) | 409 `invalid_transition` |
+| `POST …/{order_code}/supplement` | chủ đơn | body `{note}` → `{order}` (đơn `needs_info` → `transfer_reported`) | 409; 422 |
+| `POST …/{order_code}/cancel` | chủ đơn | `{order}` | 409 |
+
+`Order` (G04 mục 5.9, đủ trường): `{order_code, status:'awaiting_transfer'|'transfer_reported'|'needs_info'|'confirmed'|'expired'|'cancelled', product:{slug,title,short_title}, tuition_vnd, access_days, ai_credits, credit_valid_days, pay_by, created_at, transfer_reported_at, late_transfer_reported_at, confirmed_at, reopened_at, info_kind, received_vnd, overpaid_vnd, admin_message, supplement_by, cancel_reason, cancel_note, cancelled_at, entitlement_expires_at, credits_granted, transfer:{bank_bin, bank_name, account_no, account_name, amount_vnd, memo, vietqr_payload, qr_image_url}|null}`. `transfer` có ở `awaiting_transfer`, `transfer_reported`, `needs_info`, `expired`; các trạng thái khác `null`.
+
+**Trường G05 cần — đối chiếu với GOI-04 bản 18/11: tất cả đã có trong hợp đồng G04.** Cột cuối là cách xử lý khi nhiệm vụ G04 tương ứng chưa merge hoặc trường trả `null`; giao diện ẩn phần tương ứng, không đoán:
+
+| Trường (G04 mục 5.9) | Dùng ở | Khi `null` hoặc chưa có |
+|---|---|---|
+| `items[].short_title`, `level_from`, `level_to`, `author:{name, bio_line, photo_url\|null}`, `credits_expire_note`, `credit_carry_percent`, `credit_valid_days`, `viewer.can_renew` | PUBLICSITE-0059 FR-004, 024, 025, 028 | ẩn dòng/khối đó |
+| (mới, điểm 23) `items[].credit_carry_valid_days` (số ngày bảo lưu lượt chuyển; cấu hình G04, hiện 60) và `credit_carry_percent` nay là 100 — đã có trong `GET /api/courses*` của GOI-04 bản chiều 18/11 | PUBLICSITE-0059 FR-024 | bỏ vế tương ứng của câu |
+| (mới, điểm 23) `content_visible_until` (ISO hoặc `null`) và `content_days_after_expiry` ở gốc phản hồi `GET /api/me/courses` của G04 (mốc cuối còn xem được bài đã nộp = lúc quyền khoá cuối cùng hết hạn + 45 ngày theo cấu hình; `null` khi còn quyền nào hiệu lực) — **không** nằm trong `viewer` của `GET /api/courses/{slug}` | câu ở màn khoá hết hạn (PUBLICSITE-0059 FR-024): trang khoá gọi thêm `GET /api/me/courses` khi `viewer.state='expired'` | ẩn câu |
+| (mới, điểm 23) `items[].credits.carry_balance`, `items[].credits.carry_expires_at` trong `GET /api/me/courses` của G04 (số lượt chuyển còn dùng được của quyền đó và hạn bảo lưu; 0 / `null` khi không có). `Order` không mang hai trường này | màn 4 (FR-055): sau khi đơn `confirmed`, đọc `GET /api/me/courses`, lấy dòng của đúng khoá | `carry_balance = 0` hoặc lỗi đọc → ẩn dòng "Chuyển từ kỳ trước"; đơn là đăng ký lại mà `carry_balance = 0` trong 10 phút đầu sau `confirmed_at` → câu "sẽ được cộng trong ít phút" |
+| `lesson_count`, `chapters:[{title, lessons:[{title, kind, duration_min\|null, is_preview, preview_href\|null}]}]` — G04 trả `null` cho tới khi G07-T19 nối `course_lessons` vào `_outline_for` (GOI-07 FR-07-044); `faq:[{q,a}]` | PUBLICSITE-0059 FR-007 | ẩn mục Chương trình và FAQ của khoá |
+| `Order.transfer.vietqr_payload` (chuỗi EMVCo do mô-đun 5.8 của G05-T11 sinh, G04-T04 gọi) | FR-038 | theo mục 10 câu 2 |
+| `Order.info_kind:'underpaid'\|'not_found'\|'other'`, `received_vnd`, `supplement_by`, `overpaid_vnd` | khối màn 6 (ba con số, hạn bổ sung) | chỉ hiện `admin_message` nguyên văn |
+| `Order.cancel_reason:'learner'\|'admin'` (ai huỷ), `cancel_note` (lý do admin ghi; `null` khi học viên tự huỷ), `cancelled_at` | màn 5 "Đã huỷ": admin huỷ → hiện `cancel_note` nguyên văn | hiện "Đơn đã huỷ" không kèm lý do |
+| `Order.entitlement_expires_at`, `credits_granted` (số lượt cộng lúc xác nhận, chưa gồm lượt chuyển từ kỳ trước) | màn 4 | lấy từ `GET /api/me/courses` |
+| `POST …/report-transfer` chấp nhận đơn `expired` (`late=true`, không đổi trạng thái), `late_transfer_reported_at` | nút "Tôi đã chuyển cho đơn này" (FR-056) | ẩn nút, giữ câu chữ |
+| `expired → confirmed` khi khoản chuyển khớp mã (`reopened_at`) và thư "khoá đã mở" | FR-056 | — |
+
+
+Các route học viên ở bảng trên phải có trong `ACTIVATION_EXEMPT_ROUTES` — việc của G04; G05 kiểm trước khi nối.
+
+#### 5.2b API phiên G05 cần từ G04 (FR-052, 053) — hợp đồng tối thiểu để dựng màn; G04 đặt tên khác thì theo G04
+
+| Method · path | Trả về | Dùng ở |
+|---|---|---|
+| `GET /api/account/session/status` | `{enabled:bool, state:'current'\|'other_device'\|'other_device_timed', other_session:{device_label, since, approx_location}\|null, timed_activity:{title, device_label, minutes_left}\|null}`; `approx_location` **luôn `null`** ở đợt này (G04 không thu địa chỉ mạng) | `other_device` → 8a; `other_device_timed` → 8b; `current` → đi thẳng |
+| `POST /api/account/session/claim` | 200 `{enabled, state:'current', revoked}`; 409 `timed_activity_in_progress` kèm `timed_activity`; 503 `session_claim_unavailable` (không chặn đăng nhập) | nút "Tiếp tục ở đây" |
+| `POST /api/account/sessions/revoke-all` | `{revoked:int, deferred_timed:{title, device_label, minutes_left}\|null, at}` | màn 5 |
+| Mọi API khi phiên đã bị chiếm | 401 `{"detail":{"error_code":"session_displaced","displaced_at":…}}` | màn 8c |
+| Mọi API học viên khi phiên này **chưa claim** mà tài khoản đang có phiên đang dùng khác | 409 `{"detail":{"error_code":"session_not_current"}}` (G04 mục 5.13); chỉ ba route `/api/account/session*`, các route đơn đăng ký và route công khai còn gọi được | mở lại màn 8a/8b ở bất kỳ trang nào (bộ chặn chung trong lớp gọi API của G05-T20; G07, G08 dùng lại) |
+
+`enabled=false` (cờ `single_session_learners` tắt, hoặc vai trò admin/giáo viên) → frontend bỏ qua toàn bộ, đi thẳng tới đích. G04 bảo đảm phiên mới chưa "claim" không dùng được API học viên khi đang có phiên khác (409 `session_not_current`), nên bấm "Huỷ" ở 8a là thật. Dòng "nơi đăng nhập gần đúng" của màn 8a không dựng ở đợt này.
+
+**"Lần đăng nhập gần đây" (FR-061) — tham chiếu, không phải việc backend của G05.** Bảng `learner_login_events` và API `GET /api/account/login-events` thuộc GOI-04 (nhiệm vụ mới, migration 387); ba dòng trên Hồ sơ thuộc GOI-07; hộp "Đăng xuất khỏi mọi thiết bị" vẫn là component của G05-T20. Điểm chạm của G05:
+
+- Cả hai cách vào đều gọi `GET /api/account/session/status` đúng một lần ngay sau khi có phiên (T20 bước 2). Đường Google kết thúc PKCE ở trình duyệt nên backend không thấy lúc đăng nhập; lời gọi này là điểm đầu tiên máy chủ biết có phiên mới. G04 tự ghi sự kiện trong cổng phiên của mình khi một phiên học viên được ghi nhận (GOI-04 FR-04-049, mục 5.13b; chỉ khi cờ `single_session_learners` bật).
+- "Cách đăng nhập" (`google` / `email_code`) do G04 đọc từ claim `amr` của access token, không do G05 gửi lên. Việc của G05 là giữ cho phiên của đường mã 6 số là phiên do GoTrue cấp qua `/auth/v1/verify` nguyên vẹn (T18 không tự phát hay sửa token), để `amr` phản ánh đúng. `CHƯA KIỂM` giá trị `amr.method` của phiên OTP email và phiên Google trên dự án staging (giải mã phần payload của một access token thử, chỉ đọc khoá `amr`) — kiểm ở T18 bước 1 và báo kết quả cho người viết G04-T16.
+- G05 không gọi hàm ghi nào, không đọc, không hiển thị sự kiện; không lưu địa chỉ mạng thô (bảng `login_code_state` chỉ có giá trị băm). Các lần nhập mã sai hay mã bị khoá không tạo phiên nên không vào "Lần đăng nhập gần đây".
+
+
+#### 5.3 Lớp dữ liệu và dữ liệu giả
+
+- `frontend/lib/commerce-types.ts`: kiểu TypeScript đúng 5.2 (sau khi G04 merge: thay bằng kiểu sinh trong `frontend/types/api.d.ts`, giữ tên export).
+- `frontend/lib/commerce-api.ts`: server dùng `frontend/lib/backend.ts` (giống `lib/grammar-api.ts`, có `'use cache'` + `cacheLife` cho `GET /api/courses*` **không kèm token**); client dùng `frontend/lib/browser-api.ts` cho mọi lời gọi có token (không cache phản hồi có `viewer`).
+- `frontend/lib/commerce-model.mjs`: hàm thuần — `courseRowState(item)` → `'open'|'upcoming'|'learning'|'expired'` (từ `status` + `viewer.state`), `orderScreen(order)` → `2|3|4|5`, `orderBlocks(order)` (khối sai lệch/thừa tiền/lý do huỷ cần vẽ), `formatVnd(n)` (trả `null` khi `n` null), `nextActionForOrder(order)`, `catalogCounts(items)` → `{open, upcoming}`. Nhãn hành động khoá gọi `accessActionLabel` của `frontend/lib/course-access-labels.mjs`; module đó chưa có (G11-T29 chưa merge) thì T02 tạo đúng file và đúng API ghi ở GOI-11 mục 5.6, G11-T29 dùng lại.
+- `frontend/tests/fixtures/commerce/*.json`: đủ sáu khoá (một `open`, năm `coming_soon` — đúng ca tờ DanhMucKhoaMoiMotKhoa; thêm một bộ hai `open`), đơn ở mọi `status`, mọi `info_kind`; khoá có và không có `credit_carry_percent`, `credit_carry_valid_days`; phản hồi `GET /api/me/courses` có và không có `content_visible_until`, `credits.carry_balance`, `credits.carry_expires_at`. Chỉ dùng trong test. **Không** có đường nào ở production đọc fixture. Khi G04 chưa merge, trang chạy thật gặp 404 từ backend → hiện trạng thái lỗi; PR ghi rõ "chưa nối API thật".
+
+
+#### 5.6 Đăng nhập bằng mã 6 số (spec ENROLL; G05-T18 backend, G05-T19 frontend)
+
+**Hai đường gửi mã 6 số (00 mục 2 điểm 23: dùng Resend đã có trong repo).** Hiện trạng: Resend đang chạy cho thư báo chủ dự án (`backend/services/owner_alerts.py`, `RESEND_API_KEY`); G04 dựng `services/learner_email.py` trên cùng lớp gọi đó, có `learner_email.send_direct(template, to, payload)` cho thư gửi ngay. Repo chưa có mã nào tự cấp phiên (mục 2).
+
+- **Đường A — OTP email của Supabase Auth.** Supabase sinh mã, giữ mã dạng băm, kiểm mã, tạo tài khoản lần đầu, gộp với danh tính Google cùng email và cấp phiên. Thư do Supabase gửi, nên PHẢI cấu hình SMTP tuỳ chỉnh trên dự án Supabase: SMTP mặc định của Supabase chỉ để thử, giới hạn rất thấp và chỉ gửi tới địa chỉ của thành viên dự án. SMTP đó trỏ thẳng vào Resend (cùng tên miền `averlearning.com` đã xác minh, cùng địa chỉ gửi với thư học viên), nên vẫn là "dùng dịch vụ đã có": không thêm nhà cung cấp, không thêm tên miền. Mẫu thư OTP sửa trong bảng điều khiển Supabase. Việc của anh Andy: nhập cấu hình SMTP và dán mẫu thư, một lần cho staging và một lần cho production (danh sách ở dưới). Backend không giữ mã, không cấp phiên; chỉ đếm lần gửi và lần thử.
+- **Đường B — backend tự sinh mã, gửi qua Resend API.** Backend sinh 6 chữ số bằng `secrets`, lưu `HMAC-SHA256(mã, LOGIN_CODE_HASH_PEPPER)` vào `login_code_state` (thêm cột `code_hash`, `code_expires_at`), gửi bằng `learner_email.send_direct('login_code', email, {code, ttl_minutes})`. Khi kiểm: so băm bằng phép so thời gian hằng; đúng thì xin phiên từ Supabase bằng admin API: email chưa có tài khoản → `supabase_admin.auth.admin.create_user({"email": …, "email_confirm": True})`; rồi `supabase_admin.auth.admin.generate_link({"type": "magiclink", "email": …})`, lấy `properties.hashed_token`, gọi GoTrue `POST {SUPABASE_URL}/auth/v1/verify` với `{"type":"magiclink","token_hash":…}` để nhận `access_token`, `refresh_token` và chuyển về trình duyệt (`CHƯA KIỂM` tên trường với `supabase==2.28.3` trong `backend/requirements.txt`: `python -c "import supabase_auth, inspect; print(inspect.signature(supabase_auth.SyncGoTrueAdminAPI.generate_link))"`). Được: không cần cấu hình SMTP và mẫu thư trên Supabase; mẫu thư nằm trong repo cùng các thư khác; đếm được chính xác vì không ai gọi vòng qua backend. Rủi ro: (1) backend tự giữ bí mật mã — lộ pepper cùng bảng là dò được cả 10^6 mã; (2) tự chống dò — bộ đếm của backend là hàng rào duy nhất, một lỗi fail-open là mở cửa; (3) thêm một đường cấp phiên chạy bằng khoá service: một lỗi logic ở bước kiểm là cấp phiên cho email bất kỳ, kể cả email của admin và giáo viên; (4) mã nằm ở dạng đọc được trong yêu cầu gửi Resend và nhật ký gửi của Resend; (5) vẫn phụ thuộc nhà cung cấp Email của Supabase đang bật (liên kết `magiclink`), và phải tự kiểm việc gộp danh tính với Google; (6) nhiều mã và test hơn (ước thêm 1 phiên cho T18).
+- **Đề nghị: đường A, SMTP của Supabase trỏ vào Resend.** Lý do: phiên, tạo tài khoản và gộp danh tính Google vẫn do Supabase làm, đúng với cách repo đang dùng Supabase Auth (backend hôm nay chỉ kiểm token, không cấp token); bí mật mã không nằm trong cơ sở dữ liệu của ta; cùng cấu hình SMTP đó dùng luôn cho mã đổi email (T24). Cái giá: hai lần nhập cấu hình trên bảng điều khiển Supabase và một giới hạn đã biết (cuối mục này). Đường B chỉ nên chọn nếu anh Andy không muốn đụng cấu hình SMTP của Supabase. Phần còn lại của mục 5.6 và T18, T19 viết theo đường A; anh chọn B thì dừng T18 và sửa spec trước (mục 10 câu 4).
+
+**Cách làm với Supabase Auth (đường A).** Dùng tính năng OTP email của Supabase Auth (GoTrue) để tạo mã, lưu mã dạng băm, gửi thư, tạo tài khoản lần đầu và cấp phiên — không tự viết kho mã, không tự phát JWT. Nhưng trình duyệt **không** gọi thẳng `signInWithOtp`/`verifyOtp`; nó gọi hai route của backend, để backend đếm lần thử và lần gửi theo cấu hình (tờ đòi "còn 2 lần thử", "huỷ mã sau XXX lần", "tạm dừng gửi XXX phút" — GoTrue không trả các con số này). Luồng:
+
+1. `POST /auth/login-code/request` → backend kiểm giới hạn gửi → gọi GoTrue `POST {SUPABASE_URL}/auth/v1/otp` với `{"email": …, "create_user": true}` và header `apikey: SUPABASE_ANON_KEY` → luôn trả cùng một phản hồi.
+2. `POST /auth/login-code/verify` → backend kiểm số lần thử → gọi GoTrue `POST {SUPABASE_URL}/auth/v1/verify` với `{"type":"email","email":…,"token":…}` → thành công thì chuyển `access_token`, `refresh_token` về trình duyệt.
+3. Trình duyệt gọi `client.auth.setSession({access_token, refresh_token})` trên client lấy từ `window.getSupabase()`, rồi đi tiếp **đúng đường của Google** trong `login-behavior.tsx`: `canonicalProfile(token)` (`GET /auth/me` tạo dòng `users` lần đầu) → kiểm phiên (5.2b) → đích (FR-031).
+
+`CHƯA KIỂM` (người thực thi kiểm ở G05-T18 bước 1 trên dự án Supabase **staging**, ghi kết quả vào PR spec; không thử trên production): (a) đường dẫn và thân yêu cầu `/auth/v1/otp`, `/auth/v1/verify` của phiên bản GoTrue đang chạy — đối chiếu tài liệu Supabase Auth hiện hành và `node_modules/@supabase/auth-js` (`grep -n "'/otp'\|/verify" frontend/node_modules/@supabase/auth-js/dist/main/GoTrueClient.js`); (b) GoTrue trả cùng phản hồi cho email đã có và chưa có tài khoản khi `create_user=true`; (c) mã mới làm mã cũ mất hiệu lực; (d) tài khoản Google và tài khoản mã cùng email được gộp một `auth.users` (liên kết danh tính tự động theo email đã xác minh); (e) `setSession` nhận phiên do backend chuyển về khi client chạy `flowType: 'pkce'`; (f) giới hạn tần suất mặc định của GoTrue cho `/otp` và `/verify`. Điểm nào sai so với giả định thì dừng và báo trước khi viết mã.
+
+**Việc anh Andy làm trên bảng điều khiển Supabase (người thực thi không đổi cài đặt dự án; ghi thành danh sách đánh dấu được trong `rollout.md`, làm ở staging trước, production sau):**
+
+1. Authentication › SMTP: bật SMTP tuỳ chỉnh trỏ vào Resend — máy chủ `smtp.resend.com`, cổng 465, tên đăng nhập `resend`, mật khẩu là một khoá API của Resend (nên tạo khoá riêng chỉ có quyền gửi, không dùng lại khoá của backend), địa chỉ gửi và tên người gửi theo mục 10 câu 5 (`CHƯA KIỂM` thông số SMTP với tài liệu Resend hiện hành; người thực thi ghi nguồn vào `rollout.md`).
+2. Authentication › Providers › Email: bật; tắt "Confirm email" bằng liên kết nếu nó chặn OTP cho email mới (`CHƯA KIỂM`, điểm (b) ở trên); độ dài mã 6; thời hạn mã = `LOGIN_CODE_TTL_MINUTES`.
+3. Authentication › Email Templates: mẫu "Magic Link" (dùng cho OTP đăng nhập) và mẫu "Change Email Address" (dùng cho T24) chỉ chứa `{{ .Token }}`, không có `{{ .ConfirmationURL }}`; dán nội dung từ `docs/auth/login-code-email.*` và `docs/auth/email-change-code-email.*` (T14).
+4. Tắt "Secure email change" (để mã đổi email chỉ gửi tới email mới; thư báo về email cũ do backend gửi — mục 5.6b).
+5. Bật gộp tài khoản cùng email đã xác minh (điểm (d)).
+6. Giới hạn gửi thư của Supabase Auth (Rate Limits) đặt cao hơn giới hạn của backend ở bảng cấu hình dưới, để backend là nơi trả lời người dùng.
+
+**API G05 tự làm (`backend/routers/login_code.py`, prefix `/auth/login-code`):**
+
+| Method · path | Request → Response | Lỗi |
+|---|---|---|
+| `POST /auth/login-code/request` | `{email}` → `202 {"ok":true,"resend_after_s":int,"expires_in_s":int}` — giống nhau cho mọi email | 422 `email_malformed`; 429 `login_code_send_limited` kèm `retry_after_s` (3d; tính theo email băm và IP băm, không theo việc có tài khoản hay không); 503 `login_code_paused` (cờ tắt), `login_code_unavailable` |
+| `POST /auth/login-code/verify` | `{email, code}` → `200 {"access_token","refresh_token","expires_in","linked_google":bool}` | 400 `login_code_incorrect` kèm `attempts_left` (3a); 410 `login_code_locked` (3b); 410 `login_code_expired` (3c); 429; 503 `login_code_unavailable` (không tính lần thử) |
+
+- Email không có bản ghi yêu cầu mã → trả `login_code_incorrect` như mã sai (không lộ "chưa từng yêu cầu").
+- `login_code_expired` tính từ thời điểm gửi gần nhất backend ghi + TTL, không gọi GoTrue.
+- `linked_google`: sau khi GoTrue trả phiên, đọc danh sách provider của người dùng trong phản hồi (`user.app_metadata.providers`, `CHƯA KIỂM` tên trường) → frontend hiện 3g một lần ở đầu trang đích.
+- Không log email, mã, token ở mọi mức; log chỉ có `email_hash` rút gọn và `error_code`.
+- Hai route thêm vào `ACTIVATION_EXEMPT_ROUTES` (lý do: "đăng nhập bằng mã, chưa có tài khoản"); gọi `request_client_ip` của `backend/services/request_safety.py` để lấy IP rồi băm.
+
+**Bảng `login_code_state`** (migration dự kiến 391, dải 390–399): `purpose text NOT NULL DEFAULT 'login' CHECK (purpose IN ('login','email_change'))` (mới chiều 18/11: để T24 dùng lại bảng, không cần migration thứ hai), `kind text CHECK (kind IN ('email','ip','user'))` (`user` chỉ dùng cho `email_change`: khoá theo tài khoản đang đổi), `key_hash text` (SHA-256 của giá trị chuẩn hoá + `LOGIN_CODE_HASH_PEPPER`; không lưu email, IP hay id thô), `window_started_at timestamptz`, `send_count int`, `last_sent_at timestamptz`, `attempts int`, `locked_at timestamptz NULL`, `PRIMARY KEY (purpose, kind, key_hash)`. RLS bật, không policy, `REVOKE ALL … FROM PUBLIC, anon, authenticated`. Cập nhật qua một hàm `SECURITY DEFINER` nguyên tử cho mỗi thao tác (`fn_login_code_send_check(p_purpose, …)`, `fn_login_code_verify_check(p_purpose, …)`) theo mẫu `fn_activate_attempt_check` (migration 334). Dòng cũ hơn 24 giờ được xoá trong cùng hàm gửi. Thêm hàm `fn_login_code_invalidate(p_purpose, p_kind, p_key_hash)` đặt `locked_at = now()` (dùng khi đăng xuất khỏi mọi thiết bị và khi đổi email xong).
+
+**Cấu hình** (`backend/config.py` lớp `Settings`; số là mặc định tạm, mục 10 câu 3):
+
+| Tên | Mặc định tạm | Ý nghĩa |
+|---|---|---|
+| runtime flag `email_code_login` (`default=False, on_error=False`) | tắt | Tắt: `/login` chỉ có Google (như hôm nay), `request` trả 503 `login_code_paused` |
+| `LOGIN_CODE_TTL_MINUTES` | 10 | Thời hạn mã; phải bằng cài đặt Supabase |
+| `LOGIN_CODE_MAX_ATTEMPTS` | 5 | Số lần thử mỗi mã |
+| `LOGIN_CODE_RESEND_SECONDS` | 45 | Chờ gửi lại |
+| `LOGIN_CODE_MAX_SENDS_PER_EMAIL`, `LOGIN_CODE_SEND_WINDOW_MINUTES` | 5, 30 | Số lần gửi mỗi email trong cửa sổ |
+| `LOGIN_CODE_MAX_SENDS_PER_IP` | 20 | Số lần gửi mỗi IP băm trong cùng cửa sổ |
+| `LOGIN_CODE_HASH_PEPPER` | rỗng → route trả 503 | Muối băm (bí mật, không log) |
+
+Giao diện đọc các số (thời hạn, lần thử còn lại, thời gian chờ) từ phản hồi API, không gõ số trong mã giao diện. `GET /api/public/site-info` trả `login_code_enabled` để `/login` biết có vẽ khối email hay không.
+
+**Giới hạn đã biết của cách làm này (ghi vào spec, mục 10 câu 4):** khoá publishable của Supabase nằm trong trình duyệt, nên người cố ý vẫn gọi thẳng GoTrue và bỏ qua bộ đếm của backend; khi đó chỉ còn giới hạn tần suất của GoTrue chặn dò mã. "Đăng xuất khỏi mọi thiết bị" đánh dấu `locked_at` cho email đó để backend từ chối mã chưa dùng: T18 cấp hàm `services/login_code.py::invalidate_pending(email)` (gọi `fn_login_code_invalidate`); `revoke_all` của G04-T09 gọi hàm này (GOI-04 mục 5.13 ghi việc huỷ mã chưa dùng "thuộc bên giữ mã đăng nhập (G05)"). G04-T09 merge trước T18 thì T18 thêm một dòng gọi vào `revoke_all` trong cùng PR và báo người viết G04.
+
+#### 5.6b Đổi email đăng nhập (spec ENROLL; G05-T24) — FR-059
+
+**Cách làm (cùng đường A của 5.6): dùng cơ chế đổi email của Supabase Auth, đi qua backend.** Supabase sinh và kiểm mã đổi email, đổi `auth.users.email`; backend đếm lần gửi/lần thử, chặn các ca không được đổi, cập nhật `users.email`, huỷ phiên khác, gửi thư báo và ghi nhật ký. Trình duyệt không gọi `auth.updateUser`. Không tự sinh mã. (Nếu anh Andy chọn đường B ở 5.6 thì mã đổi email cũng do backend sinh và gửi bằng `learner_email.send_direct`, và bước đổi dùng `supabase_admin.auth.admin.update_user_by_id(uid, {"email": …, "email_confirm": True})` — cách gọi này đã có trong repo ở `backend/services/staff_security.py` `set_auth_ban`.)
+
+API (`backend/routers/email_change.py`, prefix `/auth/email-change`; cả hai cần token; cả hai thêm vào `ACTIVATION_EXEMPT_ROUTES` với lý do "đổi email của chính mình, không phải tính năng học" — tài khoản chưa kích hoạt cũng đổi được):
+
+| Method · path | Request → Response | Lỗi |
+|---|---|---|
+| `POST /auth/email-change/request` | `{new_email}` → `202 {"ok":true,"resend_after_s":int,"expires_in_s":int}` — giống nhau dù email mới còn trống hay đã thuộc tài khoản khác | 401; 403 `account_suspended`; 403 `email_change_not_allowed` (vai trò không phải `user`/`student`); 409 `email_change_google_linked` (mục 10 câu 19); 409 `timed_activity_in_progress` kèm `timed_activity` (cùng hình với 5.2b); 422 `email_malformed`, `email_unchanged`; 429 `email_change_send_limited` kèm `retry_after_s`; 503 `email_change_paused` (cờ `email_code_login` tắt), `email_change_unavailable` (thiếu `LEARNER_EMAIL_FROM` nên không gửi được thư báo; lỗi đọc bộ đếm; lỗi đọc bài có giờ — fail-closed) |
+| `POST /auth/email-change/verify` | `{new_email, code}` → `200 {"ok":true,"email":str,"access_token":str\|null,"refresh_token":str\|null,"sessions_revoked":int,"notice_sent":bool}` | 400 `email_change_code_incorrect` kèm `attempts_left`; 410 `email_change_code_locked`; 410 `email_change_code_expired`; 409 `timed_activity_in_progress`; 429; 503 `email_change_unavailable` (không tính lần thử) |
+
+Luồng `request`, theo thứ tự: (1) kiểm cờ, vai trò, tạm ngưng; (2) `timed_work.active_timed_work(user_id)` của G04 khác `None` → 409; hàm ném lỗi → 503; (3) tài khoản có danh tính `google` (đọc `app_metadata.providers` / `identities` của user GoTrue mà `get_supabase_user` trả về; `CHƯA KIỂM` tên trường: in khoá của một user staging, không in giá trị) → 409; (4) `fn_login_code_send_check('email_change', …)` cho ba khoá: `user` (id tài khoản), `email` (email mới), `ip`; (5) email mới đã có trong `users` (so `lower(email)`) hoặc GoTrue báo đã tồn tại → **không** gửi mã, vẫn trả 202 cùng hình và ghi mốc gửi như thường; (6) còn lại: gọi GoTrue `PUT {SUPABASE_URL}/auth/v1/user` với token của chính người dùng và thân `{"email": new_email}` → GoTrue gửi mã tới email mới qua SMTP ở 5.6.
+
+Luồng `verify`: (1) `fn_login_code_verify_check('email_change', 'user', …)`; không có bản ghi yêu cầu hoặc email mới thuộc ca (5) ở trên → trả `email_change_code_incorrect` như mã sai, số lần thử giảm như thường; (2) kiểm lại bài có giờ; (3) gọi GoTrue `POST /auth/v1/verify` với `{"type":"email_change","email":new_email,"token":code}`; (4) thành công → theo thứ tự, mỗi bước lỗi thì ghi log và làm tiếp bước sau: cập nhật `users.email` (client service; `GET /auth/me` **không** tự đồng bộ vì dòng `users` được tạo bằng `upsert(..., ignore_duplicates=True)` — `backend/routers/auth.py` hàm `get_me`); cập nhật `course_open_alerts.email` của các dòng có `user_id` này; ghi `account_email_changes`; huỷ các phiên khác bằng `delete_other_auth_sessions(engine, user_id, keep_session_id)` (G04-T09 thêm vào `services/staff_security.py`; chưa có thì T24 thêm hàm đó, G04 dùng lại) và cập nhật `learner_active_sessions` nếu có; `fn_login_code_invalidate` cho email cũ và mới; gửi `learner_email.send_direct('email_changed_notice', old_email, {changed_at, new_email_masked})`; (5) trả phiên mới nếu GoTrue trả kèm (`CHƯA KIỂM`), trình duyệt `setSession` như T19; không có thì giữ phiên đang dùng.
+
+`CHƯA KIỂM` (kiểm trên Supabase staging ở T24 bước 1, ghi vào PR; sai giả định thì dừng và báo): (a) `PUT /auth/v1/user` với `{"email"}` gửi mã 6 số (không phải liên kết) khi mẫu "Change Email Address" chỉ có `{{ .Token }}`; (b) khi "Secure email change" tắt, chỉ email mới nhận mã; (c) `POST /auth/v1/verify` nhận `type: "email_change"`; (d) GoTrue trả gì khi email mới đã có tài khoản — backend phải che khác biệt này (bước 5 của `request`); (e) phiên hiện tại còn dùng được sau khi đổi; (f) `users.email` có ràng buộc UNIQUE không (`grep -n "email" backend/migrations/001*.sql | head`), để bước cập nhật không vỡ khi có dòng mồ côi.
+
+**Bảng `account_email_changes`** (migration dự kiến 393, chỉ ghi thêm): `id bigint generated always as identity primary key`, `user_id uuid not null references users(id) on delete cascade`, `old_email text not null`, `new_email text not null`, `changed_at timestamptz not null default now()`, `sessions_revoked int not null default 0`, `notice_sent boolean not null default false`. Lưu email dạng đọc được có chủ đích: khi tài khoản bị chiếm, admin cần email cũ để trả lại. RLS bật, không policy, `REVOKE ALL … FROM PUBLIC, anon, authenticated`; có rollback. Trang admin đọc bảng này chưa có gói (G09 thêm một dòng ở hồ sơ học viên khi cần).
+
+Giới hạn đã biết: access token của phiên bị huỷ còn hiệu lực tới khi hết hạn (như 5.13 của G04); thư báo về email cũ là cách duy nhất để chủ cũ biết, nên `request` từ chối khi không gửi được thư. Không log email, mã, token (như 5.6).
+
+
+#### 5.7 Bảng và API khác G05 tự làm (backend)
+
+**`contact_messages`** (migration dự kiến 390): `id uuid pk default gen_random_uuid()`, `name text not null check (char_length(name) between 1 and 120)`, `email text not null check (char_length(email) <= 254)`, `topic text not null check (topic in ('enrollment','account','content','other'))`, `body text not null check (char_length(body) between 10 and 4000)`, `user_id uuid null references users(id) on delete set null`, `ip_hash text null`, `status text not null default 'new' check (status in ('new','resolved'))`, `created_at timestamptz not null default now()`, `resolved_at timestamptz null`. RLS bật, không policy, `REVOKE ALL … FROM PUBLIC, anon, authenticated` theo mẫu RLSCLEANUP-0039 / SECWRITE-0022. Có rollback trong `backend/migrations/rollback/`.
+
+**`course_open_alerts`** (migration dự kiến 394, sau migration 381 của G04 vì trỏ tới `course_products` và ghi vào `learner_email_outbox`): `id uuid pk default gen_random_uuid()`, `product_id uuid not null references course_products(id) on delete cascade`, `email text not null check (char_length(email) <= 254)`, `user_id uuid null references users(id) on delete cascade`, `unsubscribe_token text not null unique` (chuỗi ngẫu nhiên 32 byte dạng url-safe; lưu dạng đọc được có chủ đích — sửa chiều 18/11, bản trước ghi `unsubscribe_token_hash`: hàm SQL xếp thư phải đặt token vào thư, và token chỉ làm được một việc là bỏ nhận đúng một dòng), `created_at timestamptz not null default now()`, `subscribed_at timestamptz not null default now()` (đặt lại khi đăng ký lại), `notified_at timestamptz null`, `notify_result text null check (notify_result in ('queued','skipped_has_course'))`, `unsubscribed_at timestamptz null`; chỉ mục duy nhất `(product_id, lower(email))`; chỉ mục `(product_id) where notified_at is null and unsubscribed_at is null`. RLS và REVOKE như trên; có rollback.
+
+Quy tắc ghi của `POST …/open-alerts`: chưa có dòng → thêm; đã có dòng đang nhận (`unsubscribed_at is null`, `notified_at is null`) → không đổi; đã có dòng đã bỏ nhận mà chưa được báo → đặt lại `unsubscribed_at = null`, `subscribed_at = now()`; đã có dòng đã được báo (`notified_at` khác null) → KHÔNG đặt lại `notified_at` (người này đã nhận thư của khoá này, FR-060), chỉ trả 200 như các ca khác. Trả về `unsubscribe_token` của dòng trong mọi ca.
+
+**Hàm `fn_course_open_alerts_enqueue(p_limit int) RETURNS integer`** (cùng migration 394; `SECURITY DEFINER`, `SET search_path = ''`, `REVOKE ALL … FROM PUBLIC, anon, authenticated`, chỉ `service_role` gọi; tên thống nhất cả bộ). Trong một giao dịch, lấy tối đa `p_limit` dòng `course_open_alerts` có `notified_at is null` và `unsubscribed_at is null` của các sản phẩm đang mở đăng ký (`course_products.status = 'open'`, `is_public`, `archived_at is null` — tên cột theo GOI-04 mục 5.2), khoá dòng bằng `FOR UPDATE SKIP LOCKED`, rồi với mỗi dòng:
+
+- người đó đã có quyền học sản phẩm này (có dòng `entitlements` còn hiệu lực của `user_id` trên dòng, hoặc của tài khoản có `lower(users.email) = lower(email)`) → không xếp thư; đặt `notified_at = now()`, `notify_result = 'skipped_has_course'`;
+- còn lại → thêm một dòng `learner_email_outbox` với `user_id = null`, `to_email = email`, `template = 'course_open_alert'`, `dedupe_key = 'open_alert:' || id` (`id` của dòng `course_open_alerts`; bảng có chỉ mục duy nhất `(product_id, lower(email))` nên một người một khoá chỉ một thư; `ON CONFLICT (dedupe_key) DO NOTHING`), `payload = {product_slug, product_title, unsubscribe_token}`; đặt `notified_at = now()`, `notify_result = 'queued'`.
+
+Trả về số dòng đã xử lý. **G04 gọi hàm này như một bước của `scripts/enrollment_sweep.py`** (trước bước gửi outbox; chưa có hàm thì bước tự bỏ qua và ghi log, giống cách G04 xử lý `fn_credit_expire_entitlements`) và dispatcher của G04 gửi thư. Đối chiếu GOI-04 bản chiều 18/11 (mục 5.2, 5.11, FR-04-050, G04-T17) — đã khớp: CHECK `template` của 381 có `course_open_alert` kèm CHECK "mẫu này luôn dùng `to_email`"; bước (5) của sweep gọi `fn_course_open_alerts_enqueue(200)`; lúc gửi G04 đọc lại sản phẩm, không còn mở thì `skipped`; không đọc `users.notification_email`; dòng `to_email` chào "Chào bạn,". Nếu 381 đã áp theo bản cũ (chưa có giá trị đó trong CHECK) thì báo G04, không tự sửa 381 (kiểm bằng `\d+ learner_email_outbox` trên staging trước khi viết 394).
+
+**Mẫu thư `course_open_alert`**: G04-T17 viết bản `.txt` tối thiểu để chạy đầu-cuối; **G05-T14 hoàn thiện câu chữ và thêm `.html`** tại `backend/templates/email/course_open_alert.*`, cùng cách đặt biến với bốn thư đơn (GOI-04 mục 5.11, hàm `learner_email.render(template, payload, user)`). Nội dung: tiêu đề "<tên khoá> đã mở đăng ký"; một câu nhắc bạn đã bấm "Báo cho tôi khi mở"; liên kết `<địa chỉ gốc>/courses/<product_slug>`; dòng cuối "Bạn chỉ nhận một thư này. Bỏ nhận: <địa chỉ gốc>/courses/<product_slug>#bo-nhan=<unsubscribe_token>". Không học phí, không lời mời gấp, không ảnh. Địa chỉ gốc của web là biến `PUBLIC_SITE_URL` do G04 thêm (GOI-04 mục 5.10; `grep -nE "FRONTEND|SITE_URL|APP_URL|PUBLIC_URL" backend/config.py` rỗng ở c3bc71574); biến rỗng thì G04 bỏ dòng liên kết — với thư này phải có liên kết bỏ nhận, nên `rollout.md` ghi "đặt `PUBLIC_SITE_URL` trước khi mở đăng ký khoá thật".
+
+Không còn cột `users.welcome_seen_at`. Bảng `learner_email_outbox` không do gói này tạo; gói này chỉ ghi vào nó qua hàm `fn_course_open_alerts_enqueue`. Bảng `account_email_changes`: mục 5.6b.
+
+| Method · path | Auth | Request → Response | Ghi chú |
+|---|---|---|---|
+| `POST /api/contact` | không (token tuỳ chọn) | `{name,email,topic,body,website}` (`website` là ô bẫy, phải rỗng) → `202 {ok:true}` | 3/giờ/IP băm, 5/ngày/email; vượt → 429 `contact_rate_limited`. Exempt. |
+| `GET /api/public/site-info` | không | `{contact:{email\|null, phone\|null, zalo\|null, reply_hours\|null}, enroll:{office_hours\|null, confirm_sla\|null, escalate_after\|null}, login_code_enabled:bool, enroll_prelearn_chapter1:bool}` | Đọc env `SITE_CONTACT_EMAIL`, `SITE_CONTACT_PHONE`, `SITE_CONTACT_ZALO`, `SITE_CONTACT_REPLY_HOURS`, `ENROLL_OFFICE_HOURS_TEXT`, `ENROLL_CONFIRM_SLA_TEXT`, `ENROLL_ESCALATE_AFTER_TEXT` (mặc định rỗng → `null`); hai cờ đọc `runtime_flags` (`default=False`). Cache trong tiến trình 60 s. Exempt. Không bao giờ trả số tài khoản ngân hàng. |
+| `POST /api/courses/{slug}/open-alerts` | tuỳ chọn | khách: `{email}`; có token: `{}` (dùng email tài khoản) → `202 {ok:true, unsubscribe_token}` — giống nhau dù đã đăng ký hay chưa | 404 `course_not_found`; 409 `course_already_open`; 429 `open_alert_rate_limited` (3/giờ/IP băm). Exempt. Token trả về cho cả người gõ lại một email đã đăng ký: người biết email của bạn bỏ nhận hộ được — chấp nhận, vì hậu quả chỉ là không nhận một thư. |
+| `DELETE /api/courses/{slug}/open-alerts` | tuỳ chọn | khách: `{unsubscribe_token}` (từ `localStorage` hoặc từ liên kết trong thư); có token đăng nhập: `{}` → `200 {ok:true}` (idempotent; token lạ cũng 200) | Đặt `unsubscribed_at = now()`. Gọi được cả khi khoá đã mở. Exempt. 429 `open_alert_rate_limited` (20/giờ/IP băm). |
+| `GET /api/me/open-alerts` | có | `{slugs:[…]}` | Exempt (tài khoản chưa kích hoạt cũng gọi). |
+| `POST /auth/activate/preview` | có | `{access_code}` → `{ok:true, grants:{kind:'class'\|'repractice', course_label, cohort_label\|null, days\|null, expires_on\|null, ai_credits\|null, code_expires_on\|null}}` hoặc 4xx `error_code` ∈ `code_unusable` (một câu chung cho không tìm thấy / hết hạn / đã dùng cho tài khoản khác), `already_has_course` ("Bạn đã có khoá này"), `already_used_by_you` ("Bạn đã dùng mã này rồi") — theo 00 mục 2 điểm 22 | Không ghi `access_codes`. Khối `grants` lấy từ hàm đọc thuần `entitlements.describe_code_grant(access_code_row, user_id)` của **G04-T06** (GOI-04 mục 6): `kind`, `course_label`, `cohort_label`, `days`, `expires_on`, `ai_credits` (= số lượt kèm mã), `code_expires_on`, `already_has_course`; mã cũ không có sản phẩm → `kind`, `days`, `ai_credits` là `null` và màn ẩn các dòng đó (00 mục 2 điểm 23: lớp đang chạy bằng mã cũ CÓ chuyển sang đo lượt — việc chuyển là của G04; sau khi chuyển, mã của lớp đó có số lượt và màn hiện như mã mới, G05 không cần đổi gì). Route và bộ đếm thuộc G05. Ghi một lượt vào bộ đếm ACTIVATELIMIT-0034 như `/auth/activate`; giới hạn chung **5 lần thử trong 15 phút** (00 mục 2 điểm 22). Hai con số là hằng trong hàm SQL `fn_activate_attempt_check` (hôm nay 10 lần / 10 phút), không phải biến cấu hình: G05-T09 viết migration dự kiến 392 thay thân hàm (`c_max = 5`, `c_window = interval '15 minutes'`), giữ chữ ký và hình dạng kết quả; không đưa ngưỡng ra tham số (để mã backend không nới được giới hạn — đúng ý ghi trong migration 334). Exempt như `/auth/activate`. Không còn cấu hình `ACTIVATE_PREVIEW_DETAILED_ERRORS`. |
+
+Thư "khoá đã mở đăng ký" (FR-060): G05 lo bảng, hàm xếp thư và mẫu thư; G04 lo việc gọi hàm theo lịch và gửi. Không có route nào của G05 gửi thư này.
+
+Sau mọi thay đổi model: sinh lại `frontend/types/api.d.ts` (mục 8) và commit.
+
+
+#### 5.8 VietQR
+
+- `backend/services/vietqr.py`, hàm thuần `build_payload(*, bank_bin: str, account_no: str, amount_vnd: int, note: str) -> str`.
+- Cấu trúc EMVCo (TLV = id 2 số + độ dài 2 số + giá trị): `00`=`01`; `01`=`12` (mã động, có số tiền); `38` = [`00`=`A000000727`, `01` = [`00`=BIN ngân hàng 6 số, `01`=số tài khoản], `02`=`QRIBFTTA`]; `53`=`704`; `54`=số tiền nguyên; `58`=`VN`; `62` = [`08`=mã đơn]; `63` = CRC16/CCITT-FALSE (đa thức 0x1021, khởi tạo 0xFFFF) tính trên toàn chuỗi kể cả `6304`, 4 ký tự hex in hoa. **CHƯA KIỂM** với tài liệu NAPAS "VietQR — Đặc tả kỹ thuật"; người thực thi đối chiếu tài liệu chính thức trước khi viết test vector, và nghiệm thu bằng quét thật trên ít nhất ba ứng dụng ngân hàng (bước người làm, mục 9).
+- Kiểm đầu vào: BIN đúng 6 chữ số; số tài khoản 1–19 ký tự `[0-9A-Z]`; số tiền 1..999 999 999; `note` khớp `^AVER-[2-9A-HJKMNP-Z]{6}$` (bảng chữ của G04 FR-04-022: `23456789ABCDEFGHJKMNPQRSTUVWXYZ`). Sai → `ValueError`, không bao giờ sinh mã hỏng.
+- Cấu hình ngân hàng là của G04: `ENROLL_BANK_BIN`, `ENROLL_BANK_NAME`, `ENROLL_BANK_ACCOUNT_NO`, `ENROLL_BANK_ACCOUNT_NAME` (GOI-04 mục 5.10; rỗng → G04 trả `orders_paused`). G05 không khai biến ngân hàng thứ hai. Đơn có `transfer: null` → màn 2 hiện "Chưa có thông tin chuyển khoản" kèm khối liên hệ (không vẽ QR rỗng).
+- Vẽ ảnh QR: đề nghị vẽ SVG cục bộ từ `vietqr_payload`, không gửi số tài khoản/số tiền/mã đơn cho dịch vụ ngoài. G04 hiện có `transfer.qr_image_url` dựng từ `ENROLL_VIETQR_IMAGE_TEMPLATE` (ảnh từ dịch vụ ngoài) — chọn đường nào là mục 10 câu 2. Ảnh QR luôn nền trắng ở cả hai chế độ (PUBLICSITE-0059 FR-027).
+
+
+## UI and interaction
+
+Ma trận trạng thái ở `ui-states.md`. Tờ thiết kế: TaiKhoanDangNhap (màn 1, 2, 3a–3h, 5a–5c, 6, 6b, 8a–8c, 9, 10), ThanhToan (màn 1–8), EmailMau, PhapLy (`/contact`). Mọi màn 1280px và 390px, sáng và tối; sáu ô mã dùng được bằng bàn phím và tự điền OTP; mã QR luôn nền trắng.
+
+## Work decomposition
+
+Thứ tự gói mục 6: T07 → T18 → T19 → T08 → T20 → T24 → T09 → T11 → T12 → T13 → T22 → T14 (PUBLICSITE-0059 làm T02…T06 trước). Phần backend độc lập làm được khi thiếu G03: T07, T09, T11, T18, T22, T24 (phần API). Mỗi task một PR vào `staging`, lớp `high-risk`, `Spec: ENROLL-0060`. Chi tiết ở `tasks.md`.
+
+## Rollout and rollback
+
+Chi tiết ở `rollout.md`: năm migration áp staging trước dưới khoá advisory, mỗi lần anh Andy gõ duyệt; sáu việc anh làm trên Supabase staging trước production; cờ `email_code_login` và `AVER_PUBLIC_COMMERCE` tắt mặc định, bật production là quyết định của anh (câu 17).
+
+## Verification strategy
+
+- Pytest cho từng route mới: phản hồi giống nhau cho mọi email (FR-050), đếm lần gửi/lần thử, 410/429/503, không log email/mã/token, `ACTIVATION_EXEMPT_ROUTES` inventory; xem trước mã không đổi `access_codes`; 5 lần / 15 phút dùng chung cho xem trước và kích hoạt; `vietqr.build_payload` theo vector EMVCo đã biết và CRC; `fn_course_open_alerts_enqueue` một thư mỗi người mỗi khoá, bỏ người đã có quyền và người đã bỏ nhận; đổi email cập nhật cả Supabase Auth và `users.email`, đăng xuất phiên khác.
+- Migration: chạy hai lần không lỗi, rollback chạy được, RLS/quyền gọi hàm chỉ `service_role` (test PG theo mẫu `test_*_postgres.py`).
+- Test React/node: tám trạng thái màn 3, sáu ô mã, `safeNext` mở rộng, đích sau đăng nhập, màn đơn theo `status`, hỏi lại trạng thái 20 giây/dừng khi ẩn/30 phút.
+- Staging: kịch bản ở `verification.md` với tài khoản Google thử và hộp thư thử; không tạo đơn, không nhập mã trên production.
