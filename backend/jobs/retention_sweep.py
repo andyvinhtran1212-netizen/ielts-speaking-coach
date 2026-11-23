@@ -66,6 +66,36 @@ def _cutoff_iso(days: int) -> str:
 
 # ── Eligibility (DB pre-filter narrows; compute_expiry is authoritative) ───────
 
+_PAGE = 1000  # PostgREST's default max-rows; every page is read until a short one.
+
+
+def _candidate_pages(purged_col: str, cutoff: str):
+    """Every pre-filtered session, one page at a time in a stable order (id).
+    A single capped read would let sessions the sweep keeps fill the first
+    page on every run, so later candidates were never reached. The reads all
+    finish before any purge (the caller collects the list first)."""
+    offset = 0
+    while True:
+        page = (
+            supabase_admin.table("sessions")
+            .select(
+                "id, user_id, status, started_at, resume_expires_at, "
+                "last_accessed_at, audio_purged_at, content_purged_at"
+            )
+            .is_(purged_col, "null")
+            .lt("started_at", cutoff)
+            .order("id")
+            .range(offset, offset + _PAGE - 1)
+            .execute()
+            .data
+        ) or []
+        if page:
+            yield page
+        if len(page) < _PAGE:
+            return
+        offset += _PAGE
+
+
 def _eligible(purged_col: str, days: int, expiry_key: str, *, per_user: bool = False) -> list[dict]:
     """``per_user`` (content only, plan 5.14): after the default pre-filter,
     each row's owner window comes from ``retention_policy.content_windows``.
@@ -73,36 +103,26 @@ def _eligible(purged_col: str, days: int, expiry_key: str, *, per_user: bool = F
     ``until`` owners are never purged by this sweep yet, and an owner whose
     window could not be read is skipped. Audio never uses it (FR-029)."""
     cutoff = _cutoff_iso(days)
-    rows = (
-        supabase_admin.table("sessions")
-        .select(
-            "id, user_id, status, started_at, resume_expires_at, "
-            "last_accessed_at, audio_purged_at, content_purged_at"
-        )
-        .is_(purged_col, "null")
-        .lt("started_at", cutoff)
-        .execute()
-        .data
-    ) or []
-    # Confirm with the SAME policy the UI uses — never purge what the UI shows safe.
-    if not per_user:
-        return [r for r in rows if compute_expiry(r)[expiry_key]]
-    windows = retention_policy.content_windows((r.get("user_id") for r in rows), db=supabase_admin) \
-        if rows else {}
     out, skipped, deferred = [], 0, 0
-    for r in rows:
-        window = windows.get(str(r.get("user_id")))
-        if window is None:
-            skipped += 1
+    for rows in _candidate_pages(purged_col, cutoff):
+        # Confirm with the SAME policy the UI uses — never purge what the UI shows safe.
+        if not per_user:
+            out.extend(r for r in rows if compute_expiry(r)[expiry_key])
             continue
-        if window.mode != "default":
-            # open: nothing to purge. until: hidden at read time only; the real
-            # purge by course access comes with an RPC that checks and purges
-            # under the user's credit lock (follow-up, Andy 23/11 option 1).
-            deferred += 1
-            continue
-        if compute_expiry(r)[expiry_key]:
-            out.append(r)
+        windows = retention_policy.content_windows((r.get("user_id") for r in rows), db=supabase_admin)
+        for r in rows:
+            window = windows.get(str(r.get("user_id")))
+            if window is None:
+                skipped += 1
+                continue
+            if window.mode != "default":
+                # open: nothing to purge. until: hidden at read time only; the real
+                # purge by course access comes with an RPC that checks and purges
+                # under the user's credit lock (follow-up, Andy 23/11 option 1).
+                deferred += 1
+                continue
+            if compute_expiry(r)[expiry_key]:
+                out.append(r)
     if skipped:
         logger.warning("[sweep] content skipped=%d sessions (retention window unknown)", skipped)
     if deferred:
