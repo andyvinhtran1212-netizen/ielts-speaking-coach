@@ -146,4 +146,28 @@ describe('/account/orders', () => {
       Object.defineProperty(window, 'location', { configurable: true, value: original });
     }
   });
+
+  it('A\'s "Xem thêm" still pending when the session turns to B: its reply is dropped and B reads its own first page', async () => {
+    pages.first = { items: [order({ order_code: 'A-ORDER' })], next_cursor: 'a2' };
+    const view = render(<OrdersPage />);
+    await settle();
+    let releaseA: (value: unknown) => void = () => {};
+    getWith.mockImplementation(async (path: string) => {
+      urls.push(path);
+      if (path.includes('cursor=a2')) return new Promise((r) => { releaseA = r; });
+      return { items: [order({ order_code: 'B-ORDER' })], next_cursor: null };
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Xem thêm' }));
+    await settle();
+    auth.value = { status: 'signed-in', user: { id: 'B' } };
+    view.rerender(<OrdersPage />);
+    expect(screen.queryByText('A-ORDER')).toBeNull();
+    await settle();
+    await act(async () => { releaseA({ items: [order({ order_code: 'A-PAGE-2' })], next_cursor: null }); });
+    await settle();
+    expect(screen.getByText('B-ORDER')).toBeTruthy();
+    expect(screen.queryByText('A-PAGE-2')).toBeNull();
+    expect(screen.queryByText('A-ORDER')).toBeNull();
+    expect(urls.filter((u) => u === '/api/enrollment-orders/me?limit=20')).toHaveLength(2);
+  });
 });
