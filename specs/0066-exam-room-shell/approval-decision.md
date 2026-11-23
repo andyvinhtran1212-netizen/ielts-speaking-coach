@@ -57,3 +57,24 @@ Amendment 1 was proposed in EXAMREAD-0067 (open question 6, item (a)) and in the
 
 Status stays `approved`. Not approved by this decision: turning on any surface on staging
 or production (each needs its own approval), and merging any PR.
+
+## Amendment 2
+
+On 2026-11-23 at 17:57 Asia/Saigon (10:57:43 UTC), the owner (anh Andy) wrote in the
+project chat of the Averlearning Claude Code project, verbatim:
+
+> duyệt amendment 2 spec 0066 FR-015 (chỉ "Ở lại" khi chưa giữ được bài); duyệt sửa chữ 0071 theo 0066
+
+Amendment 2 answers the Codex finding on #2508 (FR-015 let "Sign in again" navigate away
+when browser storage refused the copy, which destroys the only in-memory answers and
+contradicts EXAMLISTENP-0069 FR-009, Writing FR-011 and Listening test FR-014). This
+commit applies it to FR-015:
+
+- When the local copy could not be read back **and** answers the server has not
+  acknowledged remain, the session box offers only "Stay"/"Ở lại làm tiếp". It closes the
+  box, stays on the page and has no same-tab `/login?next=` path; submit stays locked until
+  the session is back.
+- With no unacknowledged answers left, "Sign in again" stays available as before.
+
+Status stays `approved`. Not approved by this decision: turning on any surface on staging
+or production, and merging any PR.
