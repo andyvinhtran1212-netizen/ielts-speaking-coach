@@ -10,6 +10,8 @@ import { clearLocalCopy } from '@/lib/exam-room/local-copy.mjs';
 import { clockTime, submitButtonState, submitOutcomeModel } from '@/lib/exam-room/submit-guard.mjs';
 import { createTabGuard } from '@/lib/exam-room/tab-guard.mjs';
 
+type TabGuardChannel = { postMessage(m: unknown): void; close(): void; onmessage: ((e: { data: unknown }) => void) | null };
+
 import { Button } from '../ui/button';
 import { Notice } from '../ui/notice';
 import { FOCUS_WORDS } from '../ui/shell/focus-copy';
@@ -140,7 +142,8 @@ export function ExamRoomShell(props: ExamRoomShellProps) {
       },
       onHandoverRefused: () => setHandoverRefused(true),
       locks: typeof navigator !== 'undefined' && 'locks' in navigator ? navigator.locks : null,
-      channelFactory: typeof BroadcastChannel === 'undefined' ? null : (name: string) => new BroadcastChannel(name),
+      // The guard reads `e.data` only; the DOM MessageEvent type is wider than its port type.
+      channelFactory: typeof BroadcastChannel === 'undefined' ? null : (name: string) => new BroadcastChannel(name) as unknown as TabGuardChannel,
       storage: safeLocalStorage(),
     });
     guardRef.current = guard;
