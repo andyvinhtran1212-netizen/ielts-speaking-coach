@@ -44,6 +44,11 @@
 
 /* Section 4: views */
 .views { display: grid; row-gap: var(--av2-space-4); }
+/* `hidden` must win over every display rule in the views (CR #2496: `.compare { display: grid }`
+   showed both pairs at once). (0,2,0) beats the single-class rules below. */
+.views [hidden],
+.compare[hidden],
+.essay[hidden] { display: none; }
 .viewTabs, .chips { display: flex; flex-wrap: wrap; gap: var(--av2-space-2); font-family: var(--av2-font-sans); }
 .tab, .chip {
   display: inline-flex;

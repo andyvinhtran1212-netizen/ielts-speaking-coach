@@ -140,3 +140,19 @@ test('route: live in the registry, no loading.tsx, reads the set uncached', () =
   assert.match(page, /export const instant = false;/);
   assert.match(page, /cache: 'no-store'/);
 });
+
+test('CSS: a hidden panel stays hidden whatever display rule its class sets (CR #2496)', () => {
+  const css = readFileSync(path.join(ROUTE_DIR, 'sample-page.module.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const hiddenRule = css.match(/([^{}]+)\{\s*display:\s*none;\s*\}/g)?.find((r) => r.includes('.views [hidden]')) ?? '';
+  assert.ok(hiddenRule, '.views [hidden] { display: none } exists');
+  assert.match(hiddenRule, /\.compare\[hidden\]/);
+  assert.match(hiddenRule, /\.essay\[hidden\]/);
+  // Every element the views toggle with `hidden` sits under the `.views` root.
+  const views = readFileSync(path.join(ROUTE_DIR, 'sample-views.tsx'), 'utf8');
+  const body = views.slice(views.indexOf('className={styles.views}'));
+  assert.equal((views.match(/hidden=\{/g) ?? []).length, (body.match(/hidden=\{/g) ?? []).length);
+  // Every class with a display rule that is also toggled is covered by a [hidden] rule.
+  for (const cls of ['compare', 'essay']) {
+    if (new RegExp(`\\.${cls}\\s*\\{[^}]*display:`).test(css)) assert.match(hiddenRule, new RegExp(`\\.${cls}\\[hidden\\]`));
+  }
+});
