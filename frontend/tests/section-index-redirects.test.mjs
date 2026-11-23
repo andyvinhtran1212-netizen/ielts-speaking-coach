@@ -41,7 +41,8 @@ async function configRedirects() {
 
 const SECTION_REDIRECTS = [
   { source: '/writing', destination: '/writing/dashboard' },
-  { source: '/grammar-checkup/review', destination: '/grammar-checkup' },
+  { source: '/grammar-checkup/review', destination: '/course/grammar-checkup' },
+  { source: '/course/grammar-checkup/review', destination: '/course/grammar-checkup' },
   // C-05 / U-09: /signup has no page; /login is the sign-up entry.
   { source: '/signup', destination: '/login' },
 ];

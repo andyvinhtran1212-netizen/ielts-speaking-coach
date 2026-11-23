@@ -31,6 +31,8 @@ const MOVES = [
   { from: '/course-exercises', to: '/course/exercises', legacy: null },
   { from: '/advanced-vocabulary', to: '/course/vocabulary', legacy: null },
   { from: '/grammar-lessons/assigned', to: '/course/grammar-lesson', legacy: null },
+  // Batch 4 (G07-T09); the review/[routeId] child has its own param rule below.
+  { from: '/grammar-checkup', to: '/course/grammar-checkup', legacy: null },
   // Batch 8 (G07-T15u)
   { from: '/my-class', to: '/course/assigned', legacy: '/pages/my-class.html' },
 ];
@@ -121,7 +123,7 @@ describe('learner route moves (LEARNERNAV-0062)', async () => {
     assert.match(read('components', 'ui', 'shell', 'learner-sections.ts'),
       /\{ id: 'course', label: 'Lộ trình', href: '\/course', today: null, icon: 'route' \}/);
     assert.match(read('app', '(authed-v2-course)', 'course', 'page.tsx'), /const COURSE_STAND_IN = '\/course\/assigned';/);
-    for (const route of ['/exercises', '/listening/exercise-book', '/course/exercises', '/course/grammar-lesson', '/course/vocabulary']) {
+    for (const route of ['/exercises', '/listening/exercise-book', '/course/exercises', '/course/grammar-lesson', '/course/vocabulary', '/course/grammar-checkup']) {
       assert.equal(routeFor(route)?.parent, '/course/assigned', `${route} parent`);
     }
     assert.equal(routeFor('/course/assigned')?.parent, '/course');
@@ -131,6 +133,22 @@ describe('learner route moves (LEARNERNAV-0062)', async () => {
     assert.equal(readingReviewBackTarget(readingReviewParams('?from=my-class')).href, '/course/assigned');
     assert.deepEqual(follow(redirects, '/my-class?notice=assignment-missing'),
       { status: 307, location: '/course/assigned?notice=assignment-missing' });
+  });
+
+  // Batch 4: the review child keeps its routeId and query in one step, and
+  // the bare review prefix goes straight to the new checkup (no second hop).
+  test('/grammar-checkup/review/:routeId → /course/grammar-checkup/review/:routeId', () => {
+    const rules = redirects.filter((r) => r.source === '/grammar-checkup/review/:routeId');
+    assert.equal(rules.length, 1);
+    assert.equal(rules[0].destination, '/course/grammar-checkup/review/:routeId');
+    assert.equal(rules[0].permanent, false);
+    assert.ok(pages.has('/course/grammar-checkup/review/[routeId]'));
+    assert.ok(!pages.has('/grammar-checkup/review/[routeId]'));
+    assert.equal(routeFor('/grammar-checkup/review/[routeId]')?.status, 'redirect');
+    assert.equal(routeFor('/course/grammar-checkup/review/[routeId]')?.parent, '/course/grammar-checkup');
+    for (const source of ['/grammar-checkup/review', '/course/grammar-checkup/review']) {
+      assert.equal(redirects.find((r) => r.source === source)?.destination, '/course/grammar-checkup');
+    }
   });
 
   test('robots hides /course/ pages without hiding the public /courses catalogue', () => {

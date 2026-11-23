@@ -89,7 +89,7 @@ export function GrammarCheckup() {
     if (switched) {
       setPhase('loading'); setSession(null); setItem(null); setReport(null);
       setSelected(null); setBusy(false); setError('');
-      if (requestedSession) router.replace('/grammar-checkup');
+      if (requestedSession) router.replace('/course/grammar-checkup');
     }
     void (async () => {
       try {
@@ -104,7 +104,7 @@ export function GrammarCheckup() {
             class_assignment_item_id: assignmentItem,
           });
           if (gen !== generation.current) return;
-          router.replace(`/grammar-checkup?session=${encodeURIComponent(created.id)}`);
+          router.replace(`/course/grammar-checkup?session=${encodeURIComponent(created.id)}`);
           await enterSession(created.id, gen);
           return;
         }
@@ -124,7 +124,7 @@ export function GrammarCheckup() {
         mode, module, test_length: length,
       });
       if (gen !== generation.current) return;
-      router.replace(`/grammar-checkup?session=${encodeURIComponent(created.id)}`);
+      router.replace(`/course/grammar-checkup?session=${encodeURIComponent(created.id)}`);
       setSession(created); await loadNext(created.id, gen);
     } catch (caught) { if (gen === generation.current) setError(messageOf(caught)); }
     finally { if (gen === generation.current) setBusy(false); }
@@ -204,10 +204,10 @@ export function GrammarCheckup() {
     <main className="gd-shell gd-report">
       <a className="gd-back" href="/course/assigned">← Quay lại Lớp học</a>
       <header className="gd-report-hero"><p className="gd-eyebrow">GRAMMAR READINESS PROFILE</p><h1>Bản đồ ưu tiên của bạn</h1><p>{report.calibration_note}</p></header>
-      <section className="gd-report-section"><div className="gd-section-title"><span>01</span><div><p>Ưu tiên ôn tập</p><h2>Tập trung tối đa ba điểm gốc</h2></div></div>{report.priorities.length ? <div className="gd-priority-list">{report.priorities.map((priority, index) => <article className="gd-priority" key={priority.attribute_id}><div className="gd-priority-no">{index + 1}</div><div><div className="gd-priority-head"><span>{priority.attribute_id}</span><span>{priority.confidence_label}</span></div><h3>{priority.title}</h3><p>{priority.observed_pattern}</p><p className="gd-risk">{priority.risk}</p>{priority.contrast_example && <code>{priority.contrast_example}</code>}<p><strong>Bước tiếp theo:</strong> {priority.next_action}</p><div className="gd-evidence">{priority.evidence_status.independent_items} mẫu độc lập{priority.lesson_sources ? ` · Ôn B${priority.lesson_sources.replaceAll('B', '').replaceAll(',', ', B')}` : ''}</div>{priority.route_id && <a className="av-button av-button-secondary" href={`/grammar-checkup/review/${encodeURIComponent(priority.route_id)}?session=${encodeURIComponent(report.session_id)}`}>Mở tuyến ôn</a>}</div></article>)}</div> : <div className="gd-empty">Chưa có điểm yếu đủ bằng chứng để đưa vào top ưu tiên.</div>}</section>
+      <section className="gd-report-section"><div className="gd-section-title"><span>01</span><div><p>Ưu tiên ôn tập</p><h2>Tập trung tối đa ba điểm gốc</h2></div></div>{report.priorities.length ? <div className="gd-priority-list">{report.priorities.map((priority, index) => <article className="gd-priority" key={priority.attribute_id}><div className="gd-priority-no">{index + 1}</div><div><div className="gd-priority-head"><span>{priority.attribute_id}</span><span>{priority.confidence_label}</span></div><h3>{priority.title}</h3><p>{priority.observed_pattern}</p><p className="gd-risk">{priority.risk}</p>{priority.contrast_example && <code>{priority.contrast_example}</code>}<p><strong>Bước tiếp theo:</strong> {priority.next_action}</p><div className="gd-evidence">{priority.evidence_status.independent_items} mẫu độc lập{priority.lesson_sources ? ` · Ôn B${priority.lesson_sources.replaceAll('B', '').replaceAll(',', ', B')}` : ''}</div>{priority.route_id && <a className="av-button av-button-secondary" href={`/course/grammar-checkup/review/${encodeURIComponent(priority.route_id)}?session=${encodeURIComponent(report.session_id)}`}>Mở tuyến ôn</a>}</div></article>)}</div> : <div className="gd-empty">Chưa có điểm yếu đủ bằng chứng để đưa vào top ưu tiên.</div>}</section>
       <section className="gd-report-grid"><div><p className="gd-kicker">Điểm đang làm được</p><h2>Tín hiệu tích cực</h2>{report.strengths.length ? report.strengths.map((row) => <div className="gd-mini-card" key={row.attribute_id}><strong>{row.title}</strong><span>{row.state === 'CONFIRMED_STRENGTH' ? 'Đã xác nhận' : 'Tạm thời'} · {row.independent_items} mẫu</span></div>) : <p>Chưa có vùng đủ bằng chứng để gọi là điểm mạnh.</p>}</div><div><p className="gd-kicker">Cần thêm bằng chứng</p><h2>Chưa kết luận</h2><div className="gd-tags">{report.insufficient_evidence.map((row) => <span key={row.attribute_id}>{row.attribute_id} · {row.title}</span>)}</div></div></section>
       <div className="gd-note"><strong>Phần productive:</strong> {report.productive_note}</div>
-      <div className="gd-report-actions"><a className="av-button av-button-secondary" href="/grammar">Mở Grammar Wiki</a>{report.assigned ? <a className="av-button av-button-primary" href="/course/assigned">Quay lại Lớp học</a> : <a className="av-button av-button-primary" href="/grammar-checkup">Làm lượt mới</a>}</div>
+      <div className="gd-report-actions"><a className="av-button av-button-secondary" href="/grammar">Mở Grammar Wiki</a>{report.assigned ? <a className="av-button av-button-primary" href="/course/assigned">Quay lại Lớp học</a> : <a className="av-button av-button-primary" href="/course/grammar-checkup">Làm lượt mới</a>}</div>
     </main>
   );
 

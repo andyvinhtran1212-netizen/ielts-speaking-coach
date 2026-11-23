@@ -104,7 +104,7 @@ try {
     const page = await context.newPage();
     const pageErrors = [];
     page.on('pageerror', (error) => pageErrors.push(error.message));
-    await page.goto(`${BASE}/grammar-checkup`);
+    await page.goto(`${BASE}/course/grammar-checkup`);
     try {
       await page.getByRole('heading', { name: 'Chẩn đoán ngữ pháp & ôn tập thích ứng' }).waitFor({ timeout: 15_000 });
     } catch (error) {
@@ -121,8 +121,8 @@ try {
 
   // 2. Signed-out: every guarded route shows nothing private and lands on /login.
   for (const path of [
-    '/grammar-checkup',
-    '/grammar-checkup/review/R1',
+    '/course/grammar-checkup',
+    '/course/grammar-checkup/review/R1',
     '/vocabulary/exam',
     '/course/vocabulary',
     '/course/exercises',
