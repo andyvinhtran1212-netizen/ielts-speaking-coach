@@ -599,6 +599,37 @@
     _roomWriteRight = allowed !== false;
   }
 
+  // A recorder still starting (the browser's microphone box may be open)
+  // records once it settles, so while any start is pending this tab refuses a
+  // hand-over (CR #2649). Every await of a recorder start runs through here.
+  var _roomRecStarting = 0;
+  function _roomStarting(run) {
+    _roomRecStarting += 1;
+    var done = function () { _roomRecStarting -= 1; };
+    var pending;
+    try {
+      pending = Promise.resolve(run());
+    } catch (err) {
+      done();
+      return Promise.reject(err);
+    }
+    return pending.then(function (value) { done(); return value; }, function (err) { done(); throw err; });
+  }
+
+  // A start that settles after this tab lost the write right drops the
+  // microphone instead of recording here.
+  function _roomStartLost(nativeRecorder) {
+    if (!_roomReadOnly()) return false;
+    if (nativeRecorder) {
+      nativeRecorder.release();
+    } else if (_stream) {
+      _stream.getTracks().forEach(function (t) { try { t.stop(); } catch (_) {} });
+      _stream = null;
+    }
+    _analyser = null;
+    return true;
+  }
+
   // The hand-over flush. Speaking keeps unsent takes only in page memory
   // (FR-009), so they can never be "secured" by a flush: with any take still
   // recording, unsent, or uploading, this tab refuses to hand over.
@@ -610,9 +641,9 @@
       }).length;
     }
     // Part 2 keeps its take outside the answer sheet (CR #2649, Codex P2):
-    // speaking (the recorder may still be starting), uploading, or kept for a
-    // retry after a failed send.
+    // speaking, uploading, or kept for a retry after a failed send.
     if (_currentState === 'p2c' || _currentState === 'processing') busy += 1;
+    if (_roomRecStarting > 0 && busy === 0) busy = 1;
     if (_p2RetryQuestionId) busy += 1;
     if (_hasUnsentWork() && busy === 0) busy = 1;
     return Promise.resolve({ secured: busy === 0, unsaved: busy });
@@ -1163,19 +1194,22 @@
     _renderTimer();
     var micBefore = _roomMicBeforeStart();
     try {
-      var started = await nativeRecorder.start({
-        maxSeconds: MAX_RECORD_SEC[_sessionData ? _sessionData.part : 1] || 90,
-        onTick: function (seconds) {
-          _elapsedSecs = seconds;
-          _renderTimer();
-        },
-        onRecorded: _handleRecordedBlob,
+      var started = await _roomStarting(function () {
+        return nativeRecorder.start({
+          maxSeconds: MAX_RECORD_SEC[_sessionData ? _sessionData.part : 1] || 90,
+          onTick: function (seconds) {
+            _elapsedSecs = seconds;
+            _renderTimer();
+          },
+          onRecorded: _handleRecordedBlob,
+        });
       });
       if (!_playerActive || generation !== _playerGeneration) {
         nativeRecorder.reset();
         return false;
       }
       _roomMicSettled(started, micBefore);
+      if (started && _roomStartLost(nativeRecorder)) return false;
       if (!started) {
         // A concurrent click may still own the pending permission request; a
         // sheet slot may also deliberately cancel it. Neither is a mic error.
@@ -1221,7 +1255,9 @@
     // Request mic (reuse existing stream across questions)
     if (!_stream || !_stream.active) {
       try {
-        _stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        _stream = await _roomStarting(function () {
+          return navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        });
       } catch (err) {
         var msg;
         if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
@@ -1243,7 +1279,7 @@
       if (!_audioCtx || _audioCtx.state === 'closed') {
         _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       }
-      if (_audioCtx.state === 'suspended') await _audioCtx.resume();
+      if (_audioCtx.state === 'suspended') await _roomStarting(function () { return _audioCtx.resume(); });
       var src = _audioCtx.createMediaStreamSource(_stream);
       _analyser = _audioCtx.createAnalyser();
       _analyser.fftSize = 256;
@@ -1251,6 +1287,8 @@
     } catch (_) {
       _analyser = null;
     }
+
+    if (_roomStartLost(null)) return false;
 
     // Pick supported MIME type (engine-aware — see _mimeCandidates)
     var mimeType = '';
@@ -3733,16 +3771,19 @@
     if (nativeRecorder) {
       var micBefore = _roomMicBeforeStart();
       try {
-        var started = await nativeRecorder.start({
-          // Part 2 owns its 120-second countdown + "Thank you" delay below.
-          maxSeconds: 0,
-          onRecorded: _handleP2RecordedBlob,
+        var started = await _roomStarting(function () {
+          return nativeRecorder.start({
+            // Part 2 owns its 120-second countdown + "Thank you" delay below.
+            maxSeconds: 0,
+            onRecorded: _handleP2RecordedBlob,
+          });
         });
         if (!_playerActive || generation !== _playerGeneration) {
           nativeRecorder.reset();
           return;
         }
         _roomMicSettled(started, micBefore);
+        if (started && _roomStartLost(nativeRecorder)) return;
         if (!started) {
           // A concurrent start is still in charge and should stay silent. Any
           // settled false result otherwise needs a visible recovery path.
@@ -3766,7 +3807,9 @@
 
     if (!_stream || !_stream.active) {
       try {
-        _stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        _stream = await _roomStarting(function () {
+          return navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        });
       } catch (err) {
         showError('Không thể mở microphone: ' + err.message);
         return;
@@ -3777,7 +3820,7 @@
       if (!_audioCtx || _audioCtx.state === 'closed') {
         _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       }
-      if (_audioCtx.state === 'suspended') await _audioCtx.resume();
+      if (_audioCtx.state === 'suspended') await _roomStarting(function () { return _audioCtx.resume(); });
       var src = _audioCtx.createMediaStreamSource(_stream);
       _analyser = _audioCtx.createAnalyser();
       _analyser.fftSize = 256;
@@ -3785,6 +3828,8 @@
     } catch (_) {
       _analyser = null;
     }
+
+    if (_roomStartLost(null)) return;
 
     var mimeType = '';
     var candidates = _mimeCandidates();

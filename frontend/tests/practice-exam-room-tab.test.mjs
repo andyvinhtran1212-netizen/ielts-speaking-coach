@@ -38,7 +38,7 @@ function sandbox({ on = true, sub = 'idle', dirty = false, slots = null, fullTes
     var _sheet = ${slots ? JSON.stringify({ slots }) : 'null'};
     var _timerId = null, _p2SpeakTimerId = null;
     ${ROOM}
-    return { setWriteRight: setWriteRight, readOnly: _roomReadOnly, flush: roomFlush };
+    return { setWriteRight: setWriteRight, readOnly: _roomReadOnly, flush: roomFlush, starting: _roomStarting, startLost: _roomStartLost };
   `)(...Object.values(env));
 }
 
@@ -78,6 +78,32 @@ describe('flag on: the hand-over flush', () => {
     assert.deepEqual(await sandbox({ state: 'processing' }).flush(), { secured: false, unsaved: 1 });
     assert.deepEqual(await sandbox({ state: 'p2a', p2Retry: 'q-2' }).flush(), { secured: false, unsaved: 1 });
     assert.deepEqual(await sandbox({ state: 'p2a' }).flush(), { secured: true, unsaved: 0 });
+  });
+
+  test('a recorder still starting (microphone box open) refuses until the start settles (CR #2649)', async () => {
+    const api = sandbox({ state: 'p2b' });
+    let grant;
+    const start = api.starting(() => new Promise((resolve) => { grant = resolve; }));
+    assert.deepEqual(await api.flush(), { secured: false, unsaved: 1 });
+    grant(true);
+    assert.equal(await start, true);
+    assert.deepEqual(await api.flush(), { secured: true, unsaved: 0 });
+  });
+
+  test('a start that fails still lets the hand-over go once it settles', async () => {
+    const api = sandbox();
+    await assert.rejects(api.starting(() => Promise.reject(new Error('NotAllowedError'))));
+    await assert.rejects(api.starting(() => { throw new Error('sync'); }));
+    assert.deepEqual(await api.flush(), { secured: true, unsaved: 0 });
+  });
+
+  test('a start that settles after the write right moved drops the microphone', () => {
+    const api = sandbox();
+    const recorder = { released: 0, release() { this.released += 1; } };
+    assert.equal(api.startLost(recorder), false);
+    api.setWriteRight(false);
+    assert.equal(api.startLost(recorder), true);
+    assert.equal(recorder.released, 1);
   });
 
   test('any other unsent work the leave guard knows about refuses too', async () => {
@@ -125,6 +151,19 @@ describe('every way to open the microphone or upload is closed to a read-only ta
     const at = JS.indexOf('function _sheetSubmitBlob(');
     assert.ok(at !== -1);
     assert.doesNotMatch(JS.slice(at, at + 200), /_roomReadOnly/);
+  });
+
+  test('every recorder start waits through the room and checks the write right after it (CR #2649)', () => {
+    assert.doesNotMatch(JS, /await nativeRecorder\.start\(/, 'native starts go through _roomStarting');
+    assert.doesNotMatch(JS, /await navigator\.mediaDevices\.getUserMedia\(/, 'getUserMedia goes through _roomStarting');
+    assert.equal((JS.match(/await _roomStarting\(/g) || []).length, 6);
+    for (const head of ['async function _startNativeRecording(', 'async function startRecording() {', 'async function _startP2Speaking() {']) {
+      const at = JS.indexOf(head);
+      const next = JS.indexOf('\n  function ', at + head.length);
+      const nextAsync = JS.indexOf('\n  async function ', at + head.length);
+      const body = JS.slice(at, Math.min(...[next, nextAsync].filter((n) => n > 0)));
+      assert.match(body, /_roomStartLost\(/, `${head} drops the microphone when the right moved`);
+    }
   });
 
   test('practice.js exports the two calls the room makes', () => {
