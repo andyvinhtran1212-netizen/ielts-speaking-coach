@@ -30,6 +30,8 @@ const EXACT_REPLACEMENTS = Object.freeze({
   // LEARNERNAV-0062 đợt 1: thẻ từ nằm dưới /vocabulary (một bước, không qua đường cũ).
   '/pages/flashcards.html': '/vocabulary/flashcards',
   '/pages/flashcard-study.html': '/vocabulary/flashcards/study',
+  // LEARNERNAV-0062 đợt 2: trang điền từ nằm dưới /vocabulary.
+  '/pages/d1-exercise.html': '/vocabulary/fill-in',
 });
 
 const NESTED_LEGACY_FAMILY = /^\/pages\/(grammar|listening|reading)-(.+)\.html$/;
@@ -61,7 +63,7 @@ export function replacementOwner(nextPath) {
   if (route === '/mock-exam' || route.startsWith('/mock/')
       || route === '/full-test' || route.startsWith('/full-test')) return 'mock-exam';
   if (route === '/vocabulary' || route.startsWith('/vocabulary/')
-      || route === '/exercises' || route === '/d1-exercise'
+      || route === '/exercises'
       || route === '/quiz' || route.startsWith('/quiz/')) return 'vocabulary';
   if (route === '/exam') return 'exam-platform';
   if (route === '/course-exercises') return 'course-exercises';

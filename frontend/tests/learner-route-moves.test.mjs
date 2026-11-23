@@ -25,6 +25,8 @@ const MOVES = [
   // Batch 1 (G07-T06)
   { from: '/flashcards', to: '/vocabulary/flashcards', legacy: '/pages/flashcards.html' },
   { from: '/flashcard-study', to: '/vocabulary/flashcards/study', legacy: '/pages/flashcard-study.html' },
+  // Batch 2 (G07-T07)
+  { from: '/d1-exercise', to: '/vocabulary/fill-in', legacy: '/pages/d1-exercise.html' },
 ];
 
 function appRoutes(root, prefix = '') {
@@ -94,4 +96,15 @@ describe('learner route moves (LEARNERNAV-0062)', async () => {
       assert.ok(!ROUTES.some((r) => r.parent === move.from), 'no page still names the old path as its parent');
     });
   }
+
+  // Batch 2: the fill-in resume pointer is per-account session ids under a key
+  // that never named the path, and a saved ?session= link survives the 307.
+  test('/d1-exercise resume pointer still resumes at /vocabulary/fill-in', () => {
+    const player = read('app', '(authed-d1-exercise)', 'vocabulary', 'fill-in', 'd1-exercise-player.tsx');
+    assert.match(player, /const LEGACY_STORAGE_KEY = 'aver:d1:active-session';/);
+    assert.match(player, /searchParams\.get\('session'\)/);
+    assert.doesNotMatch(player, /d1-exercise['"`?]/, 'the player never builds the old path');
+    assert.deepEqual(follow(redirects, '/d1-exercise?session=abc-123'),
+      { status: 307, location: '/vocabulary/fill-in?session=abc-123' });
+  });
 });

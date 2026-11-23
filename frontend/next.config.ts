@@ -145,6 +145,7 @@ const nextConfig: NextConfig = {
       // G07 — đổi đường dẫn học viên (LEARNERNAV-0062). permanent:false trong giai đoạn chuyển (T24).
       { source: '/flashcards', destination: '/vocabulary/flashcards', permanent: false },
       { source: '/flashcard-study', destination: '/vocabulary/flashcards/study', permanent: false },
+      { source: '/d1-exercise', destination: '/vocabulary/fill-in', permanent: false },
     ];
   },
 
