@@ -18,7 +18,7 @@ dòng mã nào chạy theo spec này. Chỉ anh Andy duyệt. Khi anh duyệt, c
 Spec cha: [EXAMROOM-0066](../0066-exam-room-shell/spec.md) (khung chung, đang ở
 dạng nháp; spec này chỉ được duyệt sau hoặc cùng lúc với 0066). Spec liên quan,
 không sửa: [MOCKATTACH-0008](../0008-mock-attempt-integrity/spec.md) (gắn sitting
-trước khi lượt dùng được), [MOCKCONTENT-0016](../0016-mock-content-remediation/spec.md)
+trước khi lượt dùng được), [MOCKREPAIR-0016](../0016-mock-content-remediation/spec.md)
 (cờ xem lại khi tiếp tục lượt).
 
 FR của gói: FR-08-030, 031 cùng các FR khung áp cho Reading, và phần Reading của
@@ -110,7 +110,7 @@ viên mất bài, nộp nhầm hay lộ thông tin. Đã kiểm `reading-exam-se
   dưới 900px là hai thẻ "Passage"/"Questions").
 - **FR-007:** Dải câu sinh từ `readingDisplayQuestionRuns` theo Passage, không viết cứng
   13·13·14. Cờ xem lại đọc và ghi qua `useAttemptReviewFlags` như hôm nay (lưu server,
-  khôi phục khi tiếp tục lượt theo MOCKCONTENT-0016); mỗi câu chỉ một điều khiển cờ, bỏ
+  khôi phục khi tiếp tục lượt theo MOCKREPAIR-0016); mỗi câu chỉ một điều khiển cờ, bỏ
   ô "Review" trùng ở thanh đáy trong nhánh mới. Cờ chưa sẵn sàng thì điều khiển khoá
   và `AttemptReviewFlagStatus` vẫn hiện lỗi và nút thử lại.
 - **FR-008:** Câu hỏi hiển thị bằng dạng câu dùng chung của 0066; chuỗi đáp án gửi lên
