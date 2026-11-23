@@ -62,7 +62,7 @@
   text-decoration: none;
 }
 .tab[aria-current='true'], .chip[aria-current='true'] { background: var(--av2-ink); border-color: var(--av2-ink); color: var(--av2-paper); }
-.tab:focus-visible, .chip:focus-visible, .supButton:focus-visible, .numButton:focus-visible { outline: 2px solid var(--av2-focus); outline-offset: var(--av2-focus-offset); }
+.tab:focus-visible, .chip:focus-visible, .supButton:focus-visible, .numButton:focus-visible { outline: var(--av2-focus); outline-offset: var(--av2-focus-offset); }
 
 .essay { max-width: 640px; }
 .essayHead { margin: 0 0 var(--av2-space-3); font-family: var(--av2-font-sans); font-size: var(--av2-fs-14); font-weight: var(--av2-fw-strong); }
