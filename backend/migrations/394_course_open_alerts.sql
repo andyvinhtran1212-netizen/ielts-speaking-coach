@@ -9,7 +9,8 @@
 --                                       bare addresses, so it must be rate limited
 --                                       across every worker; 334 pattern).
 --   fn_course_open_alert_attempt_check(ip_hash, action) → jsonb
---                                       subscribe 3/hour, unsubscribe 20/hour.
+--                                       subscribe 3/hour, unsubscribe 20/hour; rows
+--                                       older than a day are removed as calls arrive.
 --   fn_course_open_alert_subscribe(slug, email, user_id) → text
 --                                       ok | course_not_found | course_already_open.
 --                                       Never returns the unsubscribe token.
@@ -109,6 +110,8 @@ CREATE TABLE IF NOT EXISTS public.course_open_alert_attempts (
 );
 CREATE INDEX IF NOT EXISTS ix_course_open_alert_attempts_key
     ON public.course_open_alert_attempts (ip_hash, action, attempted_at);
+CREATE INDEX IF NOT EXISTS ix_course_open_alert_attempts_attempted
+    ON public.course_open_alert_attempts (attempted_at);
 
 ALTER TABLE public.course_open_alerts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.course_open_alert_attempts ENABLE ROW LEVEL SECURITY;
@@ -149,6 +152,7 @@ LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = pg_catalog, pg_temp
 DECLARE
     c_window CONSTANT interval := interval '1 hour';
     c_keep   CONSTANT interval := interval '1 day';
+    c_sweep  CONSTANT integer  := 200;
     v_max     integer;
     v_now     timestamptz;
     v_count   integer;
@@ -171,6 +175,14 @@ BEGIN
 
     DELETE FROM public.course_open_alert_attempts
      WHERE ip_hash = p_ip_hash AND action = p_action AND attempted_at < v_now - c_keep;
+    -- Keys that never come back would stay forever: every call also removes
+    -- up to c_sweep stale rows of any key (no cron needed; SKIP LOCKED so two
+    -- calls never wait on each other here).
+    DELETE FROM public.course_open_alert_attempts
+     WHERE ctid IN (SELECT ctid FROM public.course_open_alert_attempts
+                     WHERE attempted_at < v_now - c_keep
+                     LIMIT c_sweep
+                       FOR UPDATE SKIP LOCKED);
 
     SELECT count(*) INTO v_count
       FROM public.course_open_alert_attempts

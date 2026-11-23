@@ -366,6 +366,22 @@ async def test_rate_limit_per_hashed_ip_and_action(pg):
 
 
 @pytest.mark.asyncio
+async def test_stale_attempts_of_other_keys_are_removed_so_the_counter_stays_bounded(pg):
+    await pg.con.execute(
+        "INSERT INTO course_open_alert_attempts (ip_hash, action, attempted_at) "
+        "SELECT 'gone-' || g, 'subscribe', now() - interval '2 days' FROM generate_series(1, 250) g")
+    await pg.con.execute(
+        "INSERT INTO course_open_alert_attempts (ip_hash, action, attempted_at) "
+        "VALUES ('recent', 'unsubscribe', now() - interval '2 hours')")
+    await pg.call("fn_course_open_alert_attempt_check", "ip-new", "subscribe")
+    assert await pg.con.fetchval("SELECT count(*) FROM course_open_alert_attempts WHERE ip_hash LIKE 'gone-%'") == 50
+    await pg.call("fn_course_open_alert_attempt_check", "ip-new", "unsubscribe")
+    assert await pg.con.fetchval("SELECT count(*) FROM course_open_alert_attempts WHERE ip_hash LIKE 'gone-%'") == 0
+    # Rows younger than a day stay (they may still count in a window).
+    assert await pg.con.fetchval("SELECT count(*) FROM course_open_alert_attempts WHERE ip_hash = 'recent'") == 1
+
+
+@pytest.mark.asyncio
 async def test_concurrent_subscribe_attempts_take_exactly_three_slots(pg):
     cons = [await pg.connect() for _ in range(8)]
     results = await asyncio.gather(*(
