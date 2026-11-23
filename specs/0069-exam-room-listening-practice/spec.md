@@ -84,11 +84,12 @@ trên `staging` @ `cc6dd4c8` (23/11/2026):
 - **FR-001:** `ProgrammeFormRunner` rẽ nhánh theo `examRoomEnabled('listening-practice')`
   ở đúng một chỗ sau các hook. Cờ tắt: không đổi DOM, chuỗi, class, request hay thứ tự
   gọi API. Cờ bật: cùng request, cùng thứ tự; chỉ lớp giao diện khác.
-- **FR-002:** Nút "Hoàn thành và xem lại" luôn mở hộp nộp của khung (tiếng Việt). Còn câu
-  trống: hộp Warning liệt kê số câu ("Câu 3, 7 chưa có câu trả lời") với "Quay lại làm
-  bài" (chính) và "Vẫn hoàn thành"; hết câu trống: hộp "Hoàn thành bài này?" với "Hoàn
-  thành" (chính) và "Quay lại". Esc hay "Quay lại" đóng hộp, không gọi `submit`, tiêu
-  điểm về nút. Câu tự luyện lưu trên thiết bị (`supplements`) không tính là câu trống.
+- **FR-002:** Nút "Hoàn thành và xem lại" luôn mở hộp nộp của khung, với câu chữ tiếng Việt
+  của EXAMROOM-0066 (sửa chữ theo 0066). Còn câu trống: hộp Warning "Nộp bài khi còn N câu
+  chưa trả lời?" liệt kê số câu, với "Quay lại làm tiếp" (tiêu điểm đầu) và "Hoàn thành và
+  xem lại"; hết câu trống: hộp "Nộp bài?" với "Hoàn thành và xem lại" và "Quay lại làm
+  tiếp". Esc hay "Quay lại làm tiếp" đóng hộp, không gọi `submit`, tiêu điểm về nút. Câu
+  tự luyện lưu trên thiết bị (`supplements`) không tính là câu trống.
 - **FR-003:** Còn câu đang đối chiếu (`revealPromises` không rỗng) khi bấm hoàn thành:
   hộp vẫn mở, nút xác nhận khoá với chữ "Đang đối chiếu, chờ một chút", tự mở khi đối
   chiếu xong; không nuốt lần bấm.
