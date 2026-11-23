@@ -333,7 +333,9 @@ export function MockWritingRoom(props: MockWritingRoomProps) {
   const prompt = task === 'task1' ? state.exam.writingTask1 : state.exam.writingTask2;
   const disabled = locked || readOnly;
   return (
-    <div className="me-writing" data-mock-writing-room="">
+    // Not `.me-writing`: that old class is `position: absolute; inset: 0` and
+    // would lay the tabs over the frame header (Leave test) inside the shell.
+    <div className="mw-room" data-mock-writing-room="" style={{ display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0 }}>
       {asks.map((row) => (
         <Notice
           key={row.task}
