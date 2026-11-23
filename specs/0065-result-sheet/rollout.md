@@ -23,7 +23,7 @@
 
 - **Mã:** `git revert` PR lỗi, merge vào `staging`, rồi promote. Cây phiếu cũ vẫn còn, nên tắt cờ là cách lùi nhanh nhất.
 - **API:** revert T21 khiến dạng mới bị 422. Frontend cũ không bị ảnh hưởng, vì vẫn gửi `{reason}`.
-- **Migration:** giữ hai cột khi revert mã, vì dữ liệu mới vẫn hợp lệ. Chỉ chạy rollback khi anh Andy duyệt. Rollback từ chối khi có dòng `reason_code IS NOT NULL`, trừ khi đặt `aver.allow_regrade_reason_rollback = 'on'`; khi đó ràng buộc cũ được thêm lại dạng `NOT VALID`.
+- **Migration:** đường lùi là chỉ lùi mã, giữ hai cột và `essay_regrade_reason_shape` (plan 5.2). Mã cũ ghi được, admin cũ đọc được ghi chú trong `reason` và xử lý được yêu cầu. Không có override phá huỷ. File rollback chỉ chạy khi chưa có dòng dạng mới (có thì `RAISE`, không đổi gì), và chỉ khi anh Andy duyệt.
 
 ## Observability
 

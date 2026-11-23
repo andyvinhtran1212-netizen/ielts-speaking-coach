@@ -78,8 +78,12 @@ Khối `DO` theo mẫu mig 085, để chạy lại file không lỗi. `VALIDATE`
 - **Thứ tự an toàn:**
   1. Trước khi áp, chạy truy vấn chỉ đọc `SELECT count(*) FROM essay_regrade_requests WHERE char_length(reason) NOT BETWEEN 50 AND 500;` trên staging, rồi trên production trong lần áp được duyệt. Kết quả phải là 0; khác 0 thì dừng và báo anh Andy.
   2. Áp `ADD CONSTRAINT … NOT VALID` rồi `VALIDATE CONSTRAINT` trong cùng file, để không khoá bảng lâu (`CHƯA KIỂM`: mẫu runner có cho hai lệnh trong một giao dịch không; xem `backend/migrations/README.md`).
-- **`reason`** vẫn NOT NULL. Dạng mới lưu nhãn tiếng Việt của lý do vào cột này, để màn admin cũ đọc được ngay mà không sửa.
-- **Rollback:** từ chối khi có dòng `reason_code IS NOT NULL` (nhãn ngắn sẽ vi phạm CHECK 50–500 cũ), trừ khi `aver.allow_regrade_reason_rollback = 'on'`. Khi được phép thì giữ dòng, bỏ hai cột và `essay_regrade_reason_shape`, rồi thêm lại `essay_regrade_reason_length … NOT VALID`.
+- **`reason`** vẫn NOT NULL. Dạng mới lưu vào cột này `"<nhãn tiếng Việt>"`, hoặc `"<nhãn>: <note>"` khi có ghi chú (nhãn dài nhất dưới 60 ký tự, `note` ≤ 300, nên luôn ≤ 500). Như vậy mã cũ và màn admin cũ đọc đủ cả lý do lẫn ghi chú mà không cần hai cột mới.
+- **Lùi không mất dữ liệu (sau HOLD 23/11):** đường lùi chuẩn là **chỉ lùi mã**. Hai cột và `essay_regrade_reason_shape` ở lại. Lý do:
+  - mã cũ chỉ ghi `{reason}` 50–500 với `reason_code = NULL`, thoả nhánh đầu của `essay_regrade_reason_shape`;
+  - accept/reject/fulfil của admin chỉ đổi `status`, không đụng `reason`/`reason_code`/`note`, nên dòng dạng mới vẫn cập nhật được;
+  - màn admin cũ đọc `reason`, trong đó đã có nhãn và ghi chú.
+  Không có override phá huỷ. File trong `backend/migrations/rollback/` chỉ chạy được khi bảng **chưa có** dòng dạng mới: có bất kỳ dòng `reason_code IS NOT NULL` → `RAISE EXCEPTION` và không đổi gì. Khi 0 dòng, file bỏ `essay_regrade_reason_shape` và hai cột, rồi thêm lại `essay_regrade_reason_length` (đã kiểm hợp lệ vì mọi dòng đều là dạng cũ). Muốn gỡ hai cột sau khi đã có dạng mới thì cần một thiết kế chuyển đổi riêng, giữ được cả mã lẫn ghi chú, và anh Andy duyệt riêng.
 
 ### 5.3 API chấm lại
 
@@ -111,7 +115,7 @@ Khối `DO` theo mẫu mig 085, để chạy lại file không lỗi. `VALIDATE`
   Lỗi một nguồn thì bỏ qua và dùng nguồn kế tiếp.
 - **"Xem lại":** dùng neo `#annotations` của phiếu. Bài không có chú thích thì ẩn.
 - **"Làm lại":** đích là luồng tạo bài mới cùng đề, theo route hiện có của từng kỹ năng. `CHƯA KIỂM` ở T20 và T22: đường "làm lại cùng đề" của Writing và Speaking.
-- **Nguồn chấm:** hai trục như FR-051. Đường trả bài lấy từ `writing_essays.review_mode` (`ai_instant`; `teacher_review` hoặc `NULL` là qua giáo viên). Người đặt band lấy từ `band_source` (`ai`, `teacher`, `unknown`). Phiếu Writing trả thêm `review_mode` (`CHƯA KIỂM` ở T20: không có đường nào giao bài `NULL` mà bỏ qua giáo viên). Câu "ước lượng" chỉ hiện khi `band_source = 'ai'`. Nguồn quyền "khoá online" hay "lớp" lấy từ `credit_source` mà G04 trả trên phiếu (`CHƯA KIỂM` tên trường ở G04-T08). Thiếu thì chỉ hiện câu nguồn chấm, không đoán nguồn quyền.
+- **Nguồn chấm:** hai trục như FR-051. Đường trả bài lấy từ `writing_essays.review_mode` (`ai_instant`; `teacher_review` hoặc `NULL` là qua giáo viên). Người đặt band lấy từ `band_source` (`ai`, `teacher`, `unknown`). Phiếu Writing trả thêm `review_mode` (`CHƯA KIỂM` ở T20: không có đường nào giao bài `NULL` mà bỏ qua giáo viên; bài bị gắn cờ được chuyển thẳng sang `delivered` phải ra `band_source = 'unknown'` để không hiện "giáo viên duyệt"). Câu "ước lượng" chỉ hiện khi `band_source = 'ai'`. Nguồn quyền "khoá online" hay "lớp" lấy từ `credit_source` mà G04 trả trên phiếu (`CHƯA KIỂM` tên trường ở G04-T08). Thiếu thì chỉ hiện câu nguồn chấm, không đoán nguồn quyền.
 
 ### 5.5 `CreditsEmptyNotice` và `fixLink` (T27)
 
@@ -171,7 +175,8 @@ Xem `rollout.md`. Tóm tắt:
   - chưa `delivered` → 409;
   - `GET` có `reason_code`, `note`;
   - list và detail của admin có hai cột;
-  - test PG: CHECK mới chặn đúng; dòng cũ 50–500 vẫn hợp lệ; rollback từ chối khi có `reason_code`.
+  - test PG: CHECK mới chặn đúng; dòng cũ 50–500 vẫn hợp lệ; file rollback `RAISE` và không đổi gì khi có `reason_code`, chạy được khi 0 dòng dạng mới;
+  - **lùi mã với dữ liệu giả:** có sẵn một yêu cầu `other` kèm ghi chú → chạy route và route admin của mã cũ (trước T21) trên cùng schema: admin đọc được ghi chú trong `reason`, accept/reject/fulfil thành công, học viên khác gửi dạng cũ được → chạy lại mã mới: `reason_code`, `note` của dòng đó còn nguyên.
 - **Node:**
   - `band-display-model` đủ mọi ô của bảng 5.1, gồm mini test có `overall` thì trả `null`;
   - `fixLink` có ánh xạ và không có ánh xạ; slug tồn tại;
