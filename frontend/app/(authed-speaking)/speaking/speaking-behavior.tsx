@@ -24,6 +24,7 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 
 import type { AuthMeWire } from '@/lib/auth-api';
+import { readAuthMeShared } from '@/lib/auth/read-auth-me-shared';
 import { useAuth } from '@/lib/auth/auth-provider';
 import { admitCorePlayer } from '@/lib/core-player-affinity.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
@@ -776,7 +777,8 @@ export function SpeakingBehavior() {
       const read = ++profileRead;
       st.permissionsReady = false; st.permissionAccount = null;
       try {
-        const profile = await api.get('/auth/me') as AuthMeWire;
+        // Shared read: publishes the profile the skill hub switch reads (0063 FR-111).
+        const profile = await readAuthMeShared<AuthMeWire>(api);
         if (st.dead || read !== profileRead || st.accountId !== account
             || profile?.id !== account || profile.id !== accountRef.current) return;
         renderUser(profile, api, st);
