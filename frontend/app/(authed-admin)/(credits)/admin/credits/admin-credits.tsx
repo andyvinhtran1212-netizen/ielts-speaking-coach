@@ -35,7 +35,7 @@ import {
 
 type Banner = { kind: 'success' | 'error'; text: string } | null;
 type Draft = ReturnType<typeof adjustDraft> & { error?: string };
-type Confirm = { body: { entitlement_id: string; delta: number; reason: string }; text: string; requestKey: string };
+type Confirm = { context: string; body: { entitlement_id: string; delta: number; reason: string }; text: string; requestKey: string };
 type Ledger = { balance: number; items: LedgerRowWire[]; nextCursor: string | null };
 
 function newRequestKey() {
@@ -74,6 +74,12 @@ export function AdminCredits() {
   // the same learner, course, delta and reason (after a timeout, say) reuses
   // it, so the server replays instead of writing a second row.
   const pendingKey = useRef<{ userId: string; body: string; key: string } | null>(null);
+  // The admin/learner pair the page shows now. A confirm opened for another
+  // pair is never sent, and a write that returns after the pair changed does
+  // not reload or announce into the new learner's ledger.
+  const context = `${admin.id}:${userId ?? ''}`;
+  const contextRef = useRef(context);
+  contextRef.current = context;
 
   const load = useCallback(async (id: string) => {
     const seq = ++sequence.current;
@@ -97,6 +103,7 @@ export function AdminCredits() {
 
   useEffect(() => {
     setAccess(null); setLedger(null); setBanner(null); setMoreBusy(false);
+    setDraft(null); setConfirm(null); setConfirmError(null);
     if (userId) void load(userId);
     else sequence.current += 1;
   }, [load, userId, admin.id]);
@@ -148,21 +155,25 @@ export function AdminCredits() {
     const pending = pendingKey.current;
     const requestKey = pending && userId && pending.userId === userId && pending.body === body ? pending.key : newRequestKey();
     if (userId) pendingKey.current = { userId, body, key: requestKey };
-    setConfirm({ body: check.body, text: check.confirmText, requestKey });
+    setConfirm({ context, body: check.body, text: check.confirmText, requestKey });
     setConfirmError(null);
   };
 
   const submit = async () => {
     if (!confirm || !userId || busy) return;
+    if (confirm.context !== contextRef.current) { setConfirm(null); setDraft(null); return; }
+    const sentFor = confirm.context;
     setBusy(true); setConfirmError(null);
     try {
       await postCreditAdjust({ ...confirm.body, request_key: confirm.requestKey });
       pendingKey.current = null;
+      if (sentFor !== contextRef.current) return;
       setConfirm(null); setDraft(null);
       const fresh = await load(userId);
       setBanner(fresh ? { kind: 'success', text: 'Đã ghi điều chỉnh vào sổ lượt.' }
         : { kind: 'error', text: 'Đã ghi điều chỉnh, nhưng chưa tải lại được sổ lượt; bấm Tải lại.' });
     } catch (caught) {
+      if (sentFor !== contextRef.current) return;
       // The server's message as it is (would_go_negative, not_usable, …).
       setConfirmError(messageOf(caught));
     } finally { setBusy(false); }

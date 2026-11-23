@@ -169,6 +169,46 @@ describe('AdminCredits', () => {
     expect(screen.getByRole('table').querySelectorAll('tbody tr')).toHaveLength(1);
   });
 
+  it('switching learner closes an open confirm; nothing is written for the earlier learner', async () => {
+    const U2 = '40000000-0000-4000-8000-000000000002';
+    const view = render(<AdminCredits />);
+    await balanceIs('42 lượt');
+    fireEvent.click(screen.getByRole('button', { name: 'Điều chỉnh lượt' }));
+    const dialog = screen.getByRole('dialog');
+    fireEvent.change(within(dialog).getByRole('textbox', { name: /Số lượt/ }), { target: { value: '5' } });
+    fireEvent.change(within(dialog).getByRole('textbox', { name: /Lý do/ }), { target: { value: 'Bù lượt do lỗi chấm' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Tiếp tục' }));
+    await screen.findByRole('dialog', { name: 'Xác nhận điều chỉnh' });
+    nav.search = `ref=u-${U2}`;
+    view.rerender(<AdminCredits />);
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Xác nhận điều chỉnh' })).toBeNull());
+    expect(screen.queryByRole('dialog', { name: 'Điều chỉnh lượt' })).toBeNull();
+    expect(api.post).not.toHaveBeenCalled();
+  });
+
+  it('a write that returns after the learner changed does not reload or announce into the new ledger', async () => {
+    const U2 = '40000000-0000-4000-8000-000000000002';
+    let releasePost: (value: unknown) => void = () => {};
+    api.post.mockReset().mockImplementation(() => new Promise((resolve) => { releasePost = resolve; }));
+    const view = render(<AdminCredits />);
+    await balanceIs('42 lượt');
+    fireEvent.click(screen.getByRole('button', { name: 'Điều chỉnh lượt' }));
+    const dialog = screen.getByRole('dialog');
+    fireEvent.change(within(dialog).getByRole('textbox', { name: /Số lượt/ }), { target: { value: '5' } });
+    fireEvent.change(within(dialog).getByRole('textbox', { name: /Lý do/ }), { target: { value: 'Bù lượt do lỗi chấm' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Tiếp tục' }));
+    fireEvent.click(within(await screen.findByRole('dialog', { name: 'Xác nhận điều chỉnh' })).getByRole('button', { name: 'Xác nhận' }));
+    await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
+    nav.search = `ref=u-${U2}`;
+    view.rerender(<AdminCredits />);
+    await waitFor(() => expect(api.getWith.mock.calls.some(([p]) => String(p).startsWith(`/admin/users/${U2}/`))).toBe(true));
+    const callsBefore = api.getWith.mock.calls.length;
+    releasePost({ status: 'adjusted', balance: 47 });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(api.getWith.mock.calls.slice(callsBefore).some(([p]) => String(p).startsWith(`/admin/users/${U}/`))).toBe(false);
+    expect(screen.queryByText('Đã ghi điều chỉnh vào sổ lượt.')).toBeNull();
+  });
+
   it('re-confirming the same adjustment after a timeout keeps the key; a changed one gets a new key', async () => {
     api.post.mockReset().mockRejectedValueOnce(new Error('Hết thời gian chờ máy chủ.'))
       .mockImplementation(() => { balance = 47; return Promise.resolve({ status: 'replay', balance: 47 }); });
