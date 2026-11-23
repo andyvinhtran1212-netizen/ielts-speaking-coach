@@ -26,7 +26,7 @@ from datetime import datetime, timezone
 from urllib.parse import quote
 from typing import Any, Dict, Literal, Optional, Union
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Response
 from pydantic import BaseModel
 
 from database import supabase_admin
@@ -693,6 +693,64 @@ async def my_assignments(authorization: str | None = Header(default=None)):
     except Exception as exc:
         logger.error("[class] my assignments failed: %s", exc, exc_info=True)
         raise HTTPException(500, "Lỗi khi tải bài tập. Vui lòng thử lại.") from None
+
+
+class SelfPracticeSessionParams(BaseModel):
+    mode: str
+    part: int
+    topic: str
+
+
+class SelfPracticeLaunch(BaseModel):
+    href: Optional[str] = None
+    session_params: Optional[SelfPracticeSessionParams] = None
+
+
+class SelfPracticeResponse(BaseModel):
+    skill: Literal["speaking", "listening", "reading"]
+    launch: SelfPracticeLaunch
+
+
+@router.post(
+    "/assignments/{item_id}/self-practice",
+    response_model=SelfPracticeResponse,
+    response_model_exclude_none=True,
+)
+async def self_practice_assignment(
+    item_id: str,
+    response: Response,
+    authorization: str | None = Header(default=None),
+):
+    """"Tự luyện bài này" for a closed assignment (LEARNERCORE-0063 FR-100).
+
+    Returns the public self-practice launch for the same paper; writes nothing
+    (no item state, no ledger). 404 not the caller's / not visible / no longer
+    in the class, 409 ``assignment_still_open`` or ``homework_attempt_in_progress``
+    (a resumable homework attempt on the paper would be resumed instead),
+    422 ``self_practice_unsupported``
+    (vocab, grammar, course, Writing before G08) or
+    ``self_practice_paper_unavailable`` (the paper is not open to public
+    self-practice now; the assignment's own access is never borrowed).
+    """
+    from services import class_self_practice
+    from services.student_service import account_display_name
+
+    auth_user = await get_supabase_user(authorization)
+    headers = {"Cache-Control": "private, no-store"}
+    response.headers.update(headers)
+    student = await asyncio.to_thread(
+        _student_for_user, auth_user["id"], account_display_name(auth_user))
+    if not student:
+        raise HTTPException(404, "Không tìm thấy hồ sơ học viên", headers=headers)
+    try:
+        return await asyncio.to_thread(
+            class_self_practice.self_practice, supabase_admin,
+            student=student, item_id=item_id, now=datetime.now(timezone.utc),
+            user_id=str(auth_user["id"]),
+        )
+    except class_self_practice.SelfPracticeError as exc:
+        detail = exc.message if exc.status == 404 else {"error": exc.code, "message": exc.message}
+        raise HTTPException(exc.status, detail, headers=headers) from None
 
 
 @router.post(
