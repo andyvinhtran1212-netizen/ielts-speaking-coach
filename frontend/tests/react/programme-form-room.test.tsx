@@ -4,7 +4,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 
 import { ProgrammeFormRunner } from '@/app/(authed-listening-player)/listening/programmes/form/[testId]/programme-form-runner';
 import { createProgrammeLocalCopyStore } from '@/app/(authed-listening-player)/listening/programmes/form/[testId]/programme-form-room-store';
-import { localCopyKey, readLocalCopy, writeLocalCopy } from '@/lib/exam-room/local-copy.mjs';
+import { localCopyKey, planLocalCopyReplay, readLocalCopy, writeLocalCopy } from '@/lib/exam-room/local-copy.mjs';
 import { writerTokenKey } from '@/lib/exam-room/tab-guard.mjs';
 
 vi.mock('@/lib/auth/auth-provider', () => ({ useAuth: () => ({ status: 'signed-in', user: { id: 'learner-1' } }) }));
@@ -328,6 +328,26 @@ describe('flag on', () => {
     expect(screen.queryByRole('button', { name: /Tạm dừng|Pause/ })).toBeNull();
   });
 
+  it('retrying a once track after an error resumes where it stopped, not from 0 (Codex P2 #2592)', async () => {
+    setup({ replay: 'once' });
+    const { container } = render(<ProgrammeFormRunner testId="t1" />);
+    await ready();
+    const media = container.querySelector('audio') as HTMLAudioElement;
+    let position = 0;
+    Object.defineProperty(media, 'currentTime', { configurable: true, get: () => position, set: (v: number) => { position = v; } });
+    vi.mocked(HTMLMediaElement.prototype.load).mockImplementation(() => { position = 0; });
+    const play = screen.getAllByRole('button').find((b) => /Bắt đầu nghe|Nghe/.test(b.getAttribute('aria-label') || b.textContent || ''));
+    await act(async () => { fireEvent.click(play!); });
+    await waitFor(() => expect(calls(api.postWith, '/playback-started')).toHaveLength(1));
+    position = 42;
+    await act(async () => { fireEvent(media, new Event('timeupdate')); fireEvent(media, new Event('error')); });
+    const retry = await screen.findByRole('button', { name: 'Tải lại bài nghe' });
+    await act(async () => { fireEvent.click(retry); });
+    expect(position).toBe(0);
+    await act(async () => { fireEvent(media, new Event('loadedmetadata')); });
+    expect(position).toBe(42);
+  });
+
   it('leaving sends no PATCH for answers the server already acked', async () => {
     setup({ answers: [{ q_num: 1, user_answer: 'A' }] });
     render(<ProgrammeFormRunner testId="t1" />);
@@ -433,5 +453,16 @@ describe('createProgrammeLocalCopyStore', () => {
     expect(store.secure({ 2: 'C', 3: 'D' })).toBe(true);
     store.clear();
     expect(store.load()).toEqual({});
+  });
+
+  it('an ack of an earlier save moves the base of the newer answer still waiting, so a replay re-sends it (Codex P1 #2592)', () => {
+    const base: Record<number, string | null> = { 1: 'X' };
+    const store = createProgrammeLocalCopyStore(localStorage, { ownerKey: 'learner-1', attemptId: 'attempt-1', baseFor: (q) => (q in base ? base[q] : null) });
+    store.remember(1, 'A');   // PATCH "A" goes out
+    store.remember(1, 'B');   // typed again while "A" is in flight
+    store.clearIfCurrent(1, 'A');   // "A" acked; "B" (its PATCH then fails) stays
+    expect(readLocalCopy(localStorage, copyScope)?.answers[1]).toMatchObject({ value: 'B', baseValue: 'A' });
+    const plan = planLocalCopyReplay(readLocalCopy(localStorage, copyScope), { open: true, answers: { 1: { value: 'A' } } });
+    expect(plan.resend).toEqual([{ q: '1', value: 'B' }]);
   });
 });

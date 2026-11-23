@@ -39,12 +39,12 @@ export function createProgrammeLocalCopyStore(
   { ownerKey, attemptId, baseFor, now = () => Date.now() }: { ownerKey: string; attemptId: string; baseFor(qNum: number): string | null; now?: () => number },
 ): ProgrammeLocalCopyStore {
   const scope = { surface: LISTENING_PRACTICE_SURFACE, ownerKey, attemptKey: attemptId };
-  const write = (answers: Record<number, string>) => {
+  const write = (answers: Record<number, string>, base: (qNum: number) => string | null = baseFor) => {
     const at = now();
     const existing = readLocalCopy(storage, { ...scope, now: at });
     return writeLocalCopy(storage, {
       ...scope,
-      answers: Object.fromEntries(Object.entries(answers).map(([q, value]) => [q, { value, baseValue: baseFor(Number(q)) }])),
+      answers: Object.fromEntries(Object.entries(answers).map(([q, value]) => [q, { value, baseValue: base(Number(q)) }])),
       expiresAt: existing?.expiresAt ?? localCopyExpiry({ now: at }),
       now: at,
     });
@@ -57,7 +57,14 @@ export function createProgrammeLocalCopyStore(
       return copy ? Object.fromEntries(Object.entries(copy.answers).flatMap(([q, a]) => (typeof a.value === 'string' ? [[Number(q), a.value]] : []))) : {};
     },
     remember(qNum, value) { write({ [qNum]: value }); },
-    clearIfCurrent(qNum, value) { removeAckedFromCopy(storage, { ...scope, entries: [{ q: qNum, value }], now: now() }); },
+    clearIfCurrent(qNum, value) {
+      removeAckedFromCopy(storage, { ...scope, entries: [{ q: qNum, value }], now: now() });
+      // A newer answer typed while this save was in flight stays, but its base
+      // moves to the value the server just acked: otherwise a later replay
+      // would see the server "changed" and drop it (Codex P1 on #2592).
+      const left = readLocalCopy(storage, { ...scope, now: now() })?.answers[String(qNum)];
+      if (left && typeof left.value === 'string' && left.value !== value && left.baseValue !== value) write({ [qNum]: left.value }, () => value);
+    },
     clear() { clearLocalCopy(storage, scope); },
     secure(answers) { return Object.keys(answers).length === 0 || write(answers); },
   };
