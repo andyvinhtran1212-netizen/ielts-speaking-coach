@@ -13424,6 +13424,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/student/today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Today
+         * @description New Today page payload (LEARNERCORE-0063 FR-019..FR-029, FR-070..FR-078).
+         *
+         *     Writes nothing of its own, not even the seen cursor (FR-078). The only write
+         *     is the class-ledger reconcile inside `_visible_assignments` (FR-078 exception,
+         *     amendment 3, #2484). Each part runs in its own worker; a failing part lands
+         *     in `degraded`.
+         */
+        get: operations["today_api_student_today_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/student/today/seen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Today Seen
+         * @description Advance the caller's "Vừa có kết quả" cursor (FR-078). Forward-only in
+         *     tuple order, idempotent; a future time or a malformed key is 422.
+         */
+        post: operations["today_seen_api_student_today_seen_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/public-stats": {
         parameters: {
             query?: never;
@@ -23602,6 +23648,71 @@ export interface components {
             /** Hint */
             hint?: unknown;
         };
+        /** StudentTodayResponse */
+        StudentTodayResponse: {
+            student: components["schemas"]["TodayStudent"];
+            /** Next Lesson */
+            next_lesson?: {
+                [key: string]: unknown;
+            } | null;
+            /** Assigned */
+            assigned?: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Assigned Total Open
+             * @default 0
+             */
+            assigned_total_open: number;
+            /**
+             * Assigned Due Soon
+             * @default 0
+             */
+            assigned_due_soon: number;
+            /**
+             * Assigned Due Later
+             * @default 0
+             */
+            assigned_due_later: number;
+            /** Resume */
+            resume?: components["schemas"]["TodayResumeItem"][];
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "learning" | "first_day" | "order_pending" | "no_course";
+            /** Banner */
+            banner?: ("expiring" | "expired" | "out_of_credits") | null;
+            /** Access */
+            access?: {
+                [key: string]: unknown;
+            }[];
+            /** Credits */
+            credits?: {
+                [key: string]: unknown;
+            } | null;
+            /** Orders Open */
+            orders_open?: {
+                [key: string]: unknown;
+            }[];
+            goal?: components["schemas"]["TodayGoal"] | null;
+            /** New Results */
+            new_results?: components["schemas"]["TodayNewResult"][];
+            new_results_cursor?: components["schemas"]["TodaySeenCursor"] | null;
+            repeat_error?: components["schemas"]["TodayRepeatError"] | null;
+            /** Trial Today Left */
+            trial_today_left?: number | null;
+            /** Open Surveys */
+            open_surveys?: {
+                [key: string]: unknown;
+            }[];
+            /** Mock Exams */
+            mock_exams?: {
+                [key: string]: unknown;
+            }[];
+            /** Degraded */
+            degraded?: string[];
+        };
         /** StudyAnswer */
         StudyAnswer: {
             /**
@@ -23816,6 +23927,84 @@ export interface components {
             published?: boolean | null;
             /** Display Order */
             display_order?: number | null;
+        };
+        /** TodayGoal */
+        TodayGoal: {
+            /** Target Band */
+            target_band: number;
+            /** Exam Date */
+            exam_date?: string | null;
+            /** Weeks Left */
+            weeks_left?: number | null;
+        };
+        /** TodayNewResult */
+        TodayNewResult: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "writing" | "speaking";
+            /** Title */
+            title: string;
+            /** Returned At */
+            returned_at: string;
+            /** Key */
+            key: string;
+            /** Href */
+            href: string;
+        };
+        /** TodayRepeatError */
+        TodayRepeatError: {
+            /** Label */
+            label: string;
+            /** Count */
+            count: number;
+            /** Of */
+            of: number;
+            /** Review Href */
+            review_href?: string | null;
+            /** Total Errors */
+            total_errors: number;
+        };
+        /** TodayResumeItem */
+        TodayResumeItem: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "speaking" | "reading" | "listening" | "dictation";
+            /** Title */
+            title: string;
+            /** Progress */
+            progress?: {
+                [key: string]: number;
+            } | null;
+            /** Href */
+            href: string;
+            /** Expires At */
+            expires_at?: string | null;
+        };
+        /** TodaySeenCursor */
+        TodaySeenCursor: {
+            /** Seen Until */
+            seen_until: string;
+            /** Seen Key */
+            seen_key: string;
+        };
+        /** TodaySeenRequest */
+        TodaySeenRequest: {
+            /**
+             * Seen Until
+             * Format: date-time
+             */
+            seen_until: string;
+            /** Seen Key */
+            seen_key: string;
+        };
+        /** TodayStudent */
+        TodayStudent: {
+            /** Name */
+            name: string;
         };
         /** TopicCreate */
         TopicCreate: {
@@ -47904,6 +48093,70 @@ export interface operations {
                 content: {
                     "application/json": unknown;
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    today_api_student_today_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentTodayResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    today_seen_api_student_today_seen_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TodaySeenRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
