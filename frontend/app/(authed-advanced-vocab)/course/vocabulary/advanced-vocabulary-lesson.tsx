@@ -395,7 +395,7 @@ export function AdvancedVocabularyLesson() {
     const params = new URLSearchParams(window.location.search);
     const bank = params.get('bank'); const item = params.get('item');
     // G02-T11: a lesson link without its bank or item goes back to Vocabulary.
-    if (!bank || !item) { leaveForParent('/vocabulary/hub'); return; }
+    if (!bank || !item) { leaveForParent('/course/assigned'); return; }
     try {
       const ready = await whenGlobalReady(() => !!window.api?.get, 'window.api (Advanced Vocabulary)');
       if (!ready) throw new Error('Chưa thể khởi tạo bài học. Hãy tải lại trang.');
