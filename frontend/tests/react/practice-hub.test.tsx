@@ -135,6 +135,14 @@ it('profile error: treated as flag off', async () => {
   expect(getWith).not.toHaveBeenCalled();
 });
 
+it('flag on but no account id: treated as a profile error, never stuck loading', async () => {
+  install(async () => today());
+  learnerMe.current = { status: 'ready', me: { id: '', learner_v2_enabled: true } };
+  render(<PracticePage />);
+  await waitFor(() => expect(docReplace).toHaveBeenCalledWith('/speaking'));
+  expect(getWith).not.toHaveBeenCalled();
+});
+
 it('profile still loading: neither the page nor a redirect yet', () => {
   install(async () => today());
   learnerMe.current = { status: 'loading', me: null };

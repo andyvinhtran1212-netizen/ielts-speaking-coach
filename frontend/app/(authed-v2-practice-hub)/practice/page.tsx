@@ -23,9 +23,10 @@ function PracticeGate() {
   const { status, me } = useLearnerMe();
   const accountId = status === 'ready' ? me.id || null : null;
   const enabled = status === 'ready' && learnerV2Enabled(me);
-  const leave = status === 'error' || (status === 'ready' && !enabled);
+  // A ready profile without an id cannot own any data: treated as an error.
+  const leave = status === 'error' || (status === 'ready' && (!enabled || !accountId));
   useEffect(() => {
-    // An unreadable profile is treated as flag off: the stand-in page works
+    // An unreadable (or id-less) profile is treated as flag off: the stand-in page works
     // for everyone, the new page only for opted-in learners. `/speaking` is in
     // the legacy tree, so this is a full document replacement (UIBASE-0056 FR-015).
     if (leave) replaceAcrossTrees(router, PRACTICE_STAND_IN);
