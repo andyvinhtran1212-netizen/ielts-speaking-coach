@@ -190,6 +190,9 @@ export function normalizeSelfPaced(value) {
     startedAt: nullableText(root.started_at),
     expectedEndAt: nullableText(root.expected_end_at),
     currentSection: current && MOCK_SECTION_ORDER.includes(current) ? current : null,
+    // Seconds until the current section opens; > 0 only inside a gap
+    // (MOCK_SELF_PACED_GAP_SECONDS > 0). Relative, so no device clock.
+    startsInSeconds: finiteNonNegative(root.starts_in_seconds, 0),
     gapSeconds: finiteNonNegative(root.gap_seconds, 0),
     openUntil: nullableText(root.open_until),
     totalSeconds: finiteNonNegative(root.total_seconds, 0),
@@ -198,7 +201,8 @@ export function normalizeSelfPaced(value) {
 }
 
 /**
- * Which exam-room screen a self-paced sitting shows (FR-014), or null when the
+ * Which exam-room screen a self-paced sitting shows (FR-014: entry, section,
+ * gap, between, closing, missed, submitted), or null when the
  * sitting is not back to back. Only the exam-room branch reads this; the old
  * runner keeps `mockExamView` unchanged.
  */
@@ -206,12 +210,35 @@ export function selfPacedView(state) {
   const sp = state?.selfPaced;
   if (!sp) return null;
   if (!MOCK_LIVE_STATUSES.includes(state.sitting.status)) return 'submitted';
+  // The server already names the next section, but it opens only after the
+  // gap: a fixed countdown, never the section with its full clock.
+  if (sp.state === 'in_progress' && sp.startsInSeconds > 0 && sp.currentSection
+    && state.activeSection === sp.currentSection) return 'gap';
   if (isOpenMockSection(state)) return 'section';
   if (sp.state === 'missed') return 'missed';
   if (sp.state === 'not_started') return 'entry';
-  // Started and no open section on this read: the server is closing the last
-  // section or stamping the next one. Never a menu or a "start next" button.
+  // Every section has ended on the server's clock, but the sitting is still
+  // live: the sweep is collecting the last one. Not "Opening the next section".
+  if (sp.state === 'submitted') return 'closing';
+  // Started and no open section on this read: the server is stamping the
+  // next one. Never a menu or a "start next" button.
   return 'between';
+}
+
+/**
+ * The embedded page's `{type:'mock-answers', section, questions:[{q, answered}]}`
+ * report (FR-014 submit box), or null when it is not one for `section`.
+ */
+export function mockFrameQuestions(data, section) {
+  if (!data || data.type !== 'mock-answers' || data.section !== section) return null;
+  if (!Array.isArray(data.questions) || data.questions.length > 200) return null;
+  const list = [];
+  for (const item of data.questions) {
+    const q = item?.q;
+    if (!Number.isInteger(q) || q < 1 || typeof item.answered !== 'boolean') return null;
+    list.push({ q, answered: item.answered });
+  }
+  return list;
 }
 
 /**

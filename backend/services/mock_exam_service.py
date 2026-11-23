@@ -32,6 +32,7 @@ in — regardless of order.
 from __future__ import annotations
 
 import logging
+import math
 import re
 import time
 from datetime import datetime, timezone
@@ -908,13 +909,19 @@ def self_paced_state(sitting: dict, exam: dict, timeline) -> dict:
     """Learner-facing per-section state of a chain sitting (FR-014)."""
     released = sitting.get("status") == "released"
     current = timeline.current_section
+    now = _now()
+    starts_in = 0
     sections = []
     for w in timeline.sections:
         if w.submitted_at is not None:
             status = "released" if released else "submitted"
         elif w.section == current:
             status = "in_progress"
-        elif w.deadline <= _now():
+            # Only with MOCK_SELF_PACED_GAP_SECONDS > 0: the current section
+            # opens after the gap. Relative seconds, so the runner's countdown
+            # does not depend on the device clock.
+            starts_in = max(0, math.ceil((w.starts_at - now).total_seconds()))
+        elif w.deadline <= now:
             status = "submitted"  # time ran out; the server collects it
         else:
             status = "not_started"
@@ -929,6 +936,7 @@ def self_paced_state(sitting: dict, exam: dict, timeline) -> dict:
         "expected_end_at": timeline.expected_end_at.isoformat() if timeline.expected_end_at else None,
         "current_section": current,
         "section_time_left_seconds": timeline.section_time_left_seconds,
+        "starts_in_seconds": starts_in,
         "gap_seconds": _self_paced_gap_seconds(),
         "open_until": sitting.get("retake_open_until"),
         "total_seconds": sum(_section_duration_seconds(exam, s) for s in _sitting_sections(sitting, exam)),

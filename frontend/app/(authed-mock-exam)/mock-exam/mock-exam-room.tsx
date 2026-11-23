@@ -13,7 +13,7 @@ import { PageState } from '@/components/ui/page-state';
 import { clearLocalCopy } from '@/lib/exam-room/local-copy.mjs';
 import { clockTime } from '@/lib/exam-room/submit-guard.mjs';
 import {
-  configuredMockSections, mockWordCount, selfPacedEntry, selfPacedPrevious, selfPacedView, submittedAtFor,
+  configuredMockSections, formatMockTime, mockWordCount, selfPacedEntry, selfPacedPrevious, selfPacedView, submittedAtFor,
 } from '@/lib/mock-exam-model.mjs';
 
 import type { ConnectionState, MockState, Section } from './mock-exam-runner';
@@ -73,6 +73,10 @@ export interface MockExamRoomProps {
   flushForExit(): Promise<{ unsaved: number }>;
   /** FR-014 self-paced only: "Submit section" early; the next section starts at once. */
   onSubmitSection?(section: Section): Promise<void>;
+  /** FR-014 gap > 0: seconds until the next section opens, counted by the runner. */
+  gapRemaining?: number | null;
+  /** FR-014: the embedded Reading/Listening page's questions, for the submit box. */
+  frameQuestions?: ReadonlyArray<{ q: number; answered: boolean }> | null;
 }
 
 /** Section names on the strip and in the subtitle: words only, no emoji (FR-005). */
@@ -130,6 +134,11 @@ export const MOCK_ROOM_COPY = {
     start: 'Start test',
     next: (section: string) => `Section submitted. Next: ${section}`,
     between: { en: 'Section submitted. Opening the next section…', vi: 'Đã nộp phần thi. Đang mở phần tiếp theo…' },
+    gap: (section: string, clock: string) => ({
+      en: `Section submitted. Next: ${section} starts in ${clock}.`,
+      vi: `Đã nộp phần thi. Phần ${section} bắt đầu sau ${clock}.`,
+    }),
+    closing: { en: 'Time is up. Your last section is being submitted…', vi: 'Hết giờ. Phần cuối đang được nộp…' },
     missed: { en: 'The window for this test has closed. Contact your teacher if you need a make-up test.', vi: 'Kỳ thi đã đóng. Bạn liên hệ giáo viên nếu cần thi bù.' },
     submitted: { en: 'Test submitted', vi: 'Đã nộp bài thi' },
   },
@@ -264,7 +273,7 @@ export function MockExamRoom(props: MockExamRoomProps) {
   const examName = state.exam.readingTitle || props.code || 'IELTS';
   const sp = selfPacedView(state);
 
-  if ((sp === 'entry' || sp === 'missed' || sp === 'between') && !props.collecting) {
+  if ((sp === 'entry' || sp === 'missed' || sp === 'between' || sp === 'gap' || sp === 'closing') && !props.collecting) {
     const entry = selfPacedEntry(state);
     const copy = MOCK_ROOM_COPY.selfPaced;
     const closes = entry?.closesAt ? copy.closes(serverClock(entry.closesAt) || entry.closesAt) : null;
@@ -278,6 +287,15 @@ export function MockExamRoom(props: MockExamRoomProps) {
           {props.startError ? <Notice kind="error" lang="en" live="alert">{props.startError}</Notice> : null}
           {sp === 'missed' ? <p className="me-muted" role="status">{copy.missed.en}<Vi>{copy.missed.vi}</Vi></p> : null}
           {sp === 'between' ? <p className="me-muted" role="status">{copy.between.en}<Vi>{copy.between.vi}</Vi></p> : null}
+          {sp === 'closing' ? <p className="me-muted" role="status">{copy.closing.en}<Vi>{copy.closing.vi}</Vi></p> : null}
+          {sp === 'gap' && state.selfPaced?.currentSection ? (() => {
+            const line = copy.gap(
+              MOCK_ROOM_SECTION_NAMES[state.selfPaced.currentSection],
+              formatMockTime(props.gapRemaining ?? state.selfPaced.startsInSeconds),
+            );
+            // role="timer": read on demand, not announced every second.
+            return <p role="timer" data-mock-gap="">{line.en}<Vi>{line.vi}</Vi></p>;
+          })() : null}
           {sp === 'entry' && entry ? (
             <>
               <p>{copy.total(entry.totalMinutes).en}<Vi>{copy.total(entry.totalMinutes).vi}</Vi></p>
@@ -405,6 +423,11 @@ export function MockExamRoom(props: MockExamRoomProps) {
       timer={props.timerLive ? { kind: 'countdown', remainingSeconds: props.remaining, onExpire: () => {} } : null}
       saveStatus={section === 'writing' ? writingSave : { state: 'idle' }}
       layout={{ kind: 'single', body }}
+      // FR-014: the box lists blank questions of the embedded Reading/Listening
+      // page (reported by the page itself); no navigator, since no sections.
+      questions={state.selfPaced && section && section !== 'writing' && props.frameQuestions
+        ? props.frameQuestions.map((item) => ({ q: item.q, sectionId: section, answered: item.answered, flagged: false }))
+        : undefined}
       // FR-004: no manual submit in sequential, live and retake; the shell gets
       // `submit` only to show the runner's outcome (FR-007). FR-014: a
       // self-paced sitting has "Submit section" through the frame's box.
