@@ -33,9 +33,9 @@ routers/admin/vocab.py::admin_flashcard_stats::routers.admin.vocab._fc_compute_r
 routers/admin/vocab.py::admin_flashcard_stats::routers.admin.vocab._fc_compute_srs_health	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
 routers/admin/sessions.py::admin_get_alerts::db.execute	4	G5	Existing inline sync DB execution; offload in G5.
 routers/admin/sessions.py::admin_get_session::db.execute	5	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::admin_grammar_analytics::routers.admin._grammar_article_metric_rows	2	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/grammar.py::admin_grammar_analytics::routers.admin.grammar._grammar_article_metric_rows	2	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
 routers/admin/vocab.py::admin_list_d1_questions::db.execute	2	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::admin_list_grammar_articles::routers.admin._grammar_article_metric_rows	2	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/grammar.py::admin_list_grammar_articles::routers.admin.grammar._grammar_article_metric_rows	2	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
 routers/admin/vocab.py::admin_list_lemma_overrides::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
 routers/admin/sessions.py::admin_list_sessions::db.execute	3	G5	Existing inline sync DB execution; offload in G5.
 routers/admin/vocab.py::admin_patch_d1_question::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
