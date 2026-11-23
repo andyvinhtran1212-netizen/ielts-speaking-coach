@@ -29,3 +29,25 @@ Not approved by this decision:
 - Merging any PR. Each merge needs anh Andy's own "merge #N".
 
 No learner data is included here.
+
+## FR-007 change and wording aligned with EXAMROOM-0066
+
+On 2026-11-23 at 17:57 Asia/Saigon (10:57:43 UTC), the owner (anh Andy) wrote in the
+project chat of the Averlearning Claude Code project, verbatim (two lines of one message):
+
+> duyệt sửa FR-007 0071
+
+> duyệt amendment 2 spec 0066 FR-015 (chỉ "Ở lại" khi chưa giữ được bài); duyệt sửa chữ 0071 theo 0066
+
+What these lines approve:
+
+- The FR-007 change already in `spec.md` (commit `e5c0f200`, answering the Codex finding on
+  #2509): a section whose collection has started while its `*SubmittedAt` is still null stays
+  `submitting` and keeps retrying the final save; `closed_unconfirmed` only once
+  `*SubmittedAt` is set or the sitting is no longer in progress. No further requirement change.
+- The leave-box wording follows the EXAMROOM-0066 shell strings: "Leave this test?" with
+  "Stay in test" (primary) and "Leave test" (FR-008, FR-009, `ui-states.md`,
+  `verification.md`), replacing "Leave the test?" / "Continue test".
+
+Status stays `approved`. Not approved by this decision: turning on the exam room for this
+surface on staging or production, and merging any PR.
