@@ -33,11 +33,11 @@ Mọi dòng ở trạng thái `PENDING`: spec đang `draft`, chưa có dòng mã
 | FR-034 | kind=test; ref=planned React lessons 404 or missing API shows "Bài học của khoá sẽ mở dần", 500 errors only the lesson block, no locked state, ?course= fallback (T15) | PENDING |
 | FR-035 | kind=test; ref=planned React class-only router.replace to assigned tab target before rendering groups; degraded part does not redirect (T15) | PENDING |
 | FR-036 | kind=test; ref=planned React exact grading-flow notes under each group (T15) | PENDING |
-| FR-037 | kind=test; ref=planned React expired course label and renew button only with can_renew and labels module (T15) | PENDING |
+| FR-037 | kind=test; ref=planned React expired course label and renew button only with can_renew and labels module; 403 course_access_expired from 0064 lessons renders no lesson list and no load-error banner (T15) | PENDING |
 | FR-079 | kind=test; ref=planned React practice-hub four cards in order via liveHref, resume error only on the resume block (T16) | PENDING |
 | FR-080 | kind=test; ref=planned React tests-hub self-select rows per skill full and mini only, rows hidden when target not live, no four-skill self-select in any state (T16) | PENDING |
 | FR-081 | kind=test; ref=planned React no assigned block when empty; self_paced line with total_minutes; partial skill set named; buttons per state (T16); pytest assigned_exams from list_open_exams and my_sittings (T16) | PENDING |
-| FR-082 | kind=test; ref=planned pytest results order and stable cursor, band only for 40-question L/R, overall only for four-skill assigned mock via overall_readiness (T16); React empty Overall cell has screen-reader label (T16) | PENDING |
+| FR-082 | kind=test; ref=planned pytest results order and stable cursor, band only for 40-question L/R, overall only for four-skill assigned mock via overall_readiness (T16); pytest mock sitting with four bands but status not released returns no band/overall/pending_skills in JSON, then released returns them (T16); React empty Overall cell has screen-reader label (T16) | PENDING |
 | FR-083 | kind=test; ref=planned React 390px replaces full-test and assigned entry buttons with PHONEGATE-0081 warning, mini test keeps its button (T16) | PENDING |
 | FR-084 | kind=test; ref=planned React credits.total 1 marks Writing full "Không đủ lượt" with CreditsEmptyNotice, credits null marks nothing (T16) | PENDING |
 | FR-085 | kind=test; ref=planned pytest response_model shapes, caller-only filters, degraded vs missing source for student_course and student_tests (T15, T16) | PENDING |
