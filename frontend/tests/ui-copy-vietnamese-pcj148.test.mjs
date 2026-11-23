@@ -15,7 +15,7 @@ const ui = (path) => read(path).replace(/whenGlobalReady\([^;]*?'[^']*\(My Class
 const FILES = {
   'app/(authed-my-class)/course/assigned/my-class-workspace.tsx': [/MY CLASS/, /My Class/],
   'app/(authed)/grammar-checkup/grammar-checkup.tsx': [/My Class/],
-  'app/(authed)/course-exercises/page-shell.tsx': [/My Class/],
+  'app/(authed)/course/exercises/page-shell.tsx': [/My Class/],
   'lib/home-metrics.mjs': [/session đã luyện/, /session nào/],
   'public/js/home.js': [/session đã luyện/, /session nào/],
   'components/admin-access-gate.tsx': [/Admin Access Required/],
@@ -35,7 +35,7 @@ test('the Vietnamese replacements are in place', () => {
   assert.match(checkup, /giáo viên đã giao trong Lớp học\./);
   assert.match(checkup, />Mở Lớp học<\/a>/);
   assert.equal(checkup.match(/Quay lại Lớp học/g)?.length, 3);
-  assert.match(read('app/(authed)/course-exercises/page-shell.tsx'), />← Quay lại Lớp học<\/a>/);
+  assert.match(read('app/(authed)/course/exercises/page-shell.tsx'), />← Quay lại Lớp học<\/a>/);
 });
 
 test('both admin denied states render the shared Vietnamese title and keep the home link', () => {

@@ -210,18 +210,18 @@ describe('course starts preserve the item confirmed by the server', () => {
 
   test('ordinary course start carries class_item without review mode', async () => {
     assert.equal(await destination({ bank_id: 'bank/1', item_id: 'item/A & B' }),
-      '/course-exercises?bank=bank%2F1&class_item=item%2FA%20%26%20B');
+      '/course/exercises?bank=bank%2F1&class_item=item%2FA%20%26%20B');
   });
 
   test('review keeps view=writing and the confirmed class_item', async () => {
     assert.equal(await destination({ bank_id: 'bank-1', item_id: 'item-A', review_only: true }),
-      '/course-exercises?bank=bank-1&view=writing&class_item=item-A');
+      '/course/exercises?bank=bank-1&view=writing&class_item=item-A');
   });
 
   test('missing item ids do not create a bogus class_item parameter', async () => {
     for (const item_id of [undefined, null, '']) {
       assert.equal(await destination({ bank_id: 'bank-1', item_id }),
-        '/course-exercises?bank=bank-1');
+        '/course/exercises?bank=bank-1');
     }
   });
 
@@ -229,7 +229,7 @@ describe('course starts preserve the item confirmed by the server', () => {
     for (const review_only of [false, true]) {
       assert.equal(await destination({ bank_id: 'bank/adv', item_id: 'item/adv',
         runtime: 'advanced_vocab', review_only }),
-      '/advanced-vocabulary?bank=bank%2Fadv&item=item%2Fadv');
+      '/course/vocabulary?bank=bank%2Fadv&item=item%2Fadv');
     }
   });
 });

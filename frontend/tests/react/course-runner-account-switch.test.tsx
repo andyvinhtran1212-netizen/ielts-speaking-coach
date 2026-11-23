@@ -16,8 +16,8 @@ vi.mock('@/lib/auth/auth-provider', () => ({
 }));
 vi.mock('@/lib/when-global-ready.mjs', () => ({ whenGlobalReady: async () => true }));
 
-import { CourseBehavior } from '@/app/(authed)/course-exercises/course-behavior';
-import { CourseShell } from '@/app/(authed)/course-exercises/page-shell';
+import { CourseBehavior } from '@/app/(authed)/course/exercises/course-behavior';
+import { CourseShell } from '@/app/(authed)/course/exercises/page-shell';
 import { createRunner } from '@/public/js/course-runner.js';
 
 type Sent = { userId: string; status: string; path: string; body: any; keepalive: boolean };

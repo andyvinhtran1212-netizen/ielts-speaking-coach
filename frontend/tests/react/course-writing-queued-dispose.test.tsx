@@ -8,8 +8,8 @@ vi.mock('@/lib/auth/auth-provider', () => ({
 }));
 vi.mock('@/lib/when-global-ready.mjs', () => ({ whenGlobalReady: async () => true }));
 
-import { CourseBehavior } from '@/app/(authed)/course-exercises/course-behavior';
-import { CourseShell } from '@/app/(authed)/course-exercises/page-shell';
+import { CourseBehavior } from '@/app/(authed)/course/exercises/course-behavior';
+import { CourseShell } from '@/app/(authed)/course/exercises/page-shell';
 import { createWriting, draftKey, PUSH_DELAY_MS } from '@/public/js/course-writing.js';
 
 const questions = [{ qid: 'E1', type: 'writing', prompt: 'Write a sentence.', subtype: 'E1' }];

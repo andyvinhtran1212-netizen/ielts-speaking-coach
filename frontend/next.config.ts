@@ -147,6 +147,9 @@ const nextConfig: NextConfig = {
       { source: '/flashcard-study', destination: '/vocabulary/flashcards/study', permanent: false },
       { source: '/d1-exercise', destination: '/vocabulary/fill-in', permanent: false },
       { source: '/my-class', destination: '/course/assigned', permanent: false },
+      { source: '/course-exercises', destination: '/course/exercises', permanent: false },
+      { source: '/advanced-vocabulary', destination: '/course/vocabulary', permanent: false },
+      { source: '/grammar-lessons/assigned', destination: '/course/grammar-lesson', permanent: false },
     ];
   },
 

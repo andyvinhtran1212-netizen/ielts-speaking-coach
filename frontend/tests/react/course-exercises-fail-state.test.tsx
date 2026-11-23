@@ -50,11 +50,11 @@ vi.mock('@/lib/redirect-notice-model.mjs', async (importOriginal) => ({
   leaveForParent,
 }));
 
-import { CourseBehavior } from '@/app/(authed)/course-exercises/course-behavior';
-import { CourseShell } from '@/app/(authed)/course-exercises/page-shell';
+import { CourseBehavior } from '@/app/(authed)/course/exercises/course-behavior';
+import { CourseShell } from '@/app/(authed)/course/exercises/page-shell';
 import {
   COURSE_TITLE, COURSE_TITLE_META, SAVE_NOTE_IDLE,
-} from '@/app/(authed)/course-exercises/course-copy';
+} from '@/app/(authed)/course/exercises/course-copy';
 
 const CSS = readFileSync(resolve(process.cwd(), 'public/css/course-exercises.css'), 'utf8');
 const CONNECTION_BADGE = 'Không thể kết nối để lưu';

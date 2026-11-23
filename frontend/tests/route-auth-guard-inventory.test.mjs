@@ -25,10 +25,10 @@ const code = (rel) => read(rel).replace(/(^|\s)\/\/.*$/gm, '$1');
 
 // Route → the client component that owns the signed-out redirect.
 const GUARDED = Object.freeze({
-  '/course-exercises': 'app/(authed)/course-exercises/course-behavior.tsx',
+  '/course/exercises': 'app/(authed)/course/exercises/course-behavior.tsx',
   '/grammar-checkup': 'app/(authed)/grammar-checkup/grammar-checkup.tsx',
   '/grammar-checkup/review/[routeId]': 'app/(authed)/grammar-checkup/review/[routeId]/review-route.tsx',
-  '/advanced-vocabulary': 'app/(authed-advanced-vocab)/advanced-vocabulary/advanced-vocabulary-lesson.tsx',
+  '/course/vocabulary': 'app/(authed-advanced-vocab)/course/vocabulary/advanced-vocabulary-lesson.tsx',
   '/vocabulary/exam': 'app/(authed-vocab-exam)/vocabulary/exam/vocab-exam-behavior.tsx',
 });
 
@@ -148,14 +148,14 @@ describe('route auth-guard inventory (U-03)', () => {
     assert.match(checkup, /\}, \[account, assignmentItem, enterSession, requestedSession, requestedView, router, showReport\]\);/);
     assert.match(checkup, /if \(status !== 'signed-in' \|\| owner !== account \|\| phase === 'loading'\) return <main/);
     assert.match(code(GUARDED['/grammar-checkup/review/[routeId]']), /if \(status !== 'signed-in'\) return <main[^\n]*Đang mở tuyến ôn…/);
-    const advanced = code(GUARDED['/advanced-vocabulary']);
+    const advanced = code(GUARDED['/course/vocabulary']);
     assert.match(advanced, /if \(status !== 'signed-in' \|\| loadedOnce\.current\) return;\s*loadedOnce\.current = true;\s*void load\(\);/);
     assert.match(advanced, /if \(status !== 'signed-in' \|\| phase === 'loading'\) return <main/);
     const exam = code(GUARDED['/vocabulary/exam']);
     assert.match(exam, /if \(status !== 'signed-in'\) return;\s*const controller = new AbortController\(\);/);
     assert.match(exam, /if \(status !== 'signed-in' \|\| state\.status === 'loading'\) \{/);
     // Static shell shows only its neutral "Đang mở bài tập…"; behaviour waits.
-    assert.match(code(GUARDED['/course-exercises']), /if \(status !== 'signed-in' \|\| !user\?\.id\) return;/);
+    assert.match(code(GUARDED['/course/exercises']), /if \(status !== 'signed-in' \|\| !user\?\.id\) return;/);
   });
 
   test('public-by-design routes carry no page-wide signed-out redirect', () => {
