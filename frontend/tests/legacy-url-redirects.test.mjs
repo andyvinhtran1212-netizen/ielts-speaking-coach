@@ -69,8 +69,15 @@ test('explicit URL manifest preserves all 139 pre-refactor redirect rules byte f
   assert.equal(independentRules.length, 139);
   // Captured from main 17159ba0 before this refactor: includes rule order,
   // destinations, permanence and all query conditions, not only URL count.
+  // LEARNERNAV-0062 batch 1 changed exactly two destinations (rules 81, 82):
+  // /pages/flashcard-study.html → /vocabulary/flashcards/study and
+  // /pages/flashcards.html → /vocabulary/flashcards (was 75544da3…2f02c5).
+  // Batch 2 changed exactly one more (rule 79): /pages/d1-exercise.html →
+  // /vocabulary/fill-in (was d80b4fdf…0450de).
+  // Batch 8 changed exactly one more (rule 113): /pages/my-class.html →
+  // /course/assigned (was e2bf5d6c…63bd6a).
   assert.equal(createHash('sha256').update(JSON.stringify(independentRules)).digest('hex'),
-    '75544da36a6d78745a719e5b6d81c5b1212657726b37be38daa844882a2f02c5');
+    'adf1c476e9d9d89ed86b90fd911975655a812bfbcbe3497c5746781682bf7573');
   assert.match(nextConfig, /buildLegacyRetirementRedirects\([\s\S]*?LEGACY_RETIREMENT_PATHS,/);
   assert.doesNotMatch(nextConfig, /discoverLegacyHtmlPaths|readdirSync/);
 });

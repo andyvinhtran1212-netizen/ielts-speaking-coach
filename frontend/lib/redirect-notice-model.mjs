@@ -29,7 +29,7 @@ export const PARENT_LABELS = Object.freeze({
   '/reading/test': 'trang Reading',
   '/grammar/exercises': 'trang bài tập ngữ pháp',
   '/vocabulary/hub': 'trang Từ vựng',
-  '/my-class': 'trang Lớp học',
+  '/course/assigned': 'trang Lớp học',
   '/instructor': 'trang Giảng dạy',
   '/admin/mock-tests': 'trung tâm Mock Test',
   // G02-T12: admin parents.

@@ -90,7 +90,7 @@ test('mobile app menu reaches Lớp học, marks active links and keeps logout w
   await expect(toggle).toBeFocused();
   await toggle.click();
   await menu.getByRole('link', { name: 'Lớp học', exact: true }).click();
-  await expect(page).toHaveURL(/\/my-class$/);
+  await expect(page).toHaveURL(/\/course\/assigned$/);
   // Next may retain the prior route in a hidden Activity tree.
   const classChrome = page.locator('aver-chrome[active="class"]');
   await expect(classChrome).toBeVisible();

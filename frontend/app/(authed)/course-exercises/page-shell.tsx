@@ -23,7 +23,7 @@ export function CourseShell() {
       <aver-chrome active="class"></aver-chrome>
 
       <main className="cx-wrap">
-        <a className="cx-back" href="/my-class">← Quay lại Lớp học</a>
+        <a className="cx-back" href="/course/assigned">← Quay lại Lớp học</a>
 
         <header className="cx-page-head">
           <div>

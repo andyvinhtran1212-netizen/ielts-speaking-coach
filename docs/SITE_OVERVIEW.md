@@ -113,7 +113,7 @@ to `/`; the historical source file is not a separately served marketing page.
 | `/listening/review` | student, plus admin preview | Native submitted-only chữa-bài: score/band floor, wrong-answer focus, section transcript, rich per-question solution and real audio-window seek (`GET /api/listening/tests/attempts/{id}/review`). `?admin_test_id=` opens the honest no-score admin preview; mock-sealed attempts remain backend-gated until release. |
 | `/listening/analytics` | student | Personal listening analytics. |
 | `/listening/practice` | student | Quick-practice selection workspace; chosen exercises open the practice runner. |
-| `/listening/exercise-book` · `/listening/exercise-book/tests/[testId]` · `/listening/exercise-book/attempts/[attemptId]/review` | student | Assigned exercise-book Listening (Black Eye U1 first): own assignments with per-activity status and completion, a runner keyed by `?class_item=` that resumes the in-progress attempt before any start, saves per cell with ordered `client_seq` ACKs and submits `expected_answers`, then a submitted-only SELF-CHECK review (reference, explanation, source status; no score). Built on the D↔E contract v1 mocks until PR D ships; deployed builds answer 503 until then. Entry from `/my-class` only when the learner has a book assignment. |
+| `/listening/exercise-book` · `/listening/exercise-book/tests/[testId]` · `/listening/exercise-book/attempts/[attemptId]/review` | student | Assigned exercise-book Listening (Black Eye U1 first): own assignments with per-activity status and completion, a runner keyed by `?class_item=` that resumes the in-progress attempt before any start, saves per cell with ordered `client_seq` ACKs and submits `expected_answers`, then a submitted-only SELF-CHECK review (reference, explanation, source status; no score). Built on the D↔E contract v1 mocks until PR D ships; deployed builds answer 503 until then. Entry from `/course/assigned` only when the learner has a book assignment. |
 
 ### 4.5 Student — Reading
 
@@ -142,8 +142,8 @@ to `/`; the historical source file is not a separately served marketing page.
 | Page | Audience | Purpose · operation |
 |---|---|---|
 | `/vocabulary/hub` | student | Vocab hub landing (Từ vựng theo chủ đề / Flashcards / Exercises); mounts the tab modules. |
-| `/flashcards` · `/flashcard-study` | student | Flashcard stacks + SRS study (`/api/flashcards/*`, SM-2). |
-| `/exercises` · `/d1-exercise` | student | Fill-blank vocab exercises (`/api/exercises/*`). |
+| `/vocabulary/flashcards` · `/vocabulary/flashcards/study` | student | Flashcard stacks + SRS study (`/api/flashcards/*`, SM-2). Old `/flashcards` · `/flashcard-study` 307 here (LEARNERNAV-0062). |
+| `/exercises` · `/vocabulary/fill-in` | student | Fill-blank vocab exercises (`/api/exercises/*`). Old `/d1-exercise` 307s to `/vocabulary/fill-in` (LEARNERNAV-0062). |
 | `/vocabulary` | all | Vocabulary reference wiki — categories, article selection, pronunciation, usage and collocations; distinct from the authenticated practice hub. |
 | `/vocabulary/practice` | student | Active vocabulary practice by set, with progress and review. |
 | `/vocabulary/exam` | student | Exam-oriented vocabulary workspace. |
@@ -171,7 +171,7 @@ to `/`; the historical source file is not a separately served marketing page.
 
 | Page | Audience | Purpose · operation |
 |---|---|---|
-| `/my-class` | student | My Class workspace for class activity and assigned work. |
+| `/course/assigned` | student | My Class workspace for class activity and assigned work. Old `/my-class` 307s to `/course/assigned` (LEARNERNAV-0062). |
 | `/course-exercises` | student | Session-based course exercises; opens the learner exercise/answer/review flow. |
 
 ### 4.8 Admin — landing + dashboards

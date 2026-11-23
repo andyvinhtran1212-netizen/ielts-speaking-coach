@@ -438,7 +438,7 @@ describe('assignment start contract', () => {
     const listeningReview = readFileSync(new URL('../public/js/listening-review.js', import.meta.url), 'utf8');
 
     for (const source of [readingReview, listeningReview]) {
-      assert.match(source, /'my-class':\s*\{\s*href:\s*'\/my-class'/);
+      assert.match(source, /'my-class':\s*\{\s*href:\s*'\/course\/assigned'/);
       assert.match(source, /admin:\s*\{\s*href:\s*'\/admin\/classes'/);
     }
   });
@@ -616,7 +616,7 @@ describe('W-07 / A-S3 — a handed-in writing give says what happened to it', ()
   test('a late hand-in is labelled "Nộp trễ" next to its review state', () => {
     const row = parse(give({ is_late: true, review_state: 'graded' })).assignments[0];
     assert.equal(row.isLate, true);
-    const workspace = readFileSync(new URL('../app/(authed-my-class)/my-class/my-class-workspace.tsx', import.meta.url), 'utf8');
+    const workspace = readFileSync(new URL('../app/(authed-my-class)/course/assigned/my-class-workspace.tsx', import.meta.url), 'utf8');
     assert.match(workspace,
       /\{writing && row\.isLate && <span className="mc-item-state" data-state="late">Nộp trễ<\/span>\}/);
     assert.match(workspace, /: writing \? writing\.label/,
@@ -631,8 +631,8 @@ describe('W-07 / A-S3 — a handed-in writing give says what happened to it', ()
 });
 
 describe('native route ownership', () => {
-  const workspace = readFileSync(new URL('../app/(authed-my-class)/my-class/my-class-workspace.tsx', import.meta.url), 'utf8');
-  const page = readFileSync(new URL('../app/(authed-my-class)/my-class/page.tsx', import.meta.url), 'utf8');
+  const workspace = readFileSync(new URL('../app/(authed-my-class)/course/assigned/my-class-workspace.tsx', import.meta.url), 'utf8');
+  const page = readFileSync(new URL('../app/(authed-my-class)/course/assigned/page.tsx', import.meta.url), 'utf8');
   const layout = readFileSync(new URL('../app/(authed-my-class)/layout.tsx', import.meta.url), 'utf8');
   const chrome = readFileSync(new URL('../public/js/components/aver-chrome.js', import.meta.url), 'utf8');
   const home = readFileSync(new URL('../app/(authed-home)/home/page-shell.tsx', import.meta.url), 'utf8');
@@ -659,7 +659,7 @@ describe('native route ownership', () => {
   });
 
   test('all canonical inbound links use the clean route', () => {
-    for (const source of [chrome, home, course]) assert.match(source, /(?:href=|href_matches: )['"]\/my-class['"]/);
+    for (const source of [chrome, home, course]) assert.match(source, /(?:href=|href_matches: )['"]\/course\/assigned['"]/);
     assert.doesNotMatch(chrome, /href="\/pages\/my-class\.html"/);
   });
 
@@ -682,6 +682,6 @@ describe('native route ownership', () => {
       'persisted Legacy affinity must keep the hard-navigation rollback path');
     assert.match(opener, /target\.kind === 'result'[\s\S]*?router\.push\(target\.url\)/,
       'completed class Speaking should reach the native result without a reload');
-    assert.match(ledger, /\| `\/my-class` \| `\/pages\/my-class\.html` remains rollback\/parity target/);
+    assert.match(ledger, /\| `\/course\/assigned` \| `\/pages\/my-class\.html` remains rollback\/parity target/);
   });
 });

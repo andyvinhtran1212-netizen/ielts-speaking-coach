@@ -142,6 +142,11 @@ const nextConfig: NextConfig = {
       // C-05 / U-09: there is no separate sign-up page; /login is the sign-up
       // entry (the landing's "Đăng ký" links there). Temporary, as above.
       { source: '/signup', destination: '/login', permanent: false },
+      // G07 — đổi đường dẫn học viên (LEARNERNAV-0062). permanent:false trong giai đoạn chuyển (T24).
+      { source: '/flashcards', destination: '/vocabulary/flashcards', permanent: false },
+      { source: '/flashcard-study', destination: '/vocabulary/flashcards/study', permanent: false },
+      { source: '/d1-exercise', destination: '/vocabulary/fill-in', permanent: false },
+      { source: '/my-class', destination: '/course/assigned', permanent: false },
     ];
   },
 

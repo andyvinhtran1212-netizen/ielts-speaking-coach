@@ -13,7 +13,7 @@ const read = (path) => readFileSync(join(root, path), 'utf8');
 const ui = (path) => read(path).replace(/whenGlobalReady\([^;]*?'[^']*\(My Class\)'/gs, '');
 
 const FILES = {
-  'app/(authed-my-class)/my-class/my-class-workspace.tsx': [/MY CLASS/, /My Class/],
+  'app/(authed-my-class)/course/assigned/my-class-workspace.tsx': [/MY CLASS/, /My Class/],
   'app/(authed)/grammar-checkup/grammar-checkup.tsx': [/My Class/],
   'app/(authed)/course-exercises/page-shell.tsx': [/My Class/],
   'lib/home-metrics.mjs': [/session đã luyện/, /session nào/],
@@ -30,7 +30,7 @@ for (const [path, banned] of Object.entries(FILES)) {
 }
 
 test('the Vietnamese replacements are in place', () => {
-  assert.equal(read('app/(authed-my-class)/my-class/my-class-workspace.tsx').match(/<p className="mc-eyebrow">LỚP HỌC<\/p>/g)?.length, 2);
+  assert.equal(read('app/(authed-my-class)/course/assigned/my-class-workspace.tsx').match(/<p className="mc-eyebrow">LỚP HỌC<\/p>/g)?.length, 2);
   const checkup = read('app/(authed)/grammar-checkup/grammar-checkup.tsx');
   assert.match(checkup, /giáo viên đã giao trong Lớp học\./);
   assert.match(checkup, />Mở Lớp học<\/a>/);

@@ -4,7 +4,7 @@ export function flashcardReturnHref(rawStack) {
   const stack = parseFlashcardStack(rawStack);
   if (stack?.mode === 'exam') return '/vocabulary/exam';
   if (stack?.mode === 'wiki') return `/vocabulary?cat=${encodeURIComponent(stack.key)}`;
-  return '/flashcards';
+  return '/vocabulary/flashcards';
 }
 
 function object(value) {

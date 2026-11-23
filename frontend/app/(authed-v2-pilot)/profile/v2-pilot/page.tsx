@@ -37,7 +37,7 @@ export default function V2PilotPage() {
         <h1>Thử khung v2</h1>
         <p>Trang chẩn đoán: chuyển giữa cây giao diện cũ và cây &ldquo;Bản in&rdquo; luôn tải lại cả trang.</p>
         {/* A v1 destination: a plain <a>, never next/link (plan 5.7.3). */}
-        <p><a href="/flashcard-study" data-testid="to-v1">Về trang ôn thẻ (giao diện cũ)</a></p>
+        <p><a href="/vocabulary/flashcards/study" data-testid="to-v1">Về trang ôn thẻ (giao diện cũ)</a></p>
       </div>
     </PilotLearnerShell>
   );
