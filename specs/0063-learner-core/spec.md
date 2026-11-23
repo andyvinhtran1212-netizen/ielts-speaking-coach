@@ -1,14 +1,14 @@
 ---
 id: LEARNERCORE-0063
 title: Signed-in learners open Today to see what to do now in one of five states, from one read API, behind a per-learner switch that an admin can turn off in seconds
-status: draft
+status: approved
 risk: high
 owner: product
 ---
 
 # Signed-in learners open Today to see what to do now in one of five states, from one read API, behind a per-learner switch that an admin can turn off in seconds
 
-Status: **draft** — bản gốc đã được anh Andy duyệt 23/11/2026 16:16 giờ VN ở #2461; nhánh này mang bản sửa đổi chưa duyệt nên frontmatter để `draft` tới khi anh duyệt (xem `approval-decision.md`); soạn ngày 23/11/2026 cho nhiệm vụ `G07-T02` (thương mại hoá 2026-11), từ `docs/proposals/commercialization-2026-11/GOI-07-loi-hoc-vien.md` mục 4.3, 5.3, 5.6, 5.8, 6 (T05, T13, T14), 9 và mục 10. Chưa dòng mã nào chạy theo spec này. Chỉ anh Andy duyệt; khi duyệt, câu trả lời ghi nguyên văn kèm thời điểm vào `approval-decision.md` cùng thư mục và `status` đổi sang `approved`. Số spec 0063 lấy từ sổ cấp số ở `01-KE-HOACH-TONG.md` mục 6. **Bản sửa đổi 1** (23/11/2026, nhiệm vụ `G07-T15`, `G07-T16`, gói mục 4.4 và 6) thêm Lộ trình và hai hub Luyện tập, Thi thử; phần đó cũng chưa có dòng mã nào và chờ anh duyệt riêng (bản gốc đã duyệt, các bản sửa đổi chưa; xem `approval-decision.md`).
+Status: **approved** — anh Andy duyệt bản gốc 23/11/2026 16:16 giờ VN (#2461) và các bản sửa đổi 1–6 lúc 16:23 giờ VN (#2481, #2482, #2484, #2489, #2491); xem `approval-decision.md`; soạn ngày 23/11/2026 cho nhiệm vụ `G07-T02` (thương mại hoá 2026-11), từ `docs/proposals/commercialization-2026-11/GOI-07-loi-hoc-vien.md` mục 4.3, 5.3, 5.6, 5.8, 6 (T05, T13, T14), 9 và mục 10. Chưa dòng mã nào chạy theo spec này. Chỉ anh Andy duyệt; khi duyệt, câu trả lời ghi nguyên văn kèm thời điểm vào `approval-decision.md` cùng thư mục và `status` đổi sang `approved`. Số spec 0063 lấy từ sổ cấp số ở `01-KE-HOACH-TONG.md` mục 6. **Bản sửa đổi 1** (23/11/2026, nhiệm vụ `G07-T15`, `G07-T16`, gói mục 4.4 và 6) thêm Lộ trình và hai hub Luyện tập, Thi thử; phần đó cũng chưa có dòng mã nào và đã được anh duyệt (xem `approval-decision.md`).
 
 ## Tóm tắt (tiếng Việt)
 
@@ -98,7 +98,7 @@ Trang chủ học viên hiện là bảng điểm (`GET /api/student/home-summar
 - **FR-077:** Mọi khối G07 hiện band theo quy tắc gói 5.6: Writing ≥ 1 bài `delivered` có band; Speaking ≥ 1 buổi đã chấm có band; Listening/Reading ≥ 1 đề đủ 40 câu; Overall chỉ ở mock test được giao đủ bốn kỹ năng có band. Không bao giờ hiện "0/0", "—" đứng một mình, mã đề nội bộ, số lượt, band hay ngày hết hạn tự bịa khi API chưa có.
 - **FR-078:** `GET /api/student/today` chỉ đọc, không ghi gì. Mốc đã xem chỉ tiến lên khi khối "Vừa có kết quả" đã thật sự vẽ: frontend gọi `POST /api/student/today/seen` với con trỏ `(seen_until, seen_key)` của bài mới nhất trong các bài vừa vẽ (`seen_key` = `<kind>:<id>`); máy chủ chỉ tiến con trỏ `(today_seen_at, today_seen_key)` lên theo thứ tự bộ và không nhận thời điểm trong tương lai. Nhiều bài trả cùng một thời điểm vẫn lần lượt hiện hết. Bài tải về mà không vẽ (lỗi vẽ, rời trang trước khi vẽ) và bài thứ ba trở đi vẫn hiện ở lần sau. Lỗi khi ghi mốc không hiện cho học viên (ghi log); lần sau khối hiện lại cùng bài.
 
-### Bản sửa đổi 1 — Lộ trình (G07-T15) · PENDING, chưa duyệt
+### Bản sửa đổi 1 — Lộ trình (G07-T15)
 
 - **FR-030:** (FR-07-030) `/course` có ba thẻ (đầu thẻ là component G03): "Các khoá và bài học" (`/course`), "Bài được giao (n)", "Buổi học và tài liệu lớp" (chỉ hiện khi `has_class`). Đích của hai thẻ sau lấy từ route registry: "Bài được giao" là `/course/assigned` khi Đợt 8 đã chạy, trước đó `/my-class`; "Buổi học và tài liệu lớp" là `/course/class` khi trang đó `live`, chưa `live` thì thẻ không hiện. n = `assigned_open` (số bài được giao chưa nộp của các lớp đang hoạt động, đếm như `assigned_total_open` của FR-022); n = 0 thì thẻ chỉ ghi "Bài được giao", không ghi số.
 - **FR-031:** (FR-07-031) Nhóm "Khoá online của bạn": mỗi quyền nguồn online (`GET /api/me/courses` của G04) một dòng: tên khoá, "còn X ngày" (`days_left`), tiến độ "a/b bài" khi COURSELESSON-0064 trả số bài (chưa có thì không có phần tiến độ), "Còn N lượt chấm AI" từ `credits.balance` của đúng dòng đó trong `items` (không dùng tổng `by_kind.online` của cả tài khoản; thiếu số thì không ghi). Quyền còn hạn lên trước, rồi quyền đã hết hạn (FR-037). Tiếp theo mục "Khoá online khác · dự kiến": sản phẩm đang mở hoặc sắp mở mà người đó chưa có quyền, từ danh mục khoá công khai của G04, nút "Xem khoá" → `/courses/[slug]`. Không có quyền online nào: câu trống của tờ LoTrinh và nút "Xem các khoá" (`coursesHref()`). Cờ `AVER_PUBLIC_COMMERCE` tắt thì ẩn nút "Xem khoá", "Xem các khoá" và mục "dự kiến" (như FR-027).
@@ -109,7 +109,7 @@ Trang chủ học viên hiện là bảng điểm (`GET /api/student/home-summar
 - **FR-036:** (FR-07-036) Dưới mỗi nhóm có ghi chú luồng chấm, câu chữ cố định: nhóm online "AI chấm và trả nhận xét ngay"; nhóm lớp "Speaking: AI chấm và trả ngay. Writing: AI chấm, giáo viên duyệt rồi mới trả" (00 mục 2 điểm 20; tờ ghi khác thì 00 thắng).
 - **FR-037:** (FR-07-037) Khoá online đã hết hạn: dòng khoá có nhãn chữ "Đã hết hạn" và nút "Đăng ký lại" (nhãn và đích từ `frontend/lib/course-access-labels.mjs`; chỉ hiện khi `can_renew`; module chưa có thì không có nút, không gõ cứng nhãn). Danh sách bài của khoá vẫn xem được (giữ vị trí học); mở bài giảng bị máy chủ chặn theo COURSELESSON-0064, trang bài giảng hiện lối của spec đó.
 
-### Bản sửa đổi 1 — Luyện tập và Thi thử (G07-T16) · PENDING, chưa duyệt
+### Bản sửa đổi 1 — Luyện tập và Thi thử (G07-T16)
 
 - **FR-079:** `/practice` ở nhóm route mới `(authed-practice-hub)` (không chạm layout `(authed-practice)` đang nạp `practice.js`). Trang có khối "Làm tiếp" lấy phần `resume` của `GET /api/student/today` (cùng quy tắc FR-023; không thêm API) và đúng 4 thẻ kỹ năng theo thứ tự Speaking · Writing · Listening · Reading, trỏ tới hub hiện có `/speaking`, `/writing/dashboard`, `/listening`, `/reading` qua `liveHref`. `resume` rỗng → khối ẩn; lỗi toàn phần hoặc `degraded` có `resume` → khối báo "Chưa tải được bài đang làm" và nút "Thử lại", 4 thẻ vẫn hiện. Thẻ không hiện band hay số lượt.
 - **FR-080:** `/tests` khối 1 "Đề tự chọn": mỗi kỹ năng một dòng full test và một dòng mini test khi kỹ năng đó có loại đề ấy, trỏ tới trang chọn đề hiện có: Listening full `/listening/tests`, Listening mini `/listening/mini-test`, Reading full `/reading/test`, Reading mini `/reading/mini-test`, Speaking full test là lối full test trong `/speaking`, Writing full test là trang của G08. Đích lấy qua `liveHref`; đích chưa `live` → dòng không hiện (không bao giờ dẫn tới 404). Làm lúc nào cũng được, làm lại được; trang không ghi giới hạn số lần. Không có dòng, nút hay thẻ đề bốn kỹ năng tự chọn ở bất kỳ trạng thái nào.
