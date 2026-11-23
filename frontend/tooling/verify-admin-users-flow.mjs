@@ -82,9 +82,15 @@ const allowedWrites = [
   /^DELETE \/admin\/access-codes\/[^/]+$/,
   /^DELETE \/admin\/access-codes\/[^/]+\/users\/[^/]+$/,
   /^POST \/admin\/access-codes\/[^/]+\/refill$/,
+  /^POST \/admin\/access-codes\/[^/]+\/revoke-used$/,
   /^POST \/api\/(analytics\/events|error-logs)$/,
 ];
 let generated = 0;
+const audits = [
+  { id: 'a0', code_id: 'c4', action: 'create', actor_user_id: adminId, target_user_id: null, before: null, after: { permissions: ['all'] }, created_at: '2026-05-01T00:00:00Z' },
+];
+const auditFails = new Set(['c1']);
+const revokeUsedBodies = [];
 let studentCreated = false;
 
 const browser = await launchChromium();
@@ -166,6 +172,31 @@ await page.route('**/*', async (route) => {
     const target = source?.used_by || 'u2';
     codes = [{ ...source, id: 'refill-1', code: 'REFILL-005', created_at: '2026-08-12T02:00:00Z', is_revoked: false, is_active: true, assigned_users: [{ user_id: target, name: 'Bob', email: 'bob@example.test', is_fallback_used_by: false, removable: true, quota: { used: 3, limit: source?.session_limit ?? null, remaining: source?.session_limit == null ? null : source.session_limit - 3, limit_type: source?.session_limit == null ? 'unlimited' : 'per_user_via_code' } }] }, ...codes];
     return json({ ok: true, user_id: target, new_code: 'REFILL-005', new_code_id: 'refill-1' });
+  }
+  // ADMINIA-0074 FR-055: the code page reads the DETAIL shape
+  // (`assignments[{display_name, ...}]`), not the list's `assigned_users`.
+  const auditMatch = parsed.pathname.match(/^\/admin\/access-codes\/([^/]+)\/audit$/);
+  if (auditMatch && method === 'GET') return json(audits.filter((entry) => entry.code_id === auditMatch[1]).slice().reverse());
+  const revokeUsed = parsed.pathname.match(/^\/admin\/access-codes\/([^/]+)\/revoke-used$/);
+  if (revokeUsed && method === 'POST') {
+    const body = JSON.parse(request.postData() || '{}');
+    revokeUsedBodies.push({ id: revokeUsed[1], ...body });
+    const code = codes.find((item) => item.id === revokeUsed[1]);
+    if (!code) return json({ detail: 'Mã kích hoạt không tồn tại' }, 404);
+    if (String(body.confirm_code || '').toUpperCase() !== code.code) return json({ detail: { code: 'confirm_code_mismatch', message: 'Mã gõ lại không khớp.' } }, 422);
+    if (code.is_revoked) return json({ id: code.id, code: code.code, is_revoked: true, already_revoked: true, affected_user_count: 0, audit_recorded: true });
+    const affected = code.assigned_users.filter((user) => user.removable || user.is_fallback_used_by).map((user) => user.user_id);
+    code.is_revoked = true; code.is_active = false;
+    const recorded = !auditFails.has(code.id);
+    if (recorded) audits.push({ id: `a${audits.length + 1}`, code_id: code.id, action: 'revoke', actor_user_id: adminId, target_user_id: null, before: { is_revoked: false }, after: { is_revoked: true, reason: body.reason, affected_user_ids: affected, source: 'danger_zone' }, created_at: '2026-11-23T10:00:00Z' });
+    return json({ id: code.id, code: code.code, is_revoked: true, already_revoked: false, affected_user_count: affected.length, audit_recorded: recorded });
+  }
+  const detailMatch = parsed.pathname.match(/^\/admin\/access-codes\/([^/]+)$/);
+  if (detailMatch && method === 'GET') {
+    const code = codes.find((item) => item.id === detailMatch[1]);
+    if (!code) return json({ detail: 'Access code không tồn tại' }, 404);
+    const { assigned_users: assigned, cohort_name: _cohortName, grant_credits: _credits, ...rest } = code;
+    return json({ ...rest, assignments: assigned.map((user) => ({ id: user.is_fallback_used_by ? null : `as-${user.user_id}`, user_id: user.user_id, assigned_at: code.used_at, is_active: !user.is_fallback_used_by && user.removable, is_fallback_used_by: user.is_fallback_used_by, removable: user.removable, display_name: user.name, email: user.email })) });
   }
   const codeMatch = parsed.pathname.match(/^\/admin\/access-codes\/([^/]+)$/);
   if (codeMatch && method === 'PATCH') {
@@ -267,8 +298,16 @@ for (const legacy of ['/admin/users?tab=codes', '/admin/access-codes']) {
     response.status() === (legacy.includes('?') ? 307 : 308) && new URL(location, BASE).pathname === '/admin/activation-codes',
     `${response.status()} ${location}`);
 }
+// `new` would match /admin/activation-codes/[codeId]; the page calls
+// notFound() for it. Under cacheComponents the AuthedShell streams first, so
+// this is Next's soft 404 (HTTP 200 + not-found boundary + noindex), the same
+// as unknown Grammar articles on production.
 const noCreate = await page.request.get(`${BASE}/admin/activation-codes/new`, { maxRedirects: 0 });
-check('không có trang /admin/activation-codes/new', noCreate.status() === 404, String(noCreate.status()));
+const noCreateBody = await noCreate.text();
+check('không có trang /admin/activation-codes/new (404 của Next)',
+  noCreate.status() === 404
+    || (noCreate.status() === 200 && noCreateBody.includes('NEXT_HTTP_ERROR_FALLBACK;404') && /name="robots" content="noindex/.test(noCreateBody)),
+  String(noCreate.status()));
 
 await page.goto(`${BASE}/admin/users?tab=codes`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: /Mã kích hoạt/ }).waitFor({ state: 'visible' });
@@ -324,7 +363,7 @@ menu = await openMenu('LEGACY-004');
 const legacyRevoke = menu.getByRole('menuitem', { name: /Thu hồi mã/ });
 check('mã legacy chỉ có used_by vẫn là Đã dùng: Thu hồi bị khóa kèm lý do',
   await legacyRevoke.getAttribute('aria-disabled') === 'true'
-    && /Mã đã dùng; không thu hồi từ sổ mã\./.test(await legacyRevoke.innerText())
+    && /Mã đã dùng; thu hồi ở Vùng nguy hiểm của trang mã\./.test(await legacyRevoke.innerText())
     && await stateOf('LEGACY-004').getAttribute('data-ledger-state') === 'used');
 await page.keyboard.press('Escape');
 
@@ -383,6 +422,67 @@ await page.getByText('OLD-003', { exact: true }).waitFor({ state: 'visible' });
 check('lọc Đã thu hồi hiện mã vừa thu hồi để tra lịch sử',
   await stateOf('LATE-006').getAttribute('data-ledger-state') === 'revoked');
 await page.getByRole('combobox', { name: 'Trạng thái', exact: true }).selectOption('');
+
+// ── ADMINIA-0074 FR-055: code page and danger-zone revoke of a used code ──
+await Promise.all([
+  page.waitForURL(`${BASE}/admin/activation-codes/c4`),
+  page.locator('tr').filter({ hasText: 'LEGACY-004' }).getByRole('link', { name: 'LEGACY-004' }).click(),
+]);
+const danger = page.getByRole('region', { name: 'Vùng nguy hiểm' });
+await danger.waitFor({ state: 'visible' });
+check('trang mã: trạng thái Đã dùng, người kích hoạt legacy là lịch sử, có lịch sử thao tác',
+  await page.locator('.au-header [data-ledger-state="used"]').filter({ visible: true }).count() === 1
+    && await page.getByRole('region', { name: 'Người dùng mã' }).getByText('lịch sử kích hoạt', { exact: true }).count() === 1
+    && await page.getByTestId('code-audit').getByText('Tạo mã', { exact: true }).count() === 1
+    && requests.some((item) => item.method === 'GET' && item.path === '/admin/access-codes/c4/audit'));
+check('Vùng nguy hiểm nói rõ ai mất quyền',
+  /1 học viên đang nhận quyền từ mã này sẽ mất quyền ngay: alice@example\.test/.test(await danger.innerText()));
+const confirmInput = danger.getByLabel('Gõ lại mã LEGACY-004 để xác nhận');
+const reasonInput = danger.getByLabel('Lý do thu hồi (bắt buộc)');
+const submitRevoke = danger.getByRole('button', { name: 'Thu hồi mã đã dùng' });
+await confirmInput.fill('LEGACY-00');
+await reasonInput.fill('Học viên đã chuyển lớp khác');
+await submitRevoke.click();
+check('gõ sai mã: báo lỗi, không gửi gì', await danger.getByRole('alert').innerText() === 'Gõ lại đúng mã cần thu hồi.' && revokeUsedBodies.length === 0);
+await confirmInput.fill('legacy-004');
+await reasonInput.fill('  ngắn  ');
+await submitRevoke.click();
+check('lý do dưới 10 ký tự: báo lỗi, không gửi gì', await danger.getByRole('alert').innerText() === 'Lý do cần ít nhất 10 ký tự.' && revokeUsedBodies.length === 0);
+await reasonInput.fill('Học viên đã chuyển lớp khác');
+await submitRevoke.click();
+await page.getByText('Đã thu hồi mã LEGACY-004. 1 học viên mất quyền từ mã này.', { exact: true }).waitFor({ state: 'visible' });
+check('thu hồi gửi mã gõ lại + lý do, rồi đọc lại mã và lịch sử',
+  revokeUsedBodies.length === 1 && revokeUsedBodies[0].confirm_code === 'legacy-004' && revokeUsedBodies[0].reason === 'Học viên đã chuyển lớp khác'
+    && writeHasLaterRead('POST', /^\/admin\/access-codes\/c4\/revoke-used$/, '/admin/access-codes/c4')
+    && writeHasLaterRead('POST', /^\/admin\/access-codes\/c4\/revoke-used$/, '/admin/access-codes/c4/audit'));
+check('sau khi thu hồi: trạng thái Đã thu hồi, lý do nằm trong lịch sử, hết form',
+  await page.locator('.au-header [data-ledger-state="revoked"]').filter({ visible: true }).count() === 1
+    && await page.getByTestId('code-audit').getByText('Lý do: Học viên đã chuyển lớp khác', { exact: true }).count() === 1
+    && await danger.getByText('Mã đã thu hồi. Không thao tác thêm được.', { exact: true }).count() === 1
+    && codes.find((item) => item.id === 'c4')?.used_by === 'u1' && codes.find((item) => item.id === 'c4')?.is_used === true);
+
+await page.goto(`${BASE}/admin/activation-codes/c1`, { waitUntil: 'domcontentloaded' });
+await danger.waitFor({ state: 'visible' });
+await danger.getByLabel('Gõ lại mã ACTIVE-001 để xác nhận').fill('ACTIVE-001');
+await danger.getByLabel('Lý do thu hồi (bắt buộc)').fill('Mã bị lộ trên nhóm chat lớp');
+await danger.getByRole('button', { name: 'Thu hồi mã đã dùng' }).click();
+const auditGap = page.getByRole('alert').filter({ hasText: 'Chưa ghi được lý do vào nhật ký mã' });
+await auditGap.waitFor({ state: 'visible' });
+check('audit không ghi được: báo rõ, không giả vờ thành công', /Đã thu hồi mã ACTIVE-001\. 0 học viên/.test(await auditGap.innerText()));
+
+await page.goto(`${BASE}/admin/activation-codes/missing-code`, { waitUntil: 'domcontentloaded' });
+await page.getByText('Mã kích hoạt không tồn tại.', { exact: true }).waitFor({ state: 'visible' });
+check('mã không tồn tại: báo rõ, không có Vùng nguy hiểm', await page.getByRole('region', { name: 'Vùng nguy hiểm' }).count() === 0);
+
+await page.goto(`${BASE}/admin/activation-codes/c4`, { waitUntil: 'domcontentloaded' });
+await danger.waitFor({ state: 'visible' });
+await page.setViewportSize({ width: 375, height: 812 });
+await page.waitForTimeout(100);
+const detailMobile = await page.evaluate(() => ({ client: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
+check('trang mã không tràn ngang ở 375 px', detailMobile.client === detailMobile.scroll, JSON.stringify(detailMobile));
+await page.setViewportSize({ width: 1365, height: 900 });
+await page.goto(`${BASE}/admin/activation-codes`, { waitUntil: 'domcontentloaded' });
+await page.getByText('ACTIVE-001', { exact: true }).waitFor({ state: 'visible' });
 
 const desktop = await page.evaluate(() => ({ client: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth, right: document.querySelector('.au-shell')?.getBoundingClientRect().right || 0 }));
 check('desktop không tràn ngang', desktop.client === desktop.scroll && desktop.right <= desktop.client);

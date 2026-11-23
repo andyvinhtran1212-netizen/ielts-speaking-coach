@@ -2485,6 +2485,148 @@ async def delete_access_code(
     )
 
 
+# ── POST /admin/access-codes/{code_id}/revoke-used ────────────────────────────
+# ADMINIA-0074 FR-055: revoking a code that is in use happens only in the code
+# page's danger zone. The admin retypes the code and gives a reason; the code
+# is revoked in one write (a revoked code grants nothing, see
+# services/access_code_permissions.py), assignments and redemption history
+# (is_used / used_by / used_at) stay as they are, and the reason goes to
+# access_code_audit together with the number of people who lose access.
+
+REVOKE_REASON_MIN = 10
+REVOKE_REASON_MAX = 500
+
+
+class RevokeUsedCodeRequest(BaseModel):
+    confirm_code: str = Field(min_length=1, max_length=64)
+    reason: str = Field(min_length=1, max_length=REVOKE_REASON_MAX)
+
+
+class RevokeUsedCodeOut(BaseModel):
+    id: str
+    code: str
+    is_revoked: bool
+    already_revoked: bool
+    affected_user_count: int
+    audit_recorded: bool
+
+
+@router.post(
+    "/access-codes/{code_id}/revoke-used",
+    response_model=RevokeUsedCodeOut,
+    responses=staff_guard.STEP_UP_RESPONSES,
+)
+async def revoke_used_access_code(
+    code_id: str,
+    body: RevokeUsedCodeRequest,
+    authorization: str | None = Header(default=None),
+):
+    """Revoke an access code that people are using, with a typed confirmation
+    and a required reason (ADMINIA-0074 FR-055). Idempotent on a revoked code."""
+    admin = await require_admin(authorization)
+    staff_guard.require_recent_mfa(admin, authorization)  # FR-020, before any DB call
+
+    reason = body.reason.strip()
+    if len(reason) < REVOKE_REASON_MIN:
+        raise HTTPException(422, {
+            "code": "reason_too_short",
+            "message": f"Lý do cần ít nhất {REVOKE_REASON_MIN} ký tự.",
+        })
+
+    try:
+        code_res = (
+            supabase_admin.table("access_codes")
+            .select("id, code, is_revoked, is_active, used_by")
+            .eq("id", code_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as exc:
+        logger.error("[admin] load access code for revoke-used failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi tải mã kích hoạt. Vui lòng thử lại.") from None
+    if not code_res.data:
+        raise HTTPException(404, "Mã kích hoạt không tồn tại")
+    row = code_res.data[0]
+    code_value = str(row.get("code") or "")
+
+    if body.confirm_code.strip().upper() != code_value.strip().upper():
+        raise HTTPException(422, {
+            "code": "confirm_code_mismatch",
+            "message": "Mã gõ lại không khớp. Hãy gõ đúng mã cần thu hồi.",
+        })
+
+    if row.get("is_revoked"):
+        return {
+            "id": row["id"], "code": code_value, "is_revoked": True,
+            "already_revoked": True, "affected_user_count": 0, "audit_recorded": True,
+        }
+
+    # Fail closed: the count goes into the audit and the confirmation the
+    # admin reads, so a lookup error must not become "0 people affected".
+    # Who loses access mirrors services/access_code_permissions._active_code_rows:
+    # every active assignment, plus the legacy `used_by` redeemer when that
+    # user has no assignment row at all for this code.
+    try:
+        rows_res = (
+            supabase_admin.table("user_code_assignments")
+            .select("user_id, is_active")
+            .eq("code_id", code_id)
+            .execute()
+        )
+        rows = [r for r in (rows_res.data or []) if r.get("user_id")]
+        affected_set = {str(r["user_id"]) for r in rows if r.get("is_active")}
+        legacy_user = str(row.get("used_by") or "")
+        if legacy_user and legacy_user not in {str(r["user_id"]) for r in rows}:
+            affected_set.add(legacy_user)
+        affected = sorted(affected_set)
+    except Exception as exc:
+        logger.warning("revoke_used_access_code: active-assignment lookup failed code=%s: %s", code_id, exc)
+        raise HTTPException(500, "Không kiểm tra được ai đang dùng mã — thử lại sau.") from None
+
+    try:
+        upd = (
+            supabase_admin.table("access_codes")
+            .update({"is_revoked": True, "is_active": False})
+            .eq("id", code_id)
+            .eq("is_revoked", False)
+            .execute()
+        )
+    except Exception as exc:
+        logger.error("[admin] revoke-used access code failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi thu hồi mã. Vui lòng thử lại.") from None
+    if not upd.data:
+        # Another admin revoked it between the read and the write.
+        return {
+            "id": row["id"], "code": code_value, "is_revoked": True,
+            "already_revoked": True, "affected_user_count": 0, "audit_recorded": True,
+        }
+
+    audit_recorded = True
+    try:
+        supabase_admin.table("access_code_audit").insert({
+            "actor_user_id": _actor_id(admin),
+            "action": "revoke",
+            "code_id": code_id,
+            "target_user_id": None,
+            "before": {"is_revoked": False, "is_active": bool(row.get("is_active"))},
+            "after": {
+                "is_revoked": True, "is_active": False,
+                "reason": reason, "affected_user_ids": affected,
+                "source": "danger_zone",
+            },
+        }).execute()
+    except Exception as exc:
+        # The revoke already happened; say so instead of hiding the gap.
+        audit_recorded = False
+        logger.error("access_code_audit insert failed (revoke-used code=%s): %s", code_id, exc)
+
+    return {
+        "id": row["id"], "code": code_value, "is_revoked": True,
+        "already_revoked": False, "affected_user_count": len(affected),
+        "audit_recorded": audit_recorded,
+    }
+
+
 # ── GET /admin/access-codes/{code_id} ─────────────────────────────────────────
 
 @router.get("/access-codes/{code_id}")
@@ -2498,7 +2640,7 @@ async def get_access_code_detail(
     try:
         code_res = (
             supabase_admin.table("access_codes")
-            .select("id, code, is_used, is_revoked, is_active, used_by, used_at, created_at, permissions, session_limit, expires_at")
+            .select("id, code, is_used, is_revoked, is_active, used_by, used_at, created_at, permissions, session_limit, expires_at, code_type, cohort_id, notes")
             .eq("id", code_id)
             .limit(1)
             .execute()

@@ -357,6 +357,8 @@ STEP_UP_ROUTES = frozenset({
     ("PATCH", "/admin/users/{user_id}/role"),
     ("PATCH", "/admin/users/{user_id}/active"),
     ("POST", "/admin/users/{user_id}/revoke-sessions"),
+    # ADMINIA-0074 FR-055: revoking a code in use from the danger zone.
+    ("POST", "/admin/access-codes/{code_id}/revoke-used"),
 })
 
 # Amendment 2 (FR-020, option c): routes whose step-up depends on the request.
