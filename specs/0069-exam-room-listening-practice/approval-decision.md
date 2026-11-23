@@ -29,3 +29,21 @@ Not approved by this decision:
 - Merging any PR. Each merge needs anh Andy's own "merge #N".
 
 No learner data is included here.
+
+## Copy change: submit box follows EXAMROOM-0066
+
+On 2026-11-23 at 18:06 Asia/Saigon (11:06:02 UTC), the owner (anh Andy) wrote in the
+project chat of the Averlearning Claude Code project, verbatim:
+
+> duyệt sửa chữ 0069 theo 0066
+
+This commit applies it to FR-002 only: the submit box uses the shell's Vietnamese copy
+from EXAMROOM-0066 ("Nộp bài khi còn N câu chưa trả lời?" / "Nộp bài?", "Quay lại làm
+tiếp", and the surface's own confirm label "Hoàn thành và xem lại") instead of a
+per-surface title. Behaviour does not change: Esc or the stay button closes the box
+without calling `submit`, and device-only supplement questions do not count as blank.
+FR-003 wording (the confirm waiting for a running check instead of being locked) is not
+part of this change.
+
+Status stays `approved`. Not approved by this decision: turning on the surface on staging
+or production, and merging any PR.
