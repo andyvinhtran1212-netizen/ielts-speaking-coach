@@ -18,7 +18,7 @@ Listening của G08-T23 (bỏ bài).
 
 Spec cha: [EXAMROOM-0066](../0066-exam-room-shell/spec.md) (đã duyệt 23/11). Spec liên quan,
 không sửa: [MOCKATTACH-0008](../0008-mock-attempt-integrity/spec.md),
-[MOCKCONTENT-0016](../0016-mock-content-remediation/spec.md),
+[MOCKREPAIR-0016](../0016-mock-content-remediation/spec.md),
 [LISTENDRILL-0054](../0054-listening-skill-drill-homework/spec.md) (drill dùng cùng trình).
 
 FR của gói: FR-08-036 cùng các FR khung áp cho Listening test, và phần Listening của
