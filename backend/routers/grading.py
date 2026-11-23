@@ -43,6 +43,7 @@ from routers.auth import get_supabase_user
 from routers.sessions import refuse_if_class_session_archived, require_speaking_entitlement
 from services.whisper import transcribe_from_bytes
 from services import claude_grader
+from services import credits
 from services import azure_pronunciation
 from services import ai_usage_logger
 from services import kp_evidence
@@ -487,6 +488,10 @@ async def grade_response_endpoint(
     Thời gian xử lý ước tính: 15–30 giây.
     """
     step = "auth"
+    # COURSEACCESS-0055 plan 5.6 (G04-T07): the credit hold of this request,
+    # released in `finally` unless it was committed after the save.
+    credit_hold: credits.CreditHold | None = None
+    credit_release_reason = "request_failed"
     try:
         # ── STEP 1: Auth + session + question ownership ───────────────────────
         auth_user = await get_supabase_user(authorization)
@@ -519,6 +524,10 @@ async def grade_response_endpoint(
         require_speaking_entitlement(user_id, session)
         part: int = session["part"]
         session_mode: str = session.get("mode", "practice") or "practice"
+        # Plan 5.6 step 1. Flag off → ChargePlan(metered=False), no credit RPC.
+        # A read error with the flag on is 503 credits_unavailable (FR-017).
+        step = "credit_plan"
+        credit_plan = await credits.acharge_plan(user_id, "speaking_grading", session=session)
 
         step = "load_question"
         try:
@@ -602,6 +611,20 @@ async def grade_response_endpoint(
             enforce_grading_rate_limit(user_id, settings.MAX_GRADINGS_PER_USER_PER_DAY)
             record_grading_attempt(user_id)
 
+        # ── Plan 5.6 step 2: hold credits AFTER the replay branch and the rate
+        # limit, BEFORE any paid call (FR-017: a refused or failed hold never
+        # reaches Whisper or the grader). The request key is the submission id:
+        # a replay returned above never reaches this point.
+        step = "credit_reserve"
+        if credit_plan.metered:
+            credit_hold = await credits.reserve(
+                user_id, "speaking_grading", request_key=submission_id,
+                **_speaking_credit_resource(session_id, question_id, part),
+                ttl_seconds=settings.CREDIT_HOLD_TTL_SPEAKING_SECONDS,
+                course_ids=credit_plan.course_ids, kinds=credit_plan.kinds,
+                credit_source=credit_plan.credit_source,
+            )
+
         # ── STEP 3: Whisper STT (directly from in-memory bytes) ──────────────
         # Transcribe BEFORE uploading to storage so we never hit CDN caching:
         # if the same path is upserted and Whisper downloaded via the public URL,
@@ -621,6 +644,7 @@ async def grade_response_endpoint(
         except Exception as e:
             logger.error("[grading] Whisper thất bại: %s", e)
             _mark_session_error(session_id, "stt_failed", "whisper", str(e))
+            credit_release_reason = "stt_failed"
             # Mục 28 (B4): don't leak the provider name or the raw exception to the
             # user — the full error is already logged + recorded above.
             raise HTTPException(502, "Lỗi nhận dạng giọng nói. Vui lòng thử lại.")
@@ -1251,6 +1275,7 @@ async def grade_response_endpoint(
         if not grading:
             # Audio + transcript saved; AI grading unavailable — tell the frontend
             note_operation_failure()
+            credit_release_reason = "grader_failed"   # plan 5.6 step 4: no grade, no charge
             # `_error` hiển thị cho học viên (lịch sử câu hỏi in nguyên), nên
             # viết tiếng Việt — trùng câu của stub dựng lại từ dòng đã lưu trong
             # practice.js. Frontend nhận "AI tạm gián đoạn" bằng cờ
@@ -1272,6 +1297,12 @@ async def grade_response_endpoint(
                 "score_confidence":    score_confidence,
                 **signals,
             }
+
+        # Plan 5.6 step 3: graded and saved → commit. A failed commit is logged
+        # and the hold is left to the expiry sweep (the grade is already the
+        # learner's; never 5xx it). Sealed mock sittings are never metered.
+        await _commit_credit_hold(credit_hold)
+        credit_hold = None
 
         # Sealed 4-skill mock speaking: grading is fully persisted above (the
         # draft the admin reviews), but the per-response feedback is withheld
@@ -1296,11 +1327,72 @@ async def grade_response_endpoint(
         # Receipt only: reconciliation uses the owned session read, including its seal.
         return {"response_id": replay.response_id, "_replayed": True,
                 "backend_release_sha": _backend_release_sha()}
+    except (credits.CreditUnavailable, credits.CreditRefused, credits.CreditReplay) as credit_exc:
+        raise _credit_http_error(credit_exc) from None
     except HTTPException:
         raise
     except Exception as e:
         logger.exception("[grading] lỗi không mong đợi tại step=%s: %s", step, e)
         raise HTTPException(500, "Lỗi khi chấm bài. Vui lòng thử lại.") from None
+    finally:
+        # Plan 5.6 step 4: every path that did not commit returns the credit
+        # (STT failure, grader stub, 422 duration, save failure, replay at save,
+        # anything unexpected). Never raises; no-op without a hold.
+        await credits.release_if_open(credit_hold, credit_release_reason)
+
+
+# ── Credits (COURSEACCESS-0055 plan 5.6, G04-T07) ─────────────────────────────
+
+def _speaking_cluster_parts() -> frozenset[int]:
+    raw = str(getattr(settings, "CREDIT_SPEAKING_CLUSTER_PARTS", "") or "")
+    return frozenset(int(p) for p in (x.strip() for x in raw.split(",")) if p.isdigit())
+
+
+def _speaking_credit_resource(session_id: str, question_id: str, part: int) -> dict:
+    """FR-044: Part 2 → one credit per answer; Parts in
+    CREDIT_SPEAKING_CLUSTER_PARTS (1, 3) → a cluster seat the RPC assigns
+    atomically (the backend never counts graded answers itself)."""
+    if part in _speaking_cluster_parts():
+        return {"resource_type": "speaking_cluster",
+                "resource_id": f"{session_id}:p{part}:q{question_id}"}
+    return {"resource_type": "speaking_response", "resource_id": f"{session_id}:{question_id}"}
+
+
+async def _commit_credit_hold(hold: credits.CreditHold | None) -> None:
+    if hold is None:
+        return
+    try:
+        await hold.commit()
+    except Exception as exc:  # noqa: BLE001 — the grade is saved; expiry sweep settles the hold
+        logger.warning("[credits] decision=commit_failed reservation=%s: %s", hold.reservation_id, exc)
+
+
+_CREDIT_MESSAGES = {
+    "credits_unavailable": "Chưa kiểm tra được lượt chấm. Vui lòng thử lại sau ít phút.",
+    "insufficient_credits": "Bạn đã dùng hết lượt chấm AI.",
+    "no_entitlement": "Tài khoản chưa có khoá học dùng được cho phần này.",
+    "request_key_conflict": "Bài nộp này trùng với một lần nộp khác. Vui lòng ghi âm lại.",
+    "not_owner": "Không tìm thấy bài nộp.",
+    "grading_in_progress": "Bài này đang được chấm. Vui lòng đợi kết quả.",
+    "already_graded": "Bài này đã được chấm.",
+}
+
+
+def _credit_http_error(exc: Exception) -> HTTPException:
+    """credits.* → HTTP, with ``error_code`` so the 5xx sanitizer keeps it.
+    402 tells the page whose credits ran out (``credit_source`` class →
+    "liên hệ giáo viên", online → "đăng ký lại"; plan 5.6 step 5)."""
+    if isinstance(exc, credits.CreditRefused):
+        detail = {"error_code": exc.code, "credit_source": exc.credit_source,
+                  "message": _CREDIT_MESSAGES.get(exc.code, exc.code)}
+        if exc.code == "insufficient_credits":
+            detail["balance"] = exc.balance
+        return HTTPException(exc.status_code, detail=detail)
+    if isinstance(exc, credits.CreditReplay):
+        return HTTPException(409, detail={"error_code": exc.code,
+                                          "message": _CREDIT_MESSAGES.get(exc.code, exc.code)})
+    return HTTPException(503, detail={"error_code": "credits_unavailable",
+                                      "message": _CREDIT_MESSAGES["credits_unavailable"]})
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
