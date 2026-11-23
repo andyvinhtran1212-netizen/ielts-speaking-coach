@@ -56,17 +56,33 @@ describe('Speaking question 404 in proxy.ts', () => {
 
   test('index: a published slug passes, an unknown one is the root 404', async () => {
     const calls = [];
-    let rows = [{ slug: 'a-city-part-2', updated_at: null }];
+    const rows = [{ slug: 'a-city-part-2', updated_at: null }];
     const { proxy } = proxyFor(async (url, options) => {
       calls.push(url);
       assert.equal(options.cache, 'no-store');
       assert.ok(options.signal instanceof AbortSignal);
-      return json(200, rows);
+      return url.endsWith('/index') ? json(200, rows) : json(200, { slug: 'a-city-part-2' });
     });
     assert.equal(rewritten(await proxy(request('a-city-part-2'))), null);
     assert.equal(rewritten(await proxy(request('no-such-question'))), NOT_FOUND);
-    assert.deepEqual(calls, ['https://fixture.invalid/api/library/speaking/index'], 'one index read serves fresh lookups');
+    assert.deepEqual(calls, [
+      'https://fixture.invalid/api/library/speaking/index',
+      'https://fixture.invalid/api/library/speaking/a-city-part-2',
+    ], 'one index read serves fresh lookups; a hit is confirmed, a miss is not');
+  });
 
+  test('a question unpublished after the index was cached answers 404 (warm index, same slug)', async () => {
+    let published = true;
+    const calls = [];
+    const { proxy } = proxyFor(async (url) => {
+      calls.push(url);
+      if (url.endsWith('/index')) return json(200, [{ slug: 'a-city-part-2', updated_at: null }]);
+      return published ? json(200, { slug: 'a-city-part-2' }) : json(404, { detail: 'speaking_not_found' });
+    });
+    assert.equal(rewritten(await proxy(request('a-city-part-2'))), null);
+    published = false;
+    assert.equal(rewritten(await proxy(request('a-city-part-2'))), NOT_FOUND);
+    assert.equal(calls.filter((u) => u.endsWith('/index')).length, 1, 'the index was still cached');
   });
 
   test('an empty index is unknown: each slug asks the detail, so a re-import never 404s real questions', async () => {

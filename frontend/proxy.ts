@@ -145,9 +145,12 @@ async function speakingQuestion(request: NextRequest) {
   const slug = segment(rawSlug);
   const indexed = slug === null ? false : await speakingIndex.has('speaking', slug);
   let missing = indexed === false;
-  if (indexed === null) {
-    // Same rule as PC-J526: only the backend's own miss is a 404 here; any
-    // other outcome leaves the page's own loading and error handling.
+  if (indexed !== false) {
+    // The index only proves a miss. A hit may be up to the TTL old, and a
+    // question unpublished since then must still answer 404, so a hit (or an
+    // unavailable index) asks the detail. Same rule as PC-J526: only the
+    // backend's own miss is a 404; any other outcome leaves the page's own
+    // loading and error handling.
     try {
       const res = await fetch(`${API_BASE}/api/library/speaking/${encodeURIComponent(slug!)}`, {
         signal: AbortSignal.timeout(INDEX_TIMEOUT_MS),
