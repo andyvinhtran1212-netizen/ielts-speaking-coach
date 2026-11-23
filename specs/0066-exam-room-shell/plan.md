@@ -23,7 +23,9 @@
   `text-field`) và `frontend/lib/use-dialog-focus.ts`. Không tạo bản sao nút hay
   hộp thoại riêng.
 - `frontend/tooling/generate-runtime-config.mjs` thêm trường `examRoomSurfaces`
-  (phương án A của câu hỏi mở 1). `frontend/public/js/runtime-config.js` commit ở
+  (phương án A của câu hỏi mở 1). Tên hợp lệ là đúng các giá trị `ExamRoomSurface`, gồm
+  `listening-practice` (sửa đổi 1 mục (b)); `EXAM_ROOM_SURFACES` trong `flags.mjs` là
+  danh sách duy nhất. `frontend/public/js/runtime-config.js` commit ở
   bản chưa cấu hình.
 - Không sửa `core-player-affinity.mjs`, `components/authed-shell.tsx`, layout hay
   `pageStylesheets` của trình nào, `frontend/pages/*.html`,
@@ -36,7 +38,8 @@ Props của `ExamRoomShell` (hợp đồng giữa khung và trình, theo GOI-08 
 
 ```ts
 type ExamRoomMode = 'test' | 'practice';
-type ExamRoomSurface = 'reading' | 'listening' | 'mock' | 'writing' | 'speaking' | 'drill';
+type ExamRoomSurface = 'reading' | 'listening' | 'listening-practice' | 'mock' | 'writing' | 'speaking' | 'drill';
+// 'listening-practice' (sửa đổi 1 mục (b)): Listening luyện, chế độ practice; 'listening' giữ cho full test, mini test, drill.
 interface ExamRoomSection { id: string; kind: 'passage' | 'part' | 'task'; index: number; firstQ: number; lastQ: number }
 interface ExamRoomQuestion { q: number; sectionId: string; answered: boolean; flagged: boolean; saveState?: 'pending' | 'retrying' | 'failed' }
 type ExamRoomSaveStatus =
@@ -59,7 +62,7 @@ interface ExamRoomShellProps {
         | { kind: 'single'; body: ReactNode };
   submit?: { label: string; onSubmit(): Promise<void>; disabledReason?: string; costNote?: string;
              extraWarning?: ReactNode;
-             outcome?: 'idle' | 'submitting' | 'confirmed' | 'unconfirmed' | 'unconfirmed_manual' | 'closed_unconfirmed';
+             outcome?: 'idle' | 'submitting' | 'confirmed' | 'unconfirmed' | 'unconfirmed_manual' | 'closed_unconfirmed' | 'expired_unsubmitted';
              savedUpTo?: string; closedAt?: string; onRetry?: () => void };   // FR-034: only the surface sets 'confirmed', after a canonical server ack
   exit: { href: string; flush(): Promise<{ unsaved: number }>; losesWork(): boolean;
           abandon?: { onAbandon(): Promise<void> } };
