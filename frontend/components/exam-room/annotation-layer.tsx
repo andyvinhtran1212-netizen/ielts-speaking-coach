@@ -153,7 +153,19 @@ export function AnnotationLayer({ surface, ownerKey, attemptKey, narrow = false,
 
   useEffect(() => { setMarks(readMarks(store, key)); setSelection(null); setDrafting(null); }, [key, store]);
 
+  // Time up or read-only: tools that were already open close, and no write path
+  // changes a saved mark any more (FR-030, CR HOLD on #2528).
+  const disabledRef = useRef(disabled);
+  disabledRef.current = disabled;
+  useEffect(() => {
+    if (!disabled) return;
+    setSelection(null);
+    setDrafting(null);
+    setDraft('');
+  }, [disabled]);
+
   const update = useCallback((next: ExamRoomMark[]) => {
+    if (disabledRef.current) return;
     setMarks(next);
     writeMarks(store, key, next);
   }, [store, key]);
@@ -208,25 +220,25 @@ export function AnnotationLayer({ surface, ownerKey, attemptKey, narrow = false,
   const clearSelection = () => { try { window.getSelection()?.removeAllRanges(); } catch { /* ignore */ } setSelection(null); };
 
   const highlight = () => {
-    if (!selection || selection.end <= selection.start) return;
+    if (disabled || !selection || selection.end <= selection.start) return;
     update(addMark(marks, selection.start, selection.end, nextId()));
     clearSelection();
   };
   const startNote = () => {
-    if (!selection || selection.end <= selection.start) return;
+    if (disabled || !selection || selection.end <= selection.start) return;
     setDrafting(selection);
     setDraft('');
     clearSelection();
   };
   const saveNote = () => {
-    if (!drafting) return;
+    if (disabled || !drafting) return;
     const text = draft.trim();
     if (text) update(addMark(marks, drafting.start, drafting.end, nextId(), text));
     setDrafting(null);
     setDraft('');
   };
   const clear = () => {
-    if (!selection) return;
+    if (disabled || !selection) return;
     update(clearMarks(marks, selection.start, selection.end));
     clearSelection();
   };
@@ -267,14 +279,14 @@ export function AnnotationLayer({ surface, ownerKey, attemptKey, narrow = false,
           </button>
         );
       })}
-      {(hasRange || selectionInMark) && !drafting ? (
+      {!disabled && (hasRange || selectionInMark) && !drafting ? (
         <div role="toolbar" aria-label={WORDS.toolbar} lang="en" className={styles.toolbar} style={{ top: selection!.top, left: selection!.left }}>
           {hasRange ? <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={highlight}>{WORDS.highlight}</button> : null}
           {hasRange ? <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={startNote}>{WORDS.note}</button> : null}
           {selectionInMark ? <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={clear}>{WORDS.clear}</button> : null}
         </div>
       ) : null}
-      {drafting ? (
+      {drafting && !disabled ? (
         <div className={styles.noteEditor} lang="en" style={{ top: drafting.top }}>
           <label className={styles.noteLabel} htmlFor={`${noteId}-draft`}>{WORDS.noteLabel}</label>
           <textarea id={`${noteId}-draft`} autoFocus value={draft} rows={3} onChange={(e) => setDraft(e.target.value)} />

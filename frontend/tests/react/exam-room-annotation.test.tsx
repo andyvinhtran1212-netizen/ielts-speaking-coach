@@ -137,6 +137,30 @@ describe('AnnotationLayer', () => {
     expect(item.hidden).toBe(false);
   });
 
+  it('locking while the toolbar is open closes it and keeps the saved marks (CR HOLD)', () => {
+    writeMarks(window.localStorage, KEY, [{ id: 'a', start: 0, end: 3 }]);
+    const { container, rerender } = layer();
+    selectText(container, 4, 9);
+    const button = screen.getByRole('button', { name: 'Highlight' });
+    rerender(<AnnotationLayer surface="reading" ownerKey="user-1" attemptKey="att-1" disabled><p>{TEXT}</p></AnnotationLayer>);
+    expect(screen.queryByRole('toolbar')).toBeNull();
+    fireEvent.click(button);
+    expect(readMarks(window.localStorage, KEY)).toEqual([{ id: 'a', start: 0, end: 3 }]);
+  });
+
+  it('locking while a note is being written closes the editor without saving', () => {
+    const { container, rerender } = layer();
+    selectText(container, 10, 17);
+    fireEvent.click(screen.getByRole('button', { name: 'Note' }));
+    const box = screen.getByLabelText('Note text');
+    const save = screen.getByRole('button', { name: 'Save note' });
+    fireEvent.change(box, { target: { value: 'late' } });
+    rerender(<AnnotationLayer surface="reading" ownerKey="user-1" attemptKey="att-1" disabled><p>{TEXT}</p></AnnotationLayer>);
+    expect(screen.queryByLabelText('Note text')).toBeNull();
+    fireEvent.click(save);
+    expect(readMarks(window.localStorage, KEY)).toEqual([]);
+  });
+
   it('disabled: no toolbar', () => {
     const { container } = layer({ disabled: true });
     selectText(container, 4, 9);
