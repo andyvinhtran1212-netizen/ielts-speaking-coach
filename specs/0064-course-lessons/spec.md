@@ -73,9 +73,9 @@ Khoá online (G04, `course_products.kind = 'online'`) bán được nhưng chưa
   `courseCode` là `courses.code`; `lessonCode` là `course_lessons.lesson_code`. Trang nằm trong `LearnerShell`, mục Lộ trình (LEARNERNAV-0062 registry `/course/learn/...`, kind `child`, parent `/course`).
 - **FR-041:** Video có hai nguồn:
   - `youtube`: nhúng `https://www.youtube-nocookie.com/embed/<id>`.
-  - `private_host`: phát từ origin cấu hình bằng biến build `AVER_PRIVATE_VIDEO_ORIGIN`. Biến rỗng thì trình phát hiện "Video chưa sẵn sàng" và không lỗi trang.
+  - `private_host`: **tắt ở backend trong bản này**, chỉ YouTube chạy. API không bao giờ trả `ref` hay URL dùng được cho nguồn này, kể cả qua bài thử (FR-049): chỉ trả `video: {source: "private_host", available: false, seconds}`. Trình phát hiện "Video chưa sẵn sàng" và không lỗi trang. Bật nguồn này cần một spec riêng khi đã chọn dịch vụ: kiểm quyền ngay tại máy chủ video, URL ngắn hạn do server cấp sau khi kiểm quyền, và chính sách riêng cho video của bài thử.
 
-  Vị trí xem lưu mỗi 15 giây khi đang phát, khi tạm dừng và khi rời trang (`visibilitychange`/`pagehide`, gửi bằng `fetch` `keepalive`). Mở lại bài thì phát tiếp từ vị trí đã lưu, kể cả khi học viên đã tua lùi. CSP thêm `frame-src 'self' https://www.youtube-nocookie.com` (và origin riêng khi có) ở mọi môi trường. Không đổi `script-src`.
+  Vị trí xem lưu mỗi 15 giây khi đang phát, khi tạm dừng và khi rời trang (`visibilitychange`/`pagehide`, gửi bằng `fetch` `keepalive`). Mở lại bài thì phát tiếp từ vị trí đã lưu, kể cả khi học viên đã tua lùi. CSP thêm `frame-src 'self' https://www.youtube-nocookie.com` ở mọi môi trường. Không đổi `script-src`.
 - **FR-042:** Người không có quyền vào khoá thì không đọc được nội dung bài. Việc chặn nằm ở backend:
   - Điều kiện có quyền: `services/entitlements.py::has_course_access(user_id, course_id)` của G04 trả đúng.
   - Không có quyền: API trả 403 `course_access_required`. Quyền đã hết hạn: API trả 403 `course_access_expired`.
@@ -99,15 +99,16 @@ Khoá online (G04, `course_products.kind = 'online'`) bán được nhưng chưa
 
   `next_lesson(user_id)` là nguồn cho thẻ "Bài tiếp theo trong lộ trình" (LEARNERCORE-0063 FR-021). Kết quả trả về gồm khoá, chặng, số thứ tự và tổng số bài, tên bài, thời lượng video, số câu luyện và vị trí xem dở. Cách chọn:
   - Lấy khoá online còn quyền được mở bài gần nhất, rồi trả bài `current` của khoá đó, không có thì bài `next`.
+  - Khoá được chọn đã xong hết mọi bài `is_published`: bỏ qua khoá đó, xét khoá kế tiếp theo cùng thứ tự.
   - Người vừa có khoá mà chưa mở bài nào: lấy khoá có quyền bắt đầu mới nhất, trả bài `is_published` đầu tiên với vị trí 0. Thẻ hiện "Bắt đầu bài".
-  - Chỉ trả `null` khi không có khoá online còn hạn nào có bài `is_published`.
+  - Trả `null` khi không có khoá online còn hạn nào có bài `is_published` chưa xong (gồm cả khi đã học xong mọi khoá); thẻ bị ẩn.
 - **FR-046:** Ghi tiến độ: `PATCH /api/course/lessons/{lesson_id}/progress` với body `{video_position_seconds:int ≥ 0, completed?: bool, opened?: bool}`.
   - Kiểm quyền như FR-042 và kiểm bài đang `is_published`.
   - `video_position_seconds` là vị trí xem gần nhất, ghi đè được (để tua lùi rồi xem tiếp đúng chỗ), kẹp trong `[0, video_seconds]`.
   - `max_position_seconds` chỉ tăng.
   - `completed_at` chỉ đặt một lần, không bao giờ xoá.
-  - Bài có video: tự đánh dấu xong khi `max_position_seconds ≥ COURSE_LESSON_DONE_RATIO × video_seconds` (mặc định 0,9). `completed: true` gửi trước ngưỡng đó bị bỏ qua.
-  - Bài không có video: `completed: true` từ nút "Đánh dấu đã đọc" được nhận.
+  - Bài có video phát được (`video_source = 'youtube'`): tự đánh dấu xong khi `max_position_seconds ≥ COURSE_LESSON_DONE_RATIO × video_seconds` (mặc định 0,9). `completed: true` gửi trước ngưỡng đó bị bỏ qua.
+  - Bài không có video, hoặc video không phát được (`video_source = 'private_host'` ở bản này): `completed: true` từ nút "Đánh dấu đã đọc" được nhận. Server tự quyết từ `video_source` trong DB, không dựa vào cấu hình frontend; tải lại trang vẫn thấy bài đã xong.
   - Gọi lặp với cùng giá trị cho cùng kết quả. Ghi dòng của chính người gọi, không dòng nào khác. `opened: true` (frontend gửi sau khi trang bài đã vẽ) đặt mốc "mở gần nhất" dùng cho `current` (FR-045). Các API `GET` bài học chỉ đọc, không ghi gì.
 - **FR-047:** Script `backend/scripts/import_course_lessons.py --course <code> --source <thư mục>` nạp `course_lessons` từ thư mục nội dung của khoá (định dạng ở plan mục 5.6).
   - Mặc định chạy thử: in số bài thêm, sửa, không đổi, kèm lỗi định dạng từng file, và không ghi gì.
@@ -170,7 +171,7 @@ Khoá online (G04, `course_products.kind = 'online'`) bán được nhưng chưa
 - Quyền hết hạn giữa lúc xem: lần ghi tiến độ kế tiếp trả 403 `course_access_expired`. Video đang phát không bị cắt giữa chừng, nhưng vị trí sau đó không được lưu và trang hiện dải "Khoá đã hết hạn".
 - Hai tab cùng ghi một bài: `max_position_seconds` lấy giá trị lớn nhất; `video_position_seconds` theo lần ghi sau cùng.
 - `video_position_seconds` lớn hơn `video_seconds` (thông tin độ dài sai): kẹp về `video_seconds`.
-- Bài có `video_source = 'private_host'` khi `AVER_PRIVATE_VIDEO_ORIGIN` rỗng: hiện "Video chưa sẵn sàng". Bài đọc vẫn hiện, ngưỡng xong theo video không áp, và nút "Đánh dấu đã đọc" hiện.
+- Bài có `video_source = 'private_host'` (tắt ở bản này): API trả `available: false`, không có `ref`; trang hiện "Video chưa sẵn sàng". Bài đọc vẫn hiện, ngưỡng xong theo video không áp (FR-046), và nút "Đánh dấu đã đọc" hiện.
 - Học viên lớp offline có `course_id` trùng khoá online: quyền theo `has_course_access` (gồm quyền suy ra từ thành viên lớp, câu hỏi mở 1).
 - `lesson_code` có ký tự lạ trong URL: so khớp chính xác, không phân biệt hoa thường thì không trả, và 404.
 
@@ -212,7 +213,7 @@ Khoá online (G04, `course_products.kind = 'online'`) bán được nhưng chưa
 |---|---|---|---|
 | 1 | Học viên lớp offline có cùng `course_id` với một khoá online có xem được bài giảng online không? `has_course_access` của G04 gồm quyền suy ra từ thành viên lớp | Có: dùng đúng `has_course_access` như G04 định ("dùng để mở nội dung"), một quy tắc quyền cho cả nền tảng | Dùng `has_course_access` |
 | 2 | (gói câu 6) Khối luyện tập trong bài: đi đường tự học mới có kiểm quyền G04 hay tạo "bài giao cá nhân"? | Đường tự học mới, spec riêng (đụng chấm bài) | Ẩn nút "Bắt đầu luyện" |
-| 3 | (gói câu 10) Máy chủ video riêng là dịch vụ nào (origin, cách ký URL)? | Cấu hình `AVER_PRIVATE_VIDEO_ORIGIN`; URL ký do backend cấp khi anh chọn dịch vụ | Chỉ YouTube chạy |
+| 3 | (gói câu 10) Máy chủ video riêng là dịch vụ nào (origin, cách ký URL)? | Bản này tắt `private_host` ở backend, không trả `ref`; spec riêng khi chọn dịch vụ (quyền tại nguồn, URL ngắn hạn do server cấp, chính sách video bài thử) | Chỉ YouTube chạy |
 | 4 | (gói câu 15) Bài kiểm tra giữa chặng có giữ điều kiện "học xong chặng" không? | Không giữ ở đợt đầu | Không giữ |
 | 5 | Trang bài học thử có cho máy tìm kiếm lập chỉ mục không? | `noindex` tới khi nội dung thật ổn định | `noindex` |
 | 6 | Ngưỡng "xem đủ" để bài có video là "Đã xong" | 90% độ dài video | `COURSE_LESSON_DONE_RATIO = 0.9` |

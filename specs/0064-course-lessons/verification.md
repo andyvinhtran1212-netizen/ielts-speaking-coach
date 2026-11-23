@@ -7,14 +7,14 @@ Mọi dòng đang ở trạng thái `PENDING`, vì spec còn `draft`. Cột bằ
 | Requirement | Evidence | Result |
 | --- | --- | --- |
 | FR-040 | kind=test; ref=planned React test for lesson page breadcrumb, table of contents, prev/next among published lessons, sanitized Markdown (T19b); journey=staging scenario 1 | PENDING |
-| FR-041 | kind=test; ref=planned video-player tests (youtube-nocookie src, private origin empty → "Video chưa sẵn sàng", startAt), 15 s and pagehide saves (T19b); CSP test frame-src (T19a); journey=staging scenario 2 | PENDING |
+| FR-041 | kind=test; ref=planned video-player tests (youtube-nocookie src, private_host → API ref null + available false, "Video chưa sẵn sàng", startAt), 15 s and pagehide saves (T19b); CSP test frame-src (T19a); journey=staging scenario 2 | PENDING |
 | FR-042 | kind=test; ref=planned pytest 403 course_access_required / course_access_expired without body_md, video or title; has_course_access error → 503 (T19b) | PENDING |
 | FR-044 | kind=test; ref=planned pytest public_outline (no body_md/video_ref, 0 published → null) and _outline_for wiring (T19b); journey=staging scenario 6 lesson_count=3 | PENDING |
-| FR-045 | kind=test; ref=planned pytest lesson states done/current/next/todo, coming_soon, next_lesson None and value (T19b) | PENDING |
-| FR-046 | kind=test; ref=planned pytest rewind saved, max monotonic, ratio 0.9, early completed ignored, reading completed accepted, concurrent writes keep max, own row only, GET writes nothing (T19b) | PENDING |
+| FR-045 | kind=test; ref=planned pytest lesson states done/current/next/todo, coming_soon, next_lesson None and value, finished course skipped to next, all done → None, adapter to 0063 shape with lesson watched to 125 s (T19b) | PENDING |
+| FR-046 | kind=test; ref=planned pytest rewind saved, max monotonic, ratio 0.9, early completed ignored, reading completed accepted, private_host completed accepted and still done after reload, concurrent writes keep max, own row only, GET writes nothing (T19b) | PENDING |
 | FR-047 | kind=test; ref=planned backend/tests/test_import_course_lessons.py dry-run no writes, --execute idempotent, duplicate lesson_no aborts, flags never changed (T28) | PENDING |
 | FR-048 | kind=test; ref=planned pytest admin-only, unpublish clears preview, preview on unpublished → 409, governance_audit row; PG CHECK course_lessons_preview_published (T18, T28) | PENDING |
-| FR-049 | kind=test; ref=planned pytest preview 404 cases, guest 200, learner_href for entitled user, flag off → notFound (T29); screenshot 1280/390 | PENDING |
+| FR-049 | kind=test; ref=planned pytest preview 404 cases, guest 200, learner_href for entitled user, private_host lesson never returns ref to guest / unpublished / expired access, flag off → notFound (T29); screenshot 1280/390 | PENDING |
 
 ## Kịch bản staging
 
