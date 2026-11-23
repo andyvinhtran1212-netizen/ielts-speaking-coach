@@ -19,7 +19,7 @@ student_id filter as defense-in-depth.
 import asyncio
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Header, HTTPException, Response
+from fastapi import APIRouter, Header, HTTPException, Query, Response
 
 from database import thread_supabase_admin
 from routers.auth import get_supabase_user
@@ -27,8 +27,9 @@ from services.access_code_permissions import aget_account_permissions_summary
 from services.student_home_aggregator import get_home_summary_concurrent
 from services.student_service import account_display_name
 from models.student_course import StudentCourseResponse
+from models.student_tests import StudentTestsResponse
 from models.student_today import StudentTodayResponse, TodaySeenRequest
-from services import student_course, student_today
+from services import student_course, student_tests, student_today
 
 
 router = APIRouter(prefix="/api/student", tags=["student-home"])
@@ -121,3 +122,22 @@ async def course(response: Response, authorization: str | None = Header(default=
     return await student_course.get_course_concurrent(
         auth_user["id"], account_name=account_display_name(auth_user),
     )
+
+
+@router.get("/tests", response_model=StudentTestsResponse)
+async def tests(response: Response, cursor: str | None = Query(default=None, max_length=512),
+                authorization: str | None = Header(default=None)):
+    """Thi thử page payload (LEARNERCORE-0063 amendment 1, FR-080..FR-085).
+
+    Read-only. `cursor` is the opaque `results_next_cursor` of the previous
+    page; a "Xem thêm" page carries only `results` (and `credits`). An
+    unreleased mock sitting never carries a score (HOLD FR-082).
+    """
+    response.headers["Cache-Control"] = "private, no-store"
+    auth_user = await get_supabase_user(authorization)
+    try:
+        return await student_tests.get_tests_concurrent(
+            thread_supabase_admin, auth_user["id"], cursor=cursor,
+        )
+    except student_tests.BadCursor:
+        raise HTTPException(400, "Con trỏ trang không hợp lệ.")
