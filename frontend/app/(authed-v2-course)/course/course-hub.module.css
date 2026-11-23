@@ -60,7 +60,7 @@
 .card:focus-visible,
 .toggle:focus-visible,
 .link:focus-visible {
-  outline: 2px solid var(--av2-focus);
+  outline: var(--av2-focus);
   outline-offset: var(--av2-focus-offset);
 }
 

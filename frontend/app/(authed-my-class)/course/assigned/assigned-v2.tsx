@@ -212,7 +212,13 @@ export function AssignedV2({ accountId }: { accountId: string }) {
   accountRef.current = accountId;
   const openingRef = useRef<string | null>(null);
   const loadRef = useRef<AbortController | null>(null);
-  useEffect(() => () => loadRef.current?.abort(), []);
+  // Unmounted (account switch remounts by key, or the learner left): every
+  // pending load and open is stale, so nothing navigates or creates a session.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; loadRef.current?.abort(); };
+  }, []);
   // Back from the player can restore this page from the bfcache with the
   // open lock still held; release it so every button works again.
   useEffect(() => {
@@ -261,7 +267,7 @@ export function AssignedV2({ accountId }: { accountId: string }) {
   const open = useCallback(async (entry: AssignedItem) => {
     if (openingRef.current) return;
     const owner = accountId;
-    const isCurrent = () => accountRef.current === owner;
+    const isCurrent = () => mountedRef.current && accountRef.current === owner;
     openingRef.current = entry.row.itemId;
     setOpening(entry.row.itemId);
     try {
