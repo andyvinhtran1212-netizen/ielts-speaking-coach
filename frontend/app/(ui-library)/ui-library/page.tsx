@@ -21,6 +21,7 @@ import {
 import { LearnerShellSection } from './shell-sections';
 import { FocusShellSection } from './focus-demo';
 import { ThemeSection } from './theme-sections';
+import { IconSection } from './icon-sections';
 import styles from './ui-library.module.css';
 
 // Gate the metadata too, like /next-probe (BL-01): a disabled build ships the
@@ -155,6 +156,8 @@ export default function UiLibraryPage() {
               <a href="#tokens-space" className={styles.focusDemo}>Liên kết có vòng focus</a>
             </div>
           </section>
+
+          <IconSection title={title('icons')} />
 
           <ButtonSection title={title('button')} />
           <IconButtonSection title={title('icon-button')} />
