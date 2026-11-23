@@ -4,10 +4,14 @@
 // "Đã đọc" / "Đã lưu" marks on one Library shelf, kept on the server.
 //
 // Not optimistic (spec "lỗi ghi → giao diện trả lại trạng thái cũ và báo bằng
-// chữ"): a mark changes on screen only after the server answered 204; a failed
-// write keeps the old state and says so in words. Reads and writes pass
-// `noRedirect`, so an expired session on a public page never sends the visitor
-// to /login (FR-001): the marks just disappear.
+// chữ"): after the server answered 204 the shelf is read again and the screen
+// shows what the server holds (canonical truth, AGENTS.md); a failed write
+// keeps the old state and says so in words. One write per mark at a time.
+// Every read and write belongs to a generation (shelf, sign-in, reload); an
+// answer from an older generation changes nothing, and a new generation starts
+// with nothing pending. Reads and writes pass `noRedirect`, so an expired
+// session on a public page never sends the visitor to /login (FR-001): the
+// marks just disappear.
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { components } from '@/types/api';
@@ -32,23 +36,35 @@ export function useLibraryMarks(shelf: LibraryMarkShelf, { signedIn }: { signedI
   const [pending, setPending] = useState<ReadonlySet<string>>(() => new Set());
   const [errors, setErrors] = useState<ReadonlyMap<string, string>>(() => new Map());
   const generation = useRef(0);
+  // Only the newest read of a generation may set the marks (reads after two
+  // quick writes can answer out of order).
+  const readSeq = useRef(0);
+  const inFlight = useRef<Set<string>>(new Set());
+
+  const fetchMarks = useCallback(async () => {
+    const path = `/api/library/me/marks?shelf=${encodeURIComponent(shelf)}`;
+    const body = await window.api.getWith<MarksResponse>(path, undefined, { noRedirect: true });
+    return new Set((body?.marks ?? []).map((m) => slot(m.item_key, m.kind)));
+  }, [shelf]);
 
   const load = useCallback(() => {
     const mine = ++generation.current;
+    const seq = ++readSeq.current;
+    inFlight.current = new Set();
     setMarks(new Set());
+    setPending(new Set());
     setErrors(new Map());
     if (!signedIn) { setStatus('idle'); return; }
     setStatus('loading');
-    const path = `/api/library/me/marks?shelf=${encodeURIComponent(shelf)}`;
-    window.api.getWith<MarksResponse>(path, undefined, { noRedirect: true }).then((body) => {
-      if (mine !== generation.current) return;
-      setMarks(new Set((body?.marks ?? []).map((m) => slot(m.item_key, m.kind))));
+    fetchMarks().then((next) => {
+      if (mine !== generation.current || seq !== readSeq.current) return;
+      setMarks(next);
       setStatus('ready');
     }, (error: unknown) => {
       if (mine !== generation.current) return;
       setStatus(statusOf(error) === 401 ? 'signed-out' : 'error');
     });
-  }, [shelf, signedIn]);
+  }, [fetchMarks, signedIn]);
 
   useEffect(() => {
     load();
@@ -59,11 +75,21 @@ export function useLibraryMarks(shelf: LibraryMarkShelf, { signedIn }: { signedI
   const isPending = useCallback((itemKey: string, kind: LibraryMarkKind) => pending.has(slot(itemKey, kind)), [pending]);
   const errorFor = useCallback((itemKey: string, kind: LibraryMarkKind) => errors.get(slot(itemKey, kind)) ?? '', [errors]);
 
-  /** Set (`on`) or clear a mark; resolves true when the server took it. */
+  /**
+   * Set (`on`) or clear a mark; resolves true when the server took it. A mark
+   * with a write still in flight refuses a second one (false).
+   */
   const setMark = useCallback(async (itemKey: string, kind: LibraryMarkKind, on: boolean): Promise<boolean> => {
-    if (status !== 'ready') return false;
     const key = slot(itemKey, kind);
+    if (status !== 'ready' || inFlight.current.has(key)) return false;
     const mine = generation.current;
+    const flight = inFlight.current;
+    flight.add(key);
+    const current = () => mine === generation.current;
+    const done = () => {
+      flight.delete(key);
+      if (current()) setPending((p) => { const next = new Set(p); next.delete(key); return next; });
+    };
     setPending((p) => new Set(p).add(key));
     setErrors((e) => { const next = new Map(e); next.delete(key); return next; });
     const path = `/api/library/me/marks/${shelf}/${kind}`;
@@ -71,19 +97,30 @@ export function useLibraryMarks(shelf: LibraryMarkShelf, { signedIn }: { signedI
     try {
       if (on) await window.api.patchWith(path, body, undefined, { noRedirect: true });
       else await window.api.deleteWith(path, body, undefined, { noRedirect: true });
-      if (mine !== generation.current) return false;
-      setMarks((m) => { const next = new Set(m); if (on) next.add(key); else next.delete(key); return next; });
-      return true;
     } catch (error) {
-      if (mine !== generation.current) return false;
-      const code = statusOf(error);
-      if (code === 401) { setStatus('signed-out'); setMarks(new Set()); return false; }
-      setErrors((e) => new Map(e).set(key, code === 404 ? MARK_GONE_ERROR : MARK_WRITE_ERROR));
+      if (current()) {
+        const code = statusOf(error);
+        if (code === 401) { setStatus('signed-out'); setMarks(new Set()); }
+        else setErrors((e) => new Map(e).set(key, code === 404 ? MARK_GONE_ERROR : MARK_WRITE_ERROR));
+      }
+      done();
       return false;
-    } finally {
-      if (mine === generation.current) setPending((p) => { const next = new Set(p); next.delete(key); return next; });
     }
-  }, [shelf, status]);
+    // The server took it: read the shelf again and show what it holds.
+    const seq = ++readSeq.current;
+    try {
+      const next = await fetchMarks();
+      if (current() && seq === readSeq.current) setMarks(next);
+    } catch (error) {
+      if (current()) {
+        if (statusOf(error) === 401) { setStatus('signed-out'); setMarks(new Set()); }
+        // The write is confirmed (204) even though the reread failed.
+        else if (seq === readSeq.current) setMarks((m) => { const next = new Set(m); if (on) next.add(key); else next.delete(key); return next; });
+      }
+    }
+    done();
+    return current();
+  }, [fetchMarks, shelf, status]);
 
   return { status, has, isPending, errorFor, setMark, reload: load };
 }

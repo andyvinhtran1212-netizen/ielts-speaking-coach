@@ -161,6 +161,22 @@ def test_bad_shelf_kind_or_body_is_422(api, db, method, path, body):
     assert db.writes == []
 
 
+def test_more_marks_than_one_postgrest_page_are_all_returned(api, db):
+    """549 Writing sets × read/saved can pass PostgREST's 1,000-row cap."""
+    db.row_limit = 1000
+    keys = [f"set-{i:04d}" for i in range(549)]
+    db.tables["library_marks"] = [
+        {"user_id": A, "shelf": "writing_sample", "item_key": k, "kind": kind}
+        for k in keys for kind in ("read", "saved")
+    ] + [{"user_id": B, "shelf": "writing_sample", "item_key": "set-0000", "kind": "read"}]
+    marks = _marks(api, A, "writing_sample")
+    assert len(marks) == 1098
+    assert marks[0] == {"item_key": "set-0000", "kind": "read"}
+    assert marks[-1] == {"item_key": "set-0548", "kind": "saved"}
+    assert len({(m["item_key"], m["kind"]) for m in marks}) == 1098
+    assert db.calls.count("library_marks") == 2
+
+
 def test_db_failure_is_503_no_store(api, db):
     db.broken.add("library_marks")
     for method, path, body in [

@@ -646,19 +646,32 @@ def _no_content() -> Response:
     return Response(status_code=204, headers=_PRIVATE)
 
 
+MARKS_PAGE = 1000  # PostgREST's default max rows; one shelf can hold more (549 sets × 2 kinds)
+
+
 def _read_marks(user_id: str, shelf: str) -> list[dict]:
-    rows = (
-        supabase_admin.table("library_marks")
-        .select("item_key, kind")
-        .eq("user_id", user_id)
-        .eq("shelf", shelf)
-        .execute()
-        .data
-        or []
-    )
-    marks = [{"item_key": r.get("item_key"), "kind": r.get("kind")} for r in rows]
-    marks.sort(key=lambda m: (str(m["item_key"]), str(m["kind"])))
-    return marks
+    """Every mark of the caller on one shelf, read page by page in a stable
+    order: a single read would stop silently at the PostgREST row limit."""
+    rows: list[dict] = []
+    start = 0
+    while True:
+        page = (
+            supabase_admin.table("library_marks")
+            .select("item_key, kind")
+            .eq("user_id", user_id)
+            .eq("shelf", shelf)
+            .order("item_key")
+            .order("kind")
+            .range(start, start + MARKS_PAGE - 1)
+            .execute()
+            .data
+            or []
+        )
+        rows.extend(page)
+        if len(page) < MARKS_PAGE:
+            break
+        start += MARKS_PAGE
+    return [{"item_key": r.get("item_key"), "kind": r.get("kind")} for r in rows]
 
 
 def _write_mark(user_id: str, shelf: str, kind: str, item_key: str) -> bool:

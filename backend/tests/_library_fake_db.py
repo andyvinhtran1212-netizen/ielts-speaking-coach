@@ -16,6 +16,8 @@ class _Query:
         self._table = table
         self._filters = []
         self._write = None  # ("upsert", row, conflict_cols, ignore) | ("delete",)
+        self._order: list[str] = []
+        self._range = None
 
     def select(self, _columns):
         return self
@@ -26,6 +28,14 @@ class _Query:
 
     def in_(self, column, values):
         self._filters.append(lambda r: r.get(column) in values)
+        return self
+
+    def order(self, column, desc=False):
+        self._order.append(column)
+        return self
+
+    def range(self, start, end):
+        self._range = (start, end)
         return self
 
     def upsert(self, row, on_conflict="", ignore_duplicates=False):
@@ -52,6 +62,13 @@ class _Query:
                 table.append(row)
             return _Result([copy.deepcopy(row)])
         rows = [r for r in table if all(f(r) for f in self._filters)]
+        if self._order:
+            rows.sort(key=lambda r: tuple(str(r.get(c)) for c in self._order))
+        if self._write is None:
+            if self._range is not None:
+                rows = rows[self._range[0]:self._range[1] + 1]
+            if self._db.row_limit is not None:
+                rows = rows[:self._db.row_limit]  # PostgREST max rows: silent cut
         if self._write and self._write[0] == "delete":
             self._db.writes.append((self._table, "delete", len(rows)))
             self._db.tables[self._table] = [r for r in table if r not in rows]
@@ -86,6 +103,7 @@ class FakeDB:
         self.calls: list[str] = []
         self.downloads: list[tuple[str, str]] = []
         self.writes: list[tuple] = []
+        self.row_limit: int | None = None
         self.storage = _Storage(self)
 
     def table(self, name):

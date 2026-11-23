@@ -22,11 +22,19 @@ function deferred() {
   return { promise, ...d };
 }
 
+// A fake server holding the marks; reads return what it holds now.
+let server: Set<string>;
+const key = (item: string, kind: string) => `${kind}:${item}`;
+function serverMarks() {
+  return { marks: [...server].map((k) => { const [kind, ...rest] = k.split(':'); return { item_key: rest.join(':'), kind }; }) };
+}
+
 beforeEach(() => {
+  server = new Set([key('alpha-schools', 'read')]);
   api = {
-    getWith: vi.fn().mockResolvedValue({ marks: [{ item_key: 'alpha-schools', kind: 'read' }] }),
-    patchWith: vi.fn().mockResolvedValue(null),
-    deleteWith: vi.fn().mockResolvedValue(null),
+    getWith: vi.fn(async () => serverMarks()),
+    patchWith: vi.fn(async (path: string, body: { item_key: string }) => { server.add(key(body.item_key, path.split('/').pop()!)); return null; }),
+    deleteWith: vi.fn(async (path: string, body: { item_key: string }) => { server.delete(key(body.item_key, path.split('/').pop()!)); return null; }),
   };
   window.api = api as unknown as typeof window.api;
 });
@@ -46,7 +54,7 @@ function Probe({ shelf = 'writing_sample', signedIn = true }: { shelf?: LibraryM
   );
 }
 const probe = () => screen.getByTestId('probe').textContent;
-const flush = () => act(async () => { await Promise.resolve(); });
+const flush = () => act(async () => { for (let i = 0; i < 5; i += 1) await Promise.resolve(); });
 
 describe('useLibraryMarks', () => {
   it('signed out: no request, no marks', async () => {
@@ -64,24 +72,87 @@ describe('useLibraryMarks', () => {
     expect(probe()).toBe('ready|read|-|-|');
   });
 
-  it('a mark shows only after the server answered; the body carries the key', async () => {
+  it('a mark shows only after the server answered and the shelf was read again', async () => {
     const write = deferred();
-    api.patchWith.mockReturnValueOnce(write.promise);
+    api.patchWith.mockImplementationOnce(async (path: string, body: { item_key: string }) => {
+      await write.promise;
+      server.add(key(body.item_key, path.split('/').pop()!));
+      return null;
+    });
     render(<Probe />);
     await flush();
     let done!: Promise<boolean>;
     act(() => { done = hook.setMark('alpha-schools', 'saved', true); });
     expect(probe()).toBe('ready|read|-|pending|');
     expect(api.patchWith).toHaveBeenCalledWith('/api/library/me/marks/writing_sample/saved', { item_key: 'alpha-schools' }, undefined, { noRedirect: true });
-    await act(async () => { write.resolve(null); await done; });
+    // A second click on the same mark while the first is in flight is refused.
+    await act(async () => { expect(await hook.setMark('alpha-schools', 'saved', true)).toBe(false); });
+    expect(api.patchWith).toHaveBeenCalledTimes(1);
+    await act(async () => { write.resolve(null); expect(await done).toBe(true); });
     expect(probe()).toBe('ready|read|saved|-|');
+    expect(api.getWith).toHaveBeenCalledTimes(2);
     await act(async () => { expect(await hook.setMark('alpha-schools', 'saved', false)).toBe(true); });
     expect(api.deleteWith).toHaveBeenCalledWith('/api/library/me/marks/writing_sample/saved', { item_key: 'alpha-schools' }, undefined, { noRedirect: true });
     expect(probe()).toBe('ready|read|-|-|');
   });
 
+  it('after a write the screen shows the server, including a change made in another tab', async () => {
+    render(<Probe />);
+    await flush();
+    server.delete(key('alpha-schools', 'read')); // another tab cleared "read"
+    await act(async () => { await hook.setMark('alpha-schools', 'saved', true); });
+    expect(probe()).toBe('ready|-|saved|-|');
+  });
+
+  it('rereads that answer out of order: only the newest is shown', async () => {
+    render(<Probe />);
+    await flush();
+    const slow = deferred();
+    const fast = deferred();
+    api.getWith
+      .mockImplementationOnce(async () => { await slow.promise; return { marks: [] }; })
+      .mockImplementationOnce(async () => { await fast.promise; return serverMarks(); });
+    let one!: Promise<boolean>;
+    let two!: Promise<boolean>;
+    await act(async () => { one = hook.setMark('alpha-schools', 'saved', true); await Promise.resolve(); });
+    await act(async () => { two = hook.setMark('beta-uniforms', 'read', true); await Promise.resolve(); });
+    await act(async () => { fast.resolve(); await two; });
+    expect(hook.has('beta-uniforms', 'read')).toBe(true);
+    await act(async () => { slow.resolve(); await one; });
+    // The older, empty reread arrived last and changed nothing.
+    expect(probe()).toBe('ready|read|saved|-|');
+  });
+
+  it('reload or a shelf change during a write: nothing stays pending and the old answer changes nothing', async () => {
+    const write = deferred();
+    api.patchWith.mockImplementationOnce(async () => { await write.promise; return null; });
+    const { rerender } = render(<Probe />);
+    await flush();
+    let done!: Promise<boolean>;
+    act(() => { done = hook.setMark('alpha-schools', 'saved', true); });
+    expect(probe()).toBe('ready|read|-|pending|');
+    act(() => { hook.reload(); });
+    await flush();
+    expect(probe()).toBe('ready|read|-|-|');
+    rerender(<Probe shelf="speaking_sample" />);
+    await flush();
+    await act(async () => { write.resolve(null); expect(await done).toBe(false); });
+    expect(probe()).toBe('ready|read|-|-|');
+    // The same mark can be changed normally afterwards.
+    await act(async () => { expect(await hook.setMark('alpha-schools', 'saved', true)).toBe(true); });
+    expect(probe()).toBe('ready|read|saved|-|');
+  });
+
+  it('a confirmed write whose reread fails still shows the write', async () => {
+    render(<Probe />);
+    await flush();
+    api.getWith.mockRejectedValueOnce(httpError(503));
+    await act(async () => { expect(await hook.setMark('alpha-schools', 'saved', true)).toBe(true); });
+    expect(probe()).toBe('ready|read|saved|-|');
+  });
+
   it('a Grammar key keeps its slash in the body, never in the path', async () => {
-    api.getWith.mockResolvedValueOnce({ marks: [] });
+    server = new Set();
     render(<Probe shelf="grammar_article" />);
     await flush();
     await act(async () => { await hook.setMark('tenses/past-perfect', 'read', true); });
