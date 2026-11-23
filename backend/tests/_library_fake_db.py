@@ -15,7 +15,8 @@ class _Query:
         self._db = db
         self._table = table
         self._filters = []
-        self._order = None
+        self._write = None  # ("upsert", row, conflict_cols, ignore) | ("delete",)
+        self._order: list[tuple[str, bool]] = []
         self._range = None
 
     def select(self, _columns):
@@ -30,27 +31,52 @@ class _Query:
         return self
 
     def order(self, column, desc=False):
-        self._order = (column, desc)
+        self._order.append((column, desc))
         return self
 
     def range(self, start, end):
         self._range = (start, end)
         return self
 
+    def upsert(self, row, on_conflict="", ignore_duplicates=False):
+        self._write = ("upsert", dict(row), [c.strip() for c in on_conflict.split(",") if c.strip()], ignore_duplicates)
+        return self
+
+    def delete(self):
+        self._write = ("delete",)
+        return self
+
     def execute(self):
         self._db.calls.append(self._table)
         if self._table in self._db.broken:
             raise RuntimeError("db down")
-        rows = [r for r in self._db.tables.get(self._table, []) if all(f(r) for f in self._filters)]
-        if self._order:
-            column, desc = self._order
-            rows.sort(key=lambda r: str(r.get(column) or ""), reverse=desc)
-        if self._range:
-            self._db.ranges.append((self._table, *self._range))
-            rows = rows[self._range[0]:self._range[1] + 1]
-        # PostgREST db-max-rows: a response never holds more than this many rows.
-        if self._db.max_rows is not None:
-            rows = rows[:self._db.max_rows]
+        table = self._db.tables.setdefault(self._table, [])
+        if self._write and self._write[0] == "upsert":
+            _, row, cols, ignore = self._write
+            self._db.writes.append((self._table, "upsert", dict(row)))
+            same = [r for r in table if cols and all(r.get(c) == row.get(c) for c in cols)]
+            if same:
+                if not ignore:
+                    same[0].update(row)
+            else:
+                table.append(row)
+            return _Result([copy.deepcopy(row)])
+        rows = [r for r in table if all(f(r) for f in self._filters)]
+        # Multi-column order: stable sorts from the last key to the first.
+        for column, desc in reversed(self._order):
+            rows.sort(key=lambda r, c=column: str(r.get(c) or ""), reverse=desc)
+        if self._write is None:
+            if self._range is not None:
+                self._db.ranges.append((self._table, *self._range))
+                rows = rows[self._range[0]:self._range[1] + 1]
+            # PostgREST db-max-rows: a response never holds more than this many
+            # rows (silent cut). `max_rows` and `row_limit` are the same knob.
+            limit = self._db.max_rows if self._db.max_rows is not None else self._db.row_limit
+            if limit is not None:
+                rows = rows[:limit]
+        if self._write and self._write[0] == "delete":
+            self._db.writes.append((self._table, "delete", len(rows)))
+            self._db.tables[self._table] = [r for r in table if r not in rows]
         return _Result(copy.deepcopy(rows))
 
 
@@ -83,6 +109,8 @@ class FakeDB:
         self.ranges: list[tuple[str, int, int]] = []
         self.max_rows: int | None = None
         self.downloads: list[tuple[str, str]] = []
+        self.writes: list[tuple] = []
+        self.row_limit: int | None = None
         self.storage = _Storage(self)
 
     def table(self, name):
