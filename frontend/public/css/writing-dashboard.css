@@ -165,6 +165,21 @@ main { position: relative; z-index: 1; }
 .wd-submit-notice.is-success { border-color: var(--av-success); }
 .wd-submit-notice.is-warning { border-color: var(--av-warning); }
 .wd-submit-notice.is-error { border-color: var(--av-error); }
+/* R119: "Dùng bản viết dở trên máy này" inside the in-modal notice. */
+.wd-notice-action {
+  display: inline-block;
+  margin-top: var(--av-space-2);
+  min-height: 44px;
+  padding: 0 var(--av-space-4);
+  border: 1px solid var(--av-primary);
+  border-radius: var(--av-radius-md);
+  background: transparent;
+  color: var(--av-primary);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.wd-notice-action:focus-visible { outline: 2px solid var(--av-primary); outline-offset: 2px; }
 
 
 /* ── Tab nav (Phase 2.3b: Bài giao / Bài đã nộp) ─────────────────── */
