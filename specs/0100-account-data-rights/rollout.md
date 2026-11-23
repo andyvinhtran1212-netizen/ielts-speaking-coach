@@ -23,8 +23,8 @@
 ## Rollback and repair
 
 - Mã: revert PR; bảng mới không được mã cũ đọc. Yêu cầu `pending` còn trong bảng, bật lại sau.
-- Migration: rollback chỉ khi hai bảng rỗng hoặc đã xuất; trả trigger chỉ ghi thêm cũ của `credit_covered_requests`.
-- Xoá là không hoàn tác được. Bảo vệ: hạn huỷ, cờ tắt mặc định, dry-run, khoá dòng và đọc lại trạng thái. Yêu cầu kẹt `erasing`: đọc `last_error_code`, sửa nguyên nhân, đặt `attempts=0` (cần anh duyệt ghi DB) để job làm lại.
+- Migration: rollback chỉ khi hai bảng rỗng hoặc đã xuất. Migration không nới trigger chỉ ghi thêm nào (trừ khi anh chọn phương án xoá ở câu hỏi mở 6).
+- Xoá là không hoàn tác được. Bảo vệ: hạn huỷ, cờ tắt mặc định, dry-run, khoá dòng và đọc lại trạng thái. Yêu cầu kẹt `erasing`: hợp đồng thuê hết hạn thì job tự tiếp quản; yêu cầu `failed`: đọc `last_error_code`, sửa nguyên nhân, đặt lại `status='erasing'`, `attempts=0`, `lease_until=now()` (cần anh duyệt ghi DB) để job làm lại.
 
 ## Observability
 
