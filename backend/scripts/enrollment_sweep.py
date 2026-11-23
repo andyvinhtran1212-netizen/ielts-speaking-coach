@@ -18,7 +18,10 @@ one still runs; any failure makes the exit code non-zero.
 7. Learner outbox dispatch (``services.learner_email.dispatch_due``).
 8. Account data (ACCOUNTDATA-0100, ``jobs.account_data_sweep``): erasure
    (dry-run until ``ACCOUNT_ERASURE_ENABLED``), export packages, export
-   cleanup. Skipped with a log line until migrations 500 and 503 exist.
+   cleanup. Skipped with a log line until migrations 500 and 504 exist.
+   With the flag on, this step erases for real: the cron needs no
+   ``--erase``, which only the manual ``python -m jobs.account_data_sweep``
+   takes.
 
 Steps 5 (course-open alerts, G04-T17) and 6 (login-event retention, G04-T16)
 are added by those tasks. Logs carry counts only: no e-mail, name, amount or
