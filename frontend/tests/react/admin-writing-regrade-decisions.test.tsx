@@ -14,7 +14,7 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: vi.fn(), push }),
 }));
 vi.mock('@/components/admin-access-gate', () => ({ useAdminProfile: () => ({ id: 'admin-1' }) }));
-afterEach(() => { cleanup(); push.mockReset(); });
+afterEach(() => { cleanup(); push.mockReset(); vi.useRealTimers(); });
 
 const REQ = '00000000-0000-4000-8000-0000000000b1';
 const ESSAY = '00000000-0000-4000-8000-0000000000e1';
@@ -26,11 +26,11 @@ const row = (status: string, extra: Record<string, unknown> = {}) => ({
   admin_response: null, created_at: sent, updated_at: sent, actioned_at: null, fulfilled_at: null, ...extra,
 });
 
-function mount(initial: string, after?: string, hours: number | null = 48) {
+function mount(initial: string, after?: string, hours: number | null = 48, extra: Record<string, unknown> = {}) {
   let current = initial;
   const get = vi.fn(async (path: string) => {
-    if (path === '/admin/writing/regrade-requests') return { requests: [row(current)], capped: false, regrade_hours: hours, thresholds_failed: hours === null };
-    if (path === `/admin/writing/regrade-requests/${REQ}`) return row(current);
+    if (path === '/admin/writing/regrade-requests') return { requests: [row(current, extra)], capped: false, regrade_hours: hours, thresholds_failed: hours === null };
+    if (path === `/admin/writing/regrade-requests/${REQ}`) return row(current, extra);
     throw new Error(`Unexpected read: ${path}`);
   });
   const patch = vi.fn(async (_path: string, body: { action: string; response: string | null }) => {
@@ -52,6 +52,18 @@ it('marks a request waiting past regrade_hours as overdue and keeps the reason v
   mount('pending');
   expect(await screen.findByText('Đã chờ 2 ngày · quá hạn')).toBeTruthy();
   expect(screen.getByText(/Nhờ giáo viên xem lại\./).textContent).toContain('\n');
+});
+
+it('turns a request overdue while the page stays open', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  const start = Date.now();
+  vi.setSystemTime(start);
+  // Sent 47 h 59 min ago against a 48 h threshold: on time when the list loads.
+  mount('pending', undefined, 48, { created_at: new Date(start - (48 * 60 - 1) * 60_000).toISOString() });
+  expect(await screen.findByText('Đã chờ 47 giờ')).toBeTruthy();
+  expect(screen.queryByText('Đã chờ 47 giờ · quá hạn')).toBeNull();
+  await vi.advanceTimersByTimeAsync(2 * 60_000);
+  expect(await screen.findByText('Đã chờ 2 ngày · quá hạn')).toBeTruthy();
 });
 
 it('says the threshold is unknown instead of marking nothing overdue', async () => {

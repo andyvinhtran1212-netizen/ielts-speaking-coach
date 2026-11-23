@@ -29,6 +29,7 @@ const DECISIONS: Array<{ id: Decision; label: string; sub: string }> = [
   { id: 'adjust', label: 'Điều chỉnh điểm', sub: 'Mở màn chấm ở chế độ chấm lại' },
   { id: 'ai', label: 'Chấm lại bằng AI', sub: 'Tốn chi phí AI của Aver, xem trước rồi mới trả' },
 ];
+const CLOCK_TICK_MS = 60_000;
 const NO_DEDUCT = 'Không trừ lượt chấm AI của học viên.';
 
 function formatDate(value: string | null) {
@@ -94,6 +95,11 @@ export function AdminWritingRegradeRequests() {
   }, [profile.id, loadAll]);
 
   useEffect(() => { setQuery(filters.q); }, [filters.q]);
+  // Keep "Đã chờ" and "quá hạn" honest while the page stays open.
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), CLOCK_TICK_MS);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const visible = useMemo(() => regradeSort(rows.filter((row) => regradeMatches(row, { ...filters, q: query })), filters.status) as Row[], [rows, filters, query]);
   const counts = useMemo(() => Object.fromEntries(TABS.map((tab) => [tab.id, rows.filter((row) => regradeLane(row.status) === tab.id).length])), [rows]);
