@@ -85,6 +85,7 @@ from routers.grammar_lesson import router as grammar_lesson_router
 from routers.admin_grammar_lesson import router as admin_grammar_lesson_router
 from routers.pronunciation import router as pronunciation_router
 from routers.sitemap import router as sitemap_router
+from routers.site_info import router as site_info_router
 from routers.vocabulary import router as vocabulary_router
 from routers.vocab_units import router as vocab_units_router
 from routers.analytics import router as analytics_router
@@ -318,6 +319,7 @@ app.include_router(grammar_diagnostic_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(admin_grammar_diagnostic_router)
 app.include_router(pronunciation_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(sitemap_router)
+app.include_router(site_info_router)
 app.include_router(vocabulary_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(vocab_units_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(analytics_router, dependencies=_ACTIVE_LEARNER)

@@ -6344,6 +6344,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/public/site-info": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Site Info */
+        get: operations["get_site_info_api_public_site_info_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vocabulary/categories": {
         parameters: {
             query?: never;
@@ -22741,6 +22758,35 @@ export interface components {
              */
             audio_example: string;
         };
+        /** SiteContact */
+        SiteContact: {
+            /** Email */
+            email?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /** Zalo */
+            zalo?: string | null;
+            /** Reply Hours */
+            reply_hours?: string | null;
+        };
+        /** SiteEnroll */
+        SiteEnroll: {
+            /** Office Hours */
+            office_hours?: string | null;
+            /** Confirm Sla */
+            confirm_sla?: string | null;
+            /** Escalate After */
+            escalate_after?: string | null;
+        };
+        /** SiteInfo */
+        SiteInfo: {
+            contact: components["schemas"]["SiteContact"];
+            enroll: components["schemas"]["SiteEnroll"];
+            /** Login Code Enabled */
+            login_code_enabled: boolean;
+            /** Enroll Prelearn Chapter1 */
+            enroll_prelearn_chapter1: boolean;
+        };
         /** SourceAudioResponse */
         SourceAudioResponse: {
             /** Day */
@@ -35740,6 +35786,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_site_info_api_public_site_info_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteInfo"];
                 };
             };
         };

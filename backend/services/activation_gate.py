@@ -77,6 +77,7 @@ ACTIVATION_EXEMPT_ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/health/grammar-check"): "grammar-checker probe, no auth",
     ("GET", "/health/quiz-write"): "quiz-write probe, no auth",
     ("GET", "/sitemap-grammar.xml"): "public SEO sitemap",
+    ("GET", "/api/public/site-info"): "public contact block and public feature flags, no auth (PUBLICSITE-0059 FR-026)",
     ("POST", "/api/error-logs"): "client error ingestion; accepts anonymous reports by design",
     ("POST", "/api/analytics/events"): "page-view/analytics beacons; anonymous by design, user only attributed",
     # ── Public content (Grammar Wiki, Vocabulary library, prompt bank) ───

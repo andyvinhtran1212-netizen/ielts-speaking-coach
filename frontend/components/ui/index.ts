@@ -13,6 +13,7 @@ export { AV2_BREAKPOINTS, av2MinWidth } from './breakpoints';
 export { ConfirmDialog, ConfirmDialogFrame, type ConfirmDialogProps, type ConfirmDialogTone } from './confirm-dialog';
 export { Dialog, DialogFrame, type DialogProps, type DialogVariant } from './dialog';
 export { MediaPlaceholder, PendingValue, type MediaPlaceholderKind, type MediaPlaceholderProps } from './media-placeholder';
+export { ContactChannels, type ContactChannelsProps } from './contact-channels';
 export { Notice, type NoticeKind, type NoticeProps } from './notice';
 export { PageState, type PageStateKind, type PageStateProps } from './page-state';
 export { BackLink, Breadcrumb, type BackLinkProps, type BreadcrumbItem, type BreadcrumbProps } from './breadcrumb';
