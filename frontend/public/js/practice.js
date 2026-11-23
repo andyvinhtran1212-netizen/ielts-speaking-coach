@@ -421,6 +421,7 @@
 
   function _roomUnsentCount() {
     var n = (_recSubState === 'recording' || _recordingDirty) ? 1 : 0;
+    n += _roomFullTestUnsent();
     if (_sheet && Array.isArray(_sheet.slots)) {
       n += _sheet.slots.filter(function (slot) { return !!slot.retryBlob; }).length;
     }
@@ -509,9 +510,29 @@
     return true;
   }
 
+  // Full Test answers already handed to the upload queue but not confirmed
+  // (still uploading, or failed and waiting for a retry) live only in memory.
+  // The room's leave box counts them too (CR #2626, Codex P1); the flag-off
+  // page keeps relying on the Full Test bridge's beforeunload, as today.
+  function _roomFullTestUnsent() {
+    if (!_examRoomMode) return 0;
+    var controller = window.PracticeFullTest;
+    if (!controller) return 0;
+    try {
+      if (typeof controller.getSnapshot === 'function') {
+        var snap = controller.getSnapshot() || {};
+        return (Number(snap.pendingCount) || 0) + (Number(snap.retryCount) || 0);
+      }
+      return typeof controller.hasUnsavedAudio === 'function' && controller.hasUnsavedAudio() ? 1 : 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
   function _hasUnsentWork() {
     if (_roomLeaving) return false;
     if (_recSubState === 'recording' || _recordingDirty) return true;
+    if (_roomFullTestUnsent() > 0) return true;
     return !!(_sheet && Array.isArray(_sheet.slots)
       && _sheet.slots.some(function (slot) { return !!slot.retryBlob; }));
   }

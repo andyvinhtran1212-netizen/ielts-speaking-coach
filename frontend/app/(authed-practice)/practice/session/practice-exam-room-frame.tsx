@@ -13,7 +13,7 @@ import '@/styles/av2/tokens.css';
 import '@/styles/av2/base.css';
 
 import type { CSSProperties } from 'react';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
 
 import { FocusShell, FocusStatus, FocusTimer } from '@/components/ui/shell/focus-shell';
 import { speakingRoomStrings, type SpeakingRoomMode } from '@/lib/exam-room/strings-speaking.mjs';
@@ -33,6 +33,23 @@ function useElapsed(running: boolean): number {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [running]);
   return seconds;
+}
+
+/**
+ * UIBASE-0056 FR-009: the focus bar has no site navigation or account button
+ * above it. page.tsx renders `<aver-chrome>` for the flag-off page; the room
+ * hides it while shown and gives it back after (the same as the Reading and
+ * Quick Check rooms). Inline `display` because the design sheet sets
+ * `aver-chrome { display: block }`, which outranks the `hidden` attribute.
+ */
+function useHideSiteChrome() {
+  useLayoutEffect(() => {
+    const hidden = Array.from(document.querySelectorAll<HTMLElement>('aver-chrome'))
+      .filter((element) => element.style.display !== 'none')
+      .map((element) => ({ element, display: element.style.display }));
+    hidden.forEach(({ element }) => { element.style.display = 'none'; });
+    return () => { hidden.forEach(({ element, display }) => { element.style.display = display; }); };
+  }, []);
 }
 
 // tokens.css declares the font stacks on `.av2-root` only; the room root sets
@@ -55,6 +72,7 @@ export function PracticeExamRoom({
   returnHref: string;
   children: ReactNode;
 }) {
+  useHideSiteChrome();
   const strings = speakingRoomStrings(mode);
   const elapsed = useElapsed(activeState !== 'loading' && activeState !== 'error');
   const title = typeof view.frame?.contextLabel === 'string' && view.frame.contextLabel ? view.frame.contextLabel : 'Speaking';

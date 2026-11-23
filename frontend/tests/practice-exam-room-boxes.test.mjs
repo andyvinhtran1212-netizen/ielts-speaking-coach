@@ -25,14 +25,14 @@ const P2_DISCARD = slice('  function discardP2SubmissionRetry() {', '  function 
 const SUBMIT = slice('  async function _sheetSubmit() {', '  function nextQuestion() {');
 const COMPLETE = slice('  async function _completeSpeakingSession(sessionId, keepRedirect) {', '  function _normalizeSubmissionResult(');
 
-function sandbox({ on, blob = null, slots = null, complete = async () => ({}), native = null, confirm = () => true }) {
+function sandbox({ on, blob = null, slots = null, complete = async () => ({}), native = null, confirm = () => true, fullTest = undefined }) {
   const log = [];
   const views = [];
   const timeouts = [];
   const env = {
     navigator: {},
     MediaRecorder: function () {},
-    window: { confirm: (m) => { log.push(['confirm', m]); return confirm(); }, location: { assign: (u) => log.push(['assign', u]) } },
+    window: { confirm: (m) => { log.push(['confirm', m]); return confirm(); }, location: { assign: (u) => log.push(['assign', u]) }, PracticeFullTest: fullTest },
     _updateNativeView: (section, patch) => { views.push([section, patch]); return true; },
     _getNativeRecorder: () => null,
     _getNativeSubmission: () => native,
@@ -105,6 +105,13 @@ describe('flag off: every path is the old one', () => {
     assert.equal(log[0][0], 'confirm');
     assert.deepEqual(log.slice(1), [['release'], ['complete', 'sess'], ['navigate', '/result?id=sess']]);
     assert.ok(!views.some(([s]) => s === 'dialog'));
+  });
+
+  test('Full Test upload debt is left to the bridge\'s beforeunload, as before', () => {
+    const { api, log } = sandbox({ on: false, fullTest: { getSnapshot: () => ({ pendingCount: 0, retryCount: 1 }) } });
+    assert.equal(api.hasUnsent(), false);
+    assert.equal(api.canLeave('/speaking'), true);
+    assert.deepEqual(log, []);
   });
 
   test('complete is called exactly as before (no options)', async () => {
@@ -210,6 +217,26 @@ describe('flag on: leaving (FR-007, FR-012)', () => {
     assert.deepEqual(log, [['release']]);
   });
 
+  test('a Full Test answer whose upload failed counts as unsent (CR #2626, Codex P1)', () => {
+    // _showPrep() has already cleared the recorder for the next question; the
+    // only copy of the earlier answer is in the Full Test upload queue.
+    const fullTest = { getSnapshot: () => ({ pendingCount: 0, retryCount: 1 }), hasUnsavedAudio: () => true };
+    const { api, log, dialogs } = sandbox({ on: true, fullTest });
+    assert.equal(api.hasUnsent(), true, '"‹ Thoát" asks through hasUnsavedWork');
+    assert.equal(api.canLeave('/speaking'), false);
+    assert.deepEqual(dialogs(), [{ kind: 'leave', unsent: 1 }]);
+    assert.ok(!log.some(([k]) => k === 'confirm'));
+  });
+
+  test('an upload still in flight counts too; a confirmed queue does not', () => {
+    const busy = sandbox({ on: true, fullTest: { getSnapshot: () => ({ pendingCount: 2, retryCount: 0 }) } });
+    busy.api.dirty(true);
+    busy.api.requestLeave('/speaking');
+    assert.deepEqual(busy.dialogs(), [{ kind: 'leave', unsent: 3 }]);
+    const done = sandbox({ on: true, fullTest: { getSnapshot: () => ({ pendingCount: 0, retryCount: 0 }), hasUnsavedAudio: () => false } });
+    assert.equal(done.api.hasUnsent(), false);
+  });
+
   test('nothing unsent: leave at once', () => {
     const { api, dialogs } = sandbox({ on: true });
     assert.equal(api.canLeave('/speaking'), true);
@@ -261,7 +288,7 @@ describe('flag on: 401 stays in the page (FR-010)', () => {
       var _roomDialogKind = null, _roomLeaveHref = '', _roomLeaving = false, _roomConfirmed = false, _ROOM_LEAVE_RESET_MS = 4000;
       var _playerGeneration = 1, _playerActive = true, _sessionId = 'sess', _feedbackAudioUrl = null, _feedbackAudioIsBlob = false;
       var _recSubState = 'idle', _recordingDirty = false, _sheet = null, _ftAllSessionIds = [], _testMode = null;
-      var _p2PrepTimerId = null, _p2SpeakTimerId = null;
+      var _p2PrepTimerId = null, _p2SpeakTimerId = null, window = {};
       function _stopAITts() {} function _cancelSpeech() {} function _stopWaveform() {} function _stopP2Timers() {}
       function $() { return null; } function _clearManagedEffect() {} function _showRecError() {}
       function _startManagedTimeout() {} function _getNativeRecorder() { return null; }
