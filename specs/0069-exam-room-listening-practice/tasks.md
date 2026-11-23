@@ -1,0 +1,8 @@
+# Tasks
+
+- [ ] T001 (G08-T11) Hàm chuyển khoá bản nháp cũ sang khoá theo `ownerKey` và test `node --test`. Phụ thuộc EXAMROOM-0066 T001. `owns: frontend/lib/listening-programme-answer-queue.mjs, frontend/tests/listening-programme-draft-migrate.test.mjs`
+- [ ] T002 (G08-T11) Nhánh `programme-form-room.tsx` sau `examRoomEnabled('listening-practice')`: hộp nộp, chờ đối chiếu, trạng thái lưu có giờ, dải câu, `AudioPlayer` practice/once, bản sao, mất mạng, 401 với `noRedirect`, tab khác, gắn theo runner `active`. Phụ thuộc EXAMROOM-0066 T001–T004 và #2492. `depends: T001` `owns: frontend/app/(authed-listening-player)/listening/programmes/form/[testId]/programme-form-runner.tsx, frontend/app/(authed-listening-player)/listening/programmes/form/[testId]/programme-form-room.tsx, frontend/tests/react/programme-form-room.test.tsx`
+- [ ] T003 (G08-T11) Bước `clickIfPresent` trong journey context; chạy journey context (CI) và guided (tại máy) ở hai nhánh, React test cũ; sửa và liệt kê test đọc nguồn vỡ có chủ ý. `depends: T002` `owns: frontend/tooling/verify-listening-programme-context-flow.mjs`
+- [ ] T004 Staging: bật cờ trên staging; nghiệm thu Day 52 và một bài "Vận dụng" theo Scenario 1–5. `depends: T003`
+- [ ] T005 Review độc lập (CR/SA, `/ui-review`) và cập nhật `verification.md`. `depends: T003`
+- [ ] T006 Production: chỉ khi anh Andy nói rõ; giữ nhánh cờ tắt tới khi anh nghiệm thu (gỡ nhánh cũ là G08-T21). `depends: T004, T005`
