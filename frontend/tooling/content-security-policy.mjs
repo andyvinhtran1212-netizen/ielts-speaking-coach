@@ -245,23 +245,28 @@ export function sameOriginFramePolicy(policy) {
 // these two sources (next.config.ts `headers()`); every other route keeps the
 // baseline. Self-hosted video needs nothing extra (media-src already has https:).
 export const SPEAKING_VIDEO_ROUTE = '/library/speaking/:slug';
-export const YOUTUBE_SCRIPT_SOURCE = 'https://www.youtube.com';
+// Path sources, not the whole origin (SA M1): the API loader, and the player
+// scripts it adds under /s/player/ (a path ending in `/` matches its subtree).
+export const YOUTUBE_SCRIPT_SOURCES = Object.freeze([
+  'https://www.youtube.com/iframe_api',
+  'https://www.youtube.com/s/player/',
+]);
 export const YOUTUBE_FRAME_SOURCE = 'https://www.youtube-nocookie.com';
 
 /** The baseline policy plus the YouTube script and frame sources. */
 export function youtubeEmbedPolicy(policy) {
   const entries = policy.split('; ').map((entry) => entry.split(' '));
-  const add = (name, source, base) => {
-    const entry = entries.find(([directive]) => directive === name);
-    if (entry) {
-      if (!entry.includes(source)) entry.push(source);
-      return;
+  const add = (name, sources, base) => {
+    let entry = entries.find(([directive]) => directive === name);
+    if (!entry) {
+      // Insert before form-action, so the directive order stays stable.
+      entry = [name, ...base];
+      const at = entries.findIndex(([directive]) => directive === 'form-action');
+      entries.splice(at < 0 ? entries.length : at, 0, entry);
     }
-    // Insert before form-action, so the directive order stays stable.
-    const at = entries.findIndex(([directive]) => directive === 'form-action');
-    entries.splice(at < 0 ? entries.length : at, 0, [name, ...base, source]);
+    for (const source of sources) if (!entry.includes(source)) entry.push(source);
   };
-  add('script-src', YOUTUBE_SCRIPT_SOURCE, ["'self'"]);
-  add('frame-src', YOUTUBE_FRAME_SOURCE, ["'self'"]);
+  add('script-src', YOUTUBE_SCRIPT_SOURCES, ["'self'"]);
+  add('frame-src', [YOUTUBE_FRAME_SOURCE], ["'self'"]);
   return entries.map((entry) => entry.join(' ')).join('; ');
 }

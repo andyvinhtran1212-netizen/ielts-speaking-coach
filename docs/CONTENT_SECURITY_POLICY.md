@@ -25,7 +25,7 @@ See [Report-Only nonce policy](#report-only-nonce-policy-sec-csp-nonce-step-1).
 | `base-uri`, `form-action` | `'self'` | same |
 | `object-src` | `'none'` | same |
 | `frame-ancestors` | `'none'`; `'self'` for the embeddable exam/Writing workspaces in `EMBEDDABLE_SAME_ORIGIN_ROUTES` | same |
-| `script-src` | `'self' 'unsafe-inline'`; `/library/speaking/:slug` adds `https://www.youtube.com` | adds `https://vercel.live` |
+| `script-src` | `'self' 'unsafe-inline'`; `/library/speaking/:slug` adds `https://www.youtube.com/iframe_api` and `https://www.youtube.com/s/player/` | adds `https://vercel.live` |
 | `style-src` | `'self' 'unsafe-inline' https://fonts.googleapis.com` | adds `https://vercel.live` |
 | `font-src` | `'self' data: https://fonts.gstatic.com` | adds `https://vercel.live https://assets.vercel.com` |
 | `img-src` | `'self' data: blob: https:` | same (this also covers the toolbar's `vercel.live` / `vercel.com` images) |
@@ -89,8 +89,10 @@ answer video embedded from YouTube in privacy-enhanced mode and highlights the
 transcript line being spoken, which needs the YouTube IFrame API. For that route
 only, `next.config.ts` `headers()` sends `youtubeEmbedPolicy(baseline)`:
 
-- `script-src` adds `https://www.youtube.com` (the API loads
-  `https://www.youtube.com/iframe_api`, then `https://www.youtube.com/s/player/…`);
+- `script-src` adds two path sources, not the whole origin:
+  `https://www.youtube.com/iframe_api` (the API loader) and
+  `https://www.youtube.com/s/player/` (the player scripts it adds; a path
+  ending in `/` matches everything under it);
 - `frame-src` is `'self' https://www.youtube-nocookie.com` (plus the toolbar
   sources on non-production builds). `https://www.youtube.com` is never a frame
   source, so a cookie-setting embed cannot load.

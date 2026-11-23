@@ -195,7 +195,9 @@ test('LIBRARY-0061 T013: only the Speaking question page may load the YouTube IF
     const speaking = youtubeEmbedPolicy(base);
     const before = directives(base);
     const after = directives(speaking);
-    assert.deepEqual(after['script-src'], [...before['script-src'], 'https://www.youtube.com']);
+    // Only the API loader and the player scripts, never the whole youtube.com origin.
+    assert.deepEqual(after['script-src'], [...before['script-src'], 'https://www.youtube.com/iframe_api', 'https://www.youtube.com/s/player/']);
+    assert.ok(!after['script-src'].includes('https://www.youtube.com'));
     assert.deepEqual(after['frame-src'], [...(before['frame-src'] ?? ["'self'"]), 'https://www.youtube-nocookie.com']);
     // Nothing else changes: no youtube.com frame, no connect/img/media change, still not frameable.
     for (const name of Object.keys(before)) {
