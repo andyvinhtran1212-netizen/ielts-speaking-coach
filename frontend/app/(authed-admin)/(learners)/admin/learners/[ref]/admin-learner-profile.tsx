@@ -41,8 +41,6 @@ import { assignmentHref } from '@/lib/admin-writing-assignments-model.mjs';
 
 import { LearnerAccessTab } from './learner-access-tab';
 import { PracticeGrantForm } from '@/components/admin/practice-grant-form';
-import { getUserAccess, heldCourseIds } from '@/lib/admin-learner-entitlements';
-import { getCourseProducts } from '@/lib/admin-practice-grant-api';
 
 type Banner = { kind: 'success' | 'error'; text: string } | null;
 
@@ -75,10 +73,9 @@ export function AdminLearnerProfile({ learnerRef }: { learnerRef: string }) {
   const [pick, setPick] = useState<'admin' | 'learner' | null>(null);
   const [busy, setBusy] = useState(false);
   const [banner, setBanner] = useState<Banner>(null);
-  // FR-045: one learner's re-practice grant. Courses the learner already holds
-  // in force (G04 /access) are left out of the form.
-  const [grant, setGrant] = useState<{ held: Record<string, string[]> } | null>(null);
-  const [grantLoading, setGrantLoading] = useState(false);
+  // FR-045: one learner's re-practice grant. The form reads the learner's G04
+  // access itself and leaves out what they already hold.
+  const [grantOpen, setGrantOpen] = useState(false);
   const overviewSeq = useRef(0);
   // Read through refs: the router object and the query are not stable across renders.
   const routerRef = useRef(router);
@@ -155,17 +152,6 @@ export function AdminLearnerProfile({ learnerRef }: { learnerRef: string }) {
     () => (detail?.account?.user_id ? [{ id: detail.account.user_id, name: detail.summary.name }] : []),
     [detail?.account?.user_id, detail?.summary.name],
   );
-  const openGrant = async () => {
-    const userId = detail?.account?.user_id;
-    if (!userId || grantLoading) return;
-    setGrantLoading(true);
-    try {
-      const [access, products] = await Promise.all([getUserAccess(userId), getCourseProducts()]);
-      setGrant({ held: { [userId]: heldCourseIds(access.items, products.items) } });
-    } catch (caught) {
-      setBanner({ kind: 'error', text: `Chưa đọc được quyền học hiện có: ${messageOf(caught)}` });
-    } finally { setGrantLoading(false); }
-  };
 
   if (detailError) {
     return (
@@ -192,20 +178,17 @@ export function AdminLearnerProfile({ learnerRef }: { learnerRef: string }) {
           : null}
         <a className="adm-btn-secondary" href={assignmentHref({}, detail.student_id ? { studentId: detail.student_id } : {})}>Giao bài</a>
         {detail.account?.user_id ? (
-          <button type="button" className="adm-btn-secondary" disabled={grantLoading} onClick={() => void openGrant()}>
-            {grantLoading ? 'Đang đọc quyền học…' : 'Cấp quyền luyện lại'}
-          </button>
+          <button type="button" className="adm-btn-secondary" onClick={() => setGrantOpen(true)}>Cấp quyền luyện lại</button>
         ) : (
           <button type="button" className="adm-btn-secondary" disabled title="Người này chưa có tài khoản đăng nhập">Cấp quyền luyện lại</button>
         )}
       </div>
 
-      {grant ? (
+      {grantOpen && grantUsers.length ? (
         <PracticeGrantForm
           open
           users={grantUsers}
-          heldCourseIds={grant.held}
-          onClose={() => setGrant(null)}
+          onClose={() => setGrantOpen(false)}
           onGranted={() => {
             setBanner({ kind: 'success', text: `Đã cấp quyền luyện lại cho ${detail.summary.name}.` });
             void loadDetail();
