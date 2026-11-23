@@ -5,6 +5,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { ExamRoomShell, formatClock, unsavedCount } from '@/components/exam-room/exam-room-shell';
 import { loginHref } from '@/components/exam-room/session-expired-dialog';
 import type { ExamRoomQuestion, ExamRoomSection, ExamRoomShellProps } from '@/components/exam-room/types';
+import { localCopyKey, writeLocalCopy } from '@/lib/exam-room/local-copy.mjs';
 
 beforeAll(() => {
   const proto = HTMLDialogElement.prototype as HTMLDialogElement & { showModal: () => void; close: () => void };
@@ -198,6 +199,35 @@ describe('submit (FR-010, FR-014, FR-034)', () => {
     expect(onRetry).toHaveBeenCalled();
     rerender(<ExamRoomShell {...base({ timer: { kind: 'countdown', remainingSeconds: 0, onExpire: vi.fn() }, submit: { label: 'Submit test', onSubmit: vi.fn(() => Promise.resolve()), outcome: 'confirmed' } })} />);
     expect(screen.getByText('Your answers have been saved and submitted.')).toBeTruthy();
+  });
+
+  it('expired_unsubmitted: no retry, never "submitted", back to exit, and the device copy goes (amendment 1 (a))', () => {
+    const scope = { surface: 'listening-practice', ownerKey: 'user-1', attemptKey: 'att-1' };
+    const other = { ...scope, attemptKey: 'att-2' };
+    const expiresAt = Date.now() + 60_000;
+    writeLocalCopy(window.localStorage, { ...scope, answers: { 1: { value: 'A', baseValue: null } }, expiresAt });
+    writeLocalCopy(window.localStorage, { ...other, answers: { 1: { value: 'B', baseValue: null } }, expiresAt });
+    const props = base({ surface: 'listening-practice', timer: { kind: 'countdown', remainingSeconds: 0, onExpire: vi.fn() } });
+    const { rerender } = render(<ExamRoomShell {...props} submit={{ label: 'Submit test', onSubmit: vi.fn(() => Promise.resolve()), outcome: 'submitting' }} />);
+    expect(window.localStorage.getItem(localCopyKey(scope))).not.toBeNull();
+    rerender(<ExamRoomShell {...props} submit={{ label: 'Submit test', onSubmit: vi.fn(() => Promise.resolve()), outcome: 'expired_unsubmitted', savedUpTo: '10:58' }} />);
+    expect(screen.getByText('Time ran out before your answers reached our server. This attempt was not submitted and has no score. Your answers were saved on our server up to 10:58.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Back' }).getAttribute('href')).toBe('/tests');
+    expect(screen.getByRole('textbox', { name: 'Answer 1' }).matches(':disabled')).toBe(true);
+    expect(window.localStorage.getItem(localCopyKey(scope))).toBeNull();
+    expect(window.localStorage.getItem(localCopyKey(other))).not.toBeNull();
+    window.localStorage.clear();
+  });
+
+  it('closed_unconfirmed also drops the device copy; unconfirmed_manual keeps it', () => {
+    const scope = { surface: 'reading', ownerKey: 'user-1', attemptKey: 'att-1' };
+    writeLocalCopy(window.localStorage, { ...scope, answers: { 1: { value: 'A', baseValue: null } }, expiresAt: Date.now() + 60_000 });
+    const props = base({ timer: { kind: 'countdown', remainingSeconds: 0, onExpire: vi.fn() } });
+    const { rerender } = render(<ExamRoomShell {...props} submit={{ label: 'Submit test', onSubmit: vi.fn(() => Promise.resolve()), outcome: 'unconfirmed_manual', savedUpTo: '10:58', onRetry: vi.fn() }} />);
+    expect(window.localStorage.getItem(localCopyKey(scope))).not.toBeNull();
+    rerender(<ExamRoomShell {...props} submit={{ label: 'Submit test', onSubmit: vi.fn(() => Promise.resolve()), outcome: 'closed_unconfirmed', closedAt: '11:00', savedUpTo: '10:58' }} />);
+    expect(window.localStorage.getItem(localCopyKey(scope))).toBeNull();
   });
 
   it('time-up choice: two buttons, no "saved and submitted" line', async () => {

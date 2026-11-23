@@ -63,7 +63,7 @@ test('save status text uses the last successful save time', () => {
 
 test('time-up outcome never says submitted unless confirmed', () => {
   assert.equal(submitOutcomeModel({ outcome: 'confirmed', strings: EN }).text, 'Your answers have been saved and submitted.');
-  for (const outcome of ['submitting', 'unconfirmed', 'unconfirmed_manual', 'closed_unconfirmed']) {
+  for (const outcome of ['submitting', 'unconfirmed', 'unconfirmed_manual', 'closed_unconfirmed', 'expired_unsubmitted']) {
     const m = submitOutcomeModel({ outcome, savedUpTo: '10:42', closedAt: '10:45', strings: EN });
     assert.ok(!/saved and submitted/.test(m.text), outcome);
     assert.equal(m.inputsLocked, true);
@@ -73,4 +73,21 @@ test('time-up outcome never says submitted unless confirmed', () => {
     'Máy chủ đã đóng bài lúc 10:45. Các câu sau 10:42 có thể chưa được ghi nhận.');
   assert.equal(submitOutcomeModel({ outcome: 'closed_unconfirmed', closedAt: '10:45', strings: EN }).action, 'exit');
   assert.equal(submitOutcomeModel({ outcome: 'idle', strings: EN }).inputsLocked, false);
+});
+
+test('expired_unsubmitted: refused after the grace period, never "submitted", no retry, copy cleared', () => {
+  const en = submitOutcomeModel({ outcome: 'expired_unsubmitted', savedUpTo: '10:42', strings: EN });
+  assert.equal(en.text, 'Time ran out before your answers reached our server. This attempt was not submitted and has no score. Your answers were saved on our server up to 10:42.');
+  assert.deepEqual([en.action, en.inputsLocked, en.clearCopy], ['exit', true, true]);
+  assert.equal(submitOutcomeModel({ outcome: 'expired_unsubmitted', strings: VI }).text,
+    'Hết giờ trước khi bài tới máy chủ. Lượt này chưa được nộp và không có điểm.');
+  assert.equal(submitOutcomeModel({ outcome: 'expired_unsubmitted', savedUpTo: '10:42', strings: VI }).text,
+    'Hết giờ trước khi bài tới máy chủ. Lượt này chưa được nộp và không có điểm. Máy chủ đã lưu bài của bạn tới 10:42.');
+  // "submitted" appears only as "not submitted"; Vietnamese never says "đã nộp".
+  assert.ok(!/submitted/.test(en.text.replace('not submitted', '')), en.text);
+  assert.ok(!/đã nộp/.test(submitOutcomeModel({ outcome: 'expired_unsubmitted', savedUpTo: '10:42', strings: VI }).text));
+  assert.equal(submitOutcomeModel({ outcome: 'closed_unconfirmed', closedAt: '10:45', strings: EN }).clearCopy, true);
+  for (const outcome of ['submitting', 'confirmed', 'unconfirmed', 'unconfirmed_manual', 'idle']) {
+    assert.equal(submitOutcomeModel({ outcome, strings: EN }).clearCopy, false, outcome);
+  }
 });

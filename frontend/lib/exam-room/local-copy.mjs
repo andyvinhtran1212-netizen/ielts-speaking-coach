@@ -2,8 +2,9 @@
 // EXAMROOM-0066 FR-035 (and FR-015, FR-032): the on-device copy of answers
 // written before "Sign in again", bound to one account (or share-link guest
 // scope) and one attempt. It never overwrites the server: on return the
-// surface reads the attempt first and only re-sends answers the server has not
-// changed since the copy's `baseSavedAt`. No email or name is stored.
+// surface reads the attempt first and only re-sends an answer while the
+// server still holds the copy's `baseValue` for it (compared by value, never
+// by time: amendment 1 (c), approved by Andy 23/11). No email or name is stored.
 //
 // Key: exam-room:local-copy:{surface}:{ownerKey}:{attemptKey}, each segment
 // URI-encoded so the owner can be read from the key alone (clean-up of other
@@ -14,7 +15,11 @@ export const UNTIMED_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 export const AFTER_DEADLINE_MS = 24 * 60 * 60 * 1000;
 
 /**
- * @typedef {{ value: string, baseSavedAt: string | null }} LocalCopyAnswer
+ * `baseValue`: the `user_answer` the server last acked for this question, or
+ * the value read when the attempt was opened; `null` when the server had no
+ * answer. A stored entry without the field (older copy) has an unknown base
+ * and is never re-sent on its own. `baseSavedAt` is for display only.
+ * @typedef {{ value: string, baseValue: string | null, baseSavedAt?: string | null }} LocalCopyAnswer
  * @typedef {{ v: 1, surface: string, ownerKey: string, attemptKey: string, savedAt: number, expiresAt: number, answers: Record<string, LocalCopyAnswer> }} LocalCopy
  * @typedef {{ surface: string, ownerKey: string, attemptKey: string }} LocalCopyScope
  */
@@ -68,7 +73,14 @@ export function writeLocalCopy(storage, { surface, ownerKey, attemptKey, answers
     const merged = { ...(existing?.answers ?? {}) };
     for (const [q, a] of Object.entries(answers)) {
       if (!a || typeof a.value !== 'string') continue;
-      merged[String(q)] = { value: a.value, baseSavedAt: a.baseSavedAt ?? null };
+      /** @type {LocalCopyAnswer} */
+      const entry = { value: a.value, baseValue: null, baseSavedAt: a.baseSavedAt ?? null };
+      const prior = merged[String(q)];
+      if (typeof a.baseValue === 'string' || a.baseValue === null) entry.baseValue = a.baseValue;
+      // Re-writing a question without a base keeps the base already known for it.
+      else if (prior && (typeof prior.baseValue === 'string' || prior.baseValue === null)) entry.baseValue = prior.baseValue;
+      else delete (/** @type {any} */ (entry)).baseValue; // unknown base stays unknown
+      merged[String(q)] = entry;
     }
     /** @type {LocalCopy} */
     const record = { v: 1, ...scope, savedAt: now, expiresAt, answers: merged };
@@ -109,38 +121,59 @@ export function readLocalCopy(storage, { surface, ownerKey, attemptKey, now = Da
 }
 
 /**
- * What to do with a copy after reading the attempt from the server.
+ * Comparable form of an answer: strings verbatim (length included), arrays and
+ * objects as JSON with sorted keys; no answer on the server and "" are equal.
+ * @param {unknown} v
+ * @returns {string}
+ */
+function norm(v) {
+  if (v == null) return '';
+  if (typeof v === 'string') return v;
+  return JSON.stringify(sortKeys(v));
+}
+/** @param {unknown} v @returns {unknown} */
+function sortKeys(v) {
+  if (Array.isArray(v)) return v.map(sortKeys);
+  if (v && typeof v === 'object') {
+    return Object.fromEntries(Object.keys(v).sort().map((k) => [k, sortKeys(/** @type {any} */ (v)[k])]));
+  }
+  return v;
+}
+
+/**
+ * What to do with a copy after reading the attempt from the server. Compared
+ * by value only; save times are never used (clock skew, missing `savedAt`).
  * - Attempt not open (submitted, closed, abandoned): send nothing, clear.
- * - Per answer: re-send only when the server's save time is not newer than
- *   the copy's `baseSavedAt` (both unknown counts as unchanged); otherwise
- *   keep the server's value and drop that answer from the copy.
- * Answers equal to the server value need no re-send. `drop` lists the
- * entries to remove from the copy now (server kept or already equal), as
- * `{ q, value }` so `removeAckedFromCopy` only removes them if unchanged; the
- * re-sent ones are removed the same way once the server acks them.
+ * - Server value equal to the copy: nothing to send, drop.
+ * - Server value still equal to the copy's `baseValue`: re-send the copy.
+ * - Server value differs from `baseValue` (changed elsewhere since): keep the
+ *   server's value and drop that answer from the copy.
+ * - `baseValue` unknown (older copy): never sent on its own; listed in
+ *   `ask` so the surface can let the learner choose, and kept in the copy.
+ * `drop` lists `{ q, value }` so `removeAckedFromCopy` only removes entries
+ * still unchanged; re-sent ones are removed the same way once acked.
  * @param {LocalCopy | null} copy
- * @param {{ open: boolean, answers: Record<string | number, { value: string | null, savedAt: string | null }> }} server
- * @returns {{ resend: { q: string, value: string }[], keepServer: string[], drop: { q: string, value: string }[], clear: boolean }}
+ * @param {{ open: boolean, answers: Record<string | number, { value: unknown } | null | undefined> }} server
+ * @returns {{ resend: { q: string, value: string }[], keepServer: string[], ask: { q: string, local: string, server: string }[], drop: { q: string, value: string }[], clear: boolean }}
  */
 export function planLocalCopyReplay(copy, server) {
-  if (!copy) return { resend: [], keepServer: [], drop: [], clear: false };
-  if (!server.open) return { resend: [], keepServer: [], drop: Object.entries(copy.answers).map(([q, a]) => ({ q, value: a.value })), clear: true };
+  if (!copy) return { resend: [], keepServer: [], ask: [], drop: [], clear: false };
+  if (!server.open) return { resend: [], keepServer: [], ask: [], drop: Object.entries(copy.answers).map(([q, a]) => ({ q, value: a.value })), clear: true };
   const resend = [];
   const keepServer = [];
+  const ask = [];
   /** @type {{ q: string, value: string }[]} */
   const drop = [];
   for (const [q, local] of Object.entries(copy.answers)) {
-    const remote = server.answers[q] ?? null;
-    const remoteAt = remote?.savedAt ? Date.parse(remote.savedAt) : null;
-    const baseAt = local.baseSavedAt ? Date.parse(local.baseSavedAt) : null;
-    const unchanged = remoteAt == null
-      ? true
-      : baseAt != null && Number.isFinite(baseAt) && Number.isFinite(remoteAt) && remoteAt <= baseAt;
-    if (!unchanged) { keepServer.push(q); drop.push({ q, value: local.value }); continue; }
-    if (remote && remote.value === local.value) { drop.push({ q, value: local.value }); continue; }
-    resend.push({ q, value: local.value });
+    const remote = norm(server.answers[q]?.value);
+    if (remote === norm(local.value)) { drop.push({ q, value: local.value }); continue; }
+    const known = Object.prototype.hasOwnProperty.call(local, 'baseValue') && (typeof local.baseValue === 'string' || local.baseValue === null);
+    if (!known) { ask.push({ q, local: local.value, server: remote }); continue; }
+    if (remote === norm(local.baseValue)) { resend.push({ q, value: local.value }); continue; }
+    keepServer.push(q);
+    drop.push({ q, value: local.value });
   }
-  return { resend, keepServer, drop, clear: resend.length === 0 };
+  return { resend, keepServer, ask, drop, clear: resend.length === 0 && ask.length === 0 };
 }
 
 /**

@@ -6,7 +6,8 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { blocksManualSubmit, connectionReducer, initialConnectionState } from '@/lib/exam-room/connection-state.mjs';
-import { clockTime, submitButtonState } from '@/lib/exam-room/submit-guard.mjs';
+import { clearLocalCopy } from '@/lib/exam-room/local-copy.mjs';
+import { clockTime, submitButtonState, submitOutcomeModel } from '@/lib/exam-room/submit-guard.mjs';
 import { createTabGuard } from '@/lib/exam-room/tab-guard.mjs';
 
 import { Button } from '../ui/button';
@@ -68,7 +69,7 @@ export function ExamRoomShell(props: ExamRoomShellProps) {
   const {
     mode, surface, embedded = false, isFullTest = false, attemptKey, title, subtitle, timer = null, saveStatus,
     sections = [], questions = [], currentQ, onJump, onToggleFlag, flagsReady, layout, submit, exit,
-    onSessionExpired, onSessionConflict, timeUpChoice, session = 'active', tabGuard, viewportWidth,
+    onSessionExpired, onSessionConflict, timeUpChoice, session = 'active', tabGuard, viewportWidth, ownerKey,
   } = props;
   const strings = useMemo(() => examRoomStrings(mode), [mode]);
   const track = props.track ?? trackExamRoomEvent;
@@ -217,6 +218,15 @@ export function ExamRoomShell(props: ExamRoomShellProps) {
   const [submitError, setSubmitError] = useState(false);
   const outcome = submit?.outcome ?? 'idle';
   const offline = blocksManualSubmit(connection);
+  // FR-035: an attempt that can no longer be sent (closed by the server, or
+  // refused after the grace period) drops its on-device copy.
+  const clearCopy = submitOutcomeModel({ outcome, strings }).clearCopy;
+  useEffect(() => {
+    if (!clearCopy || typeof window === 'undefined') return;
+    let storage: Storage | null = null;
+    try { storage = window.localStorage; } catch { storage = null; }
+    clearLocalCopy(storage, { surface, ownerKey, attemptKey });
+  }, [clearCopy, surface, ownerKey, attemptKey]);
   // A save in flight counts as unsaved even when the surface tracks no per-question state.
   const pendingSaves = Math.max(unsaved, saveStatus.state === 'saving' ? 1 : 0);
   const button = submit ? submitButtonState({

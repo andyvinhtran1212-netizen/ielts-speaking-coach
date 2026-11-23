@@ -15,7 +15,7 @@ const SAMPLE = {
   position: [{ q: 18, total: 40, section: 'Passage 2 · 4/13' }],
   submitBlankTitle: [3], submitBlankBody: ['Q7, Q12 and Q13', 3], questionList: [['7', '12'], 3],
   offline: ['10:42'], sessionExpiredBody: ['10:42'], sessionExpiredNoCopy: ['10:42'],
-  unconfirmedManual: ['10:42'], closedUnconfirmed: ['10:45', '10:42'],
+  unconfirmedManual: ['10:42'], closedUnconfirmed: ['10:45', '10:42'], expiredUnsubmitted: ['10:42'],
 };
 
 function render(set) {
