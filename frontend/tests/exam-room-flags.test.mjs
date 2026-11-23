@@ -19,6 +19,8 @@ test('true only for listed, known surfaces', () => {
   assert.equal(examRoomEnabled('listening', { config, search: '' }), false);
   assert.equal(examRoomEnabled('bogus', { config, search: '' }), false);
   assert.deepEqual(parseExamRoomSurfaces(['mock', 'mock', 7, 'drill']), ['mock', 'drill']);
+  // Amendment 1 (b): Listening practice is its own surface, distinct from 'listening'.
+  assert.deepEqual(parseExamRoomSurfaces(['listening-practice', 'listening']), ['listening-practice', 'listening']);
   assert.deepEqual(parseExamRoomSurfaces('reading'), []);
 });
 

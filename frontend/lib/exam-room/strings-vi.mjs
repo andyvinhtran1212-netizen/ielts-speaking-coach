@@ -109,6 +109,9 @@ export const EXAM_ROOM_STRINGS_VI = Object.freeze({
   /** @param {string} closedAt @param {string} [savedUpTo] */
   closedUnconfirmed: (closedAt, savedUpTo = closedAt) =>
     `Máy chủ đã đóng bài lúc ${closedAt}. Các câu sau ${savedUpTo} có thể chưa được ghi nhận.`,
+  /** @param {string | null} t */
+  expiredUnsubmitted: (t) => 'Hết giờ trước khi bài tới máy chủ. Lượt này chưa được nộp và không có điểm.'
+    + (t ? ` Máy chủ đã lưu bài của bạn tới ${t}.` : ''),
 
   highlight: 'Highlight',
   note: 'Note',
