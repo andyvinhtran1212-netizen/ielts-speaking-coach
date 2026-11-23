@@ -8,14 +8,14 @@
 | FR-002 | kind=check; ref=node frontend/tooling/verify-write-flows.mjs (same writes both flag branches) | PENDING |
 | FR-003 | kind=test; ref=frontend/tests/reading-native/exam-room.spec.js (no email in DOM, title and passage label) | PENDING |
 | FR-004 | kind=test; ref=frontend/tests/reading-native/exam-room.spec.js (390px full test shows block and no attempt POST; mini test works) | PENDING |
-| FR-005 | kind=test; ref=frontend/tests/reading-native/exam-room.spec.js (start new attempt dialog, no dialog event) | PENDING |
+| FR-005 | kind=test; ref=frontend/tests/reading-native/exam-room.spec.js (start new attempt dialog, no dialog event; expired attempt prestart shows only "Start a new attempt", no Resume, no confirm) + backend/tests/test_reading_abandon_attempt.py (submit_deadline_passed matches the submit 422 boundary) | PENDING |
 | FR-006 | kind=test; ref=frontend/tests/reading-native/exam-room.spec.js (drag to 64%, reload keeps ratio) | PENDING |
 | FR-007 | kind=test; ref=frontend/tests/reading-native/exam-room.spec.js (navigator by passage, one flag control, flags restore on resume) | PENDING |
 | FR-008 | kind=test; ref=frontend/tests/react/exam-room-questions.test.tsx (answer strings equal current Reading renderer) | PENDING |
 | FR-009 | kind=test; ref=frontend/tests/reading-native/exam-room.spec.js (Saved at HH:MM, retry on failed) | PENDING |
 | FR-010 | kind=test; ref=frontend/tests/reading-native/exam-room.spec.js (blank list; page.clock time up while typing; confirmed only after submit ack or re-read; offline at 0 queues auto-submit; 5-minute grace copy) | PENDING |
 | FR-011 | kind=test; ref=frontend/tests/reading-native/exam-room.spec.js (leave flushes, unsaved count) | PENDING |
-| FR-012 | kind=test; ref=backend/tests/test_reading_abandon_attempt.py + exam-room.spec.js (abandon self-selected only, deadline checked in the UPDATE, started-before-written-after-deadline 409, concurrent submit/abandon one winner, 404/409 cases, excluded from results/history/progress) | PENDING |
+| FR-012 | kind=test; ref=backend/tests/test_reading_abandon_attempt.py + exam-room.spec.js (abandon runs under _learner_write with _attempt_write_keys like submit, abandon self-selected only, deadline checked in the UPDATE, started-before-written-after-deadline 409, concurrent submit/abandon one winner, 404/409 cases, excluded from results/history/progress) | PENDING |
 | FR-013 | kind=test; ref=frontend/tests/reading-native/exam-room.spec.js (offline → online) | PENDING |
 | FR-014 | kind=test; ref=frontend/tests/reading-native/exam-room.spec.js (401 on PATCH, URL unchanged, local copy keyed by ownerKey, resend only unchanged answers after same-account sign-in, other account cannot see it) | PENDING |
 | FR-015 | kind=test; ref=frontend/tests/reading-native/exam-room.spec.js (two tabs; old tab flushes before releasing the lock; no lock in 5 s keeps new tab read-only) | PENDING |

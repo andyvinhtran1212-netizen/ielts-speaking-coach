@@ -5,6 +5,7 @@
 - EXAMROOM-0066 và spec này `approved` trên `staging`.
 - G08-T02…T05 (khung, dạng câu, Highlight/Note) đã merge vào `staging`.
 - Không migration. Route bỏ bài (T003) có `response_model` và `types/api.d.ts` đã sinh lại.
+- Trường `submit_deadline_passed` (T003) đã lên `staging` trước khi bật cờ `reading` ở bất kỳ môi trường nào (FR-005).
 
 ## Staging
 
