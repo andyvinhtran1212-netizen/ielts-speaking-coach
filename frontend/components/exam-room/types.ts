@@ -4,7 +4,8 @@
 import type { ReactNode } from 'react';
 
 export type ExamRoomMode = 'test' | 'practice';
-export type ExamRoomSurface = 'reading' | 'listening' | 'mock' | 'writing' | 'speaking' | 'drill';
+// 'listening-practice': Listening practice (0066 amendment 1 (b)); 'listening' stays for full test, mini test and drill.
+export type ExamRoomSurface = 'reading' | 'listening' | 'listening-practice' | 'mock' | 'writing' | 'speaking' | 'drill';
 
 export interface ExamRoomSection { id: string; kind: 'passage' | 'part' | 'task'; index: number; firstQ: number; lastQ: number }
 export interface ExamRoomQuestion { q: number; sectionId: string; answered: boolean; flagged: boolean; saveState?: 'pending' | 'retrying' | 'failed' }
@@ -17,7 +18,9 @@ export type ExamRoomSaveStatus =
   | { state: 'failed'; lastSavedAt?: Date; unsaved: number; onRetry(): void };
 
 export type ExamRoomSubmitOutcome =
-  | 'idle' | 'submitting' | 'confirmed' | 'unconfirmed' | 'unconfirmed_manual' | 'closed_unconfirmed';
+  | 'idle' | 'submitting' | 'confirmed' | 'unconfirmed' | 'unconfirmed_manual' | 'closed_unconfirmed'
+  /** 0066 amendment 1 (a): the server refused a submit that arrived after the grace period. */
+  | 'expired_unsubmitted';
 
 export type ExamRoomTimer =
   | { kind: 'countdown'; remainingSeconds: number; onExpire(): void }
