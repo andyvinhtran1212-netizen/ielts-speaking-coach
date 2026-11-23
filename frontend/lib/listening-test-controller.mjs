@@ -548,7 +548,9 @@ export function listeningSubmitOutcome({ attemptId, reply, error, reread = null,
   // Already submitted (422 replay) or changed under us (409): read the truth.
   if (hasStatus && (status === 409 || status === 422) && !reread) return submitState('unconfirmed', 'reread');
   if (status === 410) return submitState('expired', 'back', { message: errorMessage(error) });
-  if (!hasStatus || online === false) return transient(autoRetries, 'online');
+  // Wait for the `online` event only while offline: a POST cut off on a live
+  // connection may never see one (CR #2557), so it backs off and re-reads.
+  if (!hasStatus || online === false) return transient(autoRetries, online === false ? 'online' : null);
   // Signed out: no automatic retry can succeed, so "Try again" stays on screen
   // while the shell asks the learner to sign in again (CR #2557 F1).
   if (status === 401) return submitState('unconfirmed_manual', 'manual', { waitFor: 'signin' });

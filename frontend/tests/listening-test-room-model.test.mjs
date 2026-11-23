@@ -56,11 +56,19 @@ describe('listeningSubmitOutcome (FR-010)', () => {
     assert.equal(s.next, 'results');
   });
   test('offline / network error stays in the test and retries when online', () => {
-    const s = listeningSubmitOutcome({ attemptId: ID, error: new TypeError('Failed to fetch') });
+    const s = listeningSubmitOutcome({ attemptId: ID, error: new TypeError('Failed to fetch'), online: false });
     assert.equal(s.outcome, 'unconfirmed');
     assert.equal(s.next, 'retry');
     assert.equal(s.waitFor, 'online');
     assert.equal(listeningSubmitOutcome({ attemptId: ID, error: httpError(503), online: false }).waitFor, 'online');
+  });
+  test('a request cut off while the browser is still online backs off; it never waits for an online event (CR #2557)', () => {
+    for (const autoRetries of [0, 1, 2]) {
+      const s = listeningSubmitOutcome({ attemptId: ID, error: new TypeError('Failed to fetch'), online: true, autoRetries });
+      assert.deepEqual([s.outcome, s.next, s.waitFor], ['unconfirmed', 'retry', null], String(autoRetries));
+    }
+    const spent = listeningSubmitOutcome({ attemptId: ID, error: new TypeError('Failed to fetch'), online: true, autoRetries: 3 });
+    assert.deepEqual([spent.outcome, spent.next], ['unconfirmed_manual', 'manual']);
   });
   test('401 stops the automatic retries and keeps "Try again" (CR #2557 F1)', () => {
     for (const autoRetries of [0, 1, 3]) {
