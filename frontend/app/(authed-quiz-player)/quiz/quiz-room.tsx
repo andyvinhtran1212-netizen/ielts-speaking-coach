@@ -4,7 +4,7 @@
 // behind examRoomEnabled('drill'). Drawing only: the engine, outbox, session,
 // reset and finish calls stay in quiz-player.tsx and come in through props
 // (FR-001). Practice mode, Vietnamese, no timer, no submit (FR-002).
-import { useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 
 // Tokens, base.css and fonts come from LegacyRoomRoot (lazyLegacyRoom in the player).
 import { ExamRoomShell } from '@/components/exam-room/exam-room-shell';
@@ -79,6 +79,7 @@ export interface QuizRoomProps {
   onReset(): Promise<void> | void;
   flush(): Promise<{ unsaved: number }>;
   nextButtonRef: RefObject<HTMLButtonElement | null>;
+  reopenButtonRef: RefObject<HTMLButtonElement | null>;
   textInputRef: RefObject<HTMLInputElement | null>;
   promptRef: RefObject<HTMLParagraphElement | null>;
   summaryHeadingRef: RefObject<HTMLHeadingElement | null>;
@@ -97,6 +98,10 @@ export function QuizRoom(props: QuizRoomProps) {
   const cardReturn = useRef<HTMLElement | null>(null);
 
   const title = bank?.bank?.title || 'Quick Check';
+  const { reopenButtonRef } = props;
+  // The player's focus effect can run before this lazily loaded room has drawn
+  // the error box; the room moves focus to "Mở lại bài" once it is on screen.
+  useEffect(() => { if (phase === 'error') reopenButtonRef.current?.focus(); }, [phase, reopenButtonRef]);
   const counter = phase === 'play' ? quizCounterText(props.questionNo, progress, area.grammar) : undefined;
   const label = (key: string) => (area.grammar ? displayPointLabel(bank, key) : displayItemKey(key, false));
   const openCard = (key: string, target: HTMLElement) => { cardReturn.current = target; setCardKey(key); };
@@ -114,7 +119,7 @@ export function QuizRoom(props: QuizRoomProps) {
     body = <p className={styles.muted} role="status">Đang tải câu…</p>;
   } else if (phase === 'error') {
     body = (
-      <Notice kind="error" title="Chưa mở được bài." action={props.retryable ? <Button variant="secondary" onClick={props.onReopen}>Mở lại bài</Button> : undefined}>
+      <Notice kind="error" title="Chưa mở được bài." action={props.retryable ? <Button ref={props.reopenButtonRef} variant="secondary" onClick={props.onReopen}>Mở lại bài</Button> : undefined}>
         {props.message}
       </Notice>
     );
@@ -145,7 +150,7 @@ export function QuizRoom(props: QuizRoomProps) {
       <section className={styles.panel} aria-label={title}>
         {bank?.managed?.isCurrent ? <p className={styles.muted}>Bản đã sửa</p> : null}
         {props.review && bank?.managed ? <p role="status" className={styles.muted}>Ôn tập: các câu trả lời trong lượt này không thay đổi tiến độ đã lưu.</p> : null}
-        {legacy ? <p className={styles.muted}>Bạn đang tiếp tục bản trước. Tiến độ được giữ riêng với <a href={`/quiz?bank=${encodeURIComponent(bank!.managed.currentBankId)}`}>bản đã sửa</a>.</p> : null}
+        {legacy ? <p className={styles.muted}>Bạn đang tiếp tục bản trước. Tiến độ được giữ riêng với bản đã sửa. <Button variant="text" href={`/quiz?bank=${encodeURIComponent(bank!.managed.currentBankId)}`}>Mở bản đã sửa</Button></p> : null}
         {props.masteryRetained ? <p role="status" className={styles.muted}>Các câu trả lời của lượt này được ghi vào lịch sử. Tiến độ đã hoàn tất từ lượt khác được giữ nguyên; số đếm ở đây là phần bạn đang làm trong lượt này.</p> : null}
         {props.saveUnconfirmed ? <Notice kind="warning">Chưa lưu được phần vừa làm. Bạn vẫn làm tiếp được; bài sẽ thử lưu lại.</Notice> : null}
         <article className={styles.question}>
@@ -235,7 +240,7 @@ export function QuizRoom(props: QuizRoomProps) {
           <div>
             <div className={styles.reviewHead}>
               <h2 className={styles.subheading}>Xem lại bài làm</h2>
-              <Button variant="secondary" size="sm" onClick={() => setWrongOnly((value) => !value)}>{wrongOnly ? `Hiện tất cả (${props.reviewRows.length})` : `Chỉ câu sai (${props.reviewRows.filter((row) => row.wrongCount > 0).length})`}</Button>
+              <Button variant="secondary" onClick={() => setWrongOnly((value) => !value)}>{wrongOnly ? `Hiện tất cả (${props.reviewRows.length})` : `Chỉ câu sai (${props.reviewRows.filter((row) => row.wrongCount > 0).length})`}</Button>
             </div>
             {visibleReviews.length ? visibleReviews.map((row, index) => (
               <div className={`qz-review-item ${!row.correct ? 'is-wrong' : row.wrongCount ? 'is-fixed' : 'is-right'}`} key={`${index}:${row.prompt}`}>

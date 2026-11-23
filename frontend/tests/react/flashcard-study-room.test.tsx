@@ -17,7 +17,7 @@ const CARD_B = '22222222-2222-4222-8222-222222222222';
 const personal = {
   stack_id: 'auto:due',
   cards: [
-    { id: CARD_A, headword: 'resilient', definition_vi: 'kiên cường', example_sentence: 'She is resilient.', source_type: 'needs_review', review: null },
+    { id: CARD_A, headword: 'resilient', definition_vi: 'kiên cường', example_sentence: 'She is resilient.', context_sentence: 'I am resilient person.', source_type: 'needs_review', review: null },
     { id: CARD_B, headword: 'mitigate', definition_vi: 'giảm nhẹ', source_type: 'grammar_lab_internal', review: null },
   ],
 };
@@ -113,6 +113,11 @@ describe('flag on: personal stack', () => {
     expect(back.textContent).toContain('Cần ôn · Chưa học');
     expect(drillSourceLabel('grammar_lab_internal')).toBe('Từ vựng cá nhân');
     expect(drillSourceLabel('toString')).toBe('Từ vựng cá nhân');
+    // CR #2597 nit: the old av-modal is portalled out of the av2 root, so base.css leaves its title alone.
+    fireEvent.click(screen.getByRole('button', { name: 'Xem câu gốc' }));
+    const source = await screen.findByRole('dialog', { name: 'Câu gốc của bạn' });
+    expect(source.closest('.av2-root')).toBeNull();
+    expect(source.parentElement?.parentElement).toBe(document.body);
   });
 
   it('a failed save says what to do in words and retries with the same client_review_id', async () => {

@@ -2,6 +2,7 @@
 import { lazyLegacyRoom } from '@/components/exam-room/lazy-legacy-room';
 import { VocabularyAudioButton as AudioButton } from '@/components/vocabulary-audio-button';
 
+import { createPortal } from 'react-dom';
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
@@ -492,7 +493,9 @@ export function FlashcardStudyPlayer() {
         onRestart={restart}
         onOpenSource={(trigger) => { sourceTriggerRef.current = trigger; setSourceOpen(true); }}
         flush={async () => ({ unsaved: pendingRating ? 1 : 0 })}
-        sourceDialog={sourceOpen && sourceCard ? (
+        // The old av-modal draws in the page's own styles: portalled out of
+        // LegacyRoomRoot so base.css does not restyle it (serif title).
+        sourceDialog={sourceOpen && sourceCard ? createPortal(
           <div className="av-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setSourceOpen(false); }}>
             <section ref={sourceDialogRef} className="av-modal" role="dialog" aria-modal="true" aria-labelledby="fcs-source-title" aria-describedby="fcs-source-note" tabIndex={-1}>
               <header className="av-modal-header"><div><p className="fcs-eyebrow">Ngữ cảnh cá nhân</p><h2 className="av-modal-title" id="fcs-source-title">Câu gốc của bạn</h2></div></header>
@@ -500,7 +503,7 @@ export function FlashcardStudyPlayer() {
               <footer className="av-modal-footer"><button ref={sourceCloseRef} type="button" className="av-button av-button-primary" onClick={() => setSourceOpen(false)}>Đóng</button></footer>
             </section>
           </div>
-        ) : null}
+        , document.body) : null}
       />
       </Suspense>
     );

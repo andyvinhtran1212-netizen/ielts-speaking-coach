@@ -637,6 +637,7 @@ export function QuizPlayer() {
         onReset={resetProgress}
         flush={flushForExit}
         nextButtonRef={nextButtonRef}
+        reopenButtonRef={reopenButtonRef}
         textInputRef={textInputRef}
         promptRef={promptRef}
         summaryHeadingRef={summaryHeadingRef}
