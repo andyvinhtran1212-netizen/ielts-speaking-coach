@@ -8568,6 +8568,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/listening/tests/attempts/{attempt_id}/abandon": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Abandon Listening Test Attempt
+         * @description EXAMLISTENT-0070 FR-012: abandon a self-selected Listening test.
+         *
+         *     200 ``{attempt_id, status: "abandoned"}``, also when repeated. 404 when the
+         *     attempt is not the caller's. 409 ``{"reason": ...}`` with
+         *     ``already_submitted``, ``not_self_selected`` (class item, mock sitting,
+         *     Black Eye unit) or ``resume_expired``. An abandoned attempt has no result;
+         *     "Start test" creates a new attempt.
+         */
+        post: operations["abandon_listening_test_attempt_api_listening_tests_attempts__attempt_id__abandon_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/listening/tests/attempts/{attempt_id}": {
         parameters: {
             query?: never;
@@ -19446,6 +19472,19 @@ export interface components {
         LevelBody: {
             /** Course Level */
             course_level?: string | null;
+        };
+        /**
+         * ListeningAttemptAbandonResponse
+         * @description EXAMLISTENT-0070 FR-012: the attempt is closed with no result.
+         */
+        ListeningAttemptAbandonResponse: {
+            /** Attempt Id */
+            attempt_id: string;
+            /**
+             * Status
+             * @constant
+             */
+            status: "abandoned";
         };
         /**
          * ListeningAttemptRequest
@@ -39420,6 +39459,39 @@ export interface operations {
                     "application/json": components["schemas"]["BlackEyeAttemptState"] | {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    abandon_listening_test_attempt_api_listening_tests_attempts__attempt_id__abandon_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListeningAttemptAbandonResponse"];
                 };
             };
             /** @description Validation Error */
