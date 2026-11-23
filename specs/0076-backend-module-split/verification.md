@@ -75,7 +75,15 @@ Có 14 WARNING chứa `listening` và không có ERROR. 12 trong số đó là c
 (khoảng 1–2,5 giây, đều 200). 2 là `staff_guard admin_aal2_would_block` (tài khoản admin chưa bật
 MFA; chế độ chỉ cảnh báo, không chặn).
 
-**Cửa sổ theo dõi 48 giờ** (tiêu chí thành công của spec): bắt đầu 2026-11-23 05:09Z trên
-deployment `c7b888df` / `cc6dd4c8f`, kết thúc 2026-11-25 05:09Z. Nếu staging được deploy SHA mới
-trong khoảng này thì cửa sổ vẫn tính tiếp, và mọi lỗi 500 mới của `routers.listening` được ghi lại
-ở đây.
+Lần đọc lại lúc 05:20:16Z (203 dòng, cùng deployment `c7b888df`, chưa có deployment staging nào
+mới hơn), theo các nhóm lỗi trong `rollout.md`: `NameError` 0, `AttributeError` 0,
+`PydanticUserError` 0, `Traceback` 0, 5xx trên `/api/listening/*` hoặc `/admin/listening/*` 0,
+5xx bất kỳ 0. Đây là kết quả giữa cửa sổ, chưa phải kết quả 48 giờ.
+
+**Cửa sổ theo dõi 48 giờ: `48h: pending`.** Mục này chỉ là biên nhận Scenario 10, chưa phải
+kết quả theo dõi 48 giờ. Cửa sổ bắt đầu 2026-11-23 05:09Z trên deployment `c7b888df` /
+`cc6dd4c8f`, đủ 48 giờ lúc 2026-11-25 05:09Z. Khi đủ cửa sổ, kết quả đối chiếu đủ các nhóm lỗi
+trong `rollout.md`: `NameError`, `AttributeError`, `PydanticUserError`, và 500 mới trên
+`/api/listening/*`, `/admin/listening/*`. Nếu staging đổi deployment trong lúc theo dõi, mốc và
+log ghi riêng theo từng deployment, và chỉ log của deployment chạy SHA đem promote mới được dùng
+làm bằng chứng cho SHA đó.
