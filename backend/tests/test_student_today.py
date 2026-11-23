@@ -60,6 +60,10 @@ class _Q:
         self.filters.append(lambda r: r.get(f) is not None and st._parse_ts(r[f]) > st._parse_ts(v))
         return self
 
+    def is_(self, f, _v):
+        self.filters.append(lambda r, f=f: r.get(f) is None)
+        return self
+
     def gte(self, f, v):
         self.filters.append(lambda r: r.get(f) is not None and st._parse_ts(r[f]) >= st._parse_ts(v))
         return self
@@ -278,9 +282,9 @@ def _results_tables(seen_at=None, seen_key=None, essays=(), sessions=()):
     }
 
 
-def _essay(eid, at, status="delivered", student="st-1"):
+def _essay(eid, at, status="delivered", student="st-1", deleted_at=None):
     return {"id": eid, "student_id": student, "status": status, "task_type": "task2",
-            "delivered_at": _iso(at)}
+            "delivered_at": _iso(at), "deleted_at": deleted_at}
 
 
 def _session(sid, at, band=6.0, user="u-1", status="completed"):
@@ -330,6 +334,14 @@ def test_only_delivered_writing_and_graded_own_speaking_after_cursor():
     ))
     out = st.build_new_results(db, "u-1", NOW)
     assert [r["key"] for r in out["new_results"]] == ["writing:after"]
+
+
+def test_soft_deleted_writing_is_never_a_new_result():
+    at = NOW - timedelta(hours=1)
+    db = _DB(_results_tables(essays=[_essay("gone", at, deleted_at=_iso(at)), _essay("kept", at)]))
+    out = st.build_new_results(db, "u-1", NOW)
+    assert [r["key"] for r in out["new_results"]] == ["writing:kept"]
+    assert out["new_results_cursor"]["seen_key"] == "writing:kept"
 
 
 def test_empty_cursor_uses_seven_day_window():
