@@ -28,10 +28,21 @@ States: ``in_progress``, ``submitted`` (handed in, result not out yet),
 ``other``, never a guess. Each source is read on its own; a failed read names
 the skill in ``sources_failed`` and the others still answer.
 
-``writing_repeated_errors`` and ``weak_grammar_groups`` have no source yet
-(nothing persists repeated Writing errors or grammar-group weakness per
-learner), so they are ``null``, never ``[]``. No AI call; no band is
-recomputed here.
+Two insights reuse the rules the learner already sees, so admin and learner
+never disagree:
+
+* ``writing_repeated_errors`` — ``writing_history.count_recurring`` (the rule
+  the Writing grader feeds back as recurring patterns) over the current
+  feedback of the learner's newest five essays: a ``mistakeType`` that
+  repeats at least twice. ``null`` until the learner has five graded essays
+  (the grader's own floor), or without a student profile. The learner's
+  sentences are not copied.
+* ``weak_grammar_groups`` — ``grammar_weak_areas.weak_areas`` (the learner's
+  grammar dashboard ``weak_areas``) over the last 30 days of
+  ``grammar_recommendations``. ``null`` without an account.
+
+A failed insight read is ``null`` and named in ``sources_failed``. No AI
+call; no band is recomputed here.
 """
 
 from __future__ import annotations
@@ -44,7 +55,9 @@ from typing import Any, Callable, Optional
 from urllib.parse import quote
 
 from database import supabase_admin
+from services import grammar_weak_areas, writing_history
 from services.admin_learner_directory import Person
+from services.listening_test_grader import score_fields
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +68,8 @@ _PAGE = 1000
 _CHUNK = 200
 
 _SPEAKING_STATE = {"in_progress": "in_progress", "active": "in_progress", "submitted": "submitted",
-                   "completed": "done", "analysis_failed": "failed", "abandoned": "abandoned"}
+                   "completed": "done", "analysis_failed": "failed", "grading_failed": "failed",
+                   "abandoned": "abandoned"}
 _WRITING_STATE = {"pending": "submitted", "grading": "submitted", "graded": "submitted", "reviewed": "submitted",
                   "delivered": "done", "failed": "failed"}
 _TEST_STATE = {"in_progress": "in_progress", "submitted": "done", "abandoned": "abandoned"}
@@ -163,17 +177,28 @@ def _test(person: Person, skill: str) -> list[dict]:
     uid = str(person.user["id"])
     table, tests = (("reading_test_attempts", "reading_tests") if skill == "reading"
                     else ("listening_test_attempts", "listening_tests"))
-    rows = _paged(lambda: supabase_admin.table(table)
-                  .select("id, test_id, status, score, band_estimate, started_at, submitted_at").eq("user_id", uid))
+    cols = "id, test_id, status, score, band_estimate, grading_details, started_at, submitted_at"
+    if skill == "listening":
+        cols += ", scoring_policy"
+    rows = _paged(lambda: supabase_admin.table(table).select(cols).eq("user_id", uid))
     titles = _titles(tests, {str(r["test_id"]) for r in rows if r.get("test_id")})
     out = []
     for r in rows:
         state = _TEST_STATE.get(str(r.get("status") or ""), "other")
         result = None
-        if state == "done":
-            parts = [p for p in (_band(r.get("band_estimate")),
-                                 f"{r['score']}/40" if r.get("score") is not None else None) if p]
-            result = " · ".join(parts) or None
+        # A programme attempt scored report-only has no score by design.
+        if state == "done" and r.get("scoring_policy") != "report_only":
+            # The denominator the review page shows: every graded question on
+            # Reading (a mini test is shorter than 40), ``score_fields`` on
+            # Listening (self-check items are not scored).
+            graded = r.get("grading_details") if isinstance(r.get("grading_details"), list) else []
+            if skill == "reading":
+                raw, total = r.get("score"), len(graded)
+            else:
+                fields = score_fields(r.get("score"), graded)
+                raw, total = fields["score"], fields["max_score"]
+            score = f"{raw}/{total}" if raw is not None and total else None
+            result = " · ".join(p for p in (_band(r.get("band_estimate")), score) if p) or None
         href = (f"/{skill}/review?attempt_id={quote(str(r['id']))}&from=admin" if state == "done" else None)
         out.append(_row(skill, "test", r["id"], titles.get(str(r.get("test_id")), "") or skill.capitalize(), state,
                         result, r.get("submitted_at") if state == "done" else None, r.get("started_at"), href))
@@ -204,6 +229,38 @@ def _mock(person: Person) -> list[dict]:
                         released_at, r.get("created_at"),
                         f"/admin/mock-reviews?mock_exam_id={quote(exam)}" if exam else None))
     return out
+
+
+def _repeated_errors(person: Person) -> Optional[list[dict]]:
+    if not person.student_id:
+        return None
+    sid = person.student_id
+    essays = [str(e["id"]) for e in _paged(lambda: supabase_admin.table("writing_essays").select("id")
+                                           .eq("student_id", sid).is_("deleted_at", "null")) if e.get("id")]
+    rows: list[dict] = []
+    for chunk in _chunks(essays):
+        rows.extend(_paged(lambda c=chunk: supabase_admin.table("writing_feedback_current")   # GV-1a: current only
+                           .select("id, essay_id, feedback_json, created_at").in_("essay_id", c)))
+    rows.sort(key=lambda r: _at(r.get("created_at")) or "", reverse=True)
+    rows = rows[:writing_history.HISTORY_WINDOW]
+    if len(rows) < writing_history.MIN_HISTORY_ESSAYS:
+        return None
+    return [{"mistake_type": p["mistakeType"], "count": p["count"], "criterion": p["criterion"] or None}
+            for p in writing_history.count_recurring(rows)]
+
+
+def _weak_grammar(person: Person, now: datetime) -> Optional[list[dict]]:
+    from datetime import timedelta
+
+    from services.grammar_content import grammar_service
+
+    if not person.user:
+        return None
+    uid = str(person.user["id"])
+    since = (now - timedelta(days=grammar_weak_areas.WINDOW_DAYS)).isoformat()
+    rows = _paged(lambda: supabase_admin.table("grammar_recommendations")
+                  .select("id, recommended_slug, created_at").eq("user_id", uid).gte("created_at", since))
+    return grammar_weak_areas.weak_areas(rows, grammar_service.get_article_by_slug)
 
 
 def _encode(item: dict) -> str:
@@ -262,6 +319,15 @@ def attempts(person: Person, *, skill: Optional[str] = None, state: Optional[str
         except Exception as exc:
             logger.warning("learner attempts: source %s failed (%s)", name, type(exc).__name__)
             failed.append(name)
+    insights: dict[str, Optional[list[dict]]] = {}
+    for name, read in (("writing_repeated_errors", lambda: _repeated_errors(person)),
+                       ("weak_grammar_groups", lambda: _weak_grammar(person, datetime.now(timezone.utc)))):
+        try:
+            insights[name] = read()
+        except Exception as exc:
+            logger.warning("learner attempts: insight %s failed (%s)", name, type(exc).__name__)
+            insights[name] = None
+            failed.append(name)
     if state:
         items = [i for i in items if i["state"] == state]
     items.sort(key=lambda i: i["id"], reverse=True)
@@ -274,5 +340,4 @@ def attempts(person: Person, *, skill: Optional[str] = None, state: Optional[str
     next_cursor = _encode(page[-1]) if more and page else None
     for i in page:
         i.pop("_at")
-    return {"items": page, "next_cursor": next_cursor, "writing_repeated_errors": None,
-            "weak_grammar_groups": None, "sources_failed": sorted(set(failed))}
+    return {"items": page, "next_cursor": next_cursor, **insights, "sources_failed": sorted(set(failed))}

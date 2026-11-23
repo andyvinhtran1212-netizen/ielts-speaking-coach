@@ -225,10 +225,29 @@ class LearnerAttempt(_StrictOut):
     open_href: Optional[str]
 
 
+class RepeatedWritingError(_StrictOut):
+    # feedback_json.mistakeAnalysis[].mistakeType, as the grader names it.
+    mistake_type: str
+    count: int
+    criterion: Optional[str]
+
+
+class WeakGrammarGroup(_StrictOut):
+    # The same item as the learner's grammar dashboard weak_areas.
+    tag: str
+    label_vi: str
+    category: str
+    occurrence_count: int
+    last_seen_at: Optional[str]
+
+
 class LearnerAttempts(_StrictOut):
     items: list[LearnerAttempt]
     next_cursor: Optional[str]
-    # No source persists these per learner yet: null, never [].
-    writing_repeated_errors: Optional[list[dict]]
-    weak_grammar_groups: Optional[list[dict]]
+    # Over the newest five essays; null until there are five graded essays
+    # (or no student profile, or the read failed: then named in sources_failed).
+    writing_repeated_errors: Optional[list[RepeatedWritingError]]
+    # Over 30 days of grammar recommendations; null without an account (or
+    # when the read failed: then named in sources_failed).
+    weak_grammar_groups: Optional[list[WeakGrammarGroup]]
     sources_failed: list[str]

@@ -19196,13 +19196,9 @@ export interface components {
             /** Next Cursor */
             next_cursor: string | null;
             /** Writing Repeated Errors */
-            writing_repeated_errors: {
-                [key: string]: unknown;
-            }[] | null;
+            writing_repeated_errors: components["schemas"]["RepeatedWritingError"][] | null;
             /** Weak Grammar Groups */
-            weak_grammar_groups: {
-                [key: string]: unknown;
-            }[] | null;
+            weak_grammar_groups: components["schemas"]["WeakGrammarGroup"][] | null;
             /** Sources Failed */
             sources_failed: string[];
         };
@@ -22121,6 +22117,15 @@ export interface components {
              */
             channel: string;
         };
+        /** RepeatedWritingError */
+        RepeatedWritingError: {
+            /** Mistake Type */
+            mistake_type: string;
+            /** Count */
+            count: number;
+            /** Criterion */
+            criterion: string | null;
+        };
         /** ResponseAccepted */
         ResponseAccepted: {
             /** Accepted */
@@ -24273,6 +24278,19 @@ export interface components {
              * @default
              */
             reason: string;
+        };
+        /** WeakGrammarGroup */
+        WeakGrammarGroup: {
+            /** Tag */
+            tag: string;
+            /** Label Vi */
+            label_vi: string;
+            /** Category */
+            category: string;
+            /** Occurrence Count */
+            occurrence_count: number;
+            /** Last Seen At */
+            last_seen_at: string | null;
         };
         /** WritingAdmissionExecute */
         WritingAdmissionExecute: {

@@ -58,6 +58,7 @@ def _seed(db):
     ]
     db.rows["reading_test_attempts"] = [
         {"id": "r1", "user_id": U_LAN, "test_id": "rt1", "status": "submitted", "score": 30, "band_estimate": 7.0,
+         "grading_details": [{"q": i} for i in range(40)],
          "started_at": _ago(days=6, hours=1), "submitted_at": _ago(days=6)},
         {"id": "r2", "user_id": U_LAN, "test_id": "rt1", "status": "in_progress", "score": None,
          "band_estimate": None, "started_at": _ago(days=1, hours=2)},
@@ -78,8 +79,10 @@ def _seed(db):
 
 def test_a_learner_with_no_attempts_has_an_empty_table_and_no_made_up_insights(db):
     out = _attempts(f"u-{U_MINH}")
+    # Fewer than five graded essays: no repeated-error verdict yet (null);
+    # an account with no recommendation: checked, nothing weak ([]).
     assert out == {"items": [], "next_cursor": None, "writing_repeated_errors": None,
-                   "weak_grammar_groups": None, "sources_failed": []}
+                   "weak_grammar_groups": [], "sources_failed": []}
 
 
 def test_every_skill_is_one_table_newest_first_with_the_view_that_opens_it(db):
@@ -118,6 +121,79 @@ def test_one_failed_source_is_named_and_the_others_still_answer(db):
     out = _attempts(f"u-{U_LAN}")
     assert out["sources_failed"] == ["reading"]
     assert {i["skill"] for i in out["items"]} == {"speaking", "writing", "listening", "mock"}
+
+
+def test_a_score_uses_the_review_page_denominator(db):
+    _seed(db)
+    db.rows["reading_test_attempts"].append(
+        {"id": "r3", "user_id": U_LAN, "test_id": "rt1", "status": "submitted", "score": 9, "band_estimate": None,
+         "grading_details": [{"q": i} for i in range(13)], "started_at": _ago(days=9), "submitted_at": _ago(days=9)})
+    db.rows["listening_test_attempts"] += [
+        # Two self-check items are not scored.
+        {"id": "l2", "user_id": U_LAN, "test_id": "lt1", "status": "submitted", "score": 7, "band_estimate": None,
+         "grading_details": [{"q": i, "self_check": i < 2} for i in range(10)],
+         "started_at": _ago(days=11), "submitted_at": _ago(days=11)},
+        {"id": "l3", "user_id": U_LAN, "test_id": "lt1", "status": "submitted", "score": 5, "band_estimate": 6.0,
+         "scoring_policy": "report_only", "grading_details": [{"q": 1}], "started_at": _ago(days=12),
+         "submitted_at": _ago(days=12)},
+    ]
+    by_id = {i["id"]: i["result_text"] for i in _attempts(f"u-{U_LAN}")["items"]}
+    assert (by_id["r1"], by_id["r3"], by_id["l2"], by_id["l3"]) == ("Band 7.0 · 30/40", "9/13", "7/8", None)
+
+
+def test_a_failed_regrade_reads_failed(db):
+    _seed(db)
+    db.rows["sessions"][0]["status"] = "grading_failed"
+    assert [i["id"] for i in _attempts(f"u-{U_LAN}", state="failed")["items"]] == ["x1"]
+
+
+def _mistakes(*types):
+    return {"mistakeAnalysis": [{"mistakeType": t, "criterion": "GRA", "original": f"câu của học viên {i}"}
+                                for i, t in enumerate(types)]}
+
+
+def test_repeated_writing_errors_use_the_grader_rule_over_the_newest_five_essays(db):
+    # Lan has five essays (e1..e5); e1 is the newest feedback.
+    db.rows["writing_feedback_current"] = [
+        {"id": f"f{i}", "essay_id": f"e{i}", "created_at": _ago(days=i),
+         "feedback_json": _mistakes("Article", "Tense") if i <= 3 else _mistakes("Plural")}
+        for i in range(1, 6)]
+    out = _attempts(f"u-{U_LAN}")
+    assert out["writing_repeated_errors"] == [
+        {"mistake_type": "Article", "count": 3, "criterion": "GRA"},
+        {"mistake_type": "Tense", "count": 3, "criterion": "GRA"},
+        {"mistake_type": "Plural", "count": 2, "criterion": "GRA"},
+    ]
+    # The learner's sentences are not copied.
+    assert "câu của học viên" not in str(out)
+    # Four graded essays: below the grader's floor, so no verdict.
+    db.rows["writing_feedback_current"].pop()
+    assert _attempts(f"u-{U_LAN}")["writing_repeated_errors"] is None
+
+
+def test_weak_grammar_groups_are_the_learner_dashboard_rule(db):
+    from services.grammar_content import grammar_service
+    slug_a, slug_b = list(grammar_service.articles_by_slug)[:2]
+    db.rows["grammar_recommendations"] = [
+        {"id": "g1", "user_id": U_LAN, "recommended_slug": slug_a, "created_at": _ago(days=1)},
+        {"id": "g2", "user_id": U_LAN, "recommended_slug": slug_a, "created_at": _ago(days=3)},
+        {"id": "g3", "user_id": U_LAN, "recommended_slug": slug_b, "created_at": _ago(days=2)},   # once: not weak
+        {"id": "g4", "user_id": U_LAN, "recommended_slug": slug_b, "created_at": _ago(days=40)},  # outside 30 days
+        {"id": "g5", "user_id": U_LAN, "recommended_slug": "no-such-article", "created_at": _ago(days=1)},
+        {"id": "g6", "user_id": U_LAN, "recommended_slug": "no-such-article", "created_at": _ago(days=1)},
+    ]
+    groups = _attempts(f"u-{U_LAN}")["weak_grammar_groups"]
+    article = grammar_service.get_article_by_slug(slug_a)
+    assert groups == [{"tag": slug_a, "label_vi": article.get("title", slug_a), "category": article.get("category", ""),
+                       "occurrence_count": 2, "last_seen_at": db.rows["grammar_recommendations"][0]["created_at"]}]
+
+
+def test_a_failed_insight_is_null_and_named(db):
+    _seed(db)
+    db.fail.add("grammar_recommendations")
+    out = _attempts(f"u-{U_LAN}")
+    assert out["weak_grammar_groups"] is None and out["sources_failed"] == ["weak_grammar_groups"]
+    assert len(out["items"]) == 10
 
 
 def test_an_unknown_status_is_other_never_a_guess(db):
