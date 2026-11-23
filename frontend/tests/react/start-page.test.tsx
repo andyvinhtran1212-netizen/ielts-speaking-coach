@@ -3,9 +3,11 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('client-only', () => ({}));
-vi.mock('@/lib/auth/auth-provider', () => ({ useAuth: () => ({ status: 'signed-in', user: { id: 'A', email: 'a@x.test' } }) }));
+vi.mock('@/lib/auth/auth-provider', () => ({ useAuth: () => state.auth }));
 
 const state = vi.hoisted(() => ({
+  auth: { status: 'signed-in', user: { id: 'A', email: 'a@x.test' } } as { status: string; user: { id: string; email: string } | null },
+  clsFails: false,
   me: null as any,
   courses: null as unknown,
   cls: { has_class: false } as unknown,
@@ -23,7 +25,10 @@ const getWith = vi.fn(async (path: string) => {
     if (state.courses === null) throw Object.assign(new Error('HTTP 404'), { status: 404 });
     return state.courses;
   }
-  if (path.startsWith('/api/class/me')) return state.cls;
+  if (path.startsWith('/api/class/me')) {
+    if (state.clsFails) throw Object.assign(new Error('HTTP 503'), { status: 503 });
+    return state.cls;
+  }
   throw new Error(`unexpected ${path}`);
 });
 const patch = vi.fn(async (path: string, body: unknown) => {
@@ -55,6 +60,8 @@ async function mount() {
 }
 
 beforeEach(() => {
+  state.auth = { status: 'signed-in', user: { id: 'A', email: 'a@x.test' } };
+  state.clsFails = false;
   state.me = me();
   state.courses = null;
   state.cls = { has_class: false };
@@ -143,5 +150,24 @@ describe('/start', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Bỏ qua, vào trang chính' }));
     expect(await screen.findByText('Chưa lưu được. Thử lại.')).toBeTruthy();
     expect(assign).not.toHaveBeenCalled();
+  });
+
+  it('a failed class read is not "no class": error with "Thử lại", and nothing is written', async () => {
+    state.clsFails = true;
+    await mount();
+    expect(await screen.findByText('Chưa mở được trang bắt đầu.')).toBeTruthy();
+    expect(screen.queryByText('Bước 1 trên 3')).toBeNull();
+    expect(patches).toEqual([]);
+    state.clsFails = false;
+    state.cls = { has_class: true, classes: [{ id: 'k1', name: 'Lớp tối' }] };
+    fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
+    expect(await screen.findByText('Bước 1 trên 2')).toBeTruthy();
+  });
+
+  it('signed out → /login, never an endless loading page', async () => {
+    state.auth = { status: 'signed-out', user: null };
+    await mount();
+    expect(replace).toHaveBeenCalledWith('/login');
+    expect(urls).toEqual([]);
   });
 });
