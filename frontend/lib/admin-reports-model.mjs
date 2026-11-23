@@ -74,6 +74,10 @@ export function formatCell(value, kind = 'text') {
   return String(value);
 }
 
+// A text cell that starts like a formula (=, +, -, @, tab, CR) would be run by
+// a spreadsheet; a leading apostrophe makes it plain text (OWASP CSV injection).
+const FORMULA_START = /^[=+\-@\t\r]/;
+
 /** CSV cell: dot decimals, US$ with two digits, a missing value is an empty cell. */
 function csvCell(value, kind = 'text') {
   if (value == null || (kind !== 'text' && !isNum(value))) return '';
@@ -81,7 +85,11 @@ function csvCell(value, kind = 'text') {
   if (kind === 'usd') out = value.toFixed(2);
   else if (kind === 'usd4') out = value.toFixed(4);
   else if (kind === 'pct') out = (value * 100).toFixed(1);
-  else out = String(value);
+  else if (kind === 'count') out = String(value);
+  else {
+    out = String(value);
+    if (FORMULA_START.test(out)) out = `'${out}`;
+  }
   return /[",\r\n]/.test(out) ? `"${out.replace(/"/g, '""')}"` : out;
 }
 

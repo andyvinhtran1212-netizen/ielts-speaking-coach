@@ -157,6 +157,26 @@ describe('Chi phí AI', () => {
 });
 
 describe('formatting and CSV', () => {
+  it('CSV: a text cell that starts like a formula is neutralised, numbers stay numbers', () => {
+    const report = activityReport(overview({ students: { ...overview().students, by_cohort: [
+      { cohort_id: 'c1', cohort_name: '=HYPERLINK("https://x.test","bấm")', count: 3 },
+      { cohort_id: 'c2', cohort_name: '+cmd|calc', count: 4 },
+      { cohort_id: 'c3', cohort_name: '-1+2', count: 5 },
+      { cohort_id: 'c4', cohort_name: '@SUM(A1)', count: 6 },
+      { cohort_id: 'c5', cohort_name: 'Lớp Tue–Thu 19:30', count: 7 },
+    ] } }), 30);
+    const lines = reportCsv(report.tables.filter((t) => t.id === 'cohorts')).split('\r\n');
+    assert.deepEqual(lines.slice(2, 7), [
+      `"'=HYPERLINK(""https://x.test"",""bấm"")",3`,
+      "'+cmd|calc,4",
+      "'-1+2,5",
+      "'@SUM(A1),6",
+      'Lớp Tue–Thu 19:30,7',
+    ]);
+    const money = reportCsv([{ title: 'T', columns: [{ label: 'A', kind: 'text' }, { label: 'B', kind: 'usd' }, { label: 'C', kind: 'pct' }, { label: 'D', kind: 'count' }], rows: [['x', 1.5, 0.25, 0]] }]);
+    assert.equal(money.split('\r\n')[2], 'x,1.50,25.0,0');
+  });
+
   it('UI: US$ with two digits, "chưa có" for a missing number', () => {
     assert.equal(formatCell(1.5, 'usd'), '1,50 US$');
     assert.equal(formatCell(null, 'count'), 'chưa có');
