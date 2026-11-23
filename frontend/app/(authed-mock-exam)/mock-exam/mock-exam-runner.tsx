@@ -1116,6 +1116,9 @@ export function MockExamRunner() {
         `/api/mock-exams/sittings/${encodeURIComponent(sittingId)}/sections/writing/submit`,
         finalWritingBodyRef.current,
       );
+      // FR-007 (2): the exact text reached the server. A lost reply leaves this
+      // unset, so the outcome stays closed_unconfirmed instead of "submitted".
+      if (examRoomRef.current) flushSecuredRef.current.add('writing');
       clearLocalDrafts(sittingId);
       return;
     }
@@ -1164,10 +1167,10 @@ export function MockExamRunner() {
     const track = examRoomRef.current;
     if (track) {
       observedSubmitRef.current.add(section);
-      // A new submit needs a new flush; Writing's submit body carries the exact
-      // text of both boxes, so it is its own final save.
+      // A new submit needs a new flush. Writing's submit body carries the exact
+      // text of both boxes, so it is its own final save, but only once the
+      // server has taken it: doSubmit marks it after the POST succeeds (FR-007).
       if (attempt === 0) flushSecuredRef.current.delete(section);
-      if (section === 'writing') flushSecuredRef.current.add('writing');
       setSubmitTrack({ section, retries: attempt, error: null });
     }
     try {
