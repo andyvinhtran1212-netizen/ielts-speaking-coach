@@ -115,3 +115,52 @@ def test_no_auth_needed_and_exempt_from_the_activation_gate(client):
 
     assert client.get(URL).status_code == 200
     assert ("GET", URL) in ACTIVATION_EXEMPT_ROUTES
+
+
+def test_cold_cache_flag_lookup_does_not_block_the_event_loop(monkeypatch):
+    # Codex P1 / CR #2658: the flag reads on a cache miss are synchronous
+    # Supabase calls. A parked lookup must not keep /ping from being served.
+    import asyncio
+    import threading
+
+    import httpx
+    from fastapi import FastAPI
+
+    from tests.loop_gate import WAIT, LoopGate, until
+
+    gate = LoopGate()
+    loop_thread: list[int] = []
+
+    def slow_is_enabled(key, default=True, *, on_error=None):
+        gate.park()
+        return False
+
+    monkeypatch.setattr(site_info.runtime_flags, "is_enabled", slow_is_enabled)
+
+    app = FastAPI()
+    app.include_router(site_info.router)
+
+    @app.get("/ping")
+    async def ping():
+        loop_thread.append(threading.get_ident())
+        return {"ok": True}
+
+    async def scenario():
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://t") as client:
+            slow = asyncio.ensure_future(client.get(URL))
+            try:
+                reached = await until(lambda: gate.inside >= 1, stop=slow)
+                pong = await asyncio.wait_for(client.get("/ping"), WAIT)
+                parked = reached and not slow.done() and not gate.released
+            finally:
+                gate.release()
+            return await asyncio.wait_for(slow, WAIT), pong, parked
+
+    info, pong, parked = asyncio.run(scenario())
+    assert not gate.timed_out, "the flag lookup ran on the event loop"
+    assert parked, "/ping must be served while the flag lookup is still parked"
+    assert pong.status_code == 200
+    assert info.status_code == 200
+    assert info.json()["login_code_enabled"] is False
+    assert gate.threads[0] != loop_thread[0]

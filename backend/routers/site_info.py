@@ -103,7 +103,10 @@ def site_info() -> dict:
 
 
 @router.get("/api/public/site-info", response_model=SiteInfo)
-async def get_site_info(response: Response):
+def get_site_info(response: Response):
+    # A plain `def`: on a cache miss the two flag reads are synchronous
+    # Supabase calls, and FastAPI runs a sync handler in its thread pool, so a
+    # slow database never holds the event loop for unrelated requests.
     # Browsers may keep it as long as this process does (60 s).
     response.headers["Cache-Control"] = "public, max-age=60"
     return site_info()
