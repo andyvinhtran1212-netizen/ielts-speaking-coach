@@ -77,7 +77,7 @@ export const ADMIN_NAV_GROUPS = Object.freeze([
   },
   {
     id: 'system', label: 'Hệ thống', icon: 'settings', items: [
-      soon('incidents', 'Hộp thư sự cố', { plannedHref: '/admin/incidents', countKey: 'incident_groups_open' }),
+      item('incidents', 'Hộp thư sự cố', '/admin/incidents', { countKey: 'incident_groups_open' }),
       soon('ai-models', 'AI và mô hình', { plannedHref: '/admin/ai-models' }),
       item('mfa', 'Bảo mật', '/admin/mfa'),
       soon('qa-tools', 'Công cụ QA', { plannedHref: '/admin/qa-tools' }),
@@ -187,6 +187,7 @@ export const ADMIN_ROUTES = Object.freeze([
   r('/admin/library', 'nav', 'content', 'library'),
   r('/admin/reports', 'nav', 'reports', 'activity'),
   r('/admin/incidents', 'nav', 'system', 'incidents'),
+  r('/admin/incidents/[source]/[fingerprint]', 'context', 'system', 'incidents'),
   r('/admin/ai-models', 'nav', 'system', 'ai-models'),
   r('/admin/qa-tools', 'nav', 'system', 'qa-tools'),
   r('/admin/settings', 'nav', 'system', 'settings'),
