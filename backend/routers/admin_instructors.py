@@ -43,59 +43,61 @@ async def list_instructor_metrics(authorization: str | None = Header(None)):
     # ADMINIA-0074 FR-106: classes taught, Writing waiting, review speed.
     overview = teacher_overview(ins["id"] for ins in instructors)
 
-    out = []
-    for ins in instructors:
-        x = ins["id"]
+    return [{**_writing_metrics(ins), **_overview_fields(overview.get(str(ins["id"])))}
+            for ins in instructors]
 
-        # #students — direct column-owner count.
-        srows = (supabase_admin.table("students").select("id")
-                 .eq("instructor_id", x).execute()).data or []
 
-        # Fix-3 (D-C) — #prompts authored by this instructor (created_by=X,
-        # the writing_prompts owner column the accessor stamps). NOT a count of
-        # admin/other-authored prompts.
-        prows = (supabase_admin.table("writing_prompts").select("id")
-                 .eq("created_by", x).execute()).data or []
+def _writing_metrics(ins: dict) -> dict:
+    """The W-8 Writing oversight numbers for one instructor row."""
+    x = ins["id"]
 
-        # owned essays — SAME 2-branch derivation as the accessor (no drift).
-        owned = instructor_owned_essay_ids(x)
+    # #students — direct column-owner count.
+    srows = (supabase_admin.table("students").select("id")
+             .eq("instructor_id", x).execute()).data or []
 
-        n_graded = n_regraded = regrade_events = 0
-        tokens = 0
-        cost = 0.0
-        if owned:
-            essays = (supabase_admin.table("writing_essays")
-                      .select("id, status, regrade_count")
-                      .in_("id", owned).execute()).data or []
-            n_graded = sum(1 for e in essays if e.get("status") == "delivered")
-            n_regraded = sum(1 for e in essays if (e.get("regrade_count") or 0) > 0)
-            regrade_events = sum((e.get("regrade_count") or 0) for e in essays)
+    # Fix-3 (D-C) — #prompts authored by this instructor (created_by=X,
+    # the writing_prompts owner column the accessor stamps). NOT a count of
+    # admin/other-authored prompts.
+    prows = (supabase_admin.table("writing_prompts").select("id")
+             .eq("created_by", x).execute()).data or []
 
-            # GV-1a SPEND-analytics exception: read the BASE table (ALL versions),
-            # NOT writing_feedback_current — token/cost here is total spend across
-            # every grade/regrade version, so a current-only view would undercount.
-            fb = (supabase_admin.table("writing_feedback")
-                  .select("tokens_input, tokens_output, cost_usd")
-                  .in_("essay_id", owned).execute()).data or []
-            tokens = sum((f.get("tokens_input") or 0) + (f.get("tokens_output") or 0) for f in fb)
-            cost = sum(float(f.get("cost_usd") or 0) for f in fb)
+    # owned essays — SAME 2-branch derivation as the accessor (no drift).
+    owned = instructor_owned_essay_ids(x)
 
-        out.append({
-            "instructor_id":  x,
-            "email":          ins.get("email"),
-            "display_name":   ins.get("display_name"),
-            "students":       len(srows),
-            "prompts":        len(prows),          # writing_prompts created_by X (D-C)
-            "graded":         n_graded,            # delivered, owned by X
-            # HEADLINE: essays ON X's roster that were regraded (by anyone) — NOT
-            # "X regraded N" (per-regrade attribution needs a regrade audit → defer).
-            "regraded":       n_regraded,
-            "regrade_events": regrade_events,      # volume (sum of regrade_count)
-            "tokens":         tokens,              # writing_feedback (NOT ai_usage_logs)
-            "cost_usd":       round(cost, 4),
-            **_overview_fields(overview.get(x)),
-        })
-    return out
+    n_graded = n_regraded = regrade_events = 0
+    tokens = 0
+    cost = 0.0
+    if owned:
+        essays = (supabase_admin.table("writing_essays")
+                  .select("id, status, regrade_count")
+                  .in_("id", owned).execute()).data or []
+        n_graded = sum(1 for e in essays if e.get("status") == "delivered")
+        n_regraded = sum(1 for e in essays if (e.get("regrade_count") or 0) > 0)
+        regrade_events = sum((e.get("regrade_count") or 0) for e in essays)
+
+        # GV-1a SPEND-analytics exception: read the BASE table (ALL versions),
+        # NOT writing_feedback_current — token/cost here is total spend across
+        # every grade/regrade version, so a current-only view would undercount.
+        fb = (supabase_admin.table("writing_feedback")
+              .select("tokens_input, tokens_output, cost_usd")
+              .in_("essay_id", owned).execute()).data or []
+        tokens = sum((f.get("tokens_input") or 0) + (f.get("tokens_output") or 0) for f in fb)
+        cost = sum(float(f.get("cost_usd") or 0) for f in fb)
+
+    return {
+        "instructor_id":  x,
+        "email":          ins.get("email"),
+        "display_name":   ins.get("display_name"),
+        "students":       len(srows),
+        "prompts":        len(prows),          # writing_prompts created_by X (D-C)
+        "graded":         n_graded,            # delivered, owned by X
+        # HEADLINE: essays ON X's roster that were regraded (by anyone) — NOT
+        # "X regraded N" (per-regrade attribution needs a regrade audit → defer).
+        "regraded":       n_regraded,
+        "regrade_events": regrade_events,      # volume (sum of regrade_count)
+        "tokens":         tokens,              # writing_feedback (NOT ai_usage_logs)
+        "cost_usd":       round(cost, 4),
+    }
 
 
 def _overview_fields(row: dict | None) -> dict:
@@ -130,9 +132,4 @@ async def get_instructor_profile(instructor_id: str, authorization: str | None =
         raise HTTPException(404, "Không tìm thấy giáo viên")
     ins = rows[0]
     overview = teacher_overview([ins["id"]])
-    return {
-        "instructor_id": ins["id"],
-        "email":         ins.get("email"),
-        "display_name":  ins.get("display_name"),
-        **_overview_fields(overview.get(str(ins["id"]))),
-    }
+    return {**_writing_metrics(ins), **_overview_fields(overview.get(str(ins["id"])))}

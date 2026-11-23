@@ -193,6 +193,7 @@ def test_profile_returns_one_teacher(sb):
     assert body["display_name"] == "Cô A"
     assert [c["id"] for c in body["classes"]] == [C2, C1]
     assert body["writing_pending"] == 5 and body["avg_review_hours"] == 3.0
+    assert body["students"] == 0 and body["cost_usd"] == 0      # the W-8 Writing numbers too
 
 
 @pytest.mark.parametrize("who", [LEARNER, _u(99), "not-a-uuid"])

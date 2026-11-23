@@ -8,48 +8,84 @@ import {
   filterInstructors,
   formatInstructorCost,
   formatInstructorCount,
+  formatMaybeCount,
+  formatReviewHours,
   instructorLabel,
+  instructorProfileHref,
   instructorWorkspaceHref,
+  nextTeacherSort,
   normalizeInstructorsPayload,
+  parseTeacherSort,
+  sortTeachers,
   summarizeInstructors,
 } from '@/lib/admin-instructors-model.mjs';
 
-import type { InstructorMetric, InstructorsPayload } from './admin-instructors-types';
+import type { InstructorMetric, InstructorsPayload, TeacherSort, TeacherSortKey } from './admin-instructors-types';
 
 function messageOf(caught: unknown) {
   return caught instanceof Error ? caught.message : String(caught || 'lỗi không xác định');
 }
 
-function Metric({ label, value, note }: { label: string; value: string; note?: string }) {
-  return <div className="ain-metric"><dt>{label}</dt><dd>{value}</dd>{note && <small>{note}</small>}</div>;
+const CLASS_PREVIEW = 3;
+
+function ClassList({ row }: { row: InstructorMetric }) {
+  if (row.classes == null) return <span className="ain-muted">chưa có</span>;
+  if (!row.classes.length) return <span className="ain-muted">Chưa có lớp</span>;
+  const shown = row.classes.slice(0, CLASS_PREVIEW);
+  const more = row.classes.length - shown.length;
+  return (
+    <span className="ain-classes">
+      <strong>{formatInstructorCount(row.classes.length)} lớp</strong>
+      <span>{shown.map((c) => c.name).join(', ')}{more > 0 ? ` +${more}` : ''}</span>
+    </span>
+  );
 }
 
-function InstructorCard({ row }: { row: InstructorMetric }) {
-  const href = instructorWorkspaceHref(row.instructorId);
-  const label = instructorLabel(row);
+const COLUMNS: { key: TeacherSortKey; label: string }[] = [
+  { key: 'name', label: 'Giảng viên' },
+  { key: 'classes', label: 'Lớp đang dạy' },
+  { key: 'pending', label: 'Bài chờ duyệt' },
+  { key: 'speed', label: 'Duyệt trung bình' },
+];
+
+function SortHeader({ column, sort, onSort }: { column: { key: TeacherSortKey; label: string }; sort: TeacherSort; onSort: (key: TeacherSortKey) => void }) {
+  const active = sort.key === column.key;
   return (
-    <article className="ain-card">
-      <header className="ain-card__head">
-        <div className="ain-identity">
+    <th scope="col" aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+      <button type="button" className="ain-sort" onClick={() => onSort(column.key)}>
+        {column.label}<span aria-hidden="true">{active ? (sort.dir === 'asc' ? ' ↑' : ' ↓') : ''}</span>
+      </button>
+    </th>
+  );
+}
+
+function InstructorRow({ row }: { row: InstructorMetric }) {
+  const label = instructorLabel(row);
+  const profile = instructorProfileHref(row.instructorId);
+  const workspace = instructorWorkspaceHref(row.instructorId);
+  const speed = formatReviewHours(row.avgReviewHours);
+  return (
+    <tr>
+      <th scope="row" data-label="Giảng viên">
+        <span className="ain-identity">
           <span className="ain-avatar" aria-hidden="true">{label.slice(0, 1).toLocaleUpperCase('vi-VN')}</span>
-          <div>
-            <h2>{label}</h2>
+          <span className="ain-identity__text">
+            <strong>{label}</strong>
             {row.displayName && row.email && <span>{row.email}</span>}
-            <code title={row.instructorId}>{row.instructorId}</code>
-          </div>
-        </div>
-        {href && <a className="btn-secondary" href={href} aria-label={`Mở workspace đã audit của ${label}`}>Mở workspace <span aria-hidden="true">→</span></a>}
-      </header>
-      <dl className="ain-metrics">
-        <Metric label="Học viên thuộc GV" value={formatInstructorCount(row.students)} />
-        <Metric label="Đề tự soạn" value={formatInstructorCount(row.prompts)} />
-        <Metric label="Bài đã trả" value={formatInstructorCount(row.graded)} />
-        <Metric label="Bài từng chấm lại" value={formatInstructorCount(row.regraded)} note="Bởi bất kỳ người chấm nào" />
-        <Metric label="Tổng lượt chấm lại" value={formatInstructorCount(row.regradeEvents)} note="Cộng tất cả lượt trên các bài" />
-        <Metric label="Token chấm Writing" value={formatInstructorCount(row.tokens)} note="Tất cả phiên bản feedback" />
-        <Metric label="Chi phí ước tính" value={formatInstructorCost(row.costUsd)} note="Writing feedback · USD" />
-      </dl>
-    </article>
+          </span>
+        </span>
+      </th>
+      <td data-label="Lớp đang dạy"><ClassList row={row} /></td>
+      <td data-label="Bài chờ duyệt">
+        <span className="ain-num">{formatMaybeCount(row.writingPending)}</span>
+        {row.writingOverdue ? <small className="ain-overdue">{formatInstructorCount(row.writingOverdue)} quá hạn</small> : null}
+      </td>
+      <td data-label="Duyệt trung bình">{speed ? <span className="ain-num">{speed}</span> : <span className="ain-muted" title="Chưa đủ 5 bài trả trong 30 ngày">—</span>}</td>
+      <td className="ain-actions" data-label="Hồ sơ">
+        {profile && <a className="btn-secondary" href={profile} aria-label={`Mở hồ sơ ${label}`}>Mở hồ sơ</a>}
+        {workspace && <a className="ain-link" href={workspace} aria-label={`Mở workspace đã audit của ${label}`}>Mở workspace <span aria-hidden="true">→</span></a>}
+      </td>
+    </tr>
   );
 }
 
@@ -57,6 +93,7 @@ export function AdminInstructors() {
   const profile = useAdminProfile();
   const searchParams = useSearchParams();
   const [query, setQuery] = useState(searchParams?.get('q') || '');
+  const [sort, setSort] = useState<TeacherSort>(() => parseTeacherSort(searchParams?.toString() || '') as TeacherSort);
   const [payload, setPayload] = useState<InstructorsPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -83,15 +120,33 @@ export function AdminInstructors() {
     return () => { sequence.current += 1; };
   }, [profile.id, load]);
 
-  const visibleRows = useMemo(() => filterInstructors(payload?.rows || [], query) as InstructorMetric[], [payload, query]);
+  const visibleRows = useMemo(
+    () => sortTeachers(filterInstructors(payload?.rows || [], query), sort) as InstructorMetric[],
+    [payload, query, sort],
+  );
   const summary = useMemo(() => summarizeInstructors(payload?.rows || []), [payload]);
+
+  const replaceParams = (edit: (params: URLSearchParams) => void) => {
+    const url = new URL(window.location.href);
+    edit(url.searchParams);
+    window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+  };
 
   const updateQuery = (next: string) => {
     setQuery(next);
-    const url = new URL(window.location.href);
-    if (next.trim()) url.searchParams.set('q', next.trim());
-    else url.searchParams.delete('q');
-    window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+    replaceParams((params) => {
+      if (next.trim()) params.set('q', next.trim());
+      else params.delete('q');
+    });
+  };
+
+  const updateSort = (key: TeacherSortKey) => {
+    const next = nextTeacherSort(sort, key) as TeacherSort;
+    setSort(next);
+    replaceParams((params) => {
+      if (next.key === 'name' && next.dir === 'asc') { params.delete('sort'); params.delete('dir'); }
+      else { params.set('sort', next.key); params.set('dir', next.dir); }
+    });
   };
 
   return (
@@ -114,7 +169,7 @@ export function AdminInstructors() {
 
       <aside className="ain-notice" aria-label="Lưu ý về dữ liệu và quyền truy cập">
         <strong>Giám sát chỉ đọc</strong>
-        <span>“Bài từng chấm lại” không quy công cho giảng viên: đó là số bài trong phạm vi của họ đã được bất kỳ ai chấm lại. Khi mở workspace, mỗi request impersonation được backend ghi audit; nếu không ghi được audit, quyền truy cập bị từ chối.</span>
+        <span>“Bài chờ duyệt” là bài Writing (không tính thi thử) đã chấm AI, đang chờ duyệt hoặc AI lỗi, ở các lớp người đó phụ trách. “Duyệt trung bình”: từ lúc AI chấm xong tới lúc giáo viên trả bài, 30 ngày gần nhất; chưa đủ 5 bài thì để trống. Khi mở workspace, mỗi request impersonation được backend ghi audit; nếu không ghi được audit, quyền truy cập bị từ chối.</span>
       </aside>
 
       {error && <div className="ain-banner is-error" role="alert"><div><strong>{payload ? 'Không thể làm mới — đang giữ dữ liệu cũ.' : 'Không tải được danh sách giảng viên.'}</strong><span>{error}</span></div><button className="btn-secondary" type="button" disabled={loading} onClick={() => void load()}>Thử lại</button></div>}
@@ -127,7 +182,13 @@ export function AdminInstructors() {
           <label className="ain-search"><span>Tìm giảng viên</span><input type="search" value={query} onChange={(event) => updateQuery(event.target.value)} placeholder="Tên, email hoặc mã…" /></label>
         </div>
         <p className="ain-results" aria-live="polite">Hiển thị {formatInstructorCount(visibleRows.length)} / {formatInstructorCount(payload.rows.length)} giảng viên</p>
-        {visibleRows.length ? <div className="ain-list">{visibleRows.map((row) => <InstructorCard key={row.instructorId} row={row} />)}</div>
+        {visibleRows.length ? <div className="ain-table-wrap">
+          <table className="ain-table">
+            <caption className="ain-sr">Giảng viên, lớp đang dạy, bài Writing chờ duyệt và thời gian duyệt trung bình 30 ngày. Bấm tiêu đề cột để sắp xếp.</caption>
+            <thead><tr>{COLUMNS.map((column) => <SortHeader key={column.key} column={column} sort={sort} onSort={updateSort} />)}<th scope="col"><span className="ain-sr">Hồ sơ</span></th></tr></thead>
+            <tbody>{visibleRows.map((row) => <InstructorRow key={row.instructorId} row={row} />)}</tbody>
+          </table>
+        </div>
           : <div className="ain-state is-empty"><strong>{payload.rows.length ? 'Không tìm thấy giảng viên' : 'Chưa có tài khoản giảng viên'}</strong><span>{payload.rows.length ? 'Thử tên, email hoặc mã khác.' : 'Backend chưa trả về tài khoản có role instructor.'}</span></div>}
       </section>}
     </main>
