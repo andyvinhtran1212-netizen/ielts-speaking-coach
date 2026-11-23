@@ -56,11 +56,11 @@ Anh Andy đã chọn GPT-6.1-terra làm model thay cho Gemini trên đường d�
 ## Requirements
 
 - **FR-001:** Thêm setting `WRITING_OPENAI_FALLBACK_MODEL`, mặc định rỗng. Khi rỗng, hoặc khi `OPENAI_API_KEY` trống, đường chấm Writing giống hệt hôm nay: cùng thứ tự provider, cùng số lần gọi, cùng kết quả.
-- **FR-002:** Khi setting có giá trị, lượt chấm chính của một bài Writing mà Claude không trả được câu trả lời hợp lệ (sau lần sửa lại hiện có) sẽ gọi model OpenAI đó **trước** Gemini. Lời gọi dùng cùng system prompt, user prompt và ảnh biểu đồ Task 1 (nếu có) như lời gọi Claude.
-- **FR-003:** Câu trả lời của GPT phải qua đúng bộ kiểm hiện có: schema và grounding (`_validated_text`). Nếu GPT lỗi (timeout, 429, 5xx, mạng, JSON hỏng, ungrounded, refusal, bị cắt cụt) thì được thêm tối đa một lần sửa lại, dùng chung ngân sách thời gian với Claude. Nếu vẫn lỗi, bài chuyển tiếp sang đường Gemini hiện có. Không lần lỗi nào được kết thúc bằng một lần chấm thất bại mà trước đây đã thành công.
-- **FR-004:** Bài do GPT chấm lưu `model_used` là id model OpenAI đã trả lời, và cost là tổng các lượt gọi đã bị tính tiền trong lần chấm đó, tính theo bảng giá `ai_pricing` (dòng `gpt-6.1-terra` đã có). Mỗi lượt gọi GPT ghi một dòng `ai_usage_logs`, gồm `feature='writing_grading'` và provider OpenAI, không trùng với dòng của Claude hay Gemini. Admin không thấy chi phí Writing bị cộng hai lần.
+- **FR-002:** Khi setting có giá trị, lượt chấm chính của một bài Writing mà Claude không trả được câu trả lời hợp lệ (sau lần sửa lại hiện có) sẽ gọi model OpenAI đó **trước** Gemini. Lời gọi dùng cùng system prompt và user prompt như lời gọi Claude. Bài Task 1 Academic có ảnh biểu đồ **bỏ qua bậc GPT** và đi thẳng sang Gemini, model xem được biểu đồ (FR-006).
+- **FR-003:** Câu trả lời của GPT phải qua đúng bộ kiểm hiện có: schema và grounding (`_validated_text`). Nếu GPT lỗi (timeout, 429, 5xx, mạng, JSON hỏng, ungrounded, refusal, bị cắt cụt) thì được thêm tối đa một lần sửa lại. Bậc GPT có **ngân sách thời gian riêng**, không dùng chung với Claude: `OPENAI_TOTAL_BUDGET_S = 75` s. Lời gọi đầu bị cắt ở `OPENAI_TIMEOUT_S = 70` s (eval cho thời gian trung vị 51 s, p90 57 s). Lần sửa lại chỉ bắt đầu khi còn ít nhất 30 s và bị cắt khi hết ngân sách. Như vậy Claude dùng hết 150 s của mình vẫn không làm mất phần của GPT. Nếu vẫn lỗi, bài chuyển tiếp sang đường Gemini hiện có. Không lần lỗi nào được kết thúc bằng một lần chấm thất bại mà trước đây đã thành công.
+- **FR-004:** Bài do GPT chấm lưu `model_used` là **id đã yêu cầu** trong catalog (giá trị của setting, ví dụ `gpt-6.1-terra`). Usage và cost cũng được tính và ghi theo id đó, vì `ai_pricing.token_rate` khớp đúng id catalog. Id mà response trả về (có thể là snapshot có ngày) được giữ trong metadata `served_snapshot` của dòng usage. Cost là tổng các lượt gọi đã bị tính tiền trong lần chấm đó, tính theo bảng giá `ai_pricing` (dòng `gpt-6.1-terra` đã có). Mỗi lượt gọi GPT ghi một dòng `ai_usage_logs`, gồm `feature='writing_grading'` và provider OpenAI, không trùng với dòng của Claude hay Gemini. Admin không thấy chi phí Writing bị cộng hai lần.
 - **FR-005:** Mỗi lượt GPT lỗi được ghi vào sổ lỗi AI (AIOPS-0024) với provider `openai`, đúng mã lỗi, và không chứa bài làm của học viên.
-- **FR-006:** Thiếu ảnh biểu đồ, hoặc model không nhận ảnh: GPT chấm text-only, giữ nguyên cảnh báo "chưa xem biểu đồ" như đường Gemini hiện có. Ảnh không bị gửi đi dưới dạng URL công khai.
+- **FR-006:** Bậc GPT chỉ nhận text. Bài Task 1 Academic có ảnh biểu đồ đã tải được sẽ bỏ qua bậc GPT, để feedback về số liệu vẫn dựa trên biểu đồ (do Gemini đọc). Bài Task 1 không có ảnh, hoặc tải ảnh thất bại, thì GPT được chấm và giữ nguyên cảnh báo "chưa xem biểu đồ" như hiện nay. Chỉ được mở ảnh cho GPT trong một thay đổi sau, khi đã dẫn trang model chứng minh Terra nhận ảnh, đã thêm image rule vào dòng giá, và đã có đo theo FR-008 trên bài Task 1.
 - **FR-007:** Tắt nhanh: xoá hoặc để rỗng `WRITING_OPENAI_FALLBACK_MODEL` thì bậc GPT ngừng từ lượt chấm kế tiếp sau khi service khởi động lại. Không cần migration hay đổi dữ liệu.
 - **FR-008:** Trước khi bật trên production, đo lại trên staging bằng chính đường thực thi: dùng bộ bài có nguồn và quyền dùng rõ ràng (bài tổng hợp, hoặc bài được phép), ghi model thực trả lời và tổng chi phí gồm cả retry và lượt lỗi lấy từ `ai_usage_logs`, và giới hạn tổng lượt gọi cũng như chi phí trước khi chạy.
 
@@ -74,8 +74,8 @@ Anh Andy đã chọn GPT-6.1-terra làm model thay cho Gemini trên đường d�
 
 ### Claude lỗi, GPT chấm được
 
-- **Given** setting là `gpt-6.1-terra` và `OPENAI_API_KEY` có giá trị
-- **When** Claude trả `ungrounded_feedback` hai lần
+- **Given** setting là `gpt-6.1-terra`, `OPENAI_API_KEY` có giá trị, và bài là Task 2
+- **When** Claude trả `ungrounded_feedback` hai lần, dùng hết 150 s của nó
 - **Then** GPT chấm bài, `model_used = gpt-6.1-terra`, Gemini không được gọi, sổ usage có các dòng Claude (lỗi) và GPT (thành công), cost là tổng các lượt.
 
 ### Cả Claude và GPT đều lỗi
@@ -93,9 +93,10 @@ Anh Andy đã chọn GPT-6.1-terra làm model thay cho Gemini trên đường d�
 ## Edge cases
 
 - Thiếu `OPENAI_API_KEY`: bỏ qua bậc GPT và ghi log một lần, không làm lỗi bài.
-- Giá long context của OpenAI ($2.00/$7.50) chưa có ngưỡng rõ ràng, trong khi prompt Writing khoảng 15k token. Cost ghi theo giá Standard; nếu ngưỡng nằm dưới 15k thì cost bị ghi thấp. Xem Open questions.
+- Giá long context của OpenAI ($2.00/$7.50) chưa có ngưỡng rõ ràng, trong khi prompt Writing khoảng 15k token. Đây là điều kiện chặn của T002: phải xác định được ngưỡng và thêm dòng giá long context nếu cần, trước khi merge bản thực thi.
 - Claude bị admin override tắt (AIOPS-0024 `preferred_provider=gemini`): giữ đúng thứ tự override, bậc GPT chỉ chạy khi Claude đứng trước Gemini.
-- Hết ngân sách thời gian chung: dừng bậc GPT và chuyển sang Gemini.
+- Hết ngân sách riêng của GPT (75 s): dừng bậc GPT và chuyển sang Gemini.
+- Thời gian tối đa so với reaper: Standard = Claude 150 + GPT 75 + vòng Gemini ~90 (lấy theo ngân sách Gemini 90 s của Deep pass 1; Standard không có giới hạn riêng cho vòng Gemini) = 315 s, dưới `WRITING_STUCK_JOB_TIMEOUT_SECONDS = 360`. Deep: pass 1 cộng thêm 75 s khi bậc GPT được bật, nên 90 + 150 + 75 + 90 + 180 = 585 s, dưới `WRITING_STUCK_JOB_TIMEOUT_DEEP_SECONDS = 600`. Không đổi reaper. Còn dư 15 s; nếu sau này tăng ngân sách nào thì phải tăng reaper Deep trong cùng thay đổi.
 
 ## Success criteria
 
@@ -104,6 +105,5 @@ Anh Andy đã chọn GPT-6.1-terra làm model thay cho Gemini trên đường d�
 
 ## Open questions
 
-1. Ngưỡng long context của gpt-6.1-terra. Đề xuất: kiểm trên trang giá OpenAI trước khi merge bản thực thi; nếu prompt Writing vượt ngưỡng thì thêm dòng giá long context.
-2. `reasoning_effort` cho GPT. Đề xuất: `medium`, đúng mức đã dùng trong eval (thời gian trung vị 51 s).
-3. Cảnh báo GPT chấm cao khoảng +0.5 band trong eval. Đề xuất: chấp nhận cho bậc dự phòng (vẫn tốt hơn Gemini 2.5 Pro +1.0), và đo lại trên bài thật có điểm giáo viên chấm trước khi bật trên production.
+1. `reasoning_effort` cho GPT. Đề xuất: `medium`, đúng mức đã dùng trong eval (thời gian trung vị 51 s).
+2. Cảnh báo GPT chấm cao khoảng +0.5 band trong eval. Đề xuất: chấp nhận cho bậc dự phòng (vẫn tốt hơn Gemini 2.5 Pro +1.0), và đo lại trên bài thật có điểm giáo viên chấm trước khi bật trên production.
