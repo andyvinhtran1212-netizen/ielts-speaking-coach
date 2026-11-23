@@ -18,7 +18,7 @@ Migration của gói (dải 390–399 theo `01-KE-HOACH-TONG.md` mục 6; số d
 | 392 | thay thân `fn_activate_attempt_check`: 5 lần / 15 phút | T09 | 334 (đã có) |
 | 393 | `account_email_changes` | T24 | — |
 | 394 | `course_open_alerts` + `fn_course_open_alerts_enqueue` + `fn_course_open_alert_send_check` | T22 | G04 mig 383 (đã có: `course_products`, `learner_email_outbox`) |
-| 395 | `fn_auth_access_token_hook` (Custom Access Token Hook, FR-062) | T18 | 391 |
+| 395 | `login_code_locks` + `fn_auth_access_token_hook` (Custom Access Token Hook, FR-062) | T18 | 391 |
 
 Thứ tự áp theo thứ tự làm: 390 (T07) → 391 (T18) → 395 (T18) → 393 (T24) → 392 (T09) → 394 (T22). Mỗi migration: staging trước qua runner có khoá advisory, sau khi anh Andy gõ duyệt cho đúng lần áp; đọc lại bằng truy vấn chỉ đọc; production trước khi promote mã phụ thuộc, cũng cần anh gõ duyệt.
 
