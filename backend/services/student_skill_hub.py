@@ -20,7 +20,8 @@ Join points (one function each, FR-111..117 and plan "Hub kỹ năng"):
   _catalog_for     the reads the skill's list page uses
   _history_for     TEMPORARY own read of submitted attempts. Replace with the
                    T16 `results` source once T16 has a PR (coordinator, 23/11).
-  _starter_for     None until T25s (FR-126)
+  _starter_for     the owner's starter paper (T25s, FR-126,
+                   services/learner_starters), re-checked as open now
   _access_for      {blocked: False} until G04 has a per-skill rule (FR-117)
 """
 
@@ -569,8 +570,20 @@ def _history_for(sb, user_id: str, skill: str) -> List[Dict[str, Any]]:
 # ── starter, access ──────────────────────────────────────────────────────────
 
 
-def _starter_for(user_id: str, skill: str) -> Optional[Dict[str, Any]]:  # T25s, FR-126
-    return None
+async def _starter_values() -> Dict[str, Any]:
+    from services import learner_starters
+    return await learner_starters.get()
+
+
+def _starter_for(db, skill: str, values: Dict[str, Any]) -> Optional[Dict[str, Any]]:  # T25s, FR-126
+    """The starter block, or None when unset or the paper is no longer open."""
+    from services import learner_starters
+    return learner_starters.starter_for(db, skill, values)
+
+
+async def _starter_part(make_sb: Callable[[], Any], skill: str) -> Optional[Dict[str, Any]]:
+    values = await _starter_values()
+    return await asyncio.to_thread(_starter_for, make_sb(), skill, values)
 
 
 def _access_for(user_id: str, skill: str) -> Dict[str, Any]:  # G04 per-skill rule, FR-117
@@ -596,11 +609,12 @@ async def get_skill_hub_concurrent(
         "history": lambda: _history_for(make_sb(), user_id, skill),
     }
     outcomes = await asyncio.gather(*(asyncio.to_thread(fn) for fn in parts.values()),
-                                    return_exceptions=True)
+                                    _starter_part(make_sb, skill), return_exceptions=True)
     for outcome in outcomes:
         if isinstance(outcome, BaseException) and not isinstance(outcome, Exception):
             raise outcome
-    return assemble_skill_hub(dict(zip(parts, outcomes)), user_id=user_id, skill=skill, now=now)
+    results = dict(zip([*parts, "starter"], outcomes))
+    return assemble_skill_hub(results, user_id=user_id, skill=skill, now=now)
 
 
 def assemble_skill_hub(results: Dict[str, Any], *, user_id: str, skill: str,
@@ -645,9 +659,16 @@ def assemble_skill_hub(results: Dict[str, Any], *, user_id: str, skill: str,
         least_practised=(None if failed & {"groups", "attempts"}
                          else _least_practised(groups, attempts, now)),
     )
-    # FR-112: the starter only when there is nothing to resume and no attempt yet.
-    starter = (_starter_for(user_id, skill)
-               if not resume and not history and not attempts and not failed else None)
+    # FR-112: the starter only when there is nothing to resume and no attempt
+    # yet. A starter that could not be read hides the block; it is optional
+    # and never marks the other blocks degraded.
+    starter = results.get("starter")
+    if isinstance(starter, Exception):
+        logger.warning("[skill-hub] starter unavailable skill=%s: %s", skill,
+                       starter.__class__.__name__)
+        starter = None
+    if resume or history or attempts or failed:
+        starter = None
     return {
         "skill": skill,
         "credits": credits,
