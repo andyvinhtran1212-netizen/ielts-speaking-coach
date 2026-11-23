@@ -76,6 +76,71 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/account/session/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Session Status
+         * @description State of this session: ``current``, or another device is current
+         *     (``other_device`` / ``other_device_timed``). 503 ``session_status_unavailable``.
+         */
+        get: operations["get_session_status_api_account_session_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/account/session/claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Claim Session
+         * @description "Tiếp tục ở đây": make this session current and sign the others out.
+         *     409 ``timed_activity_in_progress`` (+ ``timed_activity``) while timed work
+         *     runs; 503 ``session_claim_unavailable``. Never runs by itself at sign-in.
+         */
+        post: operations["claim_session_api_account_session_claim_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/account/sessions/revoke-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke All Sessions
+         * @description Sign out of every device. A session in timed work is kept until that
+         *     work ends (``deferred_timed``). 404 ``single_session_disabled`` while the
+         *     flag is off; 503 ``session_revoke_unavailable``.
+         */
+        post: operations["revoke_all_sessions_api_account_sessions_revoke_all_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/sessions": {
         parameters: {
             query?: never;
@@ -20751,6 +20816,15 @@ export interface components {
             /** Client Ids With Multiple Fingerprints */
             client_ids_with_multiple_fingerprints: number;
         };
+        /** OtherSessionOut */
+        OtherSessionOut: {
+            /** Device Label */
+            device_label?: string | null;
+            /** Since */
+            since?: string | null;
+            /** Approx Location */
+            approx_location?: null;
+        };
         /** OutcomesOut */
         OutcomesOut: {
             /** Learners */
@@ -22128,6 +22202,14 @@ export interface components {
              */
             reason: "applied" | "replayed" | "conflict";
         };
+        /** RevokeAllOut */
+        RevokeAllOut: {
+            /** Revoked */
+            revoked: number;
+            deferred_timed?: components["schemas"]["TimedActivityOut"] | null;
+            /** At */
+            at: string;
+        };
         /** RevokeSessionsIn */
         RevokeSessionsIn: {
             /** Reason */
@@ -22268,6 +22350,18 @@ export interface components {
             correct?: number | null;
             /** Created At */
             created_at: string;
+        };
+        /** SessionClaimOut */
+        SessionClaimOut: {
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * State
+             * @constant
+             */
+            state: "current";
+            /** Revoked */
+            revoked: number;
         };
         /** SessionClassTask */
         SessionClassTask: {
@@ -22578,6 +22672,18 @@ export interface components {
             last_mode: string | null;
             /** Last Session At */
             last_session_at: string | null;
+        };
+        /** SessionStatusOut */
+        SessionStatusOut: {
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "current" | "other_device" | "other_device_timed";
+            other_session?: components["schemas"]["OtherSessionOut"] | null;
+            timed_activity?: components["schemas"]["TimedActivityOut"] | null;
         };
         /** SetAction */
         SetAction: {
@@ -23736,6 +23842,15 @@ export interface components {
             changes: components["schemas"]["ThresholdChange"][];
             /** Reason */
             reason: string;
+        };
+        /** TimedActivityOut */
+        TimedActivityOut: {
+            /** Title */
+            title: string;
+            /** Device Label */
+            device_label?: string | null;
+            /** Minutes Left */
+            minutes_left: number;
         };
         /** TipCreate */
         TipCreate: {
@@ -24919,6 +25034,99 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuthActivateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_session_status_api_account_session_status_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionStatusOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    claim_session_api_account_session_claim_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionClaimOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_all_sessions_api_account_sessions_revoke_all_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RevokeAllOut"];
                 };
             };
             /** @description Validation Error */

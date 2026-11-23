@@ -68,6 +68,12 @@ ACTIVATION_EXEMPT_ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/auth/check-active"): "the activation-status probe itself (AuthProvider, login)",
     ("POST", "/auth/activate"): "redeeming an access code is how an inactive account becomes active",
     ("GET", "/auth/profile"): "caller's own profile read (no learner content, no paid work); read by the G2 authed probe",
+    # ── One session per learner (COURSEACCESS-0055 T009) ─────────────────
+    # These run the session gate's own state read, so a not-yet-claimed
+    # session can see screen 8a/8b, claim, or sign out everywhere.
+    ("GET", "/api/account/session/status"): "single-session state probe; no learner content, no paid work",
+    ("POST", "/api/account/session/claim"): "single-session claim (\"Tiếp tục ở đây\"); refuses while timed work runs",
+    ("POST", "/api/account/sessions/revoke-all"): "sign out of every device; keeps a session in timed work until it ends",
     # ── Unauthenticated infrastructure ───────────────────────────────────
     ("GET", "/api/public-stats"): "public marketing counter, no auth",
     ("GET", "/health"): "uptime probe, no auth",
@@ -255,6 +261,10 @@ async def _enforce(request: Request) -> None:
     from routers.auth import get_supabase_user  # local — routers.auth imports this module
     user = await get_supabase_user(authorization)
     await aensure_account_active(user["id"])
+    # COURSEACCESS-0055 T009: one current session per learner account (no-op
+    # while runtime flag single_session_learners is off).
+    from services import session_gate  # local — session_gate imports this module
+    await session_gate.ensure_current(user["id"], authorization, request.headers.get("user-agent"))
 
 
 async def require_active_learner(request: Request) -> None:

@@ -29,6 +29,7 @@ from services.errors import safe_detail, GENERIC_MESSAGE
 from config import settings
 from database import supabase_admin
 from routers.auth import get_supabase_user, router as auth_router
+from routers.account_session import router as account_session_router
 from services.activation_gate import require_active_learner
 from services.api_docs import api_docs_kwargs
 from services.cors_policy import allowed_origins as cors_allowed_origins
@@ -271,6 +272,7 @@ app.add_middleware(
 _ACTIVE_LEARNER = [Depends(require_active_learner)]
 
 app.include_router(auth_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(account_session_router, dependencies=_ACTIVE_LEARNER)  # COURSEACCESS-0055 T009 (exempt routes)
 app.include_router(sessions_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(questions_router, dependencies=_ACTIVE_LEARNER)
 
