@@ -64,6 +64,8 @@ describe('AdminLearnerProfile', () => {
     expect(screen.getByText('Việc đã hẹn: chưa có.')).toBeTruthy();
     expect(screen.getAllByText('Chưa có bài đã trả').length).toBe(4);
     expect(screen.queryByText(/Vùng nguy hiểm|Thu hồi quyền học|Khoá tài khoản/)).toBeNull();
+    // /admin/notifications is not live yet: no "Gửi nhắc" link to a 404.
+    expect(screen.queryByRole('link', { name: 'Gửi nhắc' })).toBeNull();
   });
 
   it('moves an s- ref of a person with an account to the u- ref, keeping the tab (FR-022)', async () => {

@@ -39,7 +39,7 @@ export function tabHref(ref, tab) {
 
 /** FR-022: an `s-…` ref of a person with an account is shown under `u-…`. */
 export function canonicalHref(ref, canonicalRef, search = '') {
-  if (!canonicalRef || canonicalRef === ref) return null;
+  if (!canonicalRef || String(canonicalRef).toLowerCase() === String(ref || '').toLowerCase()) return null;
   const query = String(search || '').replace(/^\?/, '');
   return `${profileHref(canonicalRef)}${query ? `?${query}` : ''}`;
 }

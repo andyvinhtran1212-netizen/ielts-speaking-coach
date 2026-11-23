@@ -28,6 +28,7 @@ describe('tabs in the URL (FR-023)', () => {
   it('an s- ref of a person with an account moves to the u- ref and keeps the tab (FR-022)', () => {
     assert.equal(canonicalHref(S, U, 'tab=hoc-tap'), `/admin/learners/${U}?tab=hoc-tap`);
     assert.equal(canonicalHref(U, U, ''), null);
+    assert.equal(canonicalHref(U.toUpperCase(), U, ''), null);
   });
 });
 

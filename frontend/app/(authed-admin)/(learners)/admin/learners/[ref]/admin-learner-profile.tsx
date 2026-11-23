@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 import { messageOf, StatusBanner } from '@/components/admin-directory-ui';
+import { liveHref } from '@/components/ui/shell/learner-sections';
 import { LearnerSummary } from '@/components/admin/learner-summary';
 import {
   getLearnerDetail,
@@ -158,7 +159,10 @@ export function AdminLearnerProfile({ learnerRef }: { learnerRef: string }) {
       <LearnerSummary summary={detail.summary} sourcesFailed={detail.sources_failed} />
       <div className="lp-actions">
         <a className="adm-btn-secondary" href={tabHref(learnerRef, 'ghi-chu')} onClick={go('ghi-chu')}>Thêm ghi chú</a>
-        <a className="adm-btn-secondary" href={notifyOneHref(learnerRef)} onClick={remind}>Gửi nhắc</a>
+        {/* Hidden until the notifications page is live (GOI-11), so it never links to a 404. */}
+        {liveHref({ href: '/admin/notifications', today: null })
+          ? <a className="adm-btn-secondary" href={notifyOneHref(learnerRef)} onClick={remind}>Gửi nhắc</a>
+          : null}
         <a className="adm-btn-secondary" href={assignmentHref({}, studentId ? { studentId } : {})}>Giao bài</a>
         <button type="button" className="adm-btn-secondary" disabled title="Chưa có: cần dữ liệu khoá học (G04)">Cấp quyền luyện lại</button>
       </div>
