@@ -20,23 +20,35 @@ export const CLASS_STAND_IN = '/my-class';
 /** Longer than the shared `/auth/me` timeout (15 s), so only a dead read trips it. */
 export const PROFILE_WAIT_MS = 20_000;
 
+type Flag = 'waiting' | 'on' | 'off';
+
+function flagOf(accountId: string | null): Flag {
+  const profile = accountId ? getAuthMeProfile(accountId) : null;
+  if (!profile) return 'waiting';
+  return learnerV2Enabled(profile) ? 'on' : 'off';
+}
+
 export function ClassGate() {
   const router = useRouter();
   const { status, user } = useAuth();
   const accountId = status === 'signed-in' ? user?.id || null : null;
-  const profile = useSyncExternalStore(
+  // A primitive snapshot: `getAuthMeProfile` returns a fresh clone on every
+  // call, which `useSyncExternalStore` would read as a change each render.
+  const flag = useSyncExternalStore(
     subscribeAuthMeProfile,
-    () => (accountId ? getAuthMeProfile(accountId) : null),
-    () => null,
+    () => flagOf(accountId),
+    () => 'waiting' as const,
   );
   const [timedOut, setTimedOut] = useState(false);
   useEffect(() => {
-    if (profile || !accountId) return undefined;
+    if (flag !== 'waiting' || !accountId) return undefined;
     const timer = window.setTimeout(() => setTimedOut(true), PROFILE_WAIT_MS);
     return () => window.clearTimeout(timer);
-  }, [profile, accountId]);
-  const enabled = Boolean(accountId && profile) && learnerV2Enabled(profile);
-  const leave = Boolean(accountId) && ((profile && !enabled) || (!profile && timedOut));
+  }, [flag, accountId]);
+  const enabled = Boolean(accountId) && flag === 'on';
+  // The shared profile store keeps no error state, so a failed `/auth/me`
+  // read reads as "waiting" and leaves at PROFILE_WAIT_MS.
+  const leave = Boolean(accountId) && (flag === 'off' || (flag === 'waiting' && timedOut));
   useEffect(() => {
     if (leave) router.replace(CLASS_STAND_IN);
   }, [leave, router]);

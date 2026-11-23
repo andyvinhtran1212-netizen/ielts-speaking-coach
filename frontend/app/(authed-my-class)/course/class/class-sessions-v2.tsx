@@ -185,6 +185,9 @@ export function ClassSessionsV2({ accountId }: { accountId: string }) {
   const [opening, setOpening] = useState<string | null>(null);
   const accountRef = useRef(accountId);
   accountRef.current = accountId;
+  // False once unmounted: a late start response must not navigate away from
+  // whatever page (or account, the gate keys by it) replaced this one.
+  const mountedRef = useRef(true);
   const openingRef = useRef<string | null>(null);
   const classAbort = useRef<AbortController | null>(null);
   const workAbort = useRef<AbortController | null>(null);
@@ -192,7 +195,10 @@ export function ClassSessionsV2({ accountId }: { accountId: string }) {
   const listRef = useRef<HTMLElement | null>(null);
   const today = useMemo(() => vnDay(new Date()), []);
 
-  useEffect(() => () => { classAbort.current?.abort(); workAbort.current?.abort(); }, []);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; classAbort.current?.abort(); workAbort.current?.abort(); };
+  }, []);
   useEffect(() => {
     const onShow = (event: PageTransitionEvent) => {
       if (!event.persisted) return;
@@ -267,7 +273,7 @@ export function ClassSessionsV2({ accountId }: { accountId: string }) {
   const open = useCallback(async (entry: AssignedItem) => {
     if (openingRef.current) return;
     const owner = accountId;
-    const isCurrent = () => accountRef.current === owner;
+    const isCurrent = () => mountedRef.current && accountRef.current === owner;
     openingRef.current = entry.row.itemId;
     setOpening(entry.row.itemId);
     try {

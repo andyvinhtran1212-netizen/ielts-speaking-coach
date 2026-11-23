@@ -18,7 +18,8 @@ const auth = vi.hoisted(() => ({ status: 'signed-in', user: { id: 'learner-1' } 
 vi.mock('@/lib/auth/auth-provider', () => ({ useAuth: () => auth }));
 const profiles = vi.hoisted(() => ({ value: null as Record<string, unknown> | null, listeners: new Set<() => void>() }));
 vi.mock('@/lib/auth/auth-me-single-flight.mjs', () => ({
-  getAuthMeProfile: (id: string) => (profiles.value && profiles.value.id === id ? profiles.value : null),
+  // A fresh copy on every call, like the real store (`clonePayload`).
+  getAuthMeProfile: (id: string) => (profiles.value && profiles.value.id === id ? { ...profiles.value } : null),
   subscribeAuthMeProfile: (fn: () => void) => { profiles.listeners.add(fn); return () => profiles.listeners.delete(fn); },
 }));
 
@@ -199,6 +200,19 @@ it('homework of the open session by lesson_id, with the FR-097 button (FR-123)',
   expect(within(block).getByRole('link', { name: 'Xem trong Bài được giao ›' }).getAttribute('href')).toBe('/course/assigned');
   fireEvent.click(screen.getByRole('button', { name: /Buổi 1/ }));
   expect(await screen.findByText('Buổi này chưa có bài tập về nhà.')).toBeTruthy();
+});
+
+it('a start answered after unmount does nothing (no navigation, no toast)', async () => {
+  const view = mount(classMe(), assigned([work('i1', 'L2')]));
+  const block = await screen.findByRole('region', { name: 'Bài tập về nhà của buổi' });
+  let answer: (value: unknown) => void = () => {};
+  post.mockImplementationOnce(() => new Promise((resolve) => { answer = resolve; }));
+  fireEvent.click(within(block).getByRole('button', { name: 'Làm bài' }));
+  expect(post).toHaveBeenCalledWith('/api/class/assignments/i1/start');
+  view.unmount();
+  await act(async () => { answer({ bogus: true }); });
+  expect(push).not.toHaveBeenCalled();
+  expect(window.showToast).not.toHaveBeenCalled();
 });
 
 it('no work of the class tied to a session hides the block at every session', async () => {
