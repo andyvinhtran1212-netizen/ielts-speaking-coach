@@ -219,7 +219,10 @@ def _pre_320() -> str:
             band_lr double precision, band_gra double precision, band_p double precision,
             completed_at timestamptz, error_code text, error_message text, failed_step text,
             last_error_at timestamptz, last_regraded_at timestamptz, last_regraded_by text,
-            regrade_count integer DEFAULT 0, class_assignment_item_id uuid);
+            regrade_count integer DEFAULT 0, class_assignment_item_id uuid,
+            -- 079's retention columns (read by 505's precondition and purge).
+            started_at timestamptz DEFAULT now(), last_accessed_at timestamptz,
+            audio_purged_at timestamptz, content_purged_at timestamptz);
         CREATE TABLE responses (
             id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
             session_id uuid NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
