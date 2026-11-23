@@ -237,7 +237,10 @@ def test_raw_html_is_shown_as_text():
 @pytest.mark.parametrize("md", [
     "[bấm](javascript:alert(1))",
     "[bấm](JaVaScRiPt:alert(1))",
-    "[bấm](data:text/html;base64,AAAA)",
+    # A real-looking payload (<script>alert(1)</script>): the CI artifact guard
+    # decodes data: URIs in the Playwright git diff, and bytes it cannot read
+    # (such as "AAAA" = three NUL bytes) block the upload.
+    "[bấm](data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==)",
     "[bấm](//evil.example/x)",
     "![ảnh](javascript:alert(1))",
     "[bấm](&#106;avascript:alert(1))",
