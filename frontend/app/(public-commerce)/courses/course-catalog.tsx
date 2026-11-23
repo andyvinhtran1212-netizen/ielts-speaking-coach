@@ -204,7 +204,7 @@ function CourseChooser({ items }: { items: CourseItem[] }) {
           <p className={styles.suggestionTitle}>{course.title}</p>
           {upcoming ? (
             <p>
-              Khoá này sắp mở. Trong lúc chờ, bạn có thể ôn bằng Thư viện miễn phí, hoặc bấm "Báo cho tôi khi mở" ở
+              {course.status === 'closed' ? 'Khoá này đang tạm đóng đăng ký.' : 'Khoá này sắp mở.'} Trong lúc chờ, bạn có thể ôn bằng Thư viện miễn phí, hoặc bấm "Báo cho tôi khi mở" ở
               trang khoá.
             </p>
           ) : (
@@ -273,6 +273,7 @@ export function CourseCatalog({ initialItems }: { initialItems: CourseItem[] }) 
           <h2 id="danh-sach">Danh sách khoá</h2>
           <p className={styles.count}>
             {counts.open} khoá đang mở đăng ký · {counts.upcoming} khoá sắp mở
+            {counts.closed ? ` · ${counts.closed} khoá tạm đóng đăng ký` : null}
           </p>
         </div>
         <aside className={styles.activate} aria-label="Mã kích hoạt">
