@@ -287,3 +287,29 @@ async def test_running_attempt_resent_is_in_progress(real_rpc):
     with pytest.raises(credits.CreditReplay) as replay:
         await _reserve(user, sid, q2, 1, k2)
     assert replay.value.code == "grading_in_progress"
+
+
+@pytest.mark.asyncio
+async def test_covered_answer_failing_three_times_while_the_opener_runs_costs_one_credit(real_rpc):
+    """CR+SA on 1f58dedf (reproduced on PG16): retries of a failed covered
+    answer while the cluster is pending must not become re-grades, the third
+    of which was a paid one. Route keys: '<sid>', ':a1', ':a2', ':a3'."""
+    pg = real_rpc
+    user = await pg.user()
+    await pg.entitlement(user, await pg.product(), credits=3)
+    sid = await pg.session(user)
+    before = await pg.balance(user)
+    opener = await _reserve(user, sid, uuid4(), 1, str(uuid4()))
+    q2, k2 = uuid4(), str(uuid4())
+    for attempt in range(3):
+        hold = await _reserve(user, sid, q2, 1, k2)
+        assert hold.covered and hold.reservation_id == opener.reservation_id, attempt
+        await _failed(hold, "stt_failed")
+    last = await _reserve(user, sid, q2, 1, k2)
+    assert last.covered and last.request_key == f"{k2}:a3"
+    await _graded(last)
+    await _failed(opener)
+
+    assert before - await pg.balance(user) == 1
+    rows, net = await _ledger(pg)
+    assert rows == [("reserve", -1)] and net == -1

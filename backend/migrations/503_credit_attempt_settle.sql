@@ -24,7 +24,11 @@
 --                of the hold) has a failed outcome. Otherwise the hold stays
 --                open for the answers still running; an attempt that dies
 --                without settling is refunded by fn_credit_expire_reservations
---                at expires_at, as before.
+--                at expires_at, as before. While the hold stays open, the
+--                failed attempt's question is unlinked from it (CR+SA on
+--                1f58dedf): its retry is then a first grading of the
+--                question, not a re-grade, so failures never use up the free
+--                re-grade or lead to a paid one.
 --     A non-cluster hold has one participant, so failed releases at once.
 --   * an index on credit_covered_requests(reservation_id) for that check.
 -- No seed, no backfill, no change to an existing row, table or function.
@@ -95,6 +99,7 @@ DECLARE
     v_user uuid;
     v_res public.credit_reservations%ROWTYPE;
     v_waiting integer;
+    v_resource text;
 BEGIN
     IF p_reservation_id IS NULL OR p_request_key IS NULL
        OR char_length(p_request_key) NOT BETWEEN 8 AND 120
@@ -134,6 +139,34 @@ BEGIN
         UPDATE public.credit_reservations SET status = 'committed', settled_at = statement_timestamp()
          WHERE id = v_res.id;
         RETURN jsonb_build_object('status', 'committed', 'reservation_id', v_res.id);
+    END IF;
+
+    -- failed, hold open: no answer on it has a grade. Unlink this attempt's
+    -- question from the hold unless another attempt of the same question is
+    -- still running on it, so the question's next attempt is covered as a
+    -- first grading (fn_credit_reserve counts a re-grade only for a question
+    -- still linked to a live hold). The guard of 384 allows reservation_id to
+    -- change; regrade_count never goes down.
+    IF v_res.resource_type = 'speaking_cluster' THEN
+        v_resource := CASE WHEN v_res.request_key = p_request_key THEN v_res.resource_id
+                           ELSE (SELECT c.resource_id FROM public.credit_covered_requests c
+                                  WHERE c.reservation_id = v_res.id AND c.request_key = p_request_key) END;
+        IF NOT EXISTS (
+            SELECT 1
+              FROM (SELECT v_res.request_key AS request_key, v_res.resource_id AS resource_id
+                    UNION ALL
+                    SELECT c.request_key, c.resource_id FROM public.credit_covered_requests c
+                     WHERE c.reservation_id = v_res.id) AS a
+             WHERE a.resource_id = v_resource AND a.request_key <> p_request_key
+               AND NOT EXISTS (SELECT 1 FROM public.credit_attempt_outcomes o
+                                WHERE o.reservation_id = v_res.id AND o.request_key = a.request_key
+                                  AND o.outcome = 'failed')) THEN
+            UPDATE public.credit_cluster_members SET reservation_id = NULL
+             WHERE session_id = split_part(v_resource, ':', 1)::uuid
+               AND part = substr(split_part(v_resource, ':', 2), 2)::smallint
+               AND question_id = substr(split_part(v_resource, ':', 3), 2)::uuid
+               AND reservation_id = v_res.id;
+        END IF;
     END IF;
 
     -- failed: release only when no participant can still finish.

@@ -244,3 +244,50 @@ async def test_rollback_drops_the_rpc_and_keeps_the_rows(pg503):
     assert await pg.con.fetchval("SELECT count(*) FROM credit_attempt_outcomes") == 1
     await pg.con.execute(pg.sql(FORWARD))        # forward again after a rollback
     assert await pg.con.fetchval("SELECT to_regprocedure($1)", f"{pg.schema}.{RPC}") is not None
+
+
+@pytest.mark.asyncio
+async def test_failed_attempts_while_pending_never_count_as_regrades(pg503):
+    """CR+SA on 1f58dedf: the opener still grades (hold open); a covered
+    answer fails three times, then saves. Each retry is a first grading of the
+    question (no regrade_count, no paid re-grade): one credit in all."""
+    pg = pg503
+    user, sid, hold, _opener_key = await _cluster(pg)
+    question = uuid4()
+    resource = f"{sid}:p1:q{question}"
+    for attempt in range(3):
+        key = uuid4().hex
+        result = await pg.reserve(user, "speaking_cluster", resource, key=key)
+        assert result["status"] == "covered" and result["reservation_id"] == hold, (attempt, result)
+        assert result["regrade_count"] == 0
+        assert (await _settle(pg, hold, key, "failed", "stt_failed"))["status"] == "pending"
+        assert await pg.con.fetchval("SELECT reservation_id FROM credit_cluster_members WHERE question_id = $1",
+                                     question) is None
+    key = uuid4().hex
+    result = await pg.reserve(user, "speaking_cluster", resource, key=key)
+    assert result["status"] == "covered" and result["regrade_count"] == 0
+    assert (await _settle(pg, hold, key, "graded"))["status"] == "committed"
+    assert await _net(pg, user) == -1
+    assert await pg.con.fetchval("SELECT count(*) FROM credit_reservations WHERE user_id = $1", user) == 1
+    # Graded and linked again: the next attempt is the one free re-grade.
+    again = await pg.reserve(user, "speaking_cluster", resource, key=uuid4().hex)
+    assert again["status"] == "covered" and again["regrade_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_a_question_with_another_attempt_running_stays_linked(pg503):
+    pg = pg503
+    user, sid, hold, _opener_key = await _cluster(pg)
+    question = uuid4()
+    resource = f"{sid}:p1:q{question}"
+    k1 = uuid4().hex
+    assert (await pg.reserve(user, "speaking_cluster", resource, key=k1))["status"] == "covered"
+    await _settle(pg, hold, k1, "failed")                    # unlinked
+    k2, k3 = uuid4().hex, uuid4().hex
+    assert (await pg.reserve(user, "speaking_cluster", resource, key=k2))["status"] == "covered"
+    assert (await pg.reserve(user, "speaking_cluster", resource, key=k3))["regrade_count"] == 1  # k2 still runs
+    await _settle(pg, hold, k3, "failed")                    # k2 still running: stays linked
+    assert await pg.con.fetchval("SELECT reservation_id FROM credit_cluster_members WHERE question_id = $1",
+                                 question) == _u(hold)
+    assert (await _settle(pg, hold, k2, "graded"))["status"] == "committed"
+    assert await _net(pg, user) == -1
