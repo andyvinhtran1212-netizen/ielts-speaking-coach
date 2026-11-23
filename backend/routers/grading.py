@@ -996,8 +996,10 @@ async def grade_response_endpoint(
         # `pron_sample_window` on, Azure hears one middle window of every
         # Part and, in PRON_ONE_PER_SESSION_PARTS, one answer per session. The
         # flag fails closed (lookup error → today's path). Off → unchanged.
-        pron_sample_on = await runtime_flags.ais_enabled(
-            _PRON_SAMPLE_FLAG, default=False, run=aexecute, on_error=False,
+        # Sync read in a worker thread: only /auth/me may hand runtime_flags
+        # the async facade (PC-J05, test_async_db_scaffold).
+        pron_sample_on = await asyncio.to_thread(
+            runtime_flags.is_enabled, _PRON_SAMPLE_FLAG, False, on_error=False,
         )
         pron_sample: PronSample | None = None
         pron_task = None

@@ -195,10 +195,10 @@ def _route(monkeypatch, *, part, duration, flag, responses=(), extract=lambda _a
     monkeypatch.setattr(grading, "aexecute", execute)
     flags = []
 
-    async def ais_enabled(key, default=True, *, run, on_error=None):
+    def is_enabled(key, default=True, *, on_error=None):
         flags.append((key, default, on_error))
         return flag
-    monkeypatch.setattr(grading.runtime_flags, "ais_enabled", ais_enabled)
+    monkeypatch.setattr(grading.runtime_flags, "is_enabled", is_enabled)
     monkeypatch.setattr(grading, "enforce_grading_rate_limit", lambda *args: None)
     monkeypatch.setattr(grading, "record_grading_attempt", lambda *args: None)
     monkeypatch.setattr(grading.ai_usage_logger, "log_whisper_async", AsyncMock())
