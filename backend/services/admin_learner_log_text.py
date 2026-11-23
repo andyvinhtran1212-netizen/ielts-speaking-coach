@@ -96,11 +96,30 @@ def security(event: str, *, before: Optional[dict], after: Optional[dict]) -> st
     }.get(event, OTHER)
 
 
-def class_action(action: str, *, title: Optional[str]) -> str:
+def _vn_day(value: Any) -> Optional[str]:
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    if not value:
+        return None
+    try:
+        at = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return None
+    return (at.astimezone(ZoneInfo("Asia/Ho_Chi_Minh")) if at.tzinfo else at).strftime("%d/%m/%Y")
+
+
+def class_action(action: str, *, title: Optional[str], details: Optional[dict] = None) -> str:
     named = f"“{title}”" if title else "một bài"
+    details = details if isinstance(details, dict) else {}
     if action == "return_work":
         return f"Trả lại bài {named} để làm lại"
     if action == "due_change":
+        old, new = _vn_day(details.get("previous_due_at")), _vn_day(details.get("due_at"))
+        if old and new:
+            return f"Đổi hạn bài {named}: {old} → {new}"
+        if new:
+            return f"Đổi hạn bài {named} thành {new}"
         return f"Đổi hạn bài {named}"
     return OTHER
 

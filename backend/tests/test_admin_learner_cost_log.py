@@ -249,8 +249,30 @@ def admin_learner_log_blackeye_programme():
     return listening_blackeye.PROGRAMME
 
 
+def test_a_class_deadline_change_reaches_the_learners_who_have_that_work(db):
+    _seed_log(db)
+    db.rows["class_action_log"] += [
+        # a2 was handed to Lan and Đức; a5 to nobody in this test.
+        {"id": "ca3", "action": "due_change", "cohort_id": C_A, "assignment_id": "a2",
+         "assignment_title": "Buổi 9 · Reading", "student_id": None, "actor_user_id": U_TEACH,
+         "details": {"previous_due_at": "2026-11-20T16:59:00+00:00", "due_at": "2026-11-24T16:59:00+00:00"},
+         "created_at": _ago(hours=1)},
+        {"id": "ca4", "action": "due_change", "cohort_id": C_A, "assignment_id": "a5",
+         "assignment_title": "Bài không giao cho Lan", "student_id": None, "actor_user_id": U_TEACH,
+         "details": {}, "created_at": _ago(hours=2)},
+    ]
+    lan = _log(f"u-{U_LAN}", kind="class")["items"]
+    assert [i["text"] for i in lan] == ["Đổi hạn bài “Buổi 9 · Reading”: 20/11/2026 → 24/11/2026",
+                                        "Trả lại bài “Buổi 8 · Writing Task 2” để làm lại"]
+    # Minh is in another class and has no item of a2: he does not see it.
+    assert _log(f"u-{U_MINH}", kind="class")["items"] == []
+    duc = [i["text"] for i in _log(f"s-{S_OFFLINE}", kind="class")["items"]]
+    assert duc[0].startswith("Đổi hạn bài “Buổi 9 · Reading”") and "Bài không giao cho Lan" not in str(duc)
+
+
 def test_an_offline_learner_has_class_lines_and_no_account_lines(db):
     _seed_log(db)
     out = _log(f"s-{S_OFFLINE}")
+    # Đức has items of a2 and a3; none of the seeded rows is a deadline change.
     assert [(i["source"], i["text"]) for i in out["items"]] == [
         ("class", "Trả lại bài “Bài của bạn khác” để làm lại")]
