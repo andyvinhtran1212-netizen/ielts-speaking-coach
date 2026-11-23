@@ -15,7 +15,7 @@ vi.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams('
 vi.mock('@/components/admin-access-gate', () => ({ useAdminProfile: () => ({ id: 'admin-1' }) }));
 vi.mock('@/lib/admin-overview-api', () => api);
 
-import { AdminOverview, PARTIAL_FAILURE_COPY } from '@/app/(authed-admin-overview)/admin/admin-overview';
+import { AdminOverview, PARTIAL_FAILURE_COPY } from '@/app/(authed-admin)/(overview)/admin/admin-overview';
 
 function overview(extra: Record<string, unknown> = {}) {
   return {

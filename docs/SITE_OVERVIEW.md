@@ -182,6 +182,8 @@ to `/`; the historical source file is not a separately served marketing page.
 | `/admin/dashboard/reading-attempts` | admin | Native Reading-attempts dashboard — frozen snapshot, truthful partial/unavailable states, auth + anonymous (approximate), band/skill/time, per-test, recent (`GET /admin/dashboard/reading-attempts`). The old HTML URL now redirects to this native owner. |
 | `/admin/foot-traffic` · `/admin/usage` | admin | Visitor foot-traffic analytics + canonical per-user/access-code session and logged AI-cost rollups. |
 | `/admin/error-logs` | admin | Error-report inbox (`/admin/error-logs`). |
+| `/admin/ai-models` | admin | AI và mô hình (ADMINIA-0074 FR-074): per-feature model table (AIOPS-0024 overrides, `/admin/ai-models`); each save opens an in-row confirmation with old → new values and a reason box before the unchanged PATCH. |
+| `/admin/qa-tools` | admin | Công cụ QA (FR-073): links to the recommendation tester and mock answer corrections, plus "Tạo lỗi thử" (`POST /admin/error-logs/test`), shown only on a known non-Production environment; the server refuses Production and unknown tiers with 403. |
 | `/admin/system` · `/admin/system/ai-usage` · `/admin/system/alerts` | admin | System health, AI token usage, alerts. |
 | `/admin/feedback` | admin | Learner-feedback inbox and inspection workspace. |
 
