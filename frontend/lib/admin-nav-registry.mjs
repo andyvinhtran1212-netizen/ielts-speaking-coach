@@ -81,7 +81,7 @@ export const ADMIN_NAV_GROUPS = Object.freeze([
       soon('ai-models', 'AI và mô hình', { plannedHref: '/admin/ai-models' }),
       item('mfa', 'Bảo mật', '/admin/mfa'),
       soon('qa-tools', 'Công cụ QA', { plannedHref: '/admin/qa-tools' }),
-      soon('settings', 'Cài đặt', { plannedHref: '/admin/settings' }),
+      item('settings', 'Cài đặt', '/admin/settings'),
     ],
   },
 ]);

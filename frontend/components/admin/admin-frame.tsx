@@ -36,6 +36,7 @@ import { postBrowserJsonAt } from '@/lib/browser-api';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 import styles from './admin-frame.module.css';
+import { ThresholdsProvider } from './thresholds-provider';
 
 type Counts = Record<string, number | null>;
 
@@ -133,7 +134,9 @@ export function AdminFrame({ children }: { children: ReactNode }) {
       user={{ name: email, email, initials: initialsOf(email) }}
       switchTo={ADMIN_SWITCH_TO}
     >
-      <div className={styles.content}>{content}</div>
+      <ThresholdsProvider enabled={status === 'signed-in'}>
+        <div className={styles.content}>{content}</div>
+      </ThresholdsProvider>
     </StaffShell>
   );
 }
