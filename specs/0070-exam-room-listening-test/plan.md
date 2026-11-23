@@ -30,7 +30,7 @@
   - Request: không body.
   - 200 `{ "attempt_id": uuid, "status": "abandoned" }` (cả khi gọi lại lượt đã bỏ).
   - 404 khi không phải chủ hoặc không có lượt; 409 `{ "reason": "already_submitted" }`;
-    409 `{ "reason": "not_self_selected" }` khi gắn `sitting_id` hay bài giao;
+    409 `{ "reason": "not_self_selected" }` khi gắn `sitting_id` hay `class_assignment_item_id`;
     409 `{ "reason": "resume_expired" }` khi quá `resume_expires_at`.
   - Một câu UPDATE có điều kiện: `.eq("id")`, `.eq("user_id")`, `.eq("status", "in_progress")`,
     `.is_("sitting_id", "null")`, `.is_("class_assignment_item_id", "null")`,

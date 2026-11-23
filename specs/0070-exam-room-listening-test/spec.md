@@ -126,12 +126,12 @@ FR-08-041 (bỏ bài). Bảng đối chiếu ở `verification.md`.
   chưa lưu; rời về `backHref` hiện tại. Full test: hộp nói "The recording keeps playing on our
   side while you are away; when you return, it continues from the current point." (đúng với
   `listeningResumeOffsetSeconds`).
-- **FR-012:** Bỏ bài (đề tự chọn: lượt của chính học viên, không `class_item`, không
-  `sitting_id`, không admin xem trước): nút "Abandon test" và hộp hỏi lại của khung. Route mới
+- **FR-012:** Bỏ bài (đề tự chọn: lượt của chính học viên, `class_assignment_item_id`
+  rỗng, `sitting_id` rỗng, không admin xem trước): nút "Abandon test" và hộp hỏi lại của khung. Route mới
   `POST /api/listening/tests/attempts/{attempt_id}/abandon` trong
   `backend/routers/listening/attempts.py`:
   - Một câu UPDATE có điều kiện, cùng cách điều phối với `submit` (CAS trên trạng thái): `id`,
-    `user_id`, `status='in_progress'`, `sitting_id IS NULL`, không bài giao,
+    `user_id`, `status='in_progress'`, `sitting_id IS NULL`, `class_assignment_item_id IS NULL`,
     `resume_expires_at > now` lấy ngay trước câu UPDATE. Listening không có hạn giờ phía máy
     chủ nên không có điều kiện giờ khác (khác Reading, EXAMREAD-0067 FR-012).
   - Câu UPDATE của bỏ bài không gắn với mảng `answers` (bỏ là huỷ cả lượt). Hai câu UPDATE
@@ -141,7 +141,7 @@ FR-08-041 (bỏ bài). Bảng đối chiếu ở `verification.md`.
     Router Listening không có khoá ghi trong tiến trình như `_learner_write` của Reading;
     spec này không thêm khoá đó (CAS trong câu UPDATE là bảo đảm duy nhất cần có).
   - Không có dòng nào đổi thì đọc lại: đã `abandoned` → 200 cùng kết quả; đã `submitted` →
-    409 `already_submitted`; gắn sitting/bài giao → 409 `not_self_selected`; không phải chủ →
+    409 `already_submitted`; gắn `sitting_id`/`class_assignment_item_id` → 409 `not_self_selected`; không phải chủ →
     404.
   - Nộp và bỏ đồng thời: đúng một câu UPDATE thắng; bên thua nhận 409 kèm trạng thái thật.
   - Lượt bỏ không có kết quả, không vào lịch sử hay Tiến độ (thêm test cho ba chỗ đọc đó); làm
