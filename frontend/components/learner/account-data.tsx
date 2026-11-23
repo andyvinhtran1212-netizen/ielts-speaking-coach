@@ -72,17 +72,26 @@ export function DataExportBlock({ onUnavailable }: { onUnavailable?: () => void 
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ kind: 'warning' | 'error'; text: string } | null>(null);
   const [erasing, setErasing] = useState(false);
-  const alive = useRef(true);
-  useEffect(() => () => { alive.current = false; }, []);
+  // Set on every setup, cleared on every cleanup, so Strict Mode's
+  // setup → cleanup → setup leaves it true for the mounted instance.
+  const alive = useRef(false);
+  // Each read takes a number; only the latest one may write the state.
+  const generation = useRef(0);
+  useEffect(() => {
+    alive.current = true;
+    return () => { alive.current = false; };
+  }, []);
 
   const load = useCallback(async () => {
+    const ticket = ++generation.current;
+    const current = () => alive.current && ticket === generation.current;
     setState({ kind: 'loading' });
     try {
       const view = normalizeExport(await window.api.getWith<unknown>('/api/account/data-export'));
-      if (!alive.current) return;
+      if (!current()) return;
       setState(view ? { kind: 'ready', view } : { kind: 'error' });
     } catch (error) {
-      if (!alive.current) return;
+      if (!current()) return;
       // Routes not deployed: the block goes away, never stuck on "Đang tải".
       if (errorStatus(error) === 404) { setState({ kind: 'absent' }); onUnavailable?.(); return; }
       setState({ kind: 'error' });

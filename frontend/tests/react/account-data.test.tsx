@@ -1,6 +1,7 @@
 // ACCOUNTDATA-0100 ui-states.md on /account: "Dữ liệu của tôi", the danger
 // zone and the pending-deletion notice, against the routes of #2600.
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('client-only', () => ({}));
@@ -280,6 +281,30 @@ describe('/account: Dữ liệu của tôi (FR-010…FR-012)', () => {
     await settle();
     expect(dataBlock().textContent).toContain('Gói dữ liệu này đã hết hạn hoặc không còn. Bạn yêu cầu gói mới nhé.');
     expect(within(dataBlock()).getByRole('button', { name: 'Yêu cầu tải dữ liệu' })).toBeTruthy();
+  });
+
+  it('under <StrictMode> the block reaches "ready" and an action finishes (no stuck loading)', async () => {
+    state.exportJob = { status: 'ready', export_id: 'e-9', requested_at: null, ready_at: '2026-11-23T05:00:00Z', expires_at: '2026-11-30T05:00:00Z', size_bytes: 12_900_000 };
+    getWith.mockImplementation(async (path: string, headers?: unknown) => {
+      if (path.endsWith('/download')) return { url: 'https://storage.fixture/sign/e-9.zip?token=t', expires_in_seconds: 60 };
+      return getWithImpl(path, headers);
+    });
+    render(<StrictMode><AccountPage /></StrictMode>);
+    await settle();
+    expect(dataBlock().textContent).toContain('Gói dữ liệu đã sẵn sàng (12,3 MB).');
+    await act(async () => { fireEvent.click(within(dataBlock()).getByRole('button', { name: 'Tải xuống' })); });
+    await settle();
+    expect(assign).toHaveBeenCalledWith('https://storage.fixture/sign/e-9.zip?token=t');
+
+    cleanup();
+    state.exportJob = { status: 'none' };
+    render(<StrictMode><AccountPage /></StrictMode>);
+    await settle();
+    state.exportJob = { status: 'queued', export_id: 'e1', requested_at: '2026-11-23T05:00:00Z', ready_at: null, expires_at: null, size_bytes: null };
+    await act(async () => { fireEvent.click(within(dataBlock()).getByRole('button', { name: 'Yêu cầu tải dữ liệu' })); });
+    await settle();
+    expect(dataBlock().textContent).toContain('Đang chuẩn bị gói dữ liệu.');
+    expect(within(dataBlock()).getByRole('button', { name: 'Kiểm tra lại' }).hasAttribute('disabled')).toBe(false);
   });
 
   it('a failed read offers retry; a failed package offers "Yêu cầu lại"', async () => {
