@@ -12,11 +12,13 @@
 export const V2_ROUTES = Object.freeze([
   '/about',
   '/contact',
+  '/help',
   '/library',
   '/library/speaking',
   '/library/writing-guides',
   '/library/writing-samples',
   '/privacy',
+  '/start',
   '/profile/v2-pilot',
   '/terms',
   '/ui-library',
