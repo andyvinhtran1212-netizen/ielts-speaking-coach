@@ -178,7 +178,19 @@ def _sitting_state_sync(sitting_id: str, user_id) -> dict:
     if str(sitting.get("user_id")) != str(user_id):
         raise HTTPException(403, "Sitting không thuộc về bạn.")
     exam = svc.get_published_exam_by_id(sitting["mock_exam_id"])
-    if svc.is_retake(exam):
+    self_paced = None
+    if svc.is_retake(exam) and svc.is_self_paced_chain(sitting, exam):
+        # EXAMMOCK-0071 FR-014 / plan 5.5: back to back. The server stamps
+        # each due start first, so the sitting's own clocks below already
+        # hold the next section and there is no "between sections" answer.
+        sitting, timeline = svc.advance_self_paced(sitting, exam)
+        active, time_left = svc.retake_active_section(sitting, exam)
+        if active == "not_started" and timeline.current_section:
+            # Only with a gap > 0: the next section has a future start.
+            active, time_left = timeline.current_section, timeline.section_time_left_seconds
+        assigned = sitting.get("assigned_skills") or []
+        self_paced = svc.self_paced_state(sitting, exam, timeline)
+    elif svc.is_retake(exam):
         # Per-student: active section + countdown come from THIS sitting's own
         # clocks, and the runner shows only the assigned skills.
         active, time_left = svc.retake_active_section(sitting, exam)
@@ -223,6 +235,9 @@ def _sitting_state_sync(sitting_id: str, user_id) -> dict:
         "section_duration_seconds": (
             svc.section_duration_seconds(exam, active) if exam else None
         ),
+        # FR-014: per-section state of a back-to-back self-paced sitting
+        # (null for every other sitting, and always while the flag is off).
+        "self_paced": self_paced,
     }
 
 
