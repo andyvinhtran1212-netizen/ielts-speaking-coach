@@ -80,17 +80,6 @@ trên `staging` @ `cc6dd4c8` (23/11/2026):
 
 ## Requirements
 
-- **FR-000 (tên cờ, phụ thuộc sửa đổi của 0066):** Tên bề mặt `'listening-practice'` chưa có
-  trong `ExamRoomSurface` của EXAMROOM-0066 đã duyệt; `examRoomEnabled` (#2507, 0066 T001) trả
-  `false` cho tên lạ và `generate-runtime-config.mjs` bỏ tên lạ kèm cảnh báo. Vì vậy:
-  - Spec này đề xuất **sửa đổi 1 mục (b) của EXAMROOM-0066** (xem mục "Sửa đổi đề xuất cho
-    EXAMROOM-0066" bên dưới); anh Andy duyệt riêng.
-  - **Cho tới khi sửa đổi đó được duyệt và lên `staging`**, nhánh mới dùng
-    `examRoomEnabled('listening')`, `surface='listening'` và khoá bản sao
-    `exam-room:local-copy:listening:{ownerKey}:{attemptId}`; cờ `listening` chỉ được bật khi cả
-    spec này lẫn EXAMLISTENT-0070 sẵn sàng. Sau khi sửa đổi lên, một PR nhỏ đổi tên ở đúng một
-    hằng `LISTENING_PRACTICE_SURFACE` (không chép tên ở nhiều chỗ).
-  - Ở các FR dưới, "`'listening-practice'`" nghĩa là giá trị của hằng đó.
 - **FR-001:** `ProgrammeFormRunner` rẽ nhánh theo `examRoomEnabled('listening-practice')`
   ở đúng một chỗ sau các hook. Cờ tắt: không đổi DOM, chuỗi, class, request hay thứ tự
   gọi API. Cờ bật: cùng request, cùng thứ tự; chỉ lớp giao diện khác.
@@ -165,6 +154,17 @@ trên `staging` @ `cc6dd4c8` (23/11/2026):
   bắt sự kiện `dialog` = 0).
 - **FR-014:** Sự kiện `exam_room_*` của khung gửi với `surface='listening-practice'`, không
   có nội dung câu trả lời.
+- **FR-015:** Tên cờ, phụ thuộc sửa đổi của 0066. Tên bề mặt `'listening-practice'` chưa có
+  trong `ExamRoomSurface` của EXAMROOM-0066 đã duyệt; `examRoomEnabled` (#2507, 0066 T001) trả
+  `false` cho tên lạ và `generate-runtime-config.mjs` bỏ tên lạ kèm cảnh báo. Vì vậy:
+  - Spec này đề xuất **sửa đổi 1 mục (b) của EXAMROOM-0066** (xem mục "Sửa đổi đề xuất cho
+    EXAMROOM-0066" bên dưới); anh Andy duyệt riêng.
+  - **Cho tới khi sửa đổi đó được duyệt và lên `staging`**, nhánh mới dùng
+    `examRoomEnabled('listening')`, `surface='listening'` và khoá bản sao
+    `exam-room:local-copy:listening:{ownerKey}:{attemptId}`; cờ `listening` chỉ được bật khi cả
+    spec này lẫn EXAMLISTENT-0070 sẵn sàng. Sau khi sửa đổi lên, một PR nhỏ đổi tên ở đúng một
+    hằng `LISTENING_PRACTICE_SURFACE` (không chép tên ở nhiều chỗ).
+  - Ở các FR dưới, "`'listening-practice'`" nghĩa là giá trị của hằng đó.
 
 ## Acceptance scenarios
 
@@ -258,7 +258,7 @@ Mỗi câu kèm đề xuất; mặc định tạm là đề xuất cho tới khi
    0066 câu hỏi mở 6 (Listening luyện trước, Listening test sau G10). Đề xuất: sửa đổi 1
    của 0066 (cùng sửa đổi đề xuất ở EXAMREAD-0067 câu hỏi mở 6) thêm `'listening-practice'`
    cho spec này, giữ `'listening'` cho full test (EXAMLISTENT-0070). Mặc định tạm: như đề
-   xuất; cho tới khi sửa đổi được duyệt, quy tắc dự phòng ở FR-000 là quy tắc đang áp dụng.
+   xuất; cho tới khi sửa đổi được duyệt, quy tắc dự phòng ở FR-015 là quy tắc đang áp dụng.
 
 ## Sửa đổi đề xuất cho EXAMROOM-0066
 
