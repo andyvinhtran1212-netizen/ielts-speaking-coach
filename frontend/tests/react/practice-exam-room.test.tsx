@@ -143,6 +143,34 @@ describe('flag on', () => {
     expect(status.textContent).toContain('1:40');
   });
 
+  it('hides the site navigation while shown and gives it back (UIBASE-0056 FR-009)', () => {
+    const chrome = document.createElement('aver-chrome');
+    document.body.prepend(chrome);
+    const view = shell(roomPlayer());
+    expect(chrome.style.display).toBe('none');
+    view.unmount();
+    expect(chrome.style.display).toBe('');
+    chrome.remove();
+  });
+
+  it('flag off keeps the site navigation', () => {
+    const chrome = document.createElement('aver-chrome');
+    document.body.prepend(chrome);
+    shell(player());
+    expect(chrome.style.display).toBe('');
+    chrome.remove();
+  });
+
+  it('slots take the legacy card background and do not repeat the recorded duration', () => {
+    const p = roomPlayer();
+    p.updateView('recording', { substate: 'recorded', duration: 'Thời lượng ghi âm: 0:20' });
+    const { container } = shell(p);
+    const slot = container.querySelector('[data-room-slot="recorder"]') as HTMLElement;
+    expect(slot.style.background).toBe('transparent');
+    expect(slot.textContent).not.toContain('0:20');
+    expect(container.querySelector('#rec-duration-display')?.textContent).toBe('Thời lượng ghi âm: 0:20');
+  });
+
   it('a full test uses the English room words (FR-011)', () => {
     const p = roomPlayer();
     p.updateView('frame', { examRoomSessionMode: 'test_full' });

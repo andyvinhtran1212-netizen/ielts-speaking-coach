@@ -63,6 +63,10 @@ export type SpeakingRoomSlots = {
   part2Speaking: ReactNode;
 };
 
+// `.av2-root` paints the paper colour; a slot sits inside a legacy card and
+// takes that card's background instead of drawing its own band.
+const SLOT_STYLE = { background: 'transparent' } as const;
+
 /** The room's slots for the current view (FR-003, FR-004, FR-005). Not a hook. */
 export function speakingRoomSlots(view: any, activeState: string): { mode: SpeakingRoomMode; slots: SpeakingRoomSlots } {
   const mode = speakingRoomMode(view.frame?.examRoomSessionMode);
@@ -73,6 +77,8 @@ export function speakingRoomSlots(view: any, activeState: string): { mode: Speak
   const rec = view.recording || {};
   const substate: RecordingSubstate = rec.substate === 'recording' || rec.substate === 'recorded' ? rec.substate : 'idle';
   const level = typeof rec.level === 'number' ? rec.level : null;
+  // The recorded duration is left to the legacy body ("Thời lượng ghi âm"),
+  // so the room does not print the same number twice.
   // Only the slot of the screen on show is drawn, so the page never holds two
   // microphone boxes or two alerts at once. Each slot is its own `.av2-root`
   // (base.css loads with the room); the legacy body around it is not.
@@ -80,20 +86,20 @@ export function speakingRoomSlots(view: any, activeState: string): { mode: Speak
     mode,
     slots: {
       recorder: activeState === 'prep' ? (
-        <div className="av2-root" data-room-slot="recorder">
+        <div className="av2-root" data-room-slot="recorder" style={SLOT_STYLE}>
           {micBox}
-          <RecordingStatus substate={substate} timer={rec.timer || '0:00'} duration={rec.duration || ''} level={level} paused={rec.paused === true} strings={strings} />
+          <RecordingStatus substate={substate} timer={rec.timer || '0:00'} duration="" level={level} paused={rec.paused === true} strings={strings} />
           <TooShortReason value={tooShortOf(rec.tooShort)} mode={mode} />
         </div>
       ) : null,
       part2Cue: activeState === 'p2a' ? (
-        <div className="av2-root" data-room-slot="part2-cue">
+        <div className="av2-root" data-room-slot="part2-cue" style={SLOT_STYLE}>
           {micBox}
           <TooShortReason value={tooShortOf(view.part2?.tooShort)} mode={mode} />
         </div>
       ) : null,
       part2Speaking: activeState === 'p2c' ? (
-        <div className="av2-root" data-room-slot="part2-speaking">
+        <div className="av2-root" data-room-slot="part2-speaking" style={SLOT_STYLE}>
           <RecordingStatus substate="recording" timer={view.part2?.speakTimer || ''} duration="" level={level} paused={rec.paused === true} strings={strings} />
         </div>
       ) : null,
