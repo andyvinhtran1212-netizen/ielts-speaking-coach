@@ -21,6 +21,7 @@
 - Trước 446: 445, 447, 448 chỉ thêm bảng/cột nên deploy lại bản trước được, không hạ migration.
 - Sau 446: dữ liệu `exam_mode` đã mang tên mới, nên **mốc lui thấp nhất là bản backend có lớp tương thích hai tên** (bước 2 ở trên); không deploy lại bản chỉ hiểu `retake`/`sequential`. Kiểm lui trên staging bằng một kỳ đã backfill có lượt làm dở: resume được và vẫn được quét hết hạn. Không hạ migration.
 - Backfill 446: chạy lại được (idempotent); sai thì sửa bằng migration mới, không sửa file cũ.
+- Nghiệm thu sau 446 (`audiences ≥ assignments`): đọc kèm NOTICE của 446. NOTICE đếm assignment có user không có dòng `students` (không chép) và kỳ `is_open = true` bị bỏ qua; so sánh với số assignments đã trừ hai số này, rồi chạy lại 446 sau khi các kỳ đang mở đóng.
 
 Ràng buộc của gói liên quan:
 
