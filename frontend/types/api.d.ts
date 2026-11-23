@@ -12144,6 +12144,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/library/me/marks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List My Marks
+         * @description The caller's read/saved marks on one shelf (never another user's).
+         */
+        get: operations["list_my_marks_api_library_me_marks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/library/me/marks/{shelf}/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Clear My Mark
+         * @description Clear a mark; clearing one that is not there is fine (204). No published
+         *     check: a learner can still clear a mark on an item withdrawn later.
+         */
+        delete: operations["clear_my_mark_api_library_me_marks__shelf___kind__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Set My Mark
+         * @description Set a mark. Twice is one row. The item must exist and be published (404).
+         */
+        patch: operations["set_my_mark_api_library_me_marks__shelf___kind__patch"];
+        trace?: never;
+    };
     "/admin/exam-content": {
         parameters: {
             query?: never;
@@ -19446,6 +19491,26 @@ export interface components {
         LevelBody: {
             /** Course Level */
             course_level?: string | null;
+        };
+        /** LibraryMark */
+        LibraryMark: {
+            /** Item Key */
+            item_key: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "read" | "saved";
+        };
+        /** LibraryMarkBody */
+        LibraryMarkBody: {
+            /** Item Key */
+            item_key: string;
+        };
+        /** LibraryMarksResponse */
+        LibraryMarksResponse: {
+            /** Marks */
+            marks: components["schemas"]["LibraryMark"][];
         };
         /**
          * ListeningAttemptRequest
@@ -45717,6 +45782,111 @@ export interface operations {
                 content: {
                     "application/json": unknown;
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_my_marks_api_library_me_marks_get: {
+        parameters: {
+            query: {
+                shelf: "writing_sample" | "speaking_sample" | "writing_guide" | "grammar_article";
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryMarksResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clear_my_mark_api_library_me_marks__shelf___kind__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                shelf: "writing_sample" | "speaking_sample" | "writing_guide" | "grammar_article";
+                kind: "read" | "saved";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LibraryMarkBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_my_mark_api_library_me_marks__shelf___kind__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                shelf: "writing_sample" | "speaking_sample" | "writing_guide" | "grammar_article";
+                kind: "read" | "saved";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LibraryMarkBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
