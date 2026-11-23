@@ -588,7 +588,7 @@ jobs:
               - 'frontend/public/css/admin-writing-tips-next.css'
               - 'frontend/public/pages/admin/writing/tips.html'
               - 'frontend/tooling/verify-admin-writing-tips-flow.mjs'
-              - 'backend/routers/admin.py'
+              - 'backend/routers/admin/**'
               - 'backend/tests/test_admin_grammar.py'
               - 'frontend/app/(authed-admin-grammar-articles)/**'
               - 'frontend/lib/admin-grammar-articles-model.mjs'
