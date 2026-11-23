@@ -22,6 +22,8 @@ const SHELL_EN = {
   timeElapsed: 'Time used',
   reviewTitle: 'Questions',
   closeReview: 'Close',
+  /** FR-015 amendment 2: the only action when nothing is secured. */
+  sessionStay: 'Stay',
   handoverRefused: 'Another tab asked to continue this test. Some answers are not saved yet, so you can keep working here.',
 } as const;
 
@@ -39,6 +41,7 @@ const SHELL_VI: ShellStrings = {
   timeElapsed: 'Thời gian đã làm',
   reviewTitle: 'Danh sách câu',
   closeReview: 'Đóng',
+  sessionStay: 'Ở lại làm tiếp',
   handoverRefused: 'Một tab khác muốn làm tiếp bài này. Vẫn còn câu chưa lưu nên bạn làm tiếp ở tab này.',
 };
 
