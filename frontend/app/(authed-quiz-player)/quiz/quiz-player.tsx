@@ -14,6 +14,7 @@ import {
   normalizeQuizQuery,
   quizAreaModel,
   quizEndPayload,
+  quizCumulativeModel,
   quizResultModel,
   quizEngineBank,
   quizStartBody,
@@ -128,6 +129,7 @@ export function QuizPlayer() {
   const [textAnswer, setTextAnswer] = useState('');
   const [progress, setProgress] = useState({ mastered: 0, total: 0, remaining: 0 });
   const [result, setResult] = useState<AnyRow | null>(null);
+  const [cumulative, setCumulative] = useState<{ correct: number; wrong: number } | null>(null);
   const [reviewRows, setReviewRows] = useState<AnyRow[]>([]);
   const [wrongOnly, setWrongOnly] = useState(true);
   const [cardKey, setCardKey] = useState<string | null>(null);
@@ -141,6 +143,9 @@ export function QuizPlayer() {
   requestKeyRef.current = requestKey;
   const epochRef = useRef(0);
   const scopeRef = useRef<RunScope | null>(null);
+  // word_stats this run started from; never re-read at the end, since the
+  // outbox may already have pushed this run's answers into them.
+  const startResumeRef = useRef<unknown[]>([]);
   const admissionRef = useRef<{ scope: RunScope; bank: AnyRow; review: boolean; sessionId: string } | null>(null);
   const bankRef = useRef<AnyRow | null>(null);
   const engineRef = useRef<any>(null);
@@ -228,6 +233,7 @@ export function QuizPlayer() {
       } catch { /* local summary explicitly reports an unconfirmed save */ }
       if (!isCurrentScope(scope) || outbox.blockedReason) return;
       setResult(quizResultModel(summary, duration, progressSaved && finalized));
+      setCumulative(quizCumulativeModel(startResumeRef.current, summary));
       setReviewRows(buildReviewList(logRef.current)); setWrongOnly(true);
       setPhase('summary'); setCurrent(null); setFeedback(null);
     } finally {
@@ -268,7 +274,8 @@ export function QuizPlayer() {
         unavailable(scope, 'Chưa xác nhận được tài khoản của lượt học. Hãy mở lại bài trước khi tiếp tục.'); return;
       }
       const sessionId = started.session_id;
-      const engine = createEngine(quizEngineBank(selectedBank), { resume: review ? [] : started.resume, seed: sessionId });
+      const startResume = review ? [] : started.resume;
+      const engine = createEngine(quizEngineBank(selectedBank), { resume: startResume, seed: sessionId });
       const admitted = { scope, bank: selectedBank, review, sessionId };
       const outbox = new QuizProgressOutbox({
         api: { post: (_path: string, body: any) => scope.api.progress(sessionId, body) },
@@ -283,7 +290,7 @@ export function QuizPlayer() {
         },
       });
       admissionRef.current = admitted; scope.outbox = outbox;
-      engineRef.current = engine; sessionIdRef.current = sessionId; outboxRef.current = outbox; authTokenRef.current = token;
+      engineRef.current = engine; startResumeRef.current = Array.isArray(startResume) ? startResume : []; sessionIdRef.current = sessionId; outboxRef.current = outbox; authTokenRef.current = token;
       startedAtRef.current = Date.now(); logRef.current = [];
       finishLockRef.current = false; answerLockRef.current = false; advanceLockRef.current = false; enterSubmitRef.current = false;
       setPhase('play'); setFeedback(null); setTextAnswer(''); setProgress(engine.progress());
@@ -606,7 +613,7 @@ export function QuizPlayer() {
             <p className="qz-eyebrow">Quick-Check · Kết quả phiên</p>
             <h1 ref={summaryHeadingRef} tabIndex={-1} id="qz-summary-title">🎉 Hoàn tất phiên!</h1>
             <div className="qz-result-tiles"><div><span>⏱ Thời gian</span><strong>{formatDuration(result.durationSeconds)}</strong></div><div><span>Số câu đã làm</span><strong>{result.totalQuestions}</strong></div><div><span>{area.masteredNoun}</span><strong>{result.mastered}<small>/{result.total}</small></strong></div></div>
-            <article className="av-card qz-card"><h2>Hiệu suất</h2><div className="qz-result-row"><span>Độ chính xác</span><strong>{result.accuracy}%</strong></div><div className="qz-track"><div className="qz-bar" style={{ width: `${result.accuracy}%` }} /></div><div className="qz-result-row"><span>Đúng / Sai</span><span><b className="is-success">{result.totalCorrect}</b> · <b className="is-error">{result.totalWrong}</b></span></div>{result.hardest?.key && result.hardest.attempts > 1 ? <div className="qz-result-row"><span>{area.hardestNoun}</span><b>{displayItemKey(result.hardest.key, area.grammar)} · {result.hardest.attempts} lần</b></div> : null}</article>
+            <article className="av-card qz-card"><h2>{cumulative ? 'Lượt này' : 'Hiệu suất'}</h2><div className="qz-result-row"><span>Độ chính xác</span><strong>{result.accuracy}%</strong></div><div className="qz-track"><div className="qz-bar" style={{ width: `${result.accuracy}%` }} /></div><div className="qz-result-row"><span>Đúng / Sai</span><span><b className="is-success">{result.totalCorrect}</b> · <b className="is-error">{result.totalWrong}</b></span></div>{cumulative ? <p className="qz-muted">Tính cả các lần trước trong bài này: đúng {cumulative.correct}, sai {cumulative.wrong}</p> : null}{result.hardest?.key && result.hardest.attempts > 1 ? <div className="qz-result-row"><span>{area.hardestNoun}</span><b>{displayItemKey(result.hardest.key, area.grammar)} · {result.hardest.attempts} lần</b></div> : null}</article>
             {result.carriedKeys.length ? <article className="av-card qz-card"><h2>Cần ôn lại ({result.carriedKeys.length})</h2><div className="qz-chips">{result.carriedKeys.map((key: string) => { const normalized = key.toLowerCase(); const hasCard = Boolean(bank?.word_cards?.[normalized]); return hasCard ? <button type="button" className="qz-chip qz-res-chip" key={key} onClick={(event) => openCard(normalized, event.currentTarget)}>{displayItemKey(key, area.grammar)}</button> : <span className="qz-chip" key={key}>{displayItemKey(key, area.grammar)}</span>; })}</div></article> : null}
             {reviewRows.length ? <article className="av-card qz-card"><div className="qz-review-head"><h2>Xem lại bài làm</h2><button type="button" className="av-button av-button-secondary av-button-sm" onClick={() => setWrongOnly((value) => !value)}>{wrongOnly ? `Hiện tất cả (${reviewRows.length})` : `Chỉ câu sai (${reviewRows.filter((row) => row.wrongCount > 0).length})`}</button></div>{visibleReviews.length ? visibleReviews.map((row) => <div className={`qz-review-item ${!row.correct ? 'is-wrong' : row.wrongCount ? 'is-fixed' : 'is-right'}`} key={row.qid}><strong><FormattedText value={row.prompt} /></strong>{row.hint ? <p>💡 <FormattedText value={row.hint} /></p> : null}{row.wrongCount > 0 && row.correct && row.wrongGiven != null ? <p>Từng trả lời sai: <b className="is-error"><FormattedText value={row.wrongGiven} /></b> ✗{row.wrongCount > 1 ? ` (sai ${row.wrongCount} lần)` : ''}</p> : null}<p>{row.wrongCount > 0 && row.correct ? 'Sau đó trả lời đúng' : 'Bạn trả lời'}: <b className={row.correct ? 'is-success' : 'is-error'}><FormattedText value={row.given} /></b> {row.correct ? '✓' : '✗'}</p>{!row.correct && row.correctText ? <p>Đáp án đúng: <b className="is-success"><FormattedText value={row.correctText} /></b></p> : null}{row.explain ? <p><FormattedText value={row.explain} /></p> : null}{safeQuizLink(row.article_url) ? <p><a href={safeQuizLink(row.article_url)!} target="_blank" rel="noopener noreferrer">📖 Ôn lại bài</a></p> : null}</div>) : <p className="qz-muted">🎉 Không sai câu nào trong phiên này.</p>}</article> : null}
             {!result.saved ? <div className="qz-save-warning" role="alert"><strong>⚠ Chưa xác nhận lưu hết tiến độ</strong><p>Một phần tiến độ hoặc trạng thái kết thúc chưa được máy chủ xác nhận. Hãy tải lại trang thống kê trước khi làm lại.</p></div> : null}
