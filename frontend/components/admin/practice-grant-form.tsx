@@ -40,6 +40,8 @@ type Props = {
 };
 
 type Run = { check: Extract<GrantCheck, { ok: true }>; results: Record<string, GrantResult> };
+/** A confirm belongs to the inputs it was built from; it is never sent for others. */
+type Confirm = Extract<GrantCheck, { ok: true }> & { inputKey: string };
 
 const NO_IDS: string[] = [];
 
@@ -56,7 +58,11 @@ export function PracticeGrantForm({ open, users, excludeCourseIds = NO_IDS, onCl
   // back by an effect, so a late product list cannot overwrite what was typed.
   const [draft, setDraft] = useState<{ productId: string; days: string; reviewMode: GrantDraft['reviewMode'] | ''; reason: string; error?: string }>(
     { productId: '', days: '', reviewMode: '', reason: '' });
-  const [confirm, setConfirm] = useState<Extract<GrantCheck, { ok: true }> | null>(null);
+  const [confirm, setConfirm] = useState<Confirm | null>(null);
+  const [stale, setStale] = useState(false);
+  // Once the first POST of a run is sent, that run keeps its recipients and
+  // keys (retries go to the same learners); a change of inputs no longer resets it.
+  const started = useRef(false);
   const [run, setRun] = useState<Run | null>(null);
   const [busy, setBusy] = useState(false);
   const keys = useRef<Record<string, string>>({});
@@ -71,9 +77,9 @@ export function PracticeGrantForm({ open, users, excludeCourseIds = NO_IDS, onCl
   );
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || started.current) return;
     let live = true;
-    setProducts(null); setLoadError(null); setConfirm(null); setRun(null);
+    setProducts(null); setLoadError(null); setConfirm(null); setRun(null); setStale(false);
     setDraft({ productId: '', days: '', reviewMode: '', reason: '' });
     keys.current = {};
     setHeld({});
@@ -116,7 +122,8 @@ export function PracticeGrantForm({ open, users, excludeCourseIds = NO_IDS, onCl
     event.preventDefault();
     const check = validateGrant(effective, options, users, heldCourseIds);
     if (!check.ok) { setDraft({ ...draft, error: check.error }); return; }
-    setConfirm(check);
+    setStale(false);
+    setConfirm({ ...check, inputKey });
   };
 
   const send = async (check: Extract<GrantCheck, { ok: true }>, only: GrantUser[], prior: Record<string, GrantResult>) => {
@@ -141,8 +148,16 @@ export function PracticeGrantForm({ open, users, excludeCourseIds = NO_IDS, onCl
 
   const start = () => {
     if (!confirm || busy) return;
+    if (confirm.inputKey !== inputKey) {
+      // The learners, the excluded course or what they hold changed after
+      // "Tiếp tục": nothing is sent; the admin confirms the new list again.
+      setConfirm(null);
+      setStale(true);
+      return;
+    }
     const check = confirm;
     setConfirm(null);
+    started.current = true;
     void send(check, check.targets, {});
   };
 
@@ -152,7 +167,8 @@ export function PracticeGrantForm({ open, users, excludeCourseIds = NO_IDS, onCl
     void send(run.check, [...summary.failed, ...summary.pending], run.results);
   };
 
-  const close = () => { if (!busy) onClose(); };
+  const close = () => { if (!busy) { started.current = false; onClose(); } };
+  useEffect(() => { if (!open) started.current = false; }, [open]);
 
   if (run && summary) {
     return (
@@ -235,6 +251,7 @@ export function PracticeGrantForm({ open, users, excludeCourseIds = NO_IDS, onCl
               <textarea value={draft.reason} maxLength={500} onChange={(e) => setDraft({ ...draft, reason: e.target.value, error: '' })} />
             </Field>
             {draft.error ? <p className="acd-banner is-error" role="alert">{draft.error}</p> : null}
+            {stale ? <p className="acd-banner is-error" role="alert">Danh sách người nhận đã thay đổi sau bước Tiếp tục. Chưa cấp cho ai; kiểm tra lại rồi bấm Tiếp tục.</p> : null}
           </form>
         ) : null}
       </Dialog>

@@ -131,6 +131,31 @@ describe('PracticeGrantForm', () => {
     expect(api.post.mock.calls[0][1]).toMatchObject({ product_id: 'p2', review_mode: 'ai_instant' });
   });
 
+  it('a confirm is never sent for a list that changed after Tiếp tục; a started run keeps its recipients', async () => {
+    const other = [{ id: 'u-x', name: 'Xuân' }, { id: 'u-y', name: 'Yến' }, { id: 'u-z', name: 'Zung' }];
+    const view = render(<PracticeGrantForm open users={users} excludeCourseIds={[C1]} onClose={() => {}} />);
+    await fillAndConfirm();
+    // Same head count, other learners: the open confirm is dropped, nothing is sent.
+    view.rerender(<PracticeGrantForm open users={other} excludeCourseIds={[C1]} onClose={() => {}} />);
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Xác nhận cấp quyền' })).toBeNull());
+    expect(api.post).not.toHaveBeenCalled();
+    // The excluded course changes while the confirm is open: Cấp quyền sends nothing and asks again.
+    const confirm = await fillAndConfirm();
+    view.rerender(<PracticeGrantForm open users={other} excludeCourseIds={[C1, 'c9']} onClose={() => {}} />);
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Cấp quyền' }));
+    expect(api.post).not.toHaveBeenCalled();
+    expect((await screen.findByRole('alert')).textContent).toMatch(/Danh sách người nhận đã thay đổi/);
+    // A run that has started keeps its recipients when the caller's list changes.
+    let release: (v: unknown) => void = () => {};
+    api.post.mockReset().mockImplementationOnce(() => new Promise((r) => { release = r; })).mockResolvedValue({ status: 'granted' });
+    fireEvent.click(within(await fillAndConfirm()).getByRole('button', { name: 'Cấp quyền' }));
+    await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
+    view.rerender(<PracticeGrantForm open users={users} excludeCourseIds={[C1, 'c9']} onClose={() => {}} />);
+    release({ status: 'granted' });
+    await screen.findByText('Đã cấp cho 3/3 người.');
+    expect(api.post.mock.calls.map(([, body]) => body.user_id)).toEqual(['u-x', 'u-y', 'u-z']);
+  });
+
   it('a short reason stays in the form; a failed product list says so', async () => {
     render(<PracticeGrantForm open users={[users[0]]} excludeCourseIds={[C1]} onClose={() => {}} />);
     const dialog = await screen.findByRole('dialog', { name: 'Cấp quyền luyện lại' });
