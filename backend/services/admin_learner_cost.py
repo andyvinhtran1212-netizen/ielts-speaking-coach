@@ -122,6 +122,8 @@ def cost(person: Person, window_days: int, *, now: Optional[datetime] = None) ->
         add(row.get("feature"), None if value is None else float(value), row.get("status") in (None, "success"))
 
     for chunk in _chunks(essays):
+        # GV-1a SPEND-analytics exception: historical AI cost must include
+        # every feedback version, not only the current view.
         for row in _usage_paged(lambda c=chunk: supabase_admin.table("writing_feedback")
                                 .select("id, essay_id, model_used, tokens_input, tokens_output, cost_usd, "
                                         "provenance, created_at")
