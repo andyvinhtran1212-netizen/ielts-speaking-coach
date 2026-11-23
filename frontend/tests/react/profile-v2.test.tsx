@@ -18,6 +18,8 @@ const state = vi.hoisted(() => ({
   providers: ['google', 'email'] as string[] | null,
   me: null as unknown,
   sessionStatus: { enabled: false } as unknown,
+  profileReads: 0,
+  profileFailFrom: 0,
 }));
 vi.mock('@/lib/auth/auth-me-single-flight.mjs', () => ({
   getAuthMeProfile: () => state.me,
@@ -34,8 +36,12 @@ const profile = {
 };
 const getWith = vi.fn(async (path: string) => {
   urls.push(path);
-  if (path === '/auth/profile') return profile;
   if (path === '/api/account/session/status') return state.sessionStatus;
+  if (path === '/auth/profile') {
+    state.profileReads += 1;
+    if (state.profileFailFrom && state.profileReads >= state.profileFailFrom) throw Object.assign(new Error('HTTP 500'), { status: 500 });
+    return profile;
+  }
   if (path.startsWith('/api/account/login-events')) {
     if (state.eventsStatus) throw Object.assign(new Error('HTTP'), { status: state.eventsStatus });
     return state.events;
@@ -66,6 +72,8 @@ beforeEach(() => {
   state.events = null;
   state.eventsStatus = 404;
   state.patchError = null;
+  state.profileReads = 0;
+  state.profileFailFrom = 0;
   state.providers = ['google', 'email'];
   state.me = null;
   state.sessionStatus = { enabled: false };
@@ -134,6 +142,25 @@ describe('/profile new tree', () => {
     expect(patches).toEqual([{ weekly_goal: 6, display_name: 'Minh Anh Trần' }]);
     expect(urls).toEqual(['/auth/profile', '/auth/profile']);
     expect(screen.getByText('Đã lưu.')).toBeTruthy();
+  });
+
+  it('an emptied name is not sent; the field shows the name the server kept, and says so', async () => {
+    await mount();
+    fireEvent.change(screen.getByLabelText('Tên hiển thị'), { target: { value: '   ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu thay đổi' }));
+    await act(async () => { for (let i = 0; i < 3; i += 1) await new Promise((r) => setTimeout(r, 0)); });
+    expect(patches).toEqual([{ weekly_goal: 4 }]);
+    expect((screen.getByLabelText('Tên hiển thị') as HTMLInputElement).value).toBe('Minh Anh');
+    expect(screen.getByText('Đã lưu. Tên hiển thị không bỏ trống được nên vẫn giữ tên cũ.')).toBeTruthy();
+  });
+
+  it('PATCH ok but the reload fails: says it saved, never "Chưa lưu được"', async () => {
+    state.profileFailFrom = 2;
+    await mount();
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu thay đổi' }));
+    await act(async () => { for (let i = 0; i < 3; i += 1) await new Promise((r) => setTimeout(r, 0)); });
+    expect(screen.getByText('Đã lưu, nhưng chưa tải lại được hồ sơ. Tải lại trang để xem.')).toBeTruthy();
+    expect(screen.queryByText('Chưa lưu được. Thử lại.')).toBeNull();
   });
 
   it('profile_update off (503 feature_disabled) → read-only values with a sentence', async () => {

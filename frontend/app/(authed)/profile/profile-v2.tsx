@@ -57,29 +57,40 @@ async function readSignInMethod(): Promise<string | null> {
   }
 }
 
-function ProfileForm({ profile, onSaved }: { profile: AuthProfileWire; onSaved: () => Promise<void> }) {
+function ProfileForm({ profile, onSaved }: { profile: AuthProfileWire; onSaved: () => Promise<AuthProfileWire | null> }) {
   const [name, setName] = useState(profile.display_name ?? '');
   const [goal, setGoal] = useState(String(profile.weekly_goal || 5));
   const [busy, setBusy] = useState(false);
   const [locked, setLocked] = useState(false);
-  const [note, setNote] = useState<'saved' | 'error' | null>(null);
+  const [note, setNote] = useState<'saved' | 'kept' | 'reload' | 'error' | null>(null);
 
+  // The PATCH and the canonical read fail separately: a failed read after a
+  // good PATCH says it saved. The fields then show what the server holds (an
+  // emptied name is not sent, so the server keeps the old one: say so).
   const save = useCallback(async () => {
     if (busy) return;
     setBusy(true);
     setNote(null);
     const body: Record<string, unknown> = { weekly_goal: Number(goal) };
-    if (name.trim()) body.display_name = name.trim();
+    const emptiedName = !name.trim();
+    if (!emptiedName) body.display_name = name.trim();
     try {
       await patchBrowserJsonAt('/auth/profile', '/auth/profile', body);
-      await onSaved();
-      setNote('saved');
     } catch (error) {
       if (isFeatureDisabled(error)) setLocked(true);
       else setNote('error');
-    } finally {
       setBusy(false);
+      return;
     }
+    const canonical = await onSaved();
+    if (!canonical) {
+      setNote('reload');
+    } else {
+      setName(canonical.display_name ?? '');
+      setGoal(String(canonical.weekly_goal || 5));
+      setNote(emptiedName && canonical.display_name ? 'kept' : 'saved');
+    }
+    setBusy(false);
   }, [busy, goal, name, onSaved]);
 
   const lockedReason = locked ? 'Tạm khoá sửa hồ sơ để bảo trì.' : undefined;
@@ -105,6 +116,12 @@ function ProfileForm({ profile, onSaved }: { profile: AuthProfileWire; onSaved: 
       ) : (
         <>
           {note === 'error' ? <Notice kind="error" live="alert" className={styles.notice}>Chưa lưu được. Thử lại.</Notice> : null}
+          {note === 'kept' ? (
+            <Notice kind="warning" live="alert" className={styles.notice}>Đã lưu. Tên hiển thị không bỏ trống được nên vẫn giữ tên cũ.</Notice>
+          ) : null}
+          {note === 'reload' ? (
+            <Notice kind="warning" live="alert" className={styles.notice}>Đã lưu, nhưng chưa tải lại được hồ sơ. Tải lại trang để xem.</Notice>
+          ) : null}
           <div className={styles.actions}>
             <Button variant="primary" onClick={() => void save()} loading={busy} loadingLabel="Đang lưu…">Lưu thay đổi</Button>
             <p role="status" className={styles.muted}>{note === 'saved' ? 'Đã lưu.' : ''}</p>
@@ -122,6 +139,18 @@ export default function ProfileV2({ accountId }: { accountId: string }) {
   const load = useCallback(async (signal?: AbortSignal) => {
     const profile = await getCurrentProfile(signal);
     if (!signal?.aborted) setPhase({ kind: 'ready', profile });
+  }, []);
+
+  // After a save: the canonical profile, or null when the read failed (the
+  // page keeps what it shows; the form says the save itself went through).
+  const reload = useCallback(async (): Promise<AuthProfileWire | null> => {
+    try {
+      const profile = await getCurrentProfile();
+      setPhase({ kind: 'ready', profile });
+      return profile;
+    } catch {
+      return null;
+    }
   }, []);
 
   useEffect(() => {
@@ -166,7 +195,7 @@ export default function ProfileV2({ accountId }: { accountId: string }) {
             <>
               <section className={styles.section} aria-labelledby="ho-so-thong-tin">
                 <h2 id="ho-so-thong-tin" className={styles.sectionTitle}>Thông tin cá nhân</h2>
-                <ProfileForm key={phase.profile.id} profile={phase.profile} onSaved={() => load()} />
+                <ProfileForm key={phase.profile.id} profile={phase.profile} onSaved={reload} />
                 {PROGRESS ? (
                   <p className={styles.hint}>
                     Band muốn đạt và ngày thi sửa ở <a href={PROGRESS} className={styles.link}>Tiến độ</a>.

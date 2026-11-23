@@ -24,6 +24,7 @@ import { liveHref } from '@/components/ui/shell/learner-sections';
 import { useAuth } from '@/lib/auth/auth-provider';
 import {
   carryLine,
+  classMeIncomplete,
   classesFromClassMe,
   contentVisibleLine,
   courseTimeLine,
@@ -45,7 +46,7 @@ type ClassRow = ReturnType<typeof classesFromClassMe>[number];
 type Phase =
   | { kind: 'loading' }
   | { kind: 'error' }
-  | { kind: 'ready'; courses: MyCourses | null; coursesFailed: boolean; classes: ClassRow[] };
+  | { kind: 'ready'; courses: MyCourses | null; coursesFailed: boolean; classes: ClassRow[]; classesIncomplete: boolean };
 type History =
   | { kind: 'idle' }
   | { kind: 'loading' }
@@ -135,9 +136,29 @@ function HistoryTable({ items }: { items: CreditRow[] }) {
   );
 }
 
+/**
+ * Everything private hangs under a key of the signed-in account: a session
+ * change or sign-out unmounts it in the same render, so the previous
+ * account's courses and credits never stay on screen, and its late replies
+ * land in an unmounted tree (their requests are aborted too).
+ */
 export function AccountPage() {
   const { status, user } = useAuth();
   const accountId = status === 'signed-in' ? user?.id ?? null : null;
+  useEffect(() => {
+    if (status === 'signed-out') window.location.replace('/login');
+  }, [status]);
+  if (!accountId) {
+    return (
+      <div className={styles.page}>
+        <PageState kind="loading" title="Đang tải tài khoản…" />
+      </div>
+    );
+  }
+  return <AccountContent key={accountId} />;
+}
+
+function AccountContent() {
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' });
   const [history, setHistory] = useState<History>({ kind: 'idle' });
   const alive = useRef<AbortController | null>(null);
@@ -151,7 +172,6 @@ export function AccountPage() {
   }, []);
 
   useEffect(() => {
-    if (!accountId) return undefined;
     const abort = new AbortController();
     alive.current = abort;
     setPhase({ kind: 'loading' });
@@ -166,16 +186,19 @@ export function AccountPage() {
       // 404 or a foreign shape: G04 is not there. Anything else is a failure.
       const coursesFailed = !courses && !(res.ok || res.status === 404);
       let classes: ClassRow[] = [];
+      let classesIncomplete = false;
       if (!courses) {
+        // A failed or degraded class read is not "no class": warn instead.
         const cls = await read('/api/class/me?summary=true', abort.signal);
         if (abort.signal.aborted) return;
         classes = cls.ok ? classesFromClassMe(cls.data) : [];
+        classesIncomplete = !cls.ok || classMeIncomplete(cls.data);
       }
-      setPhase({ kind: 'ready', courses, coursesFailed, classes });
+      setPhase({ kind: 'ready', courses, coursesFailed, classes, classesIncomplete });
       if (courses) void loadHistory(abort.signal);
     })();
     return () => abort.abort();
-  }, [accountId, loadHistory]);
+  }, [loadHistory]);
 
   const loadMore = useCallback(async () => {
     if (history.kind !== 'ready' || !history.nextCursor || history.more === 'loading') return;
@@ -244,7 +267,13 @@ export function AccountPage() {
               ) : (
                 <p className={styles.muted}>Bạn chưa ở lớp nào.</p>
               )
-            ) : phase.classes.length ? (
+            ) : phase.classes.length || phase.classesIncomplete ? (
+              <>
+              {phase.classesIncomplete ? (
+                <Notice kind="warning" live="alert" className={styles.notice}>
+                  Chưa tải đủ thông tin lớp của bạn. Tải lại trang để thử lại.
+                </Notice>
+              ) : null}
               <ul className={styles.rows}>
                 {phase.classes.map((c) => (
                   <li key={c.id} className={styles.row}>
@@ -258,6 +287,7 @@ export function AccountPage() {
                   </li>
                 ))}
               </ul>
+              </>
             ) : (
               <p className={styles.muted}>Bạn chưa ở lớp nào.</p>
             )}
