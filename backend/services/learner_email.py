@@ -16,6 +16,11 @@ Rules (plan 5.11):
   ``notification_email`` switch is not read.
 * ``order_pay_reminder`` re-reads the order and is skipped once it is no
   longer awaiting transfer or its ``pay_by`` has passed (FR-039).
+* ``course_open_alert`` (FR-050, G04-T17) goes to the row's ``to_email``
+  with "Chào bạn," and no ``users`` read; it re-reads the product by
+  ``payload.product_slug`` and is skipped once the course is no longer open,
+  public and unarchived. A payload without ``product_slug`` → ``failed`` /
+  ``payload_invalid``.
 * A template without a file → ``failed`` / ``template_missing``; the other
   rows still go.
 """
@@ -33,6 +38,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Optional
+from urllib.parse import quote
 
 from config import settings
 from database import supabase_admin
@@ -172,6 +178,22 @@ def _needs_info_fields(payload: dict) -> dict:
     }
 
 
+def _site_base() -> str:
+    return (settings.PUBLIC_SITE_URL or "").strip().rstrip("/")
+
+
+def _open_alert_fields(payload: dict) -> dict:
+    """Course link and unsubscribe link (GOI-05 5.7: the token rides in the
+    hash, so it never reaches a server log). No base URL → no link lines."""
+    base, slug = _site_base(), str(payload.get("product_slug") or "")
+    token = str(payload.get("unsubscribe_token") or "")
+    if not base or not slug:
+        return {"course_link_line": "", "unsubscribe_line": ""}
+    page = f"{base}/courses/{quote(slug, safe='')}"
+    unsubscribe = f"\nBỏ nhận: {page}#bo-nhan={quote(token, safe='')}" if token else ""
+    return {"course_link_line": f"\nTrang khoá: {page}\n", "unsubscribe_line": unsubscribe}
+
+
 def template_fields(template: str, payload: dict, user: dict) -> dict:
     name = (user.get("display_name") or "").strip()
     fields = {
@@ -191,6 +213,8 @@ def template_fields(template: str, payload: dict, user: dict) -> dict:
         credits = int(payload.get("ai_credits") or 0)
         fields["expires_on"] = vn_date(payload.get("expires_at")) or ""
         fields["credits_line"] = f"đã cộng {credits} lượt" if credits else "khoá này không kèm lượt chấm AI"
+    elif template == "course_open_alert":
+        fields.update(_open_alert_fields(payload))
     return fields
 
 
@@ -332,6 +356,13 @@ def fetch_product_open(slug: str) -> bool:
         and not rows[0].get("archived_at")
 
 
+def payload_invalid(row: dict) -> bool:
+    """G05 owns the ``course_open_alert`` payload; a row without the slug
+    cannot be checked or linked, so it fails instead of being guessed."""
+    payload = row.get("payload") or {}
+    return row.get("template") == "course_open_alert" and not str(payload.get("product_slug") or "").strip()
+
+
 def still_wanted(row: dict, now: datetime) -> bool:
     payload = row.get("payload") or {}
     if row.get("template") == "order_pay_reminder":
@@ -368,6 +399,9 @@ async def _send_row(row: dict, config: TransportConfig, now: datetime, client: A
     if not await run(claim, row, now):
         return "lost"
     try:
+        if payload_invalid(row):
+            await run(finish, row, "failed", "payload_invalid")
+            return "failed"
         if not await run(still_wanted, row, now):
             await run(finish, row, "skipped", "no_longer_applies")
             return "skipped"
