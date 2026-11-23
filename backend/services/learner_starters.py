@@ -14,7 +14,7 @@ A missing skill key reads as null.
 
 * :func:`get` returns the four skills, cached for ``_TTL_SECONDS``; a stored
   entry of the wrong shape reads as null (logged, never trusted).
-* :func:`set_many` checks every change, then merges through
+* :func:`set_many` checks every change, then merges only those skills through
   ``fn_admin_settings_merge`` (value and ``admin_settings_log`` row in one
   transaction, ``reason`` required). A paper must be open to public
   self-practice at write time, by the same rules as "Tự luyện bài này"
@@ -44,6 +44,9 @@ ID_FIELD = {"speaking": "topic_id", "writing": "prompt_id", "listening": "test_u
 LABELS = {"speaking": "Speaking", "writing": "Writing", "listening": "Listening", "reading": "Reading"}
 _TTL_SECONDS = 60.0
 _UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+
+_CATALOG = {"listening": "listening_public_practice_catalog",
+            "reading": "reading_public_practice_catalog"}
 
 UNAVAILABLE = ("starter_paper_unavailable", "Đề này hiện không mở cho tự luyện công khai, nên không đặt làm đề khởi đầu được.")
 UNSUPPORTED = ("starter_unsupported", "Writing chưa có ngân hàng đề tự luyện, nên chưa đặt đề khởi đầu được.")
@@ -104,13 +107,11 @@ def _merge(changes: dict, reason: str, actor: Optional[str]):
     }).execute()
 
 
-async def _read() -> Tuple[Dict[str, Optional[Dict[str, str]]], set]:
-    """(values, skills present in the stored object), uncached."""
+async def _read() -> Dict[str, Optional[Dict[str, str]]]:
+    """The four skills, uncached."""
     res = await asyncio.to_thread(_read_stored)
     rows = getattr(res, "data", None) or []
-    stored = rows[0].get("value") if rows else None
-    present = set(stored) & set(SKILLS) if isinstance(stored, dict) else set()
-    return _resolve(stored), present
+    return _resolve(rows[0].get("value") if rows else None)
 
 
 async def get() -> Dict[str, Optional[Dict[str, str]]]:
@@ -120,7 +121,7 @@ async def get() -> Dict[str, Optional[Dict[str, str]]]:
     if _cache is not None and _cache[1] > now:
         return dict(_cache[0])
     try:
-        values, _present = await _read()
+        values = await _read()
     except Exception as exc:
         if _cache is not None:
             logger.warning("learner_starters: read failed (%s); serving the previous copy", type(exc).__name__)
@@ -141,7 +142,14 @@ def open_paper(db, skill: str, entry: Optional[Dict[str, str]]) -> Optional[Dict
     if not entry or skill not in ("speaking", "listening", "reading"):
         return None
     ident = entry[ID_FIELD[skill]]
-    return open_papers(db, {skill: {ident}})[skill].get(ident)
+    paper = open_papers(db, {skill: {ident}})[skill].get(ident)
+    if paper is None or skill == "speaking" or "title" in paper:
+        return paper
+    # open_papers selects only the columns its rules need; the starter also
+    # shows the paper's title (same catalog view, one more small read).
+    rows = (db.table(_CATALOG[skill]).select("id, title").eq("id", ident)
+            .limit(1).execute().data) or []
+    return {**paper, "title": (rows[0].get("title") if rows else None)}
 
 
 def validate_changes(changes: Iterable[Tuple[str, Any]], db=None) -> Dict[str, Optional[Dict[str, str]]]:
@@ -174,12 +182,13 @@ def validate_changes(changes: Iterable[Tuple[str, Any]], db=None) -> Dict[str, O
 async def set_many(changes: Iterable[Tuple[str, Any]], reason: str,
                    actor: Optional[str]) -> Dict[str, Optional[Dict[str, str]]]:
     """Check, then merge and log in one transaction; returns the new values.
-    The stored object always ends with all four skills (missing ones null)."""
+
+    Only the requested skills are sent: a skill missing from the stored object
+    reads as null, so nothing is padded. Padding from a read taken outside the
+    merge's lock would let two first saves of different skills clear each other."""
     global _cache
     merged = await asyncio.to_thread(validate_changes, list(changes))
-    _values, present = await _read()
-    payload = {**{s: None for s in SKILLS if s not in present}, **merged}
-    res = await asyncio.to_thread(_merge, payload, reason, actor)
+    res = await asyncio.to_thread(_merge, merged, reason, actor)
     answer = getattr(res, "data", None)
     if isinstance(answer, dict) and answer.get("changed") is False:
         raise StarterChangeError("no_changes", "Các đề này đã được lưu từ trước; không có gì thay đổi.")

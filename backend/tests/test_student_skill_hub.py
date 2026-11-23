@@ -339,6 +339,23 @@ def test_speaking_starter_hidden_when_topic_inactive(wire):
     assert _run(_DB(tables), "speaking")["starter"] is None
 
 
+def test_starter_is_not_read_when_the_hub_will_not_show_it(wire, monkeypatch):
+    calls = []
+
+    async def starter_values():
+        calls.append(1)
+        return {**wire["starters"], "reading": {"test_uuid": RT}}
+
+    monkeypatch.setattr(hub, "_starter_values", starter_values)
+    tables = _with_starter_papers(_base_tables())
+    tables["reading_test_attempts"] = [
+        {"id": "r1", "user_id": UID, "status": "submitted", "test_id": "R1", "submitted_at": _ts(days=1)}]
+    out = _run(_DB(tables), "reading")
+    assert out["starter"] is None and calls == []
+    assert _run(_DB(_with_starter_papers(_base_tables())), "reading")["starter"] is not None
+    assert calls == [1]
+
+
 def test_starter_read_failure_hides_only_the_starter(wire):
     wire["starters"] = RuntimeError("down")
     out = _run(_DB(_with_starter_papers(_base_tables())), "reading")

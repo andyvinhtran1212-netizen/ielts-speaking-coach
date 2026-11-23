@@ -609,12 +609,25 @@ async def get_skill_hub_concurrent(
         "history": lambda: _history_for(make_sb(), user_id, skill),
     }
     outcomes = await asyncio.gather(*(asyncio.to_thread(fn) for fn in parts.values()),
-                                    _starter_part(make_sb, skill), return_exceptions=True)
+                                    return_exceptions=True)
     for outcome in outcomes:
         if isinstance(outcome, BaseException) and not isinstance(outcome, Exception):
             raise outcome
-    results = dict(zip([*parts, "starter"], outcomes))
+    results: Dict[str, Any] = dict(zip(parts, outcomes))
+    # FR-112: the starter is read only when the hub will show it (a first
+    # visit with every part read), so other visits cost no extra read.
+    if _first_visit(results):
+        try:
+            results["starter"] = await _starter_part(make_sb, skill)
+        except Exception as exc:
+            results["starter"] = exc
     return assemble_skill_hub(results, user_id=user_id, skill=skill, now=now)
+
+
+def _first_visit(results: Dict[str, Any]) -> bool:
+    if any(isinstance(v, Exception) for v in results.values()):
+        return False
+    return not results.get("resume") and not results.get("history") and not results.get("attempts")
 
 
 def assemble_skill_hub(results: Dict[str, Any], *, user_id: str, skill: str,

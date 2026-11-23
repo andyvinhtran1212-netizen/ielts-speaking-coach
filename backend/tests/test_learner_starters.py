@@ -8,13 +8,15 @@ exclusions (exam hold, exam_only) are covered by a paper missing from it.
 
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
 from routers import admin_settings
 from services import learner_starters
-from tests.test_admin_settings import ADMIN, TEACHER, _DB
+from tests.test_admin_settings import ADMIN, TEACHER, _DB, _Query
 
 LT = "11111111-2222-3333-4444-555555555555"
 RT = "22222222-3333-4444-5555-666666666666"
@@ -33,9 +35,30 @@ def _reading(**over):
             "exam_only": False, "is_public": True, "public_practice_enabled": True, **over}
 
 
+class _ColumnQuery(_Query):
+    """Honours the selected columns, as PostgREST does, so a field the code
+    reads but never selects shows up as missing."""
+
+    def select(self, columns="*", *_a, **_k):
+        self.columns = None if columns.strip() == "*" else [c.strip() for c in columns.split(",")]
+        return self
+
+    def execute(self):
+        res = super().execute()
+        cols = getattr(self, "columns", None)
+        if cols and isinstance(res.data, list):
+            res.data = [{c: r.get(c) for c in cols if c in r} for r in res.data]
+        return res
+
+
+class _ColumnDB(_DB):
+    def table(self, name):
+        return _ColumnQuery(self, name)
+
+
 @pytest.fixture
 def db(monkeypatch):
-    fake = _DB()
+    fake = _ColumnDB()
     fake.tables.update({
         "listening_public_practice_catalog": [_listening()],
         "reading_public_practice_catalog": [_reading()],
@@ -129,12 +152,13 @@ def test_reason_is_required(db, client):
     assert db.calls == []
 
 
-def test_valid_write_stores_all_four_keys_and_one_log_row(db, client):
+def test_valid_write_stores_only_the_requested_skills_and_one_log_row(db, client):
     res = _patch(client, [{"skill": "reading", "value": {"test_uuid": RT}},
                           {"skill": "speaking", "value": {"topic_id": ST}}])
     assert res.status_code == 200, res.text
-    assert _stored(db) == {"speaking": {"topic_id": ST}, "writing": None,
-                           "listening": None, "reading": {"test_uuid": RT}}
+    # A missing skill reads as null (FR-126); nothing is padded.
+    assert _stored(db) == {"speaking": {"topic_id": ST}, "reading": {"test_uuid": RT}}
+    assert db.calls[0]["p_changes"] == {"reading": {"test_uuid": RT}, "speaking": {"topic_id": ST}}
     log = db.tables["admin_settings_log"]
     assert len(log) == 1 and log[0]["reason"] == "Đề mở đầu cho học viên mới"
     assert log[0]["actor_id"] == ADMIN["id"]
@@ -182,7 +206,7 @@ def test_writing_starter_is_unsupported_but_clearing_it_is_fine(db, client):
     assert res.status_code == 422 and res.json()["detail"]["code"] == "starter_unsupported"
     assert db.calls == []
     assert _patch(client, [{"skill": "writing", "value": None}]).status_code == 200
-    assert _stored(db) == {s: None for s in learner_starters.SKILLS}
+    assert _stored(db) == {"writing": None}
 
 
 def test_one_bad_change_refuses_the_whole_save(db, client):
@@ -244,3 +268,26 @@ def test_log_names_the_starters_section_and_skill_labels(db, client):
     assert len(log) == 1 and log[0]["section"] == "starters"
     labels = {c["key"]: c["label"] for c in log[0]["changes"]}
     assert labels["reading"] == "Reading"
+
+
+def test_two_first_saves_of_different_skills_keep_both(db, client):
+    """Regression: padding missing skills with null from a read taken outside
+    the merge's lock let the second first-save clear the first one."""
+    assert _patch(client, [{"skill": "speaking", "value": {"topic_id": ST}}]).status_code == 200
+    learner_starters.clear_cache()
+    assert _patch(client, [{"skill": "reading", "value": {"test_uuid": RT}}]).status_code == 200
+    assert _stored(db) == {"speaking": {"topic_id": ST}, "reading": {"test_uuid": RT}}
+    assert [c["p_changes"] for c in db.calls] == [{"speaking": {"topic_id": ST}},
+                                                   {"reading": {"test_uuid": RT}}]
+    log = db.tables["admin_settings_log"]
+    assert log[1]["old_value"] == {"speaking": {"topic_id": ST}}
+
+
+def test_titles_come_from_the_catalog_even_though_open_papers_omits_them(db, client):
+    res = _patch(client, [{"skill": "reading", "value": {"test_uuid": RT}},
+                          {"skill": "listening", "value": {"test_uuid": LT}}])
+    items = {i["skill"]: i for i in res.json()["items"]}
+    assert items["reading"]["title"] == "Reading A" and items["listening"]["title"] == "Listening A"
+    values = asyncio.run(learner_starters.get())
+    assert learner_starters.starter_for(db, "listening", values)["title"] == "Listening A"
+    assert learner_starters.starter_for(db, "reading", values)["title"] == "Reading A"
