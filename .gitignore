@@ -70,5 +70,8 @@ docs/content-samples/**/*.mp3
 # PC-J409 load-test outputs (never committed)
 loadtest/results/
 
-# Reading release apply SQL is generated and already applied (G01-T15); recover from Git history.
-backend/content/reading-practice/**/release/*-apply.sql
+# The three Reading release packages of 2026-10-15: apply SQL is generated and already applied
+# (G01-T15); recover from Git history. Later release packages are not ignored.
+backend/content/reading-practice/core-quality-20261015/release/*-apply.sql
+backend/content/reading-practice/expansion-20261015/release/*-apply.sql
+backend/content/reading-practice/expansion-20261015/quality-20261015/release/*-apply.sql
