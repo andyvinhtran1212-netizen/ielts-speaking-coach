@@ -4,76 +4,114 @@
 // Guest: an email field opens right under the row (no popup). Signed in: the
 // button alone, then "Bỏ nhận" through the session. A guest never receives or
 // stores an unsubscribe token; it only travels in the mail.
+//
+// State belongs to one viewer: everything resets when the account changes
+// (sign-in, sign-out, A → B), and an answer that arrives for an earlier viewer
+// or after unmount is dropped (generation counter, also safe under StrictMode).
+// Signed in, "đã đăng ký" is only ever what GET /api/me/open-alerts said; when
+// that read fails the UI says so and offers a retry instead of guessing.
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { Button, Notice, TextField } from '@/components/ui';
 import { useAuth } from '@/lib/auth/auth-provider';
+import { deleteBrowserJsonAt, getBrowserJson, postBrowserJsonAtWith } from '@/lib/browser-api';
 import { OPEN_ALERT_COPY, normalizeEmail, openAlertErrorMessage, openAlertPath } from '@/lib/open-alert-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
-type View = 'idle' | 'form' | 'subscribed';
+const CONTRACT = '/api/courses/{slug}/open-alerts' as const;
 
-async function transport(): Promise<AverApi> {
+type View = 'idle' | 'form' | 'subscribed';
+/** Signed in only: has the server list been read for this viewer? */
+type ListState = 'loading' | 'ready' | 'error';
+
+async function transportReady(): Promise<void> {
   if (!await whenGlobalReady(() => !!window.api?.deleteWith, 'window.api')) {
     throw new Error('window.api unavailable');
   }
-  return window.api as AverApi;
 }
 
 export function OpenAlertToggle({ slug }: { slug: string }) {
-  const { status } = useAuth();
+  const { status, user } = useAuth();
   const signedIn = status === 'signed-in';
+  const viewerKey = signedIn ? `user:${user?.id ?? ''}` : status;
+
   const [view, setView] = useState<View>('idle');
+  const [list, setList] = useState<ListState>('loading');
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const [fieldError, setFieldError] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
-  const alive = useRef(true);
-  useEffect(() => () => { alive.current = false; }, []);
+  const generation = useRef(0);
 
-  // Signed in: the server list is the truth for "đã đăng ký" (re-read after
-  // every change). A failed read keeps the button: subscribing is idempotent.
-  const refresh = useCallback(async () => {
-    const api = await transport();
-    const data = await api.getWith<{ slugs?: unknown }>('/api/me/open-alerts', undefined, { noRedirect: true });
-    const slugs = Array.isArray(data?.slugs) ? data.slugs : [];
-    if (alive.current) setView(slugs.includes(slug) ? 'subscribed' : 'idle');
+  const readList = useCallback(async (gen: number) => {
+    await transportReady();
+    const data = await getBrowserJson('/api/me/open-alerts', undefined, undefined, { noRedirect: true });
+    if (gen !== generation.current) return;
+    const slugs = Array.isArray(data?.slugs) ? data.slugs : null;
+    if (!slugs) throw new Error('open-alerts list malformed');
+    setView(slugs.includes(slug) ? 'subscribed' : 'idle');
+    setList('ready');
   }, [slug]);
 
-  useEffect(() => {
-    if (!signedIn) return;
-    refresh().catch(() => {});
-  }, [signedIn, refresh]);
+  const loadList = useCallback((gen: number) => {
+    setList('loading');
+    readList(gen).catch(() => {
+      if (gen === generation.current) setList('error');
+    });
+  }, [readList]);
 
-  async function run(action: () => Promise<void>) {
+  // A new viewer (or a new course) starts from scratch; older answers are void.
+  useEffect(() => {
+    const gen = ++generation.current;
+    setView('idle');
+    setEmail('');
+    setBusy(false);
+    setFieldError(undefined);
+    setError(null);
+    if (signedIn) loadList(gen); else setList('ready');
+    return () => { generation.current += 1; };
+  }, [viewerKey, signedIn, loadList]);
+
+  async function run(action: (gen: number) => Promise<void>) {
+    const gen = generation.current;
     setBusy(true);
     setError(null);
     setFieldError(undefined);
     try {
-      await action();
+      await action(gen);
     } catch (caught) {
-      if (!alive.current) return;
+      if (gen !== generation.current) return;
       const { message, field } = openAlertErrorMessage(caught);
       if (field) setFieldError(message); else setError(message);
     } finally {
-      if (alive.current) setBusy(false);
+      if (gen === generation.current) setBusy(false);
+    }
+  }
+
+  // After a signed-in change, re-read the list; a failed re-read shows the
+  // "chưa đọc được" state rather than an assumed one.
+  async function rereadAfterChange(gen: number) {
+    try {
+      await readList(gen);
+    } catch {
+      if (gen === generation.current) setList('error');
     }
   }
 
   function subscribeSignedIn() {
-    void run(async () => {
-      const api = await transport();
-      await api.postWith(openAlertPath(slug), {}, undefined, { noRedirect: true });
-      await refresh().catch(() => { if (alive.current) setView('subscribed'); });
+    void run(async (gen) => {
+      await transportReady();
+      await postBrowserJsonAtWith(CONTRACT, openAlertPath(slug), {}, { noRedirect: true });
+      await rereadAfterChange(gen);
     });
   }
 
   function unsubscribeSignedIn() {
-    void run(async () => {
-      const api = await transport();
-      await api.deleteWith(openAlertPath(slug), {}, undefined, { noRedirect: true });
-      await refresh().catch(() => { if (alive.current) setView('idle'); });
+    void run(async (gen) => {
+      await transportReady();
+      await deleteBrowserJsonAt(CONTRACT, openAlertPath(slug), {}, { noRedirect: true });
+      await rereadAfterChange(gen);
     });
   }
 
@@ -85,14 +123,32 @@ export function OpenAlertToggle({ slug }: { slug: string }) {
       setFieldError(OPEN_ALERT_COPY.emailInvalid);
       return;
     }
-    void run(async () => {
-      const api = await transport();
-      await api.postWith(openAlertPath(slug), { email: clean }, undefined, { noRedirect: true });
-      if (alive.current) setView('subscribed');
+    void run(async (gen) => {
+      await transportReady();
+      await postBrowserJsonAtWith(CONTRACT, openAlertPath(slug), { email: clean }, { noRedirect: true });
+      if (gen === generation.current) setView('subscribed');
     });
   }
 
   const errorNotice = error ? <Notice kind="error" live="alert">{error}</Notice> : null;
+  const listNotice = signedIn && list === 'error' ? (
+    <Notice
+      kind="warning"
+      live="alert"
+      action={<Button variant="secondary" onClick={() => loadList(generation.current)}>{OPEN_ALERT_COPY.retry}</Button>}
+    >
+      {OPEN_ALERT_COPY.listUnavailable}
+    </Notice>
+  ) : null;
+
+  if (signedIn && list === 'loading') {
+    return (
+      <div data-open-alert="loading">
+        <Button variant="secondary" disabled>{OPEN_ALERT_COPY.subscribe}</Button>
+        <p>{OPEN_ALERT_COPY.note}</p>
+      </div>
+    );
+  }
 
   if (view === 'subscribed') {
     return (
@@ -103,6 +159,7 @@ export function OpenAlertToggle({ slug }: { slug: string }) {
         ) : (
           <p>{OPEN_ALERT_COPY.guestMailNote}</p>
         )}
+        {listNotice}
         {errorNotice}
       </div>
     );
@@ -141,6 +198,7 @@ export function OpenAlertToggle({ slug }: { slug: string }) {
         {OPEN_ALERT_COPY.subscribe}
       </Button>
       <p>{OPEN_ALERT_COPY.note}</p>
+      {listNotice}
       {errorNotice}
     </div>
   );

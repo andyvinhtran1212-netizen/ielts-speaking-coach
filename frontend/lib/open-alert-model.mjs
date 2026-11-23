@@ -23,6 +23,7 @@ export const OPEN_ALERT_COPY = Object.freeze({
   unsubscribeFailed: 'Chưa bỏ nhận được, thử lại',
   unsubscribeLinkBroken: 'Liên kết bỏ nhận không đúng hoặc không còn dùng được. Bạn mở lại liên kết trong thư, hoặc đăng nhập để bỏ nhận.',
   retry: 'Thử lại',
+  listUnavailable: 'Chưa đọc được trạng thái nhận báo của bạn. Bạn thử lại nhé.',
 });
 
 /** @param {unknown} value @returns {string} trimmed email, or '' when invalid */

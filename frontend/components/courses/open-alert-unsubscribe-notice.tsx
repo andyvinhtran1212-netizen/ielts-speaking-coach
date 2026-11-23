@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Button, Notice } from '@/components/ui';
+import { deleteBrowserJsonAt } from '@/lib/browser-api';
 import { OPEN_ALERT_COPY, isUnsubscribeHash, openAlertPath, parseUnsubscribeHash } from '@/lib/open-alert-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
@@ -24,7 +25,7 @@ export function OpenAlertUnsubscribeNotice({ slug }: { slug: string }) {
     setState('sending');
     try {
       if (!await whenGlobalReady(() => !!window.api?.deleteWith, 'window.api')) throw new Error('window.api unavailable');
-      await (window.api as AverApi).deleteWith(openAlertPath(slug), { unsubscribe_token: value }, undefined, { noRedirect: true });
+      await deleteBrowserJsonAt('/api/courses/{slug}/open-alerts', openAlertPath(slug), { unsubscribe_token: value }, { noRedirect: true });
       token.current = null;
       setState('done');
     } catch {
