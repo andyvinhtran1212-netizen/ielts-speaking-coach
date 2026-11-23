@@ -4484,6 +4484,7 @@
   }
 
   function _finishTestAndShowResults() {
+    if (_roomReadOnly()) return;
     _releaseRecorderResources();
     // Complete ALL part sessions best-effort (fire and forget).
     var toComplete = _ftAllSessionIds.length > 0 ? _ftAllSessionIds : [_sessionId];
@@ -5674,6 +5675,9 @@
 
   async function _sheetSubmit() {
     if (_sheetSubmitting) return;
+    // R149 CR: only the writing tab may complete the session (0066 FR-017); a
+    // read-only tab does not see the other tab's unsent takes.
+    if (_roomReadOnly()) return;
     var generation = _playerGeneration;
     var sessionId = _sessionId;
     var unsent = _sheet && _sheet.slots
@@ -5759,6 +5763,7 @@
   }
 
   async function finishSession() {
+    if (_roomReadOnly()) return;
     var generation = _playerGeneration;
     var sessionId = _sessionId;
     if (_recSubState === 'recording') {

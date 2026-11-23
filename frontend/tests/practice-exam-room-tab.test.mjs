@@ -93,12 +93,16 @@ describe('every way to open the microphone or upload is closed to a read-only ta
     'async function _startP2Speaking() {',
     'function retryFullTestSubmissions() {',
     'function _sheetRetrySubmission(i) {',
+    // Completing the session (CR #2649): "Nộp bài", "Hoàn thành", Full Test results.
+    'async function _sheetSubmit() {',
+    'async function finishSession() {',
+    'function _finishTestAndShowResults() {',
   ];
   for (const head of guarded) {
     test(head, () => {
       const at = JS.indexOf(head);
       assert.ok(at !== -1, `${head} exists`);
-      const body = JS.slice(at, at + 220);
+      const body = JS.slice(at, at + 400);
       assert.match(body, /if \(_roomReadOnly\(\)\) return/, `${head} returns early when read-only`);
     });
   }
@@ -118,5 +122,49 @@ describe('every way to open the microphone or upload is closed to a read-only ta
   test('practice.js exports the two calls the room makes', () => {
     assert.match(JS, /setWriteRight:\s+setWriteRight,/);
     assert.match(JS, /roomFlush:\s+roomFlush,/);
+  });
+});
+
+describe('tab B presses "Nộp bài" while tab A still has an unsent take (CR #2649)', () => {
+  const at = JS.indexOf('  async function _sheetSubmit() {');
+  const stop = JS.indexOf('\n  function nextQuestion() {', at);
+  assert.ok(at !== -1 && stop > at);
+  const SUBMIT = JS.slice(at, stop);
+
+  function submitSandbox({ writeRight }) {
+    const calls = [];
+    const env = {
+      window: {},
+      $: () => null,
+      _updateNativeView: () => true,
+      _roomDialog: (kind, n) => calls.push(['dialog', kind, n]),
+      _releaseRecorderResources: () => calls.push(['release']),
+      _completeSpeakingSession: async (id) => { calls.push(['complete', id]); },
+      _roomExpired: () => false,
+      _navigateTo: (url) => calls.push(['navigate', url]),
+      _singleSessionResultUrl: (id) => `/speaking/result?session_id=${id}`,
+    };
+    const run = new Function(...Object.keys(env), `
+      var _examRoomMode = true, _roomWriteRight = ${writeRight ? 'true' : 'false'}, _roomConfirmed = false;
+      var _sheetSubmitting = false, _playerGeneration = 1, _playerActive = true, _sessionId = 's-1';
+      // Tab B's own sheet: the failed re-record lives only in tab A's memory.
+      var _sheet = { slots: [{ state: 'graded' }, { state: 'graded' }] };
+      function _roomReadOnly() { return _examRoomMode && _roomWriteRight === false; }
+      ${SUBMIT}
+      return _sheetSubmit;
+    `)(...Object.values(env));
+    return { run, calls };
+  }
+
+  test('read-only tab B: nothing is completed, nothing is released, no navigation', async () => {
+    const { run, calls } = submitSandbox({ writeRight: false });
+    await run();
+    assert.deepEqual(calls, []);
+  });
+
+  test('control: the writing tab completes the session as before', async () => {
+    const { run, calls } = submitSandbox({ writeRight: true });
+    await run();
+    assert.deepEqual(calls.map(([k]) => k), ['release', 'complete', 'navigate']);
   });
 });
