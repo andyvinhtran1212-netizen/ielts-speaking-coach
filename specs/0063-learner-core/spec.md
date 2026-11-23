@@ -8,7 +8,7 @@ owner: product
 
 # Signed-in learners open Today to see what to do now in one of five states, from one read API, behind a per-learner switch that an admin can turn off in seconds
 
-Status: **draft** — soạn ngày 23/11/2026 cho nhiệm vụ `G07-T02` (thương mại hoá 2026-11), từ `docs/proposals/commercialization-2026-11/GOI-07-loi-hoc-vien.md` mục 4.3, 5.3, 5.6, 5.8, 6 (T05, T13, T14), 9 và mục 10. Chưa dòng mã nào chạy theo spec này. Chỉ anh Andy duyệt; khi duyệt, câu trả lời ghi nguyên văn kèm thời điểm vào `approval-decision.md` cùng thư mục và `status` đổi sang `approved`. Số spec 0063 lấy từ sổ cấp số ở `01-KE-HOACH-TONG.md` mục 6. **Bản sửa đổi 1** (23/11/2026, nhiệm vụ `G07-T15`, `G07-T16`, gói mục 4.4 và 6) thêm Lộ trình và hai hub Luyện tập, Thi thử. **Bản sửa đổi 2** (23/11/2026, `G07-T17`, `G07-T26`, gói mục 4.7, 5.9 và 6) thêm Tài khoản, Tiến độ, Trợ giúp, Hồ sơ, "Lần đầu vào" và mở `/home` cho tài khoản chưa kích hoạt. **Bản sửa đổi 3** (23/11/2026, `G07-T30`) dựng lại trang Bài được giao theo tờ LoTrinhBaiDuocGiao và thêm "Tự luyện bài này" cho bài đã đóng; phần buổi học, tài liệu lớp và hạn nhận bài trễ của hai tờ LoTrinhBaiDuocGiao, LopBuoiHoc chưa có dữ liệu ở backend nên để ở câu hỏi mở 11, 12. Ba bản sửa đổi chưa có dòng mã nào và chờ duyệt cùng spec.
+Status: **draft** — soạn ngày 23/11/2026 cho nhiệm vụ `G07-T02` (thương mại hoá 2026-11), từ `docs/proposals/commercialization-2026-11/GOI-07-loi-hoc-vien.md` mục 4.3, 5.3, 5.6, 5.8, 6 (T05, T13, T14), 9 và mục 10. Chưa dòng mã nào chạy theo spec này. Chỉ anh Andy duyệt; khi duyệt, câu trả lời ghi nguyên văn kèm thời điểm vào `approval-decision.md` cùng thư mục và `status` đổi sang `approved`. Số spec 0063 lấy từ sổ cấp số ở `01-KE-HOACH-TONG.md` mục 6. **Bản sửa đổi 1** (23/11/2026, nhiệm vụ `G07-T15`, `G07-T16`, gói mục 4.4 và 6) thêm Lộ trình và hai hub Luyện tập, Thi thử. **Bản sửa đổi 2** (23/11/2026, `G07-T17`, `G07-T26`, gói mục 4.7, 5.9 và 6) thêm Tài khoản, Tiến độ, Trợ giúp, Hồ sơ, "Lần đầu vào" và mở `/home` cho tài khoản chưa kích hoạt. **Bản sửa đổi 3** (23/11/2026, `G07-T30`) dựng lại trang Bài được giao theo tờ LoTrinhBaiDuocGiao và thêm "Tự luyện bài này" cho bài đã đóng; phần buổi học, tài liệu lớp và hạn nhận bài trễ của hai tờ LoTrinhBaiDuocGiao, LopBuoiHoc chưa có dữ liệu ở backend nên để ở câu hỏi mở 11, 12. **Bản sửa đổi 4** (23/11/2026, `G07-T31`) đưa trang xem lại bài Listening, Reading vào khung mới, thêm ghi chú cá nhân và giới hạn "Báo lỗi đề" một lần mỗi câu. Bốn bản sửa đổi chưa có dòng mã nào và chờ duyệt cùng spec.
 
 ## Tóm tắt (tiếng Việt)
 
@@ -43,11 +43,18 @@ Status: **draft** — soạn ngày 23/11/2026 cho nhiệm vụ `G07-T02` (thươ
 - Khối "Khoá được cấp quyền luyện lại" và khối "Bài của lớp được chấm thế nào" (4 bước).
 - Không có: danh sách buổi học, tài liệu lớp, nhận xét theo buổi (thẻ "Buổi học và tài liệu lớp" vẫn ẩn), dải "Bài nộp trễ" kèm hạn nhận bài trễ (hiện hệ thống không nhận bài sau hạn, trừ luật riêng đang có của Writing). Hai phần này chờ anh quyết (câu hỏi mở 11, 12).
 
+**Bản sửa đổi 4: Xem lại bài làm (G07-T31).** Người dùng thấy, ở `/listening/review` và `/reading/review` khi cờ bật:
+- Trang trong khung 5 mục mới, nội dung chữa bài giữ nguyên.
+- Nút "Chỉ câu sai" (gồm câu sai và câu bỏ trống); tải lại vẫn giữ.
+- Mỗi câu có ô "Ghi chú của bạn" tối đa 500 ký tự, chỉ mình người đó thấy, còn lại khi làm lại cùng đề.
+- "Báo lỗi đề" gửi được một lần mỗi câu trong một lượt làm; đã gửi thì nút ghi "Đã báo lỗi", tải lại vẫn thế.
+- Cần một migration (bảng ghi chú và chỉ mục chặn báo trùng).
+
 **Vì sao `risk: high`.** Gói ghi `medium`, nhưng khi đối chiếu staging `e940c936`: cột "lần vào Hôm nay trước" (`users.today_seen_at`) mà FR-025 cần **chưa có** → cần một migration nhỏ (dải 420–439 của G07), và mọi PR có file migration bị cổng spec buộc lớp `high-risk`, nên spec phải `high`. Câu hỏi mở 1 hỏi anh có muốn bỏ migration (dùng cửa sổ thời gian) để hạ về `medium` không.
 
 **Đã có ở staging `e940c936`.** Khung `LearnerShell` của G03 (#2445); mục tiêu band và ngày thi đã lưu ở `users.target_band`, `users.exam_date` (mig 005; mig 452 đồng bộ mục tiêu admin ↔ học viên); bài làm dở có `resume_expires_at` (mig 224); bài được giao qua `routers/class_student.py`. **Chưa có:** API khoá/lượt/đơn của G04 (`/api/me/courses`, `/api/me/credits`, `/api/enrollment-orders/me`), `services/learner_overdue.py`, `services/trial_caps.py` và `frontend/lib/course-access-labels.mjs` của GOI-11, sổ lỗi của GOI-12, bảng `course_lessons` của G07-T18, cờ `learner_v2` (grep `learner_v2|shell_v2` không ra gì ở `backend/services`, `frontend/lib`).
 
-**Ngôn ngữ và đánh số.** Thân viết tiếng Việt theo gói; tiêu đề mục giữ tiếng Anh cho `validate_specs.py`. `FR-07-019…029` → `FR-019…FR-029` giữ số; `FR-07-029a`, `029b` và các yêu cầu rút từ hợp đồng 5.3, 5.6, 5.8 nhận số mới từ `FR-070` (chừa `FR-030…037`, `FR-060…066` cho bản sửa đổi theo đúng số của gói). Bản sửa đổi 1: `FR-07-030…037` → `FR-030…FR-037` giữ số; hub Luyện tập, Thi thử (gói chỉ ghi ở nhiệm vụ G07-T16, không có số FR) nhận số mới từ `FR-079`. Bản sửa đổi 2: `FR-07-060…066` → `FR-060…FR-066` giữ số (FR-063, FR-066 là yêu cầu "không dựng" vì gói đã bỏ); `FR-07-060b`, `064b`, khối dữ liệu của tôi, `/start` và G07-T26 nhận số mới từ `FR-087` (bộ kiểm spec chỉ nhận dạng `FR-NNN`). Bản sửa đổi 3 (G07-T30, gói không có số FR) nhận số từ `FR-095`.
+**Ngôn ngữ và đánh số.** Thân viết tiếng Việt theo gói; tiêu đề mục giữ tiếng Anh cho `validate_specs.py`. `FR-07-019…029` → `FR-019…FR-029` giữ số; `FR-07-029a`, `029b` và các yêu cầu rút từ hợp đồng 5.3, 5.6, 5.8 nhận số mới từ `FR-070` (chừa `FR-030…037`, `FR-060…066` cho bản sửa đổi theo đúng số của gói). Bản sửa đổi 1: `FR-07-030…037` → `FR-030…FR-037` giữ số; hub Luyện tập, Thi thử (gói chỉ ghi ở nhiệm vụ G07-T16, không có số FR) nhận số mới từ `FR-079`. Bản sửa đổi 2: `FR-07-060…066` → `FR-060…FR-066` giữ số (FR-063, FR-066 là yêu cầu "không dựng" vì gói đã bỏ); `FR-07-060b`, `064b`, khối dữ liệu của tôi, `/start` và G07-T26 nhận số mới từ `FR-087` (bộ kiểm spec chỉ nhận dạng `FR-NNN`). Bản sửa đổi 3 (G07-T30, gói không có số FR) nhận số từ `FR-095`; bản sửa đổi 4 (G07-T31) từ `FR-104`.
 
 ## Quyết định đã có
 
@@ -71,6 +78,7 @@ Trang chủ học viên hiện là bảng điểm (`GET /api/student/home-summar
 - (Bản sửa đổi 2, G07-T17) `/account`, `/progress`, `/help`, `/start` (nhóm route mới, mỗi trang một nhóm có `AuthedShell`), cây Hồ sơ mới ở `/profile` sau cờ; chỉ đọc API sẵn có hoặc của G04, G05.
 - (Bản sửa đổi 2, G07-T26) Mở `/home`, `/start`, `/account`, `/profile`, `/help` cho tài khoản `is_active=false` có cờ `learner_v2`; màn "Cần có khoá" cho trang học viên khác; miễn cổng cho `GET /api/student/today` và `PATCH /auth/profile`; `/auth/check-active` thêm `learner_v2_enabled`.
 - (Bản sửa đổi 3, G07-T30) Cây Bài được giao mới ở `/course/assigned` sau cờ (cây `MyClassWorkspace` giữ khi tắt), API đọc `GET /api/student/assigned`, route `POST /api/class/assignments/{item_id}/self-practice` cho bài đã đóng.
+- (Bản sửa đổi 4, G07-T31) `/listening/review`, `/reading/review` vẽ cây mới sau cờ; bảng `review_notes` và hai route ghi chú; chặn "Báo lỗi đề" trùng ở `POST /api/feedback`; một migration trong dải 420–439.
 - (Bản sửa đổi 1, G07-T16) Hub `/practice` trong nhóm route mới `app/(authed-practice-hub)/`, hub `/tests` (trang LEARNERNAV-0062 T12a đã dời), API đọc `GET /api/student/tests`. Theo tờ LuyenTap, ThiThu, MockTestDuocGiao.
 
 ## Non-goals
@@ -87,6 +95,7 @@ Trang chủ học viên hiện là bảng điểm (`GET /api/student/home-summar
 - (Bản sửa đổi 1) Không sửa layout `(authed-practice)` (đang nạp `practice.js`) và các hub kỹ năng hiện có.
 - (Bản sửa đổi 2) Không dựng công tắc hay ô hỏi đồng ý dùng bản ghi âm (gói FR-07-063, 066 đã bỏ; quyết định 18/11/2026). Không dựng lại hộp "Đăng xuất khỏi mọi thiết bị" (G05-T20) hay luồng đổi email (G05-T24); không ghi `learner_login_events`; không hiện cột "nơi gần đúng"; không gõ cứng 45, 60, 100 ngày.
 - (Bản sửa đổi 3) Không dựng buổi học, tài liệu lớp, nhận xét theo buổi, hạn nhận bài trễ (không có bảng hay luật ở backend; câu hỏi mở 11, 12). Không sửa `_visible_assignments`, `_decorate`, luật nhận bài `is_accepting_submissions`, luồng chấm bài giao hay sổ nộp bài của lớp. Không mở "Tự luyện" cho bài `course` (bộ câu khoá chỉ mở qua bài giao; gói câu 6).
+- (Bản sửa đổi 4) Không đổi cách chấm, đáp án, lời giải, trình phát hay dữ liệu chữa bài của hai trang; không đổi luồng báo lỗi ẩn danh của link chia sẻ Reading ngoài việc chặn trùng; không cho ghi chú với lượt ẩn danh.
 - (Bản sửa đổi 2) Không đổi `require_active_learner`, không mở route nộp bài, luyện tập, phòng thi, Lộ trình cho tài khoản chưa kích hoạt; không sửa thứ tự lớp trong `authed-shell.tsx`. Không gỡ `/onboarding` (G07-T24 gỡ khi `learner_v2_all` đã bật đủ lâu).
 
 ## Users and journeys
@@ -173,6 +182,16 @@ Trang chủ học viên hiện là bảng điểm (`GET /api/student/home-summar
 - **FR-101:** Lượt Writing, Speaking tự luyện đi qua route tạo phiên, nộp bài hiện có, nên trừ lượt, trần ngày, cổng một phiên và `charge_plan` của G04 như mọi bài tự luyện (nguồn lượt lớp khi người đó chỉ có lượt lớp). Không đủ lượt → `CreditsEmptyNotice` ở màn nộp như FR-084; dòng tự luyện ở trang không hiện số lượt.
 - **FR-102:** Khối "Khoá được cấp quyền luyện lại" (quyền nguồn `class` của G04, cùng dữ liệu `repractice` của FR-032; rỗng hoặc G04 chưa có → ẩn) với câu "Bài trong khoá luyện lại không phải bài được giao: không có hạn nộp…" của tờ. Khối "Bài của lớp được chấm thế nào" 4 bước, câu chữ theo tờ, Writing ghi giáo viên duyệt rồi trả, Speaking AI trả ngay (FR-036).
 - **FR-103:** `GET /api/student/assigned` chỉ đọc, chỉ bài của chính người gọi, lấy danh sách từ `_visible_assignments` qua hàm bọc (như T13; không sửa hàm đó), thêm cho mỗi dòng `group`, `action`, `accepting`, `self_practice_available` tính trong service mới bằng các hàm luật hiện có (`is_accepting_submissions`, luật nhận bài Writing, `course_action`, trạng thái công bố của 0082 khi có), `response_model` khai báo, lỗi một phần vào `degraded`, `homework_stale` của nguồn chuyển nguyên.
+
+### Bản sửa đổi 4 — Xem lại bài làm (G07-T31)
+
+- **FR-104:** `/listening/review` và `/reading/review` vẽ cây mới (khung `LearnerShell`, trang loại `child`, trang cha là hub kỹ năng) khi `learnerV2Enabled(me)`; cờ tắt thì `ListeningReviewWorkspace`, `ReadingReviewWorkspace` y nguyên. Cây mới dùng cùng nguồn dữ liệu chữa bài và cùng thành phần câu hỏi đang có, không gọi lại API chấm.
+- **FR-105:** Nút bật/tắt "Chỉ câu sai" lọc các câu `incorrect` và `unanswered` (câu tự đối chiếu không thuộc nhóm này); lựa chọn ghi vào `?only=wrong` để tải lại giữ nguyên; không còn câu sai → "Bạn đã trả lời đúng toàn bộ bài này." và nút trở về "Tất cả". Bộ lọc bốn lựa chọn đang có vẫn dùng được.
+- **FR-106:** Mỗi câu có "Ghi chú của bạn": ô chữ tối đa 500 ký tự (đếm ký tự hiện trên màn, chặn gõ quá và máy chủ trả 422 `note_too_long` khi quá), lưu bằng nút "Lưu ghi chú", xoá bằng cách lưu ô rỗng. Ghi chú gắn với người dùng, kỹ năng, đề và số câu, nên làm lại cùng đề vẫn thấy. Chỉ chính người đó đọc được; giáo viên và admin không có đường đọc ở spec này. Lượt ẩn danh (link chia sẻ Reading) không có ô ghi chú.
+- **FR-107:** `GET /api/review-notes?skill=&attempt_id=` trả `{notes: [{q_num, body, updated_at}]}` của người gọi cho đề của lượt đó; `PUT /api/review-notes` body `{skill, attempt_id, q_num, body}` ghi đè (upsert) hoặc xoá khi `body` rỗng sau khi cắt khoảng trắng. Cả hai kiểm lượt thuộc người gọi bằng cùng hàm của `routers/feedback.py::_fetch_owned_attempt` (lượt của người khác 403, không có 404), `q_num` phải có trong đề (422), bắt buộc đăng nhập. Sau khi lưu, trang hiện giá trị máy chủ trả, không giữ giá trị lạc quan; lưu lỗi → báo tại ô, giữ chữ đang gõ.
+- **FR-108:** "Báo lỗi đề" của mỗi câu gửi được một lần cho mỗi `(lượt, câu, người gửi)`: `POST /api/feedback` với `type='flag'` trùng trả 409 `already_flagged` ("Bạn đã báo lỗi câu này."), không thêm dòng; chặn bằng chỉ mục duy nhất một phần ở cơ sở dữ liệu (người đăng nhập theo `created_by`, lượt ẩn danh theo `anon_id`). Báo lỗi cả bài (không `q_num`) cũng một lần mỗi lượt. `report` và `rating` giữ luật hiện có.
+- **FR-109:** Dữ liệu chữa bài trả thêm `my_flagged_q_nums: int[]` (các câu người gọi đã báo trong lượt này; lượt ẩn danh theo `anon_id`) để nút hiện "Đã báo lỗi" ngay khi tải lại; thiếu trường (backend cũ) → coi là rỗng, máy chủ vẫn chặn bằng 409, và trang đổi nút sang "Đã báo lỗi" khi nhận 409.
+- **FR-110:** Migration (một file trong dải 420–439, có rollback): bảng `review_notes` (`id uuid pk`, `user_id uuid not null references users(id) on delete cascade`, `skill text check in ('listening','reading')`, `test_uuid uuid not null`, `q_num int not null check (q_num > 0)`, `body text not null check (char_length(body) between 1 and 500)`, `created_at`, `updated_at`; duy nhất `(user_id, skill, test_uuid, q_num)`; RLS bật, không policy, `REVOKE ALL … FROM PUBLIC, anon, authenticated`) và hai chỉ mục duy nhất một phần trên `user_feedback` cho `type='flag'`. Migration dừng (RAISE) nếu đã có dòng `flag` trùng, không tự xoá phản hồi của ai.
 
 ## Acceptance scenarios
 
@@ -284,6 +303,12 @@ Trang chủ học viên hiện là bảng điểm (`GET /api/student/home-summar
 - **When** bấm "Tự luyện bài này", làm và nộp
 - **Then** có kết quả tự luyện; tải lại `/course/assigned` thì bài giao vẫn "Không còn nhận bài", bảng nộp bài của giáo viên không đổi; gọi route với bài còn hạn → 409
 
+### Scenario 19 — Ghi chú và báo lỗi một lần
+
+- **Given** QA mở trang xem lại một lượt Listening đã nộp, cờ bật
+- **When** gõ ghi chú 501 ký tự ở câu 3, rồi rút còn 40 ký tự và lưu; bấm "Báo lỗi đề" ở câu 3 hai lần; tải lại trang; làm lại cùng đề rồi mở trang xem lại lượt mới
+- **Then** không gõ được ký tự thứ 501; ghi chú 40 ký tự còn sau tải lại và ở lượt mới; lần báo lỗi thứ hai bị từ chối, nút ghi "Đã báo lỗi" cả sau tải lại; ở lượt mới câu 3 báo lỗi được lại; bật "Chỉ câu sai" chỉ còn câu sai và bỏ trống
+
 ## Edge cases
 
 - Học viên vừa lớp vừa online: hai dòng lượt theo nguồn, một tổng.
@@ -312,6 +337,9 @@ Trang chủ học viên hiện là bảng điểm (`GET /api/student/home-summar
 - (Bản sửa đổi 3) Lớp đã lưu trữ: bài vẫn hiện để xem lại (theo CLASSARCHIVE-0030 hiện có), "Làm bài" không có, "Tự luyện bài này" có cho bài chưa nộp.
 - (Bản sửa đổi 3) `homework_stale` từ nguồn: trang ghi một dòng "Danh sách có thể chưa cập nhật, tải lại sau ít phút." và vẫn vẽ.
 - (Bản sửa đổi 3) Bài Speaking quá hạn đã có phiên dở: giữ luật hiện có (mở lại chính phiên để xem), "Tự luyện" tạo lượt mới tách rời.
+- (Bản sửa đổi 4) Đề được sửa làm số câu giảm: ghi chú của số câu không còn trong đề không hiện (vẫn giữ trong bảng); không lỗi trang.
+- (Bản sửa đổi 4) Hai tab cùng lưu ghi chú một câu: bản lưu sau thắng, mỗi tab hiện giá trị máy chủ trả sau khi lưu.
+- (Bản sửa đổi 4) Lượt ẩn danh của link chia sẻ Reading: "Báo lỗi đề" vẫn một lần mỗi câu theo `anon_id`; không có ô ghi chú.
 - Không thực hiện trên production: bật cờ, chạy migration, nộp bài.
 
 ## Success criteria
@@ -353,5 +381,7 @@ Trang chủ học viên hiện là bảng điểm (`GET /api/student/home-summar
 | 10 | (gói G07-T17, phương án A 18/11) Dựng khối "Dữ liệu của tôi", "Yêu cầu xoá tài khoản" và nút tải PDF phiếu ở `/account` ngay khi G04-T18 có? | Có, theo phương án A: anh đã để mặc định này; ẩn được nếu anh muốn để sau | Dựng khi G04-T18 có |
 | 11 | (bản sửa đổi 3) Tờ LopBuoiHoc cần danh sách buổi học có lịch, tài liệu từng buổi (slide, audio, video), nhận xét của giáo viên cho cả lớp và riêng từng người. Backend chưa có bảng nào cho các thứ này. Làm spec riêng (có migration, giáo viên nhập liệu) hay bỏ khỏi đợt này? | Spec riêng sau khi thương mại hoá chạy ổn; thẻ "Buổi học và tài liệu lớp" ẩn tới khi có | Ẩn thẻ, không dựng |
 | 12 | (bản sửa đổi 3) Tờ LoTrinhBaiDuocGiao vẽ "hạn nhận bài trễ" và nộp trễ được tới hạn đó. Hiện máy chủ cố ý không nhận bài sau hạn (`is_accepting_submissions`, để bảng nộp bài của lớp chốt ngay khi tới hạn), trừ luật riêng của Writing. Đổi luật này không? | Giữ luật hiện có; bài quá hạn có "Tự luyện bài này". Nếu cần nộp trễ thì làm spec riêng (thêm cột hạn nhận bài trễ, đổi chỗ chặn nộp và bảng giáo viên) | Giữ luật hiện có |
+| 13 | (bản sửa đổi 4) Ghi chú cá nhân gắn với đề (còn khi làm lại) hay với từng lượt làm? | Gắn với đề: người học ghi điều rút ra để lần làm lại đọc lại; gắn với lượt thì lần làm lại thấy ô trống | Gắn với đề |
+| 14 | (bản sửa đổi 4) Nếu staging hoặc production đã có dòng "Báo lỗi đề" trùng (cùng lượt, câu, người) thì migration dừng. Xử lý dòng trùng thế nào? | Đếm trước bằng truy vấn chỉ đọc; nếu có, anh chọn đánh dấu `resolved` các bản trùng mới hơn (giữ dòng cũ nhất) bằng một lệnh ghi anh gõ duyệt riêng | Dừng và hỏi anh |
 
 Câu 9, 11, 12 của gói đã được trả lời (mục "Quyết định đã có"). Lộ trình và hai hub (G07-T15, T16) có ở bản sửa đổi 1; Tài khoản, Tiến độ, Trợ giúp, Hồ sơ, "Lần đầu vào" (G07-T17) và T26 có ở bản sửa đổi 2 (câu 4); LEARNERNAV-0062 chỉ dời URL của các trang đó.

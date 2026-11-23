@@ -66,6 +66,13 @@ Mọi dòng ở trạng thái `PENDING`: spec đang `draft`, chưa có dòng mã
 | FR-101 | kind=test; ref=planned pytest Speaking self-practice session goes through POST /sessions quota and charge_plan like any self practice (T30b) | PENDING |
 | FR-102 | kind=test; ref=planned React repractice block hidden when empty, grading steps copy (T30a) | PENDING |
 | FR-103 | kind=test; ref=planned pytest response_model shape, caller-only rows, degraded part, homework_stale passthrough, _visible_assignments unchanged (T30a) | PENDING |
+| FR-104 | kind=test; ref=planned React review-v2 flag on draws LearnerShell tree, flag off draws the existing workspaces unchanged (T31) | PENDING |
+| FR-105 | kind=test; ref=planned React "Chỉ câu sai" shows incorrect and unanswered only, ?only=wrong survives reload, all-correct copy (T31) | PENDING |
+| FR-106 | kind=test; ref=planned React note box stops at 500 characters with counter, save error keeps the draft, anonymous attempt has no note box (T31) | PENDING |
+| FR-107 | kind=test; ref=planned pytest review-notes upsert, delete on empty, 501 chars 422, other user's attempt 403, q_num outside the test 422, note visible on a new attempt of the same test (T31) | PENDING |
+| FR-108 | kind=test; ref=planned pytest duplicate flag same attempt and question 409 already_flagged, parallel requests leave one row, report and rating unchanged (T31) | PENDING |
+| FR-109 | kind=test; ref=planned pytest my_flagged_q_nums for the caller only; node feedback-widgets 409 turns the button to "Đã báo lỗi" (T31) | PENDING |
+| FR-110 | kind=test; ref=planned PG migration test runs twice, raises when duplicate flag rows exist, rollback drops both indexes; review_notes RLS denies anon and authenticated (T31) | PENDING |
 
 ## Kịch bản staging (gói 9.1 mục 1, 3, 3b, 3c, 8; 9.4)
 
@@ -87,6 +94,8 @@ Tài khoản QA và dữ liệu thử; không bật cờ cho học viên thật.
 12. **Chưa kích hoạt** (bản sửa đổi 2, high-risk auth). Kịch bản 16 của spec trên staging, bằng tài khoản QA mới tạo; ghi SHA, giờ bật/tắt cờ; gọi một route học viên khác bằng token đó và ghi mã 403.
 
 13. **Bài được giao** (bản sửa đổi 3). Kịch bản 17, 18 của spec trên staging với lớp thử; ảnh 1280px và 390px; ghi bảng nộp bài của giáo viên trước và sau khi tự luyện (không đổi).
+
+14. **Xem lại bài làm** (bản sửa đổi 4). Kịch bản 19 của spec trên staging với lượt thử của QA; trước khi áp migration ghi kết quả truy vấn đếm dòng `flag` trùng (số, không nội dung); ảnh 1280px và 390px.
 
 ## Contract evidence
 
