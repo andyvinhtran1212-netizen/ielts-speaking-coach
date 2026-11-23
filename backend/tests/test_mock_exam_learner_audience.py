@@ -28,7 +28,16 @@ def _iso(dt: datetime) -> str:
     return dt.isoformat()
 
 
+# Read the clock when each test starts, not when the module is imported: a
+# long suite run otherwise pushes the windows below (open_from = NOW + 1h,
+# retake_open_until, the 60-minute section chain) past real time.
 NOW = datetime.now(timezone.utc)
+
+
+@pytest.fixture(autouse=True)
+def _fresh_now():
+    global NOW
+    NOW = datetime.now(timezone.utc)
 
 
 def _learner_flag(monkeypatch, on: bool):
