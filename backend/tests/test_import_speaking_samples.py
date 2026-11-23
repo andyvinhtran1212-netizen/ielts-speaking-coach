@@ -241,7 +241,7 @@ class _Q:
             for r in rows:
                 if all(f(r) for f in self.filters):
                     r.update(self.payload)
-            self.db.writes.append(("update", self.payload["slug"]))
+            self.db.writes.append(("update", self.payload.get("slug", "content_hash")))
         data = [dict(r) for r in rows if all(f(r) for f in self.filters)]
         window = getattr(self, "window", None)
         if window:
@@ -252,6 +252,7 @@ class _Q:
 class FakeDB:
     def __init__(self, tables):
         self.tables, self.writes, self.uploads, self.ranges = tables, [], [], []
+        self.fail_uploads = 0
         db = self
 
         class _Bucket:
@@ -259,6 +260,9 @@ class FakeDB:
                 self.name = name
 
             def upload(self, path, data, opts):
+                if db.fail_uploads:
+                    db.fail_uploads -= 1
+                    raise RuntimeError("storage 503")
                 db.uploads.append((self.name, path, opts["content-type"]))
                 db.writes.append(("upload", path))
 
@@ -298,7 +302,8 @@ def test_execute_inserts_unpublished_uploads_audio_and_reads_back(tmp_path, caps
     capsys.readouterr()
     assert iss.main(["--source", str(folder), "--execute"], db=db) == 0
     assert f"SAME     {SLUG}" in capsys.readouterr().out
-    assert db.writes == [("insert", SLUG), ("upload", "speaking-samples/p2-001/answer.mp3")]
+    assert db.writes == [("insert", SLUG), ("upload", "speaking-samples/p2-001/answer.mp3"),
+                         ("update", "content_hash")]
 
 
 def test_published_row_is_not_changed_without_flag(tmp_path, capsys):
@@ -348,3 +353,22 @@ def test_topics_are_read_in_pages(tmp_path):
     folder = deliver(tmp_path, make_item())
     assert iss.main(["--source", str(folder)], db=db) == 0
     assert ("topics", 1000, 1999) in db.ranges
+
+
+def test_a_failed_upload_is_reported_and_the_rerun_uploads_again(tmp_path, capsys):
+    db = _db()
+    db.fail_uploads = 1
+    item = make_item(media={"audio_file": f"{SLUG}.mp3", "duration_ms": 6100})
+    folder = deliver(tmp_path, item, extra_files={f"{SLUG}.mp3": b"ID3"})
+    assert iss.main(["--source", str(folder), "--execute"], db=db) == 1
+    assert "audio upload failed" in capsys.readouterr().out
+    assert db.uploads == []
+    assert db.tables["speaking_samples"][0]["content_hash"].startswith(iss.PENDING_UPLOAD)
+    # The rerun sees a changed row (not SAME), uploads, then sets the real hash.
+    assert iss.main(["--source", str(folder), "--execute"], db=db) == 0
+    out = capsys.readouterr().out
+    assert f"UPDATE   {SLUG}" in out
+    assert db.uploads == [("library-media", "speaking-samples/p2-001/answer.mp3", "audio/mpeg")]
+    assert not db.tables["speaking_samples"][0]["content_hash"].startswith(iss.PENDING_UPLOAD)
+    assert iss.main(["--source", str(folder), "--execute"], db=db) == 0
+    assert f"SAME     {SLUG}" in capsys.readouterr().out
