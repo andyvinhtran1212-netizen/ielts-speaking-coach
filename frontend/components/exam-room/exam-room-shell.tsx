@@ -217,10 +217,12 @@ export function ExamRoomShell(props: ExamRoomShellProps) {
   const [submitError, setSubmitError] = useState(false);
   const outcome = submit?.outcome ?? 'idle';
   const offline = blocksManualSubmit(connection);
+  // A save in flight counts as unsaved even when the surface tracks no per-question state.
+  const pendingSaves = Math.max(unsaved, saveStatus.state === 'saving' ? 1 : 0);
   const button = submit ? submitButtonState({
     online: !offline,
     submitting: submitting || outcome === 'submitting',
-    unsaved,
+    unsaved: pendingSaves,
     readOnly: !canWrite,
     strings,
     disabledReason: submit.disabledReason ?? null,
@@ -234,14 +236,16 @@ export function ExamRoomShell(props: ExamRoomShellProps) {
   // FR-010/FR-014: everything that locks the manual submit is checked again at
   // the moment of confirming, and an open box closes as soon as one of them holds,
   // so the lock reason shows next to the button instead.
-  const submitBlocked = !submit || timeUp || outcome !== 'idle' || sessionBlocked || !canWrite || offline || unsaved > 0;
+  const submitBlocked = !submit || timeUp || outcome !== 'idle' || sessionBlocked || !canWrite || offline || pendingSaves > 0 || Boolean(submit?.disabledReason);
+  const submitBlockedRef = useRef(submitBlocked);
+  submitBlockedRef.current = submitBlocked;
   useEffect(() => {
     if (submitOpen && !submitting && submitBlocked) setSubmitOpen(false);
   }, [submitOpen, submitting, submitBlocked]);
   const confirmSubmit = () => {
     if (!submit || submitting) return;
     const liveWriter = guardRef.current ? guardRef.current.canWrite() : true;
-    if (submitBlocked || !liveWriter || unsavedRef.current > 0 || sessionRef.current === 'expired' || sessionRef.current === 'displaced') {
+    if (submitBlocked || submitBlockedRef.current || !liveWriter || unsavedRef.current > 0 || sessionRef.current === 'expired' || sessionRef.current === 'displaced') {
       setSubmitOpen(false);
       return;
     }
