@@ -21,7 +21,7 @@ import { Button, Notice } from '@/components/ui';
 import { useAuth } from '@/lib/auth/auth-provider';
 import { fetchCourseForViewer, fetchMyCourses } from '@/lib/commerce-client';
 import {
-  carryOverSentence, courseRowLabel, courseRowState, enrollHref, formatViDate, formatVnd,
+  carryOverSentence, courseRowLabel, courseRowState, enrollHref, formatViDate, formatVnd, internalHref,
 } from '@/lib/commerce-model.mjs';
 import type { CourseChapter, CourseDetail } from '@/lib/commerce-types';
 import { COURSE_ACCESS_ACTIONS, accessActionLabel } from '@/lib/course-access-labels.mjs';
@@ -67,7 +67,10 @@ function chapterList(course: CourseDetail): CourseChapter[] {
 
 function firstPreviewHref(course: CourseDetail): string | null {
   for (const chapter of chapterList(course)) {
-    for (const lesson of chapter.lessons) if (lesson.is_preview && lesson.preview_href) return lesson.preview_href;
+    for (const lesson of chapter.lessons) {
+      const href = lesson.is_preview ? internalHref(lesson.preview_href) : null;
+      if (href) return href;
+    }
   }
   return null;
 }
@@ -276,10 +279,10 @@ function Chapters({ course, state }: { course: CourseDetail; state: PanelState }
                 {chapter.lessons.map((lesson, i) => {
                   const kind = LESSON_KINDS[lesson.kind] ?? null;
                   const minutes = typeof lesson.duration_min === 'number' && lesson.duration_min > 0 ? `${lesson.duration_min} phút` : null;
-                  const preview = !upcoming && lesson.is_preview && lesson.preview_href;
+                  const preview = !upcoming && lesson.is_preview ? internalHref(lesson.preview_href) : null;
                   return (
                     <li key={`${i}-${lesson.title}`} className={styles.lesson}>
-                      {preview ? <a href={lesson.preview_href as string}>{lesson.title}</a> : <span>{lesson.title}</span>}
+                      {preview ? <a href={preview}>{lesson.title}</a> : <span>{lesson.title}</span>}
                       <span className={styles.muted}>{[kind, minutes].filter(Boolean).join(' · ')}</span>
                       {preview ? <span className={styles.previewTag}>Học thử</span> : null}
                     </li>

@@ -178,3 +178,18 @@ export function formatViDate(iso) {
   if (Number.isNaN(date.getTime())) return null;
   return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Ho_Chi_Minh' });
 }
+
+/**
+ * A link taken from course data (`preview_href`), kept only when it is a path
+ * on this site (CR #2637): starts with one `/`, not `//` or `/\`, no control
+ * characters. Anything else (`javascript:`, another host) gives null and the
+ * page shows the lesson name as plain text.
+ * @param {unknown} raw @returns {string | null}
+ */
+export function internalHref(raw) {
+  if (typeof raw !== 'string' || !raw.startsWith('/')) return null;
+  if (raw.startsWith('//') || raw.startsWith('/\\')) return null;
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001f\u007f\\]/.test(raw)) return null;
+  return raw;
+}

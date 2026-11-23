@@ -158,6 +158,17 @@ it('FR-025: author block and feedback sample on a Writing/Speaking course; FR-02
   expect(screen.queryByRole('heading', { name: 'Nhận xét trông thế nào' })).toBeNull();
 });
 
+it('a preview link that is not a path on this site is plain text (CR #2637)', () => {
+  const chapters = (OPEN.chapters ?? []).map((chapter, i) => i ? chapter : {
+    ...chapter,
+    lessons: chapter.lessons.map((lesson) => lesson.is_preview ? { ...lesson, preview_href: 'javascript:alert(1)' } : lesson),
+  });
+  render(<CoursePage course={{ ...OPEN, chapters }} />);
+  expect(screen.queryByRole('link', { name: 'Bài 1.1' })).toBeNull();
+  expect(screen.getByText('Bài 1.1')).toBeTruthy();
+  for (const link of screen.getAllByRole('link')) expect(link.getAttribute('href') ?? '').not.toMatch(/^javascript:/i);
+});
+
 it('FAQ: one answer open at a time', () => {
   const course = { ...OPEN, faq: [{ q: 'Hỏi 1?', a: 'Đáp 1.' }, { q: 'Hỏi 2?', a: 'Đáp 2.' }] };
   render(<CoursePage course={course} />);

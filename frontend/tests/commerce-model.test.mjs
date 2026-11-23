@@ -6,7 +6,7 @@ import { test } from 'node:test';
 
 import {
   COURSE_BUNDLE_MIN_OPEN, ORDER_STATUS_LABELS, carryOverSentence, catalogCounts, courseRowLabel, courseRowState,
-  enrollHref, formatViDate, formatVnd, nextActionForOrder, orderBlocks, orderScreen,
+  enrollHref, formatViDate, formatVnd, internalHref, nextActionForOrder, orderBlocks, orderScreen,
 } from '../lib/commerce-model.mjs';
 
 const fixture = (name) => JSON.parse(readFileSync(new URL(`./fixtures/commerce/${name}`, import.meta.url), 'utf8'));
@@ -115,4 +115,12 @@ test('formatViDate reads a G04 date in Vietnam time and drops anything unreadabl
   assert.equal(formatViDate('2027-01-14T18:30:00Z'), '15/01/2027');
   assert.equal(formatViDate(null), null);
   assert.equal(formatViDate('không phải ngày'), null);
+});
+
+test('internalHref keeps only a path on this site (CR #2637)', () => {
+  for (const ok of ['/course/lesson/gia-1-1', '/library?x=1#y', '/']) assert.equal(internalHref(ok), ok);
+  for (const bad of ['javascript:alert(1)', 'JavaScript:x', 'https://evil.example/x', '//evil.example', '/\\evil.example',
+    '/a\\b', '/a\nb', ' /x', '', null, undefined, 42]) {
+    assert.equal(internalHref(bad), null, String(bad));
+  }
 });

@@ -161,6 +161,15 @@
 .barText p { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .barTitle { font-weight: var(--av2-fw-strong); }
 
+/* Below 768px a signed-in learner also has LearnerShell's bottom tab bar
+   ("Thanh mục chính", sticky at bottom 0, same z level): the course bar sits
+   just above it so both stay visible and clickable. Guests keep bottom 0. */
+@media (max-width: 767px) {
+  :global(body:has(nav[aria-label='Thanh mục chính']:not([hidden]))) .bar {
+    bottom: calc(var(--av2-bottombar-h) + env(safe-area-inset-bottom));
+  }
+}
+
 /* The bar must not cover the keyboard while the alert email is being typed. */
 .page:has(form[data-open-alert] input:focus) .bar { display: none; }
 

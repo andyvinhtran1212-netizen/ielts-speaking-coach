@@ -95,6 +95,40 @@ describe('course page real 404 (proxy.ts)', () => {
     assert.deepEqual(calls, []);
   });
 
+  test('one check per slug per minute: a definite answer is kept 60 s, an outage is asked again', async () => {
+    const calls = [];
+    let answer = () => json(404, COURSE_MISS);
+    const { proxy } = load(true, async (url) => { calls.push(url); return answer(); });
+    const realNow = Date.now;
+    let now = 1_000_000;
+    Date.now = () => now;
+    try {
+      assert.equal((await proxy(request('/courses/khong-co'))).headers.get('x-middleware-rewrite'), NOT_FOUND);
+      now += 59_000;
+      assert.equal((await proxy(request('/courses/khong-co'))).headers.get('x-middleware-rewrite'), NOT_FOUND);
+      assert.equal(calls.length, 1, 'the miss is kept inside 60 s');
+      now += 2_000;
+      answer = () => json(200, '{"slug":"khong-co"}');
+      assert.equal((await proxy(request('/courses/khong-co'))).headers.get('x-middleware-next'), '1');
+      assert.equal(calls.length, 2, 'after 60 s the course is asked again (it may have been published)');
+
+      answer = () => json(503, '{}');
+      await proxy(request('/courses/khoa-b'));
+      await proxy(request('/courses/khoa-b'));
+      assert.equal(calls.length, 4, 'an outage is not kept');
+    } finally {
+      Date.now = realNow;
+    }
+  });
+
+  test('only a one-segment course path takes the course branch', async () => {
+    const calls = [];
+    const { proxy } = load(true, async (url) => { calls.push(url); return json(404, COURSE_MISS); });
+    const result = await proxy(request('/courses/khoa-a/enroll'));
+    assert.equal(result.headers.get('x-middleware-rewrite'), null);
+    assert.deepEqual(calls, []);
+  });
+
   test('the matcher takes one course segment only: not /courses, not /courses/<slug>/enroll', () => {
     const { config } = load(true, async () => json(200, '{}'));
     const on = (url) => matches({ config, url, headers: { host: 'www.averlearning.com' } });

@@ -113,16 +113,59 @@ async function grammarArticle(request: NextRequest) {
 
 // G04 `courses_public.get_course`: 404 `{"detail": {"error_code": "course_not_found"}}`
 // for an unknown slug and for a course that is not public (Course 1–5). A
-// gateway or framework 404 is not evidence; it reaches the page, which fails
-// on its own terms.
-async function isBackendCourseMiss(res: Response) {
+// gateway or framework 404 is not evidence here; it reaches the page, whose
+// read (getPublicJson) treats any 404 as "no course", so the visitor gets the
+// soft 404 (200 + noindex) rather than a false real one. That is why the flag
+// is turned on only once G04 #2485 (the route itself) is deployed.
+type CourseCheck = 'miss' | 'found' | 'unknown';
+
+async function courseCheck(res: Response): Promise<CourseCheck> {
+  if (res.ok) {
+    await res.body?.cancel();
+    return 'found';
+  }
   if (res.status !== 404 || !/^application\/json\b/i.test(res.headers.get('content-type') ?? '')) {
     await res.body?.cancel();
-    return false;
+    return 'unknown';
   }
   const body = (await res.json().catch(() => null)) as { detail?: { error_code?: unknown } } | null;
-  return body?.detail?.error_code === 'course_not_found';
+  return body?.detail?.error_code === 'course_not_found' ? 'miss' : 'unknown';
 }
+
+// One course check per slug per minute in this proxy instance (CR #2637): the
+// same 60 s as the page's own cached read (COMMERCE_CONTENT_LIFE), so the
+// proxy adds at most one backend call per slug and minute, not one per view.
+// Only definite answers are kept: an outage or a foreign 404 is asked again.
+const COURSE_CHECK_TTL_MS = 60_000;
+const COURSE_CHECK_MAX = 500;
+const courseChecks = new Map<string, { result: 'miss' | 'found'; at: number }>();
+
+async function checkCourse(slug: string): Promise<CourseCheck> {
+  const now = Date.now();
+  const kept = courseChecks.get(slug);
+  if (kept && now - kept.at < COURSE_CHECK_TTL_MS) return kept.result;
+  let result: CourseCheck = 'unknown';
+  try {
+    const res = await fetch(`${API_BASE}/api/courses/${encodeURIComponent(slug)}`, {
+      signal: AbortSignal.timeout(INDEX_TIMEOUT_MS),
+      cache: 'no-store',
+      redirect: 'manual',
+    });
+    result = await courseCheck(res);
+  } catch {
+    // Backend/network errors stay with the page's own error handling.
+  }
+  if (result === 'unknown') {
+    courseChecks.delete(slug);
+  } else {
+    if (courseChecks.size >= COURSE_CHECK_MAX) courseChecks.clear();
+    courseChecks.set(slug, { result, at: now });
+  }
+  return result;
+}
+
+/** Exactly the matcher's `/courses/:slug`: one segment after `/courses/`. */
+const COURSE_PAGE = /^\/courses\/[^/]+$/;
 
 async function coursePage(request: NextRequest) {
   const notFoundUrl = new URL(GRAMMAR_ARTICLE_NOT_FOUND_PATH, request.url);
@@ -130,17 +173,7 @@ async function coursePage(request: NextRequest) {
   const slug = segment(request.nextUrl.pathname.split('/')[2] ?? '');
   // Not valid percent-encoding: no course has that slug (the route would 500 decoding it).
   if (!slug) return NextResponse.rewrite(notFoundUrl);
-  try {
-    const res = await fetch(`${API_BASE}/api/courses/${encodeURIComponent(slug)}`, {
-      signal: AbortSignal.timeout(INDEX_TIMEOUT_MS),
-      cache: 'no-store',
-      redirect: 'manual',
-    });
-    if (await isBackendCourseMiss(res)) return NextResponse.rewrite(notFoundUrl);
-  } catch {
-    // Backend/network errors stay with the page's own error handling.
-  }
-  return NextResponse.next();
+  return (await checkCourse(slug)) === 'miss' ? NextResponse.rewrite(notFoundUrl) : NextResponse.next();
 }
 
 // Inlined at build by next.config.ts `env` (tooling/nonce-route-table.mjs).
@@ -206,7 +239,7 @@ function noncePolicy(request: NextRequest) {
 }
 
 export async function proxy(request: NextRequest) {
-  if (request.nextUrl.pathname.startsWith('/courses/')) return coursePage(request);
+  if (COURSE_PAGE.test(request.nextUrl.pathname)) return coursePage(request);
   return request.nextUrl.pathname.startsWith('/grammar/')
     ? grammarArticle(request)
     : noncePolicy(request);
