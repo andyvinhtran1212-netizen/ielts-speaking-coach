@@ -75,6 +75,7 @@
   var _roomMicState = 'unknown';
   var _ROOM_LEVEL_MS = 200;
   var _roomLevelTimer = null;
+  var _roomMicLostDone = false;
   // FR-006–FR-008: a box the room has open, and what it will do when answered.
   var _roomDialogKind = null;
   var _roomLeaveHref = '';
@@ -286,7 +287,7 @@
   function _roomMic(state) {
     if (!_examRoomMode) return;
     _roomMicState = state;
-    _updateNativeView('mic', { state: state });
+    _updateNativeView('mic', { state: state, lost: false });
   }
 
   // Recorder error -> mic case (FR-003). Unknown failures keep the old message
@@ -386,8 +387,10 @@
     var analyser = _analyser;
     var buf = analyser ? new Uint8Array(analyser.fftSize || analyser.frequencyBinCount || 256) : null;
     var tick = function () {
+      if (_roomTrackEnded()) { _roomMicLost(); return; }
       _updateNativeView('recording', { level: _roomLevel(analyser, buf), paused: _roomRecorderPaused() });
     };
+    _roomMicLostDone = false;
     if (_roomLevelTimer) _clearManagedEffect('recording-level', _roomLevelTimer, 'interval');
     tick();
     _roomLevelTimer = _startManagedInterval('recording-level', tick, _ROOM_LEVEL_MS);
@@ -395,8 +398,73 @@
 
   function _stopRoomLevel() {
     if (!_examRoomMode) return;
+    if (_roomLevelTimer && _roomTrackEnded()) _roomMicLost(true);
     if (_roomLevelTimer) { _clearManagedEffect('recording-level', _roomLevelTimer, 'interval'); _roomLevelTimer = null; }
     _updateNativeView('recording', { level: null, paused: false });
+  }
+
+  // EXAMSPEAK-0072 edge case "Micro bị rút giữa lúc ghi" (R139): the audio
+  // track ends while recording. Stop the take and keep it through the usual
+  // recorded path, where the length gate (FR-005) decides whether it can be
+  // sent; say "Mất kết nối micro", and the next take starts at "Không tìm thấy
+  // micro". The 200 ms level tick notices it, so it needs no extra listener.
+  function _roomStreamTrack() {
+    var native = _getNativeRecorder();
+    var stream = native ? native.stream : _stream;
+    try {
+      return stream && typeof stream.getAudioTracks === 'function' ? stream.getAudioTracks()[0] || null : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function _roomTrackEnded() {
+    var track = _roomStreamTrack();
+    return !!(track && track.readyState === 'ended');
+  }
+
+  function _roomRecorderActive() {
+    var native = _getNativeRecorder();
+    var rec = native ? native.recorder : _recorder;
+    return !!(rec && rec.state && rec.state !== 'inactive');
+  }
+
+  // `stopping`: called from _stopRoomLevel, i.e. the take is already on its way
+  // to the recorded path (a MediaRecorder stops by itself when its only track
+  // ends, often before the next level tick).
+  function _roomMicLost(stopping) {
+    if (!_examRoomMode || _roomMicLostDone) return false;
+    _roomMicLostDone = true;
+    _roomMicState = 'not_found';
+    _updateNativeView('mic', { state: 'not_found', lost: true });
+    if (stopping) {
+      // The Part 2 countdown would otherwise try to stop the recorder again at
+      // the end and report a failure over the kept take.
+      if (_currentState === 'p2c') {
+        if (_p2SpeakTimerId) { _clearManagedEffect('p2-speak-countdown', _p2SpeakTimerId, 'interval'); _p2SpeakTimerId = null; }
+        _clearManagedEffect('p2-thank-you-delay', null, 'timeout');
+      }
+      return true;
+    }
+    // A MediaRecorder whose only track ended may already have stopped by itself;
+    // its onstop then delivers the take, and stopping again would report a
+    // failure and drop it.
+    var active = _roomRecorderActive();
+    if (_currentState === 'p2c') {
+      if (_p2SpeakTimerId) { _clearManagedEffect('p2-speak-countdown', _p2SpeakTimerId, 'interval'); _p2SpeakTimerId = null; }
+      _clearManagedEffect('p2-thank-you-delay', null, 'timeout');
+      if (active) _stopP2SpeakingInternal();
+      else _stopWaveform();
+    } else if (_recSubState === 'recording') {
+      if (active) stopRecording();
+      else {
+        if (_timerId) { _clearManagedEffect('recording-elapsed', _timerId, 'interval'); _timerId = null; }
+        _stopWaveform();
+      }
+    } else {
+      _stopWaveform();
+    }
+    return true;
   }
 
   function _roomTooShort(section, part, durationSeconds, minSeconds) {

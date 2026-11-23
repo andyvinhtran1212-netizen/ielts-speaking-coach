@@ -52,7 +52,7 @@ function sandbox({ on, navigator = {}, recorder = null, extra = '', MediaRecorde
     var _examRoomMode = ${on ? 'true' : 'false'};
     var _roomMicState = 'unknown';
     var _ROOM_LEVEL_MS = 200;
-    var _roomLevelTimer = null;
+    var _roomLevelTimer = null, _roomMicLostDone = false;
     var _playerGeneration = 1, _playerActive = true;
     var _audioChunks = [], _recordedBlob = null, _elapsedSecs = 0, _analyser = null;
     var _recorder = null, _stream = null;

@@ -33,8 +33,11 @@ export function MicStatus({
   strings,
   onRequest,
   track,
+  lost = false,
 }: {
   state: MicState;
+  /** The track ended while recording (R139): "Mất kết nối micro" above the not-found case. */
+  lost?: boolean;
   strings: Strings;
   /** "Cho phép micro" and "Thử lại": practice.js `requestMicrophone`. */
   onRequest: () => void;
@@ -65,6 +68,7 @@ export function MicStatus({
   } else if (state === 'not_found' || state === 'busy') {
     body = (
       <>
+        {state === 'not_found' && lost ? <p className="text-sm font-semibold" style={{ margin: '0 0 4px' }} data-mic-lost>{strings.micLost}</p> : null}
         <p className="text-sm" style={{ margin: '0 0 8px' }}>{state === 'not_found' ? strings.micNotFound : strings.micBusy}</p>
         <button type="button" className="btn-ghost px-5 py-2.5 text-sm font-semibold" onClick={onRequest}>{strings.micRetry}</button>
       </>
