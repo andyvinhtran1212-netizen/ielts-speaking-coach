@@ -11,6 +11,8 @@ import {
   nonceEnforceEnabled,
   nonceReportOnlyEnabled,
   sameOriginFramePolicy,
+  SPEAKING_VIDEO_ROUTE,
+  youtubeEmbedPolicy,
 } from './tooling/content-security-policy.mjs';
 import {
   buildLegacyRetirementRedirects,
@@ -28,6 +30,9 @@ const LEGACY_RETIREMENT_REDIRECTS = buildLegacyRetirementRedirects(
 // inventory and the 'unsafe-inline' decision: docs/CONTENT_SECURITY_POLICY.md.
 const CONTENT_SECURITY_POLICY = buildContentSecurityPolicy(process.env);
 const SAME_ORIGIN_FRAME_POLICY = sameOriginFramePolicy(CONTENT_SECURITY_POLICY);
+// LIBRARY-0061 T013: the Speaking question page alone may load the YouTube
+// IFrame API and frame youtube-nocookie.com (docs/CONTENT_SECURITY_POLICY.md).
+const SPEAKING_VIDEO_POLICY = youtubeEmbedPolicy(CONTENT_SECURITY_POLICY);
 const EMBEDDABLE_SAME_ORIGIN_ROUTES = [
   '/core-player/launch',
   '/listening/test/session',
@@ -165,6 +170,11 @@ const nextConfig: NextConfig = {
             value: CONTENT_SECURITY_POLICY,
           },
         ],
+      },
+      {
+        // After '/:path*': for the same header key the last matching rule wins.
+        source: SPEAKING_VIDEO_ROUTE,
+        headers: [{ key: 'Content-Security-Policy', value: SPEAKING_VIDEO_POLICY }],
       },
       ...EMBEDDABLE_SAME_ORIGIN_ROUTES.map((source) => ({
         source,

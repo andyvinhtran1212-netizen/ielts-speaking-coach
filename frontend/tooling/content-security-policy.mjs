@@ -237,3 +237,31 @@ export const NONCE_SAME_ORIGIN_FRAME_ROUTES = Object.freeze([
 export function sameOriginFramePolicy(policy) {
   return policy.replace("frame-ancestors 'none'", "frame-ancestors 'self'");
 }
+
+// LIBRARY-0061 T013 (FR-032): a Speaking question page embeds its model-answer
+// video from YouTube in privacy-enhanced mode and reads the position through
+// the IFrame API (https://www.youtube.com/iframe_api, which loads
+// https://www.youtube.com/s/player/...). Only `/library/speaking/:slug` gets
+// these two sources (next.config.ts `headers()`); every other route keeps the
+// baseline. Self-hosted video needs nothing extra (media-src already has https:).
+export const SPEAKING_VIDEO_ROUTE = '/library/speaking/:slug';
+export const YOUTUBE_SCRIPT_SOURCE = 'https://www.youtube.com';
+export const YOUTUBE_FRAME_SOURCE = 'https://www.youtube-nocookie.com';
+
+/** The baseline policy plus the YouTube script and frame sources. */
+export function youtubeEmbedPolicy(policy) {
+  const entries = policy.split('; ').map((entry) => entry.split(' '));
+  const add = (name, source, base) => {
+    const entry = entries.find(([directive]) => directive === name);
+    if (entry) {
+      if (!entry.includes(source)) entry.push(source);
+      return;
+    }
+    // Insert before form-action, so the directive order stays stable.
+    const at = entries.findIndex(([directive]) => directive === 'form-action');
+    entries.splice(at < 0 ? entries.length : at, 0, [name, ...base, source]);
+  };
+  add('script-src', YOUTUBE_SCRIPT_SOURCE, ["'self'"]);
+  add('frame-src', YOUTUBE_FRAME_SOURCE, ["'self'"]);
+  return entries.map((entry) => entry.join(' ')).join('; ');
+}

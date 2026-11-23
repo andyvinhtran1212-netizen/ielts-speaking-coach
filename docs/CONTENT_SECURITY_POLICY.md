@@ -25,13 +25,13 @@ See [Report-Only nonce policy](#report-only-nonce-policy-sec-csp-nonce-step-1).
 | `base-uri`, `form-action` | `'self'` | same |
 | `object-src` | `'none'` | same |
 | `frame-ancestors` | `'none'`; `'self'` for the embeddable exam/Writing workspaces in `EMBEDDABLE_SAME_ORIGIN_ROUTES` | same |
-| `script-src` | `'self' 'unsafe-inline'` | adds `https://vercel.live` |
+| `script-src` | `'self' 'unsafe-inline'`; `/library/speaking/:slug` adds `https://www.youtube.com` | adds `https://vercel.live` |
 | `style-src` | `'self' 'unsafe-inline' https://fonts.googleapis.com` | adds `https://vercel.live` |
 | `font-src` | `'self' data: https://fonts.gstatic.com` | adds `https://vercel.live https://assets.vercel.com` |
 | `img-src` | `'self' data: blob: https:` | same (this also covers the toolbar's `vercel.live` / `vercel.com` images) |
 | `media-src` | `'self' blob: https:` | same |
 | `connect-src` | `'self'`, the production API, the production Supabase project | `'self'`, the staging API, the staging Supabase project, `https://vercel.live`, `wss://ws-us3.pusher.com` |
-| `frame-src` | not set (falls back to `default-src 'self'`) | `'self' https://vercel.live` |
+| `frame-src` | not set (falls back to `default-src 'self'`); `/library/speaking/:slug`: `'self' https://www.youtube-nocookie.com` | `'self' https://vercel.live`; that route adds `https://www.youtube-nocookie.com` |
 
 `'unsafe-eval'` is added only under `next dev` (`NODE_ENV=development`).
 
@@ -81,6 +81,28 @@ Fail-closed rules:
 - Local builds with no configuration (no `VERCEL_ENV`) keep the legacy browser
   behaviour: `http://localhost:8000` or the production API, plus the production
   Supabase project hardcoded in legacy page scripts.
+
+## Speaking question page: YouTube embed (LIBRARY-0061 T013)
+
+Security change, scoped to one route. `/library/speaking/:slug` shows a model
+answer video embedded from YouTube in privacy-enhanced mode and highlights the
+transcript line being spoken, which needs the YouTube IFrame API. For that route
+only, `next.config.ts` `headers()` sends `youtubeEmbedPolicy(baseline)`:
+
+- `script-src` adds `https://www.youtube.com` (the API loads
+  `https://www.youtube.com/iframe_api`, then `https://www.youtube.com/s/player/…`);
+- `frame-src` is `'self' https://www.youtube-nocookie.com` (plus the toolbar
+  sources on non-production builds). `https://www.youtube.com` is never a frame
+  source, so a cookie-setting embed cannot load.
+
+Every other directive is the baseline, `frame-ancestors` stays `'none'`, and the
+list page `/library/speaking` and every other route keep the baseline. The rule
+sits after `/:path*` because, for the same header key, the last matching rule
+wins. `/library` is not a nonce route, so `proxy.ts` never replaces this header.
+Self-hosted video needs no change (`media-src` already allows `https:`).
+Test: `post-migration-security-headers.test.mjs`. Rollback: remove the
+`SPEAKING_VIDEO_ROUTE` rule; the page then shows its "Không mở được video từ
+YouTube" state with a "Xem trên YouTube" link and an untimed transcript.
 
 ## Vercel Toolbar (BL-07)
 
