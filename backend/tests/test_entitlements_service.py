@@ -124,6 +124,17 @@ def test_has_course_access_ignores_expired_and_not_started(monkeypatch):
     assert ent.has_course_access("u", COURSE) is False
 
 
+def test_a_live_membership_still_opens_the_course_beside_an_ended_entitlement(monkeypatch):
+    """Codex P2 on #2571: ``build_access`` hides the derived membership row
+    once any entitlement names the course; the access check must not."""
+    for row in (_row(CLASS, expires=-1), _row(CLASS, starts=2, expires=40)):
+        _patch(monkeypatch, rows=[row], memberships=[COURSE])
+        assert ent.has_course_access("u", COURSE) is True
+        assert [i.source for i in ent.list_access("u") if i.course_id == COURSE] == [row["source"]]
+    _patch(monkeypatch, rows=[_row(CLASS, expires=-1)])
+    assert ent.has_course_access("u", COURSE) is False
+
+
 def test_resolve_review_mode(monkeypatch):
     _patch(monkeypatch, rows=[_row(ONLINE, credits_expire=30)])
     assert ent.resolve_review_mode("u", context={"writing_assignment_id": "w"}) == "legacy"
