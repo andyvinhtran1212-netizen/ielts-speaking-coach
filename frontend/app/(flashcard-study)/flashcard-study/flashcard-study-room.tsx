@@ -88,13 +88,30 @@ function Relation({ label, items }: { label: string; items: string[] }) {
 /**
  * The page keeps its own header and the site bar for the old branch; the room
  * has its own bar, so it hides them while it is shown and gives them back after.
+ * `hidden` alone is not enough: components.css sets `aver-chrome { display:
+ * block }`, which beats the attribute, so an inline `display: none` (important)
+ * does the hiding and the previous inline value is restored afterwards.
  */
 function useHidePageChrome() {
   useEffect(() => {
     const hidden = Array.from(document.querySelectorAll<HTMLElement>('aver-chrome, header.fcs-header'))
-      .filter((element) => !element.hidden);
-    hidden.forEach((element) => { element.hidden = true; });
-    return () => { hidden.forEach((element) => { element.hidden = false; }); };
+      .filter((element) => !element.hidden)
+      .map((element) => ({
+        element,
+        display: element.style.getPropertyValue('display'),
+        priority: element.style.getPropertyPriority('display'),
+      }));
+    hidden.forEach(({ element }) => {
+      element.hidden = true;
+      element.style.setProperty('display', 'none', 'important');
+    });
+    return () => {
+      hidden.forEach(({ element, display, priority }) => {
+        element.hidden = false;
+        if (display) element.style.setProperty('display', display, priority);
+        else element.style.removeProperty('display');
+      });
+    };
   }, []);
 }
 

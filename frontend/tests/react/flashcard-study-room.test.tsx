@@ -251,16 +251,26 @@ describe('flag off: the page as today', () => {
 });
 
 it('the room hides the page header and site bar while shown and gives them back', async () => {
+  // components.css gives the site bar `display: block`, which beats `hidden`.
+  const css = document.createElement('style');
+  css.textContent = 'aver-chrome { display: block; } .fcs-header { display: flex; }';
+  document.head.append(css);
   const chrome = document.createElement('aver-chrome');
   const header = document.createElement('header');
   header.className = 'fcs-header';
+  header.style.display = 'grid';
   document.body.prepend(chrome, header);
   const view = render(<FlashcardStudyPlayer />);
   await screen.findByText(/Thẻ 1 trên 2/);
   expect(chrome.hidden).toBe(true);
   expect(header.hidden).toBe(true);
+  expect(getComputedStyle(chrome).display).toBe('none');
+  expect(getComputedStyle(header).display).toBe('none');
   view.unmount();
   expect(chrome.hidden).toBe(false);
   expect(header.hidden).toBe(false);
-  chrome.remove(); header.remove();
+  expect(getComputedStyle(chrome).display).toBe('block');
+  expect(chrome.style.display).toBe('');
+  expect(header.style.display).toBe('grid');
+  chrome.remove(); header.remove(); css.remove();
 });
