@@ -1,14 +1,15 @@
 ---
 id: EXAMROOM-0066
 title: Learners take every timed test and practice in one exam room that saves visibly, asks before submitting and never loses work to a dropped connection or expired session
-status: draft
+status: approved
 risk: high
 owner: product
 ---
 
 # Một khung phòng thi chung cho mọi bài thi và bài luyện
 
-Status: **draft**. Soạn ngày 23/11/2026 theo nhiệm vụ G08-T01 của
+Status: **approved** (anh Andy, 23/11/2026 16:18 giờ VN; nguyên văn trong
+[`approval-decision.md`](approval-decision.md)). Soạn ngày 23/11/2026 theo nhiệm vụ G08-T01 của
 `docs/proposals/commercialization-2026-11/GOI-08-phong-thi-va-trinh-luyen.md`
 (spec S0 của gói; số 0066 lấy từ sổ ở `01-KE-HOACH-TONG.md` mục 6, đã kiểm còn
 trống trong `specs/` và trong các PR đang mở). Chưa dòng mã nào chạy theo spec
