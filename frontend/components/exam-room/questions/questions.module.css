@@ -20,7 +20,7 @@
   background: var(--av2-surface); color: var(--av2-ink);
   font: var(--av2-fw-regular) var(--av2-fs-16) / var(--av2-lh-tight) var(--av2-font-sans);
 }
-.gap:focus, .inlineSelect:focus { outline: none; border-width: var(--av2-rule-strong-w); border-color: var(--av2-ink); }
+.gap:focus-visible, .inlineSelect:focus-visible { outline: var(--av2-rule-strong-w) solid var(--av2-focus); outline-offset: var(--av2-focus-offset); }
 .gap:disabled, .inlineSelect:disabled { color: var(--av2-muted); cursor: not-allowed; }
 
 .bank { padding: var(--av2-space-5); border: var(--av2-rule-w) solid var(--av2-rule); border-radius: var(--av2-radius); background: var(--av2-tint); }
