@@ -19,7 +19,7 @@ import asyncio
 from typing import Literal, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Header, HTTPException, Query
+from fastapi import APIRouter, Header, HTTPException, Query, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from database import supabase_admin
@@ -49,7 +49,9 @@ class ReviewNoteIn(BaseModel):
     skill: Skill
     attempt_id: UUID
     q_num: int = Field(ge=1)
-    body: str = ""
+    # The 500-character rule is checked in the service so it answers 422
+    # note_too_long (FR-106); this only bounds the payload.
+    body: str = Field(default="", max_length=10_000)
 
 
 class ReviewNoteSavedOut(BaseModel):
@@ -97,10 +99,12 @@ def _save(body: ReviewNoteIn, user: dict) -> dict:
 
 @router.get("/review-notes", response_model=ReviewNotesOut)
 async def list_review_notes(
+    response: Response,
     skill: Skill = Query(...),
     attempt_id: UUID = Query(...),
     authorization: str | None = Header(default=None),
 ):
+    response.headers.update(_NO_STORE)
     user = await get_supabase_user(authorization)
     return await asyncio.to_thread(_list, skill, str(attempt_id), user)
 
@@ -108,7 +112,9 @@ async def list_review_notes(
 @router.put("/review-notes", response_model=ReviewNoteSavedOut)
 async def save_review_note(
     body: ReviewNoteIn,
+    response: Response,
     authorization: str | None = Header(default=None),
 ):
+    response.headers.update(_NO_STORE)
     user = await get_supabase_user(authorization)
     return await asyncio.to_thread(_save, body, user)

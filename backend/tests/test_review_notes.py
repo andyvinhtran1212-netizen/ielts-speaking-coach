@@ -177,12 +177,15 @@ def db(monkeypatch):
 
 
 def _put(skill="listening", attempt_id=A1, q_num=3, body="Nghe nhầm 'fifteen'", auth="Bearer user"):
+    from starlette.responses import Response
     payload = RN.ReviewNoteIn(skill=skill, attempt_id=attempt_id, q_num=q_num, body=body)
-    return asyncio.run(RN.save_review_note(payload, authorization=auth))
+    return asyncio.run(RN.save_review_note(payload, Response(), authorization=auth))
 
 
 def _get(skill="listening", attempt_id=A1, auth="Bearer user"):
-    return asyncio.run(RN.list_review_notes(skill=skill, attempt_id=uuid.UUID(attempt_id), authorization=auth))
+    from starlette.responses import Response
+    return asyncio.run(RN.list_review_notes(Response(), skill=skill, attempt_id=uuid.UUID(attempt_id),
+                                            authorization=auth))
 
 
 def _error(exc):
@@ -266,9 +269,12 @@ def test_the_routes_are_registered_behind_the_activation_gate():
 
 
 def test_note_bodies_are_never_logged():
-    for module in (RN, svc):
-        src = inspect.getsource(module)
-        assert "logger" not in src and "logging" not in src and "print(" not in src
+    src = inspect.getsource(RN)
+    assert "logger" not in src and "logging" not in src and "print(" not in src
+    # The service logs only the exception type of a failed flag read.
+    calls = [line.strip() for line in inspect.getsource(svc).splitlines() if "logger." in line]
+    assert calls == ['logger.warning("[review_notes] my_flagged_q_nums read failed: %s", type(exc).__name__)']
+    assert "print(" not in inspect.getsource(svc)
 
 
 # ── flag once per (attempt, question, sender) ─────────────────────────────
@@ -343,6 +349,38 @@ def test_my_flagged_q_nums_lists_only_the_callers_flags_on_that_attempt(db):
     assert svc.my_flagged_q_nums(db, attempt_id=A1, user_id=USER) == [2, 9]
     assert svc.my_flagged_q_nums(db, attempt_id=A_ANON, anon_id="anon-secret") == [1]
     assert svc.my_flagged_q_nums(db, attempt_id=A1) == []
+
+
+def test_my_flagged_q_nums_read_failure_degrades_to_empty(caplog):
+    class _Broken:
+        def table(self, _name):
+            raise RuntimeError("db down")
+
+    with caplog.at_level("WARNING"):
+        assert svc.my_flagged_q_nums(_Broken(), attempt_id=A1, user_id=USER) == []
+    assert "my_flagged_q_nums read failed" in caplog.text
+
+
+def test_review_notes_responses_are_private_and_the_payload_is_bounded(db, monkeypatch):
+    from fastapi.testclient import TestClient
+    from main import app
+    from main import require_active_learner
+
+    app.dependency_overrides[require_active_learner] = lambda: None
+    try:
+        client = TestClient(app)
+        headers = {"Authorization": "Bearer user"}
+        got = client.get(f"/api/review-notes?skill=listening&attempt_id={A1}", headers=headers)
+        assert got.status_code == 200 and got.headers["cache-control"] == "private, no-store"
+        put = client.put("/api/review-notes", headers=headers,
+                         json={"skill": "listening", "attempt_id": A1, "q_num": 3, "body": "ok"})
+        assert put.status_code == 200 and put.headers["cache-control"] == "private, no-store"
+        assert put.json()["body"] == "ok"
+        huge = client.put("/api/review-notes", headers=headers,
+                          json={"skill": "listening", "attempt_id": A1, "q_num": 3, "body": "x" * 10_001})
+        assert huge.status_code == 422
+    finally:
+        app.dependency_overrides.pop(require_active_learner, None)
 
 
 def test_both_review_routes_return_my_flagged_q_nums():

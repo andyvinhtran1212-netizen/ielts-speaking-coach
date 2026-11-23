@@ -12,8 +12,11 @@ is left out.
 """
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from typing import Any, Optional
+
+logger = logging.getLogger(__name__)
 
 NOTE_MAX_CHARS = 500
 SKILLS = ("listening", "reading")
@@ -92,12 +95,18 @@ def my_flagged_q_nums(db, *, attempt_id: str, user_id: Optional[str] = None,
                       anon_id: Optional[str] = None) -> list[int]:
     if not user_id and not anon_id:
         return []
-    query = (
-        db.table("user_feedback")
-        .select("q_num")
-        .eq("attempt_id", attempt_id)
-        .eq("type", "flag")
-    )
-    query = query.eq("created_by", user_id) if user_id else query.eq("anon_id", anon_id)
-    rows = query.execute().data or []
+    try:
+        query = (
+            db.table("user_feedback")
+            .select("q_num")
+            .eq("attempt_id", attempt_id)
+            .eq("type", "flag")
+        )
+        query = query.eq("created_by", user_id) if user_id else query.eq("anon_id", anon_id)
+        rows = query.execute().data or []
+    except Exception as exc:  # noqa: BLE001 - the 409 guard still holds
+        # The page only loses the early "Đã báo lỗi" label; POST /api/feedback
+        # still refuses a second flag with 409. Leave a trace, not the review.
+        logger.warning("[review_notes] my_flagged_q_nums read failed: %s", type(exc).__name__)
+        return []
     return sorted({r["q_num"] for r in rows if isinstance(r.get("q_num"), int)})

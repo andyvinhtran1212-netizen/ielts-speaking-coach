@@ -375,6 +375,9 @@ async def submit_feedback(
             })
         if "uq_feedback_flag_user" in msg or "uq_feedback_flag_anon" in msg:
             raise _already_flagged() from None
+        if body.type == "flag" and body.attempt_id and ("duplicate key" in msg or "23505" in msg):
+            # A unique violation on an attempt flag can only be a 421 index.
+            raise _already_flagged() from None
         if "uq_feedback_rating" in msg or "duplicate key" in msg or "23505" in msg:
             raise HTTPException(409, "Bạn đã đánh giá đề này rồi.")
         logger.error("[feedback] insert failed: %s", exc, exc_info=True)
