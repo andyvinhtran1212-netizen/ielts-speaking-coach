@@ -122,7 +122,7 @@ def test_flag_off_refuses_every_route_and_falls_back_for_the_monitor(db):
         with pytest.raises(aud.AudienceError) as e:
             call()
         assert e.value.code == "audiences_disabled" and e.value.status == 409
-    assert aud.expected_roster(_exam(db)) is None
+    assert aud.expected_roster(_exam(db)) == (None, "legacy")
     assert db.writes == []
 
 
@@ -263,9 +263,10 @@ def test_published_self_paced_change_without_window_is_refused_before_writing(db
 
 
 def test_monitor_roster_from_audiences_keys_like_the_old_roster(db):
-    assert aud.expected_roster(_exam(db)) is None              # no rows yet → old roster
+    assert aud.expected_roster(_exam(db)) == (None, "legacy")  # no rows yet → old roster
     aud.update_audience(EXAM, {"add_cohort_ids": [COH_A, COH_B]}, A1)
-    roster = aud.expected_roster(_exam(db))
+    roster, source = aud.expected_roster(_exam(db))
+    assert source == "audiences"
     assert set(roster) == {A1, A2, A3}                         # S4 unselected (no account)
     assert roster[A1] == {"user_id": A1, "name": "An", "skills": ["listening", "reading"],
                           "open_until": None}
@@ -344,3 +345,68 @@ def test_router_maps_audience_errors_to_their_status(admin, db):
         asyncio.run(admin.update_audience(EXAM, admin.AudiencePatch(add_group_ids=[U(1)]),
                                           authorization="x"))
     assert e.value.status_code == 422 and e.value.detail["code"] == "groups_unavailable"
+
+
+def test_monitor_says_when_the_audience_read_failed(db, monkeypatch):
+    """CR R2: a failed read falls back to the old roster but is labelled."""
+    aud.update_audience(EXAM, {"add_cohort_ids": [COH_A]}, A1)
+    monkeypatch.setattr(aud, "_rows", lambda _id: (_ for _ in ()).throw(RuntimeError("db down")))
+    assert aud.expected_roster(_exam(db)) == (None, "fallback_error")
+    monkeypatch.setattr(exam_svc, "_legacy_roster", lambda exam: {"legacy": {}})
+    assert exam_svc._roster_with_source(_exam(db)) == ({"legacy": {}}, "fallback_error")
+
+
+def _published_self_paced(db, monkeypatch):
+    _exam(db).update({"exam_mode": "self_paced", "status": "published"})
+    calls = {"assign": [], "remove": []}
+    monkeypatch.setattr(aud.assign_svc, "assign",
+                        lambda eid, rows, created_by: calls["assign"].append(rows) or {})
+    monkeypatch.setattr(aud.assign_svc, "remove",
+                        lambda eid, uid, admin_id=None: calls["remove"].append(uid) or {})
+    window = {"open_from": "2026-12-01T00:00:00Z", "open_until": "2026-12-03T00:00:00Z"}
+    return calls, window
+
+
+def test_mirror_io_failure_reports_mirror_failed_with_the_stored_list(db, monkeypatch):
+    calls, window = _published_self_paced(db, monkeypatch)
+
+    def boom(*_a, **_k):
+        raise RuntimeError("connection reset")
+    monkeypatch.setattr(aud.assign_svc, "assign", boom)
+    out = aud.update_audience(EXAM, {"add_cohort_ids": [COH_A], "window": window}, A1)
+    assert out["mirror_failed"] is True and len(out["items"]) == 3
+    monkeypatch.setattr(aud.assign_svc, "assign", lambda *a, **k: {})
+    assert aud.update_audience(EXAM, {"window": window}, A1)["mirror_failed"] is False
+
+
+def test_mirror_rules_are_checked_before_any_write(db, monkeypatch):
+    """CR R2: assign()'s refusals (window, unservable skill) run before writing."""
+    calls, window = _published_self_paced(db, monkeypatch)
+    _exam(db)["reading_test_id"] = None               # reading can no longer be served
+    writes = len(db.writes)
+    with pytest.raises(aud.AudienceError) as e:
+        aud.update_audience(EXAM, {"add_cohort_ids": [COH_A], "window": window}, A1)
+    assert e.value.code == "skill_not_servable"
+    _exam(db)["reading_test_id"] = U(701)
+    with pytest.raises(aud.AudienceError) as e:
+        aud.update_audience(EXAM, {"add_cohort_ids": [COH_A],
+                                   "window": {"open_from": "2026-12-01T00:00:00Z"}}, A1)
+    assert e.value.code == "window_required"
+    assert len(db.writes) == writes and calls["assign"] == []
+
+
+def test_emptying_assignable_skills_unassigns_that_learner(db, monkeypatch):
+    calls, window = _published_self_paced(db, monkeypatch)
+    _exam(db)["skills"] = ["listening", "speaking"]
+    aud.update_audience(EXAM, {"add_cohort_ids": [COH_A], "window": window}, A1)
+    aud.update_audience(EXAM, {"set": [{"user_id": A1, "skills": ["speaking"]}]}, A1)
+    assert calls["remove"] == [A1]
+    assert {r["user_id"] for r in calls["assign"][-1]} == {A2}
+
+
+def test_window_writes_only_the_bounds_sent(db):
+    aud.update_audience(EXAM, {"add_cohort_ids": [COH_A],
+                               "window": {"open_until": "2026-12-03T00:00:00Z"}}, A1)
+    out = aud.update_audience(EXAM, {"window": {"open_from": "2026-12-01T00:00:00Z"}}, A1)
+    assert {(i["open_from"], i["open_until"]) for i in out["items"]} == {
+        ("2026-12-01T00:00:00Z", "2026-12-03T00:00:00Z")}
