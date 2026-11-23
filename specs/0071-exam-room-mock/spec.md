@@ -80,7 +80,7 @@ chiếu ở `verification.md`.
   trong khung, phần kết thúc khi hết giờ hoặc giám thị thu.
 - Học viên của kỳ `self_paced` (sau G09-T31): tự bấm bắt đầu trong khoảng mở, các phần chạy liền
   nhau theo mốc máy chủ, không nghỉ giữa các phần.
-- Học viên rời giữa chừng: hộp "Leave the test?", đồng hồ vẫn chạy, quay lại vào đúng phần.
+- Học viên rời giữa chừng: hộp "Leave this test?", đồng hồ vẫn chạy, quay lại vào đúng phần.
 - Học viên mất mạng hoặc hết phiên: dải mất mạng, hộp đăng nhập lại, bài không mất.
 
 ## Requirements
@@ -143,7 +143,7 @@ chiếu ở `verification.md`.
     `*SubmittedAt` của máy chủ; không hiện màn trạng thái nộp và không thành `closed_unconfirmed`
     chỉ vì tab mới không có bằng chứng flush.
   - 403/404: giữ thông điệp hiện có ("Contact your invigilator."), không thêm thử lại.
-- **FR-008:** Lối thoát (FR-08-011): "Leave test" mở hộp "Leave the test?" với "Continue test"
+- **FR-008:** Lối thoát (FR-08-011): "Leave test" mở hộp "Leave this test?" với "Stay in test"
   (chính) và "Leave test", câu "Your answers so far are saved. The timer keeps running while
   you are away." **Không có "Abandon test"** (kỳ thi được giao). Trước khi rời: flush phần đang
   làm (Writing qua `writingBridge.flush`, Reading/Listening qua `mock-flush`); còn câu chưa lưu
@@ -152,7 +152,7 @@ chiếu ở `verification.md`.
   máy chủ.
 - **FR-009:** Thu bài của giám thị: trong lúc chờ `flush-ack`, khung khoá thân bài (`inert` như
   hôm nay) và hiện "Saving your final answers…"; không mở hộp nào chặn. Hộp đang mở (ví dụ
-  "Leave the test?") khi giám thị thu thì tự đóng rồi chuyển sang "Saving your final answers…";
+  "Leave this test?") khi giám thị thu thì tự đóng rồi chuyển sang "Saving your final answers…";
   lối thoát không tiếp tục điều hướng trong lúc thu.
 - **FR-010:** Bản sao Writing theo 0066 FR-035, khoá
   `exam-room:local-copy:mock:{ownerKey}:{sittingId}`, mỗi task có `baseText` (đúng chữ máy chủ
