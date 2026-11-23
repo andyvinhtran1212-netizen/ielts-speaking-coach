@@ -24,12 +24,23 @@ import {
 } from '@/lib/admin-learner-profile-model.mjs';
 
 type Banner = { kind: 'success' | 'error'; text: string };
+// Every pick and every open confirm is bound to the profile it was made on:
+// the admin, the learner ref, the account and the learner profile id. If the
+// profile changes on the same instance (client navigation, or a reload that
+// answers another person), the old pick and the old dialog no longer apply.
 type Pending =
-  | { kind: 'role'; to: string }
-  | { kind: 'remove'; cohortId: string; cohortName: string }
+  | { ctx: string; kind: 'role'; userId: string; from: string | null; to: string; name: string }
+  | { ctx: string; kind: 'remove'; studentId: string; cohortId: string; cohortName: string; name: string }
   | null;
 
-export function LearnerAccessTab({ detail, reloadKey = 0, onChanged }: {
+/** The identity a pick or a confirm belongs to. */
+export function accessContext(adminId: string | null | undefined, learnerRef: string, detail: LearnerDetailWire): string {
+  return JSON.stringify([adminId ?? '', learnerRef, detail.canonical_ref ?? detail.ref ?? '', detail.account?.user_id ?? '', detail.student_id ?? '']);
+}
+
+export function LearnerAccessTab({ learnerRef, detail, reloadKey = 0, onChanged }: {
+  /** The ref the page is on now (it changes before the new profile is read). */
+  learnerRef: string;
   detail: LearnerDetailWire;
   /** Changes after a write elsewhere on the profile (a grant): read access again. */
   reloadKey?: number;
@@ -42,17 +53,28 @@ export function LearnerAccessTab({ detail, reloadKey = 0, onChanged }: {
   const cohorts = Array.isArray(detail.summary.cohorts) ? detail.summary.cohorts : null;
   const blocked = roleChangeBlocked(account, profile.id);
   const currentRole = account?.role === 'user' ? 'student' : (account?.role ?? 'student');
-  // The pick is kept with the role it was made against, so a reload that
-  // changes the server's role starts the select again from that role. Derived
-  // in render, not reset in an effect: a late mount effect could otherwise
-  // overwrite a pick the admin had already made.
-  const [choice, setChoice] = useState<{ from: string; to: string } | null>(null);
-  const nextRole = choice && choice.from === currentRole ? choice.to : currentRole;
-  const setNextRole = (to: string) => setChoice({ from: currentRole, to });
-  const [pending, setPending] = useState<Pending>(null);
+  const ctx = accessContext(profile.id, learnerRef, detail);
+  const ctxRef = useRef(ctx);
+  ctxRef.current = ctx;
+  // The pick is kept with the profile and the role it was made against, so a
+  // reload that changes the server's role, or another profile, starts the
+  // select again from the server's role. Derived in render, not reset in an
+  // effect: a late mount effect could otherwise overwrite a pick already made.
+  const [choice, setChoice] = useState<{ ctx: string; from: string; to: string } | null>(null);
+  const nextRole = choice && choice.ctx === ctx && choice.from === currentRole ? choice.to : currentRole;
+  const setNextRole = (to: string) => setChoice({ ctx, from: currentRole, to });
+  const [stored, setPending] = useState<Pending>(null);
+  // A confirm opened on another profile is not shown and cannot be sent.
+  const pending = stored && stored.ctx === ctx ? stored : null;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  // Drop them for good on a change of profile, so coming back to the first
+  // profile does not bring an old pick or an old dialog back (state adjusted
+  // during render, React's pattern for a prop change).
+  if (stored && stored.ctx !== ctx) { setPending(null); setError(''); }
+  if (choice && choice.ctx !== ctx) setChoice(null);
 
+  const open = (next: NonNullable<Pending>) => { setError(''); setPending(next); };
   const close = () => { if (!busy) { setPending(null); setError(''); } };
 
   // G04 course access (FR-046): which entitlements in force can be revoked.
@@ -81,23 +103,31 @@ export function LearnerAccessTab({ detail, reloadKey = 0, onChanged }: {
   }, [userId, accessTick, reloadKey]);
 
   const confirm = async () => {
-    if (!pending) return;
+    const sent = pending;
+    if (!sent || sent.ctx !== ctxRef.current) return;
+    // The answer belongs to the profile the confirm was opened on; after a
+    // change of profile it is dropped (no banner, no error, no reload of the
+    // new profile with the old result).
+    const current = () => ctxRef.current === sent.ctx;
     setBusy(true);
     setError('');
     try {
-      if (pending.kind === 'role' && account) {
-        const out = await changeUserRole(account.user_id, pending.to);
+      if (sent.kind === 'role') {
+        const out = await changeUserRole(sent.userId, sent.to);
+        if (!current()) return;
         setPending(null);
-        await onChanged(roleResultText(out, pending.to));
-      } else if (pending.kind === 'remove' && detail.student_id) {
-        await removeFromCohort(pending.cohortId, detail.student_id);
+        await onChanged(roleResultText(out, sent.to));
+      } else {
+        await removeFromCohort(sent.cohortId, sent.studentId);
+        if (!current()) return;
         setPending(null);
-        await onChanged({ kind: 'success', text: `Đã gỡ ${name} khỏi lớp ${pending.cohortName}.` });
+        await onChanged({ kind: 'success', text: `Đã gỡ ${sent.name} khỏi lớp ${sent.cohortName}.` });
       }
     } catch (caught) {
+      if (!current()) return;
       // The dialog stays open with the reason; the profile is reloaded in
       // case a request whose answer was lost still committed.
-      setError(pending.kind === 'role' ? roleErrorText(caught) : `Chưa gỡ được khỏi lớp: ${messageOf(caught)}`);
+      setError(sent.kind === 'role' ? roleErrorText(caught) : `Chưa gỡ được khỏi lớp: ${messageOf(caught)}`);
       void onChanged(null);
     } finally {
       setBusy(false);
@@ -121,7 +151,7 @@ export function LearnerAccessTab({ detail, reloadKey = 0, onChanged }: {
               </select>
             </label>
             <button type="button" className="adm-btn-secondary" disabled={busy || sameRole}
-              onClick={() => setPending({ kind: 'role', to: nextRole })}>Đổi vai trò</button>
+              onClick={() => { if (account) open({ ctx, kind: 'role', userId: account.user_id, from: account.role, to: nextRole, name }); }}>Đổi vai trò</button>
           </div>
         )}
       </section>
@@ -166,7 +196,7 @@ export function LearnerAccessTab({ detail, reloadKey = 0, onChanged }: {
                 const label = c.name || 'Lớp không tên';
                 return (
                   <button key={c.id} type="button" className="adm-btn-secondary" disabled={busy}
-                    onClick={() => setPending({ kind: 'remove', cohortId: c.id, cohortName: label })}>Gỡ khỏi {label}</button>
+                    onClick={() => { if (detail.student_id) open({ ctx, kind: 'remove', studentId: detail.student_id, cohortId: c.id, cohortName: label, name }); }}>Gỡ khỏi {label}</button>
                 );
               })}
             </div>
@@ -212,8 +242,8 @@ export function LearnerAccessTab({ detail, reloadKey = 0, onChanged }: {
         )}
       >
         <p>
-          {pending?.kind === 'role' && account ? roleConfirmText(name, account.role, pending.to) : null}
-          {pending?.kind === 'remove' ? removeConfirmText(name, pending.cohortName) : null}
+          {pending?.kind === 'role' ? roleConfirmText(pending.name, pending.from, pending.to) : null}
+          {pending?.kind === 'remove' ? removeConfirmText(pending.name, pending.cohortName) : null}
         </p>
         {error ? <p className="la-warning" role="alert">{error}</p> : null}
       </Dialog>
