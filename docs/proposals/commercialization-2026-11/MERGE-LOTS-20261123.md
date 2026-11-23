@@ -980,7 +980,7 @@ Nguyên tắc: chỉ nên gộp khi các PR cùng mã nhiệm vụ, nối thẳn
 ## Chưa kiểm được trong bảng này
 - **Đối chiếu migration (mục 5):** xem `team/queue/MIGRATION-AUDIT-20261123.md` (thread 2zft, 13:45Z). Đã đưa vào bảng: 445 có hai bản (#2581, #2589, #2616 mang bản cũ, phải đi sau #2565 và merge staging vào); 504/505 xung đột sổ giữa #2554 và #2600/#2624; #2620 dựng lại sau #2554. Ngoài 6 số của #2450 (383, 384, 400, 440, 441, 452), mọi số khác mới chỉ có file, **chưa áp trên staging**. 453 chưa có PR giữ chỗ.
 - **Kế hoạch 6 migration của #2450** trên production: thread 6ygN làm mục 6.
-- Đầu vào chuỗi G04 (`lots-input-g04.md`, JMUK) và G07 (`lots-input-g07.md`, 28pc) chưa có lúc lập bảng. Chuỗi trong bảng dựng từ base nhánh và câu "stacked on/sau #N" trong body PR, nên có thể thiếu phụ thuộc chỉ ghi ở nơi khác.
+- Đầu vào chuỗi G04 (`lots-input-g04.md`, thread j1tkzb, 13:38Z) đã đối chiếu: merge lần lượt, không gộp; #2526 phải merge `staging` vào sau khi #2485 vào (chưa có `3c9f9f24`); #2624 rẽ từ #2550, chờ anh quyết thread 505; 385/387 (#2585) và 505 (#2624) chỉ có file. Đầu vào G07 (`lots-input-g07.md`, 28pc) chưa có lúc lập bảng. Chuỗi trong bảng dựng từ base nhánh và câu "stacked on/sau #N" trong body PR, nên có thể thiếu phụ thuộc chỉ ghi ở nơi khác.
 - CI: phần lớn head mới đẩy 13:16Z trở đi còn `queued`. "Xanh" ở bảng là trạng thái lúc quét; trước "merge lô N" phải kiểm lại trên đúng head.
 - Mức rủi ro dựng từ đường dẫn file, chưa đọc từng diff; một PR chỉ đổi CSS trong thư mục `credits` vẫn bị xếp mức 5. Cờ "sau cờ tắt" dựa vào lời PR, chưa kiểm mã.
 - `mergeable_state` của GitHub có thể báo xung đột muộn với dòng `.tsv` sổ migration; kiểm lại ngay trước merge.
