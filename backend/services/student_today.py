@@ -3,7 +3,12 @@
     GET  /api/student/today        -> get_today_concurrent(...)
     POST /api/student/today/seen   -> advance_seen_cursor(...)
 
-Read-only except the seen cursor. Every query filters explicitly by the
+GET writes nothing of its own; POST writes only the caller's seen cursor.
+The one write GET can trigger is the ledger reconcile that
+routers.class_student._visible_assignments already performs for every caller
+of /api/class/my-assignments (reconcile_test_attempts, reconcile_course_items).
+That exception is FR-078 as amended by 0063 amendment 3 (#2484), so #2484
+merges before this module. Every query filters explicitly by the
 caller (`user_id` / `student_id`), runs on the service role like
 services/student_home_aggregator, and each part runs in its own worker thread.
 A part that raises lands in `degraded` and keeps its empty default; a source
@@ -78,19 +83,25 @@ def _launch(surface: str, **query: str) -> str:
 
 def _visible_assignments_for(user_id: str, account_name: str, now: datetime):
     """Thin wrapper over routers.class_student (unchanged): returns
-    (has_class, rows). Imported here to avoid an import cycle."""
+    (has_class, rows, stale). Imported here to avoid an import cycle. `stale`
+    is the router's own flag (a ledger refresh or the Writing lookup failed);
+    the page then marks `assigned` degraded, as /api/class/me sets
+    homework_stale.
+
+    _visible_assignments reconciles the class ledger as it reads (the FR-078
+    exception of amendment 3, #2484); nothing else in this module writes."""
     from routers.class_student import _student_for_user, _visible_assignments
     from services.class_archive_service import active_cohort_ids_for_student
     from database import supabase_admin
 
     student = _student_for_user(user_id, account_name)
     if not student:
-        return False, []
+        return False, [], False
     cohort_ids = active_cohort_ids_for_student(supabase_admin, student)
     if not cohort_ids:
-        return False, []
-    rows, _stale = _visible_assignments(student, now, cohort_ids)
-    return True, rows
+        return False, [], False
+    rows, stale = _visible_assignments(student, now, cohort_ids)
+    return True, rows, bool(stale)
 
 
 def build_assigned(rows: List[Dict[str, Any]], now: datetime) -> Dict[str, Any]:
@@ -134,6 +145,13 @@ def _titles(sb, table: str, ids: List[str]) -> Dict[str, str]:
     return {str(r["id"]): r.get("title") or "" for r in rows}
 
 
+def _reading_codes(sb, ids: List[str]) -> Dict[str, str]:
+    if not ids:
+        return {}
+    rows = sb.table("reading_tests").select("id, test_id").in_("id", ids).execute().data or []
+    return {str(r["id"]): str(r["test_id"]) for r in rows if r.get("test_id")}
+
+
 def build_resume(sb, user_id: str, now: datetime) -> List[Dict[str, Any]]:
     items: List[Dict[str, Any]] = []
     for kind, table, extra in _RESUME_SOURCES:
@@ -155,7 +173,12 @@ def build_resume(sb, user_id: str, now: datetime) -> List[Dict[str, Any]]:
                                           _launch("speaking", session_id=str(r["id"]))))
             continue
         tests_table = "reading_tests" if kind == "reading" else "listening_tests"
-        titles = _titles(sb, tests_table, sorted({str(r["test_id"]) for r in rows if r.get("test_id")}))
+        test_ids = sorted({str(r["test_id"]) for r in rows if r.get("test_id")})
+        titles = _titles(sb, tests_table, test_ids)
+        # reading_test_attempts.test_id is the reading_tests row UUID, but the
+        # reading player resolves ?test_id= against reading_tests.test_id (the
+        # public code, mig 086), as class_student's start route does.
+        codes = _reading_codes(sb, test_ids) if kind == "reading" else {}
         for r in rows:
             test_id = str(r.get("test_id") or "")
             if not test_id:
@@ -163,7 +186,10 @@ def build_resume(sb, user_id: str, now: datetime) -> List[Dict[str, Any]]:
             title = titles.get(test_id) or {"reading": "Bài Reading", "listening": "Bài Listening",
                                             "dictation": "Chép chính tả"}[kind]
             if kind == "reading":
-                href = _launch("reading_exam", test_id=test_id)
+                code = codes.get(test_id)
+                if not code:
+                    continue  # no live paper to resume into: never a 404 link
+                href = _launch("reading_exam", test_id=code)
             elif kind == "listening":
                 href = _launch("listening_test", id=test_id)
             else:
@@ -298,7 +324,12 @@ def _quoted(value: str) -> str:
 def advance_seen_cursor(sb, user_id: str, seen_until: datetime, seen_key: str) -> None:
     """One conditional UPDATE of the caller's own row: the cursor only moves
     forward in tuple order (today_seen_at, coalesce(today_seen_key, ''));
-    an older or equal pair is a no-op, so the call is idempotent."""
+    an older or equal pair is a no-op, so the call is idempotent.
+
+    Python orders seen_key by code point while PostgREST `lt` uses the DB
+    collation. For keys of the form `speaking:<uuid>` / `writing:<uuid>` both
+    give the same order: the prefixes differ at the first letter and a uuid
+    has `-` at fixed positions, so no collation rule can reorder two keys."""
     at = _quoted(_iso(seen_until))
     key = _quoted(seen_key)
     (
@@ -440,7 +471,11 @@ def assemble_today(results: Dict[str, Any], *, user_id: str, name: str,
             return default
         return value
 
-    has_class, rows = take("assigned", (False, []))
+    has_class, rows, assigned_stale = take("assigned", (False, [], False))
+    if assigned_stale and "assigned" not in degraded:
+        # The rows may carry provisional labels; the block shows its own
+        # degraded state instead of passing them off as current (FR-026).
+        degraded.append("assigned")
     assigned = build_assigned(rows, now)
     access = _access_for(user_id)
     credits = _credits_for(user_id)
