@@ -57,7 +57,7 @@
 }
 .separator:hover,
 .separator:focus-visible { background: var(--av2-rule); }
-.separator:focus-visible { outline: var(--av2-rule-strong-w) solid var(--av2-focus); outline-offset: calc(-1 * var(--av2-rule-strong-w)); }
+.separator:focus-visible { outline: var(--av2-focus); outline-offset: calc(-1 * var(--av2-rule-strong-w)); }
 
 /* ---- tabs below 900px (FR-005) ------------------------------------- */
 .tabsLayout { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
@@ -78,7 +78,7 @@
   cursor: pointer;
 }
 .paneTab[aria-selected='true'] { color: var(--av2-ink); border-bottom-color: var(--av2-ink); }
-.paneTab:focus-visible { outline: var(--av2-rule-strong-w) solid var(--av2-focus); outline-offset: calc(-1 * var(--av2-rule-strong-w)); }
+.paneTab:focus-visible { outline: var(--av2-focus); outline-offset: calc(-1 * var(--av2-rule-strong-w)); }
 .tabsLayout > .pane { flex: 1 1 auto; }
 .tabsLayout > .pane[hidden] { display: none; }
 .single { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: var(--av2-space-7); }
@@ -97,7 +97,7 @@
   text-decoration: underline;
   cursor: pointer;
 }
-.textButton:focus-visible { outline: var(--av2-rule-strong-w) solid var(--av2-focus); outline-offset: var(--av2-focus-offset); }
+.textButton:focus-visible { outline: var(--av2-focus); outline-offset: var(--av2-focus-offset); }
 .fiveLeft { font-weight: var(--av2-fw-strong); }
 .srOnly {
   position: absolute;
@@ -155,7 +155,7 @@
   border-color: transparent var(--av2-mark) transparent transparent;
 }
 .cell[data-flagged] { border-bottom: var(--av2-rule-strong-w) solid var(--av2-mark); }
-.cell[aria-current='true'] { outline: 3px solid var(--av2-focus); outline-offset: 1px; z-index: 1; }
+.cell[aria-current='true'] { outline: var(--av2-focus); outline-offset: 1px; z-index: 1; }
 .cell[data-unsaved]::before {
   content: '';
   position: absolute;
@@ -166,7 +166,7 @@
   border-radius: 50%;
   background: var(--av2-danger);
 }
-.cell:focus-visible, .chip:focus-visible { outline: var(--av2-rule-strong-w) solid var(--av2-focus); outline-offset: var(--av2-focus-offset); }
+.cell:focus-visible, .chip:focus-visible { outline: var(--av2-focus); outline-offset: var(--av2-focus-offset); }
 .answeredText { font-size: var(--av2-fs-13); color: var(--av2-muted); white-space: nowrap; }
 
 /* Compact bar below 1024px: previous / position / next / Review. */
