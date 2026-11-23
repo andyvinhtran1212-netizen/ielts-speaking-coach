@@ -3,15 +3,16 @@
 // EXAMMOCK-0071 T002 (G08-T16): the exam-room branch of the mock runner. It only
 // draws: every request, the clock, collection and submit stay in
 // mock-exam-runner.tsx and arrive here as state and callbacks (FR-002).
-import type { ReactNode, RefObject } from 'react';
+import { useCallback, useEffect, useState, type ReactNode, type RefObject } from 'react';
 
 import { ExamRoomShell } from '@/components/exam-room/exam-room-shell';
-import type { ExamRoomSubmitOutcome } from '@/components/exam-room/types';
+import type { ExamRoomSaveStatus, ExamRoomSubmitOutcome } from '@/components/exam-room/types';
 import { Button } from '@/components/ui/button';
 import { Notice } from '@/components/ui/notice';
 import { PageState } from '@/components/ui/page-state';
+import { clearLocalCopy } from '@/lib/exam-room/local-copy.mjs';
 import { clockTime } from '@/lib/exam-room/submit-guard.mjs';
-import { configuredMockSections, submittedAtFor } from '@/lib/mock-exam-model.mjs';
+import { configuredMockSections, mockWordCount, submittedAtFor } from '@/lib/mock-exam-model.mjs';
 
 import type { ConnectionState, MockState, Section } from './mock-exam-runner';
 
@@ -49,8 +50,17 @@ export interface MockExamRoomProps {
   timerLive: boolean;
   frameSrc: string | null;
   frameRef: RefObject<HTMLIFrameElement | null>;
-  writing: ReactNode;
+  /** The Writing room; it reports its save state for the frame's status line (FR-006). */
+  renderWriting(onSaveStatus: (status: ExamRoomSaveStatus) => void): ReactNode;
   capture: ReactNode;
+  /** FR-012: `expired` after a 401 seen with `noRedirect`. */
+  session: 'active' | 'expired';
+  /** FR-010: writes the Writing boxes and reads them back; true when held. */
+  saveLocalCopy(): boolean;
+  /** FR-013: this tab holds the write right of the sitting. */
+  canWrite: boolean;
+  onWriteRightChange(canWrite: boolean): void;
+  reloadFromServer(): Promise<unknown>;
   starting: Section | null;
   startError: string | null;
   onStart(section: Section): void;
@@ -99,6 +109,10 @@ export const MOCK_ROOM_COPY = {
   cancelled: { en: 'This test has been cancelled. Contact your examiner for a new attempt.', vi: 'Lượt thi này đã bị huỷ. Hãy liên hệ giám khảo để được cấp lượt mới.' },
   error: { en: 'Unable to open the test', vi: 'Không mở được bài thi.' },
   unavailable: { en: 'Content for this section is unavailable. Contact your invigilator.', vi: 'Chưa mở được nội dung phần này. Hãy báo giám thị.' },
+  otherTab: { en: 'This test is open in another tab. Continue there, or take over from the notice above.', vi: 'Bài thi đang mở ở một tab khác. Bạn làm tiếp ở tab đó, hoặc giành quyền ở dòng thông báo phía trên.' },
+  signIn: { en: 'Your session has expired. Sign in again to continue the test.', vi: 'Phiên đăng nhập đã hết. Bạn đăng nhập lại để làm tiếp.' },
+  writingDone: 'Time is up. Your test has been submitted.',
+  writingCounts: (t1: number, t2: number) => `Task 1: ${t1} words · Task 2: ${t2} words`,
 } as const;
 
 function Vi({ children }: { children: string }) {
@@ -154,8 +168,42 @@ function shellOutcome(outcome: MockRoomOutcome | null, section: Section | null):
   return outcome.outcome;
 }
 
+function returnHere() {
+  return typeof window === 'undefined' ? '/mock-exam' : `${window.location.pathname}${window.location.search}`;
+}
+
+function SignInNotice() {
+  return (
+    <Notice kind="warning" lang="en" live="alert" action={<Button href={`/login?next=${encodeURIComponent(returnHere())}`}>Sign in again</Button>}>
+      {MOCK_ROOM_COPY.signIn.en}<Vi>{MOCK_ROOM_COPY.signIn.vi}</Vi>
+    </Notice>
+  );
+}
+
+/** FR-006: only after the server confirmed the Writing submit, with each task's word count. */
+function WritingConfirmed({ state, outcome }: { state: MockState; outcome: MockRoomOutcome | null }) {
+  if (!outcome || outcome.section !== 'writing' || outcome.outcome !== 'confirmed') return null;
+  const w = state.sitting.writingSubmission;
+  return (
+    <Notice kind="success" lang="en">
+      {MOCK_ROOM_COPY.writingDone} {MOCK_ROOM_COPY.writingCounts(mockWordCount(w.task1.text || ''), mockWordCount(w.task2.text || ''))}
+    </Notice>
+  );
+}
+
 export function MockExamRoom(props: MockExamRoomProps) {
   const { state, view, outcome } = props;
+  const [writingSave, setWritingSave] = useState<ExamRoomSaveStatus>({ state: 'idle' });
+  const onWritingSave = useCallback((status: ExamRoomSaveStatus) => setWritingSave(status), []);
+  // FR-010: the Writing copy goes once the server holds the Writing submit.
+  const sittingId = state?.sitting.id;
+  const writingSubmittedAt = state?.sitting.writingSubmittedAt;
+  useEffect(() => {
+    if (!sittingId || !writingSubmittedAt || !props.ownerKey) return;
+    let storage: Storage | null = null;
+    try { storage = window.localStorage; } catch { storage = null; }
+    clearLocalCopy(storage, { surface: 'mock', ownerKey: props.ownerKey, attemptKey: sittingId });
+  }, [props.ownerKey, sittingId, writingSubmittedAt]);
 
   if (props.loading) return <Screen><PageState kind="loading" title="Loading the test" /></Screen>;
   if (props.fatal) {
@@ -192,7 +240,9 @@ export function MockExamRoom(props: MockExamRoomProps) {
         <section className="me-card me-status-card">
           <h1 className="me-h1">{`${retake ? 'Retake' : MOCK_ROOM_COPY.titlePrefix} · ${examName}`}</h1>
           {props.connection ? <Notice kind="warning" lang="en">{MOCK_ROOM_COPY.connection[props.connection]}</Notice> : null}
+          {props.session === 'expired' ? <SignInNotice /> : null}
           <ClosedNotice outcome={outcome} />
+          <WritingConfirmed state={state} outcome={outcome} />
           {props.startError ? <Notice kind="error" lang="en" live="alert">{props.startError}</Notice> : null}
           <p className="me-muted" role="status">{message.en}<Vi>{message.vi}</Vi></p>
           <MockSectionStrip state={state} current={null} />
@@ -222,7 +272,9 @@ export function MockExamRoom(props: MockExamRoomProps) {
       <Screen>
         <section className="me-card me-status-card">
           <h1 className="me-h1">{MOCK_ROOM_COPY.collected.en}<Vi>{MOCK_ROOM_COPY.collected.vi}</Vi></h1>
+          {props.session === 'expired' ? <SignInNotice /> : null}
           <ClosedNotice outcome={outcome} />
+          <WritingConfirmed state={state} outcome={outcome} />
           <p className="me-muted">{body.en}<Vi>{body.vi}</Vi></p>
           {speakingPending ? (
             <div className="me-submitted-extra">
@@ -253,8 +305,11 @@ export function MockExamRoom(props: MockExamRoomProps) {
         : null}
       <div inert={props.collecting || undefined} aria-busy={props.collecting || undefined}>
         {section === 'writing'
-          ? props.writing
-          : props.frameSrc
+          ? props.renderWriting(onWritingSave)
+          : !props.canWrite
+            // FR-013: a read-only tab does not load the child (it keeps its own lock).
+            ? <Notice kind="info" lang="en">{MOCK_ROOM_COPY.otherTab.en}<Vi>{MOCK_ROOM_COPY.otherTab.vi}</Vi></Notice>
+            : props.frameSrc
             // Embedded child players run their own exam room in `embedded` mode (FR-003).
             ? <iframe inert={props.collecting} ref={props.frameRef} src={props.frameSrc} title={`${section} test`} style={{ width: '100%', minHeight: '70vh', border: 0 }} />
             : <Notice kind="error" lang="en">{MOCK_ROOM_COPY.unavailable.en}</Notice>}
@@ -272,7 +327,7 @@ export function MockExamRoom(props: MockExamRoomProps) {
       subtitle={section && index >= 0 ? `Section ${index + 1} of ${sections.length}: ${MOCK_ROOM_SECTION_NAMES[section]}` : undefined}
       // The runner owns the clock and the timed submit; the frame only shows it (FR-003).
       timer={props.timerLive ? { kind: 'countdown', remainingSeconds: props.remaining, onExpire: () => {} } : null}
-      saveStatus={{ state: 'idle' }}
+      saveStatus={section === 'writing' ? writingSave : { state: 'idle' }}
       layout={{ kind: 'single', body }}
       // FR-004: no manual submit in sequential, live and retake; the shell gets
       // `submit` only to show the runner's outcome (FR-007).
@@ -286,6 +341,9 @@ export function MockExamRoom(props: MockExamRoomProps) {
       } : undefined}
       exit={{ href: MOCK_ROOM_COPY.exitHref, flush: props.flushForExit, losesWork: () => false }}
       ownerKey={props.ownerKey}
+      session={props.session}
+      onSessionExpired={{ saveLocalCopy: props.saveLocalCopy, returnUrl: returnHere() }}
+      tabGuard={{ reloadFromServer: props.reloadFromServer, onWriteRightChange: props.onWriteRightChange }}
     />
   );
 }
