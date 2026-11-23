@@ -454,6 +454,26 @@ def test_13_rows_past_the_response_cap_are_read_before_any_purge(flag, access, s
     assert rp.content_windows([USER], NOW, db=sweep_db)[USER] == OPEN_WINDOW
 
 
+# ── Codex P2 (PR #2585 on #2550 code): candidates past the first page ──────
+
+
+def test_14_kept_sessions_filling_a_page_do_not_starve_later_candidates(flag, access, sweep_db):
+    """1,000 old sessions of learners on a live course fill the first capped
+    response; the default learner's expired session comes after them in id
+    order and must still be found (pages are read in a stable id order)."""
+    sweep_db.max_rows = 1000
+    for n in range(1000):
+        user = f"open{n:04d}"
+        sweep_db.tables["entitlements"].append(_ent_row(f"e{n}", expires=NOW + timedelta(days=30), user=user))
+        sweep_db.tables["sessions"].append(_session(f"a{n:04d}", 100, user_id=user))
+    sweep_db.tables["sessions"].append(_session("z-default", 100, user_id="default-learner"))
+    assert _swept(sweep_db) == ["z-default"]
+    assert sum(1 for c in sweep_db.calls if c == ("sessions", "select")) == 2
+    # Audio pages the same way (no window involved).
+    eligible = sweep._eligible("audio_purged_at", retention.RETENTION_AUDIO_DAYS, "is_audio_purged")
+    assert len(eligible) == 1001 and eligible[-1]["id"] == "z-default"
+
+
 # ── G04-T10b: with the flag on, the purge goes through 505 only ─────────────
 
 
@@ -464,7 +484,7 @@ def _old_session_with_content(db, sid="s70", age=70):
                                    "pronunciation_payload": None})
 
 
-def test_14_a_kept_answer_from_the_rpc_keeps_the_content(flag, access, sweep_db, monkeypatch):
+def test_15_a_kept_answer_from_the_rpc_keeps_the_content(flag, access, sweep_db, monkeypatch):
     """505 re-checks under the learner's locks: when it says kept (a grant
     that committed after the Python re-read), nothing is scrubbed."""
     monkeypatch.setattr(sweep, "DRY_RUN", False)
@@ -476,7 +496,7 @@ def test_14_a_kept_answer_from_the_rpc_keeps_the_content(flag, access, sweep_db,
     assert not any(op == "update" and t in ("responses",) for t, op in sweep_db.calls)
 
 
-def test_15_flag_on_without_505_purges_nothing_and_never_falls_back(flag, access, sweep_db, monkeypatch):
+def test_16_flag_on_without_505_purges_nothing_and_never_falls_back(flag, access, sweep_db, monkeypatch):
     monkeypatch.setattr(sweep, "DRY_RUN", False)
     _old_session_with_content(sweep_db, "s70")
     _old_session_with_content(sweep_db, "s80", 80)
@@ -494,7 +514,7 @@ def test_15_flag_on_without_505_purges_nothing_and_never_falls_back(flag, access
     assert res["purged"] == 0 and len(res["errors"]) == 2 and len(sweep_db.rpcs) == 2
 
 
-def test_16_flag_off_keeps_todays_unlocked_purge_and_never_calls_505(flag, access, sweep_db, monkeypatch):
+def test_17_flag_off_keeps_todays_unlocked_purge_and_never_calls_505(flag, access, sweep_db, monkeypatch):
     monkeypatch.setattr(sweep, "DRY_RUN", False)
     sweep_db.tables["runtime_flags"][0]["enabled"] = False
     sweep_db.tables["entitlements"].append(_ent_row("e1", expires=NOW + timedelta(days=90)))  # ignored when off

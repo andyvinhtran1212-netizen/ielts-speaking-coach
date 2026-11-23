@@ -53,12 +53,22 @@ class _Q:
         self.eqs[col] = val
         return self
 
+    def order(self, col, desc=False):
+        self._calls.append({"type": "order", "table": self.name, "col": col})
+        return self
+
+    def range(self, start, end):
+        self._range = (start, end)
+        return self
+
     def execute(self):
         if self.kind == "update":
             self._calls.append({"type": "update", "table": self.name, "payload": self.payload, "eq": dict(self.eqs)})
             return _Exec([])
         self._calls.append({"type": "select", "table": self.name, "eq": dict(self.eqs)})
-        return _Exec(self._data_for(self.name, self.eqs))
+        rows = self._data_for(self.name, self.eqs)
+        start, end = getattr(self, "_range", (0, None))
+        return _Exec(rows[start:None if end is None else end + 1])
 
 
 class _Storage:
