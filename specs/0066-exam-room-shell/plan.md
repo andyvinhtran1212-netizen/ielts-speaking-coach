@@ -58,10 +58,12 @@ interface ExamRoomShellProps {
   layout: { kind: 'split'; left: ReactNode; right: ReactNode; leftLabel: string; rightLabel: string }
         | { kind: 'single'; body: ReactNode };
   submit?: { label: string; onSubmit(): Promise<void>; disabledReason?: string; costNote?: string;
-             extraWarning?: ReactNode };
+             extraWarning?: ReactNode;
+             outcome?: 'idle' | 'submitting' | 'confirmed' | 'unconfirmed' };   // FR-034: only the surface sets 'confirmed', after a canonical server ack
   exit: { href: string; flush(): Promise<{ unsaved: number }>; losesWork(): boolean;
           abandon?: { onAbandon(): Promise<void> } };
-  onSessionExpired?: { saveLocalCopy(): void; returnUrl: string };
+  ownerKey: string;                   // account id, or the share-link guest scope (FR-035)
+  onSessionExpired?: { saveLocalCopy(): boolean; returnUrl: string };   // true when the copy was written and read back
   onSessionConflict?(kind: 'displaced' | 'not_current'): void;
   timeUpChoice?: { onSend(): Promise<void>; onDiscard(): Promise<void>; costNote?: string };
 }
@@ -93,6 +95,14 @@ interface ExamRoomShellProps {
 - Giảm chuyển động: dải trượt và bảng Review không có hiệu ứng khi
   `prefers-reduced-motion`.
 - Bề rộng: 1280, 1024–1279, dưới 1024 (gồm 768), dưới 900 (chuyển thẻ), 390.
+
+## Dependencies outside this spec
+
+- `ExamEntryGate` (PHONEGATE-0081, chưa có): FR-024 dự phòng.
+- Component đăng nhập G05-T19 và màn 8a–8c G05-T20 (ENROLL-0060, nháp ở #2463): FR-015,
+  FR-016 dùng phương án dự phòng (`/login?next=` cùng tab; thông báo thiết bị khác) cho tới
+  khi chúng lên `staging`. Khi chúng lên, một PR nhỏ đổi hộp sang component thật; không
+  chặn T001–T004.
 
 ## Work decomposition
 

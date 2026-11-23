@@ -110,7 +110,7 @@ trên `staging` @ `cc6dd4c8` (23/11/2026):
 - **FR-002:** Chế độ `test` dùng nền mực và toàn bộ chuỗi tiếng Anh, kể cả lỗi,
   `aria-label` và chữ cho trình đọc màn hình; số câu ghi "Q5"/"Question 5". Chế độ
   `practice` dùng nền giấy và chuỗi tiếng Việt, xưng "bạn". Highlight, Note, Clear
-  luôn tiếng Anh. Một màn không trộn hai bộ chuỗi. Chế độ `test` dùng
+  luôn tiếng Anh. Một màn không trộn hai bộ chuỗi (trừ nhãn công cụ Highlight/Note/Clear). Chế độ `test` dùng
   `FocusShell mode="exam"`, `practice` dùng `mode="practice"`. Phòng thi full test
   (`isFullTest`) truyền `fullTestRoom` để luôn sáng theo UIBASE-0056 FR-025; mini
   test truyền `fullTestRoom={false}`; chế độ luyện theo lựa chọn của người dùng.
@@ -174,46 +174,67 @@ trên `staging` @ `cc6dd4c8` (23/11/2026):
 - **FR-014:** Mất mạng (sự kiện `offline` hoặc một lần lưu thất bại vì mạng): dải
   trên cùng không che ô làm bài, "Connection lost. Your work was saved up to
   [HH:MM]…" (test) hoặc "Mất kết nối mạng. Bài của bạn đã lưu tới [HH:MM]…" (luyện).
-  Nút nộp đổi thành "Waiting for connection"/"Chờ kết nối", bị khoá có lý do bằng
-  chữ. Có mạng lại: trình tự lưu phần còn lại, rồi dải "Back online. Your work has
+  Nút nộp tay đổi thành "Waiting for connection"/"Chờ kết nối", bị khoá có lý do
+  bằng chữ. Khoá này chỉ áp cho nút nộp tay; đồng hồ về 0 khi đang offline vẫn nộp tự
+  động theo FR-019 và FR-034. Có mạng lại: trình tự lưu phần còn lại, rồi dải "Back online. Your work has
   been saved."/"Đã kết nối lại. Bài của bạn đã được lưu." hiện 5 giây. Đồng hồ vẫn
   chạy.
 - **FR-015:** Phiên hết hạn (401 khi đang làm): không chuyển trang; gọi
   `saveLocalCopy()` trước, rồi hiện hộp chặn "Sign in again"/"Đăng nhập lại" nói
-  bài đã lưu tới [HH:MM]; đăng nhập lại ngay trong phòng thi bằng component đăng
-  nhập của G05-T19 (Google hoặc email + mã 6 số), không rời URL phòng thi; đồng hồ
-  vẫn chạy. Mở trang mà phiên đã hết thì chuyển tới đăng nhập như hôm nay. Mọi lời
-  gọi `window.api.*` của trình trong phòng thi phải truyền `{ noRedirect: true }`
-  (spec của trình kiểm điều này).
-- **FR-016:** Phiên bị chiếm: nhận 401 `session_displaced` thì lưu bản sao tại máy
-  và hiện màn 8c của G05-T20 (tiếng Anh ở full test); nhận 409
-  `session_not_current` khi mở phòng thi ở thiết bị mới thì hiện màn 8a/8b, không
-  tạo lượt. Shell chỉ hiển thị qua `onSessionConflict`; nguồn "bài có giờ" cho
-  G04 thuộc spec trình.
+  bài đã lưu lên máy chủ tới [HH:MM]; đồng hồ vẫn chạy. Mở trang mà phiên đã hết thì
+  chuyển tới đăng nhập như hôm nay. Mọi lời gọi `window.api.*` của trình trong phòng
+  thi phải truyền `{ noRedirect: true }` (spec của trình kiểm điều này).
+  - Khi đã có component đăng nhập của G05-T19 (ENROLL-0060): đăng nhập lại ngay trong
+    hộp (Google hoặc email + mã 6 số), không rời URL phòng thi.
+  - **Trước khi có G05-T19 (phương án dự phòng):** hộp chỉ bật nút "Sign in again"
+    sau khi `saveLocalCopy()` đọc lại được bản sao vừa ghi; bấm thì mở
+    `/login?next=<URL phòng thi>` trong cùng tab. Quay lại, trình khôi phục và gửi bản sao
+    theo FR-035. Bộ nhớ trình duyệt không ghi được thì hộp nói rõ các câu sau [HH:MM]
+    có thể mất nếu rời trang, và vẫn cho "Sign in again".
+- **FR-016:** Phiên bị chiếm. Shell chỉ hiển thị qua `onSessionConflict`; nguồn "bài
+  có giờ" cho G04 thuộc spec trình.
+  - Khi đã có màn 8a–8c của G05-T20: 401 `session_displaced` thì lưu bản sao tại máy
+    và hiện màn 8c (tiếng Anh ở full test); 409 `session_not_current` khi mở phòng thi
+    ở thiết bị mới thì hiện màn 8a/8b, không tạo lượt.
+  - **Trước khi có G05-T20 (phương án dự phòng):** `session_displaced` dùng đúng hộp
+    và luồng dự phòng của FR-015; `session_not_current` hiện một thông báo trong
+    trang "This test is open on another device." / "Bài này đang mở ở thiết bị khác."
+    với nút "Back" về `exit.href`, không tạo lượt.
 - **FR-017:** Cùng một lượt ở tab thứ hai: tab mới báo "This test is open in
   another tab"/"Bài này đang mở ở tab khác" với "Use this tab"/"Dùng tab này"; bấm
-  thì tab kia chuyển chỉ-đọc kèm thông báo tương tự. Không có hai tab cùng ghi một
+  thì tab mới gửi yêu cầu qua BroadcastChannel; tab cũ gọi `exit.flush()` cho hết hàng
+  đợi lưu (câu nào không lưu được thì ghi vào bản sao tại máy theo FR-035), rồi mới
+  chuyển chỉ-đọc và báo đã nhả quyền ghi. Tab mới chỉ bắt đầu ghi sau khi nhận báo đó,
+  và đọc lại trạng thái lượt từ máy chủ trước; không nhận được trong 5 giây (tab cũ đã
+  đóng hoặc treo) thì tab mới tải lại lượt từ máy chủ rồi mới ghi. Không có hai tab cùng ghi một
   lượt. Trình duyệt không có `BroadcastChannel` thì bỏ qua tính năng này, không
   chặn làm bài.
-- **FR-018:** Đồng hồ chế độ `test` hiển thị bằng `FocusTimer`: "Time remaining" + mm:ss số đều cột; mốc 5 phút
-  đổi trạng thái có chữ "5 minutes left" và đọc cho trình đọc màn hình đúng một
-  lần; về 0 hiện "Time is up" và "Your answers have been saved and submitted."; không
-  nhấp nháy. Thời gian còn lại luôn do trình tính từ mốc của server; shell không
-  có đồng hồ thứ hai.
+- **FR-018:** Đồng hồ chế độ `test` hiển thị bằng `FocusTimer`: "Time remaining" +
+  mm:ss số đều cột; mốc 5 phút đổi trạng thái có chữ "5 minutes left" và đọc cho trình đọc màn hình đúng một
+  lần; không nhấp nháy. Thời gian còn lại luôn do trình tính từ mốc của server; shell
+  không có đồng hồ thứ hai. Về 0 thì hiện "Time is up" và ô nhập khoá; phần còn lại
+  của màn theo FR-034 (trình không truyền `timeUpChoice`) hoặc FR-020 (có
+  `timeUpChoice`). Không bao giờ thêm thời gian làm bài.
 - **FR-019:** Hết giờ khi đang gõ: khoá ô nhập ngay khi đồng hồ về 0, đưa giá trị
   cuối cùng đã gõ (kể cả chưa qua debounce) vào lần nộp; không hỏi lại; không mất
-  ký tự gõ trước mốc 0.
+  ký tự gõ trước mốc 0. Lần nộp này luôn do trình gửi qua đường nộp tự động của nó,
+  kể cả khi đang offline (FR-014 chỉ khoá nút nộp tay): trình xếp lần nộp vào hàng đợi và gửi lại
+  khi có mạng hoặc sau khi đăng nhập lại; trong lúc chờ, màn ở trạng thái `unconfirmed`
+  của FR-034.
 - **FR-020:** Màn hết giờ có lựa chọn (trình truyền `timeUpChoice`, chỉ Writing và
   Speaking đề tự chọn): "Time is up" với "Send for marking" và "Discard this
-  attempt". Shell chỉ hiển thị và gọi hai hàm; điều kiện hiện và tác động lượt chấm
-  thuộc spec trình.
+  attempt"; **không** có câu "saved and submitted". Shell chỉ hiển thị và gọi hai hàm;
+  sau khi chọn, xác nhận theo cùng ba trạng thái của FR-034. Điều kiện hiện và tác
+  động lượt chấm thuộc spec trình.
 - **FR-021:** Tải lại giữa bài trở về đúng lượt, đúng câu trả lời và cờ đã lưu ở
   server, đúng thời gian còn lại từ server, đúng tỉ lệ cột và Passage đang xem;
   không tạo lượt mới.
 - **FR-022:** Bật/tắt theo từng trình bằng `examRoomEnabled(surface)`. Cờ tắt:
   trình chạy y như trước, không đổi DOM, id, chuỗi, class hay request. Cờ bật: cùng
   URL, cùng request, cùng thứ tự gọi API; chỉ lớp giao diện khác. Ghi đè
-  `?exam_room=on|off` bị bỏ qua khi `environment === 'production'`.
+  `?exam_room=on|off` bị bỏ qua khi `environment === 'production'`; `environment` đọc từ
+  `window.__AVER_RUNTIME_CONFIG__.environment` do `frontend/tooling/generate-runtime-config.mjs`
+  sinh lúc build; thiếu giá trị thì coi là production (bỏ ghi đè).
 - **FR-023:** Chế độ nhúng (`embedded`, tức `mock_embed=1`) không hiện thanh trên,
   đồng hồ, nút nộp, hộp thoát; trình vẫn trả lời `mock-flush` như hôm nay.
 - **FR-024:** Full test (`isFullTest`) bọc `ExamEntryGate` của GOI-11 trước mọi lệnh
@@ -231,9 +252,11 @@ trên `staging` @ `cc6dd4c8` (23/11/2026):
   thành bảng/biểu mẫu/ghi chú (giữ hình dạng, ô nhập trong bảng). Mỗi dạng nhận và
   trả chuỗi đáp án **giống hệt** `user_answer` mà trình hiện gửi lên server; không
   "chuẩn hoá" chung giữa Reading và Listening.
-- **FR-026:** Sau khi chấm (chế độ luyện hoặc trang xem lại): mỗi câu có đúng/sai
+- **FR-026:** Sau khi chấm, chỉ trong phòng luyện (`mode='practice'`, ngay trong trang
+  làm bài): mỗi câu có đúng/sai
   bằng chữ, đáp án đúng, một dòng giải thích; ghi "đúng 9 trên 13 câu"; không quy ra
-  band khi chưa làm đủ đề 40 câu; không bao giờ hiện "0/0".
+  band khi chưa làm đủ đề 40 câu; không bao giờ hiện "0/0". Trang xem lại bài sau khi nộp thuộc G07; spec này chỉ
+  cung cấp component hiển thị câu để G07 dùng lại nếu muốn.
 - **FR-027:** Dạng riêng: Listening gắn nhãn bản đồ/sơ đồ (lựa chọn đặt cạnh hình),
   Reading trả lời ngắn, hoàn thành tóm tắt, nối đặc điểm (bảng ma trận).
 - **FR-028:** Trình phát audio một thành phần, prop `policy`: `practice` có tạm
@@ -258,17 +281,50 @@ trên `staging` @ `cc6dd4c8` (23/11/2026):
 **Lưu tại trình duyệt và log**
 
 - **FR-032:** Khoá trình duyệt: `exam-room:split:{attemptKey}` (xoá khi nộp xong hoặc
-  quá 7 ngày), `exam-room:marks:{surface}:{attemptKey}` (nộp xong + 30 ngày),
-  `exam-room:local-copy:{surface}:{attemptKey}` (xoá khi server xác nhận lưu),
-  BroadcastChannel `aver-exam-room`. Mọi đọc/ghi bọc `try/catch`; bộ nhớ không dùng
-  được thì khung vẫn chạy, không chặn làm bài. Bản sao tại máy không bao giờ tự ghi
-  đè bản trên server.
+  quá 7 ngày), `exam-room:marks:{surface}:{ownerKey}:{attemptKey}` (nộp xong + 30
+  ngày), `exam-room:local-copy:{surface}:{ownerKey}:{attemptKey}`, BroadcastChannel
+  `aver-exam-room`. Mọi đọc/ghi bọc `try/catch`; bộ nhớ không dùng được thì khung vẫn
+  chạy, không chặn làm bài. Bản sao tại máy không bao giờ tự ghi đè bản trên server.
 - **FR-033:** Sự kiện qua `POST /api/analytics/events` hiện có (tên khớp
   `^[a-zA-Z0-9_.:-]+$`, tối đa 64 ký tự, đã kiểm `backend/routers/analytics.py`):
   `exam_room_submit_dialog_opened` `{surface, unanswered}`,
   `exam_room_submit_confirmed`, `exam_room_exit_confirmed` `{unsaved}`,
-  `exam_room_offline` `{duration_s}`, `exam_room_session_expired`,
+  `exam_room_offline` `{duration_s}` (gửi khi có mạng lại, `duration_s` là thời gian
+  từ lúc mất tới lúc có lại), `exam_room_session_expired`,
   `exam_room_other_tab`. Không gửi nội dung câu trả lời hay thông tin học viên.
+- **FR-034:** Hết giờ, trình không truyền `timeUpChoice`: shell chỉ nói "đã nộp" khi
+  trình báo xác nhận canonical từ máy chủ. Trình đưa trạng thái qua
+  `submit.outcome`:
+  - `submitting`: "Submitting your answers…"/"Đang nộp bài…".
+  - `confirmed` (trình đã nhận phản hồi nộp hợp lệ của máy chủ, hoặc đọc lại trạng
+    thái lượt thấy đã nộp/đã đóng): "Your answers have been saved and submitted."/
+    "Bài của bạn đã được lưu và nộp.".
+  - `unconfirmed` (offline, 401, phản hồi nộp bị mất hay lỗi): "Time is up. We have not
+    confirmed your submission yet. Keep this page open; we will keep trying."/"Hết
+    giờ. Chưa xác nhận được bài đã nộp. Bạn giữ trang này mở, hệ thống sẽ thử lại.".
+    Bản chưa lưu giữ ở máy theo FR-035; trình làm theo chính sách khôi phục của nó
+    (thử nộp lại khi có mạng hoặc sau khi đăng nhập lại, hoặc đọc lại trạng thái lượt
+    vì máy chủ tự đóng lượt theo giờ của nó). Ô nhập vẫn khoá; không mở thêm thời gian.
+  Shell không tự suy ra `confirmed` từ việc đã gọi `onSubmit`.
+- **FR-035:** Bản sao câu trả lời tại máy gắn với đúng tài khoản và đúng lượt.
+  `ownerKey` là id tài khoản (link chia sẻ: phạm vi quyền khách của link), và bản ghi
+  chứa `ownerKey`, `attemptKey`, `surface`, `savedAt`, `expiresAt`, và với mỗi câu giá
+  trị cùng `baseSavedAt`; không có email hay tên.
+  - Chỉ đọc, khôi phục hay gửi bản sao khi tài khoản đang đăng nhập (hoặc quyền khách
+    hiện tại) trùng `ownerKey` **và** lượt đang mở trùng `attemptKey`. Đăng nhập lại bằng
+    tài khoản khác không đọc, không khôi phục và không gửi bản của người trước.
+  - Sau khi đăng nhập lại đúng `ownerKey` (FR-015) hoặc tải lại trang: trình đọc trạng
+    thái lượt từ máy chủ trước, rồi với từng câu trong bản sao chỉ gửi lại qua đường lưu
+    bình thường của nó khi giá trị trên máy chủ chưa đổi kể từ `baseSavedAt` của bản sao
+    (bản sao ghi kèm mốc lưu máy chủ cuối cùng nó biết cho từng câu). Câu nào trên máy chủ
+    mới hơn bản sao thì giữ bản máy chủ và bỏ câu đó khỏi bản sao. Lượt đã nộp hoặc đã đóng
+    thì không gửi gì, chỉ xoá bản sao. Gửi xong và máy chủ xác nhận thì xoá bản sao.
+  - Dọn: xoá khi máy chủ xác nhận đã lưu các câu đó hoặc đã nộp; khi lượt được bỏ
+    (`exit.abandon`); khi đăng xuất (bản của tài khoản đó); khi đăng nhập bằng tài khoản
+    khác (mọi bản có `ownerKey` khác, xoá mà không đọc nội dung); và khi quá `expiresAt`
+    (hạn nộp của lượt cộng 24 giờ, hoặc 7 ngày cho bài không giờ).
+  - Test trên một trình duyệt dùng chung: tài khoản A để lại bản sao, đăng xuất, tài
+    khoản B đăng nhập cùng máy không thấy và không gửi được bản của A.
 
 ## Acceptance scenarios
 
@@ -291,14 +347,39 @@ trên `staging` @ `cc6dd4c8` (23/11/2026):
 - **Given** còn 2 giây và học viên đang gõ "dozen pie"
 - **When** đồng hồ về 0
 - **Then** ô khoá, giá trị đưa vào lần nộp chứa "dozen pie", hiện "Time is up";
-  không có hộp hỏi.
+  không có hộp hỏi; câu "Your answers have been saved and submitted." chỉ hiện sau khi
+  trình báo `confirmed`.
+
+### Scenario 3a: về 0 khi đang offline
+
+- **Given** trình duyệt offline, còn câu chưa lưu
+- **When** đồng hồ về 0
+- **Then** "Time is up" và câu "We have not confirmed your submission yet…"; ô khoá; trình
+  đã xếp lần nộp tự động vào hàng đợi (không chờ nút nộp tay); bản chưa lưu còn ở máy;
+  không có thêm thời gian; **When** có mạng lại **Then** trình gửi lần nộp trong hàng đợi
+  hoặc đọc lại trạng thái lượt, và chỉ khi máy chủ xác nhận mới hiện "saved and submitted".
+
+### Scenario 3b: về 0 khi phiên hết hạn
+
+- **Given** lời gọi nộp lúc 0 trả 401
+- **When** shell nhận báo lỗi
+- **Then** hiện trạng thái `unconfirmed` và hộp đăng nhập lại (FR-015); sau khi đăng nhập
+  đúng tài khoản, trình làm theo chính sách khôi phục của nó; không mở thêm thời gian.
+
+### Scenario 3c: mất phản hồi nộp
+
+- **Given** request nộp lúc 0 đã gửi nhưng phản hồi bị mất (timeout mạng)
+- **When** shell chờ kết quả
+- **Then** trạng thái `unconfirmed`, không hiện "saved and submitted"; trình đọc lại trạng
+  thái lượt; thấy đã nộp thì chuyển `confirmed`, không gửi nộp lần hai nếu lượt đã đóng.
 
 ### Scenario 4: mở hai tab
 
 - **Given** lượt đang mở ở tab A
 - **When** mở cùng lượt ở tab B
 - **Then** tab B báo "This test is open in another tab." và không ghi; **When** bấm
-  "Use this tab" ở B **Then** A chuyển chỉ-đọc, B ghi được.
+  "Use this tab" ở B **Then** A lưu nốt hàng đợi rồi mới chuyển chỉ-đọc, B chỉ ghi sau khi
+  A báo đã nhả quyền; A đã đóng thì sau 5 giây B tải lại lượt từ máy chủ rồi ghi.
 
 ### Scenario 5: mất mạng lúc nộp
 
@@ -313,8 +394,18 @@ trên `staging` @ `cc6dd4c8` (23/11/2026):
 - **Given** lời gọi lưu trả 401
 - **When** học viên gõ câu tiếp
 - **Then** không chuyển trang, hiện hộp "Your session has expired"; **When** đăng
-  nhập lại **Then** vẫn ở đúng URL phòng thi, câu vừa gõ còn (từ bản sao máy) và
-  được lưu.
+  nhập lại (trong hộp khi có G05-T19, hoặc qua `/login?next=` cùng tab theo phương án dự
+  phòng) **Then** quay về đúng URL phòng thi; trình đọc lượt từ máy chủ, gửi lại câu vừa gõ từ
+  bản sao vì câu đó trên máy chủ chưa đổi kể từ `baseSavedAt` (FR-035), rồi xoá bản sao.
+  **Given** cùng câu đó đã được sửa ở thiết bị khác sau `baseSavedAt` **Then** giữ bản
+  máy chủ, không ghi đè.
+
+### Scenario 6a: trình duyệt dùng chung
+
+- **Given** tài khoản A để lại bản sao tại máy cho một lượt rồi đăng xuất
+- **When** tài khoản B đăng nhập trên cùng trình duyệt và mở phòng thi
+- **Then** B không thấy, không khôi phục và không gửi bản của A; bản của A bị xoá mà không
+  đọc nội dung.
 
 ### Scenario 7: thoát full test
 
@@ -392,3 +483,6 @@ mục 10).
 7. **Màn chặn điện thoại chưa có.** `ExamEntryGate` (PHONEGATE-0081) chưa có trên
    staging. Đề xuất: shell nhận `isFullTest` ngay, nhưng không trình full test nào
    được bật production trước khi PHONEGATE-0081 lên. Mặc định tạm: như đề xuất.
+8. **Component đăng nhập G05-T19 và màn 8a–8c G05-T20 chưa có** (ENROLL-0060 còn
+   nháp ở #2463). Đề xuất: dùng phương án dự phòng ở FR-015 và FR-016 cho tới khi hai
+   thứ đó lên; trình không cần chờ. Mặc định tạm: như đề xuất.
