@@ -61,6 +61,35 @@ _SESSION_COLUMNS = "session_id, device_label, claimed_at, revoke_pending_at"
 
 # ── Small helpers ────────────────────────────────────────────────────────────
 
+# Migration 388 refuses a learner's timed start (Reading attempt, timed class
+# item, mock-exam sitting) that waited behind a change of the account's
+# session with SQLSTATE 55000 and this message. Whatever a start route does
+# with the database error (re-raise, wrap it in a domain error, or turn it
+# into an HTTPException), main.py's handlers find it in the exception chain
+# and answer 409 TIMED_START_REFUSED_DETAIL instead of a 500/503.
+TIMED_START_REFUSED = "learner_session_changed_during_timed_start"
+TIMED_START_REFUSED_DETAIL = {
+    "error_code": "timed_start_session_changed",
+    "message": "Tài khoản vừa đổi thiết bị đang dùng nên bài chưa được bắt đầu. Hãy tải lại trang.",
+}
+
+
+def timed_start_refusal(exc: Optional[BaseException]) -> bool:
+    """True when ``exc``, or an exception it was raised from or while handling,
+    is 388's refused timed start (PostgREST ``APIError``, asyncpg or SQLAlchemy)."""
+    seen: set[int] = set()
+    while exc is not None and id(exc) not in seen and len(seen) < 16:
+        seen.add(id(exc))
+        for value in (getattr(exc, "message", None), getattr(exc, "orig", None), exc):
+            try:
+                if value is not None and TIMED_START_REFUSED in str(value):
+                    return True
+            except Exception:  # noqa: BLE001 - an odd __str__ is not a refusal
+                pass
+        exc = exc.__cause__ or exc.__context__
+    return False
+
+
 def _error(status: int, code: str, **extra: Any) -> HTTPException:
     return HTTPException(status_code=status, detail={"error_code": code, **extra})
 

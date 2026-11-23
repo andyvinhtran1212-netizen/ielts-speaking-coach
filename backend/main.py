@@ -686,6 +686,13 @@ def _safe_error_request_context(request: Request) -> tuple[str, dict | None]:
 # immediately; logging happens in the background.
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
+    from services.session_gate import TIMED_START_REFUSED_DETAIL, timed_start_refusal
+    if timed_start_refusal(exc):
+        # COURSEACCESS-0055 T009 (mig 388): a timed start refused because the
+        # account's session changed while it waited. Nothing was started.
+        mark_sentry_handled(exc)
+        return JSONResponse(status_code=409, content={"detail": TIMED_START_REFUSED_DETAIL},
+                            headers=_cors_headers_for_origin(request.headers.get("origin")))
     from services.mock_paper_policy import safe_database_error
     policy_error = safe_database_error(exc, operator=request.url.path.startswith(("/api/admin/", "/admin/")))
     if policy_error is not None:
@@ -846,6 +853,11 @@ async def request_validation_handler(request: Request, exc: RequestValidationErr
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     import uuid as _uuid
+    from services.session_gate import TIMED_START_REFUSED_DETAIL, timed_start_refusal
+    if timed_start_refusal(exc.__cause__ or exc.__context__):
+        # A start route mapped 388's refusal to its own error (often 500/503);
+        # the learner gets the one 409 that says what happened.
+        exc = StarletteHTTPException(409, TIMED_START_REFUSED_DETAIL, headers=getattr(exc, "headers", None))
     request_id = getattr(request.state, "request_id", None) or str(_uuid.uuid4())
     detail = safe_detail(exc.status_code, "Listening request failed" if "/listening" in request.url.path and exc.status_code >= 500 and not (isinstance(exc.detail, dict) and "error_code" in exc.detail) else exc.detail, ref=request_id)
     if exc.status_code >= 500:
