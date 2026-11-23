@@ -593,9 +593,12 @@ export function QuizPlayer() {
   if (!requestKey || !fresh || status === 'initial-loading' || drill === null) return <QuizPlayerLoading />;
 
   if (drill) {
+    // Answers waiting in the outbox (below the batch size or in flight) are not
+    // saved yet: the bar says "saving", never "saved" (Codex P2 on #2597).
     const saveStatus: ExamRoomSaveStatus = unsaved > 0 && (saveUnconfirmed || session === 'expired')
       ? { state: 'retrying', unsaved, lastSavedAt }
-      : lastSavedAt ? { state: 'saved', lastSavedAt } : { state: 'idle' };
+      : unsaved > 0 ? { state: 'saving', lastSavedAt }
+        : lastSavedAt ? { state: 'saved', lastSavedAt } : { state: 'idle' };
     return (
       <Suspense fallback={<QuizPlayerLoading />}>
       <QuizRoom
@@ -619,6 +622,7 @@ export function QuizPlayer() {
         review={Boolean(admissionRef.current?.review)}
         masteryRetained={masteryRetained}
         saveUnconfirmed={saveUnconfirmed}
+        pending={unsaved}
         saveStatus={saveStatus}
         session={session}
         startBusy={startBusy}

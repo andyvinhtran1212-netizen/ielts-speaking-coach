@@ -236,7 +236,7 @@ export function FlashcardStudyRoom(props: FlashcardStudyRoomProps) {
           <div aria-live="polite">
             {!publicMode && props.busy ? <p className={styles.muted}>Đang lưu đánh giá…</p> : null}
             {!publicMode && !props.busy && props.saveError ? (
-              <Notice kind="error" live="none" action={props.hasPending ? <Button variant="secondary" size="sm" onClick={props.onRetrySave}>Thử lưu lại</Button> : undefined}>
+              <Notice kind="error" live="none" action={props.hasPending ? <Button variant="secondary" onClick={props.onRetrySave}>Thử lưu lại</Button> : undefined}>
                 {DRILL_SAVE_ERROR}
               </Notice>
             ) : null}
@@ -246,10 +246,13 @@ export function FlashcardStudyRoom(props: FlashcardStudyRoomProps) {
     );
   }
 
-  const unsaved = props.hasPending ? 1 : 0;
-  const saveStatus: ExamRoomSaveStatus = props.session === 'expired' && unsaved > 0
-    ? { state: 'retrying', unsaved }
-    : props.busy ? { state: 'saving' } : { state: 'idle' };
+  // A rating waiting for the server (sending, failed or behind an expired
+  // session) is unsaved work: the bar says so and reload/leave are guarded.
+  const unsaved = props.hasPending || props.busy ? 1 : 0;
+  // "Chưa lưu" without a second retry button: the card's own "Thử lưu lại" is it.
+  const saveStatus: ExamRoomSaveStatus = props.busy
+    ? { state: 'saving' }
+    : unsaved > 0 ? { state: 'retrying', unsaved } : { state: 'idle' };
   return (
     <>
       <ExamRoomShell
@@ -260,7 +263,7 @@ export function FlashcardStudyRoom(props: FlashcardStudyRoomProps) {
         subtitle={counter}
         saveStatus={saveStatus}
         layout={{ kind: 'single', body: <div className={styles.body}>{body}</div> }}
-        exit={{ href: props.returnHref, flush: props.flush, losesWork: () => false }}
+        exit={{ href: props.returnHref, flush: props.flush, losesWork: () => unsaved > 0 }}
         ownerKey={props.ownerKey}
         session={props.session}
         // The pending rating stays on the page; nothing is copied to the device.

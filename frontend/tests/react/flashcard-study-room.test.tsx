@@ -166,6 +166,41 @@ describe('flag on: personal stack', () => {
     expect(reviews[sent].body).toEqual(reviews[0].body);
   });
 
+  it('a review the server keeps refusing with 401 is not retried in a loop while still signed in (Codex P1)', async () => {
+    reviewResponse = () => new Response('{}', { status: 401 });
+    render(<FlashcardStudyPlayer />);
+    await screen.findByText(/Thẻ 1 trên 2/);
+    fireEvent.click(screen.getByRole('button', { name: 'Lật thẻ' }));
+    fireEvent.click(rate('Tốt'));
+    await screen.findByText('Phiên đăng nhập đã hết hạn');
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)); });
+    expect(reviews).toHaveLength(1);
+    await act(async () => { window.dispatchEvent(new Event('focus')); await new Promise((resolve) => setTimeout(resolve, 50)); });
+    expect(reviews).toHaveLength(2);
+    expect(screen.getByText('Phiên đăng nhập đã hết hạn')).toBeTruthy();
+    expect(reviews[1].body).toEqual(reviews[0].body);
+  });
+
+  it('a pending rating, failed or still sending, guards reload (Codex P2)', async () => {
+    let release: () => void = () => {};
+    reviewResponse = () => new Response('{}', { status: 503 });
+    render(<FlashcardStudyPlayer />);
+    await screen.findByText(/Thẻ 1 trên 2/);
+    const reload = () => { const event = new Event('beforeunload', { cancelable: true }); window.dispatchEvent(event); return event.defaultPrevented; };
+    expect(reload()).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Lật thẻ' }));
+    fireEvent.click(rate('Khó'));
+    await screen.findByText('Chưa lưu được đánh giá. Kiểm tra mạng rồi bấm Thử lưu lại.');
+    expect(reload()).toBe(true);
+    reviewResponse = (id) => { const done = new Response(JSON.stringify(receipt(id)), { status: 200 }); return new Promise<Response>((resolve) => { release = () => resolve(done); }) as unknown as Response; };
+    fireEvent.click(screen.getByRole('button', { name: 'Thử lưu lại' }));
+    await waitFor(() => expect(reviews).toHaveLength(2));
+    expect(reload()).toBe(true);
+    await act(async () => { release(); });
+    await screen.findByText(/Thẻ 2 trên 2/);
+    expect(reload()).toBe(false);
+  });
+
   it('signed out before the stack loads still goes to /login?next=', async () => {
     scope.status = 'signed-out'; scope.user = null;
     render(<FlashcardStudyPlayer />);

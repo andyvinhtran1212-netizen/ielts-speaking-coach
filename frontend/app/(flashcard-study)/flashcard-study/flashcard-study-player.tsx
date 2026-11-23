@@ -302,15 +302,23 @@ export function FlashcardStudyPlayer() {
   }, [stack, loadIdentity]);
 
   // FR-013: the same account is back (here or in another tab): send the pending rating again.
+  // Retries come only from a real change: the account signing back in (auth
+  // state differs from the one that expired) or a focus/online event. Entering
+  // "expired" never retries by itself, so a token the server keeps refusing
+  // cannot loop (Codex P1 on #2597).
   const recoverRef = useRef<() => void>(() => {});
+  const expiredAuthRef = useRef<string | null>(null);
+  const authNow = `${status}:${user?.id || ''}`;
   useEffect(() => {
-    if (!drill || session !== 'expired') return undefined;
-    const retry = () => { if (status === 'signed-in' && user?.id && user.id === accountRef.current) recoverRef.current(); };
-    retry();
+    if (!drill || session !== 'expired') { expiredAuthRef.current = null; return undefined; }
+    if (expiredAuthRef.current === null) expiredAuthRef.current = authNow;
+    const sameAccount = () => status === 'signed-in' && Boolean(user?.id) && user?.id === accountRef.current;
+    const retry = () => { if (sameAccount()) recoverRef.current(); };
+    if (authNow !== expiredAuthRef.current) { expiredAuthRef.current = authNow; retry(); }
     window.addEventListener('focus', retry);
     window.addEventListener('online', retry);
     return () => { window.removeEventListener('focus', retry); window.removeEventListener('online', retry); };
-  }, [drill, session, status, user?.id]);
+  }, [drill, session, status, user?.id, authNow]);
 
   useEffect(() => {
     if (!sourceOpen) return;
@@ -413,9 +421,12 @@ export function FlashcardStudyPlayer() {
       }
     }
   }, [accountKey, advance, busy, card, drill, index, publicMode, revealedIndex]);
+  // Stays "expired" until the server accepts the pending rating (submitRating
+  // sets "active" on success); with nothing pending the session is simply back.
   recoverRef.current = () => {
-    setSession('active');
-    if (pendingRating && !busy) void submitRating(pendingRating.rating, pendingRating);
+    if (busy) return;
+    if (pendingRating) void submitRating(pendingRating.rating, pendingRating);
+    else setSession('active');
   };
 
   const markPublic = useCallback((mark: PublicMark) => {

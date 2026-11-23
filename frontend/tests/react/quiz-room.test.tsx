@@ -122,6 +122,16 @@ describe('flag on: the practice room', () => {
     expect(confirm).not.toHaveBeenCalled();
   });
 
+  it('an answer still in the outbox guards reload and the bar never says saved (Codex P2)', async () => {
+    render(<QuizPlayer />);
+    await answerShown();
+    expect(progress).not.toHaveBeenCalled();
+    const reload = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(reload);
+    expect(reload.defaultPrevented).toBe(true);
+    expect(screen.queryByText(/Đã lưu/)).toBeNull();
+  });
+
   it('leaves at once when everything is saved: Thoát flushes the outbox first', async () => {
     render(<QuizPlayer />);
     await answerShown();

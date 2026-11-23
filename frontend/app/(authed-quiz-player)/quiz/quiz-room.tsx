@@ -4,7 +4,7 @@
 // behind examRoomEnabled('drill'). Drawing only: the engine, outbox, session,
 // reset and finish calls stay in quiz-player.tsx and come in through props
 // (FR-001). Practice mode, Vietnamese, no timer, no submit (FR-002).
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 
 // Tokens, base.css and fonts come from LegacyRoomRoot (lazyLegacyRoom in the player).
 import { ExamRoomShell } from '@/components/exam-room/exam-room-shell';
@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Dialog } from '@/components/ui/dialog';
 import { Notice } from '@/components/ui/notice';
+import { registerNavigationGuard } from '@/lib/navigation-guard';
 import { VocabularyAudioButton } from '@/components/vocabulary-audio-button';
 import {
   displayItemKey,
@@ -62,6 +63,8 @@ export interface QuizRoomProps {
   masteryRetained: boolean;
   saveUnconfirmed: boolean;
   saveStatus: ExamRoomSaveStatus;
+  /** Answers not yet acknowledged by the server: queued, in flight or failed. */
+  pending: number;
   session: ExamRoomSession;
   startBusy: boolean;
   resetBusy: boolean;
@@ -98,6 +101,20 @@ export function QuizRoom(props: QuizRoomProps) {
   const cardReturn = useRef<HTMLElement | null>(null);
 
   const title = bank?.bank?.title || 'Quick Check';
+  const pendingRef = useRef(props.pending);
+  pendingRef.current = props.pending;
+  // Set once the shell confirms the exit (after its flush), so leaving through
+  // Thoát is not asked twice.
+  const leavingRef = useRef(false);
+  const track = useCallback((name: string, data?: Record<string, string | number | boolean>) => {
+    if (name === 'exam_room_exit_confirmed') leavingRef.current = true;
+    trackDrill(name, data);
+  }, []);
+  useEffect(() => registerNavigationGuard((event) => {
+    if (leavingRef.current || pendingRef.current <= 0) return;
+    event.preventDefault();
+    event.returnValue = '';
+  }), []);
   const { reopenButtonRef } = props;
   // The player's focus effect can run before this lazily loaded room has drawn
   // the error box; the room moves focus to "Mở lại bài" once it is on screen.
@@ -263,6 +280,10 @@ export function QuizRoom(props: QuizRoomProps) {
     );
   }
 
+  // Thoát (FR-012) flushes the outbox first and asks only when answers stay
+  // unsaved, so its predicate counts failed answers only. Reload, tab close and
+  // in-app links cannot flush first: the room's own guard counts every answer
+  // the server has not acknowledged, queued and in flight too (Codex P2 on #2597).
   const unsaved = props.saveStatus.state === 'retrying' || props.saveStatus.state === 'failed' ? props.saveStatus.unsaved : 0;
   return (
     <>
@@ -279,7 +300,7 @@ export function QuizRoom(props: QuizRoomProps) {
         session={props.session}
         // No copy on this device: Quick Check keeps its unsent answers in the page's outbox.
         onSessionExpired={{ saveLocalCopy: () => false, returnUrl: typeof window === 'undefined' ? '/quiz' : `${window.location.pathname}${window.location.search}` }}
-        track={trackDrill}
+        track={track}
       />
       <ConfirmDialog
         open={resetOpen}
