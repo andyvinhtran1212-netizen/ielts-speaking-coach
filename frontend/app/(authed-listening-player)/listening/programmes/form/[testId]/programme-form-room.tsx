@@ -138,7 +138,15 @@ function RoomAudio({ audio, active }: { audio: ProgrammeFormRoomProps['audio']; 
           resumeAt={audio.onceState !== 'ready' && audio.onceState !== 'done' && snapshot.current > 0 ? snapshot.current : undefined}
           lockedNote="Đã nghe · đã khoá"
           onPlay={audio.onOncePlay}
-          onRetry={() => { element()?.load(); audio.onRetry?.(); }}
+          onRetry={() => {
+            // A once-only recording resumes where it stopped: `load()` rewinds
+            // to 0, so put the position back once the metadata is in (Codex P2 on #2592).
+            const media = element();
+            const at = media?.currentTime || 0;
+            media?.load();
+            if (media && at > 0) media.addEventListener('loadedmetadata', () => { media.currentTime = at; }, { once: true });
+            audio.onRetry?.();
+          }}
         />
         {audio.onceState === 'unconfirmed' ? <Button variant="secondary" size="sm" onClick={audio.onOncePlay}>Xác nhận lượt nghe</Button> : null}
         {audio.onceMessage ? <p role="status">{audio.onceMessage}</p> : null}
