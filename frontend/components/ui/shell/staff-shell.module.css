@@ -504,3 +504,22 @@ body:has(.shell:not([data-demo])) { margin: 0; }
   .main { padding: var(--av2-space-4) var(--av2-space-7) var(--av2-space-10); }
   .accountMenu { right: calc(-1 * var(--av2-space-2)); max-width: calc(100vw - var(--av2-space-7)); }
 }
+
+/* An entry whose page is not open yet (GOI-09 FR-005): muted text, not a link, no hover. */
+.navList .navItemOff,
+.flyout .navItemOff,
+.rail .navItemOff { color: var(--av2-muted); cursor: default; }
+.navList .navItemOff:hover,
+.flyout .navItemOff:hover,
+.rail .navItemOff:hover { background: transparent; }
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}

@@ -21,13 +21,14 @@ export type StaffShellProps = {
   /**
    * The sidebar, supplied by G09: eight groups for admins, one group without
    * a label (five flat entries) for instructors. Every href must be a live
-   * route; the shell renders what it is given.
+   * route; an entry whose page is not open yet has `available: false` (and
+   * may have `href: null`): it shows dimmed with "Chưa mở", never as a link.
    */
   nav: readonly StaffNavGroup[];
   /** From `runtimeStaffEnvironment()`; never hidden. */
   environment: StaffEnvironment;
   user: StaffUser;
-  /** "Đổi vai trò" entries, only for roles the server profile grants. */
+  /** Role entries of the account menu ("Sang khu giáo viên"), printed as given; only roles the server profile grants. */
   switchTo?: readonly StaffRoleSwitch[];
   /** Built-in quick search field (data from G09); without it there is no field. */
   search?: StaffSearchFn;
@@ -38,6 +39,13 @@ export type StaffShellProps = {
    * or ⌘K would open two searches.
    */
   searchSlot?: ReactNode;
+  /**
+   * The current entry's href when the page knows it better than the
+   * pathname (G09's registry: /admin/speaking/sessions belongs to Báo cáo ›
+   * Hoạt động). Absent: matched from the pathname. Unlike `demo`, the page
+   * still gets <main> and localStorage.
+   */
+  current?: string | null;
   /**
    * /ui-library and tests only: the current entry instead of the pathname's,
    * the content in a <div> (the library page has its own <main>), and the
@@ -68,9 +76,11 @@ function writeCollapsed(collapsed: boolean) {
  * quick search, account menu and drawer is open. The content area never
  * scrolls the page sideways; wide tables scroll inside their own frame.
  */
-export function StaffShell({ role, nav, environment, user, switchTo = [], search, searchSlot, demo, children }: StaffShellProps) {
+export function StaffShell({
+  role, nav, environment, user, switchTo = [], search, searchSlot, current: currentProp, demo, children,
+}: StaffShellProps) {
   const pathname = usePathname() ?? '';
-  const current = demo ? demo.current : currentStaffHref(nav, pathname);
+  const current = demo ? demo.current : currentProp !== undefined ? currentProp : currentStaffHref(nav, pathname);
   const [collapsed, setCollapsed] = useState(demo?.collapsed ?? false);
   const [panel, setPanelState] = useState<StaffPanel | null>(null);
   const setPanel = useCallback((next: StaffPanel | null) => setPanelState(next), []);
@@ -97,12 +107,12 @@ export function StaffShell({ role, nav, environment, user, switchTo = [], search
         setPanel={setPanel}
       />
       <div className={styles.body}>
-        <StaffSidebar role={role} nav={nav} current={current} collapsed={collapsed} onCollapsedChange={onCollapsedChange} />
+        <StaffSidebar role={role} nav={nav} current={current} collapsed={collapsed} onCollapsedChange={onCollapsedChange} persist={!demo} />
         {demo
           ? <div className={styles.main}>{children}</div>
           : <main id="main-content" tabIndex={-1} className={styles.main}>{children}</main>}
       </div>
-      <StaffDrawer role={role} nav={nav} current={current} open={panel === 'drawer'} onClose={() => setPanel(null)} />
+      <StaffDrawer role={role} nav={nav} current={current} open={panel === 'drawer'} onClose={() => setPanel(null)} persist={!demo} />
     </div>
   );
 }

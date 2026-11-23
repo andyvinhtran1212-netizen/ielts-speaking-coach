@@ -88,7 +88,7 @@ function StaffAccountMenu({
           <ul className={styles.accountList}>
             <li className={styles.phoneOnly}><a href={LEARNER_VIEW_HREF} className={styles.accountItem}>Xem như học viên</a></li>
             {switchTo.map((s) => (
-              <li key={s.href}><a href={s.href} className={styles.accountItem}>Đổi vai trò: {s.label}</a></li>
+              <li key={s.href}><a href={s.href} className={styles.accountItem}>{s.label}</a></li>
             ))}
           </ul>
           <ThemeChoiceGroup className={cx(styles.accountTheme, styles.phoneOnly)} />
