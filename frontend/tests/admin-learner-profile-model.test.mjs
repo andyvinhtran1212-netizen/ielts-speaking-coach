@@ -135,7 +135,8 @@ describe('Khoá và quyền (FR-033; G09-T11b)', () => {
     assert.equal(roleChangeBlocked(account, 'admin-1'), '');
     assert.match(roleChangeBlocked(null, 'admin-1'), /chưa có tài khoản/);
     assert.match(roleChangeBlocked(account, 'u1'), /chính mình/);
-    assert.match(roleChangeBlocked({ ...account, is_active: false }, 'admin-1'), /tạm khoá/);
+    // is_active is the activation flag for a learner, not a suspension: never a block.
+    assert.equal(roleChangeBlocked({ ...account, is_active: false }, 'admin-1'), '');
   });
 
   it('the confirm says what happens: demotion revokes sessions, admin opens everything', () => {
@@ -149,6 +150,8 @@ describe('Khoá và quyền (FR-033; G09-T11b)', () => {
     assert.equal(roleResultText({ changed: true, sessions_revoked: false }, 'student').kind, 'error');
     assert.equal(roleResultText({ changed: true, sessions_revoked: true }, 'student').text, 'Đã đổi vai trò sang Học viên.');
     assert.match(roleErrorText({ code: 'step_up_required' }), /mã hai bước/);
+    assert.equal(roleErrorText({ code: 'step_up_required', reason: 'new_factor_cooloff', message: 'Mã hai bước vừa đổi; thử lại sau 23 giờ.' }),
+      'Chưa đổi vai trò: Mã hai bước vừa đổi; thử lại sau 23 giờ.');
     assert.equal(roleErrorText({ code: 'last_admin', message: 'Phải còn ít nhất một admin.' }), 'Chưa đổi vai trò: Phải còn ít nhất một admin.');
   });
 

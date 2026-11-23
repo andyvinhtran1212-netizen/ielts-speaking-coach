@@ -5,7 +5,7 @@
 // PATCH /admin/users/{id}/role (step-up through AdminAccessGate) and
 // DELETE /admin/cohorts/{id}/students/{student_id}. Every write is followed by
 // a canonical reload of the profile.
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useAdminProfile } from '@/components/admin-access-gate';
 import { Dialog, messageOf } from '@/components/admin-directory-ui';
@@ -37,7 +37,10 @@ export function LearnerAccessTab({ detail, onChanged }: {
   const name = detail.summary.name;
   const cohorts = Array.isArray(detail.summary.cohorts) ? detail.summary.cohorts : null;
   const blocked = roleChangeBlocked(account, profile.id);
-  const [nextRole, setNextRole] = useState(account?.role === 'user' ? 'student' : (account?.role ?? 'student'));
+  const currentRole = account?.role === 'user' ? 'student' : (account?.role ?? 'student');
+  const [nextRole, setNextRole] = useState(currentRole);
+  // After a reload the select starts again from the role the server has.
+  useEffect(() => { setNextRole(currentRole); }, [currentRole]);
   const [pending, setPending] = useState<Pending>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -68,7 +71,7 @@ export function LearnerAccessTab({ detail, onChanged }: {
     }
   };
 
-  const sameRole = (account?.role === 'user' ? 'student' : account?.role) === nextRole;
+  const sameRole = currentRole === nextRole;
 
   return (
     <div className="lp-access">

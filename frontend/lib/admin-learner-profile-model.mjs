@@ -259,7 +259,9 @@ export function roleLabel(role) {
 export function roleChangeBlocked(account, selfId) {
   if (!account) return 'Người này chưa có tài khoản, nên chưa có vai trò để đổi.';
   if (selfId && account.user_id === selfId) return 'Không đổi vai trò của chính mình ở đây.';
-  if (!account.is_active) return 'Tài khoản đang bị tạm khoá: mở khoá trước rồi mới đổi vai trò.';
+  // No block on is_active: for a learner it is the activation flag, not a
+  // suspension (users.suspended_at, mig 336). The role route refuses a
+  // suspended account itself (account_suspended) and the dialog shows why.
   return '';
 }
 
@@ -287,6 +289,11 @@ export function roleResultText(response, to) {
 /** A refused role change keeps the API's own sentence (last admin, suspended, step-up not done). */
 export function roleErrorText(caught) {
   const err = /** @type {any} */ (caught) || {};
+  // A factor added or changed under 24 h ago: a fresh code does not help,
+  // so the server's sentence (with the wait) is shown as is (FR-020a).
+  if (err.code === 'step_up_required' && err.reason === 'new_factor_cooloff') {
+    return `Chưa đổi vai trò: ${err.message || 'cần chờ hết thời gian chờ sau khi đổi mã hai bước.'}`;
+  }
   if (err.code === 'step_up_required') return 'Chưa đổi vai trò: cần xác minh mã hai bước. Bấm Đổi vai trò lần nữa để nhập mã.';
   return `Chưa đổi vai trò: ${err.message || 'lỗi không xác định'}`;
 }

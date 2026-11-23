@@ -70,6 +70,20 @@ describe('Khoá và quyền (G09-T11b)', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  it('after a reload the role select follows the server, and an unactivated learner can still change role', async () => {
+    api.getWith.mockResolvedValueOnce(detail({ account: { user_id: UID, role: 'student', is_active: false } }))
+      .mockResolvedValue(detail({ account: { user_id: UID, role: 'instructor', is_active: false } }));
+    render(<AdminLearnerProfile learnerRef={U} />);
+    await screen.findByText('Vùng nguy hiểm');
+    const select = screen.getByRole('combobox', { name: /Vai trò mới/ }) as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: 'instructor' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Đổi vai trò' }));
+    fireEvent.click(within(dialog()).getByRole('button', { name: 'Đổi vai trò' }));
+    await screen.findByText('Giảng viên', { selector: 'strong' });
+    expect((screen.getByRole('combobox', { name: /Vai trò mới/ }) as HTMLSelectElement).value).toBe('instructor');
+    expect((screen.getByRole('button', { name: 'Đổi vai trò' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
   it('demoting staff warns that sessions are revoked, and a failed revocation is not called a success', async () => {
     api.getWith.mockResolvedValue(detail({ account: { user_id: UID, role: 'instructor', is_active: true } }));
     api.patch.mockResolvedValue({ ok: true, id: UID, role: 'student', changed: true, audit_id: 'a2', sessions_revoked: false, revoke_error: 'gotrue' });
