@@ -46,7 +46,7 @@ Nguồn: gói mục 4.6, 5.6, 5.7, 5.9 (phần T27). Đã đối chiếu với s
 
 ### 5.2 Migration chấm lại (T21, một file trong dải 420–439)
 
-Lấy số trống đầu tiên lúc viết PR (0063 và 0064 có thể đã dùng hai số đầu). Thêm dòng `register.tsv`. Có file rollback.
+Lấy số trống đầu tiên lúc viết PR. Ngày 23/11, 420 đã thuộc LEARNERCORE-0063 và 421 thuộc `review_notes_flag_once` ở nhánh đang mở; 0064 lấy số kế tiếp. Đối chiếu `register.tsv` và các PR đang mở trước khi đặt tên file, và thêm dòng `reserved` sớm để không trùng. Thêm dòng `register.tsv`. Có file rollback.
 
 ```sql
 ALTER TABLE public.essay_regrade_requests
@@ -77,7 +77,7 @@ Khối `DO` theo mẫu mig 085, để chạy lại file không lỗi. `VALIDATE`
 
 - **Thứ tự an toàn:**
   1. Trước khi áp, chạy truy vấn chỉ đọc `SELECT count(*) FROM essay_regrade_requests WHERE char_length(reason) NOT BETWEEN 50 AND 500;` trên staging, rồi trên production trong lần áp được duyệt. Kết quả phải là 0; khác 0 thì dừng và báo anh Andy.
-  2. Áp `ADD CONSTRAINT … NOT VALID` rồi `VALIDATE CONSTRAINT` trong cùng file, để không khoá bảng lâu (`CHƯA KIỂM`: mẫu runner có cho hai lệnh trong một giao dịch không; xem `backend/migrations/README.md`).
+  2. Áp `ADD CONSTRAINT … NOT VALID` rồi `VALIDATE CONSTRAINT` trong cùng file. Runner chạy cả file trong một giao dịch (`backend/migrations/README.md`), và `ADD COLUMN` ở đầu file đã giữ khoá `ACCESS EXCLUSIVE` tới lúc commit, nên hai lệnh này không rút ngắn thời gian khoá. Lý do giữ cách viết này là để file chạy lại được và `essay_regrade_reason_length` chỉ bị bỏ sau khi ràng buộc mới đã hợp lệ. Bảng nhỏ (mỗi bài tối đa một yêu cầu), nên khoá trong một giao dịch là chấp nhận được; vẫn đặt `lock_timeout` như các file gần đây.
 - **`reason`** vẫn NOT NULL. Dạng mới lưu vào cột này `"<nhãn tiếng Việt>"`, hoặc `"<nhãn>: <note>"` khi có ghi chú (nhãn dài nhất dưới 60 ký tự, `note` ≤ 300, nên luôn ≤ 500). Như vậy mã cũ và màn admin cũ đọc đủ cả lý do lẫn ghi chú mà không cần hai cột mới.
 - **Lùi không mất dữ liệu (sau HOLD 23/11):** đường lùi chuẩn là **chỉ lùi mã**. Hai cột và `essay_regrade_reason_shape` ở lại. Lý do:
   - mã cũ chỉ ghi `{reason}` 50–500 với `reason_code = NULL`, thoả nhánh đầu của `essay_regrade_reason_shape`;
@@ -121,7 +121,8 @@ Khối `DO` theo mẫu mig 085, để chạy lại file không lỗi. `VALIDATE`
 
 - **`CreditsEmptyNotice`:**
   - Props: `source: 'online'|'class'`, `canRenew: boolean`, `renewHref?`, `renewCredits?`.
-  - Đọc `detail.credit_source` của 402 `insufficient_credits`.
+  - Đọc `detail.credit_source` của 402 `insufficient_credits` (`CHƯA KIỂM` tên trường ở G04-T08).
+  - `canRenew` lấy từ `GET /api/me/courses` (`can_renew`, kèm `product_slug`); `renewCredits` là `ai_credits` của sản phẩm công khai theo `product_slug` (`courses_public.py`). Cả hai không lấy từ 402. Chưa tải được thì không hiện nút đăng ký lại.
   - Câu chữ theo FR-055.
   - Khối liên hệ là component của PUBLICSITE-0059 FR-026.
 - **`fixLink(fix, ctx)`:**
