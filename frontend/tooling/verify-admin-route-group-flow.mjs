@@ -43,6 +43,9 @@ const PAGE_SPEC = {
   '/admin/mock-exams': { active: 'mock-tests', sheets: ['/css/admin-mock-exams-next.css', '/css/admin-exam-ops-next.css', '/css/admin-mock-corrections.css'] },
   '/admin/mock-live': { active: 'mock-tests', sheets: ['/css/admin-mock-live-next.css', '/css/admin-exam-ops-next.css'] },
   '/admin/mock-reviews?mock_exam_id=00000000-0000-4000-8000-0000000000e1': { active: 'mock-tests', sheets: ['/css/admin-mock-reviews-next.css', '/css/admin-exam-ops-next.css'] },
+  '/admin/mock-tests': { active: 'mock-tests', sheets: ['/css/admin-mock-tests-next.css', '/css/admin-exam-ops-next.css'] },
+  '/admin/writing': { active: 'writing', sheets: ['/css/admin-writing-hub-next.css'] },
+  '/admin/writing/new': { active: 'writing', sheets: ['/css/admin-writing-new-next.css'] },
 };
 const PAGES = Object.keys(PAGE_SPEC);
 // The 4 admin base sheets owned by (authed-admin)/layout.tsx, in order.
@@ -67,7 +70,9 @@ const CLIENT_SHOTS = new Set(['/admin/feedback → /admin', '/admin/feedback →
   '/admin/speaking → /admin/speaking/sessions', '/admin/speaking/topics → /admin/speaking',
   '/admin/feedback → /admin/reading', '/admin/feedback → /admin/dashboard/reading-attempts', '/admin/feedback → /admin/mock-exams',
   '/admin/feedback → /admin/mock-live', '/admin/feedback → /admin/mock-reviews?mock_exam_id=00000000-0000-4000-8000-0000000000e1', '/admin/mock-exams → /admin/mock-live',
-  '/admin/mock-live → /admin/mock-reviews?mock_exam_id=00000000-0000-4000-8000-0000000000e1', '/admin/mock-reviews?mock_exam_id=00000000-0000-4000-8000-0000000000e1 → /admin/mock-exams']);
+  '/admin/mock-live → /admin/mock-reviews?mock_exam_id=00000000-0000-4000-8000-0000000000e1', '/admin/mock-reviews?mock_exam_id=00000000-0000-4000-8000-0000000000e1 → /admin/mock-exams',
+  '/admin/feedback → /admin/mock-tests', '/admin/feedback → /admin/writing', '/admin/feedback → /admin/writing/new',
+  '/admin/mock-exams → /admin/mock-tests', '/admin/writing → /admin/writing/new']);
 
 const results = [];
 const check = (name, ok, detail = '') => { results.push({ name, ok }); console.log(`  ${ok ? '✓' : '✗'} ${name}${detail ? ` — ${detail}` : ''}`); };
