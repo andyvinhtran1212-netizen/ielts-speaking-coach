@@ -10,6 +10,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 import { CourseHubPage } from '@/app/(authed-v2-course)/course/course-hub';
 import CoursePage from '@/app/(authed-v2-course)/course/page';
+import { documentNavigation } from '@/lib/tree-replace';
 
 const learnerMe = vi.hoisted(() => ({ current: { status: 'loading', me: null } as { status: string; me: Record<string, unknown> | null } }));
 vi.mock('@/components/learner/learner-frame', () => ({ useLearnerMe: () => learnerMe.current }));
@@ -59,12 +60,20 @@ function httpError(status: number, code: string | null = null) {
   return Object.assign(new Error(`HTTP ${status}`), { status, code });
 }
 
-beforeEach(() => { search.value = ''; });
-afterEach(() => { cleanup(); replace.mockReset(); });
+let docReplace: ReturnType<typeof vi.spyOn>;
+
+beforeEach(() => {
+  search.value = '';
+  // `/my-class` is in the legacy tree: a full document replacement (UIBASE-0056 FR-015).
+  docReplace = vi.spyOn(documentNavigation, 'replace').mockImplementation(() => {});
+});
+afterEach(() => { cleanup(); replace.mockReset(); docReplace.mockRestore(); });
 
 it('class only (no online grant at all): replaces to the assigned work and draws no group (FR-035)', async () => {
   mount(payload({ has_class: true, class: { name: 'A1', teacher_name: null, course_title: null, repractice: [] } }));
-  await waitFor(() => expect(replace).toHaveBeenCalledWith('/course/assigned'));
+  await waitFor(() => expect(docReplace).toHaveBeenCalledWith('/course/assigned'));
+  // Into the legacy tree: never a soft replace that keeps the v2 stylesheets.
+  expect(replace).not.toHaveBeenCalled();
   expect(screen.queryByRole('region', { name: 'Khoá online của bạn' })).toBeNull();
   expect(screen.queryByRole('region', { name: 'Khoá của lớp' })).toBeNull();
 });
@@ -75,6 +84,7 @@ it('class only but the online part failed: no redirect, the online group shows i
   const group = await screen.findByRole('region', { name: 'Khoá online của bạn' });
   expect(within(group).getByText('Phần này chưa tải được. Các phần khác vẫn dùng được; tải lại trang để thử lại.')).toBeTruthy();
   expect(replace).not.toHaveBeenCalled();
+  expect(docReplace).not.toHaveBeenCalled();
 });
 
 it('online only: the class group folds to one line that opens with aria-expanded (FR-033)', async () => {
@@ -148,6 +158,28 @@ it('expired course: "Đã hết hạn", no renew button without the labels modul
   expect(getWith).not.toHaveBeenCalledWith('/api/course/OLD/lessons', undefined, expect.anything());
 });
 
+it('switching to an expired course drops the pending lessons of the previous one (FR-037)', async () => {
+  let releaseG1: (value: unknown) => void = () => {};
+  const lessonSignals: AbortSignal[] = [];
+  const course = payload({ online: [online('G1'), online('OLD', { state: 'expired', days_left: null })],
+    has_online: true, selected: 'G1' });
+  getWith = vi.fn((path: string, _q: unknown, opts?: { signal?: AbortSignal }) => {
+    if (path === '/api/student/course') return Promise.resolve(course);
+    if (opts?.signal) lessonSignals.push(opts.signal);
+    return new Promise((resolve) => { releaseG1 = resolve; });
+  });
+  Object.defineProperty(window, 'api', { configurable: true, value: { getWith, post: vi.fn() } });
+  const view = render(<CourseHubPage accountId="learner-1" />);
+  await waitFor(() => expect(lessonSignals.length).toBe(1));
+  search.value = 'course=OLD';
+  view.rerender(<CourseHubPage accountId="learner-1" />);
+  expect(await screen.findByText('Khoá đã hết hạn. Đăng ký lại để học tiếp từ bài đang dở.')).toBeTruthy();
+  expect(lessonSignals[0].aborted).toBe(true);
+  await act(async () => { releaseG1(LESSONS); });
+  expect(screen.getByText('Khoá đã hết hạn. Đăng ký lại để học tiếp từ bài đang dở.')).toBeTruthy();
+  expect(screen.queryByText('Bài 2. Thì quá khứ')).toBeNull();
+});
+
 it('no course, no class: two empty groups; buy and activation links hidden while not live', async () => {
   mount(payload());
   const onlineGroup = await screen.findByRole('region', { name: 'Khoá online của bạn' });
@@ -157,6 +189,7 @@ it('no course, no class: two empty groups; buy and activation links hidden while
   expect(screen.queryByRole('link', { name: 'Nhập mã kích hoạt' })).toBeNull();
   expect(screen.queryByText('Khoá online khác · dự kiến')).toBeNull();
   expect(replace).not.toHaveBeenCalled();
+  expect(docReplace).not.toHaveBeenCalled();
 });
 
 it('?course= picks a course on the page; "Xem bài học" replaces the query', async () => {
@@ -203,7 +236,8 @@ it('flag off: replaces the URL with the stand-in page and never calls the Lộ t
   Object.defineProperty(window, 'api', { configurable: true, value: { getWith, post: vi.fn() } });
   learnerMe.current = { status: 'ready', me: { id: 'learner-1', learner_v2_enabled: false } };
   render(<CoursePage />);
-  await waitFor(() => expect(replace).toHaveBeenCalledWith('/course/assigned'));
+  await waitFor(() => expect(docReplace).toHaveBeenCalledWith('/course/assigned'));
+  expect(replace).not.toHaveBeenCalled();
   expect(getWith).not.toHaveBeenCalled();
 });
 
@@ -214,6 +248,7 @@ it('profile still loading: neither the page nor a redirect yet', async () => {
   render(<CoursePage />);
   expect(screen.getByRole('status')).toBeTruthy();
   expect(replace).not.toHaveBeenCalled();
+  expect(docReplace).not.toHaveBeenCalled();
   expect(getWith).not.toHaveBeenCalled();
 });
 
@@ -224,4 +259,5 @@ it('flag on: the Lộ trình page loads for this account', async () => {
   render(<CoursePage />);
   expect(await screen.findByRole('region', { name: 'Khoá online của bạn' })).toBeTruthy();
   expect(replace).not.toHaveBeenCalled();
+  expect(docReplace).not.toHaveBeenCalled();
 });
