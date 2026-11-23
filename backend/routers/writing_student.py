@@ -50,6 +50,7 @@ from services import class_archive_service
 from services import essay_service
 from services import core_admission
 from services import test_data_visibility
+from services import retention_policy
 from services.access_code_permissions import (
     get_user_access_code_permissions,
     has_writing_permission,
@@ -330,6 +331,23 @@ async def _prompt_bank_image_viewer(authorization: Optional[str]) -> Optional[st
         return None
 
 
+_CONTENT_EXPIRED = {
+    "error_code": "content_expired",
+    "message": "Bài làm này đã quá thời hạn xem. Đăng ký lại để xem tiếp các bài sau.",
+}
+
+
+async def _content_window_closed(student: dict) -> bool:
+    """COURSEACCESS-0055 plan 5.14 (Q20): past the window after the learner's
+    last course, Writing is hidden at read time only; nothing is deleted and
+    a new course shows the essays again. Flag off or lookup error → never."""
+    user_id = student.get("user_id")
+    if not user_id:
+        return False
+    window = await asyncio.to_thread(retention_policy.content_window, str(user_id))
+    return retention_policy.window_closed(window)
+
+
 @router.get("/my-essays")
 async def list_my_essays(student: dict = Depends(get_current_student)):
     """List all essays for the authenticated student, newest first.
@@ -339,6 +357,8 @@ async def list_my_essays(student: dict = Depends(get_current_student)):
     detail endpoint when the user opens one (and only delivered
     essays surface feedback there).
     """
+    if await _content_window_closed(student):
+        return {"student": _dashboard_student(student), "essays": []}
     try:
         result = (
             supabase_admin.table("writing_essays")
@@ -535,6 +555,8 @@ async def get_my_essay(
     the writing_feedback row exists, because Andy may still be
     editing the AI output before release.
     """
+    if await _content_window_closed(student):
+        raise HTTPException(status_code=410, detail=_CONTENT_EXPIRED)
     try:
         essay_result = (
             supabase_admin.table("writing_essays")
@@ -659,6 +681,9 @@ async def export_my_essay_docx(
     from fastapi.responses import StreamingResponse
 
     from services.writing_word_exporter import render_essay_to_docx
+
+    if await _content_window_closed(student):
+        raise HTTPException(status_code=410, detail=_CONTENT_EXPIRED)
 
     # Ownership + delivery gate. Use a status SELECT first so we can
     # 404 vs 403 distinctly: 404 for "not yours / doesn't exist" (no

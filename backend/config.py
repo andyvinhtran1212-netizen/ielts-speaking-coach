@@ -593,6 +593,12 @@ class Settings(BaseSettings):
     LEARNER_EMAIL_FROM: str = ""
     LEARNER_EMAIL_REPLY_TO: str = ""
     PUBLIC_SITE_URL: str = ""
+    # Retention (plan 5.14, G04-T10). services/retention.py clamps the audio
+    # value to its 60-day ceiling (FR-029); the code default keeps today's 15.
+    # The content window after the last course expiry applies only while the
+    # runtime flag retention_by_entitlement is on (FR-048).
+    RETENTION_AUDIO_DAYS: int = 15
+    RETENTION_CONTENT_DAYS_AFTER_EXPIRY: int = 45
 
     class Config:
         env_file = ".env"
@@ -647,6 +653,17 @@ class Settings(BaseSettings):
     @classmethod
     def _strict_reminder_min_age(cls, value):
         return _bounded_int_or_default("ENROLL_PAY_REMINDER_MIN_AGE_HOURS", value, 0, 720, 6)
+
+    @field_validator("RETENTION_AUDIO_DAYS", mode="before")
+    @classmethod
+    def _strict_retention_audio_days(cls, value):
+        # Above 60 is accepted here and clamped (with a warning) by services.retention.
+        return _bounded_int_or_default("RETENTION_AUDIO_DAYS", value, 1, 3650, 15)
+
+    @field_validator("RETENTION_CONTENT_DAYS_AFTER_EXPIRY", mode="before")
+    @classmethod
+    def _strict_retention_content_after_expiry(cls, value):
+        return _bounded_int_or_default("RETENTION_CONTENT_DAYS_AFTER_EXPIRY", value, 1, 3650, 45)
 
     @field_validator("ENROLL_SUPPLEMENT_HOURS", mode="before")
     @classmethod

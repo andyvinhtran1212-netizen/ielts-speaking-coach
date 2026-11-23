@@ -38,9 +38,11 @@ from datetime import datetime, timedelta, timezone
 
 from database import supabase_admin
 from services.speaking_submission import submission_id
+from services import retention_policy
 from services.retention import (
     RETENTION_AUDIO_DAYS,
     RETENTION_CONTENT_DAYS,
+    RetentionPolicy,
     compute_expiry,
 )
 
@@ -65,7 +67,11 @@ def _cutoff_iso(days: int) -> str:
 
 # ── Eligibility (DB pre-filter narrows; compute_expiry is authoritative) ───────
 
-def _eligible(purged_col: str, days: int, expiry_key: str) -> list[dict]:
+def _eligible(purged_col: str, days: int, expiry_key: str, *, per_user: bool = False) -> list[dict]:
+    """``per_user`` (content only, plan 5.14): after the default pre-filter,
+    each row is confirmed with its owner's window from
+    ``retention_policy.content_windows``; an owner whose window could not be
+    read is skipped (never purged). Audio never uses it (FR-029)."""
     cutoff = _cutoff_iso(days)
     rows = (
         supabase_admin.table("sessions")
@@ -79,7 +85,21 @@ def _eligible(purged_col: str, days: int, expiry_key: str) -> list[dict]:
         .data
     ) or []
     # Confirm with the SAME policy the UI uses — never purge what the UI shows safe.
-    return [r for r in rows if compute_expiry(r)[expiry_key]]
+    if not per_user:
+        return [r for r in rows if compute_expiry(r)[expiry_key]]
+    windows = retention_policy.content_windows((r.get("user_id") for r in rows), db=supabase_admin) \
+        if rows else {}
+    out, skipped = [], 0
+    for r in rows:
+        window = windows.get(str(r.get("user_id")))
+        if window is None:
+            skipped += 1
+            continue
+        if compute_expiry(r, policy=RetentionPolicy(window=window))[expiry_key]:
+            out.append(r)
+    if skipped:
+        logger.warning("[sweep] content skipped=%d sessions (retention window unknown)", skipped)
+    return out
 
 
 def _audio_paths(session_id: str, user_id: str | None = None) -> list[str]:
@@ -204,7 +224,7 @@ def sweep_audio() -> dict:
 
 
 def sweep_content() -> dict:
-    eligible = _eligible("content_purged_at", RETENTION_CONTENT_DAYS, "is_content_purged")
+    eligible = _eligible("content_purged_at", RETENTION_CONTENT_DAYS, "is_content_purged", per_user=True)
     purged, errors = 0, []
     for s in eligible:
         try:

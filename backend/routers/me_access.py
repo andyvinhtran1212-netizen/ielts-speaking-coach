@@ -23,6 +23,7 @@ from config import settings
 from database import supabase_admin
 from routers.auth import get_supabase_user
 from services import entitlements as ent
+from services import retention_policy
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +107,8 @@ def _credits_block(balance_item: Optional[dict]) -> Optional[dict]:
 
 
 def build_my_courses(items: list[ent.AccessItem], balance: dict, courses: dict[str, dict],
-                     open_orders: dict[str, str], now: datetime) -> dict:
+                     open_orders: dict[str, str], now: datetime,
+                     content_window: tuple = (None, None)) -> dict:
     by_entitlement = {str(b.get("entitlement_id")): b for b in balance.get("items") or []}
     out = []
     for item in items:
@@ -132,6 +134,7 @@ def build_my_courses(items: list[ent.AccessItem], balance: dict, courses: dict[s
             "renew_order_code": order_code if item.is_entitlement else None,
             "credits": _credits_block(by_entitlement.get(item.entitlement_id or "")),
         })
+    visible_until, days_after = content_window
     by_kind = {"online": 0, "class": 0}
     for b in balance.get("items") or []:
         usable_from = ent.parse_ts(b.get("usable_from"))
@@ -142,27 +145,27 @@ def build_my_courses(items: list[ent.AccessItem], balance: dict, courses: dict[s
     return {
         "items": out,
         "credits": {"total": int(balance.get("total") or 0), "by_kind": by_kind},
-        # Wired by G04-T10 (plan 5.14) behind the retention_by_entitlement flag.
-        "content_visible_until": None,
-        "content_days_after_expiry": None,
+        # Plan 5.14 / FR-048, behind the retention_by_entitlement flag.
+        "content_visible_until": visible_until,
+        "content_days_after_expiry": days_after,
     }
 
 
 def _my_courses_reads(user_id: str):
     items = ent.list_access(user_id)
     return (items, fetch_credit_balance(user_id), fetch_courses(i.course_id for i in items),
-            ent.fetch_open_orders(user_id))
+            ent.fetch_open_orders(user_id), retention_policy.window_view(items, datetime.now(timezone.utc)))
 
 
 @router.get("/courses")
 async def my_courses(authorization: Optional[str] = Header(None)):
     user = await get_supabase_user(authorization)
     try:
-        items, balance, courses, orders = await asyncio.to_thread(_my_courses_reads, str(user["id"]))
+        items, balance, courses, orders, window = await asyncio.to_thread(_my_courses_reads, str(user["id"]))
     except Exception as exc:
         logger.warning("[me] courses read failed user=%s: %s", user.get("id"), exc)
         raise _error(503, "access_unavailable", "Chưa tải được khoá học của bạn. Bạn thử lại sau ít phút nhé.")
-    return build_my_courses(items, balance, courses, orders, datetime.now(timezone.utc))
+    return build_my_courses(items, balance, courses, orders, datetime.now(timezone.utc), window)
 
 
 # ── /api/me/credits ───────────────────────────────────────────────────────
