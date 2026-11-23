@@ -47,7 +47,8 @@
 
 - Migration/schema query: N/A ở G08-T16; G08-T22 dùng bảng của G09-T31.
 - Immediate state versus full reload: tải lại giữa phần vào đúng phần với thời gian còn lại theo
-  máy chủ và chữ Writing đã ack; PENDING.
+  máy chủ và chữ Writing đã ack; phần đã nộp trước đó chỉ hiện "✓ Submitted" (Scenario 7);
+  PENDING.
 
 ## UI evidence
 
