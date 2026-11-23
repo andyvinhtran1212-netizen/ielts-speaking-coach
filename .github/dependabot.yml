@@ -15,12 +15,19 @@ updates:
       interval: monthly
     open-pull-requests-limit: 2
 
+  # One PR for all backend bumps, so they go through one QA round together:
+  # httpx/supabase are pinned on purpose (see requirements.txt) and must be
+  # checked as a set (CR-2330-R1).
   - package-ecosystem: pip
     directory: /backend
     target-branch: staging
     schedule:
       interval: monthly
     open-pull-requests-limit: 2
+    groups:
+      backend-python:
+        patterns:
+          - "*"
 
   # GitHub Actions uses / to scan .github/workflows and root action manifests.
   - package-ecosystem: github-actions
