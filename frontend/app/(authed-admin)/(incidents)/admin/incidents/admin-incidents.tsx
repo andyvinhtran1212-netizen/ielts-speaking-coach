@@ -1,7 +1,7 @@
 'use client';
 
 // Hộp thư sự cố (ADMINIA-0074 FR-070…FR-073; plan 5.4; G09-T16).
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 import {
@@ -58,18 +58,28 @@ export function AdminIncidents() {
   const [busy, setBusy] = useState(false);
   const [banner, setBanner] = useState<Banner>(null);
 
+  // Only the newest request may fill the page: an older answer for another
+  // filter (or a reload started before the filter changed) is dropped, and the
+  // rows are cleared while a new query loads so stale rows are never actionable.
+  const sequence = useRef(0);
+  const current = useRef(state);
+  current.current = state;
+
   const load = useCallback(async (s: InboxState) => {
+    const id = ++sequence.current;
     setLoadError(null);
     try {
-      setData(await fetchIncidentGroups(groupsApiQuery(s)));
+      const out = await fetchIncidentGroups(groupsApiQuery(s));
+      if (id === sequence.current) setData(out);
     } catch (caught) {
+      if (id !== sequence.current) return;
       console.warn('[admin-incidents] load failed', caught);
       setData(null);
       setLoadError(messageOf(caught));
     }
   }, []);
 
-  useEffect(() => { setSelected(new Set()); void load(state); }, [load, state]);
+  useEffect(() => { setSelected(new Set()); setData(null); void load(state); }, [load, state]);
 
   const go = (next: Partial<InboxState>) => {
     router.push(`${pathname}${inboxQueryString({ ...state, page: 1, ...next })}`);
@@ -93,7 +103,7 @@ export function AdminIncidents() {
         ...(undo && !fromUndo && out.changed ? { undo: { action: undo, groups: changed } } : {}),
       });
       setSelected(new Set());
-      await load(state);
+      await load(current.current);
     } catch (caught) {
       setBanner({ kind: 'error', text: `Chưa thực hiện được: ${messageOf(caught)}` });
     } finally {
@@ -192,7 +202,7 @@ export function AdminIncidents() {
       {loadError ? (
         <div className="inc-warning" role="alert">
           Chưa tải được hộp thư sự cố: {loadError}{' '}
-          <button type="button" onClick={() => void load(state)}>Tải lại</button>
+          <button type="button" onClick={() => void load(current.current)}>Tải lại</button>
         </div>
       ) : null}
 

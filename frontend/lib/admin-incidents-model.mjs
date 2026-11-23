@@ -110,17 +110,6 @@ export function undoActionFor(action) {
 }
 
 /**
- * A note with no state change: the action that changes nothing for the
- * group's status (the API keeps a note even when the action is a no-op).
- * @returns {IncidentAction}
- */
-export function noteOnlyAction(status) {
-  if (status === 'resolved') return 'resolve';
-  if (status === 'ignored') return 'ignore';
-  return 'reopen';
-}
-
-/**
  * The actions a group in `status` offers on its detail page.
  * @returns {IncidentAction[]}
  */

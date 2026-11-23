@@ -5,7 +5,7 @@ import { describe, it } from 'node:test';
 
 import {
   actionsFor, bulkRefs, bulkResultText, confirmText, formatWhen, groupHref, groupsApiQuery,
-  inboxQueryString, learnerHref, noteOnlyAction, parseInboxQuery, undoActionFor,
+  inboxQueryString, learnerHref, parseInboxQuery, undoActionFor,
 } from '../lib/admin-incidents-model.mjs';
 import { ADMIN_NAV_GROUPS, adminRouteFor } from '../lib/admin-nav-registry.mjs';
 
@@ -60,11 +60,10 @@ describe('incident actions', () => {
     assert.equal(undoActionFor('reopen'), null);
   });
 
-  it('a note alone uses the action that changes nothing', () => {
-    assert.equal(noteOnlyAction('resolved'), 'resolve');
-    assert.equal(noteOnlyAction('ignored'), 'ignore');
-    assert.equal(noteOnlyAction('new'), 'reopen');
-    assert.equal(noteOnlyAction('in_review'), 'reopen');
+  it('each status offers its actions; there is no note-only action (a stale no-op could close a group)', async () => {
+    const model = await import('../lib/admin-incidents-model.mjs');
+    assert.equal(model.noteOnlyAction, undefined);
+    assert.doesNotMatch(read('app/(authed-admin)/(incidents)/admin/incidents/[source]/[fingerprint]/admin-incident-detail.tsx'), /Chỉ lưu ghi chú/);
     assert.deepEqual(actionsFor('new'), ['claim', 'resolve', 'ignore']);
     assert.deepEqual(actionsFor('resolved'), ['reopen']);
   });

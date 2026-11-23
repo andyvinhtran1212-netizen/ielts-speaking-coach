@@ -97,6 +97,19 @@ describe('AdminIncidents', () => {
     warn.mockRestore();
   });
 
+  it('drops an older answer that arrives after the newer query', async () => {
+    let releaseOld: (v: unknown) => void = () => {};
+    api.getWith.mockImplementationOnce(() => new Promise((resolve) => { releaseOld = resolve; }));
+    const view = render(<AdminIncidents />);
+    nav.search = 'source=grading';
+    api.getWith.mockResolvedValueOnce(page({ items: [group(FP2, { source: 'grading', title: 'Nhóm chấm mới' })] }));
+    view.rerender(<AdminIncidents />);
+    await screen.findByText('Nhóm chấm mới');
+    await act(async () => { releaseOld(page()); });
+    expect(screen.queryByText('Lỗi 1')).toBeNull();
+    expect(screen.getByText('Nhóm chấm mới')).toBeTruthy();
+  });
+
   it('changing a filter goes back to page 1 in the URL', async () => {
     nav.search = 'page=2';
     render(<AdminIncidents />);
@@ -125,17 +138,17 @@ describe('AdminIncidentDetail', () => {
     expect(screen.getByRole('button', { name: 'Nhận xử lý' })).toBeTruthy();
   });
 
-  it('saves a note alone with the action that changes nothing', async () => {
+  it('sends a note only with an explicit action, never as a guessed no-op', async () => {
     api.getWith.mockResolvedValue({ ...detail, status: 'resolved' });
-    api.post.mockResolvedValue({ changed: 0, conflicts: [], dismiss_failed: [] });
+    api.post.mockResolvedValue({ changed: 1, conflicts: [], dismiss_failed: [] });
     render(<AdminIncidentDetail source="errors" fingerprint={FP1} />);
     await screen.findByText(detail.description);
-    fireEvent.change(screen.getByLabelText('Ghi chú (không bắt buộc)'), { target: { value: 'Đã báo đội backend' } });
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Chỉ lưu ghi chú' })); });
+    expect(screen.queryByRole('button', { name: /Chỉ lưu ghi chú/ })).toBeNull();
+    fireEvent.change(screen.getByLabelText('Ghi chú kèm thao tác (không bắt buộc)'), { target: { value: 'Lỗi quay lại' } });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Mở lại' })); });
     expect(api.post).toHaveBeenCalledWith('/admin/incidents/groups/bulk', expect.objectContaining({
-      action: 'resolve', note: 'Đã báo đội backend',
+      action: 'reopen', note: 'Lỗi quay lại',
     }));
-    expect(await screen.findByText('Đã lưu ghi chú.')).toBeTruthy();
   });
 
   it('says plainly when the group is gone', async () => {

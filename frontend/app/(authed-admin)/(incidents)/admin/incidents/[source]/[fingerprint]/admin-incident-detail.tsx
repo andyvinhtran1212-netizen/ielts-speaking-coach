@@ -20,7 +20,6 @@ import {
   formatCount,
   formatWhen,
   learnerHref,
-  noteOnlyAction,
 } from '@/lib/admin-incidents-model.mjs';
 
 type Banner = { kind: 'success' | 'error'; text: string } | null;
@@ -48,7 +47,7 @@ export function AdminIncidentDetail({ source, fingerprint }: { source: string; f
 
   useEffect(() => { void load(); }, [load]);
 
-  const act = async (action: IncidentAction, noteOnly = false) => {
+  const act = async (action: IncidentAction) => {
     if (!group) return;
     const body = note.trim();
     setBusy(true);
@@ -56,7 +55,7 @@ export function AdminIncidentDetail({ source, fingerprint }: { source: string; f
       const out = await postIncidentBulk(action, bulkRefs([group]), body || undefined);
       setBanner({
         kind: out.conflicts.length ? 'error' : 'success',
-        text: noteOnly && !out.conflicts.length ? 'Đã lưu ghi chú.' : bulkResultText(action, out),
+        text: bulkResultText(action, out),
       });
       if (!out.conflicts.length) setNote('');
       await load();
@@ -108,14 +107,12 @@ export function AdminIncidentDetail({ source, fingerprint }: { source: string; f
       {banner ? <div className={`inc-banner is-${banner.kind}`} role="status">{banner.text}</div> : null}
 
       <section className="inc-actions" aria-label="Xử lý nhóm">
-        <label htmlFor="inc-note">Ghi chú (không bắt buộc)</label>
+        <label htmlFor="inc-note">Ghi chú kèm thao tác (không bắt buộc)</label>
         <textarea id="inc-note" maxLength={2000} rows={3} value={note} onChange={(e) => setNote(e.target.value)} />
         <div className="inc-buttons">
           {actionsFor(group.status).map((action) => (
             <button key={action} type="button" disabled={busy} onClick={() => void act(action)}>{ACTION_LABEL[action]}</button>
           ))}
-          <button type="button" disabled={busy || !note.trim()}
-            onClick={() => void act(noteOnlyAction(group.status), true)}>Chỉ lưu ghi chú</button>
         </div>
       </section>
 
