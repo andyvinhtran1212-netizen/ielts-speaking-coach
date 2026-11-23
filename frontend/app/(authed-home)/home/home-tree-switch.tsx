@@ -25,6 +25,8 @@ export function HomeTreeSwitch({ children }: { children: ReactNode }) {
     () => Boolean(accountId) && learnerV2Enabled(getAuthMeProfile(accountId)),
     () => false,
   );
-  if (enabled && accountId) return <TodayV2 accountId={accountId} />;
+  // Keyed by account: a switch between two opted-in accounts mounts a fresh
+  // tree, so nothing loaded for the previous account survives (HOLD 10:28Z).
+  if (enabled && accountId) return <TodayV2 key={accountId} accountId={accountId} />;
   return <>{children}</>;
 }

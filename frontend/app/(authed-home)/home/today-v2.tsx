@@ -46,6 +46,7 @@ import {
   todayCount,
   vnDateCopy,
 } from '@/lib/today-v2-model.mjs';
+import { getBrowserJson, postBrowserJsonAt } from '@/lib/browser-api';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 import styles from './today-v2.module.css';
@@ -55,7 +56,7 @@ type ClassRow = NonNullable<ReturnType<typeof normalizeClassAssignment>>;
 type Phase =
   | { kind: 'loading' }
   | { kind: 'error'; sessionNotCurrent: boolean }
-  | { kind: 'ready'; today: Today };
+  | { kind: 'ready'; today: Today; owner: string };
 
 const LIBRARY = liveHref({ href: '/library', today: null });
 const COURSES = liveHref({ href: '/courses', today: null });
@@ -346,19 +347,36 @@ export function TodayV2({ accountId }: { accountId: string }) {
   const openingRef = useRef<string | null>(null);
   const seenSent = useRef<string | null>(null);
 
+  // Every async step is owned by the account and the load that started it
+  // (HOLD 10:28Z): a later load, an account switch or an unmount aborts it, and
+  // its result is dropped instead of drawn under another account.
+  const loadRef = useRef<AbortController | null>(null);
+  useEffect(() => () => loadRef.current?.abort(), []);
+
   const load = useCallback(async () => {
+    loadRef.current?.abort();
+    const controller = new AbortController();
+    loadRef.current = controller;
     const owner = accountId;
+    const stale = () => controller.signal.aborted || accountRef.current !== owner;
     setPhase({ kind: 'loading' });
-    const ok = await whenGlobalReady(() => typeof window.api?.get === 'function', 'window.api (today)');
-    if (accountRef.current !== owner) return;
+    const ok = await whenGlobalReady(() => typeof window.api?.getWith === 'function', 'window.api (today)');
+    if (stale()) return;
     if (!ok) { setPhase({ kind: 'error', sessionNotCurrent: false }); return; }
     try {
-      const raw = await window.api.get<unknown>('/api/student/today');
-      if (accountRef.current !== owner) return;
+      const raw: unknown = await getBrowserJson('/api/student/today', undefined, controller.signal);
+      if (stale()) return;
       const today = normalizeToday(raw);
-      setPhase(today ? { kind: 'ready', today } : { kind: 'error', sessionNotCurrent: false });
+      setPhase(today ? { kind: 'ready', today, owner } : { kind: 'error', sessionNotCurrent: false });
+      if (today) {
+        // The read proved the session is signed in: settle any owed mock-exam
+        // Speaking report, as the legacy Home does (home-behavior loadHome).
+        // Fire and forget; a stuck sitting must never slow the page.
+        const debt = (window as unknown as { SpeakingDebt?: { retryAll?: () => unknown } }).SpeakingDebt;
+        if (debt && typeof debt.retryAll === 'function') debt.retryAll();
+      }
     } catch (caught) {
-      if (accountRef.current !== owner) return;
+      if (stale()) return;
       const err = caught as { status?: number; code?: string | null };
       setPhase({ kind: 'error', sessionNotCurrent: err?.status === 409 && err?.code === 'session_not_current' });
     }
@@ -366,18 +384,21 @@ export function TodayV2({ accountId }: { accountId: string }) {
 
   useEffect(() => { void load(); }, [load]);
 
-  const today = phase.kind === 'ready' ? phase.today : null;
+  // Data drawn and acted on only by the account that loaded it.
+  const owned = phase.kind === 'ready' && phase.owner === accountId ? phase : null;
+  const today = owned?.today ?? null;
   const markSeen = useCallback(() => {
-    const cursor = today?.seenCursor;
-    if (!cursor) return;
-    const key = `${accountId}|${cursor.seen_until}|${cursor.seen_key}`;
+    if (!owned) return;
+    const cursor = owned.today.seenCursor;
+    if (!cursor || accountRef.current !== owned.owner) return;
+    const key = `${owned.owner}|${cursor.seen_until}|${cursor.seen_key}`;
     if (seenSent.current === key) return;
     seenSent.current = key;
-    window.api.post('/api/student/today/seen', cursor).catch((caught: unknown) => {
+    postBrowserJsonAt('/api/student/today/seen', '/api/student/today/seen', cursor).catch((caught: unknown) => {
       // FR-078: never shown to the learner; the same results come back next time.
       console.warn('[today] seen cursor not saved', caught instanceof Error ? caught.message : caught);
     });
-  }, [today, accountId]);
+  }, [owned]);
 
   const open = useCallback(async (row: ClassRow) => {
     if (openingRef.current) return;
@@ -396,7 +417,7 @@ export function TodayV2({ accountId }: { accountId: string }) {
   }, [accountId, router]);
 
   let body: React.ReactNode;
-  if (phase.kind === 'loading') {
+  if (phase.kind === 'loading' || (phase.kind === 'ready' && !owned)) {
     body = <PageState kind="loading" title="Đang tải việc hôm nay" />;
   } else if (phase.kind === 'error') {
     body = phase.sessionNotCurrent ? (
@@ -412,7 +433,7 @@ export function TodayV2({ accountId }: { accountId: string }) {
       />
     );
   } else {
-    const t = phase.today;
+    const t = today as Today;
     const learning = t.state === 'learning' || t.state === 'first_day';
     const goal = goalCopy(t.goal);
     body = (
@@ -433,10 +454,16 @@ export function TodayV2({ accountId }: { accountId: string }) {
             <Resume today={t} />
             <Credits today={t} />
           </>
-        ) : t.state === 'order_pending' ? (
-          <OrderPending today={t} />
         ) : (
-          <NoCourse today={t} />
+          <>
+            {/* A failed class read falls back to an empty class on the server, so
+                the state can read no_course for a class learner: the block's own
+                warning shows first, never a bare "no course" (FR-026). */}
+            {t.degraded.has('assigned') ? (
+              <Assigned today={t} opening={opening} onOpen={(row) => void open(row)} />
+            ) : null}
+            {t.state === 'order_pending' ? <OrderPending today={t} /> : <NoCourse today={t} />}
+          </>
         )}
       </>
     );
@@ -444,7 +471,7 @@ export function TodayV2({ accountId }: { accountId: string }) {
 
   return (
     <div className={`av2-root ${styles.page}`}>
-      <main className={styles.main} aria-busy={phase.kind === 'loading' || undefined}>{body}</main>
+      <main className={styles.main} aria-busy={!owned && phase.kind !== 'error' ? true : undefined}>{body}</main>
     </div>
   );
 }
