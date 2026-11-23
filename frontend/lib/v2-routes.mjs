@@ -17,6 +17,7 @@ export const V2_ROUTES = Object.freeze([
   '/library/speaking',
   '/library/writing-guides',
   '/library/writing-samples',
+  '/practice',
   '/privacy',
   '/profile/v2-pilot',
   '/terms',
