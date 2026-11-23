@@ -1578,6 +1578,41 @@ def list_essays_page(
     }
 
 
+def count_queue(
+    *,
+    status: Optional[str] = None,
+    cohort_id: Optional[str] = None,
+    mock: Optional[bool] = None,
+    overdue: bool = False,
+) -> int:
+    """Exact size of one admin-queue filter, from the same RPC as the page.
+
+    Used by the admin Giáo viên pages (ADMINIA-0074 FR-106) so "bài chờ
+    duyệt" there can never disagree with the Writing queue. Raises on any
+    malformed receipt; callers show "chưa có", never 0.
+    """
+    if status and status not in _ALLOWED_STATUSES:
+        raise ValueError("invalid status")
+    receipt = supabase_admin.rpc("fn_admin_writing_queue_page", {
+        "p_status": status,
+        "p_cohort_id": cohort_id,
+        "p_mock": mock,
+        "p_query": None,
+        "p_overdue": bool(overdue),
+        "p_limit": 1,
+        "p_offset": 0,
+    }).execute().data
+    if isinstance(receipt, list) and len(receipt) == 1:
+        receipt = receipt[0]
+    if (isinstance(receipt, dict)
+            and set(receipt) == {"fn_admin_writing_queue_page"}):
+        receipt = receipt["fn_admin_writing_queue_page"]
+    total = receipt.get("total") if isinstance(receipt, dict) else None
+    if isinstance(total, bool) or not isinstance(total, int) or total < 0:
+        raise RuntimeError("Writing queue count is unavailable.")
+    return total
+
+
 def _enrich_essay_queue_rows(rows: list[dict], *, scope_snapshot: bool = False) -> list[dict]:
     """Batch-enrich only the rows that belong to the requested page.
 

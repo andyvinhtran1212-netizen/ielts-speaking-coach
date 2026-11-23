@@ -78,3 +78,31 @@ async def resolve_staff_scope(authorization: str | None) -> StaffScope:
         raise _unavailable() from exc
     ids = frozenset(str(r["id"]) for r in (getattr(res, "data", None) or []) if r.get("id"))
     return StaffScope(role="instructor", user_id=user_id, cohort_ids=ids)
+
+
+def classes_taught_by(teacher_ids: Iterable[str]) -> dict[str, list[dict]]:
+    """Active classes per teacher, for the admin Giáo viên pages (FR-106).
+
+    Display only, never an access decision, but it reads the same column as
+    :func:`resolve_staff_scope` so both always agree on who teaches what. One
+    teacher per class, so a class appears under at most one key. Errors
+    propagate: the caller says "chưa có" rather than showing no classes.
+    """
+    ids = sorted({str(t) for t in teacher_ids if t})
+    out: dict[str, list[dict]] = {t: [] for t in ids}
+    if not ids:
+        return out
+    rows = (
+        supabase_admin.table("cohorts")
+        .select("id, name, is_active, instructor_id")
+        .in_("instructor_id", ids)
+        .eq("is_active", True)
+        .execute()
+    ).data or []
+    for row in rows:
+        teacher = str(row.get("instructor_id") or "")
+        if teacher in out and row.get("id"):
+            out[teacher].append({"id": str(row["id"]), "name": row.get("name") or ""})
+    for classes in out.values():
+        classes.sort(key=lambda c: (c["name"].casefold(), c["id"]))
+    return out

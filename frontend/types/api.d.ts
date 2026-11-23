@@ -5134,6 +5134,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/instructors/{instructor_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Instructor Profile
+         * @description One teacher's profile (FR-106): classes with per-class Writing counts
+         *     and 30-day review volume. Admin-only. 404 unless an instructor.
+         */
+        get: operations["get_instructor_profile_admin_instructors__instructor_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/students": {
         parameters: {
             query?: never;
@@ -33800,6 +33821,39 @@ export interface operations {
                 authorization?: string | null;
             };
             path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_instructor_profile_admin_instructors__instructor_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                instructor_id: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
