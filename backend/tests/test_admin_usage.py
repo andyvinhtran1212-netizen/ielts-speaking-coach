@@ -480,7 +480,8 @@ def test_ai_usage_reconciles_claude_led_writing_job(monkeypatch):
     out = _run(admin_module.get_ai_usage(authorization="x"))
 
     # 0.03 reached the ledger; the unlogged 0.02 is no longer dropped because
-    # model_used is claude-*, and it is not labelled "gemini".
+    # model_used is claude-*. The remainder is labelled with the Pass 1
+    # provider (claude); which pass it really belongs to is not known here.
     assert out["overall"]["cost_usd"] == 0.05
     assert out["meta"]["supplemental_writing_rows"] == 1
     assert out["overall"]["by_service"]["claude"]["cost_usd"] == 0.05
@@ -494,6 +495,17 @@ def test_ai_usage_fully_logged_claude_writing_job_is_not_double_counted(monkeypa
 
     assert out["overall"]["cost_usd"] == 0.03
     assert out["meta"]["supplemental_writing_rows"] == 0
+
+
+def test_ai_usage_rounding_residue_does_not_create_a_writing_row(monkeypatch):
+    data = _claude_led_writing_job(0.03, provenance={"job_id": "j1"})
+    data["ai_usage_logs"][0]["cost_usd_est"] = 0.0299996   # 4e-7 below the rounded total
+    _install(monkeypatch, data)
+
+    out = _run(admin_module.get_ai_usage(authorization="x"))
+
+    assert out["meta"]["supplemental_writing_rows"] == 0
+    assert out["overall"]["calls"] == 1
 
 
 def test_ai_usage_claude_writing_row_without_job_provenance_keeps_legacy_rule(monkeypatch):

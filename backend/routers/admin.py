@@ -1649,6 +1649,9 @@ def _writing_feedback_cost(row: dict) -> float:
     return float(cost or 0)
 
 
+_WRITING_RECONCILE_EPSILON_USD = 1e-6
+
+
 def _writing_feedback_supplemental_cost(
     row: dict,
     *,
@@ -1666,7 +1669,10 @@ def _writing_feedback_supplemental_cost(
     provenance = row.get("provenance")
     job_id = provenance.get("job_id") if isinstance(provenance, dict) else None
     if job_id:
-        return max(feedback_cost - ledger_cost_by_job.get(str(job_id), 0.0), 0.0)
+        remainder = feedback_cost - ledger_cost_by_job.get(str(job_id), 0.0)
+        # feedback cost_usd is round(sum, 6); a sub-micro-dollar remainder is
+        # rounding residue, not unlogged spend, and must not create a row.
+        return remainder if remainder >= _WRITING_RECONCILE_EPSILON_USD else 0.0
     if _usage_at_or_after(row.get("created_at"), ledger_first_seen):
         return 0.0
     return feedback_cost
