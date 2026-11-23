@@ -881,12 +881,31 @@ def grant_entitlement(admin_id: str, body: GrantEntitlement) -> dict:
     if status not in ("granted", "replay"):
         raise RuntimeError(f"grant answered {status}")
     entitlement = _entitlement_or_404(str(result["entitlement_id"]))
-    if status == "replay" and (str(entitlement.get("product_id")).lower() != body.product_id.lower()
-                               or str(entitlement.get("granted_by")) != admin_id):
+    if status == "replay" and not _same_grant(entitlement, admin_id, body):
         # The RPC replays on (request_key, user) alone: a key reused for
-        # another product or by another admin must not look like this grant.
+        # another product, admin, length, credit amount or review mode must not
+        # look like this grant.
         raise _request_key_conflict()
     return {"status": status, "entitlement": entitlement}
+
+
+def _same_grant(entitlement: dict, admin_id: str, body: GrantEntitlement) -> bool:
+    if (str(entitlement.get("product_id")).lower() != body.product_id.lower()
+            or str(entitlement.get("granted_by")) != admin_id
+            or entitlement.get("review_mode") != body.review_mode):
+        return False
+    # The grant event holds what the RPC resolved (a field left empty takes
+    # the product's default), so compare against the same resolution.
+    events = _execute(supabase_admin.table("entitlement_events").select("after")
+                      .eq("entitlement_id", str(entitlement["id"])).eq("action", "grant")
+                      .order("id").limit(1)).data or []
+    if not events:
+        return False
+    after = events[0].get("after") or {}
+    product = fetch_product(str(entitlement["product_id"])) or {}
+    days = body.days if body.days is not None else product.get("access_days")
+    credits = body.credits if body.credits is not None else product.get("ai_credits")
+    return after.get("access_days") == days and after.get("credits") == credits
 
 
 def revoke_entitlement(admin_id: str, entitlement_id: str, reason: str) -> dict:
@@ -947,10 +966,11 @@ def adjust_credits(admin_id: str, body: AdjustCredits) -> dict:
     if status == "replay":
         # The RPC replays on the key alone (any entitlement, any delta): only a
         # true repeat of this adjustment may answer "replay".
-        prior = _execute(supabase_admin.table("credit_ledger").select("id, entitlement_id, delta")
+        prior = _execute(supabase_admin.table("credit_ledger").select("id, entitlement_id, delta, actor_id")
                          .eq("id", result.get("ledger_id"))).data or []
         if not prior or str(prior[0].get("entitlement_id")).lower() != body.entitlement_id.lower() \
-                or int(prior[0].get("delta") or 0) != body.delta:
+                or int(prior[0].get("delta") or 0) != body.delta \
+                or str(prior[0].get("actor_id")) != admin_id:
             raise _request_key_conflict()
         entitlement = _entitlement_or_404(body.entitlement_id)
         return {"status": status, "balance": _entitlement_balance(entitlement)}
