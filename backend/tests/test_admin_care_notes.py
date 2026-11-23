@@ -319,3 +319,27 @@ def test_overview_lists_open_booked_work_soonest_first(db):
     out = asyncio.run(profile_mod.get_learner_overview(f"u-{U_LAN}", "Bearer x"))
     assert out["side"]["due_notes"] is None and "care_notes" in out["sources_failed"]
     assert out["goal"] is not None   # the other blocks still answer
+
+
+def test_two_admins_marking_done_at_once_keep_the_first(db, monkeypatch):
+    # Both read the note while it was open; the other admin's write lands
+    # first. The later write must not overwrite their time and name, and
+    # answers the note as it now stands rather than a 409.
+    nid = _add(f"u-{U_LAN}")["id"]
+    stale = dict(_row(db, nid))
+    first = (NOW - timedelta(seconds=1)).isoformat()
+    _row(db, nid).update(done_at=first, done_by=U_ADMIN_2)
+    reads = iter([stale])
+    real_get = notes._get
+    monkeypatch.setattr(notes, "_get", lambda i: next(reads, None) or real_get(i))
+    note = _patch(nid, done=True)
+    assert note["done_at"] == first
+    assert (_row(db, nid)["done_at"], _row(db, nid)["done_by"]) == (first, U_ADMIN_2)
+    # The same race with an edit by the author inside the window: the edit is
+    # written, the first admin's done stays.
+    _row(db, nid).update(done_at=None, done_by=None)
+    stale = dict(_row(db, nid))
+    _row(db, nid).update(done_at=first, done_by=U_ADMIN_2)
+    reads = iter([stale])
+    note = _patch(nid, body="Đã gọi", done=True)
+    assert note["body"] == "Đã gọi" and note["done_at"] == first and _row(db, nid)["done_by"] == U_ADMIN_2

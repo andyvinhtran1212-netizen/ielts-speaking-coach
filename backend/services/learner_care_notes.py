@@ -199,6 +199,21 @@ def _get(note_id: str) -> dict:
     return rows[0]
 
 
+def _write(note_id: str, viewer_id: str, values: dict[str, Any], *, content: bool, marking: bool,
+           now: datetime) -> bool:
+    """One conditional UPDATE; False when no row matched. A content change
+    re-checks the edit window in the write itself; marking done only takes a
+    note that is still open, so two admins marking it at once cannot
+    overwrite each other's time and name."""
+    q = (supabase_admin.table(TABLE).update({**values, "updated_at": now.isoformat()})
+         .eq("id", note_id).is_("deleted_at", "null"))
+    if content:
+        q = q.eq("author_id", viewer_id).gt("created_at", _cutoff(now)).eq("is_initial", False)
+    if marking:
+        q = q.is_("done_at", "null")
+    return bool(q.execute().data or [])
+
+
 def update(note_id: str, viewer_id: str, changes: dict[str, Any], *,
            now: Optional[datetime] = None) -> dict[str, Any]:
     """``changes`` holds only the fields the admin sent. Text and due day need
@@ -221,14 +236,16 @@ def update(note_id: str, viewer_id: str, changes: dict[str, Any], *,
             values.update(done_at=None, done_by=None)
     if content and (row.get("is_initial") or not _editable(row, viewer_id, now)):
         raise NoteLocked()
-    if values:
-        values["updated_at"] = now.isoformat()
-        q = supabase_admin.table(TABLE).update(values).eq("id", note_id).is_("deleted_at", "null")
-        if content:
-            # The window is checked again by the write itself.
-            q = q.eq("author_id", viewer_id).gt("created_at", _cutoff(now)).eq("is_initial", False)
-        if not (q.execute().data or []):
-            _get(note_id)   # removed meanwhile → NoteNotFound
+    marking = "done_at" in values and values["done_at"] is not None
+    if values and not _write(note_id, viewer_id, values, content=bool(content), marking=marking, now=now):
+        fresh = _get(note_id)   # removed meanwhile → NoteNotFound
+        if not (marking and fresh.get("done_at")):
+            raise NoteLocked()
+        # Another admin marked it done first: their time and name stand.
+        # Write whatever else was sent, without the done fields.
+        rest = {k: v for k, v in values.items() if k not in ("done_at", "done_by")}
+        if content and not _write(note_id, viewer_id, rest, content=True, marking=False, now=now):
+            _get(note_id)
             raise NoteLocked()
     fresh = _get(note_id)
     return _out(fresh, _names({str(fresh.get("author_id") or "")}), viewer_id, now)
