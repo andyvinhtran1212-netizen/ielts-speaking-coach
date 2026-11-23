@@ -69,10 +69,10 @@ export const ADMIN_NAV_GROUPS = Object.freeze([
   { id: 'mock', label: 'Thi thử', icon: 'timer', items: [item('mock-tests', 'Kỳ thi', '/admin/mock-tests')] },
   {
     id: 'reports', label: 'Báo cáo', icon: 'chart', items: [
-      soon('activity', 'Hoạt động học viên', { plannedHref: '/admin/reports?tab=hoat-dong' }),
-      soon('traffic', 'Lưu lượng', { plannedHref: '/admin/reports?tab=luu-luong' }),
-      soon('ai-cost', 'Chi phí AI', { plannedHref: '/admin/reports?tab=chi-phi-ai' }),
-      soon('quality', 'Chất lượng nội dung', { plannedHref: '/admin/reports?tab=chat-luong' }),
+      item('activity', 'Hoạt động học viên', '/admin/reports?tab=hoat-dong'),
+      item('traffic', 'Lưu lượng', '/admin/reports?tab=luu-luong'),
+      item('ai-cost', 'Chi phí AI', '/admin/reports?tab=chi-phi-ai'),
+      item('quality', 'Chất lượng nội dung', '/admin/reports?tab=chat-luong'),
     ],
   },
   {
