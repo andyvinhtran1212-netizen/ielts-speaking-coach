@@ -268,14 +268,18 @@ async def complete(engine: Any, claim: Claim, size_bytes: int, link_days: int) -
     return row._mapping["expires_at"] if row else None
 
 
-async def fail(engine: Any, claim: Claim, code: str) -> None:
+async def fail(engine: Any, claim: Claim, code: str, *, keep_lease: bool = False) -> None:
+    """``failed``; the learner may ask again at once. ``keep_lease`` leaves
+    ``lease_until`` as it is when an upload may still be in flight."""
     async with engine.begin() as conn:
         await conn.execute(text(
-            "UPDATE public.account_data_exports SET status = 'failed', lease_until = NULL, "
+            "UPDATE public.account_data_exports SET status = 'failed', "
+            "       lease_until = CASE WHEN :keep THEN lease_until ELSE NULL END, "
             "       last_error_code = :code "
             "WHERE id = CAST(:id AS uuid) AND status = 'building' AND export_owner = :owner "
             "  AND claim_token = CAST(:token AS uuid)"
-        ), {"id": claim.id, "owner": claim.owner, "token": claim.claim_token, "code": code[:ERROR_CODE_MAX]})
+        ), {"id": claim.id, "owner": claim.owner, "token": claim.claim_token, "code": code[:ERROR_CODE_MAX],
+            "keep": keep_lease})
 
 
 # ── Package content ─────────────────────────────────────────────────────────
@@ -423,6 +427,7 @@ async def run_one(engine: Any, *, owner: str, storage: StorageAdapter, lease_sec
     if claim is None:
         return None
     now = now or datetime.now(timezone.utc)
+    uploading = False
     try:
         data, skipped = await collect_rows(engine, claim.user_id)
         pdfs, pdf_skipped = await speaking_pdfs(data, render_pdf)
@@ -437,6 +442,7 @@ async def run_one(engine: Any, *, owner: str, storage: StorageAdapter, lease_sec
         # (CR/SA R3), so its timeout is half the lease.
         if not await renew(engine, claim, lease_seconds):
             return "lost"
+        uploading = True
         await asyncio.wait_for(
             asyncio.to_thread(storage.upload, EXPORT_BUCKET, claim.path, blob, "application/zip"),
             timeout=max(1, lease_seconds // 2))
@@ -448,7 +454,9 @@ async def run_one(engine: Any, *, owner: str, storage: StorageAdapter, lease_sec
     except Exception as exc:
         code = getattr(exc, "error_code", None) or type(exc).__name__
         logger.warning("[account_export] build failed export=%s code=%s: %r", claim.id, code, exc)
-        await fail(engine, claim, f"build_failed:{code}")
+        # A timed-out upload may still be running in its thread: keep the
+        # lease, which the erasure waits out (FR-014 c), instead of clearing it.
+        await fail(engine, claim, f"build_failed:{code}", keep_lease=uploading)
         return f"failed:{code}"
     await _send_ready_letter(engine, claim, expires_at, send)
     return "ready"

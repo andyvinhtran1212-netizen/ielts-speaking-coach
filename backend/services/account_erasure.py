@@ -493,7 +493,15 @@ async def erase_one(engine: Any, request_id: str, *, owner: str, lease_seconds: 
         await remove_storage(storage, uid, await audio_paths(engine, uid))
         step = "database"
         await renew(engine, request_id, owner, lease_seconds)
-        await erase_database(engine, request_id, owner, plan)
+        # FR-014 (c): step 0 cancelled the learner's exports, but a worker that
+        # still holds a live lease may upload a package. Its export row is the
+        # fence, so it must outlive that lease: wait before step 5 deletes it
+        # (fn_account_erase_learner checks again under a row lock).
+        if await export_lease_active(engine, uid) or \
+                (await erase_database(engine, request_id, owner, plan)).get("waiting_export"):
+            await _release(engine, request_id, owner, "export_lease_active", count=False,
+                           max_attempts=max_attempts)
+            return "waiting_export"
         step = "notice"
         await renew(engine, request_id, owner, lease_seconds)
         await send_erased_notice(engine, request_id, owner, auth, send)
@@ -502,10 +510,8 @@ async def erase_one(engine: Any, request_id: str, *, owner: str, lease_seconds: 
         await asyncio.to_thread(auth.soft_delete, uid)
         step = "exports"
         await renew(engine, request_id, owner, lease_seconds)
-        if await export_lease_active(engine, uid):
-            await _release(engine, request_id, owner, "export_lease_active", count=False,
-                           max_attempts=max_attempts)
-            return "waiting_export"
+        # No export lease was live at step 5 and none can start since (claims
+        # skip erasing accounts, renew needs 'building'), so sweep the prefix.
         await remove_storage(storage, uid, [])
         async with engine.begin() as conn:
             row = (await conn.execute(text(

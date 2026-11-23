@@ -109,6 +109,14 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = 'account_erasure_not_owner';
     END IF;
     uid := req.user_id;
+    -- FR-014 (c): an export worker whose lease is still live may yet upload a
+    -- package, and its export row is the only fence against that. Lock the
+    -- rows (a renew or complete waits for this transaction) and change nothing
+    -- while any lease is live; the job releases and retries after the lease.
+    PERFORM 1 FROM public.account_data_exports WHERE user_id = uid FOR UPDATE;
+    IF EXISTS (SELECT 1 FROM public.account_data_exports WHERE user_id = uid AND lease_until >= now()) THEN
+        RETURN jsonb_build_object('waiting_export', true);
+    END IF;
     PERFORM set_config('aver.account_erasure_user', uid::text, true);
     PERFORM set_config('aver.account_erasure_owner', p_owner, true);
     SELECT coalesce(array_agg(s.id), '{}') INTO student_ids FROM public.students s WHERE s.user_id = uid;

@@ -11,6 +11,8 @@ through for the erased learner only.
 from __future__ import annotations
 
 import asyncio
+import threading
+import time
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -151,7 +153,7 @@ def env():
 
     try:
         yield SimpleNamespace(engine=engine, run=run, storage=storage, auth=FakeAuth(), letters=letters,
-                              send=send, revoked=revoked, alerts=alerts, alert=alert)
+                              send=send, revoked=revoked, alerts=alerts, alert=alert, url=url)
     finally:
         try:
             next(gen)
@@ -308,28 +310,122 @@ def test_lost_lease_stops_before_the_database_step(env):
     assert "account_erasure_not_owner" in str(exc.value)
 
 
-def test_running_export_lease_defers_the_final_step(env):
+class _HeldUpload:
+    """Export worker in its own thread whose upload blocks until released."""
+
+    def __init__(self, env, lease_seconds):
+        self.env, self.lease = env, lease_seconds
+        self.started, self.release = threading.Event(), threading.Event()
+        self.result = None
+        real_upload = env.storage.upload
+
+        def held(bucket, path, data, content_type):
+            self.path = path
+            self.started.set()
+            assert self.release.wait(30)
+            real_upload(bucket, path, data, content_type)
+
+        self.upload = held
+
+    def _work(self):
+        from services import account_export as ex
+
+        storage = SimpleNamespace(list_prefix=self.env.storage.list_prefix, download=self.env.storage.download,
+                                  remove=self.env.storage.remove, upload=self.upload)
+
+        async def pdf(_sid):
+            return b"%PDF-"
+
+        async def go():
+            engine = make_engine(self.env.url)
+            try:
+                return await ex.run_one(engine, owner="exporter", storage=storage, lease_seconds=self.lease,
+                                        max_bytes=10_000_000, link_days=7, send=self.env.send, render_pdf=pdf)
+            finally:
+                await engine.dispose()
+
+        self.result = asyncio.run(go())
+
+    def start(self):
+        self.thread = threading.Thread(target=self._work)
+        self.thread.start()
+        assert self.started.wait(30), "the export worker never reached its upload"
+
+
+def _exports(env):
+    return env.storage.list_prefix("account-exports", U1)
+
+
+def test_export_lease_fences_the_database_step_with_two_real_workers(env):
+    """FR-014 (c), CR @ccff5d6e: the erasure must not delete the export rows,
+    which are the only fence, while an export worker still holds a lease.
+    Nothing is stubbed: a real export worker is held inside its upload."""
+    env.run(f"INSERT INTO public.account_data_exports (user_id) VALUES ('{U1}')")
+    worker = _HeldUpload(env, lease_seconds=300)
+    worker.start()
     req = _request(env)
-    env.run(f"INSERT INTO public.account_data_exports (user_id, status, export_owner, claim_token, lease_until) "
-            f"VALUES ('{U1}', 'building', 'x', gen_random_uuid(), now() + interval '5 minutes')")
-    # Step 0 cancels it but its lease is still live; step 5 deletes the row,
-    # so put a second live one back to model a worker that has not noticed.
-    real = er.export_lease_active
-    calls = []
-
-    async def live(engine, uid):
-        calls.append(uid)
-        return len(calls) == 1
-
-    er.export_lease_active = live
-    try:
-        assert _erase(env, req) == "waiting_export"
-        assert env.run(f"SELECT status, last_error_code, attempts FROM public.account_deletion_requests "
-                       f"WHERE id = '{req}'") == "erasing|export_lease_active|0"
-        assert _erase(env, req) == "erased"
-    finally:
-        er.export_lease_active = real
+    # Step 0 cancels the export, but its lease is live: no DB change yet.
+    assert _erase(env, req) == "waiting_export"
+    assert env.run(f"SELECT status, last_error_code, attempts, step_done IS NULL "
+                   f"FROM public.account_deletion_requests WHERE id = '{req}'") == "erasing|export_lease_active|0|t"
+    assert env.run(f"SELECT status, lease_until > now() FROM public.account_data_exports "
+                   f"WHERE user_id = '{U1}'") == "cancelled|t"
+    assert env.run(f"SELECT count(*) FROM public.sessions WHERE user_id = '{U1}'") == "1"
+    # The worker finishes its upload, loses the conditional complete and
+    # removes only its own path.
+    worker.release.set()
+    worker.thread.join(30)
+    assert worker.result == "lost"
+    assert worker.path not in _exports(env)
+    # Its lease is still live, so the erasure keeps waiting...
+    assert _erase(env, req) == "waiting_export"
+    # ...until the lease runs out (time passing, not a stub).
+    env.run(f"UPDATE public.account_data_exports SET lease_until = now() - interval '1 second' "
+            f"WHERE user_id = '{U1}'")
+    assert _erase(env, req) == "erased"
+    assert _exports(env) == []
+    assert env.run(f"SELECT count(*) FROM public.account_data_exports WHERE user_id = '{U1}'") == "0"
     assert len(env.letters) == 1  # the notice is not sent twice
+
+
+def test_timed_out_upload_keeps_its_lease_and_the_erasure_waits(env):
+    """An upload that outlives its timeout may still land: the export fails
+    but keeps its lease, so the erasure waits it out and sweeps after."""
+    env.run(f"INSERT INTO public.account_data_exports (user_id) VALUES ('{U1}')")
+    worker = _HeldUpload(env, lease_seconds=6)  # upload timeout: 3 s
+    worker.start()
+    deadline = time.monotonic() + 20
+    while env.run(f"SELECT status FROM public.account_data_exports WHERE user_id = '{U1}'") != "failed":
+        assert time.monotonic() < deadline
+        time.sleep(0.2)
+    assert env.run(f"SELECT last_error_code, lease_until IS NOT NULL FROM public.account_data_exports "
+                   f"WHERE user_id = '{U1}'") == "build_failed:TimeoutError|t"
+    req = _request(env)
+    assert _erase(env, req) == "waiting_export"
+    assert env.run(f"SELECT count(*) FROM public.sessions WHERE user_id = '{U1}'") == "1"
+    # The stray upload lands late; once the lease is over the erasure sweeps it.
+    worker.release.set()
+    worker.thread.join(30)
+    assert worker.path in _exports(env)
+    env.run(f"UPDATE public.account_data_exports SET lease_until = now() - interval '1 second' "
+            f"WHERE user_id = '{U1}'")
+    assert _erase(env, req) == "erased"
+    assert _exports(env) == []
+
+
+def test_erase_function_refuses_while_an_export_lease_is_live(env):
+    """The function checks again under a row lock, so a caller that skips the
+    Python check still changes nothing."""
+    req = _request(env)
+    env.run(f"UPDATE public.account_deletion_requests SET status = 'erasing', erasing_owner = 'w1', "
+            f"lease_until = now() + interval '5 minutes' WHERE id = '{req}'")
+    env.run(f"INSERT INTO public.account_data_exports (user_id, status, export_owner, claim_token, lease_until) "
+            f"VALUES ('{U1}', 'cancelled', 'x', gen_random_uuid(), now() + interval '5 minutes')")
+    plan = asyncio.run(er.build_plan(env.engine))
+    out = asyncio.run(er.erase_database(env.engine, req, "w1", plan))
+    assert out == {"waiting_export": True}
+    assert env.run(f"SELECT count(*) FROM public.sessions WHERE user_id = '{U1}'") == "1"
+    assert env.run(f"SELECT step_done IS NULL FROM public.account_deletion_requests WHERE id = '{req}'") == "t"
 
 
 def test_dry_run_counts_without_changing(env):
