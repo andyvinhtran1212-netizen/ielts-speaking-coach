@@ -36,7 +36,7 @@ export async function openSelfPractice(itemId: string, { router, isCurrent }: Op
   }
   const params = launch?.session_params as Record<string, unknown> | undefined;
   const part = Number(params?.part);
-  if (!params || typeof params.mode !== 'string' || typeof params.topic !== 'string'
+  if (!params || typeof params.mode !== 'string' || typeof params.topic !== 'string' || !params.topic.trim()
       || !Number.isInteger(part) || part < 1 || part > 3 || 'class_assignment_item_id' in params) {
     throw new Error(BAD_TARGET);
   }

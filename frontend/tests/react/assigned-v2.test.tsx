@@ -263,6 +263,33 @@ it('self-practice: Speaking creates a plain session (no class item) and opens th
   expect(post).toHaveBeenCalledWith('/sessions', { mode: 'practice', part: 1, topic: 'T1' });
 });
 
+it('self-practice: an empty Speaking topic is refused before any session is created', async () => {
+  mount(payload([item('sp', 'overdue', 'self_practice', { skill: 'speaking', due: PAST })]));
+  const overdue = await screen.findByRole('region', { name: 'Quá hạn' });
+  post.mockImplementation(async () => ({ skill: 'speaking', launch: { session_params: { mode: 'practice', part: 1, topic: '  ' } } }));
+  fireEvent.click(within(overdue).getByRole('button', { name: 'Tự luyện bài này' }));
+  await waitFor(() => expect(window.showToast).toHaveBeenCalled());
+  expect(post).not.toHaveBeenCalledWith('/sessions', expect.anything());
+  expect(push).not.toHaveBeenCalled();
+});
+
+it('back from the player via the bfcache releases the open lock', async () => {
+  mount(payload([item('a', 'todo', 'self_practice', { skill: 'listening' }), item('b', 'todo', 'self_practice', { skill: 'listening' })]));
+  const todo = await screen.findByRole('region', { name: 'Cần làm' });
+  post.mockImplementation(async () => ({ skill: 'listening', launch: { href: '/core-player/launch?surface=listening_test&id=L1' } }));
+  const [first, second] = within(todo).getAllByRole('button', { name: 'Tự luyện bài này' });
+  fireEvent.click(first);
+  await waitFor(() => expect(assign).toHaveBeenCalledTimes(1));
+  fireEvent.click(second);
+  expect(post).toHaveBeenCalledTimes(1);
+  const shown = new Event('pageshow') as PageTransitionEvent;
+  Object.defineProperty(shown, 'persisted', { value: true });
+  window.dispatchEvent(shown);
+  await waitFor(() => expect(within(todo).getAllByRole('button', { name: 'Tự luyện bài này' })).toHaveLength(2));
+  fireEvent.click(within(todo).getAllByRole('button', { name: 'Tự luyện bài này' })[1]);
+  await waitFor(() => expect(assign).toHaveBeenCalledTimes(2));
+});
+
 it('self-practice: a refusal shows the server sentence and keeps the page', async () => {
   mount(payload([item('closed', 'overdue', 'self_practice', { skill: 'reading', due: PAST })]));
   const overdue = await screen.findByRole('region', { name: 'Quá hạn' });
@@ -310,24 +337,41 @@ vi.mock('next/dynamic', () => ({
   },
 }));
 
-it('flag off or profile not loaded: MyClassWorkspace, unchanged', async () => {
+it('flag off: MyClassWorkspace, unchanged', async () => {
   const { AssignedTreeSwitch } = await import('@/app/(authed-my-class)/course/assigned/assigned-tree-switch');
-  profile.current = null;
-  const view = render(<AssignedTreeSwitch><p>legacy my class</p></AssignedTreeSwitch>);
-  expect(screen.getByText('legacy my class')).toBeTruthy();
-  view.unmount();
   profile.current = { id: 'learner-1', learner_v2_enabled: false };
   render(<AssignedTreeSwitch><p>legacy my class</p></AssignedTreeSwitch>);
   expect(screen.getByText('legacy my class')).toBeTruthy();
   expect(screen.queryByText(/new tree/)).toBeNull();
 });
 
-it('flag on for this account only: the new tree', async () => {
+it('signed out: MyClassWorkspace at once', async () => {
   const { AssignedTreeSwitch } = await import('@/app/(authed-my-class)/course/assigned/assigned-tree-switch');
+  profile.current = null;
+  auth.status = 'signed-out';
+  try {
+    render(<AssignedTreeSwitch><p>legacy my class</p></AssignedTreeSwitch>);
+    expect(screen.getByText('legacy my class')).toBeTruthy();
+  } finally {
+    auth.status = 'signed-in';
+  }
+});
+
+it('profile not loaded yet: neither tree, then the legacy tree after the wait', async () => {
+  vi.useFakeTimers();
+  const { AssignedTreeSwitch, PROFILE_WAIT_MS } = await import('@/app/(authed-my-class)/course/assigned/assigned-tree-switch');
   profile.current = { id: 'someone-else', learner_v2_enabled: true };
   const view = render(<AssignedTreeSwitch><p>legacy my class</p></AssignedTreeSwitch>);
+  expect(screen.queryByText('legacy my class')).toBeNull();
+  expect(screen.queryByText(/new tree/)).toBeNull();
+  const { act } = await import('@testing-library/react');
+  act(() => { vi.advanceTimersByTime(PROFILE_WAIT_MS); });
   expect(screen.getByText('legacy my class')).toBeTruthy();
   view.unmount();
+});
+
+it('flag on for this account: the new tree, the legacy tree never mounts', async () => {
+  const { AssignedTreeSwitch } = await import('@/app/(authed-my-class)/course/assigned/assigned-tree-switch');
   profile.current = { id: 'learner-1', learner_v2_enabled: true };
   render(<AssignedTreeSwitch><p>legacy my class</p></AssignedTreeSwitch>);
   expect(screen.getByText('new tree for learner-1')).toBeTruthy();

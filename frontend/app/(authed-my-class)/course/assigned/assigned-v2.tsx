@@ -213,6 +213,17 @@ export function AssignedV2({ accountId }: { accountId: string }) {
   const openingRef = useRef<string | null>(null);
   const loadRef = useRef<AbortController | null>(null);
   useEffect(() => () => loadRef.current?.abort(), []);
+  // Back from the player can restore this page from the bfcache with the
+  // open lock still held; release it so every button works again.
+  useEffect(() => {
+    const onShow = (event: PageTransitionEvent) => {
+      if (!event.persisted) return;
+      openingRef.current = null;
+      setOpening(null);
+    };
+    window.addEventListener('pageshow', onShow);
+    return () => window.removeEventListener('pageshow', onShow);
+  }, []);
 
   const load = useCallback(async () => {
     loadRef.current?.abort();
