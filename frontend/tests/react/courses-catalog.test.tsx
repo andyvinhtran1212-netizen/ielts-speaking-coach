@@ -170,6 +170,23 @@ it('chooser: the first answer is picked, a change updates the suggestion, nothin
   expect(calls).toEqual([]);
 });
 
+it('a closed course reads "Tạm đóng đăng ký", is counted apart and never called "sắp mở"', () => {
+  // Andy 23/11 ("duyệt 0059: khoá closed hiện Tạm đóng đăng ký").
+  const items = GUEST.map((item, i) => (i === 1
+    ? { ...item, status: 'closed', expected_open_on: null, summary: 'Mô tả giả 2' }
+    : { ...item, summary: `Mô tả giả ${i + 1}` })) as CourseItem[];
+  render(<CourseCatalog initialItems={items} />);
+  expect(screen.getByText('1 khoá đang mở đăng ký · 4 khoá sắp mở · 1 khoá tạm đóng đăng ký')).toBeTruthy();
+  const closed = rows()[1];
+  expect(within(closed).getByText('Tạm đóng đăng ký')).toBeTruthy();
+  expect(within(closed).queryByText('Sắp mở')).toBeNull();
+  expect(within(closed).queryByText(/\d\.\d{3}\.\d{3} đ/)).toBeNull();
+  fireEvent.click(screen.getByRole('radio', { name: 'Mô tả giả 2' }));
+  const suggestion = screen.getByText('Gợi ý cho bạn').parentElement as HTMLElement;
+  expect(within(suggestion).getByText(/Khoá này đang tạm đóng đăng ký/)).toBeTruthy();
+  expect(within(suggestion).queryByText(/sắp mở/)).toBeNull();
+});
+
 it('build flag off: course links are not rendered as /courses targets', () => {
   vi.stubEnv('AVER_PUBLIC_COMMERCE', '0');
   render(<CourseCatalog initialItems={GUEST} />);

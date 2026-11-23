@@ -7,6 +7,8 @@ export const COURSE_BUNDLE_MIN_OPEN = 2;
 export const COURSE_ROW_LABELS = Object.freeze({
   open: 'Đang mở đăng ký',
   upcoming: 'Sắp mở',
+  // Andy 23/11: a `closed` course reads "Tạm đóng đăng ký", never "Sắp mở".
+  closed: 'Tạm đóng đăng ký',
   expired: 'Hết hạn',
 });
 
@@ -30,6 +32,7 @@ export function courseRowState(item) {
  */
 export function courseRowLabel(item) {
   const state = courseRowState(item);
+  if (state === 'upcoming' && item?.status === 'closed') return COURSE_ROW_LABELS.closed;
   if (state !== 'learning') return COURSE_ROW_LABELS[state];
   const days = item?.viewer?.days_left;
   return typeof days === 'number' ? `Bạn đang học · còn ${days} ngày` : 'Bạn đang học';
@@ -124,16 +127,20 @@ export function formatVnd(n) {
 }
 
 /**
- * FR-023: "N khoá đang mở đăng ký · M khoá sắp mở", counted from the data.
+ * FR-023: "N khoá đang mở đăng ký · M khoá sắp mở", counted from the data;
+ * `closed` courses are counted apart ("K khoá tạm đóng đăng ký").
  * @param {Array<{ status?: unknown }>} items
  */
 export function catalogCounts(items) {
   let open = 0;
   let upcoming = 0;
+  let closed = 0;
   for (const item of Array.isArray(items) ? items : []) {
-    if (item?.status === 'open') open += 1; else upcoming += 1;
+    if (item?.status === 'open') open += 1;
+    else if (item?.status === 'closed') closed += 1;
+    else upcoming += 1;
   }
-  return { open, upcoming };
+  return { open, upcoming, closed };
 }
 
 /**
