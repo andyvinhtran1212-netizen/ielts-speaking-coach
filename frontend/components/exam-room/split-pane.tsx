@@ -30,9 +30,18 @@ export type SplitPaneProps = {
   width: number;
   /** Accessible name of the separator, e.g. "Resize passage and questions". */
   separatorLabel: string;
+  /**
+   * Time up, read-only tab or blocked session: every answer field is disabled,
+   * while the tabs and the separator keep working so the learner can still read.
+   */
+  locked?: boolean;
 };
 
-export function SplitPane({ attemptKey, left, right, leftLabel, rightLabel, width, separatorLabel }: SplitPaneProps) {
+function Locked({ locked, children }: { locked: boolean; children: ReactNode }) {
+  return <fieldset className={styles.lock} disabled={locked}>{children}</fieldset>;
+}
+
+export function SplitPane({ attemptKey, left, right, leftLabel, rightLabel, width, separatorLabel, locked = false }: SplitPaneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [preference, setPreference] = useState(() => readSplitRatio(safeStorage(), attemptKey));
   const [containerWidth, setContainerWidth] = useState<number | undefined>(undefined);
@@ -109,8 +118,8 @@ export function SplitPane({ attemptKey, left, right, leftLabel, rightLabel, widt
           ))}
         </div>
         {/* Both panels stay mounted so each keeps its own scroll position (FR-005). */}
-        <section id="exam-room-panel-left" role="tabpanel" aria-labelledby="exam-room-tab-left" hidden={tab !== 'left'} className={styles.pane}>{left}</section>
-        <section id="exam-room-panel-right" role="tabpanel" aria-labelledby="exam-room-tab-right" hidden={tab !== 'right'} className={styles.pane}>{right}</section>
+        <section id="exam-room-panel-left" role="tabpanel" aria-labelledby="exam-room-tab-left" hidden={tab !== 'left'} className={styles.pane}><Locked locked={locked}>{left}</Locked></section>
+        <section id="exam-room-panel-right" role="tabpanel" aria-labelledby="exam-room-tab-right" hidden={tab !== 'right'} className={styles.pane}><Locked locked={locked}>{right}</Locked></section>
       </div>
     );
   }
@@ -121,7 +130,7 @@ export function SplitPane({ attemptKey, left, right, leftLabel, rightLabel, widt
       className={cx(styles.split, dragging && styles.dragging)}
       style={{ gridTemplateColumns: `${ratio}fr auto ${100 - ratio}fr` }}
     >
-      <section className={styles.pane} aria-label={leftLabel}>{left}</section>
+      <section className={styles.pane} aria-label={leftLabel}><Locked locked={locked}>{left}</Locked></section>
       <div
         role="separator"
         aria-orientation="vertical"
@@ -138,7 +147,7 @@ export function SplitPane({ attemptKey, left, right, leftLabel, rightLabel, widt
         onDoubleClick={() => choose(ratioForKey(preference, 'dblclick', containerWidth) ?? 50)}
         onKeyDown={onKeyDown}
       />
-      <section className={styles.pane} aria-label={rightLabel}>{right}</section>
+      <section className={styles.pane} aria-label={rightLabel}><Locked locked={locked}>{right}</Locked></section>
     </div>
   );
 }

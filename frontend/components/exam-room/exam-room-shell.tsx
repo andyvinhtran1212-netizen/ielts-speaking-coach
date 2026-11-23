@@ -148,6 +148,14 @@ export function ExamRoomShell(props: ExamRoomShellProps) {
     return () => { guard.stop(); guardRef.current = null; };
   }, [guardOn, surface, attemptKey]);
   const canWrite = guardState === 'writer' || guardState === 'unsupported';
+  // Token fallback (no Web Locks): only canWrite() notices that another tab took
+  // the token, so ask it while this tab writes; a loss turns the tab read-only.
+  useEffect(() => {
+    const guard = guardRef.current;
+    if (!guard || guard.mode !== 'token' || guardState !== 'writer') return undefined;
+    const id = window.setInterval(() => { guard.canWrite(); }, 1000);
+    return () => window.clearInterval(id);
+  }, [guardState]);
   // `releasing` may still save (the hand-over flush does) but the learner may not type.
   useEffect(() => { tabGuardRef.current?.onWriteRightChange?.(canWrite || guardState === 'releasing'); }, [canWrite, guardState]);
 
@@ -162,35 +170,42 @@ export function ExamRoomShell(props: ExamRoomShellProps) {
     expired.current = true;
     onExpireRef.current?.();
   }, [timeUp]);
-  useEffect(() => { expired.current = false; }, [attemptKey]);
   const fiveLeft = remaining != null && remaining > 0 && remaining <= FIVE_MINUTES;
   const [announce, setAnnounce] = useState('');
   const announced = useRef(false);
   useEffect(() => {
     if (fiveLeft && !announced.current) { announced.current = true; setAnnounce(strings.fiveLeft); }
   }, [fiveLeft, strings.fiveLeft]);
+  // A new attempt in the same room starts its timer marks over.
+  useEffect(() => { expired.current = false; announced.current = false; setAnnounce(''); }, [attemptKey]);
 
   // ---- session (FR-015, FR-016) ----------------------------------------
   const [copySaved, setCopySaved] = useState<boolean | null>(null);
+  const copySavedRef = useRef(copySaved);
+  copySavedRef.current = copySaved;
+  const sessionCallbacks = useRef({ onSessionExpired, onSessionConflict });
+  sessionCallbacks.current = { onSessionExpired, onSessionConflict };
   const sessionRef = useRef<typeof session>('active');
   useEffect(() => {
     const prev = sessionRef.current;
     sessionRef.current = session;
     if (session === prev && session === 'active') return;
     if (session === 'expired' || session === 'displaced') {
-      if (copySaved == null) {
+      if (copySavedRef.current == null) {
+        const saver = sessionCallbacks.current.onSessionExpired;
         let ok = false;
-        try { ok = onSessionExpired ? onSessionExpired.saveLocalCopy() === true : false; } catch { ok = false; }
+        try { ok = saver ? saver.saveLocalCopy() === true : false; } catch { ok = false; }
+        copySavedRef.current = ok;
         setCopySaved(ok);
         trackRef.current('exam_room_session_expired', { surface });
       }
-      if (session === 'displaced' && prev !== 'displaced') onSessionConflict?.('displaced');
+      if (session === 'displaced' && prev !== 'displaced') sessionCallbacks.current.onSessionConflict?.('displaced');
     } else if (session === 'not_current' && prev !== 'not_current') {
-      onSessionConflict?.('not_current');
+      sessionCallbacks.current.onSessionConflict?.('not_current');
     } else if (session === 'active') {
       setCopySaved(null);
     }
-  }, [session]);
+  }, [session, surface]);
   const sessionBlocked = session === 'expired' || session === 'displaced';
   const returnUrl = onSessionExpired?.returnUrl
     ?? (typeof window === 'undefined' ? '/' : `${window.location.pathname}${window.location.search}`);
@@ -216,10 +231,20 @@ export function ExamRoomShell(props: ExamRoomShellProps) {
     setSubmitOpen(true);
     track('exam_room_submit_dialog_opened', { surface, unanswered: questions.filter((q) => !q.answered).length });
   };
+  // FR-010/FR-014: everything that locks the manual submit is checked again at
+  // the moment of confirming, and an open box closes as soon as one of them holds,
+  // so the lock reason shows next to the button instead.
+  const submitBlocked = !submit || timeUp || outcome !== 'idle' || sessionBlocked || !canWrite || offline || unsaved > 0;
+  useEffect(() => {
+    if (submitOpen && !submitting && submitBlocked) setSubmitOpen(false);
+  }, [submitOpen, submitting, submitBlocked]);
   const confirmSubmit = () => {
     if (!submit || submitting) return;
-    // The lock may have changed while the box was open.
-    if (!canWrite || blocksManualSubmit(connection)) { setSubmitOpen(false); return; }
+    const liveWriter = guardRef.current ? guardRef.current.canWrite() : true;
+    if (submitBlocked || !liveWriter || unsavedRef.current > 0 || sessionRef.current === 'expired' || sessionRef.current === 'displaced') {
+      setSubmitOpen(false);
+      return;
+    }
     setSubmitting(true);
     setSubmitError(false);
     track('exam_room_submit_confirmed', { surface });
@@ -252,7 +277,14 @@ export function ExamRoomShell(props: ExamRoomShellProps) {
   const shownUnsaved = useRef<number | null>(null);
   shownUnsaved.current = leaveUnsaved;
   const beforeLeave = useCallback(async () => {
-    const r = await exitRef.current.flush();
+    let r: { unsaved: number };
+    try {
+      r = await exitRef.current.flush();
+    } catch (error) {
+      // A failed last flush never leaves the box saying the answers are saved.
+      setLeaveUnsaved(Math.max(1, unsavedRef.current));
+      throw error;
+    }
     // Never leave quietly with answers the box did not mention.
     if (r.unsaved > 0 && r.unsaved !== shownUnsaved.current) {
       setLeaveUnsaved(r.unsaved);
@@ -282,9 +314,10 @@ export function ExamRoomShell(props: ExamRoomShellProps) {
         leftLabel={layout.leftLabel}
         rightLabel={layout.rightLabel}
         separatorLabel={`${layout.leftLabel} / ${layout.rightLabel}`}
+        locked={inputsLocked}
       />
     )
-    : <div className={styles.single}>{layout.body}</div>;
+    : <div className={styles.single}><fieldset className={styles.work} disabled={inputsLocked}>{layout.body}</fieldset></div>;
 
   if (session === 'not_current') {
     const body = (
@@ -331,9 +364,9 @@ export function ExamRoomShell(props: ExamRoomShellProps) {
             />
           )
           : null}
-      <fieldset className={styles.work} disabled={inputsLocked} aria-busy={guardState === 'pending' || guardState === 'acquiring' || undefined}>
+      <div className={styles.work} aria-busy={guardState === 'pending' || guardState === 'acquiring' || undefined}>
         {work}
-      </fieldset>
+      </div>
     </div>
   );
 
