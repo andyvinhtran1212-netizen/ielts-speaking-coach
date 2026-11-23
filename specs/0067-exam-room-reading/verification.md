@@ -17,7 +17,7 @@
 | FR-011 | kind=test; ref=frontend/tests/reading-native/exam-room.spec.js (leave flushes, unsaved count) | PENDING |
 | FR-012 | kind=test; ref=backend/tests/test_reading_abandon_attempt.py + exam-room.spec.js (abandon runs under _learner_write with _attempt_write_keys like submit, abandon self-selected only, deadline checked in the UPDATE, started-before-written-after-deadline 409, concurrent submit/abandon one winner, 404/409 cases, excluded from results/history/progress) | PENDING |
 | FR-013 | kind=test; ref=frontend/tests/reading-native/exam-room.spec.js (offline → online) | PENDING |
-| FR-014 | kind=test; ref=frontend/tests/reading-native/exam-room.spec.js (401 on PATCH, URL unchanged, local copy keyed by ownerKey, resend only unchanged answers after same-account sign-in, other account cannot see it) | PENDING |
+| FR-014 | kind=test; ref=frontend/tests/reading-native/exam-room.spec.js (401 on PATCH, URL unchanged, local copy keyed by ownerKey, resend only answers whose server value still equals baseValue after same-account sign-in, including an unchanged value with an advanced updated_at; a changed server value keeps the server copy; a record without baseValue asks, other account cannot see it) | PENDING |
 | FR-015 | kind=test; ref=frontend/tests/reading-native/exam-room.spec.js (two tabs; old tab flushes before releasing the lock; no lock in 5 s keeps new tab read-only) | PENDING |
 | FR-016 | kind=check; ref=node frontend/tooling/verify-mock-exam-flow.mjs (mock-flush answered with flag on) | PENDING |
 | FR-017 | kind=test; ref=frontend/tests/reading-native/exam-room.spec.js (admin_preview no PATCH, no submit) | PENDING |

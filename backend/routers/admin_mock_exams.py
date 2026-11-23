@@ -38,12 +38,13 @@ from datetime import timezone
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, model_validator
 
 from routers.admin import require_admin
 from services.cohort_assignment_service import normalize_deadline
 from services import essay_service
 from services import mock_exam_assignment_service as assign_svc
+from services import mock_exam_modes
 from services import mock_exam_service as svc
 from services import mock_review_workflow as wf
 
@@ -159,6 +160,17 @@ def _window_instant(value) -> str | None:
 WindowInstant = Annotated[str | None, BeforeValidator(_window_instant)]
 
 
+_EXAM_MODE_PATTERN = r"^(live|self_paced|sequential|retake)$"
+
+
+def _stored_mode(payload: dict) -> dict:
+    """Write the legacy name: before migration 446 the CHECK constraint on an
+    unmigrated database and ``fn_set_exam_mode`` accept only those."""
+    if payload.get("exam_mode") is not None:
+        payload["exam_mode"] = mock_exam_modes.legacy_name(payload["exam_mode"])
+    return payload
+
+
 class AdminMockExamListRow(BaseModel):
     # The admin list returns the full persisted exam definition for existing
     # consumers. Pin the operational fields while retaining additive columns.
@@ -168,8 +180,21 @@ class AdminMockExamListRow(BaseModel):
     code: str
     title: str
     status: Literal["draft", "published", "archived"]
+    # Legacy name for the current console; ``exam_mode_v2`` carries the new
+    # name (MOCKORG-0086 plan 5.5) until G09-T32/T34 switch the admin UI.
     exam_mode: Literal["sequential", "retake"]
+    exam_mode_v2: Literal["live", "self_paced"]
     is_open: bool
+
+    @model_validator(mode="before")
+    @classmethod
+    def _both_mode_names(cls, data):
+        # The stored value may carry either name (before or after mig 446).
+        if isinstance(data, dict):
+            stored = data.get("exam_mode") or "sequential"
+            data = {**data, "exam_mode": mock_exam_modes.legacy_name(stored),
+                    "exam_mode_v2": mock_exam_modes.normalize(stored)}
+        return data
     active_section: Literal["not_started", "listening", "reading", "writing", "done"]
     created_at: str
     review_eligible: bool
@@ -198,7 +223,9 @@ class ExamCreate(BaseModel):
     code: str
     title: str
     private_content_copy: Literal[True] = True
-    exam_mode: str = Field(default="sequential", pattern=r"^(sequential|retake)$")
+    # Either naming is accepted (MOCKORG-0086 FR-143); stored under the
+    # legacy name until migration 446.
+    exam_mode: str = Field(default="live", pattern=_EXAM_MODE_PATTERN)
     listening_test_id: str | None = None
     reading_test_id: str | None = None
     listening_is_public: bool | None = None
@@ -222,7 +249,7 @@ class ExamCreate(BaseModel):
 
 class ExamPatch(BaseModel):
     title: str | None = None
-    exam_mode: str | None = Field(default=None, pattern=r"^(sequential|retake)$")
+    exam_mode: str | None = Field(default=None, pattern=_EXAM_MODE_PATTERN)
     listening_test_id: str | None = None
     reading_test_id: str | None = None
     writing_task1_prompt_id: str | None = None
@@ -358,7 +385,7 @@ async def exam_picker_page(
 async def create_exam(body: ExamCreate, authorization: str | None = Header(default=None)):
     admin = await require_admin(authorization)
     try:
-        return await asyncio.to_thread(svc.admin_create_exam, body.model_dump(exclude_none=True), admin["id"])
+        return await asyncio.to_thread(svc.admin_create_exam, _stored_mode(body.model_dump(exclude_none=True)), admin["id"])
     except svc.DuplicateExamCodeError as e:
         raise HTTPException(409, str(e))
     except ValueError as e:
@@ -370,7 +397,7 @@ async def update_exam(
     exam_id: str, body: ExamPatch, authorization: str | None = Header(default=None),
 ):
     admin = await require_admin(authorization)
-    patch = body.model_dump(exclude_none=True)
+    patch = _stored_mode(body.model_dump(exclude_none=True))
     if body.status is not None and body.status not in ("draft", "published", "archived"):
         raise HTTPException(400, "status không hợp lệ.")
     try:

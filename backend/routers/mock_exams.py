@@ -35,6 +35,7 @@ from pydantic import BaseModel, Field
 
 from routers.auth import get_supabase_user
 from services import essay_service
+from services import mock_exam_modes
 from services import mock_exam_service as svc
 from services import mock_review_workflow as review_wf
 from services.writing_image_access import attach_signed_image_urls
@@ -177,7 +178,19 @@ def _sitting_state_sync(sitting_id: str, user_id) -> dict:
     if str(sitting.get("user_id")) != str(user_id):
         raise HTTPException(403, "Sitting không thuộc về bạn.")
     exam = svc.get_published_exam_by_id(sitting["mock_exam_id"])
-    if svc.is_retake(exam):
+    self_paced = None
+    if svc.is_retake(exam) and svc.is_self_paced_chain(sitting, exam):
+        # EXAMMOCK-0071 FR-014 / plan 5.5: back to back. The server stamps
+        # each due start first, so the sitting's own clocks below already
+        # hold the next section and there is no "between sections" answer.
+        sitting, timeline = svc.advance_self_paced(sitting, exam)
+        active, time_left = svc.retake_active_section(sitting, exam)
+        if active == "not_started" and timeline.current_section:
+            # Only with a gap > 0: the next section has a future start.
+            active, time_left = timeline.current_section, timeline.section_time_left_seconds
+        assigned = sitting.get("assigned_skills") or []
+        self_paced = svc.self_paced_state(sitting, exam, timeline)
+    elif svc.is_retake(exam):
         # Per-student: active section + countdown come from THIS sitting's own
         # clocks, and the runner shows only the assigned skills.
         active, time_left = svc.retake_active_section(sitting, exam)
@@ -202,7 +215,10 @@ def _sitting_state_sync(sitting_id: str, user_id) -> dict:
     return {
         "sitting": sitting,
         "exam": content,
-        "exam_mode": (exam or {}).get("exam_mode") or "sequential",
+        # The learner API keeps the legacy name until G08 switches; the new
+        # name is additive (MOCKORG-0086 plan 5.5 point 2).
+        "exam_mode": mock_exam_modes.legacy_name((exam or {}).get("exam_mode") or "sequential"),
+        "exam_mode_v2": mock_exam_modes.normalize((exam or {}).get("exam_mode") or "sequential"),
         "assigned_skills": assigned,
         "active_section": active,
         # The canonical pause marker, so the runner can close the paper without
@@ -219,6 +235,9 @@ def _sitting_state_sync(sitting_id: str, user_id) -> dict:
         "section_duration_seconds": (
             svc.section_duration_seconds(exam, active) if exam else None
         ),
+        # FR-014: per-section state of a back-to-back self-paced sitting
+        # (null for every other sitting, and always while the flag is off).
+        "self_paced": self_paced,
     }
 
 

@@ -80,7 +80,7 @@ chiếu ở `verification.md`.
   trong khung, phần kết thúc khi hết giờ hoặc giám thị thu.
 - Học viên của kỳ `self_paced` (sau G09-T31): tự bấm bắt đầu trong khoảng mở, các phần chạy liền
   nhau theo mốc máy chủ, không nghỉ giữa các phần.
-- Học viên rời giữa chừng: hộp "Leave the test?", đồng hồ vẫn chạy, quay lại vào đúng phần.
+- Học viên rời giữa chừng: hộp "Leave this test?", đồng hồ vẫn chạy, quay lại vào đúng phần.
 - Học viên mất mạng hoặc hết phiên: dải mất mạng, hộp đăng nhập lại, bài không mất.
 
 ## Requirements
@@ -126,8 +126,13 @@ chiếu ở `verification.md`.
   - `unconfirmed`: lỗi tạm, offline, 401, mất phản hồi. Nhánh mới tự thử lại tối đa 3 lần (theo
     0066 FR-034, nhánh cũ giữ 4), cùng ý định hai bước của `coreOperationRequest`; rồi
     `unconfirmed_manual` với "Try again" (gọi lại `submitSection`).
-  - `closed_unconfirmed`: máy chủ đã đóng phần (có `*SubmittedAt`, giám thị thu, hoặc sitting
-    không còn ở trạng thái làm bài) mà câu cuối chưa được xác nhận theo (2): "This section was
+  - Giám thị bắt đầu thu (`collected_section` bằng phần này) mà `*SubmittedAt` của phần còn
+    trống: máy chủ còn chờ lần lưu cuối (`collect_section_after_flush_grace`, tối đa khoảng
+    15 giây). Đây **chưa** phải `closed_unconfirmed`: trình ở `submitting`, tiếp tục gửi lần lưu
+    cuối và `flush-ack`, lưu lỗi thì thử lại trong cửa sổ đó; không khoá, không nói "submitted".
+  - `closed_unconfirmed`: máy chủ đã đóng phần (có `*SubmittedAt` của phần, hoặc sitting không
+    còn ở trạng thái làm bài), chỉ thấy cờ thu thì không đủ, mà câu cuối chưa được xác nhận
+    theo (2): "This section was
     closed by our server at HH:MM." với HH:MM là mốc `*SubmittedAt` máy chủ trả. Câu "Your answers
     were saved up to HH:MM" chỉ hiện khi máy chủ trả mốc lưu đó; trình **không tự suy** giờ lưu từ
     đồng hồ máy hay từ lần ACK. Không thử lại, không nói "submitted".
@@ -138,7 +143,7 @@ chiếu ở `verification.md`.
     `*SubmittedAt` của máy chủ; không hiện màn trạng thái nộp và không thành `closed_unconfirmed`
     chỉ vì tab mới không có bằng chứng flush.
   - 403/404: giữ thông điệp hiện có ("Contact your invigilator."), không thêm thử lại.
-- **FR-008:** Lối thoát (FR-08-011): "Leave test" mở hộp "Leave the test?" với "Continue test"
+- **FR-008:** Lối thoát (FR-08-011): "Leave test" mở hộp "Leave this test?" với "Stay in test"
   (chính) và "Leave test", câu "Your answers so far are saved. The timer keeps running while
   you are away." **Không có "Abandon test"** (kỳ thi được giao). Trước khi rời: flush phần đang
   làm (Writing qua `writingBridge.flush`, Reading/Listening qua `mock-flush`); còn câu chưa lưu
@@ -147,7 +152,7 @@ chiếu ở `verification.md`.
   máy chủ.
 - **FR-009:** Thu bài của giám thị: trong lúc chờ `flush-ack`, khung khoá thân bài (`inert` như
   hôm nay) và hiện "Saving your final answers…"; không mở hộp nào chặn. Hộp đang mở (ví dụ
-  "Leave the test?") khi giám thị thu thì tự đóng rồi chuyển sang "Saving your final answers…";
+  "Leave this test?") khi giám thị thu thì tự đóng rồi chuyển sang "Saving your final answers…";
   lối thoát không tiếp tục điều hướng trong lúc thu.
 - **FR-010:** Bản sao Writing theo 0066 FR-035, khoá
   `exam-room:local-copy:mock:{ownerKey}:{sittingId}`, mỗi task có `baseText` (đúng chữ máy chủ
@@ -218,6 +223,10 @@ chiếu ở `verification.md`.
 - **When** có mạng lại sau khi máy chủ đã đóng phần
 - **Then** "This section was closed by our server at HH:MM." (mốc của máy chủ); không thử lại,
   không "submitted", không tự suy giờ lưu.
+- **Given** giám thị vừa bắt đầu thu (`collected_section` có, `listeningSubmittedAt` còn trống),
+  tab này có 1 câu chưa lưu và lần lưu cuối đầu tiên lỗi
+- **Then** vẫn ở `submitting`, thử lưu lại trong cửa sổ chờ của máy chủ; không hiện
+  `closed_unconfirmed` cho tới khi máy chủ có `listeningSubmittedAt`.
 - **Given** `flush-ack` thành công nhưng domain submit lỗi, hoặc `*SubmittedAt` của phần chưa tới
 - **Then** không hiện đã nộp; ở `unconfirmed` rồi `unconfirmed_manual`.
 

@@ -14141,6 +14141,11 @@ export interface components {
              * @enum {string}
              */
             exam_mode: "sequential" | "retake";
+            /**
+             * Exam Mode V2
+             * @enum {string}
+             */
+            exam_mode_v2: "live" | "self_paced";
             /** Is Open */
             is_open: boolean;
             /**
@@ -17825,7 +17830,7 @@ export interface components {
             private_content_copy: true;
             /**
              * Exam Mode
-             * @default sequential
+             * @default live
              */
             exam_mode: string;
             /** Listening Test Id */
