@@ -2,7 +2,7 @@
 
 ## Preconditions
 
-- EXAMROOM-0066 và spec này `approved` trên `staging`; quyết định về tên cờ (câu hỏi mở 4).
+- EXAMROOM-0066 và spec này `approved` trên `staging`; quyết định về tên cờ (câu hỏi mở 4): trước khi sửa đổi 1 mục (b) của 0066 lên `staging`, dùng `listening` theo FR-000 và chỉ bật khi EXAMLISTENT-0070 cũng sẵn sàng.
 - G08-T02…T05 và `AudioPlayer` (#2492) đã merge vào `staging`.
 - Không migration, không đổi backend.
 
@@ -22,7 +22,7 @@
 ## Rollback and repair
 
 - Mức 1: bỏ cờ. Runner về giao diện cũ, cùng dữ liệu máy chủ; bản sao khoá mới vô hại.
-  Bản nháp đã chuyển khoá không còn ở khoá cũ, nên câu chưa lưu trong bản sao không hiện ở
+  Khoá cũ chỉ bị xoá sau khi khoá mới đọc lại khớp hoặc máy chủ đã ack, nên câu chưa lưu trong bản sao không hiện ở
   giao diện cũ cho tới khi bật lại; câu đã ack vẫn ở máy chủ.
 - Mức 2: revert PR trên `staging` theo quy trình phát hành thường.
 - Không có dữ liệu máy chủ cần sửa.
