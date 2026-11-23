@@ -44,3 +44,38 @@ còn thiếu được ghi ở đây. Các bảng ở trên không đổi.
   này xanh ở mọi job trừ gate metadata.
 - **#2416 (T002, head `93dd30f6`)** cũng merge khi gate đỏ, nhưng khi chạy lại trên base sau #2413
   (`b6d1ce6f`) thì gate qua. Không thiếu cặp nào.
+
+## Scenario 10 trên staging (sau T008, #2450 hold 4)
+
+Chạy ngày 23/11/2026 trên staging, FE và BE cùng ở `cc6dd4c8f` (merge #2457, sau PR `attempts.py`
+#2433). Railway deployment `c7b888df-9cef-4afd-8fb0-6f92aa95f51e`, app khởi động 05:09:09Z.
+FE SHA đọc từ `data-release`, BE SHA từ `/health/runtime`.
+
+- **Tài khoản:** tài khoản staging của anh Andy (`andyvinhtran1212`), theo lựa chọn của anh ngày
+  23/11 ("dùng tài khoản anh cho Listening"). Không dùng tài khoản production.
+- **Máy:** Chrome trên Mac mini (Browser 1).
+- **Bài:** Listening IELTS, Bài 2 "Photosynthesis process completion" (form player, 2 câu điền
+  từ, chế độ luyện "Không tính điểm"). Attempt `cc51432c-a035-44bc-9118-19a684b466f0`.
+
+| Bước | Kết quả |
+| --- | --- |
+| Bắt đầu bài | `POST /api/listening/tests/{id}/attempts?standalone=true` 200 |
+| Nghe audio | phát đủ 0:21 / 0:21 |
+| Lưu đáp án | 2 lần `PATCH /api/listening/tests/attempts/{id}/answers` 200 |
+| Tải lại trang (resume) | cùng attempt id; `GET …?attempt_id=…` và `guided-state` 200; hai ô vẫn còn `dioxide`, `chlorophyll`; "2/2 câu đã thử" |
+| Đối chiếu câu 1 | thành công (log: reveal 200) |
+| Nộp | chuyển sang `/listening/programmes/result/{id}`; log: `submit` 200 |
+| Xem lại (tải lại trang kết quả) | `GET /api/listening/tests/attempts/{id}/review` 200; hiện cả 2 câu, đáp án và transcript |
+| Admin `/admin/listening/attempts` | danh sách hiện attempt (Đã nộp, Không tính điểm, 2 câu, 2 phút 45 giây); "Xem từng câu" hiện 2 câu trả lời |
+| Console trình duyệt | không có lỗi trên trang player và trang kết quả |
+
+**Log Railway staging** (chỉ đọc, `railway logs` cho deployment trên, 05:09:08Z đến 05:17:16Z,
+180 dòng): 0 dòng status 5xx, 0 `Traceback`, 0 `ResponseValidationError`, 0 `extra_forbidden`.
+Có 14 WARNING chứa `listening` và không có ERROR. 12 trong số đó là cảnh báo request chậm
+(khoảng 1–2,5 giây, đều 200). 2 là `staff_guard admin_aal2_would_block` (tài khoản admin chưa bật
+MFA; chế độ chỉ cảnh báo, không chặn).
+
+**Cửa sổ theo dõi 48 giờ** (tiêu chí thành công của spec): bắt đầu 2026-11-23 05:09Z trên
+deployment `c7b888df` / `cc6dd4c8f`, kết thúc 2026-11-25 05:09Z. Nếu staging được deploy SHA mới
+trong khoảng này thì cửa sổ vẫn tính tiếp, và mọi lỗi 500 mới của `routers.listening` được ghi lại
+ở đây.
