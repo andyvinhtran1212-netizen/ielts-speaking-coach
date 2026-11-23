@@ -1,7 +1,7 @@
 ---
 id: ACCOUNTDATA-0100
 title: Learners download a copy of their data and request account deletion, which a sweep carries out after a cancellable grace period while payment records stay on an anonymised id
-status: draft
+status: approved
 risk: high
 owner: product
 ---
@@ -119,10 +119,14 @@ Xoá không làm được bằng cách xoá dòng `users`: các bảng chứng t
 
 ## Open questions
 
-1. **Phương án A hay để sau?** (04-VIEC-DE-LAI câu 3). Đề xuất: A, vì đây là quyền của chủ thể dữ liệu và chi phí là 3 phiên mã.
-2. **`ACCOUNT_DELETE_GRACE_DAYS`** — `CẦN ANH ANDY QUYẾT`. Đề xuất 30 ngày (cấu hình được).
-3. **Thời gian chuẩn bị gói và nội dung:** đề xuất `ACCOUNT_EXPORT_READY_HOURS = 24`, gồm bản ghi âm còn giữ, trần `ACCOUNT_EXPORT_MAX_BYTES = 200 MiB` (quá thì bỏ ghi âm), cooldown 24 giờ.
-4. **Chặn học trong hạn huỷ (FR-003):** đề xuất có, để không tạo bài làm mới sẽ bị xoá và để người học thấy rõ trạng thái.
-5. **Hàng `students` của lớp:** đề xuất ẩn danh (giữ hàng, bỏ tên, email, số điện thoại) để thống kê lớp của giáo viên không đổi; xoá hẳn thì số học viên lớp cũ thay đổi.
-6. **`credit_covered_requests`** (mặc định `keep`, theo CR/SA R1). Sau khi `users` bị ẩn danh, dòng của bảng này chỉ còn `user_id`, `request_key` và id tài nguyên (đã bị xoá), không email, nội dung hay IP, nên giống `credit_reservations`/`credit_ledger` mà spec đã giữ. Giữ thì không phải nới trigger chỉ ghi thêm. Việc này đổi danh sách 0055 C2 (xếp bảng vào "xoá"), nên cần anh quyết. Đề xuất: giữ. Nếu anh muốn xoá: migration thêm hàm `SECURITY DEFINER` chỉ `service_role` gọi được, khoá `FOR UPDATE` dòng yêu cầu; trigger chỉ cho `DELETE` khi cùng lúc có yêu cầu `erasing` của đúng `OLD.user_id`, biến phiên đặt đúng người đó và `current_user` là chủ hàm; `DELETE` trực tiếp vẫn bị thu hồi khỏi `service_role`; test PG chứng minh xoá trực tiếp, đặt biến phiên khi không có yêu cầu `erasing`, `UPDATE`, `TRUNCATE` đều thất bại.
-7. **`learner_care_notes` (mig 442, #2471):** ghi chú tự do của admin về người học. Đề xuất: xoá khi xoá tài khoản, và không đưa vào gói tải (đây là ghi chú nội bộ của nhân viên).
+Đã chốt khi anh Andy duyệt spec ngày 2026-11-23 (xem `approval-decision.md`):
+
+1. Phương án A: làm ngay (theo đề xuất, khớp "đồng ý cả 11" của 04-VIEC-DE-LAI ngày 20/11).
+2. `ACCOUNT_DELETE_GRACE_DAYS = 30` (cấu hình được), theo đề xuất được duyệt cùng spec.
+3. `ACCOUNT_EXPORT_READY_HOURS = 24`, gồm bản ghi âm còn giữ, `ACCOUNT_EXPORT_MAX_BYTES = 200 MiB` (quá thì bỏ ghi âm), cooldown 24 giờ.
+4. Chặn học trong hạn huỷ (FR-003): có.
+5. Hàng `students` của lớp: ẩn danh, giữ hàng.
+6. **`credit_covered_requests`: giữ** (`keep`, trỏ id đã ẩn danh). Anh Andy: "Q6 giữ". Không nới trigger chỉ ghi thêm, không thêm hàm xoá.
+7. **`learner_care_notes`: xoá khi xoá tài khoản và không đưa vào gói tải.** Anh Andy: "Q7 đồng ý".
+
+Không còn câu hỏi chặn.
