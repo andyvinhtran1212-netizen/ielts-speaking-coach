@@ -20,7 +20,7 @@
 | FR-014 | kind=test; ref=frontend/tests/exam-room-connection-state.test.mjs + exam-room-shell.test.tsx (offline banner, waiting button, back online 5 s) | PENDING |
 | FR-015 | kind=test; ref=frontend/tests/react/exam-room-shell.test.tsx (401 → saveLocalCopy then dialog, URL unchanged; fallback: Sign in again enabled only after read-back, opens /login?next= same tab; storage failure message) | PENDING |
 | FR-016 | kind=test; ref=frontend/tests/react/exam-room-shell.test.tsx (onSessionConflict displaced/not_current; fallback before G05-T20: displaced uses FR-015 flow, not_current shows another-device notice with Back) | PENDING |
-| FR-017 | kind=test; ref=frontend/tests/exam-room-tab-guard.test.mjs (fake BroadcastChannel: old tab flushes then acks release, new tab writes only after ack, 5 s timeout reloads from server; unsupported → no-op) | PENDING |
+| FR-017 | kind=test; ref=frontend/tests/exam-room-tab-guard.test.mjs (fake navigator.locks + BroadcastChannel: old tab flushes then releases lock, new tab writes only while holding lock; no lock in 5 s → new tab stays read-only with Reload; old tab answering after timeout does not make new tab write; no Web Locks → localStorage writer token checked before each save; nothing supported → no-op) | PENDING |
 | FR-018 | kind=test; ref=frontend/tests/react/exam-room-shell.test.tsx (5-minute announcement once, time up text, never extends time) | PENDING |
 | FR-019 | kind=test; ref=frontend/tests/react/exam-room-shell.test.tsx (input locks at 0, last typed value passed to submit; offline at 0 still queues auto-submit while manual button stays locked) | PENDING |
 | FR-020 | kind=test; ref=frontend/tests/react/exam-room-shell.test.tsx (time-up choice calls onSend/onDiscard; no "saved and submitted" text; outcome states as FR-034) | PENDING |
@@ -37,7 +37,7 @@
 | FR-031 | kind=journey; ref=surface spec journeys (0067–0073) capturing Playwright `dialog` events with the surface flag on | PENDING |
 | FR-032 | kind=test; ref=frontend/tests/exam-room-*.test.mjs (storage keys, expiry, try/catch on throwing storage) | PENDING |
 | FR-033 | kind=test; ref=frontend/tests/react/exam-room-shell.test.tsx (event names and payload without answers; exam_room_offline sent on reconnect with duration_s) | PENDING |
-| FR-034 | kind=test; ref=frontend/tests/react/exam-room-shell.test.tsx (submitting/confirmed/unconfirmed copy; "saved and submitted" only after outcome=confirmed; offline, 401 and lost-response cases stay unconfirmed; shell never sets confirmed from calling onSubmit) | PENDING |
+| FR-034 | kind=test; ref=frontend/tests/react/exam-room-shell.test.tsx (submitting/confirmed/unconfirmed/unconfirmed_manual/closed_unconfirmed copy; closed attempt is never shown as confirmed; no auto-retry promise after the bounded tries; "saved and submitted" only after outcome=confirmed; offline, 401 and lost-response cases stay unconfirmed; shell never sets confirmed from calling onSubmit) | PENDING |
 | FR-035 | kind=test; ref=frontend/tests/exam-room-local-copy.test.mjs (record holds ownerKey/attemptKey/baseSavedAt, no email or name; other owner cannot read/restore/send; cleanup on ack, submit, abandon, sign-out, other-account sign-in, expiresAt; re-login resend only where server value unchanged since baseSavedAt) + journey: shared browser A then B (Scenario 6a) | PENDING |
 
 Đối chiếu số FR của GOI-08 ↔ spec này:

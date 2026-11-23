@@ -200,15 +200,29 @@ trên `staging` @ `cc6dd4c8` (23/11/2026):
     và luồng dự phòng của FR-015; `session_not_current` hiện một thông báo trong
     trang "This test is open on another device." / "Bài này đang mở ở thiết bị khác."
     với nút "Back" về `exit.href`, không tạo lượt.
-- **FR-017:** Cùng một lượt ở tab thứ hai: tab mới báo "This test is open in
-  another tab"/"Bài này đang mở ở tab khác" với "Use this tab"/"Dùng tab này"; bấm
-  thì tab mới gửi yêu cầu qua BroadcastChannel; tab cũ gọi `exit.flush()` cho hết hàng
-  đợi lưu (câu nào không lưu được thì ghi vào bản sao tại máy theo FR-035), rồi mới
-  chuyển chỉ-đọc và báo đã nhả quyền ghi. Tab mới chỉ bắt đầu ghi sau khi nhận báo đó,
-  và đọc lại trạng thái lượt từ máy chủ trước; không nhận được trong 5 giây (tab cũ đã
-  đóng hoặc treo) thì tab mới tải lại lượt từ máy chủ rồi mới ghi. Không có hai tab cùng ghi một
-  lượt. Trình duyệt không có `BroadcastChannel` thì bỏ qua tính năng này, không
-  chặn làm bài.
+- **FR-017:** Cùng một lượt ở tab thứ hai (cùng trình duyệt). Quyền ghi là khoá độc
+  quyền Web Locks `exam-room:{surface}:{attemptKey}` (`navigator.locks`): chỉ tab giữ khoá
+  được gọi lưu hay nộp; trình duyệt tự nhả khoá khi tab đóng. Tab mở sau không lấy được
+  khoá thì chỉ-đọc và báo "This test is open in another tab"/"Bài này đang mở ở tab
+  khác" với "Use this tab"/"Dùng tab này".
+  - Bấm "Use this tab": tab mới gửi yêu cầu qua BroadcastChannel; tab cũ gọi
+    `exit.flush()` cho hết hàng đợi lưu (câu không lưu được ghi vào bản sao theo
+    FR-035), chuyển chỉ-đọc, rồi mới nhả khoá. Tab mới chỉ ghi sau khi đã giữ khoá và đọc
+    lại trạng thái lượt từ máy chủ.
+  - Không giữ được khoá trong 5 giây (tab cũ treo, hoặc đang flush): tab mới **vẫn
+    chỉ-đọc**, huỷ yêu cầu khoá, và báo "The other tab is not responding. Close it, then
+    select Reload."/"Tab kia không phản hồi. Bạn đóng tab đó rồi bấm Tải lại." với nút
+    "Reload"/"Tải lại" (thử lấy khoá lại từ đầu). Tab cũ phản hồi muộn sau đó không làm
+    tab mới tự ghi.
+  - Trình duyệt không có Web Locks: dùng BroadcastChannel cùng mã ghi
+    `exam-room:writer:{surface}:{attemptKey}` trong `localStorage`, và tab kiểm mã đó
+    trước mỗi lần lưu, thấy không phải của mình thì ngừng ghi. Cách này chỉ là cảnh báo,
+    không bảo đảm độc quyền (hai tab có thể cùng ghi trong khoảnh khắc chuyển). Không có
+    cả BroadcastChannel thì bỏ qua tính năng, không chặn làm bài.
+  - Giới hạn: khoá chỉ có hiệu lực trong một trình duyệt. Hai trình duyệt hay hai thiết
+    bị cùng ghi một lượt chỉ được chặn khi máy chủ có khoá hoặc lease theo lượt (mỗi lần
+    lưu mang mã ghi, máy chủ từ chối mã cũ); việc đó thuộc spec của trình hoặc G05-T20,
+    xem câu hỏi mở 10.
 - **FR-018:** Đồng hồ chế độ `test` hiển thị bằng `FocusTimer`: "Time remaining" +
   mm:ss số đều cột; mốc 5 phút đổi trạng thái có chữ "5 minutes left" và đọc cho trình đọc màn hình đúng một
   lần; không nhấp nháy. Thời gian còn lại luôn do trình tính từ mốc của server; shell
@@ -289,7 +303,7 @@ trên `staging` @ `cc6dd4c8` (23/11/2026):
 
 - **FR-032:** Khoá trình duyệt: `exam-room:split:{attemptKey}` (xoá khi nộp xong hoặc
   quá 7 ngày), `exam-room:marks:{surface}:{ownerKey}:{attemptKey}` (nộp xong + 30
-  ngày), `exam-room:local-copy:{surface}:{ownerKey}:{attemptKey}`, BroadcastChannel
+  ngày), `exam-room:local-copy:{surface}:{ownerKey}:{attemptKey}`, khoá Web Locks `exam-room:{surface}:{attemptKey}`, mã ghi dự phòng `exam-room:writer:{surface}:{attemptKey}`, BroadcastChannel
   `aver-exam-room`. Mọi đọc/ghi bọc `try/catch`; bộ nhớ không dùng được thì khung vẫn
   chạy, không chặn làm bài. Bản sao tại máy không bao giờ tự ghi đè bản trên server.
 - **FR-033:** Sự kiện qua `POST /api/analytics/events` hiện có (tên khớp
@@ -300,19 +314,29 @@ trên `staging` @ `cc6dd4c8` (23/11/2026):
   từ lúc mất tới lúc có lại), `exam_room_session_expired`,
   `exam_room_other_tab`. Không gửi nội dung câu trả lời hay thông tin học viên.
 - **FR-034:** Hết giờ, trình không truyền `timeUpChoice`: shell chỉ nói "đã nộp" khi
-  trình báo xác nhận canonical từ máy chủ. Trình đưa trạng thái qua
-  `submit.outcome`:
+  trình báo xác nhận canonical. Trình đưa trạng thái qua `submit.outcome`:
   - `submitting`: "Submitting your answers…"/"Đang nộp bài…".
-  - `confirmed` (trình đã nhận phản hồi nộp hợp lệ của máy chủ, hoặc đọc lại trạng
-    thái lượt thấy đã nộp/đã đóng): "Your answers have been saved and submitted."/
-    "Bài của bạn đã được lưu và nộp.".
-  - `unconfirmed` (offline, 401, phản hồi nộp bị mất hay lỗi): "Time is up. We have not
-    confirmed your submission yet. Keep this page open; we will keep trying."/"Hết
-    giờ. Chưa xác nhận được bài đã nộp. Bạn giữ trang này mở, hệ thống sẽ thử lại.".
-    Bản chưa lưu giữ ở máy theo FR-035; trình làm theo chính sách khôi phục của nó
-    (thử nộp lại khi có mạng hoặc sau khi đăng nhập lại, hoặc đọc lại trạng thái lượt
-    vì máy chủ tự đóng lượt theo giờ của nó). Ô nhập vẫn khoá; không mở thêm thời gian.
-  Shell không tự suy ra `confirmed` từ việc đã gọi `onSubmit`.
+  - `confirmed`: chỉ khi phản hồi nộp của máy chủ, hoặc trạng thái lượt đọc lại, xác
+    nhận đã nộp **và** đã ghi nhận các câu trả lời theo hợp đồng của trình (ví dụ mọi
+    câu có thời điểm lưu trên máy chủ không cũ hơn bản trên máy). "Your answers have
+    been saved and submitted."/"Bài của bạn đã được lưu và nộp.".
+  - `unconfirmed` (offline, 401, phản hồi nộp mất hay lỗi; trình đang tự thử lại):
+    "Time is up. We have not confirmed your submission yet. Keep this page open while we
+    try again."/"Hết giờ. Chưa xác nhận được bài đã nộp. Bạn giữ trang này mở trong lúc
+    hệ thống thử lại.". Số lần tự thử có giới hạn theo chính sách của trình (đề xuất:
+    tối đa 3 lần, mỗi lần có mạng lại hoặc sau khi đăng nhập lại, và không quá lúc máy
+    chủ đóng lượt).
+  - `unconfirmed_manual` (hết lượt tự thử, lượt vẫn mở trên máy chủ): "We could not
+    confirm your submission. Your answers were saved on our server up to [HH:MM]."/
+    "Chưa xác nhận được bài đã nộp. Máy chủ đã lưu bài của bạn tới [HH:MM]." với nút
+    "Try again"/"Thử lại" (gọi lại đường nộp của trình). Không hứa tự thử tiếp.
+  - `closed_unconfirmed` (máy chủ đã đóng lượt theo giờ của nó nhưng không xác nhận đã
+    ghi nhận bản cuối): "This test was closed by our server at [HH:MM]. Answers after
+    [HH:MM] may not have been recorded."/"Máy chủ đã đóng bài lúc [HH:MM]. Các câu sau
+    [HH:MM] có thể chưa được ghi nhận." với nút về `exit.href`. Không thử lại; bản sao tại
+    máy bị xoá theo FR-035 vì không còn gửi được.
+  Ô nhập luôn khoá; không mở thêm thời gian. Shell không tự suy ra `confirmed` từ việc
+  đã gọi `onSubmit`, và không coi "lượt đã đóng" là `confirmed`.
 - **FR-035:** Bản sao câu trả lời tại máy gắn với đúng tài khoản và đúng lượt.
   `ownerKey` là id tài khoản (link chia sẻ: phạm vi quyền khách của link), và bản ghi
   chứa `ownerKey`, `attemptKey`, `surface`, `savedAt`, `expiresAt`, và với mỗi câu giá
@@ -378,15 +402,19 @@ trên `staging` @ `cc6dd4c8` (23/11/2026):
 - **Given** request nộp lúc 0 đã gửi nhưng phản hồi bị mất (timeout mạng)
 - **When** shell chờ kết quả
 - **Then** trạng thái `unconfirmed`, không hiện "saved and submitted"; trình đọc lại trạng
-  thái lượt; thấy đã nộp thì chuyển `confirmed`, không gửi nộp lần hai nếu lượt đã đóng.
+  thái lượt: đã nộp và đã ghi nhận đủ câu thì `confirmed`; máy chủ đã đóng lượt mà không
+  xác nhận bản cuối thì `closed_unconfirmed`, không gửi nộp lần hai; lượt còn mở thì nộp
+  lại, hết 3 lần thì `unconfirmed_manual`.
 
 ### Scenario 4: mở hai tab
 
 - **Given** lượt đang mở ở tab A
 - **When** mở cùng lượt ở tab B
 - **Then** tab B báo "This test is open in another tab." và không ghi; **When** bấm
-  "Use this tab" ở B **Then** A lưu nốt hàng đợi rồi mới chuyển chỉ-đọc, B chỉ ghi sau khi
-  A báo đã nhả quyền; A đã đóng thì sau 5 giây B tải lại lượt từ máy chủ rồi ghi.
+  "Use this tab" ở B **Then** A lưu nốt hàng đợi rồi mới chuyển chỉ-đọc và nhả khoá, B chỉ ghi sau
+  khi giữ khoá. **Given** A treo **When** bấm "Use this tab" ở B **Then** sau 5 giây B vẫn
+  chỉ-đọc với "The other tab is not responding…"; A phản hồi muộn thì B vẫn không tự ghi;
+  đóng A rồi bấm "Reload" ở B thì B giữ khoá và ghi.
 
 ### Scenario 5: mất mạng lúc nộp
 
@@ -451,7 +479,7 @@ trên `staging` @ `cc6dd4c8` (23/11/2026):
 - Đổi cờ giữa một lượt: lần tải sau dùng giao diện theo cờ mới; cả hai giao diện là
   renderer `next`, cùng đọc trạng thái server, không mất câu trả lời; tỉ lệ cột và
   ghi chú không bắt buộc chuyển sang giao diện cũ.
-- Node test không có `BroadcastChannel`/`localStorage`: hàm nhận đối tượng lưu trữ
+- Node test không có `navigator.locks`/`BroadcastChannel`/`localStorage`: hàm nhận đối tượng lưu trữ
   qua tham số.
 - `frontend/public/js/runtime-config.js` bị commit đã cấu hình: phải trả về bản chưa
   cấu hình trước khi commit.
@@ -501,3 +529,8 @@ mục 10).
    vào `AudioPlayer` sau khi #2492 vào `staging`, trong một PR nhỏ báo cho chủ G03; khung
    truyền bộ tiếng Anh khi `policy='test'`. Trước khi có prop đó, không bật production
    trình Listening test nào. Mặc định tạm: như đề xuất.
+10. **Khoá ghi phía máy chủ theo lượt.** Khoá Web Locks (FR-017) chỉ chặn trong một trình
+    duyệt. Đề xuất: không làm trong spec này; spec từng trình quyết có cần lease theo lượt
+    (mỗi lần lưu mang mã ghi, máy chủ từ chối mã cũ), ưu tiên Full test và Mock; trước khi
+    có, hai thiết bị được xử lý bằng phiên bị chiếm của G05-T20 (FR-016). Mặc định tạm:
+    như đề xuất.

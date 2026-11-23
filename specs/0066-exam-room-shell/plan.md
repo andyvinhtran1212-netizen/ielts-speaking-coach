@@ -59,7 +59,8 @@ interface ExamRoomShellProps {
         | { kind: 'single'; body: ReactNode };
   submit?: { label: string; onSubmit(): Promise<void>; disabledReason?: string; costNote?: string;
              extraWarning?: ReactNode;
-             outcome?: 'idle' | 'submitting' | 'confirmed' | 'unconfirmed' };   // FR-034: only the surface sets 'confirmed', after a canonical server ack
+             outcome?: 'idle' | 'submitting' | 'confirmed' | 'unconfirmed' | 'unconfirmed_manual' | 'closed_unconfirmed';
+             savedUpTo?: string; closedAt?: string; onRetry?: () => void };   // FR-034: only the surface sets 'confirmed', after a canonical server ack
   exit: { href: string; flush(): Promise<{ unsaved: number }>; losesWork(): boolean;
           abandon?: { onAbandon(): Promise<void> } };
   ownerKey: string;                   // account id, or the share-link guest scope (FR-035)
