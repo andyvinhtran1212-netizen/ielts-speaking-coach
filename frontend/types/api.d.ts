@@ -12131,7 +12131,8 @@ export interface paths {
          * List Speaking
          * @description Every published Speaking question with a model answer, in shelf order
          *     (FR-030). The shelf holds at most a few hundred rows, so there is no paging;
-         *     the page groups by ``topic_slug``. Facets are counted over the rows that
+         *     the page groups by ``topic_slug``. ``q`` matches the English title, the
+         *     Vietnamese title and the topic name, ignoring case and accents. Facets are counted over the rows that
          *     match every OTHER active filter, like the Writing list.
          */
         get: operations["list_speaking_api_library_speaking_get"];

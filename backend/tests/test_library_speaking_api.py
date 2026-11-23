@@ -152,6 +152,11 @@ def test_list_search_matches_vietnamese_title(client, db):
     db.tables["speaking_samples"][0]["title_vi"] = "Một thành phố"
     body = client.get("/api/library/speaking", params={"q": "thành phố"}).json()
     assert [i["slug"] for i in body["items"]] == ["a-city-part-2"]
+    # Accents and case are ignored; the topic name matches too.
+    body = client.get("/api/library/speaking", params={"q": "THANH PHO"}).json()
+    assert [i["slug"] for i in body["items"]] == ["a-city-part-2"]
+    body = client.get("/api/library/speaking", params={"q": "con nguoi"}).json()
+    assert [i["slug"] for i in body["items"]] == ["a-friend-part-2"]
 
 
 @pytest.mark.parametrize("query", ["part=4", "part=x", "chude=environment", "chude=nope", "q=" + "x" * 101])

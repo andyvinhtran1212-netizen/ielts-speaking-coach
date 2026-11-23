@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import functools
 import logging
+import unicodedata
 from datetime import datetime, timezone
 from email.utils import format_datetime
 from typing import Any, Optional
@@ -628,8 +629,14 @@ def _speaking_item(row: dict, topics: dict[str, dict]) -> dict:
     }
 
 
+def fold_text(text: str) -> str:
+    """Case- and accent-insensitive form for search ("Nơi chốn" -> "noi chon")."""
+    decomposed = unicodedata.normalize("NFKD", text.replace("đ", "d").replace("Đ", "D"))
+    return "".join(c for c in decomposed if not unicodedata.combining(c)).casefold()
+
+
 def _speaking_matches(row: dict, *, part: Optional[int], chude: Optional[str],
-                      video: bool, needle: Optional[str]) -> bool:
+                      video: bool, needle: Optional[str], labels: dict[str, str]) -> bool:
     if part is not None and row.get("part") != part:
         return False
     if chude and row.get("topic_slug") != chude:
@@ -637,7 +644,9 @@ def _speaking_matches(row: dict, *, part: Optional[int], chude: Optional[str],
     if video and _answer_kind(row) != "video":
         return False
     if needle:
-        hay = f"{row.get('title_en') or ''}\n{row.get('title_vi') or ''}".casefold()
+        hay = fold_text("\n".join((
+            row.get("title_en") or "", row.get("title_vi") or "", labels.get(row.get("topic_slug") or "", ""),
+        )))
         if needle not in hay:
             return False
     return True
@@ -654,18 +663,20 @@ def list_speaking(
 ):
     """Every published Speaking question with a model answer, in shelf order
     (FR-030). The shelf holds at most a few hundred rows, so there is no paging;
-    the page groups by ``topic_slug``. Facets are counted over the rows that
+    the page groups by ``topic_slug``. ``q`` matches the English title, the
+    Vietnamese title and the topic name, ignoring case and accents. Facets are counted over the rows that
     match every OTHER active filter, like the Writing list."""
     if part is not None and part not in SPEAKING_PARTS:
         raise HTTPException(422, "part must be 1, 2 or 3")
-    needle = (q or "").strip().casefold() or None
+    needle = fold_text((q or "").strip()) or None
 
     topics = _speaking_topics()
     if chude is not None and chude not in topics:
         raise HTTPException(422, "chude is not a Speaking topic")
     rows = _published_speaking(topics)
 
-    filters = {"part": part, "chude": chude, "video": video, "needle": needle}
+    labels = {slug: str(t.get("label_vi") or "") for slug, t in topics.items()}
+    filters = {"part": part, "chude": chude, "video": video, "needle": needle, "labels": labels}
     matched = [r for r in rows if _speaking_matches(r, **filters)]
     facet_part = _count(
         [r for r in rows if _speaking_matches(r, **{**filters, "part": None})],
