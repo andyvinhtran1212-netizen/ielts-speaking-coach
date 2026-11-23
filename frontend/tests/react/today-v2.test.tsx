@@ -229,6 +229,13 @@ it('order_pending: order card with a warning and supplement date for needs_info 
   expect(screen.queryByText(/Lượt chấm AI/)).toBeNull();
 });
 
+it('order_pending with a failed order list shows the order block error, not "no course"', async () => {
+  mount(payload({ state: 'order_pending', orders_open: [], degraded: ['orders_open'] }));
+  const block = await screen.findByRole('region', { name: 'Đơn đăng ký của bạn' });
+  expect(within(block).getByText('Đơn đăng ký')).toBeTruthy();
+  expect(screen.queryByRole('region', { name: 'Bạn chưa có khoá học' })).toBeNull();
+});
+
 it('a failed load shows one notice with a retry that calls the API again', async () => {
   get = vi.fn().mockRejectedValueOnce(Object.assign(new Error('HTTP 500'), { status: 500 }))
     .mockResolvedValueOnce(payload());
