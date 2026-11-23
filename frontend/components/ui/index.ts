@@ -26,3 +26,8 @@ export { ThemeChoiceGroup, type ThemeChoiceGroupProps } from './theme-choice';
 export { ThemeMenu, ThemeMenuList, type ThemeMenuListProps, type ThemeMenuProps } from './theme-menu';
 export { THEME_SCRIPT, ThemeScript } from './theme-script';
 export { useThemeChoice, type ThemeChoice, type ThemeChoiceState, type ThemeMode } from './use-theme-choice';
+export {
+  AudioPlayer, type AudioLoop, type AudioPlayerMode, type AudioPlayerProps, type AudioPlayerState, type AudioPlayerVariant,
+} from './audio-player';
+export { formatMediaTime, formatSpeed } from './media-time';
+export { safeYoutubeEmbed, VideoFrame, type VideoFrameProps, type VideoFrameState, type VideoSource } from './video-frame';

@@ -1,0 +1,168 @@
+/* Paragraph classes are doubled (.x.x) so page rules like `.section p` do not reset them.
+   UIBASE-0056 AudioPlayer (ThanhPhanHocTap §2). Only var(--av2-*), no hex. Radius 2px. */
+.player {
+  padding: var(--av2-space-7) var(--av2-space-8) var(--av2-space-5);
+  border: var(--av2-rule-w) solid var(--av2-ink);
+  background: var(--av2-surface);
+  color: var(--av2-ink);
+}
+.quiet { border-color: var(--av2-rule); padding-bottom: var(--av2-space-7); }
+.failed { border-color: var(--av2-danger); padding-bottom: var(--av2-space-7); }
+.warned { border-color: var(--av2-mark); padding-bottom: var(--av2-space-7); }
+.phone { padding: var(--av2-space-6) var(--av2-space-7) var(--av2-space-4); }
+
+.name.name { margin: 0 0 var(--av2-space-5); font-size: var(--av2-fs-14); color: var(--av2-muted); }
+.title { font-family: var(--av2-font-serif); font-size: var(--av2-fs-16); color: var(--av2-ink); }
+.ellipsis { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--av2-space-5); }
+.phone .row { flex-wrap: nowrap; gap: var(--av2-space-4); }
+.spread { display: flex; align-items: baseline; justify-content: space-between; gap: var(--av2-space-6); margin-bottom: var(--av2-space-4); }
+.end { margin-left: auto; }
+.strong { font-weight: var(--av2-fw-strong); }
+.muted { color: var(--av2-muted); }
+.nowrap { white-space: nowrap; }
+
+.clock { font: var(--av2-fw-strong) var(--av2-fs-14) / 1.2 var(--av2-font-sans); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.clockLg { font-size: var(--av2-fs-16); }
+.spreadClock.spreadClock {
+  display: flex;
+  justify-content: space-between;
+  margin: 0;
+  font: var(--av2-fw-strong) var(--av2-fs-14) / 1.2 var(--av2-font-sans);
+  font-variant-numeric: tabular-nums;
+}
+
+.note.note { margin: var(--av2-space-5) 0 0; font-size: var(--av2-fs-14); color: var(--av2-muted); }
+
+/* Buttons. Play is the one accent button and always carries its word. */
+.play,
+.skip,
+.square,
+.cycle,
+.speed,
+.loopButton,
+.secondary,
+.start {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--av2-space-3);
+  border: var(--av2-rule-w) solid var(--av2-ink);
+  border-radius: var(--av2-radius);
+  background: var(--av2-surface);
+  color: var(--av2-ink);
+  font: var(--av2-fw-strong) var(--av2-fs-14) / 1.2 var(--av2-font-sans);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.play,
+.start {
+  gap: var(--av2-space-4);
+  min-height: var(--av2-control-lg);
+  padding: 0 var(--av2-space-8);
+  border-color: var(--av2-accent);
+  background: var(--av2-accent);
+  color: var(--av2-on-accent);
+  font-size: var(--av2-fs-16);
+}
+.start { min-height: var(--av2-control-md); }
+.play:hover:not(:disabled):not([aria-disabled='true']),
+.start:hover { background: var(--av2-accent-hover); border-color: var(--av2-accent-hover); }
+.playWide { min-width: 132px; }
+.playPhone { min-width: 96px; padding: 0 var(--av2-space-6); font-size: var(--av2-fs-15); }
+.playSquare { width: var(--av2-control-md); height: var(--av2-control-md); min-height: 0; padding: 0; }
+.playOff,
+.playOff:disabled { border-color: var(--av2-off); background: var(--av2-off); color: var(--av2-muted); cursor: default; }
+
+.skip { min-height: var(--av2-control-md); padding: 0 var(--av2-space-6); }
+.square { width: var(--av2-control-md); height: var(--av2-control-md); padding: 0; }
+.cycle { min-width: 52px; height: var(--av2-control-md); padding: 0 var(--av2-space-3); }
+.cycleOn { border-color: var(--av2-mark); color: var(--av2-mark); }
+.secondary { min-height: var(--av2-control-md); padding: 0 var(--av2-space-8); font-size: var(--av2-fs-16); }
+.skip:hover,
+.square:hover,
+.cycle:hover,
+.secondary:hover,
+.loopButton:hover:not(:disabled) { background: var(--av2-tint); }
+
+.play:focus-visible,
+.skip:focus-visible,
+.square:focus-visible,
+.cycle:focus-visible,
+.speed:focus-visible,
+.loopButton:focus-visible,
+.secondary:focus-visible,
+.start:focus-visible,
+.clear:focus-visible,
+.range:focus-visible { outline: var(--av2-focus); outline-offset: var(--av2-focus-offset); }
+
+/* Seek bar: a native range, 44px tall to hit, accent coloured. */
+.rangeLabel { display: block; margin-top: var(--av2-space-2); }
+.range { display: block; width: 100%; height: var(--av2-control-md); margin: 0; accent-color: var(--av2-accent); }
+
+/* A–B marks under the seek bar, in the "mark" colour. */
+.marks { position: relative; display: block; height: 18px; margin: -10px 0 var(--av2-space-2); font-size: 11px; font-weight: var(--av2-fw-strong); line-height: 1; }
+.marksTrack { position: absolute; left: 0; right: 0; top: 2px; height: 6px; background: var(--av2-off); }
+.marksLoop { position: absolute; top: 2px; height: 6px; background: var(--av2-mark); }
+.markLetter { position: absolute; top: 9px; margin-left: -3px; color: var(--av2-mark); }
+
+.group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--av2-space-4);
+  padding: var(--av2-space-4) 0;
+  border-top: var(--av2-rule-w) solid var(--av2-rule);
+}
+.group + .group { padding-bottom: 0; }
+.groupName { margin-right: var(--av2-space-2); font-size: var(--av2-fs-14); color: var(--av2-muted); }
+.loopButton { min-height: 40px; padding: 0 var(--av2-space-6); }
+.loopButton:disabled { border-color: var(--av2-rule); color: var(--av2-muted); cursor: default; }
+.loopButton[aria-pressed='true'] { border-color: var(--av2-mark); color: var(--av2-mark); }
+.looping { display: inline-flex; align-items: center; gap: var(--av2-space-3); font-size: var(--av2-fs-14); font-weight: var(--av2-fw-strong); color: var(--av2-mark); }
+.clear {
+  margin-left: auto;
+  min-height: 40px;
+  padding: 0 var(--av2-space-2);
+  border: 0;
+  background: transparent;
+  color: var(--av2-link);
+  font: var(--av2-fw-strong) var(--av2-fs-14) / 1.2 var(--av2-font-sans);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.speed { min-width: 56px; min-height: var(--av2-control-md); padding: 0 var(--av2-space-5); }
+.speedOn { border-color: var(--av2-ink); background: var(--av2-ink); color: var(--av2-surface); }
+
+/* Compact one-line player: sticky placement belongs to the page. */
+.compact {
+  display: flex;
+  align-items: center;
+  gap: var(--av2-space-6);
+  padding: var(--av2-space-3) var(--av2-space-6) var(--av2-space-3) var(--av2-space-3);
+  border: var(--av2-rule-w) solid var(--av2-ink);
+  background: var(--av2-surface);
+  color: var(--av2-ink);
+}
+.thin { position: relative; display: block; flex: 1 1 80px; height: 4px; background: var(--av2-off); }
+.player .thin { flex: none; width: 100%; }
+.thinTrack { display: block; height: 4px; margin-top: var(--av2-space-7); background: var(--av2-off); }
+.thinFill { position: relative; display: block; height: 4px; background: var(--av2-accent); }
+.thinLoop { position: absolute; top: -2px; height: 8px; background: var(--av2-mark); }
+
+.alertHead.alertHead { display: flex; align-items: center; gap: var(--av2-space-4); margin: 0 0 var(--av2-space-2); font-weight: var(--av2-fw-strong); color: var(--av2-danger); }
+.warnHead.warnHead { margin: 0 0 var(--av2-space-2); font-weight: var(--av2-fw-strong); color: var(--av2-mark); }
+.alertBody.alertBody { margin: 0 0 var(--av2-space-6); }
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
