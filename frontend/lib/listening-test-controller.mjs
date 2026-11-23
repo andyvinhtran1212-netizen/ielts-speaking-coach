@@ -461,3 +461,120 @@ export function listeningKeepChangeAnswer(raw) {
   const match = /^CHANGE:[ \t]?([\s\S]*)$/i.exec(value);
   return match ? { choice: 'CHANGE', text: match[1] } : { choice: '', text: '' };
 }
+
+/**
+ * EXAMLISTENT-0070 FR-006: audio policy for the exam-room AudioPlayer. A mock
+ * sitting is always a test. Otherwise the test's own type decides, also for a
+ * class assignment: an assigned full test plays as a test, an assigned mini
+ * test, drill or practice set plays as practice. Unknown types fail closed to
+ * the stricter 'test' policy (no pause, seek or speed).
+ * @param {{ test_type?: string } | null | undefined} test
+ * @param {{ sittingId?: string | null, classItem?: string | null }} [context]
+ *   `classItem` is accepted but does not change the policy (the test type decides).
+ * @returns {'test' | 'practice'}
+ */
+export function listeningAudioPolicy(test, context = {}) {
+  if (context?.sittingId) return 'test';
+  return isPracticeListeningTest(test) ? 'practice' : 'test';
+}
+
+export const LISTENING_SUBMIT_AUTO_RETRIES = 3;
+export const LISTENING_ABANDONED_MESSAGE = 'This attempt was abandoned and was not submitted.';
+
+/**
+ * EXAMLISTENT-0070 FR-010: submit state (EXAMROOM-0066 FR-034) derived from
+ * one `coreOperationRequest` submit and, when the surface has one, the
+ * attempt re-read (`GET /api/listening/tests/attempts/{id}`) that followed.
+ * Pure: the surface owns the timers, the re-read and the resubmit.
+ *
+ * `next` tells the surface what to do:
+ * - 'results': show the result (or the sealed MockHook path when `sealed`);
+ * - 'reread': re-read the attempt, then call this again with `reread`;
+ * - 'retry': re-read and resubmit automatically once `waitFor` is met
+ *   ('online' or null = after the usual backoff);
+ * - 'manual': stop retrying; "Try again" resubmits (`waitFor: 'signin'` on a
+ *   401, while the shell asks the learner to sign in again);
+ * - 'resubmit': the attempt is still open; unlock and let the learner submit;
+ * - 'back': terminal, show `message` with "Back".
+ *
+ * Listening never closes an attempt on a timer, so 'closed_unconfirmed' and
+ * 'expired_unsubmitted' are never returned; a 24 h resume expiry (HTTP 410
+ * from `require_resume_active`) is 'expired' with the server message.
+ *
+ * @param {{
+ *   attemptId: string,
+ *   reply?: any,
+ *   error?: any,
+ *   reread?: { status?: string, signin?: boolean } | null,
+ *   autoRetries?: number,
+ *   online?: boolean,
+ * }} input
+ */
+export function listeningSubmitOutcome({ attemptId, reply, error, reread = null, autoRetries = 0, online = true }) {
+  const id = requiredText(attemptId, 'missing-listening-attempt');
+  const status = error ? Number(error.status) : NaN;
+  const hasStatus = !!error && error.status !== undefined && error.status !== null;
+
+  if (reread && typeof reread === 'object') {
+    if (reread.status === 'unknown') {
+      // The re-read itself failed, so it is no answer about the attempt (CR
+      // #2557 F4): keep the automatic tries while they last; signed out, wait
+      // for the learner.
+      if (reread.signin) return submitState('unconfirmed_manual', 'manual', { waitFor: 'signin' });
+      return transient(autoRetries, online === false ? 'online' : null);
+    }
+    if (reread.status === 'submitted') return submitState('confirmed', 'results');
+    if (reread.status === 'abandoned') {
+      return submitState('abandoned', 'back', { message: LISTENING_ABANDONED_MESSAGE, clearLocalCopy: true });
+    }
+    if (reread.status === 'in_progress') {
+      // 409: a save landed after the server read the answers; submit again.
+      if (status === 409) return submitState('idle', 'resubmit');
+      if (status === 422) return submitState('unconfirmed_manual', 'manual', { message: errorMessage(error) });
+      // A lost or failed submit on an open attempt keeps retrying below.
+    } else {
+      return submitState('unconfirmed_manual', 'manual', { message: errorMessage(error) });
+    }
+  }
+
+  if (!error) {
+    // Sealed first: a sealed receipt with a capture envelope also carries attempt_id.
+    if (reply?.received === true && reply?.sealed === true) return submitState('confirmed', 'results', { sealed: true });
+    if (reply?.attempt_id === id) return submitState('confirmed', 'results');
+    // A reply without a matching acknowledgement is a lost response.
+    return transient(autoRetries, online ? null : 'online');
+  }
+
+  // Already submitted (422 replay) or changed under us (409): read the truth.
+  if (hasStatus && (status === 409 || status === 422) && !reread) return submitState('unconfirmed', 'reread');
+  if (status === 410) return submitState('expired', 'back', { message: errorMessage(error) });
+  // Wait for the `online` event only while offline: a POST cut off on a live
+  // connection may never see one (CR #2557), so it backs off and re-reads.
+  if (!hasStatus || online === false) return transient(autoRetries, online === false ? 'online' : null);
+  // Signed out: no automatic retry can succeed, so "Try again" stays on screen
+  // while the shell asks the learner to sign in again (CR #2557 F1).
+  if (status === 401) return submitState('unconfirmed_manual', 'manual', { waitFor: 'signin' });
+  if ([408, 425, 429].includes(status) || status >= 500) return transient(autoRetries, null);
+  // Any other refusal is deterministic: no automatic retry, no full-page error.
+  return submitState('unconfirmed_manual', 'manual', { message: errorMessage(error) });
+}
+
+function transient(autoRetries, waitFor) {
+  const used = Math.max(0, Number(autoRetries) || 0);
+  return used < LISTENING_SUBMIT_AUTO_RETRIES
+    ? submitState('unconfirmed', 'retry', { waitFor })
+    : submitState('unconfirmed_manual', 'manual', { waitFor });
+}
+
+function submitState(outcome, next, extra = {}) {
+  return Object.freeze({
+    outcome, next, waitFor: null, message: null, sealed: false, clearLocalCopy: false, ...extra,
+  });
+}
+
+function errorMessage(error) {
+  const detail = error?.detail;
+  if (typeof detail === 'string' && detail.trim()) return detail;
+  if (typeof detail?.message === 'string' && detail.message.trim()) return detail.message;
+  return typeof error?.message === 'string' && error.message.trim() ? error.message : null;
+}

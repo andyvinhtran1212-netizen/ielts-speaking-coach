@@ -1513,6 +1513,85 @@ async def submit_listening_test_attempt(
     }
 
 
+class ListeningAttemptAbandonResponse(BaseModel):
+    """EXAMLISTENT-0070 FR-012: the attempt is closed with no result."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    attempt_id: str
+    status: Literal["abandoned"]
+
+
+_NO_STORE = {"Cache-Control": "private, no-store"}
+
+
+def _abandon_conflict(reason: str) -> HTTPException:
+    return HTTPException(409, {"reason": reason}, headers=_NO_STORE)
+
+
+def _abandon_listening_attempt(attempt_id: str, user_id: str) -> dict:
+    """One conditional UPDATE (CAS on status), then a re-read to explain a miss.
+
+    Only the learner's own self-selected attempt closes: no class item, no
+    mock sitting, still ``in_progress`` and inside its resume window. The
+    UPDATE is not bound to ``answers`` (abandoning drops the whole attempt),
+    while both finalize UPDATEs of ``submit`` require ``status='in_progress'``,
+    so exactly one of a racing submit and abandon writes.
+    """
+    attempt = _fetch_attempt_or_404(attempt_id, user_id)
+    if blackeye.attempt_is_blackeye(supabase_admin, attempt):
+        # The Black Eye unit has its own two-state lifecycle (in_progress,
+        # submitted); it is not a self-selected exam-room test.
+        raise _abandon_conflict("not_self_selected")
+    now_iso = datetime.now(timezone.utc).isoformat()
+    closed = (
+        supabase_admin.table("listening_test_attempts")
+        .update({"status": "abandoned"})
+        .eq("id", attempt_id)
+        .eq("user_id", user_id)
+        .eq("status", "in_progress")
+        .is_("sitting_id", "null")
+        .is_("class_assignment_item_id", "null")
+        .gt("resume_expires_at", now_iso)
+        .execute().data or []
+    )
+    if closed:
+        return {"attempt_id": attempt_id, "status": "abandoned"}
+    fresh = _fetch_attempt_or_404(attempt_id, user_id)
+    status = fresh.get("status")
+    if status == "abandoned":
+        return {"attempt_id": attempt_id, "status": "abandoned"}
+    if status == "submitted":
+        raise _abandon_conflict("already_submitted")
+    if fresh.get("sitting_id") or fresh.get("class_assignment_item_id"):
+        raise _abandon_conflict("not_self_selected")
+    if status == "in_progress" and not is_resume_active(fresh):
+        raise _abandon_conflict("resume_expired")
+    raise _abandon_conflict("attempt_changed")
+
+
+@user_router.post(
+    "/tests/attempts/{attempt_id}/abandon",
+    response_model=ListeningAttemptAbandonResponse,
+)
+async def abandon_listening_test_attempt(
+    attempt_id: uuid.UUID,
+    authorization: str | None = Header(default=None),
+):
+    """EXAMLISTENT-0070 FR-012: abandon a self-selected Listening test.
+
+    200 ``{attempt_id, status: "abandoned"}``, also when repeated. 404 when the
+    attempt is not the caller's. 409 ``{"reason": ...}`` with
+    ``already_submitted``, ``not_self_selected`` (class item, mock sitting,
+    Black Eye unit) or ``resume_expired``. An abandoned attempt has no result;
+    "Start test" creates a new attempt.
+    """
+    user = await _require_auth(authorization)
+    result = await asyncio.to_thread(_abandon_listening_attempt, str(attempt_id), user["id"])
+    from starlette.responses import JSONResponse
+    return JSONResponse(result, headers=_NO_STORE)
+
+
 @user_router.get("/tests/attempts/{attempt_id}", response_model=BlackEyeAttemptState | dict[str, Any])
 async def get_listening_test_attempt(
     attempt_id: str,
