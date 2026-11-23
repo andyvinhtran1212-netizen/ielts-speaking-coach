@@ -1458,11 +1458,16 @@ async def _commit_credit_hold(hold: credits.CreditHold | None, *, pay_again=None
                 return
             if not hold.reservation_id:
                 return
-            result = await credits._rpc("fn_credit_commit", {"p_reservation_id": hold.reservation_id})
-            if result["status"] in ("committed", "already_committed") or pay_again is None or attempt == 2:
+            try:
+                # The cover hold as a plain hold: committed/already_committed
+                # pass; a released/expired one raises 'commit_not_open'.
+                await credits.CreditHold(reservation_id=hold.reservation_id).commit()
                 return
-            logger.info("[credits] decision=cover_released reservation=%s status=%s",
-                        hold.reservation_id, result["status"])
+            except credits.CreditUnavailable as exc:
+                if pay_again is None or attempt == 2 or not str(exc).startswith("commit_"):
+                    raise
+                logger.info("[credits] decision=cover_released reservation=%s status=%s",
+                            hold.reservation_id, exc)
             hold = await pay_again()
         except Exception as exc:  # noqa: BLE001 — the grade is saved; expiry sweep settles the hold
             logger.warning("[credits] decision=commit_failed reservation=%s: %s",
