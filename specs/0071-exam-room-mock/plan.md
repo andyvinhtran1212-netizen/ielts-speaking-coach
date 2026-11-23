@@ -59,7 +59,7 @@ Xem `rollout.md`.
 ## Verification strategy
 
 - `node --test frontend/tests/mock-exam-room-model.test.mjs`: `mockSubmitOutcome` (đã nộp,
-  giám thị thu sau `flush-ack`, thu khi còn câu chưa lưu → `closed_unconfirmed`, lỗi tạm 3 lần
+  giám thị thu sau `flush-ack`, mới bắt đầu thu (`collected_section` có, `*SubmittedAt` trống) → vẫn `submitting` và thử lưu lại, đã đóng (`*SubmittedAt` có) khi còn câu chưa lưu → `closed_unconfirmed`, lỗi tạm 3 lần
   rồi `unconfirmed_manual`, 403/404), `reconcileMockWritingCopy` (bằng → bỏ, khác → hỏi, khoá mới
   ghi lỗi → giữ khoá cũ, chủ khác → không đọc).
 - React test `frontend/tests/react/mock-exam-room.test.tsx`: thanh trên không email, dải phần từ
