@@ -25,7 +25,7 @@ Mọi dòng ở trạng thái `PENDING`: spec đang `draft`, chưa có dòng mã
 | FR-075 | kind=screenshot; ref=planned /home before/after with flag off on staging (T14) | PENDING |
 | FR-076 | kind=test; ref=planned pytest response_model shape and own-user filters (T13); git diff --exit-code frontend/types/api.d.ts | PENDING |
 | FR-077 | kind=test; ref=planned React no 0/0, no bare dash, hidden blocks when source null (T14) | PENDING |
-| FR-078 | kind=test; ref=planned pytest GET writes nothing, POST seen forward-only and own-row only (T13); React seen call only after render (T14) | PENDING |
+| FR-078 | kind=test; ref=planned pytest GET writes nothing, POST seen forward-only in (seen_until, seen_key) tuple order and own-row only; 3 results at one returned_at show 2, then 1, then 0 (T13); React seen call only after render (T14) | PENDING |
 
 ## Kịch bản staging (gói 9.1 mục 1, 3, 3b, 3c, 8; 9.4)
 
@@ -45,7 +45,7 @@ Tài khoản QA và dữ liệu thử; không bật cờ cho học viên thật.
 
 ## Data evidence
 
-- Migration/schema query: `SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_schema='public' AND table_name='users' AND column_name='today_seen_at';` trên staging sau khi áp (chỉ đọc).
+- Migration/schema query: `SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_schema='public' AND table_name='users' AND column_name IN ('today_seen_at','today_seen_key');` trên staging sau khi áp (chỉ đọc).
 - Immediate state versus full reload: tải lại `/home` cho cùng khối, trừ "Vừa có kết quả" theo FR-025.
 
 ## UI evidence

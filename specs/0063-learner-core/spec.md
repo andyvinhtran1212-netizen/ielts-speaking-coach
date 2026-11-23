@@ -43,7 +43,7 @@ Trang chủ học viên hiện là bảng điểm (`GET /api/student/home-summar
 ## Scope
 
 - Cờ giao diện `learner_v2` theo tiền lệ hai khoá của `vocab_curated`, trường `learner_v2_enabled` trong `/auth/me`, endpoint admin bật/tắt theo người, hàm đọc mềm ở frontend.
-- API đọc `GET /api/student/today` (một lần gọi cho cả trang, phần lỗi vào `degraded`, chỉ đọc), API ghi mốc `POST /api/student/today/seen` và cột `users.today_seen_at`.
+- API đọc `GET /api/student/today` (một lần gọi cho cả trang, phần lỗi vào `degraded`, chỉ đọc), API ghi mốc `POST /api/student/today/seen` và hai cột con trỏ `users.today_seen_at`, `users.today_seen_key`.
 - Cây Hôm nay mới ở `/home` (sau cờ), năm trạng thái, các khối FR-019…FR-029, FR-070, FR-071; bản máy tính và điện thoại theo tờ Main, HomNayTrangThai, Mobile, GiaHanThemLuot.
 
 ## Non-goals
@@ -83,7 +83,7 @@ Trang chủ học viên hiện là bảng điểm (`GET /api/student/home-summar
 - **FR-075:** Cờ chỉ quyết định cây giao diện nào được vẽ ở `/home`; tắt cờ thì `/home` là giao diện cũ y nguyên (không đổi CSS, dữ liệu, lời gọi API của cây cũ). Chuyển hướng URL của LEARNERNAV-0062 không theo cờ.
 - **FR-076:** `GET /api/student/today` chỉ đọc dữ liệu của chính người gọi (mọi truy vấn lọc tường minh theo `user_id`/`student_id`), chạy các phần song song, trả đúng khung ở plan.md với `response_model` khai báo; danh sách của gói khác chưa có trả `[]`/`null`. Cổng một phiên của G04 (khi có) vẫn áp: 409 `session_not_current` được frontend xử lý bằng màn của G05-T20, không phải lỗi trang.
 - **FR-077:** Mọi khối G07 hiện band theo quy tắc gói 5.6: Writing ≥ 1 bài `delivered` có band; Speaking ≥ 1 buổi đã chấm có band; Listening/Reading ≥ 1 đề đủ 40 câu; Overall chỉ ở mock test được giao đủ bốn kỹ năng có band. Không bao giờ hiện "0/0", "—" đứng một mình, mã đề nội bộ, số lượt, band hay ngày hết hạn tự bịa khi API chưa có.
-- **FR-078:** `GET /api/student/today` chỉ đọc, không ghi gì. Mốc đã xem chỉ tiến lên khi khối "Vừa có kết quả" đã thật sự vẽ: frontend gọi `POST /api/student/today/seen` với `seen_until` = `returned_at` mới nhất trong các bài vừa vẽ; máy chủ chỉ đặt `today_seen_at = max(today_seen_at, seen_until)` và không nhận giá trị trong tương lai. Bài tải về mà không vẽ (lỗi vẽ, rời trang trước khi vẽ) và bài thứ ba trở đi vẫn hiện ở lần sau. Lỗi khi ghi mốc không hiện cho học viên (ghi log); lần sau khối hiện lại cùng bài.
+- **FR-078:** `GET /api/student/today` chỉ đọc, không ghi gì. Mốc đã xem chỉ tiến lên khi khối "Vừa có kết quả" đã thật sự vẽ: frontend gọi `POST /api/student/today/seen` với con trỏ `(seen_until, seen_key)` của bài mới nhất trong các bài vừa vẽ (`seen_key` = `<kind>:<id>`); máy chủ chỉ tiến con trỏ `(today_seen_at, today_seen_key)` lên theo thứ tự bộ và không nhận thời điểm trong tương lai. Nhiều bài trả cùng một thời điểm vẫn lần lượt hiện hết. Bài tải về mà không vẽ (lỗi vẽ, rời trang trước khi vẽ) và bài thứ ba trở đi vẫn hiện ở lần sau. Lỗi khi ghi mốc không hiện cho học viên (ghi log); lần sau khối hiện lại cùng bài.
 
 ## Acceptance scenarios
 
@@ -136,7 +136,7 @@ Trang chủ học viên hiện là bảng điểm (`GET /api/student/home-summar
 - 409 `session_not_current` ở `/api/student/today` (sau khi G04 có cổng một phiên).
 - Ghi mốc đã xem thất bại: lần sau thấy lại cùng bài (chấp nhận, không mất bài).
 - Có ba bài mới trở lên: lần này hiện hai bài cũ nhất, lần sau hiện bài kế tiếp (FR-025).
-- Hai tab mở cùng lúc: mốc chỉ tiến lên, tab gửi `seen_until` nhỏ hơn không kéo lùi mốc.
+- Hai tab mở cùng lúc: mốc chỉ tiến lên, tab gửi con trỏ nhỏ hơn không kéo lùi mốc.
 - Không thực hiện trên production: bật cờ, chạy migration, nộp bài.
 
 ## Success criteria
