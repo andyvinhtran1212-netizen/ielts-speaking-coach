@@ -407,8 +407,6 @@ body:has(.shell:not([data-demo])) { margin: 0; }
   position: fixed;
   inset: 0;
   z-index: var(--av2-z-overlay);
-  /* scope="shell" puts .av2-root here, and base.css paints .av2-root with paper. */
-  background: transparent;
   /* Darkens what is behind it, like Dialog: FR-023 bans fractional opacity. */
   backdrop-filter: brightness(0.45);
 }
@@ -525,3 +523,17 @@ body:has(.shell:not([data-demo])) { margin: 0; }
   white-space: nowrap;
   border: 0;
 }
+
+/*
+ * scope="shell": the chrome itself carries .av2-root, and base.css paints
+ * `.av2-root` with paper at the same specificity as these classes, so the
+ * winner would depend on stylesheet order. These rules (0-2-0) keep the
+ * chrome's own backgrounds and a see-through backdrop whatever the order.
+ */
+:global(.av2-root).skip,
+:global(.av2-root).topbar,
+:global(.av2-root).sidebar,
+:global(.av2-root).drawer { background: var(--av2-surface); }
+:global(.av2-root).drawerBackdrop { background: transparent; }
+:global(.av2-root).topbar[data-env='staging'],
+:global(.av2-root).topbar[data-env='local'] { background: var(--av2-off); }
