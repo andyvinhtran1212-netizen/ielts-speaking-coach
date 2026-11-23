@@ -372,17 +372,195 @@ def _distribution(bands: list[float]) -> list[dict]:
     return [{"band": b, "count": counts[b]} for b in sorted(counts)]
 
 
+_TOP_WRONG = 10
+_ATTEMPT = {"listening": ("listening_attempt_id", "listening_test_attempts"),
+            "reading": ("reading_attempt_id", "reading_test_attempts")}
+_CRITERIA = ("band_main_criterion", "band_coherence_cohesion", "band_lexical_resource",
+             "band_grammatical_range")
+
+
+def _live_key(skill: str, test_id: str) -> list[dict]:
+    """The current answer key of a test (same loading as the sweep graders)."""
+    if skill == "reading":
+        from services import reading_test_grader as grader
+        passages = (supabase_admin.table("reading_passages").select("id, passage_order")
+                    .eq("test_id", test_id).eq("library", "l3_test").execute().data or [])
+        order = {p["id"]: p.get("passage_order") for p in passages}
+        rows = (supabase_admin.table("reading_questions")
+                .select("q_num,question_type,prompt,payload,answer,skill_tag,explanation,passage_id")
+                .in_("passage_id", list(order)).execute().data if order else []) or []
+        return grader.collect_answer_key(rows, order)
+    from services import listening_test_grader as grader
+    ids = [r["id"] for r in (supabase_admin.table("listening_content").select("id")
+                             .eq("test_id", test_id).execute().data or [])]
+    rows = (supabase_admin.table("listening_exercises").select("payload")
+            .in_("content_id", ids).execute().data if ids else []) or []
+    return grader.collect_answer_key(rows)
+
+
+def _question_types(skill: str, attempt: dict, cache: dict) -> dict:
+    """q_num → question type of the paper this attempt was marked on: the
+    frozen key when the attempt has one (mock_paper_policy), else the test's
+    current key. Reading: ``question_type``; Listening: ``template_kind``."""
+    field = "question_type" if skill == "reading" else "template_kind"
+    ck = (skill, attempt.get("test_id"), attempt.get("paper_revision"), attempt.get("policy_revision"))
+    if ck not in cache:
+        from services.mock_paper_policy import frozen_answer_key
+        key = None
+        try:
+            key = frozen_answer_key(supabase_admin, skill, attempt)
+        except Exception:  # noqa: BLE001 — fall back to the live key, never fail the card
+            logger.exception("[mock-analysis] frozen key unavailable attempt=%s", attempt.get("id"))
+        if key is None and attempt.get("test_id"):
+            live = ("live", skill, attempt["test_id"])
+            if live not in cache:
+                cache[live] = _live_key(skill, attempt["test_id"])
+            key = cache[live]
+        cache[ck] = {k.get("q_num"): k.get(field) for k in (key or []) if k.get("q_num") is not None}
+    return cache[ck]
+
+
+def _question_stats(sittings: list[dict]) -> tuple[dict, dict]:
+    """``top_wrong`` and ``by_question_type`` for Listening and Reading from
+    the per-question marking each attempt stored (``grading_details``).
+    Self-check rows (``correct`` null) are not marked and are left out. A skill
+    with no marked attempt is null."""
+    top: dict[str, Optional[list]] = {}
+    types: dict[str, Optional[list]] = {}
+    cache: dict = {}
+    for skill, (col, table) in _ATTEMPT.items():
+        ids = [s[col] for s in sittings if s.get(col)]
+        attempts = []
+        for i in range(0, len(ids), 100):
+            attempts += (supabase_admin.table(table)
+                         .select("id, test_id, status, grading_details, paper_revision, policy_revision")
+                         .in_("id", ids[i:i + 100]).execute().data or [])
+        per_q: dict = {}
+        per_type: dict = {}
+        marked = 0
+        for a in attempts:
+            rows = [r for r in (a.get("grading_details") or []) if r.get("correct") is not None]
+            if a.get("status") != "submitted" or not rows:
+                continue
+            marked += 1
+            qtypes = _question_types(skill, a, cache)
+            for r in rows:
+                q = r.get("q_num")
+                slot = per_q.setdefault(q, {"q_num": q, "attempted": 0, "wrong": 0, "blank": 0,
+                                            "expected": r.get("expected"), "answers": {}})
+                slot["attempted"] += 1
+                answer = str(r.get("user_answer") or "").strip()
+                if not r.get("correct"):
+                    slot["wrong"] += 1
+                    if answer:
+                        slot["answers"][answer] = slot["answers"].get(answer, 0) + 1
+                    else:
+                        slot["blank"] += 1
+                qtype = qtypes.get(q) or "unknown"
+                t = per_type.setdefault(qtype, {"question_type": qtype, "correct": 0, "total": 0})
+                t["total"] += 1
+                t["correct"] += 1 if r.get("correct") else 0
+        if not marked:
+            top[skill] = types[skill] = None
+            continue
+        ranked = sorted((v for v in per_q.values() if v["wrong"]),
+                        key=lambda v: (-v["wrong"] / v["attempted"], -v["wrong"], v["q_num"] or 0))
+        out = []
+        for v in ranked[:_TOP_WRONG]:
+            answers = v.pop("answers")
+            common = max(answers.items(), key=lambda kv: (kv[1], kv[0])) if answers else None
+            out.append({**v, "wrong_rate": round(v["wrong"] / v["attempted"], 3),
+                        "top_wrong_answer": ({"answer": common[0], "count": common[1]}
+                                             if common else None)})
+        top[skill] = out
+        types[skill] = sorted(
+            ({**t, "rate": round(t["correct"] / t["total"], 3)} for t in per_type.values()),
+            key=lambda t: (t["rate"], t["question_type"]))
+    return top, types
+
+
+def _writing_criteria(sittings: list[dict]) -> Optional[dict]:
+    """Median of each Writing criterion per task over graded essays; null
+    when no essay of this exam has feedback."""
+    out: dict = {}
+    for task, col in (("task1", "essay_task1_id"), ("task2", "essay_task2_id")):
+        ids = [s[col] for s in sittings if s.get(col)]
+        rows = []
+        for i in range(0, len(ids), 100):
+            rows += (supabase_admin.table("writing_feedback").select("essay_id, " + ", ".join(_CRITERIA))
+                     .in_("essay_id", ids[i:i + 100]).execute().data or [])
+        if not rows:
+            out[task] = None
+            continue
+        out[task] = {"essays": len(rows)}
+        for c in _CRITERIA:
+            vals = [float(r[c]) for r in rows if r.get(c) is not None]
+            out[task][c.removeprefix("band_")] = statistics.median(vals) if vals else None
+    return out if any(out.values()) else None
+
+
+def _banded(review: Optional[dict], skill: str) -> Optional[float]:
+    if not review or review.get("status") not in ("reviewed", "released"):
+        return None
+    value = (review.get("final_bands") or {}).get(skill)
+    return float(value) if value is not None else None
+
+
+def _vs_previous(exam: dict, sittings: list[dict], reviews: dict) -> Optional[dict]:
+    """The latest earlier exam (by ``created_at``) that shares at least one
+    learner with this one, compared on those shared learners only: median band
+    per skill there and here, and the difference. Null when there is none."""
+    users = {s["user_id"] for s in sittings if s.get("user_id")}
+    if not users or not exam.get("created_at"):
+        return None
+    other = []
+    ulist = sorted(users)
+    for i in range(0, len(ulist), 100):
+        other += (supabase_admin.table("mock_exam_sittings").select("id, mock_exam_id, user_id, status")
+                  .in_("user_id", ulist[i:i + 100]).neq("mock_exam_id", exam["id"])
+                  .neq("status", "void").execute().data or [])
+    if not other:
+        return None
+    exam_ids = sorted({o["mock_exam_id"] for o in other})
+    exams = (supabase_admin.table("mock_exams").select("id, title, created_at")
+             .in_("id", exam_ids).execute().data or [])
+    earlier = sorted((e for e in exams if e.get("created_at") and e["created_at"] < exam["created_at"]),
+                     key=lambda e: e["created_at"], reverse=True)
+    for prev in earlier:
+        theirs = {o["user_id"]: o for o in other if o["mock_exam_id"] == prev["id"]}
+        prev_reviews = {uid: wf.get_review_for_sitting(o["id"]) for uid, o in theirs.items()}
+        here = {s["user_id"]: reviews.get(s["id"]) for s in sittings if s.get("user_id") in theirs}
+        skills = {}
+        for skill in SKILLS:
+            pairs = [(_banded(prev_reviews.get(u), skill), _banded(r, skill)) for u, r in here.items()]
+            pairs = [(a, b) for a, b in pairs if a is not None and b is not None]
+            if pairs:
+                before = statistics.median(a for a, _ in pairs)
+                now = statistics.median(b for _, b in pairs)
+                skills[skill] = {"learners": len(pairs), "previous_median": before,
+                                 "median": now, "delta": round(now - before, 2)}
+        if skills:
+            return {"exam_id": prev["id"], "title": prev.get("title"),
+                    "shared_learners": len(here), "skills": skills}
+    return None
+
+
 def analysis(exam_id: str) -> dict:
-    """Band distribution per skill (shown only from ``band_dist_min_papers``
-    graded papers; a null threshold shows none) plus the per-sitting pacing the
-    existing pacing endpoint computes. ``top_wrong``, ``by_question_type``,
-    ``vs_previous`` and ``writing_criteria_median`` are null in this PR, so the
-    page cannot read an empty list as "nothing went wrong"."""
+    """FR-147: band distribution per skill (shown only from
+    ``band_dist_min_papers`` graded papers; a null threshold shows none),
+    medians, per-sitting pacing, the questions most often wrong and the rate
+    per question type (Listening/Reading), the Writing criterion medians, and
+    the comparison with the previous exam of the same learners. No overall
+    band here (FR-147). A part that could not be read is null and named in
+    ``sources_failed``, so the page never shows a gap as "nothing wrong"."""
     _require_enabled()
     exam = _load_exam(exam_id)
-    sittings = (supabase_admin.table("mock_exam_sittings").select("id, user_id, status")
+    sittings = (supabase_admin.table("mock_exam_sittings")
+                .select("id, user_id, status, listening_attempt_id, reading_attempt_id, "
+                        "essay_task1_id, essay_task2_id")
                 .eq("mock_exam_id", exam["id"]).neq("status", "void").execute()).data or []
-    reviews = [wf.get_review_for_sitting(s["id"]) for s in sittings]
+    by_sitting = {s["id"]: wf.get_review_for_sitting(s["id"]) for s in sittings}
+    reviews = list(by_sitting.values())
     threshold = _min_papers()
     dist: dict[str, Optional[list]] = {}
     medians: dict[str, Optional[float]] = {}
@@ -403,15 +581,27 @@ def analysis(exam_id: str) -> dict:
             p = None
         pacing.append({"sitting_id": s["id"], "name": names.get(str(s.get("user_id"))),
                        "pacing": p})
+    failed: list[str] = []
+
+    def guarded(name, fn, *args, default=None):
+        try:
+            return fn(*args)
+        except Exception:  # noqa: BLE001 — one source must not hide the rest of the card
+            logger.exception("[mock-analysis] %s failed exam=%s", name, exam["id"])
+            failed.append(name)
+            return default
+
+    top_wrong, by_type = guarded("question_stats", _question_stats, sittings, default=(None, None))
     return {
         "band_dist_min_papers": threshold,
         "band_distribution": dist,
         "band_median": medians,
-        "top_wrong": None,
-        "by_question_type": None,
+        "top_wrong": top_wrong,
+        "by_question_type": by_type,
         "pacing": pacing,
-        "vs_previous": None,
-        "writing_criteria_median": None,
+        "vs_previous": guarded("vs_previous", _vs_previous, exam, sittings, by_sitting),
+        "writing_criteria_median": guarded("writing_criteria", _writing_criteria, sittings),
+        "sources_failed": failed,
     }
 
 

@@ -389,8 +389,11 @@ def test_analysis_hides_distribution_below_the_threshold(db, monkeypatch):
     out = room.analysis(EXAM)
     assert out["band_distribution"] == {s: None for s in room.SKILLS}
     assert out["band_median"]["writing"] == 5.75
-    for field in ("top_wrong", "by_question_type", "vs_previous", "writing_criteria_median"):
-        assert out[field] is None
+    # No marked attempt, essay or earlier exam in this fixture (G09-T33b).
+    assert out["top_wrong"] == {"listening": None, "reading": None}
+    assert out["by_question_type"] == {"listening": None, "reading": None}
+    assert out["vs_previous"] is None and out["writing_criteria_median"] is None
+    assert out["sources_failed"] == []
     monkeypatch.setattr(room, "_min_papers", lambda: 2)
     out = room.analysis(EXAM)
     assert out["band_distribution"]["writing"] == [{"band": 5.5, "count": 1}, {"band": 6.0, "count": 1}]
@@ -442,3 +445,121 @@ def test_router_live_monitor_carries_the_idle_threshold(admin, db, monkeypatch):
     monkeypatch.setattr(room, "idle_threshold_minutes", lambda: 5)
     out = asyncio.run(admin.live_monitor(EXAM, authorization="x"))
     assert out["idle_threshold_minutes"] == 5
+
+
+# --- analysis sources (G09-T33b, FR-147) -------------------------------------------
+
+def _gd(*rows):
+    return [{"q_num": q, "correct": c, "user_answer": a, "expected": e} for q, c, a, e in rows]
+
+
+def _with_attempts(db):
+    for sid, aid in ((S_DONE, U(601)), (S_TIMED_OUT, U(602)), (S_NO_SPEAK, U(603))):
+        _sitting(db, sid)["reading_attempt_id"] = aid
+    db.tables["reading_test_attempts"] = [
+        {"id": U(601), "test_id": U(700), "status": "submitted", "paper_revision": None,
+         "grading_details": _gd((1, True, "A", "A"), (2, False, "C", "B"), (3, False, "", "TRUE"))},
+        {"id": U(602), "test_id": U(700), "status": "submitted", "paper_revision": None,
+         "grading_details": _gd((1, False, "D", "A"), (2, False, "C", "B"), (3, True, "TRUE", "TRUE"))},
+        # Still being worked on: not counted.
+        {"id": U(603), "test_id": U(700), "status": "in_progress", "paper_revision": None,
+         "grading_details": _gd((1, False, "X", "A"))},
+    ]
+    db.tables["reading_passages"] = [{"id": U(710), "test_id": U(700), "library": "l3_test",
+                                      "passage_order": 1}]
+    db.tables["reading_questions"] = [
+        {"q_num": 1, "question_type": "mcq_single", "passage_id": U(710), "answer": {"answer": "A"}},
+        {"q_num": 2, "question_type": "mcq_single", "passage_id": U(710), "answer": {"answer": "B"}},
+        {"q_num": 3, "question_type": "tfng", "passage_id": U(710), "answer": {"answer": "TRUE"}},
+    ]
+
+
+def test_top_wrong_and_question_types_from_marked_reading(db, monkeypatch):
+    monkeypatch.setattr(exam_svc, "sitting_pacing", lambda sid: None)
+    _with_attempts(db)
+    out = room.analysis(EXAM)
+    top = out["top_wrong"]["reading"]
+    assert [t["q_num"] for t in top] == [2, 1, 3]
+    assert top[0] == {"q_num": 2, "attempted": 2, "wrong": 2, "blank": 0, "expected": "B",
+                      "wrong_rate": 1.0, "top_wrong_answer": {"answer": "C", "count": 2}}
+    assert top[2]["blank"] == 1 and top[2]["top_wrong_answer"] is None
+    assert out["top_wrong"]["listening"] is None
+    assert out["by_question_type"]["reading"] == [
+        {"question_type": "mcq_single", "correct": 1, "total": 4, "rate": 0.25},
+        {"question_type": "tfng", "correct": 1, "total": 2, "rate": 0.5},
+    ]
+
+
+def test_self_check_rows_are_not_counted(db, monkeypatch):
+    monkeypatch.setattr(exam_svc, "sitting_pacing", lambda sid: None)
+    _sitting(db, S_DONE)["listening_attempt_id"] = U(611)
+    db.tables["listening_test_attempts"] = [{
+        "id": U(611), "test_id": U(720), "status": "submitted", "paper_revision": None,
+        "grading_details": [{"q_num": 1, "correct": None, "self_check": True, "user_answer": "x"}],
+    }]
+    monkeypatch.setattr(room, "_live_key", lambda skill, test_id: [])
+    out = room.analysis(EXAM)
+    assert out["top_wrong"]["listening"] is None and out["by_question_type"]["listening"] is None
+
+
+def test_frozen_key_wins_over_the_current_key(db, monkeypatch):
+    import services.mock_paper_policy as policy
+    monkeypatch.setattr(exam_svc, "sitting_pacing", lambda sid: None)
+    _with_attempts(db)
+    for a in db.tables["reading_test_attempts"]:
+        a["paper_revision"] = 3
+    monkeypatch.setattr(policy, "frozen_answer_key",
+                        lambda _db, skill, att: [{"q_num": q, "question_type": "frozen"} for q in (1, 2, 3)])
+    out = room.analysis(EXAM)
+    assert out["by_question_type"]["reading"] == [
+        {"question_type": "frozen", "correct": 2, "total": 6, "rate": 0.333}]
+
+
+def test_writing_criteria_median_per_task(db, monkeypatch):
+    monkeypatch.setattr(exam_svc, "sitting_pacing", lambda sid: None)
+    _sitting(db, S_DONE)["essay_task2_id"] = U(801)
+    _sitting(db, S_TIMED_OUT)["essay_task2_id"] = U(802)
+    db.tables["writing_feedback"] = [
+        {"essay_id": U(801), "band_main_criterion": 6.0, "band_coherence_cohesion": 6.5,
+         "band_lexical_resource": 6.0, "band_grammatical_range": 5.5},
+        {"essay_id": U(802), "band_main_criterion": 7.0, "band_coherence_cohesion": 6.5,
+         "band_lexical_resource": None, "band_grammatical_range": 6.5},
+    ]
+    out = room.analysis(EXAM)["writing_criteria_median"]
+    assert out["task1"] is None
+    assert out["task2"] == {"essays": 2, "main_criterion": 6.5, "coherence_cohesion": 6.5,
+                            "lexical_resource": 6.0, "grammatical_range": 6.0}
+
+
+def test_vs_previous_compares_shared_learners_only(db, monkeypatch):
+    monkeypatch.setattr(exam_svc, "sitting_pacing", lambda sid: None)
+    prev, older = U(950), U(951)
+    _exam(db)["created_at"] = "2026-12-01T00:00:00+00:00"
+    db.tables["mock_exams"] += [
+        {"id": prev, "title": "Thi thử tháng 11", "created_at": "2026-11-01T00:00:00+00:00"},
+        {"id": older, "title": "Thi thử tháng 10", "created_at": "2026-10-01T00:00:00+00:00"},
+        {"id": U(952), "title": "Sau", "created_at": "2026-12-15T00:00:00+00:00"},
+    ]
+    db.tables["mock_exam_sittings"] += [
+        {"id": U(161), "mock_exam_id": prev, "user_id": U(201), "status": "submitted"},
+        {"id": U(162), "mock_exam_id": older, "user_id": U(204), "status": "submitted"},
+        {"id": U(163), "mock_exam_id": U(952), "user_id": U(201), "status": "submitted"},
+    ]
+    db.tables["mock_exam_reviews"] += [
+        {"id": U(361), "sitting_id": U(161), "status": "released", "final_bands": _bands(writing=5.0)},
+        {"id": U(362), "sitting_id": U(162), "status": "released", "final_bands": _bands()},
+    ]
+    out = room.analysis(EXAM)["vs_previous"]
+    assert out["exam_id"] == prev and out["shared_learners"] == 1
+    assert out["skills"]["writing"] == {"learners": 1, "previous_median": 5.0, "median": 6.0,
+                                        "delta": 1.0}
+
+
+def test_a_failing_source_is_named_not_hidden(db, monkeypatch):
+    monkeypatch.setattr(exam_svc, "sitting_pacing", lambda sid: None)
+    _sitting(db, S_DONE)["essay_task1_id"] = U(801)
+    db.down.add("writing_feedback")
+    out = room.analysis(EXAM)
+    assert out["writing_criteria_median"] is None
+    assert out["sources_failed"] == ["writing_criteria"]
+    assert out["band_median"]["writing"] == 5.75
