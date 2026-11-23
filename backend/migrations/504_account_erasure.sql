@@ -173,10 +173,11 @@ BEGIN
                AND NOT EXISTS (
                    SELECT 1 FROM pg_constraint k
                      JOIN pg_attribute a ON a.attrelid = k.conrelid AND a.attnum = k.conkey[1]
+                     JOIN pg_attribute pa ON pa.attrelid = k.confrelid AND pa.attnum = k.confkey[1]
                     WHERE k.contype = 'f' AND cardinality(k.conkey) = 1
                       AND k.conrelid = format('public.%I', item ->> 'table')::regclass
                       AND k.confrelid = to_regclass(format('public.%I', item ->> 'parent'))
-                      AND a.attname = item ->> 'column')) THEN
+                      AND a.attname = item ->> 'column' AND pa.attname = 'id')) THEN
             RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = format('account_erasure_bad_key: %s', item);
         END IF;
     END LOOP;

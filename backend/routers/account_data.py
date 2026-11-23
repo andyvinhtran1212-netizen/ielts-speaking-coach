@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from fastapi import APIRouter, Header, HTTPException, Path, Response
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
@@ -186,9 +186,23 @@ def sign_export_url(path: str, seconds: int) -> Optional[str]:
     return url if isinstance(url, str) and url else None
 
 
-@router.get("/data-export/{export_id}/download")
+class ExportDownloadLink(BaseModel):
+    url: str
+    expires_in_seconds: int
+
+
+@router.get(
+    "/data-export/{export_id}/download",
+    response_model=ExportDownloadLink,
+    responses={302: {"description": "Redirect to the signed URL (default; FR-012)"}},
+)
 async def download_data_export(export_id: str = Path(..., pattern=_UUID),
-                               authorization: Optional[str] = Header(None)):
+                               authorization: Optional[str] = Header(None),
+                               accept: Optional[str] = Header(None)):
+    """FR-012. Default: 302 to a short-lived signed URL. A bearer-token client
+    (the Next account page, #2613) cannot follow a redirect into a download,
+    so ``Accept: application/json`` returns the same link as JSON instead;
+    both carry ``Cache-Control: no-store``."""
     user = await get_supabase_user(authorization)
     engine = require_engine()
     try:
@@ -203,6 +217,9 @@ async def download_data_export(export_id: str = Path(..., pattern=_UUID),
         raise _unavailable(exc, "data-export sign")
     if not url:
         raise _unavailable(RuntimeError("no signed url"), "data-export sign")
+    seconds = int(settings.ACCOUNT_EXPORT_SIGNED_URL_SECONDS)
+    if "application/json" in (accept or "").lower():
+        return JSONResponse({"url": url, "expires_in_seconds": seconds}, headers={"Cache-Control": "no-store"})
     return RedirectResponse(url, status_code=302, headers={"Cache-Control": "no-store"})
 
 

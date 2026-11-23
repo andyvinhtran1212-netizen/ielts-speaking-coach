@@ -182,6 +182,10 @@ def test_download(env):
     assert r.status_code == 302 and r.headers["location"].startswith("https://storage.example/")
     assert r.headers["cache-control"] == "no-store"
     assert signed[0][0].startswith(f"{U1}/{job}/") and signed[0][1] == 60
+    j = env.client.get(f"/api/account/data-export/{job}/download",
+                       headers={**_h("t1"), "Accept": "application/json"}, follow_redirects=False)
+    assert j.status_code == 200 and j.headers["cache-control"] == "no-store"
+    assert j.json() == {"url": "https://storage.example/signed?token=x", "expires_in_seconds": 60}
     other = env.client.get(f"/api/account/data-export/{job}/download", headers=_h("t2"), follow_redirects=False)
     assert other.status_code == 404 and other.json()["detail"]["error_code"] == "export_not_found"
     env.run(f"UPDATE public.account_data_exports SET ready_at = now() - interval '8 days', "

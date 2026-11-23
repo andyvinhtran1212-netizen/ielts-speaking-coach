@@ -6193,7 +6193,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Download Data Export */
+        /**
+         * Download Data Export
+         * @description FR-012. Default: 302 to a short-lived signed URL. A bearer-token client
+         *     (the Next account page, #2613) cannot follow a redirect into a download,
+         *     so ``Accept: application/json`` returns the same link as JSON instead;
+         *     both carry ``Cache-Control: no-store``.
+         */
         get: operations["download_data_export_api_account_data_export__export_id__download_get"];
         put?: never;
         post?: never;
@@ -18286,6 +18292,13 @@ export interface components {
             web_explanation_content_version?: string | null;
             /** Post Test Capture Required */
             post_test_capture_required?: boolean | null;
+        };
+        /** ExportDownloadLink */
+        ExportDownloadLink: {
+            /** Url */
+            url: string;
+            /** Expires In Seconds */
+            expires_in_seconds: number;
         };
         /** FanOutBody */
         FanOutBody: {
@@ -36083,6 +36096,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
+                accept?: string | null;
             };
             path: {
                 export_id: string;
@@ -36097,8 +36111,15 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ExportDownloadLink"];
                 };
+            };
+            /** @description Redirect to the signed URL (default; FR-012) */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

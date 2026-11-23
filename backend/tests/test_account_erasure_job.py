@@ -516,7 +516,12 @@ def test_plan_key_columns_must_be_the_learners_own(env):
     env.run(f"UPDATE public.account_deletion_requests SET status = 'erasing', erasing_owner = 'w1', "
             f"lease_until = now() + interval '5 minutes' WHERE id = '{req}'")
     good = asyncio.run(er.build_plan(env.engine))
+    # A real FK that points at a parent column other than id (CR nit, confkey).
+    env.run("ALTER TABLE public.sessions ADD COLUMN code text UNIQUE; "
+            "CREATE TABLE public.odd_child (session_code text REFERENCES public.sessions(code));")
     bad_plans = [
+        {**good, "delete": [{"table": "odd_child", "column": "session_code", "parent": "sessions",
+                             "parent_column": "user_id", "subject": "user"}]},
         {**good, "anonymize": [{"table": "users", "match": "invited_by", "subject": "user"}]},
         {**good, "delete": [{"table": "class_assignment_items", "column": "assigned_by", "subject": "user"}]},
         {**good, "delete": [{"table": "sessions", "column": "user_id", "subject": "student"}]},
