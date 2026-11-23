@@ -35,6 +35,7 @@ import os
 import re
 import sys
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 from database import supabase_admin
 from services.speaking_submission import submission_id
@@ -247,11 +248,14 @@ def sweep_audio() -> dict:
             "objects": objects, "errors": errors}
 
 
-def _still_purgeable(session: dict) -> bool:
+def _still_purgeable(session: dict, *, default_only: bool = False) -> bool:
     """Guard at the purge itself (FR-048): the batch decision in ``_eligible``
     may be stale once a course is granted or renewed while the run goes on.
     Re-read this session and its owner's window now, through the same client
-    and rule, and purge only if both still say so. Unreadable → keep."""
+    and rule, and purge only if both still say so. Unreadable → keep.
+    ``default_only`` (the unlocked path): any window other than today's rule
+    keeps the content, so a flag that turns on mid-run never sends a
+    course-window learner to the unlocked purge."""
     sid = session["id"]
     fresh = (
         supabase_admin.table("sessions")
@@ -268,7 +272,7 @@ def _still_purgeable(session: dict) -> bool:
     row = fresh[0]
     window = retention_policy.content_windows([row.get("user_id")], db=supabase_admin).get(
         str(row.get("user_id")))
-    if window is None:
+    if window is None or (default_only and window.mode != "default"):
         return False
     return bool(compute_expiry(row, policy=RetentionPolicy(window=window))["is_content_purged"])
 
@@ -306,22 +310,29 @@ def _purge_content_locked(session: dict) -> str:
     return status
 
 
-def _window_purge_on() -> bool:
-    """The flag read straight from the DB once per run, like the batch read.
-    Unreadable → False: the batch read already skipped everyone then."""
+def _window_purge_on() -> Optional[bool]:
+    """The flag read straight from the DB once per run: True (on), False
+    (confirmed off) or None (unreadable). This one answer picks the purge
+    path for the whole run; only a confirmed off allows the unlocked one."""
     try:
         return retention_policy._flag_from(supabase_admin)
-    except Exception:  # noqa: BLE001
-        return False
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[sweep] content flag read failed: %s", exc)
+        return None
 
 
 def sweep_content() -> dict:
     eligible = _eligible("content_purged_at", RETENTION_CONTENT_DAYS, "is_content_purged", per_user=True)
     purged, kept, errors = 0, 0, []
-    locked = bool(eligible) and _window_purge_on()
+    mode = _window_purge_on() if eligible else False
+    if mode is None:
+        # Not knowing the flag, neither path is safe: keep everything this run.
+        logger.warning("[sweep] content skipped=flag_unreadable kept=%d sessions", len(eligible))
+        return {"op": "content", "eligible": len(eligible), "purged": 0, "kept": len(eligible), "errors": []}
+    locked = mode is True
     for n, s in enumerate(eligible):
         try:
-            if not _still_purgeable(s):
+            if not _still_purgeable(s, default_only=not locked):
                 kept += 1
                 continue
             if not locked:

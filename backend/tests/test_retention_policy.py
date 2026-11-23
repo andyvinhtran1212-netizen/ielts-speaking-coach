@@ -522,3 +522,57 @@ def test_17_flag_off_keeps_todays_unlocked_purge_and_never_calls_505(flag, acces
     res = sweep.sweep_content()
     assert (res["eligible"], res["purged"]) == (1, 1) and sweep_db.rpcs == []
     assert sweep_db.tables["responses"][0]["transcript"] is None
+
+
+# ── CR block on #2624: one flag decision picks the purge path ─────────────
+
+
+def test_18_a_failed_flag_read_after_selection_purges_nothing(flag, access, sweep_db, monkeypatch):
+    """Candidates come back with the flag on; the run's own flag read then
+    fails and the re-read at purge time recovers. Neither path may run: no
+    unlocked scrub, no RPC, everything kept and logged."""
+    monkeypatch.setattr(sweep, "DRY_RUN", False)
+    sweep_db.tables["entitlements"].append(_ent_row("e1", expires=_ago(100)))     # until, window closed
+    _old_session_with_content(sweep_db, "s150", 150)
+    real_flag, real_eligible, state = rp._flag_from, sweep._eligible, {"selected": False, "failed": False}
+
+    def eligible(*a, **k):
+        out = real_eligible(*a, **k)
+        state["selected"] = True
+        return out
+
+    def flag_from(db):
+        if state["selected"] and not state["failed"]:
+            state["failed"] = True
+            raise RuntimeError("runtime_flags timeout")
+        return real_flag(db)
+
+    monkeypatch.setattr(sweep, "_eligible", eligible)
+    monkeypatch.setattr(sweep.retention_policy, "_flag_from", flag_from)
+    res = sweep.sweep_content()
+    assert state["failed"] and (res["eligible"], res["purged"], res["kept"], res["errors"]) == (1, 0, 1, [])
+    assert sweep_db.rpcs == []
+    assert not any(t == "responses" and op == "update" for t, op in sweep_db.calls)
+    assert sweep_db.tables["responses"][0]["transcript"] == "hello"
+
+
+def test_19_a_flag_turned_on_after_a_confirmed_off_never_sends_a_course_learner_unlocked(
+        flag, access, sweep_db, monkeypatch):
+    """Flag confirmed off for the run (unlocked path), then turned on before
+    the purge-time re-read: a learner whose window is now by course access is
+    kept, not scrubbed without the locks."""
+    monkeypatch.setattr(sweep, "DRY_RUN", False)
+    sweep_db.tables["runtime_flags"][0]["enabled"] = False
+    sweep_db.tables["entitlements"].append(_ent_row("e1", expires=_ago(100)))
+    _old_session_with_content(sweep_db, "s150", 150)
+    real = sweep._window_purge_on
+
+    def decide():
+        answer = real()
+        sweep_db.tables["runtime_flags"][0]["enabled"] = True
+        return answer
+
+    monkeypatch.setattr(sweep, "_window_purge_on", decide)
+    res = sweep.sweep_content()
+    assert (res["purged"], res["kept"]) == (0, 1) and sweep_db.rpcs == []
+    assert sweep_db.tables["responses"][0]["transcript"] == "hello"
