@@ -75,10 +75,10 @@ export interface ExamRoomTabGuardOptions {
   flush?(): Promise<{ secured: boolean; unsaved?: number }>;
   /**
    * Reads the attempt again from the server once this tab holds the write right (FR-017).
-   * `initial` is true for the first grant after opening when no other tab was writing:
-   * the page's own load is that read, so a surface may skip a second request.
+   * Called on every grant, the first one after opening too: another tab may have saved
+   * and closed between the page's own load and this grant.
    */
-  reloadFromServer(info?: { initial: boolean }): Promise<unknown>;
+  reloadFromServer(): Promise<unknown>;
   /** Told whenever this tab may or may not save or submit. */
   onWriteRightChange?(canWrite: boolean): void;
 }

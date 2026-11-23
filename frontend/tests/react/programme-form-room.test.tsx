@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ProgrammeFormRunner } from '@/app/(authed-listening-player)/listening/programmes/form/[testId]/programme-form-runner';
-import { createProgrammeLocalCopyStore } from '@/app/(authed-listening-player)/listening/programmes/form/[testId]/programme-form-room';
+import { createProgrammeLocalCopyStore } from '@/app/(authed-listening-player)/listening/programmes/form/[testId]/programme-form-room-store';
 import { localCopyKey, readLocalCopy, writeLocalCopy } from '@/lib/exam-room/local-copy.mjs';
 import { writerTokenKey } from '@/lib/exam-room/tab-guard.mjs';
 
@@ -22,7 +22,10 @@ type Api = { postWith: ReturnType<typeof vi.fn>; getWith: ReturnType<typeof vi.f
 let api: Api;
 let assign: ReturnType<typeof vi.fn>;
 
+let server: { answers: Array<{ q_num: number; user_answer: string }> };
+
 function setup({ answers = [] as Array<{ q_num: number; user_answer: string }>, replay = 'allowed', flag = true } = {}) {
+  server = { answers };
   Object.assign(window, { __AVER_RUNTIME_CONFIG__: flag ? { environment: 'production', examRoomSurfaces: ['listening-practice'] } : { environment: 'production', examRoomSurfaces: [] } });
   api = {
     postWith: vi.fn(async (url: string) => {
@@ -31,7 +34,12 @@ function setup({ answers = [] as Array<{ q_num: number; user_answer: string }>, 
       if (url.endsWith('/playback-started')) return { accepted: true };
       return { attempt_id: 'attempt-1', answers };
     }),
-    getWith: vi.fn(async (url: string) => (url.endsWith('/guided-state') ? { attempt_id: 'attempt-1', items: [] } : programmeTest(replay))),
+    getWith: vi.fn(async (url: string) => {
+      if (url.endsWith('/guided-state')) return { attempt_id: 'attempt-1', items: [] };
+      // FR-012: the read under the write lock; `server` is what the database holds now.
+      if (url === '/api/listening/tests/attempts/attempt-1') return { attempt_id: 'attempt-1', answers: server.answers };
+      return programmeTest(replay);
+    }),
     patchWith: vi.fn(async () => ({})),
   };
   Object.assign(window, { api });
@@ -244,8 +252,29 @@ describe('flag on', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Dùng tab này' }));
     await waitFor(() => expect(api.patchWith).toHaveBeenCalledTimes(1));
     expect(api.patchWith.mock.calls[0][1]).toEqual({ q_num: 1, user_answer: 'B' });
-    expect(calls(api.postWith, '/attempts?standalone=true').length).toBe(opens + 1);
+    // The re-read is a plain read: the page still admits exactly once (FR-001).
+    expect(calls(api.postWith, '/attempts?standalone=true').length).toBe(opens);
+    expect(calls(api.getWith, '/api/listening/tests/attempts/attempt-1').length).toBeGreaterThan(0);
     await waitFor(() => expect((screen.getByRole('radio', { name: /Ben/ }) as HTMLInputElement).checked).toBe(true));
+  });
+
+  it('the first grant after opening reads the server again: an answer saved by a tab that closed after this page loaded is shown, not overwritten (CR #2558)', async () => {
+    // This page's own open read nothing for question 1; before it took the lock the
+    // other tab saved "B" and closed.
+    setup({ answers: [] });
+    server.answers = [{ q_num: 1, user_answer: 'B' }];
+    render(<ProgrammeFormRunner testId="t1" />);
+    await waitFor(() => expect((screen.getByRole('radio', { name: /Ben/ }) as HTMLInputElement).checked).toBe(true));
+    expect(calls(api.getWith, '/api/listening/tests/attempts/attempt-1')).toHaveLength(1);
+    expect(calls(api.postWith, '/attempts?standalone=true')).toHaveLength(1);
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Hoàn thành và xem lại' }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole('button', { name: 'Hoàn thành và xem lại' }));
+    const dialog = await screen.findByRole('alertdialog');
+    await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Hoàn thành và xem lại' })); });
+    await waitFor(() => expect(calls(api.postWith, '/submit')).toHaveLength(1));
+    // Nothing stale was written over the other tab's saved answer: the final flush
+    // sends what the server now holds.
+    for (const [, body] of api.patchWith.mock.calls) expect(body).toEqual({ q_num: 1, user_answer: 'B' });
   });
 
   it('another account signing in removes the previous copies without reading them (FR-009)', async () => {
@@ -305,6 +334,50 @@ describe('flag on', () => {
     await ready();
     fireEvent.click(screen.getByRole('button', { name: /Thoát/ }));
     await waitFor(() => expect(assign).toHaveBeenCalledTimes(1));
+    expect(api.patchWith).not.toHaveBeenCalled();
+  });
+
+  it('leaving waits for the PATCHes in flight before deciding what is unacked: a value changed back is still sent (CR #2558)', async () => {
+    const written = { q_num: 3, source_item_id: 'item-3', prompt: 'Mai viết gì?', response_type: 'short_answer', options: {} };
+    setup({ answers: [{ q_num: 3, user_answer: 'A' }] });
+    api.getWith.mockImplementation(async (url: string) => {
+      if (url.endsWith('/guided-state')) return { attempt_id: 'attempt-1', items: [] };
+      if (url === '/api/listening/tests/attempts/attempt-1') return { attempt_id: 'attempt-1', answers: server.answers };
+      return { ...programmeTest(), sections: [{ exercises: [{ payload: { variant: 'programme_form_v1', questions: [...questions, written] } }] }] };
+    });
+    let landB: () => void = () => {};
+    api.patchWith.mockImplementation(async (_url: string, body: { user_answer: string }) => {
+      if (body.user_answer === 'B') await new Promise<void>((resolve) => { landB = resolve; });
+      return {};
+    });
+    render(<ProgrammeFormRunner testId="t1" />);
+    await ready();
+    const box = screen.getByPlaceholderText('Nhập câu trả lời của bạn');
+    fireEvent.change(box, { target: { value: 'B' } });
+    fireEvent.blur(box, { target: { value: 'B' } });
+    await waitFor(() => expect(api.patchWith).toHaveBeenCalledTimes(1));
+    // Changed back to the saved value while "B" is still on its way (its debounce is pending).
+    fireEvent.change(box, { target: { value: 'A' } });
+    fireEvent.click(screen.getByRole('button', { name: /Thoát/ }));
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
+    await act(async () => { landB(); });
+    await waitFor(() => expect(api.patchWith).toHaveBeenCalledTimes(2));
+    expect(api.patchWith.mock.calls[1][1]).toEqual({ q_num: 3, user_answer: 'A' });
+  });
+
+  it('80-day page: switching to another Part and back reads the server again before writing (CR #2518 P1)', async () => {
+    setup({ answers: [{ q_num: 1, user_answer: 'A' }] });
+    const { rerender } = render(<ProgrammeFormRunner testId="t1" embedded active />);
+    await ready();
+    await waitFor(() => expect(calls(api.getWith, '/api/listening/tests/attempts/attempt-1')).toHaveLength(1));
+    rerender(<ProgrammeFormRunner testId="t1" embedded active={false} />);
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)); });
+    // Another tab opened this Part meanwhile, saved "B" and closed.
+    server.answers = [{ q_num: 1, user_answer: 'B' }];
+    rerender(<ProgrammeFormRunner testId="t1" embedded active />);
+    await waitFor(() => expect(calls(api.getWith, '/api/listening/tests/attempts/attempt-1')).toHaveLength(2));
+    await waitFor(() => expect((screen.getByRole('radio', { name: /Ben/ }) as HTMLInputElement).checked).toBe(true));
+    expect(calls(api.postWith, '/attempts?standalone=true')).toHaveLength(1);
     expect(api.patchWith).not.toHaveBeenCalled();
   });
 

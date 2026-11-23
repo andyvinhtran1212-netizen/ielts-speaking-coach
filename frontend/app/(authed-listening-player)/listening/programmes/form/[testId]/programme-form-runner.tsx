@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 import { useAuth } from '@/lib/auth/auth-provider';
@@ -19,7 +19,12 @@ import { createProgrammeAnswerDraftStore, createProgrammeAnswerWriteQueue, creat
 import { examRoomEnabled } from '@/lib/exam-room/flags.mjs';
 import { clearForeignLocalCopies, clearLocalCopy, planLocalCopyReplay, readLocalCopy, removeAckedFromCopy } from '@/lib/exam-room/local-copy.mjs';
 import type { ExamRoomSession } from '@/components/exam-room/types';
-import { createProgrammeLocalCopyStore, ProgrammeFormRoom, safeLocalStorage, type ProgrammeAskItem, type ProgrammeDraftStore, type ProgrammeLocalCopyStore } from './programme-form-room';
+import type { ProgrammeAskItem } from './programme-form-room';
+import { createProgrammeLocalCopyStore, safeLocalStorage, type ProgrammeDraftStore, type ProgrammeLocalCopyStore } from './programme-form-room-store';
+
+// FR-001/UIBASE-0056 FR-003: the room (and the av2 tokens it imports) loads only
+// when the flag is on, so the flag-off page loads the same assets as before.
+const ProgrammeFormRoom = lazy(() => import('./programme-form-room').then((module) => ({ default: module.ProgrammeFormRoom })));
 import { availableQuestionLanguages, displayOptionLanguage, displayQuestion, groupProgrammeQuestions } from '@/lib/listening-programme-learning.mjs';
 import { confirmProgrammeOncePlayback, startProgrammeOncePlayback } from '@/lib/listening-programme-once-playback.mjs';
 import { createProgrammeReplayController } from '@/lib/listening-programme-replay.mjs';
@@ -397,15 +402,14 @@ function ProgrammeFormView({ testId, status, userId, active, embedded, supplemen
       return false;
     }
   }
-  // FR-012: once this tab holds the write lock, read the attempt's answers again
-  // (the same resume-or-create request the page opened with) without a reload.
-  async function reloadAnswers(info?: { initial: boolean }) {
+  // FR-012: on every grant of the write lock (the first one after opening too) read
+  // the attempt's answers again before this tab may write: another tab may have saved
+  // and closed after the page's own load. A plain read of the attempt, so the page
+  // still admits exactly once (FR-001).
+  async function reloadAnswers() {
     const scope = scopeRef.current;
     if (state.status !== 'ready' || !current(scope)) return;
-    // FR-001: the first grant right after opening comes with the answers the page just
-    // read (and the replay list planned from them), so it sends no second request.
-    if (info?.initial) return;
-    const attempt = row(await window.api.postWith<unknown>(`/api/listening/tests/${encodeURIComponent(testId)}/attempts?standalone=true`, {}, undefined, apiOpts(scope)));
+    const attempt = row(await window.api.getWith<unknown>(`/api/listening/tests/attempts/${encodeURIComponent(state.attemptId)}`, undefined, apiOpts(scope)));
     if (!current(scope) || String(attempt.attempt_id || '') !== state.attemptId) return;
     const restored: Record<number, string> = {};
     for (const value of (Array.isArray(attempt.answers) ? attempt.answers : [])) { const answer = row(value); restored[Number(answer.q_num)] = String(answer.user_answer || ''); }
@@ -555,12 +559,18 @@ function ProgrammeFormView({ testId, status, userId, active, embedded, supplemen
       Object.values(pending.current).forEach(window.clearTimeout);
       pending.current = {};
       // Leaving or handing over sends only what the server has not acked yet; the
-      // final submit still flushes every answer (FR-004).
-      const unacked = programmeAnswerFlushEntries(form.questions, answers).filter(({ qNum, value }) => baseRef.current[qNum] !== value);
-      try { await queue.flush(unacked); return { unsaved: 0 }; }
+      // final submit still flushes every answer (FR-004). Let the PATCHes already in
+      // flight settle first: one of them may land a value the learner has since
+      // changed back, so the acked base is only known once they are done (CR #2558).
+      try {
+        await queue.flush([]);
+        const unacked = programmeAnswerFlushEntries(form.questions, answers).filter(({ qNum, value }) => baseRef.current[qNum] !== value);
+        await queue.flush(unacked);
+        return { unsaved: 0 };
+      }
       catch (error) { noteError(error); return { unsaved: 1 }; }
     };
-    return <ProgrammeFormRoom
+    return <Suspense fallback={<Container className="programme-runner programme-state shell" role="status">Đang chuẩn bị bài nghe…</Container>}><ProgrammeFormRoom
       active={active}
       embedded={embedded}
       title={form.title}
@@ -614,7 +624,7 @@ function ProgrammeFormView({ testId, status, userId, active, embedded, supplemen
       </>}
       progress={<p className="programme-learning-progress"><span>{answeredCount}/{form.questions.length} câu đã thử · {Object.keys(feedback).length} câu đã đối chiếu{supplements?.length ? ` · ${supplements.length} câu tự luyện lưu trên thiết bị` : ''}</span></p>}
       body={<>{learningControls}{guidanceNote}{stage}</>}
-    />;
+    /></Suspense>;
   }
   return <Container className={`programme-runner shell${state.form.sourceDay ? ' is-source-practice' : ''}`}>
     {state.form.sourceDay ? <link rel="stylesheet" href="/css/listening-source-collection.css" /> : null}
