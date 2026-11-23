@@ -62,12 +62,13 @@ MESSAGES = {
     "E_NO_TITLE_SPEAKING": "Tiêu đề tiếng Anh thiếu hoặc có dấu tiếng Việt.",
     "E_TOPIC": "Chủ đề không có trong danh sách chủ đề của kệ này.",
     "E_NO_REVIEW": "Bộ bài chưa được duyệt nội dung.",
-    "E_NOT_APPROVED": ("Chưa có dấu duyệt xuất bản (review.status = approved) lưu trong cơ sở dữ liệu, "
-                       "nên trang này chưa đăng được bài mẫu Writing. Bài đã duyệt được đăng qua script nhập."),
+    "E_NOT_APPROVED": ("Cơ sở dữ liệu chưa lưu dấu duyệt xuất bản (review.status = approved), nên chưa có "
+                       "đường đăng bài mẫu Writing cho tới khi dấu duyệt được lưu."),
     "E_FIGURE": "Đề Task 1 chưa có hình đề.",
     "E_ESSAYS": "Thiếu một trong ba bài 7.5 / 7.0 / 6.0.",
     "E_PAIR": "Thiếu nhật ký khác biệt giữa các mức điểm.",
     "E_NO_SAMPLE": "Chưa có câu trả lời mẫu.",
+    "E_RESERVED_SLUG": "Slug này trùng một đường dẫn của trang (ví dụ /index) nên trang công khai không mở được; đổi slug trước khi đăng.",
     "E_NOT_FOUND": "Không tìm thấy mục này.",
 }
 
@@ -238,6 +239,14 @@ def _topics(shelf: str) -> dict[str, dict]:
     return {r["slug"]: r for r in ordered}
 
 
+# Slugs the public routes would shadow (e.g. /library/writing-samples/index).
+RESERVED_SLUGS = frozenset({"index"})
+
+
+def _reserved_slug(slug: Any) -> bool:
+    return str(slug or "").strip().lower() in RESERVED_SLUGS
+
+
 def _writing_blockers(row: dict, *, topics: dict, taken: set[str], full: bool) -> list[dict]:
     """Publish conditions for one Writing set. ``full`` adds the checks that
     need the heavy jsonb columns (run only on the rows being published).
@@ -248,8 +257,11 @@ def _writing_blockers(row: dict, *, topics: dict, taken: set[str], full: bool) -
     ``needs_review`` sets also carry. ``writing_samples`` stores no manifest
     approval, so this console cannot tell an approved set from an unsigned one
     and every Writing publish is refused with ``E_NOT_APPROVED`` until the DB
-    records that mark. Unpublishing stays open."""
+    records that mark (the import script has no publish path yet either).
+    Unpublishing stays open."""
     out = [_blocker("E_NOT_APPROVED")]
+    if _reserved_slug(row.get("slug")):
+        out.append(_blocker("E_RESERVED_SLUG"))
     if _title_problem(row.get("title_en"), taken=taken):
         out.append(_blocker("E_NO_TITLE"))
     if row.get("topic_slug") not in topics:
@@ -270,6 +282,8 @@ def _writing_blockers(row: dict, *, topics: dict, taken: set[str], full: bool) -
 
 def _speaking_blockers(row: dict, *, topics: dict, full: bool) -> list[dict]:
     out = []
+    if _reserved_slug(row.get("slug")):
+        out.append(_blocker("E_RESERVED_SLUG"))
     title = row.get("title_en")
     if not isinstance(title, str) or not title.strip() or has_vietnamese_marks(title):
         out.append(_blocker("E_NO_TITLE", "E_NO_TITLE_SPEAKING"))

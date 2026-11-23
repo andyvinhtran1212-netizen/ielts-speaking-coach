@@ -384,3 +384,15 @@ def test_speaking_publish_refuses_vietnamese_title(client, db):
     body = client.post("/admin/library/speaking-samples/publish", headers=H,
                        json={"ids": [U["s2"]], "published": True}).json()
     assert body["changed"] == [U["s2"]]
+
+
+def test_reserved_slug_index_is_never_published(client, db):
+    # A row with slug "index" would be shadowed by the public route; refuse it.
+    db.tables["speaking_samples"][1]["slug"] = "index"
+    body = client.post("/admin/library/speaking-samples/publish", headers=H,
+                       json={"ids": [U["s2"]], "published": True}).json()
+    assert body["changed"] == [] and [c["code"] for c in body["rejected"][0]["reasons"]] == ["E_RESERVED_SLUG"]
+    db.tables["writing_samples"][1]["slug"] = "index"
+    listed = client.get("/admin/library/writing-samples", headers=H).json()
+    row = next(i for i in listed["items"] if i["id"] == U["w2"])
+    assert [b["code"] for b in row["blockers"]] == ["E_NOT_APPROVED", "E_RESERVED_SLUG"]
