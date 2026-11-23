@@ -12,7 +12,8 @@ that raises lands in `degraded` with its empty default (FR-118). A source that
 does not exist yet returns empty and is not degraded.
 
 Join points (one function each, FR-111..117 and plan "Hub kỹ năng"):
-  _credits_for     G04 charge_plan + fn_credit_balance (Speaking, Writing only)
+  _credits_for     G04 charge_plan + fn_credit_balance (Speaking, Writing only);
+                   None until G04-T03 (#2485) is merged
   _resume_for      T13 resume sources for this skill + the Writing draft
   _suggestions_for course lesson (COURSELESSON-0064, not yet), assigned (T13),
                    error book (GOI-12, not yet), least practised (30 days)
@@ -99,8 +100,13 @@ def _credits_for(user_id: str, skill: str) -> Tuple[Optional[Dict[str, Any]], bo
     feature = _GRADING_FEATURE.get(skill)
     if feature is None:
         return None, False
-    from routers.me_access import fetch_credit_balance
-    from services.credits import CreditUnavailable, charge_plan
+    try:
+        from routers.me_access import fetch_credit_balance
+        from services.credits import CreditUnavailable, charge_plan
+    except ImportError:
+        # G04-T03 (#2485) not merged yet: no source, so no line and no
+        # `degraded` (FR-118: a source that does not exist yet is empty).
+        return None, False
 
     total = int(fetch_credit_balance(user_id).get("total") or 0)  # raises → degraded, no line
     try:

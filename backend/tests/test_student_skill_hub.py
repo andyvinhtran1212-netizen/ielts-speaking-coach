@@ -8,13 +8,13 @@ filter) is recorded and ignored.
 from __future__ import annotations
 
 import asyncio
+import sys
+import types
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-from services import credits as credits_mod
 from services import student_skill_hub as hub
 from services import student_today as st
 
@@ -104,25 +104,43 @@ def _ts(days=0, hours=0):
     return (NOW - timedelta(days=days, hours=hours)).isoformat()
 
 
+class _ChargePlan:
+    def __init__(self, metered, reason):
+        self.metered, self.reason = metered, reason
+
+
+class _CreditUnavailable(Exception):
+    pass
+
+
 @pytest.fixture
 def wire(monkeypatch):
-    """Patch the cross-module reads; returns a setter for plan/balance/assigned."""
-    state = {"plan": credits_mod.ChargePlan(True, "entitlement"), "total": 0,
-             "assigned": (False, [], False), "bank": True}
+    """Fake G04 modules (services.credits, routers.me_access: #2485) and the
+    T13 assigned reader; returns a setter for plan/balance/assigned."""
+    state = {"plan": _ChargePlan(True, "entitlement"), "total": 0, "assigned": (False, [], False)}
 
     def plan(user_id, feature, **_k):
         if isinstance(state["plan"], Exception):
             raise state["plan"]
         return state["plan"]
 
-    monkeypatch.setattr(credits_mod, "charge_plan", plan)
-    import routers.me_access as me
-    monkeypatch.setattr(me, "fetch_credit_balance", lambda uid: (
-        (_ for _ in ()).throw(state["total"]) if isinstance(state["total"], Exception)
-        else {"total": state["total"], "items": []}))
-    monkeypatch.setattr(st, "_visible_assignments_for", lambda *a, **k: (
-        (_ for _ in ()).throw(state["assigned"]) if isinstance(state["assigned"], Exception)
-        else state["assigned"]))
+    def balance(_uid):
+        if isinstance(state["total"], Exception):
+            raise state["total"]
+        return {"total": state["total"], "items": []}
+
+    def assigned(*_a, **_k):
+        if isinstance(state["assigned"], Exception):
+            raise state["assigned"]
+        return state["assigned"]
+
+    credits = types.ModuleType("services.credits")
+    credits.charge_plan, credits.CreditUnavailable = plan, _CreditUnavailable
+    me = types.ModuleType("routers.me_access")
+    me.fetch_credit_balance = balance
+    monkeypatch.setitem(sys.modules, "services.credits", credits)
+    monkeypatch.setitem(sys.modules, "routers.me_access", me)
+    monkeypatch.setattr(st, "_visible_assignments_for", assigned)
     from config import settings
     monkeypatch.setattr(settings, "WRITING_PROMPT_BANK_ENABLED", True, raising=False)
     return state
@@ -167,10 +185,10 @@ def test_metering_metered_not_metered_unknown_with_zero_balance(wire, skill):
     assert out["credits"] == {"total": 0, "metering": "metered"}
     assert "credits" not in out["degraded"]
 
-    wire["plan"] = credits_mod.ChargePlan(False, "legacy_class")
+    wire["plan"] = _ChargePlan(False, "legacy_class")
     assert _run(db, skill)["credits"] == {"total": 0, "metering": "not_metered"}
 
-    wire["plan"] = credits_mod.CreditUnavailable("charge_plan_read")
+    wire["plan"] = _CreditUnavailable("charge_plan_read")
     out = _run(db, skill)
     assert out["credits"] == {"total": 0, "metering": "unknown"}
     assert "credits" in out["degraded"]
@@ -179,6 +197,12 @@ def test_metering_metered_not_metered_unknown_with_zero_balance(wire, skill):
 @pytest.mark.parametrize("skill", ["listening", "reading"])
 def test_listening_and_reading_have_no_credits(wire, skill):
     out = _run(_DB(_base_tables()), skill)
+    assert out["credits"] is None and "credits" not in out["degraded"]
+
+
+def test_no_g04_source_yet_means_no_credit_line_and_no_degraded(wire, monkeypatch):
+    monkeypatch.setitem(sys.modules, "services.credits", None)  # import raises ImportError
+    out = _run(_DB(_base_tables()), "speaking")
     assert out["credits"] is None and "credits" not in out["degraded"]
 
 
