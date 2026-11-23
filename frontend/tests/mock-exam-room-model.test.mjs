@@ -48,6 +48,16 @@ test('sitting no longer live without the section timestamp: closed_unconfirmed w
   assert.deepEqual([m.outcome, m.closedAt, m.savedUpTo], ['closed_unconfirmed', null, null]);
 });
 
+test('state not loaded yet or failed to load (null): never closed_unconfirmed; a 500 is retried', () => {
+  // FR-007: closed only when the server reports the section closed.
+  const pending = mockSubmitOutcome({ state: null, section: 'reading', observed: true, finalFlushSecured: true });
+  assert.deepEqual([pending.outcome, pending.closedAt, pending.sectionSubmitted], ['submitting', null, false]);
+  const failed = mockSubmitOutcome({ state: null, section: 'reading', observed: true, finalFlushSecured: true, error: { status: 500 } });
+  assert.deepEqual([failed.outcome, failed.retry], ['unconfirmed', true]);
+  const manual = mockSubmitOutcome({ state: null, section: 'reading', observed: true, finalFlushSecured: true, retries: 3, error: { status: 500 } });
+  assert.equal(manual.outcome, 'unconfirmed_manual');
+});
+
 test('403/404 are denied without retry', () => {
   for (const status of [403, 404]) {
     const m = mockSubmitOutcome({ state: state(), section: 'reading', observed: true, finalFlushSecured: false, error: { status } });

@@ -355,7 +355,9 @@ export function mockSubmitOutcome({ state, section, observed, finalFlushSecured,
   const savedUpTo = typeof serverSavedUpTo === 'string' && serverSavedUpTo ? serverSavedUpTo : null;
   const base = { retry: false, closedAt: null, savedUpTo, sectionSubmitted: Boolean(submittedAt) };
   if (!observed) return { ...base, outcome: 'idle' };
-  if (submittedAt || !live) {
+  // Closed only on the server's word: a null state (load pending or failed)
+  // is not a closed section (FR-007).
+  if (submittedAt || (state && !live)) {
     if (submittedAt && finalFlushSecured) return { ...base, outcome: 'confirmed' };
     return { ...base, outcome: 'closed_unconfirmed', closedAt: submittedAt || null };
   }
