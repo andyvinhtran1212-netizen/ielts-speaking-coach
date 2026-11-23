@@ -55,7 +55,9 @@ export function AnnotatedText({ segments, notes, selected, onSelect, lang = 'en'
                   <span className={styles.hidden}>Chú thích </span>{s.note}
                   <span className={styles.hidden}>, {ANNOTATION_KINDS[s.mark]}</span>
                 </sup>
-              ) : null}
+              ) : (
+                <span className={styles.hidden} lang="vi"> ({ANNOTATION_KINDS[s.mark]})</span>
+              )}
             </span>
           );
         })}

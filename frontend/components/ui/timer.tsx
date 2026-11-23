@@ -59,6 +59,15 @@ export function Timer({ mode = 'countdown', seconds, lang = 'vi', label, max, th
   const [message, setMessage] = useState('');
 
   useEffect(() => {
+    // A mark not reached any more (the clock was reset for the next part)
+    // can be announced again when it is reached again.
+    for (const at of [...announced.current]) {
+      const stillReached = mode === 'countdown' ? seconds <= at : seconds >= at;
+      if (!stillReached) announced.current.delete(at);
+    }
+  }, [mode, seconds]);
+
+  useEffect(() => {
     if (!mark || announced.current.has(mark.at)) return;
     announced.current.add(mark.at);
     setMessage(mark.announce ?? mark.label);

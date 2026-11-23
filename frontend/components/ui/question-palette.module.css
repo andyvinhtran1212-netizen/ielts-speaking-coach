@@ -6,9 +6,9 @@
 .cells {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--av2-space-1);
+  gap: var(--av2-space-5) var(--av2-space-1);
   margin: 0;
-  padding: 0;
+  padding: 0 0 var(--av2-space-5);
   list-style: none;
 }
 
@@ -43,8 +43,20 @@
 .flag { position: absolute; top: 2px; right: 2px; width: 12px; height: 12px; color: var(--av2-mark); }
 .answered .flag { color: var(--av2-surface); }
 
-/* Current: a thick outline outside the cell. */
-.current { outline: 3px solid var(--av2-accent); outline-offset: 2px; }
+/* Current: a ring drawn inside the cell plus a caret under it. Not an outline,
+   so the keyboard focus ring (outline outside the cell, base.css) stays
+   distinct and both show at once on the current cell. */
+.current { box-shadow: inset 0 0 0 2px var(--av2-surface), inset 0 0 0 5px var(--av2-accent); }
+.current::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -9px;
+  transform: translateX(-50%);
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid var(--av2-accent);
+}
 
 /* After marking: tick / cross with a 2px rule / dash with a dashed rule. */
 .correct, .wrong, .blank { height: 52px; border-bottom-width: var(--av2-rule-w); }
@@ -53,3 +65,17 @@
 .blank { color: var(--av2-muted); border: var(--av2-rule-w) dashed var(--av2-muted); }
 .correct .num, .wrong .num, .blank .num { color: var(--av2-ink); }
 .mark { flex: none; }
+
+/* Read-only cells (no onSelect). */
+.static { cursor: default; }
+.hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}

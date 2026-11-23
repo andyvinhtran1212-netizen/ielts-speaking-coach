@@ -67,3 +67,16 @@
 @media (max-width: 767px) {
   .skills { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Spoken name of a drawn band ("Band ước lượng · Writing: 6.0"); the visible label sits above. */
+.hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}

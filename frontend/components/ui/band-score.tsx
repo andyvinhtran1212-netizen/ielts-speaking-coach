@@ -69,6 +69,9 @@ export function BandScore({
   size = 'lg', state = 'ready', skill, band, basis, previous, criteria, note, action, className,
 }: BandScoreProps) {
   const hasBand = state === 'ready' && isValidBand(band);
+  // A band that is present but not a real half band 0–9 is a data error, not
+  // "not enough work yet": say so, with no number and no next-step action.
+  const invalid = state === 'ready' && band != null && !hasBand;
   const label = LABEL[size](skill);
   const compare = hasBand && previous && isValidBand(previous.band) ? compareSentence(band, previous) : null;
   const disclaimer = size === 'md' || size === 'row'
@@ -76,14 +79,16 @@ export function BandScore({
     : `${BAND_DISCLAIMER}.${basis ? ` ${basis}.` : ''}`;
 
   return (
-    <div className={cx(styles.band, styles[size], className)} data-state={hasBand ? 'ready' : state === 'grading' ? 'grading' : 'insufficient'}>
+    <div className={cx(styles.band, styles[size], className)} data-state={hasBand ? 'ready' : invalid ? 'invalid' : state === 'grading' ? 'grading' : 'insufficient'}>
       <p className={styles.label}>{size === 'row' ? skill : label}</p>
       {hasBand ? (
         <>
-          <p className={styles.value} aria-label={`${label}: ${formatBand(band)}`}>{formatBand(band)}</p>
+          <p className={styles.value}><span className={styles.hidden}>{label}: </span>{formatBand(band)}</p>
           {compare ? <p className={styles.compare}>{compare}.</p> : null}
           <p className={styles.disclaimer}>{disclaimer}</p>
         </>
+      ) : invalid ? (
+        <p className={styles.waiting}>Chưa có band · dữ liệu điểm chưa hợp lệ</p>
       ) : state === 'grading' ? (
         <>
           <p className={styles.waiting} role="status">Đang chấm…</p>
@@ -190,7 +195,7 @@ export function OverallBlock({ skills, note, className }: OverallBlockProps) {
       <div className={styles.overallHead}>
         <p className={styles.label}>Overall ước lượng</p>
         {status.kind === 'ready' ? (
-          <p className={styles.overallValue} aria-label={`Overall ước lượng: ${formatBand(status.overall)}`}>{formatBand(status.overall)}</p>
+          <p className={styles.overallValue}><span className={styles.hidden}>Overall ước lượng: </span>{formatBand(status.overall)}</p>
         ) : (
           <p className={styles.waiting}>{waitingLine(status)}</p>
         )}

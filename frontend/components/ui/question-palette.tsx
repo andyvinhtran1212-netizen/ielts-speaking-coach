@@ -74,7 +74,9 @@ const GRADED_ICON = { correct: 'check', wrong: 'close', blank: 'minus' } as cons
 /**
  * Question palette of the "Bản in" UI (UIBASE-0056 FR-005, ThanhPhanHocTap2 §5).
  * Every state differs in fill, rule or icon (never colour alone) and has a
- * full spoken name; the current question has a thick outline.
+ * full spoken name. The current question has a ring inside the cell and a
+ * caret under it, never an outline, so the keyboard focus ring stays distinct.
+ * Without `onSelect` (graded review) the cells are plain, not buttons.
  */
 export function QuestionPalette({ lang = 'vi', items, title, onSelect, className }: QuestionPaletteProps) {
   const summary = paletteSummary(items, lang);
@@ -89,19 +91,33 @@ export function QuestionPalette({ lang = 'vi', items, title, onSelect, className
         {items.map((item) => {
           const r = resolve(item);
           const graded = r.base === 'correct' || r.base === 'wrong' || r.base === 'blank';
+          const className = cx(styles.cell, styles[r.base], r.flagged && styles.flagged, r.current && styles.current);
+          const inner = (
+            <>
+              <span className={styles.num} aria-hidden="true">{r.num}</span>
+              {graded ? <Icon name={GRADED_ICON[r.base as keyof typeof GRADED_ICON]} size={16} className={styles.mark} /> : null}
+              {r.flagged ? <Icon name="flag" size={16} className={styles.flag} /> : null}
+            </>
+          );
           return (
             <li key={r.num}>
-              <button
-                type="button"
-                className={cx(styles.cell, styles[r.base], r.flagged && styles.flagged, r.current && styles.current)}
-                aria-label={questionCellName(item, lang)}
-                aria-current={r.current ? 'true' : undefined}
-                onClick={onSelect ? () => onSelect(r.num) : undefined}
-              >
-                <span className={styles.num} aria-hidden="true">{r.num}</span>
-                {graded ? <Icon name={GRADED_ICON[r.base as keyof typeof GRADED_ICON]} size={16} className={styles.mark} /> : null}
-                {r.flagged ? <Icon name="flag" size={16} className={styles.flag} /> : null}
-              </button>
+              {onSelect ? (
+                <button
+                  type="button"
+                  className={className}
+                  aria-label={questionCellName(item, lang)}
+                  aria-current={r.current ? 'true' : undefined}
+                  onClick={() => onSelect(r.num)}
+                >
+                  {inner}
+                </button>
+              ) : (
+                // Read-only palette (graded review): a plain cell, not a button that does nothing.
+                <span className={cx(className, styles.static)} aria-current={r.current ? 'true' : undefined}>
+                  <span className={styles.hidden}>{questionCellName(item, lang)}</span>
+                  {inner}
+                </span>
+              )}
             </li>
           );
         })}

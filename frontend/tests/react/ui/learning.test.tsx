@@ -2,6 +2,8 @@
 // QuestionPalette, VocabEntry, AnnotatedText, Figure. Behaviour only: roles,
 // names, text, aria-*; no class selectors.
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -11,10 +13,14 @@ import {
 
 afterEach(cleanup);
 
+/** A drawn band's paragraph by its spoken text ("Band ước lượng · Writing Task 2: 6.0"). */
+const bandValue = (spoken: string) => screen.getByText((_, el) => el?.tagName === 'P' && el.textContent === spoken);
+
 describe('BandScore', () => {
   it('a ready band always carries the disclaimer and its basis', () => {
     render(<BandScore skill="Writing Task 2" band={6} basis="Dựa trên 1 bài, 268 từ" />);
-    expect(screen.getByLabelText('Band ước lượng · Writing Task 2: 6.0').textContent).toBe('6.0');
+    expect(bandValue('Band ước lượng · Writing Task 2: 6.0')).toBeTruthy();
+    expect(screen.getByText('6.0', { exact: true, ignore: 'span' })).toBeTruthy();
     expect(screen.getByText(`${BAND_DISCLAIMER}. Dựa trên 1 bài, 268 từ.`)).toBeTruthy();
   });
 
@@ -64,13 +70,13 @@ describe('OverallBlock', () => {
 
   it('shows a number only when each of the four skills is present once', () => {
     const { rerender, container } = render(<OverallBlock skills={four} />);
-    expect(screen.getByLabelText('Overall ước lượng: 6.5')).toBeTruthy();
+    expect(bandValue('Overall ước lượng: 6.5')).toBeTruthy();
     rerender(<OverallBlock skills={[...four.slice(0, 3), { skill: 'speaking', band: null }]} />);
-    expect(screen.queryByLabelText(/Overall ước lượng:/)).toBeNull();
+    expect(screen.queryByText(/Overall ước lượng:/)).toBeNull();
     expect(screen.getByText('Chưa có Overall · Speaking đang chấm')).toBeTruthy();
     expect(container.textContent).toContain(BAND_DISCLAIMER);
     rerender(<OverallBlock skills={four.slice(0, 3)} />);
-    expect(screen.queryByLabelText(/Overall ước lượng:/)).toBeNull();
+    expect(screen.queryByText(/Overall ước lượng:/)).toBeNull();
     expect(screen.getByText('Chưa có Overall · chưa có Speaking')).toBeTruthy();
   });
 
@@ -84,7 +90,7 @@ describe('OverallBlock', () => {
     }
     expect(overallStatus([...four, { skill: 'speaking', band: 6 }])).toEqual({ kind: 'invalid' });
     render(<OverallBlock skills={duplicate} />);
-    expect(screen.queryByLabelText(/Overall ước lượng:/)).toBeNull();
+    expect(screen.queryByText(/Overall ước lượng:/)).toBeNull();
     expect(screen.getByText('Chưa có Overall · dữ liệu điểm chưa hợp lệ')).toBeTruthy();
     expect(screen.getAllByText('—')).toHaveLength(4);
   });
@@ -92,7 +98,7 @@ describe('OverallBlock', () => {
   it('lists the four skills in fixed order whatever the input order', () => {
     const { container } = render(<OverallBlock skills={[...four].reverse()} />);
     expect([...container.querySelectorAll('dt')].map((dt) => dt.textContent)).toEqual(['Listening', 'Reading', 'Writing', 'Speaking']);
-    expect(screen.getByLabelText('Overall ước lượng: 6.5')).toBeTruthy();
+    expect(bandValue('Overall ước lượng: 6.5')).toBeTruthy();
   });
 });
 
@@ -101,6 +107,20 @@ describe('BandScore validity', () => {
     const { container } = render(<BandScore skill="Writing" band={Number.NaN} />);
     expect(container.querySelector('[data-state="ready"]')).toBeNull();
     expect(container.textContent).not.toContain('NaN');
+  });
+
+  it('calls an invalid band a data error, never "not enough work yet"', () => {
+    for (const bad of [Number.NaN, 9.5, 6.3]) {
+      const { container, unmount } = render(<BandScore skill="Writing" band={bad} action={<a href="/x">Làm một đề đủ</a>} />);
+      expect(screen.getByText('Chưa có band · dữ liệu điểm chưa hợp lệ')).toBeTruthy();
+      expect(container.querySelector('[data-state="invalid"]')).toBeTruthy();
+      expect(container.textContent).not.toContain('Chưa đủ bài');
+      expect(screen.queryByText('Làm một đề đủ')).toBeNull();
+      expect(container.textContent).not.toContain(String(bad));
+      unmount();
+    }
+    render(<BandScore skill="Writing" band={null} />);
+    expect(screen.getByText('Chưa đủ bài để ước lượng')).toBeTruthy();
   });
 });
 
@@ -134,6 +154,17 @@ describe('Timer', () => {
     expect(screen.getByText('00:00')).toBeTruthy();
   });
 
+  it('announces a mark again after the clock is reset for the next part', () => {
+    const { rerender, container } = render(<Timer lang="en" label="Time remaining" seconds={300} thresholds={marks} />);
+    const live = container.querySelector('[aria-live="polite"]')!;
+    expect(live.textContent).toBe('5 minutes left. The test will submit automatically.');
+    rerender(<Timer lang="en" label="Time remaining" seconds={0} thresholds={marks} />);
+    expect(live.textContent).toBe('Time is up');
+    rerender(<Timer lang="en" label="Time remaining" seconds={1800} thresholds={marks} />);
+    rerender(<Timer lang="en" label="Time remaining" seconds={300} thresholds={marks} />);
+    expect(live.textContent).toBe('5 minutes left. The test will submit automatically.');
+  });
+
   it('countup shows the limit in the page language', () => {
     render(<Timer mode="countup" label="Đang ghi âm" seconds={65} max={120} />);
     expect(screen.getByText('1:05')).toBeTruthy();
@@ -152,7 +183,7 @@ describe('QuestionPalette', () => {
   it('names every cell in full, in one language', () => {
     expect(questionCellName(items[2], 'en')).toBe('Question 3, answered, flagged for review, current question');
     expect(questionCellName(items[3], 'vi')).toBe('Câu 4, chưa trả lời, đánh dấu xem lại');
-    render(<QuestionPalette lang="en" title="Part 1 · Questions 1–4" items={items} />);
+    render(<QuestionPalette lang="en" title="Part 1 · Questions 1–4" items={items} onSelect={() => {}} />);
     const list = screen.getByRole('list', { name: 'Part 1 · Questions 1–4' });
     const cells = within(list).getAllByRole('button');
     expect(cells.map((c) => c.getAttribute('aria-label'))).toEqual([
@@ -163,6 +194,16 @@ describe('QuestionPalette', () => {
     ]);
     expect(cells.map((c) => c.getAttribute('aria-current'))).toEqual([null, null, 'true', null]);
     expect(screen.getByText('Answered 2 of 4')).toBeTruthy();
+  });
+
+  it('draws "current" without an outline, so the focus ring stays distinct', () => {
+    // CSS modules are not applied in jsdom: read the rule itself.
+    const css = readFileSync(join(process.cwd(), 'components/ui/question-palette.module.css'), 'utf8');
+    const current = /\.current\s*\{([^}]*)\}/.exec(css)![1];
+    expect(current).not.toMatch(/outline/);
+    expect(current).toMatch(/box-shadow:\s*inset/);
+    expect(css).toMatch(/\.current::after\s*\{/);
+    expect(css).not.toMatch(/\.cell[^{]*\{[^}]*outline/);
   });
 
   it('calls onSelect with the question number', () => {
@@ -176,8 +217,10 @@ describe('QuestionPalette', () => {
     const graded: QuestionItem[] = [{ num: 1, state: 'correct' }, { num: 2, state: 'wrong' }, { num: 3, state: 'blank' }];
     expect(paletteSummary(graded, 'vi')).toBe('Đúng 1 trên 3 câu · sai 1 · bỏ trống 1');
     render(<QuestionPalette items={graded} />);
-    expect(screen.getByRole('button', { name: 'Câu 2, sai' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Câu 3, bỏ trống' })).toBeTruthy();
+    // Graded review without onSelect: plain cells, no buttons that do nothing.
+    expect(screen.queryAllByRole('button')).toHaveLength(0);
+    expect(screen.getByText('Câu 2, sai')).toBeTruthy();
+    expect(screen.getByText('Câu 3, bỏ trống')).toBeTruthy();
   });
 });
 
@@ -228,6 +271,11 @@ describe('AnnotatedText', () => {
     expect(container.querySelector('p[lang="en"]')!.textContent).toBe('I am agreeChú thích 1, Ngữ pháp with this. expensive priceChú thích 2, Từ vựng');
     const list = screen.getByRole('list', { name: 'Chú thích' });
     expect(within(list).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['1Ngữ phápBỏ am.', '2Từ vựngBỏ price.']);
+  });
+
+  it('a mark without a note still says its kind', () => {
+    const { container } = render(<AnnotatedText segments={[{ text: 'very good', mark: 4 }]} notes={[]} />);
+    expect(container.querySelector('p[lang="en"]')!.textContent).toBe('very good (Làm tốt)');
   });
 
   it('with onSelect the margin numbers are toggle buttons', () => {
