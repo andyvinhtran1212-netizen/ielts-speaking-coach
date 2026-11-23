@@ -519,3 +519,29 @@ def test_stale_class_ledger_marks_assigned_degraded(monkeypatch):
                      assigned=(True, [_row("x", due=_iso(NOW + timedelta(hours=1)))], True))
     assert out["degraded"] == ["assigned"]
     assert out["state"] == "learning"
+
+
+def test_assigned_wrapper_runs_the_real_imports(monkeypatch):
+    """The wrapper itself, not a stub: its body imports must resolve (a wrong
+    module path would land every caller in `degraded`)."""
+    from routers import class_student
+    from services import class_membership_service
+
+    calls = {}
+    monkeypatch.setattr(class_student, "_student_for_user", lambda uid, name: {"id": "s1", "cohort_id": "c1"})
+    monkeypatch.setattr(class_membership_service, "active_cohort_ids_for_student",
+                        lambda _sb, student: calls.setdefault("student", student["id"]) and ["c1"])
+    row = {"assignment": {"due_at": None}, "item_id": "a"}
+    monkeypatch.setattr(class_student, "_visible_assignments",
+                        lambda student, now, ids: calls.setdefault("ids", ids) and ([row], False))
+    assert st._visible_assignments_for("u-1", "A", NOW) == (True, [row], False)
+    assert calls == {"student": "s1", "ids": ["c1"]}
+
+
+def test_assigned_wrapper_no_active_class(monkeypatch):
+    from routers import class_student
+    from services import class_membership_service
+
+    monkeypatch.setattr(class_student, "_student_for_user", lambda *_a: {"id": "s1", "cohort_id": None})
+    monkeypatch.setattr(class_membership_service, "active_cohort_ids_for_student", lambda *_a: [])
+    assert st._visible_assignments_for("u-1", "A", NOW) == (False, [], False)
