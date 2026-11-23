@@ -1,14 +1,14 @@
 ---
 id: PUBLICSITE-0059
 title: Visitors see the new public home page, the six online courses with honest status and a free trial entry, legal pages and one consistent set of error pages, in light and dark mode
-status: draft
+status: approved
 risk: medium
 owner: product
 ---
 
 # Visitors see the new public home page, the six online courses with honest status and a free trial entry, legal pages and one consistent set of error pages, in light and dark mode
 
-Status: **draft** — soạn ngày 23/11/2026 cho nhiệm vụ `G05-T01` (thương mại hoá 2026-11), từ `docs/proposals/commercialization-2026-11/GOI-05-trang-cong-khai-va-dang-ky.md` (bản 18/11 chiều) nhóm A của mục 4, mục 5.1, 5.4, 5.5, phần `site-info` và `open-alerts` của 5.7, mục 9, 10. Chưa dòng mã nào chạy theo spec này. Chỉ anh Andy duyệt; khi duyệt, câu trả lời ghi nguyên văn kèm thời điểm vào `approval-decision.md` cùng thư mục và `status` đổi sang `approved`. Số 0059 lấy từ sổ cấp số ở `01-KE-HOACH-TONG.md` mục 6 và còn trống ở staging `31725a9b`. Spec này không có migration.
+Status: **approved** — anh Andy duyệt 23/11/2026 18:08 giờ VN (xem `approval-decision.md`); soạn ngày 23/11/2026 cho nhiệm vụ `G05-T01` (thương mại hoá 2026-11), từ `docs/proposals/commercialization-2026-11/GOI-05-trang-cong-khai-va-dang-ky.md` (bản 18/11 chiều) nhóm A của mục 4, mục 5.1, 5.4, 5.5, phần `site-info` và `open-alerts` của 5.7, mục 9, 10. Chưa dòng mã nào chạy theo spec này. Chỉ anh Andy duyệt; khi duyệt, câu trả lời ghi nguyên văn kèm thời điểm vào `approval-decision.md` cùng thư mục và `status` đổi sang `approved`. Số 0059 lấy từ sổ cấp số ở `01-KE-HOACH-TONG.md` mục 6 và còn trống ở staging `31725a9b`. Spec này không có migration.
 
 ## Tóm tắt (tiếng Việt)
 
