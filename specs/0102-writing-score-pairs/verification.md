@@ -12,9 +12,10 @@
 | FR-006 | kind=check; ref=OpenAPI contract unchanged + existing deliver route tests pass | PENDING |
 | FR-007 | kind=test; ref=backend/tests/test_writing_score_pairs.py (flag off → skipped_flag_off, flag read error → skipped) | PENDING |
 | FR-008 | kind=test; ref=backend/tests/test_writing_score_pairs.py (dry-run writes nothing, report has no email/name, missing snapshots backfilled with captured_late) | PENDING |
-| FR-009 | kind=test; ref=backend/tests/test_migration_480_writing_score_pairs.py (forced trigger failure: writing_feedback insert commits, WARNING raised, no snapshot) | PENDING |
+| FR-009 | kind=test; ref=backend/tests/test_migration_480_writing_score_pairs.py (forced trigger failure on insert and on flag read: writing_feedback insert commits, WARNING raised, no snapshot) | PENDING |
 | FR-010 | kind=test; ref=backend/tests/test_migration_480_writing_score_pairs.py (writing_ai_snapshot_capture=false → no snapshot; missing flag row → capture) | PENDING |
-| FR-011 | kind=test; ref=backend/tests/test_migration_480_writing_score_pairs.py (delete reviewer while essay exists: pair kept, bands unchanged, reviewer_id NULL; direct UPDATE incl. reviewer_id-only still rejected) | PENDING |
+| FR-011 | kind=test; ref=backend/tests/test_migration_480_writing_score_pairs.py (delete reviewer while essay exists: pair kept, bands unchanged, reviewer_id NULL; direct UPDATE incl. reviewer_id-only still rejected; exception requires users row gone) | PENDING |
+| FR-012 | kind=test; ref=backend/tests/test_migration_480_writing_score_pairs.py (same transaction as valid essay and reviewer deletes: DELETE/UPDATE on another essay's pair or snapshot rejected, also from a nested trigger) | PENDING |
 
 ## Contract evidence
 

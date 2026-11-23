@@ -24,7 +24,7 @@ SCOREGAP-0091) là spec khác, chưa viết.
 
 FR trong GOI-12 đánh số `FR-12-C-001…006`; ở đây đánh lại `FR-001…006` giữ
 nguyên thứ tự. FR-007 và FR-008 tách từ mục 5.C của gói (cờ và đối soát) để
-kiểm được riêng. FR-009…FR-011 thêm ngày 23/11 theo HOLD của anh Andy và CR-2483-R1
+kiểm được riêng. FR-009…FR-012 thêm ngày 23/11 theo HOLD của anh Andy và CR-2483-R1
 (trigger lỗi không được làm hỏng việc chấm, công tắc tắt trigger, đường ẩn danh
 người trả).
 
@@ -122,9 +122,17 @@ giáo viên chốt tại thời điểm trả bài. Đã kiểm trên `staging` 
   `_gc_orphan_versions`).
 - **FR-003:** Hai bảng chỉ ghi thêm. UPDATE, DELETE trực tiếp và TRUNCATE bị từ
   chối với mọi vai trò kể cả `service_role`, lỗi `<tên bảng>_append_only`. Chỉ có
-  hai ngoại lệ, cả hai chỉ khi lệnh đến từ hành động FK (không phải lệnh trực tiếp):
-  xoá theo dây chuyền khi bài bị xoá cứng (`ON DELETE CASCADE` từ `writing_essays`),
-  và đường ẩn danh người trả của FR-011. Thu hồi rồi trả lại thêm dòng mới, dòng cũ giữ nguyên. Bản
+  hai ngoại lệ, mỗi ngoại lệ gắn với đúng dòng cha đang bị xoá, không với một cờ chung
+  của giao dịch:
+  - DELETE một dòng (ở bảng nào trong hai bảng) chỉ đi qua khi dòng cha của chính nó
+    không còn: `NOT EXISTS (SELECT 1 FROM writing_essays WHERE id = OLD.essay_id)`. Hành
+    động `ON DELETE CASCADE` chạy sau khi dòng bài đã bị xoá trong giao dịch, nên điều
+    kiện này đúng khi và chỉ khi bài của dòng đó đang bị xoá cứng. Dòng mà bài còn tồn
+    tại không xoá được bằng bất kỳ đường nào.
+  - UPDATE ẩn danh người trả của FR-011.
+  `pg_trigger_depth() > 1` chỉ được giữ như một điều kiện AND phòng thủ, không bao giờ
+  đủ một mình; nếu test PG17 cho thấy nó không đúng trong hành động FK thì bỏ điều kiện
+  này, kiểm dòng cha vẫn giữ. Không dùng biến phiên hay cờ giao dịch làm quyền. Thu hồi rồi trả lại thêm dòng mới, dòng cũ giữ nguyên. Bản
   "mới nhất mỗi bài" là view `writing_score_pairs_latest`. Một lần trả chỉ có một
   dòng: `delivery_key` UNIQUE, gọi lại giống hệt trả `duplicate`.
 - **FR-004:** Ghi cặp điểm không bao giờ làm hỏng hay đổi kết quả việc trả bài.
@@ -148,27 +156,40 @@ giáo viên chốt tại thời điểm trả bài. Đã kiểm trên `staging` 
   bài trả trước khi bật cờ, bỏ qua bài thi thử, bài `ai_instant` và bài không có
   phản hồi. `--report` in số cặp theo tháng và theo `reviewer_role`, số bài bỏ qua
   theo lý do, số ảnh chụp ghi bù. Đầu ra không có email, tên học viên hay nội dung bài.
-- **FR-009:** Trigger chụp điểm AI không bao giờ làm hỏng lần ghi điểm AI. Thân hàm
-  trigger bắt `WHEN OTHERS`, ghi `RAISE WARNING '[score-snapshot] failed feedback=%'`
+- **FR-009:** Trigger chụp điểm AI không bao giờ làm hỏng lần ghi điểm AI. Toàn bộ thân
+  hàm trigger, gồm cả lần đọc cờ của FR-010 và INSERT ảnh chụp, nằm trong một khối bắt
+  `WHEN OTHERS`, ghi `RAISE WARNING '[score-snapshot] failed feedback=%'`
   (chỉ id dòng phản hồi, không nội dung), trả `NEW`, nên INSERT/UPDATE trên
   `writing_feedback` vẫn thành công. Ảnh chụp sót được đối soát ghi bù (FR-008). Test
-  PG17 ép trigger lỗi và kiểm dòng phản hồi vẫn được ghi.
+  PG17 ép trigger lỗi (lỗi INSERT và lỗi đọc cờ) và kiểm dòng phản hồi vẫn được ghi kèm
+  WARNING. `WHEN OTHERS` không bắt `query_canceled` (statement_timeout, huỷ lệnh) và
+  `assert_failure`; đó là chủ ý: một lệnh bị huỷ thì cả lần ghi bị huỷ, G12-C02 không cố
+  bắt hai lỗi này.
 - **FR-010:** Công tắc tắt trigger chụp: cờ `runtime_flags.writing_ai_snapshot_capture`
   seed `true`. Trigger đọc thẳng dòng cờ (không qua cache backend) mỗi lần chạy;
-  `false` thì bỏ qua không chụp; thiếu dòng cờ thì coi như bật; lỗi đọc thì rơi vào
-  FR-009. Tắt cờ có hiệu lực ngay ở lần ghi kế tiếp, không cần migration, deploy hay
+  `false` thì bỏ qua không chụp; thiếu dòng cờ thì coi như bật; lần đọc nằm trong khối
+  bắt lỗi của FR-009, nên lỗi đọc cờ (đổi tên cột, mất quyền, hết thời gian chờ khoá) chỉ
+  làm mất ảnh chụp của lần đó, không làm hỏng lần ghi điểm. Tắt cờ có hiệu lực ngay ở lần ghi kế tiếp, không cần migration, deploy hay
   xoá bảng. Dự phòng khẩn cấp (khi chính bảng `runtime_flags` lỗi):
   `ALTER TABLE writing_feedback DISABLE TRIGGER trg_writing_feedback_ai_snapshot`, chỉ
   chạy khi anh Andy gõ duyệt (xem `rollout.md`).
 - **FR-011:** Xoá tài khoản người trả không bị chặn và không đổi điểm. `reviewer_id`
   có FK `users(id) ON DELETE SET NULL`. Trigger chỉ-ghi-thêm cho một UPDATE đi qua khi
-  đủ cả ba điều kiện: lệnh đến từ hành động FK (`pg_trigger_depth() > 1`); `OLD.reviewer_id`
-  khác NULL và `NEW.reviewer_id` là NULL; mọi cột khác của `NEW` giống hệt `OLD` (so cả
-  dòng sau khi đặt `reviewer_id` của `OLD` về NULL). `reviewer_role` và
+  đủ các điều kiện: `OLD.reviewer_id` khác NULL và `NEW.reviewer_id` là NULL; người trả
+  đó không còn: `NOT EXISTS (SELECT 1 FROM users WHERE id = OLD.reviewer_id)` (đúng khi
+  và chỉ khi chính tài khoản đó đang bị xoá trong giao dịch); mọi cột khác của `NEW`
+  giống hệt `OLD` (so cả dòng sau khi đặt `reviewer_id` của `OLD` về NULL); và điều kiện
+  phòng thủ `pg_trigger_depth() > 1` như FR-003. `reviewer_role` và
   `reviewer_can_edit_bands` giữ nguyên. Mọi UPDATE trực tiếp khác, kể cả UPDATE trực
   tiếp chỉ đặt `reviewer_id = NULL`, vẫn lỗi `writing_score_pairs_append_only`. Test
   PG17: xoá người trả trong khi bài vẫn còn thì cặp còn, điểm không đổi, `reviewer_id`
   NULL; UPDATE trực tiếp vẫn bị chặn.
+- **FR-012:** Ngoại lệ của FR-003 và FR-011 không mở cửa cho dòng khác trong cùng giao
+  dịch. Test PG17, trong **cùng một giao dịch** với một lần xoá bài hợp lệ và một lần xoá
+  người trả hợp lệ: DELETE hay UPDATE trên cặp hoặc ảnh chụp của **bài khác** (bài còn
+  tồn tại, người trả còn tồn tại) vẫn lỗi `_append_only`, cả khi lệnh đó chạy từ bên trong
+  một trigger khác (`pg_trigger_depth() > 1`). UPDATE đặt `reviewer_id = NULL` cho cặp
+  của người trả còn tồn tại vẫn lỗi.
 
 ## Acceptance scenarios
 
@@ -268,13 +289,11 @@ Mỗi câu kèm đề xuất mặc định; anh Andy xác nhận khi duyệt spe
    cặp của instructor ghi `reviewer_can_edit_bands=false`. Nếu G09-T17 mở sửa
    band, đường đó phải đi qua `upsert_composed_version`, và hằng
    `INSTRUCTOR_CAN_EDIT_BANDS` đổi trong cùng PR đó.
-3. **Chặn lệnh trực tiếp nhưng cho hành động FK (xoá dây chuyền, FR-011).** Thiết
-   kế chính: phân biệt bằng `pg_trigger_depth() > 1`. Nếu test PG17 của G12-C02 cho
-   thấy không phân biệt được, phương án thắng (không cần hỏi lại) là: trigger
-   `BEFORE DELETE` trên `writing_essays` và trên `users` gọi
-   `set_config('aver.score_pairs_fk_action', 'on', true)` (chỉ trong giao dịch), và
-   trigger chỉ-ghi-thêm cho qua khi thấy biến đó; điều kiện "chỉ `reviewer_id` về
-   NULL" của FR-011 giữ nguyên. Không đổi mã ứng dụng của đường xoá.
+3. **Ngoại lệ cho hành động FK (FR-003, FR-011).** Đã chốt (HOLD của anh Andy 23/11
+   09:15Z, CR-2483-R2): ngoại lệ dựa vào việc dòng cha của chính dòng đó không còn
+   (`writing_essays` cho DELETE, `users` cho UPDATE ẩn danh); `pg_trigger_depth() > 1`
+   chỉ là điều kiện AND phòng thủ, bỏ được nếu test PG17 bác. Không dùng biến phiên hay
+   cờ giao dịch. Câu này không còn mở.
 4. **Cron đối soát.** Đề xuất: 02:30 giờ VN hằng ngày qua
    `backend/railway.score-pairs-reconcile.json`; tạo service cron trên Railway là
    việc của anh Andy. Trước khi có cron, chạy tay `--report` mỗi tuần.

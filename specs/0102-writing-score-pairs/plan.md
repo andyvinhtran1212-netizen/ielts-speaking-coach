@@ -54,10 +54,11 @@ Trigger `trg_writing_feedback_ai_snapshot` AFTER INSERT OR UPDATE OF năm cột 
 ON `writing_feedback` FOR EACH ROW WHEN `NEW.source LIKE 'ai\_%'` (với UPDATE thêm
 điều kiện ít nhất một cột band `IS DISTINCT FROM` giá trị cũ). Hàm trigger
 `SECURITY DEFINER`, `SET search_path = pg_catalog, public, pg_temp` (mẫu mig 369,
-383). Thân hàm: đọc `runtime_flags.writing_ai_snapshot_capture` (FR-010; `false` thì
-`RETURN NEW`), rồi INSERT ảnh chụp trong khối `BEGIN … EXCEPTION WHEN OTHERS THEN
-RAISE WARNING '[score-snapshot] failed feedback=%', NEW.id; END`, luôn `RETURN NEW`
-(FR-009). Nạp lại trong cùng migration: `INSERT … SELECT` mọi dòng có
+383). Thân hàm là một khối `BEGIN … EXCEPTION WHEN OTHERS THEN RAISE WARNING
+'[score-snapshot] failed feedback=%', NEW.id; END`; bên trong khối: đọc
+`runtime_flags.writing_ai_snapshot_capture` (FR-010; `false` thì ra khỏi khối không
+chụp), rồi INSERT ảnh chụp. Sau khối luôn `RETURN NEW` (FR-009). `query_canceled` không
+bị bắt (chủ ý). Nạp lại trong cùng migration: `INSERT … SELECT` mọi dòng có
 `source LIKE 'ai\_%' OR source IS NULL` chưa có ảnh chụp (`WHERE NOT EXISTS`, chạy
 lại không nhân đôi; dòng NULL ghi `source='legacy'`, `legacy=true`).
 
@@ -89,12 +90,15 @@ lại không nhân đôi; dòng NULL ghi `source='legacy'`, `legacy=true`).
 Index `(essay_id, delivered_at DESC)`, `(delivered_at)`, `(cohort_id, delivered_at)`.
 Trigger BEFORE UPDATE OR DELETE (row) và BEFORE TRUNCATE (statement) trên cả hai
 bảng gọi một hàm chung ném `<TG_TABLE_NAME>_append_only` (mẫu
-`fn_course_commerce_append_only` của mig 383). Ngoại lệ, chỉ khi
-`pg_trigger_depth() > 1` (lệnh đến từ hành động FK): DELETE (xoá dây chuyền); và trên
-`writing_score_pairs` một UPDATE mà `OLD.reviewer_id IS NOT NULL`,
-`NEW.reviewer_id IS NULL` và `NEW IS NOT DISTINCT FROM` bản `OLD` đã đặt
-`reviewer_id := NULL` (FR-011). Phương án thay khi test PG17 bác `pg_trigger_depth`:
-spec.md câu hỏi 3. View
+`fn_course_commerce_append_only` của mig 383). Ngoại lệ, mỗi cái gắn với dòng cha của
+chính dòng đang bị đụng (FR-003, FR-011, FR-012):
+- DELETE: `NOT EXISTS (SELECT 1 FROM writing_essays WHERE id = OLD.essay_id)`
+  `AND pg_trigger_depth() > 1`.
+- UPDATE trên `writing_score_pairs`: `OLD.reviewer_id IS NOT NULL AND NEW.reviewer_id IS
+  NULL AND NOT EXISTS (SELECT 1 FROM users WHERE id = OLD.reviewer_id)` và `NEW IS NOT
+  DISTINCT FROM` bản `OLD` đã đặt `reviewer_id := NULL`, `AND pg_trigger_depth() > 1`.
+- Điều kiện `pg_trigger_depth()` chỉ phòng thủ; test PG17 bác thì bỏ, kiểm dòng cha giữ.
+  Không dùng biến phiên. View
 `writing_score_pairs_latest` = dòng `delivered_at` mới nhất của mỗi `essay_id`.
 Seed `runtime_flags('writing_score_pairs_record', false)` và
 `runtime_flags('writing_ai_snapshot_capture', true)`, cả hai `ON CONFLICT DO NOTHING`.
@@ -144,8 +148,10 @@ sau khi anh Andy gõ duyệt; cách lùi ưu tiên là tắt cờ hoặc revert 
   UPDATE/DELETE/TRUNCATE trực tiếp lỗi `_append_only`; xoá cứng
   `writing_essays` xoá theo cả hai bảng; xoá người trả khi bài còn thì cặp còn,
   điểm không đổi, `reviewer_id` NULL, và UPDATE trực tiếp (kể cả chỉ đặt
-  `reviewer_id = NULL`) vẫn lỗi; ép trigger chụp lỗi thì INSERT `writing_feedback`
-  vẫn thành công và có WARNING; cờ `writing_ai_snapshot_capture=false` thì không chụp;
+  `reviewer_id = NULL`) vẫn lỗi; trong cùng giao dịch với một lần xoá bài và một lần xoá
+  người trả hợp lệ, DELETE/UPDATE trên cặp hay ảnh chụp của bài khác (cha còn) vẫn lỗi,
+  kể cả khi chạy từ bên trong một trigger khác (FR-012); ép trigger chụp lỗi (INSERT lỗi,
+  và đọc cờ lỗi) thì INSERT `writing_feedback` vẫn thành công và có WARNING; cờ `writing_ai_snapshot_capture=false` thì không chụp;
   `source` mới (ví dụ `ai_gpt`) được chụp; chạy migration hai lần không lỗi; nạp
   lại đánh dấu `legacy`.
 - Kịch bản migration-first (PG17): áp 480, không có mã G12-C03, cờ ghi cặp tắt;
