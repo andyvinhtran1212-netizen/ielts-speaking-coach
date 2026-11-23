@@ -133,3 +133,14 @@ test('an older copy entry without baseText asks instead of re-sending', () => {
   assert.deepEqual(plan.ask, [{ task: 'task2', local: 'mine', server: 'saved', source: 'copy' }]);
   assert.deepEqual(plan.resend, []);
 });
+
+test('no server text is "" in ask rows from the copy and from the legacy key alike', () => {
+  const plan = reconcileMockWritingCopy({
+    copy: copy({ task1: { value: 'mine' } }), legacy: { task2: { text: 'old draft' } },
+    server: { open: true, task1: null }, ownerMatches: true,
+  });
+  assert.deepEqual(plan.ask, [
+    { task: 'task1', local: 'mine', server: '', source: 'copy' },
+    { task: 'task2', local: 'old draft', server: '', source: 'legacy' },
+  ]);
+});
