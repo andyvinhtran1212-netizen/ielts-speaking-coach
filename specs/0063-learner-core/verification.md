@@ -62,7 +62,7 @@ Mọi dòng ở trạng thái `PENDING`: spec đang `draft`, chưa có dòng mã
 | FR-097 | kind=test; ref=planned React button per action and hrefs via my-class-model; Writing band only when returned (T30a) | PENDING |
 | FR-098 | kind=test; ref=planned React skill and state filters with counts, clear filter, query keeps selection (T30a) | PENDING |
 | FR-099 | kind=test; ref=planned React accepting=false shows "Không còn nhận bài" and only the self-practice button (T30a) | PENDING |
-| FR-100 | kind=test; ref=planned pytest self-practice route 404, 409, 422, launch params without class_assignment_item_id, zero writes, completion leaves item state unchanged (T30b) | PENDING |
+| FR-100 | kind=test; ref=planned pytest self-practice route 404, 409, 422, 422 for vocab/grammar/course and for papers not open to self practice (exam_only, non-public, mock-reserved), launch params without class_assignment_item_id, zero writes, completion leaves item state unchanged (T30b) | PENDING |
 | FR-101 | kind=test; ref=planned pytest Speaking self-practice session goes through POST /sessions quota and charge_plan like any self practice (T30b) | PENDING |
 | FR-102 | kind=test; ref=planned React repractice block hidden when empty, grading steps copy (T30a) | PENDING |
 | FR-103 | kind=test; ref=planned pytest response_model shape, caller-only rows, degraded part, homework_stale passthrough, _visible_assignments unchanged (T30a) | PENDING |
