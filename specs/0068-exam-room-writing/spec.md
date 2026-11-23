@@ -311,6 +311,8 @@ dòng, DOM mệnh lệnh gắn vào id của `page-shell.tsx`) trên `staging` @
 
 ## Open questions
 
+Anh Andy gõ "duyệt … 0068 A1 A3 theo đề xuất" lúc 23/11 13:21Z: A1 là câu 5, A3 là câu 6 dưới đây. Bước bật cờ staging (đổi env Vercel, A2) chưa có lời duyệt: anh gõ duyệt riêng lúc tới T004. Câu 1–4 vẫn ở mặc định tạm.
+
 Mỗi câu kèm đề xuất; mặc định tạm là đề xuất cho tới khi anh Andy trả lời.
 
 1. **Writing tự luyện giữ lượt (G08-T25).** GOI-08 đặt route này trong S2, nhưng nó cần
@@ -327,4 +329,5 @@ Mỗi câu kèm đề xuất; mặc định tạm là đề xuất cho tới khi
    máy, không hỏi, khi giá trị máy chủ khác `baseValue`; spec này hỏi học viên chọn. Đề
    xuất: hỏi, ghi là ngoại lệ có chủ ý cho trình chỉ có một ô chữ dài, vì bỏ âm thầm là mất
    cả một bản bài viết (với Reading/Listening, bỏ một câu mất ít). Mặc định tạm: hỏi, chờ anh
-   Andy quyết.
+   Andy quyết. **Đã chốt 23/11 13:21Z** (anh Andy duyệt theo đề xuất).
+6. **Lần nộp thử trên staging (T004).** Bài nộp đi đường chấm hiện có, có thể gọi AI trả phí. Đề xuất: một lần nộp thử bằng tài khoản QA; trước khi chạy báo anh Andy chi phí ước tính theo từng nhà cung cấp, chạy xong báo chi phí thật. **Đã chốt 23/11 13:21Z** (anh Andy duyệt theo đề xuất).
