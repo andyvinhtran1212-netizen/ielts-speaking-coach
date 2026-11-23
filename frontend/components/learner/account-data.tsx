@@ -44,6 +44,7 @@ async function signInAgain() {
 
 type ExportState =
   | { kind: 'loading' }
+  | { kind: 'absent' }
   | { kind: 'error' }
   | { kind: 'ready'; view: ExportView };
 
@@ -82,7 +83,8 @@ export function DataExportBlock({ onUnavailable }: { onUnavailable?: () => void 
       setState(view ? { kind: 'ready', view } : { kind: 'error' });
     } catch (error) {
       if (!alive.current) return;
-      if (errorStatus(error) === 404) { onUnavailable?.(); return; }
+      // Routes not deployed: the block goes away, never stuck on "Đang tải".
+      if (errorStatus(error) === 404) { setState({ kind: 'absent' }); onUnavailable?.(); return; }
       setState({ kind: 'error' });
     }
   }, [onUnavailable]);
@@ -154,6 +156,7 @@ export function DataExportBlock({ onUnavailable }: { onUnavailable?: () => void 
     }
   };
 
+  if (state.kind === 'absent') return null;
   const view = state.kind === 'ready' ? state.view : null;
   const canRequest = view !== null && ['none', 'expired', 'failed', 'cancelled', 'purged'].includes(view.status);
   return (

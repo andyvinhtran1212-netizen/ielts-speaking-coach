@@ -218,6 +218,16 @@ describe('/account: pending deletion (FR-003)', () => {
 });
 
 describe('/account: Dữ liệu của tôi (FR-010…FR-012)', () => {
+  it('pending, with the export route answering 404: the block goes away instead of loading forever', async () => {
+    state.deletion = { status: 'pending', requested_at: '2026-11-23T05:00:00Z', erase_after: '2026-12-23T05:00:00Z' };
+    state.exportError = apiError(404, null);
+    await mount();
+    expect(screen.getByText('Tài khoản sẽ bị xoá ngày 23/12/2026.')).toBeTruthy();
+    expect(screen.queryByRole('region', { name: 'Dữ liệu của tôi' })).toBeNull();
+    expect(screen.queryByText('Đang tải trạng thái…')).toBeNull();
+  });
+
+
   it('none → request; the page reads the server state again after the POST', async () => {
     await mount();
     expect(dataBlock().textContent).toContain('Bạn có thể tải một bản dữ liệu của mình');
