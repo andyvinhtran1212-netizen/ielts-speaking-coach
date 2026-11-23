@@ -18,10 +18,12 @@ const CHROME = read('public', 'js', 'components', 'aver-chrome.js');
 
 describe('Grammar Wiki Phase 0 foundations', () => {
   test('canonical home copy does not freeze a stale group count', () => {
-    assert.ok(!HOME.includes('9 nhóm'), 'group count must come from data or remain count-free');
-    assert.match(HOME, /async function GroupCountLink/);
-    assert.match(HOME, /Array\.isArray\(groups\) \? groups\.length : 0/);
-    assert.match(HOME, /Xem các nhóm chủ đề/);
+    // G06-T14 (b): the hero no longer carries a count; the index heading
+    // counts groups and articles from the groups API (grammar-index.tsx).
+    assert.ok(!/\d+ nhóm/.test(HOME), 'group count must come from data or remain count-free');
+    const INDEX = read('app', '(public-content)', 'grammar', 'grammar-index.tsx');
+    assert.match(INDEX, /\{index\.length\} nhóm · \{articleCount\} bài/);
+    assert.match(INDEX, /index\.length > 0 \?/, 'no count while the index is empty or failed');
   });
 
   test('article shell exposes TOC navigation on desktop and mobile', () => {
