@@ -21,12 +21,12 @@ import {
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
-const PAGE = read('app', '(authed-admin-users)', 'admin', 'users', 'page.tsx');
-const SHELL = read('app', '(authed-admin-users)', 'admin', 'users', 'admin-users.tsx');
-const USERS = read('app', '(authed-admin-users)', 'admin', 'users', 'admin-users-panel.tsx');
-const CODES = read('app', '(authed-admin-users)', 'admin', 'users', 'admin-access-codes-panel.tsx');
-const UI = read('app', '(authed-admin-users)', 'admin', 'users', 'admin-user-ui.tsx');
-const LAYOUT = read('app', '(authed-admin-users)', 'layout.tsx');
+const PAGE = read('app', '(authed-admin)/(users)', 'admin', 'users', 'page.tsx');
+const SHELL = read('app', '(authed-admin)/(users)', 'admin', 'users', 'admin-users.tsx');
+const USERS = read('app', '(authed-admin)/(users)', 'admin', 'users', 'admin-users-panel.tsx');
+const CODES = read('app', '(authed-admin)/(users)', 'admin', 'users', 'admin-access-codes-panel.tsx');
+const UI = read('app', '(authed-admin)/(users)', 'admin', 'users', 'admin-user-ui.tsx');
+const LAYOUT = read('app', '(authed-admin)', 'layout.tsx') + read('app', '(authed-admin)', '(users)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-users-next.css');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 const OVERVIEW = read('app', '(authed-admin)', '(overview)', 'admin', 'admin-overview.tsx');
@@ -73,7 +73,7 @@ describe('/admin/users — native ownership', () => {
   });
 
   test('records native ownership, canonical reconciliation and rollback in the ledger', () => {
-    assert.match(LEDGER, /`\/admin\/users`[^\n]+authed-admin-users[^\n]+canonical GET/);
+    assert.match(LEDGER, /`\/admin\/users`[^\n]+\(authed-admin\)\/\(users\)[^\n]+canonical GET/);
     assert.match(LEDGER, /`\/pages\/admin\/users\/index\.html` remains rollback target/);
     assert.match(LEDGER, /`\/admin\/access-codes`[^\n]+Temporary redirect/);
   });
@@ -147,7 +147,7 @@ describe('/admin/users — canonical behavior', () => {
   });
 
   test('gates its fixture-backed browser contract in CI', () => {
-    assert.match(WORKFLOW, /frontend\/app\/\(authed-admin-users\)\/\*\*/);
+    assert.match(WORKFLOW, /frontend\/app\/\(authed-admin\)\/\(users\)\/\*\*/);
     assert.match(WORKFLOW, /frontend\/public\/css\/admin-users-next\.css/);
     assert.match(WORKFLOW, /node tooling\/verify-admin-users-flow\.mjs/);
     assert.match(BROWSER, /parsed\.pathname === '\/auth\/me'/);

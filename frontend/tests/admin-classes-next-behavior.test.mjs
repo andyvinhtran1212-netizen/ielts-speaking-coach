@@ -17,10 +17,10 @@ import {
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
-const PAGE = read('app', '(authed-admin-classes)', 'admin', 'classes', 'page.tsx');
-const DIRECTORY = read('app', '(authed-admin-classes)', 'admin', 'classes', 'admin-classes-directory.tsx');
+const PAGE = read('app', '(authed-admin)/(classes)', 'admin', 'classes', 'page.tsx');
+const DIRECTORY = read('app', '(authed-admin)/(classes)', 'admin', 'classes', 'admin-classes-directory.tsx');
 const UI = read('components', 'admin-directory-ui.tsx');
-const LAYOUT = read('app', '(authed-admin-classes)', 'layout.tsx');
+const LAYOUT = read('app', '(authed-admin)', 'layout.tsx') + read('app', '(authed-admin)', '(classes)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-classes-next.css');
 const MODEL = read('lib', 'admin-classes-model.mjs');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
@@ -81,7 +81,7 @@ describe('/admin/classes — native directory ownership', () => {
   });
 
   test('fixture-backed browser contract is gated in CI', () => {
-    assert.match(WORKFLOW, /frontend\/app\/\(authed-admin-classes\)\/\*\*/);
+    assert.match(WORKFLOW, /frontend\/app\/\(authed-admin\)\/\(classes\)\/\*\*/);
     assert.match(WORKFLOW, /frontend\/public\/css\/admin-classes-next\.css/);
     assert.match(WORKFLOW, /node tooling\/verify-admin-classes-flow\.mjs/);
     assert.match(BROWSER, /unexpectedWrites/);

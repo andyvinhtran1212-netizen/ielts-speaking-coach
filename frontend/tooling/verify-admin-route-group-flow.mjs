@@ -26,6 +26,10 @@ const PAGE_SPEC = {
   '/admin/foot-traffic': { active: 'foot-traffic', sheets: ['/css/admin-foot-traffic-next.css'] },
   '/admin/usage': { active: 'usage', sheets: ['/css/admin-usage-next.css'] },
   '/admin': { active: 'overview', sheets: ['/css/aver-design/admin-hub.css', '/css/admin-overview.css'] },
+  '/admin/users': { active: 'users', sheets: ['/css/admin-users-next.css'] },
+  '/admin/students': { active: 'classes', sheets: ['/css/admin-classes-next.css', '/css/admin-students-next.css'] },
+  '/admin/classes': { active: 'classes', sheets: ['/css/admin-classes-next.css', '/css/admin-class-detail-next.css', '/css/admin-class-homework-next.css', '/css/admin-class-submissions-next.css', '/css/admin-class-student-work-next.css'] },
+  '/admin/instructors': { active: 'instructors', sheets: ['/css/admin-instructors-next.css'] },
 };
 const PAGES = Object.keys(PAGE_SPEC);
 // The 4 admin base sheets owned by (authed-admin)/layout.tsx, in order.
@@ -40,7 +44,9 @@ const BASE_TAIL = BASE_SHEETS.at(-1);
 const baseSheetsOnce = (sheets) => BASE_SHEETS.every((href) => sheets.filter((s) => s === href).length === 1);
 // Client-navigation screenshots of the pages moved in each wave, taken from a
 // pilot page that exists on the base build too, so base and head compare 1:1.
-const CLIENT_SHOTS = new Set(['/admin/feedback → /admin', '/admin/feedback → /admin/usage', '/admin/error-logs → /admin/feedback']);
+const CLIENT_SHOTS = new Set(['/admin/feedback → /admin', '/admin/feedback → /admin/usage', '/admin/error-logs → /admin/feedback',
+  '/admin/feedback → /admin/users', '/admin/feedback → /admin/students', '/admin/feedback → /admin/classes', '/admin/feedback → /admin/instructors',
+  '/admin/students → /admin/classes', '/admin/classes → /admin/students']);
 
 const results = [];
 const check = (name, ok, detail = '') => { results.push({ name, ok }); console.log(`  ${ok ? '✓' : '✗'} ${name}${detail ? ` — ${detail}` : ''}`); };
