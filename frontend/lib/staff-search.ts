@@ -53,7 +53,9 @@ export function shapeStaffSearch(door: StaffSearchDoor, raw: Raw): StaffSearchRe
         .slice(0, ROWS_PER_GROUP),
     }))
     .filter((g) => g.items.length > 0);
-  const failed = mine.filter((g) => raw.sources_failed?.includes(g.id)).map((g) => g.label);
+  // The server names a table-level failure `content:<table>`; it counts for its group.
+  const failedIds = new Set((raw.sources_failed ?? []).map((id) => String(id).split(':', 1)[0]));
+  const failed = mine.filter((g) => failedIds.has(g.id)).map((g) => g.label);
   return { groups, failed };
 }
 

@@ -198,4 +198,10 @@ describe('shapeStaffSearch', () => {
     expect(out.groups).toEqual([{ group: 'Học viên', items: [{ title: 'B', meta: undefined, href: '/instructor' }] }]);
     expect(out.failed).toEqual(['Bài nộp']);
   });
+
+  it('counts a table-level content failure for Đề, so an otherwise empty answer warns', () => {
+    const out = shapeStaffSearch('admin', { learners: [], content: [], sources_failed: ['content:writing_prompts'] });
+    expect(out.groups).toEqual([]);
+    expect(out.failed).toEqual(['Đề']);
+  });
 });
