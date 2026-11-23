@@ -15,8 +15,8 @@ dòng mã nào chạy theo spec này. Chỉ anh Andy duyệt. Khi anh duyệt, c
 được ghi nguyên văn kèm thời điểm vào `approval-decision.md`, và `status` đổi sang
 `approved`.
 
-Spec cha: [EXAMROOM-0066](../0066-exam-room-shell/spec.md) (khung chung, đang ở
-dạng nháp; spec này chỉ được duyệt sau hoặc cùng lúc với 0066). Spec liên quan,
+Spec cha: [EXAMROOM-0066](../0066-exam-room-shell/spec.md) (khung chung, đã duyệt
+23/11 cùng sửa đổi 1 (a)(b)(c) và sửa đổi 2). Spec liên quan,
 không sửa: [MOCKATTACH-0008](../0008-mock-attempt-integrity/spec.md) (gắn sitting
 trước khi lượt dùng được), [MOCKREPAIR-0016](../0016-mock-content-remediation/spec.md)
 (cờ xem lại khi tiếp tục lượt).
@@ -86,7 +86,10 @@ viên mất bài, nộp nhầm hay lộ thông tin. Đã kiểm `reading-exam-se
 - **FR-003:** Thanh trên chế độ `test`: tên "Reading · <tên đề>" và "Passage i of n";
   không in email, tên hay mã học viên. Link chia sẻ không có tên khách. Admin xem
   trước có dải "Admin preview" như hôm nay.
-- **FR-004:** `isFullTest` đúng khi `from=full` và không phải `mock_embed`, `admin_preview`.
+- **FR-004:** `isFullTest` đúng khi đề là full test theo máy chủ (`reading_tests.test_type =
+  'full'`, mig 158, đưa vào payload của đề mà trình boot; T003 thêm trường này vào phép
+  chọn cột) và không phải `mock_embed`, `admin_preview`. `from=full` trên URL chỉ chọn
+  đường quay về, không quyết định cổng, nên sửa tay URL không né được màn chặn.
   Khi đó phòng thi luôn sáng và bọc màn chặn điện thoại của PHONEGATE-0081 trước khi
   tạo lượt. Mini test, bài giao của lớp và link chia sẻ không bị chặn và có bản 390px.
   Hộp Options hiện có (khoá `ielts-exam-theme`) giữ trong khe phải của thanh trên.
@@ -159,7 +162,14 @@ viên mất bài, nộp nhầm hay lộ thông tin. Đã kiểm `reading-exam-se
     time_limit` với `now_ghi` lấy ngay trước câu UPDATE (không phải lúc request bắt đầu).
   - Không có dòng nào đổi thì đọc lại lượt: đã `abandoned` → 200 cùng kết quả (gọi lại
     an toàn); đã `submitted` → 409 `already_submitted`; còn `in_progress` mà đã hết giờ
-    → 409 `time_expired`; gắn sitting/bài giao → 409 `not_self_selected`.
+    → 409 `time_expired`; gắn sitting/bài giao → 409 `not_self_selected`; không có lượt hoặc
+    không phải chủ → 404. Bảng mã và từ `reason` dùng chung với route bỏ bài của Listening
+    (EXAMLISTENT-0070 FR-012: 200 / 404 / 409 `already_submitted`, `not_self_selected`);
+    `time_expired` chỉ có ở Reading vì Listening không có hạn giờ phía máy chủ. Khung xử lý
+    hai trình bằng một nhánh.
+  - Đổi được dòng thì gọi `note_abandoned_exam_attempts`
+    (`services/core_attempt_observation.py`), như đường bỏ lượt hiện có khi tạo lượt mới
+    (`reading_student.py`), để số lượt bỏ của quan sát đếm theo một nguồn.
   - Hết giờ thì không bỏ được: lần nộp tự động của trình có quyền ưu tiên. Màn của học viên
     sau 409 `time_expired` theo trạng thái nộp ở FR-010, không hứa "đã tự nộp" khi máy chủ
     chưa xác nhận.
@@ -208,8 +218,8 @@ viên mất bài, nộp nhầm hay lộ thông tin. Đã kiểm `reading-exam-se
 - **FR-020:** Sự kiện `exam_room_*` của khung gửi với `surface='reading'`, không có nội
   dung câu trả lời.
 
-- **FR-021:** Trạng thái `expired_unsubmitted` (đề xuất thêm vào EXAMROOM-0066 FR-034 bằng
-  sửa đổi 1, câu hỏi mở 6): `submit` trả 422 "attempt expired". Màn: "Time ran out before
+- **FR-021:** Trạng thái `expired_unsubmitted` của EXAMROOM-0066 FR-034 (đã có từ sửa đổi 1
+  mục (a)): `submit` trả 422 "attempt expired". Màn: "Time ran out before
   your answers reached our server. This attempt was not submitted and has no score. Your
   answers were saved on our server up to [HH:MM]." với nút "Back" về `backHref`, không nút
   thử lại, không chữ "submitted". Bản sao tại máy bị xoá (không còn gửi được). Lượt vẫn
@@ -316,6 +326,9 @@ viên mất bài, nộp nhầm hay lộ thông tin. Đã kiểm `reading-exam-se
 
 ## Edge cases
 
+- Giờ làm bài lấy từ đề (`reading_tests.time_limit_minutes`), không chụp vào lượt. Admin sửa
+  giờ của đề khi có lượt đang làm thì bỏ bài (FR-012) và nộp (FR-010) cùng đọc giá trị mới;
+  giới hạn đã biết, không thêm cột chụp giờ.
 - Test đọc chuỗi nguồn (`reading-exam-native-controller.test.mjs` và các test khác ở
   GOI-08 T07): giữ các chuỗi bị ghim trong `reading-exam-session.tsx`; test vỡ do đổi có chủ
   ý thì sửa cùng PR và liệt kê; quá 30 test vỡ thì dừng và báo.
@@ -350,10 +363,8 @@ viên mất bài, nộp nhầm hay lộ thông tin. Đã kiểm `reading-exam-se
 5. **Khoá ghi phía server cho Reading.** Đề xuất: chưa làm (Reading lưu từng câu, ghi đè
    theo câu, nên hai nơi cùng ghi chỉ làm câu sau thắng); xét lại khi Full test bật
    production, theo câu hỏi mở 10 của 0066. Mặc định tạm: như đề xuất.
-6. **Trạng thái `expired_unsubmitted` cho khung.** EXAMROOM-0066 (đã duyệt) chưa có trạng
-   thái cho "nộp tới máy chủ sau ân hạn, bị từ chối". Đề xuất: sửa đổi 1 của 0066 thêm giá
-   trị này vào `submit.outcome` với chữ ở FR-021, duyệt cùng spec này; không đổi trạng thái
-   nào khác. Mặc định tạm: như đề xuất.
+6. **Trạng thái `expired_unsubmitted` cho khung.** Đã đóng: EXAMROOM-0066 sửa đổi 1 mục (a)
+   (duyệt 23/11) đã thêm giá trị này vào FR-034; FR-021 dùng đúng giá trị đó.
 7. **Lượt bỏ dở không được đóng.** Reading không có tác vụ phía máy chủ đóng lượt quá giờ;
    lượt nằm `in_progress` tới khi học viên bắt đầu lượt mới. Đề xuất: ngoài phạm vi spec
    này; thêm vào danh sách việc tiếp theo (finalizer theo giờ cho Reading/Listening), xét
