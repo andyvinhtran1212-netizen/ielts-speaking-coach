@@ -182,4 +182,4 @@ async def test_my_class_reopens_saved_lesson_after_deadline(monkeypatch, submitt
     monkeypatch.setattr(class_student, "is_accepting_submissions", lambda _assignment: False)
     monkeypatch.setattr(class_student, "student_is_active_in_cohort", lambda *_args: True)
     result = await class_student.start_assignment("item-1")
-    assert result["grammar_lesson_path"] == "/grammar-lessons/assigned?assignment_item=item-1"
+    assert result["grammar_lesson_path"] == "/course/grammar-lesson?assignment_item=item-1"

@@ -862,7 +862,7 @@ async def start_assignment(
                 "item_id": item_id,
                 "assignment_id": assignment["id"],
                 "skill": "grammar",
-                "grammar_lesson_path": f"/grammar-lessons/assigned?assignment_item={quote(item_id)}",
+                "grammar_lesson_path": f"/course/grammar-lesson?assignment_item={quote(item_id)}",
             }
         if item.get("artifact_kind") != "grammar_diagnostic" or not item.get("artifact_id"):
             raise HTTPException(409, "Bài đã hoàn tất nhưng chưa đối chiếu được báo cáo.")
@@ -895,7 +895,7 @@ async def start_assignment(
             "item_id": item_id,
             "assignment_id": assignment["id"],
             "skill": "grammar",
-            "grammar_lesson_path": f"/grammar-lessons/assigned?assignment_item={quote(item_id)}",
+            "grammar_lesson_path": f"/course/grammar-lesson?assignment_item={quote(item_id)}",
         }
 
     # Every lane above only reads finished work; from here on the learner starts
@@ -966,13 +966,13 @@ async def start_assignment(
                 "item_id": item_id,
                 "assignment_id": assignment["id"],
                 "skill": "grammar",
-                "grammar_lesson_path": f"/grammar-lessons/assigned?assignment_item={quote(item_id)}",
+                "grammar_lesson_path": f"/course/grammar-lesson?assignment_item={quote(item_id)}",
             }
         return {
             "item_id": item_id,
             "assignment_id": assignment["id"],
             "skill": "grammar",
-            "grammar_path": f"/grammar-checkup?assignment_item={quote(item_id)}",
+            "grammar_path": f"/course/grammar-checkup?assignment_item={quote(item_id)}",
         }
 
     # Reading/Listening enter through the runtime admission route. No attempt is
