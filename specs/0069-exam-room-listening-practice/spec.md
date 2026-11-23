@@ -114,11 +114,18 @@ trên `staging` @ `cc6dd4c8` (23/11/2026):
   "Nghe tiếp từ [mm:ss]". Đây là đổi hành vi có chủ ý (bỏ "Tạm dừng"), xem câu hỏi mở 1.
 - **FR-009:** Bản nháp tại máy theo EXAMROOM-0066 FR-035, khoá
   `exam-room:local-copy:listening-practice:{ownerKey}:{attemptId}` (`ownerKey` = id tài
-  khoản), mỗi câu ghi kèm `baseSavedAt`. Lần đầu mở một lượt trong nhánh mới, nếu còn khoá
+  khoản), mỗi câu ghi kèm `baseValue` (đúng `user_answer` máy chủ ack lần cuối, hoặc giá trị
+  đọc lúc mở lượt) và `baseSavedAt` (chỉ để hiện giờ). Lần đầu mở một lượt trong nhánh mới, nếu còn khoá
   cũ `listening-programme-draft:{attemptId}` (lượt do máy chủ trả cho chính tài khoản đang
   đăng nhập) thì chuyển các câu đó sang khoá mới rồi xoá khoá cũ. Gửi lại câu từ bản sao
-  chỉ khi giá trị trên máy chủ chưa đổi kể từ `baseSavedAt`; dọn khi ack, khi hoàn thành,
+  chỉ khi giá trị trên máy chủ vẫn bằng `baseValue` (so theo giá trị, không theo dấu thời
+  gian); dọn khi ack, khi hoàn thành,
   khi đăng xuất, khi tài khoản khác đăng nhập (xoá không đọc), và khi quá 7 ngày.
+  Khi rời (thoát, chuyển sang đăng nhập lại, `pagehide`): ghi ngay phần đang gộp, đọc lại
+  khoá và so với câu trả lời trong runner. Chỉ khi đọc lại khớp (hoặc máy chủ đã ack đúng
+  giá trị) thì hộp thoát mới được nói bản trên máy đã giữ; không khớp thì hộp chỉ có "Ở
+  lại" và câu nói rõ câu nào chưa được lưu ở đâu cả, và lối dự phòng `/login?next=` không
+  chuyển trang (cùng quy tắc với EXAMWRITE-0068 FR-010).
 - **FR-010:** Mất mạng và phiên hết hạn theo EXAMROOM-0066 FR-014, FR-015, tiếng Việt.
   Mọi lời gọi `window.api.*` của runner trong nhánh mới truyền `{ noRedirect: true }`. 401
   giữa bài: ghi bản sao, hiện hộp đăng nhập lại (trước G05-T19: `/login?next=<URL hiện

@@ -12,7 +12,7 @@
 | FR-006 | kind=test; ref=frontend/tests/react/programme-form-room.test.tsx (navigator states, click moves to group in guided mode) | PENDING |
 | FR-007 | kind=test; ref=frontend/tests/react/programme-form-room.test.tsx (practice policy maps to AudioPlayer practice, other audio paused) | PENDING |
 | FR-008 | kind=test; ref=frontend/tests/react/programme-form-room.test.tsx (once: warning first, one playback-started, no pause, unconfirmed state kept) | PENDING |
-| FR-009 | kind=test; ref=frontend/tests/listening-programme-draft-migrate.test.mjs (old key migrated once then removed; other owner key never read; cleanup) | PENDING |
+| FR-009 | kind=test; ref=frontend/tests/listening-programme-draft-migrate.test.mjs (old key migrated once then removed; other owner key never read; cleanup) ; compare by baseValue not timestamps; storage refuses writes + offline/401 → exit dialog has only Stay, no keep-copy promise, no /login redirect | PENDING |
 | FR-010 | kind=test; ref=frontend/tests/react/programme-form-room.test.tsx (noRedirect on calls, 401 dialog, offline label) | PENDING |
 | FR-011 | kind=test; ref=frontend/tests/react/programme-form-room.test.tsx (two runners: only active shows dialogs and holds the lock) | PENDING |
 | FR-012 | kind=test; ref=frontend/tests/react/programme-form-room.test.tsx (read-only tab sends no PATCH/reveal/playback-started/submit) | PENDING |
