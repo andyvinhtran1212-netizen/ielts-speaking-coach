@@ -158,7 +158,8 @@ def _shape(rows: list[dict]) -> dict:
             "name": st.get("full_name") or "—",
             "cohort": labels.get(cid) if cid else None,
             "source": {"kind": kind,
-                       "label": labels.get(cid) if kind == "cohort" else
+                       # A deleted class leaves the row as a snapshot (445).
+                       "label": (labels.get(cid) if cid else "Lớp đã xoá") if kind == "cohort" else
                        ("Học viên lẻ" if kind == "learner" else "Nhóm")},
             "skills": list(r.get("skills") or []),
             "selected": bool(r.get("selected")),

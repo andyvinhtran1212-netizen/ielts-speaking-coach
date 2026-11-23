@@ -410,3 +410,13 @@ def test_window_writes_only_the_bounds_sent(db):
     out = aud.update_audience(EXAM, {"window": {"open_from": "2026-12-01T00:00:00Z"}}, A1)
     assert {(i["open_from"], i["open_until"]) for i in out["items"]} == {
         ("2026-12-01T00:00:00Z", "2026-12-03T00:00:00Z")}
+
+
+def test_row_from_a_deleted_class_is_labelled_not_hidden(monkeypatch):
+    """445: deleting a class keeps the audience row (source_removed_at); the
+    list says so instead of an empty source label."""
+    monkeypatch.setattr(aud, "_students", lambda ids: {"s1": {"full_name": "An"}})
+    monkeypatch.setattr(aud, "_cohort_labels", lambda ids: {})
+    out = aud._shape([{"student_id": "s1", "user_id": "u1", "source_kind": "cohort",
+                       "source_cohort_id": None, "skills": ["reading"], "selected": True}])
+    assert out["items"][0]["source"] == {"kind": "cohort", "label": "Lớp đã xoá"}
