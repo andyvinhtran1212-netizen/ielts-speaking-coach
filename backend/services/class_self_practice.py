@@ -113,9 +113,11 @@ def open_papers(db, by_skill: Dict[str, Set[str]]) -> Dict[str, Dict[str, Dict[s
     return out
 
 
-def papers_with_homework_attempt(db, user_id: str, skill: str, paper_ids: Iterable[str]) -> Set[str]:
+def papers_with_homework_attempt(db, user_id: str, skill: str, paper_ids: Iterable[str],
+                                 now=None) -> Set[str]:
     """Paper ids on which `user_id` has a resumable in-progress attempt linked
-    to a class item (one read for the list)."""
+    to a class item (one read for the list). `now` is the caller's clock, so the
+    whole request judges expiry at one instant (None reads the real clock)."""
     from services.active_player_lifecycle import is_resume_active
 
     ids = sorted({str(p) for p in paper_ids if p})
@@ -128,11 +130,12 @@ def papers_with_homework_attempt(db, user_id: str, skill: str, paper_ids: Iterab
                 .eq("user_id", user_id).eq("status", "in_progress").in_("test_id", chunk)
                 .not_.is_("class_assignment_item_id", "null").execute().data) or []
         found.update(str(r["test_id"]) for r in rows
-                     if r.get("class_assignment_item_id") and is_resume_active(r))
+                     if r.get("class_assignment_item_id") and is_resume_active(r, now=now))
     return found
 
 
-def paper_open_for_self_practice(db, rows: List[Dict[str, Any]], user_id: Optional[str] = None) -> Set[str]:
+def paper_open_for_self_practice(db, rows: List[Dict[str, Any]], user_id: Optional[str] = None,
+                                 now=None) -> Set[str]:
     """Item ids of `rows` (elements of `_visible_assignments`) whose paper is
     open for self-practice now. Writing rows never are (no G08 bank yet).
 
@@ -150,7 +153,7 @@ def paper_open_for_self_practice(db, rows: List[Dict[str, Any]], user_id: Option
     papers = open_papers(db, by_skill)
     if user_id:
         for skill in _ATTEMPTS:
-            for paper_id in papers_with_homework_attempt(db, user_id, skill, papers[skill]):
+            for paper_id in papers_with_homework_attempt(db, user_id, skill, papers[skill], now=now):
                 papers[skill].pop(paper_id, None)
     open_ids: Set[str] = set()
     for r in ledger:
@@ -214,6 +217,6 @@ def self_practice(db, *, student: Dict[str, Any], item_id: str, now,
         open_papers(db, {skill: {paper_id}})[skill].get(paper_id) if paper_id else None)
     if not paper:
         raise SelfPracticeError(422, *PAPER_UNAVAILABLE)
-    if user_id and papers_with_homework_attempt(db, user_id, skill, [paper_id]):
+    if user_id and papers_with_homework_attempt(db, user_id, skill, [paper_id], now=now):
         raise SelfPracticeError(409, *HOMEWORK_IN_PROGRESS)
     return {"skill": skill, "launch": launch_for(skill, assignment, paper)}

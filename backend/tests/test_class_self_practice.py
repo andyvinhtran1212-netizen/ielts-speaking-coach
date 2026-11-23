@@ -236,7 +236,7 @@ def test_paper_open_flags_only_open_papers_in_one_read_per_skill():
     })
     rows = [_row("i1", "listening"), _row("i2", "listening", assignment_id="a2"),
             _row("i3", "reading", assignment_id="a3"), _row("i4", "writing", assignment_id="w")]
-    assert csp.paper_open_for_self_practice(db, rows) == {"i1", "i3"}
+    assert csp.paper_open_for_self_practice(db, rows, now=NOW) == {"i1", "i3"}
     assert db.reads.count("listening_public_practice_catalog") == 1
     assert db.writes == []
 
@@ -377,7 +377,7 @@ def test_paper_outside_the_canonical_catalog_is_unavailable(skill):
     base row is published and public."""
     db = _db(skill, papers=[])
     assert _error(db) == (422, "self_practice_paper_unavailable")
-    assert csp.paper_open_for_self_practice(db, [_row("item-1", skill)], "u-1") == set()
+    assert csp.paper_open_for_self_practice(db, [_row("item-1", skill)], "u-1", now=NOW) == set()
     assert "listening_tests" not in db.reads and "reading_tests" not in db.reads
 
 
@@ -386,7 +386,7 @@ def test_resumable_homework_attempt_on_the_paper_blocks_self_practice(skill):
     paper = {"listening": "L1", "reading": "R1"}[skill]
     db = _db(skill, attempts=[_attempt(paper)])
     assert _error(db) == (409, "homework_attempt_in_progress")
-    assert csp.paper_open_for_self_practice(db, [_row("item-1", skill)], "u-1") == set()
+    assert csp.paper_open_for_self_practice(db, [_row("item-1", skill)], "u-1", now=NOW) == set()
     assert db.writes == []
 
 
@@ -399,7 +399,7 @@ def test_resumable_homework_attempt_on_the_paper_blocks_self_practice(skill):
 def test_non_resumable_or_unlinked_attempts_do_not_block(over):
     db = _db("reading", attempts=[_attempt("R1", **over)])
     assert _call(db)["skill"] == "reading"
-    assert csp.paper_open_for_self_practice(db, [_row("item-1", "reading")], "u-1") == {"item-1"}
+    assert csp.paper_open_for_self_practice(db, [_row("item-1", "reading")], "u-1", now=NOW) == {"item-1"}
 
 
 def test_read_api_hides_the_button_while_a_homework_attempt_is_resumable(monkeypatch):
@@ -410,3 +410,19 @@ def test_read_api_hides_the_button_while_a_homework_attempt_is_resumable(monkeyp
     item = sa.get_assigned("u-1", "A", NOW)["items"][0]
     assert item["self_practice_available"] is False
     assert item["action"] == "none"
+
+
+def test_attempt_expiry_is_judged_at_the_callers_now_not_the_real_clock():
+    """Review 7112015108: the expiry check used the real clock while the rest of
+    the call used `now`, so these tests would start failing once the real clock
+    passed FUTURE. The attempt expires at FUTURE (NOW + 1 day): it blocks at
+    NOW and no longer blocks at NOW + 2 days, whatever the real clock says."""
+    later = NOW + timedelta(days=2)
+    rows = [_row("item-1", "reading")]
+    db = _db("reading", attempts=[_attempt("R1")])
+    assert csp.paper_open_for_self_practice(db, rows, "u-1", now=NOW) == set()
+    assert csp.paper_open_for_self_practice(db, rows, "u-1", now=later) == {"item-1"}
+    # Before the fix the second call read the real clock: it still blocked
+    # until the real clock passed FUTURE, and every call blocked after it.
+    assert csp.papers_with_homework_attempt(db, "u-1", "reading", ["R1"], now=NOW) == {"R1"}
+    assert csp.papers_with_homework_attempt(db, "u-1", "reading", ["R1"], now=later) == set()
