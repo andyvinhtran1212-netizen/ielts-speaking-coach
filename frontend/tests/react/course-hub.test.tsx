@@ -100,8 +100,8 @@ it('cards: n = 0 shows no number, n > 0 shows it, the class card is hidden witho
     class: { name: 'A1', teacher_name: 'Cô Lan', course_title: 'IELTS 6.5', repractice: [] } }));
   const again = await screen.findByRole('navigation', { name: 'Lộ trình' });
   expect(within(again).getByRole('link', { name: 'Bài được giao (3)' })).toBeTruthy();
-  // /course/class is not live yet, so its card is not drawn either.
-  expect(within(again).queryByText('Buổi học và tài liệu lớp')).toBeNull();
+  // /course/class is live since G07-T30c: with a class, the third card links there.
+  expect(within(again).getByRole('link', { name: 'Buổi học và tài liệu lớp' }).getAttribute('href')).toBe('/course/class');
   expect(screen.getByText('Lớp A1 · giáo viên Cô Lan · IELTS 6.5')).toBeTruthy();
 });
 

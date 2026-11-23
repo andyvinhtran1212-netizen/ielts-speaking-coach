@@ -1,0 +1,254 @@
+/* "Buổi học và tài liệu lớp" (LEARNERCORE-0063 amendment 6). Tokens only
+   (`--av2-*`); the G03 components bring their own styles. The legacy my-class
+   CSS stays loaded on this route group, so every colour, margin and link rule
+   is explicit. Desktop: sessions left, the open session right. Phone (sheet
+   screen 4): the list first, then the open session with "‹ Danh sách buổi". */
+
+.page {
+  background: var(--av2-paper);
+  color: var(--av2-ink);
+  box-sizing: border-box;
+}
+
+.main {
+  box-sizing: border-box;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: var(--av2-space-6) var(--av2-space-4) var(--av2-space-10);
+  display: grid;
+  gap: var(--av2-space-6);
+}
+
+.header,
+.summaryText,
+.rowText,
+.block,
+.detail {
+  display: grid;
+  gap: var(--av2-space-2);
+  min-width: 0;
+}
+
+.heading,
+.className,
+.detailTitle {
+  margin: 0;
+  font-family: var(--av2-font-serif);
+  line-height: var(--av2-lh-tight);
+  font-weight: var(--av2-fw-strong);
+  color: var(--av2-ink);
+}
+
+.heading { font-size: var(--av2-fs-24); }
+.className,
+.detailTitle { font-size: var(--av2-fs-20); }
+
+.lead,
+.meta,
+.empty,
+.body {
+  margin: 0;
+  font-size: var(--av2-fs-14);
+  line-height: var(--av2-lh-body);
+  color: var(--av2-muted);
+}
+
+.empty,
+.body {
+  font-size: var(--av2-fs-15);
+  color: var(--av2-ink);
+}
+
+.body :global(p) { margin: 0 0 var(--av2-space-2); }
+.body :global(a) { color: var(--av2-link); }
+
+.cards {
+  display: flex;
+  gap: var(--av2-space-3);
+  overflow-x: auto;
+}
+
+.card {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--av2-row);
+  padding: 0 var(--av2-space-4);
+  border: var(--av2-rule-w) solid var(--av2-rule);
+  color: var(--av2-ink);
+  text-decoration: none;
+  font-size: var(--av2-fs-15);
+}
+
+.card[aria-current='page'] {
+  border-color: var(--av2-ink);
+  font-weight: var(--av2-fw-strong);
+}
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--av2-space-4);
+  padding-bottom: var(--av2-space-4);
+  border-bottom: var(--av2-rule-w) solid var(--av2-rule);
+}
+
+.learned {
+  margin: 0;
+  font-size: var(--av2-fs-15);
+  font-weight: var(--av2-fw-strong);
+  color: var(--av2-ink);
+}
+
+.picker { min-width: 220px; }
+
+.split {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(0, 2fr);
+  gap: var(--av2-space-6);
+  align-items: start;
+}
+
+.sessions {
+  display: grid;
+  gap: var(--av2-space-3);
+  scroll-margin-top: var(--av2-space-6);
+}
+
+.sessionList,
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--av2-space-2);
+}
+
+.session {
+  width: 100%;
+  display: grid;
+  gap: var(--av2-space-1);
+  padding: var(--av2-space-3);
+  border: var(--av2-rule-w) solid var(--av2-rule);
+  background: var(--av2-paper);
+  color: var(--av2-ink);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.session[aria-current='true'] {
+  border-color: var(--av2-ink);
+  box-shadow: inset 3px 0 0 var(--av2-ink);
+}
+
+.sessionNo,
+.kind {
+  font-size: var(--av2-fs-13);
+  color: var(--av2-muted);
+}
+
+.title {
+  font-size: var(--av2-fs-15);
+  color: var(--av2-ink);
+  overflow-wrap: anywhere;
+}
+
+.detail {
+  gap: var(--av2-space-4);
+  scroll-margin-top: var(--av2-space-6);
+}
+
+.back {
+  display: none;
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--av2-link);
+  font: inherit;
+  font-size: var(--av2-fs-14);
+  cursor: pointer;
+}
+
+.block {
+  padding-top: var(--av2-space-4);
+  border-top: var(--av2-rule-w) solid var(--av2-rule);
+}
+
+.blockHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--av2-space-2);
+}
+
+.blockTitle {
+  margin: 0;
+  font-size: var(--av2-fs-16);
+  font-weight: var(--av2-fw-strong);
+  color: var(--av2-ink);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--av2-space-4);
+  min-height: var(--av2-row);
+  padding-bottom: var(--av2-space-2);
+  border-bottom: var(--av2-rule-w) solid var(--av2-rule);
+}
+
+.linkButton {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 var(--av2-space-3);
+  border: var(--av2-rule-w) solid var(--av2-ink);
+  color: var(--av2-ink);
+  text-decoration: none;
+  font-size: var(--av2-fs-14);
+}
+
+.more {
+  color: var(--av2-link);
+  font-size: var(--av2-fs-14);
+}
+
+/* Text says the state; colour only repeats it. */
+.warn,
+.overdue {
+  color: var(--av2-danger);
+  font-size: var(--av2-fs-14);
+}
+
+.overdue { font-weight: var(--av2-fw-strong); }
+
+.card:focus-visible,
+.session:focus-visible,
+.back:focus-visible,
+.linkButton:focus-visible,
+.more:focus-visible {
+  outline: 2px solid var(--av2-focus);
+  outline-offset: var(--av2-focus-offset);
+}
+
+@media (max-width: 767px) {
+  .main {
+    padding: var(--av2-space-4) var(--av2-space-4) calc(var(--av2-space-10) + var(--av2-bottombar-h));
+  }
+
+  .split { grid-template-columns: minmax(0, 1fr); }
+  .back { display: inline; }
+  .picker { min-width: 0; width: 100%; }
+
+  .row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
