@@ -210,6 +210,9 @@ describe('admin users model — hostile and partial payloads', () => {
     assert.equal(activeAssignmentCount(assigned), 1);
     // FR-055: revoke is the last "⋯" item and is refused while the code is in use.
     assert.match(CODES, /label: 'Thu hồi mã',[\s\S]+disabledReason: activeAssignments > 0 \? [^:]+: code\.association_lookup_failed \?/);
+    // A legacy code with only used_by has no active assignment but is still used.
+    assert.equal(codeLedgerState(fallback).state, 'used');
+    assert.match(CODES, /: entry\?\.state === 'used' \? 'Mã đã dùng; không thu hồi từ sổ mã\.' : undefined/);
   });
 
   test('filters and sorts users and codes using the legacy semantics', () => {

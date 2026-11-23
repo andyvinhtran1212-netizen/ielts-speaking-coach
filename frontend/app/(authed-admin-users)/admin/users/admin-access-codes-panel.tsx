@@ -306,8 +306,12 @@ export function AdminAccessCodesPanel({ profileId, cohorts, cohortsError, expiri
                   {
                     label: 'Thu hồi mã',
                     danger: true,
+                    // A legacy code with only used_by (no active assignment)
+                    // is still "Đã dùng": revoking a used code needs a reason,
+                    // so it is not done from this menu.
                     disabledReason: activeAssignments > 0 ? 'Mã đang có người dùng; gỡ người dùng trước.'
-                      : code.association_lookup_failed ? 'Không xác minh được người đang dùng mã.' : undefined,
+                      : code.association_lookup_failed ? 'Không xác minh được người đang dùng mã.'
+                        : entry?.state === 'used' ? 'Mã đã dùng; không thu hồi từ sổ mã.' : undefined,
                     onSelect: () => setConfirm({
                       title: 'Thu hồi mã',
                       body: `Thu hồi mã ${code.code}? Hành động này không thể khôi phục.`,

@@ -321,13 +321,12 @@ check('fallback owner chỉ là lịch sử, không có nút gỡ',
   await legacyRow.getByText('lịch sử kích hoạt', { exact: true }).count() === 1
     && await legacyRow.getByRole('button', { name: 'Gỡ', exact: true }).count() === 0);
 menu = await openMenu('LEGACY-004');
-check('fallback-only code vẫn cho thu hồi', await menu.getByRole('menuitem', { name: /Thu hồi mã/ }).getAttribute('aria-disabled') === null);
-await menu.getByRole('menuitem', { name: /Thu hồi mã/ }).click();
-await page.getByRole('button', { name: 'Thu hồi', exact: true }).last().click();
-await page.getByText('Đã thu hồi mã.', { exact: true }).waitFor({ state: 'visible' });
-check('fallback-only code thu hồi qua backend rồi canonical reload',
-  writeHasLaterRead('DELETE', /^\/admin\/access-codes\/c4$/, '/admin/access-codes')
-    && await stateOf('LEGACY-004').getAttribute('data-ledger-state') === 'revoked');
+const legacyRevoke = menu.getByRole('menuitem', { name: /Thu hồi mã/ });
+check('mã legacy chỉ có used_by vẫn là Đã dùng: Thu hồi bị khóa kèm lý do',
+  await legacyRevoke.getAttribute('aria-disabled') === 'true'
+    && /Mã đã dùng; không thu hồi từ sổ mã\./.test(await legacyRevoke.innerText())
+    && await stateOf('LEGACY-004').getAttribute('data-ledger-state') === 'used');
+await page.keyboard.press('Escape');
 
 menu = await openMenu('ACTIVE-001');
 await menu.getByRole('menuitem', { name: 'Sửa quyền' }).click();
@@ -364,20 +363,25 @@ check('refill POST tạo mã mới rồi canonical reload',
     && await page.getByText('REFILL-005', { exact: true }).count() === 1);
 
 menu = await openMenu('ACTIVE-001');
-await menu.getByRole('menuitem', { name: /Thu hồi mã/ }).click();
-await page.getByRole('button', { name: 'Thu hồi', exact: true }).last().click();
-await page.getByText('Đã thu hồi mã.', { exact: true }).waitFor({ state: 'visible' });
-check('thu hồi DELETE rồi sổ hiện Đã thu hồi sau canonical reload',
-  writeHasLaterRead('DELETE', /^\/admin\/access-codes\/c1$/, '/admin/access-codes')
-    && await stateOf('ACTIVE-001').getAttribute('data-ledger-state') === 'revoked');
+check('gỡ hết người dùng rồi mã vẫn Đã dùng, Thu hồi vẫn khóa',
+  await menu.getByRole('menuitem', { name: /Thu hồi mã/ }).getAttribute('aria-disabled') === 'true');
+await page.keyboard.press('Escape');
 
 await page.getByRole('combobox', { name: 'Trạng thái', exact: true }).selectOption('expired');
 await page.getByText('LATE-006', { exact: true }).waitFor({ state: 'visible' });
 check('lọc Hết hạn nhập chỉ còn mã quá hạn chưa dùng',
   await page.locator('[data-ledger-state]').count() === 1);
+menu = await openMenu('LATE-006');
+await menu.getByRole('menuitem', { name: /Thu hồi mã/ }).click();
+await page.getByRole('button', { name: 'Thu hồi', exact: true }).last().click();
+await page.getByText('Đã thu hồi mã.', { exact: true }).waitFor({ state: 'visible' });
+check('thu hồi mã hết hạn nhập chưa dùng: DELETE rồi canonical reload',
+  writeHasLaterRead('DELETE', /^\/admin\/access-codes\/c6$/, '/admin/access-codes'));
+
 await page.getByRole('combobox', { name: 'Trạng thái', exact: true }).selectOption('revoked');
 await page.getByText('OLD-003', { exact: true }).waitFor({ state: 'visible' });
-check('filter revoked vẫn cho audit lịch sử', await page.getByText('ACTIVE-001', { exact: true }).count() === 1);
+check('lọc Đã thu hồi hiện mã vừa thu hồi để tra lịch sử',
+  await stateOf('LATE-006').getAttribute('data-ledger-state') === 'revoked');
 await page.getByRole('combobox', { name: 'Trạng thái', exact: true }).selectOption('');
 
 const desktop = await page.evaluate(() => ({ client: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth, right: document.querySelector('.au-shell')?.getBoundingClientRect().right || 0 }));
