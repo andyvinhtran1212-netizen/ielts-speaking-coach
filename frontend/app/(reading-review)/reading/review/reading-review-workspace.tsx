@@ -31,6 +31,9 @@ import {
   splitReviewSteps,
 } from '@/lib/reading-review-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
+import { onlyWrongFromSearch, withOnlyWrong } from '@/lib/review-v2-model.mjs';
+import { useReviewV2 } from '@/components/review-v2/review-v2-context';
+import { ReviewNote, useReviewNotes } from '@/components/review-v2/review-note';
 import {
   ReviewAnswerChoiceText,
   ReviewContextNotice,
@@ -230,7 +233,7 @@ function LegacySteps({ value }: { value: unknown }) {
   return <p>{proseNodes(value)}</p>;
 }
 
-function QuestionCard({ item, expanded, selected, preview, attemptId, anonId, evidenceSelection, webExplanationAccess, onToggle, onLocate, onStartEvidenceSelection }: {
+function QuestionCard({ item, expanded, selected, preview, attemptId, anonId, evidenceSelection, webExplanationAccess, flagged, note, onToggle, onLocate, onStartEvidenceSelection }: {
   item: any;
   expanded: boolean;
   selected: boolean;
@@ -239,6 +242,10 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, anonId, ev
   anonId: string | null;
   evidenceSelection: EvidenceSelection | null;
   webExplanationAccess: unknown;
+  /** FR-109: the caller already flagged this question in this attempt. */
+  flagged: boolean;
+  /** FR-106: "Ghi chú của bạn" (new tree, signed-in attempt only), else null. */
+  note: ReactNode;
   onToggle(): void;
   onLocate(excerpt: string): void;
   onStartEvidenceSelection(): void;
@@ -271,11 +278,12 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, anonId, ev
           attemptId,
           qNum: item.q_num,
           anonId,
+          flagged,
         });
       }
     });
     return () => { disposed = true; };
-  }, [anonId, attemptId, item.q_num, preview]);
+  }, [anonId, attemptId, flagged, item.q_num, preview]);
 
   const toggleFromKeyboard = (event: KeyboardEvent<HTMLDivElement>) => {
     if ((event.key === 'Enter' || event.key === ' ') && !(event.target as HTMLElement).closest('button')) {
@@ -384,7 +392,8 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, anonId, ev
         onStartReadingSelection={onStartEvidenceSelection}
         correctionRequired={!item.correct}
       /> : null}
-    </div> : null}
+      {note}
+    </div> : note}
   </article>;
 }
 
@@ -492,6 +501,7 @@ export function ReadingReviewWorkspace() {
   const [evidenceSelections, setEvidenceSelections] = useState<Record<number, EvidenceSelection>>({});
   const [expanded, setExpanded] = useState<Set<number>>(() => new Set());
   const [filter, setFilter] = useState<ReviewFilter>('all');
+  const v2 = useReviewV2().enabled;
   const surveyRef = useRef<HTMLDivElement | null>(null);
   const reviewHeaderRef = useRef<HTMLElement | null>(null);
   const requestRef = useRef(0);
@@ -578,7 +588,10 @@ export function ReadingReviewWorkspace() {
         const firstItem = firstWrong || normalized.review[0];
         setCurrentPart(firstItem.passage_order);
         setCurrentQuestion(firstItem.q_num);
-        setFilter(normalized.preview ? 'all' : (firstWrong ? 'wrong' : 'all'));
+        // New tree (FR-105): the filter follows `?only=wrong`, so a reload keeps it.
+        setFilter(normalized.preview ? 'all'
+          : v2 ? (onlyWrongFromSearch(window.location.search) ? 'wrong' : 'all')
+          : (firstWrong ? 'wrong' : 'all'));
         setMode('original');
         setPhase('ready');
       } catch (caught) {
@@ -599,6 +612,8 @@ export function ReadingReviewWorkspace() {
     })();
 
     return () => controller.abort();
+    // v2 is fixed for the workspace's life (the frame mounts it once, in its final tree).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ownerKey, params, status, user?.id]);
 
   useEffect(() => {
@@ -613,6 +628,21 @@ export function ReadingReviewWorkspace() {
   const skills = useMemo(() => readingReviewSkillRows(data?.skillBreakdown, SKILL_LABELS, data?.review), [data]);
   const totals = useMemo(() => readingReviewTotals(data?.review), [data]);
   const wrongCount = totals.incorrect + totals.blank;
+  // The new tree sits inside LearnerShell, which owns the page's <main> and banner.
+  const MainTag = v2 ? 'div' : 'main';
+  // FR-106: no note box on an anonymous share link or a preview.
+  const notesEnabled = v2 && phase === 'ready' && Boolean(data?.attemptId) && !data?.preview && !params?.anonId;
+  const notes = useReviewNotes('reading', notesEnabled ? data!.attemptId : null, notesEnabled);
+  const flaggedSet = useMemo(() => new Set<number>(data?.myFlaggedQNums || []), [data]);
+
+  // FR-105: the new tree writes the filter into `?only=wrong` (replace, no history entry).
+  useEffect(() => {
+    if (!v2 || phase !== 'ready' || data?.preview) return;
+    const next = withOnlyWrong(window.location.href, filter === 'wrong');
+    if (next !== `${window.location.pathname}${window.location.search}${window.location.hash}`) {
+      window.history.replaceState(window.history.state, '', next);
+    }
+  }, [data?.preview, filter, phase, v2]);
 
   useEffect(() => {
     const host = surveyRef.current;
@@ -652,7 +682,7 @@ export function ReadingReviewWorkspace() {
   }, []);
 
   return <>
-    <header className="exam-topbar rr-topbar" role="banner">
+    <header className="exam-topbar rr-topbar" role={v2 ? undefined : 'banner'}>
       <div className="rr-topbar__left">
         <a className="rr-back" href={back.href}>{back.label}</a>
         <span className="rr-test-label">{data?.title || 'Chữa bài'}</span>
@@ -671,12 +701,12 @@ export function ReadingReviewWorkspace() {
       </div>
     </header>
 
-    {phase === 'loading' ? <main className="exam-state-shell"><p className="exam-state-msg" role="status">Đang tải chữa bài…</p></main> : null}
-    {phase === 'empty' ? <main className="exam-state-shell"><p className="exam-state-msg">Không tìm thấy bài làm để chữa.</p></main> : null}
-    {phase === 'error' ? <main className="exam-state-shell"><div className="reading-review-next-error" role="alert"><p className="exam-state-msg exam-state-msg--error">{error}</p><a href={back.href}>{back.label}</a></div></main> : null}
+    {phase === 'loading' ? <MainTag className="exam-state-shell"><p className="exam-state-msg" role="status">Đang tải chữa bài…</p></MainTag> : null}
+    {phase === 'empty' ? <MainTag className="exam-state-shell"><p className="exam-state-msg">Không tìm thấy bài làm để chữa.</p></MainTag> : null}
+    {phase === 'error' ? <MainTag className="exam-state-shell"><div className="reading-review-next-error" role="alert"><p className="exam-state-msg exam-state-msg--error">{error}</p><a href={back.href}>{back.label}</a></div></MainTag> : null}
 
     {phase === 'ready' && data ? <>
-      <main className="exam-split">
+      <MainTag className="exam-split">
         <PassagePane
           passage={passage}
           practiceReview={data.practiceReview}
@@ -706,7 +736,7 @@ export function ReadingReviewWorkspace() {
               : `${totals.incorrect} câu sai · ${totals.blank} câu bỏ trống · ${totals.correct} câu đúng. ${wrongCount ? 'Bắt đầu từ câu sai, tự định vị bằng chứng rồi mới mở lời giải.' : 'Bạn đã trả lời đúng toàn bộ bài này.'}`}</p></div>
             {!data.preview ? <div className="rr-filter" role="group" aria-label="Lọc kết quả câu hỏi">{([
               ['wrong', 'Cần xem lại'], ['blank', 'Bỏ trống'], ['all', 'Tất cả'], ['correct', 'Đúng'],
-            ] as [ReviewFilter, string][]).map(([value, label]) => <button type="button" className={`rr-filter__button${filter === value ? ' is-active' : ''}`} aria-pressed={filter === value} onClick={() => setFilter(value)} key={value}>{label}</button>)}</div> : null}
+            ] as [ReviewFilter, string][]).map(([value, label]) => <button type="button" className={`rr-filter__button${filter === value ? ' is-active' : ''}`} aria-pressed={filter === value} onClick={() => setFilter(value)} key={value}>{label}</button>)}{v2 ? <button type="button" className={`rr-filter__button rr-filter__only-wrong${filter === 'wrong' ? ' is-active' : ''}`} aria-pressed={filter === 'wrong'} onClick={() => setFilter(filter === 'wrong' ? 'all' : 'wrong')}>Chỉ câu sai</button> : null}</div> : null}
           </header>
           <div className="rr-review-tools">
             <span>Passage {currentPart} · {currentItems.length} câu đang hiển thị</span>
@@ -730,6 +760,11 @@ export function ReadingReviewWorkspace() {
             anonId={params?.anonId || null}
             evidenceSelection={evidenceSelections[item.q_num] || null}
             webExplanationAccess={data.webExplanationAccess}
+            flagged={flaggedSet.has(item.q_num)}
+            note={notesEnabled && (notes.status === 'loading' || notes.status === 'ready')
+              ? <ReviewNote skill="reading" attemptId={data.attemptId} qNum={item.q_num}
+                stored={notes.notes.get(item.q_num) ?? null} loading={notes.status === 'loading'} />
+              : null}
             onToggle={() => {
               setCurrentQuestion(item.q_num);
               setExpanded((previous) => {
@@ -750,10 +785,12 @@ export function ReadingReviewWorkspace() {
               });
             }}
             key={item.q_num}
-          />) : <p className="exam-review-empty">Không có câu nào trong bộ lọc này ở Passage {currentPart}.</p>}</div>
+          />) : v2 && filter === 'wrong' && !wrongCount
+            ? <div className="exam-review-empty rv-all-correct" role="status"><p>Bạn đã trả lời đúng toàn bộ bài này.</p><button type="button" className="rr-filter__button" onClick={() => setFilter('all')}>Tất cả</button></div>
+            : <p className="exam-review-empty">Không có câu nào trong bộ lọc này ở Passage {currentPart}.</p>}</div>
           <div className="rr-review-feedback" ref={surveyRef} />
         </section>
-      </main>
+      </MainTag>
       <footer className="exam-palette" role="navigation" aria-label="Chọn câu để chữa">
         <div className="exam-palette__grid" role="group" aria-label={`${data.review.length} câu`}>{data.passages.map((part: any) => <div className="exam-palette__group" key={part.passage_order}>
           <span className="exam-palette__group-label">Passage {part.passage_order}</span>

@@ -45,7 +45,7 @@ export function normalizeReviewNotes(payload) {
   return notes;
 }
 
-/** PUT /api/review-notes → the stored state (body null after a delete). */
+/** PATCH /api/review-notes → the stored state (body null after a delete). */
 export function normalizeSavedNote(payload, qNum) {
   if (!payload || typeof payload !== 'object' || payload.q_num !== qNum) {
     throw new Error('invalid-review-note');
