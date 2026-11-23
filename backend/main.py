@@ -62,6 +62,7 @@ from routers.error_logs import router as error_logs_router
 from routers.admin_flags import router as admin_flags_router
 from routers.admin_settings import router as admin_settings_router
 from routers.admin_learners import router as admin_learners_router
+from routers.admin_search import router as admin_search_router
 from routers.admin_learner_profile import router as admin_learner_profile_router
 from routers.admin_overview import router as admin_overview_router
 from routers.admin_ai import router as admin_ai_router
@@ -296,6 +297,7 @@ app.include_router(error_logs_router)
 app.include_router(admin_flags_router)
 app.include_router(admin_settings_router)
 app.include_router(admin_learners_router)
+app.include_router(admin_search_router)
 app.include_router(admin_learner_profile_router)
 app.include_router(admin_overview_router)
 app.include_router(admin_ai_router)
@@ -647,6 +649,11 @@ _SENSITIVE_QUERY_KEYS = {
 }
 
 
+# Routes whose ``q`` is a learner search: a name, e-mail or learner code that
+# must not be stored in ``error_logs`` (ADMINIA-0074 FR-075; G09-T05 review N1).
+_LEARNER_SEARCH_ROUTES = frozenset({"/admin/search", "/instructor/search", "/admin/learners"})
+
+
 def _safe_error_request_context(request: Request) -> tuple[str, dict | None]:
     """Return a route template and redacted query values for diagnostics.
 
@@ -661,8 +668,10 @@ def _safe_error_request_context(request: Request) -> tuple[str, dict | None]:
     route_template = getattr(route, "path", None) or "<unmatched-route>"
     query = None
     if request.query_params and "/listening" not in str(route_template):
+        learner_search = str(route_template) in _LEARNER_SEARCH_ROUTES
         query = {
-            key: "[redacted]" if key.lower() in _SENSITIVE_QUERY_KEYS else value[:256]
+            key: "[redacted]" if key.lower() in _SENSITIVE_QUERY_KEYS
+            or (learner_search and key.lower() == "q") else value[:256]
             for key, value in request.query_params.items()
         }
     return str(route_template)[:500], query
