@@ -97,3 +97,18 @@ later wave.
   - `/admin/feedback → /admin`: 25,822 px. Base is wrong here; head equals the direct load (as recorded for T002).
 - Frontend contract suite: 14,143 tests, 14,142 pass, 1 fail. The failure is env-only (`hook pre-push`).
 - `npm run test:react`: pass. `tsc --noEmit`: clean after the build. `npm run build`: ok. `route-ownership-check.mjs` and `--manifest`: clean.
+
+## T004 evidence (G10-T15-3, 2026-11-23)
+
+`grammar`, `grammar-analytics`, `grammar-articles`, `grammar-recommend` and `vocab` move to `(authed-admin)/(grammar)`, `(grammar-analytics)`, `(grammar-articles)`, `(grammar-recommend)`, `(vocab)`. Each child layout adds only its page sheets with a plain `<link rel="stylesheet">` (vocab keeps `admin-vocab-next.css` then `vocabulary-workspace.css`) and keeps `export const instant = false;`. URLs and page code are unchanged. Stacked on T003 (#2535); the base for the comparison is staging `cc6dd4c8`.
+
+- `verify-admin-route-group-flow.mjs`, extended to 14 pages (the 4 grammar pages use `active="grammar"`): head **962/962**. The same verifier on base `cc6dd4c8`: 786/962; all 176 failures are "base sheets duplicated" after a client navigation between pages that do not yet share the parent layout. The 182 FR-005 observations are reported, not enforced, per amended FR-005. The verifier now opens a page whose sidebar entry is hidden (a sub-item of a collapsed section, such as `/admin/grammar/recommend-test`) with the same `router.push` it already used for pages without an entry.
+- Screenshots 1280×800, head vs base, CI fixture environment:
+  - Direct loads of all 14 pages: 0 px against the base run before this one. The second base run differs by 8 px in one box on `/admin/grammar/articles` while both head runs are identical, so that box varies on base itself.
+  - Client navigation `/admin/feedback →` `/admin/grammar`, `/admin/grammar/analytics`, `/admin/grammar/recommend-test`, `/admin/vocab`, `/admin/users`, `/admin/classes`: 0 px. `/admin/grammar/analytics → /admin/grammar` and `/admin/grammar → /admin/vocab`: 0 px.
+  - `/admin/feedback → /admin/grammar/articles`: 30 px; head equals its own direct load (0 px), so the difference is on base.
+  - `/admin/feedback → /admin/usage` and `→ /admin/instructors`: 19 px each, the same box at the top right ("Làm mới" button transition). It differs the same way between head client navigation and head direct load.
+  - `/admin/feedback → /admin/students`: 1 px. `/admin/grammar → /admin/grammar/analytics`: 8 px in a 6×3 box. Head and base both differ from the direct load there by the same order (previous page's own sheet left by `cacheComponents`, FR-005 observation).
+  - `/admin/feedback → /admin`: 25,822 px. Base is wrong here; head equals the direct load (as recorded for T002).
+- Frontend contract suite: 14,126 tests, 14,125 pass, 1 fail. The failure is env-only (`hook pre-push`).
+- `npm run test:react`: pass. `tsc --noEmit`: clean. `npm run build`: ok. `route-ownership-check.mjs` and `--manifest`: clean.

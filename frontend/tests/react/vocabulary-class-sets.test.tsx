@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, expect, it, vi } from 'vitest';
 import { VocabularyHubBehavior } from '@/app/(authed-vocabulary-hub)/vocabulary/hub/vocabulary-hub-behavior';
 import { VocabularyStudy } from '@/app/(authed-vocabulary-hub)/vocabulary/study/[sessionId]/study';
-import { AdminVocabularySetEditor } from '@/app/(authed-admin-vocab)/admin/vocab/sets/sets-console';
+import { AdminVocabularySetEditor } from '@/app/(authed-admin)/(vocab)/admin/vocab/sets/sets-console';
 import { VocabularySetDetail } from '@/app/(authed-vocabulary-hub)/vocabulary/sets/[setId]/set-detail';
 import { FlashcardStudyPlayer } from '@/app/(flashcard-study)/flashcard-study/flashcard-study-player';
 
