@@ -227,7 +227,7 @@ ROUTES = [
     # G09-T03: learner detail through services/staff_scope (path param is {ref}).
     ("GET",    "/instructor/learners/{id}",            "read1",  f"s-{SA}", None, None),
     # G09-T05: quick search through services/staff_scope; a_id is the query.
-    ("GET",    "/instructor/search",                   "search", "SA", None, None),
+    ("POST",   "/instructor/search",                   "search", "SA", None, None),
 ]
 
 
@@ -268,7 +268,7 @@ def _as(me, store):
 
 def _call(client, method, path, a_id, body):
     if path.endswith("/search"):
-        return client.request(method, path, params={"q": a_id}, headers={"Authorization": "Bearer x"})
+        return client.request(method, path, json={"q": a_id}, headers={"Authorization": "Bearer x"})
     if a_id and "{id}" in path:
         path = path.replace("{id}", a_id)
     return client.request(method, path, json=body, headers={"Authorization": "Bearer x"})
@@ -376,10 +376,10 @@ def test_search_teacher_of_class_b_gets_nothing_from_class_a():
         row["cohort_id"] = cohort
     with _as(B, store) as (client, _st):
         for q in ("SA", "lop", "sb"):
-            r = client.get("/instructor/search", params={"q": q}, headers={"Authorization": "Bearer x"})
+            r = client.post("/instructor/search", json={"q": q}, headers={"Authorization": "Bearer x"})
             _assert_search_hides_a(r)
-        own = client.get("/instructor/search", params={"q": "sb"}, headers={"Authorization": "Bearer x"}).json()
-        lop = client.get("/instructor/search", params={"q": "lop"}, headers={"Authorization": "Bearer x"}).json()
+        own = client.post("/instructor/search", json={"q": "sb"}, headers={"Authorization": "Bearer x"}).json()
+        lop = client.post("/instructor/search", json={"q": "lop"}, headers={"Authorization": "Bearer x"}).json()
     assert [row["title"] for row in own["learners"]] == ["SB"]
     assert [row["href"] for row in own["submissions"]] == [f"/instructor/grade?essay_id={EB}"]
     assert [row["title"] for row in lop["classes"]] == ["Lop B"]
@@ -390,7 +390,7 @@ def test_search_teacher_without_a_class_gets_empty_groups_not_403():
     store["users"].append({"id": _u(3), "role": "instructor"})
     with _as(_u(3), store) as (client, _st):
         for q in ("SA", "SB", "lop"):
-            r = client.get("/instructor/search", params={"q": q}, headers={"Authorization": "Bearer x"})
+            r = client.post("/instructor/search", json={"q": q}, headers={"Authorization": "Bearer x"})
             assert r.status_code == 200, r.text
             body = r.json()
             assert body["learners"] == body["classes"] == body["submissions"] == [], body

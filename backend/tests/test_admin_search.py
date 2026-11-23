@@ -14,6 +14,7 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi import HTTPException
 
+from models.admin_search import SearchIn
 from routers import admin_search as mod
 from services import admin_learner_directory as directory
 from services import admin_search, staff_scope, test_data_visibility
@@ -57,12 +58,12 @@ def db(monkeypatch):
 
 
 def _admin(q):
-    return asyncio.run(mod.search_admin(q=q, authorization="Bearer x"))
+    return asyncio.run(mod.search_admin(body=SearchIn(q=q), authorization="Bearer x"))
 
 
 def _teacher(monkeypatch, db, user_id, q):
     _as(monkeypatch, db, user_id)
-    return asyncio.run(mod.search_instructor(q=q, authorization="Bearer x"))
+    return asyncio.run(mod.search_instructor(body=SearchIn(q=q), authorization="Bearer x"))
 
 
 def _titles(out, group):
@@ -280,3 +281,19 @@ def test_a_teacher_sees_only_class_work_their_grading_page_opens(db, monkeypatch
     assert hrefs() == ["/instructor/grade?essay_id=e-class"]
     lan["instructor_id"] = U_TEACH            # the teacher's own Writing learner
     assert hrefs() == ["/instructor/grade?essay_id=e-by-admin", "/instructor/grade?essay_id=e-class"]
+
+
+def test_the_query_travels_in_the_body_never_in_the_url(db):
+    """#2450 gate: the platform's HTTP log keeps request URLs, so the search
+    routes accept only POST with ``{"q": ...}``; a GET with ``?q=`` is refused
+    before any search runs."""
+    from fastapi.testclient import TestClient
+    from main import app
+
+    client = TestClient(app)
+    for path in ("/admin/search", "/instructor/search"):
+        assert client.get(path, params={"q": "lan"}).status_code == 405
+    ok = client.post("/admin/search", json={"q": "lan"}, headers={"Authorization": "Bearer x"})
+    assert ok.status_code == 200 and _titles(ok.json(), "learners") == ["Nguyễn Thị Lan"]
+    assert client.post("/admin/search", json={"q": "x" * 129},
+                       headers={"Authorization": "Bearer x"}).status_code == 422
