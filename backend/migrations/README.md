@@ -55,6 +55,14 @@ per-user write takes a transaction advisory lock; a trigger ties an order's
 same run. The rollback drops the RPCs, keeps every table and row, and refuses
 while `credit_ledger` has rows unless `aver.allow_commerce_rollback = 'on'`.
 `380` is Skill Drill homework, #2294.
+`394` is `pending_feature course_open_alerts` (ENROLL-0060 T22, G05 band 390–399,
+plan 5.7): `course_open_alerts` (one row per product and lower(email), single-use
+unsubscribe token) and the counter `course_open_alert_attempts` (per account
+when signed in, per hashed IP for a guest; stale rows removed as calls arrive), both
+RLS-on with SELECT only for service_role, plus the service_role-only RPCs
+subscribe, unsubscribe, for_user, enqueue (G04 sweep), rekey (email change) and
+send_check (G04 dispatcher). Needs 383. It is not part of the #2450
+`course_commerce` run. The rollback drops the functions, then both tables.
 `400` is `pending_feature public_library` (LIBRARY-0061 T002, G06 band 400–419):
 five RLS-only Library tables reached only through service_role and the private
 `library-media` bucket guarded by a RESTRICTIVE `storage.objects` policy; the schema

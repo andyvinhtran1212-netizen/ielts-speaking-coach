@@ -11625,6 +11625,41 @@ export interface paths {
         patch: operations["admin_patch_feedback_status_api_admin_feedback__feedback_id__patch"];
         trace?: never;
     };
+    "/api/courses/{slug}/open-alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Subscribe Open Alert */
+        post: operations["subscribe_open_alert_api_courses__slug__open_alerts_post"];
+        /** Unsubscribe Open Alert */
+        delete: operations["unsubscribe_open_alert_api_courses__slug__open_alerts_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/open-alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My Open Alerts */
+        get: operations["my_open_alerts_api_me_open_alerts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/kp/microcheck-answers": {
         parameters: {
             query?: never;
@@ -20579,6 +20614,11 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** MyOpenAlertsOut */
+        MyOpenAlertsOut: {
+            /** Slugs */
+            slugs: string[];
+        };
         /** NextItemResponse */
         NextItemResponse: {
             /** Complete */
@@ -20724,6 +20764,21 @@ export interface components {
             snapshot_scope: "single_receipt_snapshot";
             /** Rows */
             rows: components["schemas"]["ObservationCounts"][];
+        };
+        /** OpenAlertOkOut */
+        OpenAlertOkOut: {
+            /** Ok */
+            ok: boolean;
+        };
+        /** OpenAlertSubscribeIn */
+        OpenAlertSubscribeIn: {
+            /** Email */
+            email?: string | null;
+        };
+        /** OpenAlertUnsubscribeIn */
+        OpenAlertUnsubscribeIn: {
+            /** Unsubscribe Token */
+            unsubscribe_token?: string | null;
         };
         /** OpenBody */
         OpenBody: {
@@ -44856,6 +44911,111 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminFeedbackStatusOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    subscribe_open_alert_api_courses__slug__open_alerts_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpenAlertSubscribeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpenAlertOkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unsubscribe_open_alert_api_courses__slug__open_alerts_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["OpenAlertUnsubscribeIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpenAlertOkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_open_alerts_api_me_open_alerts_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyOpenAlertsOut"];
                 };
             };
             /** @description Validation Error */
