@@ -452,6 +452,18 @@ describe('leave and abandon (FR-011, FR-012)', () => {
     render(<ExamRoomShell {...base()} />);
     expect(screen.queryByRole('button', { name: 'Abandon test' })).toBeNull();
   });
+
+  it('exit.locked hides Abandon test and closes an open abandon box (proctor collecting)', async () => {
+    const onAbandon = vi.fn(() => Promise.resolve());
+    const exit = { href: '/tests', flush: vi.fn(() => Promise.resolve({ unsaved: 0 })), losesWork: () => false, abandon: { onAbandon } };
+    const { rerender } = render(<ExamRoomShell {...base({ exit })} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Abandon test' }));
+    await screen.findByRole('alertdialog');
+    rerender(<ExamRoomShell {...base({ exit: { ...exit, locked: true } })} />);
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(screen.queryByRole('button', { name: 'Abandon test' })).toBeNull();
+    expect(onAbandon).not.toHaveBeenCalled();
+  });
 });
 
 describe('navigator (FR-006–FR-009)', () => {

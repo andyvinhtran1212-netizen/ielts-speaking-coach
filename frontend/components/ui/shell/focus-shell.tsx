@@ -162,7 +162,7 @@ export function FocusShell({
           <button type="button" className={styles.exit} aria-haspopup="dialog" onClick={requestExit}>
             <span aria-hidden="true">‹</span>{words.exit}
           </button>
-          {mode === 'exam' && onAbandon ? (
+          {mode === 'exam' && onAbandon && !leaveLocked ? (
             <button type="button" className={styles.exit} aria-haspopup="dialog" onClick={onAbandon}>
               {FOCUS_WORDS.exam.abandon}
             </button>

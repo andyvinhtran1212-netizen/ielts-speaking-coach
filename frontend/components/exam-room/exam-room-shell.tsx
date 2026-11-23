@@ -288,6 +288,8 @@ export function ExamRoomShell(props: ExamRoomShellProps) {
 
   // ---- leave (FR-011) --------------------------------------------------
   const [leaveUnsaved, setLeaveUnsaved] = useState<number | null>(null);
+  // A proctor lock (exit.locked) also closes the abandon box, unless an abandon is already running.
+  useEffect(() => { if (exit.locked && !abandoning) setAbandonOpen(false); }, [exit.locked, abandoning]);
   const hasUnsavedWork = useCallback(() => unsavedRef.current > 0 || exitRef.current.losesWork(), []);
   // Bare mode has no FocusShell, so the page-close warning lives here (FR-011).
   useEffect(() => {
@@ -508,7 +510,7 @@ export function ExamRoomShell(props: ExamRoomShellProps) {
       right={<span className={styles.barRight}>{phone ? null : saveNode}{timerNode}</span>}
       subline={phone ? saveNode : undefined}
       bottom={bottom}
-      onAbandon={abandon ? () => setAbandonOpen(true) : undefined}
+      onAbandon={abandon && !exit.locked ? () => setAbandonOpen(true) : undefined}
       leaveCopy={leaveCopy}
       onLeaveOpen={onLeaveOpen}
       beforeLeave={beforeLeave}
