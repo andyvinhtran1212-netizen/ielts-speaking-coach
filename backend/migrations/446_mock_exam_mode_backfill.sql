@@ -22,7 +22,9 @@
 --      too), so a re-run after a roster change adds nobody.
 --   5. Stored names are renamed sequential→live, retake→self_paced.
 -- Exams with is_open = true are skipped by 4 and 5 (NOTICE); re-run 446 once
--- they close. Re-runnable; postconditions at the end.
+-- they close. Re-runnable; postconditions at the end. The runner skips a file
+-- already in _schema_migrations, so a re-run is a manual psql -f under the
+-- runner's advisory lock, with the owner's approval (specs/0086 rollout.md).
 -- Rollback: rollback/446_mock_exam_mode_backfill.sql (names back, trigger and
 -- fn_set_exam_mode back; the dual-name function rewrites and audience rows
 -- stay, they are valid under both names).
