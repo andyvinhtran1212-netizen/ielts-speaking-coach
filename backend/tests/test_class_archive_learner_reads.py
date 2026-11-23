@@ -574,6 +574,10 @@ EXPECTED_CALLERS = {
     "services/quiz_service.py::_assignment_item_for": "include_archived",
     # E6 owner stamping is roster repair; E1 skips archived classes itself.
     "scripts/backfill_class_enrollment_roster.py::main": "include_archived",
+    # LEARNERCORE-0063 Today: the assigned block, same reader as my_assignments.
+    "services/student_today.py::_visible_assignments_for": "filtered",
+    # LEARNERCORE-0063 "Khoá học": the class on the course page, active classes only.
+    "services/student_course.py::_class_for": "filtered",
 }
 
 
