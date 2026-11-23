@@ -41,6 +41,7 @@ def world(monkeypatch):
     monkeypatch.setattr(credits, "fetch_cohort_converted", read("converted", "converted"))
     monkeypatch.setattr(credits, "fetch_legacy_code_features", read("legacy", "legacy"))
     monkeypatch.setattr(credits, "_metering_seen_on", False)
+    monkeypatch.setattr(credits, "_metering_last", None)
     return state
 
 
@@ -63,10 +64,27 @@ def test_1_flag_off_is_not_metered_and_logs_after_it_was_on(world, caplog):
     assert "[credits] flag_off user=u1 feature=speaking_grading" in caplog.text
 
 
-def test_1_flag_read_error_is_unavailable_not_off(world):
+def test_1_flag_read_error_before_any_read_is_unavailable_not_off(world):
     world["flag_error"] = True
     with pytest.raises(credits.CreditUnavailable):
         plan()
+
+
+@pytest.mark.parametrize("last", [False, True])
+def test_1_flag_read_error_after_a_read_uses_the_last_value(world, caplog, last):
+    """A runtime_flags outage keeps the last value read: flag off → grading
+    goes on unmetered (no 503 for everyone); flag on → still metered."""
+    world["flag"] = last
+    plan()
+    world["flag_error"] = True
+    with caplog.at_level(logging.WARNING, logger="services.credits"):
+        result = plan()
+    assert result.metered is last
+    assert result.reason == ("flag_off" if not last else "entitlement")
+    assert f"using last value={last}" in caplog.text
+    if not last:
+        with pytest.raises(credits.CreditUnavailable):          # a new feature is never free
+            plan(new_feature=True)
 
 
 def test_2_trial_wins_over_everything_after_the_flag(world):
