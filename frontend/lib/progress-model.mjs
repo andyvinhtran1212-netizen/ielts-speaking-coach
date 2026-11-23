@@ -44,14 +44,19 @@ export function writingRow(raw) {
   };
 }
 
-/** `GET /api/listening/overview` → row facts. */
+/**
+ * `GET /api/listening/overview` → row facts. The count covers the listening
+ * programmes only (full tests outside them are not in this API), so the words
+ * say so. A partial read with no programme is a failure, not "nothing done".
+ */
 export function listeningRow(raw) {
   if (!raw || typeof raw !== 'object' || !Array.isArray(raw.programmes)) return null;
+  if (raw.partial_data === true && raw.programmes.length === 0) return null;
   const done = raw.programmes.reduce((sum, p) => sum + count(p?.completed_form_count), 0);
   const recent = Array.isArray(raw.recent) ? raw.recent : [];
   const latest = recent.find((r) => r && count(r.checked_count) > 0);
   return {
-    done: done ? `${done} bài đã làm` : 'Chưa làm bài nào',
+    done: done ? `${done} bài trong lộ trình nghe` : 'Chưa làm bài nào trong lộ trình nghe',
     result: latest ? `Đúng ${count(latest.correct_count)} trên ${count(latest.checked_count)} câu` : null,
   };
 }

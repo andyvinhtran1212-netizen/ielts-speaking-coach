@@ -93,8 +93,10 @@ describe('progress model (FR-077)', () => {
   });
 
   test('Listening and vocabulary: "Đúng a trên b câu" only when b > 0', () => {
-    assert.deepEqual(listeningRow({ programmes: [], recent: [{ checked_count: 0, correct_count: 0 }] }), { done: 'Chưa làm bài nào', result: null });
-    assert.deepEqual(listeningRow({ programmes: [{ completed_form_count: 2 }], recent: [{ checked_count: 8, correct_count: 5 }] }), { done: '2 bài đã làm', result: 'Đúng 5 trên 8 câu' });
+    assert.deepEqual(listeningRow({ programmes: [], recent: [{ checked_count: 0, correct_count: 0 }] }), { done: 'Chưa làm bài nào trong lộ trình nghe', result: null });
+    assert.deepEqual(listeningRow({ programmes: [{ completed_form_count: 2 }], recent: [{ checked_count: 8, correct_count: 5 }] }), { done: '2 bài trong lộ trình nghe', result: 'Đúng 5 trên 8 câu' });
+    assert.equal(listeningRow({ programmes: [], recent: [], partial_data: true }), null);
+    assert.deepEqual(listeningRow({ programmes: [{ completed_form_count: 1 }], recent: [], partial_data: true }), { done: '1 bài trong lộ trình nghe', result: null });
     assert.deepEqual(vocabRow({ totals: { sessions: 0 }, recent_sessions: [] }), { done: 'Chưa luyện lượt nào', result: null });
     assert.equal(vocabRow({}), null);
   });

@@ -71,7 +71,7 @@ describe('/progress', () => {
     expect(screen.getByText('Gần nhất: Band 6.0')).toBeTruthy();
     expect(screen.getByText('2 bài đã nộp')).toBeTruthy();
     expect(screen.getByText('Gần nhất: Band 6.5 · 1 bài đang chấm')).toBeTruthy();
-    expect(screen.getByText('5 bài đã làm')).toBeTruthy();
+    expect(screen.getByText('5 bài trong lộ trình nghe')).toBeTruthy();
     expect(screen.getByText('Gần nhất: Đúng 7 trên 10 câu')).toBeTruthy();
     expect(screen.getByText('9 lượt luyện')).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Reading' })).toBeTruthy();
@@ -85,7 +85,19 @@ describe('/progress', () => {
     await mount();
     expect(screen.getByText('Chưa tải được số liệu Writing. Tải lại trang để thử lại.')).toBeTruthy();
     expect(screen.getByText('12 buổi đã chấm')).toBeTruthy();
-    expect(screen.getByText('5 bài đã làm')).toBeTruthy();
+    expect(screen.getByText('5 bài trong lộ trình nghe')).toBeTruthy();
+  });
+
+  it('Listening partial read with no programme marks the row as failed, not "nothing done"', async () => {
+    const saved = DATA['/api/listening/overview'];
+    DATA['/api/listening/overview'] = { programmes: [], recent: [], partial_data: true };
+    try {
+      await mount();
+      expect(screen.getByText('Chưa tải được số liệu Listening. Tải lại trang để thử lại.')).toBeTruthy();
+      expect(screen.queryByText(/Chưa làm bài nào/)).toBeNull();
+    } finally {
+      DATA['/api/listening/overview'] = saved;
+    }
   });
 
   it('410 content_expired on a row says the view period is over, no error code', async () => {
