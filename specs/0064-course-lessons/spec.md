@@ -186,7 +186,7 @@ Khoá online (G04, `course_products.kind = 'online'`) bán được nhưng chưa
 ## Dependencies
 
 - COURSEACCESS-0055 (G04):
-  - `services/entitlements.py::has_course_access`, `list_access` (lấy `status` và `expires_at`) (G04-T03), `entitlements.can_renew(product=…, state=…, expires_at=…, has_open_order=…)` (tính riêng, không có trong `AccessItem`);
+  - `services/entitlements.py::has_course_access`, `list_access` (lấy `status` và `expires_at`) (G04-T03), `entitlements.can_renew(*, product, state, expires_at, has_open_order, window_days=settings.ENROLL_RENEW_WINDOW_DAYS, now)` (tính riêng, không có trong `AccessItem`);
   - `routers/courses_public.py::_outline_for` (G04-T03).
 
   Chưa merge thì không merge T19; T18 (bảng) làm trước được.
