@@ -241,10 +241,40 @@ def test_raw_html_is_shown_as_text():
     "[bấm](//evil.example/x)",
     "![ảnh](javascript:alert(1))",
     "[bấm](&#106;avascript:alert(1))",
+    "[bấm](/\\evil.com)",
+    "[bấm](/&#9;/evil.com)",
+    "[bấm](/&#10;/evil.com)",
+    "![ảnh](/\\evil.com/x.png)",
 ])
 def test_unsafe_urls_are_neutralised(md):
     out = library_guides.render_guide(md, {})["html"]
-    assert "javascript" not in out.lower() and "data:" not in out and "//evil" not in out
+    assert "javascript" not in out.lower() and "data:" not in out and "evil" not in out
+
+
+def test_guide_text_that_looks_like_a_placeholder_is_kept():
+    out = library_guides.render_guide("Chữ AVERSAMPLECITE9Z và AVERCITE00N9Z ở đây.", {})["html"]
+    assert "AVERSAMPLECITE9Z" in out and "AVERCITE00N9Z" in out
+
+
+SAMPLES = {"a": {"slug": "a", "title_en": "Alpha", "essays": {"7.5": {"text": "Q."}}}}
+
+
+def test_citation_inside_a_link_url_stays_literal():
+    out = library_guides.render_guide("[xem]([[sample:a#7.5]]) tiếp", SAMPLES)["html"]
+    assert out.count("<a") == 1 and "sample-cite" not in out
+    assert 'href="#"' in out
+
+
+def test_citation_inside_code_stays_literal():
+    out = library_guides.render_guide("Viết `[[sample:a#7.5]]` như sau.\n\n```\n[[sample:a#7.0]]\n```", SAMPLES)["html"]
+    assert "sample-cite" not in out and "<a" not in out
+    assert out.count("[[sample:a#7.5]]") == 1 and out.count("[[sample:a#7.0]]") == 1
+
+
+def test_citation_in_heading_is_left_out_of_contents():
+    out = library_guides.render_guide("## Xem [[sample:a#7.5]] nhé", SAMPLES)
+    assert out["toc"][0] == {"id": "xem-nhe", "label": "Xem nhé", "n": "1"}
+    assert "sample-cite-link" in out["html"]
 
 
 def test_safe_urls_are_kept():

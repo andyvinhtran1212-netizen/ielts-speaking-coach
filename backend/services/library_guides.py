@@ -21,6 +21,7 @@ from __future__ import annotations
 import html
 import math
 import re
+import secrets
 import unicodedata
 from typing import Any, Callable, Optional
 from urllib.parse import quote
@@ -54,10 +55,14 @@ WORDS_PER_MINUTE = 200
 SUMMARY_MAX = 180
 
 _CITE_RE = re.compile(r"\[\[sample:([a-z0-9][a-z0-9-]*)#(\d\.\d)\]\]")
-_TOKEN = "AVERSAMPLECITE{}Z"
-_TOKEN_RE = re.compile(r"AVERSAMPLECITE(\d+)Z")
-_BLOCK_TOKEN_RE = re.compile(r"<p>\s*AVERSAMPLECITE(\d+)Z\s*</p>")
+# Placeholder for a citation while Markdown runs. The nonce is new for every
+# render, so text in a guide can never collide with it.
+_TOKEN = "AVERCITE{nonce}N{i}Z"
 _SAFE_URL_RE = re.compile(r"^(?:https?://|mailto:|/(?!/)|#)", re.IGNORECASE)
+# Browsers drop tab/newline inside a URL and read "\" as "/", so "/\evil.com"
+# or "/<tab>/evil.com" is "//evil.com". Any such character makes a URL unsafe.
+_URL_UNSAFE_CHAR_RE = re.compile(r"[\x00-\x20\x7f\\]")
+_TAG_SPLIT_RE = re.compile(r"(<[^>]*>)")
 _URL_ATTR_RE = re.compile(r'\s(href|src)="([^"]*)"')
 
 
@@ -155,7 +160,8 @@ def _cite_link(sample: dict, band: str) -> str:
 def _safe_urls(rendered: str) -> str:
     def fix(match: re.Match) -> str:
         url = html.unescape(match.group(2)).strip()
-        return match.group(0) if _SAFE_URL_RE.match(url) else f' {match.group(1)}="#"'
+        safe = _SAFE_URL_RE.match(url) and not _URL_UNSAFE_CHAR_RE.search(url)
+        return match.group(0) if safe else f' {match.group(1)}="#"'
 
     return _URL_ATTR_RE.sub(fix, rendered)
 
@@ -173,6 +179,8 @@ def _markdown() -> markdown.Markdown:
 
 
 def _slugify(value: str, separator: str) -> str:
+    # A citation in a heading must not leak its per-render placeholder into the id.
+    value = re.sub(r"AVERCITE[0-9a-f]{12}N\d+Z", " ", value)
     text = unicodedata.normalize("NFKD", value).replace("đ", "d").replace("Đ", "D")
     text = "".join(ch for ch in text if not unicodedata.combining(ch))
     text = re.sub(r"[^\w\s-]", "", text).strip().lower()
@@ -197,17 +205,25 @@ def render_guide(
     ``title_en``, ``essays``). A citation whose slug is not in it, or whose
     band is not 7.5/7.0/6.0, is removed.
     """
+    nonce = secrets.token_hex(6)
+    token_re = re.compile(rf"AVERCITE{nonce}N(\d+)Z")
+    block_re = re.compile(rf"<p>\s*AVERCITE{nonce}N(\d+)Z\s*</p>")
+    originals: list[str] = []
     resolved: list[Optional[tuple[dict, str]]] = []
 
     def stash(match: re.Match) -> str:
         slug, band = match.group(1), match.group(2)
         sample = samples.get(slug)
+        originals.append(match.group(0))
         resolved.append((sample, band) if sample and band in BANDS else None)
-        return _TOKEN.format(len(resolved) - 1)
+        return _TOKEN.format(nonce=nonce, i=len(resolved) - 1)
 
     source = _CITE_RE.sub(stash, body_markdown or "")
     md = _markdown()
     rendered = md.convert(source)
+
+    def literal(match: re.Match) -> str:
+        return html.escape(originals[int(match.group(1))])
 
     def block(match: re.Match) -> str:
         item = resolved[int(match.group(1))]
@@ -217,10 +233,22 @@ def render_guide(
         item = resolved[int(match.group(1))]
         return _cite_link(*item) if item else ""
 
-    rendered = _BLOCK_TOKEN_RE.sub(block, rendered)
-    rendered = _TOKEN_RE.sub(inline, rendered)
-    rendered = _safe_urls(rendered)
-    return {"html": rendered, "toc": _toc(md), "reading_minutes": reading_minutes(body_markdown or "")}
+    # A citation becomes a card or link only in running text. Inside a tag
+    # (e.g. a link URL) or inside code it goes back to the literal text.
+    rendered = block_re.sub(block, rendered)
+    parts = _TAG_SPLIT_RE.split(rendered)
+    in_code = 0
+    for i, part in enumerate(parts):
+        if i % 2:  # a tag
+            name = re.match(r"</?\s*([a-zA-Z0-9]+)", part)
+            if name and name.group(1).lower() in ("code", "pre"):
+                in_code += -1 if part.startswith("</") else 1
+            parts[i] = token_re.sub(literal, part)
+        else:
+            parts[i] = token_re.sub(literal if in_code > 0 else inline, part)
+    rendered = _safe_urls("".join(parts))
+    toc = [{**item, "label": " ".join(token_re.sub(" ", item["label"]).split())} for item in _toc(md)]
+    return {"html": rendered, "toc": toc, "reading_minutes": reading_minutes(body_markdown or "")}
 
 
 SampleLoader = Callable[[list[str]], dict[str, dict]]
