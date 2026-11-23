@@ -402,3 +402,4 @@ number	filename	state	owner	spec	note
 500	500_account_data_rights.sql	present	G04-T18	ACCOUNTDATA-0100	Spec label 500 (GOI-04: G04 band 381-389 full). Deletion requests, export jobs, private account-exports bucket. Andy approved spec 2026-11-23.
 501	501_grammar_quiz_allowed_code_service_execute.sql	present	-	-	-
 502	-	reserved	G04-T13	COURSEACCESS-0055	Spec label 385: pronunciation sample window. Andy 2026-11-20.
+504	504_account_erasure.sql	present	G04-T18	ACCOUNTDATA-0100	Erasure function and narrow guard pass (amendments 1 and 2, Andy 2026-11-23).

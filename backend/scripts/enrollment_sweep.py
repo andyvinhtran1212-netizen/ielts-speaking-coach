@@ -16,6 +16,9 @@ one still runs; any failure makes the exit code non-zero.
    lapse carried credits (migration 385, G04-T12). Until 385 exists the
    function is missing and the step is skipped with a log line.
 7. Learner outbox dispatch (``services.learner_email.dispatch_due``).
+8. Account data (ACCOUNTDATA-0100, ``jobs.account_data_sweep``): erasure
+   (dry-run until ``ACCOUNT_ERASURE_ENABLED``), export packages, export
+   cleanup. Skipped with a log line until migrations 500 and 503 exist.
 
 Steps 5 (course-open alerts, G04-T17) and 6 (login-event retention, G04-T16)
 are added by those tasks. Logs carry counts only: no e-mail, name, amount or
@@ -85,6 +88,11 @@ def dispatch_mail() -> None:
         raise RuntimeError("learner mail transport unconfigured: " + ",".join(summary.unconfigured))
 
 
+def account_data() -> None:
+    from jobs import account_data_sweep
+    account_data_sweep.run()
+
+
 def run(*, no_mail: bool = False) -> int:
     steps: list[tuple[str, Callable[[], None]]] = [
         ("expire_orders", expire_orders),
@@ -94,6 +102,7 @@ def run(*, no_mail: bool = False) -> int:
     ]
     if not no_mail:
         steps.append(("dispatch_mail", dispatch_mail))
+    steps.append(("account_data", account_data))
     failed = 0
     for name, step in steps:
         try:

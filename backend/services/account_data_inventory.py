@@ -34,7 +34,7 @@ from typing import Literal, Optional
 Action = Literal["delete", "anonymize", "keep", "staff_actor", "staff_only"]
 ACTIONS: frozenset[str] = frozenset({"delete", "anonymize", "keep", "staff_actor", "staff_only"})
 
-INVENTORY_VERSION = "2026-11-23.2"
+INVENTORY_VERSION = "2026-11-23.3"
 
 
 @dataclass(frozen=True)
@@ -183,12 +183,12 @@ _STAFF_ACTOR = _many(
 # export bucket is swept by prefix ``<user_id>/`` (FR-005 b, FR-014).
 _STORAGE = {
     ("sessions", "user_id"): "audio-responses",
-    ("course_pronunciation_submissions", "user_id"): "audio-responses",
 }
 
 _DELETE_STORAGE = [
-    Entry("course_pronunciation_submissions", "user_id", "delete", export=True,
-          storage="audio-responses"),
+    # Scores only: the learner's take is graded in memory and never stored
+    # (services/course_pronunciation.py), so the row has no object to remove.
+    Entry("course_pronunciation_submissions", "user_id", "delete", export=True),
 ]
 
 INVENTORY: tuple[Entry, ...] = tuple(
@@ -280,6 +280,8 @@ UPCOMING: tuple[Entry, ...] = (
           note="mig 442 (#2471); author_id/done_by are staff actors (not matched by FR-006)"),
     Entry("learner_active_sessions", "user_id", "delete", note="G04-T09 (not merged)"),
     Entry("learner_login_events", "user_id", "anonymize", note="G04-T16; clear IP, user agent, location"),
+    Entry("credit_attempt_outcomes", "user_id", "keep",
+          note="mig 503 (#2554, G04-T07); append-only settlement, enum reason only, ids point at the anonymised id"),
 )
 
 BUCKETS: frozenset[str] = frozenset({"audio-responses", "account-exports"})

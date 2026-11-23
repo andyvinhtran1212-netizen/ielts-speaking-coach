@@ -22,13 +22,13 @@ and must not be "filled in" by tooling:
 Take the next number after the highest `present` or `reserved` row in
 [`register.tsv`](register.tsv), add your row (`reserved`, owner = your PR or
 task ID) in the same PR as the file, and change it to `present` when the file
-lands. Do **not** assume the sequence is dense. As of 2026-11-18 the highest is `501`
-(GRAMMARAUDIT-0019 FR-008 service_role EXECUTE on `grammar_quiz_allowed_code`,
+lands. Do **not** assume the sequence is dense. As of 2026-11-23 the highest is `504`
+(ACCOUNTDATA-0100 erasure function; `503` is the credit attempt settlement of G04-T07, #2554; `501` is GRAMMARAUDIT-0019 FR-008 service_role EXECUTE on `grammar_quiz_allowed_code`,
 taken from the reserve band 501+ of the commercialization register); 381 and 382 are reserved for FU-2281
 (Leader decision, 2026-11-18), and 383–389 plus 502 belong to COURSEACCESS-0055
 (383 and 384 present; 385, 387, 388, 389 and 502 reserved; 386 abandoned; Andy,
 2026-11-20, `specs/0055-course-access-credits-enrollment/approval-decision.md`),
-so the next new migration is `503`. The free numbers below 501 (bands 401–499
+so the next new migration is `505`. The free numbers below 501 (bands 401–499
 and 500) are assigned only by the Leader from the commercialization register;
 the PR that takes one adds its row.
 `383` is `pending_feature course_commerce` (COURSEACCESS-0055 T001, spec label
@@ -67,6 +67,14 @@ both service_role only, and the private `account-exports` bucket guarded by a
 RESTRICTIVE `storage.objects` policy. Users rows are anonymised, never deleted, so
 both foreign keys are `ON DELETE RESTRICT`. The rollback refuses while either
 table has a row or the bucket has an object.
+`504` is `pending_feature account_data_rights` too (ACCOUNTDATA-0100 T005,
+amendments 1 and 2): `fn_account_erase_learner(request, owner, plan)`, the one
+transaction of erasure step 5 (SECURITY DEFINER, `service_role` only), and a
+narrow pass injected after the top-level `BEGIN` of the guards that refuse
+DELETE on grading evidence (and of the `class_action_log` append-only guard,
+for `student_name → NULL` only). The pass lets through only rows of the learner
+whose request is `erasing` under the calling owner. The rollback removes the
+pass and drops the functions; it refuses while an erasure is running.
 `501` is `pending_feature course_bank_service_write`: since 309 its CHECK
 `quiz_banks_grammar_revision_shape` calls `grammar_quiz_allowed_code`, whose
 EXECUTE the 309/314/339 blanket loops revoke from service_role, so every

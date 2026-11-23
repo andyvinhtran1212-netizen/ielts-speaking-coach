@@ -4,24 +4,24 @@
 
 | Requirement | Evidence | Result |
 | --- | --- | --- |
-| FR-001 | kind=test; ref=backend/tests/test_account_data_api.py (sai email 422, nhân viên 403, gửi lại trả cùng yêu cầu) | PENDING |
-| FR-002 | kind=test; ref=test thu hồi phiên và thư xác nhận, ca lỗi thu hồi/thư vẫn giữ yêu cầu | PENDING |
-| FR-003 | kind=test; ref=test huỷ, 409 khi không có yêu cầu/đang xoá, test kê danh sách cho phép của `account_deletion_gate` và 403 `account_deletion_pending` ở route học viên | PENDING |
-| FR-004 | kind=test; ref=test sweep chỉ chọn yêu cầu đến hạn, huỷ đúng lúc xoá, dry-run không ghi | PENDING |
-| FR-005 | kind=journey; ref=staging kịch bản 4, truy vấn kiểm trước/sau ở rollout.md | PENDING |
-| FR-006 | kind=test; ref=backend/tests/test_account_data_inventory.py (ca âm: cột `user_id`, `student_id`, `*_user_id` chưa phân loại; cột đã bỏ còn trong danh mục) và tệp danh sách sinh ở T001 (test pass ở máy 23/11; catalog staging T001 gate 2 và 3 đã chạy 23/11, còn một quyết định: `class_action_log.student_name`) | PENDING |
-| FR-007 | kind=test; ref=test thu hồi quyền lý do `account_erased`, sổ lượt và `access_codes` không đổi | PENDING |
+| FR-001 | kind=test; ref=backend/tests/test_account_data_routes.py::test_create_checks_email_and_staff, ::test_create_revokes_sessions_sends_letter_and_is_idempotent (sai email 422, nhân viên 403, gửi lại trả cùng yêu cầu). Kết quả: PASS (local PG16, 23/11, nhánh phần 2 chưa push) | PASS |
+| FR-002 | kind=test; ref=backend/tests/test_account_data_routes.py::test_create_revokes_sessions_sends_letter_and_is_idempotent, ::test_letter_and_revoke_failures_keep_the_request. Kết quả: PASS (local PG16, 23/11) | PASS |
+| FR-003 | kind=test; ref=backend/tests/test_account_data_routes.py::test_cancel; backend/tests/test_account_deletion_gate.py (danh sách cho phép đối chiếu app thật, 403 `account_deletion_pending` qua cổng thật, tra cứu lỗi thì 503). Kết quả: PASS (local, 23/11) | PASS |
+| FR-004 | kind=test; ref=backend/tests/test_account_erasure_job.py::test_not_due_and_cancelled_are_never_claimed, ::test_dry_run_counts_without_changing, ::test_sweep_is_dry_run_until_the_flag_is_on. Kết quả: PASS (local PG16, 23/11) | PASS |
+| FR-005 | kind=journey; ref=staging kịch bản 4, truy vấn kiểm trước/sau ở rollout.md. Test local: backend/tests/test_account_erasure_job.py::test_full_erasure_of_one_learner, ::test_guards_still_refuse_outside_erasure, ::test_rollback_removes_the_pass (migration 504, guard thay thế). Kết quả: PENDING (local PASS, staging chưa chạy) | PENDING |
+| FR-006 | kind=test; ref=backend/tests/test_account_data_inventory.py (ca âm: cột chưa phân loại; cột đã bỏ còn trong danh mục) và tệp danh sách sinh ở T001; catalog staging T001 gate 2 và 3 chạy 23/11; `class_action_log.student_name` đã chốt `anonymize` (sửa đổi 1); `credit_attempt_outcomes.user_id` (#2554) xếp `keep` trong `UPCOMING`. Kết quả: PASS (local, 23/11) | PASS |
+| FR-007 | kind=test; ref=backend/tests/test_account_erasure_job.py::test_full_erasure_of_one_learner (quyền `revoked`/`account_erased`, sự kiện `revoke:system:account_erased`, `credit_ledger` và `access_codes` không đổi). Kết quả: PASS (local PG16, 23/11) | PASS |
 | FR-008 | kind=journey; ref=staging: đăng nhập email cũ thất bại, đăng ký lại tạo `id` mới | PENDING |
-| FR-009 | kind=test; ref=test lỗi giữa chừng rồi chạy lại, cảnh báo sau số lần tối đa | PENDING |
-| FR-010 | kind=test; ref=test tạo việc xuất, trả việc đang có, 429 cooldown | PENDING |
-| FR-011 | kind=test; ref=test nội dung ZIP và manifest, bỏ ghi âm khi vượt trần | PENDING |
-| FR-012 | kind=test; ref=test 404 người khác, 409 chưa xong, 410 quá hạn, 302 no-store | PENDING |
-| FR-014 | kind=test; ref=test hai tiến trình xoá; job xuất đang chạy khi sang `erasing`; tiến trình xuất cũ hoàn tất sau khi tiến trình mới `ready`; tiến trình xuất chết sau khi tải lên trong lúc xoá; dọn định kỳ; tiền tố `account-exports/<user_id>/` rỗng sau `erased` | PENDING |
-| FR-013 | kind=test; ref=test 401 không phiên, OpenAPI drift, log không chứa email | PENDING |
+| FR-009 | kind=test; ref=backend/tests/test_account_erasure_job.py::test_failure_releases_retries_and_marks_failed, ::test_lost_lease_stops_before_the_database_step. Kết quả: PASS local; lệch: cảnh báo chủ sở hữu sau số lần tối đa hiện chỉ là `logger.error`, chưa gửi thư | PASS |
+| FR-010 | kind=test; ref=backend/tests/test_account_data_routes.py::test_export_request_status_cooldown_and_erasing. Kết quả: PASS (local PG16, 23/11) | PASS |
+| FR-011 | kind=test; ref=backend/tests/test_account_data_export_job.py::test_builds_package_with_only_own_data, ::test_over_size_drops_recordings, ::test_build_failure_marks_failed_and_learner_can_ask_again. Kết quả: PASS (local PG16, 23/11) | PASS |
+| FR-012 | kind=test; ref=backend/tests/test_account_data_routes.py::test_download (404 người khác, 409 chưa xong, 410 quá hạn, 302 no-store, ký 60 s). Kết quả: PASS (local PG16, 23/11) | PASS |
+| FR-014 | kind=test; ref=backend/tests/test_account_data_export_job.py::test_erasing_account_is_not_claimed_and_cancel_during_build_removes_own_object, ::test_expired_lease_is_taken_over_with_a_new_token, ::test_cleanup_lists_first_and_keeps_live_objects; backend/tests/test_account_erasure_job.py::test_running_export_lease_defers_the_final_step. Kết quả: PASS (local PG16, 23/11) | PASS |
+| FR-013 | kind=test; ref=backend/tests/test_account_data_routes.py::test_unauthenticated_is_401; OpenAPI drift: `frontend/types/api.d.ts` sinh lại bằng openapi-typescript 7.13.0 (bước CI typecheck). Kết quả: PASS (local, 23/11); log không chứa email: kiểm bằng đọc mã, chưa có test riêng | PASS |
 
 ## Contract evidence
 
-- OpenAPI/type drift: PENDING (PR mã sinh lại `frontend/types/api.d.ts`).
+- OpenAPI/type drift: `frontend/types/api.d.ts` sinh lại ở nhánh phần 2 (thêm 4 đường dẫn /api/account, 6 route); CI typecheck sẽ kiểm lại khi push.
 - Backward compatibility: chỉ thêm route và bảng mới; route cũ không đổi.
 
 ## Data evidence
