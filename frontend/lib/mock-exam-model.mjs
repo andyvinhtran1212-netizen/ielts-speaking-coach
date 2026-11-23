@@ -405,7 +405,14 @@ export function reconcileMockWritingCopy({ copy, legacy, server, ownerMatches })
   const serverAnswers = Object.fromEntries(MOCK_WRITING_COPY_TASKS.map((task) => [task, { value: server[task] ?? null }]));
   const plan = planLocalCopyReplay(copy, { open: server.open, answers: serverAnswers });
   /** @type {{ task: string, local: string, server: string, source: 'copy' | 'legacy' }[]} */
-  const ask = plan.ask.map((a) => ({ task: a.q, local: a.local, server: a.server, source: 'copy' }));
+  // Writing is text: no server text is '' in both the copy and the legacy rows
+  // (the 0066 lib keeps the server's own value, so a missing one is null there).
+  const ask = plan.ask.map((a) => ({
+    task: a.q,
+    local: typeof a.local === 'string' ? a.local : '',
+    server: typeof a.server === 'string' ? a.server : '',
+    source: 'copy',
+  }));
   /** @type {string[]} legacy keys to delete now */
   const dropLegacy = [];
   /** @type {{ q: string, value: string }[]} legacy texts to write into the new key (base unknown) */
