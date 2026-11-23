@@ -246,6 +246,31 @@ describe('submit (FR-010, FR-014, FR-034)', () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
+  it('a save in flight without per-question state locks the submit (Codex)', async () => {
+    const onSubmit = vi.fn(() => Promise.resolve());
+    const props = base({ submit: { label: 'Submit test', onSubmit } });
+    const { rerender } = render(<ExamRoomShell {...props} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Submit test' }));
+    await screen.findByRole('alertdialog');
+    rerender(<ExamRoomShell {...props} saveStatus={{ state: 'saving', lastSavedAt: new Date(2026, 10, 23, 10, 42) }} />);
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect((screen.getByRole('button', { name: 'Submit test' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('a surface reason that appears while the box is open closes it (Codex)', async () => {
+    const onSubmit = vi.fn(() => Promise.resolve());
+    const { rerender } = render(<ExamRoomShell {...base({ submit: { label: 'Submit test', onSubmit } })} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Submit test' }));
+    const dialog = await screen.findByRole('alertdialog');
+    const confirm = within(dialog).getByRole('button', { name: 'Submit test' });
+    rerender(<ExamRoomShell {...base({ submit: { label: 'Submit test', onSubmit, disabledReason: 'Write at least 150 words first.' } })} />);
+    fireEvent.click(confirm);
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.getByText('Write at least 150 words first.')).toBeTruthy();
+  });
+
   it('no submit prop: no submit button', () => {
     render(<ExamRoomShell {...base({ submit: undefined })} />);
     expect(screen.queryByRole('button', { name: 'Submit test' })).toBeNull();
