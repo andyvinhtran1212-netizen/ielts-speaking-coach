@@ -59,6 +59,10 @@ while `credit_ledger` has rows unless `aver.allow_commerce_rollback = 'on'`.
 five RLS-only Library tables reached only through service_role and the private
 `library-media` bucket guarded by a RESTRICTIVE `storage.objects` policy; the schema
 rollback refuses while any Library content, slug history, mark or bucket object exists.
+`421` is `pending_feature review_notes_flag_once` (LEARNERCORE-0063 T31, G07 band 420–439):
+the backend-only `review_notes` table and two partial unique indexes that allow one
+per-question flag per attempt and sender; its preflight stops on existing duplicates,
+which only `scripts/archive_duplicate_feedback_flags.sql` may archive (Andy's typed approval).
 `501` is `pending_feature course_bank_service_write`: since 309 its CHECK
 `quiz_banks_grammar_revision_shape` calls `grammar_quiz_allowed_code`, whose
 EXECUTE the 309/314/339 blanket loops revoke from service_role, so every

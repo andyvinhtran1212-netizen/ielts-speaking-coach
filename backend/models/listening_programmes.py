@@ -297,6 +297,8 @@ class ListeningAttemptReviewResponse(BaseModel):
     scoring_policy: str = "diagnostic"
     assisted: bool = False
     result_summary: dict[str, Any] = Field(default_factory=dict)
+    # LEARNERCORE-0063 FR-109: questions the caller already flagged.
+    my_flagged_q_nums: list[int] = Field(default_factory=list)
     programme_id: str = "ielts"
     listening_lesson_id: str | None = None
     form_purpose: str | None = None

@@ -17,6 +17,7 @@ test_id (text) is resolved server-side from the attempt for admin grouping.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import secrets
 import uuid
@@ -234,6 +235,17 @@ def _resolve_test_id(skill: str, test_uuid: str | None) -> str | None:
     return (t.data[0].get("test_id") if t.data else None)
 
 
+def _flag_exists(attempt_id: str, q_num: int, user_id: str | None, anon_id: str | None) -> bool:
+    query = supabase_admin.table("user_feedback").select("id") \
+        .eq("attempt_id", attempt_id).eq("type", "flag").eq("q_num", q_num)
+    query = query.eq("created_by", user_id) if user_id else query.eq("anon_id", anon_id)
+    return bool(query.limit(1).execute().data)
+
+
+def _already_flagged() -> HTTPException:
+    return HTTPException(409, {"error": "already_flagged", "message": "Bạn đã báo lỗi câu này."})
+
+
 @router.post("/feedback")
 async def submit_feedback(
     body: FeedbackIn,
@@ -325,6 +337,12 @@ async def submit_feedback(
         if q_num is None and body.attempt_id:
             raise HTTPException(422, "flag requires q_num")
         rating_de = rating_audio = None
+        # LEARNERCORE-0063 FR-108: one flag per (attempt, question, sender).
+        # The partial unique indexes of migration 421 are the race-safe
+        # backstop; this pre-check gives the clean 409 without an insert.
+        if body.attempt_id and await asyncio.to_thread(
+                _flag_exists, body.attempt_id, q_num, user["id"] if user else None, anon_id):
+            raise _already_flagged()
 
     row = {
         "id": str(uuid.uuid4()),
@@ -355,6 +373,8 @@ async def submit_feedback(
                 "error": "anonymous_feedback_rate_limited",
                 "message": "Báo cáo cùng loại cho thẻ này đã được gửi hôm nay.",
             })
+        if "uq_feedback_flag_user" in msg or "uq_feedback_flag_anon" in msg:
+            raise _already_flagged() from None
         if "uq_feedback_rating" in msg or "duplicate key" in msg or "23505" in msg:
             raise HTTPException(409, "Bạn đã đánh giá đề này rồi.")
         logger.error("[feedback] insert failed: %s", exc, exc_info=True)
