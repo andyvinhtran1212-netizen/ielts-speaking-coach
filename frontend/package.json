@@ -18,7 +18,7 @@
     "build": "next build",
     "prebuild": "node tooling/vendor-runtime.mjs && node tooling/generate-runtime-config.mjs",
     "start": "next start",
-    "config:reset": "env -u VERCEL_ENV -u VERCEL_GIT_COMMIT_SHA -u VERCEL_GIT_COMMIT_REF -u AVER_ENVIRONMENT -u AVER_API_BASE -u AVER_SUPABASE_URL -u AVER_SUPABASE_ANON_KEY -u AVER_CORE_OPERATION_CORRELATION_ENABLED -u AVER_WRITING_ADMISSION_ENABLED -u AVER_RUNTIME_CONFIG_OUT node tooling/generate-runtime-config.mjs"
+    "config:reset": "env -u VERCEL_ENV -u VERCEL_GIT_COMMIT_SHA -u VERCEL_GIT_COMMIT_REF -u AVER_ENVIRONMENT -u AVER_API_BASE -u AVER_SUPABASE_URL -u AVER_SUPABASE_ANON_KEY -u AVER_CORE_OPERATION_CORRELATION_ENABLED -u AVER_WRITING_ADMISSION_ENABLED -u AVER_EXAM_ROOM_SURFACES -u AVER_RUNTIME_CONFIG_OUT node tooling/generate-runtime-config.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",

@@ -1,4 +1,5 @@
 import { admitCorePlayer } from './core-player-affinity.mjs';
+import { planLocalCopyReplay } from './exam-room/local-copy.mjs';
 
 export const MOCK_SECTION_ORDER = Object.freeze(['listening', 'reading', 'writing']);
 export const MOCK_LIVE_STATUSES = Object.freeze(['registered', 'lrw_in_progress']);
@@ -156,7 +157,111 @@ export function normalizeMockExamState(payload, expectedSittingId = null) {
     collectedSection,
     sectionTimeLeftSeconds,
     sectionDurationSeconds: finiteNonNegative(root.section_duration_seconds),
+    selfPaced: normalizeSelfPaced(root.self_paced),
   });
+}
+
+const SELF_PACED_STATES = new Set(['not_started', 'in_progress', 'submitted', 'missed']);
+const SELF_PACED_SECTION_STATES = new Set(['not_started', 'in_progress', 'submitted', 'marking', 'released']);
+
+/**
+ * EXAMMOCK-0071 FR-014 (T005): the server's back-to-back state of a self-paced
+ * sitting (`self_paced` from GET /sittings/{id}, MOCKORG-0086 plan 5.5), or
+ * null for every other sitting. The server owns the clock; nothing here is
+ * computed from this device's time except the entry-screen warning.
+ */
+export function normalizeSelfPaced(value) {
+  if (value == null) return null;
+  const root = record(value, 'invalid-mock-self-paced');
+  const state = text(root.state);
+  if (!SELF_PACED_STATES.has(state)) throw new Error('invalid-mock-self-paced');
+  const sections = (Array.isArray(root.sections) ? root.sections : []).map((row) => {
+    const item = record(row, 'invalid-mock-self-paced');
+    const section = text(item.section);
+    const status = text(item.status);
+    if (!MOCK_SECTION_ORDER.includes(section) || !SELF_PACED_SECTION_STATES.has(status)) {
+      throw new Error('invalid-mock-self-paced');
+    }
+    return Object.freeze({ section, status, startedAt: nullableText(item.started_at), endsAt: nullableText(item.ends_at) });
+  });
+  const current = nullableText(root.current_section);
+  return Object.freeze({
+    state,
+    startedAt: nullableText(root.started_at),
+    expectedEndAt: nullableText(root.expected_end_at),
+    currentSection: current && MOCK_SECTION_ORDER.includes(current) ? current : null,
+    // Seconds until the current section opens; > 0 only inside a gap
+    // (MOCK_SELF_PACED_GAP_SECONDS > 0). Relative, so no device clock.
+    startsInSeconds: finiteNonNegative(root.starts_in_seconds, 0),
+    gapSeconds: finiteNonNegative(root.gap_seconds, 0),
+    openUntil: nullableText(root.open_until),
+    totalSeconds: finiteNonNegative(root.total_seconds, 0),
+    sections: Object.freeze(sections),
+  });
+}
+
+/**
+ * Which exam-room screen a self-paced sitting shows (FR-014: entry, section,
+ * gap, between, closing, missed, submitted), or null when the
+ * sitting is not back to back. Only the exam-room branch reads this; the old
+ * runner keeps `mockExamView` unchanged.
+ */
+export function selfPacedView(state) {
+  const sp = state?.selfPaced;
+  if (!sp) return null;
+  if (!MOCK_LIVE_STATUSES.includes(state.sitting.status)) return 'submitted';
+  // The server already names the next section, but it opens only after the
+  // gap: a fixed countdown, never the section with its full clock.
+  if (sp.state === 'in_progress' && sp.startsInSeconds > 0 && sp.currentSection
+    && state.activeSection === sp.currentSection) return 'gap';
+  if (isOpenMockSection(state)) return 'section';
+  if (sp.state === 'missed') return 'missed';
+  if (sp.state === 'not_started') return 'entry';
+  // Every section has ended on the server's clock, but the sitting is still
+  // live: the sweep is collecting the last one. Not "Opening the next section".
+  if (sp.state === 'submitted') return 'closing';
+  // Started and no open section on this read: the server is stamping the
+  // next one. Never a menu or a "start next" button.
+  return 'between';
+}
+
+/**
+ * The embedded page's `{type:'mock-answers', section, questions:[{q, answered}]}`
+ * report (FR-014 submit box), or null when it is not one for `section`.
+ */
+export function mockFrameQuestions(data, section) {
+  if (!data || data.type !== 'mock-answers' || data.section !== section) return null;
+  if (!Array.isArray(data.questions) || data.questions.length > 200) return null;
+  const list = [];
+  for (const item of data.questions) {
+    const q = item?.q;
+    if (!Number.isInteger(q) || q < 1 || typeof item.answered !== 'boolean') return null;
+    list.push({ q, answered: item.answered });
+  }
+  return list;
+}
+
+/**
+ * Entry screen facts: total minutes, and the close time when the learner's
+ * window ends before a full run would (the only place this device's clock is
+ * read, to word a warning; the server still runs the chain past the window).
+ */
+export function selfPacedEntry(state, nowMs = Date.now()) {
+  const sp = state?.selfPaced;
+  if (!sp) return null;
+  const totalMinutes = Math.ceil((sp.totalSeconds || 0) / 60);
+  const closesMs = sp.openUntil ? Date.parse(sp.openUntil) : NaN;
+  const shortWindow = Number.isFinite(closesMs) && closesMs - nowMs < (sp.totalSeconds || 0) * 1000;
+  return { totalMinutes, closesAt: shortWindow ? sp.openUntil : null, firstSection: configuredMockSections(state)[0] || null };
+}
+
+/** The section that came before `section` in this sitting, when it is submitted. */
+export function selfPacedPrevious(state, section) {
+  const order = configuredMockSections(state);
+  const index = order.indexOf(section);
+  if (index <= 0) return null;
+  const previous = order[index - 1];
+  return submittedAtFor(state, previous) ? previous : null;
 }
 
 export function configuredMockSections(state) {
@@ -313,4 +418,136 @@ export function normalizeIntegrity(raw) {
     out[key] = Number.isFinite(number) && number >= 0 ? number : 0;
   }
   return out;
+}
+
+// ── EXAMMOCK-0071 T001: exam-room branch helpers (pure) ──────────────────────
+
+/** FR-007: the new branch retries a failed submit 3 times on its own (0066 FR-034); the old branch keeps 4. */
+export const MOCK_SUBMIT_AUTO_RETRIES = 3;
+
+/**
+ * Submit state of one section for the exam-room branch (EXAMMOCK-0071 FR-007,
+ * EXAMROOM-0066 FR-034). Never infers "submitted" from a call having been made.
+ * - `confirmed` needs both the server's `*SubmittedAt` for this section of this
+ *   sitting and proof the last answers were held: a flush that reported
+ *   `unsaved: 0` (Writing: `bridge.flush` with the exact text) before the
+ *   submit (`finalFlushSecured`). A `flush-ack` alone is not that proof.
+ * - Server closed the section (`*SubmittedAt`, or the sitting is no longer
+ *   live) without that proof → `closed_unconfirmed`, with the server's
+ *   timestamp only; `savedUpTo` only when the server sent one.
+ * - Collected by the invigilator but not submitted yet, no error → `submitting`.
+ * - 403/404 → `denied` (the surface keeps "Contact your invigilator.").
+ * - Other error → `unconfirmed` (auto retry) up to 3 retries, then
+ *   `unconfirmed_manual` ("Try again" calls `submitSection` again).
+ * - Rule (2) only applies to a submit this tab started or watched
+ *   (`observed`). A section submitted before the tab opened shows only
+ *   "✓ Submitted" on the strip: `idle` with `sectionSubmitted: true`.
+ * @param {{
+ *   state: any,
+ *   section: 'listening' | 'reading' | 'writing',
+ *   observed: boolean,
+ *   finalFlushSecured: boolean,
+ *   retries?: number,
+ *   error?: { status?: number | null } | null,
+ *   serverSavedUpTo?: string | null,
+ * }} input
+ * @returns {{ outcome: 'idle' | 'submitting' | 'confirmed' | 'unconfirmed' | 'unconfirmed_manual' | 'closed_unconfirmed' | 'denied', retry: boolean, closedAt: string | null, savedUpTo: string | null, sectionSubmitted: boolean }}
+ */
+export function mockSubmitOutcome({ state, section, observed, finalFlushSecured, retries = 0, error = null, serverSavedUpTo = null }) {
+  const submittedAt = submittedAtFor(state, section);
+  const live = Boolean(state) && MOCK_LIVE_STATUSES.includes(state.sitting?.status);
+  const savedUpTo = typeof serverSavedUpTo === 'string' && serverSavedUpTo ? serverSavedUpTo : null;
+  const base = { retry: false, closedAt: null, savedUpTo, sectionSubmitted: Boolean(submittedAt) };
+  if (!observed) return { ...base, outcome: 'idle' };
+  // Closed only on the server's word: a null state (load pending or failed)
+  // is not a closed section (FR-007).
+  if (submittedAt || (state && !live)) {
+    if (submittedAt && finalFlushSecured) return { ...base, outcome: 'confirmed' };
+    return { ...base, outcome: 'closed_unconfirmed', closedAt: submittedAt || null };
+  }
+  const status = Number(error?.status);
+  if (status === 403 || status === 404) return { ...base, outcome: 'denied' };
+  if (error) {
+    return retries < MOCK_SUBMIT_AUTO_RETRIES
+      ? { ...base, outcome: 'unconfirmed', retry: true }
+      : { ...base, outcome: 'unconfirmed_manual' };
+  }
+  return { ...base, outcome: 'submitting' };
+}
+
+/** The two Writing tasks, as `q` keys of the 0066 local copy (FR-010). */
+export const MOCK_WRITING_COPY_TASKS = Object.freeze(['task1', 'task2']);
+
+/** Old-branch key, read only for the signed-in owner's sitting. */
+export function legacyMockWritingKey(sittingId, task) {
+  return `mock-writing:${sittingId}:${task}`;
+}
+
+/**
+ * What to do with the Writing copies when a mock sitting opens in the
+ * exam-room branch (EXAMMOCK-0071 FR-010, EXAMROOM-0066 FR-035 amendment 1 (c)).
+ * Compared by text only, never by timestamps.
+ * - New copy (`exam-room:local-copy:mock:{ownerKey}:{sittingId}`, `q` =
+ *   task1/task2, `baseValue` = the spec's `baseText`): re-sent only while the
+ *   server text still equals `baseValue`; server changed → keep server; base
+ *   unknown and different → ask.
+ * - Legacy key `mock-writing:{sittingId}:{task}` (no base): read only when the
+ *   sitting belongs to the signed-in account (`ownerMatches`). Equal to the
+ *   server → drop it now. Different → never written over the server: ask the
+ *   learner, and copy it into the new key first; the legacy key goes only
+ *   after that write reads back (`legacyRemovable`) or the server acked it.
+ *   A task that already has a new-key entry ignores its older legacy key.
+ * - Section closed (`server.open` false): send nothing, clear everything.
+ * @param {{
+ *   copy: import('./exam-room/local-copy.mjs').LocalCopy | null,
+ *   legacy: Partial<Record<'task1' | 'task2', { text: string } | null>>,
+ *   server: { open: boolean, task1?: string | null, task2?: string | null },
+ *   ownerMatches: boolean,
+ * }} input
+ */
+export function reconcileMockWritingCopy({ copy, legacy, server, ownerMatches }) {
+  const serverAnswers = Object.fromEntries(MOCK_WRITING_COPY_TASKS.map((task) => [task, { value: server[task] ?? null }]));
+  const plan = planLocalCopyReplay(copy, { open: server.open, answers: serverAnswers });
+  /** @type {{ task: string, local: string, server: string, source: 'copy' | 'legacy' }[]} */
+  // Writing is text: no server text is '' in both the copy and the legacy rows
+  // (the 0066 lib keeps the server's own value, so a missing one is null there).
+  const ask = plan.ask.map((a) => ({
+    task: a.q,
+    local: typeof a.local === 'string' ? a.local : '',
+    server: typeof a.server === 'string' ? a.server : '',
+    source: 'copy',
+  }));
+  /** @type {string[]} legacy keys to delete now */
+  const dropLegacy = [];
+  /** @type {{ q: string, value: string }[]} legacy texts to write into the new key (base unknown) */
+  const migrate = [];
+  if (ownerMatches) {
+    for (const task of MOCK_WRITING_COPY_TASKS) {
+      const draft = legacy?.[task];
+      if (!draft || typeof draft.text !== 'string') continue;
+      const inCopy = Boolean(copy?.answers && Object.prototype.hasOwnProperty.call(copy.answers, task));
+      const serverText = typeof server[task] === 'string' ? server[task] : '';
+      if (!server.open || inCopy || draft.text === serverText) { dropLegacy.push(task); continue; }
+      migrate.push({ q: task, value: draft.text });
+      ask.push({ task, local: draft.text, server: serverText, source: 'legacy' });
+    }
+  }
+  return Object.freeze({
+    resend: plan.resend.map((r) => ({ task: r.q, value: r.value })),
+    keepServer: plan.keepServer,
+    ask,
+    dropFromCopy: plan.drop,
+    clearCopy: !server.open,
+    dropLegacy,
+    migrate,
+  });
+}
+
+/**
+ * A legacy key may be deleted only once its text is held elsewhere: the new
+ * key read back the same text, or the server acked exactly that text.
+ * @param {{ legacyText: string, readBack?: string | null, ackedText?: string | null }} input
+ */
+export function legacyRemovable({ legacyText, readBack = null, ackedText = null }) {
+  return readBack === legacyText || ackedText === legacyText;
 }

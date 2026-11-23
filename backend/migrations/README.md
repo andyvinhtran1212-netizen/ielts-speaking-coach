@@ -59,6 +59,12 @@ while `credit_ledger` has rows unless `aver.allow_commerce_rollback = 'on'`.
 five RLS-only Library tables reached only through service_role and the private
 `library-media` bucket guarded by a RESTRICTIVE `storage.objects` policy; the schema
 rollback refuses while any Library content, slug history, mark or bucket object exists.
+`445` is `pending_feature mock_exam_audiences` (MOCKORG-0086 G09-T31, G09 band 440–459):
+backend-only `mock_exam_audiences` (RLS on, no policy, service_role only), new
+`mock_exams` columns, and the mode CHECK widened to `live`/`self_paced` without
+renaming data (446 does that, after the backend that reads both names). The
+rollback refuses once any exam uses a new name, any audience row exists or a new
+column holds data.
 `501` is `pending_feature course_bank_service_write`: since 309 its CHECK
 `quiz_banks_grammar_revision_shape` calls `grammar_quiz_allowed_code`, whose
 EXECUTE the 309/314/339 blanket loops revoke from service_role, so every

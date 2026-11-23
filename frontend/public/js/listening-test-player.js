@@ -718,6 +718,7 @@ function renderProgressTracker() {
   // the old nodes is gone. Re-apply it — a re-render must not silently tell the
   // student their answers are safe.
   STATE.unsaved.forEach((state, qNum) => setSaveState(qNum, state));
+  postMockAnswers();
 }
 
 function attachProgressHandlers() {
@@ -1356,6 +1357,29 @@ function updateAnsweredCount() {
   // Sprint 13.5.5 — paint progress squares + per-tab counts.
   updateProgressTrackerSquares();
   updateTabProgressCounts();
+  postMockAnswers();
+}
+
+// EXAMMOCK-0071 FR-014: inside the mock exam room the parent's "Submit
+// section" box lists the blank questions. This page owns the answers, so it
+// reports {q, answered} for every question to the same-origin parent
+// (coalesced to one message per task); the parent checks source and origin.
+let mockAnswersQueued = false;
+function postMockAnswers() {
+  if (window.parent === window || mockAnswersQueued) return;
+  mockAnswersQueued = true;
+  setTimeout(() => {
+    mockAnswersQueued = false;
+    const questions = [];
+    document.querySelectorAll('#ft-progress-bar .progress-square').forEach((sq) => {
+      const q = Number(sq.getAttribute('data-q-num'));
+      if (Number.isInteger(q) && q > 0) questions.push({ q, answered: STATE.answers.has(q) });
+    });
+    if (!questions.length) return;  // paper not drawn yet: no list rather than "none blank"
+    try {
+      window.parent.postMessage({ type: 'mock-answers', section: 'listening', questions }, window.location.origin);
+    } catch (e) { /* the parent's box then has no list; submit still works */ }
+  }, 0);
 }
 
 function updateProgressTrackerSquares() {
@@ -2042,7 +2066,14 @@ function main() {
 // FLUSH its debounced auto-saves before it submits the attempt, so a just-typed
 // answer isn't stranded in the debounce queue.
 window.addEventListener('message', async (ev) => {
+  if (ev.data && ev.data.type === 'mock-answers-request' && ev.source === window.parent && ev.origin === location.origin) {
+    postMockAnswers();
+    return;
+  }
   if (!ev.data || ev.data.type !== 'mock-flush') return;
+  // Same-origin parent only: the flush and its answer stay between this paper
+  // and the exam room that embeds it (FR-014).
+  if (ev.source !== window.parent || ev.origin !== location.origin) return;
   let clean = false;
   try {
     clean = await flushAllPendingSaves();
@@ -2052,12 +2083,10 @@ window.addEventListener('message', async (ev) => {
   // would only strand the student at 00:00. But it must not be told the paper
   // is clean when it is not: `unsaved` rides along so the runner can surface it
   // and the invigilator sees a real signal (Codex review, PR #837).
-  if (ev.source) {
-    ev.source.postMessage({
-      type: 'mock-flushed', section: 'listening',
-      unsaved: clean ? 0 : failedAnswerNumbers().length,
-    }, '*');
-  }
+  ev.source.postMessage({
+    type: 'mock-flushed', section: 'listening',
+    unsaved: clean ? 0 : failedAnswerNumbers().length,
+  }, location.origin);
 });
 
 // A4a — the retry budget is spent while offline far more often than for any
