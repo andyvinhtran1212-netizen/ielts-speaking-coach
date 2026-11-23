@@ -72,7 +72,7 @@ Mọi dòng ở trạng thái `PENDING`: spec đang `draft`, chưa có dòng mã
 | FR-107 | kind=test; ref=planned pytest review-notes upsert, delete on empty, 501 chars 422, other user's attempt 403, q_num outside the test 422, note visible on a new attempt of the same test (T31) | PENDING |
 | FR-108 | kind=test; ref=planned pytest duplicate flag same attempt and question 409 already_flagged, parallel requests leave one row, report and rating unchanged (T31) | PENDING |
 | FR-109 | kind=test; ref=planned pytest my_flagged_q_nums for the caller only; node feedback-widgets 409 turns the button to "Đã báo lỗi" (T31) | PENDING |
-| FR-110 | kind=test; ref=planned PG migration test runs twice, raises when duplicate flag rows exist, rollback drops both indexes; review_notes RLS denies anon and authenticated (T31) | PENDING |
+| FR-110 | kind=test; ref=planned PG migration test runs twice, raises when duplicate attempt-anchored flag rows exist, applies with several attempt-less practice flags by one learner, rollback drops both indexes; review_notes RLS denies anon and authenticated; archive script on a real duplicate fixture then preflight passes and both indexes build (T31, HOLD patch) | PENDING |
 
 ## Kịch bản staging (gói 9.1 mục 1, 3, 3b, 3c, 8; 9.4)
 
