@@ -25,6 +25,7 @@ import asyncio
 import json
 import logging
 import unicodedata
+import uuid
 from datetime import datetime, timezone
 from typing import Any, Literal, Optional
 
@@ -57,6 +58,8 @@ _SPEAKING_GATE_COLUMNS = _SPEAKING_LIST_COLUMNS + ", sample_text"
 
 MESSAGES = {
     "E_NO_TITLE": "Tiêu đề tiếng Anh thiếu, dài ngoài 3–70 ký tự, có dấu tiếng Việt hoặc trùng bài khác.",
+    # Speaking titles have no length bound (import_speaking contract); same code, own wording.
+    "E_NO_TITLE_SPEAKING": "Tiêu đề tiếng Anh thiếu hoặc có dấu tiếng Việt.",
     "E_TOPIC": "Chủ đề không có trong danh sách chủ đề của kệ này.",
     "E_NO_REVIEW": "Bộ bài chưa được duyệt nội dung.",
     "E_FIGURE": "Đề Task 1 chưa có hình đề.",
@@ -184,8 +187,32 @@ def _unavailable(exc: Exception) -> HTTPException:
                                "message": "Chưa đọc được dữ liệu Thư viện. Thử tải lại sau ít phút."})
 
 
-def _blocker(code: str) -> dict:
-    return {"code": code, "message": MESSAGES[code]}
+def _blocker(code: str, message_key: Optional[str] = None) -> dict:
+    return {"code": code, "message": MESSAGES[message_key or code]}
+
+
+_READ_PAGE = 1000  # PostgREST max-rows; every whole-table read walks it in pages
+
+
+def _paged(build) -> list[dict]:
+    """All rows of ``build()`` (a fresh query each call), read 1000 at a time
+    so a shelf larger than PostgREST's row cap is never silently cut."""
+    rows: list[dict] = []
+    start = 0
+    while True:
+        page = build().range(start, start + _READ_PAGE - 1).execute().data or []
+        rows.extend(page)
+        if len(page) < _READ_PAGE:
+            return rows
+        start += _READ_PAGE
+
+
+def _is_uuid(value: Any) -> bool:
+    try:
+        uuid.UUID(str(value))
+    except (TypeError, ValueError, AttributeError):
+        return False
+    return True
 
 
 def _title_problem(title: Any, *, taken: set[str]) -> bool:
@@ -202,8 +229,8 @@ def _other_titles(rows: list[dict], own_id: Any) -> set[str]:
 
 
 def _topics(shelf: str) -> dict[str, dict]:
-    rows = (supabase_admin.table("library_topics")
-            .select("slug, label_vi, shelves, display_order").execute().data or [])
+    rows = _paged(lambda: supabase_admin.table("library_topics")
+                  .select("slug, label_vi, shelves, display_order").order("slug"))
     ordered = sorted((r for r in rows if shelf in (r.get("shelves") or [])),
                      key=lambda r: (r.get("display_order") or 0, r.get("slug") or ""))
     return {r["slug"]: r for r in ordered}
@@ -235,7 +262,7 @@ def _speaking_blockers(row: dict, *, topics: dict, full: bool) -> list[dict]:
     out = []
     title = row.get("title_en")
     if not isinstance(title, str) or not title.strip() or has_vietnamese_marks(title):
-        out.append(_blocker("E_NO_TITLE"))
+        out.append(_blocker("E_NO_TITLE", "E_NO_TITLE_SPEAKING"))
     # topic_slug may be null ("Chủ đề khác", N2); a set value must be a speaking topic.
     if row.get("topic_slug") is not None and row.get("topic_slug") not in topics:
         out.append(_blocker("E_TOPIC"))
@@ -288,8 +315,8 @@ async def list_writing_samples(
     await require_admin(authorization)
 
     def read():
-        rows = (supabase_admin.table("writing_samples").select(_WRITING_LIST_COLUMNS)
-                .execute().data or [])
+        rows = _paged(lambda: supabase_admin.table("writing_samples")
+                      .select(_WRITING_LIST_COLUMNS).order("id"))
         return rows, _topics("writing")
 
     try:
@@ -354,8 +381,8 @@ async def list_speaking_samples(
     await require_admin(authorization)
 
     def read():
-        rows = (supabase_admin.table("speaking_samples").select(_SPEAKING_LIST_COLUMNS)
-                .execute().data or [])
+        rows = _paged(lambda: supabase_admin.table("speaking_samples")
+                      .select(_SPEAKING_LIST_COLUMNS).order("id"))
         return rows, _topics("speaking")
 
     try:
@@ -415,15 +442,23 @@ async def _edit(table: str, shelf: str, sample_id: str, body: SampleEdit, admin:
     if "title_en" in fields:
         fields["title_en"] = (fields["title_en"] or "").strip()
 
+    if not _is_uuid(sample_id):  # ids are uuid; anything else cannot exist
+        raise _edit_error("not_found", MESSAGES["E_NOT_FOUND"], 404)
+
     def read():
-        rows = supabase_admin.table(table).select("id, slug, title_en, topic_slug").execute().data or []
-        return rows, _topics(shelf)
+        found = (supabase_admin.table(table).select("id, slug, title_en, topic_slug")
+                 .eq("id", sample_id).limit(1).execute().data or [])
+        if not found:
+            return None, [], {}
+        # Only a Writing title change needs every other title (uniqueness).
+        titles = (_paged(lambda: supabase_admin.table(table).select("id, title_en").order("id"))
+                  if shelf == "writing" and "title_en" in fields else [])
+        return found[0], titles, _topics(shelf)
 
     try:
-        rows, topics = await asyncio.to_thread(read)
+        current, rows, topics = await asyncio.to_thread(read)
     except Exception as exc:  # noqa: BLE001
         raise _unavailable(exc) from exc
-    current = next((r for r in rows if str(r.get("id")) == sample_id), None)
     if current is None:
         raise _edit_error("not_found", MESSAGES["E_NOT_FOUND"], 404)
 
@@ -431,7 +466,9 @@ async def _edit(table: str, shelf: str, sample_id: str, body: SampleEdit, admin:
         title = fields["title_en"]
         bounded = TITLE_MIN <= len(title) <= TITLE_MAX if shelf == "writing" else bool(title)
         if not bounded or has_vietnamese_marks(title):
-            raise _edit_error("invalid_title", "Tiêu đề tiếng Anh dài 3–70 ký tự, không có dấu tiếng Việt.")
+            raise _edit_error("invalid_title", (
+                "Tiêu đề tiếng Anh dài 3–70 ký tự, không có dấu tiếng Việt." if shelf == "writing"
+                else "Nhập tiêu đề tiếng Anh, không có dấu tiếng Việt."))
         if shelf == "writing" and title.casefold() in _other_titles(rows, current.get("id")):
             raise _edit_error("duplicate_title", "Tiêu đề này đã dùng cho một bộ bài khác.")
     if "topic_slug" in fields:
@@ -460,10 +497,14 @@ async def _edit(table: str, shelf: str, sample_id: str, body: SampleEdit, admin:
 async def _publish(table: str, shelf: str, body: PublishRequest, admin: dict) -> dict:
     ids = list(dict.fromkeys(body.ids))  # de-duplicate, keep order
     columns = _WRITING_GATE_COLUMNS if shelf == "writing" else _SPEAKING_GATE_COLUMNS
+    # A non-uuid id cannot exist; keep it out of the query (Postgres would
+    # reject the whole batch) and refuse it below as not found.
+    lookup = [sid for sid in ids if _is_uuid(sid)]
 
     def read():
-        targets = supabase_admin.table(table).select(columns).in_("id", ids).execute().data or []
-        titles = (supabase_admin.table(table).select("id, title_en").execute().data or []
+        targets = (supabase_admin.table(table).select(columns).in_("id", lookup).execute().data or []
+                   if lookup else [])
+        titles = (_paged(lambda: supabase_admin.table(table).select("id, title_en").order("id"))
                   if shelf == "writing" and body.published else [])
         return targets, titles, (_topics(shelf) if body.published else {})
 

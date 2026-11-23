@@ -160,7 +160,7 @@ function ShelfPanel({ shelf }: { shelf: Shelf }) {
       const text = publishSummary(result, { published }) + (result.auditLogged ? '' : ' · chưa ghi được nhật ký admin, báo kỹ thuật kiểm tra');
       setBanner({ kind, text, rejected: result.rejected });
     } catch (caught) {
-      setBanner({ kind: 'error', text: `Chưa ${published ? 'đăng' : 'gỡ'} được: ${messageOf(caught)}. Không có mục nào thay đổi.` });
+      setBanner({ kind: 'error', text: `Chưa ${published ? 'đăng' : 'gỡ'} được: ${messageOf(caught)}. Danh sách bên dưới đã tải lại từ máy chủ, xem trạng thái từng mục trước khi thử lại.` });
     } finally {
       setBusy(false);
       setSelected(new Set());
