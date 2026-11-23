@@ -662,12 +662,23 @@ def create_product(row: dict) -> dict:
     return _product_views([_product_or_404(str(data[0]["id"]))])[0]
 
 
+def _product_archived() -> HTTPException:
+    return _error(409, "product_archived", "Sản phẩm đã lưu trữ, không sửa được.")
+
+
 def update_product(product_id: str, row: dict) -> dict:
-    current = _product_or_404(product_id)
-    if current.get("archived_at"):
-        raise _error(409, "product_archived", "Sản phẩm đã lưu trữ, không sửa được.")
-    if row:
-        _execute(supabase_admin.table("course_products").update(row).eq("id", product_id))
+    if not row:
+        if _product_or_404(product_id).get("archived_at"):
+            raise _product_archived()
+    else:
+        # "Not archived" is part of the write itself, so an archive that
+        # commits after any earlier read can never be followed by an edit.
+        written = _execute(supabase_admin.table("course_products").update(row)
+                           .eq("id", product_id).is_("archived_at", "null")).data or []
+        if not written:
+            if _product_or_404(product_id).get("archived_at"):
+                raise _product_archived()
+            raise RuntimeError("product update wrote no row")
     # Orders keep their own snapshot (tuition, days, credits, title): editing
     # the product never touches an order already created.
     return _product_views([_product_or_404(product_id)])[0]
@@ -852,6 +863,11 @@ def _entitlement_or_404(entitlement_id: str) -> dict:
     return row
 
 
+def _request_key_conflict() -> HTTPException:
+    return _error(409, "request_key_conflict",
+                  "Mã yêu cầu này đã dùng cho một thao tác khác. Tải lại trang rồi làm lại.")
+
+
 def grant_entitlement(admin_id: str, body: GrantEntitlement) -> dict:
     # An unknown user fails the entitlements FK (23503) → 404.
     result = _admin_rpc("fn_entitlement_admin_grant", {
@@ -864,7 +880,13 @@ def grant_entitlement(admin_id: str, body: GrantEntitlement) -> dict:
         raise _error(404, "product_not_found", "Không tìm thấy sản phẩm, hoặc sản phẩm đã lưu trữ.")
     if status not in ("granted", "replay"):
         raise RuntimeError(f"grant answered {status}")
-    return {"status": status, "entitlement": _entitlement_or_404(str(result["entitlement_id"]))}
+    entitlement = _entitlement_or_404(str(result["entitlement_id"]))
+    if status == "replay" and (str(entitlement.get("product_id")).lower() != body.product_id.lower()
+                               or str(entitlement.get("granted_by")) != admin_id):
+        # The RPC replays on (request_key, user) alone: a key reused for
+        # another product or by another admin must not look like this grant.
+        raise _request_key_conflict()
+    return {"status": status, "entitlement": entitlement}
 
 
 def revoke_entitlement(admin_id: str, entitlement_id: str, reason: str) -> dict:
@@ -923,6 +945,13 @@ def adjust_credits(admin_id: str, body: AdjustCredits) -> dict:
     if status == "adjusted":
         return {"status": status, "balance": int(result.get("balance_after") or 0)}
     if status == "replay":
+        # The RPC replays on the key alone (any entitlement, any delta): only a
+        # true repeat of this adjustment may answer "replay".
+        prior = _execute(supabase_admin.table("credit_ledger").select("id, entitlement_id, delta")
+                         .eq("id", result.get("ledger_id"))).data or []
+        if not prior or str(prior[0].get("entitlement_id")).lower() != body.entitlement_id.lower() \
+                or int(prior[0].get("delta") or 0) != body.delta:
+            raise _request_key_conflict()
         entitlement = _entitlement_or_404(body.entitlement_id)
         return {"status": status, "balance": _entitlement_balance(entitlement)}
     raise RuntimeError(f"adjust answered {status}")

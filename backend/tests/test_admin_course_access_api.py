@@ -79,8 +79,9 @@ def world(monkeypatch):
         row = next((e for e in db.tables["entitlements"] if e["id"] == params["p_entitlement_id"]), None)
         if row is None:
             return {"status": "not_found"}
-        if any(r.get("idempotency_key") == key for r in db.tables["credit_ledger"]):
-            return {"status": "replay", "ledger_id": 9}
+        prior = next((r for r in db.tables["credit_ledger"] if r.get("idempotency_key") == key), None)
+        if prior is not None:  # 384 replays on the key alone
+            return {"status": "replay", "ledger_id": prior["id"]}
         if row["status"] != "active":
             return {"status": "not_usable"}
         balance = balance_of(row["id"])
@@ -91,12 +92,13 @@ def world(monkeypatch):
                                            "reason": "admin_adjust", "note": params["p_reason"],
                                            "idempotency_key": key, "actor_id": params["p_admin_id"],
                                            "feature": None, "created_at": NOW.isoformat()})
-        return {"status": "adjusted", "ledger_id": 9, "balance_after": balance + params["p_delta"]}
+        return {"status": "adjusted", "ledger_id": db.tables["credit_ledger"][-1]["id"],
+                "balance_after": balance + params["p_delta"]}
 
     def grant(params):
         existing = next((e for e in db.tables["entitlements"] if e.get("source_ref") == params["p_request_key"]),
                         None)
-        if existing:
+        if existing:  # 384 replays on (request_key, user) alone
             return {"status": "replay", "entitlement_id": existing["id"]}
         product = next((p for p in db.tables["course_products"] if p["id"] == params["p_product_id"]), None)
         if product is None or product.get("archived_at"):
@@ -104,6 +106,7 @@ def world(monkeypatch):
         if not any(u["id"] == params["p_user_id"] for u in db.tables["users"]):
             return _api_error("23503", 'insert or update on table "entitlements" violates foreign key constraint')
         row = {**_ent(f"e-new-{len(db.tables['entitlements'])}", user=params["p_user_id"]),
+               "product_id": params["p_product_id"], "granted_by": params["p_admin_id"],
                "source_ref": params["p_request_key"]}
         db.tables["entitlements"].append(row)
         return {"status": "granted", "entitlement_id": row["id"]}
@@ -284,6 +287,31 @@ def test_archive_needs_the_title_and_no_active_learner(client, world):
     assert res.status_code == 409 and res.json()["detail"]["error_code"] == "product_archived"
 
 
+def test_an_archive_that_lands_after_any_read_still_blocks_the_edit(client, world, monkeypatch):
+    """HOLD 11:12Z: the archive commits after the handler could have read the
+    product. Reads made before the write see the stale, unarchived row; the
+    write itself must refuse, and no field may change."""
+    db = world["db"]
+    real_fetch = admin_commerce.fetch_product
+    stale = dict(db.tables["course_products"][0])
+    db.tables["course_products"][0].update(archived_at=NOW.isoformat(), status="closed", is_public=False)
+    archived = dict(db.tables["course_products"][0])
+
+    def fetch(product_id):
+        if ("course_products", "update") not in db.calls:
+            return dict(stale)                       # read before the archive committed
+        return real_fetch(product_id)
+
+    monkeypatch.setattr(admin_commerce, "fetch_product", fetch)
+    res = client.patch(f"/admin/course-products/{PID}", headers=AUTH,
+                       json={"title": "Tên mới", "tuition_vnd": 1, "summary": "Sửa sau khi lưu trữ"})
+    assert res.status_code == 409 and res.json()["detail"]["error_code"] == "product_archived"
+    assert db.tables["course_products"][0] == archived
+    res = client.patch("/admin/course-products/a0000000-0000-4000-8000-0000000000ff", headers=AUTH,
+                       json={"title": "Tên mới"})
+    assert res.status_code == 404 and res.json()["detail"]["error_code"] == "product_not_found"
+
+
 # ── Entitlements and credits ────────────────────────────────────────────────
 
 
@@ -301,6 +329,18 @@ def test_grant_replays_by_request_key(client, world):
                       json={**GRANT, "product_id": "a0000000-0000-4000-8000-0000000000ff",
                             "request_key": "f0000000-0000-4000-8000-0000000000fe"})
     assert res.status_code == 404 and res.json()["detail"]["error_code"] == "product_not_found"
+
+
+def test_a_grant_key_reused_for_another_product_is_a_conflict_not_a_replay(client, world):
+    assert client.post("/admin/entitlements", headers=AUTH, json=GRANT).json()["status"] == "granted"
+    rows = list(world["db"].tables["entitlements"])
+    other = "a0000000-0000-4000-8000-000000000002"
+    world["db"].tables["course_products"].append({**PRODUCT, "id": other, "slug": "khoa-khac"})
+    res = client.post("/admin/entitlements", headers=AUTH, json={**GRANT, "product_id": other})
+    assert res.status_code == 409 and res.json()["detail"]["error_code"] == "request_key_conflict"
+    assert world["db"].tables["entitlements"] == rows
+    assert client.post("/admin/entitlements", headers=AUTH,
+                       json={**GRANT, "product_id": PID.upper()}).json()["status"] == "replay"
 
 
 def test_revoke_and_extend(client, world):
@@ -330,6 +370,18 @@ def test_adjust_replays_and_never_goes_negative(client, world):
     assert res.status_code == 409 and res.json()["detail"]["error_code"] == "would_go_negative"
     assert res.json()["detail"]["balance"] == 13 and world["db"].tables["credit_ledger"] == before
     assert client.post("/admin/credits/adjust", headers=AUTH, json={**ADJUST, "reason": "ngắn quá"}).status_code == 422
+
+
+def test_an_adjust_key_reused_for_another_entitlement_or_delta_is_a_conflict(client, world):
+    assert client.post("/admin/credits/adjust", headers=AUTH, json=ADJUST).json()["status"] == "adjusted"
+    other = "e0000000-0000-4000-8000-000000000002"
+    world["db"].tables["entitlements"].append(_ent(other))
+    before = list(world["db"].tables["credit_ledger"])
+    for body in ({**ADJUST, "entitlement_id": other, "delta": 60}, {**ADJUST, "delta": 6},
+                 {**ADJUST, "delta": -5}):
+        res = client.post("/admin/credits/adjust", headers=AUTH, json=body)
+        assert res.status_code == 409 and res.json()["detail"]["error_code"] == "request_key_conflict", body
+    assert world["db"].tables["credit_ledger"] == before
 
 
 @pytest.mark.parametrize("reason", ["Liên hệ hocvien@example.com", "Gọi 0912 345 678 để báo"])
