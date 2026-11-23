@@ -1,7 +1,11 @@
 /**
  * admin-student-listening.test.mjs — audit 2026-07-17 đợt 3: mục Listening
- * trong hồ sơ học viên (drawer) + tín hiệu bỏ dở + deep-link sang 2 trang
- * báo cáo listening. Source sentinels.
+ * trong hồ sơ học viên (drawer). Source sentinels.
+ *
+ * LEGACYJS-0075 W3b: admin-students-panel.js đã xoá; hồ sơ học viên giờ là
+ * dialog hồ sơ trong /admin/students (admin-students-directory.tsx). Hai
+ * deep-link sang báo cáo listening và kiểu cảnh báo cho "Bỏ dở" chưa có trên
+ * Next — ghi là gap trong docs/TEST_INVARIANT_LEDGER.md, không sửa ở đây.
  */
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
@@ -11,30 +15,22 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const read = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
-const PAGE = read('pages', 'admin', 'classes', 'index.html')
-  + read('js', 'admin-students-panel.js');
+const PAGE = read('app', '(authed-admin-students)', 'admin', 'students', 'admin-students-directory.tsx');
 
-describe('hồ sơ học viên — mục Tiến độ (listening)', () => {
-  test('drawer có 4 stat: lượt làm, đúng TB, bỏ dở, chép chính tả', () => {
-    assert.match(PAGE, /Tiến độ \(listening\)/);
-    for (const id of ['stat-listen-total', 'stat-listen-acc', 'stat-listen-abandoned', 'stat-listen-dict']) {
-      assert.match(PAGE, new RegExp(`id="${id}"`), `thiếu #${id}`);
+describe('hồ sơ học viên — mục Listening', () => {
+  test('có 4 stat: lượt làm, đúng TB, bỏ dở, chép chính tả', () => {
+    assert.match(PAGE, /<h3>Listening<\/h3>/);
+    for (const [label, field] of [['Tổng lượt', 'attempts_total'], ['Bỏ dở', 'attempts_abandoned'], ['Chép chính tả', 'dictation_total']]) {
+      assert.match(PAGE, new RegExp(`<span>${label}</span><strong>\\{String\\(listening\\.${field} \\?\\? 0\\)\\}`), `thiếu ${label}`);
     }
-    // Bỏ dở dùng style cảnh báo (tín hiệu vấn đề)
-    assert.match(PAGE, /id="stat-listen-abandoned" class="adm-card-num st-flagged"/);
+    assert.match(PAGE, /<span>Độ chính xác TB<\/span>/);
   });
-  test('render từ detail.listening + reset khi mở drawer', () => {
-    assert.match(PAGE, /detail && detail\.listening/);
-    assert.match(PAGE, /lis\.avg_accuracy \* 100/);
-    assert.match(PAGE, /stat-listen-total'\)\.textContent = '—'/);
+  test('render từ detail.listening; độ chính xác rỗng hiện —, không thành 0%', () => {
+    assert.match(PAGE, /const listening = record\(profile\?\.detail\?\.listening\)/);
+    assert.match(PAGE, /listening\.avg_accuracy == null \? '—' : `\$\{Math\.round\(Number\(listening\.avg_accuracy\) \* 100\)\}%`/);
   });
-  test('deep-link sang 2 trang báo cáo, filter sẵn học viên theo email', () => {
-    assert.match(PAGE, /\/pages\/admin\/listening\/attempts\.html' \+ linkQs/);
-    assert.match(PAGE, /\/admin\/listening\/dictation' \+ linkQs/);
-    assert.match(PAGE, /'\?user=' \+ encodeURIComponent\(userQ\)/);
-  });
-  test('chưa kích hoạt tài khoản → nói rõ, không im lặng', () => {
+  test('chưa kích hoạt tài khoản hoặc đọc lỗi → nói rõ, không im lặng', () => {
     assert.match(PAGE, /Chưa kích hoạt tài khoản — chưa có dữ liệu listening\./);
-    assert.match(PAGE, /Không tải được dữ liệu listening\./);
+    assert.match(PAGE, /Không đọc được dữ liệu listening\./);
   });
 });

@@ -15,8 +15,10 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const read = (...r) => readFileSync(join(__dirname, '..', ...r), 'utf8');
 const GRADE = read('pages', 'admin', 'writing', 'grade.html');
-const STU = read('pages', 'admin', 'classes', 'index.html')
-  + read('js', 'admin-students-panel.js');
+// LEGACYJS-0075 W3b: admin-students-panel.js is deleted; the students toolbar,
+// bulk bar and rows are owned by the native /admin/students directory.
+const STU = read('app', '(authed-admin-students)', 'admin', 'students', 'admin-students-directory.tsx');
+const FIELD = read('components', 'admin-directory-ui.tsx');
 
 const DATA_INPUTS = [
   'criteria', 'overview', 'trajectory', 'mistakes', 'recurring', 'lexical',
@@ -54,14 +56,16 @@ describe('grade.html — attribute-only (logic/structure untouched)', () => {
 });
 
 
-describe('admin sweep — students.html controls have accessible names', () => {
-  test('toolbar search-input has aria-label', () => {
-    assert.match(STU, /id="search-input"[^>]*aria-label="[^"]+"/);
+describe('admin sweep — /admin/students controls have accessible names', () => {
+  test('toolbar search input is wrapped in a labelled Field', () => {
+    assert.match(STU, /<Field label="Tìm học viên"><input type="search"/);
+    assert.match(FIELD, /<label[^>]*>/);
   });
-  test('bulk-cohort select has aria-label', () => {
-    assert.match(STU, /id="bulk-cohort"[^>]*aria-label="[^"]+"/);
+  test('bulk cohort select has aria-label', () => {
+    assert.match(STU, /<select aria-label="Lớp cần thêm"/);
   });
-  test('per-row checkbox has aria-label', () => {
-    assert.match(STU, /class="row-check" aria-label="[^"]+"/);
+  test('per-row and select-all checkboxes have aria-label', () => {
+    assert.match(STU, /<input type="checkbox" aria-label=\{`Chọn \$\{student\.full_name\}`\}/);
+    assert.match(STU, /<input type="checkbox" aria-label="Chọn tất cả học viên trong kết quả"/);
   });
 });

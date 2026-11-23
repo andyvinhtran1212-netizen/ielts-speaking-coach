@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -105,10 +105,12 @@ describe('/admin/students — archive and restore (STUDENTARCHIVE-0029)', () => 
     assert.match(BROWSER, /DELETE \\\/admin\\\/students/);
   });
 
-  test('legacy panel confirm no longer claims essays are erased', () => {
-    const LEGACY = read('public', 'js', 'admin-students-panel.js');
-    assert.doesNotMatch(LEGACY, /Tất cả essays của học viên này cũng sẽ bị xóa/);
-    assert.match(LEGACY, /Bài làm và điểm được giữ nguyên/);
+  // LEGACYJS-0075 W3b: admin-students-panel.js is deleted; the archive dialog
+  // in the native directory is the only confirm and must keep the same truth.
+  test('archive confirm never claims essays are erased', () => {
+    assert.doesNotMatch(DIRECTORY, /Tất cả essays của học viên này cũng sẽ bị xóa/);
+    assert.match(DIRECTORY, /description="Bài làm, điểm và lịch sử được giữ nguyên\./);
+    assert.equal(existsSync(join(ROOT, 'public', 'js', 'admin-students-panel.js')), false);
   });
 
   test('model: archive state, request path and restore receipt', () => {

@@ -2,11 +2,14 @@
  * frontend/tests/sprint-18-3-2-students-chrome.test.mjs — Sprint 18.3.2
  *
  * Students page cross-chrome migration: Writing-Coach (WC.bootstrap / aw-* /
- * Tailwind / admin-writing.css) → aver-admin chrome + admin-components.css.
- * Source-scan: no WC remnants, av/adm-* consumption, preserved features
- * (CRUD + Tổng quan summary + CSV import + search + auth gate) + the 18.1 tabs.
- * Source-scan sentinel only — it pins markup/wiring, not rendered behaviour;
- * runtime + visual verification is via Andy dogfood (tracked separately).
+ * Tailwind / admin-writing.css) → aver-admin chrome + shared admin components.
+ * Source-scan: no WC remnants, adm-* consumption, preserved features
+ * (CRUD + Writing summary + CSV import + search + auth gate) + the 18.1 tabs.
+ *
+ * LEGACYJS-0075 W3b: admin-students-panel.js is deleted. The same invariants
+ * are pinned on the native owner, app/(authed-admin-students)/admin/students.
+ * Rendered behaviour is covered by admin-students-next-behavior.test.mjs and
+ * tooling/verify-admin-students-flow.mjs.
  */
 import { describe, test } from 'node:test';
 import assert from 'node:assert';
@@ -15,84 +18,67 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-// GĐ 1b: bảng Học viên đã chuyển vào trang gộp — khung ở trang, mã ở panel JS.
-const HTML = readFileSync(join(__dirname, '..', 'pages', 'admin', 'classes', 'index.html'), 'utf8')
-  + readFileSync(join(__dirname, '..', 'js', 'admin-students-panel.js'), 'utf8');
-
+const read = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
+const PAGE = read('app', '(authed-admin-students)', 'admin', 'students', 'page.tsx');
+const DIR = read('app', '(authed-admin-students)', 'admin', 'students', 'admin-students-directory.tsx');
+const SRC = PAGE + DIR;
 
 describe('Sprint 18.3.2 — Writing-Coach chrome removed', () => {
   test('no writing-admin.js / WC.bootstrap call', () => {
-    assert.doesNotMatch(HTML, /writing-admin\.js/);
-    assert.doesNotMatch(HTML, /WC\.bootstrap\(/);
-    assert.doesNotMatch(HTML, /WC\.(escapeHtml|debounce)\(/);
+    assert.doesNotMatch(SRC, /writing-admin\.js/);
+    assert.doesNotMatch(SRC, /WC\.(bootstrap|escapeHtml|debounce)\(/);
   });
   test('no aw-* classes (admin-writing.css coupling gone)', () => {
-    assert.doesNotMatch(HTML, /class="[^"]*\baw-/);
-    assert.doesNotMatch(HTML, /<link[^>]*admin-writing\.css/);
+    assert.doesNotMatch(SRC, /className="[^"]*\baw-/);
+    assert.doesNotMatch(SRC, /admin-writing\.css/);
   });
   test('no Tailwind CDN / lucide', () => {
-    assert.doesNotMatch(HTML, /cdn\.tailwindcss\.com/);
-    assert.doesNotMatch(HTML, /lucide/);
+    assert.doesNotMatch(SRC, /cdn\.tailwindcss\.com/);
+    assert.doesNotMatch(SRC, /lucide/);
   });
 });
 
 describe('Sprint 18.3.2 — aver-admin chrome + shared components consumed', () => {
-  test('aver-admin chrome + admin-components.css linked', () => {
-    // GĐ 1: the students page now lives under the merged "Lớp & Học viên"
-    // parent. active="students" named a section that no longer exists, so the
-    // sidebar highlighted nothing and both child links disappeared.
-    assert.match(HTML, /<aver-admin-chrome active="classes" subsection="classes">/);
-    assert.match(HTML, /\/css\/aver-design\/admin-components\.css/);
+  test('aver-admin chrome under the merged "Lớp & Học viên" parent', () => {
+    assert.match(PAGE, /<aver-admin-chrome active="classes" subsection="students">/);
   });
-  test('uses shared .adm-* components (table / button / card / modal / field)', () => {
-    assert.match(HTML, /class="adm-table"/);
-    assert.match(HTML, /class="adm-btn-primary"/);
-    assert.match(HTML, /class="adm-btn-secondary"/);
-    assert.match(HTML, /class="adm-btn-danger"/);
-    assert.match(HTML, /class="adm-card"/);
-    assert.match(HTML, /class="adm-modal-backdrop hidden"/);
-    assert.match(HTML, /class="adm-field"/);
+  test('uses shared components (dialog / field / button / status)', () => {
+    assert.match(DIR, /import \{ Dialog, Field, messageOf, StatusBanner \} from '@\/components\/admin-directory-ui'/);
+    assert.match(DIR, /className="adm-btn-primary/);
+    assert.match(DIR, /className="adm-btn-secondary/);
+    assert.match(DIR, /className=\{`adm-status-pill/);
   });
   test('no inline colour/bg styles (Pattern #26)', () => {
-    assert.doesNotMatch(HTML, /style="[^"]*color\s*:/);
-    assert.doesNotMatch(HTML, /style="[^"]*background/);
+    assert.doesNotMatch(DIR, /style=\{\{[^}]*color\s*:/);
+    assert.doesNotMatch(DIR, /style=\{\{[^}]*background/);
   });
 });
 
 describe('Sprint 18.3.2 — features preserved', () => {
-  test('admin auth gate (own inline replacement for WC.bootstrap)', () => {
-    assert.match(HTML, /\/auth\/me/);
-    assert.match(HTML, /role !== 'admin'/);
-    assert.match(HTML, /id="state-denied"/);
-    assert.match(HTML, /id="state-ready"/);
+  test('admin auth gate', () => {
+    assert.match(PAGE, /<AdminAccessGate>/);
   });
-  test('CRUD wired (new / edit / delete / save)', () => {
-    assert.match(HTML, /id="btn-new"/);
-    assert.match(HTML, /id="student-form"/);
-    assert.match(HTML, /data-act="edit"/);
-    assert.match(HTML, /data-act="delete"/);
-    assert.match(HTML, /api\.post\('\/admin\/students'/);
-    assert.match(HTML, /api\.patch\('\/admin\/students\//);
-    assert.match(HTML, /api\.delete\('\/admin\/students\//);
+  test('CRUD wired (new / edit / archive / save)', () => {
+    assert.match(DIR, /window\.api\.post\('\/admin\/students'/);
+    assert.match(DIR, /window\.api\.patch\(`\/admin\/students\/\$\{encodeURIComponent\(draft\.id/);
+    assert.match(DIR, /window\.api\.delete\(archiveStudentPath\(student\.id/);
+    assert.match(DIR, /aria-label=\{`Sửa hồ sơ \$\{student\.full_name\}`\}/);
   });
-  test('Tổng quan summary modal preserved', () => {
-    assert.match(HTML, /id="summary-modal"/);
-    assert.match(HTML, /\/admin\/writing\/students\/'\s*\+\s*studentId\s*\+\s*'\/summary/);
-    assert.match(HTML, /id="stat-total"/);
+  test('Writing summary preserved in the profile dialog', () => {
+    assert.match(DIR, /\/admin\/writing\/students\/\$\{encodeURIComponent\(student\.id\)\}\/summary/);
+    assert.match(DIR, /<span>Tổng bài<\/span>/);
   });
   test('CSV import + New Essay link + search preserved', () => {
-    assert.match(HTML, /id="csv-input"/);
-    assert.match(HTML, /\/admin\/students\/import/);
-    assert.match(HTML, /\/pages\/admin\/writing\/new\.html\?student_id=/);
-    assert.match(HTML, /id="search-input"/);
+    assert.match(DIR, /type="file" accept="\.csv,text\/csv"/);
+    assert.match(DIR, /'\/admin\/students\/import'/);
+    assert.match(DIR, /href=\{`\/admin\/writing\/new\?student_id=\$\{encodeURIComponent\(student\.id\)\}`\}/);
+    assert.match(DIR, /<Field label="Tìm học viên"><input type="search"/);
   });
 });
 
 describe('Sprint 18.3.2 — Sprint 18.1 tabs preserved', () => {
   test('"Lớp & Học viên" subtabs intact, students active', () => {
-    // GĐ 1b: cùng một trang, hai tab. Trạng thái active do JS đặt lúc chạy theo
-    // ?tab=, nên ở đây chỉ ghim hai tab tồn tại và trỏ đúng đích.
-    assert.match(HTML, /id="tab-classes"[^>]*href="\/admin\/classes"/);
-    assert.match(HTML, /id="tab-students"[^>]*href="\/admin\/students"/);
+    assert.match(DIR, /<Link href="\/admin\/classes">/);
+    assert.match(DIR, /<Link className="is-active" href="\/admin\/students" aria-current="page">/);
   });
 });
