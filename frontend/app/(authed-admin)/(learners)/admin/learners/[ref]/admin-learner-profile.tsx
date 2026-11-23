@@ -76,7 +76,10 @@ export function AdminLearnerProfile({ learnerRef }: { learnerRef: string }) {
   const [overviewFor, setOverviewFor] = useState<{ ref: string; overview: LearnerOverviewWire | null; error: string | null } | null>(null);
   const overview = overviewFor && overviewFor.ref === learnerRef ? overviewFor.overview : null;
   const overviewError = overviewFor && overviewFor.ref === learnerRef ? overviewFor.error : null;
-  const [pick, setPick] = useState<'admin' | 'learner' | null>(null);
+  // The goal confirm belongs to the profile it was opened on, like the banner.
+  const [pickFor, setPickFor] = useState<{ ref: string; use: 'admin' | 'learner' } | null>(null);
+  const pick = pickFor && pickFor.ref === learnerRef ? pickFor.use : null;
+  const setPick = useCallback((use: 'admin' | 'learner' | null) => setPickFor(use ? { ref: learnerRef, use } : null), [learnerRef]);
   const [busy, setBusy] = useState(false);
   // A result banner belongs to the profile it was written on; after a change
   // of profile it is not shown.
@@ -96,6 +99,9 @@ export function AdminLearnerProfile({ learnerRef }: { learnerRef: string }) {
   const loadDetail = useCallback(async () => {
     // Only the newest read is shown: an older answer (another profile, or a
     // reload overtaken by a later one) is dropped.
+    // A reload asked for by the previous profile (an old write's answer) starts
+    // nothing: it must not overtake the read of the profile now on screen.
+    if (learnerRef !== learnerRefNow.current) return;
     const id = ++detailSeq.current;
     setErrorFor(null);
     try {
@@ -113,6 +119,7 @@ export function AdminLearnerProfile({ learnerRef }: { learnerRef: string }) {
   }, [learnerRef]);
 
   const loadOverview = useCallback(async () => {
+    if (learnerRef !== learnerRefNow.current) return;
     const id = ++overviewSeq.current;
     setOverviewFor((prev) => (prev && prev.ref === learnerRef ? { ...prev, error: null } : null));
     try {
@@ -152,7 +159,7 @@ export function AdminLearnerProfile({ learnerRef }: { learnerRef: string }) {
       void loadDetail();
     } finally {
       setBusy(false);
-      setPick(null);
+      setPickFor((prev) => (prev && prev.ref === learnerRef ? null : prev));
     }
   };
 

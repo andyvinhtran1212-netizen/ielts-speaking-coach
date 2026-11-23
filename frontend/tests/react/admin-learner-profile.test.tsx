@@ -144,4 +144,45 @@ describe('AdminLearnerProfile', () => {
     render(<AdminLearnerProfile learnerRef={U} />);
     await screen.findByText(/Không tìm thấy học viên này\./);
   });
+
+  describe('the goal confirm and its reloads belong to the profile they were made on', () => {
+    const U2 = 'u-10000000-0000-0000-0000-0000000000b2';
+    const detail2 = () => ({ ...detail(U2), summary: { ...summary, name: 'Trần Bảo Ngọc' } });
+
+    it('a goal confirm open on A is not shown on B, even when B has a conflict too', async () => {
+      api.getWith.mockImplementation((path: string) => Promise.resolve(
+        path.endsWith('/overview') ? overview() : (path.includes(U2) ? detail2() : detail())));
+      const { rerender } = render(<AdminLearnerProfile learnerRef={U} />);
+      await screen.findByText(/Hai nguồn đang lệch/);
+      fireEvent.click(screen.getAllByRole('button', { name: 'Dùng giá trị này' })[1]);
+      expect(screen.getByRole('alertdialog')).toBeTruthy();
+      rerender(<AdminLearnerProfile learnerRef={U2} />);
+      await screen.findByText(/Trần Bảo Ngọc/, { selector: '.lp-crumb' });
+      await screen.findByText(/Hai nguồn đang lệch/);
+      expect(screen.queryByRole('alertdialog')).toBeNull();
+      expect(api.post).not.toHaveBeenCalled();
+    });
+
+    it('a goal write that ends after the switch does not leave B stuck on Đang tải…', async () => {
+      let answerB: (v: unknown) => void = () => undefined;
+      let answerPost: (v: unknown) => void = () => undefined;
+      api.getWith.mockImplementation((path: string) => {
+        if (path.includes(U2)) return path.endsWith('/overview') ? Promise.resolve(overview()) : new Promise((r) => { answerB = r; });
+        return Promise.resolve(path.endsWith('/overview') ? overview() : detail());
+      });
+      api.post.mockImplementation(() => new Promise((r) => { answerPost = r; }));
+      const { rerender } = render(<AdminLearnerProfile learnerRef={U} />);
+      await screen.findByText(/Hai nguồn đang lệch/);
+      fireEvent.click(screen.getAllByRole('button', { name: 'Dùng giá trị này' })[1]);
+      fireEvent.click(screen.getByRole('button', { name: 'Lưu' }));
+      rerender(<AdminLearnerProfile learnerRef={U2} />);
+      expect(screen.getByText('Đang tải…')).toBeTruthy();
+      answerPost({ goal: goal(false) });
+      await new Promise((r) => setTimeout(r, 20));
+      answerB(detail2());
+      await screen.findByText(/Trần Bảo Ngọc/, { selector: '.lp-crumb' });
+      expect(screen.queryByText(/Đã ghi mục tiêu/)).toBeNull();
+    });
+  });
 });
+
