@@ -91,7 +91,7 @@
 }
 
 .tableWrap { overflow-x: auto; }
-.tableWrap:focus-visible { outline: var(--av2-rule-strong-w) solid var(--av2-focus); outline-offset: var(--av2-focus-offset); }
+.tableWrap:focus-visible { outline: var(--av2-focus); outline-offset: var(--av2-focus-offset); }
 
 .table { width: 100%; border-collapse: collapse; font-size: var(--av2-fs-14); }
 .table th, .table td {
