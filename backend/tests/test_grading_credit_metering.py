@@ -42,6 +42,19 @@ class FakeCredits:
         self.res: dict[str, dict] = {}      # reservation id → row
         self.keys: dict[str, str] = {}      # request key → reservation id
         self.seats: dict[str, list[str]] = {}   # "<session>:p<n>" → question ids in seat order
+        self.covered: dict[str, tuple[str, str]] = {}   # request key → (resource id, cover hold id)
+        self.ledger: list[int] = []         # -1 reserve, +1 release
+
+    def key_state(self, key):
+        """What grading._request_key_state reads (reservation or cover row)."""
+        if key in self.keys:
+            row = self.res[self.keys[key]]
+            return {"resource_type": row["type"], "resource_id": row["asked"], "status": row["status"]}
+        if key in self.covered:
+            asked, cover = self.covered[key]
+            return {"resource_type": "speaking_cluster", "resource_id": asked,
+                    "status": self.res[cover]["status"]}
+        return None
 
     def names(self, name):
         return [p for n, p in self.calls if n == name]
@@ -54,11 +67,20 @@ class FakeCredits:
             return self._reserve(params)
         row = self.res[params["p_reservation_id"]]
         if name == "fn_credit_commit":
+            if row["status"] == "committed":
+                return {"status": "already_committed"}
+            if row["status"] != "open":
+                return {"status": "not_open", "reservation_status": row["status"]}
             row["status"] = "committed"
             return {"status": "committed"}
         if name == "fn_credit_release":
+            if row["status"] == "released":
+                return {"status": "already_released"}
+            if row["status"] != "open":
+                return {"status": "not_open"}
             row["status"] = "released"
             self.balance += 1
+            self.ledger.append(+1)
             return {"status": "released"}
         raise AssertionError(name)
 
@@ -66,18 +88,30 @@ class FakeCredits:
         if self.balance < params["p_cost"]:
             return {"status": "insufficient_credits", "balance": self.balance}
         self.balance -= params["p_cost"]
+        self.ledger.append(-1)
         rid = str(uuid4())
-        self.res[rid] = {"status": "open", "resource_id": resource_id}
+        self.res[rid] = {"status": "open", "resource_id": resource_id, "user_id": params.get("p_user_id"),
+                         "type": params["p_resource_type"], "asked": params["p_resource_id"]}
         self.keys[params["p_request_key"]] = rid
         return {"status": "reserved", "reservation_id": rid, "balance_after": self.balance}
 
     def _reserve(self, params):
         if self.force:
             return {"status": self.force, "reservation_id": str(uuid4())}
-        old = self.keys.get(params["p_request_key"])
+        key = params["p_request_key"]
+        old = self.keys.get(key)
         if old:
-            return {"status": "already_committed" if self.res[old]["status"] == "committed" else "replay",
+            row = self.res[old]
+            if row["asked"] != params["p_resource_id"] or row["status"] in ("released", "expired"):
+                return {"status": "request_key_conflict", "reservation_id": old}
+            return {"status": "already_committed" if row["status"] == "committed" else "replay",
                     "reservation_id": old}
+        if key in self.covered:
+            asked, cover = self.covered[key]
+            state = self.res[cover]["status"]
+            if asked != params["p_resource_id"] or state not in ("open", "committed"):
+                return {"status": "request_key_conflict", "reservation_id": cover}
+            return {"status": "replay" if state == "open" else "already_committed", "reservation_id": cover}
         if params["p_resource_type"] == "speaking_response":
             return self._new(params, params["p_resource_id"])
         session, part, q = params["p_resource_id"].split(":")
@@ -88,6 +122,7 @@ class FakeCredits:
         live = [rid for rid, r in self.res.items()
                 if r["resource_id"] == cluster and r["status"] in ("open", "committed")]
         if live:
+            self.covered[key] = (params["p_resource_id"], live[0])
             return {"status": "covered", "reservation_id": live[0]}
         return self._new(params, cluster)
 
@@ -102,6 +137,7 @@ def world(monkeypatch):
     """flag + plan reads + fake RPC; returns a namespace the test tunes."""
     w = SimpleNamespace(flag=True, flag_error=False, class_entitled=False, converted=False,
                         legacy=(), fake=FakeCredits())
+    monkeypatch.setattr(credits, "_metering_last", None)   # 3c9f9f24: no value read before
 
     def strict(key, default=False):
         assert key == "credit_metering"
@@ -115,6 +151,16 @@ def world(monkeypatch):
     monkeypatch.setattr(credits, "fetch_cohort_converted", lambda _c: w.converted)
     monkeypatch.setattr(credits, "fetch_legacy_code_features", lambda _u: w.legacy)
     monkeypatch.setattr(credits, "_rpc", lambda name, params: w.fake.rpc(name, params))
+
+    def fetch_reservation(rid):
+        row = w.fake.res.get(rid)
+        return row and {"user_id": row["user_id"], "resource_type": row["type"],
+                        "resource_id": row["asked"], "status": row["status"]}
+    monkeypatch.setattr(credits, "fetch_reservation", fetch_reservation)
+
+    async def key_state(_user, key):
+        return w.fake.key_state(key)
+    monkeypatch.setattr(grading, "_request_key_state", key_state)
     return w
 
 
@@ -126,10 +172,10 @@ def _session(part, **extra):
 
 
 def _grade(monkeypatch, session, *, duration=None, grader_fails=False, stt_fails=False,
-           submission_id=None, replay=False, save=None):
-    """Run the endpoint once for a new question of ``session``."""
+           submission_id=None, replay=False, save=None, question_id=None):
+    """Run the endpoint once for a new question of ``session`` (or ``question_id``)."""
     duration = duration or {1: 20.0, 2: 100.0, 3: 30.0}[session["part"]]
-    question = {"id": str(uuid4()), "session_id": session["id"], "question_text": "Synthetic prompt"}
+    question = {"id": question_id or str(uuid4()), "session_id": session["id"], "question_text": "Synthetic prompt"}
     db = _DB(sessions=[session], questions=[question])
     db.storage = MagicMock()
     monkeypatch.setattr(grading, "supabase_admin", db)
@@ -245,7 +291,9 @@ def test_cluster_of_five_answers_spends_two_credits(monkeypatch, world, part, du
         kinds.append("reserved" if len(world.fake.res) > before else "covered")
     assert kinds == ["reserved", "covered", "covered", "reserved", "covered"]
     assert world.fake.balance == 8
-    assert len(world.fake.names("fn_credit_commit")) == 2      # covered answers commit nothing
+    # Every saved answer commits: its own hold, or (covered) the cluster's cover
+    # hold, which is already committed here. Still two credits in all.
+    assert len(world.fake.names("fn_credit_commit")) == 5
     assert world.fake.names("fn_credit_release") == []
 
 
@@ -344,10 +392,10 @@ def test_non_reserved_answers_stop_before_any_paid_call(monkeypatch, world, stat
 
 def test_sa_scenario_resending_an_older_graded_submission_is_409(monkeypatch, world):
     session = _session(2)
-    sid1, sid2 = str(uuid4()), str(uuid4())
-    assert _grade(monkeypatch, session, submission_id=sid1).error is None
+    sid1, sid2, q1 = str(uuid4()), str(uuid4()), str(uuid4())
+    assert _grade(monkeypatch, session, submission_id=sid1, question_id=q1).error is None
     assert _grade(monkeypatch, session, submission_id=sid2).error is None
-    again = _grade(monkeypatch, session, submission_id=sid1)
+    again = _grade(monkeypatch, session, submission_id=sid1, question_id=q1)   # same recording resent
     assert again.error.status_code == 409 and again.error.detail["error_code"] == "already_graded"
     again.stt.assert_not_awaited()
     again.grade.assert_not_awaited()
@@ -413,3 +461,88 @@ def test_code_holder_never_reads_entitlements(monkeypatch):
         raise AssertionError("must not be read")
     monkeypatch.setattr(credits.runtime_flags, "is_enabled_strict", never)
     sessions._require_permission("u1", "practice")
+
+
+# ── Retrying a failed attempt (Codex P2 / CR on 68a027c0) ───────────────────
+
+@pytest.mark.parametrize("part", [2, 1])
+@pytest.mark.parametrize("failure", ["stt", "save"])
+def test_retry_after_a_released_hold_is_graded_and_charged_once(monkeypatch, world, part, failure):
+    """STT 502 (or a save failure) releases the hold; the page retries the same
+    recording with the same submission_id. fn_credit_reserve answers
+    request_key_conflict for a released key, so the route retries under
+    '<submission_id>:a1' and the answer is graded, one credit in all."""
+    session, question, sid = _session(part), str(uuid4()), str(uuid4())
+
+    def broken_save(*_a, **_k):
+        raise RuntimeError("db down")
+    first = _grade(monkeypatch, session, question_id=question, submission_id=sid,
+                   stt_fails=failure == "stt", save=broken_save if failure == "save" else None)
+    assert first.error is not None and first.error.status_code in (500, 502)
+    assert world.fake.balance == 10                     # handed back
+    again = _grade(monkeypatch, session, question_id=question, submission_id=sid)
+    assert again.error is None and "_stub" not in again.result
+    keys = [p["p_request_key"] for p in world.fake.names("fn_credit_reserve")]
+    assert keys == [sid, sid, f"{sid}:a1"]
+    assert world.fake.balance == 9 and sum(world.fake.ledger) == -1
+    assert sorted(_statuses(world.fake)) == ["committed", "released"]
+
+
+def test_retry_key_used_for_another_question_stays_409(monkeypatch, world):
+    session, sid = _session(2), str(uuid4())
+    assert _grade(monkeypatch, session, submission_id=sid, stt_fails=True).error.status_code == 502
+    other = _grade(monkeypatch, session, submission_id=sid)       # new question, same key
+    assert other.error.status_code == 409 and other.error.detail["error_code"] == "request_key_conflict"
+    other.stt.assert_not_awaited()
+    assert world.fake.balance == 10
+
+
+def test_retry_while_the_first_attempt_is_still_open_is_409_in_progress(monkeypatch, world):
+    session, question, sid = _session(2), str(uuid4()), str(uuid4())
+    world.fake.keys[sid] = rid = str(uuid4())
+    world.fake.res[rid] = {"status": "open", "resource_id": f"{session['id']}:{question}",
+                           "type": "speaking_response", "asked": f"{session['id']}:{question}"}
+    out = _grade(monkeypatch, session, question_id=question, submission_id=sid)
+    assert out.error.status_code == 409 and out.error.detail["error_code"] == "grading_in_progress"
+    out.stt.assert_not_awaited()
+
+
+# ── A cluster with a saved grade always costs one credit (Andy, 68a027c0) ───
+
+def _open_cluster_opener(world, session, part=1):
+    """The cluster opener is still grading: an open hold on c0 with one seat."""
+    q = str(uuid4())
+    result = world.fake._reserve({"p_request_key": str(uuid4()), "p_resource_type": "speaking_cluster",
+                                  "p_resource_id": f"{session['id']}:p{part}:q{q}", "p_cost": 1,
+                                  "p_cluster_size": 3})
+    assert result["status"] == "reserved"
+    return result["reservation_id"]
+
+
+def test_covered_answer_commits_the_cover_so_a_failing_opener_refunds_nothing(monkeypatch, world):
+    session = _session(1)
+    opener = _open_cluster_opener(world, session)
+    out = _grade(monkeypatch, session)                 # covered by the open opener hold
+    assert out.error is None and "_stub" not in out.result
+    assert world.fake.res[opener]["status"] == "committed"
+    # The opener now fails: its release finds the hold committed.
+    asyncio.run(credits.release_if_open(credits.CreditHold(reservation_id=opener), "grader_failed"))
+    assert world.fake.res[opener]["status"] == "committed"
+    assert world.fake.balance == 9 and sum(world.fake.ledger) == -1
+
+
+def test_covered_answer_pays_when_the_cover_was_released_meanwhile(monkeypatch, world):
+    session = _session(1)
+    opener = _open_cluster_opener(world, session)
+
+    def save_while_opener_fails(*_a, **_k):
+        world.fake.res[opener]["status"] = "released"   # opener failed during our grading
+        world.fake.balance += 1
+        world.fake.ledger.append(+1)
+        return str(uuid4())
+    out = _grade(monkeypatch, session, save=save_while_opener_fails, submission_id=str(uuid4()))
+    assert out.error is None and "_stub" not in out.result
+    reserves = world.fake.names("fn_credit_reserve")
+    assert reserves[-1]["p_request_key"].endswith(":c")
+    assert sorted(_statuses(world.fake)) == ["committed", "released"]
+    assert world.fake.balance == 9 and sum(world.fake.ledger) == -1

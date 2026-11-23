@@ -617,13 +617,8 @@ async def grade_response_endpoint(
         # a replay returned above never reaches this point.
         step = "credit_reserve"
         if credit_plan.metered:
-            credit_hold = await credits.reserve(
-                user_id, "speaking_grading", request_key=submission_id,
-                **_speaking_credit_resource(session_id, question_id, part),
-                ttl_seconds=settings.CREDIT_HOLD_TTL_SPEAKING_SECONDS,
-                course_ids=credit_plan.course_ids, kinds=credit_plan.kinds,
-                credit_source=credit_plan.credit_source,
-            )
+            credit_hold = await _reserve_speaking_credit(
+                user_id, credit_plan, session_id, question_id, part, submission_id)
 
         # ── STEP 3: Whisper STT (directly from in-memory bytes) ──────────────
         # Transcribe BEFORE uploading to storage so we never hit CDN caching:
@@ -1301,7 +1296,12 @@ async def grade_response_endpoint(
         # Plan 5.6 step 3: graded and saved → commit. A failed commit is logged
         # and the hold is left to the expiry sweep (the grade is already the
         # learner's; never 5xx it). Sealed mock sittings are never metered.
-        await _commit_credit_hold(credit_hold)
+        await _commit_credit_hold(
+            credit_hold,
+            pay_again=(lambda: _reserve_speaking_credit(
+                user_id, credit_plan, session_id, question_id, part, f"{submission_id}:c"))
+            if credit_plan.metered else None,
+        )
         credit_hold = None
 
         # Sealed 4-skill mock speaking: grading is fully persisted above (the
@@ -1358,13 +1358,116 @@ def _speaking_credit_resource(session_id: str, question_id: str, part: int) -> d
     return {"resource_type": "speaking_response", "resource_id": f"{session_id}:{question_id}"}
 
 
-async def _commit_credit_hold(hold: credits.CreditHold | None) -> None:
-    if hold is None:
-        return
+_CREDIT_KEY_RETRIES = 3
+
+
+def _fetch_request_key_state(user_id: str, request_key: str) -> dict | None:
+    """The hold a Speaking request key already names: its own reservation, or
+    the cover hold of a ``covered`` answer. ``{resource_type, resource_id,
+    status}`` with the resource the key was used for; None when unused."""
+    rows = (
+        supabase_admin.table("credit_reservations").select("resource_type, resource_id, status")
+        .eq("user_id", user_id).eq("feature", "speaking_grading").eq("request_key", request_key)
+        .limit(1).execute().data
+    ) or []
+    if rows:
+        return rows[0]
+    rows = (
+        supabase_admin.table("credit_covered_requests").select("resource_type, resource_id, reservation_id")
+        .eq("user_id", user_id).eq("feature", "speaking_grading").eq("request_key", request_key)
+        .limit(1).execute().data
+    ) or []
+    if not rows:
+        return None
+    cover = (
+        supabase_admin.table("credit_reservations").select("status")
+        .eq("id", rows[0]["reservation_id"]).limit(1).execute().data
+    ) or []
+    return {"resource_type": rows[0]["resource_type"], "resource_id": rows[0]["resource_id"],
+            "status": cover[0]["status"] if cover else None}
+
+
+async def _request_key_state(user_id: str, request_key: str) -> dict | None:
+    return await asyncio.wait_for(asyncio.to_thread(_fetch_request_key_state, user_id, request_key),
+                                  timeout=credits.RPC_TIMEOUT_SECONDS)
+
+
+async def _key_was_released_for(user_id: str, request_key: str, resource: dict) -> bool:
+    """True when ``request_key`` names a released/expired hold of THIS answer
+    (Codex P2 / CR on 68a027c0): the attempt failed and gave its credit back,
+    so the same recording may be retried under a new key. A key used for
+    another answer, or still open/committed, stays a conflict."""
     try:
-        await hold.commit()
-    except Exception as exc:  # noqa: BLE001 — the grade is saved; expiry sweep settles the hold
-        logger.warning("[credits] decision=commit_failed reservation=%s: %s", hold.reservation_id, exc)
+        state = await _request_key_state(user_id, request_key)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[credits] request key lookup failed: %s", exc)
+        raise credits.CreditUnavailable("request_key_lookup") from exc
+    if not state or state.get("status") not in ("released", "expired"):
+        return False
+    if (state.get("resource_type"), state.get("resource_id")) == (resource["resource_type"], resource["resource_id"]):
+        return True
+    # A paid cluster re-grade is held as speaking_response '<s>:<q>:r<n>'.
+    if resource["resource_type"] == "speaking_cluster" and state.get("resource_type") == "speaking_response":
+        session_id, _part, question = resource["resource_id"].split(":", 2)
+        return str(state.get("resource_id") or "").startswith(f"{session_id}:{question[1:]}:r")
+    return False
+
+
+async def _reserve_speaking_credit(user_id: str, plan: credits.ChargePlan, session_id: str,
+                                   question_id: str, part: int, base_key: str) -> credits.CreditHold:
+    """Plan 5.6 step 2 with a retry rule. The first key is the submission id.
+    fn_credit_reserve answers ``request_key_conflict`` for a key whose hold was
+    released, so a learner retrying the same recording after an STT 502 or a
+    save failure would get 409 and lose the recording. When the conflicting
+    key names a released hold of this same answer, try ``<key>:a<n>``. An
+    open hold under any of these keys is still a replay (409
+    grading_in_progress) and a committed one is ``already_graded``."""
+    resource = _speaking_credit_resource(session_id, question_id, part)
+    key = base_key
+    for attempt in range(_CREDIT_KEY_RETRIES + 1):
+        try:
+            return await credits.reserve(
+                user_id, "speaking_grading", request_key=key, **resource,
+                ttl_seconds=settings.CREDIT_HOLD_TTL_SPEAKING_SECONDS,
+                course_ids=plan.course_ids, kinds=plan.kinds, credit_source=plan.credit_source,
+            )
+        except credits.CreditRefused as exc:
+            if (exc.code != "request_key_conflict" or attempt == _CREDIT_KEY_RETRIES
+                    or not await _key_was_released_for(user_id, key, resource)):
+                raise
+            key = f"{base_key}:a{attempt + 1}"
+    raise AssertionError("unreachable")
+
+
+async def _commit_credit_hold(hold: credits.CreditHold | None, *, pay_again=None) -> None:
+    """Plan 5.6 step 3, after the save. Never raises: the grade is saved and
+    a commit failure is left to the expiry sweep.
+
+    A ``covered`` answer commits the cluster's cover hold itself (Andy's
+    review on 68a027c0, which replaces plan 5.6 step 6). If the cluster
+    opener is still grading, its later failure finds the hold committed and
+    returns nothing, so a cluster with a saved grade always costs one credit.
+    If the cover hold was already released, this answer pays for the cluster
+    with a fresh hold (``pay_again``), committed at once."""
+    for attempt in range(3):
+        if hold is None:
+            return
+        try:
+            if not hold.covered:
+                await hold.commit()
+                return
+            if not hold.reservation_id:
+                return
+            result = await credits._rpc("fn_credit_commit", {"p_reservation_id": hold.reservation_id})
+            if result["status"] in ("committed", "already_committed") or pay_again is None or attempt == 2:
+                return
+            logger.info("[credits] decision=cover_released reservation=%s status=%s",
+                        hold.reservation_id, result["status"])
+            hold = await pay_again()
+        except Exception as exc:  # noqa: BLE001 — the grade is saved; expiry sweep settles the hold
+            logger.warning("[credits] decision=commit_failed reservation=%s: %s",
+                           getattr(hold, "reservation_id", None), exc)
+            return
 
 
 _CREDIT_MESSAGES = {
