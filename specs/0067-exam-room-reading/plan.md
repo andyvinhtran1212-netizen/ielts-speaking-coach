@@ -25,9 +25,11 @@
   - 200 `{ "attempt_id": uuid, "status": "abandoned" }` (cả khi gọi lại lượt đã bỏ).
   - 404 khi không phải chủ lượt hoặc không có lượt; 409 `{ "reason": "already_submitted" }`
     khi đã nộp; 409 `{ "reason": "not_self_selected" }` khi lượt gắn sitting hay bài giao;
-    409 `{ "reason": "time_expired" }` khi đã quá giờ (lượt sẽ được tự nộp như hôm nay).
-  - Update có điều kiện `status = 'in_progress'` để không ghi đè lượt vừa nộp (đua với
-    submit).
+    409 `{ "reason": "time_expired" }` khi đã hết giờ (không hứa lượt được tự nộp).
+  - Một câu UPDATE có điều kiện, như `submit` (L1663): `.eq("id")`, chủ lượt,
+    `.eq("status", "in_progress")`, `sitting_id IS NULL`, không bài giao, không khách,
+    `.gt("resume_expires_at", now_ghi)`, `.gt("started_at", now_ghi - time_limit)`; `now_ghi`
+    lấy ngay trước câu UPDATE. Không có dòng nào đổi thì đọc lại để chọn 200/409.
 - Mọi chỗ đọc kết quả, lịch sử, Tiến độ của Reading phải chỉ lấy `submitted`; PR backend
   liệt kê từng chỗ đã kiểm và thêm test cho lượt `abandoned`.
 - Mọi request khác giữ nguyên. `renderer_affinity` vẫn `next`.
@@ -61,6 +63,10 @@ Xem `rollout.md`.
 - `node frontend/tooling/verify-mock-exam-flow.mjs`: `mock-flush` vẫn được trả lời.
 - Bộ hợp đồng frontend, `test:react`, `tsc --noEmit`, `npm run build`.
 - Pytest route bỏ bài: chủ lượt, người khác (404), đã nộp (409), gắn sitting/bài giao (409),
-  quá giờ (409), gọi lại (200 cùng kết quả), lượt bỏ không có trong kết quả và lịch sử.
+  hết giờ (409), request bắt đầu trước hạn nhưng ghi sau hạn (409, giả `now`), nộp và bỏ
+  đồng thời (đúng một bên thắng), gọi lại (200 cùng kết quả), lượt bỏ không có trong kết
+  quả, lịch sử, Tiến độ.
+- Playwright: đề có mật khẩu (`dialog` = 0); offline qua ân hạn → 422 → màn
+  `expired_unsubmitted`; offline trong ân hạn → nộp được.
 - Staging: tài khoản QA làm đề AVR-READ-001 tới khi nộp ở cả hai nhánh, so kết quả.
 - Ảnh 1280/768/390 đối chiếu tờ `PhongThi` (390 của full test là màn chặn).

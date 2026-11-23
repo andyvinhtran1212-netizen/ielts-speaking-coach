@@ -104,33 +104,54 @@ viên mất bài, nộp nhầm hay lộ thông tin. Đã kiểm `reading-exam-se
 - **FR-008:** Câu hỏi hiển thị bằng dạng câu dùng chung của 0066; chuỗi đáp án gửi lên
   giống hệt chuỗi `user_answer` nhánh cũ gửi cho cùng thao tác (chọn nhiều vẫn nối dấu
   phẩy như hôm nay).
-- **FR-009:** Trạng thái lưu lấy từ `saveStates` của bộ lưu hiện có và giờ của lần ack
-  thành công gần nhất: "Saving…", "Saved at HH:MM", "Not saved. Retrying…", "Retry"
+- **FR-009:** Trạng thái lưu lấy từ `saveStates` của bộ lưu hiện có (chỉ chứa câu chưa
+  lưu: `pending`/`retrying`/`failed`, câu được bỏ khỏi đó khi ack) và một mốc mới
+  `lastSavedAt` mà T001 đặt ngay trong nhánh xử lý ack hiện có của bộ lưu (chỗ bỏ câu
+  khỏi `saveStates`), không thêm đường lưu thứ hai: "Saving…", "Saved at HH:MM", "Not saved. Retrying…", "Retry"
   khi một câu ở trạng thái `failed` (gọi lại đường lưu hiện có).
-- **FR-010:** Nộp qua hộp của khung, liệt kê câu trống. Hết giờ tự nộp qua đường hiện có
-  (`readingRemainingSeconds` từ `started_at` của server), đưa giá trị cuối cùng đã gõ
-  vào lần nộp, không hỏi lại. Khoá nộp hai lần giữ nguyên (`autoSubmittedRef`, phase
-  `submitting`, biên nhận `sealed` của backend). Trạng thái nộp đưa cho khung qua
-  `submit.outcome` (0066 FR-034): `confirmed` chỉ khi lời gọi nộp hiện có trả thành công,
-  hoặc đọc lại lượt (`GET` lượt hiện có) thấy `submitted`/sealed; offline, 401, lỗi hay mất
-  phản hồi là `unconfirmed`. Lượt đã `submitted` do máy chủ tự đóng theo giờ mà câu trên
-  server cũ hơn bản trên máy là `closed_unconfirmed` (không coi là đã nộp đủ); hết 3 lần tự
-  thử khi lượt còn mở là `unconfirmed_manual`. Khi `unconfirmed`: hết giờ lúc offline thì lần nộp tự động
-  được xếp hàng và gửi khi có mạng (không chờ nút nộp tay, 0066 FR-019); 401 thì làm theo
-  FR-014 rồi nộp lại; mất phản hồi thì đọc lại lượt trước, chỉ nộp lại khi lượt vẫn
-  `in_progress`. Máy chủ vẫn tự đóng lượt theo giờ của nó; không thêm thời gian.
+- **FR-010:** Nộp qua hộp của khung, liệt kê câu trống. Hết giờ thì trình tự nộp qua đường
+  hiện có (`readingRemainingSeconds` từ `started_at` của server), đưa giá trị cuối cùng đã
+  gõ vào lần nộp, không hỏi lại. Khoá nộp hai lần giữ nguyên (`autoSubmittedRef`, phase
+  `submitting`, biên nhận `sealed` của backend). Máy chủ Reading **không** tự đóng hay tự
+  nộp lượt theo giờ: lượt bỏ dở vẫn `in_progress` cho tới khi học viên bắt đầu lượt mới;
+  `submit` của lượt không gắn sitting bị từ chối 422 "Time limit exceeded — attempt
+  expired." khi đã quá `time_limit + 5 phút` (`_SUBMIT_GRACE_SECONDS`, `reading_student.py`
+  L675, L1598). Trạng thái nộp đưa cho khung qua `submit.outcome` (0066 FR-034):
+  - `confirmed`: lời gọi nộp trả thành công (kể cả biên nhận `sealed`), hoặc đọc lại lượt
+    thấy `submitted`.
+  - `unconfirmed`: offline, 401, lỗi tạm hay mất phản hồi. Hết giờ lúc offline thì lần nộp
+    tự động được xếp hàng và gửi khi có mạng (không chờ nút nộp tay, 0066 FR-019); 401 thì
+    làm theo FR-014 rồi nộp lại; mất phản hồi thì đọc lại lượt trước, chỉ nộp lại khi lượt
+    vẫn `in_progress`. Tự thử tối đa 3 lần, rồi `unconfirmed_manual`.
+  - Hàng đợi chỉ còn tác dụng trong 5 phút ân hạn: màn `unconfirmed` nói rõ "Reconnect
+    within 5 minutes of the end time so we can submit your answers." Lần nộp tới máy chủ
+    sau mốc đó nhận 422 thì chuyển sang `expired_unsubmitted` (FR-021), không bao giờ
+    hiện "submitted".
+  Không thêm thời gian.
 - **FR-011:** Lối thoát: "Leave test" mở hộp của khung; khung flush hàng đợi lưu hiện có
   và nêu số câu chưa lưu; rời về `backHref` hiện tại. Đồng hồ server không dừng; quay lại
   trong giờ thì tiếp tục đúng lượt.
 - **FR-012:** Bỏ bài (đề tự chọn: `from=full` hoặc `from=mini`, lượt của chính học viên,
   không có `class_item`, `sitting_id`, `share`, `admin_preview`): nút "Abandon test" và hộp
-  hỏi lại của khung. Xác nhận thì gọi route mới `POST /api/reading/test/attempts/{id}/abandon`:
-  chỉ chủ lượt, chỉ lượt `in_progress` không gắn sitting hay bài giao; đặt
-  `status='abandoned'` (giá trị đã có trong CHECK của mig 087, không cần migration);
-  không chấm; gọi lại khi đã `abandoned` trả cùng kết quả; lượt đã `submitted` trả 409.
-  Lượt bỏ không xuất hiện ở kết quả, lịch sử hay Tiến độ (phải kiểm mọi chỗ đọc
-  `reading_test_attempts` chỉ lấy `submitted`). Làm lại được ngay, không giới hạn số lần.
-  Bài giao của lớp, sitting thi thử và link chia sẻ không có nút này và route từ chối.
+  hỏi lại của khung. Xác nhận thì gọi route mới `POST /api/reading/test/attempts/{id}/abandon`;
+  `status='abandoned'` đã có trong CHECK của mig 087, không cần migration; không chấm.
+  - Mọi điều kiện nằm **trong chính câu UPDATE**, cùng cách điều phối với `submit` (UPDATE
+    có điều kiện, đọc lại khi không có dòng nào đổi): `id`, chủ lượt, `status =
+    'in_progress'`, không gắn `sitting_id`/bài giao, không phải lượt khách, `resume_expires_at
+    > now` như `submit`, và **còn trong giờ** theo mốc canonical: `started_at > now_ghi -
+    time_limit` với `now_ghi` lấy ngay trước câu UPDATE (không phải lúc request bắt đầu).
+  - Không có dòng nào đổi thì đọc lại lượt: đã `abandoned` → 200 cùng kết quả (gọi lại
+    an toàn); đã `submitted` → 409 `already_submitted`; còn `in_progress` mà đã hết giờ
+    → 409 `time_expired`; gắn sitting/bài giao → 409 `not_self_selected`.
+  - Hết giờ thì không bỏ được: lần nộp tự động của trình có quyền ưu tiên. Màn của học viên
+    sau 409 `time_expired` theo trạng thái nộp ở FR-010, không hứa "đã tự nộp" khi máy chủ
+    chưa xác nhận.
+  - Nộp và bỏ đồng thời: hai câu UPDATE cùng điều kiện `status='in_progress'`, đúng một câu
+    thắng; bên thua nhận 409 kèm trạng thái thật, giao diện hiện theo trạng thái đó.
+  - Lượt bỏ không xuất hiện ở kết quả, lịch sử hay Tiến độ. Lượt `abandoned` đã có từ hôm nay
+    (khi bắt đầu lượt mới), nên T003 chỉ thêm test lượt bỏ cho kết quả, lịch sử và Tiến độ,
+    không rà toàn bộ. Làm lại được ngay, không giới hạn số lần.
+  - Bài giao của lớp, sitting thi thử và link chia sẻ không có nút này và route từ chối.
 - **FR-013:** Mất mạng: dải của khung; lưu thử lại khi `online` như hôm nay; nút nộp tay
   đổi "Waiting for connection" và khoá trong lúc offline hoặc còn câu chưa lưu. Khoá này
   không chặn lần nộp tự động khi hết giờ (FR-010).
@@ -146,6 +167,9 @@ viên mất bài, nộp nhầm hay lộ thông tin. Đã kiểm `reading-exam-se
   bỏ bài (FR-012), khi đăng xuất, khi tài khoản khác đăng nhập (xoá không đọc). Tài khoản
   khác không đọc, khôi phục hay gửi được bản sao này. Link chia sẻ dùng quyền khách, không có
   hộp này; lỗi 403/404 của khách giữ như hôm nay.
+  Hôm nay tài khoản khác đăng nhập trong tab làm `window.location.reload()` (khoảng L869)
+  trước khi đọc gì; việc dọn bản sao của tài khoản cũ chạy ở lần tải lại đó (xoá mà không
+  đọc). Khoá theo `ownerKey` bảo đảm không ai khác đọc được kể cả khi việc dọn chưa chạy.
 - **FR-015:** Cùng lượt mở ở tab thứ hai: thông báo tab khác của khung; tab chỉ-đọc không
   gửi `PATCH`. "Use this tab": tab cũ flush bộ lưu hiện có (câu lỗi vào bản sao FR-014)
   rồi mới nhả khoá ghi; tab mới chỉ ghi khi giữ khoá và đã tải lại lượt từ server; 5 giây
@@ -160,9 +184,22 @@ viên mất bài, nộp nhầm hay lộ thông tin. Đã kiểm `reading-exam-se
 - **FR-018:** Highlight/Note bằng lớp của khung (dùng lại cách CSS Highlight API hiện có, có
   `<mark>` dự phòng), lưu trên máy theo lượt.
 - **FR-019:** Khi cờ `reading` bật, luồng làm bài không gọi `window.confirm`, `alert` hay
-  `prompt` nào (journey bắt sự kiện `dialog` = 0).
+  `prompt` nào (journey bắt sự kiện `dialog` = 0), kể cả đề có mật khẩu (FR-022).
 - **FR-020:** Sự kiện `exam_room_*` của khung gửi với `surface='reading'`, không có nội
   dung câu trả lời.
+
+- **FR-021:** Trạng thái `expired_unsubmitted` (đề xuất thêm vào EXAMROOM-0066 FR-034 bằng
+  sửa đổi 1, câu hỏi mở 6): `submit` trả 422 "attempt expired". Màn: "Time ran out before
+  your answers reached our server. This attempt was not submitted and has no score. Your
+  answers were saved on our server up to [HH:MM]." với nút "Back" về `backHref`, không nút
+  thử lại, không chữ "submitted". Bản sao tại máy bị xoá (không còn gửi được). Lượt vẫn
+  `in_progress` trên máy chủ cho tới khi học viên bắt đầu lượt mới (câu hỏi mở 7).
+- **FR-022:** Đề có mật khẩu: 403 khi boot trong nhánh mới hiện ô nhập mật khẩu trong trang
+  của khung (tiếng Anh: "This test is locked. Enter the test password." với "Unlock" và
+  "Back"), lưu vào đúng khoá `reading-pw:{testId}` của sessionStorage như hôm nay, boot lại
+  một lần; sai mật khẩu thì báo "That password is not correct." và cho nhập lại. Không có
+  `window.prompt`. `bootWithRecovery` nhận thêm một hàm hỏi mật khẩu; nhánh cờ tắt truyền
+  hàm gọi `window.prompt` y như hôm nay, nên không đổi.
 
 ## Acceptance scenarios
 
@@ -227,14 +264,37 @@ viên mất bài, nộp nhầm hay lộ thông tin. Đã kiểm `reading-exam-se
 - **When** nộp ở nhánh cũ và ở nhánh mới
 - **Then** điểm và từng câu đúng/sai trùng nhau.
 
+### Scenario 9: đề có mật khẩu
+
+- **Given** cờ bật, đề bị khoá bằng mật khẩu
+- **When** mở đề
+- **Then** ô mật khẩu trong trang; nhập đúng thì vào bài; sai thì "That password is not
+  correct."; 0 sự kiện `dialog`.
+
+### Scenario 10: offline quá ân hạn
+
+- **Given** đồng hồ về 0 khi offline
+- **When** có mạng lại sau `time_limit + 5 phút`
+- **Then** lần nộp trong hàng đợi nhận 422; màn "Time ran out before your answers reached
+  our server…" với giờ lưu cuối; không chữ "submitted".
+- **Given** có mạng lại trong 5 phút **Then** nộp được và chỉ khi phản hồi thành công mới
+  hiện "saved and submitted".
+
+### Scenario 11: bỏ bài sát giờ và đua với nộp
+
+- **Given** request bỏ bài bắt đầu trước mốc hết giờ nhưng câu UPDATE chạy sau mốc
+- **Then** 409 `time_expired`, lượt không bị bỏ.
+- **Given** nộp và bỏ gửi cùng lúc
+- **Then** đúng một bên thắng; bên kia nhận 409 kèm trạng thái thật.
+
 ## Edge cases
 
 - Test đọc chuỗi nguồn (`reading-exam-native-controller.test.mjs` và các test khác ở
   GOI-08 T07): giữ các chuỗi bị ghim trong `reading-exam-session.tsx`; test vỡ do đổi có chủ
   ý thì sửa cùng PR và liệt kê; quá 30 test vỡ thì dừng và báo.
 - Đổi cờ giữa một lượt: tải lại dùng giao diện mới hay cũ theo cờ, cùng dữ liệu server.
-- Bỏ bài đúng lúc hết giờ: server so `started_at + time_limit` (kèm ân hạn) trước; đã quá
-  giờ thì route trả 409 và học viên thấy kết quả tự nộp của lượt.
+- Bỏ bài đúng lúc hết giờ: điều kiện giờ nằm trong câu UPDATE (FR-012); quá giờ thì 409
+  `time_expired` và màn theo trạng thái nộp của FR-010; không có "kết quả tự nộp".
 - Bỏ bài khi còn câu chưa lưu: bỏ không cần lưu; câu chưa lưu bị bỏ cùng lượt.
 - Bấm "Abandon test" hai lần: lần hai trả cùng kết quả, không lỗi.
 - Ghi đè `?exam_room=on` chỉ dùng trên URL `/reading/exam/session`, không đi qua
@@ -263,3 +323,14 @@ viên mất bài, nộp nhầm hay lộ thông tin. Đã kiểm `reading-exam-se
 5. **Khoá ghi phía server cho Reading.** Đề xuất: chưa làm (Reading lưu từng câu, ghi đè
    theo câu, nên hai nơi cùng ghi chỉ làm câu sau thắng); xét lại khi Full test bật
    production, theo câu hỏi mở 10 của 0066. Mặc định tạm: như đề xuất.
+6. **Trạng thái `expired_unsubmitted` cho khung.** EXAMROOM-0066 (đã duyệt) chưa có trạng
+   thái cho "nộp tới máy chủ sau ân hạn, bị từ chối". Đề xuất: sửa đổi 1 của 0066 thêm giá
+   trị này vào `submit.outcome` với chữ ở FR-021, duyệt cùng spec này; không đổi trạng thái
+   nào khác. Mặc định tạm: như đề xuất.
+7. **Lượt bỏ dở không được đóng.** Reading không có tác vụ phía máy chủ đóng lượt quá giờ;
+   lượt nằm `in_progress` tới khi học viên bắt đầu lượt mới. Đề xuất: ngoài phạm vi spec
+   này; thêm vào danh sách việc tiếp theo (finalizer theo giờ cho Reading/Listening), xét
+   khi làm nguồn "bài có giờ" của G08-T24. Mặc định tạm: như đề xuất.
+8. **Bỏ lượt đã quá ân hạn.** CR gợi ý cho bỏ lượt đã quá `time_limit + 5 phút` (không còn
+   nộp được). Đề xuất: chưa cho, theo HOLD của anh Andy (từ chối bỏ bài sau khi hết giờ);
+   lượt đó được dọn khi bắt đầu lượt mới như hôm nay. Mặc định tạm: như đề xuất.
