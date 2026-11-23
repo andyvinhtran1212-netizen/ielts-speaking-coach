@@ -24,6 +24,7 @@
 - Sau 446: dữ liệu `exam_mode` đã mang tên mới, nên **mốc lui thấp nhất là bản backend có lớp tương thích hai tên** (bước 2 ở trên); không deploy lại bản chỉ hiểu `retake`/`sequential`. Kiểm lui trên staging bằng một kỳ đã backfill có lượt làm dở: resume được và vẫn được quét hết hạn. Không hạ migration.
 - Backfill 446: chạy lại được (idempotent); sai thì sửa bằng migration mới, không sửa file cũ.
 - Nghiệm thu sau 446 (`audiences ≥ assignments`): đọc kèm NOTICE của 446. NOTICE đếm assignment có user không có dòng `students` (không chép) và kỳ `is_open = true` bị bỏ qua; so sánh với số assignments đã trừ hai số này, rồi chạy lại 446 sau khi các kỳ đang mở đóng.
+- **Chạy lại 446 là việc làm tay, cần anh Andy duyệt.** Khi 446 đã nằm trong sổ `_schema_migrations`, `apply_migrations.sh` bỏ qua file này, nên runner không bao giờ tự chạy lại. Muốn chạy lại (sau khi các kỳ đang mở đóng): xin anh Andy gõ duyệt cho đúng môi trường (staging hoặc production), rồi chạy `psql -f backend/migrations/446_mock_exam_mode_backfill.sql` dưới khoá advisory của runner (giữ `pg_advisory_lock(173204, 1)` trong cùng phiên psql, đúng khoá của `scripts/apply_migration_locked.sql`), đọc NOTICE và postcondition ở cuối file. Không xoá dòng 446 khỏi sổ để ép runner chạy lại.
 
 Ràng buộc của gói liên quan:
 
