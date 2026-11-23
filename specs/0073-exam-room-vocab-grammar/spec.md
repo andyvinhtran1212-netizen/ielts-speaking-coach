@@ -1,14 +1,15 @@
 ---
 id: EXAMDRILL-0073
 title: Quick Check and flashcards run in the shared practice room behind a flag, with rating only after the card is flipped, the flip and rating buttons on the first screen, in-page confirmations and no internal codes
-status: draft
+status: approved
 risk: high
 owner: product
 ---
 
 # Quick Check và flashcard trong khung luyện chung
 
-Status: **draft**. Soạn ngày 23/11/2026 theo nhiệm vụ G08-T20 của
+Status: **approved** (anh Andy, 23/11/2026 17:57 giờ VN; nguyên văn trong
+[`approval-decision.md`](approval-decision.md)). Soạn ngày 23/11/2026 theo nhiệm vụ G08-T20 của
 `docs/proposals/commercialization-2026-11/GOI-08-phong-thi-va-trinh-luyen.md` (spec S7; số 0073
 theo sổ `01-KE-HOACH-TONG.md` mục 6, đã kiểm còn trống trong `specs/` và trong các PR đang mở).
 Chưa dòng mã nào chạy theo spec này. Chỉ anh Andy duyệt. Khi anh duyệt, câu trả lời được ghi
