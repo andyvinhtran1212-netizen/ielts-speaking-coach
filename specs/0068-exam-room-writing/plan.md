@@ -25,10 +25,15 @@
   (`draft_text`), `GET .../timer`, `POST .../paste-log` (`char_count`, `blocked`),
   `POST .../submit` (`essay_text`, `request_id`). Nhánh mới chỉ thêm `{ noRedirect: true }`
   vào tuỳ chọn của `window.api.*` (không đổi request trên dây).
-- `baseSavedAt` của bản sao lấy từ `draft.updated_at` của `GET /api/writing/my-assignments/{id}`
-  (`writing_student.py` L1607 đã select `updated_at`) và từ phản hồi của `PATCH /draft`
-  khi có; nếu phản hồi PATCH không có `updated_at` thì nhánh mới đọc lại chi tiết bài sau
-  lần lưu để biết mốc. PR thực thi ghi rõ cách đã chọn.
+- `baseText` của bản sao là `draft_text` của `GET /api/writing/my-assignments/{id}` lúc mở
+  bài, rồi là đúng chữ đã gửi trong lần `PATCH /draft` được ack (phản hồi là `r.data[0]`
+  của upsert). So khôi phục theo chữ, không theo `updated_at`, vì `paste-log` đổi
+  `updated_at` mà không đổi chữ (mig 042 L41–44). `baseSavedAt` chỉ để hiện giờ. Không đổi
+  backend.
+- Kiểm khi rời (FR-008, FR-010, FR-011): hàm thuần `verifyLocalCopy(key, text)` ghi đồng bộ
+  `localStorage.setItem`, đọc lại `getItem`, trả `true` chỉ khi chữ và độ dài khớp; mọi
+  ngoại lệ (đầy, bị chặn, chế độ riêng tư) trả `false`. Hộp đóng và lối dự phòng
+  `/login?next=` đọc kết quả này.
 - Khoá trình duyệt theo EXAMROOM-0066 FR-032/FR-035 với `surface='writing'`,
   `attemptKey=assignmentId`, `ownerKey=ms.accountId`.
 - Trạng thái nộp đưa cho khung: `submit.outcome` theo EXAMROOM-0066 FR-034, suy từ kết quả
@@ -54,7 +59,8 @@ Xem `rollout.md`.
 ## Verification strategy
 
 - `node --test frontend/tests/writing-draft-recovery.test.mjs`: bốn nhánh của FR-009,
-  bài chỉ đọc, chủ khác.
+  bài chỉ đọc, chủ khác, dán chữ (paste-log) không làm hỏi; `verifyLocalCopy` với bộ nhớ
+  từ chối ghi.
 - Playwright `frontend/tests/writing-exam-room.spec.js` với `?exam_room=on` và API giả:
   nộp thiếu từ Task 1/Task 2, hộp hỏi lại, `dialog` = 0, offline → online, tải lại sau
   offline, hết giờ khi đang gõ (`page.clock`), 401 giữa bài, đóng X, hai tab.

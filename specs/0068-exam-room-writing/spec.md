@@ -99,8 +99,9 @@ dòng, DOM mệnh lệnh gắn vào id của `page-shell.tsx`) trên `staging` @
   ("Thời gian còn lại", "Còn 5 phút"). Không in email hay tên học viên trên thanh.
 - **FR-004:** Bộ đếm "182 từ · cần ít nhất 250" (Task 1: 150) cập nhật khi gõ, dùng
   `countWords` hiện có. Dưới mức tối thiểu của Task thì viền `--mark` và nhãn "Cảnh
-  báo"; đủ thì bình thường. Mức lấy từ `task_type` của đề (`task2` → 250, còn lại → 150),
-  không dùng con số 100.
+  báo"; đủ thì bình thường. Mức lấy từ `task_type` của **đề đang mở trong trình soạn**
+  (`task2` → 250, còn lại → 150, như `data-word-target` ở `writing-behavior.tsx` L1505),
+  không từ loại của bài giao (`task_2`, `both`), và không dùng con số 100.
 - **FR-005:** Nộp tay (không phải hết giờ), theo đúng thứ tự:
   1. Kiểm chính tả mềm như hôm nay khi `allowSoftCheck` (có lỗi thì hiện bảng chính tả và
      dừng).
@@ -119,7 +120,9 @@ dòng, DOM mệnh lệnh gắn vào id của `page-shell.tsx`) trên `staging` @
     hoặc `reconcileSubmission` đối chiếu được lần nộp đó.
   - `unconfirmed` khi offline, 401, lỗi tạm hay mất phản hồi; biên nhận giữ nguyên chữ đã
     nộp; tự thử lại tối đa 3 lần (mỗi lần có mạng lại hoặc sau khi đăng nhập lại) với
-    cùng `request_id`, rồi `unconfirmed_manual` có nút "Thử lại".
+    cùng `request_id` **và** đúng `essayText` của biên nhận (như hôm nay, `helper.begin`
+    trả lại chữ cũ khi biên nhận còn treo), nên một lần thử lại không bao giờ gửi chữ mới
+    hơn dưới `request_id` cũ; rồi `unconfirmed_manual` có nút "Thử lại".
   - Máy chủ hôm nay vẫn nhận bài nộp sau giờ (đánh `auto_submitted`), nên Writing bài giao
     không dùng `closed_unconfirmed`; 409 (bài đã đổi trạng thái hoặc đã nộp ở tab khác)
     giữ thông báo hiện có và đồng bộ lại danh sách.
@@ -132,33 +135,48 @@ dòng, DOM mệnh lệnh gắn vào id của `page-shell.tsx`) trên `staging` @
 - **FR-008:** Bản sao nháp tại máy theo EXAMROOM-0066 FR-035, khoá
   `exam-room:local-copy:writing:{ownerKey}:{assignmentId}` (`ownerKey` là id tài khoản
   của phiên), ghi mỗi lần ô nhập đổi (gộp tối đa 1 lần mỗi giây) và khi có 401. Bản ghi
-  giữ chữ, số từ, `savedAt`, và `baseSavedAt` là `updated_at` của bản nháp trên server
-  mà máy biết lần cuối. Xoá khi `PATCH /draft` ack đúng chữ đó, khi nộp được xác nhận,
+  giữ chữ, số từ, `savedAt`, `baseText` là đúng `draft_text` mà `PATCH /draft` ack lần cuối
+  (hoặc bản server đọc lúc mở bài), và `baseSavedAt` (giờ của lần ack đó, chỉ để hiện
+  "HH:MM", không dùng để so). Không so theo `writing_drafts.updated_at`, vì `POST
+  .../paste-log` ghi cùng dòng và trigger đổi `updated_at` mà chữ không đổi (mig 042).
+  - **Khi rời** (đóng, Esc, chuyển sang đăng nhập lại, `pagehide`): ghi ngay phần đang gộp,
+    không chờ hết 1 giây, rồi đọc lại khoá và so chữ (cả độ dài) với ô nhập. Bản sao chỉ
+    được coi là "đã giữ" khi đọc lại khớp đúng ô nhập, hoặc khi `PATCH /draft` đã ack đúng
+    chữ đó; không thì coi như không có bản sao.
+  Xoá khi `PATCH /draft` ack đúng chữ đó, khi nộp được xác nhận,
   khi đăng xuất, khi tài khoản khác đăng nhập (xoá không đọc), và khi quá 7 ngày. Bài
   của tài khoản khác không đọc, không khôi phục, không gửi được.
 - **FR-009:** Khôi phục khi mở lại bài, theo thứ tự:
   1. Có biên nhận nộp chưa xác nhận (`WritingSubmitReceipt.read`): giữ hành vi hiện có
      (biên nhận thắng, đối chiếu trước).
-  2. Bản sao tại máy khác chữ bản nháp server **và** `baseSavedAt` bằng `updated_at`
-     hiện tại của server (server chưa đổi kể từ khi máy biết): dùng bản trên máy, không
-     hỏi, và lưu lên qua `PATCH /draft` bình thường.
-  3. Bản sao tại máy khác chữ và server đã đổi sau `baseSavedAt` (viết tiếp ở nơi khác):
+  2. Bản sao tại máy khác chữ bản nháp server **và** `draft_text` của server bằng `baseText`
+     (chữ trên server chưa đổi kể từ lần máy biết): dùng bản trên máy, không hỏi, và lưu
+     lên qua `PATCH /draft` bình thường. Dán chữ (ghi `paste-log`) không làm bước này đổi.
+  3. `draft_text` của server khác cả `baseText` lẫn chữ bản sao (viết tiếp ở nơi khác):
      hỏi "Viết tiếp bản nháp còn trên máy này?" kèm số từ và giờ của cả hai bản, với
      "Dùng bản trên máy này" và "Dùng bản đã lưu lúc HH:MM". Không tự ghi đè bên nào;
      chọn bản trên máy thì lưu lên bằng `PATCH /draft`, chọn bản server thì xoá bản sao.
   4. Không có bản sao hoặc trùng chữ: dùng bản nháp server như hôm nay.
   Bài chỉ đọc (lưu trữ) không hỏi và không dùng bản sao.
-- **FR-010:** Đóng trình soạn (nút X, Esc): mọi thứ đã lưu thì đóng ngay và báo "Đã lưu
-  lúc HH:MM" một lần; còn chưa lưu thì gọi `saveDraft` trước, vẫn chưa lưu được thì hỏi
-  "Bài còn phần chưa lưu" với "Ở lại" (chính) và "Đóng, giữ bản trên máy này" (bản sao
-  FR-008 còn). Đóng xong bỏ `assignment_id` khỏi URL bằng `history.replaceState`, không
+- **FR-010:** Đóng trình soạn (nút X, Esc): mọi thứ đã lưu (server ack đúng chữ trong ô)
+  thì đóng ngay và báo "Đã lưu lúc HH:MM" một lần; còn chưa lưu thì gọi `saveDraft` trước.
+  Vẫn chưa lưu được thì hỏi "Bài còn phần chưa lưu", và nút trong hộp tuỳ kết quả kiểm khi
+  rời của FR-008:
+  - Bản sao đọc lại khớp đúng ô nhập: "Ở lại" (chính) và "Đóng, giữ bản trên máy này",
+    kèm câu "Bản trên máy này chỉ mở lại được trên trình duyệt này."
+  - Bản sao không ghi được hoặc đọc lại không khớp: **chỉ "Ở lại"**, kèm câu nói rõ phần
+    chưa lưu: "Phần viết sau HH:MM chưa được lưu ở đâu cả. Kiểm tra kết nối rồi thử lưu
+    lại." (HH:MM là lần ack cuối; chưa có lần ack nào thì "Bài này chưa được lưu ở đâu
+    cả.") với nút "Thử lưu lại". Không có nút nào gắn nhãn giữ bản. Đóng xong bỏ `assignment_id` khỏi URL bằng `history.replaceState`, không
   tải lại trang. Bài có giờ: hộp nói thêm "Đồng hồ vẫn chạy khi bạn đóng bài."
 - **FR-011:** Mất mạng và phiên hết hạn theo EXAMROOM-0066 FR-014, FR-015: dải mất mạng
   tiếng Việt; khi có mạng lại thì lưu phần còn lại. Mọi lời gọi `window.api.*` của trình
   soạn trong nhánh mới truyền `{ noRedirect: true }`, kể cả lần đồng bộ đồng hồ 30 giây
-  (`GET /timer`). 401 giữa bài: ghi bản sao FR-008, hiện hộp đăng nhập lại của khung
-  (trước G05-T19: phương án dự phòng `/login?next=<URL hiện tại có assignment_id>` cùng
-  tab sau khi đọc lại được bản sao); quay lại đúng tài khoản thì khôi phục theo FR-009.
+  (`GET /timer`). 401 giữa bài: ghi bản sao FR-008 và kiểm khi rời, hiện hộp đăng nhập lại
+  của khung. Trước G05-T19, phương án dự phòng `/login?next=<URL hiện tại có
+  assignment_id>` cùng tab chỉ được chạy khi bản sao đọc lại khớp đúng ô nhập; không khớp
+  thì hộp đăng nhập lại ở yên trong trang, nói rõ phần chưa lưu như FR-010, và không
+  chuyển trang (học viên có thể chép chữ ra trước); quay lại đúng tài khoản thì khôi phục theo FR-009.
 - **FR-012:** Hộp nộp chỉ nói về lượt chấm khi có số liệu từ API của G04; API chưa có
   thì không có câu đó, không hiện `XXX`, không bịa số. Máy chủ trả 402
   `insufficient_credits`: giữ nguyên bài (bản nháp đã lưu, bản sao còn), hiện khối "Hết
@@ -209,7 +227,11 @@ dòng, DOM mệnh lệnh gắn vào id của `page-shell.tsx`) trên `staging` @
 - **Given** bản sao tại máy mới hơn, server chưa đổi kể từ `baseSavedAt`
 - **When** tải lại trang
 - **Then** ô nhập có chữ của bản sao, không hỏi, và được lưu lên.
-- **Given** cùng lúc đó bài đã được viết tiếp ở máy khác (server `updated_at` mới hơn)
+- **Given** học viên đã dán chữ (ghi `paste-log`, `updated_at` của server đổi) nhưng
+  `draft_text` của server vẫn bằng `baseText`
+- **Then** không hỏi, dùng chữ của bản sao.
+- **Given** cùng lúc đó bài đã được viết tiếp ở máy khác (`draft_text` của server khác cả
+  `baseText` lẫn bản sao)
 - **When** mở bài
 - **Then** hỏi "Viết tiếp bản nháp còn trên máy này?" với số từ và giờ của hai bản; không
   bên nào bị ghi đè trước khi chọn.
@@ -239,6 +261,14 @@ dòng, DOM mệnh lệnh gắn vào id của `page-shell.tsx`) trên `staging` @
 - **Given** còn phần chưa lưu và lưu thất bại
 - **When** bấm X
 - **Then** hộp "Bài còn phần chưa lưu" với "Ở lại" là nút chính.
+- **Given** bộ nhớ trình duyệt từ chối ghi và `PATCH /draft` offline hoặc 401
+- **When** bấm X hoặc Esc
+- **Then** hộp chỉ có "Ở lại" (và "Thử lưu lại"), câu "Phần viết sau HH:MM chưa được lưu ở
+  đâu cả."; không có nút giữ bản; học viên ở lại trình soạn; 401 không chuyển sang
+  `/login`.
+- **Given** vừa gõ phím cuối, chưa hết 1 giây gộp ghi
+- **When** bấm X ngay
+- **Then** bản sao đọc lại có phím cuối đó trước khi hộp hiện "Đóng, giữ bản trên máy này".
 
 ### Scenario 8: cờ tắt
 
@@ -255,7 +285,8 @@ dòng, DOM mệnh lệnh gắn vào id của `page-shell.tsx`) trên `staging` @
   sao bị xoá khi nộp được xác nhận.
 - Dán quá 200 ký tự: chặn và báo trong trình soạn như hôm nay, không dùng `alert`.
 - Bộ nhớ trình duyệt không ghi được: không có bản sao; dải mất mạng nói rõ phần sau
-  HH:MM có thể mất nếu tải lại; vẫn viết và nộp được.
+  HH:MM có thể mất nếu tải lại; vẫn viết và nộp được; khi rời thì theo FR-010 (chỉ "Ở
+  lại"), không bao giờ hứa giữ bản.
 - `assignment_id` trên URL không khớp bài nào: giữ hành vi hiện có của danh sách.
 - Hai tab không có Web Locks: cảnh báo kiểu BroadcastChannel, không bảo đảm độc quyền
   (EXAMROOM-0066 FR-017).

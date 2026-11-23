@@ -11,10 +11,10 @@
 | FR-005 | kind=test; ref=frontend/tests/writing-exam-room.spec.js (short-essay dialog, confirm dialog, one submit request, zero dialog events) | PENDING |
 | FR-006 | kind=test; ref=frontend/tests/writing-exam-room.spec.js (page.clock time up while typing; confirmed only after ack; offline at 0 queues submit with same request_id; bounded retries) | PENDING |
 | FR-007 | kind=test; ref=frontend/tests/writing-exam-room.spec.js (Saved at HH:MM persists, retry after failed save) | PENDING |
-| FR-008 | kind=test; ref=frontend/tests/writing-exam-room.spec.js (local copy keyed by ownerKey and assignment, cleanup on ack/submit/sign-out/other account) | PENDING |
-| FR-009 | kind=test; ref=frontend/tests/writing-draft-recovery.test.mjs (receipt wins; local newer and server unchanged → local; server changed → ask; same text → server; read-only → server) | PENDING |
-| FR-010 | kind=test; ref=frontend/tests/writing-exam-room.spec.js (close saved → closes and URL drops assignment_id; unsaved → dialog with Stay primary) | PENDING |
-| FR-011 | kind=test; ref=frontend/tests/writing-exam-room.spec.js (offline banner; 401 on PATCH keeps URL, timer sync uses noRedirect, fallback login link) | PENDING |
+| FR-008 | kind=test; ref=frontend/tests/writing-exam-room.spec.js (local copy keyed by ownerKey and assignment, baseText from last ack, flush and read back on leave within the 1 s batching window, cleanup on ack/submit/sign-out/other account) | PENDING |
+| FR-009 | kind=test; ref=frontend/tests/writing-draft-recovery.test.mjs (receipt wins; local newer and server unchanged → local; server text differs from baseText and local → ask; paste-log moved updated_at only → local, no ask; same text → server; read-only → server) | PENDING |
+| FR-010 | kind=test; ref=frontend/tests/writing-exam-room.spec.js (close saved → closes and URL drops assignment_id; unsaved + verified local copy → Stay primary and keep-copy button; storage refuses writes + PATCH offline or 401 → only Stay and retry, no keep-copy label, learner stays; close right after the last keystroke keeps it) | PENDING |
+| FR-011 | kind=test; ref=frontend/tests/writing-exam-room.spec.js (offline banner; 401 on PATCH keeps URL, timer sync uses noRedirect, fallback /login redirect only after a verified local copy, otherwise the in-page dialog stays) | PENDING |
 | FR-012 | kind=test; ref=frontend/tests/writing-exam-room.spec.js (no credits line without data; 402 class/online notices keep text; 403/503 server message) | PENDING |
 | FR-013 | kind=test; ref=frontend/tests/writing-exam-room.spec.js (two tabs: read-only tab sends no PATCH/paste-log/submit) | PENDING |
 | FR-014 | kind=check; ref=frontend/tests/writing-exam-room.spec.js (existing submit notices unchanged text, bạn wording) | PENDING |
