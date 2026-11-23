@@ -37,7 +37,7 @@ describe('/mock/result — native React behavior', () => {
 
   test('preserves missing-param, sealed/pending, loading and error states', () => {
     // G02-T11: a missing sitting now goes back to Full Test with a notice.
-    assert.match(BEHAVIOR, /leaveForParent\('\/full-test'\)/);
+    assert.match(BEHAVIOR, /leaveForParent\('\/tests'\)/);
     assert.match(BEHAVIOR, /statusOf\(caught\) === 403/);
     assert.match(BEHAVIOR, /Đang chờ giám khảo duyệt/);
     assert.match(BEHAVIOR, /Đang tải kết quả…/);

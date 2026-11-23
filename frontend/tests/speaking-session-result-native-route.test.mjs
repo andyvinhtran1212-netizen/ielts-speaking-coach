@@ -81,7 +81,7 @@ describe('/result — native React ownership', () => {
     assert.doesNotMatch(BEHAVIOR, /\/pages\/practice\.html/);
     assert.match(BEHAVIOR, /Bấm lại sẽ kiểm tra cùng một yêu cầu, không tạo trùng/);
     assert.match(BEHAVIOR, /if \(view\.mode === 'test_full'\) return/);
-    assert.match(BEHAVIOR, /view\.mode === 'test_full'[\s\S]*href="\/full-test"[\s\S]*Làm lại Full Test/);
+    assert.match(BEHAVIOR, /view\.mode === 'test_full'[\s\S]*href="\/tests"[\s\S]*Làm lại Full Test/);
   });
 
   test('request-key change remounts ResultContent and clears media/accordion state', () => {

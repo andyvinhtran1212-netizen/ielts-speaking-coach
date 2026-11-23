@@ -406,7 +406,7 @@ export function FullTestResultBehavior() {
         <StatePanel icon="!" title="Không thể tải kết quả"><p>{error}</p></StatePanel>
       ) : null}
       {result?.sealed ? (
-        <StatePanel icon="⌁" title="Kết quả chưa được công bố" actionHref="/full-test" actionLabel="Xem trạng thái bài thi" tone="neutral">
+        <StatePanel icon="⌁" title="Kết quả chưa được công bố" actionHref="/tests" actionLabel="Xem trạng thái bài thi" tone="neutral">
           <p>Bài thi đang được niêm phong. Điểm và nhận xét chỉ xuất hiện sau khi giám khảo công bố.</p>
         </StatePanel>
       ) : result?.failed ? (

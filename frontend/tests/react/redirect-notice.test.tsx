@@ -17,11 +17,11 @@ beforeEach(() => window.history.replaceState(null, '', '/'));
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
 it('shows the parent-page line, keeps other parameters and drops only the notice', () => {
-  window.history.replaceState(null, '', '/full-test?tab=live&notice=lien-ket-thieu#top');
+  window.history.replaceState(null, '', '/tests?tab=live&notice=lien-ket-thieu#top');
   render(<RedirectNotice />);
   expect(screen.getByRole('status').textContent).toContain(
     'Liên kết bạn vừa mở chưa đủ thông tin nên bạn được đưa về trang Thi thử.');
-  expect(`${window.location.pathname}${window.location.search}${window.location.hash}`).toBe('/full-test?tab=live#top');
+  expect(`${window.location.pathname}${window.location.search}${window.location.hash}`).toBe('/tests?tab=live#top');
   fireEvent.click(screen.getByRole('button', { name: 'Đóng' }));
   expect(screen.queryByRole('status')).toBeNull();
 });
@@ -71,7 +71,7 @@ it('a mock result link without its sitting goes to Full Test with the notice', a
   vi.stubGlobal('location', { ...realWindow.location, replace });
   Object.defineProperty(window, 'api', { configurable: true, value: { getWith: vi.fn() } });
   await act(async () => { render(<MockResultBehavior />); });
-  expect(replace).toHaveBeenCalledWith('/full-test?notice=lien-ket-thieu');
+  expect(replace).toHaveBeenCalledWith('/tests?notice=lien-ket-thieu');
   expect((window as any).api.getWith).not.toHaveBeenCalled();
   expect(document.body.textContent).not.toMatch(/Thiếu mã sitting/);
 });

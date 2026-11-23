@@ -1,7 +1,7 @@
 // PC-J06 browser regression (U-21 / U-15 / U-06): the student header must not
 // wait for the Supabase runtime chain (runtime-config → client → api.js). On
 // slow phones that chain took 4–8s, so /home, /course/assigned, /speaking, /exam and
-// /full-test showed no header and a dead hamburger. Here api.js is held back
+// /full-test (now /tests, LEARNERNAV-0062 batch 7a) showed no header and a dead hamburger. Here api.js is held back
 // on purpose: the header and hamburger must work within 1s of
 // DOMContentLoaded while the runtime is still pending, and the account pill
 // fills once api.js is released. A guest on the public Grammar Wiki must not
@@ -12,7 +12,7 @@ import { chromium } from 'playwright';
 
 const BASE = process.argv[2] || 'http://localhost:3000';
 const API = 'https://api.chrome-early-render.invalid';
-const AUTHED = ['/home', '/course/assigned', '/speaking', '/exam', '/full-test'];
+const AUTHED = ['/home', '/course/assigned', '/speaking', '/tests'];
 const WIDTHS = [390, 1280];
 const HEADER_BUDGET_MS = 1000;
 const PRODUCTION_ORIGINS = [
