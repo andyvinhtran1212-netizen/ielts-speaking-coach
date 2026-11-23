@@ -15,6 +15,8 @@ The coordinator session relayed it to this thread, with the message copied verba
 | Amendment 4 (G07-T31) | #2489 | PENDING: needs Andy's separate approval |
 | Amendments 5 and 6 (G07-T25, T25s, T30c) | #2491 | PENDING: needs Andy's separate approval |
 
+On the amendment branches (#2481 onward) the frontmatter reads `status: draft` and every amendment heading in `spec.md` is marked "PENDING, chưa duyệt", because the spec gate reads only the frontmatter. The frontmatter goes back to `approved` only in the commit that records Andy's approval of that amendment.
+
 An amendment counts as approved only when Andy approves it himself and its spec-only PR is merged into `staging`. Until then, no task PR may rely on its requirements.
 
 Scope of the base approval:
