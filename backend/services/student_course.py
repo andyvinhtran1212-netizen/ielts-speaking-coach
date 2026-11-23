@@ -166,7 +166,7 @@ def _class_for(user_id: str, account_name: str) -> Optional[Dict[str, Any]]:
     order as GET /api/class/me (the learner's primary class first, then by
     name). Imported in the body, like T13, to avoid an import cycle."""
     from routers.class_student import _student_for_user
-    from services.class_archive_service import active_cohort_ids_for_student
+    from services.class_membership_service import active_cohort_ids_for_student
     from database import thread_supabase_admin
 
     sb = thread_supabase_admin()  # own client per worker thread (PC-J05 D1b)

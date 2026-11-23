@@ -160,7 +160,8 @@ def test_a_failing_part_is_degraded_alone(monkeypatch, part):
     kwargs = {"courses": {"items": [_item("A", days=3)]}, "catalog": [],
               "klass": {"name": "Lớp A", "teacher_name": None, "course_title": None, "repractice": []},
               "assigned": (4, False)}
-    key = {"online": "courses", "other_products": "catalog", "class": "klass"}.get(part, part)
+    key = {"online": "courses", "other_products": "catalog", "class": "klass",
+           "assigned_open": "assigned"}[part]
     kwargs[key] = RuntimeError("boom")
     body = _run(monkeypatch, **kwargs)
     assert body["degraded"] == [part]
@@ -199,10 +200,10 @@ def _class_db(**kw):
 def _patch_class(monkeypatch, db, *, student, cohort_ids):
     import database
     from routers import class_student
-    from services import class_archive_service
+    from services import class_membership_service
     monkeypatch.setattr(database, "thread_supabase_admin", lambda: db)
     monkeypatch.setattr(class_student, "_student_for_user", lambda *_a: student)
-    monkeypatch.setattr(class_archive_service, "active_cohort_ids_for_student",
+    monkeypatch.setattr(class_membership_service, "active_cohort_ids_for_student",
                         lambda _sb, _student: cohort_ids)
 
 
