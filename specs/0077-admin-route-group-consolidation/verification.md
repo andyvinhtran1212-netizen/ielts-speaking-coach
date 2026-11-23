@@ -71,3 +71,15 @@ later wave.
 - Re-applied on staging `cc6dd4c8` (2026-11-23): the same verifier passes
   114/114 with the same 20 FR-005 observations; `npm run build`, `tsc --noEmit`
   and the React suite (1337/1337) pass.
+- Review R1 (2026-11-23): the verifier now requires each of the 4 base sheet
+  hrefs exactly once, both on direct load (in order) and after every client
+  navigation; before, it counted only `admin-status.css`. Head: 119/119.
+  Base `cc6dd4c8` with the same verifier: 105/119, the 14 failures are the
+  base sheets duplicated after navigating between a moved and a not-yet-moved
+  group.
+- Client-navigation screenshots 1280×800, base `cc6dd4c8` vs head:
+  `/admin/feedback → /admin` differs by 25,822 pixels (`(304, 324, 1240, 800)`)
+  on the base, where the previous page's leftover shell restyles the overview;
+  on head it is pixel-identical to the direct load of `/admin` (0 pixels).
+  `/admin/feedback → /admin/usage`: base and head identical (0 pixels).
+  Direct loads of `/admin` and `/admin/usage`: base and head identical.

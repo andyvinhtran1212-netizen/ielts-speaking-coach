@@ -28,7 +28,19 @@ const PAGE_SPEC = {
   '/admin': { active: 'overview', sheets: ['/css/aver-design/admin-hub.css', '/css/admin-overview.css'] },
 };
 const PAGES = Object.keys(PAGE_SPEC);
-const BASE_TAIL = '/css/aver-design/admin-status.css';
+// The 4 admin base sheets owned by (authed-admin)/layout.tsx, in order.
+const BASE_SHEETS = [
+  // snapshot() tags the surface sheet by its data-aver-admin-surface attribute.
+  '/css/aver-design/admin-surface.css [surface]',
+  '/css/aver-design/admin-components.css',
+  '/css/aver-design/admin-buttons.css',
+  '/css/aver-design/admin-status.css',
+];
+const BASE_TAIL = BASE_SHEETS.at(-1);
+const baseSheetsOnce = (sheets) => BASE_SHEETS.every((href) => sheets.filter((s) => s === href).length === 1);
+// Client-navigation screenshots of the pages moved in each wave, taken from a
+// pilot page that exists on the base build too, so base and head compare 1:1.
+const CLIENT_SHOTS = new Set(['/admin/feedback → /admin', '/admin/feedback → /admin/usage', '/admin/error-logs → /admin/feedback']);
 
 const results = [];
 const check = (name, ok, detail = '') => { results.push({ name, ok }); console.log(`  ${ok ? '✓' : '✗'} ${name}${detail ? ` — ${detail}` : ''}`); };
@@ -104,6 +116,8 @@ try {
     direct[url] = await snapshot(page);
     await shot(page, `direct${url.replaceAll('/', '_')}`);
     const tail = direct[url].sheets.slice(direct[url].sheets.indexOf(BASE_TAIL) + 1);
+    const first = direct[url].sheets.indexOf(BASE_SHEETS[0]);
+    check(`${url} tải trực tiếp: 4 sheet nền đúng thứ tự, mỗi sheet một lần`, baseSheetsOnce(direct[url].sheets) && JSON.stringify(direct[url].sheets.slice(first, first + BASE_SHEETS.length)) === JSON.stringify(BASE_SHEETS), direct[url].sheets.join(' '));
     check(`${url} tải trực tiếp: 4 sheet nền rồi đúng sheet của trang`, JSON.stringify(tail) === JSON.stringify(PAGE_SPEC[url].sheets), direct[url].sheets.join(' '));
     // Some pages (foot-traffic, usage) have no sidebar entry of their own;
     // only a page that is listed must highlight itself.
@@ -131,11 +145,11 @@ try {
       // The new page's own cascade must be intact: every sheet of the direct
       // load, in the same relative order, before anything left behind.
       check(`${label}: đủ stylesheet của trang mới, đúng thứ tự`, JSON.stringify(after.sheets.slice(0, direct[to].sheets.length)) === JSON.stringify(direct[to].sheets), after.sheets.join(' '));
-      check(`${label}: không nhân đôi 4 sheet nền`, after.sheets.filter((href) => href === BASE_TAIL).length === 1);
+      check(`${label}: không nhân đôi 4 sheet nền`, baseSheetsOnce(after.sheets), BASE_SHEETS.map((href) => `${href.split('/').at(-1)}×${after.sheets.filter((s) => s === href).length}`).join(' '));
       observe(`${label}: stylesheet trong DOM giống hệt tải trực tiếp (FR-005)`, JSON.stringify(after.sheets) === JSON.stringify(direct[to].sheets), after.sheets.slice(direct[to].sheets.length).join(' ') || 'không dư');
       check(`${label}: class <body> giống tải trực tiếp`, after.bodyClass === direct[to].bodyClass, after.bodyClass);
       check(`${label}: sidebar chọn giống tải trực tiếp`, after.activeNav === direct[to].activeNav, after.activeNav ?? 'no chrome');
-      if (from === '/admin/error-logs' && to === '/admin/feedback') await shot(page, 'client_error-logs_to_feedback');
+      if (CLIENT_SHOTS.has(label)) await shot(page, `client${from.replaceAll('/', '_')}_to${to.replaceAll('/', '_')}`);
     }
   }
   await context.close();
