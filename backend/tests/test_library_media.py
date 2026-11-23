@@ -169,6 +169,51 @@ def test_cached_bytes_never_outlive_unpublish(client, db):
     assert len(db.downloads) == 1  # 404 came from the publish check, not Storage
 
 
+def test_object_deleted_from_storage_is_404_on_the_next_request(client, db):
+    assert client.get(FIGURE).status_code == 200  # warms the byte cache
+    del db.objects[("library-media", "writing/delta-chart/figure.png")]
+    r = client.get(FIGURE)
+    assert r.status_code == 404
+    assert r.json() == {"detail": "media_not_found"}
+    _no_store(r)
+
+
+def test_replaced_object_is_never_served_stale(client, db):
+    assert client.get(FIGURE).content == PNG
+    new = PNG + b"v2"
+    db.objects[("library-media", "writing/delta-chart/figure.png")] = new
+    assert client.get(FIGURE).content == new
+    assert len(db.downloads) == 2
+
+
+@pytest.mark.parametrize("info", [
+    lambda self, path: {},                                   # unknown answer shape
+    lambda self, path: (_ for _ in ()).throw(RuntimeError()),  # info endpoint fails
+])
+def test_without_fingerprint_bytes_are_served_uncached(client, db, monkeypatch, info):
+    import tests._library_fake_db as fake_mod
+
+    monkeypatch.setattr(fake_mod._Bucket, "info", info)
+    assert client.get(FIGURE).content == PNG
+    assert client.get(FIGURE).content == PNG
+    assert len(db.downloads) == 2  # nothing cached without an identity
+    del db.objects[("library-media", "writing/delta-chart/figure.png")]
+    r = client.get(FIGURE)
+    assert r.status_code == 404  # missing object still 404 via download
+    _no_store(r)
+
+
+def test_throttle_precedes_404(client, db, monkeypatch):
+    import services.library_media as media
+
+    monkeypatch.setattr(media, "IP_MAX_PER_MINUTE", 1)
+    ip = {"X-Real-IP": "203.0.113.9"}
+    assert client.get("/api/library/media/writing-sample/nope/figure", headers=ip).status_code == 404
+    r = client.get("/api/library/media/writing-sample/nope/figure", headers=ip)
+    assert r.status_code == 429
+    _no_store(r)
+
+
 def test_cache_expires_after_ttl(client, db, monkeypatch):
     import services.library_media as media
 

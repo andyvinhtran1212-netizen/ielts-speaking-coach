@@ -541,7 +541,7 @@ def get_writing_sample(slug: str, request: Request):
 def get_library_media(shelf: str, key: str, asset: str, request: Request) -> Response:
     """Figure or audio bytes of a PUBLISHED item; `published` is read on every request.
 
-    Never cached (``no-store``) and never a redirect to Storage, so unpublishing
+    Responses are never HTTP-cached (``no-store``) and never a redirect to Storage, so unpublishing
     takes effect on the next request to the same URL. Unknown shelf/asset,
     unpublished or missing item, and missing object are all 404. One client
     address is capped per minute (429) before any database or Storage read.

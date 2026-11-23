@@ -19,11 +19,16 @@ in-process guards keep a flood from turning into Storage egress, RAM and cost:
   before the database lookup, keyed like RequestSafetyMiddleware and the TTS
   throttle. State is per worker, so N workers allow N x the budget; it only
   blunts bursts from one address.
-* ``cached_download()``: a small TTL/LRU byte cache keyed by object path, so a
-  burst of ``Range`` requests while an audio player seeks downloads the object
-  once instead of once per request. It is only consulted AFTER the caller has
-  confirmed ``published`` on this request, so unpublishing still answers 404
-  on the very next request (FR-064). Responses stay ``no-store``.
+* ``cached_download()``: a small TTL/LRU byte cache, so a burst of ``Range``
+  requests while an audio player seeks downloads the body once instead of once
+  per request. It is only consulted AFTER the caller has confirmed
+  ``published`` on this request, and each request still asks Storage for the
+  object's metadata (``info``, no body) and keys the cache on it, so unpublish
+  and a deleted object both answer 404 on the very next request (FR-064,
+  plan 5.5). Responses stay ``no-store``.
+
+A throttled request gets 429 before any lookup, so for a client over its
+budget 429 takes precedence over 404 (it learns nothing about the item).
 """
 
 from __future__ import annotations
@@ -128,19 +133,19 @@ def throttle(request) -> Optional[JSONResponse]:
 
 # ── short byte cache ────────────────────────────────────────────────────────
 # Objects are at most 10 MiB (bucket limit), so 48 MiB holds a few hot files
-# per worker. A replaced object at the same path is served stale for at most
-# CACHE_TTL_SECONDS; publish state is never cached.
+# per worker. Keys are (object path, Storage fingerprint), checked on every
+# request, so neither publish state nor object existence is ever cached.
 CACHE_TTL_SECONDS = 60.0
 CACHE_MAX_BYTES = 48 * 1024 * 1024
-_cache: "OrderedDict[str, tuple[float, bytes]]" = OrderedDict()
+_cache: "OrderedDict[tuple, tuple[float, bytes]]" = OrderedDict()
 _cache_bytes = 0
 _cache_lock = threading.Lock()
 # Single-flight: one Storage download per object path at a time, so N
 # concurrent misses (a player's parallel Range requests) cost one download.
-_inflight: dict[str, threading.Lock] = {}
+_inflight: dict[tuple, threading.Lock] = {}
 
 
-def _cache_get(object_path: str) -> Optional[bytes]:
+def _cache_get(object_path) -> Optional[bytes]:
     global _cache_bytes
     now = time.monotonic()
     with _cache_lock:
@@ -156,7 +161,7 @@ def _cache_get(object_path: str) -> Optional[bytes]:
         return data
 
 
-def _cache_put(object_path: str, data: bytes) -> None:
+def _cache_put(object_path, data: bytes) -> None:
     global _cache_bytes
     if len(data) > CACHE_MAX_BYTES:
         return
@@ -182,29 +187,61 @@ def reset_state() -> None:
         _cache_bytes = 0
 
 
-def cached_download(db, object_path: str) -> Optional[bytes]:
-    """``download()`` behind the short byte cache. Call only after this
-    request confirmed the item is published. Failures are not cached.
+def fingerprint(db, object_path: str) -> Optional[tuple]:
+    """A cheap identity of the stored object (Storage ``info``: metadata only,
+    no body), or None when Storage cannot give one (missing object, error, or
+    an unknown answer shape). None never means "serve from cache".
 
-    Concurrent misses for one path wait on a per-path lock and re-check the
-    cache, so only the first downloads."""
-    data = _cache_get(object_path)
+    Keying the byte cache on it keeps plan 5.5 exact: an object deleted from
+    Storage while its row stays published answers 404 on the next request, and
+    a replaced object is never served stale.
+    """
+    try:
+        meta = db.storage.from_(BUCKET).info(object_path)
+    except Exception as exc:  # noqa: BLE001 - missing object raises StorageException
+        logger.warning("[library_media] info failed path=%s err=%s", object_path, type(exc).__name__)
+        return None
+    if not isinstance(meta, dict):
+        return None
+    parts = tuple(meta.get(k) for k in ("id", "version", "etag", "last_modified", "size"))
+    if all(p is None for p in parts):
+        return None  # unknown shape: unverifiable, so never cache blind
+    return parts
+
+
+def cached_download(db, object_path: str) -> Optional[bytes]:
+    """Object bytes through the short byte cache, or None (missing / Storage
+    error). Call only after this request confirmed the item is published.
+
+    Every call first checks the object's identity with ``fingerprint()``, so a
+    deleted or replaced object is never answered from cache; the cache only
+    saves the body download. Without a fingerprint the call falls back to a
+    plain uncached ``download()``, which is None (404) for a missing object,
+    so availability never depends on the ``info`` endpoint. Failures are not
+    cached. Concurrent misses for one object wait on a per-key lock and
+    re-check the cache, so only the first downloads.
+    """
+    fp = fingerprint(db, object_path)
+    if fp is None:
+        return download(db, object_path)
+    key = (object_path, fp)
+    data = _cache_get(key)
     if data is not None:
         return data
     with _cache_lock:
-        flight = _inflight.setdefault(object_path, threading.Lock())
+        flight = _inflight.setdefault(key, threading.Lock())
     with flight:
-        data = _cache_get(object_path)
+        data = _cache_get(key)
         if data is not None:
             return data
         try:
             data = download(db, object_path)
             if data is not None:
-                _cache_put(object_path, data)
+                _cache_put(key, data)
         finally:
             with _cache_lock:
-                if _inflight.get(object_path) is flight:
-                    del _inflight[object_path]
+                if _inflight.get(key) is flight:
+                    del _inflight[key]
     return data
 
 
