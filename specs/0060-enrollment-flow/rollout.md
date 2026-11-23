@@ -30,7 +30,8 @@ Người thực thi không đổi cài đặt dự án Supabase và không tạo
 - [ ] (Dự phòng) Authentication › SMTP: bật SMTP tuỳ chỉnh trỏ vào Resend — máy chủ `smtp.resend.com`, cổng 465, tên đăng nhập `resend`, mật khẩu là một khoá API của Resend (nên tạo khoá riêng chỉ có quyền gửi, không dùng lại khoá của backend), địa chỉ gửi và tên người gửi theo mục 10 câu 5 (`CHƯA KIỂM` thông số SMTP với tài liệu Resend hiện hành; người thực thi ghi nguồn vào `rollout.md`).
 - [ ] Authentication › Providers › Email: bật; **giữ bật "Confirm email"**; nếu OTP cho email mới không chạy khi nó bật thì dừng rollout và báo anh, không tắt bảo vệ; độ dài mã 6; thời hạn mã = `LOGIN_CODE_TTL_MINUTES`.
 - [ ] Authentication › Email Templates: mẫu "Magic Link" (dùng cho OTP đăng nhập) và mẫu "Change Email Address" (dùng cho T24) chỉ chứa `{{ .Token }}`, không có `{{ .ConfirmationURL }}`; dán nội dung từ `docs/auth/login-code-email.*` và `docs/auth/email-change-code-email.*` (T14).
-- [ ] "Secure email change": tắt **chỉ trên staging** để thử T24; production giữ bật cho tới khi anh duyệt riêng sau kịch bản đối soát (plan 5.6b).
+- [ ] "Secure email change": giữ nguyên ở mọi môi trường (đổi email không dùng cơ chế của GoTrue, plan 5.6b).
+- [ ] Cờ `runtime_flags('email_change')`: mặc định tắt ở mọi môi trường; bật trên staging để thử T24; bật production chỉ khi anh duyệt riêng sau kịch bản 5.6b.
 - [ ] Bật gộp tài khoản cùng email đã xác minh (điểm (d)).
 - [ ] Giới hạn của Supabase Auth (Rate Limits): **không nới**, ghi lại giá trị hiện tại. Production giữ nguyên cấu hình; đổi chỉ khi anh duyệt riêng kèm số đo staging.
 
