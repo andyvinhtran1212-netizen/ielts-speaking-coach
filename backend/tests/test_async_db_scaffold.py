@@ -197,7 +197,7 @@ def test_flag_twins_take_the_facade_only_from_auth_me():
         assert "settings.USE_ASYNC_DB" not in src, name
     callers = set()
     for sub in ("routers", "services"):
-        for path in glob.glob(os.path.join(backend, sub, "*.py")):
+        for path in glob.glob(os.path.join(backend, sub, "**", "*.py"), recursive=True):
             src = open(path, encoding="utf-8").read()
             if "ais_flashcard_enabled(" in src or "ais_enabled(" in src:
                 callers.add(os.path.relpath(path, backend))
