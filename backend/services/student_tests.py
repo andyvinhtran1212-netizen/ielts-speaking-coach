@@ -32,8 +32,8 @@ from services.band_rounding import ielts_round
 logger = logging.getLogger(__name__)
 
 PAGE = 20
-# Each source reads up to PAGE rows past the cursor plus room for rows that tie
-# the cursor's timestamp (they are re-read by `lte` and filtered here).
+# Batch size of `_scan`: one page past the cursor plus room for rows that tie
+# a timestamp. Ties are read by `eq(ts)` + `gt(id)`, older rows by `lt(ts)`.
 _SCAN = PAGE + 1 + 20
 # A source keeps reading batches until it holds the page it owes (rows it
 # drops, such as drills or programme forms, do not count). The bound only
