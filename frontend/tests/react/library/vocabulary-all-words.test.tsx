@@ -42,4 +42,31 @@ describe('getAllVocabularyWords', () => {
     const { getAllVocabularyWords } = await import('@/lib/vocabulary-api');
     await expect(getAllVocabularyWords()).rejects.toThrow();
   });
+
+  it('an empty page before the total rejects', async () => {
+    vi.resetModules();
+    pages.clear();
+    pages.set(0, { items: Array.from({ length: 100 }, (_, n) => word(n)), total: 150 });
+    pages.set(100, { items: [], total: 150 });
+    const { getAllVocabularyWords } = await import('@/lib/vocabulary-api');
+    await expect(getAllVocabularyWords()).rejects.toThrow('incomplete');
+  });
+
+  it('a catalogue larger than the page cap rejects instead of truncating', async () => {
+    vi.resetModules();
+    pages.clear();
+    for (let p = 0; p < 40; p += 1) {
+      pages.set(p * 100, { items: Array.from({ length: 100 }, (_, n) => word(p * 100 + n)), total: 4100 });
+    }
+    const { getAllVocabularyWords } = await import('@/lib/vocabulary-api');
+    await expect(getAllVocabularyWords()).rejects.toThrow('incomplete');
+  });
+
+  it('an empty catalogue is an empty list', async () => {
+    vi.resetModules();
+    pages.clear();
+    pages.set(0, { items: [], total: 0 });
+    const { getAllVocabularyWords } = await import('@/lib/vocabulary-api');
+    expect(await getAllVocabularyWords()).toEqual([]);
+  });
 });
