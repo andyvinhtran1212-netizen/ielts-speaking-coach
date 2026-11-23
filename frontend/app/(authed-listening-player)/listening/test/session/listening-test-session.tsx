@@ -1014,7 +1014,10 @@ export function ListeningTestSession() {
     let state = listeningSubmitOutcome({ attemptId: attempt.attempt_id, reply, error, autoRetries, online });
     const reread = async () => {
       try { return await window.api.getWith<any>(`/api/listening/tests/attempts/${id}`, {}, { noRedirect: true }); }
-      catch (caught: any) { if (caught?.status === 401) setRoomSession('expired'); return { status: 'unknown' }; }
+      catch (caught: any) {
+        if (caught?.status === 401) { setRoomSession('expired'); return { status: 'unknown', signin: true }; }
+        return { status: 'unknown' };
+      }
     };
     if (state.next === 'reread') state = listeningSubmitOutcome({ attemptId: attempt.attempt_id, reply, error, autoRetries, online, reread: await reread() });
     if (error?.status === 401) setRoomSession('expired');
@@ -1027,27 +1030,39 @@ export function ListeningTestSession() {
       return;
     }
     setRoomSubmit({ outcome: state.outcome as ListeningRoomSubmit['outcome'], message: state.message });
-    if (state.next !== 'retry' || state.waitFor === 'signin') return;
-    const again = async () => {
-      clearRoomRetry();
-      const truth: any = await reread();
-      const checked = listeningSubmitOutcome({ attemptId: attempt.attempt_id, reply: null, error: { status: 409 }, autoRetries: autoRetries + 1, reread: truth });
-      if (truth?.status === 'in_progress') { void runRoomSubmit(autoRetries + 1); return; }
-      if (checked.next === 'results') { setRoomSubmit({ outcome: 'confirmed', message: null }); finishRoomSubmit(null); return; }
-      if (checked.next === 'back') {
-        if (checked.clearLocalCopy && roomScope) clearLocalCopy(roomStorage(), roomScope);
-        setRoomSubmit({ outcome: checked.outcome as ListeningRoomSubmit['outcome'], message: checked.message });
-        return;
+    if (state.next !== 'retry') return;
+    // `used` counts the automatic tries spent so far; each scheduled check
+    // re-reads the attempt first.
+    const schedule = (used: number, waitFor: string | null) => {
+      const again = async () => {
+        clearRoomRetry();
+        const truth: any = await reread();
+        if (truth?.status === 'in_progress') { void runRoomSubmit(used + 1); return; }
+        const nowOnline = typeof navigator === 'undefined' ? true : navigator.onLine;
+        const checked = listeningSubmitOutcome({ attemptId: attempt.attempt_id, reply: null, error: { status: 409 }, autoRetries: used + 1, online: nowOnline, reread: truth });
+        if (checked.next === 'retry') {
+          // The re-read failed (CR #2557 F4): try again while the budget lasts.
+          setRoomSubmit({ outcome: checked.outcome as ListeningRoomSubmit['outcome'], message: null });
+          schedule(used + 1, checked.waitFor);
+          return;
+        }
+        if (checked.next === 'results') { setRoomSubmit({ outcome: 'confirmed', message: null }); finishRoomSubmit(null); return; }
+        if (checked.next === 'back') {
+          if (checked.clearLocalCopy && roomScope) clearLocalCopy(roomStorage(), roomScope);
+          setRoomSubmit({ outcome: checked.outcome as ListeningRoomSubmit['outcome'], message: checked.message });
+          return;
+        }
+        setRoomSubmit({ outcome: 'unconfirmed_manual', message: null });
+      };
+      if (waitFor === 'online') {
+        const onOnline = () => { void again(); };
+        roomRetryRef.current = { online: onOnline };
+        window.addEventListener('online', onOnline, { once: true });
+      } else {
+        roomRetryRef.current = { timer: setTimeout(() => { void again(); }, 2000 * (used + 1)) };
       }
-      setRoomSubmit({ outcome: 'unconfirmed_manual', message: null });
     };
-    if (state.waitFor === 'online') {
-      const onOnline = () => { void again(); };
-      roomRetryRef.current = { online: onOnline };
-      window.addEventListener('online', onOnline, { once: true });
-    } else {
-      roomRetryRef.current = { timer: setTimeout(() => { void again(); }, 2000 * (autoRetries + 1)) };
-    }
+    schedule(autoRetries, state.waitFor);
   }, [attempt, clearRoomRetry, finishRoomSubmit, roomScope, user?.id]);
 
   const submitRoom = useCallback(async () => {

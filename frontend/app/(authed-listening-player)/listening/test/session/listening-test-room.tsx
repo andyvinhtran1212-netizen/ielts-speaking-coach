@@ -202,7 +202,6 @@ export function ListeningTestRoom(props: ListeningTestRoomProps) {
       />
       {audio.needsGesture ? <p className="listening-next-audio-hint">When you press Play, the recording starts immediately. You cannot pause, rewind or play it again.</p> : null}
       {audio.error ? <div className="ft-audio-error" role="alert"><span>{audio.error}</span><button className="ft-control-btn ghost" type="button" onClick={audio.onRetry} disabled={audio.retrying}>{audio.retrying ? 'Reloading…' : 'Reload audio'}</button></div> : null}
-      {isFullTest ? <p className="listening-next-audio-hint" data-listening-away-note>{AWAY_NOTE}</p> : null}
       {audio.element}
     </section>
     <div className="ielts-test-paper" id="listening-paper">{renderSection(activeSection)}</div>
@@ -238,6 +237,8 @@ export function ListeningTestRoom(props: ListeningTestRoomProps) {
       href: backHref,
       flush,
       losesWork: () => saveStates.size > 0,
+      // FR-011: the full test says it in the leave box (CR #2557 F3).
+      note: isFullTest ? AWAY_NOTE : undefined,
       abandon: abandon ? { onAbandon: abandon } : undefined,
     }}
     ownerKey={ownerKey}

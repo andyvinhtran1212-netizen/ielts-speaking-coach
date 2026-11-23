@@ -91,12 +91,24 @@ describe('ListeningTestRoom', () => {
     expect(screen.getByTestId('surface-audio')).toBeTruthy();
   });
 
-  it('FR-011: a full test tells the learner the recording keeps playing while away', () => {
+  it('FR-011: a full test says in the leave box that the recording keeps playing while away (CR #2557 F3)', async () => {
     render(<ListeningTestRoom {...props()} />);
-    expect(screen.getByText(/keeps playing on our side while you are away/)).toBeTruthy();
+    expect(screen.queryByText(/keeps playing on our side/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Leave test/ }));
+    const dialog = await screen.findByRole('alertdialog');
+    expect(within(dialog).getByText(/keeps playing on our side while you are away/)).toBeTruthy();
     cleanup();
     render(<ListeningTestRoom {...props({ isFullTest: false })} />);
-    expect(screen.queryByText(/keeps playing on our side/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Leave test/ }));
+    const practiceDialog = await screen.findByRole('alertdialog');
+    expect(within(practiceDialog).queryByText(/keeps playing on our side/)).toBeNull();
+  });
+
+  it('FR-010: signed out on submit, "Try again" stays on screen (CR #2557 F1)', () => {
+    const onRetry = vi.fn();
+    render(<ListeningTestRoom {...props({ submit: { outcome: 'unconfirmed_manual', message: null, onSubmit: vi.fn(() => Promise.resolve()), onRetry } })} />);
+    fireEvent.click(screen.getByRole('button', { name: /Try again/ }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
   it('FR-005: "Start a new attempt" asks in the page, never window.confirm', () => {
