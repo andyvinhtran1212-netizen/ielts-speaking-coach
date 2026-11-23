@@ -18,4 +18,4 @@
 .muted { margin: 0; color: var(--av2-muted); }
 .actions { display: flex; flex-wrap: wrap; gap: var(--av2-space-4); margin-top: var(--av2-space-6); }
 .pending { display: grid; gap: var(--av2-space-4); margin-top: var(--av2-space-7); outline: none; }
-.pending:focus-visible { outline: 2px solid var(--av2-focus); outline-offset: var(--av2-focus-offset); }
+.pending:focus-visible { outline: var(--av2-focus); outline-offset: var(--av2-focus-offset); }
