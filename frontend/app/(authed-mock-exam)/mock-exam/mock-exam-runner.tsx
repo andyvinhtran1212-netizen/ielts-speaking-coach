@@ -740,8 +740,11 @@ export function MockExamRunner() {
   // sign-in box after the Writing copy is kept.
   const [session, setSession] = useState<'active' | 'expired'>('active');
   // FR-013: false while another tab of this sitting holds the write right.
-  const [canWrite, setCanWrite] = useState(true);
-  const canWriteRef = useRef(true);
+  // Starts false: the shell's tab guard reports writer/unsupported on its first
+  // effect, so a second tab never mounts the frame or an editable Writing box
+  // for one render before turning read-only. The old branch never reads it.
+  const [canWrite, setCanWrite] = useState(false);
+  const canWriteRef = useRef(false);
   canWriteRef.current = canWrite;
   const noteAuthError = useCallback((caught: unknown) => {
     if (examRoomRef.current && statusOf(caught) === 401) setSession('expired');
