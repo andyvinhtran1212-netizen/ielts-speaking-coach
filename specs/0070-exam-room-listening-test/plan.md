@@ -30,10 +30,10 @@
   - Request: không body.
   - 200 `{ "attempt_id": uuid, "status": "abandoned" }` (cả khi gọi lại lượt đã bỏ).
   - 404 khi không phải chủ hoặc không có lượt; 409 `{ "reason": "already_submitted" }`;
-    409 `{ "reason": "not_self_selected" }` khi gắn `mock_sitting_id` hay bài giao;
+    409 `{ "reason": "not_self_selected" }` khi gắn `sitting_id` hay bài giao;
     409 `{ "reason": "resume_expired" }` khi quá `resume_expires_at`.
   - Một câu UPDATE có điều kiện: `.eq("id")`, `.eq("user_id")`, `.eq("status", "in_progress")`,
-    `.is_("mock_sitting_id", "null")`, `.is_("class_assignment_item_id", "null")`,
+    `.is_("sitting_id", "null")`, `.is_("class_assignment_item_id", "null")`,
     `.gt("resume_expires_at", now_ghi)`; `now_ghi` lấy ngay trước câu UPDATE. Không dòng nào
     đổi thì đọc lại để chọn 200/404/409.
 - Mọi chỗ đọc kết quả, lịch sử, Tiến độ của Listening test phải chỉ lấy `submitted`; PR
