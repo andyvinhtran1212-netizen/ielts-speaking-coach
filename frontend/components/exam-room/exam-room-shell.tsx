@@ -10,6 +10,7 @@ import { clearForeignLocalCopies, clearLocalCopy } from '@/lib/exam-room/local-c
 import { clearSplitRatio, pruneSplitRatios } from '@/lib/exam-room/split-ratio.mjs';
 import { clockTime, submitButtonState, submitOutcomeModel } from '@/lib/exam-room/submit-guard.mjs';
 import { createTabGuard } from '@/lib/exam-room/tab-guard.mjs';
+import { registerNavigationGuard } from '@/lib/navigation-guard';
 
 type TabGuardChannel = { postMessage(m: unknown): void; close(): void; onmessage: ((e: { data: unknown }) => void) | null };
 
@@ -314,8 +315,9 @@ export function ExamRoomShell(props: ExamRoomShellProps) {
       event.preventDefault();
       event.returnValue = '';
     };
-    window.addEventListener('beforeunload', onBeforeUnload);
-    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+    // Through the shared guard, so the chrome bridge also keeps an in-app link
+    // in the host's top bar from leaving with unsaved answers.
+    return registerNavigationGuard(onBeforeUnload);
   }, [bare, embedded, hasUnsavedWork]);
   const onLeaveOpen = useCallback(() => {
     setLeaveUnsaved(unsavedRef.current > 0 ? unsavedRef.current : null);
