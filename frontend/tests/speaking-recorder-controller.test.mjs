@@ -346,7 +346,7 @@ describe('Next Speaking recorder integration', () => {
       [...PRACTICE.matchAll(/_navigateTo\(_singleSessionResultUrl\(/g)].length >= 3,
       'single-session exits must use the renderer ownership helper through route navigation',
     );
-    assert.match(PRACTICE, /var path = _getNativeView\(\) \? '\/full-test-result' : '\/pages\/full-test-result\.html'/);
+    assert.match(PRACTICE, /var path = _getNativeView\(\) \? '\/speaking\/full-test\/result' : '\/pages\/full-test-result\.html'/);
     assert.match(PRACTICE, /_navigateTo\(_fullTestResultUrl\(_ftAllSessionIds\)\)/);
     assert.doesNotMatch(PRACTICE, /window\.location\.href\s*=\s*(?:api\.url|['"](?:result|pages\/result)\.html)/);
   });

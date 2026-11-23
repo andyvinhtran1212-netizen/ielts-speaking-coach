@@ -8,7 +8,6 @@ const PRIVATE_PREFIXES = [
   '/exam',
   '/exercises',
   '/full-test',
-  '/full-test-result',
   '/home',
   '/instructor',
   '/listening',

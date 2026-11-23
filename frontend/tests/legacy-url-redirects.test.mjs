@@ -76,8 +76,10 @@ test('explicit URL manifest preserves all 139 pre-refactor redirect rules byte f
   // /vocabulary/fill-in (was d80b4fdf…0450de).
   // Batch 8 changed exactly one more (rule 113): /pages/my-class.html →
   // /course/assigned (was e2bf5d6c…63bd6a).
+  // Batch 5 changed exactly one more (rule 84): /pages/full-test-result.html →
+  // /speaking/full-test/result (was adf1c476…bf7573).
   assert.equal(createHash('sha256').update(JSON.stringify(independentRules)).digest('hex'),
-    'adf1c476e9d9d89ed86b90fd911975655a812bfbcbe3497c5746781682bf7573');
+    '972feb3e458e00bcbf94ab5e0309d6bc103d01d5b131f531bd1b3caa62fa7387');
   assert.match(nextConfig, /buildLegacyRetirementRedirects\([\s\S]*?LEGACY_RETIREMENT_PATHS,/);
   assert.doesNotMatch(nextConfig, /discoverLegacyHtmlPaths|readdirSync/);
 });

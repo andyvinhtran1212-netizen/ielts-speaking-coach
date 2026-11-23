@@ -33,6 +33,8 @@ const MOVES = [
   { from: '/grammar-lessons/assigned', to: '/course/grammar-lesson', legacy: null },
   // Batch 4 (G07-T09); the review/[routeId] child has its own param rule below.
   { from: '/grammar-checkup', to: '/course/grammar-checkup', legacy: null },
+  // Batch 5 (G07-T10)
+  { from: '/full-test-result', to: '/speaking/full-test/result', legacy: '/pages/full-test-result.html' },
   // Batch 8 (G07-T15u)
   { from: '/my-class', to: '/course/assigned', legacy: '/pages/my-class.html' },
 ];
