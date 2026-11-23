@@ -5,9 +5,9 @@ Step 5 of the enrollment sweep calls G05-T22's ``fn_course_open_alerts_enqueue``
 dispatcher sends ``course_open_alert`` rows to their ``to_email``. Resend is
 faked with ``httpx.MockTransport`` through ``send_via_resend``'s ``client``.
 
-Waiting on G05-T22: the end-to-end case "two sweeps over the real function
-send one letter" needs that migration; the UNIQUE ``dedupe_key`` and the
-function's ``notified_at`` stamp are G05's, so it is not run here.
+Before every attempt the dispatcher asks G05's
+``fn_course_open_alert_send_check`` (migration 394, faked here; its SQL is
+tested in test_migration_394_course_open_alerts.py) and sends only on ``send``.
 """
 
 from __future__ import annotations
@@ -29,7 +29,8 @@ from tests._commerce_fake_db import FakeDB
 
 NOW = datetime(2026, 11, 16, 14, 14, tzinfo=timezone.utc)
 GUEST = "khach.hoc@example.com"
-PAYLOAD = {"product_slug": "reading-online", "product_title": "IELTS Reading Online",
+ALERT_ID = "5b0d7a3e-2f4c-4e1a-9a55-0c7f4b8d2e11"
+PAYLOAD = {"alert_id": ALERT_ID, "product_slug": "reading-online", "product_title": "IELTS Reading Online",
            "unsubscribe_token": "tok_9QxZ-12"}
 # tasks.md G04-T17: never these words in the rendered letter (word boundaries,
 # so "xem" or "thêm" do not count).
@@ -150,13 +151,11 @@ def _row(rid, payload=None, **over):
             "sent_at": None, "last_error_code": None, **over}
 
 
-def _product(status="open", is_public=True, archived_at=None):
-    return {"slug": "reading-online", "status": status, "is_public": is_public, "archived_at": archived_at}
-
-
 @pytest.fixture
 def world(monkeypatch):
-    db = FakeDB(tables={"learner_email_outbox": [], "users": [], "course_products": [_product()]})
+    verdicts: dict = {}
+    db = FakeDB(tables={"learner_email_outbox": [], "users": []}, handlers={
+        "fn_course_open_alert_send_check": lambda p: verdicts.get(p["p_alert_id"], "send")})
     monkeypatch.setattr(le, "supabase_admin", db)
     sent = []
 
@@ -174,7 +173,8 @@ def world(monkeypatch):
                 await client.aclose()
         return asyncio.run(go())
 
-    return {"db": db, "sent": sent, "dispatch": dispatch, "outbox": db.tables["learner_email_outbox"]}
+    return {"db": db, "sent": sent, "dispatch": dispatch, "outbox": db.tables["learner_email_outbox"],
+            "verdicts": verdicts}
 
 
 def test_a_to_email_row_goes_to_that_address_from_the_learner_sender(world):
@@ -188,26 +188,71 @@ def test_a_to_email_row_goes_to_that_address_from_the_learner_sender(world):
     assert req["body"]["subject"] == "Khoá IELTS Reading Online đã mở đăng ký"
     assert req["body"]["text"].startswith("Chào bạn,")
     assert ("users", "select") not in world["db"].calls  # no account lookup, no notification switch
+    assert world["db"].rpcs == [("fn_course_open_alert_send_check", {"p_alert_id": ALERT_ID, "p_to_email": GUEST})]
     assert world["outbox"][0]["status"] == "sent"
 
 
-@pytest.mark.parametrize("product", [_product(status="closed"), _product(is_public=False),
-                                     _product(status="closed", is_public=False, archived_at=NOW.isoformat())])
-def test_a_course_no_longer_open_when_sending_is_skipped(world, product):
-    world["db"].tables["course_products"] = [product]
+@pytest.mark.parametrize("verdict", sorted(le.OPEN_ALERT_SKIPS))
+def test_a_send_check_refusal_skips_with_its_reason_and_never_sends(world, verdict):
+    world["verdicts"][ALERT_ID] = verdict
     world["outbox"].append(_row("a2"))
     summary = world["dispatch"]()
     assert (summary.sent, summary.skipped) == (0, 1) and world["sent"] == []
-    assert (world["outbox"][0]["status"], world["outbox"][0]["last_error_code"]) == ("skipped", "no_longer_applies")
+    assert (world["outbox"][0]["status"], world["outbox"][0]["last_error_code"]) == ("skipped", verdict)
 
 
-def test_an_unknown_course_is_skipped(world):
-    world["outbox"].append(_row("a3", payload={**PAYLOAD, "product_slug": "gone"}))
-    assert world["dispatch"]().skipped == 1 and world["sent"] == []
+def test_a_retry_checks_again_before_sending(world):
+    # First attempt: Resend fails; the learner unsubscribes; the retry is skipped.
+    world["outbox"].append(_row("a3"))
+    calls = []
+
+    def failing(request):
+        calls.append(1)
+        return httpx.Response(500, json={"message": "down"})
+
+    async def go(transport):
+        client = httpx.AsyncClient(transport=transport)
+        try:
+            return await le.dispatch_due(50, client=client, now=NOW)
+        finally:
+            await client.aclose()
+
+    first = asyncio.run(go(httpx.MockTransport(failing)))
+    assert first.retry == 1 and calls == [1]
+    row = world["outbox"][0]
+    assert row["status"] == "pending"
+    row["next_attempt_at"] = (NOW - timedelta(minutes=1)).isoformat()
+    world["verdicts"][ALERT_ID] = "skipped_unsubscribed"
+    second = world["dispatch"]()
+    assert (second.sent, second.skipped) == (0, 1) and world["sent"] == []
+    assert (row["status"], row["last_error_code"]) == ("skipped", "skipped_unsubscribed")
+    assert [name for name, _ in world["db"].rpcs].count("fn_course_open_alert_send_check") == 2
 
 
-def test_a_payload_without_the_slug_fails_as_payload_invalid(world):
-    world["outbox"].append(_row("a4", payload={"product_title": "IELTS Reading Online"}))
+def test_without_the_send_check_function_the_row_is_skipped(world):
+    world["db"].handlers["fn_course_open_alert_send_check"] = \
+        lambda p: APIError({"code": "PGRST202", "message": "Could not find the function"})
+    world["outbox"].append(_row("a6"))
+    summary = world["dispatch"]()
+    assert summary.skipped == 1 and world["sent"] == []
+    assert world["outbox"][0]["last_error_code"] == "send_check_missing"
+
+
+@pytest.mark.parametrize("answer", [
+    APIError({"code": "57014", "message": "canceling statement due to statement timeout"}),
+    "maybe", None, ["send"]])
+def test_a_send_check_error_or_odd_answer_retries_and_never_sends(world, answer):
+    world["db"].handlers["fn_course_open_alert_send_check"] = lambda p: answer
+    world["outbox"].append(_row("a7"))
+    summary = world["dispatch"]()
+    assert summary.retry == 1 and world["sent"] == []
+    assert world["outbox"][0]["status"] == "pending"
+
+
+@pytest.mark.parametrize("payload", [{"alert_id": ALERT_ID, "product_title": "IELTS Reading Online"},
+                                     {"product_slug": "reading-online"}, {**PAYLOAD, "alert_id": "nope"}])
+def test_a_payload_without_the_slug_or_alert_id_fails_as_payload_invalid(world, payload):
+    world["outbox"].append(_row("a4", payload=payload))
     world["outbox"].append(_row("a5"))
     summary = world["dispatch"]()
     assert (summary.failed, summary.sent) == (1, 1)
