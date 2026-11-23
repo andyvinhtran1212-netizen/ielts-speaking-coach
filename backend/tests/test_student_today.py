@@ -60,6 +60,10 @@ class _Q:
         self.filters.append(lambda r: r.get(f) is not None and st._parse_ts(r[f]) > st._parse_ts(v))
         return self
 
+    def is_(self, f, _v):
+        self.filters.append(lambda r, f=f: r.get(f) is None)
+        return self
+
     def gte(self, f, v):
         self.filters.append(lambda r: r.get(f) is not None and st._parse_ts(r[f]) >= st._parse_ts(v))
         return self
@@ -153,6 +157,22 @@ def test_overdue_first_submitted_dropped_and_counts():
     out = st.build_assigned(rows, NOW)
     assert [r["item_id"] for r in out["assigned"]] == ["over-1", "over-2", "tomorrow"]
     assert out["assigned_due_soon"] == 3 and out["assigned_due_later"] == 0
+
+
+def test_reopened_course_exercise_stays_open_and_counted():
+    # Codex on #2604: a submitted course exercise the teacher reopened comes
+    # back with a work action (retake, retry_full…) and is still owed.
+    due = _iso(NOW + timedelta(hours=3))
+    rows = [
+        {**_row("reopened", due=due, submitted=_iso(NOW - timedelta(days=1))), "course_action": "retake"},
+        {**_row("retry", due=_iso(NOW + timedelta(days=5)), submitted=_iso(NOW - timedelta(days=1))),
+         "course_action": "retry_full"},
+        {**_row("reviewed", due=due, submitted=_iso(NOW - timedelta(days=1))), "course_action": "review"},
+    ]
+    out = st.build_assigned(rows, NOW)
+    assert [r["item_id"] for r in out["assigned"]] == ["reopened"]
+    assert out["assigned_due_soon"] == 1 and out["assigned_due_later"] == 1
+    assert out["assigned_total_open"] == 2
 
 
 def test_seven_due_soon_cut_to_five_but_counted_before_cut():
@@ -253,6 +273,42 @@ def test_resume_keeps_live_in_progress_only_newest_first_cap_four():
     assert all("_started" not in i for i in items)
 
 
+def test_homework_resume_links_keep_the_class_item():
+    # Codex on #2604: without class_item the dictation player (and the drill
+    # path of the listening player) looks only for standalone attempts.
+    future = _iso(NOW + timedelta(hours=5))
+    tables = {
+        "sessions": [],
+        "dictation_attempts": [
+            {"id": "d1", "user_id": "u-1", "status": "in_progress", "test_id": "lt1", "section_num": 2,
+             "class_assignment_item_id": "item-9",
+             "started_at": _iso(NOW - timedelta(minutes=1)), "resume_expires_at": future},
+            {"id": "d2", "user_id": "u-1", "status": "in_progress", "test_id": "lt1", "section_num": 1,
+             "class_assignment_item_id": None,
+             "started_at": _iso(NOW - timedelta(minutes=2)), "resume_expires_at": future},
+        ],
+        "listening_test_attempts": [
+            {"id": "l1", "user_id": "u-1", "status": "in_progress", "test_id": "lt1",
+             "class_assignment_item_id": "item-7",
+             "started_at": _iso(NOW - timedelta(minutes=3)), "resume_expires_at": future},
+        ],
+        "reading_test_attempts": [
+            {"id": "r1", "user_id": "u-1", "status": "in_progress", "test_id": "rt1",
+             "class_assignment_item_id": "item-5",
+             "started_at": _iso(NOW - timedelta(minutes=4)), "resume_expires_at": future},
+        ],
+        "reading_tests": [{"id": "rt1", "test_id": "cam18-t1", "title": "C18 T1"}],
+        "listening_tests": [{"id": "lt1", "title": "Test 2"}],
+    }
+    items = st.build_resume(_DB(tables), "u-1", NOW)
+    assert [i["href"] for i in items] == [
+        "/core-player/launch?surface=listening_dictation&test_id=lt1&section=2&class_item=item-9",
+        "/core-player/launch?surface=listening_dictation&test_id=lt1&section=1",
+        "/core-player/launch?surface=listening_test&id=lt1&class_item=item-7",
+        "/core-player/launch?surface=reading_exam&test_id=cam18-t1&class_item=item-5",
+    ]
+
+
 # ── goal (FR-070) ─────────────────────────────────────────────────────────────
 
 
@@ -278,9 +334,9 @@ def _results_tables(seen_at=None, seen_key=None, essays=(), sessions=()):
     }
 
 
-def _essay(eid, at, status="delivered", student="st-1"):
+def _essay(eid, at, status="delivered", student="st-1", deleted_at=None):
     return {"id": eid, "student_id": student, "status": status, "task_type": "task2",
-            "delivered_at": _iso(at)}
+            "delivered_at": _iso(at), "deleted_at": deleted_at}
 
 
 def _session(sid, at, band=6.0, user="u-1", status="completed"):
@@ -330,6 +386,14 @@ def test_only_delivered_writing_and_graded_own_speaking_after_cursor():
     ))
     out = st.build_new_results(db, "u-1", NOW)
     assert [r["key"] for r in out["new_results"]] == ["writing:after"]
+
+
+def test_soft_deleted_writing_is_never_a_new_result():
+    at = NOW - timedelta(hours=1)
+    db = _DB(_results_tables(essays=[_essay("gone", at, deleted_at=_iso(at)), _essay("kept", at)]))
+    out = st.build_new_results(db, "u-1", NOW)
+    assert [r["key"] for r in out["new_results"]] == ["writing:kept"]
+    assert out["new_results_cursor"]["seen_key"] == "writing:kept"
 
 
 def test_empty_cursor_uses_seven_day_window():
