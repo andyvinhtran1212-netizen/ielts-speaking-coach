@@ -70,6 +70,20 @@ def validate_trusted_proxy_cidr_list(value: str) -> tuple[ipaddress.IPv4Network 
     return tuple(networks)
 
 
+# ACCOUNTDATA-0100: bounds from plan section 3. The export cap stays under
+# the account-exports bucket limit (210 MiB, services/storage_limits.py).
+_ACCOUNT_BOUNDS: dict[str, tuple[int, int, int]] = {
+    "ACCOUNT_DELETE_GRACE_DAYS": (7, 90, 30),
+    "ACCOUNT_ERASURE_MAX_ATTEMPTS": (1, 20, 5),
+    "ACCOUNT_ERASURE_LEASE_SECONDS": (60, 3600, 300),
+    "ACCOUNT_EXPORT_READY_HOURS": (1, 168, 24),
+    "ACCOUNT_EXPORT_COOLDOWN_HOURS": (0, 720, 24),
+    "ACCOUNT_EXPORT_MAX_BYTES": (1024 * 1024, 200 * 1024 * 1024, 200 * 1024 * 1024),
+    "ACCOUNT_EXPORT_LINK_DAYS": (1, 30, 7),
+    "ACCOUNT_EXPORT_SIGNED_URL_SECONDS": (10, 600, 60),
+}
+
+
 def _bounded_int_or_default(name: str, value, low: int, high: int, default: int) -> int:
     """ADMINAAL2-0032 Amendment 1: a whole number in [low, high]; anything
     else (text, a fraction, a bool, out of range) is the safe default plus
@@ -594,6 +608,20 @@ class Settings(BaseSettings):
     LEARNER_EMAIL_REPLY_TO: str = ""
     PUBLIC_SITE_URL: str = ""
 
+    # ── ACCOUNTDATA-0100 (plan section 3): data export and account deletion ──
+    # Out-of-range or unparseable values fall back to the default with one
+    # error log at startup. ACCOUNT_ERASURE_ENABLED off → the sweep only
+    # reports what it would erase (dry-run).
+    ACCOUNT_DELETE_GRACE_DAYS: int = 30
+    ACCOUNT_ERASURE_ENABLED: bool = False
+    ACCOUNT_ERASURE_MAX_ATTEMPTS: int = 5
+    ACCOUNT_ERASURE_LEASE_SECONDS: int = 300
+    ACCOUNT_EXPORT_READY_HOURS: int = 24
+    ACCOUNT_EXPORT_COOLDOWN_HOURS: int = 24
+    ACCOUNT_EXPORT_MAX_BYTES: int = 200 * 1024 * 1024
+    ACCOUNT_EXPORT_LINK_DAYS: int = 7
+    ACCOUNT_EXPORT_SIGNED_URL_SECONDS: int = 60
+
     class Config:
         env_file = ".env"
 
@@ -674,6 +702,25 @@ class Settings(BaseSettings):
         if text in ("false", ""):
             return False
         logger.error("[config] ADMIN_STEP_UP_ENFORCE=%r is not true/false; using false", value)
+        return False
+
+    @field_validator(*_ACCOUNT_BOUNDS, mode="before")
+    @classmethod
+    def _strict_account_ints(cls, value, info):
+        low, high, default = _ACCOUNT_BOUNDS[info.field_name]
+        return _bounded_int_or_default(info.field_name, value, low, high, default)
+
+    @field_validator("ACCOUNT_ERASURE_ENABLED", mode="before")
+    @classmethod
+    def _strict_erasure_enabled(cls, value):
+        if isinstance(value, bool):
+            return value
+        text = value.strip().lower() if isinstance(value, str) else None
+        if text == "true":
+            return True
+        if text in ("false", ""):
+            return False
+        logger.error("[config] ACCOUNT_ERASURE_ENABLED=%r is not true/false; using false", value)
         return False
 
     @property
