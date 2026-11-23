@@ -45,13 +45,12 @@ export function BandScoreSection({ title }: { title: string }) {
       <BandScore size="row" skill="Reading · Academic Test 1 · đủ 40 câu" band={7} basis="ước lượng từ 1 đề" />
       <p className={styles.demoLabel}>Overall · mock test được giao, đã trả đủ các phần</p>
       <OverallBlock
-        skills={[{ name: 'Listening', band: 6.5 }, { name: 'Reading', band: 7 }, { name: 'Writing', band: 6 }, { name: 'Speaking', band: 6 }]}
+        skills={[{ skill: 'listening', band: 6.5 }, { skill: 'reading', band: 7 }, { skill: 'writing', band: 6 }, { skill: 'speaking', band: 6 }]}
         note={<>Mock test được giao &ldquo;Thi thử tháng 11&rdquo;, thi ngày 17/11.</>}
       />
       <p className={styles.demoLabel}>Overall · còn phần đang chấm · không có số</p>
       <OverallBlock
-        skills={[{ name: 'Listening', band: 6.5 }, { name: 'Reading', band: 7 }, { name: 'Writing', band: 6 }, { name: 'Speaking', band: null }]}
-        missing={['Speaking']}
+        skills={[{ skill: 'listening', band: 6.5 }, { skill: 'reading', band: 7 }, { skill: 'writing', band: 6 }, { skill: 'speaking', band: null }]}
         note="Overall hiện khi mọi phần của mock test đã trả điểm."
       />
     </section>

@@ -27,8 +27,8 @@ export { ThemeMenu, ThemeMenuList, type ThemeMenuListProps, type ThemeMenuProps 
 export { THEME_SCRIPT, ThemeScript } from './theme-script';
 export { useThemeChoice, type ThemeChoice, type ThemeChoiceState, type ThemeMode } from './use-theme-choice';
 export {
-  BAND_DISCLAIMER, BandScore, compareSentence, CriteriaList, formatBand, ieltsOverall, OverallBlock,
-  type BandCriterion, type BandScoreProps, type BandScoreSize, type BandScoreState, type OverallBlockProps, type OverallSkill, type PreviousBand,
+  BAND_DISCLAIMER, BandScore, compareSentence, CriteriaList, formatBand, IELTS_SKILLS, ieltsOverall, isValidBand, OverallBlock, overallStatus,
+  type BandCriterion, type BandScoreProps, type BandScoreSize, type BandScoreState, type IeltsSkill, type OverallBlockProps, type OverallSkill, type OverallStatus, type PreviousBand,
 } from './band-score';
 export { activeThreshold, formatClock, Timer, type TimerProps, type TimerThreshold } from './timer';
 export {

@@ -5,7 +5,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
-  activeThreshold, AnnotatedText, BAND_DISCLAIMER, BandScore, compareSentence, Figure, formatClock, ieltsOverall,
+  activeThreshold, AnnotatedText, BAND_DISCLAIMER, BandScore, compareSentence, Figure, formatClock, ieltsOverall, isValidBand, overallStatus, type OverallSkill,
   OverallBlock, paletteSummary, QuestionPalette, questionCellName, Timer, VocabEntry, type QuestionItem,
 } from '@/components/ui';
 
@@ -46,7 +46,9 @@ describe('BandScore', () => {
 });
 
 describe('OverallBlock', () => {
-  const four = [{ name: 'Listening', band: 6.5 }, { name: 'Reading', band: 7 }, { name: 'Writing', band: 6 }, { name: 'Speaking', band: 6 }];
+  const four: OverallSkill[] = [
+    { skill: 'listening', band: 6.5 }, { skill: 'reading', band: 7 }, { skill: 'writing', band: 6 }, { skill: 'speaking', band: 6 },
+  ];
 
   it('rounds the mean to the nearest half band, a quarter up', () => {
     expect(ieltsOverall([6.5, 7, 6, 6])).toBe(6.5); // 6.375
@@ -55,15 +57,50 @@ describe('OverallBlock', () => {
     expect(ieltsOverall([7, 7, 7, 6])).toBe(7); // 6.75
   });
 
-  it('shows a number only when all four skills are in', () => {
+  it('accepts only finite half bands from 0 to 9', () => {
+    expect([0, 4.5, 9].every(isValidBand)).toBe(true);
+    expect([NaN, Infinity, -0.5, 9.5, 6.3, 10, '6' as unknown, null].some(isValidBand)).toBe(false);
+  });
+
+  it('shows a number only when each of the four skills is present once', () => {
     const { rerender, container } = render(<OverallBlock skills={four} />);
     expect(screen.getByLabelText('Overall ước lượng: 6.5')).toBeTruthy();
-    rerender(<OverallBlock skills={[...four.slice(0, 3), { name: 'Speaking', band: null }]} missing={['Speaking']} />);
+    rerender(<OverallBlock skills={[...four.slice(0, 3), { skill: 'speaking', band: null }]} />);
     expect(screen.queryByLabelText(/Overall ước lượng:/)).toBeNull();
     expect(screen.getByText('Chưa có Overall · Speaking đang chấm')).toBeTruthy();
     expect(container.textContent).toContain(BAND_DISCLAIMER);
     rerender(<OverallBlock skills={four.slice(0, 3)} />);
     expect(screen.queryByLabelText(/Overall ước lượng:/)).toBeNull();
+    expect(screen.getByText('Chưa có Overall · chưa có Speaking')).toBeTruthy();
+  });
+
+  it('gives no Overall for four rows with a duplicate skill, an unknown code or an invalid band', () => {
+    const duplicate: OverallSkill[] = [...four.slice(0, 3), { skill: 'writing', band: 6 }];
+    expect(overallStatus(duplicate)).toEqual({ kind: 'invalid' });
+    const unknown = [...four.slice(0, 3), { skill: 'Speaking', band: 6 }] as unknown as OverallSkill[];
+    expect(overallStatus(unknown)).toEqual({ kind: 'invalid' });
+    for (const bad of [NaN, 9.5, -1, 6.3, Infinity]) {
+      expect(overallStatus([...four.slice(0, 3), { skill: 'speaking', band: bad }])).toEqual({ kind: 'invalid' });
+    }
+    expect(overallStatus([...four, { skill: 'speaking', band: 6 }])).toEqual({ kind: 'invalid' });
+    render(<OverallBlock skills={duplicate} />);
+    expect(screen.queryByLabelText(/Overall ước lượng:/)).toBeNull();
+    expect(screen.getByText('Chưa có Overall · dữ liệu điểm chưa hợp lệ')).toBeTruthy();
+    expect(screen.getAllByText('—')).toHaveLength(4);
+  });
+
+  it('lists the four skills in fixed order whatever the input order', () => {
+    const { container } = render(<OverallBlock skills={[...four].reverse()} />);
+    expect([...container.querySelectorAll('dt')].map((dt) => dt.textContent)).toEqual(['Listening', 'Reading', 'Writing', 'Speaking']);
+    expect(screen.getByLabelText('Overall ước lượng: 6.5')).toBeTruthy();
+  });
+});
+
+describe('BandScore validity', () => {
+  it('draws no number for an invalid band even when ready', () => {
+    const { container } = render(<BandScore skill="Writing" band={Number.NaN} />);
+    expect(container.querySelector('[data-state="ready"]')).toBeNull();
+    expect(container.textContent).not.toContain('NaN');
   });
 });
 
