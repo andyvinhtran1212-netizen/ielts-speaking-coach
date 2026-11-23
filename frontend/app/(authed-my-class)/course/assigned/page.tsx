@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 
+import { AssignedTreeSwitch } from './assigned-tree-switch';
 import { MyClassWorkspace } from './my-class-workspace';
 
 export const metadata: Metadata = {
@@ -12,7 +13,10 @@ export default function MyClassPage() {
     <>
       {/* @ts-ignore -- aver-chrome is the coexistence Web Component. */}
       <aver-chrome active="class" />
-      <MyClassWorkspace />
+      {/* LEARNERCORE-0063 FR-095: the legacy tree unchanged unless learner_v2 is on. */}
+      <AssignedTreeSwitch>
+        <MyClassWorkspace />
+      </AssignedTreeSwitch>
     </>
   );
 }
