@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 
 import {
   clearForeignLocalCopies, clearLocalCopy, clearOwnerLocalCopies, localCopyExpiry, localCopyKey,
-  parseLocalCopyKey, planLocalCopyReplay, readLocalCopy, removeAckedFromCopy, writeLocalCopy,
+  parseLocalCopyKey, planLocalCopyReplay, readLocalCopy, removeAckedFromCopy, sameAnswer, writeLocalCopy,
 } from '../lib/exam-room/local-copy.mjs';
 import { BrokenStorage, MemoryStorage } from './fixtures/exam-room-fakes.mjs';
 
@@ -91,12 +91,51 @@ test('replay never trusts save times: a server clock ahead or a missing savedAt 
 
 test('replay compares arrays and objects after sorting keys; strings verbatim, length included', () => {
   const copy = { v: 1, ...A, savedAt: T0, expiresAt: later, answers: {
-    1: { value: 'A', baseValue: '{"a":1,"b":2}' },
+    1: { value: 'A', baseValue: { a: 1, b: 2 } },
     2: { value: 'B', baseValue: 'dozen ' },
+    3: { value: ['x', 'y'], baseValue: ['x'] },
   } };
-  const plan = planLocalCopyReplay(copy, { open: true, answers: { 1: { value: { b: 2, a: 1 } }, 2: { value: 'dozen' } } });
-  assert.deepEqual(plan.resend, [{ q: '1', value: 'A' }]);
+  const plan = planLocalCopyReplay(copy, { open: true, answers: { 1: { value: { b: 2, a: 1 } }, 2: { value: 'dozen' }, 3: { value: ['x'] } } });
+  assert.deepEqual(plan.resend, [{ q: '1', value: 'A' }, { q: '3', value: ['x', 'y'] }]);
   assert.deepEqual(plan.keepServer, ['2']);
+});
+
+test('FR-035 type kept through write, read back and compare: a JSON base in either key order round-trips as an object', () => {
+  const s = new MemoryStorage();
+  // Base read from the server as an object, written in one key order...
+  assert.equal(writeLocalCopy(s, { ...A, answers: { 1: { value: { gap1: 'cat', gap2: 'dog' }, baseValue: { gap2: 'old', gap1: 'cat' } } }, expiresAt: later, now: T0 }), true);
+  const back = readLocalCopy(s, { ...A, now: T0 });
+  assert.deepEqual(back.answers['1'].baseValue, { gap2: 'old', gap1: 'cat' });
+  assert.equal(typeof back.answers['1'].baseValue, 'object');
+  // ...still a known base: the server holding it in the other key order → re-send.
+  const plan = planLocalCopyReplay(back, { open: true, answers: { 1: { value: { gap1: 'cat', gap2: 'old' } } } });
+  assert.deepEqual([plan.resend, plan.ask, plan.keepServer], [[{ q: '1', value: { gap1: 'cat', gap2: 'dog' } }], [], []]);
+  // Re-writing without a base keeps the known object base.
+  writeLocalCopy(s, { ...A, answers: { 1: { value: { gap1: 'cow', gap2: 'dog' } } }, expiresAt: later, now: T0 });
+  assert.deepEqual(readLocalCopy(s, { ...A, now: T0 }).answers['1'].baseValue, { gap2: 'old', gap1: 'cat' });
+  // Array base keeps its order and type too.
+  writeLocalCopy(s, { ...A, answers: { 2: { value: ['b'], baseValue: ['a', 'c'] } }, expiresAt: later, now: T0 });
+  assert.deepEqual(readLocalCopy(s, { ...A, now: T0 }).answers['2'].baseValue, ['a', 'c']);
+});
+
+test('FR-035 a JSON value never equals a string with the same text', () => {
+  assert.equal(sameAnswer(['a'], '["a"]'), false);
+  assert.equal(sameAnswer({ a: 1 }, '{"a":1}'), false);
+  assert.equal(sameAnswer({ b: 2, a: 1 }, { a: 1, b: 2 }), true);
+  assert.equal(sameAnswer('1', 1), false);
+  const copy = { v: 1, ...A, savedAt: T0, expiresAt: later, answers: {
+    1: { value: ['a'], baseValue: null }, // copy holds the array, server holds the string text
+    2: { value: 'B', baseValue: '["a"]' }, // base is the string, server holds the array
+  } };
+  const plan = planLocalCopyReplay(copy, { open: true, answers: { 1: { value: '["a"]' }, 2: { value: ['a'] } } });
+  // Neither is taken as "server already equal" and dropped: 1 differs from its null base → keep server; 2 likewise.
+  assert.deepEqual(plan.keepServer, ['1', '2']);
+  assert.deepEqual(plan.resend, []);
+  // Acks are typed as well: an ack of the string does not remove the array answer.
+  const s = new MemoryStorage();
+  writeLocalCopy(s, { ...A, answers: { 1: { value: ['a'], baseValue: null } }, expiresAt: later, now: T0 });
+  assert.deepEqual(removeAckedFromCopy(s, { ...A, entries: [{ q: 1, value: '["a"]' }], now: T0 }), []);
+  assert.deepEqual(removeAckedFromCopy(s, { ...A, entries: [{ q: 1, value: ['a'] }], now: T0 }), ['1']);
 });
 
 test('write keeps baseValue, including null; an entry written without it stays unknown', () => {
