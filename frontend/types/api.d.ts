@@ -13470,6 +13470,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/student/skill-hub": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Skill Hub
+         * @description One skill hub (LEARNERCORE-0063 T25, FR-111..118). Read-only, the
+         *     caller's own data; a failing block lands in `degraded`. Any other `skill`
+         *     is 422 (FastAPI validates the Literal).
+         */
+        get: operations["skill_hub_api_student_skill_hub_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/public-stats": {
         parameters: {
             query?: never;
@@ -22824,6 +22846,118 @@ export interface components {
              */
             audio_example: string;
         };
+        /** SkillHubAccess */
+        SkillHubAccess: {
+            /**
+             * Blocked
+             * @default false
+             */
+            blocked: boolean;
+        };
+        /** SkillHubCatalogGroup */
+        SkillHubCatalogGroup: {
+            /** Group */
+            group: string;
+            /** Label */
+            label: string;
+            /** Count */
+            count?: number | null;
+            /** Done */
+            done?: number | null;
+            /** Href */
+            href: string;
+        };
+        /** SkillHubCredits */
+        SkillHubCredits: {
+            /** Total */
+            total: number;
+            /**
+             * Metering
+             * @enum {string}
+             */
+            metering: "metered" | "not_metered" | "unknown";
+        };
+        /** SkillHubHistoryItem */
+        SkillHubHistoryItem: {
+            /** Submitted At */
+            submitted_at?: string | null;
+            /** Title */
+            title: string;
+            /** Kind */
+            kind: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "ai_instant" | "teacher_review" | "auto";
+            result: components["schemas"]["SkillHubResult"];
+            /** Href */
+            href?: string | null;
+        };
+        /**
+         * SkillHubResult
+         * @description FR-077: a band only when it is valid; `correct`/`total` only with total > 0.
+         */
+        SkillHubResult: {
+            /** Band */
+            band?: number | null;
+            /** Correct */
+            correct?: number | null;
+            /** Total */
+            total?: number | null;
+            /**
+             * Pending
+             * @default false
+             */
+            pending: boolean;
+        };
+        /** SkillHubResumeItem */
+        SkillHubResumeItem: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "speaking" | "writing" | "listening" | "dictation" | "reading";
+            /** Title */
+            title: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "in_progress" | "draft";
+            /** Href */
+            href: string;
+            /** Updated At */
+            updated_at?: string | null;
+        };
+        /** SkillHubStarter */
+        SkillHubStarter: {
+            /** Title */
+            title: string;
+            /** Meta */
+            meta?: string | null;
+            /**
+             * Uses Credit
+             * @default false
+             */
+            uses_credit: boolean;
+            /** Href */
+            href: string;
+        };
+        /** SkillHubSuggestion */
+        SkillHubSuggestion: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "course_lesson" | "assigned" | "error_review" | "least_practised";
+            /** Title */
+            title: string;
+            /** Why */
+            why: string;
+            /** Href */
+            href: string;
+        };
         /** SourceAudioResponse */
         SourceAudioResponse: {
             /** Day */
@@ -23647,6 +23781,31 @@ export interface components {
             why_wrong?: unknown;
             /** Hint */
             hint?: unknown;
+        };
+        /** StudentSkillHubResponse */
+        StudentSkillHubResponse: {
+            /**
+             * Skill
+             * @enum {string}
+             */
+            skill: "speaking" | "writing" | "listening" | "reading";
+            credits?: components["schemas"]["SkillHubCredits"] | null;
+            /** Resume */
+            resume?: components["schemas"]["SkillHubResumeItem"][];
+            starter?: components["schemas"]["SkillHubStarter"] | null;
+            /** Suggestions */
+            suggestions?: components["schemas"]["SkillHubSuggestion"][];
+            /** Catalog */
+            catalog?: components["schemas"]["SkillHubCatalogGroup"][];
+            /** Catalog Href */
+            catalog_href: string;
+            /** History */
+            history?: components["schemas"]["SkillHubHistoryItem"][];
+            /** History Href */
+            history_href: string;
+            access?: components["schemas"]["SkillHubAccess"];
+            /** Degraded */
+            degraded?: ("credits" | "resume" | "suggestions" | "catalog" | "history")[];
         };
         /** StudentTodayResponse */
         StudentTodayResponse: {
@@ -48157,6 +48316,39 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    skill_hub_api_student_skill_hub_get: {
+        parameters: {
+            query: {
+                skill: "speaking" | "writing" | "listening" | "reading";
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentSkillHubResponse"];
+                };
             };
             /** @description Validation Error */
             422: {
