@@ -117,7 +117,9 @@ export function FocusShell({
     setFlushing(true);
     beforeLeave().then(
       () => { setFlushing(false); go(); },
-      () => { setFlushing(false); },
+      // Refused (answers still unsaved): show the box with what the page now says,
+      // also in practice, where it may not have been open (EXAMROOM-0066 FR-011).
+      () => { setFlushing(false); setAskedUnsaved(true); setAsking(true); },
     );
   }, [beforeLeave, go]);
 

@@ -22,6 +22,9 @@
   border: 0;
 }
 
+/* Per-pane lock: disables answer fields only, never the pane tabs. */
+.lock { margin: 0; padding: 0; border: 0; min-width: 0; }
+
 /* Banners sit above the work and never cover an answer field (FR-014). */
 .banners {
   display: flex;

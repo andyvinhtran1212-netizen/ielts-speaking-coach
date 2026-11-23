@@ -209,6 +209,43 @@ describe('submit (FR-010, FR-014, FR-034)', () => {
     expect(screen.queryByText(/saved and submitted/)).toBeNull();
   });
 
+  it('closes an open box when an answer stops saving, and never submits then (CR P2-2)', async () => {
+    const onSubmit = vi.fn(() => Promise.resolve());
+    const props = base({ submit: { label: 'Submit test', onSubmit } });
+    const { rerender } = render(<ExamRoomShell {...props} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Submit test' }));
+    await screen.findByRole('alertdialog');
+    rerender(<ExamRoomShell {...props} saveStatus={{ state: 'retrying', unsaved: 1 }} />);
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.getByText('Saving your answers…')).toBeTruthy();
+  });
+
+  it('closes an open box when the session expires', async () => {
+    const onSubmit = vi.fn(() => Promise.resolve());
+    const props = base({ submit: { label: 'Submit test', onSubmit }, onSessionExpired: { saveLocalCopy: () => true, returnUrl: '/r' } });
+    const { rerender } = render(<ExamRoomShell {...props} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Submit test' }));
+    await screen.findByText('Submit with 4 unanswered questions?');
+    rerender(<ExamRoomShell {...props} session="expired" />);
+    await waitFor(() => expect(screen.queryByText('Submit with 4 unanswered questions?')).toBeNull());
+    expect(screen.getByText('Your session has expired')).toBeTruthy();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('time running out with the box open closes it; only the auto-submit runs (Codex)', async () => {
+    const onSubmit = vi.fn(() => Promise.resolve());
+    const onExpire = vi.fn();
+    const props = base({ submit: { label: 'Submit test', onSubmit } });
+    const { rerender } = render(<ExamRoomShell {...props} timer={{ kind: 'countdown', remainingSeconds: 2, onExpire }} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Submit test' }));
+    await screen.findByRole('alertdialog');
+    rerender(<ExamRoomShell {...props} timer={{ kind: 'countdown', remainingSeconds: 0, onExpire }} />);
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(onExpire).toHaveBeenCalledTimes(1);
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
   it('no submit prop: no submit button', () => {
     render(<ExamRoomShell {...base({ submit: undefined })} />);
     expect(screen.queryByRole('button', { name: 'Submit test' })).toBeNull();
@@ -251,6 +288,31 @@ describe('leave and abandon (FR-011, FR-012)', () => {
     await within(dialog).findByText('Your answers so far are saved.');
     fireEvent.click(within(dialog).getByRole('button', { name: 'Leave test' }));
     expect(await within(dialog).findByText(/1 answer has not been saved yet/)).toBeTruthy();
+    expect(assign).not.toHaveBeenCalled();
+  });
+
+  it('practice: a refused leave opens the box with the unsaved count (CR P2-1)', async () => {
+    const assign = stubAssign();
+    const flush = vi.fn(() => Promise.resolve({ unsaved: 1 }));
+    render(<ExamRoomShell {...base({ mode: 'practice', submit: undefined, exit: { href: '/tests', flush, losesWork: () => false } })} />);
+    fireEvent.click(screen.getByRole('button', { name: /Thoát/ }));
+    const dialog = await screen.findByRole('alertdialog');
+    expect(within(dialog).getByText('Còn 1 câu chưa lưu. Nếu thoát bây giờ, các câu này có thể mất.')).toBeTruthy();
+    expect(assign).not.toHaveBeenCalled();
+  });
+
+  it('a failed last flush drops the "saved" line', async () => {
+    const assign = stubAssign();
+    const flush = vi.fn()
+      .mockResolvedValueOnce({ unsaved: 0 })
+      .mockRejectedValueOnce(new Error('net'));
+    render(<ExamRoomShell {...base({ exit: { href: '/tests', flush, losesWork: () => false } })} />);
+    fireEvent.click(screen.getByRole('button', { name: /Leave test/ }));
+    const dialog = await screen.findByRole('alertdialog');
+    await within(dialog).findByText('Your answers so far are saved.');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Leave test' }));
+    expect(await within(dialog).findByText(/1 answer has not been saved yet/)).toBeTruthy();
+    expect(within(dialog).queryByText('Your answers so far are saved.')).toBeNull();
     expect(assign).not.toHaveBeenCalled();
   });
 
@@ -398,6 +460,33 @@ describe('other tab (FR-017)', () => {
     await waitFor(() => expect(onWriteRightChange).toHaveBeenLastCalledWith(true));
     expect(screen.getByLabelText('Answer 1').matches(':disabled')).toBe(false);
     expect(screen.queryByText('This test is open in another tab.')).toBeNull();
+  });
+  it('read-only below 900px: pane tabs still switch, answers stay disabled (Codex)', async () => {
+    const request = vi.fn((_name: string, opts: { ifAvailable?: boolean }, cb: (lock: unknown) => unknown) => {
+      if (opts?.ifAvailable) return Promise.resolve(cb(null));
+      return new Promise(() => {});
+    });
+    vi.stubGlobal('navigator', { ...navigator, onLine: true, locks: { request } });
+    render(<ExamRoomShell {...base({ viewportWidth: 800, tabGuard: { reloadFromServer: () => Promise.resolve() } })} />);
+    await screen.findByText('This test is open in another tab.');
+    const tab = screen.getByRole('tab', { name: 'Questions' });
+    expect(tab.matches(':disabled')).toBe(false);
+    fireEvent.click(tab);
+    expect(tab.getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByLabelText('Answer 1').matches(':disabled')).toBe(true);
+  });
+
+  it('token fallback: losing the token to another tab turns this tab read-only (Codex)', async () => {
+    vi.stubGlobal('navigator', { ...navigator, onLine: true, locks: undefined });
+    class FakeChannel { onmessage = null; postMessage() {} close() {} }
+    vi.stubGlobal('BroadcastChannel', FakeChannel);
+    const onWriteRightChange = vi.fn();
+    render(<ExamRoomShell {...base({ tabGuard: { reloadFromServer: () => Promise.resolve(), onWriteRightChange } })} />);
+    await waitFor(() => expect(onWriteRightChange).toHaveBeenLastCalledWith(true));
+    window.localStorage.setItem('exam-room:writer:reading:att-1', JSON.stringify({ tabId: 'other', at: Date.now() }));
+    await waitFor(() => expect(onWriteRightChange).toHaveBeenLastCalledWith(false), { timeout: 3000 });
+    expect(screen.getByLabelText('Answer 1').matches(':disabled')).toBe(true);
+    expect((screen.getByRole('button', { name: 'Submit test' }) as HTMLButtonElement).disabled).toBe(true);
   });
 });
 
