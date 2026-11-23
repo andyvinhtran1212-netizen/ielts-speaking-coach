@@ -2,13 +2,16 @@
 // Speaking page with the exam room flag off (unchanged) and on (focus bar,
 // microphone cases, recording state in words, too-short reason in the page).
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MicStatus, type MicState } from '@/app/(authed-practice)/practice/session/mic-status';
 import { PracticePageShell } from '@/app/(authed-practice)/practice/session/practice-page-shell';
 import { RecordingStatus, SILENCE_MS } from '@/app/(authed-practice)/practice/session/recording-status';
 import { SPEAKING_ROOM_STRINGS_EN as EN, SPEAKING_ROOM_STRINGS_VI as VI } from '@/lib/exam-room/strings-speaking.mjs';
 import { SpeakingPlayerController } from '@/lib/speaking-player-controller.mjs';
+
+// next/font does not run under jsdom; the room puts this class on its .av2-root.
+vi.mock('@/styles/av2/fonts', () => ({ av2FontClass: 'av2-fonts' }));
 
 vi.mock('next/link', () => ({
   default: ({ href, children, ...rest }: any) => <a href={href} {...rest}>{children}</a>,
@@ -34,6 +37,7 @@ describe('flag off (FR-001)', () => {
     expect(container.querySelector('main.flex-1')).not.toBeNull();
     expect(container.querySelector('[data-exam-room-speaking]')).toBeNull();
     expect(container.querySelector('[data-room-slot]')).toBeNull();
+    expect(container.querySelector('.av2-root')).toBeNull();
     expect(screen.queryByRole('timer')).toBeNull();
   });
 
@@ -48,6 +52,15 @@ describe('flag off (FR-001)', () => {
 });
 
 describe('flag on', () => {
+  // The room is a lazy chunk: resolve it once so the tests below render it synchronously.
+  beforeAll(async () => {
+    const p = player();
+    p.updateView('frame', { examRoomMode: true, examRoomSessionMode: 'practice' });
+    shell(p);
+    await screen.findByRole('timer');
+    cleanup();
+  });
+
   beforeEach(() => { vi.spyOn(window, 'alert').mockImplementation(() => {}); });
 
   function roomPlayer(state = 'prep') {
@@ -65,6 +78,8 @@ describe('flag on', () => {
     expect(screen.getByRole('button', { name: /Thoát/ })).toBeTruthy();
     expect(container.querySelectorAll('main')).toHaveLength(1);
     expect(container.querySelector('[data-exam-room-speaking] #state-prep')).not.toBeNull();
+    // The room brings the "Bản in" tokens, base rules and fonts on its own root.
+    expect(container.querySelector('.av2-root.av2-fonts [data-exam-room-speaking]')).not.toBeNull();
     expect(screen.getByRole('timer').textContent).toBe('0:00');
     act(() => { vi.advanceTimersByTime(65_000); });
     expect(screen.getByRole('timer').textContent).toBe('1:05');

@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import {
+  Suspense,
   useCallback,
   useEffect,
   useRef,
@@ -10,7 +11,14 @@ import {
   type ReactNode,
 } from 'react';
 
-import { PracticeExamRoom, speakingRoomSlots } from './practice-exam-room';
+import { lazyLegacyRoom } from '@/components/exam-room/lazy-legacy-room';
+
+import { speakingRoomSlots } from './practice-exam-room';
+
+// EXAMSPEAK-0072: the focus bar, with the av2 root, tokens and fonts it brings,
+// loads only when the `speaking` flag is on, so the flag-off page loads exactly
+// what it did (UIBASE-0056 FR-003).
+const PracticeExamRoom = lazyLegacyRoom(() => import('./practice-exam-room-frame').then((module) => module.PracticeExamRoom));
 
 type PlayerStateStore = {
   getStateSnapshot(): null | string;
@@ -606,10 +614,14 @@ export function PracticePageShell({ player }: { player: PlayerStateStore }) {
   );
 
   if (examRoom) {
+    // While the room chunk loads, the page body stays mounted (same ids for
+    // practice.js), without the legacy header.
     return (
-      <PracticeExamRoom view={view} activeState={activeState} mode={examRoom.mode} returnHref={returnHref}>
-        {body}
-      </PracticeExamRoom>
+      <Suspense fallback={<main className="flex-1 flex flex-col" data-exam-room-loading>{body}</main>}>
+        <PracticeExamRoom view={view} activeState={activeState} mode={examRoom.mode} returnHref={returnHref}>
+          {body}
+        </PracticeExamRoom>
+      </Suspense>
     );
   }
 

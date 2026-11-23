@@ -3,11 +3,12 @@
 // EXAMSPEAK-0072 FR-001, FR-003, FR-004, FR-005, FR-011 (G08-T18): the Speaking
 // page inside the focus bar of the exam room. practice.js still owns the whole
 // flow; this file draws the bar, the microphone and the recording state from
-// the view practice.js already publishes, and never calls an API.
-import { useEffect, useState, type ReactNode } from 'react';
+// the view practice.js already publishes, and never calls an API. The frame
+// itself (FocusShell, the "Bản in" tokens and fonts) is in
+// practice-exam-room-frame.tsx, loaded only while the flag is on.
+import type { ReactNode } from 'react';
 
 import { trackExamRoomEvent } from '@/components/exam-room/track';
-import { FocusShell, FocusStatus, FocusTimer } from '@/components/ui/shell/focus-shell';
 import {
   speakingRoomMode,
   speakingRoomStrings,
@@ -18,7 +19,7 @@ import {
 import { MicStatus, micState } from './mic-status';
 import { RecordingStatus, type RecordingSubstate } from './recording-status';
 
-function callApp(method: string) {
+export function callApp(method: string) {
   const app = (window as any).PracticeApp;
   if (!app || typeof app[method] !== 'function') return undefined;
   return app[method]();
@@ -31,19 +32,6 @@ export function elapsedClock(totalSeconds: number): string {
   const m = Math.floor((s % 3600) / 60);
   const sec = String(s % 60).padStart(2, '0');
   return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${sec}` : `${m}:${sec}`;
-}
-
-function useElapsed(running: boolean): number {
-  const [seconds, setSeconds] = useState(0);
-  useEffect(() => {
-    if (!running) return undefined;
-    const started = Date.now() - seconds * 1000;
-    const id = window.setInterval(() => setSeconds(Math.floor((Date.now() - started) / 1000)), 1000);
-    return () => window.clearInterval(id);
-    // Resume from where it stopped; `seconds` is read once per start.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [running]);
-  return seconds;
 }
 
 type TooShort = { part: number | string; durationSeconds: number; minSeconds: number } | null;
@@ -110,43 +98,4 @@ export function speakingRoomSlots(view: any, activeState: string): { mode: Speak
       ) : null,
     },
   };
-}
-
-export function PracticeExamRoom({
-  view,
-  activeState,
-  mode,
-  returnHref,
-  children,
-}: {
-  view: any;
-  activeState: string;
-  mode: SpeakingRoomMode;
-  returnHref: string;
-  children: ReactNode;
-}) {
-  const strings = speakingRoomStrings(mode);
-  const elapsed = useElapsed(activeState !== 'loading' && activeState !== 'error');
-  const title = typeof view.frame?.contextLabel === 'string' && view.frame.contextLabel ? view.frame.contextLabel : 'Speaking';
-  const detail = view.header?.visible && view.header.info ? String(view.header.info) : undefined;
-  const progress = view.header?.visible && view.header.progress ? String(view.header.progress) : '';
-  return (
-    <FocusShell
-      mode={mode === 'test' ? 'exam' : 'practice'}
-      // Speaking has no server timer (open question 3): never say it keeps running.
-      leaveCopy={mode === 'test' ? { lead: undefined } : undefined}
-      title={title}
-      detail={detail}
-      exitHref={returnHref}
-      hasUnsavedWork={() => callApp('hasUnsavedWork') === true}
-      right={(
-        <>
-          {progress ? <FocusStatus>{progress}</FocusStatus> : null}
-          <FocusTimer label={strings.elapsed} value={elapsedClock(elapsed)} />
-        </>
-      )}
-    >
-      <div className="flex-1 flex flex-col" data-exam-room-speaking>{children}</div>
-    </FocusShell>
-  );
 }
