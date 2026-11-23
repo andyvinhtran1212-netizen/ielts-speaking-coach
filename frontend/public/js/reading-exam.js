@@ -3453,7 +3453,7 @@
   // FLUSH its debounced auto-saves before it submits the attempt — so an answer
   // typed just before "Nộp toàn bộ" isn't stranded in the debounce queue.
   window.addEventListener('message', function (ev) {
-    if (ev.data && ev.data.type === 'mock-answers-request' && ev.source === window.parent) {
+    if (ev.data && ev.data.type === 'mock-answers-request' && ev.source === window.parent && ev.origin === location.origin) {
       _postMockAnswers();
       return;
     }
