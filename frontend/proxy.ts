@@ -126,14 +126,33 @@ async function isBackendSampleMiss(res: Response) {
   return body?.detail === 'sample_not_found';
 }
 
-/** Current slug from the backend's 308 `Location`, or null when it is not one of ours. */
+// Slug format the backend writes (plan §5.4: lower-case [a-z0-9], words joined
+// by `-`, at most 80 characters).
+const SAMPLE_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+/**
+ * Current slug from the backend's 308 `Location`, or null. Only the exact
+ * target the backend emits counts: `/api/library/writing-samples/<slug>`
+ * (relative, or absolute on the API origin itself), no query or fragment, and
+ * a slug in the server's format. Anything else, even a URL that merely
+ * contains the route, passes through instead of becoming a permanent redirect.
+ */
 function movedSampleSlug(res: Response, slug: string) {
   if (res.status !== 308) return null;
-  const location = res.headers.get('location') ?? '';
-  const at = location.indexOf(SAMPLE_API_PATH);
-  if (at < 0) return null;
-  const moved = segment(location.slice(at + SAMPLE_API_PATH.length).split(/[?#]/, 1)[0]);
-  return moved && !moved.includes('/') && moved !== slug ? moved : null;
+  const location = res.headers.get('location');
+  if (!location) return null;
+  let target: URL;
+  try {
+    const api = new URL(API_BASE);
+    target = new URL(location, api);
+    if (target.origin !== api.origin) return null;
+  } catch {
+    return null;
+  }
+  if (target.search || target.hash || !target.pathname.startsWith(SAMPLE_API_PATH)) return null;
+  const moved = target.pathname.slice(SAMPLE_API_PATH.length);
+  if (moved.length > 80 || !SAMPLE_SLUG.test(moved) || moved === slug) return null;
+  return moved;
 }
 
 async function writingSample(request: NextRequest) {

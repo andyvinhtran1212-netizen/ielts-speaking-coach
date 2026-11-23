@@ -69,6 +69,13 @@ describe('Library sample proxy (FR-019)', () => {
     assert.equal(result.headers.get('x-middleware-rewrite'), NOT_FOUND);
   });
 
+  test('an absolute Location on the API origin itself is accepted', async () => {
+    const { proxy } = proxyModule(async () => json(308, {}, { location: 'https://fixture.invalid/api/library/writing-samples/new-slug-2' }));
+    const result = await proxy(request('/library/writing-samples/old'));
+    assert.equal(result.status, 308);
+    assert.equal(result.headers.get('location'), 'https://staging.averlearning.com/library/writing-samples/new-slug-2');
+  });
+
   test('a renamed slug answers 308 to the current page, keeping the view query', async () => {
     const response = json(308, {}, { location: '/api/library/writing-samples/new-slug' });
     const { proxy } = proxyModule(async () => response);
@@ -84,6 +91,14 @@ describe('Library sample proxy (FR-019)', () => {
     ['503 library_unavailable', json(503, { detail: 'library_unavailable' })],
     ['308 to somewhere else', json(308, {}, { location: 'https://evil.example/' })],
     ['308 to the same slug', json(308, {}, { location: '/api/library/writing-samples/same' })],
+    // HOLD FR-019 (543f2804): a Location that only CONTAINS the route is not the backend's target.
+    ['308 to another origin holding the route', json(308, {}, { location: 'https://evil.example/api/library/writing-samples/other' })],
+    ['308 protocol-relative to another host', json(308, {}, { location: '//evil.example/api/library/writing-samples/other' })],
+    ['308 with a prefix before the route', json(308, {}, { location: '/x/api/library/writing-samples/other' })],
+    ['308 with a query', json(308, {}, { location: '/api/library/writing-samples/other?x=1' })],
+    ['308 with a nested path', json(308, {}, { location: '/api/library/writing-samples/other/more' })],
+    ['308 to a slug outside the server format', json(308, {}, { location: '/api/library/writing-samples/Other%20Slug' })],
+    ['308 to an over-long slug', json(308, {}, { location: `/api/library/writing-samples/${'a'.repeat(81)}` })],
   ];
   for (const [label, response] of notAMiss) {
     test(`${label} keeps the page's own handling`, async () => {
