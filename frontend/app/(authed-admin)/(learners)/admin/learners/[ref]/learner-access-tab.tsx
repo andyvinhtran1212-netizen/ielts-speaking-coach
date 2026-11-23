@@ -42,9 +42,13 @@ export function LearnerAccessTab({ detail, reloadKey = 0, onChanged }: {
   const cohorts = Array.isArray(detail.summary.cohorts) ? detail.summary.cohorts : null;
   const blocked = roleChangeBlocked(account, profile.id);
   const currentRole = account?.role === 'user' ? 'student' : (account?.role ?? 'student');
-  const [nextRole, setNextRole] = useState(currentRole);
-  // After a reload the select starts again from the role the server has.
-  useEffect(() => { setNextRole(currentRole); }, [currentRole]);
+  // The pick is kept with the role it was made against, so a reload that
+  // changes the server's role starts the select again from that role. Derived
+  // in render, not reset in an effect: a late mount effect could otherwise
+  // overwrite a pick the admin had already made.
+  const [choice, setChoice] = useState<{ from: string; to: string } | null>(null);
+  const nextRole = choice && choice.from === currentRole ? choice.to : currentRole;
+  const setNextRole = (to: string) => setChoice({ from: currentRole, to });
   const [pending, setPending] = useState<Pending>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
