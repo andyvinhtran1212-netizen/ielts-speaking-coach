@@ -3,9 +3,12 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('client-only', () => ({}));
-vi.mock('@/lib/auth/auth-provider', () => ({ useAuth: () => ({ status: 'signed-in', user: { id: 'A', email: 'a@x.test' } }) }));
+vi.mock('@/lib/auth/auth-provider', () => ({ useAuth: () => state.auth }));
 
 const state = vi.hoisted(() => ({
+  auth: { status: 'signed-in', user: { id: 'A', email: 'a@x.test' } } as { status: string; user: { id: string; email: string } | null },
+  profile: {} as Record<string, unknown>,
+  profileFails: false,
   me: { status: 'ready', me: { id: 'A', target_band: 6.5, exam_date: '2027-03-20' } } as any,
   failing: new Set<string>(),
   expired: new Set<string>(),
@@ -26,9 +29,19 @@ const DATA: Record<string, unknown> = {
   '/api/quiz/progress': { banks: [], recent_sessions: [{ total_questions: 20, total_correct: 18 }], totals: { sessions: 9 } },
 };
 
-const getWith = vi.fn(async (path: string) => {
+const PROFILE = (over: object = {}) => ({
+  id: 'A', email: 'a@x.test', display_name: 'Minh Anh', avatar_url: null, role: 'student', is_active: true,
+  target_band: 6.5, exam_date: '2027-03-20', self_level: null, preferred_topics: [], onboarding_completed: true,
+  timezone: 'Asia/Ho_Chi_Minh', weekly_goal: 4, notification_email: false, joined_at: '2026-01-01T00:00:00Z',
+  stats: { total_sessions: 3, avg_band: null, joined_at: '2026-01-01T00:00:00Z' }, ...over,
+});
+const getWithImpl = async (path: string) => {
   urls.push(path);
   const key = path.split('?')[0];
+  if (key === '/auth/profile') {
+    if (state.profileFails) throw Object.assign(new Error('HTTP 500'), { status: 500 });
+    return state.profile;
+  }
   if (key === '/api/me/courses') {
     if (state.courses === null) throw Object.assign(new Error('HTTP 404'), { status: 404 });
     return state.courses;
@@ -37,11 +50,14 @@ const getWith = vi.fn(async (path: string) => {
   if (state.failing.has(key)) throw Object.assign(new Error('HTTP 500'), { status: 500 });
   if (key in DATA) return DATA[key];
   throw new Error(`unexpected ${path}`);
-});
+};
+const getWith = vi.fn(getWithImpl);
 const patch = vi.fn(async (path: string, body: unknown) => {
   urls.push(path);
   patches.push(body);
   if (state.patchError) throw state.patchError;
+  // Like update_profile(): null fields are ignored.
+  for (const [k, v] of Object.entries(body as Record<string, unknown>)) if (v !== null) state.profile[k] = v;
   return {};
 });
 
@@ -53,6 +69,10 @@ async function mount() {
 }
 
 beforeEach(() => {
+  getWith.mockImplementation(getWithImpl);
+  state.auth = { status: 'signed-in', user: { id: 'A', email: 'a@x.test' } };
+  state.profile = PROFILE();
+  state.profileFails = false;
   state.me = { status: 'ready', me: { id: 'A', target_band: 6.5, exam_date: '2027-03-20' } };
   state.failing = new Set();
   state.expired = new Set();
@@ -124,10 +144,53 @@ describe('/progress', () => {
     expect((screen.getByLabelText('Ngày thi dự kiến') as HTMLInputElement).value).toBe('2027-03-20');
     fireEvent.change(screen.getByLabelText('Ngày thi dự kiến'), { target: { value: '2027-05-02' } });
     fireEvent.click(screen.getByRole('button', { name: 'Lưu mục tiêu' }));
-    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    await act(async () => { for (let i = 0; i < 3; i += 1) await new Promise((r) => setTimeout(r, 0)); });
     expect(patches).toEqual([{ target_band: 6.5, exam_date: '2027-05-02' }]);
+    expect(urls.filter((u) => u === '/auth/profile')).toHaveLength(2); // PATCH, then the canonical read
     expect(screen.getByText('Đã lưu mục tiêu.')).toBeTruthy();
   });
+
+  it('emptying a saved date sends no null, shows the date the server kept, and says so', async () => {
+    await mount();
+    fireEvent.change(screen.getByLabelText('Ngày thi dự kiến'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu mục tiêu' }));
+    await act(async () => { for (let i = 0; i < 3; i += 1) await new Promise((r) => setTimeout(r, 0)); });
+    expect(patches).toEqual([{ target_band: 6.5 }]);
+    expect((screen.getByLabelText('Ngày thi dự kiến') as HTMLInputElement).value).toBe('2027-03-20');
+    expect(screen.getByText('Mục tiêu đã lưu không bỏ trống được. Bạn có thể đổi sang band hoặc ngày khác.')).toBeTruthy();
+    expect(screen.queryByText('Đã lưu mục tiêu.')).toBeNull();
+  });
+
+  it('saved but the reload failed: says it saved, never "Chưa lưu được"', async () => {
+    state.profileFails = true;
+    await mount();
+    fireEvent.change(screen.getByLabelText('Ngày thi dự kiến'), { target: { value: '2027-05-02' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu mục tiêu' }));
+    await act(async () => { for (let i = 0; i < 3; i += 1) await new Promise((r) => setTimeout(r, 0)); });
+    expect(screen.getByText('Đã lưu, nhưng chưa tải lại được mục tiêu. Tải lại trang để xem.')).toBeTruthy();
+    expect(screen.queryByText('Chưa lưu được mục tiêu. Thử lại.')).toBeNull();
+  });
+
+  it('a session change drops the previous account\'s rows in the same render; signed out → /login', async () => {
+    const view = render(<ProgressPage />);
+    await act(async () => { for (let i = 0; i < 4; i += 1) await new Promise((r) => setTimeout(r, 0)); });
+    expect(screen.getByText('12 buổi đã chấm')).toBeTruthy();
+    expect(screen.getByLabelText('Ngày thi dự kiến')).toBeTruthy();
+    const replace = vi.fn();
+    Object.defineProperty(window, 'location', { configurable: true, value: { ...window.location, replace } });
+    getWith.mockImplementation(async (path: string) => { urls.push(path); return new Promise(() => {}); });
+    state.auth = { status: 'signed-in', user: { id: 'B', email: 'b@x.test' } };
+    view.rerender(<ProgressPage />);
+    // Same render, before B's requests return: nothing of A is left.
+    expect(screen.queryByText('12 buổi đã chấm')).toBeNull();
+    expect(screen.queryByLabelText('Ngày thi dự kiến')).toBeNull();
+    state.auth = { status: 'signed-out', user: null };
+    view.rerender(<ProgressPage />);
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    expect(replace).toHaveBeenCalledWith('/login');
+    expect(screen.queryByText('12 buổi đã chấm')).toBeNull();
+  });
+
 
   it('profile_update off (503 feature_disabled) → the two fields turn read-only with a sentence', async () => {
     state.patchError = Object.assign(new Error('HTTP 503'), { status: 503, detail: { error_code: 'feature_disabled', flag: 'profile_update' } });

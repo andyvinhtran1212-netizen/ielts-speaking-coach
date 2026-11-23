@@ -145,3 +145,15 @@ export function classesFromClassMe(raw) {
       course: c.course && typeof c.course.name === 'string' && c.course.name.trim() ? c.course.name.trim() : null,
     }));
 }
+
+/**
+ * True when `/api/class/me` says the learner is in a class but could not name
+ * every one (`degraded` contains 'class', a row without a name, or no list):
+ * the page must warn instead of printing "Bạn chưa ở lớp nào".
+ */
+export function classMeIncomplete(raw) {
+  if (!raw || typeof raw !== 'object' || raw.has_class !== true) return false;
+  if (Array.isArray(raw.degraded) && raw.degraded.includes('class')) return true;
+  if (!Array.isArray(raw.classes)) return true;
+  return raw.classes.some((c) => !c || typeof c.name !== 'string' || !c.name.trim());
+}
