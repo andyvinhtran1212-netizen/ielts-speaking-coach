@@ -105,6 +105,21 @@ def sweep_db(monkeypatch):
 
     monkeypatch.setattr(rp.ent, "fetch_legacy_code_rows", fetch_legacy)
     db.legacy = legacy
+    rpc = {"answer": None}
+
+    def purge(params):
+        """Stand-in for 505: the PG test covers its own checks and locks."""
+        if rpc["answer"] is not None:
+            return rpc["answer"]
+        session = next(x for x in db.tables["sessions"] if x["id"] == params["p_session_id"])
+        rows = [r for r in db.tables["responses"] if r["session_id"] == session["id"]]
+        for r in rows:
+            r.update(transcript=None, raw_transcript_text=None, feedback=None, pronunciation_payload=None)
+        session["content_purged_at"] = _iso(NOW)
+        return {"status": "purged", "responses": len(rows)}
+
+    db.handlers = {"fn_retention_purge_content": purge}
+    db.purge_rpc = rpc
     return db
 
 
@@ -198,12 +213,21 @@ def test_4_content_stays_45_days_after_the_last_course_then_hides(flag, access, 
     rec = _patch(monkeypatch, {"sessions": []})
     _run(sessions_module.list_sessions(**_LIST_DEFAULTS, include_hidden=False))
     assert ("id", "null") in rec["is_"] and "or_" not in rec
-    # The sweep does not purge it yet: hidden at read time only (Andy 23/11,
-    # option 1 — the real purge comes with a locked RPC in a later PR).
+    # G04-T10b: the sweep now purges it, through the locked 505 RPC only
+    # (no direct update of responses from Python).
     sweep_db.tables["entitlements"].append(_ent_row("e1", expires=_ago(45)))
     sweep_db.tables["sessions"].append(_session("s70", 70))
-    assert _swept(sweep_db) == []
-    assert sweep.sweep_content()["eligible"] == 0 and not any(op == "update" for _, op in sweep_db.calls)
+    sweep_db.tables["responses"].append({"id": "r1", "session_id": "s70", "transcript": "hi",
+                                         "raw_transcript_text": "hi", "feedback": {}, "pronunciation_payload": None})
+    assert _swept(sweep_db) == ["s70"]
+    monkeypatch.setattr(sweep, "DRY_RUN", False)
+    res = sweep.sweep_content()
+    assert (res["eligible"], res["purged"], res["kept"]) == (1, 1, 0)
+    assert [(name, params["p_session_id"], params["p_after_expiry_days"]) for name, params in sweep_db.rpcs] \
+        == [("fn_retention_purge_content", "s70", 45)]
+    assert not any(t == "responses" and op == "update" for t, op in sweep_db.calls)
+    assert sweep_db.tables["responses"][0]["transcript"] is None
+    monkeypatch.setattr(sweep, "DRY_RUN", True)
     # Writing: hidden at read time only.
     _writing(essays=[dict(ESSAY)], monkeypatch=monkeypatch)
     assert asyncio.run(ws.list_my_essays(student=dict(STUDENT)))["essays"] == []
@@ -286,7 +310,7 @@ def test_9_a_class_member_on_an_old_code_is_never_cut_off(flag, access, sweep_db
     assert _swept(sweep_db) == []
     sweep_db.tables["cohorts"][0]["archived_at"] = _iso(_ago(1))   # class archived → expired row rules
     assert rp.content_windows([USER], NOW, db=sweep_db)[USER].mode == "until"
-    assert _swept(sweep_db) == []                                     # until: hidden, not purged yet
+    assert _swept(sweep_db) == ["s100"]                               # until, closed: purged by 505
 
 
 # ── 10 ───────────────────────────────────────────────────────────────────
@@ -321,7 +345,7 @@ def test_11_access_granted_after_selection_keeps_the_content(flag, access, sweep
     """A learner on today's rule (no entitlements row) is selected, then gets
     a course before the purge: the guard re-reads the window (now ``open``)
     and keeps the content. A failed re-read keeps it too; unchanged → purged.
-    ``until`` learners are never purged by this sweep (see test_4)."""
+    ``until`` learners are purged only through the 505 RPC (see test_4)."""
     monkeypatch.setattr(sweep, "DRY_RUN", False)
     sweep_db.tables["sessions"].append(_session("s70", 70))
     sweep_db.tables["responses"].append({"id": "r1", "session_id": "s70", "transcript": "hello",
@@ -342,12 +366,13 @@ def test_11_access_granted_after_selection_keeps_the_content(flag, access, sweep
     assert sweep_db.tables["sessions"][0]["content_purged_at"] is None
     assert not any(t == "responses" and op == "update" for t, op in sweep_db.calls)
 
-    # An expired course granted mid-run (until) is kept as well.
+    # A course that ended 10 days ago, granted mid-run (until, window still
+    # open for 35 days), is kept as well.
     sweep_db.tables["entitlements"].clear()
 
     def select_then_expired_grant(*args, **kwargs):
         rows = selected(*args, **kwargs)
-        sweep_db.tables["entitlements"].append(_ent_row("e3", expires=_ago(100)))
+        sweep_db.tables["entitlements"].append(_ent_row("e3", expires=_ago(10)))
         return rows
 
     monkeypatch.setattr(sweep, "_eligible", select_then_expired_grant)
@@ -427,3 +452,53 @@ def test_13_rows_past_the_response_cap_are_read_before_any_purge(flag, access, s
         sweep_db.tables["cohorts"].append({"id": f"k{n}", "course_id": f"c{n}",
                                            "archived_at": _iso(_ago(5)) if n < 3 else None})
     assert rp.content_windows([USER], NOW, db=sweep_db)[USER] == OPEN_WINDOW
+
+
+# ── G04-T10b: with the flag on, the purge goes through 505 only ─────────────
+
+
+def _old_session_with_content(db, sid="s70", age=70):
+    db.tables["sessions"].append(_session(sid, age))
+    db.tables["responses"].append({"id": "r-" + sid, "session_id": sid, "transcript": "hello",
+                                   "raw_transcript_text": "hello", "feedback": {"x": 1},
+                                   "pronunciation_payload": None})
+
+
+def test_14_a_kept_answer_from_the_rpc_keeps_the_content(flag, access, sweep_db, monkeypatch):
+    """505 re-checks under the learner's locks: when it says kept (a grant
+    that committed after the Python re-read), nothing is scrubbed."""
+    monkeypatch.setattr(sweep, "DRY_RUN", False)
+    _old_session_with_content(sweep_db)
+    sweep_db.purge_rpc["answer"] = {"status": "kept", "reason": "window_open"}
+    res = sweep.sweep_content()
+    assert (res["eligible"], res["purged"], res["kept"], res["errors"]) == (1, 0, 1, [])
+    assert sweep_db.tables["responses"][0]["transcript"] == "hello"
+    assert not any(op == "update" and t in ("responses",) for t, op in sweep_db.calls)
+
+
+def test_15_flag_on_without_505_purges_nothing_and_never_falls_back(flag, access, sweep_db, monkeypatch):
+    monkeypatch.setattr(sweep, "DRY_RUN", False)
+    _old_session_with_content(sweep_db, "s70")
+    _old_session_with_content(sweep_db, "s80", 80)
+    sweep_db.purge_rpc["answer"] = RuntimeError(
+        "{'code': 'PGRST202', 'message': 'Could not find the function public.fn_retention_purge_content'}")
+    res = sweep.sweep_content()
+    assert (res["eligible"], res["purged"], res["kept"], res["errors"]) == (2, 0, 2, [])
+    assert len(sweep_db.rpcs) == 1                                    # stops at the first answer
+    assert all(r["transcript"] == "hello" for r in sweep_db.tables["responses"])
+    assert not any(t == "responses" and op == "update" for t, op in sweep_db.calls)
+    # Any other RPC failure is that session's error, and the next one is tried.
+    sweep_db.rpcs.clear()
+    sweep_db.purge_rpc["answer"] = RuntimeError("deadlock detected")
+    res = sweep.sweep_content()
+    assert res["purged"] == 0 and len(res["errors"]) == 2 and len(sweep_db.rpcs) == 2
+
+
+def test_16_flag_off_keeps_todays_unlocked_purge_and_never_calls_505(flag, access, sweep_db, monkeypatch):
+    monkeypatch.setattr(sweep, "DRY_RUN", False)
+    sweep_db.tables["runtime_flags"][0]["enabled"] = False
+    sweep_db.tables["entitlements"].append(_ent_row("e1", expires=NOW + timedelta(days=90)))  # ignored when off
+    _old_session_with_content(sweep_db)
+    res = sweep.sweep_content()
+    assert (res["eligible"], res["purged"]) == (1, 1) and sweep_db.rpcs == []
+    assert sweep_db.tables["responses"][0]["transcript"] is None
