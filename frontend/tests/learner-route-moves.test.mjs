@@ -126,13 +126,13 @@ describe('learner route moves (LEARNERNAV-0062)', async () => {
   });
 
   // Batch 7a: Thi thử needs no stand-in (/tests is live), the exam room's
-  // "Back to Full Test" and every in-app link use /tests, and the /exam
+  // back link (English, FR-014) and every in-app link use /tests, and the /exam
   // player is gone with no import left outside its old folder (CR-2460-R1).
   test('/full-test and /exam: Thi thử has no stand-in and links use /tests', () => {
     assert.match(read('components', 'ui', 'shell', 'learner-sections.ts'),
       /\{ id: 'tests', label: 'Thi thử', href: '\/tests', today: null, icon: 'timer' \}/);
     assert.match(read('app', '(authed-mock-exam)', 'mock-exam', 'mock-exam-runner.tsx'),
-      /back=\{\{ href: '\/tests', label: 'Back to Full Test' \}\}/);
+      /back=\{\{ href: '\/tests', label: 'Back to Mock Tests' \}\}/);
     assert.ok(!pages.has('/exam'));
     const sources = (root) => readdirSync(root, { withFileTypes: true, recursive: true })
       .filter((e) => e.isFile() && /\.(tsx?|mjs)$/.test(e.name))

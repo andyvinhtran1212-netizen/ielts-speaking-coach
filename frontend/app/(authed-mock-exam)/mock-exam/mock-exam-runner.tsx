@@ -1187,7 +1187,7 @@ export function MockExamRunner() {
   if (status === 'initial-loading' || (!state && !fatal)) return <MockExamRunnerLoading />;
   if (fatal) {
     return params.error
-      ? <ErrorCard message={fatal} back={{ href: '/tests', label: 'Back to Full Test' }} />
+      ? <ErrorCard message={fatal} back={{ href: '/tests', label: 'Back to Mock Tests' }} />
       : <ErrorCard message={fatal} retry={() => setReloadNonce((value) => value + 1)} />;
   }
   if (!state) return <MockExamRunnerLoading />;
