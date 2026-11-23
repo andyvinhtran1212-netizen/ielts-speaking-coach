@@ -35,6 +35,9 @@ const PAGE_SPEC = {
   '/admin/grammar/articles': { active: 'grammar', sheets: ['/css/admin-grammar-articles-next.css'] },
   '/admin/grammar/recommend-test': { active: 'grammar', sheets: ['/css/admin-grammar-recommend-next.css'] },
   '/admin/vocab': { active: 'vocab', sheets: ['/css/admin-vocab-next.css', '/css/vocabulary-workspace.css'] },
+  '/admin/speaking': { active: 'speaking', sheets: ['/css/admin-speaking-hub-next.css'] },
+  '/admin/speaking/sessions': { active: 'speaking', sheets: ['/css/admin-speaking-sessions-next.css'] },
+  '/admin/speaking/topics': { active: 'speaking', sheets: ['/css/admin-speaking-topics-next.css'] },
 };
 const PAGES = Object.keys(PAGE_SPEC);
 // The 4 admin base sheets owned by (authed-admin)/layout.tsx, in order.
@@ -54,7 +57,9 @@ const CLIENT_SHOTS = new Set(['/admin/feedback → /admin', '/admin/feedback →
   '/admin/students → /admin/classes', '/admin/classes → /admin/students',
   '/admin/feedback → /admin/grammar', '/admin/feedback → /admin/grammar/analytics', '/admin/feedback → /admin/grammar/articles',
   '/admin/feedback → /admin/grammar/recommend-test', '/admin/feedback → /admin/vocab',
-  '/admin/grammar → /admin/grammar/analytics', '/admin/grammar/analytics → /admin/grammar', '/admin/grammar → /admin/vocab']);
+  '/admin/grammar → /admin/grammar/analytics', '/admin/grammar/analytics → /admin/grammar', '/admin/grammar → /admin/vocab',
+  '/admin/feedback → /admin/speaking', '/admin/feedback → /admin/speaking/sessions', '/admin/feedback → /admin/speaking/topics',
+  '/admin/speaking → /admin/speaking/sessions', '/admin/speaking/topics → /admin/speaking']);
 
 const results = [];
 const check = (name, ok, detail = '') => { results.push({ name, ok }); console.log(`  ${ok ? '✓' : '✗'} ${name}${detail ? ` — ${detail}` : ''}`); };

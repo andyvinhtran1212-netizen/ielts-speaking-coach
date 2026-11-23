@@ -7,6 +7,7 @@ Mỗi task một PR vào `staging`, lớp `feature`, `Spec: ADMINGROUP-0077`, ch
 - [ ] T003 (G10-T15-2) `users`, `students`, `classes`, `instructors`. `depends: T002`
 - [ ] T004 (G10-T15-3) `grammar`, `grammar-analytics`, `grammar-articles`, `grammar-recommend`, `vocab`. `depends: T003`
 - [ ] T005 (G10-T15-4) `listening`, `speaking`, `speaking-sessions`, `speaking-topics`. `depends: T004`
+  - 23/11 (coordinator, phương án a): `listening` giữ group riêng như `system`/`mfa`. Layout của nó đặt `aver-design/components.css` ngay sau `admin-surface.css`, trước `admin-components`/`admin-buttons`/`admin-status`; layout con chỉ phát `<link>` sau 4 sheet nền của cha, nên dời vào cha sẽ đổi thứ tự cascade (trái FR-001). T005 chỉ dời 3 group speaking.
 - [ ] T006 (G10-T15-5) `reading`, `reading-attempts`, `reading-content`, `mock-exams`, `mock-live`, `mock-reviews`. `depends: T005`
 - [ ] T007 (G10-T15-6/7) `mock-tests`, `writing`, `writing-assignments`, `writing-cohorts`, `writing-instructor-queue`, `writing-new`, `writing-prompts`, `writing-queue`, `writing-regrade`, `writing-status` (hai PR). `depends: T006`
 
