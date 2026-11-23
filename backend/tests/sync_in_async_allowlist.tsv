@@ -83,8 +83,8 @@ routers/admin/access_code_admin.py::generate_and_assign_code::routers.admin.acce
 routers/admin/access_code_admin.py::generate_and_assign_code::services.class_membership_service.add_student	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
 routers/admin/access_code_admin.py::get_access_code_audit::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
 routers/admin/access_code_admin.py::get_access_code_detail::db.execute	3	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::get_ai_usage::db.execute	6	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::get_ai_usage::routers.admin.access_codes._usage_paged	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/ai_usage.py::get_ai_usage::db.execute	6	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/ai_usage.py::get_ai_usage::routers.admin.access_codes._usage_paged	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
 routers/admin/users_stats.py::get_stats::db.execute	3	G5	Existing inline sync DB execution; offload in G5.
 routers/admin/users_stats.py::get_test_data_visibility::services.test_data_visibility.hide_for	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
 routers/admin/access_code_admin.py::hard_delete_access_code::db.execute	4	G5	Existing inline sync DB execution; offload in G5.
