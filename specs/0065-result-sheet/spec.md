@@ -210,9 +210,11 @@ Yêu cầu chấm lại Writing hiện là một ô chữ 50–500 ký tự, xư
 
 ## Open questions
 
+Cả 4 câu đã chốt theo đề xuất: anh Andy gõ "duyệt … 0065 Q1–Q4 theo đề xuất" lúc 23/11 13:21Z. Cột cuối giữ đúng giá trị người thực thi dùng.
+
 | # | Câu hỏi | Đề xuất | Mặc định tạm |
 |---|---|---|---|
-| 1 | (gói câu 7) Dùng 5 lý do + ghi chú ≤ 300 ký tự thay ô chữ 50–500 ký tự? Bao giờ gỡ dạng cũ? | Có. Giữ dạng cũ song song tới khi log 14 ngày không còn request dạng cũ, rồi gỡ ở một PR riêng | Hai dạng cùng chạy |
-| 2 | (gói câu 8) Chấm lại Speaking làm trong G07 hay sau? | Sau, spec riêng (backend chưa có) | Ẩn nút ở phiếu Speaking |
-| 3 | Khối "Hết lượt chấm" khi khoá online còn hạn lâu (`can_renew = false`): phương án B "Liên hệ Aver để được cấp thêm lượt" kèm khối liên hệ | Phương án B tới khi G04 mở bán lượt lẻ (GOI-04 Q14) | Phương án B |
-| 4 | Bảng `fix-link-map.json` bắt đầu với bao nhiêu mã lỗi? | Chỉ các mã đã có bài Grammar Wiki chữa đúng lỗi đó; mã khác để trống (không liên kết sai) | Như đề xuất |
+| 1 | (gói câu 7) Dùng 5 lý do + ghi chú ≤ 300 ký tự thay ô chữ 50–500 ký tự? Bao giờ gỡ dạng cũ? | Có. Giữ dạng cũ song song tới khi log 14 ngày không còn request dạng cũ, rồi gỡ ở một PR riêng | **Đã chốt 23/11 13:21Z** (anh Andy duyệt theo đề xuất): Hai dạng cùng chạy |
+| 2 | (gói câu 8) Chấm lại Speaking làm trong G07 hay sau? | Sau, spec riêng (backend chưa có) | **Đã chốt 23/11 13:21Z** (anh Andy duyệt theo đề xuất): Ẩn nút ở phiếu Speaking |
+| 3 | Khối "Hết lượt chấm" khi khoá online còn hạn lâu (`can_renew = false`): phương án B "Liên hệ Aver để được cấp thêm lượt" kèm khối liên hệ | Phương án B tới khi G04 mở bán lượt lẻ (GOI-04 Q14) | **Đã chốt 23/11 13:21Z** (anh Andy duyệt theo đề xuất): Phương án B |
+| 4 | Bảng `fix-link-map.json` bắt đầu với bao nhiêu mã lỗi? | Chỉ các mã đã có bài Grammar Wiki chữa đúng lỗi đó; mã khác để trống (không liên kết sai) | **Đã chốt 23/11 13:21Z** (anh Andy duyệt theo đề xuất): Như đề xuất |
