@@ -227,6 +227,28 @@ def test_api_limit_bounds(gate, events):  # noqa: F811
     assert _call(gate, "GET", "/api/account/login-events?limit=0", S1).status_code == 422
 
 
+def test_read_window_never_drops_one_of_the_ten_newest_sessions(monkeypatch):
+    # Worst case: nine sessions each with every outcome, all newer than the
+    # tenth session's only event (CR #2577: a 30-row window lost it).
+    db = _EventsDB()
+    monkeypatch.setattr(login_events, "supabase_admin", db)
+    base = datetime(2026, 11, 23, tzinfo=timezone.utc)
+    tenth = "aaaaaaaa-0000-0000-0000-0000000000aa"
+    db.rows.append({"id": 0, "user_id": LEARNER, "session_id": tenth, "outcome": "signed_in",
+                    "occurred_at": base.isoformat(), "device_kind": "phone", "device_label": None,
+                    "method": "google"})
+    n = 0
+    for s in range(9):
+        for outcome in sorted(login_events.OUTCOMES):
+            n += 1
+            db.rows.append({"id": n, "user_id": LEARNER, "session_id": f"bbbbbbbb-0000-0000-0000-{s:012d}",
+                            "outcome": outcome, "occurred_at": (base + timedelta(minutes=n)).isoformat(),
+                            "device_kind": "desktop", "device_label": None, "method": "unknown"})
+    items = login_events.recent(LEARNER, None, limit=10)
+    assert len(items) == 10
+    assert items[-1]["at"] == base.isoformat() and items[-1]["device_kind"] == "phone"
+
+
 def test_api_refuses_a_session_that_is_not_current(gate, events):  # noqa: F811
     _call(gate, "GET", "/topics", S1)
     resp = _call(gate, "GET", "/api/account/login-events", S2)

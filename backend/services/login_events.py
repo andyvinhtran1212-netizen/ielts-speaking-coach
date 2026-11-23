@@ -25,8 +25,11 @@ logger = logging.getLogger(__name__)
 TABLE = "learner_login_events"
 OUTCOMES = frozenset({"signed_in", "pending", "claimed", "claim_refused_timed", "displaced", "signed_out_all"})
 CURRENT_OUTCOMES = frozenset({"signed_in", "claimed"})
-READ_WINDOW = 30
 MAX_LIMIT = 10
+# UNIQUE (user_id, session_id, outcome) gives a session at most len(OUTCOMES)
+# rows, so the newest MAX_LIMIT * len(OUTCOMES) rows always hold the newest
+# event of each of the MAX_LIMIT newest sessions.
+READ_WINDOW = MAX_LIMIT * len(OUTCOMES)
 
 _TABLET = re.compile(r"\biPad\b")
 _ANDROID = re.compile(r"\bAndroid\b")
