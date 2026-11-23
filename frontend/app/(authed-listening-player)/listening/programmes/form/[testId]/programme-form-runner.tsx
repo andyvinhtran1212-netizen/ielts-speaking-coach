@@ -15,7 +15,11 @@ import { programmeLessonPath } from '@/lib/listening-programme-navigation.mjs';
 import type { ListeningSourceBlockWire, ListeningSourceResponseFieldWire } from '@/lib/listening-source-collection-api';
 import { readSourceGapAnswers, writeSourceGapAnswers, displaySourceAnswer, displaySourceReferenceAnswer } from '@/lib/listening-source-responses.mjs';
 import { listeningProgrammeLessonHref, listeningProgrammeResultHref } from '@/lib/listening-library-context.mjs';
-import { createProgrammeAnswerDraftStore, createProgrammeAnswerWriteQueue, createProgrammeSaveStatusTracker, programmeAnswerFlushEntries } from '@/lib/listening-programme-answer-queue.mjs';
+import { createProgrammeAnswerDraftStore, createProgrammeAnswerWriteQueue, createProgrammeSaveStatusTracker, LISTENING_PRACTICE_SURFACE, migrateLegacyProgrammeDraft, programmeAnswerFlushEntries, resolveLegacyDraftChoice } from '@/lib/listening-programme-answer-queue.mjs';
+import { examRoomEnabled } from '@/lib/exam-room/flags.mjs';
+import { clearForeignLocalCopies, clearLocalCopy, planLocalCopyReplay, readLocalCopy, removeAckedFromCopy } from '@/lib/exam-room/local-copy.mjs';
+import type { ExamRoomSession } from '@/components/exam-room/types';
+import { createProgrammeLocalCopyStore, ProgrammeFormRoom, safeLocalStorage, type ProgrammeAskItem, type ProgrammeDraftStore, type ProgrammeLocalCopyStore } from './programme-form-room';
 import { availableQuestionLanguages, displayOptionLanguage, displayQuestion, groupProgrammeQuestions } from '@/lib/listening-programme-learning.mjs';
 import { confirmProgrammeOncePlayback, startProgrammeOncePlayback } from '@/lib/listening-programme-once-playback.mjs';
 import { createProgrammeReplayController } from '@/lib/listening-programme-replay.mjs';
@@ -30,6 +34,17 @@ type LoadState = { status: 'loading' } | { status: 'error'; message: string } | 
 interface FormScope { active: boolean; controller: AbortController }
 function row(value: unknown): Record<string, unknown> { return value && typeof value === 'object' ? value as Record<string, unknown> : {}; }
 function questionLabel(question: Question | undefined) { return question?.source_display_number || String(question?.q_num || ''); }
+// FR-009: compare the account-bound copy with what the server holds now. Answers whose
+// base still matches are re-sent; acked ones leave the copy; unsure ones are asked about.
+function replayFromCopy(storage: Storage | null, ownerKey: string, attemptId: string, server: Record<number, string>) {
+  const copyScope = { surface: LISTENING_PRACTICE_SURFACE, ownerKey, attemptKey: attemptId };
+  const plan = planLocalCopyReplay(readLocalCopy(storage, copyScope), { open: true, answers: Object.fromEntries(Object.entries(server).map(([q, value]) => [q, { value }])) });
+  removeAckedFromCopy(storage, { ...copyScope, entries: plan.drop });
+  const resend: Record<number, string> = Object.fromEntries(plan.resend.flatMap(({ q, value }) => (typeof value === 'string' ? [[Number(q), value]] : [])));
+  const ask = new Map<number, { local: string; saved: string }>();
+  for (const item of plan.ask) if (typeof item.local === 'string') ask.set(Number(item.q), { local: item.local, saved: typeof item.server === 'string' ? item.server : '' });
+  return { resend, ask };
+}
 function feedbackResponseFields(question: Question, item: FeedbackItem | undefined): ListeningSourceResponseFieldWire[] | undefined {
   if (question.response_type !== 'multi_gap_completion') return undefined;
   if (!item || item.q_num !== question.q_num || !question.source_item_id || item.source_item_id !== question.source_item_id) return [];
@@ -55,7 +70,21 @@ function ProgrammeFormView({ testId, status, userId, active, embedded, supplemen
   const [submitting, setSubmitting] = useState(false);
   const pending = useRef<Record<number, number>>({});
   const saveQueue = useRef<ReturnType<typeof createProgrammeAnswerWriteQueue> | null>(null);
-  const draftStore = useRef<ReturnType<typeof createProgrammeAnswerDraftStore> | null>(null);
+  const draftStore = useRef<ProgrammeDraftStore | null>(null);
+  // EXAMLISTENP-0069 FR-001: read once per page load; off keeps every DOM node, string and request as before.
+  // The 80-day lesson page (`embedded`) uses the room too, in the shell's `bare` mode:
+  // no second top bar (FR-011); only the active runner holds the box and the lock.
+  const [roomOn] = useState(() => examRoomEnabled(LISTENING_PRACTICE_SURFACE));
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [session, setSession] = useState<ExamRoomSession>('active');
+  const [ask, setAsk] = useState<ProgrammeAskItem[]>([]);
+  // FR-012: false while another tab writes this attempt. In the room it starts false:
+  // nothing is sent until the tab guard grants the write right.
+  const canWriteRef = useRef(!roomOn);
+  // FR-009/FR-012: answers from the local copy waiting to be re-sent once this tab may write.
+  const replayRef = useRef<Record<number, string>>({});
+  // FR-009: the value the server last acked per question (or read on open).
+  const baseRef = useRef<Record<number, string | null>>({});
   const saveStatusTracker = useRef(createProgrammeSaveStatusTracker());
   const submitLock = useRef(false);
   const revealPromises = useRef<Map<number, Promise<void>>>(new Map());
@@ -78,6 +107,13 @@ function ProgrammeFormView({ testId, status, userId, active, embedded, supplemen
 
   function current(scope: FormScope | null): scope is FormScope {
     return !!scope?.active && scope === scopeRef.current;
+  }
+  // FR-010: in the exam room a 401 never redirects mid-lesson; the shell asks to sign in again.
+  function apiOpts(scope: FormScope) { return roomOn ? { signal: scope.controller.signal, noRedirect: true } : { signal: scope.controller.signal }; }
+  function noteError(error: unknown) { if (roomOn && Number(row(error).status) === 401) setSession('expired'); }
+  function savedState(next: 'idle' | 'saving' | 'saved' | 'error') {
+    if (next === 'saved') setLastSavedAt(new Date());
+    setSaveState(next);
   }
   const bindAudio = useCallback((element: HTMLAudioElement | null) => {
     const previous = audioRef.current;
@@ -139,10 +175,10 @@ function ProgrammeFormView({ testId, status, userId, active, embedded, supplemen
       const ready = await whenGlobalReady(() => !!window.api?.getWith && !!window.api?.postWith, 'window.api (programme form)');
       if (!active || !current(scope)) return;
       if (!ready) throw new Error('API chưa sẵn sàng');
-      const attempt = row(await window.api.postWith<unknown>(`/api/listening/tests/${encodeURIComponent(testId)}/attempts?standalone=true`, {}, undefined, { signal: scope.controller.signal }));
+      const attempt = row(await window.api.postWith<unknown>(`/api/listening/tests/${encodeURIComponent(testId)}/attempts?standalone=true`, {}, undefined, apiOpts(scope)));
       if (!active || !current(scope)) return;
       const attemptId = String(attempt.attempt_id || '');
-      const test = row(await window.api.getWith<ListeningProgrammePlayerWire>(`/api/listening/tests/${encodeURIComponent(testId)}?attempt_id=${encodeURIComponent(attemptId)}`, undefined, { signal: scope.controller.signal }));
+      const test = row(await window.api.getWith<ListeningProgrammePlayerWire>(`/api/listening/tests/${encodeURIComponent(testId)}?attempt_id=${encodeURIComponent(attemptId)}`, undefined, apiOpts(scope)));
       if (!active || !current(scope)) return;
       if (test.scoring_policy !== 'report_only') throw new Error('Bài này không thuộc chương trình report-only.');
       const sections = Array.isArray(test.sections) ? test.sections : [];
@@ -159,7 +195,7 @@ function ProgrammeFormView({ testId, status, userId, active, embedded, supplemen
       for (const value of (Array.isArray(attempt.answers) ? attempt.answers : [])) { const answer = row(value); restored[Number(answer.q_num)] = String(answer.user_answer || ''); }
       let guided: ListeningGuidedStateWire | null = null;
       try {
-        guided = await window.api.getWith<ListeningGuidedStateWire>(`/api/listening/tests/attempts/${encodeURIComponent(attemptId)}/guided-state`, undefined, { signal: scope.controller.signal });
+        guided = await window.api.getWith<ListeningGuidedStateWire>(`/api/listening/tests/attempts/${encodeURIComponent(attemptId)}/guided-state`, undefined, apiOpts(scope));
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') throw error;
         // A mixed-version deployment or temporary endpoint outage must not
@@ -169,11 +205,31 @@ function ProgrammeFormView({ testId, status, userId, active, embedded, supplemen
       if (!active || !current(scope)) return;
       saveStatusTracker.current.reset();
       setSaveState('idle');
-      const store = createProgrammeAnswerDraftStore(localStorage, attemptId);
-      const recovered = store.load();
+      let store: ProgrammeDraftStore;
+      let recovered: Record<number, string>;
+      if (roomOn) {
+        // FR-009: account-bound copy; a legacy or base-less answer is asked about, never sent on its own.
+        const storage = safeLocalStorage();
+        clearForeignLocalCopies(storage, userId);
+        baseRef.current = { ...restored };
+        const migrated = migrateLegacyProgrammeDraft(storage, { attemptId, ownerKey: userId, ownedByCurrentUser: true, serverAnswers: restored });
+        const plan = replayFromCopy(storage, userId, attemptId, restored);
+        recovered = plan.resend;
+        // FR-012: not sent yet; the write-right grant re-reads the server and sends what still applies.
+        replayRef.current = { ...recovered };
+        const asked = new Map<number, { local: string; saved: string }>();
+        for (const item of migrated.ask) asked.set(item.qNum, { local: item.local, saved: item.saved });
+        for (const [qNum, item] of plan.ask) asked.set(qNum, item);
+        setAsk([...asked].map(([qNum, item]) => ({ qNum, label: questionLabel(questions.find((question) => question.q_num === qNum)) || String(qNum), ...item })));
+        store = createProgrammeLocalCopyStore(storage, { ownerKey: userId, attemptId, baseFor: (qNum) => (qNum in baseRef.current ? baseRef.current[qNum] : null) });
+      } else {
+        store = createProgrammeAnswerDraftStore(localStorage, attemptId);
+        recovered = store.load();
+      }
       const queue = createProgrammeAnswerWriteQueue(async (qNum, value) => {
         if (!current(scope)) throw new DOMException('Programme scope ended', 'AbortError');
-        await window.api.patchWith(`/api/listening/tests/attempts/${attemptId}/answers`, { q_num: qNum, user_answer: value }, undefined, { signal: scope.controller.signal });
+        await window.api.patchWith(`/api/listening/tests/attempts/${attemptId}/answers`, { q_num: qNum, user_answer: value }, undefined, apiOpts(scope));
+        if (roomOn) baseRef.current[qNum] = value;
         if (current(scope)) store.clearIfCurrent(qNum, value);
       });
       draftStore.current = store;
@@ -182,14 +238,14 @@ function ProgrammeFormView({ testId, status, userId, active, embedded, supplemen
       setFeedback(revealed);
       setRevealStatus({});
       setCurrentGroup(0);
-      for (const [rawQNum, value] of Object.entries(recovered)) {
+      for (const [rawQNum, value] of Object.entries(roomOn ? {} : recovered)) {
         const qNum = Number(rawQNum);
         const operation = saveStatusTracker.current.begin(qNum);
         setSaveState(operation.status);
         void queue.enqueue(qNum, value).then(() => {
-          if (active && current(scope)) setSaveState(saveStatusTracker.current.succeed(operation.token));
-        }).catch(() => {
-          if (active && current(scope)) setSaveState(saveStatusTracker.current.fail(operation.token));
+          if (active && current(scope)) savedState(saveStatusTracker.current.succeed(operation.token));
+        }).catch((error: unknown) => {
+          if (active && current(scope)) { noteError(error); setSaveState(saveStatusTracker.current.fail(operation.token)); }
         });
       }
       onceClaimId.current = crypto.randomUUID();
@@ -201,7 +257,7 @@ function ProgrammeFormView({ testId, status, userId, active, embedded, supplemen
       const sourceDay = test.programme_id === 'ielts-80-days-listening' ? Number(test.source_day) || undefined : undefined;
       if (sourceDay) {
         try {
-          const response = await window.api.getWith<SourceAudio>(`/api/listening/source-collections/80-days/days/${sourceDay}/audio`, undefined, { signal: scope.controller.signal });
+          const response = await window.api.getWith<SourceAudio>(`/api/listening/source-collections/80-days/days/${sourceDay}/audio`, undefined, apiOpts(scope));
           if (response.day !== sourceDay || !Array.isArray(response.variants)) throw new Error('Audio không khớp buổi học.');
           audioVariants = response.variants;
           questionClips = response.question_clips;
@@ -251,16 +307,16 @@ function ProgrammeFormView({ testId, status, userId, active, embedded, supplemen
   async function save(qNum: number, value: string) {
     const scope = scopeRef.current;
     const queue = saveQueue.current;
-    if (state.status !== 'ready' || !queue || !current(scope)) return;
+    if (state.status !== 'ready' || !queue || !current(scope) || !canWriteRef.current) return;
     const tracker = saveStatusTracker.current;
     const operation = tracker.begin(qNum);
     setSaveState(operation.status);
-    try { await queue.enqueue(qNum, value); if (current(scope)) setSaveState(tracker.succeed(operation.token)); }
-    catch { if (current(scope)) setSaveState(tracker.fail(operation.token)); }
+    try { await queue.enqueue(qNum, value); if (current(scope)) savedState(tracker.succeed(operation.token)); }
+    catch (error) { if (current(scope)) { noteError(error); setSaveState(tracker.fail(operation.token)); } }
   }
   function update(qNum: number, value: string, immediate = false) {
     const scope = scopeRef.current;
-    if (submitLock.current || !current(scope)) return;
+    if (submitLock.current || !current(scope) || !canWriteRef.current) return;
     draftStore.current?.remember(qNum, value);
     setAnswers((current) => ({ ...current, [qNum]: value }));
     if (pending.current[qNum]) window.clearTimeout(pending.current[qNum]);
@@ -278,7 +334,7 @@ function ProgrammeFormView({ testId, status, userId, active, embedded, supplemen
     const queue = saveQueue.current;
     if (state.status !== 'ready' || !state.form.guidanceAvailable || !queue || submitLock.current
         || feedback[qNum] || revealPromises.current.has(qNum)
-        || !answers[qNum]?.trim() || !current(scope)) return;
+        || !answers[qNum]?.trim() || !current(scope) || !canWriteRef.current) return;
     const value = answers[qNum];
     if (pending.current[qNum]) window.clearTimeout(pending.current[qNum]);
     delete pending.current[qNum];
@@ -288,7 +344,7 @@ function ProgrammeFormView({ testId, status, userId, active, embedded, supplemen
       await queue.flush([{ qNum, value }]);
       if (!current(scope)) return;
       const result = await window.api.postWith<ListeningGuidedStateWire>(
-        `/api/listening/tests/attempts/${encodeURIComponent(state.attemptId)}/questions/${qNum}/reveal`, {}, undefined, { signal: scope.controller.signal },
+        `/api/listening/tests/attempts/${encodeURIComponent(state.attemptId)}/questions/${qNum}/reveal`, {}, undefined, apiOpts(scope),
       );
       if (!current(scope)) return;
       const item = (result.items || []).find((candidate) => candidate.q_num === qNum);
@@ -300,50 +356,89 @@ function ProgrammeFormView({ testId, status, userId, active, embedded, supplemen
     try { await operation; }
     catch (error: unknown) {
       if (!current(scope)) return;
+      noteError(error);
       const statusCode = row(error).status;
       setRevealStatus((current) => ({ ...current, [qNum]: [403, 404, 409, 422].includes(Number(statusCode)) ? 'unavailable' : 'error' }));
     }
     finally { if (revealPromises.current.get(qNum) === operation) revealPromises.current.delete(qNum); }
   }
-  async function submit() {
+  async function submit(): Promise<boolean> {
     const scope = scopeRef.current;
     const queue = saveQueue.current;
     if (state.status !== 'ready' || submitLock.current || !queue
-        || revealPromises.current.size || !current(scope)) return;
+        || revealPromises.current.size || !current(scope) || !canWriteRef.current) return false;
     submitLock.current = true;
     setSubmitting(true);
     const tracker = saveStatusTracker.current;
     const operation = tracker.beginFlush();
     setSaveState(operation.status);
+    let flushed = false;
     try {
       Object.values(pending.current).forEach(window.clearTimeout);
       pending.current = {};
       await queue.flush(programmeAnswerFlushEntries(state.form.questions, answers));
-      if (!current(scope)) return;
-      setSaveState(tracker.finishFlush(operation.token));
-      await window.api.postWith(`/api/listening/tests/attempts/${state.attemptId}/submit`, {}, undefined, { signal: scope.controller.signal });
-      if (!current(scope)) return;
+      if (!current(scope)) return false;
+      savedState(tracker.finishFlush(operation.token));
+      flushed = true;
+      await window.api.postWith(`/api/listening/tests/attempts/${state.attemptId}/submit`, {}, undefined, apiOpts(scope));
+      if (!current(scope)) return false;
       draftStore.current?.clear();
       window.location.assign(listeningProgrammeResultHref(state.form.programmeId, state.attemptId, params || undefined));
-    } catch {
-      if (!current(scope)) return;
+      return true;
+    } catch (error) {
+      if (!current(scope)) return false;
+      noteError(error);
       tracker.fail(operation.token);
-      setSaveState('error');
+      // In the exam room a refused submit after a good flush is not a save failure:
+      // the box stays open with its own error (FR-004).
+      if (!(roomOn && flushed)) setSaveState('error');
       submitLock.current = false;
       setSubmitting(false);
+      return false;
     }
+  }
+  // FR-012: once this tab holds the write lock, read the attempt's answers again
+  // (the same resume-or-create request the page opened with) without a reload.
+  async function reloadAnswers() {
+    const scope = scopeRef.current;
+    if (state.status !== 'ready' || !current(scope)) return;
+    const attempt = row(await window.api.postWith<unknown>(`/api/listening/tests/${encodeURIComponent(testId)}/attempts?standalone=true`, {}, undefined, apiOpts(scope)));
+    if (!current(scope) || String(attempt.attempt_id || '') !== state.attemptId) return;
+    const restored: Record<number, string> = {};
+    for (const value of (Array.isArray(attempt.answers) ? attempt.answers : [])) { const answer = row(value); restored[Number(answer.q_num)] = String(answer.user_answer || ''); }
+    baseRef.current = { ...restored };
+    // FR-009/FR-012: the tab that handed over may have kept answers only in the local copy.
+    const plan = replayFromCopy(safeLocalStorage(), userId || '', state.attemptId, restored);
+    replayRef.current = { ...plan.resend };
+    setAnswers((answersNow) => ({ ...answersNow, ...restored, ...plan.resend }));
+    if (plan.ask.size) {
+      const questions = state.form.questions;
+      setAsk((items) => {
+        const merged = new Map(items.map((item) => [item.qNum, item]));
+        for (const [qNum, item] of plan.ask) merged.set(qNum, { qNum, label: questionLabel(questions.find((question) => question.q_num === qNum)) || String(qNum), ...item });
+        return [...merged.values()];
+      });
+    }
+  }
+  // FR-012: send the waiting copy answers only once this tab holds the write right.
+  function onWriteRight(canWrite: boolean) {
+    canWriteRef.current = canWrite;
+    if (!canWrite) return;
+    const waiting = replayRef.current;
+    replayRef.current = {};
+    for (const [qNum, value] of Object.entries(waiting)) void save(Number(qNum), value);
   }
   async function controlOnce() {
     const scope = scopeRef.current;
     const element = audioRef.current;
     const generation = mediaGeneration.current;
     const mediaCurrent = () => current(scope) && audioRef.current === element && generation === mediaGeneration.current;
-    if (state.status !== 'ready' || ['starting', 'done'].includes(onceState) || !element || !current(scope)) return;
+    if (state.status !== 'ready' || ['starting', 'done'].includes(onceState) || !element || !current(scope) || !canWriteRef.current) return;
     // Activity may restore the same node while an earlier claim is settling.
     const scopedAudio = { play: () => element.play(), pause: () => { if (mediaCurrent()) element.pause(); } };
     const acknowledgeOncePlayback = async () => {
       if (!mediaCurrent()) return false;
-      const result = row(await window.api.postWith<unknown>(`/api/listening/tests/attempts/${state.attemptId}/playback-started`, { playback_claim_id: onceClaimId.current }, undefined, { signal: scope.controller.signal }));
+      const result = row(await window.api.postWith<unknown>(`/api/listening/tests/attempts/${state.attemptId}/playback-started`, { playback_claim_id: onceClaimId.current }, undefined, apiOpts(scope)));
       return mediaCurrent() && result.accepted === true;
     };
     if (onceState === 'playing') {
@@ -395,7 +490,7 @@ function ProgrammeFormView({ testId, status, userId, active, embedded, supplemen
     const day = state.form.sourceDay;
     setAudioRetrying(true);
     try {
-      const response = await window.api.getWith<SourceAudio>(`/api/listening/source-collections/80-days/days/${day}/audio`, undefined, { signal: scope.controller.signal });
+      const response = await window.api.getWith<SourceAudio>(`/api/listening/source-collections/80-days/days/${day}/audio`, undefined, apiOpts(scope));
       if (!current(scope) || response.day !== day || !Array.isArray(response.variants)) return;
       setState((value) => value.status === 'ready' ? { ...value, form: { ...value.form, audioVariants: response.variants, questionClips: response.question_clips, audioLoadError: false } } : value);
       setAudioVariant(response.variants.some((variant) => variant.variant_id === 'original') ? 'original' : 'kokoro-v1');
@@ -409,14 +504,117 @@ function ProgrammeFormView({ testId, status, userId, active, embedded, supplemen
   const lessonHref = state.form.programmeId === 'ielts-80-days-listening'
     ? programmeLessonPath(state.form.programmeId, state.form.lessonId, state.form.sourceDay)
     : listeningProgrammeLessonHref(state.form.programmeId, state.form.lessonId, params || undefined);
+  const learningControls = <>
+<section className="programme-learning-controls" aria-label="Tùy chọn luyện nghe">
+  <div><span>Cách luyện</span><div className="programme-segmented" role="group" aria-label="Cách luyện"><button type="button" aria-pressed={mode === 'continuous'} onClick={() => chooseMode('continuous')}>Làm liền mạch</button><button type="button" aria-pressed={mode === 'guided'} onClick={() => chooseMode('guided')}>Luyện từng bước</button></div></div>
+  <div><span>Ngôn ngữ câu hỏi</span>{languages.length ? <div className="programme-segmented" role="group" aria-label="Ngôn ngữ câu hỏi"><button type="button" aria-pressed={activeLanguage === 'vi'} onClick={() => chooseLanguage('vi')}>Tiếng Việt</button><button type="button" aria-pressed={activeLanguage === 'en'} onClick={() => chooseLanguage('en')}>English</button></div> : <p className="programme-language-note">Đang hiển thị bản gốc; bản dịch được biên tập dần theo bài.</p>}{bilingualWritten ? <p className="programme-language-note">Đổi ngôn ngữ chỉ đổi câu hỏi, không đổi cách đối chiếu đáp án. Với câu điền, hãy ghi từ hoặc cụm từ nghe được trong audio.</p> : null}</div>
+</section>
+  </>;
+  const guidanceNote = !state.form.guidanceAvailable ? <p className="programme-guidance-unavailable" role="status">Đối chiếu từng câu tạm thời chưa sẵn sàng. Bạn vẫn có thể nghe, trả lời và hoàn thành bài.</p> : null;
+  const stage = <section className="programme-learning-stage" aria-label="Câu hỏi luyện nghe">
+  <div className="programme-learning-stage__header"><h2 tabIndex={-1} ref={groupHeadingRef}>{mode === 'guided' ? `Tập trung vào câu ${questionLabel(visibleQuestions[0])}${visibleQuestions.length > 1 ? '–' + questionLabel(visibleQuestions.at(-1)) : ''}` : 'Nghe và trả lời theo mạch'}</h2><p>{mode === 'guided' ? `${state.form.sourceBlocks.length ? 'Khối' : 'Câu'} ${selectedGroup + 1}/${groups.length}` : 'Trả lời từng câu, đối chiếu ngay và sửa khi cần.'}</p></div>
+  <div className="programme-questions">
+{visibleGroups.map((group) => <section className="programme-source-group" key={group.key}>{(sourceBlocks || state.form.sourceBlocks).filter((block) => block.block_id === group.sourceBlockId).map((block) => <ListeningSourceBlock key={block.block_id} block={block} showQuestions={false} />)}{group.questions.map((sourceQuestion) => { const clip = state.form.questionClips?.find((clip) => clip.item_id === sourceQuestion.source_item_id); if (sourceQuestion.supplement) return <ListeningSourceSupplement key={`${sourceQuestion.source_item_id}:${audioVariant}`} question={sourceQuestion.supplement} manifest={manifest || ''} clip={clip} active={active} reload={() => void retryAudio()} />; const question = languages.length ? displayQuestion(sourceQuestion, activeLanguage) as Question : sourceQuestion; const optionLanguage = languages.length ? displayOptionLanguage(sourceQuestion, activeLanguage) : undefined; const item = feedback[question.q_num]; const feedbackFields = feedbackResponseFields(sourceQuestion, item); const referenceAnswer = question.response_type === 'multi_gap_completion' ? displaySourceReferenceAnswer(item?.explanation?.answer, feedbackFields) : item?.expected?.join(' · ') || item?.reference_answers?.join(' · ') || item?.answer_sentence || item?.core_info; const revealing = revealStatus[question.q_num] === 'revealing'; return <article className="programme-question" key={question.q_num}>
+  <span className="programme-question__number">{questionLabel(question)}</span><div className="programme-question__body"><p lang={languages.length ? activeLanguage : undefined}>{question.prompt}</p>
+  {state.form.sourceDay ? <ListeningQuestionAudio key={`${question.source_item_id}:${audioVariant}:${clip?.url}`} clip={clip} active={active} reload={() => void retryAudio()} /> : null}
+  {question.visual_url && state.form.programmeId !== 'ielts-80-days-listening' ? <figure className="programme-question-visual"><div className="programme-question-visual__viewport" role="region" aria-label={`Sơ đồ câu ${question.q_num}, có thể cuộn ngang`} tabIndex={0}><img src={question.visual_url} alt={question.visual_accessibility || 'Sơ đồ cho câu hỏi'} lang={languages.length ? activeLanguage : undefined} /></div><figcaption>Trên màn hình nhỏ, vuốt ngang hoặc dùng phím mũi tên để xem toàn bộ sơ đồ.</figcaption></figure> : null}
+  {['single_choice', 'map_label'].includes(question.response_type) ? <div className="programme-options">{Object.entries(question.options).map(([key, label]) => <label key={key}><input type="radio" name={`programme-${testId}-q-${question.q_num}`} checked={answers[question.q_num] === key} disabled={submitting || revealing} onChange={() => update(question.q_num, key, true)} /><span lang={optionLanguage}>{!question.source_block_id || /^[A-Za-z]$/.test(key) ? <strong>{key}</strong> : null}{label}</span></label>)}</div> : null}
+  {question.response_type === 'multiple_choice' ? <div className="programme-options">{Object.entries(question.options).map(([key, label]) => <label key={key}><input type="checkbox" checked={(answers[question.q_num] || '').split(',').map((value) => value.trim()).includes(key)} disabled={submitting || revealing} onChange={() => toggleMultiple(question, key)} /><span lang={optionLanguage}>{!question.source_block_id || /^[A-Za-z]$/.test(key) ? <strong>{key}</strong> : null}{label}</span></label>)}</div> : null}
+  {question.response_type === 'multi_gap_completion' ? <fieldset className="source-multiple-gaps"><legend>Điền từng chỗ trống của câu {questionLabel(question)}</legend>{question.fields?.map((field) => <label key={field.field_id}>{field.prompt}{field.word_limit ? <small>Không quá {field.word_limit} từ cho chỗ trống này.</small> : null}<input value={readSourceGapAnswers(answers[question.q_num])[field.field_id] || ''} disabled={submitting || revealing} onChange={(event) => { const next = { ...readSourceGapAnswers(answers[question.q_num]), [field.field_id]: event.target.value }; update(question.q_num, writeSourceGapAnswers(next)); }} onBlur={() => { if (pending.current[question.q_num]) window.clearTimeout(pending.current[question.q_num]); delete pending.current[question.q_num]; void save(question.q_num, answers[question.q_num] || ''); }} /></label>)}</fieldset> : null}
+  {['short_answer', 'written', 'open_rubric'].includes(question.response_type) ? <textarea rows={question.response_type === 'open_rubric' ? 5 : 2} value={answers[question.q_num] || ''} disabled={submitting || revealing} onChange={(event) => update(question.q_num, event.target.value)} onBlur={(event) => { if (pending.current[question.q_num]) window.clearTimeout(pending.current[question.q_num]); delete pending.current[question.q_num]; void save(question.q_num, event.target.value); }} placeholder="Nhập câu trả lời của bạn" /> : null}
+  <div className="programme-question-feedback-action"><button type="button" disabled={!!item || !state.form.guidanceAvailable || !answers[question.q_num]?.trim() || revealing || submitting || revealStatus[question.q_num] === 'unavailable'} onClick={() => void reveal(question.q_num)}>{item ? 'Đã đối chiếu câu này' : revealing ? 'Đang đối chiếu…' : 'Đối chiếu câu này'}</button>{revealStatus[question.q_num] === 'error' ? <p role="alert">Chưa đối chiếu được. Câu trả lời của bạn vẫn còn; hãy thử lại.</p> : null}{revealStatus[question.q_num] === 'unavailable' ? <p role="alert">Lượt luyện hoặc câu hỏi này không còn cho phép đối chiếu. <a href="/listening">Về thư viện nghe</a></p> : null}</div>
+  {item ? <section className="programme-question-feedback" aria-label={`Đối chiếu câu ${question.q_num}`}>
+    <div className="programme-question-feedback__status"><span>Nhìn lại câu vừa nghe</span><strong>{item.state === 'checked' ? item.correct ? 'Bạn nghe đúng từ lần đầu' : 'Đây là chỗ đáng nghe lại' : 'Tự đối chiếu với gợi ý'}</strong></div>
+    <div className="programme-question-feedback__sequence"><div><span>Câu trả lời đầu</span><p>{displaySourceAnswer(item.first_answer, question.response_type, feedbackFields)}</p></div><div><span>Tham chiếu</span><p>{referenceAnswer || 'Xem gợi ý bên dưới'}</p></div><div><span>Bản sửa hiện tại</span><p>{answers[question.q_num] !== item.first_answer ? displaySourceAnswer(answers[question.q_num], question.response_type, feedbackFields) : 'Bạn có thể sửa câu trả lời phía trên'}</p></div></div>
+    {!item.explanation && (item.rationale || item.self_review_rationale) ? <p className="programme-question-feedback__rationale">{item.rationale || item.self_review_rationale}</p> : null}
+    {item.explanation ? <ListeningSourceExplanation explanation={item.explanation} reviewStatus={item.review_status} provenance={item.answer_provenance} fields={feedbackFields} showSourceReferences={!state.form.sourceDay} /> : null}
+    {item.required_facts?.length ? <div className="programme-question-feedback__facts"><span>Ý cần nghe được</span><ul>{item.required_facts.map((fact) => <li key={fact}>{fact}</li>)}</ul></div> : null}
+    {item.optional_facts?.length ? <p className="programme-question-feedback__rationale">Ý bổ sung: {item.optional_facts.join(' · ')}</p> : null}
+    {item.audio_window?.start != null && state.form.replayPolicy === 'allowed' ? <button className="programme-question-feedback__replay" type="button" onClick={() => replayQuestion(item)}>▶ {state.form.sourceDay && audioVariant !== 'original' || item.audio_granularity === 'whole_day' ? 'Nghe toàn ngày' : item.audio_granularity === 'whole_part' ? 'Nghe lại phần này' : 'Nghe lại đoạn này'}</button> : null}
+  </section> : null}
+  </div>
+</article>; })}</section>)}
+  </div>
+  {mode === 'guided' ? <nav className="programme-step-actions" aria-label="Chuyển câu hỏi"><button type="button" disabled={selectedGroup === 0} onClick={() => moveToGroup(selectedGroup - 1)}>Câu trước</button><span>Có thể quay lại và sửa câu trả lời bất cứ lúc nào.</span><button type="button" disabled={selectedGroup >= groups.length - 1} onClick={() => moveToGroup(selectedGroup + 1)}>Câu tiếp theo</button></nav> : null}
+</section>;
+  if (roomOn) {
+    // EXAMLISTENP-0069 FR-001: the one branch point, after every hook.
+    const form = state.form;
+    const attemptId = state.attemptId;
+    const realGroups = groups.map((group, index) => ({ group, index, qs: group.questions.filter((question) => !question.supplement) })).filter((entry) => entry.qs.length);
+    const sections = realGroups.map(({ group, qs }, index) => ({ id: group.key, kind: 'part' as const, index: index + 1, firstQ: Math.min(...qs.map((question) => question.q_num)), lastQ: Math.max(...qs.map((question) => question.q_num)) }));
+    const navQuestions = realGroups.flatMap(({ group, qs }) => qs.map((question) => ({ q: question.q_num, sectionId: group.key, answered: !!answers[question.q_num]?.trim(), flagged: false })));
+    const currentQ = mode === 'guided' ? groups[selectedGroup]?.questions.find((question) => !question.supplement)?.q_num : undefined;
+    const touched = () => Object.fromEntries(programmeAnswerFlushEntries(form.questions, answers).map(({ qNum, value }) => [qNum, value]));
+    const flushRoom = async () => {
+      const queue = saveQueue.current;
+      if (!queue || !canWriteRef.current) return { unsaved: Object.keys(pending.current).length };
+      Object.values(pending.current).forEach(window.clearTimeout);
+      pending.current = {};
+      try { await queue.flush(programmeAnswerFlushEntries(form.questions, answers)); return { unsaved: 0 }; }
+      catch (error) { noteError(error); return { unsaved: 1 }; }
+    };
+    return <ProgrammeFormRoom
+      active={active}
+      embedded={embedded}
+      title={form.title}
+      attemptId={attemptId}
+      ownerKey={userId || ''}
+      exitHref={lessonHref}
+      saveState={saveState}
+      lastSavedAt={lastSavedAt}
+      onRetrySave={() => { for (const { qNum, value } of programmeAnswerFlushEntries(form.questions, answers)) void save(qNum, value); }}
+      sections={sections}
+      questions={navQuestions}
+      currentQ={currentQ}
+      onJump={(q) => { const index = groups.findIndex((group) => group.questions.some((question) => question.q_num === q)); if (index < 0) return; chooseMode('guided'); moveToGroup(index); }}
+      revealing={Object.values(revealStatus).includes('revealing')}
+      onSubmit={async () => {
+        // FR-003: a click during a check waits for it instead of being swallowed.
+        await Promise.all([...revealPromises.current.values()].map((operation) => operation.catch(() => undefined)));
+        if (!(await submit())) throw new Error('Chưa hoàn thành được. Câu trả lời của bạn vẫn còn.');
+        clearLocalCopy(safeLocalStorage(), { surface: LISTENING_PRACTICE_SURFACE, ownerKey: userId || '', attemptKey: attemptId });
+      }}
+      flush={flushRoom}
+      losesWork={() => Object.keys(pending.current).length > 0 || saveState === 'saving' || saveState === 'error'}
+      secureCopy={() => (draftStore.current as ProgrammeLocalCopyStore | null)?.secure?.(touched()) ?? false}
+      session={session}
+      reloadFromServer={reloadAnswers}
+      onWriteRightChange={onWriteRight}
+      ask={ask}
+      onAskChoice={(item, choice) => {
+        if (!canWriteRef.current) return;
+        const value = resolveLegacyDraftChoice(safeLocalStorage(), { attemptId, ownerKey: userId || '', qNum: item.qNum, local: item.local, choice });
+        setAsk((items) => items.filter((entry) => entry.qNum !== item.qNum));
+        if (value !== null) update(item.qNum, value, true);
+      }}
+      audio={{
+        audioRef,
+        version: `${active}:${playbackUrl}`,
+        policy: form.replayPolicy === 'once' ? 'once' : 'practice',
+        title: form.title,
+        available: active && !!playbackUrl,
+        onceState,
+        onceMessage,
+        onOncePlay: () => { if (onceState === 'playing') { void audioRef.current?.play().catch(() => undefined); return; } void controlOnce(); },
+        onRetry: form.sourceDay ? () => void retryAudio() : undefined,
+      }}
+      audioExtras={<>
+        {form.sourceDay ? <label>Phiên bản audio <select className="source-audio-select" value={audioVariant} onChange={(event) => setAudioVariant(event.target.value)}><option value="kokoro-v1">Bản luyện nghe</option>{form.audioUrl || form.audioVariants?.some((variant) => variant.variant_id === 'original') ? <option value="original">Bản ghi gốc</option> : null}</select></label> : null}
+        {form.sourceDay && (!playbackUrl || form.audioLoadError || audioError) ? <><p role="alert">{form.audioLoadError ? `Chưa tải được danh sách audio.${form.audioUrl ? ' Bạn có thể chọn Bản ghi gốc hoặc tải lại.' : ' Hãy tải lại audio.'}` : 'Bản audio này chưa sẵn sàng để phát.'}</p><button type="button" onClick={() => void retryAudio()} disabled={audioRetrying}>{audioRetrying ? 'Đang tải audio…' : 'Tải lại audio'}</button></> : null}
+        <audio ref={bindAudio} src={active ? playbackUrl || undefined : undefined} preload="metadata" hidden onEnded={(event) => { if (form.replayPolicy === 'once' && current(scopeRef.current) && audioRef.current === event.currentTarget) setOnceState('done'); }} onError={(event) => { if (current(scopeRef.current) && audioRef.current === event.currentTarget) setAudioError('Không tải được audio. Hãy thử lại sau.'); }} />
+        {audioError ? <p role="alert">{audioError}</p> : null}
+        <p>{form.replayPolicy === 'once' ? 'Bài này chỉ cho nghe một lần trong lượt làm hiện tại, không tạm dừng. Chuyển cách luyện không tạo lượt nghe mới.' : form.audioGranularity === 'whole_day' ? 'Audio toàn buổi. Bạn có thể nghe và lặp đoạn của từng câu bên dưới.' : 'Bạn có thể nghe lại toàn bài trong lúc làm hoặc sửa câu trả lời.'}</p>
+      </>}
+      progress={<p className="programme-learning-progress"><span>{answeredCount}/{form.questions.length} câu đã thử · {Object.keys(feedback).length} câu đã đối chiếu{supplements?.length ? ` · ${supplements.length} câu tự luyện lưu trên thiết bị` : ''}</span></p>}
+      body={<>{learningControls}{guidanceNote}{stage}</>}
+    />;
+  }
   return <Container className={`programme-runner shell${state.form.sourceDay ? ' is-source-practice' : ''}`}>
     {state.form.sourceDay ? <link rel="stylesheet" href="/css/listening-source-collection.css" /> : null}
     <header className="programme-runner__header">{!embedded ? <a href={lessonHref}>← Bài học</a> : null}<div><p>Luyện nghe theo nhịp của bạn</p><h1>{state.form.title}</h1><span>Nghe, thử trả lời và sửa lại. Đây không phải bài tính band IELTS.</span></div><span>{answeredCount}/{state.form.questions.length} câu đã thử{supplements?.length ? ` · ${supplements.length} câu tự luyện lưu trên thiết bị` : ''}</span></header>
-    <section className="programme-learning-controls" aria-label="Tùy chọn luyện nghe">
-      <div><span>Cách luyện</span><div className="programme-segmented" role="group" aria-label="Cách luyện"><button type="button" aria-pressed={mode === 'continuous'} onClick={() => chooseMode('continuous')}>Làm liền mạch</button><button type="button" aria-pressed={mode === 'guided'} onClick={() => chooseMode('guided')}>Luyện từng bước</button></div></div>
-      <div><span>Ngôn ngữ câu hỏi</span>{languages.length ? <div className="programme-segmented" role="group" aria-label="Ngôn ngữ câu hỏi"><button type="button" aria-pressed={activeLanguage === 'vi'} onClick={() => chooseLanguage('vi')}>Tiếng Việt</button><button type="button" aria-pressed={activeLanguage === 'en'} onClick={() => chooseLanguage('en')}>English</button></div> : <p className="programme-language-note">Đang hiển thị bản gốc; bản dịch được biên tập dần theo bài.</p>}{bilingualWritten ? <p className="programme-language-note">Đổi ngôn ngữ chỉ đổi câu hỏi, không đổi cách đối chiếu đáp án. Với câu điền, hãy ghi từ hoặc cụm từ nghe được trong audio.</p> : null}</div>
-    </section>
-    {!state.form.guidanceAvailable ? <p className="programme-guidance-unavailable" role="status">Đối chiếu từng câu tạm thời chưa sẵn sàng. Bạn vẫn có thể nghe, trả lời và hoàn thành bài.</p> : null}
+    {learningControls}
+    {guidanceNote}
     <div className="programme-learning-workspace">
       <aside className="programme-audio" aria-label="Audio và tiến độ bài nghe">
         <h2>Nghe và khám phá</h2>
@@ -427,32 +625,7 @@ function ProgrammeFormView({ testId, status, userId, active, embedded, supplemen
         <p>{state.form.replayPolicy === 'once' ? 'Bài này chỉ cho phép bắt đầu audio một lần trong lượt làm hiện tại. Chuyển cách luyện không tạo lượt nghe mới.' : state.form.audioGranularity === 'whole_day' ? 'Audio toàn buổi. Bạn có thể nghe và lặp đoạn của từng câu bên dưới.' : 'Bạn có thể nghe lại toàn bài trong lúc làm hoặc sửa câu trả lời.'}</p>
         <div className="programme-learning-progress"><strong>Đường nghe</strong><span>{answeredCount}/{state.form.questions.length} câu đã thử · {Object.keys(feedback).length} câu đã đối chiếu</span><ol aria-label="Tiến độ các câu hỏi">{groups.map((group, index) => <li key={group.key} data-current={mode === 'guided' && index === selectedGroup} data-answered={group.questions.every((question) => !!answers[question.q_num]?.trim())} data-revealed={group.questions.every((question) => !question.supplement && !!feedback[question.q_num])}><button type="button" onClick={() => { chooseMode('guided'); moveToGroup(index); }} aria-label={`Đến câu ${questionLabel(group.questions[0])}${feedback[group.questions[0].q_num] ? ', đã đối chiếu' : ''}`}>{questionLabel(group.questions[0])}</button></li>)}</ol></div>
       </aside>
-      <section className="programme-learning-stage" aria-label="Câu hỏi luyện nghe">
-        <div className="programme-learning-stage__header"><h2 tabIndex={-1} ref={groupHeadingRef}>{mode === 'guided' ? `Tập trung vào câu ${questionLabel(visibleQuestions[0])}${visibleQuestions.length > 1 ? '–' + questionLabel(visibleQuestions.at(-1)) : ''}` : 'Nghe và trả lời theo mạch'}</h2><p>{mode === 'guided' ? `${state.form.sourceBlocks.length ? 'Khối' : 'Câu'} ${selectedGroup + 1}/${groups.length}` : 'Trả lời từng câu, đối chiếu ngay và sửa khi cần.'}</p></div>
-        <div className="programme-questions">
-      {visibleGroups.map((group) => <section className="programme-source-group" key={group.key}>{(sourceBlocks || state.form.sourceBlocks).filter((block) => block.block_id === group.sourceBlockId).map((block) => <ListeningSourceBlock key={block.block_id} block={block} showQuestions={false} />)}{group.questions.map((sourceQuestion) => { const clip = state.form.questionClips?.find((clip) => clip.item_id === sourceQuestion.source_item_id); if (sourceQuestion.supplement) return <ListeningSourceSupplement key={`${sourceQuestion.source_item_id}:${audioVariant}`} question={sourceQuestion.supplement} manifest={manifest || ''} clip={clip} active={active} reload={() => void retryAudio()} />; const question = languages.length ? displayQuestion(sourceQuestion, activeLanguage) as Question : sourceQuestion; const optionLanguage = languages.length ? displayOptionLanguage(sourceQuestion, activeLanguage) : undefined; const item = feedback[question.q_num]; const feedbackFields = feedbackResponseFields(sourceQuestion, item); const referenceAnswer = question.response_type === 'multi_gap_completion' ? displaySourceReferenceAnswer(item?.explanation?.answer, feedbackFields) : item?.expected?.join(' · ') || item?.reference_answers?.join(' · ') || item?.answer_sentence || item?.core_info; const revealing = revealStatus[question.q_num] === 'revealing'; return <article className="programme-question" key={question.q_num}>
-        <span className="programme-question__number">{questionLabel(question)}</span><div className="programme-question__body"><p lang={languages.length ? activeLanguage : undefined}>{question.prompt}</p>
-        {state.form.sourceDay ? <ListeningQuestionAudio key={`${question.source_item_id}:${audioVariant}:${clip?.url}`} clip={clip} active={active} reload={() => void retryAudio()} /> : null}
-        {question.visual_url && state.form.programmeId !== 'ielts-80-days-listening' ? <figure className="programme-question-visual"><div className="programme-question-visual__viewport" role="region" aria-label={`Sơ đồ câu ${question.q_num}, có thể cuộn ngang`} tabIndex={0}><img src={question.visual_url} alt={question.visual_accessibility || 'Sơ đồ cho câu hỏi'} lang={languages.length ? activeLanguage : undefined} /></div><figcaption>Trên màn hình nhỏ, vuốt ngang hoặc dùng phím mũi tên để xem toàn bộ sơ đồ.</figcaption></figure> : null}
-        {['single_choice', 'map_label'].includes(question.response_type) ? <div className="programme-options">{Object.entries(question.options).map(([key, label]) => <label key={key}><input type="radio" name={`programme-${testId}-q-${question.q_num}`} checked={answers[question.q_num] === key} disabled={submitting || revealing} onChange={() => update(question.q_num, key, true)} /><span lang={optionLanguage}>{!question.source_block_id || /^[A-Za-z]$/.test(key) ? <strong>{key}</strong> : null}{label}</span></label>)}</div> : null}
-        {question.response_type === 'multiple_choice' ? <div className="programme-options">{Object.entries(question.options).map(([key, label]) => <label key={key}><input type="checkbox" checked={(answers[question.q_num] || '').split(',').map((value) => value.trim()).includes(key)} disabled={submitting || revealing} onChange={() => toggleMultiple(question, key)} /><span lang={optionLanguage}>{!question.source_block_id || /^[A-Za-z]$/.test(key) ? <strong>{key}</strong> : null}{label}</span></label>)}</div> : null}
-        {question.response_type === 'multi_gap_completion' ? <fieldset className="source-multiple-gaps"><legend>Điền từng chỗ trống của câu {questionLabel(question)}</legend>{question.fields?.map((field) => <label key={field.field_id}>{field.prompt}{field.word_limit ? <small>Không quá {field.word_limit} từ cho chỗ trống này.</small> : null}<input value={readSourceGapAnswers(answers[question.q_num])[field.field_id] || ''} disabled={submitting || revealing} onChange={(event) => { const next = { ...readSourceGapAnswers(answers[question.q_num]), [field.field_id]: event.target.value }; update(question.q_num, writeSourceGapAnswers(next)); }} onBlur={() => { if (pending.current[question.q_num]) window.clearTimeout(pending.current[question.q_num]); delete pending.current[question.q_num]; void save(question.q_num, answers[question.q_num] || ''); }} /></label>)}</fieldset> : null}
-        {['short_answer', 'written', 'open_rubric'].includes(question.response_type) ? <textarea rows={question.response_type === 'open_rubric' ? 5 : 2} value={answers[question.q_num] || ''} disabled={submitting || revealing} onChange={(event) => update(question.q_num, event.target.value)} onBlur={(event) => { if (pending.current[question.q_num]) window.clearTimeout(pending.current[question.q_num]); delete pending.current[question.q_num]; void save(question.q_num, event.target.value); }} placeholder="Nhập câu trả lời của bạn" /> : null}
-        <div className="programme-question-feedback-action"><button type="button" disabled={!!item || !state.form.guidanceAvailable || !answers[question.q_num]?.trim() || revealing || submitting || revealStatus[question.q_num] === 'unavailable'} onClick={() => void reveal(question.q_num)}>{item ? 'Đã đối chiếu câu này' : revealing ? 'Đang đối chiếu…' : 'Đối chiếu câu này'}</button>{revealStatus[question.q_num] === 'error' ? <p role="alert">Chưa đối chiếu được. Câu trả lời của bạn vẫn còn; hãy thử lại.</p> : null}{revealStatus[question.q_num] === 'unavailable' ? <p role="alert">Lượt luyện hoặc câu hỏi này không còn cho phép đối chiếu. <a href="/listening">Về thư viện nghe</a></p> : null}</div>
-        {item ? <section className="programme-question-feedback" aria-label={`Đối chiếu câu ${question.q_num}`}>
-          <div className="programme-question-feedback__status"><span>Nhìn lại câu vừa nghe</span><strong>{item.state === 'checked' ? item.correct ? 'Bạn nghe đúng từ lần đầu' : 'Đây là chỗ đáng nghe lại' : 'Tự đối chiếu với gợi ý'}</strong></div>
-          <div className="programme-question-feedback__sequence"><div><span>Câu trả lời đầu</span><p>{displaySourceAnswer(item.first_answer, question.response_type, feedbackFields)}</p></div><div><span>Tham chiếu</span><p>{referenceAnswer || 'Xem gợi ý bên dưới'}</p></div><div><span>Bản sửa hiện tại</span><p>{answers[question.q_num] !== item.first_answer ? displaySourceAnswer(answers[question.q_num], question.response_type, feedbackFields) : 'Bạn có thể sửa câu trả lời phía trên'}</p></div></div>
-          {!item.explanation && (item.rationale || item.self_review_rationale) ? <p className="programme-question-feedback__rationale">{item.rationale || item.self_review_rationale}</p> : null}
-          {item.explanation ? <ListeningSourceExplanation explanation={item.explanation} reviewStatus={item.review_status} provenance={item.answer_provenance} fields={feedbackFields} showSourceReferences={!state.form.sourceDay} /> : null}
-          {item.required_facts?.length ? <div className="programme-question-feedback__facts"><span>Ý cần nghe được</span><ul>{item.required_facts.map((fact) => <li key={fact}>{fact}</li>)}</ul></div> : null}
-          {item.optional_facts?.length ? <p className="programme-question-feedback__rationale">Ý bổ sung: {item.optional_facts.join(' · ')}</p> : null}
-          {item.audio_window?.start != null && state.form.replayPolicy === 'allowed' ? <button className="programme-question-feedback__replay" type="button" onClick={() => replayQuestion(item)}>▶ {state.form.sourceDay && audioVariant !== 'original' || item.audio_granularity === 'whole_day' ? 'Nghe toàn ngày' : item.audio_granularity === 'whole_part' ? 'Nghe lại phần này' : 'Nghe lại đoạn này'}</button> : null}
-        </section> : null}
-        </div>
-      </article>; })}</section>)}
-        </div>
-        {mode === 'guided' ? <nav className="programme-step-actions" aria-label="Chuyển câu hỏi"><button type="button" disabled={selectedGroup === 0} onClick={() => moveToGroup(selectedGroup - 1)}>Câu trước</button><span>Có thể quay lại và sửa câu trả lời bất cứ lúc nào.</span><button type="button" disabled={selectedGroup >= groups.length - 1} onClick={() => moveToGroup(selectedGroup + 1)}>Câu tiếp theo</button></nav> : null}
-      </section>
+      {stage}
     </div>
     <footer className="programme-submit"><span aria-live="polite">{saveState === 'saving' ? 'Đang lưu…' : saveState === 'saved' ? 'Đã lưu' : saveState === 'error' ? 'Có câu chưa lưu được — hãy thử lại' : 'Câu trả lời được tự động lưu'}{Object.keys(feedback).length ? ' · Lượt học có hỗ trợ' : ''}</span><button type="button" onClick={() => void submit()} disabled={submitting || Object.values(revealStatus).includes('revealing')}>{submitting ? 'Đang hoàn thành…' : 'Hoàn thành và xem lại'}</button></footer>
   </Container>;
