@@ -50,6 +50,10 @@ export interface ExamRoomExit {
   flush(): Promise<{ unsaved: number }>;
   losesWork(): boolean;
   abandon?: { onAbandon(): Promise<void> };
+  /** One extra line in the leave box (e.g. Listening test FR-011), in the room's language. */
+  note?: string;
+  /** True closes an open leave box and keeps it closed, e.g. while a proctor collects the test. */
+  locked?: boolean;
 }
 
 /**
