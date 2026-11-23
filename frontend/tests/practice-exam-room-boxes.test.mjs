@@ -23,11 +23,12 @@ const LEAVE = slice('  function _hasUnsentWork() {', '  function _startManagedIn
 const RESET = slice('  function resetRecording() {', '  function _resetRecorder() {');
 const P2_DISCARD = slice('  function discardP2SubmissionRetry() {', '  function startP2Prep() {');
 const SUBMIT = slice('  async function _sheetSubmit() {', '  function nextQuestion() {');
-const COMPLETE = slice('  async function _completeSpeakingSession(sessionId) {', '  function _normalizeSubmissionResult(');
+const COMPLETE = slice('  async function _completeSpeakingSession(sessionId, keepRedirect) {', '  function _normalizeSubmissionResult(');
 
 function sandbox({ on, blob = null, slots = null, complete = async () => ({}), native = null, confirm = () => true }) {
   const log = [];
   const views = [];
+  const timeouts = [];
   const env = {
     navigator: {},
     MediaRecorder: function () {},
@@ -36,6 +37,7 @@ function sandbox({ on, blob = null, slots = null, complete = async () => ({}), n
     _getNativeRecorder: () => null,
     _getNativeSubmission: () => native,
     _startManagedInterval: () => 'id',
+    _startManagedTimeout: (key, fn, ms) => { timeouts.push({ key, fn, ms }); return key; },
     _clearManagedEffect: () => true,
     _resetRecorder: () => log.push(['reset']),
     _clearRecError: () => {},
@@ -53,6 +55,7 @@ function sandbox({ on, blob = null, slots = null, complete = async () => ({}), n
     var _examRoomMode = ${on ? 'true' : 'false'};
     var _roomMicState = 'unknown', _ROOM_LEVEL_MS = 200, _roomLevelTimer = null;
     var _roomDialogKind = null, _roomLeaveHref = '', _roomLeaving = false, _roomConfirmed = false;
+    var _ROOM_LEAVE_RESET_MS = 4000;
     var _playerGeneration = 1, _playerActive = true, _sessionId = 'sess';
     var _navigate = function () {};
     var _recSubState = 'idle', _recordingDirty = false;
@@ -69,10 +72,11 @@ function sandbox({ on, blob = null, slots = null, complete = async () => ({}), n
       leaveConfirmed, confirmSubmitWithUnsent, canLeave: _canLeave, hasUnsent: _hasUnsentWork,
       submit: _sheetSubmit, expired: _roomExpired,
       dirty: (v) => { _recordingDirty = v; },
+      newGeneration: () => { _playerGeneration += 1; },
     };
   `)(...Object.values(env));
   const dialogs = () => views.filter(([s]) => s === 'dialog').map(([, p]) => p);
-  return { api, log, views, dialogs };
+  return { api, log, views, dialogs, timeouts };
 }
 
 const failedRerecord = [{ state: 'saved', retryBlob: {}, retryHadWork: 'saved' }, { state: 'saved', retryBlob: null }];
@@ -109,7 +113,9 @@ describe('flag off: every path is the old one', () => {
     const run = (on) => new Function('_getNativeSubmission', 'window', `var _examRoomMode = ${on}; ${COMPLETE}; return _completeSpeakingSession;`)(() => native, {});
     await run(false)('s1');
     await run(true)('s2');
-    assert.deepEqual(calls, [['s1'], ['s2', { noRedirect: true }]]);
+    // The full test completes its parts after it has moved on: no box can show, keep the old bounce.
+    await run(true)('s3', true);
+    assert.deepEqual(calls, [['s1'], ['s2', { noRedirect: true }], ['s3']]);
   });
 });
 
@@ -175,6 +181,28 @@ describe('flag on: leaving (FR-007, FR-012)', () => {
     assert.equal(api.leaveConfirmed(), true);
   });
 
+  test('a navigation that never leaves guards the page again (CR #2615 nit 2)', () => {
+    const { api, timeouts } = sandbox({ on: true });
+    api.dirty(true);
+    api.requestLeave('/speaking');
+    api.confirmLeave(true);
+    assert.equal(api.hasUnsent(), false);
+    assert.equal(timeouts.length, 1);
+    assert.equal(timeouts[0].ms, 4000);
+    timeouts[0].fn();
+    assert.equal(api.hasUnsent(), true, 'still on the page: the unsent take is guarded again');
+    assert.equal(api.leaveConfirmed(), false);
+  });
+
+  test('after a real exit (new player generation) the reset does nothing', () => {
+    const { api, timeouts } = sandbox({ on: true });
+    api.dirty(true);
+    api.confirmLeave(true, '/speaking');
+    api.newGeneration();
+    timeouts[0].fn();
+    assert.equal(api.leaveConfirmed(), true);
+  });
+
   test('"‹ Thoát" (no place) drops the takes and leaves the navigation to the bar', () => {
     const { api, log } = sandbox({ on: true });
     api.dirty(true);
@@ -221,7 +249,48 @@ describe('flag on: submit with failed re-records (FR-008)', () => {
   });
 });
 
+const FINISH = slice('  async function finishSession() {', '  function destroy() {');
+
 describe('flag on: 401 stays in the page (FR-010)', () => {
+  function finishSandbox(on, error) {
+    const log = [];
+    const views = [];
+    const fn = new Function('_updateNativeView', '_navigateTo', '_releaseRecorderResources', '_revokeManagedObjectUrl',
+      '_completeSpeakingSession', '_singleSessionResultUrl', 'console', `
+      var _examRoomMode = ${on}, _roomMicState = 'unknown', _ROOM_LEVEL_MS = 200, _roomLevelTimer = null;
+      var _roomDialogKind = null, _roomLeaveHref = '', _roomLeaving = false, _roomConfirmed = false, _ROOM_LEAVE_RESET_MS = 4000;
+      var _playerGeneration = 1, _playerActive = true, _sessionId = 'sess', _feedbackAudioUrl = null, _feedbackAudioIsBlob = false;
+      var _recSubState = 'idle', _recordingDirty = false, _sheet = null, _ftAllSessionIds = [], _testMode = null;
+      var _p2PrepTimerId = null, _p2SpeakTimerId = null;
+      function _stopAITts() {} function _cancelSpeech() {} function _stopWaveform() {} function _stopP2Timers() {}
+      function $() { return null; } function _clearManagedEffect() {} function _showRecError() {}
+      function _startManagedTimeout() {} function _getNativeRecorder() { return null; }
+      ${ROOM}
+      ${FINISH}
+      return finishSession;
+    `)((s, p) => { views.push([s, p]); return true; }, (u) => log.push(['navigate', u]), () => {}, () => {},
+      async () => { throw error; }, (id) => `/result?id=${id}`, { warn() {} });
+    return { finish: fn, log, views };
+  }
+
+  test('finishSession signed out in the room: the box, not a result page (CR #2615 nit 1)', async () => {
+    const e = Object.assign(new Error('x'), { status: 401 });
+    const { finish, log, views } = finishSandbox(true, e);
+    await finish();
+    assert.deepEqual(log, []);
+    assert.deepEqual(views.filter(([s]) => s === 'dialog').map(([, p]) => p), [{ kind: 'expired', unsent: 0 }]);
+  });
+
+  test('finishSession: other failures and the flag-off page go to the result as before', async () => {
+    const e500 = Object.assign(new Error('x'), { status: 500 });
+    const a = finishSandbox(true, e500);
+    await a.finish();
+    assert.deepEqual(a.log, [['navigate', '/result?id=sess']]);
+    const b = finishSandbox(false, Object.assign(new Error('x'), { status: 401 }));
+    await b.finish();
+    assert.deepEqual(b.log, [['navigate', '/result?id=sess']]);
+  });
+
   test('complete answers 401: the sign-in box opens, nothing navigates', async () => {
     const complete = async () => { const e = new Error('x'); e.status = 401; throw e; };
     const { api, log, dialogs } = sandbox({ on: true, slots: [{ state: 'saved', retryBlob: null }], complete });

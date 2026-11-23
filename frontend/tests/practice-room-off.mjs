@@ -20,4 +20,5 @@ export const PRACTICE_ROOM_OFF = `
   var _roomLeaveHref = '';
   var _roomLeaving = false;
   var _roomConfirmed = false;
+  var _ROOM_LEAVE_RESET_MS = 4000;
 ${JS.slice(start, end)}`;

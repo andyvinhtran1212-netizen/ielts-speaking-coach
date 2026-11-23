@@ -80,6 +80,7 @@
   var _roomLeaveHref = '';
   var _roomLeaving = false;
   var _roomConfirmed = false;
+  var _ROOM_LEAVE_RESET_MS = 4000;
   var _timerId      = null;
   var _elapsedSecs  = 0;
 
@@ -470,6 +471,13 @@
     _roomLeaving = true;
     _releaseRecorderResources();
     if (target) _roomGo(target);
+    // A navigation that never leaves (blocked, failed) must not leave the page
+    // believing nothing is unsent: still here after a while, so guard again.
+    // A real exit destroys the player (soft) or the document, and the timer with it.
+    var generation = _playerGeneration;
+    _startManagedTimeout('room-leave-reset', function () {
+      if (_playerActive && generation === _playerGeneration) _roomLeaving = false;
+    }, _ROOM_LEAVE_RESET_MS);
     return true;
   }
 
@@ -908,11 +916,14 @@
       : null;
   }
 
-  async function _completeSpeakingSession(sessionId) {
+  // `keepRedirect`: callers that cannot show the room's sign-in box (the full
+  // test completes its parts after it has already moved to the result page)
+  // keep the old 401 → /login bounce.
+  async function _completeSpeakingSession(sessionId, keepRedirect) {
     var nativeSubmission = _getNativeSubmission();
     if (nativeSubmission && typeof nativeSubmission.complete === 'function') {
       // FR-010: in the room a 401 must not bounce to /login and drop the page.
-      if (_examRoomMode) return nativeSubmission.complete(sessionId, { noRedirect: true });
+      if (_examRoomMode && keepRedirect !== true) return nativeSubmission.complete(sessionId, { noRedirect: true });
       return nativeSubmission.complete(sessionId);
     }
     // Existing legacy callers keep their original transport. Next supplies the
@@ -4347,7 +4358,7 @@
     // Complete ALL part sessions best-effort (fire and forget).
     var toComplete = _ftAllSessionIds.length > 0 ? _ftAllSessionIds : [_sessionId];
     toComplete.forEach(function (sid) {
-      _completeSpeakingSession(sid).catch(function (err) {
+      _completeSpeakingSession(sid, true).catch(function (err) {
         // B1: a failed /complete means that part's band never aggregates. Log
         // it (was a no-op catch) and count it so it isn't invisible.
         console.warn('[practice] session complete failed', sid, err);
@@ -5623,6 +5634,7 @@
       return;
     }
     var btn = $('btn-finish');
+    var btnLabel = btn ? btn.textContent : '';
     if (btn) { btn.disabled = true; btn.textContent = 'Đang lưu...'; }
 
     // Clean up timers and TTS
@@ -5653,6 +5665,13 @@
     } catch (err) {
       if (!_playerActive || generation !== _playerGeneration) return;
       console.warn('[practice] session complete failed:', err.message);
+      // FR-010: signed out in the room: stay and ask, instead of a result page
+      // the learner can no longer open.
+      if (_roomExpired(err)) {
+        // Signed in again on another tab, the learner can press it once more.
+        if (btn) { btn.disabled = false; btn.textContent = btnLabel; }
+        return;
+      }
     }
 
     if (!_playerActive || generation !== _playerGeneration || sessionId !== _sessionId) return;
