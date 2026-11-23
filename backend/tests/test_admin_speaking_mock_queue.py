@@ -58,16 +58,30 @@ class _Q:
         assert val == "null"
         return self._add(lambda r: r.get(col) is None)
 
+    def order(self, col):
+        self._order = col
+        return self
+
+    def range(self, start, end):
+        self._range = (start, end)
+        return self
+
     def execute(self):
         self.db.calls.append(self.table)
         if self.table in self.db.fail:
             raise RuntimeError("db down")
-        return _Res([dict(r) for r in self.db.rows.get(self.table, []) if all(p(r) for p in self.preds)])
+        rows = [dict(r) for r in self.db.rows.get(self.table, []) if all(p(r) for p in self.preds)]
+        # Like PostgREST: an unordered, unranged read is still capped.
+        rng = getattr(self, "_range", None)
+        if rng is not None:
+            assert getattr(self, "_order", None), "a paged read needs a stable order"
+            rows = sorted(rows, key=lambda r: str(r[self._order]))[rng[0]:rng[1] + 1]
+        return _Res(rows[: self.db.cap] if self.db.cap else rows)
 
 
 class _DB:
     def __init__(self, **rows):
-        self.rows, self.calls, self.fail = rows, [], set()
+        self.rows, self.calls, self.fail, self.cap = rows, [], set(), None
 
     def table(self, name):
         return _Q(self, name)
@@ -120,8 +134,8 @@ def test_waiting_rule(db):
         _sitting("speaking_pending_lrw_open", "e1", status="lrw_in_progress", done=ago(1)),
     ]
     db.rows["mock_exam_reviews"] += [
-        {"sitting_id": "final", "claimed_by": None, "final_bands": {"speaking": 6.5}},
-        {"sitting_id": "draft_only", "claimed_by": "t9",
+        {"id": "rv1", "sitting_id": "final", "claimed_by": None, "final_bands": {"speaking": 6.5}},
+        {"id": "rv2", "sitting_id": "draft_only", "claimed_by": "t9",
          "final_bands": {"writing": 6}, "ai_draft": {"speaking": {"band": 6}}},
     ]
     items = svc.pending_items(overdue_hours=72, now=NOW)
@@ -162,6 +176,30 @@ def test_hidden_test_users_are_dropped(db):
     db.rows["mock_exam_sittings"] += [_sitting("real", "e1"), _sitting("qa", "e1", user="u3")]
     assert _ids(svc.pending_items(hide_user_ids=frozenset({"u3"}), now=NOW)) == ["real"]
     assert _ids(svc.pending_items(now=NOW)) == ["qa", "real"]
+
+
+def test_server_row_cap_never_drops_a_waiting_sitting(db, monkeypatch):
+    """Review @70cb9295: a capped read dropped sittings past the cap. The server
+    caps every response at 2 rows while the service asks for pages of 3, so a
+    short page is not the end."""
+    db.cap = 2
+    monkeypatch.setattr(svc, "_PAGE", 3)
+    db.rows["mock_exams"] += [_exam(f"e9{i}") for i in range(4)]
+    S = db.rows["mock_exam_sittings"]
+    # One exam with 7 recorded sittings: 6 already have a final band, and the
+    # only one still waiting sorts last by id.
+    S += [_sitting(f"s{i}", "e1", done=ago(30 + i)) for i in range(6)]
+    S += [_sitting("z_waiting", "e1", done=ago(1))]
+    # The last exam by id (past the exams cap) holds a waiting sitting too.
+    S += [_sitting("x_last_exam", "e93", done=ago(2))]
+    db.rows["mock_exam_reviews"] += [
+        {"id": f"r{i}", "sitting_id": f"s{i}", "claimed_by": None, "final_bands": {"speaking": 6}}
+        for i in range(6)]
+    assert _ids(svc.pending_items(now=NOW)) == ["x_last_exam", "z_waiting"]
+    # Filtered to one exam the same rows come back.
+    assert _ids(svc.pending_items(exam_id="e1", now=NOW)) == ["z_waiting"]
+    # Without paging a capped read would have kept only s0, s1: prove the fake caps.
+    assert len(db.table("mock_exam_sittings").select("*").execute().data) == 2
 
 
 def test_practice_speaking_never_read(db):

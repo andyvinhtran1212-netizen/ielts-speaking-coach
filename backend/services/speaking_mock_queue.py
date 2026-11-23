@@ -26,6 +26,10 @@ threshold (G09-T22). When the thresholds cannot be read, ``overdue`` is
 "too short" or "inaudible" yet, and the task says to hide that column rather
 than invent it.
 
+Every read is paged (``_paged``: stable ``id`` order, until an empty page)
+and id lists go in chunks of 200, so a PostgREST row cap can never drop a
+waiting sitting while the API answers as if the list were complete.
+
 The service is synchronous and the router runs it in a worker thread.
 :func:`pending_items` is the one definition of "waiting", so the sidebar count
 and "Việc cần làm" (``speaking_mock_pending``, G09-T06) can read the same
@@ -48,6 +52,10 @@ _SITTING_COLS = (
 )
 _CLOSED = ("void", "released")
 _CHUNK = 200
+# Rows per page. PostgREST caps a response (max-rows), so every read pages
+# with a stable order until a short page: a capped read must never drop a
+# waiting sitting while the API answers as if the list were complete.
+_PAGE = 1000
 
 
 def _parse(ts: object) -> Optional[datetime]:
@@ -65,11 +73,24 @@ def _chunks(ids: list[str]) -> Iterable[list[str]]:
         yield ids[i:i + _CHUNK]
 
 
+def _paged(build) -> list[dict]:
+    """Every row of ``build()`` (a fresh filtered query), ordered by ``id`` and
+    read page by page until an empty page. It does not stop at a short page:
+    the server cap may be below ``_PAGE``, and a short page then still has
+    rows after it. One extra read per query buys never dropping a row."""
+    out: list[dict] = []
+    while True:
+        rows = build().order("id").range(len(out), len(out) + _PAGE - 1).execute().data or []
+        if not rows:
+            return out
+        out.extend(rows)
+
+
 def _rows_by_id(table: str, cols: str, ids: Iterable[str]) -> dict[str, dict]:
     wanted = sorted({str(i) for i in ids if i})
     out: dict[str, dict] = {}
     for part in _chunks(wanted):
-        rows = supabase_admin.table(table).select(cols).in_("id", part).execute().data or []
+        rows = _paged(lambda part=part: supabase_admin.table(table).select(cols).in_("id", part))
         out.update({str(r["id"]): r for r in rows})
     return out
 
@@ -78,36 +99,38 @@ def _exams(exam_id: Optional[str], cohort_ids: Optional[frozenset[str]]) -> dict
     """The exams in the caller's reach. ``cohort_ids`` None means every exam (an
     admin). A teacher sees only exams of their own classes; an exam without a
     class belongs to no teacher."""
-    q = supabase_admin.table("mock_exams").select(_EXAM_COLS)
-    if exam_id:
-        q = q.eq("id", str(exam_id))
-    if cohort_ids is not None:
-        if not cohort_ids:
-            return {}
-        q = q.in_("cohort_id", sorted(cohort_ids))
-    rows = q.execute().data or []
-    return {str(r["id"]): r for r in rows}
+    if cohort_ids is not None and not cohort_ids:
+        return {}
+
+    def build():
+        q = supabase_admin.table("mock_exams").select(_EXAM_COLS)
+        if exam_id:
+            q = q.eq("id", str(exam_id))
+        if cohort_ids is not None:
+            q = q.in_("cohort_id", sorted(cohort_ids))
+        return q
+
+    return {str(r["id"]): r for r in _paged(build)}
 
 
 def _sittings(exam_ids: list[str]) -> list[dict]:
     out: list[dict] = []
     for part in _chunks(exam_ids):
-        out.extend(
+        out.extend(_paged(lambda part=part: (
             supabase_admin.table("mock_exam_sittings").select(_SITTING_COLS)
             .in_("mock_exam_id", part)
             .not_.in_("status", list(_CLOSED))
             .not_.is_("speaking_completed_at", "null")
-            .execute().data or []
-        )
+        )))
     return out
 
 
 def _reviews(sitting_ids: list[str]) -> dict[str, dict]:
     out: dict[str, dict] = {}
     for part in _chunks(sitting_ids):
-        rows = supabase_admin.table("mock_exam_reviews").select(
-            "sitting_id, claimed_by, final_bands",
-        ).in_("sitting_id", part).execute().data or []
+        rows = _paged(lambda part=part: supabase_admin.table("mock_exam_reviews").select(
+            "id, sitting_id, claimed_by, final_bands",
+        ).in_("sitting_id", part))
         out.update({str(r["sitting_id"]): r for r in rows})
     return out
 
@@ -154,9 +177,12 @@ def pending_items(
         return []
 
     cohorts = _rows_by_id("cohorts", "id, name", (e.get("cohort_id") for _, e, _, _ in waiting))
-    names = wf.resolve_display_names(
-        [s.get("user_id") for s, _, _, _ in waiting]
-        + [rv.get("claimed_by") for _, _, _, rv in waiting])
+    # wf.resolve_display_names' rule (display_name, else email, else "—"),
+    # read in pages and id chunks like every other lookup here.
+    users = _rows_by_id("users", "id, display_name, email",
+                        [s.get("user_id") for s, _, _, _ in waiting]
+                        + [rv.get("claimed_by") for _, _, _, rv in waiting])
+    names = {uid: (u.get("display_name") or u.get("email") or "—") for uid, u in users.items()}
 
     items = []
     for s, exam, submitted, rv in waiting:
@@ -166,13 +192,13 @@ def pending_items(
         items.append({
             "sitting_id": str(s["id"]),
             "exam": {"id": str(exam["id"]), "title": exam.get("title") or ""},
-            "name": names.get(s.get("user_id"), "—"),
+            "name": names.get(str(s.get("user_id")), "—"),
             "cohort": {"id": str(cohort["id"]), "name": cohort.get("name") or ""} if cohort else None,
             "submitted_at": submitted.isoformat(),
             "waited_hours": waited,
             "overdue": None if overdue_hours is None else waited >= overdue_hours,
             "flags": [],
-            "claimed_by": {"id": str(claimed), "name": names.get(claimed, "—")} if claimed else None,
+            "claimed_by": {"id": str(claimed), "name": names.get(str(claimed), "—")} if claimed else None,
         })
     items.sort(key=lambda r: (r["submitted_at"], r["sitting_id"]))
     return items
