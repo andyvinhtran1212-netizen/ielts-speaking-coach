@@ -420,7 +420,7 @@ async def create_exam(body: ExamCreate, authorization: str | None = Header(defau
         if extra and isinstance(created, dict) and created.get("id"):
             created = await _assignment_write(created["id"], svc.admin_update_exam,
                                               created["id"], extra, admin["id"])
-        return created
+        return mock_exam_modes.with_both_names(created)
     except svc.DuplicateExamCodeError as e:
         raise HTTPException(409, str(e))
     except ValueError as e:
@@ -439,7 +439,8 @@ async def update_exam(
     if body.status is not None and body.status not in ("draft", "published", "archived"):
         raise HTTPException(400, "status không hợp lệ.")
     try:
-        return await _assignment_write(exam_id, svc.admin_update_exam, exam_id, patch, admin["id"])
+        return mock_exam_modes.with_both_names(await _assignment_write(
+            exam_id, svc.admin_update_exam, exam_id, patch, admin["id"]))
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
     except ValueError as e:
@@ -453,7 +454,8 @@ async def set_open(
     """Live toggle — open the exam so students can start, or close it."""
     admin = await require_admin(authorization)
     try:
-        return await asyncio.to_thread(svc.set_open, exam_id, body.is_open, admin["id"])
+        return mock_exam_modes.with_both_names(
+            await asyncio.to_thread(svc.set_open, exam_id, body.is_open, admin["id"]))
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
     except svc.SittingConflictError as e:
