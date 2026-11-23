@@ -67,7 +67,7 @@
 }
 .chapterHead button > span:first-child, .faq button > span:first-child { flex: 1; }
 .chapterHead button:focus-visible, .faq button:focus-visible {
-  outline: var(--av2-rule-strong-w) solid var(--av2-focus);
+  outline: var(--av2-focus);
   outline-offset: var(--av2-focus-offset);
 }
 
