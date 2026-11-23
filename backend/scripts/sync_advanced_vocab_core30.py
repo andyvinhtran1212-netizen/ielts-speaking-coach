@@ -202,51 +202,121 @@ def _render_rewrite_table(lessons: list[dict]) -> str:
     )
 
 
+def _released_inventory(lesson: dict) -> dict[Path, str]:
+    """Relative path → SHA-256 of every media file a released lesson links.
+
+    Built only from the released lesson snapshot (the same fields
+    ``advanced_vocab_service`` turns into URLs), never from the files on disk,
+    so a version directory with one file missing and another extra cannot
+    pass by keeping the same file count.
+    """
+    lesson_id = str(lesson.get("lesson_id") or "?")
+    rows: list[tuple[str, str | None]] = []
+    for word in lesson.get("vocabulary") or []:
+        provenance = word.get("audio_provenance") or {}
+        for field, checksum_field in (("audio_headword", "headword_checksum"),
+                                      ("audio_example", "example_checksum")):
+            rows.append((f"vocab/{Path(str(word.get(field) or '')).name}",
+                         provenance.get(checksum_field)))
+    listening = [
+        row for row in (lesson.get("media") or {}).get("audio") or []
+        if isinstance(row, dict) and row.get("role") == "listening_full_test"
+    ]
+    if len(listening) != 1:
+        raise SystemExit(f"{lesson_id}: snapshot cần đúng một media row listening_full_test.")
+    rows.append(("listening/full_test.mp3", listening[0].get("checksum")))
+    listening_content = next(
+        (row.get("content") or {} for row in lesson.get("activities") or []
+         if isinstance(row, dict) and row.get("activity_type") == "listening_lab"),
+        {},
+    )
+    for section in listening_content.get("sections") or []:
+        figure = str(section.get("figure") or "")
+        if figure:
+            rows.append((f"listening/{Path(figure).name}", section.get("figure_checksum")))
+    for ref in (lesson.get("media") or {}).get("wt1_illustrations") or []:
+        rows.append((f"writing/{Path(str(ref)).name}",
+                     _writing_asset_checksum(lesson, str(ref))))
+    inventory: dict[Path, str] = {}
+    for rel, checksum in rows:
+        checksum = str(checksum or "").lower()
+        if rel.endswith("/") or not re.fullmatch(r"[0-9a-f]{64}", checksum):
+            raise SystemExit(f"{lesson_id}: snapshot thiếu đường dẫn hoặc SHA-256 cho {rel}.")
+        # Content-addressed audio may be shared by two words; one path, one hash.
+        if inventory.get(Path(rel), checksum) != checksum:
+            raise SystemExit(f"{lesson_id}: snapshot ghi hai SHA-256 khác nhau cho {rel}.")
+        inventory[Path(rel)] = checksum
+    return inventory
+
+
 def restore_legacy(*, write: bool) -> dict:
     """Rebuild each legacy ``/<lesson>/`` tree from its current version directory.
 
     MEDIAOUT-0078 FR-005: the source of truth is
     ``versions/<lesson>/<content_checksum in core30-manifest.json>/``, copied
-    byte for byte and checked with SHA-256, so the restore never depends on an
-    older legacy tree from Git history. Dry-run is the default.
+    byte for byte. Before anything is written, every lesson's version
+    directory must hold exactly the path set of the released snapshot
+    ``content/versions/<lesson>/<checksum>.json`` (whose own checksum is
+    re-computed) with the SHA-256 recorded there, so a missing file cannot be
+    hidden by an extra one. Dry-run is the default.
     """
     manifest = _read(_CONTENT / "core30-manifest.json")
     lessons = manifest.get("lessons") or []
     lesson_ids = tuple(str(row.get("lesson_id") or "") for row in lessons)
     if lesson_ids != _EXPECTED_IDS:
         raise SystemExit("core30-manifest phải chứa đúng ADV-T01…ADV-T30 theo thứ tự.")
-    plan: list[tuple[str, Path, Path]] = []
+    plan: list[tuple[Path, Path, str]] = []
     for row in lessons:
         lesson_id = str(row["lesson_id"])
         checksum = str(row.get("content_checksum") or "")
-        version_root = _PUBLIC / "versions" / lesson_id / checksum
-        sources = sorted(path for path in version_root.rglob("*") if path.is_file())
-        if not re.fullmatch(r"[0-9a-f]{64}", checksum) or not sources:
-            raise SystemExit(f"{lesson_id}: thiếu thư mục phiên bản hiện hành {version_root}")
-        if len(sources) != int(row.get("asset_count") or 0):
+        if not re.fullmatch(r"[0-9a-f]{64}", checksum):
+            raise SystemExit(f"{lesson_id}: content_checksum không hợp lệ trong core30-manifest.")
+        snapshot_path = _CONTENT / "versions" / lesson_id / f"{checksum}.json"
+        if not snapshot_path.is_file():
+            raise SystemExit(f"{lesson_id}: thiếu snapshot đã phát hành {snapshot_path}")
+        snapshot = _read(snapshot_path)
+        if (snapshot.get("lesson_id") != lesson_id
+                or lesson_content_checksum(snapshot) != checksum):
+            raise SystemExit(f"{lesson_id}: snapshot {snapshot_path.name} không khớp content_checksum.")
+        inventory = _released_inventory(snapshot)
+        if len(inventory) != int(row.get("asset_count") or 0):
             raise SystemExit(
-                f"{lesson_id}: thư mục phiên bản có {len(sources)} file, "
+                f"{lesson_id}: snapshot liệt kê {len(inventory)} file, "
                 f"manifest ghi asset_count={row.get('asset_count')}."
             )
+        version_root = _PUBLIC / "versions" / lesson_id / checksum
+        on_disk = {
+            path.relative_to(version_root)
+            for path in version_root.rglob("*") if path.is_file()
+        } if version_root.is_dir() else set()
+        missing = sorted(str(rel) for rel in inventory.keys() - on_disk)
+        unexpected = sorted(str(rel) for rel in on_disk - inventory.keys())
+        if missing or unexpected:
+            raise SystemExit(
+                f"{lesson_id}: thư mục phiên bản {version_root} lệch inventory "
+                f"đã phát hành: thiếu {missing}, thừa {unexpected}."
+            )
+        wrong = sorted(str(rel) for rel, digest in inventory.items()
+                       if _sha256(version_root / rel) != digest)
+        if wrong:
+            raise SystemExit(f"{lesson_id}: SHA-256 khác inventory đã phát hành: {wrong}")
         legacy_root = _PUBLIC / lesson_id
-        expected = {path.relative_to(version_root) for path in sources}
         extra = sorted(
             str(path.relative_to(legacy_root))
             for path in legacy_root.rglob("*")
-            if path.is_file() and path.relative_to(legacy_root) not in expected
+            if path.is_file() and path.relative_to(legacy_root) not in inventory
         ) if legacy_root.is_dir() else []
         if extra:
             raise SystemExit(f"{lesson_id}: cây legacy có file thừa: {extra}")
-        for source_asset in sources:
-            plan.append((lesson_id, source_asset,
-                         legacy_root / source_asset.relative_to(version_root)))
+        for rel, digest in sorted(inventory.items()):
+            plan.append((version_root / rel, legacy_root / rel, digest))
     changed = 0
-    for _lesson_id, source_asset, target in plan:
-        if not target.is_file() or _sha256(target) != _sha256(source_asset):
-            changed += 1
-            if not write:
-                continue
-        _copy(source_asset, target, write=write)
+    for source_asset, target, digest in plan:
+        if target.is_file() and _sha256(target) == digest:
+            continue
+        changed += 1
+        if write:
+            _copy(source_asset, target, write=True, checksum=digest)
     print(
         f"OK: {len(lesson_ids)} lesson, {len(plan)} file legacy, "
         f"{changed} file {'đã dựng lại' if write else 'cần dựng lại'}."

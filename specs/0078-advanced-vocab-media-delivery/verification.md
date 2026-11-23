@@ -44,9 +44,18 @@ when reviewing the PR.
 - FR-004 (D) / FR-005: `sync_advanced_vocab_core30.py --write` still writes the
   legacy tree and now rewrites `advanced-vocab-legacy-table.mjs` from the
   manifest it writes. `--restore-legacy` (dry-run default, `--write` to copy)
-  rebuilds `/<lesson>/` from `versions/<lesson>/<current checksum>/`, checks
-  SHA-256, refuses extra legacy files and a version directory whose file count
-  differs from `asset_count`; on the repo it reports 1,524 files, 0 to rebuild.
+  rebuilds `/<lesson>/` from `versions/<lesson>/<current checksum>/`. Before
+  any write it re-computes the checksum of the released snapshot
+  `backend/content/advanced_vocab/versions/<lesson>/<checksum>.json`, builds
+  the path → SHA-256 inventory from it (vocab audio, listening audio and
+  figures, Writing illustrations: the fields the service turns into URLs) and
+  requires the version directory to hold exactly that path set with those
+  hashes; it also refuses extra legacy files. CR R1 fix (Andy's HOLD): one
+  missing plus one extra file with the same count is now refused with the
+  missing and extra paths named, and nothing is written. On the repo all 30
+  inventories equal their version directories (1,524 files, 0 to rebuild);
+  with `ADV-T07/` removed, dry-run reports 51 to rebuild, `--write` rebuilds
+  them and `git status` is clean.
   The "already deployed" check now reads the manifests instead of
   `_PUBLIC.rglob`. Tests in `backend/tests/test_advanced_vocab_package_validator.py`.
 - FR-008: `content-security-policy.mjs` unchanged.
