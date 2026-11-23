@@ -197,6 +197,28 @@ describe('Khoá và quyền (G09-T11b)', () => {
       expect(api.delete).toHaveBeenCalledWith(`/admin/cohorts/${C2}/students/${SID2}`);
     });
 
+    it('while B is still loading, nothing of A is on screen and no action can start', async () => {
+      let answerB: (v: unknown) => void = () => undefined;
+      api.getWith.mockImplementation((path: string) => (String(path).includes(UID2)
+        ? new Promise((resolve) => { answerB = resolve; })
+        : Promise.resolve(detail())));
+      const { rerender } = render(<AdminLearnerProfile learnerRef={U} />);
+      await screen.findByText('Vùng nguy hiểm');
+      rerender(<AdminLearnerProfile learnerRef={U2} />);
+      expect(screen.getByText('Đang tải…')).toBeTruthy();
+      expect(screen.queryByText(/Nguyễn Minh Anh/)).toBeNull();
+      expect(screen.queryByRole('combobox', { name: /Vai trò mới/ })).toBeNull();
+      expect(screen.queryByRole('button', { name: /^Đổi vai trò$|^Gỡ khỏi / })).toBeNull();
+      expect(api.patch).not.toHaveBeenCalled();
+      expect(api.delete).not.toHaveBeenCalled();
+      answerB(detailB());
+      await screen.findByText(/Trần Bảo Ngọc/, { selector: '.lp-crumb' });
+      fireEvent.click(screen.getByRole('button', { name: 'Gỡ khỏi Tue–Thu 19:30' }));
+      fireEvent.click(within(dialog()).getByRole('button', { name: 'Gỡ khỏi lớp' }));
+      await screen.findByText('Đã gỡ Trần Bảo Ngọc khỏi lớp Tue–Thu 19:30.');
+      expect(api.delete).toHaveBeenCalledWith(`/admin/cohorts/${C2}/students/${SID2}`);
+    });
+
     it('an answer that arrives after the switch shows nothing on B and does not reload A over B', async () => {
       let answer: (v: unknown) => void = () => undefined;
       api.patch.mockImplementation(() => new Promise((resolve) => { answer = resolve; }));
