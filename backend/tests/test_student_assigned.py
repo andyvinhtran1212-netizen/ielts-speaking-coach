@@ -63,6 +63,8 @@ def _writing(item_id, *, due=None, submitted=None, status="pending", review_stat
 def _get(monkeypatch, rows, *, has_class=True, stale=False):
     # No paper is open to self-practice unless a test says so (T30b has its own tests).
     monkeypatch.setattr(sa, "_self_practice_open_ids", lambda *_a, **_k: set())
+    # No class row is tied to a session unless a test says so (T30c has its own tests).
+    monkeypatch.setattr(sa, "_lesson_links", lambda *_a, **_k: ({}, True))
     monkeypatch.setattr(st, "_visible_assignments_for",
                         lambda *_a: (has_class, rows, stale))
     return sa.get_assigned("u-1", "A", NOW)
@@ -363,6 +365,7 @@ def test_unreconciled_reading_hand_in_lands_in_a_submitted_group():
         return 0
 
     with patch.object(class_student, "supabase_admin", db), \
+         patch("database.supabase_admin", db), \
          patch.object(class_student, "_student_for_user", return_value={"id": "s1", "cohort_id": "c1"}), \
          patch("services.class_membership_service.active_cohort_ids_for_student", return_value=["c1"]), \
          patch.object(class_student, "reconcile_test_attempts", reconcile_tests), \
@@ -375,7 +378,9 @@ def test_unreconciled_reading_hand_in_lands_in_a_submitted_group():
     assert item["item_id"] == "item-r"
     assert item["group"] == "returned"
     assert item["action"] == "result"
+    assert item["lesson_id"] is None
     assert out["homework_stale"] is False
+    assert out["degraded"] == []
 
 
 # ── route ─────────────────────────────────────────────────────────────────────
@@ -400,6 +405,7 @@ def api(monkeypatch):
 
 
 def test_route_matches_response_model(monkeypatch, api):
+    monkeypatch.setattr(sa, "_lesson_links", lambda *_a, **_k: ({"a-x": "lesson-1"}, True))
     monkeypatch.setattr(st, "_visible_assignments_for", lambda *_a: (
         True, [_row("x", "listening", due=NOW + timedelta(days=365))], False))
     res = api.get("/api/student/assigned", headers={"Authorization": "Bearer x"})
@@ -410,6 +416,7 @@ def test_route_matches_response_model(monkeypatch, api):
     item = body["items"][0]
     assert item["group"] == "todo" and item["action"] == "start"
     assert item["assignment"]["title"] == "Bài x", "the base element survives the model"
+    assert item["lesson_id"] == "lesson-1"
 
 
 def test_route_requires_sign_in():
@@ -418,3 +425,92 @@ def test_route_requires_sign_in():
 
     res = TestClient(main.app, raise_server_exceptions=False).get("/api/student/assigned")
     assert res.status_code == 401
+
+
+# ── amendment 6 (T30c, FR-123): lesson_id from class_assignments.lesson_id ────
+
+
+class _LinkDB(_DB):
+    """Records every read of class_assignments with its filters."""
+
+    def __init__(self, tables, fail=False):
+        super().__init__(tables)
+        self.fail, self.link_reads = fail, []
+
+    def table(self, name):
+        q = _Q(self, name)
+        if name == "class_assignments":
+            db, base_in, base_exec = self, q.in_, q.execute
+
+            def in_(f, vs):
+                db.link_reads.append((f, sorted(str(v) for v in vs)))
+                return base_in(f, vs)
+
+            def execute():
+                if db.fail:
+                    raise RuntimeError("links down")
+                return base_exec()
+
+            q.in_, q.execute = in_, execute
+        return q
+
+
+def _linked(monkeypatch, rows, db):
+    monkeypatch.setattr(sa, "_self_practice_open_ids", lambda *_a, **_k: set())
+    monkeypatch.setattr(st, "_visible_assignments_for", lambda *_a: (True, rows, False))
+    with patch("database.supabase_admin", db):
+        return sa.get_assigned("u-1", "A", NOW)
+
+
+def _grammar_row():
+    row = _row("g", "grammar", due=NOW + timedelta(days=1))
+    row["assignment"]["content_config"] = {"assignment_type": "grammar_lesson",
+                                           "lesson_id": "M30-B02"}
+    return row
+
+
+def test_lesson_id_comes_from_the_class_assignments_column(monkeypatch):
+    rows = [_row("s", "speaking", due=NOW + timedelta(days=1)), _grammar_row(),
+            _row("w", "writing", due=NOW + timedelta(days=1), state="pending")]
+    db = _LinkDB({"class_assignments": [
+        {"id": "a-s", "cohort_id": "c1", "lesson_id": "lesson-3"},
+        {"id": "a-g", "cohort_id": "c1", "lesson_id": None},
+        {"id": "a-w", "cohort_id": "c1", "lesson_id": "lesson-9"},
+    ]})
+    out = _linked(monkeypatch, rows, db)
+    items = _by_id(out)
+    assert items["s"]["lesson_id"] == "lesson-3"
+    assert items["g"]["lesson_id"] is None, "never content_config.lesson_id (a grammar lesson code)"
+    assert items["w"]["lesson_id"] is None, "Writing gives have no session column"
+    assert out["degraded"] == []
+    assert db.writes == []
+    # One read, for the non-Writing rows of the caller's classes only.
+    assert db.link_reads == [("id", ["a-g", "a-s"]), ("cohort_id", ["c1"])]
+
+
+def test_a_row_of_another_class_is_never_linked(monkeypatch):
+    db = _LinkDB({"class_assignments": [{"id": "a-s", "cohort_id": "c-other", "lesson_id": "x"}]})
+    out = _linked(monkeypatch, [_row("s", due=NOW + timedelta(days=1))], db)
+    assert out["items"][0]["lesson_id"] is None
+
+
+def test_failed_link_read_nulls_lesson_id_and_flags_lesson_links(monkeypatch):
+    rows = [_row("s", "speaking", due=NOW + timedelta(days=1))]
+    healthy = _linked(monkeypatch, [dict(rows[0])], _LinkDB({"class_assignments": [
+        {"id": "a-s", "cohort_id": "c1", "lesson_id": "lesson-3"}]}))
+    db = _LinkDB({"class_assignments": [
+        {"id": "a-s", "cohort_id": "c1", "lesson_id": "lesson-3"}]}, fail=True)
+    out = _linked(monkeypatch, rows, db)
+    assert out["degraded"] == ["lesson_links"]
+    item = out["items"][0]
+    assert item["lesson_id"] is None
+    assert {k: v for k, v in item.items() if k != "lesson_id"} == \
+        {k: v for k, v in healthy["items"][0].items() if k != "lesson_id"}
+    assert db.writes == []
+
+
+def test_writing_only_list_reads_no_links(monkeypatch):
+    db = _LinkDB({"class_assignments": []})
+    out = _linked(monkeypatch, [_row("w", "writing", state="pending")], db)
+    assert db.link_reads == []
+    assert out["items"][0]["lesson_id"] is None
