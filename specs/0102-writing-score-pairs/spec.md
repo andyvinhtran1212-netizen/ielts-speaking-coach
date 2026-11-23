@@ -125,14 +125,18 @@ giáo viên chốt tại thời điểm trả bài. Đã kiểm trên `staging` 
   hai ngoại lệ, mỗi ngoại lệ gắn với đúng dòng cha đang bị xoá, không với một cờ chung
   của giao dịch:
   - DELETE một dòng (ở bảng nào trong hai bảng) chỉ đi qua khi dòng cha của chính nó
-    không còn: `NOT EXISTS (SELECT 1 FROM writing_essays WHERE id = OLD.essay_id)`. Hành
+    không còn: `NOT EXISTS (SELECT 1 FROM public.writing_essays WHERE id = OLD.essay_id)`. Hành
     động `ON DELETE CASCADE` chạy sau khi dòng bài đã bị xoá trong giao dịch, nên điều
     kiện này đúng khi và chỉ khi bài của dòng đó đang bị xoá cứng. Dòng mà bài còn tồn
     tại không xoá được bằng bất kỳ đường nào.
   - UPDATE ẩn danh người trả của FR-011.
   `pg_trigger_depth() > 1` chỉ được giữ như một điều kiện AND phòng thủ, không bao giờ
   đủ một mình; nếu test PG17 cho thấy nó không đúng trong hành động FK thì bỏ điều kiện
-  này, kiểm dòng cha vẫn giữ. Không dùng biến phiên hay cờ giao dịch làm quyền. Thu hồi rồi trả lại thêm dòng mới, dòng cũ giữ nguyên. Bản
+  này, kiểm dòng cha vẫn giữ. Không dùng biến phiên hay cờ giao dịch làm quyền.
+  Hàm trigger là `SECURITY DEFINER` với `SET search_path = pg_catalog, public, pg_temp`,
+  không cấp `EXECUTE` cho `PUBLIC`, và gọi bảng kèm schema (`public.writing_essays`,
+  `public.users`), để kiểm dòng cha không phụ thuộc quyền hay `search_path` của vai trò
+  gây ra lệnh xoá. Thu hồi rồi trả lại thêm dòng mới, dòng cũ giữ nguyên. Bản
   "mới nhất mỗi bài" là view `writing_score_pairs_latest`. Một lần trả chỉ có một
   dòng: `delivery_key` UNIQUE, gọi lại giống hệt trả `duplicate`.
 - **FR-004:** Ghi cặp điểm không bao giờ làm hỏng hay đổi kết quả việc trả bài.
@@ -176,7 +180,7 @@ giáo viên chốt tại thời điểm trả bài. Đã kiểm trên `staging` 
 - **FR-011:** Xoá tài khoản người trả không bị chặn và không đổi điểm. `reviewer_id`
   có FK `users(id) ON DELETE SET NULL`. Trigger chỉ-ghi-thêm cho một UPDATE đi qua khi
   đủ các điều kiện: `OLD.reviewer_id` khác NULL và `NEW.reviewer_id` là NULL; người trả
-  đó không còn: `NOT EXISTS (SELECT 1 FROM users WHERE id = OLD.reviewer_id)` (đúng khi
+  đó không còn: `NOT EXISTS (SELECT 1 FROM public.users WHERE id = OLD.reviewer_id)` (đúng khi
   và chỉ khi chính tài khoản đó đang bị xoá trong giao dịch); mọi cột khác của `NEW`
   giống hệt `OLD` (so cả dòng sau khi đặt `reviewer_id` của `OLD` về NULL); và điều kiện
   phòng thủ `pg_trigger_depth() > 1` như FR-003. `reviewer_role` và

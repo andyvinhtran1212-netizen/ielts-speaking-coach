@@ -89,13 +89,18 @@ lại không nhân đôi; dòng NULL ghi `source='legacy'`, `legacy=true`).
 
 Index `(essay_id, delivered_at DESC)`, `(delivered_at)`, `(cohort_id, delivered_at)`.
 Trigger BEFORE UPDATE OR DELETE (row) và BEFORE TRUNCATE (statement) trên cả hai
-bảng gọi một hàm chung ném `<TG_TABLE_NAME>_append_only` (mẫu
-`fn_course_commerce_append_only` của mig 383). Ngoại lệ, mỗi cái gắn với dòng cha của
+bảng gọi một hàm chung `public.fn_writing_score_pairs_append_only()` ném
+`<TG_TABLE_NAME>_append_only` (mẫu `fn_course_commerce_append_only` của mig 383). Hàm là
+`SECURITY DEFINER`, `SET search_path = pg_catalog, public, pg_temp`, chủ sở hữu là vai
+trò chạy migration, `REVOKE EXECUTE ... FROM PUBLIC`; mọi bảng trong thân hàm gọi kèm
+schema `public.` (mẫu mig 363). Lý do: kiểm dòng cha phải thấy được `public.users` và
+`public.writing_essays` dù vai trò gây ra hành động FK không có quyền SELECT, và một
+`search_path` của phiên không được trỏ tên bảng sang bảng giả. Ngoại lệ, mỗi cái gắn với dòng cha của
 chính dòng đang bị đụng (FR-003, FR-011, FR-012):
-- DELETE: `NOT EXISTS (SELECT 1 FROM writing_essays WHERE id = OLD.essay_id)`
+- DELETE: `NOT EXISTS (SELECT 1 FROM public.writing_essays WHERE id = OLD.essay_id)`
   `AND pg_trigger_depth() > 1`.
 - UPDATE trên `writing_score_pairs`: `OLD.reviewer_id IS NOT NULL AND NEW.reviewer_id IS
-  NULL AND NOT EXISTS (SELECT 1 FROM users WHERE id = OLD.reviewer_id)` và `NEW IS NOT
+  NULL AND NOT EXISTS (SELECT 1 FROM public.users WHERE id = OLD.reviewer_id)` và `NEW IS NOT
   DISTINCT FROM` bản `OLD` đã đặt `reviewer_id := NULL`, `AND pg_trigger_depth() > 1`.
 - Điều kiện `pg_trigger_depth()` chỉ phòng thủ; test PG17 bác thì bỏ, kiểm dòng cha giữ.
   Không dùng biến phiên. View
