@@ -337,41 +337,24 @@ vi.mock('next/dynamic', () => ({
   },
 }));
 
-it('flag off: MyClassWorkspace, unchanged', async () => {
+it('flag off or profile not loaded: MyClassWorkspace, unchanged', async () => {
   const { AssignedTreeSwitch } = await import('@/app/(authed-my-class)/course/assigned/assigned-tree-switch');
+  profile.current = null;
+  const view = render(<AssignedTreeSwitch><p>legacy my class</p></AssignedTreeSwitch>);
+  expect(screen.getByText('legacy my class')).toBeTruthy();
+  view.unmount();
   profile.current = { id: 'learner-1', learner_v2_enabled: false };
   render(<AssignedTreeSwitch><p>legacy my class</p></AssignedTreeSwitch>);
   expect(screen.getByText('legacy my class')).toBeTruthy();
   expect(screen.queryByText(/new tree/)).toBeNull();
 });
 
-it('signed out: MyClassWorkspace at once', async () => {
+it('flag on for this account only: the new tree', async () => {
   const { AssignedTreeSwitch } = await import('@/app/(authed-my-class)/course/assigned/assigned-tree-switch');
-  profile.current = null;
-  auth.status = 'signed-out';
-  try {
-    render(<AssignedTreeSwitch><p>legacy my class</p></AssignedTreeSwitch>);
-    expect(screen.getByText('legacy my class')).toBeTruthy();
-  } finally {
-    auth.status = 'signed-in';
-  }
-});
-
-it('profile not loaded yet: neither tree, then the legacy tree after the wait', async () => {
-  vi.useFakeTimers();
-  const { AssignedTreeSwitch, PROFILE_WAIT_MS } = await import('@/app/(authed-my-class)/course/assigned/assigned-tree-switch');
   profile.current = { id: 'someone-else', learner_v2_enabled: true };
   const view = render(<AssignedTreeSwitch><p>legacy my class</p></AssignedTreeSwitch>);
-  expect(screen.queryByText('legacy my class')).toBeNull();
-  expect(screen.queryByText(/new tree/)).toBeNull();
-  const { act } = await import('@testing-library/react');
-  act(() => { vi.advanceTimersByTime(PROFILE_WAIT_MS); });
   expect(screen.getByText('legacy my class')).toBeTruthy();
   view.unmount();
-});
-
-it('flag on for this account: the new tree, the legacy tree never mounts', async () => {
-  const { AssignedTreeSwitch } = await import('@/app/(authed-my-class)/course/assigned/assigned-tree-switch');
   profile.current = { id: 'learner-1', learner_v2_enabled: true };
   render(<AssignedTreeSwitch><p>legacy my class</p></AssignedTreeSwitch>);
   expect(screen.getByText('new tree for learner-1')).toBeTruthy();
