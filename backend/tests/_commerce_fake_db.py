@@ -5,6 +5,7 @@ modules make are supported; an unknown call fails loudly."""
 from __future__ import annotations
 
 import copy
+import re
 from datetime import datetime
 
 
@@ -76,7 +77,19 @@ class _Query:
         return self
 
     def ilike(self, column, value):
-        self._filters.append(lambda r: str(r.get(column) or "").lower() == str(value).lower())
+        # PostgreSQL ILIKE: % and _ are wildcards, a backslash escapes the next character.
+        out, chars = [], iter(str(value))
+        for ch in chars:
+            if ch == "\\":
+                out.append(re.escape(next(chars, "")))
+            elif ch == "%":
+                out.append(".*")
+            elif ch == "_":
+                out.append(".")
+            else:
+                out.append(re.escape(ch))
+        pattern = re.compile("".join(out), re.IGNORECASE | re.DOTALL)
+        self._filters.append(lambda r: pattern.fullmatch(str(r.get(column) or "")) is not None)
         return self
 
     @property

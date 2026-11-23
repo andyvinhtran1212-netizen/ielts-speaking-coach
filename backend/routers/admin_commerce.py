@@ -78,8 +78,15 @@ def _users(user_ids) -> dict[str, dict]:
             for r in (res.data or [])}
 
 
+def _like_literal(text: str) -> str:
+    """An ILIKE pattern that matches ``text`` exactly (case-insensitive):
+    ``\\``, ``%`` and ``_`` are escaped, so "a_b@x" never matches "axb@x"
+    and "%@gmail.com" is not a wildcard listing."""
+    return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 def _user_ids_by_email(q: str) -> list[str]:
-    res = supabase_admin.table("users").select("id").ilike("email", q).limit(20).execute()
+    res = supabase_admin.table("users").select("id").ilike("email", _like_literal(q)).limit(20).execute()
     return [str(r["id"]) for r in (res.data or [])]
 
 

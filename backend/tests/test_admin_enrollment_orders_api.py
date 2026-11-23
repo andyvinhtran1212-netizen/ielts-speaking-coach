@@ -122,6 +122,16 @@ def test_list_with_user_and_search_by_code_without_the_dash(client, world):
                       headers=AUTH).json()["items"] == []
 
 
+def test_email_search_treats_like_wildcards_as_text(client, world):
+    # % and _ in the admin's search box are characters, not ILIKE wildcards.
+    for q in ("%@example.com", "minhanh@example.co_", "m_nhanh@example.com", "%"):
+        found = client.get("/admin/enrollment-orders", params={"q": q}, headers=AUTH).json()["items"]
+        assert found == [], q
+    world["db"].tables["users"].append({"id": "u2", "email": "a_b@example.com", "display_name": None})
+    assert admin_commerce._user_ids_by_email("A_B@example.com") == ["u2"]
+    assert admin_commerce._like_literal("50%_off\\x") == "50\\%\\_off\\\\x"
+
+
 def test_late_filter_and_counts(client, world):
     world["order"].update(status="expired", late_transfer_reported_at=NOW.isoformat())
     world["db"].tables["enrollment_orders"].append({**_order("AVER-BBBBBB", status="expired"),
