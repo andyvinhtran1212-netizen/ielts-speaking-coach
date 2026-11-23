@@ -4,7 +4,7 @@
 One function per source. Each reads only the action code and the before /
 after values it names, never free text a person typed (a reason, an e-mail
 that did not match, a note): the log says what happened, not what was
-written. An action this module does not know reads "Thao tác khác", never a
+written. An access code appears only masked (:func:`masked`), never whole. An action this module does not know reads "Thao tác khác", never a
 raw code.
 """
 
@@ -27,8 +27,19 @@ def _role(value: Any) -> str:
     return _ROLE.get(str(value or ""), "vai trò khác")
 
 
+def masked(code: Optional[str]) -> Optional[str]:
+    """An access code is a bearer credential: the log names it only by a
+    masked tail (``…AB12``), enough to find it on the code page, never the
+    whole value. A 12-symbol code keeps 4 symbols, a legacy 8-symbol code 2,
+    a shorter one none."""
+    symbols = "".join(ch for ch in str(code or "") if ch.isalnum())
+    keep = 4 if len(symbols) >= 12 else 2 if len(symbols) >= 8 else 0
+    return f"…{symbols[-keep:]}" if keep else None
+
+
 def _code(code: Optional[str]) -> str:
-    return f"mã {code}" if code else "một mã"
+    label = masked(code)
+    return f"mã {label}" if label else "một mã"
 
 
 def _band(value: Any) -> Optional[str]:
@@ -56,10 +67,11 @@ def access_code(action: str, *, code: Optional[str], before: Optional[dict], aft
     if action == "remove_user":
         return f"Gỡ khỏi {_code(code)}"
     if action == "reassign":
-        return f"Nhận {_code(code)} chuyển từ người khác" if received else (f"Mã {code} được chuyển sang người khác" if code else "Một mã được chuyển sang người khác")
+        return f"Nhận {_code(code)} chuyển từ người khác" if received else f"{_code(code)[0].upper()}{_code(code)[1:]} được chuyển sang người khác"
     if action == "refill":
-        new = after.get("new_code")
-        return f"Cấp lại {_code(code)}: mã mới {new}" if new else f"Cấp lại {_code(code)}"
+        # The new code itself (after.new_code) is never shown: it may not be
+        # used yet, and its own "Được cấp" line names it masked.
+        return f"Cấp lại {_code(code)}, thay bằng mã mới"
     if action == "revoke":
         return f"Thu hồi {_code(code)}"
     if action == "hard_delete":

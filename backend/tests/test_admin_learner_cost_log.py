@@ -175,19 +175,20 @@ def test_the_log_merges_every_source_newest_first_in_plain_vietnamese(db):
     out = _log(f"u-{U_LAN}")
     lines = [(i["source"], i["text"], i["actor_name"]) for i in out["items"]]
     assert lines == [
-        ("access_code", "Mã AVER-LAN1 được chuyển sang người khác", "Quản trị"),
+        ("access_code", "Mã …N1 được chuyển sang người khác", "Quản trị"),
         ("goal", "Thống nhất mục tiêu theo giá trị học viên khai: band 7.5, ngày thi 10/01/2027", "Quản trị"),
         ("class", "Trả lại bài “Buổi 8 · Writing Task 2” để làm lại", "Cô Hà"),
         ("security", "Đăng xuất khỏi mọi thiết bị", "Quản trị"),
         ("role", "Đổi vai trò: Học viên → Giáo viên", "Quản trị"),
         ("access_code", "Thao tác khác", "Quản trị"),
-        ("access_code", "Kích hoạt mã AVER-LAN1 bị từ chối: email không khớp", "lan@example.test"),
-        ("access_code", "Được cấp mã AVER-LAN1", "Quản trị"),
+        ("access_code", "Kích hoạt mã …N1 bị từ chối: email không khớp", "lan@example.test"),
+        ("access_code", "Được cấp mã …N1", "Quản trị"),
     ]
     assert out["sources_failed"] == [] and out["next_cursor"] is None
     body = json.dumps(out, ensure_ascii=False)
     # Typed text never travels: no reason, no other e-mail, no care note.
-    for secret in ("lý do riêng tư", "someone-else@example.test", "ghi chú chăm sóc riêng", "Bài của bạn khác"):
+    for secret in ("lý do riêng tư", "someone-else@example.test", "ghi chú chăm sóc riêng", "Bài của bạn khác",
+                   "AVER-LAN1"):
         assert secret not in body
 
 
@@ -265,8 +266,8 @@ def test_a_code_level_edit_reaches_the_learner_only_while_they_held_the_code(db)
     ]
     out = _log(f"u-{U_LAN}", kind="access_code")
     assert [(i["id"], i["text"]) for i in out["items"]] == [
-        ("e2", "Sửa mã AVER-LAN1: quyền, hạn dùng"),
-        ("e4", "Sửa mã AVER-OLD2: số lượt"),
+        ("e2", "Sửa mã …N1: quyền, hạn dùng"),
+        ("e4", "Sửa mã …D2: số lượt"),
     ]
     assert _log(f"u-{U_MINH}", kind="access_code")["items"] == []
 
@@ -298,3 +299,41 @@ def test_an_offline_learner_has_class_lines_and_no_account_lines(db):
     # Đức has items of a2 and a3; none of the seeded rows is a deadline change.
     assert [(i["source"], i["text"]) for i in out["items"]] == [
         ("class", "Trả lại bài “Bài của bạn khác” để làm lại")]
+
+
+def test_access_codes_are_named_only_masked_never_whole(db):
+    # A 12-symbol code (the current format) and a refill that moved the learner
+    # onto a new, unused code. Neither code may appear whole anywhere in the
+    # answer: not from access_codes, not from the audit row's before/after.
+    old, new = "QWER-TYUP-AB12", "ZXCV-BNMK-CD34"
+    db.rows["access_codes"] += [{"id": "k3", "code": old, "used_by": U_LAN}, {"id": "k4", "code": new, "used_by": None}]
+    row = lambda i, action, code, days, **kw: {"id": i, "actor_user_id": U_ADMIN, "action": action, "code_id": code,
+                                              "target_user_id": U_LAN, "before": kw.get("before"),
+                                              "after": kw.get("after"), "created_at": _ago(days=days)}
+    db.rows["access_code_audit"] = [
+        row("r1", "create", "k3", 9, after={"code": old, "permissions": ["writing"]}),
+        row("r2", "refill", "k3", 3, after={"new_code_id": "k4", "new_code": new}),
+        row("r3", "create", "k4", 3, after={"via": "refill", "code": new}),
+        row("r4", "hard_delete", "k-gone", 1, before={"code": "GONE-GONE-GO99"}),
+    ]
+    db.rows["access_code_audit"].append(
+        {"id": "r5", "actor_user_id": U_ADMIN, "action": "reassign", "code_id": "k3", "target_user_id": U_MINH,
+         "before": {"assigned_user": U_LAN}, "after": {"assigned_user": U_MINH}, "created_at": _ago(hours=1)})
+    out = _log(f"u-{U_LAN}", kind="access_code")
+    assert [(i["id"], i["text"]) for i in out["items"]] == [
+        ("r5", "Mã …AB12 được chuyển sang người khác"),
+        ("r4", "Xoá hẳn một mã"),
+        ("r3", "Được cấp mã …CD34 (cấp lại từ mã cũ)"),
+        ("r2", "Cấp lại mã …AB12, thay bằng mã mới"),
+        ("r1", "Được cấp mã …AB12"),
+    ]
+    body = json.dumps(out, ensure_ascii=False)
+    for whole in (old, new, "GONE-GONE-GO99", "QWERTYUPAB12", "ZXCVBNMKCD34", "TYUP", "BNMK"):
+        assert whole not in body
+
+
+def test_the_mask_keeps_a_short_tail_and_hides_short_codes():
+    from services import admin_learner_log_text as text
+    assert text.masked("QWER-TYUP-AB12") == "…AB12"
+    assert text.masked("ABCD2345") == "…45"   # legacy 8-symbol code
+    assert text.masked("AB12") is None and text.masked(None) is None and text.masked("") is None
