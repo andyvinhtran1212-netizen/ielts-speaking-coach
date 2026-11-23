@@ -42,7 +42,6 @@ from services import retention_policy
 from services.retention import (
     RETENTION_AUDIO_DAYS,
     RETENTION_CONTENT_DAYS,
-    RetentionPolicy,
     compute_expiry,
 )
 
@@ -69,9 +68,10 @@ def _cutoff_iso(days: int) -> str:
 
 def _eligible(purged_col: str, days: int, expiry_key: str, *, per_user: bool = False) -> list[dict]:
     """``per_user`` (content only, plan 5.14): after the default pre-filter,
-    each row is confirmed with its owner's window from
-    ``retention_policy.content_windows``; an owner whose window could not be
-    read is skipped (never purged). Audio never uses it (FR-029)."""
+    each row's owner window comes from ``retention_policy.content_windows``.
+    Only owners on today's rule (``default``) are purged; ``open`` and
+    ``until`` owners are never purged by this sweep yet, and an owner whose
+    window could not be read is skipped. Audio never uses it (FR-029)."""
     cutoff = _cutoff_iso(days)
     rows = (
         supabase_admin.table("sessions")
@@ -89,16 +89,24 @@ def _eligible(purged_col: str, days: int, expiry_key: str, *, per_user: bool = F
         return [r for r in rows if compute_expiry(r)[expiry_key]]
     windows = retention_policy.content_windows((r.get("user_id") for r in rows), db=supabase_admin) \
         if rows else {}
-    out, skipped = [], 0
+    out, skipped, deferred = [], 0, 0
     for r in rows:
         window = windows.get(str(r.get("user_id")))
         if window is None:
             skipped += 1
             continue
-        if compute_expiry(r, policy=RetentionPolicy(window=window))[expiry_key]:
+        if window.mode != "default":
+            # open: nothing to purge. until: hidden at read time only; the real
+            # purge by course access comes with an RPC that checks and purges
+            # under the user's credit lock (follow-up, Andy 23/11 option 1).
+            deferred += 1
+            continue
+        if compute_expiry(r)[expiry_key]:
             out.append(r)
     if skipped:
         logger.warning("[sweep] content skipped=%d sessions (retention window unknown)", skipped)
+    if deferred:
+        logger.info("[sweep] content deferred=%d sessions (course-access window, purge not enabled)", deferred)
     return out
 
 
@@ -244,9 +252,9 @@ def _still_purgeable(session: dict) -> bool:
     row = fresh[0]
     window = retention_policy.content_windows([row.get("user_id")], db=supabase_admin).get(
         str(row.get("user_id")))
-    if window is None:
+    if window is None or window.mode != "default":
         return False
-    return bool(compute_expiry(row, policy=RetentionPolicy(window=window))["is_content_purged"])
+    return bool(compute_expiry(row)["is_content_purged"])
 
 
 def sweep_content() -> dict:

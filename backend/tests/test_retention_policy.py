@@ -198,11 +198,12 @@ def test_4_content_stays_45_days_after_the_last_course_then_hides(flag, access, 
     rec = _patch(monkeypatch, {"sessions": []})
     _run(sessions_module.list_sessions(**_LIST_DEFAULTS, include_hidden=False))
     assert ("id", "null") in rec["is_"] and "or_" not in rec
-    # The sweep (DRY_RUN) lists the session.
+    # The sweep does not purge it yet: hidden at read time only (Andy 23/11,
+    # option 1 — the real purge comes with a locked RPC in a later PR).
     sweep_db.tables["entitlements"].append(_ent_row("e1", expires=_ago(45)))
     sweep_db.tables["sessions"].append(_session("s70", 70))
-    assert _swept(sweep_db) == ["s70"]
-    assert sweep.sweep_content()["eligible"] == 1 and not any(op == "update" for _, op in sweep_db.calls)
+    assert _swept(sweep_db) == []
+    assert sweep.sweep_content()["eligible"] == 0 and not any(op == "update" for _, op in sweep_db.calls)
     # Writing: hidden at read time only.
     _writing(essays=[dict(ESSAY)], monkeypatch=monkeypatch)
     assert asyncio.run(ws.list_my_essays(student=dict(STUDENT)))["essays"] == []
@@ -284,7 +285,8 @@ def test_9_a_class_member_on_an_old_code_is_never_cut_off(flag, access, sweep_db
     assert rp.content_windows([USER], NOW, db=sweep_db)[USER] == OPEN_WINDOW
     assert _swept(sweep_db) == []
     sweep_db.tables["cohorts"][0]["archived_at"] = _iso(_ago(1))   # class archived → expired row rules
-    assert _swept(sweep_db) == ["s100"]
+    assert rp.content_windows([USER], NOW, db=sweep_db)[USER].mode == "until"
+    assert _swept(sweep_db) == []                                     # until: hidden, not purged yet
 
 
 # ── 10 ───────────────────────────────────────────────────────────────────
@@ -315,34 +317,45 @@ def test_10_a_failed_lookup_hides_nothing_new_and_the_sweep_skips(flag, access, 
 # ── HOLD FR-048 (PR #2550): the window is re-read at the purge itself ─────
 
 
-def test_11_a_course_renewed_after_selection_keeps_the_content(flag, access, sweep_db, monkeypatch):
-    """A learner renews between ``_eligible`` (batch decision) and the purge:
-    the guard re-reads the window and keeps the content. Without a renewal the
-    same run purges it."""
+def test_11_access_granted_after_selection_keeps_the_content(flag, access, sweep_db, monkeypatch):
+    """A learner on today's rule (no entitlements row) is selected, then gets
+    a course before the purge: the guard re-reads the window (now ``open``)
+    and keeps the content. A failed re-read keeps it too; unchanged → purged.
+    ``until`` learners are never purged by this sweep (see test_4)."""
     monkeypatch.setattr(sweep, "DRY_RUN", False)
-    sweep_db.tables["entitlements"].append(_ent_row("e1", expires=_ago(50)))
     sweep_db.tables["sessions"].append(_session("s70", 70))
     sweep_db.tables["responses"].append({"id": "r1", "session_id": "s70", "transcript": "hello",
                                          "raw_transcript_text": "hello", "feedback": {"x": 1},
                                          "pronunciation_payload": None})
     selected = sweep._eligible
 
-    def select_then_renew(*args, **kwargs):
+    def select_then_grant(*args, **kwargs):
         rows = selected(*args, **kwargs)
         assert [r["id"] for r in rows] == ["s70"]                      # the batch says purge
         sweep_db.tables["entitlements"].append(_ent_row("e2", expires=NOW + timedelta(days=180)))
         return rows
 
-    monkeypatch.setattr(sweep, "_eligible", select_then_renew)
+    monkeypatch.setattr(sweep, "_eligible", select_then_grant)
     res = sweep.sweep_content()
     assert (res["eligible"], res["purged"], res["kept"]) == (1, 0, 1)
     assert sweep_db.tables["responses"][0]["transcript"] == "hello"
     assert sweep_db.tables["sessions"][0]["content_purged_at"] is None
     assert not any(t == "responses" and op == "update" for t, op in sweep_db.calls)
 
+    # An expired course granted mid-run (until) is kept as well.
+    sweep_db.tables["entitlements"].clear()
+
+    def select_then_expired_grant(*args, **kwargs):
+        rows = selected(*args, **kwargs)
+        sweep_db.tables["entitlements"].append(_ent_row("e3", expires=_ago(100)))
+        return rows
+
+    monkeypatch.setattr(sweep, "_eligible", select_then_expired_grant)
+    assert sweep.sweep_content()["kept"] == 1
+    sweep_db.tables["entitlements"].clear()
+
     # The guard reads the window fresh: an unreadable window at purge time keeps it too.
     monkeypatch.setattr(sweep, "_eligible", selected)
-    sweep_db.tables["entitlements"].pop()                              # renewal gone: expired again
     real_windows = rp.content_windows
     calls = {"n": 0}
 
@@ -356,7 +369,7 @@ def test_11_a_course_renewed_after_selection_keeps_the_content(flag, access, swe
     assert (res["purged"], res["kept"]) == (0, 1)
     assert sweep_db.tables["responses"][0]["transcript"] == "hello"
 
-    # Control: nothing changed between selection and purge → purged.
+    # Control: nothing changed between selection and purge → purged (today's rule).
     monkeypatch.setattr(sweep.retention_policy, "content_windows", real_windows)
     sweep_db.legacy["error"] = False
     res = sweep.sweep_content()
