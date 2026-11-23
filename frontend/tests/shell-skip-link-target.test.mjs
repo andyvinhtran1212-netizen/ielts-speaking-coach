@@ -12,5 +12,6 @@ for (const shell of shells) {
     const rule = css.match(/\.skip\s*\{([^}]*)\}/)?.[1] || '';
     assert.match(rule, /min-height:\s*var\(--av2-control-md\)/);
     assert.match(rule, /display:\s*inline-flex/);
+    assert.match(rule, /box-sizing:\s*border-box/);
   });
 }
