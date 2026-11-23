@@ -28,6 +28,7 @@ import {
   SKILL_LABELS,
   catalogMetaCopy,
   creditsEmpty,
+  hrefPath,
   normalizeSkillHub,
   resultCopy,
   sourceCopy,
@@ -71,8 +72,8 @@ function SkillTabs({ skill }: { skill: Skill }) {
   return (
     <nav aria-label="Kỹ năng" className={styles.tabs}>
       {SKILLS.map((s) => {
-        const href = liveHref({ href: SKILL_HUB_HREFS[s], today: null });
-        if (!href) return null;
+        const href = SKILL_HUB_HREFS[s];
+        if (!liveHref({ href: hrefPath(href), today: null })) return null;
         return (
           <a key={s} href={href} className={styles.tab} aria-current={s === skill ? 'page' : undefined}>
             {SKILL_LABELS[s]}

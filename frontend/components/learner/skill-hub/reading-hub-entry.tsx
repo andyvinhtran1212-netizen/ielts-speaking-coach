@@ -1,10 +1,10 @@
 'use client';
 
-// /reading (LEARNERCORE-0063 FR-111). It used to redirect on the server to
-// /reading/vocab; the redirect now happens here, after the flag is read: flag
+// /reading?hub=1 (LEARNERCORE-0063 FR-111). Plain `/reading` is still the
+// server redirect to /reading/vocab; only the hub's skill tabs link here. Flag
 // on → the Reading hub; flag off → `router.replace('/reading/vocab')`, query
-// kept. If the profile never arrives the page falls back to the old redirect,
-// so nobody is left on a spinner.
+// kept without `hub`. If the profile never arrives the page falls back to the
+// same redirect, so nobody is left on a spinner.
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';

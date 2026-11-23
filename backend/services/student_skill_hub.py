@@ -95,6 +95,9 @@ def _count(query) -> int:
 # ── credits (FR-111, FR-116) ──────────────────────────────────────────────────
 
 
+_G04_MODULES = frozenset({"services.credits", "routers.me_access"})
+
+
 def _credits_for(user_id: str, skill: str) -> Tuple[Optional[Dict[str, Any]], bool]:
     """(credits, degraded). Listening and Reading never spend credits → None."""
     feature = _GRADING_FEATURE.get(skill)
@@ -103,10 +106,14 @@ def _credits_for(user_id: str, skill: str) -> Tuple[Optional[Dict[str, Any]], bo
     try:
         from routers.me_access import fetch_credit_balance
         from services.credits import CreditUnavailable, charge_plan
-    except ImportError:
+    except ModuleNotFoundError as exc:
         # G04-T03 (#2485) not merged yet: no source, so no line and no
         # `degraded` (FR-118: a source that does not exist yet is empty).
-        return None, False
+        # Only those two modules missing counts; any other import failure
+        # (a real bug inside them, a missing name) degrades the part.
+        if exc.name in _G04_MODULES:
+            return None, False
+        raise
 
     total = int(fetch_credit_balance(user_id).get("total") or 0)  # raises → degraded, no line
     try:
@@ -281,14 +288,26 @@ def _test_types(sb, skill: str, ids) -> Dict[str, str]:
 
 
 def _catalog_groups(sb, skill: str) -> List[Dict[str, Any]]:
-    """Group, label, paper count and href, read with the list page's filters."""
+    """Group, label, paper count and href, read with the list page's filters.
+
+    `keys` (internal, never sent) is the set of papers the group counts, in the
+    same terms as the attempts' `key`, so `done` only counts papers that are in
+    the group (FR-114): never "3 đề · đã làm 5". `keys=None` means the group
+    has no paper list (Speaking full test) or attempts cannot be matched to a
+    paper (Writing: an essay has no prompt id), so `done` follows that.
+    """
     if skill == "speaking":
-        def topics(part: int) -> int:
-            return _count(sb.table("topics").select("id", count="exact")
-                          .eq("is_active", True).eq("part", part))
-        groups = [{"group": f"part{p}", "label": f"Part {p}", "count": topics(p), "href": SPEAKING_ALL}
-                  for p in (1, 2, 3)]
-        groups.append({"group": "full_test", "label": "Full test", "count": None, "href": "/full-test"})
+        def topics(part: int) -> set:
+            return {str(r["title"]) for r in _paged(lambda: (
+                sb.table("topics").select("id, title").eq("is_active", True).eq("part", part)
+                .order("id"))) if r.get("title")}
+        groups = []
+        for p in (1, 2, 3):
+            keys = topics(p)
+            groups.append({"group": f"part{p}", "label": f"Part {p}", "count": len(keys),
+                           "href": SPEAKING_ALL, "keys": keys})
+        groups.append({"group": "full_test", "label": "Full test", "count": None, "href": "/full-test",
+                       "keys": None})
         return groups
     if skill == "writing":
         from config import settings
@@ -298,32 +317,56 @@ def _catalog_groups(sb, skill: str) -> List[Dict[str, Any]]:
         def prompts(task_types: List[str]) -> int:
             return _count(sb.table("writing_prompts").select("id", count="exact")
                           .eq("is_active", True).eq("exam_only", False).in_("task_type", task_types))
+        # An essay carries no prompt id, so it cannot be matched to a paper:
+        # `done` stays null rather than counting essays as papers (FR-114).
         return [
             {"group": "task1", "label": "Task 1", "count": prompts(["task1_academic", "task1_general"]),
-             "href": WRITING_BANK},
-            {"group": "task2", "label": "Task 2", "count": prompts(["task2"]), "href": WRITING_BANK},
+             "href": WRITING_BANK, "keys": None, "no_done": True},
+            {"group": "task2", "label": "Task 2", "count": prompts(["task2"]), "href": WRITING_BANK,
+             "keys": None, "no_done": True},
         ]
     groups = []
     for test_type in ("full", "mini"):
         if skill == "listening":
             from routers.listening.student_fulltest import _AUDIO_READY_OR
-            q = (sb.table("listening_public_practice_catalog").select("id", count="exact")
-                 .eq("status", "published").eq("is_public", True).or_(_AUDIO_READY_OR)
-                 .eq("scoring_policy", "diagnostic").eq("test_type", test_type))
+
+            def build(test_type=test_type):
+                return (sb.table("listening_public_practice_catalog").select("id")
+                        .eq("status", "published").eq("is_public", True).or_(_AUDIO_READY_OR)
+                        .eq("scoring_policy", "diagnostic").eq("test_type", test_type).order("id"))
         else:
-            q = (sb.table("reading_public_practice_catalog").select("id", count="exact")
-                 .eq("status", "published").eq("is_public", True).eq("test_type", test_type))
-        groups.append({"group": test_type, "label": _TEST_TYPE_LABEL[test_type], "count": _count(q),
-                       "href": _TEST_TYPE_HREF[skill][test_type]})
+            def build(test_type=test_type):
+                return (sb.table("reading_public_practice_catalog").select("id")
+                        .eq("status", "published").eq("is_public", True).eq("test_type", test_type)
+                        .order("id"))
+        keys = {str(r["id"]) for r in _paged(build)}
+        groups.append({"group": test_type, "label": _TEST_TYPE_LABEL[test_type], "count": len(keys),
+                       "href": _TEST_TYPE_HREF[skill][test_type], "keys": keys})
     return groups
 
 
+_INTERNAL_GROUP_KEYS = ("keys", "no_done")
+
+
+def public_group(group: Dict[str, Any]) -> Dict[str, Any]:
+    return {k: v for k, v in group.items() if k not in _INTERNAL_GROUP_KEYS}
+
+
 def build_catalog(groups: List[Dict[str, Any]], attempts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """`done` = distinct papers of the group the learner submitted (FR-114),
+    only papers the group counts, so `done <= count` always holds."""
     has_attempts = bool(attempts)
     done: Dict[str, set] = {}
     for a in attempts:
         done.setdefault(a["group"], set()).add(a["key"])
-    return [{**g, "done": len(done.get(g["group"], ())) if has_attempts else None} for g in groups]
+    out = []
+    for g in groups:
+        papers = done.get(g["group"], set())
+        if g.get("keys") is not None:
+            papers = papers & g["keys"]
+        value = None if (not has_attempts or g.get("no_done")) else len(papers)
+        out.append({**public_group(g), "done": value})
+    return out
 
 
 # ── suggestions (FR-113) ──────────────────────────────────────────────────────
@@ -396,29 +439,72 @@ def _result(band=None, correct=None, total=None, pending=False) -> Dict[str, Any
     return {"band": band, "correct": correct, "total": total, "pending": pending}
 
 
+def _speaking_history(sb, user_id: str) -> List[Dict[str, Any]]:
+    """One row per submission: the three sessions of a full test are one entry
+    with the combined band (same rule as `GET /sessions/{id}/full-test-summary`:
+    all parts completed with a band, mean rounded to 0.5), linked to its Part 1
+    result page."""
+    from routers.sessions import _round_band  # local: the router module is heavy
+
+    cols = "id, part, mode, topic, status, completed_at, overall_band, full_test_attempt_id"
+    rows = (sb.table("sessions").select(cols)
+            .eq("user_id", user_id).eq("status", "completed").is_("sitting_id", "null")
+            .order("completed_at", desc=True).limit(HISTORY_LIMIT * 3).execute()).data or []
+    attempt_ids = sorted({str(r["full_test_attempt_id"]) for r in rows
+                          if _speaking_group(r) == "full_test" and r.get("full_test_attempt_id")})
+    parts_by_attempt: Dict[str, List[Dict[str, Any]]] = {}
+    if attempt_ids:
+        for r in (sb.table("sessions").select(cols).eq("user_id", user_id)
+                  .in_("full_test_attempt_id", attempt_ids).execute()).data or []:
+            parts_by_attempt.setdefault(str(r["full_test_attempt_id"]), []).append(r)
+    out: List[Dict[str, Any]] = []
+    seen: set = set()
+    for r in rows:
+        if len(out) >= HISTORY_LIMIT:
+            break
+        group = _speaking_group(r)
+        band = r.get("overall_band")
+        if group == "full_test" and r.get("full_test_attempt_id"):
+            attempt = str(r["full_test_attempt_id"])
+            if attempt in seen:
+                continue
+            seen.add(attempt)
+            parts = parts_by_attempt.get(attempt) or [r]
+            part1 = next((p for p in parts if p.get("part") == 1), None)
+            ready = (len(parts) == 3 and all(p.get("status") == "completed"
+                                              and p.get("overall_band") is not None for p in parts))
+            failed = any(p.get("status") == "analysis_failed" for p in parts)
+            result = (_result(band=_round_band(sum(float(p["overall_band"]) for p in parts) / 3))
+                      if ready else _result(pending=not failed))
+            out.append({
+                "submitted_at": max((p.get("completed_at") or "" for p in parts), default=None) or None,
+                "title": "Speaking Full test", "kind": "Full test", "source": "ai_instant",
+                "result": result,
+                "href": (f"/full-test-result?{urlencode({'session_id': str(part1['id'])})}"
+                         if part1 else None),
+            })
+            continue
+        kind = "Full test" if group == "full_test" else (f"Part {r['part']}" if r.get("part") else "Speaking")
+        out.append({
+            "submitted_at": r.get("completed_at"),
+            "title": r.get("topic") or f"Speaking {kind}",
+            "kind": kind, "source": "ai_instant",
+            "result": _result(band=float(band) if band is not None else None),
+            "href": f"/result?{urlencode({'id': str(r['id'])})}",
+        })
+    return out
+
+
 def _history_for(sb, user_id: str, skill: str) -> List[Dict[str, Any]]:
     if skill == "speaking":
-        rows = (sb.table("sessions").select("id, part, mode, topic, completed_at, overall_band")
-                .eq("user_id", user_id).eq("status", "completed").is_("sitting_id", "null")
-                .order("completed_at", desc=True).limit(HISTORY_LIMIT).execute()).data or []
-        out = []
-        for r in rows:
-            group = _speaking_group(r)
-            kind = "Full test" if group == "full_test" else (f"Part {r['part']}" if r.get("part") else "Speaking")
-            band = r.get("overall_band")
-            out.append({
-                "submitted_at": r.get("completed_at"),
-                "title": r.get("topic") or f"Speaking {kind}",
-                "kind": kind, "source": "ai_instant",
-                "result": _result(band=float(band) if band is not None else None),
-                "href": f"/result?{urlencode({'id': str(r['id'])})}",
-            })
-        return out
+        return _speaking_history(sb, user_id)
     if skill == "writing":
         student_ids = _student_ids(sb, user_id)
         if not student_ids:
             return []
-        rows = (sb.table("writing_essays").select("id, task_type, status, review_mode, created_at")
+        # "*" so the history still reads before migration 384 adds review_mode
+        # on a database (absent column = the review flow, like NULL).
+        rows = (sb.table("writing_essays").select("*")
                 .in_("student_id", student_ids).is_("deleted_at", "null").is_("sitting_id", "null")
                 .order("created_at", desc=True).limit(HISTORY_LIMIT).execute()).data or []
         delivered = [str(r["id"]) for r in rows if r.get("status") == "delivered"]

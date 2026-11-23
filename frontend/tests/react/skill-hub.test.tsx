@@ -90,7 +90,7 @@ it('the skill row links the four hubs, current one marked', async () => {
   const links = within(nav).getAllByRole('link');
   expect(links.map((a) => a.textContent)).toEqual(['Speaking', 'Writing', 'Listening', 'Reading']);
   expect(links[2].getAttribute('aria-current')).toBe('page');
-  expect(links.map((a) => a.getAttribute('href'))).toEqual(['/speaking', '/writing/dashboard', '/listening', '/reading']);
+  expect(links.map((a) => a.getAttribute('href'))).toEqual(['/speaking', '/writing/dashboard', '/listening', '/reading?hub=1']);
 });
 
 it('first visit (màn 3): no resume, no suggestion block, a sentence instead of an empty table, no band', async () => {
@@ -200,10 +200,19 @@ it('flag on: the hub replaces the page, and ?view=all keeps the old page', async
   expect(screen.getByText('old writing')).toBeTruthy();
 });
 
-it('/reading flag off: replaces to /reading/vocab keeping the query', async () => {
+it('a Writing assignment deep link keeps the editor with the flag on', async () => {
+  const { SkillHubSwitch } = await import('@/components/learner/skill-hub/skill-hub-switch');
+  profile.current = { id: 'learner-1', learner_v2_enabled: true };
+  window.history.replaceState(null, '', '/writing/dashboard?assignment_id=a-7');
+  render(<SkillHubSwitch skill="writing"><p>old writing</p></SkillHubSwitch>);
+  expect(screen.getByText('old writing')).toBeTruthy();
+  expect(screen.queryByText(/^hub /)).toBeNull();
+});
+
+it('/reading?hub=1 flag off: replaces to /reading/vocab keeping the query, without hub', async () => {
   const { ReadingHubEntry } = await import('@/components/learner/skill-hub/reading-hub-entry');
   profile.current = { id: 'learner-1', learner_v2_enabled: false };
-  window.history.replaceState(null, '', '/reading?ref=nav&x=1');
+  window.history.replaceState(null, '', '/reading?hub=1&ref=nav&x=1');
   render(<ReadingHubEntry />);
   await waitFor(() => expect(replace).toHaveBeenCalledWith('/reading/vocab?ref=nav&x=1'));
 });

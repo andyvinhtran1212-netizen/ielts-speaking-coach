@@ -10,7 +10,9 @@ export const SKILL_LABELS = Object.freeze({
 
 // The four hubs, Speaking · Writing · Listening · Reading (FR-079 order).
 export const SKILL_HUB_HREFS = Object.freeze({
-  speaking: '/speaking', writing: '/writing/dashboard', listening: '/listening', reading: '/reading',
+  speaking: '/speaking', writing: '/writing/dashboard', listening: '/listening',
+  // `/reading` alone stays a server redirect to /reading/vocab (flag off = today).
+  reading: '/reading?hub=1',
 });
 
 const BLOCKS = new Set(['credits', 'resume', 'suggestions', 'catalog', 'history']);
@@ -140,17 +142,40 @@ export function catalogMetaCopy(group) {
   return parts.join(' · ');
 }
 
-/** `?view=all` keeps the existing page reachable while the hub is on. */
+/**
+ * The existing page, not the hub, while the hub is on: `?view=all` (the hub's
+ * "Tất cả đề" / "Xem tất cả bài đã làm"), or a deep link to one piece of work
+ * (`assignment_id`, `essay_id`, `session_id`: e.g. the core-player launcher
+ * opens a Writing assignment at `/writing/dashboard?assignment_id=`).
+ */
+const DEEP_LINK_PARAMS = ['assignment_id', 'essay_id', 'session_id'];
+
 export function wantsClassicView(search) {
   try {
-    return new URLSearchParams(search || '').get('view') === 'all';
+    const params = new URLSearchParams(search || '');
+    return params.get('view') === 'all' || DEEP_LINK_PARAMS.some((key) => params.get(key));
   } catch {
     return false;
   }
 }
 
-/** `/reading` with the flag off: the old redirect target, query kept. */
+/**
+ * `/reading` with the flag off: the old redirect target, query kept. `hub=1`
+ * only chose the hub and is not passed on.
+ */
 export function readingFallbackHref(search) {
-  const query = textOf(search).replace(/^\?/, '');
+  let query = '';
+  try {
+    const params = new URLSearchParams(textOf(search).replace(/^\?/, ''));
+    params.delete('hub');
+    query = params.toString();
+  } catch {
+    query = '';
+  }
   return query ? `/reading/vocab?${query}` : '/reading/vocab';
+}
+
+/** The path part of an href, for the live-route registry (no query). */
+export function hrefPath(href) {
+  return textOf(href).split(/[?#]/, 1)[0];
 }

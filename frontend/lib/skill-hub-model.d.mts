@@ -34,3 +34,4 @@ export function vnDateCopy(value: unknown): string | null;
 export function catalogMetaCopy(group: SkillHubGroup): string;
 export function wantsClassicView(search: string): boolean;
 export function readingFallbackHref(search: string): string;
+export function hrefPath(href: string): string;

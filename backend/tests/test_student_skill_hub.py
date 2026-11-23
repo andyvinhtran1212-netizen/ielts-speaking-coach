@@ -100,8 +100,8 @@ class _DB:
         return _Q(self, name)
 
 
-def _ts(days=0, hours=0):
-    return (NOW - timedelta(days=days, hours=hours)).isoformat()
+def _ts(days=0, hours=0, minutes=0):
+    return (NOW - timedelta(days=days, hours=hours, minutes=minutes)).isoformat()
 
 
 class _ChargePlan:
@@ -153,7 +153,8 @@ def _run(db, skill):
 def _base_tables():
     return {
         "students": [{"id": "s1", "user_id": UID}],
-        "topics": [{"id": f"t{i}", "is_active": True, "part": 1 + i % 3} for i in range(9)],
+        "topics": [{"id": f"t{i}", "title": f"Topic {i}", "is_active": True, "part": 1 + i % 3}
+                   for i in range(9)],
         "writing_prompts": [
             {"id": "p1", "is_active": True, "exam_only": False, "task_type": "task2", "title": "Cities"},
             {"id": "p2", "is_active": True, "exam_only": False, "task_type": "task1_academic"},
@@ -204,6 +205,32 @@ def test_no_g04_source_yet_means_no_credit_line_and_no_degraded(wire, monkeypatc
     monkeypatch.setitem(sys.modules, "services.credits", None)  # import raises ImportError
     out = _run(_DB(_base_tables()), "speaking")
     assert out["credits"] is None and "credits" not in out["degraded"]
+
+
+def test_a_broken_g04_module_degrades_instead_of_hiding_silently(wire, monkeypatch):
+    # The module exists but the name does not (a real import bug after #2485
+    # merges): that is not "source not there yet", so the part degrades.
+    monkeypatch.setitem(sys.modules, "services.credits", types.ModuleType("services.credits"))
+    out = _run(_DB(_base_tables()), "speaking")
+    assert out["credits"] is None and out["degraded"] == ["credits"]
+
+
+def test_an_unrelated_missing_module_inside_g04_degrades(wire, monkeypatch):
+    def boom(*_a, **_k):
+        raise ModuleNotFoundError("No module named 'services.other'", name="services.other")
+
+    import builtins
+    real_import = builtins.__import__
+
+    def fake_import(name, *a, **k):
+        if name == "services.credits":
+            boom()
+        return real_import(name, *a, **k)
+
+    monkeypatch.delitem(sys.modules, "services.credits")
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+    out = _run(_DB(_base_tables()), "writing")
+    assert out["credits"] is None and out["degraded"] == ["credits"]
 
 
 def test_a_failed_balance_read_hides_the_line_and_degrades(wire):
@@ -316,6 +343,73 @@ def test_catalog_counts_distinct_papers_done(wire):
     ]
     out = _run(_DB(t), "reading")
     assert [(g["group"], g["count"], g["done"]) for g in out["catalog"]] == [("full", 2, 1), ("mini", 0, 0)]
+
+
+def test_done_never_exceeds_count(wire):
+    t = _base_tables()
+    t["reading_test_attempts"] = [
+        # R9 is a class-assigned paper, not in the public catalogue.
+        {"id": f"r{i}", "user_id": UID, "status": "submitted", "test_id": tid, "submitted_at": _ts(days=i)}
+        for i, tid in enumerate(["R1", "R2", "R9"])]
+    t["reading_tests"].append({"id": "R9", "title": "Class paper", "test_type": "full"})
+    out = _run(_DB(t), "reading")
+    full = out["catalog"][0]
+    assert (full["count"], full["done"]) == (2, 2)
+
+    t["topics"].append({"id": "t-off", "title": "Old topic", "is_active": False, "part": 1})
+    t["sessions"] = [
+        {"id": f"s{i}", "user_id": UID, "status": "completed", "part": 1, "mode": "practice",
+         "topic": topic, "completed_at": _ts(days=i)}
+        for i, topic in enumerate(["Topic 0", "Topic 3", "Old topic", "Unlisted"])]
+    part1 = _run(_DB(t), "speaking")["catalog"][0]
+    assert (part1["count"], part1["done"]) == (3, 2)
+
+
+def test_writing_done_stays_null_after_essays(wire):
+    t = _base_tables()
+    t["writing_essays"] = [
+        {"id": f"e{i}", "student_id": "s1", "task_type": "task2", "status": "delivered",
+         "created_at": _ts(days=i)} for i in range(5)]
+    out = _run(_DB(t), "writing")
+    assert [(g["count"], g["done"]) for g in out["catalog"]] == [(1, None), (1, None)]
+    assert all("keys" not in g for g in out["catalog"])
+
+
+def test_speaking_full_test_is_one_history_entry_with_combined_band(wire):
+    t = _base_tables()
+    t["sessions"] = [
+        {"id": f"ft{p}", "user_id": UID, "status": "completed", "part": p, "mode": "test_full",
+         "topic": f"T{p}", "full_test_attempt_id": "A1", "overall_band": band,
+         "completed_at": _ts(minutes=10 - p)}
+        for p, band in ((1, 6.0), (2, 6.5), (3, 7.0))
+    ] + [{"id": "p1", "user_id": UID, "status": "completed", "part": 1, "mode": "practice",
+          "topic": "Topic 0", "overall_band": 5.5, "completed_at": _ts(days=1)}]
+    history = _run(_DB(t), "speaking")["history"]
+    assert [h["kind"] for h in history] == ["Full test", "Part 1"]
+    assert history[0]["result"]["band"] == 6.5
+    assert history[0]["href"] == "/full-test-result?session_id=ft1"
+
+
+def test_speaking_full_test_with_a_part_still_grading_is_pending(wire):
+    t = _base_tables()
+    t["sessions"] = [
+        {"id": "ft1", "user_id": UID, "status": "completed", "part": 1, "mode": "test_full",
+         "full_test_attempt_id": "A1", "overall_band": 6.0, "completed_at": _ts()},
+        {"id": "ft2", "user_id": UID, "status": "processing", "part": 2, "mode": "test_full",
+         "full_test_attempt_id": "A1", "overall_band": None, "completed_at": None},
+    ]
+    history = _run(_DB(t), "speaking")["history"]
+    assert len(history) == 1 and history[0]["result"]["pending"] is True
+    assert history[0]["result"]["band"] is None
+
+
+def test_writing_history_reads_without_review_mode_column(wire):
+    t = _base_tables()
+    t["writing_essays"] = [{"id": "e1", "student_id": "s1", "task_type": "task2", "status": "submitted",
+                            "created_at": _ts()}]  # no review_mode key: before mig 384
+    out = _run(_DB(t), "writing")
+    assert "history" not in out["degraded"]
+    assert out["history"][0]["source"] == "teacher_review"
 
 
 def test_speaking_catalog_has_three_parts_and_full_test(wire):
