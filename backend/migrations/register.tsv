@@ -401,3 +401,5 @@ number	filename	state	owner	spec	note
 452	452_learner_goal_events.sql	present	G09-T04b	ADMINIA-0074	Commercialization G09 reserve band 452–459 (anh Andy chose 452, 20/11); append-only learner_goal_events + fn_learner_goal_resolve.
 501	501_grammar_quiz_allowed_code_service_execute.sql	present	-	-	-
 502	-	reserved	G04-T13	COURSEACCESS-0055	Spec label 385: pronunciation sample window. Andy 2026-11-20.
+506	-	reserved	G07-T18	COURSELESSON-0064	course_lessons + course_lesson_progress (coordinator, 2026-11-23; replaces the 420–439 band note in plan 5.1).
+507	-	reserved	G07-T21	RESULTSHEET-0065	essay_regrade_requests reason_code + note (coordinator, 2026-11-23; replaces the 420–439 band note in plan 5.2).
