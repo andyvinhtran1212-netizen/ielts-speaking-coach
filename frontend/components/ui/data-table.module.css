@@ -190,15 +190,24 @@
 }
 .actions { display: flex; align-items: center; gap: var(--av2-space-1); }
 
-/* stickyFirstColumn: the select column and the name column stay put. */
+/* stickyFirstColumn: the select column and the first column (columns[0]) stay put.
+   A long name wraps instead of pinning half the frame. The other cells never
+   wrap, so while the table scrolls this column is the one that gives way:
+   min-width is its floor (160px, 40% of a phone), max-width its cap. */
 .sticky .selectCell,
-.sticky .nameCell {
+.sticky .pinned {
   position: sticky;
   left: 0;
   z-index: var(--av2-z-sticky);
 }
-.sticky .selectCell + .nameCell { left: var(--dt-select-w); }
-.sticky .nameCell { border-right: var(--av2-rule-w) solid var(--av2-rule); }
+.sticky .selectCell + .pinned { left: var(--dt-select-w); }
+.sticky .pinned {
+  min-width: min(160px, 40vw);
+  max-width: min(240px, 45vw);
+  border-right: var(--av2-rule-w) solid var(--av2-rule);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 
 .empty {
   padding: var(--av2-space-8) var(--av2-space-5);

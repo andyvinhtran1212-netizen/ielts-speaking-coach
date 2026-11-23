@@ -104,9 +104,9 @@ describe('FileUpload', () => {
   });
 });
 
-function DateHarness({ initial = '', min }: { initial?: string; min?: string }) {
+function DateHarness({ initial = '', min, max }: { initial?: string; min?: string; max?: string }) {
   const [value, setValue] = useState(initial);
-  return <><DateField label="Hạn nộp" value={value} onChange={setValue} min={min} today="2026-11-17" /><output data-testid="value">{value}</output></>;
+  return <><DateField label="Hạn nộp" value={value} onChange={setValue} min={min} max={max} today="2026-11-17" /><output data-testid="value">{value}</output></>;
 }
 
 describe('DateField', () => {
@@ -158,6 +158,41 @@ describe('DateField', () => {
   });
 });
 
+describe('DateField keyboard and resync', () => {
+  it('an empty field whose today is locked still has one reachable, open day; arrows step over locked days', () => {
+    render(<DateHarness min="2026-11-24" max="2026-11-26" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Mở lịch chọn hạn nộp' }));
+    const dialog = screen.getByRole('dialog', { name: 'Chọn hạn nộp' });
+    const stops = within(dialog).getAllByRole('button').filter((b) => b.hasAttribute('data-day') && b.getAttribute('tabindex') === '0');
+    expect(stops).toHaveLength(1);
+    expect(stops[0].getAttribute('data-day')).toBe('2026-11-24');
+    expect((stops[0] as HTMLButtonElement).disabled).toBe(false);
+    // ArrowLeft from the first open day: nothing open before it, focus stays.
+    fireEvent.keyDown(stops[0], { key: 'ArrowLeft' });
+    expect(stops[0].getAttribute('tabindex')).toBe('0');
+    fireEvent.keyDown(stops[0], { key: 'ArrowRight' });
+    expect(document.activeElement?.getAttribute('data-day')).toBe('2026-11-25');
+    // Next month is all locked: the tab stop is a day, but none can be chosen, and none is wrongly open.
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Tháng sau' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Tháng trước' }));
+    const back = within(dialog).getAllByRole('button').filter((b) => b.getAttribute('tabindex') === '0' && b.hasAttribute('data-day'));
+    expect(back.map((b) => (b as HTMLButtonElement).disabled)).toEqual([false]);
+  });
+
+  it('picking the current date after a refused edit puts the good text back and clears the error', () => {
+    render(<DateHarness initial="2026-11-24" />);
+    const input = screen.getByRole('textbox', { name: 'Hạn nộp' }) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '31/11/2026' } });
+    fireEvent.blur(input);
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+    fireEvent.click(screen.getByRole('button', { name: 'Mở lịch chọn hạn nộp' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Thứ Ba, 24/11/2026, đang chọn' }));
+    expect(input.value).toBe('24/11/2026');
+    expect(input.getAttribute('aria-invalid')).toBeNull();
+    expect(screen.getByTestId('value').textContent).toBe('2026-11-24');
+  });
+});
+
 describe('TimeField', () => {
   it('typed time is normalised to hh:mm; the list marks the current time and locks unavailable ones', () => {
     function Harness() {
@@ -180,6 +215,32 @@ describe('TimeField', () => {
     fireEvent.click(within(list).getByRole('button', { name: '19:15' }));
     expect(screen.getByTestId('t').textContent).toBe('19:15');
     expect(screen.queryByRole('list', { name: 'Chọn giờ học' })).toBeNull();
+  });
+
+  function Busy() {
+    const [value, setValue] = useState('19:30');
+    return <><TimeField label="Giờ học" value={value} onChange={setValue} from="19:00" to="20:00" unavailable={{ '20:00': 'lớp khác' }} /><output data-testid="t">{value}</output></>;
+  }
+
+  it.each(['Enter', 'blur'])('a busy time typed then %s is refused with its reason; the last good time stays', (how) => {
+    render(<Busy />);
+    const input = screen.getByRole('textbox', { name: 'Giờ học' }) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '2000' } });
+    if (how === 'Enter') fireEvent.keyDown(input, { key: 'Enter' }); else fireEvent.blur(input);
+    expect(screen.getByTestId('t').textContent).toBe('19:30');
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+    expect(screen.getByText('20:00 không chọn được: lớp khác. Bạn chọn giờ khác.').id).toBe(input.getAttribute('aria-describedby'));
+  });
+
+  it('picking the current time after a refused edit puts the good text back', () => {
+    render(<Busy />);
+    const input = screen.getByRole('textbox', { name: 'Giờ học' }) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '20:00' } });
+    fireEvent.blur(input);
+    fireEvent.click(screen.getByRole('button', { name: 'Mở danh sách giờ' }));
+    fireEvent.click(screen.getByRole('button', { name: '19:30 đang chọn' }));
+    expect(input.value).toBe('19:30');
+    expect(input.getAttribute('aria-invalid')).toBeNull();
   });
 });
 
@@ -218,5 +279,18 @@ describe('DateRangeField', () => {
     fireEvent.blur(end);
     expect(screen.getByText('Ngày kết thúc phải từ ngày bắt đầu trở đi.')).toBeTruthy();
     expect(screen.getByTestId('r').textContent).toBe('2026-11-17|');
+  });
+
+  it('a calendar pick after a refused edit shows what the form holds in both boxes', () => {
+    render(<Harness initial={{ start: '2026-11-17', end: '' }} />);
+    const start = screen.getByRole('textbox', { name: 'Từ ngày' }) as HTMLInputElement;
+    const end = screen.getByRole('textbox', { name: 'Đến ngày' }) as HTMLInputElement;
+    fireEvent.change(end, { target: { value: '10/11/2026' } });
+    fireEvent.blur(end);
+    fireEvent.click(screen.getByRole('button', { name: 'Mở lịch chọn khoảng thời gian báo cáo' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Thứ Sáu, 20/11/2026' }));
+    expect(screen.getByTestId('r').textContent).toBe('2026-11-17|2026-11-20');
+    expect([start.value, end.value]).toEqual(['17/11/2026', '20/11/2026']);
+    expect(end.getAttribute('aria-invalid')).toBeNull();
   });
 });

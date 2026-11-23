@@ -36,8 +36,9 @@ export type DataTableProps<Row> = {
   /** 52px rows (learner, instructor) or 40px rows with 14px text (admin, many records). */
   density?: 'comfortable' | 'dense';
   /**
-   * The name column (and the select column before it) stays put while the
+   * The first column (and the select column before it) stays put while the
    * table scrolls sideways: the 1024px admin rule (FR-018) and the phone box.
+   * It is `columns[0]` whatever `rowHeader` names; keep the name column first.
    */
   stickyFirstColumn?: boolean;
 
@@ -169,7 +170,7 @@ function textOf<Row>(row: Row, key: string) {
  * digits; an empty cell says "chưa có". Selection shows an action bar with
  * the count; the header checkbox has three states. The table scrolls inside
  * its own frame, never the page: the actions column is pinned right and,
- * with `stickyFirstColumn`, the name column is pinned left.
+ * with `stickyFirstColumn`, the first column is pinned left.
  *
  * Controlled: the parent owns `sort`, `selected` and filters, and fetches or
  * sorts the rows (`nextSort`, `sortRows` follow the sheet's rules).
@@ -183,6 +184,7 @@ export function DataTable<Row>({
   loadingLabel = 'Đang tải…', className,
 }: DataTableProps<Row>) {
   const headerKey = rowHeader ?? columns[0]?.key;
+  const pinnedKey = stickyFirstColumn ? columns[0]?.key : undefined;
   const keys = rows.map(rowKey);
   const chosen = new Set(selected);
   const chosenHere = keys.filter((k) => chosen.has(k));
@@ -266,7 +268,7 @@ export function DataTable<Row>({
                     className={cx(
                       styles.head,
                       column.align === 'end' && styles.end,
-                      column.key === headerKey && styles.nameCell,
+                      column.key === pinnedKey && styles.pinned,
                       column.sortable && styles.sortable,
                     )}
                   >
@@ -306,9 +308,9 @@ export function DataTable<Row>({
                     </td>
                   ) : null}
                   {columns.map((column) => {
-                    const cls = cx(styles.cell, column.align === 'end' && styles.end);
+                    const cls = cx(styles.cell, column.align === 'end' && styles.end, column.key === pinnedKey && styles.pinned);
                     return column.key === headerKey ? (
-                      <th key={column.key} scope="row" lang={column.lang} className={cx(cls, styles.nameCell, styles.rowName)}>{cellValue(row, column)}</th>
+                      <th key={column.key} scope="row" lang={column.lang} className={cx(cls, styles.rowName)}>{cellValue(row, column)}</th>
                     ) : (
                       <td key={column.key} lang={column.lang} className={cls}>{cellValue(row, column)}</td>
                     );

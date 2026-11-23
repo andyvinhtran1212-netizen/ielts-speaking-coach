@@ -52,3 +52,23 @@ test('learner table scrolled sideways keeps the name and actions columns', async
   expect(frameBox.x + frameBox.width).toBeLessThanOrEqual(viewport.width);
   await expect(frame).toHaveScreenshot('data-table-scrolled.png');
 });
+
+test('1024px admin width: the learner table keeps the name and actions columns while it scrolls (FR-018)', async ({ page, viewport }) => {
+  test.skip((viewport?.width ?? 0) < 768, 'the phone is covered by the scrolled-table test');
+  await page.setViewportSize({ width: 1024, height: 800 });
+  await open(page);
+  const demo = page.getByTestId('data-table-learners');
+  const frame = demo.locator('table').locator('..');
+  await frame.scrollIntoViewIfNeeded();
+  const frameBox = await frame.boundingBox();
+  expect(frameBox.x + frameBox.width).toBeLessThanOrEqual(1024);
+  await frame.evaluate((el) => { el.scrollLeft = el.scrollWidth; });
+  const name = demo.getByRole('rowheader', { name: 'Đặng Thuỳ Dương' });
+  const nameBox = await name.boundingBox();
+  expect(nameBox.x).toBeGreaterThanOrEqual(frameBox.x);
+  expect(nameBox.x).toBeLessThan(frameBox.x + 80);
+  expect(nameBox.width).toBeLessThanOrEqual(240);
+  const actionBox = await demo.getByRole('link', { name: 'Xem' }).first().boundingBox();
+  expect(actionBox.x + actionBox.width).toBeLessThanOrEqual(frameBox.x + frameBox.width + 1);
+  await expect(frame).toHaveScreenshot('data-table-1024.png');
+});

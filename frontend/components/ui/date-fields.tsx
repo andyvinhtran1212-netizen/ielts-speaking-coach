@@ -72,14 +72,18 @@ function Calendar({
 }) {
   const weeks = monthGrid(month);
   const days = weeks.flat().filter((d): d is string => d !== null);
-  const initial = days.find((d) => mark(d) === 'one' || mark(d) === 'start') ?? (days.includes(today) ? today : days[0]);
-  const [focus, setFocus] = useState(initial);
+  // The one tab stop of the grid must be a day that can be chosen: the picked
+  // day, else today, else the first open day of the month (a disabled button
+  // takes no focus, and every other day has tabIndex -1).
+  const tabStop = (prefer: readonly (string | undefined)[]) => [...prefer, ...days]
+    .find((d): d is string => d !== undefined && days.includes(d) && !isDisabled(d)) ?? days[0];
+  const [focus, setFocus] = useState(() => tabStop([days.find((d) => mark(d) === 'one' || mark(d) === 'start'), today]));
   const keyNav = useRef(false);
   const grid = useRef<HTMLTableElement>(null);
   const titleId = useId();
 
   useEffect(() => {
-    if (!days.includes(focus)) setFocus(days.includes(today) ? today : days[0]);
+    if (!days.includes(focus) || isDisabled(focus)) setFocus(tabStop([days.find((d) => mark(d) === 'one' || mark(d) === 'start'), today]));
   }, [month]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -92,7 +96,10 @@ function Calendar({
     const delta = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[event.key];
     if (delta === undefined) return;
     event.preventDefault();
-    const next = addDays(focus, delta);
+    // Step over locked days (min/max); stop where nothing can be chosen.
+    let next = addDays(focus, delta);
+    for (let i = 0; i < 62 && isDisabled(next); i += 1) next = addDays(next, delta);
+    if (isDisabled(next)) return;
     keyNav.current = true;
     if (next.slice(0, 7) !== month) onMonthChange(next.slice(0, 7));
     setFocus(next);
@@ -256,7 +263,8 @@ export function DateField({ label, value, onChange, min, max, today, error, id, 
             mark={(iso) => (iso === value ? 'one' : null)}
             onPick={(iso) => {
               setTypingError('');
-              onChange(iso);
+              setText(formatDate(iso));
+              if (iso !== value) onChange(iso);
               if (!isPhone()) close(true);
             }}
             status={splitIso(value) ? `Đã chọn: ${formatLongDate(value)}` : 'Chưa chọn ngày'}
@@ -283,6 +291,12 @@ export type TimeFieldProps = {
   id?: string;
   className?: string;
 };
+
+/** The error for a typed time the list shows as busy, or '' when it can be chosen. */
+function unavailableError(time: string, unavailable: Readonly<Record<string, string>>): string {
+  const reason = unavailable[time];
+  return reason ? `${time} không chọn được: ${reason}. Bạn chọn giờ khác.` : '';
+}
 
 /** Time field (ThanhPhanDuLieu §9): typed as 24-hour hh:mm; the list (every `step` minutes) only helps. */
 export function TimeField({ label, value, onChange, step = 15, from = '06:00', to = '22:00', unavailable = {}, error, id, className }: TimeFieldProps) {
@@ -311,6 +325,10 @@ export function TimeField({ label, value, onChange, step = 15, from = '06:00', t
   const commit = (raw: string) => {
     const parsed = parseTime(raw);
     if (parsed.error !== undefined) { setTypingError(parsed.error); return; }
+    // The same rule as the list: a time marked busy is refused, with its
+    // reason, and the last good value stays in the form.
+    const busy = unavailableError(parsed.value, unavailable);
+    if (busy) { setTypingError(busy); return; }
     setTypingError('');
     setText(parsed.value);
     if (parsed.value !== value) onChange(parsed.value);
@@ -363,7 +381,7 @@ export function TimeField({ label, value, onChange, step = 15, from = '06:00', t
                     className={cx(styles.time, on && styles.timeOn)}
                     aria-pressed={on}
                     disabled={Boolean(reason)}
-                    onClick={() => { setTypingError(''); onChange(t); close(true); }}
+                    onClick={() => { setTypingError(''); setText(t); if (t !== value) onChange(t); close(true); }}
                   >
                     {t}
                     {on ? <span className={styles.timeNote}>đang chọn</span> : null}
@@ -432,15 +450,22 @@ export function DateRangeField({
       return;
     }
     setTypingError('');
+    show(next);
     if (next.start !== value.start || next.end !== value.end) onChange(next);
   };
+
+  // Both boxes show what the form holds once a change is accepted, so text
+  // refused earlier never stays on screen without its error.
+  const show = (next: DateRange) => { setStartText(formatDate(next.start)); setEndText(formatDate(next.end)); };
 
   const pick = (iso: string) => {
     setTypingError('');
     if (!value.start || value.end || iso < value.start) {
+      show({ start: iso, end: '' });
       onChange({ start: iso, end: '' });
       return;
     }
+    show({ start: value.start, end: iso });
     onChange({ start: value.start, end: iso });
     if (!isPhone()) close(true);
   };

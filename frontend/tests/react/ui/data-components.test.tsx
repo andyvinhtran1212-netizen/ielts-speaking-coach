@@ -195,6 +195,25 @@ describe('DataTable', () => {
     expect(wrap.className).toMatch(/sticky/);
     // Row headers stay the name column even when it is pinned.
     expect(bodyNames()).toEqual(['Nguyễn Minh Anh', 'Phạm Gia Huy', 'Hoàng Mai Chi']);
+    const pinned = Array.from(container.querySelectorAll('tr')).map((tr) => Array.from(tr.children).findIndex((c) => /pinned/.test(c.className)));
+    expect(new Set(pinned)).toEqual(new Set([1]));
+  });
+
+  it('stickyFirstColumn pins columns[0], not the rowHeader column', () => {
+    const { container } = render(
+      <DataTable caption="Học viên" columns={COLUMNS} rows={ROWS} rowKey={(r) => r.id} rowHeader="email" stickyFirstColumn emptyState={null} />,
+    );
+    const firstRow = container.querySelector('tbody tr') as HTMLElement;
+    const [nameCell, emailCell] = Array.from(firstRow.children) as HTMLElement[];
+    expect(nameCell.tagName).toBe('TD');
+    expect(nameCell.className).toMatch(/pinned/);
+    expect(emailCell.tagName).toBe('TH');
+    expect(emailCell.className).not.toMatch(/pinned/);
+    expect((container.querySelector('thead th') as HTMLElement).className).toMatch(/pinned/);
+    // Without the flag nothing is pinned.
+    cleanup();
+    const plain = render(<DataTable caption="Học viên" columns={COLUMNS} rows={ROWS} rowKey={(r) => r.id} emptyState={null} />);
+    expect(plain.container.querySelectorAll('[class*="pinned"]')).toHaveLength(0);
   });
 
   it('helpers: nextSort cycles, sortRows keeps empties last and does not mutate', () => {
