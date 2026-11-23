@@ -53,17 +53,24 @@ def world(monkeypatch):
             _ent("e3", U3, "p-online"),
         ],
     })
-    ledger: dict[str, int] = {}
+    ledger: dict[str, dict] = {}
     balances = {"e1-short": 0, "e1-long": 2, "e2": 0, "e3": 4}
 
     def grant(params):
         assert params["p_actor_kind"] == "admin" and params["p_actor_id"] == "admin-1"
-        key = f"extra:{params['p_request_key']}:{params['p_entitlement_id']}"
+        eid = params["p_entitlement_id"]
+        user = next(r["user_id"] for r in db.tables["entitlements"] if r["id"] == eid)
+        key = f"extra:{params['p_request_key']}:{user}"  # 385: one row per key and learner
         if key in ledger:
-            return {"status": "replay", "ledger_id": ledger[key], "balance": balances[params["p_entitlement_id"]]}
-        ledger[key] = len(ledger) + 1
-        balances[params["p_entitlement_id"]] += params["p_credits"]
-        return {"status": "granted", "ledger_id": ledger[key], "balance": balances[params["p_entitlement_id"]]}
+            prior = ledger[key]
+            if (prior["credits"], prior["reason"]) != (params["p_credits"], params["p_reason"].strip()):
+                return {"status": "request_key_conflict"}
+            return {"status": "replay", "ledger_id": prior["id"], "entitlement_id": prior["entitlement_id"],
+                    "balance": balances[prior["entitlement_id"]]}
+        ledger[key] = {"id": len(ledger) + 1, "entitlement_id": eid, "credits": params["p_credits"],
+                       "reason": params["p_reason"].strip()}
+        balances[eid] += params["p_credits"]
+        return {"status": "granted", "ledger_id": ledger[key]["id"], "entitlement_id": eid, "balance": balances[eid]}
 
     db.handlers = {"fn_credit_grant_extra": grant}
     for module in (credits, credits.ent):
@@ -100,6 +107,46 @@ def test_class_grant_skips_a_learner_without_a_class_entitlement_and_replays(cli
     assert again.json()["granted"] == res.json()["granted"]
     assert world["balances"] == {"e1-short": 0, "e1-long": 7, "e2": 5, "e3": 4}
     assert len(world["ledger"]) == 2
+
+
+def test_a_retry_after_the_chosen_entitlement_changed_replays_the_first_grant(client, world):
+    first = _post(client, cohort_id=COHORT, user_ids=[U1])
+    assert first.json()["granted"] == [{"user_id": U1, "entitlement_id": "e1-long", "balance": 7}]
+    # A newer class term is granted before the admin retries the same request.
+    world["db"].tables["entitlements"].append(_ent("e1-newer", U1, "p-class", days=200))
+    world["balances"]["e1-newer"] = 0
+    again = _post(client, cohort_id=COHORT, user_ids=[U1])
+    assert again.json()["granted"] == first.json()["granted"]
+    assert world["balances"]["e1-newer"] == 0 and len(world["ledger"]) == 1
+
+
+def test_the_same_key_with_other_credits_or_reason_is_a_conflict(client, world):
+    assert _post(client, cohort_id=COHORT, user_ids=[U1]).status_code == 200
+    for change in ({"credits": 6}, {"reason": "Một lý do khác"}):
+        res = _post(client, cohort_id=COHORT, user_ids=[U1], **change)
+        assert res.status_code == 409 and res.json()["detail"]["error_code"] == "request_key_conflict"
+    assert world["balances"]["e1-long"] == 7 and len(world["ledger"]) == 1
+
+
+def test_a_large_class_reads_entitlements_in_lots_of_100(client, world, monkeypatch):
+    members = [f"00000000-0000-4000-8000-{i:012d}" for i in range(100, 350)]
+    for i, user in enumerate(members):
+        world["db"].tables["entitlements"].append(_ent(f"big-{i}", user, "p-class"))
+        world["balances"][f"big-{i}"] = 0
+    monkeypatch.setattr(credits, "_cohort_user_ids", lambda cohort_id: members)
+    lots = []
+    real_in = type(world["db"].table("entitlements")).in_
+
+    def spy(query, column, values):
+        values = list(values)
+        if query._table == "entitlements" and column == "user_id":
+            lots.append(len(values))
+        return real_in(query, column, values)
+
+    monkeypatch.setattr(type(world["db"].table("entitlements")), "in_", spy)
+    res = _post(client, cohort_id=COHORT)
+    assert res.status_code == 200 and len(res.json()["granted"]) == 250
+    assert lots == [100, 100, 50]
 
 
 def test_a_closed_entitlement_is_not_chosen_and_an_unusable_one_is_skipped(client, world):

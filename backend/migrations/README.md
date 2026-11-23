@@ -54,15 +54,17 @@ per-user write takes a transaction advisory lock; a trigger ties an order's
 `entitlement_id` to its own user and product. Apply right after 383 in the
 same run. The rollback drops the RPCs, keeps every table and row, and refuses
 while `credit_ledger` has rows unless `aver.allow_commerce_rollback = 'on'`.
-`385` is `pending_feature course_commerce` (COURSEACCESS-0055 T011 / G04-T12, spec
-label "383"): two service_role-only RPCs of plan 5.15, no table or column.
+`385` is `pending_feature credit_lifecycle` (COURSEACCESS-0055 T011 / G04-T12, spec
+label "383"), a group of its own so that a `course_commerce` run (383 + 384)
+never picks it up; apply it only after 383 and 384 are on that environment. Two
+service_role-only RPCs of plan 5.15, no table or column.
 `fn_credit_expire_entitlements` closes the credit book of an entitlement that can
 no longer be used (`expire`), carries an online term's unused credits into its
 renewal (`carry_over`, `CREDIT_CARRY_PERCENT`) and lapses a carry after its hold
 (`carry_expire`, `CREDIT_CARRY_VALID_DAYS` from the new term's start); it skips an
 entitlement with an open reservation and, in the sweep, a learner whose credit lock
 is busy. `fn_credit_grant_extra` writes one `grant_extra` row per request key and
-entitlement. Apply after 384. The rollback drops the two RPCs and keeps every row.
+learner (the same key with other credits or reason is `request_key_conflict`). The rollback drops the two RPCs and keeps every row.
 `380` is Skill Drill homework, #2294.
 `400` is `pending_feature public_library` (LIBRARY-0061 T002, G06 band 400–419):
 five RLS-only Library tables reached only through service_role and the private

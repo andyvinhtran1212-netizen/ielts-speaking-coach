@@ -385,16 +385,23 @@ def _cohort_user_ids(cohort_id: str) -> list[str]:
     return sorted({str(r["user_id"]) for r in rows if isinstance(r, dict) and r.get("user_id")})
 
 
+_IN_FILTER_LOT = 100
+
+
 def _class_entitlements(user_ids: list[str], course_id: str) -> dict[str, str]:
     """Per learner, the class or re-practice entitlement of the course that can
     still take credits; several → the one that ends last (no end = last)."""
-    if not user_ids:
+    rows: list[dict] = []
+    # Lots of 100: 500 UUIDs in one in.() filter make a URL of about 18 KB.
+    for start in range(0, len(user_ids), _IN_FILTER_LOT):
+        res = (
+            supabase_admin.table("entitlements").select(ent._ENTITLEMENT_COLUMNS)
+            .in_("user_id", user_ids[start:start + _IN_FILTER_LOT])
+            .eq("course_id", course_id).eq("status", "active").execute()
+        )
+        rows.extend(res.data or [])
+    if not rows:
         return {}
-    res = (
-        supabase_admin.table("entitlements").select(ent._ENTITLEMENT_COLUMNS)
-        .in_("user_id", user_ids).eq("course_id", course_id).eq("status", "active").execute()
-    )
-    rows = list(res.data or [])
     products = ent.fetch_products(r.get("product_id") for r in rows)
     now = datetime.now(timezone.utc)
     best: dict[str, tuple] = {}
@@ -456,8 +463,12 @@ def grant_extra_for(*, admin_id: str, credits: int, reason: str, request_key: st
     for user, entitlement in targets:
         result = _grant_one(admin_id, entitlement, credits, reason, request_key)
         if result["status"] in ("granted", "replay"):
-            granted.append({"user_id": user, "entitlement_id": entitlement,
+            # A replay names the entitlement the first call credited, which may
+            # not be the one chosen now (the key is per learner, not per entitlement).
+            granted.append({"user_id": user, "entitlement_id": str(result.get("entitlement_id") or entitlement),
                             "balance": int(result.get("balance") or 0)})
+        elif result["status"] == "request_key_conflict":
+            raise GrantExtraRefused(409, "request_key_conflict")
         elif result["status"] in ("not_usable", "not_found"):
             skipped.append({"user_id": user, "reason": "not_usable"})
         else:

@@ -77,7 +77,7 @@ def test_register_policy_and_rollback():
     policy = {line.split("\t")[0]: line.split("\t")[1:3]
               for line in (MIGRATIONS / "forward-policy.tsv").read_text().splitlines()
               if line and not line.startswith("#")}
-    assert policy[NAME] == ["pending_feature", "course_commerce"]
+    assert policy[NAME] == ["pending_feature", "credit_lifecycle"]
     body = _body(ROLLBACK)
     assert "DROP TABLE" not in body and "DELETE" not in body
     for signature in RPCS:
@@ -488,20 +488,32 @@ async def test_case_14_an_extension_keeps_the_hold_date(pg):
 # ── fn_credit_grant_extra ───────────────────────────────────────────────────
 
 @pytest.mark.asyncio
-async def test_grant_extra_is_idempotent_per_key_and_entitlement(pg):
+async def test_grant_extra_is_idempotent_per_key_and_learner(pg):
     user = await pg.user()
+    second_user = await pg.user()
     product = await pg.product(kind="class")
     ent = await pg.ent(user, product, starts=-1 * D, credits=2, source="access_code")
     other = await pg.ent(user, product, starts=-1 * D, source="admin_grant")
+    theirs = await pg.ent(second_user, product, starts=-1 * D, source="access_code")
     key = uuid4().hex
     first = await pg.rpc("fn_credit_grant_extra", ADMIN, "admin", ent, 5, "  bù bài lỗi  ", key)
-    assert first["status"] == "granted" and first["balance"] == 7
+    assert first == {"status": "granted", "ledger_id": first["ledger_id"], "entitlement_id": str(ent), "balance": 7}
     again = await pg.rpc("fn_credit_grant_extra", ADMIN, "admin", ent, 5, "bù bài lỗi", key)
-    assert again == {"status": "replay", "ledger_id": first["ledger_id"], "balance": 7}
-    assert (await pg.rpc("fn_credit_grant_extra", ADMIN, "admin", other, 5, "bù bài lỗi", key))["status"] == "granted"
+    assert again == {"status": "replay", "ledger_id": first["ledger_id"], "entitlement_id": str(ent), "balance": 7}
+    # A retry after the backend picked another entitlement of the same learner
+    # (a newer class term was granted meanwhile) replays the first grant.
+    moved = await pg.rpc("fn_credit_grant_extra", ADMIN, "admin", other, 5, "bù bài lỗi", key)
+    assert moved == again
+    # Same key, other credits or reason: refused, nothing written.
+    for credits, reason in ((6, "bù bài lỗi"), (5, "lý do khác")):
+        assert (await pg.rpc("fn_credit_grant_extra", ADMIN, "admin", ent, credits, reason, key)) \
+            == {"status": "request_key_conflict"}
+    # Another learner in the same batch gets their own row.
+    assert (await pg.rpc("fn_credit_grant_extra", ADMIN, "admin", theirs, 5, "bù bài lỗi", key))["status"] == "granted"
+    assert await pg.con.fetchval("SELECT count(*) FROM credit_ledger WHERE reason = 'grant_extra'") == 2
     row = await pg.con.fetchrow("SELECT * FROM credit_ledger WHERE id = $1", first["ledger_id"])
     assert (row["reason"], row["delta"], row["note"], row["actor_id"]) == ("grant_extra", 5, "bù bài lỗi", ADMIN)
-    assert row["idempotency_key"] == f"extra:{key}:{ent}"
+    assert row["idempotency_key"] == f"extra:{key}:{user}"
 
 
 @pytest.mark.asyncio

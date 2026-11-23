@@ -219,10 +219,13 @@ END;
 $$;
 
 -- ── fn_credit_grant_extra (plan 5.15) ───────────────────────────────────────
--- One grant_extra row per (request_key, entitlement): calling the batch again
--- with the same key adds nothing. p_reason goes only to the note; the reason
--- column is always the literal 'grant_extra'. p_actor_kind is kept for the
--- instructor case (Q5); the backend route passes 'admin' only.
+-- One grant_extra row per (request_key, learner): calling the batch again with
+-- the same key adds nothing, even when the entitlement the backend picks for a
+-- learner changed between the two calls (the replay names the entitlement that
+-- got the credits). The same key with another number of credits or another
+-- reason is request_key_conflict, like fn_credit_reserve. p_reason goes only to
+-- the note; the reason column is always the literal 'grant_extra'. p_actor_kind
+-- is kept for the instructor case (Q5); the backend route passes 'admin' only.
 CREATE OR REPLACE FUNCTION public.fn_credit_grant_extra(
     p_actor_id uuid, p_actor_kind text, p_entitlement_id uuid, p_credits integer, p_reason text,
     p_request_key text
@@ -234,6 +237,7 @@ DECLARE
     v_ent public.entitlements%ROWTYPE;
     v_user uuid;
     v_key text;
+    v_prior public.credit_ledger%ROWTYPE;
     v_id bigint;
     v_balance integer;
 BEGIN
@@ -244,16 +248,20 @@ BEGIN
        OR p_request_key IS NULL OR char_length(p_request_key) NOT BETWEEN 8 AND 120 THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'credit_grant_extra_invalid_argument';
     END IF;
-    v_key := 'extra:' || p_request_key || ':' || p_entitlement_id;
     SELECT user_id INTO v_user FROM public.entitlements WHERE id = p_entitlement_id;
     IF NOT FOUND THEN
         RETURN jsonb_build_object('status', 'not_found');
     END IF;
+    v_key := 'extra:' || p_request_key || ':' || v_user;
     PERFORM public.fn_credit_lock_user(v_user);
-    SELECT id INTO v_id FROM public.credit_ledger WHERE idempotency_key = v_key;
+    SELECT * INTO v_prior FROM public.credit_ledger WHERE idempotency_key = v_key;
     IF FOUND THEN
-        SELECT b.balance INTO v_balance FROM public.fn_credit_usable_balance(p_entitlement_id) b;
-        RETURN jsonb_build_object('status', 'replay', 'ledger_id', v_id, 'balance', v_balance);
+        IF v_prior.delta <> p_credits OR v_prior.note IS DISTINCT FROM btrim(p_reason) THEN
+            RETURN jsonb_build_object('status', 'request_key_conflict');
+        END IF;
+        SELECT b.balance INTO v_balance FROM public.fn_credit_usable_balance(v_prior.entitlement_id) b;
+        RETURN jsonb_build_object('status', 'replay', 'ledger_id', v_prior.id,
+                                  'entitlement_id', v_prior.entitlement_id, 'balance', v_balance);
     END IF;
     -- Read the row again under the learner's lock: a revoke or a close that
     -- committed meanwhile is seen.
@@ -265,7 +273,8 @@ BEGIN
     VALUES (v_ent.user_id, v_ent.id, p_credits, 'grant_extra', v_key, p_actor_id, btrim(p_reason))
     RETURNING id INTO v_id;
     SELECT b.balance INTO v_balance FROM public.fn_credit_usable_balance(v_ent.id) b;
-    RETURN jsonb_build_object('status', 'granted', 'ledger_id', v_id, 'balance', v_balance);
+    RETURN jsonb_build_object('status', 'granted', 'ledger_id', v_id, 'entitlement_id', v_ent.id,
+                              'balance', v_balance);
 END;
 $$;
 

@@ -452,6 +452,7 @@ async def grant_extra(body: GrantExtra, authorization: Optional[str] = Header(No
             "cohort_not_found": "Không tìm thấy lớp.",
             "entitlement_not_found": "Không tìm thấy quyền học này của học viên.",
             "not_in_cohort": "Có học viên không thuộc lớp này.",
+            "request_key_conflict": "Mã yêu cầu này đã dùng với số lượt hoặc lý do khác. Tải lại trang rồi cấp lại.",
         }
         raise _error(exc.status_code, exc.error_code, messages[exc.error_code]) from None
     except Exception as exc:
