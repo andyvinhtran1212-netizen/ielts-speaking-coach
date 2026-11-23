@@ -1,14 +1,15 @@
 ---
 id: EXAMLISTENP-0069
 title: Listening practice forms and 80-day lessons ask before finishing, show when answers were saved and keep the learner's work in the shared practice room
-status: draft
+status: approved
 risk: high
 owner: product
 ---
 
 # Bài luyện nghe (programme, 80 ngày) dùng khung luyện chung, hỏi trước khi hoàn thành
 
-Status: **draft**. Soạn ngày 23/11/2026 theo nhiệm vụ G08-T10 của
+Status: **approved** (anh Andy, 23/11/2026 17:08 giờ VN; nguyên văn trong
+[`approval-decision.md`](approval-decision.md)). Soạn ngày 23/11/2026 theo nhiệm vụ G08-T10 của
 `docs/proposals/commercialization-2026-11/GOI-08-phong-thi-va-trinh-luyen.md`
 (spec S3; số 0069 theo sổ `01-KE-HOACH-TONG.md` mục 6, đã kiểm còn trống trong
 `specs/` và trong các PR đang mở). Chưa dòng mã nào chạy theo spec này. Chỉ anh Andy
@@ -263,7 +264,8 @@ Mỗi câu kèm đề xuất; mặc định tạm là đề xuất cho tới khi
 ## Sửa đổi đề xuất cho EXAMROOM-0066
 
 Sửa đổi 1 (mục (a) là `expired_unsubmitted` của EXAMREAD-0067 câu hỏi mở 6; mục (b) và (c)
-dưới đây). Chưa áp dụng cho tới khi anh Andy duyệt; khi duyệt, ghi vào `specs/0066-exam-room-shell/approval-decision.md`.
+dưới đây). Anh Andy đã duyệt (a)(b)(c) lúc 17:08 giờ VN 23/11/2026; đã áp vào EXAMROOM-0066,
+nguyên văn trong `specs/0066-exam-room-shell/approval-decision.md` mục "Amendment 1".
 
 - **(b)** `ExamRoomSurface` thêm `'listening-practice'` (Listening luyện, chế độ `practice`,
   tiếng Việt). Đổi kèm: `EXAM_ROOM_SURFACES` trong `frontend/lib/exam-room/flags.mjs` và danh
