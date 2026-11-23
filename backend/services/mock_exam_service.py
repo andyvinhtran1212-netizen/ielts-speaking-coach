@@ -4377,10 +4377,21 @@ def _expected_roster(exam: dict) -> Optional[dict]:
     stored, the roster is the selected audience (several classes, single
     learners). Without rows it falls back here, so an old exam reads as before.
     """
+    return _roster_with_source(exam)[0]
+
+
+def _roster_with_source(exam: dict) -> tuple[Optional[dict], str]:
+    """``_expected_roster`` plus where it came from: ``audiences``, ``legacy``
+    (flag off or no audience rows), or ``fallback_error`` (the audience read
+    failed, so the old roster is shown and the console must say so)."""
     from services import mock_exam_audience_service
-    audience = mock_exam_audience_service.expected_roster(exam)
+    audience, source = mock_exam_audience_service.expected_roster(exam)
     if audience is not None:
-        return audience
+        return audience, source
+    return _legacy_roster(exam), source
+
+
+def _legacy_roster(exam: dict) -> Optional[dict]:
     if is_retake(exam):
         rows = supabase_admin.table("mock_exam_assignments").select(
             "user_id, skills, open_until",
@@ -4543,7 +4554,7 @@ def admin_live_monitor(exam_id: str) -> dict:
         "reading":   _reading_total_questions(exam.get("reading_test_id")),
     }
 
-    roster = _expected_roster(exam)
+    roster, roster_source = _roster_with_source(exam)
     roster_known = roster is not None
     roster = roster or {}
     from services.mock_review_workflow import resolve_display_names
@@ -4701,6 +4712,8 @@ def admin_live_monitor(exam_id: str) -> dict:
             # (MOCKORG-0086 plan 5.5 point 2) until T32/T34 switch the UI.
             "exam_mode": mock_exam_modes.legacy_name(exam.get("exam_mode") or "sequential"),
             "exam_mode_v2": mock_exam_modes.normalize(exam.get("exam_mode") or "sequential"),
+            # MOCKORG-0086: audiences | legacy | fallback_error (CR R2 #2565).
+            "roster_source": roster_source,
             "status": exam.get("status"), "is_open": bool(exam.get("is_open")),
             "active_section": active,
             # The pause between "thu bài" and "mở phần sau". active_section is
