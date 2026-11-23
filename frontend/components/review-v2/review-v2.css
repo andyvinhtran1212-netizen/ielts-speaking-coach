@@ -51,7 +51,7 @@ body.exam-chrome:has(.rv2-root) {
 }
 
 .rv-note__input:focus-visible {
-  outline: 2px solid var(--av2-focus);
+  outline: var(--av2-focus);
   outline-offset: var(--av2-focus-offset);
 }
 
@@ -84,7 +84,7 @@ body.exam-chrome:has(.rv2-root) {
 }
 
 .rv-note__save:hover:not(:disabled) { background: var(--av2-accent-hover); }
-.rv-note__save:focus-visible { outline: 2px solid var(--av2-focus); outline-offset: var(--av2-focus-offset); }
+.rv-note__save:focus-visible { outline: var(--av2-focus); outline-offset: var(--av2-focus-offset); }
 .rv-note__save:disabled { opacity: 0.5; cursor: default; }
 
 .rv-note__status {
