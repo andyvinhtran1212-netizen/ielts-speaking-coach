@@ -175,12 +175,15 @@ viên mất bài, nộp nhầm hay lộ thông tin. Đã kiểm `reading-exam-se
 - **FR-014:** Phiên hết hạn: trong nhánh mới, mọi lời gọi `window.api.*` của lượt có tài
   khoản truyền `{ noRedirect: true }`. 401 giữa bài: ghi bản sao câu trả lời
   `exam-room:local-copy:reading:{ownerKey}:{attempt_id}` theo 0066 FR-035 (`ownerKey` là
-  `user.id` của lượt; mỗi câu ghi kèm `baseSavedAt` là `updated_at`/giờ ack gần nhất mà bộ
-  lưu biết), hiện hộp đăng nhập lại của khung. Trước khi có G05-T19, hộp dùng phương án dự
+  `user.id` của lượt; mỗi câu ghi kèm `baseValue` là giá trị server đã ack gần nhất mà bộ lưu
+  biết, và `baseSavedAt` chỉ để hiển thị, theo sửa đổi 1(c) của 0066), hiện hộp đăng nhập lại của
+  khung. Trước khi có G05-T19, hộp dùng phương án dự
   phòng của 0066 FR-015: `/login?next=<URL phòng thi>` cùng tab, chỉ bật sau khi đọc lại
   được bản sao. Đăng nhập lại đúng tài khoản: tải lượt từ server, rồi gửi lại qua bộ lưu
-  hiện có chỉ những câu mà server chưa đổi kể từ `baseSavedAt`; câu server mới hơn thì giữ
-  bản server; lượt đã nộp hay đã bỏ thì chỉ xoá bản sao. Xoá bản sao khi server ack, khi
+  hiện có chỉ những câu mà giá trị server vẫn bằng `baseValue` (so chuỗi nguyên văn; mảng và
+  đối tượng so sau khi sắp khoá; không so giờ, nên server đổi `updated_at` mà giá trị không đổi
+  vẫn gửi lại bản trên máy); câu mà giá trị server khác `baseValue` thì giữ bản server và bỏ câu đó
+  khỏi bản sao như 0066 FR-035; bản sao cũ không có `baseValue` thì hỏi, không tự gửi; lượt đã nộp hay đã bỏ thì chỉ xoá bản sao. Xoá bản sao khi server ack, khi
   bỏ bài (FR-012), khi đăng xuất, khi tài khoản khác đăng nhập (xoá không đọc). Tài khoản
   khác không đọc, khôi phục hay gửi được bản sao này. Link chia sẻ dùng quyền khách, không có
   hộp này; lỗi 403/404 của khách giữ như hôm nay.
