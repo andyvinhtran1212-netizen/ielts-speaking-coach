@@ -171,6 +171,18 @@ def test_deleting_a_user_keeps_the_row_as_no_account(pg):
     assert pg("UPDATE public.mock_exam_audiences SET selected = true;", check=False).returncode != 0
 
 
+def test_deleting_a_cohort_keeps_the_row_as_a_snapshot(pg):
+    """CR #2565 (comment 7098971861): the cohort FK SET NULL must not collide
+    with mock_exam_audiences_source_matches."""
+    pg(SQL)
+    pg(_audience())
+    pg(f"DELETE FROM public.cohorts WHERE id = {COHORT};")
+    assert pg("SELECT source_kind, source_cohort_id IS NULL, source_removed_at IS NOT NULL, selected "
+              "FROM public.mock_exam_audiences;").stdout.strip() == "cohort|t|t|t"
+    # A direct write of a cohort row without its class is still refused.
+    assert pg(_audience(source_cohort_id="NULL", purpose="'makeup'"), check=False).returncode != 0
+
+
 def test_drifted_mode_check_is_refused(pg):
     pg("ALTER TABLE public.mock_exams DROP CONSTRAINT mock_exams_exam_mode_chk;")
     result = pg(SQL, check=False)
