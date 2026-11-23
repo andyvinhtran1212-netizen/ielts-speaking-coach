@@ -59,6 +59,14 @@ while `credit_ledger` has rows unless `aver.allow_commerce_rollback = 'on'`.
 five RLS-only Library tables reached only through service_role and the private
 `library-media` bucket guarded by a RESTRICTIVE `storage.objects` policy; the schema
 rollback refuses while any Library content, slug history, mark or bucket object exists.
+`500` is `pending_feature account_data_rights` (ACCOUNTDATA-0100 T002, G04-T18,
+spec label 500 assigned by GOI-04): RLS-only `account_deletion_requests` (one open
+request per learner, lease columns, no email) and `account_data_exports` (one
+running job per learner, object path scoped to `<user_id>/<export_id>/<uuid>.zip`),
+both service_role only, and the private `account-exports` bucket guarded by a
+RESTRICTIVE `storage.objects` policy. Users rows are anonymised, never deleted, so
+both foreign keys are `ON DELETE RESTRICT`. The rollback refuses while either
+table has a row or the bucket has an object.
 `501` is `pending_feature course_bank_service_write`: since 309 its CHECK
 `quiz_banks_grammar_revision_shape` calls `grammar_quiz_allowed_code`, whose
 EXECUTE the 309/314/339 blanket loops revoke from service_role, so every
