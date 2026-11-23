@@ -78,7 +78,7 @@ Mọi dòng ở trạng thái `PENDING`: spec đang `draft`, chưa có dòng mã
 | FR-113 | kind=test; ref=planned pytest suggestions source order, cap 3, empty when no source (T25) | PENDING |
 | FR-114 | kind=test; ref=planned pytest catalog groups with done null on first visit; React "Tất cả đề" link via liveHref (T25) | PENDING |
 | FR-115 | kind=test; ref=planned pytest history five newest with grading source; React first-visit sentence, no empty table, no band (T25) | PENDING |
-| FR-116 | kind=test; ref=planned React out-of-credits shows CreditsEmptyNotice under the title, other blocks unchanged (T25) | PENDING |
+| FR-116 | kind=test; ref=planned React out-of-credits shows CreditsEmptyNotice under the title, other blocks unchanged (T25) + total 0 with metering metered shows the notice, not_metered and unknown do not (HOLD patch) | PENDING |
 | FR-117 | kind=test; ref=planned React no "Cần Khoá" copy when access.blocked is false; blocked true renders screen 4 (T25) | PENDING |
 | FR-118 | kind=test; ref=planned pytest response_model, caller-only data, 422 for an unknown skill, degraded per block (T25) | PENDING |
 | FR-126 | kind=test; ref=planned pytest learner_starters admin-only write with reason and log, write-time paper check 422 starter_paper_unavailable, Writing before G08 422 starter_unsupported, read-time re-check hides the block (T25s) | PENDING |
@@ -87,7 +87,7 @@ Mọi dòng ở trạng thái `PENDING`: spec đang `draft`, chưa có dòng mã
 | FR-121 | kind=test; ref=planned node date labels around Vietnam midnight and the four default-session branches (T30c) | PENDING |
 | FR-122 | kind=test; ref=planned node YouTube host allowlist; React null-url attachment row without the path, links open with noopener (T30c) | PENDING |
 | FR-123 | kind=test; ref=planned pytest lesson_id on /api/student/assigned rows; node join by lesson_id, null lesson_id joins no session, block hidden when no row of the class has lesson_id (T30c) | PENDING |
-| FR-124 | kind=test; ref=planned React one read per API on entry, degraded lessons or assignments fails only its block (T30c) | PENDING |
+| FR-124 | kind=test; ref=planned React one read per API on entry, degraded lessons or assignments fails only its block (T30c) + degraded ['class'] with an archived class renders no lessons, materials or homework, only the unverified-class notice with retry (HOLD patch) | PENDING |
 | FR-125 | kind=test; ref=planned React no teacher-comment, course-test or ended-class copy; 390px list then session with back button (T30c) | PENDING |
 
 ## Kịch bản staging (gói 9.1 mục 1, 3, 3b, 3c, 8; 9.4)

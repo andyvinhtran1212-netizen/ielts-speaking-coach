@@ -24,3 +24,19 @@ The coordinator session relayed it to this thread, with the message copied verba
 Scope of the approvals:
 - They allow the task PRs in `tasks.md` (T05, T13, T14 and the amendment tasks) to be written and opened into `staging`, as `high-risk` PRs that cite `Spec: LEARNERCORE-0063`.
 - They do not authorize turning on `learner_v2` for anyone on staging or production, applying a migration, writing to any database, changing env vars, or merging. Each of those still needs Andy's own approval at the time.
+
+## HOLD patch (approved 2026-11-23 09:51 UTC)
+
+Seven HOLD comments on the amendment PRs had been posted before the 09:23 approval and were still unanswered. They are fixed in one consolidated spec patch, together with the open Codex review threads and one gap in the base spec (FR-078 against the ledger reconcile that `_visible_assignments` performs). Andy approved the patch himself in the project chat at 09:51:13 UTC (16:51 Vietnam time). The coordinator relayed his message, which the server copied verbatim:
+
+> duyệt bản vá HOLD 0063
+
+| Amendment | PR | What the patch changes |
+|---|---|---|
+| 1 | #2481 | FR-082: mock results show band, Overall and grading detail only once the sitting is `released`, in the JSON as well. FR-037: an expired course shows no lesson list, because 0064 returns 403 `course_access_expired`. |
+| 2 | #2482 | No text change. The FR-094 HOLD was already resolved by the CR R2 fixes (suspended accounts excluded, flag-bound exemptions, field whitelist). |
+| 3 | #2484 | FR-100: the self-practice route checks `student_is_active_in_cohort`. FR-078 and FR-103: "read-only" allows only the ledger reconcile done inside `_visible_assignments`. FR-096: reopened course work (`course_action`) groups as "Cần làm". |
+| 4 | #2489 | FR-110: the preflight uses the index predicate (`attempt_id IS NOT NULL`). Real duplicates are repaired with an archive script that needs a separate DB-write approval; marking them `resolved` no longer counts as a fix. |
+| 5, 6 | #2491 | FR-116: `credits.metering` is computed by the server with `charge_plan`. FR-124: `degraded: ['class']` hides every class-scoped block on `/course/class`. |
+
+The approval covers spec text only. It does not authorize applying a migration, running the archive script, writing to a database or merging.
