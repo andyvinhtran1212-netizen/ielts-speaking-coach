@@ -473,6 +473,8 @@ def test_a_response_failure_carries_the_responses_own_time(client, db):
     regraded = grouping.group_grading([], [({"id": "r9", "stt_status": "ok", "recorded_at": ago(50),
                                              "last_regraded_at": ago(1)}, session)])
     assert next(iter(regraded.values())).times == [ago(1)]
+    persisted = grouping.group_grading([], [({"id": "r9", "stt_status": "ok", "persisted_at": ago(3)}, session)])
+    assert next(iter(persisted.values())).times == [ago(3)]
     db.tables["sessions"] = [session]
     db.tables["responses"] = [{"id": "r9", "session_id": "s9", "stt_status": "ok", "grading_status": "failed",
                                "recorded_at": ago(2)}]

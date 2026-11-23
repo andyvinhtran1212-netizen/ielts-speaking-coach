@@ -91,7 +91,7 @@ def _read_grading() -> tuple[dict, bool]:
                               .order("started_at", desc=True).order("id", desc=True))
     sessions = {str(s["id"]): s for s in with_code + degraded}
     responses, more_c = _paged(lambda: supabase_admin.table("responses")
-                               .select("id, session_id, stt_status, recorded_at, last_regraded_at")
+                               .select("id, session_id, stt_status, recorded_at, persisted_at, last_regraded_at")
                                .eq("grading_status", "failed").order("id", desc=True))
     # Like /admin/alerts: a response of a session already listed is not counted twice.
     pending = [r for r in responses if str(r.get("session_id") or "") not in sessions]

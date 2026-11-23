@@ -155,8 +155,8 @@ def group_grading(session_errors: Iterable[dict], response_failures: Iterable[tu
     Only Speaking produces these rows today, so the skill is ``speaking``.
     A session-level failure's step is ``failed_step`` (else ``error_code``);
     a response-level failure's step is ``stt`` when transcription failed,
-    else ``grading``, and its time is the response's own (``recorded_at``, or
-    ``last_regraded_at`` when later), not the session's.
+    else ``grading``, and its time is the response's own (``recorded_at`` or
+    ``persisted_at``, or ``last_regraded_at`` when later), not the session's.
     """
     groups: dict[str, Group] = {}
 
@@ -179,9 +179,11 @@ def group_grading(session_errors: Iterable[dict], response_failures: Iterable[tu
             session.get("last_error_at") or session.get("started_at"))
     for response, session in response_failures:
         step = "stt" if response.get("stt_status") == "failed" else "grading"
-        # The response's own time (``responses`` has ``recorded_at``, no
-        # ``created_at``; a regrade that failed sets ``last_regraded_at``).
-        times = [str(t) for t in (response.get("recorded_at"), response.get("last_regraded_at")) if t]
+        # The response's own time: ``recorded_at`` (``responses`` has no
+        # ``created_at``), else ``persisted_at`` (mig 202, server default);
+        # a later failed regrade sets ``last_regraded_at``.
+        own = response.get("recorded_at") or response.get("persisted_at")
+        times = [str(t) for t in (own, response.get("last_regraded_at")) if t]
         add(step, session, f"response:{response.get('id')}", None, max(times) if times else None)
     return groups
 

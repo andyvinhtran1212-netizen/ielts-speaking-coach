@@ -52,6 +52,7 @@ _SCHEMA = {
         "transcript_logprobs", "assessment_confidence", "score_confidence",
         "final_band_p", "final_overall_band", "last_regraded_at",
         "last_regraded_by", "regrade_count",
+        "persisted_at",               # mig 202 (NOT NULL DEFAULT now())
     },
     "class_assignment_items": {
         "id", "assignment_id", "student_id", "state", "submitted_at", "score",
