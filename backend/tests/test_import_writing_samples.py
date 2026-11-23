@@ -438,8 +438,9 @@ class FakeStore:
     """Stand-in for the service-role client: rows kept as plain dicts, JSON
     columns as Python objects, as supabase-py returns them."""
 
-    def __init__(self, rows=(), topics=()):
+    def __init__(self, rows=(), topics=(), history=()):
         self.rows = {r["id"]: copy.deepcopy(r) for r in rows}
+        self.history = [dict(h) for h in history]
         self.topics = {t["slug"]: copy.deepcopy(t) for t in topics}
         self.objects: dict[str, tuple[bytes, str]] = {}
         self.writes: list[tuple] = []
@@ -451,6 +452,9 @@ class FakeStore:
 
     def list_samples(self):
         return [copy.deepcopy(r) for r in self.rows.values()]
+
+    def list_slug_history(self):
+        return [dict(h) for h in self.history]
 
     def upsert_topics(self, rows):
         self.writes.append(("topics", [r["slug"] for r in rows]))
@@ -676,6 +680,7 @@ def test_orphan_rows_are_reported_and_left_alone_and_their_slug_is_not_taken(tre
     orphan = {"id": "old", "source_key": "gone", "slug": "t2", "published": True, "published_at": NOW}
     store = FakeStore(rows=[orphan])
     status, lines = do_import(tree, [entry("t2", publish=True, review=APPROVED)], store, execute=True)
+    assert status == 1 and "SLUG_CONFLICT 1 set(s) not imported: t2" in lines
     assert "ORPHAN gone (published=True; not a source set, left alone)" in lines
     assert "SKIP t2 (slug 't2' is held by row 'gone')" in lines
     assert store.rows["old"] == orphan and len(store.rows) == 1
@@ -689,7 +694,7 @@ def test_a_failed_write_is_named_the_rest_land_and_the_run_fails(tree):
     assert status == 1
     assert "FAILED t1: RuntimeError: insert refused" in lines
     assert "NOT_APPLIED insert t1" in lines
-    assert lines[-1] == "EXECUTE incomplete: 1 failed, 1 not applied"
+    assert lines[-1] == "EXECUTE incomplete: 1 failed, 1 not applied, 0 slug conflict(s)"
     assert set(by_key(store)) == {"t2"}
 
 
@@ -761,3 +766,24 @@ def test_assert_staging(url, ok):
     else:
         with pytest.raises(SystemExit):
             iws.assert_staging(url)
+
+
+def test_a_former_slug_in_the_308_history_is_never_reused(tree):
+    # "renamed" was published as old-name, then renamed in /admin/library;
+    # old-name now answers 308 to it. A new set may not take old-name.
+    tree["write"]("renamed", make_set())
+    tree["write"]("newcomer", make_set())
+    live = {"id": "r1", "source_key": "renamed", "slug": "new-name", "published": True, "published_at": NOW}
+    store = FakeStore(rows=[live], history=[{"old_slug": "old-name", "sample_id": "r1"}])
+    manifest = [entry("renamed", slug="new-name", publish=True, review=APPROVED),
+                entry("newcomer", slug="old-name", publish=True, review=APPROVED)]
+    # The dry run shows the refusal and fails, so the manifest gets fixed first.
+    status, dry = do_import(tree, manifest, store)
+    assert status == 1
+    assert "SKIP newcomer (slug 'old-name' is a former slug of 'renamed' (308 history); choose another)" in dry
+    assert "SLUG_CONFLICT 1 set(s) not imported: newcomer" in dry
+    status, lines = do_import(tree, manifest, store, execute=True)
+    assert status == 1 and "newcomer" not in by_key(store)
+    assert lines[-1] == "EXECUTE incomplete: 0 failed, 0 not applied, 1 slug conflict(s)"
+    # The renamed set itself is untouched apart from its content columns.
+    assert by_key(store)["renamed"]["slug"] == "new-name" and by_key(store)["renamed"]["published"] is True

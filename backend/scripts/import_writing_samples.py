@@ -595,6 +595,7 @@ class PlanItem:
     patch: dict = field(default_factory=dict)
     figure: Optional[tuple[str, bytes, str]] = None  # (object path, bytes, content type) to upload
     first_publish: bool = False
+    conflict: bool = False  # slug taken or reserved: the manifest needs a fix
 
 
 def plan_topics(topic_rows: list[dict], db_topics: list[dict]) -> list[dict]:
@@ -617,9 +618,14 @@ def plan_topics(topic_rows: list[dict], db_topics: list[dict]) -> list[dict]:
 
 
 def plan_import(sets: dict[str, SourceSet], entries: dict[str, dict], results: list[SetResult],
-                db_rows: list[dict]) -> list[PlanItem]:
+                db_rows: list[dict], slug_history: Optional[list[dict]] = None) -> list[PlanItem]:
     db = {r.get("source_key"): r for r in db_rows}
     slug_owner = {r.get("slug"): r.get("source_key") for r in db_rows}
+    # A slug renamed after publishing stays reserved: its old URL answers 308
+    # to the renamed set (writing_sample_slug_history), so no other set may take it.
+    key_of_id = {r.get("id"): r.get("source_key") for r in db_rows}
+    retired = {h.get("old_slug"): key_of_id.get(h.get("sample_id"), h.get("sample_id"))
+               for h in slug_history or []}
     items = []
     for res in results:
         cur, entry = db.get(res.key), entries.get(res.key)
@@ -643,7 +649,11 @@ def plan_import(sets: dict[str, SourceSet], entries: dict[str, dict], results: l
             row["slug"] = cur["slug"]
         owner = slug_owner.get(row["slug"])
         if owner not in (None, res.key):
-            items.append(PlanItem(res.key, "skip", f"slug {row['slug']!r} is held by row {owner!r}"))
+            items.append(PlanItem(res.key, "skip", f"slug {row['slug']!r} is held by row {owner!r}", conflict=True))
+            continue
+        if row["slug"] in retired:
+            items.append(PlanItem(res.key, "skip", f"slug {row['slug']!r} is a former slug of "
+                                  f"{retired[row['slug']]!r} (308 history); choose another", conflict=True))
             continue
         if cur is None:
             items.append(PlanItem(res.key, "insert", note, None, row, figure, row["published"]))
@@ -679,6 +689,10 @@ class Store:
             if len(page) < 1000:
                 return rows
             start += 1000
+
+    def list_slug_history(self) -> list[dict]:
+        return (self._db().table("writing_sample_slug_history").select("old_slug, sample_id")
+                .execute()).data or []
 
     def upsert_topics(self, rows: list[dict]) -> None:
         self._db().table("library_topics").upsert(rows, on_conflict="slug").execute()
@@ -763,12 +777,16 @@ def run_import(store: Any, source_dir: Path, manifest: list[dict], topic_rows: l
     sets = {s.key: s for s in sets_list}
     entries = {e["source_key"]: e for e in manifest if isinstance(e.get("source_key"), str)}
     db_rows = store.list_samples()
+    history = store.list_slug_history()
     topics = plan_topics(topic_rows, store.list_topics())
-    items = plan_import(sets, entries, results, db_rows)
+    items = plan_import(sets, entries, results, db_rows, history)
     counts = _print_plan(topics, items, db_rows, set(sets), out)
+    conflicts = [i.key for i in items if i.conflict]
+    if conflicts:
+        out(f"SLUG_CONFLICT {len(conflicts)} set(s) not imported: " + ", ".join(conflicts))
     if not execute:
         out("DRY RUN: nothing written. Add --execute to apply.")
-        return status
+        return 1 if conflicts else status
 
     from datetime import datetime, timezone
     stamp = now or datetime.now(timezone.utc).isoformat()
@@ -809,14 +827,16 @@ def run_import(store: Any, source_dir: Path, manifest: list[dict], topic_rows: l
     # Read back and plan again: anything left to do means the import did not land.
     db_after = store.list_samples()
     left_topics = plan_topics(topic_rows, store.list_topics())
-    left = [i for i in plan_import(sets, entries, results, db_after) if i.action in WRITE_ACTIONS]
+    left = [i for i in plan_import(sets, entries, results, db_after, store.list_slug_history())
+            if i.action in WRITE_ACTIONS]
     for t in left_topics:
         out(f"NOT_APPLIED topic {t['slug']}")
     for i in left:
         out(f"NOT_APPLIED {i.action} {i.key}")
-    ok = not (failed or left or left_topics)
+    ok = not (failed or left or left_topics or conflicts)
     out("EXECUTE " + ("done: the database matches the plan" if ok
-                      else f"incomplete: {failed} failed, {len(left) + len(left_topics)} not applied"))
+                      else f"incomplete: {failed} failed, {len(left) + len(left_topics)} not applied, "
+                           f"{len(conflicts)} slug conflict(s)"))
     return 0 if ok else 1
 
 
