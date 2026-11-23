@@ -8,6 +8,7 @@ import {
   azName,
   azSections,
   buildIndex,
+  commonErrors,
   foldVi,
   indexHref,
   pickGroup,
@@ -43,6 +44,9 @@ test('foldVi drops accents, đ and punctuation', () => {
 test('splitTitle splits English and Vietnamese on " — " or a Vietnamese bracket', () => {
   assert.deepEqual(splitTitle('Passive Voice — Câu bị động'), { en: 'Passive Voice', vi: 'Câu bị động' });
   assert.deepEqual(splitTitle('Present Simple'), { en: 'Present Simple', vi: '' });
+  // Vietnamese first, English second: the parts are swapped back.
+  assert.deepEqual(splitTitle('Lỗi dùng giới từ — Preposition Errors'), { en: 'Preposition Errors', vi: 'Lỗi dùng giới từ' });
+  assert.deepEqual(splitTitle('Say / Tell / Speak / Talk — Phân biệt bốn động từ "nói"'), { en: 'Say / Tell / Speak / Talk', vi: 'Phân biệt bốn động từ "nói"' });
   // Older titles: Vietnamese name in a trailing bracket; an English bracket stays in the title.
   assert.deepEqual(splitTitle('Adjectives (Tính từ)'), { en: 'Adjectives', vi: 'Tính từ' });
   assert.deepEqual(splitTitle('A, An, The (Mạo từ)'), { en: 'A, An, The', vi: 'Mạo từ' });
@@ -52,12 +56,14 @@ test('splitTitle splits English and Vietnamese on " — " or a Vietnamese bracke
   });
 });
 
-test('buildIndex keeps file order, numbers groups, drops planned articles and empty groups', () => {
+test('buildIndex keeps file order, drops planned articles and empty groups, numbers the shown groups 1…N', () => {
   const index = buildIndex(GROUPS);
+  // "empty" has only a planned article: it is left out, and numbering does not skip it.
   assert.deepEqual(index.map((g) => [g.n, g.slug, g.entries.length]), [
     [1, 'foundations', 2],
-    [3, 'sentence-structures', 3],
+    [2, 'sentence-structures', 3],
   ]);
+  assert.ok(index[1].entries.every((e) => e.groupN === 2));
   assert.equal(buildIndex(null).length, 0);
 });
 
@@ -107,6 +113,16 @@ test('A–Z drops accents and đ for the letter, and sorts in Vietnamese order',
   assert.deepEqual(sections.map((s) => s.letter), ['C', 'D', 'T']);
   assert.equal(azName(sections[1].entries[0]), 'Đảo ngữ');
   assert.equal(azName({ en: 'Grammar for Speaking', vi: '' }), 'Grammar for Speaking');
+});
+
+test('"Lỗi hay gặp" comes from the error-clinic group, in file order, capped', () => {
+  const clinic = { slug: 'error-clinic', title: 'Error Clinic', description: 'Lỗi người Việt hay mắc.', articles: Array.from({ length: 8 }, (_, i) => art(`e${i}`, `Error ${i} — Lỗi ${i}`)) };
+  const found = commonErrors(buildIndex([...GROUPS, clinic]));
+  assert.equal(found.group.slug, 'error-clinic');
+  assert.deepEqual(found.entries.map((e) => e.slug), ['e0', 'e1', 'e2', 'e3', 'e4', 'e5']);
+  assert.equal(found.group.entries.length, 8);
+  assert.equal(commonErrors(buildIndex(GROUPS)), null);
+  assert.equal(commonErrors(buildIndex([{ ...clinic, articles: [art('p', 'P', 'planned')] }])), null);
 });
 
 test('pickGroup falls back to the first group', () => {

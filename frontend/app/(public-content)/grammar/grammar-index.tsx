@@ -11,7 +11,7 @@
 //   letter with no article is dimmed and not a link.
 // - View and group live in the URL (`?xem=az`, `?nhom=<slug>`): the server
 //   renders the same state from a shared link, and clicks only replace the URL.
-import { useMemo, useState, type MouseEvent, type ReactNode } from 'react';
+import { useMemo, useState, type MouseEvent, type ReactNode, type SyntheticEvent } from 'react';
 
 import { grammarArticleHref } from '@/lib/grammar-navigation-context.mjs';
 import {
@@ -19,6 +19,7 @@ import {
   azName,
   azSections,
   buildIndex,
+  commonErrors,
   indexHref,
   pickGroup,
   searchIndex,
@@ -100,13 +101,30 @@ export function GrammarIndex({ groups, initialView = 'groups', initialGroup = ''
   const articleCount = uniqueEntries(index).length;
   const searching = query.trim().length > 0;
 
-  const go = (event: MouseEvent<HTMLAnchorElement>, next: { view: IndexView; group?: string }) => {
+  // The URL always names the group on screen, so a reload or a shared link
+  // opens the same one (back from A–Z keeps the group that was open).
+  const writeUrl = (nextView: IndexView, group: string) => {
+    window.history.replaceState(null, '', indexHref({ view: nextView, group }).replace('#groups-section', ''));
+  };
+
+  const go = (event: MouseEvent<HTMLAnchorElement>, next: { view: IndexView; group?: string; scroll?: boolean }) => {
     if (!plainClick(event)) return;
     event.preventDefault();
+    const group = next.group ?? groupSlug;
     setView(next.view);
     if (next.group) setGroupSlug(next.group);
-    window.history.replaceState(null, '', indexHref({ view: next.view, group: next.group ?? '' }).replace('#groups-section', ''));
+    writeUrl(next.view, next.view === 'groups' ? group : '');
+    if (next.scroll) document.getElementById('groups-section')?.scrollIntoView?.({ block: 'start' });
   };
+
+  // Phone accordion: opening a group selects it, like a click in the desktop list.
+  const onDisclosure = (slug: string) => (event: SyntheticEvent<HTMLDetailsElement>) => {
+    if (!event.currentTarget.open || slug === groupSlug) return;
+    setGroupSlug(slug);
+    writeUrl('groups', slug);
+  };
+
+  const errors = commonErrors(index);
 
   return (
     <div className={styles.index}>
@@ -146,6 +164,27 @@ export function GrammarIndex({ groups, initialView = 'groups', initialGroup = ''
       ) : (
         <>
           {children}
+          {errors ? (
+            <section aria-labelledby="loi-hay-gap-title" className={styles.errors} data-testid="grammar-common-errors">
+              <h2 id="loi-hay-gap-title">Lỗi hay gặp</h2>
+              <p className={styles.groupNote}>{errors.group.description || 'Những lỗi ngữ pháp người học hay mắc, kèm cách sửa.'}</p>
+              <ul className={styles.errorList}>
+                {errors.entries.map((entry) => (
+                  <li key={entry.slug}>
+                    <ArticleName entry={entry} />
+                  </li>
+                ))}
+              </ul>
+              <p className={styles.fullResults}>
+                <a
+                  href={indexHref({ group: errors.group.slug })}
+                  onClick={(event) => go(event, { view: 'groups', group: errors.group.slug, scroll: true })}
+                >
+                  Xem cả nhóm {errors.group.name} ({errors.group.entries.length} bài)
+                </a>
+              </p>
+            </section>
+          ) : null}
           <section id="groups-section" aria-labelledby="muc-luc-title" className={styles.toc}>
             <div className={styles.tocHead}>
               <h2 id="muc-luc-title">Mục lục</h2>
@@ -218,7 +257,7 @@ export function GrammarIndex({ groups, initialView = 'groups', initialGroup = ''
                 {/* < 768px: one disclosure per group, one open at a time. */}
                 <div className={styles.accordion} data-testid="grammar-accordion">
                   {index.map((g) => (
-                    <details key={g.slug} name="grammar-groups" open={g.slug === selected?.slug}>
+                    <details key={g.slug} name="grammar-groups" open={g.slug === selected?.slug} onToggle={onDisclosure(g.slug)}>
                       <summary>
                         <span className={styles.num}>{g.n}</span>
                         <span className={styles.groupName}>{g.name}</span>

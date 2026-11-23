@@ -50,6 +50,48 @@ describe('Grammar Wiki home index', () => {
     expect(replace).toHaveBeenLastCalledWith(null, '', '/grammar?nhom=sentence-structures');
   });
 
+  it('back from A–Z keeps the open group in the URL', () => {
+    const replace = vi.spyOn(window.history, 'replaceState');
+    render(<GrammarIndex groups={GROUPS} />);
+    fireEvent.click(within(screen.getByTestId('grammar-tree')).getByRole('link', { name: /Cấu trúc câu/ }));
+    fireEvent.click(screen.getByRole('link', { name: 'A–Z' }));
+    expect(replace).toHaveBeenLastCalledWith(null, '', '/grammar?xem=az');
+    fireEvent.click(screen.getByRole('link', { name: 'Theo nhóm' }));
+    expect(replace).toHaveBeenLastCalledWith(null, '', '/grammar?nhom=sentence-structures');
+    expect(within(screen.getByTestId('grammar-tree')).getByRole('heading', { level: 3, name: 'Cấu trúc câu' })).toBeTruthy();
+  });
+
+  it('opening a group on the phone selects it and writes it to the URL', () => {
+    const replace = vi.spyOn(window.history, 'replaceState');
+    render(<GrammarIndex groups={GROUPS} />);
+    const second = screen.getByTestId('grammar-accordion').querySelectorAll('details')[1] as HTMLDetailsElement;
+    second.open = true;
+    fireEvent(second, new Event('toggle'));
+    expect(replace).toHaveBeenLastCalledWith(null, '', '/grammar?nhom=sentence-structures');
+    expect(within(screen.getByTestId('grammar-tree')).getByRole('heading', { level: 3, name: 'Cấu trúc câu' })).toBeTruthy();
+  });
+
+  it('"Lỗi hay gặp" lists the error-clinic group and links to it; absent without that group', () => {
+    const clinic = {
+      slug: 'error-clinic',
+      title: 'Error Clinic',
+      description: 'Lỗi người Việt hay mắc.',
+      articles: [art('article-errors', 'Article Errors — Lỗi dùng mạo từ', 'error-clinic')],
+    };
+    const replace = vi.spyOn(window.history, 'replaceState');
+    const view = render(<GrammarIndex groups={[...GROUPS, clinic]} />);
+    const block = screen.getByTestId('grammar-common-errors');
+    expect(within(block).getByRole('heading', { level: 2, name: 'Lỗi hay gặp' })).toBeTruthy();
+    expect(within(block).getByRole('link', { name: 'Article Errors' }).getAttribute('href')).toBe('/grammar/error-clinic/article-errors');
+    const all = within(block).getByRole('link', { name: 'Xem cả nhóm Error Clinic (1 bài)' });
+    expect(all.getAttribute('href')).toBe('/grammar?nhom=error-clinic#groups-section');
+    fireEvent.click(all);
+    expect(replace).toHaveBeenLastCalledWith(null, '', '/grammar?nhom=error-clinic');
+    view.unmount();
+    render(<GrammarIndex groups={GROUPS} />);
+    expect(screen.queryByTestId('grammar-common-errors')).toBeNull();
+  });
+
   it('the URL group opens first, and the phone accordion opens the same one', () => {
     render(<GrammarIndex groups={GROUPS} initialGroup="sentence-structures" />);
     const open = screen.getByTestId('grammar-accordion').querySelectorAll('details[open]');

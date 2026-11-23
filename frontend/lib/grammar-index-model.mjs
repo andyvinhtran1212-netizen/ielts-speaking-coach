@@ -25,6 +25,8 @@ export function foldVi(value) {
     .trim();
 }
 
+const VI_LETTER = /[À-ỹđĐ]/;
+
 /**
  * "Passive Voice — Câu bị động" → { en: "Passive Voice", vi: "Câu bị động" }.
  * Older titles put the Vietnamese name in a trailing bracket: "Adjectives (Tính từ)";
@@ -33,9 +35,15 @@ export function foldVi(value) {
 export function splitTitle(title) {
   const text = String(title ?? '').trim();
   const at = text.indexOf(' — ');
-  if (at >= 0) return { en: text.slice(0, at).trim(), vi: text.slice(at + 3).trim() };
+  if (at >= 0) {
+    const left = text.slice(0, at).trim();
+    const right = text.slice(at + 3).trim();
+    // A few titles put the Vietnamese name first ("Lỗi dùng giới từ — Preposition Errors").
+    if (VI_LETTER.test(left) && !VI_LETTER.test(right)) return { en: right, vi: left };
+    return { en: left, vi: right };
+  }
   const bracket = /^(.+?)\s*\(([^()]+)\)$/.exec(text);
-  if (bracket && /[À-ỹđĐ]/.test(bracket[2])) return { en: bracket[1].trim(), vi: bracket[2].trim() };
+  if (bracket && VI_LETTER.test(bracket[2])) return { en: bracket[1].trim(), vi: bracket[2].trim() };
   return { en: text, vi: '' };
 }
 
@@ -45,9 +53,10 @@ function isLive(article) {
 }
 
 /**
- * Groups in `_groups.yaml` order, numbered from 1, each with its linkable
- * articles. A group with none is left out; an article listed in two groups
- * stays in both (same URL).
+ * Groups in `_groups.yaml` order, each with its linkable articles. A group
+ * with none is left out, and the shown groups are numbered 1…N, so the numbers
+ * agree with the "N nhóm" count; an article listed in two groups stays in both
+ * (same URL).
  * @param {GroupWire[] | null | undefined} groups
  * @returns {IndexGroup[]}
  */
@@ -56,7 +65,7 @@ export function buildIndex(groups) {
   let n = 0;
   for (const group of Array.isArray(groups) ? groups : []) {
     if (!group || typeof group.slug !== 'string') continue;
-    n += 1;
+    const groupN = n + 1;
     const name = String(group.title ?? group.slug);
     const entries = (Array.isArray(group.articles) ? group.articles : []).filter(isLive).map((article) => {
       const { en, vi } = splitTitle(article.title);
@@ -68,15 +77,30 @@ export function buildIndex(groups) {
         title: String(article.title ?? article.slug),
         groupSlug: group.slug,
         groupName: name,
-        groupN: n,
+        groupN,
         folded: foldVi(`${article.title} ${article.slug.replace(/-/g, ' ')} ${name}`),
       };
     });
     if (entries.length > 0) {
+      n = groupN;
       out.push({ slug: group.slug, name, description: String(group.description ?? ''), n, entries });
     }
   }
   return out;
+}
+
+/** The `_groups.yaml` group behind "Lỗi hay gặp" on the home page (FR-040). */
+export const COMMON_ERRORS_GROUP = 'error-clinic';
+
+/**
+ * "Lỗi hay gặp": the first articles of the Error Clinic group, in file order,
+ * plus that group for the "see all" link. Null when the group has no live article.
+ * @param {IndexGroup[]} index @param {number} [limit]
+ * @returns {{ group: IndexGroup, entries: IndexEntry[] } | null}
+ */
+export function commonErrors(index, limit = 6) {
+  const group = index.find((g) => g.slug === COMMON_ERRORS_GROUP);
+  return group ? { group, entries: group.entries.slice(0, limit) } : null;
 }
 
 /**
