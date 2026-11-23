@@ -483,6 +483,18 @@ for (const room of [false, true]) {
     room
       ? await p.locator('[data-exam-room-speaking]').count() === 1 && await p.locator('header.practice-header').count() === 0
       : await p.locator('header.practice-header').count() === 1 && await p.locator('[data-exam-room-speaking], [data-room-slot]').count() === 0);
+  // UIBASE-0056 FR-009: no site navigation above the focus bar; FocusShell's
+  // skip link stays above the fold until focused (CR #2626).
+  const chromeShown = await p.evaluate(() => [...document.querySelectorAll('aver-chrome')]
+    .some((el) => getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().height > 0));
+  check(`${tag}: ${room ? 'ẩn thanh điều hướng site' : 'giữ thanh điều hướng site'}`, room ? !chromeShown : chromeShown);
+  if (room) {
+    const skipBottom = await p.evaluate(() => {
+      const a = [...document.querySelectorAll('a')].find((x) => /Bỏ qua tới nội dung/.test(x.textContent || ''));
+      return a ? a.getBoundingClientRect().bottom : null;
+    });
+    check(`${tag}: link "Bỏ qua tới nội dung" nằm ngoài vùng nhìn khi chưa focus`, skipBottom !== null && skipBottom <= 0, String(skipBottom));
+  }
 
   // Ghi 3 giây: quá ngắn cho Part 1 (15 giây).
   await p.locator('#prep-start-btn').click();
