@@ -36,6 +36,17 @@
 | FR-08-015 (khung) | FR-013 |
 | FR khung khác áp cho runner (EXAMROOM-0066) | FR-001, 002, 007, 009, 016…018 |
 
+## Independent review (T007)
+
+Review độc lập lần 1, ngày 23/11/2026 (R134). Đối tượng: chuỗi #2551 → #2555 → #2575, head `9c5601ad`, chỉ các commit riêng của 0071. Ghi chép đầy đủ ở bình luận review trên #2551.
+
+- Lệnh chạy lại: `node --test frontend/tests/mock-exam-room-model.test.mjs` pass; `vitest frontend/tests/react/mock-exam-room.test.tsx` 30/30. Journey `verify-mock-exam-flow.mjs` chưa chạy trong lần review này.
+- **F1 (Medium, FR-007), còn mở:** nhánh Writing tính "đã giữ câu cuối" trước khi bài nộp Writing tới máy chủ (`submitSection` thêm `writing` vào `flushSecuredRef` trước `doSubmit`). Hệ quả: nếu bài nộp lỗi lúc offline, rồi giám thị thu bài và máy chủ đóng phần, trang báo nhầm `confirmed`. Cách sửa: chỉ đánh dấu sau khi POST `/sections/writing/submit` thành công, kèm một test React.
+- Nit (không chặn): FR-013, `canWrite` khởi đầu `true` trước khi khung xác định quyền ghi; FR-007, câu "closed by our server" không kèm giờ khi máy chủ không trả mốc.
+- Đã kiểm khớp, không thấy lỗi: FR-001, FR-002, FR-004, FR-005, FR-006, FR-008 đến FR-013 (trừ nit ở trên), FR-016, FR-017.
+- Chưa kiểm ở lần này: FR-014 (G08-T22, chưa có mã), FR-015, FR-018, `/ui-review` trên ảnh chụp (cần staging).
+- Các dòng PENDING ở bảng trên vẫn giữ PENDING cho tới khi F1 được sửa và qua nghiệm thu staging (T006).
+
 ## Contract evidence
 
 - OpenAPI/type drift: G08-T16 không có. G08-T22 PR 1 thêm trường phía học viên theo MOCKORG-0086
