@@ -106,10 +106,30 @@ def test_reopened_course_retake_is_todo_not_returned(monkeypatch):
 def test_reopened_course_work_past_its_deadline_is_overdue(monkeypatch):
     row = _row("c", "course", due=NOW - timedelta(hours=1),
                submitted=NOW - timedelta(days=2), state="submitted",
+               course_action="retake")
+    item = _get(monkeypatch, [row])["items"][0]
+    assert (item["group"], item["accepting"], item["action"]) == ("overdue", False, "none")
+
+
+def test_course_timer_ran_out_before_the_deadline_is_not_accepting(monkeypatch):
+    """CR #2573: `expired_pending` (timer over, hand-in being collected) takes
+    no new work even though the deadline is still ahead; it opens the read-only
+    "Đang thu bài" lane like /my-class."""
+    row = _row("c", "course", due=NOW + timedelta(days=1), state="opened",
                course_action="expired_pending")
     item = _get(monkeypatch, [row])["items"][0]
+    assert item["accepting"] is False
     assert item["group"] == "overdue"
-    assert item["action"] == "none"
+    assert item["action"] == "review_submitted"
+
+
+def test_course_review_before_the_deadline_is_not_accepting(monkeypatch):
+    """CR #2573: a passed course hand-in (`review`) is not accepting just
+    because its deadline is still ahead."""
+    row = _row("c", "course", due=NOW + timedelta(days=1),
+               submitted=NOW - timedelta(days=1), state="submitted", course_action="review")
+    item = _get(monkeypatch, [row])["items"][0]
+    assert (item["accepting"], item["group"], item["action"]) == (False, "returned", "result")
 
 
 def test_course_review_is_returned_with_result(monkeypatch):

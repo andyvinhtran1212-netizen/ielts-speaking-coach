@@ -7,7 +7,8 @@ adds four fields per row so the page never derives them in the browser:
 
 - ``accepting``: does the server still take a hand-in for this row, by the rule
   that already guards it. Class ledger rows (speaking, listening, reading,
-  grammar, vocab, course) use ``is_accepting_submissions``; a Writing give uses
+  grammar, vocab, course) use ``is_accepting_submissions``, and a course row
+  must also have a playable ``course_action``; a Writing give uses
   the Writing submit route's own rule, which has no deadline cutoff (a late
   essay is still taken while the give is ``pending``/``in_progress``).
 - ``group``: overdue | todo | awaiting_review | returned (FR-096, plan.md).
@@ -35,6 +36,8 @@ logger = logging.getLogger(__name__)
 # The same set `_visible_assignments` uses to keep a submitted course row as
 # work still owed (routers/class_student.py `_COURSE_WORK_ACTIONS`).
 COURSE_WORK_ACTIONS = frozenset({"start", "continue", "retake", "retry_full", "expired_pending"})
+# The course actions that open the player for new work (start_assignment).
+COURSE_PLAYABLE_ACTIONS = frozenset({"start", "continue", "retake", "retry_full"})
 SELF_PRACTICE_SKILLS = frozenset({"speaking", "writing", "listening", "reading"})
 # Writing submit route: only these give states take a draft or a hand-in
 # (routers/writing_student.py `_ACTIVE_ASSIGNMENT_STATES`).
@@ -52,6 +55,11 @@ def accepting_for(row: Dict[str, Any], now: datetime) -> bool:
         return False
     if _skill(row) == "writing":
         return str(row.get("state") or "") in WRITING_ACTIVE_STATES
+    if _skill(row) == "course" and row.get("course_action") not in COURSE_PLAYABLE_ACTIONS:
+        # `course_action` is the course rule's own verdict: `expired_pending`
+        # (the timer ran out, the hand-in is being collected), `review` and
+        # `closed` take no new work even before the deadline.
+        return False
     assignment = row.get("assignment") or {}
     # `_visible_assignments` only returns ledger rows whose assignment is open
     # (published and revealed), so the remaining gate is the deadline, read by
@@ -97,10 +105,15 @@ def action_for(row: Dict[str, Any], accepting: bool, self_practice: bool) -> str
             return "review_submitted"
         return "start" if accepting else ("self_practice" if self_practice else "none")
     if skill == "course":
+        # `expired_pending` opens the read-only "Đang thu bài" lane, as the
+        # current /my-class page does.
         mapped = {"start": "start", "continue": "resume", "retake": "start",
-                  "retry_full": "start", "review": "result"}
+                  "retry_full": "start", "review": "result",
+                  "expired_pending": "review_submitted"}
         course_action = row.get("course_action") or ("review" if submitted else "start")
-        return mapped.get(course_action, "none")
+        action = mapped.get(course_action, "none")
+        # Never offer new work the server would refuse.
+        return "none" if action in ("start", "resume") and not accepting else action
     if skill == "grammar" and _grammar_lesson(row) and (submitted or (missing and state == "opened")):
         return "result"
     if skill in ("speaking", "listening", "reading") and submitted:
