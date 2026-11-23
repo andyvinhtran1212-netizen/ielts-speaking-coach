@@ -38,10 +38,10 @@ FR-08-040 không có hộp gốc của trình duyệt). Bảng đối chiếu �
   `SOURCE_LABEL` (L500), tức có thể hiện mã nội bộ.
 - Quick Check: thanh trên chỉ có "Đã thuộc X/Y" (L549), không nói đang ở câu thứ mấy.
 - Quick Check: "Làm lại từ đầu" hỏi bằng `window.confirm` (L460).
-- Quick Check: 401 làm trang tự chuyển sang `/login` (`quiz-player-api.ts` L22); flashcard cá
+- Quick Check: 401 làm trang tự chuyển sang `/login` (`frontend/lib/quiz-player-api.ts` L22); flashcard cá
   nhân cũng chuyển sang `/login?next=` (L84–89). Phần đang làm dở không được báo trước.
 - Kết quả Quick Check ngữ pháp in khoá điểm ngữ pháp bằng `displayItemKey` (chỉ thay `-` bằng
-  dấu cách, `quiz-player-model.mjs` L295), nên hiện dạng mã như "present perfect vs past simple".
+  dấu cách, `frontend/lib/quiz-player-model.mjs` L295), nên hiện dạng mã như "present perfect vs past simple".
 
 ## Scope
 
@@ -129,11 +129,15 @@ FR-08-040 không có hộp gốc của trình duyệt). Bảng đối chiếu �
   - Còn câu chưa lưu thì hiện hộp "Còn N câu chưa lưu" với "Ở lại" (chính) và "Vẫn thoát"; không
     thoát âm thầm.
   - Đóng tab: Quick Check giữ `pagehide` gửi `keepalive` như hôm nay.
-- **FR-013:** Phiên hết hạn: trong nhánh mới, `quizPlayerApi` và `personalRequest` của flashcard
-  không tự chuyển trang khi 401. Thay vào đó, hiện hộp đăng nhập lại của khung (EXAMROOM-0066
-  FR-015). Quick Check giữ lượt trên trang và các câu chưa gửi trong outbox; flashcard giữ
-  `pendingRating`. Đăng nhập lại đúng tài khoản thì gửi lại; khác tài khoản thì bỏ, không gửi.
-  Bộ công khai khi chưa đăng nhập không gọi API có xác thực nên không có ca này.
+- **FR-013:** Phiên hết hạn, tách hai trường hợp:
+  - Chưa đăng nhập lúc tải trang (lời gọi đầu tiên trả 401 trước khi bài bắt đầu): giữ chuyển
+    sang `/login?next=` như hôm nay, ở cả hai nhánh cờ.
+  - 401 giữa bài (sau khi lượt Quick Check hoặc bộ thẻ đã tải): trong nhánh mới, `quizPlayerApi`
+    và `personalRequest` của flashcard không tự chuyển trang mà hiện hộp đăng nhập lại của khung
+    (EXAMROOM-0066 FR-015). Quick Check giữ lượt trên trang và các câu chưa gửi trong outbox;
+    flashcard giữ `pendingRating`. Đăng nhập lại đúng tài khoản thì gửi lại; khác tài khoản thì
+    bỏ, không gửi.
+  - Bộ công khai khi chưa đăng nhập không gọi API có xác thực nên không có ca này.
 - **FR-014:** Khi cờ bật, cả hai luồng không gọi `window.confirm`, `alert` hay `prompt` (journey
   bắt sự kiện `dialog` = 0).
 - **FR-015:** Bàn phím và trợ năng: phím cách lật thẻ; phím số chỉ chấm sau khi lật (FR-003);
@@ -183,6 +187,8 @@ FR-08-040 không có hộp gốc của trình duyệt). Bảng đối chiếu �
 - **When** trả lời câu kế
 - **Then** không chuyển trang; hộp đăng nhập lại; đăng nhập đúng tài khoản thì câu đó được gửi
   và bài tiếp tục đúng chỗ.
+- **Given** chưa đăng nhập, mở thẳng link Quick Check
+- **Then** chuyển sang `/login?next=` như hôm nay, không có hộp.
 
 ### Scenario 6: kết quả ngữ pháp
 

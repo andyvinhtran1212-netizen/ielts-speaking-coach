@@ -5,9 +5,9 @@
 - `frontend/app/(authed-quiz-player)/quiz/quiz-player.tsx`: một chỗ rẽ nhánh `examRoomEnabled('drill')` sau các hook; nhánh mới
   vẽ `quiz-room.tsx` (file mới cùng thư mục) bằng `ExamRoomShell` chế độ `practice`,
   `layout.kind='single'`, không `timer`, không `submit`.
-- `frontend/app/(authed-quiz-player)/quiz/quiz-player-api.ts`: thêm tuỳ chọn `noRedirect` cho 401 (L22) chỉ khi nhánh mới gọi;
+- `frontend/lib/quiz-player-api.ts`: thêm tuỳ chọn `noRedirect` cho 401 (L22), chỉ nhánh mới truyền và chỉ sau khi bài đã tải (FR-013);
   nhánh cũ giữ chuyển trang như hôm nay.
-- `frontend/app/(authed-quiz-player)/quiz/quiz-player-model.mjs`: hàm thuần `displayPointLabel(bank, key, index)` cho FR-011
+- `frontend/lib/quiz-player-model.mjs`: hàm thuần `displayPointLabel(bank, key, index)` cho FR-011
   (cạnh `displayItemKey` L295); hộp làm lại thay `window.confirm` (L460) chỉ ở nhánh mới.
 - `frontend/app/(flashcard-study)/flashcard-study/flashcard-study-player.tsx`: một chỗ rẽ nhánh; nhánh mới vẽ
   `flashcard-study-room.tsx` (file mới) với cờ "đã lật" theo thẻ, vùng cuộn trong thẻ, hàng nút

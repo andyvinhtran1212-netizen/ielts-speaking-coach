@@ -16,7 +16,7 @@
 | FR-010 | kind=test; ref=frontend/tests/react/quiz-room.test.tsx (in-page reset dialog, "Giữ tiến độ" primary and first focus, reset path and validQuizReset unchanged) | PENDING |
 | FR-011 | kind=test; ref=frontend/tests/quiz-player-next-model.test.mjs (displayPointLabel: title, label, then "Điểm ngữ pháp N"; never the raw key) | PENDING |
 | FR-012 | kind=test; ref=frontend/tests/react/quiz-room.test.tsx and frontend/tests/react/flashcard-study-room.test.tsx (flush then exit, "Còn N câu chưa lưu" dialog, Stay keeps the page) | PENDING |
-| FR-013 | kind=test; ref=frontend/tests/react/quiz-room.test.tsx (401 with noRedirect keeps the attempt and outbox, re-login dialog, other account discards) | PENDING |
+| FR-013 | kind=test; ref=frontend/tests/react/quiz-room.test.tsx (401 mid-attempt with noRedirect keeps the attempt and outbox, re-login dialog, other account discards; 401 on first load still redirects to /login?next=) | PENDING |
 | FR-014 | kind=journey; ref=frontend/tooling/verify-quiz-flow.mjs flag on, Playwright dialog count = 0 | PENDING |
 | FR-015 | kind=test; ref=frontend/tests/react/flashcard-study-room.test.tsx (space flips, number keys only after flip, keys ignored in inputs and buttons, aria-live, reduced motion) | PENDING |
 | FR-016 | kind=test; ref=frontend/tests/react/quiz-room.test.tsx (event names, surface=drill, kind, no question, answer or word in payload) | PENDING |
