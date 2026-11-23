@@ -172,6 +172,7 @@ to `/`; the historical source file is not a separately served marketing page.
 | Page | Audience | Purpose · operation |
 |---|---|---|
 | `/courses` | all | Course catalogue (PUBLICSITE-0059 T04), 404 until the build flag `AVER_PUBLIC_COMMERCE=1`: one row per course from `GET /api/courses` with its state (open / upcoming / learning / expired), fee only when open, a comparison table and a short chooser; upcoming rows carry "Báo cho tôi khi mở". A signed-in visitor's own states are read in the browser. |
+| `/courses/[slug]` | all | One course (PUBLICSITE-0059 T05), 404 until `AVER_PUBLIC_COMMERCE=1`; an unknown or non-public slug is a 404. Course text, author, chapters (trial lessons are links), how AI credits work, FAQ; a registration panel per viewer state (enrol through login, continue payment, learning, renew, upcoming with "Báo cho tôi khi mở"), sticky from 1024px and a bottom bar below. Handles the mail unsubscribe link `#bo-nhan=`. |
 
 ### 4.7b Student — classes and course work
 

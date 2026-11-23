@@ -17,7 +17,7 @@ import { OpenAlertToggle } from '@/components/courses/open-alert-toggle';
 import { Button, ChoiceGroup, Notice } from '@/components/ui';
 import { useAuth } from '@/lib/auth/auth-provider';
 import { fetchCatalogForViewer } from '@/lib/commerce-client';
-import { catalogCounts, courseRowLabel, courseRowState, formatVnd } from '@/lib/commerce-model.mjs';
+import { catalogCounts, courseRowLabel, courseRowState, formatViDate, formatVnd } from '@/lib/commerce-model.mjs';
 import type { CourseItem } from '@/lib/commerce-types';
 import { COURSE_ACCESS_ACTIONS, accessActionLabel } from '@/lib/course-access-labels.mjs';
 import { coursesHref } from '@/lib/public-commerce.mjs';
@@ -30,13 +30,6 @@ const ACTIVATE_PATH = '/activate';
 
 type ViewerRead = 'none' | 'loading' | 'ready' | 'error';
 type RowState = ReturnType<typeof courseRowState>;
-
-function formatDate(iso: string | null): string | null {
-  if (!iso) return null;
-  const date = new Date(`${iso.slice(0, 10)}T00:00:00+07:00`);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Ho_Chi_Minh' });
-}
 
 function courseHref(slug: string): string {
   return coursesHref(slug) ?? '/';
@@ -86,6 +79,9 @@ function RowActions({ item, state, primary }: { item: CourseItem; state: RowStat
     );
   }
   if (state === 'expired') {
+    // "Đăng ký lại" only while the course takes enrolments; otherwise the
+    // button would lead to a page with nothing to sign up for (CR #2623).
+    if (item.status !== 'open') return <div className={styles.actions}>{view}</div>;
     return (
       <div className={styles.actions}>
         <Button href={courseHref(item.slug)} variant="secondary">{accessActionLabel('expired')}</Button>
@@ -107,7 +103,7 @@ function CourseRow({ item, primary }: { item: CourseItem; primary: boolean }) {
   const state = courseRowState(item);
   const level = levelText(item);
   const list = facts(item);
-  const opensOn = state === 'upcoming' ? formatDate(item.expected_open_on) : null;
+  const opensOn = state === 'upcoming' ? formatViDate(item.expected_open_on) : null;
   const fee = state === 'open' ? formatVnd(item.tuition_vnd) : null;
   return (
     <li className={styles.row} data-row-state={state}>
@@ -143,6 +139,9 @@ const COMPARE_ROWS: CompareRow[] = [
   { label: 'Thời hạn truy cập', cell: (i) => (typeof i.access_days === 'number' && i.access_days > 0 ? `${i.access_days} ngày` : null) },
   { label: 'Lượt chấm AI', cell: (i) => (i.ai_credits > 0 ? `${i.ai_credits} lượt` : null) },
   {
+    // The table is the general, guest-level view of every course: the fee
+    // follows `status` only, while a row in the list hides it for a course the
+    // viewer is already learning (FR-005).
     label: 'Học phí',
     always: true,
     cell: (i) => (i.status === 'open' ? formatVnd(i.tuition_vnd) : 'Công bố khi mở đăng ký'),

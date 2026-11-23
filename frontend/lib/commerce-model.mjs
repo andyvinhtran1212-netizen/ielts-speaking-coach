@@ -135,3 +135,46 @@ export function catalogCounts(items) {
   }
   return { open, upcoming };
 }
+
+/**
+ * FR-024 — the one sentence about unused AI credits when a course ends.
+ * Both numbers come from G04 (`credit_carry_percent`, `credit_carry_valid_days`);
+ * this file holds the wording, never a number. Null or 0 percent: no carry
+ * clause, only the expiry sentence. Reused by the order screens (0060 T12).
+ * @param {{ credit_carry_percent?: number | null, credit_carry_valid_days?: number | null } | null | undefined} course
+ * @returns {string}
+ */
+export function carryOverSentence(course) {
+  const percent = course?.credit_carry_percent;
+  const days = course?.credit_carry_valid_days;
+  if (typeof percent !== 'number' || !Number.isFinite(percent) || percent <= 0) {
+    return 'Lượt chấm AI chưa dùng hết hiệu lực khi khoá hết hạn.';
+  }
+  const what = percent >= 100 ? 'toàn bộ lượt chưa dùng' : `${Math.round(percent)}% số lượt chưa dùng`;
+  const when = typeof days === 'number' && Number.isFinite(days) && days > 0
+    ? `, dùng được trong ${Math.round(days)} ngày kể từ ngày kỳ mới bắt đầu`
+    : '';
+  return `Bạn đăng ký lại khoá này thì ${what} được chuyển sang kỳ mới${when}; không đăng ký lại thì lượt còn lại hết hiệu lực khi khoá hết hạn.`;
+}
+
+/**
+ * "Đăng ký khoá này" / "Đăng ký lại" target (tasks.md T05): a guest signs in
+ * first and comes back to the same enrol step.
+ * @param {string} slug @param {boolean} signedIn @returns {string}
+ */
+export function enrollHref(slug, signedIn) {
+  const step = `/courses/${encodeURIComponent(slug)}/enroll`;
+  return signedIn ? step : `/login?next=${encodeURIComponent(step)}`;
+}
+
+/**
+ * A G04 date or timestamp as dd/mm/yyyy in Vietnam time; null when absent or unreadable.
+ * A bare date (`2027-01-15`) is that calendar day in Vietnam.
+ * @param {string | null | undefined} iso @returns {string | null}
+ */
+export function formatViDate(iso) {
+  if (typeof iso !== 'string' || !iso) return null;
+  const date = new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso}T00:00:00+07:00` : iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Ho_Chi_Minh' });
+}

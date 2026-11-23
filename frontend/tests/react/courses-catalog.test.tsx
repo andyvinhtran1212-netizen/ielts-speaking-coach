@@ -102,7 +102,9 @@ it('signed in: own states from the session read, one primary "Vào học", "Đă
   expect(/primary/.test(within(rowB).getByRole('link', { name: 'Vào học' }).className)).toBe(true);
   expect(/primary/.test(within(rowA).getByRole('link', { name: 'Vào học' }).className)).toBe(false);
   expect(within(rowC).getByText('Hết hạn')).toBeTruthy();
-  expect(within(rowC).getByRole('link', { name: 'Đăng ký lại' }).getAttribute('href')).toBe('/courses/khoa-c');
+  // khoa-c is not taking enrolments: no "Đăng ký lại" that leads nowhere (CR #2623).
+  expect(within(rowC).queryByRole('link', { name: 'Đăng ký lại' })).toBeNull();
+  expect(within(rowC).getByRole('link', { name: /Xem khoá/ }).getAttribute('href')).toBe('/courses/khoa-c');
   expect(screen.getByRole('link', { name: 'Nhập mã' }).getAttribute('href')).toBe('/activate');
 });
 
@@ -182,4 +184,13 @@ it('FR-029: the page is a real 404 while the build flag is off', async () => {
   expect(() => CoursesPage()).toThrow(/NEXT_HTTP_ERROR_FALLBACK;404|NEXT_NOT_FOUND/);
   vi.stubEnv('AVER_PUBLIC_COMMERCE', '1');
   expect(() => CoursesPage()).not.toThrow();
+});
+
+it('an expired course that is open again offers "Đăng ký lại" to its page', async () => {
+  auth.status = 'signed-in';
+  catalogs['learner-a'] = withViewer(GUEST, { 'khoa-a': { state: 'expired', days_left: 0, can_renew: true } });
+  render(<CourseCatalog initialItems={GUEST} />);
+  const row = rows()[0];
+  expect(await within(row).findByText('Hết hạn')).toBeTruthy();
+  expect(within(row).getByRole('link', { name: 'Đăng ký lại' }).getAttribute('href')).toBe('/courses/khoa-a');
 });

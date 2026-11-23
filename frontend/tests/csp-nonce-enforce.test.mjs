@@ -46,6 +46,7 @@ function loadModule(filename, env) {
   }).outputText;
   const modules = {
     '@/lib/backend': { API_BASE: 'https://unused.invalid' },
+    '@/lib/public-commerce.mjs': { publicCommerceEnabled: () => true },
     '@/lib/grammar-article-index.mjs': articleIndex,
     '@/tooling/content-security-policy.mjs': csp,
     './tooling/content-security-policy.mjs': csp,
@@ -174,7 +175,8 @@ describe('enforced proxy behavior', () => {
     const routes = globSync('app/**/page.tsx', { cwd: FRONTEND }).map((file) => `/${file.split(path.sep)
       .slice(1, -1).filter((part) => !part.startsWith('(')).map((part) => part.startsWith('[') ? 'sample' : part).join('/')}`);
     for (const url of [...routes, ...PUBLIC_PATHS, '/homework', '/vocabulary/', '/vocabulary/hub', '/admin/a/b', '/reading-other']) {
-      if (url.startsWith('/grammar/')) continue;
+      // Grammar articles and course pages are matched for their real-404 check, not for a nonce.
+      if (url.startsWith('/grammar/') || url.startsWith('/courses/')) continue;
       assert.equal(csp.nonceRouteAllowed(url), matches({ config, url, headers: { host: 'staging.averlearning.com' } }), url);
     }
   });

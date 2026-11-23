@@ -4,9 +4,10 @@
 // `route-registry.mjs` is the source of truth (`ui: 'v2'`), but it is ~47 KB
 // and ChromeNavigationBridge sits in the root layout, so importing it there
 // would ship the whole registry to every page. This list is the slim copy;
-// `tests/v2-routes.test.mjs` fails when it drifts from the registry, and
-// requires every v2 route to stay static (no `[param]` segment) so a Set
-// lookup gives the same answer as `isV2Route`.
+// `tests/v2-routes.test.mjs` fails when it drifts from the registry. Static
+// routes are a Set lookup; the few dynamic v2 routes (`[param]` = one path
+// segment) are listed in V2_DYNAMIC_ROUTES and matched by pattern, so the
+// answer stays the same as `isV2Route`.
 
 /** @type {readonly string[]} */
 export const V2_ROUTES = Object.freeze([
@@ -23,7 +24,16 @@ export const V2_ROUTES = Object.freeze([
   '/ui-library',
 ]);
 
+/** Dynamic v2 routes; each `[param]` stands for exactly one path segment. */
+/** @type {readonly string[]} */
+export const V2_DYNAMIC_ROUTES = Object.freeze([
+  '/courses/[slug]',
+]);
+
 const V2_SET = new Set(V2_ROUTES);
+const V2_PATTERNS = V2_DYNAMIC_ROUTES.map(
+  (route) => new RegExp(`^${route.replace(/\[[^\]/]+\]/g, '[^/]+')}$`),
+);
 
 /**
  * Same answer as `isV2Route` from route-registry.mjs, for a pathname
@@ -33,5 +43,6 @@ const V2_SET = new Set(V2_ROUTES);
 export function isV2Path(pathname) {
   const raw = String(pathname ?? '').split(/[?#]/, 1)[0];
   const trimmed = raw.replace(/\/+$/, '');
-  return V2_SET.has(trimmed === '' ? '/' : trimmed);
+  const path = trimmed === '' ? '/' : trimmed;
+  return V2_SET.has(path) || V2_PATTERNS.some((pattern) => pattern.test(path));
 }

@@ -11,6 +11,11 @@
 //    the article endpoint itself (its JSON article-not-found, not a gateway
 //    404); articles and backend errors pass through.
 //
+//    Public course pages (PUBLICSITE-0059 FR-009) have the same limit: the
+//    (public-commerce) layout prerenders a shell, so `/courses/<slug>` is
+//    checked here too. Flag off (FR-029) → the 404 path at once, no fetch;
+//    flag on → only the course API's own `course_not_found` is a miss.
+//
 // 2. SEC-CSP-NONCE: a per-request nonce for the AuthedShell route groups.
 //    Step 2 may enforce it on staging/previews only. Setting the blocking
 //    response header also supplies the nonce to Vercel's PPR resume render;
@@ -22,6 +27,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 import { API_BASE } from '@/lib/backend';
 import { articleKeys, createArticleIndex } from '@/lib/grammar-article-index.mjs';
+import { publicCommerceEnabled } from '@/lib/public-commerce.mjs';
 import {
   buildNonceEnforcedPolicy,
   buildNonceReportOnlyPolicy,
@@ -105,6 +111,38 @@ async function grammarArticle(request: NextRequest) {
     : NextResponse.next();
 }
 
+// G04 `courses_public.get_course`: 404 `{"detail": {"error_code": "course_not_found"}}`
+// for an unknown slug and for a course that is not public (Course 1–5). A
+// gateway or framework 404 is not evidence; it reaches the page, which fails
+// on its own terms.
+async function isBackendCourseMiss(res: Response) {
+  if (res.status !== 404 || !/^application\/json\b/i.test(res.headers.get('content-type') ?? '')) {
+    await res.body?.cancel();
+    return false;
+  }
+  const body = (await res.json().catch(() => null)) as { detail?: { error_code?: unknown } } | null;
+  return body?.detail?.error_code === 'course_not_found';
+}
+
+async function coursePage(request: NextRequest) {
+  const notFoundUrl = new URL(GRAMMAR_ARTICLE_NOT_FOUND_PATH, request.url);
+  if (!publicCommerceEnabled()) return NextResponse.rewrite(notFoundUrl);
+  const slug = segment(request.nextUrl.pathname.split('/')[2] ?? '');
+  // Not valid percent-encoding: no course has that slug (the route would 500 decoding it).
+  if (!slug) return NextResponse.rewrite(notFoundUrl);
+  try {
+    const res = await fetch(`${API_BASE}/api/courses/${encodeURIComponent(slug)}`, {
+      signal: AbortSignal.timeout(INDEX_TIMEOUT_MS),
+      cache: 'no-store',
+      redirect: 'manual',
+    });
+    if (await isBackendCourseMiss(res)) return NextResponse.rewrite(notFoundUrl);
+  } catch {
+    // Backend/network errors stay with the page's own error handling.
+  }
+  return NextResponse.next();
+}
+
 // Inlined at build by next.config.ts `env` (tooling/nonce-route-table.mjs).
 // Unusable → null, which keeps the nonce policy on every prefixed URL.
 const nonceRoutes = parseNonceRouteTable(process.env.AVER_CSP_NONCE_ROUTES);
@@ -168,6 +206,7 @@ function noncePolicy(request: NextRequest) {
 }
 
 export async function proxy(request: NextRequest) {
+  if (request.nextUrl.pathname.startsWith('/courses/')) return coursePage(request);
   return request.nextUrl.pathname.startsWith('/grammar/')
     ? grammarArticle(request)
     : noncePolicy(request);
@@ -181,6 +220,7 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     '/grammar/:category/:slug',
+    '/courses/:slug',
     {
       source: '/:section(admin|advanced-vocabulary|course-exercises|d1-exercise|exam|exercises|flashcard-study|flashcards|full-test|full-test-result|grammar-checkup|grammar-lessons|home|instructor|listening|mock|mock-exam|my-class|onboarding|practice|profile|quiz|reading|result|speaking|writing)/:path*',
       missing: [{ type: 'host', value: '(?:www\\.)?averlearning\\.com' }],

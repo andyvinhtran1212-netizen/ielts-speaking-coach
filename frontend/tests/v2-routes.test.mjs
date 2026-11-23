@@ -4,18 +4,21 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { ROUTES, isV2Route } from '../lib/route-registry.mjs';
-import { V2_ROUTES, isV2Path } from '../lib/v2-routes.mjs';
+import { V2_DYNAMIC_ROUTES, V2_ROUTES, isV2Path } from '../lib/v2-routes.mjs';
 
 const registryV2 = ROUTES.filter((entry) => entry.ui === 'v2').map((entry) => entry.route);
 
-test('V2_ROUTES is exactly the registry entries with ui: v2', () => {
-  assert.deepEqual([...V2_ROUTES].sort(), [...registryV2].sort());
+test('V2_ROUTES + V2_DYNAMIC_ROUTES are exactly the registry entries with ui: v2', () => {
+  assert.deepEqual([...V2_ROUTES].sort(), registryV2.filter((route) => !route.includes('[')).sort());
+  assert.deepEqual([...V2_DYNAMIC_ROUTES].sort(), registryV2.filter((route) => route.includes('[')).sort());
 });
 
-test('every v2 route is static, so a Set lookup matches isV2Route', () => {
-  // A dynamic v2 route needs the registry matcher here too; extend
+test('a dynamic v2 route uses only one-segment params, the only kind isV2Path matches', () => {
+  // Catch-all or optional segments need the registry matcher; extend
   // lib/v2-routes.mjs before adding one.
-  assert.deepEqual(registryV2.filter((route) => route.includes('[')), []);
+  for (const route of V2_DYNAMIC_ROUTES) assert.doesNotMatch(route, /\[\[|\[\.\.\./, route);
+  assert.equal(isV2Path('/courses/khoa-a'), isV2Route('/courses/khoa-a'));
+  assert.equal(isV2Path('/courses/khoa-a/enroll'), isV2Route('/courses/khoa-a/enroll'));
 });
 
 test('isV2Path agrees with isV2Route on every registry route and its variants', () => {

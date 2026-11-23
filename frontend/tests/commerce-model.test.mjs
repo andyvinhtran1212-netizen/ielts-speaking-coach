@@ -5,8 +5,8 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 import {
-  COURSE_BUNDLE_MIN_OPEN, ORDER_STATUS_LABELS, catalogCounts, courseRowLabel, courseRowState,
-  formatVnd, nextActionForOrder, orderBlocks, orderScreen,
+  COURSE_BUNDLE_MIN_OPEN, ORDER_STATUS_LABELS, carryOverSentence, catalogCounts, courseRowLabel, courseRowState,
+  enrollHref, formatViDate, formatVnd, nextActionForOrder, orderBlocks, orderScreen,
 } from '../lib/commerce-model.mjs';
 
 const fixture = (name) => JSON.parse(readFileSync(new URL(`./fixtures/commerce/${name}`, import.meta.url), 'utf8'));
@@ -80,4 +80,39 @@ test('catalogCounts on the one-open catalogue; bundle threshold', () => {
   assert.deepEqual(catalogCounts(fixture('catalog-two-open.json').items), { open: 2, upcoming: 4 });
   assert.deepEqual(catalogCounts(null), { open: 0, upcoming: 0 });
   assert.equal(COURSE_BUNDLE_MIN_OPEN, 2);
+});
+
+test('carryOverSentence builds the FR-024 sentence from the two G04 numbers only', () => {
+  const full = carryOverSentence({ credit_carry_percent: 100, credit_carry_valid_days: 60 });
+  assert.match(full, /toàn bộ lượt chưa dùng/);
+  assert.match(full, /60 ngày/);
+  assert.match(full, /hết hiệu lực khi khoá hết hạn/);
+
+  const noDays = carryOverSentence({ credit_carry_percent: 100, credit_carry_valid_days: null });
+  assert.match(noDays, /toàn bộ lượt chưa dùng/);
+  assert.doesNotMatch(noDays, /ngày/);
+
+  for (const percent of [null, 0, undefined]) {
+    const bare = carryOverSentence({ credit_carry_percent: percent, credit_carry_valid_days: 60 });
+    assert.match(bare, /hết hiệu lực khi khoá hết hạn/);
+    assert.doesNotMatch(bare, /chuyển|60|toàn bộ/);
+  }
+  assert.equal(carryOverSentence(null), carryOverSentence({ credit_carry_percent: null }));
+
+  const half = carryOverSentence({ credit_carry_percent: 50, credit_carry_valid_days: 30 });
+  assert.match(half, /50% số lượt chưa dùng/);
+  assert.match(half, /30 ngày/);
+  assert.doesNotMatch(half, /toàn bộ/);
+});
+
+test('enrollHref: a guest goes through login and comes back to the enrol step', () => {
+  assert.equal(enrollHref('khoa-a', true), '/courses/khoa-a/enroll');
+  assert.equal(enrollHref('khoa-a', false), '/login?next=%2Fcourses%2Fkhoa-a%2Fenroll');
+});
+
+test('formatViDate reads a G04 date in Vietnam time and drops anything unreadable', () => {
+  assert.equal(formatViDate('2027-01-15'), '15/01/2027');
+  assert.equal(formatViDate('2027-01-14T18:30:00Z'), '15/01/2027');
+  assert.equal(formatViDate(null), null);
+  assert.equal(formatViDate('không phải ngày'), null);
 });

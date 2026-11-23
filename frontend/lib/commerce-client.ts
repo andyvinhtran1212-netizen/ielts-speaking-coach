@@ -5,13 +5,13 @@
 // noRedirect: a stale session on a public page shows the guest view, it does
 // not bounce to /login.
 //
-// /api/courses* comes with G04 #2485 and is not in types/api.d.ts yet, so
+// /api/courses* and /api/me/courses come with G04 #2485 and is not in types/api.d.ts yet, so
 // lib/browser-api.ts (bound to generated paths) cannot type it. Until that PR
 // regenerates the contract these reads use the same transport with the
 // hand-written types of lib/commerce-types.ts; when it lands, switch them to
 // getBrowserJson/getBrowserJsonAt (same shape, same noRedirect).
 
-import type { CourseCatalog, CourseDetail } from './commerce-types';
+import type { CourseCatalog, CourseDetail, MyCourses } from './commerce-types';
 import { whenGlobalReady } from './when-global-ready.mjs';
 
 async function transportReady(): Promise<void> {
@@ -30,3 +30,9 @@ export async function fetchCourseForViewer(slug: string): Promise<CourseDetail> 
   return window.api.getWith<CourseDetail>(`/api/courses/${encodeURIComponent(slug)}`, undefined, { noRedirect: true });
 }
 
+
+/** The caller's own accesses (FR-024: `content_visible_until` on an expired course). */
+export async function fetchMyCourses(): Promise<MyCourses> {
+  await transportReady();
+  return window.api.getWith<MyCourses>('/api/me/courses', undefined, { noRedirect: true });
+}

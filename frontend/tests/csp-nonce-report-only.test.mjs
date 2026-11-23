@@ -248,11 +248,13 @@ describe('proxy.ts', () => {
     const routes = pageRoutes();
     assert.ok(routes.filter((r) => r.shell).length > 100, 'route discovery found the signed-in routes');
     const wrong = routes
-      .filter((r) => !r.url.startsWith('/grammar/'))
+      // Grammar articles and course pages pass through the proxy for their
+      // real-404 check only (coursePage/grammarArticle), never the nonce branch.
+      .filter((r) => !r.url.startsWith('/grammar/') && !r.url.startsWith('/courses/'))
       .filter((r) => proxyMatches(r.url, 'staging.averlearning.com') !== r.shell)
       .map((r) => `${r.url} (${r.shell ? 'AuthedShell, not matched' : 'not AuthedShell, matched'})`);
     assert.deepEqual(wrong, []);
-    for (const url of ['/', '/login', '/grammar', '/vocabulary', '/pricing', '/core-player/launch', '/api/health', '/js/api.js', '/css/ds.css', '/_next/static/chunks/x.js']) {
+    for (const url of ['/', '/login', '/grammar', '/courses', '/courses/khoa-a/enroll', '/vocabulary', '/pricing', '/core-player/launch', '/api/health', '/js/api.js', '/css/ds.css', '/_next/static/chunks/x.js']) {
       assert.equal(proxyMatches(url, 'staging.averlearning.com'), false, url);
     }
   });
