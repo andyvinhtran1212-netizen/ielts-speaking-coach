@@ -69,7 +69,7 @@ function safeLocalStorage(): Storage | null {
 
 export function ExamRoomShell(props: ExamRoomShellProps) {
   const {
-    mode, surface, embedded = false, isFullTest = false, attemptKey, title, subtitle, timer = null, saveStatus,
+    mode, surface, embedded = false, bare = false, isFullTest = false, attemptKey, title, subtitle, timer = null, saveStatus,
     sections = [], questions = [], currentQ, onJump, onToggleFlag, flagsReady, layout, submit, exit,
     onSessionExpired, onSessionConflict, timeUpChoice, session = 'active', tabGuard, viewportWidth, ownerKey,
   } = props;
@@ -185,6 +185,7 @@ export function ExamRoomShell(props: ExamRoomShellProps) {
 
   // ---- session (FR-015, FR-016) ----------------------------------------
   const [copySaved, setCopySaved] = useState<boolean | null>(null);
+  const [stayed, setStayed] = useState(false);
   const copySavedRef = useRef(copySaved);
   copySavedRef.current = copySaved;
   const sessionCallbacks = useRef({ onSessionExpired, onSessionConflict });
@@ -208,6 +209,7 @@ export function ExamRoomShell(props: ExamRoomShellProps) {
       sessionCallbacks.current.onSessionConflict?.('not_current');
     } else if (session === 'active') {
       setCopySaved(null);
+      setStayed(false);
     }
   }, [session, surface]);
   const sessionBlocked = session === 'expired' || session === 'displaced';
@@ -286,7 +288,20 @@ export function ExamRoomShell(props: ExamRoomShellProps) {
 
   // ---- leave (FR-011) --------------------------------------------------
   const [leaveUnsaved, setLeaveUnsaved] = useState<number | null>(null);
+  // A proctor lock (exit.locked) also closes the abandon box, unless an abandon is already running.
+  useEffect(() => { if (exit.locked && !abandoning) setAbandonOpen(false); }, [exit.locked, abandoning]);
   const hasUnsavedWork = useCallback(() => unsavedRef.current > 0 || exitRef.current.losesWork(), []);
+  // Bare mode has no FocusShell, so the page-close warning lives here (FR-011).
+  useEffect(() => {
+    if (!bare || embedded) return undefined;
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!hasUnsavedWork()) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [bare, embedded, hasUnsavedWork]);
   const onLeaveOpen = useCallback(() => {
     setLeaveUnsaved(unsavedRef.current > 0 ? unsavedRef.current : null);
     exitRef.current.flush().then((r) => setLeaveUnsaved(r.unsaved), () => setLeaveUnsaved(Math.max(1, unsavedRef.current)));
@@ -313,10 +328,11 @@ export function ExamRoomShell(props: ExamRoomShellProps) {
     const base: Partial<FocusLeaveCopy> = mode === 'practice'
       ? { title: strings.shell.leaveTitle, lead: undefined, stayLabel: strings.shell.leaveStay, leaveLabel: strings.shell.leaveGo, body: undefined }
       : {};
-    if (leaveUnsaved != null && leaveUnsaved > 0) return { ...base, body: strings.shell.leaveUnsaved(leaveUnsaved) };
-    if (leaveUnsaved === 0 && mode === 'test') return { ...base, body: FOCUS_WORDS.exam.leave.body };
-    return base;
-  }, [mode, leaveUnsaved, strings]);
+    const withNote: Partial<FocusLeaveCopy> = exit.note ? { ...base, note: exit.note } : base;
+    if (leaveUnsaved != null && leaveUnsaved > 0) return { ...withNote, body: strings.shell.leaveUnsaved(leaveUnsaved) };
+    if (leaveUnsaved === 0 && mode === 'test') return { ...withNote, body: FOCUS_WORDS.exam.leave.body };
+    return withNote;
+  }, [mode, leaveUnsaved, strings, exit.note]);
 
   // ---- layout ----------------------------------------------------------
   const outcomeShown = outcome !== 'idle' || timeUp;
@@ -344,7 +360,7 @@ export function ExamRoomShell(props: ExamRoomShellProps) {
         </Notice>
       </div>
     );
-    if (embedded) return body;
+    if (embedded || bare) return body;
     return (
       <FocusShell mode={mode === 'test' ? 'exam' : 'practice'} title={title} detail={subtitle} exitHref={exit.href} hasUnsavedWork={() => false} fullTestRoom={isFullTest}>
         {body}
@@ -438,24 +454,8 @@ export function ExamRoomShell(props: ExamRoomShellProps) {
     </div>
   ) : undefined;
 
-  return (
-    <FocusShell
-      mode={mode === 'test' ? 'exam' : 'practice'}
-      title={title}
-      detail={subtitle}
-      exitHref={exit.href}
-      hasUnsavedWork={hasUnsavedWork}
-      right={<span className={styles.barRight}>{phone ? null : saveNode}{timerNode}</span>}
-      subline={phone ? saveNode : undefined}
-      bottom={bottom}
-      onAbandon={abandon ? () => setAbandonOpen(true) : undefined}
-      leaveCopy={leaveCopy}
-      onLeaveOpen={onLeaveOpen}
-      beforeLeave={beforeLeave}
-      fullTestRoom={isFullTest}
-    >
-      {room}
-      <span className={styles.srOnly} aria-live="assertive" aria-atomic="true">{announce}</span>
+  const dialogs = (
+    <>
       {submit ? (
         <SubmitDialog
           open={submitOpen}
@@ -464,6 +464,8 @@ export function ExamRoomShell(props: ExamRoomShellProps) {
           questions={questions}
           strings={strings}
           confirmLabel={submit.label}
+          title={submit.title}
+          cancelLabel={submit.cancelLabel}
           costNote={submit.costNote}
           extraWarning={submit.extraWarning}
           onConfirm={confirmSubmit}
@@ -474,12 +476,50 @@ export function ExamRoomShell(props: ExamRoomShellProps) {
         <AbandonDialog open={abandonOpen} busy={abandoning} strings={strings} onConfirm={confirmAbandon} onCancel={() => setAbandonOpen(false)} />
       ) : null}
       <SessionExpiredDialog
-        open={sessionBlocked && copySaved != null}
+        open={sessionBlocked && copySaved != null && !(stayed && copySaved === false && pendingSaves > 0)}
         copySaved={copySaved === true}
+        stayOnly={copySaved === false && pendingSaves > 0}
+        onStay={() => setStayed(true)}
         savedUpTo={savedUpTo}
         returnUrl={returnUrl}
         strings={strings}
       />
+    </>
+  );
+  const announceNode = <span className={styles.srOnly} aria-live="assertive" aria-atomic="true">{announce}</span>;
+
+  if (bare) {
+    return (
+      <div className={styles.bare} data-exam-room-bare="">
+        <div className={styles.bareStatus}>{saveNode}{timerNode}</div>
+        {room}
+        {bottom}
+        {announceNode}
+        {dialogs}
+      </div>
+    );
+  }
+
+  return (
+    <FocusShell
+      mode={mode === 'test' ? 'exam' : 'practice'}
+      title={title}
+      detail={subtitle}
+      exitHref={exit.href}
+      hasUnsavedWork={hasUnsavedWork}
+      right={<span className={styles.barRight}>{phone ? null : saveNode}{timerNode}</span>}
+      subline={phone ? saveNode : undefined}
+      bottom={bottom}
+      onAbandon={abandon && !exit.locked ? () => setAbandonOpen(true) : undefined}
+      leaveCopy={leaveCopy}
+      onLeaveOpen={onLeaveOpen}
+      beforeLeave={beforeLeave}
+      leaveLocked={Boolean(exit.locked)}
+      fullTestRoom={isFullTest}
+    >
+      {room}
+      {announceNode}
+      {dialogs}
     </FocusShell>
   );
 }

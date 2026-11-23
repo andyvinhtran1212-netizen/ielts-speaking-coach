@@ -144,6 +144,23 @@ describe('submit (FR-010, FR-014, FR-034)', () => {
     expect(within(dialog).queryByText('Warning')).toBeNull();
   });
 
+  it('submit.title and submit.cancelLabel replace the plain title and the stay button; the blank title stays', async () => {
+    const all = qs({ 3: { answered: true }, 4: { answered: true }, 5: { answered: true }, 6: { answered: true } });
+    const submit = { label: 'Finish', title: 'Finish this set?', cancelLabel: 'Keep working', onSubmit: vi.fn(() => Promise.resolve()) };
+    const { unmount } = render(<ExamRoomShell {...base({ questions: all, submit })} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
+    let dialog = await screen.findByRole('alertdialog');
+    expect(within(dialog).getByText('Finish this set?')).toBeTruthy();
+    expect(within(dialog).getByRole('button', { name: 'Keep working' })).toBeTruthy();
+    expect(within(dialog).queryByRole('button', { name: 'Return to test' })).toBeNull();
+    unmount();
+    render(<ExamRoomShell {...base({ submit })} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
+    dialog = await screen.findByRole('alertdialog');
+    expect(within(dialog).getByText('Submit with 4 unanswered questions?')).toBeTruthy();
+    expect(within(dialog).getByRole('button', { name: 'Keep working' })).toBeTruthy();
+  });
+
   it('a failed submit keeps the box open with the reason in words', async () => {
     const onSubmit = vi.fn(() => Promise.reject(new Error('net')));
     render(<ExamRoomShell {...base({ submit: { label: 'Submit test', onSubmit } })} />);
@@ -322,6 +339,50 @@ describe('leave and abandon (FR-011, FR-012)', () => {
     expect(track).toHaveBeenCalledWith('exam_room_exit_confirmed', { unsaved: 0 });
   });
 
+  it('exit.note adds one line to the leave box (Listening test FR-011)', async () => {
+    stubAssign();
+    const flush = vi.fn(() => Promise.resolve({ unsaved: 0 }));
+    render(<ExamRoomShell {...base({ exit: { href: '/tests', flush, losesWork: () => false, note: 'Your attempt stays open until the deadline.' } })} />);
+    fireEvent.click(screen.getByRole('button', { name: /Leave test/ }));
+    const dialog = await screen.findByRole('alertdialog');
+    expect(within(dialog).getByText('Your attempt stays open until the deadline.')).toBeTruthy();
+    expect(await within(dialog).findByText('Your answers so far are saved.')).toBeTruthy();
+  });
+
+  it('exit.locked closes an open leave box and keeps it closed (proctor collecting, 0071)', async () => {
+    const assign = stubAssign();
+    const flush = vi.fn(() => Promise.resolve({ unsaved: 0 }));
+    const exit = { href: '/tests', flush, losesWork: () => false };
+    const { rerender } = render(<ExamRoomShell {...base({ exit })} />);
+    fireEvent.click(screen.getByRole('button', { name: /Leave test/ }));
+    await screen.findByRole('alertdialog');
+    rerender(<ExamRoomShell {...base({ exit: { ...exit, locked: true } })} />);
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    fireEvent.click(screen.getByRole('button', { name: /Leave test/ }));
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(assign).not.toHaveBeenCalled();
+    rerender(<ExamRoomShell {...base({ exit })} />);
+    fireEvent.click(screen.getByRole('button', { name: /Leave test/ }));
+    expect(await screen.findByRole('alertdialog')).toBeTruthy();
+  });
+
+  it('exit.locked set while the leave flush is still running does not navigate (HOLD #2518)', async () => {
+    const assign = stubAssign();
+    let finish: (v: { unsaved: number }) => void = () => {};
+    const flush = vi.fn(() => new Promise<{ unsaved: number }>((resolve) => { finish = resolve; }));
+    const exit = { href: '/tests', flush, losesWork: () => false };
+    const { rerender } = render(<ExamRoomShell {...base({ exit })} />);
+    fireEvent.click(screen.getByRole('button', { name: /Leave test/ }));
+    const dialog = await screen.findByRole('alertdialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Leave test' }));
+    await waitFor(() => expect(flush).toHaveBeenCalled());
+    rerender(<ExamRoomShell {...base({ exit: { ...exit, locked: true } })} />);
+    await act(async () => { finish({ unsaved: 0 }); await Promise.resolve(); });
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    expect(assign).not.toHaveBeenCalled();
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+  });
+
   it('names the unsaved count and never says the answers are saved', async () => {
     stubAssign();
     const flush = vi.fn(() => Promise.resolve({ unsaved: 2 }));
@@ -391,6 +452,18 @@ describe('leave and abandon (FR-011, FR-012)', () => {
     render(<ExamRoomShell {...base()} />);
     expect(screen.queryByRole('button', { name: 'Abandon test' })).toBeNull();
   });
+
+  it('exit.locked hides Abandon test and closes an open abandon box (proctor collecting)', async () => {
+    const onAbandon = vi.fn(() => Promise.resolve());
+    const exit = { href: '/tests', flush: vi.fn(() => Promise.resolve({ unsaved: 0 })), losesWork: () => false, abandon: { onAbandon } };
+    const { rerender } = render(<ExamRoomShell {...base({ exit })} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Abandon test' }));
+    await screen.findByRole('alertdialog');
+    rerender(<ExamRoomShell {...base({ exit: { ...exit, locked: true } })} />);
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(screen.queryByRole('button', { name: 'Abandon test' })).toBeNull();
+    expect(onAbandon).not.toHaveBeenCalled();
+  });
 });
 
 describe('navigator (FR-006–FR-009)', () => {
@@ -454,6 +527,36 @@ describe('split (FR-003–FR-005)', () => {
   });
 });
 
+describe('bare (host keeps its top bar, 0069 FR-011)', () => {
+  it('no FocusShell bar or leave button; save status, navigator, submit box and session box stay', async () => {
+    render(<ExamRoomShell {...base({ bare: true })} />);
+    expect(screen.queryByRole('button', { name: /Leave test/ })).toBeNull();
+    expect(screen.queryByRole('banner')).toBeNull();
+    expect(screen.getByText('Passage text')).toBeTruthy();
+    expect(screen.getByText(/Saved at 10:42/)).toBeTruthy();
+    expect(screen.getByRole('timer')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Submit test' }));
+    expect(await screen.findByRole('alertdialog')).toBeTruthy();
+  });
+
+  it('warns on page close only while work is unsaved', () => {
+    const { rerender } = render(<ExamRoomShell {...base({ bare: true })} />);
+    const clean = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(clean);
+    expect(clean.defaultPrevented).toBe(false);
+    rerender(<ExamRoomShell {...base({ bare: true, saveStatus: { state: 'retrying', unsaved: 1 } })} />);
+    const dirty = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(dirty);
+    expect(dirty.defaultPrevented).toBe(true);
+  });
+
+  it('shows the session box with Sign in again when the copy is kept', async () => {
+    render(<ExamRoomShell {...base({ bare: true, session: 'expired', onSessionExpired: { saveLocalCopy: () => true, returnUrl: '/r' } })} />);
+    const dialog = await screen.findByRole('alertdialog');
+    expect(within(dialog).getByRole('link', { name: 'Sign in again' })).toBeTruthy();
+  });
+});
+
 describe('session (FR-015, FR-016)', () => {
   it('expired: saves the local copy first, then a blocking box with Sign in again', async () => {
     const saveLocalCopy = vi.fn(() => true);
@@ -474,6 +577,27 @@ describe('session (FR-015, FR-016)', () => {
     const dialog = await screen.findByRole('alertdialog');
     expect(within(dialog).getByText(/could not keep a copy of your answers/)).toBeTruthy();
     expect(within(dialog).getByRole('link', { name: 'Sign in again' })).toBeTruthy();
+  });
+
+  it('401 + refused storage with unsaved answers: only Stay, never navigates (amendment 2)', async () => {
+    const assign = stubAssign();
+    const props = base({
+      session: 'expired',
+      saveStatus: { state: 'retrying', unsaved: 2, lastSavedAt: new Date(2026, 10, 23, 10, 42) },
+      onSessionExpired: { saveLocalCopy: () => false, returnUrl: '/r' },
+    });
+    const { rerender } = render(<ExamRoomShell {...props} />);
+    const dialog = await screen.findByRole('alertdialog');
+    expect(within(dialog).getByText(/could not keep a copy of your answers/)).toBeTruthy();
+    expect(within(dialog).queryByRole('link', { name: 'Sign in again' })).toBeNull();
+    expect(within(dialog).queryByText(/Sign in again to continue/)).toBeNull();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Stay' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(assign).not.toHaveBeenCalled();
+    expect(screen.queryByRole('link', { name: 'Sign in again' })).toBeNull();
+    // Everything reached the server after all: signing in is safe again.
+    rerender(<ExamRoomShell {...{ ...props, saveStatus: { state: 'saved', lastSavedAt: new Date(2026, 10, 23, 10, 50) } }} />);
+    expect(await screen.findByRole('link', { name: 'Sign in again' })).toBeTruthy();
   });
 
   it('not current: in-page notice with Back, no work area', () => {

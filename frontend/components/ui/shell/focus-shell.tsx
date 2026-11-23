@@ -50,6 +50,11 @@ export type FocusShellProps = {
    */
   beforeLeave?: () => Promise<unknown>;
   /**
+   * True closes an open leave box and keeps it from opening, e.g. while a
+   * proctor collects the test (EXAMMOCK-0071). Leaving is the page's call then.
+   */
+  leaveLocked?: boolean;
+  /**
    * The full-test room, which stays light (FR-025). Default: on in `exam`.
    * Course tests pass `false` to follow the site theme.
    */
@@ -84,6 +89,7 @@ export function FocusShell({
   leaveCopy,
   onLeaveOpen,
   beforeLeave,
+  leaveLocked = false,
   fullTestRoom = mode === 'exam',
   demo = false,
   children,
@@ -106,24 +112,32 @@ export function FocusShell({
   }, [demo]);
 
   const [flushing, setFlushing] = useState(false);
+  const leaveLockedRef = useRef(leaveLocked);
+  leaveLockedRef.current = leaveLocked;
+  useEffect(() => { if (leaveLocked) setAsking(false); }, [leaveLocked]);
+  // Checked right before navigating, in both paths (direct and after the flush):
+  // a proctor may lock leaving while the flush is still running.
   const go = useCallback(() => {
     setAsking(false);
+    if (leaveLockedRef.current) return;
     leaving.current = true;
     onLeave?.();
     window.location.assign(exitHref);
   }, [exitHref, onLeave]);
   const leave = useCallback(() => {
+    if (leaveLockedRef.current) { setAsking(false); return; }
     if (!beforeLeave) { go(); return; }
     setFlushing(true);
     beforeLeave().then(
       () => { setFlushing(false); go(); },
       // Refused (answers still unsaved): show the box with what the page now says,
       // also in practice, where it may not have been open (EXAMROOM-0066 FR-011).
-      () => { setFlushing(false); setAskedUnsaved(true); setAsking(true); },
+      () => { setFlushing(false); setAskedUnsaved(true); setAsking(!leaveLockedRef.current); },
     );
   }, [beforeLeave, go]);
 
   const requestExit = () => {
+    if (leaveLockedRef.current) return;
     const lose = unsaved.current();
     setAskedUnsaved(lose);
     if (mode === 'exam' || lose) { setAsking(true); onLeaveOpen?.(); }
@@ -148,7 +162,7 @@ export function FocusShell({
           <button type="button" className={styles.exit} aria-haspopup="dialog" onClick={requestExit}>
             <span aria-hidden="true">‹</span>{words.exit}
           </button>
-          {mode === 'exam' && onAbandon ? (
+          {mode === 'exam' && onAbandon && !leaveLocked ? (
             <button type="button" className={styles.exit} aria-haspopup="dialog" onClick={onAbandon}>
               {FOCUS_WORDS.exam.abandon}
             </button>

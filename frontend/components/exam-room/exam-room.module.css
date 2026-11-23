@@ -204,3 +204,7 @@
 @media (prefers-reduced-motion: reduce) {
   .root * { transition: none !important; animation: none !important; }
 }
+
+/* bare: the host page keeps its own top bar (0069 FR-011). */
+.bare { display: flex; flex-direction: column; gap: var(--av2-space-4); }
+.bareStatus { display: flex; justify-content: flex-end; align-items: center; gap: var(--av2-space-6); min-height: 1.5rem; }
