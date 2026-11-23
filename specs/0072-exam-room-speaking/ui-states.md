@@ -10,5 +10,5 @@ Dữ liệu chuẩn là máy chủ: phiên (`GET /sessions/{id}`), câu đã g�
 | Gửi bản ghi | "Đang gửi…" | — | Sang feedback như hôm nay | Gửi lỗi: "Gửi lại bản ghi"; 422 quá ngắn: lý do theo `min_seconds` | 401: hộp đăng nhập lại, bản ghi còn trong trang | — |
 | Hộp ghi lại | — | Bản đã gửi: không hỏi | "Xoá và ghi lại" xoá bản chưa gửi | — | — | Tiêu điểm đầu ở "Giữ bản ghi" |
 | Hộp rời bài | — | Không còn bản chưa gửi: thoát ngay | "Bỏ bản ghi và thoát" điều hướng bằng mã | — | — | Tiêu điểm đầu ở "Ở lại"; Esc đóng |
-| Hộp nộp | "Đang nộp…" | Không còn bản chưa gửi: nộp như hôm nay | Sang kết quả | Còn bản chưa gửi: "Gửi lại bản ghi" hoặc "Vẫn nộp"; 402: khối "Hết lượt chấm" | — | Câu về lượt chỉ khi có số liệu G04 |
-| Thông báo tab khác | — | Không hỗ trợ: không hiện | Tab giữ khoá ghi được | Chỉ-đọc: không mở micro, "Tải lại" | — | `role="alert"` một lần |
+| Hộp nộp | "Đang nộp…" | Không còn bản chưa gửi: nộp như hôm nay | Sang kết quả | Lần ghi đầu gửi lỗi: Nộp khoá, "Gửi lại bản ghi" trên ô; ghi lại gửi lỗi khi câu đã có bản lưu: "Gửi lại bản ghi" hoặc "Vẫn nộp"; 402: khối "Hết lượt chấm" | — | Câu về lượt chỉ khi có số liệu G04 |
+| Thông báo tab khác | — | Không hỗ trợ: không hiện | Tab giữ khoá ghi được | Chỉ-đọc: không mở micro, "Tải lại"; tab cũ còn bản chưa gửi hoặc đang tải lên: từ chối bàn giao, tab mới `stuck` với lý do | — | `role="alert"` một lần |

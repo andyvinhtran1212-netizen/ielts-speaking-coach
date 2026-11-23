@@ -5,13 +5,13 @@
 | Requirement | Evidence | Result |
 | --- | --- | --- |
 | FR-001 | kind=journey; ref=frontend/tooling/verify-speaking-flow.mjs flag off (unchanged writes and DOM) and flag on (same writes, same order) | PENDING |
-| FR-002 | kind=test; ref=frontend/tests/practice-exam-room-events.test.mjs (no new events when the flag is off; mic and level events when on) | PENDING |
+| FR-002 | kind=test; ref=frontend/tests/practice-exam-room-events.test.mjs (no new events without setExamRoomMode; mic and level events after it; practice.js never reads runtime config or ?exam_room) | PENDING |
 | FR-003 | kind=test; ref=frontend/tests/react/practice-exam-room.test.tsx (four mic cases, waiting state shown before getUserMedia resolves, button locked, granted skips the first step) | PENDING |
 | FR-004 | kind=test; ref=frontend/tests/react/practice-exam-room.test.tsx (Ready, Recording, silent after 3 s, browser pause on mute, Recorded with duration) | PENDING |
 | FR-005 | kind=test; ref=frontend/tests/react/practice-exam-room.test.tsx (too short per MIN_RECORD_SEC and detail.min_seconds, Part 2 in-page reason, no alert) | PENDING |
 | FR-006 | kind=test; ref=frontend/tests/react/practice-exam-room.test.tsx (re-record asks only for unsent takes, Keep recording primary, Part 2 retry discard asks) | PENDING |
 | FR-007 | kind=test; ref=frontend/tests/react/practice-exam-room.test.tsx (leave with unsent work blocks navigation, Stay keeps the page, discard navigates in code; leave without unsent work is immediate) | PENDING |
-| FR-008 | kind=journey; ref=frontend/tooling/write-flows/speaking-record-submit.mjs (submit with unsent takes opens the in-page dialog, Resend primary, writes unchanged both branches) | PENDING |
+| FR-008 | kind=journey; ref=frontend/tooling/write-flows/speaking-record-submit.mjs (first-take upload failure keeps Submit locked with no use-old option; re-record failure with a saved take opens the in-page dialog, Resend primary, old take intact; writes unchanged both branches) | PENDING |
 | FR-009 | kind=test; ref=frontend/tests/react/practice-exam-room.test.tsx (no audio in browser storage, no copy promising a kept recording after reload) | PENDING |
 | FR-010 | kind=test; ref=frontend/tests/react/practice-exam-room.test.tsx (noRedirect on upload and complete, 401 keeps the take and shows the re-login dialog) | PENDING |
 | FR-011 | kind=test; ref=frontend/tests/react/practice-exam-room.test.tsx (practice and test_part Vietnamese, test_full in a sitting English, return to /mock-exam?sitting=) | PENDING |

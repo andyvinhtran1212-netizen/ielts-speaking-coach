@@ -74,9 +74,13 @@ nộp FR-08-034, thanh tập trung). Bảng đối chiếu ở `verification.md`
   chỗ trong `practice-page-shell.tsx` sau các hook. Cờ tắt: không đổi DOM, chuỗi, class, request
   hay thứ tự gọi API; `practice.js` không phát sự kiện mới nào. Cờ bật: cùng URL, cùng request,
   cùng thứ tự.
-- **FR-002:** Logic ở lại `practice.js`. Nhánh mới chỉ thêm lời gọi
-  `_updateNativeView('mic', {...})` và `_updateNativeView('recording', { level })` khi cờ bật
-  (một dòng mỗi chỗ), và các lệnh mới `requestLeave`, `confirmLeave`, `confirmRerecord`,
+- **FR-002:** Logic ở lại `practice.js`. Cờ chỉ được quyết ở một chỗ: cầu nối trong
+  `practice-page-shell.tsx` gọi `examRoomEnabled('speaking')` một lần rồi báo cho `practice.js`
+  bằng `callPractice('setExamRoomMode', true)` **trước** `init`. `practice.js` không tự đọc
+  `__AVER_RUNTIME_CONFIG__` hay `?exam_room` (để quy tắc `?exam_room` chỉ ngoài production của
+  0066 giữ ở một nơi). Nhánh mới chỉ thêm lời gọi `_updateNativeView('mic', {...})` và
+  `_updateNativeView('recording', { level })` khi chế độ đó đã được đặt (một dòng mỗi chỗ); test
+  `node --test`: không gọi `setExamRoomMode` thì không phát sự kiện mới nào. Thêm các lệnh mới `requestLeave`, `confirmLeave`, `confirmRerecord`,
   `confirmSubmitWithUnsent` mà cầu nối gọi qua `callPractice`. Chuỗi tiếng Việt của nhánh cũ giữ
   trong `practice.js` cho test đọc nguồn.
 - **FR-003:** Bốn trạng thái micro (FR-08-038, tờ `BaiTapSpeaking` mục 3):
@@ -92,14 +96,17 @@ nộp FR-08-034, thanh tập trung). Bảng đối chiếu ở `verification.md`
   đầu. Trình duyệt không có `getUserMedia`/`MediaRecorder`: chuỗi hiện có, không ghi được.
 - **FR-004:** Trạng thái ghi âm bằng chữ, không chỉ màu: "Sẵn sàng", "Đang ghi" kèm đồng hồ,
   "Không nghe thấy tiếng" khi mức âm dưới ngưỡng quá 3 giây liên tục (đọc từ `AnalyserNode` đã có
-  cho dạng sóng; không có `AudioContext` thì không báo im lặng), "Tạm dừng" khi rãnh micro bị
+  cho dạng sóng; không có `AudioContext`, hoặc recorder native (`_getNativeRecorder`) không cho
+  `AnalyserNode`, thì không báo im lặng), "Tạm dừng" khi rãnh micro bị
   `mute` hoặc `MediaRecorder` ở `paused` do trình duyệt (không thêm nút tạm dừng), "Đã ghi" kèm
   thời lượng và trình phát nghe lại.
 - **FR-005:** Bản quá ngắn: chặn trước khi tải lên bằng `MIN_RECORD_SEC[part]` như hôm nay, và
   theo `detail.min_seconds` khi máy chủ trả 422; lý do bằng chữ trong trang ("Bản ghi 12 giây,
   Part 1 cần ít nhất 15 giây. Hãy ghi lại với câu trả lời dài hơn."), kể cả Part 2 (thay
   `window.alert` L1326 ở nhánh mới; Part 2 vẫn quay về `p2a` như hôm nay). Không viết cứng số
-  giây ở chỗ mới.
+  giây ở chỗ mới: chuỗi do một hàm trong bộ chuỗi tiếng Việt của khung (EXAMROOM-0066 T001,
+  `frontend/lib/exam-room/`) dựng từ thời lượng, Part và số giây tối thiểu (`MIN_RECORD_SEC[part]`
+  hoặc `detail.min_seconds`).
 - **FR-006:** "Ghi lại" khi đã có bản ghi chưa gửi hỏi trong trang "Xoá bản ghi này và ghi lại?"
   với "Giữ bản ghi" (chính) và "Xoá và ghi lại"; bản đã gửi lên máy chủ thì không hỏi (bản trên
   máy chủ không bị xoá). Áp cho cả nút "Ghi lại" của Part 2 (`discardP2SubmissionRetry`).
@@ -108,7 +115,15 @@ nộp FR-08-034, thanh tập trung). Bảng đối chiếu ở `verification.md`
   thì chặn điều hướng trước, mở hộp "Bạn có bản ghi chưa gửi" với "Ở lại" (chính) và "Bỏ bản ghi
   và thoát"; chọn thoát thì điều hướng lại bằng mã. Áp cho "‹ Thoát", liên kết trong trang và
   `registerNavigationGuard` của `FocusShell`; đóng tab vẫn dùng `beforeunload` của trình duyệt.
-- **FR-008:** Nộp khi còn bản ghi mới chưa gửi được: hộp trong trang "Còn N bản ghi mới chưa gửi
+- **FR-008:** Nộp khi còn bản ghi chưa gửi được. Hai ca, phân biệt theo trạng thái ô mà
+  `_sheetSubmitBlob` đặt hôm nay:
+  - Lần ghi **đầu tiên** của câu gửi lỗi (ô ở `retry`, `retryHadWork` rỗng, máy chủ chưa có bản
+    nào của câu đó): Nộp vẫn khoá như hôm nay (`ready` cần mọi ô `saved`/`ungraded`), chữ "Đã lưu
+    N/M câu — lưu nốt rồi mới nộp được." và "Gửi lại bản ghi" trên ô đó. Không có lựa chọn dùng
+    bản cũ, không có "Vẫn nộp".
+  - **Ghi lại** gửi lỗi khi câu đã có bản được lưu (ô giữ `saved`/`ungraded`, có `retryBlob`,
+    `retryHadWork` khác rỗng): Nộp mở được; bấm Nộp mở hộp trong trang. N chỉ đếm các ô này. Hộp
+    "Còn N bản ghi mới chưa gửi
   được" nói rõ "Nộp bây giờ sẽ dùng bản cũ trên máy chủ và bỏ các bản ghi mới." với "Gửi lại bản
   ghi" (chính) và "Vẫn nộp". Khi không có `confirm` (nhánh `typeof window.confirm !== 'function'`
   hiện có) thì hành vi cũ giữ cho nhánh cũ. Hộp nộp có câu về lượt chỉ khi API của G04 có số liệu
@@ -168,6 +183,15 @@ nộp FR-08-034, thanh tập trung). Bảng đối chiếu ở `verification.md`
   `playwright.speaking-regression.config.js`
 - **Then** xanh như trước, không request nào đổi.
 
+### Scenario 7: nộp khi còn bản gửi lỗi
+
+- **Given** câu 3 gửi lỗi ở lần ghi đầu tiên (máy chủ chưa có bản nào)
+- **Then** Nộp khoá, chữ "Đã lưu N/M câu — lưu nốt rồi mới nộp được."; không có "Vẫn nộp".
+- **Given** câu 5 đã có bản lưu, ghi lại rồi gửi lỗi
+- **When** bấm Nộp
+- **Then** hộp "Còn 1 bản ghi mới chưa gửi được", "Gửi lại bản ghi" là nút chính; "Vẫn nộp" nộp
+  với bản cũ của câu 5 còn nguyên trên máy chủ.
+
 ## Edge cases
 
 - Micro bị rút giữa lúc ghi: rãnh `ended` → dừng ghi, giữ phần đã ghi nếu đủ dài, báo "Mất kết
@@ -176,7 +200,11 @@ nộp FR-08-034, thanh tập trung). Bảng đối chiếu ở `verification.md`
 - Recorder native (`_getNativeRecorder`) có trước: nhánh mới đọc cùng sự kiện, không đổi đường
   ghi native.
 - Hai tab cùng phiên: khoá ghi theo 0066 FR-017 (`surface='speaking'`, `attemptKey=session_id`);
-  tab chỉ-đọc không mở micro và không tải lên.
+  tab chỉ-đọc không mở micro và không tải lên. Bàn giao khoá chỉ xảy ra khi `flush` trả
+  `{ secured: true }`; bản ghi chưa gửi chỉ ở bộ nhớ trang (FR-009) nên không bao giờ "secured".
+  Khi tab cũ còn bản chưa gửi hoặc đang tải lên, nó từ chối bàn giao (`onHandoverRefused`) và giữ
+  khoá; tab mới vào `stuck` ("Bài này đang mở ở tab khác và còn bản ghi chưa gửi. Hãy gửi hoặc
+  bỏ bản ghi ở tab đó."), không mở micro.
 - Test đọc nguồn `js/practice.js` (15 test, ví dụ `speaking-length-gate.test.mjs`,
   `practice-recorder-mime-lane.test.mjs`, `core-player-affinity.test.mjs`): giữ chuỗi bị ghim;
   test vỡ có chủ ý thì sửa cùng PR và liệt kê; quá 30 test vỡ thì dừng và báo.
