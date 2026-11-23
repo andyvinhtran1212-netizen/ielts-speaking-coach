@@ -57,6 +57,9 @@ describe('grammar-wiki.css is retired from the layout (G06-T14 c2)', () => {
       const body = css.replace(/\/\*[\s\S]*?\*\//g, '');
       assert.doesNotMatch(body, /#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(/, `${name}: raw colour`);
       assert.doesNotMatch(body, /box-shadow|gradient\(/, `${name}: shadow or gradient`);
+      // --av2-control-border is a colour: as a border width the declaration is
+      // dropped and the button falls back to the browser's own border.
+      assert.doesNotMatch(body, /border(?:-[a-z]+)?:\s*var\(--av2-control-border\)\s+solid/, `${name}: colour token used as a width`);
     }
   });
 });

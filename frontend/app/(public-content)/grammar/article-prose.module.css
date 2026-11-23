@@ -174,7 +174,7 @@
   width: 100%;
   min-height: var(--av2-control-md);
   padding: var(--av2-space-2) var(--av2-space-3);
-  border: var(--av2-control-border) solid var(--av2-rule);
+  border: var(--av2-rule-w) solid var(--av2-control-border);
   border-radius: var(--av2-radius);
   background: var(--av2-surface);
   color: var(--av2-ink);
