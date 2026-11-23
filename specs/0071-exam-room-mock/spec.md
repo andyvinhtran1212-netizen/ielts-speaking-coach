@@ -1,14 +1,15 @@
 ---
 id: EXAMMOCK-0071
 title: Assigned mock tests run in the shared exam room behind a flag, with the runner as the only clock and submit owner, the same collection order and a learner side that follows the exam audience and run mode
-status: draft
+status: approved
 risk: high
 owner: product
 ---
 
 # Mock test được giao chạy trong khung phòng thi chung
 
-Status: **draft**. Soạn ngày 23/11/2026 theo nhiệm vụ G08-T15 của
+Status: **approved** (anh Andy, 23/11/2026 17:08 giờ VN; nguyên văn trong
+[`approval-decision.md`](approval-decision.md)). Soạn ngày 23/11/2026 theo nhiệm vụ G08-T15 của
 `docs/proposals/commercialization-2026-11/GOI-08-phong-thi-va-trinh-luyen.md` (spec S5; số 0071
 theo sổ `01-KE-HOACH-TONG.md` mục 6, đã kiểm còn trống trong `specs/` và trong các PR đang mở).
 Chưa dòng mã nào chạy theo spec này. Chỉ anh Andy duyệt. Khi anh duyệt, câu trả lời được ghi
