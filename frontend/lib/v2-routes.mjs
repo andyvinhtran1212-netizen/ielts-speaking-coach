@@ -5,9 +5,8 @@
 // and ChromeNavigationBridge sits in the root layout, so importing it there
 // would ship the whole registry to every page. This list is the slim copy;
 // `tests/v2-routes.test.mjs` fails when it drifts from the registry. Static
-// routes are a Set lookup; a dynamic route may use only plain `[param]`
-// segments (one path segment each, no catch-all), matched segment by segment,
-// so the answer stays the same as `isV2Route`.
+// routes are a Set lookup; a route with a `[param]` segment (one segment, no
+// catch-all) matches any single non-empty segment there, as `isV2Route` does.
 
 /** @type {readonly string[]} */
 export const V2_ROUTES = Object.freeze([
@@ -18,23 +17,17 @@ export const V2_ROUTES = Object.freeze([
   '/library/speaking/[slug]',
   '/library/writing-guides',
   '/library/writing-samples',
+  '/library/writing-samples/[slug]',
   '/privacy',
   '/profile/v2-pilot',
   '/terms',
   '/ui-library',
 ]);
 
-const isDynamic = (route) => route.includes('[');
-const V2_SET = new Set(V2_ROUTES.filter((route) => !isDynamic(route)));
-const V2_DYNAMIC = V2_ROUTES.filter(isDynamic).map((route) => route.slice(1).split('/'));
-
-/** A concrete pathname's segments against a pattern whose `[x]` segments match any one segment. */
-function matchesPattern(segments, pattern) {
-  return (
-    segments.length === pattern.length &&
-    pattern.every((part, i) => (part.startsWith('[') ? segments[i] !== '' : part === segments[i]))
-  );
-}
+const V2_SET = new Set(V2_ROUTES.filter((route) => !route.includes('[')));
+const V2_DYNAMIC = V2_ROUTES.filter((route) => route.includes('[')).map(
+  (route) => new RegExp(`^${route.split('/').map((seg) => (/^\[[^.\]]+\]$/.test(seg) ? '[^/]+' : seg.replace(/[.*+?^${}()|\\]/g, '\\$&'))).join('/')}$`),
+);
 
 /**
  * Same answer as `isV2Route` from route-registry.mjs, for a pathname
@@ -47,8 +40,5 @@ export function isV2Path(pathname) {
   const raw = String(pathname ?? '').split(/[?#]/, 1)[0];
   const trimmed = raw.replace(/\/+$/, '');
   const path = trimmed === '' ? '/' : trimmed;
-  if (V2_SET.has(path)) return true;
-  if (V2_DYNAMIC.length === 0 || path === '/') return false;
-  const segments = path.slice(1).split('/');
-  return V2_DYNAMIC.some((pattern) => matchesPattern(segments, pattern));
+  return V2_SET.has(path) || V2_DYNAMIC.some((re) => re.test(path));
 }
