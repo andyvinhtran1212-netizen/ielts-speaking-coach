@@ -290,13 +290,17 @@ def update_audience(exam_id: str, body: dict, actor_id: str) -> dict:
     _keep_cohort_pointer(exam, cohort_ids)
     mirror_error = None
     if mirror:
-        # Un-assign learners this request deselected, and learners whose
-        # assignable skills this request emptied (e.g. Speaking only).
+        # Un-assign learners this request deselects, and learners whose
+        # assignable skills this request empties (e.g. Speaking only). A
+        # deselect counts even when the stored row is already unselected: that
+        # is a re-sent PATCH after a failed mirror, and the un-assign it asked
+        # for may not have happened yet (HOLD #2565 P1). Rows the request does
+        # not name are never released, so a legacy assignment stays.
         released = {str(existing[sid]["user_id"]) for sid, ch in edits.items()
                     if sid in existing and existing[sid].get("user_id")
-                    and existing[sid].get("selected")
                     and (ch.get("selected") is False
-                         or ("skills" in ch and not set(ch["skills"]) & set(_ASSIGNABLE)))}
+                         or (existing[sid].get("selected") and "skills" in ch
+                             and not set(ch["skills"]) & set(_ASSIGNABLE)))}
         try:
             _mirror_assignments(exam, rows, actor_id, released)
         except Exception as exc:  # noqa: BLE001
@@ -367,7 +371,29 @@ def _mirror_assignments(exam: dict, rows: list[dict], actor_id: str,
         except (assign_svc.InvalidWindowError, assign_svc.UnservableSkillError) as exc:
             raise AudienceError("assignment_refused", str(exc)) from exc
     for uid in deselected - {u["user_id"] for u in upserts}:
-        assign_svc.remove(exam_id, uid, admin_id=actor_id)
+        _release(exam_id, uid, actor_id)
+
+
+def _release(exam_id: str, user_id: str, actor_id: str) -> None:
+    """Un-assign one learner and make sure no sitting of theirs stays open.
+
+    ``assign_svc.remove()`` deletes the assignment first and then voids open
+    sittings; if a void fails it raises after the assignment is already gone.
+    On the re-sent PATCH ``remove()`` then finds no assignment and is a no-op,
+    so the sitting would stay open while the API reports success. Finish that
+    revoke here: with no assignment left, any open sitting of this learner on
+    this exam is voided, and a failure raises so ``mirror_failed`` stays true.
+    Only learners the request itself deselected or emptied reach this."""
+    assign_svc.remove(exam_id, user_id, admin_id=actor_id)
+    if (supabase_admin.table("mock_exam_assignments").select("id")
+            .eq("exam_id", exam_id).eq("user_id", user_id).limit(1).execute().data or []):
+        return
+    open_rows = (supabase_admin.table("mock_exam_sittings").select("id")
+                 .eq("mock_exam_id", exam_id).eq("user_id", user_id)
+                 .not_.in_("status", ["released", "void"]).execute().data or [])
+    for row in open_rows:
+        exam_svc.void_sitting(row["id"], actor_id or "system",
+                              reason="Gỡ khỏi danh sách được gán bài test lại.")
 
 
 # ── Schedule (FR-144) ───────────────────────────────────────────────────────
