@@ -2,7 +2,8 @@
 -- Writing sample set so the database itself can tell an approved set from one
 -- that only carries the source's editing history (source_review_status).
 -- Number 401 is from the G06 band 400-419 of the commercialization register.
--- No apply on merge: pending_feature public_library, same as 400. Staging first
+-- No apply on merge: pending_feature public_library_signoff, its own group so it
+-- is never applied with 400's public_library by accident. Staging first
 -- under the advisory lock after review and Andy's typed approval; production
 -- only at an authorised staging-to-main promotion.
 --

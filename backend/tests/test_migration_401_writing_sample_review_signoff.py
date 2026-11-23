@@ -41,7 +41,7 @@ def test_register_policy_and_rollback_rows():
         ["401", NAME, "present", "G06-T02b", "LIBRARY-0061"]]
     policy = [line.split("\t") for line in (MIGRATIONS / "forward-policy.tsv").read_text().splitlines()
               if line.startswith(NAME)]
-    assert len(policy) == 1 and policy[0][1:3] == ["pending_feature", "public_library"]
+    assert len(policy) == 1 and policy[0][1:3] == ["pending_feature", "public_library_signoff"]
     assert "No apply on merge" in policy[0][3]
     assert "WHERE published OR reviewed_by IS NOT NULL OR reviewed_at IS NOT NULL" in DOWN
     for column in ("reviewed_at", "reviewed_by", "review_status"):

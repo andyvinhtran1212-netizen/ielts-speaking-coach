@@ -109,7 +109,7 @@ RLS bật trên cả năm bảng; không policy cho `anon`/`authenticated`; `REV
 - `writing_samples_review_signed`: `review_status <> 'approved'` hoặc có `reviewed_by` (không rỗng) và `reviewed_at`;
 - `writing_samples_published_approved`: `not published or review_status = 'approved'`.
 
-Hàng cũ nhận `needs_review`. Migration từ chối chạy khi đang có bộ `published` (chưa có chữ ký lưu); rollback `rollback/401_…` từ chối khi đã có hàng ký hoặc đang đăng. Không đổi RLS, grant, policy. Feature `public_library` như 400, không áp khi merge.
+Hàng cũ nhận `needs_review`. Migration từ chối chạy khi đang có bộ `published` (chưa có chữ ký lưu); rollback `rollback/401_…` từ chối khi đã có hàng ký hoặc đang đăng. Không đổi RLS, grant, policy. Feature riêng `public_library_signoff` (không phải `public_library` của 400, để cửa sổ áp 400 không áp lẫn 401), không áp khi merge.
 
 **Ai ghi:** script nhập chép `review.{status,by,at}` của manifest vào ba cột ở `--execute` (nối trong PR T003b, #2498); `/admin/library` mở lại nút đăng Writing cho bộ `review_status='approved'` (nối trong PR T020, #2497). Ký duyệt trên giao diện admin không thuộc amendment này (vẫn ký ở manifest, câu N1). FR không đổi: đây là cách lưu điều kiện FR-019 trong DB.
 

@@ -100,3 +100,9 @@ Pre-amendment sha256: `plan.md` 62743aa6af0b56897613fd8df16eb7869a73d42ebbe2aa1b
 Not approved by this amendment, even once approved: applying 401 to any
 database (needs anh Andy's own typed approval for that window), and merging
 this PR or the #2497 / #2498 follow-ups (each needs his own "merge #N").
+
+Later edit (2026-11-23, after this approval, coordinator request): 401's forward-policy
+group moved from `public_library` to its own `public_library_signoff`, so a window that
+applies 400 (in the #2450 promotion's feature set) cannot apply 401 by accident. Only the
+apply grouping changed (`plan.md` §5.2b, `rollout.md` step 1); no column, constraint or
+requirement changed.
