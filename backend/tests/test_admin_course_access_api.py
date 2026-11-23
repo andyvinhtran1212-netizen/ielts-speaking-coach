@@ -107,8 +107,17 @@ def world(monkeypatch):
             return _api_error("23503", 'insert or update on table "entitlements" violates foreign key constraint')
         row = {**_ent(f"e-new-{len(db.tables['entitlements'])}", user=params["p_user_id"]),
                "product_id": params["p_product_id"], "granted_by": params["p_admin_id"],
-               "source_ref": params["p_request_key"]}
+               "source_ref": params["p_request_key"], "review_mode": params["p_review_mode"]}
         db.tables["entitlements"].append(row)
+        # 384 writes the resolved length and credits on the grant event.
+        db.tables["entitlement_events"].append({
+            "id": len(db.tables["entitlement_events"]) + 1, "entitlement_id": row["id"], "action": "grant",
+            "actor_id": params["p_admin_id"], "actor_kind": "admin", "before": None,
+            "after": {"source": "admin_grant",
+                      "access_days": product["access_days"] if params["p_days"] is None else params["p_days"],
+                      "credits": product["ai_credits"] if params["p_credits"] is None else params["p_credits"],
+                      "review_mode": params["p_review_mode"]},
+            "reason": params["p_reason"], "created_at": NOW.isoformat()})
         return {"status": "granted", "entitlement_id": row["id"]}
 
     def revoke(params):
@@ -343,6 +352,21 @@ def test_a_grant_key_reused_for_another_product_is_a_conflict_not_a_replay(clien
                        json={**GRANT, "product_id": PID.upper()}).json()["status"] == "replay"
 
 
+def test_a_grant_key_reused_with_another_length_amount_mode_or_admin_is_a_conflict(client, world):
+    """CR nit on 08c0015b: replay only for the same days, credits, review mode and admin."""
+    assert client.post("/admin/entitlements", headers=AUTH, json=GRANT).json()["status"] == "granted"
+    for body in ({**GRANT, "days": 30}, {**GRANT, "credits": 11}, {**GRANT, "credits": None},
+                 {**GRANT, "review_mode": "teacher_review"}):
+        res = client.post("/admin/entitlements", headers=AUTH, json=body)
+        assert res.status_code == 409 and res.json()["detail"]["error_code"] == "request_key_conflict", body
+    # Leaving days empty is the product's default (180): the same request.
+    assert client.post("/admin/entitlements", headers=AUTH,
+                       json={**GRANT, "days": 180}).json()["status"] == "replay"
+    world["db"].tables["entitlements"][-1]["granted_by"] = "admin-2"
+    res = client.post("/admin/entitlements", headers=AUTH, json=GRANT)
+    assert res.status_code == 409 and res.json()["detail"]["error_code"] == "request_key_conflict"
+
+
 def test_revoke_and_extend(client, world):
     res = client.post(f"/admin/entitlements/{EID}/extend", headers=AUTH, json={"days": 30, "reason": "Gia hạn bù"})
     assert res.status_code == 200 and res.json()["status"] == "extended"
@@ -382,6 +406,11 @@ def test_an_adjust_key_reused_for_another_entitlement_or_delta_is_a_conflict(cli
         res = client.post("/admin/credits/adjust", headers=AUTH, json=body)
         assert res.status_code == 409 and res.json()["detail"]["error_code"] == "request_key_conflict", body
     assert world["db"].tables["credit_ledger"] == before
+    assert client.post("/admin/credits/adjust", headers=AUTH, json=ADJUST).json()["status"] == "replay"
+    # CR nit on 08c0015b: the same key from another admin is not this adjustment.
+    world["db"].tables["credit_ledger"][-1]["actor_id"] = "admin-2"
+    res = client.post("/admin/credits/adjust", headers=AUTH, json=ADJUST)
+    assert res.status_code == 409 and res.json()["detail"]["error_code"] == "request_key_conflict"
 
 
 @pytest.mark.parametrize("reason", ["Liên hệ hocvien@example.com", "Gọi 0912 345 678 để báo"])

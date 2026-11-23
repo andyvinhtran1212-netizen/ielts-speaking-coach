@@ -115,6 +115,60 @@ def world(monkeypatch):
     return state
 
 
+def _real_vietqr():
+    try:
+        from services import vietqr
+    except ImportError:
+        return None
+    return vietqr
+
+
+def _cfg(**over):
+    base = dict(pay_hours=48, bank_bin="970436", bank_name="Vietcombank", account_no="0123456789",
+                account_name="CONG TY AVER", vietqr_image_template="", renew_window_days=30,
+                reminder_hours_before=12, reminder_min_age_hours=6, supplement_hours=72,
+                carry_percent=50, carry_window_days=60)
+    base.update(over)
+    return eo.EnrollmentConfig(**base)
+
+
+def test_vietqr_payload_calls_the_real_builder_with_its_keyword():
+    """No mock: the real services.vietqr (#2486) must accept the call as made.
+    Skips only while that module is not on this branch."""
+    vietqr = pytest.importorskip("services.vietqr")
+    payload = eo._vietqr_payload(_cfg(), 1990000, "AVER-7K2QXM")
+    assert payload is not None and payload.startswith("000201")
+    assert payload == vietqr.build_payload(bank_bin="970436", account_no="0123456789",
+                                           amount_vnd=1990000, note="AVER-7K2QXM")
+    assert "AVER-7K2QXM" in payload
+
+
+def test_vietqr_payload_is_null_when_the_real_builder_rejects_the_settings():
+    pytest.importorskip("services.vietqr")
+    assert eo._vietqr_payload(_cfg(bank_bin="97043"), 1990000, "AVER-7K2QXM") is None
+    assert eo._vietqr_payload(_cfg(), 0, "AVER-7K2QXM") is None
+
+
+def test_vietqr_signature_mismatch_surfaces_instead_of_a_silent_null(monkeypatch):
+    """A builder whose keywords differ (the memo=/note= drift) raises TypeError,
+    which must not be swallowed into vietqr_payload = null."""
+    import sys
+    import types
+
+    import services
+
+    stale = types.ModuleType("services.vietqr")
+
+    def build_payload(*, bank_bin, account_no, amount_vnd, memo):  # old keyword
+        return "never"
+
+    stale.build_payload = build_payload
+    monkeypatch.setitem(sys.modules, "services.vietqr", stale)
+    monkeypatch.setattr(services, "vietqr", stale, raising=False)
+    with pytest.raises(TypeError):
+        eo._vietqr_payload(_cfg(), 1990000, "AVER-7K2QXM")
+
+
 def _create(client, key="key-12345678", slug="ielts-6"):
     return client.post("/api/enrollment-orders", json={"product_slug": slug, "request_key": key}, headers=AUTH)
 
@@ -132,7 +186,12 @@ def test_create_then_replay_same_request_key_returns_the_same_order(client, worl
     assert order["status"] == "awaiting_transfer" and order["tuition_vnd"] == 1990000
     transfer = order["transfer"]
     assert transfer["memo"] == order["order_code"] and transfer["amount_vnd"] == 1990000
-    assert transfer["account_no"] == "0123456789" and transfer["vietqr_payload"] is None
+    assert transfer["account_no"] == "0123456789"
+    if _real_vietqr() is None:  # G05-T11 (#2486) not merged here yet
+        assert transfer["vietqr_payload"] is None
+    else:
+        assert transfer["vietqr_payload"] == _real_vietqr().build_payload(
+            bank_bin="970436", account_no="0123456789", amount_vnd=1990000, note=order["order_code"])
     assert transfer["qr_image_url"] == (f"https://img.vietqr.io/image/970436-0123456789-compact.png"
                                         f"?amount=1990000&addInfo={order['order_code']}")
     again = _create(client)
