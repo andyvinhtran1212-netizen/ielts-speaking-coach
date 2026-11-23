@@ -399,9 +399,12 @@ function ProgrammeFormView({ testId, status, userId, active, embedded, supplemen
   }
   // FR-012: once this tab holds the write lock, read the attempt's answers again
   // (the same resume-or-create request the page opened with) without a reload.
-  async function reloadAnswers() {
+  async function reloadAnswers(info?: { initial: boolean }) {
     const scope = scopeRef.current;
     if (state.status !== 'ready' || !current(scope)) return;
+    // FR-001: the first grant right after opening comes with the answers the page just
+    // read (and the replay list planned from them), so it sends no second request.
+    if (info?.initial) return;
     const attempt = row(await window.api.postWith<unknown>(`/api/listening/tests/${encodeURIComponent(testId)}/attempts?standalone=true`, {}, undefined, apiOpts(scope)));
     if (!current(scope) || String(attempt.attempt_id || '') !== state.attemptId) return;
     const restored: Record<number, string> = {};

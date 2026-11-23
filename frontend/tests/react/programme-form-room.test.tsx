@@ -92,6 +92,8 @@ describe('flag on', () => {
     expect(container.querySelector('audio[controls]')).toBeNull();
     expect(container.querySelector('footer.programme-submit')).toBeNull();
     expect(api.postWith.mock.calls[0][0]).toBe('/api/listening/tests/t1/attempts?standalone=true');
+    // FR-001: taking the lock right after opening sends no second resume request.
+    expect(calls(api.postWith, '/attempts?standalone=true')).toHaveLength(1);
     for (const [, , , opts] of [...api.postWith.mock.calls, ...api.getWith.mock.calls.map(([u, h, o]) => [u, undefined, h, o])]) {
       expect(opts).toMatchObject({ noRedirect: true });
     }

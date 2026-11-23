@@ -146,7 +146,7 @@ export interface ProgrammeFormRoomProps {
   /** Writes every current answer into the local copy and reads it back. */
   secureCopy(): boolean;
   session: ExamRoomSession;
-  reloadFromServer(): Promise<unknown>;
+  reloadFromServer(info?: { initial: boolean }): Promise<unknown>;
   onWriteRightChange(canWrite: boolean): void;
   ask: ProgrammeAskItem[];
   onAskChoice(item: ProgrammeAskItem, choice: 'use-local' | 'keep-saved'): void;
@@ -271,6 +271,11 @@ export function ProgrammeFormRoom(props: ProgrammeFormRoomProps) {
     if (saveState === 'saved' && lastSavedAt) return { state: 'saved', lastSavedAt };
     return { state: 'idle', lastSavedAt: lastSavedAt ?? undefined };
   }, [saveState, lastSavedAt, onRetrySave]);
+
+  // FR-011/FR-012: a runner without the lock may not write, even if nothing shows its inputs.
+  const writeRightRef = useRef(onWriteRightChange);
+  writeRightRef.current = onWriteRightChange;
+  useEffect(() => { if (!holdsLock) writeRightRef.current(false); }, [holdsLock]);
 
   const tabGuard = useMemo(() => holdsLock ? {
     // FR-012: hand over only when every answer is acked or read back from the local copy.
