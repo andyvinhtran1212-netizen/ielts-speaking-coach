@@ -1639,7 +1639,8 @@ async def get_listening_analytics(
         · avg_score  = % đúng TB (score/số câu) của lượt đầu ĐÃ NỘP, 0..1
         · completion = tỉ lệ lượt đã nộp / mọi lượt của loại đó
       - by_day: 14 ngày gần nhất (count + avg_score theo ngày)
-      - recent_attempts: 10 lượt gần nhất {type, title, status, accuracy, ...}
+      - recent_attempts: 10 lượt gần nhất {type, title, status, accuracy, ...};
+        lượt đã bỏ (`abandoned`) không vào lịch sử (EXAMLISTENT-0070 FR-012)
       - weakest_mode: loại có avg_score thấp nhất (≥3 lượt đã nộp), else null
 
     Per CLAUDE.md non-misleading-feedback rule: loại <3 lượt nộp không được
@@ -1780,6 +1781,11 @@ async def get_listening_analytics(
         })
     by_day.reverse()  # oldest first for chart rendering
 
+    # EXAMLISTENT-0070 FR-012: an abandoned attempt (the exam room's "Abandon
+    # test" or the old "start over") is not part of the learner's history.
+    # Engagement counts above (total_attempts, by_day, completion) keep it.
+    history = [r for r in flat if r["status"] != "abandoned"]
+
     report_only_rows = [r for r in flat if r["scoring_policy"] == "report_only"]
     report_only_submitted = [r for r in report_only_rows if r["status"] == "submitted"]
     return {
@@ -1787,7 +1793,7 @@ async def get_listening_analytics(
         "total_attempts":  len(flat),
         "by_mode":         by_mode,
         "by_day":          by_day,
-        "recent_attempts": flat[:10],
+        "recent_attempts": history[:10],
         "weakest_mode":    weakest_mode,
         "report_only": {
             "attempts_count": len(report_only_rows),
