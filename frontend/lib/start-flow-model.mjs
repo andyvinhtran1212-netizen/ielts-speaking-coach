@@ -1,5 +1,6 @@
 // "Lần đầu vào" at /start (LEARNERCORE-0063 FR-065; sheet TroGiupLanDau
 // screen 2). Pure decisions, so the page and its tests share one truth.
+import { learnerV2Enabled } from './auth-wire-model.mjs';
 import { sanitizeLearnerNext } from './safe-next.mjs';
 
 /** Band choices of step 2; '' is "Chưa biết" (nothing is saved). */
@@ -9,14 +10,17 @@ export const START_BANDS = Object.freeze(['5.5', '6.0', '6.5', '7.0', '7.5']);
  * Where /start sends the visitor before drawing anything.
  * - a valid `next` (ENROLL-0060 FR-031) wins: the visitor came for that page;
  * - a finished onboarding never shows again → `/home`;
+ * - `learner_v2` off for this account → the legacy `/onboarding` (the v2 tree
+ *   is behind the flag, LEARNERCORE-0063 FR-090; login does the same);
  * - otherwise the steps are shown (`null`).
- * @param {{ onboarding_completed?: unknown } | null} me @param {unknown} next
+ * @param {{ onboarding_completed?: unknown, learner_v2_enabled?: unknown } | null} me @param {unknown} next
  * @returns {string | null}
  */
 export function startRedirect(me, next) {
   const target = sanitizeLearnerNext(typeof next === 'string' ? next : null);
   if (target) return target;
   if (me?.onboarding_completed === true) return '/home';
+  if (!learnerV2Enabled(me)) return '/onboarding';
   return null;
 }
 

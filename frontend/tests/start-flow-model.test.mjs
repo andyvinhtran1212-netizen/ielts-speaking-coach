@@ -12,11 +12,20 @@ import {
 
 describe('start flow model', () => {
   test('shown once: done → /home; a valid next wins; an unsafe next is ignored', () => {
-    assert.equal(startRedirect({ onboarding_completed: false }, null), null);
-    assert.equal(startRedirect({ onboarding_completed: true }, null), '/home');
-    assert.equal(startRedirect({ onboarding_completed: false }, '/enroll/writing-6'), '/enroll/writing-6');
-    assert.equal(startRedirect({ onboarding_completed: false }, '//evil.com'), null);
-    assert.equal(startRedirect({ onboarding_completed: false }, 'https://evil.com'), null);
+    const v2 = { onboarding_completed: false, learner_v2_enabled: true };
+    assert.equal(startRedirect(v2, null), null);
+    assert.equal(startRedirect({ ...v2, onboarding_completed: true }, null), '/home');
+    assert.equal(startRedirect(v2, '/enroll/writing-6'), '/enroll/writing-6');
+    assert.equal(startRedirect(v2, '//evil.com'), null);
+    assert.equal(startRedirect(v2, 'https://evil.com'), null);
+  });
+
+  test('learner_v2 off or missing → legacy /onboarding; done still → /home', () => {
+    assert.equal(startRedirect({ onboarding_completed: false, learner_v2_enabled: false }, null), '/onboarding');
+    assert.equal(startRedirect({ onboarding_completed: false }, null), '/onboarding');
+    assert.equal(startRedirect(null, null), '/onboarding');
+    assert.equal(startRedirect({ onboarding_completed: true, learner_v2_enabled: false }, null), '/home');
+    assert.equal(startRedirect({ onboarding_completed: false, learner_v2_enabled: false }, '/enroll/writing-6'), '/enroll/writing-6');
   });
 
   test('online course only from an active online item of /api/me/courses', () => {

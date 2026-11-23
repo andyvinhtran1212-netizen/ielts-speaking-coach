@@ -129,6 +129,14 @@ describe('/start', () => {
     expect(patches).toEqual([]);
   });
 
+  it('learner_v2 off: the legacy /onboarding, nothing drawn or written', async () => {
+    state.me = me({ learner_v2_enabled: false });
+    await mount();
+    expect(replace).toHaveBeenCalledWith('/onboarding');
+    expect(screen.queryByRole('button', { name: 'Bắt đầu' })).toBeNull();
+    expect(patches).toEqual([]);
+  });
+
   it('a failed write keeps the learner here with an error, no navigation', async () => {
     state.patchFails = true;
     await mount();
