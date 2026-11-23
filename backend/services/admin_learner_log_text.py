@@ -18,6 +18,11 @@ OTHER = "Thao tác khác"
 _ROLE = {"user": "Học viên", "student": "Học viên", "instructor": "Giáo viên", "admin": "Quản trị"}
 
 
+# access_codes fields an edit can change, in a fixed order.
+_FIELD = {"permissions": "quyền", "expires_at": "hạn dùng", "is_active": "trạng thái", "session_limit": "số lượt",
+          "notes": "ghi chú", "code_type": "loại mã", "cohort_id": "lớp"}
+
+
 def _role(value: Any) -> str:
     return _ROLE.get(str(value or ""), "vai trò khác")
 
@@ -60,7 +65,8 @@ def access_code(action: str, *, code: Optional[str], before: Optional[dict], aft
     if action == "hard_delete":
         return f"Xoá hẳn {_code(code)}"
     if action == "edit":
-        return f"Sửa {_code(code)}"
+        fields = [_FIELD[k] for k in _FIELD if k in after]
+        return f"Sửa {_code(code)}: {', '.join(fields)}" if fields else f"Sửa {_code(code)}"
     if action == "promote_role":
         return f"Kích hoạt {_code(code)}: vai trò thành {_role(after.get('role'))}"
     if action == "promote_role_rejected":

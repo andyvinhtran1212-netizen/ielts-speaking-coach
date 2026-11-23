@@ -4,8 +4,11 @@
 Append-only sources, merged newest first:
 
 * ``access_code`` — ``access_code_audit`` rows about the learner's account
-  (``target_user_id``), plus the reassign rows a code left the learner by
-  (``before.assigned_user``).
+  (``target_user_id``), the reassign rows a code left the learner by
+  (``before.assigned_user``), and code-level rows (no ``target_user_id``:
+  edit, revoke, hard delete) of a code while the learner held it
+  (``user_code_assignments`` window, or ``access_codes.used_by`` from
+  ``used_at`` for a legacy code).
 * ``role`` / ``security`` — ``staff_security_audit`` (``target_user_id``):
   ``role_changed`` is ``role``, every other event is ``security``.
 * ``class`` — ``class_action_log`` rows about the learner's student rows
@@ -96,6 +99,24 @@ def _access_code(person: Person) -> list[tuple]:
     for r in _paged(lambda: supabase_admin.table("access_code_audit").select(cols)
                     .eq("action", "reassign").eq("before->>assigned_user", uid)):
         rows.setdefault(str(r["id"]), (r, False))
+    # A code-level event (edit, revoke, hard delete: no target_user_id) is the
+    # learner's line when the learner held that code at the time: from the
+    # assignment to its revocation, or from redemption for a legacy code that
+    # has no assignment row.
+    held: dict[str, tuple[Optional[str], Optional[str]]] = {}
+    for a in _paged(lambda: supabase_admin.table("user_code_assignments")
+                    .select("id, code_id, assigned_at, revoked_at").eq("user_id", uid)):
+        if a.get("code_id"):
+            held[str(a["code_id"])] = (_at(a.get("assigned_at")), _at(a.get("revoked_at")))
+    for c in _paged(lambda: supabase_admin.table("access_codes").select("id, used_at").eq("used_by", uid)):
+        held.setdefault(str(c["id"]), (_at(c.get("used_at")), None))
+    for chunk in _chunks(sorted(held)):
+        for r in _paged(lambda c=chunk: supabase_admin.table("access_code_audit").select(cols)
+                        .in_("code_id", c).is_("target_user_id", "null")):
+            start, end = held.get(str(r.get("code_id")), (None, None))
+            at = _at(r.get("created_at"))
+            if at and start and start <= at and (end is None or at <= end):
+                rows.setdefault(str(r["id"]), (r, True))
     code_ids = sorted({str(r["code_id"]) for r, _ in rows.values() if r.get("code_id")})
     codes: dict[str, str] = {}
     for chunk in _chunks(code_ids):
