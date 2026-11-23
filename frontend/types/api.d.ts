@@ -3328,6 +3328,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/speaking/mock-queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Mock Queue */
+        get: operations["mock_queue_admin_speaking_mock_queue_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/search": {
         parameters: {
             query?: never;
@@ -20558,6 +20575,45 @@ export interface components {
              */
             release_now: boolean;
         };
+        /** MockQueue */
+        MockQueue: {
+            /** Items */
+            items: components["schemas"]["MockQueueItem"][];
+            /** Overdue Hours */
+            overdue_hours: number | null;
+        };
+        /** MockQueueExam */
+        MockQueueExam: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+        };
+        /** MockQueueItem */
+        MockQueueItem: {
+            /** Sitting Id */
+            sitting_id: string;
+            exam: components["schemas"]["MockQueueExam"];
+            /** Name */
+            name: string;
+            cohort: components["schemas"]["MockQueueRef"] | null;
+            /** Submitted At */
+            submitted_at: string;
+            /** Waited Hours */
+            waited_hours: number;
+            /** Overdue */
+            overdue: boolean | null;
+            /** Flags */
+            flags: string[];
+            claimed_by: components["schemas"]["MockQueueRef"] | null;
+        };
+        /** MockQueueRef */
+        MockQueueRef: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+        };
         /** MyEssayDetailOut */
         MyEssayDetailOut: {
             /** Essay */
@@ -30439,6 +30495,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LearnerDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mock_queue_admin_speaking_mock_queue_get: {
+        parameters: {
+            query?: {
+                exam_id?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MockQueue"];
                 };
             };
             /** @description Validation Error */
