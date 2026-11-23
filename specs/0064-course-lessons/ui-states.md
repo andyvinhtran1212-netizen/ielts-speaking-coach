@@ -1,0 +1,11 @@
+# UI state matrix
+
+| Surface | Loading | Empty | Success | Error/retry | Permission | Responsive/theme/a11y |
+| --- | --- | --- | --- | --- | --- | --- |
+| Trang bài giảng `/course/learn/[courseCode]/[lessonCode]` | khung `LearnerShell` hiện ngay; vùng video và bài đọc có khối giữ chỗ cùng kích thước | bài không có video: chỉ bài đọc và nút "Đánh dấu đã đọc"; không có bài đọc: chỉ video | breadcrumb, mục lục, video phát tiếp từ vị trí đã lưu, "Bài trước"/"Bài sau", nhãn "Đã xong" khi đủ ngưỡng | 503: "Chưa mở được bài, thử lại" kèm nút thử lại; 404: "Bài này tạm ẩn" kèm lối về Lộ trình; lỗi lưu vị trí: không báo, thử lại ở lần lưu kế tiếp | 403 chưa có quyền: câu báo và "Xem khoá"; 403 hết hạn: thêm "Đăng ký lại" khi `can_renew`; không lộ tiêu đề bài | 390/820/1280px; dưới 1024px mục lục thành nút "Trong bài này"; token G03 sáng/tối, trình phát nền tối cố định; trình phát và liên kết bắt tiêu điểm được |
+| Trình phát video | khung 16:9 giữ chỗ | `private_host` khi origin rỗng: "Video chưa sẵn sàng" | phát, nhớ vị trí mỗi 15 giây và khi rời trang | iframe hoặc video lỗi: "Không phát được video", bài đọc vẫn dùng được | như trang | phụ đề theo nguồn YouTube; không tự phát có tiếng |
+| Lộ trình: danh sách bài của khoá (dữ liệu cho G07-T15) | giữ chỗ | khoá chưa có bài `is_published`: "Bài học của khoá sắp có" | các chặng, nhãn đã xong / đang học / bài tiếp / chưa học; không có ổ khoá | lỗi: ẩn khối, "Chưa tải được danh sách bài" | như trang bài giảng | như trên |
+| Trang bài học thử `/courses/[slug]/preview/[lessonCode]` | khung công khai G03 | — | bài thử, lối "Xem khoá" và "Đăng ký" theo trang khoá | 404 khi không phải bài thử hoặc cờ tắt | khách xem được; người có quyền được chuyển sang trang bài giảng | 390/1280px; `noindex` |
+| Admin: thẻ Chương trình (G09-T13) | giữ chỗ | "Chưa có bài. Nạp bằng script `import_course_lessons.py`" | danh sách bài và hai công tắc "Hiện cho học viên", "Bài học thử" | lỗi đổi cờ: hoàn công tắc về trạng thái thật sau khi tải lại, báo lỗi | chỉ admin | như trang admin hiện có |
+
+Dữ liệu canonical nằm ở `course_lessons` và `course_lesson_progress`, đọc qua API. Trang không giữ trạng thái lạc quan cho "Đã xong": nhãn chỉ đổi theo phản hồi PATCH. Tải lại trang cho cùng vị trí phát và cùng nhãn.
