@@ -18,15 +18,15 @@ Sources (all read at request time, nothing cached):
   AI-graded (``graded``) or AI-failed (``failed``, also ``ai_failed``). Age is
   from when the current AI grade was written (``writing_feedback_current``;
   a failed essay: from when it was submitted), against
-  ``writing_review_hours``. A teacher counts the essays they can open
-  (``instructor_access.assert_essay_owned`` rule: an assignment they gave, or
-  the essay's learner has ``students.instructor_id`` = them).
+  ``writing_review_hours``. A teacher counts only work given to one of their
+  current classes (``writing_assignments.cohort_id``) that they can also
+  open (``instructor_access.assert_essay_owned`` rule), as quick search does.
 * ``assignments_overdue`` — published class assignments past their deadline
   with at least one learner who has not handed in (``learner_attention``'s
   hand-in rule, so the ledger-repair evidence is honoured); archived classes
   are left out.
 * ``regrade_new`` — ``essay_regrade_requests`` still ``pending``, against
-  ``regrade_hours``; a teacher counts those on essays they can open.
+  ``regrade_hours``; a teacher counts those on the same essays.
 * ``feedback_open`` (admin) — ``user_feedback`` still ``new``, against
   ``feedback_unanswered_hours``.
 * Not shipped yet, so ``unavailable``: ``speaking_mock_pending`` (T38),
@@ -130,24 +130,39 @@ class _Ctx:
 # ── Essays a person still has to look at ─────────────────────────────────
 
 def _owned_essay_ids(ctx: _Ctx, essays: list[dict]) -> set[str]:
-    """The essays of ``essays`` the teacher ``ctx.viewer_id`` can open, by the
-    ``instructor_access.assert_essay_owned`` rule. Every read is chunked."""
+    """The essays of ``essays`` that are work of one of the teacher's current
+    classes (a ``writing_assignments`` row with ``cohort_id`` in
+    ``ctx.cohort_ids``, FR-104) AND that the teacher can open
+    (``instructor_access.assert_essay_owned``: that class assignment was given
+    by them, or the essay's learner has ``students.instructor_id`` = them).
+    Same rule as quick search (``admin_search._teacher_essays``). A teacher
+    with no class gets nothing, whatever they gave earlier. Every read is
+    paged and chunked."""
     me = ctx.viewer_id
-    if not me:
+    if not me or not ctx.cohort_ids:
         return set()
+    classes = sorted(ctx.cohort_ids)
     ids = sorted({str(e["id"]) for e in essays if e.get("id")})
-    owned: set[str] = set()
+    in_class: set[str] = set()
+    given_by_me: set[str] = set()
     for chunk in _chunks(ids):
         rows = directory._paged(lambda c=chunk: supabase_admin.table("writing_assignments")
-                                .select("id, essay_id").eq("assigned_by", me).in_("essay_id", c).order("id"))
-        owned |= {str(r["essay_id"]) for r in rows if r.get("essay_id")}
-    students = sorted({str(e["student_id"]) for e in essays if e.get("student_id") and str(e["id"]) not in owned})
+                                .select("id, essay_id, assigned_by").in_("essay_id", c)
+                                .in_("cohort_id", classes).order("id"))
+        for r in rows:
+            if r.get("essay_id"):
+                in_class.add(str(r["essay_id"]))
+                if str(r.get("assigned_by")) == me:
+                    given_by_me.add(str(r["essay_id"]))
+    students = sorted({str(e["student_id"]) for e in essays if e.get("student_id")
+                       and str(e["id"]) in in_class and str(e["id"]) not in given_by_me})
     mine: set[str] = set()
     for chunk in _chunks(students):
         rows = directory._paged(lambda c=chunk: supabase_admin.table("students")
                                 .select("id").eq("instructor_id", me).in_("id", c).order("id"))
         mine |= {str(r["id"]) for r in rows if r.get("id")}
-    return owned | {str(e["id"]) for e in essays if str(e.get("student_id")) in mine}
+    return given_by_me | {str(e["id"]) for e in essays
+                          if str(e.get("id")) in in_class and str(e.get("student_id")) in mine}
 
 
 def _scope_essays(ctx: _Ctx, rows: list[dict], key: str = "id") -> list[dict]:

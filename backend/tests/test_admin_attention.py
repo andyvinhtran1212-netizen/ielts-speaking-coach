@@ -249,8 +249,33 @@ def test_teacher_with_no_class_gets_empty_blocks_not_errors(db, monkeypatch):
     out = _teacher(monkeypatch, db, U_TEACH_B)
     assert out["classes_week"] == [] and out["attention_learners"] == []
     assert out["queues"]["assignments_overdue"]["count"] == 0
-    # e-b1 is still theirs by students.instructor_id (the grading page's rule).
-    assert out["queues"]["writing_review"]["count"] == 1
+    # FR-104: e-b1 was given by them and its learner still points at them
+    # (students.instructor_id), but they have no class now: nothing counts.
+    assert out["queues"]["writing_review"]["count"] == 0
+    assert out["queues"]["writing_review"]["ai_failed"] == 0
+    assert out["queues"]["regrade_new"]["count"] == 0
+
+
+def test_teacher_of_class_a_does_not_count_class_b_work_they_could_open(db, monkeypatch):
+    """The essay is class B work, given by teacher A, of a learner whose
+    students.instructor_id is teacher A: openable in the old grading area,
+    but not work of A's current classes."""
+    db.rows["writing_assignments"][2]["assigned_by"] = U_TEACH
+    db.rows["students"][1]["instructor_id"] = U_TEACH
+    out = _teacher(monkeypatch, db, U_TEACH)
+    assert out["queues"]["writing_review"]["count"] == 2      # e-a1, e-a2 only
+    assert out["queues"]["regrade_new"]["count"] == 1         # r1 (e-a1), not r2 (e-b1)
+    assert "e-b1" not in str(out)
+
+
+def test_teacher_class_work_they_cannot_open_is_not_counted(db, monkeypatch):
+    """Class A work given by an admin, of a learner who points at no teacher:
+    in A's class but not openable on the grading page, so not counted."""
+    db.rows["writing_assignments"][0]["assigned_by"] = U_ADMIN
+    db.rows["students"][0]["instructor_id"] = None
+    out = _teacher(monkeypatch, db, U_TEACH)
+    assert out["queues"]["writing_review"]["count"] == 1      # e-a2 only
+    assert out["queues"]["regrade_new"]["count"] == 0
 
 
 def test_admin_on_the_teacher_door_gets_the_teacher_shape(db, monkeypatch):

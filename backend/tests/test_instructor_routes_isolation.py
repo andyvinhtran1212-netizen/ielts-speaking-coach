@@ -149,8 +149,8 @@ def _seed():
             {"id": PB, "created_by": B, "title": "B", "task_type": "task2", "prompt_text": "y"},
         ],
         "writing_assignments": [
-            {"id": AA, "assigned_by": A, "essay_id": EA, "student_id": SA, "prompt_id": PA},
-            {"id": AB, "assigned_by": B, "essay_id": EB, "student_id": SB, "prompt_id": PB},
+            {"id": AA, "assigned_by": A, "essay_id": EA, "student_id": SA, "prompt_id": PA, "cohort_id": CA},
+            {"id": AB, "assigned_by": B, "essay_id": EB, "student_id": SB, "prompt_id": PB, "cohort_id": CB},
         ],
         "cohorts": [
             {"id": CA, "created_by": A, "name": "Lop A", "instructor_id": A},
