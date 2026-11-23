@@ -45,38 +45,66 @@ test('another account on the same browser cannot read the copy; signing in as it
   assert.equal(s.getItem('unrelated'), '1');
 });
 
-test('replay: only answers the server has not changed since baseSavedAt are re-sent', () => {
+test('replay compares by baseValue: re-send only while the server still holds the base', () => {
   const copy = {
     v: 1, ...A, savedAt: T0, expiresAt: later,
     answers: {
-      1: { value: 'A', baseSavedAt: '2026-11-23T03:00:00Z' }, // server unchanged since → resend
-      2: { value: 'B', baseSavedAt: '2026-11-23T03:00:00Z' }, // server newer → keep server
-      3: { value: 'C', baseSavedAt: null }, // never saved, server has nothing → resend
-      4: { value: 'D', baseSavedAt: null }, // never saved by us, server has a save → keep server
-      5: { value: 'E', baseSavedAt: '2026-11-23T03:00:00Z' }, // same value already → nothing
+      1: { value: 'A', baseValue: 'old' }, // server still "old" → resend
+      2: { value: 'B', baseValue: 'old' }, // server changed elsewhere → keep server
+      3: { value: 'C', baseValue: null }, // server had nothing and still has nothing → resend
+      4: { value: 'D', baseValue: null }, // server got an answer since → keep server
+      5: { value: 'E', baseValue: 'old' }, // already equal → nothing to send
+      6: { value: 'F' }, // older copy, base unknown → ask, never sent on its own
+      7: { value: 'G' }, // base unknown but equal → nothing to ask
     },
   };
   const server = {
     open: true,
     answers: {
-      1: { value: 'old', savedAt: '2026-11-23T02:59:00Z' },
+      1: { value: 'old', savedAt: '2026-11-23T09:00:00Z' },
       2: { value: 'other tab', savedAt: '2026-11-23T03:05:00Z' },
-      4: { value: 'x', savedAt: '2026-11-23T03:01:00Z' },
-      5: { value: 'E', savedAt: '2026-11-23T03:00:00Z' },
+      3: { value: null },
+      4: { value: 'x' },
+      5: { value: 'E' },
+      6: { value: 'saved' },
+      7: { value: 'G' },
     },
   };
   const plan = planLocalCopyReplay(copy, server);
   assert.deepEqual(plan.resend, [{ q: '1', value: 'A' }, { q: '3', value: 'C' }]);
   assert.deepEqual(plan.keepServer, ['2', '4']);
-  assert.deepEqual(plan.drop.map((d) => d.q).sort(), ['2', '4', '5']);
+  assert.deepEqual(plan.ask, [{ q: '6', local: 'F', server: 'saved' }]);
+  assert.deepEqual(plan.drop.map((d) => d.q).sort(), ['2', '4', '5', '7']);
   assert.deepEqual(plan.drop.find((d) => d.q === '2'), { q: '2', value: 'B' });
   assert.equal(plan.clear, false);
 });
 
+test('replay never trusts save times: a server clock ahead or a missing savedAt changes nothing', () => {
+  const copy = { v: 1, ...A, savedAt: T0, expiresAt: later, answers: { 1: { value: 'A', baseValue: 'old', baseSavedAt: '2026-11-23T03:00:00Z' } } };
+  // Server time later than the copy's base time, value unchanged → still resend.
+  assert.deepEqual(planLocalCopyReplay(copy, { open: true, answers: { 1: { value: 'old', savedAt: '2026-11-23T05:00:00Z' } } }).resend, [{ q: '1', value: 'A' }]);
+  // Server time earlier, but value changed → keep server.
+  assert.deepEqual(planLocalCopyReplay(copy, { open: true, answers: { 1: { value: 'new', savedAt: '2026-11-23T01:00:00Z' } } }).keepServer, ['1']);
+  // A value without savedAt (previously overwritten by the copy) → keep server.
+  assert.deepEqual(planLocalCopyReplay(copy, { open: true, answers: { 1: { value: 'new' } } }).keepServer, ['1']);
+});
+
+test('write keeps baseValue, including null; an entry written without it stays unknown', () => {
+  const s = new MemoryStorage();
+  writeLocalCopy(s, { ...A, answers: { 1: { value: 'A', baseValue: 'old' }, 2: { value: 'B', baseValue: null }, 3: { value: 'C' } }, expiresAt: later, now: T0 });
+  const back = readLocalCopy(s, { ...A, now: T0 }).answers;
+  assert.equal(back['1'].baseValue, 'old');
+  assert.equal(back['2'].baseValue, null);
+  assert.equal('baseValue' in back['3'], false);
+  const plan = planLocalCopyReplay(readLocalCopy(s, { ...A, now: T0 }), { open: true, answers: { 1: { value: 'old' }, 3: { value: 'x' } } });
+  assert.deepEqual(plan.resend.map((r) => r.q), ['1', '2']);
+  assert.deepEqual(plan.ask.map((r) => r.q), ['3']);
+});
+
 test('submitted or closed attempt: send nothing and clear', () => {
   const copy = { v: 1, ...A, savedAt: T0, expiresAt: later, answers: { 1: { value: 'A', baseSavedAt: null } } };
-  assert.deepEqual(planLocalCopyReplay(copy, { open: false, answers: {} }), { resend: [], keepServer: [], drop: [{ q: '1', value: 'A' }], clear: true });
-  assert.deepEqual(planLocalCopyReplay(null, { open: true, answers: {} }), { resend: [], keepServer: [], drop: [], clear: false });
+  assert.deepEqual(planLocalCopyReplay(copy, { open: false, answers: {} }), { resend: [], keepServer: [], ask: [], drop: [{ q: '1', value: 'A' }], clear: true });
+  assert.deepEqual(planLocalCopyReplay(null, { open: true, answers: {} }), { resend: [], keepServer: [], ask: [], drop: [], clear: false });
 });
 
 test('acks remove answers; the record goes when empty; abandon and sign-out clear', () => {
