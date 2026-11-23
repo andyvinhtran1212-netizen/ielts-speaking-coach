@@ -149,9 +149,14 @@ def _should(monkeypatch, rows, question, duration, *, fail=False):
     return asyncio.run(grading._should_sample_pronunciation("s1", question, duration))
 
 
+def _done(session, question, **extra):
+    return {"session_id": session, "question_id": question, "pronunciation_status": "completed",
+            "grading_status": "completed", "final_band_p": 7.0, **extra}
+
+
 def test_should_sample_rules(monkeypatch):
-    done_a = [{"session_id": "s1", "question_id": "qa", "pronunciation_status": "completed"}]
-    other_session = [{"session_id": "s2", "question_id": "qa", "pronunciation_status": "completed"}]
+    done_a = [_done("s1", "qa")]
+    other_session = [_done("s2", "qa")]
     failed_a = [{"session_id": "s1", "question_id": "qa", "pronunciation_status": None}]
     assert _should(monkeypatch, [], "qb", 15.0) is True             # first long answer
     assert _should(monkeypatch, done_a, "qb", 20.0) is False        # another answer was assessed
@@ -162,6 +167,28 @@ def test_should_sample_rules(monkeypatch):
     assert _should(monkeypatch, failed_a, "qb", 15.0) is True       # Azure failed on qa → still open
     assert _should(monkeypatch, [], "qb", 0.0) is True              # unknown duration is not "short"
     assert _should(monkeypatch, done_a, "qb", 20.0, fail=True) is True  # read error → assess
+
+
+def test_a_sample_without_a_usable_p_band_does_not_use_up_the_session(monkeypatch):
+    # Codex P2 on #2514: Azure succeeded but the text grade failed → the row
+    # is pronunciation 'completed' with final_band_p cleared.
+    grader_failed = [_done("s1", "qa", grading_status="failed", final_band_p=None)]
+    no_band = [_done("s1", "qa", final_band_p=None)]
+    assert _should(monkeypatch, grader_failed, "qb", 20.0) is True
+    assert _should(monkeypatch, no_band, "qb", 20.0) is True
+    # Practice mode has no final_band_p: a graded practice answer counts.
+    practice = [_done("s1", "qa", final_band_p=None)]
+
+    async def execute(builder):
+        return builder(_DB(responses=practice)).execute()
+    monkeypatch.setattr(grading, "aexecute", execute)
+    assert asyncio.run(grading._should_sample_pronunciation("s1", "qb", 20.0, is_practice=True)) is False
+    grader_failed_practice = [_done("s1", "qa", grading_status="failed", final_band_p=None)]
+
+    async def execute2(builder):
+        return builder(_DB(responses=grader_failed_practice)).execute()
+    monkeypatch.setattr(grading, "aexecute", execute2)
+    assert asyncio.run(grading._should_sample_pronunciation("s1", "qb", 20.0, is_practice=True)) is True
 
 
 def test_one_per_session_parts_parsing(monkeypatch):
@@ -278,7 +305,8 @@ def test_route_part1_short_answer_is_sent_whole(monkeypatch):
 
 
 def test_route_part1_second_answer_is_not_sampled(monkeypatch):
-    done = [{"id": str(uuid4()), "question_id": str(uuid4()), "pronunciation_status": "completed"}]
+    done = [{"id": str(uuid4()), "question_id": str(uuid4()), "pronunciation_status": "completed",
+             "grading_status": "completed", "final_band_p": 7.0}]
     r = _route(monkeypatch, part=1, duration=20.0, flag=True, responses=done)
     assert r.calls == []                                    # Azure (fake) never called
     assert _cols(r.row) == ("not_sampled", None, None)
@@ -291,6 +319,16 @@ def test_route_part1_second_answer_is_not_sampled(monkeypatch):
         "sample": {"scope": "not_sampled", "start_s": None, "end_s": None}}
 
 
+def test_route_failed_grade_with_azure_does_not_use_up_the_sample(monkeypatch):
+    # Codex P2 regression: first answer's grader failed (P band cleared) →
+    # the next answer is still sent to Azure and gets a P band.
+    failed = [{"id": str(uuid4()), "question_id": str(uuid4()), "pronunciation_status": "completed",
+               "grading_status": "failed", "final_band_p": None}]
+    r = _route(monkeypatch, part=1, duration=20.0, flag=True, responses=failed)
+    assert len(r.calls) == 1 and _cols(r.row) == ("full", None, None)
+    assert r.row["final_band_p"] is not None and r.result["band_p"] is not None
+
+
 def test_route_part1_first_answer_below_min_is_not_sampled(monkeypatch):
     # The spec's 8 s case cannot reach this point: validate_audio_duration
     # rejects Part 1 under 15 s with 422 before grading. Raise the minimum
@@ -301,7 +339,8 @@ def test_route_part1_first_answer_below_min_is_not_sampled(monkeypatch):
 
 
 def test_route_part3_is_not_one_per_session_by_default(monkeypatch):
-    done = [{"id": str(uuid4()), "question_id": str(uuid4()), "pronunciation_status": "completed"}]
+    done = [{"id": str(uuid4()), "question_id": str(uuid4()), "pronunciation_status": "completed",
+             "grading_status": "completed", "final_band_p": 7.0}]
     r = _route(monkeypatch, part=3, duration=30.0, flag=True, responses=done)
     assert len(r.calls) == 1 and _cols(r.row) == ("full", None, None)
 

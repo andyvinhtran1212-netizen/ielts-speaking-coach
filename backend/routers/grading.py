@@ -419,10 +419,15 @@ async def _should_sample_pronunciation(
     session_id: str,
     question_id: str,
     duration_sec: float,
+    *,
+    is_practice: bool = False,
 ) -> bool:
     """One Azure answer per session for the Parts in PRON_ONE_PER_SESSION_PARTS
-    (plan 5.16 step 2). False when another answer of the session already has
-    ``pronunciation_status='completed'``; True when the completed one is this
+    (plan 5.16 step 2). False when another answer of the session already holds
+    a usable sample: ``pronunciation_status='completed'`` AND the answer was
+    graded AND, in test mode, it carries ``final_band_p`` (Codex P2 on #2514:
+    an Azure success whose text grade failed has its P band cleared, so it must
+    not use up the session's sample); True when the completed one is this
     question (a re-record keeps its sample); False when this answer is shorter
     than PRON_ONE_PER_SESSION_MIN_SECONDS (a later, longer one is waited for);
     otherwise True. A read error returns True: one extra Azure call costs less
@@ -432,11 +437,15 @@ async def _should_sample_pronunciation(
     try:
         res = await aexecute(
             lambda db: db.table("responses")
-            .select("question_id")
+            .select("question_id, grading_status, final_band_p")
             .eq("session_id", session_id)
             .eq("pronunciation_status", "completed")
         )
-        rows = res.data or []
+        rows = [
+            r for r in (res.data or [])
+            if r.get("grading_status") == "completed"
+            and (is_practice or r.get("final_band_p") is not None)
+        ]
     except Exception as exc:  # noqa: BLE001 — fail toward assessing
         logger.warning("[grading] pronunciation sample lookup failed, assessing: %s", exc)
         return True
@@ -1012,7 +1021,7 @@ async def grade_response_endpoint(
                 )
             )
         elif part in _pron_one_per_session_parts() and not await _should_sample_pronunciation(
-            session_id, question_id, duration_sec,
+            session_id, question_id, duration_sec, is_practice=(session_mode == "practice"),
         ):
             pron_sample = PronSample("not_sampled")   # no Azure call at all
         else:
