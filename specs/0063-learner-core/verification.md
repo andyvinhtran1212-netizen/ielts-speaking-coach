@@ -73,6 +73,14 @@ Mọi dòng ở trạng thái `PENDING`: spec đang `draft`, chưa có dòng mã
 | FR-108 | kind=test; ref=planned pytest duplicate flag same attempt and question 409 already_flagged, parallel requests leave one row, report and rating unchanged (T31) | PENDING |
 | FR-109 | kind=test; ref=planned pytest my_flagged_q_nums for the caller only; node feedback-widgets 409 turns the button to "Đã báo lỗi" (T31) | PENDING |
 | FR-110 | kind=test; ref=planned PG migration test runs twice, raises when duplicate flag rows exist, rollback drops both indexes; review_notes RLS denies anon and authenticated (T31) | PENDING |
+| FR-111 | kind=test; ref=planned React skill-hub flag on draws the shared hub for each of the four pages, flag off draws the current page; /reading flag off still lands on /reading/vocab (T25) | PENDING |
+| FR-112 | kind=test; ref=planned pytest resume per skill and starter only when nothing exists and admin set one; React starter copy and credit note (T25) | PENDING |
+| FR-113 | kind=test; ref=planned pytest suggestions source order, cap 3, empty when no source (T25) | PENDING |
+| FR-114 | kind=test; ref=planned pytest catalog groups with done null on first visit; React "Tất cả đề" link via liveHref (T25) | PENDING |
+| FR-115 | kind=test; ref=planned pytest history five newest with grading source; React first-visit sentence, no empty table, no band (T25) | PENDING |
+| FR-116 | kind=test; ref=planned React out-of-credits shows CreditsEmptyNotice under the title, other blocks unchanged (T25) | PENDING |
+| FR-117 | kind=test; ref=planned React no "Cần Khoá" copy when access.blocked is false; blocked true renders screen 4 (T25) | PENDING |
+| FR-118 | kind=test; ref=planned pytest response_model, caller-only data, 422 for an unknown skill, degraded per block (T25) | PENDING |
 
 ## Kịch bản staging (gói 9.1 mục 1, 3, 3b, 3c, 8; 9.4)
 
@@ -96,6 +104,8 @@ Tài khoản QA và dữ liệu thử; không bật cờ cho học viên thật.
 13. **Bài được giao** (bản sửa đổi 3). Kịch bản 17, 18 của spec trên staging với lớp thử; ảnh 1280px và 390px; ghi bảng nộp bài của giáo viên trước và sau khi tự luyện (không đổi).
 
 14. **Xem lại bài làm** (bản sửa đổi 4). Kịch bản 19 của spec trên staging với lượt thử của QA; trước khi áp migration ghi kết quả truy vấn đếm dòng `flag` trùng (số, không nội dung); ảnh 1280px và 390px.
+
+15. **Bốn hub kỹ năng** (bản sửa đổi 5). Kịch bản 20, 21 của spec trên staging; ảnh 1280px và 390px cho bốn hub ở trạng thái có dữ liệu, lần đầu và hết lượt (dữ liệu thử).
 
 ## Contract evidence
 

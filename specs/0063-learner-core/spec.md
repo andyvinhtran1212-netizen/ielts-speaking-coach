@@ -8,7 +8,7 @@ owner: product
 
 # Signed-in learners open Today to see what to do now in one of five states, from one read API, behind a per-learner switch that an admin can turn off in seconds
 
-Status: **draft** — soạn ngày 23/11/2026 cho nhiệm vụ `G07-T02` (thương mại hoá 2026-11), từ `docs/proposals/commercialization-2026-11/GOI-07-loi-hoc-vien.md` mục 4.3, 5.3, 5.6, 5.8, 6 (T05, T13, T14), 9 và mục 10. Chưa dòng mã nào chạy theo spec này. Chỉ anh Andy duyệt; khi duyệt, câu trả lời ghi nguyên văn kèm thời điểm vào `approval-decision.md` cùng thư mục và `status` đổi sang `approved`. Số spec 0063 lấy từ sổ cấp số ở `01-KE-HOACH-TONG.md` mục 6. **Bản sửa đổi 1** (23/11/2026, nhiệm vụ `G07-T15`, `G07-T16`, gói mục 4.4 và 6) thêm Lộ trình và hai hub Luyện tập, Thi thử. **Bản sửa đổi 2** (23/11/2026, `G07-T17`, `G07-T26`, gói mục 4.7, 5.9 và 6) thêm Tài khoản, Tiến độ, Trợ giúp, Hồ sơ, "Lần đầu vào" và mở `/home` cho tài khoản chưa kích hoạt. **Bản sửa đổi 3** (23/11/2026, `G07-T30`) dựng lại trang Bài được giao theo tờ LoTrinhBaiDuocGiao và thêm "Tự luyện bài này" cho bài đã đóng; phần buổi học, tài liệu lớp và hạn nhận bài trễ của hai tờ LoTrinhBaiDuocGiao, LopBuoiHoc chưa có dữ liệu ở backend nên để ở câu hỏi mở 11, 12. **Bản sửa đổi 4** (23/11/2026, `G07-T31`) đưa trang xem lại bài Listening, Reading vào khung mới, thêm ghi chú cá nhân và giới hạn "Báo lỗi đề" một lần mỗi câu. Bốn bản sửa đổi chưa có dòng mã nào và chờ duyệt cùng spec.
+Status: **draft** — soạn ngày 23/11/2026 cho nhiệm vụ `G07-T02` (thương mại hoá 2026-11), từ `docs/proposals/commercialization-2026-11/GOI-07-loi-hoc-vien.md` mục 4.3, 5.3, 5.6, 5.8, 6 (T05, T13, T14), 9 và mục 10. Chưa dòng mã nào chạy theo spec này. Chỉ anh Andy duyệt; khi duyệt, câu trả lời ghi nguyên văn kèm thời điểm vào `approval-decision.md` cùng thư mục và `status` đổi sang `approved`. Số spec 0063 lấy từ sổ cấp số ở `01-KE-HOACH-TONG.md` mục 6. **Bản sửa đổi 1** (23/11/2026, nhiệm vụ `G07-T15`, `G07-T16`, gói mục 4.4 và 6) thêm Lộ trình và hai hub Luyện tập, Thi thử. **Bản sửa đổi 2** (23/11/2026, `G07-T17`, `G07-T26`, gói mục 4.7, 5.9 và 6) thêm Tài khoản, Tiến độ, Trợ giúp, Hồ sơ, "Lần đầu vào" và mở `/home` cho tài khoản chưa kích hoạt. **Bản sửa đổi 3** (23/11/2026, `G07-T30`) dựng lại trang Bài được giao theo tờ LoTrinhBaiDuocGiao và thêm "Tự luyện bài này" cho bài đã đóng; phần buổi học, tài liệu lớp và hạn nhận bài trễ của hai tờ LoTrinhBaiDuocGiao, LopBuoiHoc chưa có dữ liệu ở backend nên để ở câu hỏi mở 11, 12. **Bản sửa đổi 4** (23/11/2026, `G07-T31`) đưa trang xem lại bài Listening, Reading vào khung mới, thêm ghi chú cá nhân và giới hạn "Báo lỗi đề" một lần mỗi câu. **Bản sửa đổi 5** (23/11/2026, `G07-T25`) đưa bốn hub kỹ năng về một mẫu theo tờ HubKyNang. Năm bản sửa đổi chưa có dòng mã nào và chờ duyệt cùng spec.
 
 ## Tóm tắt (tiếng Việt)
 
@@ -50,11 +50,19 @@ Status: **draft** — soạn ngày 23/11/2026 cho nhiệm vụ `G07-T02` (thươ
 - "Báo lỗi đề" gửi được một lần mỗi câu trong một lượt làm; đã gửi thì nút ghi "Đã báo lỗi", tải lại vẫn thế.
 - Cần một migration (bảng ghi chú và chỉ mục chặn báo trùng).
 
+**Bản sửa đổi 5: Bốn hub kỹ năng một mẫu (G07-T25).** Người dùng thấy, ở `/speaking`, `/writing/dashboard`, `/listening`, `/reading` khi cờ bật:
+- Cùng một trang bốn khối theo thứ tự: Làm tiếp → Gợi ý cho bạn → Kho bài luyện → Lịch sử và kết quả gần đây; hàng thẻ bốn kỹ năng để chuyển nhanh; dòng lượt chấm AI ở hub Writing, Speaking.
+- Lần đầu vào (chưa có bài nào): khối Làm tiếp thành "Bắt đầu với một bài"; Lịch sử chỉ còn một câu, không bảng rỗng, không band.
+- Hết lượt: khối "Hết lượt chấm" dùng chung dưới tiêu đề, các khối khác giữ nguyên.
+- `/reading` thành hub thật (hôm nay chuyển thẳng sang từ vựng); tắt cờ thì vẫn chuyển như cũ.
+- Màn "Kỹ năng chưa có trong khoá của bạn" chỉ hiện khi máy chủ thật sự chặn kỹ năng đó (câu hỏi mở 15); hôm nay không chặn nên không hiện.
+- Một API đọc mới `GET /api/student/skill-hub`, không migration.
+
 **Vì sao `risk: high`.** Gói ghi `medium`, nhưng khi đối chiếu staging `e940c936`: cột "lần vào Hôm nay trước" (`users.today_seen_at`) mà FR-025 cần **chưa có** → cần một migration nhỏ (dải 420–439 của G07), và mọi PR có file migration bị cổng spec buộc lớp `high-risk`, nên spec phải `high`. Câu hỏi mở 1 hỏi anh có muốn bỏ migration (dùng cửa sổ thời gian) để hạ về `medium` không.
 
 **Đã có ở staging `e940c936`.** Khung `LearnerShell` của G03 (#2445); mục tiêu band và ngày thi đã lưu ở `users.target_band`, `users.exam_date` (mig 005; mig 452 đồng bộ mục tiêu admin ↔ học viên); bài làm dở có `resume_expires_at` (mig 224); bài được giao qua `routers/class_student.py`. **Chưa có:** API khoá/lượt/đơn của G04 (`/api/me/courses`, `/api/me/credits`, `/api/enrollment-orders/me`), `services/learner_overdue.py`, `services/trial_caps.py` và `frontend/lib/course-access-labels.mjs` của GOI-11, sổ lỗi của GOI-12, bảng `course_lessons` của G07-T18, cờ `learner_v2` (grep `learner_v2|shell_v2` không ra gì ở `backend/services`, `frontend/lib`).
 
-**Ngôn ngữ và đánh số.** Thân viết tiếng Việt theo gói; tiêu đề mục giữ tiếng Anh cho `validate_specs.py`. `FR-07-019…029` → `FR-019…FR-029` giữ số; `FR-07-029a`, `029b` và các yêu cầu rút từ hợp đồng 5.3, 5.6, 5.8 nhận số mới từ `FR-070` (chừa `FR-030…037`, `FR-060…066` cho bản sửa đổi theo đúng số của gói). Bản sửa đổi 1: `FR-07-030…037` → `FR-030…FR-037` giữ số; hub Luyện tập, Thi thử (gói chỉ ghi ở nhiệm vụ G07-T16, không có số FR) nhận số mới từ `FR-079`. Bản sửa đổi 2: `FR-07-060…066` → `FR-060…FR-066` giữ số (FR-063, FR-066 là yêu cầu "không dựng" vì gói đã bỏ); `FR-07-060b`, `064b`, khối dữ liệu của tôi, `/start` và G07-T26 nhận số mới từ `FR-087` (bộ kiểm spec chỉ nhận dạng `FR-NNN`). Bản sửa đổi 3 (G07-T30, gói không có số FR) nhận số từ `FR-095`; bản sửa đổi 4 (G07-T31) từ `FR-104`.
+**Ngôn ngữ và đánh số.** Thân viết tiếng Việt theo gói; tiêu đề mục giữ tiếng Anh cho `validate_specs.py`. `FR-07-019…029` → `FR-019…FR-029` giữ số; `FR-07-029a`, `029b` và các yêu cầu rút từ hợp đồng 5.3, 5.6, 5.8 nhận số mới từ `FR-070` (chừa `FR-030…037`, `FR-060…066` cho bản sửa đổi theo đúng số của gói). Bản sửa đổi 1: `FR-07-030…037` → `FR-030…FR-037` giữ số; hub Luyện tập, Thi thử (gói chỉ ghi ở nhiệm vụ G07-T16, không có số FR) nhận số mới từ `FR-079`. Bản sửa đổi 2: `FR-07-060…066` → `FR-060…FR-066` giữ số (FR-063, FR-066 là yêu cầu "không dựng" vì gói đã bỏ); `FR-07-060b`, `064b`, khối dữ liệu của tôi, `/start` và G07-T26 nhận số mới từ `FR-087` (bộ kiểm spec chỉ nhận dạng `FR-NNN`). Bản sửa đổi 3 (G07-T30, gói không có số FR) nhận số từ `FR-095`; bản sửa đổi 4 (G07-T31) từ `FR-104`; bản sửa đổi 5 (G07-T25) từ `FR-111`.
 
 ## Quyết định đã có
 
@@ -79,6 +87,7 @@ Trang chủ học viên hiện là bảng điểm (`GET /api/student/home-summar
 - (Bản sửa đổi 2, G07-T26) Mở `/home`, `/start`, `/account`, `/profile`, `/help` cho tài khoản `is_active=false` có cờ `learner_v2`; màn "Cần có khoá" cho trang học viên khác; miễn cổng cho `GET /api/student/today` và `PATCH /auth/profile`; `/auth/check-active` thêm `learner_v2_enabled`.
 - (Bản sửa đổi 3, G07-T30) Cây Bài được giao mới ở `/course/assigned` sau cờ (cây `MyClassWorkspace` giữ khi tắt), API đọc `GET /api/student/assigned`, route `POST /api/class/assignments/{item_id}/self-practice` cho bài đã đóng.
 - (Bản sửa đổi 4, G07-T31) `/listening/review`, `/reading/review` vẽ cây mới sau cờ; bảng `review_notes` và hai route ghi chú; chặn "Báo lỗi đề" trùng ở `POST /api/feedback`; một migration trong dải 420–439.
+- (Bản sửa đổi 5, G07-T25) Cây hub mới cho `/speaking`, `/writing/dashboard`, `/listening`, `/reading` sau cờ, API `GET /api/student/skill-hub?skill=`; theo tờ HubKyNang, LuyenTap, DanhSachDe (đã duyệt 17/11, gói câu 11).
 - (Bản sửa đổi 1, G07-T16) Hub `/practice` trong nhóm route mới `app/(authed-practice-hub)/`, hub `/tests` (trang LEARNERNAV-0062 T12a đã dời), API đọc `GET /api/student/tests`. Theo tờ LuyenTap, ThiThu, MockTestDuocGiao.
 
 ## Non-goals
@@ -96,6 +105,7 @@ Trang chủ học viên hiện là bảng điểm (`GET /api/student/home-summar
 - (Bản sửa đổi 2) Không dựng công tắc hay ô hỏi đồng ý dùng bản ghi âm (gói FR-07-063, 066 đã bỏ; quyết định 18/11/2026). Không dựng lại hộp "Đăng xuất khỏi mọi thiết bị" (G05-T20) hay luồng đổi email (G05-T24); không ghi `learner_login_events`; không hiện cột "nơi gần đúng"; không gõ cứng 45, 60, 100 ngày.
 - (Bản sửa đổi 3) Không dựng buổi học, tài liệu lớp, nhận xét theo buổi, hạn nhận bài trễ (không có bảng hay luật ở backend; câu hỏi mở 11, 12). Không sửa `_visible_assignments`, `_decorate`, luật nhận bài `is_accepting_submissions`, luồng chấm bài giao hay sổ nộp bài của lớp. Không mở "Tự luyện" cho bài `course` (bộ câu khoá chỉ mở qua bài giao; gói câu 6).
 - (Bản sửa đổi 4) Không đổi cách chấm, đáp án, lời giải, trình phát hay dữ liệu chữa bài của hai trang; không đổi luồng báo lỗi ẩn danh của link chia sẻ Reading ngoài việc chặn trùng; không cho ghi chú với lượt ẩn danh.
+- (Bản sửa đổi 5) Không đổi trình làm bài, trang chọn đề, trang danh sách đề hay trang kết quả của từng kỹ năng; không thêm gợi ý do AI sinh; không chặn kỹ năng theo khoá khi máy chủ chưa chặn.
 - (Bản sửa đổi 2) Không đổi `require_active_learner`, không mở route nộp bài, luyện tập, phòng thi, Lộ trình cho tài khoản chưa kích hoạt; không sửa thứ tự lớp trong `authed-shell.tsx`. Không gỡ `/onboarding` (G07-T24 gỡ khi `learner_v2_all` đã bật đủ lâu).
 
 ## Users and journeys
@@ -192,6 +202,17 @@ Trang chủ học viên hiện là bảng điểm (`GET /api/student/home-summar
 - **FR-108:** "Báo lỗi đề" của mỗi câu gửi được một lần cho mỗi `(lượt, câu, người gửi)`: `POST /api/feedback` với `type='flag'` trùng trả 409 `already_flagged` ("Bạn đã báo lỗi câu này."), không thêm dòng; chặn bằng chỉ mục duy nhất một phần ở cơ sở dữ liệu (người đăng nhập theo `created_by`, lượt ẩn danh theo `anon_id`). Báo lỗi cả bài (không `q_num`) cũng một lần mỗi lượt. `report` và `rating` giữ luật hiện có.
 - **FR-109:** Dữ liệu chữa bài trả thêm `my_flagged_q_nums: int[]` (các câu người gọi đã báo trong lượt này; lượt ẩn danh theo `anon_id`) để nút hiện "Đã báo lỗi" ngay khi tải lại; thiếu trường (backend cũ) → coi là rỗng, máy chủ vẫn chặn bằng 409, và trang đổi nút sang "Đã báo lỗi" khi nhận 409.
 - **FR-110:** Migration (một file trong dải 420–439, có rollback): bảng `review_notes` (`id uuid pk`, `user_id uuid not null references users(id) on delete cascade`, `skill text check in ('listening','reading')`, `test_uuid uuid not null`, `q_num int not null check (q_num > 0)`, `body text not null check (char_length(body) between 1 and 500)`, `created_at`, `updated_at`; duy nhất `(user_id, skill, test_uuid, q_num)`; RLS bật, không policy, `REVOKE ALL … FROM PUBLIC, anon, authenticated`) và hai chỉ mục duy nhất một phần trên `user_feedback` cho `type='flag'`. Migration dừng (RAISE) nếu đã có dòng `flag` trùng, không tự xoá phản hồi của ai.
+
+### Bản sửa đổi 5 — Bốn hub kỹ năng một mẫu (G07-T25)
+
+- **FR-111:** `/speaking`, `/writing/dashboard`, `/listening`, `/reading` vẽ cây hub mới khi `learnerV2Enabled(me)`, cùng một component `SkillHub` nhận `skill`; cờ tắt thì trang hiện có y nguyên (với `/reading`: vẫn chuyển sang `/reading/vocab`, nay chuyển ở phía client sau khi đọc cờ). Đầu trang: breadcrumb "Luyện tập › <kỹ năng>" (điện thoại "‹ Luyện tập"), hàng thẻ bốn kỹ năng qua `liveHref`, và ở Writing, Speaking dòng "Lượt chấm AI còn lại: N" (một kho chung, FR-024; thiếu số thì không có dòng).
+- **FR-112:** Khối 1 "Làm tiếp": bài dở của chính kỹ năng đó (cùng quy tắc FR-023, cộng bản nháp Writing chưa nộp mới nhất), tối đa 3, mới nhất trước, mỗi dòng một nút mở đúng bài. Không có bài dở mà chưa có lượt nào ở kỹ năng đó → "Bắt đầu với một bài": một đề khởi đầu cố định theo kỹ năng (cấu hình máy chủ, không chọn ngẫu nhiên), có câu tốn lượt khi kỹ năng dùng lượt. Không có bài dở nhưng đã có lượt → khối ẩn.
+- **FR-113:** Khối 2 "Gợi ý cho bạn": tối đa 3 mục, mỗi mục có lý do bằng chữ, lấy từ các nguồn có thật theo thứ tự: bài tiếp theo trong lộ trình thuộc kỹ năng đó (COURSELESSON-0064), bài được giao chưa nộp của kỹ năng đó (từ T13), mục ôn của Sổ lỗi cá nhân cho kỹ năng đó (GOI-12, `None` khi chưa có), dạng đề kỹ năng đó người học làm ít nhất trong 30 ngày (đếm từ lượt đã nộp, chỉ khi có ≥ 3 lượt). Không nguồn nào có dữ liệu → khối ẩn. Không gợi ý do AI sinh.
+- **FR-114:** Khối 3 "Kho bài luyện": các nhóm đề của kỹ năng (Speaking: Part 1/2/3, full test; Writing: Task 1/Task 2; Listening, Reading: theo nhóm đang có ở trang danh sách đề), mỗi nhóm ghi số đề và "đã làm a" khi người đó có lượt (lần đầu không ghi số đã làm), liên kết "Tất cả đề <kỹ năng> ›" tới trang danh sách đề hiện có qua `liveHref`. Đọc từ API danh mục đề đang có của từng kỹ năng, không thêm bảng.
+- **FR-115:** Khối 4 "Lịch sử và kết quả gần đây": 5 lượt đã nộp mới nhất của kỹ năng đó: ngày, tên bài, dạng, cách chấm ("AI chấm, trả ngay" / "AI chấm, giáo viên duyệt rồi trả" / "Tự chấm"), kết quả theo FR-077, nút xem phiếu; "Xem tất cả bài đã làm ›" tới trang lịch sử hiện có. Chưa có lượt → một câu theo tờ HubKyNang màn 3 ("Bạn chưa nộp bài <kỹ năng> nào…"), không bảng rỗng, không band.
+- **FR-116:** Hết lượt (`credits.total = 0` và người đó có nguồn lượt) ở hub Writing, Speaking: `CreditsEmptyNotice` đứng ngay dưới tiêu đề thay dòng số lượt; ba khối còn lại giữ nguyên, chỉ nút nộp chấm ở trình làm bài bị máy chủ chặn như hiện có (402).
+- **FR-117:** Màn "Kỹ năng chưa có trong khoá của bạn" (tờ HubKyNang màn 4) chỉ hiện khi API trả `access.blocked = true` cho kỹ năng đó, tức máy chủ thật sự chặn chấm kỹ năng đó cho người này (G04 `has_course_access` theo kỹ năng, khi gói đó có luật này). Hôm nay không có luật chặn theo kỹ năng → `blocked` luôn false, màn này không hiện, không câu nào nói kỹ năng "cần khoá" (câu hỏi mở 15).
+- **FR-118:** `GET /api/student/skill-hub?skill=speaking|writing|listening|reading` theo FR-076: chỉ đọc, chỉ dữ liệu của người gọi, `response_model`, phần lỗi vào `degraded` (mỗi khối một phần), nguồn chưa có trả rỗng/`null`; khối nào lỗi thì chỉ khối đó báo "Chưa tải được" và "Thử lại". `skill` khác bốn giá trị → 422.
 
 ## Acceptance scenarios
 
@@ -309,6 +330,18 @@ Trang chủ học viên hiện là bảng điểm (`GET /api/student/home-summar
 - **When** gõ ghi chú 501 ký tự ở câu 3, rồi rút còn 40 ký tự và lưu; bấm "Báo lỗi đề" ở câu 3 hai lần; tải lại trang; làm lại cùng đề rồi mở trang xem lại lượt mới
 - **Then** không gõ được ký tự thứ 501; ghi chú 40 ký tự còn sau tải lại và ở lượt mới; lần báo lỗi thứ hai bị từ chối, nút ghi "Đã báo lỗi" cả sau tải lại; ở lượt mới câu 3 báo lỗi được lại; bật "Chỉ câu sai" chỉ còn câu sai và bỏ trống
 
+### Scenario 20 — Hub Writing lần đầu và khi đã học
+
+- **Given** QA chưa nộp bài Writing nào, cờ bật
+- **When** mở `/writing/dashboard`
+- **Then** thấy bốn khối đúng thứ tự; khối 1 là "Bắt đầu với một bài"; khối 4 chỉ là câu "Bạn chưa nộp bài Writing nào…"; không có band; sau khi nộp một bài và tải lại, khối 4 có một dòng với cách chấm đúng nguồn, khối 1 ẩn nếu không còn bản nháp
+
+### Scenario 21 — `/reading` thành hub
+
+- **Given** cờ bật cho QA
+- **When** mở `/reading`
+- **Then** thấy hub Reading bốn khối, không bị chuyển sang `/reading/vocab`; tắt cờ thì mở `/reading` vẫn chuyển sang `/reading/vocab`
+
 ## Edge cases
 
 - Học viên vừa lớp vừa online: hai dòng lượt theo nguồn, một tổng.
@@ -340,6 +373,9 @@ Trang chủ học viên hiện là bảng điểm (`GET /api/student/home-summar
 - (Bản sửa đổi 4) Đề được sửa làm số câu giảm: ghi chú của số câu không còn trong đề không hiện (vẫn giữ trong bảng); không lỗi trang.
 - (Bản sửa đổi 4) Hai tab cùng lưu ghi chú một câu: bản lưu sau thắng, mỗi tab hiện giá trị máy chủ trả sau khi lưu.
 - (Bản sửa đổi 4) Lượt ẩn danh của link chia sẻ Reading: "Báo lỗi đề" vẫn một lần mỗi câu theo `anon_id`; không có ô ghi chú.
+- (Bản sửa đổi 4) Báo lỗi đã được quản trị đánh dấu `resolved`: vẫn chặn báo lại câu đó trong cùng lượt (409 `already_flagged`); làm lượt mới thì báo được.
+- (Bản sửa đổi 5) Đề khởi đầu cấu hình cho một kỹ năng bị gỡ xuất bản: khối "Bắt đầu với một bài" ẩn, không lỗi trang.
+- (Bản sửa đổi 5) Người học vừa lớp vừa online: dòng lượt là một số chung (FR-024), không tách theo kỹ năng.
 - Không thực hiện trên production: bật cờ, chạy migration, nộp bài.
 
 ## Success criteria
@@ -383,5 +419,7 @@ Trang chủ học viên hiện là bảng điểm (`GET /api/student/home-summar
 | 12 | (bản sửa đổi 3) Tờ LoTrinhBaiDuocGiao vẽ "hạn nhận bài trễ" và nộp trễ được tới hạn đó. Hiện máy chủ cố ý không nhận bài sau hạn (`is_accepting_submissions`, để bảng nộp bài của lớp chốt ngay khi tới hạn), trừ luật riêng của Writing. Đổi luật này không? | Giữ luật hiện có; bài quá hạn có "Tự luyện bài này". Nếu cần nộp trễ thì làm spec riêng (thêm cột hạn nhận bài trễ, đổi chỗ chặn nộp và bảng giáo viên) | Giữ luật hiện có |
 | 13 | (bản sửa đổi 4) Ghi chú cá nhân gắn với đề (còn khi làm lại) hay với từng lượt làm? | Gắn với đề: người học ghi điều rút ra để lần làm lại đọc lại; gắn với lượt thì lần làm lại thấy ô trống | Gắn với đề |
 | 14 | (bản sửa đổi 4) Nếu staging hoặc production đã có dòng "Báo lỗi đề" trùng (cùng lượt, câu, người) thì migration dừng. Xử lý dòng trùng thế nào? | Đếm trước bằng truy vấn chỉ đọc; nếu có, anh chọn đánh dấu `resolved` các bản trùng mới hơn (giữ dòng cũ nhất) bằng một lệnh ghi anh gõ duyệt riêng | Dừng và hỏi anh |
+| 15 | (bản sửa đổi 5) Tờ HubKyNang màn 4 vẽ "Kỹ năng chưa có trong khoá của bạn" (ví dụ học Khoá Writing thì Speaking cần khoá khác). Hôm nay máy chủ không chặn kỹ năng theo khoá. Có muốn chặn chấm theo kỹ năng của khoá không? | Chưa chặn ở đợt đầu: trang chỉ hiện màn này khi máy chủ thật sự chặn (FR-117); muốn chặn thì thêm luật ở G04 `has_course_access` theo kỹ năng, spec riêng | Không chặn, màn không hiện |
+| 16 | (bản sửa đổi 5) Đề khởi đầu "Bắt đầu với một bài" cho từng kỹ năng chọn thế nào? | Admin đặt một đề cho mỗi kỹ năng ở cài đặt hiện có (`admin_settings`, mig 440); chưa đặt thì khối ẩn | Ẩn tới khi admin đặt |
 
 Câu 9, 11, 12 của gói đã được trả lời (mục "Quyết định đã có"). Lộ trình và hai hub (G07-T15, T16) có ở bản sửa đổi 1; Tài khoản, Tiến độ, Trợ giúp, Hồ sơ, "Lần đầu vào" (G07-T17) và T26 có ở bản sửa đổi 2 (câu 4); LEARNERNAV-0062 chỉ dời URL của các trang đó.
