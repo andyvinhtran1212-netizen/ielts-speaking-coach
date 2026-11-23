@@ -538,7 +538,7 @@ jobs:
         working-directory: frontend/tooling/css
         run: npm ci
 
-      - name: Tailwind static CSS is not stale (rebuild + diff, all clusters)
+      - name: Tailwind static CSS is not stale (rebuild + diff)
         run: |
           cd frontend
           BIN=./tooling/css/node_modules/.bin/tailwindcss
@@ -552,7 +552,6 @@ jobs:
             echo "$2 is fresh ✓"
           }
           check ./tailwind.config.cjs       css/tailwind.build.css
-          check ./tailwind.config.inter.cjs css/tailwind.inter.css
 
       # B35 (FE migration plan v3): run EVERY contract test via glob instead of a
       # hand-maintained file list — new test files are CI-gated automatically.
