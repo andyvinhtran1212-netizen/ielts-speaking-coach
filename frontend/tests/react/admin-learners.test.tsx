@@ -135,6 +135,22 @@ describe('AdminLearners', () => {
     warn.mockRestore();
   });
 
+  it('drops an older answer that arrives after the newer query', async () => {
+    let releaseOld: (v: unknown) => void = () => {};
+    api.getWith.mockImplementation((path: string) => {
+      if (path.startsWith('/admin/cohorts')) return Promise.resolve({ cohorts: [] });
+      if (path.includes('q=lan')) return Promise.resolve(page({ items: [row('u-9', { name: 'Lan mới' })], total: 1 }));
+      return new Promise((resolve) => { releaseOld = resolve; });
+    });
+    const view = render(<AdminLearners />);
+    nav.search = 'q=lan';
+    view.rerender(<AdminLearners />);
+    await screen.findByText('Lan mới');
+    await act(async () => { releaseOld(page()); });
+    expect(screen.queryByText('Người u-1')).toBeNull();
+    expect(screen.getByText('Lan mới')).toBeTruthy();
+  });
+
   it('pages on the server, 25 per page', async () => {
     api.getWith.mockImplementation((path: string) => (path.startsWith('/admin/learners')
       ? Promise.resolve(page({ total: 60 })) : Promise.resolve({ cohorts: [] })));

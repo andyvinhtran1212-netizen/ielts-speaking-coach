@@ -79,6 +79,8 @@ export function AdminLearners() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [quick, setQuick] = useState<Quick | null>(null);
   const sequence = useRef(0);
+  const current = useRef(state);
+  current.current = state;
   const csvInput = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async (s: State) => {
@@ -100,7 +102,9 @@ export function AdminLearners() {
     }
   }, []);
 
-  useEffect(() => { setDraftQ(state.q); void load(state); }, [load, state]);
+  // Only the newest request fills the table (sequence guard in load); rows of
+  // the previous query are cleared so they cannot be selected meanwhile.
+  useEffect(() => { setDraftQ(state.q); setData(null); void load(state); }, [load, state]);
   useEffect(() => { setSelected(new Map()); }, [state, admin.id]);
   useEffect(() => {
     getAdminCohorts({ isActive: true })
@@ -121,7 +125,7 @@ export function AdminLearners() {
   }
 
   const reload = async (success: string) => {
-    const fresh = await load(state);
+    const fresh = await load(current.current);
     setBanner(fresh ? { kind: 'success', text: success }
       : { kind: 'error', text: `${success} Chưa tải lại được danh bạ; bấm Tải lại.` });
   };
@@ -293,7 +297,7 @@ export function AdminLearners() {
       {loadError ? (
         <div className="la-warning" role="alert">
           Chưa tải được danh bạ: {loadError}{' '}
-          <button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => void load(state)}>Tải lại</button>
+          <button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => void load(current.current)}>Tải lại</button>
         </div>
       ) : null}
       {!data && loading && !loadError ? <p className="la-empty" role="status">Đang tải danh bạ…</p> : null}
