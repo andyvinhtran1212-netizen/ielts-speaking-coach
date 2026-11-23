@@ -400,6 +400,8 @@ number	filename	state	owner	spec	note
 441	441_cohort_teacher_schedule.sql	present	G09-T24	ADMINIA-0074	Commercialization G09 band 440–459; one teacher per class (cohorts.instructor_id) + class schedule.
 445	445_mock_exam_audiences.sql	present	G09-T31	MOCKORG-0086	Commercialization G09 band 440–459; mock_exam_audiences + mock_exams skills/starts_at/draft_state, mode CHECK widened (data renamed only by 446).
 446	446_mock_exam_mode_backfill.sql	present	G09-T31	MOCKORG-0086	Commercialization G09 band 440–459; exam_mode rename sequential→live, retake→self_paced, dual-name DB functions, fn_set_exam_mode four names, mock_exam_audiences backfill.
+447	447_mock_exam_events.sql	present	G09-T33	MOCKORG-0086	Commercialization G09 band 440–459; append-only mock_exam_events, sittings.extra_seconds, mock_exam_room_messages.
+448	448_mock_exam_release_parts.sql	present	G09-T33	MOCKORG-0086	Commercialization G09 band 440–459; sittings.released_skills, append-only mock_exam_score_edits, release request_key index.
 452	452_learner_goal_events.sql	present	G09-T04b	ADMINIA-0074	Commercialization G09 reserve band 452–459 (anh Andy chose 452, 20/11); append-only learner_goal_events + fn_learner_goal_resolve.
 501	501_grammar_quiz_allowed_code_service_execute.sql	present	-	-	-
 502	-	reserved	G04-T13	COURSEACCESS-0055	Spec label 385: pronunciation sample window. Andy 2026-11-20.
