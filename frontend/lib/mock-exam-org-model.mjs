@@ -157,14 +157,11 @@ export function nextStepCopy(exam) {
 }
 
 /**
- * Where the exam name goes. A draft opens its setup. The one-exam page
- * (G09-T34) is not live yet, so other exams open the current console scoped
- * to that exam: live tab while it runs, review tab after.
+ * Where the exam name goes. A draft opens its setup; every other exam opens
+ * its own page (G09-T34), which picks the tab from the state.
  */
 export function examHref(exam) {
   if (exam.status === 'draft') return `/admin/mock-tests/${encodeURIComponent(exam.id)}/setup`;
-  // MOCKORG-0086 FR-145 (G09-T34): every other exam opens its own page; the
-  // page picks the tab from the state.
   return `/admin/mock-tests/${encodeURIComponent(exam.id)}`;
 }
 

@@ -124,6 +124,40 @@ describe('Theo dõi (FR-146, FR-151)', () => {
     expect(screen.getByText('Hồ Thiên Ân')).toBeTruthy();
   });
 
+  // CR #2661 (blocker): the confirm sends what it asked about, never a newer poll.
+  it('a poll that moves the room while the confirm is open closes it and sends nothing', async () => {
+    let section = 'reading';
+    routes({
+      '/admin/mock-exams/e1/live': () => ({ exam: liveExam({ active_section: section }), students: [student()] }),
+      '/admin/mock-exams': { exams: [exam()] },
+    });
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    render(<MockExamRecord examId="e1" initialTab="theo-doi" />);
+    await screen.findByText('Hồ Thiên Ân');
+    fireEvent.click(screen.getByRole('button', { name: 'Thu bài và sang phần sau…' }));
+    expect(screen.getByRole('button', { name: 'Thu bài' })).toBeTruthy();
+    section = 'listening';
+    await act(async () => { await vi.advanceTimersByTimeAsync(5_100); });
+    expect(await screen.findByText(/Phòng thi vừa thay đổi nên hộp xác nhận đã đóng/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Thu bài' })).toBeNull();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('a failed poll while the confirm is open closes it and sends nothing', async () => {
+    let fail = false;
+    routes({
+      '/admin/mock-exams/e1/live': () => { if (fail) throw new Error('mất mạng'); return { exam: liveExam({ is_open: false, active_section: 'not_started' }), students: [] }; },
+      '/admin/mock-exams': { exams: [exam()] },
+    });
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    render(<MockExamRecord examId="e1" initialTab="theo-doi" />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Mở phòng' }));
+    fail = true;
+    await act(async () => { await vi.advanceTimersByTimeAsync(5_100); });
+    expect(await screen.findByText(/Mất cập nhật phòng thi nên hộp xác nhận đã đóng/)).toBeTruthy();
+    expect(post).not.toHaveBeenCalled();
+  });
+
   it('self-paced: four counts; extra time needs a reason and goes to the running part', async () => {
     routes({
       '/admin/mock-exams/e1/live': { exam: liveExam({ exam_mode: 'retake', exam_mode_v2: 'self_paced', active_section: 'not_started' }), students: [

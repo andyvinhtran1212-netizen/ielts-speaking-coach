@@ -18,6 +18,8 @@ import {
   liveAlerts,
   normalizeMonitor,
   proctorState,
+  proctorSnapshot,
+  sameProctorSnapshot,
   selfPacedCounts,
   timeCopy,
 } from '@/lib/mock-exam-record-model.mjs';
@@ -27,7 +29,9 @@ import record from './mock-exam-record.module.css';
 
 type Monitor = import('@/lib/mock-exam-record-model.mjs').Monitor;
 type MonitorStudent = import('@/lib/mock-exam-record-model.mjs').MonitorStudent;
-type Confirm = { kind: 'open' | 'start' | 'collect'; title: string; body: string; label: string };
+type Snapshot = import('@/lib/mock-exam-record-model.mjs').ProctorSnapshot;
+// `at` is the room the proctor was asked about; the command is built from it.
+type Confirm = { kind: 'open' | 'start' | 'collect'; title: string; body: string; label: string; at: Snapshot };
 
 const POLL_MS = 5_000;
 
@@ -78,6 +82,18 @@ export function MockExamMonitor({ examId }: { examId: string }) {
 
   const stale = Boolean(error && monitor);
 
+  // CR #2661: the poll keeps running under an open confirm. If the room moved
+  // on or the read failed, the question on screen is no longer true: close it.
+  useEffect(() => {
+    if (!confirm || !monitor) return;
+    if (stale || !sameProctorSnapshot(confirm.at, proctorSnapshot(monitor))) {
+      setConfirm(null);
+      setNotice({ kind: 'error', text: stale
+        ? 'Mất cập nhật phòng thi nên hộp xác nhận đã đóng. Chưa gửi lệnh nào.'
+        : 'Phòng thi vừa thay đổi nên hộp xác nhận đã đóng. Chưa gửi lệnh nào; xem lại rồi bấm lại.' });
+    }
+  }, [confirm, monitor, stale]);
+
   const run = async (operation: () => Promise<unknown>, success: string) => {
     if (busyRef.current) return;
     setBusy(true);
@@ -99,12 +115,15 @@ export function MockExamMonitor({ examId }: { examId: string }) {
   const path = `/admin/mock-exams/${encodeURIComponent(examId)}`;
   const doConfirm = async () => {
     if (!confirm) return;
-    const exam = monitor.exam;
-    const kind = confirm.kind;
+    const { kind, at } = confirm;
     setConfirm(null);
-    if (kind === 'open') await run(() => window.api.post(`${path}/open`, { is_open: !exam.isOpen }), exam.isOpen ? 'Đã đóng phòng.' : 'Đã mở phòng.');
-    if (kind === 'start') await run(() => window.api.post(`${path}/advance`, { from_section: exam.activeSection }), 'Đã bắt đầu phần mới.');
-    if (kind === 'collect') await run(() => window.api.post(`${path}/collect?from_section=${encodeURIComponent(exam.activeSection)}`, {}), `Đang thu bài ${SECTION_NAMES[exam.activeSection]}. "Bắt đầu phần" bật khi thu xong.`);
+    if (stale || !sameProctorSnapshot(at, proctorSnapshot(monitor))) {
+      setNotice({ kind: 'error', text: 'Phòng thi vừa thay đổi nên chưa gửi lệnh nào; xem lại rồi bấm lại.' });
+      return;
+    }
+    if (kind === 'open') await run(() => window.api.post(`${path}/open`, { is_open: !at.isOpen }), at.isOpen ? 'Đã đóng phòng.' : 'Đã mở phòng.');
+    if (kind === 'start') await run(() => window.api.post(`${path}/advance`, { from_section: at.activeSection }), 'Đã bắt đầu phần mới.');
+    if (kind === 'collect') await run(() => window.api.post(`${path}/collect?from_section=${encodeURIComponent(at.activeSection)}`, {}), `Đang thu bài ${SECTION_NAMES[at.activeSection]}. "Bắt đầu phần" bật khi thu xong.`);
   };
 
   return (
@@ -146,6 +165,7 @@ export function MockExamMonitor({ examId }: { examId: string }) {
 function LiveMonitor({ monitor, now, stale, busy, onAsk }: { monitor: Monitor; now: number; stale: boolean; busy: boolean; onAsk: (c: Confirm) => void }) {
   const exam = monitor.exam;
   const bar = proctorState(monitor, stale || busy);
+  const at = proctorSnapshot(monitor);
   const alerts = liveAlerts(monitor, now);
   const running = exam.activeSection !== 'not_started' && exam.activeSection !== 'done';
   const left = bar.paused || stale || exam.timeLeftSeconds == null ? null
@@ -159,9 +179,9 @@ function LiveMonitor({ monitor, now, stale, busy, onAsk }: { monitor: Monitor; n
           <span>{bar.collecting ? 'Đang thu bài…' : bar.paused ? `Đã thu ${SECTION_NAMES[exam.activeSection]} · chờ bắt đầu phần sau` : running ? `Còn lại ${clockCopy(left)}` : ''}</span>
         </div>
         <div className={styles.actions}>
-          <Button variant="secondary" disabled={!bar.open.enabled} onClick={() => onAsk({ kind: 'open', title: `${bar.open.label} "${exam.title}"?`, body: exam.isOpen ? 'Người chưa vào sẽ không vào được nữa.' : 'Người thi vào được phòng chờ; chưa phần nào bắt đầu.', label: bar.open.label })}>{bar.open.label}</Button>
-          {bar.next && <Button disabled={!bar.start.enabled} onClick={() => onAsk({ kind: 'start', title: `${bar.start.label} cho cả phòng?`, body: 'Đồng hồ của phần này chạy chung cho mọi người. Không hoàn tác được.', label: bar.start.label })}>{bar.start.label}</Button>}
-          {running && !bar.paused && <Button variant="secondary" disabled={!bar.collect.enabled} onClick={() => onAsk({ kind: 'collect', title: `Thu bài ${SECTION_NAMES[exam.activeSection]}?`, body: `${working ? `${working} người đang làm sẽ bị thu với phần đã làm. ` : ''}Cả phòng vào phòng chờ không có đồng hồ; sau khi thu xong mới bắt đầu được phần sau. Không hoàn tác được.`, label: 'Thu bài' })}>{bar.collect.label}</Button>}
+          <Button variant="secondary" disabled={!bar.open.enabled} onClick={() => onAsk({ kind: 'open', title: `${bar.open.label} "${exam.title}"?`, body: exam.isOpen ? 'Người chưa vào sẽ không vào được nữa.' : 'Người thi vào được phòng chờ; chưa phần nào bắt đầu.', label: bar.open.label, at })}>{bar.open.label}</Button>
+          {bar.next && <Button disabled={!bar.start.enabled} onClick={() => onAsk({ kind: 'start', title: `${bar.start.label} cho cả phòng?`, body: 'Đồng hồ của phần này chạy chung cho mọi người. Không hoàn tác được.', label: bar.start.label, at })}>{bar.start.label}</Button>}
+          {running && !bar.paused && <Button variant="secondary" disabled={!bar.collect.enabled} onClick={() => onAsk({ kind: 'collect', title: `Thu bài ${SECTION_NAMES[exam.activeSection]}?`, body: `${working ? `${working} người đang làm sẽ bị thu với phần đã làm. ` : ''}Cả phòng vào phòng chờ không có đồng hồ; sau khi thu xong mới bắt đầu được phần sau. Không hoàn tác được.`, label: 'Thu bài', at })}>{bar.collect.label}</Button>}
         </div>
       </section>
       <AlertStrip alerts={alerts} idleMinutes={monitor.idleMinutes} />

@@ -13,7 +13,9 @@ import {
   normalizeEvents,
   normalizeMonitor,
   normalizeRoster,
+  proctorSnapshot,
   proctorState,
+  sameProctorSnapshot,
   recordHref,
   recordTab,
   retestFlagsBody,
@@ -83,6 +85,11 @@ describe('monitor (FR-146)', () => {
     assert.equal(bar.start.label, 'Bắt đầu phần Writing');
     bar = proctorState(running, true);
     assert.deepEqual([bar.open.enabled, bar.start.enabled, bar.collect.enabled], [false, false, false]);
+    const a = proctorSnapshot(running);
+    assert.equal(sameProctorSnapshot(a, proctorSnapshot(normalizeMonitor(live(), NOW + 5000))), true);
+    assert.equal(sameProctorSnapshot(a, proctorSnapshot(normalizeMonitor(live({ active_section: 'listening' }), NOW))), false);
+    assert.equal(sameProctorSnapshot(a, proctorSnapshot(normalizeMonitor(live({ collected_section: 'reading' }), NOW))), false);
+    assert.equal(sameProctorSnapshot(a, null), false);
     assert.equal(clockCopy(3725), '1:02:05');
     assert.equal(clockCopy(null), '—');
   });

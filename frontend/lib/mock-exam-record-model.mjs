@@ -210,6 +210,27 @@ export function proctorState(monitor, stale) {
   };
 }
 
+/**
+ * What a proctor confirm was asked about (CR #2661). The dialog sends these
+ * values, never the latest poll's, and closes when the room no longer matches.
+ */
+export function proctorSnapshot(monitor) {
+  const exam = monitor.exam;
+  return {
+    examId: exam.id,
+    isOpen: exam.isOpen,
+    activeSection: exam.activeSection,
+    collectedSection: exam.collectedSection,
+    sweepDoneSection: exam.sweepDoneSection,
+  };
+}
+
+export function sameProctorSnapshot(a, b) {
+  return Boolean(a && b) && a.examId === b.examId && a.isOpen === b.isOpen
+    && a.activeSection === b.activeSection && a.collectedSection === b.collectedSection
+    && a.sweepDoneSection === b.sweepDoneSection;
+}
+
 /** n/total, or "—". */
 export function answeredCopy(sectionState) {
   if (!sectionState || sectionState.answered == null) return '—';
