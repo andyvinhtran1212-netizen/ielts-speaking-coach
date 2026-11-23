@@ -18,7 +18,7 @@
  * Attributes:
  *   active="overview" | "speaking" | "writing" | "listening" | "vocab"
  *        | "grammar" | "students" | "users" | "cohorts" | "access-codes"
- *        | "usage" | "error-logs" | "system"
+ *        | "usage" | "error-logs" | "ai-models" | "qa-tools" | "system"
  *     Highlights the matching sidebar entry. Reactive via observedAttributes.
  *
  *   subsection="<page-slug>"
@@ -49,6 +49,7 @@ const VALID_ACTIVE = [
   'students', 'users', 'classes',
   'access-codes', 'usage', 'foot-traffic',
   'error-logs', 'feedback',
+  'ai-models', 'qa-tools',
   'system',
 ];
 
@@ -555,6 +556,10 @@ const NAV_GROUPS = [
       // giải) for reading + listening, grouped by test. Not under a skill since
       // it spans both. Endpoint: GET/PATCH /api/admin/feedback (#458).
       { section: 'feedback',   label: 'Feedback',  href: '/admin/feedback', icon: 'message' },
+      // ADMINIA-0074 FR-073/074: the model table moved off /admin; "Tạo lỗi thử"
+      // moved off the error inbox to the QA tools page.
+      { section: 'ai-models',  label: 'AI và mô hình', href: '/admin/ai-models', icon: 'activity' },
+      { section: 'qa-tools',   label: 'Công cụ QA', href: '/admin/qa-tools', icon: 'settings' },
       // The system dashboard remains in Tổng quan; these are cross-skill inboxes.
     ],
   },

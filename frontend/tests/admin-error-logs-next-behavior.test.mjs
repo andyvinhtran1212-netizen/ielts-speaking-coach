@@ -69,13 +69,14 @@ describe('/admin/error-logs — canonical behavior', () => {
     assert.match(BEHAVIOR, /setOffset\(offset \+ PAGE_SIZE\)/);
   });
 
-  test('preserves dismiss, undo and exception-path dogfood mutations with duplicate guards', () => {
+  test('preserves dismiss and undo mutations with duplicate guards', () => {
     assert.match(BEHAVIOR, /\$\{encodeURIComponent\(id\)\}\/\$\{action\}/);
     assert.match(BEHAVIOR, /pendingRows\.has\(id\)/);
-    assert.match(BEHAVIOR, /\/admin\/error-logs\/test\?error_type=exception/);
-    assert.match(BEHAVIOR, /setHideNoise\(false\)/);
-    assert.match(BEHAVIOR, /setTimeout\(\(\) =>/);
-    assert.match(BEHAVIOR, /clearTimeout\(testTimer\.current\)/);
+  });
+
+  test('the dogfood "Tạo lỗi thử" lives on /admin/qa-tools, not in the inbox (ADMINIA-0074 FR-073)', () => {
+    assert.doesNotMatch(BEHAVIOR, /\/admin\/error-logs\/test/);
+    assert.doesNotMatch(BEHAVIOR, /Tạo lỗi (test|thử)/);
   });
 
   test('suppresses stale responses and exposes failures without HTML injection', () => {

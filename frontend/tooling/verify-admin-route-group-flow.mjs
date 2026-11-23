@@ -18,8 +18,8 @@ const SHOTS = process.env.ADMIN_ROUTE_GROUP_SHOTS || '';
 const SB = process.env.SUPABASE_URL || 'https://huwsmtubwulikhlmcirx.supabase.co';
 const adminId = '00000000-0000-0000-0000-000000000077';
 const session = JSON.stringify({ access_token: 'admin-route-group-not-a-real-token', refresh_token: 'x', token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id: adminId, email: 'admin-route-group@local' } });
-const PAGES = ['/admin/error-logs', '/admin/feedback', '/admin/foot-traffic'];
-const OWN_SHEET = { '/admin/error-logs': '/css/admin-error-logs-next.css', '/admin/feedback': '/css/admin-feedback-next.css', '/admin/foot-traffic': '/css/admin-foot-traffic-next.css' };
+const PAGES = ['/admin/error-logs', '/admin/feedback', '/admin/foot-traffic', '/admin/ai-models', '/admin/qa-tools'];
+const OWN_SHEET = { '/admin/error-logs': '/css/admin-error-logs-next.css', '/admin/feedback': '/css/admin-feedback-next.css', '/admin/foot-traffic': '/css/admin-foot-traffic-next.css', '/admin/ai-models': '/css/admin-ai-models-next.css', '/admin/qa-tools': '/css/admin-qa-tools-next.css' };
 
 const results = [];
 const check = (name, ok, detail = '') => { results.push({ name, ok }); console.log(`  ${ok ? '✓' : '✗'} ${name}${detail ? ` — ${detail}` : ''}`); };

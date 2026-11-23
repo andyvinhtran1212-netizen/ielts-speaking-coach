@@ -543,3 +543,17 @@ class TestDogfoodEndpoint:
     def test_rejects_bad_error_type(self, client):
         r = client.post("/admin/error-logs/test?error_type=weird", headers=_ADMIN_AUTH)
         assert r.status_code == 422
+
+    @pytest.mark.parametrize("environment", ["production", " Production "])
+    def test_refused_on_production(self, client, fake_db, monkeypatch, environment):
+        # ADMINIA-0074 FR-073: the server blocks the dogfood helper on Production.
+        monkeypatch.setattr("routers.error_logs.settings.ENVIRONMENT", environment)
+        for error_type in ("warning", "exception"):
+            r = client.post(f"/admin/error-logs/test?error_type={error_type}", headers=_ADMIN_AUTH)
+            assert r.status_code == 403
+        assert fake_db.tables.get("error_logs", []) == []
+
+    def test_allowed_on_staging(self, client, fake_db, monkeypatch):
+        monkeypatch.setattr("routers.error_logs.settings.ENVIRONMENT", "staging")
+        r = client.post("/admin/error-logs/test?error_type=warning", headers=_ADMIN_AUTH)
+        assert r.status_code == 200

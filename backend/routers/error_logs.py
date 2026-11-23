@@ -30,6 +30,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from config import settings
 from database import supabase_admin
 from routers.admin import require_admin
 from routers.auth import get_supabase_user
@@ -1119,6 +1120,12 @@ async def generate_test_error(
         (verifies only the table + admin list, not the handler).
     """
     await require_admin(authorization)
+
+    # ADMINIA-0074 FR-073: the button lives on /admin/qa-tools outside
+    # Production only, and the server refuses it too, so a test row can never
+    # land in the Production inbox from a stale tab or a direct call.
+    if (settings.ENVIRONMENT or "").strip().lower() == "production":
+        raise HTTPException(403, "Không tạo lỗi thử trên Production.")
 
     if error_type == "exception":
         raise ValueError("Test exception from /admin/error-logs/test endpoint")
