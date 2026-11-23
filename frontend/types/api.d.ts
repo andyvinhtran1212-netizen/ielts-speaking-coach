@@ -3225,6 +3225,26 @@ export interface paths {
         patch: operations["patch_flag_admin_runtime_flags__key__patch"];
         trace?: never;
     };
+    "/admin/users/{user_id}/learner-v2-flag": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admin Set Learner V2 Flag
+         * @description Turn the new learner UI on or off for one learner (LEARNERCORE-0063 FR-074).
+         */
+        post: operations["admin_set_learner_v2_flag_admin_users__user_id__learner_v2_flag_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/settings/thresholds": {
         parameters: {
             query?: never;
@@ -15333,6 +15353,11 @@ export interface components {
             flashcard_enabled: boolean;
             /** Vocab Curated Enabled */
             vocab_curated_enabled: boolean;
+            /**
+             * Learner V2 Enabled
+             * @default false
+             */
+            learner_v2_enabled: boolean;
         };
         /** AuthProfileResponse */
         AuthProfileResponse: {
@@ -19374,6 +19399,18 @@ export interface components {
             latest_note: components["schemas"]["LearnerNote"] | null;
             /** Sources Failed */
             sources_failed: string[];
+        };
+        /** LearnerV2FlagPayload */
+        LearnerV2FlagPayload: {
+            /** Enabled */
+            enabled: boolean;
+        };
+        /** LearnerV2FlagResponse */
+        LearnerV2FlagResponse: {
+            /** User Id */
+            user_id: string;
+            /** Learner V2 */
+            learner_v2: boolean;
         };
         /** LemmaOverridePayload */
         LemmaOverridePayload: {
@@ -30384,6 +30421,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_set_learner_v2_flag_admin_users__user_id__learner_v2_flag_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LearnerV2FlagPayload"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearnerV2FlagResponse"];
                 };
             };
             /** @description Validation Error */
