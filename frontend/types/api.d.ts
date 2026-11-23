@@ -2127,6 +2127,160 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/course-products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Products */
+        get: operations["get_products_admin_course_products_get"];
+        put?: never;
+        /** Post Product */
+        post: operations["post_product_admin_course_products_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/course-products/{product_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Product */
+        patch: operations["patch_product_admin_course_products__product_id__patch"];
+        trace?: never;
+    };
+    "/admin/course-products/{product_id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Archive Product */
+        post: operations["post_archive_product_admin_course_products__product_id__archive_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users/{user_id}/access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get User Access */
+        get: operations["get_user_access_admin_users__user_id__access_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users/{user_id}/credits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get User Credits */
+        get: operations["get_user_credits_admin_users__user_id__credits_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/entitlements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Entitlement */
+        post: operations["post_entitlement_admin_entitlements_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/entitlements/{entitlement_id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Revoke */
+        post: operations["post_revoke_admin_entitlements__entitlement_id__revoke_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/entitlements/{entitlement_id}/extend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Extend */
+        post: operations["post_extend_admin_entitlements__entitlement_id__extend_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/credits/adjust": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Adjust */
+        post: operations["post_adjust_admin_credits_adjust_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/cohorts/{cohort_id}/lessons": {
         parameters: {
             query?: never;
@@ -13816,6 +13970,20 @@ export interface components {
             /** Reason */
             reason?: string | null;
         };
+        /** AdjustCredits */
+        AdjustCredits: {
+            /** Entitlement Id */
+            entitlement_id: string;
+            /** Delta */
+            delta: number;
+            /** Reason */
+            reason: string;
+            /**
+             * Request Key
+             * Format: uuid
+             */
+            request_key: string;
+        };
         /** AdminAiFailuresOut */
         AdminAiFailuresOut: {
             window: components["schemas"]["AiWindowOut"];
@@ -15311,6 +15479,11 @@ export interface components {
             correct?: boolean | null;
             /** Rating */
             rating?: ("again" | "hard" | "good" | "easy") | null;
+        };
+        /** ArchiveProduct */
+        ArchiveProduct: {
+            /** Confirm Title */
+            confirm_title: string;
         };
         /** AssignRow */
         AssignRow: {
@@ -18212,6 +18385,13 @@ export interface components {
             /** Post Test Capture Required */
             post_test_capture_required?: boolean | null;
         };
+        /** ExtendEntitlement */
+        ExtendEntitlement: {
+            /** Days */
+            days: number;
+            /** Reason */
+            reason: string;
+        };
         /** FanOutBody */
         FanOutBody: {
             /**
@@ -19122,6 +19302,26 @@ export interface components {
             name: string;
             /** Depth */
             depth: number;
+        };
+        /** GrantEntitlement */
+        GrantEntitlement: {
+            /** User Id */
+            user_id: string;
+            /** Product Id */
+            product_id: string;
+            /** Days */
+            days?: number | null;
+            /** Credits */
+            credits?: number | null;
+            /** Review Mode */
+            review_mode?: ("ai_instant" | "teacher_review") | null;
+            /** Reason */
+            reason: string;
+            /**
+             * Request Key
+             * Format: uuid
+             */
+            request_key: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -21435,6 +21635,19 @@ export interface components {
             /** Phrases */
             phrases?: components["schemas"]["PracticePhrase"][];
         };
+        /**
+         * Presentation
+         * @description ``course_products.presentation`` (plan 5.2): only these keys.
+         */
+        Presentation: {
+            /** Level From */
+            level_from?: string | null;
+            /** Level To */
+            level_to?: string | null;
+            author?: components["schemas"]["_Author"] | null;
+            /** Faq */
+            faq?: components["schemas"]["_Faq"][] | null;
+        };
         /** PreviewRequest */
         PreviewRequest: {
             /** Filter Config */
@@ -21467,6 +21680,102 @@ export interface components {
             /** Exit Condition */
             exit_condition: string;
             evidence_status: components["schemas"]["EvidenceStatus"];
+        };
+        /** ProductCreate */
+        ProductCreate: {
+            /** Course Id */
+            course_id: string;
+            /** Slug */
+            slug: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "online" | "class" | "repractice";
+            /** Title */
+            title: string;
+            /** Short Title */
+            short_title?: string | null;
+            /** Summary */
+            summary?: string | null;
+            /**
+             * Status
+             * @default draft
+             * @enum {string}
+             */
+            status: "draft" | "coming_soon" | "open" | "closed";
+            /**
+             * Is Public
+             * @default false
+             */
+            is_public: boolean;
+            /** Tuition Vnd */
+            tuition_vnd?: number | null;
+            /** Access Days */
+            access_days?: number | null;
+            /**
+             * Ai Credits
+             * @default 0
+             */
+            ai_credits: number;
+            /** Credit Valid Days */
+            credit_valid_days?: number | null;
+            /** Features */
+            features?: ("speaking" | "writing" | "reading" | "listening" | "grammar" | "vocabulary")[];
+            /**
+             * Review Mode
+             * @default ai_instant
+             * @enum {string}
+             */
+            review_mode: "ai_instant" | "teacher_review";
+            /**
+             * Display Order
+             * @default 0
+             */
+            display_order: number;
+            /** Expected Open On */
+            expected_open_on?: string | null;
+            presentation?: components["schemas"]["Presentation"];
+        };
+        /**
+         * ProductPatch
+         * @description Every column of 5.2 except id, times and archive (archive has its own
+         *     route). Only the fields sent are written.
+         */
+        ProductPatch: {
+            /** Course Id */
+            course_id?: string | null;
+            /** Slug */
+            slug?: string | null;
+            /** Kind */
+            kind?: ("online" | "class" | "repractice") | null;
+            /** Title */
+            title?: string | null;
+            /** Short Title */
+            short_title?: string | null;
+            /** Summary */
+            summary?: string | null;
+            /** Status */
+            status?: ("draft" | "coming_soon" | "open" | "closed") | null;
+            /** Is Public */
+            is_public?: boolean | null;
+            /** Tuition Vnd */
+            tuition_vnd?: number | null;
+            /** Access Days */
+            access_days?: number | null;
+            /** Ai Credits */
+            ai_credits?: number | null;
+            /** Credit Valid Days */
+            credit_valid_days?: number | null;
+            /** Features */
+            features?: ("speaking" | "writing" | "reading" | "listening" | "grammar" | "vocabulary")[] | null;
+            /** Review Mode */
+            review_mode?: ("ai_instant" | "teacher_review") | null;
+            /** Display Order */
+            display_order?: number | null;
+            /** Expected Open On */
+            expected_open_on?: string | null;
+            presentation?: components["schemas"]["Presentation"] | null;
         };
         /** ProfileUpdate */
         ProfileUpdate: {
@@ -22446,6 +22755,11 @@ export interface components {
              * @enum {string}
              */
             reason: "applied" | "replayed" | "conflict";
+        };
+        /** RevokeEntitlement */
+        RevokeEntitlement: {
+            /** Reason */
+            reason: string;
         };
         /** RevokeSessionsIn */
         RevokeSessionsIn: {
@@ -24626,6 +24940,15 @@ export interface components {
              */
             user_answer: string | null;
         };
+        /** _Author */
+        _Author: {
+            /** Name */
+            name: string;
+            /** Bio Line */
+            bio_line?: string | null;
+            /** Photo Url */
+            photo_url?: string | null;
+        };
         /** _CheckItem */
         _CheckItem: {
             /** Q Num */
@@ -24647,6 +24970,13 @@ export interface components {
         _CustomQBody: {
             /** Questions */
             questions: (string | components["schemas"]["CueCardQuestion"])[];
+        };
+        /** _Faq */
+        _Faq: {
+            /** Q */
+            q: string;
+            /** A */
+            a: string;
         };
         /**
          * _GenerateCueCardBody
@@ -28815,6 +29145,379 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["AdminCancel"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Not an active admin, `mfa_required` (FR-012), or `step_up_required` under ADMIN_STEP_UP_ENFORCE (FR-020; `reason: new_factor_cooloff` for a factor under 24 hours old) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffForbiddenResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_products_admin_course_products_get: {
+        parameters: {
+            query?: {
+                include_archived?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_product_admin_course_products_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProductCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_product_admin_course_products__product_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                product_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProductPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_archive_product_admin_course_products__product_id__archive_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                product_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArchiveProduct"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_user_access_admin_users__user_id__access_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_user_credits_admin_users__user_id__credits_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_entitlement_admin_entitlements_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrantEntitlement"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Not an active admin, `mfa_required` (FR-012), or `step_up_required` under ADMIN_STEP_UP_ENFORCE (FR-020; `reason: new_factor_cooloff` for a factor under 24 hours old) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffForbiddenResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_revoke_admin_entitlements__entitlement_id__revoke_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                entitlement_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RevokeEntitlement"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_extend_admin_entitlements__entitlement_id__extend_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                entitlement_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtendEntitlement"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_adjust_admin_credits_adjust_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdjustCredits"];
             };
         };
         responses: {
