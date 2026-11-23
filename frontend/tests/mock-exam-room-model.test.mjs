@@ -169,6 +169,8 @@ test('invigilator collection: tracked from the signal, final save fails, server 
   const head = effect.slice(0, drainAt);
   assert.match(head, /observedSubmitRef\.current\.add\(pendingCollectionSection\)/);
   assert.match(head, /setSubmitTrack\(\{ section: pendingCollectionSection, retries: 0, error: null \}\)/);
+  // A secured mark left by an earlier failed submit is cleared first (CR nit).
+  assert.match(head, /flushSecuredRef\.current\.delete\(pendingCollectionSection\)/);
   assert.doesNotMatch(effect.slice(drainAt, effect.indexOf('void drain();')), /observedSubmitRef\.current\.add/);
 });
 
