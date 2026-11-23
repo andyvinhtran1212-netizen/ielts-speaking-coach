@@ -113,7 +113,7 @@ await page.getByRole('button', { name: 'Speaking' }).click();
 for (const label of ['Fluency & Coherence', 'Lexical Resource', 'Grammar', 'Pronunciation']) await page.getByRole('spinbutton', { name: label }).fill('7');
 await page.getByRole('button', { name: 'Lưu bài chấm Speaking' }).click();
 await page.getByText('Đã lưu bài chấm Speaking.').waitFor();
-check('Speaking assessment refetch tạo input band extra', Boolean(review.ai_draft.speaking) && await page.locator('a[href="/full-test-result?session_id=session-1"]').count() === 1);
+check('Speaking assessment refetch tạo input band extra', Boolean(review.ai_draft.speaking) && await page.locator('a[href="/speaking/full-test/result?session_id=session-1"]').count() === 1);
 
 const bandInputs = page.locator('.mrr-band-grid input[type="number"]');
 check('band cuối điền sẵn L/R/W/S từ draft canonical', await bandInputs.count() === 4 && await bandInputs.nth(3).inputValue() === '7');

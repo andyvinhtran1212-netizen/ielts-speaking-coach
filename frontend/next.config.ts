@@ -153,6 +153,7 @@ const nextConfig: NextConfig = {
       { source: '/grammar-lessons/assigned', destination: '/course/grammar-lesson', permanent: false },
       { source: '/grammar-checkup', destination: '/course/grammar-checkup', permanent: false },
       { source: '/grammar-checkup/review/:routeId', destination: '/course/grammar-checkup/review/:routeId', permanent: false },
+      { source: '/full-test-result', destination: '/speaking/full-test/result', permanent: false },
       { source: '/full-test', destination: '/tests', permanent: false },
       // /exam (trình làm đề tự chọn cũ) về Thi thử: đã quyết 18/11 (00 mục 2 điểm 22).
       { source: '/exam', destination: '/tests', permanent: false },

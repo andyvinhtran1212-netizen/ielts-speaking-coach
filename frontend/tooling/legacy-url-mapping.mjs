@@ -34,6 +34,8 @@ const EXACT_REPLACEMENTS = Object.freeze({
   '/pages/d1-exercise.html': '/vocabulary/fill-in',
   // LEARNERNAV-0062 đợt 8: bài lớp giao nằm dưới Lộ trình.
   '/pages/my-class.html': '/course/assigned',
+  // LEARNERNAV-0062 đợt 5: kết quả Speaking full test nằm dưới /speaking.
+  '/pages/full-test-result.html': '/speaking/full-test/result',
   // LEARNERNAV-0062 đợt 7a: Full Test và trình đề /exam cũ về Thi thử.
   '/pages/full-test.html': '/tests',
   '/pages/exam.html': '/tests',
