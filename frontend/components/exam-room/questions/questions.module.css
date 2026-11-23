@@ -20,7 +20,7 @@
   background: var(--av2-surface); color: var(--av2-ink);
   font: var(--av2-fw-regular) var(--av2-fs-16) / var(--av2-lh-tight) var(--av2-font-sans);
 }
-.gap:focus-visible, .inlineSelect:focus-visible { outline: var(--av2-rule-strong-w) solid var(--av2-focus); outline-offset: var(--av2-focus-offset); }
+.gap:focus-visible, .inlineSelect:focus-visible { outline: var(--av2-focus); outline-offset: var(--av2-focus-offset); }
 .gap:disabled, .inlineSelect:disabled { color: var(--av2-muted); cursor: not-allowed; }
 
 .bank { padding: var(--av2-space-5); border: var(--av2-rule-w) solid var(--av2-rule); border-radius: var(--av2-radius); background: var(--av2-tint); }
@@ -34,7 +34,7 @@
 .row > :last-child { flex: 1; min-width: 0; }
 
 .tableWrap { overflow-x: auto; max-width: 100%; }
-.tableWrap:focus-visible { outline: var(--av2-rule-strong-w) solid var(--av2-focus); outline-offset: var(--av2-focus-offset); }
+.tableWrap:focus-visible { outline: var(--av2-focus); outline-offset: var(--av2-focus-offset); }
 .table { border-collapse: collapse; min-width: 100%; }
 .table caption { text-align: left; font-weight: var(--av2-fw-strong); padding-bottom: var(--av2-space-3); }
 .table th, .table td { padding: var(--av2-space-3) var(--av2-space-4); border: var(--av2-rule-w) solid var(--av2-rule); text-align: left; vertical-align: top; }
