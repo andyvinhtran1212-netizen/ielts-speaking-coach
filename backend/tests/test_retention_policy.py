@@ -427,3 +427,23 @@ def test_13_rows_past_the_response_cap_are_read_before_any_purge(flag, access, s
         sweep_db.tables["cohorts"].append({"id": f"k{n}", "course_id": f"c{n}",
                                            "archived_at": _iso(_ago(5)) if n < 3 else None})
     assert rp.content_windows([USER], NOW, db=sweep_db)[USER] == OPEN_WINDOW
+
+
+# ── Codex P2 (PR #2585 on #2550 code): candidates past the first page ──────
+
+
+def test_14_kept_sessions_filling_a_page_do_not_starve_later_candidates(flag, access, sweep_db):
+    """1,000 old sessions of learners on a live course fill the first capped
+    response; the default learner's expired session comes after them in id
+    order and must still be found (pages are read in a stable id order)."""
+    sweep_db.max_rows = 1000
+    for n in range(1000):
+        user = f"open{n:04d}"
+        sweep_db.tables["entitlements"].append(_ent_row(f"e{n}", expires=NOW + timedelta(days=30), user=user))
+        sweep_db.tables["sessions"].append(_session(f"a{n:04d}", 100, user_id=user))
+    sweep_db.tables["sessions"].append(_session("z-default", 100, user_id="default-learner"))
+    assert _swept(sweep_db) == ["z-default"]
+    assert sum(1 for c in sweep_db.calls if c == ("sessions", "select")) == 2
+    # Audio pages the same way (no window involved).
+    eligible = sweep._eligible("audio_purged_at", retention.RETENTION_AUDIO_DAYS, "is_audio_purged")
+    assert len(eligible) == 1001 and eligible[-1]["id"] == "z-default"
