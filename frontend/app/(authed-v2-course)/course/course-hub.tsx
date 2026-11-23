@@ -16,6 +16,7 @@ import { Notice } from '@/components/ui/notice';
 import { PageState } from '@/components/ui/page-state';
 import { liveHref } from '@/components/ui/shell/learner-sections';
 import { getBrowserJson } from '@/lib/browser-api';
+import { replaceAcrossTrees } from '@/lib/tree-replace';
 import {
   assignedCardLabel,
   classMeta,
@@ -276,8 +277,9 @@ export function CourseHubPage({ accountId }: { accountId: string }) {
       const course = normalizeCourse(raw);
       if (!course) { setPhase({ kind: 'error' }); return; }
       if (shouldRedirectToAssigned(course)) {
-        // FR-035: replace, before any group is drawn.
-        router.replace(ASSIGNED_HREF);
+        // FR-035: replace, before any group is drawn. `/course/assigned` is in the
+        // legacy tree (v1), so this is a full document replacement (FR-015).
+        replaceAcrossTrees(router, ASSIGNED_HREF);
         return;
       }
       setPhase({ kind: 'ready', course, owner });
@@ -315,6 +317,9 @@ export function CourseHubPage({ accountId }: { accountId: string }) {
 
   const expiredSelected = owned?.online.find((row) => row.code === current)?.expired ?? false;
   useEffect(() => {
+    // A new selection drops any lessons request of the previous one, so a late
+    // answer cannot overwrite the empty or expired state (FR-037).
+    lessonsRef.current?.abort();
     if (!current) { setLessons({ kind: 'idle' }); return; }
     // FR-037: the lesson list of an expired course is not shown.
     if (expiredSelected) { setLessons({ kind: 'expired', code: current }); return; }
