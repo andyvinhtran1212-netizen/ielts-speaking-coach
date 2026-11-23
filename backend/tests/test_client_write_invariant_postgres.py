@@ -162,6 +162,10 @@ def _pre_320() -> str:
     dictation_active_index = re.search(
         r"CREATE UNIQUE INDEX IF NOT EXISTS uq_dictation_attempts_one_active_section\b[^;]*;",
         (MIGRATIONS / "220_dictation_attempt_affinity.sql").read_text(encoding="utf-8"))[0]
+    # 445 widens 154's exam_mode CHECK on mock_exams (and refuses any other shape).
+    exam_mode = re.search(
+        r"ALTER TABLE mock_exams\s+ADD COLUMN IF NOT EXISTS exam_mode.*?END \$\$;",
+        (MIGRATIONS / "154_mock_exam_retake_mode.sql").read_text(encoding="utf-8"), re.S)[0]
     # 383 revokes access-code entitlements when 009's assignment row is deactivated.
     user_code_assignments = re.search(
         r"CREATE TABLE IF NOT EXISTS user_code_assignments \(.*?^\);",
@@ -417,6 +421,7 @@ def _pre_320() -> str:
         GRANT EXECUTE ON FUNCTION fn_finalize_d1_attempt(uuid, uuid, integer, real, integer,
             timestamptz, timestamptz, jsonb) TO authenticated;
         {admin_schema}
+        {exam_mode}
         {admin_helpers}
         {helper_revokes}
         {"".join(f'ALTER TABLE {table} ENABLE ROW LEVEL SECURITY;'
