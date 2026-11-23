@@ -1,0 +1,131 @@
+/* PUBLICSITE-0059 T04 `/courses` (tờ DanhMucKhoa). Only var(--av2-*).
+   PublicShell's <main> owns the width and side padding; this adds the top space only.
+   Rows stack in one column at every width; the side column drops under the main one on phones. */
+.page { padding-top: var(--av2-space-10); }
+
+.intro { max-width: 640px; }
+.intro h1 { margin: 0 0 var(--av2-space-3); }
+.intro p { margin: 0 0 var(--av2-space-3); font-size: var(--av2-fs-16); }
+
+.section {
+  margin-top: var(--av2-space-8);
+  padding-top: var(--av2-space-8);
+  border-top: var(--av2-rule-w) solid var(--av2-rule);
+}
+.section h2 { margin: 0 0 var(--av2-space-3); font-family: var(--av2-font-serif); font-size: var(--av2-fs-24); }
+
+.sectionText { max-width: 640px; margin: 0 0 var(--av2-space-4); }
+
+.listHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--av2-space-2) var(--av2-space-6);
+}
+
+.count { margin: 0; color: var(--av2-muted); font-size: var(--av2-fs-13); }
+
+.activate {
+  margin: var(--av2-space-4) 0 0;
+  padding: var(--av2-space-4);
+  background: var(--av2-surface);
+  border: var(--av2-rule-w) solid var(--av2-rule);
+  border-radius: var(--av2-radius);
+}
+.activate p { margin: 0; }
+
+.list { margin: var(--av2-space-6) 0 0; padding: 0; list-style: none; }
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 248px;
+  gap: var(--av2-space-6);
+  padding: var(--av2-space-6) 0;
+  border-top: var(--av2-rule-w) solid var(--av2-rule);
+}
+.row:first-child { border-top: 0; }
+
+.rowMain, .rowSide { min-width: 0; }
+
+.rowTitle { margin: var(--av2-space-2) 0; font-family: var(--av2-font-serif); font-size: var(--av2-fs-20); }
+.rowTitle a { color: var(--av2-ink); }
+
+.summary { margin: 0 0 var(--av2-space-2); }
+
+.meta { margin: 0 0 var(--av2-space-1); color: var(--av2-muted); font-size: var(--av2-fs-14); }
+
+.fee { margin: 0 0 var(--av2-space-2); font-size: var(--av2-fs-18); font-weight: var(--av2-fw-strong); }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--av2-space-1) var(--av2-space-2);
+  font-size: var(--av2-fs-12);
+  font-weight: var(--av2-fw-strong);
+  border: var(--av2-rule-w) solid var(--av2-rule);
+  border-radius: var(--av2-radius);
+  color: var(--av2-ink);
+}
+.badge[data-state='open'] { color: var(--av2-ok); background: var(--av2-ok-bg); border-color: var(--av2-ok); }
+.badge[data-state='learning'] { background: var(--av2-tint); }
+.badge[data-state='expired'] { color: var(--av2-muted); }
+.badge[data-state='upcoming'] { color: var(--av2-muted); background: var(--av2-surface); }
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--av2-space-3);
+  margin-top: var(--av2-space-3);
+}
+
+.alert { flex-basis: 100%; }
+
+.viewLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--av2-space-1);
+  min-height: var(--av2-control-sm);
+  color: var(--av2-link);
+}
+
+.tableWrap { overflow-x: auto; }
+.tableWrap:focus-visible { outline: var(--av2-rule-strong-w) solid var(--av2-focus); outline-offset: var(--av2-focus-offset); }
+
+.table { width: 100%; border-collapse: collapse; font-size: var(--av2-fs-14); }
+.table th, .table td {
+  padding: var(--av2-space-2) var(--av2-space-3);
+  text-align: left;
+  vertical-align: top;
+  border-bottom: var(--av2-rule-w) solid var(--av2-rule);
+}
+.table thead th { font-weight: var(--av2-fw-strong); }
+.table tbody th { font-weight: var(--av2-fw-regular); color: var(--av2-muted); }
+
+.chooser {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--av2-space-6);
+}
+
+.suggestion {
+  padding: var(--av2-space-6);
+  background: var(--av2-surface);
+  border: var(--av2-rule-w) solid var(--av2-rule);
+  border-radius: var(--av2-radius);
+}
+
+.eyebrow {
+  margin: 0 0 var(--av2-space-2);
+  font-size: var(--av2-fs-12);
+  font-weight: var(--av2-fw-strong);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.suggestionTitle { margin: 0 0 var(--av2-space-2); font-family: var(--av2-font-serif); font-size: var(--av2-fs-20); }
+
+@media (max-width: 720px) {
+  .row, .chooser { grid-template-columns: minmax(0, 1fr); gap: var(--av2-space-4); }
+}

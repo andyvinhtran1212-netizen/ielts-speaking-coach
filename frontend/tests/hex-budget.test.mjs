@@ -70,7 +70,7 @@ function isExempt(rel) {
 
 // New UI tree roots (relative to frontend/) scanned at budget 0. Compared by full
 // relative path so no other tokens.css inherits the exemption.
-const V2_ROOTS = ['styles', 'components/ui', 'components/library', 'app/(public-library)'];
+const V2_ROOTS = ['styles', 'components/ui', 'components/library', 'app/(public-library)', 'app/(public-commerce)'];
 const V2_EXEMPT_PATHS = new Set(['styles/av2/tokens.css']);
 
 describe('hex-budget ratchet (A4 governance)', () => {

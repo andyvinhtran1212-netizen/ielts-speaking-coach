@@ -167,6 +167,12 @@ to `/`; the historical source file is not a separately served marketing page.
 |---|---|---|
 | `/library` | all | Free Library hub, no login: shelves for Writing samples, Writing guides, Speaking, Grammar and Vocabulary with live counts (`/api/library/summary`) and one Writing sample excerpt across bands 7.5/7.0/6.0. |
 
+### 4.7a2 Public — Courses
+
+| Page | Audience | Purpose · operation |
+|---|---|---|
+| `/courses` | all | Course catalogue (PUBLICSITE-0059 T04), 404 until the build flag `AVER_PUBLIC_COMMERCE=1`: one row per course from `GET /api/courses` with its state (open / upcoming / learning / expired), fee only when open, a comparison table and a short chooser; upcoming rows carry "Báo cho tôi khi mở". A signed-in visitor's own states are read in the browser. |
+
 ### 4.7b Student — classes and course work
 
 | Page | Audience | Purpose · operation |
