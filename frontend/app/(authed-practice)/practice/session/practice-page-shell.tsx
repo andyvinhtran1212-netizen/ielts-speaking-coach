@@ -10,6 +10,8 @@ import {
   type ReactNode,
 } from 'react';
 
+import { PracticeExamRoom, speakingRoomSlots } from './practice-exam-room';
+
 type PlayerStateStore = {
   getStateSnapshot(): null | string;
   getViewSnapshot(): any;
@@ -386,20 +388,25 @@ export function PracticePageShell({ player }: { player: PlayerStateStore }) {
     audio.load();
   }, [view.part2.retryPlaybackUrl]);
 
-  return (
+  const legacyHeader = (
+    <header className="practice-header practice-context-bar sticky top-0 z-30 px-5 py-3 flex items-center justify-between gap-3">
+      <div className="flex items-center gap-3">
+        <Link href={returnHref} className="practice-back-link" onClick={guardUnsentRecording}><Icon name="chevron-left" />{returnLabel}</Link>
+        <p className="eyebrow" style={{ margin: 0 }}>{contextLabel}</p>
+      </div>
+      <div className="flex items-center gap-3 min-w-0">
+        <span id="hdr-info" className={`${view.header.visible ? '' : 'hidden '}text-xs font-medium truncate practice-hdr-info`}>{view.header.info}</span>
+        <span id="hdr-progress" className={`${view.header.visible ? '' : 'hidden '}ds-badge ds-badge-teal`} style={{ whiteSpace: 'nowrap' }}>{view.header.progress}</span>
+      </div>
+    </header>
+  );
+  // EXAMSPEAK-0072 FR-001: the one branch point. practice-session-boot.tsx
+  // decides the flag once and publishes it as `frame.examRoomMode`; off, the
+  // page below renders exactly as before.
+  const examRoom = view.frame.examRoomMode === true ? speakingRoomSlots(view, activeState) : null;
+  const room = examRoom?.slots ?? null;
+  const body = (
     <>
-      <header className="practice-header practice-context-bar sticky top-0 z-30 px-5 py-3 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Link href={returnHref} className="practice-back-link" onClick={guardUnsentRecording}><Icon name="chevron-left" />{returnLabel}</Link>
-          <p className="eyebrow" style={{ margin: 0 }}>{contextLabel}</p>
-        </div>
-        <div className="flex items-center gap-3 min-w-0">
-          <span id="hdr-info" className={`${view.header.visible ? '' : 'hidden '}text-xs font-medium truncate practice-hdr-info`}>{view.header.info}</span>
-          <span id="hdr-progress" className={`${view.header.visible ? '' : 'hidden '}ds-badge ds-badge-teal`} style={{ whiteSpace: 'nowrap' }}>{view.header.progress}</span>
-        </div>
-      </header>
-
-      <main className="flex-1 flex flex-col">
         <div id="test-mode-banner" className="practice-test-banner" style={{ display: view.frame.testModeBannerVisible ? '' : 'none' }}>
           <span className="practice-test-banner__label"><Icon name="alert-triangle" />TEST MODE — KHÔNG ĐƯỢC DỪNG GIỮA CHỪNG</span>
         </div>
@@ -477,6 +484,7 @@ export function PracticePageShell({ player }: { player: PlayerStateStore }) {
           <p id="prep-instruction" className="practice-prep-instruction text-xs text-center mb-6">{view.prep.instruction}</p>
           <button id="prep-start-btn" type="button" className="btn-primary practice-icon-btn w-full py-4 text-base" style={{ display: view.prep.startButtonVisible ? '' : 'none' }} onClick={() => callPractice('goToRecording')}><Icon name="mic" />Bắt đầu ghi âm</button>
           <div id="inline-rec-section" style={{ display: view.prep.inlineRecordingVisible ? '' : 'none', marginTop: 16 }}>
+            {room?.recorder}
             <div id="rec-error" className="ds-callout practice-error-callout" style={{ display: view.recording.errorVisible ? '' : 'none' }}>{view.recording.error}</div>
             <div id="rec-idle" style={{ display: view.recording.substate === 'idle' ? '' : 'none' }}>
               <div className="text-center py-4"><div className="ds-rec-ring practice-rec-ring--idle mb-3"><Icon name="mic" className="practice-rec-ring__icon" /></div><p className="practice-rec-idle-label text-sm font-medium mb-1">Sẵn sàng ghi âm</p></div>
@@ -545,6 +553,7 @@ export function PracticePageShell({ player }: { player: PlayerStateStore }) {
           <div className="card practice-card--cue p-5 mb-5"><p className="practice-cue-card__label text-xs font-bold uppercase tracking-wider mb-3">Cue Card</p><p id="p2a-question" className="practice-p2a-question text-base font-semibold mb-4">{view.part2.question}</p><ul id="p2a-bullets" className="space-y-2 mb-3" style={{ listStyle: 'none', padding: 0, margin: 0 }}>{view.part2.bullets.map((bullet: string, index: number) => <li className="ds-cue-bullet" key={`${index}:${bullet}`}>{bullet}</li>)}</ul><p id="p2a-reflection" className="practice-p2a-reflection text-sm">{view.part2.reflection}</p></div>
           <p className="practice-prep-instruction text-xs text-center mb-5">Đọc cue card kỹ, sau đó nhấn nút để bắt đầu 1 phút chuẩn bị.</p>
           <div id="p2a-submit-retry" className="ds-callout practice-error-callout mb-4" style={{ display: view.part2.retryVisible ? '' : 'none' }}><p id="p2a-submit-retry-msg" className="text-sm mb-3">{view.part2.retryMessage}</p><audio ref={p2RetryAudioRef} id="p2a-submit-retry-audio" src={view.part2.retryPlaybackUrl || undefined} controls preload="metadata" style={{ width: '100%', marginBottom: 12 }} /><div className="flex gap-3"><button type="button" className="btn-ghost py-3 text-sm font-semibold" style={{ flex: 1 }} onClick={() => callPractice('discardP2SubmissionRetry')}>Ghi lại</button><button type="button" className="btn-primary py-3 text-sm font-bold" style={{ flex: 2 }} onClick={() => callPractice('retryP2Submission')}>Gửi lại bản ghi</button></div></div>
+          {room?.part2Cue}
           <button id="p2a-start-btn" type="button" className="btn-primary practice-icon-btn w-full py-4 text-sm font-bold" style={{ display: view.part2.startVisible ? '' : 'none' }} onClick={() => callPractice('startP2Prep')}><Icon name="play" />Bắt đầu 1 phút chuẩn bị</button>
         </div>
 
@@ -556,6 +565,7 @@ export function PracticePageShell({ player }: { player: PlayerStateStore }) {
         </div>
 
         <div id="state-p2c" className={stateClass('p2c', 'state block-state flex-1 av-w-read py-6 practice-stage practice-stage--part2')}>
+          {room?.part2Speaking}
           <div className="text-center mb-6"><div className="flex items-center justify-center gap-3 mb-2"><span className="practice-rec-dot" /><span id="p2c-timer" className="practice-rec-timer text-5xl font-extrabold tabular-nums" style={{ color: view.part2.speakUrgent ? '#ef4444' : '#fff' }}>{view.part2.speakTimer}</span></div><p className="practice-rec-hint text-xs">Đang ghi âm — nói về chủ đề trên cue card</p></div>
           <canvas id="p2c-canvas" width="600" height="56" className="practice-rec-canvas practice-rec-canvas--p2c" />
           <button type="button" className="btn-danger practice-icon-btn w-full py-4 text-sm font-bold" onClick={() => callPractice('stopP2SpeakingEarly')}><Icon name="square" />Dừng sớm</button>
@@ -592,6 +602,23 @@ export function PracticePageShell({ player }: { player: PlayerStateStore }) {
           <button id="btn-export-pdf" type="button" onClick={(event) => callPractice('downloadPDFs', event.currentTarget)} className="practice-pdf-btn practice-icon-btn w-full py-3 rounded-2xl font-bold text-sm mb-3"><Icon name="file-down" />Tải xuống báo cáo PDF</button>
           <button type="button" onClick={() => callPractice('finishSession')} className="practice-finish-btn practice-icon-btn w-full py-3 rounded-2xl font-bold text-sm">Quay lại<Icon name="arrow-right" /></button>
         </div>
+    </>
+  );
+
+  if (examRoom) {
+    return (
+      <PracticeExamRoom view={view} activeState={activeState} mode={examRoom.mode} returnHref={returnHref}>
+        {body}
+      </PracticeExamRoom>
+    );
+  }
+
+  return (
+    <>
+      {legacyHeader}
+
+      <main className="flex-1 flex flex-col">
+        {body}
       </main>
     </>
   );
