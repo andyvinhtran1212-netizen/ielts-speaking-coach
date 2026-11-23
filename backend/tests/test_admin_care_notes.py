@@ -343,3 +343,31 @@ def test_two_admins_marking_done_at_once_keep_the_first(db, monkeypatch):
     reads = iter([stale])
     note = _patch(nid, body="Đã gọi", done=True)
     assert note["body"] == "Đã gọi" and note["done_at"] == first and _row(db, nid)["done_by"] == U_ADMIN_2
+
+
+def test_a_failed_name_lookup_after_a_write_still_answers_saved(db, monkeypatch):
+    # The note is stored; only the author's name could not be read. Reporting
+    # "not saved" would invite a second, duplicate note.
+    def down(_ids):
+        raise RuntimeError("users read failed")
+    monkeypatch.setattr(notes, "_names", down)
+    note = _add(f"u-{U_LAN}", body="Hẹn gọi lại", due_on=date(2026, 11, 25))
+    assert note["author_name"] is None and note["body"] == "Hẹn gọi lại" and note["editable"] is True
+    assert len(db.rows[notes.TABLE]) == 1
+    edited = _patch(note["id"], body="Đã gọi", done=True)
+    assert edited["author_name"] is None and edited["body"] == "Đã gọi" and edited["done_at"]
+
+
+def test_a_failed_read_back_after_an_update_says_saved_not_retry(db, monkeypatch):
+    nid = _add(f"u-{U_LAN}")["id"]
+    real_get = notes._get
+    calls = {"n": 0}
+
+    def flaky(i):
+        calls["n"] += 1
+        if calls["n"] > 1:   # the read before the write works; the read-back fails
+            raise RuntimeError("read failed")
+        return real_get(i)
+    monkeypatch.setattr(notes, "_get", flaky)
+    assert _status(_patch, nid, body="Đã sửa") == (503, "care_note_saved_unreadable")
+    assert _row(db, nid)["body"] == "Đã sửa"   # the change is stored

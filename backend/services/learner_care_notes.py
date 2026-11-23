@@ -39,6 +39,10 @@ class NoteLocked(PermissionError):
     pass
 
 
+class SavedUnreadable(RuntimeError):
+    """The write is committed but the note could not be read back."""
+
+
 def edit_hours() -> int:
     try:
         value = int(os.getenv("CARE_NOTE_EDIT_HOURS", "24"))
@@ -109,6 +113,16 @@ def _names(ids: set[str]) -> dict[str, str]:
                   .in_("id", ordered[start:start + _CHUNK]).execute().data or []):
             names[str(u["id"])] = (u.get("display_name") or "").strip() or (u.get("email") or "")
     return names
+
+
+def _names_after_write(ids: set[str]) -> dict[str, str]:
+    """Names for a note just written. The write already happened, so a failed
+    lookup leaves ``author_name`` empty instead of reporting "not saved"
+    (which would invite a duplicate)."""
+    try:
+        return _names(ids)
+    except Exception:
+        return {}
 
 
 def _editable(row: dict, viewer_id: Optional[str], now: datetime) -> bool:
@@ -188,7 +202,7 @@ def add(person: Person, author_id: str, *, body: str, next_action: Optional[str]
     stored = (supabase_admin.table(TABLE).insert(row).execute().data or [])
     if not stored:
         raise RuntimeError("care note insert returned no row")
-    return _out(stored[0], _names({author_id}), author_id, now)
+    return _out(stored[0], _names_after_write({author_id}), author_id, now)
 
 
 def _get(note_id: str) -> dict:
@@ -247,8 +261,15 @@ def update(note_id: str, viewer_id: str, changes: dict[str, Any], *,
         if content and not _write(note_id, viewer_id, rest, content=True, marking=False, now=now):
             _get(note_id)
             raise NoteLocked()
-    fresh = _get(note_id)
-    return _out(fresh, _names({str(fresh.get("author_id") or "")}), viewer_id, now)
+    try:
+        fresh = _get(note_id)
+    except NoteNotFound:
+        raise
+    except Exception as exc:
+        if values:
+            raise SavedUnreadable() from exc
+        raise
+    return _out(fresh, _names_after_write({str(fresh.get("author_id") or "")}), viewer_id, now)
 
 
 def remove(note_id: str, viewer_id: str, *, now: Optional[datetime] = None) -> None:

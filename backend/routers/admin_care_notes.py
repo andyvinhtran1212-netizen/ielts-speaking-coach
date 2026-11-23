@@ -89,6 +89,10 @@ async def patch_care_note(note_id: UUID, body: CareNotePatch, authorization: str
         raise _missing()
     except notes.NoteLocked:
         raise _locked()
+    except notes.SavedUnreadable as exc:
+        logger.warning("care notes: saved, read-back failed")
+        raise HTTPException(503, {"code": "care_note_saved_unreadable",
+                                  "message": "Đã lưu thay đổi nhưng chưa đọc lại được. Tải lại trang, đừng gửi lại."}) from exc
     except Exception as exc:
         logger.warning("care notes: update failed (%s)", type(exc).__name__)
         raise _unavailable("lưu") from exc
