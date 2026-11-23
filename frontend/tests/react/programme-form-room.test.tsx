@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ProgrammeFormRunner } from '@/app/(authed-listening-player)/listening/programmes/form/[testId]/programme-form-runner';
-import { createProgrammeLocalCopyStore } from '@/app/(authed-listening-player)/listening/programmes/form/[testId]/programme-form-room';
+import { createProgrammeLocalCopyStore } from '@/app/(authed-listening-player)/listening/programmes/form/[testId]/programme-form-room-store';
 import { localCopyKey, readLocalCopy, writeLocalCopy } from '@/lib/exam-room/local-copy.mjs';
 import { writerTokenKey } from '@/lib/exam-room/tab-guard.mjs';
 

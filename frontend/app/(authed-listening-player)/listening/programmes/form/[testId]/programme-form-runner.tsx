@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 import { useAuth } from '@/lib/auth/auth-provider';
@@ -19,7 +19,12 @@ import { createProgrammeAnswerDraftStore, createProgrammeAnswerWriteQueue, creat
 import { examRoomEnabled } from '@/lib/exam-room/flags.mjs';
 import { clearForeignLocalCopies, clearLocalCopy, planLocalCopyReplay, readLocalCopy, removeAckedFromCopy } from '@/lib/exam-room/local-copy.mjs';
 import type { ExamRoomSession } from '@/components/exam-room/types';
-import { createProgrammeLocalCopyStore, ProgrammeFormRoom, safeLocalStorage, type ProgrammeAskItem, type ProgrammeDraftStore, type ProgrammeLocalCopyStore } from './programme-form-room';
+import type { ProgrammeAskItem } from './programme-form-room';
+import { createProgrammeLocalCopyStore, safeLocalStorage, type ProgrammeDraftStore, type ProgrammeLocalCopyStore } from './programme-form-room-store';
+
+// FR-001/UIBASE-0056 FR-003: the room (and the av2 tokens it imports) loads only
+// when the flag is on, so the flag-off page loads the same assets as before.
+const ProgrammeFormRoom = lazy(() => import('./programme-form-room').then((module) => ({ default: module.ProgrammeFormRoom })));
 import { availableQuestionLanguages, displayOptionLanguage, displayQuestion, groupProgrammeQuestions } from '@/lib/listening-programme-learning.mjs';
 import { confirmProgrammeOncePlayback, startProgrammeOncePlayback } from '@/lib/listening-programme-once-playback.mjs';
 import { createProgrammeReplayController } from '@/lib/listening-programme-replay.mjs';
@@ -565,7 +570,7 @@ function ProgrammeFormView({ testId, status, userId, active, embedded, supplemen
       }
       catch (error) { noteError(error); return { unsaved: 1 }; }
     };
-    return <ProgrammeFormRoom
+    return <Suspense fallback={<Container className="programme-runner programme-state shell" role="status">Đang chuẩn bị bài nghe…</Container>}><ProgrammeFormRoom
       active={active}
       embedded={embedded}
       title={form.title}
@@ -619,7 +624,7 @@ function ProgrammeFormView({ testId, status, userId, active, embedded, supplemen
       </>}
       progress={<p className="programme-learning-progress"><span>{answeredCount}/{form.questions.length} câu đã thử · {Object.keys(feedback).length} câu đã đối chiếu{supplements?.length ? ` · ${supplements.length} câu tự luyện lưu trên thiết bị` : ''}</span></p>}
       body={<>{learningControls}{guidanceNote}{stage}</>}
-    />;
+    /></Suspense>;
   }
   return <Container className={`programme-runner shell${state.form.sourceDay ? ' is-source-practice' : ''}`}>
     {state.form.sourceDay ? <link rel="stylesheet" href="/css/listening-source-collection.css" /> : null}
