@@ -1,6 +1,6 @@
 """EXAMMOCK-0071 T004 (G08-T22 PR 1): the learner side of assigned mock exams.
 
-MOCKORG-0086 plan 5.5 contract behind MOCK_EXAM_AUDIENCES_LEARNER:
+MOCKORG-0086 plan 5.5 contract behind the runtime flag mock_exam_audiences_learner:
 - an exam with audience rows seats only selected learners on its list, and
   anyone else gets the unknown-code 404 (FR-014);
 - a self-paced sitting created after its audience row runs its sections back
@@ -31,9 +31,16 @@ def _iso(dt: datetime) -> str:
 NOW = datetime.now(timezone.utc)
 
 
+def _learner_flag(monkeypatch, on: bool):
+    # The runtime flag mock_exam_audiences_learner, through the helper the
+    # admin schedule() reads too (one source for both sides).
+    from services import mock_exam_audience_service
+    monkeypatch.setattr(mock_exam_audience_service, "learner_gate_enabled", lambda: on)
+
+
 @pytest.fixture
 def flag_on(monkeypatch):
-    monkeypatch.setattr(settings, "MOCK_EXAM_AUDIENCES_LEARNER", True)
+    _learner_flag(monkeypatch, True)
     monkeypatch.setattr(settings, "MOCK_SELF_PACED_GAP_SECONDS", 0)
 
 
@@ -69,7 +76,7 @@ def _set(fake, sitting_id, **values):
 
 
 def test_flag_off_keeps_the_old_gate_even_with_audience_rows(fake_db, svc, monkeypatch):
-    monkeypatch.setattr(settings, "MOCK_EXAM_AUDIENCES_LEARNER", False)
+    _learner_flag(monkeypatch, False)
     exam = _seed_exam(fake_db, cohort_id=str(uuid4()))
     stranger = uuid4()
     _audience(fake_db, exam, stranger)
@@ -289,7 +296,7 @@ def test_retake_sitting_from_before_the_row_keeps_the_section_menu(fake_db, svc,
 
 
 def test_flag_off_state_has_no_self_paced_block(fake_db, svc, monkeypatch):
-    monkeypatch.setattr(settings, "MOCK_EXAM_AUDIENCES_LEARNER", False)
+    _learner_flag(monkeypatch, False)
     learner = uuid4()
     _self_paced_exam(fake_db, learner)
     sitting = svc.create_sitting(learner, "MOCK-TEST-A")
