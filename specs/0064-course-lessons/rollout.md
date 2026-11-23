@@ -3,7 +3,7 @@
 ## Preconditions
 
 - Spec đã `approved` trên `staging` (anh Andy duyệt, có `approval-decision.md`).
-- Số migration trong dải 420–439 chưa bị file hay PR nào khác dùng. Dòng `register.tsv` thêm cùng PR T18.
+- Số migration trong dải 420–439 chưa bị file hay PR nào khác dùng (420 và 421 đã có chủ ngày 23/11). Dòng `register.tsv` thêm cùng PR T18.
 - T19b chỉ merge khi G04-T03 đã ở staging (`services/entitlements.py::has_course_access`, `routers/courses_public.py::_outline_for`) và cờ `learner_v2` của LEARNERCORE-0063 đã có.
 - T29 chỉ merge khi route group `(public-commerce)` của G05 đã có.
 

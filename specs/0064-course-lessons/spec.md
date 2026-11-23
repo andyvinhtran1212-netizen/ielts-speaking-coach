@@ -173,7 +173,7 @@ Khoá online (G04, `course_products.kind = 'online'`) bán được nhưng chưa
 - `video_position_seconds` lớn hơn `video_seconds` (thông tin độ dài sai): kẹp về `video_seconds`.
 - Bài có `video_source = 'private_host'` (tắt ở bản này): API trả `available: false`, không có `ref`; trang hiện "Video chưa sẵn sàng". Bài đọc vẫn hiện, ngưỡng xong theo video không áp (FR-046), và nút "Đánh dấu đã đọc" hiện.
 - Học viên lớp offline có `course_id` trùng khoá online: quyền theo `has_course_access` (gồm quyền suy ra từ thành viên lớp, câu hỏi mở 1).
-- `lesson_code` có ký tự lạ trong URL: so khớp chính xác, không phân biệt hoa thường thì không trả, và 404.
+- `lesson_code` có ký tự lạ trong URL: so khớp chính xác và phân biệt hoa thường (CHECK `^[A-Z0-9][A-Z0-9-]{0,15}$`). Mã viết thường hoặc có ký tự ngoài mẫu trả 404, không tự đổi sang chữ hoa.
 
 ## Success criteria
 
@@ -186,7 +186,7 @@ Khoá online (G04, `course_products.kind = 'online'`) bán được nhưng chưa
 ## Dependencies
 
 - COURSEACCESS-0055 (G04):
-  - `services/entitlements.py::has_course_access`, `list_access` (lấy hạn, `can_renew`) (G04-T03);
+  - `services/entitlements.py::has_course_access`, `list_access` (lấy `status` và `expires_at`) (G04-T03), `entitlements.can_renew(product=…, state=…, expires_at=…, has_open_order=…)` (tính riêng, không có trong `AccessItem`);
   - `routers/courses_public.py::_outline_for` (G04-T03).
 
   Chưa merge thì không merge T19; T18 (bảng) làm trước được.
