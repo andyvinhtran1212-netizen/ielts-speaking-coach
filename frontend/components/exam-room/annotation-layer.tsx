@@ -120,6 +120,13 @@ function highlightApi(): { registry: HighlightRegistry; Highlight: new (...range
   return css?.highlights && Highlight ? { registry: css.highlights, Highlight } : null;
 }
 
+const LAYER_RANGES = new Map<string, Range[]>();
+function paintAll(api: NonNullable<ReturnType<typeof highlightApi>>) {
+  const all = [...LAYER_RANGES.values()].flat();
+  if (all.length) api.registry.set(HIGHLIGHT_NAME, new api.Highlight(...all));
+  else api.registry.delete(HIGHLIGHT_NAME);
+}
+
 type Box = { key: string; top: number; left: number; width: number; height: number };
 type Selection = { start: number; end: number; top: number; left: number };
 
@@ -141,7 +148,10 @@ export function AnnotationLayer({ surface, ownerKey, attemptKey, narrow = false,
   const key = marksKey(surface, ownerKey, attemptKey);
   const textRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const [marks, setMarks] = useState<ExamRoomMark[]>(() => readMarks(store, key));
+  // Read after mount, never during render: the server has no storage, so a first
+  // render with marks would not match its HTML (hydration).
+  const [marks, setMarks] = useState<ExamRoomMark[]>([]);
+  const [layoutTick, setLayoutTick] = useState(0);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [drafting, setDrafting] = useState<Selection | null>(null);
   const [draft, setDraft] = useState('');
@@ -150,8 +160,19 @@ export function AnnotationLayer({ surface, ownerKey, attemptKey, narrow = false,
   const [anchors, setAnchors] = useState<Record<string, { top: number; left: number }>>({});
   const seq = useRef(0);
   const noteId = useId();
+  const layerId = noteId;
 
   useEffect(() => { setMarks(readMarks(store, key)); setSelection(null); setDrafting(null); }, [key, store]);
+
+  // Boxes and margin notes follow the text when it reflows: window resize, the
+  // shell's separator, fonts loading, new children.
+  useEffect(() => {
+    const node = textRef.current;
+    if (!node || typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(() => setLayoutTick((n) => n + 1));
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
   // Time up or read-only: tools that were already open close, and no write path
   // changes a saved mark any more (FR-030, CR HOLD on #2528).
@@ -187,9 +208,12 @@ export function AnnotationLayer({ surface, ownerKey, attemptKey, narrow = false,
     setAnchors(nextAnchors);
     const api = highlightApi();
     if (api) {
-      api.registry.set(HIGHLIGHT_NAME, new api.Highlight(...ranges.map((x) => x.r)));
+      // One highlight name for the page, shared by every layer on it: each layer
+      // owns its own ranges, and removing one layer leaves the others painted.
+      LAYER_RANGES.set(layerId, ranges.map((x) => x.r));
+      paintAll(api);
       setBoxes([]);
-      return () => api.registry.delete(HIGHLIGHT_NAME);
+      return () => { LAYER_RANGES.delete(layerId); paintAll(api); };
     }
     const next: Box[] = [];
     for (const { m, r } of ranges) {
@@ -199,7 +223,7 @@ export function AnnotationLayer({ surface, ownerKey, attemptKey, narrow = false,
     }
     setBoxes(next);
     return undefined;
-  }, [marks, narrow]);
+  }, [marks, narrow, layoutTick, layerId]);
 
   const readSelection = useCallback(() => {
     if (disabled) return;

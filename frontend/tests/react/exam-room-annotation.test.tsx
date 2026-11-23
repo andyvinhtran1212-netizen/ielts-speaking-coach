@@ -1,5 +1,7 @@
 // EXAMROOM-0066 T004 (G08-T05) FR-030, FR-032: Highlight / Note on the passage.
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { hydrateRoot } from 'react-dom/client';
+import { renderToString } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -159,6 +161,45 @@ describe('AnnotationLayer', () => {
     expect(screen.queryByLabelText('Note text')).toBeNull();
     fireEvent.click(save);
     expect(readMarks(window.localStorage, KEY)).toEqual([]);
+  });
+
+  it('hydrates without a mismatch when the browser already holds marks (CR P2)', async () => {
+    writeMarks(window.localStorage, KEY, [{ id: 'n', start: 4, end: 9, note: 'kept' }]);
+    const tree = <AnnotationLayer surface="reading" ownerKey="user-1" attemptKey="att-1" storage={null}><p>{TEXT}</p></AnnotationLayer>;
+    const html = renderToString(tree);
+    const host = document.createElement('div');
+    host.innerHTML = html;
+    document.body.appendChild(host);
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const recoverable = vi.fn();
+    let root: ReturnType<typeof hydrateRoot> | undefined;
+    await act(async () => {
+      root = hydrateRoot(host, <AnnotationLayer surface="reading" ownerKey="user-1" attemptKey="att-1"><p>{TEXT}</p></AnnotationLayer>, { onRecoverableError: recoverable });
+    });
+    expect(recoverable).not.toHaveBeenCalled();
+    expect(errors).not.toHaveBeenCalled();
+    expect(host.textContent).toContain('kept');
+    act(() => root!.unmount());
+    host.remove();
+  });
+
+  it('two layers share the page highlight; removing one keeps the other painted', () => {
+    const set = vi.fn();
+    const del = vi.fn();
+    class FakeHighlight { ranges: Range[]; constructor(...r: Range[]) { this.ranges = r; } }
+    vi.stubGlobal('CSS', { highlights: { set, delete: del } });
+    vi.stubGlobal('Highlight', FakeHighlight);
+    writeMarks(window.localStorage, KEY, [{ id: 'a', start: 4, end: 9 }]);
+    const key2 = marksKey('reading', 'user-1', 'att-2');
+    writeMarks(window.localStorage, key2, [{ id: 'b', start: 0, end: 3 }]);
+    const first = layer();
+    const second = render(<AnnotationLayer surface="reading" ownerKey="user-1" attemptKey="att-2"><p>{TEXT}</p></AnnotationLayer>);
+    const lastSet = () => (set.mock.calls.at(-1)![1] as FakeHighlight).ranges.map((r) => r.toString()).sort();
+    expect(lastSet()).toEqual(['The', 'first']);
+    first.unmount();
+    expect(lastSet()).toEqual(['The']);
+    second.unmount();
+    expect(del).toHaveBeenCalledWith('exam-room-mark');
   });
 
   it('disabled: no toolbar', () => {

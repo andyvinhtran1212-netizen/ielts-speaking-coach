@@ -6,7 +6,7 @@
 //   practice → mode 'practice' + spaceToggles (one player per page)
 //   test     → mode 'exam', English labels (FR-002, open question 9)
 //   once     → variant 'once' (warning in the player, no pause/seek/replay)
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { AudioPlayer, type AudioPlayerProps } from '../ui/audio-player';
 
@@ -20,7 +20,8 @@ export type ExamRoomAudioPlayerProps = Omit<AudioPlayerProps, 'mode' | 'variant'
   lang?: 'vi' | 'en';
   /**
    * The surface records that playback began (e.g. its "heard once" call). Called
-   * on the first play only, before `onPlay`.
+   * on the first play of each track (by `title`), before `onPlay`; give the
+   * player a `key` when two tracks share a title.
    */
   onPlaybackStart?: () => void;
   /** `once` after a dropped connection: "Nghe tiếp từ [mm:ss]" plays on from here. */
@@ -38,6 +39,8 @@ export function audioPropsForPolicy(policy: ExamRoomAudioPolicy, layout: 'full' 
 
 export function ExamRoomAudioPlayer({ policy, layout = 'full', lang, onPlaybackStart, resumeAt, ownsSpaceKey = true, onPlay, current, state, ...rest }: ExamRoomAudioPlayerProps) {
   const started = useRef(false);
+  // A new track in the same player reports its own first play.
+  useEffect(() => { started.current = false; }, [rest.title]);
   const mapped = audioPropsForPolicy(policy, layout, lang, ownsSpaceKey);
   const play = () => {
     if (!started.current) {

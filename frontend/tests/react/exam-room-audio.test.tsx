@@ -49,6 +49,15 @@ describe('ExamRoomAudioPlayer', () => {
     expect(calls).toEqual(['start', 'play', 'play']);
   });
 
+  it('a new track in the same player reports its own first play', () => {
+    const start = vi.fn();
+    const { rerender } = render(<ExamRoomAudioPlayer policy="practice" state="ready" title="Part 1" current={0} duration={100} onPlaybackStart={start} />);
+    fireEvent.click(screen.getAllByRole('button', { name: /Phát/ })[0]);
+    rerender(<ExamRoomAudioPlayer policy="practice" state="ready" title="Part 2" current={0} duration={100} onPlaybackStart={start} />);
+    fireEvent.click(screen.getAllByRole('button', { name: /Phát/ })[0]);
+    expect(start).toHaveBeenCalledTimes(2);
+  });
+
   it('once never shows a pause control while playing', () => {
     render(<ExamRoomAudioPlayer policy="once" state="playing" title="Track" current={40} duration={222} onPlay={vi.fn()} onPause={vi.fn()} />);
     expect(screen.queryByRole('button', { name: /Tạm dừng|Pause/ })).toBeNull();
