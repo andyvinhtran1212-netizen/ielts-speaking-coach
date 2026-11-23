@@ -16,6 +16,8 @@
 
 - Mỗi migration chạy test PG17 + postcondition trước khi áp; sau khi áp chạy E11 (RLS live) và E1–E21 theo `spec.md`. Nghiệm thu dùng tài khoản QA theo `docs/AGENT_WORKFLOW.md`; thiếu tài khoản QA thì PR ghi "chờ anh Andy kiểm tay trên staging".
 
+- **Cron `retention_sweep` trước khi bật `learner_v2`** (anh Andy duyệt 23/11 11:39Z): tạo service cron trên Railway từ `backend/railway.retention-sweep.json` (`python -m jobs.retention_sweep`, hằng ngày 20:00 UTC = 03:00 giờ Việt Nam). File không đặt env: `RETENTION_SWEEP_DRY_RUN` giữ mặc định `true`, nên lượt chạy đầu chỉ ghi log dry-run. Việc tạo service và mọi env trên Railway do anh Andy làm hoặc duyệt riêng. Kiểm tra: log `[sweep] start dry_run=True` có mặt sau lượt chạy đầu, rồi mới bật `learner_v2`. Bật `retention_by_entitlement` vẫn chờ RPC xoá có khoá (#2550 hướng 1).
+
 ## Production
 
 - Chỉ qua PR `staging → main` sau khi CI tích hợp và Staging E2E xanh; migration production cần anh Andy duyệt bằng lời, chạy dưới khoá advisory trước khi mã phụ thuộc lên. Gói này không bật cờ nào trên production và không đổi `RETENTION_AUDIO_DAYS`.
