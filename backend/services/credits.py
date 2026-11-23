@@ -184,6 +184,10 @@ def charge_plan(user_id: UUID | str, feature: str, *, session: Optional[dict] = 
             if course_id and (fetch_ever_had_class_entitlement(uid, course_id)
                               or fetch_cohort_converted(cohort_id)):
                 return ChargePlan(True, "class", [course_id], ["class", "repractice"])
+            if not cohort_id or not course_id:
+                # CR nit on 37de4c62: make the free fallback visible.
+                logger.info("[credits] class_work_unmapped user=%s feature=%s cohort=%s", uid, feature,
+                            cohort_id or "none")
             if not never_free:
                 return ChargePlan(False, "legacy_class")
         # 5. A legacy access code for this skill.
@@ -273,6 +277,36 @@ async def release_if_open(hold: Optional[CreditHold], reason: str) -> None:
                        hold.reservation_id, reason, exc)
 
 
+def fetch_reservation(reservation_id: str) -> Optional[dict]:
+    return _first(
+        supabase_admin.table("credit_reservations").select("user_id, resource_type, resource_id, status")
+        .eq("id", reservation_id).limit(1).execute()
+    )
+
+
+async def _paid_regrade_replay(user_id: str, resource_id: str, reservation_id: str) -> Optional[str]:
+    """A retry of a paid cluster re-grade (Codex P2 / CR B2 on 37de4c62).
+
+    The first call reserved under ``speaking_response:<s>:<q>:r<n>`` with the
+    caller's request key, so the identical retry, sent as ``speaking_cluster``,
+    meets that reservation and the RPC answers ``request_key_conflict``. When
+    the reservation is this user's paid re-grade of the same question, answer
+    like the RPC's own replay: ``grading_in_progress`` while open,
+    ``already_graded`` once committed. Anything else stays a conflict."""
+    try:
+        row = await asyncio.wait_for(asyncio.to_thread(fetch_reservation, reservation_id),
+                                     timeout=RPC_TIMEOUT_SECONDS)
+    except Exception as exc:
+        logger.warning("[credits] rpc=fn_credit_reserve replay lookup failed: %s", exc)
+        raise CreditUnavailable("reserve_replay_lookup") from exc
+    if not row or str(row.get("user_id")) != str(user_id) or row.get("resource_type") != "speaking_response":
+        return None
+    session_id, _part, question = resource_id.split(":", 2)
+    if not str(row.get("resource_id") or "").startswith(f"{session_id}:{question[1:]}:r"):
+        return None
+    return {"open": "grading_in_progress", "committed": "already_graded"}.get(row.get("status"))
+
+
 def _regrade_resource(resource_id: str, regrade_count) -> str:
     """'<session>:p<n>:q<question>' → '<session>:<question>:r<count>'
     (plan 5.6: a re-grade past the free limit is charged as its own answer)."""
@@ -302,6 +336,10 @@ async def reserve(user_id: UUID | str, feature: str, *, request_key: str, resour
                   "p_resource_id": _regrade_resource(resource_id, result.get("regrade_count"))}
         result = await _rpc("fn_credit_reserve", params)
     status = result["status"]
+    if status == "request_key_conflict" and resource_type == "speaking_cluster" and result.get("reservation_id"):
+        replay = await _paid_regrade_replay(str(user_id), resource_id, str(result["reservation_id"]))
+        if replay is not None:
+            raise CreditReplay(replay, result.get("reservation_id"))
     if status == "reserved":
         return CreditHold(reservation_id=result.get("reservation_id"), entitlement_id=result.get("entitlement_id"),
                           balance_after=result.get("balance_after"))

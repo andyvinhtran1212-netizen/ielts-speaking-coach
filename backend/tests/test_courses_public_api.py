@@ -74,6 +74,19 @@ def test_guest_catalog_shape(client, catalog):
     assert "id" not in item and "course_id" not in item
 
 
+def test_coming_soon_hides_a_stored_fee_in_list_and_detail(client, catalog):
+    """FR-002 (owner HOLD + Codex P2 + CR B1 on 37de4c62): 383 allows a fee on
+    a coming_soon row; the public API must not show it."""
+    catalog["products"] = [{**PRODUCT, "status": "coming_soon", "tuition_vnd": 2490000}]
+    (item,) = client.get("/api/courses").json()["items"]
+    assert item["status"] == "coming_soon" and item["tuition_vnd"] is None
+    detail = client.get("/api/courses/ielts-6").json()
+    assert detail["status"] == "coming_soon" and detail["tuition_vnd"] is None
+    catalog["products"] = [{**PRODUCT, "status": "closed"}]
+    assert client.get("/api/courses").json()["items"][0]["tuition_vnd"] == 1990000
+    assert client.get("/api/courses/ielts-6").json()["tuition_vnd"] == 1990000
+
+
 def test_invalid_token_is_a_guest(client, catalog):
     assert client.get("/api/courses", headers=AUTH).json()["items"][0]["viewer"]["state"] == "guest"
 

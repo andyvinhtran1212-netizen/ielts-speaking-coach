@@ -162,7 +162,7 @@ def test_credit_history_read_error_is_503(client, me):
     ({"reason": "reserve", "feature": "speaking_grading"}, "enrollment_order", "Chấm bài"),
     ({"reason": "reserve", "feature": "short_writing_feedback"}, "enrollment_order", "Nhận xét đoạn viết"),
     ({"reason": "release"}, "enrollment_order", "Hoàn lượt khi chấm lỗi"),
-    ({"reason": "admin_adjust", "note": "Bù lượt chấm lỗi"}, "admin_grant", "Điều chỉnh bởi admin: Bù lượt chấm lỗi"),
+    ({"reason": "admin_adjust", "note": "Bù lượt chấm lỗi"}, "admin_grant", "Điều chỉnh bởi admin"),
     ({"reason": "expire"}, "enrollment_order", "Hết hạn cùng khoá"),
 ])
 def test_label_vi_for_every_reason(row, source, label):

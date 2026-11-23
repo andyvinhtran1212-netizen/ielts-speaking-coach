@@ -153,7 +153,8 @@ def catalog_item(product: dict, viewer: dict) -> dict:
         "short_title": product.get("short_title"),
         "summary": product.get("summary"),
         "status": product["status"],
-        "tuition_vnd": product.get("tuition_vnd"),
+        # FR-002: a coming_soon product has no fee yet, even when one is stored.
+        "tuition_vnd": None if product["status"] == "coming_soon" else product.get("tuition_vnd"),
         "access_days": product.get("access_days"),
         "ai_credits": product.get("ai_credits") or 0,
         "credit_valid_days": product.get("credit_valid_days"),

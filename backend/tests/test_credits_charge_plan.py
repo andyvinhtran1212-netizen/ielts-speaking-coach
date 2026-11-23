@@ -234,6 +234,80 @@ def test_reserve_past_the_free_regrade_charges_a_separate_answer(monkeypatch):
     assert calls[1][1]["p_request_key"] == "sub-abcdefgh"
 
 
+@pytest.mark.parametrize("hold_status,code", [("open", "grading_in_progress"), ("committed", "already_graded")])
+def test_paid_regrade_sent_twice_replays_instead_of_conflicting(monkeypatch, hold_status, code):
+    """Codex P2 / CR B2 on 37de4c62. The first call is charged as
+    speaking_response '<s>:<q>:r1' under the caller's key; the identical retry
+    (speaking_cluster again) meets that reservation in fn_credit_reserve and
+    gets request_key_conflict. The wrapper maps it back to the RPC's replay."""
+    sid, qid = "55555555-5555-5555-5555-555555555555", "66666666-6666-6666-6666-666666666666"
+    reservations = {}
+    answers = [{"status": "regrade_limit", "regrade_count": 1},
+               {"status": "reserved", "reservation_id": "r9"},
+               {"status": "request_key_conflict", "reservation_id": "r9"}]
+
+    def rpc(name, params):
+        query = MagicMock()
+        answer = answers.pop(0)
+        if answer["status"] == "reserved":
+            reservations["r9"] = {"user_id": "u1", "resource_type": params["p_resource_type"],
+                                  "resource_id": params["p_resource_id"], "status": "open"}
+        query.execute.return_value.data = answer
+        return query
+
+    client = MagicMock()
+    client.rpc.side_effect = rpc
+    monkeypatch.setattr(credits, "supabase_admin", client)
+    monkeypatch.setattr(credits, "fetch_reservation", lambda rid: reservations.get(rid))
+
+    def send():
+        return asyncio.run(credits.reserve("u1", "speaking_grading", request_key="sub-abcdefgh",
+                                           resource_type="speaking_cluster", resource_id=f"{sid}:p1:q{qid}",
+                                           ttl_seconds=600))
+
+    assert send().reservation_id == "r9"
+    reservations["r9"]["status"] = hold_status
+    with pytest.raises(credits.CreditReplay) as info:
+        send()
+    assert info.value.code == code and info.value.status_code == 409
+
+
+@pytest.mark.parametrize("row", [
+    None,                                                              # gone
+    {"user_id": "u2", "resource_type": "speaking_response",
+     "resource_id": "55555555-5555-5555-5555-555555555555:66666666-6666-6666-6666-666666666666:r1",
+     "status": "open"},                                                # someone else's
+    {"user_id": "u1", "resource_type": "speaking_response",
+     "resource_id": "55555555-5555-5555-5555-555555555555:77777777-7777-7777-7777-777777777777:r1",
+     "status": "open"},                                                # another question
+    {"user_id": "u1", "resource_type": "writing_essay", "resource_id": "x", "status": "open"},
+    {"user_id": "u1", "resource_type": "speaking_response",
+     "resource_id": "55555555-5555-5555-5555-555555555555:66666666-6666-6666-6666-666666666666:r1",
+     "status": "released"},                                            # a released hold stays a conflict
+])
+def test_other_cluster_conflicts_stay_conflicts(monkeypatch, row):
+    sid, qid = "55555555-5555-5555-5555-555555555555", "66666666-6666-6666-6666-666666666666"
+    _rpc_returning(monkeypatch, {"status": "request_key_conflict", "reservation_id": "r9"})
+    monkeypatch.setattr(credits, "fetch_reservation", lambda rid: row)
+    with pytest.raises(credits.CreditRefused) as info:
+        asyncio.run(credits.reserve("u1", "speaking_grading", request_key="sub-abcdefgh",
+                                    resource_type="speaking_cluster", resource_id=f"{sid}:p1:q{qid}",
+                                    ttl_seconds=600))
+    assert info.value.code == "request_key_conflict"
+
+
+def test_paid_regrade_replay_lookup_failure_is_unavailable(monkeypatch):
+    _rpc_returning(monkeypatch, {"status": "request_key_conflict", "reservation_id": "r9"})
+
+    def broken(rid):
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(credits, "fetch_reservation", broken)
+    with pytest.raises(credits.CreditUnavailable):
+        asyncio.run(credits.reserve("u1", "speaking_grading", request_key="sub-abcdefgh",
+                                    resource_type="speaking_cluster", resource_id="s:p1:qq", ttl_seconds=600))
+
+
 def test_commit_release_and_release_if_open(monkeypatch, caplog):
     calls = _rpc_returning(monkeypatch, {"status": "committed"})
     hold = credits.CreditHold(reservation_id="r1")
@@ -270,3 +344,83 @@ def test_is_enabled_strict_raises_on_lookup_error_and_shares_the_cache(monkeypat
     monkeypatch.setattr(runtime_flags, "supabase_admin", ok)
     assert runtime_flags.is_enabled_strict("credit_metering") is False  # no row → default off
     runtime_flags.clear_cache()
+
+
+# ── The same paid re-grade, twice, against the real 384 RPC ───────────────
+# (Codex P2 on 37de4c62 asked for this against fn_credit_reserve itself.)
+
+from tests.test_migration_384_credit_ledger_enrollment_rpcs import pg  # noqa: E402,F401  (PG fixture)
+
+
+class _PgClient:
+    """``supabase_admin.rpc(name, params).execute().data`` on the test cluster.
+    The wrapper calls it from a worker thread; the query runs on the test loop."""
+
+    def __init__(self, harness, loop):
+        self.harness, self.loop = harness, loop
+
+    def _run(self, coro):
+        return asyncio.run_coroutine_threadsafe(coro, self.loop).result(timeout=10)
+
+    def rpc(self, name, params):
+        harness = self.harness
+        args = ", ".join(f"{k} => ${i}" for i, k in enumerate(params, start=1))
+        values = list(params.values())
+        run = self._run
+
+        class _Query:
+            def execute(self):
+                result = MagicMock()
+                result.data = run(_call())
+                return result
+
+        async def _call():
+            import json as _json
+            return _json.loads(await harness.con.fetchval(f"SELECT {name}({args})", *values))
+
+        return _Query()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("settle", ["open", "commit"])
+async def test_paid_regrade_twice_against_fn_credit_reserve(pg, monkeypatch, settle):  # noqa: F811
+    from uuid import uuid4
+
+    user = await pg.user()
+    await pg.entitlement(user, await pg.product(), credits=5)
+    sid = await pg.session(user)
+    q = uuid4()
+    resource = f"{sid}:p1:q{q}"
+    # First grade (reserved) and the one free re-grade (covered) of the question.
+    assert (await pg.reserve(user, "speaking_cluster", resource))["status"] == "reserved"
+    assert (await pg.reserve(user, "speaking_cluster", resource))["status"] == "covered"
+
+    loop = asyncio.get_running_loop()
+    client = _PgClient(pg, loop)
+    monkeypatch.setattr(credits, "supabase_admin", client)
+
+    async def fetch(rid):
+        row = await pg.con.fetchrow(
+            "SELECT user_id::text, resource_type, resource_id, status FROM credit_reservations WHERE id = $1::uuid",
+            rid)
+        return dict(row) if row else None
+
+    monkeypatch.setattr(credits, "fetch_reservation", lambda rid: client._run(fetch(rid)))
+
+    async def send():
+        return await credits.reserve(str(user), "speaking_grading", request_key="paid-regrade-key",
+                                     resource_type="speaking_cluster", resource_id=resource, ttl_seconds=600)
+
+    hold = await send()  # past the free re-grade: charged as its own answer
+    assert hold.reservation_id and not hold.covered
+    row = await fetch(hold.reservation_id)
+    assert (row["resource_type"], row["resource_id"]) == ("speaking_response", f"{sid}:{q}:r1")
+    # Without the fix the RPC's request_key_conflict reached the caller here.
+    raw = await pg.reserve(user, "speaking_cluster", resource, key="paid-regrade-key")
+    assert raw["status"] == "request_key_conflict"
+    if settle == "commit":
+        await hold.commit()
+    with pytest.raises(credits.CreditReplay) as info:
+        await send()
+    assert info.value.code == ("already_graded" if settle == "commit" else "grading_in_progress")
+    assert await pg.con.fetchval("SELECT count(*) FROM credit_reservations WHERE request_key = 'paid-regrade-key'") == 1

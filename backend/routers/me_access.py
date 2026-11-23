@@ -198,13 +198,17 @@ def label_vi(row: dict, source: Optional[str]) -> str:
         match = _PERCENT_RE.search(row.get("note") or "")
         if match and int(match.group(1)) < 100:
             label += f" ({int(match.group(1))}%)"
-    if reason == "admin_adjust" and (row.get("note") or "").strip():
-        label += f": {row['note'].strip()}"
+    # admin_adjust / grant_extra carry the admin's words in `note`, not here
+    # (CR nit on 37de4c62: the note was shown twice).
     return label
 
 
 def build_credit_history(ledger: list[dict], sources: dict[str, dict], courses: dict[str, dict],
                          balance_total: int, limit: int, cursor: Optional[int]) -> dict:
+    """``balance`` is the usable balance (``fn_credit_balance.total``); each
+    ``balance_after`` is the raw running sum of the ledger. They differ while a
+    lapsed entitlement or carry has no expire row yet, or a grant is not usable
+    yet (a renewal that starts later): show ``balance`` as "còn dùng được"."""
     running = 0
     enriched = []
     for row in ledger:

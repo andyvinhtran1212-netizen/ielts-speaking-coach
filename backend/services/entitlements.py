@@ -215,12 +215,18 @@ def has_course_access(user_id: UUID | str, course_id: UUID | str) -> bool:
 
 def has_course_entitlement(user_id: UUID | str, course_id: UUID | str,
                            kinds: Optional[Iterable[str]] = None) -> bool:
-    """Only ``entitlements`` rows that are active and not expired (FR-009,
-    plan 5.18): a member of a legacy-code class has access but no
-    entitlement."""
+    """Only ``entitlements`` rows that are active, started and not expired
+    (FR-009, plan 5.18): a member of a legacy-code class has access but no
+    entitlement, and a renewal that starts later is not an entitlement yet."""
     now = datetime.now(timezone.utc)
+
+    def started(row: dict) -> bool:
+        starts = parse_ts(row.get("starts_at"))
+        return starts is None or starts <= now
+
     rows = [r for r in fetch_entitlement_rows(str(user_id))
-            if str(r.get("course_id")) == str(course_id) and entitlement_state(r, now) == "active"]
+            if str(r.get("course_id")) == str(course_id) and entitlement_state(r, now) == "active"
+            and started(r)]
     if not rows:
         return False
     if kinds is None:

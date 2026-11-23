@@ -111,6 +111,10 @@ def test_has_course_entitlement_only_active_rows_and_kinds(monkeypatch):
     assert ent.has_course_entitlement("u", COURSE) is True
     assert ent.has_course_entitlement("u", COURSE, kinds=["class", "repractice"]) is True
     assert ent.has_course_entitlement("u", COURSE, kinds=["online"]) is False
+    # CR L1 on 37de4c62: a renewal or scheduled grant that starts later is not
+    # an entitlement yet, like has_course_access.
+    _patch(monkeypatch, rows=[_row(CLASS, starts=2, expires=40)])
+    assert ent.has_course_entitlement("u", COURSE) is False
 
 
 def test_has_course_access_ignores_expired_and_not_started(monkeypatch):
