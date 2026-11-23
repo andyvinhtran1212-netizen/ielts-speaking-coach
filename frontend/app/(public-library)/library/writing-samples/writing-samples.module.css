@@ -115,8 +115,11 @@ a.rowLink:hover .title { text-decoration: underline; }
   text-overflow: ellipsis;
 }
 .kind,
-.topic { font-size: var(--av2-fs-14); }
+.topic,
+.mine { font-size: var(--av2-fs-14); }
 .topic { color: var(--av2-muted); }
+/* "Của bạn" (FR-060): the marks, always in words. */
+.mine { color: var(--av2-accent); font-weight: var(--av2-fw-strong); }
 
 .skeletonRow { padding: var(--av2-space-4) 0; }
 .skeletonBar {
@@ -134,6 +137,9 @@ a.rowLink:hover .title { text-decoration: underline; }
   .rowLink { grid-template-columns: 32px minmax(0, 1fr) 150px; }
   .head span:last-child,
   .topic { display: none; }
+  .head.withMine,
+  .rowLink.withMine { grid-template-columns: 32px minmax(0, 1fr) 150px 96px; }
+  .head.withMine span:last-child { display: inline; }
 }
 
 @media (max-width: 767px) {
@@ -158,6 +164,8 @@ a.rowLink:hover .title { text-decoration: underline; }
   .rowLink { grid-template-columns: auto minmax(0, 1fr); gap: var(--av2-space-1) var(--av2-space-3); }
   .main { grid-column: 1 / -1; grid-row: 2; }
   .kind { grid-column: 2; grid-row: 1; color: var(--av2-muted); font-size: var(--av2-fs-13); }
+  .mine { grid-column: 1 / -1; grid-row: 3; font-size: var(--av2-fs-13); }
+  .mine:empty { display: none; }
   .no { font-size: var(--av2-fs-13); }
   .prompt {
     display: -webkit-box;

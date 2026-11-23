@@ -7,11 +7,15 @@
 // runs, the list area keeps exactly 12 placeholder rows so the page does not
 // jump (FR-011). The search box waits 300 ms after the last keystroke
 // (FR-010). Every filter change goes back to page 1; Task 1 disables and
-// drops the question type.
+// drops the question type. A signed-in reader also gets the "Của bạn"
+// column (T016, FR-060): their own "Đã đọc" / "Đã lưu" marks, always in
+// words, in place of the topic column (sheet BaiMauWritingDanhSach §4).
 import { useEffect, useId, useRef, useState, useTransition, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { Button, PageState, Pagination } from '@/components/ui';
+import { MARKS_LOAD_ERROR, useLibraryMarks } from '@/components/library/use-library-marks';
+import { useAuth } from '@/lib/auth/auth-provider';
 import {
   PAGE_SIZE,
   QUESTION_TYPES,
@@ -101,6 +105,11 @@ function plural(count: number | undefined): string {
 
 export function WritingSamplesBrowser({ query, data, notice = null, detailLive }: Props) {
   const router = useRouter();
+  const { status: authStatus } = useAuth();
+  const marks = useLibraryMarks('writing_sample', { signedIn: authStatus === 'signed-in' });
+  // The column shows once the reader is signed in, and goes away if the
+  // server ends the session (`signed-out`) or never had one (`idle`).
+  const mine = marks.status === 'loading' || marks.status === 'ready' || marks.status === 'error';
   const [pending, startTransition] = useTransition();
   // What the filters show: the server's query, or the change being applied.
   const [shown, setShown] = useState<ListQuery>(query);
@@ -204,15 +213,24 @@ export function WritingSamplesBrowser({ query, data, notice = null, detailLive }
   } else {
     list = (
       <>
-        <div className={styles.head} aria-hidden="true">
+        {marks.status === 'error' ? (
+          <p role="status" className={styles.notice}>
+            {MARKS_LOAD_ERROR}{' '}
+            <button type="button" className={styles.clearAll} onClick={marks.reload}>Thử lại</button>
+          </p>
+        ) : null}
+        <div className={mine ? `${styles.head} ${styles.withMine}` : styles.head} aria-hidden="true">
           <span>Số</span>
           <span>Tiêu đề · đề bài</span>
           <span>Dạng đề</span>
-          <span>Chủ đề</span>
+          <span>{mine ? 'Của bạn' : 'Chủ đề'}</span>
         </div>
         <ol className={styles.rows} start={rowNumber(data.page, 0)}>
           {data.items.map((item, index) => {
             const kind = item.task === 'task1' ? 'Task 1' : item.question_type_label ?? '';
+            const read = mine && marks.has(item.slug, 'read');
+            const saved = mine && marks.has(item.slug, 'saved');
+            const words = [saved ? 'Đã lưu' : null, read ? 'Đã đọc' : null].filter(Boolean);
             const body = (
               <>
                 <span className={styles.no}>{rowNumber(data.page, index)}</span>
@@ -221,14 +239,16 @@ export function WritingSamplesBrowser({ query, data, notice = null, detailLive }
                   {item.prompt_text ? <span lang="en" className={styles.prompt}>{item.prompt_text}</span> : null}
                 </span>
                 <span lang="en" className={styles.kind}>{kind}</span>
-                <span className={styles.topic}>{topicLabel(item.topic_slug) ?? ''}</span>
+                {mine
+                  ? <span className={styles.mine}>{words.join(' · ')}</span>
+                  : <span className={styles.topic}>{topicLabel(item.topic_slug) ?? ''}</span>}
               </>
             );
             return (
               <li key={item.slug} className={styles.row}>
                 {detailLive
-                  ? <a className={styles.rowLink} href={`/library/writing-samples/${encodeURIComponent(item.slug)}`}>{body}</a>
-                  : <div className={styles.rowLink}>{body}</div>}
+                  ? <a className={mine ? `${styles.rowLink} ${styles.withMine}` : styles.rowLink} href={`/library/writing-samples/${encodeURIComponent(item.slug)}`}>{body}</a>
+                  : <div className={mine ? `${styles.rowLink} ${styles.withMine}` : styles.rowLink}>{body}</div>}
               </li>
             );
           })}
