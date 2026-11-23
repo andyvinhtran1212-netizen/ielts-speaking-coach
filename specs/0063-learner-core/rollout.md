@@ -26,7 +26,7 @@
 - API: revert PR T13; route mới không có người gọi nào ngoài cây mới (cây mới ẩn khi cờ tắt).
 - Cờ: revert PR T05; frontend đọc mềm nên thiếu trường = false.
 - Lộ trình, Luyện tập, Thi thử (bản sửa đổi 1): tắt `runtime_flags('learner_v2')` đưa người bật lẻ về trang tạm; revert PR T15/T16 đưa registry về `planned` và thanh 5 mục về `NAV_PLAN.today`. Hai API mới chỉ đọc, không dữ liệu nào phải sửa.
-- Tài khoản chưa kích hoạt (bản sửa đổi 2): tắt `runtime_flags('learner_v2')` đưa họ về `/login` như hôm nay trong 15 giây (cổng đọc `check-active` mỗi lần tải trang của tab chưa có dấu đã kích hoạt); revert PR T26 bỏ hai dòng miễn cổng và quyết định `inactive_open` cùng lúc. `PATCH /auth/profile` còn tắt được riêng bằng cờ `profile_update` hiện có.
+- Tài khoản chưa kích hoạt (bản sửa đổi 2): tắt `runtime_flags('learner_v2')`: sau bộ đệm cờ 15 giây, lần tải trang kế tiếp của tài khoản chưa kích hoạt (tab của họ không có dấu đã kích hoạt nên lần tải nào cũng hỏi `check-active`) đưa họ về `/login` như hôm nay; trang đang mở không bị đẩy ra giữa chừng, còn hai route miễn trả 403 như cổng ngay khi cờ tắt (handler đọc cờ); revert PR T26 bỏ hai dòng miễn cổng và quyết định `inactive_open` cùng lúc. `PATCH /auth/profile` còn tắt được riêng bằng cờ `profile_update` hiện có.
 - Migration: cột nullable, mã cũ không đọc; giữ cột khi revert mã. Chỉ chạy `rollback/<số>_users_today_seen_at.sql` khi anh Andy duyệt, vì mất mốc "lần vào trước" (hệ quả duy nhất: lần sau "Vừa có kết quả" tính lại từ 7 ngày).
 
 ## Observability
