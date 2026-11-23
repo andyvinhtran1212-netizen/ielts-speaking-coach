@@ -49,6 +49,9 @@ Nguồn: gói mục 4.6, 5.6, 5.7, 5.9 (phần T27). Đã đối chiếu với s
 File là `507_essay_regrade_reason_code.sql`. Số 507 được giữ chỗ trong `register.tsv` ngày 23/11 (PR giữ số riêng); PR T21 đổi dòng đó từ `reserved` sang `present`. Dải 420–439 không dùng: 420 đã thuộc LEARNERCORE-0063 và 421 thuộc `review_notes_flag_once`. Có file rollback.
 
 ```sql
+BEGIN;
+SET LOCAL lock_timeout = '5s';
+
 ALTER TABLE public.essay_regrade_requests
   ADD COLUMN IF NOT EXISTS reason_code text
     CONSTRAINT essay_regrade_reason_code_check CHECK (reason_code IN
@@ -71,13 +74,17 @@ BEGIN
 END$$;
 ALTER TABLE public.essay_regrade_requests VALIDATE CONSTRAINT essay_regrade_reason_shape;
 ALTER TABLE public.essay_regrade_requests DROP CONSTRAINT IF EXISTS essay_regrade_reason_length;
+
+COMMIT;
 ```
 
 Khối `DO` theo mẫu mig 085, để chạy lại file không lỗi. `VALIDATE` chạy lại trên ràng buộc đã hợp lệ thì không làm gì. `essay_regrade_reason_length` chỉ bị bỏ sau khi `essay_regrade_reason_shape` đã hợp lệ, nên không có lúc nào bảng thiếu ràng buộc.
 
 - **Thứ tự an toàn:**
   1. Trước khi áp, chạy truy vấn chỉ đọc `SELECT count(*) FROM essay_regrade_requests WHERE char_length(reason) NOT BETWEEN 50 AND 500;` trên staging, rồi trên production trong lần áp được duyệt. Kết quả phải là 0; khác 0 thì dừng và báo anh Andy.
-  2. Áp `ADD CONSTRAINT … NOT VALID` rồi `VALIDATE CONSTRAINT` trong cùng file. Runner chạy cả file trong một giao dịch (`backend/migrations/README.md`), và `ADD COLUMN` ở đầu file đã giữ khoá `ACCESS EXCLUSIVE` tới lúc commit, nên hai lệnh này không rút ngắn thời gian khoá. Lý do giữ cách viết này là để file chạy lại được và `essay_regrade_reason_length` chỉ bị bỏ sau khi ràng buộc mới đã hợp lệ. Bảng nhỏ (mỗi bài tối đa một yêu cầu), nên khoá trong một giao dịch là chấp nhận được; vẫn đặt `lock_timeout` như các file gần đây.
+  2. File **tự bọc** `BEGIN; SET LOCAL lock_timeout = '5s'; … COMMIT;` như mig 384. Runner không bọc giao dịch: `apply_migrations.sh` ghi rõ file "NOT wrapped in a single transaction", và `apply_migration_locked.sql` chỉ `\i` file. Thiếu `BEGIN`/`COMMIT` thì mỗi lệnh tự commit, và `VALIDATE` lỗi sẽ để lại hai cột đã thêm.
+  3. Trong giao dịch đó, `ADD COLUMN` giữ khoá `ACCESS EXCLUSIVE` tới `COMMIT`, nên NOT VALID + VALIDATE không rút ngắn thời gian khoá. Cách viết này giữ lại để file chạy lại được và `essay_regrade_reason_length` chỉ bị bỏ sau khi ràng buộc mới đã hợp lệ. Bảng nhỏ (mỗi bài tối đa một yêu cầu), nên khoá trong một giao dịch là chấp nhận được.
+  4. Test PG của T21: chèn sẵn một dòng `reason` 49 ký tự (bỏ qua ràng buộc cũ bằng `NOT VALID` trong fixture), chạy file, kiểm `VALIDATE` lỗi và bảng không có cột `reason_code`/`note` (cả file lùi).
 - **`reason`** vẫn NOT NULL. Dạng mới lưu vào cột này `"<nhãn tiếng Việt>"`, hoặc `"<nhãn>: <note>"` khi có ghi chú (nhãn dài nhất dưới 60 ký tự, `note` ≤ 300, nên luôn ≤ 500). Như vậy mã cũ và màn admin cũ đọc đủ cả lý do lẫn ghi chú mà không cần hai cột mới.
 - **Lùi không mất dữ liệu (sau HOLD 23/11):** đường lùi chuẩn là **chỉ lùi mã**. Hai cột và `essay_regrade_reason_shape` ở lại. Lý do:
   - mã cũ chỉ ghi `{reason}` 50–500 với `reason_code = NULL`, thoả nhánh đầu của `essay_regrade_reason_shape`;
@@ -122,7 +129,7 @@ Khối `DO` theo mẫu mig 085, để chạy lại file không lỗi. `VALIDATE`
 - **`CreditsEmptyNotice`:**
   - Props: `source: 'online'|'class'`, `canRenew: boolean`, `renewHref?`, `renewCredits?`.
   - Đọc `detail.credit_source` của 402 `insufficient_credits` (`CHƯA KIỂM` tên trường ở G04-T08).
-  - `canRenew` lấy từ `GET /api/me/courses` (`can_renew`, kèm `product_slug`); `renewCredits` là `ai_credits` của sản phẩm công khai theo `product_slug` (`courses_public.py`). Cả hai không lấy từ 402. Chưa tải được thì không hiện nút đăng ký lại.
+  - `canRenew` lấy từ `GET /api/me/courses` (`can_renew`, kèm `product_slug`); `renewCredits` là `ai_credits` của sản phẩm công khai theo `product_slug` (`courses_public.py`). Cả hai không lấy từ 402. `GET /api/me/courses` lỗi hoặc chưa trả: hiện câu chung "Bạn đã hết lượt chấm AI" như khi thiếu `credit_source` (ui-states), không nút đăng ký lại và không câu "Liên hệ Aver…", vì chưa biết khoá có gia hạn được không. Thiếu riêng `ai_credits` thì nút vẫn hiện, bỏ phần "· kèm N lượt".
   - Câu chữ theo FR-055.
   - Khối liên hệ là component của PUBLICSITE-0059 FR-026.
 - **`fixLink(fix, ctx)`:**
