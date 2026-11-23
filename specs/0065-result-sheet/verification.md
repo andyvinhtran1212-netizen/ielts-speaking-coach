@@ -7,9 +7,9 @@ Mọi dòng đang `PENDING`, vì spec còn ở trạng thái `draft`. Bằng ch�
 | Requirement | Evidence | Result |
 | --- | --- | --- |
 | FR-050 | kind=test; ref=planned React result-next-steps three exits, hidden exit without target; node result-next-step-model order and source failure fallback (T27, T20) | PENDING |
-| FR-051 | kind=test; ref=planned React result-grading-source for band_source ai/teacher/unknown and Speaking always "AI chấm, trả ngay" (T20, T22) | PENDING |
-| FR-052 | kind=test; ref=planned React pending-review: no band, criteria or comments in DOM, aria-current step (T20); journey=staging scenario 3 | PENDING |
-| FR-053 | kind=test; ref=planned pytest old body 201, new body 201, ambiguous 422, other without note 422, note > 300 422, duplicate 409, GET and admin list include reason_code/note; PG CHECK and rollback guard (T21); journey=staging scenario 1, 2 | PENDING |
+| FR-051 | kind=test; ref=planned React result-grading-source six cases review_mode ai_instant/teacher_review/NULL × band_source ai/teacher (AI-band reviewed by teacher → "AI chấm, giáo viên duyệt rồi trả" with estimate line; teacher-changed band → "Giáo viên chấm" without estimate line), unknown hides line, Speaking always "AI chấm, trả ngay" (T20, T22) | PENDING |
+| FR-052 | kind=test; ref=planned React pending-review: no band, criteria or comments in DOM, aria-current step; pending/grading shows "AI đang chấm" with 4 steps (teacher_review/NULL) or 3 steps (ai_instant) and no band (T20); journey=staging scenario 3 | PENDING |
+| FR-053 | kind=test; ref=planned pytest old body 201, old body with padding that is < 50 chars after strip → 422 regrade_reason_invalid (not 500), migration re-run is a no-op, new body 201, ambiguous 422, other without note 422, note > 300 422, duplicate 409, GET and admin list include reason_code/note; PG CHECK and rollback guard (T21); journey=staging scenario 1, 2 | PENDING |
 | FR-054 | kind=test; ref=planned node band-display-model overallLine for assigned 4-skill complete, pending skills, fewer skills, mini test with backend overall → null (T27, T22); journey=staging scenario 4 | PENDING |
 | FR-055 | kind=test; ref=planned React CreditsEmptyNotice class / online can_renew true / online can_renew false, no "mua" or "giá" (T27) | PENDING |
 | FR-056 | kind=test; ref=planned node fixLink mapped/unmapped and every grammar slug exists in backend/content (T27) | PENDING |

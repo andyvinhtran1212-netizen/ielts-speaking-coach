@@ -32,7 +32,7 @@ Yêu cầu chấm lại Writing hiện là một ô chữ 50–500 ký tự, xư
   - `mock_exam_service.overall_readiness` với `MOCK_OVERALL_MIN_SKILLS = 4` (G02-T05).
   - `mock_exams.cohort_id` (mig 145, kỳ được giao) và `mock_exam_sittings.assigned_skills` (mig 154).
 - Chưa có:
-  - Cột đoạn chấm phát âm của G04-T13 (mig 385, mới giữ chỗ).
+  - Cột đoạn chấm phát âm của G04-T13 (mig 502, mới giữ chỗ).
   - `CreditsEmptyNotice`, `fix-link-model`.
 
 **Đánh số.** `FR-07-050…058` của gói được đổi thành `FR-050…FR-058`, giữ nguyên số. Tham chiếu sang spec khác ghi `<SPEC-ID> FR-0NN`.
@@ -70,13 +70,21 @@ Yêu cầu chấm lại Writing hiện là một ô chữ 50–500 ký tự, xư
   - (3) **Bài tiếp**, chọn theo thứ tự: bài giao chưa nộp kế tiếp (`/api/class/my-assignments`), rồi bài tiếp trong lộ trình (`next_lesson` của COURSELESSON-0064), rồi hub của kỹ năng.
 
   Lối "Làm lại" dùng lượt AI thì ghi dòng lượt theo FR-058. Không có đích cho một lối thì ẩn lối đó, không dẫn về trang chung.
-- **FR-051:** Dòng "Nguồn chấm" có một trong các giá trị:
-  - "AI chấm, trả ngay": `band_source = 'ai'` và bài không qua giáo viên.
-  - "AI chấm, giáo viên duyệt rồi trả": `band_source = 'teacher'`.
-  - "Giáo viên chấm": Speaking thi thử chấm từ bản ghi.
+- **FR-051:** Dòng "Nguồn chấm" ghép từ hai trục độc lập:
+  - **Đường trả bài** (Writing), lấy từ `writing_essays.review_mode` (mig 384), không lấy từ `band_source`:
+    - `ai_instant` → "trả ngay";
+    - `teacher_review` hoặc `NULL` (luồng hiện có của lớp và admin, mọi bài đều qua giáo viên trước `delivered`) → "giáo viên duyệt rồi trả".
+  - **Người đặt band**, lấy từ `band_source` (`_band_source` ở `writing_student.py`): `ai` là band giống hệt band AI, kể cả khi giáo viên đã duyệt mà không đổi; `teacher` là band giáo viên đã đổi.
+  - Ghép lại:
+    - `ai` + trả ngay → "AI chấm, trả ngay";
+    - `ai` + qua giáo viên → "AI chấm, giáo viên duyệt rồi trả";
+    - `teacher` (mọi đường) → "Giáo viên chấm";
+    - Speaking thi thử chấm từ bản ghi → "Giáo viên chấm".
 
-  Dòng có kèm nguồn quyền ("khoá online" hoặc "lớp", từ `credit_source` hoặc quyền dùng để chấm) và câu "Đây là điểm ước lượng để luyện tập, không phải điểm thi." Speaking luyện tập luôn là "AI chấm, trả ngay", kể cả bài của lớp. `band_source = 'unknown'` thì không hiện dòng.
-- **FR-052:** Bài Writing đang chờ giáo viên duyệt (`status != 'delivered'` và `review_mode = 'teacher_review'`, hoặc bài của lớp theo luồng duyệt hiện có) không hiện band, tiêu chí hay nhận xét. Phiếu hiện tiến trình 4 bước: Đã nộp · AI đã chấm · Giáo viên đang duyệt · Trả kết quả, đánh dấu đúng bước hiện tại. Kèm câu "Bạn sẽ nhận thông báo khi có kết quả." Speaking không có trạng thái chờ duyệt.
+  Dòng có kèm nguồn quyền ("khoá online" hoặc "lớp", từ `credit_source` hoặc quyền dùng để chấm). Câu "Đây là điểm ước lượng để luyện tập, không phải điểm thi." chỉ hiện khi band là của AI (`band_source = 'ai'`, hoặc Speaking luyện tập). Speaking luyện tập luôn là "AI chấm, trả ngay", kể cả bài của lớp. `band_source = 'unknown'` thì không hiện dòng.
+- **FR-052:** Bài Writing đang chờ giáo viên duyệt (`status != 'delivered'` và `review_mode = 'teacher_review'`, hoặc bài của lớp theo luồng duyệt hiện có) không hiện band, tiêu chí hay nhận xét. Phiếu hiện tiến trình 4 bước: Đã nộp · AI đã chấm · Giáo viên đang duyệt · Trả kết quả, đánh dấu đúng bước hiện tại. Kèm câu "Bạn sẽ nhận thông báo khi có kết quả."
+
+  Bài AI đang chấm (`status` ∈ `pending`, `grading`) cũng không hiện band, tiêu chí hay nhận xét, với mọi `review_mode`. Bước hiện tại là "AI đang chấm" (`teacher_review`/`NULL`: 4 bước như trên; `ai_instant`: 3 bước Đã nộp · AI đang chấm · Trả kết quả), kèm câu "AI đang chấm bài, thường xong trong vài phút." Chấm lỗi thì dùng trạng thái lỗi hiện có của phiếu. Speaking không có trạng thái chờ duyệt.
 - **FR-053:** Yêu cầu chấm lại Writing:
   - Học viên chọn một trong 5 lý do theo tờ KetQuaWriting:
     - `score_lower` "Điểm thấp hơn mình nghĩ"
@@ -101,7 +109,7 @@ Yêu cầu chấm lại Writing hiện là một ô chữ 50–500 ký tự, xư
 
   Không có chữ "mua" hay "giá". Bài đang viết hoặc ghi âm được lưu nháp và không trừ lượt.
 - **FR-056:** Mỗi dòng "việc nên sửa" trên phiếu Writing và Speaking có một liên kết học khi tìm được đích. Đích là một trong ba: bài Grammar Wiki (mục chữa lỗi), mục từ vựng của Thư viện, hoặc bài trong lộ trình. Liên kết dựng bằng `frontend/lib/fix-link-model.mjs::fixLink(fix, ctx) -> {href, label} | null`, từ bảng dữ liệu `frontend/lib/fix-link-map.json`. Không tìm được đích thì dòng không có liên kết. Slug Grammar trong bảng phải tồn tại; test kiểm với danh sách bài của Wiki.
-- **FR-057:** Phiếu Speaking hiện đoạn được chấm phát âm, đọc từ dữ liệu của G04-T13 (COURSEACCESS-0055 mig 385):
+- **FR-057:** Phiếu Speaking hiện đoạn được chấm phát âm, đọc từ dữ liệu của G04-T13 (COURSEACCESS-0055 mig 502):
   - `scope = 'segment'`: hiện "Phát âm được chấm trên một đoạn trích N giây (từ m:ss đến m:ss); ba tiêu chí còn lại chấm trên toàn bộ bài." và nút "Nghe đoạn được chấm phát âm". Nút phát bản ghi gốc từ `start_s` tới `end_s`, qua URL ký sau khi kiểm quyền (`recording_audio.py`).
   - `scope = 'full'`: hiện "Phát âm được chấm trên toàn bộ câu trả lời."
   - `scope = 'not_sampled'`: hiện câu máy chủ trả, không hiện band phát âm cho câu đó.
@@ -175,7 +183,7 @@ Yêu cầu chấm lại Writing hiện là một ô chữ 50–500 ký tự, xư
 - COURSEACCESS-0055 (G04):
   - 402 `insufficient_credits` có `credit_source`, `can_renew`, `ai_credits`, số dư (G04-T05/T08).
   - `review_mode` (mig 383).
-  - Đoạn chấm phát âm (G04-T13, mig 385).
+  - Đoạn chấm phát âm (G04-T13, mig 502).
   - Chưa có thì khối hoặc dòng tương ứng ẩn.
 - COURSELESSON-0064 `next_lesson` cho lối "Bài tiếp". LEARNERCORE-0063 cờ `learner_v2`: cây phiếu mới vẽ khi cờ bật, cây cũ giữ nguyên khi tắt.
 - LEARNERNAV-0062: URL phiếu, trang cha.

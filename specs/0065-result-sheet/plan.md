@@ -56,12 +56,24 @@ ALTER TABLE public.essay_regrade_requests
   ADD COLUMN IF NOT EXISTS note text
     CONSTRAINT essay_regrade_note_length CHECK (note IS NULL OR char_length(note) <= 300);
 
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'essay_regrade_reason_shape'
+      AND conrelid = 'public.essay_regrade_requests'::regclass
+  ) THEN
+    ALTER TABLE public.essay_regrade_requests ADD CONSTRAINT essay_regrade_reason_shape CHECK (
+      (reason_code IS NULL AND char_length(reason) BETWEEN 50 AND 500)
+      OR (reason_code IS NOT NULL AND char_length(reason) BETWEEN 1 AND 500
+          AND (reason_code <> 'other' OR char_length(btrim(coalesce(note,''))) > 0))) NOT VALID;
+  END IF;
+END$$;
+ALTER TABLE public.essay_regrade_requests VALIDATE CONSTRAINT essay_regrade_reason_shape;
 ALTER TABLE public.essay_regrade_requests DROP CONSTRAINT IF EXISTS essay_regrade_reason_length;
-ALTER TABLE public.essay_regrade_requests ADD CONSTRAINT essay_regrade_reason_shape CHECK (
-  (reason_code IS NULL AND char_length(reason) BETWEEN 50 AND 500)
-  OR (reason_code IS NOT NULL AND char_length(reason) BETWEEN 1 AND 500
-      AND (reason_code <> 'other' OR char_length(btrim(coalesce(note,''))) > 0)));
 ```
+
+Khối `DO` theo mẫu mig 085, để chạy lại file không lỗi. `VALIDATE` chạy lại trên ràng buộc đã hợp lệ thì không làm gì. `essay_regrade_reason_length` chỉ bị bỏ sau khi `essay_regrade_reason_shape` đã hợp lệ, nên không có lúc nào bảng thiếu ràng buộc.
 
 - **Thứ tự an toàn:**
   1. Trước khi áp, chạy truy vấn chỉ đọc `SELECT count(*) FROM essay_regrade_requests WHERE char_length(reason) NOT BETWEEN 50 AND 500;` trên staging, rồi trên production trong lần áp được duyệt. Kết quả phải là 0; khác 0 thì dừng và báo anh Andy.
@@ -83,7 +95,7 @@ ALTER TABLE public.essay_regrade_requests ADD CONSTRAINT essay_regrade_reason_sh
 | bài chưa `delivered` | 409 (như hôm nay) |
 | đã có yêu cầu | 409 "Bạn đã gửi yêu cầu chấm lại cho bài này rồi." (như hôm nay) |
 
-- **Model:** `RegradeRequestBody` dùng `model_validator(mode='after')` để phân biệt hai dạng. Lỗi trả theo khuôn `{"detail":{"error_code","message"}}` hiện có.
+- **Model:** `RegradeRequestBody` dùng `model_validator(mode='after')` để phân biệt hai dạng. Bỏ `Field(min_length=50, max_length=500)` của `reason`. Validator cắt hai đầu **trước**, rồi mới kiểm độ dài 50–500; sai thì trả 422 `regrade_reason_invalid`. Như vậy chuỗi có khoảng trắng ở hai đầu, ngắn hơn 50 sau khi cắt, không bao giờ tới DB, nên CHECK không gây 500. Lỗi trả theo khuôn `{"detail":{"error_code","message"}}` hiện có.
 - **`GET …/regrade-request`:** `select` thêm `reason_code, note`. Hình `{"request": {...}|null}` giữ nguyên.
 - **Admin:** list và detail của `admin_writing_regrade.py` trả thêm `reason_code` (kèm nhãn), `note`. Màn admin hiện "Lý do: <nhãn> · Ghi chú: <note>". Dòng cũ hiện `reason` như hôm nay. Không đổi accept/reject/fulfil.
 - **Phạm vi:** không thêm route Speaking.
@@ -99,7 +111,7 @@ ALTER TABLE public.essay_regrade_requests ADD CONSTRAINT essay_regrade_reason_sh
   Lỗi một nguồn thì bỏ qua và dùng nguồn kế tiếp.
 - **"Xem lại":** dùng neo `#annotations` của phiếu. Bài không có chú thích thì ẩn.
 - **"Làm lại":** đích là luồng tạo bài mới cùng đề, theo route hiện có của từng kỹ năng. `CHƯA KIỂM` ở T20 và T22: đường "làm lại cùng đề" của Writing và Speaking.
-- **Nguồn chấm:** `band_source` (`ai`, `teacher`, `unknown`) cộng `review_mode` của G04 (`ai_instant`, `teacher_review`, hoặc `legacy`). Nguồn quyền "khoá online" hay "lớp" lấy từ `credit_source` mà G04 trả trên phiếu (`CHƯA KIỂM` tên trường ở G04-T08). Thiếu thì chỉ hiện câu nguồn chấm, không đoán nguồn quyền.
+- **Nguồn chấm:** hai trục như FR-051. Đường trả bài lấy từ `writing_essays.review_mode` (`ai_instant`; `teacher_review` hoặc `NULL` là qua giáo viên). Người đặt band lấy từ `band_source` (`ai`, `teacher`, `unknown`). Phiếu Writing trả thêm `review_mode` (`CHƯA KIỂM` ở T20: không có đường nào giao bài `NULL` mà bỏ qua giáo viên). Câu "ước lượng" chỉ hiện khi `band_source = 'ai'`. Nguồn quyền "khoá online" hay "lớp" lấy từ `credit_source` mà G04 trả trên phiếu (`CHƯA KIỂM` tên trường ở G04-T08). Thiếu thì chỉ hiện câu nguồn chấm, không đoán nguồn quyền.
 
 ### 5.5 `CreditsEmptyNotice` và `fixLink` (T27)
 
@@ -116,7 +128,7 @@ ALTER TABLE public.essay_regrade_requests ADD CONSTRAINT essay_regrade_reason_sh
 
 ### 5.6 Đoạn chấm phát âm và dòng lượt (T22)
 
-- **Đoạn chấm phát âm:** đọc `pronunciation.sample = {scope, start_s, end_s, seconds, message}` của G04-T13 (COURSEACCESS-0055 mig 385, `services/pronunciation_sampling.py`). Trường chưa có thì không hiện dòng.
+- **Đoạn chấm phát âm:** đọc `pronunciation.sample = {scope, start_s, end_s, seconds, message}` của G04-T13 (COURSEACCESS-0055 mig 502, `services/pronunciation_sampling.py`). Trường chưa có thì không hiện dòng.
   - Nút nghe dùng URL ký từ route phát lại hiện có (`recording_audio.py`, ký sau khi kiểm quyền), và đặt `currentTime = start_s`, dừng ở `end_s`.
   - Bản ghi quá hạn giữ (route trả 410 hoặc 404) thì ẩn nút.
 - **Dòng lượt:** số dư lấy từ API số dư của G04 (`GET /api/me/credits`, `CHƯA KIỂM` tên). Số `k` theo bảng đơn vị ở FR-058. Lỗi hoặc không đo lượt thì ẩn dòng.
