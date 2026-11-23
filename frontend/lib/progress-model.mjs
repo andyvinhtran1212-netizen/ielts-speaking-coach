@@ -55,10 +55,12 @@ export function listeningRow(raw) {
   const done = raw.programmes.reduce((sum, p) => sum + count(p?.completed_form_count), 0);
   const recent = Array.isArray(raw.recent) ? raw.recent : [];
   const latest = recent.find((r) => r && count(r.checked_count) > 0);
-  return {
+  const facts = {
     done: done ? `${done} bài trong lộ trình nghe` : 'Chưa làm bài nào trong lộ trình nghe',
     result: latest ? `Đúng ${count(latest.correct_count)} trên ${count(latest.checked_count)} câu` : null,
   };
+  // Some programmes could not be read: say the numbers may be short.
+  return raw.partial_data === true ? { ...facts, warning: 'Một phần số liệu Listening chưa tải được, số trên có thể thiếu.' } : facts;
 }
 
 /** `GET /api/quiz/progress?skill_area=vocab` → row facts. */

@@ -38,9 +38,11 @@ describe('account model', () => {
       item({ course_code: 'rev', state: 'revoked' }),
       item({ course_code: 'cls', kind: 'class' }),
       item({ course_code: 'rep', kind: 'repractice' }),
+      item({ course_code: 'mem', kind: null, source: 'class_membership', days_left: 30 }),
+      item({ course_code: 'leg', kind: undefined, source: 'legacy_access_code', days_left: null }),
     ], credits: { total: 3, by_kind: { online: 2, class: 1 } } });
     assert.deepEqual(c.online.map((x) => x.code), ['soon', 'unl', 'new', 'old']);
-    assert.deepEqual(c.classes.map((x) => x.code), ['cls', 'rep']);
+    assert.deepEqual(c.classes.map((x) => x.code), ['cls', 'rep', 'mem', 'leg']);
     assert.equal(c.total, 3);
   });
 
@@ -96,7 +98,8 @@ describe('progress model (FR-077)', () => {
     assert.deepEqual(listeningRow({ programmes: [], recent: [{ checked_count: 0, correct_count: 0 }] }), { done: 'Chưa làm bài nào trong lộ trình nghe', result: null });
     assert.deepEqual(listeningRow({ programmes: [{ completed_form_count: 2 }], recent: [{ checked_count: 8, correct_count: 5 }] }), { done: '2 bài trong lộ trình nghe', result: 'Đúng 5 trên 8 câu' });
     assert.equal(listeningRow({ programmes: [], recent: [], partial_data: true }), null);
-    assert.deepEqual(listeningRow({ programmes: [{ completed_form_count: 1 }], recent: [], partial_data: true }), { done: '1 bài trong lộ trình nghe', result: null });
+    assert.deepEqual(listeningRow({ programmes: [{ completed_form_count: 1 }], recent: [], partial_data: true }), { done: '1 bài trong lộ trình nghe', result: null, warning: 'Một phần số liệu Listening chưa tải được, số trên có thể thiếu.' });
+    assert.equal(listeningRow({ programmes: [{ completed_form_count: 1 }], recent: [] }).warning, undefined);
     assert.deepEqual(vocabRow({ totals: { sessions: 0 }, recent_sessions: [] }), { done: 'Chưa luyện lượt nào', result: null });
     assert.equal(vocabRow({}), null);
   });
