@@ -6,7 +6,8 @@ the stored group states; this module turns rows into groups.
 * ``errors`` (``error_logs``): one group per
   ``sha1(source|level|path with uuids/numbers → :id|message with uuids,
   numbers and quoted strings → ?)``, so two errors that differ only in an id
-  fall into the same group.
+  fall into the same group. An HTTP status code is kept, so "status 500" and
+  "status 404" are two groups.
 * ``grading`` (failed Speaking sessions and responses, the rows the old
   ``/admin/alerts`` page listed): one group per (skill, step, kind of task).
 * ``feedback`` (``user_feedback`` ratings and flags): one group per (skill,
@@ -31,7 +32,11 @@ SOURCES = ("errors", "grading", "feedback")
 _UUID = r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
 _PATH_ID_RE = re.compile(rf"{_UUID}|(?<=/)\d+(?=/|$)")
 _QUOTED_RE = re.compile(r"'[^']*'|\"[^\"]*\"|`[^`]*`|“[^”]*”|‘[^’]*’")
-_MSG_ID_RE = re.compile(rf"{_UUID}|\d+(?:\.\d+)?")
+# An HTTP status after "HTTP"/"status"/"code", or opening the message
+# ("404 Not Found"), is kept: a 500 and a 404 are different incidents.
+_MSG_ID_RE = re.compile(
+    rf"(?P<keep>(?i:\b(?:http|status|code)\b)[\s:=/]*[1-5]\d\d\b(?!\.\d)|^[1-5]\d\d\b(?=\s+\D))"
+    rf"|{_UUID}|\d+(?:\.\d+)?")
 _SPACE_RE = re.compile(r"\s+")
 _MESSAGE_MAX = 500
 _TITLE_MAX = 140
@@ -60,7 +65,7 @@ def normalize_path(url: Optional[str]) -> str:
 
 def normalize_message(message: Optional[str]) -> str:
     text = _QUOTED_RE.sub("?", str(message or ""))
-    text = _MSG_ID_RE.sub("?", text)
+    text = _MSG_ID_RE.sub(lambda m: m.group("keep") or "?", text)
     return _SPACE_RE.sub(" ", text).strip()[:_MESSAGE_MAX]
 
 
@@ -150,11 +155,12 @@ def group_grading(session_errors: Iterable[dict], response_failures: Iterable[tu
     Only Speaking produces these rows today, so the skill is ``speaking``.
     A session-level failure's step is ``failed_step`` (else ``error_code``);
     a response-level failure's step is ``stt`` when transcription failed,
-    else ``grading``.
+    else ``grading``, and its time is the response's own (``recorded_at``, or
+    ``last_regraded_at`` when later), not the session's.
     """
     groups: dict[str, Group] = {}
 
-    def add(step: str, session: dict, record_id: Any, error_code: Optional[str]) -> None:
+    def add(step: str, session: dict, record_id: Any, error_code: Optional[str], at: Optional[str]) -> None:
         kind = grading_kind(session)
         fp = fingerprint("speaking", step, kind)
         group = _collect(groups, fp, lambda: Group(
@@ -164,16 +170,19 @@ def group_grading(session_errors: Iterable[dict], response_failures: Iterable[tu
             technical={"skill": "speaking", "step": step, "kind": kind, "error_codes": []}))
         if error_code and error_code not in group.technical["error_codes"]:
             group.technical["error_codes"].append(error_code)
-        at = session.get("last_error_at") or session.get("started_at")
         group.add(record_id, at, session.get("user_id"), True)
 
     for session in session_errors:
         code = session.get("error_code") or ("grading_failed" if session.get("status") == "grading_failed" else None)
         step = session.get("failed_step") or code or "unknown"
-        add(step, session, f"session:{session.get('id')}", code)
+        add(step, session, f"session:{session.get('id')}", code,
+            session.get("last_error_at") or session.get("started_at"))
     for response, session in response_failures:
         step = "stt" if response.get("stt_status") == "failed" else "grading"
-        add(step, session, f"response:{response.get('id')}", None)
+        # The response's own time (``responses`` has ``recorded_at``, no
+        # ``created_at``; a regrade that failed sets ``last_regraded_at``).
+        times = [str(t) for t in (response.get("recorded_at"), response.get("last_regraded_at")) if t]
+        add(step, session, f"response:{response.get('id')}", None, max(times) if times else None)
     return groups
 
 

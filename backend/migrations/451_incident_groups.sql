@@ -7,8 +7,9 @@
 -- and user_feedback; this migration stores only what a person decides about
 -- a group: Mới · Đang xem · Đã xử lý · Bỏ qua, who claimed it, when it was
 -- closed, and the notes. A group with no row here reads as 'new'. A closed
--- group (resolved/ignored) that gets a new record after resolved_at reads as
--- 'new' again and keeps its notes and claimer.
+-- group (resolved/ignored) whose newest record is newer than last_seen_at
+-- (the newest record the closing person's request was checked against, not
+-- the time of the click) reads as 'new' again and keeps its notes and claimer.
 --
 -- Apply through the advisory-locked runner, staging first. Every apply needs
 -- anh Andy's own typed approval for that window; this PR does not authorize
@@ -35,13 +36,15 @@ CREATE TABLE IF NOT EXISTS public.incident_groups (
     -- When the group was last closed (resolved OR ignored); NULL while open.
     resolved_by uuid,
     resolved_at timestamptz,
-    -- Newest record of the group the deciding person saw.
+    -- Watermark: the newest record of the group the deciding request was
+    -- checked against. A closed group reopens on a record newer than this.
     last_seen_at timestamptz,
     -- Latest note a person wrote (the full history is incident_group_notes).
     note text CHECK (note IS NULL OR char_length(note) <= 2000),
     updated_at timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (source, fingerprint),
-    CHECK ((status IN ('resolved', 'ignored')) = (resolved_at IS NOT NULL))
+    CHECK ((status IN ('resolved', 'ignored')) = (resolved_at IS NOT NULL)),
+    CHECK (status NOT IN ('resolved', 'ignored') OR last_seen_at IS NOT NULL)
 );
 CREATE INDEX IF NOT EXISTS ix_incident_groups_status
     ON public.incident_groups (status, source);
@@ -92,8 +95,11 @@ GRANT SELECT, INSERT ON public.incident_group_notes TO service_role;
 --   claim  : Mới → Đang xem (claimed_by/at = actor, now)
 --   resolve: → Đã xử lý      ignore: → Bỏ qua      reopen: Đã xử lý/Bỏ qua → Mới
 -- The current status is the stored one, except that a closed group whose
--- p_last_seen (newest record, computed by the caller) is after resolved_at is
--- 'new' (auto-reopen); acting on such a group first logs the reopen. Every
+-- p_last_seen (newest record of the snapshot the caller checked) is after the
+-- stored watermark last_seen_at is 'new' (auto-reopen); acting on such a
+-- group first logs the reopen. Closing (resolve, ignore, or a first row with
+-- p_closed_before) needs p_last_seen and stores it as the watermark, so a
+-- record written after the caller's check reopens the group. Every
 -- change adds one auto note; p_note, when given, adds a person's note even
 -- when the action changes nothing. Returns {status, changed, reopened}.
 CREATE OR REPLACE FUNCTION public.fn_incident_group_transition(
@@ -114,10 +120,13 @@ BEGIN
     IF p_action NOT IN ('claim', 'resolve', 'ignore', 'reopen') THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'incident_group_action_invalid';
     END IF;
+    IF p_last_seen IS NULL AND (p_closed_before OR p_action IN ('resolve', 'ignore')) THEN
+        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'incident_group_watermark_required';
+    END IF;
     INSERT INTO public.incident_groups AS ig (source, fingerprint, status, resolved_at, last_seen_at)
     VALUES (p_source, p_fingerprint,
             CASE WHEN p_closed_before THEN 'resolved' ELSE 'new' END,
-            CASE WHEN p_closed_before THEN COALESCE(p_last_seen, pg_catalog.now()) END,
+            CASE WHEN p_closed_before THEN pg_catalog.now() END,
             p_last_seen)
     ON CONFLICT (source, fingerprint) DO NOTHING;
     SELECT * INTO g FROM public.incident_groups
@@ -125,7 +134,7 @@ BEGIN
 
     current_status := g.status;
     IF g.status IN ('resolved', 'ignored') AND p_last_seen IS NOT NULL
-       AND p_last_seen > g.resolved_at THEN
+       AND p_last_seen > g.last_seen_at THEN
         current_status := 'new';
         reopened := true;
     END IF;
@@ -152,7 +161,7 @@ BEGIN
                                WHEN target = 'new' THEN NULL ELSE resolved_by END,
             resolved_at = CASE WHEN target IN ('resolved', 'ignored') THEN pg_catalog.now()
                                ELSE NULL END,
-            last_seen_at = COALESCE(p_last_seen, last_seen_at),
+            last_seen_at = GREATEST(last_seen_at, p_last_seen),
             updated_at = pg_catalog.now()
          WHERE source = p_source AND fingerprint = p_fingerprint;
         INSERT INTO public.incident_group_notes (source, fingerprint, body, auto, actor_id)

@@ -18983,6 +18983,10 @@ export interface components {
             expected_count?: number | null;
             /** Actual Count */
             actual_count?: number | null;
+            /** Expected Last At */
+            expected_last_at?: string | null;
+            /** Actual Last At */
+            actual_last_at?: string | null;
         };
         /**
          * IncidentCounts
@@ -19087,6 +19091,8 @@ export interface components {
             fingerprint: string;
             /** Expected Count */
             expected_count: number;
+            /** Expected Last At */
+            expected_last_at?: string | null;
         };
         /** IncidentGroupsOut */
         IncidentGroupsOut: {

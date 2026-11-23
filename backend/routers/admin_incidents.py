@@ -9,7 +9,11 @@
 * ``POST /admin/incidents/groups/bulk`` — claim · resolve · ignore · reopen
   many groups. Each group carries the ``expected_count`` the page showed; a
   group whose count changed since is not touched and comes back as a 409
-  conflict. Every group conflicted → HTTP 409.
+  conflict. For a source cut at the scan limit the count can move without a
+  new record, so there the check is ``expected_last_at`` instead: only a
+  record newer than the page showed is a conflict. Every group conflicted →
+  HTTP 409. Closing stores the checked snapshot's newest record as the
+  group's watermark, so a record written after the check reopens it.
 
 Grouping rules and states: ``services.error_log_grouping`` and
 ``services.incident_inbox``. The ``incident_group_action`` log line records
@@ -184,6 +188,10 @@ async def group_detail(
     }
 
 
+def _aware(value: datetime) -> datetime:
+    return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+
+
 @router.post("/groups/bulk", response_model=IncidentBulkOut)
 async def bulk_action(body: IncidentBulkIn, authorization: Optional[str] = Header(default=None)):
     admin = await require_admin(authorization)
@@ -210,20 +218,31 @@ async def bulk_action(body: IncidentBulkIn, authorization: Optional[str] = Heade
         seen.add(key)
         group = snap.groups.get(key)
         actual = group.count if group else 0
-        if group is None and key not in stored:
+        row = stored.get(key)
+        # Watermark: newest record of this checked snapshot (else the stored one,
+        # for a group whose records are gone).
+        last_seen = (group.last_at if group else None) or (row or {}).get("last_seen_at")
+        if (group is None and row is None) or (body.action in ("resolve", "ignore") and not last_seen):
             conflicts.append({"source": ref.source, "fingerprint": ref.fingerprint, "status": 404,
                               "code": "not_found", "expected_count": ref.expected_count, "actual_count": None})
             continue
-        if actual != ref.expected_count:
+        last_at = inbox._parse(group.last_at) if group else None
+        newer = bool(ref.expected_last_at and last_at and last_at > _aware(ref.expected_last_at))
+        if ref.source in snap.truncated and ref.expected_last_at is not None:
+            moved = newer
+        else:
+            moved = actual != ref.expected_count or newer
+        if moved:
             conflicts.append({"source": ref.source, "fingerprint": ref.fingerprint, "status": 409,
                               "code": "count_changed", "expected_count": ref.expected_count,
-                              "actual_count": actual})
+                              "actual_count": actual,
+                              "expected_last_at": ref.expected_last_at.isoformat() if ref.expected_last_at else None,
+                              "actual_last_at": group.last_at if group else None})
             continue
         try:
-            closed_before = key not in stored and group is not None and group.all_closed
+            closed_before = row is None and group is not None and group.all_closed
             result = await asyncio.to_thread(inbox.transition, ref.source, ref.fingerprint, body.action,
-                                             admin["id"], group.last_at if group else None, note,
-                                             closed_before)
+                                             admin["id"], last_seen, note, closed_before)
         except Exception:
             logger.exception("incident inbox: transition failed")
             write_failed += 1
@@ -233,9 +252,13 @@ async def bulk_action(body: IncidentBulkIn, authorization: Optional[str] = Heade
         if not result.get("changed"):
             continue
         changed += 1
-        if body.action == "resolve" and ref.source == "errors" and group and group.open_record_ids:
+        if body.action == "resolve" and ref.source == "errors" and group:
             try:
-                await asyncio.to_thread(inbox.dismiss_error_rows, group.open_record_ids, admin["id"])
+                ids = group.open_record_ids
+                if "errors" in snap.truncated:   # rows past the scan window too (CR nit c)
+                    ids = await asyncio.to_thread(inbox.open_error_ids, ref.fingerprint)
+                if ids:
+                    await asyncio.to_thread(inbox.dismiss_error_rows, ids, admin["id"])
             except Exception:
                 logger.exception("incident inbox: dismissing error_logs rows failed")
                 dismiss_failed.append(ref.fingerprint)

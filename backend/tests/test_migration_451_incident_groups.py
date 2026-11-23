@@ -116,7 +116,7 @@ def test_a_newer_record_reopens_a_closed_group_and_keeps_notes_and_claimer(schem
     _act(schema, "resolve", note="ghi chú cũ")
     # Same last record as when it was closed: still resolved, nothing to reopen.
     assert _act(schema, "resolve", last_seen="2026-11-20T10:00:00Z")["changed"] is False
-    # A record after resolved_at: the group reads as new, so claiming it works,
+    # A record after the watermark: the group reads as new, so claiming it works,
     # and the reopen is logged before the claim.
     out = _act(schema, "claim", last_seen="2999-01-01T00:00:00Z")
     assert out == {"status": "in_review", "changed": True, "reopened": True}
@@ -125,6 +125,42 @@ def test_a_newer_record_reopens_a_closed_group_and_keeps_notes_and_claimer(schem
     assert group["note"] == "ghi chú cũ"
     assert [b for b, _ in _notes(schema)][-2:] == ["Tự mở lại: có ghi nhận mới sau khi nhóm được đóng.",
                                                    "Nhận xử lý."]
+
+
+def test_a_record_written_after_the_check_reopens_even_before_the_click(schema):
+    """FR-071 / CR B1: the watermark is the newest record the request was checked
+    against, not the time of the click. A record at 10:05 that landed between
+    the count check (newest 10:00) and the resolve at now() must reopen."""
+    _migrate(schema)
+    assert _act(schema, "resolve", last_seen="2026-11-20T10:00:00Z")["status"] == "resolved"
+    group = _group(schema)
+    assert group["last_seen_at"].startswith("2026-11-20T10:00:00")
+    assert group["resolved_at"] > "2026-11-20T10:05:00"          # the click was later than the record
+    out = _act(schema, "claim", last_seen="2026-11-20T10:05:00Z")
+    assert out == {"status": "in_review", "changed": True, "reopened": True}
+    # Closing again moves the watermark up to the newer record.
+    _act(schema, "ignore", last_seen="2026-11-20T10:05:00Z")
+    assert _group(schema)["last_seen_at"].startswith("2026-11-20T10:05:00")
+    # A stale request never moves it back.
+    _act(schema, "reopen", last_seen="2026-11-20T10:05:00Z")
+    _act(schema, "resolve", last_seen="2026-11-20T09:00:00Z")
+    assert _group(schema)["last_seen_at"].startswith("2026-11-20T10:05:00")
+
+
+def test_closing_without_a_watermark_is_refused(schema):
+    _migrate(schema)
+    for action in ("resolve", "ignore"):
+        assert "incident_group_watermark_required" in _fails(
+            f"SET ROLE service_role; SELECT {schema}.fn_incident_group_transition("
+            f"'errors', '{FP}', '{action}', '{ACTOR}'::uuid, NULL, NULL)")
+    assert "incident_group_watermark_required" in _fails(
+        f"SET ROLE service_role; SELECT {schema}.fn_incident_group_transition("
+        f"'errors', '{FP}', 'reopen', '{ACTOR}'::uuid, NULL, NULL, true)")
+    assert psql(f"SELECT count(*) FROM {schema}.incident_groups") == "0"
+    # Claiming needs no watermark.
+    assert _act(schema, "claim", last_seen=None)["status"] == "in_review"
+    assert "check" in _fails(
+        f"UPDATE {schema}.incident_groups SET status='resolved', resolved_at=now(), last_seen_at=NULL")
 
 
 def test_ignore_and_reopen(schema):

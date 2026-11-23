@@ -9,10 +9,14 @@ overlays the state a person decided (``incident_groups``, migration 451).
 * Status: the stored one; no stored row → ``new``, except a group whose every
   record was already dismissed/resolved one by one on the old pages, which
   reads as ``resolved``. A stored ``resolved``/``ignored`` group with a record
-  newer than ``resolved_at`` reads as ``new`` (auto-reopen; notes kept).
+  newer than its watermark ``last_seen_at`` (the newest record the closing
+  request was checked against) reads as ``new`` (auto-reopen; notes kept).
+* ``learners`` counts learners only: staff accounts (``users.role`` admin or
+  instructor) that hit an error are left out.
 * Changes go through ``fn_incident_group_transition`` (state + auto note in
   one transaction). Resolving an ``errors`` group then dismisses its
-  undismissed ``error_logs`` rows, 200 ids per update; the per-row dismiss
+  undismissed ``error_logs`` rows, 200 ids per update (all of them, also
+  past the scan window when ``errors`` was truncated); the per-row dismiss
   endpoints of ``routers/error_logs.py`` are unchanged.
 """
 
@@ -87,7 +91,7 @@ def _read_grading() -> tuple[dict, bool]:
                               .order("started_at", desc=True).order("id", desc=True))
     sessions = {str(s["id"]): s for s in with_code + degraded}
     responses, more_c = _paged(lambda: supabase_admin.table("responses")
-                               .select("id, session_id, stt_status")
+                               .select("id, session_id, stt_status, recorded_at, last_regraded_at")
                                .eq("grading_status", "failed").order("id", desc=True))
     # Like /admin/alerts: a response of a session already listed is not counted twice.
     pending = [r for r in responses if str(r.get("session_id") or "") not in sessions]
@@ -108,8 +112,23 @@ def _read_feedback() -> tuple[dict, bool]:
 _READERS = {"errors": _read_errors, "grading": _read_grading, "feedback": _read_feedback}
 
 
+STAFF_ROLES = ("admin", "instructor")
+
+
+def staff_ids() -> set[str]:
+    rows, _ = _paged(lambda: supabase_admin.table("users").select("id").in_("role", list(STAFF_ROLES))
+                     .order("id"), limit=10 ** 5)
+    return {str(r["id"]) for r in rows}
+
+
 def snapshot(sources: Iterable[str] = grouping.SOURCES) -> Snapshot:
     snap = Snapshot()
+    try:
+        staff = staff_ids()
+    except Exception:
+        # Counts then include staff; logged, never hidden as zero learners.
+        logger.exception("incident inbox: staff roles read failed; learner counts include staff")
+        staff = set()
     for source in sources:
         try:
             groups, more = _READERS[source]()
@@ -120,6 +139,7 @@ def snapshot(sources: Iterable[str] = grouping.SOURCES) -> Snapshot:
         if more:
             snap.truncated.append(source)
         for fp, group in groups.items():
+            group.learner_ids -= staff
             snap.groups[(source, fp)] = group
     return snap
 
@@ -151,15 +171,20 @@ def _parse(ts: Any) -> Optional[datetime]:
     return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
 
 
+def watermark(stored: Optional[dict]) -> Optional[datetime]:
+    """The newest record a closed group was checked against (migration 451)."""
+    return _parse((stored or {}).get("last_seen_at"))
+
+
 def effective_status(group: Optional[Group], stored: Optional[dict]) -> tuple[str, bool]:
     """(status, reopened) of a group, as described in the module docstring."""
     if not stored:
         return ("resolved" if group is not None and group.all_closed else "new"), False
     status = stored.get("status") or "new"
     if status in ("resolved", "ignored") and group is not None:
-        closed_at = _parse(stored.get("resolved_at"))
+        seen = watermark(stored)
         last = _parse(group.last_at)
-        if closed_at and last and last > closed_at:
+        if seen and last and last > seen:
             return "new", True
     return status, False
 
@@ -169,8 +194,8 @@ def opened_at(group: Group, stored: Optional[dict], reopened: bool) -> Optional[
     first record after it was closed when it reopened."""
     times = [t for t in (_parse(x) for x in group.times) if t]
     if reopened and stored:
-        closed_at = _parse(stored.get("resolved_at"))
-        times = [t for t in times if closed_at is None or t > closed_at]
+        seen = watermark(stored)
+        times = [t for t in times if seen is None or t > seen]
     return min(times) if times else None
 
 
@@ -221,6 +246,17 @@ def transition(source: str, fp: str, action: str, actor: str, last_seen: Optiona
     if not isinstance(data, dict) or "changed" not in data:
         raise RuntimeError("fn_incident_group_transition returned no result")
     return data
+
+
+def open_error_ids(fp: str) -> list[str]:
+    """Every undismissed ``error_logs`` row of group ``fp``, past the scan window
+    too (used when ``errors`` was truncated)."""
+    rows, _ = _paged(lambda: supabase_admin.table("error_logs")
+                     .select("id, occurred_at, level, source, message, url, user_id, dismissed_at")
+                     .is_("dismissed_at", "null")
+                     .order("occurred_at", desc=True).order("id", desc=True), limit=10 ** 6)
+    group = grouping.group_errors(rows).get(fp)
+    return group.open_record_ids if group else []
 
 
 def dismiss_error_rows(record_ids: list[str], actor: str) -> None:

@@ -3,6 +3,7 @@ G09-T07)."""
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
@@ -75,6 +76,10 @@ class IncidentGroupRef(BaseModel):
     source: Source
     fingerprint: str = Field(pattern=r"^[0-9a-f]{40}$")
     expected_count: int = Field(ge=0)
+    # The group's ``last_at`` as the page showed it. For a source that was cut
+    # at the scan limit the count can shift without a new record, so there only
+    # a newer record than this is a conflict (CR M1).
+    expected_last_at: Optional[datetime] = None
 
 
 class IncidentBulkIn(BaseModel):
@@ -90,6 +95,8 @@ class IncidentConflict(BaseModel):
     code: Literal["count_changed", "not_found", "write_failed"]
     expected_count: Optional[int] = None
     actual_count: Optional[int] = None
+    expected_last_at: Optional[str] = None
+    actual_last_at: Optional[str] = None
 
 
 class IncidentBulkOut(BaseModel):

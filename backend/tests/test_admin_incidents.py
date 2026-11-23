@@ -116,17 +116,20 @@ class _Rpc:
         if "incident_groups" in self.db.fail:
             raise RuntimeError("db down")
         p = self.params
+        if p["p_last_seen"] is None and (p["p_closed_before"] or p["p_action"] in ("resolve", "ignore")):
+            raise RuntimeError("incident_group_watermark_required")
         groups = self.db.tables.setdefault("incident_groups", [])
         g = next((r for r in groups if r["source"] == p["p_source"] and r["fingerprint"] == p["p_fingerprint"]), None)
         if g is None:
             closed = p["p_closed_before"]
             g = {"source": p["p_source"], "fingerprint": p["p_fingerprint"],
                  "status": "resolved" if closed else "new", "claimed_by": None, "claimed_at": None,
-                 "resolved_by": None, "resolved_at": (p["p_last_seen"] or NOW.isoformat()) if closed else None,
+                 "resolved_by": None, "resolved_at": NOW.isoformat() if closed else None,
                  "last_seen_at": p["p_last_seen"]}
             groups.append(g)
         current, reopened = g["status"], False
-        if current in ("resolved", "ignored") and p["p_last_seen"] and p["p_last_seen"] > g["resolved_at"]:
+        seen = incident_inbox._parse(g["last_seen_at"])
+        if current in ("resolved", "ignored") and p["p_last_seen"] and incident_inbox._parse(p["p_last_seen"]) > seen:
             current, reopened = "new", True
         target = {"claim": "in_review" if current == "new" else None,
                   "resolve": "resolved" if current != "resolved" else None,
@@ -144,6 +147,9 @@ class _Rpc:
             if target == "in_review":
                 g["claimed_by"], g["claimed_at"] = p["p_actor"], NOW.isoformat()
             g["resolved_at"] = NOW.isoformat() if target in ("resolved", "ignored") else None
+            if p["p_last_seen"] and (not g["last_seen_at"] or incident_inbox._parse(p["p_last_seen"])
+                                     > incident_inbox._parse(g["last_seen_at"])):
+                g["last_seen_at"] = p["p_last_seen"]
             note({"in_review": "Nhận xử lý.", "resolved": "Đánh dấu đã xử lý.",
                   "ignored": "Bỏ qua nhóm.", "new": "Mở lại nhóm."}[target], True, p["p_actor"])
         if p["p_note"]:
@@ -319,7 +325,8 @@ def test_resolved_group_with_a_new_record_reopens_and_keeps_notes(client, db):
     # Every undismissed row of the group was dismissed with the group.
     assert all(r["dismissed_at"] for r in db.tables["error_logs"])
 
-    db.tables["error_logs"].append(err(3, "boom", at=(NOW + timedelta(seconds=5)).isoformat()))
+    # Older than the click, newer than the newest record the resolve was checked against.
+    db.tables["error_logs"].append(err(3, "boom", at=ago(1)))
     reopened = _only(client)
     assert reopened["status"] == "new" and reopened["count"] == 3
     detail = client.get(f"/admin/incidents/groups/errors/{group['fingerprint']}").json()
@@ -344,7 +351,8 @@ def test_count_changed_is_a_409_and_nothing_changes(client, db):
         "groups": [{"source": "errors", "fingerprint": fp, "expected_count": 1}], "action": "resolve"})
     assert res.status_code == 409
     assert res.json()["conflicts"] == [{"source": "errors", "fingerprint": fp, "status": 409,
-                                        "code": "count_changed", "expected_count": 1, "actual_count": 2}]
+                                        "code": "count_changed", "expected_count": 1, "actual_count": 2,
+                                        "expected_last_at": None, "actual_last_at": ago(1.001)}]
     assert db.tables.get("incident_groups", []) == []
     assert not any(r["dismissed_at"] for r in db.tables["error_logs"])
 
@@ -388,7 +396,8 @@ def test_grading_and_feedback_groups_are_not_dismissed_row_by_row(client, db):
     db.tables["sessions"] = [{"id": "s1", "user_id": U1, "mode": "practice", "part": 2, "error_code": "stt_failed",
                               "failed_step": "transcribe", "last_error_at": ago(1), "started_at": ago(2),
                               "status": "failed"}]
-    db.tables["responses"] = [{"id": "r1", "session_id": "s1", "stt_status": "failed", "grading_status": "failed"}]
+    db.tables["responses"] = [{"id": "r1", "session_id": "s1", "stt_status": "failed", "grading_status": "failed",
+                               "recorded_at": ago(1)}]
     group = _only(client, source="grading")
     assert group["count"] == 1        # the response of an already listed session is not counted twice
     client.post("/admin/incidents/groups/bulk", json={
@@ -431,3 +440,100 @@ def test_every_route_awaits_the_admin_guard(monkeypatch, db):
     assert c.post("/admin/incidents/groups/bulk", json={
         "groups": [{"source": "errors", "fingerprint": "a" * 40, "expected_count": 0}],
         "action": "claim"}).status_code == 403
+
+
+# ── CR R1 (#2516) ────────────────────────────────────────────────────────
+
+
+def test_a_record_written_between_the_check_and_the_resolve_reopens(client, db, monkeypatch):
+    """B1: the watermark is the checked snapshot's newest record, not now()."""
+    db.tables["error_logs"] = [err(1, "boom", at=ago(3))]
+    fp = _only(client)["fingerprint"]
+    real = incident_inbox.transition
+
+    def racing(*args, **kwargs):
+        db.tables["error_logs"].append(err(2, "boom", at=ago(0.5)))   # lands after the count check
+        return real(*args, **kwargs)
+    monkeypatch.setattr(incident_inbox, "transition", racing)
+    res = client.post("/admin/incidents/groups/bulk", json={
+        "groups": [{"source": "errors", "fingerprint": fp, "expected_count": 1}], "action": "ignore"})
+    assert res.json()["changed"] == 1
+    stored = db.tables["incident_groups"][0]
+    assert stored["last_seen_at"] == ago(3) and stored["resolved_at"] > ago(0.5)
+    group = _only(client)
+    assert (group["status"], group["count"]) == ("new", 2)
+
+
+def test_a_response_failure_carries_the_responses_own_time(client, db):
+    """B2: not the session's last_error_at/started_at."""
+    session = {"id": "s9", "user_id": U1, "mode": "practice", "part": 1, "status": "completed",
+               "started_at": ago(300), "last_error_at": None, "error_code": None}
+    groups = grouping.group_grading([], [({"id": "r9", "stt_status": "ok", "recorded_at": ago(2)}, session)])
+    assert next(iter(groups.values())).times == [ago(2)]
+    regraded = grouping.group_grading([], [({"id": "r9", "stt_status": "ok", "recorded_at": ago(50),
+                                             "last_regraded_at": ago(1)}, session)])
+    assert next(iter(regraded.values())).times == [ago(1)]
+    db.tables["sessions"] = [session]
+    db.tables["responses"] = [{"id": "r9", "session_id": "s9", "stt_status": "ok", "grading_status": "failed",
+                               "recorded_at": ago(2)}]
+    item = _only(client, source="grading")
+    assert item["last_at"] == ago(2) and item["overdue"] is False   # 300 h old session, 2 h old failure
+
+
+def test_a_truncated_source_checks_the_last_record_not_the_count(client, db, monkeypatch):
+    """M1: past the scan limit a group's count shifts as other rows push it out."""
+    monkeypatch.setattr(incident_inbox, "SCAN_LIMIT", 4)
+    db.tables["error_logs"] = [err(1, "a", at=ago(1)), err(2, "a", at=ago(2)),
+                               err(3, "b", at=ago(3)), err(4, "b", at=ago(4)), err(5, "b", at=ago(5))]
+    items = {i["title"]: i for i in client.get("/admin/incidents/groups").json()["items"]}
+    b = items["b"]
+    assert b["count"] == 2
+    db.tables["error_logs"].append(err(6, "a", at=ago(0.5)))     # pushes one "b" out of the window
+    ref = {"source": "errors", "fingerprint": b["fingerprint"], "expected_count": 2,
+           "expected_last_at": b["last_at"]}
+    res = client.post("/admin/incidents/groups/bulk", json={"groups": [ref], "action": "claim"})
+    assert res.status_code == 200 and res.json()["changed"] == 1
+    a = items["a"]
+    ref = {"source": "errors", "fingerprint": a["fingerprint"], "expected_count": a["count"] + 1,
+           "expected_last_at": a["last_at"]}
+    res = client.post("/admin/incidents/groups/bulk", json={"groups": [ref], "action": "claim"})
+    assert res.status_code == 409
+    conflict = res.json()["conflicts"][0]
+    assert conflict["code"] == "count_changed" and conflict["actual_last_at"] == ago(0.5)
+
+
+def test_resolving_a_truncated_errors_group_dismisses_rows_past_the_window(client, db, monkeypatch):
+    """Nit c: every undismissed row of the group, not only the scanned ones."""
+    monkeypatch.setattr(incident_inbox, "SCAN_LIMIT", 3)
+    db.tables["error_logs"] = [err(i, "boom", at=ago(i)) for i in range(1, 7)]
+    g = _only(client)
+    client.post("/admin/incidents/groups/bulk", json={"groups": [
+        {"source": "errors", "fingerprint": g["fingerprint"], "expected_count": 3,
+         "expected_last_at": g["last_at"]}], "action": "resolve"})
+    assert all(r["dismissed_at"] for r in db.tables["error_logs"])
+
+
+def test_staff_accounts_are_not_counted_as_learners(client, db):
+    """Nit a."""
+    db.tables["users"][0]["role"] = "admin"
+    db.tables["error_logs"] = [err(1, "boom", user=U1), err(2, "boom", user=ADMIN["id"])]
+    item = _only(client)
+    assert (item["count"], item["learners"]) == (2, 1)
+
+
+def test_http_status_codes_split_groups():
+    """Nit b: a 500 and a 404 are different incidents; other numbers still merge."""
+    assert grouping.normalize_message("Request failed with status code 500") != \
+        grouping.normalize_message("Request failed with status code 404")
+    assert grouping.normalize_message("HTTP 503 for item 12") == "HTTP 503 for item ?"
+    assert grouping.normalize_message("404 Not Found") == "404 Not Found"
+    assert grouping.normalize_message("took 250 ms") == "took ? ms"
+
+
+def test_closing_a_group_with_no_record_time_is_refused_before_writing(client, db):
+    db.tables["incident_groups"] = [{"source": "errors", "fingerprint": "c" * 40, "status": "in_review",
+                                     "resolved_at": None, "last_seen_at": None}]
+    res = client.post("/admin/incidents/groups/bulk", json={
+        "groups": [{"source": "errors", "fingerprint": "c" * 40, "expected_count": 0}], "action": "resolve"})
+    assert res.status_code == 409 and res.json()["conflicts"][0]["code"] == "not_found"
+    assert db.tables["incident_groups"][0]["status"] == "in_review"
