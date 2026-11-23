@@ -4,14 +4,20 @@
 
 - Chỉ frontend. Thư mục mới:
   - `frontend/components/exam-room/`: `exam-room-shell.tsx`, `split-pane.tsx`,
-    `question-navigator.tsx`, `submit-dialog.tsx`, `exit-dialog.tsx`,
-    `connection-banner.tsx`, `session-expired-dialog.tsx`, `exam-timer.tsx`,
-    `save-status.tsx`, `other-tab-notice.tsx`, `time-up-choice.tsx`,
+    `question-navigator.tsx`, `submit-dialog.tsx`, `abandon-dialog.tsx`,
+    `connection-banner.tsx`, `session-expired-dialog.tsx`, `save-status.tsx`,
+    `other-tab-notice.tsx`, `time-up-choice.tsx`,
     `audio-player.tsx`, `annotation-layer.tsx`, `exam-room.module.css`.
   - `frontend/components/exam-room/questions/`: một file mỗi dạng ở FR-025, FR-027.
   - `frontend/lib/exam-room/`: `strings-en.mjs`, `strings-vi.mjs`,
     `navigator-model.mjs`, `split-ratio.mjs`, `submit-guard.mjs`,
     `connection-state.mjs`, `tab-guard.mjs`, `flags.mjs`.
+- Bọc `FocusShell` của `frontend/components/ui/shell/focus-shell.tsx` (UIBASE-0056
+  FR-009, FR-025): thanh trên, nút thoát và `LeaveConfirm`, nút "Abandon test",
+  quy tắc luôn sáng, `registerNavigationGuard`, `FocusTimer`, `FocusStatus`. Không
+  tạo `exit-dialog.tsx` hay `exam-timer.tsx` riêng; nếu `FocusShell` thiếu một
+  điểm móc (ví dụ nút nộp ở khe `bottom` cần biết trạng thái hộp thoát), PR T03 thêm
+  prop nhỏ vào `FocusShell` mà không đổi hành vi đã duyệt và ghi trong PR.
 - Dựng trên component G03 đã có trong `frontend/components/ui/` (`button`,
   `dialog`, `confirm-dialog`, `notice`, `tabs`, `choice-group`, `select`,
   `text-field`) và `frontend/lib/use-dialog-focus.ts`. Không tạo bản sao nút hay

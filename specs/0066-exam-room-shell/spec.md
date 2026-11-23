@@ -23,6 +23,17 @@ cờ của một trình còn tắt, trình đó chạy y như hôm nay.
 
 Bảng đối chiếu số FR của gói ↔ số FR ở đây nằm trong `verification.md`.
 
+**Khung dựng trên `FocusShell` đã có.** G03-T15 (#2446, UIBASE-0056 FR-009,
+FR-025, đã duyệt) đã đưa lên `staging` thanh tập trung
+`frontend/components/ui/shell/focus-shell.tsx`: thanh trên chế độ `exam` (tiếng
+Anh, nền mực) và `practice` (tiếng Việt, nền giấy), nút "Leave test"/"Thoát" và
+hộp hỏi lại (`LeaveConfirm`, chữ trong `focus-copy.ts`), nút "Abandon test" trên
+thanh khi trang truyền `onAbandon`, quy tắc phòng thi full test luôn sáng
+(`EXAM_ROOM_FOLLOWS_THEME`), chặn đóng tab/tải lại qua `registerNavigationGuard`,
+`FocusTimer`, `FocusStatus`. `ExamRoomShell` bọc `FocusShell` và **không** làm lại
+các phần đó. Khi chữ hay cách bố trí của GOI-08 khác `FocusShell`, bản đã duyệt
+(UIBASE-0056) thắng; các chỗ khác được ghi ở FR tương ứng.
+
 ## Problem
 
 Bảy trình làm bài hiện mỗi trình có vòng đời lưu, nộp và thoát riêng, và hành vi
@@ -91,15 +102,19 @@ trên `staging` @ `cc6dd4c8` (23/11/2026):
 
 **Khung**
 
-- **FR-001:** `ExamRoomShell` dựng thanh trên: lối thoát bên trái, tên bài ở giữa
-  (ví dụ "Reading · Academic Test 1 · Passage 1 of 3"), trạng thái lưu và đồng hồ
-  bên phải. Không in email, tên hay mã học viên ở bất kỳ đâu trong phòng thi.
+- **FR-001:** `ExamRoomShell` bọc `FocusShell`: lối thoát bên trái, tên bài ở giữa
+  (`title` + `detail`, ví dụ "Reading · Academic Test 1" · "Passage 1 of 3"), trạng
+  thái lưu và đồng hồ ở khe `right` (`FocusStatus`, `FocusTimer`), dải câu và nút
+  nộp ở khe `bottom`. Không in email, tên hay mã học viên ở bất kỳ đâu trong phòng
+  thi.
 - **FR-002:** Chế độ `test` dùng nền mực và toàn bộ chuỗi tiếng Anh, kể cả lỗi,
   `aria-label` và chữ cho trình đọc màn hình; số câu ghi "Q5"/"Question 5". Chế độ
   `practice` dùng nền giấy và chuỗi tiếng Việt, xưng "bạn". Highlight, Note, Clear
-  luôn tiếng Anh. Một màn không trộn hai bộ chuỗi. Phòng thi full test
-  (`isFullTest`) đặt `data-theme="light"` bất kể lựa chọn giao diện của người
-  dùng; mini test và chế độ luyện theo lựa chọn của người dùng. Màn **ngoài** bài
+  luôn tiếng Anh. Một màn không trộn hai bộ chuỗi. Chế độ `test` dùng
+  `FocusShell mode="exam"`, `practice` dùng `mode="practice"`. Phòng thi full test
+  (`isFullTest`) truyền `fullTestRoom` để luôn sáng theo UIBASE-0056 FR-025; mini
+  test truyền `fullTestRoom={false}`; chế độ luyện theo lựa chọn của người dùng.
+  Không đụng hộp Settings riêng của phòng thi Reading (khoá `ielts-exam-theme`). Màn **ngoài** bài
   thi của full test (chặn điện thoại, lỗi thiết bị) có thêm một dòng phụ tiếng
   Việt `lang="vi"`.
 - **FR-003:** Tay nắm giữa hai cột có `role="separator"`,
@@ -134,18 +149,25 @@ trên `staging` @ `cc6dd4c8` (23/11/2026):
   tiếp". Không còn câu trống thì là hộp thường. Tiêu điểm đầu vào nút an toàn; Esc
   đóng khi không đang nộp. Hộp hiện câu tốn lượt (`costNote`) chỉ khi trình
   truyền vào; không có số liệu thì không hiện câu đó và không bịa số.
-- **FR-011:** Lối thoát. Full test không có "Save and exit". Chế độ `test` mở hộp
-  "Leave the test?" với nút chính "Continue test", nút phụ "Leave test", và câu
-  "Your answers so far are saved. The timer keeps running while you are away.".
-  Trước khi rời phải flush hết hàng đợi lưu; còn câu chưa lưu được thì hộp báo rõ
-  số câu chưa lưu và không cho thoát âm thầm. Chế độ `practice`: mọi thứ đã lưu
-  thì thoát ngay ("Thoát"), chỉ hỏi khi `losesWork()` đúng.
+- **FR-011:** Lối thoát dùng nút và hộp `LeaveConfirm` của `FocusShell`. Full test
+  không có "Save and exit". Chế độ `test` luôn hỏi lại, với chữ của
+  `FOCUS_WORDS.exam.leave` ("Leave this test?", "The timer keeps running on our
+  server while you are away.", "Your answers so far are saved.", nút chính "Stay in
+  test", nút phụ "Leave test"); GOI-08 ghi "Continue test", chữ đã duyệt của
+  UIBASE-0056 thắng. `ExamRoomShell` nối `hasUnsavedWork` với hàng đợi lưu của
+  trình: còn câu chưa lưu thì câu "Your answers so far are saved." bị bỏ và
+  `leaveCopy.body` nêu số câu chưa lưu, nên không bao giờ thoát âm thầm khi còn câu
+  chưa lưu. Khi hộp mở, khung gọi `exit.flush()` để lưu nốt và cập nhật số câu.
+  Chế độ `practice`: mọi thứ đã lưu thì thoát ngay ("Thoát"), chỉ hỏi khi
+  `losesWork()` đúng.
 - **FR-012:** Đề tự chọn (trình truyền `exit.abandon`) có thêm nút "Abandon test"
-  trong hộp thoát; bấm thì hộp hỏi lại "Abandon this test? Your answers will not be
+  trên thanh trên (`FocusShell onAbandon`; GOI-08 đặt nút trong hộp thoát, bố cục
+  đã duyệt của UIBASE-0056 thắng); bấm thì hộp của `ExamRoomShell` hỏi lại "Abandon this test? Your answers will not be
   marked and this attempt will not appear in your results." với "Keep working"
   (chính) và "Abandon test" (đỏ mận). Mock test được giao không truyền `abandon`
   nên không có nút. Tác động server của việc bỏ bài thuộc spec của trình.
-- **FR-013:** Trạng thái tự lưu bằng chữ ở thanh trên: "Saving…"/"Đang lưu…",
+- **FR-013:** Trạng thái tự lưu bằng chữ ở thanh trên (`FocusStatus`; dưới 768px
+  nằm ở `subline`): "Saving…"/"Đang lưu…",
   "Saved at 10:42"/"Đã lưu lúc 10:42", "Not saved. Retrying…"/"Chưa lưu được, đang
   thử lại", kèm "Retry"/"Thử lưu lại" khi hết lượt thử tự động. Giờ là lần lưu
   thành công gần nhất theo giờ máy.
@@ -173,7 +195,7 @@ trên `staging` @ `cc6dd4c8` (23/11/2026):
   thì tab kia chuyển chỉ-đọc kèm thông báo tương tự. Không có hai tab cùng ghi một
   lượt. Trình duyệt không có `BroadcastChannel` thì bỏ qua tính năng này, không
   chặn làm bài.
-- **FR-018:** Đồng hồ chế độ `test`: "Time remaining" + mm:ss số đều cột; mốc 5 phút
+- **FR-018:** Đồng hồ chế độ `test` hiển thị bằng `FocusTimer`: "Time remaining" + mm:ss số đều cột; mốc 5 phút
   đổi trạng thái có chữ "5 minutes left" và đọc cho trình đọc màn hình đúng một
   lần; về 0 hiện "Time is up" và "Your answers have been saved and submitted."; không
   nhấp nháy. Thời gian còn lại luôn do trình tính từ mốc của server; shell không
@@ -298,8 +320,9 @@ trên `staging` @ `cc6dd4c8` (23/11/2026):
 
 - **Given** đang làm full test tự chọn
 - **When** bấm lối thoát
-- **Then** hộp có "Continue test", "Leave test", "Abandon test" và câu "The timer
-  keeps running while you are away."; không có chữ "Save and exit". **Given** mock
+- **Then** thanh trên có "Leave test" và "Abandon test"; hộp thoát có "Stay in
+  test", "Leave test" và câu "The timer keeps running on our server while you are
+  away."; không có chữ "Save and exit". **Given** mock
   test được giao **Then** không có "Abandon test".
 
 ### Scenario 8: bài nghe
