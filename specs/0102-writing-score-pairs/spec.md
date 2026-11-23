@@ -24,7 +24,9 @@ SCOREGAP-0091) là spec khác, chưa viết.
 
 FR trong GOI-12 đánh số `FR-12-C-001…006`; ở đây đánh lại `FR-001…006` giữ
 nguyên thứ tự. FR-007 và FR-008 tách từ mục 5.C của gói (cờ và đối soát) để
-kiểm được riêng.
+kiểm được riêng. FR-009…FR-011 thêm ngày 23/11 theo HOLD của anh Andy và CR-2483-R1
+(trigger lỗi không được làm hỏng việc chấm, công tắc tắt trigger, đường ẩn danh
+người trả).
 
 ## Problem
 
@@ -102,7 +104,10 @@ giáo viên chốt tại thời điểm trả bài. Đã kiểm trên `staging` 
   chụp vào bảng chỉ ghi thêm `writing_ai_score_snapshots` ngay khi chèn, và chụp
   thêm mỗi lần một trong năm cột band của dòng đó đổi giá trị (đường (d)). Ảnh
   chụp giữ năm band, `prompt_version` đã bỏ hậu tố (`-instructor-pending`,
-  `-instructor`, `-composed`), `model_used`, `task_type`. Chụp bằng trigger
+  `-instructor`, `-composed`), `model_used`, `task_type`, `source`. `source` chép
+  nguyên giá trị của dòng phản hồi và **không** có CHECK liệt kê giá trị: nguồn AI mới
+  (ví dụ đường GPT của WRITINGGPT-0088) vẫn được chụp nhờ điều kiện `LIKE 'ai\_%'`,
+  không làm lỗi lần ghi điểm. Chụp bằng trigger
   database để mọi đường chấm, kể cả đường thêm sau này, đều được ghi. UPDATE chỉ
   đổi `prompt_version` (đường (b)) không tạo ảnh chụp. Dòng `composed`,
   `partial` không được chụp.
@@ -116,9 +121,10 @@ giáo viên chốt tại thời điểm trả bài. Đã kiểm trên `staging` 
   dòng trong chuỗi, không theo số version (số version được dùng lại sau
   `_gc_orphan_versions`).
 - **FR-003:** Hai bảng chỉ ghi thêm. UPDATE, DELETE trực tiếp và TRUNCATE bị từ
-  chối với mọi vai trò kể cả `service_role`, lỗi `<tên bảng>_append_only`. Chỉ
-  xoá theo dây chuyền khi bài bị xoá cứng (`ON DELETE CASCADE` từ
-  `writing_essays`). Thu hồi rồi trả lại thêm dòng mới, dòng cũ giữ nguyên. Bản
+  chối với mọi vai trò kể cả `service_role`, lỗi `<tên bảng>_append_only`. Chỉ có
+  hai ngoại lệ, cả hai chỉ khi lệnh đến từ hành động FK (không phải lệnh trực tiếp):
+  xoá theo dây chuyền khi bài bị xoá cứng (`ON DELETE CASCADE` từ `writing_essays`),
+  và đường ẩn danh người trả của FR-011. Thu hồi rồi trả lại thêm dòng mới, dòng cũ giữ nguyên. Bản
   "mới nhất mỗi bài" là view `writing_score_pairs_latest`. Một lần trả chỉ có một
   dòng: `delivery_key` UNIQUE, gọi lại giống hệt trả `duplicate`.
 - **FR-004:** Ghi cặp điểm không bao giờ làm hỏng hay đổi kết quả việc trả bài.
@@ -133,13 +139,36 @@ giáo viên chốt tại thời điểm trả bài. Đã kiểm trên `staging` 
 - **FR-007:** Cờ `runtime_flags.writing_score_pairs_record` được seed `false`.
   Đọc bằng `runtime_flags.is_enabled(..., default=False, on_error=False)`: lỗi đọc
   cờ thì coi như tắt (không ghi), đối soát ghi bù sau. Trigger chụp điểm AI
-  (FR-001) chạy không phụ thuộc cờ, vì nó chỉ thêm dòng và là thứ duy nhất giữ
-  được điểm AI trước khi bị mất.
+  (FR-001) không phụ thuộc cờ này, vì nó chỉ thêm dòng và là thứ duy nhất giữ
+  được điểm AI trước khi bị mất; nó có công tắc riêng ở FR-010.
 - **FR-008:** Script `writing_score_pairs_reconcile` mặc định dry-run; chỉ ghi khi
-  có `--execute`. Nó ghi bù bài `delivered` (sau khi bật cờ) chưa có cặp, dựng lại
+  có `--execute`. Nó ghi bù ảnh chụp cho dòng AI còn trong `writing_feedback` mà
+  chưa có ảnh chụp khớp band hiện tại (sót do FR-009 hoặc lúc công tắc FR-010 tắt;
+  ảnh ghi bù có `captured_late=true`), ghi bù bài `delivered` (sau khi bật cờ) chưa có cặp, dựng lại
   bài trả trước khi bật cờ, bỏ qua bài thi thử, bài `ai_instant` và bài không có
   phản hồi. `--report` in số cặp theo tháng và theo `reviewer_role`, số bài bỏ qua
-  theo lý do. Đầu ra không có email, tên học viên hay nội dung bài.
+  theo lý do, số ảnh chụp ghi bù. Đầu ra không có email, tên học viên hay nội dung bài.
+- **FR-009:** Trigger chụp điểm AI không bao giờ làm hỏng lần ghi điểm AI. Thân hàm
+  trigger bắt `WHEN OTHERS`, ghi `RAISE WARNING '[score-snapshot] failed feedback=%'`
+  (chỉ id dòng phản hồi, không nội dung), trả `NEW`, nên INSERT/UPDATE trên
+  `writing_feedback` vẫn thành công. Ảnh chụp sót được đối soát ghi bù (FR-008). Test
+  PG17 ép trigger lỗi và kiểm dòng phản hồi vẫn được ghi.
+- **FR-010:** Công tắc tắt trigger chụp: cờ `runtime_flags.writing_ai_snapshot_capture`
+  seed `true`. Trigger đọc thẳng dòng cờ (không qua cache backend) mỗi lần chạy;
+  `false` thì bỏ qua không chụp; thiếu dòng cờ thì coi như bật; lỗi đọc thì rơi vào
+  FR-009. Tắt cờ có hiệu lực ngay ở lần ghi kế tiếp, không cần migration, deploy hay
+  xoá bảng. Dự phòng khẩn cấp (khi chính bảng `runtime_flags` lỗi):
+  `ALTER TABLE writing_feedback DISABLE TRIGGER trg_writing_feedback_ai_snapshot`, chỉ
+  chạy khi anh Andy gõ duyệt (xem `rollout.md`).
+- **FR-011:** Xoá tài khoản người trả không bị chặn và không đổi điểm. `reviewer_id`
+  có FK `users(id) ON DELETE SET NULL`. Trigger chỉ-ghi-thêm cho một UPDATE đi qua khi
+  đủ cả ba điều kiện: lệnh đến từ hành động FK (`pg_trigger_depth() > 1`); `OLD.reviewer_id`
+  khác NULL và `NEW.reviewer_id` là NULL; mọi cột khác của `NEW` giống hệt `OLD` (so cả
+  dòng sau khi đặt `reviewer_id` của `OLD` về NULL). `reviewer_role` và
+  `reviewer_can_edit_bands` giữ nguyên. Mọi UPDATE trực tiếp khác, kể cả UPDATE trực
+  tiếp chỉ đặt `reviewer_id = NULL`, vẫn lỗi `writing_score_pairs_append_only`. Test
+  PG17: xoá người trả trong khi bài vẫn còn thì cặp còn, điểm không đổi, `reviewer_id`
+  NULL; UPDATE trực tiếp vẫn bị chặn.
 
 ## Acceptance scenarios
 
@@ -209,7 +238,12 @@ giáo viên chốt tại thời điểm trả bài. Đã kiểm trên `staging` 
 - Cờ đổi giữa chừng (cache 15 s của `runtime_flags`): bài trả trong lúc cache
   còn cũ được đối soát ghi bù.
 - Xoá cứng bài hoặc xoá tài khoản kéo theo xoá bài: hai bảng xoá theo dây chuyền;
-  `reviewer_id` về NULL khi người trả bị xoá.
+  FK từ cặp tới ảnh chụp là `NO ACTION` (kiểm cuối câu lệnh), nên xoá cùng lúc cả hai
+  không lỗi.
+- Người trả bị xoá trong khi bài còn: đường ẩn danh FR-011, cặp và điểm giữ nguyên.
+- Trigger chụp lỗi hoặc công tắc FR-010 đang tắt: lần chấm vẫn ghi; đối soát ghi bù
+  ảnh chụp cho dòng AI còn tồn tại. Dòng AI bị xoá hay đổi band trong lúc tắt thì
+  mất bản trung gian đó; `--report` đếm số dòng ghi bù để biết khoảng hở.
 - Bài thi thử, bài `ai_instant`, bài gắn cờ không có phản hồi: không ghi cặp,
   đối soát bỏ qua và đếm.
 
@@ -217,7 +251,8 @@ giáo viên chốt tại thời điểm trả bài. Đã kiểm trên `staging` 
 
 - Sau khi áp migration trên một DB, số `writing_feedback_id` khác nhau trong
   `writing_ai_score_snapshots` bằng số dòng `writing_feedback` có
-  `source LIKE 'ai\_%' OR source IS NULL`.
+  `source LIKE 'ai\_%' OR source IS NULL`. Sau đó, khoảng chênh của hai số này là
+  máy dò ảnh chụp sót (FR-009); đối soát đưa nó về 0.
 - Trên staging, sau khi bật cờ, mọi bài trả qua hai đường trong phạm vi có đúng
   một cặp cho mỗi lần trả (đối soát dry-run báo 0 bài cần ghi bù sau một ngày).
 - Thời gian ghi cặp thêm vào request trả bài được đo trên staging và ghi vào
@@ -233,10 +268,13 @@ Mỗi câu kèm đề xuất mặc định; anh Andy xác nhận khi duyệt spe
    cặp của instructor ghi `reviewer_can_edit_bands=false`. Nếu G09-T17 mở sửa
    band, đường đó phải đi qua `upsert_composed_version`, và hằng
    `INSTRUCTOR_CAN_EDIT_BANDS` đổi trong cùng PR đó.
-3. **Chặn xoá trực tiếp nhưng cho xoá dây chuyền.** Đề xuất: trigger chỉ chặn khi
-   `pg_trigger_depth() = 1`; nếu test PG17 cho thấy không phân biệt được thì dùng
-   cờ phiên `SET LOCAL aver.cascade_delete='on'` trong đường xoá bài, và hỏi lại
-   anh trước khi chọn.
+3. **Chặn lệnh trực tiếp nhưng cho hành động FK (xoá dây chuyền, FR-011).** Thiết
+   kế chính: phân biệt bằng `pg_trigger_depth() > 1`. Nếu test PG17 của G12-C02 cho
+   thấy không phân biệt được, phương án thắng (không cần hỏi lại) là: trigger
+   `BEFORE DELETE` trên `writing_essays` và trên `users` gọi
+   `set_config('aver.score_pairs_fk_action', 'on', true)` (chỉ trong giao dịch), và
+   trigger chỉ-ghi-thêm cho qua khi thấy biến đó; điều kiện "chỉ `reviewer_id` về
+   NULL" của FR-011 giữ nguyên. Không đổi mã ứng dụng của đường xoá.
 4. **Cron đối soát.** Đề xuất: 02:30 giờ VN hằng ngày qua
    `backend/railway.score-pairs-reconcile.json`; tạo service cron trên Railway là
    việc của anh Andy. Trước khi có cron, chạy tay `--report` mỗi tuần.

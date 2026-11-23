@@ -41,19 +41,23 @@ Rollback `backend/migrations/rollback/480_writing_score_pairs.sql`; dòng
 | essay_id | uuid | NOT NULL FK `writing_essays(id)` ON DELETE CASCADE |
 | writing_feedback_id | uuid | NOT NULL, index; không FK (dòng phản hồi có thể bị `_gc_orphan_versions` xoá), không UNIQUE (một dòng có nhiều ảnh chụp khi chạy lại cùng job) |
 | feedback_version | int | NOT NULL |
-| source | text | NOT NULL (`ai_pro`, `ai_flash`, `legacy`) |
+| source | text | NOT NULL, **không CHECK**; chép nguyên `writing_feedback.source` (hôm nay `ai_pro`, `ai_flash`; nạp lại ghi `legacy`) |
 | overall, band_main, band_cc, band_lr, band_gra | numeric(2,1) | `overall` NOT NULL; bốn tiêu chí NULL được |
 | prompt_version_base | text | NOT NULL, đã bỏ hậu tố `-instructor-pending`, `-instructor`, `-composed` |
 | model_used | text | NULL |
 | task_type | text | NOT NULL, chép từ `writing_essays.task_type` |
 | legacy | boolean | NOT NULL DEFAULT false |
+| captured_late | boolean | NOT NULL DEFAULT false (ảnh do đối soát ghi bù, FR-008) |
 | captured_at | timestamptz | NOT NULL DEFAULT now() |
 
 Trigger `trg_writing_feedback_ai_snapshot` AFTER INSERT OR UPDATE OF năm cột band
 ON `writing_feedback` FOR EACH ROW WHEN `NEW.source LIKE 'ai\_%'` (với UPDATE thêm
 điều kiện ít nhất một cột band `IS DISTINCT FROM` giá trị cũ). Hàm trigger
 `SECURITY DEFINER`, `SET search_path = pg_catalog, public, pg_temp` (mẫu mig 369,
-383). Nạp lại trong cùng migration: `INSERT … SELECT` mọi dòng có
+383). Thân hàm: đọc `runtime_flags.writing_ai_snapshot_capture` (FR-010; `false` thì
+`RETURN NEW`), rồi INSERT ảnh chụp trong khối `BEGIN … EXCEPTION WHEN OTHERS THEN
+RAISE WARNING '[score-snapshot] failed feedback=%', NEW.id; END`, luôn `RETURN NEW`
+(FR-009). Nạp lại trong cùng migration: `INSERT … SELECT` mọi dòng có
 `source LIKE 'ai\_%' OR source IS NULL` chưa có ảnh chụp (`WHERE NOT EXISTS`, chạy
 lại không nhân đôi; dòng NULL ghi `source='legacy'`, `legacy=true`).
 
@@ -65,12 +69,12 @@ lại không nhân đôi; dòng NULL ghi `source='legacy'`, `legacy=true`).
 | essay_id | uuid | NOT NULL FK `writing_essays(id)` ON DELETE CASCADE |
 | delivered_at | timestamptz | NOT NULL |
 | delivery_key | text | NOT NULL UNIQUE: `review:<instructor_reviews.id>:<instructor_reviews.delivered_at>`, `essay:<essay_id>:<writing_essays.delivered_at>` (đường admin và đối soát), `pack:<id>` (để dành cho REVIEWPACK-0094) |
-| ai_first_snapshot_id | bigint | NULL FK `writing_ai_score_snapshots(id)` |
-| ai_before_edit_snapshot_id | bigint | NULL FK `writing_ai_score_snapshots(id)` |
+| ai_first_snapshot_id | bigint | NULL FK `writing_ai_score_snapshots(id)` ON DELETE NO ACTION |
+| ai_before_edit_snapshot_id | bigint | NULL FK `writing_ai_score_snapshots(id)` ON DELETE NO ACTION |
 | teacher_overall, teacher_main, teacher_cc, teacher_lr, teacher_gra | numeric(2,1) | band bản đang hiện lúc trả |
 | current_version | int | NOT NULL |
 | current_source | text | NULL (`ai_pro`, `composed`, …) |
-| reviewer_id | uuid | NULL FK `users(id)` ON DELETE SET NULL |
+| reviewer_id | uuid | NULL FK `users(id)` ON DELETE SET NULL (đường ẩn danh FR-011) |
 | reviewer_role | text | NOT NULL CHECK IN (`admin`,`instructor`,`unknown`) |
 | reviewer_can_edit_bands | boolean | NOT NULL |
 | delivery_path | text | NOT NULL CHECK IN (`instructor_review`,`admin_mark_delivered`,`review_pack`,`reconcile`) |
@@ -85,10 +89,15 @@ lại không nhân đôi; dòng NULL ghi `source='legacy'`, `legacy=true`).
 Index `(essay_id, delivered_at DESC)`, `(delivered_at)`, `(cohort_id, delivered_at)`.
 Trigger BEFORE UPDATE OR DELETE (row) và BEFORE TRUNCATE (statement) trên cả hai
 bảng gọi một hàm chung ném `<TG_TABLE_NAME>_append_only` (mẫu
-`fn_course_commerce_append_only` của mig 383); riêng DELETE cho qua khi
-`pg_trigger_depth() > 1` (xoá dây chuyền từ FK). View
+`fn_course_commerce_append_only` của mig 383). Ngoại lệ, chỉ khi
+`pg_trigger_depth() > 1` (lệnh đến từ hành động FK): DELETE (xoá dây chuyền); và trên
+`writing_score_pairs` một UPDATE mà `OLD.reviewer_id IS NOT NULL`,
+`NEW.reviewer_id IS NULL` và `NEW IS NOT DISTINCT FROM` bản `OLD` đã đặt
+`reviewer_id := NULL` (FR-011). Phương án thay khi test PG17 bác `pg_trigger_depth`:
+spec.md câu hỏi 3. View
 `writing_score_pairs_latest` = dòng `delivered_at` mới nhất của mỗi `essay_id`.
-Seed `runtime_flags('writing_score_pairs_record', false)` `ON CONFLICT DO NOTHING`.
+Seed `runtime_flags('writing_score_pairs_record', false)` và
+`runtime_flags('writing_ai_snapshot_capture', true)`, cả hai `ON CONFLICT DO NOTHING`.
 
 **`record_delivery(essay_id, *, reviewer_id, reviewer_role, delivery_path, delivery_key, extra=None) -> dict`**
 trả `{"status": "recorded"|"duplicate"|"skipped_flag_off"|"no_feedback"|"failed", "pair_id": int | None}`
@@ -122,18 +131,26 @@ Không có. Xem `ui-states.md`.
 
 ## Rollout and rollback
 
-Xem `rollout.md`. Cờ tắt mặc định. Tắt cờ thì ngừng ghi cặp ngay (không cần
-deploy); trigger chụp điểm AI vẫn chạy vì chỉ thêm dòng. Rollback migration từ
-chối khi `writing_score_pairs` có dòng, trừ khi phiên đặt
-`SET aver.allow_score_pairs_rollback='on'`.
+Xem `rollout.md`. Cờ tắt mặc định. Tắt `writing_score_pairs_record` thì ngừng ghi cặp
+(trong khoảng 15 s); tắt `writing_ai_snapshot_capture` thì trigger ngừng chụp ở lần ghi
+kế tiếp. Cả hai không cần deploy hay xoá bảng. Rollback migration từ chối khi **một
+trong hai bảng** có dòng, trừ khi phiên đặt `SET aver.allow_score_pairs_rollback='on'`
+sau khi anh Andy gõ duyệt; cách lùi ưu tiên là tắt cờ hoặc revert mã và giữ bảng.
 
 ## Verification strategy
 
 - PG17 migration test: chụp khi chèn `ai_pro`; không chụp `composed`; UPDATE
   `prompt_version` không chụp; UPDATE band thêm một ảnh, ảnh cũ giữ nguyên;
   UPDATE/DELETE/TRUNCATE trực tiếp lỗi `_append_only`; xoá cứng
-  `writing_essays` xoá theo cả hai bảng; chạy migration hai lần không lỗi; nạp
+  `writing_essays` xoá theo cả hai bảng; xoá người trả khi bài còn thì cặp còn,
+  điểm không đổi, `reviewer_id` NULL, và UPDATE trực tiếp (kể cả chỉ đặt
+  `reviewer_id = NULL`) vẫn lỗi; ép trigger chụp lỗi thì INSERT `writing_feedback`
+  vẫn thành công và có WARNING; cờ `writing_ai_snapshot_capture=false` thì không chụp;
+  `source` mới (ví dụ `ai_gpt`) được chụp; chạy migration hai lần không lỗi; nạp
   lại đánh dấu `legacy`.
+- Kịch bản migration-first (PG17): áp 480, không có mã G12-C03, cờ ghi cặp tắt;
+  chèn dòng AI → có ảnh chụp, 0 cặp; rollback bị từ chối vì bảng ảnh chụp có dòng;
+  chỉ chạy được khi có `aver.allow_score_pairs_rollback='on'`.
 - Pytest backend với supabase giả cho mọi scenario trong `spec.md` và các edge
   case ghép ảnh chụp, `duplicate`, cờ tắt, lỗi bên trong.
 - Bộ backend đầy đủ.
