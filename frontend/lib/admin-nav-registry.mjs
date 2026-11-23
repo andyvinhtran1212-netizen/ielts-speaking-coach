@@ -33,7 +33,7 @@ export const ADMIN_NAV_GROUPS = Object.freeze([
   { id: 'overview', label: 'Tổng quan', icon: 'home', items: [item('todo', 'Việc cần làm', '/admin')] },
   {
     id: 'learners', label: 'Học viên và quyền truy cập', icon: 'users', items: [
-      soon('learners', 'Học viên', { plannedHref: '/admin/learners' }),
+      item('learners', 'Học viên', '/admin/learners'),
       item('classes', 'Lớp', '/admin/classes'),
       item('instructors', 'Giáo viên', '/admin/instructors'),
       soon('activation-codes', 'Mã kích hoạt', { plannedHref: '/admin/activation-codes' }),

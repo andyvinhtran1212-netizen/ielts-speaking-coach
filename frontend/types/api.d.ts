@@ -19252,6 +19252,8 @@ export interface components {
         LearnerRow: {
             /** Ref */
             ref: string;
+            /** Student Id */
+            student_id?: string | null;
             /** Name */
             name: string;
             /** Email */
