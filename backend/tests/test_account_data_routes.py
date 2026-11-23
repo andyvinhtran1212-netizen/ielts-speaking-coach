@@ -202,3 +202,23 @@ def test_download(env):
 def test_unauthenticated_is_401(env):
     assert env.client.get("/api/account/deletion-request").status_code == 401
     assert env.client.post("/api/account/data-export").status_code == 401
+
+
+def test_signed_url_downloads_under_a_readable_name(monkeypatch):
+    from datetime import datetime, timezone
+    from routers import account_data
+
+    calls = []
+
+    class Bucket:
+        def create_signed_url(self, path, seconds, options=None):
+            calls.append((path, seconds, options))
+            return {"signedURL": "https://storage.example/s?token=x&download=f.zip"}
+
+    monkeypatch.setattr(account_data, "supabase_admin",
+                        SimpleNamespace(storage=SimpleNamespace(from_=lambda bucket: Bucket())))
+    assert account_data.sign_export_url("u/e/token.zip", 60).startswith("https://storage.example/")
+    name = calls[0][2]["download"]
+    assert name.endswith(".zip") and "token" not in name and calls[0][:2] == ("u/e/token.zip", 60)
+    assert account_data.export_filename(datetime(2026, 11, 23, tzinfo=timezone.utc)) == \
+        "averlearning-du-lieu-tai-khoan-20261123.zip"

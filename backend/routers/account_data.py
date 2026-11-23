@@ -176,8 +176,15 @@ async def create_data_export(authorization: Optional[str] = Header(None)):
     return export.body(job, datetime.now(timezone.utc))
 
 
+def export_filename(now: Optional[datetime] = None) -> str:
+    """What the browser saves the package as (CR nit on #2613): never the
+    claim token that names the object."""
+    return f"averlearning-du-lieu-tai-khoan-{(now or datetime.now(timezone.utc)):%Y%m%d}.zip"
+
+
 def sign_export_url(path: str, seconds: int) -> Optional[str]:
-    item = supabase_admin.storage.from_(EXPORT_BUCKET).create_signed_url(path, seconds)
+    item = supabase_admin.storage.from_(EXPORT_BUCKET).create_signed_url(
+        path, seconds, {"download": export_filename()})
     if hasattr(item, "data"):
         item = item.data
     if not isinstance(item, dict) or item.get("error"):
