@@ -1,15 +1,23 @@
 'use client';
 
 // EXAMSPEAK-0072 FR-001, FR-011 (G08-T18): the focus bar around the Speaking
-// page. practice-page-shell.tsx loads this file through lazyLegacyRoom() only
-// when the `speaking` flag is on: the (authed-practice) layout is a legacy
-// layout, so LegacyRoomRoot brings the av2 root, fonts, tokens.css and base.css
-// in the room's chunk, and the flag-off page loads the same assets as before
-// (UIBASE-0056 FR-003, as in #2597).
+// page. practice-page-shell.tsx loads this file with React.lazy only when the
+// `speaking` flag is on, so the flag-off page loads the same assets as before
+// (UIBASE-0056 FR-003). The (authed-practice) layout is legacy and loads none
+// of the "Bản in" styles, so this chunk brings tokens.css, base.css and the
+// fonts. `.av2-root` (and with it base.css) goes only on the room's own parts,
+// the mic and recording slots; the legacy page body is never inside it, so its
+// h2, links and buttons keep their own classes. The bar needs no `.av2-root`:
+// FocusShell's module CSS draws it, and the root below gives it the fonts.
+import '@/styles/av2/tokens.css';
+import '@/styles/av2/base.css';
+
+import type { CSSProperties } from 'react';
 import { useEffect, useState, type ReactNode } from 'react';
 
 import { FocusShell, FocusStatus, FocusTimer } from '@/components/ui/shell/focus-shell';
 import { speakingRoomStrings, type SpeakingRoomMode } from '@/lib/exam-room/strings-speaking.mjs';
+import { av2FontClass } from '@/styles/av2/fonts';
 
 import { callApp, elapsedClock } from './practice-exam-room';
 
@@ -25,6 +33,13 @@ function useElapsed(running: boolean): number {
   }, [running]);
   return seconds;
 }
+
+// tokens.css declares the font stacks on `.av2-root` only; the room root sets
+// the same two stacks, so FocusShell finds them without base.css on the body.
+const FONT_STACKS = {
+  '--av2-font-serif': 'var(--av2-ff-serif), Georgia, serif',
+  '--av2-font-sans': 'var(--av2-ff-sans), system-ui, sans-serif',
+} as CSSProperties;
 
 export function PracticeExamRoom({
   view,
@@ -45,22 +60,24 @@ export function PracticeExamRoom({
   const detail = view.header?.visible && view.header.info ? String(view.header.info) : undefined;
   const progress = view.header?.visible && view.header.progress ? String(view.header.progress) : '';
   return (
-    <FocusShell
-      mode={mode === 'test' ? 'exam' : 'practice'}
-      // Speaking has no server timer (open question 3): never say it keeps running.
-      leaveCopy={mode === 'test' ? { lead: undefined } : undefined}
-      title={title}
-      detail={detail}
-      exitHref={returnHref}
-      hasUnsavedWork={() => callApp('hasUnsavedWork') === true}
-      right={(
-        <>
-          {progress ? <FocusStatus>{progress}</FocusStatus> : null}
-          <FocusTimer label={strings.elapsed} value={elapsedClock(elapsed)} />
-        </>
-      )}
-    >
-      <div className="flex-1 flex flex-col" data-exam-room-speaking>{children}</div>
-    </FocusShell>
+    <div className={av2FontClass} style={FONT_STACKS} data-speaking-room-root="">
+      <FocusShell
+        mode={mode === 'test' ? 'exam' : 'practice'}
+        // Speaking has no server timer (open question 3): never say it keeps running.
+        leaveCopy={mode === 'test' ? { lead: undefined } : undefined}
+        title={title}
+        detail={detail}
+        exitHref={returnHref}
+        hasUnsavedWork={() => callApp('hasUnsavedWork') === true}
+        right={(
+          <>
+            {progress ? <FocusStatus>{progress}</FocusStatus> : null}
+            <FocusTimer label={strings.elapsed} value={elapsedClock(elapsed)} />
+          </>
+        )}
+      >
+        <div className="flex-1 flex flex-col" data-exam-room-speaking>{children}</div>
+      </FocusShell>
+    </div>
   );
 }

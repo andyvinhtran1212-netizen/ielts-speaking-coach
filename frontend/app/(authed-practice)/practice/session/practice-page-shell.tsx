@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import {
   Suspense,
+  lazy,
   useCallback,
   useEffect,
   useRef,
@@ -11,14 +12,12 @@ import {
   type ReactNode,
 } from 'react';
 
-import { lazyLegacyRoom } from '@/components/exam-room/lazy-legacy-room';
-
 import { speakingRoomSlots } from './practice-exam-room';
 
-// EXAMSPEAK-0072: the focus bar, with the av2 root, tokens and fonts it brings,
+// EXAMSPEAK-0072: the focus bar, with the "Bản in" styles and fonts it brings,
 // loads only when the `speaking` flag is on, so the flag-off page loads exactly
 // what it did (UIBASE-0056 FR-003).
-const PracticeExamRoom = lazyLegacyRoom(() => import('./practice-exam-room-frame').then((module) => module.PracticeExamRoom));
+const PracticeExamRoom = lazy(() => import('./practice-exam-room-frame').then((module) => ({ default: module.PracticeExamRoom })));
 
 type PlayerStateStore = {
   getStateSnapshot(): null | string;

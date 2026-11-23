@@ -74,25 +74,26 @@ export function speakingRoomSlots(view: any, activeState: string): { mode: Speak
   const substate: RecordingSubstate = rec.substate === 'recording' || rec.substate === 'recorded' ? rec.substate : 'idle';
   const level = typeof rec.level === 'number' ? rec.level : null;
   // Only the slot of the screen on show is drawn, so the page never holds two
-  // microphone boxes or two alerts at once.
+  // microphone boxes or two alerts at once. Each slot is its own `.av2-root`
+  // (base.css loads with the room); the legacy body around it is not.
   return {
     mode,
     slots: {
       recorder: activeState === 'prep' ? (
-        <div data-room-slot="recorder">
+        <div className="av2-root" data-room-slot="recorder">
           {micBox}
           <RecordingStatus substate={substate} timer={rec.timer || '0:00'} duration={rec.duration || ''} level={level} paused={rec.paused === true} strings={strings} />
           <TooShortReason value={tooShortOf(rec.tooShort)} mode={mode} />
         </div>
       ) : null,
       part2Cue: activeState === 'p2a' ? (
-        <div data-room-slot="part2-cue">
+        <div className="av2-root" data-room-slot="part2-cue">
           {micBox}
           <TooShortReason value={tooShortOf(view.part2?.tooShort)} mode={mode} />
         </div>
       ) : null,
       part2Speaking: activeState === 'p2c' ? (
-        <div data-room-slot="part2-speaking">
+        <div className="av2-root" data-room-slot="part2-speaking">
           <RecordingStatus substate="recording" timer={view.part2?.speakTimer || ''} duration="" level={level} paused={rec.paused === true} strings={strings} />
         </div>
       ) : null,

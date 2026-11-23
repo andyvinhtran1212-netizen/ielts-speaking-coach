@@ -78,8 +78,12 @@ describe('flag on', () => {
     expect(screen.getByRole('button', { name: /Thoát/ })).toBeTruthy();
     expect(container.querySelectorAll('main')).toHaveLength(1);
     expect(container.querySelector('[data-exam-room-speaking] #state-prep')).not.toBeNull();
-    // The room brings the "Bản in" tokens, base rules and fonts on its own root.
-    expect(container.querySelector('.av2-root.av2-fonts [data-exam-room-speaking]')).not.toBeNull();
+    // The room root carries the fonts; .av2-root (base.css) sits only on the
+    // room's slots, never around the legacy body, its h2 or its links.
+    expect(container.querySelector('.av2-fonts[data-speaking-room-root] [data-exam-room-speaking]')).not.toBeNull();
+    expect(container.querySelector('.av2-root [data-exam-room-speaking]')).toBeNull();
+    expect(container.querySelector('.av2-root h2, .av2-root .practice-completion-cta')).toBeNull();
+    expect(container.querySelector('#state-prep [data-room-slot="recorder"].av2-root')).not.toBeNull();
     expect(screen.getByRole('timer').textContent).toBe('0:00');
     act(() => { vi.advanceTimersByTime(65_000); });
     expect(screen.getByRole('timer').textContent).toBe('1:05');
