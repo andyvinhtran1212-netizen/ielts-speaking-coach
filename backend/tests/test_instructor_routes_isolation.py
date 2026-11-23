@@ -73,6 +73,8 @@ class _Q:
     def delete(self): self._op = "delete"; return self
     def eq(self, c, v): self._filters.append(("eq", c, v)); return self
     def neq(self, c, v): self._filters.append(("neq", c, v)); return self
+    def gte(self, c, v): self._filters.append(("gte", c, v)); return self
+    def lt(self, c, v): self._filters.append(("lt", c, v)); return self
     def in_(self, c, vals): self._filters.append(("in", c, [str(x) for x in vals])); return self
     def is_(self, c, v):
         neg, self._neg = self._neg, False
@@ -93,6 +95,8 @@ class _Q:
             if op == "in" and str(rv) not in v: return False
             if op == "is" and v == "null" and rv is not None: return False
             if op == "notis" and v == "null" and rv is None: return False
+            if op == "gte" and (rv is None or str(rv) < str(v)): return False
+            if op == "lt" and (rv is None or str(rv) >= str(v)): return False
         return True
 
     def execute(self):
@@ -228,6 +232,8 @@ ROUTES = [
     ("GET",    "/instructor/learners/{id}",            "read1",  f"s-{SA}", None, None),
     # G09-T05: quick search through services/staff_scope; a_id is the query.
     ("POST",   "/instructor/search",                   "search", "SA", None, None),
+    # G09-T06: Việc của tôi through services/staff_scope.
+    ("GET",    "/instructor/attention",                "attention", None, None, None),
 ]
 
 
@@ -248,6 +254,7 @@ def _as(me, store):
         "services.learner_attention.supabase_admin",
         "services.ops_thresholds.supabase_admin",
         "services.admin_search.supabase_admin",
+        "services.staff_attention.supabase_admin",
         "services.test_data_visibility.supabase_admin",
     ]
 
@@ -321,6 +328,10 @@ def test_matrix_B_cannot_touch_A(method, path, kind, a_id, body, a_marker):
         _assert_search_hides_a(resp)
         return
 
+    if kind == "attention":
+        _assert_attention_hides_a(resp)
+        return
+
     if kind == "list":
         assert resp.status_code == 200, resp.text
         ids = {row.get("id") for row in resp.json()}
@@ -365,6 +376,17 @@ def _assert_search_hides_a(resp):
         assert marker not in text, f"LEAK: B's /instructor/search returned A's {marker}"
     assert set(body) == {"learners", "classes", "submissions", "sources_failed", "unavailable"}
     assert body["sources_failed"] == []
+
+
+def _assert_attention_hides_a(resp):
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    text = str(body)
+    for marker in ("Lop A", EA, CA, SA, RA):
+        assert marker not in text, f"LEAK: B's /instructor/attention returned A's {marker}"
+    assert "ops_week" not in body and "feedback_open" not in body["queues"]
+    # B's own graded essay is B's to review; A's is not counted.
+    assert body["queues"]["writing_review"]["count"] == 1
 
 
 def test_search_teacher_of_class_b_gets_nothing_from_class_a():
