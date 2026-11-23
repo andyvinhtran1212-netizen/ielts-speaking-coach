@@ -76,7 +76,9 @@ interface ExamRoomShellProps {
 - Dạng câu nhận `mode`, `strings`, `value`, `onChange`, `disabled`, `result?`;
   `value` là chuỗi giống hệt `user_answer` trình đang gửi.
 - `audio-player.tsx` nhận `policy: 'practice' | 'test' | 'once'`,
-  `onPlaybackStart?`, `resumeAt?`.
+  `onPlaybackStart?`, `resumeAt?`, và chỉ ánh xạ sang `AudioPlayer` của G03 (#2492):
+  `practice` → `mode='practice'` + `spaceToggles`; `test` → `mode='exam'`; `once` →
+  `variant='once'`. Chuỗi tiếng Anh cho `test` qua prop `copy` (câu hỏi mở 9).
 - Bộ chuỗi tối thiểu theo GOI-08 mục 5.3; câu chữ của tờ thiết kế là chuẩn. Không
   chuỗi nào chứa mã lỗi HTTP, tên tham số hay `attempt_id`.
 - Cờ: `examRoomEnabled(surface)` là hàm duy nhất đọc cờ; mỗi trình rẽ nhánh đúng

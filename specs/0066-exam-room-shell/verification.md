@@ -31,8 +31,8 @@
 | FR-025 | kind=test; ref=frontend/tests/react/exam-room-questions.test.tsx (six types; answer strings equal current renderer on reading-exam.json fixture) | PENDING |
 | FR-026 | kind=test; ref=frontend/tests/react/exam-room-questions.test.tsx (in-room practice result view, never 0/0, no band under 40) | PENDING |
 | FR-027 | kind=test; ref=frontend/tests/react/exam-room-questions.test.tsx (map labelling, short answer, summary, matrix) | PENDING |
-| FR-028 | kind=test; ref=frontend/tests/react/exam-room-audio.test.tsx (practice A–B, test has no seek/speed/pause, space key) | PENDING |
-| FR-029 | kind=test; ref=frontend/tests/react/exam-room-audio.test.tsx (once: confirm first, pause kept, no rewind, resume point) | PENDING |
+| FR-028 | kind=test; ref=frontend/tests/react/exam-room-audio.test.tsx (maps policy to G03 AudioPlayer props; practice A–B; test has no seek/speed/pause and English copy; space key only in practice) | PENDING |
+| FR-029 | kind=test; ref=frontend/tests/react/exam-room-audio.test.tsx (once: in-player warning before play, no pause and no shortcut while playing, no rewind, resume point) | PENDING |
 | FR-030 | kind=test; ref=frontend/tests/react/exam-room-annotation.test.tsx, owned by T004 (highlight, note, mark fallback) | PENDING |
 | FR-031 | kind=journey; ref=surface spec journeys (0067–0073) capturing Playwright `dialog` events with the surface flag on | PENDING |
 | FR-032 | kind=test; ref=frontend/tests/exam-room-*.test.mjs (storage keys, expiry, try/catch on throwing storage) | PENDING |

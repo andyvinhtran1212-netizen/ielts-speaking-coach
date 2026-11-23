@@ -259,17 +259,24 @@ trên `staging` @ `cc6dd4c8` (23/11/2026):
   cung cấp component hiển thị câu để G07 dùng lại nếu muốn.
 - **FR-027:** Dạng riêng: Listening gắn nhãn bản đồ/sơ đồ (lựa chọn đặt cạnh hình),
   Reading trả lời ngắn, hoàn thành tóm tắt, nối đặc điểm (bảng ma trận).
-- **FR-028:** Trình phát audio một thành phần, prop `policy`: `practice` có tạm
-  dừng, tua 5 giây, tốc độ 0,75–1,5× (nhớ cho bài sau), lặp đoạn A–B; `test` không
-  có tạm dừng, tua, tốc độ, A–B, chỉ có âm lượng; bản đầy đủ, thu gọn và điện thoại
-  dùng chung một trạng thái. Phím cách phát/tạm dừng chỉ ở `practice` và khi con
-  trỏ không ở ô nhập. Audio không tự phát được thì có nút "Play" cần thao tác người
-  dùng.
-- **FR-029:** `policy='once'` (bài "Vận dụng" chế độ luyện): hỏi lại trước khi phát
-  ("Bài này chỉ được nghe một lần · Dài 3:42…"); **giữ nút tạm dừng**, không tua
-  lùi, không phát lại; xong ghi "Đã nghe · đã khoá"; mất kết nối giữa chừng thì báo
-  phút dừng và cho nghe tiếp từ đó. Lời gọi ghi nhận bắt đầu phát do trình truyền
-  qua `onPlaybackStart`.
+- **FR-028:** Trình phát audio là `AudioPlayer` của G03 (UIBASE-0056 #31,
+  `frontend/components/ui/audio-player.tsx`, PR #2492); `exam-room/audio-player.tsx`
+  chỉ nối `policy` của trình vào prop của component đó, không vẽ trình phát riêng.
+  `policy='practice'` → `mode='practice'`: tạm dừng, tua 5 giây, tốc độ 0,75–1,5×
+  (nhớ cho bài sau), lặp đoạn A–B. `policy='test'` → `mode='exam'`: không tạm dừng,
+  tua, tốc độ, A–B. Bản đầy đủ, thu gọn và điện thoại dùng chung một trạng thái. Phím
+  cách: khung chỉ truyền `spaceToggles` khi `policy='practice'`, và component tự bỏ qua
+  khi tiêu điểm ở ô nhập hay nút. Chuỗi của trình phát ở chế độ `test` phải là tiếng
+  Anh theo FR-002; component ở #2492 hiện chỉ có chuỗi tiếng Việt, xem câu hỏi mở 9.
+  Audio không tự phát được thì có nút "Play"/"Phát" cần thao tác người dùng.
+- **FR-029:** `policy='once'` (bài "Vận dụng" chế độ luyện) → `variant='once'` của
+  `AudioPlayer`: màn cảnh báo ngay trong trình phát trước khi phát ("Bài này chỉ được
+  nghe một lần", "Dài 3:42. Không tạm dừng, không tua, không đổi tốc độ…", nút "Bắt
+  đầu nghe"), không có hộp hỏi riêng; đang phát thì **không** có nút tạm dừng và không
+  có phím tắt; không tua, không phát lại; xong thì "Đã nghe · đã khoá". Mất kết nối
+  giữa chừng thì báo phút dừng và nút "Nghe tiếp từ [mm:ss]" phát tiếp từ đó. Lời gọi
+  ghi nhận bắt đầu phát do trình truyền qua `onPlaybackStart`. (GOI-08 FR-08-025 ghi
+  "giữ nút tạm dừng"; bố cục đã duyệt của UIBASE-0056 thắng, như FR-011 và FR-012.)
 - **FR-030:** Highlight/Note trên bài đọc: chọn chữ hiện thanh nổi "Highlight ·
   Note · Clear"; ghi chú ở lề (bản hẹp: số nhỏ trong bài, bấm mở); tô và ghi chú còn
   khi tải lại trong cùng lượt (lưu trên máy). Trình duyệt không có CSS Highlight API
@@ -419,8 +426,9 @@ trên `staging` @ `cc6dd4c8` (23/11/2026):
 ### Scenario 8: bài nghe
 
 - **Given** `policy='test'` **Then** không có nút tạm dừng, tua, tốc độ.
-- **Given** `policy='once'` **When** bấm bắt đầu **Then** có hộp hỏi lại trước; có
-  tạm dừng, không tua lùi.
+- **Given** `policy='once'` **Then** trước khi phát có màn cảnh báo "Bài này chỉ được
+  nghe một lần" trong trình phát; **When** bấm "Bắt đầu nghe" **Then** không có tạm
+  dừng, tua hay phím tắt.
 
 ### Scenario 9: cờ tắt
 
@@ -486,3 +494,10 @@ mục 10).
 8. **Component đăng nhập G05-T19 và màn 8a–8c G05-T20 chưa có** (ENROLL-0060 còn
    nháp ở #2463). Đề xuất: dùng phương án dự phòng ở FR-015 và FR-016 cho tới khi hai
    thứ đó lên; trình không cần chờ. Mặc định tạm: như đề xuất.
+9. **Chuỗi tiếng Anh của `AudioPlayer` ở chế độ thi.** Component ở #2492 viết cứng
+   chuỗi tiếng Việt ("Phát", "Bài thi: không tạm dừng…", "Đang phát · không tạm dừng
+   được"), trong khi FR-002 yêu cầu chế độ `test` toàn tiếng Anh. Đề xuất: T004 thêm
+   một prop `copy` (mặc định là bộ tiếng Việt hiện có, nên không đổi gì ở chỗ khác)
+   vào `AudioPlayer` sau khi #2492 vào `staging`, trong một PR nhỏ báo cho chủ G03; khung
+   truyền bộ tiếng Anh khi `policy='test'`. Trước khi có prop đó, không bật production
+   trình Listening test nào. Mặc định tạm: như đề xuất.
