@@ -15,6 +15,7 @@ import asyncio
 import itertools
 
 import pytest
+from sqlalchemy import text
 from fastapi import HTTPException
 
 from services import feature_flags, runtime_flags
@@ -180,7 +181,46 @@ def test_auth_me_response_model_defaults_to_false():
 # ── POST /admin/users/{user_id}/learner-v2-flag ───────────────────────────────
 
 
-def _admin_route(monkeypatch, db, *, admin=True):
+U1 = "00000000-0000-4000-8000-000000000001"
+
+
+class _FakeEngine:
+    """Applies the route's UPDATE the way Postgres would: jsonb_set on one key."""
+
+    def __init__(self, users=None, fail=False):
+        self.users = users or {}
+        self.fail = fail
+        self.statements = []
+
+    def begin(self):
+        engine = self
+
+        class _Conn:
+            async def __aenter__(self):
+                if engine.fail:
+                    raise RuntimeError("db down: password=secret")
+                return self
+
+            async def __aexit__(self, *_exc):
+                return False
+
+            async def execute(self, statement, params):
+                engine.statements.append((str(statement), dict(params)))
+                row = engine.users.get(params["user_id"])
+
+                class _Result:
+                    def first(self_inner):
+                        if row is None:
+                            return None
+                        flags = dict(row.get("feature_flags") or {})
+                        flags["learner_v2"] = params["enabled"]
+                        row["feature_flags"] = flags
+                        return (flags,)
+                return _Result()
+        return _Conn()
+
+
+def _admin_route(monkeypatch, engine, *, admin=True):
     from routers import admin_flags
 
     async def _fake_admin(_authorization):
@@ -189,63 +229,108 @@ def _admin_route(monkeypatch, db, *, admin=True):
         return {"id": "admin-1"}
 
     monkeypatch.setattr(admin_flags, "require_admin", _fake_admin)
-    monkeypatch.setattr(admin_flags, "supabase_admin", db)
+    monkeypatch.setattr(admin_flags, "_db_engine", engine)
+
+    class _NoPostgrest:
+        def table(self, name):
+            raise AssertionError(f"the flag route must not read-modify-write via PostgREST ({name})")
+
+    monkeypatch.setattr(admin_flags, "supabase_admin", _NoPostgrest())
     return admin_flags
 
 
 @pytest.mark.parametrize("enabled", (True, False))
 def test_admin_sets_flag_and_returns_stored_value(monkeypatch, enabled):
-    db = _DB(users={"u-1": {"id": "u-1", "feature_flags": {"vocab_enabled": True,
-                                                             "learner_v2": not enabled}}})
-    admin_flags = _admin_route(monkeypatch, db)
+    engine = _FakeEngine(users={U1: {"feature_flags": {"vocab_enabled": True, "learner_v2": not enabled}}})
+    admin_flags = _admin_route(monkeypatch, engine)
     out = asyncio.run(admin_flags.admin_set_learner_v2_flag(
-        "u-1", admin_flags.LearnerV2FlagPayload(enabled=enabled), authorization="Bearer x"))
-    assert out == {"user_id": "u-1", "learner_v2": enabled}
-    # Only the learner_v2 key changes; other per-user flags are kept.
-    assert db.users["u-1"]["feature_flags"] == {"vocab_enabled": True, "learner_v2": enabled}
-    # Read, write, read back.
-    assert [(t, w) for t, _k, w in db.calls] == [("users", False), ("users", True), ("users", False)]
+        U1, admin_flags.LearnerV2FlagPayload(enabled=enabled), authorization="Bearer x"))
+    assert out == {"user_id": U1, "learner_v2": enabled}
+    assert engine.users[U1]["feature_flags"] == {"vocab_enabled": True, "learner_v2": enabled}
+    # One statement, no read before the write.
+    assert len(engine.statements) == 1
+    assert engine.statements[0][1] == {"enabled": enabled, "user_id": U1}
 
 
-def test_admin_flag_answer_comes_from_the_read_back(monkeypatch):
-    db = _DB(users={"u-1": {"id": "u-1", "feature_flags": {}}})
+def test_admin_flag_sql_touches_only_the_learner_v2_key():
+    from routers import admin_flags
 
-    admin_flags = _admin_route(monkeypatch, db)
-    original_update = _Q.update
+    sql = " ".join(str(admin_flags._SET_LEARNER_V2_SQL).split())
+    assert "jsonb_set(COALESCE(feature_flags, '{}'::jsonb), '{learner_v2}'," in sql
+    assert "WHERE id = CAST(:user_id AS uuid)" in sql and "RETURNING feature_flags" in sql
+    assert sql.count("feature_flags =") == 1
 
-    def _lost_update(self, payload):  # write silently not applied
-        self.payload = {}
-        return self
 
-    monkeypatch.setattr(_Q, "update", _lost_update)
+def test_admin_flag_answer_comes_from_the_stored_row(monkeypatch):
+    engine = _FakeEngine(users={U1: {"feature_flags": {}}})
+    admin_flags = _admin_route(monkeypatch, engine)
+
+    async def _stored_false(_uid, _enabled):  # write lost: the stored row says false
+        return {"learner_v2": False}
+
+    monkeypatch.setattr(admin_flags, "_set_learner_v2", _stored_false)
     out = asyncio.run(admin_flags.admin_set_learner_v2_flag(
-        "u-1", admin_flags.LearnerV2FlagPayload(enabled=True), authorization="Bearer x"))
-    monkeypatch.setattr(_Q, "update", original_update)
-    assert out == {"user_id": "u-1", "learner_v2": False}
+        U1, admin_flags.LearnerV2FlagPayload(enabled=True), authorization="Bearer x"))
+    assert out == {"user_id": U1, "learner_v2": False}
 
 
 def test_admin_flag_rejects_non_admin(monkeypatch):
-    db = _DB(users={"u-1": {"id": "u-1", "feature_flags": {}}})
-    admin_flags = _admin_route(monkeypatch, db, admin=False)
+    engine = _FakeEngine(users={U1: {"feature_flags": {}}})
+    admin_flags = _admin_route(monkeypatch, engine, admin=False)
     with pytest.raises(HTTPException) as exc:
         asyncio.run(admin_flags.admin_set_learner_v2_flag(
-            "u-1", admin_flags.LearnerV2FlagPayload(enabled=True), authorization="Bearer x"))
+            U1, admin_flags.LearnerV2FlagPayload(enabled=True), authorization="Bearer x"))
     assert exc.value.status_code == 403
-    assert db.calls == []
+    assert engine.statements == []
 
 
-def test_admin_flag_unknown_user_is_404(monkeypatch):
-    admin_flags = _admin_route(monkeypatch, _DB())
+@pytest.mark.parametrize("user_id", ("nope", "00000000-0000-4000-8000-0000000000ff"))
+def test_admin_flag_unknown_user_is_404(monkeypatch, user_id):
+    admin_flags = _admin_route(monkeypatch, _FakeEngine())
     with pytest.raises(HTTPException) as exc:
         asyncio.run(admin_flags.admin_set_learner_v2_flag(
-            "nope", admin_flags.LearnerV2FlagPayload(enabled=True), authorization="Bearer x"))
+            user_id, admin_flags.LearnerV2FlagPayload(enabled=True), authorization="Bearer x"))
     assert exc.value.status_code == 404
 
 
-def test_admin_flag_db_error_is_503_without_driver_text(monkeypatch):
-    admin_flags = _admin_route(monkeypatch, _DB(fail={"users"}))
+@pytest.mark.parametrize("engine", (_FakeEngine(fail=True), None))
+def test_admin_flag_db_error_is_503_without_driver_text(monkeypatch, engine):
+    admin_flags = _admin_route(monkeypatch, engine)
     with pytest.raises(HTTPException) as exc:
         asyncio.run(admin_flags.admin_set_learner_v2_flag(
-            "u-1", admin_flags.LearnerV2FlagPayload(enabled=True), authorization="Bearer x"))
+            U1, admin_flags.LearnerV2FlagPayload(enabled=True), authorization="Bearer x"))
     assert exc.value.status_code == 503
-    assert "db down" not in str(exc.value.detail)
+    assert "db down" not in str(exc.value.detail) and "secret" not in str(exc.value.detail)
+
+
+def test_admin_flag_sql_keeps_a_concurrent_key_on_real_postgres():
+    """The UPDATE against a real database (skipped unless one is configured):
+    a key written between the admin's page load and the click survives."""
+    import os
+
+    url = os.environ.get("LEARNER_V2_FLAG_TEST_DATABASE_URL")
+    if not url:
+        pytest.skip("LEARNER_V2_FLAG_TEST_DATABASE_URL is not configured")
+    from sqlalchemy.ext.asyncio import create_async_engine
+    from routers import admin_flags
+
+    async def _run():
+        engine = create_async_engine(url)
+        try:
+            async with engine.begin() as conn:
+                await conn.execute(text("CREATE SCHEMA IF NOT EXISTS lv2_test"))
+                await conn.execute(text("DROP TABLE IF EXISTS lv2_test.users"))
+                await conn.execute(text("CREATE TABLE lv2_test.users (id uuid PRIMARY KEY, feature_flags jsonb)"))
+                await conn.execute(text("INSERT INTO lv2_test.users VALUES (CAST(:id AS uuid), NULL)"), {"id": U1})
+                # The concurrent writer lands first.
+                await conn.execute(text(
+                    "UPDATE lv2_test.users SET feature_flags = '{\"vocab_curated_enabled\": true}'"))
+            sql = text(str(admin_flags._SET_LEARNER_V2_SQL).replace("public.users", "lv2_test.users"))
+            async with engine.begin() as conn:
+                row = (await conn.execute(sql, {"enabled": True, "user_id": U1})).first()
+                await conn.execute(text("DROP SCHEMA lv2_test CASCADE"))
+            return row[0]
+        finally:
+            await engine.dispose()
+
+    assert asyncio.run(_run()) == {"vocab_curated_enabled": True, "learner_v2": True}
