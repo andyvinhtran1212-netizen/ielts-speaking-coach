@@ -221,6 +221,8 @@ function NavRail({ nav, current }: { nav: readonly StaffNavGroup[]; current: str
   );
 }
 
+const withRoot = (root: string | undefined, cls: string) => (root ? `${root} ${cls}` : cls);
+
 export type StaffSidebarProps = {
   role: StaffRole;
   nav: readonly StaffNavGroup[];
@@ -230,6 +232,8 @@ export type StaffSidebarProps = {
   onCollapsedChange: (collapsed: boolean) => void;
   /** Remember folded groups in localStorage (false on /ui-library). */
   persist?: boolean;
+  /** 'av2-root' when StaffShell scope="shell". */
+  rootClass?: string;
 };
 
 /**
@@ -237,9 +241,9 @@ export type StaffSidebarProps = {
  * rail below 1200px (1024px included, FR-018) or when the user collapses it.
  * Hidden below 768px, where StaffDrawer takes over.
  */
-export function StaffSidebar({ role, nav, current, collapsed, onCollapsedChange, persist = true }: StaffSidebarProps) {
+export function StaffSidebar({ role, nav, current, collapsed, onCollapsedChange, persist = true, rootClass }: StaffSidebarProps) {
   return (
-    <nav aria-label={NAV_LABEL[role]} className={styles.sidebar} data-collapsed={collapsed ? 'true' : undefined}>
+    <nav aria-label={NAV_LABEL[role]} className={withRoot(rootClass, styles.sidebar)} data-collapsed={collapsed ? 'true' : undefined}>
       <div className={styles.sidebarFull}>
         <NavList nav={nav} current={current} size="desktop" persist={persist} />
       </div>
@@ -267,17 +271,19 @@ export type StaffDrawerProps = {
   open: boolean;
   onClose: () => void;
   persist?: boolean;
+  /** 'av2-root' when StaffShell scope="shell". */
+  rootClass?: string;
 };
 
 /** Phone drawer (<768px): the same groups, 44px rows, only the current group open. Modal. */
-export function StaffDrawer({ role, nav, current, open, onClose, persist = true }: StaffDrawerProps) {
+export function StaffDrawer({ role, nav, current, open, onClose, persist = true, rootClass }: StaffDrawerProps) {
   const panel = useRef<HTMLDivElement>(null);
   useDialogFocus({ open, onClose, dialogRef: panel });
   if (!open) return null;
   return (
     <>
-      <div className={styles.drawerBackdrop} aria-hidden="true" onClick={onClose} />
-      <div ref={panel} className={styles.drawer} role="dialog" aria-modal="true" aria-label={MENU_LABEL[role]}>
+      <div className={withRoot(rootClass, styles.drawerBackdrop)} aria-hidden="true" onClick={onClose} />
+      <div ref={panel} className={withRoot(rootClass, styles.drawer)} role="dialog" aria-modal="true" aria-label={MENU_LABEL[role]}>
         <div className={styles.drawerHead}>
           <span className={styles.drawerTitle}>{MENU_LABEL[role]}</span>
           <button type="button" className={styles.squareButton} aria-label={`Đóng ${MENU_LABEL[role].toLowerCase()}`} onClick={onClose}>

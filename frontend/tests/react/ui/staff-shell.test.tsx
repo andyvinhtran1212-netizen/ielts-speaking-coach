@@ -413,6 +413,20 @@ describe('G09-T08 additions (GOI-09 FR-003, FR-005, FR-006, FR-007)', () => {
     expect(groupButton(/^Hệ thống/).getAttribute('aria-expanded')).toBe('false');
   });
 
+  it('scope="shell" puts .av2-root on the chrome only, never on <main>; default adds none', () => {
+    renderShell({ scope: 'shell' });
+    expect(screen.getByRole('banner').classList.contains('av2-root')).toBe(true);
+    expect(sidebar().classList.contains('av2-root')).toBe(true);
+    expect(screen.getByRole('link', { name: 'Bỏ qua tới nội dung' }).classList.contains('av2-root')).toBe(true);
+    const main = screen.getByRole('main');
+    expect(main.closest('.av2-root')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Mở menu quản trị' }));
+    expect(screen.getByRole('dialog', { name: 'Menu quản trị' }).classList.contains('av2-root')).toBe(true);
+    cleanup();
+    renderShell();
+    expect(document.querySelector('.av2-root')).toBeNull();
+  });
+
   it('the demo keeps folds in memory only', () => {
     render(<StaffShellDemo testId="d" role="admin" />);
     const demoSidebar = screen.getAllByRole('navigation', { name: 'Điều hướng quản trị' })[0];

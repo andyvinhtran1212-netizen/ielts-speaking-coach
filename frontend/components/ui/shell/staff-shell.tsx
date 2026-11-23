@@ -52,6 +52,14 @@ export type StaffShellProps = {
    * collapsed state kept in memory, not in localStorage.
    */
   demo?: { current: string | null; collapsed?: boolean };
+  /**
+   * Where `.av2-root` sits. 'inherit' (default): a v2 ancestor provides it.
+   * 'shell': the shell puts it on its own chrome (skip link, top bar, sidebar,
+   * drawer) and never on <main>, so legacy v1 pages framed by the shell keep
+   * their cascade (base.css `.av2-root h1` / `.av2-root a` would beat their
+   * classes). The page still loads styles/av2 tokens.css and base.css.
+   */
+  scope?: 'shell' | 'inherit';
   children: ReactNode;
 };
 
@@ -77,8 +85,9 @@ function writeCollapsed(collapsed: boolean) {
  * scrolls the page sideways; wide tables scroll inside their own frame.
  */
 export function StaffShell({
-  role, nav, environment, user, switchTo = [], search, searchSlot, current: currentProp, demo, children,
+  role, nav, environment, user, switchTo = [], search, searchSlot, current: currentProp, demo, scope = 'inherit', children,
 }: StaffShellProps) {
+  const chrome = scope === 'shell' ? 'av2-root' : undefined;
   const pathname = usePathname() ?? '';
   const current = demo ? demo.current : currentProp !== undefined ? currentProp : currentStaffHref(nav, pathname);
   const [collapsed, setCollapsed] = useState(demo?.collapsed ?? false);
@@ -95,7 +104,7 @@ export function StaffShell({
 
   return (
     <div className={styles.shell} data-demo={demo ? '' : undefined}>
-      {demo ? null : <a href="#main-content" className={styles.skip}>Bỏ qua tới nội dung</a>}
+      {demo ? null : <a href="#main-content" className={chrome ? `${chrome} ${styles.skip}` : styles.skip}>Bỏ qua tới nội dung</a>}
       <StaffTopBar
         role={role}
         environment={environment}
@@ -105,14 +114,15 @@ export function StaffShell({
         searchSlot={searchSlot}
         panel={panel}
         setPanel={setPanel}
+        rootClass={chrome}
       />
       <div className={styles.body}>
-        <StaffSidebar role={role} nav={nav} current={current} collapsed={collapsed} onCollapsedChange={onCollapsedChange} persist={!demo} />
+        <StaffSidebar role={role} nav={nav} current={current} collapsed={collapsed} onCollapsedChange={onCollapsedChange} persist={!demo} rootClass={chrome} />
         {demo
           ? <div className={styles.main}>{children}</div>
           : <main id="main-content" tabIndex={-1} className={styles.main}>{children}</main>}
       </div>
-      <StaffDrawer role={role} nav={nav} current={current} open={panel === 'drawer'} onClose={() => setPanel(null)} persist={!demo} />
+      <StaffDrawer role={role} nav={nav} current={current} open={panel === 'drawer'} onClose={() => setPanel(null)} persist={!demo} rootClass={chrome} />
     </div>
   );
 }
