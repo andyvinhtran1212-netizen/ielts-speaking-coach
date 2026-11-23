@@ -16,7 +16,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const DIALOG = readFileSync(join(ROOT, 'app', '(authed-admin-mock-exams)', 'admin', 'mock-exams',
+const DIALOG = readFileSync(join(ROOT, 'app', '(authed-admin)/(mock-exams)', 'admin', 'mock-exams',
   'retake-assignment-dialog.tsx'), 'utf8');
 const LEGACY = readFileSync(join(ROOT, 'public', 'js', 'admin-mock-exams.js'), 'utf8');
 
