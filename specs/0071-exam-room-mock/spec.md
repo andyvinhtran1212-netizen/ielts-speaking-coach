@@ -132,6 +132,10 @@ chiếu ở `verification.md`.
     đồng hồ máy hay từ lần ACK. Không thử lại, không nói "submitted".
   - Máy chủ chưa đóng phần mà domain submit lỗi hoặc xác nhận phần thi chưa tới (dù `flush-ack`
     đã thành công): ở `unconfirmed`/`unconfirmed_manual`, không hiện đã nộp.
+  - Điều kiện (2) chỉ áp cho lần nộp mà tab này khởi động hoặc quan sát được. Phần đã nộp trước
+    khi mở tab (tải lại trang, mở tab mới) chỉ hiện "✓ Submitted" trên dải phần (FR-005) theo
+    `*SubmittedAt` của máy chủ; không hiện màn trạng thái nộp và không thành `closed_unconfirmed`
+    chỉ vì tab mới không có bằng chứng flush.
   - 403/404: giữ thông điệp hiện có ("Contact your invigilator."), không thêm thử lại.
 - **FR-008:** Lối thoát (FR-08-011): "Leave test" mở hộp "Leave the test?" với "Continue test"
   (chính) và "Leave test", câu "Your answers so far are saved. The timer keeps running while
@@ -239,6 +243,13 @@ chiếu ở `verification.md`.
 - **Given** `examRoomSurfaces` không có `mock`
 - **When** chạy `verify-mock-exam-flow.mjs` và test đọc nguồn hiện có
 - **Then** xanh như trước, không request nào đổi.
+
+### Scenario 7: tải lại sau khi đã nộp một phần
+
+- **Given** Listening đã nộp (máy chủ có `listeningSubmittedAt`), đang làm Reading
+- **When** tải lại trang
+- **Then** dải phần hiện "✓ Submitted" cho Listening, không hiện màn trạng thái nộp và không
+  hiện `closed_unconfirmed` cho phần đó; Reading tiếp tục với thời gian còn lại theo máy chủ.
 
 ## Edge cases
 
