@@ -81,6 +81,7 @@ Mọi dòng ở trạng thái `PENDING`: spec đang `draft`, chưa có dòng mã
 | FR-116 | kind=test; ref=planned React out-of-credits shows CreditsEmptyNotice under the title, other blocks unchanged (T25) | PENDING |
 | FR-117 | kind=test; ref=planned React no "Cần Khoá" copy when access.blocked is false; blocked true renders screen 4 (T25) | PENDING |
 | FR-118 | kind=test; ref=planned pytest response_model, caller-only data, 422 for an unknown skill, degraded per block (T25) | PENDING |
+| FR-126 | kind=test; ref=planned pytest learner_starters admin-only write with reason and log, write-time paper check 422 starter_paper_unavailable, Writing before G08 422 starter_unsupported, read-time re-check hides the block (T25s) | PENDING |
 | FR-119 | kind=test; ref=planned React class-sessions-v2 flag off replaces URL to /my-class, has_class false shows the Notice, third tab only when has_class (T30c) | PENDING |
 | FR-120 | kind=test; ref=planned node class picker default and unknown ?class=; React header shows "Đã học n buổi" and no teacher/schedule line (T30c) | PENDING |
 | FR-121 | kind=test; ref=planned node date labels around Vietnam midnight and the four default-session branches (T30c) | PENDING |
