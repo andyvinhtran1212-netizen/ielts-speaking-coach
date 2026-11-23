@@ -158,6 +158,7 @@ ALLOWED_B: dict[tuple[str, str, str], tuple[int, str]] = {
     ("routers/admin_writing_prompts.py", "_update_prompt_sync", "', '.join(invalid_nulls)"): (1, "keys of PromptUpdate.model_dump(): model field names only"),
     ("routers/admin_writing_regrade.py", "_action_regrade_request_sync", "result.get('status')"): (1, DB_VALUE),
     ("routers/auth.py", "_rate_limit_activate", "str(retry_after_s)"): (1, SERVER_NUMBER),
+    ("routers/course_open_alerts.py", "_take_slot", "str(retry_after_s)"): (1, SERVER_NUMBER),
     ("routers/auth.py", "_rate_limit_activate", "verdict"): (1, "RPC result; the ValueError is caught into a generic 503 (safe_error)"),
     ("routers/auth.py", "update_profile", "', '.join(valid_levels)"): (1, CONSTANT_B),
     ("routers/feedback.py", "_check_rating", "name"): (1, LITERAL_ARG),
