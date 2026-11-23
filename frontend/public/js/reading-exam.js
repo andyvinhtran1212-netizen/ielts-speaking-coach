@@ -3457,15 +3457,17 @@
       _postMockAnswers();
       return;
     }
+    // Same-origin parent only: the flush and its answer stay between this paper
+    // and the exam room that embeds it (FR-014).
     if (!ev.data || ev.data.type !== 'mock-flush') return;
+    if (ev.source !== window.parent || ev.origin !== location.origin) return;
     _flushPendingSavesForMock().then(function (clean) {
-      if (!ev.source) return;
       ev.source.postMessage({
         type: 'mock-flushed', section: 'reading',
         // Explicit zero is a protocol guarantee. The parent rejects a missing,
         // non-finite, or positive value and retries without sending flush-ack.
         unsaved: clean ? 0 : Math.max(1, SESSION.unsaved.size),
-      }, '*');
+      }, location.origin);
     });
   });
 })();
