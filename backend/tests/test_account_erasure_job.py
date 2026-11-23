@@ -143,9 +143,15 @@ def env():
         revoked.append(uid)
         return 1
 
+    alerts = []
+
+    async def alert(request_id, code, attempts):
+        alerts.append((request_id, code, attempts))
+        return True
+
     try:
         yield SimpleNamespace(engine=engine, run=run, storage=storage, auth=FakeAuth(), letters=letters,
-                              send=send, revoked=revoked)
+                              send=send, revoked=revoked, alerts=alerts, alert=alert)
     finally:
         try:
             next(gen)
@@ -161,7 +167,7 @@ def _request(env, user=U1, due=True):
 
 def _erase(env, req, owner="w1", **kw):
     args = dict(owner=owner, lease_seconds=300, max_attempts=3, storage=env.storage, auth=env.auth,
-                send=env.send, revoke_sessions=_revoker(env))
+                send=env.send, revoke_sessions=_revoker(env), alert=env.alert)
     args.update(kw)
     return asyncio.run(er.erase_one(env.engine, req, **args))
 
@@ -247,13 +253,45 @@ def test_failure_releases_retries_and_marks_failed(env):
     env.storage.remove = broken_remove
     for attempt in (1, 2):
         assert _erase(env, req).startswith("error:storage:")
+        assert env.alerts == []
         assert env.run(f"SELECT status, attempts, last_error_code, lease_until <= now() "
                        f"FROM public.account_deletion_requests WHERE id = '{req}'") == \
             f"erasing|{attempt}|storage:RuntimeError|t"
     assert env.run("SELECT count(*) FROM public.sessions") == "2"  # nothing deleted yet
     assert _erase(env, req).startswith("error:")
     assert env.run(f"SELECT status FROM public.account_deletion_requests WHERE id = '{req}'") == "failed"
+    assert env.alerts == [(req, "storage:RuntimeError", 3)]  # FR-009: one owner alert, at the transition
     assert _erase(env, req) == "skipped"
+    assert len(env.alerts) == 1
+
+
+def test_owner_alert_names_the_request_only_and_never_raises():
+    from services import owner_alerts
+
+    req = "00000000-0000-0000-0000-00000000aaaa"
+    mail = er.failed_alert_email(req, "storage:RuntimeError", 5)
+    assert req in mail.subject and "storage:RuntimeError" in mail.text and "Bước lỗi: storage" in mail.text
+    assert "@" not in mail.text
+    sent = []
+
+    async def ok_sender(email, *, config, idempotency_key):
+        sent.append((email.subject, config.recipients, idempotency_key))
+        return owner_alerts.SendResult(True)
+
+    async def refused(email, *, config, idempotency_key):
+        return owner_alerts.SendResult(False, "http_403")
+
+    async def boom(email, *, config, idempotency_key):
+        raise RuntimeError("x")
+
+    ready = owner_alerts.transport_config({"RESEND_API_KEY": "k", "OWNER_ALERT_EMAILS": "owner@example.test"})
+    assert asyncio.run(er.send_owner_alert(req, "storage:X", 5, config=ready, sender=ok_sender)) is True
+    assert sent == [(mail.subject, ("owner@example.test",), f"account-erasure-failed-{req}")]
+    assert asyncio.run(er.send_owner_alert(req, "storage:X", 5, config=ready, sender=refused)) is False
+    assert asyncio.run(er.send_owner_alert(req, "storage:X", 5, config=ready, sender=boom)) is False
+    unconfigured = owner_alerts.transport_config({})
+    assert asyncio.run(er.send_owner_alert(req, "storage:X", 5, config=unconfigured, sender=ok_sender)) is False
+    assert len(sent) == 1
 
 
 def test_lost_lease_stops_before_the_database_step(env):

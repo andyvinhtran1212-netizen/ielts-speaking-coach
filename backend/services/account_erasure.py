@@ -416,8 +416,59 @@ async def _release(engine: Any, request_id: str, owner: str, code: str, *, count
     return row[0] if row else "lost"
 
 
+def failed_alert_email(request_id: str, code: str, attempts: int, at: datetime | None = None):
+    """FR-009 owner alert. Names the request, step and error code only: no
+    email, name or user id of the learner (FR-013)."""
+    from services import owner_alerts
+
+    when = (at or datetime.now(timezone.utc)).astimezone(owner_alerts.VIETNAM_TIME)
+    step = code.split(":", 1)[0]
+    lines = [
+        "Xoá tài khoản học viên THẤT BẠI",
+        "",
+        f"Mã yêu cầu: {request_id}",
+        f"Số lần thử: {attempts}",
+        f"Bước lỗi: {step}",
+        f"Mã lỗi: {code[:80]}",
+        f"Thời điểm: {when.strftime('%H:%M %d/%m/%Y')} (giờ Việt Nam)",
+        "",
+        "Yêu cầu đã chuyển sang 'failed' và job sẽ không thử lại. Dữ liệu đã xoá ở các "
+        "bước trước vẫn đã xoá. Xem log [account_erasure] theo mã yêu cầu, sửa nguyên nhân, "
+        "rồi đặt lại yêu cầu về 'erasing' với attempts = 0 và lease_until đã hết hạn để job chạy lại.",
+    ]
+    return owner_alerts.Email(subject=f"[Aver] Xoá tài khoản thất bại: {request_id}", text="\n".join(lines))
+
+
+async def send_owner_alert(request_id: str, code: str, attempts: int, *, config: Any = None,
+                           sender: Any = None) -> bool:
+    """Send the FR-009 alert straight through the owner-alert transport
+    (Resend, ``OWNER_ALERT_EMAILS``). The ``failed`` transition happens once,
+    and the idempotency key is per request, so a resend never mails twice.
+    Never raises: a missing transport or a refused send is logged."""
+    from services import owner_alerts
+
+    config = config or owner_alerts.transport_config()
+    if not config.ready:
+        logger.error("[account_erasure] request=%s owner_alert_unconfigured missing=%s", request_id,
+                     ",".join(config.missing))
+        return False
+    sender = sender or owner_alerts.send_via_resend
+    try:
+        result = await sender(failed_alert_email(request_id, code, attempts), config=config,
+                              idempotency_key=f"account-erasure-failed-{request_id}")
+    except Exception as exc:  # the transport promises not to raise; keep the job alive anyway
+        logger.error("[account_erasure] request=%s owner_alert_error=%s", request_id, type(exc).__name__)
+        return False
+    if not result.ok:
+        logger.error("[account_erasure] request=%s owner_alert_refused=%s", request_id, result.error)
+        return False
+    logger.info("[account_erasure] request=%s owner_alert_sent", request_id)
+    return True
+
+
 async def erase_one(engine: Any, request_id: str, *, owner: str, lease_seconds: int, max_attempts: int,
-                    storage: Any, auth: AuthAdapter, send: Any = None, revoke_sessions: Any = None) -> str:
+                    storage: Any, auth: AuthAdapter, send: Any = None, revoke_sessions: Any = None,
+                    alert: Any = None) -> str:
     """Run plan section 5 for one request. Returns ``erased``, ``skipped``,
     ``lost``, ``waiting_export`` or ``error:<code>`` (``failed`` once
     ``max_attempts`` is reached)."""
@@ -470,8 +521,9 @@ async def erase_one(engine: Any, request_id: str, *, owner: str, lease_seconds: 
         logger.error("[account_erasure] request=%s step=%s failed: %r", request_id, step, exc)
         status = await _release(engine, request_id, owner, code, count=True, max_attempts=max_attempts)
         if status == "failed":
-            logger.error("[account_erasure] request=%s failed after %d attempts; owner alert", request_id,
+            logger.error("[account_erasure] account_deletion_failed request=%s attempts=%d", request_id,
                          max_attempts)
+            await (alert or send_owner_alert)(request_id, code, max_attempts)
         return f"error:{code}"
 
 
