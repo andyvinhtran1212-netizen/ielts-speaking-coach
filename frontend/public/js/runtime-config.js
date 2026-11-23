@@ -4,7 +4,7 @@
 // legacy behavior). Vercel builds overwrite it per environment.
 window.__AVER_RUNTIME_CONFIG__ = Object.freeze({
   "environment": null,
-  "apiBase": null,
+  "apiBase": "http://127.0.0.1:3999",
   "supabaseUrl": null,
   "supabaseAnonKey": null,
   "release": null,
