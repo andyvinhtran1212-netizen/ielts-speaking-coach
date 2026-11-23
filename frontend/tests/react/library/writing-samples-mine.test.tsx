@@ -7,8 +7,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const router = { replace: vi.fn(), refresh: vi.fn() };
 vi.mock('next/navigation', () => ({ useRouter: () => router }));
 
-const auth = vi.hoisted(() => ({ status: 'signed-in' as 'signed-in' | 'signed-out' | 'initial-loading' }));
-vi.mock('@/lib/auth/auth-provider', () => ({ useAuth: () => ({ status: auth.status, user: null, signOut: async () => {} }) }));
+const auth = vi.hoisted(() => ({ status: 'signed-in' as 'signed-in' | 'signed-out' | 'initial-loading', userId: 'user-a' }));
+vi.mock('@/lib/auth/auth-provider', () => ({ useAuth: () => ({ status: auth.status, user: { id: auth.userId }, signOut: async () => {} }) }));
 
 import {
   WritingSamplesBrowser,
@@ -43,6 +43,7 @@ const row = (slug: string) => screen.getByText(`Title ${slug}`).closest('li')!;
 
 beforeEach(() => {
   auth.status = 'signed-in';
+  auth.userId = 'user-a';
   getWith = vi.fn(async () => ({ marks: [
     { item_key: 'alpha', kind: 'read' },
     { item_key: 'beta', kind: 'saved' },
@@ -99,5 +100,22 @@ describe('Writing sample list: "Của bạn" column', () => {
     expect(getWith).toHaveBeenCalledTimes(2);
     expect(screen.queryByText(MARKS_LOAD_ERROR, { exact: false })).toBeNull();
     expect(row('alpha').textContent).toContain('Đã đọc');
+  });
+  it('account A to B without a reload: B never sees A\'s marks', async () => {
+    const { rerender } = render(<WritingSamplesBrowser query={query} data={DATA} detailLive />);
+    await flush();
+    expect(row('alpha').textContent).toContain('Đã đọc');
+    let answerB!: (v: unknown) => void;
+    getWith.mockImplementationOnce(() => new Promise((resolve) => { answerB = resolve; }));
+    auth.userId = 'user-b';
+    rerender(<WritingSamplesBrowser query={query} data={DATA} detailLive />);
+    // While B's marks load, A's are already gone.
+    expect(row('alpha').textContent).not.toMatch(/Đã (đọc|lưu)/);
+    expect(row('beta').textContent).not.toMatch(/Đã (đọc|lưu)/);
+    await act(async () => { answerB({ marks: [{ item_key: 'gamma', kind: 'saved' }] }); });
+    await flush();
+    expect(getWith).toHaveBeenCalledTimes(2);
+    expect(row('alpha').textContent).not.toMatch(/Đã (đọc|lưu)/);
+    expect(row('gamma').textContent).toContain('Đã lưu');
   });
 });

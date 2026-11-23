@@ -137,8 +137,14 @@ a.rowLink:hover .title { text-decoration: underline; }
   .rowLink { grid-template-columns: 32px minmax(0, 1fr) 150px; }
   .head span:last-child,
   .topic { display: none; }
+}
+
+/* Tablet only: the "Của bạn" column takes the topic's place. Kept out of the
+   phone range, where .withMine (0-2-0) would otherwise beat the stacked phone
+   row and give it four columns. 112px holds "Đã lưu · Đã đọc" on one line. */
+@media (min-width: 768px) and (max-width: 1024px) {
   .head.withMine,
-  .rowLink.withMine { grid-template-columns: 32px minmax(0, 1fr) 150px 96px; }
+  .rowLink.withMine { grid-template-columns: 32px minmax(0, 1fr) 150px 112px; }
   .head.withMine span:last-child { display: inline; }
 }
 

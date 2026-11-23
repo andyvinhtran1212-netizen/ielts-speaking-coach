@@ -105,8 +105,8 @@ function plural(count: number | undefined): string {
 
 export function WritingSamplesBrowser({ query, data, notice = null, detailLive }: Props) {
   const router = useRouter();
-  const { status: authStatus } = useAuth();
-  const marks = useLibraryMarks('writing_sample', { signedIn: authStatus === 'signed-in' });
+  const { status: authStatus, user } = useAuth();
+  const marks = useLibraryMarks('writing_sample', { signedIn: authStatus === 'signed-in', accountId: user?.id ?? null });
   // The column shows once the reader is signed in, and goes away if the
   // server ends the session (`signed-out`) or never had one (`idle`).
   const mine = marks.status === 'loading' || marks.status === 'ready' || marks.status === 'error';
