@@ -97,7 +97,10 @@ Khoá online (G04, `course_products.kind = 'online'`) bán được nhưng chưa
 
   Không có `locked`. Bài kiểm tra giữa chặng không có điều kiện mở (câu hỏi mở 4). Khoá có quyền nhưng chưa có bài `is_published` thì trả `stages: []` và `coming_soon: true`; Lộ trình hiện "Bài học của khoá sắp có".
 
-  `next_lesson(user_id)` trả bài `current`, hoặc bài `next` nếu không có `current`, của khoá online còn quyền được mở gần nhất. Đây là nguồn cho thẻ "Bài tiếp theo trong lộ trình" (LEARNERCORE-0063 FR-021). Không có thì trả `null`.
+  `next_lesson(user_id)` là nguồn cho thẻ "Bài tiếp theo trong lộ trình" (LEARNERCORE-0063 FR-021). Kết quả trả về gồm khoá, chặng, số thứ tự và tổng số bài, tên bài, thời lượng video, số câu luyện và vị trí xem dở. Cách chọn:
+  - Lấy khoá online còn quyền được mở bài gần nhất, rồi trả bài `current` của khoá đó, không có thì bài `next`.
+  - Người vừa có khoá mà chưa mở bài nào: lấy khoá có quyền bắt đầu mới nhất, trả bài `is_published` đầu tiên với vị trí 0. Thẻ hiện "Bắt đầu bài".
+  - Chỉ trả `null` khi không có khoá online còn hạn nào có bài `is_published`.
 - **FR-046:** Ghi tiến độ: `PATCH /api/course/lessons/{lesson_id}/progress` với body `{video_position_seconds:int ≥ 0, completed?: bool, opened?: bool}`.
   - Kiểm quyền như FR-042 và kiểm bài đang `is_published`.
   - `video_position_seconds` là vị trí xem gần nhất, ghi đè được (để tua lùi rồi xem tiếp đúng chỗ), kẹp trong `[0, video_seconds]`.

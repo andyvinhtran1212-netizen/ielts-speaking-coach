@@ -12,14 +12,14 @@ Hợp đồng dưới đây lấy từ gói mục 5.4, 5.5 và đối chiếu v�
   - Script `backend/scripts/import_course_lessons.py`.
 - **Quyền:** chỉ qua `services/entitlements.py::has_course_access(user_id, course_id)` của G04. Backend đọc `course_lessons` bằng client service role **sau** khi kiểm quyền. RLS không phụ thuộc `entitlements` (gói 5.5).
 - **Frontend:**
-  - Route group mới `app/(authed-course)/course/learn/[courseCode]/[lessonCode]/page.tsx` trong `LearnerShell`, vẽ khi `learnerV2Enabled(me)` (LEARNERCORE-0063 FR-072). Cờ tắt thì trang hiện `RedirectNotice` về `/my-class`, vì cây cũ không có trang bài giảng.
+  - Route group mới `app/(authed-course)/course/learn/[courseCode]/[lessonCode]/page.tsx` trong `LearnerShell`, vẽ khi `learnerV2Enabled(me)` (LEARNERCORE-0063 FR-072). Group mới, vì trang cần layout riêng (`LearnerShell` cộng CSS trình phát), và cổng sở hữu route đòi mỗi route một chủ. Không đổi tên group nào đang có (ràng buộc của LEARNERNAV-0062). Cờ tắt thì trang hiện `RedirectNotice` về `liveHref` của mục Lộ trình trong `NAV_PLAN` (`learner-sections.ts`), không ghi cứng `/my-class`: đường này dời ở đợt 8 của LEARNERNAV-0062.
   - Trang công khai `app/(public-commerce)/courses/[slug]/preview/[lessonCode]/page.tsx` (route group của G05).
   - Component `frontend/components/ui/video-player.tsx`.
   - `frontend/lib/course-learner-api.ts` (typed qua `browser-api.ts`).
 - **CSP:** `frontend/tooling/content-security-policy.mjs` thêm `frame-src` ở mọi môi trường (gộp với nguồn Vercel toolbar hiện có ở preview). Sửa `docs/CONTENT_SECURITY_POLICY.md` và test CSP.
 - **Registry** (LEARNERNAV-0062):
   - `/course/learn/[courseCode]/[lessonCode]` là `live` khi T19 merge, kind `child`, section `course`, parent `/course`.
-  - `/courses/[slug]/preview/[lessonCode]` là `public`, parent `/courses/[slug]`.
+  - `/courses/[slug]/preview/[lessonCode]` là `audience: 'public'`, `section: 'public'`, kind `child`, parent `/courses/[slug]`, theo đúng dạng hai dòng `/courses` đang có trong `route-registry.mjs`.
 
 ## Data and contracts
 
@@ -59,12 +59,12 @@ CREATE TABLE IF NOT EXISTS public.course_lesson_progress (
   video_position_seconds int NOT NULL DEFAULT 0 CHECK (video_position_seconds >= 0),
   max_position_seconds int NOT NULL DEFAULT 0 CHECK (max_position_seconds >= 0),
   completed_at timestamptz,
-  opened_at timestamptz NOT NULL DEFAULT now(),
+  opened_at timestamptz NULL,          -- null tới khi trang bài đã vẽ và gửi opened: true
   updated_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (user_id, lesson_id)
 );
 CREATE INDEX IF NOT EXISTS idx_course_lesson_progress_user_opened
-  ON public.course_lesson_progress (user_id, opened_at DESC);
+  ON public.course_lesson_progress (user_id, opened_at DESC) WHERE opened_at IS NOT NULL;
 ```
 
 Quyền:
@@ -100,15 +100,17 @@ Quy tắc:
 
 ### 5.3 `services/course_outline.py`
 
-- `public_outline(course_id) -> {"lesson_count": int|None, "chapters": list|None}`:
+- `public_outline(product) -> {"lesson_count": int|None, "chapters": list|None}`, nhận đúng dòng `course_products` mà `_outline_for(product)` của G04 có, để có cả `course_id` và `slug`:
   - chỉ đọc bài `is_published`, nhóm theo `stage_no` (tên chương = `stage_title`);
   - mỗi bài trả `{title, kind, duration_min, is_preview, preview_href}`, với `preview_href = f"/courses/{product.slug}/preview/{lesson_code}"` khi `is_preview`;
   - 0 bài thì trả `None, None`;
   - T19 thay thân `routers/courses_public.py::_outline_for(product)` của G04 bằng lời gọi hàm này, kèm test của G04 cho hình JSON. Nếu G04-T03 chưa merge thì để hàm sẵn và nối sau.
 - `lesson_states(user_id, course_id) -> dict[lesson_id, state]`, theo FR-045.
-- `next_lesson(user_id) -> {"course_code","course_title","stage_no","lesson_code","title","video_seconds"}|None`:
-  - lấy khoá online có quyền còn hạn (`list_access`) có `opened_at` mới nhất;
-  - trả bài `current`, không có thì bài `next`;
+- `next_lesson(user_id) -> {"course_code","course_title","stage_no","stage_title","lesson_no","lesson_count","lesson_code","title","video_seconds","video_position_seconds","practice_items"}|None`. Đủ trường cho thẻ LEARNERCORE-0063 FR-021: khoá, chặng, số bài, tên bài, thời lượng video, số câu luyện, vị trí xem dở, và nút "Học tiếp từ phút M" (`video_position_seconds > 0`) hoặc "Bắt đầu bài":
+  - **Chọn khoá:** trong các khoá online có quyền còn hạn (`list_access`) có ít nhất một bài `is_published`, lấy khoá có `opened_at` mới nhất. Nếu chưa mở bài nào ở khoá nào (vừa mua), lấy khoá có quyền bắt đầu (`starts_at`) mới nhất;
+  - **Chọn bài:** bài `current`, không có thì bài `next`. Khoá chưa mở bài nào thì là bài `is_published` đầu tiên theo `lesson_no`, với `video_position_seconds = 0`;
+  - **Trả `None`** chỉ khi không có khoá online còn hạn nào có bài `is_published`;
+  - `practice_items` = số câu của `practice_bank_id` (đếm câu của bộ câu theo cách `quiz_banks` hiện dùng, `CHƯA KIỂM` tên bảng câu ở T19b); không có bộ câu thì `null`;
   - lỗi thì ném lỗi; `student_today` của LEARNERCORE-0063 đưa phần `next_lesson` vào `degraded`.
 
 ### 5.4 Bài thử công khai (T29)
@@ -142,7 +144,7 @@ Trang `app/(public-commerce)/courses/[slug]/preview/[lessonCode]/page.tsx`: `not
 ```
 
 Front-matter của bài:
-- `lesson_code`, `lesson_no`, `title`, `summary?`;
+- `lesson_code`, `lesson_no`, `title`, `summary?`. `lesson_no` đánh số liên tục trên **cả khoá**, không đánh lại từ 1 ở mỗi chặng (UNIQUE `(course_id, lesson_no)`; thứ tự bài = `lesson_no`, `stage_no` chỉ để nhóm);
 - `video: {source: youtube|private_host, ref, seconds}?`;
 - `practice_bank_slug?`, tra ra `quiz_banks.id`; không thấy thì lỗi dòng đó.
 
@@ -157,7 +159,11 @@ Mẫu test nằm ở `backend/tests/fixtures/course_lessons/` (3 bài thử, n�
 ### 5.7 Trình phát (T19)
 
 `video-player.tsx` có props `source`, `ref`, `seconds`, `startAt`, `onProgress(position)`, `onEnded`:
-- `youtube`: dùng IFrame Player API trên `youtube-nocookie.com` (`CHƯA KIỂM`: script `https://www.youtube.com/iframe_api` cần thêm nguồn vào `script-src`). Nếu cần thêm thì **không** dùng API đó: chỉ nhúng iframe với `start=<startAt>`, lưu vị trí bằng `postMessage` `infoDelivery` của iframe. Không đổi `script-src` (gói T19 vướng mắc a).
+- `youtube`: **không** nạp script `iframe_api`, vì nó cần thêm nguồn vào `script-src` (gói T19 vướng mắc a). Cách làm:
+  - iframe `https://www.youtube-nocookie.com/embed/<id>?enablejsapi=1&origin=<origin của trang>&start=<startAt>&rel=0`;
+  - sau sự kiện `load`, gửi `postMessage(JSON.stringify({event:'listening'}), 'https://www.youtube-nocookie.com')` để iframe bắt đầu phát `infoDelivery`;
+  - chỉ nhận thông điệp khi `event.origin === 'https://www.youtube-nocookie.com'` **và** `event.source === iframe.contentWindow`; đọc `info.currentTime`, `info.playerState`;
+  - `CHƯA KIỂM` (T19b, trên staging): `infoDelivery` có `currentTime` qua miền nocookie. Không có thì lưu vị trí bằng đồng hồ phía trang (bắt đầu từ `startAt`, cộng khi nhận `playerState = 1`) và ghi rõ sai số trong PR.
 - `private_host`: thẻ `<video>` với `src` là `AVER_PRIVATE_VIDEO_ORIGIN + ref`. Origin rỗng thì hiện "Video chưa sẵn sàng".
 
 ## UI and interaction
@@ -193,7 +199,7 @@ Chi tiết ở `rollout.md`:
   - bài chưa published → 404;
   - tiến độ: tua lùi ghi được, `max` không giảm, ngưỡng 0,9, `completed` sớm bị bỏ qua, bài đọc nhận `completed`, hai lần ghi đồng thời giữ `max` lớn nhất;
   - `state` đủ bốn giá trị;
-  - `next_lesson` khi không có khoá trả `None`;
+  - `next_lesson`: không có khoá online → `None`; vừa mua, chưa mở bài nào → bài đầu tiên, vị trí 0; đã xem dở → đúng bài và vị trí; đủ trường cho FR-021;
   - `public_outline` không có `body_md`/`video_ref`, 0 bài trả `None`.
 - **Bài thử (T29):** pytest `is_preview=false` → 404; bài khoá khác → 404; khách 200; người có quyền nhận `learner_href`.
 - **Script (T28):** chạy thử không ghi; `--execute` hai lần idempotent; `lesson_no` trùng dừng lô; không bao giờ đổi cờ.
