@@ -3,9 +3,14 @@
   GET /api/review-notes?skill=listening|reading&attempt_id=<uuid>
       → {"notes": [{"q_num", "body", "updated_at"}]} of the caller for the
         test of that attempt.
-  PUT /api/review-notes  {skill, attempt_id, q_num, body}
-      → {"q_num", "body" | null, "updated_at" | null}; an empty body (after
-        trimming) deletes the note.
+  PATCH /api/review-notes  {skill, attempt_id, q_num, body}
+      → {"q_num", "body" | null, "updated_at" | null}; an upsert of that one
+        question's note; an empty body (after trimming) deletes it.
+
+The spec (FR-107) names PUT. PUT is deliberately not in main._CORS_METHODS
+(test_cors_hardening pins it): a browser preflight for it is refused, so the
+save would never leave the page. PATCH carries the same one-note upsert, as
+admin_exam_content's cohort replace already does for the same reason.
 
 Sign-in is required (an anonymous Reading share-link attempt has no notes).
 Ownership is checked with the same helper as ``/api/feedback``: another
@@ -109,7 +114,7 @@ async def list_review_notes(
     return await asyncio.to_thread(_list, skill, str(attempt_id), user)
 
 
-@router.put("/review-notes", response_model=ReviewNoteSavedOut)
+@router.patch("/review-notes", response_model=ReviewNoteSavedOut)
 async def save_review_note(
     body: ReviewNoteIn,
     response: Response,

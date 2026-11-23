@@ -4,7 +4,7 @@ Behaviour against an in-memory table that applies the filters each route sends
 and enforces the two uniques migration 421 adds, so a racing duplicate flag
 reaches the index backstop instead of a mocked branch:
 
-* ``GET/PUT /api/review-notes`` (FR-106/FR-107): save, edit, delete with an
+* ``GET/PATCH /api/review-notes`` (FR-106/FR-107): save, edit, delete with an
   empty body, 500 vs 501 characters, other user's attempt, unknown attempt,
   question outside the test, sign-in required, a note seen again on a new
   attempt of the same test, only the caller's notes.
@@ -261,11 +261,19 @@ def test_the_routes_are_registered_behind_the_activation_gate():
     from main import _ACTIVE_LEARNER, app
     routes = {(r.path, m): r for r in app.routes for m in getattr(r, "methods", ())
               if getattr(r, "path", "") == "/api/review-notes"}
-    assert set(routes) == {("/api/review-notes", "GET"), ("/api/review-notes", "PUT")}
+    assert set(routes) == {("/api/review-notes", "GET"), ("/api/review-notes", "PATCH")}
     for route in routes.values():
         assert {d.dependency for d in _ACTIVE_LEARNER} <= {d.call for d in route.dependant.dependencies}
     client = TestClient(app)
     assert client.get(f"/api/review-notes?skill=listening&attempt_id={A1}").status_code == 401
+
+
+def test_the_save_verb_passes_the_cors_preflight():
+    """FR-107 names PUT, but PUT is not in the CORS allowlist (test_cors_hardening):
+    the browser would refuse the preflight and the note would never be sent."""
+    import main as app_main
+    verbs = {m for r in RN.router.routes for m in getattr(r, "methods", set())}
+    assert verbs <= set(app_main._CORS_METHODS) and "PATCH" in verbs and "PUT" not in verbs
 
 
 def test_note_bodies_are_never_logged():
@@ -372,11 +380,11 @@ def test_review_notes_responses_are_private_and_the_payload_is_bounded(db, monke
         headers = {"Authorization": "Bearer user"}
         got = client.get(f"/api/review-notes?skill=listening&attempt_id={A1}", headers=headers)
         assert got.status_code == 200 and got.headers["cache-control"] == "private, no-store"
-        put = client.put("/api/review-notes", headers=headers,
+        put = client.patch("/api/review-notes", headers=headers,
                          json={"skill": "listening", "attempt_id": A1, "q_num": 3, "body": "ok"})
         assert put.status_code == 200 and put.headers["cache-control"] == "private, no-store"
         assert put.json()["body"] == "ok"
-        huge = client.put("/api/review-notes", headers=headers,
+        huge = client.patch("/api/review-notes", headers=headers,
                           json={"skill": "listening", "attempt_id": A1, "q_num": 3, "body": "x" * 10_001})
         assert huge.status_code == 422
     finally:

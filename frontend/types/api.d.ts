@@ -11634,13 +11634,13 @@ export interface paths {
         };
         /** List Review Notes */
         get: operations["list_review_notes_api_review_notes_get"];
-        /** Save Review Note */
-        put: operations["save_review_note_api_review_notes_put"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Save Review Note */
+        patch: operations["save_review_note_api_review_notes_patch"];
         trace?: never;
     };
     "/api/kp/microcheck-answers": {
@@ -44966,7 +44966,7 @@ export interface operations {
             };
         };
     };
-    save_review_note_api_review_notes_put: {
+    save_review_note_api_review_notes_patch: {
         parameters: {
             query?: never;
             header?: {
