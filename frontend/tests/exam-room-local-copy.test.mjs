@@ -99,6 +99,11 @@ test('write keeps baseValue, including null; an entry written without it stays u
   const plan = planLocalCopyReplay(readLocalCopy(s, { ...A, now: T0 }), { open: true, answers: { 1: { value: 'old' }, 3: { value: 'x' } } });
   assert.deepEqual(plan.resend.map((r) => r.q), ['1', '2']);
   assert.deepEqual(plan.ask.map((r) => r.q), ['3']);
+  // Typing again on Q1 without passing a base keeps the known base "old".
+  writeLocalCopy(s, { ...A, answers: { 1: { value: 'A2' } }, expiresAt: later, now: T0 + 1 });
+  assert.equal(readLocalCopy(s, { ...A, now: T0 + 1 }).answers['1'].baseValue, 'old');
+  writeLocalCopy(s, { ...A, answers: { 2: { value: 'B2' } }, expiresAt: later, now: T0 + 2 });
+  assert.equal(readLocalCopy(s, { ...A, now: T0 + 2 }).answers['2'].baseValue, null);
 });
 
 test('submitted or closed attempt: send nothing and clear', () => {

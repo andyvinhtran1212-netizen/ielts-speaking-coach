@@ -75,7 +75,10 @@ export function writeLocalCopy(storage, { surface, ownerKey, attemptKey, answers
       if (!a || typeof a.value !== 'string') continue;
       /** @type {LocalCopyAnswer} */
       const entry = { value: a.value, baseValue: null, baseSavedAt: a.baseSavedAt ?? null };
+      const prior = merged[String(q)];
       if (typeof a.baseValue === 'string' || a.baseValue === null) entry.baseValue = a.baseValue;
+      // Re-writing a question without a base keeps the base already known for it.
+      else if (prior && (typeof prior.baseValue === 'string' || prior.baseValue === null)) entry.baseValue = prior.baseValue;
       else delete (/** @type {any} */ (entry)).baseValue; // unknown base stays unknown
       merged[String(q)] = entry;
     }
