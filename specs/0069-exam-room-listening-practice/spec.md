@@ -44,7 +44,8 @@ trên `staging` @ `cc6dd4c8` (23/11/2026):
 - Bài nghe một lần (`replay_policy='once'`) có nút "Tạm dừng"/"Tiếp tục nghe"
   (`onceState` có `'paused'`, L75); EXAMROOM-0066 FR-029 (đã duyệt, theo bố cục
   UIBASE-0056) là không tạm dừng.
-- Lượt làm được tạo ngay khi mở trang (`POST .../attempts?standalone=true`, L142).
+- Lượt làm được tạo hoặc tiếp tục ngay khi mở trang (`POST .../attempts?standalone=true`, L142;
+  với đề `report_only` đây là một lệnh tiếp-tục-hoặc-tạo nguyên tử, `attempts.py` L384–387, L464).
 - Trang 80 ngày chứa nhiều `ProgrammeFormRunner` (mỗi Part một cái, prop `active`,
   `embedded`).
 
@@ -79,6 +80,17 @@ trên `staging` @ `cc6dd4c8` (23/11/2026):
 
 ## Requirements
 
+- **FR-000 (tên cờ, phụ thuộc sửa đổi của 0066):** Tên bề mặt `'listening-practice'` chưa có
+  trong `ExamRoomSurface` của EXAMROOM-0066 đã duyệt; `examRoomEnabled` (#2507, 0066 T001) trả
+  `false` cho tên lạ và `generate-runtime-config.mjs` bỏ tên lạ kèm cảnh báo. Vì vậy:
+  - Spec này đề xuất **sửa đổi 1 mục (b) của EXAMROOM-0066** (xem mục "Sửa đổi đề xuất cho
+    EXAMROOM-0066" bên dưới); anh Andy duyệt riêng.
+  - **Cho tới khi sửa đổi đó được duyệt và lên `staging`**, nhánh mới dùng
+    `examRoomEnabled('listening')`, `surface='listening'` và khoá bản sao
+    `exam-room:local-copy:listening:{ownerKey}:{attemptId}`; cờ `listening` chỉ được bật khi cả
+    spec này lẫn EXAMLISTENT-0070 sẵn sàng. Sau khi sửa đổi lên, một PR nhỏ đổi tên ở đúng một
+    hằng `LISTENING_PRACTICE_SURFACE` (không chép tên ở nhiều chỗ).
+  - Ở các FR dưới, "`'listening-practice'`" nghĩa là giá trị của hằng đó.
 - **FR-001:** `ProgrammeFormRunner` rẽ nhánh theo `examRoomEnabled('listening-practice')`
   ở đúng một chỗ sau các hook. Cờ tắt: không đổi DOM, chuỗi, class, request hay thứ tự
   gọi API. Cờ bật: cùng request, cùng thứ tự; chỉ lớp giao diện khác.
@@ -115,9 +127,16 @@ trên `staging` @ `cc6dd4c8` (23/11/2026):
 - **FR-009:** Bản nháp tại máy theo EXAMROOM-0066 FR-035, khoá
   `exam-room:local-copy:listening-practice:{ownerKey}:{attemptId}` (`ownerKey` = id tài
   khoản), mỗi câu ghi kèm `baseValue` (đúng `user_answer` máy chủ ack lần cuối, hoặc giá trị
-  đọc lúc mở lượt) và `baseSavedAt` (chỉ để hiện giờ). Lần đầu mở một lượt trong nhánh mới, nếu còn khoá
-  cũ `listening-programme-draft:{attemptId}` (lượt do máy chủ trả cho chính tài khoản đang
-  đăng nhập) thì chuyển các câu đó sang khoá mới rồi xoá khoá cũ. Gửi lại câu từ bản sao
+  đọc lúc mở lượt) và `baseSavedAt` (chỉ để hiện giờ).
+  - **Bản nháp cũ** `listening-programme-draft:{attemptId}` (của `createProgrammeAnswerDraftStore`,
+    chỉ có `{q_num: value}`, không có mốc): chỉ đọc khi lượt do máy chủ trả cho chính tài khoản
+    đang đăng nhập. Không bao giờ gắn giá trị hiện tại của máy chủ làm `baseValue` cho câu cũ.
+    Với từng câu: bằng `user_answer` hiện tại của máy chủ thì bỏ (không có gì để khôi phục);
+    khác thì **không tự gửi**, giữ cả hai và hỏi học viên ("Câu {n}: trên máy này là …, đã lưu
+    là …" với "Dùng câu trên máy này" và "Giữ câu đã lưu"); câu được chọn đi qua đường lưu
+    thường. Khoá cũ chỉ bị xoá sau khi các câu còn lại đã ghi vào khoá mới **và đọc lại khớp**,
+    hoặc máy chủ đã ack các giá trị được chọn; ghi khoá mới lỗi thì giữ khoá cũ nguyên vẹn.
+  - Gửi lại câu từ bản sao
   chỉ khi giá trị trên máy chủ vẫn bằng `baseValue` (so theo giá trị, không theo dấu thời
   gian); dọn khi ack, khi hoàn thành,
   khi đăng xuất, khi tài khoản khác đăng nhập (xoá không đọc), và khi quá 7 ngày.
@@ -134,11 +153,14 @@ trên `staging` @ `cc6dd4c8` (23/11/2026):
 - **FR-011:** Trang 80 ngày (`embedded`): chỉ đổi phần thân của runner, không thêm thanh
   trên thứ hai. Hộp nộp, dải mất mạng, hộp đăng nhập lại và thông báo tab khác gắn theo
   runner đang `active`; runner không `active` không mở hộp, không giữ khoá ghi và không
-  phát audio.
+  phát audio. Khi một runner thôi `active` (học viên chuyển Part): flush hàng đợi lưu của nó
+  (câu lưu lỗi vào bản sao theo FR-009, có đọc lại), rồi mới nhả khoá ghi; không bỏ câu đang
+  chờ lưu.
 - **FR-012:** Cùng lượt mở ở tab thứ hai: khoá ghi theo EXAMROOM-0066 FR-017 với
   `surface='listening-practice'`, `attemptKey=attemptId`; tab chỉ-đọc không gọi `PATCH`,
-  `reveal`, `playback-started` hay `submit`. Vì lượt được tạo khi mở trang, mỗi tab có thể
-  nhận lượt khác nhau; khoá chỉ có tác dụng khi hai tab cùng `attemptId`.
+  `reveal`, `playback-started` hay `submit`. Với đề `report_only`, lệnh mở lượt là
+  tiếp-tục-hoặc-tạo nguyên tử, nên tab thứ hai luôn nhận **cùng** `attempt_id` và khoá ghi luôn
+  áp dụng.
 - **FR-013:** Khi cờ bật, luồng không gọi `window.confirm`, `alert` hay `prompt` (journey
   bắt sự kiện `dialog` = 0).
 - **FR-014:** Sự kiện `exam_room_*` của khung gửi với `surface='listening-practice'`, không
@@ -180,6 +202,19 @@ trên `staging` @ `cc6dd4c8` (23/11/2026):
 - **Then** URL không đổi, hộp đăng nhập lại; đăng nhập lại đúng tài khoản thì câu vừa trả
   lời được gửi lại (máy chủ chưa đổi) và bản sao bị xoá.
 
+### Scenario 7: bản nháp cũ khác bản đã lưu
+
+- **Given** khoá cũ có câu 3 = "B" từ máy A, máy chủ có câu 3 = "C" do máy B lưu sau đó
+- **When** mở lượt ở máy A trong nhánh mới
+- **Then** hỏi học viên chọn giữa "B" và "C"; không lời gọi `PATCH` nào trước khi chọn.
+- **Given** ghi khoá mới bị từ chối **Then** khoá cũ còn nguyên.
+- **Given** câu cũ bằng giá trị máy chủ **Then** bỏ, không hỏi.
+
+### Scenario 8: hai tab cùng bài
+
+- **Given** cùng một bài programme mở ở hai tab
+- **Then** hai tab cùng `attempt_id`; tab thứ hai chỉ-đọc theo FR-012.
+
 ### Scenario 6: cờ tắt
 
 - **Given** `examRoomSurfaces` không có `listening-practice`
@@ -215,12 +250,23 @@ Mỗi câu kèm đề xuất; mặc định tạm là đề xuất cho tới khi
 2. **Tạo lượt khi mở trang.** Hôm nay mở trang là tạo lượt; muốn tạo lúc tương tác đầu
    tiên thì phải đổi `listening.py`. Đề xuất: không làm trong spec này; ghi vào việc tiếp
    theo của G10 (tách `listening.py`). Mặc định tạm: giữ như hôm nay.
-3. **Bản sao tại máy đổi khoá.** Đề xuất: chuyển khoá cũ sang khoá theo `ownerKey` một lần
-   (FR-009) để dọn được khi đổi tài khoản. Mặc định tạm: như đề xuất.
+3. **Bản nháp cũ.** Đề xuất: theo FR-009 (bằng thì bỏ, khác thì hỏi, xoá khoá cũ chỉ sau khi
+   khoá mới đọc lại khớp hoặc máy chủ đã ack), theo HOLD của anh 09:33Z. Mặc định tạm: như đề
+   xuất.
 4. **Tên cờ riêng cho Listening luyện.** Kiểu `ExamRoomSurface` của EXAMROOM-0066 chỉ có
    `'listening'`, nên luyện và full test sẽ bật cùng lúc, trái với thứ tự chuyển trình ở
    0066 câu hỏi mở 6 (Listening luyện trước, Listening test sau G10). Đề xuất: sửa đổi 1
    của 0066 (cùng sửa đổi đề xuất ở EXAMREAD-0067 câu hỏi mở 6) thêm `'listening-practice'`
    cho spec này, giữ `'listening'` cho full test (EXAMLISTENT-0070). Mặc định tạm: như đề
-   xuất; nếu anh không duyệt sửa đổi thì dùng `'listening'` và chỉ bật khi cả hai trình
-   cùng sẵn sàng.
+   xuất; cho tới khi sửa đổi được duyệt, quy tắc dự phòng ở FR-000 là quy tắc đang áp dụng.
+
+## Sửa đổi đề xuất cho EXAMROOM-0066
+
+Sửa đổi 1 (mục (a) là `expired_unsubmitted` của EXAMREAD-0067 câu hỏi mở 6). Chưa áp dụng cho
+tới khi anh Andy duyệt; khi duyệt, ghi vào `specs/0066-exam-room-shell/approval-decision.md`.
+
+- **(b)** `ExamRoomSurface` thêm `'listening-practice'` (Listening luyện, chế độ `practice`,
+  tiếng Việt). Đổi kèm: `EXAM_ROOM_SURFACES` trong `frontend/lib/exam-room/flags.mjs` và danh
+  sách tên hợp lệ trong `frontend/tooling/generate-runtime-config.mjs`; khoá bản sao
+  `exam-room:local-copy:listening-practice:{ownerKey}:{attemptKey}`. `'listening'` giữ cho
+  Listening full test, mini test, drill (EXAMLISTENT-0070). Không đổi gì khác của 0066.

@@ -10,7 +10,7 @@
   - File mới `programme-form-room.tsx` cạnh file trên: chỉ vẽ, dùng thành phần của khung
     (trạng thái lưu, hộp nộp, dải mất mạng, hộp đăng nhập lại, thông báo tab khác, dải câu,
     `exam-room/audio-player.tsx`). Không dùng thanh tập trung (bài không giờ).
-  - `frontend/lib/listening-programme-answer-queue.mjs`: thêm hàm chuyển khoá bản nháp cũ
+  - `frontend/lib/listening-programme-answer-queue.mjs`: thêm hàm đối chiếu bản nháp cũ với máy chủ (FR-009: bằng thì bỏ, khác thì hỏi; xoá khoá cũ chỉ sau khi đọc lại khoá mới), thay cho việc chuyển thẳng
     sang khoá theo `ownerKey` (FR-009), có test `node --test`; không đổi hàng đợi.
   - `source-day.tsx`: không đổi ngoài việc runner tự chọn nhánh; `active` quyết định runner
     nào được mở hộp và giữ khoá.
@@ -50,7 +50,7 @@ Xem `rollout.md`.
 - React test mới `frontend/tests/react/programme-form-room.test.tsx`: hộp nộp còn/không câu
   trống, Esc không nộp, đang đối chiếu khoá nút, nộp lỗi giữ hộp, "Đã lưu lúc HH:MM",
   "Thử lưu lại", bài nghe một lần không có tạm dừng, chỉ runner `active` mở hộp.
-- `node --test frontend/tests/listening-programme-draft-migrate.test.mjs`: chuyển khoá cũ,
+- `node --test frontend/tests/listening-programme-draft-migrate.test.mjs`: bản cũ từ máy A với máy chủ mới hơn từ máy B (hỏi, không gửi), ghi khoá mới bị từ chối (khoá cũ còn), bản cũ bằng máy chủ (bỏ, không hỏi),
   không đọc khoá của chủ khác.
 - Playwright journey cờ bật trong `verify-listening-programme-context-flow.mjs` (thêm bước
   `clickIfPresent` cho nút xác nhận) và `verify-listening-programme-guided-flow.mjs` tại
