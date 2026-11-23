@@ -425,6 +425,9 @@ def on_time_rate(ctx: _Ctx) -> Optional[dict[str, Any]]:
             due = r["due_at"]
             if due is None or due < since or r["unconfirmed"]:
                 continue
+            # A ledger row in state submitted/graded with no submitted_at has
+            # no hand-in time to compare; learner_attention counts it as
+            # handed in, so it is counted on time here too (never as late).
             on_time = r["handed_in"] and (r["submitted_at"] is None or r["submitted_at"] <= due)
             tally = by_cohort.setdefault(r["cohort_id"], [0, 0])
             tally[0] += int(on_time)
@@ -445,14 +448,39 @@ def inactive_learners(ctx: _Ctx) -> Optional[int]:
 
 def review_wait_median_hours(ctx: _Ctx) -> Optional[float]:
     """Median hours from the first AI grade to the review, over essays
-    reviewed in the last 7 days."""
+    reviewed in the last 7 days. A review is done either on the admin path
+    (``writing_essays.admin_reviewed_at``) or on the teacher path
+    (``instructor_reviews.delivered_at``, which leaves ``admin_reviewed_at``
+    empty); an essay done on both counts once, at its earliest completion."""
     since = (ctx.now - timedelta(days=WEEK_DAYS)).isoformat()
-    essays = directory._paged(lambda: supabase_admin.table("writing_essays")
+    done: dict[str, datetime] = {}
+
+    def keep(essay_id: Any, at: Optional[datetime]) -> None:
+        key = str(essay_id or "")
+        if key and at is not None and (key not in done or at < done[key]):
+            done[key] = at
+
+    for e in directory._paged(lambda: supabase_admin.table("writing_essays")
                               .select("id, admin_reviewed_at").gte("admin_reviewed_at", since)
-                              .is_("deleted_at", "null").order("id"))
-    reviewed = {str(e["id"]): _parse(e.get("admin_reviewed_at")) for e in essays if e.get("id")}
+                              .is_("deleted_at", "null").order("id")):
+        keep(e.get("id"), _parse(e.get("admin_reviewed_at")))
+    teacher: dict[str, datetime] = {}
+    for r in directory._paged(lambda: supabase_admin.table("instructor_reviews")
+                              .select("id, essay_id, delivered_at").eq("status", "delivered")
+                              .gte("delivered_at", since).order("id")):
+        at, key = _parse(r.get("delivered_at")), str(r.get("essay_id") or "")
+        if key and at is not None and (key not in teacher or at < teacher[key]):
+            teacher[key] = at
+    live: set[str] = set()
+    for chunk in _chunks(sorted(teacher)):
+        live |= {str(e["id"]) for e in directory._paged(
+            lambda c=chunk: supabase_admin.table("writing_essays").select("id")
+            .in_("id", c).is_("deleted_at", "null").order("id")) if e.get("id")}
+    for key in live:
+        keep(key, teacher[key])
+
     first: dict[str, datetime] = {}
-    for chunk in _chunks(sorted(reviewed)):
+    for chunk in _chunks(sorted(done)):
         # GV-1a version-management read: the first AI grade is the essay's
         # earliest version row, so every version is read, not the current view.
         for row in directory._paged(lambda c=chunk: supabase_admin.table("writing_feedback")
@@ -460,8 +488,7 @@ def review_wait_median_hours(ctx: _Ctx) -> Optional[float]:
             at, key = _parse(row.get("created_at")), str(row.get("essay_id") or "")
             if at is not None and key and (key not in first or at < first[key]):
                 first[key] = at
-    waits = [(reviewed[k] - first[k]).total_seconds() / 3600 for k in reviewed
-             if reviewed[k] is not None and k in first and reviewed[k] >= first[k]]
+    waits = [(done[k] - first[k]).total_seconds() / 3600 for k in done if k in first and done[k] >= first[k]]
     return round(statistics.median(waits), 1) if waits else None
 
 

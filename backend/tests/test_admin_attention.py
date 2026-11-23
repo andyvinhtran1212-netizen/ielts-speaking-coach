@@ -299,3 +299,44 @@ def test_reads_only(db, monkeypatch):
 def test_counts_are_not_cut_at_the_page_size(db):
     db.rows["user_feedback"] = [{"id": f"f{i:05d}", "status": "new", "created_at": _ago(hours=1)} for i in range(1203)]
     assert _admin()["queues"]["feedback_open"]["count"] == 1203
+
+
+def test_review_wait_counts_teacher_deliveries_once(db):
+    """Teacher deliveries set instructor_reviews.delivered_at, not
+    writing_essays.admin_reviewed_at; an essay done on both paths counts once."""
+    db.rows["writing_essays"] += [
+        {"id": "e-admin", "student_id": S_LAN, "status": "delivered", "created_at": _ago(days=3),
+         "admin_reviewed_at": _ago(hours=10), "deleted_at": None},
+        {"id": "e-teach", "student_id": S_LAN, "status": "delivered", "created_at": _ago(days=3),
+         "admin_reviewed_at": None, "deleted_at": None},
+        {"id": "e-both", "student_id": S_LAN, "status": "delivered", "created_at": _ago(days=3),
+         "admin_reviewed_at": _ago(hours=1), "deleted_at": None},
+    ]
+    db.rows["writing_feedback"] = [
+        {"id": "wf1", "essay_id": "e-admin", "created_at": _ago(hours=12)},   # 2 h
+        {"id": "wf2", "essay_id": "e-teach", "created_at": _ago(hours=30)},   # 20 h
+        {"id": "wf3", "essay_id": "e-both", "created_at": _ago(hours=40)},    # 30 h (teacher, earlier)
+    ]
+    db.rows["instructor_reviews"] = [
+        {"id": "ir1", "essay_id": "e-teach", "status": "delivered", "delivered_at": _ago(hours=10)},
+        {"id": "ir2", "essay_id": "e-both", "status": "delivered", "delivered_at": _ago(hours=10)},
+        {"id": "ir3", "essay_id": "e-gone", "status": "delivered", "delivered_at": _ago(hours=2)},
+    ]
+    assert _admin()["ops_week"]["review_wait_median_hours"] == 20.0
+    db.rows["instructor_reviews"] = db.rows["instructor_reviews"][:1]
+    db.rows["writing_essays"] = [e for e in db.rows["writing_essays"] if e["id"] != "e-both"]
+    # Only a teacher delivery and an admin review: both count (2 h, 20 h).
+    assert _admin()["ops_week"]["review_wait_median_hours"] == 11.0
+
+
+def test_class_moved_to_another_teacher_takes_its_work_along(db, monkeypatch):
+    """Teacher A gave e-a1 to class A; class A now belongs to teacher B. A has
+    no class, so nothing counts for A; B cannot open e-a1 (not given by B,
+    learner points at A), so it does not count for B either."""
+    db.rows["cohorts"][0]["instructor_id"] = U_TEACH_B
+    a = _teacher(monkeypatch, db, U_TEACH)
+    assert a["queues"]["writing_review"]["count"] == 0 and a["queues"]["regrade_new"]["count"] == 0
+    b = _teacher(monkeypatch, db, U_TEACH_B)
+    assert "e-a1" not in str(b)
+    assert b["queues"]["writing_review"]["count"] == 1    # e-b1 only
+    assert b["queues"]["regrade_new"]["count"] == 1       # r2 (e-b1)
