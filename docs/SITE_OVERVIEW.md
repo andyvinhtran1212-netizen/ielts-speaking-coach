@@ -184,6 +184,8 @@ to `/`; the historical source file is not a separately served marketing page.
 | `/admin/error-logs` | admin | Error-report inbox (`/admin/error-logs`). |
 | `/admin/system` · `/admin/system/ai-usage` · `/admin/system/alerts` | admin | System health, AI token usage, alerts. |
 | `/admin/feedback` | admin | Learner-feedback inbox and inspection workspace. |
+| `/admin/incidents` · `/admin/incidents/[source]/[fingerprint]` | admin | New-frame incident inbox (ADMINIA-0074, behind `ADMIN_FRAME_V2`, 404 while the flag is off): errors, grading incidents and learner feedback grouped by cause, bulk status actions with undo, group page with learners and notes (`/admin/incidents/groups*`). |
+| `/admin/learners` · `/admin/learners/[ref]` | admin | New-frame learner directory and profile (ADMINIA-0074, behind `ADMIN_FRAME_V2`, 404 while the flag is off): one row per person (`GET /admin/learners`), the shared learner block, five profile tabs with Tổng quan from `/admin/learners/{ref}/overview` and the goal-conflict fix (`…/goal/resolve`). |
 
 ### 4.9 Admin — content authoring (per skill)
 
