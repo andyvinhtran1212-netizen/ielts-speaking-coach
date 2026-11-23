@@ -73,11 +73,15 @@ were changed the same way in #2423 (GOI-09/11) and #2424 (GOI-06/07/12/13).
 
 No learner data is included here.
 
-## Amendment 2 — store the Writing sample sign-off in the DB (proposed 2026-11-23, NOT YET APPROVED)
+## Amendment 2 — store the Writing sample sign-off in the DB (2026-11-23)
 
-Proposed in the G06-T02b PR. Nothing in this amendment is approved until anh
-Andy writes his approval; it is then recorded here verbatim with its time, and
-this heading drops "NOT YET APPROVED".
+On 2026-11-23 at 17:04 Asia/Saigon (10:04:52 UTC), anh Andy wrote in the project
+chat of the Averlearning Claude Code project, verbatim:
+
+> duyệt amendment 2 spec 0061
+
+This approves amendment 2 as proposed in PR #2527 (G06-T02b) at head
+`f7ddd9f7`.
 
 What changes: `plan.md` §5.2 (three columns in the `writing_samples` table) and
 new §5.2b (migration `401_writing_sample_review_signoff.sql`, its three CHECKs

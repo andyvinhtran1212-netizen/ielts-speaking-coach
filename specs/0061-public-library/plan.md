@@ -100,7 +100,7 @@ Ràng buộc chéo: `check ((task_type='task2' and question_type is not null and
 
 RLS bật trên cả năm bảng; không policy cho `anon`/`authenticated`; `REVOKE ALL … FROM anon, authenticated` theo mẫu migration gần nhất có REVOKE; mọi đọc/ghi qua backend `service_role`. Migration áp được lại (idempotent `if not exists`), postcondition kiểm RLS bật và không có grant cho hai vai trò client.
 
-### 5.2b Chữ ký duyệt bài mẫu Writing — migration `401_writing_sample_review_signoff.sql` (Amendment 2, chờ anh Andy duyệt)
+### 5.2b Chữ ký duyệt bài mẫu Writing — migration `401_writing_sample_review_signoff.sql` (Amendment 2, anh Andy duyệt 23/11/2026 17:04)
 
 **Vì sao:** điều kiện xuất bản FR-019 là chữ ký trong manifest (`review.status='approved'` + `review.by/at`, mã `E_NOT_APPROVED`). Migration 400 chỉ có `source_review_status` (lịch sử biên tập của nguồn, 530 bộ `needs_review` cũng có), nên DB không phân biệt được bộ đã ký. Hệ quả: `/admin/library` (#2497) phải đóng hẳn nút đăng Writing, và chỉ script nhập (#2498) biết bộ nào được đăng.
 
