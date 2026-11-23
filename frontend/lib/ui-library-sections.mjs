@@ -28,4 +28,5 @@ export const UI_LIBRARY_SECTIONS = Object.freeze([
   Object.freeze({ id: 'theme', title: 'Sáng, tối, theo thiết bị' }),
   Object.freeze({ id: 'learner-shell', title: 'Khung học viên' }),
   Object.freeze({ id: 'focus-shell', title: 'Thanh tập trung' }),
+  Object.freeze({ id: 'staff-shell', title: 'Khung quản trị và giáo viên' }),
 ]);
