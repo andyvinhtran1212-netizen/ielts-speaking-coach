@@ -24,3 +24,21 @@ migration to staging or production, changing any environment variable
 (including `ACCOUNT_ERASURE_ENABLED`, which stays off until Andy types it),
 or running the erasure job outside `--dry-run`. Each of those needs Andy's
 own typed approval at the time.
+
+## Amendment 1 — `class_action_log.student_name` (2026-11-23 11:18 UTC)
+
+The read-only staging catalog query (T001 gate 2, approved by Andy at 11:06
+UTC) found that `class_action_log.student_name` copies the learner's name
+into a log that migration 198 makes append-only (`trg_class_action_log_append_only`
+blocks every UPDATE and DELETE). FR-005 asks for names in kept logs to be
+anonymised.
+
+Verbatim, typed by Andy in the project chat and relayed by the coordinator:
+
+> duyệt 0100: ẩn danh student_name bằng hàm hẹp
+
+Decision: the code PR adds one narrow function in a migration. It sets
+`student_name` to NULL only on the rows of the learner being erased, and only
+when the erasure job calls it. The append-only trigger stays on for every
+other update and delete. The migration is written as a file only; applying
+it follows the rule above.
