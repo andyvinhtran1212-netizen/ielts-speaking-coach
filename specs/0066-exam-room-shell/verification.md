@@ -18,7 +18,7 @@
 | FR-012 | kind=test; ref=frontend/tests/react/exam-room-shell.test.tsx (abandon only when exit.abandon given) | PENDING |
 | FR-013 | kind=test; ref=frontend/tests/react/exam-room-shell.test.tsx (save status texts and retry) | PENDING |
 | FR-014 | kind=test; ref=frontend/tests/exam-room-connection-state.test.mjs + exam-room-shell.test.tsx (offline banner, waiting button, back online 5 s) | PENDING |
-| FR-015 | kind=test; ref=frontend/tests/react/exam-room-shell.test.tsx (401 → saveLocalCopy then dialog, URL unchanged; fallback: Sign in again enabled only after read-back, opens /login?next= same tab; storage failure message) | PENDING |
+| FR-015 | kind=test; ref=frontend/tests/react/exam-room-shell.test.tsx (401 → saveLocalCopy then dialog, URL unchanged; fallback: Sign in again enabled only after read-back, opens /login?next= same tab; storage failure message; amendment 2: 401 + refused storage with unsaved answers offers only Stay and never navigates) | PENDING |
 | FR-016 | kind=test; ref=frontend/tests/react/exam-room-shell.test.tsx (onSessionConflict displaced/not_current; fallback before G05-T20: displaced uses FR-015 flow, not_current shows another-device notice with Back) | PENDING |
 | FR-017 | kind=test; ref=frontend/tests/exam-room-tab-guard.test.mjs (fake navigator.locks + BroadcastChannel: old tab flushes then releases lock, new tab writes only while holding lock; no lock in 5 s → new tab stays read-only with Reload; old tab answering after timeout does not make new tab write; no Web Locks → localStorage writer token checked before each save; nothing supported → no-op) | PENDING |
 | FR-018 | kind=test; ref=frontend/tests/react/exam-room-shell.test.tsx (5-minute announcement once, time up text, never extends time) | PENDING |
