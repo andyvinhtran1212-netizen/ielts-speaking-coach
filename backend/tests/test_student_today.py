@@ -122,7 +122,7 @@ def _row(item_id, *, due=None, submitted=None, missing=False):
             "assignment": {"id": f"a-{item_id}", "due_at": due}}
 
 
-def _run_today(db, monkeypatch, *, assigned=(False, []), assigned_error=None):
+def _run_today(db, monkeypatch, *, assigned=(False, [], False), assigned_error=None):
     def _assigned(_uid, _name, _now):
         if assigned_error:
             raise assigned_error
@@ -183,7 +183,7 @@ def test_end_of_tomorrow_is_vietnam_midnight():
 
 def test_class_learner_is_learning(monkeypatch):
     out = _run_today(_DB({"users": [{"id": "u-1"}]}), monkeypatch,
-                     assigned=(True, [_row("x", due=_iso(NOW + timedelta(hours=1)))]))
+                     assigned=(True, [_row("x", due=_iso(NOW + timedelta(hours=1)))], False))
     assert out["state"] == "learning"
     assert out["assigned_due_soon"] == 1
 
@@ -241,13 +241,13 @@ def test_resume_keeps_live_in_progress_only_newest_first_cap_four():
             for i in range(3)
         ],
         "dictation_attempts": [],
-        "reading_tests": [{"id": "rt1", "title": "Cambridge 18 Test 1"}],
+        "reading_tests": [{"id": "rt1", "test_id": "cam18-t1", "title": "Cambridge 18 Test 1"}],
         "listening_tests": [{"id": "lt1", "title": "Test 2"}],
     }
     items = st.build_resume(_DB(tables), "u-1", NOW)
     assert len(items) == 4
     assert [i["kind"] for i in items] == ["reading", "speaking", "listening", "listening"]
-    assert items[0]["href"] == "/core-player/launch?surface=reading_exam&test_id=rt1"
+    assert items[0]["href"] == "/core-player/launch?surface=reading_exam&test_id=cam18-t1"
     assert items[0]["title"] == "Cambridge 18 Test 1"
     assert items[1]["href"] == "/core-player/launch?surface=speaking&session_id=s-live"
     assert all("_started" not in i for i in items)
@@ -446,7 +446,7 @@ def test_get_route_matches_response_model(monkeypatch, api):
     client, student_home = api
     db = _DB(_results_tables(essays=[_essay("e1", NOW - timedelta(hours=1))]))
     monkeypatch.setattr(student_home, "thread_supabase_admin", lambda: db)
-    monkeypatch.setattr(st, "_visible_assignments_for", lambda *_a: (False, []))
+    monkeypatch.setattr(st, "_visible_assignments_for", lambda *_a: (False, [], False))
     res = client.get("/api/student/today", headers={"Authorization": "Bearer x"})
     assert res.status_code == 200, res.text
     body = res.json()
@@ -495,3 +495,27 @@ def test_migration_420_is_held_out_of_the_normal_apply_run():
     assert "No apply on merge" in policy[0][3]
     readme = (root / "README.md").read_text()
     assert "`420` is `pending_feature learner_today`" in readme
+
+
+def test_reading_resume_uses_the_public_code_and_skips_a_paper_without_one():
+    future = _iso(NOW + timedelta(hours=5))
+    tables = {
+        "sessions": [], "listening_test_attempts": [], "dictation_attempts": [],
+        "reading_test_attempts": [
+            {"id": "r1", "user_id": "u-1", "status": "in_progress", "test_id": "rt-gone",
+             "started_at": _iso(NOW - timedelta(minutes=5)), "resume_expires_at": future},
+            {"id": "r2", "user_id": "u-1", "status": "in_progress", "test_id": "rt1",
+             "started_at": _iso(NOW - timedelta(minutes=9)), "resume_expires_at": future},
+        ],
+        "reading_tests": [{"id": "rt1", "test_id": "cam18-t1", "title": "C18 T1"}],
+        "listening_tests": [],
+    }
+    items = st.build_resume(_DB(tables), "u-1", NOW)
+    assert [i["href"] for i in items] == ["/core-player/launch?surface=reading_exam&test_id=cam18-t1"]
+
+
+def test_stale_class_ledger_marks_assigned_degraded(monkeypatch):
+    out = _run_today(_DB({"users": [{"id": "u-1"}]}), monkeypatch,
+                     assigned=(True, [_row("x", due=_iso(NOW + timedelta(hours=1)))], True))
+    assert out["degraded"] == ["assigned"]
+    assert out["state"] == "learning"
