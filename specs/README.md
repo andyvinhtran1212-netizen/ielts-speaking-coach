@@ -138,6 +138,7 @@ draft -> approved -> implementing -> verified -> shipped
 | CONTENTBATCH-0087 | Admins see every content import script run as a read-only batch and work one review queue per question on the four-tab content pages | draft | high | [spec](0087-content-import-batches/spec.md) |
 | WRITINGGPT-0088 | Writing grades that Claude cannot serve fall back to GPT before Gemini | draft | high | [spec](0088-writing-gpt-fallback/spec.md) |
 | SENTLAB-0101 | Course 5 learners practise 45 sentence-writing sessions with AI coaching that never reveals the answer before they rewrite | approved | high | [spec](0101-course5-sentence-lab/spec.md) |
+| SCOREPAIR-0102 | Every Writing essay a teacher returns keeps an immutable record of the original AI bands and the bands the teacher released | draft | high | [spec](0102-writing-score-pairs/spec.md) |
 
 Progress and remaining acceptance are reconciled in [the implementation status ledger](IMPLEMENTATION_STATUS.md). A deployed application does not by itself close a feature acceptance gate.
 
