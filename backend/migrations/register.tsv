@@ -390,7 +390,7 @@ number	filename	state	owner	spec	note
 382	-	reserved	FU-2281	BLACKEYE-0052	FU-2281-NAMESPACE follow-up; Leader decision C3 on #2335, Andy approved 2026-11-18.
 383	383_course_commerce_core.sql	present	-	COURSEACCESS-0055	G04-T01 (spec label M1/381); Andy assigned 383-389 and 502 to G04 on 2026-11-20 (approval-decision.md).
 384	384_credit_ledger_enrollment_rpcs.sql	present	-	COURSEACCESS-0055	G04-T02 (spec label M2/382): credit ledger, reservations, RPCs. Andy 2026-11-20.
-385	-	reserved	G04-T12	COURSEACCESS-0055	Spec label 383: credit lifecycle (expire, carry-over, grant extra). Andy 2026-11-20.
+385	385_credit_lifecycle.sql	present	-	COURSEACCESS-0055	G04-T12 (spec label 383): credit lifecycle (expire, carry-over, grant extra). Andy 2026-11-20.
 386	-	abandoned	-	COURSEACCESS-0055	Left empty on purpose (G04-T14 dropped 2026-11-18); do not reuse without asking Andy.
 387	-	reserved	G04-T15	COURSEACCESS-0055	Spec label 388: convert a legacy-code class to credit metering. Andy 2026-11-20.
 388	-	reserved	G04-T09	COURSEACCESS-0055	Spec label 384: one session per learner account. Andy 2026-11-20.
