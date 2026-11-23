@@ -577,6 +577,22 @@ class Settings(BaseSettings):
     CREDIT_CARRY_VALID_DAYS: int = 60
     CREDIT_HOLD_TTL_SPEAKING_SECONDS: int = 600
     CREDIT_HOLD_TTL_WRITING_SECONDS: int = 86400
+    # Enrollment orders (plan 5.10, G04-T04). No pay hours or bank account →
+    # orders_paused; Andy fills them in (Q11). Read through
+    # services.enrollment_orders.enrollment_config(), never directly.
+    ENROLLMENT_PAY_HOURS: int = 0
+    ENROLL_BANK_BIN: str = ""
+    ENROLL_BANK_NAME: str = ""
+    ENROLL_BANK_ACCOUNT_NO: str = ""
+    ENROLL_BANK_ACCOUNT_NAME: str = ""
+    ENROLL_VIETQR_IMAGE_TEMPLATE: str = ""
+    ENROLL_PAY_REMINDER_HOURS_BEFORE: int = 24
+    ENROLL_PAY_REMINDER_MIN_AGE_HOURS: int = 6
+    ENROLL_SUPPLEMENT_HOURS: int = 72
+    # Learner e-mail (plan 5.11). RESEND_API_KEY stays a process variable.
+    LEARNER_EMAIL_FROM: str = ""
+    LEARNER_EMAIL_REPLY_TO: str = ""
+    PUBLIC_SITE_URL: str = ""
 
     class Config:
         env_file = ".env"
@@ -616,6 +632,26 @@ class Settings(BaseSettings):
     @classmethod
     def _strict_carry_valid_days(cls, value):
         return _bounded_int_or_default("CREDIT_CARRY_VALID_DAYS", value, 0, 3650, 60)
+
+    @field_validator("ENROLLMENT_PAY_HOURS", mode="before")
+    @classmethod
+    def _strict_pay_hours(cls, value):
+        return _bounded_int_or_default("ENROLLMENT_PAY_HOURS", value, 0, 720, 0)
+
+    @field_validator("ENROLL_PAY_REMINDER_HOURS_BEFORE", mode="before")
+    @classmethod
+    def _strict_reminder_hours_before(cls, value):
+        return _bounded_int_or_default("ENROLL_PAY_REMINDER_HOURS_BEFORE", value, 1, 720, 24)
+
+    @field_validator("ENROLL_PAY_REMINDER_MIN_AGE_HOURS", mode="before")
+    @classmethod
+    def _strict_reminder_min_age(cls, value):
+        return _bounded_int_or_default("ENROLL_PAY_REMINDER_MIN_AGE_HOURS", value, 0, 720, 6)
+
+    @field_validator("ENROLL_SUPPLEMENT_HOURS", mode="before")
+    @classmethod
+    def _strict_supplement_hours(cls, value):
+        return _bounded_int_or_default("ENROLL_SUPPLEMENT_HOURS", value, 1, 720, 72)
 
     @field_validator("CREDIT_HOLD_TTL_SPEAKING_SECONDS", mode="before")
     @classmethod

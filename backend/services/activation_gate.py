@@ -85,6 +85,12 @@ ACTIVATION_EXEMPT_ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/courses/{slug}"): "public course page; a token only adds the caller's own enrollment state",
     ("GET", "/api/me/courses"): "caller's own courses and credits, read before activation (pending online enrollment)",
     ("GET", "/api/me/credits"): "caller's own credit history (read-only), visible before activation",
+    ("POST", "/api/enrollment-orders"): "an online enrollee creates the order that, once confirmed, activates them",
+    ("GET", "/api/enrollment-orders/me"): "caller's own enrollment orders, read before the confirm that activates",
+    ("GET", "/api/enrollment-orders/{order_code}"): "caller's own order page with the transfer details",
+    ("POST", "/api/enrollment-orders/{order_code}/report-transfer"): "caller reports paying their own order",
+    ("POST", "/api/enrollment-orders/{order_code}/supplement"): "caller answers an admin's needs_info on their order",
+    ("POST", "/api/enrollment-orders/{order_code}/cancel"): "caller cancels their own open order",
     # ── Public content (Grammar Wiki, Vocabulary library, prompt bank) ───
     ("GET", "/api/grammar/home"): "public Grammar Wiki",
     ("GET", "/api/grammar/categories"): "public Grammar Wiki",
