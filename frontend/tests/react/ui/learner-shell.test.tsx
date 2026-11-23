@@ -327,4 +327,17 @@ describe('live links only (registry Q53)', () => {
     expect(liveHref({ href: '/help', today: null })).toBeNull();
     expect(liveHref({ href: '/help', today: '/nowhere' })).toBeNull();
   });
+
+  it('/courses is linked only while the build flag AVER_PUBLIC_COMMERCE is on (FR-029)', () => {
+    try {
+      vi.stubEnv('AVER_PUBLIC_COMMERCE', '');
+      expect(liveHref({ href: '/courses', today: null })).toBeNull();
+      expect(liveHref({ href: '/courses/khoa-a', today: null })).toBeNull();
+      expect(liveHref({ href: '/courses', today: '/library' })).toBe('/library');
+      vi.stubEnv('AVER_PUBLIC_COMMERCE', '1');
+      expect(liveHref({ href: '/courses', today: null })).toBe('/courses');
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
 });
