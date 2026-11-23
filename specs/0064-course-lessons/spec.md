@@ -83,7 +83,7 @@ Khoá online (G04, `course_products.kind = 'online'`) bán được nhưng chưa
   - Trang hiện câu tiếng Việt và lối "Xem khoá" (`coursesHref()` của PUBLICSITE-0059 FR-029; cờ tắt thì về `/course`). Khi hết hạn và `can_renew` thì có thêm "Đăng ký lại".
   - Lỗi đọc quyền: 503, trang báo "Chưa mở được bài, thử lại". Không bao giờ coi lỗi là có quyền.
 - **FR-044:** Khi có bài `is_published`, `GET /api/courses` trả `lesson_count` và `GET /api/courses/{slug}` trả `chapters:[{title, lessons:[{title, kind, duration_min, is_preview, preview_href}]}]`.
-  - Nguồn: `services/course_outline.py::public_outline(course_id)`, nối vào thân `routers/courses_public.py::_outline_for(product)` của G04. Đây là điểm ghép duy nhất.
+  - Nguồn: `services/course_outline.py::public_outline(product)` (nhận dòng `course_products`, có `course_id` và `slug`), nối vào thân `routers/courses_public.py::_outline_for(product)` của G04. Đây là điểm ghép duy nhất.
   - Khoá chưa có bài `is_published` thì hai trường là `null`; G05 hiện "sắp có".
   - `kind` suy ra như sau: có `video_source` → `video`; có `practice_bank_id` mà không có video → `practice`; còn lại → `reading`.
   - `duration_min = ceil(video_seconds/60)`, hoặc `null`.
