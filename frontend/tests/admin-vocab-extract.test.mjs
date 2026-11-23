@@ -30,9 +30,11 @@ const VCB_INDEX     = read('pages', 'admin', 'vocab', 'index.html');
 const VCB_STATS     = read('pages', 'admin', 'vocab', 'stats.html');
 const VCB_D1        = read('pages', 'admin', 'vocab', 'd1-curation.html');
 const VCB_LEMMAS    = read('pages', 'admin', 'vocab', 'lemmas.html');
-const JS_STATS      = read('js', 'admin-vocab-stats.js');
-const JS_D1         = read('js', 'admin-vocab-d1.js');
-const JS_LEMMAS     = read('js', 'admin-vocab-lemmas.js');
+// LEGACYJS-0075 W4b: the three vocab controllers are deleted; the Next owners
+// hold the wiring (fixtures stay, ADR-005).
+const JS_STATS      = read('app', '(authed-admin-vocab)', 'admin', 'vocab', 'stats', 'admin-vocab-stats.tsx');
+const JS_D1         = read('app', '(authed-admin-vocab)', 'admin', 'vocab', 'd1-curation', 'admin-vocab-d1-curation.tsx');
+const JS_LEMMAS     = read('app', '(authed-admin-vocab)', 'admin', 'vocab', 'lemmas', 'admin-vocab-lemmas.tsx');
 const ADMIN_LEGACY  = read('admin.html');
 
 
@@ -167,36 +169,36 @@ describe('Sprint 12.6 — lemma overrides page', () => {
 
 describe('Sprint 12.6 — vocab stats JS controller', () => {
   it('wires GET /admin/vocab/stats + flashcards stats + flag toggle', () => {
-    assert.match(JS_STATS, /\/admin\/vocab\/stats/);
-    assert.match(JS_STATS, /\/admin\/flashcards\/stats/);
+    assert.match(JS_STATS, /window\.api\.get<unknown>\('\/admin\/vocab\/stats'\)/);
+    assert.match(JS_STATS, /`\/admin\/flashcards\/stats\?days=\$\{encodeURIComponent\(period\)\}`/);
     assert.match(JS_STATS, /\/vocab-flag/);
   });
 
   it('uses VN locale (vi-VN) for date formatting where relevant', () => {
     // Not used by stats page directly; but the d1/lemmas controllers do.
     assert.match(JS_D1, /toLocaleString\(\s*['"]vi-VN['"]/);
-    assert.match(JS_LEMMAS, /toLocaleString\(\s*['"]vi-VN['"]/);
+    assert.match(JS_LEMMAS, /toLocaleDateString\(\s*['"]vi-VN['"]/);
   });
 });
 
 describe('Sprint 12.6 — D1 curation JS controller', () => {
   it('declares PAGE_LIMIT pagination state', () => {
     assert.match(JS_D1, /const\s+PAGE_LIMIT\s*=\s*50/);
-    assert.match(JS_D1, /let\s+_offset\s*=\s*0/);
+    assert.match(JS_D1, /async \(target: Filters, offset = 0, append = false\)/);
   });
 
   it('wires GET / PATCH / DELETE on /admin/vocab/d1-questions', () => {
-    assert.match(JS_D1, /api\.get\(['"]\/admin\/vocab\/d1-questions/);
-    assert.match(JS_D1, /api\.patch\(['"]\/admin\/vocab\/d1-questions/);
-    assert.match(JS_D1, /api\.delete\(['"]\/admin\/vocab\/d1-questions/);
+    assert.match(JS_D1, /api\.get<unknown>\(`\/admin\/vocab\/d1-questions\?/);
+    assert.match(JS_D1, /api\.patch<unknown>\(`\/admin\/vocab\/d1-questions\//);
+    assert.match(JS_D1, /api\.delete\(`\/admin\/vocab\/d1-questions\//);
   });
 });
 
 describe('Sprint 12.6 — lemma overrides JS controller', () => {
   it('wires the three CRUD endpoints', () => {
-    assert.match(JS_LEMMAS, /api\.get\(['"]\/admin\/vocab\/lemmas\/overrides/);
-    assert.match(JS_LEMMAS, /api\.post\(['"]\/admin\/vocab\/lemmas\/overrides/);
-    assert.match(JS_LEMMAS, /api\.delete\(['"]\/admin\/vocab\/lemmas\/overrides/);
+    assert.match(JS_LEMMAS, /api\.get<unknown>\(`\/admin\/vocab\/lemmas\/overrides\?/);
+    assert.match(JS_LEMMAS, /api\.post<unknown>\('\/admin\/vocab\/lemmas\/overrides'/);
+    assert.match(JS_LEMMAS, /api\.delete\(`\/admin\/vocab\/lemmas\/overrides\//);
   });
 });
 

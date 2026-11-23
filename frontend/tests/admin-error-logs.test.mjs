@@ -2,7 +2,7 @@
  * frontend/tests/admin-error-logs.test.mjs — Sprint 12.3.
  *
  * Pins the admin Báo lỗi surface at /pages/admin/error-logs/index.html
- * and the controller at /js/admin-error-logs.js. Sentinel-string match
+ * (retired fixture, ADR-005) and the Next owner admin-error-logs.tsx. Sentinel-string match
  * against static source — catches:
  *
  *   - Page no longer embeds <aver-admin-chrome active="error-logs">
@@ -22,7 +22,10 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const read = (...rel) => readFileSync(join(__dirname, '..', ...rel), 'utf8');
 
 const HTML = read('pages', 'admin', 'error-logs', 'index.html');
-const JS   = read('js', 'admin-error-logs.js');
+// LEGACYJS-0075 W4b: admin-error-logs.js is deleted; the Next page owns the
+// controller invariants.
+const JS   = read('app', '(authed-admin)', '(error-logs)', 'admin', 'error-logs', 'admin-error-logs.tsx');
+const MODEL = read('lib', 'admin-error-logs-model.mjs');
 
 
 describe('Sprint 12.3 — error-logs page chrome embed', () => {
@@ -89,52 +92,46 @@ describe('Sprint 12.3 — table + empty state', () => {
 });
 
 
-describe('Sprint 12.3 — admin-error-logs.js controller', () => {
+describe('Error-logs controller — Next owner (admin-error-logs.tsx)', () => {
   it('GETs /admin/error-logs/stats for the 4 cards', () => {
-    assert.match(JS, /\/admin\/error-logs\/stats/);
+    assert.match(JS, /window\.api\.get<unknown>\('\/admin\/error-logs\/stats'\)/);
   });
   it('GETs /admin/error-logs with query params for the table', () => {
-    assert.match(JS, /api\.get\(['"]\/admin\/error-logs\?/);
+    assert.match(JS, /window\.api\.get<unknown>\(`\/admin\/error-logs\?\$\{params\}`\)/);
   });
-  it('POSTs dismiss endpoint for triage', () => {
-    assert.match(JS, /\/admin\/error-logs\/['"]\s*\+\s*\w+\s*\+\s*['"]\/dismiss/);
-  });
-  it('POSTs undismiss endpoint', () => {
-    assert.match(JS, /\/undismiss/);
+  it('POSTs the dismiss / undismiss endpoint for triage', () => {
+    assert.match(JS, /window\.api\.post\(`\/admin\/error-logs\/\$\{encodeURIComponent\(id\)\}\/\$\{action\}`, \{\}\)/);
+    assert.match(JS, /action: 'dismiss' \| 'undismiss'/);
   });
   it('POSTs test-error endpoint with error_type', () => {
-    assert.match(JS, /\/admin\/error-logs\/test\?error_type=/);
+    assert.match(JS, /\/admin\/error-logs\/test\?error_type=exception/);
   });
-  it('escapes HTML in DB-sourced text (defense in depth)', () => {
-    assert.match(JS, /function\s+escapeHtml/);
-    assert.match(JS, /&amp;/);
-    assert.match(JS, /&lt;/);
+  it('renders DB-sourced text through React (no injected HTML)', () => {
+    assert.doesNotMatch(JS, /dangerouslySetInnerHTML/);
   });
   it('uses VN locale time formatting', () => {
-    assert.match(JS, /toLocaleString\(['"]vi-VN['"]/);
+    assert.match(MODEL, /export function formatLogTime\(value, locale = 'vi-VN'\)/);
   });
 });
 
 describe('2026-07-02 — noise filter + humanize', () => {
   it('HTML has the default-on "Ẩn nhiễu" checkbox', () => {
     assert.match(HTML, /id="filter-hide-noise"[^>]*checked/);
+    assert.match(JS, /const \[hideNoise, setHideNoise\] = useState\(true\)/);
   });
-  it('renderTable filters noise rows when the checkbox is checked', () => {
-    assert.match(JS, /filter-hide-noise'\)\s*&&\s*\$\('filter-hide-noise'\)\.checked/);
-    assert.match(JS, /_rows\.filter\(\(r\)\s*=>\s*!humanizeError\(r\)\.noise\)/);
+  it('the table filters noise rows when the checkbox is checked', () => {
+    assert.match(JS, /hideNoise \? rows\.filter\(\(row\) => !humanizeError\(row\)\.noise\) : rows/);
   });
   it('generateTestError un-hides noise so the dogfood row stays visible', () => {
     // Pin the P2 fix: the "Tạo lỗi test" row is noise; the helper must clear the
     // hide-noise filter or the generated row is hidden by the default-on filter.
-    const fn = JS.slice(JS.indexOf('async function generateTestError'),
-                        JS.indexOf('function bind()'));
-    assert.match(fn, /filter-hide-noise/);
-    assert.match(fn, /\.checked\s*=\s*false/);
+    const fn = JS.slice(JS.indexOf('const generateTestError'), JS.indexOf('const loadRollback'));
+    assert.match(fn, /setHideNoise\(false\)/);
   });
   it('humanizeError categorises DB, third-party, and test entries', () => {
-    assert.match(JS, /function humanizeError/);
-    assert.match(JS, /Bên thứ 3/);
-    assert.match(JS, /category:\s*'CSDL'/);
-    assert.match(JS, /Thử nghiệm/);
+    assert.match(MODEL, /export function humanizeError/);
+    assert.match(MODEL, /Bên thứ 3/);
+    assert.match(MODEL, /category: 'CSDL'/);
+    assert.match(MODEL, /Thử nghiệm/);
   });
 });

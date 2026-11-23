@@ -20,7 +20,10 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SUB = readFileSync(join(HERE, '..', 'app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-submissions.tsx'), 'utf8');
-const SESS = readFileSync(join(HERE, '..', 'public', 'js', 'admin-speaking-sessions.js'), 'utf8');
+// LEGACYJS-0075 W4b: admin-speaking-sessions.js is deleted; the Next sessions
+// page and its model own the deep link and the feedback report.
+const SESS = readFileSync(join(HERE, '..', 'app', '(authed-admin-speaking-sessions)', 'admin', 'speaking', 'sessions', 'admin-speaking-sessions.tsx'), 'utf8');
+const SESS_MODEL = readFileSync(join(HERE, '..', 'lib', 'admin-speaking-sessions-model.mjs'), 'utf8');
 const ARTIFACT = SUB.slice(SUB.indexOf('function openArtifact'), SUB.indexOf('function InlineMd'));
 const WRITING = SUB.slice(SUB.indexOf('function WritingReport'), SUB.indexOf('function evidenceText'));
 
@@ -42,15 +45,15 @@ describe('mở thẳng bài làm từ bảng tổng kết', () => {
 
 describe('trang phiên Speaking', () => {
   test('nhận deep-link ?session=', () => {
-    assert.match(SESS, /URLSearchParams\(location\.search\)\.get\('session'\)/);
-    assert.match(SESS, /if \(wanted\) loadDetail\(wanted\)/);
+    assert.match(SESS, /const selectedId = params\?\.get\('session'\)\?\.trim\(\) \|\| null/);
+    assert.match(SESS, /if \(selectedId\) void loadDetail\(selectedId\)/);
   });
   test('modal phiên có BÁO CÁO NHẬN XÉT, không chỉ band + audio', () => {
-    assert.match(SESS, /function feedbackReport/);
-    assert.match(SESS, /html \+= feedbackReport\(r\);/);
+    assert.match(SESS, /function FeedbackReport\(/);
+    assert.match(SESS, /<FeedbackReport feedback=\{response\.feedback\} \/>/);
     for (const k of ['fc_feedback', 'lr_feedback', 'gra_feedback', 'p_feedback',
                      'strengths', 'improvements', 'grammar_issues']) {
-      assert.ok(SESS.includes(k), `báo cáo phải đọc ${k}`);
+      assert.ok(SESS_MODEL.includes(k), `báo cáo phải đọc ${k}`);
     }
   });
 });

@@ -60,13 +60,11 @@ describe('migration — mechanical, timing preserved', () => {
   // the Next /admin/users panels show inline role="status"/"alert" banners.
   // LEGACYJS-0075 W4a: admin-dashboard.js is deleted; the Next Tổng quan owner
   // shows its load error as an inline role="alert" banner (below).
-  test('all 9 showBanner now delegate to showToast', () => {
-    for (const f of [
-      'admin-error-logs.js',
-      'admin-reading-attempts.js','admin-speaking-sessions.js',
-      'admin-speaking-topics.js','admin-vocab-d1.js','admin-vocab-exercises.js',
-      'admin-vocab-lemmas.js','admin-vocab-stats.js','admin-writing-queue.js',
-    ]) delegates(f);
+  // LEGACYJS-0075 W4b: admin-error-logs, admin-speaking-sessions/-topics,
+  // admin-vocab-d1/-exercises/-lemmas/-stats and admin-writing-queue are
+  // deleted; their Next owners use the inline StatusBanner (pinned below).
+  test('remaining showBanner delegates to showToast', () => {
+    for (const f of ['admin-reading-attempts.js']) delegates(f);
   });
 
   // LEGACYJS-0075 W3b: admin-classes.js is deleted. The Next class directory
@@ -86,19 +84,25 @@ describe('migration — mechanical, timing preserved', () => {
       assert.doesNotMatch(src, /(?<![.\w])confirm\(/, f.at(-1));
     }
   });
-  test('auto-dismiss timing preserved: 5s (speaking-sessions)', () => {
-    assert.match(read('js', 'admin-speaking-sessions.js'), /timeout: 5000/);
+  // The Next speaking-sessions and writing-queue pages keep the banner until the
+  // next action (no 5 s auto-dismiss); errors still persist.
+  test('Next speaking-sessions + writing-queue report through StatusBanner, no timer', () => {
+    for (const f of [
+      ['app', '(authed-admin-speaking-sessions)', 'admin', 'speaking', 'sessions', 'admin-speaking-sessions.tsx'],
+      ['app', '(authed-admin-writing-queue)', 'admin', 'writing', 'queue', 'admin-writing-queue.tsx'],
+    ]) {
+      const src = read(...f);
+      assert.match(src, /<StatusBanner banner=\{banner\} \/>/, f.at(-1));
+      assert.match(src, /setBanner\(\{ kind: 'error', text: /, f.at(-1));
+      assert.doesNotMatch(src, /setTimeout\(\(\) => \{?\s*setBanner\(null\);?\s*\}?, \d+\)/, f.at(-1));
+      assert.doesNotMatch(src, /(?<![.\w])alert\(/, f.at(-1));
+    }
   });
   test('persist preserved: overview load error stays until the next load', () => {
     const o = read('app', '(authed-admin-overview)', 'admin', 'admin-overview.tsx');
     assert.match(o, /\{opsError && <div className="db-banner" role="alert">\{opsError\}<\/div>\}/);
     assert.equal((o.match(/setOpsError\(null\)/g) || []).length, 1, 'only a new load clears the error');
     assert.doesNotMatch(o, /setTimeout\([^)]*setOpsError/);
-  });
-  test('hybrid preserved: writing-queue error→persist, else 5s', () => {
-    const q = read('js', 'admin-writing-queue.js');
-    assert.match(q, /if \(kind === 'error'\) showToast\(msg, 'error', \{ persist: true \}\)/);
-    assert.match(q, /else showToast\(msg, kind === 'warn' \? 'warn' : 'success', \{ timeout: 5000 \}\)/);
   });
   test('hideBanner/clearBanner now clear toasts', () => {
     assert.match(read('js', 'admin-reading-attempts.js'), /function clearBanner[\s\S]*?clearToasts\(\)/);

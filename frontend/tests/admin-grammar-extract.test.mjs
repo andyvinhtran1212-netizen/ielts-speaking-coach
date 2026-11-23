@@ -27,9 +27,11 @@ const GRM_INDEX     = read('pages', 'admin', 'grammar', 'index.html');
 const GRM_ARTICLES  = read('pages', 'admin', 'grammar', 'articles.html');
 const GRM_ANALYTICS = read('pages', 'admin', 'grammar', 'analytics.html');
 const GRM_RECOMMEND = read('pages', 'admin', 'grammar', 'recommend-test.html');
-const JS_ARTICLES   = read('js', 'admin-grammar-articles.js');
-const JS_ANALYTICS  = read('js', 'admin-grammar-analytics.js');
-const JS_RECOMMEND  = read('js', 'admin-grammar-recommend.js');
+// LEGACYJS-0075 W4b: the three grammar controllers are deleted; the Next owners
+// hold the endpoint wiring (the retired HTML fixtures stay, ADR-005).
+const JS_ARTICLES   = read('app', '(authed-admin-grammar-articles)', 'admin', 'grammar', 'articles', 'admin-grammar-articles.tsx');
+const JS_ANALYTICS  = read('app', '(authed-admin-grammar-analytics)', 'admin', 'grammar', 'analytics', 'admin-grammar-analytics.tsx');
+const JS_RECOMMEND  = read('app', '(authed-admin-grammar-recommend)', 'admin', 'grammar', 'recommend-test', 'admin-grammar-recommend.tsx');
 const ADMIN_LEGACY  = read('admin.html');
 
 
@@ -178,20 +180,20 @@ describe('Sprint 12.7 — grammar recommendation tester', () => {
 
 /* ── JS controllers ───────────────────────────────────────────── */
 
-describe('Sprint 12.7 — grammar JS controllers', () => {
+describe('Sprint 12.7 — grammar controllers (Next owners)', () => {
   it('articles controller wires list + preview endpoints', () => {
-    assert.match(JS_ARTICLES, /\/admin\/grammar\/articles/);
-    assert.match(JS_ARTICLES, /\/preview/);
+    assert.match(JS_ARTICLES, /window\.api\.get<unknown>\(`\/admin\/grammar\/articles/);
+    assert.match(JS_ARTICLES, /`\/admin\/grammar\/articles\/\$\{encodeURIComponent\(article\.slug\)\}\/preview/);
   });
 
   it('analytics controller wires /admin/grammar/analytics with days param', () => {
-    assert.match(JS_ANALYTICS, /\/admin\/grammar\/analytics\?days=/);
+    assert.match(JS_ANALYTICS, /`\/admin\/grammar\/analytics\?days=\$\{nextDays\}`/);
   });
 
   it('recommend controller posts to /admin/grammar/recommend-test', () => {
-    assert.match(JS_RECOMMEND, /api\.post\(['"]\/admin\/grammar\/recommend-test['"]/);
+    assert.match(JS_RECOMMEND, /window\.api\.post\('\/admin\/grammar\/recommend-test'/);
     assert.match(JS_RECOMMEND, /draft_suppressed/);
-    assert.match(JS_RECOMMEND, /requestId !== runSequence/);
+    assert.match(JS_RECOMMEND, /const id = \+\+seq\.current/);
   });
 });
 

@@ -23,7 +23,10 @@ const HTML = read('public', 'pages', 'admin', 'mock-tests', 'index.html');
 const COCKPIT = read('app', '(authed-admin-mock-tests)', 'admin', 'mock-tests', 'admin-mock-tests.tsx');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 const QUEUE_HTML = read('public', 'pages', 'admin', 'writing', 'queue.html');
-const QUEUE_JS = read('public', 'js', 'admin-writing-queue.js');
+// LEGACYJS-0075 W4b: admin-writing-queue.js is deleted; the Next queue and its
+// model own the cockpit embed hooks.
+const QUEUE_TSX = read('app', '(authed-admin-writing-queue)', 'admin', 'writing', 'queue', 'admin-writing-queue.tsx');
+const Q = await import('../lib/admin-writing-queue-model.mjs');
 const GRADE_HTML = read('public', 'pages', 'admin', 'writing', 'grade.html');
 const STATUS_HTML = read('public', 'pages', 'admin', 'writing', 'status.html');
 const INSTRUCTOR_QUEUE_HTML = read('public', 'pages', 'admin', 'writing', 'instructor-queue.html');
@@ -100,30 +103,23 @@ describe('writing queue — cockpit embed hooks', () => {
     assert.match(QUEUE_HTML, /get\('embed'\) === '1'[\s\S]*?setAttribute\('embed', ''\)/);
   });
   test('?mocklane=1 opens the Mock lane on load', () => {
-    assert.match(QUEUE_JS, /get\('mocklane'\) === '1'/);
-    assert.match(QUEUE_JS, /if \(_mocklane\) \{ _stripEmbedChrome\(\); setMockLane\(\); return; \}/);
+    assert.match(QUEUE_TSX, /mocklane: params\?\.get\('mocklane'\) \|\| ''/);
+    assert.equal(Q.normalizeWritingQueueFilters({ mocklane: '1' }).lane, 'mock');
+    assert.equal(Q.normalizeWritingQueueFilters({}).lane, 'graded');
   });
-  // Mock-only embed: the cockpit tab names the lane and the rail scopes the
-  // exam, so the queue's lane rail + filter row are redundant there.
-  test('?mocklane=1 strips the lane rail and the filter row', () => {
-    const body = QUEUE_JS.match(/function _stripEmbedChrome\(\) \{([\s\S]*?)\n\}/);
-    assert.ok(body, '_stripEmbedChrome() not found — sentinel is stale');
-    assert.match(body[1], /querySelectorAll\('\.adm-subtabs, \.q-toolbar'\)/);
-  });
-  // Must be inline display:none, not the hidden attribute: both rows set
-  // `display: flex` in the author stylesheet, which beats the UA's
-  // `[hidden] { display: none }` — hidden alone leaves them on screen.
-  test('embed chrome is stripped with inline display:none (author CSS beats [hidden])', () => {
-    const body = QUEUE_JS.match(/function _stripEmbedChrome\(\) \{([\s\S]*?)\n\}/);
-    assert.match(body[1], /style\.display = 'none'/);
+  // Embed-only chrome: the cockpit tab names the lane and the rail scopes the
+  // exam, so the queue header and lane rail are redundant there. The Next page
+  // renders them conditionally (no inline display:none needed).
+  test('?embed=1 drops the header and the lane rail', () => {
+    assert.match(QUEUE_TSX, /\{!filters\.embed && <header className="awq-header">/);
+    assert.match(QUEUE_TSX, /\{!filters\.embed && <nav className="awq-lanes"/);
+    assert.equal(Q.normalizeWritingQueueFilters({ embed: '1' }).embed, true);
   });
   test('the standalone queue keeps its lane rail and filters (no cockpit bleed)', () => {
-    // _stripEmbedChrome fires from the ?mocklane=1 branch ONLY: the Mock chip's
-    // own click handler (setMockLane) must never strip the chrome, or clicking
-    // Mock on the standalone page would strand the admin there.
-    const body = QUEUE_JS.match(/function setMockLane\(\) \{([\s\S]*?)\n\}/);
-    assert.ok(body, 'setMockLane() not found — sentinel is stale');
-    assert.ok(!body[1].includes('_stripEmbedChrome'), 'setMockLane() must not strip the embed chrome');
+    // Choosing the Mock lane on the standalone page only changes the lane; it
+    // never sets embed, so the rail stays.
+    assert.match(QUEUE_TSX, /const setLane = \(lane: QueueLane\) => navigate\(\{ \.\.\.filters, lane, overdue: false \}\)/);
+    assert.equal(Q.normalizeWritingQueueFilters({ status: 'mock' }).embed, false);
   });
 });
 
@@ -131,18 +127,15 @@ describe('writing queue — cockpit embed hooks', () => {
 // frame's). Unless the flags ride along and the destination honours ?embed=1,
 // the tab panel gets a whole second admin page nested inside the cockpit.
 describe('writing queue — opening an essay from the cockpit stays chrome-less', () => {
-  test('openEssay carries embed + mocklane to grade.html and status.html', () => {
-    const body = QUEUE_JS.match(/function openEssay\(essayId\) \{([\s\S]*?)\n\}/);
-    assert.ok(body, 'openEssay() not found — sentinel is stale');
-    assert.match(body[1], /_withEmbed\('\/admin\/writing\/status\?essay_id=/);
-    assert.match(body[1], /_withEmbed\('\/pages\/admin\/writing\/grade\.html\?essay_id=/);
+  test('row click carries embed + mocklane to grade and status', () => {
+    assert.match(QUEUE_TSX, /window\.location\.href = writingQueueDestination\(row, filters\)/);
+    const cockpit = Q.normalizeWritingQueueFilters({ mocklane: '1', embed: '1' });
+    assert.equal(Q.writingQueueDestination({ id: 'e1', status: 'pending' }, cockpit), '/admin/writing/status?essay_id=e1&from=queue&mocklane=1&embed=1');
+    assert.equal(Q.writingQueueDestination({ id: 'e1', status: 'delivered' }, cockpit), '/admin/writing/grade?essay_id=e1&from=queue&mocklane=1&embed=1');
   });
-  test('_withEmbed forwards both flags and no-ops off the cockpit', () => {
-    const body = QUEUE_JS.match(/function _withEmbed\(url\) \{([\s\S]*?)\n\}/);
-    assert.ok(body, '_withEmbed() not found — sentinel is stale');
-    assert.match(body[1], /get\('embed'\) === '1'/);
-    assert.match(body[1], /get\('mocklane'\) === '1'/);
-    assert.match(body[1], /if \(!out\.length\) return url;/);   // standalone → untouched
+  test('the destination drops the flags off the cockpit', () => {
+    const href = Q.writingQueueDestination({ id: 'e1', status: 'delivered' }, Q.normalizeWritingQueueFilters({ status: 'all' }));
+    assert.doesNotMatch(href, /embed=|mocklane=/);
   });
   // grade.html and status.html are both row-click destinations, so both need
   // the hook queue.html already had — otherwise the flag arrives and is ignored.

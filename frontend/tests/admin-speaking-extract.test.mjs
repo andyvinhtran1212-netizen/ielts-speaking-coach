@@ -28,8 +28,11 @@ const read = (...rel) => readFileSync(join(__dirname, '..', ...rel), 'utf8');
 const SPK_INDEX    = read('pages', 'admin', 'speaking', 'index.html');
 const SPK_SESSIONS = read('pages', 'admin', 'speaking', 'sessions.html');
 const SPK_TOPICS   = read('pages', 'admin', 'speaking', 'topics.html');
-const JS_SESSIONS  = read('js', 'admin-speaking-sessions.js');
-const JS_TOPICS    = read('js', 'admin-speaking-topics.js');
+// LEGACYJS-0075 W4b: both speaking controllers are deleted; the Next owners and
+// the typed sessions client hold the wiring (fixtures stay, ADR-005).
+const JS_SESSIONS  = read('app', '(authed-admin-speaking-sessions)', 'admin', 'speaking', 'sessions', 'admin-speaking-sessions.tsx');
+const API_SESSIONS = read('lib', 'admin-speaking-sessions-api.ts');
+const JS_TOPICS    = read('app', '(authed-admin-speaking-topics)', 'admin', 'speaking', 'topics', 'admin-speaking-topics.tsx');
 const ADMIN_LEGACY = read('admin.html');
 
 
@@ -149,50 +152,52 @@ describe('Sprint 12.5 — speaking topics page', () => {
 
 /* ── JS controllers ───────────────────────────────────────────── */
 
-describe('Sprint 12.5 — sessions JS controller', () => {
+describe('Sprint 12.5 — sessions controller (Next owner)', () => {
   it('declares PAGE_LIMIT (50) and pagination state', () => {
     assert.match(JS_SESSIONS, /const\s+PAGE_LIMIT\s*=\s*50/);
-    assert.match(JS_SESSIONS, /let\s+_offset\s*=\s*0/);
+    assert.match(JS_SESSIONS, /const offset = reset \? 0 : nextOffset/);
   });
 
   it('keeps the wired backend endpoints from the monolith', () => {
     // Spot-check the four routes the carved-out JS depends on.
+    // The user filter now sends user_email to /admin/sessions instead of
+    // reading /admin/users first.
     for (const route of [
-      '/admin/users',
-      '/admin/sessions',
-      '/admin/responses',
-      '/admin/sessions',  // detail + regrade + rebuild-summary all share this prefix
+      "'/admin/sessions'",
+      "'/admin/sessions/{session_id}'",
+      "'/admin/responses/{response_id}/regrade'",
+      "'/admin/sessions/{session_id}/regrade'",
+      "'/admin/sessions/{session_id}/rebuild-summary'",
     ]) {
-      assert.ok(JS_SESSIONS.includes(route),
-        `sessions JS missing route ${route}`);
+      assert.ok(API_SESSIONS.includes(route), `sessions client missing route ${route}`);
     }
-    // Specific regrade + rebuild paths.
-    assert.match(JS_SESSIONS, /\/regrade/);
-    assert.match(JS_SESSIONS, /\/rebuild-summary/);
+    assert.match(JS_SESSIONS, /query\.set\('user_email', target\.email\)/);
   });
 
   it('uses VN locale (vi-VN) for date formatting', () => {
-    assert.match(JS_SESSIONS, /toLocaleString\(\s*['"]vi-VN['"]/);
+    assert.match(JS_SESSIONS, /new Intl\.DateTimeFormat\('vi-VN', \{ timeZone: 'Asia\/Ho_Chi_Minh'/);
   });
 });
 
-describe('Sprint 12.5 — topics JS controller', () => {
-  it('declares cached state (_all, _currentPart, _expanded)', () => {
-    assert.match(JS_TOPICS, /let\s+_all\s*=\s*\[\]/);
-    assert.match(JS_TOPICS, /let\s+_currentPart\s*=\s*1/);
-    assert.match(JS_TOPICS, /const\s+_expanded\s*=\s*new Map\(\)/);
+describe('Sprint 12.5 — topics controller (Next owner)', () => {
+  it('keeps topic list, part (default 1) and question snapshot in state', () => {
+    assert.match(JS_TOPICS, /const \[snapshot, setSnapshot\] = useState<\{ account: string; rows: SpeakingTopic\[\]; malformed: number \} \| null>\(null\)/);
+    assert.match(JS_TOPICS, /const part = \(parsedPart === 2 \|\| parsedPart === 3 \? parsedPart : 1\)/);
+    assert.match(JS_TOPICS, /const \[questions, setQuestions\] = useState<QuestionSnapshot \| null>\(null\)/);
   });
 
   it('keeps the wired topic/question CRUD endpoints', () => {
     // List, CRUD, expand, AI generate.
-    assert.match(JS_TOPICS, /\/admin\/topics/);
-    assert.match(JS_TOPICS, /\/questions/);
+    assert.match(JS_TOPICS, /window\.api\.get<unknown>\('\/admin\/topics'\)/);
+    assert.match(JS_TOPICS, /`\/admin\/topics\/\$\{encodeURIComponent\(topicId\)\}\/questions`/);
     assert.match(JS_TOPICS, /\/generate-questions/);
   });
 
-  it('bootstraps Supabase via the shared initSupabase API', () => {
-    assert.match(JS_TOPICS, /window\.initSupabase/);
-    assert.match(JS_SESSIONS, /window\.initSupabase/);
+  it('reads the admin account from the shared access gate (no own Supabase client)', () => {
+    for (const src of [JS_TOPICS, JS_SESSIONS]) {
+      assert.match(src, /import \{ useAdminProfile \} from '@\/components\/admin-access-gate'/);
+      assert.doesNotMatch(src, /createClient\(/);
+    }
   });
 });
 
