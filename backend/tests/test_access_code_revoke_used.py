@@ -56,6 +56,13 @@ class _Q:
     def limit(self, *a, **k):
         return self
 
+    def order(self, *a, **k):
+        return self
+
+    def in_(self, col, vals):
+        self.filters.append((col, tuple(vals)))
+        return self
+
     def execute(self):
         return self.db.resolve(self)
 
@@ -85,9 +92,12 @@ class _DB:
                 return _Res([])
             self.code.update(q.payload)
             return _Res([dict(self.code)])
+        if q.table == "users" and q.op == "select":
+            ids = next((v for c, v in q.filters if c == "id"), ())
+            return _Res([{"id": i, "email": f"{i}@x.test", "display_name": i.upper()} for i in ids])
         if q.table == "user_code_assignments" and q.op == "select":
             want_active = ("is_active", True) in q.filters
-            return _Res([a for a in self.assignments if not want_active or a["is_active"]])
+            return _Res([dict(a) for a in self.assignments if not want_active or a["is_active"]])
         if q.table == "access_code_audit" and q.op == "insert":
             self.audits.append(q.payload)
             self.order.append("audit")
@@ -282,6 +292,55 @@ def test_concurrent_revoke_reports_already_revoked_with_this_requests_audit(monk
     out = _call()
     assert out["already_revoked"] is True and out["audit_recorded"] is True
     assert len(db.audits) == 1
+
+
+def test_code_page_names_the_same_people_the_revoke_counts(monkeypatch):
+    # Mixed code: "legacy" redeemed it with no assignment row, u2 is active.
+    # The detail's own `assignments` hides the legacy redeemer (it is only
+    # synthesized when nobody is active), so the page reads `access_holders`.
+    code = {**CODE, "used_by": "legacy"}
+    rows = [{"id": "a2", "user_id": "u2", "is_active": True, "assigned_at": "2026-11-02T00:00:00Z"}]
+    db = _DB(code, rows)
+    _wire(monkeypatch, db)
+    detail = _run(admin_module.get_access_code_detail("c1", authorization="Bearer t"))
+    assert [a["user_id"] for a in detail["assignments"]] == ["u2"]
+    assert [h["user_id"] for h in detail["access_holders"]] == ["legacy", "u2"]
+    assert detail["access_holders"][0]["email"] == "legacy@x.test"
+    out = _call()
+    assert out["affected_user_count"] == len(detail["access_holders"]) == 2
+
+
+def test_code_page_holders_unknown_when_assignment_lookup_fails(monkeypatch):
+    db = _DB(CODE, ASSIGNMENTS, fail={"user_code_assignments.select"})
+    _wire(monkeypatch, db)
+    detail = _run(admin_module.get_access_code_detail("c1", authorization="Bearer t"))
+    assert detail["association_lookup_failed"] is True and detail["access_holders"] is None
+
+
+@pytest.mark.parametrize("used", [{"is_used": True, "used_by": None}, {"is_used": False, "used_by": "legacy"}])
+def test_plain_delete_refuses_a_used_code(monkeypatch, used):
+    # FR-055: a used code is revoked only through the danger zone.
+    db = _DB({**CODE, **used}, [])
+    _wire(monkeypatch, db)
+    with pytest.raises(HTTPException) as exc:
+        _run(admin_module.delete_access_code("c1", authorization="Bearer t"))
+    assert exc.value.status_code == 409 and exc.value.detail["code"] == "code_used"
+    assert db.writes == [] and db.code["is_revoked"] is False
+
+
+def test_plain_delete_still_revokes_an_unused_code(monkeypatch):
+    db = _DB({**CODE, "is_used": False, "used_by": None, "used_at": None}, [])
+    _wire(monkeypatch, db)
+    original = db.resolve
+
+    def counted(q):
+        res = original(q)
+        if q.table == "user_code_assignments":
+            res.count = 0
+        return res
+    db.resolve = counted
+    _run(admin_module.delete_access_code("c1", authorization="Bearer t"))
+    assert db.code["is_revoked"] is True
 
 
 def test_route_is_registered_with_step_up_responses():

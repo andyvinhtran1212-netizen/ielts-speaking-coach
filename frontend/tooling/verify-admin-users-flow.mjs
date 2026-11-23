@@ -197,7 +197,9 @@ await page.route('**/*', async (route) => {
     const code = codes.find((item) => item.id === detailMatch[1]);
     if (!code) return json({ detail: 'Access code không tồn tại' }, 404);
     const { assigned_users: assigned, cohort_name: _cohortName, grant_credits: _credits, ...rest } = code;
-    return json({ ...rest, assignments: assigned.map((user) => ({ id: user.is_fallback_used_by ? null : `as-${user.user_id}`, user_id: user.user_id, assigned_at: code.used_at, is_active: !user.is_fallback_used_by && user.removable, is_fallback_used_by: user.is_fallback_used_by, removable: user.removable, display_name: user.name, email: user.email })) });
+    const holders = assigned.filter((user) => user.removable || user.is_fallback_used_by)
+      .map((user) => ({ user_id: user.user_id, email: user.email, display_name: user.name }));
+    return json({ ...rest, access_holders: code.association_lookup_failed ? null : holders, assignments: assigned.map((user) => ({ id: user.is_fallback_used_by ? null : `as-${user.user_id}`, user_id: user.user_id, assigned_at: code.used_at, is_active: !user.is_fallback_used_by && user.removable, is_fallback_used_by: user.is_fallback_used_by, removable: user.removable, display_name: user.name, email: user.email })) });
   }
   const codeMatch = parsed.pathname.match(/^\/admin\/access-codes\/([^/]+)$/);
   if (codeMatch && method === 'PATCH') {
@@ -208,6 +210,8 @@ await page.route('**/*', async (route) => {
   }
   if (codeMatch && method === 'DELETE') {
     const code = codes.find((item) => item.id === codeMatch[1]);
+    // Mirrors the backend (FR-055): a used code is revoked only in the danger zone.
+    if (code && !code.is_revoked && (code.is_used || code.used_by)) return json({ detail: { code: 'code_used', message: 'Mã đã dùng: thu hồi ở Vùng nguy hiểm của trang mã (cần gõ lại mã và lý do).' } }, 409);
     if (code) { code.is_revoked = true; code.is_active = false; }
     return route.fulfill({ status: 204, body: '' });
   }

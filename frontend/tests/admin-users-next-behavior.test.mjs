@@ -292,7 +292,13 @@ describe('ADMINIA-0074 FR-055 code page and danger-zone revoke', () => {
     ]);
     assert.equal(activeAssignmentCount(detail), 1);
     assert.equal(codeLedgerState(detail).state, 'used');
+    assert.equal(detail.access_holders, null);
     assert.equal(normalizeCodeDetail(null), null);
+    // The danger zone uses the server's list, not a recount of `assignments`.
+    const mixed = normalizeCodeDetail({ id: 'm', code: 'MIX', used_by: 'legacy', assignments: [{ user_id: 'u2', is_active: true }],
+      access_holders: [{ user_id: 'legacy', email: 'l@x.test' }, { user_id: 'u2', email: 'b@x.test' }, { email: 'no-id' }] });
+    assert.deepEqual(mixed.access_holders.map((holder) => holder.user_id), ['legacy', 'u2']);
+    assert.match(DETAIL, /const losing = detail\?\.access_holders \?\? \[\];/);
   });
 
   test('reads the audit history with the revoke reason and the people affected', () => {
@@ -326,6 +332,7 @@ describe('ADMINIA-0074 FR-055 code page and danger-zone revoke', () => {
 
   test('the page keeps /new a 404, reloads canonically and offers the danger zone only for a used code', () => {
     assert.match(DETAIL_PAGE, /if \(codeId === 'new'\) notFound\(\);/);
+    assert.match(DETAIL_PAGE, /soft 404/);
     assert.match(DETAIL, /window\.api\.post\(`\/admin\/access-codes\/\$\{encodeURIComponent\(detail\.id\)\}\/revoke-used`/);
     assert.match(DETAIL, /reason: reason\.trim\(\),\s+\}\);\s+setConfirmCode\(''\);\s+setReason\(''\);\s+await load\(\);/);
     assert.match(DETAIL, /state\?\.state !== 'used' \?/);

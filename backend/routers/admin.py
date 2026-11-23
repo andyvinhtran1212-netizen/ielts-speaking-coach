@@ -2431,7 +2431,7 @@ async def delete_access_code(
     try:
         code_res = (
             supabase_admin.table("access_codes")
-            .select("id, code, is_revoked")
+            .select("id, code, is_revoked, is_used, used_by")
             .eq("id", code_id)
             .limit(1)
             .execute()
@@ -2446,6 +2446,15 @@ async def delete_access_code(
     row = code_res.data[0]
     if row.get("is_revoked"):
         return  # already revoked — idempotent
+
+    # ADMINIA-0074 FR-055: a used code (redeemed: is_used / used_by, even with
+    # no assignment row left) is revoked only from the code page's danger
+    # zone, with step-up, a typed confirmation and a reason.
+    if row.get("is_used") or row.get("used_by"):
+        raise HTTPException(409, {
+            "code": "code_used",
+            "message": "Mã đã dùng: thu hồi ở Vùng nguy hiểm của trang mã (cần gõ lại mã và lý do).",
+        })
 
     # Block if active user assignments exist
     try:
@@ -2576,12 +2585,7 @@ async def revoke_used_access_code(
             .eq("code_id", code_id)
             .execute()
         )
-        rows = [r for r in (rows_res.data or []) if r.get("user_id")]
-        affected_set = {str(r["user_id"]) for r in rows if r.get("is_active")}
-        legacy_user = str(row.get("used_by") or "")
-        if legacy_user and legacy_user not in {str(r["user_id"]) for r in rows}:
-            affected_set.add(legacy_user)
-        affected = sorted(affected_set)
+        affected = _revoke_access_holders(row, rows_res.data or [])
     except Exception as exc:
         logger.warning("revoke_used_access_code: active-assignment lookup failed code=%s: %s", code_id, exc)
         raise HTTPException(500, "Không kiểm tra được ai đang dùng mã — thử lại sau.") from None
@@ -2637,6 +2641,20 @@ async def revoke_used_access_code(
         "already_revoked": False, "affected_user_count": len(affected),
         "audit_recorded": True,
     }
+
+
+def _revoke_access_holders(code_row: dict, assignment_rows: list[dict]) -> list[str]:
+    """Who loses access when this code is revoked, sorted. Mirrors
+    services/access_code_permissions._active_code_rows: every active
+    assignment, plus the legacy `used_by` redeemer when that user has no
+    assignment row at all for the code (an inactive row is a deliberate
+    removal and does not re-grant). The code page shows this same list."""
+    rows = [r for r in assignment_rows if r.get("user_id")]
+    holders = {str(r["user_id"]) for r in rows if r.get("is_active")}
+    legacy_user = str(code_row.get("used_by") or "")
+    if legacy_user and legacy_user not in {str(r["user_id"]) for r in rows}:
+        holders.add(legacy_user)
+    return sorted(holders)
 
 
 def _revoke_audit_exists(code_id: str) -> bool:
@@ -2711,6 +2729,9 @@ async def get_access_code_detail(
     # where the only assignment was deactivated by remove-user.
     # Guard on `not association_lookup_failed`: only synthesize when the lookup
     # SUCCEEDED and genuinely returned no active rows — never when it errored.
+    # FR-055: the danger zone names exactly the people the revoke counts.
+    access_holder_ids = None if association_lookup_failed else _revoke_access_holders(code, assignments)
+
     has_active = any(a.get("is_active") for a in assignments)
     if not association_lookup_failed and not has_active and code.get("used_by"):
         assignments = [{
@@ -2731,7 +2752,7 @@ async def get_access_code_detail(
             a.setdefault("removable", bool(a.get("is_active")))
 
     # Enrich assignments with user name/email in a single lookup.
-    user_ids = list({a["user_id"] for a in assignments})
+    user_ids = list({a["user_id"] for a in assignments} | set(access_holder_ids or []))
     user_map: dict[str, dict] = {}
     if user_ids:
         try:
@@ -2756,6 +2777,10 @@ async def get_access_code_detail(
 
     code["assignments"] = assignments
     code["association_lookup_failed"] = association_lookup_failed
+    code["access_holders"] = None if access_holder_ids is None else [
+        {"user_id": uid, **user_map.get(uid, {"email": "", "display_name": ""})}
+        for uid in access_holder_ids
+    ]
     return code
 
 

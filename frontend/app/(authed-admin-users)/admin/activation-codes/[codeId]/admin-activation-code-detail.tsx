@@ -30,7 +30,7 @@ type AuditEntry = {
 };
 
 type DetailUser = AccessCode['assigned_users'][number] & { is_active?: boolean; assigned_at?: string | null };
-type Detail = Omit<AccessCode, 'assigned_users'> & { assigned_users: DetailUser[] };
+type Detail = Omit<AccessCode, 'assigned_users'> & { assigned_users: DetailUser[]; access_holders: { user_id: string; name: string; email: string }[] | null };
 
 type Banner = { kind: 'success' | 'error'; text: string } | null;
 
@@ -42,14 +42,6 @@ function formatDateTime(value: string | null) {
   if (!value) return '—';
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString('vi-VN');
-}
-
-/** People who lose access when the code is revoked (mirrors the backend count). */
-function losingAccess(detail: Detail) {
-  const rows = detail.assigned_users;
-  const active = rows.filter((user) => user.is_active && !user.is_fallback_used_by);
-  const legacy = rows.filter((user) => user.is_fallback_used_by && !rows.some((other) => !other.is_fallback_used_by && other.user_id === user.user_id));
-  return [...active, ...legacy];
 }
 
 // ADMINIA-0074 FR-055: the code page. Details, people and the code's own
@@ -134,8 +126,9 @@ export function AdminActivationCodeDetail({ codeId }: { codeId: string }) {
   };
 
   const state = detail ? codeLedgerState(detail) : null;
-  const losing = detail ? losingAccess(detail) : [];
-  const dangerBlocked = detail?.association_lookup_failed
+  // The server's list (same count the revoke reports); null = unknown.
+  const losing = detail?.access_holders ?? [];
+  const dangerBlocked = detail && (detail.association_lookup_failed || detail.access_holders == null)
     ? 'Không xác minh được ai đang dùng mã; tải lại trang rồi thử lại.' : null;
 
   return (

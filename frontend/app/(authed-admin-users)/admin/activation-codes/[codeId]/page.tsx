@@ -13,8 +13,10 @@ export const metadata: Metadata = {
 
 // ADMINIA-0074 FR-055: one code's page; revoking a used code happens only in
 // its "Vùng nguy hiểm". FR-048 keeps /admin/activation-codes/new a 404 (codes
-// are issued from a class page). The id is read before any Suspense boundary
-// so that notFound() is a real HTTP 404, not a streamed soft 404.
+// are issued from a class page). Under cacheComponents the AuthedShell
+// streams before this page runs, so notFound() here is Next's soft 404:
+// HTTP 200 with the not-found boundary and `noindex`, as for unknown Grammar
+// articles on production.
 export default async function AdminActivationCodeDetailPage({ params }: { params: Promise<{ codeId: string }> }) {
   const { codeId } = await params;
   if (codeId === 'new') notFound();

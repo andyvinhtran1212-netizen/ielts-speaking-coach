@@ -302,10 +302,21 @@ export function normalizeCodeDetail(value) {
   }).filter(Boolean);
   const base = normalizeAccessCode({ ...row, assigned_users: [], assigned_user_count: 0 });
   if (!base) return null;
+  // `access_holders` is the server's own list of who loses access on revoke
+  // (active assignments + a legacy redeemer with no row); null when the
+  // assignment lookup failed. The page never recounts it from `assignments`.
+  const holders = Array.isArray(row.access_holders)
+    ? row.access_holders.map((item) => {
+      const entry = object(item);
+      const userId = text(entry.user_id);
+      return userId ? { user_id: userId, name: text(entry.display_name), email: text(entry.email) } : null;
+    }).filter(Boolean)
+    : null;
   return {
     ...base,
     assigned_users: assignedUsers,
     assigned_user_count: assignedUsers.filter((user) => user.is_active || user.is_fallback_used_by).length,
+    access_holders: holders,
   };
 }
 
