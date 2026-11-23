@@ -15,11 +15,14 @@ export const UNTIMED_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 export const AFTER_DEADLINE_MS = 24 * 60 * 60 * 1000;
 
 /**
+ * `value` / `baseValue` keep the answer's own JSON type end to end (write,
+ * read back, compare): a string stays a string, an array or object stays one.
  * `baseValue`: the `user_answer` the server last acked for this question, or
  * the value read when the attempt was opened; `null` when the server had no
  * answer. A stored entry without the field (older copy) has an unknown base
  * and is never re-sent on its own. `baseSavedAt` is for display only.
- * @typedef {{ value: string, baseValue: string | null, baseSavedAt?: string | null }} LocalCopyAnswer
+ * @typedef {string | number | boolean | null | unknown[] | { [k: string]: unknown }} AnswerValue (nested values checked by `isAnswerValue`)
+ * @typedef {{ value: AnswerValue, baseValue: AnswerValue, baseSavedAt?: string | null }} LocalCopyAnswer
  * @typedef {{ v: 1, surface: string, ownerKey: string, attemptKey: string, savedAt: number, expiresAt: number, answers: Record<string, LocalCopyAnswer> }} LocalCopy
  * @typedef {{ surface: string, ownerKey: string, attemptKey: string }} LocalCopyScope
  */
@@ -51,6 +54,27 @@ export function localCopyExpiry({ deadline = null, now = Date.now() }) {
   return typeof d === 'number' && Number.isFinite(d) ? d + AFTER_DEADLINE_MS : now + UNTIMED_TTL_MS;
 }
 
+/**
+ * A value JSON round-trips without changing type: null, string, finite
+ * number, boolean, or arrays / plain objects of those.
+ * @param {unknown} v
+ * @returns {v is AnswerValue}
+ */
+function isAnswerValue(v) {
+  if (v === null || typeof v === 'string' || typeof v === 'boolean') return true;
+  if (typeof v === 'number') return Number.isFinite(v);
+  if (Array.isArray(v)) return v.every(isAnswerValue);
+  if (v && typeof v === 'object' && Object.getPrototypeOf(v) === Object.prototype) {
+    return Object.values(v).every(isAnswerValue);
+  }
+  return false;
+}
+
+/** @param {LocalCopyAnswer | undefined} a */
+function hasKnownBase(a) {
+  return Boolean(a) && Object.prototype.hasOwnProperty.call(a, 'baseValue') && isAnswerValue(/** @type {any} */ (a).baseValue);
+}
+
 /** @param {LocalCopyScope} scope */
 function validScope(scope) {
   return Boolean(scope && scope.surface && scope.ownerKey && scope.attemptKey);
@@ -72,13 +96,13 @@ export function writeLocalCopy(storage, { surface, ownerKey, attemptKey, answers
     /** @type {Record<string, LocalCopyAnswer>} */
     const merged = { ...(existing?.answers ?? {}) };
     for (const [q, a] of Object.entries(answers)) {
-      if (!a || typeof a.value !== 'string') continue;
+      if (!a || a.value === null || !isAnswerValue(a.value)) continue;
       /** @type {LocalCopyAnswer} */
       const entry = { value: a.value, baseValue: null, baseSavedAt: a.baseSavedAt ?? null };
       const prior = merged[String(q)];
-      if (typeof a.baseValue === 'string' || a.baseValue === null) entry.baseValue = a.baseValue;
+      if (hasKnownBase(a)) entry.baseValue = a.baseValue;
       // Re-writing a question without a base keeps the base already known for it.
-      else if (prior && (typeof prior.baseValue === 'string' || prior.baseValue === null)) entry.baseValue = prior.baseValue;
+      else if (hasKnownBase(prior)) entry.baseValue = prior.baseValue;
       else delete (/** @type {any} */ (entry)).baseValue; // unknown base stays unknown
       merged[String(q)] = entry;
     }
@@ -87,7 +111,8 @@ export function writeLocalCopy(storage, { surface, ownerKey, attemptKey, answers
     const key = localCopyKey(scope);
     storage.setItem(key, JSON.stringify(record));
     const back = JSON.parse(storage.getItem(key) || 'null');
-    return Boolean(back) && Object.entries(answers).every(([q, a]) => !a || typeof a.value !== 'string' || back.answers?.[String(q)]?.value === a.value);
+    return Boolean(back) && Object.entries(answers).every(([q, a]) => !a || a.value === null || !isAnswerValue(a.value)
+      || (back.answers?.[String(q)] !== undefined && sameAnswer(back.answers[String(q)].value, a.value)));
   } catch {
     return false;
   }
@@ -120,16 +145,27 @@ export function readLocalCopy(storage, { surface, ownerKey, attemptKey, now = Da
   }
 }
 
+/** @param {unknown} v */
+function kindOf(v) {
+  if (v == null || v === '') return 'empty';
+  return Array.isArray(v) ? 'array' : typeof v;
+}
+
 /**
- * Comparable form of an answer: strings verbatim (length included), arrays and
- * objects as JSON with sorted keys; no answer on the server and "" are equal.
- * @param {unknown} v
- * @returns {string}
+ * Typed answer equality: the JSON types must match first, so the string
+ * '["a"]' never equals the array ['a']. Strings compare verbatim (length
+ * included); arrays and objects compare as JSON with sorted keys. No answer
+ * on the server (`null`/missing) and "" are the same empty answer.
+ * @param {unknown} a
+ * @param {unknown} b
+ * @returns {boolean}
  */
-function norm(v) {
-  if (v == null) return '';
-  if (typeof v === 'string') return v;
-  return JSON.stringify(sortKeys(v));
+export function sameAnswer(a, b) {
+  const kind = kindOf(a);
+  if (kind !== kindOf(b)) return false;
+  if (kind === 'empty') return true;
+  if (kind === 'string' || kind === 'number' || kind === 'boolean') return a === b;
+  return JSON.stringify(sortKeys(a)) === JSON.stringify(sortKeys(b));
 }
 /** @param {unknown} v @returns {unknown} */
 function sortKeys(v) {
@@ -154,7 +190,7 @@ function sortKeys(v) {
  * still unchanged; re-sent ones are removed the same way once acked.
  * @param {LocalCopy | null} copy
  * @param {{ open: boolean, answers: Record<string | number, { value: unknown } | null | undefined> }} server
- * @returns {{ resend: { q: string, value: string }[], keepServer: string[], ask: { q: string, local: string, server: string }[], drop: { q: string, value: string }[], clear: boolean }}
+ * @returns {{ resend: { q: string, value: AnswerValue }[], keepServer: string[], ask: { q: string, local: AnswerValue, server: unknown }[], drop: { q: string, value: AnswerValue }[], clear: boolean }}
  */
 export function planLocalCopyReplay(copy, server) {
   if (!copy) return { resend: [], keepServer: [], ask: [], drop: [], clear: false };
@@ -162,14 +198,13 @@ export function planLocalCopyReplay(copy, server) {
   const resend = [];
   const keepServer = [];
   const ask = [];
-  /** @type {{ q: string, value: string }[]} */
+  /** @type {{ q: string, value: AnswerValue }[]} */
   const drop = [];
   for (const [q, local] of Object.entries(copy.answers)) {
-    const remote = norm(server.answers[q]?.value);
-    if (remote === norm(local.value)) { drop.push({ q, value: local.value }); continue; }
-    const known = Object.prototype.hasOwnProperty.call(local, 'baseValue') && (typeof local.baseValue === 'string' || local.baseValue === null);
-    if (!known) { ask.push({ q, local: local.value, server: remote }); continue; }
-    if (remote === norm(local.baseValue)) { resend.push({ q, value: local.value }); continue; }
+    const remote = server.answers[q]?.value ?? null;
+    if (sameAnswer(remote, local.value)) { drop.push({ q, value: local.value }); continue; }
+    if (!hasKnownBase(local)) { ask.push({ q, local: local.value, server: remote }); continue; }
+    if (sameAnswer(remote, local.baseValue)) { resend.push({ q, value: local.value }); continue; }
     keepServer.push(q);
     drop.push({ q, value: local.value });
   }
@@ -182,7 +217,7 @@ export function planLocalCopyReplay(copy, server) {
  * since (same rule as `clearIfCurrent` of the programme draft store). The
  * record goes when nothing is left.
  * @param {Storage | null | undefined} storage
- * @param {LocalCopyScope & { entries: { q: string | number, value: string }[], now?: number }} input
+ * @param {LocalCopyScope & { entries: { q: string | number, value: AnswerValue }[], now?: number }} input
  * @returns {string[]} questions actually removed
  */
 export function removeAckedFromCopy(storage, { surface, ownerKey, attemptKey, entries, now = Date.now() }) {
@@ -193,7 +228,7 @@ export function removeAckedFromCopy(storage, { surface, ownerKey, attemptKey, en
   try {
     for (const { q, value } of entries) {
       const key = String(q);
-      if (copy.answers[key] && copy.answers[key].value === value) {
+      if (copy.answers[key] && sameAnswer(copy.answers[key].value, value)) {
         delete copy.answers[key];
         removed.push(key);
       }
