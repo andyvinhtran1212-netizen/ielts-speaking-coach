@@ -60,8 +60,20 @@ class _Conn:
         store = self.engine.store
         if self.engine.fail:
             raise RuntimeError("direct connection down")
+        if statement.startswith("SET LOCAL lock_timeout"):
+            return _Result()
+        if statement.startswith("SELECT public.learner_session_lock"):
+            self.engine.locks.append(params["uid"])
+            if self.engine.on_lock:
+                self.engine.on_lock()
+            return _Result()
+        if statement.startswith("SELECT 1 FROM auth.sessions"):
+            alive = params["sid"] in store.auth_sessions.get(params["uid"], [])
+            return _Result(scalar=1 if alive else None)
         if statement.startswith("SELECT session_id::text"):
             row = store.rows.get(params["uid"])
+            if row and "revoke_pending_at IS NOT NULL" in statement and not row.get("revoke_pending_at"):
+                row = None
             return _Result(scalar=row["session_id"] if row else None)
         if statement.startswith("INSERT INTO public.learner_active_sessions"):
             store.rows[params["uid"]] = {
@@ -104,10 +116,14 @@ class _Begin:
 
 class _Engine:
     def __init__(self, store):
-        self.store, self.statements, self.fail = store, [], False
+        self.store, self.statements, self.fail, self.locks = store, [], False, []
+        self.on_lock = None  # runs while "waiting" for the account lock
 
     def begin(self):
         return _Begin(self)
+
+    def writes(self):
+        return [s for s, _ in self.statements if s.split(" ", 1)[0] in ("INSERT", "UPDATE", "DELETE")]
 
     def deletes(self):
         return [s for s, _ in self.statements if s.startswith("DELETE FROM auth.sessions")]
@@ -359,7 +375,7 @@ def test_claim_is_refused_during_timed_work_and_deletes_nothing(gate):
     resp = gate.call("POST", "/api/account/session/claim", LEARNER, S2)
     assert resp.status_code == 409 and _code(resp) == "timed_activity_in_progress"
     assert resp.json()["detail"]["timed_activity"]["minutes_left"] == 12
-    assert gate.engine.statements == []
+    assert gate.engine.writes() == [] and gate.engine.locks == [LEARNER]  # decided under the lock
     assert gate.store.rows[LEARNER]["session_id"] == S1
 
 
@@ -368,9 +384,35 @@ def test_unknown_timed_state_refuses_the_claim(gate):
     gate.store.timed_fails = True
     resp = gate.call("POST", "/api/account/session/claim", LEARNER, S2)
     assert resp.status_code == 503 and _code(resp) == "session_claim_unavailable"
-    assert gate.engine.statements == []
+    assert gate.engine.writes() == [] and gate.engine.locks == [LEARNER]  # decided under the lock
     resp = gate.call("GET", "/api/account/session/status", LEARNER, S2)
     assert resp.status_code == 503 and _code(resp) == "session_status_unavailable"
+
+
+def test_claim_from_a_session_already_signed_out_changes_nothing(gate):
+    # Codex P2 on #2544: S2's claim lost a race (another claim deleted S2
+    # while S2 waited for the account lock). Re-checked under the lock, it
+    # must not take the account back or delete the winner's session.
+    gate.learner_route(sid=S1)
+    gate.engine.on_lock = lambda: gate.store.auth_sessions.__setitem__(LEARNER, [S1])
+    resp = gate.call("POST", "/api/account/session/claim", LEARNER, S2)
+    assert resp.status_code == 401 and _code(resp) == "session_displaced"
+    assert gate.engine.writes() == [] and gate.engine.locks == [LEARNER]
+    assert gate.store.rows[LEARNER]["session_id"] == S1 and gate.store.auth_sessions[LEARNER] == [S1]
+
+
+def test_claim_takes_the_lock_before_it_looks_for_timed_work(gate, monkeypatch):
+    gate.learner_route(sid=S1)
+    order = []
+    original = session_gate._timed
+
+    async def timed(user_id):
+        order.append(("timed", list(gate.engine.locks)))
+        return await original(user_id)
+
+    monkeypatch.setattr(session_gate, "_timed", timed)
+    assert gate.call("POST", "/api/account/session/claim", LEARNER, S2).status_code == 200
+    assert order == [("timed", [LEARNER])]
 
 
 def test_claim_write_failure_is_503(gate):
@@ -424,7 +466,7 @@ def test_revoke_all_with_unknown_timed_state_deletes_nothing(gate):
     gate.store.timed_fails = True
     resp = gate.call("POST", "/api/account/sessions/revoke-all", LEARNER, S1)
     assert resp.status_code == 503 and _code(resp) == "session_revoke_unavailable"
-    assert gate.engine.statements == []
+    assert gate.engine.writes() == [] and gate.engine.locks == [LEARNER]  # decided under the lock
 
 
 # ── Fail-open read path ──────────────────────────────────────────────────────

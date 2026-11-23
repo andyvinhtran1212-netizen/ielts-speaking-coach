@@ -19,6 +19,10 @@ A learner session is in one of three states:
 A claim never runs at sign-in: other sessions are deleted only when the
 learner presses "Tiếp tục ở đây" AND the server confirms there is no timed
 work (``services.timed_work``). An unknown timed-work answer refuses the claim.
+Every revoke decision (claim, revoke-all, a pending revoke) is made inside one
+direct-connection transaction holding the account's advisory lock, which every
+timed-work start also takes (mig 388 triggers): a racing start is either seen
+or refused, never missed.
 
 Failure posture: this gate stops account sharing, it does not protect paid AI,
 so a lookup error in :func:`ensure_current` lets the request through (logged);
@@ -181,6 +185,24 @@ async def _current_row(user_id: str, session_id: str, user_agent: Optional[str])
     return row
 
 
+async def _lock_account(conn: Any, user_id: str) -> None:
+    """The per-account lock every timed-work start also takes (mig 388
+    triggers). Revoke decisions look for timed work only while holding it, so
+    a racing start is either seen or refused; never missed (FR-040/041)."""
+    await conn.execute(text("SET LOCAL lock_timeout = '5s'"))
+    await conn.execute(text("SELECT public.learner_session_lock(CAST(:uid AS uuid))"), {"uid": user_id})
+
+
+async def _session_alive(conn: Any, user_id: str, session_id: str) -> bool:
+    """Whether ``session_id`` still exists in ``auth.sessions``. Read under the
+    account lock: a claim that lost a race to another claim must not delete
+    the winner's session."""
+    found = (await conn.execute(text(
+        "SELECT 1 FROM auth.sessions WHERE id = CAST(:sid AS uuid) AND user_id = CAST(:uid AS uuid)"),
+        {"uid": user_id, "sid": session_id})).scalar()
+    return found is not None
+
+
 # ── Gate ─────────────────────────────────────────────────────────────────────
 
 def _memo() -> Optional[dict]:
@@ -223,19 +245,27 @@ async def ensure_current(user_id: str, authorization: Optional[str], user_agent:
 
 async def _finish_pending_revoke(user_id: str, session_id: str) -> None:
     """"Sign out everywhere" kept this session for its timed work; once that
-    work is over, sign it out. Unknown timed state or a failed delete → pass."""
-    try:
-        if await _timed(user_id) is not None:
-            return
-    except Exception as exc:
-        logger.warning("[session] pending_revoke_timed_lookup_failed user=%s: %r", user_id, exc)
-        return
+    work is over, sign it out. Decided under the account lock, so a timed
+    start racing it is seen. Unknown timed state or a failed delete → pass."""
     engine = _engine()
     if engine is None:
         logger.error("[session] pending_revoke_unavailable (no DATABASE_URL) user=%s", user_id)
         return
     try:
         async with engine.begin() as conn:
+            await _lock_account(conn, user_id)
+            pending = (await conn.execute(text(
+                "SELECT session_id::text FROM public.learner_active_sessions "
+                "WHERE user_id = CAST(:uid AS uuid) AND revoke_pending_at IS NOT NULL FOR UPDATE"),
+                {"uid": user_id})).scalar()
+            if pending != session_id:
+                return
+            try:
+                if await _timed(user_id) is not None:
+                    return
+            except Exception as exc:
+                logger.warning("[session] pending_revoke_timed_lookup_failed user=%s: %r", user_id, exc)
+                return
             await conn.execute(text(
                 "DELETE FROM auth.sessions WHERE user_id = CAST(:uid AS uuid) AND id = CAST(:sid AS uuid)"),
                 {"uid": user_id, "sid": session_id})
@@ -316,20 +346,27 @@ async def claim(user_id: str, authorization: Optional[str], user_agent: Optional
         raise _error(503, "session_claim_unavailable")
     if row is not None and str(row.get("session_id")) == session_id:
         return {"enabled": True, "state": "current", "revoked": 0}
-    try:
-        work = await _timed(user_id)
-    except Exception as exc:
-        logger.warning("[session] claim_timed_lookup_failed user=%s: %r", user_id, exc)
-        raise _error(503, "session_claim_unavailable")
-    if work is not None:
-        raise _error(409, "timed_activity_in_progress",
-                     timed_activity=work.as_dict((row or {}).get("device_label")))
     engine = _engine()
     if engine is None:
         logger.error("[session] claim_unavailable (no DATABASE_URL) user=%s", user_id)
         raise _error(503, "session_claim_unavailable")
     try:
         async with engine.begin() as conn:
+            # Lock first, then decide: a timed start holding the lock commits
+            # before we look; one arriving later waits and is refused.
+            await _lock_account(conn, user_id)
+            if not await _session_alive(conn, user_id, session_id):
+                # A concurrent claim (or revoke-all) already signed this
+                # session out; it must not take the account back.
+                raise _error(401, "session_displaced", displaced_at=None)
+            try:
+                work = await _timed(user_id)
+            except Exception as exc:
+                logger.warning("[session] claim_timed_lookup_failed user=%s: %r", user_id, exc)
+                raise _error(503, "session_claim_unavailable")
+            if work is not None:
+                raise _error(409, "timed_activity_in_progress",
+                             timed_activity=work.as_dict((row or {}).get("device_label")))
             current = (await conn.execute(text(
                 "SELECT session_id::text FROM public.learner_active_sessions "
                 "WHERE user_id = CAST(:uid AS uuid) FOR UPDATE"), {"uid": user_id})).scalar()
@@ -339,6 +376,8 @@ async def claim(user_id: str, authorization: Optional[str], user_agent: Optional
                     "label": device_label_from(user_agent), "prev": current,
                 })
             revoked = await staff_security.delete_other_auth_sessions(engine, user_id, session_id, conn=conn)
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.error("[session] claim_failed user=%s: %r", user_id, exc)
         raise _error(503, "session_claim_unavailable")
@@ -353,14 +392,11 @@ async def revoke_all(user_id: str, authorization: Optional[str]) -> dict:
         raise _error(404, "single_session_disabled")
     try:
         role, _row = await asyncio.to_thread(_load, user_id)
-        if role not in LEARNER_ROLES:
-            raise _error(404, "single_session_disabled")
-        work = await _timed(user_id)
-    except HTTPException:
-        raise
     except Exception as exc:
         logger.warning("[session] revoke_all_lookup_failed user=%s: %r", user_id, exc)
         raise _error(503, "session_revoke_unavailable")
+    if role not in LEARNER_ROLES:
+        raise _error(404, "single_session_disabled")
     engine = _engine()
     if engine is None:
         logger.error("[session] revoke_all_unavailable (no DATABASE_URL) user=%s", user_id)
@@ -368,6 +404,12 @@ async def revoke_all(user_id: str, authorization: Optional[str]) -> dict:
     deferred = None
     try:
         async with engine.begin() as conn:
+            await _lock_account(conn, user_id)
+            try:
+                work = await _timed(user_id)
+            except Exception as exc:
+                logger.warning("[session] revoke_all_lookup_failed user=%s: %r", user_id, exc)
+                raise _error(503, "session_revoke_unavailable")
             current = (await conn.execute(text(
                 "SELECT session_id::text FROM public.learner_active_sessions "
                 "WHERE user_id = CAST(:uid AS uuid) FOR UPDATE"), {"uid": user_id})).scalar()
@@ -388,6 +430,8 @@ async def revoke_all(user_id: str, authorization: Optional[str]) -> dict:
                     "UPDATE public.learner_active_sessions SET revoke_pending_at = now() "
                     "WHERE user_id = CAST(:uid AS uuid)"), {"uid": user_id})
                 deferred = work
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.error("[session] revoke_all_failed user=%s: %r", user_id, exc)
         raise _error(503, "session_revoke_unavailable")

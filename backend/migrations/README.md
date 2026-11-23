@@ -59,8 +59,13 @@ while `credit_ledger` has rows unless `aver.allow_commerce_rollback = 'on'`.
 Supabase Auth `session_id` in use, the session the last claim displaced, and a
 pending "sign out everywhere" marker). RLS on, no policy; service_role may only
 SELECT and INSERT, claims and revocations run on the direct connection with the
-`auth.sessions` delete. Read only while runtime flag `single_session_learners`
-is on. The rollback drops the table (no learning data) and refuses while 389
+`auth.sessions` delete. Claims and revocations take the per-account advisory
+lock `learner_session_lock` (class 388) before they look for timed work; seven
+AFTER triggers take the same lock on every timed-work start (Reading attempt,
+timed class item, mock-exam sitting and teacher-opened section) and refuse a
+learner start whose account changed session while it waited. Read only while
+runtime flag `single_session_learners` is on. The rollback drops the triggers,
+functions and table (no learning data) and refuses while 389
 `learner_login_events` exists.
 `380` is Skill Drill homework, #2294.
 `400` is `pending_feature public_library` (LIBRARY-0061 T002, G06 band 400–419):
