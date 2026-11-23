@@ -172,6 +172,57 @@ def decorate(rows: List[Dict[str, Any]], now: datetime,
     return out
 
 
+_LESSON_CHUNK = 200
+
+
+def _lesson_links(rows: List[Dict[str, Any]]) -> Tuple[Dict[str, Optional[str]], bool]:
+    """FR-123 (amendment 6, T30c): `{assignment_id: lesson_id}` from the
+    `class_assignments.lesson_id` column (mig 177), for the class rows already
+    in the list and the caller's own classes only. Writing gives live in
+    `writing_assignments`, which has no lesson column, so they are skipped
+    (always null). `content_config.lesson_id` (a grammar lesson code) is never
+    read here. Returns `(links, ok)`; a failed read is `({}, False)`."""
+    ids: List[str] = []
+    cohorts: Set[str] = set()
+    for row in rows:
+        assignment = row.get("assignment") or {}
+        if _skill(row) == "writing" or not assignment.get("id"):
+            continue
+        ids.append(str(assignment["id"]))
+        if assignment.get("cohort_id"):
+            cohorts.add(str(assignment["cohort_id"]))
+    ids = list(dict.fromkeys(ids))
+    if not ids or not cohorts:
+        return {}, True
+    from database import supabase_admin
+    links: Dict[str, Optional[str]] = {}
+    try:
+        for start in range(0, len(ids), _LESSON_CHUNK):
+            chunk = ids[start:start + _LESSON_CHUNK]
+            data = (
+                supabase_admin.table("class_assignments").select("id, lesson_id")
+                .in_("id", chunk).in_("cohort_id", sorted(cohorts)).execute().data
+            ) or []
+            for r in data:
+                lesson = r.get("lesson_id")
+                links[str(r.get("id"))] = str(lesson) if lesson else None
+    except Exception as exc:
+        logger.warning("[student-assigned] lesson link read failed: %s", exc)
+        return {}, False
+    return links, True
+
+
+def with_lesson_ids(items: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], bool]:
+    """Adds `lesson_id` (str | None) to every row; `ok` is False when the read failed."""
+    links, ok = _lesson_links(items)
+    out = []
+    for row in items:
+        assignment = row.get("assignment") or {}
+        lesson = None if _skill(row) == "writing" else links.get(str(assignment.get("id") or ""))
+        out.append({**row, "lesson_id": lesson})
+    return out, ok
+
+
 def get_assigned(user_id: str, account_name: str, now: datetime) -> Dict[str, Any]:
     """The whole payload. A failed list read lands in `degraded` (the page says
     the list could not be read) rather than an empty "no work" answer."""
@@ -183,6 +234,10 @@ def get_assigned(user_id: str, account_name: str, now: datetime) -> Dict[str, An
     except Exception as exc:
         logger.warning("[student-assigned] list read failed user=%s: %s", user_id, exc)
         degraded.append("items")
+    else:
+        items, links_ok = with_lesson_ids(items)
+        if not links_ok:
+            degraded.append("lesson_links")
     return {
         "has_class": has_class,
         "items": items,

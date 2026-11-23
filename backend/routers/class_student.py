@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from datetime import datetime, timezone
 from urllib.parse import quote
 from typing import Any, Dict, Literal, Optional, Union
@@ -1198,6 +1199,17 @@ async def my_class(
                     "course_id": None, "course": None}
                    for cohort_id in cohort_ids]
 
+    # LEARNERCORE-0063 FR-120 (OQ17): teacher and weekly schedule from mig 441.
+    # A failed read empties both fields and says so through `class_meta`; it
+    # never reads as "this class has no teacher".
+    meta, meta_ok = await asyncio.to_thread(_class_meta_for, [row.get("id") for row in cohorts])
+    for row in cohorts:
+        instructor, schedule = meta.get(str(row.get("id") or ""), (None, []))
+        row["instructor"] = instructor
+        row["weekly_schedule"] = schedule
+    if not meta_ok:
+        degraded.append("class_meta")
+
     cohort_names = {str(row["id"]): row.get("name") for row in cohorts if row.get("id")}
 
     lessons: list = []
@@ -1255,6 +1267,57 @@ async def my_class(
     if degraded:
         result["degraded"] = degraded
     return result
+
+
+_START_RE = re.compile(r"^([01][0-9]|2[0-3]):[0-5][0-9]$")
+
+
+def _schedule_slots(value) -> list[Dict[str, Any]]:
+    """`weekly_schedule` as `[{dow, start}]`; null or any malformed slot → []."""
+    if not isinstance(value, list):
+        return []
+    slots = []
+    for slot in value:
+        if not isinstance(slot, dict):
+            return []
+        dow, start = slot.get("dow"), slot.get("start")
+        if (not isinstance(dow, int) or isinstance(dow, bool) or not 1 <= dow <= 7
+                or not isinstance(start, str) or not _START_RE.match(start)):
+            return []
+        slots.append({"dow": dow, "start": start})
+    return slots
+
+
+def _class_meta_for(cohort_ids: list) -> tuple[Dict[str, tuple], bool]:
+    """FR-120: `{cohort_id: (instructor | None, weekly_schedule)}` and whether
+    the read worked. One `cohorts` read for the classes already in the
+    response, one `users` read for their teachers. Only `display_name` is
+    shown to a learner (never the teacher's email); an empty name is null."""
+    ids = [str(c) for c in cohort_ids if c]
+    if not ids:
+        return {}, True
+    try:
+        rows = (
+            supabase_admin.table("cohorts").select("id, instructor_id, weekly_schedule")
+            .in_("id", ids).execute().data
+        ) or []
+        teacher_ids = list({str(r["instructor_id"]) for r in rows if r.get("instructor_id")})
+        names: Dict[str, str] = {}
+        if teacher_ids:
+            users = (
+                supabase_admin.table("users").select("id, display_name")
+                .in_("id", teacher_ids).execute().data
+            ) or []
+            names = {str(u["id"]): (u.get("display_name") or "").strip() for u in users}
+    except Exception as exc:
+        logger.warning("[class] class meta read failed: %s", exc)
+        return {}, False
+    out: Dict[str, tuple] = {}
+    for row in rows:
+        name = names.get(str(row.get("instructor_id") or ""), "")
+        out[str(row.get("id"))] = ({"name": name} if name else None,
+                                   _schedule_slots(row.get("weekly_schedule")))
+    return out, True
 
 
 def _progress_summary(assignments: list) -> Dict[str, Any]:

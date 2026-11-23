@@ -24,6 +24,9 @@ class StudentAssignedItem(BaseModel):
     action: AssignedAction
     accepting: bool
     self_practice_available: bool
+    # Amendment 6 (T30c, FR-123): `class_assignments.lesson_id`, null when the
+    # work is not tied to a class session and always for Writing gives.
+    lesson_id: str | None = None
 
 
 class StudentAssignedResponse(BaseModel):
@@ -33,4 +36,4 @@ class StudentAssignedResponse(BaseModel):
     # ships them; the page hides the block when empty.
     repractice: list[dict[str, Any]] = Field(default_factory=list)
     homework_stale: bool = False
-    degraded: list[Literal["items", "repractice"]] = Field(default_factory=list)
+    degraded: list[Literal["items", "repractice", "lesson_links"]] = Field(default_factory=list)

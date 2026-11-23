@@ -66,6 +66,29 @@ Mọi dòng ở trạng thái `PENDING`: spec đang `draft`, chưa có dòng mã
 | FR-101 | kind=test; ref=planned pytest Speaking self-practice session goes through POST /sessions quota and charge_plan like any self practice (T30b) | PENDING |
 | FR-102 | kind=test; ref=planned React repractice block hidden when empty, grading steps copy (T30a) | PENDING |
 | FR-103 | kind=test; ref=planned pytest response_model shape, caller-only rows, degraded part, homework_stale passthrough, _visible_assignments unchanged (T30a) + unreconciled Reading hand-in lands in submitted group, only reconcile writes (HOLD patch) | PENDING |
+| FR-104 | kind=test; ref=planned React review-v2 flag on draws LearnerShell tree, flag off draws the existing workspaces unchanged (T31) | PENDING |
+| FR-105 | kind=test; ref=planned React "Chỉ câu sai" shows incorrect and unanswered only, ?only=wrong survives reload, all-correct copy (T31) | PENDING |
+| FR-106 | kind=test; ref=planned React note box stops at 500 characters with counter, save error keeps the draft, anonymous attempt has no note box (T31) | PENDING |
+| FR-107 | kind=test; ref=planned pytest review-notes upsert, delete on empty, 501 chars 422, other user's attempt 403, q_num outside the test 422, note visible on a new attempt of the same test (T31) | PENDING |
+| FR-108 | kind=test; ref=planned pytest duplicate flag same attempt and question 409 already_flagged, parallel requests leave one row, report and rating unchanged (T31) | PENDING |
+| FR-109 | kind=test; ref=planned pytest my_flagged_q_nums for the caller only; node feedback-widgets 409 turns the button to "Đã báo lỗi" (T31) | PENDING |
+| FR-110 | kind=test; ref=planned PG migration test runs twice, raises when duplicate attempt-anchored flag rows exist, applies with several attempt-less practice flags by one learner, rollback drops both indexes; review_notes RLS denies anon and authenticated; archive script on a real duplicate fixture then preflight passes and both indexes build (T31, HOLD patch) | PENDING |
+| FR-111 | kind=test; ref=planned React skill-hub flag on draws the shared hub for each of the four pages, flag off draws the current page; /reading flag off still lands on /reading/vocab (T25) | PENDING |
+| FR-112 | kind=test; ref=planned pytest resume per skill and starter only when nothing exists and admin set one; React starter copy and credit note (T25) | PENDING |
+| FR-113 | kind=test; ref=planned pytest suggestions source order, cap 3, empty when no source (T25) | PENDING |
+| FR-114 | kind=test; ref=planned pytest catalog groups with done null on first visit; React "Tất cả đề" link via liveHref (T25) | PENDING |
+| FR-115 | kind=test; ref=planned pytest history five newest with grading source; React first-visit sentence, no empty table, no band (T25) | PENDING |
+| FR-116 | kind=test; ref=planned React out-of-credits shows CreditsEmptyNotice under the title, other blocks unchanged (T25) + total 0 with metering metered shows the notice, not_metered and unknown do not (HOLD patch) | PENDING |
+| FR-117 | kind=test; ref=planned React no "Cần Khoá" copy when access.blocked is false; blocked true renders screen 4 (T25) | PENDING |
+| FR-118 | kind=test; ref=planned pytest response_model, caller-only data, 422 for an unknown skill, degraded per block (T25) | PENDING |
+| FR-126 | kind=test; ref=planned pytest learner_starters admin-only write with reason and log, write-time paper check 422 starter_paper_unavailable, Writing before G08 422 starter_unsupported, read-time re-check hides the block (T25s) | PENDING |
+| FR-119 | kind=test; ref=planned React class-sessions-v2 flag off replaces URL to /my-class, has_class false shows the Notice, third tab only when has_class (T30c) | PENDING |
+| FR-120 | kind=test; ref=planned node class picker default and unknown ?class=, schedule formatting (same start, mixed starts, dow order); pytest /api/class/me instructor and weekly_schedule incl. null and malformed, read error → degraded class_meta; React header shows teacher, schedule and "Đã học n buổi", no room, end time or total sessions (T30c) | PENDING |
+| FR-121 | kind=test; ref=planned node date labels around Vietnam midnight and the four default-session branches (T30c) | PENDING |
+| FR-122 | kind=test; ref=planned node YouTube host allowlist; React null-url attachment row without the path, links open with noopener (T30c) | PENDING |
+| FR-123 | kind=test; ref=planned pytest lesson_id on /api/student/assigned rows; node join by lesson_id, null lesson_id joins no session, block hidden when no row of the class has lesson_id (T30c) | PENDING |
+| FR-124 | kind=test; ref=planned React one read per API on entry, degraded lessons or assignments fails only its block (T30c) + degraded ['class'] with an archived class renders no lessons, materials or homework, only the unverified-class notice with retry (HOLD patch) | PENDING |
+| FR-125 | kind=test; ref=planned React no teacher-comment, course-test or ended-class copy; 390px list then session with back button (T30c) | PENDING |
 
 ## Kịch bản staging (gói 9.1 mục 1, 3, 3b, 3c, 8; 9.4)
 
@@ -87,6 +110,12 @@ Tài khoản QA và dữ liệu thử; không bật cờ cho học viên thật.
 12. **Chưa kích hoạt** (bản sửa đổi 2, high-risk auth). Kịch bản 16 của spec trên staging, bằng tài khoản QA mới tạo; ghi SHA, giờ bật/tắt cờ; gọi một route học viên khác bằng token đó và ghi mã 403.
 
 13. **Bài được giao** (bản sửa đổi 3). Kịch bản 17, 18 của spec trên staging với lớp thử; ảnh 1280px và 390px; ghi bảng nộp bài của giáo viên trước và sau khi tự luyện (không đổi).
+
+14. **Xem lại bài làm** (bản sửa đổi 4). Kịch bản 19 của spec trên staging với lượt thử của QA; trước khi áp migration ghi kết quả truy vấn đếm dòng `flag` trùng (số, không nội dung); ảnh 1280px và 390px.
+
+15. **Bốn hub kỹ năng** (bản sửa đổi 5). Kịch bản 20, 21 của spec trên staging; ảnh 1280px và 390px cho bốn hub ở trạng thái có dữ liệu, lần đầu và hết lượt (dữ liệu thử).
+
+16. **Buổi học và tài liệu lớp** (bản sửa đổi 6). Kịch bản 22 của spec trên một lớp staging có buổi đã đăng (dữ liệu do admin nhập qua màn hiện có, anh gõ duyệt nếu cần ghi); ảnh 1280px và 390px.
 
 ## Contract evidence
 
