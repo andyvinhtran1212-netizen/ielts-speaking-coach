@@ -41,7 +41,7 @@ Seven HOLD comments on the amendment PRs had been posted before the 09:23 approv
 
 The approval covers spec text only. It does not authorize applying a migration, running the archive script, writing to a database or merging.
 
-## OQ17 patch after mig 441 (PENDING Andy's approval)
+## OQ17 patch after mig 441 (APPROVED by Andy 2026-11-23 11:18 UTC)
 
 Mig 441 (ADMINIA-0074 G09-T24) is applied on staging. It adds `cohorts.instructor_id`, `weekly_schedule` (`dow` 1–7, `start` "HH:MM"), `start_date` and `class_lessons.starts_at`, so open question 17 was out of date. This patch to amendment 6 (#2491) changes the spec text only:
 
@@ -50,4 +50,8 @@ Mig 441 (ADMINIA-0074 G09-T24) is applied on staging. It adds `cohorts.instructo
 - Open question 17 is reduced to the three missing columns (end time, room, planned sessions). The default is still to add none, until the class edit screen of G09.
 - T25 lists G04-T03 (#2485, `charge_plan` of 0055) in its depends (CR nit on the HOLD patch).
 
-The text is not in force until Andy approves it in his own words.
+**Approved.** Andy approved this patch himself in the project on 2026-11-23 at 11:18:48 UTC (18:18 Vietnam time), on PR #2491 head `2cb16bdc` (the OQ17 text is unchanged since `4f62e0f6`, which the CR approved). His message reads:
+
+> duyệt bản vá OQ17 0063
+
+The coordinator session relayed it to this thread, with the message copied verbatim by the server. Approved text: `specs/0063-learner-core/spec.md` at `2cb16bdc`, sha256 `f4ae18d3f251e8eec75d95916e49e0d09a3f34c82dfda5787a83074c7f034488` (taken before this commit changed only the status sentence). As with the amendments, the approval covers spec text only: it does not authorize applying a migration, writing to a database or merging.
