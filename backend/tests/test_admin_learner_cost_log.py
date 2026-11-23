@@ -249,6 +249,28 @@ def admin_learner_log_blackeye_programme():
     return listening_blackeye.PROGRAMME
 
 
+def test_a_code_level_edit_reaches_the_learner_only_while_they_held_the_code(db):
+    db.rows["access_codes"].append({"id": "k2", "code": "AVER-OLD2", "used_by": U_LAN, "used_at": _ago(days=50)})
+    db.rows["user_code_assignments"] = [
+        {"id": "uca1", "code_id": "k1", "user_id": U_LAN, "is_active": False,
+         "assigned_at": _ago(days=20), "revoked_at": _ago(days=5)}]
+    edit = lambda i, code, days, after: {"id": i, "actor_user_id": U_ADMIN, "action": "edit", "code_id": code,
+                                        "target_user_id": None, "before": {}, "after": after,
+                                        "created_at": _ago(days=days)}
+    db.rows["access_code_audit"] = [
+        edit("e1", "k1", 30, {"notes": "x"}),                          # before Lan held k1
+        edit("e2", "k1", 10, {"permissions": ["writing"], "expires_at": "2027-01-01"}),
+        edit("e3", "k1", 2, {"is_active": False}),                     # after k1 left Lan
+        edit("e4", "k2", 40, {"session_limit": 10}),                   # legacy code, after redemption
+    ]
+    out = _log(f"u-{U_LAN}", kind="access_code")
+    assert [(i["id"], i["text"]) for i in out["items"]] == [
+        ("e2", "Sửa mã AVER-LAN1: quyền, hạn dùng"),
+        ("e4", "Sửa mã AVER-OLD2: số lượt"),
+    ]
+    assert _log(f"u-{U_MINH}", kind="access_code")["items"] == []
+
+
 def test_a_class_deadline_change_reaches_the_learners_who_have_that_work(db):
     _seed_log(db)
     db.rows["class_action_log"] += [
