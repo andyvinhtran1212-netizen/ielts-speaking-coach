@@ -15,6 +15,8 @@ class _Query:
         self._db = db
         self._table = table
         self._filters = []
+        self._order = None
+        self._range = None
 
     def select(self, _columns):
         return self
@@ -27,11 +29,28 @@ class _Query:
         self._filters.append(lambda r: r.get(column) in values)
         return self
 
+    def order(self, column, desc=False):
+        self._order = (column, desc)
+        return self
+
+    def range(self, start, end):
+        self._range = (start, end)
+        return self
+
     def execute(self):
         self._db.calls.append(self._table)
         if self._table in self._db.broken:
             raise RuntimeError("db down")
         rows = [r for r in self._db.tables.get(self._table, []) if all(f(r) for f in self._filters)]
+        if self._order:
+            column, desc = self._order
+            rows.sort(key=lambda r: str(r.get(column) or ""), reverse=desc)
+        if self._range:
+            self._db.ranges.append((self._table, *self._range))
+            rows = rows[self._range[0]:self._range[1] + 1]
+        # PostgREST db-max-rows: a response never holds more than this many rows.
+        if self._db.max_rows is not None:
+            rows = rows[:self._db.max_rows]
         return _Result(copy.deepcopy(rows))
 
 
@@ -61,6 +80,8 @@ class FakeDB:
         self.objects = objects or {}
         self.broken: set[str] = set()
         self.calls: list[str] = []
+        self.ranges: list[tuple[str, int, int]] = []
+        self.max_rows: int | None = None
         self.downloads: list[tuple[str, str]] = []
         self.storage = _Storage(self)
 

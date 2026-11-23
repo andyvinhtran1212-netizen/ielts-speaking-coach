@@ -557,14 +557,27 @@ _CUE_KEYS = ("prompt", "bullets", "reflection", "questions")
 _VOCAB_KEYS = ("term", "meaning_vi", "note")
 
 
+# PostgREST caps a response at db-max-rows (1000). The shelf, prev/next, the
+# sitemap and the proxy's not-found index all need every published row, so
+# reads that must be complete page with .range() until a short page.
+_PAGE = 1000
+
+
+def _paged(build) -> list[dict]:
+    rows: list[dict] = []
+    start = 0
+    while True:
+        page = build().range(start, start + _PAGE - 1).execute().data or []
+        rows.extend(page)
+        if len(page) < _PAGE:
+            return rows
+        start += _PAGE
+
+
 def _speaking_topics() -> dict[str, dict]:
-    rows = (
-        supabase_admin.table("library_topics")
-        .select("slug, label_vi, shelves, display_order")
-        .execute()
-        .data
-        or []
-    )
+    rows = _paged(lambda: supabase_admin.table("library_topics")
+                  .select("slug, label_vi, shelves, display_order")
+                  .order("slug"))
     return {
         r["slug"]: r for r in rows
         if isinstance(r, dict) and "speaking" in (r.get("shelves") or [])
@@ -590,14 +603,10 @@ def _answer_kind(row: dict) -> str:
 def _published_speaking(topics: dict[str, dict]) -> list[dict]:
     """Published questions with an answer, in shelf order (FR-030, FR-035):
     topic display order (unassigned topics last), then Part 1 → 2 → 3, then title."""
-    rows = (
-        supabase_admin.table("speaking_samples")
-        .select(_SPEAKING_LIST_COLUMNS)
-        .eq("published", True)
-        .execute()
-        .data
-        or []
-    )
+    rows = _paged(lambda: supabase_admin.table("speaking_samples")
+                  .select(_SPEAKING_LIST_COLUMNS)
+                  .eq("published", True)
+                  .order("slug"))
 
     def key(row: dict) -> tuple:
         topic = topics.get(row.get("topic_slug") or "")

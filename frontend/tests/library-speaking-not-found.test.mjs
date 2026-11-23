@@ -54,7 +54,7 @@ describe('Speaking question 404 in proxy.ts', () => {
     assert.ok(!csp.nonceRouteAllowed('/library/speaking/a-city-part-2'), 'the public Library never gets a nonce policy');
   });
 
-  test('index: a published slug passes, an unknown one is the root 404, an empty shelf 404s every slug', async () => {
+  test('index: a published slug passes, an unknown one is the root 404', async () => {
     const calls = [];
     let rows = [{ slug: 'a-city-part-2', updated_at: null }];
     const { proxy } = proxyFor(async (url, options) => {
@@ -67,9 +67,19 @@ describe('Speaking question 404 in proxy.ts', () => {
     assert.equal(rewritten(await proxy(request('no-such-question'))), NOT_FOUND);
     assert.deepEqual(calls, ['https://fixture.invalid/api/library/speaking/index'], 'one index read serves fresh lookups');
 
-    rows = [];
-    const empty = proxyFor(async () => json(200, rows)).proxy;
-    assert.equal(rewritten(await empty(request('a-city-part-2'))), NOT_FOUND);
+  });
+
+  test('an empty index is unknown: each slug asks the detail, so a re-import never 404s real questions', async () => {
+    const calls = [];
+    const { proxy } = proxyFor(async (url) => {
+      calls.push(url);
+      if (url.endsWith('/index')) return json(200, []);
+      return url.endsWith('/a-city-part-2') ? json(200, { slug: 'a-city-part-2' }) : json(404, { detail: 'speaking_not_found' });
+    });
+    assert.equal(rewritten(await proxy(request('a-city-part-2'))), null);
+    assert.equal(rewritten(await proxy(request('gone'))), NOT_FOUND);
+    assert.ok(calls.includes('https://fixture.invalid/api/library/speaking/a-city-part-2'));
+    assert.ok(calls.includes('https://fixture.invalid/api/library/speaking/gone'));
   });
 
   test('a malformed percent-encoding cannot name a question', async () => {

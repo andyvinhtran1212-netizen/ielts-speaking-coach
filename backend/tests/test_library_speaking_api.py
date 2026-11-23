@@ -179,6 +179,20 @@ def test_index_lists_published_answered_slugs(client):
     assert r.headers["last-modified"] == "Thu, 05 Nov 2026 00:00:00 GMT"
 
 
+
+def test_index_and_shelf_read_past_the_postgrest_row_cap(client, db):
+    # PostgREST returns at most db-max-rows (1000) per response. A question past
+    # that row must still be listed, or the proxy would hard-404 a real page.
+    db.max_rows = 1000
+    db.tables["speaking_samples"] = _rows() + [
+        _row(f"bulk-{n:04d}-part-1", part=1, title=f"Bulk {n}") for n in range(1500)
+    ]
+    slugs = {i["slug"] for i in client.get("/api/library/speaking/index").json()}
+    assert len(slugs) == 6 + 1500
+    assert "bulk-1499-part-1" in slugs and "writing-only-topic-part-2" in slugs
+    assert client.get("/api/library/speaking").json()["total"] == 6 + 1500
+    assert ("speaking_samples", 1000, 1999) in db.ranges
+
 # ── detail ──────────────────────────────────────────────────────────────────
 
 

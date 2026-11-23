@@ -112,8 +112,9 @@ async function grammarArticle(request: NextRequest) {
 }
 
 // LIBRARY-0061 T013: published Speaking questions, keyed `speaking/<slug>`
-// so the shared index helper can hold them. An empty shelf is a valid list
-// (every slug is then a miss), unlike the Grammar article list.
+// so the shared index helper can hold them. Like the Grammar list, an empty
+// list is "unknown", not "every slug is a miss": a table briefly empty during
+// a re-import must not hard-404 every question; each slug then asks the detail.
 const speakingIndex = createArticleIndex({
   async load() {
     const res = await fetch(`${API_BASE}/api/library/speaking/index`, {
@@ -123,7 +124,9 @@ const speakingIndex = createArticleIndex({
     if (!res.ok) throw new Error(`backend ${res.status} for /api/library/speaking/index`);
     const rows = await res.json();
     if (!Array.isArray(rows)) throw new TypeError('speaking index payload must be an array');
-    return new Set(rows.flatMap((row) => (typeof row?.slug === 'string' ? [`speaking/${row.slug}`] : [])));
+    const keys = new Set(rows.flatMap((row) => (typeof row?.slug === 'string' ? [`speaking/${row.slug}`] : [])));
+    if (!keys.size) throw new Error('speaking index lists no questions');
+    return keys;
   },
 });
 
