@@ -113,11 +113,11 @@ describe('account menu', () => {
     expect(menu.textContent).toContain(USER.name);
     expect(menu.textContent).toContain(USER.email);
     expect(within(menu).getAllByRole('link').map((a) => a.textContent))
-      // Registry Q53: Tiến độ and Khoá học và lượt AI are planned routes with
-      // no live page yet, so they stay hidden; Trợ giúp is live since G07-T17.
-      .toEqual(['Hồ sơ', 'Trợ giúp']);
+      // Registry Q53: a link shows only once its route is live. All four are
+      // live since G07-T17 (/help, then /progress and /account).
+      .toEqual(['Tiến độ', 'Khoá học và lượt AI', 'Hồ sơ', 'Trợ giúp']);
     expect(within(menu).queryByText(/Đổi vai trò/)).toBeNull();
-    expect(menu.querySelectorAll('li')).toHaveLength(2);
+    expect(menu.querySelectorAll('li')).toHaveLength(4);
     expect(within(menu).getByRole('button', { name: 'Đăng xuất' })).toBeTruthy();
     expect(within(menu).getByRole('group', { name: 'Giao diện' })).toBeTruthy();
   });
@@ -325,7 +325,8 @@ describe('live links only (registry Q53)', () => {
     expect(liveHref({ href: '/library', today: '/home' })).toBe('/library');
     expect(liveHref({ href: '/course', today: '/my-class' })).toBe('/my-class');
     expect(liveHref({ href: '/help', today: null })).toBe('/help');
-    expect(liveHref({ href: '/progress', today: null })).toBeNull();
-    expect(liveHref({ href: '/progress', today: '/nowhere' })).toBeNull();
+    expect(liveHref({ href: '/progress', today: null })).toBe('/progress');
+    expect(liveHref({ href: '/tests', today: null })).toBeNull();
+    expect(liveHref({ href: '/tests', today: '/nowhere' })).toBeNull();
   });
 });

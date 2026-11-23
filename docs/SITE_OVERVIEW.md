@@ -72,6 +72,7 @@ to `/`; the historical source file is not a separately served marketing page.
 | `/` | all | Landing / entry; routes to login or app. |
 | `/login` | all | Google OAuth + access-code activation → `POST /auth/activate` (sets `users.is_active`, permissions, marks `access_codes` used). |
 | `/onboarding` | new user | First-time setup (band target, level, goals) → `/auth/*` profile write. |
+| `/start` | new learner (`learner_v2`) | "Lần đầu vào" on the v2 tree: three skippable steps (greeting, optional goal, starting point), shown once; writes `onboarding_completed`, `target_band`, `exam_date` via `PATCH /auth/profile`. Flag off → `/onboarding`. |
 | `/pricing` | public | Pre-launch server redirect to `/`; no pricing controls or payment promise are currently served here. |
 | `/terms` | public | Draft Terms of use skeleton (articles from the PhapLy design sheet, bodies `XXX`); `noindex` until legal review. |
 | `/privacy` | public | Draft Privacy policy skeleton (articles from the PhapLy design sheet, bodies `XXX`); `noindex` until legal review. |
@@ -88,6 +89,9 @@ to `/`; the historical source file is not a separately served marketing page.
 | `/result` | student | Single-question speaking result (band + feedback panels + audio replay). |
 | `/full-test-result` | student | Full 3-part test result; band aggregation at `PATCH /sessions/{id}/complete`. |
 | `/profile` | student | Profile, band target, study goals. |
+| `/account` | student | v2 Tài khoản: online and class courses (`GET /api/me/courses`, G04), the shared AI-credit balance and the server-labelled credit history (`GET /api/me/credits`); without G04 only the class group from `/api/class/me`. |
+| `/progress` | student | v2 Tiến độ: one row per skill from `/sessions`, `/api/writing/my-essays`, `/api/listening/overview`, `/api/quiz/progress` (band only per FR-077); goal band and exam date via `PATCH /auth/profile`. |
+| `/help` | student | v2 Trợ giúp: static FAQ (six groups, `lib/help-faq.mjs`) with accent-insensitive search. |
 | `/speaking/result` | student | Speaking feedback workspace, separate from the single-question and full-test result entries. |
 
 ### 4.3 Student — Writing
