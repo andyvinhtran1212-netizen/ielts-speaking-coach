@@ -3,7 +3,7 @@
 ## Preconditions
 
 - Spec `approved` trên `staging`; anh Andy chọn đường gửi mã A hoặc B (câu hỏi mở 4) và trả lời câu 3 (các số của mã) hoặc chấp nhận mặc định tạm.
-- Số 390–394 còn trống trong `backend/migrations/register.tsv`; mỗi PR migration thêm dòng `present` cùng PR. 394 cần G04 mig 383 (đã có trên staging).
+- Số 390–395 còn trống trong `backend/migrations/register.tsv`; mỗi PR migration thêm dòng `present` cùng PR. 394 cần G04 mig 383 (đã có trên staging).
 - Cờ tắt mặc định: runtime flag `email_code_login`, cờ build `AVER_PUBLIC_COMMERCE`, `enroll_prelearn_chapter1`.
 - Biến bí mật `LOGIN_CODE_HASH_PEPPER` (rỗng → route trả 503) do anh đặt trên Railway staging rồi production; người thực thi không đặt.
 
@@ -17,20 +17,22 @@ Migration của gói (dải 390–399 theo `01-KE-HOACH-TONG.md` mục 6; số d
 | 391 | `login_code_state` + `fn_login_code_send_check`, `fn_login_code_verify_check`, `fn_login_code_invalidate` | T18 | — |
 | 392 | thay thân `fn_activate_attempt_check`: 5 lần / 15 phút | T09 | 334 (đã có) |
 | 393 | `account_email_changes` | T24 | — |
-| 394 | `course_open_alerts` + `fn_course_open_alerts_enqueue` | T22 | G04 mig 383 (đã có: `course_products`, `learner_email_outbox`) |
+| 394 | `course_open_alerts` + `fn_course_open_alerts_enqueue` + `fn_course_open_alert_send_check` | T22 | G04 mig 383 (đã có: `course_products`, `learner_email_outbox`) |
+| 395 | `fn_auth_access_token_hook` (Custom Access Token Hook, FR-062) | T18 | 391 |
 
-Thứ tự áp theo thứ tự làm: 390 (T07) → 391 (T18) → 393 (T24) → 392 (T09) → 394 (T22). Mỗi migration: staging trước qua runner có khoá advisory, sau khi anh Andy gõ duyệt cho đúng lần áp; đọc lại bằng truy vấn chỉ đọc; production trước khi promote mã phụ thuộc, cũng cần anh gõ duyệt.
+Thứ tự áp theo thứ tự làm: 390 (T07) → 391 (T18) → 395 (T18) → 393 (T24) → 392 (T09) → 394 (T22). Mỗi migration: staging trước qua runner có khoá advisory, sau khi anh Andy gõ duyệt cho đúng lần áp; đọc lại bằng truy vấn chỉ đọc; production trước khi promote mã phụ thuộc, cũng cần anh gõ duyệt.
 
 ### Việc anh Andy làm trên bảng điều khiển Supabase (staging trước, production sau)
 
 Người thực thi không đổi cài đặt dự án Supabase và không tạo khoá Resend (gói mục 8). Danh sách đánh dấu được (chép từ gói 5.6, áp cho đường A):
 
-- [ ] Authentication › SMTP: bật SMTP tuỳ chỉnh trỏ vào Resend — máy chủ `smtp.resend.com`, cổng 465, tên đăng nhập `resend`, mật khẩu là một khoá API của Resend (nên tạo khoá riêng chỉ có quyền gửi, không dùng lại khoá của backend), địa chỉ gửi và tên người gửi theo mục 10 câu 5 (`CHƯA KIỂM` thông số SMTP với tài liệu Resend hiện hành; người thực thi ghi nguồn vào `rollout.md`).
+- [ ] Authentication › Hooks: bật Send Email Hook (`/auth/hooks/send-email`, secret qua kênh bí mật) và Custom Access Token Hook (`fn_auth_access_token_hook`, sau mig 395) — **chỉ staging** cho tới khi anh duyệt bằng chứng điểm h–k (plan 5.6). Với hook, bước SMTP dưới chỉ là dự phòng.
+- [ ] (Dự phòng) Authentication › SMTP: bật SMTP tuỳ chỉnh trỏ vào Resend — máy chủ `smtp.resend.com`, cổng 465, tên đăng nhập `resend`, mật khẩu là một khoá API của Resend (nên tạo khoá riêng chỉ có quyền gửi, không dùng lại khoá của backend), địa chỉ gửi và tên người gửi theo mục 10 câu 5 (`CHƯA KIỂM` thông số SMTP với tài liệu Resend hiện hành; người thực thi ghi nguồn vào `rollout.md`).
 - [ ] Authentication › Providers › Email: bật; tắt "Confirm email" bằng liên kết nếu nó chặn OTP cho email mới (`CHƯA KIỂM`, điểm (b) ở trên); độ dài mã 6; thời hạn mã = `LOGIN_CODE_TTL_MINUTES`.
 - [ ] Authentication › Email Templates: mẫu "Magic Link" (dùng cho OTP đăng nhập) và mẫu "Change Email Address" (dùng cho T24) chỉ chứa `{{ .Token }}`, không có `{{ .ConfirmationURL }}`; dán nội dung từ `docs/auth/login-code-email.*` và `docs/auth/email-change-code-email.*` (T14).
-- [ ] Tắt "Secure email change" (để mã đổi email chỉ gửi tới email mới; thư báo về email cũ do backend gửi — mục 5.6b).
+- [ ] "Secure email change": tắt **chỉ trên staging** để thử T24; production giữ bật cho tới khi anh duyệt riêng sau kịch bản đối soát (plan 5.6b).
 - [ ] Bật gộp tài khoản cùng email đã xác minh (điểm (d)).
-- [ ] Giới hạn gửi thư của Supabase Auth (Rate Limits) đặt cao hơn giới hạn của backend ở bảng cấu hình dưới, để backend là nơi trả lời người dùng.
+- [ ] Giới hạn của Supabase Auth (Rate Limits): **không nới**, ghi lại giá trị hiện tại. Production giữ nguyên cấu hình; đổi chỉ khi anh duyệt riêng kèm số đo staging.
 
 ## Staging
 
@@ -58,3 +60,6 @@ Người thực thi không đổi cài đặt dự án Supabase và không tạo
 - Đếm `login_code_send_limited`, `login_code_locked`, `login_code_unavailable` theo giờ; tỉ lệ `unavailable` > 5% trong một giờ trên staging → dừng bật thêm và kiểm SMTP.
 - Thư "khoá đã mở đăng ký": dòng `course_open_alerts` còn `notified_at is null` sau khi khoá mở quá 10 phút → kiểm G04 có gọi hàm trong sweep.
 - Thư báo đổi email lỗi được ghi để admin xử lý (FR-059 c).
+- Dòng `account_email_changes` ở `needs_reconcile`/`auth_changed` quá 30 phút → `owner_alerts` (FR-059 d); đếm theo ngày phải về 0.
+- Hook gửi thư trả lỗi (cờ tắt, vượt giới hạn, chữ ký sai): log mức info với `email_hash` rút gọn và `error_code`; số lần hook bị gọi mà không qua route backend là dấu hiệu gọi thẳng GoTrue (FR-062).
+- Outbox `course_open_alert` bị `skipped_*`: đếm theo lý do (FR-060).

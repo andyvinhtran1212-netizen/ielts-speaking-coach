@@ -33,8 +33,9 @@ Mọi dòng `PENDING`: spec đang `draft`. Cột bằng chứng là bằng chứ
 | FR-056 | kind=test; ref=planned in G05-T12; scenarios in this file | PENDING |
 | FR-057 | kind=test; ref=planned in G05-T12; scenarios in this file | PENDING |
 | FR-058 | kind=test; ref=planned in G05-T09; scenarios in this file | PENDING |
-| FR-059 | kind=test; ref=planned in G05-T24; scenarios in this file | PENDING |
-| FR-060 | kind=test; ref=planned in G05-T22, T14; scenarios in this file | PENDING |
+| FR-059 | kind=test; ref=planned in G05-T24: failure at each post-Auth step → needs_reconcile, reconcile job → completed (idempotent), role/timed-work re-check at verify | PENDING |
+| FR-060 | kind=test; ref=planned in G05-T22, T14: state change between enqueue and send (unsubscribe, email change, entitlement, closed) → not sent incl. retry; anonymous re-subscribe gets no token | PENDING |
+| FR-062 | kind=test; ref=planned in G05-T18 (auth_hooks pytest, fn_auth_access_token_hook PG test); journey=staging evidence h–k of plan 5.6 approved by Andy | PENDING |
 | FR-061 | kind=test; ref=planned in G05-T20; scenarios in this file | PENDING |
 
 ## Kịch bản (gói mục 9, phần của spec này)
