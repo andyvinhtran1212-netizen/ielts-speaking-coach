@@ -70,8 +70,10 @@ class _Query:
                 self._db.ranges.append((self._table, *self._range))
                 rows = rows[self._range[0]:self._range[1] + 1]
             # PostgREST db-max-rows: a response never holds more than this many
-            # rows (silent cut). `max_rows` and `row_limit` are the same knob.
-            limit = self._db.max_rows if self._db.max_rows is not None else self._db.row_limit
+            # rows (silent cut). `max_rows` and `row_limit` are the same knob;
+            # when a test sets both, the tighter cap wins.
+            caps = [c for c in (self._db.max_rows, self._db.row_limit) if c is not None]
+            limit = min(caps) if caps else None
             if limit is not None:
                 rows = rows[:limit]
         if self._write and self._write[0] == "delete":
