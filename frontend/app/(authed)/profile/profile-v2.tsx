@@ -11,8 +11,9 @@
 // - "Email đăng nhập": the current email. G05-T24's `ChangeEmail` is not merged
 //   yet, so there is no "Đổi email đăng nhập" button (FR-088).
 // - "Phiên đăng nhập": how this account signs in (never a password) and
-//   G04-T16's recent sign-ins (`LoginEventsBlock`, hidden when absent). G05-T20's
-//   "Đăng xuất khỏi mọi thiết bị" is not merged, so there is no button (FR-064).
+//   G04-T16's recent sign-ins (`LoginEventsBlock`, hidden when absent), then
+//   G05-T20's "Đăng xuất khỏi mọi thiết bị" (`SignOutEverywhere`, shown only
+//   when G04's session status says the one-session rule applies) (FR-064).
 // - "Lưu trữ": recordings are kept at most 60 days, then deleted. No consent
 //   switch and no consent request (FR-063).
 //
@@ -30,6 +31,7 @@ import { Select } from '@/components/ui/select';
 import { TextField } from '@/components/ui/text-field';
 import { liveHref } from '@/components/ui/shell/learner-sections';
 import { LearnerFrame } from '@/components/learner/learner-frame';
+import { SignOutEverywhere } from '@/components/learner/sign-out-everywhere';
 import { getCurrentProfile, type AuthProfileWire } from '@/lib/auth-api';
 import { patchBrowserJsonAt } from '@/lib/browser-api';
 import { WEEKLY_GOALS, signInMethodLine } from '@/lib/profile-v2-model.mjs';
@@ -214,6 +216,7 @@ export default function ProfileV2({ accountId }: { accountId: string }) {
                   </dl>
                 ) : null}
                 <LoginEventsBlock />
+                <SignOutEverywhere email={phase.profile.email || null} />
               </section>
 
               <section className={styles.section} aria-labelledby="ho-so-luu-tru">

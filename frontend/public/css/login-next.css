@@ -244,3 +244,9 @@ body {
   .lx-skill-dot, .lx-loading-dots span, .lx-dialog { animation: none; }
   .lx-action-google { transition: none; }
 }
+
+/* ENROLL-0060 G05-T20 screen 8c: this device was signed out by another one. */
+.lx-displaced { margin: 0 0 1rem; padding: .875rem 1rem; border-left: 4px solid var(--av-primary); background: var(--av-surface-sunken); border-radius: var(--av-radius-md); font-size: .875rem; }
+.lx-displaced p { margin: 0 0 .375rem; color: var(--av-text-secondary); }
+.lx-displaced p:last-child { margin-bottom: 0; }
+.lx-displaced .lx-displaced-title { color: var(--av-text-primary); }
