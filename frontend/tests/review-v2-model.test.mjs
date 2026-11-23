@@ -11,6 +11,7 @@ import {
   noteSaveError,
   noteTooLong,
   onlyWrongFromSearch,
+  reviewV2Enabled,
   withOnlyWrong,
 } from '../lib/review-v2-model.mjs';
 import { normalizeListeningReview } from '../lib/listening-review-model.mjs';
@@ -55,6 +56,15 @@ describe('FR-109 my_flagged_q_nums', () => {
     assert.deepEqual(flaggedQNums({ my_flagged_q_nums: [4, 2, 2, 0, -1, '3', 1.5] }), [2, 4]);
     assert.deepEqual(flaggedQNums({}), []);
     assert.deepEqual(flaggedQNums(null), []);
+  });
+});
+
+describe('FR-104 tree pick', () => {
+  it('only learner_v2_enabled === true draws the new tree', () => {
+    assert.equal(reviewV2Enabled({ learner_v2_enabled: true }), true);
+    for (const me of [{ learner_v2_enabled: 'true' }, { learner_v2_enabled: 1 }, {}, null, undefined]) {
+      assert.equal(reviewV2Enabled(me), false);
+    }
   });
 });
 

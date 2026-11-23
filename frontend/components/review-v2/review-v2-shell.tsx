@@ -5,7 +5,7 @@
 // /listening/review and /reading/review keep their one workspace (the same
 // review data and question cards, no second grading call). This frame picks
 // the tree from the server's flag on `/auth/me`:
-//   - learner_v2_enabled → LearnerShell around the workspace, and the
+//   - learner_v2_enabled (reviewV2Enabled) → LearnerShell around the workspace, and the
 //     workspace adds "Chỉ câu sai" and the per-question note (useReviewV2()).
 //   - flag off, a guest, an anonymous Reading share link, or `/auth/me`
 //     unreadable → the workspace exactly as today (fail closed to the old UI).
@@ -15,8 +15,8 @@ import { useEffect, useState, type ReactNode } from 'react';
 
 import type { LearnerUser } from '@/components/ui/shell/account-menu';
 import { getCurrentUser, type AuthMeWire } from '@/lib/auth-api';
-import { learnerV2Enabled } from '@/lib/auth-wire-model.mjs';
 import { useAuth } from '@/lib/auth/auth-provider';
+import { reviewV2Enabled } from '@/lib/review-v2-model.mjs';
 
 import { REVIEW_V2_OFF, ReviewV2Context } from './review-v2-context';
 
@@ -69,7 +69,7 @@ export function ReviewV2Shell({ children }: { children: ReactNode }) {
   }
 
   const wire = own?.wire ?? null;
-  if (!wire || !learnerV2Enabled(wire) || !user) {
+  if (!wire || !reviewV2Enabled(wire) || !user) {
     return <ReviewV2Context.Provider value={REVIEW_V2_OFF}>{children}</ReviewV2Context.Provider>;
   }
   const email = user.email ?? wire.email ?? '';

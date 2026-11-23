@@ -82,3 +82,13 @@ export function withOnlyWrong(href, on) {
   else url.searchParams.delete('only');
   return `${url.pathname}${url.search}${url.hash}`;
 }
+
+/**
+ * FR-104: the new tree only when /auth/me says `learner_v2_enabled: true`
+ * (LEARNERCORE-0063 FR-073). A backend without the field, or any other value,
+ * means the old tree. Same rule as T05's `learnerV2Enabled` (#2524), kept here
+ * so this page does not depend on that PR's merge order.
+ */
+export function reviewV2Enabled(me) {
+  return Boolean(me) && typeof me === 'object' && me.learner_v2_enabled === true;
+}
