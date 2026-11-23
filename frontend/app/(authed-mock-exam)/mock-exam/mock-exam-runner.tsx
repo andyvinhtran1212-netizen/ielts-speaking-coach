@@ -724,9 +724,9 @@ export function MockExamRunner() {
   const hiddenAtRef = useRef<number | null>(null);
   const currentSittingRef = useRef<string | null>(null);
   const captureResolveRef = useRef<(() => void) | null>(null);
-  // EXAMMOCK-0071 FR-001: the flag is read after mount (the page is also
-  // rendered on the server, where it is always off), so the first paint is the
-  // old loading card in both branches; the one render branch is below the hooks.
+  // EXAMMOCK-0071 FR-001: the flag is read on the client once window.api is
+  // ready (see the boot effect), so the first paint is the old loading card in
+  // both branches; the one render branch is below the hooks.
   const [examRoom, setExamRoom] = useState(false);
   const examRoomRef = useRef(false);
   // FR-007: what this tab saw of a submit, for mockSubmitOutcome. Sections whose
@@ -769,13 +769,6 @@ export function MockExamRunner() {
   useEffect(() => {
     if (status === 'signed-out') window.location.replace('/login');
   }, [status]);
-
-  useEffect(() => {
-    const on = examRoomEnabled('mock');
-    examRoomRef.current = on;
-    apiRef.current = mockRunnerApi(on);
-    setExamRoom(on);
-  }, []);
 
   useEffect(() => {
     if (!params.error) return;
@@ -863,6 +856,13 @@ export function MockExamRunner() {
         'window.api (mock exam)',
       );
       if (!ready || controller.signal.aborted || boot !== bootRef.current) return;
+      // FR-001: decide the branch once window.api is ready. The route script
+      // chain loads runtime-config.js before the client and api.js, so the
+      // config is there now; reading it at mount could run before it loads.
+      const on = examRoomEnabled('mock');
+      examRoomRef.current = on;
+      apiRef.current = mockRunnerApi(on);
+      setExamRoom(on);
       try {
         let sittingId = params.value.sittingId;
         let createdNow = false;
