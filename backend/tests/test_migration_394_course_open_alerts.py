@@ -351,41 +351,41 @@ async def test_rekey_merges_unsubscribed_wins_notified_wins_and_is_idempotent(pg
 
 
 @pytest.mark.asyncio
-async def test_rate_limit_per_hashed_ip_and_action(pg):
+async def test_rate_limit_per_key_and_action(pg):
     for _ in range(3):
-        assert json.loads(await pg.call("fn_course_open_alert_attempt_check", "ip-a", "subscribe"))["allowed"]
-    refused = json.loads(await pg.call("fn_course_open_alert_attempt_check", "ip-a", "subscribe"))
+        assert json.loads(await pg.call("fn_course_open_alert_attempt_check", "ip:a", "subscribe"))["allowed"]
+    refused = json.loads(await pg.call("fn_course_open_alert_attempt_check", "ip:a", "subscribe"))
     assert refused["allowed"] is False and 1 <= refused["retry_after_s"] <= 3600
-    assert await pg.con.fetchval("SELECT count(*) FROM course_open_alert_attempts WHERE ip_hash = 'ip-a'") == 3
-    assert json.loads(await pg.call("fn_course_open_alert_attempt_check", "ip-b", "subscribe"))["allowed"]
+    assert await pg.con.fetchval("SELECT count(*) FROM course_open_alert_attempts WHERE rate_key = 'ip:a'") == 3
+    assert json.loads(await pg.call("fn_course_open_alert_attempt_check", "ip:b", "subscribe"))["allowed"]
     for _ in range(20):
-        assert json.loads(await pg.call("fn_course_open_alert_attempt_check", "ip-a", "unsubscribe"))["allowed"]
-    assert not json.loads(await pg.call("fn_course_open_alert_attempt_check", "ip-a", "unsubscribe"))["allowed"]
+        assert json.loads(await pg.call("fn_course_open_alert_attempt_check", "ip:a", "unsubscribe"))["allowed"]
+    assert not json.loads(await pg.call("fn_course_open_alert_attempt_check", "ip:a", "unsubscribe"))["allowed"]
     with pytest.raises(asyncpg.InvalidParameterValueError):
-        await pg.call("fn_course_open_alert_attempt_check", "ip-a", "other")
+        await pg.call("fn_course_open_alert_attempt_check", "ip:a", "other")
 
 
 @pytest.mark.asyncio
 async def test_stale_attempts_of_other_keys_are_removed_so_the_counter_stays_bounded(pg):
     await pg.con.execute(
-        "INSERT INTO course_open_alert_attempts (ip_hash, action, attempted_at) "
-        "SELECT 'gone-' || g, 'subscribe', now() - interval '2 days' FROM generate_series(1, 250) g")
+        "INSERT INTO course_open_alert_attempts (rate_key, action, attempted_at) "
+        "SELECT 'ip:gone-' || g, 'subscribe', now() - interval '2 days' FROM generate_series(1, 250) g")
     await pg.con.execute(
-        "INSERT INTO course_open_alert_attempts (ip_hash, action, attempted_at) "
-        "VALUES ('recent', 'unsubscribe', now() - interval '2 hours')")
-    await pg.call("fn_course_open_alert_attempt_check", "ip-new", "subscribe")
-    assert await pg.con.fetchval("SELECT count(*) FROM course_open_alert_attempts WHERE ip_hash LIKE 'gone-%'") == 50
-    await pg.call("fn_course_open_alert_attempt_check", "ip-new", "unsubscribe")
-    assert await pg.con.fetchval("SELECT count(*) FROM course_open_alert_attempts WHERE ip_hash LIKE 'gone-%'") == 0
+        "INSERT INTO course_open_alert_attempts (rate_key, action, attempted_at) "
+        "VALUES ('user:recent', 'unsubscribe', now() - interval '2 hours')")
+    await pg.call("fn_course_open_alert_attempt_check", "ip:new", "subscribe")
+    assert await pg.con.fetchval("SELECT count(*) FROM course_open_alert_attempts WHERE rate_key LIKE 'ip:gone-%'") == 50
+    await pg.call("fn_course_open_alert_attempt_check", "ip:new", "unsubscribe")
+    assert await pg.con.fetchval("SELECT count(*) FROM course_open_alert_attempts WHERE rate_key LIKE 'ip:gone-%'") == 0
     # Rows younger than a day stay (they may still count in a window).
-    assert await pg.con.fetchval("SELECT count(*) FROM course_open_alert_attempts WHERE ip_hash = 'recent'") == 1
+    assert await pg.con.fetchval("SELECT count(*) FROM course_open_alert_attempts WHERE rate_key = 'user:recent'") == 1
 
 
 @pytest.mark.asyncio
 async def test_concurrent_subscribe_attempts_take_exactly_three_slots(pg):
     cons = [await pg.connect() for _ in range(8)]
     results = await asyncio.gather(*(
-        pg.call("fn_course_open_alert_attempt_check", "ip-race", "subscribe", con=c) for c in cons))
+        pg.call("fn_course_open_alert_attempt_check", "ip:race", "subscribe", con=c) for c in cons))
     assert sum(json.loads(r)["allowed"] for r in results) == 3
 
 

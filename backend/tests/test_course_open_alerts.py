@@ -66,7 +66,8 @@ def test_guest_subscribe_is_202_ok_and_never_returns_a_token(client):
     assert "token" not in response.text
     check, subscribe = client.db.calls
     assert check[0] == "fn_course_open_alert_attempt_check" and check[1]["p_action"] == "subscribe"
-    assert "203.0.113.7" not in check[1]["p_ip_hash"] and len(check[1]["p_ip_hash"]) == 32
+    key = check[1]["p_rate_key"]  # guest: per keyed hash of the IP (amendment 1)
+    assert key.startswith("ip:") and len(key) == 35 and "203.0.113.7" not in key
     assert subscribe == ("fn_course_open_alert_subscribe",
                          {"p_slug": "ielts-65", "p_email": GUEST_EMAIL, "p_user_id": None})
 
@@ -77,6 +78,9 @@ def test_signed_in_subscribe_uses_the_account_email_not_the_body(client):
     assert response.status_code == 202
     assert client.db.calls[-1][1] == {"p_slug": "ielts-65", "p_email": "hocvien@example.test",
                                       "p_user_id": "11111111-1111-1111-1111-111111111111"}
+    # Signed in: counted per account, whatever the IP (amendment 1).
+    assert client.db.calls[0][1] == {"p_rate_key": "user:11111111-1111-1111-1111-111111111111",
+                                     "p_action": "subscribe"}
 
 
 def test_bad_session_is_401_not_a_silent_guest_subscribe(client):
@@ -142,14 +146,16 @@ def test_unsubscribe_by_mail_token_needs_no_session_and_is_idempotent(client):
     name, params = client.db.calls[-1]
     assert name == "fn_course_open_alert_unsubscribe"
     assert params == {"p_slug": "ielts-65", "p_token": TOKEN, "p_user_id": None, "p_email": None}
-    assert [p["p_action"] for n, p in client.db.calls if n == "fn_course_open_alert_attempt_check"] == \
-        ["unsubscribe", "unsubscribe"]
+    checks = [p for n, p in client.db.calls if n == "fn_course_open_alert_attempt_check"]
+    assert [p["p_action"] for p in checks] == ["unsubscribe", "unsubscribe"]
+    assert all(p["p_rate_key"].startswith("ip:") for p in checks)  # no session: per IP
 
 
 def test_unsubscribe_by_session(client):
     response = client.request("DELETE", "/api/courses/ielts-65/open-alerts", json={},
                               headers={"Authorization": "Bearer good"})
     assert response.status_code == 200
+    assert client.db.calls[0][1]["p_rate_key"] == "user:11111111-1111-1111-1111-111111111111"
     assert client.db.calls[-1][1] == {"p_slug": "ielts-65", "p_token": None,
                                       "p_user_id": "11111111-1111-1111-1111-111111111111",
                                       "p_email": "hocvien@example.test"}

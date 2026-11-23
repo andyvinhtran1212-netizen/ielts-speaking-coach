@@ -7,9 +7,11 @@
 The form takes bare addresses from people without an account, so it must not
 become a way to mail strangers:
 
-* every POST and DELETE first takes a slot in the shared Postgres counter keyed
-  by a keyed hash of the client IP (subscribe 3/hour, unsubscribe 20/hour,
-  migration 394); a counter failure refuses with 503 (fail closed);
+* every POST and DELETE first takes a slot in the shared Postgres counter
+  (subscribe 3/hour, unsubscribe 20/hour, migration 394). Signed-in callers
+  are counted per account (``user:<id>``), guests and mail-link unsubscribes
+  per keyed hash of the client IP (``ip:<hash>``) — spec 0060 amendment 1,
+  Andy 2026-11-23. A counter failure refuses with 503 (fail closed);
 * one row per course and lower(email), and one mail ever per row (the sweep in
   ``fn_course_open_alerts_enqueue`` sets ``notified_at`` once);
 * the response is the same whether the address was new, known, unsubscribed or
@@ -81,9 +83,14 @@ def _rpc(name: str, params: dict, *, context: str):
                          message=_UNAVAILABLE_MESSAGE, context=context) from None
 
 
-def _take_slot(request: Request, action: str) -> None:
+def _rate_key(request: Request, user: Optional[dict]) -> str:
+    """Per account when signed in, per hashed IP for a guest (amendment 1)."""
+    return f"user:{user['id']}" if user is not None else f"ip:{_ip_hash(request)}"
+
+
+def _take_slot(request: Request, user: Optional[dict], action: str) -> None:
     verdict = _rpc("fn_course_open_alert_attempt_check",
-                   {"p_ip_hash": _ip_hash(request), "p_action": action},
+                   {"p_rate_key": _rate_key(request, user), "p_action": action},
                    context=f"open-alert rate limit action={action}")
     allowed = verdict.get("allowed") if isinstance(verdict, dict) else None
     retry_after_s = verdict.get("retry_after_s") if isinstance(verdict, dict) else None
@@ -136,7 +143,7 @@ async def subscribe_open_alert(
         email, user_id = (body.email or "").strip(), None
         if not _EMAIL_RE.match(email):
             raise HTTPException(422, {"error_code": "email_invalid", "message": "Email chưa đúng."})
-    await asyncio.to_thread(_take_slot, request, "subscribe")
+    await asyncio.to_thread(_take_slot, request, user, "subscribe")
     result = await asyncio.to_thread(
         _rpc, "fn_course_open_alert_subscribe",
         {"p_slug": slug, "p_email": email, "p_user_id": user_id},
@@ -166,7 +173,7 @@ async def unsubscribe_open_alert(
         if user is None:
             raise HTTPException(401, {"error_code": "login_required",
                                       "message": "Bạn đăng nhập hoặc dùng liên kết trong thư để bỏ nhận."})
-    await asyncio.to_thread(_take_slot, request, "unsubscribe")
+    await asyncio.to_thread(_take_slot, request, user, "unsubscribe")
     if len(slug) > 80 or not _SLUG_RE.match(slug):
         return {"ok": True}  # idempotent: nothing to unsubscribe
     count = await asyncio.to_thread(

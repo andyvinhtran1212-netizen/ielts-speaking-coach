@@ -8,7 +8,7 @@
 --   public.course_open_alert_attempts   per hashed-IP counter (the form takes
 --                                       bare addresses, so it must be rate limited
 --                                       across every worker; 334 pattern).
---   fn_course_open_alert_attempt_check(ip_hash, action) → jsonb
+--   fn_course_open_alert_attempt_check(rate_key, action) → jsonb
 --                                       subscribe 3/hour, unsubscribe 20/hour; rows
 --                                       older than a day are removed as calls arrive.
 --   fn_course_open_alert_subscribe(slug, email, user_id) → text
@@ -100,16 +100,16 @@ CREATE INDEX IF NOT EXISTS ix_course_open_alerts_user
 CREATE INDEX IF NOT EXISTS ix_course_open_alerts_email
     ON public.course_open_alerts (lower(email));
 
--- 2. Per hashed-IP counter (one row per ALLOWED call; a refused call writes nothing)
+-- 2. Counter per account or hashed IP (one row per ALLOWED call; a refused call writes nothing)
 CREATE TABLE IF NOT EXISTS public.course_open_alert_attempts (
-    ip_hash text NOT NULL CONSTRAINT course_open_alert_attempts_ip_hash_check
-        CHECK (char_length(ip_hash) BETWEEN 1 AND 128),
+    rate_key text NOT NULL CONSTRAINT course_open_alert_attempts_rate_key_check
+        CHECK (char_length(rate_key) BETWEEN 1 AND 128),
     action text NOT NULL CONSTRAINT course_open_alert_attempts_action_check
         CHECK (action IN ('subscribe', 'unsubscribe')),
     attempted_at timestamptz NOT NULL DEFAULT clock_timestamp()
 );
 CREATE INDEX IF NOT EXISTS ix_course_open_alert_attempts_key
-    ON public.course_open_alert_attempts (ip_hash, action, attempted_at);
+    ON public.course_open_alert_attempts (rate_key, action, attempted_at);
 CREATE INDEX IF NOT EXISTS ix_course_open_alert_attempts_attempted
     ON public.course_open_alert_attempts (attempted_at);
 
@@ -146,7 +146,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, pg_temp AS $$
 $$;
 
 -- 4. Rate limit (334 pattern: advisory lock per key, count, then record)
-CREATE OR REPLACE FUNCTION public.fn_course_open_alert_attempt_check(p_ip_hash text, p_action text)
+CREATE OR REPLACE FUNCTION public.fn_course_open_alert_attempt_check(p_rate_key text, p_action text)
 RETURNS jsonb
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = pg_catalog, pg_temp AS $$
 DECLARE
@@ -158,8 +158,8 @@ DECLARE
     v_count   integer;
     v_free_at timestamptz;
 BEGIN
-    IF p_ip_hash IS NULL OR p_ip_hash = '' THEN
-        RAISE EXCEPTION 'open_alert_ip_hash_required' USING ERRCODE = '22004';
+    IF p_rate_key IS NULL OR p_rate_key = '' THEN
+        RAISE EXCEPTION 'open_alert_rate_key_required' USING ERRCODE = '22004';
     END IF;
     v_max := CASE p_action WHEN 'subscribe' THEN 3 WHEN 'unsubscribe' THEN 20 END;
     IF v_max IS NULL THEN
@@ -170,11 +170,11 @@ BEGIN
     END IF;
 
     PERFORM pg_catalog.pg_advisory_xact_lock(
-        pg_catalog.hashtextextended('open-alert-attempt:' || p_action || ':' || p_ip_hash, 0));
+        pg_catalog.hashtextextended('open-alert-attempt:' || p_action || ':' || p_rate_key, 0));
     v_now := pg_catalog.clock_timestamp();
 
     DELETE FROM public.course_open_alert_attempts
-     WHERE ip_hash = p_ip_hash AND action = p_action AND attempted_at < v_now - c_keep;
+     WHERE rate_key = p_rate_key AND action = p_action AND attempted_at < v_now - c_keep;
     -- Keys that never come back would stay forever: every call also removes
     -- up to c_sweep stale rows of any key (no cron needed; SKIP LOCKED so two
     -- calls never wait on each other here).
@@ -186,12 +186,12 @@ BEGIN
 
     SELECT count(*) INTO v_count
       FROM public.course_open_alert_attempts
-     WHERE ip_hash = p_ip_hash AND action = p_action AND attempted_at > v_now - c_window;
+     WHERE rate_key = p_rate_key AND action = p_action AND attempted_at > v_now - c_window;
 
     IF v_count >= v_max THEN
         SELECT attempted_at + c_window INTO v_free_at
           FROM public.course_open_alert_attempts
-         WHERE ip_hash = p_ip_hash AND action = p_action AND attempted_at > v_now - c_window
+         WHERE rate_key = p_rate_key AND action = p_action AND attempted_at > v_now - c_window
          ORDER BY attempted_at
          OFFSET v_count - v_max LIMIT 1;
         RETURN pg_catalog.jsonb_build_object(
@@ -200,8 +200,8 @@ BEGIN
                 EXTRACT(EPOCH FROM v_free_at - v_now))::integer));
     END IF;
 
-    INSERT INTO public.course_open_alert_attempts (ip_hash, action, attempted_at)
-    VALUES (p_ip_hash, p_action, v_now);
+    INSERT INTO public.course_open_alert_attempts (rate_key, action, attempted_at)
+    VALUES (p_rate_key, p_action, v_now);
     RETURN pg_catalog.jsonb_build_object('allowed', true, 'retry_after_s', 0);
 END $$;
 
