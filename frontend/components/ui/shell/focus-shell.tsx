@@ -115,13 +115,17 @@ export function FocusShell({
   const leaveLockedRef = useRef(leaveLocked);
   leaveLockedRef.current = leaveLocked;
   useEffect(() => { if (leaveLocked) setAsking(false); }, [leaveLocked]);
+  // Checked right before navigating, in both paths (direct and after the flush):
+  // a proctor may lock leaving while the flush is still running.
   const go = useCallback(() => {
     setAsking(false);
+    if (leaveLockedRef.current) return;
     leaving.current = true;
     onLeave?.();
     window.location.assign(exitHref);
   }, [exitHref, onLeave]);
   const leave = useCallback(() => {
+    if (leaveLockedRef.current) { setAsking(false); return; }
     if (!beforeLeave) { go(); return; }
     setFlushing(true);
     beforeLeave().then(

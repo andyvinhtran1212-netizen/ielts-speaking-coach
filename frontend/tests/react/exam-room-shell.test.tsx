@@ -349,6 +349,23 @@ describe('leave and abandon (FR-011, FR-012)', () => {
     expect(await screen.findByRole('alertdialog')).toBeTruthy();
   });
 
+  it('exit.locked set while the leave flush is still running does not navigate (HOLD #2518)', async () => {
+    const assign = stubAssign();
+    let finish: (v: { unsaved: number }) => void = () => {};
+    const flush = vi.fn(() => new Promise<{ unsaved: number }>((resolve) => { finish = resolve; }));
+    const exit = { href: '/tests', flush, losesWork: () => false };
+    const { rerender } = render(<ExamRoomShell {...base({ exit })} />);
+    fireEvent.click(screen.getByRole('button', { name: /Leave test/ }));
+    const dialog = await screen.findByRole('alertdialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Leave test' }));
+    await waitFor(() => expect(flush).toHaveBeenCalled());
+    rerender(<ExamRoomShell {...base({ exit: { ...exit, locked: true } })} />);
+    await act(async () => { finish({ unsaved: 0 }); await Promise.resolve(); });
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    expect(assign).not.toHaveBeenCalled();
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+  });
+
   it('names the unsaved count and never says the answers are saved', async () => {
     stubAssign();
     const flush = vi.fn(() => Promise.resolve({ unsaved: 2 }));
