@@ -79,7 +79,8 @@ def _timed_tables(name: str) -> str:
         reading_started_at timestamptz, writing_started_at timestamptz);
     CREATE TABLE {name}.mock_exam_sittings (id bigserial PRIMARY KEY, mock_exam_id uuid, user_id uuid,
         status text, listening_started_at timestamptz, reading_started_at timestamptz,
-        writing_started_at timestamptz);
+        writing_started_at timestamptz, assigned_skills text[], retake_open_from timestamptz,
+        retake_open_until timestamptz);
     GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA {name} TO service_role;
     GRANT USAGE ON ALL SEQUENCES IN SCHEMA {name} TO service_role;
     """
@@ -307,3 +308,29 @@ def test_lock_functions_are_not_callable_by_client_or_service_roles(schema):
             assert psql(f"SELECT has_function_privilege('{role}', '{schema}.{fn}', 'EXECUTE')") == "f", (role, fn)
     # service_role (PostgREST) still starts timed work: the trigger runs as owner.
     psql(f"SET ROLE service_role; INSERT INTO {schema}.reading_test_attempts (user_id) VALUES ('{USER}')")
+
+
+def test_a_teacher_refreshing_an_unstarted_sitting_never_waits_or_is_refused(schema):
+    """mock_exam_assignment_service._refresh_open_sitting (teacher edits a
+    retake's skills or window) writes assigned_skills/retake_open_* on a
+    sitting with no clock started. That is not a timed start: no 388 trigger
+    fires, so it neither waits for the account lock nor can raise 55000, even
+    while a claim holds the lock and then moves the account."""
+    _migrate(schema)
+    _insert(schema)
+    psql(f"INSERT INTO {schema}.mock_exam_sittings (mock_exam_id, user_id, status) "
+         f"VALUES ('{EXAM}', '{USER}', 'registered')")
+    holder = _lock_holder(schema)
+    try:
+        # lock_timeout 1s: a write that waited for the held account lock fails here.
+        psql(f"SET lock_timeout = '1s'; UPDATE {schema}.mock_exam_sittings "
+             f"SET assigned_skills = ARRAY['listening','reading'], retake_open_from = now(), "
+             f"retake_open_until = now() + interval '2 days' "
+             f"WHERE user_id = '{USER}' AND listening_started_at IS NULL AND reading_started_at IS NULL "
+             f"AND writing_started_at IS NULL")
+    finally:
+        holder.stdin.write(f"UPDATE {schema}.learner_active_sessions SET session_id = '{SESSION_B}', "
+                           f"claimed_at = now(); COMMIT;\n")
+        holder.stdin.close()
+        holder.wait(timeout=10)
+    assert psql(f"SELECT array_to_string(assigned_skills, ',') FROM {schema}.mock_exam_sittings") == "listening,reading"
