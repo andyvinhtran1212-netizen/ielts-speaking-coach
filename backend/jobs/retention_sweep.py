@@ -75,7 +75,9 @@ def _candidate_pages(purged_col: str, cutoff: str):
     """Every pre-filtered session, one page at a time in a stable order (id).
     A single capped read would let sessions the sweep keeps fill the first
     page on every run, so later candidates were never reached. The reads all
-    finish before any purge (the caller collects the list first)."""
+    finish before any purge (the caller collects the list first). The offset
+    moves by the rows actually returned and only an empty page ends the
+    read, so a PostgREST max-rows below ``_PAGE`` cannot end it early."""
     offset = 0
     while True:
         page = (
@@ -91,11 +93,10 @@ def _candidate_pages(purged_col: str, cutoff: str):
             .execute()
             .data
         ) or []
-        if page:
-            yield page
-        if len(page) < _PAGE:
+        if not page:
             return
-        offset += _PAGE
+        yield page
+        offset += len(page)
 
 
 def _eligible(purged_col: str, days: int, expiry_key: str, *, per_user: bool = False) -> list[dict]:
