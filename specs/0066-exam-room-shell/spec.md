@@ -336,20 +336,34 @@ trên `staging` @ `cc6dd4c8` (23/11/2026):
     [HH:MM] may not have been recorded."/"Máy chủ đã đóng bài lúc [HH:MM]. Các câu sau
     [HH:MM] có thể chưa được ghi nhận." với nút về `exit.href`. Không thử lại; bản sao tại
     máy bị xoá theo FR-035 vì không còn gửi được.
+  - `expired_unsubmitted` (sửa đổi 1 mục (a): máy chủ từ chối lần nộp tới sau ân hạn, ví
+    dụ Reading `submit` trả 422 "attempt expired"; lượt không được nộp): "Time ran out
+    before your answers reached our server. This attempt was not submitted and has no
+    score. Your answers were saved on our server up to [HH:MM]."/"Hết giờ trước khi bài
+    tới máy chủ. Lượt này chưa được nộp và không có điểm. Máy chủ đã lưu bài của bạn tới
+    [HH:MM]." với nút "Back"/"Quay lại" về `exit.href`. Không thử lại, không chữ
+    "submitted"/"đã nộp"; bản sao tại máy bị xoá theo FR-035. [HH:MM] chỉ hiện khi máy chủ
+    trả mốc đó.
   Ô nhập luôn khoá; không mở thêm thời gian. Shell không tự suy ra `confirmed` từ việc
   đã gọi `onSubmit`, và không coi "lượt đã đóng" là `confirmed`.
 - **FR-035:** Bản sao câu trả lời tại máy gắn với đúng tài khoản và đúng lượt.
   `ownerKey` là id tài khoản (link chia sẻ: phạm vi quyền khách của link), và bản ghi
   chứa `ownerKey`, `attemptKey`, `surface`, `savedAt`, `expiresAt`, và với mỗi câu giá
-  trị cùng `baseSavedAt`; không có email hay tên.
+  trị cùng `baseValue` (đúng giá trị máy chủ đã ack lần cuối cho câu đó, hoặc giá trị đọc
+  lúc mở lượt) và `baseSavedAt` (chỉ để hiện "HH:MM", không dùng để so; sửa đổi 1 mục
+  (c)); không có email hay tên.
   - Chỉ đọc, khôi phục hay gửi bản sao khi tài khoản đang đăng nhập (hoặc quyền khách
     hiện tại) trùng `ownerKey` **và** lượt đang mở trùng `attemptKey`. Đăng nhập lại bằng
     tài khoản khác không đọc, không khôi phục và không gửi bản của người trước.
   - Sau khi đăng nhập lại đúng `ownerKey` (FR-015) hoặc tải lại trang: trình đọc trạng
     thái lượt từ máy chủ trước, rồi với từng câu trong bản sao chỉ gửi lại qua đường lưu
-    bình thường của nó khi giá trị trên máy chủ chưa đổi kể từ `baseSavedAt` của bản sao
-    (bản sao ghi kèm mốc lưu máy chủ cuối cùng nó biết cho từng câu). Câu nào trên máy chủ
-    mới hơn bản sao thì giữ bản máy chủ và bỏ câu đó khỏi bản sao. Lượt đã nộp hoặc đã đóng
+    bình thường của nó khi giá trị trên máy chủ vẫn bằng `baseValue` của câu đó trong bản
+    sao (chuỗi so nguyên văn, cả độ dài; mảng và đối tượng so sau khi sắp khoá). Câu nào
+    trên máy chủ khác `baseValue` thì giữ bản máy chủ và bỏ câu đó khỏi bản sao. Không so
+    theo giờ lưu trên máy chủ, vì giờ đó có thể đổi mà giá trị không đổi (ví dụ Writing
+    `paste-log` đổi `writing_drafts.updated_at`) và đồng hồ máy học viên khác máy chủ. Bản
+    sao không có `baseValue` (ghi trước sửa đổi này) thì không tự gửi lại mà hỏi học viên
+    giữ bản nào. Lượt đã nộp hoặc đã đóng
     thì không gửi gì, chỉ xoá bản sao. Gửi xong và máy chủ xác nhận thì xoá bản sao.
   - Dọn: xoá khi máy chủ xác nhận đã lưu các câu đó hoặc đã nộp; khi lượt được bỏ
     (`exit.abandon`); khi đăng xuất (bản của tài khoản đó); khi đăng nhập bằng tài khoản
@@ -432,8 +446,8 @@ trên `staging` @ `cc6dd4c8` (23/11/2026):
 - **Then** không chuyển trang, hiện hộp "Your session has expired"; **When** đăng
   nhập lại (trong hộp khi có G05-T19, hoặc qua `/login?next=` cùng tab theo phương án dự
   phòng) **Then** quay về đúng URL phòng thi; trình đọc lượt từ máy chủ, gửi lại câu vừa gõ từ
-  bản sao vì câu đó trên máy chủ chưa đổi kể từ `baseSavedAt` (FR-035), rồi xoá bản sao.
-  **Given** cùng câu đó đã được sửa ở thiết bị khác sau `baseSavedAt` **Then** giữ bản
+  bản sao vì giá trị câu đó trên máy chủ vẫn bằng `baseValue` (FR-035), rồi xoá bản sao.
+  **Given** cùng câu đó đã được sửa ở thiết bị khác (giá trị máy chủ khác `baseValue`) **Then** giữ bản
   máy chủ, không ghi đè.
 
 ### Scenario 6a: trình duyệt dùng chung
