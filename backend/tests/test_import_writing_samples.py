@@ -152,6 +152,14 @@ def test_bad_slug(tree, slug):
     assert "E_SLUG" in res["t2_ok"].codes
 
 
+def test_reserved_slug_index_is_refused(tree):
+    # GET /writing-samples/index is the sitemap route, declared before /{slug}.
+    tree["write"]("t2_ok", make_set())
+    _, res, _ = run(tree, [entry("t2_ok", slug="index")])
+    assert "E_SLUG" in res["t2_ok"].codes
+    assert "reserved" in res["t2_ok"].codes["E_SLUG"]
+
+
 def test_duplicate_slug(tree):
     tree["write"]("a", make_set())
     tree["write"]("b", make_set())

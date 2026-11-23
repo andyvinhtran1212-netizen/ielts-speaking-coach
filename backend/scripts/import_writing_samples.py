@@ -52,7 +52,8 @@ without editing the source project:
 
 Codes (one line per set, totals at the end; ``E_*`` blocks publishing):
 E_PARSE, E_MARK, E_NO_REVIEW, E_NOT_APPROVED (``publish`` without an approved
-review signed with ``review.by`` and ``review.at``), E_NO_TITLE, E_SLUG,
+review signed with ``review.by`` and ``review.at``), E_NO_TITLE, E_SLUG (bad
+pattern, duplicate, or reserved such as ``index``),
 E_TYPE, E_TOPIC, E_FIGURE, E_PAIR, E_ESSAYS, E_BAND_FAR, W_HASH (blocks until
 re-reviewed), W_BAND_NEAR, W_DELTA_MATCH.
 
@@ -96,6 +97,10 @@ TASK1_SUBTYPES = ("bar", "line", "pie", "table", "process", "map", "mixed")
 REVIEW_STATUSES = ("approved", "needs_review", "excluded")
 SLUG_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 SLUG_MAX = 80
+# Slugs a static API route already answers: GET /writing-samples/index (the
+# sitemap list, plan 5.8) is declared before /writing-samples/{slug}, so a set
+# with this slug could never be read.
+RESERVED_SLUGS = frozenset({"index"})
 TITLE_MIN, TITLE_MAX = 3, 70
 FIGURE_MAX_BYTES = 2 * 1024 * 1024  # library-public bucket limit (LIBRARY-0061 §5.5)
 
@@ -301,6 +306,8 @@ def check_set(item: SourceSet, entry: Optional[dict], *, topics: set[str],
     if slug is not None or "E_NO_TITLE" not in codes:
         if not isinstance(slug, str) or not SLUG_RE.match(slug) or len(slug) > SLUG_MAX:
             codes["E_SLUG"] = f"slug {slug!r} does not match the pattern"
+        elif slug in RESERVED_SLUGS:
+            codes["E_SLUG"] = f"slug {slug!r} is reserved: GET /writing-samples/{slug} is a fixed route"
         elif slugs.get(slug, 0) > 1:
             codes["E_SLUG"] = f"slug {slug!r} is used by another set"
 
