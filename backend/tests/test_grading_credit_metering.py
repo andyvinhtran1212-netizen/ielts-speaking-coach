@@ -53,7 +53,7 @@ class FakeCredits:
         if key in self.covered:
             asked, cover = self.covered[key]
             return {"resource_type": "speaking_cluster", "resource_id": asked,
-                    "status": self.res[cover]["status"]}
+                    "status": self.res[cover]["status"], "covered": True}
         return None
 
     def names(self, name):
@@ -172,7 +172,7 @@ def _session(part, **extra):
 
 
 def _grade(monkeypatch, session, *, duration=None, grader_fails=False, stt_fails=False,
-           submission_id=None, replay=False, save=None, question_id=None):
+           submission_id=None, replay=False, save=None, question_id=None, on_stt=None):
     """Run the endpoint once for a new question of ``session`` (or ``question_id``)."""
     duration = duration or {1: 20.0, 2: 100.0, 3: 30.0}[session["part"]]
     question = {"id": question_id or str(uuid4()), "session_id": session["id"], "question_text": "Synthetic prompt"}
@@ -199,6 +199,13 @@ def _grade(monkeypatch, session, *, duration=None, grader_fails=False, stt_fails
     words = " ".join(["I usually spend my weekends reading books in the library near my house"] * 6)
     stt = AsyncMock(side_effect=RuntimeError("stt down")) if stt_fails else AsyncMock(return_value={
         "transcript": words, "duration_seconds": duration, "confidence": 0.9, "segments": []})
+    if on_stt is not None:
+        inner = stt
+
+        async def stt(*a, **k):  # noqa: F811 — record the state at the first paid call
+            on_stt()
+            return await inner(*a, **k)
+        stt = AsyncMock(side_effect=stt)
     monkeypatch.setattr(grading, "transcribe_from_bytes", stt)
     grade = AsyncMock(side_effect=RuntimeError("grader down")) if grader_fails else AsyncMock(return_value={
         "band_fc": 6.0, "band_lr": 7.0, "band_gra": 6.0, "band_p": 9.0, "overall_band": 7.0,
@@ -519,30 +526,88 @@ def _open_cluster_opener(world, session, part=1):
     return result["reservation_id"]
 
 
-def test_covered_answer_commits_the_cover_so_a_failing_opener_refunds_nothing(monkeypatch, world):
+def test_covered_answer_commits_the_cover_before_whisper(monkeypatch, world):
+    """Andy (f8170c8e): the cluster is settled before any paid call, so the
+    opener failing later refunds nothing and nothing is graded for free."""
     session = _session(1)
     opener = _open_cluster_opener(world, session)
-    out = _grade(monkeypatch, session)                 # covered by the open opener hold
+    seen = []
+    out = _grade(monkeypatch, session, on_stt=lambda: seen.append(world.fake.res[opener]["status"]))
     assert out.error is None and "_stub" not in out.result
-    assert world.fake.res[opener]["status"] == "committed"
-    # The opener now fails: its release finds the hold committed.
+    assert seen == ["committed"]                      # committed before Whisper ran
     asyncio.run(credits.release_if_open(credits.CreditHold(reservation_id=opener), "grader_failed"))
     assert world.fake.res[opener]["status"] == "committed"
     assert world.fake.balance == 9 and sum(world.fake.ledger) == -1
 
 
-def test_covered_answer_pays_when_the_cover_was_released_meanwhile(monkeypatch, world):
+def test_covered_answer_whose_cover_was_released_opens_the_cluster_itself(monkeypatch, world):
     session = _session(1)
     opener = _open_cluster_opener(world, session)
-
-    def save_while_opener_fails(*_a, **_k):
-        world.fake.res[opener]["status"] = "released"   # opener failed during our grading
-        world.fake.balance += 1
-        world.fake.ledger.append(+1)
-        return str(uuid4())
-    out = _grade(monkeypatch, session, save=save_while_opener_fails, submission_id=str(uuid4()))
+    asyncio.run(credits.release_if_open(credits.CreditHold(reservation_id=opener), "grader_failed"))
+    sid = str(uuid4())
+    out = _grade(monkeypatch, session, submission_id=sid)
+    # The key is fresh, so the RPC sees an uncovered cluster and reserves at once.
     assert out.error is None and "_stub" not in out.result
-    reserves = world.fake.names("fn_credit_reserve")
-    assert reserves[-1]["p_request_key"].endswith(":c")
+    assert world.fake.balance == 9 and sum(world.fake.ledger) == -1
     assert sorted(_statuses(world.fake)) == ["committed", "released"]
+
+
+def test_cover_released_between_reserve_and_commit_pays_with_a_new_hold(monkeypatch, world):
+    """The opener releases after this answer got 'covered' but before it
+    commits the cover: a ':c' hold opens the cluster, committed after the save."""
+    session = _session(1)
+    opener = _open_cluster_opener(world, session)
+    real = world.fake.rpc
+
+    async def rpc(name, params):
+        result = await real(name, params)
+        if name == "fn_credit_reserve" and result["status"] == "covered":
+            await real("fn_credit_release", {"p_reservation_id": opener, "p_reason": "grader_failed"})
+        return result
+    monkeypatch.setattr(credits, "_rpc", rpc)
+    sid = str(uuid4())
+    out = _grade(monkeypatch, session, submission_id=sid)
+    assert out.error is None and "_stub" not in out.result
+    assert world.fake.names("fn_credit_reserve")[-1]["p_request_key"] == f"{sid}:c"
+    assert sorted(_statuses(world.fake)) == ["committed", "released"]
+    assert world.fake.balance == 9 and sum(world.fake.ledger) == -1
+
+
+def test_cover_released_and_no_credit_left_is_402_before_whisper(monkeypatch, world):
+    session = _session(1)
+    world.fake.balance = 1
+    opener = _open_cluster_opener(world, session)                  # balance 0
+    real = world.fake.rpc
+
+    async def rpc(name, params):
+        result = await real(name, params)
+        if name == "fn_credit_reserve" and result["status"] == "covered":
+            await real("fn_credit_release", {"p_reservation_id": opener, "p_reason": "grader_failed"})
+            world.fake.balance -= 1                                 # a valid charge takes it
+            world.fake.ledger.append(-1)
+        return result
+    monkeypatch.setattr(credits, "_rpc", rpc)
+    out = _grade(monkeypatch, session, submission_id=str(uuid4()))
+    assert out.error.status_code == 402 and out.error.detail["error_code"] == "insufficient_credits"
+    out.stt.assert_not_awaited()
+    out.grade.assert_not_awaited()
+    assert sum(world.fake.ledger) == -1                             # the other, valid charge only
+
+
+def test_covered_answer_failing_after_the_cover_commit_refunds_nothing(monkeypatch, world):
+    """Accepted cost of committing first: the cluster stays charged."""
+    session = _session(1)
+    opener = _open_cluster_opener(world, session)
+    question, sid = str(uuid4()), str(uuid4())
+    out = _grade(monkeypatch, session, stt_fails=True, question_id=question, submission_id=sid)
+    assert out.error.status_code == 502
+    assert world.fake.res[opener]["status"] == "committed"
+    assert world.fake.names("fn_credit_release") == []
+    assert world.fake.balance == 9
+    # The page retries the same recording: the key was only 'covered' and its
+    # cover is committed (already_graded), but nothing was saved, so it is a
+    # re-grade under '<sid>:a1', still covered by the paid cluster.
+    again = _grade(monkeypatch, session, question_id=question, submission_id=sid)
+    assert again.error is None and "_stub" not in again.result
+    assert [p["p_request_key"] for p in world.fake.names("fn_credit_reserve")][-2:] == [sid, f"{sid}:a1"]
     assert world.fake.balance == 9 and sum(world.fake.ledger) == -1

@@ -56,7 +56,7 @@ def real_rpc(pg, monkeypatch):  # noqa: F811
             "JOIN credit_reservations r ON r.id = c.reservation_id "
             "WHERE c.user_id = $1 AND c.feature = 'speaking_grading' AND c.request_key = $2",
             UUID(user_id), request_key)
-        return dict(row) if row else None
+        return {**dict(row), "covered": True} if row else None
 
     def fetch_reservation(reservation_id):
         # credits reads this in a worker thread (paid re-grade replay check):
@@ -126,10 +126,16 @@ async def test_released_key_reused_for_another_question_stays_a_conflict(real_rp
     assert refused.value.code == "request_key_conflict"
 
 
+async def _covered_answer(pg, user, sid, question, key):
+    """Reserve + settle like the route does before Whisper."""
+    hold = await grading._reserve_speaking_credit(str(user), _PLAN, sid, question, 1, key)
+    return await grading._secure_covered_hold(hold, str(user), _PLAN, sid, question, 1, key)
+
+
 @pytest.mark.asyncio
-async def test_overlapping_cluster_answers_opener_fails_after_the_second_is_saved(real_rpc):
-    """Andy's case: answer 2 is covered by the opener's open hold and saved;
-    the opener then fails. The cluster has a saved grade: one credit."""
+async def test_overlapping_cluster_answers_opener_fails_after_the_cover_commit(real_rpc):
+    """Andy's case: answer 2 is covered by the opener's open hold and commits
+    it before Whisper; the opener then fails. One credit, nothing refunded."""
     pg = real_rpc
     user = await pg.user()
     await pg.entitlement(user, await pg.product(), credits=3)
@@ -137,12 +143,10 @@ async def test_overlapping_cluster_answers_opener_fails_after_the_second_is_save
     before = await pg.balance(user)
 
     opener = await grading._reserve_speaking_credit(str(user), _PLAN, sid, str(uuid4()), 1, str(uuid4()))
-    q2, k2 = str(uuid4()), str(uuid4())
-    second = await grading._reserve_speaking_credit(str(user), _PLAN, sid, q2, 1, k2)
+    second = await _covered_answer(pg, user, sid, str(uuid4()), str(uuid4()))
     assert second.covered and second.reservation_id == opener.reservation_id
-    await grading._commit_credit_hold(  # answer 2 saved
-        second, pay_again=lambda: grading._reserve_speaking_credit(str(user), _PLAN, sid, q2, 1, f"{k2}:c"))
     await credits.release_if_open(opener, "grader_failed")      # opener fails afterwards
+    await grading._commit_credit_hold(second)                  # answer 2 saved: no-op
 
     assert before - await pg.balance(user) == 1
     rows, net = await _ledger(pg)
@@ -150,7 +154,43 @@ async def test_overlapping_cluster_answers_opener_fails_after_the_second_is_save
 
 
 @pytest.mark.asyncio
-async def test_covered_answer_saved_after_the_opener_failed_pays_for_the_cluster(real_rpc):
+@pytest.mark.parametrize("order", ["cover_first", "valid_charge_first"])
+async def test_last_credit_with_a_valid_charge_alongside(real_rpc, order):
+    """Minimum balance (1 credit). The opener holds it; answer 2 is covered;
+    the opener fails; a valid Part 2 answer wants a credit too. Whatever the
+    order, exactly one credit is spent and no saved grade goes unpaid."""
+    pg = real_rpc
+    user = await pg.user()
+    await pg.entitlement(user, await pg.product(), credits=1)
+    sid = str(await pg.session(user))
+    opener = await grading._reserve_speaking_credit(str(user), _PLAN, sid, str(uuid4()), 1, str(uuid4()))
+    q2, k2 = str(uuid4()), str(uuid4())
+
+    if order == "cover_first":
+        second = await _covered_answer(pg, user, sid, q2, k2)       # commits the cover
+        await credits.release_if_open(opener, "grader_failed")      # nothing to refund
+        with pytest.raises(credits.CreditRefused) as refused:       # Part 2: no credit left
+            await grading._reserve_speaking_credit(str(user), _PLAN, sid, str(uuid4()), 2, str(uuid4()))
+        assert refused.value.code == "insufficient_credits"
+        assert second.covered
+    else:
+        first = await grading._reserve_speaking_credit(str(user), _PLAN, sid, q2, 1, k2)
+        assert first.covered
+        await credits.release_if_open(opener, "grader_failed")      # credit back (1)
+        part2 = await grading._reserve_speaking_credit(str(user), _PLAN, sid, str(uuid4()), 2, str(uuid4()))
+        await grading._commit_credit_hold(part2)                    # the valid charge
+        with pytest.raises(credits.CreditRefused) as refused:       # answer 2: 402 before Whisper
+            await grading._secure_covered_hold(first, str(user), _PLAN, sid, q2, 1, k2)
+        assert refused.value.code == "insufficient_credits"
+
+    assert await pg.balance(user) == 0
+    _rows, net = await _ledger(pg)
+    assert net == -1
+    assert await pg.con.fetchval("SELECT count(*) FROM credit_reservations WHERE status = 'committed'") == 1
+
+
+@pytest.mark.asyncio
+async def test_covered_answer_after_the_opener_failed_opens_the_cluster(real_rpc):
     pg = real_rpc
     user = await pg.user()
     await pg.entitlement(user, await pg.product(), credits=3)
@@ -159,11 +199,12 @@ async def test_covered_answer_saved_after_the_opener_failed_pays_for_the_cluster
 
     opener = await grading._reserve_speaking_credit(str(user), _PLAN, sid, str(uuid4()), 1, str(uuid4()))
     q2, k2 = str(uuid4()), str(uuid4())
-    second = await grading._reserve_speaking_credit(str(user), _PLAN, sid, q2, 1, k2)
-    assert second.covered
+    first = await grading._reserve_speaking_credit(str(user), _PLAN, sid, q2, 1, k2)
+    assert first.covered
     await credits.release_if_open(opener, "grader_failed")      # opener fails first
-    await grading._commit_credit_hold(  # then answer 2 is saved
-        second, pay_again=lambda: grading._reserve_speaking_credit(str(user), _PLAN, sid, q2, 1, f"{k2}:c"))
+    second = await grading._secure_covered_hold(first, str(user), _PLAN, sid, q2, 1, k2)
+    assert not second.covered                                  # its own hold, key ':c'
+    await grading._commit_credit_hold(second)                  # answer 2 saved
 
     assert before - await pg.balance(user) == 1
     _rows, net = await _ledger(pg)
@@ -171,3 +212,23 @@ async def test_covered_answer_saved_after_the_opener_failed_pays_for_the_cluster
     assert await pg.con.fetchval(
         "SELECT count(*) FROM credit_reservations WHERE status = 'committed' AND request_key = $1",
         f"{k2}:c") == 1
+
+
+@pytest.mark.asyncio
+async def test_covered_answer_retried_after_a_failure_is_a_regrade_not_409(real_rpc):
+    """The covered answer committed the cover, then Whisper failed. Its key
+    now reads already_committed; the retry of the same recording re-grades
+    under '<key>:a1' (free re-grade), no second credit."""
+    pg = real_rpc
+    user = await pg.user()
+    await pg.entitlement(user, await pg.product(), credits=3)
+    sid = str(await pg.session(user))
+    before = await pg.balance(user)
+    await grading._reserve_speaking_credit(str(user), _PLAN, sid, str(uuid4()), 1, str(uuid4()))   # opener
+    q2, k2 = str(uuid4()), str(uuid4())
+    await _covered_answer(pg, user, sid, q2, k2)                   # cover committed, then STT 502
+    retry = await _covered_answer(pg, user, sid, q2, k2)
+    assert retry.covered
+    assert before - await pg.balance(user) == 1
+    assert await pg.con.fetchval("SELECT count(*) FROM credit_covered_requests WHERE request_key = $1",
+                                 f"{k2}:a1") == 1

@@ -619,6 +619,11 @@ async def grade_response_endpoint(
         if credit_plan.metered:
             credit_hold = await _reserve_speaking_credit(
                 user_id, credit_plan, session_id, question_id, part, submission_id)
+            if credit_hold.covered:
+                # Andy/CR on f8170c8e: a covered answer settles its cluster
+                # BEFORE any paid call (402/503 still possible here).
+                credit_hold = await _secure_covered_hold(
+                    credit_hold, user_id, credit_plan, session_id, question_id, part, submission_id)
 
         # ── STEP 3: Whisper STT (directly from in-memory bytes) ──────────────
         # Transcribe BEFORE uploading to storage so we never hit CDN caching:
@@ -1296,12 +1301,7 @@ async def grade_response_endpoint(
         # Plan 5.6 step 3: graded and saved → commit. A failed commit is logged
         # and the hold is left to the expiry sweep (the grade is already the
         # learner's; never 5xx it). Sealed mock sittings are never metered.
-        await _commit_credit_hold(
-            credit_hold,
-            pay_again=(lambda: _reserve_speaking_credit(
-                user_id, credit_plan, session_id, question_id, part, f"{submission_id}:c"))
-            if credit_plan.metered else None,
-        )
+        await _commit_credit_hold(credit_hold)
         credit_hold = None
 
         # Sealed 4-skill mock speaking: grading is fully persisted above (the
@@ -1384,7 +1384,7 @@ def _fetch_request_key_state(user_id: str, request_key: str) -> dict | None:
         .eq("id", rows[0]["reservation_id"]).limit(1).execute().data
     ) or []
     return {"resource_type": rows[0]["resource_type"], "resource_id": rows[0]["resource_id"],
-            "status": cover[0]["status"] if cover else None}
+            "status": cover[0]["status"] if cover else None, "covered": True}
 
 
 async def _request_key_state(user_id: str, request_key: str) -> dict | None:
@@ -1392,18 +1392,7 @@ async def _request_key_state(user_id: str, request_key: str) -> dict | None:
                                   timeout=credits.RPC_TIMEOUT_SECONDS)
 
 
-async def _key_was_released_for(user_id: str, request_key: str, resource: dict) -> bool:
-    """True when ``request_key`` names a released/expired hold of THIS answer
-    (Codex P2 / CR on 68a027c0): the attempt failed and gave its credit back,
-    so the same recording may be retried under a new key. A key used for
-    another answer, or still open/committed, stays a conflict."""
-    try:
-        state = await _request_key_state(user_id, request_key)
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("[credits] request key lookup failed: %s", exc)
-        raise credits.CreditUnavailable("request_key_lookup") from exc
-    if not state or state.get("status") not in ("released", "expired"):
-        return False
+def _same_answer(state: dict, resource: dict) -> bool:
     if (state.get("resource_type"), state.get("resource_id")) == (resource["resource_type"], resource["resource_id"]):
         return True
     # A paid cluster re-grade is held as speaking_response '<s>:<q>:r<n>'.
@@ -1411,6 +1400,35 @@ async def _key_was_released_for(user_id: str, request_key: str, resource: dict) 
         session_id, _part, question = resource["resource_id"].split(":", 2)
         return str(state.get("resource_id") or "").startswith(f"{session_id}:{question[1:]}:r")
     return False
+
+
+async def _key_state_for(user_id: str, request_key: str) -> dict | None:
+    try:
+        return await _request_key_state(user_id, request_key)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[credits] request key lookup failed: %s", exc)
+        raise credits.CreditUnavailable("request_key_lookup") from exc
+
+
+async def _covered_attempt_failed(user_id: str, request_key: str, resource: dict) -> bool:
+    """``already_graded`` for a key that was only ``covered``: the cluster's
+    cover hold is committed (this answer committed it before Whisper), but
+    the route's receipt check found no saved response for this submission,
+    so the attempt failed after the commit. The retry is a re-grade of the
+    same question under a new key (free once, then charged, per plan 5.6)."""
+    state = await _key_state_for(user_id, request_key)
+    return bool(state and state.get("covered") and _same_answer(state, resource))
+
+
+async def _key_was_released_for(user_id: str, request_key: str, resource: dict) -> bool:
+    """True when ``request_key`` names a released/expired hold of THIS answer
+    (Codex P2 / CR on 68a027c0): the attempt failed and gave its credit back,
+    so the same recording may be retried under a new key. A key used for
+    another answer, or still open/committed, stays a conflict."""
+    state = await _key_state_for(user_id, request_key)
+    if not state or state.get("status") not in ("released", "expired"):
+        return False
+    return _same_answer(state, resource)
 
 
 async def _reserve_speaking_credit(user_id: str, plan: credits.ChargePlan, session_id: str,
@@ -1436,43 +1454,57 @@ async def _reserve_speaking_credit(user_id: str, plan: credits.ChargePlan, sessi
                     or not await _key_was_released_for(user_id, key, resource)):
                 raise
             key = f"{base_key}:a{attempt + 1}"
+        except credits.CreditReplay as exc:
+            if (exc.code != "already_graded" or attempt == _CREDIT_KEY_RETRIES
+                    or not await _covered_attempt_failed(user_id, key, resource)):
+                raise
+            key = f"{base_key}:a{attempt + 1}"
     raise AssertionError("unreachable")
 
 
-async def _commit_credit_hold(hold: credits.CreditHold | None, *, pay_again=None) -> None:
-    """Plan 5.6 step 3, after the save. Never raises: the grade is saved and
-    a commit failure is left to the expiry sweep.
-
-    A ``covered`` answer commits the cluster's cover hold itself (Andy's
-    review on 68a027c0, which replaces plan 5.6 step 6). If the cluster
-    opener is still grading, its later failure finds the hold committed and
-    returns nothing, so a cluster with a saved grade always costs one credit.
-    If the cover hold was already released, this answer pays for the cluster
-    with a fresh hold (``pay_again``), committed at once."""
-    for attempt in range(3):
-        if hold is None:
-            return
+async def _secure_covered_hold(hold: credits.CreditHold, user_id: str, plan: credits.ChargePlan,
+                               session_id: str, question_id: str, part: int,
+                               submission_id: str) -> credits.CreditHold:
+    """A ``covered`` answer commits its cluster's cover hold before Whisper
+    (Andy on 68a027c0 and f8170c8e; replaces plan 5.6 step 6). From then on
+    the cluster costs exactly one credit whatever happens to the opener: its
+    later release finds the hold committed and refunds nothing. If the cover
+    hold was already released or expired, this answer opens the cluster
+    itself with a new hold (key ``<submission_id>:c``): ``reserved`` is then
+    committed after the save or released on failure like any opener, and too
+    few credits is 402 before any paid call. Accepted cost: a cluster whose
+    opener and covered answers all fail after the cover commit still costs
+    one credit."""
+    for _ in range(3):
+        if not hold.covered:
+            return hold
+        if not hold.reservation_id:
+            raise credits.CreditUnavailable("covered_without_reservation")
         try:
-            if not hold.covered:
-                await hold.commit()
-                return
-            if not hold.reservation_id:
-                return
-            try:
-                # The cover hold as a plain hold: committed/already_committed
-                # pass; a released/expired one raises 'commit_not_open'.
-                await credits.CreditHold(reservation_id=hold.reservation_id).commit()
-                return
-            except credits.CreditUnavailable as exc:
-                if pay_again is None or attempt == 2 or not str(exc).startswith("commit_"):
-                    raise
-                logger.info("[credits] decision=cover_released reservation=%s status=%s",
-                            hold.reservation_id, exc)
-            hold = await pay_again()
-        except Exception as exc:  # noqa: BLE001 — the grade is saved; expiry sweep settles the hold
-            logger.warning("[credits] decision=commit_failed reservation=%s: %s",
-                           getattr(hold, "reservation_id", None), exc)
-            return
+            # The cover hold as a plain hold: committed/already_committed pass;
+            # a released/expired one raises 'commit_not_open'.
+            await credits.CreditHold(reservation_id=hold.reservation_id).commit()
+            return hold                      # covered: nothing left to settle
+        except credits.CreditUnavailable as exc:
+            if not str(exc).startswith("commit_"):
+                raise                        # transport / lookup error → 503
+            logger.info("[credits] decision=cover_released reservation=%s status=%s",
+                        hold.reservation_id, exc)
+        hold = await _reserve_speaking_credit(user_id, plan, session_id, question_id, part,
+                                              f"{submission_id}:c")
+    raise credits.CreditUnavailable("cover_unsettled")
+
+
+async def _commit_credit_hold(hold: credits.CreditHold | None) -> None:
+    """Plan 5.6 step 3, after the save. Never raises: the grade is saved and
+    a commit failure is left to the expiry sweep. A covered hold was settled
+    before the paid calls (``_secure_covered_hold``): commit is a no-op."""
+    if hold is None:
+        return
+    try:
+        await hold.commit()
+    except Exception as exc:  # noqa: BLE001 — the grade is saved; expiry sweep settles the hold
+        logger.warning("[credits] decision=commit_failed reservation=%s: %s", hold.reservation_id, exc)
 
 
 _CREDIT_MESSAGES = {
