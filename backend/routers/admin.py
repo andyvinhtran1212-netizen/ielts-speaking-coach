@@ -1606,9 +1606,37 @@ def _writing_job_id(usage_event_id: str | None) -> str | None:
     return parts[1] or None if len(parts) == 3 else None
 
 
+def _writing_feedback_service(row: dict) -> str:
+    """Ledger ``service`` for a writing_feedback row's served model.
+
+    Claude-primary Writing runs (and Deep runs whose Pass 1 Claude served) carry
+    a ``claude-*`` model_used; labelling them "gemini" misattributes spend."""
+    model = str(row.get("model_used") or "").lower()
+    if model.startswith(("claude", "anthropic")):
+        return "claude"
+    if model.startswith("gpt"):
+        return "openai"
+    return "gemini"
+
+
+def _writing_feedback_reconcilable(row: dict) -> bool:
+    """Whether a writing_feedback row can carry spend missing from the ledger.
+
+    Gemini rows keep the legacy rule. A row of any provider with job provenance
+    and a stored cost_usd is reconciled per job against ai_usage_logs, so a
+    Claude-led run whose Gemini pass ledger write failed is not dropped."""
+    if not ((row.get("tokens_input") or 0) > 0 or (row.get("tokens_output") or 0) > 0):
+        return False
+    if str(row.get("model_used") or "").startswith("gemini-"):
+        return True
+    provenance = row.get("provenance")
+    job_id = provenance.get("job_id") if isinstance(provenance, dict) else None
+    return bool(job_id) and row.get("cost_usd") is not None
+
+
 def _writing_feedback_cost(row: dict) -> float:
     cost, _ = effective_logged_cost({
-        "service": "gemini",
+        "service": _writing_feedback_service(row),
         "model": row.get("model_used"),
         "input_tokens": row.get("tokens_input"),
         "output_tokens": row.get("tokens_output"),
@@ -1820,12 +1848,7 @@ def _aggregate_usage_for_users(
 
             for row in _usage_paged(feedback_query):
                 essay_id = str(row.get("essay_id") or "")
-                if (
-                    not essay_id
-                    or not str(row.get("model_used") or "").startswith("gemini-")
-                    or not ((row.get("tokens_input") or 0) > 0
-                            or (row.get("tokens_output") or 0) > 0)
-                ):
+                if not essay_id or not _writing_feedback_reconcilable(row):
                     continue
                 supplemental_cost = _writing_feedback_supplemental_cost(
                     row,
@@ -3791,11 +3814,7 @@ async def get_ai_usage(
         reconciled_writing_rows: list[tuple[dict, float]] = []
         for row in writing_rows:
             essay_id = str(row.get("essay_id") or "")
-            if (
-                not str(row.get("model_used") or "").startswith("gemini-")
-                or not ((row.get("tokens_input") or 0) > 0
-                        or (row.get("tokens_output") or 0) > 0)
-            ):
+            if not _writing_feedback_reconcilable(row):
                 continue
             supplemental_cost = _writing_feedback_supplemental_cost(
                 row,
@@ -3838,7 +3857,7 @@ async def get_ai_usage(
             job_id = provenance.get("job_id") if isinstance(provenance, dict) else None
             logs.append({
                 "user_id": student_user_map.get(student_id or ""),
-                "service": "gemini",
+                "service": _writing_feedback_service(row),
                 "model": row.get("model_used"),
                 "input_tokens": row.get("tokens_input"),
                 "output_tokens": row.get("tokens_output"),

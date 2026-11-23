@@ -447,6 +447,74 @@ def test_ai_usage_reconciles_partially_logged_writing_job(monkeypatch):
     assert out["meta"]["supplemental_writing_rows"] == 1
 
 
+def _claude_led_writing_job(feedback_cost: float, *, provenance: dict | None) -> dict:
+    """A Claude-served Pass 1 whose ledger row exists, and a feedback row whose
+    job total may include Gemini passes that never reached the ledger."""
+    row = {
+        "id": "f1", "essay_id": "e1", "model_used": "claude-sonnet-5-5",
+        "tokens_input": 300, "tokens_output": 150, "cost_usd": feedback_cost,
+        "created_at": "2026-01-01T00:00:02Z",
+    }
+    if provenance is not None:
+        row["provenance"] = provenance
+    return {
+        "ai_usage_logs": [{
+            "id": "l1", "user_id": "u1", "service": "claude",
+            "model": "claude-sonnet-5-5", "input_tokens": 100,
+            "output_tokens": 50, "cost_usd_est": 0.03,
+            "pricing_version": "stored:test", "status": "success",
+            "feature": "writing_grading", "resource_id": "e1",
+            "usage_event_id": "writing:j1:attempt:1:run:r1:pass1:api:1",
+            "created_at": "2026-01-01T00:00:01Z",
+        }],
+        "writing_feedback": [row],
+        "writing_essays": [{"id": "e1", "student_id": "student-1"}],
+        "students": [{"id": "student-1", "user_id": "u1"}],
+        "users": [{"id": "u1", "email": "a@x", "display_name": "A"}],
+    }
+
+
+def test_ai_usage_reconciles_claude_led_writing_job(monkeypatch):
+    _install(monkeypatch, _claude_led_writing_job(0.05, provenance={"job_id": "j1"}))
+
+    out = _run(admin_module.get_ai_usage(authorization="x"))
+
+    # 0.03 reached the ledger; the unlogged 0.02 is no longer dropped because
+    # model_used is claude-*, and it is not labelled "gemini".
+    assert out["overall"]["cost_usd"] == 0.05
+    assert out["meta"]["supplemental_writing_rows"] == 1
+    assert out["overall"]["by_service"]["claude"]["cost_usd"] == 0.05
+    assert "gemini" not in out["overall"]["by_service"]
+
+
+def test_ai_usage_fully_logged_claude_writing_job_is_not_double_counted(monkeypatch):
+    _install(monkeypatch, _claude_led_writing_job(0.03, provenance={"job_id": "j1"}))
+
+    out = _run(admin_module.get_ai_usage(authorization="x"))
+
+    assert out["overall"]["cost_usd"] == 0.03
+    assert out["meta"]["supplemental_writing_rows"] == 0
+
+
+def test_ai_usage_claude_writing_row_without_job_provenance_keeps_legacy_rule(monkeypatch):
+    _install(monkeypatch, _claude_led_writing_job(0.05, provenance=None))
+
+    out = _run(admin_module.get_ai_usage(authorization="x"))
+
+    assert out["overall"]["cost_usd"] == 0.03
+    assert out["meta"]["supplemental_writing_rows"] == 0
+
+
+def test_usage_by_user_reconciles_claude_led_writing_job(monkeypatch):
+    data = _claude_led_writing_job(0.05, provenance={"job_id": "j1"})
+    data["sessions"] = []
+    _install(monkeypatch, data)
+
+    out = _run(admin_module.usage_by_user(authorization="x"))
+
+    assert out[0]["ai_cost_usd"] == 0.05
+
+
 def test_ai_usage_marks_each_truncated_source(monkeypatch):
     logs = [
         {"user_id": "u1", "service": "azure_speech",
