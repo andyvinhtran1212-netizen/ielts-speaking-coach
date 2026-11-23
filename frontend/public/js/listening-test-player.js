@@ -2071,6 +2071,9 @@ window.addEventListener('message', async (ev) => {
     return;
   }
   if (!ev.data || ev.data.type !== 'mock-flush') return;
+  // Same-origin parent only: the flush and its answer stay between this paper
+  // and the exam room that embeds it (FR-014).
+  if (ev.source !== window.parent || ev.origin !== location.origin) return;
   let clean = false;
   try {
     clean = await flushAllPendingSaves();
@@ -2080,12 +2083,10 @@ window.addEventListener('message', async (ev) => {
   // would only strand the student at 00:00. But it must not be told the paper
   // is clean when it is not: `unsaved` rides along so the runner can surface it
   // and the invigilator sees a real signal (Codex review, PR #837).
-  if (ev.source) {
-    ev.source.postMessage({
-      type: 'mock-flushed', section: 'listening',
-      unsaved: clean ? 0 : failedAnswerNumbers().length,
-    }, '*');
-  }
+  ev.source.postMessage({
+    type: 'mock-flushed', section: 'listening',
+    unsaved: clean ? 0 : failedAnswerNumbers().length,
+  }, location.origin);
 });
 
 // A4a — the retry budget is spent while offline far more often than for any
