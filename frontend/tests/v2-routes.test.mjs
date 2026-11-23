@@ -4,18 +4,26 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { ROUTES, isV2Route } from '../lib/route-registry.mjs';
-import { V2_ROUTES, isV2Path } from '../lib/v2-routes.mjs';
+import { V2_DYNAMIC, V2_ROUTES, isV2Path } from '../lib/v2-routes.mjs';
 
 const registryV2 = ROUTES.filter((entry) => entry.ui === 'v2').map((entry) => entry.route);
 
-test('V2_ROUTES is exactly the registry entries with ui: v2', () => {
-  assert.deepEqual([...V2_ROUTES].sort(), [...registryV2].sort());
+test('V2_ROUTES plus V2_DYNAMIC is exactly the registry entries with ui: v2', () => {
+  const slim = [...V2_ROUTES, ...V2_DYNAMIC.map((d) => d.route)];
+  assert.deepEqual(slim.sort(), [...registryV2].sort());
 });
 
-test('every v2 route is static, so a Set lookup matches isV2Route', () => {
-  // A dynamic v2 route needs the registry matcher here too; extend
-  // lib/v2-routes.mjs before adding one.
-  assert.deepEqual(registryV2.filter((route) => route.includes('[')), []);
+test('V2_ROUTES stays static; each dynamic v2 route has a segment-exact matcher', () => {
+  // The Set lookup is only right for static routes. A dynamic one carries its
+  // own matcher, which must take one value per segment and nothing deeper.
+  assert.deepEqual(V2_ROUTES.filter((route) => route.includes('[')), []);
+  for (const { route, regex } of V2_DYNAMIC) {
+    assert.ok(route.includes('['), `${route} is static: put it in V2_ROUTES`);
+    const sample = route.replace(/\[[^\]]+\]/g, 'x');
+    assert.equal(regex.test(sample), true, sample);
+    assert.equal(regex.test(`${sample}/y`), false, `${sample}/y`);
+    assert.equal(regex.test(sample.replace(/\/x$/, '')), false, `${route} parent`);
+  }
 });
 
 test('isV2Path agrees with isV2Route on every registry route and its variants', () => {
@@ -29,6 +37,9 @@ test('isV2Path agrees with isV2Route on every registry route and its variants', 
   assert.equal(isV2Path('/profile'), false);
   assert.equal(isV2Path('/profile/v2-pilot/extra'), false);
   assert.equal(isV2Path(''), false);
+  assert.equal(isV2Path('/enroll/AVER-ABC234'), true);
+  assert.equal(isV2Path('/enroll'), false);
+  assert.equal(isV2Path('/enroll/AVER-ABC234/x'), false);
 });
 
 test('the navigation bridge reads the slim list, not the registry', async () => {

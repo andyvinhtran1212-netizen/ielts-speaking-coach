@@ -182,7 +182,7 @@ export const config = {
   matcher: [
     '/grammar/:category/:slug',
     {
-      source: '/:section(account|admin|advanced-vocabulary|course-exercises|d1-exercise|exam|exercises|flashcard-study|flashcards|full-test|full-test-result|grammar-checkup|grammar-lessons|help|home|instructor|listening|mock|mock-exam|my-class|onboarding|practice|profile|progress|quiz|reading|result|speaking|start|writing)/:path*',
+      source: '/:section(account|admin|advanced-vocabulary|course-exercises|d1-exercise|enroll|exam|exercises|flashcard-study|flashcards|full-test|full-test-result|grammar-checkup|grammar-lessons|help|home|instructor|listening|mock|mock-exam|my-class|onboarding|practice|profile|progress|quiz|reading|result|speaking|start|writing)/:path*',
       missing: [{ type: 'host', value: '(?:www\\.)?averlearning\\.com' }],
     },
     {
