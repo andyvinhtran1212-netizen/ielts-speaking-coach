@@ -158,7 +158,8 @@ def _shape(rows: list[dict]) -> dict:
             "name": st.get("full_name") or "—",
             "cohort": labels.get(cid) if cid else None,
             "source": {"kind": kind,
-                       "label": labels.get(cid) if kind == "cohort" else
+                       # A deleted class leaves the row as a snapshot (445).
+                       "label": (labels.get(cid) if cid else "Lớp đã xoá") if kind == "cohort" else
                        ("Học viên lẻ" if kind == "learner" else "Nhóm")},
             "skills": list(r.get("skills") or []),
             "selected": bool(r.get("selected")),
@@ -184,8 +185,10 @@ def get_audience(exam_id: str) -> dict:
 def _window(raw: Optional[dict]) -> dict:
     if not raw:
         return {}
-    out = {"open_from": raw.get("open_from"), "open_until": raw.get("open_until")}
-    f, u = assign_svc._parse_ts(out["open_from"]), assign_svc._parse_ts(out["open_until"])
+    # Only the bounds sent are written: sending open_from alone keeps each
+    # row's open_until.
+    out = {k: raw[k] for k in ("open_from", "open_until") if raw.get(k) is not None}
+    f, u = assign_svc._parse_ts(out.get("open_from")), assign_svc._parse_ts(out.get("open_until"))
     if f and u and u < f:
         raise AudienceError("invalid_window", "Khoảng mở không hợp lệ: 'đóng lúc' sớm hơn 'mở từ'.")
     return out
@@ -194,8 +197,11 @@ def _window(raw: Optional[dict]) -> dict:
 def update_audience(exam_id: str, body: dict, actor_id: str) -> dict:
     """Apply one PATCH: add classes / learners, refresh classes, set rows, window.
 
-    Validates everything before the first write, so a refused request changes
-    nothing. Returns the audience as GET does."""
+    Validates everything, including every rule the assignment mirror enforces,
+    before the first write, so a refused request changes nothing. Returns the
+    audience as GET does; on a published self-paced exam it adds
+    ``mirror_failed``, true when the list was stored but writing it into
+    ``mock_exam_assignments`` failed (re-send the PATCH to retry)."""
     _require_enabled()
     exam_id = _uuid(exam_id)
     exam = _load_exam(exam_id)
@@ -269,16 +275,7 @@ def update_audience(exam_id: str, body: dict, actor_id: str) -> dict:
             merged = {**row, **edits.get(sid, {}), **window}
             if merged.get("selected") and merged.get("user_id"):
                 prospective.append(merged)
-        servable = set(assign_svc.servable_skills(exam))
-        for row in prospective:
-            assignable = [s for s in row.get("skills") or [] if s in _ASSIGNABLE]
-            if assignable and not row.get("open_until"):
-                raise AudienceError("window_required",
-                                    "Kỳ làm trong khoảng thời gian cần có 'đóng lúc' trước khi giao.")
-            if set(assignable) - servable:
-                raise AudienceError("skill_not_servable",
-                                    "Kỳ thi chưa có đề cho một kỹ năng đã chọn.",
-                                    student_id=row.get("student_id"))
+        _precheck_mirror(exam, prospective)
 
     # 4. Writes.
     if additions:
@@ -291,14 +288,50 @@ def update_audience(exam_id: str, body: dict, actor_id: str) -> dict:
             .eq("purpose", "main").execute()
     rows = _rows(exam_id)
     _keep_cohort_pointer(exam, cohort_ids)
+    mirror_error = None
     if mirror:
-        deselected = {str(existing[sid]["user_id"]) for sid, ch in edits.items()
-                      if sid in existing and ch.get("selected") is False
-                      and existing[sid].get("selected") and existing[sid].get("user_id")}
-        _mirror_assignments(exam, rows, actor_id, deselected)
-    logger.info("mock_exam_audience_update exam=%s added=%d edited=%d window=%s",
-                exam_id, len(additions), len(edits), bool(window))
-    return _shape(rows)
+        # Un-assign learners this request deselected, and learners whose
+        # assignable skills this request emptied (e.g. Speaking only).
+        released = {str(existing[sid]["user_id"]) for sid, ch in edits.items()
+                    if sid in existing and existing[sid].get("user_id")
+                    and existing[sid].get("selected")
+                    and (ch.get("selected") is False
+                         or ("skills" in ch and not set(ch["skills"]) & set(_ASSIGNABLE)))}
+        try:
+            _mirror_assignments(exam, rows, actor_id, released)
+        except Exception as exc:  # noqa: BLE001
+            # The audience is already written (PostgREST has no transaction
+            # across these calls). Every rule assign() enforces was checked
+            # above, so this is an I/O failure: report it truthfully with the
+            # list as stored instead of an error that implies nothing changed.
+            # Re-sending the same PATCH re-runs the idempotent mirror.
+            logger.exception("[audience] assignment mirror failed exam=%s", exam_id)
+            mirror_error = str(exc)[:200]
+    logger.info("mock_exam_audience_update exam=%s added=%d edited=%d window=%s mirror_failed=%s",
+                exam_id, len(additions), len(edits), bool(window), bool(mirror_error))
+    out = _shape(rows)
+    if mirror:
+        out["mirror_failed"] = mirror_error is not None
+    return out
+
+
+def _precheck_mirror(exam: dict, rows: list[dict]) -> None:
+    """Run assign()'s own refusals before anything is written (CR R2)."""
+    servable = set(assign_svc.servable_skills(exam))
+    for row in rows:
+        assignable = [s for s in row.get("skills") or [] if s in _ASSIGNABLE]
+        if not assignable:
+            continue
+        if set(assignable) - servable:
+            raise AudienceError("skill_not_servable",
+                                "Kỳ thi chưa có đề cho một kỹ năng đã chọn.",
+                                student_id=row.get("student_id"))
+        try:
+            assign_svc._validate_window(row.get("open_from"), row.get("open_until"))
+        except assign_svc.InvalidWindowError as exc:
+            raise AudienceError("window_required" if not row.get("open_until")
+                                else "invalid_window", str(exc),
+                                student_id=row.get("student_id")) from exc
 
 
 def _keep_cohort_pointer(exam: dict, added_cohorts: list[str]) -> None:
@@ -314,7 +347,7 @@ def _mirror_assignments(exam: dict, rows: list[dict], actor_id: str,
     """Dual write into mock_exam_assignments for a self-paced exam.
 
     Every selected row is upserted (idempotent per user). Only learners this
-    request deselected are un-assigned: an assignment made through the old
+    request deselected or emptied are un-assigned: an assignment made through the old
     ``/assignments`` path before the exam had audience rows is left alone.
     Un-assigning voids a sitting already opened, exactly as the existing
     "gỡ giao" does."""
@@ -333,7 +366,7 @@ def _mirror_assignments(exam: dict, rows: list[dict], actor_id: str,
             assign_svc.assign(exam_id, upserts, created_by=actor_id)
         except (assign_svc.InvalidWindowError, assign_svc.UnservableSkillError) as exc:
             raise AudienceError("assignment_refused", str(exc)) from exc
-    for uid in deselected - set(wanted):
+    for uid in deselected - {u["user_id"] for u in upserts}:
         assign_svc.remove(exam_id, uid, admin_id=actor_id)
 
 
@@ -392,6 +425,7 @@ def schedule(exam_id: str, actor_id: str) -> dict:
                                 "cho tới khi cổng vào phòng của học viên đọc danh sách mới.",
                                 outside=len(outside))
     if mock_exam_modes.is_self_paced(exam.get("exam_mode")):
+        _precheck_mirror(exam, [r for r in rows if r.get("selected") and r.get("user_id")])
         _mirror_assignments(exam, rows, actor_id, set())
     exam_svc.admin_update_exam(exam_id, {"status": "published"}, actor_id)
     logger.info("mock_exam_schedule exam=%s selected=%d", exam_id,
@@ -403,22 +437,26 @@ def schedule(exam_id: str, actor_id: str) -> dict:
 # ── Monitor roster ──────────────────────────────────────────────────────────
 
 
-def expected_roster(exam: dict) -> Optional[dict]:
-    """Roster for ``admin_live_monitor`` from audiences, or None to fall back.
+def expected_roster(exam: dict) -> tuple[Optional[dict], str]:
+    """(roster, source) for ``admin_live_monitor``.
 
-    None (flag off, lookup error, or no audience row yet) keeps the old
-    cohort/assignment roster, so an old one-class exam reads exactly as before.
-    Keys match ``mock_exam_service._expected_roster``."""
+    ``(None, "legacy")`` when the flag is off or the exam has no audience row
+    yet: the old cohort/assignment roster is used, so an old one-class exam
+    reads exactly as before. ``(None, "fallback_error")`` when the audience
+    read failed: the old roster is shown, and the monitor reports the source so
+    the console never presents it as the real list. Keys match
+    ``mock_exam_service._expected_roster``."""
     if not enabled():
-        return None
+        return None, "legacy"
     try:
-        rows = [r for r in _rows(str(exam["id"])) if r.get("selected")]
-        if not rows:
-            return None
+        all_rows = _rows(str(exam["id"]))
+        if not all_rows:
+            return None, "legacy"
+        rows = [r for r in all_rows if r.get("selected")]
         students = _students(r["student_id"] for r in rows)
     except Exception:  # noqa: BLE001
         logger.exception("[audience] roster lookup failed exam=%s", exam.get("id"))
-        return None
+        return None, "fallback_error"
     out: dict = {}
     for r in rows:
         uid = r.get("user_id")
@@ -427,4 +465,4 @@ def expected_roster(exam: dict) -> Optional[dict]:
                     "name": (students.get(str(r["student_id"])) or {}).get("full_name"),
                     "skills": list(r.get("skills") or []),
                     "open_until": r.get("open_until")}
-    return out
+    return out, "audiences"

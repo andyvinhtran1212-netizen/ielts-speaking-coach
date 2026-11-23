@@ -72,6 +72,9 @@ CREATE TABLE IF NOT EXISTS public.mock_exam_audiences (
     source_kind      text NOT NULL,
     source_cohort_id uuid REFERENCES public.cohorts(id) ON DELETE SET NULL,
     source_group_id  uuid,
+    -- Set when the source class is deleted (FK SET NULL): the row keeps its
+    -- snapshot and says where it came from (CR #2565 comment 7098971861).
+    source_removed_at timestamptz,
     skills           text[] NOT NULL,
     selected         boolean NOT NULL DEFAULT true,
     excluded_reason  text,
@@ -84,7 +87,7 @@ CREATE TABLE IF NOT EXISTS public.mock_exam_audiences (
     CONSTRAINT mock_exam_audiences_source_kind_valid
         CHECK (source_kind IN ('cohort', 'learner', 'group')),
     CONSTRAINT mock_exam_audiences_source_matches
-        CHECK ((source_kind = 'cohort') = (source_cohort_id IS NOT NULL)
+        CHECK ((source_kind = 'cohort') = (source_cohort_id IS NOT NULL OR source_removed_at IS NOT NULL)
                AND (source_kind = 'group') = (source_group_id IS NOT NULL)),
     CONSTRAINT mock_exam_audiences_skills_valid
         CHECK (cardinality(skills) >= 1
@@ -100,8 +103,11 @@ CREATE TABLE IF NOT EXISTS public.mock_exam_audiences (
 -- Deleting a users row sets user_id NULL (FK action). A row that was still
 -- selected would then break mock_exam_audiences_account_to_select and block the
 -- user delete; instead the row stays visible and becomes "no account"
--- (CR #2565). Only that transition is rewritten: a direct write of a NULL
--- user_id with selected=true still fails the CHECK.
+-- (CR #2565). Deleting a cohort sets source_cohort_id NULL; the row keeps its
+-- historical snapshot (source_kind stays 'cohort') and gets source_removed_at,
+-- so mock_exam_audiences_source_matches still holds. Only those two FK
+-- transitions are rewritten: a direct write of a NULL user_id with
+-- selected=true, or of a cohort row without a class, still fails the CHECKs.
 CREATE OR REPLACE FUNCTION public.fn_mock_exam_audiences_account_removed()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -112,6 +118,10 @@ BEGIN
         NEW.selected := false;
         NEW.excluded_reason := 'no_account';
     END IF;
+    IF OLD.source_cohort_id IS NOT NULL AND NEW.source_cohort_id IS NULL
+       AND NEW.source_kind = 'cohort' AND NEW.source_removed_at IS NULL THEN
+        NEW.source_removed_at := now();
+    END IF;
     RETURN NEW;
 END;
 $fn$;
@@ -119,7 +129,7 @@ REVOKE ALL ON FUNCTION public.fn_mock_exam_audiences_account_removed() FROM PUBL
 
 DROP TRIGGER IF EXISTS trg_mock_exam_audiences_account_removed ON public.mock_exam_audiences;
 CREATE TRIGGER trg_mock_exam_audiences_account_removed
-    BEFORE UPDATE OF user_id ON public.mock_exam_audiences
+    BEFORE UPDATE OF user_id, source_cohort_id ON public.mock_exam_audiences
     FOR EACH ROW EXECUTE FUNCTION public.fn_mock_exam_audiences_account_removed();
 
 CREATE INDEX IF NOT EXISTS idx_mock_exam_audiences_exam
