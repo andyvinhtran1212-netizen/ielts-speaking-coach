@@ -12918,6 +12918,131 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/mock-exams/{exam_id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Exam Events
+         * @description Nhật ký tab: the exam timeline, newest first, optionally by kind.
+         */
+        get: operations["exam_events_admin_mock_exams__exam_id__events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-exams/{exam_id}/extra-time": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Extra Time
+         * @description FR-146: extra time on the section one person is running (self-paced).
+         *     A live room returns 409 live_extra_time_unsupported: collect takes the whole
+         *     room at once (awaiting the owner's decision, see the PR).
+         */
+        post: operations["add_extra_time_admin_mock_exams__exam_id__extra_time_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-exams/{exam_id}/room-message": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send Room Message
+         * @description FR-146: a message to everyone in an open live room.
+         */
+        post: operations["send_room_message_admin_mock_exams__exam_id__room_message_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-exams/{exam_id}/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Release Exam
+         * @description FR-148: hand results back for the whole exam. PUBLISHES to learners.
+         *     The per-sitting gates are those of bulk-release; the response lists every
+         *     skipped sitting with its reason, and the caller must show it.
+         */
+        post: operations["release_exam_admin_mock_exams__exam_id__release_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-exams/sittings/{sitting_id}/score-edit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Score Edit
+         * @description FR-148: change one band after release, with the reason logged.
+         */
+        post: operations["score_edit_admin_mock_exams_sittings__sitting_id__score_edit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-exams/{exam_id}/analysis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Exam Analysis
+         * @description FR-147: band distribution (from band_dist_min_papers papers), medians,
+         *     pacing. Fields this PR does not compute are null, not empty.
+         */
+        get: operations["exam_analysis_admin_mock_exams__exam_id__analysis_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/mock-reviews": {
         parameters: {
             query?: never;
@@ -18016,6 +18141,32 @@ export interface components {
                 [key: string]: unknown;
             } | null;
         };
+        /** ExamReleaseBody */
+        ExamReleaseBody: {
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "complete_only" | "include_partial";
+            /** Confirm Title */
+            confirm_title: string;
+            /** Request Key */
+            request_key: string;
+        };
+        /** ExtraTimeBody */
+        ExtraTimeBody: {
+            /** Sitting Id */
+            sitting_id: string;
+            /**
+             * Section
+             * @enum {string}
+             */
+            section: "listening" | "reading" | "writing";
+            /** Seconds */
+            seconds: number;
+            /** Reason */
+            reason: string;
+        };
         /** FanOutBody */
         FanOutBody: {
             /**
@@ -22256,12 +22407,29 @@ export interface components {
              */
             version_id: string;
         };
+        /** RoomMessageBody */
+        RoomMessageBody: {
+            /** Body */
+            body: string;
+        };
         /** ScheduleSlot */
         ScheduleSlot: {
             /** Dow */
             dow: number;
             /** Start */
             start: string;
+        };
+        /** ScoreEditBody */
+        ScoreEditBody: {
+            /**
+             * Skill
+             * @enum {string}
+             */
+            skill: "listening" | "reading" | "writing" | "speaking";
+            /** New Band */
+            new_band: number;
+            /** Reason */
+            reason: string;
         };
         /** SearchHit */
         SearchHit: {
@@ -38773,7 +38941,7 @@ export interface operations {
                     "application/json": components["schemas"]["DictationPolicyErrorResponse"];
                 };
             };
-            /** @description Unprocessable Entity */
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -38831,7 +38999,7 @@ export interface operations {
                     "application/json": components["schemas"]["DictationPolicyErrorResponse"];
                 };
             };
-            /** @description Unprocessable Entity */
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -38924,7 +39092,7 @@ export interface operations {
                     "application/json": components["schemas"]["DictationPolicyErrorResponse"];
                 };
             };
-            /** @description Unprocessable Entity */
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -38977,7 +39145,7 @@ export interface operations {
                     "application/json": components["schemas"]["DictationPolicyErrorResponse"];
                 };
             };
-            /** @description Unprocessable Entity */
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -39028,7 +39196,7 @@ export interface operations {
                     "application/json": components["schemas"]["DictationPolicyErrorResponse"];
                 };
             };
-            /** @description Unprocessable Entity */
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -39079,7 +39247,7 @@ export interface operations {
                     "application/json": components["schemas"]["DictationPolicyErrorResponse"];
                 };
             };
-            /** @description Unprocessable Entity */
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -42744,7 +42912,7 @@ export interface operations {
                     "application/json": components["schemas"]["GrammarRevisionErrorResponse"];
                 };
             };
-            /** @description Unprocessable Entity */
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -42808,7 +42976,7 @@ export interface operations {
                     "application/json": components["schemas"]["GrammarRevisionErrorResponse"];
                 };
             };
-            /** @description Unprocessable Entity */
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -42872,7 +43040,7 @@ export interface operations {
                     "application/json": components["schemas"]["GrammarRevisionErrorResponse"];
                 };
             };
-            /** @description Unprocessable Entity */
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -47158,6 +47326,223 @@ export interface operations {
                 "application/json": components["schemas"]["VoidBody"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    exam_events_admin_mock_exams__exam_id__events_get: {
+        parameters: {
+            query?: {
+                kind?: string[] | null;
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                exam_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_extra_time_admin_mock_exams__exam_id__extra_time_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                exam_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtraTimeBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_room_message_admin_mock_exams__exam_id__room_message_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                exam_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoomMessageBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    release_exam_admin_mock_exams__exam_id__release_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                exam_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExamReleaseBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    score_edit_admin_mock_exams_sittings__sitting_id__score_edit_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                sitting_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScoreEditBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    exam_analysis_admin_mock_exams__exam_id__analysis_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                exam_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
