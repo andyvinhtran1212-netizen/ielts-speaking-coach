@@ -48,8 +48,8 @@ J213 = "SkillNotInSittingError keys clipped by _clip_skill_key (PC-J213, PR #201
 ALLOWED: dict[tuple[str, str, str], tuple[int, str]] = {
     # path, enclosing function, interpolated expression → (count, reason)
     ("routers/admin/access_codes.py", "generate_access_codes", "str(e)"): (1, "validate_permissions_or_raise: refused values via clip_user_values"),
-    ("routers/admin/__init__.py", "generate_and_assign_code", "str(e)"): (1, "validate_permissions_or_raise: refused values via clip_user_values"),
-    ("routers/admin/__init__.py", "patch_access_code", "str(e)"): (1, "validate_permissions_or_raise: refused values via clip_user_values"),
+    ("routers/admin/access_code_admin.py", "generate_and_assign_code", "str(e)"): (1, "validate_permissions_or_raise: refused values via clip_user_values"),
+    ("routers/admin/access_code_admin.py", "patch_access_code", "str(e)"): (1, "validate_permissions_or_raise: refused values via clip_user_values"),
     ("routers/admin_ai.py", "patch_ai_model_override", "str(exc)"): (1, "OverrideValidationError names allowlisted values only (ai_model_overrides.validate)"),
     ("routers/admin_class_assignments.py", "_pick_chosen_questions", "body.part; want"): (1, TYPED_INT),
     ("routers/admin_class_assignments.py", "_resolve_course_bank", "str(exc)"): (1, APP_AUTHORED),
@@ -138,8 +138,8 @@ ALLOWED_B: dict[tuple[str, str, str], tuple[int, str]] = {
     ("main.py", "permission_error_handler", "str(_uuid.uuid4())"): (1, "server-generated request id"),
     ("routers/admin/__init__.py", "_run_regrade_response", "response_id"): (2, DB_VALUE),
     ("routers/admin/_common.py", "_validate_code_type_combo", "code_type"): (1, VALIDATED + " (in _VALID_CODE_TYPES; the refusing branch clips)"),
-    ("routers/admin/__init__.py", "delete_access_code", "active_count"): (1, SERVER_NUMBER),
-    ("routers/admin/__init__.py", "hard_delete_access_code", "active_count"): (1, SERVER_NUMBER),
+    ("routers/admin/access_code_admin.py", "delete_access_code", "active_count"): (1, SERVER_NUMBER),
+    ("routers/admin/access_code_admin.py", "hard_delete_access_code", "active_count"): (1, SERVER_NUMBER),
     ("routers/admin_class_assignments.py", "_resolve_course_bank", "bank['title']; dup[0].get('title')"): (1, DB_VALUE),
     ("routers/admin_class_assignments.py", "_resolve_speaking_lesson_set", "missing"): (1, SERVER_NUMBER),
     ("routers/admin_class_assignments.py", "_resolve_speaking_lesson_set", "st['title']; dup[0].get('title')"): (1, DB_VALUE),
