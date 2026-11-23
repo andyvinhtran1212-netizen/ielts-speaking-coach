@@ -207,17 +207,21 @@ def test_confirm_answers(client, world, answer, status, code):
 
 
 def test_request_info_defaults_the_deadline_and_checks_underpaid(client, world):
+    # The route takes "now" while it runs; bracket that moment instead of the
+    # module-load NOW, which can be minutes old in a full suite run.
+    before = datetime.now(timezone.utc)
     res = client.post(f"/admin/enrollment-orders/{OID}/request-info",
                       json={"info_kind": "not_found", "message": "Chưa thấy khoản chuyển"}, headers=AUTH)
     assert res.status_code == 200 and res.json()["order"]["status"] == "needs_info"
     params = world["db"].rpcs[-1][1]
+    after = datetime.now(timezone.utc)
     deadline = datetime.fromisoformat(params["p_supplement_by"])
-    assert timedelta(hours=71, minutes=59) < deadline - NOW < timedelta(hours=72, minutes=1)
+    assert before + timedelta(hours=72) <= deadline <= after + timedelta(hours=72)
     world["order"]["status"] = "awaiting_transfer"
     res = client.post(f"/admin/enrollment-orders/{OID}/request-info",
                       json={"info_kind": "underpaid", "message": "Thiếu tiền"}, headers=AUTH)
     assert res.status_code == 422 and res.json()["detail"]["error_code"] == "received_required"
-    past = (NOW - timedelta(hours=1)).isoformat()
+    past = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
     res = client.post(f"/admin/enrollment-orders/{OID}/request-info",
                       json={"info_kind": "other", "message": "abc", "supplement_by": past}, headers=AUTH)
     assert res.status_code == 422 and res.json()["detail"]["error_code"] == "invalid_supplement_by"

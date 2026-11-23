@@ -443,7 +443,18 @@ def test_14_kept_sessions_filling_a_page_do_not_starve_later_candidates(flag, ac
         sweep_db.tables["sessions"].append(_session(f"a{n:04d}", 100, user_id=user))
     sweep_db.tables["sessions"].append(_session("z-default", 100, user_id="default-learner"))
     assert _swept(sweep_db) == ["z-default"]
-    assert sum(1 for c in sweep_db.calls if c == ("sessions", "select")) == 2
+    assert sum(1 for c in sweep_db.calls if c == ("sessions", "select")) == 3   # 1,000 + 1 + empty
     # Audio pages the same way (no window involved).
     eligible = sweep._eligible("audio_purged_at", retention.RETENTION_AUDIO_DAYS, "is_audio_purged")
     assert len(eligible) == 1001 and eligible[-1]["id"] == "z-default"
+
+
+def test_14b_a_response_cap_below_the_page_size_does_not_end_the_read_early(flag, access, sweep_db):
+    """CR nit on #2585: with max-rows 3 and pages of 1,000, every response is
+    short; the read goes on until an empty page and skips no row."""
+    sweep_db.max_rows = 3
+    for n in range(7):
+        sweep_db.tables["sessions"].append(_session(f"s{n}", 100, user_id=f"d{n}"))
+    assert _swept(sweep_db) == [f"s{n}" for n in range(7)]
+    eligible = sweep._eligible("audio_purged_at", retention.RETENTION_AUDIO_DAYS, "is_audio_purged")
+    assert [r["id"] for r in eligible] == [f"s{n}" for n in range(7)]
