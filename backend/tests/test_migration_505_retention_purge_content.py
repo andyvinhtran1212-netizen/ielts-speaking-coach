@@ -70,9 +70,15 @@ def test_one_transaction_one_definer_rpc_service_role_only():
 
 def test_every_lock_comes_before_the_first_check():
     function = _body(FORWARD).split("AS $$", 1)[1]
+    # The advisory lock comes before every row lock (384/387 order; a session
+    # row locked first deadlocks with fn_credit_reserve, SA #2624).
+    assert function.index("public.fn_credit_lock_user(v_user)") < function.index("FOR UPDATE")
     order = [function.index(token) for token in (
-        "FROM public.sessions s WHERE s.id = p_session_id FOR UPDATE",
+        "SELECT s.user_id INTO v_user FROM public.sessions s WHERE s.id = p_session_id;",
         "public.fn_credit_lock_user(v_user)",
+        "FROM public.sessions s WHERE s.id = p_session_id FOR UPDATE",
+        "v_owner IS DISTINCT FROM v_user",
+        "'already_purged'",
         "FROM public.users u WHERE u.id = v_user FOR UPDATE",
         "FROM public.entitlements e WHERE e.user_id = v_user FOR UPDATE",
         "'live_access'",
@@ -365,6 +371,42 @@ async def test_a_write_in_flight_is_waited_for_and_then_seen(pg):
     await other.execute("INSERT INTO students (user_id) VALUES ($1)", stranger)
     assert (await asyncio.wait_for(pg.purge(session, con=await pg.connect()), 5))["status"] == "purged"
     await tx.rollback()
+
+
+@pytest.mark.asyncio
+async def test_a_regrade_holding_the_credit_lock_does_not_deadlock_with_a_purge(pg):
+    """SA #2624: fn_credit_reserve takes the learner's advisory lock, then its
+    cluster row needs KEY SHARE on the session. The purge waits on the
+    advisory lock before it locks the session row, so both finish."""
+    product = await pg.product(kind="online")
+    user, session = await pg.learner()
+    await pg.entitlement(user, product, credits=1)
+    regrade = await pg.connect()
+    tx = regrade.transaction()
+    await tx.start()
+    await regrade.execute("SELECT fn_credit_lock_user($1)", user)
+    purge = asyncio.create_task(pg.purge(session, con=await pg.connect()))
+    await asyncio.sleep(0.5)
+    assert not purge.done(), "the purge did not wait for the learner's credit lock"
+    reserved = await asyncio.wait_for(pg.reserve(user, "speaking_cluster", f"{session}:p1:q{uuid4()}",
+                                                 con=regrade), 10)
+    assert reserved["status"] == "reserved"
+    await tx.commit()
+    assert await asyncio.wait_for(purge, 10) == {"status": "kept", "reason": "window_open"}
+    # The other order: a purge holding its locks makes the regrade wait, then it goes on.
+    user, session = await pg.learner()
+    await pg.ended(user, product, 100)
+    held = await pg.connect()
+    tx = held.transaction()
+    await tx.start()
+    assert (await pg.purge(session, con=held))["status"] == "purged"
+    other = await pg.connect()
+    grant = asyncio.create_task(pg.reserve(user, "speaking_cluster", f"{session}:p1:q{uuid4()}", con=other))
+    await asyncio.sleep(0.5)
+    assert not grant.done()
+    await tx.commit()
+    # The learner's only course ended, so the regrade answers no_entitlement, after the purge.
+    assert await asyncio.wait_for(grant, 10) == {"status": "no_entitlement"}
 
 
 @pytest.mark.asyncio

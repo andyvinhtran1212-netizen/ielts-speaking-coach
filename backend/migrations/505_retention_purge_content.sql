@@ -24,12 +24,20 @@
 -- rollback/505_retention_purge_content.sql (drops the RPC; nothing else).
 --
 -- Locking, in this order (the order of 384/387: advisory lock before rows):
---   1. the sessions row FOR UPDATE (two sweeps cannot purge one session twice);
---   2. fn_credit_lock_user(owner): the lock of every 384/387 grant, confirm,
---      extend and class conversion;
+--   0. read the session's owner without a lock;
+--   1. fn_credit_lock_user(owner): the lock of every 384/387 grant, confirm,
+--      extend, reserve and class conversion. It comes before any row lock:
+--      fn_credit_reserve holds it and then inserts credit_cluster_members,
+--      whose FK check needs KEY SHARE on this sessions row, so a session row
+--      lock taken first would deadlock with a regrade (SA #2624);
+--   2. the sessions row FOR UPDATE (two sweeps cannot purge one session
+--      twice), then the owner is read again: if it changed, keep;
 --   3. the owner's users row FOR UPDATE: any insert that references the user
 --      (entitlements, user_code_assignments, students) waits on its foreign
---      key check until this transaction ends;
+--      key check until this transaction ends. 384's header keeps users free
+--      of FOR UPDATE because of the 332/341 triggers; a row lock fires no
+--      trigger, and this lock is taken last-but-one, after the advisory lock
+--      every 384/387 writer takes first, so it adds no new wait order;
 --   4. the owner's students rows, their memberships, assignments,
 --      entitlements and used_by codes FOR UPDATE: a membership insert waits on
 --      its student foreign key; a reactivation, extension or revoke-undo of an
@@ -37,6 +45,12 @@
 -- After the locks every check reads committed rows (READ COMMITTED, one
 -- snapshot per statement), so a write that committed first is seen and one
 -- that comes later waits for the purge to commit. Transaction-scoped only.
+-- Known limits (rare, recorded rather than locked, SA #2624 nit 2): un-
+-- archiving a class (cohorts.archived_at back to NULL) and un-revoking or
+-- unlocking a code the learner holds only through an assignment are not
+-- waited for. Locking cohorts or those codes here would invert 387's order
+-- (cohort row before the member's advisory lock). Both keep-side checks are
+-- still read after every lock above.
 BEGIN;
 SET LOCAL lock_timeout = '5s';
 -- Builtins only; every object below is schema-qualified.
@@ -67,6 +81,7 @@ $precondition$;
 -- Statuses: purged (+responses = rows scrubbed), already_purged, not_found,
 -- kept (+reason):
 --   * no_owner     the session has no user_id;
+--   * owner_changed the session's user_id changed before its row was locked;
 --   * live_access  an active membership of an unarchived class, or a live
 --                  legacy code (product_id NULL; held through an active
 --                  assignment, or used_by with no assignment row at all;
@@ -88,25 +103,34 @@ AS $$
 DECLARE
     v_now timestamptz := statement_timestamp();
     v_user uuid;
+    v_owner uuid;
     v_purged timestamptz;
     v_rows integer;
 BEGIN
     IF p_session_id IS NULL OR p_after_expiry_days IS NULL OR p_after_expiry_days NOT BETWEEN 0 AND 3650 THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'retention_purge_invalid_argument';
     END IF;
-    SELECT s.user_id, s.content_purged_at INTO v_user, v_purged
-      FROM public.sessions s WHERE s.id = p_session_id FOR UPDATE;
+    -- 0. The owner, unlocked: the advisory lock must come before any row lock.
+    SELECT s.user_id INTO v_user FROM public.sessions s WHERE s.id = p_session_id;
     IF NOT FOUND THEN
         RETURN jsonb_build_object('status', 'not_found');
-    END IF;
-    IF v_purged IS NOT NULL THEN
-        RETURN jsonb_build_object('status', 'already_purged');
     END IF;
     IF v_user IS NULL THEN
         RETURN jsonb_build_object('status', 'kept', 'reason', 'no_owner');
     END IF;
 
     PERFORM public.fn_credit_lock_user(v_user);
+    SELECT s.user_id, s.content_purged_at INTO v_owner, v_purged
+      FROM public.sessions s WHERE s.id = p_session_id FOR UPDATE;
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object('status', 'not_found');
+    END IF;
+    IF v_owner IS DISTINCT FROM v_user THEN
+        RETURN jsonb_build_object('status', 'kept', 'reason', 'owner_changed');
+    END IF;
+    IF v_purged IS NOT NULL THEN
+        RETURN jsonb_build_object('status', 'already_purged');
+    END IF;
     PERFORM 1 FROM public.users u WHERE u.id = v_user FOR UPDATE;
     PERFORM 1 FROM public.students st WHERE st.user_id = v_user FOR UPDATE;
     PERFORM 1 FROM public.student_cohort_memberships m
