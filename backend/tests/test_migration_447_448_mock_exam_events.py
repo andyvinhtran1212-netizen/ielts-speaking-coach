@@ -31,9 +31,15 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authentic
 CREATE TABLE public.mock_exams (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
 CREATE TABLE public.mock_exam_sittings (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     mock_exam_id uuid REFERENCES public.mock_exams(id) ON DELETE CASCADE);
+CREATE TABLE public.mock_exam_reviews (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    sitting_id uuid UNIQUE REFERENCES public.mock_exam_sittings(id) ON DELETE CASCADE,
+    status text NOT NULL, final_bands jsonb NOT NULL DEFAULT '{}');
 INSERT INTO public.mock_exams VALUES ('00000000-0000-0000-0000-0000000000e1');
 INSERT INTO public.mock_exam_sittings VALUES ('00000000-0000-0000-0000-0000000000f1',
     '00000000-0000-0000-0000-0000000000e1');
+INSERT INTO public.mock_exam_reviews (sitting_id, status, final_bands) VALUES
+    ('00000000-0000-0000-0000-0000000000f1', 'released',
+     '{"listening": 6.0, "reading": 6.5, "writing": 6.0, "overall": 6.0}');
 """
 EXAM = "'00000000-0000-0000-0000-0000000000e1'"
 SITTING = "'00000000-0000-0000-0000-0000000000f1'"
@@ -199,3 +205,34 @@ def test_rollbacks_guard_then_drop(pg):
     assert one(pg, "SELECT to_regclass('public.mock_exam_events') IS NULL;") == "t"
     pg(UP447)
     pg(UP448)  # re-applies cleanly
+
+
+OLD = '{"listening": 6.0, "reading": 6.5, "writing": 6.0, "overall": 6.0}'
+NEW = '{"listening": 6.0, "reading": 7.0, "writing": 6.0, "overall": 6.5}'
+
+
+def _edit(expected=OLD, new=NEW, exam=EXAM):
+    return (f"SELECT public.fn_mock_exam_score_edit({exam}, {SITTING}, 'reading', ' chấm sót câu 12 ', "
+            f"NULL, '{expected}'::jsonb, '{new}'::jsonb)->>'final_bands';")
+
+
+def test_score_edit_is_atomic_and_compare_and_set(pg):
+    pg(UP447)
+    pg(UP448)
+    assert '"reading": 7.0' in one(pg, _edit(), role="service_role")
+    assert one(pg, "SELECT skill || '|' || old_band || '|' || new_band || '|' || reason "
+                   "FROM public.mock_exam_score_edits;") == "reading|6.5|7.0|chấm sót câu 12"
+    assert one(pg, "SELECT kind || '|' || (payload->>'new_band') FROM public.mock_exam_events;") \
+        == "score_edited|7.0"
+    # The bands moved: the same request is a conflict, and nothing is logged twice.
+    stale = pg(_edit(), check=False, role="service_role")
+    assert stale.returncode != 0 and "mock_score_edit_conflict" in stale.stderr
+    # A review that is not released cannot be edited; nor a sitting of another exam.
+    pg("UPDATE public.mock_exam_reviews SET status = 'reviewed';")
+    assert pg(_edit(expected=NEW), check=False).returncode != 0
+    pg("UPDATE public.mock_exam_reviews SET status = 'released';")
+    other = "'00000000-0000-0000-0000-0000000000e9'"
+    assert pg(_edit(expected=NEW, exam=other), check=False).returncode != 0
+    assert one(pg, "SELECT count(*) FROM public.mock_exam_score_edits;") == "1"
+    for role in ("anon", "authenticated"):
+        assert pg(_edit(expected=NEW), check=False, role=role).returncode != 0, role

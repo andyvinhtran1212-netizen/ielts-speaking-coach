@@ -14,6 +14,8 @@
 --     release (FR-148), with the reason that is required.
 --   * one release per (exam, request_key): a unique index on the 447 timeline
 --     makes POST /release idempotent.
+--   * fn_mock_exam_score_edit: band change, log row and timeline event in one
+--     transaction (compare-and-set on the bands the service read).
 -- Backend-only (spec 0039): RLS on, no policy; service_role SELECT/INSERT only
 -- on the log.
 -- Re-runnable; postconditions at the end.
@@ -76,12 +78,66 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_mock_exam_events_release_key
     ON public.mock_exam_events (exam_id, (payload->>'request_key'))
     WHERE kind = 'released' AND payload ? 'request_key';
 
--- 4. Privileges -------------------------------------------------------------
+-- 4. One score edit = band change + log row + timeline event, atomically ----
+-- The service computes the new final_bands (overall included) with the same
+-- rules as save_final_bands and passes the bands it read; the UPDATE is a
+-- compare-and-set on them, so a concurrent edit makes this raise, not
+-- overwrite. Only a released review can be edited (FR-148).
+CREATE OR REPLACE FUNCTION public.fn_mock_exam_score_edit(
+    p_exam_id    uuid,
+    p_sitting_id uuid,
+    p_skill      text,
+    p_reason     text,
+    p_actor_id   uuid,
+    p_expected   jsonb,
+    p_new        jsonb
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SET search_path = public, pg_temp
+AS $fn$
+DECLARE
+    v_review uuid;
+    v_edit   uuid;
+BEGIN
+    IF p_new->p_skill IS NULL OR jsonb_typeof(p_new->p_skill) <> 'number' THEN
+        RAISE EXCEPTION 'mock_score_edit_band_missing' USING ERRCODE = '22023';
+    END IF;
+    UPDATE mock_exam_reviews r
+       SET final_bands = p_new
+     WHERE r.sitting_id = p_sitting_id
+       AND r.status = 'released'
+       AND r.final_bands = p_expected
+       AND EXISTS (SELECT 1 FROM mock_exam_sittings s
+                    WHERE s.id = p_sitting_id AND s.mock_exam_id = p_exam_id)
+    RETURNING r.id INTO v_review;
+    IF v_review IS NULL THEN
+        RAISE EXCEPTION 'mock_score_edit_conflict' USING ERRCODE = '40001';
+    END IF;
+    INSERT INTO mock_exam_score_edits (sitting_id, skill, old_band, new_band, reason, actor_id)
+    VALUES (p_sitting_id, p_skill, (p_expected->>p_skill)::numeric,
+            (p_new->>p_skill)::numeric, btrim(p_reason), p_actor_id)
+    RETURNING id INTO v_edit;
+    INSERT INTO mock_exam_events (exam_id, sitting_id, kind, payload, actor_id)
+    VALUES (p_exam_id, p_sitting_id, 'score_edited',
+            jsonb_build_object('skill', p_skill, 'old_band', p_expected->p_skill,
+                               'new_band', p_new->p_skill, 'overall', p_new->'overall',
+                               'edit_id', v_edit),
+            p_actor_id);
+    RETURN jsonb_build_object('review_id', v_review, 'edit_id', v_edit, 'final_bands', p_new);
+END;
+$fn$;
+REVOKE ALL ON FUNCTION public.fn_mock_exam_score_edit(uuid, uuid, text, text, uuid, jsonb, jsonb)
+    FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.fn_mock_exam_score_edit(uuid, uuid, text, text, uuid, jsonb, jsonb)
+    TO service_role;
+
+-- 5. Privileges -------------------------------------------------------------
 ALTER TABLE public.mock_exam_score_edits ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.mock_exam_score_edits FROM PUBLIC, anon, authenticated, service_role;
 GRANT SELECT, INSERT ON public.mock_exam_score_edits TO service_role;
 
--- 5. Postconditions ----------------------------------------------------------
+-- 6. Postconditions ----------------------------------------------------------
 DO $post$
 BEGIN
     IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.mock_exam_score_edits'::regclass) THEN
@@ -97,6 +153,9 @@ BEGIN
     IF has_table_privilege('service_role', 'public.mock_exam_score_edits', 'UPDATE')
        OR has_table_privilege('service_role', 'public.mock_exam_score_edits', 'DELETE') THEN
         RAISE EXCEPTION 'mock_exam_448_not_append_only';
+    END IF;
+    IF to_regprocedure('public.fn_mock_exam_score_edit(uuid,uuid,text,text,uuid,jsonb,jsonb)') IS NULL THEN
+        RAISE EXCEPTION 'mock_exam_448_score_edit_function_missing';
     END IF;
     IF to_regclass('public.uq_mock_exam_events_release_key') IS NULL THEN
         RAISE EXCEPTION 'mock_exam_448_release_key_index_missing';

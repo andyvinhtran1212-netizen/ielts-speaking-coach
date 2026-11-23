@@ -21,6 +21,7 @@ BEGIN
 END;
 $guard$;
 
+DROP FUNCTION IF EXISTS public.fn_mock_exam_score_edit(uuid, uuid, text, text, uuid, jsonb, jsonb);
 DROP INDEX IF EXISTS public.uq_mock_exam_events_release_key;
 DROP TABLE IF EXISTS public.mock_exam_score_edits;
 ALTER TABLE public.mock_exam_sittings DROP CONSTRAINT IF EXISTS mock_exam_sittings_released_skills_valid;
