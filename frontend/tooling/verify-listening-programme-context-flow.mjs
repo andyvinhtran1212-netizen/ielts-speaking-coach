@@ -19,10 +19,16 @@ const check = (name, condition) => { assert.ok(condition, name); checks += 1; co
 // and on (`examRoomSurfaces: ['listening-practice']`). Only the steps that differ branch.
 const ROOM_MODES = (process.env.LISTENING_EXAM_ROOM || 'off,on').split(',').map((v) => v.trim()).filter(Boolean);
 assert.ok(ROOM_MODES.length && ROOM_MODES.every((v) => v === 'off' || v === 'on'), 'LISTENING_EXAM_ROOM is off, on or off,on');
-/** The room's submit box asks once more; the current runner submits at once. */
-async function clickIfPresent(locator) {
-  if (await locator.count()) { await locator.click(); return true; }
-  return false;
+/**
+ * The room's submit box asks once more; the current runner submits at once.
+ * With `timeout`, wait that long for the box to render before deciding it is absent.
+ */
+async function clickIfPresent(locator, timeout = 0) {
+  const present = timeout
+    ? await locator.waitFor({ state: 'visible', timeout }).then(() => true, () => false)
+    : await locator.count() > 0;
+  if (present) await locator.click();
+  return present;
 }
 async function waitForFinalAnswer(promise, label) {
   let timer;
@@ -72,6 +78,8 @@ try {
         assert.equal(url.search, `?attempt_id=${attemptId}`);
         return json({ programme_id: programmeId, listening_lesson_id: lessonId, scoring_policy: 'report_only', title: 'Lifecycle form', replay_policy: 'allowed', sections: [{ exercises: [{ payload: { variant: 'programme_form_v1', questions: [{ q_num: 1, source_item_id: 'source-1', prompt: 'Which place?', response_type: 'single_choice', options: { A: 'Library', B: 'Museum' } }] } }] }] });
       }
+      // EXAMLISTENP-0069 FR-012: the room reads the attempt again under the write lock (a plain read, not an admission).
+      if (p === `/api/listening/tests/attempts/${attemptId}` && method === 'GET') return json({ attempt_id: attemptId, test_id: testId, status: completed ? 'submitted' : 'in_progress', scoring_policy: 'report_only', answers: answer ? [{ q_num: 1, user_answer: answer }] : [] });
       if (p === `/api/listening/tests/attempts/${attemptId}/guided-state` && method === 'GET') return json({ attempt_id: attemptId, assisted: false, items: [] });
       if (p === `/api/listening/tests/attempts/${attemptId}/answers` && method === 'PATCH') {
         assert.deepEqual(body, { q_num: 1, user_answer: 'A' });
@@ -100,7 +108,9 @@ try {
       await page.waitForFunction(() => { const input = document.querySelector('[data-exam-room] input[type="radio"]'); return input && !input.disabled; });
     };
     const backToLesson = () => (room ? page.getByRole('button', { name: 'Thoát' }) : page.getByRole('link', { name: /Bài học/ }));
-    const backTargetsLesson = async () => (room ? await backToLesson().count() === 1 : await backToLesson().getAttribute('href') === lesson);
+    // The room's Thoát is a button: here it is only found once; where it goes is checked by the explicit form→lesson Back step.
+    const backReady = async () => (room ? await backToLesson().count() === 1 : await backToLesson().getAttribute('href') === lesson);
+    const backLabel = room ? 'one Thoát control' : 'Back canonical lesson';
     const mountId = () => page.locator('.programme-runner').evaluate((node) => node.dataset.fixtureMount ||= crypto.randomUUID());
     try {
       await page.goto(BASE + library); await page.getByRole('heading', { name: 'Lifecycle lesson', exact: true }).waitFor();
@@ -110,7 +120,7 @@ try {
         const start = page.getByRole('link', { name: filter === 'new' ? /Bắt đầu/ : /Tiếp tục/ });
         check(`${tag} start/resume href`, await start.getAttribute('href') === formPath + query);
         await start.click(); await formReady();
-        check(`${tag} admission exact once, Back canonical lesson, feedback private`, count('POST', '/attempts') === 1 && await backTargetsLesson() && await page.locator('.programme-question-feedback').count() === 0);
+        check(`${tag} admission exact once, ${backLabel}, feedback private`, count('POST', '/attempts') === 1 && await backReady() && await page.locator('.programme-question-feedback').count() === 0);
         await page.reload(); await formReady(); const beforeHistoryMount = await mountId();
         check(`${tag} reload retains context and admits once`, count('POST', '/attempts') === 2 && new URL(page.url()).search === query);
         await page.getByRole('radio', { name: /Library/ }).focus(); await page.keyboard.press('Space'); await page.getByText('Đã lưu', { exact: false }).waitFor();
@@ -126,7 +136,7 @@ try {
         const beforeResume = count('POST', '/attempts'); await page.getByRole('link', { name: /Tiếp tục/ }).click(); await formReady();
         check(`${tag} resume restores canonical saved answer`, count('POST', '/attempts') === beforeResume + 1 && await page.getByRole('radio', { name: /Library/ }).isChecked());
         await page.getByRole('button', { name: 'Hoàn thành và xem lại' }).first().click();
-        const confirmed = await clickIfPresent(page.getByRole('alertdialog').getByRole('button', { name: 'Hoàn thành và xem lại' }));
+        const confirmed = await clickIfPresent(page.getByRole('alertdialog').getByRole('button', { name: 'Hoàn thành và xem lại' }), room ? 2000 : 0);
         check(`${tag} submit box only in the room`, confirmed === room);
         await waitForFinalAnswer(finalAnswerStarted, tag);
         const busy = room ? page.getByRole('alertdialog').getByRole('button', { name: /Đang nộp/ }) : page.getByRole('button', { name: 'Đang hoàn thành…' });
