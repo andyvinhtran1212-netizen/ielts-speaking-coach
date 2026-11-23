@@ -322,6 +322,33 @@ describe('leave and abandon (FR-011, FR-012)', () => {
     expect(track).toHaveBeenCalledWith('exam_room_exit_confirmed', { unsaved: 0 });
   });
 
+  it('exit.note adds one line to the leave box (Listening test FR-011)', async () => {
+    stubAssign();
+    const flush = vi.fn(() => Promise.resolve({ unsaved: 0 }));
+    render(<ExamRoomShell {...base({ exit: { href: '/tests', flush, losesWork: () => false, note: 'Your attempt stays open until the deadline.' } })} />);
+    fireEvent.click(screen.getByRole('button', { name: /Leave test/ }));
+    const dialog = await screen.findByRole('alertdialog');
+    expect(within(dialog).getByText('Your attempt stays open until the deadline.')).toBeTruthy();
+    expect(await within(dialog).findByText('Your answers so far are saved.')).toBeTruthy();
+  });
+
+  it('exit.locked closes an open leave box and keeps it closed (proctor collecting, 0071)', async () => {
+    const assign = stubAssign();
+    const flush = vi.fn(() => Promise.resolve({ unsaved: 0 }));
+    const exit = { href: '/tests', flush, losesWork: () => false };
+    const { rerender } = render(<ExamRoomShell {...base({ exit })} />);
+    fireEvent.click(screen.getByRole('button', { name: /Leave test/ }));
+    await screen.findByRole('alertdialog');
+    rerender(<ExamRoomShell {...base({ exit: { ...exit, locked: true } })} />);
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    fireEvent.click(screen.getByRole('button', { name: /Leave test/ }));
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(assign).not.toHaveBeenCalled();
+    rerender(<ExamRoomShell {...base({ exit })} />);
+    fireEvent.click(screen.getByRole('button', { name: /Leave test/ }));
+    expect(await screen.findByRole('alertdialog')).toBeTruthy();
+  });
+
   it('names the unsaved count and never says the answers are saved', async () => {
     stubAssign();
     const flush = vi.fn(() => Promise.resolve({ unsaved: 2 }));

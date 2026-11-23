@@ -313,10 +313,11 @@ export function ExamRoomShell(props: ExamRoomShellProps) {
     const base: Partial<FocusLeaveCopy> = mode === 'practice'
       ? { title: strings.shell.leaveTitle, lead: undefined, stayLabel: strings.shell.leaveStay, leaveLabel: strings.shell.leaveGo, body: undefined }
       : {};
-    if (leaveUnsaved != null && leaveUnsaved > 0) return { ...base, body: strings.shell.leaveUnsaved(leaveUnsaved) };
-    if (leaveUnsaved === 0 && mode === 'test') return { ...base, body: FOCUS_WORDS.exam.leave.body };
-    return base;
-  }, [mode, leaveUnsaved, strings]);
+    const withNote: Partial<FocusLeaveCopy> = exit.note ? { ...base, note: exit.note } : base;
+    if (leaveUnsaved != null && leaveUnsaved > 0) return { ...withNote, body: strings.shell.leaveUnsaved(leaveUnsaved) };
+    if (leaveUnsaved === 0 && mode === 'test') return { ...withNote, body: FOCUS_WORDS.exam.leave.body };
+    return withNote;
+  }, [mode, leaveUnsaved, strings, exit.note]);
 
   // ---- layout ----------------------------------------------------------
   const outcomeShown = outcome !== 'idle' || timeUp;
@@ -452,6 +453,7 @@ export function ExamRoomShell(props: ExamRoomShellProps) {
       leaveCopy={leaveCopy}
       onLeaveOpen={onLeaveOpen}
       beforeLeave={beforeLeave}
+      leaveLocked={Boolean(exit.locked)}
       fullTestRoom={isFullTest}
     >
       {room}
