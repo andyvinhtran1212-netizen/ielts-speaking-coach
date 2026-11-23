@@ -47,7 +47,7 @@ J213 = "SkillNotInSittingError keys clipped by _clip_skill_key (PC-J213, PR #201
 
 ALLOWED: dict[tuple[str, str, str], tuple[int, str]] = {
     # path, enclosing function, interpolated expression → (count, reason)
-    ("routers/admin/__init__.py", "generate_access_codes", "str(e)"): (1, "validate_permissions_or_raise: refused values via clip_user_values"),
+    ("routers/admin/access_codes.py", "generate_access_codes", "str(e)"): (1, "validate_permissions_or_raise: refused values via clip_user_values"),
     ("routers/admin/__init__.py", "generate_and_assign_code", "str(e)"): (1, "validate_permissions_or_raise: refused values via clip_user_values"),
     ("routers/admin/__init__.py", "patch_access_code", "str(e)"): (1, "validate_permissions_or_raise: refused values via clip_user_values"),
     ("routers/admin_ai.py", "patch_ai_model_override", "str(exc)"): (1, "OverrideValidationError names allowlisted values only (ai_model_overrides.validate)"),
