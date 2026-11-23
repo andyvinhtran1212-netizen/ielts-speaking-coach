@@ -471,7 +471,7 @@ export function normalizeClassStartResponse(value, expectedItemId) {
 
   const grammarReportSessionId = textOf(row.grammar_report_session_id);
   if (grammarReportSessionId && skill === 'grammar') {
-    return { kind: 'grammar-report', url: `/grammar-checkup?session=${encodeURIComponent(grammarReportSessionId)}&view=report` };
+    return { kind: 'grammar-report', url: `/course/grammar-checkup?session=${encodeURIComponent(grammarReportSessionId)}&view=report` };
   }
 
   const grammarLessonPath = textOf(row.grammar_lesson_path);
@@ -486,8 +486,10 @@ export function normalizeClassStartResponse(value, expectedItemId) {
 
   const grammarPath = textOf(row.grammar_path);
   if (grammarPath && skill === 'grammar') {
-    const expected = `/grammar-checkup?assignment_item=${encodeURIComponent(expectedItemId)}`;
-    if (grammarPath !== expected) return null;
+    // LEARNERNAV-0062 FR-012: pre-move backend path or the new one.
+    const query = `?assignment_item=${encodeURIComponent(expectedItemId)}`;
+    const expected = `/course/grammar-checkup${query}`;
+    if (grammarPath !== expected && grammarPath !== `/grammar-checkup${query}`) return null;
     return { kind: 'grammar', url: expected };
   }
 

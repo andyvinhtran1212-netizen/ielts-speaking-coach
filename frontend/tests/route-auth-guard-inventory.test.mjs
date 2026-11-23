@@ -26,8 +26,8 @@ const code = (rel) => read(rel).replace(/(^|\s)\/\/.*$/gm, '$1');
 // Route → the client component that owns the signed-out redirect.
 const GUARDED = Object.freeze({
   '/course/exercises': 'app/(authed)/course/exercises/course-behavior.tsx',
-  '/grammar-checkup': 'app/(authed)/grammar-checkup/grammar-checkup.tsx',
-  '/grammar-checkup/review/[routeId]': 'app/(authed)/grammar-checkup/review/[routeId]/review-route.tsx',
+  '/course/grammar-checkup': 'app/(authed)/course/grammar-checkup/grammar-checkup.tsx',
+  '/course/grammar-checkup/review/[routeId]': 'app/(authed)/course/grammar-checkup/review/[routeId]/review-route.tsx',
   '/course/vocabulary': 'app/(authed-advanced-vocab)/course/vocabulary/advanced-vocabulary-lesson.tsx',
   '/vocabulary/exam': 'app/(authed-vocab-exam)/vocabulary/exam/vocab-exam-behavior.tsx',
 });
@@ -132,7 +132,7 @@ describe('route auth-guard inventory (U-03)', () => {
   test('grammar review route reads its report only once signed in', () => {
     // A pre-auth window.api call threw before api.js loaded; the error boundary
     // then unmounted the component and its signed-out guard never ran.
-    const source = code(GUARDED['/grammar-checkup/review/[routeId]']);
+    const source = code(GUARDED['/course/grammar-checkup/review/[routeId]']);
     assert.match(source, /if \(status !== 'signed-in'\) return;\s*let active = true;\s*void window\.api\.get/);
     assert.match(source, /\}, \[routeId, session, status\]\);/);
   });
@@ -141,13 +141,13 @@ describe('route auth-guard inventory (U-03)', () => {
     // A direct /grammar-checkup load called window.api.get before api.js
     // created it, and the routes briefly rendered content or an error box
     // before the signed-out redirect. Behaviour: tests/react/learner-route-auth-boot.
-    const checkup = code(GUARDED['/grammar-checkup']);
+    const checkup = code(GUARDED['/course/grammar-checkup']);
     // BL-08: boot once per signed-in account, not once per mount.
     assert.match(checkup, /const account = status === 'signed-in' \? user\?\.id \|\| '' : '';/);
     assert.match(checkup, /if \(!account \|\| bootedFor\.current === account\) return;\s*const switched = bootedFor\.current !== '';\s*bootedFor\.current = account;/);
     assert.match(checkup, /\}, \[account, assignmentItem, enterSession, requestedSession, requestedView, router, showReport\]\);/);
     assert.match(checkup, /if \(status !== 'signed-in' \|\| owner !== account \|\| phase === 'loading'\) return <main/);
-    assert.match(code(GUARDED['/grammar-checkup/review/[routeId]']), /if \(status !== 'signed-in'\) return <main[^\n]*Đang mở tuyến ôn…/);
+    assert.match(code(GUARDED['/course/grammar-checkup/review/[routeId]']), /if \(status !== 'signed-in'\) return <main[^\n]*Đang mở tuyến ôn…/);
     const advanced = code(GUARDED['/course/vocabulary']);
     assert.match(advanced, /if \(status !== 'signed-in' \|\| loadedOnce\.current\) return;\s*loadedOnce\.current = true;\s*void load\(\);/);
     assert.match(advanced, /if \(status !== 'signed-in' \|\| phase === 'loading'\) return <main/);

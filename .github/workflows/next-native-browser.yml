@@ -177,7 +177,6 @@ jobs:
               - 'frontend/public/css/ds.css'
               - 'frontend/public/js/vocab-modules/**'
               - 'frontend/app/(authed-vocab-exam)/**'
-              - 'frontend/app/(authed)/grammar-checkup/**'
               - 'frontend/app/(authed)/course/**'
               - 'frontend/app/next-probe/**'
               - 'frontend/app/(spike)/**'

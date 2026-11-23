@@ -1,7 +1,7 @@
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
-import { GrammarCheckup } from '@/app/(authed)/grammar-checkup/grammar-checkup';
+import { GrammarCheckup } from '@/app/(authed)/course/grammar-checkup/grammar-checkup';
 
 // BL-08: the Supabase session is shared by every tab. Signing in as another
 // account in a second tab left /grammar-checkup showing — and acting on — the
@@ -55,7 +55,7 @@ it('restarts for the new account and drops the previous account session from the
   // Never one frame of A's question under B.
   expect(screen.queryByText('Prompt owned by A')).toBeNull();
   expect(await screen.findByRole('heading', { name: 'Chọn độ sâu phù hợp' })).toBeTruthy();
-  expect(replace).toHaveBeenCalledWith('/grammar-checkup');
+  expect(replace).toHaveBeenCalledWith('/course/grammar-checkup');
   expect(get).toHaveBeenLastCalledWith('/api/grammar/diagnostics/availability');
   // A's session is not reopened with B's token.
   expect(get.mock.calls.filter(([path]) => path === '/api/grammar/diagnostics/sessions/session-a')).toHaveLength(1);
