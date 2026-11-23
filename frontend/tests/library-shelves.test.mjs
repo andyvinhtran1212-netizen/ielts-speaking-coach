@@ -16,6 +16,7 @@ import { routeFor } from '../lib/route-registry.mjs';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PAGE = readFileSync(path.join(HERE, '../app/(public-library)/library/page.tsx'), 'utf8');
 const LAYOUT = readFileSync(path.join(HERE, '../app/(public-library)/layout.tsx'), 'utf8');
+const FRAME = readFileSync(path.join(HERE, '../app/(public-library)/library-frame.tsx'), 'utf8');
 const PROXY = readFileSync(path.join(HERE, '../proxy.ts'), 'utf8');
 
 const FULL = {
@@ -72,10 +73,16 @@ describe('Library frame (FR-001, FR-002, FR-003)', () => {
     assert.equal(routeFor('/library')?.audience, 'public');
   });
 
-  test('page frame: the "Bản in" PublicShell with Thư viện marked, and no legacy cascade', () => {
+  test('page frame: PublicShell (Thư viện marked) for guests, LearnerShell when signed in, no legacy cascade', () => {
     const code = LAYOUT.split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
-    assert.match(code, /<PublicShell active="library">/);
-    assert.match(code, /from '@\/components\/ui\/shell\/public-shell'/);
+    assert.match(code, /<LibraryFrame>\{children\}<\/LibraryFrame>/);
+    const frame = FRAME.split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
+    assert.match(frame, /<PublicShell active="library">/);
+    assert.match(frame, /<LearnerShell /);
+    assert.match(frame, /from '@\/components\/ui\/shell\/public-shell'/);
+    // Library reading never needs an activated account (FR-001).
+    assert.match(frame, /<AuthProvider>/);
+    assert.doesNotMatch(frame, /activationGate/);
     assert.doesNotMatch(code, /aver-chrome|aver-admin-chrome|\/css\/|tailwind|lucide/i);
     // RedirectNotice is styled with legacy --av-* tokens only, which this tree does not load.
     assert.doesNotMatch(code, /RedirectNotice/);
