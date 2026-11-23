@@ -19,6 +19,8 @@ export default function AdminOverviewLayout({ children }: { children: ReactNode 
         '/css/aver-design/admin-status.css',
         '/css/aver-design/admin-hub.css',
         '/css/admin-overview.css',
+        // Việc cần làm (G09-T18b), drawn only under ADMIN_FRAME_V2=1.
+        '/css/admin-todo-next.css',
       ]}
     >
       {children}
