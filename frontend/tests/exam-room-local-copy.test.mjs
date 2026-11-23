@@ -68,22 +68,23 @@ test('replay: only answers the server has not changed since baseSavedAt are re-s
   const plan = planLocalCopyReplay(copy, server);
   assert.deepEqual(plan.resend, [{ q: '1', value: 'A' }, { q: '3', value: 'C' }]);
   assert.deepEqual(plan.keepServer, ['2', '4']);
-  assert.deepEqual(plan.drop.sort(), ['2', '4', '5']);
+  assert.deepEqual(plan.drop.map((d) => d.q).sort(), ['2', '4', '5']);
+  assert.deepEqual(plan.drop.find((d) => d.q === '2'), { q: '2', value: 'B' });
   assert.equal(plan.clear, false);
 });
 
 test('submitted or closed attempt: send nothing and clear', () => {
   const copy = { v: 1, ...A, savedAt: T0, expiresAt: later, answers: { 1: { value: 'A', baseSavedAt: null } } };
-  assert.deepEqual(planLocalCopyReplay(copy, { open: false, answers: {} }), { resend: [], keepServer: [], drop: ['1'], clear: true });
+  assert.deepEqual(planLocalCopyReplay(copy, { open: false, answers: {} }), { resend: [], keepServer: [], drop: [{ q: '1', value: 'A' }], clear: true });
   assert.deepEqual(planLocalCopyReplay(null, { open: true, answers: {} }), { resend: [], keepServer: [], drop: [], clear: false });
 });
 
 test('acks remove answers; the record goes when empty; abandon and sign-out clear', () => {
   const s = new MemoryStorage();
   writeLocalCopy(s, { ...A, answers: { 1: { value: 'A', baseSavedAt: null }, 2: { value: 'B', baseSavedAt: null } }, expiresAt: later, now: T0 });
-  removeAckedFromCopy(s, { ...A, questions: [1], now: T0 });
+  assert.deepEqual(removeAckedFromCopy(s, { ...A, entries: [{ q: 1, value: 'A' }], now: T0 }), ['1']);
   assert.deepEqual(Object.keys(readLocalCopy(s, { ...A, now: T0 }).answers), ['2']);
-  removeAckedFromCopy(s, { ...A, questions: ['2'], now: T0 });
+  removeAckedFromCopy(s, { ...A, entries: [{ q: '2', value: 'B' }], now: T0 });
   assert.equal(s.getItem(localCopyKey(A)), null);
   writeLocalCopy(s, { ...A, answers: { 1: { value: 'A', baseSavedAt: null } }, expiresAt: later, now: T0 });
   clearLocalCopy(s, A);
@@ -93,6 +94,18 @@ test('acks remove answers; the record goes when empty; abandon and sign-out clea
   writeLocalCopy(s, { ...B, answers: { 1: { value: 'B', baseSavedAt: null } }, expiresAt: later, now: T0 });
   assert.equal(clearOwnerLocalCopies(s, 'user-a'), 2);
   assert.ok(readLocalCopy(s, { ...B, now: T0 }));
+});
+
+test('an ack of an older save never erases a newer answer in the copy', () => {
+  const s = new MemoryStorage();
+  writeLocalCopy(s, { ...A, answers: { 7: { value: 'dozen', baseSavedAt: null } }, expiresAt: later, now: T0 });
+  // The learner types on while the PATCH for "dozen" is in flight.
+  writeLocalCopy(s, { ...A, answers: { 7: { value: 'dozen pie', baseSavedAt: null } }, expiresAt: later, now: T0 + 1 });
+  assert.deepEqual(removeAckedFromCopy(s, { ...A, entries: [{ q: 7, value: 'dozen' }], now: T0 + 2 }), []);
+  assert.equal(readLocalCopy(s, { ...A, now: T0 + 2 }).answers['7'].value, 'dozen pie');
+  assert.deepEqual(removeAckedFromCopy(s, { ...A, entries: [{ q: 7, value: 'dozen pie' }], now: T0 + 3 }), ['7']);
+  assert.equal(s.getItem(localCopyKey(A)), null);
+  assert.deepEqual(removeAckedFromCopy(new BrokenStorage(), { ...A, entries: [{ q: 7, value: 'x' }] }), []);
 });
 
 test('expiry: deadline + 24 h, or 7 days untimed; expired copies are removed on read', () => {

@@ -29,8 +29,10 @@ export const writerTokenKey = (surface, attemptKey) => `exam-room:writer:${surfa
 /**
  * @typedef {'pending' | 'writer' | 'read-only' | 'releasing' | 'acquiring' | 'stuck' | 'unsupported'} TabGuardState
  *   pending: checking; writer: may save/submit; read-only: another tab writes;
- *   releasing: handing over (flushing); acquiring: holds the right, reloading
- *   from the server; stuck: takeover timed out; unsupported: no guard, may write.
+ *   releasing: handing over (flushing; saves of the flush still allowed, inputs
+ *   locked; back to writer if the answers could not be secured); acquiring: holds the right, reloading
+ *   from the server; stuck: takeover timed out or the browser refused the lock
+ *   (read-only, shows the notice with Reload); unsupported: no guard, may write.
  */
 
 function defaultTabId() {
@@ -38,9 +40,15 @@ function defaultTabId() {
 }
 
 /**
+ * `flush` saves everything pending and resolves `secured: true` only when every
+ * answer is acked by the server or kept in a local copy that was read back.
+ * `onHandoverRefused` runs on the writing tab when a takeover was refused
+ * because flush could not secure the answers; the tab keeps writing and should
+ * say so.
  * @param {{
  *   surface: string, attemptKey: string,
- *   flush: () => Promise<unknown>,
+ *   flush: () => Promise<{ secured: boolean, unsaved?: number }>,
+ *   onHandoverRefused?: () => void,
  *   reloadFromServer: () => Promise<unknown>,
  *   onChange?: (state: TabGuardState) => void,
  *   locks?: { request: Function } | null,
@@ -53,7 +61,7 @@ function defaultTabId() {
  */
 export function createTabGuard(options) {
   const {
-    surface, attemptKey, flush, reloadFromServer, onChange = () => {},
+    surface, attemptKey, flush, reloadFromServer, onChange = () => {}, onHandoverRefused = () => {},
     locks = null, channelFactory = null, storage = null,
     timers = globalThis, now = () => Date.now(), tabId = defaultTabId(),
   } = options;
@@ -169,16 +177,40 @@ export function createTabGuard(options) {
         });
       });
     } catch {
-      set('unsupported');
+      // The browser refused the Web Lock outright (e.g. SecurityError): read-only with the notice.
+      clearPending();
+      if (myAttempt === attempt) set('stuck');
       return;
     }
-    Promise.resolve(request).catch(() => { /* AbortError after the timeout */ });
+    Promise.resolve(request).catch(() => {
+      // Our own 5 s timeout already reported 'stuck'. Any other rejection is the
+      // browser refusing the lock: never stay in 'pending', never write.
+      if (cancelled || myAttempt !== attempt) return;
+      clearPending();
+      set('stuck');
+    });
   }
 
   async function handOver() {
     if (state !== 'writer') return;
     set('releasing');
-    try { await flush(); } catch { /* unsaved answers go to the local copy inside flush (FR-035) */ }
+    // Hand over only when the newest answers are secured: acked by the server,
+    // or written to the local copy and read back (FR-035). Otherwise keep the
+    // right, tell the asking tab, and report it here (owner HOLD on #2507).
+    let secured = false;
+    try {
+      const result = await flush();
+      secured = Boolean(result && /** @type {{ secured?: unknown }} */ (result).secured === true);
+    } catch {
+      secured = false;
+    }
+    if (stopped) return;
+    if (!secured) {
+      set('writer');
+      post({ type: 'handover-refused' });
+      try { onHandoverRefused(); } catch { /* listener errors never break the guard */ }
+      return;
+    }
     set('read-only');
     stopHeartbeat();
     if (mode === 'locks') { releaseHeld?.(); releaseHeld = null; }
@@ -191,6 +223,13 @@ export function createTabGuard(options) {
       const msg = event?.data;
       if (!msg || msg.key !== key || msg.from === tabId || stopped) return;
       if (msg.type === 'takeover') void handOver();
+      if (msg.type === 'handover-refused' && pendingTimer != null && state === 'pending') {
+        // The writer could not secure its answers: stop waiting, stay read-only.
+        attempt += 1;
+        try { pendingAbort?.abort(); } catch { /* ignore */ }
+        clearPending();
+        set('stuck');
+      }
     };
   }
 
@@ -234,8 +273,11 @@ export function createTabGuard(options) {
     },
     /** True only when this tab may save or submit. Token mode re-checks storage each time. */
     canWrite() {
+      if (stopped) return false;
       if (state === 'unsupported') return true;
-      if (state !== 'writer') return false;
+      // While releasing, the flush itself still saves under the held right;
+      // the UI locks inputs in that state.
+      if (state !== 'writer' && state !== 'releasing') return false;
       if (mode === 'token' && !ownsToken()) { stopHeartbeat(); set('read-only'); return false; }
       return true;
     },

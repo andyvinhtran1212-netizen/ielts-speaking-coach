@@ -115,18 +115,20 @@ export function readLocalCopy(storage, { surface, ownerKey, attemptKey, now = Da
  *   the copy's `baseSavedAt` (both unknown counts as unchanged); otherwise
  *   keep the server's value and drop that answer from the copy.
  * Answers equal to the server value need no re-send. `drop` lists the
- * answers to remove from the copy now (server kept or already equal); the
- * re-sent ones are removed by `removeAckedFromCopy` once the server acks them.
+ * entries to remove from the copy now (server kept or already equal), as
+ * `{ q, value }` so `removeAckedFromCopy` only removes them if unchanged; the
+ * re-sent ones are removed the same way once the server acks them.
  * @param {LocalCopy | null} copy
  * @param {{ open: boolean, answers: Record<string | number, { value: string | null, savedAt: string | null }> }} server
- * @returns {{ resend: { q: string, value: string }[], keepServer: string[], drop: string[], clear: boolean }}
+ * @returns {{ resend: { q: string, value: string }[], keepServer: string[], drop: { q: string, value: string }[], clear: boolean }}
  */
 export function planLocalCopyReplay(copy, server) {
   if (!copy) return { resend: [], keepServer: [], drop: [], clear: false };
-  if (!server.open) return { resend: [], keepServer: [], drop: Object.keys(copy.answers), clear: true };
+  if (!server.open) return { resend: [], keepServer: [], drop: Object.entries(copy.answers).map(([q, a]) => ({ q, value: a.value })), clear: true };
   const resend = [];
   const keepServer = [];
-  const same = [];
+  /** @type {{ q: string, value: string }[]} */
+  const drop = [];
   for (const [q, local] of Object.entries(copy.answers)) {
     const remote = server.answers[q] ?? null;
     const remoteAt = remote?.savedAt ? Date.parse(remote.savedAt) : null;
@@ -134,28 +136,42 @@ export function planLocalCopyReplay(copy, server) {
     const unchanged = remoteAt == null
       ? true
       : baseAt != null && Number.isFinite(baseAt) && Number.isFinite(remoteAt) && remoteAt <= baseAt;
-    if (!unchanged) { keepServer.push(q); continue; }
-    if (remote && remote.value === local.value) { same.push(q); continue; }
+    if (!unchanged) { keepServer.push(q); drop.push({ q, value: local.value }); continue; }
+    if (remote && remote.value === local.value) { drop.push({ q, value: local.value }); continue; }
     resend.push({ q, value: local.value });
   }
-  return { resend, keepServer, drop: [...keepServer, ...same], clear: resend.length === 0 };
+  return { resend, keepServer, drop, clear: resend.length === 0 };
 }
 
 /**
- * Drop answers the server has acknowledged (or that the server version
- * replaced); remove the record when nothing is left.
+ * Drop answers from the copy, but only where the copy still holds exactly the
+ * value given: an ack of an older save must never erase a newer answer typed
+ * since (same rule as `clearIfCurrent` of the programme draft store). The
+ * record goes when nothing is left.
  * @param {Storage | null | undefined} storage
- * @param {LocalCopyScope & { questions: (string | number)[], now?: number }} input
+ * @param {LocalCopyScope & { entries: { q: string | number, value: string }[], now?: number }} input
+ * @returns {string[]} questions actually removed
  */
-export function removeAckedFromCopy(storage, { surface, ownerKey, attemptKey, questions, now = Date.now() }) {
+export function removeAckedFromCopy(storage, { surface, ownerKey, attemptKey, entries, now = Date.now() }) {
   const scope = { surface, ownerKey, attemptKey };
   const copy = readLocalCopy(storage, { ...scope, now });
-  if (!copy || !storage) return;
+  if (!copy || !storage) return [];
+  const removed = [];
   try {
-    for (const q of questions) delete copy.answers[String(q)];
+    for (const { q, value } of entries) {
+      const key = String(q);
+      if (copy.answers[key] && copy.answers[key].value === value) {
+        delete copy.answers[key];
+        removed.push(key);
+      }
+    }
+    if (!removed.length) return [];
     if (!Object.keys(copy.answers).length) storage.removeItem(localCopyKey(scope));
     else storage.setItem(localCopyKey(scope), JSON.stringify(copy));
-  } catch { /* storage unavailable */ }
+  } catch {
+    return [];
+  }
+  return removed;
 }
 
 /** Submitted, abandoned or closed. @param {Storage | null | undefined} storage @param {LocalCopyScope} scope */
