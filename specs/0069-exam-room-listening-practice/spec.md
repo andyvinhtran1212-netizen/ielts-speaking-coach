@@ -262,11 +262,29 @@ Mỗi câu kèm đề xuất; mặc định tạm là đề xuất cho tới khi
 
 ## Sửa đổi đề xuất cho EXAMROOM-0066
 
-Sửa đổi 1 (mục (a) là `expired_unsubmitted` của EXAMREAD-0067 câu hỏi mở 6). Chưa áp dụng cho
-tới khi anh Andy duyệt; khi duyệt, ghi vào `specs/0066-exam-room-shell/approval-decision.md`.
+Sửa đổi 1 (mục (a) là `expired_unsubmitted` của EXAMREAD-0067 câu hỏi mở 6; mục (b) và (c)
+dưới đây). Chưa áp dụng cho tới khi anh Andy duyệt; khi duyệt, ghi vào `specs/0066-exam-room-shell/approval-decision.md`.
 
 - **(b)** `ExamRoomSurface` thêm `'listening-practice'` (Listening luyện, chế độ `practice`,
   tiếng Việt). Đổi kèm: `EXAM_ROOM_SURFACES` trong `frontend/lib/exam-room/flags.mjs` và danh
   sách tên hợp lệ trong `frontend/tooling/generate-runtime-config.mjs`; khoá bản sao
   `exam-room:local-copy:listening-practice:{ownerKey}:{attemptKey}`. `'listening'` giữ cho
   Listening full test, mini test, drill (EXAMLISTENT-0070). Không đổi gì khác của 0066.
+- **(c)** FR-035 so bản sao theo giá trị, không theo giờ. Mỗi câu trong bản sao giữ
+  `baseValue`: đúng giá trị máy chủ đã ack lần cuối cho câu đó (hoặc giá trị đọc lúc mở
+  lượt). `baseSavedAt` vẫn giữ nhưng chỉ để hiện "HH:MM", không dùng để so. Sau khi tải lại
+  hoặc đăng nhập lại đúng `ownerKey`: giá trị trên máy chủ bằng `baseValue` (chuỗi so nguyên
+  văn, cả độ dài; mảng và đối tượng so sau khi sắp khoá) thì gửi lại câu trong bản sao qua
+  đường lưu thường; khác thì giữ bản máy chủ và bỏ câu đó khỏi bản sao, như FR-035 hiện nay
+  làm với câu "mới hơn". Câu chữ "chưa đổi kể từ `baseSavedAt`" trong FR-035 và các
+  Scenario của 0066 đọc là "giá trị trên máy chủ vẫn bằng `baseValue`".
+  - Lý do: giờ lưu trên máy chủ có thể đổi mà giá trị không đổi (Writing: `POST
+    .../paste-log` ghi cùng dòng, trigger đổi `writing_drafts.updated_at`, mig 042), và giờ
+    của máy học viên với máy chủ không cùng một đồng hồ. So theo giờ khi đó bỏ nhầm câu học
+    viên vừa gõ.
+  - Đổi kèm ở lib (0066 T001, #2507): `LocalCopyAnswer` thêm `baseValue`;
+    `planLocalCopyReplay` so theo `baseValue`. Bản sao ghi trước khi có trường này (không có
+    `baseValue`) thì không tự gửi lại mà hỏi học viên giữ bản nào. Không đổi gì khác của 0066.
+  - Spec dựa vào mục này: EXAMWRITE-0068 FR-008 (`baseText`), spec này, EXAMLISTENT-0070,
+    EXAMMOCK-0071 FR-010. Cho tới khi duyệt, mỗi spec theo quy tắc dự phòng ghi trong spec
+    đó (EXAMMOCK-0071: hỏi học viên, không tự gửi lại).
