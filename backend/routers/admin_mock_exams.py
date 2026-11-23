@@ -45,6 +45,7 @@ from services.cohort_assignment_service import normalize_deadline
 from services import essay_service
 from services import mock_exam_assignment_service as assign_svc
 from services import mock_exam_audience_service as audience_svc
+from services import mock_exam_display_state as display_svc
 from services import mock_exam_modes
 from services import mock_exam_service as svc
 from services import mock_review_workflow as wf
@@ -214,6 +215,12 @@ class AdminMockExamListRow(BaseModel):
     active_section: Literal["not_started", "listening", "reading", "writing", "done"]
     created_at: str
     review_eligible: bool
+    # MOCKORG-0086 FR-140 (services/mock_exam_display_state.py). ``None`` when
+    # the sittings read failed; ``audience_count`` is ``None`` with the
+    # mock_exam_audiences flag off or when the count failed.
+    display_state: Literal["draft", "scheduled", "open", "running", "grading",
+                           "released", "ended", "archived"] | None = None
+    audience_count: int | None = None
 
 
 class AdminMockExamListResponse(BaseModel):
@@ -383,7 +390,11 @@ class BulkGradeBody(BaseModel):
 @router.get("", response_model=AdminMockExamListResponse)
 async def list_exams(authorization: str | None = Header(default=None)):
     await require_admin(authorization)
-    return {"exams": await asyncio.to_thread(svc.admin_list_exams)}
+
+    def _list():
+        return display_svc.enrich_admin_list(svc.admin_list_exams(),
+                                             audiences_enabled=audience_svc.enabled())
+    return {"exams": await asyncio.to_thread(_list)}
 
 
 @router.get("/reading-tests")

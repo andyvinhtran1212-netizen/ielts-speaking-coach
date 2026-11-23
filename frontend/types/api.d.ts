@@ -14201,6 +14201,10 @@ export interface components {
             created_at: string;
             /** Review Eligible */
             review_eligible: boolean;
+            /** Display State */
+            display_state?: ("draft" | "scheduled" | "open" | "running" | "grading" | "released" | "ended" | "archived") | null;
+            /** Audience Count */
+            audience_count?: number | null;
         } & {
             [key: string]: unknown;
         };
