@@ -804,6 +804,24 @@ export function MockExamRunner() {
     ).catch(() => {});
   }, [loadIntegrity]);
 
+  // FR-016: a link error never reaches the boot effect below, so read the flag
+  // here too (same point: once window.api is ready) and show the room's link
+  // error while the page leaves for /full-test (G02-T11). No request is made.
+  useEffect(() => {
+    if (!params.error) return undefined;
+    let disposed = false;
+    void whenGlobalReady(
+      () => typeof window.api?.getWith === 'function' && typeof window.api?.postWith === 'function',
+      'window.api (mock exam)',
+    ).then((ready) => {
+      if (!ready || disposed) return;
+      const on = examRoomEnabled('mock');
+      examRoomRef.current = on;
+      setExamRoom(on);
+    });
+    return () => { disposed = true; };
+  }, [params.error]);
+
   useEffect(() => {
     if (status !== 'signed-in' || !user?.id || !params.value) return undefined;
     const boot = ++bootRef.current;
@@ -1011,6 +1029,12 @@ export function MockExamRunner() {
     if (!collectionKey || !pendingCollectionSection || !awaitingCollectionFlush) return undefined;
     let disposed = false;
     let retryTimer: number | null = null;
+    // FR-007: an invigilator collection is a submit this tab saw. Track it from
+    // the collection signal, before the final flush, so the outcome reads
+    // `submitting` while the flush retries; if the server then closes the
+    // section without a secured flush, the outcome is `closed_unconfirmed`.
+    observedSubmitRef.current.add(pendingCollectionSection);
+    if (examRoomRef.current) setSubmitTrack({ section: pendingCollectionSection, retries: 0, error: null });
     const drain = async () => {
       try {
         if (pendingCollectionSection === 'writing') {
@@ -1020,7 +1044,6 @@ export function MockExamRunner() {
         } else {
           await flushEmbed(pendingCollectionSection);
         }
-        observedSubmitRef.current.add(pendingCollectionSection);
         // Writing: bridge.flush resolved with the boxes saved (it throws while dirty).
         if (pendingCollectionSection === 'writing') flushSecuredRef.current.add('writing');
         await acknowledgeCollectionFlush(pendingCollectionSection);
