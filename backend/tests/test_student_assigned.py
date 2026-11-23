@@ -62,7 +62,7 @@ def _writing(item_id, *, due=None, submitted=None, status="pending", review_stat
 
 def _get(monkeypatch, rows, *, has_class=True, stale=False):
     # No paper is open to self-practice unless a test says so (T30b has its own tests).
-    monkeypatch.setattr(sa, "_self_practice_open_ids", lambda _rows: set())
+    monkeypatch.setattr(sa, "_self_practice_open_ids", lambda *_a, **_k: set())
     monkeypatch.setattr(st, "_visible_assignments_for",
                         lambda *_a: (has_class, rows, stale))
     return sa.get_assigned("u-1", "A", NOW)

@@ -45,6 +45,16 @@ class _Q:
         self.filters.append(lambda r: str(r.get(f)) in vs)
         return self
 
+    @property
+    def not_(self):
+        query = self
+
+        class _Not:
+            def is_(self, f, _v):
+                query.filters.append(lambda r: r.get(f) is not None)
+                return query
+        return _Not()
+
     def limit(self, n):
         self.n = n
         return self
@@ -85,7 +95,7 @@ def _reading(test_id="R1", **over):
 
 
 def _db(skill="listening", *, due=PAST, content_id=None, cfg=None, papers=None,
-        item_owner="s1", status="published", topics=None):
+        item_owner="s1", status="published", topics=None, attempts=None):
     content_id = content_id or {"listening": "L1", "reading": "R1", "speaking": "T1"}.get(skill, "X1")
     return _DB({
         "class_assignment_items": [{"id": "item-1", "assignment_id": "a1",
@@ -94,18 +104,20 @@ def _db(skill="listening", *, due=PAST, content_id=None, cfg=None, papers=None,
         "class_assignments": [{"id": "a1", "cohort_id": "c1", "skill": skill, "status": status,
                                "publish_at": None, "due_at": due, "content_id": content_id,
                                "content_config": cfg or {}}],
-        "listening_tests": papers if papers is not None and skill == "listening" else [_listening()],
-        "reading_tests": papers if papers is not None and skill == "reading" else [_reading()],
+        "listening_public_practice_catalog": papers if papers is not None and skill == "listening" else [_listening()],
+        "reading_public_practice_catalog": papers if papers is not None and skill == "reading" else [_reading()],
         "topics": topics if topics is not None else [
             {"id": "T1", "title": "Hometown", "part": 1, "is_active": True}],
         "writing_assignments": [{"id": "w-1", "student_id": "s1"}],
+        "listening_test_attempts": list(attempts or []) if skill == "listening" else [],
+        "reading_test_attempts": list(attempts or []) if skill == "reading" else [],
     })
 
 
-def _call(db, item_id="item-1", *, active=True):
+def _call(db, item_id="item-1", *, active=True, user_id="u-1"):
     with patch("services.class_membership_service.student_is_active_in_cohort",
                return_value=active):
-        return csp.self_practice(db, student=STUDENT, item_id=item_id, now=NOW)
+        return csp.self_practice(db, student=STUDENT, item_id=item_id, now=NOW, user_id=user_id)
 
 
 def _error(db, **kw):
@@ -218,14 +230,14 @@ def test_paper_open_flags_only_open_papers_in_one_read_per_skill():
             {"id": "a2", "skill": "listening", "content_id": "L2"},
             {"id": "a3", "skill": "reading", "content_id": "R1"},
         ],
-        "listening_tests": [_listening("L1"), _listening("L2", exam_only=True, is_public=False)],
-        "reading_tests": [_reading("R1")],
+        "listening_public_practice_catalog": [_listening("L1"), _listening("L2", exam_only=True, is_public=False)],
+        "reading_public_practice_catalog": [_reading("R1")],
         "topics": [],
     })
     rows = [_row("i1", "listening"), _row("i2", "listening", assignment_id="a2"),
             _row("i3", "reading", assignment_id="a3"), _row("i4", "writing", assignment_id="w")]
     assert csp.paper_open_for_self_practice(db, rows) == {"i1", "i3"}
-    assert db.reads.count("listening_tests") == 1
+    assert db.reads.count("listening_public_practice_catalog") == 1
     assert db.writes == []
 
 
@@ -347,3 +359,54 @@ def test_test_launch_carries_no_class_item(skill):
     href = _call(_db(skill))["launch"]["href"]
     query = parse_qs(urlparse(href).query)
     assert "class_item" not in query and "class_assignment_item_id" not in query
+
+
+# ── Review round 1 (Codex P2 on #2580) ───────────────────────────────────────
+
+
+def _attempt(test_id, *, item="item-old", expires=FUTURE, status="in_progress", user="u-1"):
+    return {"id": f"att-{test_id}-{item}", "test_id": test_id, "user_id": user,
+            "status": status, "resume_expires_at": expires,
+            "class_assignment_item_id": item}
+
+
+@pytest.mark.parametrize("skill", ["listening", "reading"])
+def test_paper_outside_the_canonical_catalog_is_unavailable(skill):
+    """A paper the public catalog view leaves out (e.g. a protected mock
+    dependency without an overlap approval) is never offered, even though its
+    base row is published and public."""
+    db = _db(skill, papers=[])
+    assert _error(db) == (422, "self_practice_paper_unavailable")
+    assert csp.paper_open_for_self_practice(db, [_row("item-1", skill)], "u-1") == set()
+    assert "listening_tests" not in db.reads and "reading_tests" not in db.reads
+
+
+@pytest.mark.parametrize("skill", ["listening", "reading"])
+def test_resumable_homework_attempt_on_the_paper_blocks_self_practice(skill):
+    paper = {"listening": "L1", "reading": "R1"}[skill]
+    db = _db(skill, attempts=[_attempt(paper)])
+    assert _error(db) == (409, "homework_attempt_in_progress")
+    assert csp.paper_open_for_self_practice(db, [_row("item-1", skill)], "u-1") == set()
+    assert db.writes == []
+
+
+@pytest.mark.parametrize("over", [
+    {"expires": PAST},                       # expired: the player will not resume it
+    {"item": None},                          # a plain self-practice attempt
+    {"status": "completed"},
+    {"user": "someone-else"},
+])
+def test_non_resumable_or_unlinked_attempts_do_not_block(over):
+    db = _db("reading", attempts=[_attempt("R1", **over)])
+    assert _call(db)["skill"] == "reading"
+    assert csp.paper_open_for_self_practice(db, [_row("item-1", "reading")], "u-1") == {"item-1"}
+
+
+def test_read_api_hides_the_button_while_a_homework_attempt_is_resumable(monkeypatch):
+    db = _db("listening", attempts=[_attempt("L1")])
+    monkeypatch.setattr(st, "_visible_assignments_for",
+                        lambda *_a: (True, [_row("item-1", "listening")], False))
+    monkeypatch.setattr("database.supabase_admin", db)
+    item = sa.get_assigned("u-1", "A", NOW)["items"][0]
+    assert item["self_practice_available"] is False
+    assert item["action"] == "none"

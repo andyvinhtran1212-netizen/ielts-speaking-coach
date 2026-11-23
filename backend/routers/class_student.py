@@ -725,7 +725,9 @@ async def self_practice_assignment(
 
     Returns the public self-practice launch for the same paper; writes nothing
     (no item state, no ledger). 404 not the caller's / not visible / no longer
-    in the class, 409 ``assignment_still_open``, 422 ``self_practice_unsupported``
+    in the class, 409 ``assignment_still_open`` or ``homework_attempt_in_progress``
+    (a resumable homework attempt on the paper would be resumed instead),
+    422 ``self_practice_unsupported``
     (vocab, grammar, course, Writing before G08) or
     ``self_practice_paper_unavailable`` (the paper is not open to public
     self-practice now; the assignment's own access is never borrowed).
@@ -744,6 +746,7 @@ async def self_practice_assignment(
         return await asyncio.to_thread(
             class_self_practice.self_practice, supabase_admin,
             student=student, item_id=item_id, now=datetime.now(timezone.utc),
+            user_id=str(auth_user["id"]),
         )
     except class_self_practice.SelfPracticeError as exc:
         detail = exc.message if exc.status == 404 else {"error": exc.code, "message": exc.message}

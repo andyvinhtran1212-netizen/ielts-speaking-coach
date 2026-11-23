@@ -7,10 +7,19 @@ The assignment may have opened a non-public paper (``delivery_mode =
 'assigned_practice'``); self-practice never borrows that right. The checks are
 the public self-pick rules, read at call time:
 
-- Listening: ``status='published'``, public (``_paper_is_public``), with audio.
-- Reading: ``status='published'``, public, with a public paper code.
+- Listening / Reading: the paper is in the canonical public-practice catalog
+  (``listening_public_practice_catalog`` / ``reading_public_practice_catalog``,
+  migration 306: published, public, and no protected mock dependency without a
+  valid overlap approval), the same views the public catalogs list from; plus
+  audio (Listening) or a public paper code (Reading).
 - Speaking: the topic is active in the topic library (``topics.is_active``),
   the same library ``POST /sessions`` draws questions from.
+- No resumable class-linked attempt on that paper: opening a paper from the
+  library without ``class_item`` resumes the caller's newest in-progress
+  attempt even when it belongs to homework (``reading_student.
+  _fetch_in_progress_payload``, by design), so a "self-practice" launch would
+  continue the homework attempt instead of a separate one. That case answers
+  409 ``homework_attempt_in_progress`` and the button stays hidden.
 - Writing: the G08 self-practice prompt bank does not exist yet, so Writing is
   ``self_practice_unsupported``. Vocab, grammar and course have no
   self-practice path at all.
@@ -45,6 +54,12 @@ class SelfPracticeError(Exception):
 UNSUPPORTED = ("self_practice_unsupported", "Bài này không có chế độ tự luyện.")
 PAPER_UNAVAILABLE = ("self_practice_paper_unavailable", "Đề của bài này hiện không mở cho tự luyện.")
 STILL_OPEN = ("assignment_still_open", "Bài vẫn còn nhận bài, hãy làm bài được giao.")
+HOMEWORK_IN_PROGRESS = ("homework_attempt_in_progress",
+                        "Bạn còn một lượt làm bài được giao đang dở trên đề này.")
+
+_CATALOG = {"listening": "listening_public_practice_catalog",
+            "reading": "reading_public_practice_catalog"}
+_ATTEMPTS = {"listening": "listening_test_attempts", "reading": "reading_test_attempts"}
 
 
 def _paper_is_public(row: Dict[str, Any]) -> bool:
@@ -84,11 +99,11 @@ def open_papers(db, by_skill: Dict[str, Set[str]]) -> Dict[str, Dict[str, Dict[s
     one read per skill for the whole list."""
     out: Dict[str, Dict[str, Dict[str, Any]]] = {"listening": {}, "reading": {}, "speaking": {}}
     if by_skill.get("listening"):
-        for row in _rows(db, "listening_tests", _LISTENING_COLUMNS, sorted(by_skill["listening"])):
+        for row in _rows(db, _CATALOG["listening"], _LISTENING_COLUMNS, sorted(by_skill["listening"])):
             if _listening_open(row):
                 out["listening"][str(row["id"])] = row
     if by_skill.get("reading"):
-        for row in _rows(db, "reading_tests", _READING_COLUMNS, sorted(by_skill["reading"])):
+        for row in _rows(db, _CATALOG["reading"], _READING_COLUMNS, sorted(by_skill["reading"])):
             if _reading_open(row):
                 out["reading"][str(row["id"])] = row
     if by_skill.get("speaking"):
@@ -98,7 +113,26 @@ def open_papers(db, by_skill: Dict[str, Set[str]]) -> Dict[str, Dict[str, Dict[s
     return out
 
 
-def paper_open_for_self_practice(db, rows: List[Dict[str, Any]]) -> Set[str]:
+def papers_with_homework_attempt(db, user_id: str, skill: str, paper_ids: Iterable[str]) -> Set[str]:
+    """Paper ids on which `user_id` has a resumable in-progress attempt linked
+    to a class item (one read for the list)."""
+    from services.active_player_lifecycle import is_resume_active
+
+    ids = sorted({str(p) for p in paper_ids if p})
+    if skill not in _ATTEMPTS or not ids:
+        return set()
+    found: Set[str] = set()
+    for chunk in _chunks(ids):
+        rows = (db.table(_ATTEMPTS[skill])
+                .select("id, test_id, status, resume_expires_at, class_assignment_item_id")
+                .eq("user_id", user_id).eq("status", "in_progress").in_("test_id", chunk)
+                .not_.is_("class_assignment_item_id", "null").execute().data) or []
+        found.update(str(r["test_id"]) for r in rows
+                     if r.get("class_assignment_item_id") and is_resume_active(r))
+    return found
+
+
+def paper_open_for_self_practice(db, rows: List[Dict[str, Any]], user_id: Optional[str] = None) -> Set[str]:
     """Item ids of `rows` (elements of `_visible_assignments`) whose paper is
     open for self-practice now. Writing rows never are (no G08 bank yet).
 
@@ -114,6 +148,10 @@ def paper_open_for_self_practice(db, rows: List[Dict[str, Any]]) -> Set[str]:
         if a.get("skill") in SUPPORTED and a.get("content_id"):
             by_skill.setdefault(a["skill"], set()).add(str(a["content_id"]))
     papers = open_papers(db, by_skill)
+    if user_id:
+        for skill in _ATTEMPTS:
+            for paper_id in papers_with_homework_attempt(db, user_id, skill, papers[skill]):
+                papers[skill].pop(paper_id, None)
     open_ids: Set[str] = set()
     for r in ledger:
         a = content.get(str(r["assignment"]["id"])) or {}
@@ -137,12 +175,14 @@ def launch_for(skill: str, assignment: Dict[str, Any], paper: Dict[str, Any]) ->
     }}
 
 
-def self_practice(db, *, student: Dict[str, Any], item_id: str, now) -> Dict[str, Any]:
+def self_practice(db, *, student: Dict[str, Any], item_id: str, now,
+                  user_id: Optional[str] = None) -> Dict[str, Any]:
     """POST /api/class/assignments/{item_id}/self-practice. Reads only.
 
     Order: ownership and visibility (404), active membership of the class that
     gave it (404, the same first gate as `start_assignment`), skill (422), still
-    accepting (409), paper open now (422). An archived class is fine: it only
+    accepting (409), paper open now (422), no resumable homework attempt on the
+    paper (409). An archived class is fine: it only
     reviews and self-practises."""
     from services.class_assignment_service import is_accepting_submissions, is_assignment_open
     from services.class_membership_service import student_is_active_in_cohort
@@ -174,4 +214,6 @@ def self_practice(db, *, student: Dict[str, Any], item_id: str, now) -> Dict[str
         open_papers(db, {skill: {paper_id}})[skill].get(paper_id) if paper_id else None)
     if not paper:
         raise SelfPracticeError(422, *PAPER_UNAVAILABLE)
+    if user_id and papers_with_homework_attempt(db, user_id, skill, [paper_id]):
+        raise SelfPracticeError(409, *HOMEWORK_IN_PROGRESS)
     return {"skill": skill, "launch": launch_for(skill, assignment, paper)}

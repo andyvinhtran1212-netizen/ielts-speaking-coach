@@ -2764,7 +2764,9 @@ export interface paths {
          *
          *     Returns the public self-practice launch for the same paper; writes nothing
          *     (no item state, no ledger). 404 not the caller's / not visible / no longer
-         *     in the class, 409 ``assignment_still_open``, 422 ``self_practice_unsupported``
+         *     in the class, 409 ``assignment_still_open`` or ``homework_attempt_in_progress``
+         *     (a resumable homework attempt on the paper would be resumed instead),
+         *     422 ``self_practice_unsupported``
          *     (vocab, grammar, course, Writing before G08) or
          *     ``self_practice_paper_unavailable`` (the paper is not open to public
          *     self-practice now; the assignment's own access is never borrowed).

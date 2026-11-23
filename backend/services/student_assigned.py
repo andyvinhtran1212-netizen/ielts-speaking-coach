@@ -130,7 +130,7 @@ def action_for(row: Dict[str, Any], accepting: bool, self_practice: bool) -> str
     return "none"
 
 
-def _self_practice_open_ids(rows: List[Dict[str, Any]]) -> Set[str]:
+def _self_practice_open_ids(rows: List[Dict[str, Any]], user_id: Optional[str] = None) -> Set[str]:
     """Item ids whose paper is open for public self-practice right now (T30b,
     `class_self_practice.paper_open_for_self_practice`, one read per skill for
     the whole list). A failed read hides the button rather than failing the
@@ -138,7 +138,7 @@ def _self_practice_open_ids(rows: List[Dict[str, Any]]) -> Set[str]:
     from database import supabase_admin
     from services.class_self_practice import paper_open_for_self_practice
     try:
-        return paper_open_for_self_practice(supabase_admin, rows)
+        return paper_open_for_self_practice(supabase_admin, rows, user_id)
     except Exception as exc:
         logger.warning("[student-assigned] self-practice paper read failed: %s", exc)
         return set()
@@ -146,8 +146,9 @@ def _self_practice_open_ids(rows: List[Dict[str, Any]]) -> Set[str]:
 
 def decorate(rows: List[Dict[str, Any]], now: datetime,
              open_ids: Optional[Callable[[List[Dict[str, Any]]], Set[str]]] = None,
+             user_id: Optional[str] = None,
              ) -> List[Dict[str, Any]]:
-    open_ids = open_ids or _self_practice_open_ids
+    open_ids = open_ids or (lambda candidates: _self_practice_open_ids(candidates, user_id))
     candidates: List[Dict[str, Any]] = []
     flags: List[Tuple[Dict[str, Any], bool]] = []
     for row in rows:
@@ -177,7 +178,7 @@ def get_assigned(user_id: str, account_name: str, now: datetime) -> Dict[str, An
     has_class, items, stale = False, [], False
     try:
         has_class, rows, stale = student_today._visible_assignments_for(user_id, account_name, now)
-        items = decorate(rows, now)
+        items = decorate(rows, now, user_id=user_id)
     except Exception as exc:
         logger.warning("[student-assigned] list read failed user=%s: %s", user_id, exc)
         degraded.append("items")
