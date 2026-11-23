@@ -16,10 +16,13 @@ writing grading does NOT write ai_usage_logs (§0b⑤), so that source would be 
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Header
+import uuid
+
+from fastapi import APIRouter, Header, HTTPException
 
 from database import supabase_admin
 from routers.admin import require_admin
+from services.admin_instructor_profiles import teacher_overview
 from services.instructor_access import instructor_owned_essay_ids
 
 router = APIRouter(prefix="/admin/instructors", tags=["admin"])
@@ -36,6 +39,9 @@ async def list_instructor_metrics(authorization: str | None = Header(None)):
         .eq("role", "instructor")
         .execute()
     ).data or []
+
+    # ADMINIA-0074 FR-106: classes taught, Writing waiting, review speed.
+    overview = teacher_overview(ins["id"] for ins in instructors)
 
     out = []
     for ins in instructors:
@@ -87,5 +93,46 @@ async def list_instructor_metrics(authorization: str | None = Header(None)):
             "regrade_events": regrade_events,      # volume (sum of regrade_count)
             "tokens":         tokens,              # writing_feedback (NOT ai_usage_logs)
             "cost_usd":       round(cost, 4),
+            **_overview_fields(overview.get(x)),
         })
     return out
+
+
+def _overview_fields(row: dict | None) -> dict:
+    row = row or {}
+    return {
+        "classes":          row.get("classes"),           # None = unreadable
+        "writing_pending":  row.get("writing_pending"),
+        "writing_overdue":  row.get("writing_overdue"),
+        "delivered_30d":    row.get("delivered_30d"),
+        "in_progress":      row.get("in_progress"),
+        "avg_review_hours": row.get("avg_review_hours"),  # None below 5 reviews
+    }
+
+
+@router.get("/{instructor_id}")
+async def get_instructor_profile(instructor_id: str, authorization: str | None = Header(None)):
+    """One teacher's profile (FR-106): classes with per-class Writing counts
+    and 30-day review volume. Admin-only. 404 unless an instructor."""
+    await require_admin(authorization)
+    try:
+        uuid.UUID(instructor_id)
+    except ValueError:
+        raise HTTPException(404, "Không tìm thấy giáo viên") from None
+    rows = (
+        supabase_admin.table("users")
+        .select("id, email, display_name, role")
+        .eq("id", instructor_id)
+        .limit(1)
+        .execute()
+    ).data or []
+    if not rows or rows[0].get("role") != "instructor":
+        raise HTTPException(404, "Không tìm thấy giáo viên")
+    ins = rows[0]
+    overview = teacher_overview([ins["id"]])
+    return {
+        "instructor_id": ins["id"],
+        "email":         ins.get("email"),
+        "display_name":  ins.get("display_name"),
+        **_overview_fields(overview.get(str(ins["id"]))),
+    }

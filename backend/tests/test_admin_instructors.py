@@ -78,7 +78,8 @@ def test_instructor_metrics_aggregate():
     fake = _SB(store)
     with patch("routers.admin_instructors.require_admin", new=AsyncMock(return_value={"id": "admin"})), \
          patch("routers.admin_instructors.supabase_admin", fake), \
-         patch("services.instructor_access.supabase_admin", fake):
+         patch("services.instructor_access.supabase_admin", fake), \
+         patch("routers.admin_instructors.teacher_overview", return_value={}):
         r = _client().get("/admin/instructors", headers={"Authorization": "Bearer x"})
     assert r.status_code == 200, r.text
     rows = {row["instructor_id"]: row for row in r.json()}
