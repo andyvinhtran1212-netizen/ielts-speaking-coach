@@ -303,9 +303,12 @@ function NoCourse({ today }: { today: Today }) {
 }
 
 function OrderPending({ today }: { today: Today }) {
-  if (today.degraded.has('orders_open') || !today.orders.length) {
-    return <NoCourse today={today} />;
+  if (today.degraded.has('orders_open')) {
+    // The server says an order is pending; a failed order list is that
+    // block's own error, never "no course" (FR-026).
+    return <Section title="Đơn đăng ký của bạn"><BlockError title="Đơn đăng ký" /></Section>;
   }
+  if (!today.orders.length) return <NoCourse today={today} />;
   return (
     <Section title="Đơn đăng ký của bạn">
       <ul className={styles.list}>
