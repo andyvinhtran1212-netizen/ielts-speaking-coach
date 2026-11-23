@@ -1,8 +1,9 @@
 // ENROLL-0060 FR-060 (G05-T22) — behaviour of the open-alert model helpers.
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-import { OPEN_ALERT_COPY, normalizeEmail, openAlertErrorMessage, openAlertPath, parseUnsubscribeHash } from '../lib/open-alert-model.mjs';
+import { OPEN_ALERT_COPY, isUnsubscribeHash, normalizeEmail, openAlertErrorMessage, openAlertPath, parseUnsubscribeHash } from '../lib/open-alert-model.mjs';
 
 test('normalizeEmail trims a valid address and rejects malformed ones', () => {
   assert.equal(normalizeEmail('  hoc.vien@example.test '), 'hoc.vien@example.test');
@@ -31,4 +32,18 @@ test('openAlertErrorMessage maps server and network failures', () => {
     { message: 'Bạn đã gửi nhiều lần quá. Bạn thử lại sau nhé.', field: false });
   assert.deepEqual(openAlertErrorMessage({ status: 503, detail: { message: 'x' } }), { message: OPEN_ALERT_COPY.unavailable, field: false });
   assert.deepEqual(openAlertErrorMessage({ status: 409, detail: null }), { message: OPEN_ALERT_COPY.unavailable, field: false });
+});
+
+test('the shared email table gives the same verdict as the API (backend/tests/test_course_open_alerts.py)', () => {
+  const cases = JSON.parse(readFileSync(new URL('./fixtures/open-alert/email-cases.json', import.meta.url), 'utf8'));
+  for (const email of cases.valid) assert.equal(normalizeEmail(email), email.trim(), email);
+  for (const email of cases.invalid) assert.equal(normalizeEmail(email), '', email);
+});
+
+test('isUnsubscribeHash spots a mail link even when its token is broken', () => {
+  assert.equal(isUnsubscribeHash('#bo-nhan=abc'), true);
+  assert.equal(isUnsubscribeHash('#bo-nhan='), true);
+  assert.equal(isUnsubscribeHash('#bo-nhan=a%2Fb'), true);
+  assert.equal(isUnsubscribeHash('#gioi-thieu'), false);
+  assert.equal(isUnsubscribeHash(undefined), false);
 });

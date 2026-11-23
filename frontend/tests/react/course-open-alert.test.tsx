@@ -135,3 +135,12 @@ it('no #bo-nhan hash: nothing is sent and nothing is shown', () => {
   expect(calls).toEqual([]);
   expect(window.location.hash).toBe('#gioi-thieu');
 });
+
+it('a broken #bo-nhan= link tells the user, sends nothing and clears the hash', async () => {
+  window.history.replaceState(null, '', '/courses/ielts-7#bo-nhan=');
+  render(<OpenAlertUnsubscribeNotice slug="ielts-7" />);
+  expect(await screen.findByText(/Liên kết bỏ nhận không đúng/)).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Thử lại' })).toBeNull();
+  expect(calls).toEqual([]);
+  expect(window.location.hash).toBe('');
+});

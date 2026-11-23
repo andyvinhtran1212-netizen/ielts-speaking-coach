@@ -21,6 +21,7 @@ export const OPEN_ALERT_COPY = Object.freeze({
   network: 'Chưa gửi được. Bạn kiểm tra mạng rồi thử lại nhé.',
   unsubscribedNotice: 'Bạn đã bỏ nhận thông báo về khoá này.',
   unsubscribeFailed: 'Chưa bỏ nhận được, thử lại',
+  unsubscribeLinkBroken: 'Liên kết bỏ nhận không đúng hoặc không còn dùng được. Bạn mở lại liên kết trong thư, hoặc đăng nhập để bỏ nhận.',
   retry: 'Thử lại',
 });
 
@@ -28,6 +29,11 @@ export const OPEN_ALERT_COPY = Object.freeze({
 export function normalizeEmail(value) {
   const email = typeof value === 'string' ? value.trim() : '';
   return email.length <= 254 && EMAIL_RE.test(email) ? email : '';
+}
+
+/** True for any `#bo-nhan=…` hash, valid token or not. @param {unknown} hash */
+export function isUnsubscribeHash(hash) {
+  return typeof hash === 'string' && hash.startsWith(HASH_PREFIX);
 }
 
 /**

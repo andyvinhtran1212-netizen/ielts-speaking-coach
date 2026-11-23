@@ -8,10 +8,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Button, Notice } from '@/components/ui';
-import { OPEN_ALERT_COPY, openAlertPath, parseUnsubscribeHash } from '@/lib/open-alert-model.mjs';
+import { OPEN_ALERT_COPY, isUnsubscribeHash, openAlertPath, parseUnsubscribeHash } from '@/lib/open-alert-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
-type State = 'none' | 'sending' | 'done' | 'failed';
+type State = 'none' | 'sending' | 'done' | 'failed' | 'broken';
 
 export function OpenAlertUnsubscribeNotice({ slug }: { slug: string }) {
   const [state, setState] = useState<State>('none');
@@ -35,11 +35,16 @@ export function OpenAlertUnsubscribeNotice({ slug }: { slug: string }) {
   useEffect(() => {
     if (started.current) return; // StrictMode re-runs effects: still one request
     started.current = true;
-    const parsed = parseUnsubscribeHash(window.location.hash);
-    if (window.location.hash.startsWith('#bo-nhan=')) {
-      window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search);
+    const hash = window.location.hash;
+    if (!isUnsubscribeHash(hash)) return;
+    window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search);
+    const parsed = parseUnsubscribeHash(hash);
+    if (!parsed) {
+      // A mangled mail link (cut by the mail app, token missing): say so,
+      // nothing to send, nothing to retry.
+      setState('broken');
+      return;
     }
-    if (!parsed) return;
     token.current = parsed;
     void send();
   }, [send]);
@@ -53,6 +58,9 @@ export function OpenAlertUnsubscribeNotice({ slug }: { slug: string }) {
         {OPEN_ALERT_COPY.unsubscribeFailed}
       </Notice>
     );
+  }
+  if (state === 'broken') {
+    return <Notice kind="warning" live="alert">{OPEN_ALERT_COPY.unsubscribeLinkBroken}</Notice>;
   }
   if (state === 'sending') return <p role="status">{OPEN_ALERT_COPY.sending}</p>;
   return null;
