@@ -60,7 +60,9 @@ Nguồn: `backend/content/library/topics.json` (14 chủ đề, đã merge #2362
 | `justification` | jsonb | not null, chỉ `by_criterion` (bỏ `integrity_check`; `overrides.justification_jumps` của manifest đã gộp) |
 | `task1_data` | jsonb null | `data` của Task 1 |
 | `content_hash` | text | not null — sha256 của JSON chuẩn hoá phần được nhập (`ensure_ascii=False, sort_keys=True, separators=(',',':')`) |
-| `source_review_status` | text null | `review_status` của nguồn |
+| `source_review_status` | text null | `review_status` của nguồn (lịch sử biên tập, **không** phải chữ ký duyệt) |
+| `review_status` | text | not null default `'needs_review'`, `in ('approved','needs_review','excluded')` — `review.status` của manifest (**Amendment 2**, migration 401) |
+| `reviewed_by`, `reviewed_at` | text null, timestamptz null | `review.by`, `review.at` của manifest; bắt buộc khi `review_status='approved'` (CHECK, **Amendment 2**) |
 | `published` | boolean | not null default false |
 | `published_at`, `created_at`, `updated_at` | timestamptz | `updated_at` chỉ đổi khi `content_hash`, tiêu đề, chủ đề hoặc ảnh đổi |
 
@@ -97,6 +99,19 @@ Ràng buộc chéo: `check ((task_type='task2' and question_type is not null and
 `library_marks(user_id uuid not null fk users on delete cascade, shelf text check (shelf in ('writing_sample','speaking_sample','writing_guide','grammar_article')), item_key text not null, kind text check (kind in ('read','saved')), created_at timestamptz not null default now(), primary key (user_id, shelf, item_key, kind))`. Grammar "đã lưu" **giữ** `saved_articles` (admin thống kê đọc nó, `backend/routers/admin.py`); `library_marks` chỉ thêm `grammar_article/read`. `item_key` = `slug` hiện hành (Writing/Speaking/guide) hoặc `<category>/<slug>` (Grammar); đổi slug Writing thì T20 cập nhật `item_key` trong cùng giao dịch.
 
 RLS bật trên cả năm bảng; không policy cho `anon`/`authenticated`; `REVOKE ALL … FROM anon, authenticated` theo mẫu migration gần nhất có REVOKE; mọi đọc/ghi qua backend `service_role`. Migration áp được lại (idempotent `if not exists`), postcondition kiểm RLS bật và không có grant cho hai vai trò client.
+
+### 5.2b Chữ ký duyệt bài mẫu Writing — migration `401_writing_sample_review_signoff.sql` (Amendment 2, chờ anh Andy duyệt)
+
+**Vì sao:** điều kiện xuất bản FR-019 là chữ ký trong manifest (`review.status='approved'` + `review.by/at`, mã `E_NOT_APPROVED`). Migration 400 chỉ có `source_review_status` (lịch sử biên tập của nguồn, 530 bộ `needs_review` cũng có), nên DB không phân biệt được bộ đã ký. Hệ quả: `/admin/library` (#2497) phải đóng hẳn nút đăng Writing, và chỉ script nhập (#2498) biết bộ nào được đăng.
+
+**Thay đổi:** số **401** trong dải G06. `writing_samples` thêm `review_status`, `reviewed_by`, `reviewed_at` (bảng 5.2) và ba CHECK:
+- `writing_samples_review_status_valid`: `review_status in ('approved','needs_review','excluded')`;
+- `writing_samples_review_signed`: `review_status <> 'approved'` hoặc có `reviewed_by` (không rỗng) và `reviewed_at`;
+- `writing_samples_published_approved`: `not published or review_status = 'approved'`.
+
+Hàng cũ nhận `needs_review`. Migration từ chối chạy khi đang có bộ `published` (chưa có chữ ký lưu); rollback `rollback/401_…` từ chối khi đã có hàng ký hoặc đang đăng. Không đổi RLS, grant, policy. Feature `public_library` như 400, không áp khi merge.
+
+**Ai ghi:** script nhập chép `review.{status,by,at}` của manifest vào ba cột ở `--execute` (nối trong PR T003b, #2498); `/admin/library` mở lại nút đăng Writing cho bộ `review_status='approved'` (nối trong PR T020, #2497). Ký duyệt trên giao diện admin không thuộc amendment này (vẫn ký ở manifest, câu N1). FR không đổi: đây là cách lưu điều kiện FR-019 trong DB.
 
 ### 5.3 Bảng chủ đề
 

@@ -72,3 +72,27 @@ route fails. #2393 already shipped `PATCH /admin/settings/thresholds`. The GOI d
 were changed the same way in #2423 (GOI-09/11) and #2424 (GOI-06/07/12/13).
 
 No learner data is included here.
+
+## Amendment 2 — store the Writing sample sign-off in the DB (proposed 2026-11-23, NOT YET APPROVED)
+
+Proposed in the G06-T02b PR. Nothing in this amendment is approved until anh
+Andy writes his approval; it is then recorded here verbatim with its time, and
+this heading drops "NOT YET APPROVED".
+
+What changes: `plan.md` §5.2 (three columns in the `writing_samples` table) and
+new §5.2b (migration `401_writing_sample_review_signoff.sql`, its three CHECKs
+and its rollback), `tasks.md` (new T002b), `rollout.md` (apply 401 after 400 on
+staging), `verification.md` (FR-019 evidence row names the 401 test). No
+requirement, scenario or risk changes in `spec.md`: FR-019's publish condition
+(`review.status='approved'` with `review.by/at`, `E_NOT_APPROVED`) becomes a DB
+CHECK instead of living only in the import script. Open question N1 (who signs
+the 530 `needs_review` sets) stays open.
+
+Pre-amendment sha256: `plan.md` 62743aa6af0b56897613fd8df16eb7869a73d42ebbe2aa1b63b5544df417a0d8,
+`tasks.md` 7b3a33cfaa58a5cdbf451863917f347b671e76163892bc194d0a0af501a1327d,
+`rollout.md` 22df02f33708c085c60637be4be7db918cb1cfc26a69b41e069e4066d80f1e33,
+`verification.md` 6522040785d195788adfbdccf312e259b8a3d29404d2306e75094f404ffff4ce.
+
+Not approved by this amendment, even once approved: applying 401 to any
+database (needs anh Andy's own typed approval for that window), and merging
+this PR or the #2497 / #2498 follow-ups (each needs his own "merge #N").
