@@ -142,7 +142,7 @@ to `/`; the historical source file is not a separately served marketing page.
 | Page | Audience | Purpose · operation |
 |---|---|---|
 | `/vocabulary/hub` | student | Vocab hub landing (Từ vựng theo chủ đề / Flashcards / Exercises); mounts the tab modules. |
-| `/flashcards` · `/flashcard-study` | student | Flashcard stacks + SRS study (`/api/flashcards/*`, SM-2). |
+| `/vocabulary/flashcards` · `/vocabulary/flashcards/study` | student | Flashcard stacks + SRS study (`/api/flashcards/*`, SM-2). Old `/flashcards` · `/flashcard-study` 307 here (LEARNERNAV-0062). |
 | `/exercises` · `/d1-exercise` | student | Fill-blank vocab exercises (`/api/exercises/*`). |
 | `/vocabulary` | all | Vocabulary reference wiki — categories, article selection, pronunciation, usage and collocations; distinct from the authenticated practice hub. |
 | `/vocabulary/practice` | student | Active vocabulary practice by set, with progress and review. |

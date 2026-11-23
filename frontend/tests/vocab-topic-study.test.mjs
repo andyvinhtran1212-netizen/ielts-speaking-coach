@@ -29,7 +29,7 @@ const VOCAB_CSS = front('css', 'vocabulary.css');
 describe('topic cards launch flashcards for that stack', () => {
   test('each topic card has a Flashcards launch to wiki:<category>', () => {
     assert.match(LANDING, /vtc-act--study/);
-    assert.match(LANDING, /\/flashcard-study\?stack=wiki:/);
+    assert.match(LANDING, /\/vocabulary\/flashcards\/study\?stack=wiki:/);
     assert.match(LANDING, /Khám phá/);          // browse-wiki action still present
   });
   test('action buttons are styled (theme-aware)', () => {
