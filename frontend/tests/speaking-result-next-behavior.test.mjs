@@ -1,5 +1,5 @@
 /**
- * Regression gate for the `/speaking/result` native React behavior batch.
+ * Regression gate for the `/tests/mock/speaking-report` native React behavior batch.
  */
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -9,16 +9,16 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
-const PAGE = read('app', '(authed-speaking-result)', 'speaking', 'result', 'page.tsx');
+const PAGE = read('app', '(authed-speaking-result)', 'tests', 'mock', 'speaking-report', 'page.tsx');
 const BEHAVIOR = read(
-  'app', '(authed-speaking-result)', 'speaking', 'result', 'speaking-result-behavior.tsx',
+  'app', '(authed-speaking-result)', 'tests', 'mock', 'speaking-report', 'speaking-result-behavior.tsx',
 );
 const HARD_NAV_GATE = read('tests', 'legacy-module-routes-need-hard-nav.test.mjs');
 const MOCK_RESULT = read('public', 'js', 'mock-result.js');
 const LEGACY_RESULT = read('public', 'js', 'speaking-result.js');
 const LEGACY_CSS = read('public', 'css', 'speaking-result.css');
 
-describe('/speaking/result — native React behavior', () => {
+describe('/tests/mock/speaking-report — native React behavior', () => {
   test('does not inject the legacy module or watchdog', () => {
     assert.doesNotMatch(PAGE, /import\s+.*watchdogScript|<script|dangerouslySetInnerHTML/);
     assert.doesNotMatch(BEHAVIOR, /import\s*\([^)]*speaking-result\.js|<script|dangerouslySetInnerHTML/);
@@ -26,7 +26,7 @@ describe('/speaking/result — native React behavior', () => {
 
   test('is no longer classified as a hard-navigation-only target', () => {
     const list = HARD_NAV_GATE.match(/const LEGACY_MODULE_ROUTES = \[([\s\S]*?)\];/)?.[1] || '';
-    assert.doesNotMatch(list, /['"]\/speaking\/result['"]/);
+    assert.doesNotMatch(list, /['"]\/tests\/mock\/speaking-report['"]/);
   });
 
   test('uses shared auth, keyed state and abortable requests', () => {
@@ -66,9 +66,9 @@ describe('/speaking/result — native React behavior', () => {
   });
 });
 
-describe('/speaking/result — canonical entry point', () => {
+describe('/tests/mock/speaking-report — canonical entry point', () => {
   test('TRF links to the canonical route, never the rollback HTML', () => {
-    assert.match(MOCK_RESULT, /href:\s*'\/speaking\/result\?sitting='/);
+    assert.match(MOCK_RESULT, /href:\s*'\/tests\/mock\/speaking-report\?sitting='/);
     assert.doesNotMatch(MOCK_RESULT, /\/pages\/speaking-result\.html\?sitting=/);
   });
 

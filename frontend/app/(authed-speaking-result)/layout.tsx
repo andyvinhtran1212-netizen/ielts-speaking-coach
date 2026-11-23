@@ -1,4 +1,4 @@
-// Route-group cần đăng nhập cho `/speaking/result`.
+// Route-group cần đăng nhập cho `/tests/mock/speaking-report`.
 //
 // `/css/speaking-result.css` vẫn dùng chung với bản legacy trong cửa sổ
 // parity/rollback; behavior của route production đã thuộc React.

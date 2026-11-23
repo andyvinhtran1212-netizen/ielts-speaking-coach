@@ -154,6 +154,8 @@ const nextConfig: NextConfig = {
       { source: '/grammar-checkup', destination: '/course/grammar-checkup', permanent: false },
       { source: '/grammar-checkup/review/:routeId', destination: '/course/grammar-checkup/review/:routeId', permanent: false },
       { source: '/full-test-result', destination: '/speaking/full-test/result', permanent: false },
+      { source: '/speaking/result', destination: '/tests/mock/speaking-report', permanent: false },
+      { source: '/mock/result', destination: '/tests/mock/result', permanent: false },
     ];
   },
 

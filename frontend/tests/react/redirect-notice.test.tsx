@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { RedirectNotice } from '@/components/redirect-notice';
-import { MockResultBehavior } from '@/app/(authed-mock-result)/mock/result/mock-result-behavior';
+import { MockResultBehavior } from '@/app/(authed-mock-result)/tests/mock/result/mock-result-behavior';
 
 // G02-T11 (FR-02-010): a page without its parameter sends the learner to its
 // parent with `?notice=`; the parent shows one plain line and drops the key.

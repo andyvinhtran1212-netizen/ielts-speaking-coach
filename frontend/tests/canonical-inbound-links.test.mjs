@@ -39,7 +39,7 @@ describe('canonical inbound links', () => {
   test('native product and admin surfaces do not link back into migrated HTML', () => {
     const checks = [
       [
-        readFrontend('app', '(authed-mock-result)', 'mock', 'result', 'mock-result-behavior.tsx'),
+        readFrontend('app', '(authed-mock-result)', 'tests', 'mock', 'result', 'mock-result-behavior.tsx'),
         /\/pages\/writing-result\.html/,
       ],
       [

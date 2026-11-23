@@ -27,7 +27,7 @@ export function readingReviewBackTarget(params) {
   if (params?.from === 'admin') return { href: '/admin/classes', label: '← Quản lý lớp' };
   if (params?.from === 'mock' && params?.sittingId) {
     return {
-      href: `/mock/result?sitting=${encodeURIComponent(params.sittingId)}`,
+      href: `/tests/mock/result?sitting=${encodeURIComponent(params.sittingId)}`,
       label: '← Kết quả thi thử',
     };
   }

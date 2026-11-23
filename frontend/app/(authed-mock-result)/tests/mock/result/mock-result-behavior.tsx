@@ -187,7 +187,7 @@ function ReviewLinks({ data, sittingId }: {
       icon: '🎙',
       title: 'Nhận xét Speaking',
       hint: 'Thi trực tiếp — band 4 tiêu chí + cách luyện',
-      href: `/speaking/result?sitting=${encodeURIComponent(sittingId)}`,
+      href: `/tests/mock/speaking-report?sitting=${encodeURIComponent(sittingId)}`,
     });
   }
   if (!cards.length) return null;

@@ -35,6 +35,9 @@ const MOVES = [
   { from: '/grammar-checkup', to: '/course/grammar-checkup', legacy: null },
   // Batch 5 (G07-T10)
   { from: '/full-test-result', to: '/speaking/full-test/result', legacy: '/pages/full-test-result.html' },
+  // Batch 6 (G07-T11)
+  { from: '/speaking/result', to: '/tests/mock/speaking-report', legacy: '/pages/speaking-result.html' },
+  { from: '/mock/result', to: '/tests/mock/result', legacy: '/pages/mock-result.html' },
   // Batch 8 (G07-T15u)
   { from: '/my-class', to: '/course/assigned', legacy: '/pages/my-class.html' },
 ];

@@ -12,7 +12,7 @@ const PRIVATE_PREFIXES = [
   '/instructor',
   '/listening',
   '/login',
-  '/mock',
+  '/mock-exam', // G07-T11: '/mock' bỏ theo spec; '/mock-exam' giữ tới đợt 7b (T12b) vì tiền tố '/mock' từng chặn cả nó
   '/next-probe',
   '/onboarding',
   '/pages/',
@@ -24,6 +24,7 @@ const PRIVATE_PREFIXES = [
   '/recorder-spike',
   '/result',
   '/speaking',
+  '/tests',
   '/vocabulary/exam',
   '/vocabulary/fill-in',
   '/vocabulary/flashcards',

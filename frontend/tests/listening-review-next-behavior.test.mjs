@@ -27,7 +27,7 @@ const NEXT_CSS = read('public', 'css', 'listening-review-next.css');
 const LEGACY_HTML = read('tests', 'fixtures', 'legacy-html-retired', 'pages', 'listening-review.html');
 const LEGACY_JS = read('public', 'js', 'listening-review.js');
 const PLAYER = read('public', 'js', 'listening-test-player.js');
-const MOCK = read('app', '(authed-mock-result)', 'mock', 'result', 'mock-result-behavior.tsx');
+const MOCK = read('app', '(authed-mock-result)', 'tests', 'mock', 'result', 'mock-result-behavior.tsx');
 const WEB_PANEL = read('components', 'web-explanation-panel.tsx');
 const WEB_PANEL_CSS = read('public', 'css', 'web-explanation-panel.css');
 
@@ -185,7 +185,7 @@ describe('Listening review native model', () => {
     const hostile = listeningReviewParams('?attempt_id=a&from=https://evil.test&sitting=x');
     assert.equal(hostile.from, 'full');
     assert.deepEqual(listeningReviewBackTarget(hostile), { href: '/listening/tests', label: '← Bài thi Listening' });
-    assert.equal(listeningReviewBackTarget(listeningReviewParams('?attempt_id=a&from=mock&sitting=s%2F1')).href, '/mock/result?sitting=s%2F1');
+    assert.equal(listeningReviewBackTarget(listeningReviewParams('?attempt_id=a&from=mock&sitting=s%2F1')).href, '/tests/mock/result?sitting=s%2F1');
     assert.deepEqual(listeningReviewBackTarget(listeningReviewParams('?attempt_id=a&from=my-class')), {
       href: '/course/assigned', label: '← Lớp học của tôi',
     });
