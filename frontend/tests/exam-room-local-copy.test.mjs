@@ -1,0 +1,111 @@
+// EXAMROOM-0066 FR-035 (FR-015, FR-032): on-device answer copy bound to one
+// account and one attempt; never overwrites newer server answers.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+
+import {
+  clearForeignLocalCopies, clearLocalCopy, clearOwnerLocalCopies, localCopyExpiry, localCopyKey,
+  parseLocalCopyKey, planLocalCopyReplay, readLocalCopy, removeAckedFromCopy, writeLocalCopy,
+} from '../lib/exam-room/local-copy.mjs';
+import { BrokenStorage, MemoryStorage } from './fixtures/exam-room-fakes.mjs';
+
+const A = { surface: 'reading', ownerKey: 'user-a', attemptKey: 'att-1' };
+const B = { ...A, ownerKey: 'user-b' };
+const T0 = Date.parse('2026-11-23T03:00:00Z');
+const later = localCopyExpiry({ deadline: T0 + 3600_000, now: T0 });
+
+test('write returns true only after reading the copy back; merges answers', () => {
+  const s = new MemoryStorage();
+  assert.equal(writeLocalCopy(s, { ...A, answers: { 7: { value: 'dozen pie', baseSavedAt: '2026-11-23T03:00:00Z' } }, expiresAt: later, now: T0 }), true);
+  assert.equal(writeLocalCopy(s, { ...A, answers: { 8: { value: 'B', baseSavedAt: null } }, expiresAt: later, now: T0 + 1 }), true);
+  const copy = readLocalCopy(s, { ...A, now: T0 + 2 });
+  assert.deepEqual(Object.keys(copy.answers).sort(), ['7', '8']);
+  assert.equal(copy.ownerKey, 'user-a');
+  assert.ok(!JSON.stringify(copy).includes('@'), 'no email in the record');
+  assert.equal(writeLocalCopy(new BrokenStorage(), { ...A, answers: { 1: { value: 'x', baseSavedAt: null } }, expiresAt: later, now: T0 }), false);
+  assert.equal(writeLocalCopy(s, { ...A, ownerKey: '', answers: {}, expiresAt: later }), false);
+});
+
+test('another account on the same browser cannot read the copy; signing in as it clears without reading', () => {
+  const s = new MemoryStorage();
+  writeLocalCopy(s, { ...A, answers: { 7: { value: 'dozen pie', baseSavedAt: null } }, expiresAt: later, now: T0 });
+  assert.equal(readLocalCopy(s, { ...B, now: T0 }), null);
+  assert.equal(readLocalCopy(s, { ...A, attemptKey: 'att-2', now: T0 }), null);
+  // A record whose fields disagree with its key (tampered or moved) is not trusted.
+  s.setItem(localCopyKey(B), s.getItem(localCopyKey(A)));
+  assert.equal(readLocalCopy(s, { ...B, now: T0 }), null);
+  assert.equal(s.getItem(localCopyKey(B)), null);
+  // B signs in: every copy not owned by B goes, decided from the key.
+  s.setItem('unrelated', '1');
+  let reads = 0;
+  const spy = new Proxy(s, { get(t, p) { if (p === 'getItem') return (k) => { reads += 1; return t.getItem(k); }; const v = t[p]; return typeof v === 'function' ? v.bind(t) : v; } });
+  assert.equal(clearForeignLocalCopies(spy, 'user-b'), 1);
+  assert.equal(reads, 0, 'content of other accounts is never read');
+  assert.equal(s.getItem(localCopyKey(A)), null);
+  assert.equal(s.getItem('unrelated'), '1');
+});
+
+test('replay: only answers the server has not changed since baseSavedAt are re-sent', () => {
+  const copy = {
+    v: 1, ...A, savedAt: T0, expiresAt: later,
+    answers: {
+      1: { value: 'A', baseSavedAt: '2026-11-23T03:00:00Z' }, // server unchanged since → resend
+      2: { value: 'B', baseSavedAt: '2026-11-23T03:00:00Z' }, // server newer → keep server
+      3: { value: 'C', baseSavedAt: null }, // never saved, server has nothing → resend
+      4: { value: 'D', baseSavedAt: null }, // never saved by us, server has a save → keep server
+      5: { value: 'E', baseSavedAt: '2026-11-23T03:00:00Z' }, // same value already → nothing
+    },
+  };
+  const server = {
+    open: true,
+    answers: {
+      1: { value: 'old', savedAt: '2026-11-23T02:59:00Z' },
+      2: { value: 'other tab', savedAt: '2026-11-23T03:05:00Z' },
+      4: { value: 'x', savedAt: '2026-11-23T03:01:00Z' },
+      5: { value: 'E', savedAt: '2026-11-23T03:00:00Z' },
+    },
+  };
+  const plan = planLocalCopyReplay(copy, server);
+  assert.deepEqual(plan.resend, [{ q: '1', value: 'A' }, { q: '3', value: 'C' }]);
+  assert.deepEqual(plan.keepServer, ['2', '4']);
+  assert.deepEqual(plan.drop.sort(), ['2', '4', '5']);
+  assert.equal(plan.clear, false);
+});
+
+test('submitted or closed attempt: send nothing and clear', () => {
+  const copy = { v: 1, ...A, savedAt: T0, expiresAt: later, answers: { 1: { value: 'A', baseSavedAt: null } } };
+  assert.deepEqual(planLocalCopyReplay(copy, { open: false, answers: {} }), { resend: [], keepServer: [], drop: ['1'], clear: true });
+  assert.deepEqual(planLocalCopyReplay(null, { open: true, answers: {} }), { resend: [], keepServer: [], drop: [], clear: false });
+});
+
+test('acks remove answers; the record goes when empty; abandon and sign-out clear', () => {
+  const s = new MemoryStorage();
+  writeLocalCopy(s, { ...A, answers: { 1: { value: 'A', baseSavedAt: null }, 2: { value: 'B', baseSavedAt: null } }, expiresAt: later, now: T0 });
+  removeAckedFromCopy(s, { ...A, questions: [1], now: T0 });
+  assert.deepEqual(Object.keys(readLocalCopy(s, { ...A, now: T0 }).answers), ['2']);
+  removeAckedFromCopy(s, { ...A, questions: ['2'], now: T0 });
+  assert.equal(s.getItem(localCopyKey(A)), null);
+  writeLocalCopy(s, { ...A, answers: { 1: { value: 'A', baseSavedAt: null } }, expiresAt: later, now: T0 });
+  clearLocalCopy(s, A);
+  assert.equal(readLocalCopy(s, { ...A, now: T0 }), null);
+  writeLocalCopy(s, { ...A, answers: { 1: { value: 'A', baseSavedAt: null } }, expiresAt: later, now: T0 });
+  writeLocalCopy(s, { ...A, attemptKey: 'att-9', answers: { 1: { value: 'Z', baseSavedAt: null } }, expiresAt: later, now: T0 });
+  writeLocalCopy(s, { ...B, answers: { 1: { value: 'B', baseSavedAt: null } }, expiresAt: later, now: T0 });
+  assert.equal(clearOwnerLocalCopies(s, 'user-a'), 2);
+  assert.ok(readLocalCopy(s, { ...B, now: T0 }));
+});
+
+test('expiry: deadline + 24 h, or 7 days untimed; expired copies are removed on read', () => {
+  assert.equal(localCopyExpiry({ deadline: T0, now: 0 }), T0 + 24 * 3600_000);
+  assert.equal(localCopyExpiry({ deadline: null, now: T0 }), T0 + 7 * 24 * 3600_000);
+  const s = new MemoryStorage();
+  writeLocalCopy(s, { ...A, answers: { 1: { value: 'A', baseSavedAt: null } }, expiresAt: T0 + 10, now: T0 });
+  assert.equal(readLocalCopy(s, { ...A, now: T0 + 10 }), null);
+  assert.equal(s.getItem(localCopyKey(A)), null);
+});
+
+test('keys round-trip owners that contain separators (share-link guest scope)', () => {
+  const scope = { surface: 'reading', ownerKey: 'share:tok/1', attemptKey: 'att:3' };
+  assert.deepEqual(parseLocalCopyKey(localCopyKey(scope)), scope);
+  assert.equal(parseLocalCopyKey('exam-room:local-copy:bad'), null);
+});
