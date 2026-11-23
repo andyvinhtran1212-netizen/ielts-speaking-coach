@@ -184,7 +184,7 @@ export function ListeningTestRoom(props: ListeningTestRoomProps) {
     : unsavedList.length && submitBlocked ? `Questions ${unsavedList.join(', ')} are not saved yet. Select “Retry”, then submit again.`
       : undefined;
 
-  const body = <div className="listening-next-room" data-exam-room-listening>
+  const body = <div className="listening-next-shell listening-next-room" data-exam-room-listening>
     {adminPreview ? <aside className="listening-admin-preview" role="status"><strong>Admin preview</strong><span>Preview only. Answers stay in this tab and no test attempt or result is saved.</span></aside> : null}
     {terminal ? <section className="error-banner" role="alert"><p>{submit.message}</p><div className="listening-next-actions"><a className="ft-control-btn" href={backHref}>Back</a></div></section> : null}
     <section className={`listening-next-player${practice ? ' is-practice' : ' is-full-test'}`} aria-label="Audio controls">
