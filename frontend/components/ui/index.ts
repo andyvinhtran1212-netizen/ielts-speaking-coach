@@ -26,3 +26,16 @@ export { ThemeChoiceGroup, type ThemeChoiceGroupProps } from './theme-choice';
 export { ThemeMenu, ThemeMenuList, type ThemeMenuListProps, type ThemeMenuProps } from './theme-menu';
 export { THEME_SCRIPT, ThemeScript } from './theme-script';
 export { useThemeChoice, type ThemeChoice, type ThemeChoiceState, type ThemeMode } from './use-theme-choice';
+export {
+  BAND_DISCLAIMER, BandScore, compareSentence, CriteriaList, formatBand, ieltsOverall, OverallBlock,
+  type BandCriterion, type BandScoreProps, type BandScoreSize, type BandScoreState, type OverallBlockProps, type OverallSkill, type PreviousBand,
+} from './band-score';
+export { activeThreshold, formatClock, Timer, type TimerProps, type TimerThreshold } from './timer';
+export {
+  paletteSummary, QuestionPalette, questionCellName, type QuestionItem, type QuestionPaletteProps, type QuestionState,
+} from './question-palette';
+export { VocabEntry, type VocabEntryProps } from './vocab-entry';
+export {
+  ANNOTATION_KINDS, AnnotatedText, type AnnotatedSegment, type AnnotatedTextProps, type AnnotationMark, type AnnotationNote,
+} from './annotated-text';
+export { Figure, type FigureProps } from './figure';

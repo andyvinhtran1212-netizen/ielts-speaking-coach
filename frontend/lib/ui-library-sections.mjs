@@ -28,4 +28,10 @@ export const UI_LIBRARY_SECTIONS = Object.freeze([
   Object.freeze({ id: 'theme', title: 'Sáng, tối, theo thiết bị' }),
   Object.freeze({ id: 'learner-shell', title: 'Khung học viên' }),
   Object.freeze({ id: 'focus-shell', title: 'Thanh tập trung' }),
+  Object.freeze({ id: 'band-score', title: 'Khối band điểm' }),
+  Object.freeze({ id: 'timer', title: 'Đồng hồ' }),
+  Object.freeze({ id: 'question-palette', title: 'Bảng câu hỏi' }),
+  Object.freeze({ id: 'vocab-entry', title: 'Mục từ vựng' }),
+  Object.freeze({ id: 'annotated-text', title: 'Chú thích trên bài' }),
+  Object.freeze({ id: 'figure', title: 'Sơ đồ minh hoạ' }),
 ]);

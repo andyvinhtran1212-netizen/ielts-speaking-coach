@@ -20,6 +20,9 @@ import {
 } from './nav-sections';
 import { LearnerShellSection } from './shell-sections';
 import { FocusShellSection } from './focus-demo';
+import {
+  AnnotatedTextSection, BandScoreSection, FigureSection, QuestionPaletteSection, TimerSection, VocabEntrySection,
+} from './learning-sections';
 import { ThemeSection } from './theme-sections';
 import styles from './ui-library.module.css';
 
@@ -177,6 +180,12 @@ export default function UiLibraryPage() {
           <ThemeSection title={title('theme')} />
           <LearnerShellSection title={title('learner-shell')} />
           <FocusShellSection title={title('focus-shell')} />
+          <BandScoreSection title={title('band-score')} />
+          <TimerSection title={title('timer')} />
+          <QuestionPaletteSection title={title('question-palette')} />
+          <VocabEntrySection title={title('vocab-entry')} />
+          <AnnotatedTextSection title={title('annotated-text')} />
+          <FigureSection title={title('figure')} />
         </main>
       </div>
     </>

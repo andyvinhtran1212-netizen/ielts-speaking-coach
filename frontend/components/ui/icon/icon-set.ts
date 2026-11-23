@@ -2,7 +2,7 @@
 // `iconGroups` array of thiet-ke/ThanhPhanNenTang.dc.html; the sheet's
 // c(x, y, r) helper is stored as a circle.
 //
-// PARTIAL on purpose: G03-T05/T06/T13/T14/T18 need only these. G11-T32 replaces this file
+// PARTIAL on purpose: G03-T05/T06/T09/T13/T14/T18 need only these. G11-T32 replaces this file
 // with the full 94-icon set and keeps the same names and the same `Icon` API.
 // `fills` are drawn filled with currentColor (the half-filled "device" disc).
 export type IconShape = {
@@ -33,6 +33,9 @@ export const ICON_SET = {
   error: { paths: ['M12 7.5v5.5M12 16v.5'], circles: [[12, 12, 9]] },
   info: { paths: ['M12 11v5M12 7.5v.5'], circles: [[12, 12, 9]] },
   lock: { paths: ['M5 11h14v9H5zM8 11V8a4 4 0 0 1 8 0v3'] },
+  // Learning blocks (G03-T09): flag = đánh dấu xem lại, minus = bỏ trống.
+  flag: { paths: ['M5 21V4M5 4h11l-2 4 2 4H5'] },
+  minus: { paths: ['M5 12h14'] },
   video: { paths: ['M3 5h18v14H3zM10 9v6l5-3z'] },
   image: { paths: ['M3 4h18v16H3zM3 16l5-5 5 5M13 14l3-3 5 5'], circles: [[8, 8, 1.5]] },
   // Theme choice (CheDoToi.dc.html §3): sun = Sáng, moon = Tối, half disc = Theo thiết bị.
