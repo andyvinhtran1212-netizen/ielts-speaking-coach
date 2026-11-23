@@ -84,7 +84,7 @@ Ràng buộc `course_lessons_preview_published` thực thi FR-048 ở DB.
 | Method · path | Response 200 | Lỗi |
 |---|---|---|
 | `GET /api/course/{course_code}/lessons` | `{"course":{"code","title","access":{"expires_at"\|null,"can_renew":bool}},"coming_soon":bool,"stages":[{"stage_no","title","lessons":[{"lesson_id","lesson_code","lesson_no","title","kind","video_seconds"\|null,"has_practice":bool,"state":"done\|current\|next\|todo"}]}]}` | 404 `course_not_found`; 403 `course_access_required` / `course_access_expired`; 503 `course_access_unavailable` |
-| `GET /api/course/{course_code}/lessons/{lesson_code}` | `{"lesson_id","lesson_code","title","stage":{"stage_no","title"},"body_md"\|null,"video":{"source","ref","seconds"}\|null,"practice":null,"progress":{"video_position_seconds","completed":bool},"prev":{"lesson_code","title"}\|null,"next":{…}\|null}` | như trên; 404 `lesson_not_found` (không có hoặc chưa `is_published`) |
+| `GET /api/course/{course_code}/lessons/{lesson_code}` | `{"lesson_id","lesson_code","title","stage":{"stage_no","title"},"body_md"\|null,"video":{"source","ref"\|null,"seconds","available":bool}\|null,"practice":null,"progress":{"video_position_seconds","completed":bool},"prev":{"lesson_code","title"}\|null,"next":{…}\|null}` | như trên; 404 `lesson_not_found` (không có hoặc chưa `is_published`) |
 | `PATCH /api/course/lessons/{lesson_id}/progress` body `{video_position_seconds, completed?, opened?}` | `{"video_position_seconds","max_position_seconds","completed":bool}` | 404 `lesson_not_found`; 403; 422 `position_invalid`; 503 |
 
 Quy tắc:
@@ -96,6 +96,7 @@ Quy tắc:
   - `PATCH` kẹp `video_position_seconds` vào `[0, video_seconds]` (bài không có video → `0`), đặt `max_position_seconds = greatest(cũ, mới)`;
   - đặt `completed_at = coalesce(completed_at, now())` khi đủ ngưỡng FR-046;
   - toàn bộ trong một `UPDATE … RETURNING` hoặc một hàm RPC nhỏ, để hai tab không ghi đè `max`.
+- **Video riêng tắt ở server:** `video_available(lesson) = (video_source == 'youtube')`. Với `private_host`, mọi API (bài học, bài thử, admin xem trước) trả `ref: null, available: false`; không có biến cấu hình nào làm lộ `video_ref` của nguồn này. `PATCH` progress dùng cùng hàm: video không phát được thì nhận `completed: true` như bài đọc.
 - **Không log** `body_md`, `video_ref`, email.
 
 ### 5.3 `services/course_outline.py`
@@ -109,16 +110,22 @@ Quy tắc:
 - `next_lesson(user_id) -> {"course_code","course_title","stage_no","stage_title","lesson_no","lesson_count","lesson_code","title","video_seconds","video_position_seconds","practice_items"}|None`. Đủ trường cho thẻ LEARNERCORE-0063 FR-021: khoá, chặng, số bài, tên bài, thời lượng video, số câu luyện, vị trí xem dở, và nút "Học tiếp từ phút M" (`video_position_seconds > 0`) hoặc "Bắt đầu bài":
   - **Chọn khoá:** trong các khoá online có quyền còn hạn (`list_access`) có ít nhất một bài `is_published`, lấy khoá có `opened_at` mới nhất. Nếu chưa mở bài nào ở khoá nào (vừa mua), lấy khoá có quyền bắt đầu (`starts_at`) mới nhất;
   - **Chọn bài:** bài `current`, không có thì bài `next`. Khoá chưa mở bài nào thì là bài `is_published` đầu tiên theo `lesson_no`, với `video_position_seconds = 0`;
-  - **Trả `None`** chỉ khi không có khoá online còn hạn nào có bài `is_published`;
+  - **Khoá đã xong hết** mọi bài `is_published`: bỏ qua, xét khoá kế tiếp theo cùng thứ tự;
+  - **Trả `None`** khi không có khoá online còn hạn nào có bài `is_published` chưa xong (đã học xong mọi khoá cũng là `None`, FR-021 ẩn thẻ);
   - `practice_items` = số câu của `practice_bank_id` (đếm câu của bộ câu theo cách `quiz_banks` hiện dùng, `CHƯA KIỂM` tên bảng câu ở T19b); không có bộ câu thì `null`;
   - lỗi thì ném lỗi; `student_today` của LEARNERCORE-0063 đưa phần `next_lesson` vào `degraded`.
+- **Bộ chuyển cho LEARNERCORE-0063.** Hợp đồng `next_lesson` của 0063 (plan dòng 50) dùng tên trường khác. `_next_lesson_for` trong `student_today` là bộ chuyển duy nhất, không truy vấn thêm:
+  - `course_name` ← `course_title`; `resume_seconds` ← `video_position_seconds`;
+  - `href` ← `/course/learn/{course_code}/{lesson_code}`;
+  - `course_code`, `stage_no`, `lesson_code`, `lesson_no`, `lesson_count`, `title`, `video_seconds`, `practice_items` giữ nguyên; `stage_title` bỏ.
+  - Test hợp đồng (T19b): bài xem dở ở giây 125 → `resume_seconds = 125`, `href` đúng, đủ 11 trường của 0063 và không thiếu trường nào.
 
 ### 5.4 Bài thử công khai (T29)
 
 `GET /api/courses/{slug}/preview/{lesson_code}` (không cần token, nằm trong `ACTIVATION_EXEMPT_ROUTES`):
 - sản phẩm phải công khai (`is_public`, `archived_at is null`; trạng thái `open` hoặc `coming_soon`);
 - bài phải `is_preview AND is_published` và cùng `course_id`; sai bất kỳ điều kiện nào → 404 `preview_not_found`;
-- trả `{title, stage, body_md, video}`, không có `progress`/`prev`/`next`/`practice`;
+- trả `{title, stage, body_md, video}`, không có `progress`/`prev`/`next`/`practice`; `video` theo cùng luật `video_available` (`private_host` → `ref: null, available: false`);
 - có token và `has_course_access` đúng → thêm `"learner_href": "/course/learn/<code>/<lesson_code>"`, frontend chuyển hướng;
 - giới hạn tần suất 60 lần/phút/IP băm (`request_safety`).
 
@@ -164,7 +171,7 @@ Mẫu test nằm ở `backend/tests/fixtures/course_lessons/` (3 bài thử, n�
   - sau sự kiện `load`, gửi `postMessage(JSON.stringify({event:'listening'}), 'https://www.youtube-nocookie.com')` để iframe bắt đầu phát `infoDelivery`;
   - chỉ nhận thông điệp khi `event.origin === 'https://www.youtube-nocookie.com'` **và** `event.source === iframe.contentWindow`; đọc `info.currentTime`, `info.playerState`;
   - `CHƯA KIỂM` (T19b, trên staging): `infoDelivery` có `currentTime` qua miền nocookie. Không có thì lưu vị trí bằng đồng hồ phía trang (bắt đầu từ `startAt`, cộng khi nhận `playerState = 1`) và ghi rõ sai số trong PR.
-- `private_host`: thẻ `<video>` với `src` là `AVER_PRIVATE_VIDEO_ORIGIN + ref`. Origin rỗng thì hiện "Video chưa sẵn sàng".
+- `available: false` (gồm mọi bài `private_host` ở bản này): không dựng `<video>`, không có `src`; hiện "Video chưa sẵn sàng" và nút "Đánh dấu đã đọc".
 
 ## UI and interaction
 
