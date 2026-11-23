@@ -12,6 +12,9 @@ export const STATIC_PUBLIC_PATHS = Object.freeze([
 // Library list pages (LIBRARY-0061 FR-062, G06-T17). Each joins the sitemap
 // only once its page is `live` in the route registry, so the sitemap never
 // lists a URL that answers 404 while T009/T011/T013 are pending.
+// FR-062 is only partly met here: Speaking prompt pages and Writing guide
+// articles have no public index endpoint yet (T013 / T011 add them); their
+// readers join this model with those tasks.
 export const LIBRARY_PUBLIC_PATHS = Object.freeze([
   { path: '/library', changeFrequency: 'weekly', priority: 0.8 },
   { path: '/library/writing-samples', changeFrequency: 'weekly', priority: 0.8 },
@@ -26,6 +29,19 @@ export const LIBRARY_SAMPLE_INDEX_PATH = '/api/library/writing-samples/index';
 /** @param {string} path */
 function isLiveRoute(path) {
   return routeFor(path)?.status === 'live';
+}
+
+/** A sample page path (any slug), for the route-registry `[slug]` entry. */
+const SAMPLE_PAGE_PROBE = `${WRITING_SAMPLE_PAGE}x`;
+
+/**
+ * True when the Writing sample page route is live, so the sitemap route only
+ * reads the index when its URLs could be listed.
+ *
+ * @param {(path: string) => boolean} [isLive]
+ */
+export function writingSamplePagesLive(isLive = isLiveRoute) {
+  return isLive(SAMPLE_PAGE_PROBE);
 }
 
 function cleanSegment(value) {
@@ -87,7 +103,7 @@ export function buildPublicSitemap(home, { writingSamples = null, isLive = isLiv
   }
 
   // Writing sample pages (FR-062), only while the page route is live.
-  const samples = Array.isArray(writingSamples) && isLive(`${WRITING_SAMPLE_PAGE}x`) ? writingSamples : [];
+  const samples = Array.isArray(writingSamples) && writingSamplePagesLive(isLive) ? writingSamples : [];
   for (const sample of samples) {
     const slug = cleanSegment(sample?.slug);
     if (!slug) continue;
