@@ -32,3 +32,28 @@ Not approved by this decision:
 - Merging any PR. Each merge needs anh Andy's own "merge #N".
 
 No learner data is included here.
+
+## Amendment 1
+
+On 2026-11-23 at 17:08 Asia/Saigon (10:08:17 UTC), the owner (anh Andy) wrote in the
+project chat of the Averlearning Claude Code project, verbatim:
+
+> duyệt spec 0069 0070 0071, duyệt sửa đổi 1 spec 0066 (a)(b)(c)
+
+Amendment 1 was proposed in EXAMREAD-0067 (open question 6, item (a)) and in the section
+"Sửa đổi đề xuất cho EXAMROOM-0066" of EXAMLISTENP-0069 (items (b) and (c)), branch
+`claude/examlistenp-0069-spec` head `807efcaf`. This commit applies it to this spec:
+
+- **(a)** FR-034 and `submit.outcome` gain `expired_unsubmitted`: the server refused a
+  submit that arrived after the grace period; the attempt is not submitted. Copy from
+  EXAMREAD-0067 FR-021; no other outcome changes.
+- **(b)** `ExamRoomSurface` gains `'listening-practice'` (Listening practice, `practice`
+  mode); `'listening'` stays for Listening full test, mini test and drill. The flag name
+  list in `generate-runtime-config.mjs` follows `EXAM_ROOM_SURFACES`.
+- **(c)** FR-035 compares the local copy by value: each answer keeps `baseValue` (the
+  value the server last acknowledged); `baseSavedAt` is kept for display only. The lib
+  (T001, #2507) adds `baseValue` to `LocalCopyAnswer` and `planLocalCopyReplay` compares by
+  it; a record without `baseValue` asks the learner instead of resending.
+
+Status stays `approved`. Not approved by this decision: turning on any surface on staging
+or production (each needs its own approval), and merging any PR.

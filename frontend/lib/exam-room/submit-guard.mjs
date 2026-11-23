@@ -99,17 +99,22 @@ export function saveStatusText(status, strings) {
 
 /**
  * Time-up screen copy from the surface's `submit.outcome` (FR-034). The shell
- * never infers `confirmed` itself.
- * @param {{ outcome: 'idle' | 'submitting' | 'confirmed' | 'unconfirmed' | 'unconfirmed_manual' | 'closed_unconfirmed', savedUpTo?: string | null, closedAt?: string | null, strings: any }} input
+ * never infers `confirmed` itself. `clearCopy` is true when the attempt can no
+ * longer be sent (closed by the server, or refused after the grace period:
+ * amendment 1 (a)), so the on-device copy is deleted (FR-035). Neither offers
+ * a retry, and neither ever says "submitted".
+ * @param {{ outcome: 'idle' | 'submitting' | 'confirmed' | 'unconfirmed' | 'unconfirmed_manual' | 'closed_unconfirmed' | 'expired_unsubmitted', savedUpTo?: string | null, closedAt?: string | null, strings: any }} input
  */
 export function submitOutcomeModel({ outcome, savedUpTo = null, closedAt = null, strings }) {
   switch (outcome) {
-    case 'submitting': return { text: strings.submitting, action: null, inputsLocked: true };
-    case 'confirmed': return { text: strings.confirmed, action: null, inputsLocked: true };
-    case 'unconfirmed': return { text: strings.unconfirmed, action: null, inputsLocked: true };
-    case 'unconfirmed_manual': return { text: strings.unconfirmedManual(savedUpTo), action: /** @type {const} */ ('retry'), inputsLocked: true };
+    case 'submitting': return { text: strings.submitting, action: null, inputsLocked: true, clearCopy: false };
+    case 'confirmed': return { text: strings.confirmed, action: null, inputsLocked: true, clearCopy: false };
+    case 'unconfirmed': return { text: strings.unconfirmed, action: null, inputsLocked: true, clearCopy: false };
+    case 'unconfirmed_manual': return { text: strings.unconfirmedManual(savedUpTo), action: /** @type {const} */ ('retry'), inputsLocked: true, clearCopy: false };
     case 'closed_unconfirmed':
-      return { text: strings.closedUnconfirmed(closedAt ?? savedUpTo ?? '', savedUpTo ?? closedAt ?? ''), action: /** @type {const} */ ('exit'), inputsLocked: true };
-    default: return { text: null, action: null, inputsLocked: false };
+      return { text: strings.closedUnconfirmed(closedAt ?? savedUpTo ?? '', savedUpTo ?? closedAt ?? ''), action: /** @type {const} */ ('exit'), inputsLocked: true, clearCopy: true };
+    case 'expired_unsubmitted':
+      return { text: strings.expiredUnsubmitted(savedUpTo ?? null), action: /** @type {const} */ ('exit'), inputsLocked: true, clearCopy: true };
+    default: return { text: null, action: null, inputsLocked: false, clearCopy: false };
   }
 }

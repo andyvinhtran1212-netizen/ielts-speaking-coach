@@ -124,6 +124,9 @@ export const EXAM_ROOM_STRINGS_EN = Object.freeze({
   /** @param {string} closedAt @param {string} [savedUpTo] last time the server confirmed a save */
   closedUnconfirmed: (closedAt, savedUpTo = closedAt) =>
     `This test was closed by our server at ${closedAt}. Answers after ${savedUpTo} may not have been recorded.`,
+  /** @param {string | null} t last time the server confirmed a save, only when it sent one */
+  expiredUnsubmitted: (t) => 'Time ran out before your answers reached our server. This attempt was not submitted and has no score.'
+    + (t ? ` Your answers were saved on our server up to ${t}.` : ''),
 
   // Annotation tools stay English in both modes (FR-002)
   highlight: 'Highlight',

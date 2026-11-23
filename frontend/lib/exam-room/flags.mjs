@@ -6,10 +6,10 @@
 // the environment is production or unknown (a missing environment counts as
 // production).
 
-/** @typedef {'reading' | 'listening' | 'mock' | 'writing' | 'speaking' | 'drill'} ExamRoomSurface */
+/** @typedef {'reading' | 'listening' | 'listening-practice' | 'mock' | 'writing' | 'speaking' | 'drill'} ExamRoomSurface */
 
 /** @type {readonly ExamRoomSurface[]} */
-export const EXAM_ROOM_SURFACES = Object.freeze(['reading', 'listening', 'mock', 'writing', 'speaking', 'drill']);
+export const EXAM_ROOM_SURFACES = Object.freeze(['reading', 'listening', 'listening-practice', 'mock', 'writing', 'speaking', 'drill']);
 
 /**
  * Known surface names from a config value; anything else is dropped.
