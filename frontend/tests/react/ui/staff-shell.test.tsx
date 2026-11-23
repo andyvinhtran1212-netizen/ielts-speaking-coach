@@ -427,6 +427,20 @@ describe('G09-T08 additions (GOI-09 FR-003, FR-005, FR-006, FR-007)', () => {
     expect(document.querySelector('.av2-root')).toBeNull();
   });
 
+  it('current with a query tells two tabs of one page apart and opens their group', () => {
+    nav.pathname = '/admin/reports';
+    const reports: StaffNavGroup[] = [...NAV, { id: 'bc', label: 'Báo cáo', icon: 'chart', items: [
+      { label: 'Hoạt động', href: '/admin/reports?tab=activity' },
+      { label: 'Doanh thu', href: '/admin/reports?tab=revenue' },
+    ] }];
+    renderShell({ nav: reports, current: '/admin/reports?tab=revenue' });
+    const current = Array.from(document.querySelectorAll('[aria-current="page"]'));
+    expect(current.length).toBeGreaterThan(0);
+    expect(current.every((el) => el.getAttribute('href') === '/admin/reports?tab=revenue')).toBe(true);
+    expect(groupButton(/^Báo cáo/).getAttribute('aria-expanded')).toBe('true');
+    nav.pathname = '/admin/writing/queue';
+  });
+
   it('the demo keeps folds in memory only', () => {
     render(<StaffShellDemo testId="d" role="admin" />);
     const demoSidebar = screen.getAllByRole('navigation', { name: 'Điều hướng quản trị' })[0];

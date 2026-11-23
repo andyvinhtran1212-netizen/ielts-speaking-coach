@@ -407,6 +407,8 @@ body:has(.shell:not([data-demo])) { margin: 0; }
   position: fixed;
   inset: 0;
   z-index: var(--av2-z-overlay);
+  /* scope="shell" puts .av2-root here, and base.css paints .av2-root with paper. */
+  background: transparent;
   /* Darkens what is behind it, like Dialog: FR-023 bans fractional opacity. */
   backdrop-filter: brightness(0.45);
 }

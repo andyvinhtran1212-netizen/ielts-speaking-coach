@@ -144,10 +144,26 @@ export function groupCount(group: StaffNavGroup): number {
   return group.items.reduce((n, item) => n + (isAvailable(item) && item.count && item.count > 0 ? item.count : 0), 0);
 }
 
+/** Path plus query, without hash or trailing slash: `/admin/reports/?tab=a#x` → `/admin/reports?tab=a`. */
+function withQuery(path: string): string {
+  const query = path.split('#')[0].split('?')[1];
+  return query ? `${normalize(path)}?${query}` : normalize(path);
+}
+
+/**
+ * Whether an entry's href is the current one. A `current` with a query (the
+ * page's own choice, e.g. `/admin/reports?tab=activity`) must match the
+ * entry's query too, so two tabs of one page are told apart.
+ */
+function matches(href: string | null | undefined, current: string): boolean {
+  if (!href) return false;
+  return current.includes('?') ? withQuery(href) === withQuery(current) : normalize(href) === current;
+}
+
 export function hasCurrent(group: StaffNavGroup, current: string | null): boolean {
-  return current !== null && group.items.some((item) => isAvailable(item) && normalize(item.href) === current);
+  return current !== null && group.items.some((item) => isAvailable(item) && matches(item.href, current));
 }
 
 export function isCurrent(item: StaffNavItem, current: string | null): boolean {
-  return current !== null && isAvailable(item) && normalize(item.href) === current;
+  return current !== null && isAvailable(item) && matches(item.href, current);
 }
