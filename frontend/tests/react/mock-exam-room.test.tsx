@@ -354,6 +354,12 @@ describe('session, other tab, dialogs (FR-012, FR-013, FR-017)', () => {
     expect(document.querySelector('dialog[open]')).toBeTruthy();
   });
 
+  it('the runner starts without the write right until the tab guard reports (review R134 nit 1)', () => {
+    const runner = readFileSync('app/(authed-mock-exam)/mock-exam/mock-exam-runner.tsx', 'utf8');
+    expect(runner).toMatch(/const \[canWrite, setCanWrite\] = useState\(false\);/);
+    expect(runner).toMatch(/const canWriteRef = useRef\(false\);/);
+  });
+
   it('a read-only tab does not load the child player', () => {
     render(<MockExamRoom {...props({ canWrite: false })} />);
     expect(document.querySelector('iframe')).toBeNull();
