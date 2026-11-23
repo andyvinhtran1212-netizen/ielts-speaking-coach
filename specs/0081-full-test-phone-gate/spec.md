@@ -196,13 +196,15 @@ Bảng vướng mắc của gói (mục 7):
 
 ## Open questions
 
+Năm câu D1–D5 của review sẵn sàng (câu 10, 12, 27, 28, 29) đã chốt theo đề xuất: anh Andy gõ "duyệt 0081 D1–D5 theo đề xuất" lúc 23/11 13:21Z.
+
 Câu hỏi của gói (mục 10) thuộc phần này; mỗi câu có mặc định tạm người thực thi dùng tới khi anh Andy trả lời.
 
 | # | Câu hỏi | Phương án đề nghị | Mặc định tạm người thực thi dùng |
 |---|---|---|---|
-| 10 | Ngưỡng chặn full test (00 mục 2 điểm 13 ghi 768px là "ngưỡng đề xuất, chưa chốt") | 768px (trùng UIBASE-0056). iPad mini dọc rộng 744 CSS px nên bị chặn: màn chặn thêm câu "On a tablet, turn it sideways." | 768px, mặc định trong code (không thêm env) |
+| 10 | Ngưỡng chặn full test (00 mục 2 điểm 13 ghi 768px là "ngưỡng đề xuất, chưa chốt") | 768px (trùng UIBASE-0056). iPad mini dọc rộng 744 CSS px nên bị chặn: màn chặn thêm câu "On a tablet, turn it sideways." | **Đã chốt 23/11 13:21Z** (anh Andy duyệt theo đề xuất): 768px, mặc định trong code (không thêm env) |
 | 11 | **ĐÃ TRẢ LỜI 17/11** — mini test không tính là full test, không bị chặn trên điện thoại | — | FR-053 |
-| 12 | Đang thi mà màn hẹp lại: dải nhắc không che bài (yêu cầu 17/11) hay che bài kèm "Rotate your tablet back to continue." (tờ ThanhPhanKhungTrang)? | Dải nhắc không che bài; bài và đồng hồ chạy tiếp | Dải nhắc không che bài |
-| 27 | Câu chữ dòng phụ tiếng Việt ở màn ngoài bài thi của full test (chặn điện thoại, lỗi thiết bị) | Câu ở 5.4, thêm "Máy tính bảng thì xoay ngang." | Như đề nghị |
-| 28 | Lượt đã bắt đầu, mở lại trên màn hẹp (tải lại, đổi máy): FR-050 chặn "tiếp tục bài dở" với câu "Nothing has started…", trong khi giờ máy chủ vẫn chạy và FR-052 cho làm tiếp khi màn hẹp lại giữa bài | Chỉ chặn trước khi tạo lượt/sitting mới; lượt đã bắt đầu luôn mở tiếp, kèm dải nhắc FR-052 | Như đề nghị, chờ anh Andy |
-| 29 | Kỳ thi thử xếp lịch: admin mở phần cho mọi người, đồng hồ chạy dù học viên bị chặn | Vẫn chặn dưới ngưỡng, với câu riêng "This exam is already running. Open it on a computer or tablet now." (không có "Nothing has started") | Như đề nghị, chờ anh Andy |
+| 12 | Đang thi mà màn hẹp lại: dải nhắc không che bài (yêu cầu 17/11) hay che bài kèm "Rotate your tablet back to continue." (tờ ThanhPhanKhungTrang)? | Dải nhắc không che bài; bài và đồng hồ chạy tiếp | **Đã chốt 23/11 13:21Z** (anh Andy duyệt theo đề xuất): Dải nhắc không che bài |
+| 27 | Câu chữ dòng phụ tiếng Việt ở màn ngoài bài thi của full test (chặn điện thoại, lỗi thiết bị) | Câu ở 5.4, thêm "Máy tính bảng thì xoay ngang." | **Đã chốt 23/11 13:21Z** (anh Andy duyệt theo đề xuất): Như đề nghị |
+| 28 | Lượt đã bắt đầu, mở lại trên màn hẹp (tải lại, đổi máy): FR-050 chặn "tiếp tục bài dở" với câu "Nothing has started…", trong khi giờ máy chủ vẫn chạy và FR-052 cho làm tiếp khi màn hẹp lại giữa bài | Chỉ chặn trước khi tạo lượt/sitting mới; lượt đã bắt đầu luôn mở tiếp, kèm dải nhắc FR-052 | **Đã chốt 23/11 13:21Z** (anh Andy duyệt theo đề xuất): Như đề nghị, chờ anh Andy |
+| 29 | Kỳ thi thử xếp lịch: admin mở phần cho mọi người, đồng hồ chạy dù học viên bị chặn | Vẫn chặn dưới ngưỡng, với câu riêng "This exam is already running. Open it on a computer or tablet now." (không có "Nothing has started") | **Đã chốt 23/11 13:21Z** (anh Andy duyệt theo đề xuất): Như đề nghị, chờ anh Andy |
