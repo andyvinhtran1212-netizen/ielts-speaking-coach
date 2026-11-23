@@ -17,6 +17,7 @@ import {
   grantBody,
   grantDraft,
   heldFromAccess,
+  needsCourseCodes,
   practiceProducts,
   runSummary,
   validateGrant,
@@ -27,7 +28,7 @@ import {
   type GrantUser,
   type HeldCourseIds,
 } from '@/lib/admin-practice-grant-model.mjs';
-import { getCourseProducts, getUserAccess, newRequestKey, postGrant } from '@/lib/admin-practice-grant-api';
+import { getCourseCodes, getCourseProducts, getUserAccess, newRequestKey, postGrant } from '@/lib/admin-practice-grant-api';
 
 type Props = {
   open: boolean;
@@ -84,8 +85,9 @@ export function PracticeGrantForm({ open, users, excludeCourseIds = NO_IDS, onCl
     keys.current = {};
     setHeld({});
     const ids = users.map((u) => u.id);
+    type Holding = { state: string; product_slug: string | null; course_code?: string | null };
     Promise.all([getCourseProducts(), Promise.allSettled(ids.map((id) => getUserAccess(id)))])
-      .then(([out, reads]) => {
+      .then(async ([out, reads]) => {
         if (!live) return;
         const failed = reads.filter((r) => r.status === 'rejected') as PromiseRejectedResult[];
         if (failed.length) {
@@ -94,14 +96,19 @@ export function PracticeGrantForm({ open, users, excludeCourseIds = NO_IDS, onCl
           return;
         }
         const items = out.items ?? [];
+        const holdings = reads.map((r) => (r as PromiseFulfilledResult<{ items: Holding[] }>).value.items);
+        // A legacy class code names only its course code: read course codes
+        // so that course is left out too. A failed read blocks the form.
+        const courses = holdings.some((h) => needsCourseCodes(h)) ? (await getCourseCodes()).courses ?? [] : [];
+        if (!live) return;
         const held: HeldCourseIds = {};
-        reads.forEach((r, i) => { held[ids[i]] = heldFromAccess((r as PromiseFulfilledResult<{ items: { state: string; product_slug: string | null }[] }>).value.items, items); });
+        holdings.forEach((h, i) => { held[ids[i]] = heldFromAccess(h, items, courses); });
         setHeld(held);
         setProducts(items);
       })
       .catch((caught) => {
         if (!live) return;
-        console.warn('[practice-grant] products failed', caught);
+        console.warn('[practice-grant] products or courses failed', caught);
         setLoadError(messageOf(caught));
       });
     return () => { live = false; };
