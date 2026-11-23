@@ -44,6 +44,7 @@ from routers.admin import require_admin
 from services.cohort_assignment_service import normalize_deadline
 from services import essay_service
 from services import mock_exam_assignment_service as assign_svc
+from services import mock_exam_audience_service as audience_svc
 from services import mock_exam_modes
 from services import mock_exam_service as svc
 from services import mock_review_workflow as wf
@@ -171,6 +172,21 @@ def _stored_mode(payload: dict) -> dict:
     return payload
 
 
+_SKILL = Literal["listening", "reading", "writing", "speaking"]
+# Columns from migration 445 (MOCKORG-0086): accepted only with the flag on.
+_FIELDS_445 = ("skills", "allow_early_advance", "starts_at", "draft_state")
+
+
+def _audience_error(exc: "audience_svc.AudienceError") -> HTTPException:
+    return HTTPException(exc.status, {"code": exc.code, "message": exc.message, **exc.extra})
+
+
+def _require_445_flag(payload: dict) -> None:
+    if any(payload.get(f) is not None for f in _FIELDS_445) and not audience_svc.enabled():
+        raise HTTPException(409, {"code": "audiences_disabled",
+                                  "message": "Các trường kỳ thi mới chưa bật (cờ mock_exam_audiences)."})
+
+
 class AdminMockExamListRow(BaseModel):
     # The admin list returns the full persisted exam definition for existing
     # consumers. Pin the operational fields while retaining additive columns.
@@ -245,6 +261,12 @@ class ExamCreate(BaseModel):
     )
     web_explanation_content_version: str | None = None
     post_test_capture_required: bool = True
+    # MOCKORG-0086 FR-141 (migration 445; flag mock_exam_audiences). Written by
+    # a PATCH right after create: the create RPC does not know these columns.
+    skills: list[_SKILL] | None = Field(default=None, min_length=1)
+    allow_early_advance: bool | None = None
+    starts_at: WindowInstant = None
+    draft_state: dict | None = None
 
 
 class ExamPatch(BaseModel):
@@ -268,6 +290,10 @@ class ExamPatch(BaseModel):
     )
     web_explanation_content_version: str | None = None
     post_test_capture_required: bool | None = None
+    skills: list[_SKILL] | None = Field(default=None, min_length=1)
+    allow_early_advance: bool | None = None
+    starts_at: WindowInstant = None
+    draft_state: dict | None = None
 
 
 class AssignRow(BaseModel):
@@ -384,8 +410,17 @@ async def exam_picker_page(
 @router.post("")
 async def create_exam(body: ExamCreate, authorization: str | None = Header(default=None)):
     admin = await require_admin(authorization)
+    payload = _stored_mode(body.model_dump(exclude_none=True))
+    await asyncio.to_thread(_require_445_flag, payload)
+    extra = {f: payload.pop(f) for f in _FIELDS_445 if f in payload}
+    if "skills" in extra:
+        extra["skills"] = list(dict.fromkeys(extra["skills"]))
     try:
-        return await asyncio.to_thread(svc.admin_create_exam, _stored_mode(body.model_dump(exclude_none=True)), admin["id"])
+        created = await asyncio.to_thread(svc.admin_create_exam, payload, admin["id"])
+        if extra and isinstance(created, dict) and created.get("id"):
+            created = await _assignment_write(created["id"], svc.admin_update_exam,
+                                              created["id"], extra, admin["id"])
+        return created
     except svc.DuplicateExamCodeError as e:
         raise HTTPException(409, str(e))
     except ValueError as e:
@@ -398,6 +433,9 @@ async def update_exam(
 ):
     admin = await require_admin(authorization)
     patch = _stored_mode(body.model_dump(exclude_none=True))
+    await asyncio.to_thread(_require_445_flag, patch)
+    if "skills" in patch:
+        patch["skills"] = list(dict.fromkeys(patch["skills"]))
     if body.status is not None and body.status not in ("draft", "published", "archived"):
         raise HTTPException(400, "status không hợp lệ.")
     try:
@@ -534,6 +572,64 @@ async def section_progress(
         return await asyncio.to_thread(svc.admin_section_progress, exam_id)
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
+
+
+class AudienceSetRow(BaseModel):
+    user_id: str | None = None
+    student_id: str | None = None
+    selected: bool | None = None
+    skills: list[_SKILL] | None = None
+
+
+class AudienceWindow(BaseModel):
+    open_from: WindowInstant = None
+    open_until: WindowInstant = None
+
+
+class AudiencePatch(BaseModel):
+    add_cohort_ids: list[str] = Field(default_factory=list, max_length=50)
+    add_student_ids: list[str] = Field(default_factory=list, max_length=500)
+    add_group_ids: list[str] = Field(default_factory=list, max_length=50)
+    # "Cập nhật theo lớp" (Q12 button, approved 23/11 11:14Z): re-read the
+    # classes already on the list and add only learners who joined since.
+    refresh_cohorts: bool = False
+    set: list[AudienceSetRow] = Field(default_factory=list, max_length=1000)
+    window: AudienceWindow | None = None
+
+
+@router.get("/{exam_id}/audience")
+async def get_audience(exam_id: str, authorization: str | None = Header(default=None)):
+    """MOCKORG-0086 FR-142: who sits this exam (flag mock_exam_audiences)."""
+    await require_admin(authorization)
+    try:
+        return await asyncio.to_thread(audience_svc.get_audience, exam_id)
+    except audience_svc.AudienceError as e:
+        raise _audience_error(e)
+
+
+@router.patch("/{exam_id}/audience")
+async def update_audience(
+    exam_id: str, body: AudiencePatch, authorization: str | None = Header(default=None),
+):
+    """Add classes / learners, refresh classes, edit rows, set the window."""
+    admin = await require_admin(authorization)
+    try:
+        return await _assignment_write(exam_id, audience_svc.update_audience, exam_id,
+                                       body.model_dump(exclude_none=True), admin["id"])
+    except audience_svc.AudienceError as e:
+        raise _audience_error(e)
+
+
+@router.post("/{exam_id}/schedule")
+async def schedule_exam(exam_id: str, authorization: str | None = Header(default=None)):
+    """MOCKORG-0086 FR-144: check what is missing, then publish."""
+    admin = await require_admin(authorization)
+    try:
+        return await _assignment_write(exam_id, audience_svc.schedule, exam_id, admin["id"])
+    except audience_svc.AudienceError as e:
+        raise _audience_error(e)
+    except ValueError as e:
+        raise HTTPException(422, {"code": "not_ready", "message": str(e), "missing": ["paper_not_ready"]})
 
 
 @router.get("/{exam_id}/live")

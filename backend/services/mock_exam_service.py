@@ -760,14 +760,20 @@ def _assert_retake_window_open(assignment: dict) -> None:
 
 # ── Assigned exams: audiences and the self-paced chain ─────────────────
 # EXAMMOCK-0071 FR-014 (G08-T22) on the MOCKORG-0086 plan 5.5 contract. Every
-# helper below is a no-op while MOCK_EXAM_AUDIENCES_LEARNER is off, so the
+# helper below is a no-op while the runtime flag mock_exam_audiences_learner is
+# off (the same helper the admin schedule() reads), so the
 # cohort_id / mock_exam_assignments path stays exactly as it was.
 
 _AUDIENCE_COLS = "exam_id, user_id, skills, selected, open_from, open_until, purpose, added_at"
 
 
 def audiences_learner_enabled() -> bool:
-    return bool(getattr(settings, "MOCK_EXAM_AUDIENCES_LEARNER", False))
+    """The runtime flag ``mock_exam_audiences_learner``, read through the same
+    helper the admin ``schedule`` uses, so the learner gate and the admin side
+    never disagree (CR #2581). Off on a lookup error (fail closed to the old
+    gate). Imported here: mock_exam_audience_service imports this module."""
+    from services.mock_exam_audience_service import learner_gate_enabled
+    return learner_gate_enabled()
 
 
 def _self_paced_gap_seconds() -> int:
@@ -2405,6 +2411,12 @@ _EXAM_WRITABLE = {
     "web_explanation_mode", "web_explanation_content_version",
     "post_test_capture_required",
 }
+# Columns migration 445 adds (MOCKORG-0086). Written only through PATCH, and
+# the admin router refuses them while the ``mock_exam_audiences`` flag is off,
+# so an unmigrated database never receives them. The create RPC does not know
+# them, so create never forwards them.
+_EXAM_445_FIELDS = {"skills", "allow_early_advance", "starts_at", "draft_state"}
+_EXAM_WRITABLE = _EXAM_WRITABLE | _EXAM_445_FIELDS
 
 
 def admin_list_exams() -> list[dict]:
@@ -2669,7 +2681,8 @@ def _guard_listening_attachment(payload):
 
 def admin_create_exam(payload: dict, created_by: str) -> dict:
     _guard_listening_attachment(payload)
-    row = {k: v for k, v in payload.items() if k in _EXAM_WRITABLE}
+    row = {k: v for k, v in payload.items()
+           if k in _EXAM_WRITABLE and k not in _EXAM_445_FIELDS}
     if not row.get("code") or not row.get("title"):
         raise ValueError("code và title là bắt buộc.")
     for field in ("reading_is_public", "listening_is_public"):
@@ -4260,6 +4273,30 @@ def _seq_index(exam: dict, section: str) -> int:
     return seq.index(section) if section in seq else 98
 
 
+def _self_paced_fields(sitting: Optional[dict], exam: dict, assigned, entry: dict,
+                       now: datetime) -> dict:
+    """FR-151 monitor fields from the shared timeline (plan 5.5, 5.4 /live).
+
+    The timeline is the post-0086 contract (sections back to back, clock never
+    stops). G08-T22 moves the learner path onto it; until then this is what the
+    contract says, read from persisted stamps only, and never written back."""
+    skills = [s for s in _LRW_ORDER if s in (assigned or [])]
+    durations = {s: _section_duration_seconds(exam, s) for s in skills}
+    timeline = mock_exam_modes.self_paced_timeline(
+        {**(sitting or {}), "assigned_skills": skills}, exam, now,
+        durations=durations, gap_seconds=settings.MOCK_SELF_PACED_GAP_SECONDS,
+        open_until=(sitting or {}).get("retake_open_until") or entry.get("open_until"),
+    )
+    iso = lambda v: v.isoformat() if v else None  # noqa: E731
+    return {
+        "self_paced_state": timeline.state,
+        "current_section": timeline.current_section,
+        "section_time_left_seconds": timeline.section_time_left_seconds,
+        "started_at": iso(timeline.started_at),
+        "expected_end_at": iso(timeline.expected_end_at),
+    }
+
+
 def _expected_roster(exam: dict) -> Optional[dict]:
     """Who is SUPPOSED to sit this exam, or None when that is UNKNOWABLE.
 
@@ -4281,14 +4318,23 @@ def _expected_roster(exam: dict) -> Optional[dict]:
     two made every genuine sitting classify as off-roster, so the console showed
     "0 đã vào thi" and an outside-the-list warning while the class was actually
     sitting the exam.
+
+    MOCKORG-0086: with the ``mock_exam_audiences`` flag on and audience rows
+    stored, the roster is the selected audience (several classes, single
+    learners). Without rows it falls back here, so an old exam reads as before.
     """
+    from services import mock_exam_audience_service
+    audience = mock_exam_audience_service.expected_roster(exam)
+    if audience is not None:
+        return audience
     if is_retake(exam):
         rows = supabase_admin.table("mock_exam_assignments").select(
-            "user_id, skills",
+            "user_id, skills, open_until",
         ).eq("exam_id", str(exam["id"])).execute().data or []
         return {
             str(r["user_id"]): {"user_id": str(r["user_id"]), "name": None,
-                                "skills": r.get("skills") or []}
+                                "skills": r.get("skills") or [],
+                                "open_until": r.get("open_until")}
             for r in rows if r.get("user_id")
         }
     cohort_id = exam.get("cohort_id")
@@ -4455,6 +4501,9 @@ def admin_live_monitor(exam_id: str) -> dict:
 
     now = _now()
     speaking_required = bool(exam.get("speaking_topic_set")) and not retake
+    from services import mock_exam_audience_service
+    # self_paced_* fields (FR-151) ride the same flag as the audience roster.
+    audiences_on = retake and mock_exam_audience_service.enabled()
 
     def _section_state(sitting, section):
         """One student's state in one section — persisted facts only."""
@@ -4543,7 +4592,10 @@ def admin_live_monitor(exam_id: str) -> dict:
         mine = ([s for s in _LRW_ORDER if s in (assigned or [])] if retake
                 else _configured_sections(exam))
         sections = {s: _section_state(sitting, s) for s in mine}
+        self_paced = (_self_paced_fields(sitting, exam, assigned, entry, now)
+                      if retake and audiences_on else {})
         students.append({
+            **self_paced,
             "user_id":       uid,
             # An unactivated cohort member has no `users` row, so their name
             # comes off the students record instead of resolving to "—".

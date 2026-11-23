@@ -378,12 +378,8 @@ class Settings(BaseSettings):
     # an Overall only once this many of the four skills carry a final band.
     # Display-only: the stored final_bands.overall is never changed.
     MOCK_OVERALL_MIN_SKILLS: int = 4
-    # EXAMMOCK-0071 FR-014 / MOCKORG-0086 plan 5.5 (G08-T22): the learner gate
-    # reads mock_exam_audiences for exams that have audience rows, and new
-    # self-paced sittings run their sections back to back. Off: the cohort_id /
-    # mock_exam_assignments path is unchanged. Needs migration 445.
-    MOCK_EXAM_AUDIENCES_LEARNER: bool = False
-    # Seconds between two self-paced sections (Q31 default 0: the next starts at once).
+    # MOCKORG-0086 Q31 (b): seconds between two self-paced sections. 0 = the
+    # next section starts the moment the previous one ends.
     MOCK_SELF_PACED_GAP_SECONDS: int = 0
     MAX_AUDIO_DURATION_SECONDS: int = 300
     # B5 / Mục 5 — daily cap on the expensive grading pipeline (Whisper + Claude)
