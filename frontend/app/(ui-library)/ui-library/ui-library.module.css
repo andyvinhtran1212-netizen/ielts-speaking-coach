@@ -171,3 +171,4 @@
 @media (max-width: 767px) {
   .mediaGrid { grid-template-columns: minmax(0, 1fr); }
 }
+.videoStub { display: flex; align-items: center; justify-content: center; font-weight: var(--av2-fw-strong); }

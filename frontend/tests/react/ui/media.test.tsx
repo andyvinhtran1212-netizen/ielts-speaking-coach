@@ -2,11 +2,12 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { AudioPlayer, formatMediaTime, formatSpeed, safeYoutubeEmbed, VideoFrame } from '@/components/ui';
+import { AudioPlayer, formatMediaTime, formatSpeed, safeYoutubeEmbed, safeYoutubeWatch, VideoFrame } from '@/components/ui';
 
 afterEach(cleanup);
 
 const TRACK = 'Booking a room at the sports centre';
+const ID = 'M7lc1UVf-VE';
 
 describe('formatMediaTime / formatSpeed', () => {
   it('writes minutes:seconds, pads for video, adds hours, reads bad input as 0', () => {
@@ -117,10 +118,12 @@ describe('AudioPlayer — phone and compact', () => {
     expect(onClearLoop).toHaveBeenCalledTimes(1);
   });
 
-  it('compact: one named play button, no seek control', () => {
+  it('compact: one play button that carries its word, no seek control', () => {
     const onPause = vi.fn();
     render(<AudioPlayer variant="compact" state="playing" title={TRACK} current={72} duration={222} onPause={onPause} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Tạm dừng' }));
+    const button = screen.getByRole('button', { name: 'Tạm dừng' });
+    expect(button.textContent).toBe('Tạm dừng');
+    fireEvent.click(button);
     expect(onPause).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('slider')).toBeNull();
     expect(screen.getAllByRole('button')).toHaveLength(1);
@@ -140,6 +143,58 @@ describe('AudioPlayer — exam, once, loading, error, locked', () => {
     render(<AudioPlayer mode="exam" state="playing" title={TRACK} current={72} duration={222} onPause={onPause} spaceToggles />);
     fireEvent.keyDown(document.body, { key: ' ' });
     expect(onPause).not.toHaveBeenCalled();
+  });
+
+  it('Space never starts a once or exam track: the warning and the button stay the only way in', () => {
+    const onPlay = vi.fn();
+    const { rerender } = render(
+      <AudioPlayer variant="once" state="ready" title={TRACK} current={0} duration={222} onPlay={onPlay} spaceToggles />,
+    );
+    const once = fireEvent.keyDown(document.body, { key: ' ' });
+    expect(once).toBe(true);
+    rerender(<AudioPlayer mode="exam" state="paused" title={TRACK} current={10} duration={222} onPlay={onPlay} spaceToggles />);
+    fireEvent.keyDown(document.body, { key: ' ' });
+    rerender(<AudioPlayer variant="compact" mode="exam" state="ready" title={TRACK} current={0} duration={222} onPlay={onPlay} spaceToggles />);
+    fireEvent.keyDown(document.body, { key: ' ' });
+    expect(onPlay).not.toHaveBeenCalled();
+  });
+
+  it('compact exam track that is playing says it cannot pause instead of naming a pause', () => {
+    const onPause = vi.fn();
+    render(<AudioPlayer variant="compact" mode="exam" state="playing" title={TRACK} current={72} duration={222} onPause={onPause} />);
+    const button = screen.getByRole('button', { name: 'Đang phát · không tạm dừng được' });
+    expect(button.textContent).toBe('Đang phát');
+    expect(button.getAttribute('aria-disabled')).toBe('true');
+    fireEvent.click(button);
+    expect(onPause).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: 'Tạm dừng' })).toBeNull();
+  });
+
+  it("lang='en' switches every default label of the exam and once layouts", () => {
+    const { rerender } = render(<AudioPlayer lang="en" mode="exam" state="ready" title={TRACK} current={0} duration={222} />);
+    expect(screen.getByRole('button', { name: 'Play' })).toBeTruthy();
+    expect(screen.getByText('Recording ·', { exact: false })).toBeTruthy();
+    expect(screen.getByText('Test: no pausing, no skipping, no speed change.')).toBeTruthy();
+    rerender(<AudioPlayer lang="en" mode="exam" state="playing" title={TRACK} current={72} duration={222} />);
+    expect(screen.getByRole('status').textContent).toBe('Playing · cannot be paused');
+    rerender(<AudioPlayer lang="en" variant="once" state="ready" title={TRACK} current={0} duration={222} />);
+    expect(screen.getByText('You will hear this recording once only')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Start listening' })).toBeTruthy();
+    rerender(<AudioPlayer lang="en" variant="once" state="locked" title={TRACK} current={222} duration={222} />);
+    expect(screen.getByRole('button', { name: 'Played · locked' })).toBeTruthy();
+    rerender(<AudioPlayer lang="en" state="loading" title={TRACK} current={0} duration={0} />);
+    expect(screen.getByRole('status').textContent).toBe('Loading the recording…');
+    rerender(<AudioPlayer lang="en" state="error" title={TRACK} current={72} duration={222} stoppedAt={72} />);
+    expect(screen.getByRole('alert').textContent).toBe(
+      'The recording did not loadThe recording stopped at 1:12. Your answers are kept. Reload to continue from 1:12.Reload the recording',
+    );
+  });
+
+  it('locked promises nothing beyond editing answers unless the page passes lockedNote', () => {
+    const { rerender } = render(<AudioPlayer variant="once" state="locked" title={TRACK} current={222} duration={222} />);
+    expect(screen.queryByText(/lời thoại/)).toBeNull();
+    rerender(<AudioPlayer variant="once" state="locked" title={TRACK} current={222} duration={222} lockedNote="Nộp xong sẽ mở lời thoại." />);
+    expect(screen.getByText(/Nộp xong sẽ mở lời thoại\./)).toBeTruthy();
   });
 
   it('once: says it plays one time before starting, then locks with the word "đã khoá"', () => {
@@ -167,6 +222,8 @@ describe('AudioPlayer — exam, once, loading, error, locked', () => {
     const onRetry = vi.fn();
     render(<AudioPlayer state="error" title={TRACK} current={72} duration={222} stoppedAt={72} onRetry={onRetry} />);
     const alert = screen.getByRole('alert');
+    expect(alert.textContent).toContain('Bài nghe dừng ở phút 1:12.');
+    expect(alert.textContent).not.toContain('Mạng');
     expect(alert.textContent).toContain('Câu trả lời bạn đã nhập vẫn còn.');
     expect(alert.textContent).toContain('Tải lại sẽ phát tiếp từ 1:12.');
     fireEvent.click(within(alert).getByRole('button', { name: 'Tải lại bài nghe' }));
@@ -180,15 +237,35 @@ describe('AudioPlayer — exam, once, loading, error, locked', () => {
 });
 
 describe('VideoFrame', () => {
-  it('safeYoutubeEmbed keeps only https no-cookie embeds and drops autoplay', () => {
-    expect(safeYoutubeEmbed('https://www.youtube-nocookie.com/embed/abc?autoplay=1&rel=0')).toBe(
-      'https://www.youtube-nocookie.com/embed/abc?rel=0',
+  it('safeYoutubeEmbed keeps only https no-cookie embeds of one video id and drops autoplay', () => {
+    expect(safeYoutubeEmbed(`https://www.youtube-nocookie.com/embed/${ID}?autoplay=1&rel=0`)).toBe(
+      `https://www.youtube-nocookie.com/embed/${ID}?rel=0`,
     );
-    expect(safeYoutubeEmbed('https://www.youtube.com/embed/abc')).toBeNull();
-    expect(safeYoutubeEmbed('http://www.youtube-nocookie.com/embed/abc')).toBeNull();
-    expect(safeYoutubeEmbed('https://www.youtube-nocookie.com/watch?v=abc')).toBeNull();
+    expect(safeYoutubeEmbed(`https://www.youtube.com/embed/${ID}`)).toBeNull();
+    expect(safeYoutubeEmbed(`http://www.youtube-nocookie.com/embed/${ID}`)).toBeNull();
+    expect(safeYoutubeEmbed(`https://www.youtube-nocookie.com/watch?v=${ID}`)).toBeNull();
+    expect(safeYoutubeEmbed('https://www.youtube-nocookie.com/embed/abc')).toBeNull();
+    expect(safeYoutubeEmbed(`https://www.youtube-nocookie.com/embed/${ID}/extra`)).toBeNull();
     expect(safeYoutubeEmbed('not a url')).toBeNull();
     expect(safeYoutubeEmbed(undefined)).toBeNull();
+  });
+
+  it('safeYoutubeWatch rebuilds the link on www.youtube.com from a checked id, else null', () => {
+    const watch = `https://www.youtube.com/watch?v=${ID}`;
+    expect(safeYoutubeWatch(undefined, `https://www.youtube-nocookie.com/embed/${ID}`)).toBe(watch);
+    // A valid embed wins: a different watch URL cannot point the label elsewhere.
+    expect(safeYoutubeWatch('https://evil.example/watch?v=x', `https://www.youtube-nocookie.com/embed/${ID}`)).toBe(watch);
+    expect(safeYoutubeWatch(`https://youtube.com/watch?v=${ID}&t=42`)).toBe(watch);
+    expect(safeYoutubeWatch(`https://m.youtube.com/watch?v=${ID}`)).toBe(watch);
+    expect(safeYoutubeWatch(`https://youtu.be/${ID}`)).toBe(watch);
+    expect(safeYoutubeWatch(`https://evil.example/watch?v=${ID}`)).toBeNull();
+    expect(safeYoutubeWatch(`https://www.youtube.com.evil.example/watch?v=${ID}`)).toBeNull();
+    expect(safeYoutubeWatch(`http://www.youtube.com/watch?v=${ID}`)).toBeNull();
+    expect(safeYoutubeWatch(`https://user@www.youtube.com/watch?v=${ID}`)).toBeNull();
+    expect(safeYoutubeWatch('https://www.youtube.com/')).toBeNull();
+    expect(safeYoutubeWatch('https://www.youtube.com/watch?v=bad')).toBeNull();
+    expect(safeYoutubeWatch('javascript:alert(1)')).toBeNull();
+    expect(safeYoutubeWatch(undefined)).toBeNull();
   });
 
   it('YouTube: the iframe is titled, has no autoplay, and links out in a new tab', () => {
@@ -197,25 +274,48 @@ describe('VideoFrame', () => {
         source="youtube"
         state="idle"
         title="Bài 14 · Hoà hợp chủ ngữ và động từ"
-        embedUrl="https://www.youtube-nocookie.com/embed/abc?autoplay=1"
-        watchUrl="https://www.youtube.com/watch?v=abc"
+        embedUrl={`https://www.youtube-nocookie.com/embed/${ID}?autoplay=1`}
+        watchUrl="https://evil.example/"
       />,
     );
     expect(screen.getByText('Video · YouTube')).toBeTruthy();
     const frame = screen.getByTitle('Bài 14 · Hoà hợp chủ ngữ và động từ');
     expect(frame.tagName).toBe('IFRAME');
-    expect(frame.getAttribute('src')).toBe('https://www.youtube-nocookie.com/embed/abc');
+    expect(frame.getAttribute('src')).toBe(`https://www.youtube-nocookie.com/embed/${ID}`);
     const out = screen.getByRole('link', { name: 'Xem trên YouTube' });
+    expect(out.getAttribute('href')).toBe(`https://www.youtube.com/watch?v=${ID}`);
     expect(out.getAttribute('target')).toBe('_blank');
     expect(out.getAttribute('rel')).toBe('noopener noreferrer');
   });
 
-  it('YouTube with a cookie URL falls back to the placeholder, never an iframe', () => {
-    const { container } = render(
-      <VideoFrame source="youtube" state="idle" title="Bài 14" embedUrl="https://www.youtube.com/embed/abc" />,
+  it('YouTube with an unusable embed URL says so in words, never an iframe or a design-sheet label', () => {
+    const { container, rerender } = render(
+      <VideoFrame
+        source="youtube"
+        state="idle"
+        title="Bài 14"
+        embedUrl={`https://www.youtube.com/embed/${ID}`}
+        watchUrl={`https://youtu.be/${ID}`}
+      />,
     );
     expect(container.querySelector('iframe')).toBeNull();
-    expect(screen.getByText('[TRÌNH PHÁT YOUTUBE NHÚNG]')).toBeTruthy();
+    expect(screen.getByText('Chưa nhúng được video này')).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Xem trên YouTube' }).getAttribute('href')).toBe(`https://www.youtube.com/watch?v=${ID}`);
+    expect(container.textContent).not.toContain('[');
+    rerender(<VideoFrame source="youtube" state="idle" title="Bài 14" watchUrl="https://evil.example/watch?v=x" />);
+    expect(screen.getByText('Chưa nhúng được video này')).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Xem trên YouTube' })).toBeNull();
+  });
+
+  it('self, idle: a poster is a decorative cover; without one no label is drawn', () => {
+    const { container, rerender } = render(<VideoFrame source="self" state="idle" title="Bài 14" />);
+    expect(container.querySelector('img')).toBeNull();
+    expect(container.textContent).not.toContain('[');
+    rerender(<VideoFrame source="self" state="idle" title="Bài 14" poster="/covers/14.jpg" />);
+    const img = container.querySelector('img');
+    expect(img?.getAttribute('src')).toBe('/covers/14.jpg');
+    expect(img?.getAttribute('alt')).toBe('');
+    expect(screen.getByRole('button', { name: 'Phát video' })).toBeTruthy();
   });
 
   it('self, idle with a saved position: resume or restart, in words', () => {
@@ -233,6 +333,7 @@ describe('VideoFrame', () => {
   it('self, playing renders the page player; never creates its own <video>', () => {
     const { container, rerender } = render(<VideoFrame source="self" state="playing" title="Bài 14" />);
     expect(container.querySelector('video')).toBeNull();
+    expect(container.textContent).not.toContain('[');
     rerender(<VideoFrame source="self" state="playing" title="Bài 14"><div data-testid="page-player" /></VideoFrame>);
     expect(screen.getByTestId('page-player')).toBeTruthy();
   });

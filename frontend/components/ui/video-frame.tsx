@@ -22,13 +22,20 @@ export type VideoFrameProps = {
   /** Self-hosted: seconds where the learner stopped; offers "Xem tiếp từ …". */
   resumeAt?: number;
   /**
-   * YouTube embed URL. Only `https://www.youtube-nocookie.com/embed/…` is
-   * embedded (no-cookie mode, HocTap §3); anything else shows the placeholder.
-   * `autoplay` is removed: a video never starts on its own.
+   * YouTube embed URL. Only `https://www.youtube-nocookie.com/embed/<id>` is
+   * embedded (no-cookie mode, HocTap §3); anything else says "Chưa nhúng
+   * được video này". `autoplay` is removed: a video never starts on its own.
    */
   embedUrl?: string;
-  /** "Xem trên YouTube" link, for a YouTube source. */
+  /**
+   * "Xem trên YouTube" link. With a valid `embedUrl` the link is built from
+   * that video's id and this is ignored. Otherwise only a YouTube watch URL
+   * (youtube.com/watch?v=<id>, youtu.be/<id>) is used, rebuilt on
+   * www.youtube.com; any other address hides the link.
+   */
   watchUrl?: string;
+  /** Self-hosted, `idle`: cover image URL. Without it the area stays plain dark. */
+  poster?: string;
   /** "Đọc bản chữ của video" link. */
   transcriptHref?: string;
   /** Locked: the course the video belongs to, and where to see it. */
@@ -45,22 +52,53 @@ export type VideoFrameProps = {
 };
 
 const NOCOOKIE_HOST = 'www.youtube-nocookie.com';
+const WATCH_HOSTS = new Set(['www.youtube.com', 'youtube.com', 'm.youtube.com']);
+const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
 
-/**
- * The embed URL to use, or null when it is not a no-cookie YouTube embed.
- * Drops `autoplay` so the iframe never starts by itself.
- */
-export function safeYoutubeEmbed(url: string | undefined): string | null {
+function parseHttps(url: string | undefined): URL | null {
   if (!url) return null;
-  let parsed: URL;
   try {
-    parsed = new URL(url);
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' && !parsed.username && !parsed.password && !parsed.port ? parsed : null;
   } catch {
     return null;
   }
-  if (parsed.protocol !== 'https:' || parsed.hostname !== NOCOOKIE_HOST || !parsed.pathname.startsWith('/embed/')) return null;
+}
+
+function embedId(parsed: URL | null): string | null {
+  if (!parsed || parsed.hostname !== NOCOOKIE_HOST) return null;
+  const match = /^\/embed\/([^/]+)$/.exec(parsed.pathname);
+  return match && VIDEO_ID.test(match[1]) ? match[1] : null;
+}
+
+function watchFor(id: string): string {
+  return `https://www.youtube.com/watch?v=${id}`;
+}
+
+/**
+ * The embed URL to use, or null when it is not a no-cookie YouTube embed of
+ * one video id. Drops `autoplay` so the iframe never starts by itself.
+ */
+export function safeYoutubeEmbed(url: string | undefined): string | null {
+  const parsed = parseHttps(url);
+  if (!parsed || !embedId(parsed)) return null;
   parsed.searchParams.delete('autoplay');
   return parsed.toString();
+}
+
+/**
+ * The "Xem trên YouTube" address: rebuilt on www.youtube.com from a checked
+ * video id, or null. Nothing outside YouTube gets a YouTube label.
+ */
+export function safeYoutubeWatch(watchUrl: string | undefined, embedUrl?: string): string | null {
+  const fromEmbed = embedId(parseHttps(embedUrl));
+  if (fromEmbed) return watchFor(fromEmbed);
+  const parsed = parseHttps(watchUrl);
+  if (!parsed) return null;
+  let id: string | null = null;
+  if (WATCH_HOSTS.has(parsed.hostname) && parsed.pathname === '/watch') id = parsed.searchParams.get('v');
+  else if (parsed.hostname === 'youtu.be') id = parsed.pathname.slice(1);
+  return id && VIDEO_ID.test(id) ? watchFor(id) : null;
 }
 
 /**
@@ -76,6 +114,7 @@ export function VideoFrame({
   resumeAt,
   embedUrl,
   watchUrl,
+  poster,
   transcriptHref,
   lockedCourse,
   lockedHref,
@@ -96,6 +135,7 @@ export function VideoFrame({
 
   if (source === 'youtube' && state !== 'locked') {
     const src = safeYoutubeEmbed(embedUrl);
+    const watch = safeYoutubeWatch(watchUrl, embedUrl);
     area = src ? (
       <iframe
         src={src}
@@ -107,13 +147,13 @@ export function VideoFrame({
       />
     ) : (
       <div className={styles.say}>
-        <p className={styles.sayHead}>[TRÌNH PHÁT YOUTUBE NHÚNG]</p>
-        <p className={styles.sayBody}>Ảnh bìa, nút phát, tốc độ và phụ đề do YouTube vẽ. Trang không vẽ thêm nút đè lên.</p>
+        <p className={styles.sayHead}>Chưa nhúng được video này</p>
+        {watch ? <p className={styles.sayBody}>Bạn vẫn xem được trên YouTube, link ở dưới khung.</p> : null}
       </div>
     );
-    if (watchUrl) {
+    if (watch) {
       link = (
-        <a href={watchUrl} className={styles.out} target="_blank" rel="noopener noreferrer">
+        <a href={watch} className={styles.out} target="_blank" rel="noopener noreferrer">
           Xem trên YouTube<Icon name="external" size={16} />
         </a>
       );
@@ -146,8 +186,8 @@ export function VideoFrame({
     );
   } else if (state === 'idle') {
     area = (
-      <div className={styles.say}>
-        <p className={styles.sayHead}>[ẢNH BÌA VIDEO]</p>
+      <div className={cx(styles.say, poster && styles.onPoster)}>
+        {poster ? <img src={poster} alt="" className={styles.poster} /> : null}
         {resume ? (
           <>
             <p className={styles.sayBody}>Bạn đang xem dở ở <span className={styles.num}>{resume}</span>.</p>
@@ -162,11 +202,8 @@ export function VideoFrame({
       </div>
     );
   } else {
-    area = children ?? (
-      <div className={styles.say}>
-        <p className={styles.sayHead}>[KHUNG HÌNH VIDEO]</p>
-      </div>
-    );
+    // Playing without the page's player: the area stays plain dark.
+    area = children ?? null;
   }
 
   if (!link && transcriptHref && source === 'self') {

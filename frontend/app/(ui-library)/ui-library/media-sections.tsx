@@ -1,7 +1,8 @@
 // /ui-library sections for G03-T10 (UIBASE-0056 #31, #32): AudioPlayer and
 // VideoFrame in every state drawn on ThanhPhanHocTap §2–3. Sample data only;
-// the YouTube frame shows its placeholder, never a live iframe, so the
-// screenshot does not depend on the network.
+// the YouTube frame is given a non no-cookie embed URL, so it shows the
+// "Chưa nhúng được video này" state and never a live iframe: the screenshot
+// does not depend on the network.
 import { AudioPlayer, VideoFrame } from '@/components/ui';
 
 import { AudioPlayerDemo, VideoFrameDemo } from './media-demos';
@@ -45,13 +46,14 @@ export function VideoFrameSection({ title }: { title: string }) {
       <h2 id="video-frame-h">{title}</h2>
       <div className={styles.mediaGrid}>
         <div>
-          <p className={styles.rowNote}>Nguồn YouTube công khai · chưa phát</p>
+          <p className={styles.rowNote}>Nguồn YouTube · link nhúng chưa dùng được</p>
           <VideoFrame
             source="youtube"
             state="idle"
             title="Bài 14 · Hoà hợp chủ ngữ và động từ"
             meta="12:40 · phụ đề tiếng Việt do kênh cung cấp"
-            watchUrl="https://www.youtube.com/"
+            embedUrl="https://www.youtube.com/embed/M7lc1UVf-VE"
+            watchUrl="https://www.youtube.com/watch?v=M7lc1UVf-VE"
           />
         </div>
         <div>

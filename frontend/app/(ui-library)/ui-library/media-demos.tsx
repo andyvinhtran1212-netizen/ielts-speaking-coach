@@ -61,6 +61,9 @@ export function VideoFrameDemo() {
       transcriptHref="#video-frame"
       onPlay={() => setState('playing')}
       onRestart={() => setState('playing')}
-    />
+    >
+      {/* Stands in for the page's own player; only the library draws a label here. */}
+      <div className={styles.videoStub}>[KHUNG HÌNH VIDEO]</div>
+    </VideoFrame>
   );
 }

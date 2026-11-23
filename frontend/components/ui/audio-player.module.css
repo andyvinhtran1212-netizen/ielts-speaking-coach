@@ -71,7 +71,7 @@
 .start:hover { background: var(--av2-accent-hover); border-color: var(--av2-accent-hover); }
 .playWide { min-width: 132px; }
 .playPhone { min-width: 96px; padding: 0 var(--av2-space-6); font-size: var(--av2-fs-15); }
-.playSquare { width: var(--av2-control-md); height: var(--av2-control-md); min-height: 0; padding: 0; }
+.playCompact { min-height: var(--av2-control-md); padding: 0 var(--av2-space-5); font-size: var(--av2-fs-15); white-space: nowrap; }
 .playOff,
 .playOff:disabled { border-color: var(--av2-off); background: var(--av2-off); color: var(--av2-muted); cursor: default; }
 
