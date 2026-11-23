@@ -8,7 +8,7 @@
 // such proxy path appears.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -32,13 +32,27 @@ test('vercel.json has no /api rewrite', () => {
   }
 });
 
-test('no App Router handler owns /api/library', () => {
-  assert.equal(existsSync(path.join(FRONTEND, 'app', 'api', 'library')), false);
+test('no App Router handler owns /api/library or an /api catch-all', () => {
+  const api = path.join(FRONTEND, 'app', 'api');
+  assert.equal(existsSync(path.join(api, 'library')), false);
+  // A dynamic segment directly under app/api ([x], [...x], [[...x]]) would
+  // swallow /api/library/media too.
+  const dynamic = existsSync(api) ? readdirSync(api).filter((name) => name.startsWith('[')) : [];
+  assert.deepEqual(dynamic, [], `app/api has a dynamic segment: ${dynamic.join(', ')}`);
 });
 
 test('proxy.ts matcher does not cover /api', () => {
   const src = stripComments(read('proxy.ts'));
   const matcher = src.slice(src.indexOf('matcher:'));
-  assert.doesNotMatch(matcher, /['"`]\/api/);
-  assert.doesNotMatch(matcher, /['"`]\/:path\*['"`]/);
+  const sources = [...matcher.matchAll(/['"`](\/[^'"`]*)['"`]/g)].map((m) => m[1]);
+  assert.ok(sources.length > 0, 'no matcher sources found in proxy.ts');
+  for (const source of sources) {
+    assert.ok(!source.startsWith('/api'), `proxy.ts matches ${source}`);
+    // A first segment that is a regex group or an unconstrained param
+    // ('/(.*)', '/((?!_next).*)', '/:path*', '/:slug/...') also covers /api.
+    assert.doesNotMatch(source, /^\/(\(|:\w+(?![\w(]))/, `proxy.ts catch-all matcher ${source}`);
+    // A constrained param must not list api among its alternatives.
+    const alt = source.match(/^\/:\w+\(([^)]*)\)/);
+    if (alt) assert.ok(!alt[1].split('|').includes('api'), `proxy.ts matcher ${source} lists api`);
+  }
 });
