@@ -21,7 +21,7 @@ export const AFTER_DEADLINE_MS = 24 * 60 * 60 * 1000;
  * the value read when the attempt was opened; `null` when the server had no
  * answer. A stored entry without the field (older copy) has an unknown base
  * and is never re-sent on its own. `baseSavedAt` is for display only.
- * @typedef {string | number | boolean | null | AnswerValue[] | { [k: string]: AnswerValue }} AnswerValue
+ * @typedef {string | number | boolean | null | unknown[] | { [k: string]: unknown }} AnswerValue (nested values checked by `isAnswerValue`)
  * @typedef {{ value: AnswerValue, baseValue: AnswerValue, baseSavedAt?: string | null }} LocalCopyAnswer
  * @typedef {{ v: 1, surface: string, ownerKey: string, attemptKey: string, savedAt: number, expiresAt: number, answers: Record<string, LocalCopyAnswer> }} LocalCopy
  * @typedef {{ surface: string, ownerKey: string, attemptKey: string }} LocalCopyScope
