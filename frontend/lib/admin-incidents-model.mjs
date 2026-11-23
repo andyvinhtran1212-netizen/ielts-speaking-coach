@@ -138,9 +138,11 @@ export function bulkResultText(action, out) {
   const moved = conflicts.filter((c) => c.code === 'count_changed').length;
   const gone = conflicts.filter((c) => c.code === 'not_found').length;
   const failed = conflicts.filter((c) => c.code === 'write_failed').length;
+  const refused = conflicts.filter((c) => c.code === 'refused').length;
   if (moved) parts.push(`${moved} nhóm có ghi nhận mới nên chưa đổi; tải lại để xem.`);
   if (gone) parts.push(`${gone} nhóm không còn.`);
   if (failed) parts.push(`${failed} nhóm chưa ghi được; thử lại sau ít phút.`);
+  if (refused) parts.push(`${refused} nhóm chưa đổi: đã có ghi nhận mới hoặc không còn; tải lại để xem.`);
   if (out?.dismiss_failed?.length) parts.push('Một số dòng lỗi cũ chưa được đánh dấu; nhóm vẫn đã xử lý.');
   return parts.join(' ');
 }

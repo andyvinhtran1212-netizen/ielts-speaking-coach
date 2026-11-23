@@ -49,7 +49,9 @@ export type IncidentConflict = {
   source: IncidentSource;
   fingerprint: string;
   status: number;
-  code: 'count_changed' | 'not_found' | 'write_failed';
+  // `refused`: the API refused every ref (409) and api.js keeps no body, so
+  // which refs changed and which are gone is unknown here.
+  code: 'count_changed' | 'not_found' | 'write_failed' | 'refused';
 };
 
 export type IncidentBulkResult = { changed: number; conflicts: IncidentConflict[]; dismiss_failed: string[] };
@@ -73,9 +75,11 @@ export function fetchIncidentGroup(source: string, fingerprint: string): Promise
 }
 
 /**
- * Bulk action. When every ref conflicts the API answers 409/503 and api.js
- * throws without the conflict list; that comes back here as a result with no
- * change and one conflict per ref, so the page can say "tải lại".
+ * Bulk action. When every ref conflicts the API answers 409 (changed or gone,
+ * possibly mixed) or 503 (every write failed), and api.js throws without the
+ * conflict list. That comes back here as a result with no change and one
+ * conflict per ref: `refused` for 409 (the cause per ref is unknown, never
+ * guessed), `write_failed` for 503.
  */
 export async function postIncidentBulk(
   action: IncidentAction, groups: IncidentRef[], note?: string,
@@ -87,7 +91,7 @@ export async function postIncidentBulk(
   } catch (caught) {
     const status = (caught as ApiError)?.status;
     if (status !== 409 && status !== 503) throw caught;
-    const code = status === 409 ? 'count_changed' : 'write_failed';
+    const code = status === 409 ? 'refused' : 'write_failed';
     return {
       changed: 0,
       conflicts: groups.map((g) => ({ source: g.source, fingerprint: g.fingerprint, status, code })),

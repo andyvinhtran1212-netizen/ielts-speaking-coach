@@ -76,14 +76,15 @@ describe('AdminIncidents', () => {
       expect.objectContaining({ action: 'reopen' }));
   });
 
-  it('says "tải lại" when every group changed meanwhile (409)', async () => {
+  it('a refused batch (409) says "tải lại" without guessing why, and offers no undo', async () => {
     api.post.mockRejectedValue(Object.assign(new Error('HTTP 409'), { status: 409 }));
     render(<AdminIncidents />);
     await screen.findByText('Lỗi 1');
     fireEvent.click(screen.getByRole('checkbox', { name: 'Chọn nhóm Lỗi 1' }));
     fireEvent.click(within(screen.getByRole('toolbar')).getByRole('button', { name: 'Bỏ qua' }));
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Xác nhận' })); });
-    await waitFor(() => expect(screen.getByText(/có ghi nhận mới nên chưa đổi; tải lại để xem/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/1 nhóm chưa đổi: đã có ghi nhận mới hoặc không còn; tải lại để xem/)).toBeTruthy());
+    expect(screen.queryByText(/có ghi nhận mới nên chưa đổi/)).toBeNull();
     expect(screen.queryByRole('button', { name: 'Hoàn tác' })).toBeNull();
   });
 

@@ -71,12 +71,13 @@ describe('incident actions', () => {
 
   it('the result line explains conflicts in plain words', () => {
     const text = bulkResultText('resolve', { changed: 1, conflicts: [
-      { code: 'count_changed' }, { code: 'not_found' }, { code: 'write_failed' }], dismiss_failed: ['x'] });
+      { code: 'count_changed' }, { code: 'not_found' }, { code: 'write_failed' }, { code: 'refused' }], dismiss_failed: ['x'] });
     assert.match(text, /^Đánh dấu đã xử lý: 1 nhóm\./);
     assert.match(text, /1 nhóm có ghi nhận mới nên chưa đổi; tải lại để xem\./);
     assert.match(text, /1 nhóm không còn\./);
     assert.match(text, /1 nhóm chưa ghi được/);
     assert.match(text, /Một số dòng lỗi cũ chưa được đánh dấu/);
+    assert.match(text, /1 nhóm chưa đổi: đã có ghi nhận mới hoặc không còn/);
   });
 
   it('shows Vietnam time', () => {
@@ -106,6 +107,14 @@ describe('incident routes', () => {
       ['app/(authed-admin-system)/admin/system/page.tsx', '/admin/system'],
     ]) assert.ok(read(page).includes(`redirectUnderAdminFrameV2('${route}')`), page);
     assert.doesNotMatch(read('app/(authed-admin)/(feedback)/admin/feedback/page.tsx'), /redirectUnderAdminFrameV2/);
+  });
+
+  it('the inbox pages answer 404 while ADMIN_FRAME_V2 is off', () => {
+    assert.match(read('lib/admin-frame-redirect.ts'), /export function requireAdminFrameV2\(\): void \{\n  if \(process\.env\.ADMIN_FRAME_V2 !== '1'\) notFound\(\);/);
+    for (const page of ['app/(authed-admin)/(incidents)/admin/incidents/page.tsx',
+      'app/(authed-admin)/(incidents)/admin/incidents/[source]/[fingerprint]/page.tsx']) {
+      assert.match(read(page), /requireAdminFrameV2\(\);/, page);
+    }
   });
 
   it('the inbox has no "Tạo lỗi test" button (moved to QA tools, G09-T18)', () => {
