@@ -246,6 +246,8 @@ describe('Writing room (FR-006)', () => {
     fireEvent.click(screen.getByRole('tab', { name: /Task 2/ }));
     expect(screen.getByLabelText('Answer for Task 2')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /save/i })).toBeNull();
+    // The old `.me-writing` is absolutely positioned and would cover the frame header.
+    expect(document.querySelector('[data-mock-writing-room]')!.classList.contains('me-writing')).toBe(false);
   });
 
   it('typing writes the account copy with the acked base; the save reports Saving then Saved', async () => {
