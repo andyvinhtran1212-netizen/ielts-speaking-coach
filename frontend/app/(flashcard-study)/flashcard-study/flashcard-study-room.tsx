@@ -8,9 +8,7 @@
 // buttons stay on the first screen (FR-004).
 import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
 
-// The room runs on the "Bản in" tokens; legacy layouts do not load them (UIBASE-0056 FR-003),
-// so the room brings them, in its own lazily loaded chunk.
-import '@/styles/av2/tokens.css';
+// Tokens, base.css and fonts come from LegacyRoomRoot (lazyLegacyRoom in the player).
 import { ExamRoomShell } from '@/components/exam-room/exam-room-shell';
 import { trackExamRoomEvent } from '@/components/exam-room/track';
 import type { ExamRoomSaveStatus, ExamRoomSession } from '@/components/exam-room/types';

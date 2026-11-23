@@ -4,8 +4,9 @@
  */
 .body { max-width: 720px; margin-inline: auto; width: 100%; }
 .panel { display: flex; flex-direction: column; gap: var(--av2-space-7); }
-.heading { margin: 0; font-size: var(--av2-fs-24); font-weight: var(--av2-fw-strong); line-height: var(--av2-lh-tight); }
-.subheading { margin: 0 0 var(--av2-space-4); font-size: var(--av2-fs-16); font-weight: var(--av2-fw-strong); }
+/* .body raises these above base.css's .av2-root h1/h2/h3 (LegacyRoomRoot). */
+.body .heading { margin: 0; font-size: var(--av2-fs-24); font-weight: var(--av2-fw-strong); line-height: var(--av2-lh-tight); }
+.body .subheading, .card .subheading { margin: 0 0 var(--av2-space-4); font-size: var(--av2-fs-16); font-weight: var(--av2-fw-strong); }
 .muted { margin: 0; color: var(--av2-muted); font-size: var(--av2-fs-14); }
 .question { display: flex; flex-direction: column; gap: var(--av2-space-6); }
 .prompt { margin: 0; font-size: var(--av2-fs-20); line-height: var(--av2-lh-body); }

@@ -1,7 +1,8 @@
 'use client';
+import { lazyLegacyRoom } from '@/components/exam-room/lazy-legacy-room';
 import { VocabularyAudioButton as AudioButton } from '@/components/vocabulary-audio-button';
 
-import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
 import {
@@ -17,7 +18,7 @@ import { examRoomEnabled } from '@/lib/exam-room/flags.mjs';
 
 // EXAMDRILL-0073: the room (and the "Bản in" tokens it needs) loads only when the
 // 'drill' flag is on, so the page with the flag off loads exactly what it did.
-const FlashcardStudyRoom = lazy(() => import('./flashcard-study-room').then((module) => ({ default: module.FlashcardStudyRoom })));
+const FlashcardStudyRoom = lazyLegacyRoom(() => import('./flashcard-study-room').then((module) => module.FlashcardStudyRoom));
 const roomLoading = <main className="fcs-width fcs-main"><p role="status">Đang chuẩn bị bộ thẻ…</p></main>;
 
 type Phase = 'loading' | 'active' | 'summary' | 'empty' | 'disabled' | 'error';

@@ -8,7 +8,8 @@
  */
 .body { max-width: 880px; width: 100%; margin-inline: auto; }
 .panel { display: flex; flex-direction: column; gap: var(--av2-space-7); }
-.heading { margin: 0; font-size: var(--av2-fs-24); font-weight: var(--av2-fw-strong); line-height: var(--av2-lh-tight); }
+/* .body raises these above base.css's .av2-root h1/h2/h3 (LegacyRoomRoot). */
+.body .heading { margin: 0; font-size: var(--av2-fs-24); font-weight: var(--av2-fw-strong); line-height: var(--av2-lh-tight); }
 .heading:focus { outline: none; }
 .muted { margin: 0; color: var(--av2-muted); font-size: var(--av2-fs-14); }
 .actions { display: flex; flex-wrap: wrap; gap: var(--av2-space-6); }
@@ -51,17 +52,17 @@
   overscroll-behavior: contain;
   padding: var(--av2-space-8);
 }
-.back p, .back h2, .back h3 { margin: 0; }
+.back p, .body .back h2, .body .back h3 { margin: 0; }
 .pill { font-size: var(--av2-fs-13); color: var(--av2-muted); }
 .memory { font-size: var(--av2-fs-13); font-weight: var(--av2-fw-strong); }
 .word { font-size: var(--av2-fs-40); font-weight: var(--av2-fw-strong); line-height: var(--av2-lh-tight); overflow-wrap: anywhere; }
 .ipa { color: var(--av2-muted); font-size: var(--av2-fs-15); }
 .hint { color: var(--av2-muted); font-size: var(--av2-fs-13); }
 .backHead { display: flex; flex-wrap: wrap; align-items: center; gap: var(--av2-space-6); }
-.backHead h2 { font-size: var(--av2-fs-24); font-weight: var(--av2-fw-strong); }
+.body .backHead h2 { font-size: var(--av2-fs-24); font-weight: var(--av2-fw-strong); }
 .definition { font-size: var(--av2-fs-18); font-weight: var(--av2-fw-strong); }
 .example { padding-left: var(--av2-space-6); border-left: var(--av2-rule-strong-w) solid var(--av2-rule); }
-.example h3, .relation h3 { display: flex; align-items: center; gap: var(--av2-space-4); font-size: var(--av2-fs-13); color: var(--av2-muted); font-weight: var(--av2-fw-strong); }
+.body .example h3, .body .relation h3 { display: flex; font-family: var(--av2-font-sans); line-height: var(--av2-lh-body); align-items: center; gap: var(--av2-space-4); font-size: var(--av2-fs-13); color: var(--av2-muted); font-weight: var(--av2-fw-strong); }
 .relation ul { display: flex; flex-wrap: wrap; gap: var(--av2-space-4); margin: var(--av2-space-3) 0 0; padding: 0; list-style: none; }
 .relation li { padding: var(--av2-space-2) var(--av2-space-5); border: var(--av2-rule-w) solid var(--av2-rule); font-size: var(--av2-fs-14); }
 

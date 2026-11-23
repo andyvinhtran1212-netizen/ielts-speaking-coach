@@ -8,6 +8,7 @@ import { QuizPlayer } from '@/app/(authed-quiz-player)/quiz/quiz-player';
 
 const scope = vi.hoisted(() => ({ params: new URLSearchParams(), user: { id: 'learner-a' } as { id: string } | null, status: 'signed-in' }));
 vi.mock('next/navigation', () => ({ useSearchParams: () => scope.params }));
+vi.mock('@/styles/av2/fonts', () => ({ av2FontClass: 'av2-font-test' }));
 vi.mock('@/lib/auth/auth-provider', () => ({ useAuth: () => ({ status: scope.status, user: scope.user }) }));
 vi.mock('@/lib/when-global-ready.mjs', () => ({ whenGlobalReady: async () => true }));
 
@@ -82,6 +83,8 @@ describe('flag on: the practice room', () => {
     const root = view.container.querySelector('[data-exam-room]')!;
     expect(root.getAttribute('data-surface')).toBe('drill');
     expect(root.getAttribute('data-mode')).toBe('practice');
+    // CR #2597: the room sits in the av2 root with the font variables (LegacyRoomRoot).
+    expect(root.closest('.av2-root.av2-font-test[data-legacy-room-root]')).not.toBeNull();
     expect(screen.getByRole('button', { name: /Thoát/ })).toBeTruthy();
     expect(screen.getByText('Từ vựng chủ đề Môi trường')).toBeTruthy();
     expect(screen.getByText(/Câu 1 · Đã thuộc 0\/2/)).toBeTruthy();
@@ -191,6 +194,7 @@ describe('flag off: the page as today', () => {
     await screen.findByRole('heading', { name: 'Từ vựng chủ đề Môi trường' });
     expect(view.container.querySelector('[data-exam-room]')).toBeNull();
     expect(view.container.querySelector('aver-chrome')).not.toBeNull();
+    expect(view.container.querySelector('.av2-root, [data-legacy-room-root]')).toBeNull();
     expect(screen.getByText('Đã thuộc 0/2')).toBeTruthy();
   });
 

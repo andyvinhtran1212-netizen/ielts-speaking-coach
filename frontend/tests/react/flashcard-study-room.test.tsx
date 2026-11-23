@@ -8,6 +8,7 @@ import { FlashcardStudyPlayer } from '@/app/(flashcard-study)/flashcard-study/fl
 import { drillSourceLabel } from '@/app/(flashcard-study)/flashcard-study/flashcard-study-room';
 
 const scope = vi.hoisted(() => ({ user: { id: 'learner-a' } as { id: string } | null, status: 'signed-in' }));
+vi.mock('@/styles/av2/fonts', () => ({ av2FontClass: 'av2-font-test' }));
 vi.mock('@/lib/auth/auth-provider', () => ({ useAuth: () => ({ status: scope.status, user: scope.user }) }));
 vi.mock('@/lib/when-global-ready.mjs', () => ({ whenGlobalReady: async () => true }));
 
@@ -74,6 +75,8 @@ describe('flag on: personal stack', () => {
     const view = render(<FlashcardStudyPlayer />);
     await screen.findByText(/Thẻ 1 trên 2/);
     expect(view.container.querySelector('[data-exam-room]')?.getAttribute('data-surface')).toBe('drill');
+    // CR #2597: the room sits in the av2 root with the font variables (LegacyRoomRoot).
+    expect(view.container.querySelector('[data-exam-room]')?.closest('.av2-root.av2-font-test[data-legacy-room-root]')).not.toBeNull();
     expect(screen.getByText('Lật thẻ để chấm mức nhớ.')).toBeTruthy();
     for (const name of ['Quên', 'Khó', 'Tốt', 'Dễ']) expect(rate(name).disabled).toBe(true);
     fireEvent.click(rate('Tốt'));
