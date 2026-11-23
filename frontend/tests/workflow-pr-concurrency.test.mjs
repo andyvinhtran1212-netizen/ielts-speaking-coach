@@ -15,6 +15,10 @@ for (const name of WORKFLOWS) {
   });
 }
 
+test('next-native-browser: same rule, with its own group prefix', () => {
+  assert.match(read('next-native-browser'), /^concurrency:\n  group: next-native-browser-\$\{\{ github\.event_name == 'pull_request' && format\('pr-\{0\}', github\.event\.pull_request\.number\) \|\| github\.run_id \}\}\n  cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}$/m);
+});
+
 test('draft PRs skip the heavy jobs and run them on ready_for_review', () => {
   const backend = read('backend-tests');
   assert.equal((backend.match(/github\.event\.pull_request\.draft && 'false' \|\| steps\.filter\.outputs\.run_tests/g) || []).length, 2);
