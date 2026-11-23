@@ -58,9 +58,11 @@ describe('migration — mechanical, timing preserved', () => {
   // their Next owners under app/(authed-admin-listening) use inline banners.
   // LEGACYJS-0075 W3a: admin-access-codes.js and admin-users.js were deleted;
   // the Next /admin/users panels show inline role="status"/"alert" banners.
-  test('all 10 showBanner now delegate to showToast', () => {
+  // LEGACYJS-0075 W4a: admin-dashboard.js is deleted; the Next Tổng quan owner
+  // shows its load error as an inline role="alert" banner (below).
+  test('all 9 showBanner now delegate to showToast', () => {
     for (const f of [
-      'admin-dashboard.js','admin-error-logs.js',
+      'admin-error-logs.js',
       'admin-reading-attempts.js','admin-speaking-sessions.js',
       'admin-speaking-topics.js','admin-vocab-d1.js','admin-vocab-exercises.js',
       'admin-vocab-lemmas.js','admin-vocab-stats.js','admin-writing-queue.js',
@@ -87,8 +89,11 @@ describe('migration — mechanical, timing preserved', () => {
   test('auto-dismiss timing preserved: 5s (speaking-sessions)', () => {
     assert.match(read('js', 'admin-speaking-sessions.js'), /timeout: 5000/);
   });
-  test('persist preserved: dashboard keeps persist:true', () => {
-    assert.match(read('js', 'admin-dashboard.js'), /persist: true/);
+  test('persist preserved: overview load error stays until the next load', () => {
+    const o = read('app', '(authed-admin-overview)', 'admin', 'admin-overview.tsx');
+    assert.match(o, /\{opsError && <div className="db-banner" role="alert">\{opsError\}<\/div>\}/);
+    assert.equal((o.match(/setOpsError\(null\)/g) || []).length, 1, 'only a new load clears the error');
+    assert.doesNotMatch(o, /setTimeout\([^)]*setOpsError/);
   });
   test('hybrid preserved: writing-queue error→persist, else 5s', () => {
     const q = read('js', 'admin-writing-queue.js');

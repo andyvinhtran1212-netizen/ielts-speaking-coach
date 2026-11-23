@@ -26,8 +26,10 @@ const MIGRATED = {
 const MIGRATED_JS = {
   // LEGACYJS-0075 W3a: admin-access-codes.js is deleted (Next panel: no inline
   // colour/bg, pinned in sprint-17-5-reassignment.test.mjs).
-  'admin-usage.js':        front('js', 'admin-usage.js'),
-  'admin-foot-traffic.js': front('js', 'admin-foot-traffic.js'),
+  // LEGACYJS-0075 W4a: admin-usage.js and admin-foot-traffic.js are deleted; the
+  // Next owners below carry the same no-inline-colour invariant.
+  'admin-usage.tsx':        front('app', '(authed-admin-usage)', 'admin', 'usage', 'admin-usage.tsx'),
+  'admin-foot-traffic.tsx': front('app', '(authed-admin)', '(foot-traffic)', 'admin', 'foot-traffic', 'admin-foot-traffic.tsx'),
   // LEGACYJS-0075 W3b: admin-classes.js is deleted (Next class detail: no inline
   // colour/bg, pinned in sprint-17-5-reassignment.test.mjs and sprint-18-1-ia.test.mjs).
 };
@@ -72,6 +74,7 @@ describe('Sprint 18.3 — Pattern #26 (no inline colour/bg in migrated JS)', () 
     test(`${name} has no inline colour/bg styles`, () => {
       assert.doesNotMatch(js, /style\s*=\s*["'][^"']*color\s*:/);
       assert.doesNotMatch(js, /style\s*=\s*["'][^"']*background/);
+      assert.doesNotMatch(js, /style=\{\{[^}]*(color|background)/);
     });
   }
 });
