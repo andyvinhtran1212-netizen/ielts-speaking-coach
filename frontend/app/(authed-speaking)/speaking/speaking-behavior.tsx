@@ -34,7 +34,7 @@ import { createLearnerTabDrafts, clearLearnerTabDraftAccount, type TabDraft } fr
 import {
   CUE_CARD_HINT_DEFAULT_HTML, CUE_CARD_HINT_PART2_HTML,
   CUE_CARD_PLACEHOLDER_DEFAULT, CUE_CARD_PLACEHOLDER_PART2,
-  DEFAULT_PERMISSIONS, DEFAULT_TOPICS, TAB_DEFS,
+  DEFAULT_PERMISSIONS, DEFAULT_TOPICS, TAB_DEFS, effectiveSpeakingPermissions,
   cueCardLengthWarning, greetingName, hasPermission,
 } from '@/lib/speaking-copy.mjs';
 
@@ -240,7 +240,8 @@ function renderUser(user: any, api: any, st: State) {
   const g = $('greeting-name');
   if (g) g.textContent = short;
 
-  if (Array.isArray(user?.permissions)) st.perms = user.permissions;
+  const perms = effectiveSpeakingPermissions(user);
+  if (perms) st.perms = perms;
   applyPermissions(st);
   applyVocabBankFlag();
   applyExercisesFlag(user?.d1_enabled, user?.d3_enabled);

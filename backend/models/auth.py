@@ -23,6 +23,9 @@ class AuthMeResponse(BaseModel):
     d3_enabled: bool
     flashcard_enabled: bool
     vocab_curated_enabled: bool
+    # COURSEACCESS-0055 FR-019: a course entitlement opens every Speaking mode
+    # while credit_metering is on (separate from the access-code permissions).
+    speaking_course_access: bool = False
 
 
 class AuthActiveStatusResponse(BaseModel):

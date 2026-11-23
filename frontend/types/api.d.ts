@@ -15359,6 +15359,11 @@ export interface components {
             flashcard_enabled: boolean;
             /** Vocab Curated Enabled */
             vocab_curated_enabled: boolean;
+            /**
+             * Speaking Course Access
+             * @default false
+             */
+            speaking_course_access: boolean;
         };
         /** AuthProfileResponse */
         AuthProfileResponse: {
