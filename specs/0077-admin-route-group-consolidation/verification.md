@@ -68,3 +68,6 @@ later wave.
 - `verify-admin-route-group-flow.mjs` over the five moved pages: 114/114 checks
   pass (94/114 on the base); all 20 client navigations leave only the previous
   page's own sheets, as accepted for FR-005 on 2026-11-20.
+- Re-applied on staging `cc6dd4c8` (2026-11-23): the same verifier passes
+  114/114 with the same 20 FR-005 observations; `npm run build`, `tsc --noEmit`
+  and the React suite (1337/1337) pass.
