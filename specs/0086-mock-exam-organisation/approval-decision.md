@@ -14,8 +14,10 @@ status change).
 Answers recorded with this approval (also written under the spec's Open questions
 table):
 
-- **Q12:** adding a class snapshots its roster at that moment; learners who join
-  the class later are not added automatically ("Cập nhật theo lớp" adds them).
+- **Q12 (default):** adding a class snapshots its roster at that moment; learners
+  who join the class later are not added automatically. The "Cập nhật theo lớp"
+  button is in the proposal column, not the default, so it is **not** approved
+  here; it waits for anh Andy's own decision.
 - **Q13:** keep make-up sittings as their own exam (`source_exam_id`), linked from
   the Thí sinh tab. Results are not merged into the original exam in this round.
 - **Q14:** release rules (a)–(e) approved; (b) partial release ships behind the
