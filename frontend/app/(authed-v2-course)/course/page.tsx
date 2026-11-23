@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import { PageState } from '@/components/ui/page-state';
 import { useLearnerMe } from '@/components/learner/learner-frame';
 import { learnerV2Enabled } from '@/lib/auth-wire-model.mjs';
+import { replaceAcrossTrees } from '@/lib/tree-replace';
 
 import { CourseHubPage } from './course-hub';
 
@@ -23,8 +24,9 @@ function CourseGate() {
   const leave = status === 'error' || (status === 'ready' && !enabled);
   useEffect(() => {
     // An unreadable profile is treated as flag off: the stand-in page works
-    // for everyone, the new page only for opted-in learners.
-    if (leave) router.replace(COURSE_STAND_IN);
+    // for everyone, the new page only for opted-in learners. `/course/assigned` is
+    // in the legacy tree, so this is a full document replacement (FR-015).
+    if (leave) replaceAcrossTrees(router, COURSE_STAND_IN);
   }, [leave, router]);
   if (!enabled || !accountId) return <PageState kind="loading" title="Đang tải Lộ trình" />;
   return <CourseHubPage key={accountId} accountId={accountId} />;
