@@ -117,6 +117,8 @@ FR-08-041 (bỏ bài). Bảng đối chiếu ở `verification.md`.
     "Try again". Không chuyển cả trang sang màn lỗi.
   - 409 "Attempt đã thay đổi" (một lần lưu tới sau khi máy chủ đọc lại): đọc lại lượt; còn
     `in_progress` thì cho nộp lại, đã `submitted` thì `confirmed`.
+  - Đọc lại thấy `abandoned` (ví dụ tab khác vừa bỏ bài, FR-012): "This attempt was abandoned
+    and was not submitted." với nút "Back", không bao giờ `confirmed`; bản sao tại máy bị xoá.
   - Máy chủ Listening không đóng lượt theo giờ, nên không dùng `closed_unconfirmed` hay
     `expired_unsubmitted`; lượt chỉ hết hạn sau 24 giờ (`require_resume_active`), khi đó
     hiện thông điệp của máy chủ và nút "Back".
@@ -129,7 +131,7 @@ FR-08-041 (bỏ bài). Bảng đối chiếu ở `verification.md`.
   `POST /api/listening/tests/attempts/{attempt_id}/abandon` trong
   `backend/routers/listening/attempts.py`:
   - Một câu UPDATE có điều kiện, cùng cách điều phối với `submit` (CAS trên trạng thái): `id`,
-    `user_id`, `status='in_progress'`, `mock_sitting_id IS NULL`, không bài giao,
+    `user_id`, `status='in_progress'`, `sitting_id IS NULL`, không bài giao,
     `resume_expires_at > now` lấy ngay trước câu UPDATE. Listening không có hạn giờ phía máy
     chủ nên không có điều kiện giờ khác (khác Reading, EXAMREAD-0067 FR-012).
   - Câu UPDATE của bỏ bài không gắn với mảng `answers` (bỏ là huỷ cả lượt). Hai câu UPDATE
