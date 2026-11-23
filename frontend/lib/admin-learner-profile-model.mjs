@@ -22,7 +22,7 @@ const TAB_IDS = PROFILE_TABS.map((t) => t.id);
 export const TAB_PENDING = {
   'hoc-tap': 'Bảng bài làm mọi kỹ năng, lỗi lặp lại ở Writing và nhóm ngữ pháp yếu sẽ hiện ở đây khi có API bài làm của học viên.',
   'ghi-chu': 'Ghi chú chăm sóc và việc đã hẹn sẽ hiện ở đây khi có bảng ghi chú chăm sóc.',
-  'khoa-va-quyen': 'Khoá, hạn, quyền luyện lại và lượt chấm cần dữ liệu khoá học (G04); chi phí AI của học viên cần API chi phí. Chưa có thao tác nào ở thẻ này.',
+  'khoa-va-quyen': 'Khoá, hạn, quyền luyện lại và lượt chấm cần dữ liệu khoá học (G04); chi phí AI của học viên cần API chi phí.',
   'nhat-ky': 'Nhật ký các thao tác trên tài khoản này sẽ hiện ở đây khi có API nhật ký.',
 };
 
@@ -235,4 +235,63 @@ export function sideView(side) {
 export function failedText(sourcesFailed) {
   const names = (sourcesFailed || []).map((s) => BLOCK_LABEL[s] || s);
   return names.length ? `Chưa đọc được: ${names.join(', ')}. Các khối khác vẫn đúng.` : '';
+}
+
+// ── Khoá và quyền: role change and danger zone (FR-033; G09-T11b) ────────────
+
+/** The roles `PATCH /admin/users/{id}/role` accepts, in Vietnamese. */
+export const ROLE_OPTIONS = [
+  { value: 'student', label: 'Học viên' },
+  { value: 'instructor', label: 'Giảng viên' },
+  { value: 'admin', label: 'Quản trị viên' },
+];
+
+/** `user` is the role of an account that signed up on its own: a learner too. */
+export function roleLabel(role) {
+  if (role === 'user') return 'Học viên (tự đăng ký)';
+  return ROLE_OPTIONS.find((o) => o.value === role)?.label || (role ? String(role) : 'Chưa rõ');
+}
+
+/**
+ * Why the role cannot be changed here, or '' when it can.
+ * @returns {string}
+ */
+export function roleChangeBlocked(account, selfId) {
+  if (!account) return 'Người này chưa có tài khoản, nên chưa có vai trò để đổi.';
+  if (selfId && account.user_id === selfId) return 'Không đổi vai trò của chính mình ở đây.';
+  if (!account.is_active) return 'Tài khoản đang bị tạm khoá: mở khoá trước rồi mới đổi vai trò.';
+  return '';
+}
+
+const STAFF = new Set(['admin', 'instructor']);
+/** The confirm line: what changes, and that taking staff rights away signs the person out. */
+export function roleConfirmText(name, from, to) {
+  const out = `Đổi vai trò của ${name} từ ${roleLabel(from)} sang ${roleLabel(to)}?`;
+  if (STAFF.has(from) && !STAFF.has(to)) return `${out} Mọi phiên đăng nhập của người này bị thu hồi ngay. Thay đổi ghi vào nhật ký bảo mật.`;
+  if (to === 'admin') return `${out} Người này sẽ vào được toàn bộ khu quản trị. Thay đổi ghi vào nhật ký bảo mật.`;
+  return `${out} Thay đổi ghi vào nhật ký bảo mật.`;
+}
+
+/**
+ * The answer of the role change, said truthfully: a revocation that failed is a warning, not a success.
+ * @returns {{ kind: 'success' | 'error', text: string }}
+ */
+export function roleResultText(response, to) {
+  if (response && response.changed === false) return { kind: 'success', text: `Vai trò đã là ${roleLabel(to)}; không có gì thay đổi.` };
+  if (response && response.sessions_revoked === false) {
+    return { kind: 'error', text: `Đã đổi vai trò sang ${roleLabel(to)} nhưng chưa thu hồi được phiên đăng nhập. Thu hồi phiên ở trang Người dùng.` };
+  }
+  return { kind: 'success', text: `Đã đổi vai trò sang ${roleLabel(to)}.` };
+}
+
+/** A refused role change keeps the API's own sentence (last admin, suspended, step-up not done). */
+export function roleErrorText(caught) {
+  const err = /** @type {any} */ (caught) || {};
+  if (err.code === 'step_up_required') return 'Chưa đổi vai trò: cần xác minh mã hai bước. Bấm Đổi vai trò lần nữa để nhập mã.';
+  return `Chưa đổi vai trò: ${err.message || 'lỗi không xác định'}`;
+}
+
+/** "Gỡ khỏi lớp" confirm: what goes and what stays (CHUAN-ADMIN vùng nguy hiểm). */
+export function removeConfirmText(name, cohortName) {
+  return `Gỡ ${name} khỏi lớp ${cohortName}? Người này không nhận bài giao mới và không có trong bảng điểm của lớp. Quyền khoá học và lịch sử bài làm giữ nguyên. Thêm lại được từ trang Lớp; bài giao trong thời gian bị gỡ không tự giao lại.`;
 }

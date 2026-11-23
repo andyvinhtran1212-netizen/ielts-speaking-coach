@@ -2,7 +2,8 @@
 
 // Hồ sơ học viên (ADMINIA-0074 FR-022…FR-024, FR-030, FR-031, FR-034; plan 5.4;
 // G09-T11a). Header = the shared learner block; five tabs in the URL; Tổng quan
-// from GET /admin/learners/{ref}/overview (G09-T04). No danger zone (G09-T11b).
+// from GET /admin/learners/{ref}/overview (G09-T04); role change and danger
+// zone at the end of Khoá và quyền (G09-T11b, learner-access-tab.tsx).
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
@@ -37,6 +38,8 @@ import {
 } from '@/lib/admin-learner-profile-model.mjs';
 import { NOTIFY_HANDOFF_KEY, notifyHandoff } from '@/lib/admin-learners-model.mjs';
 import { assignmentHref } from '@/lib/admin-writing-assignments-model.mjs';
+
+import { LearnerAccessTab } from './learner-access-tab';
 
 type Banner = { kind: 'success' | 'error'; text: string } | null;
 
@@ -140,7 +143,6 @@ export function AdminLearnerProfile({ learnerRef }: { learnerRef: string }) {
       window.sessionStorage.setItem(NOTIFY_HANDOFF_KEY, notifyHandoff([{ ref: learnerRef, name: detail?.summary.name ?? '' }]));
     } catch { /* the page still opens with the ref in the URL */ }
   };
-  const studentId = learnerRef.startsWith('s-') ? learnerRef.slice(2) : undefined;
 
   if (detailError) {
     return (
@@ -165,7 +167,7 @@ export function AdminLearnerProfile({ learnerRef }: { learnerRef: string }) {
         {liveHref({ href: '/admin/notifications', today: null })
           ? <a className="adm-btn-secondary" href={notifyOneHref(learnerRef)} onClick={remind}>Gửi nhắc</a>
           : null}
-        <a className="adm-btn-secondary" href={assignmentHref({}, studentId ? { studentId } : {})}>Giao bài</a>
+        <a className="adm-btn-secondary" href={assignmentHref({}, detail.student_id ? { studentId: detail.student_id } : {})}>Giao bài</a>
         <button type="button" className="adm-btn-secondary" disabled title="Chưa có: cần dữ liệu khoá học (G04)">Cấp quyền luyện lại</button>
       </div>
 
@@ -178,7 +180,9 @@ export function AdminLearnerProfile({ learnerRef }: { learnerRef: string }) {
 
       <StatusBanner banner={banner} />
 
-      {tab !== 'tong-quan' ? (
+      {tab === 'khoa-va-quyen' ? (
+        <LearnerAccessTab detail={detail} onChanged={async (next) => { if (next) setBanner(next); await loadDetail(); }} />
+      ) : tab !== 'tong-quan' ? (
         <section className="lp-pending" aria-label={PROFILE_TABS.find((t) => t.id === tab)?.label}>
           <p className="la-note" role="status">Chưa mở. {TAB_PENDING[tab]}</p>
         </section>

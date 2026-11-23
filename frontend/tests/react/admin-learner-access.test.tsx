@@ -1,0 +1,134 @@
+// ADMINIA-0074 G09-T11b (FR-033): Khoá và quyền: role change and danger zone.
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const nav = vi.hoisted(() => ({ search: 'tab=khoa-va-quyen', push: vi.fn(), replace: vi.fn() }));
+const me = vi.hoisted(() => ({ id: 'admin-1' }));
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/admin/learners/x',
+  useSearchParams: () => new URLSearchParams(nav.search),
+  useRouter: () => ({ push: nav.push, replace: nav.replace }),
+}));
+vi.mock('@/components/admin-access-gate', () => ({ useAdminProfile: () => me }));
+
+import { AdminLearnerProfile } from '@/app/(authed-admin)/(learners)/admin/learners/[ref]/admin-learner-profile';
+
+const UID = '10000000-0000-0000-0000-000000000001';
+const SID = '20000000-0000-0000-0000-000000000002';
+const C = '30000000-0000-0000-0000-000000000003';
+const U = `u-${UID}`;
+const summary = {
+  name: 'Nguyễn Minh Anh', cohorts: [{ id: C, name: 'Tue–Thu 19:30' }], courses: null,
+  status: { level: 'ok', reasons: [] }, goal: { target_band: null, exam_date: null, source: 'none' },
+  overdue: { count: 0, latest_title: null }, recent_bands: { writing: [], speaking: [] },
+  last_active_at: null, latest_note: null,
+};
+const detail = (extra: Record<string, unknown> = {}) => ({
+  ref: U, canonical_ref: U, summary, sources_failed: [], student_id: SID,
+  account: { user_id: UID, role: 'student', is_active: true }, ...extra,
+});
+const api = { getWith: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() };
+
+beforeEach(() => {
+  nav.search = 'tab=khoa-va-quyen';
+  me.id = 'admin-1';
+  api.getWith.mockReset().mockResolvedValue(detail());
+  api.patch.mockReset().mockResolvedValue({ ok: true, id: UID, role: 'instructor', changed: true, audit_id: 'a1', sessions_revoked: null, revoke_error: null });
+  api.delete.mockReset().mockResolvedValue(undefined);
+  Object.assign(window, { api });
+});
+afterEach(() => { cleanup(); });
+
+const dialog = () => screen.getByRole('dialog');
+
+describe('Khoá và quyền (G09-T11b)', () => {
+  it('shows the role and a danger zone at the end, with no account lock and no revoke for learners yet', async () => {
+    render(<AdminLearnerProfile learnerRef={U} />);
+    await screen.findByText('Vùng nguy hiểm');
+    expect(screen.getByText('Học viên', { selector: 'strong' })).toBeTruthy();
+    const zone = screen.getByRole('region', { name: 'Vùng nguy hiểm' });
+    expect((within(zone).getByRole('button', { name: 'Thu hồi quyền học' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((within(zone).getByRole('button', { name: 'Khoá tài khoản' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(within(zone).getByRole('button', { name: 'Gỡ khỏi Tue–Thu 19:30' })).toBeTruthy();
+    const sections = Array.from(document.querySelectorAll('.lp-access > section'));
+    expect(sections[sections.length - 1].getAttribute('aria-labelledby')).toBe('lp-danger');
+  });
+
+  it('changes the role only after the confirm, then reloads the canonical profile', async () => {
+    render(<AdminLearnerProfile learnerRef={U} />);
+    await screen.findByText('Vùng nguy hiểm');
+    const change = screen.getByRole('button', { name: 'Đổi vai trò' }) as HTMLButtonElement;
+    expect(change.disabled).toBe(true);
+    fireEvent.change(screen.getByRole('combobox', { name: /Vai trò mới/ }), { target: { value: 'instructor' } });
+    fireEvent.click(change);
+    expect(dialog().textContent).toMatch(/từ Học viên sang Giảng viên\?/);
+    expect(api.patch).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog()).getByRole('button', { name: 'Đổi vai trò' }));
+    await screen.findByText('Đã đổi vai trò sang Giảng viên.');
+    expect(api.patch).toHaveBeenCalledWith(`/admin/users/${UID}/role`, { role: 'instructor' });
+    expect(api.getWith).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('demoting staff warns that sessions are revoked, and a failed revocation is not called a success', async () => {
+    api.getWith.mockResolvedValue(detail({ account: { user_id: UID, role: 'instructor', is_active: true } }));
+    api.patch.mockResolvedValue({ ok: true, id: UID, role: 'student', changed: true, audit_id: 'a2', sessions_revoked: false, revoke_error: 'gotrue' });
+    render(<AdminLearnerProfile learnerRef={U} />);
+    await screen.findByText('Vùng nguy hiểm');
+    fireEvent.change(screen.getByRole('combobox', { name: /Vai trò mới/ }), { target: { value: 'student' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Đổi vai trò' }));
+    expect(dialog().textContent).toMatch(/Mọi phiên đăng nhập của người này bị thu hồi ngay/);
+    fireEvent.click(within(dialog()).getByRole('button', { name: 'Đổi vai trò' }));
+    await screen.findByText(/chưa thu hồi được phiên đăng nhập/);
+    expect(screen.queryByText('Đã đổi vai trò sang Học viên.')).toBeNull();
+  });
+
+  it('a refused change (step-up not done, last admin) keeps the dialog with the reason and reloads', async () => {
+    api.patch.mockRejectedValue(Object.assign(new Error('Cần xác minh'), { status: 403, code: 'step_up_required' }));
+    render(<AdminLearnerProfile learnerRef={U} />);
+    await screen.findByText('Vùng nguy hiểm');
+    fireEvent.change(screen.getByRole('combobox', { name: /Vai trò mới/ }), { target: { value: 'admin' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Đổi vai trò' }));
+    expect(dialog().textContent).toMatch(/vào được toàn bộ khu quản trị/);
+    fireEvent.click(within(dialog()).getByRole('button', { name: 'Đổi vai trò' }));
+    await waitFor(() => expect(within(dialog()).getByRole('alert').textContent).toMatch(/cần xác minh mã hai bước/));
+    await waitFor(() => expect(api.getWith).toHaveBeenCalledTimes(2));
+  });
+
+  it('no role change for oneself, a suspended account or a profile without an account', async () => {
+    me.id = UID;
+    const { unmount } = render(<AdminLearnerProfile learnerRef={U} />);
+    await screen.findByText('Không đổi vai trò của chính mình ở đây.');
+    expect(screen.queryByRole('button', { name: 'Đổi vai trò' })).toBeNull();
+    unmount();
+    me.id = 'admin-1';
+    api.getWith.mockResolvedValue(detail({ account: null }));
+    render(<AdminLearnerProfile learnerRef={U} />);
+    await screen.findByText(/chưa có tài khoản, nên chưa có vai trò để đổi/);
+  });
+
+  it('"Gỡ khỏi lớp" asks once, names what stays, removes by the profile id and reloads', async () => {
+    render(<AdminLearnerProfile learnerRef={U} />);
+    await screen.findByText('Vùng nguy hiểm');
+    fireEvent.click(screen.getByRole('button', { name: 'Gỡ khỏi Tue–Thu 19:30' }));
+    expect(dialog().textContent).toMatch(/Quyền khoá học và lịch sử bài làm giữ nguyên/);
+    expect(api.delete).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog()).getByRole('button', { name: 'Gỡ khỏi lớp' }));
+    await screen.findByText('Đã gỡ Nguyễn Minh Anh khỏi lớp Tue–Thu 19:30.');
+    expect(api.delete).toHaveBeenCalledWith(`/admin/cohorts/${C}/students/${SID}`);
+    expect(api.getWith).toHaveBeenCalledTimes(2);
+  });
+
+  it('Huỷ sends nothing; a person without a learner profile has no class to leave', async () => {
+    render(<AdminLearnerProfile learnerRef={U} />);
+    await screen.findByText('Vùng nguy hiểm');
+    fireEvent.click(screen.getByRole('button', { name: 'Gỡ khỏi Tue–Thu 19:30' }));
+    fireEvent.click(within(dialog()).getByRole('button', { name: 'Huỷ' }));
+    expect(api.delete).not.toHaveBeenCalled();
+    cleanup();
+    api.getWith.mockResolvedValue(detail({ student_id: null }));
+    render(<AdminLearnerProfile learnerRef={U} />);
+    await screen.findByText(/chưa có hồ sơ học viên nên không thuộc lớp nào/);
+    expect(screen.queryByRole('button', { name: /^Gỡ khỏi / })).toBeNull();
+  });
+});

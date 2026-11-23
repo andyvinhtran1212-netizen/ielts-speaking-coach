@@ -8,6 +8,7 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(nav.search),
   useRouter: () => ({ push: nav.push, replace: nav.replace }),
 }));
+vi.mock('@/components/admin-access-gate', () => ({ useAdminProfile: () => ({ id: 'admin-1' }) }));
 
 import { AdminLearnerProfile } from '@/app/(authed-admin)/(learners)/admin/learners/[ref]/admin-learner-profile';
 
@@ -76,9 +77,9 @@ describe('AdminLearnerProfile', () => {
   });
 
   it('opens another tab by its URL and says what it waits on, without loading the overview', async () => {
-    nav.search = 'tab=khoa-va-quyen';
+    nav.search = 'tab=hoc-tap';
     render(<AdminLearnerProfile learnerRef={U} />);
-    await screen.findByText(/Chưa mở\. Khoá, hạn, quyền luyện lại và lượt chấm cần dữ liệu khoá học/);
+    await screen.findByText(/Chưa mở\. Bảng bài làm mọi kỹ năng/);
     expect(api.getWith).not.toHaveBeenCalledWith(`/admin/learners/${U}/overview`, undefined, undefined);
     fireEvent.click(screen.getByRole('link', { name: 'Nhật ký hệ thống' }));
     expect(nav.push).toHaveBeenCalledWith(`/admin/learners/${U}?tab=nhat-ky`);

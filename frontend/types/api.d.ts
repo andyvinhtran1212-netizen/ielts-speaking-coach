@@ -19083,6 +19083,20 @@ export interface components {
             /** Anchor */
             anchor?: string | null;
         };
+        /**
+         * LearnerAccount
+         * @description The account half of the person, for the profile's Khoá và quyền tab
+         *     (G09-T11b: role change). Admin detail only; ``null`` for a teacher and for
+         *     a learner profile without an account.
+         */
+        LearnerAccount: {
+            /** User Id */
+            user_id: string;
+            /** Role */
+            role: string | null;
+            /** Is Active */
+            is_active: boolean;
+        };
         /** LearnerAnswer */
         LearnerAnswer: {
             /** Answer */
@@ -19104,6 +19118,9 @@ export interface components {
             summary: components["schemas"]["LearnerSummary"];
             /** Sources Failed */
             sources_failed: string[];
+            /** Student Id */
+            student_id?: string | null;
+            account?: components["schemas"]["LearnerAccount"] | null;
         };
         /** LearnerDirectory */
         LearnerDirectory: {

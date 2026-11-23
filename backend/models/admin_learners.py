@@ -95,8 +95,21 @@ class LearnerSummaryOut(LearnerSummary):
     sources_failed: list[str]
 
 
+class LearnerAccount(BaseModel):
+    """The account half of the person, for the profile's Khoá và quyền tab
+    (G09-T11b: role change). Admin detail only; ``null`` for a teacher and for
+    a learner profile without an account."""
+    user_id: str
+    role: Optional[str]
+    is_active: bool
+
+
 class LearnerDetail(BaseModel):
     ref: str
     canonical_ref: str
     summary: LearnerSummary
     sources_failed: list[str]
+    # The learner profile id (``students.id``), for "Gỡ khỏi lớp"; ``null`` for
+    # an account without a profile. Admin detail only.
+    student_id: Optional[str] = None
+    account: Optional[LearnerAccount] = None
