@@ -83,6 +83,19 @@ export interface MockState {
   collectedSection: Section | null;
   sectionTimeLeftSeconds: number | null;
   sectionDurationSeconds: number | null;
+  /** EXAMMOCK-0071 FR-014: back-to-back state of a self-paced sitting, else null. */
+  selfPaced?: MockSelfPaced | null;
+}
+
+export interface MockSelfPaced {
+  state: 'not_started' | 'in_progress' | 'submitted' | 'missed';
+  startedAt: string | null;
+  expectedEndAt: string | null;
+  currentSection: Section | null;
+  gapSeconds: number;
+  openUntil: string | null;
+  totalSeconds: number;
+  sections: ReadonlyArray<{ section: Section; status: string; startedAt: string | null; endsAt: string | null }>;
 }
 
 interface Prompt {
@@ -1404,6 +1417,7 @@ export function MockExamRunner() {
         outcome={submitOutcome}
         onRetrySubmit={retrySubmit}
         flushForExit={flushForExit}
+        onSubmitSection={submitSection}
       />
     );
   }

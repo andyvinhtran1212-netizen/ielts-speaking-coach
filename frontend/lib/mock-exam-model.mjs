@@ -157,7 +157,84 @@ export function normalizeMockExamState(payload, expectedSittingId = null) {
     collectedSection,
     sectionTimeLeftSeconds,
     sectionDurationSeconds: finiteNonNegative(root.section_duration_seconds),
+    selfPaced: normalizeSelfPaced(root.self_paced),
   });
+}
+
+const SELF_PACED_STATES = new Set(['not_started', 'in_progress', 'submitted', 'missed']);
+const SELF_PACED_SECTION_STATES = new Set(['not_started', 'in_progress', 'submitted', 'marking', 'released']);
+
+/**
+ * EXAMMOCK-0071 FR-014 (T005): the server's back-to-back state of a self-paced
+ * sitting (`self_paced` from GET /sittings/{id}, MOCKORG-0086 plan 5.5), or
+ * null for every other sitting. The server owns the clock; nothing here is
+ * computed from this device's time except the entry-screen warning.
+ */
+export function normalizeSelfPaced(value) {
+  if (value == null) return null;
+  const root = record(value, 'invalid-mock-self-paced');
+  const state = text(root.state);
+  if (!SELF_PACED_STATES.has(state)) throw new Error('invalid-mock-self-paced');
+  const sections = (Array.isArray(root.sections) ? root.sections : []).map((row) => {
+    const item = record(row, 'invalid-mock-self-paced');
+    const section = text(item.section);
+    const status = text(item.status);
+    if (!MOCK_SECTION_ORDER.includes(section) || !SELF_PACED_SECTION_STATES.has(status)) {
+      throw new Error('invalid-mock-self-paced');
+    }
+    return Object.freeze({ section, status, startedAt: nullableText(item.started_at), endsAt: nullableText(item.ends_at) });
+  });
+  const current = nullableText(root.current_section);
+  return Object.freeze({
+    state,
+    startedAt: nullableText(root.started_at),
+    expectedEndAt: nullableText(root.expected_end_at),
+    currentSection: current && MOCK_SECTION_ORDER.includes(current) ? current : null,
+    gapSeconds: finiteNonNegative(root.gap_seconds, 0),
+    openUntil: nullableText(root.open_until),
+    totalSeconds: finiteNonNegative(root.total_seconds, 0),
+    sections: Object.freeze(sections),
+  });
+}
+
+/**
+ * Which exam-room screen a self-paced sitting shows (FR-014), or null when the
+ * sitting is not back to back. Only the exam-room branch reads this; the old
+ * runner keeps `mockExamView` unchanged.
+ */
+export function selfPacedView(state) {
+  const sp = state?.selfPaced;
+  if (!sp) return null;
+  if (!MOCK_LIVE_STATUSES.includes(state.sitting.status)) return 'submitted';
+  if (isOpenMockSection(state)) return 'section';
+  if (sp.state === 'missed') return 'missed';
+  if (sp.state === 'not_started') return 'entry';
+  // Started and no open section on this read: the server is closing the last
+  // section or stamping the next one. Never a menu or a "start next" button.
+  return 'between';
+}
+
+/**
+ * Entry screen facts: total minutes, and the close time when the learner's
+ * window ends before a full run would (the only place this device's clock is
+ * read, to word a warning; the server still runs the chain past the window).
+ */
+export function selfPacedEntry(state, nowMs = Date.now()) {
+  const sp = state?.selfPaced;
+  if (!sp) return null;
+  const totalMinutes = Math.ceil((sp.totalSeconds || 0) / 60);
+  const closesMs = sp.openUntil ? Date.parse(sp.openUntil) : NaN;
+  const shortWindow = Number.isFinite(closesMs) && closesMs - nowMs < (sp.totalSeconds || 0) * 1000;
+  return { totalMinutes, closesAt: shortWindow ? sp.openUntil : null, firstSection: configuredMockSections(state)[0] || null };
+}
+
+/** The section that came before `section` in this sitting, when it is submitted. */
+export function selfPacedPrevious(state, section) {
+  const order = configuredMockSections(state);
+  const index = order.indexOf(section);
+  if (index <= 0) return null;
+  const previous = order[index - 1];
+  return submittedAtFor(state, previous) ? previous : null;
 }
 
 export function configuredMockSections(state) {

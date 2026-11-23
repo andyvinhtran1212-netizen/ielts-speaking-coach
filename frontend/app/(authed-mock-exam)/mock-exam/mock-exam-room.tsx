@@ -12,7 +12,9 @@ import { Notice } from '@/components/ui/notice';
 import { PageState } from '@/components/ui/page-state';
 import { clearLocalCopy } from '@/lib/exam-room/local-copy.mjs';
 import { clockTime } from '@/lib/exam-room/submit-guard.mjs';
-import { configuredMockSections, mockWordCount, submittedAtFor } from '@/lib/mock-exam-model.mjs';
+import {
+  configuredMockSections, mockWordCount, selfPacedEntry, selfPacedPrevious, selfPacedView, submittedAtFor,
+} from '@/lib/mock-exam-model.mjs';
 
 import type { ConnectionState, MockState, Section } from './mock-exam-runner';
 
@@ -69,6 +71,8 @@ export interface MockExamRoomProps {
   outcome: MockRoomOutcome | null;
   onRetrySubmit(): void;
   flushForExit(): Promise<{ unsaved: number }>;
+  /** FR-014 self-paced only: "Submit section" early; the next section starts at once. */
+  onSubmitSection?(section: Section): Promise<void>;
 }
 
 /** Section names on the strip and in the subtitle: words only, no emoji (FR-005). */
@@ -112,6 +116,23 @@ export const MOCK_ROOM_COPY = {
   otherTab: { en: 'This test is open in another tab. Continue there, or take over from the notice above.', vi: 'Bài thi đang mở ở một tab khác. Bạn làm tiếp ở tab đó, hoặc giành quyền ở dòng thông báo phía trên.' },
   signIn: { en: 'Your session has expired. Sign in again to continue the test.', vi: 'Phiên đăng nhập đã hết. Bạn đăng nhập lại để làm tiếp.' },
   writingDone: 'Time is up. Your test has been submitted.',
+  /** FR-014: back-to-back self-paced sittings (MOCKORG-0086 plan 5.5). */
+  selfPaced: {
+    total: (minutes: number) => ({ en: `This test takes ${minutes} minutes.`, vi: `Bài thi kéo dài ${minutes} phút.` }),
+    notice: {
+      en: 'Once you start, the sections run back to back. You cannot pause between sections.',
+      vi: 'Khi đã bắt đầu, các phần chạy liền nhau. Bạn không thể dừng giữa các phần.',
+    },
+    closes: (at: string) => ({
+      en: `This test closes at ${at}. If you start now, the last section may still be running then; it carries on until its own time is up.`,
+      vi: `Kỳ thi đóng lúc ${at}. Nếu bắt đầu bây giờ, phần cuối có thể vẫn đang chạy lúc đó; phần ấy vẫn chạy tới hết giờ của nó.`,
+    }),
+    start: 'Start test',
+    next: (section: string) => `Section submitted. Next: ${section}`,
+    between: { en: 'Section submitted. Opening the next section…', vi: 'Đã nộp phần thi. Đang mở phần tiếp theo…' },
+    missed: { en: 'The window for this test has closed. Contact your teacher if you need a make-up test.', vi: 'Kỳ thi đã đóng. Bạn liên hệ giáo viên nếu cần thi bù.' },
+    submitted: { en: 'Test submitted', vi: 'Đã nộp bài thi' },
+  },
   writingCounts: (t1: number, t2: number) => `Task 1: ${t1} words · Task 2: ${t2} words`,
 } as const;
 
@@ -195,6 +216,17 @@ export function MockExamRoom(props: MockExamRoomProps) {
   const { state, view, outcome } = props;
   const [writingSave, setWritingSave] = useState<ExamRoomSaveStatus>({ state: 'idle' });
   const onWritingSave = useCallback((status: ExamRoomSaveStatus) => setWritingSave(status), []);
+  // FR-014: "Section submitted. Next: <section>" when a self-paced section
+  // follows a submitted one; a status line for a few seconds, never a stop.
+  const [nextBanner, setNextBanner] = useState<Section | null>(null);
+  const bannerSection = state?.selfPaced && view === 'section' && props.section
+    && selfPacedPrevious(state, props.section) ? props.section : null;
+  useEffect(() => {
+    if (!bannerSection) return undefined;
+    setNextBanner(bannerSection);
+    const timer = window.setTimeout(() => setNextBanner(null), 10_000);
+    return () => window.clearTimeout(timer);
+  }, [bannerSection]);
   // FR-010: the Writing copy goes once the server holds the Writing submit.
   const sittingId = state?.sitting.id;
   const writingSubmittedAt = state?.sitting.writingSubmittedAt;
@@ -230,6 +262,45 @@ export function MockExamRoom(props: MockExamRoomProps) {
     );
   }
   const examName = state.exam.readingTitle || props.code || 'IELTS';
+  const sp = selfPacedView(state);
+
+  if ((sp === 'entry' || sp === 'missed' || sp === 'between') && !props.collecting) {
+    const entry = selfPacedEntry(state);
+    const copy = MOCK_ROOM_COPY.selfPaced;
+    const closes = entry?.closesAt ? copy.closes(serverClock(entry.closesAt) || entry.closesAt) : null;
+    return (
+      <Screen>
+        <section className="me-card me-status-card" data-mock-self-paced={sp}>
+          <h1 className="me-h1">{`${MOCK_ROOM_COPY.titlePrefix} · ${examName}`}</h1>
+          {props.connection ? <Notice kind="warning" lang="en">{MOCK_ROOM_COPY.connection[props.connection]}</Notice> : null}
+          {props.session === 'expired' ? <SignInNotice /> : null}
+          <ClosedNotice outcome={outcome} />
+          {props.startError ? <Notice kind="error" lang="en" live="alert">{props.startError}</Notice> : null}
+          {sp === 'missed' ? <p className="me-muted" role="status">{copy.missed.en}<Vi>{copy.missed.vi}</Vi></p> : null}
+          {sp === 'between' ? <p className="me-muted" role="status">{copy.between.en}<Vi>{copy.between.vi}</Vi></p> : null}
+          {sp === 'entry' && entry ? (
+            <>
+              <p>{copy.total(entry.totalMinutes).en}<Vi>{copy.total(entry.totalMinutes).vi}</Vi></p>
+              <Notice kind="info" lang="en">{copy.notice.en}<Vi>{copy.notice.vi}</Vi></Notice>
+              {closes ? <Notice kind="warning" lang="en">{closes.en}<Vi>{closes.vi}</Vi></Notice> : null}
+            </>
+          ) : null}
+          <MockSectionStrip state={state} current={null} />
+          {sp === 'entry' && entry?.firstSection ? (
+            <Button
+              disabled={Boolean(props.starting)}
+              loading={Boolean(props.starting)}
+              loadingLabel="Opening…"
+              onClick={() => props.onStart(entry.firstSection as Section)}
+            >
+              {copy.start}
+            </Button>
+          ) : null}
+          {sp === 'missed' ? <Button variant="secondary" href={MOCK_ROOM_COPY.exitHref}>Back to home</Button> : null}
+        </section>
+      </Screen>
+    );
+  }
 
   if ((view === 'waiting' || view === 'retake-menu') && !props.collecting) {
     const retake = state.examMode === 'retake';
@@ -271,7 +342,9 @@ export function MockExamRoom(props: MockExamRoomProps) {
     return (
       <Screen>
         <section className="me-card me-status-card">
-          <h1 className="me-h1">{MOCK_ROOM_COPY.collected.en}<Vi>{MOCK_ROOM_COPY.collected.vi}</Vi></h1>
+          {state.selfPaced
+            ? <h1 className="me-h1">{MOCK_ROOM_COPY.selfPaced.submitted.en}<Vi>{MOCK_ROOM_COPY.selfPaced.submitted.vi}</Vi></h1>
+            : <h1 className="me-h1">{MOCK_ROOM_COPY.collected.en}<Vi>{MOCK_ROOM_COPY.collected.vi}</Vi></h1>}
           {props.session === 'expired' ? <SignInNotice /> : null}
           <ClosedNotice outcome={outcome} />
           <WritingConfirmed state={state} outcome={outcome} />
@@ -298,6 +371,9 @@ export function MockExamRoom(props: MockExamRoomProps) {
   const body = (
     <div data-mock-section={section || ''}>
       <MockSectionStrip state={state} current={section} />
+      {nextBanner && nextBanner === section
+        ? <Notice kind="success" lang="en" live="status">{MOCK_ROOM_COPY.selfPaced.next(MOCK_ROOM_SECTION_NAMES[nextBanner])}</Notice>
+        : null}
       {props.collecting ? <Notice kind="info" lang="en" live="status">{MOCK_ROOM_COPY.collecting}</Notice> : null}
       {props.connection ? <Notice kind="warning" lang="en">{MOCK_ROOM_COPY.connection[props.connection]}</Notice> : null}
       {props.timerLive && props.remaining > 0 && props.remaining <= 5 * 60
@@ -330,8 +406,16 @@ export function MockExamRoom(props: MockExamRoomProps) {
       saveStatus={section === 'writing' ? writingSave : { state: 'idle' }}
       layout={{ kind: 'single', body }}
       // FR-004: no manual submit in sequential, live and retake; the shell gets
-      // `submit` only to show the runner's outcome (FR-007).
-      submit={shellResult !== 'idle' ? {
+      // `submit` only to show the runner's outcome (FR-007). FR-014: a
+      // self-paced sitting has "Submit section" through the frame's box.
+      submit={state.selfPaced && section && props.onSubmitSection ? {
+        label: 'Submit section',
+        onSubmit: () => props.onSubmitSection!(section),
+        outcome: shellResult,
+        closedAt: serverClock(outcome?.closedAt) ?? undefined,
+        savedUpTo: outcome?.savedUpTo ?? undefined,
+        onRetry: props.onRetrySubmit,
+      } : shellResult !== 'idle' ? {
         label: 'Submit section',
         onSubmit: () => Promise.resolve(),
         outcome: shellResult,
