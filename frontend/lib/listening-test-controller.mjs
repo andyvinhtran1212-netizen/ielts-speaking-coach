@@ -470,6 +470,7 @@ export function listeningKeepChangeAnswer(raw) {
  * the stricter 'test' policy (no pause, seek or speed).
  * @param {{ test_type?: string } | null | undefined} test
  * @param {{ sittingId?: string | null, classItem?: string | null }} [context]
+ *   `classItem` is accepted but does not change the policy (the test type decides).
  * @returns {'test' | 'practice'}
  */
 export function listeningAudioPolicy(test, context = {}) {
@@ -529,8 +530,9 @@ export function listeningSubmitOutcome({ attemptId, reply, error, reread = null,
   }
 
   if (!error) {
-    if (reply?.attempt_id === id) return submitState('confirmed', 'results');
+    // Sealed first: a sealed receipt with a capture envelope also carries attempt_id.
     if (reply?.received === true && reply?.sealed === true) return submitState('confirmed', 'results', { sealed: true });
+    if (reply?.attempt_id === id) return submitState('confirmed', 'results');
     // A reply without a matching acknowledgement is a lost response.
     return transient(autoRetries, online ? null : 'online');
   }

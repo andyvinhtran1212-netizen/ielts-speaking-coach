@@ -45,6 +45,11 @@ describe('listeningSubmitOutcome (FR-010)', () => {
     assert.equal(s.outcome, 'confirmed');
     assert.equal(s.sealed, true);
   });
+  test('a sealed receipt with a capture envelope (it also carries attempt_id) stays sealed', () => {
+    const s = listeningSubmitOutcome({ attemptId: ID, reply: { received: true, sitting_id: 's', sealed: true, attempt_id: ID, post_test_capture_required: true } });
+    assert.equal(s.outcome, 'confirmed');
+    assert.equal(s.sealed, true);
+  });
   test('a re-read showing submitted is confirmed', () => {
     const s = listeningSubmitOutcome({ attemptId: ID, error: new TypeError('Failed to fetch'), reread: { status: 'submitted' } });
     assert.equal(s.outcome, 'confirmed');
