@@ -972,7 +972,12 @@ Nguyên tắc: chỉ nên gộp khi các PR cùng mã nhiệm vụ, nối thẳn
 ## Chưa kiểm được trong bảng này
 - **Đối chiếu migration (mục 5):** xem `team/queue/MIGRATION-AUDIT-20261123.md` (thread 2zft, 13:45Z). Đã đưa vào bảng: 445 có hai bản (#2581, #2589, #2616 mang bản cũ, phải đi sau #2565 và merge staging vào); 504/505 xung đột sổ giữa #2554 và #2600/#2624; #2620 dựng lại sau #2554. Ngoài 6 số của #2450 (383, 384, 400, 440, 441, 452), mọi số khác mới chỉ có file, **chưa áp trên staging**. 453 chưa có PR giữ chỗ.
 - **Kế hoạch 6 migration của #2450** (mục 6): `team/release/MUC6-6-MIGRATION-PROD-2450.md` (thread 6ygN), xem lô 0.
-- Đọc diff thật 19 PR lô 1 bản trước: thread 6ygN ghi ở `team/queue/lots-input-lot1-diff.md`.
+- **Đọc diff thật lô 1** (thread CR/SA, `team/queue/lots-input-lot1-diff.md`, 13:45Z, so `origin/staging...head` của 19 PR lô 1 bản đầu):
+  - Không PR nào mang migration, backend, CI hay mã tiền/lượt chấm/auth. #2532 chỉ một file CSS. #2632 sửa `frontend/public/js/practice.js`: luồng Speaking đang chạy thật, **không có cờ**, nên kiểm tay trên staging ngay sau khi merge.
+  - Merge thử cả 19 PR theo thứ tự: không xung đột, `validate_specs` pass.
+  - Hai chuỗi spec gộp dồn (#2460 ⊂ #2463 ⊂ #2468 ⊂ #2469 ⊂ #2482; #2487 ⊂ #2504 ⊂ #2508 ⊂ #2509) đã xếp theo phụ thuộc trong bảng này, nên chỉ đầu chuỗi (#2460, #2487) ở lô 1.
+  - Tiêu đề #2460 còn ghi "chờ Andy duyệt" dù 0062 đã duyệt 20/11–23/11: tác giả nên sửa tiêu đề trước khi merge.
+  - Thread đó chưa kiểm CI và thread mở theo head; cột CI ở bảng này là lúc quét 13:33–13:35Z.
 - Đầu vào chuỗi G04 (`lots-input-g04.md`, thread j1tkzb, 13:38Z) đã đối chiếu: merge lần lượt, không gộp; #2526 phải merge `staging` vào sau khi #2485 vào (chưa có `3c9f9f24`); #2624 rẽ từ #2550, chờ anh quyết thread 505; 385/387 (#2585) và 505 (#2624) chỉ có file. Chuỗi G07-T17 (thread sgp64h, 13:38Z): #2461 → #2524 → #2482 → #2556 (base `sgp64h-g07-t17-base` không có PR, chỉ là merge của #2524 + #2482; khi hai PR này vào, tác giả merge staging vào #2556 rồi đổi base) → #2572 → (#2613, #2627 → #2641) và (#2579 → #2590 → #2605). Đầu vào G07 (`lots-input-g07.md`, 28pc) chưa có lúc lập bảng. Chuỗi trong bảng dựng từ base nhánh và câu "stacked on/sau #N" trong body PR, nên có thể thiếu phụ thuộc chỉ ghi ở nơi khác.
 - CI: phần lớn head mới đẩy 13:16Z trở đi còn `queued`. "Xanh" ở bảng là trạng thái lúc quét; trước "merge lô N" phải kiểm lại trên đúng head.
 - Mức rủi ro dựng từ đường dẫn file, chưa đọc từng diff; một PR chỉ đổi CSS trong thư mục `credits` vẫn bị xếp mức 5. Cờ "sau cờ tắt" dựa vào lời PR, chưa kiểm mã.
