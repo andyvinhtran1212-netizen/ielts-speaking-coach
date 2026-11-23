@@ -13,6 +13,8 @@ import {
   flashcardReturnHref,
 } from '@/lib/flashcard-study-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
+import { examRoomEnabled } from '@/lib/exam-room/flags.mjs';
+import { FlashcardStudyRoom } from './flashcard-study-room';
 
 type Phase = 'loading' | 'active' | 'summary' | 'empty' | 'disabled' | 'error';
 type Rating = 'again' | 'hard' | 'good' | 'easy';
@@ -49,11 +51,19 @@ async function parseResponse(response: Response) {
   try { return text ? JSON.parse(text) : null; } catch { return null; }
 }
 
+/**
+ * EXAMDRILL-0073 FR-013: the exam-room branch passes `noRedirect` once the stack
+ * has loaded; a 401 then reports to `onUnauthorized` (the room's sign-in box)
+ * and the pending rating stays on the page instead of going to /login.
+ */
+type PersonalAuth = { noRedirect?: () => boolean; onUnauthorized?: () => void };
+
 async function personalRequest(
   expectedAccount: string,
   path: string,
   isCurrent: () => boolean,
   init?: RequestInit,
+  auth: PersonalAuth = {},
 ) {
   const sb = window.getSupabase() as any;
   const initial = await sb.auth.getSession();
@@ -86,8 +96,11 @@ async function personalRequest(
       if (isCurrent() && !latest.error
         && latestSession?.user?.id === expectedAccount
         && latestSession.access_token === result.token) {
-        const next = `${window.location.pathname}${window.location.search}`;
-        window.location.replace(`/login?next=${encodeURIComponent(next)}`);
+        if (auth.noRedirect?.()) auth.onUnauthorized?.();
+        else {
+          const next = `${window.location.pathname}${window.location.search}`;
+          window.location.replace(`/login?next=${encodeURIComponent(next)}`);
+        }
       }
     }
     const detail = result.payload?.detail;
@@ -137,7 +150,15 @@ function StateCard({ children, tone = 'neutral', role }: {
 
 export function FlashcardStudyPlayer() {
   const { status, user } = useAuth();
-  const accountKey = status === 'signed-in' && user?.id ? user.id : null;
+  // EXAMDRILL-0073 FR-013: in the exam-room branch a personal stack under way keeps
+  // its account while signed out, so the pending rating stays; the same account
+  // signing in again sends it, another account starts over without it.
+  const heldAccountRef = useRef<string | null>(null);
+  const accountKey = status === 'signed-in' && user?.id ? user.id : status === 'signed-out' ? heldAccountRef.current : null;
+  const [drill, setDrill] = useState<boolean | null>(null);
+  useEffect(() => { setDrill(examRoomEnabled('drill')); }, []);
+  const [session, setSession] = useState<'active' | 'expired'>('active');
+  const [revealedIndex, setRevealedIndex] = useState<number | null>(null);
   const accountRef = useRef<string | null>(accountKey);
   accountRef.current = accountKey;
   const generationRef = useRef(0);
@@ -168,7 +189,12 @@ export function FlashcardStudyPlayer() {
 
   const card = cards[index] || null;
   const publicMode = stack?.mode === 'wiki' || stack?.mode === 'exam';
-  const loadIdentity = `${status}:${accountKey || 'guest'}`;
+  if (status !== 'signed-out') heldAccountRef.current = drill && stack?.mode === 'personal' && phase === 'active' ? accountKey : null;
+  const held = status === 'signed-out' && Boolean(heldAccountRef.current);
+  const loadIdentity = held ? `signed-in:${accountKey}` : `${status}:${accountKey || 'guest'}`;
+  const revealed = revealedIndex === index;
+  useEffect(() => { if (flipped) setRevealedIndex(index); }, [flipped, index]);
+  useEffect(() => { if (held) setSession('expired'); }, [held]);
   const publicStorageKey = `${stack?.storageKey || ''}:account:${accountKey || 'guest'}`;
 
   useEffect(() => {
@@ -199,6 +225,8 @@ export function FlashcardStudyPlayer() {
       && accountRef.current === expectedAccount;
 
     setPhase('loading');
+    setSession('active');
+    setRevealedIndex(null);
     setMessage('');
     setCards([]);
     setIndex(0);
@@ -267,6 +295,17 @@ export function FlashcardStudyPlayer() {
     return () => { disposed = true; controller.abort(); };
   }, [stack, loadIdentity]);
 
+  // FR-013: the same account is back (here or in another tab): send the pending rating again.
+  const recoverRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    if (!drill || session !== 'expired') return undefined;
+    const retry = () => { if (status === 'signed-in' && user?.id && user.id === accountRef.current) recoverRef.current(); };
+    retry();
+    window.addEventListener('focus', retry);
+    window.addEventListener('online', retry);
+    return () => { window.removeEventListener('focus', retry); window.removeEventListener('online', retry); };
+  }, [drill, session, status, user?.id]);
+
   useEffect(() => {
     if (!sourceOpen) return;
     sourceCloseRef.current?.focus();
@@ -314,6 +353,8 @@ export function FlashcardStudyPlayer() {
 
   const submitRating = useCallback(async (rating: Rating, retry?: PendingRating) => {
     if (!card || publicMode || busy || !accountKey) return;
+    // FR-003: the exam-room branch rates only a card that was turned.
+    if (drill && !retry && revealedIndex !== index) return;
     const operation = retry || { rating, clientId: newReviewId() };
     if (!operation.clientId) {
       setSaveError('Trình duyệt không tạo được mã lưu an toàn. Hãy tải lại trang.');
@@ -347,10 +388,12 @@ export function FlashcardStudyPlayer() {
             client_review_id: operation.clientId,
           }),
         },
+        drill ? { noRedirect: ownsMutation, onUnauthorized: () => { if (ownsMutation()) setSession('expired'); } } : undefined,
       );
       const receipt = normalizeReviewReceipt(payload, expectedCardId);
       if (!receipt) throw new Error('Máy chủ chưa xác nhận bản ghi SRS hợp lệ.');
       if (!ownsMutation()) return;
+      setSession('active');
       setBreakdown((current) => ({ ...current, [operation.rating]: current[operation.rating] + 1 }));
       advance();
     } catch (caught) {
@@ -363,14 +406,19 @@ export function FlashcardStudyPlayer() {
         }
       }
     }
-  }, [accountKey, advance, busy, card, publicMode]);
+  }, [accountKey, advance, busy, card, drill, index, publicMode, revealedIndex]);
+  recoverRef.current = () => {
+    setSession('active');
+    if (pendingRating && !busy) void submitRating(pendingRating.rating, pendingRating);
+  };
 
   const markPublic = useCallback((mark: PublicMark) => {
     if (!card || !publicMode || phase !== 'active') return;
+    if (drill && revealedIndex !== index) return;
     if (!persistMark(publicStorageKey, card.slug, mark)) setStorageOkay(false);
     setPublicBreakdown((current) => ({ ...current, [mark]: current[mark] + 1 }));
     advance();
-  }, [advance, card, phase, publicMode, publicStorageKey]);
+  }, [advance, card, drill, index, phase, publicMode, publicStorageKey, revealedIndex]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -394,6 +442,7 @@ export function FlashcardStudyPlayer() {
   }, [markPublic, phase, publicMode, sourceOpen, submitRating]);
 
   const restart = () => {
+    setRevealedIndex(null);
     setIndex(0);
     setFlipped(false);
     setPendingRating(null);
@@ -403,6 +452,52 @@ export function FlashcardStudyPlayer() {
     setPhase(cards.length ? 'active' : 'empty');
   };
 
+  if (drill === null && phase !== 'error') {
+    return <main className="fcs-width fcs-main"><StateCard role="status"><span className="fcs-spinner" /><p>Đang chuẩn bị bộ thẻ…</p></StateCard></main>;
+  }
+  if (drill) {
+    const loading = phase === 'loading' || Boolean(stack && renderOwner !== accountKey);
+    const sourceCard = cards[index] || null;
+    return (
+      <FlashcardStudyRoom
+        phase={loading ? 'loading' : phase}
+        title={title}
+        message={message}
+        cards={cards}
+        index={index}
+        flipped={flipped}
+        revealed={revealed}
+        publicMode={publicMode}
+        busy={busy}
+        saveError={Boolean(saveError)}
+        hasPending={Boolean(pendingRating)}
+        storageOkay={storageOkay}
+        previousMark={publicMode && sourceCard ? readMarks(publicStorageKey)[sourceCard.slug] || null : null}
+        breakdown={breakdown}
+        publicBreakdown={publicBreakdown}
+        returnHref={flashcardReturnHref(stack?.raw || '')}
+        ownerKey={accountKey || 'guest'}
+        attemptKey={`flashcard:${stack?.raw || ''}`}
+        session={publicMode ? 'active' : session}
+        onFlip={() => setFlipped((value) => !value)}
+        onRate={(rating) => { void submitRating(rating); }}
+        onMark={markPublic}
+        onRetrySave={() => { if (pendingRating) void submitRating(pendingRating.rating, pendingRating); }}
+        onRestart={restart}
+        onOpenSource={(trigger) => { sourceTriggerRef.current = trigger; setSourceOpen(true); }}
+        flush={async () => ({ unsaved: pendingRating ? 1 : 0 })}
+        sourceDialog={sourceOpen && sourceCard ? (
+          <div className="av-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setSourceOpen(false); }}>
+            <section ref={sourceDialogRef} className="av-modal" role="dialog" aria-modal="true" aria-labelledby="fcs-source-title" aria-describedby="fcs-source-note" tabIndex={-1}>
+              <header className="av-modal-header"><div><p className="fcs-eyebrow">Ngữ cảnh cá nhân</p><h2 className="av-modal-title" id="fcs-source-title">Câu gốc của bạn</h2></div></header>
+              <div className="av-modal-body"><blockquote className="fcs-source-quote">{sourceCard.context}</blockquote><p className="fcs-source-note" id="fcs-source-note">Đây là câu chép lại từ bài nói và có thể còn lỗi ngữ pháp.</p></div>
+              <footer className="av-modal-footer"><button ref={sourceCloseRef} type="button" className="av-button av-button-primary" onClick={() => setSourceOpen(false)}>Đóng</button></footer>
+            </section>
+          </div>
+        ) : null}
+      />
+    );
+  }
   if (phase === 'loading' || (stack && renderOwner !== accountKey)) {
     return <main className="fcs-width fcs-main"><StateCard role="status"><span className="fcs-spinner" /><p>Đang chuẩn bị bộ thẻ…</p></StateCard></main>;
   }
