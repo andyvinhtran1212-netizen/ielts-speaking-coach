@@ -735,6 +735,15 @@ function buildTemplate(active, subsection) {
 // ── Custom element ─────────────────────────────────────────────────
 
 
+/** G09-T08: true when the page runs inside the new React admin frame. */
+export const ADMIN_FRAME_V2_BODY_CLASS = 'av-admin-frame-v2';
+function isAdminFrameV2() {
+  try {
+    return typeof document !== 'undefined' && !!document.body
+      && document.body.classList.contains(ADMIN_FRAME_V2_BODY_CLASS);
+  } catch { return false; }
+}
+
 export class AverAdminChrome extends HTMLElement {
   static get observedAttributes() { return ['active', 'subsection']; }
 
@@ -751,10 +760,15 @@ export class AverAdminChrome extends HTMLElement {
     // mounted once, but listeners are rebound after disconnectedCallback()
     // aborts the previous controller.
     if (this._mounted) {
-      if (!this.hasAttribute('embed')) this._bindInteractiveChrome();
+      if (!this._slotOnly) this._bindInteractiveChrome();
       return;
     }
     this._mounted = true;
+    // ADMINIA-0074 G09-T08: under the new admin frame (layout sets
+    // `av-admin-frame-v2` on <body> server-side) the React AdminFrame draws
+    // the top bar and sidebar, so this element renders only its content, like
+    // embed mode. NAV_GROUPS stays as the old frame's fallback.
+    this._slotOnly = this.hasAttribute('embed') || isAdminFrameV2();
 
     // Sprint 12.3 — autoload the global error reporter so every page
     // that embeds <aver-admin-chrome> automatically captures uncaught
@@ -783,7 +797,7 @@ export class AverAdminChrome extends HTMLElement {
     // Embed mode: the page is hosted INSIDE another admin surface (the Mock Test
     // cockpit loads existing pages in iframes). Render only the slotted content —
     // no sidebar/header nav — so the outer cockpit provides the chrome once.
-    if (this.hasAttribute('embed')) {
+    if (this._slotOnly) {
       shadow.innerHTML = '<style>:host{display:block}</style><slot></slot>';
       return;
     }
