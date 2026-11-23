@@ -5,7 +5,7 @@
 | Requirement | Evidence | Result |
 | --- | --- | --- |
 | FR-001 | kind=journey; ref=frontend/tooling/verify-speaking-flow.mjs flag off (unchanged writes and DOM) and flag on (same writes, same order) | PENDING |
-| FR-002 | kind=test; ref=frontend/tests/practice-exam-room-events.test.mjs (no new events without setExamRoomMode; mic and level events after it; practice.js never reads runtime config or ?exam_room) | PENDING |
+| FR-002 | kind=test; ref=frontend/tests/practice-exam-room-events.test.mjs (no new events unless the init bootstrap has examRoomMode: true; mic and level events when it does; practice.js never reads runtime config or ?exam_room) | PENDING |
 | FR-003 | kind=test; ref=frontend/tests/react/practice-exam-room.test.tsx (four mic cases, waiting state shown before getUserMedia resolves, button locked, granted skips the first step) | PENDING |
 | FR-004 | kind=test; ref=frontend/tests/react/practice-exam-room.test.tsx (Ready, Recording, silent after 3 s, browser pause on mute, Recorded with duration) | PENDING |
 | FR-005 | kind=test; ref=frontend/tests/react/practice-exam-room.test.tsx (too short per MIN_RECORD_SEC and detail.min_seconds, Part 2 in-page reason, no alert) | PENDING |

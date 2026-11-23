@@ -74,13 +74,16 @@ nộp FR-08-034, thanh tập trung). Bảng đối chiếu ở `verification.md`
   chỗ trong `practice-page-shell.tsx` sau các hook. Cờ tắt: không đổi DOM, chuỗi, class, request
   hay thứ tự gọi API; `practice.js` không phát sự kiện mới nào. Cờ bật: cùng URL, cùng request,
   cùng thứ tự.
-- **FR-002:** Logic ở lại `practice.js`. Cờ chỉ được quyết ở một chỗ: cầu nối trong
-  `practice-page-shell.tsx` gọi `examRoomEnabled('speaking')` một lần rồi báo cho `practice.js`
-  bằng `callPractice('setExamRoomMode', true)` **trước** `init`. `practice.js` không tự đọc
+- **FR-002:** Logic ở lại `practice.js`. Cờ chỉ được quyết ở một chỗ:
+  `practice-session-boot.tsx` gọi `examRoomEnabled('speaking')` một lần và đưa kết quả vào
+  bootstrap của `PracticeApp.init` (trường `examRoomMode: true|false`, cạnh `navigate`,
+  L123). `practice.js` chỉ đọc `bootstrap.examRoomMode === true` trong `init`; không dùng
+  `callPractice` cho việc này, vì `callPractice` bỏ qua khi app chưa nạp và sự kiện `mic` có
+  thể phát ngay khi `init` chạy. `practice.js` không tự đọc
   `__AVER_RUNTIME_CONFIG__` hay `?exam_room` (để quy tắc `?exam_room` chỉ ngoài production của
   0066 giữ ở một nơi). Nhánh mới chỉ thêm lời gọi `_updateNativeView('mic', {...})` và
   `_updateNativeView('recording', { level })` khi chế độ đó đã được đặt (một dòng mỗi chỗ); test
-  `node --test`: không gọi `setExamRoomMode` thì không phát sự kiện mới nào. Thêm các lệnh mới `requestLeave`, `confirmLeave`, `confirmRerecord`,
+  `node --test`: bootstrap không có `examRoomMode: true` thì không phát sự kiện mới nào. Thêm các lệnh mới `requestLeave`, `confirmLeave`, `confirmRerecord`,
   `confirmSubmitWithUnsent` mà cầu nối gọi qua `callPractice`. Chuỗi tiếng Việt của nhánh cũ giữ
   trong `practice.js` cho test đọc nguồn.
 - **FR-003:** Bốn trạng thái micro (FR-08-038, tờ `BaiTapSpeaking` mục 3):
@@ -104,8 +107,8 @@ nộp FR-08-034, thanh tập trung). Bảng đối chiếu ở `verification.md`
   theo `detail.min_seconds` khi máy chủ trả 422; lý do bằng chữ trong trang ("Bản ghi 12 giây,
   Part 1 cần ít nhất 15 giây. Hãy ghi lại với câu trả lời dài hơn."), kể cả Part 2 (thay
   `window.alert` L1326 ở nhánh mới; Part 2 vẫn quay về `p2a` như hôm nay). Không viết cứng số
-  giây ở chỗ mới: chuỗi do một hàm trong bộ chuỗi tiếng Việt của khung (EXAMROOM-0066 T001,
-  `frontend/lib/exam-room/`) dựng từ thời lượng, Part và số giây tối thiểu (`MIN_RECORD_SEC[part]`
+  giây ở chỗ mới: chuỗi do hàm `speakingTooShortReason` trong
+  `frontend/lib/exam-room/strings-speaking.mjs` (cạnh bộ chuỗi của khung, EXAMROOM-0066 T001) dựng từ thời lượng, Part và số giây tối thiểu (`MIN_RECORD_SEC[part]`
   hoặc `detail.min_seconds`).
 - **FR-006:** "Ghi lại" khi đã có bản ghi chưa gửi hỏi trong trang "Xoá bản ghi này và ghi lại?"
   với "Giữ bản ghi" (chính) và "Xoá và ghi lại"; bản đã gửi lên máy chủ thì không hỏi (bản trên

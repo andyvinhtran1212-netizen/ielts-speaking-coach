@@ -2,8 +2,9 @@
 
 ## Architecture impact
 
-- `frontend/public/js/practice.js`: chỉ khi cờ bật (đọc qua `examRoomEnabled('speaking')` mà cầu
-  nối truyền vào lúc cài controller): phát `_updateNativeView('mic', { state, reason })` quanh lời
+- `practice-session-boot.tsx`: thêm `examRoomMode: examRoomEnabled('speaking')` vào bootstrap
+  của `PracticeApp.init` (L123). Đây là chỗ duy nhất quyết cờ cho `practice.js` (FR-002).
+- `frontend/public/js/practice.js`: chỉ khi `bootstrap.examRoomMode === true` (đọc trong `init`): phát `_updateNativeView('mic', { state, reason })` quanh lời
   gọi `getUserMedia` (L838, L3361), `_updateNativeView('recording', { level })` từ `AnalyserNode`
   sẵn có, và thay `window.confirm`/`window.alert` ở L275, L1326, L5284 bằng lời gọi mở hộp của cầu
   nối; thêm lệnh `requestLeave`, `confirmLeave`, `confirmRerecord`, `confirmSubmitWithUnsent`.
