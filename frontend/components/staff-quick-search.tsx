@@ -2,7 +2,15 @@
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 
-import { postBrowserJsonAt } from '@/lib/browser-api';
+import {
+  STAFF_SEARCH_DEBOUNCE_MS,
+  STAFF_SEARCH_MIN_QUERY,
+  safeStaffHref,
+  searchStaff,
+  type StaffSearchDoor,
+  type StaffSearchItem,
+  type StaffSearchResult,
+} from '@/lib/staff-search';
 import { useDialogFocus } from '@/lib/use-dialog-focus';
 import styles from './staff-quick-search.module.css';
 
@@ -19,21 +27,11 @@ import styles from './staff-quick-search.module.css';
  * focus back. Nothing is stored between openings (no search history).
  */
 export const QUICK_SEARCH_OPEN_EVENT = 'aver:quick-search-open';
-export const MIN_QUERY = 2;
-export const DEBOUNCE_MS = 250;
+export const MIN_QUERY = STAFF_SEARCH_MIN_QUERY;
+export const DEBOUNCE_MS = STAFF_SEARCH_DEBOUNCE_MS;
 
-export type QuickSearchDoor = 'admin' | 'instructor';
-type Hit = { title: string; meta?: string | null; href: string };
-type GroupId = 'learners' | 'classes' | 'submissions' | 'content' | 'orders';
-type Result = Partial<Record<GroupId, Hit[]>> & { sources_failed?: string[] };
-
-const GROUPS: readonly { id: GroupId; label: string; doors: readonly QuickSearchDoor[] }[] = [
-  { id: 'learners', label: 'Học viên', doors: ['admin', 'instructor'] },
-  { id: 'classes', label: 'Lớp', doors: ['admin', 'instructor'] },
-  { id: 'submissions', label: 'Bài nộp', doors: ['admin', 'instructor'] },
-  { id: 'content', label: 'Đề', doors: ['admin'] },
-  { id: 'orders', label: 'Đơn đăng ký', doors: ['admin'] },
-];
+export type QuickSearchDoor = StaffSearchDoor;
+type Hit = StaffSearchItem;
 
 export const SEARCH_HINT = 'Nhập ít nhất 2 ký tự để tìm.';
 export const SEARCH_EMPTY = 'Không thấy kết quả. Thử tên, mã học viên hoặc tên lớp khác.';
@@ -50,15 +48,10 @@ function isTyping(target: EventTarget | null) {
   return el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName);
 }
 
-/** Only a same-origin path may be opened; anything else stays inert. */
-function safeHref(href: string) {
-  return typeof href === 'string' && href.startsWith('/') && !href.startsWith('//') ? href : null;
-}
-
 export function StaffQuickSearch({ door }: { door: QuickSearchDoor }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [result, setResult] = useState<Result | null>(null);
+  const [result, setResult] = useState<StaffSearchResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [active, setActive] = useState(-1);
@@ -103,25 +96,18 @@ export function StaffQuickSearch({ door }: { door: QuickSearchDoor }) {
 
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
-  const groups = GROUPS
-    .filter((g) => g.doors.includes(door))
-    .map((g) => ({ ...g, items: (result?.[g.id] ?? []).slice(0, 3) }))
-    .filter((g) => g.items.length > 0);
+  // `result` is cleared on every keystroke, so rows on screen (and what ↑ ↓
+  // Enter can pick) always belong to the query in the field.
+  const groups = result?.groups ?? [];
   const flat = groups.flatMap((g) => g.items);
-  const failedLabels = GROUPS
-    .filter((g) => g.doors.includes(door) && result?.sources_failed?.includes(g.id))
-    .map((g) => g.label);
+  const failedLabels = result?.failed ?? [];
 
   const run = (value: string) => {
     const id = ++seq.current;
-    const endpoint = door === 'admin' ? '/admin/search' : '/instructor/search';
-    const request = door === 'admin'
-      ? postBrowserJsonAt('/admin/search', endpoint, { q: value })
-      : postBrowserJsonAt('/instructor/search', endpoint, { q: value });
-    request.then(
+    searchStaff(door, value).then(
       (out) => {
         if (id !== seq.current) return;
-        setResult(out as Result);
+        setResult(out);
         setLoading(false);
       },
       (err: { status?: number; message?: string }) => {
@@ -140,9 +126,11 @@ export function StaffQuickSearch({ door }: { door: QuickSearchDoor }) {
     setError(null);
     window.clearTimeout(timer.current);
     seq.current += 1;
+    // Drop the previous answer at once: a stale row must not be clickable or
+    // reachable with Enter while the new query is pending.
+    setResult(null);
     const trimmed = value.trim();
     if (trimmed.length < MIN_QUERY) {
-      setResult(null);
       setLoading(false);
       return;
     }
@@ -151,7 +139,7 @@ export function StaffQuickSearch({ door }: { door: QuickSearchDoor }) {
   };
 
   const go = (hit: Hit | undefined) => {
-    const href = hit ? safeHref(hit.href) : null;
+    const href = hit ? safeStaffHref(hit.href) : null;
     if (!href) return;
     close();
     window.location.assign(href);
@@ -223,19 +211,19 @@ export function StaffQuickSearch({ door }: { door: QuickSearchDoor }) {
             <p className={styles.note} role="status">{SEARCH_EMPTY}</p>
           ) : null}
           <div id={listId} role="listbox" aria-label="Kết quả tìm nhanh" className={styles.list} hidden={groups.length === 0}>
-            {!loading && groups.map((group) => (
-              <div key={group.id} role="group" aria-label={group.label}>
-                <p className={styles.group} aria-hidden="true">{group.label}</p>
+            {groups.map((group) => (
+              <div key={group.group} role="group" aria-label={group.group}>
+                <p className={styles.group} aria-hidden="true">{group.group}</p>
                 {group.items.map((hit) => {
                   index += 1;
                   const i = index;
                   return (
                     <a
-                      key={`${group.id}-${i}`}
+                      key={`${group.group}-${i}`}
                       id={optionId(i)}
                       role="option"
                       aria-selected={i === active}
-                      href={safeHref(hit.href) ?? undefined}
+                      href={hit.href}
                       tabIndex={-1}
                       className={styles.item}
                       onMouseEnter={() => setActive(i)}

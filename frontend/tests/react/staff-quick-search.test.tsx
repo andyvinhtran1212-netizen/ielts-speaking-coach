@@ -10,6 +10,7 @@ import {
   SEARCH_HINT,
   StaffQuickSearch,
 } from '@/components/staff-quick-search';
+import { shapeStaffSearch } from '@/lib/staff-search';
 
 vi.mock('client-only', () => ({}));
 
@@ -159,5 +160,42 @@ describe('StaffQuickSearch', () => {
     await act(async () => { resolveFirst(ADMIN_RESULT); await Promise.resolve(); });
     expect(screen.queryAllByRole('option')).toHaveLength(0);
     expect(screen.getByText(SEARCH_EMPTY)).toBeTruthy();
+  });
+
+  it.each([
+    ['Enter with one old hit', ['Enter']],
+    ['↓ then Enter', ['ArrowDown', 'Enter']],
+  ])('never opens an old hit while a new query is pending (%s)', async (_label, keys) => {
+    post.mockResolvedValueOnce({ ...ADMIN_RESULT, learners: [{ title: 'Old', meta: null, href: '/admin/old' }], classes: [], content: [] });
+    render(<StaffQuickSearch door="admin" />);
+    await act(async () => { window.dispatchEvent(new CustomEvent(QUICK_SEARCH_OPEN_EVENT)); });
+    await type('old');
+    expect(screen.getAllByRole('option')).toHaveLength(1);
+    let resolveNext: (v: unknown) => void = () => {};
+    post.mockImplementationOnce(() => new Promise((r) => { resolveNext = r; }));
+    const input = screen.getByRole('combobox');
+    // During the debounce…
+    fireEvent.change(input, { target: { value: 'olde' } });
+    for (const key of keys) fireEvent.keyDown(input, { key });
+    expect(screen.queryAllByRole('option')).toHaveLength(0);
+    expect(input.getAttribute('aria-expanded')).toBe('false');
+    // …and while the request is in flight.
+    await act(async () => { vi.advanceTimersByTime(DEBOUNCE_MS); });
+    for (const key of keys) fireEvent.keyDown(input, { key });
+    expect(assign).not.toHaveBeenCalled();
+    await act(async () => { resolveNext({ ...ADMIN_RESULT, learners: [], classes: [], content: [] }); await Promise.resolve(); });
+    expect(assign).not.toHaveBeenCalled();
+  });
+});
+
+describe('shapeStaffSearch', () => {
+  it('keeps door groups in order, drops unsafe hrefs and empty groups, names unreadable groups', () => {
+    const out = shapeStaffSearch('instructor', {
+      learners: [{ title: 'A', href: '//evil.example' }, { title: 'B', meta: null, href: '/instructor' }],
+      content: [{ title: 'C', href: '/admin/x' }],
+      sources_failed: ['submissions', 'content'],
+    });
+    expect(out.groups).toEqual([{ group: 'Học viên', items: [{ title: 'B', meta: undefined, href: '/instructor' }] }]);
+    expect(out.failed).toEqual(['Bài nộp']);
   });
 });
