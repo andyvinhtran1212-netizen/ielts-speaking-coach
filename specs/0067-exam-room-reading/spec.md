@@ -350,6 +350,8 @@ viên mất bài, nộp nhầm hay lộ thông tin. Đã kiểm `reading-exam-se
 
 ## Open questions
 
+Anh Andy gõ "duyệt 0067 A1 A3 … theo đề xuất" lúc 23/11 13:21Z: A1 là câu 7, A3 là câu 9 dưới đây. Câu 8 (A2) chưa có lời duyệt và vẫn ở mặc định tạm.
+
 1. **Bỏ bài.** Đề xuất: route mới `POST /api/reading/test/attempts/{id}/abandon` dùng trạng
    thái `abandoned` có sẵn, không migration; làm trong PR riêng của G08-T23, sau cờ
    `reading`. Mặc định tạm: như đề xuất.
@@ -368,7 +370,8 @@ viên mất bài, nộp nhầm hay lộ thông tin. Đã kiểm `reading-exam-se
 7. **Lượt bỏ dở không được đóng.** Reading không có tác vụ phía máy chủ đóng lượt quá giờ;
    lượt nằm `in_progress` tới khi học viên bắt đầu lượt mới. Đề xuất: ngoài phạm vi spec
    này; thêm vào danh sách việc tiếp theo (finalizer theo giờ cho Reading/Listening), xét
-   khi làm nguồn "bài có giờ" của G08-T24. Mặc định tạm: như đề xuất.
+   khi làm nguồn "bài có giờ" của G08-T24. Mặc định tạm: như đề xuất. **Đã chốt 23/11 13:21Z** (anh Andy duyệt theo đề xuất).
 8. **Bỏ lượt đã quá ân hạn.** CR gợi ý cho bỏ lượt đã quá `time_limit + 5 phút` (không còn
    nộp được). Đề xuất: chưa cho, theo HOLD của anh Andy (từ chối bỏ bài sau khi hết giờ);
    lượt đó được dọn khi bắt đầu lượt mới như hôm nay. Mặc định tạm: như đề xuất.
+9. **Thứ tự với PHONEGATE-0081 (FR-004 cần cổng vào màn).** Đề xuất: làm sau cờ `reading` trên staging khi `staging` chưa có cổng 0081 (`ExamEntryGate`), nhưng không bật `reading` trên production khi 0081 chưa xong, cùng cách đã duyệt cho 0066 Q7. **Đã chốt 23/11 13:21Z** (anh Andy duyệt theo đề xuất).
