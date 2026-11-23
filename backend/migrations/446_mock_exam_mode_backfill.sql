@@ -16,8 +16,10 @@
 --   3. A trigger stores the new name on every INSERT and on UPDATE OF
 --      exam_mode, so a legacy name sent by any writer lands as the new name.
 --   4. mock_exam_audiences is filled from each exam's class roster (live) and
---      from mock_exam_assignments (self-paced); existing rows win (ON CONFLICT
---      DO NOTHING), so a re-run adds nothing twice.
+--      from mock_exam_assignments (self-paced), only for exams still under a
+--      legacy name with no audience row at all. A list an admin already set is
+--      never widened, and step 5's rename marks the exam done (empty roster
+--      too), so a re-run after a roster change adds nobody.
 --   5. Stored names are renamed sequential→live, retake→self_paced.
 -- Exams with is_open = true are skipped by 4 and 5 (NOTICE); re-run 446 once
 -- they close. Re-runnable; postconditions at the end.
@@ -161,14 +163,31 @@ CREATE TRIGGER trg_mock_exams_new_mode_name
 ALTER TABLE public.mock_exams ALTER COLUMN exam_mode SET DEFAULT 'live';
 
 -- 4. Fill mock_exam_audiences ------------------------------------------------
+-- Only exams never processed: still under a legacy name (step 5 renames them in
+-- this transaction, which is the exam-level "done" mark, empty roster
+-- included), closed, and with no audience row at all. An exam whose list an
+-- admin already set through the audience API keeps exactly that list: no class
+-- member is added that the admin did not add or refresh (CR #2595).
+CREATE TEMP TABLE mock446_pending ON COMMIT DROP AS
+SELECT e.id
+  FROM public.mock_exams e
+ WHERE e.exam_mode IN ('sequential', 'retake')
+   AND e.is_open IS NOT TRUE
+   AND NOT EXISTS (SELECT 1 FROM public.mock_exam_audiences au WHERE au.exam_id = e.id);
+
 DO $fill$
 DECLARE
     skipped_open int;
+    kept_lists int;
     roster_rows int;
     assignment_rows int;
     no_student int;
 BEGIN
-    SELECT count(*) INTO skipped_open FROM public.mock_exams WHERE is_open IS TRUE;
+    SELECT count(*) INTO skipped_open FROM public.mock_exams
+     WHERE is_open IS TRUE AND exam_mode IN ('sequential', 'retake');
+    SELECT count(*) INTO kept_lists FROM public.mock_exams e
+     WHERE e.exam_mode IN ('sequential', 'retake') AND e.is_open IS NOT TRUE
+       AND EXISTS (SELECT 1 FROM public.mock_exam_audiences au WHERE au.exam_id = e.id);
 
     -- 4a. Live exams: the class roster today (Q12: a snapshot). Active
     -- memberships, else the legacy students.cohort_id pointer when that class
@@ -177,8 +196,8 @@ BEGIN
         SELECT e.id, e.cohort_id,
                COALESCE(e.skills, ARRAY['listening', 'reading', 'writing', 'speaking']::text[]) AS skills
           FROM public.mock_exams e
-         WHERE e.exam_mode IN ('sequential', 'live') AND e.cohort_id IS NOT NULL
-           AND e.is_open IS NOT TRUE
+         WHERE e.exam_mode = 'sequential' AND e.cohort_id IS NOT NULL
+           AND e.id IN (SELECT id FROM pg_temp.mock446_pending)
     ), roster AS (
         SELECT le.id AS exam_id, le.cohort_id, le.skills, m.student_id
           FROM live_exam le
@@ -209,7 +228,8 @@ BEGIN
                ARRAY(SELECT k FROM unnest(ARRAY['listening', 'reading', 'writing']) AS k
                       WHERE k = ANY (a.skills)) AS skills
           FROM public.mock_exam_assignments a
-          JOIN public.mock_exams e ON e.id = a.exam_id AND e.is_open IS NOT TRUE
+          JOIN public.mock_exams e ON e.id = a.exam_id AND e.exam_mode = 'retake'
+          JOIN pg_temp.mock446_pending p ON p.id = e.id
           JOIN public.students s ON s.user_id = a.user_id
          ORDER BY a.id, s.created_at, s.id
     )
@@ -226,10 +246,11 @@ BEGIN
 
     SELECT count(*) INTO no_student
       FROM public.mock_exam_assignments a
+      JOIN pg_temp.mock446_pending p ON p.id = a.exam_id
      WHERE NOT EXISTS (SELECT 1 FROM public.students s WHERE s.user_id = a.user_id);
 
-    RAISE NOTICE 'mock_exam_446 audiences: % from class rosters, % from assignments; % assignments have no students row (not copied); % open exams skipped',
-        roster_rows, assignment_rows, no_student, skipped_open;
+    RAISE NOTICE 'mock_exam_446 audiences: % from class rosters, % from assignments; % assignments have no students row (not copied); % open exams skipped; % exams kept their existing list',
+        roster_rows, assignment_rows, no_student, skipped_open, kept_lists;
 END;
 $fill$;
 
@@ -257,9 +278,9 @@ BEGIN
                       AND tgname = 'trg_mock_exams_new_mode_name' AND NOT tgisinternal) THEN
         RAISE EXCEPTION 'mock_exam_446_trigger_missing';
     END IF;
-    -- Every copyable assignment of a closed exam has its audience row.
+    -- Every copyable assignment of an exam filled by this run has its row.
     IF EXISTS (SELECT 1 FROM public.mock_exam_assignments a
-                 JOIN public.mock_exams e ON e.id = a.exam_id AND e.is_open IS NOT TRUE
+                 JOIN pg_temp.mock446_pending p ON p.id = a.exam_id
                 WHERE EXISTS (SELECT 1 FROM public.students s WHERE s.user_id = a.user_id)
                   AND a.skills && ARRAY['listening', 'reading', 'writing']::text[]
                   AND NOT EXISTS (SELECT 1 FROM public.mock_exam_audiences au

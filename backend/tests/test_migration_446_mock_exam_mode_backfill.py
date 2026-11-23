@@ -173,15 +173,45 @@ def test_backfill_rename_and_rerun(pg):
                     "e1:b3:cohort:f:no_account:listening+reading+writing+speaking,"
                     "e2:b1:learner:t:-:listening+reading,"
                     "e4:b4:cohort:f:no_account:listening+reading+writing+speaking")
-    # a9 has no students row: not copied, reported in a NOTICE.
+    # a9 has no students row: not copied, reported in a NOTICE on the first run.
     before = one(pg, "SELECT count(*) FROM public.mock_exam_audiences;")
+    # CR #2595: a learner joining class c1 after the first run is not added to
+    # e1 by a re-run (only "Cập nhật theo lớp" does that).
+    pg("INSERT INTO public.students (id, user_id, full_name) VALUES "
+       "('00000000-0000-0000-0000-0000000000b5', NULL, 'Em');"
+       "INSERT INTO public.student_cohort_memberships (student_id, cohort_id) VALUES "
+       "('00000000-0000-0000-0000-0000000000b5', '00000000-0000-0000-0000-0000000000c1');")
     out = pg(SQL)
-    assert "1 assignments have no students row" in out.stderr and "1 open exams skipped" in out.stderr
+    assert "0 from class rosters, 0 from assignments" in out.stderr
+    assert "1 open exams skipped" in out.stderr
     assert one(pg, "SELECT count(*) FROM public.mock_exam_audiences;") == before
-    # The open exam is renamed on a re-run after it closes.
+    # The open exam is filled and renamed on a re-run after it closes.
     pg(f"UPDATE public.mock_exams SET is_open = false WHERE id = {E3};")
     pg(SQL)
     assert one(pg, f"SELECT exam_mode FROM public.mock_exams WHERE id = {E3};") == "live"
+    assert one(pg, f"SELECT count(*) FROM public.mock_exam_audiences WHERE exam_id = {E3};") == "4"
+
+
+def test_first_run_notice(pg):
+    pg(M445)
+    out = pg(SQL)
+    assert "1 assignments have no students row" in out.stderr
+    assert "0 exams kept their existing list" in out.stderr
+
+
+def test_existing_list_is_never_widened(pg):
+    """CR #2595: an exam whose list was already set through the audience API
+    keeps exactly that list, even when a class member is missing from it."""
+    pg(M445)
+    pg(f"INSERT INTO public.mock_exam_audiences (exam_id, user_id, student_id, source_kind, "
+       f"source_cohort_id, skills) VALUES ({E1}, '00000000-0000-0000-0000-0000000000a1', "
+       "'00000000-0000-0000-0000-0000000000b1', 'cohort', '00000000-0000-0000-0000-0000000000c1', "
+       "ARRAY['reading']);")
+    out = pg(SQL)
+    assert "1 exams kept their existing list" in out.stderr
+    assert one(pg, f"SELECT string_agg(right(student_id::text, 2) || ':' || array_to_string(skills, '+'), ',') "
+                   f"FROM public.mock_exam_audiences WHERE exam_id = {E1};") == "b1:reading"
+    assert one(pg, f"SELECT exam_mode FROM public.mock_exams WHERE id = {E1};") == "live"
 
 
 def test_functions_accept_both_names(pg):
