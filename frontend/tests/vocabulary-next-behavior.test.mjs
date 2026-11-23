@@ -76,6 +76,13 @@ describe('/vocabulary native public wiki (LIBRARY-0061 T015)', () => {
     assert.match(SAVE, /PENDING_SAVE_KEY = 'aver-pending-save-word'/);
   });
 
+  test('look-up results never claim a word is missing when the catalogue did not load', () => {
+    assert.doesNotMatch(API, /getVocabularyDirectory\([^)]*\)\.catch/);
+    assert.match(PAGE, /function ResultsUnavailable/);
+    assert.match(PAGE, /catch \{\n    return <ResultsUnavailable query=\{query\} \/>;/);
+    assert.doesNotMatch(PAGE, /getVocabularyCategories\(\)\.catch\(\(\) => \[\]\)/);
+  });
+
   test('card stylesheet remains before Tailwind and native browser coverage is wired', () => {
     assert.ok(LAYOUT.indexOf('/css/vocab-wiki.css') < LAYOUT.indexOf('/css/tailwind.build.css'));
     assert.equal(canonicalNextRouteForLegacy('/vocabulary.html'), '/vocabulary');

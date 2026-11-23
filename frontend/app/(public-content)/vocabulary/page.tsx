@@ -144,9 +144,34 @@ async function ListView({ category }: { category: string }) {
   );
 }
 
+/** The catalogue did not load in full: never claim a word is missing then. */
+function ResultsUnavailable({ query }: { query: string }) {
+  return (
+    <main className={styles.page}>
+      <Breadcrumb trail={[{ label: 'Từ vựng', href: '/vocabulary' }, { label: 'Kết quả tra' }]} />
+      <VocabularySearch initialQuery={query} />
+      <section className={styles.notFound} aria-labelledby="vocabulary-results">
+        <h1 id="vocabulary-results" className={styles.resultsTitle} role="alert">Chưa tra được “{query}”</h1>
+        <p>Danh mục từ vựng chưa tải đủ nên chưa biết từ này có hay không.</p>
+        <p className={styles.tip}>
+          <a href={`/vocabulary?q=${encodeURIComponent(query)}`}>Tra lại</a> sau ít phút, hoặc duyệt <a href="/vocabulary">theo A–Z</a>.
+        </p>
+      </section>
+      <CourseLine />
+    </main>
+  );
+}
+
 async function ResultsView({ query }: { query: string }) {
-  const wire = await getAllVocabularyWords();
-  const categories = normalizeVocabularyCategories(await getVocabularyCategories().catch(() => []) ?? []);
+  let wire: Awaited<ReturnType<typeof getAllVocabularyWords>>;
+  let rawCategories: unknown;
+  try {
+    [wire, rawCategories] = await Promise.all([getAllVocabularyWords(), getVocabularyCategories()]);
+  } catch {
+    return <ResultsUnavailable query={query} />;
+  }
+  const categories = normalizeVocabularyCategories(rawCategories);
+  if (!categories.length) return <ResultsUnavailable query={query} />;
   const known = new Set(categories.map((item) => item.slug));
   const words = (normalizeVocabularyDirectory({
     categories: categories.map((item) => ({ slug: item.slug, title: item.title, article_count: item.articleCount })),
