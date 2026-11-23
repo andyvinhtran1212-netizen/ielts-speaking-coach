@@ -27,6 +27,8 @@ const MOVES = [
   { from: '/flashcard-study', to: '/vocabulary/flashcards/study', legacy: '/pages/flashcard-study.html' },
   // Batch 2 (G07-T07)
   { from: '/d1-exercise', to: '/vocabulary/fill-in', legacy: '/pages/d1-exercise.html' },
+  // Batch 8 (G07-T15u)
+  { from: '/my-class', to: '/course/assigned', legacy: '/pages/my-class.html' },
 ];
 
 function appRoutes(root, prefix = '') {
@@ -106,5 +108,31 @@ describe('learner route moves (LEARNERNAV-0062)', async () => {
     assert.doesNotMatch(player, /d1-exercise['"`?]/, 'the player never builds the old path');
     assert.deepEqual(follow(redirects, '/d1-exercise?session=abc-123'),
       { status: 307, location: '/vocabulary/fill-in?session=abc-123' });
+  });
+
+  // Batch 8: the class page sits under Lộ trình. The nav item no longer needs
+  // a stand-in (/course is live), flag-off /course lands on the new path, and
+  // a `from=my-class` review link keeps its value but returns to the new path.
+  test('/my-class: Lộ trình has no stand-in and every back link uses /course/assigned', async () => {
+    assert.match(read('components', 'ui', 'shell', 'learner-sections.ts'),
+      /\{ id: 'course', label: 'Lộ trình', href: '\/course', today: null, icon: 'route' \}/);
+    assert.match(read('app', '(authed-v2-course)', 'course', 'page.tsx'), /const COURSE_STAND_IN = '\/course\/assigned';/);
+    for (const route of ['/exercises', '/listening/exercise-book', '/course-exercises', '/grammar-lessons/assigned']) {
+      assert.equal(routeFor(route)?.parent, '/course/assigned', `${route} parent`);
+    }
+    assert.equal(routeFor('/course/assigned')?.parent, '/course');
+    const { listeningReviewBackTarget, listeningReviewParams } = await import('../lib/listening-review-model.mjs');
+    const { readingReviewBackTarget, readingReviewParams } = await import('../lib/reading-review-model.mjs');
+    assert.equal(listeningReviewBackTarget(listeningReviewParams('?attempt_id=a&from=my-class')).href, '/course/assigned');
+    assert.equal(readingReviewBackTarget(readingReviewParams('?from=my-class')).href, '/course/assigned');
+    assert.deepEqual(follow(redirects, '/my-class?notice=assignment-missing'),
+      { status: 307, location: '/course/assigned?notice=assignment-missing' });
+  });
+
+  test('robots hides /course/ pages without hiding the public /courses catalogue', () => {
+    const robots = read('app', 'robots.ts');
+    assert.match(robots, /^  '\/course\/',$/m);
+    assert.doesNotMatch(robots, /^  '\/course',$/m);
+    assert.doesNotMatch(robots, /'\/my-class'/);
   });
 });

@@ -19,7 +19,7 @@ const read = (rel) => readFileSync(new URL(`../${rel}`, import.meta.url), 'utf8'
 
 test('learner and staff paths require activation; only /login does not', () => {
   for (const path of ['/home', '/onboarding', '/practice/session', '/writing/dashboard',
-    '/listening', '/profile', '/my-class', '/administrator-notes', '/instructors-faq',
+    '/listening', '/profile', '/course/assigned', '/administrator-notes', '/instructors-faq',
     // Q-13 — a staff role does not replace activation.
     '/admin', '/admin/users', '/instructor', '/instructor/grade', '/instructor/compare']) {
     assert.equal(requiresActivation(path), true, path);

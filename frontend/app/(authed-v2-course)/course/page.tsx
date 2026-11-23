@@ -2,7 +2,7 @@
 
 // Lộ trình `/course` (LEARNERCORE-0063 T15). Flag on (`learnerV2Enabled(me)`):
 // the new page. Flag off: the URL is replaced by the section's stand-in page
-// (NAV_PLAN `today` of Lộ trình, `/my-class`) and no Lộ trình request is made.
+// (NAV_PLAN `today` of Lộ trình, `/course/assigned`) and no Lộ trình request is made.
 import { Suspense, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -13,7 +13,7 @@ import { learnerV2Enabled } from '@/lib/auth-wire-model.mjs';
 import { CourseHubPage } from './course-hub';
 
 /** Where flag-off learners land: the stand-in of the Lộ trình nav item. */
-const COURSE_STAND_IN = '/my-class';
+const COURSE_STAND_IN = '/course/assigned';
 
 function CourseGate() {
   const router = useRouter();

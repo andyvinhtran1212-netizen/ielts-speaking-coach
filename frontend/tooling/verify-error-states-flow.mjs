@@ -169,12 +169,12 @@ try {
     {
       const { page, requests } = await newPage(browser, { width, user: USER_A });
       await page.goto(`${BASE}/grammar-lessons/assigned`, { waitUntil: 'networkidle' });
-      await page.waitForURL((url) => url.pathname === '/my-class', { timeout: 15_000 }).catch(() => {});
+      await page.waitForURL((url) => url.pathname === '/course/assigned', { timeout: 15_000 }).catch(() => {});
       const notice = page.locator('.av-redirect-notice[role="status"]');
       await notice.waitFor({ timeout: 15_000 }).catch(() => {});
       const text = (await notice.count()) ? await notice.innerText() : '';
       const landed = new URL(page.url());
-      check(`${tag} /grammar-lessons/assigned returns to My class`, landed.pathname === '/my-class' && !landed.searchParams.has('notice'), page.url());
+      check(`${tag} /grammar-lessons/assigned returns to My class`, landed.pathname === '/course/assigned' && !landed.searchParams.has('notice'), page.url());
       check(`${tag} /grammar-lessons/assigned explains in one plain line`,
         text.includes('Liên kết bạn vừa mở chưa đủ thông tin nên bạn được đưa về trang Lớp học.') && !/Thiếu mã/.test(text), JSON.stringify(text));
       check(`${tag} /grammar-lessons/assigned calls no lesson API`, !requests.some((row) => row.includes('/api/grammar/lessons')), requests.join(' | '));

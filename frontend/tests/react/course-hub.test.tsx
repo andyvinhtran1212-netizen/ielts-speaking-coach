@@ -64,7 +64,7 @@ afterEach(() => { cleanup(); replace.mockReset(); });
 
 it('class only (no online grant at all): replaces to the assigned work and draws no group (FR-035)', async () => {
   mount(payload({ has_class: true, class: { name: 'A1', teacher_name: null, course_title: null, repractice: [] } }));
-  await waitFor(() => expect(replace).toHaveBeenCalledWith('/my-class'));
+  await waitFor(() => expect(replace).toHaveBeenCalledWith('/course/assigned'));
   expect(screen.queryByRole('region', { name: 'Khoá online của bạn' })).toBeNull();
   expect(screen.queryByRole('region', { name: 'Khoá của lớp' })).toBeNull();
 });
@@ -93,7 +93,7 @@ it('online only: the class group folds to one line that opens with aria-expanded
 it('cards: n = 0 shows no number, n > 0 shows it, the class card is hidden without a class (FR-030)', async () => {
   mount(payload({ online: [online('G1')], has_online: true, assigned_open: 0 }));
   const cards = await screen.findByRole('navigation', { name: 'Lộ trình' });
-  expect(within(cards).getByRole('link', { name: 'Bài được giao' }).getAttribute('href')).toBe('/my-class');
+  expect(within(cards).getByRole('link', { name: 'Bài được giao' }).getAttribute('href')).toBe('/course/assigned');
   expect(within(cards).queryByText('Buổi học và tài liệu lớp')).toBeNull();
   cleanup();
   mount(payload({ online: [online('G1')], has_online: true, assigned_open: 3, has_class: true,
@@ -203,7 +203,7 @@ it('flag off: replaces the URL with the stand-in page and never calls the Lộ t
   Object.defineProperty(window, 'api', { configurable: true, value: { getWith, post: vi.fn() } });
   learnerMe.current = { status: 'ready', me: { id: 'learner-1', learner_v2_enabled: false } };
   render(<CoursePage />);
-  await waitFor(() => expect(replace).toHaveBeenCalledWith('/my-class'));
+  await waitFor(() => expect(replace).toHaveBeenCalledWith('/course/assigned'));
   expect(getWith).not.toHaveBeenCalled();
 });
 
