@@ -316,7 +316,7 @@ describe('live links only (registry Q53)', () => {
   it('the five sections are all shown, each on a page of its own section', () => {
     expect(LEARNER_NAV.map((s) => [s.label, s.href])).toEqual([
       ['Hôm nay', '/home'], ['Lộ trình', '/course'], ['Luyện tập', '/speaking'],
-      ['Thi thử', '/full-test'], ['Thư viện', '/library'],
+      ['Thi thử', '/tests'], ['Thư viện', '/library'],
     ]);
     for (const s of LEARNER_NAV) expect(routeFor(s.href)?.section).toBe(s.id);
   });

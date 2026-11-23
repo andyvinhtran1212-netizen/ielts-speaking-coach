@@ -150,12 +150,12 @@ try {
     {
       const { page } = await newPage(browser, { width, user: USER_A });
       await page.goto(`${BASE}/mock-exam`, { waitUntil: 'networkidle' });
-      await page.waitForURL((url) => url.pathname === '/full-test', { timeout: 15_000 }).catch(() => {});
+      await page.waitForURL((url) => url.pathname === '/tests', { timeout: 15_000 }).catch(() => {});
       const notice = page.locator('.av-redirect-notice[role="status"]');
       await notice.waitFor({ timeout: 15_000 }).catch(() => {});
       const text = (await notice.count()) ? await notice.innerText() : '';
       const landed = new URL(page.url());
-      check(`${tag} /mock-exam without a test returns to Full Test`, landed.pathname === '/full-test', page.url());
+      check(`${tag} /mock-exam without a test returns to Full Test`, landed.pathname === '/tests', page.url());
       check(`${tag} /mock-exam drops the notice parameter after showing it`, !landed.searchParams.has('notice'), page.url());
       check(`${tag} /mock-exam explains in one plain line`,
         text.includes('Liên kết bạn vừa mở chưa đủ thông tin nên bạn được đưa về trang Thi thử.')
