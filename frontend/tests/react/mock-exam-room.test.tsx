@@ -5,6 +5,8 @@ import { createRef } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { MockExamRoom, type MockExamRoomProps } from '@/app/(authed-mock-exam)/mock-exam/mock-exam-room';
+import { MockWritingRoom, type MockWritingBridge, type MockWritingRoomProps } from '@/app/(authed-mock-exam)/mock-exam/mock-writing-room';
+import { localCopyKey, readLocalCopy, writeLocalCopy } from '@/lib/exam-room/local-copy.mjs';
 import type { MockState } from '@/app/(authed-mock-exam)/mock-exam/mock-exam-runner';
 
 beforeAll(() => {
@@ -44,7 +46,8 @@ function props(overrides: Partial<MockExamRoomProps> = {}): MockExamRoomProps {
     loading: false, fatal: null, linkError: false, onReload: vi.fn(),
     state: mockState(), view: 'section', code: 'NOV', ownerKey: 'user-1', connection: null, collecting: false,
     section: 'reading', remaining: 1800, timerLive: true, frameSrc: '/reading/exam?mock_embed=1', frameRef: createRef<HTMLIFrameElement>(),
-    writing: null, capture: null, starting: null, startError: null, onStart: vi.fn(), onSpeaking: vi.fn(), openingSpeaking: false,
+    renderWriting: () => null, capture: null, session: 'active', saveLocalCopy: () => true, canWrite: true,
+    onWriteRightChange: vi.fn(), reloadFromServer: vi.fn(() => Promise.resolve()), starting: null, startError: null, onStart: vi.fn(), onSpeaking: vi.fn(), openingSpeaking: false,
     outcome: null, onRetrySubmit: vi.fn(), flushForExit: vi.fn(() => Promise.resolve({ unsaved: 0 })),
     ...overrides,
   };
@@ -82,7 +85,7 @@ describe('section in progress (FR-003, FR-004, FR-005)', () => {
 
   it('builds the strip from the sitting sections, never four fixed ones', () => {
     const state = mockState({ listeningSubmittedAt: null }, { examMode: 'retake', assignedSkills: ['writing'], activeSection: 'writing' });
-    render(<MockExamRoom {...props({ state, section: 'writing', writing: <textarea aria-label="Task 1" /> })} />);
+    render(<MockExamRoom {...props({ state, section: 'writing', renderWriting: () => <textarea aria-label="Task 1" /> })} />);
     const items = within(screen.getByRole('list', { name: 'Test sections' })).getAllByRole('listitem');
     expect(items.map((li) => li.textContent)).toEqual(['Writing · In progress']);
     expect(screen.getByText(/Section 1 of 1: Writing/)).toBeTruthy();
@@ -179,5 +182,173 @@ describe('screens outside the test (FR-016)', () => {
     render(<MockExamRoom {...props({ fatal: 'Unable to load the test status.', onReload })} />);
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(onReload).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ---- part B ---------------------------------------------------------------
+
+class MemoryStorage implements Storage {
+  private rows = new Map<string, string>();
+  get length() { return this.rows.size; }
+  clear() { this.rows.clear(); }
+  getItem(key: string) { return this.rows.has(key) ? this.rows.get(key)! : null; }
+  key(i: number) { return [...this.rows.keys()][i] ?? null; }
+  removeItem(key: string) { this.rows.delete(key); }
+  setItem(key: string, value: string) { this.rows.set(key, String(value)); }
+}
+
+const SCOPE = { surface: 'mock', ownerKey: 'user-1', attemptKey: 'sit-1' };
+const FAR = Date.now() + 24 * 60 * 60 * 1000;
+function writingState(task1 = 'server one', task2 = '') {
+  return mockState({ readingSubmittedAt: T, writingSubmission: { task1: { text: task1, submittedAt: null }, task2: { text: task2, submittedAt: null } } }, { activeSection: 'writing' });
+}
+function writingProps(overrides: Partial<MockWritingRoomProps> = {}): MockWritingRoomProps & { bridge: { current: MockWritingBridge | null } } {
+  const bridge = { current: null as MockWritingBridge | null };
+  return {
+    state: writingState(), ownerKey: 'user-1', locked: false, readOnly: false,
+    register: (b) => { bridge.current = b; },
+    saveWriting: vi.fn(() => Promise.resolve({})), onSaveStatus: vi.fn(), storage: new MemoryStorage(),
+    bridge,
+    ...overrides,
+  };
+}
+
+describe('Writing room (FR-006)', () => {
+  it('two Task tabs with "Words: n · minimum m" and no draft-save button', () => {
+    render(<MockWritingRoom {...writingProps()} />);
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Task 1Words: 2 · minimum 150', 'Task 2Words: 0 · minimum 250']);
+    fireEvent.click(screen.getByRole('tab', { name: /Task 2/ }));
+    expect(screen.getByLabelText('Answer for Task 2')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /save/i })).toBeNull();
+  });
+
+  it('typing writes the account copy with the acked base; the save reports Saving then Saved', async () => {
+    vi.useFakeTimers();
+    const p = writingProps();
+    render(<MockWritingRoom {...p} />);
+    fireEvent.change(screen.getByLabelText('Answer for Task 1'), { target: { value: 'server one more' } });
+    const copy = readLocalCopy(p.storage, SCOPE)!;
+    expect(copy.answers.task1).toMatchObject({ value: 'server one more', baseValue: 'server one' });
+    expect(p.saveWriting).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(p.saveWriting).toHaveBeenCalledWith({ task1_text: 'server one more', task2_text: '' }, expect.objectContaining({ keepalive: false }));
+    expect(p.onSaveStatus).toHaveBeenCalledWith(expect.objectContaining({ state: 'saving' }));
+    expect(p.onSaveStatus).toHaveBeenLastCalledWith(expect.objectContaining({ state: 'saved' }));
+    // Acked: the copy no longer holds that text.
+    expect(readLocalCopy(p.storage, SCOPE)).toBeNull();
+    vi.useRealTimers();
+  });
+
+  it('locked (time up / collection) and read-only boxes cannot be typed in', () => {
+    render(<MockWritingRoom {...writingProps({ locked: true })} />);
+    expect((screen.getByLabelText('Answer for Task 1') as HTMLTextAreaElement).readOnly).toBe(true);
+  });
+});
+
+describe('Writing copy on open (FR-010)', () => {
+  it('re-sends the copy only while the server still holds its base', async () => {
+    const storage = new MemoryStorage();
+    writeLocalCopy(storage, { ...SCOPE, answers: { task1: { value: 'typed offline', baseValue: 'server one' } }, expiresAt: FAR });
+    const p = writingProps({ storage });
+    render(<MockWritingRoom {...p} />);
+    expect((screen.getByLabelText('Answer for Task 1') as HTMLTextAreaElement).value).toBe('typed offline');
+    await waitFor(() => expect(p.saveWriting).toHaveBeenCalledWith({ task1_text: 'typed offline', task2_text: '' }, expect.anything()));
+  });
+
+  it('server changed since the base: keeps the server text and drops the copy', () => {
+    const storage = new MemoryStorage();
+    writeLocalCopy(storage, { ...SCOPE, answers: { task1: { value: 'typed offline', baseValue: 'older' } }, expiresAt: FAR });
+    const p = writingProps({ storage });
+    render(<MockWritingRoom {...p} />);
+    expect((screen.getByLabelText('Answer for Task 1') as HTMLTextAreaElement).value).toBe('server one');
+    expect(p.saveWriting).not.toHaveBeenCalled();
+    expect(readLocalCopy(storage, SCOPE)).toBeNull();
+  });
+
+  it('legacy key that differs: never written over the server; asks, migrates, and the choice decides', async () => {
+    const storage = new MemoryStorage();
+    storage.setItem('mock-writing:sit-1:task1', JSON.stringify({ text: 'legacy text', ts: 1, synced: false }));
+    const p = writingProps({ storage });
+    render(<MockWritingRoom {...p} />);
+    expect((screen.getByLabelText('Answer for Task 1') as HTMLTextAreaElement).value).toBe('server one');
+    expect(readLocalCopy(storage, SCOPE)?.answers.task1.value).toBe('legacy text');
+    expect(storage.getItem('mock-writing:sit-1:task1')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Use the text on this device' }));
+    expect((screen.getByLabelText('Answer for Task 1') as HTMLTextAreaElement).value).toBe('legacy text');
+    await waitFor(() => expect(p.saveWriting).toHaveBeenCalledWith({ task1_text: 'legacy text', task2_text: '' }, expect.anything()));
+  });
+
+  it('legacy key of a sitting owned by someone else is never read', () => {
+    const storage = new MemoryStorage();
+    storage.setItem('mock-writing:sit-1:task1', JSON.stringify({ text: 'legacy text', ts: 1, synced: false }));
+    render(<MockWritingRoom {...writingProps({ storage, ownerKey: 'user-2' })} />);
+    expect(screen.queryByRole('button', { name: 'Use the text on this device' })).toBeNull();
+    expect(storage.getItem('mock-writing:sit-1:task1')).not.toBeNull();
+  });
+
+  it('Keep the saved text drops only the device version', () => {
+    const storage = new MemoryStorage();
+    writeLocalCopy(storage, { ...SCOPE, answers: { task1: { value: 'mine' } as never }, expiresAt: FAR });
+    render(<MockWritingRoom {...writingProps({ storage })} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Keep the saved text' }));
+    expect((screen.getByLabelText('Answer for Task 1') as HTMLTextAreaElement).value).toBe('server one');
+    expect(storage.getItem(localCopyKey(SCOPE))).toBeNull();
+  });
+
+  it('saveLocalCopy writes both boxes and is true only when they read back', () => {
+    const p = writingProps();
+    render(<MockWritingRoom {...p} />);
+    fireEvent.change(screen.getByLabelText('Answer for Task 1'), { target: { value: 'unsaved words' } });
+    expect(p.bridge.current!.saveLocalCopy()).toBe(true);
+    expect(readLocalCopy(p.storage, SCOPE)?.answers.task1.value).toBe('unsaved words');
+    cleanup();
+    const broken = { ...new MemoryStorage(), getItem: () => null, setItem: () => { throw new Error('full'); }, removeItem: () => {}, key: () => null, clear: () => {}, length: 0 } as Storage;
+    const q = writingProps({ storage: broken });
+    render(<MockWritingRoom {...q} />);
+    fireEvent.change(screen.getByLabelText('Answer for Task 1'), { target: { value: 'unsaved words' } });
+    expect(q.bridge.current!.saveLocalCopy()).toBe(false);
+  });
+});
+
+describe('session, other tab, dialogs (FR-012, FR-013, FR-017)', () => {
+  it('a 401 outside the test screen shows Sign in again back to this page', () => {
+    const state = mockState({}, { activeSection: 'not_started' });
+    render(<MockExamRoom {...props({ state, view: 'waiting', section: null, session: 'expired' })} />);
+    const link = screen.getByRole('link', { name: 'Sign in again' });
+    expect(link.getAttribute('href')).toMatch(/^\/login\?next=/);
+  });
+
+  it('a 401 in a section keeps the Writing copy first, then shows the frame sign-in box', async () => {
+    const saveLocalCopy = vi.fn(() => true);
+    const state = writingState();
+    render(<MockExamRoom {...props({ state, section: 'writing', session: 'expired', saveLocalCopy, renderWriting: () => <p>editor</p> })} />);
+    await waitFor(() => expect(saveLocalCopy).toHaveBeenCalledTimes(1));
+    expect(document.querySelector('dialog[open]')).toBeTruthy();
+  });
+
+  it('a read-only tab does not load the child player', () => {
+    render(<MockExamRoom {...props({ canWrite: false })} />);
+    expect(document.querySelector('iframe')).toBeNull();
+    expect(screen.getByText(/This test is open in another tab/)).toBeTruthy();
+  });
+
+  it('the Writing confirmation with word counts shows only after a confirmed submit', () => {
+    const state = mockState({ readingSubmittedAt: T, writingSubmittedAt: T, writingSubmission: { task1: { text: 'one two three', submittedAt: T }, task2: { text: 'four five', submittedAt: T } } }, { activeSection: 'done' });
+    const outcome = { section: 'writing' as const, retry: false, closedAt: null, savedUpTo: null, sectionSubmitted: true };
+    const { unmount } = render(<MockExamRoom {...props({ state, view: 'waiting', section: null, outcome: { ...outcome, outcome: 'submitting' } })} />);
+    expect(screen.queryByText(/Your test has been submitted/)).toBeNull();
+    unmount();
+    render(<MockExamRoom {...props({ state, view: 'waiting', section: null, outcome: { ...outcome, outcome: 'confirmed' } })} />);
+    expect(screen.getByText(/Time is up\. Your test has been submitted\. Task 1: 3 words · Task 2: 2 words/)).toBeTruthy();
+  });
+
+  it('no window.confirm, alert or prompt across the room and Writing', () => {
+    const check = noDialogs();
+    render(<MockWritingRoom {...writingProps()} />);
+    fireEvent.change(screen.getByLabelText('Answer for Task 1'), { target: { value: 'x' } });
+    cleanup();
+    render(<MockExamRoom {...props({ outcome: { section: 'reading', outcome: 'unconfirmed_manual', retry: false, closedAt: null, savedUpTo: null, sectionSubmitted: false } })} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Leave test' }));
+    check();
   });
 });
