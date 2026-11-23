@@ -25,6 +25,8 @@ const SHELL_EN = {
   /** FR-015 amendment 2: the only action when nothing is secured. */
   sessionStay: 'Stay',
   handoverRefused: 'Another tab asked to continue this test. Some answers are not saved yet, so you can keep working here.',
+  /** FR-034 `unconfirmed` when time is not up (an untimed surface, or a submit before the end). */
+  unconfirmedPending: 'We have not confirmed your submission yet. Keep this page open while we try again.',
 } as const;
 
 /** The Vietnamese set has the same keys and shapes, not the English literals. */
@@ -43,6 +45,7 @@ const SHELL_VI: ShellStrings = {
   closeReview: 'Đóng',
   sessionStay: 'Ở lại làm tiếp',
   handoverRefused: 'Một tab khác muốn làm tiếp bài này. Vẫn còn câu chưa lưu nên bạn làm tiếp ở tab này.',
+  unconfirmedPending: 'Chưa xác nhận được bài đã nộp. Bạn giữ trang này mở trong lúc hệ thống thử lại.',
 };
 
 export type ExamRoomStrings = typeof EXAM_ROOM_STRINGS_EN & { shell: ShellStrings };

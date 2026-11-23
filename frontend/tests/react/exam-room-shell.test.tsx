@@ -218,6 +218,15 @@ describe('submit (FR-010, FR-014, FR-034)', () => {
     expect(screen.getByText('Your answers have been saved and submitted.')).toBeTruthy();
   });
 
+  it('unconfirmed says "Time is up" only after time ran out; an untimed room says it plainly (0070 FR-010)', () => {
+    const submit = { label: 'Submit test', onSubmit: vi.fn(() => Promise.resolve()), outcome: 'unconfirmed' as const };
+    const { rerender } = render(<ExamRoomShell {...base({ timer: null, submit })} />);
+    expect(screen.getByText('We have not confirmed your submission yet. Keep this page open while we try again.')).toBeTruthy();
+    expect(screen.queryByText(/Time is up/)).toBeNull();
+    rerender(<ExamRoomShell {...base({ timer: { kind: 'countdown', remainingSeconds: 0, onExpire: vi.fn() }, submit })} />);
+    expect(screen.getByText('Time is up. We have not confirmed your submission yet. Keep this page open while we try again.')).toBeTruthy();
+  });
+
   it('expired_unsubmitted: no retry, never "submitted", back to exit, and the device copy goes (amendment 1 (a))', () => {
     const scope = { surface: 'listening-practice', ownerKey: 'user-1', attemptKey: 'att-1' };
     const other = { ...scope, attemptKey: 'att-2' };
@@ -640,6 +649,33 @@ describe('other tab (FR-017)', () => {
     expect(screen.getByLabelText('Answer 1').matches(':disabled')).toBe(false);
     expect(screen.queryByText('This test is open in another tab.')).toBeNull();
   });
+  it('the first grant after opening still reads the server: the page load is not proof the data is fresh (CR #2558)', async () => {
+    const request = vi.fn((_name: string, _opts: unknown, cb: (lock: unknown) => unknown) => {
+      cb({ name: 'x' });
+      return new Promise(() => {});
+    });
+    vi.stubGlobal('navigator', { ...navigator, onLine: true, locks: { request } });
+    const reloadFromServer = vi.fn(() => Promise.resolve());
+    render(<ExamRoomShell {...base({ tabGuard: { reloadFromServer } })} />);
+    await waitFor(() => expect(reloadFromServer).toHaveBeenCalledTimes(1));
+    expect(reloadFromServer).toHaveBeenCalledWith();
+  });
+
+  it('tabGuard off then on again without a remount reads the server again on the new grant (CR #2518 P1)', async () => {
+    const request = vi.fn((_name: string, _opts: unknown, cb: (lock: unknown) => unknown) => {
+      cb({ name: 'x' });
+      return new Promise(() => {});
+    });
+    vi.stubGlobal('navigator', { ...navigator, onLine: true, locks: { request } });
+    const reloadFromServer = vi.fn(() => Promise.resolve());
+    const { rerender } = render(<ExamRoomShell {...base({ tabGuard: { reloadFromServer } })} />);
+    await waitFor(() => expect(reloadFromServer).toHaveBeenCalledTimes(1));
+    rerender(<ExamRoomShell {...base({ tabGuard: undefined })} />);
+    rerender(<ExamRoomShell {...base({ tabGuard: { reloadFromServer } })} />);
+    await waitFor(() => expect(reloadFromServer).toHaveBeenCalledTimes(2));
+    expect(reloadFromServer).toHaveBeenLastCalledWith();
+  });
+
   it('read-only below 900px: pane tabs still switch, answers stay disabled (Codex)', async () => {
     const request = vi.fn((_name: string, opts: { ifAvailable?: boolean }, cb: (lock: unknown) => unknown) => {
       if (opts?.ifAvailable) return Promise.resolve(cb(null));
