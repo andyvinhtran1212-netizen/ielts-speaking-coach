@@ -15,6 +15,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import HTTPException
+from starlette.requests import Request
+from urllib.parse import urlencode
 
 from models.admin_attention import AdminAttentionOut, InstructorAttentionOut
 from routers import admin_attention as mod
@@ -96,9 +98,15 @@ def _admin():
     return out
 
 
-def _teacher(monkeypatch, db, user_id):
+def _request(as_instructor=None):
+    query = urlencode({"as_instructor": as_instructor}).encode() if as_instructor is not None else b""
+    return Request({"type": "http", "method": "GET", "path": "/instructor/attention", "query_string": query,
+                    "headers": []})
+
+
+def _teacher(monkeypatch, db, user_id, as_instructor=None):
     _as(monkeypatch, db, user_id)
-    out = asyncio.run(mod.instructor_attention(authorization="Bearer x"))
+    out = asyncio.run(mod.instructor_attention(request=_request(as_instructor), authorization="Bearer x"))
     InstructorAttentionOut.model_validate(out)
     return out
 
@@ -282,6 +290,71 @@ def test_admin_on_the_teacher_door_gets_the_teacher_shape(db, monkeypatch):
     out = _teacher(monkeypatch, db, U_ADMIN)
     assert "ops_week" not in out and "feedback_open" not in out["queues"]
     assert out["queues"]["writing_review"]["count"] == 3
+
+
+@pytest.fixture
+def audits(monkeypatch):
+    calls: list[tuple[str, str, str]] = []
+    monkeypatch.setattr(mod, "_audit_impersonate", lambda admin, target, detail: calls.append((admin, target, detail)))
+    return calls
+
+
+def test_admin_as_instructor_sees_only_that_teachers_classes(db, monkeypatch, audits):
+    a = _teacher(monkeypatch, db, U_ADMIN, as_instructor=U_TEACH)
+    assert [c["cohort_id"] for c in a["classes_week"]] == [C_A]
+    assert a["queues"]["writing_review"]["count"] == 2 and a["queues"]["regrade_new"]["count"] == 1
+    assert a["queues"]["assignments_overdue"]["count"] == 2
+    assert "e-b1" not in str(a) and f"u-{U_MINH}" not in str(a)
+    # Same numbers the teacher sees on their own door.
+    assert a["queues"] == _teacher(monkeypatch, db, U_TEACH)["queues"]
+
+    b = _teacher(monkeypatch, db, U_ADMIN, as_instructor=U_TEACH_B)
+    assert [c["cohort_id"] for c in b["classes_week"]] == [C_B]
+    assert b["queues"]["writing_review"]["count"] == 1 and "e-a1" not in str(b) and f"u-{U_LAN}" not in str(b)
+    assert audits == [(U_ADMIN, U_TEACH, "/instructor/attention"), (U_ADMIN, U_TEACH_B, "/instructor/attention")]
+
+
+def test_admin_as_teacher_with_no_class_gets_nothing_not_everything(db, monkeypatch, audits):
+    db.rows["cohorts"][1]["instructor_id"] = None
+    out = _teacher(monkeypatch, db, U_ADMIN, as_instructor=U_TEACH_B)
+    assert out["classes_week"] == [] and out["attention_learners"] == []
+    assert out["queues"]["writing_review"]["count"] == 0 and out["queues"]["regrade_new"]["count"] == 0
+
+
+@pytest.mark.parametrize("target", [
+    "10000000-0000-0000-0000-0000000000ff",   # no such user
+    U_LAN,                                     # a learner
+    U_ADMIN,                                   # an admin is not a teacher
+    "not-a-uuid",
+])
+def test_admin_as_a_non_teacher_is_refused_not_given_every_class(db, monkeypatch, audits, target):
+    with pytest.raises(HTTPException) as caught:
+        _teacher(monkeypatch, db, U_ADMIN, as_instructor=target)
+    assert caught.value.status_code == 403
+    assert "không phải giảng viên" in str(caught.value.detail)
+    assert audits == []
+
+
+def test_admin_as_instructor_with_unreadable_classes_is_503_not_every_class(db, monkeypatch, audits):
+    db.fail.add("cohorts")
+    with pytest.raises(HTTPException) as caught:
+        _teacher(monkeypatch, db, U_ADMIN, as_instructor=U_TEACH)
+    assert caught.value.status_code == 503
+
+
+def test_admin_as_instructor_without_an_audit_row_is_refused(db, monkeypatch):
+    def refuse(*_a):
+        raise HTTPException(500, "Không ghi được governance_audit — từ chối impersonation")
+    monkeypatch.setattr(mod, "_audit_impersonate", refuse)
+    with pytest.raises(HTTPException) as caught:
+        _teacher(monkeypatch, db, U_ADMIN, as_instructor=U_TEACH)
+    assert caught.value.status_code == 500
+
+
+def test_teacher_as_instructor_is_ignored_and_stays_their_own(db, monkeypatch, audits):
+    out = _teacher(monkeypatch, db, U_TEACH, as_instructor=U_TEACH_B)
+    assert [c["cohort_id"] for c in out["classes_week"]] == [C_A]
+    assert "e-b1" not in str(out) and audits == []
 
 
 def test_learner_token_is_refused(db, monkeypatch):

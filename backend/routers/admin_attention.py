@@ -5,7 +5,9 @@
 * ``GET /instructor/attention`` — a teacher's "Việc của tôi": the same
   service limited to their classes (``services.staff_scope``), without the
   admin rows (orders, incidents, feedback, exams today, unmetered classes)
-  and without ``ops_week``. An admin on this door gets the teacher shape.
+  and without ``ops_week``. An admin on this door gets the teacher shape
+  over every class, or, with ``?as_instructor=<teacher id>``, over that
+  teacher's classes only (audited like every /instructor/* impersonation).
 
 One failed source turns only its own row into ``error: true`` (or its block
 into ``null`` plus a ``sources_failed`` name); the response is still 200.
@@ -18,12 +20,13 @@ import functools
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Header
+from fastapi import APIRouter, Header, Request
 
 from models.admin_attention import AdminAttentionOut, InstructorAttentionOut, InstructorQueuesOut
 from routers.admin import require_admin
+from routers.instructor import _audit_impersonate
 from services import ops_thresholds, staff_attention, test_data_visibility
-from services.staff_scope import resolve_staff_scope
+from services.staff_scope import resolve_staff_scope, scope_as_instructor
 
 logger = logging.getLogger(__name__)
 
@@ -52,9 +55,17 @@ async def admin_attention(authorization: Optional[str] = Header(default=None)):
 
 
 @router.get("/instructor/attention", response_model=InstructorAttentionOut)
-async def instructor_attention(authorization: Optional[str] = Header(default=None)):
+async def instructor_attention(request: Request, authorization: Optional[str] = Header(default=None)):
     scope = await resolve_staff_scope(authorization)
-    hide = await asyncio.to_thread(test_data_visibility.hide_for, user_id=scope.user_id, is_admin=scope.is_admin)
+    caller = scope
+    as_x = request.query_params.get("as_instructor")
+    if as_x and scope.is_admin:
+        # "Xem như giáo viên": only that teacher's classes. A bad target is
+        # refused (403/503), never the admin's every-class list. A teacher's
+        # ?as_instructor is ignored, as on every /instructor/* route.
+        scope = await scope_as_instructor(scope, as_x)
+        await asyncio.to_thread(_audit_impersonate, caller.user_id, scope.user_id, request.url.path)
+    hide = await asyncio.to_thread(test_data_visibility.hide_for, user_id=caller.user_id, is_admin=caller.is_admin)
     out = await _build(cohort_ids=scope.cohort_ids, viewer_id=None if scope.is_admin else scope.user_id,
                        hide_test=hide)
     out.pop("ops_week", None)
