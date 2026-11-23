@@ -256,7 +256,7 @@ async def bulk_action(body: IncidentBulkIn, authorization: Optional[str] = Heade
             try:
                 ids = group.open_record_ids
                 if "errors" in snap.truncated:   # rows past the scan window too (CR nit c)
-                    ids = await asyncio.to_thread(inbox.open_error_ids, ref.fingerprint)
+                    ids = await asyncio.to_thread(inbox.open_error_ids, ref.fingerprint, last_seen)
                 if ids:
                     await asyncio.to_thread(inbox.dismiss_error_rows, ids, admin["id"])
             except Exception:

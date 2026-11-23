@@ -15,8 +15,9 @@ overlays the state a person decided (``incident_groups``, migration 451).
   instructor) that hit an error are left out.
 * Changes go through ``fn_incident_group_transition`` (state + auto note in
   one transaction). Resolving an ``errors`` group then dismisses its
-  undismissed ``error_logs`` rows, 200 ids per update (all of them, also
-  past the scan window when ``errors`` was truncated); the per-row dismiss
+  undismissed ``error_logs`` rows, 200 ids per update (the checked
+  snapshot's rows; when ``errors`` was truncated, every undismissed row up to
+  the watermark, past the scan window too); the per-row dismiss
   endpoints of ``routers/error_logs.py`` are unchanged.
 """
 
@@ -248,12 +249,14 @@ def transition(source: str, fp: str, action: str, actor: str, last_seen: Optiona
     return data
 
 
-def open_error_ids(fp: str) -> list[str]:
-    """Every undismissed ``error_logs`` row of group ``fp``, past the scan window
-    too (used when ``errors`` was truncated)."""
+def open_error_ids(fp: str, last_seen: str) -> list[str]:
+    """Every undismissed ``error_logs`` row of group ``fp`` up to the watermark
+    ``last_seen``, past the scan window too (used when ``errors`` was
+    truncated). A row after the watermark was not checked: it stays open and
+    reopens the group."""
     rows, _ = _paged(lambda: supabase_admin.table("error_logs")
                      .select("id, occurred_at, level, source, message, url, user_id, dismissed_at")
-                     .is_("dismissed_at", "null")
+                     .is_("dismissed_at", "null").lte("occurred_at", last_seen)
                      .order("occurred_at", desc=True).order("id", desc=True), limit=10 ** 6)
     group = grouping.group_errors(rows).get(fp)
     return group.open_record_ids if group else []

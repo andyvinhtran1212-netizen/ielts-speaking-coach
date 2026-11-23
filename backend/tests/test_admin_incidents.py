@@ -71,6 +71,10 @@ class _Query:
         vals = set(vals)
         return self._add(lambda r: r.get(col) in vals)
 
+    def lte(self, col, val):
+        return self._add(lambda r: r.get(col) is not None
+                         and incident_inbox._parse(r.get(col)) <= incident_inbox._parse(val))
+
     def is_(self, col, val):
         assert val == "null"
         return self._add(lambda r: r.get(col) is None)
@@ -539,3 +543,24 @@ def test_closing_a_group_with_no_record_time_is_refused_before_writing(client, d
         "groups": [{"source": "errors", "fingerprint": "c" * 40, "expected_count": 0}], "action": "resolve"})
     assert res.status_code == 409 and res.json()["conflicts"][0]["code"] == "not_found"
     assert db.tables["incident_groups"][0]["status"] == "in_review"
+
+
+def test_a_truncated_resolve_dismisses_old_rows_but_not_one_after_the_check(client, db, monkeypatch):
+    """B3 (R2): rows past the scan window up to the watermark are dismissed; a row
+    that lands after the check stays open and the group reads new."""
+    monkeypatch.setattr(incident_inbox, "SCAN_LIMIT", 2)
+    db.tables["error_logs"] = [err(i, "boom", at=ago(i)) for i in range(1, 5)]   # 3 and 4: outside the window
+    g = _only(client)
+    real = incident_inbox.transition
+
+    def racing(*args, **kwargs):
+        db.tables["error_logs"].append(err(9, "boom", at=ago(0.5)))
+        return real(*args, **kwargs)
+    monkeypatch.setattr(incident_inbox, "transition", racing)
+    res = client.post("/admin/incidents/groups/bulk", json={"groups": [
+        {"source": "errors", "fingerprint": g["fingerprint"], "expected_count": 2,
+         "expected_last_at": g["last_at"]}], "action": "resolve"})
+    assert res.json()["changed"] == 1
+    open_ids = [r["id"] for r in db.tables["error_logs"] if not r["dismissed_at"]]
+    assert open_ids == ["e00009"]
+    assert _only(client)["status"] == "new"
