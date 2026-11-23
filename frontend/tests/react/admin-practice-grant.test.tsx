@@ -8,14 +8,21 @@ import { RevokeAccessForm } from '@/components/admin/revoke-access-form';
 const C1 = 'c1000000-0000-4000-8000-000000000001';
 const C2 = 'c2000000-0000-4000-8000-000000000002';
 const products = [
-  { id: 'p1', course_id: C1, kind: 'repractice', short_title: 'Course 1', status: 'open', access_days: 14, review_mode: 'ai_instant', archived_at: null },
-  { id: 'p2', course_id: C2, kind: 'repractice', short_title: 'Course 2', status: 'open', access_days: 30, review_mode: 'ai_instant', archived_at: null },
+  { id: 'p1', course_id: C1, slug: 'c1-re', kind: 'repractice', short_title: 'Course 1', status: 'open', access_days: 14, review_mode: 'ai_instant', archived_at: null },
+  { id: 'p2', course_id: C2, slug: 'c2-re', kind: 'repractice', short_title: 'Course 2', status: 'open', access_days: 30, review_mode: 'ai_instant', archived_at: null },
 ];
+let access: Record<string, { entitlement_id: string | null; product_slug: string | null; state: string }[]> = {};
+const routeGet = (list: unknown[] = products) => (path: string) => {
+  const m = /^\/admin\/users\/([^/]+)\/access$/.exec(path);
+  if (m) return Promise.resolve({ items: access[decodeURIComponent(m[1])] ?? [] });
+  return Promise.resolve({ items: list });
+};
 const users = [{ id: 'u-a', name: 'Lan' }, { id: 'u-b', name: 'Minh' }, { id: 'u-c', name: 'Hoa' }];
 const api = { getWith: vi.fn(), post: vi.fn() };
 
 beforeEach(() => {
-  api.getWith.mockReset().mockResolvedValue({ items: products });
+  access = {};
+  api.getWith.mockReset().mockImplementation(routeGet());
   api.post.mockReset().mockResolvedValue({ status: 'granted', entitlement: { id: 'e1' } });
   Object.assign(window, { api });
 });
@@ -69,18 +76,48 @@ describe('PracticeGrantForm', () => {
     expect(api.post.mock.calls[3][1].request_key).toBe(api.post.mock.calls[1][1].request_key);
   });
 
-  it('a learner who already holds the course is skipped and named', async () => {
-    render(<PracticeGrantForm open users={users} excludeCourseIds={[C1]} heldCourseIds={{ 'u-c': [C2] }} onClose={() => {}} />);
+  it('each learner\'s access is read from G04 on open; one who already holds the course is skipped and named', async () => {
+    access = { 'u-c': [{ entitlement_id: 'e9', product_slug: 'c2-re', state: 'active' }], 'u-a': [{ entitlement_id: 'e8', product_slug: 'c2-re', state: 'revoked' }] };
+    render(<PracticeGrantForm open users={users} excludeCourseIds={[C1]} onClose={() => {}} />);
     const confirm = await fillAndConfirm();
     expect(within(confirm).getByText(/cho 2 người.*Bỏ qua 1 người đã có quyền\./)).toBeTruthy();
     fireEvent.click(within(confirm).getByRole('button', { name: 'Cấp quyền' }));
     await screen.findByText('Đã cấp cho 2/2 người.');
     expect(api.post.mock.calls.map(([, body]) => body.user_id)).toEqual(['u-a', 'u-b']);
     expect(screen.getByText('Bỏ qua vì đã có quyền: Hoa')).toBeTruthy();
+    expect(api.getWith.mock.calls.map(([p]) => p).filter((p) => String(p).endsWith('/access')).sort())
+      .toEqual(['/admin/users/u-a/access', '/admin/users/u-b/access', '/admin/users/u-c/access']);
+  });
+
+  it('reopening after a grant whose answer was lost reads access again and skips that learner', async () => {
+    api.post.mockReset().mockImplementation(() => {
+      access = { 'u-a': [{ entitlement_id: 'e1', product_slug: 'c2-re', state: 'active' }] };
+      return Promise.reject(new Error('Hết thời gian chờ máy chủ.'));
+    });
+    const view = render(<PracticeGrantForm open users={[users[0]]} excludeCourseIds={[C1]} onClose={() => {}} />);
+    fireEvent.click(within(await fillAndConfirm()).getByRole('button', { name: 'Cấp quyền' }));
+    await screen.findByText('Đã cấp cho 0/1 người.');
+    view.rerender(<PracticeGrantForm open={false} users={[users[0]]} excludeCourseIds={[C1]} onClose={() => {}} />);
+    view.rerender(<PracticeGrantForm open users={[users[0]]} excludeCourseIds={[C1]} onClose={() => {}} />);
+    expect(await screen.findByText('Không còn khoá luyện lại nào để cấp cho người đã chọn.')).toBeTruthy();
+    expect(api.post).toHaveBeenCalledTimes(1);
+  });
+
+  it('a failed access read blocks the form with Tải lại instead of guessing', async () => {
+    let fail = true;
+    api.getWith.mockImplementation((path: string) => (path.endsWith('/access') && fail
+      ? Promise.reject(new Error('Máy chủ chưa sẵn sàng.')) : routeGet()(path)));
+    render(<PracticeGrantForm open users={users} onClose={() => {}} />);
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toMatch(/chưa đọc được quyền học hiện có của 3 người/);
+    expect(screen.queryByRole('combobox')).toBeNull();
+    fail = false;
+    fireEvent.click(within(alert).getByRole('button', { name: 'Tải lại' }));
+    await screen.findByRole('combobox');
   });
 
   it('choosing a course takes its own review mode until the admin picks one', async () => {
-    api.getWith.mockReset().mockResolvedValue({ items: [products[0], { ...products[1], review_mode: 'teacher_review' }] });
+    api.getWith.mockReset().mockImplementation(routeGet([products[0], { ...products[1], review_mode: 'teacher_review' }]));
     render(<PracticeGrantForm open users={[users[0]]} onClose={() => {}} />);
     const dialog = await screen.findByRole('dialog', { name: 'Cấp quyền luyện lại' });
     const select = await within(dialog).findByRole('combobox');
@@ -105,7 +142,7 @@ describe('PracticeGrantForm', () => {
     cleanup();
     api.getWith.mockReset().mockRejectedValue(new Error('Máy chủ chưa sẵn sàng.'));
     render(<PracticeGrantForm open users={[users[0]]} onClose={() => {}} />);
-    expect((await screen.findByRole('alert')).textContent).toBe('Chưa tải được danh sách khoá: Máy chủ chưa sẵn sàng.');
+    expect((await screen.findByRole('alert')).textContent).toMatch(/^Chưa tải được danh sách khoá: Máy chủ chưa sẵn sàng\./);
   });
 });
 

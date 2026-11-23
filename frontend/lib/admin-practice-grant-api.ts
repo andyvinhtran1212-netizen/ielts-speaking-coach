@@ -2,7 +2,7 @@
 // for the shared re-practice grant and revoke forms (ADMINIA-0074 G09-T14).
 // These routes are not in api.d.ts on this branch and declare no response
 // model, so they go through window.api with the shapes routers/admin_commerce.py
-// returns (list_products, grant_entitlement, revoke_entitlement).
+// returns (list_products, user_access, grant_entitlement, revoke_entitlement).
 import type { CourseProductWire } from '@/lib/admin-practice-grant-model.mjs';
 
 export type EntitlementWire = {
@@ -19,6 +19,12 @@ export type EntitlementWire = {
 
 export function getCourseProducts() {
   return window.api.getWith<{ items: CourseProductWire[] }>('/admin/course-products');
+}
+
+/** G04 course access of one learner; only `state` and `product_slug` are read here. */
+export function getUserAccess(userId: string) {
+  return window.api.getWith<{ items: { entitlement_id: string | null; product_slug: string | null; state: string }[] }>(
+    `/admin/users/${encodeURIComponent(userId)}/access`);
 }
 
 export function postGrant(body: Record<string, unknown>) {

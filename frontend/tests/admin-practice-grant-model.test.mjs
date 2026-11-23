@@ -5,6 +5,7 @@ import test from 'node:test';
 import {
   grantBody,
   grantDraft,
+  heldFromAccess,
   practiceProducts,
   runSummary,
   validateGrant,
@@ -30,6 +31,14 @@ test('only live repractice products are offered, minus the class course and, for
   assert.deepEqual(practiceProducts(products, { users: [A], heldCourseIds: { 'u-a': [C2] } }).map((p) => p.id), ['p1']);
   // With several learners nobody's holdings hide a course; they are skipped at confirm.
   assert.deepEqual(practiceProducts(products, { users: [A, B], heldCourseIds: { 'u-a': [C2] } }).map((p) => p.id), ['p1', 'p2']);
+});
+
+test('held courses come from access items in force, matched by product slug', () => {
+  const prods = [{ id: 'p1', course_id: C1, slug: 'a' }, { id: 'p2', course_id: C2, slug: 'b' }];
+  assert.deepEqual(heldFromAccess([
+    { product_slug: 'a', state: 'active' }, { product_slug: 'b', state: 'revoked' },
+    { product_slug: null, state: 'active' }, { product_slug: 'zz', state: 'active' }], prods), [C1]);
+  assert.deepEqual(heldFromAccess(null, prods), []);
 });
 
 test('a single course is preselected with its own review mode', () => {

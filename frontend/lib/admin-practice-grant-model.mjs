@@ -38,6 +38,22 @@ export function practiceProducts(products, { excludeCourseIds = [], users = [], 
     }));
 }
 
+/**
+ * Course ids a learner holds in force, from G04 `GET /admin/users/{id}/access`
+ * items matched to `/admin/course-products` by product slug (the access read
+ * names the product by slug, not by id).
+ */
+export function heldFromAccess(items, products) {
+  const bySlug = new Map((products ?? []).filter((p) => p.slug).map((p) => [String(p.slug), String(p.course_id)]));
+  const out = new Set();
+  for (const item of items ?? []) {
+    if (item?.state !== 'active' || !item.product_slug) continue;
+    const course = bySlug.get(String(item.product_slug));
+    if (course) out.add(course);
+  }
+  return [...out];
+}
+
 export function grantDraft(products) {
   const only = products.length === 1 ? products[0] : null;
   return { productId: only ? only.id : '', days: '', reviewMode: only ? only.reviewMode : 'ai_instant', reason: '' };

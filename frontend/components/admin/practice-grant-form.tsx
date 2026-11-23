@@ -6,13 +6,17 @@
 // them in turn, and a failure part-way shows who was granted and who was not,
 // with "Thử lại phần còn lại". Each learner keeps one request_key across
 // retries, so a retry the server already applied replays instead of granting
-// twice. Nothing is rolled back here, and no activation code is created.
+// twice. Each open reads every learner's G04 access, so whoever already holds
+// the course (including a grant whose answer was lost) is skipped; a failed
+// read blocks the form instead of guessing. Nothing is rolled back here, and no
+// activation code is created.
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Dialog, Field, messageOf } from '@/components/admin-directory-ui';
 import {
   REVIEW_MODES,
   grantBody,
   grantDraft,
+  heldFromAccess,
   practiceProducts,
   runSummary,
   validateGrant,
@@ -23,15 +27,13 @@ import {
   type GrantUser,
   type HeldCourseIds,
 } from '@/lib/admin-practice-grant-model.mjs';
-import { getCourseProducts, newRequestKey, postGrant } from '@/lib/admin-practice-grant-api';
+import { getCourseProducts, getUserAccess, newRequestKey, postGrant } from '@/lib/admin-practice-grant-api';
 
 type Props = {
   open: boolean;
   users: GrantUser[];
   /** The class's own course(s): never offered as re-practice. */
   excludeCourseIds?: string[];
-  /** Course ids each learner already holds in force, when the caller knows them. */
-  heldCourseIds?: HeldCourseIds;
   onClose: () => void;
   /** Called once a run ends with at least one learner granted; the caller refetches. */
   onGranted?: (grantedUserIds: string[]) => void;
@@ -40,10 +42,14 @@ type Props = {
 type Run = { check: Extract<GrantCheck, { ok: true }>; results: Record<string, GrantResult> };
 
 const NO_IDS: string[] = [];
-const NO_HELD: HeldCourseIds = {};
 
-export function PracticeGrantForm({ open, users, excludeCourseIds = NO_IDS, heldCourseIds = NO_HELD, onClose, onGranted }: Props) {
+export function PracticeGrantForm({ open, users, excludeCourseIds = NO_IDS, onClose, onGranted }: Props) {
   const [products, setProducts] = useState<CourseProductWire[] | null>(null);
+  // What each learner holds in force, read from G04 every time the form opens
+  // (never taken from the caller), so a grant that already landed, even one
+  // whose answer was lost, is skipped instead of granted again.
+  const [heldCourseIds, setHeld] = useState<HeldCourseIds>({});
+  const [reloadTick, setReloadTick] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
   // '' in productId / reviewMode means "not chosen": the single course on offer
   // and that course's own review mode apply. Derived at render, never written
@@ -57,7 +63,8 @@ export function PracticeGrantForm({ open, users, excludeCourseIds = NO_IDS, held
 
   // Callers often pass fresh arrays each render: key the list on content so the
   // draft is not reset (and the form not re-rendered in a loop) on every render.
-  const inputKey = JSON.stringify([excludeCourseIds, users.map((u) => u.id), heldCourseIds]);
+  const userKey = JSON.stringify(users.map((u) => u.id));
+  const inputKey = JSON.stringify([excludeCourseIds, userKey, heldCourseIds]);
   const options = useMemo(
     () => practiceProducts(products, { excludeCourseIds, users, heldCourseIds }),
     [products, inputKey],
@@ -69,15 +76,31 @@ export function PracticeGrantForm({ open, users, excludeCourseIds = NO_IDS, held
     setProducts(null); setLoadError(null); setConfirm(null); setRun(null);
     setDraft({ productId: '', days: '', reviewMode: '', reason: '' });
     keys.current = {};
-    getCourseProducts()
-      .then((out) => { if (live) setProducts(out.items ?? []); })
+    setHeld({});
+    const ids = users.map((u) => u.id);
+    Promise.all([getCourseProducts(), Promise.allSettled(ids.map((id) => getUserAccess(id)))])
+      .then(([out, reads]) => {
+        if (!live) return;
+        const failed = reads.filter((r) => r.status === 'rejected') as PromiseRejectedResult[];
+        if (failed.length) {
+          console.warn('[practice-grant] access reads failed', failed.length);
+          setLoadError(`chưa đọc được quyền học hiện có của ${failed.length.toLocaleString('vi-VN')} người (${messageOf(failed[0].reason)})`);
+          return;
+        }
+        const items = out.items ?? [];
+        const held: HeldCourseIds = {};
+        reads.forEach((r, i) => { held[ids[i]] = heldFromAccess((r as PromiseFulfilledResult<{ items: { state: string; product_slug: string | null }[] }>).value.items, items); });
+        setHeld(held);
+        setProducts(items);
+      })
       .catch((caught) => {
         if (!live) return;
         console.warn('[practice-grant] products failed', caught);
         setLoadError(messageOf(caught));
       });
     return () => { live = false; };
-  }, [open]);
+    // users by content (userKey): callers pass a fresh array each render.
+  }, [open, userKey, reloadTick]);
 
   const preset = grantDraft(options);
   const productId = draft.productId || preset.productId;
@@ -181,7 +204,11 @@ export function PracticeGrantForm({ open, users, excludeCourseIds = NO_IDS, held
           </>
         )}
       >
-        {loadError ? <p className="acd-banner is-error" role="alert">Chưa tải được danh sách khoá: {loadError}</p> : null}
+        {loadError ? (
+          <p className="acd-banner is-error" role="alert">Chưa tải được danh sách khoá: {loadError}{' '}
+            <button type="button" className="adm-btn-secondary" onClick={() => setReloadTick((n) => n + 1)}>Tải lại</button>
+          </p>
+        ) : null}
         {!products && !loadError ? <p role="status">Đang tải danh sách khoá…</p> : null}
         {products && !options.length ? <p>Không còn khoá luyện lại nào để cấp cho người đã chọn.</p> : null}
         {products && options.length ? (
