@@ -9,6 +9,8 @@
 //    and cancels unused sign-in codes; timed work is not cut (the server signs
 //    that device out when it ends). 404 `single_session_disabled` hides the
 //    button; any other failure says so and keeps the dialog.
+// 5a does not promise that drafts on other devices are kept: no page registers
+// a draft saver yet and other devices cannot be reached, so it warns instead.
 // After 5c the session no longer exists on the server, so "Đăng nhập lại" (and
 // closing the dialog) signs out locally and goes to /login.
 import { useEffect, useRef, useState } from 'react';
@@ -16,6 +18,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { Notice } from '@/components/ui/notice';
+import { saveAllDrafts } from '@/lib/auth/draft-savers.mjs';
 import { minutesLeftText } from '@/lib/auth/session-claim.mjs';
 import { clearPersistedAuthSession } from '@/lib/auth/sign-out-state.mjs';
 import { formatVnDateTime } from '@/lib/profile-v2-model.mjs';
@@ -98,6 +101,10 @@ export function SignOutEverywhereDialog({
     setBusy(true);
     setFailed(false);
     try {
+      // Keep this page's drafts first (savers registered on this device).
+      // Other devices cannot be reached from here, so 5a warns instead of
+      // promising that their unsaved text is kept.
+      await saveAllDrafts();
       const raw = await window.api.postWith<{ at?: unknown }>(REVOKE_ALL, {});
       setStep({ kind: 'done', at: formatVnDateTime(typeof raw?.at === 'string' ? raw.at : null) });
     } catch (error) {
@@ -156,7 +163,7 @@ export function SignOutEverywhereDialog({
             ? `Mọi thiết bị đang mở tài khoản ${email}, kể cả thiết bị này, phải đăng nhập lại.`
             : 'Mọi thiết bị đang mở tài khoản này, kể cả thiết bị này, phải đăng nhập lại.'}
         </p>
-        <p>Bài đang viết dở được lưu nháp trước khi đăng xuất.</p>
+        <p>Phần bài đang viết dở chưa kịp tự lưu ở các thiết bị đó có thể mất. Lưu bài ở đó trước nếu được.</p>
         <p>Mã đăng nhập đã gửi mà chưa dùng bị huỷ.</p>
         {step.timed ? <TimedWarning timed={step.timed} /> : null}
         {failed ? <Notice kind="error">Chưa đăng xuất được khỏi mọi thiết bị. Thử lại sau ít phút.</Notice> : null}

@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SignOutEverywhere } from '@/components/learner/sign-out-everywhere';
+import { registerDraftSaver, resetDraftSavers } from '@/lib/auth/draft-savers.mjs';
 
 const state = vi.hoisted(() => ({
   status: { enabled: true, state: 'current', other_session: null, timed_activity: null } as unknown,
@@ -72,6 +73,9 @@ describe('SignOutEverywhere', () => {
     expect(dialog.textContent).toContain('Đăng xuất khỏi mọi thiết bị?');
     expect(dialog.textContent).toContain('Mọi thiết bị đang mở tài khoản minhanh@example.com, kể cả thiết bị này, phải đăng nhập lại.');
     expect(dialog.textContent).toContain('Mã đăng nhập đã gửi mà chưa dùng bị huỷ.');
+    // No promise that drafts are kept (nothing saves them yet): a warning instead.
+    expect(dialog.textContent).not.toContain('được lưu nháp');
+    expect(dialog.textContent).toContain('Phần bài đang viết dở chưa kịp tự lưu ở các thiết bị đó có thể mất. Lưu bài ở đó trước nếu được.');
     expect(dialog.textContent).not.toContain('Bài có giờ không bị cắt ngang');
     expect(within(dialog).getByRole('button', { name: 'Đăng xuất khỏi mọi thiết bị' })).toBeTruthy();
     expect(within(dialog).getByRole('button', { name: 'Huỷ' })).toBeTruthy();
@@ -95,13 +99,16 @@ describe('SignOutEverywhere', () => {
     expect(dialog.textContent).toContain('Bài có giờ không bị cắt ngang: thiết bị đó đăng xuất ngay khi bài kết thúc. Các thiết bị khác đăng xuất bây giờ.');
   });
 
-  it('confirm → revoke-all → 5c; "Đăng nhập lại" signs out locally and goes to /login', async () => {
+  it('confirm → this page\'s draft savers, then revoke-all → 5c; "Đăng nhập lại" signs out locally and goes to /login', async () => {
+    resetDraftSavers();
+    registerDraftSaver(() => { calls.push('draft'); });
     await mount();
     fireEvent.click(openButton());
     await flush();
     fireEvent.click(screen.getAllByRole('button', { name: 'Đăng xuất khỏi mọi thiết bị' }).at(-1)!);
     await flush();
-    expect(calls).toContain('POST /api/account/sessions/revoke-all');
+    expect(calls.filter((c) => c === 'draft' || c.startsWith('POST'))).toEqual(['draft', 'POST /api/account/sessions/revoke-all']);
+    resetDraftSavers();
     expect(screen.getByText('Đã đăng xuất khỏi mọi thiết bị lúc 09:05, 23/11/2026.')).toBeTruthy();
     expect(screen.getByText('Đăng nhập lại bằng Google hoặc bằng mã gửi tới minhanh@example.com.')).toBeTruthy();
     fireEvent.click(screen.getAllByRole('button', { name: 'Đăng nhập lại' }).at(-1)!);

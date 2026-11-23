@@ -10,7 +10,7 @@ import { DISPLACED_LOGIN_PATH, SESSION_DISPLACED_EVENT } from '../lib/auth/sessi
 const source = readFileSync(new URL('../public/js/api.js', import.meta.url), 'utf8');
 const DISPLACED = { error_code: 'session_displaced', displaced_at: '2026-11-23T02:05:00Z' };
 
-function load({ detail = DISPLACED, claim = false } = {}) {
+function load({ detail = DISPLACED, claim = false, raw = null } = {}) {
   const nav = { replaced: [], href: [], events: [] };
   const window = {
     location: {
@@ -26,7 +26,9 @@ function load({ detail = DISPLACED, claim = false } = {}) {
       return !event.defaultPrevented;
     },
   };
-  const fetch = async () => new Response(JSON.stringify({ detail }), { status: 401, headers: { 'content-type': 'application/json' } });
+  const fetch = async () => (raw !== null
+    ? new Response(raw, { status: 401, headers: { 'content-type': 'text/html' } })
+    : new Response(JSON.stringify({ detail }), { status: 401, headers: { 'content-type': 'application/json' } }));
   vm.runInNewContext(source, { window, fetch, console, CustomEvent: globalThis.CustomEvent });
   return { api: window.api, nav };
 }
@@ -52,6 +54,15 @@ test('unclaimed (no AuthProvider on the page): straight to the 8c notice', async
 test('any other 401 keeps the old bounce to /login, no event', async () => {
   for (const detail of ['Not authenticated', { error_code: 'token_expired' }, null]) {
     const { api, nav } = load({ detail });
+    await api.get('/api/me/courses');
+    assert.deepEqual(nav.href, ['/login']);
+    assert.deepEqual([...nav.replaced, ...nav.events], []);
+  }
+});
+
+test('a 401 whose body is not JSON (a proxy page, or empty) keeps the old bounce', async () => {
+  for (const raw of ['<html><body>401 Unauthorized</body></html>', '']) {
+    const { api, nav } = load({ raw });
     await api.get('/api/me/courses');
     assert.deepEqual(nav.href, ['/login']);
     assert.deepEqual([...nav.replaced, ...nav.events], []);
