@@ -24,7 +24,7 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 
 import type { AuthMeWire } from '@/lib/auth-api';
-import { readAuthMeShared } from '@/lib/auth/read-auth-me-shared';
+import { readAuthMeShared } from './read-auth-me-shared';
 import { useAuth } from '@/lib/auth/auth-provider';
 import { admitCorePlayer } from '@/lib/core-player-affinity.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
