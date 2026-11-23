@@ -24,3 +24,34 @@ The coordinator session relayed it to this thread, with the message copied verba
 Scope of the approvals:
 - They allow the task PRs in `tasks.md` (T05, T13, T14 and the amendment tasks) to be written and opened into `staging`, as `high-risk` PRs that cite `Spec: LEARNERCORE-0063`.
 - They do not authorize turning on `learner_v2` for anyone on staging or production, applying a migration, writing to any database, changing env vars, or merging. Each of those still needs Andy's own approval at the time.
+
+## HOLD patch (approved 2026-11-23 09:51 UTC)
+
+Seven HOLD comments on the amendment PRs had been posted before the 09:23 approval and were still unanswered. They are fixed in one consolidated spec patch, together with the open Codex review threads and one gap in the base spec (FR-078 against the ledger reconcile that `_visible_assignments` performs). Andy approved the patch himself in the project chat at 09:51:13 UTC (16:51 Vietnam time). The coordinator relayed his message, which the server copied verbatim:
+
+> duyệt bản vá HOLD 0063
+
+| Amendment | PR | What the patch changes |
+|---|---|---|
+| 1 | #2481 | FR-082: mock results show band, Overall and grading detail only once the sitting is `released`, in the JSON as well. FR-037: an expired course shows no lesson list, because 0064 returns 403 `course_access_expired`. |
+| 2 | #2482 | No text change. The FR-094 HOLD was already resolved by the CR R2 fixes (suspended accounts excluded, flag-bound exemptions, field whitelist). |
+| 3 | #2484 | FR-100: the self-practice route checks `student_is_active_in_cohort`. FR-078 and FR-103: "read-only" allows only the ledger reconcile done inside `_visible_assignments`. FR-096: reopened course work (`course_action`) groups as "Cần làm". |
+| 4 | #2489 | FR-110: the preflight uses the index predicate (`attempt_id IS NOT NULL`). Real duplicates are repaired with an archive script that needs a separate DB-write approval; marking them `resolved` no longer counts as a fix. |
+| 5, 6 | #2491 | FR-116: `credits.metering` is computed by the server with `charge_plan`. FR-124: `degraded: ['class']` hides every class-scoped block on `/course/class`. |
+
+The approval covers spec text only. It does not authorize applying a migration, running the archive script, writing to a database or merging.
+
+## OQ17 patch after mig 441 (APPROVED by Andy 2026-11-23 11:18 UTC)
+
+Mig 441 (ADMINIA-0074 G09-T24) is applied on staging. It adds `cohorts.instructor_id`, `weekly_schedule` (`dow` 1–7, `start` "HH:MM"), `start_date` and `class_lessons.starts_at`, so open question 17 was out of date. This patch to amendment 6 (#2491) changes the spec text only:
+
+- FR-120: the `/course/class` card shows the teacher and the weekly start times from 441 ("Thứ Hai và Thứ Tư, 18:30"), next to "Đã học n buổi". End time, room and the planned number of sessions stay hidden.
+- `GET /api/class/me` gains two read fields per class, `instructor: {name} | null` and `weekly_schedule: [{dow, start}]`. If reading the 441 columns or `users` fails, both are empty and `degraded` gains `class_meta` (CR). No other field changes. T30c now depends on G09-T24 (mig 441 applied).
+- Open question 17 is reduced to the three missing columns (end time, room, planned sessions). The default is still to add none, until the class edit screen of G09.
+- T25 lists G04-T03 (#2485, `charge_plan` of 0055) in its depends (CR nit on the HOLD patch).
+
+**Approved.** Andy approved this patch himself in the project on 2026-11-23 at 11:18:48 UTC (18:18 Vietnam time), on PR #2491 head `2cb16bdc` (the OQ17 text is unchanged since `4f62e0f6`, which the CR approved). His message reads:
+
+> duyệt bản vá OQ17 0063
+
+The coordinator session relayed it to this thread, with the message copied verbatim by the server. Approved text: `specs/0063-learner-core/spec.md` at `2cb16bdc`, sha256 `f4ae18d3f251e8eec75d95916e49e0d09a3f34c82dfda5787a83074c7f034488` (taken before this commit changed only the status sentence). As with the amendments, the approval covers spec text only: it does not authorize applying a migration, writing to a database or merging.
