@@ -163,8 +163,9 @@ export function nextStepCopy(exam) {
  */
 export function examHref(exam) {
   if (exam.status === 'draft') return `/admin/mock-tests/${encodeURIComponent(exam.id)}/setup`;
-  const tab = exam.state === 'grading' || exam.state === 'released' || exam.state === 'ended' ? 'review' : 'live';
-  return `/admin/mock-tests?view=console&tab=${tab}&exam_id=${encodeURIComponent(exam.id)}`;
+  // MOCKORG-0086 FR-145 (G09-T34): every other exam opens its own page; the
+  // page picks the tab from the state.
+  return `/admin/mock-tests/${encodeURIComponent(exam.id)}`;
 }
 
 // ── Setup: Đề · Người thi · Cách thi · Xem lại (FR-141) ─────────────────────

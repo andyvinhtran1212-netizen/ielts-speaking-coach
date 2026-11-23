@@ -289,7 +289,7 @@ export function MockExamSetup({ examId: initialId }: { examId: string | null }) 
   if (loadState === 'loading') return <main className={styles.page}><PageState kind="loading" title="Đang mở kỳ thi…" /></main>;
   if (loadState === 'error') return <main className={styles.page}><PageState kind="error" title="Chưa mở được kỳ thi" body={loadError} action={<Button variant="secondary" onClick={() => examId && void reload(examId, true)}>Thử lại</Button>} /></main>;
   if (loadState === 'missing') return <main className={styles.page}><PageState kind="error" title="Không tìm thấy kỳ thi" body="Kỳ thi này không còn trong danh sách." action={<Button href="/admin/mock-tests">Về danh sách kỳ thi</Button>} /></main>;
-  if (loadState === 'not-draft') return <main className={styles.page}><PageState kind="locked" title="Kỳ thi đã lên lịch" body="Trang này chỉ soạn kỳ thi ở Nháp. Kỳ thi đã lên lịch được theo dõi ở trang kỳ thi." action={<Button href={`/admin/mock-tests?view=console&tab=live&exam_id=${encodeURIComponent(exam?.id || '')}`}>Mở kỳ thi</Button>} /></main>;
+  if (loadState === 'not-draft') return <main className={styles.page}><PageState kind="locked" title="Kỳ thi đã lên lịch" body="Trang này chỉ soạn kỳ thi ở Nháp. Kỳ thi đã lên lịch được theo dõi ở trang kỳ thi." action={<Button href={`/admin/mock-tests/${encodeURIComponent(exam?.id || '')}`}>Mở kỳ thi</Button>} /></main>;
 
   const skillsOn = form.skills;
   // The Listening seat clock: the saved paper's from the server, a newly picked
