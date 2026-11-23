@@ -6,8 +6,8 @@
 // Page frame (FR-002): the "Bản in" PublicShell (UIBASE-0056 G03-T13), built
 // like the `(public-v2)` layout. No legacy cascade: nothing here loads
 // tokens.css, components.css, ds.css, tailwind.build.css, Lucide,
-// aver-chrome.js or aver-admin-chrome.js. Signed-in learners see the guest bar
-// too until LearnerShell (G03-T14) lands; that change only touches this file.
+// aver-chrome.js or aver-admin-chrome.js. The server renders PublicShell;
+// after hydration a signed-in learner gets LearnerShell (`library-frame.tsx`).
 // No <RedirectNotice>: it is styled with the legacy --av-* tokens only; the
 // v2 notice is G07's (same as the (public-v2) layout).
 // A nested layout must not render <html>/<body>; the root layout owns them.
@@ -20,9 +20,10 @@ import { av2FontClass } from '@/styles/av2/fonts';
 import { BodyClassBridge } from '@/components/body-class-bridge';
 import { NextPageViewBeacon } from '@/components/next-page-view-beacon';
 import { SupabaseRuntimeBoundary } from '@/components/supabase-runtime-boundary';
-import { PublicShell } from '@/components/ui/shell/public-shell';
 import { AV2_VIEWPORT } from '@/components/ui/theme-color';
 import { ThemeScript } from '@/components/ui/theme-script';
+
+import { LibraryFrame } from './library-frame';
 
 // Same public project values as the (public-content) and (public-v2) layouts.
 const SUPABASE_URL = 'https://huwsmtubwulikhlmcirx.supabase.co';
@@ -46,7 +47,7 @@ export default function PublicLibraryLayout({ children }: { children: ReactNode 
         <NextPageViewBeacon />
       </SupabaseRuntimeBoundary>
       <div className={`av2-root ${av2FontClass}`}>
-        <PublicShell active="library">{children}</PublicShell>
+        <LibraryFrame>{children}</LibraryFrame>
       </div>
     </>
   );
