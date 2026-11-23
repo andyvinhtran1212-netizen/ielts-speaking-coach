@@ -8,9 +8,9 @@ Mọi dòng ở trạng thái `PENDING`: spec đang `draft`, chưa có dòng mã
 | --- | --- | --- |
 | FR-001 | kind=test; ref=planned G03 learner-shell tests with G07 registry rows (T06–T15u); journey=staging scenario 3 | PENDING |
 | FR-002 | kind=test; ref=planned route-registry sectionFor cases per moved page (T06–T23); journey=staging scenario 3 | PENDING |
-| FR-003 | kind=test; ref=existing G03 account-menu tests stay green with ACCOUNT_LINKS unchanged | PENDING |
+| FR-003 | kind=test; ref=planned React account-menu cases admin (2 switches), instructor (1), learner (0), expired session (0) in T03s; ACCOUNT_LINKS order unchanged | PENDING |
 | FR-004 | kind=screenshot; ref=planned 390/820/1280px captures of one moved page per đợt | PENDING |
-| FR-005 | kind=test; ref=planned registry kind=focus only for exam/player rows (T12b, T10) | PENDING |
+| FR-005 | kind=test; ref=planned route-registry check that result/review rows are kind=child and only timed/recording rows are focus (T10, T11, T12b) | PENDING |
 | FR-006 | kind=test; ref=planned breadcrumb parent cases incl. from=my-class and from=mock-result (T08, T11) | PENDING |
 | FR-007 | kind=check; ref=planned grep for "← Back|Quay lại|Trở về|workspace" on pages touched per đợt, listed in PR | PENDING |
 | FR-010 | kind=test; ref=planned frontend/tests/learner-route-moves.test.mjs MOVES table; command=curl -sI on next start per row | PENDING |

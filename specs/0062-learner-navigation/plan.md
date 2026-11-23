@@ -1,6 +1,6 @@
 # Implementation plan
 
-Nguồn: `GOI-07-loi-hoc-vien.md` mục 2, 5.1, 5.2, 6 (T06–T12b, T15 phần đổi URL, T23, T24), 7, 8. Số dòng mã dưới đây gói đo ở staging `93c7085` (16/11/2026); các điểm chính đã đối chiếu lại ở staging `e940c936` (23/11/2026): 139 quy tắc HTML cũ và băm `75544da3…c5` ở `frontend/tests/legacy-url-redirects.test.mjs` L66–73; ba quy tắc tạm 307 (`/writing`, `/grammar-checkup/review`, `/signup`) ở `frontend/next.config.ts` L138–144; tập phòng thi `'/reading/exam/session', '/listening/test/session', '/mock-exam'` ở `components/exam-language-bridge.tsx` L6–8; `app/robots.ts` liệt kê `/course-exercises`, `/flashcards`, `/full-test`, `/mock`, `/my-class`… Người thực thi mỗi đợt đo lại số dòng trước khi sửa.
+Nguồn: `GOI-07-loi-hoc-vien.md` mục 2, 5.1, 5.2, 6 (T06–T12b, T15 phần đổi URL, T23, T24), 7, 8. Số dòng mã dưới đây gói đo ở staging `93c7085` (16/11/2026); các điểm chính đã đối chiếu lại ở staging `31725a9b` (23/11/2026): 139 quy tắc HTML cũ và băm `75544da3…c5` ở `frontend/tests/legacy-url-redirects.test.mjs` L66–73; ba quy tắc tạm 307 (`/writing`, `/grammar-checkup/review`, `/signup`) ở `frontend/next.config.ts` L138–144; tập phòng thi `'/reading/exam/session', '/listening/test/session', '/mock-exam'` ở `components/exam-language-bridge.tsx` L6–8; `app/robots.ts` liệt kê `/course-exercises`, `/flashcards`, `/full-test`, `/mock`, `/my-class`… Người thực thi mỗi đợt đo lại số dòng trước khi sửa.
 
 ## Architecture impact
 
@@ -8,7 +8,7 @@ Nguồn: `GOI-07-loi-hoc-vien.md` mục 2, 5.1, 5.2, 6 (T06–T12b, T15 phần �
 - **Chuyển hướng** `frontend/next.config.ts` hàm `redirects()`: thêm quy tắc literal, nháy đơn, một dòng, ngay sau ba quy tắc tạm hiện có, có chú thích `// G07 — đổi đường dẫn học viên (LEARNERNAV-0062)`. Không đưa vào module riêng rồi spread: `configSources()` của `tooling/route-ownership-check.mjs` chỉ đọc chữ trong `next.config.ts`.
 - **URL HTML cũ**: `frontend/tooling/legacy-url-mapping.mjs` (`EXACT_REPLACEMENTS`, `replacementOwner`) để `/pages/x.html` trỏ thẳng tới đích mới; băm JSON quy tắc ở `legacy-url-redirects.test.mjs` L72 cập nhật mỗi đợt (ghi băm cũ → mới trong PR).
 - **CSP nonce**: `frontend/proxy.ts` matcher và `frontend/tooling/content-security-policy.mjs` `nonceRouteAllowed` sửa cùng lúc, cùng thứ tự chữ cái (`csp-nonce-report-only.test.mjs` đòi khớp đúng tập trang có `AuthedShell`).
-- **Robots** `frontend/app/robots.ts`: bỏ tiền tố cũ, thêm tiền tố mới; dưới `/course` chỉ thêm `'/course/'`.
+- **Robots** `frontend/app/robots.ts`: bỏ tiền tố cũ, thêm tiền tố mới; dưới `/course` chỉ thêm `'/course/'`. `/vocabulary` đang ở `allow` còn `/flashcards`, `/flashcard-study`, `/d1-exercise` đang bị chặn, nên đợt 1 thêm `'/vocabulary/flashcards'` và đợt 2 thêm `'/vocabulary/fill-in'` vào disallow.
 - **Liên kết sinh**: frontend (`lib/my-class-model.mjs`, `lib/listening-review-model.mjs`, `lib/reading-review-model.mjs`, `lib/speaking-session-result-model.mjs`, `lib/quiz-player-model.mjs`, các `*-behavior.tsx`), `public/js/practice.js` (L246, L3717, L5679 ở `93c7085`), backend `routers/class_student.py` (`grammar_lesson_path`, `grammar_path`).
 - **Phòng thi**: `components/exam-language-bridge.tsx`, `public/js/practice.js`, `public/js/mock-exam-hook.js`; không đổi logic runner.
 - **CI**: `.github/workflows/next-native-browser.yml` lọc đường dẫn theo thư mục; dời thư mục mà không sửa thì job trình duyệt lặng lẽ không chạy.
@@ -40,7 +40,7 @@ Quy ước: giữ **nhóm route** và mọi file component, chỉ dời **thư m
 | 14 | `/my-class` | `/course/assigned` | `(authed-my-class)/my-class` → `(authed-my-class)/course/assigned` | 8 | Câu hỏi mở 1; cần `/course` có thật (LEARNERCORE-0063, G07-T15) |
 | 15 | `/quiz` | chờ câu hỏi mở 2 (đề xuất `/practice/quick-check`) | `(authed-quiz-player)/quiz` | 9 | Wiki công khai link `/quiz?bank=` |
 | 16 | `/quiz/progress` | chờ câu hỏi mở 2 (đề xuất `/progress?tab=quick-check`) | `(authed-quiz-progress)/quiz/progress` | 9 | Cần `/progress` |
-| 17 | `/exam` | `/tests` | không dời thư mục; quy tắc 307 chạy trước trang | 7a | Đã quyết (00 mục 2 điểm 22) |
+| 17 | `/exam` | `/tests` | xoá `app/(authed-exam)/exam/**` cùng commit với quy tắc (trang sống + `source` trùng URL là `SHADOWED`; `exam-player.tsx` không được import ngoài thư mục đó — CR-2460-R1); dòng registry `/exam` → `redirect` | 7a | Đã quyết (00 mục 2 điểm 22). Gói ghi "không dời thư mục": sai với cổng sở hữu route, mã thắng |
 
 Không đổi: `/exercises` (đã là trang chuyển hướng), `/listening/lessons/[lessonId]`, `/reading` (thành hub ở G07-T25), `/practice/session`, `/result`, `/writing/**`, `/listening/**`, `/reading/**` còn lại, `/vocabulary/hub|sets|study|learn|practice|exam`, `/profile`. `/onboarding` → `/start` thuộc LEARNERCORE-0063 (G07-T17).
 
@@ -67,23 +67,26 @@ Không dùng `has`/`missing`; query cũ tự đi theo. Trước đợt có đíc
 | `/practice` | practice | — | nav |
 | `/speaking`, `/writing/dashboard`, `/listening`, `/reading`, `/vocabulary/hub` | practice | `/practice` | child |
 | `/vocabulary/flashcards`, `/vocabulary/flashcards/study`, `/vocabulary/fill-in` | practice | `/vocabulary/hub` | child (câu hỏi mở 5) |
+| `/exercises` (trang chuyển hướng hiện có) | course | `/course/assigned` (đổi ở đợt 8) | child |
+| `/listening/exercise-book`, `/listening/exercise-book/tests/[testId]`, `/listening/exercise-book/attempts/[attemptId]/review` | course | `/course/assigned` (đợt 8) cho trang đầu; hai trang con giữ `/listening/exercise-book` | child (giữ theo registry) |
 | `/result`, `/writing/result`, `/speaking/full-test/result`, `/listening/review`, `/reading/review`, `/listening/programmes/result/[attemptId]`, `/listening/exercise-book`, `/listening/exercise-book/attempts/[attemptId]/review` | practice | hub kỹ năng tương ứng | child (có thanh điều hướng) |
 | `/practice/session`, `/listening/test/session`, `/reading/exam/session`, `/listening/dictation/session`, `/listening/programmes/form/[testId]`, `/listening/exercise-book/tests/[testId]` | practice | hub kỹ năng | focus |
 | `/tests` | tests | — | nav |
 | `/tests/mock/session` | tests | `/tests` | focus |
 | `/tests/mock/result`, `/tests/mock/speaking-report` | tests | `/tests` | child |
 | `/grammar/**`, `/vocabulary` (wiki), `/library/**` | library | `/library` | child |
-| `/progress`, `/account`, `/profile`, `/help`, `/notifications` | account | `/account` (riêng `/account`: —) | child |
+| `/progress`, `/account`, `/profile`, `/help` | account | `/account` (riêng `/account`: —) | child |
+| `/notifications` (NOTIFY-0079 tạo) | account | `/home` | child |
 | `/start` ("Lần đầu vào", LEARNERCORE-0063) | account (không mục nào sáng) | `/home` | child |
 | mọi đường cũ ở bảng dời | — | — | redirect |
 
-Khác biệt gói ↔ mã đã ghi: (a) `/grammar-checkup` đang là `practice` trong registry; khi dời xuống `/course/` đổi sang `course` theo gói. (b) Gói ghi `/vocabulary/**` signed-in thuộc `library`; registry G03 đặt `/vocabulary/hub` và các trình luyện từ vựng ở `practice` — giữ theo registry cho tới khi anh trả lời câu hỏi mở 5. (c) `/progress`, `/help` có `parent: '/account'` trong registry; giữ (không mục nào sáng nên không ảnh hưởng FR-002).
+Khác biệt gói ↔ mã ở `31725a9b`, mỗi dòng ghi đích và đợt đổi: (a) `/grammar-checkup` đang là `practice` trong registry; khi dời xuống `/course/` đổi sang `course` theo gói. (b) Gói ghi `/vocabulary/**` signed-in thuộc `library`; registry G03 đặt `/vocabulary/hub` và các trình luyện từ vựng ở `practice` — giữ theo registry cho tới khi anh trả lời câu hỏi mở 5. (c) `/progress`, `/help` có `parent: '/account'` trong registry; giữ (không mục nào sáng nên không ảnh hưởng FR-002). (d) `/d1-exercise` registry `course`, parent `/my-class` → `/vocabulary/fill-in` `practice`, parent `/vocabulary/hub` theo gói (nút về "‹ Từ vựng"), đổi ở đợt 2. (e) `/advanced-vocabulary` registry `practice`, parent `/vocabulary/hub` → `/course/vocabulary` `course`, parent `/course/assigned` theo gói (là bài lớp giao), đổi ở đợt 3. (f) `/listening/exercise-book*` registry `course`; gói xếp vào `practice` và trang `tests/[testId]` là `focus`: **giữ theo registry** (bài lớp giao, thuộc Lộ trình); `focus` của trình làm bài để G08 quyết khi đưa trình vào `FocusShell`; đợt 8 chỉ đổi parent `/my-class` → `/course/assigned`. (g) `/notifications`: giữ parent `/home` của gói (plan bản trước ghi `/account` là nhầm). (h) `/exercises` registry parent `/my-class` → `/course/assigned` ở đợt 8. (i) Mọi dòng có `parent: '/full-test'` (`/speaking/result`, `/full-test-result`, `/mock-exam`, `/mock/result`) đổi parent sang `/tests` ở đợt 7a; `/grammar-checkup/review/[routeId]` đổi section `course`, parent `/course/grammar-checkup` ở đợt 4.
 
-Mục nav trỏ tới trang chưa có: dùng cơ chế liên kết sống (`liveHref`) đã có trong `learner-sections.ts`; ví dụ Lộ trình trỏ `/my-class` cho tới khi `/course` có thật. Ghi rõ trong PR từng đợt.
+Mục nav trỏ tới trang chưa có: `NAV_PLAN` + `liveHref` của `learner-sections.ts` (#2452) chọn trang tạm `today` khi `href` còn `planned`, guard test "A section always has a live page today" chặn trang tạm không sống. Hai trang tạm hiện có là URL spec này dời, nên: **đợt 7a** đổi dòng registry `/tests` sang `live` (owner `app/(authed-full-test)/tests/page.tsx`) cùng commit, Thi thử tự trỏ `/tests`; **đợt 8** đổi `today` của Lộ trình từ `/my-class` sang `/course/assigned` cùng commit nếu `/course` còn `planned`. Ghi rõ trong PR từng đợt.
 
 ## UI and interaction
 
-Không có giao diện mới. Mỗi đợt chỉ đổi URL và href; nhãn nút về đổi theo FR-006/FR-007 trên trang được dời. Trang kết quả đang trần (6 trang ở bảng danh mục) chỉ có thanh điều hướng khi trang đó đã vào khung mới (LEARNERCORE-0063 hoặc G08); nếu chưa thì đợt chỉ đổi URL. Phòng thi giữ nhãn tiếng Anh (FR-014).
+Giao diện mới duy nhất là lối "Sang Giáo viên" trong menu tài khoản của `LearnerShell` (T03s: `frontend/components/ui/shell/account-menu.tsx` nhận thêm quyền giáo viên bên cạnh `canSwitchToAdmin`, `learner-shell.tsx`/`learner-top-nav.tsx` truyền xuống; vai trò lấy từ `/auth/me.role` máy chủ trả, như lối Quản trị hiện có). Ngoài ra mỗi đợt chỉ đổi URL và href; nhãn nút về đổi theo FR-006/FR-007 trên trang được dời. Trang kết quả đang trần (6 trang ở bảng danh mục) chỉ có thanh điều hướng khi trang đó đã vào khung mới (LEARNERCORE-0063 hoặc G08); nếu chưa thì đợt chỉ đổi URL. Phòng thi giữ nhãn tiếng Anh (FR-014).
 
 ## Work decomposition
 
@@ -91,6 +94,7 @@ Một đợt một PR, nối tiếp theo thứ tự (gói mục 7 "Thứ tự ch
 
 | Đợt | Nhiệm vụ | Dời | Phụ thuộc |
 |---|---|---|---|
+| — | T03s | lối "Sang Giáo viên" trong `LearnerShell` (FR-003) | spec duyệt; chạy song song mọi đợt |
 | 1 | G07-T06 | #1–2 thẻ từ | spec duyệt |
 | 2 | G07-T07 | #3 điền từ | đợt 1 |
 | 3 | G07-T08 (2 PR: frontend, rồi backend `class_student.py`) | #4–6 bài lớp | đợt 2 |
