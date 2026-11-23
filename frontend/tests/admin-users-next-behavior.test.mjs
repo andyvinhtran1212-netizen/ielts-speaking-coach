@@ -340,3 +340,33 @@ describe('ADMINIA-0074 FR-055 code page and danger-zone revoke', () => {
     assert.match(CODES, /href=\{`\/admin\/activation-codes\/\$\{encodeURIComponent\(code\.id\)\}`\}/);
   });
 });
+
+describe('ADMINIA-0074 code ledger keeps the admin shell', () => {
+  // A route-group move (ADMINGROUP-0077) can leave these pages in a group
+  // whose layout was deleted: the page then renders without the admin shell.
+  function shellLayoutFor(pageDir) {
+    let dir = pageDir;
+    while (dir !== join(ROOT, 'app') && dir.startsWith(join(ROOT, 'app'))) {
+      const layout = join(dir, 'layout.tsx');
+      if (existsSync(layout)) {
+        const source = readFileSync(layout, 'utf8');
+        if (/<AuthedShell[\s\S]*chrome="admin"/.test(source)) return source;
+      }
+      dir = dirname(dir);
+    }
+    return null;
+  }
+
+  test('every activation-code page sits under an admin AuthedShell layout that loads the ledger CSS', () => {
+    const pages = [
+      join(ROOT, 'app', '(authed-admin-users)', 'admin', 'activation-codes'),
+      join(ROOT, 'app', '(authed-admin-users)', 'admin', 'activation-codes', '[codeId]'),
+    ];
+    for (const pageDir of pages) {
+      assert.ok(existsSync(join(pageDir, 'page.tsx')), `${pageDir}/page.tsx missing`);
+      const layout = shellLayoutFor(pageDir);
+      assert.ok(layout, `no admin AuthedShell layout above ${pageDir}`);
+      assert.match(layout, /'\/css\/admin-users-next\.css'/);
+    }
+  });
+});
