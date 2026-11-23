@@ -14,6 +14,31 @@
 
 export const ACTIVATION_EXEMPT_PREFIXES = Object.freeze(['/login']);
 
+// LEARNERCORE-0063 FR-091 (G07-T26): with learner_v2 on, an inactive account
+// may open these pages. Matched by path segment, never by string prefix:
+// `exact` matches only the path itself, `tree` also matches `<path>/…`.
+// `/homework` or `/accounting` never match; `/profile/…` (the v2 pilot tree)
+// is not opened.
+export const INACTIVE_OPEN_PATHS = Object.freeze([
+  Object.freeze({ path: '/home', match: 'exact' }),
+  Object.freeze({ path: '/start', match: 'tree' }),
+  Object.freeze({ path: '/account', match: 'tree' }),
+  Object.freeze({ path: '/profile', match: 'exact' }),
+  Object.freeze({ path: '/help', match: 'tree' }),
+]);
+
+function stripTrailingSlash(pathname) {
+  return pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
+}
+
+export function isInactiveOpenPath(pathname) {
+  if (typeof pathname !== 'string' || !pathname.startsWith('/')) return false;
+  const path = stripTrailingSlash(pathname);
+  return INACTIVE_OPEN_PATHS.some(({ path: open, match }) => (
+    path === open || (match === 'tree' && path.startsWith(`${open}/`))
+  ));
+}
+
 const CACHE_PREFIX = 'aver-activation-confirmed:';
 
 export function requiresActivation(pathname) {
@@ -25,17 +50,25 @@ export function requiresActivation(pathname) {
 
 /**
  * Map a /auth/check-active outcome to the gate decision.
- *   'active'   → render the page
- *   'inactive' → replace('/login') (activation dialog)
- *   'unknown'  → FAIL OPEN: a transient network/5xx/garbled reply must not
- *                lock an active learner out; the backend still 403s every
- *                learner call for a truly inactive account.
+ *   'active'        → render the page
+ *   'inactive_open' → (FR-091/FR-092) inactive, not suspended, learner_v2 on:
+ *                     the pages in INACTIVE_OPEN_PATHS render; every other
+ *                     learner page shows "Cần có khoá" in place. Needs
+ *                     `suspended === false` and `learner_v2_enabled === true`
+ *                     exactly: a missing or odd field is the old path (FR-093).
+ *   'inactive'      → replace('/login') (activation dialog, or the suspended
+ *                     message for a suspended account)
+ *   'unknown'       → FAIL OPEN: a transient network/5xx/garbled reply must not
+ *                     lock an active learner out; the backend still 403s every
+ *                     learner call for a truly inactive account.
  */
 export function activationDecision(ok, payload) {
   if (!ok || !payload || typeof payload !== 'object' || typeof payload.is_active !== 'boolean') {
     return 'unknown';
   }
-  return payload.is_active ? 'active' : 'inactive';
+  if (payload.is_active) return 'active';
+  if (payload.suspended === false && payload.learner_v2_enabled === true) return 'inactive_open';
+  return 'inactive';
 }
 
 // Activation is one-way in this product (no flow clears users.is_active), so a

@@ -237,6 +237,7 @@ test('actual AuthProvider transitions clear account hints without erasing capabi
   const transition = actualHandler('auth', 'applySession', { clearCoreOperationIntents, window: browser,
     activationGate: false, // W-03 gate is exercised in tests/react/auth-activation-gate.test.tsx
     sessionReadRef: { current: 0 }, confirmedAccountRef: { current: null }, chromeSignOutRef: { current: false },
+    inactiveOpenRef: { current: null }, setInactiveOpenAccount() {}, // FR-092 state (G07-T26)
     clearLearnerTabDraftAccount: account => clearLearnerTabDraftAccount(account, browser),
     invalidateLearnerTabDraftOwner: () => invalidateLearnerTabDraftOwner(browser),
     setUser() {}, setStatus: value => states.push(value) });

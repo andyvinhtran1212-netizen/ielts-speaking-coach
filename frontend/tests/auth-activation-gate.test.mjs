@@ -9,7 +9,9 @@ import { readFileSync } from 'node:fs';
 
 import {
   ACTIVATION_EXEMPT_PREFIXES,
+  INACTIVE_OPEN_PATHS,
   activationDecision,
+  isInactiveOpenPath,
   isRememberedActive,
   rememberActive,
   requiresActivation,
@@ -38,6 +40,32 @@ test('only a well-formed 2xx answer decides; everything else fails open', () => 
   assert.equal(activationDecision(false, { is_active: false }), 'unknown');
   assert.equal(activationDecision(true, { is_active: 'false' }), 'unknown');
   assert.equal(activationDecision(true, null), 'unknown');
+});
+
+test('LEARNERCORE-0063 FR-091/FR-093: inactive_open needs suspended=false and learner_v2_enabled=true exactly', () => {
+  assert.equal(activationDecision(true, { is_active: false, suspended: false, learner_v2_enabled: true }), 'inactive_open');
+  assert.equal(activationDecision(true, { is_active: false, suspended: true, learner_v2_enabled: true }), 'inactive');
+  assert.equal(activationDecision(true, { is_active: false, suspended: false, learner_v2_enabled: false }), 'inactive');
+  // A missing or odd field is the old path (FR-093).
+  assert.equal(activationDecision(true, { is_active: false, suspended: false }), 'inactive');
+  assert.equal(activationDecision(true, { is_active: false, learner_v2_enabled: true }), 'inactive');
+  assert.equal(activationDecision(true, { is_active: false, suspended: false, learner_v2_enabled: 'true' }), 'inactive');
+  // An active account is active whatever the flag says; a failed probe still fails open.
+  assert.equal(activationDecision(true, { is_active: true, suspended: false, learner_v2_enabled: true }), 'active');
+  assert.equal(activationDecision(false, { is_active: false, suspended: false, learner_v2_enabled: true }), 'unknown');
+});
+
+test('FR-091: open pages match by path segment, not by string prefix', () => {
+  for (const path of ['/home', '/home/', '/start', '/start/goal', '/account', '/account/orders',
+    '/profile', '/help', '/help/thanh-toan']) {
+    assert.equal(isInactiveOpenPath(path), true, path);
+  }
+  for (const path of ['/homework', '/home/v2', '/starter', '/accounting', '/profile/v2',
+    '/profiles', '/helpdesk', '/listening', '/practice', '/tests', '/course', '/my-class',
+    '/onboarding', '/admin', '/', '', undefined, 'home']) {
+    assert.equal(isInactiveOpenPath(path), false, String(path));
+  }
+  assert.deepEqual(INACTIVE_OPEN_PATHS.map((p) => p.path), ['/home', '/start', '/account', '/profile', '/help']);
 });
 
 test('per-tab confirmation is keyed by account and survives storage errors', () => {
