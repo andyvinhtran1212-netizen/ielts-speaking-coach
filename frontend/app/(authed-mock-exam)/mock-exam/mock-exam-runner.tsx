@@ -1071,6 +1071,9 @@ export function MockExamRunner() {
     // `submitting` while the flush retries; if the server then closes the
     // section without a secured flush, the outcome is `closed_unconfirmed`.
     observedSubmitRef.current.add(pendingCollectionSection);
+    // A secured flush from an earlier failed submit must not make this
+    // collection read `confirmed`: only this collection's flush counts.
+    flushSecuredRef.current.delete(pendingCollectionSection);
     if (examRoomRef.current) setSubmitTrack({ section: pendingCollectionSection, retries: 0, error: null });
     const drain = async () => {
       try {
