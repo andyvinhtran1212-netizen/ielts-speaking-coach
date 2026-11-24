@@ -7,6 +7,7 @@ export default function InstructorGradeLayout({ children }: { children: ReactNod
   return (
     <AuthedShell
       chrome="none"
+      quickSearch="instructor"
       utilityLayer={false}
       tailwindLayer={false}
       bodyClass="av-page"
