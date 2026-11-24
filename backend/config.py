@@ -380,6 +380,8 @@ class Settings(BaseSettings):
     # MAX_SESSIONS_PER_USER_PER_DAY env var is set (e.g. on Railway) it WINS
     # over this default, so update/remove that var to roll the production value.
     MAX_SESSIONS_PER_USER_PER_DAY: int = 24
+    # COURSEACCESS-0055 FR-049 (Q18 default): days a learner_login_events row is kept.
+    LOGIN_EVENTS_KEEP_DAYS: int = 90
     # G02-T04 (FR-02-003) — the Home Reading/Listening card shows a band only
     # once the learner has at least this many submitted full (40-question)
     # tests with a band_estimate; below it the card shows no band number.

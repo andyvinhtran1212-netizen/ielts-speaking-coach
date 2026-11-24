@@ -74,6 +74,7 @@ ACTIVATION_EXEMPT_ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/account/session/status"): "single-session state probe; no learner content, no paid work",
     ("POST", "/api/account/session/claim"): "single-session claim (\"Tiếp tục ở đây\"); refuses while timed work runs",
     ("POST", "/api/account/sessions/revoke-all"): "sign out of every device; keeps a session in timed work until it ends",
+    ("GET", "/api/account/login-events"): "recent sign-ins of the caller's own current session (G04-T16); no learner content",
     # ── Unauthenticated infrastructure ───────────────────────────────────
     ("GET", "/api/public-stats"): "public marketing counter, no auth",
     ("GET", "/health"): "uptime probe, no auth",

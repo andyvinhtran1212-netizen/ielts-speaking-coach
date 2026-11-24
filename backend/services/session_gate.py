@@ -47,7 +47,7 @@ from fastapi import HTTPException
 from sqlalchemy import text
 
 from database import supabase_admin
-from services import activation_gate, runtime_flags, staff_security, timed_work, token_claims
+from services import activation_gate, login_events, runtime_flags, staff_security, timed_work, token_claims
 
 logger = logging.getLogger(__name__)
 
@@ -203,15 +203,30 @@ async def _timed(user_id: str) -> Optional[timed_work.TimedWork]:
     return await asyncio.to_thread(timed_work.active_timed_work, user_id)
 
 
-async def _current_row(user_id: str, session_id: str, user_agent: Optional[str]) -> dict:
+async def _current_row(user_id: str, session_id: str, user_agent: Optional[str]) -> tuple[dict, bool]:
     """The stored row, creating it for this session when the account has none
-    (no session is deleted)."""
+    (no session is deleted); the flag says whether this call created it."""
     row = await asyncio.to_thread(_insert_first, user_id, session_id, device_label_from(user_agent))
-    if row is None:
-        row = await asyncio.to_thread(_read_row, user_id)
+    if row is not None:
+        return row, True
+    row = await asyncio.to_thread(_read_row, user_id)
     if row is None:
         raise RuntimeError("learner_active_sessions row missing after insert")
-    return row
+    return row, False
+
+
+async def _record(user_id: str, session_id: Optional[str], outcome: str, authorization: Optional[str],
+                  user_agent: Optional[str] = None, **fields: Any) -> None:
+    """One "Lần đăng nhập gần đây" event (G04-T16). Only called on flag-on,
+    learner paths; never raises and never changes the caller's answer."""
+    try:
+        if "method" not in fields:
+            fields["method"] = login_events.method_from_amr(
+                token_claims.accepted_token_claims(authorization, user_id))
+        await asyncio.to_thread(login_events.record, user_id, session_id, outcome,
+                                user_agent=user_agent, **fields)
+    except Exception as exc:  # record() never raises; this guards the thread hop
+        logger.warning("[session] login_event_failed outcome=%s user=%s: %r", outcome, user_id, exc)
 
 
 async def _lock_account(conn: Any, user_id: str) -> None:
@@ -256,7 +271,9 @@ async def ensure_current(user_id: str, authorization: Optional[str], user_agent:
         if role not in LEARNER_ROLES:
             row = None
         elif row is None:
-            row = await _current_row(user_id, session_id, user_agent)
+            row, created = await _current_row(user_id, session_id, user_agent)
+            if created:
+                await _record(user_id, session_id, "signed_in", authorization, user_agent)
     except Exception as exc:
         logger.warning("[session] gate_lookup_failed user=%s: %r", user_id, exc)
         return
@@ -327,13 +344,18 @@ async def status(user_id: str, authorization: Optional[str], user_agent: Optiona
             logger.warning("[session] status_no_session_id user=%s", user_id)
             return {**_disabled_status(), "enabled": True}
         if row is None:
-            row = await _current_row(user_id, session_id, user_agent)
+            row, created = await _current_row(user_id, session_id, user_agent)
+            if created:
+                await _record(user_id, session_id, "signed_in", authorization, user_agent)
         if str(row.get("session_id")) == session_id:
             return {**_disabled_status(), "enabled": True}
         work = await _timed(user_id)
     except Exception as exc:
         logger.warning("[session] status_failed user=%s: %r", user_id, exc)
         raise _error(503, "session_status_unavailable")
+    # Once per session and outcome (UNIQUE + ON CONFLICT DO NOTHING), however
+    # often the browser polls.
+    await _record(user_id, session_id, "claim_refused_timed" if work else "pending", authorization, user_agent)
     device_label = row.get("device_label")
     return {
         "enabled": True,
@@ -405,16 +427,28 @@ async def claim(user_id: str, authorization: Optional[str], user_agent: Optional
                     "label": device_label_from(user_agent), "prev": current,
                 })
             revoked = await staff_security.delete_other_auth_sessions(engine, user_id, session_id, conn=conn)
-    except HTTPException:
+    except HTTPException as refused:
+        if (refused.detail or {}).get("error_code") == "timed_activity_in_progress":
+            # Recorded after the transaction rolled back (the lock is free).
+            await _record(user_id, session_id, "claim_refused_timed", authorization, user_agent)
         raise
     except Exception as exc:
         logger.error("[session] claim_failed user=%s: %r", user_id, exc)
         raise _error(503, "session_claim_unavailable")
     logger.info("[session] claimed user=%s revoked=%s", user_id, revoked)
+    if current and current != session_id:
+        # The displaced device sends no more requests: its label is the one
+        # stored before the upsert, its method and kind those of its own
+        # last sign-in event. Written before "claimed", so the new device is
+        # the newest row (spec E19 order).
+        old_label = row.get("device_label") if row and str(row.get("session_id")) == current else None
+        previous = await asyncio.to_thread(login_events.last_session_fields, user_id, current)
+        await _record(user_id, current, "displaced", authorization, device_label=old_label, **previous)
+    await _record(user_id, session_id, "claimed", authorization, user_agent)
     return {"enabled": True, "state": "current", "revoked": revoked}
 
 
-async def revoke_all(user_id: str, authorization: Optional[str]) -> dict:
+async def revoke_all(user_id: str, authorization: Optional[str], user_agent: Optional[str] = None) -> dict:
     """``POST /api/account/sessions/revoke-all`` ("Đăng xuất khỏi mọi thiết bị").
     A session in timed work is kept until that work ends (FR-041)."""
     if not await flag_on():
@@ -466,6 +500,7 @@ async def revoke_all(user_id: str, authorization: Optional[str]) -> dict:
         raise _error(503, "session_revoke_unavailable")
     device_label = (_row or {}).get("device_label")
     logger.info("[session] revoke_all user=%s revoked=%s deferred=%s", user_id, revoked, deferred is not None)
+    await _record(user_id, session_id_of(authorization, user_id), "signed_out_all", authorization, user_agent)
     return {"revoked": revoked, "deferred_timed": deferred.as_dict(device_label) if deferred else None,
             "at": _now_iso()}
 
@@ -490,3 +525,30 @@ async def displaced_detail(authorization: Optional[str]) -> Optional[dict]:
     if row is None:
         return None
     return {"error_code": "session_displaced", "displaced_at": row.get("displaced_at")}
+
+
+# ── GET /api/account/login-events (G04-T16) ──────────────────────────────────
+
+async def login_events_view(user_id: str, authorization: Optional[str], limit: int = 3) -> dict:
+    """"Lần đăng nhập gần đây": only the CURRENT session may read it (a
+    stranger who just signed in on screen 8a gets 409 ``session_not_current``).
+    Flag off or a staff role → ``{"enabled": false, "items": []}``."""
+    if not await flag_on():
+        return {"enabled": False, "items": []}
+    session_id = session_id_of(authorization, user_id)
+    try:
+        role, row = await asyncio.to_thread(_load, user_id)
+    except Exception as exc:
+        logger.warning("[session] login_events_lookup_failed user=%s: %r", user_id, exc)
+        raise _error(503, "login_events_unavailable")
+    if role not in LEARNER_ROLES:
+        return {"enabled": False, "items": []}
+    if row is not None and session_id is not None and str(row.get("session_id")) != session_id:
+        raise _error(409, "session_not_current")
+    current = str(row.get("session_id")) if row else None
+    try:
+        items = await asyncio.to_thread(login_events.recent, user_id, current, limit)
+    except Exception as exc:
+        logger.warning("[session] login_events_read_failed user=%s: %r", user_id, exc)
+        raise _error(503, "login_events_unavailable")
+    return {"enabled": True, "items": items}

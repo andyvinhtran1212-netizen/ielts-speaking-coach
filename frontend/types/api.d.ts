@@ -141,6 +141,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/account/login-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Login Events
+         * @description "Lần đăng nhập gần đây" (G04-T16, FR-049): the newest event of each of
+         *     the last ``limit`` sessions. Only the current session may read it (409
+         *     ``session_not_current``); 503 ``login_events_unavailable``. No IP address
+         *     and no location are ever collected: ``approx_location`` is always null.
+         */
+        get: operations["get_login_events_api_account_login_events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/sessions": {
         parameters: {
             query?: never;
@@ -21669,6 +21692,39 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** LoginEventOut */
+        LoginEventOut: {
+            /** At */
+            at?: string | null;
+            /**
+             * Device Kind
+             * @enum {string}
+             */
+            device_kind: "desktop" | "phone" | "tablet" | "unknown";
+            /** Device Label */
+            device_label?: string | null;
+            /**
+             * Method
+             * @enum {string}
+             */
+            method: "google" | "email_code" | "unknown";
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "signed_in" | "pending" | "claimed" | "claim_refused_timed" | "displaced" | "signed_out_all";
+            /** Is Current */
+            is_current: boolean;
+            /** Approx Location */
+            approx_location?: null;
+        };
+        /** LoginEventsOut */
+        LoginEventsOut: {
+            /** Enabled */
+            enabled: boolean;
+            /** Items */
+            items: components["schemas"]["LoginEventOut"][];
+        };
         /** ManagedGrammarSessionState */
         ManagedGrammarSessionState: {
             /**
@@ -26515,6 +26571,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RevokeAllOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_login_events_api_account_login_events_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginEventsOut"];
                 };
             };
             /** @description Validation Error */

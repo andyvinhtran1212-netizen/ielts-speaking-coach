@@ -161,6 +161,19 @@ def _session_gate_defaults_off(monkeypatch):
         return False
 
     monkeypatch.setattr(session_gate, "flag_on", _off)
+    # G04-T16: a test that opts into the gate but not into login events must
+    # never reach a real database from login_events.record (which swallows
+    # the error, as it does in production).
+    try:
+        from services import login_events
+    except Exception:
+        return
+
+    class _NoLoginEventsDB:
+        def table(self, _name):
+            raise RuntimeError("login_events: no database in tests unless a test provides one")
+
+    monkeypatch.setattr(login_events, "supabase_admin", _NoLoginEventsDB())
 
 
 @pytest.fixture

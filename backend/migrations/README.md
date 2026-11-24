@@ -27,7 +27,7 @@ lands. Do **not** assume the sequence is dense. As of 2026-11-23 the highest is 
 FR-008 service_role EXECUTE on `grammar_quiz_allowed_code`, both from the reserve
 band 501+ of the commercialization register); 381 and 382 are reserved for FU-2281
 (Leader decision, 2026-11-18), and 383–389 plus 502 belong to COURSEACCESS-0055
-(383, 384, 388 and 502 present; 385, 387 and 389 reserved; 386 abandoned; Andy,
+(383, 384, 388, 389 and 502 present; 385 and 387 reserved; 386 abandoned; Andy,
 2026-11-20, `specs/0055-course-access-credits-enrollment/approval-decision.md`),
 so the next new migration is `503`. The free numbers below 501 (bands 401–499
 and 500) are assigned only by the Leader from the commercialization register;
@@ -68,6 +68,11 @@ learner start whose account changed session while it waited. Read only while
 runtime flag `single_session_learners` is on. The rollback drops the triggers,
 functions and table (no learning data) and refuses while 389
 `learner_login_events` exists.
+`389` is `pending_feature single_session` (COURSEACCESS-0055 T014 / G04-T16,
+spec label "387"): backend-only `learner_login_events`, one row per (session,
+outcome) with the derived device kind/label and sign-in method; no IP, location
+or raw User-Agent column. service_role may SELECT, INSERT and DELETE (expiry);
+apply after 388. The rollback drops the table.
 `380` is Skill Drill homework, #2294.
 `502` is `pending_feature pron_sample` (COURSEACCESS-0055 T012 / G04-T13, spec
 label "385"): three nullable `responses` columns, `pronunciation_sample_start_s`,
