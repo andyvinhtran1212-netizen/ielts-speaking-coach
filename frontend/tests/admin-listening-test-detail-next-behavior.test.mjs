@@ -159,6 +159,13 @@ test('every write is busy-guarded and reconciled from canonical GET', () => {
 });
 
 test('hard delete uses typed confirmation and exact cascade ACK', () => {
+  // LEGACYJS-0075 W1, ported from admin-progressive-loading-toggle: the danger
+  // zone renders only after a canonical read; loading and failed reads return
+  // before it, so archive/hard-delete never appear over un-loaded data.
+  const loading = CLIENT.indexOf("if (!current && !banner) return <main");
+  const failed = CLIENT.indexOf("if (!current) return <main");
+  const danger = CLIENT.indexOf('className="altd-card altd-danger"');
+  assert.ok(loading > 0 && failed > loading && danger > failed, 'danger zone must follow the loading and failed-read early returns');
   assert.match(CLIENT, /hardDeleteText !== current\.testId/);
   assert.match(CLIENT, /normalizeListeningHardDeleteAck/);
   assert.match(CLIENT, /storeListeningTestDeleteReceipt\(listeningTestDeleteReceiptKey\(profile\.id\)/);

@@ -156,6 +156,48 @@ def live_activation_gate(monkeypatch):
     return activation_gate
 
 
+# COURSEACCESS-0055 T009 — the single-session gate runs inside the activation
+# gate. Many tests stub runtime_flags.is_enabled to answer True for every key,
+# which would switch it on by accident; keep it off unless a test opts in with
+# the `live_session_gate` fixture (tests/test_session_gate.py).
+_SESSION_GATE_ORIGINALS: dict = {}
+
+
+@pytest.fixture(autouse=True)
+def _session_gate_defaults_off(monkeypatch):
+    try:
+        from services import session_gate
+    except Exception:
+        return
+    _SESSION_GATE_ORIGINALS.setdefault("flag_on", session_gate.flag_on)
+
+    async def _off():
+        return False
+
+    monkeypatch.setattr(session_gate, "flag_on", _off)
+    # G04-T16: a test that opts into the gate but not into login events must
+    # never reach a real database from login_events.record (which swallows
+    # the error, as it does in production).
+    try:
+        from services import login_events
+    except Exception:
+        return
+
+    class _NoLoginEventsDB:
+        def table(self, _name):
+            raise RuntimeError("login_events: no database in tests unless a test provides one")
+
+    monkeypatch.setattr(login_events, "supabase_admin", _NoLoginEventsDB())
+
+
+@pytest.fixture
+def live_session_gate(monkeypatch):
+    """Run the REAL single-session flag read in this test."""
+    from services import session_gate
+    monkeypatch.setattr(session_gate, "flag_on", _SESSION_GATE_ORIGINALS["flag_on"])
+    return session_gate
+
+
 @pytest.fixture(autouse=True)
 def _reset_quiz_bank_content_cache():
     """PC-J434 — the quiz player caches bank questions and word cards per

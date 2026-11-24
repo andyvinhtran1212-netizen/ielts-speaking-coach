@@ -72,3 +72,37 @@ route fails. #2393 already shipped `PATCH /admin/settings/thresholds`. The GOI d
 were changed the same way in #2423 (GOI-09/11) and #2424 (GOI-06/07/12/13).
 
 No learner data is included here.
+
+## Amendment 2 — store the Writing sample sign-off in the DB (2026-11-23)
+
+On 2026-11-23 at 17:04 Asia/Saigon (10:04:52 UTC), anh Andy wrote in the project
+chat of the Averlearning Claude Code project, verbatim:
+
+> duyệt amendment 2 spec 0061
+
+This approves amendment 2 as proposed in PR #2527 (G06-T02b) at head
+`f7ddd9f7`.
+
+What changes: `plan.md` §5.2 (three columns in the `writing_samples` table) and
+new §5.2b (migration `401_writing_sample_review_signoff.sql`, its three CHECKs
+and its rollback), `tasks.md` (new T002b), `rollout.md` (apply 401 after 400 on
+staging), `verification.md` (FR-019 evidence row names the 401 test). No
+requirement, scenario or risk changes in `spec.md`: FR-019's publish condition
+(`review.status='approved'` with `review.by/at`, `E_NOT_APPROVED`) becomes a DB
+CHECK instead of living only in the import script. Open question N1 (who signs
+the 530 `needs_review` sets) stays open.
+
+Pre-amendment sha256: `plan.md` 62743aa6af0b56897613fd8df16eb7869a73d42ebbe2aa1b63b5544df417a0d8,
+`tasks.md` 7b3a33cfaa58a5cdbf451863917f347b671e76163892bc194d0a0af501a1327d,
+`rollout.md` 22df02f33708c085c60637be4be7db918cb1cfc26a69b41e069e4066d80f1e33,
+`verification.md` 6522040785d195788adfbdccf312e259b8a3d29404d2306e75094f404ffff4ce.
+
+Not approved by this amendment, even once approved: applying 401 to any
+database (needs anh Andy's own typed approval for that window), and merging
+this PR or the #2497 / #2498 follow-ups (each needs his own "merge #N").
+
+Later edit (2026-11-23, after this approval, coordinator request): 401's forward-policy
+group moved from `public_library` to its own `public_library_signoff`, so a window that
+applies 400 (in the #2450 promotion's feature set) cannot apply 401 by accident. Only the
+apply grouping changed (`plan.md` §5.2b, `rollout.md` step 1); no column, constraint or
+requirement changed.

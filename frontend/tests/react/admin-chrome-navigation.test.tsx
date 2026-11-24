@@ -150,8 +150,8 @@ describe('ChromeNavigationBridge at the v1 / v2 boundary', () => {
 
   it.each([
     ['/admin', '/profile/v2-pilot'],
-    ['/flashcard-study', '/ui-library?tab=1'],
-    ['/profile/v2-pilot', '/flashcard-study'],
+    ['/vocabulary/flashcards/study', '/ui-library?tab=1'],
+    ['/profile/v2-pilot', '/vocabulary/flashcards/study'],
     ['/ui-library/', '/admin/users'],
   ])('leaves %s → %s to a full page load', (from, href) => {
     expect(clickChromeLink(from, href)).toBe(true);
@@ -163,4 +163,15 @@ describe('ChromeNavigationBridge at the v1 / v2 boundary', () => {
     expect(clickChromeLink('/ui-library', '/profile/v2-pilot')).toBe(false);
     expect(router.push).toHaveBeenCalledWith('/profile/v2-pilot');
   });
+});
+
+it('header "Tìm nhanh" button asks the React palette to open (G09-T19)', () => {
+  const { root } = mount();
+  const button = root.getElementById('quick-search') as HTMLButtonElement;
+  expect(button.getAttribute('aria-haspopup')).toBe('dialog');
+  const opened = vi.fn();
+  window.addEventListener('aver:quick-search-open', opened);
+  button.click();
+  window.removeEventListener('aver:quick-search-open', opened);
+  expect(opened).toHaveBeenCalledTimes(1);
 });
