@@ -45,7 +45,7 @@ const CSS_DIR = path.join(FRONTEND, 'css');
 // (Codex review: exempt the single canonical token file, not every `tokens.css`).
 const EXEMPT_PATHS = new Set([
   'aver-design/tokens.css',   // the sole --av-* token definitions (hex legitimate here)
-  'tailwind.build.css', 'tailwind.inter.css', 'tailwind.src.css',  // generated outputs (css/ root)
+  'tailwind.build.css', 'tailwind.src.css',  // generated outputs (css/ root)
 ]);
 
 const HEX = /#[0-9a-fA-F]{3,8}\b/g;

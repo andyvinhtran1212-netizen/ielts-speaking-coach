@@ -6,6 +6,10 @@ import { fileURLToPath } from 'node:url';
 
 import {
   activeAssignmentCount,
+  codeLedgerState,
+  DEFAULT_CODE_EXPIRING_DAYS,
+  expiringDaysFromThresholds,
+  grantCreditsLabel,
   normalizeCodesPayload,
   normalizeCohortsPayload,
   normalizeUsersPayload,
@@ -25,6 +29,8 @@ const PAGE = read('app', '(authed-admin-users)', 'admin', 'users', 'page.tsx');
 const SHELL = read('app', '(authed-admin-users)', 'admin', 'users', 'admin-users.tsx');
 const USERS = read('app', '(authed-admin-users)', 'admin', 'users', 'admin-users-panel.tsx');
 const CODES = read('app', '(authed-admin-users)', 'admin', 'users', 'admin-access-codes-panel.tsx');
+const LEDGER_PAGE = read('app', '(authed-admin-users)', 'admin', 'activation-codes', 'page.tsx');
+const LEDGER_SHELL = read('app', '(authed-admin-users)', 'admin', 'activation-codes', 'admin-activation-codes.tsx');
 const UI = read('app', '(authed-admin-users)', 'admin', 'users', 'admin-user-ui.tsx');
 const LAYOUT = read('app', '(authed-admin-users)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-users-next.css');
@@ -51,13 +57,17 @@ describe('/admin/users — native ownership', () => {
   });
 
   test('owns the clean access-code alias without deleting the legacy consolidation path', () => {
-    assert.match(NEXT_CONFIG, /source: '\/admin\/access-codes', destination: '\/admin\/users\?tab=codes', permanent: true/);
+    // ADMINIA-0074 FR-048: the alias now lands on the activation-code ledger,
+    // and the former codes tab URL 307s there.
+    assert.match(NEXT_CONFIG, /source: '\/admin\/access-codes', destination: '\/admin\/activation-codes', permanent: true/);
+    assert.match(NEXT_CONFIG, /source: '\/admin\/users',\s+has: \[\{ type: 'query', key: 'tab', value: 'codes' \}\],\s+destination: '\/admin\/activation-codes',\s+permanent: false,/);
     assert.ok(RETIREMENT_REDIRECTS.some((entry) => (
       entry.source === '/pages/admin/access-codes/index.html'
         && entry.destination === '/admin/users?tab=codes'
         && entry.permanent === true
     )));
-    assert.equal((OVERVIEW.match(/href="\/admin\/users/g) || []).length, 4);
+    assert.equal((OVERVIEW.match(/href="\/admin\/users/g) || []).length, 2);
+    assert.equal((OVERVIEW.match(/href="\/admin\/activation-codes"/g) || []).length, 2);
   });
 
   test('loads the native admin cascade and contains wide tables locally', () => {
@@ -75,7 +85,8 @@ describe('/admin/users — native ownership', () => {
   test('records native ownership, canonical reconciliation and rollback in the ledger', () => {
     assert.match(LEDGER, /`\/admin\/users`[^\n]+authed-admin-users[^\n]+canonical GET/);
     assert.match(LEDGER, /`\/pages\/admin\/users\/index\.html` remains rollback target/);
-    assert.match(LEDGER, /`\/admin\/access-codes`[^\n]+Temporary redirect/);
+    assert.match(LEDGER, /`\/admin\/access-codes`[^\n]+Permanent redirect to `\/admin\/activation-codes`/);
+    assert.match(LEDGER, /`\/admin\/activation-codes`[^\n]+activation-codes\/page\.tsx/);
   });
 });
 
@@ -85,6 +96,9 @@ describe('/admin/users — canonical behavior', () => {
     assert.match(API, /getBrowserJson\('\/admin\/access-codes'\)/);
     assert.match(USERS, /getAdminUsers\(\)/);
     assert.match(SHELL, /getAdminCohorts\(\{ isActive: true \}\)/);
+    assert.match(LEDGER_SHELL, /getAdminCohorts\(\{ isActive: true \}\)/);
+    assert.match(LEDGER_SHELL, /getAdminThresholds\(\)/);
+    assert.match(API, /getBrowserJson\('\/admin\/settings\/thresholds'\)/);
     assert.match(CODES, /getAdminAccessCodes\(\)/);
     assert.match(OPENAPI, /"application\/json": components\["schemas"\]\["AdminUserDirectoryRowOut"\]\[\]/);
     assert.doesNotMatch(USERS, /window\.api\.get/);
@@ -106,9 +120,13 @@ describe('/admin/users — canonical behavior', () => {
     assert.match(USERS, /const runConfirm = async \(\) => \{[\s\S]+try \{[\s\S]+await current\.run\(\);[\s\S]+catch \(caught\)[\s\S]+setBanner\(\{ kind: 'error', text: messageOf\(caught\) \}\)/);
   });
 
-  test('preserves the complete code lifecycle and canonical reload after writes', () => {
+  test('preserves the code lifecycle except creation, with canonical reload after writes', () => {
+    // ADMINIA-0074 FR-048: codes are issued from a class page only.
+    assert.doesNotMatch(CODES, /'\/admin\/access-codes\/generate'/);
+    assert.doesNotMatch(CODES, />Tạo mã mới</);
+    assert.match(CODES, /Tạo mã cho một lớp/);
+    assert.match(CODES, /`\/admin\/classes\/\$\{encodeURIComponent\(classPicker\.cohortId\)\}`/);
     for (const endpoint of [
-      "'/admin/access-codes/generate'",
       '/admin/access-codes/${encodeURIComponent(edit.code.id)}',
       '/admin/access-codes/${encodeURIComponent(code.id)}/refill',
       '/admin/access-codes/${encodeURIComponent(code.id)}/users/${encodeURIComponent(user.user_id)}',
@@ -124,16 +142,20 @@ describe('/admin/users — canonical behavior', () => {
     assert.match(USERS, /requestId !== sequence\.current/);
     assert.match(CODES, /requestId !== sequence\.current/);
     assert.match(SHELL, /requestId === cohortSequence\.current/);
-    for (const source of [SHELL, USERS, CODES, UI]) assert.doesNotMatch(source, /dangerouslySetInnerHTML|\.innerHTML/);
+    assert.match(LEDGER_SHELL, /requestId !== sequence\.current/);
+    for (const source of [SHELL, USERS, CODES, UI, LEDGER_PAGE, LEDGER_SHELL]) assert.doesNotMatch(source, /dangerouslySetInnerHTML|\.innerHTML/);
   });
 
-  test('uses accessible tabs, dialogs, sorting and failure states', () => {
-    assert.match(SHELL, /role="tablist"/);
-    assert.match(SHELL, /aria-selected=\{tab === 'users'\}/);
-    assert.match(SHELL, /aria-controls="users-panel"/);
-    assert.match(SHELL, /onKeyDown=\{moveTabFocus\}/);
-    assert.match(USERS, /id="users-panel"[^>]+role="tabpanel"[^>]+aria-labelledby="users-tab"/);
-    assert.match(CODES, /id="codes-panel"[^>]+role="tabpanel"[^>]+aria-labelledby="codes-tab"/);
+  test('uses accessible pages, dialogs, row menus, sorting and failure states', () => {
+    // ADMINIA-0074 FR-048: users and codes are separate pages, not tabs.
+    assert.doesNotMatch(SHELL, /role="tablist"|role="tab"/);
+    assert.doesNotMatch(USERS, /role="tabpanel"|aria-labelledby="users-tab"/);
+    assert.doesNotMatch(CODES, /role="tabpanel"|aria-labelledby="codes-tab"/);
+    assert.match(SHELL, /href="\/admin\/activation-codes"/);
+    assert.match(LEDGER_PAGE, /<AdminAccessGate>/);
+    assert.match(LEDGER_PAGE, /<aver-admin-chrome active="access-codes">/);
+    assert.match(UI, /aria-haspopup="menu"/);
+    assert.match(UI, /role="menuitem"/);
     assert.match(UI, /role="dialog"/);
     assert.match(UI, /aria-modal="true"/);
     assert.match(UI, /event\.key === 'Escape'/);
@@ -186,7 +208,11 @@ describe('admin users model — hostile and partial payloads', () => {
     ]);
     assert.equal(activeAssignmentCount(fallback), 0);
     assert.equal(activeAssignmentCount(assigned), 1);
-    assert.match(CODES, /disabled=\{activeAssignments > 0 \|\| code\.association_lookup_failed\}/);
+    // FR-055: revoke is the last "⋯" item and is refused while the code is in use.
+    assert.match(CODES, /label: 'Thu hồi mã',[\s\S]+disabledReason: activeAssignments > 0 \? [^:]+: code\.association_lookup_failed \?/);
+    // A legacy code with only used_by has no active assignment but is still used.
+    assert.equal(codeLedgerState(fallback).state, 'used');
+    assert.match(CODES, /: entry\?\.state === 'used' \? 'Mã đã dùng; không thu hồi từ sổ mã\.' : undefined/);
   });
 
   test('filters and sorts users and codes using the legacy semantics', () => {
@@ -210,5 +236,35 @@ describe('admin users model — hostile and partial payloads', () => {
     assert.equal(validateCodeDraft({ codeType: 'mass', cohortId: '', permissions: ['all'], sessionLimitRaw: '0' }).ok, false);
     assert.equal(validateCodeDraft({ codeType: 'mass', cohortId: '', permissions: ['all'], sessionLimitRaw: '3', countRaw: '101' }).ok, false);
     assert.deepEqual(normalizeCohortsPayload({ cohorts: [{ id: 'co1', name: '<b>Lớp</b>' }, { name: 'missing id' }] }), [{ id: 'co1', name: '<b>Lớp</b>' }]);
+  });
+
+  test('ADMINIA-0074 FR-048: ledger states, credits label and expiring threshold', () => {
+    const now = Date.parse('2026-11-23T00:00:00Z');
+    const day = 86_400_000;
+    const at = (offset) => new Date(now + offset * day).toISOString();
+    const [unused, soon, expired, used, legacyUsed, revoked, credited] = normalizeCodesPayload([
+      { id: 'a', code: 'A', expires_at: at(30) },
+      { id: 'b', code: 'B', expires_at: at(10) },
+      { id: 'c', code: 'C', expires_at: at(-1) },
+      { id: 'd', code: 'D', is_used: true, used_at: at(-3), expires_at: at(-1), assigned_users: [{ user_id: 'u1', removable: true }] },
+      { id: 'e', code: 'E', used_by: 'u2' },
+      { id: 'f', code: 'F', is_revoked: true, is_used: true },
+      { id: 'g', code: 'G', grant_credits: '1200' },
+    ]);
+    const state = (code, expiringDays) => codeLedgerState(code, { now, expiringDays });
+    assert.deepEqual(state(unused), { state: 'unused', label: 'Chưa dùng', expiringSoon: false });
+    assert.deepEqual(state(soon), { state: 'unused', label: 'Chưa dùng', expiringSoon: true });
+    assert.equal(state(soon, 7).expiringSoon, false, 'threshold comes from code_expiring_days');
+    assert.equal(state(expired).state, 'expired');
+    assert.equal(state(expired).label, 'Hết hạn nhập');
+    assert.equal(state(used).state, 'used', 'a used code is never reported as expired');
+    assert.equal(state(legacyUsed).state, 'used', 'legacy used_by owner still counts');
+    assert.equal(state(revoked).state, 'revoked');
+    assert.equal(grantCreditsLabel(unused), 'chưa có', 'missing G04 data is shown, never guessed');
+    assert.equal(grantCreditsLabel(credited), `${(1200).toLocaleString('vi-VN')} lượt`);
+    assert.equal(DEFAULT_CODE_EXPIRING_DAYS, 14);
+    assert.equal(expiringDaysFromThresholds({ items: [{ key: 'code_expiring_days', value: 21 }] }), 21);
+    assert.equal(expiringDaysFromThresholds({ items: [{ key: 'code_expiring_days', value: null }] }), 14);
+    assert.equal(expiringDaysFromThresholds(null), 14);
   });
 });

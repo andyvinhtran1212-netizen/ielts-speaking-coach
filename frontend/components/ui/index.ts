@@ -40,3 +40,8 @@ export {
   FileUpload, checkUploadFile, formatFileSize,
   type FileUploadProps, type UploadFile, type UploadFileError, type UploadFileStatus,
 } from './file-upload';
+export {
+  AudioPlayer, type AudioLoop, type AudioPlayerLang, type AudioPlayerMode, type AudioPlayerProps, type AudioPlayerState, type AudioPlayerVariant,
+} from './audio-player';
+export { formatMediaTime, formatSpeed } from './media-time';
+export { safeYoutubeEmbed, safeYoutubeWatch, VideoFrame, type VideoFrameProps, type VideoFrameState, type VideoSource } from './video-frame';
