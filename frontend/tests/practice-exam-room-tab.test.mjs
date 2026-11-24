@@ -193,7 +193,9 @@ describe('tab B presses "Nộp bài" while tab A still has an unsent take (CR #2
     };
     const run = new Function(...Object.keys(env), `
       var _examRoomMode = true, _roomWriteRight = ${writeRight ? 'true' : 'false'}, _roomConfirmed = false;
+      var _roomSignedOut = false;
       var _sheetSubmitting = false, _playerGeneration = 1, _playerActive = true, _sessionId = 's-1';
+      function _roomUnsentCount() { return 0; }
       // Tab B's own sheet: the failed re-record lives only in tab A's memory.
       var _sheet = { slots: [{ state: 'graded' }, { state: 'graded' }] };
       function _roomReadOnly() { return _examRoomMode && _roomWriteRight === false; }

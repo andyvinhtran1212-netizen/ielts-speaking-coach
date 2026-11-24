@@ -60,10 +60,9 @@ const VI = Object.freeze({
   submitAnyway: 'Vẫn nộp',
   expiredTitle: 'Phiên đăng nhập đã hết hạn',
   expiredBody: 'Hãy đăng nhập lại để gửi tiếp.',
-  expiredUnsent: 'Bản ghi chưa gửi chỉ còn trên trang này. Đăng nhập lại ở tab này sẽ làm mất bản ghi đó. Bạn có thể đăng nhập ở một tab khác, rồi quay lại đây bấm Gửi lại bản ghi.',
-  expiredStay: 'Ở lại trang này',
+  expiredUnsent: 'Bản ghi chưa gửi chỉ còn trên trang này, nên trang này giữ nguyên. Hãy đăng nhập lại ở một tab khác, rồi quay lại đây bấm Gửi lại bản ghi. Nộp bài mở lại khi bản ghi đã gửi được.',
+  expiredStay: 'Ở lại làm tiếp',
   expiredSignIn: 'Đăng nhập lại',
-  expiredSignInLose: 'Bỏ bản ghi và đăng nhập lại',
 });
 
 const EN = Object.freeze({
@@ -114,10 +113,9 @@ const EN = Object.freeze({
   submitAnyway: 'Submit anyway',
   expiredTitle: 'You have been signed out',
   expiredBody: 'Sign in again to keep sending answers.',
-  expiredUnsent: 'Unsent recordings exist only on this page. Signing in again in this tab will lose them. You can sign in in another tab, then come back here and click Send recordings again.',
-  expiredStay: 'Stay on this page',
+  expiredUnsent: 'Unsent recordings exist only on this page, so this page stays open. Sign in again in another tab, then come back here and click Send recordings again. Submit opens again once they are sent.',
+  expiredStay: 'Stay',
   expiredSignIn: 'Sign in again',
-  expiredSignInLose: 'Discard and sign in again',
 });
 
 export const SPEAKING_ROOM_STRINGS_VI = VI;

@@ -544,8 +544,10 @@
     if (!_examRoomMode) return false;
     var target = typeof href === 'string' && href ? href : _roomLeaveHref;
     _roomLeaveHref = '';
+    // Signed out over an unsent take there is no way out of this tab (FR-010).
+    var keepTake = _roomDialogKind === 'expired' && _roomUnsentCount() > 0;
     if (_roomDialogKind === 'leave' || _roomDialogKind === 'expired') _roomCloseDialog();
-    if (leave !== true) return false;
+    if (leave !== true || keepTake) return false;
     _roomLeaving = true;
     _releaseRecorderResources();
     if (target) _roomGo(target);
@@ -578,13 +580,27 @@
     _sheet.slots.forEach(function (slot, i) { if (slot.retryBlob) _sheetRetrySubmission(i); });
   }
 
-  // FR-010: a 401 keeps the recording in the page and asks how to sign in again.
+  // FR-010 (0072 amendment 1, after 0066 FR-015 amendment 2): a 401 keeps the
+  // recording in the page. With an unsent take the page holds the only copy, so
+  // the box only stays (no same-tab sign-in) and Nộp waits until a send proves
+  // the session is back; with nothing unsent it offers "Đăng nhập lại".
+  var _roomSignedOut = false;
   function _roomExpired(err) {
     if (!_examRoomMode || !err) return false;
-    if (err.status !== 401 && err.code !== 'auth_required') return false;
+    if (err.status !== 401 && err.code !== 'auth_required') {
+      // The server answered something else: the session itself is fine.
+      if (typeof err.status === 'number') _roomSignedOut = false;
+      return false;
+    }
     _roomLeaveHref = '';
-    _roomDialog('expired', _roomUnsentCount());
+    var unsent = _roomUnsentCount();
+    _roomSignedOut = unsent > 0;
+    _roomDialog('expired', unsent);
     return true;
+  }
+
+  function _roomSessionBack() {
+    _roomSignedOut = false;
   }
 
   // R149 (EXAMSPEAK-0072 "Hai tab cùng phiên", EXAMROOM-0066 FR-017): the room
@@ -5567,6 +5583,7 @@
         // mạng — nên `catch` bên dưới không bao giờ chạy). Không đọc cờ này thì
         // ô hiện "Đã lưu" mà không có điểm, không một lời giải thích nào.
         var stub = !!(g && g._stub);
+        _roomSessionBack();
         s.state = stub ? 'ungraded' : 'saved';
         s.band = (g && g.overall_band) || null;
         if (stub && g._reason === 'reconciled_pending_grading') {
@@ -5733,6 +5750,10 @@
     var unsent = _sheet && _sheet.slots
       ? _sheet.slots.filter(function (s) { return !!s.retryBlob; }).length
       : 0;
+    if (_examRoomMode && _roomSignedOut && _roomUnsentCount() > 0) {
+      _roomDialog('expired', _roomUnsentCount());
+      return;
+    }
     if (unsent && _examRoomMode && !_roomConfirmed) {
       _roomDialog('submit', unsent);
       return;
@@ -6076,6 +6097,7 @@
     _roomLeaveHref = '';
     _roomLeaving = false;
     _roomConfirmed = false;
+    _roomSignedOut = false;
     _bindPlayerEffects();
     _bindSheet();
     showState('loading');

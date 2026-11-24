@@ -326,12 +326,36 @@ describe('flag on: 401 stays in the page (FR-010)', () => {
     assert.ok(!log.some(([k]) => k === 'navigate' || k === 'assign'));
   });
 
-  test('upload auth_required with an unsent take counts it; signing in on this tab is the learner\'s choice', () => {
+  test('upload auth_required with an unsent take: the box only stays; no same-tab sign-in, the take is kept (FR-010)', () => {
     const { api, log, dialogs } = sandbox({ on: true });
     api.dirty(true);
     assert.equal(api.expired({ code: 'auth_required' }), true);
     assert.deepEqual(dialogs(), [{ kind: 'expired', unsent: 1 }]);
-    api.confirmLeave(true, '/login?next=%2Fpractice%2Fsession');
+    assert.equal(api.confirmLeave(true, '/login?next=%2Fpractice%2Fsession'), false);
+    assert.deepEqual(log, [], 'no release, no navigation');
+    assert.equal(api.hasUnsent(), true, 'the take is still in the page');
+  });
+
+  test('signed out over a failed re-record: Nộp reopens the sign-in box instead of submitting', async () => {
+    const { api, log, dialogs } = sandbox({ on: true, slots: failedRerecord });
+    assert.equal(api.expired({ status: 401 }), true);
+    await api.submit();
+    assert.deepEqual(dialogs(), [{ kind: 'expired', unsent: 1 }, { kind: 'expired', unsent: 1 }]);
+    assert.ok(!log.some(([k]) => k === 'complete' || k === 'navigate' || k === 'assign'));
+  });
+
+  test('a server answer other than 401 proves the session: Nộp asks about the unsent take again', async () => {
+    const { api, dialogs } = sandbox({ on: true, slots: failedRerecord });
+    api.expired({ status: 401 });
+    assert.equal(api.expired({ status: 500 }), false);
+    await api.submit();
+    assert.deepEqual(dialogs().map((d) => d.kind), ['expired', 'submit']);
+  });
+
+  test('with nothing unsent a 401 still offers same-tab sign-in', () => {
+    const { api, log } = sandbox({ on: true });
+    assert.equal(api.expired({ status: 401 }), true);
+    assert.equal(api.confirmLeave(true, '/login?next=%2Fpractice%2Fsession'), true);
     assert.deepEqual(log, [['release'], ['assign', '/login?next=%2Fpractice%2Fsession']]);
   });
 
