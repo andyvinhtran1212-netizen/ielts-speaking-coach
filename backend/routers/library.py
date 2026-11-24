@@ -553,12 +553,16 @@ def get_writing_sample(slug: str, request: Request):
 @router.get("/media/{shelf}/{key}/{asset}")
 @_db_guard
 def get_library_media(shelf: str, key: str, asset: str, request: Request) -> Response:
-    """Figure or audio bytes of a PUBLISHED item, read fresh on every request.
+    """Figure or audio bytes of a PUBLISHED item; `published` is read on every request.
 
-    Never cached (``no-store``) and never a redirect to Storage, so unpublishing
+    Responses are never HTTP-cached (``no-store``) and never a redirect to Storage, so unpublishing
     takes effect on the next request to the same URL. Unknown shelf/asset,
-    unpublished or missing item, and missing object are all 404.
+    unpublished or missing item, and missing object are all 404. One client
+    address is capped per minute (429) before any database or Storage read.
     """
+    limited = library_media.throttle(request)
+    if limited is not None:
+        return limited
     target = library_media.MEDIA_ASSETS.get((shelf, asset))
     if target is None:
         return library_media.not_found()
@@ -579,7 +583,7 @@ def get_library_media(shelf: str, key: str, asset: str, request: Request) -> Res
     if content_type is None:
         logger.warning("[library_media] unsupported object type path=%s", object_path)
         return library_media.not_found()
-    data = library_media.download(supabase_admin, object_path)
+    data = library_media.cached_download(supabase_admin, object_path)
     if data is None:
         return library_media.not_found()
     return library_media.build_response(data, content_type, request.headers.get("range"))
