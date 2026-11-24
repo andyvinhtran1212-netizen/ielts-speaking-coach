@@ -144,7 +144,8 @@
   width: 100%;
   margin-top: var(--av2-space-7);
 }
-.menuTheme { margin-top: var(--av2-space-9); }
+/* Doubled: theme-menu.module.css `.group { margin: 0 }` has the same weight and its chunk order is not fixed. */
+.menuTheme.menuTheme { margin-top: var(--av2-space-9); }
 
 /* ── Footer ──────────────────────────────────────────────────────────── */
 

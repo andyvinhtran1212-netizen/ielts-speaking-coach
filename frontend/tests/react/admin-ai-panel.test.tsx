@@ -13,7 +13,7 @@ const api = vi.hoisted(() => ({
 vi.mock('client-only', () => ({}));
 vi.mock('@/lib/admin-ai-api', () => api);
 
-import { AdminAiPanel, formatSaigon } from '@/app/(authed-admin-overview)/admin/admin-ai-panel';
+import { AdminAiPanel, formatSaigon } from '@/app/(authed-admin)/(overview)/admin/admin-ai-panel';
 
 function feature(name: string, overrides: Partial<AdminAiModelsWire['features'][number]> = {}) {
   return {

@@ -42,6 +42,8 @@ from services.server_timing import (
 from routers.sessions import router as sessions_router
 from routers.courses_public import router as courses_public_router
 from routers.me_access import router as me_access_router
+from routers.enrollment import router as enrollment_router
+from routers.admin_commerce import router as admin_commerce_router
 from routers.questions import router as questions_router
 from routers.grading import router as grading_router
 from routers.tts import router as tts_router
@@ -66,8 +68,10 @@ from routers.admin_settings import router as admin_settings_router
 from routers.admin_library import router as admin_library_router
 from routers.admin_learners import router as admin_learners_router
 from routers.admin_search import router as admin_search_router
+from routers.admin_attention import router as admin_attention_router
 from routers.admin_incidents import router as admin_incidents_router
 from routers.admin_learner_profile import router as admin_learner_profile_router
+from routers.admin_care_notes import router as admin_care_notes_router
 from routers.admin_overview import router as admin_overview_router
 from routers.admin_ai import router as admin_ai_router
 from routers.admin_writing import router as admin_writing_router
@@ -290,6 +294,7 @@ app.include_router(admin_core_attempt_evidence_router)
 app.include_router(admin_staff_security_router)   # ADMINAAL2-0032 T006
 app.include_router(cohorts_router)
 app.include_router(admin_courses_router)
+app.include_router(admin_commerce_router)
 app.include_router(admin_class_lessons_router)
 app.include_router(admin_class_assignments_router)
 app.include_router(grammar_lesson_router, dependencies=_ACTIVE_LEARNER)
@@ -303,8 +308,10 @@ app.include_router(admin_settings_router)
 app.include_router(admin_library_router)  # LIBRARY-0061 T020 (G06-T20)
 app.include_router(admin_learners_router)
 app.include_router(admin_search_router)
+app.include_router(admin_attention_router)
 app.include_router(admin_incidents_router)
 app.include_router(admin_learner_profile_router)
+app.include_router(admin_care_notes_router)
 app.include_router(admin_overview_router)
 app.include_router(admin_ai_router)
 app.include_router(admin_writing_router)
@@ -321,6 +328,7 @@ app.include_router(admin_students_router)
 app.include_router(writing_student_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(courses_public_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(me_access_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(enrollment_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(grammar_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(grammar_diagnostic_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(admin_grammar_diagnostic_router)
