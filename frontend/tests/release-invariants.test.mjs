@@ -102,7 +102,7 @@ test('maps legacy aliases and nested filename families to canonical Next routes'
   assert.equal(canonicalNextRouteForLegacy('/pages/reading-exam.html'), '/reading/exam/session');
   assert.equal(canonicalNextRouteForLegacy('/pages/listening-test.html'), '/listening/test/session');
   assert.equal(canonicalNextRouteForLegacy('/pages/admin/listening/content-detail.html'), '/admin/listening/content/[contentId]');
-  assert.equal(canonicalNextRouteForLegacy('/pages/admin/access-codes/index.html'), '/admin/users');
+  assert.equal(canonicalNextRouteForLegacy('/pages/admin/access-codes/index.html'), '/admin/activation-codes');
   assert.equal(canonicalNextRouteForLegacy('/pages/admin/cohorts/index.html'), '/admin/classes');
   assert.equal(canonicalNextRouteForLegacy('/pages/admin/dashboard/index.html'), '/admin');
   assert.equal(canonicalNextRouteForLegacy('/pages/vocabulary.html'), '/vocabulary/hub');

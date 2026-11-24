@@ -17,6 +17,7 @@ from services.advanced_vocab_package_validator import (
     FIRST_RELEASE_LOCKED_REVISIONS,
     authored_input_map_revision,
     generated_package_revision,
+    lesson_content_checksum,
     source_manifest_revision,
     validate_source_inputs_manifest as _validate_source_inputs_manifest,
     validate_listening_source_directory,
@@ -1959,6 +1960,9 @@ def test_sync_preflights_assets_before_replacing_lesson_snapshot(
 
     sync_module.sync(package, write=True)
     checksum = lesson["provenance"]["content_checksum"]
+    # MEDIAOUT-0078 D: the legacy rewrite table follows the manifest it wrote.
+    table = (repo / "frontend/tooling/advanced-vocab-legacy-table.mjs").read_text()
+    assert f"'{lesson_id}': '{checksum}'," in table
     assert (content / f"{lesson_id}.json").is_file()
     assert (content / "reviews/R01.json").is_file()
     core_manifest = json.loads((content / "core30-manifest.json").read_text())
@@ -2440,3 +2444,145 @@ def test_listening_source_mcq_answer_must_match_an_option(tmp_path: Path):
 
     report = validate_listening_source_directory(tmp_path)
     assert "LISTENING_SOURCE_ANSWER_INVALID" in _codes(report)
+
+
+def _legacy_restore_fixture(tmp_path: Path, monkeypatch) -> tuple[Path, dict]:
+    """Two released lessons: snapshot JSON, current version directory, core30 manifest."""
+    content = tmp_path / "content"
+    public = tmp_path / "public"
+    ids = ("ADV-T01", "ADV-T02")
+    monkeypatch.setattr(sync_module, "_EXPECTED_IDS", ids)
+    monkeypatch.setattr(sync_module, "_CONTENT", content)
+    monkeypatch.setattr(sync_module, "_PUBLIC", public)
+    sha = lambda payload: hashlib.sha256(payload).hexdigest()  # noqa: E731
+    lessons, payloads = [], {}
+    for lesson_id in ids:
+        rows = {
+            "vocab/head.mp3": f"{lesson_id}-head".encode(),
+            "vocab/example.mp3": f"{lesson_id}-example".encode(),
+            "listening/full_test.mp3": f"{lesson_id}-listening".encode(),
+        }
+        snapshot = {
+            "lesson_id": lesson_id,
+            "vocabulary": [{
+                "audio_headword": "assets/vocab-audio/head.mp3",
+                "audio_example": "assets/vocab-audio/example.mp3",
+                "audio_provenance": {
+                    "headword_checksum": sha(rows["vocab/head.mp3"]),
+                    "example_checksum": sha(rows["vocab/example.mp3"]),
+                },
+            }],
+            "media": {"audio": [{"role": "listening_full_test",
+                                 "checksum": sha(rows["listening/full_test.mp3"])}],
+                      "wt1_illustrations": []},
+            "activities": [],
+        }
+        checksum = lesson_content_checksum(snapshot)
+        (content / "versions" / lesson_id).mkdir(parents=True)
+        (content / "versions" / lesson_id / f"{checksum}.json").write_text(
+            json.dumps(snapshot), encoding="utf-8",
+        )
+        version = public / "versions" / lesson_id / checksum
+        for rel, payload in rows.items():
+            (version / rel).parent.mkdir(parents=True, exist_ok=True)
+            (version / rel).write_bytes(payload)
+            payloads[(lesson_id, rel)] = payload
+        # An older version that must never be used for the legacy tree.
+        old = public / "versions" / lesson_id / ("f" * 64) / "listening" / "full_test.mp3"
+        old.parent.mkdir(parents=True, exist_ok=True)
+        old.write_bytes(b"older version")
+        lessons.append({"lesson_id": lesson_id, "content_checksum": checksum,
+                        "asset_count": len(rows)})
+    (content / "core30-manifest.json").write_text(
+        json.dumps({"lessons": lessons}), encoding="utf-8",
+    )
+    return public, payloads
+
+
+def test_render_rewrite_table_follows_manifest_and_rejects_bad_rows():
+    table = sync_module._render_rewrite_table([
+        {"lesson_id": "ADV-T01", "content_checksum": "a" * 64},
+        {"lesson_id": "ADV-T02", "content_checksum": "b" * 64},
+    ])
+    assert "export const ADVANCED_VOCAB_LEGACY_CHECKSUMS = Object.freeze({" in table
+    assert f"  'ADV-T01': '{'a' * 64}',\n  'ADV-T02': '{'b' * 64}',\n}});" in table
+    with pytest.raises(SystemExit, match="không hợp lệ"):
+        sync_module._render_rewrite_table([
+            {"lesson_id": "ADV-T01", "content_checksum": "x"},
+        ])
+
+
+def test_restore_legacy_rebuilds_deleted_tree_from_current_version(
+        tmp_path: Path, monkeypatch):
+    public, payloads = _legacy_restore_fixture(tmp_path, monkeypatch)
+
+    dry = sync_module.restore_legacy(write=False)
+    assert dry == {"lesson_count": 2, "file_count": 6, "changed": 6}
+    assert not (public / "ADV-T01").exists()
+
+    done = sync_module.restore_legacy(write=True)
+    assert done["changed"] == 6
+    for (lesson_id, rel), payload in payloads.items():
+        assert (public / lesson_id / rel).read_bytes() == payload
+    assert sync_module.restore_legacy(write=False)["changed"] == 0
+
+    # A stale legacy byte is replaced by the current version, never the older one.
+    stale = public / "ADV-T02" / "listening" / "full_test.mp3"
+    stale.write_bytes(b"stale")
+    assert sync_module.restore_legacy(write=True)["changed"] == 1
+    assert stale.read_bytes() == payloads[("ADV-T02", "listening/full_test.mp3")]
+
+
+def test_restore_legacy_refuses_extra_files_and_incomplete_versions(
+        tmp_path: Path, monkeypatch):
+    public, _payloads = _legacy_restore_fixture(tmp_path, monkeypatch)
+    sync_module.restore_legacy(write=True)
+    extra = public / "ADV-T01" / "vocab" / "orphan.mp3"
+    extra.write_bytes(b"orphan")
+    with pytest.raises(SystemExit, match="file thừa"):
+        sync_module.restore_legacy(write=True)
+    extra.unlink()
+
+    version = next(path for path in (public / "versions" / "ADV-T02").iterdir()
+                   if path.name != "f" * 64)
+    (version / "vocab" / "head.mp3").unlink()
+    with pytest.raises(SystemExit, match=r"thiếu \['vocab/head.mp3'\], thừa \[\]"):
+        sync_module.restore_legacy(write=True)
+
+
+def test_restore_legacy_refuses_missing_plus_extra_with_same_count(
+        tmp_path: Path, monkeypatch):
+    """Andy's #2493 HOLD: one file missing and one extra keeps the count equal."""
+    public, _payloads = _legacy_restore_fixture(tmp_path, monkeypatch)
+    sync_module.restore_legacy(write=True)
+    legacy_example = public / "ADV-T01" / "vocab" / "example.mp3"
+    legacy_example.unlink()  # the legacy tree was cleaned: an old URL is gone
+    version = next(path for path in (public / "versions" / "ADV-T01").iterdir()
+                   if path.name != "f" * 64)
+    (version / "vocab" / "example.mp3").rename(version / "vocab" / "renamed.mp3")
+    assert sum(1 for path in version.rglob("*") if path.is_file()) == 3
+
+    with pytest.raises(SystemExit, match=r"thiếu \['vocab/example.mp3'\], thừa \['vocab/renamed.mp3'\]"):
+        sync_module.restore_legacy(write=False)
+    with pytest.raises(SystemExit, match="lệch inventory"):
+        sync_module.restore_legacy(write=True)
+    assert not legacy_example.exists()  # nothing written before the check
+    assert not (public / "ADV-T01" / "vocab" / "renamed.mp3").exists()
+
+
+def test_restore_legacy_refuses_wrong_bytes_and_tampered_snapshot(
+        tmp_path: Path, monkeypatch):
+    public, _payloads = _legacy_restore_fixture(tmp_path, monkeypatch)
+    version = next(path for path in (public / "versions" / "ADV-T02").iterdir()
+                   if path.name != "f" * 64)
+    (version / "listening" / "full_test.mp3").write_bytes(b"same path, other bytes")
+    with pytest.raises(SystemExit, match="SHA-256 khác inventory"):
+        sync_module.restore_legacy(write=False)
+    assert not (public / "ADV-T01").exists()
+
+    snapshot = next((tmp_path / "content" / "versions" / "ADV-T02").glob("*.json"))
+    data = json.loads(snapshot.read_text(encoding="utf-8"))
+    data["media"]["audio"][0]["checksum"] = hashlib.sha256(b"same path, other bytes").hexdigest()
+    snapshot.write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(SystemExit, match="không khớp content_checksum"):
+        sync_module.restore_legacy(write=False)

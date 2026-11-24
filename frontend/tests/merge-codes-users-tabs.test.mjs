@@ -104,21 +104,23 @@ describe('merge-codes PR-3 — single entry (redirect + nav)', () => {
   };
   const chrome = read('js', 'components', 'aver-admin-chrome.js');
 
-  test('/admin/access-codes redirects to the users page codes tab', () => {
+  test('/admin/access-codes redirects to the activation-code ledger (ADMINIA-0074 FR-048)', () => {
     const r = (vercel.redirects || []).find((x) => x.source === '/admin/access-codes');
     assert.ok(r, 'missing /admin/access-codes redirect');
-    assert.equal(r.destination, '/admin/users?tab=codes');
+    assert.equal(r.destination, '/admin/activation-codes');
     assert.equal(r.permanent, true, 'retired alias must remain canonical and cache-stable');
   });
-  test('the old access-codes page path also redirects to the codes tab', () => {
+  test('the old access-codes page path still lands on the codes tab URL, which 307s to the ledger', () => {
     const r = (vercel.redirects || []).find((x) => x.source === '/pages/admin/access-codes/index.html');
     assert.ok(r);
     assert.equal(r.destination, '/admin/users?tab=codes');
     assert.equal(r.permanent, true);
+    assert.match(NEXT_CONFIG, /source: '\/admin\/users',\s+has: \[\{ type: 'query', key: 'tab', value: 'codes' \}\],\s+destination: '\/admin\/activation-codes',\s+permanent: false,/);
   });
-  test('nav no longer carries a standalone access-codes entry', () => {
+  test('nav links the native ledger, never the retired access-codes page', () => {
     assert.doesNotMatch(chrome, /href:\s*'\/pages\/admin\/access-codes\/index\.html'/);
-    // the native users entry remains the single door into both tabs
     assert.match(chrome, /href:\s*'\/admin\/users'/);
+    // ADMINIA-0074 FR-048: codes have their own ledger page again.
+    assert.match(chrome, /section: 'access-codes', label: 'Mã kích hoạt', href: '\/admin\/activation-codes'/);
   });
 });

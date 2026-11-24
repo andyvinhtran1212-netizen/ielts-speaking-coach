@@ -283,17 +283,22 @@ def iso(value) -> Optional[str]:
 
 
 def _vietqr_payload(cfg: EnrollmentConfig, amount: int, memo: str) -> Optional[str]:
-    """EMVCo string from services.vietqr (G05-T11). Until that module lands
-    the field is null; the PR that adds it wires nothing else."""
+    """EMVCo string from services.vietqr (G05-T11, #2486). Until that module
+    lands the field is null; the PR that adds it wires nothing else.
+
+    Only ``ValueError`` (the module's answer to a bank setting or amount it
+    rejects) becomes null: the order page still shows the account and the
+    memo. Any other error, a ``TypeError`` from a changed signature above all,
+    is a contract bug and must surface instead of silently hiding the QR."""
     try:
         from services import vietqr  # type: ignore[attr-defined]
     except ImportError:
         return None
     try:
         return vietqr.build_payload(bank_bin=cfg.bank_bin, account_no=cfg.account_no,
-                                    amount_vnd=amount, memo=memo)
-    except Exception as exc:  # never break the order page over the QR
-        logger.warning("[enroll] vietqr payload failed: %s", type(exc).__name__)
+                                    amount_vnd=amount, note=memo)
+    except ValueError as exc:
+        logger.warning("[enroll] vietqr payload rejected the transfer settings: %s", exc)
         return None
 
 

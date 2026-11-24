@@ -142,8 +142,8 @@ def test_step0_no_jwt_scoped_backend_client_names_listening_tests():
     for path in jwt_clients:
         assert TABLE not in path.read_text(encoding="utf-8"), path.name
     # Every runtime module that queries the table gets a service_role client.
-    readers = [path for path in sorted((BACKEND / "routers").glob("*.py")) + sorted(
-        (BACKEND / "services").glob("*.py"))
+    readers = [path for path in sorted((BACKEND / "routers").rglob("*.py")) + sorted(
+        (BACKEND / "services").rglob("*.py"))
                if re.search(r"""\.table\(\s*["']listening_tests["']\)""", path.read_text(encoding="utf-8"))]
     assert readers
     for path in readers:
