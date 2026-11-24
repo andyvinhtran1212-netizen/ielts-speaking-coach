@@ -36,6 +36,15 @@ class _Resp:
         self.data = data
 
 
+def _get(row, column):
+    """A column, or a JSON key read as PostgREST's ``col->>key``."""
+    if "->>" in column:
+        col, key = column.split("->>", 1)
+        value = row.get(col)
+        return value.get(key) if isinstance(value, dict) else None
+    return row.get(column)
+
+
 class _Query:
     def __init__(self, db, name):
         self.db, self.name, self.filters, self._neg = db, name, [], False
@@ -63,7 +72,8 @@ class _Query:
     update = property(lambda self: self._write("update"))
     upsert = property(lambda self: self._write("upsert"))
     delete = property(lambda self: self._write("delete"))
-    def eq(self, c, v): return self._add(lambda r: str(r.get(c)) == str(v) if not isinstance(v, bool) else r.get(c) is v)
+    def eq(self, c, v): return self._add(lambda r: str(_get(r, c)) == str(v) if not isinstance(v, bool) else r.get(c) is v)
+    def neq(self, c, v): return self._add(lambda r: str(r.get(c)) != str(v))
     def in_(self, c, vs):
         if c == "class_assignment_item_id":
             self.db.evidence_queries.append(",".join(str(v) for v in vs))
@@ -71,6 +81,8 @@ class _Query:
     def is_(self, c, v): return self._add(lambda r: r.get(c) is None)
     def gte(self, c, v): return self._add(lambda r: r.get(c) is not None and str(r.get(c)) >= str(v))
     def lt(self, c, v): return self._add(lambda r: r.get(c) is not None and str(r.get(c)) < str(v))
+    def gt(self, c, v): return self._add(lambda r: r.get(c) is not None and str(r.get(c)) > str(v))
+    def lte(self, c, v): return self._add(lambda r: r.get(c) is not None and str(r.get(c)) <= str(v))
     # Only the blackeye hidden-test filter uses or_; no fixture holds such a
     # test, so it keeps every row.
     def or_(self, *_a, **_k): return self

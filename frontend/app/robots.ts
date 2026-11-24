@@ -39,7 +39,7 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: '*',
-      allow: ['/', '/grammar/', '/vocabulary'],
+      allow: ['/', '/grammar/', '/vocabulary', '/library'],
       disallow: PRIVATE_PREFIXES,
     },
     sitemap: 'https://www.averlearning.com/sitemap.xml',

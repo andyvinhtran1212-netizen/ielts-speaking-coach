@@ -231,3 +231,94 @@ class CareNotePatch(BaseModel):
         if "done" in self.model_fields_set and self.done is None:
             raise ValueError("done must be true or false")
         return self
+
+
+# ── Khoá và quyền: AI cost (FR-026; G09-T04c) ──────────────────────────────
+
+class AiCostFeature(_StrictOut):
+    # ai_usage_logs.feature; null for a call logged before features existed.
+    feature: Optional[str]
+    calls: int
+    cost_usd: float
+    unpriced_calls: int
+
+
+class LearnerAiCost(_StrictOut):
+    window_days: Literal[7, 30, 90]
+    # USD, two decimals. A call with no price adds nothing here and is
+    # counted in unpriced_calls instead.
+    total_usd: float
+    unpriced_calls: int
+    by_feature: list[AiCostFeature]
+
+
+# ── Nhật ký hệ thống (FR-027; G09-T04c) ────────────────────────────────────
+
+LogSource = Literal["access_code", "security", "class", "role", "entitlement", "credit", "order", "goal"]
+
+
+class LearnerLogItem(_StrictOut):
+    id: str
+    # UTC, e.g. 2026-11-23T04:30:00.000000Z.
+    at: str
+    actor_name: Optional[str]
+    source: LogSource
+    text: str
+
+
+class LearnerLog(_StrictOut):
+    items: list[LearnerLogItem]
+    # Pass back as ``cursor`` for the next, older page; null on the last page.
+    next_cursor: Optional[str]
+    # A source that could not be read ("actors": who did it is unknown).
+    sources_failed: list[str]
+    # Sources with no read API yet (G04): not an empty history.
+    sources_unavailable: list[LogSource]
+
+
+# ── Học tập: attempts (FR-025; G09-T04c) ───────────────────────────────────
+
+AttemptSkill = Literal["speaking", "writing", "reading", "listening", "mock"]
+AttemptState = Literal["in_progress", "submitted", "done", "failed", "abandoned", "other"]
+
+
+class LearnerAttempt(_StrictOut):
+    skill: AttemptSkill
+    # practice | full_test (Speaking), essay, test (Reading/Listening), sitting (mock).
+    kind: str
+    id: str
+    title: str
+    state: AttemptState
+    # e.g. "Band 6.5 · 30/40"; null until a result is out.
+    result_text: Optional[str]
+    submitted_at: Optional[str]
+    # The admin view that opens this attempt; null when none exists yet.
+    open_href: Optional[str]
+
+
+class RepeatedWritingError(_StrictOut):
+    # feedback_json.mistakeAnalysis[].mistakeType, as the grader names it.
+    mistake_type: str
+    count: int
+    criterion: Optional[str]
+
+
+class WeakGrammarGroup(_StrictOut):
+    # The same item as the learner's grammar dashboard weak_areas.
+    tag: str
+    label_vi: str
+    category: str
+    occurrence_count: int
+    last_seen_at: Optional[str]
+
+
+class LearnerAttempts(_StrictOut):
+    items: list[LearnerAttempt]
+    next_cursor: Optional[str]
+    # Over the newest five essays; null until there are five graded essays
+    # (or no student profile, or the read failed: then named in sources_failed).
+    writing_repeated_errors: Optional[list[RepeatedWritingError]]
+    # Over 30 days of grammar recommendations; null without an account (or
+    # when the read failed: then named in sources_failed).
+    weak_grammar_groups: Optional[list[WeakGrammarGroup]]
+    sources_failed: list[str]
