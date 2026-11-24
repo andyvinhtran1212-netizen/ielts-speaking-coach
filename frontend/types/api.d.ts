@@ -3260,6 +3260,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/library/writing-samples": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Writing Samples */
+        get: operations["list_writing_samples_admin_library_writing_samples_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/library/writing-samples/{sample_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Edit Writing Sample */
+        patch: operations["edit_writing_sample_admin_library_writing_samples__sample_id__patch"];
+        trace?: never;
+    };
+    "/admin/library/writing-samples/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish Writing Samples */
+        post: operations["publish_writing_samples_admin_library_writing_samples_publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/library/speaking-samples": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Speaking Samples */
+        get: operations["list_speaking_samples_admin_library_speaking_samples_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/library/speaking-samples/{sample_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Edit Speaking Sample */
+        patch: operations["edit_speaking_sample_admin_library_speaking_samples__sample_id__patch"];
+        trace?: never;
+    };
+    "/admin/library/speaking-samples/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish Speaking Samples */
+        post: operations["publish_speaking_samples_admin_library_speaking_samples_publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/learners": {
         parameters: {
             query?: never;
@@ -3390,6 +3492,57 @@ export interface paths {
         put?: never;
         /** Resolve Learner Goal */
         post: operations["resolve_learner_goal_admin_learners__ref__goal_resolve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/learners/{ref}/ai-cost": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Learner Ai Cost */
+        get: operations["get_learner_ai_cost_admin_learners__ref__ai_cost_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/learners/{ref}/log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Learner Log */
+        get: operations["get_learner_log_admin_learners__ref__log_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/learners/{ref}/attempts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Learner Attempts */
+        get: operations["get_learner_attempts_admin_learners__ref__attempts_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -12129,11 +12282,12 @@ export interface paths {
         };
         /**
          * Get Library Media
-         * @description Figure or audio bytes of a PUBLISHED item, read fresh on every request.
+         * @description Figure or audio bytes of a PUBLISHED item; `published` is read on every request.
          *
-         *     Never cached (``no-store``) and never a redirect to Storage, so unpublishing
+         *     Responses are never HTTP-cached (``no-store``) and never a redirect to Storage, so unpublishing
          *     takes effect on the next request to the same URL. Unknown shelf/asset,
-         *     unpublished or missing item, and missing object are all 404.
+         *     unpublished or missing item, and missing object are all 404. One client
+         *     address is capped per minute (429) before any database or Storage read.
          */
         get: operations["get_library_media_api_library_media__shelf___key___asset__get"];
         put?: never;
@@ -14765,6 +14919,17 @@ export interface components {
              */
             note: string;
         };
+        /** AiCostFeature */
+        AiCostFeature: {
+            /** Feature */
+            feature: string | null;
+            /** Calls */
+            calls: number;
+            /** Cost Usd */
+            cost_usd: number;
+            /** Unpriced Calls */
+            unpriced_calls: number;
+        };
         /** AiExistingModelOut */
         AiExistingModelOut: {
             /** Model */
@@ -15721,6 +15886,13 @@ export interface components {
             /** Activities */
             activities: components["schemas"]["BlackEyeActivityPublic"][];
         };
+        /** Blocker */
+        Blocker: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+        };
         /** Body_admin_import_drill_commit_admin_listening_drills_import_commit_post */
         Body_admin_import_drill_commit_admin_listening_drills_import_commit_post: {
             /**
@@ -16456,6 +16628,15 @@ export interface components {
             payload?: {
                 [key: string]: unknown;
             };
+        };
+        /** Counts */
+        Counts: {
+            /** All */
+            all: number;
+            /** Published */
+            published: number;
+            /** Draft */
+            draft: number;
         };
         /** CourseBankPreviewQuestion */
         CourseBankPreviewQuestion: {
@@ -17585,6 +17766,15 @@ export interface components {
             student_count: number;
             /** Duplicate Student Ids */
             duplicate_student_ids: string[];
+        };
+        /** EditResult */
+        EditResult: {
+            /** Id */
+            id: string;
+            /** Changed */
+            changed: string[];
+            /** Audit Logged */
+            audit_logged: boolean;
         };
         /** EducatorReport */
         EducatorReport: {
@@ -19130,10 +19320,62 @@ export interface components {
             /** Anchor */
             anchor?: string | null;
         };
+        /** LearnerAiCost */
+        LearnerAiCost: {
+            /**
+             * Window Days
+             * @enum {integer}
+             */
+            window_days: 7 | 30 | 90;
+            /** Total Usd */
+            total_usd: number;
+            /** Unpriced Calls */
+            unpriced_calls: number;
+            /** By Feature */
+            by_feature: components["schemas"]["AiCostFeature"][];
+        };
         /** LearnerAnswer */
         LearnerAnswer: {
             /** Answer */
             answer: string;
+        };
+        /** LearnerAttempt */
+        LearnerAttempt: {
+            /**
+             * Skill
+             * @enum {string}
+             */
+            skill: "speaking" | "writing" | "reading" | "listening" | "mock";
+            /** Kind */
+            kind: string;
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "in_progress" | "submitted" | "done" | "failed" | "abandoned" | "other";
+            /** Result Text */
+            result_text: string | null;
+            /** Submitted At */
+            submitted_at: string | null;
+            /** Open Href */
+            open_href: string | null;
+        };
+        /** LearnerAttempts */
+        LearnerAttempts: {
+            /** Items */
+            items: components["schemas"]["LearnerAttempt"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+            /** Writing Repeated Errors */
+            writing_repeated_errors: components["schemas"]["RepeatedWritingError"][] | null;
+            /** Weak Grammar Groups */
+            weak_grammar_groups: components["schemas"]["WeakGrammarGroup"][] | null;
+            /** Sources Failed */
+            sources_failed: string[];
         };
         /** LearnerCohort */
         LearnerCohort: {
@@ -19178,6 +19420,33 @@ export interface components {
              * @enum {string}
              */
             source: "admin" | "learner" | "both_equal" | "conflict" | "none";
+        };
+        /** LearnerLog */
+        LearnerLog: {
+            /** Items */
+            items: components["schemas"]["LearnerLogItem"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+            /** Sources Failed */
+            sources_failed: string[];
+            /** Sources Unavailable */
+            sources_unavailable: ("access_code" | "security" | "class" | "role" | "entitlement" | "credit" | "order" | "goal")[];
+        };
+        /** LearnerLogItem */
+        LearnerLogItem: {
+            /** Id */
+            id: string;
+            /** At */
+            at: string;
+            /** Actor Name */
+            actor_name: string | null;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "access_code" | "security" | "class" | "role" | "entitlement" | "credit" | "order" | "goal";
+            /** Text */
+            text: string;
         };
         /** LearnerNote */
         LearnerNote: {
@@ -21457,6 +21726,24 @@ export interface components {
              */
             release_now: boolean;
         };
+        /** PublishRequest */
+        PublishRequest: {
+            /** Ids */
+            ids: string[];
+            /** Published */
+            published: boolean;
+        };
+        /** PublishResult */
+        PublishResult: {
+            /** Changed */
+            changed: string[];
+            /** Unchanged */
+            unchanged: string[];
+            /** Rejected */
+            rejected: components["schemas"]["Rejected"][];
+            /** Audit Logged */
+            audit_logged: boolean;
+        };
         /** PublishedSetInfo */
         PublishedSetInfo: {
             /** Title */
@@ -22035,6 +22322,15 @@ export interface components {
             /** Reason */
             reason: string;
         };
+        /** Rejected */
+        Rejected: {
+            /** Id */
+            id: string;
+            /** Slug */
+            slug: string | null;
+            /** Reasons */
+            reasons: components["schemas"]["Blocker"][];
+        };
         /** ReleaseBody */
         ReleaseBody: {
             /**
@@ -22042,6 +22338,15 @@ export interface components {
              * @default in_app
              */
             channel: string;
+        };
+        /** RepeatedWritingError */
+        RepeatedWritingError: {
+            /** Mistake Type */
+            mistake_type: string;
+            /** Count */
+            count: number;
+            /** Criterion */
+            criterion: string | null;
         };
         /** ResponseAccepted */
         ResponseAccepted: {
@@ -22216,6 +22521,13 @@ export interface components {
              * Format: uuid
              */
             version_id: string;
+        };
+        /** SampleEdit */
+        SampleEdit: {
+            /** Title En */
+            title_en?: string | null;
+            /** Topic Slug */
+            topic_slug?: string | null;
         };
         /** ScheduleSlot */
         ScheduleSlot: {
@@ -23422,6 +23734,49 @@ export interface components {
             /** Avg Band 7D */
             avg_band_7d?: number | null;
         };
+        /** SpeakingSampleList */
+        SpeakingSampleList: {
+            /** Items */
+            items: components["schemas"]["SpeakingSampleRow"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            counts: components["schemas"]["Counts"];
+            /** Topics */
+            topics: components["schemas"]["TopicOption"][];
+        };
+        /** SpeakingSampleRow */
+        SpeakingSampleRow: {
+            /** Id */
+            id: string;
+            /** Slug */
+            slug: string;
+            /** Part */
+            part: number;
+            /** Title En */
+            title_en: string;
+            /** Title Vi */
+            title_vi: string | null;
+            /** Topic Slug */
+            topic_slug: string | null;
+            /** Video Source */
+            video_source: string | null;
+            /** Duration S */
+            duration_s: number | null;
+            /** Has Audio */
+            has_audio: boolean;
+            /** Published */
+            published: boolean;
+            /** Published At */
+            published_at: string | null;
+            /** Updated At */
+            updated_at: string | null;
+            /** Blockers */
+            blockers: components["schemas"]["Blocker"][];
+        };
         /** SpeakingSessionParams */
         SpeakingSessionParams: {
             /** Mode */
@@ -23873,6 +24228,13 @@ export interface components {
              */
             is_published: boolean;
         };
+        /** TopicOption */
+        TopicOption: {
+            /** Slug */
+            slug: string;
+            /** Label Vi */
+            label_vi: string;
+        };
         /** TopicUpdate */
         TopicUpdate: {
             /** Slug */
@@ -24196,6 +24558,19 @@ export interface components {
              */
             reason: string;
         };
+        /** WeakGrammarGroup */
+        WeakGrammarGroup: {
+            /** Tag */
+            tag: string;
+            /** Label Vi */
+            label_vi: string;
+            /** Category */
+            category: string;
+            /** Occurrence Count */
+            occurrence_count: number;
+            /** Last Seen At */
+            last_seen_at: string | null;
+        };
         /** WritingAdmissionExecute */
         WritingAdmissionExecute: {
             /**
@@ -24356,6 +24731,45 @@ export interface components {
             essays_7d: number;
             /** Feedback Pending */
             feedback_pending: number;
+        };
+        /** WritingSampleList */
+        WritingSampleList: {
+            /** Items */
+            items: components["schemas"]["WritingSampleRow"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            counts: components["schemas"]["Counts"];
+            /** Topics */
+            topics: components["schemas"]["TopicOption"][];
+        };
+        /** WritingSampleRow */
+        WritingSampleRow: {
+            /** Id */
+            id: string;
+            /** Slug */
+            slug: string;
+            /** Title En */
+            title_en: string;
+            /** Task Type */
+            task_type: string;
+            /** Question Type */
+            question_type: string | null;
+            /** Task1 Subtype */
+            task1_subtype: string | null;
+            /** Topic Slug */
+            topic_slug: string | null;
+            /** Published */
+            published: boolean;
+            /** Published At */
+            published_at: string | null;
+            /** Updated At */
+            updated_at: string | null;
+            /** Blockers */
+            blockers: components["schemas"]["Blocker"][];
         };
         /** _AnswerPatchItem */
         _AnswerPatchItem: {
@@ -30377,6 +30791,224 @@ export interface operations {
             };
         };
     };
+    list_writing_samples_admin_library_writing_samples_get: {
+        parameters: {
+            query?: {
+                status?: "all" | "published" | "draft";
+                task?: ("task2" | "task1") | null;
+                topic?: string | null;
+                q?: string | null;
+                page?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WritingSampleList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_writing_sample_admin_library_writing_samples__sample_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                sample_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SampleEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EditResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    publish_writing_samples_admin_library_writing_samples_publish_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_speaking_samples_admin_library_speaking_samples_get: {
+        parameters: {
+            query?: {
+                status?: "all" | "published" | "draft";
+                part?: number | null;
+                topic?: string | null;
+                q?: string | null;
+                page?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpeakingSampleList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_speaking_sample_admin_library_speaking_samples__sample_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                sample_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SampleEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EditResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    publish_speaking_samples_admin_library_speaking_samples_publish_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_learners_admin_learners_get: {
         parameters: {
             query?: {
@@ -30644,6 +31276,114 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GoalResolveOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_learner_ai_cost_admin_learners__ref__ai_cost_get: {
+        parameters: {
+            query?: {
+                window?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearnerAiCost"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_learner_log_admin_learners__ref__log_get: {
+        parameters: {
+            query?: {
+                kind?: ("access_code" | "security" | "class" | "role" | "entitlement" | "credit" | "order" | "goal") | null;
+                cursor?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearnerLog"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_learner_attempts_admin_learners__ref__attempts_get: {
+        parameters: {
+            query?: {
+                skill?: ("speaking" | "writing" | "reading" | "listening" | "mock") | null;
+                state?: ("in_progress" | "submitted" | "done" | "failed" | "abandoned" | "other") | null;
+                cursor?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearnerAttempts"];
                 };
             };
             /** @description Validation Error */
