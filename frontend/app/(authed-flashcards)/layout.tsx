@@ -1,4 +1,4 @@
-// Route-group của trang Flashcards (`/flashcards`).
+// Route-group của trang Flashcards (`/vocabulary/flashcards`).
 //
 // GROUP RIÊNG CHO MỖI TRANG: hai tệp CSS của `exercises` và `flashcards` định
 // nghĩa lại cùng selector với giá trị KHÁC nhau (`.spinner` khác tên animation,

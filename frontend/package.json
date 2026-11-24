@@ -8,9 +8,8 @@
     "test:react": "node node_modules/vitest/vitest.mjs run",
     "test:e2e:speaking-regression": "playwright test -c playwright.speaking-regression.config.js",
     "build:css:setup": "npm --prefix tooling/css ci",
-    "build:css": "npm run build:css:plusjakarta && npm run build:css:inter",
+    "build:css": "npm run build:css:plusjakarta",
     "build:css:plusjakarta": "./tooling/css/node_modules/.bin/tailwindcss -c ./tailwind.config.cjs -i ./css/tailwind.src.css -o ./css/tailwind.build.css --minify",
-    "build:css:inter": "./tooling/css/node_modules/.bin/tailwindcss -c ./tailwind.config.inter.cjs -i ./css/tailwind.src.css -o ./css/tailwind.inter.css --minify",
     "test:e2e:staging": "playwright test -c playwright.staging.config.js",
     "test:smoke:prod": "playwright test -c playwright.production-smoke.config.js",
     "predev": "node tooling/vendor-runtime.mjs",
@@ -18,7 +17,7 @@
     "build": "next build",
     "prebuild": "node tooling/vendor-runtime.mjs && node tooling/generate-runtime-config.mjs",
     "start": "next start",
-    "config:reset": "env -u VERCEL_ENV -u VERCEL_GIT_COMMIT_SHA -u VERCEL_GIT_COMMIT_REF -u AVER_ENVIRONMENT -u AVER_API_BASE -u AVER_SUPABASE_URL -u AVER_SUPABASE_ANON_KEY -u AVER_CORE_OPERATION_CORRELATION_ENABLED -u AVER_WRITING_ADMISSION_ENABLED -u AVER_RUNTIME_CONFIG_OUT node tooling/generate-runtime-config.mjs"
+    "config:reset": "env -u VERCEL_ENV -u VERCEL_GIT_COMMIT_SHA -u VERCEL_GIT_COMMIT_REF -u AVER_ENVIRONMENT -u AVER_API_BASE -u AVER_SUPABASE_URL -u AVER_SUPABASE_ANON_KEY -u AVER_CORE_OPERATION_CORRELATION_ENABLED -u AVER_WRITING_ADMISSION_ENABLED -u AVER_EXAM_ROOM_SURFACES -u AVER_RUNTIME_CONFIG_OUT node tooling/generate-runtime-config.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",

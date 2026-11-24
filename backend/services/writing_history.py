@@ -98,6 +98,54 @@ def _classify_trend(delta: float) -> str:
     return "stable"
 
 
+def count_recurring(rows: list[dict]) -> list[dict]:
+    """The recurring-mistake rule over current feedback rows (newest
+    ``HISTORY_WINDOW``): ``mistakeAnalysis[].mistakeType`` counted, kept when
+    it repeats at least ``RECURRENCE_FLOOR`` times, most frequent first. Also
+    read by the admin learner profile (ADMINIA-0074 FR-025)."""
+    # Counter aggregates by mistakeType across the window. We track the
+    # first-seen criterion + up to MAX_EXAMPLES_PER_TYPE distinct
+    # `original` strings per type so the prompt can show concrete shapes.
+    mistake_counter: Counter[str] = Counter()
+    examples_by_type: dict[str, list[str]] = {}
+    criterion_by_type: dict[str, str] = {}
+
+    for row in rows:
+        feedback = row.get("feedback_json") or {}
+        if not isinstance(feedback, dict):
+            continue
+        for m in feedback.get("mistakeAnalysis") or []:
+            if not isinstance(m, dict):
+                continue
+            mtype = (m.get("mistakeType") or "Unknown").strip() or "Unknown"
+            mistake_counter[mtype] += 1
+
+            original = (m.get("original") or "").strip()
+            if original:
+                bucket = examples_by_type.setdefault(mtype, [])
+                if (
+                    original not in bucket
+                    and len(bucket) < MAX_EXAMPLES_PER_TYPE
+                ):
+                    bucket.append(original)
+
+            if mtype not in criterion_by_type:
+                criterion_by_type[mtype] = (m.get("criterion") or "").strip()
+
+    recurring = [
+        {
+            "mistakeType": mtype,
+            "count":       count,
+            "examples":    examples_by_type.get(mtype, []),
+            "criterion":   criterion_by_type.get(mtype, ""),
+        }
+        for mtype, count in mistake_counter.most_common()
+        if count >= RECURRENCE_FLOOR
+    ]
+
+    return recurring
+
+
 def get_recurring_patterns(student_id: str) -> dict | None:
     """Aggregate recurring grammar/lexical errors from a student's last
     `HISTORY_WINDOW` graded essays.
@@ -153,45 +201,7 @@ def get_recurring_patterns(student_id: str) -> dict | None:
         )
         return None
 
-    # Counter aggregates by mistakeType across the window. We track the
-    # first-seen criterion + up to MAX_EXAMPLES_PER_TYPE distinct
-    # `original` strings per type so the prompt can show concrete shapes.
-    mistake_counter: Counter[str] = Counter()
-    examples_by_type: dict[str, list[str]] = {}
-    criterion_by_type: dict[str, str] = {}
-
-    for row in rows:
-        feedback = row.get("feedback_json") or {}
-        if not isinstance(feedback, dict):
-            continue
-        for m in feedback.get("mistakeAnalysis") or []:
-            if not isinstance(m, dict):
-                continue
-            mtype = (m.get("mistakeType") or "Unknown").strip() or "Unknown"
-            mistake_counter[mtype] += 1
-
-            original = (m.get("original") or "").strip()
-            if original:
-                bucket = examples_by_type.setdefault(mtype, [])
-                if (
-                    original not in bucket
-                    and len(bucket) < MAX_EXAMPLES_PER_TYPE
-                ):
-                    bucket.append(original)
-
-            if mtype not in criterion_by_type:
-                criterion_by_type[mtype] = (m.get("criterion") or "").strip()
-
-    recurring = [
-        {
-            "mistakeType": mtype,
-            "count":       count,
-            "examples":    examples_by_type.get(mtype, []),
-            "criterion":   criterion_by_type.get(mtype, ""),
-        }
-        for mtype, count in mistake_counter.most_common()
-        if count >= RECURRENCE_FLOOR
-    ]
+    recurring = count_recurring(rows)
 
     return {
         "essays_analyzed": len(rows),

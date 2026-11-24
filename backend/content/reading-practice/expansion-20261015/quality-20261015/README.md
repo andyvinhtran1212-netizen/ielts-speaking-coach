@@ -70,3 +70,10 @@ commit, PR/CI/merge, assets, delta SQL and isolated synthetic QA/cleanup.
 Production requires its own approval after staging acceptance. Save a fresh
 baseline before an approved import and refuse drift rather than overwrite it.
 The original expansion SQL must not be reapplied.
+
+## Apply SQL removed from the tree (G01-T15)
+
+The `release/*-apply.sql` files were applied on staging and production (release PR #1678) and
+are no longer kept in the tree. Recover the exact bytes with
+`git show cc6dd4c8ff7d:backend/content/reading-practice/expansion-20261015/quality-20261015/release/<env>-apply.sql` and check them against
+`release/manifest.json` (`sql_sha256`) before any use. The rollback files stay.
