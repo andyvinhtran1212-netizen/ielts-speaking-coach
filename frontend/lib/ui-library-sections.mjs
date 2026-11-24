@@ -29,4 +29,6 @@ export const UI_LIBRARY_SECTIONS = Object.freeze([
   Object.freeze({ id: 'learner-shell', title: 'Khung học viên' }),
   Object.freeze({ id: 'focus-shell', title: 'Thanh tập trung' }),
   Object.freeze({ id: 'staff-shell', title: 'Khung quản trị và giáo viên' }),
+  Object.freeze({ id: 'audio-player', title: 'Trình phát audio' }),
+  Object.freeze({ id: 'video-frame', title: 'Trình phát video' }),
 ]);
