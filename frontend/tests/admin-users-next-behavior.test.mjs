@@ -344,13 +344,18 @@ describe('ADMINIA-0074 FR-055 code page and danger-zone revoke', () => {
 describe('ADMINIA-0074 code ledger keeps the admin shell', () => {
   // A route-group move (ADMINGROUP-0077) can leave these pages in a group
   // whose layout was deleted: the page then renders without the admin shell.
-  function shellLayoutFor(pageDir) {
+  // Under `(authed-admin)` the parent layout owns AuthedShell and the child
+  // group layout adds the page sheet, so read every layout from the page up
+  // to the shell layout.
+  function layoutsUpToShell(pageDir) {
+    const sources = [];
     let dir = pageDir;
     while (dir !== join(ROOT, 'app') && dir.startsWith(join(ROOT, 'app'))) {
       const layout = join(dir, 'layout.tsx');
       if (existsSync(layout)) {
         const source = readFileSync(layout, 'utf8');
-        if (/<AuthedShell[\s\S]*chrome="admin"/.test(source)) return source;
+        sources.push(source);
+        if (/<AuthedShell[\s\S]*chrome="admin"/.test(source)) return sources.join('\n');
       }
       dir = dirname(dir);
     }
@@ -364,9 +369,9 @@ describe('ADMINIA-0074 code ledger keeps the admin shell', () => {
     ];
     for (const pageDir of pages) {
       assert.ok(existsSync(join(pageDir, 'page.tsx')), `${pageDir}/page.tsx missing`);
-      const layout = shellLayoutFor(pageDir);
-      assert.ok(layout, `no admin AuthedShell layout above ${pageDir}`);
-      assert.match(layout, /'\/css\/admin-users-next\.css'/);
+      const layouts = layoutsUpToShell(pageDir);
+      assert.ok(layouts, `no admin AuthedShell layout above ${pageDir}`);
+      assert.match(layouts, /["']\/css\/admin-users-next\.css["']/);
     }
   });
 });
