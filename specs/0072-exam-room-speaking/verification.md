@@ -13,7 +13,7 @@
 | FR-007 | kind=test; ref=frontend/tests/react/practice-exam-room.test.tsx (leave with unsent work blocks navigation, Stay keeps the page, discard navigates in code; leave without unsent work is immediate) | PENDING |
 | FR-008 | kind=journey; ref=frontend/tooling/write-flows/speaking-record-submit.mjs (first-take upload failure keeps Submit locked with no use-old option; re-record failure with a saved take opens the in-page dialog, Resend primary, old take intact; writes unchanged both branches) | PENDING |
 | FR-009 | kind=test; ref=frontend/tests/react/practice-exam-room.test.tsx (no audio in browser storage, no copy promising a kept recording after reload) | PENDING |
-| FR-010 | kind=test; ref=frontend/tests/react/practice-exam-room.test.tsx (noRedirect on upload and complete, 401 keeps the take and shows the re-login dialog) | PENDING |
+| FR-010 | kind=test; ref=frontend/tests/react/practice-exam-room.test.tsx (noRedirect on upload and complete, 401 keeps the take and the URL; with an unsent take the box offers only Stay, no same-tab login and no discard-to-sign-in; Scenario 8) | PENDING |
 | FR-011 | kind=test; ref=frontend/tests/react/practice-exam-room.test.tsx (practice and test_part Vietnamese, test_full in a sitting English, return to /mock-exam?sitting=) | PENDING |
 | FR-012 | kind=journey; ref=frontend/playwright.speaking-regression.config.js flag on, Playwright dialog count = 0 | PENDING |
 | FR-013 | kind=test; ref=frontend/tests/practice-exam-room-events.test.mjs (event names, surface=speaking, no audio or transcript in payload) | PENDING |
