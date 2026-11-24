@@ -16,6 +16,7 @@ import { routeFor } from '../lib/route-registry.mjs';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PAGE = readFileSync(path.join(HERE, '../app/(public-library)/library/page.tsx'), 'utf8');
 const LAYOUT = readFileSync(path.join(HERE, '../app/(public-library)/layout.tsx'), 'utf8');
+const FRAME = readFileSync(path.join(HERE, '../app/(public-library)/library-frame.tsx'), 'utf8');
 const PROXY = readFileSync(path.join(HERE, '../proxy.ts'), 'utf8');
 
 const FULL = {
@@ -66,16 +67,32 @@ describe('Library frame (FR-001, FR-002, FR-003)', () => {
   test('public: no auth gate in the layout and /library is not in the proxy matcher', () => {
     const code = LAYOUT.split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
     assert.doesNotMatch(code, /AuthedShell|AuthProvider|activationGate|AdminAccessGate/);
+    // The one Library entry is the sample existence check (FR-019, G06-T10):
+    // 404/308 before render, no session read; nothing else under /library.
     const matcher = PROXY.slice(PROXY.indexOf('matcher:'));
-    assert.doesNotMatch(matcher, /library/);
+    assert.doesNotMatch(matcher.replace("'/library/writing-samples/:slug',", ''), /library/);
+    const sampleBranch = PROXY.match(/async function writingSample\([\s\S]*?\n\}/)?.[0] ?? '';
+    assert.ok(sampleBranch, 'writingSample branch present');
+    assert.doesNotMatch(sampleBranch, /cookies|authorization|getSupabase|x-nonce|Content-Security-Policy/i);
     assert.equal(routeFor('/library')?.status, 'live');
     assert.equal(routeFor('/library')?.audience, 'public');
   });
 
-  test('session-aware header: the layout renders <aver-chrome> with its legacy tokens', () => {
-    assert.match(LAYOUT, /<aver-chrome \/>/);
-    assert.match(LAYOUT, /\/js\/components\/aver-chrome\.js/);
-    assert.match(LAYOUT, /\/css\/aver-design\/tokens\.css/);
+  test('page frame: PublicShell (Thư viện marked) for guests, LearnerShell when signed in, no legacy cascade', () => {
+    const code = LAYOUT.split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
+    assert.match(code, /<LibraryFrame>\{children\}<\/LibraryFrame>/);
+    const frame = FRAME.split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
+    assert.match(frame, /<PublicShell active="library">/);
+    assert.match(frame, /<LearnerShell /);
+    assert.match(frame, /from '@\/components\/ui\/shell\/public-shell'/);
+    // Library reading never needs an activated account (FR-001).
+    assert.match(frame, /<AuthProvider>/);
+    assert.doesNotMatch(frame, /activationGate/);
+    assert.doesNotMatch(code, /aver-chrome|aver-admin-chrome|\/css\/|tailwind|lucide/i);
+    // RedirectNotice is styled with legacy --av-* tokens only, which this tree does not load.
+    assert.doesNotMatch(code, /RedirectNotice/);
+    // PublicShell owns <main>; the page must not add a second one.
+    assert.doesNotMatch(PAGE, /<main\b/);
   });
 
   test('exactly one course link, after the shelves', () => {

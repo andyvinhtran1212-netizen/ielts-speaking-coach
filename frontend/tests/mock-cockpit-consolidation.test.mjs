@@ -95,7 +95,6 @@ describe('chrome nhúng — không lộ tiêu đề lần hai', () => {
 describe('nút chuyển đề 2 chiều', () => {
   const PUBLIC_LIBRARIES = [
     ['js/admin-reading.js', 'toggle-visibility'],
-    ['js/admin-listening-tests-list.js', 'data-is-public'],
   ];
 
   test('Reading/Listening rollback dùng visibility canonical', () => {

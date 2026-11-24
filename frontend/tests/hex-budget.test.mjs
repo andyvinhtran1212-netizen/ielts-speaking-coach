@@ -45,7 +45,7 @@ const CSS_DIR = path.join(FRONTEND, 'css');
 // (Codex review: exempt the single canonical token file, not every `tokens.css`).
 const EXEMPT_PATHS = new Set([
   'aver-design/tokens.css',   // the sole --av-* token definitions (hex legitimate here)
-  'tailwind.build.css', 'tailwind.inter.css', 'tailwind.src.css',  // generated outputs (css/ root)
+  'tailwind.build.css', 'tailwind.src.css',  // generated outputs (css/ root)
 ]);
 
 const HEX = /#[0-9a-fA-F]{3,8}\b/g;
@@ -70,7 +70,7 @@ function isExempt(rel) {
 
 // New UI tree roots (relative to frontend/) scanned at budget 0. Compared by full
 // relative path so no other tokens.css inherits the exemption.
-const V2_ROOTS = ['styles', 'components/ui', 'components/library'];
+const V2_ROOTS = ['styles', 'components/ui', 'components/library', 'app/(public-library)'];
 const V2_EXEMPT_PATHS = new Set(['styles/av2/tokens.css']);
 
 describe('hex-budget ratchet (A4 governance)', () => {

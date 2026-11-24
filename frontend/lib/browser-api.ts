@@ -22,13 +22,18 @@ export function getBrowserJson<Path extends ApiGetPath>(
   endpoint: Path,
   query?: URLSearchParams,
   signal?: AbortSignal,
+  /**
+   * `noRedirect`: a 401 throws (`status: 401`) instead of sending the page to
+   * /login. Only for reads on public pages, where an expired session must not
+   * move the visitor (LIBRARY-0061 FR-001).
+   */
+  { noRedirect = false }: { noRedirect?: boolean } = {},
 ): Promise<ApiGetJson<Path>> {
   const suffix = searchParamsSuffix(query);
-  return window.api.getWith<ApiGetJson<Path>>(
-    `${endpoint}${suffix}`,
-    undefined,
-    signal ? { signal } : undefined,
-  );
+  const opts = signal || noRedirect
+    ? { ...(signal ? { signal } : {}), ...(noRedirect ? { noRedirect: true } : {}) }
+    : undefined;
+  return window.api.getWith<ApiGetJson<Path>>(`${endpoint}${suffix}`, undefined, opts);
 }
 
 /**

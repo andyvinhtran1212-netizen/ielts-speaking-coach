@@ -178,7 +178,7 @@ async function LibraryBody({ searchParams }: { searchParams: SearchParams }) {
 
 export default function LibraryPage({ searchParams }: { searchParams: SearchParams }) {
   return (
-    <main className={styles.page}>
+    <div className={styles.page}>
       <header className={styles.intro}>
         <h1>Thư viện</h1>
         <p>
@@ -192,6 +192,6 @@ export default function LibraryPage({ searchParams }: { searchParams: SearchPara
       <CourseLinkLine href="/" linkLabel="Xem các khoá học">
         Đọc trong Thư viện luôn miễn phí. Muốn nộp bài Writing và Speaking để được chấm theo bốn tiêu chí, cần một khoá học:
       </CourseLinkLine>
-    </main>
+    </div>
   );
 }
