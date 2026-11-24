@@ -25,16 +25,18 @@ test('sitemap model emits stable roots and only valid, published canonical artic
       { slug: 'bad/category', articles: [{ slug: 'ignored' }] },
     ],
   });
-  assert.deepEqual(entries.slice(0, 4).map(({ url }) => url), [
+  // `/library` is live (LIBRARY-0061 FR-062); the other Library lists join when their pages ship.
+  assert.deepEqual(entries.slice(0, 5).map(({ url }) => url), [
     'https://www.averlearning.com/',
     'https://www.averlearning.com/grammar',
     'https://www.averlearning.com/grammar/exercises',
     'https://www.averlearning.com/vocabulary',
+    'https://www.averlearning.com/library',
   ]);
-  assert.equal(entries.length, 5);
-  assert.equal(entries[4].url, 'https://www.averlearning.com/grammar/tenses/present-simple');
-  assert.equal(entries[4].lastModified.toISOString(), '2026-09-01T00:00:00.000Z');
-  assert.equal(buildPublicSitemap(null).length, 4, 'backend outage keeps stable public roots');
+  assert.equal(entries.length, 6);
+  assert.equal(entries[5].url, 'https://www.averlearning.com/grammar/tenses/present-simple');
+  assert.equal(entries[5].lastModified.toISOString(), '2026-09-01T00:00:00.000Z');
+  assert.equal(buildPublicSitemap(null).length, 5, 'backend outage keeps stable public roots');
 });
 
 test('Next metadata endpoints are owned routes and private product areas stay out of discovery', () => {
