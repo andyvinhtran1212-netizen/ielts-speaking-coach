@@ -451,9 +451,37 @@ def _writing_job_id(usage_event_id: str | None) -> str | None:
     return parts[1] or None if len(parts) == 3 else None
 
 
+def _writing_feedback_service(row: dict) -> str:
+    """Ledger ``service`` for a writing_feedback row's served model.
+
+    Claude-primary Writing runs (and Deep runs whose Pass 1 Claude served) carry
+    a ``claude-*`` model_used; labelling them "gemini" misattributes spend."""
+    model = str(row.get("model_used") or "").lower()
+    if model.startswith(("claude", "anthropic")):
+        return "claude"
+    if model.startswith("gpt"):
+        return "openai"
+    return "gemini"
+
+
+def _writing_feedback_reconcilable(row: dict) -> bool:
+    """Whether a writing_feedback row can carry spend missing from the ledger.
+
+    Gemini rows keep the legacy rule. A row of any provider with job provenance
+    and a stored cost_usd is reconciled per job against ai_usage_logs, so a
+    Claude-led run whose Gemini pass ledger write failed is not dropped."""
+    if not ((row.get("tokens_input") or 0) > 0 or (row.get("tokens_output") or 0) > 0):
+        return False
+    if str(row.get("model_used") or "").startswith("gemini-"):
+        return True
+    provenance = row.get("provenance")
+    job_id = provenance.get("job_id") if isinstance(provenance, dict) else None
+    return bool(job_id) and row.get("cost_usd") is not None
+
+
 def _writing_feedback_cost(row: dict) -> float:
     cost, _ = effective_logged_cost({
-        "service": "gemini",
+        "service": _writing_feedback_service(row),
         "model": row.get("model_used"),
         "input_tokens": row.get("tokens_input"),
         "output_tokens": row.get("tokens_output"),
@@ -464,6 +492,9 @@ def _writing_feedback_cost(row: dict) -> float:
         "created_at": row.get("created_at"),
     })
     return float(cost or 0)
+
+
+_WRITING_RECONCILE_EPSILON_USD = 1e-6
 
 
 def _writing_feedback_supplemental_cost(
@@ -483,7 +514,10 @@ def _writing_feedback_supplemental_cost(
     provenance = row.get("provenance")
     job_id = provenance.get("job_id") if isinstance(provenance, dict) else None
     if job_id:
-        return max(feedback_cost - ledger_cost_by_job.get(str(job_id), 0.0), 0.0)
+        remainder = feedback_cost - ledger_cost_by_job.get(str(job_id), 0.0)
+        # feedback cost_usd is round(sum, 6); a sub-micro-dollar remainder is
+        # rounding residue, not unlogged spend, and must not create a row.
+        return remainder if remainder >= _WRITING_RECONCILE_EPSILON_USD else 0.0
     if _usage_at_or_after(row.get("created_at"), ledger_first_seen):
         return 0.0
     return feedback_cost
@@ -665,12 +699,7 @@ def _aggregate_usage_for_users(
 
             for row in _usage_paged(feedback_query):
                 essay_id = str(row.get("essay_id") or "")
-                if (
-                    not essay_id
-                    or not str(row.get("model_used") or "").startswith("gemini-")
-                    or not ((row.get("tokens_input") or 0) > 0
-                            or (row.get("tokens_output") or 0) > 0)
-                ):
+                if not essay_id or not _writing_feedback_reconcilable(row):
                     continue
                 supplemental_cost = _writing_feedback_supplemental_cost(
                     row,

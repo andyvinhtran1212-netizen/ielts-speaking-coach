@@ -20,6 +20,8 @@ from .access_codes import (  # noqa: E402
     _usage_paged,
     _usage_id_chunks,
     _writing_job_id,
+    _writing_feedback_reconcilable,
+    _writing_feedback_service,
     _writing_feedback_supplemental_cost,
 )
 
@@ -169,11 +171,7 @@ async def get_ai_usage(
         reconciled_writing_rows: list[tuple[dict, float]] = []
         for row in writing_rows:
             essay_id = str(row.get("essay_id") or "")
-            if (
-                not str(row.get("model_used") or "").startswith("gemini-")
-                or not ((row.get("tokens_input") or 0) > 0
-                        or (row.get("tokens_output") or 0) > 0)
-            ):
+            if not _writing_feedback_reconcilable(row):
                 continue
             supplemental_cost = _writing_feedback_supplemental_cost(
                 row,
@@ -216,7 +214,7 @@ async def get_ai_usage(
             job_id = provenance.get("job_id") if isinstance(provenance, dict) else None
             logs.append({
                 "user_id": student_user_map.get(student_id or ""),
-                "service": "gemini",
+                "service": _writing_feedback_service(row),
                 "model": row.get("model_used"),
                 "input_tokens": row.get("tokens_input"),
                 "output_tokens": row.get("tokens_output"),
