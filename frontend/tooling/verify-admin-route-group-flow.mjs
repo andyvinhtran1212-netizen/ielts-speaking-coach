@@ -18,8 +18,29 @@ const SHOTS = process.env.ADMIN_ROUTE_GROUP_SHOTS || '';
 const SB = process.env.SUPABASE_URL || 'https://huwsmtubwulikhlmcirx.supabase.co';
 const adminId = '00000000-0000-0000-0000-000000000077';
 const session = JSON.stringify({ access_token: 'admin-route-group-not-a-real-token', refresh_token: 'x', token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id: adminId, email: 'admin-route-group@local' } });
-const PAGES = ['/admin/error-logs', '/admin/feedback', '/admin/foot-traffic'];
-const OWN_SHEET = { '/admin/error-logs': '/css/admin-error-logs-next.css', '/admin/feedback': '/css/admin-feedback-next.css', '/admin/foot-traffic': '/css/admin-foot-traffic-next.css' };
+// Each moved page → `active` attribute of its <aver-admin-chrome> and the
+// sheets its child-group layout adds after the 4 base sheets, in order.
+const PAGE_SPEC = {
+  '/admin/error-logs': { active: 'error-logs', sheets: ['/css/admin-error-logs-next.css'] },
+  '/admin/feedback': { active: 'feedback', sheets: ['/css/admin-feedback-next.css'] },
+  '/admin/foot-traffic': { active: 'foot-traffic', sheets: ['/css/admin-foot-traffic-next.css'] },
+  '/admin/usage': { active: 'usage', sheets: ['/css/admin-usage-next.css'] },
+  '/admin': { active: 'overview', sheets: ['/css/aver-design/admin-hub.css', '/css/admin-overview.css'] },
+};
+const PAGES = Object.keys(PAGE_SPEC);
+// The 4 admin base sheets owned by (authed-admin)/layout.tsx, in order.
+const BASE_SHEETS = [
+  // snapshot() tags the surface sheet by its data-aver-admin-surface attribute.
+  '/css/aver-design/admin-surface.css [surface]',
+  '/css/aver-design/admin-components.css',
+  '/css/aver-design/admin-buttons.css',
+  '/css/aver-design/admin-status.css',
+];
+const BASE_TAIL = BASE_SHEETS.at(-1);
+const baseSheetsOnce = (sheets) => BASE_SHEETS.every((href) => sheets.filter((s) => s === href).length === 1);
+// Client-navigation screenshots of the pages moved in each wave, taken from a
+// pilot page that exists on the base build too, so base and head compare 1:1.
+const CLIENT_SHOTS = new Set(['/admin/feedback → /admin', '/admin/feedback → /admin/usage', '/admin/error-logs → /admin/feedback']);
 
 const results = [];
 const check = (name, ok, detail = '') => { results.push({ name, ok }); console.log(`  ${ok ? '✓' : '✗'} ${name}${detail ? ` — ${detail}` : ''}`); };
@@ -66,10 +87,10 @@ const snapshot = (page) => page.evaluate(() => {
 
 async function settle(page, url) {
   await page.waitForURL((u) => u.pathname === url, { timeout: 15000 });
-  await page.waitForFunction((path) => {
+  await page.waitForFunction((active) => {
     const chrome = document.querySelector('aver-admin-chrome');
-    return chrome?.getAttribute('active') === path.split('/').pop() && chrome.shadowRoot?.querySelector('.nav-item');
-  }, url, { timeout: 15000 });
+    return chrome?.getAttribute('active') === active && chrome.shadowRoot?.querySelector('.nav-item');
+  }, PAGE_SPEC[url].active, { timeout: 15000 });
   await page.waitForTimeout(300);
 }
 
@@ -94,12 +115,14 @@ try {
     await settle(page, url);
     direct[url] = await snapshot(page);
     await shot(page, `direct${url.replaceAll('/', '_')}`);
-    const own = direct[url].sheets.filter((href) => href.startsWith('/css/admin-') && href.endsWith('-next.css'));
-    check(`${url} tải trực tiếp: 4 sheet nền rồi đúng một sheet trang`, own.length === 1 && own[0] === OWN_SHEET[url]
-      && direct[url].sheets.indexOf(OWN_SHEET[url]) > direct[url].sheets.indexOf('/css/aver-design/admin-status.css'), direct[url].sheets.join(' '));
-    // `/admin/foot-traffic` has no sidebar entry of its own (it is reached from
-    // the overview), so only the two listed pages must highlight themselves.
-    if (url !== '/admin/foot-traffic') check(`${url} tải trực tiếp: sidebar chọn đúng mục`, direct[url].activeNav?.includes(url), direct[url].activeNav ?? 'no chrome');
+    const tail = direct[url].sheets.slice(direct[url].sheets.indexOf(BASE_TAIL) + 1);
+    const first = direct[url].sheets.indexOf(BASE_SHEETS[0]);
+    check(`${url} tải trực tiếp: 4 sheet nền đúng thứ tự, mỗi sheet một lần`, baseSheetsOnce(direct[url].sheets) && JSON.stringify(direct[url].sheets.slice(first, first + BASE_SHEETS.length)) === JSON.stringify(BASE_SHEETS), direct[url].sheets.join(' '));
+    check(`${url} tải trực tiếp: 4 sheet nền rồi đúng sheet của trang`, JSON.stringify(tail) === JSON.stringify(PAGE_SPEC[url].sheets), direct[url].sheets.join(' '));
+    // Some pages (foot-traffic, usage) have no sidebar entry of their own;
+    // only a page that is listed must highlight itself.
+    const listed = await page.evaluate((href) => !!document.querySelector('aver-admin-chrome')?.shadowRoot?.querySelector(`a.nav-item[href="${href}"]`), url);
+    if (listed) check(`${url} tải trực tiếp: sidebar chọn đúng mục`, direct[url].activeNav?.split(',').includes(url), direct[url].activeNav ?? 'no chrome');
   }
 
   // Client navigations inside the same parent group, every ordered pair.
@@ -122,11 +145,11 @@ try {
       // The new page's own cascade must be intact: every sheet of the direct
       // load, in the same relative order, before anything left behind.
       check(`${label}: đủ stylesheet của trang mới, đúng thứ tự`, JSON.stringify(after.sheets.slice(0, direct[to].sheets.length)) === JSON.stringify(direct[to].sheets), after.sheets.join(' '));
-      check(`${label}: không nhân đôi 4 sheet nền`, after.sheets.filter((href) => href === '/css/aver-design/admin-status.css').length === 1);
+      check(`${label}: không nhân đôi 4 sheet nền`, baseSheetsOnce(after.sheets), BASE_SHEETS.map((href) => `${href.split('/').at(-1)}×${after.sheets.filter((s) => s === href).length}`).join(' '));
       observe(`${label}: stylesheet trong DOM giống hệt tải trực tiếp (FR-005)`, JSON.stringify(after.sheets) === JSON.stringify(direct[to].sheets), after.sheets.slice(direct[to].sheets.length).join(' ') || 'không dư');
       check(`${label}: class <body> giống tải trực tiếp`, after.bodyClass === direct[to].bodyClass, after.bodyClass);
       check(`${label}: sidebar chọn giống tải trực tiếp`, after.activeNav === direct[to].activeNav, after.activeNav ?? 'no chrome');
-      if (from === '/admin/error-logs' && to === '/admin/feedback') await shot(page, 'client_error-logs_to_feedback');
+      if (CLIENT_SHOTS.has(label)) await shot(page, `client${from.replaceAll('/', '_')}_to${to.replaceAll('/', '_')}`);
     }
   }
   await context.close();
