@@ -76,6 +76,94 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/account/session/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Session Status
+         * @description State of this session: ``current``, or another device is current
+         *     (``other_device`` / ``other_device_timed``). 503 ``session_status_unavailable``.
+         */
+        get: operations["get_session_status_api_account_session_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/account/session/claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Claim Session
+         * @description "Tiếp tục ở đây": make this session current and sign the others out.
+         *     409 ``timed_activity_in_progress`` (+ ``timed_activity``) while timed work
+         *     runs; 503 ``session_claim_unavailable``. Never runs by itself at sign-in.
+         */
+        post: operations["claim_session_api_account_session_claim_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/account/sessions/revoke-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke All Sessions
+         * @description Sign out of every device. A session in timed work is kept until that
+         *     work ends (``deferred_timed``). 404 ``single_session_disabled`` while the
+         *     flag is off; 503 ``session_revoke_unavailable``.
+         */
+        post: operations["revoke_all_sessions_api_account_sessions_revoke_all_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/account/login-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Login Events
+         * @description "Lần đăng nhập gần đây" (G04-T16, FR-049): the newest event of each of
+         *     the last ``limit`` sessions. Only the current session may read it (409
+         *     ``session_not_current``); 503 ``login_events_unavailable``. No IP address
+         *     and no location are ever collected: ``approx_location`` is always null.
+         */
+        get: operations["get_login_events_api_account_login_events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/sessions": {
         parameters: {
             query?: never;
@@ -790,6 +878,27 @@ export interface paths {
          * @description Update permissions on an existing access code.
          */
         patch: operations["patch_access_code_admin_access_codes__code_id__patch"];
+        trace?: never;
+    };
+    "/admin/access-codes/{code_id}/revoke-used": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke Used Access Code
+         * @description Revoke an access code that people are using, with a typed confirmation
+         *     and a required reason (ADMINIA-0074 FR-055). Idempotent on a revoked code.
+         */
+        post: operations["revoke_used_access_code_admin_access_codes__code_id__revoke_used_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/admin/access-codes/{code_id}/users/{user_id}": {
@@ -3637,6 +3746,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/incidents/groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Groups */
+        get: operations["list_groups_admin_incidents_groups_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/incidents/groups/{source}/{fingerprint}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Group Detail */
+        get: operations["group_detail_admin_incidents_groups__source___fingerprint__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/incidents/groups/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Bulk Action */
+        post: operations["bulk_action_admin_incidents_groups_bulk_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/learners/{ref}/overview": {
         parameters: {
             query?: never;
@@ -3720,6 +3880,42 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/admin/learners/{ref}/care-notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Care Notes */
+        get: operations["list_care_notes_admin_learners__ref__care_notes_get"];
+        put?: never;
+        /** Add Care Note */
+        post: operations["add_care_note_admin_learners__ref__care_notes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/care-notes/{note_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Care Note */
+        delete: operations["delete_care_note_admin_care_notes__note_id__delete"];
+        options?: never;
+        head?: never;
+        /** Patch Care Note */
+        patch: operations["patch_care_note_admin_care_notes__note_id__patch"];
         trace?: never;
     };
     "/admin/overview": {
@@ -13946,6 +14142,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/student/today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Today
+         * @description New Today page payload (LEARNERCORE-0063 FR-019..FR-029, FR-070..FR-078).
+         *
+         *     Writes nothing of its own, not even the seen cursor (FR-078). The only write
+         *     is the class-ledger reconcile inside `_visible_assignments` (FR-078 exception,
+         *     amendment 3, #2484). Each part runs in its own worker; a failing part lands
+         *     in `degraded`.
+         */
+        get: operations["today_api_student_today_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/student/today/seen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Today Seen
+         * @description Advance the caller's "Vừa có kết quả" cursor (FR-078). Forward-only in
+         *     tuple order, idempotent; a future time or a malformed key is 422.
+         */
+        post: operations["today_seen_api_student_today_seen_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/public-stats": {
         parameters: {
             query?: never;
@@ -16694,6 +16936,56 @@ export interface components {
             /** Cards */
             cards: components["schemas"]["SharedCard"][];
         };
+        /** CareNote */
+        CareNote: {
+            /** Id */
+            id: string | null;
+            /** Author Name */
+            author_name: string | null;
+            /** Created At */
+            created_at: string | null;
+            /** Body */
+            body: string;
+            /** Next Action */
+            next_action: string | null;
+            /** Due On */
+            due_on: string | null;
+            /** Done At */
+            done_at: string | null;
+            /** Is Initial */
+            is_initial: boolean;
+            /** Editable */
+            editable: boolean;
+        };
+        /** CareNoteIn */
+        CareNoteIn: {
+            /** Body */
+            body: string;
+            /** Next Action */
+            next_action?: string | null;
+            /** Due On */
+            due_on?: string | null;
+        };
+        /** CareNoteOut */
+        CareNoteOut: {
+            note: components["schemas"]["CareNote"];
+        };
+        /** CareNotePatch */
+        CareNotePatch: {
+            /** Body */
+            body?: string | null;
+            /** Next Action */
+            next_action?: string | null;
+            /** Due On */
+            due_on?: string | null;
+            /** Done */
+            done?: boolean | null;
+        };
+        /** CareNotes */
+        CareNotes: {
+            /** Items */
+            items: components["schemas"]["CareNote"][];
+        };
         /** CatalogEntry */
         CatalogEntry: {
             /** Id */
@@ -18158,6 +18450,23 @@ export interface components {
             played_ms: number;
         };
         /**
+         * DueNote
+         * @description A care note's booked work (G09-T35): open, with a due day.
+         */
+        DueNote: {
+            /** Id */
+            id: string;
+            /**
+             * Due On
+             * Format: date
+             */
+            due_on: string;
+            /** Next Action */
+            next_action: string | null;
+            /** Body */
+            body: string;
+        };
+        /**
          * DuePatch
          * @description Đổi hạn nộp.
          *
@@ -19586,6 +19895,198 @@ export interface components {
             /** Distinct Known Releases */
             distinct_known_releases: number;
             operation_correlation?: components["schemas"]["OperationCorrelationSummary"] | null;
+        };
+        /** IncidentBulkIn */
+        IncidentBulkIn: {
+            /** Groups */
+            groups: components["schemas"]["IncidentGroupRef"][];
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "resolve" | "claim" | "ignore" | "reopen";
+            /** Note */
+            note?: string | null;
+        };
+        /** IncidentBulkOut */
+        IncidentBulkOut: {
+            /** Changed */
+            changed: number;
+            /** Conflicts */
+            conflicts: components["schemas"]["IncidentConflict"][];
+            /** Dismiss Failed */
+            dismiss_failed: string[];
+        };
+        /** IncidentConflict */
+        IncidentConflict: {
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "errors" | "grading" | "feedback";
+            /** Fingerprint */
+            fingerprint: string;
+            /** Status */
+            status: number;
+            /**
+             * Code
+             * @enum {string}
+             */
+            code: "count_changed" | "not_found" | "write_failed";
+            /** Expected Count */
+            expected_count?: number | null;
+            /** Actual Count */
+            actual_count?: number | null;
+            /** Expected Last At */
+            expected_last_at?: string | null;
+            /** Actual Last At */
+            actual_last_at?: string | null;
+        };
+        /**
+         * IncidentCounts
+         * @description Open (Mới + Đang xem) groups per source; ``None`` when the source failed.
+         */
+        IncidentCounts: {
+            /** Errors */
+            errors: number | null;
+            /** Grading */
+            grading: number | null;
+            /** Feedback */
+            feedback: number | null;
+        };
+        /** IncidentGroupDetail */
+        IncidentGroupDetail: {
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "errors" | "grading" | "feedback";
+            /** Fingerprint */
+            fingerprint: string;
+            /** Title */
+            title: string;
+            /** Area */
+            area: string;
+            /** Level */
+            level?: string | null;
+            /** Count */
+            count: number;
+            /** Learners */
+            learners: number;
+            /** First At */
+            first_at: string | null;
+            /** Last At */
+            last_at: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "new" | "in_review" | "resolved" | "ignored";
+            /** Claimed By Name */
+            claimed_by_name?: string | null;
+            /** Overdue */
+            overdue: boolean;
+            /** Description */
+            description: string;
+            /** Claimed At */
+            claimed_at?: string | null;
+            /** Resolved At */
+            resolved_at?: string | null;
+            /** Learner List */
+            learner_list: components["schemas"]["IncidentLearner"][];
+            /** Technical */
+            technical: {
+                [key: string]: unknown;
+            };
+            /** Notes */
+            notes: components["schemas"]["IncidentNote"][];
+        };
+        /** IncidentGroupItem */
+        IncidentGroupItem: {
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "errors" | "grading" | "feedback";
+            /** Fingerprint */
+            fingerprint: string;
+            /** Title */
+            title: string;
+            /** Area */
+            area: string;
+            /** Level */
+            level?: string | null;
+            /** Count */
+            count: number;
+            /** Learners */
+            learners: number;
+            /** First At */
+            first_at: string | null;
+            /** Last At */
+            last_at: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "new" | "in_review" | "resolved" | "ignored";
+            /** Claimed By Name */
+            claimed_by_name?: string | null;
+            /** Overdue */
+            overdue: boolean;
+        };
+        /** IncidentGroupRef */
+        IncidentGroupRef: {
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "errors" | "grading" | "feedback";
+            /** Fingerprint */
+            fingerprint: string;
+            /** Expected Count */
+            expected_count: number;
+            /** Expected Last At */
+            expected_last_at?: string | null;
+        };
+        /** IncidentGroupsOut */
+        IncidentGroupsOut: {
+            /** Items */
+            items: components["schemas"]["IncidentGroupItem"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            counts: components["schemas"]["IncidentCounts"];
+            /** Review Items Open */
+            review_items_open: number | null;
+            /** Sources Failed */
+            sources_failed: ("errors" | "grading" | "feedback")[];
+            /** Truncated */
+            truncated: boolean;
+            /** Sources Truncated */
+            sources_truncated: ("errors" | "grading" | "feedback")[];
+            /** Generated At */
+            generated_at: string;
+        };
+        /** IncidentLearner */
+        IncidentLearner: {
+            /** Ref */
+            ref: string;
+            /** Name */
+            name: string;
+        };
+        /** IncidentNote */
+        IncidentNote: {
+            /** Body */
+            body: string;
+            /** Auto */
+            auto: boolean;
+            /** Actor Name */
+            actor_name?: string | null;
+            /** Created At */
+            created_at?: string | null;
         };
         /** InstructorAttentionOut */
         InstructorAttentionOut: {
@@ -21297,6 +21798,39 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** LoginEventOut */
+        LoginEventOut: {
+            /** At */
+            at?: string | null;
+            /**
+             * Device Kind
+             * @enum {string}
+             */
+            device_kind: "desktop" | "phone" | "tablet" | "unknown";
+            /** Device Label */
+            device_label?: string | null;
+            /**
+             * Method
+             * @enum {string}
+             */
+            method: "google" | "email_code" | "unknown";
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "signed_in" | "pending" | "claimed" | "claim_refused_timed" | "displaced" | "signed_out_all";
+            /** Is Current */
+            is_current: boolean;
+            /** Approx Location */
+            approx_location?: null;
+        };
+        /** LoginEventsOut */
+        LoginEventsOut: {
+            /** Enabled */
+            enabled: boolean;
+            /** Items */
+            items: components["schemas"]["LoginEventOut"][];
+        };
         /** ManagedGrammarSessionState */
         ManagedGrammarSessionState: {
             /**
@@ -21612,6 +22146,15 @@ export interface components {
             /** Review Wait Median Hours */
             review_wait_median_hours?: number | null;
         };
+        /** OtherSessionOut */
+        OtherSessionOut: {
+            /** Device Label */
+            device_label?: string | null;
+            /** Since */
+            since?: string | null;
+            /** Approx Location */
+            approx_location?: null;
+        };
         /** OutcomesOut */
         OutcomesOut: {
             /** Learners */
@@ -21725,9 +22268,7 @@ export interface components {
         /** OverviewSide */
         OverviewSide: {
             /** Due Notes */
-            due_notes: {
-                [key: string]: unknown;
-            }[] | null;
+            due_notes: components["schemas"]["DueNote"][] | null;
             /** Courses */
             courses: {
                 [key: string]: unknown;
@@ -23073,6 +23614,14 @@ export interface components {
              */
             reason: "applied" | "replayed" | "conflict";
         };
+        /** RevokeAllOut */
+        RevokeAllOut: {
+            /** Revoked */
+            revoked: number;
+            deferred_timed?: components["schemas"]["TimedActivityOut"] | null;
+            /** At */
+            at: string;
+        };
         /** RevokeSessionsIn */
         RevokeSessionsIn: {
             /** Reason */
@@ -23088,6 +23637,28 @@ export interface components {
             revoke_error?: string | null;
             /** Audit Id */
             audit_id?: string | null;
+        };
+        /** RevokeUsedCodeOut */
+        RevokeUsedCodeOut: {
+            /** Id */
+            id: string;
+            /** Code */
+            code: string;
+            /** Is Revoked */
+            is_revoked: boolean;
+            /** Already Revoked */
+            already_revoked: boolean;
+            /** Affected User Count */
+            affected_user_count: number;
+            /** Audit Recorded */
+            audit_recorded: boolean;
+        };
+        /** RevokeUsedCodeRequest */
+        RevokeUsedCodeRequest: {
+            /** Confirm Code */
+            confirm_code: string;
+            /** Reason */
+            reason: string;
         };
         /** RollbackRequest */
         RollbackRequest: {
@@ -23220,6 +23791,18 @@ export interface components {
             correct?: number | null;
             /** Created At */
             created_at: string;
+        };
+        /** SessionClaimOut */
+        SessionClaimOut: {
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * State
+             * @constant
+             */
+            state: "current";
+            /** Revoked */
+            revoked: number;
         };
         /** SessionClassTask */
         SessionClassTask: {
@@ -23530,6 +24113,18 @@ export interface components {
             last_mode: string | null;
             /** Last Session At */
             last_session_at: string | null;
+        };
+        /** SessionStatusOut */
+        SessionStatusOut: {
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "current" | "other_device" | "other_device_timed";
+            other_session?: components["schemas"]["OtherSessionOut"] | null;
+            timed_activity?: components["schemas"]["TimedActivityOut"] | null;
         };
         /** SetAction */
         SetAction: {
@@ -24562,6 +25157,71 @@ export interface components {
             /** Hint */
             hint?: unknown;
         };
+        /** StudentTodayResponse */
+        StudentTodayResponse: {
+            student: components["schemas"]["TodayStudent"];
+            /** Next Lesson */
+            next_lesson?: {
+                [key: string]: unknown;
+            } | null;
+            /** Assigned */
+            assigned?: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Assigned Total Open
+             * @default 0
+             */
+            assigned_total_open: number;
+            /**
+             * Assigned Due Soon
+             * @default 0
+             */
+            assigned_due_soon: number;
+            /**
+             * Assigned Due Later
+             * @default 0
+             */
+            assigned_due_later: number;
+            /** Resume */
+            resume?: components["schemas"]["TodayResumeItem"][];
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "learning" | "first_day" | "order_pending" | "no_course";
+            /** Banner */
+            banner?: ("expiring" | "expired" | "out_of_credits") | null;
+            /** Access */
+            access?: {
+                [key: string]: unknown;
+            }[];
+            /** Credits */
+            credits?: {
+                [key: string]: unknown;
+            } | null;
+            /** Orders Open */
+            orders_open?: {
+                [key: string]: unknown;
+            }[];
+            goal?: components["schemas"]["TodayGoal"] | null;
+            /** New Results */
+            new_results?: components["schemas"]["TodayNewResult"][];
+            new_results_cursor?: components["schemas"]["TodaySeenCursor"] | null;
+            repeat_error?: components["schemas"]["TodayRepeatError"] | null;
+            /** Trial Today Left */
+            trial_today_left?: number | null;
+            /** Open Surveys */
+            open_surveys?: {
+                [key: string]: unknown;
+            }[];
+            /** Mock Exams */
+            mock_exams?: {
+                [key: string]: unknown;
+            }[];
+            /** Degraded */
+            degraded?: string[];
+        };
         /** StudyAnswer */
         StudyAnswer: {
             /**
@@ -24737,6 +25397,15 @@ export interface components {
             /** Reason */
             reason: string;
         };
+        /** TimedActivityOut */
+        TimedActivityOut: {
+            /** Title */
+            title: string;
+            /** Device Label */
+            device_label?: string | null;
+            /** Minutes Left */
+            minutes_left: number;
+        };
         /** TipCreate */
         TipCreate: {
             /** Title */
@@ -24781,6 +25450,84 @@ export interface components {
             published?: boolean | null;
             /** Display Order */
             display_order?: number | null;
+        };
+        /** TodayGoal */
+        TodayGoal: {
+            /** Target Band */
+            target_band: number;
+            /** Exam Date */
+            exam_date?: string | null;
+            /** Weeks Left */
+            weeks_left?: number | null;
+        };
+        /** TodayNewResult */
+        TodayNewResult: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "writing" | "speaking";
+            /** Title */
+            title: string;
+            /** Returned At */
+            returned_at: string;
+            /** Key */
+            key: string;
+            /** Href */
+            href: string;
+        };
+        /** TodayRepeatError */
+        TodayRepeatError: {
+            /** Label */
+            label: string;
+            /** Count */
+            count: number;
+            /** Of */
+            of: number;
+            /** Review Href */
+            review_href?: string | null;
+            /** Total Errors */
+            total_errors: number;
+        };
+        /** TodayResumeItem */
+        TodayResumeItem: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "speaking" | "reading" | "listening" | "dictation";
+            /** Title */
+            title: string;
+            /** Progress */
+            progress?: {
+                [key: string]: number;
+            } | null;
+            /** Href */
+            href: string;
+            /** Expires At */
+            expires_at?: string | null;
+        };
+        /** TodaySeenCursor */
+        TodaySeenCursor: {
+            /** Seen Until */
+            seen_until: string;
+            /** Seen Key */
+            seen_key: string;
+        };
+        /** TodaySeenRequest */
+        TodaySeenRequest: {
+            /**
+             * Seen Until
+             * Format: date-time
+             */
+            seen_until: string;
+            /** Seen Key */
+            seen_key: string;
+        };
+        /** TodayStudent */
+        TodayStudent: {
+            /** Name */
+            name: string;
         };
         /** TopicCreate */
         TopicCreate: {
@@ -26015,6 +26762,132 @@ export interface operations {
             };
         };
     };
+    get_session_status_api_account_session_status_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionStatusOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    claim_session_api_account_session_claim_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionClaimOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_all_sessions_api_account_sessions_revoke_all_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RevokeAllOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_login_events_api_account_login_events_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginEventsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_sessions_sessions_get: {
         parameters: {
             query?: {
@@ -27150,6 +28023,52 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_used_access_code_admin_access_codes__code_id__revoke_used_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                code_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RevokeUsedCodeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RevokeUsedCodeOut"];
+                };
+            };
+            /** @description Not an active admin, `mfa_required` (FR-012), or `step_up_required` under ADMIN_STEP_UP_ENFORCE (FR-020; `reason: new_factor_cooloff` for a factor under 24 hours old) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffForbiddenResponse"];
                 };
             };
             /** @description Validation Error */
@@ -32205,6 +33124,111 @@ export interface operations {
             };
         };
     };
+    list_groups_admin_incidents_groups_get: {
+        parameters: {
+            query?: {
+                source?: ("errors" | "grading" | "feedback") | null;
+                status?: "open" | "new" | "in_review" | "resolved" | "ignored" | "all";
+                sort?: "learners" | "last" | "count";
+                page?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IncidentGroupsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    group_detail_admin_incidents_groups__source___fingerprint__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                source: "errors" | "grading" | "feedback";
+                fingerprint: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IncidentGroupDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_action_admin_incidents_groups_bulk_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IncidentBulkIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IncidentBulkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_learner_overview_admin_learners__ref__overview_get: {
         parameters: {
             query?: never;
@@ -32370,6 +33394,144 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LearnerAttempts"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_care_notes_admin_learners__ref__care_notes_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CareNotes"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_care_note_admin_learners__ref__care_notes_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CareNoteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CareNoteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_care_note_admin_care_notes__note_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                note_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_care_note_admin_care_notes__note_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                note_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CareNotePatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CareNoteOut"];
                 };
             };
             /** @description Validation Error */
@@ -50070,6 +51232,70 @@ export interface operations {
                 content: {
                     "application/json": unknown;
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    today_api_student_today_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentTodayResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    today_seen_api_student_today_seen_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TodaySeenRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

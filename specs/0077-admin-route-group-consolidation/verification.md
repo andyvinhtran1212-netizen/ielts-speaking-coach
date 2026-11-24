@@ -83,3 +83,17 @@ later wave.
   on head it is pixel-identical to the direct load of `/admin` (0 pixels).
   `/admin/feedback → /admin/usage`: base and head identical (0 pixels).
   Direct loads of `/admin` and `/admin/usage`: base and head identical.
+
+## T003 evidence (G10-T15-2, 2026-11-23)
+
+`users`, `students`, `classes` and `instructors` move to `(authed-admin)/(users)`, `(students)`, `(classes)`, `(instructors)`. Each child layout adds only its page sheets with a plain `<link rel="stylesheet">` and keeps `export const instant = false;`. URLs and page code are unchanged. Stacked on T002 (#2480); the base for the comparison is staging `cc6dd4c8`.
+
+- `verify-admin-route-group-flow.mjs`, extended to 9 pages (`/admin/students` uses `active="classes"`, as the page sets it): head **394/394**. The same verifier on base `cc6dd4c8`: 328/394. The 66 failures are all "base sheets duplicated" after a client navigation between pages that do not yet share the parent layout. The 72 FR-005 observations (the previous page's own sheet stays in the DOM) are reported, not enforced, per amended FR-005.
+- Screenshots 1280×800, head vs base, CI fixture environment:
+  - Direct loads of all 9 pages: 0 px difference.
+  - Client navigation `/admin/feedback →` `/admin/users`, `/admin/students`, `/admin/classes`: 0 px.
+  - `/admin/students ↔ /admin/classes`: 0 px.
+  - `/admin/feedback → /admin/instructors`: 19 px, all inside the "Làm mới" button. The same box differs between head client navigation and head direct load, so it is a button transition caught mid-frame, not a stylesheet change.
+  - `/admin/feedback → /admin`: 25,822 px. Base is wrong here; head equals the direct load (as recorded for T002).
+- Frontend contract suite: 14,143 tests, 14,142 pass, 1 fail. The failure is env-only (`hook pre-push`).
+- `npm run test:react`: pass. `tsc --noEmit`: clean after the build. `npm run build`: ok. `route-ownership-check.mjs` and `--manifest`: clean.

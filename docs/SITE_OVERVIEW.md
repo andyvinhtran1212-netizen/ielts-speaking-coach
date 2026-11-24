@@ -143,7 +143,7 @@ to `/`; the historical source file is not a separately served marketing page.
 |---|---|---|
 | `/vocabulary/hub` | student | Vocab hub landing (Từ vựng theo chủ đề / Flashcards / Exercises); mounts the tab modules. |
 | `/vocabulary/flashcards` · `/vocabulary/flashcards/study` | student | Flashcard stacks + SRS study (`/api/flashcards/*`, SM-2). Old `/flashcards` · `/flashcard-study` 307 here (LEARNERNAV-0062). |
-| `/exercises` · `/d1-exercise` | student | Fill-blank vocab exercises (`/api/exercises/*`). |
+| `/exercises` · `/vocabulary/fill-in` | student | Fill-blank vocab exercises (`/api/exercises/*`). Old `/d1-exercise` 307s to `/vocabulary/fill-in` (LEARNERNAV-0062). |
 | `/vocabulary` | all | Vocabulary reference wiki — categories, article selection, pronunciation, usage and collocations; distinct from the authenticated practice hub. |
 | `/vocabulary/practice` | student | Active vocabulary practice by set, with progress and review. |
 | `/vocabulary/exam` | student | Exam-oriented vocabulary workspace. |
@@ -183,6 +183,8 @@ to `/`; the historical source file is not a separately served marketing page.
 | `/admin/dashboard/reading-attempts` | admin | Native Reading-attempts dashboard — frozen snapshot, truthful partial/unavailable states, auth + anonymous (approximate), band/skill/time, per-test, recent (`GET /admin/dashboard/reading-attempts`). The old HTML URL now redirects to this native owner. |
 | `/admin/foot-traffic` · `/admin/usage` | admin | Visitor foot-traffic analytics + canonical per-user/access-code session and logged AI-cost rollups. |
 | `/admin/error-logs` | admin | Error-report inbox (`/admin/error-logs`). |
+| `/admin/ai-models` | admin | AI và mô hình (ADMINIA-0074 FR-074): per-feature model table (AIOPS-0024 overrides, `/admin/ai-models`); each save opens an in-row confirmation with old → new values and a reason box before the unchanged PATCH. |
+| `/admin/qa-tools` | admin | Công cụ QA (FR-073): links to the recommendation tester and mock answer corrections, plus "Tạo lỗi thử" (`POST /admin/error-logs/test`), shown only on a known non-Production environment; the server refuses Production and unknown tiers with 403. |
 | `/admin/system` · `/admin/system/ai-usage` · `/admin/system/alerts` | admin | System health, AI token usage, alerts. |
 | `/admin/feedback` | admin | Learner-feedback inbox and inspection workspace. |
 
@@ -216,7 +218,8 @@ to `/`; the historical source file is not a separately served marketing page.
 | `/admin/students` | admin | Student roster (Tailwind page). |
 | `/admin/classes` · `/admin/classes/[cohortId]` | admin | Class roster and selected class workspace: students, attendance, lessons and assigned work (`/admin/cohorts/*`). |
 | `/admin/classes/[cohortId]/exercise-book` · `/admin/classes/[cohortId]/exercise-book/grants` | admin (377 grant holders; grants page: the course-2 owner account only) | Exercise-book workspace of one class: catalog with locked activities and reasons, per-activity assignment to named recipients with a Vietnam-time deadline and idempotent `request_id`, the class's book assignments, student × activity progress, teacher review and close-with-reason. The grants page records grant/revoke events in the 377 log; it is a UI gate only, enforced server-side (owner UUID, AAL2 step-up). Links appear on the class Homework tab only when the read route answers 200. |
-| `/admin/users?tab=codes` | admin | Access-code tab — issue, assign, revoke; canonical ownership via `user_code_assignments` (legacy fallback `access_codes.used_by`). |
+| `/admin/activation-codes` | admin | Activation-code ledger (ADMINIA-0074 FR-048): state per code (Chưa dùng · Đã dùng · Hết hạn nhập · Đã thu hồi), grading credits, expiring label; codes are issued from a class, not here. `/admin/access-codes` and `/admin/users?tab=codes` redirect here. Ownership via `user_code_assignments` (legacy fallback `access_codes.used_by`). |
+| `/admin/activation-codes/[codeId]` | admin | One code: state, permissions, people, audit history; "Vùng nguy hiểm" revokes a used code with the code retyped and a reason (FR-055, step-up). |
 | `/admin/instructors` | admin | Instructor management workspace. |
 | `/admin/mfa` | admin (AAL1 allowed) | Two-step sign-in for admins (ADMINAAL2-0032): enroll a TOTP factor, complete the AAL1 → AAL2 challenge, add a backup factor or remove one with a fresh code. `AdminAccessGate` and `api.js` send an admin here when the backend answers `mfa_required`. |
 

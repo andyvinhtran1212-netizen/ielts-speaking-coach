@@ -22,11 +22,12 @@ and must not be "filled in" by tooling:
 Take the next number after the highest `present` or `reserved` row in
 [`register.tsv`](register.tsv), add your row (`reserved`, owner = your PR or
 task ID) in the same PR as the file, and change it to `present` when the file
-lands. Do **not** assume the sequence is dense. As of 2026-11-18 the highest is `501`
-(GRAMMARAUDIT-0019 FR-008 service_role EXECUTE on `grammar_quiz_allowed_code`,
-taken from the reserve band 501+ of the commercialization register); 381 and 382 are reserved for FU-2281
+lands. Do **not** assume the sequence is dense. As of 2026-11-23 the highest is `502`
+(COURSEACCESS-0055 G04-T13 pronunciation sample; before it `501`, GRAMMARAUDIT-0019
+FR-008 service_role EXECUTE on `grammar_quiz_allowed_code`, both from the reserve
+band 501+ of the commercialization register); 381 and 382 are reserved for FU-2281
 (Leader decision, 2026-11-18), and 383–389 plus 502 belong to COURSEACCESS-0055
-(383, 384 and 385 present; 387, 388, 389 and 502 reserved; 386 abandoned; Andy,
+(383, 384, 385, 388, 389 and 502 present; 387 reserved; 386 abandoned; Andy,
 2026-11-20, `specs/0055-course-access-credits-enrollment/approval-decision.md`),
 so the next new migration is `503`. The free numbers below 501 (bands 401–499
 and 500) are assigned only by the Leader from the commercialization register;
@@ -65,7 +66,32 @@ renewal (`carry_over`, `CREDIT_CARRY_PERCENT`) and lapses a carry after its hold
 entitlement with an open reservation and, in the sweep, a learner whose credit lock
 is busy. `fn_credit_grant_extra` writes one `grant_extra` row per request key and
 learner (the same key with other credits or reason is `request_key_conflict`). The rollback drops the two RPCs and keeps every row.
+`388` is `pending_feature single_session` (COURSEACCESS-0055 T009, spec label
+"384"): backend-only `learner_active_sessions` (one row per learner account: the
+Supabase Auth `session_id` in use, the session the last claim displaced, and a
+pending "sign out everywhere" marker). RLS on, no policy; service_role may only
+SELECT and INSERT, claims and revocations run on the direct connection with the
+`auth.sessions` delete. Claims and revocations take the per-account advisory
+lock `learner_session_lock` (class 388) before they look for timed work; seven
+AFTER triggers take the same lock on every timed-work start (Reading attempt,
+timed class item, mock-exam sitting and teacher-opened section) and refuse a
+learner start whose account changed session while it waited. Read only while
+runtime flag `single_session_learners` is on. The rollback drops the triggers,
+functions and table (no learning data) and refuses while 389
+`learner_login_events` exists.
+`389` is `pending_feature single_session` (COURSEACCESS-0055 T014 / G04-T16,
+spec label "387"): backend-only `learner_login_events`, one row per (session,
+outcome) with the derived device kind/label and sign-in method; no IP, location
+or raw User-Agent column. service_role may SELECT, INSERT and DELETE (expiry);
+apply after 388. The rollback drops the table.
 `380` is Skill Drill homework, #2294.
+`502` is `pending_feature pron_sample` (COURSEACCESS-0055 T012 / G04-T13, spec
+label "385"): three nullable `responses` columns, `pronunciation_sample_start_s`,
+`pronunciation_sample_end_s` and `pronunciation_sample_scope` (`segment` | `full` |
+`not_sampled`), with one CHECK (a segment has both ends and `end > start`; the other
+scopes carry no seconds). Existing rows and table privileges are unchanged. Apply it
+before turning the runtime flag `pron_sample_window` on; the rollback drops the three
+columns (turn the flag off first).
 `400` is `pending_feature public_library` (LIBRARY-0061 T002, G06 band 400–419):
 five RLS-only Library tables reached only through service_role and the private
 `library-media` bucket guarded by a RESTRICTIVE `storage.objects` policy; the schema
@@ -76,6 +102,9 @@ Writing sample sign-off columns `review_status`/`reviewed_by`/`reviewed_at` on
 signed. Its own group, not `public_library`, so a window that applies 400 never applies
 401 by accident; run it after 400 with `MIGRATION_FEATURES=public_library_signoff`.
 The rollback refuses while any row is signed or published.
+`420` is `pending_feature learner_today` (LEARNERCORE-0063 T13, G07 band 420–439):
+two nullable `users` columns, `today_seen_at` and `today_seen_key`, the forward-only
+seen cursor of the Today page; no apply on merge, staging first with Andy's typed approval.
 `501` is `pending_feature course_bank_service_write`: since 309 its CHECK
 `quiz_banks_grammar_revision_shape` calls `grammar_quiz_allowed_code`, whose
 EXECUTE the 309/314/339 blanket loops revoke from service_role, so every
