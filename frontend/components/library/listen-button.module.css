@@ -1,0 +1,45 @@
+/* LIBRARY-0061 T015 listen button (FR-052). Only var(--av2-*). */
+.control {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--av2-space-2);
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--av2-space-2);
+  min-height: var(--av2-control-sm);
+  padding: 0 var(--av2-space-3);
+  border: var(--av2-rule-w) solid var(--av2-control-border);
+  border-radius: var(--av2-radius);
+  background: var(--av2-paper);
+  color: var(--av2-ink);
+  font: inherit;
+  font-size: var(--av2-fs-14);
+  cursor: pointer;
+}
+
+.small {
+  min-width: var(--av2-control-sm);
+  justify-content: center;
+  padding: 0;
+}
+
+.playing {
+  background: var(--av2-ink);
+  border-color: var(--av2-ink);
+  color: var(--av2-paper);
+}
+
+.button:disabled {
+  color: var(--av2-off);
+  border-color: var(--av2-rule);
+  cursor: not-allowed;
+}
+
+.notice {
+  color: var(--av2-muted);
+  font-size: var(--av2-fs-13);
+}
