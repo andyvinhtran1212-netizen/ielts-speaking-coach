@@ -8,8 +8,6 @@ const PRIVATE_PREFIXES = [
   '/d1-exercise',
   '/exam',
   '/exercises',
-  '/flashcard-study',
-  '/flashcards',
   '/full-test',
   '/full-test-result',
   '/home',
@@ -30,6 +28,7 @@ const PRIVATE_PREFIXES = [
   '/result',
   '/speaking',
   '/vocabulary/exam',
+  '/vocabulary/flashcards',
   '/vocabulary/hub',
   '/vocabulary/learn',
   '/writing',
@@ -39,7 +38,7 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: '*',
-      allow: ['/', '/grammar/', '/vocabulary'],
+      allow: ['/', '/grammar/', '/vocabulary', '/library'],
       disallow: PRIVATE_PREFIXES,
     },
     sitemap: 'https://www.averlearning.com/sitemap.xml',

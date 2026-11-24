@@ -7,6 +7,11 @@ request via routers/writing_student.py; admins triage it here.
   GET   /admin/writing/regrade-requests/{id}      — single + essay/student context
   PATCH /admin/writing/regrade-requests/{id}      — accept | reject
 
+ADMINIA-0074 FR-062 (G09-T39): "Giữ nguyên điểm" is a reject whose
+explanation to the learner has at least ``KEEP_MIN_CHARS`` characters; the
+list carries the ``regrade_hours`` threshold (ops thresholds) so the page can
+mark overdue requests. No decision deducts the learner's AI grading credits.
+
 Accept un-delivers the essay (delivered → reviewed) so the admin can edit /
 AI-regrade in grade.html and re-deliver (reviewed → delivered re-runs the
 existing mark-delivered path, which flips this request to 'fulfilled').
@@ -29,6 +34,7 @@ from pydantic import BaseModel, Field
 
 from database import supabase_admin
 from routers.admin import require_admin
+from services import ops_thresholds
 from services.core_attempt_outcomes import observe_writing_batch
 from services.core_writing_observation import note_writing_mutation, observe_writing_partial_failure
 
@@ -41,6 +47,8 @@ router = APIRouter(
 
 _STATUS_PATTERN = r"^(pending|accepted|rejected|fulfilled)$"
 _PROMPT_SNIPPET = 80
+# FR-062: "Giữ nguyên điểm" needs a real explanation, not a one-word reply.
+KEEP_MIN_CHARS = 40
 
 
 class RegradeAction(BaseModel):
@@ -133,7 +141,20 @@ async def list_regrade_requests(
     + cohort filters. `cohort_id` resolves to its students first (19.2 pattern)."""
     await require_admin(authorization)
 
-    return await asyncio.to_thread(_list_regrade_requests_sync, status, cohort_id)
+    out = await asyncio.to_thread(_list_regrade_requests_sync, status, cohort_id)
+    hours = await _regrade_hours()
+    # null + thresholds_failed: the page shows "chưa đọc được ngưỡng" instead
+    # of treating every request as on time.
+    return {**out, "regrade_hours": hours, "thresholds_failed": hours is None}
+
+
+async def _regrade_hours() -> Optional[int]:
+    """``regrade_hours`` (Cài đặt › Ngưỡng vận hành); None when unreadable."""
+    try:
+        return (await ops_thresholds.get()).get("regrade_hours")
+    except Exception:  # noqa: BLE001 — the threshold is advisory on this list
+        logger.exception("[regrade] regrade_hours threshold unavailable")
+        return None
 
 
 def _list_regrade_requests_sync(status: Optional[str], cohort_id: Optional[UUID]):
@@ -200,6 +221,10 @@ def _action_regrade_request_sync(request_id: UUID, body: RegradeAction, admin: d
     if body.action == "reject":
         if not (body.response or "").strip():
             raise HTTPException(400, "Vui lòng nhập lý do từ chối.")
+        if len(body.response.strip()) < KEEP_MIN_CHARS:
+            raise HTTPException(
+                400, f"Giải thích gửi học viên cần ít nhất {KEEP_MIN_CHARS} ký tự.",
+            )
 
     # Migration 205 owns the cross-table state transition. Reading and then
     # updating the request/essay through separate PostgREST calls creates a saga:

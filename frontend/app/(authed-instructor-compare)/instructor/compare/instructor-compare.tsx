@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
+import { QuickSearchButton } from '@/components/staff-quick-search';
 import { ThemeToggleButton } from '@/components/theme-toggle-button';
 import { getAuthorizationIdentity } from '@/lib/auth-api';
 import { useAuth } from '@/lib/auth/auth-provider';
@@ -293,6 +294,7 @@ export function InstructorCompare() {
         <div className="ic-top-title">So sánh và ghép phiên bản</div>
         <div className="ic-top-actions">
           <div className="ic-overall" aria-label="Điểm tổng hợp xem trước">{overall == null ? 'Band —' : `Band ${overall}`}</div>
+          <QuickSearchButton />
           <ThemeToggleButton />
         </div>
       </header>

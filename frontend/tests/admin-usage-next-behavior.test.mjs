@@ -16,12 +16,12 @@ import {
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
-const CLIENT = read('app', '(authed-admin-usage)', 'admin', 'usage', 'admin-usage.tsx');
-const PAGE = read('app', '(authed-admin-usage)', 'admin', 'usage', 'page.tsx');
-const LAYOUT = read('app', '(authed-admin-usage)', 'layout.tsx');
+const CLIENT = read('app', '(authed-admin)', '(usage)', 'admin', 'usage', 'admin-usage.tsx');
+const PAGE = read('app', '(authed-admin)', '(usage)', 'admin', 'usage', 'page.tsx');
+const LAYOUT = read('app', '(authed-admin)', 'layout.tsx') + read('app', '(authed-admin)', '(usage)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-usage-next.css');
 const CODES = read('app', '(authed-admin-users)', 'admin', 'users', 'admin-access-codes-panel.tsx');
-const OVERVIEW = read('app', '(authed-admin-overview)', 'admin', 'admin-overview.tsx');
+const OVERVIEW = read('app', '(authed-admin)', '(overview)', 'admin', 'admin-overview.tsx');
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 
 describe('/admin/usage native contract', () => {
@@ -35,7 +35,7 @@ describe('/admin/usage native contract', () => {
     assert.match(CLIENT, /setSnapshot\(\{ key: scopeKey/);
     assert.doesNotMatch(CLIENT, /setError\(messageOf/);
     assert.match(LAYOUT, /admin-usage-next\.css/);
-    assert.match(WORKFLOW, /frontend\/app\/\(authed-admin-usage\)\/\*\*/);
+    assert.match(WORKFLOW, /frontend\/app\/\(authed-admin\)\/\(usage\)\/\*\*/);
     assert.match(WORKFLOW, /node tooling\/verify-admin-usage-flow\.mjs/);
   });
 

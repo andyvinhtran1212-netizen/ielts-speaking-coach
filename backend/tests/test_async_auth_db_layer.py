@@ -424,6 +424,13 @@ def _http(path, user_id):
 def test_auth_routes_identical(monkeypatch, live_activation_gate, path, user_id):
     monkeypatch.setattr(auth_module, "_get_auth_http_client", lambda: _AuthClient())
     monkeypatch.setattr("services.runtime_flags.is_enabled", lambda *_a, **_k: False)
+
+    async def _aoff(*_a, **_k):
+        return False
+
+    # /auth/me reads learner_v2_all on every call (LEARNERCORE-0063 FR-072);
+    # stub the async twin too so both flag states skip runtime_flags alike.
+    monkeypatch.setattr("services.runtime_flags.ais_enabled", _aoff)
     out = _both(monkeypatch, TABLES, _http(path, user_id),
                 auth_module, acp, activation_gate)
     off, on = out[False], out[True]
@@ -597,6 +604,39 @@ def test_auth_me_feature_flag_reads_skip_the_sync_client_when_on(monkeypatch):
         assert ("runtime_flags", (("eq", "key", "vocab_units_read"),)) in reads
     strip = lambda calls: [c for c in calls if c[0] != "update"]  # noqa: E731
     assert strip(off[1]) == strip(on[1])
+
+
+@pytest.mark.parametrize("all_on,opted_in,switch", [
+    (False, False, False), (False, True, False), (False, True, True),
+    (True, False, False), (False, False, True), (True, True, True),
+])
+def test_auth_me_learner_v2_identical_in_both_flag_states(monkeypatch, all_on, opted_in, switch):
+    """LEARNERCORE-0063 FR-072/FR-073: /auth/me returns learner_v2_enabled
+    from both branches with the same value, the opt-in taken from the users
+    row already read (no extra users query) and the runtime keys read on the
+    async client when USE_ASYNC_DB is on."""
+    monkeypatch.setattr(auth_module, "_get_auth_http_client", lambda: _AuthClient())
+    tables = {k: [dict(r) for r in v] for k, v in TABLES.items()}
+    tables["users"][0]["feature_flags"] = {"learner_v2": opted_in}
+    tables["runtime_flags"] = [{"key": "learner_v2_all", "enabled": all_on},
+                               {"key": "learner_v2", "enabled": switch}]
+
+    def run(db):
+        monkeypatch.setattr(runtime_flags, "_cache", {})
+        result = _http("/auth/me", "u-active")(db)
+        return result, list(db.sync_attempts)
+
+    out = _both(monkeypatch, tables, run,
+                auth_module, acp, activation_gate, feature_flags, runtime_flags)
+    (off_status, off_body), _ = out[False][0]
+    (on_status, on_body), on_sync = out[True][0]
+    assert on_sync == [], "flag on must not touch the sync client"
+    assert off_status == on_status == 200
+    assert off_body == on_body
+    assert on_body["learner_v2_enabled"] is (all_on or (opted_in and switch))
+    for state in (out[False], out[True]):
+        user_reads = [c for c in state[1] if c[0] == "select" and c[1] == "users"]
+        assert len(user_reads) == 1, "opt-in comes from the row /auth/me already read"
 
 
 # ── Transports ───────────────────────────────────────────────────────────────
