@@ -130,6 +130,20 @@ def _auth_thread_client_follows_patched_admin(monkeypatch):
     monkeypatch.setattr(auth, "thread_supabase_admin", lambda: auth.supabase_admin, raising=False)
 
 
+# COURSEACCESS-0055 G04-T07: grading routes now ask credits.charge_plan,
+# whose `credit_metering` read is strict (a lookup error is 503, never "off").
+# With the network blocked every unpatched read would fail, so tests start with
+# the flag cached as "no row" (= off, today's behaviour). A test that drives
+# the flag patches runtime_flags.is_enabled_strict or calls clear_cache().
+@pytest.fixture(autouse=True)
+def _credit_metering_defaults_off(monkeypatch):
+    try:
+        from services import runtime_flags
+    except Exception:
+        return
+    monkeypatch.setitem(runtime_flags._cache, "credit_metering", (None, float("inf")))
+
+
 @pytest.fixture
 def live_activation_gate(monkeypatch):
     """Run the REAL activation gate (and is_active lookup) in this test."""

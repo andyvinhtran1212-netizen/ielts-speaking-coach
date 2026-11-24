@@ -149,8 +149,15 @@ def _class_cohort(session: Optional[dict], assignment: Optional[dict]) -> tuple[
     """(is class work, cohort_id or None)."""
     if session and session.get("class_assignment_item_id"):
         return True, fetch_class_item_cohort(str(session["class_assignment_item_id"]))
-    if assignment and assignment.get("cohort_id"):
-        return True, str(assignment["cohort_id"])
+    if assignment is not None:
+        # Every writing assignment is class work, also one given to a single
+        # learner without a cohort_id (Andy, 2026-11-23 11:52Z on #2593:
+        # "bài giao riêng không có cohort_id tính là bài trong lớp"). With no
+        # cohort there is no class course, so it is not metered
+        # (legacy_class, logged class_work_unmapped) unless the feature is
+        # never free.
+        cohort_id = assignment.get("cohort_id")
+        return True, str(cohort_id) if cohort_id else None
     return False, None
 
 
@@ -363,3 +370,55 @@ async def reserve(user_id: UUID | str, feature: str, *, request_key: str, resour
     if status in ("no_entitlement", "request_key_conflict", "not_owner"):
         raise CreditRefused(status, source)
     raise CreditUnavailable(f"reserve_{status}")
+
+
+# ── Settling by resource (Writing BG grader, plan 5.6) ───────────────────
+
+
+def _metering_on_or_unknown() -> bool:
+    """Flag off → False (FR-018: no credit RPC). A flag read error → True:
+    settling a resource that holds nothing is a no-op, so trying is safe."""
+    try:
+        return _metering_on()
+    except CreditUnavailable:
+        return True
+
+
+def _settle_for_resource(rpc_name: str, params: dict) -> Optional[str]:
+    """Sync and never raises: the Writing grader runs in a BackgroundTask and
+    a credit error must not fail a grade. A failed settle is logged and the
+    hold is left to the expiry sweep."""
+    if not _metering_on_or_unknown():
+        return None
+    try:
+        return _unwrap(supabase_admin.rpc(rpc_name, params).execute().data)["status"]
+    except Exception as exc:
+        logger.warning("[credits] rpc=%s resource=%s:%s failed: %s", rpc_name,
+                       params.get("p_resource_type"), params.get("p_resource_id"), exc)
+        return None
+
+
+def commit_for_resource(resource_type: str, resource_id: str) -> Optional[str]:
+    """Commit the open hold on a resource (``none`` when there is none)."""
+    return _settle_for_resource("fn_credit_commit_for_resource",
+                                {"p_resource_type": resource_type, "p_resource_id": str(resource_id)})
+
+
+def release_for_resource(resource_type: str, resource_id: str, reason: str) -> Optional[str]:
+    """Release the open hold on a resource (``none`` when there is none)."""
+    if reason not in _RELEASE_REASONS:
+        raise ValueError(f"unknown release reason {reason!r}")
+    return _settle_for_resource("fn_credit_release_for_resource",
+                                {"p_resource_type": resource_type, "p_resource_id": str(resource_id),
+                                 "p_reason": reason})
+
+
+def deliver_writing_essay_instant(essay_id: str) -> Optional[str]:
+    """``fn_deliver_writing_essay_instant``: graded + ``ai_instant`` →
+    delivered. Never raises."""
+    try:
+        return _unwrap(supabase_admin.rpc("fn_deliver_writing_essay_instant",
+                                          {"p_essay_id": str(essay_id)}).execute().data)["status"]
+    except Exception as exc:
+        logger.warning("[credits] rpc=fn_deliver_writing_essay_instant essay=%s failed: %s", essay_id, exc)
+        return None
