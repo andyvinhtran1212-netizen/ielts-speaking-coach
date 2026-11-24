@@ -65,6 +65,7 @@ from routers.advanced_vocab import (
 from routers.error_logs import router as error_logs_router
 from routers.admin_flags import router as admin_flags_router
 from routers.admin_settings import router as admin_settings_router
+from routers.admin_library import router as admin_library_router
 from routers.admin_learners import router as admin_learners_router
 from routers.admin_search import router as admin_search_router
 from routers.admin_learner_profile import router as admin_learner_profile_router
@@ -301,6 +302,7 @@ app.include_router(admin_advanced_vocab_router)
 app.include_router(error_logs_router)
 app.include_router(admin_flags_router)
 app.include_router(admin_settings_router)
+app.include_router(admin_library_router)  # LIBRARY-0061 T020 (G06-T20)
 app.include_router(admin_learners_router)
 app.include_router(admin_search_router)
 app.include_router(admin_learner_profile_router)
