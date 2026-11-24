@@ -44,7 +44,7 @@ Mọi dòng ở trạng thái `PENDING`: spec đang ở `draft`, chưa có dòng
 | FR-054 | kind=test; ref=planned in T015; test React ẩn phần rỗng; Trong bài mẫu Writing chỉ khi có bài xuất bản | PENDING |
 | FR-060 | kind=test; ref=planned in T009, T013, T016; test React cột Của bạn/Bạn kèm chữ; kịch bản 9 | PENDING |
 | FR-061 | kind=test; ref=planned in T002, T016; test backend A không đọc/ghi dấu B, PATCH hai lần một hàng, is_active=false dùng được, cascade | PENDING |
-| FR-062 | kind=test; ref=planned in T017; test sitemap model dữ liệu giả; curl sitemap.xml đếm /library/writing-samples/ = số published | PENDING |
+| FR-062 | kind=test; ref=frontend/tests/library-sitemap.test.mjs (T017, phần Writing: danh sách Thư viện khi live, trang bài mẫu Writing từ `/writing-samples/index`, robots allow /library); curl sitemap.xml đếm /library/writing-samples/ = số published. **Còn thiếu:** trang đề Speaking (cần `/speaking/index` của T013) và bài Kiến thức Writing (cần index của T011); giữ PENDING tới khi T011/T013 xong | PENDING |
 | FR-064 | kind=test; ref=planned in T002, T006 tests/test_library_media.py; nháp 404, đã đăng 200, Range 206, gỡ rồi cùng URL 404 ngay, mọi phản hồi no-store, không URL Storage trong API; staging journey: tải tệp đã đăng để làm nóng cache, gỡ, gọi lại đúng URL ngay và sau 300 s đều 404, URL object công khai của bucket lỗi ở mọi trạng thái; kịch bản 11 | PENDING |
 | FR-063 | kind=test; ref=planned in T008 frontend/lib/library-shelves.mjs; test React mảng thêm kệ giả → sáu kệ, 390px không vỡ; kịch bản 12 | PENDING |
 
