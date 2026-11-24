@@ -150,8 +150,8 @@ describe('ChromeNavigationBridge at the v1 / v2 boundary', () => {
 
   it.each([
     ['/admin', '/profile/v2-pilot'],
-    ['/flashcard-study', '/ui-library?tab=1'],
-    ['/profile/v2-pilot', '/flashcard-study'],
+    ['/vocabulary/flashcards/study', '/ui-library?tab=1'],
+    ['/profile/v2-pilot', '/vocabulary/flashcards/study'],
     ['/ui-library/', '/admin/users'],
   ])('leaves %s → %s to a full page load', (from, href) => {
     expect(clickChromeLink(from, href)).toBe(true);

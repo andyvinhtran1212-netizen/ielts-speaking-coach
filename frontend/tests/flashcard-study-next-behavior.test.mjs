@@ -6,8 +6,8 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(root, ...parts), 'utf8');
-const page = read('app', '(flashcard-study)', 'flashcard-study', 'page.tsx');
-const player = read('app', '(flashcard-study)', 'flashcard-study', 'flashcard-study-player.tsx');
+const page = read('app', '(flashcard-study)', 'vocabulary', 'flashcards', 'study', 'page.tsx');
+const player = read('app', '(flashcard-study)', 'vocabulary', 'flashcards', 'study', 'flashcard-study-player.tsx');
 const layout = read('app', '(flashcard-study)', 'layout.tsx');
 const legacy = read('public', 'pages', 'flashcard-study.html');
 

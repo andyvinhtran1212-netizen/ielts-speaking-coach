@@ -409,12 +409,12 @@ export function FlashcardStudyPlayer() {
   if (phase === 'error' || phase === 'disabled') {
     return (
       <main className="fcs-width fcs-main">
-        <StateCard tone="error" role="alert"><span className="fcs-state__icon">!</span><h2>Chưa thể mở phiên học</h2><p>{message}</p><a href={publicMode ? '/vocabulary/hub' : '/flashcards'}>Quay lại</a></StateCard>
+        <StateCard tone="error" role="alert"><span className="fcs-state__icon">!</span><h2>Chưa thể mở phiên học</h2><p>{message}</p><a href={publicMode ? '/vocabulary/hub' : '/vocabulary/flashcards'}>Quay lại</a></StateCard>
       </main>
     );
   }
   if (phase === 'empty') {
-    return <main className="fcs-width fcs-main"><StateCard><span className="fcs-state__icon">0</span><h2>Chưa có thẻ để học</h2><p>Bộ thẻ này đang trống hoặc chưa có thẻ đến hạn.</p><a href="/flashcards">Chọn stack khác</a></StateCard></main>;
+    return <main className="fcs-width fcs-main"><StateCard><span className="fcs-state__icon">0</span><h2>Chưa có thẻ để học</h2><p>Bộ thẻ này đang trống hoặc chưa có thẻ đến hạn.</p><a href="/vocabulary/flashcards">Chọn stack khác</a></StateCard></main>;
   }
   if (phase === 'summary') {
     return (
