@@ -164,3 +164,14 @@ describe('ChromeNavigationBridge at the v1 / v2 boundary', () => {
     expect(router.push).toHaveBeenCalledWith('/profile/v2-pilot');
   });
 });
+
+it('header "Tìm nhanh" button asks the React palette to open (G09-T19)', () => {
+  const { root } = mount();
+  const button = root.getElementById('quick-search') as HTMLButtonElement;
+  expect(button.getAttribute('aria-haspopup')).toBe('dialog');
+  const opened = vi.fn();
+  window.addEventListener('aver:quick-search-open', opened);
+  button.click();
+  window.removeEventListener('aver:quick-search-open', opened);
+  expect(opened).toHaveBeenCalledTimes(1);
+});

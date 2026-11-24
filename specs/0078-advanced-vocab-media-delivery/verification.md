@@ -15,3 +15,48 @@ Mọi dòng ở trạng thái `PENDING`: spec đang `draft` và chưa có dòng 
 | FR-007 | kind=test; ref=test bảng rewrite khớp manifest (D) hoặc test script tải lên từ chối SHA lệch (A/B) (T002/T006); Scenario 5 | PENDING |
 | FR-008 | kind=test; ref=frontend/tests CSP hiện có không đổi; diff `content-security-policy.mjs` rỗng (T002–T006) | PENDING |
 | FR-009 | kind=test; ref=test_advanced_vocab_service.py::test_core30_assets_exist_for_every_card_and_core_media và advanced-vocabulary-next-behavior.test.mjs chạy qua trước và sau T005 | PENDING |
+
+## T002–T003 evidence (G10-T18, option D, 2026-11-23, base `cc6dd4c8`)
+
+Option D is the working choice for Q-e1 taken by the coordinator as reversible
+(flag off by default, no file removed, no env changed); anh Andy confirms Q-e1
+when reviewing the PR.
+
+- FR-006 / Scenario 3: `npm run build` with the flag unset; the `rewrites` of
+  `.next/routes-manifest.json` equal those of base `cc6dd4c8` (0 `beforeFiles`).
+  `frontend/tests/advanced-vocab-legacy-rewrites.test.mjs`: values `''`, `0`,
+  `true`, `yes`, ` 1` and unset give no rule.
+- FR-003 / FR-007 (D): with `AVER_ADVANCED_VOCAB_LEGACY_REWRITE=1` the build has
+  30 `beforeFiles` rules, one per lesson, onto
+  `versions/<lesson>/<checksum in core30-manifest.json>/`. The test checks the
+  table equals the manifest and every legacy file (1,524) is byte-identical to
+  its rewrite target.
+- Scenario 2 (local `next start`, flag on): with the legacy `ADV-T07/` directory
+  moved out of `public/`, `Range: bytes=0-99` on
+  `/assets/advanced-vocab/ADV-T07/listening/full_test.mp3` returns 206 with 100
+  bytes equal to the head of `versions/ADV-T07/<current>/listening/full_test.mp3`;
+  the full file SHA-256 matches; a `vocab/` file returns 200. Preview run still
+  to do in T004.
+- `route-ownership-check.mjs` (source and `--manifest`): clean.
+  `verify-csp-nonce-404-flow.mjs --enforced` on a build with the rewrite flag
+  and `AVER_CSP_NONCE_ENFORCE=1`: passes, "no rewrite routes a URL under the
+  nonce prefixes".
+- FR-004 (D) / FR-005: `sync_advanced_vocab_core30.py --write` still writes the
+  legacy tree and now rewrites `advanced-vocab-legacy-table.mjs` from the
+  manifest it writes. `--restore-legacy` (dry-run default, `--write` to copy)
+  rebuilds `/<lesson>/` from `versions/<lesson>/<current checksum>/`. Before
+  any write it re-computes the checksum of the released snapshot
+  `backend/content/advanced_vocab/versions/<lesson>/<checksum>.json`, builds
+  the path → SHA-256 inventory from it (vocab audio, listening audio and
+  figures, Writing illustrations: the fields the service turns into URLs) and
+  requires the version directory to hold exactly that path set with those
+  hashes; it also refuses extra legacy files. CR R1 fix (Andy's HOLD): one
+  missing plus one extra file with the same count is now refused with the
+  missing and extra paths named, and nothing is written. On the repo all 30
+  inventories equal their version directories (1,524 files, 0 to rebuild);
+  with `ADV-T07/` removed, dry-run reports 51 to rebuild, `--write` rebuilds
+  them and `git status` is clean.
+  The "already deployed" check now reads the manifests instead of
+  `_PUBLIC.rglob`. Tests in `backend/tests/test_advanced_vocab_package_validator.py`.
+- FR-008: `content-security-policy.mjs` unchanged.
+

@@ -183,7 +183,7 @@ def test_no_backend_module_builds_an_engine_outside_the_factory():
     ]
     assert offenders == []
     assert _engine_calls(factory), "the factory itself must still build the engine"
-    for router in ("admin.py", "admin_quiz.py"):
+    for router in ("admin/__init__.py", "admin_quiz.py"):
         assert "create_asyncpg_engine(" in (BACKEND / "routers" / router).read_text(encoding="utf-8")
 
 
