@@ -424,7 +424,7 @@ describe('FR-010: 401 on a re-record, sign in on another tab, "Gửi lại bản
     };
     const take = { id: 'new-take' };
     const api = new Function(...Object.keys(env), `
-      var _examRoomMode = true, _roomMicState = 'unknown', _ROOM_LEVEL_MS = 200, _roomLevelTimer = null;
+      var _examRoomMode = true, _roomMicState = 'unknown', _ROOM_LEVEL_MS = 200, _roomLevelTimer = null, _roomWriteRight = true;
       var _roomDialogKind = null, _roomLeaveHref = '', _roomLeaving = false, _roomConfirmed = false;
       var _ROOM_LEAVE_RESET_MS = 4000, _playerGeneration = 1, _playerActive = true, _sessionId = 'sess';
       var _navigate = function () {}, _recordingDirty = false, _recordedBlob = null, _sheetSubmitting = false, _recSubState = 'idle';
