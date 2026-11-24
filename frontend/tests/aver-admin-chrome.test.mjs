@@ -206,14 +206,14 @@ describe('0049 option (a) — canonical admin menu groups', () => {
 
   it('places instructors alongside classes and users with the existing URLs', () => {
     assert.deepEqual(hrefs('Lớp & Người dùng'), [
-      '/admin/users', '/admin/classes', '/admin/instructors',
+      '/admin/users', '/admin/activation-codes', '/admin/classes', '/admin/instructors',
     ]);
     assert.ok(!hrefs('Nội dung').includes('/admin/instructors'));
     assert.ok(!group('Người dùng'));
   });
 
-  it('groups both cross-skill inboxes under Hệ thống', () => {
-    assert.deepEqual(hrefs('Hệ thống'), ['/admin/error-logs', '/admin/feedback']);
+  it('groups both cross-skill inboxes, AI models and QA tools under Hệ thống (ADMINIA-0074 FR-073/074)', () => {
+    assert.deepEqual(hrefs('Hệ thống'), ['/admin/error-logs', '/admin/feedback', '/admin/ai-models', '/admin/qa-tools']);
   });
 
   it('moves all six tools to a single default-collapsed QA group, preserving URLs', () => {

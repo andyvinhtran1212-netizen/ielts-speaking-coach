@@ -14,7 +14,7 @@ const LAYOUT = read('app', '(authed-admin-reading-attempts)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-reading-attempts-next.css');
 const ROLLBACK = read('public', 'js', 'admin-reading-attempts.js');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
-const OVERVIEW = read('app', '(authed-admin-overview)', 'admin', 'admin-overview.tsx');
+const OVERVIEW = read('app', '(authed-admin)', '(overview)', 'admin', 'admin-overview.tsx');
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 
 function fixture(overrides = {}) {

@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const front = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
 // LEGACYJS-0075 W3a: admin-access-codes.js is deleted; the codes tab is the Next panel.
-const CODES = front('app', '(authed-admin-users)', 'admin', 'users', 'admin-access-codes-panel.tsx');
+const CODES = front('app', '(authed-admin)', '(users)', 'admin', 'users', 'admin-access-codes-panel.tsx');
 const COHORTS = front('js', 'admin-classes.js');
 const CODES_HTML = front('pages', 'admin', 'access-codes', 'index.html');
 const COHORTS_HTML = front('pages', 'admin', 'classes', 'index.html');

@@ -17,8 +17,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const read = (...r) => readFileSync(join(__dirname, '..', ...r), 'utf8');
 const HTML = read('pages', 'admin', 'users', 'index.html');
 // LEGACYJS-0075 W3a: admin-users.js is deleted; the Users tab is the Next panel.
-const JS = read('app', '(authed-admin-users)', 'admin', 'users', 'admin-users-panel.tsx');
-const SHELL = read('app', '(authed-admin-users)', 'admin', 'users', 'admin-users.tsx');
+const JS = read('app', '(authed-admin)', '(users)', 'admin', 'users', 'admin-users-panel.tsx');
+const SHELL = read('app', '(authed-admin)', '(users)', 'admin', 'users', 'admin-users.tsx');
 const MODEL = read('lib', 'admin-users-model.mjs');
 
 

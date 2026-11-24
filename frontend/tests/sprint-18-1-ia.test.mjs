@@ -18,7 +18,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const front = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
 
 // LEGACYJS-0075 W3a: admin-users.js is deleted; the Users tab is the Next panel.
-const USERS_JS    = front('app', '(authed-admin-users)', 'admin', 'users', 'admin-users-panel.tsx');
+const USERS_JS    = front('app', '(authed-admin)', '(users)', 'admin', 'users', 'admin-users-panel.tsx');
 const USERS_HTML  = front('pages', 'admin', 'users', 'index.html');
 const COHORTS_JS  = front('js', 'admin-classes.js');
 const COHORTS_HTML = front('pages', 'admin', 'classes', 'index.html');

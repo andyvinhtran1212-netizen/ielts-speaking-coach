@@ -433,7 +433,7 @@ describe('admin-writing.css / token discipline (students page)', () => {
 import { readFileSync as _rf } from 'node:fs';
 const USERS_HTML = _rf(path.join(REPO_ROOT, 'frontend/pages/admin/users/index.html'), 'utf8');
 // LEGACYJS-0075 W3a: admin-users.js is deleted; the users table is the Next panel.
-const USERS_JS   = _rf(path.join(REPO_ROOT, 'frontend/app/(authed-admin-users)/admin/users/admin-users-panel.tsx'), 'utf8');
+const USERS_JS   = _rf(path.join(REPO_ROOT, 'frontend/app/(authed-admin)/(users)/admin/users/admin-users-panel.tsx'), 'utf8');
 
 describe('admin-students.html / WF-1 Lớp column + bulk-assign', () => {
   test('Lớp column header + cell renders cohort_name with "—" fallback', () => {

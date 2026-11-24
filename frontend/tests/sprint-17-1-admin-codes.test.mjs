@@ -16,7 +16,7 @@ import { quotaLabel, selectCodes, codeStatusRank } from '../lib/admin-users-mode
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const front = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
-const CTRL = front('app', '(authed-admin-users)', 'admin', 'users', 'admin-access-codes-panel.tsx');
+const CTRL = front('app', '(authed-admin)', '(users)', 'admin', 'users', 'admin-access-codes-panel.tsx');
 const HTML = front('pages', 'admin', 'access-codes', 'index.html');
 
 const searchCodes = (codes, search) => selectCodes(codes, { search }, { field: 'created_at', order: 'desc' });

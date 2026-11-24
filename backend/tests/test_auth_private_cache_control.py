@@ -97,9 +97,12 @@ def test_auth_me_vocab_curated_requires_both_rollout_keys(
         "vocab_curated_enabled": cohort_enabled,
     }
 
-    def _runtime_flag(key, *, default=False):
-        assert key == "vocab_units_read"
+    def _runtime_flag(key, *, default=False, on_error=None):
         assert default is False
+        if key in ("learner_v2", "learner_v2_all"):  # LEARNERCORE-0063 FR-072
+            assert on_error is False
+            return False
+        assert key == "vocab_units_read"
         return runtime_enabled
 
     monkeypatch.setattr(auth_module.runtime_flags, "is_enabled", _runtime_flag)

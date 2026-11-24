@@ -18,8 +18,8 @@ const CD = read('js', 'confirm-danger.js');
 const ADMINCSS = read('css', 'aver-design', 'admin-components.css');
 // LEGACYJS-0075 W3a: the codes and users controllers are the Next panels now;
 // they confirm through the shared React dialog (`danger: true`), not window.confirmDanger.
-const AC = read('app', '(authed-admin-users)', 'admin', 'users', 'admin-access-codes-panel.tsx');
-const USERS = read('app', '(authed-admin-users)', 'admin', 'users', 'admin-users-panel.tsx');
+const AC = read('app', '(authed-admin)', '(users)', 'admin', 'users', 'admin-access-codes-panel.tsx');
+const USERS = read('app', '(authed-admin)', '(users)', 'admin', 'users', 'admin-users-panel.tsx');
 const COH = read('js', 'admin-classes.js');
 
 

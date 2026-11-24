@@ -15,6 +15,7 @@ export type LearnerTopNavProps = {
   current: LearnerSectionId | null;
   user: LearnerUser;
   canSwitchToAdmin: boolean;
+  canSwitchToInstructor?: boolean;
   credits?: AiCredits | null;
   trialLeft?: number | null;
   overdueSlot?: ReactNode;
@@ -30,7 +31,7 @@ export type LearnerTopNavProps = {
  * Slots that are not passed take no space.
  */
 export function LearnerTopNav({
-  current, user, canSwitchToAdmin, credits, trialLeft, overdueSlot, notificationsSlot, lookup,
+  current, user, canSwitchToAdmin, canSwitchToInstructor = false, credits, trialLeft, overdueSlot, notificationsSlot, lookup,
 }: LearnerTopNavProps) {
   const [menuOpen, setMenuOpen] = useLearnerShellPanel('menu');
   const menuWrap = useRef<HTMLDivElement>(null);
@@ -102,7 +103,7 @@ export function LearnerTopNav({
             {overdueSlot ? <span className={styles.overdueSlot}>{overdueSlot}</span> : null}
             {lookup ? <QuickLookup lookup={lookup} /> : null}
             {notificationsSlot ? <span className={styles.bellSlot}>{notificationsSlot}</span> : null}
-            <AccountMenu user={user} canSwitchToAdmin={canSwitchToAdmin} />
+            <AccountMenu user={user} canSwitchToAdmin={canSwitchToAdmin} canSwitchToInstructor={canSwitchToInstructor} />
           </div>
         </div>
 

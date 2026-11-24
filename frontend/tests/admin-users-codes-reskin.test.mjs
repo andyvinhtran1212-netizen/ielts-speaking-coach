@@ -15,7 +15,7 @@ const read = (...r) => readFileSync(join(__dirname, '..', ...r), 'utf8');
 const HTML = read('pages', 'admin', 'users', 'index.html');
 // LEGACYJS-0075 W3a: the two legacy controllers are deleted; the same
 // contracts are pinned on the Next panels and model that own /admin/users.
-const PANEL = (name) => read('app', '(authed-admin-users)', 'admin', 'users', name);
+const PANEL = (name) => read('app', '(authed-admin)', '(users)', 'admin', 'users', name);
 const USERS_JS = PANEL('admin-users-panel.tsx');
 const CODES_JS = PANEL('admin-access-codes-panel.tsx');
 const UI = PANEL('admin-user-ui.tsx');
