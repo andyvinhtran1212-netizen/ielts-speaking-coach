@@ -18,6 +18,7 @@ import {
 import {
   BreadcrumbSection, PaginationSection, ProgressBarSection, StepperSection, TabsSection,
 } from './nav-sections';
+import { AudioPlayerSection, VideoFrameSection } from './media-sections';
 import { LearnerShellSection } from './shell-sections';
 import { FocusShellSection } from './focus-demo';
 import { ThemeSection } from './theme-sections';
@@ -180,6 +181,9 @@ export default function UiLibraryPage() {
           <ThemeSection title={title('theme')} />
           <LearnerShellSection title={title('learner-shell')} />
           <FocusShellSection title={title('focus-shell')} />
+          {/* Last on purpose: 16:9 frames give fractional heights, which would shift the text of later sections by a subpixel and break their baselines. */}
+          <AudioPlayerSection title={title('audio-player')} />
+          <VideoFrameSection title={title('video-frame')} />
         </main>
       </div>
     </>

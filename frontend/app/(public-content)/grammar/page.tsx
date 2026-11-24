@@ -26,9 +26,16 @@ import {
   type GrammarGroupsWire,
   type GrammarHomeWire,
 } from '../../../lib/grammar-api';
-import { CategoryCards, FeaturedCards, GroupCards } from './grammar-cards';
-import { SearchBox } from './search-box';
+import '@/styles/av2/tokens.css';
+import '@/styles/av2/base.css';
+import { av2FontClass } from '@/styles/av2/fonts';
+import { CourseLinkLine } from '@/components/library/course-link-line';
+import { splitTitle } from '@/lib/grammar-index-model.mjs';
+import { grammarArticleHref } from '@/lib/grammar-navigation-context.mjs';
+import { FeaturedCards } from './grammar-cards';
+import { GrammarIndex, type IndexView } from './grammar-index';
 import { GrammarLearningDashboard, GrammarModeSwitcher } from './grammar-home-mode';
+import styles from './grammar-home.module.css';
 
 // Legacy `<title>` nguyên văn — parity tiêu đề là thứ người dùng thấy trên tab
 // và Google thấy trong kết quả tìm kiếm.
@@ -39,104 +46,78 @@ export const metadata: Metadata = {
   alternates: { canonical: '/grammar' },
 };
 
-async function GroupCountLink() {
-  await connection();
-  let count = 0;
-  try {
-    const groups = await getGroups();
-    count = Array.isArray(groups) ? groups.length : 0;
-  } catch {
-    // The route-manifest CI build intentionally has no backend. Keep the
-    // generic CTA truthful and let request-time content load normally.
-  }
-  const label = count > 0 ? `Xem ${count} nhóm chủ đề` : 'Xem các nhóm chủ đề';
-  return <a href="#groups-section" className="btn-cta btn-outline">{label}</a>;
-}
-
+/** Static top of the page: in the prerendered shell, before any data. */
 function Hero() {
   return (
-    <div className="py-14 text-center ds-fadein">
-      <div className="ds-badge ds-badge-teal mb-5">
-        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-          />
-        </svg>
-        IELTS Grammar Reference
-      </div>
-      <h1 className="hero-title text-4xl sm:text-5xl font-extrabold mb-4 leading-tight">
-        {/* `{' '}` KHÔNG phải trang trí. JSX nuốt khoảng trắng chứa xuống dòng
-            giữa thẻ và chữ, còn HTML thì giữ. Dưới 640px `<br>` là
-            `display:none`, nên thiếu dấu cách ở đây thì hai chữ dính liền:
-            "như mộthệ thống liên kết". Legacy `grammar.html` đặt khoảng trắng
-            ngay sau `<br/>` — giữ đúng vị trí đó để hai bản khớp nhau. */}
-        Học ngữ pháp như một<br className="hidden sm:block" />{' '}
-        <span
-          className="text-transparent bg-clip-text"
-          style={{ backgroundImage: 'linear-gradient(90deg, var(--av-primary), var(--av-skill-reading))' }}
-        >
-          hệ thống liên kết
-        </span>
-      </h1>
-      <p className="text-white/50 text-lg mb-8 max-w-xl mx-auto">
-        Tra cứu nhanh, học theo roadmap, ứng dụng vào IELTS Speaking &amp; Writing.
+    <header>
+      <nav aria-label="Vị trí trang" className={styles.crumbs}>
+        <a href="/library">Thư viện</a> › <span aria-current="page">Grammar Wiki</span>
+      </nav>
+      <p className={styles.eyebrow}>Thư viện · Ngữ pháp</p>
+      <h1>Grammar Wiki</h1>
+      <p className={styles.lead}>
+        Tra cứu ngữ pháp tiếng Anh theo hệ thống. Mỗi bài giảng bằng tiếng Việt, ví dụ tiếng Anh. Đọc miễn phí, không cần
+        tài khoản.
       </p>
-
-      <SearchBox />
-
-      <div className="flex flex-wrap gap-3 justify-center">
-        <a href="#groups-section" className="btn-cta btn-primary">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-          </svg>
-          Khám phá hệ thống
-        </a>
-        <Suspense
-          fallback={<a href="#groups-section" className="btn-cta btn-outline">Xem các nhóm chủ đề</a>}
-        >
-          <GroupCountLink />
-        </Suspense>
-        <Link href="/grammar/search?q=ielts" className="btn-cta btn-outline">Grammar cho IELTS</Link>
-        <Link href="/grammar/exercises" className="btn-cta btn-outline">Bài tập Grammar</Link>
-      </div>
-    </div>
+    </header>
   );
 }
 
-/** Khung xương lúc chờ — giữ đúng skeleton của legacy để không nhảy layout. */
+/** While the index loads: keeps the place of the index, never a fake count. */
 function BodySkeleton() {
   return (
-    <div className="ds-fadein">
-      <section className="mb-16">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          <div className="skeleton h-56 rounded-2xl" />
-          <div className="skeleton h-56 rounded-2xl" />
-          <div className="skeleton h-56 rounded-2xl" />
-          <div className="skeleton h-56 rounded-2xl" />
-        </div>
-      </section>
-    </div>
+    <p className={styles.hint} aria-busy="true" data-testid="grammar-home-loading">
+      Đang tải mục lục…
+    </p>
+  );
+}
+
+type Featured = NonNullable<GrammarHomeWire['featured_articles']>;
+
+/** "Bài nổi bật" from the API's `featured_articles`. */
+function FeaturedList({ articles }: { articles?: Featured }) {
+  const items = (articles ?? []).filter((a) => a?.slug && a?.category).slice(0, 6);
+  if (items.length === 0) return null;
+  return (
+    <section aria-labelledby="featured-title" className={styles.featured}>
+      <h2 id="featured-title">Bài nổi bật</h2>
+      <ol className={styles.featuredList}>
+        {items.map((a) => {
+          const { en, vi } = splitTitle(a.title);
+          return (
+            <li key={a.slug}>
+              <a href={grammarArticleHref(a.category, a.slug)} className={styles.articleEn} lang="en">
+                {en}
+              </a>
+              {vi ? <span className={styles.articleVi}>{vi}</span> : null}
+              {a.summary ? <span className={styles.featuredSummary}>{a.summary}</span> : null}
+            </li>
+          );
+        })}
+      </ol>
+    </section>
   );
 }
 
 function HomeContent({
   home,
   groups,
+  view,
+  group,
 }: {
   home: GrammarHomeWire | null;
   groups: GrammarGroupsWire;
+  view: IndexView;
+  group: string;
 }) {
   return (
-    <div id="home-content" className="ds-fadein">
+    <div id="home-content">
       <GrammarModeSwitcher
-        reference={<>
-          <section id="groups-section" className="mb-16"><div className="flex items-center justify-between mb-5"><p className="section-head">Khám phá theo nhóm chủ đề</p><span className="text-xs text-white/35 hidden sm:block">{home?.total_articles || 0} bài tra cứu</span></div><div id="groups-list" className="grid grid-cols-1 lg:grid-cols-2 gap-5"><GroupCards groups={groups} /></div></section>
-          <section className="mb-14"><p className="section-head">Bài nổi bật</p><div id="featured-list" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"><FeaturedCards articles={home?.featured_articles} /></div></section>
-          <section id="categories" className="mb-14"><p className="section-head">Duyệt theo thư mục bài</p><div id="category-cards" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"><CategoryCards categories={home?.categories} /></div></section>
-        </>}
+        reference={
+          <GrammarIndex groups={groups} initialView={view} initialGroup={group}>
+            <FeaturedList articles={home?.featured_articles} />
+          </GrammarIndex>
+        }
         learning={<>
           <section className="mb-10"><p className="section-head">Không học lại từ đầu — học đúng chỗ cần</p><GrammarLearningDashboard /></section>
           <section className="gw-learning-actions"><Link href="/grammar/roadmap"><span>01</span><strong>Lộ trình</strong><small>Xem thứ tự nền tảng → điểm yếu</small></Link><Link href="/grammar/exercises"><span>02</span><strong>Bài luyện</strong><small>Lọc theo chủ đề và trình độ</small></Link><Link href="/grammar/search?q=ielts"><span>03</span><strong>IELTS transfer</strong><small>Tìm bài dùng cho kỹ năng cụ thể</small></Link></section>
@@ -170,7 +151,7 @@ function CategoryView({ slug, data }: { slug: string; data: GrammarCategoryWire 
  * Ba chế độ, giữ nguyên hành vi legacy (`loadGrammarHome`):
  *   `?q=`        → chuyển sang trang kết quả tìm kiếm (legacy, chưa port)
  *   `?category=` → xem một thư mục
- *   không tham số → trang chủ đầy đủ
+ *   không tham số → trang chủ đầy đủ (`?xem=az` · `?nhom=<nhóm>` chọn cách xếp mục lục)
  */
 async function GrammarBody({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   // The route-manifest CI build intentionally has no backend. Defer canonical
@@ -179,6 +160,8 @@ async function GrammarBody({ searchParams }: { searchParams: Promise<Record<stri
   const params = await searchParams;
   const q = typeof params.q === 'string' ? params.q : '';
   const category = typeof params.category === 'string' ? params.category : '';
+  const view: IndexView = params.xem === 'az' ? 'az' : 'groups';
+  const group = typeof params.nhom === 'string' ? params.nhom : '';
 
   if (q) redirect(`/grammar/search?q=${encodeURIComponent(q)}`);
 
@@ -194,7 +177,7 @@ async function GrammarBody({ searchParams }: { searchParams: Promise<Record<stri
   // Hai lần fetch song song — legacy cũng vậy; tuần tự sẽ cộng dồn độ trễ vào
   // đúng phần đang stream.
   const [home, groups] = await Promise.all([getHome(), getGroups()]);
-  return <HomeContent home={home} groups={groups || []} />;
+  return <HomeContent home={home} groups={groups || []} view={view} group={group} />;
 }
 
 export default function GrammarHomePage({
@@ -211,12 +194,19 @@ export default function GrammarHomePage({
       {/* @ts-ignore */}
       <aver-chrome active="grammar" />
 
-      <main className="av-w-page pb-20">
-        <Hero />
-        <Suspense fallback={<BodySkeleton />}>
-          <GrammarBody searchParams={searchParams} />
-        </Suspense>
-      </main>
+      {/* T014 (b): the home body is on the "Bản in" tokens; the layout keeps the
+          legacy chrome and cascade until part (c) moves the whole group. */}
+      <div className={`av2-root ${av2FontClass}`}>
+        <main className={styles.home}>
+          <Hero />
+          <Suspense fallback={<BodySkeleton />}>
+            <GrammarBody searchParams={searchParams} />
+          </Suspense>
+          <CourseLinkLine href="/" linkLabel="Xem các khoá học">
+            Muốn học theo thứ tự? Wiki để tra cứu; khoá học sắp các điểm ngữ pháp theo thứ tự học, có bài tập sau mỗi bài.
+          </CourseLinkLine>
+        </main>
+      </div>
     </>
   );
 }
