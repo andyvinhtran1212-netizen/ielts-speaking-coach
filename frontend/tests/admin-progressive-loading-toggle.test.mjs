@@ -25,7 +25,6 @@ import path from 'node:path';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const readJs = (name) => readFileSync(path.join(__dirname, '..', 'js', name), 'utf8');
-const readHtml = (...rel) => readFileSync(path.join(__dirname, '..', 'pages', ...rel), 'utf8');
 
 // (js file, wrapper id) — every admin list/table wrapper whose render path
 // toggles visibility by empty/non-empty result.
@@ -46,11 +45,6 @@ const WRAPS = [
   ['admin-usage.js', 'code-usage-table-wrap'],
   ['admin-classes.js', 'list-table-wrap'],
   ['admin-classes.js', 'roster-table-wrap'],
-  // NOTE: admin-listening-tests-list.js (tl-table-wrap) is intentionally not
-  // listed — renderRows() fetches the element into a local `tableWrap` var and
-  // toggles `tableWrap.hidden` (both true on empty and false on success), a
-  // different idiom from the `$('id').hidden = …` inline pattern this regex
-  // checks. It was never affected by the toggle-back bug.
 ];
 
 for (const [file, wrap] of WRAPS) {
@@ -76,23 +70,6 @@ for (const [file, wrap] of WRAPS) {
   });
 }
 
-// Category B — destructive controls on the listening test DETAIL page must be
-// gated on a successful fetch, never shown by default. A failed/unauthorized/
-// 404 load must not present archive + hard-delete buttons over un-loaded data
-// for the id taken from the URL.
-test('admin-listening-tests-detail: destructive section is gated on successful fetch', () => {
-  const html = readHtml('admin', 'listening', 'tests-detail.html');
-  const js = readJs('admin-listening-tests-detail.js');
-  // Hidden by default in HTML…
-  assert.match(
-    html,
-    /id="td-delete"[^>]*\shidden/,
-    '#td-delete (archive + hard-delete) must be hidden by default',
-  );
-  // …and revealed only inside render(), which runs only after fetchTest() succeeds.
-  assert.match(
-    js,
-    /getElementById\('td-delete'\)\.hidden\s*=\s*false/,
-    'render() must reveal #td-delete after a successful fetch',
-  );
-});
+// LEGACYJS-0075 W1: the listening test DETAIL guard (danger zone only after a
+// successful fetch) moved to admin-listening-test-detail-next-behavior.test.mjs
+// with the deletion of admin-listening-tests-detail.js.

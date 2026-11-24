@@ -165,9 +165,9 @@ def test_only_grading_and_auth_layer_are_wired_to_facade():
     # P0-1 Phase 2 wired grading.py; PC-J05 (D1a) wired the per-request auth and
     # permission checks. Flipping USE_ASYNC_DB on may change ONLY these paths —
     # sessions/reading/listening/admin data routes are later phases.
-    #   routers/admin.py — require_admin / require_instructor role read only
+    #   routers/admin/__init__.py — require_admin / require_instructor role read only
     #   routers/auth.py  — /auth/me and /auth/check-active
-    assert _facade_users("routers") == {"grading.py", "admin.py", "auth.py"}
+    assert _facade_users("routers") == {"grading.py", "admin/__init__.py", "auth.py"}
     assert _facade_users("services") == {
         "activation_gate.py",          # learner gate is_active read
         "access_code_permissions.py",  # live permissions + /api/student/permissions
@@ -177,7 +177,7 @@ def test_only_grading_and_auth_layer_are_wired_to_facade():
 
 def test_admin_router_uses_facade_only_in_staff_role_guard():
     # admin.py is wired for the guard's role read, not for any admin data route.
-    src = open(os.path.join(os.path.dirname(__file__), "..", "routers", "admin.py"),
+    src = open(os.path.join(os.path.dirname(__file__), "..", "routers", "admin", "__init__.py"),
                encoding="utf-8").read()
     assert src.count("aexecute(") == 1
     guard = src[src.index("async def _staff_role_row"):src.index("async def require_admin")]
@@ -197,7 +197,7 @@ def test_flag_twins_take_the_facade_only_from_auth_me():
         assert "settings.USE_ASYNC_DB" not in src, name
     callers = set()
     for sub in ("routers", "services"):
-        for path in glob.glob(os.path.join(backend, sub, "*.py")):
+        for path in glob.glob(os.path.join(backend, sub, "**", "*.py"), recursive=True):
             src = open(path, encoding="utf-8").read()
             if "ais_flashcard_enabled(" in src or "ais_enabled(" in src:
                 callers.add(os.path.relpath(path, backend))
