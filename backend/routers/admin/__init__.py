@@ -2096,8 +2096,8 @@ async def revoke_used_access_code(
         })
 
     try:
-        code_res = (
-            supabase_admin.table("access_codes")
+        code_res = await asyncio.to_thread(
+            lambda: supabase_admin.table("access_codes")
             .select("id, code, is_revoked, is_active, used_by")
             .eq("id", code_id)
             .limit(1)
@@ -2122,7 +2122,7 @@ async def revoke_used_access_code(
         return {
             "id": row["id"], "code": code_value, "is_revoked": True,
             "already_revoked": True, "affected_user_count": 0,
-            "audit_recorded": _revoke_audit_exists(code_id),
+            "audit_recorded": await _revoke_audit_exists(code_id),
         }
 
     # Fail closed: the count goes into the audit and the confirmation the
@@ -2131,8 +2131,8 @@ async def revoke_used_access_code(
     # every active assignment, plus the legacy `used_by` redeemer when that
     # user has no assignment row at all for this code.
     try:
-        rows_res = (
-            supabase_admin.table("user_code_assignments")
+        rows_res = await asyncio.to_thread(
+            lambda: supabase_admin.table("user_code_assignments")
             .select("user_id, is_active")
             .eq("code_id", code_id)
             .execute()
@@ -2145,7 +2145,7 @@ async def revoke_used_access_code(
     # The reason is written BEFORE the revoke: if the audit insert fails, the
     # code stays usable and nobody loses access without a recorded reason.
     try:
-        audit_res = supabase_admin.table("access_code_audit").insert({
+        audit_row = {
             "actor_user_id": _actor_id(admin),
             "action": "revoke",
             "code_id": code_id,
@@ -2156,7 +2156,10 @@ async def revoke_used_access_code(
                 "reason": reason, "affected_user_ids": affected,
                 "source": "danger_zone",
             },
-        }).execute()
+        }
+        audit_res = await asyncio.to_thread(
+            lambda: supabase_admin.table("access_code_audit").insert(audit_row).execute()
+        )
     except Exception as exc:
         logger.error("access_code_audit insert failed (revoke-used code=%s): %s", code_id, exc)
         audit_res = None
@@ -2167,8 +2170,8 @@ async def revoke_used_access_code(
         })
 
     try:
-        upd = (
-            supabase_admin.table("access_codes")
+        upd = await asyncio.to_thread(
+            lambda: supabase_admin.table("access_codes")
             .update({"is_revoked": True, "is_active": False})
             .eq("id", code_id)
             .eq("is_revoked", False)
@@ -2209,12 +2212,12 @@ def _revoke_access_holders(code_row: dict, assignment_rows: list[dict]) -> list[
     return sorted(holders)
 
 
-def _revoke_audit_exists(code_id: str) -> bool:
+async def _revoke_audit_exists(code_id: str) -> bool:
     """Whether access_code_audit holds a revoke row for this code. A lookup
     error answers False: the response must not claim a record it cannot see."""
     try:
-        res = (
-            supabase_admin.table("access_code_audit")
+        res = await asyncio.to_thread(
+            lambda: supabase_admin.table("access_code_audit")
             .select("id")
             .eq("code_id", code_id)
             .eq("action", "revoke")
