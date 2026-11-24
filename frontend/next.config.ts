@@ -16,6 +16,7 @@ import {
   buildLegacyRetirementRedirects,
   LEGACY_RETIREMENT_PATHS,
 } from './tooling/legacy-url-redirects.mjs';
+import { buildAdvancedVocabLegacyRewrites } from './tooling/advanced-vocab-legacy-rewrites.mjs';
 import { collectNonceRoutes } from './tooling/nonce-route-table.mjs';
 import { resolveRuntimeOrigins } from './tooling/runtime-origins.mjs';
 
@@ -75,6 +76,10 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return {
       beforeFiles: [
+        // MEDIAOUT-0078 (option D): legacy /assets/advanced-vocab/<lesson>/…
+        // → versions/<lesson>/<current checksum>/…, only when
+        // AVER_ADVANCED_VOCAB_LEGACY_REWRITE=1; empty by default (FR-006).
+        ...buildAdvancedVocabLegacyRewrites(process.env),
         // PILOT 1 CUTOVER (2026-07-14): `/` is now the Next app route
         // app/(marketing)/page.tsx. The old `/` → /index.html rewrite is
         // REMOVED in the same change (route-ownership check enforces this

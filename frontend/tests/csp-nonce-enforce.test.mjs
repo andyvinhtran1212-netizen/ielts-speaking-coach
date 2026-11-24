@@ -11,6 +11,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 
+import * as advancedVocabRewrites from '../tooling/advanced-vocab-legacy-rewrites.mjs';
 import * as csp from '../tooling/content-security-policy.mjs';
 import * as articleIndex from '../lib/grammar-article-index.mjs';
 import * as legacyRedirects from '../tooling/legacy-url-redirects.mjs';
@@ -48,6 +49,7 @@ function loadModule(filename, env) {
     '@/lib/backend': { API_BASE: 'https://unused.invalid' },
     '@/lib/grammar-article-index.mjs': articleIndex,
     '@/tooling/content-security-policy.mjs': csp,
+    './tooling/advanced-vocab-legacy-rewrites.mjs': advancedVocabRewrites,
     './tooling/content-security-policy.mjs': csp,
     './tooling/legacy-url-redirects.mjs': legacyRedirects,
     './tooling/nonce-route-table.mjs': routeTable,
