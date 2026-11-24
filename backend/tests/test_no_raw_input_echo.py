@@ -221,6 +221,7 @@ ALLOWED_B: dict[tuple[str, str, str], tuple[int, str]] = {
     ("services/essay_service.py", "_ensure_student_exists", "student_id"): (1, TYPED_PATH + " (CreateEssayRequest.student_id: UUID)"),
     ("services/essay_service.py", "compose_version", "crit; src_v"): (1, "criterion names constant; versions int-typed (ComposeBody)"),
     ("services/essay_service.py", "upsert_grade_rating", "essay_id"): (1, TYPED_PATH),
+    ("services/library_media.py", "throttle", "str(retry_after)"): (1, "server-computed integer seconds from the sliding window, not request text (feeds Retry-After)"),
     ("services/quiz_service.py", "_review_course_section_result", "section"): (1, LITERAL_ARG),
     ("services/quiz_service.py", "_save_course_section_result", "qid"): (1, "qid from the stored answer key"),
     ("services/quiz_service.py", "_save_course_section_result", "section"): (4, LITERAL_ARG),
