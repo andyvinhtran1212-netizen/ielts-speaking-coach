@@ -4,8 +4,8 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { FlashcardStudyPlayer } from '@/app/(flashcard-study)/flashcard-study/flashcard-study-player';
-import { drillSourceLabel } from '@/app/(flashcard-study)/flashcard-study/flashcard-study-room';
+import { FlashcardStudyPlayer } from '@/app/(flashcard-study)/vocabulary/flashcards/study/flashcard-study-player';
+import { drillSourceLabel } from '@/app/(flashcard-study)/vocabulary/flashcards/study/flashcard-study-room';
 
 const scope = vi.hoisted(() => ({ user: { id: 'learner-a' } as { id: string } | null, status: 'signed-in' }));
 vi.mock('@/styles/av2/fonts', () => ({ av2FontClass: 'av2-font-test' }));
@@ -38,7 +38,7 @@ function setFlag(on: boolean) {
   (window as any).__AVER_RUNTIME_CONFIG__ = { environment: 'staging', examRoomSurfaces: on ? ['drill'] : [] };
 }
 function openStack(stack: string) {
-  location = { href: `https://app.invalid/flashcard-study?stack=${stack}`, assign: vi.fn(), replace: vi.fn(), pathname: '/flashcard-study', search: `?stack=${encodeURIComponent(stack)}` };
+  location = { href: `https://app.invalid/vocabulary/flashcards/study?stack=${stack}`, assign: vi.fn(), replace: vi.fn(), pathname: '/vocabulary/flashcards/study', search: `?stack=${encodeURIComponent(stack)}` };
   vi.stubGlobal('location', location);
 }
 
@@ -140,7 +140,7 @@ describe('flag on: personal stack', () => {
     render(<FlashcardStudyPlayer />);
     await screen.findByText(/Thẻ 1 trên 2/);
     fireEvent.click(screen.getByRole('button', { name: /Thoát/ }));
-    await waitFor(() => expect(location.assign).toHaveBeenCalledWith('/flashcards'));
+    await waitFor(() => expect(location.assign).toHaveBeenCalledWith('/vocabulary/flashcards'));
     location.assign.mockClear();
     fireEvent.click(screen.getByRole('button', { name: 'Lật thẻ' }));
     fireEvent.click(rate('Quên'));
@@ -204,7 +204,7 @@ describe('flag on: personal stack', () => {
   it('signed out before the stack loads still goes to /login?next=', async () => {
     scope.status = 'signed-out'; scope.user = null;
     render(<FlashcardStudyPlayer />);
-    await waitFor(() => expect(location.replace).toHaveBeenCalledWith(`/login?next=${encodeURIComponent('/flashcard-study?stack=auto%3Adue')}`));
+    await waitFor(() => expect(location.replace).toHaveBeenCalledWith(`/login?next=${encodeURIComponent('/vocabulary/flashcards/study?stack=auto%3Adue')}`));
   });
 });
 
