@@ -253,7 +253,7 @@ export function AdminAccessCodesPanel({ profileId, cohorts, cohortsError, expiri
               const activeAssignments = activeAssignmentCount(code);
               const entry = ledger.get(code.id);
               return <tr key={code.id}>
-              <td><code className="au-code-value">{code.code || '—'}</code></td>
+              <td><a className="au-code-link" href={`/admin/activation-codes/${encodeURIComponent(code.id)}`} title="Mở trang mã"><code className="au-code-value">{code.code || '—'}</code></a></td>
               <td><span className={`adm-chip${code.code_type === 'direct' ? ' is-direct' : ''}`}>{codeTypeLabel(code.code_type)}</span></td>
               <td>{code.cohort_name ? <span className="adm-chip is-direct">{code.cohort_name}</span> : '—'}</td>
               <td>{code.association_lookup_failed ? <span className="au-lookup-failed" role="alert">⚠ lookup failed</span> : code.assigned_users.length ? <div className="au-assigned-list">{code.assigned_users.map((user) => <div key={user.user_id} className="au-assigned-user">
@@ -301,17 +301,15 @@ export function AdminAccessCodesPanel({ profileId, cohorts, cohortsError, expiri
                       ),
                     }),
                   },
-                  // FR-055: revoking an unused code is the menu's last item; a
-                  // code in use cannot be revoked from the ledger.
+                  // FR-055: revoking an unused code is the menu's last item.
                   {
                     label: 'Thu hồi mã',
                     danger: true,
-                    // A legacy code with only used_by (no active assignment)
-                    // is still "Đã dùng": revoking a used code needs a reason,
-                    // so it is not done from this menu.
-                    disabledReason: activeAssignments > 0 ? 'Mã đang có người dùng; gỡ người dùng trước.'
-                      : code.association_lookup_failed ? 'Không xác minh được người đang dùng mã.'
-                        : entry?.state === 'used' ? 'Mã đã dùng; không thu hồi từ sổ mã.' : undefined,
+                    // A used code (in use, or a legacy code with only
+                    // used_by) is revoked with a reason in the code page's
+                    // danger zone, not from this menu.
+                    disabledReason: activeAssignments > 0 || entry?.state === 'used' ? 'Mã đã dùng; thu hồi ở Vùng nguy hiểm của trang mã.'
+                      : code.association_lookup_failed ? 'Không xác minh được người đang dùng mã.' : undefined,
                     onSelect: () => setConfirm({
                       title: 'Thu hồi mã',
                       body: `Thu hồi mã ${code.code}? Hành động này không thể khôi phục.`,

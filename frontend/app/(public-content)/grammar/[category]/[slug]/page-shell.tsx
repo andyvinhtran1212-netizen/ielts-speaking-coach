@@ -2,12 +2,12 @@
  * Grammar article page — Server Component (LIBRARY-0061 T014 PR (a), FR-040,
  * FR-044; tờ GrammarWikiBai, khuôn bài đọc NguPhap / T007).
  *
- * The page sits in the legacy `(public-content)` layout until T014 PR (c), so
- * the "Bản in" tokens and base rules are imported here and scoped by the
+ * The page still sits in the `(public-content)` layout (aver-chrome top bar),
+ * so the "Bản in" tokens and base rules are imported here and scoped by the
  * `.av2-root` wrapper (base.css only styles inside it). The article HTML from
- * the backend keeps `class="article-body"` and `grammar-wiki.css` (still in the
- * layout) until PR (c), so Grammar Lab blocks and `<figure class="gw-fig">`
- * render exactly as today.
+ * the backend keeps `class="article-body"` and its Grammar Lab class names;
+ * `article-prose.module.css` styles them (T014 PR (c2) took `grammar-wiki.css`
+ * out of the layout). `<figure class="gw-fig">` passes through untouched.
  *
  * Everything the reader needs is in the server HTML (FR-001); the browser only
  * adds the save control, view tracking, the quick-check link and Grammar Lab
@@ -23,6 +23,7 @@ import { ReadingBlock, ReadingLayout, type ReadingTocItem } from '@/components/l
 import { BackLink, Breadcrumb, Notice } from '@/components/ui';
 import { av2FontClass } from '@/styles/av2/fonts';
 
+import prose from '../../article-prose.module.css';
 import styles from './article.module.css';
 import { SaveControl } from './save-control';
 
@@ -158,7 +159,7 @@ export function ArticleShell({ article, source = '' }: { article: GrammarArticle
                 ) : (
                   // Backend-rendered article: anchors, Grammar Lab blocks and
                   // `<figure class="gw-fig">` are kept as they arrive (FR-044).
-                  <div id="article-body" className="article-body" dangerouslySetInnerHTML={{ __html: article.html || '' }} />
+                  <div id="article-body" className={`article-body ${prose.prose}`} dangerouslySetInnerHTML={{ __html: article.html || '' }} />
                 )}
               </ReadingBlock>
 

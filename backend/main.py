@@ -29,6 +29,7 @@ from services.errors import safe_detail, GENERIC_MESSAGE
 from config import settings
 from database import supabase_admin
 from routers.auth import get_supabase_user, router as auth_router
+from routers.account_session import router as account_session_router
 from services.activation_gate import require_active_learner
 from services.api_docs import api_docs_kwargs
 from services.cors_policy import allowed_origins as cors_allowed_origins
@@ -40,6 +41,10 @@ from services.server_timing import (
     start_request as start_server_timing_request,
 )
 from routers.sessions import router as sessions_router
+from routers.courses_public import router as courses_public_router
+from routers.me_access import router as me_access_router
+from routers.enrollment import router as enrollment_router
+from routers.admin_commerce import router as admin_commerce_router
 from routers.questions import router as questions_router
 from routers.grading import router as grading_router
 from routers.tts import router as tts_router
@@ -64,7 +69,10 @@ from routers.admin_settings import router as admin_settings_router
 from routers.admin_library import router as admin_library_router
 from routers.admin_learners import router as admin_learners_router
 from routers.admin_search import router as admin_search_router
+from routers.admin_attention import router as admin_attention_router
+from routers.admin_incidents import router as admin_incidents_router
 from routers.admin_learner_profile import router as admin_learner_profile_router
+from routers.admin_care_notes import router as admin_care_notes_router
 from routers.admin_overview import router as admin_overview_router
 from routers.admin_ai import router as admin_ai_router
 from routers.admin_writing import router as admin_writing_router
@@ -272,6 +280,7 @@ app.add_middleware(
 _ACTIVE_LEARNER = [Depends(require_active_learner)]
 
 app.include_router(auth_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(account_session_router, dependencies=_ACTIVE_LEARNER)  # COURSEACCESS-0055 T009 (exempt routes)
 app.include_router(sessions_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(questions_router, dependencies=_ACTIVE_LEARNER)
 
@@ -287,6 +296,7 @@ app.include_router(admin_core_attempt_evidence_router)
 app.include_router(admin_staff_security_router)   # ADMINAAL2-0032 T006
 app.include_router(cohorts_router)
 app.include_router(admin_courses_router)
+app.include_router(admin_commerce_router)
 app.include_router(admin_class_lessons_router)
 app.include_router(admin_class_assignments_router)
 app.include_router(grammar_lesson_router, dependencies=_ACTIVE_LEARNER)
@@ -300,7 +310,10 @@ app.include_router(admin_settings_router)
 app.include_router(admin_library_router)  # LIBRARY-0061 T020 (G06-T20)
 app.include_router(admin_learners_router)
 app.include_router(admin_search_router)
+app.include_router(admin_attention_router)
+app.include_router(admin_incidents_router)
 app.include_router(admin_learner_profile_router)
+app.include_router(admin_care_notes_router)
 app.include_router(admin_overview_router)
 app.include_router(admin_ai_router)
 app.include_router(admin_writing_router)
@@ -315,6 +328,9 @@ app.include_router(instructor_router)
 app.include_router(admin_instructors_router)
 app.include_router(admin_students_router)
 app.include_router(writing_student_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(courses_public_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(me_access_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(enrollment_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(grammar_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(grammar_diagnostic_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(admin_grammar_diagnostic_router)
@@ -686,6 +702,13 @@ def _safe_error_request_context(request: Request) -> tuple[str, dict | None]:
 # immediately; logging happens in the background.
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
+    from services.session_gate import TIMED_START_REFUSED_DETAIL, timed_start_refusal
+    if timed_start_refusal(exc):
+        # COURSEACCESS-0055 T009 (mig 388): a timed start refused because the
+        # account's session changed while it waited. Nothing was started.
+        mark_sentry_handled(exc)
+        return JSONResponse(status_code=409, content={"detail": TIMED_START_REFUSED_DETAIL},
+                            headers=_cors_headers_for_origin(request.headers.get("origin")))
     from services.mock_paper_policy import safe_database_error
     policy_error = safe_database_error(exc, operator=request.url.path.startswith(("/api/admin/", "/admin/")))
     if policy_error is not None:
@@ -846,6 +869,11 @@ async def request_validation_handler(request: Request, exc: RequestValidationErr
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     import uuid as _uuid
+    from services.session_gate import TIMED_START_REFUSED_DETAIL, timed_start_refusal
+    if timed_start_refusal(exc.__cause__ or exc.__context__):
+        # A start route mapped 388's refusal to its own error (often 500/503);
+        # the learner gets the one 409 that says what happened.
+        exc = StarletteHTTPException(409, TIMED_START_REFUSED_DETAIL, headers=getattr(exc, "headers", None))
     request_id = getattr(request.state, "request_id", None) or str(_uuid.uuid4())
     detail = safe_detail(exc.status_code, "Listening request failed" if "/listening" in request.url.path and exc.status_code >= 500 and not (isinstance(exc.detail, dict) and "error_code" in exc.detail) else exc.detail, ref=request_id)
     if exc.status_code >= 500:

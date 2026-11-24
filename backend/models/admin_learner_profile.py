@@ -2,7 +2,7 @@
 5.4 ``GET /admin/learners/{ref}/overview``; G09-T04).
 
 A block is ``null`` when its source could not be read; the block's name is
-then in ``sources_failed``. A field with no source yet (G04, G09-T35, term
+then in ``sources_failed``. A field with no source yet (G04, term
 milestones) is ``null`` too, and is never reported as failed.
 """
 
@@ -11,7 +11,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Literal, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 _CODE = Literal["late_streak", "inactive", "course_expiring", "low_credits"]
 
@@ -145,8 +145,17 @@ class CreditsCarried(_StrictOut):
     expires_at: str
 
 
+class DueNote(_StrictOut):
+    """A care note's booked work (G09-T35): open, with a due day."""
+    id: str
+    due_on: date
+    next_action: Optional[str]
+    body: str
+
+
 class OverviewSide(_StrictOut):
-    due_notes: Optional[list[dict]]
+    # null: the care notes could not be read (named "care_notes").
+    due_notes: Optional[list[DueNote]]
     courses: Optional[list[dict]]
     credits_left: Optional[int]
     credits_carried: Optional[CreditsCarried]
@@ -160,6 +169,68 @@ class LearnerOverview(_StrictOut):
     scores: Optional[OverviewScores]
     side: OverviewSide
     sources_failed: list[str]
+
+
+# ── Care notes (G09-T35, FR-032; mig 442) ─────────────────────────────────
+
+class CareNote(_StrictOut):
+    # null only for the virtual initial note built from students.persona_notes.
+    id: Optional[str]
+    author_name: Optional[str]
+    created_at: Optional[str]
+    body: str
+    next_action: Optional[str]
+    due_on: Optional[date]
+    done_at: Optional[str]
+    is_initial: bool
+    editable: bool
+
+
+class CareNotes(_StrictOut):
+    items: list[CareNote]
+
+
+class CareNoteOut(_StrictOut):
+    note: CareNote
+
+
+class CareNoteIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    body: str = Field(min_length=1, max_length=4000)
+    next_action: Optional[str] = Field(default=None, max_length=500)
+    due_on: Optional[date] = None
+
+    @field_validator("body")
+    @classmethod
+    def _body(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("body must not be blank")
+        return value
+
+
+class CareNotePatch(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    body: Optional[str] = Field(default=None, min_length=1, max_length=4000)
+    next_action: Optional[str] = Field(default=None, max_length=500)
+    due_on: Optional[date] = None
+    done: Optional[bool] = None
+
+    @field_validator("body")
+    @classmethod
+    def _body(cls, value: Optional[str]) -> Optional[str]:
+        if value is not None and not value.strip():
+            raise ValueError("body must not be blank")
+        return value
+
+    @model_validator(mode="after")
+    def _something(self) -> "CareNotePatch":
+        if not self.model_fields_set:
+            raise ValueError("nothing to change")
+        if "body" in self.model_fields_set and self.body is None:
+            raise ValueError("body cannot be cleared")
+        if "done" in self.model_fields_set and self.done is None:
+            raise ValueError("done must be true or false")
+        return self
 
 
 # ── Khoá và quyền: AI cost (FR-026; G09-T04c) ──────────────────────────────

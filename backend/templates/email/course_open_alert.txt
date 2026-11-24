@@ -1,0 +1,9 @@
+Subject: Khoá {product_title} đã mở đăng ký
+
+{greeting}
+
+Bạn đã đăng ký nhận báo khi khoá {product_title} mở. Khoá đang mở đăng ký.
+{course_link_line}
+Aver Learning
+
+Bạn chỉ nhận một thư này cho khoá {product_title}.{unsubscribe_line}

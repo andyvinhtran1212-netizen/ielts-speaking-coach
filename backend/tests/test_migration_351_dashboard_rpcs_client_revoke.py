@@ -144,7 +144,7 @@ def test_step0_only_admin_dashboard_calls_via_supabase_admin():
 
 
 def test_step0_admin_routes_authorize_before_reading_dashboard_data():
-    tree = ast.parse((BACKEND / "routers/admin/__init__.py").read_text(encoding="utf-8"))
+    tree = ast.parse((BACKEND / "routers/admin/access_codes.py").read_text(encoding="utf-8"))
     for name in ("dashboard_overview", "dashboard_trends"):
         route, = [node for node in tree.body if isinstance(node, ast.AsyncFunctionDef)
                   and node.name == name]
