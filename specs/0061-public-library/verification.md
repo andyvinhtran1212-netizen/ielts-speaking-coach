@@ -20,7 +20,7 @@ Mọi dòng ở trạng thái `PENDING`: spec đang ở `draft`, chưa có dòng
 | FR-016 | kind=test; ref=planned in T010; test React Task 1 có hình, mục 3 Đặc điểm chính, đánh số lại | PENDING |
 | FR-017 | kind=test; ref=planned in T010; test React liên kết mục từ chỉ khi tồn tại, related ≤ 4, prev/next | PENDING |
 | FR-018 | kind=test; ref=planned in T010; test React ba trạng thái khoá/lượt; CHỜ G08 khi chưa có đề điền sẵn | PENDING |
-| FR-019 | kind=test; ref=planned in T002, T003b, T006; test API unpublished 404, slug cũ 308; test script E_NOT_APPROVED; kịch bản 5, 10 | PENDING |
+| FR-019 | kind=test; ref=planned in T002, T002b (`tests/test_migration_401_writing_sample_review_signoff.py`: CHECK đăng phải có chữ ký), T003b, T006; test API unpublished 404, slug cũ 308; test script E_NOT_APPROVED; kịch bản 5, 10 | PENDING |
 | FR-020 | kind=test; ref=planned in T011; test API groups[]; một bài hai nhóm cùng URL | PENDING |
 | FR-021 | kind=test; ref=planned in T007; test React mục lục mục đang đọc (IntersectionObserver giả); 390px đóng | PENDING |
 | FR-022 | kind=test; ref=planned in T007, T011; test bấm số tô data-anchor; test thay thẻ trích, bài gỡ thì bỏ | PENDING |
