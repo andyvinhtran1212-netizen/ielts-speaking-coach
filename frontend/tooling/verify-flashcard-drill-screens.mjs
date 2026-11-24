@@ -57,7 +57,7 @@ async function open(viewport, theme) {
     if (url.pathname === '/api/vocabulary/categories/environment/cards') return json(wiki);
     return json({});
   });
-  await page.goto(`${BASE}/flashcard-study?stack=wiki:environment`, { waitUntil: 'domcontentloaded' });
+  await page.goto(`${BASE}/vocabulary/flashcards/study?stack=wiki:environment`, { waitUntil: 'domcontentloaded' });
   await page.getByText(/Thẻ 1 trên 2/).waitFor();
   return { context, page, errors, get dialogs() { return dialogs; } };
 }
@@ -145,7 +145,7 @@ async function openPersonal(reviewStatus) {
     }
     return json({});
   });
-  await page.goto(`${BASE}/flashcard-study?stack=auto:due`, { waitUntil: 'domcontentloaded' });
+  await page.goto(`${BASE}/vocabulary/flashcards/study?stack=auto:due`, { waitUntil: 'domcontentloaded' });
   await page.getByText(/Thẻ 1 trên 2/).waitFor();
   await page.getByRole('button', { name: 'Lật thẻ', exact: true }).click();
   await page.getByRole('button', { name: /^Tốt/ }).click();
@@ -160,7 +160,7 @@ const afterWait = refused.state.reviews;
 await refused.page.evaluate(() => window.dispatchEvent(new Event('focus')));
 await refused.page.waitForTimeout(1000);
 check('personal: a review refused with 401 is not retried in a loop; one retry per focus (Codex P1)',
-  afterWait === 1 && refused.state.reviews === 2 && await refused.page.getByText('Phiên đăng nhập đã hết hạn').count() > 0 && new URL(refused.page.url()).pathname === '/flashcard-study',
+  afterWait === 1 && refused.state.reviews === 2 && await refused.page.getByText('Phiên đăng nhập đã hết hạn').count() > 0 && new URL(refused.page.url()).pathname === '/vocabulary/flashcards/study',
   `before focus=${afterWait}; after=${refused.state.reviews}`);
 check('personal 401: reload is guarded while the rating waits', await reloadGuarded(refused.page));
 check('personal 401: no browser dialog, no JS error', refused.state.dialogs === 0 && refused.state.errors.length === 0, refused.state.errors.join(' | '));
