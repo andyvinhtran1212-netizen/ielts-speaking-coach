@@ -2,7 +2,7 @@
 // This is runtime compatibility data, not migration evidence.
 
 const EXACT_REPLACEMENTS = Object.freeze({
-  '/pages/admin/access-codes/index.html': '/admin/users',
+  '/pages/admin/access-codes/index.html': '/admin/activation-codes',
   '/pages/admin/cohorts/index.html': '/admin/classes',
   '/pages/admin/dashboard/index.html': '/admin',
   '/practice.legacy.html': '/practice/session',

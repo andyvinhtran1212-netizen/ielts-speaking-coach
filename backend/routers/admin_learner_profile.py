@@ -11,6 +11,15 @@ G09-T04).
   goal block read back. 409 ``no_conflict`` when there is nothing to resolve;
   503 ``goal_write_failed`` when the write did not happen (also before 452 is
   applied).
+* ``GET /admin/learners/{ref}/ai-cost?window=7|30|90`` — admin (G09-T04c,
+  FR-026). The learner's AI spend in the window, by feature; 503
+  ``ai_cost_unavailable`` when a source cannot be read (never a smaller sum).
+* ``GET /admin/learners/{ref}/log?kind=&cursor=`` — admin (G09-T04c, FR-027).
+  The merged system log, newest first, 50 a page; a source that cannot be read
+  is named in ``sources_failed``. 422 ``bad_cursor``.
+* ``GET /admin/learners/{ref}/attempts?skill=&state=&cursor=`` — admin
+  (G09-T04c, FR-025). Every attempt across the skills, newest first, 30 a
+  page, each with the admin view that opens it. 422 ``bad_cursor``.
 """
 
 from __future__ import annotations
@@ -20,11 +29,13 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Callable
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Query
 
-from models.admin_learner_profile import GoalResolveIn, GoalResolveOut, LearnerOverview
+from models.admin_learner_profile import (AttemptSkill, AttemptState, GoalResolveIn, GoalResolveOut, LearnerAiCost,
+                                          LearnerAttempts, LearnerLog, LearnerOverview, LogSource)
 from routers.admin import require_admin
 from routers.admin_learners import _person, _thresholds
+from services import admin_learner_attempts, admin_learner_cost, admin_learner_log
 from services import admin_learner_profile as profile
 
 logger = logging.getLogger(__name__)
@@ -91,3 +102,42 @@ async def resolve_learner_goal(ref: str, body: GoalResolveIn, authorization: str
         raise HTTPException(503, {"code": "goal_saved_unreadable",
                                   "message": "Đã lưu mục tiêu nhưng chưa đọc lại được. Tải lại trang."}) from exc
     return {"goal": goal}
+
+
+@router.get("/admin/learners/{ref}/ai-cost", response_model=LearnerAiCost)
+async def get_learner_ai_cost(ref: str, window: int = Query(30),
+                              authorization: str | None = Header(default=None)):
+    await require_admin(authorization)
+    if window not in admin_learner_cost.WINDOWS:
+        raise HTTPException(422, {"code": "bad_window", "message": "Chọn 7, 30 hoặc 90 ngày."})
+    person = await _person(ref)
+    try:
+        return await asyncio.to_thread(admin_learner_cost.cost, person, window)
+    except Exception as exc:
+        logger.warning("learner ai cost: read failed (%s)", type(exc).__name__)
+        raise HTTPException(503, {"code": "ai_cost_unavailable",
+                                  "message": "Chưa đọc được chi phí AI của học viên này. Thử tải lại."}) from exc
+
+
+@router.get("/admin/learners/{ref}/log", response_model=LearnerLog)
+async def get_learner_log(ref: str, kind: LogSource | None = None, cursor: str | None = Query(None, max_length=512),
+                          authorization: str | None = Header(default=None)):
+    await require_admin(authorization)
+    person = await _person(ref)
+    try:
+        return await asyncio.to_thread(admin_learner_log.log, person, kind=kind, cursor=cursor)
+    except admin_learner_log.BadCursor:
+        raise HTTPException(422, {"code": "bad_cursor", "message": "Trang nhật ký không hợp lệ. Tải lại từ đầu."})
+
+
+@router.get("/admin/learners/{ref}/attempts", response_model=LearnerAttempts)
+async def get_learner_attempts(ref: str, skill: AttemptSkill | None = None, state: AttemptState | None = None,
+                               cursor: str | None = Query(None, max_length=512),
+                               authorization: str | None = Header(default=None)):
+    await require_admin(authorization)
+    person = await _person(ref)
+    try:
+        return await asyncio.to_thread(admin_learner_attempts.attempts, person, skill=skill, state=state,
+                                       cursor=cursor)
+    except admin_learner_attempts.BadCursor:
+        raise HTTPException(422, {"code": "bad_cursor", "message": "Trang bài làm không hợp lệ. Tải lại từ đầu."})

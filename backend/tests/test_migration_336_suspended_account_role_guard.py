@@ -98,7 +98,7 @@ def test_forward_policy_no_longer_holds_336_or_332_after_their_production_releas
 
 
 def test_role_route_maps_only_the_exact_database_error():
-    admin = (BACKEND / "routers" / "admin.py").read_text(encoding="utf-8")
+    admin = (BACKEND / "routers" / "admin" / "__init__.py").read_text(encoding="utf-8")
     assert f'_SUSPENDED_ROLE_CHANGE_CODE = "{ERROR}"' in admin
     assert 'str(code or "") == "P0001" and message == _SUSPENDED_ROLE_CHANGE_CODE' in admin
 

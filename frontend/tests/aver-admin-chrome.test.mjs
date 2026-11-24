@@ -206,7 +206,7 @@ describe('0049 option (a) — canonical admin menu groups', () => {
 
   it('places instructors alongside classes and users with the existing URLs', () => {
     assert.deepEqual(hrefs('Lớp & Người dùng'), [
-      '/admin/users', '/admin/classes', '/admin/instructors',
+      '/admin/users', '/admin/activation-codes', '/admin/classes', '/admin/instructors',
     ]);
     assert.ok(!hrefs('Nội dung').includes('/admin/instructors'));
     assert.ok(!group('Người dùng'));
@@ -374,15 +374,8 @@ describe('Sprint 12.1 — section index pages (all graduated from placeholders)'
     // Real content browser markers — table + filter + create row.
     assert.match(html, /id=["']lst-status["']/, 'missing status filter');
     assert.match(html, /id=["']lst-tbody["']/,  'missing content table tbody');
-    // Editor deep-links live in the row-renderer module, not inline.
-    const listJs = read('js', 'admin-listening-content-list.js');
-    for (const sub of ['segments', 'gist', 'tf', 'mcq']) {
-      assert.match(
-        listJs,
-        new RegExp(`/pages/admin/listening/${sub}\\.html\\?content_id=`),
-        `content-list module missing deep-link to ${sub} editor`,
-      );
-    }
+    // LEGACYJS-0075 W1: the row-renderer script admin-listening-content-list.js
+    // was deleted; the Next content browser owns the editor links.
   });
 
   it('Sprint 12.2 — access-codes index is a real landing (not a stub)', () => {
