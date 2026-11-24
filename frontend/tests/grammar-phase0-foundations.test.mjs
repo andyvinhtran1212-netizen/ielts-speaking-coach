@@ -12,8 +12,7 @@ const read = (...parts) => readFileSync(path.join(FRONTEND, ...parts), 'utf8');
 
 const HOME = read('app', '(public-content)', 'grammar', 'page.tsx');
 const SHELL = read('app', '(public-content)', 'grammar', '[category]', '[slug]', 'page-shell.tsx');
-const BEHAVIOR = read('app', '(public-content)', 'grammar', '[category]', '[slug]', 'article-behavior.tsx');
-const CSS = read('public', 'css', 'grammar-wiki.css');
+const READING = read('components', 'library', 'reading-layout.tsx');
 const CHROME = read('public', 'js', 'components', 'aver-chrome.js');
 
 describe('Grammar Wiki Phase 0 foundations', () => {
@@ -24,18 +23,19 @@ describe('Grammar Wiki Phase 0 foundations', () => {
     assert.match(HOME, /Xem các nhóm chủ đề/);
   });
 
+  // G06-T14 (a): trang bài dùng khuôn bài đọc chung (LIBRARY-0061 T007), mục lục
+  // lấy từ `toc` của bài; khuôn tự lo cột trái trên máy tính và khối mở/đóng trên điện thoại.
   test('article shell exposes TOC navigation on desktop and mobile', () => {
-    assert.match(SHELL, /className="gw-mobile-toc lg:hidden/);
-    assert.match(SHELL, /id="mobile-toc-container"/);
-    assert.match(SHELL, /className="toc-rail hidden lg:block/);
-    assert.match(CSS, /\.toc-rail\s*\{[^}]*align-self:\s*stretch/s);
-    assert.match(CSS, /\.gw-mobile-toc\s*\{/);
-    assert.match(CSS, /summary:focus-visible/);
+    assert.match(SHELL, /<ReadingLayout[\s\S]*?toc=\{toc\}/);
+    assert.match(SHELL, /articleToc\(article\.toc\)/);
+    assert.match(READING, /<aside className=\{styles\.tocColumn\}>/);
+    assert.match(READING, /<details className=\{styles\.tocNarrow\}/);
   });
 
   test('TOC active state is synchronized across both render targets', () => {
-    assert.match(BEHAVIOR, /#toc-container \.toc-link, #mobile-toc-container \.toc-link/);
-    assert.match(BEHAVIOR, /#mobile-toc-container a\[href=/);
+    assert.equal((READING.match(/<TocList toc=\{toc\} active=\{active\} \/>/g) || []).length, 2,
+      'cột rộng và khối hẹp dùng chung một trạng thái "đang đọc"');
+    assert.match(READING, /aria-current=\{current \? 'location' : undefined\}/);
   });
 
   test('mobile primary nav uses a vertical disclosure without clipping auto-scroll', () => {
