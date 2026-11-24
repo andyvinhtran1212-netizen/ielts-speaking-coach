@@ -338,7 +338,7 @@ export function AdminUsersPanel({ profileId, cohorts, cohortsError }: {
   };
 
   return (
-    <section id="users-panel" className="au-pane" role="tabpanel" aria-labelledby="users-tab">
+    <section id="users-panel" className="au-pane" aria-label="Danh sách người dùng">
       <div className="au-stat-grid" aria-label="Tổng quan người dùng">
         <div className="au-stat"><span>Tổng tài khoản</span><strong>{stats.total.toLocaleString('vi-VN')}</strong></div>
         <div className="au-stat"><span>Đang hoạt động</span><strong>{stats.active.toLocaleString('vi-VN')}</strong></div>
