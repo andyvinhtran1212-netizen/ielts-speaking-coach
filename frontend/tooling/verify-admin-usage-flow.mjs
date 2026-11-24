@@ -75,7 +75,7 @@ await page.goto(`${BASE}/admin/usage?code_id=code%2Fwith%20space`, { waitUntil: 
 await page.getByRole('heading', { name: 'Hoạt động mã COURSE-1', exact: true }).waitFor({ state: 'visible' });
 check('code view mã hóa ID và đọc đúng endpoint canonical', requests.some((item) => item.path === '/admin/access-codes/code%2Fwith%20space/usage'));
 check('code aggregate giữ tổng phiên unknown và cost thật', await page.getByText('—', { exact: true }).count() >= 1 && await page.getByText('$0.5000', { exact: true }).count() >= 1);
-check('code context và đường quay lại Access Codes đúng', await page.getByText('20', { exact: true }).count() >= 1 && await page.getByRole('link', { name: '← Mã kích hoạt' }).getAttribute('href') === '/admin/users?tab=codes');
+check('code context và đường quay lại Access Codes đúng', await page.getByText('20', { exact: true }).count() >= 1 && await page.getByRole('link', { name: '← Mã kích hoạt' }).getAttribute('href') === '/admin/activation-codes');
 await page.setViewportSize({ width: 1440, height: 900 });
 check('desktop dùng bảng và không tràn ngang', await page.evaluate(() => getComputedStyle(document.querySelector('.aus-table')).display === 'table' && document.documentElement.scrollWidth <= window.innerWidth));
 check('không có write ngoài contract', unexpectedWrites.length === 0, unexpectedWrites.join(', '));
