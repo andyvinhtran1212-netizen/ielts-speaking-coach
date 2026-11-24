@@ -36,6 +36,22 @@ class _Resp:
         self.data = data
 
 
+def _cmp_key(value):
+    """Compare like PostgreSQL: two offset-bearing timestamps by instant (a
+    +07:00 bound and a UTC value are the same timestamptz), anything else as
+    text. Without this the fake orders ISO strings lexically, which is wrong
+    whenever the two offsets differ (G09-T06, VN midnight vs UTC)."""
+    text = str(value)
+    if "T" in text:
+        try:
+            parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        except ValueError:
+            return (0, text)
+        if parsed.tzinfo is not None:
+            return (1, parsed)
+    return (0, text)
+
+
 def _get(row, column):
     """A column, or a JSON key read as PostgREST's ``col->>key``."""
     if "->>" in column:
@@ -79,10 +95,10 @@ class _Query:
             self.db.evidence_queries.append(",".join(str(v) for v in vs))
         return self._add(lambda r: str(r.get(c)) in {str(v) for v in vs})
     def is_(self, c, v): return self._add(lambda r: r.get(c) is None)
-    def gte(self, c, v): return self._add(lambda r: r.get(c) is not None and str(r.get(c)) >= str(v))
-    def lt(self, c, v): return self._add(lambda r: r.get(c) is not None and str(r.get(c)) < str(v))
-    def gt(self, c, v): return self._add(lambda r: r.get(c) is not None and str(r.get(c)) > str(v))
-    def lte(self, c, v): return self._add(lambda r: r.get(c) is not None and str(r.get(c)) <= str(v))
+    def gte(self, c, v): return self._add(lambda r: r.get(c) is not None and _cmp_key(r.get(c)) >= _cmp_key(v))
+    def lt(self, c, v): return self._add(lambda r: r.get(c) is not None and _cmp_key(r.get(c)) < _cmp_key(v))
+    def gt(self, c, v): return self._add(lambda r: r.get(c) is not None and _cmp_key(r.get(c)) > _cmp_key(v))
+    def lte(self, c, v): return self._add(lambda r: r.get(c) is not None and _cmp_key(r.get(c)) <= _cmp_key(v))
     # Only the blackeye hidden-test filter uses or_; no fixture holds such a
     # test, so it keeps every row.
     def or_(self, *_a, **_k): return self

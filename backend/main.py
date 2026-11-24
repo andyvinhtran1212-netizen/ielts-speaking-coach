@@ -40,6 +40,8 @@ from services.server_timing import (
     start_request as start_server_timing_request,
 )
 from routers.sessions import router as sessions_router
+from routers.courses_public import router as courses_public_router
+from routers.me_access import router as me_access_router
 from routers.questions import router as questions_router
 from routers.grading import router as grading_router
 from routers.tts import router as tts_router
@@ -64,6 +66,7 @@ from routers.admin_settings import router as admin_settings_router
 from routers.admin_library import router as admin_library_router
 from routers.admin_learners import router as admin_learners_router
 from routers.admin_search import router as admin_search_router
+from routers.admin_attention import router as admin_attention_router
 from routers.admin_learner_profile import router as admin_learner_profile_router
 from routers.admin_overview import router as admin_overview_router
 from routers.admin_ai import router as admin_ai_router
@@ -300,6 +303,7 @@ app.include_router(admin_settings_router)
 app.include_router(admin_library_router)  # LIBRARY-0061 T020 (G06-T20)
 app.include_router(admin_learners_router)
 app.include_router(admin_search_router)
+app.include_router(admin_attention_router)
 app.include_router(admin_learner_profile_router)
 app.include_router(admin_overview_router)
 app.include_router(admin_ai_router)
@@ -315,6 +319,8 @@ app.include_router(instructor_router)
 app.include_router(admin_instructors_router)
 app.include_router(admin_students_router)
 app.include_router(writing_student_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(courses_public_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(me_access_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(grammar_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(grammar_diagnostic_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(admin_grammar_diagnostic_router)

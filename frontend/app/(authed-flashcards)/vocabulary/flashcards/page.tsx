@@ -1,4 +1,4 @@
-// Trang Flashcards trên Next — `/flashcards`.
+// Trang Flashcards trên Next — `/vocabulary/flashcards` (trước: `/flashcards`, LEARNERNAV-0062).
 //
 import type { Metadata } from 'next';
 
