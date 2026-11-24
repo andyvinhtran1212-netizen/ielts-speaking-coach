@@ -69,8 +69,11 @@ test('explicit URL manifest preserves all 139 pre-refactor redirect rules byte f
   assert.equal(independentRules.length, 139);
   // Captured from main 17159ba0 before this refactor: includes rule order,
   // destinations, permanence and all query conditions, not only URL count.
+  // LEARNERNAV-0062 batch 1 changed exactly two destinations (rules 81, 82):
+  // /pages/flashcard-study.html → /vocabulary/flashcards/study and
+  // /pages/flashcards.html → /vocabulary/flashcards (was 75544da3…2f02c5).
   assert.equal(createHash('sha256').update(JSON.stringify(independentRules)).digest('hex'),
-    '75544da36a6d78745a719e5b6d81c5b1212657726b37be38daa844882a2f02c5');
+    'd80b4fdf7cfa75090538f5c625c9588b055e51e2bbaa501fdd886e790c0450de');
   assert.match(nextConfig, /buildLegacyRetirementRedirects\([\s\S]*?LEGACY_RETIREMENT_PATHS,/);
   assert.doesNotMatch(nextConfig, /discoverLegacyHtmlPaths|readdirSync/);
 });
@@ -147,6 +150,8 @@ test('every redirect destination resolves to a real App Router owner', () => {
     entry.source === '/pages/admin/access-codes/index.html'
       && entry.destination === '/admin/users?tab=codes'
   )));
+  // ADMINIA-0074 FR-048: that destination 307s on to the activation-code ledger.
+  assert.match(nextConfig, /source: '\/admin\/users',\s+has: \[\{ type: 'query', key: 'tab', value: 'codes' \}\],\s+destination: '\/admin\/activation-codes',\s+permanent: false,/);
 });
 
 test('eight dynamic detail routes translate query identity and fail safe to an index', () => {

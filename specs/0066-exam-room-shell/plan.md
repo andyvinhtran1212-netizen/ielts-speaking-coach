@@ -135,7 +135,7 @@ dùng khi một spec trình (0067–0073) lắp nó và cờ của trình đó b
   dải câu ở 1280/1100/768/390; bốn trạng thái ô và nhãn đọc; hộp nộp có/không câu
   trống, Esc, tiêu điểm; hộp thoát flush xong mới điều hướng; dải mất mạng; hộp
   401; thông báo tab khác; đồng hồ mốc 5 phút và 0; A–B; `test` không tua/tốc độ;
-  `once` có tạm dừng, không tua lùi.
+  `once` không có nút tạm dừng hay phím tắt khi đang phát, không tua, không phát lại (FR-029).
 - Dạng câu: chuỗi đáp án sinh ra trùng chuỗi trình hiện tại sinh với fixture
   `frontend/tooling/write-flows/fixtures/reading-exam.json` (so hai hàm, không so mã
   nguồn).
