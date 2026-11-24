@@ -35,7 +35,7 @@ function readFront(...parts) {
 
 const PRACTICE_JS = readFront('js', 'practice.js');
 const SPIKE_MD    = readFileSync(
-  join(__dirname, '..', '..', 'commission',
+  join(__dirname, '..', '..', 'docs', 'history', 'commission',
        'sprint_14_6_1_spike', 'findings.md'),
   'utf8',
 );

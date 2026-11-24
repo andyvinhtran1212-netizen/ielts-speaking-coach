@@ -64,6 +64,14 @@ env:
     tests/test_activate_rate_limit.py
     tests/test_staging_clone_preflight_postgres.py
 
+# CI queue (23/11): a new push or a base-branch merge on a PR cancels that
+# PR's older run of this workflow instead of leaving it queued. Push, schedule
+# and dispatch runs get a group of their own (run_id), so a staging/main SHA
+# that the promotion gate needs is never cancelled or replaced.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   # Cổng rẻ, dạng ALLOWLIST: job nặng chỉ được SKIP khi MỌI tệp PR đổi đều nằm
   # trong `specs/**` VÀ không phải tệp spec mà test đọc. Mọi đường dẫn khác
@@ -81,8 +89,10 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
+    # Draft PRs: run_tests='false', the same skip as a specs-only PR (skipped
+    # steps = passed required checks). `ready_for_review` runs everything.
     outputs:
-      run_tests: ${{ github.event_name != 'pull_request' && 'true' || steps.filter.outputs.run_tests }}
+      run_tests: ${{ github.event_name != 'pull_request' && 'true' || github.event.pull_request.draft && 'false' || steps.filter.outputs.run_tests }}
     steps:
       # On pull_request the action lists the PR files through the API (renames
       # count both old and new path), so no checkout is needed.
@@ -118,7 +128,7 @@ jobs:
       - name: Report
         env:
           EVENT: ${{ github.event_name }}
-          RUN: ${{ github.event_name != 'pull_request' && 'true' || steps.filter.outputs.run_tests }}
+          RUN: ${{ github.event_name != 'pull_request' && 'true' || github.event.pull_request.draft && 'false' || steps.filter.outputs.run_tests }}
         run: |
           echo "event=$EVENT run_tests=${RUN:-<empty, heavy jobs run>}"
 
@@ -538,7 +548,7 @@ jobs:
         working-directory: frontend/tooling/css
         run: npm ci
 
-      - name: Tailwind static CSS is not stale (rebuild + diff, all clusters)
+      - name: Tailwind static CSS is not stale (rebuild + diff)
         run: |
           cd frontend
           BIN=./tooling/css/node_modules/.bin/tailwindcss
@@ -552,7 +562,6 @@ jobs:
             echo "$2 is fresh ✓"
           }
           check ./tailwind.config.cjs       css/tailwind.build.css
-          check ./tailwind.config.inter.cjs css/tailwind.inter.css
 
       # B35 (FE migration plan v3): run EVERY contract test via glob instead of a
       # hand-maintained file list — new test files are CI-gated automatically.

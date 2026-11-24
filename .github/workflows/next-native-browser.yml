@@ -20,9 +20,12 @@ on:
 permissions:
   contents: read
 
+# PR runs cancel the same PR's older run; push, schedule and dispatch runs get
+# a group per run_id, so a staging/main SHA the promotion gate needs is never
+# cancelled when two merges land close together (CR nit 1 on #2630).
 concurrency:
-  group: next-native-browser-${{ github.ref }}-${{ github.event_name }}
-  cancel-in-progress: true
+  group: next-native-browser-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # A verifier that misses one of its mocked requests must fail locally; it must
 # never read or write staging/production as an accidental fallback.
@@ -588,7 +591,7 @@ jobs:
               - 'frontend/public/css/admin-writing-tips-next.css'
               - 'frontend/public/pages/admin/writing/tips.html'
               - 'frontend/tooling/verify-admin-writing-tips-flow.mjs'
-              - 'backend/routers/admin.py'
+              - 'backend/routers/admin/**'
               - 'backend/tests/test_admin_grammar.py'
               - 'frontend/app/(authed-admin-grammar-articles)/**'
               - 'frontend/lib/admin-grammar-articles-model.mjs'
@@ -718,6 +721,10 @@ jobs:
               - 'frontend/tooling/admin-mfa-stub.mjs'
               - 'frontend/tooling/verify-admin-mfa-flow.mjs'
               - 'frontend/tooling/verify-admin-classes-flow.mjs'
+              - 'frontend/tooling/verify-staff-quick-search-flow.mjs'
+              - 'frontend/components/staff-quick-search.tsx'
+              - 'frontend/components/staff-quick-search.module.css'
+              - 'frontend/lib/staff-search.ts'
               - 'frontend/tooling/verify-admin-class-detail-flow.mjs'
               - 'frontend/tooling/verify-admin-class-homework-flow.mjs'
               - 'frontend/tooling/verify-admin-class-submissions-flow.mjs'
@@ -1577,6 +1584,11 @@ jobs:
       - name: Kiểm luồng Admin Classes native
         if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-classes-flow.mjs "http://localhost:$TEST_PORT"
+
+      # G09-T19: Ctrl/⌘K quick search on admin and teacher pages; q only in the POST body.
+      - name: Kiểm luồng Tìm nhanh (admin + giáo viên)
+        if: env.RUN_BROWSER == 'true'
+        run: node tooling/verify-staff-quick-search-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/admin/classes/[cohortId]` có ba nguồn độc lập và mutations roster/
       # lesson. Fixture ghim partial failure, nullable clears, chuyển lớp và

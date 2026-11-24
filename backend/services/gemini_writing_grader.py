@@ -526,6 +526,7 @@ class GeminiWritingGrader:
             self._mark_timed_out(pass2_attempts, e)
             grading_attempts += self._tag_pass(pass2_attempts, "pass2")
             tier_metadata["pass2"] = {
+                "model":       settings.GEMINI_PRO_MODEL,
                 "duration_ms": int((time.time() - pass2_start) * 1000),
                 "error": str(e)[:500],
                 # Billed calls of the failed pass; _build_deep_result adds it.
@@ -545,9 +546,6 @@ class GeminiWritingGrader:
                 pass3_cost=None,
                 tier_metadata=tier_metadata,
                 stamp=f"{deep_stamp}-degraded",
-                # Only Pass 1 produced this feedback; attribute it to the model
-                # that actually served Pass 1 (Claude or Gemini).
-                model_used=pass1.model_used,
                 grading_attempts=grading_attempts,
             )
 
@@ -558,6 +556,7 @@ class GeminiWritingGrader:
             tokens_out=pass2_usage.get("output_tokens"),
         ), pass2_attempts)
         tier_metadata["pass2"] = {
+            "model":             settings.GEMINI_PRO_MODEL,
             "duration_ms":       int((time.time() - pass2_start) * 1000),
             "tokens_input":      pass2_usage.get("input_tokens"),
             "tokens_output":     pass2_usage.get("output_tokens"),
@@ -595,6 +594,7 @@ class GeminiWritingGrader:
             self._mark_timed_out(pass3_attempts, e)
             grading_attempts += self._tag_pass(pass3_attempts, "pass3")
             tier_metadata["pass3"] = {
+                "model":       settings.GEMINI_PRO_MODEL,
                 "duration_ms": int((time.time() - pass3_start) * 1000),
                 "error": str(e)[:500],
                 "cost_usd": self._run_cost(None, pass3_attempts),
@@ -623,6 +623,7 @@ class GeminiWritingGrader:
             tokens_out=pass3_usage.get("output_tokens"),
         ), pass3_attempts)
         tier_metadata["pass3"] = {
+            "model":          settings.GEMINI_PRO_MODEL,
             "duration_ms":    int((time.time() - pass3_start) * 1000),
             "tokens_input":   pass3_usage.get("input_tokens"),
             "tokens_output":  pass3_usage.get("output_tokens"),
@@ -761,10 +762,15 @@ class GeminiWritingGrader:
         pass3_cost: Optional[float],
         tier_metadata: dict,
         stamp: str,
-        model_used: Optional[str] = None,
         grading_attempts: Optional[list] = None,
     ) -> GradingResult:
         """Assemble the GradingResult for a Deep run.
+
+        ``model_used`` is the model that served Pass 1 (Claude or Gemini): it
+        produced the baseline feedback and bands. Passes 2/3 always run on
+        GEMINI_PRO_MODEL and are recorded per pass in tier_metadata["pass2"/
+        "pass3"]["model"] and in grading_attempts, so a full run is never
+        attributed to Gemini Pro when Claude served Pass 1.
 
         Aggregates token counts + cost across all completed passes (a
         degraded run has None for the failed/skipped passes' costs).
@@ -790,7 +796,7 @@ class GeminiWritingGrader:
         unpriced_models = GeminiWritingGrader._cost_gaps(grading_attempts or [])
         return GradingResult(
             feedback=feedback,
-            model_used=model_used or settings.GEMINI_PRO_MODEL,
+            model_used=pass1.model_used,
             tokens_input=total_tokens_in,
             tokens_output=total_tokens_out,
             thinking_tokens=total_thinking_tokens,

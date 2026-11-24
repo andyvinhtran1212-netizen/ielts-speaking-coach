@@ -3417,6 +3417,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/learners/{ref}/ai-cost": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Learner Ai Cost */
+        get: operations["get_learner_ai_cost_admin_learners__ref__ai_cost_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/learners/{ref}/log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Learner Log */
+        get: operations["get_learner_log_admin_learners__ref__log_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/overview": {
         parameters: {
             query?: never;
@@ -12150,11 +12184,12 @@ export interface paths {
         };
         /**
          * Get Library Media
-         * @description Figure or audio bytes of a PUBLISHED item, read fresh on every request.
+         * @description Figure or audio bytes of a PUBLISHED item; `published` is read on every request.
          *
-         *     Never cached (``no-store``) and never a redirect to Storage, so unpublishing
+         *     Responses are never HTTP-cached (``no-store``) and never a redirect to Storage, so unpublishing
          *     takes effect on the next request to the same URL. Unknown shelf/asset,
-         *     unpublished or missing item, and missing object are all 404.
+         *     unpublished or missing item, and missing object are all 404. One client
+         *     address is capped per minute (429) before any database or Storage read.
          */
         get: operations["get_library_media_api_library_media__shelf___key___asset__get"];
         put?: never;
@@ -14740,6 +14775,17 @@ export interface components {
              * @default
              */
             note: string;
+        };
+        /** AiCostFeature */
+        AiCostFeature: {
+            /** Feature */
+            feature: string | null;
+            /** Calls */
+            calls: number;
+            /** Cost Usd */
+            cost_usd: number;
+            /** Unpriced Calls */
+            unpriced_calls: number;
         };
         /** AiExistingModelOut */
         AiExistingModelOut: {
@@ -19106,6 +19152,20 @@ export interface components {
             /** Anchor */
             anchor?: string | null;
         };
+        /** LearnerAiCost */
+        LearnerAiCost: {
+            /**
+             * Window Days
+             * @enum {integer}
+             */
+            window_days: 7 | 30 | 90;
+            /** Total Usd */
+            total_usd: number;
+            /** Unpriced Calls */
+            unpriced_calls: number;
+            /** By Feature */
+            by_feature: components["schemas"]["AiCostFeature"][];
+        };
         /** LearnerAnswer */
         LearnerAnswer: {
             /** Answer */
@@ -19154,6 +19214,33 @@ export interface components {
              * @enum {string}
              */
             source: "admin" | "learner" | "both_equal" | "conflict" | "none";
+        };
+        /** LearnerLog */
+        LearnerLog: {
+            /** Items */
+            items: components["schemas"]["LearnerLogItem"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+            /** Sources Failed */
+            sources_failed: string[];
+            /** Sources Unavailable */
+            sources_unavailable: ("access_code" | "security" | "class" | "role" | "entitlement" | "credit" | "order" | "goal")[];
+        };
+        /** LearnerLogItem */
+        LearnerLogItem: {
+            /** Id */
+            id: string;
+            /** At */
+            at: string;
+            /** Actor Name */
+            actor_name: string | null;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "access_code" | "security" | "class" | "role" | "entitlement" | "credit" | "order" | "goal";
+            /** Text */
+            text: string;
         };
         /** LearnerNote */
         LearnerNote: {
@@ -30668,6 +30755,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GoalResolveOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_learner_ai_cost_admin_learners__ref__ai_cost_get: {
+        parameters: {
+            query?: {
+                window?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearnerAiCost"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_learner_log_admin_learners__ref__log_get: {
+        parameters: {
+            query?: {
+                kind?: ("access_code" | "security" | "class" | "role" | "entitlement" | "credit" | "order" | "goal") | null;
+                cursor?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearnerLog"];
                 };
             };
             /** @description Validation Error */
