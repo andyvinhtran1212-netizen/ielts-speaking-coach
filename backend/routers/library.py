@@ -13,6 +13,16 @@ Routes in this task:
 * ``GET /writing-samples/{slug}``      one published set; old slug -> 308; else 404
 * ``GET /media/{shelf}/{key}/{asset}`` figure/audio bytes, only while published (FR-064)
 
+Signed-in routes (task T016 = G06-T16, FR-060, FR-061), the caller's own marks:
+
+* ``GET /me/marks?shelf=``             ``{marks:[{item_key, kind}]}``
+* ``PATCH /me/marks/{shelf}/{kind}``   set a mark, body ``{item_key}``; 204, idempotent
+* ``DELETE /me/marks/{shelf}/{kind}``  clear a mark, body ``{item_key}``; 204, idempotent
+
+These need a bearer token, are exempt from the activation gate ("own library
+marks; no paid work") so an account without a class code keeps its marks, and
+always read and write rows of the verified caller only.
+
 Source of truth is the database (migration 400) read as service_role. Only
 ``published = true`` rows are ever returned. The public payload is built from an
 allow-list, so internal fields (``source_key``, ``content_hash``,
@@ -31,12 +41,16 @@ import functools
 import logging
 from datetime import datetime, timezone
 from email.utils import format_datetime
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Body, Header, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 
+from pydantic import BaseModel, Field
+from starlette.concurrency import run_in_threadpool
+
 from database import supabase_admin
+from routers.auth import get_supabase_user
 from services import library_media
 from services.public_cache import cacheable_json
 
@@ -573,3 +587,174 @@ def get_library_media(shelf: str, key: str, asset: str, request: Request) -> Res
     if data is None:
         return library_media.not_found()
     return library_media.build_response(data, content_type, request.headers.get("range"))
+
+
+# ── the caller's own marks (T016, FR-060, FR-061) ───────────────────────────
+
+MarkShelf = Literal["writing_sample", "speaking_sample", "writing_guide", "grammar_article"]
+MarkKind = Literal["read", "saved"]
+ITEM_KEY_MAX = 200
+# Grammar "Đã lưu" stays in ``saved_articles`` (admin statistics read it); the
+# Library only adds Grammar "Đã đọc" (plan §5.3).
+_KINDS_BY_SHELF: dict[str, tuple[str, ...]] = {
+    "writing_sample": ("read", "saved"),
+    "speaking_sample": ("read", "saved"),
+    "writing_guide": ("read", "saved"),
+    "grammar_article": ("read",),
+}
+# shelf -> table whose ``slug`` must be published for a new mark.
+_MARK_TABLES = {
+    "writing_sample": "writing_samples",
+    "speaking_sample": "speaking_samples",
+    "writing_guide": "writing_tips",
+}
+_PRIVATE = {"Cache-Control": "private, no-store"}
+
+
+class LibraryMark(BaseModel):
+    item_key: str
+    kind: MarkKind
+
+
+class LibraryMarksResponse(BaseModel):
+    marks: list[LibraryMark]
+
+
+class LibraryMarkBody(BaseModel):
+    # In the body, not the path: a Grammar key ``<category>/<slug>`` has a
+    # ``/`` and Starlette decodes ``%2F`` before matching routes.
+    item_key: str = Field(min_length=1, max_length=ITEM_KEY_MAX)
+
+
+def _check_kind(shelf: str, kind: str) -> None:
+    if kind not in _KINDS_BY_SHELF[shelf]:
+        raise HTTPException(status_code=422, detail="kind_not_allowed")
+
+
+def _item_is_published(shelf: str, item_key: str) -> bool:
+    """True when the item a new mark points at exists and is public now."""
+    if shelf == "grammar_article":
+        category, sep, slug = item_key.partition("/")
+        if not sep or not category or not slug or "/" in slug:
+            return False
+        from services.grammar_content import grammar_service
+
+        return grammar_service.get_article(category, slug) is not None
+    query = supabase_admin.table(_MARK_TABLES[shelf]).select("slug").eq("slug", item_key).eq("published", True)
+    if shelf == "writing_guide":
+        query = query.in_("content_type", ["knowledge", "tip"])
+    return bool(query.execute().data)
+
+
+def _no_content() -> Response:
+    return Response(status_code=204, headers=_PRIVATE)
+
+
+MARKS_PAGE = 1000  # PostgREST's default max rows; one shelf can hold more (549 sets × 2 kinds)
+
+
+def _read_marks(user_id: str, shelf: str) -> list[dict]:
+    """Every mark of the caller on one shelf, read page by page in a stable
+    order: a single read would stop silently at the PostgREST row limit."""
+    rows: list[dict] = []
+    start = 0
+    while True:
+        page = (
+            supabase_admin.table("library_marks")
+            .select("item_key, kind")
+            .eq("user_id", user_id)
+            .eq("shelf", shelf)
+            .order("item_key")
+            .order("kind")
+            .range(start, start + MARKS_PAGE - 1)
+            .execute()
+            .data
+            or []
+        )
+        rows.extend(page)
+        if len(page) < MARKS_PAGE:
+            break
+        start += MARKS_PAGE
+    return [{"item_key": r.get("item_key"), "kind": r.get("kind")} for r in rows]
+
+
+def _write_mark(user_id: str, shelf: str, kind: str, item_key: str) -> bool:
+    """Set one mark; False when the item is missing or not published."""
+    if not item_key or not _item_is_published(shelf, item_key):
+        return False
+    supabase_admin.table("library_marks").upsert(
+        {"user_id": user_id, "shelf": shelf, "item_key": item_key, "kind": kind},
+        on_conflict="user_id,shelf,item_key,kind",
+        ignore_duplicates=True,
+    ).execute()
+    return True
+
+
+def _delete_mark(user_id: str, shelf: str, kind: str, item_key: str) -> None:
+    (
+        supabase_admin.table("library_marks")
+        .delete()
+        .eq("user_id", user_id)
+        .eq("shelf", shelf)
+        .eq("item_key", item_key)
+        .eq("kind", kind)
+        .execute()
+    )
+
+
+# The handlers are async only to await the bearer check; every database call
+# runs in the threadpool so the event loop never blocks (PC-J408).
+
+
+@router.get("/me/marks", response_model=LibraryMarksResponse)
+async def list_my_marks(
+    shelf: MarkShelf = Query(...),
+    authorization: Optional[str] = Header(default=None),
+) -> Response:
+    """The caller's read/saved marks on one shelf (never another user's)."""
+    user = await get_supabase_user(authorization)
+    try:
+        marks = await run_in_threadpool(_read_marks, user["id"], shelf)
+    except Exception:  # noqa: BLE001 - one answer for every client/DB error
+        logger.exception("[library] list_my_marks failed")
+        return _unavailable()
+    return JSONResponse({"marks": marks}, headers=_PRIVATE)
+
+
+@router.patch("/me/marks/{shelf}/{kind}", status_code=204, response_class=Response)
+async def set_my_mark(
+    shelf: MarkShelf,
+    kind: MarkKind,
+    body: LibraryMarkBody = Body(...),
+    authorization: Optional[str] = Header(default=None),
+) -> Response:
+    """Set a mark. Twice is one row. The item must exist and be published (404)."""
+    user = await get_supabase_user(authorization)
+    _check_kind(shelf, kind)
+    try:
+        written = await run_in_threadpool(_write_mark, user["id"], shelf, kind, body.item_key.strip())
+    except Exception:  # noqa: BLE001
+        logger.exception("[library] set_my_mark failed")
+        return _unavailable()
+    if not written:
+        return JSONResponse(status_code=404, content={"detail": "item_not_found"}, headers=_PRIVATE)
+    return _no_content()
+
+
+@router.delete("/me/marks/{shelf}/{kind}", status_code=204, response_class=Response)
+async def clear_my_mark(
+    shelf: MarkShelf,
+    kind: MarkKind,
+    body: LibraryMarkBody = Body(...),
+    authorization: Optional[str] = Header(default=None),
+) -> Response:
+    """Clear a mark; clearing one that is not there is fine (204). No published
+    check: a learner can still clear a mark on an item withdrawn later."""
+    user = await get_supabase_user(authorization)
+    _check_kind(shelf, kind)
+    try:
+        await run_in_threadpool(_delete_mark, user["id"], shelf, kind, body.item_key.strip())
+    except Exception:  # noqa: BLE001
+        logger.exception("[library] clear_my_mark failed")
+        return _unavailable()
+    return _no_content()

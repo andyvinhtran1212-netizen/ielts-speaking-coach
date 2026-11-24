@@ -15,6 +15,7 @@ interface AverApi {
   getWith<T = unknown>(path: string, hdrs?: Record<string, string>, opts?: unknown): Promise<T>;
   postWith<T = unknown>(path: string, body?: unknown, hdrs?: Record<string, string>, opts?: unknown): Promise<T>;
   patchWith<T = unknown>(path: string, body?: unknown, hdrs?: Record<string, string>, opts?: unknown): Promise<T>;
+  deleteWith<T = unknown>(path: string, body?: unknown, hdrs?: Record<string, string>, opts?: unknown): Promise<T>;
   clearAuthCache?(): void;
 }
 

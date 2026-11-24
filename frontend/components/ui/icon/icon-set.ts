@@ -2,7 +2,7 @@
 // `iconGroups` array of thiet-ke/ThanhPhanNenTang.dc.html; the sheet's
 // c(x, y, r) helper is stored as a circle.
 //
-// PARTIAL on purpose: G03-T05/T06/T10/T13/T14/T18 need only these. G11-T32 replaces this file
+// PARTIAL on purpose: G03-T05/T06/T10/T13/T14/T16/T18 need only these. G11-T32 replaces this file
 // with the full 94-icon set and keeps the same names and the same `Icon` API.
 // `fills` are drawn filled with currentColor (the half-filled "device" disc).
 export type IconShape = {
@@ -46,6 +46,15 @@ export const ICON_SET = {
   sun: { paths: ['M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4'], circles: [[12, 12, 4]] },
   moon: { paths: ['M20 14.5A8 8 0 1 1 9.5 4 6.5 6.5 0 0 0 20 14.5z'] },
   'theme-device': { paths: [], circles: [[12, 12, 8]], fills: ['M12 4v16a8 8 0 0 0 0-16z'] },
+  // Staff shell (G03-T16, KhungTrang2 §7): sidebar collapse and the sample group icons.
+  'chev-left': { paths: ['M15 6l-6 6 6 6'] },
+  'chev-right': { paths: ['M9 6l6 6-6 6'] },
+  users: { paths: ['M2.5 20a6.5 6.5 0 0 1 13 0M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14a6.5 6.5 0 0 1 3.5 6'], circles: [[9, 8, 3.5]] },
+  'credit-card': { paths: ['M3 5h18v14H3zM3 10h18M7 15h4'] },
+  clipboard: { paths: ['M8 4h8v3H8zM6 5.5V21h12V5.5M9 12h6M9 16h4'] },
+  book: { paths: ['M12 6C10 4.5 7 4 3 4v15c4 0 7 .5 9 2 2-1.5 5-2 9-2V4c-4 0-7 .5-9 2zM12 6v15'] },
+  chart: { paths: ['M4 4v16h16M8 17v-5M12 17V8M17 17v-3'] },
+  settings: { paths: ['M4 6h8M16 6h4M4 12h3M11 12h9M4 18h10M18 18h2'], circles: [[14, 6, 2], [9, 12, 2], [16, 18, 2]] },
 } as const satisfies Record<string, IconShape>;
 
 export type IconName = keyof typeof ICON_SET;

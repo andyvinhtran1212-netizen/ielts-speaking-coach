@@ -26,7 +26,12 @@ from services.db_async import aexecute
 from services.errors import new_ref, safe_error
 from services.request_context import current_request_id
 from services.server_timing import record_stage
-from services.feature_flags import ais_flashcard_enabled, is_flashcard_enabled
+from services.feature_flags import (
+    ais_flashcard_enabled,
+    ais_learner_v2_enabled,
+    is_flashcard_enabled,
+    is_learner_v2_enabled,
+)
 from services import runtime_flags
 from services.runtime_flags import require_flag
 from services.class_membership_service import remove_student, student_is_active_in_cohort
@@ -257,6 +262,10 @@ def _me_sync_flags(user_id: str, curated_opt_in: bool) -> tuple[bool, bool]:
     return flashcard_enabled, vocab_curated_enabled
 
 
+def _me_sync_learner_v2(user_id: str, opted_in: bool) -> bool:
+    return is_learner_v2_enabled(user_id, per_user=opted_in)
+
+
 @router.get("/me", response_model=AuthMeResponse)
 async def get_me(response: Response, authorization: str | None = Header(default=None)):
     # FE migration pilot 3 (authenticated read) entry checklist: effective
@@ -344,6 +353,15 @@ async def get_me(response: Response, authorization: str | None = Header(default=
         flashcard_enabled, vocab_curated_enabled = await asyncio.to_thread(
             _me_sync_flags, user_id, curated_opt_in,
         )
+    # LEARNERCORE-0063 FR-072/FR-073: the opt-in comes from the users row read
+    # above; only the two runtime keys are looked up (cached, default deny).
+    learner_v2_opt_in = flags.get("learner_v2") is True
+    if settings.USE_ASYNC_DB:
+        learner_v2_enabled = await ais_learner_v2_enabled(
+            user_id, run=aexecute, per_user=learner_v2_opt_in)
+    else:
+        learner_v2_enabled = await asyncio.to_thread(
+            _me_sync_learner_v2, user_id, learner_v2_opt_in)
     return {
         "id": user["id"],
         "email": user["email"],
@@ -363,6 +381,7 @@ async def get_me(response: Response, authorization: str | None = Header(default=
         "d3_enabled": settings.D3_ENABLED and flags.get("d3_enabled") is True,
         "flashcard_enabled": flashcard_enabled,
         "vocab_curated_enabled": vocab_curated_enabled,
+        "learner_v2_enabled": learner_v2_enabled,
     }
 
 
