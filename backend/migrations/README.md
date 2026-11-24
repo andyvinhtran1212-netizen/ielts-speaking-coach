@@ -59,6 +59,12 @@ while `credit_ledger` has rows unless `aver.allow_commerce_rollback = 'on'`.
 five RLS-only Library tables reached only through service_role and the private
 `library-media` bucket guarded by a RESTRICTIVE `storage.objects` policy; the schema
 rollback refuses while any Library content, slug history, mark or bucket object exists.
+`401` is `pending_feature public_library_signoff` (LIBRARY-0061 T002b, amendment 2):
+Writing sample sign-off columns `review_status`/`reviewed_by`/`reviewed_at` on
+`writing_samples` and CHECKs that a published row is approved and every approval is
+signed. Its own group, not `public_library`, so a window that applies 400 never applies
+401 by accident; run it after 400 with `MIGRATION_FEATURES=public_library_signoff`.
+The rollback refuses while any row is signed or published.
 `420` is `pending_feature learner_today` (LEARNERCORE-0063 T13, G07 band 420–439):
 two nullable `users` columns, `today_seen_at` and `today_seen_key`, the forward-only
 seen cursor of the Today page; no apply on merge, staging first with Andy's typed approval.

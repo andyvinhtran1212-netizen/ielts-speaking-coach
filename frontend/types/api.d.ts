@@ -3464,6 +3464,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/attention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Attention */
+        get: operations["admin_attention_admin_attention_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/instructor/attention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Instructor Attention */
+        get: operations["instructor_attention_instructor_attention_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/learners/{ref}/overview": {
         parameters: {
             query?: never;
@@ -13862,6 +13896,22 @@ export interface components {
             by_provider: components["schemas"]["AiUsageProviderOut"][];
             meta: components["schemas"]["AiUsageMetaOut"];
         };
+        /** AdminAttentionOut */
+        AdminAttentionOut: {
+            queues: components["schemas"]["AdminQueuesOut"];
+            /** Classes Week */
+            classes_week?: components["schemas"]["ClassWeekOut"][] | null;
+            /** Attention Learners */
+            attention_learners?: components["schemas"]["AttentionLearnerOut"][] | null;
+            /** Sources Failed */
+            sources_failed?: string[];
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            ops_week: components["schemas"]["OpsWeekOut"];
+        };
         /** AdminBulkActionRequest */
         AdminBulkActionRequest: {
             /** Ids */
@@ -14445,6 +14495,21 @@ export interface components {
             content_payload?: {
                 [key: string]: unknown;
             } | null;
+        };
+        /** AdminQueuesOut */
+        AdminQueuesOut: {
+            writing_review: components["schemas"]["WritingQueueOut"];
+            speaking_mock_pending: components["schemas"]["QueueOut"];
+            course_tests_awaiting_release: components["schemas"]["QueueOut"];
+            assignments_overdue: components["schemas"]["QueueOut"];
+            regrade_new: components["schemas"]["QueueOut"];
+            care_due_today: components["schemas"]["QueueOut"];
+            entitlements_expiring: components["schemas"]["QueueOut"];
+            exams_today: components["schemas"]["QueueOut"];
+            enrollments_reported: components["schemas"]["QueueOut"];
+            incident_groups_open: components["schemas"]["QueueOut"];
+            feedback_open: components["schemas"]["QueueOut"];
+            classes_unmetered: components["schemas"]["QueueOut"];
         };
         /** AdminQuizBankDetailResponse */
         AdminQuizBankDetailResponse: {
@@ -15448,6 +15513,16 @@ export interface components {
             attempt_id: string;
             response: components["schemas"]["LearnerAnswer"];
         };
+        /** AttentionLearnerOut */
+        AttentionLearnerOut: {
+            /** Ref */
+            ref: string;
+            /** Name */
+            name: string;
+            cohort?: components["schemas"]["CohortRefOut"] | null;
+            /** Reasons */
+            reasons: components["schemas"]["ReasonOut"][];
+        };
         /** AttentionReason */
         AttentionReason: {
             /**
@@ -16429,6 +16504,21 @@ export interface components {
              */
             renderer_affinity: "legacy" | "next";
         };
+        /** ClassWeekOut */
+        ClassWeekOut: {
+            /** Cohort Id */
+            cohort_id: string;
+            /** Name */
+            name?: string | null;
+            next_lesson: components["schemas"]["LessonOut"];
+            following_lesson?: components["schemas"]["LessonOut"] | null;
+            /** Has Assignment */
+            has_assignment: boolean;
+            /** Pending Review */
+            pending_review: number;
+            /** Last Assignment Id */
+            last_assignment_id?: string | null;
+        };
         /** CodeMintBody */
         CodeMintBody: {
             /** Cohort Id */
@@ -16507,6 +16597,13 @@ export interface components {
             weekly_schedule?: components["schemas"]["ScheduleSlot"][] | null;
             /** Start Date */
             start_date?: string | null;
+        };
+        /** CohortRefOut */
+        CohortRefOut: {
+            /** Id */
+            id: string;
+            /** Name */
+            name?: string | null;
         };
         /** CohortScheduleSlotOut */
         CohortScheduleSlotOut: {
@@ -19195,6 +19292,21 @@ export interface components {
             distinct_known_releases: number;
             operation_correlation?: components["schemas"]["OperationCorrelationSummary"] | null;
         };
+        /** InstructorAttentionOut */
+        InstructorAttentionOut: {
+            queues: components["schemas"]["InstructorQueuesOut"];
+            /** Classes Week */
+            classes_week?: components["schemas"]["ClassWeekOut"][] | null;
+            /** Attention Learners */
+            attention_learners?: components["schemas"]["AttentionLearnerOut"][] | null;
+            /** Sources Failed */
+            sources_failed?: string[];
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+        };
         /** InstructorDeliverBody */
         InstructorDeliverBody: {
             /**
@@ -19268,6 +19380,16 @@ export interface components {
             age_hours: number;
             /** Is Overdue */
             is_overdue: boolean;
+        };
+        /** InstructorQueuesOut */
+        InstructorQueuesOut: {
+            writing_review: components["schemas"]["WritingQueueOut"];
+            speaking_mock_pending: components["schemas"]["QueueOut"];
+            course_tests_awaiting_release: components["schemas"]["QueueOut"];
+            assignments_overdue: components["schemas"]["QueueOut"];
+            regrade_new: components["schemas"]["QueueOut"];
+            care_due_today: components["schemas"]["QueueOut"];
+            entitlements_expiring: components["schemas"]["QueueOut"];
         };
         /**
          * InstructorReview
@@ -19744,6 +19866,20 @@ export interface components {
              * @default false
              */
             is_published: boolean;
+        };
+        /** LessonOut */
+        LessonOut: {
+            /** Lesson Id */
+            lesson_id: string;
+            /** Lesson No */
+            lesson_no?: number | null;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Starts At */
+            starts_at?: string | null;
         };
         /** LessonPatch */
         LessonPatch: {
@@ -21110,6 +21246,13 @@ export interface components {
             /** Rows */
             rows: components["schemas"]["ObservationCounts"][];
         };
+        /** OnTimeRateOut */
+        OnTimeRateOut: {
+            /** Value */
+            value: number;
+            /** Lowest Cohort Id */
+            lowest_cohort_id?: string | null;
+        };
         /** OpenBody */
         OpenBody: {
             /** Is Open */
@@ -21133,6 +21276,14 @@ export interface components {
             client_input_groups: number;
             /** Client Ids With Multiple Fingerprints */
             client_ids_with_multiple_fingerprints: number;
+        };
+        /** OpsWeekOut */
+        OpsWeekOut: {
+            on_time_rate?: components["schemas"]["OnTimeRateOut"] | null;
+            /** Inactive Learners */
+            inactive_learners?: number | null;
+            /** Review Wait Median Hours */
+            review_wait_median_hours?: number | null;
         };
         /** OutcomesOut */
         OutcomesOut: {
@@ -21881,6 +22032,28 @@ export interface components {
             /** Updated At */
             updated_at?: string | null;
         };
+        /** QueueOut */
+        QueueOut: {
+            /** Count */
+            count?: number | null;
+            /** Oldest At */
+            oldest_at?: string | null;
+            /**
+             * Overdue
+             * @default false
+             */
+            overdue: boolean;
+            /**
+             * Error
+             * @default false
+             */
+            error: boolean;
+            /**
+             * Unavailable
+             * @default false
+             */
+            unavailable: boolean;
+        };
         /**
          * QuizAttemptFeedback
          * @description Server verdict for ONE Course mastery answer that is already recorded.
@@ -22304,6 +22477,13 @@ export interface components {
             median_minutes?: number | null;
             /** Count */
             count: number;
+        };
+        /** ReasonOut */
+        ReasonOut: {
+            /** Code */
+            code: string;
+            /** Text */
+            text: string;
         };
         /** ReassignRequest */
         ReassignRequest: {
@@ -24923,6 +25103,30 @@ export interface components {
             essays_7d: number;
             /** Feedback Pending */
             feedback_pending: number;
+        };
+        /** WritingQueueOut */
+        WritingQueueOut: {
+            /** Count */
+            count?: number | null;
+            /** Oldest At */
+            oldest_at?: string | null;
+            /**
+             * Overdue
+             * @default false
+             */
+            overdue: boolean;
+            /**
+             * Error
+             * @default false
+             */
+            error: boolean;
+            /**
+             * Unavailable
+             * @default false
+             */
+            unavailable: boolean;
+            /** Ai Failed */
+            ai_failed?: number | null;
         };
         /** WritingSampleList */
         WritingSampleList: {
@@ -31398,6 +31602,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InstructorSearchOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_attention_admin_attention_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAttentionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    instructor_attention_instructor_attention_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstructorAttentionOut"];
                 };
             };
             /** @description Validation Error */

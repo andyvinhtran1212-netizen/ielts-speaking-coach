@@ -326,7 +326,7 @@ try {
 
     const exercises = await page.goto(`${BASE}/grammar/exercises`, { waitUntil: 'networkidle' });
     check(`${tag} /grammar/exercises loads`, exercises?.ok() === true, `HTTP ${exercises?.status()}`);
-    const intro = 'main header p.text-white\\/45';
+    const intro = '#exercises-intro'; // G06-T14 (c): av2 intro line, muted token
     const introRatio = await textContrastOf(page, intro);
     check(`${tag} /grammar/exercises intro contrast ≥ 4.5`, introRatio >= 4.5, introRatio.toFixed(2));
     await page.context().close();
