@@ -206,7 +206,7 @@ describe('0049 option (a) — canonical admin menu groups', () => {
 
   it('places instructors alongside classes and users with the existing URLs', () => {
     assert.deepEqual(hrefs('Lớp & Người dùng'), [
-      '/admin/users', '/admin/classes', '/admin/instructors',
+      '/admin/users', '/admin/activation-codes', '/admin/classes', '/admin/instructors',
     ]);
     assert.ok(!hrefs('Nội dung').includes('/admin/instructors'));
     assert.ok(!group('Người dùng'));

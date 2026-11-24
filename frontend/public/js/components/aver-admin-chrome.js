@@ -555,6 +555,8 @@ const NAV_GROUPS = [
     title: 'Lớp & Người dùng',
     items: [
       { section: 'users',    label: 'Tất cả người dùng',  href: '/admin/users',                     icon: 'user-check' },
+      // ADMINIA-0074 FR-048: the activation-code ledger has its own page again.
+      { section: 'access-codes', label: 'Mã kích hoạt', href: '/admin/activation-codes', icon: 'key' },
       // Sprint 18.1 — IA fold: the standalone "Học viên" (students) nav entry
       // is folded into this area. The cohorts + students pages now present as
       // one tabbed area ("Lớp & Học viên" tab bar); 'students' stays in
@@ -573,10 +575,8 @@ const NAV_GROUPS = [
       { section: 'instructors', label: 'Giảng viên', href: '/admin/instructors', icon: 'users' },
     ],
   },
-  // merge-codes PR-3 — the standalone "Mã kích hoạt" nav entry is removed:
-  // access codes now live as the "Mã kích hoạt" tab inside the native Users
-  // page ("Tất cả người dùng" above), and /admin/access-codes redirects there
-  // (vercel.json). 'access-codes' stays in VALID_ACTIVE for any deep link.
+  // "Mã kích hoạt" (above) is the /admin/activation-codes ledger; the old
+  // /admin/access-codes alias and /admin/users?tab=codes redirect there.
   // (Sprint 18.2 "Usage logs" + "Lưu lượng" remain folded into the Dashboard.)
   {
     title: 'Hệ thống',
