@@ -152,6 +152,8 @@ test('every redirect destination resolves to a real App Router owner', () => {
     entry.source === '/pages/admin/access-codes/index.html'
       && entry.destination === '/admin/users?tab=codes'
   )));
+  // ADMINIA-0074 FR-048: that destination 307s on to the activation-code ledger.
+  assert.match(nextConfig, /source: '\/admin\/users',\s+has: \[\{ type: 'query', key: 'tab', value: 'codes' \}\],\s+destination: '\/admin\/activation-codes',\s+permanent: false,/);
 });
 
 test('eight dynamic detail routes translate query identity and fail safe to an index', () => {
