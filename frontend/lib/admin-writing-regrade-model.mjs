@@ -1,4 +1,9 @@
 const STATUSES = new Set(['pending', 'accepted', 'rejected', 'fulfilled']);
+// FR-062 lanes: Mới → (Đang chấm lại) → Đã trả lời. "Đang xem" needs a soft
+// lock column that does not exist yet (GOI-09 G09-T39), so it is not a lane.
+const LANE_OF = { pending: 'new', accepted: 'regrading', rejected: 'answered', fulfilled: 'answered' };
+const LANES = new Set(['new', 'regrading', 'answered']);
+export const KEEP_MIN_CHARS = 40;
 const TASKS = new Set(['task1_academic', 'task1_general', 'task2']);
 const objectOf = (value) => value && typeof value === 'object' && !Array.isArray(value) ? value : null;
 const stringOf = (value) => typeof value === 'string' ? value.trim() : '';
@@ -55,7 +60,11 @@ export function normalizeRegradeList(raw) {
   // endpoint returned no sentinel and capped at exactly 300. Treat 300 legacy
   // rows as potentially truncated; fewer rows are provably complete.
   const capped = typeof data.capped === 'boolean' ? data.capped : data.requests.length >= 300;
-  return { rows, capped, malformedCount };
+  const hours = Number.isInteger(data.regrade_hours) && data.regrade_hours > 0 ? data.regrade_hours : null;
+  // An older backend sends neither field: say the threshold is unknown rather
+  // than marking nothing overdue.
+  const thresholdsFailed = data.thresholds_failed === true || hours === null;
+  return { rows, capped, malformedCount, regradeHours: hours, thresholdsFailed };
 }
 
 export function normalizeRegradeDecision(raw, expectedId, expectedStatus) {
@@ -63,25 +72,53 @@ export function normalizeRegradeDecision(raw, expectedId, expectedStatus) {
   return row && row.id === expectedId && row.status === expectedStatus ? row : null;
 }
 
+export function regradeLane(status) {
+  return LANE_OF[status] || null;
+}
+
 export function regradeFilters(raw) {
   const status = stringOf(raw?.status);
-  return {
-    status: STATUSES.has(status) ? status : 'pending',
-    q: stringOf(raw?.q).slice(0, 120),
-  };
+  // Old links (?status=pending|accepted|rejected|fulfilled) keep working.
+  const lane = LANES.has(status) ? status : (LANE_OF[status] || 'new');
+  return { status: lane, q: stringOf(raw?.q).slice(0, 120) };
+}
+
+/** Hours since the learner sent the request, and whether that passed the
+ * ``regrade_hours`` threshold. Only open requests (Mới, Đang chấm lại) can be
+ * overdue; an unknown threshold is never shown as "on time". */
+export function regradeWait(row, nowMs, hours) {
+  const sent = row?.createdAt ? Date.parse(row.createdAt) : Number.NaN;
+  if (Number.isNaN(sent)) return null;
+  const waited = Math.max(0, Math.floor((nowMs - sent) / 3_600_000));
+  const open = row.status === 'pending' || row.status === 'accepted';
+  return { hours: waited, open, overdue: !open ? false : hours != null ? waited >= hours : null };
+}
+
+export function waitLabel(waitedHours) {
+  if (waitedHours < 1) return 'dưới 1 giờ';
+  if (waitedHours < 48) return `${waitedHours} giờ`;
+  return `${Math.floor(waitedHours / 24)} ngày`;
+}
+
+/** null when the "Giữ nguyên điểm" explanation can be sent, else why not. */
+export function keepExplanationError(text) {
+  const length = stringOf(text).length;
+  if (!length) return 'Viết giải thích gửi học viên.';
+  if (length < KEEP_MIN_CHARS) return `Giải thích cần ít nhất ${KEEP_MIN_CHARS} ký tự (đang có ${length}).`;
+  return null;
 }
 
 export function regradeHref(filters) {
   const params = new URLSearchParams();
   const normalized = regradeFilters(filters);
-  if (normalized.status !== 'pending') params.set('status', normalized.status);
+  if (normalized.status !== 'new') params.set('status', normalized.status);
   if (normalized.q) params.set('q', normalized.q);
   const query = params.toString();
   return `/admin/writing/regrade-requests${query ? `?${query}` : ''}`;
 }
 
 export function regradeMatches(row, filters) {
-  if (!row || row.status !== filters.status) return false;
+  if (!row || regradeLane(row.status) !== filters.status) return false;
   const query = stringOf(filters.q).toLocaleLowerCase('vi');
   if (!query) return true;
   return `${row.studentName} ${row.studentCode || ''} ${row.cohortName || ''} ${row.essayPrompt || ''} ${row.reason}`
@@ -89,7 +126,8 @@ export function regradeMatches(row, filters) {
 }
 
 export function regradeSort(rows, status) {
-  const direction = status === 'pending' ? 1 : -1;
+  // Mới: longest wait first (the design's default); history newest first.
+  const direction = status === 'new' || status === 'pending' ? 1 : -1;
   return [...rows].sort((left, right) => {
     const leftTime = left?.createdAt ? Date.parse(left.createdAt) : Number.NaN;
     const rightTime = right?.createdAt ? Date.parse(right.createdAt) : Number.NaN;

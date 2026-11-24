@@ -17,6 +17,9 @@ G09-T04).
 * ``GET /admin/learners/{ref}/log?kind=&cursor=`` — admin (G09-T04c, FR-027).
   The merged system log, newest first, 50 a page; a source that cannot be read
   is named in ``sources_failed``. 422 ``bad_cursor``.
+* ``GET /admin/learners/{ref}/attempts?skill=&state=&cursor=`` — admin
+  (G09-T04c, FR-025). Every attempt across the skills, newest first, 30 a
+  page, each with the admin view that opens it. 422 ``bad_cursor``.
 """
 
 from __future__ import annotations
@@ -28,11 +31,11 @@ from typing import Any, Callable
 
 from fastapi import APIRouter, Header, HTTPException, Query
 
-from models.admin_learner_profile import (GoalResolveIn, GoalResolveOut, LearnerAiCost, LearnerLog,
-                                          LearnerOverview, LogSource)
+from models.admin_learner_profile import (AttemptSkill, AttemptState, GoalResolveIn, GoalResolveOut, LearnerAiCost,
+                                          LearnerAttempts, LearnerLog, LearnerOverview, LogSource)
 from routers.admin import require_admin
 from routers.admin_learners import _person, _thresholds
-from services import admin_learner_cost, admin_learner_log
+from services import admin_learner_attempts, admin_learner_cost, admin_learner_log
 from services import admin_learner_profile as profile
 
 logger = logging.getLogger(__name__)
@@ -125,3 +128,16 @@ async def get_learner_log(ref: str, kind: LogSource | None = None, cursor: str |
         return await asyncio.to_thread(admin_learner_log.log, person, kind=kind, cursor=cursor)
     except admin_learner_log.BadCursor:
         raise HTTPException(422, {"code": "bad_cursor", "message": "Trang nhật ký không hợp lệ. Tải lại từ đầu."})
+
+
+@router.get("/admin/learners/{ref}/attempts", response_model=LearnerAttempts)
+async def get_learner_attempts(ref: str, skill: AttemptSkill | None = None, state: AttemptState | None = None,
+                               cursor: str | None = Query(None, max_length=512),
+                               authorization: str | None = Header(default=None)):
+    await require_admin(authorization)
+    person = await _person(ref)
+    try:
+        return await asyncio.to_thread(admin_learner_attempts.attempts, person, skill=skill, state=state,
+                                       cursor=cursor)
+    except admin_learner_attempts.BadCursor:
+        raise HTTPException(422, {"code": "bad_cursor", "message": "Trang bài làm không hợp lệ. Tải lại từ đầu."})

@@ -203,3 +203,51 @@ class LearnerLog(_StrictOut):
     sources_failed: list[str]
     # Sources with no read API yet (G04): not an empty history.
     sources_unavailable: list[LogSource]
+
+
+# ── Học tập: attempts (FR-025; G09-T04c) ───────────────────────────────────
+
+AttemptSkill = Literal["speaking", "writing", "reading", "listening", "mock"]
+AttemptState = Literal["in_progress", "submitted", "done", "failed", "abandoned", "other"]
+
+
+class LearnerAttempt(_StrictOut):
+    skill: AttemptSkill
+    # practice | full_test (Speaking), essay, test (Reading/Listening), sitting (mock).
+    kind: str
+    id: str
+    title: str
+    state: AttemptState
+    # e.g. "Band 6.5 · 30/40"; null until a result is out.
+    result_text: Optional[str]
+    submitted_at: Optional[str]
+    # The admin view that opens this attempt; null when none exists yet.
+    open_href: Optional[str]
+
+
+class RepeatedWritingError(_StrictOut):
+    # feedback_json.mistakeAnalysis[].mistakeType, as the grader names it.
+    mistake_type: str
+    count: int
+    criterion: Optional[str]
+
+
+class WeakGrammarGroup(_StrictOut):
+    # The same item as the learner's grammar dashboard weak_areas.
+    tag: str
+    label_vi: str
+    category: str
+    occurrence_count: int
+    last_seen_at: Optional[str]
+
+
+class LearnerAttempts(_StrictOut):
+    items: list[LearnerAttempt]
+    next_cursor: Optional[str]
+    # Over the newest five essays; null until there are five graded essays
+    # (or no student profile, or the read failed: then named in sources_failed).
+    writing_repeated_errors: Optional[list[RepeatedWritingError]]
+    # Over 30 days of grammar recommendations; null without an account (or
+    # when the read failed: then named in sources_failed).
+    weak_grammar_groups: Optional[list[WeakGrammarGroup]]
+    sources_failed: list[str]
