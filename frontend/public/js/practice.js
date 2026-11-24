@@ -510,11 +510,9 @@
   var _roomSignedOut = false;
   function _roomExpired(err) {
     if (!_examRoomMode || !err) return false;
-    if (err.status !== 401 && err.code !== 'auth_required') {
-      // The server answered something else: the session itself is fine.
-      if (typeof err.status === 'number') _roomSignedOut = false;
-      return false;
-    }
+    // Only a send that succeeds proves the session is back (_roomSessionBack);
+    // any other failure (5xx, network) leaves Nộp locked (CR #2615).
+    if (err.status !== 401 && err.code !== 'auth_required') return false;
     _roomLeaveHref = '';
     var unsent = _roomUnsentCount();
     _roomSignedOut = unsent > 0;
