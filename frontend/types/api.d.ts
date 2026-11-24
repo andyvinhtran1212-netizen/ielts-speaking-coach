@@ -3705,6 +3705,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/learners/{ref}/care-notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Care Notes */
+        get: operations["list_care_notes_admin_learners__ref__care_notes_get"];
+        put?: never;
+        /** Add Care Note */
+        post: operations["add_care_note_admin_learners__ref__care_notes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/care-notes/{note_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Care Note */
+        delete: operations["delete_care_note_admin_care_notes__note_id__delete"];
+        options?: never;
+        head?: never;
+        /** Patch Care Note */
+        patch: operations["patch_care_note_admin_care_notes__note_id__patch"];
+        trace?: never;
+    };
     "/admin/overview": {
         parameters: {
             query?: never;
@@ -16677,6 +16713,56 @@ export interface components {
             /** Cards */
             cards: components["schemas"]["SharedCard"][];
         };
+        /** CareNote */
+        CareNote: {
+            /** Id */
+            id: string | null;
+            /** Author Name */
+            author_name: string | null;
+            /** Created At */
+            created_at: string | null;
+            /** Body */
+            body: string;
+            /** Next Action */
+            next_action: string | null;
+            /** Due On */
+            due_on: string | null;
+            /** Done At */
+            done_at: string | null;
+            /** Is Initial */
+            is_initial: boolean;
+            /** Editable */
+            editable: boolean;
+        };
+        /** CareNoteIn */
+        CareNoteIn: {
+            /** Body */
+            body: string;
+            /** Next Action */
+            next_action?: string | null;
+            /** Due On */
+            due_on?: string | null;
+        };
+        /** CareNoteOut */
+        CareNoteOut: {
+            note: components["schemas"]["CareNote"];
+        };
+        /** CareNotePatch */
+        CareNotePatch: {
+            /** Body */
+            body?: string | null;
+            /** Next Action */
+            next_action?: string | null;
+            /** Due On */
+            due_on?: string | null;
+            /** Done */
+            done?: boolean | null;
+        };
+        /** CareNotes */
+        CareNotes: {
+            /** Items */
+            items: components["schemas"]["CareNote"][];
+        };
         /** CatalogEntry */
         CatalogEntry: {
             /** Id */
@@ -18139,6 +18225,23 @@ export interface components {
             plays: number;
             /** Played Ms */
             played_ms: number;
+        };
+        /**
+         * DueNote
+         * @description A care note's booked work (G09-T35): open, with a due day.
+         */
+        DueNote: {
+            /** Id */
+            id: string;
+            /**
+             * Due On
+             * Format: date
+             */
+            due_on: string;
+            /** Next Action */
+            next_action: string | null;
+            /** Body */
+            body: string;
         };
         /**
          * DuePatch
@@ -21686,9 +21789,7 @@ export interface components {
         /** OverviewSide */
         OverviewSide: {
             /** Due Notes */
-            due_notes: {
-                [key: string]: unknown;
-            }[] | null;
+            due_notes: components["schemas"]["DueNote"][] | null;
             /** Courses */
             courses: {
                 [key: string]: unknown;
@@ -32287,6 +32388,144 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LearnerAttempts"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_care_notes_admin_learners__ref__care_notes_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CareNotes"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_care_note_admin_learners__ref__care_notes_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CareNoteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CareNoteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_care_note_admin_care_notes__note_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                note_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_care_note_admin_care_notes__note_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                note_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CareNotePatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CareNoteOut"];
                 };
             };
             /** @description Validation Error */
