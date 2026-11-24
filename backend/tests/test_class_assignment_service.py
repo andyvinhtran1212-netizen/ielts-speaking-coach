@@ -1142,7 +1142,7 @@ def test_every_band_write_path_syncs_the_ledger():
         "the pronunciation path must sync"
     )
     admin_src = code_only(
-        pathlib.Path(__file__).resolve().parents[1].joinpath("routers", "admin.py").read_text()
+        pathlib.Path(__file__).resolve().parents[1].joinpath("routers", "admin", "__init__.py").read_text()
     )
     assert admin_src.count("sync_class_item_score") >= 3, (
         "both admin regrade paths must sync (plus the import)"

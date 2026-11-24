@@ -131,6 +131,33 @@ const STYLE = /* css */ `
   border-color: var(--av-primary-border);
 }
 
+/* Quick search trigger (ADMINIA-0074 FR-075, G09-T19). The palette itself is
+   React (components/staff-quick-search.tsx) and listens for the window event. */
+.quick-search {
+  display: inline-flex; align-items: center; gap: var(--av-space-2);
+  min-height: 40px; padding: 0 var(--av-space-3);
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-pill);
+  color: var(--av-text-secondary);
+  font-family: inherit; font-size: var(--av-fs-sm);
+  cursor: pointer;
+}
+.quick-search:hover { color: var(--av-primary); border-color: var(--av-primary-border); }
+.quick-search:focus-visible { outline: none; box-shadow: var(--av-shadow-focus); }
+.quick-search svg {
+  width: 18px; height: 18px; fill: none; stroke: currentColor;
+  stroke-width: 2; stroke-linecap: round;
+}
+.quick-search-kbd {
+  padding: 1px 6px;
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-sm);
+  background: var(--av-surface-sunken);
+  color: var(--av-text-muted);
+  font-family: var(--av-font-mono); font-size: var(--av-fs-xs);
+}
+
 /* ── Header (top bar) ─────────────────────────────────────────── */
 .admin-header {
   position: sticky; top: 0; z-index: 30;
@@ -394,6 +421,11 @@ details.nav-group { display: block; }
   .collapse-btn { display: none; }
 }
 
+@media (max-width: 767px) {
+  .quick-search-label, .quick-search-kbd { display: none; }
+  .quick-search { width: 40px; padding: 0; justify-content: center; }
+}
+
 @media (max-width: 520px) {
   .back-label, .brand-divider, .admin-badge { display: none; }
   .admin-header { gap: var(--av-space-2); }
@@ -524,6 +556,8 @@ const NAV_GROUPS = [
     title: 'Lớp & Người dùng',
     items: [
       { section: 'users',    label: 'Tất cả người dùng',  href: '/admin/users',                     icon: 'user-check' },
+      // ADMINIA-0074 FR-048: the activation-code ledger has its own page again.
+      { section: 'access-codes', label: 'Mã kích hoạt', href: '/admin/activation-codes', icon: 'key' },
       // Sprint 18.1 — IA fold: the standalone "Học viên" (students) nav entry
       // is folded into this area. The cohorts + students pages now present as
       // one tabbed area ("Lớp & Học viên" tab bar); 'students' stays in
@@ -542,10 +576,8 @@ const NAV_GROUPS = [
       { section: 'instructors', label: 'Giảng viên', href: '/admin/instructors', icon: 'users' },
     ],
   },
-  // merge-codes PR-3 — the standalone "Mã kích hoạt" nav entry is removed:
-  // access codes now live as the "Mã kích hoạt" tab inside the native Users
-  // page ("Tất cả người dùng" above), and /admin/access-codes redirects there
-  // (vercel.json). 'access-codes' stays in VALID_ACTIVE for any deep link.
+  // "Mã kích hoạt" (above) is the /admin/activation-codes ledger; the old
+  // /admin/access-codes alias and /admin/users?tab=codes redirect there.
   // (Sprint 18.2 "Usage logs" + "Lưu lượng" remain folded into the Dashboard.)
   {
     title: 'Hệ thống',
@@ -705,6 +737,11 @@ function buildTemplate(active, subsection) {
   </a>
   <span class="admin-badge">Quản trị</span>
   <div class="header-spacer"></div>
+  <button class="quick-search" id="quick-search" type="button" aria-label="Tìm nhanh (Ctrl K)" aria-haspopup="dialog">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+    <span class="quick-search-label">Tìm nhanh</span>
+    <kbd class="quick-search-kbd">⌘K</kbd>
+  </button>
   <button class="av-theme-toggle" id="theme-toggle" type="button" aria-label="Chuyển giao diện sáng/tối">
     <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
       <circle cx="12" cy="12" r="4"></circle>
@@ -891,6 +928,7 @@ export class AverAdminChrome extends HTMLElement {
 
   _bindInteractiveChrome() {
     this._bindToggle();
+    this._bindQuickSearch();
     this._bindCollapse();
     this._bindHamburger();
     this._bindEscape();
@@ -952,6 +990,15 @@ export class AverAdminChrome extends HTMLElement {
     const btn = this.shadowRoot.getElementById('theme-toggle');
     if (!btn) return;
     this._toggleTeardown = bindToggleButton(btn);
+  }
+
+  _bindQuickSearch() {
+    const btn = this.shadowRoot.getElementById('quick-search');
+    if (!btn) return;
+    this._abortController = this._abortController || new AbortController();
+    btn.addEventListener('click', () => {
+      window.dispatchEvent(new CustomEvent('aver:quick-search-open'));
+    }, { signal: this._abortController.signal });
   }
 
   _bindCollapse() {
