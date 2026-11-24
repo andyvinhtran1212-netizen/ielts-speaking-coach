@@ -283,17 +283,27 @@ describe('flag on: boxes in the page (FR-006–FR-008, FR-010, FR-012)', () => {
     expect(calls).toEqual([['confirmSubmitWithUnsent', 'submit']]);
   });
 
-  it('401 with an unsent take: says it would be lost, staying is the primary way', () => {
+  it('401 with an unsent take: only "Ở lại làm tiếp", no sign-in and no way to drop the take (FR-010)', () => {
     const calls = app();
+    const href = window.location.href;
     roomWith({ kind: 'expired', unsent: 1 });
     const box = screen.getByRole('alertdialog');
     expect(within(box).getByText(VI.expiredUnsent)).toBeTruthy();
+    const buttons = within(box).getAllByRole('button').filter((b) => b.textContent !== VI.close && b.getAttribute('aria-label') !== VI.close);
+    expect(buttons.map((b) => b.textContent)).toEqual([VI.expiredStay]);
+    expect(within(box).queryByRole('button', { name: VI.expiredSignIn })).toBeNull();
+    expect(within(box).queryByRole('link')).toBeNull();
     fireEvent.click(within(box).getByRole('button', { name: VI.expiredStay }));
-    fireEvent.click(within(box).getByRole('button', { name: VI.expiredSignInLose }));
-    expect(calls[0]).toEqual(['confirmLeave', false]);
-    expect(calls[1][0]).toBe('confirmLeave');
-    expect(calls[1][1]).toBe(true);
-    expect(String(calls[1][2])).toMatch(/^\/login\?next=/);
+    expect(calls).toEqual([['confirmLeave', false]]);
+    expect(window.location.href).toBe(href);
+  });
+
+  it('401 with an unsent take in a full test: only "Stay"', () => {
+    app();
+    roomWith({ kind: 'expired', unsent: 2 }, 'test_full');
+    const box = screen.getByRole('alertdialog');
+    expect(within(box).getByRole('button', { name: EN.expiredStay })).toBeTruthy();
+    expect(within(box).queryByRole('button', { name: EN.expiredSignIn })).toBeNull();
   });
 
   it('401 with nothing unsent: only "Đăng nhập lại"', () => {
