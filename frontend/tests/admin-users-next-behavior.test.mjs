@@ -30,14 +30,14 @@ import {
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
-const PAGE = read('app', '(authed-admin-users)', 'admin', 'users', 'page.tsx');
-const SHELL = read('app', '(authed-admin-users)', 'admin', 'users', 'admin-users.tsx');
-const USERS = read('app', '(authed-admin-users)', 'admin', 'users', 'admin-users-panel.tsx');
-const CODES = read('app', '(authed-admin-users)', 'admin', 'users', 'admin-access-codes-panel.tsx');
-const LEDGER_PAGE = read('app', '(authed-admin-users)', 'admin', 'activation-codes', 'page.tsx');
-const LEDGER_SHELL = read('app', '(authed-admin-users)', 'admin', 'activation-codes', 'admin-activation-codes.tsx');
-const UI = read('app', '(authed-admin-users)', 'admin', 'users', 'admin-user-ui.tsx');
-const LAYOUT = read('app', '(authed-admin-users)', 'layout.tsx');
+const PAGE = read('app', '(authed-admin)/(users)', 'admin', 'users', 'page.tsx');
+const SHELL = read('app', '(authed-admin)/(users)', 'admin', 'users', 'admin-users.tsx');
+const USERS = read('app', '(authed-admin)/(users)', 'admin', 'users', 'admin-users-panel.tsx');
+const CODES = read('app', '(authed-admin)/(users)', 'admin', 'users', 'admin-access-codes-panel.tsx');
+const LEDGER_PAGE = read('app', '(authed-admin)/(users)', 'admin', 'activation-codes', 'page.tsx');
+const LEDGER_SHELL = read('app', '(authed-admin)/(users)', 'admin', 'activation-codes', 'admin-activation-codes.tsx');
+const UI = read('app', '(authed-admin)/(users)', 'admin', 'users', 'admin-user-ui.tsx');
+const LAYOUT = read('app', '(authed-admin)', 'layout.tsx') + read('app', '(authed-admin)', '(users)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-users-next.css');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 const OVERVIEW = read('app', '(authed-admin)', '(overview)', 'admin', 'admin-overview.tsx');
@@ -88,7 +88,7 @@ describe('/admin/users — native ownership', () => {
   });
 
   test('records native ownership, canonical reconciliation and rollback in the ledger', () => {
-    assert.match(LEDGER, /`\/admin\/users`[^\n]+authed-admin-users[^\n]+canonical GET/);
+    assert.match(LEDGER, /`\/admin\/users`[^\n]+\(authed-admin\)\/\(users\)[^\n]+canonical GET/);
     assert.match(LEDGER, /`\/pages\/admin\/users\/index\.html` remains rollback target/);
     assert.match(LEDGER, /`\/admin\/access-codes`[^\n]+Permanent redirect to `\/admin\/activation-codes`/);
     assert.match(LEDGER, /`\/admin\/activation-codes`[^\n]+activation-codes\/page\.tsx/);
@@ -174,7 +174,7 @@ describe('/admin/users — canonical behavior', () => {
   });
 
   test('gates its fixture-backed browser contract in CI', () => {
-    assert.match(WORKFLOW, /frontend\/app\/\(authed-admin-users\)\/\*\*/);
+    assert.match(WORKFLOW, /frontend\/app\/\(authed-admin\)\/\(users\)\/\*\*/);
     assert.match(WORKFLOW, /frontend\/public\/css\/admin-users-next\.css/);
     assert.match(WORKFLOW, /node tooling\/verify-admin-users-flow\.mjs/);
     assert.match(BROWSER, /parsed\.pathname === '\/auth\/me'/);
@@ -275,8 +275,8 @@ describe('admin users model — hostile and partial payloads', () => {
 });
 
 describe('ADMINIA-0074 FR-055 code page and danger-zone revoke', () => {
-  const DETAIL_PAGE = read('app', '(authed-admin-users)', 'admin', 'activation-codes', '[codeId]', 'page.tsx');
-  const DETAIL = read('app', '(authed-admin-users)', 'admin', 'activation-codes', '[codeId]', 'admin-activation-code-detail.tsx');
+  const DETAIL_PAGE = read('app', '(authed-admin)/(users)', 'admin', 'activation-codes', '[codeId]', 'page.tsx');
+  const DETAIL = read('app', '(authed-admin)/(users)', 'admin', 'activation-codes', '[codeId]', 'admin-activation-code-detail.tsx');
 
   test('transforms the detail shape explicitly instead of reusing the list shape', () => {
     const detail = normalizeCodeDetail({
@@ -344,13 +344,18 @@ describe('ADMINIA-0074 FR-055 code page and danger-zone revoke', () => {
 describe('ADMINIA-0074 code ledger keeps the admin shell', () => {
   // A route-group move (ADMINGROUP-0077) can leave these pages in a group
   // whose layout was deleted: the page then renders without the admin shell.
-  function shellLayoutFor(pageDir) {
+  // Under `(authed-admin)` the parent layout owns AuthedShell and the child
+  // group layout adds the page sheet, so read every layout from the page up
+  // to the shell layout.
+  function layoutsUpToShell(pageDir) {
+    const sources = [];
     let dir = pageDir;
     while (dir !== join(ROOT, 'app') && dir.startsWith(join(ROOT, 'app'))) {
       const layout = join(dir, 'layout.tsx');
       if (existsSync(layout)) {
         const source = readFileSync(layout, 'utf8');
-        if (/<AuthedShell[\s\S]*chrome="admin"/.test(source)) return source;
+        sources.push(source);
+        if (/<AuthedShell[\s\S]*chrome="admin"/.test(source)) return sources.join('\n');
       }
       dir = dirname(dir);
     }
@@ -359,14 +364,14 @@ describe('ADMINIA-0074 code ledger keeps the admin shell', () => {
 
   test('every activation-code page sits under an admin AuthedShell layout that loads the ledger CSS', () => {
     const pages = [
-      join(ROOT, 'app', '(authed-admin-users)', 'admin', 'activation-codes'),
-      join(ROOT, 'app', '(authed-admin-users)', 'admin', 'activation-codes', '[codeId]'),
+      join(ROOT, 'app', '(authed-admin)', '(users)', 'admin', 'activation-codes'),
+      join(ROOT, 'app', '(authed-admin)', '(users)', 'admin', 'activation-codes', '[codeId]'),
     ];
     for (const pageDir of pages) {
       assert.ok(existsSync(join(pageDir, 'page.tsx')), `${pageDir}/page.tsx missing`);
-      const layout = shellLayoutFor(pageDir);
-      assert.ok(layout, `no admin AuthedShell layout above ${pageDir}`);
-      assert.match(layout, /'\/css\/admin-users-next\.css'/);
+      const layouts = layoutsUpToShell(pageDir);
+      assert.ok(layouts, `no admin AuthedShell layout above ${pageDir}`);
+      assert.match(layouts, /["']\/css\/admin-users-next\.css["']/);
     }
   });
 });
