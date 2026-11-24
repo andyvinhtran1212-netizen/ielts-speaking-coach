@@ -79,6 +79,12 @@ ACTIVATION_EXEMPT_ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/sitemap-grammar.xml"): "public SEO sitemap",
     ("POST", "/api/error-logs"): "client error ingestion; accepts anonymous reports by design",
     ("POST", "/api/analytics/events"): "page-view/analytics beacons; anonymous by design, user only attributed",
+    # ── Course access (COURSEACCESS-0055 plan 5.9) ───────────────────────
+    # An online enrollee stays inactive until an admin confirms the order.
+    ("GET", "/api/courses"): "public course catalogue; a token only adds the caller's own enrollment state",
+    ("GET", "/api/courses/{slug}"): "public course page; a token only adds the caller's own enrollment state",
+    ("GET", "/api/me/courses"): "caller's own courses and credits, read before activation (pending online enrollment)",
+    ("GET", "/api/me/credits"): "caller's own credit history (read-only), visible before activation",
     # ── Public content (Grammar Wiki, Vocabulary library, prompt bank) ───
     ("GET", "/api/grammar/home"): "public Grammar Wiki",
     ("GET", "/api/grammar/categories"): "public Grammar Wiki",
