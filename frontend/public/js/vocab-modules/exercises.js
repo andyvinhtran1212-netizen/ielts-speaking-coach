@@ -82,7 +82,7 @@ const HTML = /* html */ `
         </a>
 
         <!-- Flashcards (Phase D Wave 2) — gated on flashcard_enabled. -->
-        <a data-card="flashcards" href="/flashcards" class="mode-card hidden">
+        <a data-card="flashcards" href="/vocabulary/flashcards" class="mode-card hidden">
           <div class="head">
             <div class="icon"><i data-lucide="layers"></i></div>
             <span class="ex-pill pill-live">Đang mở</span>

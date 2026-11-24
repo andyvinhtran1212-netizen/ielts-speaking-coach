@@ -30,24 +30,9 @@ const read = (...parts) =>
 
 describe('Sprint 13.1 — content list page', () => {
   const html = read('pages', 'admin', 'listening', 'index.html');
-  const js   = read('js', 'admin-listening-content-list.js');
 
   test('embeds chrome with active=listening + subsection=content', () => {
     assert.match(html, /<aver-admin-chrome\s+active=["']listening["']\s+subsection=["']content["']/);
-  });
-
-  test('GET /admin/listening/content called from list controller', () => {
-    // Path may be assembled into a `const path = …` before the api.get call.
-    assert.match(
-      js,
-      /`\/admin\/listening\/content\?status=/,
-      'content list module must call GET /admin/listening/content',
-    );
-    assert.match(
-      js,
-      /window\.api\.get\(/,
-      'content list module must use window.api.get',
-    );
   });
 
   test('status filter dropdown present with 4 options', () => {
@@ -59,14 +44,6 @@ describe('Sprint 13.1 — content list page', () => {
         `status filter missing option ${v}`,
       );
     }
-  });
-
-  test('status filter change triggers re-fetch in controller', () => {
-    assert.match(
-      js,
-      /lst-status[^]*addEventListener\(['"]change['"]/,
-      'status filter must rebind to load() on change',
-    );
   });
 
   test('table renders the 9 expected column headers', () => {
@@ -91,24 +68,6 @@ describe('Sprint 13.1 — content list page', () => {
     assert.doesNotMatch(html, /listening\/audio-cutter\.html/);
   });
 
-  test('edit-meta link in Actions points to content-meta.html?id=', () => {
-    assert.match(
-      js,
-      /content-meta\.html\?id=\$\{idEsc\}/,
-      'edit-meta deep-link missing in list module',
-    );
-  });
-
-  test('editor deep-links carry ?content_id= for all 4 single-content editors', () => {
-    for (const sub of ['segments', 'gist', 'tf', 'mcq']) {
-      assert.match(
-        js,
-        new RegExp(`/pages/admin/listening/${sub}\\.html\\?content_id=`),
-        `missing ?content_id= pre-bake for ${sub}`,
-      );
-    }
-  });
-
   test('pagination prev/next buttons render', () => {
     assert.match(html, /id=["']lst-prev["']/);
     assert.match(html, /id=["']lst-next["']/);
@@ -125,41 +84,9 @@ describe('Sprint 13.1 — content list page', () => {
 
 describe('Sprint 13.1 — content-detail page', () => {
   const html = read('pages', 'admin', 'listening', 'content-detail.html');
-  const js   = read('js', 'admin-listening-content-detail.js');
 
   test('embeds chrome with active=listening + subsection=content', () => {
     assert.match(html, /<aver-admin-chrome\s+active=["']listening["']\s+subsection=["']content["']/);
-  });
-
-  test('GET /admin/listening/content/{id} fetched in controller', () => {
-    assert.match(js, /\/admin\/listening\/content\/\$\{encodeURIComponent\(id\)\}/);
-  });
-
-  test('GET /admin/listening/exercises?content_id= fetched in controller', () => {
-    assert.match(
-      js,
-      /\/admin\/listening\/exercises\?content_id=\$\{encodeURIComponent\(id\)\}/,
-    );
-  });
-
-  test('renders 4 exercise type rows (dictation / gist / true_false / mcq)', () => {
-    // The matrix shape lives in the JS — confirm the EX_TYPES array
-    // carries every required exercise_type key.
-    for (const k of ['dictation', 'gist', 'true_false', 'mcq']) {
-      assert.match(
-        js,
-        new RegExp(`key:\\s*['"]${k}['"]`),
-        `EX_TYPES missing key ${k}`,
-      );
-    }
-  });
-
-  test('"Chưa có" → editor link with ?content_id= pre-baked (create action)', () => {
-    // Controller must emit data-action="create" with editor href + content_id.
-    assert.match(
-      js,
-      /data-action=["']create["'][^>]*href=["']\$\{t\.editor\}\?content_id=\$\{idEsc\}/,
-    );
   });
 
   test('Publish button → PATCH /status with target_status=published', () => {
@@ -170,16 +97,6 @@ describe('Sprint 13.1 — content-detail page', () => {
     assert.match(html, /id=["']btn-archive["'][\s\S]*?data-target-status=["']archived["']/);
   });
 
-  test('patchStatus calls PATCH /admin/listening/content/{id}/status', () => {
-    assert.match(
-      js,
-      /window\.api\.patch\(\s*`\/admin\/listening\/content\/\$\{encodeURIComponent\(STATE\.contentId\)\}\/status`/,
-    );
-  });
-
-  test('"Sửa metadata" link points to content-meta.html?id=', () => {
-    assert.match(js, /content-meta\.html\?id=\$\{encodeURIComponent\(c\.id\)\}/);
-  });
 });
 
 
@@ -188,7 +105,6 @@ describe('Sprint 13.1 — content-detail page', () => {
 
 describe('Sprint 13.1 — content-meta edit form', () => {
   const html = read('pages', 'admin', 'listening', 'content-meta.html');
-  const js   = read('js', 'admin-listening-content-meta.js');
 
   test('embeds chrome with active=listening + subsection=content', () => {
     assert.match(html, /<aver-admin-chrome\s+active=["']listening["']\s+subsection=["']content["']/);
@@ -205,27 +121,6 @@ describe('Sprint 13.1 — content-meta edit form', () => {
     }
   });
 
-  test('PATCH /admin/listening/content/{id} called on submit', () => {
-    assert.match(
-      js,
-      /window\.api\.patch\(\s*`\/admin\/listening\/content\/\$\{encodeURIComponent\(STATE\.contentId\)\}`/,
-    );
-  });
-
-  test('client-side validation blocks bad accent_tag', () => {
-    assert.match(
-      js,
-      /ACCENTS\.has\(body\.accent_tag\)[\s\S]*?accent_tag không hợp lệ/,
-    );
-  });
-
-  test('client-side validation blocks premium + NC license combo', () => {
-    assert.match(
-      js,
-      /is_premium[\s\S]*?external_license[\s\S]*?NC[\s\S]*?premium/i,
-      'premium+NC combo guard missing in meta controller',
-    );
-  });
 });
 
 

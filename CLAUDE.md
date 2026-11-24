@@ -33,7 +33,7 @@ Project. Release flow: `AGENTS.md` › Staging-first release flow and
 | Speaking result | `frontend/app/(authed-speaking-result)/speaking/result/page.tsx` |
 | Full Test / result | `frontend/app/(authed-full-test)/full-test/page.tsx`, `frontend/app/(authed-full-test-result)/full-test-result/page.tsx` |
 | Grammar Wiki | `frontend/app/(public-content)/grammar/` |
-| Admin dashboard | `frontend/app/(authed-admin-overview)/admin/page.tsx` |
+| Admin dashboard | `frontend/app/(authed-admin)/(overview)/admin/page.tsx` |
 | Typed browser API | `frontend/lib/browser-api.ts`, `frontend/lib/openapi-contract.ts` |
 | Generated API contract | `frontend/types/api.d.ts` |
 | FastAPI entry point | `backend/main.py` |

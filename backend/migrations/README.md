@@ -72,6 +72,12 @@ functions and table (no learning data) and refuses while 389
 five RLS-only Library tables reached only through service_role and the private
 `library-media` bucket guarded by a RESTRICTIVE `storage.objects` policy; the schema
 rollback refuses while any Library content, slug history, mark or bucket object exists.
+`401` is `pending_feature public_library_signoff` (LIBRARY-0061 T002b, amendment 2):
+Writing sample sign-off columns `review_status`/`reviewed_by`/`reviewed_at` on
+`writing_samples` and CHECKs that a published row is approved and every approval is
+signed. Its own group, not `public_library`, so a window that applies 400 never applies
+401 by accident; run it after 400 with `MIGRATION_FEATURES=public_library_signoff`.
+The rollback refuses while any row is signed or published.
 `501` is `pending_feature course_bank_service_write`: since 309 its CHECK
 `quiz_banks_grammar_revision_shape` calls `grammar_quiz_allowed_code`, whose
 EXECUTE the 309/314/339 blanket loops revoke from service_role, so every

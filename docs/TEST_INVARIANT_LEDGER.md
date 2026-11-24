@@ -69,6 +69,45 @@ See [wave 7 mapping and evidence](audits/GATE_F_PRICING_RETIREMENT_REHEARSAL_202
 See [wave 3 asset audit](audits/GATE_F_ASSET_AUDIT_2026-09-10.md) for the current
 read-only inventory; it grants no deletion approval.
 
+## LEGACYJS-0075 W1 — 2026-11-23
+
+Spec `specs/0075-legacy-public-js-retirement` T002 (G10-T07-W1) deletes the 15
+`frontend/public/js/admin-listening-*.js` scripts (attempts, audit, audit-detail,
+content-detail, content-list, content-meta, dictation-reports, drills-import,
+fulltest-import, gist, mcq, segments, tests-detail, tests-list, tf). Every
+`/admin/listening/**` URL has been owned by a Next route under
+`frontend/app/(authed-admin-listening)/` since the cutover; no Next code, kept
+`public/js` file or browser flow loads these scripts. Retired HTML fixtures stay
+(ADR-005). One row per test edited or retired in the same PR (FR-002):
+
+| Test file | Assertions removed (only those reading a deleted script) | Disposition | Replacement that holds the invariant now |
+|---|---|---|---|
+| `admin-listening-attempts.test.mjs` | controller behaviour block + `TYPE_LABEL` source pin | retire (Next owner) | `admin-listening-attempts-next-behavior.test.mjs` + `verify-admin-listening-attempts-flow.mjs` |
+| `admin-listening-audit.test.mjs` | 7 controller pins (fetch, filters, actions) | retire (Next owner) | `admin-listening-audit-next-behavior.test.mjs` + `verify-admin-listening-audit-flow.mjs` |
+| `admin-listening-audit-paging.test.mjs` | **whole file retired** (read only `admin-listening-audit.js`) | replace | offset paging over 101 rows in `verify-admin-listening-audit-flow.mjs`; `AUDIT_BATCH` batching in `admin-listening-audit-next-behavior.test.mjs` |
+| `admin-listening-content-management.test.mjs` | list/detail/meta controller pins (GETs, status re-fetch, meta and editor deep-links) | retire (Next owner) | `admin-listening-content-next-behavior.test.mjs` (editor links `segments/gist/tf/mcq?content_id=`), `admin-listening-content-detail-next-behavior.test.mjs`, `admin-listening-content-editor-next-behavior.test.mjs` |
+| `admin-listening-drills-import.test.mjs` | controller pins (dry-run/commit endpoints, `audio_output/<TEST_ID>/full_test.mp3` matching) and the HTML script-tag pin | retire (Next owner) | `admin-listening-drill-import-next-behavior.test.mjs` + `verify-admin-listening-drill-import-flow.mjs` |
+| `admin-listening-fulltest-import.test.mjs` | controller pins incl. archive-then-commit restore | retire (Next owner) | `admin-listening-fulltest-import-next-behavior.test.mjs` (asserts the native owner has no `_archiveThenCommit`) + `verify-admin-listening-fulltest-import-flow.mjs` |
+| `admin-listening-reporting-wave2.test.mjs` | 6 `dictation-reports.js` pins (learner name/email fallback, `user_query`, detail URL, diff columns) | retire (Next owner) | `admin-listening-dictation-next-behavior.test.mjs` (model `display_name`/email) + `verify-admin-listening-dictation-flow.mjs` (`user_query` on list and aggregate) |
+| `admin-listening-segments.test.mjs` | JS controller pins and the dynamic import of the legacy helpers | port | helper cases ported to `admin-listening-segments-next-behavior.test.mjs` ("ported legacy segment helper cases") against `lib/admin-listening-segments-model.mjs` |
+| `admin-listening-segments-next-behavior.test.mjs` | none (gains the ported cases) | port target | itself |
+| `admin-listening-tests.test.mjs` | tests-list controller pins (GET, status filter, debounce, row fields) | retire (Next owner) | `admin-listening-tests-next-behavior.test.mjs` + `verify-admin-listening-tests-flow.mjs` |
+| `admin-listening-tests-next-behavior.test.mjs` | none (gains `Ẩn khỏi web`) | port target | itself (from `mock-cockpit-consolidation`) |
+| `admin-listening-tests-detail.test.mjs` | detail controller pins | retire (Next owner) | `admin-listening-test-detail-next-behavior.test.mjs` + `verify-admin-listening-test-detail-flow.mjs` |
+| `admin-listening-test-detail-next-behavior.test.mjs` | none (gains danger-zone gate) | port target | itself (from `admin-progressive-loading-toggle`) |
+| `admin-listening-true-false-next-behavior.test.mjs` | one rollback pin on `admin-listening-tf.js` (`expected_updated_at`) | retire (covered) | same file: model asserts `expected_updated_at`; gains the Vietnamese T/F/NG label pin |
+| `admin-progressive-loading-toggle.test.mjs` | "tests-detail destructive section gated on fetch" | port | `admin-listening-test-detail-next-behavior.test.mjs` (danger zone after loading/failed-read early returns) |
+| `admin-student-listening.test.mjs` | dictation-reports `?user=` prefill | retire (Next owner) | `verify-admin-listening-dictation-flow.mjs` (opens `/admin/listening/dictation?user=…`) |
+| `admin-toast.test.mjs` | 7 listening files from the showBanner→showToast list, segments `clearToasts` | retire | Next owners use inline banners; the list keeps the 12 surviving scripts |
+| `aver-admin-chrome.test.mjs` | content-list editor deep-link loop | retire (covered) | `admin-listening-content-next-behavior.test.mjs` lines pinning the 4 editor links |
+| `listening-gist-tf-pages.test.mjs` | admin Gist/TF JS consts; T/F/NG Vietnamese label test | port | `admin-listening-true-false-next-behavior.test.mjs` (`ANSWER_LABEL` Đúng / Sai / Không có thông tin); Gist owner in `admin-listening-gist-next-behavior.test.mjs` |
+| `listening-mcq-sessions-pages.test.mjs` | admin MCQ JS pins (1–20 range, POST, draft/publish, A–D) | retire (Next owner) | `admin-listening-mcq-next-behavior.test.mjs` (`MAX_MCQ_QUESTIONS`, versioned POST) + `verify-admin-listening-mcq-flow.mjs` |
+| `listening-mini-test.test.mjs` | fulltest-import preview pins (option letter+text, no /4 /40, `mdInline` emphasis, `mini=true`) | retire (Next owner) | `admin-listening-fulltest-import-next-behavior.test.mjs` (letter/text options, `mini` fingerprint and canonical type). The Next owner renders prompts as escaped plain text, so legacy `mdInline` emphasis has no current owner |
+| `listening-test-dictation.test.mjs` | dictation-reports list + aggregate endpoint pins | retire (Next owner) | `verify-admin-listening-dictation-flow.mjs` (list and aggregate queries) |
+| `mock-cockpit-consolidation.test.mjs` | tests-list `data-is-public` row | port | `admin-listening-tests-next-behavior.test.mjs` (`is_public`, `Ẩn khỏi web`) |
+| `sentence-split-no-lookbehind.test.mjs` | `admin-listening-segments.js` splitter case | retire (covered) | `admin-listening-segments-next-behavior.test.mjs` ported split cases; the student `listening-test-player.js` case stays |
+| `web-readiness-p1-warnings.test.mjs` | fulltest-import `p.warnings` banner pin | retire (Next owner) | `admin-listening-fulltest-import.tsx` findings block, exercised by `verify-admin-listening-fulltest-import-flow.mjs` (duplicate-ID warning) |
+
 ## Historical summary — 2026-07-13
 
 | Metric | Count |

@@ -129,6 +129,9 @@ export function normalizeAccessCode(value) {
     assigned_user_count: Math.max(assignedUsers.length, finite(row.assigned_user_count)),
     assigned_users: assignedUsers,
     association_lookup_failed: Boolean(row.association_lookup_failed),
+    // G04 credits granted with the code; the list API does not return it yet,
+    // so it stays null and the ledger shows "chưa có" (ADMINIA-0074 FR-048).
+    grant_credits: optionalFinite(row.grant_credits),
   };
 }
 
@@ -241,4 +244,31 @@ export function validateCodeDraft({ codeType, cohortId, permissions, sessionLimi
     return { ok: false, error: 'Số lượng mã phải từ 1 đến 100.' };
   }
   return { ok: true, sessionLimit, count };
+}
+
+// ADMINIA-0074 FR-048: ledger states of an activation code. `expiringDays` is
+// the `code_expiring_days` threshold (backend/services/ops_thresholds.py).
+export const DEFAULT_CODE_EXPIRING_DAYS = 14;
+const DAY_MS = 86_400_000;
+
+export function codeLedgerState(code, { now = Date.now(), expiringDays = DEFAULT_CODE_EXPIRING_DAYS } = {}) {
+  if (code?.is_revoked) return { state: 'revoked', label: 'Đã thu hồi', expiringSoon: false };
+  if (code?.is_used || code?.used_by || finite(code?.assigned_user_count) > 0) {
+    return { state: 'used', label: 'Đã dùng', expiringSoon: false };
+  }
+  const deadline = code?.expires_at ? Date.parse(code.expires_at) : Number.NaN;
+  if (Number.isFinite(deadline) && deadline <= now) return { state: 'expired', label: 'Hết hạn nhập', expiringSoon: false };
+  const expiringSoon = Number.isFinite(deadline) && expiringDays != null && deadline - now <= expiringDays * DAY_MS;
+  return { state: 'unused', label: 'Chưa dùng', expiringSoon };
+}
+
+export function grantCreditsLabel(code) {
+  return code?.grant_credits == null ? 'chưa có' : `${Number(code.grant_credits).toLocaleString('vi-VN')} lượt`;
+}
+
+export function expiringDaysFromThresholds(payload) {
+  const items = Array.isArray(object(payload).items) ? object(payload).items : [];
+  const item = object(items.find((entry) => object(entry).key === 'code_expiring_days'));
+  const value = optionalFinite(item.value);
+  return value != null && value >= 1 ? Math.floor(value) : DEFAULT_CODE_EXPIRING_DAYS;
 }
