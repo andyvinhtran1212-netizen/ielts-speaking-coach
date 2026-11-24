@@ -17,108 +17,108 @@ main.py::get_topics::db.execute	1	G7	Existing inline sync DB execution; offload 
 routers/admin/_common.py::_generate_questions_for_topic::db.execute	5	G5	Existing inline sync DB execution; offload in G5.
 routers/admin/_common.py::_generate_questions_for_topic::routers.admin._touch_topic	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
 routers/admin/_common.py::_replace_topic_questions_with_visibility_swap::db.execute	7	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::_run_regrade_response::db.execute	2	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::_run_regrade_response::routers.admin._reattach_pronunciation_for_regrade	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::_run_regrade_response::services.grading_telemetry.log_fallback_events	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::admin_cleanup_e2e_session::db.execute	5	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::admin_cleanup_e2e_session::storage.remove	1	G5	Existing sync Storage network call; offload in G5.
-routers/admin/__init__.py::admin_create_lemma_override::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::admin_create_lemma_override::services.lemmatizer.reload_overrides	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::admin_delete_d1_question::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::admin_delete_lemma_override::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::admin_delete_lemma_override::services.lemmatizer.reload_overrides	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::admin_flashcard_stats::routers.admin._fc_compute_activity_stats	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::admin_flashcard_stats::routers.admin._fc_compute_engagement_stats	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::admin_flashcard_stats::routers.admin._fc_compute_reviews_timeseries	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::admin_flashcard_stats::routers.admin._fc_compute_srs_health	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::admin_get_alerts::db.execute	4	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::admin_get_session::db.execute	5	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::admin_grammar_analytics::routers.admin._grammar_article_metric_rows	2	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::admin_list_d1_questions::db.execute	2	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::admin_list_grammar_articles::routers.admin._grammar_article_metric_rows	2	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::admin_list_lemma_overrides::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::admin_list_sessions::db.execute	3	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::admin_patch_d1_question::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::admin_rebuild_summary::db.execute	4	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::admin_rebuild_summary::routers.admin._regrade_compute_session_bands	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::admin_rebuild_summary::routers.admin._regrade_incomplete_response_ids	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::admin_rebuild_summary::services.class_assignment_service.sync_class_item_score	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::admin_regrade_response::db.execute	5	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::admin_regrade_response::routers.admin._regrade_compute_session_bands	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::admin_regrade_response::routers.admin._regrade_incomplete_response_ids	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::admin_regrade_response::services.class_assignment_service.sync_class_item_score	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::admin_regrade_session::db.execute	6	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::admin_regrade_session::routers.admin._regrade_compute_session_bands	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::admin_regrade_session::routers.admin._regrade_incomplete_response_ids	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::admin_regrade_session::services.class_assignment_service.sync_class_item_score	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::admin_set_user_role::routers.admin._committed_role_change	1	G5	Existing staging #1928 role-RPC recovery helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::admin_set_user_role::routers.admin._demotion_may_be_unrevoked	1	G5	Existing staging #1928 role-RPC recovery helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::admin_set_user_role::services.staff_security.set_staff_privilege	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::admin_set_vocab_flag::db.execute	2	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::admin_vocab_stats::db.execute	3	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::bulk_add_topics::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::bulk_add_topics::routers.admin._common._serialize_topics_with_metadata	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::bulk_delete_topics::db.execute	3	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::bulk_generate_topic_questions::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::code_usage::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::code_usage::routers.admin._aggregate_usage_for_users	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::code_usage::routers.admin._usage_paged	2	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::create_topic::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::create_topic::routers.admin._common._serialize_topics_with_metadata	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::create_topic_question::db.execute	2	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::create_topic_question::routers.admin._touch_topic	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::dashboard_reading_attempts::services.admin_reading_dashboard.compute_reading_attempts_dashboard	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::delete_access_code::db.execute	3	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::delete_access_code::routers.admin._audit_entitlement	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::delete_topic::db.execute	2	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::delete_topic_question::db.execute	2	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::delete_topic_question::routers.admin._touch_topic	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::foot_traffic::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::generate_access_codes::routers.admin._audit_entitlement	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::generate_access_codes::services.access_code_gen.insert_with_unique_codes	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::generate_and_assign_code::db.execute	2	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::generate_and_assign_code::routers.admin._activate_with_issued_code	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::generate_and_assign_code::routers.admin._audit_entitlement	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::generate_and_assign_code::routers.admin._issue_code_and_assign	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::generate_and_assign_code::services.class_membership_service.add_student	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::get_access_code_audit::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::get_access_code_detail::db.execute	3	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::get_ai_usage::db.execute	6	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::get_ai_usage::routers.admin._usage_paged	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::get_stats::db.execute	3	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::get_test_data_visibility::services.test_data_visibility.hide_for	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::hard_delete_access_code::db.execute	4	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::hard_delete_access_code::routers.admin._audit_entitlement	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::list_access_codes::db.execute	3	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::list_access_codes::routers.admin._usage_paged	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::list_access_codes::services.access_code_permissions.get_completed_session_counts	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::list_topic_questions::db.execute	2	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::list_topics::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::list_topics::routers.admin._common._serialize_topics_with_metadata	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::list_unassigned_codes::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::list_users::db.execute	4	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::list_users::services.access_code_permissions.get_users_code_summary	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::list_users::services.class_membership_service.active_memberships_for_students	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::list_users::services.test_data_visibility.hide_for	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::patch_access_code::db.execute	3	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::patch_access_code::routers.admin._audit_entitlement	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::patch_topic::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::patch_topic::routers.admin._common._serialize_topics_with_metadata	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::reassign_code::db.execute	5	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::reassign_code::routers.admin._activate_user_for_code	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::reassign_code::routers.admin._assign_user_to_code	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::reassign_code::routers.admin._audit_entitlement	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::refill_code::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::refill_code::routers.admin._activate_with_issued_code	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::refill_code::routers.admin._audit_entitlement	2	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::refill_code::routers.admin._issue_code_and_assign	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::remove_user_from_code::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::remove_user_from_code::routers.admin._audit_entitlement	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::render_topic_question_audio::db.execute	4	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::update_topic_question::db.execute	2	G5	Existing inline sync DB execution; offload in G5.
-routers/admin/__init__.py::update_topic_question::routers.admin._touch_topic	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::usage_by_user::routers.admin._aggregate_usage_for_users	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin/__init__.py::usage_by_user::routers.admin._usage_paged	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/sessions.py::_run_regrade_response::db.execute	2	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/sessions.py::_run_regrade_response::routers.admin.sessions._reattach_pronunciation_for_regrade	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/sessions.py::_run_regrade_response::services.grading_telemetry.log_fallback_events	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/users_stats.py::admin_cleanup_e2e_session::db.execute	5	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/users_stats.py::admin_cleanup_e2e_session::storage.remove	1	G5	Existing sync Storage network call; offload in G5.
+routers/admin/vocab.py::admin_create_lemma_override::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/vocab.py::admin_create_lemma_override::services.lemmatizer.reload_overrides	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/vocab.py::admin_delete_d1_question::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/vocab.py::admin_delete_lemma_override::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/vocab.py::admin_delete_lemma_override::services.lemmatizer.reload_overrides	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/vocab.py::admin_flashcard_stats::routers.admin.vocab._fc_compute_activity_stats	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/vocab.py::admin_flashcard_stats::routers.admin.vocab._fc_compute_engagement_stats	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/vocab.py::admin_flashcard_stats::routers.admin.vocab._fc_compute_reviews_timeseries	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/vocab.py::admin_flashcard_stats::routers.admin.vocab._fc_compute_srs_health	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/sessions.py::admin_get_alerts::db.execute	4	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/sessions.py::admin_get_session::db.execute	5	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/grammar.py::admin_grammar_analytics::routers.admin.grammar._grammar_article_metric_rows	2	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/vocab.py::admin_list_d1_questions::db.execute	2	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/grammar.py::admin_list_grammar_articles::routers.admin.grammar._grammar_article_metric_rows	2	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/vocab.py::admin_list_lemma_overrides::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/sessions.py::admin_list_sessions::db.execute	3	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/vocab.py::admin_patch_d1_question::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/sessions.py::admin_rebuild_summary::db.execute	4	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/sessions.py::admin_rebuild_summary::routers.admin.sessions._regrade_compute_session_bands	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/sessions.py::admin_rebuild_summary::routers.admin.sessions._regrade_incomplete_response_ids	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/sessions.py::admin_rebuild_summary::services.class_assignment_service.sync_class_item_score	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/sessions.py::admin_regrade_response::db.execute	5	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/sessions.py::admin_regrade_response::routers.admin.sessions._regrade_compute_session_bands	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/sessions.py::admin_regrade_response::routers.admin.sessions._regrade_incomplete_response_ids	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/sessions.py::admin_regrade_response::services.class_assignment_service.sync_class_item_score	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/sessions.py::admin_regrade_session::db.execute	6	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/sessions.py::admin_regrade_session::routers.admin.sessions._regrade_compute_session_bands	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/sessions.py::admin_regrade_session::routers.admin.sessions._regrade_incomplete_response_ids	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/sessions.py::admin_regrade_session::services.class_assignment_service.sync_class_item_score	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/users_stats.py::admin_set_user_role::routers.admin.users_stats._committed_role_change	1	G5	Existing staging #1928 role-RPC recovery helper reaches blocking I/O; offload caller in G5.
+routers/admin/users_stats.py::admin_set_user_role::routers.admin.users_stats._demotion_may_be_unrevoked	1	G5	Existing staging #1928 role-RPC recovery helper reaches blocking I/O; offload caller in G5.
+routers/admin/users_stats.py::admin_set_user_role::services.staff_security.set_staff_privilege	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/vocab.py::admin_set_vocab_flag::db.execute	2	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/vocab.py::admin_vocab_stats::db.execute	3	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/topics.py::bulk_add_topics::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/topics.py::bulk_add_topics::routers.admin._common._serialize_topics_with_metadata	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/topics.py::bulk_delete_topics::db.execute	3	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/topics.py::bulk_generate_topic_questions::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/access_codes.py::code_usage::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/access_codes.py::code_usage::routers.admin.access_codes._aggregate_usage_for_users	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/access_codes.py::code_usage::routers.admin.access_codes._usage_paged	2	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/topics.py::create_topic::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/topics.py::create_topic::routers.admin._common._serialize_topics_with_metadata	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/topics.py::create_topic_question::db.execute	2	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/topics.py::create_topic_question::routers.admin._touch_topic	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/access_codes.py::dashboard_reading_attempts::services.admin_reading_dashboard.compute_reading_attempts_dashboard	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/access_code_admin.py::delete_access_code::db.execute	3	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/access_code_admin.py::delete_access_code::routers.admin._audit_entitlement	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/topics.py::delete_topic::db.execute	2	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/topics.py::delete_topic_question::db.execute	2	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/topics.py::delete_topic_question::routers.admin._touch_topic	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/access_codes.py::foot_traffic::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/access_codes.py::generate_access_codes::routers.admin._audit_entitlement	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/access_codes.py::generate_access_codes::services.access_code_gen.insert_with_unique_codes	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/access_code_admin.py::generate_and_assign_code::db.execute	2	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/access_code_admin.py::generate_and_assign_code::routers.admin.access_code_admin._activate_with_issued_code	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/access_code_admin.py::generate_and_assign_code::routers.admin._audit_entitlement	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/access_code_admin.py::generate_and_assign_code::routers.admin.access_code_admin._issue_code_and_assign	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/access_code_admin.py::generate_and_assign_code::services.class_membership_service.add_student	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/access_code_admin.py::get_access_code_audit::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/access_code_admin.py::get_access_code_detail::db.execute	3	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/ai_usage.py::get_ai_usage::db.execute	6	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/ai_usage.py::get_ai_usage::routers.admin.access_codes._usage_paged	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/users_stats.py::get_stats::db.execute	3	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/users_stats.py::get_test_data_visibility::services.test_data_visibility.hide_for	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/access_code_admin.py::hard_delete_access_code::db.execute	4	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/access_code_admin.py::hard_delete_access_code::routers.admin._audit_entitlement	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/access_codes.py::list_access_codes::db.execute	3	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/access_codes.py::list_access_codes::routers.admin.access_codes._usage_paged	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/access_codes.py::list_access_codes::services.access_code_permissions.get_completed_session_counts	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/topics.py::list_topic_questions::db.execute	2	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/topics.py::list_topics::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/topics.py::list_topics::routers.admin._common._serialize_topics_with_metadata	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/access_codes.py::list_unassigned_codes::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/users_stats.py::list_users::db.execute	4	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/users_stats.py::list_users::services.access_code_permissions.get_users_code_summary	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/users_stats.py::list_users::services.class_membership_service.active_memberships_for_students	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/users_stats.py::list_users::services.test_data_visibility.hide_for	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/access_code_admin.py::patch_access_code::db.execute	3	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/access_code_admin.py::patch_access_code::routers.admin._audit_entitlement	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/topics.py::patch_topic::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/topics.py::patch_topic::routers.admin._common._serialize_topics_with_metadata	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/access_code_admin.py::reassign_code::db.execute	5	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/access_code_admin.py::reassign_code::routers.admin.access_code_admin._activate_user_for_code	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/access_code_admin.py::reassign_code::routers.admin.access_code_admin._assign_user_to_code	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/access_code_admin.py::reassign_code::routers.admin._audit_entitlement	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/access_code_admin.py::refill_code::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/access_code_admin.py::refill_code::routers.admin.access_code_admin._activate_with_issued_code	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/access_code_admin.py::refill_code::routers.admin._audit_entitlement	2	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/access_code_admin.py::refill_code::routers.admin.access_code_admin._issue_code_and_assign	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/access_code_admin.py::remove_user_from_code::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/access_code_admin.py::remove_user_from_code::routers.admin._audit_entitlement	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/topics.py::render_topic_question_audio::db.execute	4	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/topics.py::update_topic_question::db.execute	2	G5	Existing inline sync DB execution; offload in G5.
+routers/admin/topics.py::update_topic_question::routers.admin._touch_topic	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/access_codes.py::usage_by_user::routers.admin.access_codes._aggregate_usage_for_users	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin/access_codes.py::usage_by_user::routers.admin.access_codes._usage_paged	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
 routers/admin_class_assignments.py::assignment_tally::db.execute	4	G6	Existing inline sync DB execution; offload in G6.
 routers/admin_class_assignments.py::assignment_tally::routers.admin_class_assignments._advanced_vocab_assignment_tally	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/admin_class_assignments.py::assignment_tally::routers.admin_class_assignments._course_writing_count	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
@@ -362,15 +362,15 @@ routers/class_student.py::start_assignment::services.class_membership_service.st
 routers/class_student.py::start_assignment::services.quiz_service.bank_has_writing	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
 routers/class_student.py::start_assignment::services.quiz_service.course_assignment_action_with_session_truth	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
 routers/cohorts.py::add_cohort_member::db.execute	2	G6	Existing inline sync DB execution; offload in G6.
-routers/cohorts.py::add_cohort_member::routers.admin._activate_with_issued_code	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
-routers/cohorts.py::add_cohort_member::routers.admin._issue_code_and_assign	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/cohorts.py::add_cohort_member::routers.admin.access_code_admin._activate_with_issued_code	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/cohorts.py::add_cohort_member::routers.admin.access_code_admin._issue_code_and_assign	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/cohorts.py::assign_student_to_cohort::db.execute	2	G6	Existing inline sync DB execution; offload in G6.
 routers/cohorts.py::assign_student_to_cohort::services.class_membership_service.add_student	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/cohorts.py::bulk_assign_students_to_cohort::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
 routers/cohorts.py::bulk_assign_students_to_cohort::services.class_membership_service.add_students	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/cohorts.py::bulk_assign_students_to_cohort::services.student_service.archived_student_ids	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/cohorts.py::cohort_members::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
-routers/cohorts.py::cohort_members::routers.admin._aggregate_usage_for_users	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/cohorts.py::cohort_members::routers.admin.access_codes._aggregate_usage_for_users	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/cohorts.py::cohort_members::services.class_membership_service.active_students_for_cohort	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/cohorts.py::cohort_progress_matrix::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
 routers/cohorts.py::cohort_progress_matrix::services.cohort_progress_aggregator.cohort_progress	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.

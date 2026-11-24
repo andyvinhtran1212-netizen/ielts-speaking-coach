@@ -103,6 +103,23 @@ def test_ai_cost_matches_the_usage_page_for_the_same_window(db):
     assert out["total_usd"] == round(usage, 2) == 0.37
 
 
+def test_ai_cost_counts_a_claude_led_writing_job_like_the_usage_page(db):
+    """A Claude-led Writing job whose ledger misses part of its cost: the
+    profile and /admin/usage/users both add only the unlogged remainder."""
+    db.rows["ai_usage_logs"] = [_call(1, feature="writing_grading", cost=0.03, resource_id="e1",
+                                      usage_event_id="writing:job-1:attempt:1:run:r1:pass1:api:1")]
+    db.rows["writing_feedback"] = [
+        {"id": "f1", "essay_id": "e1", "model_used": "claude-sonnet-5-5", "tokens_input": 300,
+         "tokens_output": 150, "cost_usd": 0.05, "provenance": {"job_id": "job-1"},
+         "created_at": _ago(days=2)}]
+    out = _cost(f"u-{U_LAN}")
+    since = _ago(days=30)
+    usage = admin_router._aggregate_usage_for_users([U_LAN], since, None)[U_LAN]["ai_cost_usd"]
+    assert out["total_usd"] == round(usage, 2) == 0.05
+    assert out["by_feature"] == [{"feature": "writing_grading", "calls": 2, "cost_usd": 0.05,
+                                  "unpriced_calls": 0}]
+
+
 def test_ai_cost_of_an_offline_learner_counts_their_essays(db):
     db.rows["writing_essays"].append({"id": "e-duc", "student_id": S_OFFLINE, "status": "delivered"})
     db.rows["ai_usage_logs"] = [_call(1, user=None, feature="writing_grading", cost=0.07, resource_id="e-duc",

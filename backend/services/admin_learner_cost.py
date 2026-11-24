@@ -10,7 +10,8 @@ Shown only on the Khoá và quyền tab. The calls counted are the learner's:
 
 plus the historical Writing spend that lives only on ``writing_feedback``
 rows, merged with the same dedupe rule as ``/admin/ai-usage`` and
-``/admin/usage/users`` (``routers.admin._writing_feedback_supplemental_cost``),
+``/admin/usage/users`` (``routers.admin._writing_feedback_reconcilable`` and
+``_writing_feedback_supplemental_cost``),
 so the per-person figure never counts a Writing job twice.
 
 A call with no price (``effective_logged_cost`` is ``None``) adds nothing to
@@ -68,7 +69,8 @@ def _within(value: Any, lo: datetime, hi: datetime) -> bool:
 
 
 def cost(person: Person, window_days: int, *, now: Optional[datetime] = None) -> dict[str, Any]:
-    from routers.admin import _usage_paged, _writing_feedback_supplemental_cost, _writing_job_id
+    from routers.admin import (_usage_paged, _writing_feedback_reconcilable,
+                               _writing_feedback_supplemental_cost, _writing_job_id)
 
     if window_days not in WINDOWS:
         raise ValueError("window")
@@ -128,8 +130,9 @@ def cost(person: Person, window_days: int, *, now: Optional[datetime] = None) ->
                                 .select("id, essay_id, model_used, tokens_input, tokens_output, cost_usd, "
                                         "provenance, created_at")
                                 .in_("essay_id", c).gte("created_at", since).lte("created_at", until)):
-            if (not str(row.get("model_used") or "").startswith("gemini-")
-                    or not ((row.get("tokens_input") or 0) > 0 or (row.get("tokens_output") or 0) > 0)):
+            # Same row rule as /admin/ai-usage and /admin/usage/users, so a
+            # Claude-led job missing a ledger write counts here too.
+            if not _writing_feedback_reconcilable(row):
                 continue
             extra = _writing_feedback_supplemental_cost(
                 row, ledger_cost_by_job=ledger_cost_by_job,

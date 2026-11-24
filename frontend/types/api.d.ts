@@ -76,6 +76,71 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/account/session/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Session Status
+         * @description State of this session: ``current``, or another device is current
+         *     (``other_device`` / ``other_device_timed``). 503 ``session_status_unavailable``.
+         */
+        get: operations["get_session_status_api_account_session_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/account/session/claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Claim Session
+         * @description "Tiếp tục ở đây": make this session current and sign the others out.
+         *     409 ``timed_activity_in_progress`` (+ ``timed_activity``) while timed work
+         *     runs; 503 ``session_claim_unavailable``. Never runs by itself at sign-in.
+         */
+        post: operations["claim_session_api_account_session_claim_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/account/sessions/revoke-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke All Sessions
+         * @description Sign out of every device. A session in timed work is kept until that
+         *     work ends (``deferred_timed``). 404 ``single_session_disabled`` while the
+         *     flag is off; 503 ``session_revoke_unavailable``.
+         */
+        post: operations["revoke_all_sessions_api_account_sessions_revoke_all_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/sessions": {
         parameters: {
             query?: never;
@@ -3724,6 +3789,42 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/admin/learners/{ref}/care-notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Care Notes */
+        get: operations["list_care_notes_admin_learners__ref__care_notes_get"];
+        put?: never;
+        /** Add Care Note */
+        post: operations["add_care_note_admin_learners__ref__care_notes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/care-notes/{note_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Care Note */
+        delete: operations["delete_care_note_admin_care_notes__note_id__delete"];
+        options?: never;
+        head?: never;
+        /** Patch Care Note */
+        patch: operations["patch_care_note_admin_care_notes__note_id__patch"];
         trace?: never;
     };
     "/admin/overview": {
@@ -16698,6 +16799,56 @@ export interface components {
             /** Cards */
             cards: components["schemas"]["SharedCard"][];
         };
+        /** CareNote */
+        CareNote: {
+            /** Id */
+            id: string | null;
+            /** Author Name */
+            author_name: string | null;
+            /** Created At */
+            created_at: string | null;
+            /** Body */
+            body: string;
+            /** Next Action */
+            next_action: string | null;
+            /** Due On */
+            due_on: string | null;
+            /** Done At */
+            done_at: string | null;
+            /** Is Initial */
+            is_initial: boolean;
+            /** Editable */
+            editable: boolean;
+        };
+        /** CareNoteIn */
+        CareNoteIn: {
+            /** Body */
+            body: string;
+            /** Next Action */
+            next_action?: string | null;
+            /** Due On */
+            due_on?: string | null;
+        };
+        /** CareNoteOut */
+        CareNoteOut: {
+            note: components["schemas"]["CareNote"];
+        };
+        /** CareNotePatch */
+        CareNotePatch: {
+            /** Body */
+            body?: string | null;
+            /** Next Action */
+            next_action?: string | null;
+            /** Due On */
+            due_on?: string | null;
+            /** Done */
+            done?: boolean | null;
+        };
+        /** CareNotes */
+        CareNotes: {
+            /** Items */
+            items: components["schemas"]["CareNote"][];
+        };
         /** CatalogEntry */
         CatalogEntry: {
             /** Id */
@@ -18160,6 +18311,23 @@ export interface components {
             plays: number;
             /** Played Ms */
             played_ms: number;
+        };
+        /**
+         * DueNote
+         * @description A care note's booked work (G09-T35): open, with a due day.
+         */
+        DueNote: {
+            /** Id */
+            id: string;
+            /**
+             * Due On
+             * Format: date
+             */
+            due_on: string;
+            /** Next Action */
+            next_action: string | null;
+            /** Body */
+            body: string;
         };
         /**
          * DuePatch
@@ -21594,6 +21762,15 @@ export interface components {
             /** Review Wait Median Hours */
             review_wait_median_hours?: number | null;
         };
+        /** OtherSessionOut */
+        OtherSessionOut: {
+            /** Device Label */
+            device_label?: string | null;
+            /** Since */
+            since?: string | null;
+            /** Approx Location */
+            approx_location?: null;
+        };
         /** OutcomesOut */
         OutcomesOut: {
             /** Learners */
@@ -21707,9 +21884,7 @@ export interface components {
         /** OverviewSide */
         OverviewSide: {
             /** Due Notes */
-            due_notes: {
-                [key: string]: unknown;
-            }[] | null;
+            due_notes: components["schemas"]["DueNote"][] | null;
             /** Courses */
             courses: {
                 [key: string]: unknown;
@@ -23055,6 +23230,14 @@ export interface components {
              */
             reason: "applied" | "replayed" | "conflict";
         };
+        /** RevokeAllOut */
+        RevokeAllOut: {
+            /** Revoked */
+            revoked: number;
+            deferred_timed?: components["schemas"]["TimedActivityOut"] | null;
+            /** At */
+            at: string;
+        };
         /** RevokeSessionsIn */
         RevokeSessionsIn: {
             /** Reason */
@@ -23224,6 +23407,18 @@ export interface components {
             correct?: number | null;
             /** Created At */
             created_at: string;
+        };
+        /** SessionClaimOut */
+        SessionClaimOut: {
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * State
+             * @constant
+             */
+            state: "current";
+            /** Revoked */
+            revoked: number;
         };
         /** SessionClassTask */
         SessionClassTask: {
@@ -23534,6 +23729,18 @@ export interface components {
             last_mode: string | null;
             /** Last Session At */
             last_session_at: string | null;
+        };
+        /** SessionStatusOut */
+        SessionStatusOut: {
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "current" | "other_device" | "other_device_timed";
+            other_session?: components["schemas"]["OtherSessionOut"] | null;
+            timed_activity?: components["schemas"]["TimedActivityOut"] | null;
         };
         /** SetAction */
         SetAction: {
@@ -24740,6 +24947,15 @@ export interface components {
             changes: components["schemas"]["ThresholdChange"][];
             /** Reason */
             reason: string;
+        };
+        /** TimedActivityOut */
+        TimedActivityOut: {
+            /** Title */
+            title: string;
+            /** Device Label */
+            device_label?: string | null;
+            /** Minutes Left */
+            minutes_left: number;
         };
         /** TipCreate */
         TipCreate: {
@@ -26006,6 +26222,99 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuthActivateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_session_status_api_account_session_status_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionStatusOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    claim_session_api_account_session_claim_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionClaimOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_all_sessions_api_account_sessions_revoke_all_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RevokeAllOut"];
                 };
             };
             /** @description Validation Error */
@@ -32376,6 +32685,144 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LearnerAttempts"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_care_notes_admin_learners__ref__care_notes_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CareNotes"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_care_note_admin_learners__ref__care_notes_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CareNoteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CareNoteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_care_note_admin_care_notes__note_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                note_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_care_note_admin_care_notes__note_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                note_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CareNotePatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CareNoteOut"];
                 };
             };
             /** @description Validation Error */

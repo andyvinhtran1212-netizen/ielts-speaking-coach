@@ -344,6 +344,16 @@ class Settings(BaseSettings):
     # code change. Loaded once, cached (services.pron_calibration).
     PRON_CALIBRATION_PATH: str = ""
 
+    # COURSEACCESS-0055 FR-035 (G04-T13): used only while the runtime flag
+    # `pron_sample_window` is on (migration 502 must be applied first).
+    # Azure hears one PRON_SAMPLE_SECONDS window from the middle of a longer
+    # answer; in the Parts listed in PRON_ONE_PER_SESSION_PARTS (comma list)
+    # a session sends only one answer, the first one of at least
+    # PRON_ONE_PER_SESSION_MIN_SECONDS (Q6 defaults, Andy 2026-11-20).
+    PRON_SAMPLE_SECONDS: int = Field(default=30, ge=10, le=60)
+    PRON_ONE_PER_SESSION_PARTS: str = "1"
+    PRON_ONE_PER_SESSION_MIN_SECONDS: int = Field(default=12, ge=0, le=120)
+
     # Supabase Storage bucket holding Task 1 Academic writing-prompt
     # images (chart/graph). Mirrors READING_IMAGES_BUCKET /
     # LISTENING_IMAGES_BUCKET — created out-of-band BEFORE the first
