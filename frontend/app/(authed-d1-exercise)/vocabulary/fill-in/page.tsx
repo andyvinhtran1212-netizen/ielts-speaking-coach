@@ -14,7 +14,7 @@ export default function D1ExercisePage() {
       <aver-chrome active="vocabulary" />
       <header className="d1x-header">
         <div className="d1x-width">
-          <a href="/exercises" className="d1x-back">← Bài luyện</a>
+          <a href="/vocabulary/hub" className="d1x-back">‹ Từ vựng</a>
           <span aria-hidden="true">/</span>
           <h1>Điền từ</h1>
         </div>

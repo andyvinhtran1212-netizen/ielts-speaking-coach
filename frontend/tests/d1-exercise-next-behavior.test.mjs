@@ -6,12 +6,12 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(root, ...parts), 'utf8');
-const page = read('app', '(authed-d1-exercise)', 'd1-exercise', 'page.tsx');
-const player = read('app', '(authed-d1-exercise)', 'd1-exercise', 'd1-exercise-player.tsx');
+const page = read('app', '(authed-d1-exercise)', 'vocabulary', 'fill-in', 'page.tsx');
+const player = read('app', '(authed-d1-exercise)', 'vocabulary', 'fill-in', 'd1-exercise-player.tsx');
 const layout = read('app', '(authed-d1-exercise)', 'layout.tsx');
 const hub = read('public', 'js', 'vocab-modules', 'exercises.js');
 
-describe('/d1-exercise native ownership', () => {
+describe('/vocabulary/fill-in native ownership', () => {
   test('owns a student-shell route without loading the legacy IIFE', () => {
     assert.match(page, /<D1ExercisePlayer/);
     assert.match(page, /<aver-chrome active="vocabulary"/);
@@ -109,13 +109,14 @@ describe('/d1-exercise native ownership', () => {
       assert.doesNotMatch(source, /Fill the blank|Productive recall|PRODUCTIVE RECALL|đủ attempt|>Exercises<|Về Exercises|← Exercises/);
     }
     assert.match(page, /title: 'Điền từ — Aver Learning'/);
-    assert.match(page, /← Bài luyện<\/a>/);
+    // LEARNERNAV-0062 đợt 2: nút về trỏ hub Từ vựng.
+    assert.match(page, /<a href="\/vocabulary\/hub" className="d1x-back">‹ Từ vựng<\/a>/);
     assert.match(page, /<h1>Điền từ<\/h1>/);
     assert.equal((player.match(/>Về trang bài luyện<\/a>/g) || []).length, 3);
     assert.doesNotMatch(player, /Về Bài luyện/);
     assert.match(player, /Hệ thống đang đối chiếu đủ số lượt làm đã lưu\./);
     assert.match(hub, /<h1 class="subpage-header__title">Bài luyện<\/h1>/);
-    assert.match(hub, /<a data-card="d1" href="\/d1-exercise"[\s\S]{0,240}<h3>Điền từ<\/h3>/);
+    assert.match(hub, /<a data-card="d1" href="\/vocabulary\/fill-in"[\s\S]{0,240}<h3>Điền từ<\/h3>/);
   });
 
   test('D1-UX follow-up: Content Manager approved player and hub copy, no internal D1 code or English', () => {
@@ -140,7 +141,7 @@ describe('/d1-exercise native ownership', () => {
   });
 
   test('exercise hub sends new sessions to Next while retaining HTML rollback', () => {
-    assert.match(hub, /href="\/d1-exercise"/);
+    assert.match(hub, /href="\/vocabulary\/fill-in"/);
     assert.doesNotMatch(hub, /href="\/pages\/d1-exercise\.html"/);
   });
 });

@@ -152,8 +152,12 @@ def test_guards_router_and_logger_stay_defined_in_the_package():
         for sub in ar._SUBMODULES:
             assert vars(sub).get(name, fn) is fn, (sub.__name__, name)
     assert ar.router.routes
+    modules = {ar.__name__, *(sub.__name__ for sub in ar._SUBMODULES)}
     for route in ar.router.routes:
-        assert route.endpoint.__module__ == "routers.admin", route.path
+        endpoint = route.endpoint
+        assert endpoint.__module__ in modules, route.path
+        # A moved endpoint still resolves the one package guard, not a copy.
+        assert endpoint.__globals__.get("require_admin", ar.require_admin) is ar.require_admin, route.path
     assert ar.logger.name == "routers.admin"
     assert ar.logger is logging.getLogger("routers.admin")
     for sub in ar._SUBMODULES:

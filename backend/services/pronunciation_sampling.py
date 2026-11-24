@@ -137,6 +137,42 @@ def select_part3_sample(responses: list[dict]) -> Optional[SelectedSample]:
     )
 
 
+# ── Grading-route sample window (COURSEACCESS-0055 FR-035, G04-T13) ──────────
+# Used by routers/grading.py only while the runtime flag `pron_sample_window`
+# is on. The full-test sampler above (_part2_segment, select_part*_sample) is
+# unchanged and still serves /pronunciation/full.
+
+PRON_SAMPLE_SCOPES = ("segment", "full", "not_sampled")
+
+
+@dataclass(frozen=True)
+class PronSample:
+    """Which part of one recording Azure heard (persisted by migration 502)."""
+    scope:   str               # "segment" | "full" | "not_sampled"
+    start_s: Optional[float] = None
+    end_s:   Optional[float] = None
+
+    def as_dict(self) -> dict:
+        return {"scope": self.scope, "start_s": self.start_s, "end_s": self.end_s}
+
+
+def sample_window(
+    duration_s: Optional[float],
+    sample_seconds: int,
+) -> tuple[Optional[float], Optional[float]]:
+    """(start_s, end_s) of a ``sample_seconds`` window in the middle of the
+    recording, or (None, None) to send the whole recording.
+
+    A recording no longer than ``sample_seconds + 5`` (or of unknown length) is
+    sent whole: trimming it would only drop a few seconds of speech. Example:
+    112 s with a 30 s sample → (41.0, 71.0).
+    """
+    if not duration_s or duration_s <= 0 or duration_s <= sample_seconds + 5:
+        return None, None
+    start = round((duration_s - sample_seconds) / 2, 1)
+    return start, round(start + sample_seconds, 1)
+
+
 # ── Audio segment extraction ───────────────────────────────────────────────────
 
 def extract_audio_segment(
