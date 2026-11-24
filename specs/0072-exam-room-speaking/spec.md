@@ -138,10 +138,18 @@ nộp FR-08-034, thanh tập trung). Bảng đối chiếu ở `verification.md`
   (FR-08-034); 402 `insufficient_credits` thì khối "Hết lượt chấm" của G07-T27, không mất bản ghi.
 - **FR-009:** Bản ghi chưa gửi chỉ ở bộ nhớ trang như hôm nay (LEARNERDRAFT-0010); không lưu
   âm thanh vào `localStorage`. Mọi hộp và chữ của nhánh mới không hứa giữ bản ghi khi tải lại.
-- **FR-010:** Phiên hết hạn: lời gọi tải lên và hoàn tất trong nhánh mới truyền
-  `{ noRedirect: true }`; 401 giữa bài giữ bản ghi trong trang và hiện hộp đăng nhập lại của
-  khung (cùng tab, không tải lại trang khi có component G05-T19; trước đó báo rõ bản ghi chưa gửi
-  sẽ mất nếu chuyển trang và để học viên chọn).
+- **FR-010:** Phiên hết hạn, theo EXAMROOM-0066 FR-015 và sửa đổi 2 (sửa đổi 1 của spec này):
+  lời gọi tải lên và hoàn tất trong nhánh mới truyền `{ noRedirect: true }`; 401 giữa bài không
+  chuyển trang, giữ bản ghi trong trang và hiện hộp đăng nhập lại của khung.
+  - Khi đã có component đăng nhập của G05-T19: đăng nhập lại ngay trong hộp, cùng tab, không tải
+    lại trang; bản ghi chưa gửi vẫn ở trong trang và "Gửi lại bản ghi" gửi được sau đó.
+  - **Trước khi có G05-T19:** bản ghi chưa gửi chỉ ở bộ nhớ trang (FR-009), nên với Speaking đó
+    luôn là ca "chưa giữ được bài" của 0066 FR-015 sửa đổi 2. Còn bản ghi chưa gửi thì hộp chỉ có
+    nút "Ở lại làm tiếp" ("Stay" ở chế độ `test`): bấm thì đóng hộp, không chuyển trang, không có
+    lối `/login?next=` cùng tab; Nộp khoá cho tới khi phiên trở lại. Hộp hướng dẫn đăng nhập lại ở
+    tab khác rồi bấm "Gửi lại bản ghi". Không có lối bỏ bản ghi để đăng nhập lại.
+  - Không còn bản ghi chưa gửi (mọi câu đã ở máy chủ) thì hộp cho "Đăng nhập lại" ("Sign in
+    again"), mở `/login?next=<URL phòng thi>` trong cùng tab.
 - **FR-011:** Chế độ và chuỗi: `practice` và `test_part` dùng chế độ `practice` (tiếng Việt,
   "bạn"). `test_full` trong sitting thi thử dùng chế độ `test` (tiếng Anh) theo câu hỏi mở 1. Về
   `/mock-exam?sitting=` sau khi xong như hôm nay.
@@ -199,6 +207,15 @@ nộp FR-08-034, thanh tập trung). Bảng đối chiếu ở `verification.md`
 - **When** bấm Nộp
 - **Then** hộp "Còn 1 bản ghi mới chưa gửi được", "Gửi lại bản ghi" là nút chính; "Vẫn nộp" nộp
   với bản cũ của câu 5 còn nguyên trên máy chủ.
+
+### Scenario 8: phiên hết hạn khi còn bản ghi chưa gửi (trước G05-T19)
+
+- **Given** cờ bật, một câu có bản ghi chưa gửi và phiên đăng nhập đã hết hạn
+- **When** tải lên hoặc hoàn tất trả 401
+- **Then** không chuyển trang; URL phòng thi giữ nguyên; bản ghi vẫn trong trang; hộp chỉ có
+  "Ở lại làm tiếp", không có lối `/login?next=` hay nút bỏ bản ghi; Nộp khoá. Đăng nhập ở tab
+  khác rồi bấm "Gửi lại bản ghi" thì bản ghi gửi được. Khi không còn bản ghi chưa gửi, 401 cho
+  "Đăng nhập lại".
 
 ## Edge cases
 

@@ -170,7 +170,7 @@ Chưa script nào ghi "bản ghi lô". Trạng thái, cấp lớp, hiển thị 
 | Báo lỗi | `routers/error_logs.py` prefix `/admin/error-logs` | Không gom nhóm, không trạng thái nhóm. |
 | Sự cố chấm | `GET /admin/alerts` (`admin.py` dòng 4225) | Chỉ Speaking. |
 | Phản hồi | `routers/feedback.py`: `GET/PATCH /api/admin/feedback` | Tiền tố `/api`. |
-| Công tắc model AI | `app/(authed-admin-overview)/admin/admin-ai-panel.tsx`; `GET /admin/ai/models`, `PATCH /admin/ai/models/{feature}` (`routers/admin_ai.py`, spec 0024) | PATCH không có step-up. |
+| Công tắc model AI | `app/(authed-admin)/(overview)/admin/admin-ai-panel.tsx`; `GET /admin/ai/models`, `PATCH /admin/ai/models/{feature}` (`routers/admin_ai.py`, spec 0024) | PATCH không có step-up. |
 | Công tắc tính năng | `routers/admin_flags.py`: `GET /admin/runtime-flags`, `PATCH /admin/runtime-flags/{key}`; `services/runtime_flags.py` | Dùng cho thẻ Tính năng của Cài đặt. |
 | Bảng cài đặt/ngưỡng chung | Không có (`grep -rn "system_settings\|app_settings\|operational_thresholds" backend/migrations/*.sql` rỗng) | T22 tạo. |
 | Ẩn dữ liệu kiểm thử | `services/test_data_visibility.py` | Dùng cho mọi API đếm mới. |
