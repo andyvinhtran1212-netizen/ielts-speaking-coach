@@ -29,6 +29,15 @@ in-process guards keep a flood from turning into Storage egress, RAM and cost:
 
 A throttled request gets 429 before any lookup, so for a client over its
 budget 429 takes precedence over 404 (it learns nothing about the item).
+
+Request path (CR #2451 carry-over). ``media_path()`` is relative to the API
+origin: pages must load it from the browser straight to Railway
+(``apiBase`` + path), where Railway's edge sets ``X-Real-IP`` to the caller's
+address. Never proxy it through Vercel (a Next rewrite, route handler or
+``proxy.ts`` matcher on ``/api``): Railway would then see Vercel's egress
+address as ``X-Real-IP`` and every visitor would share one throttle key and
+hit 429 together. ``frontend/tests/library-media-direct-origin.test.mjs``
+guards this.
 """
 
 from __future__ import annotations

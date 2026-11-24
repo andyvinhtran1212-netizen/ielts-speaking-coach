@@ -102,13 +102,16 @@ describe('every text-white/NN in the Next grammar routes has an override', () =>
     return /\.(tsx?|mjs|js)$/.test(entry.name) ? [full] : [];
   });
 
-  test('grammar sources still use at least one opacity variant (scan is live)', () => {
+  test('every opacity variant still used under the grammar routes has an override (scan is live)', () => {
     const used = new Set();
-    for (const file of sources(GRAMMAR_APP)) {
+    const files = sources(GRAMMAR_APP);
+    // G06-T14 (a)/(c) moved the article and sub-pages to av2 tokens, so /45 is
+    // no longer used; the scan stays live by reading the real route files.
+    assert.ok(files.some((file) => file.endsWith(path.join('search', 'page.tsx'))), 'scan must read the live grammar routes');
+    for (const file of files) {
       // Plain utilities only — `hover:` / `group-hover:` variants are pinned separately.
       for (const m of readFileSync(file, 'utf8').matchAll(/(?<![\w:-])text-white\/(\d+)\b/g)) used.add(m[1]);
     }
-    assert.ok(used.has('45'), 'expected the /45 usage the PC-J13A fix covers');
     const missing = [...used].filter((opacity) =>
       !new RegExp(`body\\.av-page\\s+\\.text-white\\\\\\/${opacity}\\b`).test(grammarWikiCss));
     assert.deepEqual(missing, [], `text-white/${missing.join(', /')} used under app/(public-content)/grammar without an override`);

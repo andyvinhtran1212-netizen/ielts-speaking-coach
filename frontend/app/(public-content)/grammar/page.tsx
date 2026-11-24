@@ -32,10 +32,12 @@ import { av2FontClass } from '@/styles/av2/fonts';
 import { CourseLinkLine } from '@/components/library/course-link-line';
 import { splitTitle } from '@/lib/grammar-index-model.mjs';
 import { grammarArticleHref } from '@/lib/grammar-navigation-context.mjs';
-import { FeaturedCards } from './grammar-cards';
+import { articleUrl } from './grammar-cards';
+import { articleMeta, frameStyles } from './subpage-frame';
 import { GrammarIndex, type IndexView } from './grammar-index';
 import { GrammarLearningDashboard, GrammarModeSwitcher } from './grammar-home-mode';
 import styles from './grammar-home.module.css';
+import learning from './grammar-learning.module.css';
 
 // Legacy `<title>` nguyên văn — parity tiêu đề là thứ người dùng thấy trên tab
 // và Google thấy trong kết quả tìm kiếm.
@@ -119,8 +121,8 @@ function HomeContent({
           </GrammarIndex>
         }
         learning={<>
-          <section className="mb-10"><p className="section-head">Không học lại từ đầu — học đúng chỗ cần</p><GrammarLearningDashboard /></section>
-          <section className="gw-learning-actions"><Link href="/grammar/roadmap"><span>01</span><strong>Lộ trình</strong><small>Xem thứ tự nền tảng → điểm yếu</small></Link><Link href="/grammar/exercises"><span>02</span><strong>Bài luyện</strong><small>Lọc theo chủ đề và trình độ</small></Link><Link href="/grammar/search?q=ielts"><span>03</span><strong>IELTS transfer</strong><small>Tìm bài dùng cho kỹ năng cụ thể</small></Link></section>
+          <section className={learning.section}><p className={`section-head ${learning.sectionHead}`}>Không học lại từ đầu — học đúng chỗ cần</p><GrammarLearningDashboard /></section>
+          <section className={`gw-learning-actions ${learning.actions}`}><Link href="/grammar/roadmap"><span>01</span><strong>Lộ trình</strong><small>Xem thứ tự nền tảng → điểm yếu</small></Link><Link href="/grammar/exercises"><span>02</span><strong>Bài luyện</strong><small>Lọc theo chủ đề và trình độ</small></Link><Link href="/grammar/search?q=ielts"><span>03</span><strong>IELTS transfer</strong><small>Tìm bài dùng cho kỹ năng cụ thể</small></Link></section>
         </>}
       />
     </div>
@@ -128,20 +130,28 @@ function HomeContent({
 }
 
 function CategoryView({ slug, data }: { slug: string; data: GrammarCategoryWire }) {
+  const articles = (data?.articles || []).filter((a) => a?.slug && a?.title && a?.category);
   return (
-    <div id="category-view" className="ds-fadein">
-      <div className="mb-6 flex items-center gap-3">
-        <Link href="/grammar" className="text-white/40 hover:text-white/70 text-sm transition-colors">
-          ← Grammar Wiki
-        </Link>
-        <h2 id="category-view-title" className="text-xl font-bold text-white capitalize">
-          {data?.title || slug.replace(/-/g, ' ')}
-        </h2>
-      </div>
-      <div id="category-view-list" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <FeaturedCards articles={data?.articles} />
-      </div>
-    </div>
+    <section id="category-view" aria-labelledby="category-view-title">
+      <p className={frameStyles.footer}>
+        <Link href="/grammar">‹ Grammar Wiki</Link>
+      </p>
+      <h2 id="category-view-title" className={frameStyles.colTitle}>
+        {data?.title || slug.replace(/-/g, ' ')}
+      </h2>
+      <ul id="category-view-list" className={frameStyles.list}>
+        {articles.length ? articles.map((article) => (
+          <li key={`${article.category}/${article.slug}`} className={frameStyles.item}>
+            <h3 className={frameStyles.itemTitle}>
+              <Link href={articleUrl(article.category, article.slug)}>{article.title}</Link>
+              {article.status === 'updating' ? <span className={frameStyles.tag}>Đang cập nhật</span> : null}
+            </h3>
+            <p className={frameStyles.itemMeta}>{articleMeta(article)}</p>
+            {article.summary ? <p className={frameStyles.itemText}>{article.summary}</p> : null}
+          </li>
+        )) : <li className={frameStyles.empty}>Chưa có bài nào trong nhóm này.</li>}
+      </ul>
+    </section>
   );
 }
 

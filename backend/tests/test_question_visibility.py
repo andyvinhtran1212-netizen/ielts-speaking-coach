@@ -97,7 +97,7 @@ def test_every_reader_of_the_questions_table_is_accounted_for():
         "routers/sessions.py",       # GET /sessions/{id} đã lọc; hai chỗ khác không lấy chữ
         "routers/grading.py",        # chỉ đọc để CHẤM, không trả về client
         "routers/pronunciation.py",  # select("id, part") — không lấy chữ
-        "routers/admin/__init__.py", # màn admin: giáo viên ĐƯỢC xem đề
+        "routers/admin/sessions.py",  # màn admin: giáo viên ĐƯỢC xem đề
         "services/pdf_generator.py", # lọc khi phiên chưa hoàn thành
     }
     assert hits == known, (

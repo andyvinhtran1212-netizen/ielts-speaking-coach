@@ -312,3 +312,21 @@ def test_throttle_window_slides(client, db, monkeypatch):
     assert client.get(FIGURE, headers=ip).status_code == 429
     now[0] += media._IP_WINDOW_SECONDS + 1
     assert client.get(FIGURE, headers=ip).status_code == 200
+
+
+def test_railway_edge_shape_keys_each_caller_separately(client, db, monkeypatch):
+    """Railway's edge rebuilds X-Forwarded-For as "<srcIp>, <edge PoP>" and sets
+    X-Real-IP to srcIp (request_safety module doc). Two callers behind the
+    same PoP must not share a budget: the key is X-Real-IP, not the PoP hop."""
+    import services.library_media as media
+
+    monkeypatch.setattr(media, "IP_MAX_PER_MINUTE", 2)
+    pop = "185.152.66.10"
+    a = {"X-Real-IP": "203.0.113.21", "X-Forwarded-For": f"203.0.113.21, {pop}"}
+    b = {"X-Real-IP": "198.51.100.22", "X-Forwarded-For": f"198.51.100.22, {pop}"}
+    for _ in range(2):
+        assert client.get(FIGURE, headers=a).status_code == 200
+    assert client.get(FIGURE, headers=a).status_code == 429
+    for _ in range(2):
+        assert client.get(FIGURE, headers=b).status_code == 200
+    assert client.get(FIGURE, headers=b).status_code == 429

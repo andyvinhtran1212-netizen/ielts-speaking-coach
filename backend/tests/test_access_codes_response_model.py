@@ -14,7 +14,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-_ADMIN = Path(__file__).parent.parent / "routers" / "admin" / "__init__.py"
+_ADMIN = Path(__file__).parent.parent / "routers" / "admin" / "access_codes.py"
 
 
 def _route_src() -> str:
