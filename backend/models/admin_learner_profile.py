@@ -160,3 +160,46 @@ class LearnerOverview(_StrictOut):
     scores: Optional[OverviewScores]
     side: OverviewSide
     sources_failed: list[str]
+
+
+# ── Khoá và quyền: AI cost (FR-026; G09-T04c) ──────────────────────────────
+
+class AiCostFeature(_StrictOut):
+    # ai_usage_logs.feature; null for a call logged before features existed.
+    feature: Optional[str]
+    calls: int
+    cost_usd: float
+    unpriced_calls: int
+
+
+class LearnerAiCost(_StrictOut):
+    window_days: Literal[7, 30, 90]
+    # USD, two decimals. A call with no price adds nothing here and is
+    # counted in unpriced_calls instead.
+    total_usd: float
+    unpriced_calls: int
+    by_feature: list[AiCostFeature]
+
+
+# ── Nhật ký hệ thống (FR-027; G09-T04c) ────────────────────────────────────
+
+LogSource = Literal["access_code", "security", "class", "role", "entitlement", "credit", "order", "goal"]
+
+
+class LearnerLogItem(_StrictOut):
+    id: str
+    # UTC, e.g. 2026-11-23T04:30:00.000000Z.
+    at: str
+    actor_name: Optional[str]
+    source: LogSource
+    text: str
+
+
+class LearnerLog(_StrictOut):
+    items: list[LearnerLogItem]
+    # Pass back as ``cursor`` for the next, older page; null on the last page.
+    next_cursor: Optional[str]
+    # A source that could not be read ("actors": who did it is unknown).
+    sources_failed: list[str]
+    # Sources with no read API yet (G04): not an empty history.
+    sources_unavailable: list[LogSource]
