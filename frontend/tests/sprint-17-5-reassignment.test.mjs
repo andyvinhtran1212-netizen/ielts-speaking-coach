@@ -30,11 +30,12 @@ describe('Sprint 17.5 — codes UI refill (reassign replaced by edit-perms)', ()
     assert.doesNotMatch(CODES_HTML, /id="ra-to"/);
   });
   test('refill button calls /refill', () => {
-    assert.match(CODES, />Cấp mã mới<\/button>/);
+    // #2665: refill and edit-perms are items of the row "⋯" menu.
+    assert.match(CODES, /label: 'Cấp mã mới',/);
     assert.match(CODES, /window\.api\.post\(`\/admin\/access-codes\/\$\{encodeURIComponent\(code\.id\)\}\/refill`, \{\}\)/);
   });
   test('row actions open edit-perms + refill', () => {
-    assert.match(CODES, /onClick=\{\(\) => setEdit\(\{ code, permissions:/);
+    assert.match(CODES, /onSelect: \(\) => setEdit\(\{ code, permissions:/);
     assert.match(CODES, /title: 'Cấp mã mới',/);
   });
   test('Pattern #26 — no inline colour/bg/hex', () => {

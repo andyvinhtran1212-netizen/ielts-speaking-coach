@@ -114,9 +114,11 @@ describe('access codes / chip + action semantics (B2, audit rows 1,3,4)', () => 
   });
 
   test('status uses .adm-status-pill state modifiers, not is-direct overload', () => {
-    assert.match(codesJs, /adm-status-pill is-revoked/);
-    assert.match(codesJs, /adm-status-pill is-inactive/);
-    assert.match(codesJs, /adm-status-pill is-active/);
+    // #2644 code ledger: one pill per ledger state through LEDGER_PILL.
+    assert.match(codesJs, /adm-status-pill \$\{LEDGER_PILL\[/);
+    assert.match(codesJs, /revoked: 'is-revoked'/);
+    assert.match(codesJs, /expired: 'is-inactive'/);
+    assert.match(codesJs, /unused: 'is-active'/);
   });
 
   test('row actions sit in one wrapper with consistent sizing', () => {

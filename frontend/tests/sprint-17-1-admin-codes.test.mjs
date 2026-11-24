@@ -89,7 +89,9 @@ describe('Sprint 17.1 — codes panel wiring', () => {
     assert.doesNotMatch(CTRL, /dangerouslySetInnerHTML|\.innerHTML/);
   });
   test('wires client-side search + sort through selectCodes', () => {
-    assert.match(CTRL, /selectCodes\(codes, \{ type, status, cohort, search \}, sort\)/);
+    // #2644: selectCodes sorts and searches; the ledger state filters after it.
+    assert.match(CTRL, /selectCodes\(codes, \{ type, status: 'all', cohort, search \}, sort\)/);
+    assert.match(CTRL, /ledger\.get\(code\.id\)\?\.state === status/);
     assert.match(CTRL, /placeholder="Mã hoặc email…"/);
   });
   test('Pattern #26 — no inline color/background literals in the panel', () => {

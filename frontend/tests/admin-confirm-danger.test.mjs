@@ -55,7 +55,7 @@ describe('confirmDanger helper — modal + a11y', () => {
 
 describe('migration — 4 core revoke/gỡ confirms → confirmDanger (gate preserved)', () => {
   test('access-codes revoke + remove-user confirm as danger (action only in run)', () => {
-    assert.match(AC, /title: 'Thu hồi mã',[\s\S]{0,160}danger: true,\s*run: async \(\) => mutate\(\s*\(\) => window\.api\.delete\(`\/admin\/access-codes\/\$\{encodeURIComponent\(code\.id\)\}`\)/);
+    assert.match(AC, /title: 'Thu hồi mã',[\s\S]{0,200}danger: true,\s*run: async \(\) => mutate\(\s*\(\) => window\.api\.delete\(`\/admin\/access-codes\/\$\{encodeURIComponent\(code\.id\)\}`\)/);
     assert.match(AC, /title: 'Gỡ người dùng khỏi mã',[\s\S]{0,260}danger: true,\s*run: async \(\) => mutate\(/);
   });
   test('users remove-from-code confirms as danger; canonical refetch preserved', () => {

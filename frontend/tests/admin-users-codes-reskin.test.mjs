@@ -32,7 +32,10 @@ describe('re-skin — styling regression fix (code-tab primitives now styled)', 
 describe('re-skin — revoked hidden by default, still reachable (single behavior change)', () => {
   test('default "Tất cả" view filters out revoked rows', () => {
     assert.match(MODEL, /if \(!status && code\.is_revoked\) return false;/);
-    assert.match(CODES_JS, /<option value="">Đang dùng<\/option>/);
+    // #2644 code ledger: the panel's state filter starts at "Tất cả", which
+    // lists every ledger state; revoked codes have their own "Đã thu hồi" filter.
+    assert.match(CODES_JS, /\{ value: '', label: 'Tất cả' \}/);
+    assert.match(CODES_JS, /\{ value: 'revoked', label: 'Đã thu hồi' \}/);
   });
   test('explicit "Đã thu hồi" filter option preserved (audit still reachable)', () => {
     assert.match(HTML, /<option value="revoked">Đã thu hồi<\/option>/);
