@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 
 import { joinDialogStack } from '@/components/admin-directory-ui';
 
@@ -179,5 +180,137 @@ export function ConfirmDialog({ state, busy, onClose, onConfirm }: {
         </button>
       </>}
     />
+  );
+}
+
+export type RowMenuItem = {
+  label: string;
+  onSelect: () => void;
+  danger?: boolean;
+  disabledReason?: string;
+};
+
+// ADMINIA-0074 FR-055: the row "⋯" menu. The list renders in a fixed-position
+// portal because the table scroller has `contain: layout paint`, which would
+// clip an in-flow popup; it follows the trigger while the page scrolls.
+export function RowMenu({ label, items }: { label: string; items: RowMenuItem[] }) {
+  const [anchor, setAnchor] = useState<null | { top: number; right: number }>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const menuId = useId();
+  const open = Boolean(anchor);
+
+  const close = (restoreFocus: boolean) => {
+    setAnchor(null);
+    if (restoreFocus) triggerRef.current?.focus();
+  };
+
+  useEffect(() => {
+    if (!open) return undefined;
+    menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]:not([aria-disabled="true"])')?.focus();
+    const onPointer = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (menuRef.current?.contains(target) || triggerRef.current?.contains(target)) return;
+      setAnchor(null);
+    };
+    // Follow the trigger on scroll/resize instead of closing: a scroll can
+    // arrive right after the click that opened the menu.
+    const onMove = () => {
+      const rect = triggerRef.current?.getBoundingClientRect();
+      if (!rect) { setAnchor(null); return; }
+      setAnchor({ top: rect.bottom + 4, right: Math.max(8, window.innerWidth - rect.right) });
+    };
+    document.addEventListener('pointerdown', onPointer);
+    window.addEventListener('resize', onMove);
+    window.addEventListener('scroll', onMove, true);
+    return () => {
+      document.removeEventListener('pointerdown', onPointer);
+      window.removeEventListener('resize', onMove);
+      window.removeEventListener('scroll', onMove, true);
+    };
+  }, [open]);
+
+  // Open upwards when the row sits near the bottom of the window.
+  useLayoutEffect(() => {
+    const menu = menuRef.current;
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (!anchor || !menu || !rect) return;
+    const height = menu.offsetHeight;
+    menu.style.top = `${rect.bottom + 4 + height > window.innerHeight - 8
+      ? Math.max(8, rect.top - 4 - height)
+      : anchor.top}px`;
+  }, [anchor]);
+
+  const toggle = () => {
+    if (open) { close(false); return; }
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setAnchor({ top: rect.bottom + 4, right: Math.max(8, window.innerWidth - rect.right) });
+  };
+
+  const onMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape' || event.key === 'Tab') {
+      if (event.key === 'Escape') event.preventDefault();
+      close(event.key === 'Escape');
+      return;
+    }
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const nodes = Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') || []);
+    if (!nodes.length) return;
+    const current = nodes.indexOf(document.activeElement as HTMLElement);
+    const next = event.key === 'Home' ? 0
+      : event.key === 'End' ? nodes.length - 1
+        : event.key === 'ArrowDown' ? (current + 1) % nodes.length
+          : (current - 1 + nodes.length) % nodes.length;
+    nodes[next]?.focus();
+  };
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        className="adm-btn-secondary adm-btn-sm au-row-menu__trigger"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls={open ? menuId : undefined}
+        aria-label={label}
+        onClick={toggle}
+      >
+        <span aria-hidden="true">⋯</span>
+      </button>
+      {anchor && typeof document !== 'undefined' && createPortal(
+        <div
+          ref={menuRef}
+          id={menuId}
+          role="menu"
+          aria-label={label}
+          className="au-row-menu"
+          style={{ top: anchor.top, right: anchor.right }}
+          onKeyDown={onMenuKeyDown}
+        >
+          {items.map((item) => (
+            <button
+              key={item.label}
+              type="button"
+              role="menuitem"
+              tabIndex={-1}
+              className={`au-row-menu__item${item.danger ? ' is-danger' : ''}`}
+              aria-disabled={item.disabledReason ? true : undefined}
+              onClick={() => {
+                if (item.disabledReason) return;
+                close(true);
+                item.onSelect();
+              }}
+            >
+              <span>{item.label}</span>
+              {item.disabledReason && <small>{item.disabledReason}</small>}
+            </button>
+          ))}
+        </div>,
+        document.body,
+      )}
+    </>
   );
 }

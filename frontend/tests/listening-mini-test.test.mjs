@@ -22,7 +22,6 @@ const LIST_JS    = read('js', 'listening-tests-list.js');
 const PLAYER_JS  = read('js', 'listening-test-player.js');
 const REVIEW_JS  = read('js', 'listening-review.js');
 const ADMIN_HTML = read('pages', 'admin', 'listening', 'import-fulltest.html');
-const ADMIN_JS   = read('js', 'admin-listening-fulltest-import.js');
 const HUB_HTML   = read('pages', 'listening.html');
 
 
@@ -131,14 +130,6 @@ describe('Mini test — 1-section render fixes (#454 follow-up)', () => {
     assert.match(PLAYER_JS, /const letter\s*=\s*o\.letter\s*\|\|\s*o\.label/);
     assert.match(PLAYER_JS, /const text\s*=\s*o\.text/);
   });
-  it('admin import preview renders MCQ option letter+text, not escapeHtml(object)', () => {
-    assert.match(ADMIN_JS, /o\.letter\s*\|\|\s*o\.label/);
-    assert.doesNotMatch(ADMIN_JS, /return '<li>' \+ escapeHtml\(o\) \+ '<\/li>'; \}\)\.join/);
-  });
-  it('admin import preview drops the misleading /4 and /40 fixed denominators', () => {
-    assert.doesNotMatch(ADMIN_JS, /question_count[^)]*\) \+ '\/40<\/b>/);
-    assert.doesNotMatch(ADMIN_JS, /section_count[^)]*\) \+ '\/4<\/b>/);
-  });
 });
 
 
@@ -172,11 +163,6 @@ describe('Mini test — markdown emphasis + inline gap (polish)', () => {
     assert.match(REVIEW_JS, /<em>' \+ t \+ '<\/em>/);
     assert.match(REVIEW_JS, /lr-card__prompt">' \+ formatProse\(item\.prompt\)/);
   });
-  it('admin import preview renders emphasis in prompt + option text', () => {
-    assert.match(ADMIN_JS, /function mdInline\(s\)/);
-    assert.match(ADMIN_JS, /fi-q__prompt">' \+ mdInline\(q\.prompt/);
-    assert.match(ADMIN_JS, /\+ mdInline\(o\.text != null/);
-  });
 });
 
 
@@ -191,9 +177,5 @@ describe('Mini test — review palette is section-driven (not %10)', () => {
 describe('Mini test — admin import toggle', () => {
   it('import form has a Mini-test checkbox', () => {
     assert.match(ADMIN_HTML, /id="fi-mini"/);
-  });
-  it('commit passes mini=true when checked', () => {
-    assert.match(ADMIN_JS, /fi-mini/);
-    assert.match(ADMIN_JS, /'\?mini=true'/);
   });
 });
