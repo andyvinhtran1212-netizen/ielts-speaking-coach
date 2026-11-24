@@ -24,6 +24,7 @@ def world(monkeypatch):
         "fn_enrollment_order_pay_reminders": lambda p: {"queued": 1},
         "fn_credit_expire_reservations": lambda p: {"expired": 3},
         "fn_credit_expire_entitlements": lambda p: {"closed": 1, "carried": 0, "carry_expired": 0},
+        "fn_course_open_alerts_enqueue": lambda p: 0,  # step 5, G04-T17
     })
     monkeypatch.setattr(eo, "supabase_admin", db)
     mail = []
@@ -43,7 +44,8 @@ def test_steps_run_in_order_with_config_values(world, caplog):
         assert sweep.run() == 0
     names = [n for n, _ in world["db"].rpcs]
     assert names == ["fn_enrollment_orders_expire", "fn_enrollment_order_pay_reminders",
-                     "fn_credit_expire_reservations", "fn_credit_expire_entitlements"]
+                     "fn_credit_expire_reservations", "fn_credit_expire_entitlements",
+                     "fn_course_open_alerts_enqueue"]
     reminders = world["db"].rpcs[1][1]
     assert (reminders["p_hours_before"], reminders["p_min_age_hours"]) == (24, 6)
     lifecycle = world["db"].rpcs[3][1]
@@ -57,7 +59,7 @@ def test_steps_run_in_order_with_config_values(world, caplog):
 def test_a_failing_step_does_not_stop_the_others(world):
     world["db"].handlers["fn_enrollment_orders_expire"] = lambda p: RuntimeError("down")
     assert sweep.run() == 1
-    assert len(world["db"].rpcs) == 4 and world["mail"] == [50]
+    assert len(world["db"].rpcs) == 5 and world["mail"] == [50]
 
 
 def test_missing_lifecycle_function_is_skipped_not_failed(world, caplog):
