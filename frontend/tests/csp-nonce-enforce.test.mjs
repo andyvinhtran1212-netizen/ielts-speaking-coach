@@ -176,7 +176,9 @@ describe('enforced proxy behavior', () => {
     const routes = globSync('app/**/page.tsx', { cwd: FRONTEND }).map((file) => `/${file.split(path.sep)
       .slice(1, -1).filter((part) => !part.startsWith('(')).map((part) => part.startsWith('[') ? 'sample' : part).join('/')}`);
     for (const url of [...routes, ...PUBLIC_PATHS, '/homework', '/vocabulary/', '/vocabulary/hub', '/admin/a/b', '/reading-other']) {
-      if (url.startsWith('/grammar/')) continue;
+      // The Grammar and Library-sample 404/308 branches match public pages on purpose
+      // and return before the nonce policy, so they never carry a nonce.
+      if (url.startsWith('/grammar/') || url.startsWith('/library/writing-samples/')) continue;
       assert.equal(csp.nonceRouteAllowed(url), matches({ config, url, headers: { host: 'staging.averlearning.com' } }), url);
     }
   });

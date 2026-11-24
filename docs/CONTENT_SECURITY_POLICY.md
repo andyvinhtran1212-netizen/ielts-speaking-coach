@@ -171,6 +171,11 @@ Content-Security-Policy-Report-Only: script-src 'self' 'nonce-<per request>' 'st
   lists their URL prefixes; `/vocabulary` itself is public and excluded, its
   signed-in subroutes are included. Public routes (`/`, `/login`, `/grammar`,
   `/vocabulary`, `/pricing`) get no Report-Only header and stay static.
+  The matcher also lists two public existence checks that run on every host
+  and never touch a CSP header: Grammar articles (`/grammar/:category/:slug`)
+  and Library Writing samples (`/library/writing-samples/:slug`, LIBRARY-0061
+  FR-019), which only rewrite a confirmed miss to the root 404 or answer the
+  backend's 308 before rendering.
 - **Only `script-src`.** Every other directive is already enforced identically
   by the blocking header, so repeating it would only report the same thing
   twice. `'unsafe-inline'` is the CSP2 fallback; browsers that honour the nonce
