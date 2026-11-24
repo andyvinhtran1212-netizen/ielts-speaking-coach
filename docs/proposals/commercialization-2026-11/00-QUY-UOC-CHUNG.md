@@ -75,7 +75,7 @@ Lập ngày 16/11/2026. Người quyết định: anh Andy (chủ dự án). Tà
     - Bốn chỗ đã vẽ mà chưa có dữ liệu ("Lỗi đang lặp lại", "Lần đăng nhập gần đây", "Đổi email đăng nhập", thư "khoá đã mở đăng ký"): THÊM vào gói.
     - Ba prototype (kiến thức nền, đọc kỹ, khuôn luyện đề) và sáu hướng phát triển (sổ lỗi cá nhân, viết lại sau khi chấm, độ lệch AI–giáo viên, kiểm tra đầu vào, nhắc việc và thư tổng kết tuần, gói giáo viên chấm): làm thiết kế và spec.
     - Rà 19 bộ bài mẫu và vẽ hình 3 bộ Task 1: để bên thực thi làm (G06).
-24. **Quyết định tối 18/11/2026 của anh Andy:** đưa ba nhiệm vụ lưu cặp điểm AI–giáo viên (G12-C01, C02, C03; spec SCOREPAIR-0088, migration 480) vào đợt D, làm cùng G09-T17. Chỉ ghi cặp điểm chạy nền, chưa công bố gì. Các phần còn lại của GOI-12 vẫn chờ anh mở.
+24. **Quyết định tối 18/11/2026 của anh Andy:** đưa ba nhiệm vụ lưu cặp điểm AI–giáo viên (G12-C01, C02, C03; spec SCOREPAIR-0102 (đổi từ 0088 ngày 23/11), migration 480) vào đợt D, làm cùng G09-T17. Chỉ ghi cặp điểm chạy nền, chưa công bố gì. Các phần còn lại của GOI-12 vẫn chờ anh mở.
 15. **Bài kiểm tra của khoá:** luồng trả điểm phải được viết cụ thể trong spec và có thiết kế (tờ KiemTraKhoa). Đã chốt: mỗi bài có chế độ trả điểm "trả ngay khi nộp" hoặc "giáo viên công bố"; lớp offline mặc định "giáo viên công bố"; nộp trễ và làm lại để đợt sau.
 
 ## 3. Quy tắc câu chữ (áp cho mọi giao diện)
