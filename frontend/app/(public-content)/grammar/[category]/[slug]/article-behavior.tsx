@@ -1,86 +1,26 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 
 import { whenGlobalReady } from '../../../../../lib/when-global-ready.mjs';
 
 interface ArticleBehaviorProps {
   slug: string;
   category: string;
-  articleTitle: string;
-  hasTOC?: boolean;
-  hasCompareWith?: boolean;
-  hasNextArticles?: boolean;
 }
 
 /**
- * ArticleBehavior — Client Component that replicates the legacy grammar.js
- * interactive behaviors: reading progress, TOC highlight, hash scroll, view
- * tracking, save button, guest CTA, exercise CTA.
+ * ArticleBehavior — browser-only parts of the Grammar article (LIBRARY-0061
+ * T014 PR (a)): hash scroll with pulse, view tracking, the quick-check link and
+ * Grammar Lab checks. The "đang đọc" contents highlight belongs to
+ * ReadingLayout and "Lưu bài" to SaveControl. The old reading-progress bar,
+ * sticky guest bar and guest modal are gone: the page has exactly one way to
+ * the courses, at the end, never a pop-up (FR-003).
  */
 export function ArticleBehavior({
   slug,
   category,
-  articleTitle,
-  hasTOC = false,
-  hasCompareWith = false,
-  hasNextArticles = false,
 }: ArticleBehaviorProps) {
-  const hasInitedRef = useRef(false);
-
-  useEffect(() => {
-    if (hasInitedRef.current) return;
-    hasInitedRef.current = true;
-
-    // ── Reading progress bar ──────────────────────────────────────────
-    const progressBar = document.getElementById('reading-progress');
-    if (progressBar) {
-      const handleScroll = () => {
-        const doc = document.documentElement;
-        const scrolled = doc.scrollTop;
-        const total = doc.scrollHeight - doc.clientHeight;
-        progressBar.style.width = total > 0 ? (scrolled / total) * 100 + '%' : '0%';
-      };
-      window.addEventListener('scroll', handleScroll, { passive: true });
-      return () => window.removeEventListener('scroll', handleScroll);
-    }
-  }, []);
-
-  // ── TOC active highlight ──────────────────────────────────────────
-  useEffect(() => {
-    if (!hasTOC) return;
-
-    const links = document.querySelectorAll(
-      '#toc-container .toc-link, #mobile-toc-container .toc-link'
-    );
-    if (links.length === 0) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            links.forEach((l) => {
-              l.classList.remove('text-teal-light', '!text-white/90');
-            });
-            document
-              .querySelectorAll(
-                `#toc-container a[href="#${entry.target.id}"], ` +
-                  `#mobile-toc-container a[href="#${entry.target.id}"]`
-              )
-              .forEach((active) => active.classList.add('text-teal-light'));
-          }
-        });
-      },
-      { rootMargin: '-20% 0px -70% 0px' }
-    );
-
-    document.querySelectorAll('.article-body h2, .article-body h3').forEach((h) => {
-      observer.observe(h);
-    });
-
-    return () => observer.disconnect();
-  }, [hasTOC]);
-
   // ── Hash-based scroll to anchor with pulse ────────────────────────
   useEffect(() => {
     const scrollToHashAnchor = () => {
@@ -121,16 +61,6 @@ export function ArticleBehavior({
     _trackArticleView(slug);
   }, [slug]);
 
-  // ── Save button ────────────────────────────────────────────────────
-  useEffect(() => {
-    _initSaveButton(slug);
-  }, [slug]);
-
-  // ── Guest CTA ──────────────────────────────────────────────────────
-  useEffect(() => {
-    _initGuestCTA(articleTitle);
-  }, [articleTitle]);
-
   // ── Exercise CTA ───────────────────────────────────────────────────
   useEffect(() => {
     _initExerciseCTA(category, slug);
@@ -166,22 +96,6 @@ export function ArticleBehavior({
     });
     return () => cleanups.forEach((cleanup) => cleanup());
   }, [slug]);
-
-  // ── Show/hide compare section ──────────────────────────────────────
-  useEffect(() => {
-    const section = document.getElementById('compare-section');
-    if (section) {
-      section.classList.toggle('hidden', !hasCompareWith);
-    }
-  }, [hasCompareWith]);
-
-  // ── Show/hide next articles section ────────────────────────────────
-  useEffect(() => {
-    const section = document.getElementById('next-articles-section');
-    if (section) {
-      section.classList.toggle('hidden', !hasNextArticles);
-    }
-  }, [hasNextArticles]);
 
   return null;
 }
@@ -261,120 +175,6 @@ async function _trackArticleView(slug: string) {
 }
 
 /**
- * Initialize save button with optimistic update.
- */
-async function _initSaveButton(slug: string) {
-  if (typeof window === 'undefined') return;
-  if (!await whenGlobalReady(
-    () => !!(window as any).api?.post && !!(window as any).api?.delete,
-    'window.api (nút Lưu bài)')) return;
-
-  const metaEl = document.getElementById('article-meta');
-  // Chờ xong mới dựng nút; nếu effect chạy lại trong lúc chờ thì không nhân đôi.
-  if (document.getElementById('save-article-btn')) return;
-  if (!metaEl) return;
-
-  // Create button
-  const btn = document.createElement('button');
-  btn.id = 'save-article-btn';
-  btn.className = 'gw-save-btn';
-  btn.innerHTML = '🔖 Lưu bài';
-  metaEl.appendChild(btn);
-
-  function _setSaved(saved: boolean) {
-    btn.dataset.saved = saved ? '1' : '0';
-    btn.innerHTML = saved ? '🔖 Đã lưu' : '🔖 Lưu bài';
-    btn.classList.toggle('gw-save-btn--saved', !!saved);
-  }
-
-  btn.addEventListener('click', async () => {
-    const isSaved = btn.dataset.saved === '1';
-    _setSaved(!isSaved); // optimistic toggle
-
-    try {
-      if (isSaved) {
-        await (window as any).api!.delete(`/api/grammar/articles/${encodeURIComponent(slug)}/save`);
-      } else {
-        await (window as any).api!.post(`/api/grammar/articles/${encodeURIComponent(slug)}/save`, {});
-      }
-    } catch (_) {
-      _setSaved(isSaved); // revert on error
-    }
-  });
-}
-
-let _guestCTAInited = false;
-let _guestModalTimer: NodeJS.Timeout | null = null;
-
-/**
- * Guest CTA: sticky bar + modal after 2nd article.
- */
-async function _initGuestCTA(articleTitle: string) {
-  if (typeof window === 'undefined') return;
-  if (_guestCTAInited) return;
-  _guestCTAInited = true;
-
-  // Cờ trên đặt trước khi chờ để hai effect không chạy chồng nhau, nhưng nếu
-  // chờ THẤT BẠI thì phải nhả ra — bản cũ đặt cờ rồi mới kiểm global, nên một
-  // lần thua cuộc đua là khối CTA tắt vĩnh viễn cho cả vòng đời trang.
-  if (!await whenGlobalReady(() => !!(window as any).getSupabase, 'window.getSupabase (CTA khách)')) {
-    _guestCTAInited = false;
-    return;
-  }
-
-  try {
-    const sb = (window as any).getSupabase?.();
-    if (!sb) return;
-
-    const sessionResult = await sb.auth.getSession();
-    if (sessionResult.data?.session) return; // logged in — no CTA
-  } catch (_) {
-    return;
-  }
-
-  // Show sticky bar
-  const bar = document.getElementById('guest-cta-bar');
-  if (bar) bar.classList.remove('hidden');
-
-  // Track read count in localStorage — show modal on 2nd article
-  const key = '_aver_grammar_reads';
-  const count = parseInt(localStorage.getItem(key) || '0') + 1;
-  localStorage.setItem(key, String(count));
-
-  if (count >= 2) {
-    const overlay = document.getElementById('guest-modal-overlay');
-    const titleEl = document.getElementById('guest-modal-title');
-    const dismiss = document.getElementById('guest-modal-dismiss');
-
-    if (!overlay) return;
-
-    if (titleEl) {
-      titleEl.textContent = `Bạn đang đọc bài ngữ pháp về "${articleTitle}"`;
-    }
-
-    if (_guestModalTimer !== null) clearTimeout(_guestModalTimer);
-
-    _guestModalTimer = setTimeout(() => {
-      overlay.classList.remove('hidden');
-    }, 8000);
-
-    const _dismissModal = () => {
-      overlay.classList.add('hidden');
-      localStorage.setItem(key, '0');
-    };
-
-    if (dismiss) dismiss.addEventListener('click', _dismissModal, { once: true });
-    overlay.addEventListener(
-      'click',
-      (e) => {
-        if (e.target === overlay) _dismissModal();
-      },
-      { once: true }
-    );
-  }
-}
-
-/**
  * Initialize exercise CTA (show when a published grammar quiz bank exists).
  */
 async function _initExerciseCTA(category: string, slug: string) {
@@ -394,14 +194,13 @@ async function _initExerciseCTA(category: string, slug: string) {
 
     link.setAttribute('href', `/quiz?bank=${encodeURIComponent(info.bank_id)}`);
     if (sub && info.questions) {
-      sub.textContent = `Ngân hàng gồm ${info.questions} chủ điểm ngữ pháp. Phiên luyện có thể gồm nhiều câu cho mỗi chủ điểm.`;
+      sub.textContent = ` · ${info.questions} chủ điểm ngữ pháp`;
     }
 
-    const section = document.getElementById('exercise-cta');
-    if (section) section.classList.remove('hidden');
+    const line = document.getElementById('exercise-cta');
+    if (line) line.hidden = false;
   } catch (_) {
     // no bank or offline — keep hidden
   }
 }
 
-// Declare window augmentation for TypeScript

@@ -55,6 +55,7 @@ export type AccessCode = {
   assigned_user_count: number;
   assigned_users: AccessCodeUser[];
   association_lookup_failed: boolean;
+  grant_credits: number | null;
 };
 
 export type Banner = { kind: 'success' | 'error'; text: string } | null;

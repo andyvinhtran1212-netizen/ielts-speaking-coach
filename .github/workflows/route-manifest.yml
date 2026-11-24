@@ -64,6 +64,14 @@ on:
       - 'frontend/package-lock.json'
       - '.github/workflows/route-manifest.yml'
 
+# CI queue (23/11): a new push or a base-branch merge on a PR cancels that
+# PR's older run of this workflow instead of leaving it queued. Push, schedule
+# and dispatch runs get a group of their own (run_id), so a staging/main SHA
+# that the promotion gate needs is never cancelled or replaced.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   route-manifest:
     name: Build + verify routes-manifest ownership
