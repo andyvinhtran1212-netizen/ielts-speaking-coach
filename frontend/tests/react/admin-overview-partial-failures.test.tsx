@@ -14,9 +14,9 @@ vi.mock('client-only', () => ({}));
 vi.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams('pane=content') }));
 vi.mock('@/components/admin-access-gate', () => ({ useAdminProfile: () => ({ id: 'admin-1' }) }));
 vi.mock('@/lib/admin-overview-api', () => api);
-vi.mock('@/app/(authed-admin-overview)/admin/admin-ai-panel', () => ({ AdminAiPanel: () => null }));
+vi.mock('@/app/(authed-admin)/(overview)/admin/admin-ai-panel', () => ({ AdminAiPanel: () => null }));
 
-import { AdminOverview, PARTIAL_FAILURE_COPY } from '@/app/(authed-admin-overview)/admin/admin-overview';
+import { AdminOverview, PARTIAL_FAILURE_COPY } from '@/app/(authed-admin)/(overview)/admin/admin-overview';
 
 function overview(extra: Record<string, unknown> = {}) {
   return {
