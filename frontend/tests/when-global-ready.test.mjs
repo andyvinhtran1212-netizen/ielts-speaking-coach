@@ -21,10 +21,11 @@ import { fileURLToPath } from 'node:url';
 import { whenGlobalReady } from '../lib/when-global-ready.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const BEHAVIOR = readFileSync(
-  path.join(__dirname, '..', 'app', '(public-content)', 'grammar', '[category]', '[slug]',
-    'article-behavior.tsx'),
-  'utf8');
+const ARTICLE_DIR = path.join(__dirname, '..', 'app', '(public-content)', 'grammar', '[category]', '[slug]');
+const BEHAVIOR = readFileSync(path.join(ARTICLE_DIR, 'article-behavior.tsx'), 'utf8');
+// G06-T14 (a): "Lưu bài" là component React riêng; thanh/hộp CTA khách đã bỏ
+// (LIBRARY-0061 FR-003: một lối sang khoá học, không cửa sổ bật lên).
+const SAVE = readFileSync(path.join(ARTICLE_DIR, 'save-control.tsx'), 'utf8');
 
 /** Đồng hồ giả: `sleep` đẩy thời gian, nên vòng chờ chạy tức thì. */
 function fakeClock() {
@@ -116,25 +117,22 @@ describe('whenGlobalReady', () => {
   });
 });
 
-describe('article-behavior dùng bản chờ, không kiểm-một-lần', () => {
-  test('cả năm chốt global đều đi qua whenGlobalReady', () => {
+describe('trang bài Grammar dùng bản chờ, không kiểm-một-lần', () => {
+  test('mọi chốt global đều đi qua whenGlobalReady', () => {
     assert.equal(
-      (BEHAVIOR.match(/await whenGlobalReady\(/g) || []).length, 5,
-      'năm chỗ: đếm lượt xem, nút Lưu bài, CTA khách, Grammar Lab evidence, exercise CTA');
+      (BEHAVIOR.match(/await whenGlobalReady\(/g) || []).length, 3,
+      'ba chỗ trong article-behavior: đếm lượt xem, Grammar Lab evidence, exercise CTA');
+    assert.equal((SAVE.match(/await whenGlobalReady\(/g) || []).length, 1, 'nút Lưu bài chờ api + getSupabase');
     // Dạng cũ — kiểm một lần rồi thoát — không được quay lại.
-    assert.ok(!/if \(!\(window as any\)\.(api|getSupabase)[^\n]*\) return;/.test(BEHAVIOR),
-      'còn chốt kiểm-một-lần nghĩa là lỗi đua quay lại');
+    for (const [name, src] of [['article-behavior', BEHAVIOR], ['save-control', SAVE]]) {
+      assert.ok(!/if \(!\(window as any\)\.(api|getSupabase)[^\n]*\) return;/.test(src),
+        `${name}: còn chốt kiểm-một-lần nghĩa là lỗi đua quay lại`);
+    }
   });
 
-  test('chờ thất bại thì NHẢ cờ CTA ra, không khoá vĩnh viễn', () => {
-    // Bản cũ đặt `_guestCTAInited = true` TRƯỚC khi kiểm global, nên một lần
-    // thua cuộc đua là khối CTA tắt vĩnh viễn cho cả vòng đời trang.
-    assert.match(BEHAVIOR, /_guestCTAInited = false;/,
-      'phải nhả cờ khi chờ thất bại, nếu không thử lại cũng vô ích');
-  });
-
-  test('không dựng nút Lưu bài hai lần sau khi chờ', () => {
-    assert.match(BEHAVIOR, /if \(document\.getElementById\('save-article-btn'\)\) return;/,
-      'chờ xong mới dựng ⇒ phải chống dựng trùng nếu effect chạy lại');
+  test('nút Lưu bài chỉ hiện sau khi biết phiên, và là một phần tử React (không dựng DOM tay hai lần)', () => {
+    assert.match(SAVE, /if \(who === 'unknown'\) return null;/);
+    assert.match(SAVE, /aria-pressed=\{saved\}/);
+    assert.ok(!/createElement\('button'\)/.test(SAVE + BEHAVIOR), 'không còn dựng nút bằng document.createElement');
   });
 });

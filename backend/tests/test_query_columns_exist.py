@@ -119,7 +119,7 @@ _WRAPPED = re.compile(
 
 def _sources():
     for d in ("routers", "services"):
-        for f in sorted((_ROOT / d).glob("*.py")):
+        for f in sorted((_ROOT / d).rglob("*.py")):
             yield f
 
 
