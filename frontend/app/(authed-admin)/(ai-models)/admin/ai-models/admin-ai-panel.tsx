@@ -16,9 +16,20 @@ import {
 // AIOPS-0024 — models in use + per-feature control, token usage and the
 // routing-layer failure log. Every value is canonical backend state: a save
 // shows a pending row until the PATCH returns the refetched configuration.
+// ADMINIA-0074 FR-074: the panel lives on /admin/ai-models, and every change
+// goes through a confirmation block (feature, old → new, reason ≥ 10 chars).
+// API 0024 takes no reason (Q7), so the reason gates the save only and the
+// block says it is not stored.
 
 type FeatureConfig = AdminAiModelsWire['features'][number];
 type Draft = { provider: string; model: string };
+
+export const MIN_REASON_LENGTH = 10;
+
+/** A reason counts once it is at least MIN_REASON_LENGTH characters after trimming both ends. */
+export function reasonIsValid(reason: string) {
+  return reason.trim().length >= MIN_REASON_LENGTH;
+}
 
 const WINDOWS: readonly AiWindowKey[] = ['today', '7d', '30d'];
 const WINDOW_LABELS: Record<AiWindowKey, string> = { today: 'Hôm nay', '7d': '7 ngày', '30d': '30 ngày' };
@@ -140,7 +151,12 @@ function FeatureRow({
   saving,
   busy,
   rowError,
+  confirming,
+  reason,
   onDraft,
+  onReason,
+  onAskConfirm,
+  onCancelConfirm,
   onSave,
 }: {
   feature: FeatureConfig;
@@ -151,7 +167,13 @@ function FeatureRow({
   // never overwrite a newer one.
   busy: boolean;
   rowError: string | null;
+  // This row's confirmation block is open.
+  confirming: boolean;
+  reason: string;
   onDraft: (draft: Draft) => void;
+  onReason: (reason: string) => void;
+  onAskConfirm: () => void;
+  onCancelConfirm: () => void;
   onSave: () => void;
 }) {
   const saved = draftFor(feature);
@@ -159,6 +181,10 @@ function FeatureRow({
   const controllable = feature.allowed_providers.length > 0;
   const providerId = `ai-pref-${feature.feature}`;
   const modelId = `ai-model-${feature.feature}`;
+  const reasonId = `ai-reason-${feature.feature}`;
+  const reasonHintId = `ai-reason-hint-${feature.feature}`;
+  const providerName = (value: string) => (value ? providerLabel(value) : 'mặc định (env/code)');
+  const modelName = (value: string) => value || 'mặc định (env/code)';
   return (
     <tr aria-busy={saving || undefined}>
       <th scope="row">
@@ -196,7 +222,7 @@ function FeatureRow({
         <select
           id={providerId}
           value={draft.provider}
-          disabled={busy || !controllable}
+          disabled={busy || confirming || !controllable}
           onChange={(event) => onDraft({ ...draft, provider: event.target.value })}
         >
           <option value="">Mặc định (env/code)</option>
@@ -210,7 +236,7 @@ function FeatureRow({
         <select
           id={modelId}
           value={draft.model}
-          disabled={busy || !controllable}
+          disabled={busy || confirming || !controllable}
           onChange={(event) => onDraft({ ...draft, model: event.target.value })}
         >
           <option value="">Mặc định (env/code)</option>
@@ -218,15 +244,50 @@ function FeatureRow({
         </select>
       </td>
       <td>
-        <button
-          type="button"
-          className="btn-primary"
-          disabled={!changed || busy}
-          onClick={onSave}
-          aria-label={`Lưu lựa chọn cho ${feature.label}`}
-        >
-          {saving ? 'Đang lưu…' : 'Lưu'}
-        </button>
+        {!confirming && (
+          <button
+            type="button"
+            className="btn-primary"
+            disabled={!changed || busy}
+            onClick={onAskConfirm}
+            aria-label={`Lưu lựa chọn cho ${feature.label}`}
+          >
+            Lưu
+          </button>
+        )}
+        {confirming && (
+          <div className="ai-confirm" role="group" aria-label={`Xác nhận đổi model cho ${feature.label}`}>
+            <p><strong>{feature.label}</strong></p>
+            {draft.provider !== saved.provider && (
+              <p>Ưu tiên: {providerName(saved.provider)} → {providerName(draft.provider)}</p>
+            )}
+            {draft.model !== saved.model && (
+              <p>Model Claude: {modelName(saved.model)} → {modelName(draft.model)}</p>
+            )}
+            <label htmlFor={reasonId}>Lý do đổi</label>
+            <textarea
+              id={reasonId}
+              value={reason}
+              disabled={busy}
+              aria-describedby={reasonHintId}
+              onChange={(event) => onReason(event.target.value)}
+            />
+            <p id={reasonHintId}>
+              Ít nhất {MIN_REASON_LENGTH} ký tự. Lý do chỉ dùng để xác nhận, chưa được lưu vào lịch sử thay đổi.
+            </p>
+            <div className="ai-confirm__actions">
+              <button
+                type="button"
+                className="btn-primary"
+                disabled={busy || !reasonIsValid(reason)}
+                onClick={onSave}
+              >
+                {saving ? 'Đang lưu…' : 'Xác nhận đổi'}
+              </button>
+              <button type="button" className="btn-secondary" disabled={busy} onClick={onCancelConfirm}>Huỷ</button>
+            </div>
+          </div>
+        )}
         {rowError && <p className="ai-row-error" role="alert">{rowError}</p>}
       </td>
     </tr>
@@ -240,6 +301,10 @@ function ModelsPanel({ onLabels }: { onLabels: (labels: Record<string, string>) 
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [saving, setSaving] = useState<string | null>(null);
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
+  const [confirming, setConfirming] = useState<string | null>(null);
+  // Per-row reason: a rejected save closes the block but keeps what was typed,
+  // so a retry after correcting the selection does not ask for it again.
+  const [reasons, setReasons] = useState<Record<string, string>>({});
 
   // `keep` holds unsaved selections on other rows, which a save of one row
   // must not discard; every other row follows the canonical response.
@@ -266,8 +331,19 @@ function ModelsPanel({ onLabels }: { onLabels: (labels: Record<string, string>) 
 
   useEffect(() => { void load(); }, [load]);
 
-  const save = async (feature: FeatureConfig) => {
+  const askConfirm = (feature: FeatureConfig) => {
     if (saving !== null) return;
+    setConfirming(feature.feature);
+    setRowErrors((current) => ({ ...current, [feature.feature]: '' }));
+  };
+
+  const cancelConfirm = () => {
+    if (saving !== null) return;
+    setConfirming(null);
+  };
+
+  const save = async (feature: FeatureConfig) => {
+    if (saving !== null || confirming !== feature.feature || !reasonIsValid(reasons[feature.feature] ?? '')) return;
     const draft = drafts[feature.feature] || draftFor(feature);
     setSaving(feature.feature);
     setRowErrors((current) => ({ ...current, [feature.feature]: '' }));
@@ -284,9 +360,11 @@ function ModelsPanel({ onLabels }: { onLabels: (labels: Record<string, string>) 
         preferred_provider: draft.provider || null,
         anthropic_model: draft.model || null,
       }), unsaved);
+      setReasons((current) => ({ ...current, [feature.feature]: '' }));
     } catch (caught) {
       setRowErrors((current) => ({ ...current, [feature.feature]: errorMessage(caught) }));
     } finally {
+      setConfirming(null);
       setSaving(null);
     }
   };
@@ -332,7 +410,12 @@ function ModelsPanel({ onLabels }: { onLabels: (labels: Record<string, string>) 
                   saving={saving === feature.feature}
                   busy={saving !== null}
                   rowError={rowErrors[feature.feature] || null}
+                  confirming={confirming === feature.feature}
+                  reason={reasons[feature.feature] ?? ''}
                   onDraft={(draft) => setDrafts((current) => ({ ...current, [feature.feature]: draft }))}
+                  onReason={(value) => setReasons((current) => ({ ...current, [feature.feature]: value }))}
+                  onAskConfirm={() => askConfirm(feature)}
+                  onCancelConfirm={cancelConfirm}
                   onSave={() => void save(feature)}
                 />
               ))}
@@ -605,7 +688,7 @@ export function AdminAiPanel() {
 
   return (
     <section className="ai-section" aria-labelledby="ai-section-title">
-      <h2 className="ov-section-title" id="ai-section-title">AI</h2>
+      <h2 className="ai-section-title" id="ai-section-title">Model và chi phí</h2>
       <ModelsPanel onLabels={setLabels} />
       <div className="ai-window" role="tablist" aria-label="Khoảng thời gian thống kê AI">
         {WINDOWS.map((key) => (
@@ -614,7 +697,7 @@ export function AdminAiPanel() {
             id={`ai-window-${key}`}
             type="button"
             role="tab"
-            className={`ov-tab${range === key ? ' is-active' : ''}`}
+            className={`ai-tab${range === key ? ' is-active' : ''}`}
             aria-selected={range === key}
             aria-controls="ai-window-panels"
             tabIndex={range === key ? 0 : -1}

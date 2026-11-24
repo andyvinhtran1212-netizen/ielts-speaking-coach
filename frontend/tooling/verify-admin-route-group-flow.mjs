@@ -24,6 +24,8 @@ const PAGE_SPEC = {
   '/admin/error-logs': { active: 'error-logs', sheets: ['/css/admin-error-logs-next.css'] },
   '/admin/feedback': { active: 'feedback', sheets: ['/css/admin-feedback-next.css'] },
   '/admin/foot-traffic': { active: 'foot-traffic', sheets: ['/css/admin-foot-traffic-next.css'] },
+  '/admin/ai-models': { active: 'ai-models', sheets: ['/css/admin-ai-models-next.css'] },
+  '/admin/qa-tools': { active: 'qa-tools', sheets: ['/css/admin-qa-tools-next.css'] },
   '/admin/usage': { active: 'usage', sheets: ['/css/admin-usage-next.css'] },
   '/admin': { active: 'overview', sheets: ['/css/aver-design/admin-hub.css', '/css/admin-overview.css'] },
 };
