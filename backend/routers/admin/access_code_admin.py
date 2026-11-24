@@ -5,6 +5,7 @@ package re-exports every name; tests patch ``routers.admin``, never this module
 (see __init__.py).
 """
 
+import asyncio
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query, Response
 from pydantic import BaseModel, Field, model_validator
@@ -145,7 +146,7 @@ async def delete_access_code(
     try:
         code_res = (
             supabase_admin.table("access_codes")
-            .select("id, code, is_revoked")
+            .select("id, code, is_revoked, is_used, used_by")
             .eq("id", code_id)
             .limit(1)
             .execute()
@@ -160,6 +161,15 @@ async def delete_access_code(
     row = code_res.data[0]
     if row.get("is_revoked"):
         return  # already revoked — idempotent
+
+    # ADMINIA-0074 FR-055: a used code (redeemed: is_used / used_by, even with
+    # no assignment row left) is revoked only from the code page's danger
+    # zone, with step-up, a typed confirmation and a reason.
+    if row.get("is_used") or row.get("used_by"):
+        raise HTTPException(409, {
+            "code": "code_used",
+            "message": "Mã đã dùng: thu hồi ở Vùng nguy hiểm của trang mã (cần gõ lại mã và lý do).",
+        })
 
     # Block if active user assignments exist
     try:
@@ -199,6 +209,190 @@ async def delete_access_code(
     )
 
 
+# ── POST /admin/access-codes/{code_id}/revoke-used ────────────────────────────
+# ADMINIA-0074 FR-055: revoking a code that is in use happens only in the code
+# page's danger zone. The admin retypes the code and gives a reason; the code
+# is revoked in one write (a revoked code grants nothing, see
+# services/access_code_permissions.py), assignments and redemption history
+# (is_used / used_by / used_at) stay as they are. The reason and the people
+# who lose access go to access_code_audit FIRST; the code is revoked only once
+# that row exists, so a failed audit leaves the code usable.
+
+REVOKE_REASON_MIN = 10
+REVOKE_REASON_MAX = 500
+
+
+class RevokeUsedCodeRequest(BaseModel):
+    confirm_code: str = Field(min_length=1, max_length=64)
+    reason: str = Field(min_length=1, max_length=REVOKE_REASON_MAX)
+
+
+class RevokeUsedCodeOut(BaseModel):
+    id: str
+    code: str
+    is_revoked: bool
+    already_revoked: bool
+    affected_user_count: int
+    audit_recorded: bool
+
+
+@router.post(
+    "/access-codes/{code_id}/revoke-used",
+    response_model=RevokeUsedCodeOut,
+    responses=staff_guard.STEP_UP_RESPONSES,
+)
+async def revoke_used_access_code(
+    code_id: str,
+    body: RevokeUsedCodeRequest,
+    authorization: str | None = Header(default=None),
+):
+    """Revoke an access code that people are using, with a typed confirmation
+    and a required reason (ADMINIA-0074 FR-055). Idempotent on a revoked code."""
+    admin = await require_admin(authorization)
+    staff_guard.require_recent_mfa(admin, authorization)  # FR-020, before any DB call
+
+    reason = body.reason.strip()
+    if len(reason) < REVOKE_REASON_MIN:
+        raise HTTPException(422, {
+            "code": "reason_too_short",
+            "message": f"Lý do cần ít nhất {REVOKE_REASON_MIN} ký tự.",
+        })
+
+    try:
+        code_res = await asyncio.to_thread(
+            lambda: supabase_admin.table("access_codes")
+            .select("id, code, is_revoked, is_active, used_by")
+            .eq("id", code_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as exc:
+        logger.error("[admin] load access code for revoke-used failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi tải mã kích hoạt. Vui lòng thử lại.") from None
+    if not code_res.data:
+        raise HTTPException(404, "Mã kích hoạt không tồn tại")
+    row = code_res.data[0]
+    code_value = str(row.get("code") or "")
+
+    if body.confirm_code.strip().upper() != code_value.strip().upper():
+        raise HTTPException(422, {
+            "code": "confirm_code_mismatch",
+            "message": "Mã gõ lại không khớp. Hãy gõ đúng mã cần thu hồi.",
+        })
+
+    if row.get("is_revoked"):
+        # A replay never claims an audit row it has not seen.
+        return {
+            "id": row["id"], "code": code_value, "is_revoked": True,
+            "already_revoked": True, "affected_user_count": 0,
+            "audit_recorded": await _revoke_audit_exists(code_id),
+        }
+
+    # Fail closed: the count goes into the audit and the confirmation the
+    # admin reads, so a lookup error must not become "0 people affected".
+    # Who loses access mirrors services/access_code_permissions._active_code_rows:
+    # every active assignment, plus the legacy `used_by` redeemer when that
+    # user has no assignment row at all for this code.
+    try:
+        rows_res = await asyncio.to_thread(
+            lambda: supabase_admin.table("user_code_assignments")
+            .select("user_id, is_active")
+            .eq("code_id", code_id)
+            .execute()
+        )
+        affected = _revoke_access_holders(row, rows_res.data or [])
+    except Exception as exc:
+        logger.warning("revoke_used_access_code: active-assignment lookup failed code=%s: %s", code_id, exc)
+        raise HTTPException(500, "Không kiểm tra được ai đang dùng mã — thử lại sau.") from None
+
+    # The reason is written BEFORE the revoke: if the audit insert fails, the
+    # code stays usable and nobody loses access without a recorded reason.
+    try:
+        audit_row = {
+            "actor_user_id": _actor_id(admin),
+            "action": "revoke",
+            "code_id": code_id,
+            "target_user_id": None,
+            "before": {"is_revoked": False, "is_active": bool(row.get("is_active"))},
+            "after": {
+                "is_revoked": True, "is_active": False,
+                "reason": reason, "affected_user_ids": affected,
+                "source": "danger_zone",
+            },
+        }
+        audit_res = await asyncio.to_thread(
+            lambda: supabase_admin.table("access_code_audit").insert(audit_row).execute()
+        )
+    except Exception as exc:
+        logger.error("access_code_audit insert failed (revoke-used code=%s): %s", code_id, exc)
+        audit_res = None
+    if audit_res is None or not getattr(audit_res, "data", None):
+        raise HTTPException(500, {
+            "code": "audit_not_recorded",
+            "message": "Không ghi được lý do thu hồi nên mã CHƯA bị thu hồi. Thử lại sau.",
+        })
+
+    try:
+        upd = await asyncio.to_thread(
+            lambda: supabase_admin.table("access_codes")
+            .update({"is_revoked": True, "is_active": False})
+            .eq("id", code_id)
+            .eq("is_revoked", False)
+            .execute()
+        )
+    except Exception as exc:
+        logger.error("[admin] revoke-used access code failed after audit (code=%s): %s", code_id, exc, exc_info=True)
+        raise HTTPException(500, {
+            "code": "revoke_failed",
+            "message": "Đã ghi lý do nhưng thu hồi mã bị lỗi; mã có thể vẫn dùng được. Tải lại trang để xem trạng thái thật.",
+        }) from None
+    if not upd.data:
+        # Another admin revoked it between the read and the write; their
+        # request wrote its own audit row, and this one wrote ours.
+        return {
+            "id": row["id"], "code": code_value, "is_revoked": True,
+            "already_revoked": True, "affected_user_count": 0, "audit_recorded": True,
+        }
+
+    return {
+        "id": row["id"], "code": code_value, "is_revoked": True,
+        "already_revoked": False, "affected_user_count": len(affected),
+        "audit_recorded": True,
+    }
+
+
+def _revoke_access_holders(code_row: dict, assignment_rows: list[dict]) -> list[str]:
+    """Who loses access when this code is revoked, sorted. Mirrors
+    services/access_code_permissions._active_code_rows: every active
+    assignment, plus the legacy `used_by` redeemer when that user has no
+    assignment row at all for the code (an inactive row is a deliberate
+    removal and does not re-grant). The code page shows this same list."""
+    rows = [r for r in assignment_rows if r.get("user_id")]
+    holders = {str(r["user_id"]) for r in rows if r.get("is_active")}
+    legacy_user = str(code_row.get("used_by") or "")
+    if legacy_user and legacy_user not in {str(r["user_id"]) for r in rows}:
+        holders.add(legacy_user)
+    return sorted(holders)
+
+
+async def _revoke_audit_exists(code_id: str) -> bool:
+    """Whether access_code_audit holds a revoke row for this code. A lookup
+    error answers False: the response must not claim a record it cannot see."""
+    try:
+        res = await asyncio.to_thread(
+            lambda: supabase_admin.table("access_code_audit")
+            .select("id")
+            .eq("code_id", code_id)
+            .eq("action", "revoke")
+            .limit(1)
+            .execute()
+        )
+        return bool(res.data)
+    except Exception as exc:
+        logger.warning("revoke_used_access_code: audit lookup failed code=%s: %s", code_id, exc)
+        return False
+
+
 # ── GET /admin/access-codes/{code_id} ─────────────────────────────────────────
 
 @router.get("/access-codes/{code_id}")
@@ -212,7 +406,7 @@ async def get_access_code_detail(
     try:
         code_res = (
             supabase_admin.table("access_codes")
-            .select("id, code, is_used, is_revoked, is_active, used_by, used_at, created_at, permissions, session_limit, expires_at")
+            .select("id, code, is_used, is_revoked, is_active, used_by, used_at, created_at, permissions, session_limit, expires_at, code_type, cohort_id, notes")
             .eq("id", code_id)
             .limit(1)
             .execute()
@@ -253,6 +447,9 @@ async def get_access_code_detail(
     # where the only assignment was deactivated by remove-user.
     # Guard on `not association_lookup_failed`: only synthesize when the lookup
     # SUCCEEDED and genuinely returned no active rows — never when it errored.
+    # FR-055: the danger zone names exactly the people the revoke counts.
+    access_holder_ids = None if association_lookup_failed else _revoke_access_holders(code, assignments)
+
     has_active = any(a.get("is_active") for a in assignments)
     if not association_lookup_failed and not has_active and code.get("used_by"):
         assignments = [{
@@ -273,7 +470,7 @@ async def get_access_code_detail(
             a.setdefault("removable", bool(a.get("is_active")))
 
     # Enrich assignments with user name/email in a single lookup.
-    user_ids = list({a["user_id"] for a in assignments})
+    user_ids = list({a["user_id"] for a in assignments} | set(access_holder_ids or []))
     user_map: dict[str, dict] = {}
     if user_ids:
         try:
@@ -298,6 +495,10 @@ async def get_access_code_detail(
 
     code["assignments"] = assignments
     code["association_lookup_failed"] = association_lookup_failed
+    code["access_holders"] = None if access_holder_ids is None else [
+        {"user_id": uid, **user_map.get(uid, {"email": "", "display_name": ""})}
+        for uid in access_holder_ids
+    ]
     return code
 
 

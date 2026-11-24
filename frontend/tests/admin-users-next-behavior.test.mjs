@@ -6,14 +6,19 @@ import { fileURLToPath } from 'node:url';
 
 import {
   activeAssignmentCount,
+  auditActionLabel,
   codeLedgerState,
   DEFAULT_CODE_EXPIRING_DAYS,
   expiringDaysFromThresholds,
   grantCreditsLabel,
+  normalizeCodeAudit,
+  normalizeCodeDetail,
   normalizeCodesPayload,
   normalizeCohortsPayload,
   normalizeUsersPayload,
   quotaLabel,
+  revokeUsedDraftError,
+  revokeUsedResultMessage,
   selectCodes,
   selectUsers,
   validateCodeDraft,
@@ -209,10 +214,10 @@ describe('admin users model — hostile and partial payloads', () => {
     assert.equal(activeAssignmentCount(fallback), 0);
     assert.equal(activeAssignmentCount(assigned), 1);
     // FR-055: revoke is the last "⋯" item and is refused while the code is in use.
-    assert.match(CODES, /label: 'Thu hồi mã',[\s\S]+disabledReason: activeAssignments > 0 \? [^:]+: code\.association_lookup_failed \?/);
-    // A legacy code with only used_by has no active assignment but is still used.
+    // A legacy code with only used_by has no active assignment but is still
+    // used; either way the revoke goes to the code page's danger zone.
     assert.equal(codeLedgerState(fallback).state, 'used');
-    assert.match(CODES, /: entry\?\.state === 'used' \? 'Mã đã dùng; không thu hồi từ sổ mã\.' : undefined/);
+    assert.match(CODES, /label: 'Thu hồi mã',[\s\S]+disabledReason: activeAssignments > 0 \|\| entry\?\.state === 'used' \? 'Mã đã dùng; thu hồi ở Vùng nguy hiểm của trang mã\.'\s+: code\.association_lookup_failed \?/);
   });
 
   test('filters and sorts users and codes using the legacy semantics', () => {
@@ -266,5 +271,102 @@ describe('admin users model — hostile and partial payloads', () => {
     assert.equal(expiringDaysFromThresholds({ items: [{ key: 'code_expiring_days', value: 21 }] }), 21);
     assert.equal(expiringDaysFromThresholds({ items: [{ key: 'code_expiring_days', value: null }] }), 14);
     assert.equal(expiringDaysFromThresholds(null), 14);
+  });
+});
+
+describe('ADMINIA-0074 FR-055 code page and danger-zone revoke', () => {
+  const DETAIL_PAGE = read('app', '(authed-admin-users)', 'admin', 'activation-codes', '[codeId]', 'page.tsx');
+  const DETAIL = read('app', '(authed-admin-users)', 'admin', 'activation-codes', '[codeId]', 'admin-activation-code-detail.tsx');
+
+  test('transforms the detail shape explicitly instead of reusing the list shape', () => {
+    const detail = normalizeCodeDetail({
+      id: 'c4', code: 'OLD', is_used: true, used_by: 'u1', is_revoked: false,
+      assignments: [
+        { id: null, user_id: 'u1', display_name: 'Alice', email: 'a@x.test', is_active: false, is_fallback_used_by: true, removable: false },
+        { id: 'as2', user_id: 'u2', display_name: 'Bob', email: 'b@x.test', is_active: true, assigned_at: '2026-11-01T00:00:00Z' },
+        { id: 'as3', user_id: 'u3', display_name: 'Cee', email: 'c@x.test', is_active: false },
+      ],
+    });
+    assert.deepEqual(detail.assigned_users.map((user) => [user.user_id, user.name, user.is_active, user.is_fallback_used_by, user.removable]), [
+      ['u1', 'Alice', false, true, false], ['u2', 'Bob', true, false, true], ['u3', 'Cee', false, false, false],
+    ]);
+    assert.equal(activeAssignmentCount(detail), 1);
+    assert.equal(codeLedgerState(detail).state, 'used');
+    assert.equal(detail.access_holders, null);
+    assert.equal(normalizeCodeDetail(null), null);
+    // The danger zone uses the server's list, not a recount of `assignments`.
+    const mixed = normalizeCodeDetail({ id: 'm', code: 'MIX', used_by: 'legacy', assignments: [{ user_id: 'u2', is_active: true }],
+      access_holders: [{ user_id: 'legacy', email: 'l@x.test' }, { user_id: 'u2', email: 'b@x.test' }, { email: 'no-id' }] });
+    assert.deepEqual(mixed.access_holders.map((holder) => holder.user_id), ['legacy', 'u2']);
+    assert.match(DETAIL, /const losing = detail\?\.access_holders \?\? \[\];/);
+  });
+
+  test('reads the audit history with the revoke reason and the people affected', () => {
+    const [entry, bare] = normalizeCodeAudit([
+      { id: 7, action: 'revoke', created_at: '2026-11-23T10:00:00Z', after: { reason: 'Mã bị lộ', affected_user_ids: ['u1', 'u2'], source: 'danger_zone' } },
+      { id: 'a1', action: 'create', after: null },
+      { action: 'edit' },
+    ]);
+    assert.deepEqual([entry.id, entry.reason, entry.affected_user_count, entry.source], ['7', 'Mã bị lộ', 2, 'danger_zone']);
+    assert.deepEqual([bare.reason, bare.affected_user_count], [null, null]);
+    assert.equal(auditActionLabel('revoke'), 'Thu hồi mã');
+    assert.equal(auditActionLabel('mystery'), 'mystery');
+  });
+
+  test('a revoke needs the code retyped and a reason of 10 to 500 characters', () => {
+    const draft = { code: 'ABCD-1234', confirmCode: ' abcd-1234 ', reason: 'Học viên đã nghỉ học' };
+    assert.equal(revokeUsedDraftError(draft), null);
+    assert.equal(revokeUsedDraftError({ ...draft, confirmCode: 'ABCD-123' }), 'Gõ lại đúng mã cần thu hồi.');
+    assert.equal(revokeUsedDraftError({ ...draft, code: '', confirmCode: '' }), 'Gõ lại đúng mã cần thu hồi.');
+    assert.equal(revokeUsedDraftError({ ...draft, reason: '   ngắn quá  ' }), 'Lý do cần ít nhất 10 ký tự.');
+    assert.equal(revokeUsedDraftError({ ...draft, reason: 'x'.repeat(501) }), 'Lý do tối đa 500 ký tự.');
+  });
+
+  test('the result message never hides a missing audit row', () => {
+    assert.deepEqual(revokeUsedResultMessage({ code: 'A', affected_user_count: 2, audit_recorded: true }), { kind: 'success', text: 'Đã thu hồi mã A. 2 học viên mất quyền từ mã này.' });
+    assert.equal(revokeUsedResultMessage({ code: 'A', affected_user_count: 0, audit_recorded: false }).kind, 'error');
+    assert.match(revokeUsedResultMessage({ code: 'A', audit_recorded: false }).text, /Chưa ghi được lý do vào nhật ký mã/);
+    assert.equal(revokeUsedResultMessage({ code: 'A', already_revoked: true, audit_recorded: true }).text, 'Mã A đã được thu hồi từ trước.');
+    assert.equal(revokeUsedResultMessage({ code: 'A', already_revoked: true, audit_recorded: false }).kind, 'error');
+  });
+
+  test('the page keeps /new a 404, reloads canonically and offers the danger zone only for a used code', () => {
+    assert.match(DETAIL_PAGE, /if \(codeId === 'new'\) notFound\(\);/);
+    assert.match(DETAIL_PAGE, /soft 404/);
+    assert.match(DETAIL, /window\.api\.post\(`\/admin\/access-codes\/\$\{encodeURIComponent\(detail\.id\)\}\/revoke-used`/);
+    assert.match(DETAIL, /reason: reason\.trim\(\),\s+\}\);\s+setConfirmCode\(''\);\s+setReason\(''\);\s+await load\(\);/);
+    assert.match(DETAIL, /state\?\.state !== 'used' \?/);
+    assert.match(DETAIL, /Vùng nguy hiểm/);
+    assert.match(CODES, /href=\{`\/admin\/activation-codes\/\$\{encodeURIComponent\(code\.id\)\}`\}/);
+  });
+});
+
+describe('ADMINIA-0074 code ledger keeps the admin shell', () => {
+  // A route-group move (ADMINGROUP-0077) can leave these pages in a group
+  // whose layout was deleted: the page then renders without the admin shell.
+  function shellLayoutFor(pageDir) {
+    let dir = pageDir;
+    while (dir !== join(ROOT, 'app') && dir.startsWith(join(ROOT, 'app'))) {
+      const layout = join(dir, 'layout.tsx');
+      if (existsSync(layout)) {
+        const source = readFileSync(layout, 'utf8');
+        if (/<AuthedShell[\s\S]*chrome="admin"/.test(source)) return source;
+      }
+      dir = dirname(dir);
+    }
+    return null;
+  }
+
+  test('every activation-code page sits under an admin AuthedShell layout that loads the ledger CSS', () => {
+    const pages = [
+      join(ROOT, 'app', '(authed-admin-users)', 'admin', 'activation-codes'),
+      join(ROOT, 'app', '(authed-admin-users)', 'admin', 'activation-codes', '[codeId]'),
+    ];
+    for (const pageDir of pages) {
+      assert.ok(existsSync(join(pageDir, 'page.tsx')), `${pageDir}/page.tsx missing`);
+      const layout = shellLayoutFor(pageDir);
+      assert.ok(layout, `no admin AuthedShell layout above ${pageDir}`);
+      assert.match(layout, /'\/css\/admin-users-next\.css'/);
+    }
   });
 });

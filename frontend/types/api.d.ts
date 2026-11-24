@@ -880,6 +880,27 @@ export interface paths {
         patch: operations["patch_access_code_admin_access_codes__code_id__patch"];
         trace?: never;
     };
+    "/admin/access-codes/{code_id}/revoke-used": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke Used Access Code
+         * @description Revoke an access code that people are using, with a typed confirmation
+         *     and a required reason (ADMINIA-0074 FR-055). Idempotent on a revoked code.
+         */
+        post: operations["revoke_used_access_code_admin_access_codes__code_id__revoke_used_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/access-codes/{code_id}/users/{user_id}": {
         parameters: {
             query?: never;
@@ -23578,6 +23599,28 @@ export interface components {
             /** Audit Id */
             audit_id?: string | null;
         };
+        /** RevokeUsedCodeOut */
+        RevokeUsedCodeOut: {
+            /** Id */
+            id: string;
+            /** Code */
+            code: string;
+            /** Is Revoked */
+            is_revoked: boolean;
+            /** Already Revoked */
+            already_revoked: boolean;
+            /** Affected User Count */
+            affected_user_count: number;
+            /** Audit Recorded */
+            audit_recorded: boolean;
+        };
+        /** RevokeUsedCodeRequest */
+        RevokeUsedCodeRequest: {
+            /** Confirm Code */
+            confirm_code: string;
+            /** Reason */
+            reason: string;
+        };
         /** RollbackRequest */
         RollbackRequest: {
             /**
@@ -27941,6 +27984,52 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_used_access_code_admin_access_codes__code_id__revoke_used_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                code_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RevokeUsedCodeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RevokeUsedCodeOut"];
+                };
+            };
+            /** @description Not an active admin, `mfa_required` (FR-012), or `step_up_required` under ADMIN_STEP_UP_ENFORCE (FR-020; `reason: new_factor_cooloff` for a factor under 24 hours old) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffForbiddenResponse"];
                 };
             };
             /** @description Validation Error */
