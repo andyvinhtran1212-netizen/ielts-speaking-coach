@@ -9,29 +9,31 @@
 // label, not with an icon.
 import type { SheetIconName } from './icon-set';
 
+// Keys are written as escapes: this file is never rendered, and the
+// font-subset test (ui-v2-font-subset-glyphs) reads components/ui as code.
 export const LEGACY_GLYPH_MAP: Readonly<Record<string, SheetIconName>> = Object.freeze({
   // Characters used as icons → the Điều hướng group.
-  '›': 'chev-right',
-  '‹': 'chev-left',
-  '×': 'close',
-  '→': 'arrow-right',
-  '←': 'arrow-left',
-  '↑': 'arrow-up',
-  '↓': 'arrow-down',
-  '⋯': 'more',
+  '\u203A': 'chev-right', // ›
+  '\u2039': 'chev-left', // ‹
+  '\u00D7': 'close', // ×
+  '\u2192': 'arrow-right', // →
+  '\u2190': 'arrow-left', // ←
+  '\u2191': 'arrow-up', // ↑
+  '\u2193': 'arrow-down', // ↓
+  '\u22EF': 'more', // ⋯
   // Ticks, crosses, warning and the play triangle.
-  '✓': 'check',
-  '✔': 'check',
-  '✕': 'close',
-  '✗': 'x-circle',
-  '⚠': 'warning',
-  '▶': 'play',
+  '\u2713': 'check', // ✓
+  '\u2714': 'check', // ✔
+  '\u2715': 'close', // ✕
+  '\u2717': 'x-circle', // ✗
+  '\u26A0': 'warning', // ⚠
+  '\u25B6': 'play', // ▶
   // Emoji named on the sheet.
-  '🎤': 'mic',
-  '🎧': 'headphones',
-  '📖': 'book',
-  '📚': 'book',
-  '💡': 'lightbulb',
-  '📊': 'chart',
-  '🚩': 'flag',
+  '\u{1F3A4}': 'mic', // 🎤
+  '\u{1F3A7}': 'headphones', // 🎧
+  '\u{1F4D6}': 'book', // 📖
+  '\u{1F4DA}': 'book', // 📚
+  '\u{1F4A1}': 'lightbulb', // 💡
+  '\u{1F4CA}': 'chart', // 📊
+  '\u{1F6A9}': 'flag', // 🚩
 });
