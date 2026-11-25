@@ -1,21 +1,21 @@
 ---
 id: REGIVE-0103
 title: A teacher can give a class a course lesson bank it already received, and a retried give still creates it once
-status: draft
+status: approved
 risk: high
 owner: product
 ---
 
 # Re-give a course lesson bank to the same class
 
-Status: **draft, awaiting Andy's approval of this text.** Background in the
-project thread "Cho giao lại bài đã giao, chỉ ghi chú" (25/11): Andy asked for
-the change (09:36Z), chose Course banks only with Speaking deferred, chose the
-unique-index migration, and chose on 14:56Z to write this spec before #2694
-merges. He has not yet approved the text. Spec number 0103 is the next free
-number (0102 is held by SCOREPAIR). Migration number **509** (503–507 are held
-by open PRs). Production carries the same change as hotfix #2693, under the
-exception Andy confirmed.
+Status: **approved by Andy on 2026-11-25 22:31 (UTC+7)**, by his typed line
+"duyệt spec 0103" in the project thread "Cho giao lại bài đã giao, chỉ ghi chú",
+after Code Reviewer approval of this text (FR-001…FR-005). Background in the
+same thread: the change request (09:36Z), Course banks only with Speaking
+deferred, the unique-index migration, and the spec path (14:56Z). Spec number
+0103 is the next free number (0102 is held by SCOREPAIR). Migration number
+**509** (503–507 are held by open PRs). Production carries the same change as
+hotfix #2693, under the exception Andy confirmed.
 
 ## Tóm tắt (tiếng Việt)
 

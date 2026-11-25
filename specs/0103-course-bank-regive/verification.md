@@ -7,8 +7,8 @@
 | FR-001 | `backend/tests/test_course_assignment.py` (`test_giving_the_same_lesson_twice_is_allowed`, library `last_given_at`/`can_regive`); staging re-give journey | PENDING |
 | FR-002 | `frontend/tests/admin-class-homework-next-behavior.test.mjs`; staging editor check | PENDING |
 | FR-003 | Route tests: new id creates, retry replays, changed intent 409; staging repeated-id call | PENDING |
-| FR-005 | `test_an_old_client_without_a_request_id_is_still_refused_a_second_give`, `test_an_old_client_first_give_without_a_request_id_still_works`; staging Scenario 4 | PENDING |
 | FR-004 | `backend/tests/test_migration_509_course_give_request.py` (concurrent sessions, allowed cases, rollback); route test for the lost race; staging and production read-back of `uq_course_give_request` | PENDING |
+| FR-005 | `test_an_old_client_without_a_request_id_is_still_refused_a_second_give`, `test_an_old_client_first_give_without_a_request_id_still_works`; staging Scenario 4 | PENDING |
 
 ## Contract evidence
 
