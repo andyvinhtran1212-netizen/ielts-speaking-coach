@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
+import { QuickSearchButton } from '@/components/staff-quick-search';
 import { ThemeToggleButton } from '@/components/theme-toggle-button';
 import { getAuthorizationIdentity } from '@/lib/auth-api';
 import { useAuth } from '@/lib/auth/auth-provider';
@@ -498,6 +499,7 @@ export function InstructorGrade() {
         <div className="ig-top-student" id="ig-student">{essay?.student?.fullName || 'Chấm bài Writing'}</div>
         <div className="ig-top-actions">
           <div className="ig-band" id="ig-band">{feedback ? `Band ${feedback.overallBandScore}` : 'Band —'}</div>
+          <QuickSearchButton />
           <ThemeToggleButton />
         </div>
       </header>

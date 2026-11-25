@@ -271,7 +271,7 @@ Thứ tự đụng cùng file (ai đứng trước làm trước, người sau r
 - **Đầu vào:** mục 2 (f); `tooling/verify-admin-mock-tests-flow.mjs`, `tooling/verify-admin-mock-reviews-flow.mjs`; `tests/admin-mock-reviews-next-behavior.test.mjs`. Phụ thuộc T11 (component thông báo).
 - **Việc làm:**
   1. Trên staging (chỉ xem), bấm sidebar Mock Test → Duyệt bài thi: ghi ảnh/ghi chú vào PR. Mong đợi: không có "Thiếu mock_exam_id".
-  2. `app/(authed-admin-mock-reviews)/admin/mock-reviews/page.tsx`: thiếu `mock_exam_id` → `redirect('/admin/mock-tests?tab=review&notice=lien-ket-thieu')`. Giữ nhánh `embed=1` có tham số như cũ.
+  2. `app/(authed-admin)/(mock-reviews)/admin/mock-reviews/page.tsx`: thiếu `mock_exam_id` → `redirect('/admin/mock-tests?tab=review&notice=lien-ket-thieu')`. Giữ nhánh `embed=1` có tham số như cũ.
   3. Sửa `admin-mock-reviews-next-behavior.test.mjs` và verify flow theo hành vi mới.
 - **Đầu ra:** 1 PR `small`. **Nghiệm thu:** verify flow admin mock reviews/tests qua ở local; staging sau merge mở `/admin/mock-reviews` trần thì về cockpit.
 - **Không làm:** không đổi `NAV_GROUPS` trong `aver-admin-chrome.js` (spec 0049 và G09 lo sidebar).
