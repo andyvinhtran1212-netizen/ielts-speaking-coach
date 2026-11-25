@@ -12,9 +12,14 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { BAND_SOURCE, buildFinalBandsPayload, normalizeReviewDetail, reviewBandSkills } from '../lib/admin-mock-reviews-model.mjs';
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pub = (...p) => readFileSync(join(__dirname, '..', 'public', ...p), 'utf8');
-const CONSOLE = pub('js', 'admin-mock-reviews.js');
+// LEGACYJS-0075 W2 gỡ `admin-mock-reviews.js`: phần console nay soi chủ Next,
+// tức `reviewBandSkills` / `buildFinalBandsPayload` (chạy thật) và
+// `admin-mock-reviews.tsx`.
+const CONSOLE = readFileSync(join(__dirname, '..', 'app', '(authed-admin-mock-reviews)', 'admin', 'mock-reviews', 'admin-mock-reviews.tsx'), 'utf8');
 // Logic của trang đã TÁCH sang `/js/mock-result.js` khi port sang Next: bản Next
 // phải chạy CHÍNH mã đó chứ không chép lại. Khẳng định ở đây là "nguồn trang có
 // chứa X", nên nguồn trang nay = HTML + module của nó. Đã kiểm: tệp này không có
@@ -22,27 +27,38 @@ const CONSOLE = pub('js', 'admin-mock-reviews.js');
 const TRF = pub('pages', 'mock-result.html') + '\n' + pub('js', 'mock-result.js');
 
 describe('console duyệt bài — ô band Speaking tuỳ dữ liệu', () => {
-  test('ô nhập sinh từ bandSkills(), không phải reqSkills()', () => {
-    // reqSkills() theo cấu hình kỳ thi — kỳ thi này không có speaking nên ô
+  const detail = (review) => normalizeReviewDetail({
+    required_skills: ['listening', 'reading', 'writing'],
+    blankable_skills: [],
+    review: { id: 'rv-1', sitting_id: 'st-1', status: 'claimed', final_bands: {}, retest_flags: {}, ...review },
+    sitting: { id: 'st-1' },
+  });
+
+  test('ô nhập sinh từ reviewBandSkills(), không phải requiredSkills', () => {
+    // requiredSkills theo cấu hình kỳ thi: kỳ thi này không có speaking nên ô
     // Speaking không bao giờ hiện, và band giáo viên chấm không có chỗ nhập.
-    assert.match(CONSOLE, /function bandSkills\(\)/);
-    assert.match(CONSOLE, /var bandInputs = bandSkills\(\)\.map/);
-    assert.doesNotMatch(CONSOLE, /var bandInputs = reqSkills\(\)\.map/);
+    assert.match(CONSOLE, /const bandSkills = reviewBandSkills\(detail\) as string\[\];/);
+    assert.match(CONSOLE, /\{bandSkills\.map\(\(skill\) => <label key=\{skill\}>/);
+    assert.doesNotMatch(CONSOLE, /requiredSkills\.map\(\(skill\) => <label/);
   });
 
   test('chỉ thêm Speaking khi CÓ bài chấm trực tiếp', () => {
     // Mọi kỳ thi LRW khác không được tự mọc ô Speaking.
-    assert.match(CONSOLE, /ai_draft \|\| \{\}\)\.speaking != null/);
-    assert.match(CONSOLE, /per_skill_notes \|\| \{\}\)\.speaking != null/);
+    assert.deepEqual(reviewBandSkills(detail({})), ['listening', 'reading', 'writing']);
+    assert.deepEqual(reviewBandSkills(detail({ ai_draft: { speaking: { band: 6 } } })), ['listening', 'reading', 'writing', 'speaking']);
+    assert.deepEqual(reviewBandSkills(detail({ per_skill_notes: { speaking: { intro: 'x' } } })), ['listening', 'reading', 'writing', 'speaking']);
   });
 
-  test('lưu band đọc từ bandSkills() — band nhập rồi không bị bỏ rơi', () => {
-    const at = CONSOLE.indexOf('function collectBands');
-    assert.match(CONSOLE.slice(at, at + 300), /bandSkills\(\)\.forEach/);
+  test('lưu band đọc từ reviewBandSkills(): band nhập rồi không bị bỏ rơi', () => {
+    const d = detail({ per_skill_notes: { speaking: { intro: 'x' } } });
+    const r = buildFinalBandsPayload(d, { listening: '6', reading: '6.5', writing: '6', speaking: '7' }, {}, '');
+    assert.equal(r.ok, true);
+    assert.equal(r.value.final_bands.speaking, 7);
   });
 
-  test('ô Speaking ghi rõ nguồn: thi trực tiếp', () => {
-    assert.match(CONSOLE, /speaking:\s*'Thi trực tiếp với giáo viên'/);
+  test('ô Speaking ghi rõ nguồn: chấm trực tiếp', () => {
+    assert.equal(BAND_SOURCE.speaking, 'Bài chấm trực tiếp');
+    assert.match(CONSOLE, /<small>\{bandCaption\(detail, skill\)\}<\/small>/);
   });
 });
 
