@@ -24,6 +24,7 @@ driven by the test suite / curl until the admin page lands (Sprint 20.3/20.8).
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import secrets
 import string
@@ -375,6 +376,42 @@ async def list_reading_content(
 
 
 
+
+def _refuse_foreign_passage_slug(row: dict, slug: str, *, owner_test_id) -> None:
+    """Báo cáo săn lỗi B1-12 / B1-13: `reading_passages.slug` là khoá duy nhất
+    toàn bảng, nên "upsert theo slug" mà không xét chủ sẽ ghi đè passage của
+    đề KHÁC (L3) hoặc của bài L1/L2, rồi bước thay câu hỏi xoá sạch câu hỏi
+    của nó. Chỉ cho ghi đè passage thuộc đúng chủ: L1/L2 (owner None) chỉ đè
+    passage không thuộc đề nào; L3 chỉ đè passage của chính đề đó.
+    """
+    current = row.get("test_id")
+    if str(current or "") != str(owner_test_id or ""):
+        where = f"đề {current}" if current else "một bài đọc lẻ (L1/L2)"
+        raise HTTPException(
+            409,
+            f"Slug '{clip_user_value(slug)}' đã được dùng cho {clip_user_value(where)}. "
+            "Đổi slug trong file rồi nhập lại.",
+        )
+
+
+def _l3_slug_preflight(test_id: str, slugs: list) -> tuple:
+    """Đọc chủ test (theo test_id) và các passage đang giữ những slug này."""
+    owner = (
+        supabase_admin.table("reading_tests")
+        .select("id")
+        .eq("test_id", test_id)
+        .limit(1)
+        .execute()
+    )
+    owner_uuid = owner.data[0]["id"] if owner.data else None
+    clashes = (
+        supabase_admin.table("reading_passages")
+        .select("id, slug, test_id")
+        .in_("slug", slugs)
+        .execute()
+    ).data if slugs else []
+    return owner_uuid, clashes or []
+
 @router.post("/import")
 async def import_reading_content(
     file: UploadFile = File(...),
@@ -453,12 +490,13 @@ async def import_reading_content(
     try:
         existing = (
             supabase_admin.table("reading_passages")
-            .select("id")
+            .select("id, test_id")
             .eq("slug", parsed.slug)
             .limit(1)
             .execute()
         )
         if existing.data:
+            _refuse_foreign_passage_slug(existing.data[0], parsed.slug, owner_test_id=None)
             supabase_admin.table("reading_passages").update(payload).eq("slug", parsed.slug).execute()
             passage_id = existing.data[0]["id"]
             result["action"] = "updated"
@@ -640,6 +678,19 @@ async def _commit_l3_parsed(parsed, dry_run: bool, admin: dict, test_type: str |
         return result
 
     plan = build_reading_test_payloads(parsed)
+
+    # Báo cáo săn lỗi B1-12: kiểm chủ của mọi slug TRƯỚC lần ghi đầu tiên, để
+    # một slug trùng không để lại test đã ghi nửa chừng (bước 2a còn xoá
+    # passage).
+    slugs = [r.get("slug") for r in plan["passage_rows"] if r.get("slug")]
+    try:
+        owner_uuid, clashes = await asyncio.to_thread(_l3_slug_preflight, parsed.test_id, slugs)
+    except Exception as exc:
+        logger.error("import_reading_content L3 slug preflight failed test_id=%s: %s",
+                     parsed.test_id, exc)
+        raise HTTPException(500, "Không kiểm được slug của test. Vui lòng thử lại.")
+    for row in clashes:
+        _refuse_foreign_passage_slug(row, row.get("slug"), owner_test_id=owner_uuid)
 
     try:
         # 1) Upsert reading_tests row by test_id (TEXT UNIQUE — mig 086).
@@ -915,9 +966,20 @@ async def admin_delete_reading_test(
         .limit(1)
         .execute()
     )
-    attempt_count = getattr(attempts_res, "count", None) or 0
+    # Báo cáo săn lỗi B1-11: `count` vắng (None) KHÔNG có nghĩa là 0. Coi nó
+    # là 0 thì nhánh xoá cứng chạy và FK cascade xoá luôn lượt làm của học
+    # viên. Không biết chắc ⇒ đi nhánh an toàn (lưu trữ), dựa thêm vào hàng
+    # trả về của `limit(1)`.
+    raw_count = getattr(attempts_res, "count", None)
+    rows = getattr(attempts_res, "data", None) or []
+    if raw_count is not None:
+        attempt_count = max(int(raw_count), len(rows))
+        count_known = True
+    else:
+        attempt_count = len(rows)
+        count_known = False
 
-    if attempt_count > 0:
+    if attempt_count > 0 or not count_known:
         # Soft delete. Stays in the table so attempts (in-progress +
         # submitted) keep resolving and historic analytics work.
         (
@@ -927,8 +989,8 @@ async def admin_delete_reading_test(
             .execute()
         )
         logger.info(
-            "[admin_reading] soft-delete (archived) test_id=%s attempts=%d",
-            test_id, attempt_count,
+            "[admin_reading] soft-delete (archived) test_id=%s attempts=%d count_known=%s",
+            test_id, attempt_count, count_known,
         )
         return {
             "test_id":             test_id,
