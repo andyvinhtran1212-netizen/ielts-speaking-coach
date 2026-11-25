@@ -714,10 +714,23 @@ def list_speaking(
         if _speaking_matches(r, **{**filters, "video": False}) and _answer_kind(r) == "video"
     )
 
+    # How many questions dropping ONE active condition would show: the "Bỏ …"
+    # suggestions of an empty result. Only active conditions get a count.
+    relax_off = {"part": None, "chude": None, "video": False, "q": None}
+    relaxed = {
+        name: sum(
+            1 for r in rows
+            if _speaking_matches(r, **{**filters, ("needle" if name == "q" else name): relax_off[name]})
+        )
+        for name, active in (("part", part), ("chude", chude), ("video", video), ("q", needle))
+        if active
+    }
+
     data = {
         "items": [_speaking_item(r, topics) for r in matched],
         "total": len(matched),
         "facets": {"part": facet_part, "topic": facet_topic, "video": with_video},
+        "relaxed": relaxed,
         "topics": [
             {"slug": t["slug"], "label_vi": t.get("label_vi")}
             for t in sorted(topics.values(), key=lambda t: (t.get("display_order") or 0, t["slug"]))
