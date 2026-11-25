@@ -1,0 +1,47 @@
+/* LIBRARY-0061 T015 "Lưu vào sổ từ" (FR-053). Only var(--av2-*). */
+.wrap { display: grid; gap: var(--av2-space-2); justify-items: start; }
+
+.button {
+  min-height: var(--av2-control-md);
+  padding: 0 var(--av2-space-4);
+  border: var(--av2-rule-w) solid var(--av2-ink);
+  border-radius: var(--av2-radius);
+  background: var(--av2-paper);
+  color: var(--av2-ink);
+  font: inherit;
+  font-size: var(--av2-fs-15);
+  font-weight: var(--av2-fw-strong);
+  cursor: pointer;
+}
+
+.saved { background: var(--av2-ok-bg); border-color: var(--av2-ok); }
+
+.button:disabled { color: var(--av2-muted); cursor: progress; }
+
+.prompt {
+  max-width: 420px;
+  padding: var(--av2-space-4);
+  border: var(--av2-rule-w) solid var(--av2-rule);
+  border-radius: var(--av2-radius);
+  background: var(--av2-surface);
+  font-size: var(--av2-fs-14);
+}
+
+.prompt p { margin: 0 0 var(--av2-space-2); }
+
+.prompt .actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--av2-space-4); margin: var(--av2-space-3) 0 0; }
+
+.actions a { font-weight: var(--av2-fw-strong); }
+
+.later {
+  min-height: var(--av2-control-sm);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--av2-muted);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.error { margin: 0; color: var(--av2-danger); font-size: var(--av2-fs-13); }

@@ -33,6 +33,7 @@ from models.grammar_content import (
 )
 from routers.auth import get_supabase_user
 from services.errors import clip_user_value
+from services import grammar_weak_areas
 from services.grammar_content import CONTENT_DIR, GROUPS_FILE, MAPPING_FILE, grammar_service
 from services.public_cache import cacheable_json, content_last_modified
 
@@ -385,25 +386,8 @@ async def get_dashboard_data(
         })
 
     # ── weak_areas ────────────────────────────────────────────────────────────
-    slug_counts_30 = Counter(r["recommended_slug"] for r in recs_30 if r.get("recommended_slug"))
-    # last_seen_at per slug
-    last_seen: dict[str, str] = {}
-    for r in recs_30:
-        s = r.get("recommended_slug")
-        if s and (s not in last_seen or r["created_at"] > last_seen[s]):
-            last_seen[s] = r["created_at"]
-
-    weak_areas = [
-        {
-            "tag":              slug,
-            "label_vi":         (grammar_service.get_article_by_slug(slug) or {}).get("title", slug),
-            "category":         (grammar_service.get_article_by_slug(slug) or {}).get("category", ""),
-            "occurrence_count": cnt,
-            "last_seen_at":     last_seen.get(slug),
-        }
-        for slug, cnt in slug_counts_30.most_common(5)
-        if cnt >= 2
-    ]
+    # The same rule as the admin learner profile (services/grammar_weak_areas).
+    weak_areas = grammar_weak_areas.weak_areas(recs_30, grammar_service.get_article_by_slug)
 
     # ── recently_viewed ───────────────────────────────────────────────────────
     recently_viewed = [

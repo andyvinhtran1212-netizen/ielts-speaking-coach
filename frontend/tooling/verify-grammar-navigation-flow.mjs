@@ -139,7 +139,8 @@ try {
   const learning = () => page.getByRole('tab', { name: /Học & luyện/ });
   const reference = () => page.getByRole('tab', { name: /Tra cứu/ });
   const articlePath = '/grammar/parts-of-speech/ux-nouns?from=learning';
-  const returnLink = () => page.getByRole('link', { name: '← Quay lại Học & luyện', exact: true });
+  // G06-T14 (a): BackLink of the reading frame, named by where it goes ("‹ Học & luyện", spoken "Quay lại Học & luyện").
+  const returnLink = () => page.getByRole('link', { name: 'Quay lại Học & luyện', exact: true });
 
   await page.goto(`${BASE}/grammar?mode=learning`);
   await page.getByRole('link', { name: 'Học tiếp →', exact: true }).waitFor();
@@ -153,7 +154,7 @@ try {
   check('ArrowRight selects learning through Next native-history subscription and focus', page.url() === `${BASE}/grammar?mode=learning` && await learning().evaluate((el) => el === document.activeElement));
   await page.getByRole('link', { name: 'Học tiếp →', exact: true }).click();
   await returnLink().waitFor();
-  check('Article keeps the root breadcrumb and exposes a separate fixed learning return', await page.locator('#breadcrumb a').first().getAttribute('href') === '/grammar' && await returnLink().getAttribute('href') === '/grammar?mode=learning');
+  check('Article keeps the root breadcrumb and exposes a separate fixed learning return', await page.locator('#breadcrumb nav a[href="/grammar"]').count() === 1 && await returnLink().getAttribute('href') === '/grammar?mode=learning');
   check('Related, next-reading and next-article links carry learning source', await page.locator('#related-pages a').getAttribute('href') === '/grammar/parts-of-speech/ux-adjectives?from=learning' && await page.locator('#next-articles-list a').getAttribute('href') === '/grammar/parts-of-speech/ux-verbs?from=learning' && await page.locator('#prev-next a').getAttribute('href') === '/grammar/parts-of-speech/ux-verbs?from=learning');
   await page.goBack();
   await page.waitForFunction(() => document.getElementById('grammar-mode-learning')?.getAttribute('aria-selected') === 'true');
@@ -176,11 +177,11 @@ try {
   check('Duplicate mode falls back to reference in another independent tab', await learning().getAttribute('aria-selected') === 'true');
   await second.goto(`${BASE}/grammar/parts-of-speech/ux-nouns?from=learning&from=learning`);
   await second.getByRole('heading', { name: 'Fixture Nouns', exact: true }).waitFor();
-  check('Duplicate origin cannot expose a return context or propagate to related links', await second.getByRole('link', { name: '← Quay lại Học & luyện', exact: true }).count() === 0 && await second.locator('#related-pages a').getAttribute('href') === '/grammar/parts-of-speech/ux-adjectives');
+  check('Duplicate origin cannot expose a return context or propagate to related links', await second.getByRole('link', { name: 'Quay lại Học & luyện', exact: true }).count() === 0 && await second.locator('#related-pages a').getAttribute('href') === '/grammar/parts-of-speech/ux-adjectives');
   await second.goto(`${BASE}/grammar/parts-of-speech/ux-nouns?from=https%3A%2F%2Fexample.invalid`);
   await second.getByRole('heading', { name: 'Fixture Nouns', exact: true }).waitFor();
-  check('Invalid origin falls back to canonical lookup navigation', await second.getByRole('link', { name: '← Quay lại Học & luyện', exact: true }).count() === 0);
-  await second.locator('#breadcrumb a').first().click();
+  check('Invalid origin falls back to canonical lookup navigation', await second.getByRole('link', { name: 'Quay lại Học & luyện', exact: true }).count() === 0);
+  await second.locator('#breadcrumb nav a[href="/grammar"]').click();
   await second.waitForFunction(() => document.getElementById('grammar-mode-reference')?.getAttribute('aria-selected') === 'true');
   check('Independent root breadcrumb always opens reference overview', second.url() === `${BASE}/grammar`);
   await page.setViewportSize({ width: 390, height: 844 });
