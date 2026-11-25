@@ -76,7 +76,7 @@ The 11 error-log, grammar, speaking, vocab and writing-queue scripts in `fronten
 - Behaviour differences noted in the ledger (Next is already live, not caused here): success banners no longer auto-dismiss after 5 s; the speaking user filter sends `user_email`; the writing queue reads the paged `/admin/writing/essay-queue` (25 per page) and grading opens `/admin/writing/grade`; in the cockpit embed the filter toolbar stays visible; lemmas load 100 per page; the clamp copy changed.
 - Also: the CR nit on #2657 is carried here: the `admin-components.css` comment no longer names `/js/admin-embed.js`.
 - FR-004: no Non-goals file in the diff. Retired HTML fixtures are kept.
-- Not checked: Vercel preview 404 and staging console, WebKit (Q40).
+- Not checked yet: Vercel preview 404 (preview requested by the `[preview]` commit on top of the merge of W4a `bd3f0d85`) and staging console, WebKit (Q40).
 
 ## W4a (T005, G10-T07-W4a) — 2026-11-23, base W3b `19f0ea2f`
 
