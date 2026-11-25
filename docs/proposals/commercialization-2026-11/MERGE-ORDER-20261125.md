@@ -19,7 +19,7 @@ Số liệu lấy từ GitHub lúc ~05:00Z: 121 PR mở (không tính #2450 nhá
 | PR | Base / phụ thuộc | Trạng thái | Loại | Ghi chú |
 |---|---|---|---|---|
 | #2536 LIBRARY-0061 G06-T13 follow-up: "Bỏ …" suggestions on an emp | staging | clean; CI xanh; thread mở 0 | BE+FE 7f +104/−4 | CR duyệt @40d9fba6, CI xanh |
-| #2629 G10-T07-W3a: retire the users/codes scripts (LEGACYJS-0075 T | gốc chuỗi LEGACYJS | clean; CI xanh; thread mở 0; comment tài khoản Andy 1 (kiểm HOLD) | +FE 24f +264/−1382 | CR duyệt @a2870e4a; Andy gỡ HOLD khi CI xanh |
+| #2629 G10-T07-W3a: retire the users/codes scripts (LEGACYJS-0075 T | gốc chuỗi LEGACYJS | clean; CI xanh; thread mở 0; comment tài khoản Andy 1 (kiểm HOLD) | +FE 24f +264/−1382 | CR duyệt @a2870e4a; Andy gỡ HOLD khi CI xanh; chỉ merge khi anh gõ duyệt riêng `merge #2629`; sau merge DỪNG cho tới khi có nghiệm thu W3a trên staging (xem chuỗi LEGACYJS) |
 | #2650 spec(0072 T005, R152): independent review evidence for the S | claude/examspeak-0072-spec | dirty; CI đỏ/chờ: Backend pytest collection + anchor drift, Backend pytest shard 1/4…; thread mở 0 | docs 1f +43/−14 | CR delta duyệt @321684a6 (docs); base `claude/examspeak-0072-spec` đã merge/cũ → đổi base sang staging; xung đột → merge staging vào |
 
 ## L1: docs/spec đứng riêng (10 PR)
@@ -90,11 +90,15 @@ Số liệu lấy từ GitHub lúc ~05:00Z: 121 PR mở (không tính #2450 nhá
 
 ### Chuỗi LEGACYJS: #2629 → #2646 → #2657 → #2668
 
-#2629 đã có CR và anh Andy đã gỡ HOLD khi CI xanh. Mỗi tầng sau cần: merge staging vào, commit [preview], 404 trên preview (đã kiểm cho head hiện tại), CR delta, kiểm console trên staging sau merge.
+**Điểm dừng bắt buộc giữa các đợt** (HOLD tài liệu 7153186191 trên #2673):
+1. Merge W3a #2629 chỉ khi anh Andy gõ duyệt riêng `merge #2629`.
+2. Sau khi merge và staging đã deploy đúng SHA mới, nghiệm thu W3a trên staging bằng tài khoản đã đăng nhập: `/admin/users`, tab mã (`/admin/users?tab=codes`), và `/admin/access-codes` phải chuyển hướng sang tab mã. Đạt khi không có lỗi console mới và không có `/js/*` nào ≥400. Ghi bằng chứng FR-003 vào PR và `verification.md`.
+3. **Dừng trước W3b #2646** cho tới khi bằng chứng ở bước 2 đủ. CI xanh, kết quả 404 trên preview và kết quả nghiệm thu W2 **không** thay được nghiệm thu W3a trên staging.
+4. Áp cùng điểm dừng cho từng đợt sau: W3b (#2646) → nghiệm thu → W4a (#2657) → nghiệm thu → W4b (#2668) → nghiệm thu. Mỗi đợt cần: merge staging vào, commit [preview], 404 trên preview, CR delta, anh gõ duyệt merge riêng, rồi nghiệm thu đăng nhập trên staging.
 
 | PR | Base / phụ thuộc | Trạng thái | Loại | Ghi chú |
 |---|---|---|---|---|
-| #2629 G10-T07-W3a: retire the users/codes scripts (LEGACYJS-0075 T | gốc chuỗi LEGACYJS | clean; CI xanh; thread mở 0; comment tài khoản Andy 1 (kiểm HOLD) | +FE 24f +264/−1382 | CR duyệt @a2870e4a; Andy gỡ HOLD khi CI xanh |
+| #2629 G10-T07-W3a: retire the users/codes scripts (LEGACYJS-0075 T | gốc chuỗi LEGACYJS | clean; CI xanh; thread mở 0; comment tài khoản Andy 1 (kiểm HOLD) | +FE 24f +264/−1382 | CR duyệt @a2870e4a; Andy gỡ HOLD khi CI xanh; chỉ merge khi anh gõ duyệt riêng `merge #2629`; sau merge DỪNG cho tới khi có nghiệm thu W3a trên staging (xem chuỗi LEGACYJS) |
 | #2646 chore(legacy-js): retire the class and student scripts (LEGA | #2629 (LEGACYJS) | clean; CI xanh; thread mở 0; comment tài khoản Andy 1 (kiểm HOLD) | +FE 46f +1310/−11188 |  |
 | #2657 chore(legacy-js): retire the overview, system and traffic sc | #2646 (LEGACYJS) | clean; CI xanh; thread mở 0; comment tài khoản Andy 1 (kiểm HOLD) | +FE 69f +1744/−12875 |  |
 | #2668 G10-T07-W4b: delete 11 error-log/grammar/speaking/vocab/writ | #2657 (LEGACYJS) | clean; CI xanh; thread mở 0; comment tài khoản Andy 1 (kiểm HOLD) | +FE 96f +2086/−16372 |  |
@@ -244,8 +248,8 @@ Số liệu lấy từ GitHub lúc ~05:00Z: 121 PR mở (không tính #2450 nhá
 
 ## Thứ tự đề xuất sau khi staging mở lại
 
-1. L0: #2629 trước, rồi đến #2536, #2650.
-2. Chuỗi LEGACYJS (#2646 → #2657 → #2668) và chuỗi FR-010 (#2615 → #2626 → #2642 → #2649). Hai chuỗi chạy song song được vì không chung file.
+1. L0: #2629 (khi anh gõ duyệt riêng), rồi đến #2536, #2650. Sau #2629 dừng chuỗi LEGACYJS cho tới khi nghiệm thu W3a trên staging xong.
+2. Chuỗi LEGACYJS (#2646 → #2657 → #2668, mỗi đợt có điểm dừng nghiệm thu như mục chuỗi) và chuỗi FR-010 (#2615 → #2626 → #2642 → #2649). Hai chuỗi chạy song song được vì không chung file.
 3. L1 docs: gộp theo ngày, mỗi lần 3–5 PR, ít rủi ro.
 4. L2 code: từng PR, ưu tiên PR đã xanh và mergeable clean.
 5. L3 migration: mỗi lần một PR. Áp migration trên staging, có lời anh gõ trong thread Mac, rồi mới merge.
