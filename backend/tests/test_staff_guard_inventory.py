@@ -35,7 +35,6 @@ from fastapi.routing import APIRoute
 import main
 import routers.admin as admin_module
 import routers.admin_commerce as commerce_module
-import routers.admin_commerce as admin_commerce_module
 import routers.auth as auth_module
 from config import settings
 from services import activation_gate, staff_guard
@@ -406,10 +405,10 @@ CONDITIONAL_STEP_UP_ROUTES = {
     },
     # COURSEACCESS-0055 Q13 (G04-T12): a class grant always, else > 50 credits.
     ("POST", "/admin/credits/grant-extra"): {
-        "guarded": lambda: {"body": admin_commerce_module.GrantExtra(
+        "guarded": lambda: {"body": commerce_module.GrantExtra(
             cohort_id="11111111-1111-1111-1111-111111111111", credits=1, reason="bù bài lỗi",
             request_key="22222222-2222-2222-2222-222222222222")},
-        "ordinary": lambda: {"body": admin_commerce_module.GrantExtra(
+        "ordinary": lambda: {"body": commerce_module.GrantExtra(
             user_ids=["33333333-3333-3333-3333-333333333333"],
             entitlement_id="44444444-4444-4444-4444-444444444444", credits=50, reason="bù bài lỗi",
             request_key="22222222-2222-2222-2222-222222222222")},
