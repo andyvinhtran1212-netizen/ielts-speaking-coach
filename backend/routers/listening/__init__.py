@@ -460,6 +460,34 @@ def _resolve_attempt_target(
     return exercise_row, content_row
 
 
+def _require_own_listening_session(user_id: str, listening_session_id: str) -> None:
+    """Báo cáo săn lỗi B2-12: `listening_session_id` đến thẳng từ body. Ghi
+    bằng `supabase_admin` (bỏ qua RLS) mà không kiểm chủ thì một người có thể
+    gắn lượt làm của mình vào phiên của người khác. Chỉ nhận phiên của chính
+    người gọi; id lạ (không phải UUID) hay phiên không tồn tại đều 404 như
+    nhau để không lộ phiên nào có thật.
+    """
+    try:
+        uuid.UUID(str(listening_session_id))
+    except (ValueError, TypeError):
+        raise HTTPException(404, "Không tìm thấy phiên nghe.") from None
+    try:
+        res = (
+            supabase_admin.table("listening_sessions")
+            .select("id")
+            .eq("id", str(listening_session_id))
+            .eq("user_id", str(user_id))
+            .limit(1)
+            .execute()
+        )
+    except Exception as e:
+        logger.error("[listening] session ownership lookup failed user=%s session=%s: %s",
+                     user_id, listening_session_id, e, exc_info=True)
+        raise HTTPException(503, "Không kiểm được phiên nghe. Vui lòng thử lại.") from None
+    if not res.data:
+        raise HTTPException(404, "Không tìm thấy phiên nghe.")
+
+
 def _insert_attempt(
     *,
     user_id: str,
@@ -484,6 +512,7 @@ def _insert_attempt(
         "audio_play_completed": listen_count >= 1,
     }
     if listening_session_id:
+        _require_own_listening_session(user_id, listening_session_id)
         row["listening_session_id"] = listening_session_id
     try:
         supabase_admin.table("listening_attempts").insert(row).execute()
@@ -766,6 +795,17 @@ def _grade_and_save_true_false(
         listen_count=body.listen_count,
         listening_session_id=body.listening_session_id,
     )
+    # Báo cáo săn lỗi B2-13 (anh Andy chọn 25/11: chỉ báo đúng/sai): như MCQ,
+    # KHÔNG trả đáp án đúng về trình duyệt — nếu không, nộp bừa một lần là có
+    # đáp án để làm lại đạt 100%. Bản đủ (có `expected`) vẫn lưu ở server.
+    safe_details = [
+        {
+            "idx":        d["idx"],
+            "actual":     d.get("actual"),
+            "is_correct": d["is_correct"],
+        }
+        for d in graded["details"]
+    ]
     return {
         "attempt_id":       attempt_id,
         "exercise_id":      exercise_row["id"],
@@ -775,7 +815,7 @@ def _grade_and_save_true_false(
         "correct":          graded["correct"],
         "total":            graded["total"],
         "is_correct":       graded["is_correct"],
-        "details":          graded["details"],
+        "details":          safe_details,
     }
 
 
