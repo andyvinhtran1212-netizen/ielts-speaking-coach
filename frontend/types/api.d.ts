@@ -13398,6 +13398,8 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** Kind */
+            kind?: ("class" | "online") | null;
         };
         /** AdminDictationReportDetailResponse */
         AdminDictationReportDetailResponse: {
