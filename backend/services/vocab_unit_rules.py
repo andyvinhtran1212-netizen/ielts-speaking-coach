@@ -170,7 +170,10 @@ def grade_response(task: dict[str, Any], response: dict[str, Any]) -> dict[str, 
                 for slot in frame
             ):
                 raise VocabUnitRuleError("required_frames có slot không hợp lệ")
-            maximum_gap_words = int(key.get("maximum_gap_words") or 4)
+            # `or 4` biến khoảng cách 0 (khung liền nhau) thành 4 (báo cáo săn
+            # lỗi #93). Chỉ thiếu khoá mới lấy mặc định.
+            gap = key.get("maximum_gap_words")
+            maximum_gap_words = int(4 if gap is None else gap)
             if maximum_gap_words < 0 or maximum_gap_words > 20:
                 raise VocabUnitRuleError("maximum_gap_words phải nằm trong khoảng 0–20")
             frame_ok = any(
