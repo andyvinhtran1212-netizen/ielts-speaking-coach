@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url';
 import { BAND_SOURCE, bandCaption, draftBandOf, initialBandDraft, normalizeReviewDetail } from '../lib/admin-mock-reviews-model.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const TSX = readFileSync(join(__dirname, '..', 'app', '(authed-admin-mock-reviews)', 'admin', 'mock-reviews', 'admin-mock-reviews.tsx'), 'utf8');
+const TSX = readFileSync(join(__dirname, '..', 'app', '(authed-admin)', '(mock-reviews)', 'admin', 'mock-reviews', 'admin-mock-reviews.tsx'), 'utf8');
 
 function grab(re, what) {
   const m = TSX.match(re);

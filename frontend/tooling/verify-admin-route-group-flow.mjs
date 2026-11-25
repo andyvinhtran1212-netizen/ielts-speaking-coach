@@ -36,6 +36,22 @@ const PAGE_SPEC = {
   '/admin/students': { active: 'classes', sheets: ['/css/admin-classes-next.css', '/css/admin-students-next.css'] },
   '/admin/classes': { active: 'classes', sheets: ['/css/admin-classes-next.css', '/css/admin-class-detail-next.css', '/css/admin-class-homework-next.css', '/css/admin-class-submissions-next.css', '/css/admin-class-student-work-next.css'] },
   '/admin/instructors': { active: 'instructors', sheets: ['/css/admin-instructors-next.css'] },
+  '/admin/grammar': { active: 'grammar', sheets: ['/css/admin-grammar-hub-next.css'] },
+  '/admin/grammar/analytics': { active: 'grammar', sheets: ['/css/admin-grammar-analytics-next.css'] },
+  '/admin/grammar/articles': { active: 'grammar', sheets: ['/css/admin-grammar-articles-next.css'] },
+  '/admin/grammar/recommend-test': { active: 'grammar', sheets: ['/css/admin-grammar-recommend-next.css'] },
+  '/admin/vocab': { active: 'vocab', sheets: ['/css/admin-vocab-next.css', '/css/vocabulary-workspace.css'] },
+  '/admin/speaking': { active: 'speaking', sheets: ['/css/admin-speaking-hub-next.css'] },
+  '/admin/speaking/sessions': { active: 'speaking', sheets: ['/css/admin-speaking-sessions-next.css'] },
+  '/admin/speaking/topics': { active: 'speaking', sheets: ['/css/admin-speaking-topics-next.css'] },
+  '/admin/reading': { active: 'reading', sheets: ['/css/admin-reading-hub-next.css'] },
+  '/admin/dashboard/reading-attempts': { active: 'overview', sheets: ['/css/admin-reading-attempts-next.css'] },
+  '/admin/mock-exams': { active: 'mock-tests', sheets: ['/css/admin-mock-exams-next.css', '/css/admin-exam-ops-next.css', '/css/admin-mock-corrections.css'] },
+  '/admin/mock-live': { active: 'mock-tests', sheets: ['/css/admin-mock-live-next.css', '/css/admin-exam-ops-next.css'] },
+  '/admin/mock-reviews?mock_exam_id=00000000-0000-4000-8000-0000000000e1': { active: 'mock-tests', sheets: ['/css/admin-mock-reviews-next.css', '/css/admin-exam-ops-next.css'] },
+  '/admin/mock-tests': { active: 'mock-tests', sheets: ['/css/admin-mock-tests-next.css', '/css/admin-exam-ops-next.css'] },
+  '/admin/writing': { active: 'writing', sheets: ['/css/admin-writing-hub-next.css'] },
+  '/admin/writing/new': { active: 'writing', sheets: ['/css/admin-writing-new-next.css'] },
 };
 const PAGES = Object.keys(PAGE_SPEC);
 // The 4 admin base sheets owned by (authed-admin)/layout.tsx, in order.
@@ -52,7 +68,17 @@ const baseSheetsOnce = (sheets) => BASE_SHEETS.every((href) => sheets.filter((s)
 // pilot page that exists on the base build too, so base and head compare 1:1.
 const CLIENT_SHOTS = new Set(['/admin/feedback → /admin', '/admin/feedback → /admin/usage', '/admin/error-logs → /admin/feedback',
   '/admin/feedback → /admin/users', '/admin/feedback → /admin/students', '/admin/feedback → /admin/classes', '/admin/feedback → /admin/instructors',
-  '/admin/students → /admin/classes', '/admin/classes → /admin/students']);
+  '/admin/students → /admin/classes', '/admin/classes → /admin/students',
+  '/admin/feedback → /admin/grammar', '/admin/feedback → /admin/grammar/analytics', '/admin/feedback → /admin/grammar/articles',
+  '/admin/feedback → /admin/grammar/recommend-test', '/admin/feedback → /admin/vocab',
+  '/admin/grammar → /admin/grammar/analytics', '/admin/grammar/analytics → /admin/grammar', '/admin/grammar → /admin/vocab',
+  '/admin/feedback → /admin/speaking', '/admin/feedback → /admin/speaking/sessions', '/admin/feedback → /admin/speaking/topics',
+  '/admin/speaking → /admin/speaking/sessions', '/admin/speaking/topics → /admin/speaking',
+  '/admin/feedback → /admin/reading', '/admin/feedback → /admin/dashboard/reading-attempts', '/admin/feedback → /admin/mock-exams',
+  '/admin/feedback → /admin/mock-live', '/admin/feedback → /admin/mock-reviews?mock_exam_id=00000000-0000-4000-8000-0000000000e1', '/admin/mock-exams → /admin/mock-live',
+  '/admin/mock-live → /admin/mock-reviews?mock_exam_id=00000000-0000-4000-8000-0000000000e1', '/admin/mock-reviews?mock_exam_id=00000000-0000-4000-8000-0000000000e1 → /admin/mock-exams',
+  '/admin/feedback → /admin/mock-tests', '/admin/feedback → /admin/writing', '/admin/feedback → /admin/writing/new',
+  '/admin/mock-exams → /admin/mock-tests', '/admin/writing → /admin/writing/new']);
 
 const results = [];
 const check = (name, ok, detail = '') => { results.push({ name, ok }); console.log(`  ${ok ? '✓' : '✗'} ${name}${detail ? ` — ${detail}` : ''}`); };
@@ -98,7 +124,8 @@ const snapshot = (page) => page.evaluate(() => {
 });
 
 async function settle(page, url) {
-  await page.waitForURL((u) => u.pathname === url, { timeout: 15000 });
+  // A key may carry a query when the page needs one (mock-reviews redirects without it).
+  await page.waitForURL((u) => `${u.pathname}${u.search}` === url, { timeout: 15000 });
   await page.waitForFunction((active) => {
     const chrome = document.querySelector('aver-admin-chrome');
     return chrome?.getAttribute('active') === active && chrome.shadowRoot?.querySelector('.nav-item');
@@ -145,9 +172,10 @@ try {
       await settle(page, from);
       await page.evaluate(() => { window.__adminRouteGroupMarker = 'same-document'; });
       // Sidebar click goes through ChromeNavigationBridge → router.push; a page
-      // without a sidebar entry is opened with the same App Router call.
+      // without a visible sidebar entry is opened with the same App Router call.
       const link = page.locator(`aver-admin-chrome a.nav-item[href="${to}"]`);
-      if (await link.count()) await link.first().click();
+      // A sub-item of a collapsed sidebar section is in the DOM but hidden.
+      if (await link.count() && await link.first().isVisible()) await link.first().click();
       else await page.evaluate((href) => window.next.router.push(href), to);
       await settle(page, to);
       const sameDocument = await page.evaluate(() => window.__adminRouteGroupMarker === 'same-document');

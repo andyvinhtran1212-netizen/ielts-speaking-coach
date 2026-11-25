@@ -13,7 +13,7 @@ import { reportSkills } from '../lib/admin-mock-reviews-model.mjs';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');
 const HTML = readFileSync(join(root, 'public', 'pages', 'admin', 'mock-reviews', 'report.html'), 'utf8');
-const NEXT = readFileSync(join(root, 'app', '(authed-admin-mock-reviews)', 'admin', 'mock-reviews', 'report', 'admin-mock-review-report.tsx'), 'utf8');
+const NEXT = readFileSync(join(root, 'app', '(authed-admin)/(mock-reviews)', 'admin', 'mock-reviews', 'report', 'admin-mock-review-report.tsx'), 'utf8');
 
 const detail = (requiredSkills, finalBands) => ({ requiredSkills, review: { finalBands } });
 

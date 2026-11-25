@@ -11,6 +11,12 @@
 //    the article endpoint itself (its JSON article-not-found, not a gateway
 //    404); articles and backend errors pass through.
 //
+//    The same applies to a Speaking question, `/library/speaking/:slug`
+//    (LIBRARY-0061 T013): a slug missing from a fresh published-question
+//    index (`/api/library/speaking/index`) is rewritten to the same 404
+//    path; if the index is unavailable, only the backend's own
+//    `speaking_not_found` JSON 404 counts as a miss.
+//
 // 1b. Real HTTP 404 / 308 for Library Writing samples (LIBRARY-0061 FR-019,
 //    G06-T10). `/library/writing-samples/[slug]` is a partial prerender, so
 //    its notFound() / permanentRedirect() can only be a soft 404 (200 +
@@ -107,6 +113,62 @@ async function grammarArticle(request: NextRequest) {
       missing = await isBackendArticleMiss(res);
     } catch {
       // Let the article loader handle backend/network errors (B17/B12).
+    }
+  }
+  return missing
+    ? NextResponse.rewrite(new URL(GRAMMAR_ARTICLE_NOT_FOUND_PATH, request.url))
+    : NextResponse.next();
+}
+
+// LIBRARY-0061 T013: published Speaking questions, keyed `speaking/<slug>`
+// so the shared index helper can hold them. Like the Grammar list, an empty
+// list is "unknown", not "every slug is a miss": a table briefly empty during
+// a re-import must not hard-404 every question; each slug then asks the detail.
+const speakingIndex = createArticleIndex({
+  async load() {
+    const res = await fetch(`${API_BASE}/api/library/speaking/index`, {
+      signal: AbortSignal.timeout(INDEX_TIMEOUT_MS),
+      cache: 'no-store',
+    });
+    if (!res.ok) throw new Error(`backend ${res.status} for /api/library/speaking/index`);
+    const rows = await res.json();
+    if (!Array.isArray(rows)) throw new TypeError('speaking index payload must be an array');
+    const keys = new Set(rows.flatMap((row) => (typeof row?.slug === 'string' ? [`speaking/${row.slug}`] : [])));
+    if (!keys.size) throw new Error('speaking index lists no questions');
+    return keys;
+  },
+});
+
+// routers/library.py `_speaking_not_found`: a JSON 404 `{"detail": "speaking_not_found"}`.
+async function isBackendSpeakingMiss(res: Response) {
+  if (res.status !== 404 || !/^application\/json\b/i.test(res.headers.get('content-type') ?? '')) {
+    await res.body?.cancel();
+    return false;
+  }
+  const body = (await res.json().catch(() => null)) as { detail?: unknown } | null;
+  return body?.detail === 'speaking_not_found';
+}
+
+async function speakingQuestion(request: NextRequest) {
+  const [, , , rawSlug = ''] = request.nextUrl.pathname.split('/');
+  const slug = segment(rawSlug);
+  const indexed = slug === null ? false : await speakingIndex.has('speaking', slug);
+  let missing = indexed === false;
+  if (indexed !== false) {
+    // The index only proves a miss. A hit may be up to the TTL old, and a
+    // question unpublished since then must still answer 404, so a hit (or an
+    // unavailable index) asks the detail. Same rule as PC-J526: only the
+    // backend's own miss is a 404; any other outcome leaves the page's own
+    // loading and error handling.
+    try {
+      const res = await fetch(`${API_BASE}/api/library/speaking/${encodeURIComponent(slug!)}`, {
+        signal: AbortSignal.timeout(INDEX_TIMEOUT_MS),
+        cache: 'no-store',
+        redirect: 'manual',
+      });
+      missing = await isBackendSpeakingMiss(res);
+    } catch {
+      // Network or timeout: the page shows its own error state.
     }
   }
   return missing
@@ -250,6 +312,8 @@ function noncePolicy(request: NextRequest) {
 }
 
 export async function proxy(request: NextRequest) {
+  // One segment only, as the matcher; never a nonce route (public Library).
+  if (request.nextUrl.pathname.startsWith('/library/speaking/')) return speakingQuestion(request);
   if (request.nextUrl.pathname.startsWith(SAMPLE_PAGE_PATH)) return writingSample(request);
   return request.nextUrl.pathname.startsWith('/grammar/')
     ? grammarArticle(request)
@@ -264,6 +328,7 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     '/grammar/:category/:slug',
+    '/library/speaking/:slug',
     '/library/writing-samples/:slug',
     {
       source: '/:section(admin|advanced-vocabulary|course-exercises|exam|exercises|full-test|full-test-result|grammar-checkup|grammar-lessons|home|instructor|listening|mock|mock-exam|my-class|onboarding|practice|profile|quiz|reading|result|speaking|writing)/:path*',

@@ -179,6 +179,20 @@ def test_index_lists_published_answered_slugs(client):
     assert r.headers["last-modified"] == "Thu, 05 Nov 2026 00:00:00 GMT"
 
 
+
+def test_index_and_shelf_read_past_the_postgrest_row_cap(client, db):
+    # PostgREST returns at most db-max-rows (1000) per response. A question past
+    # that row must still be listed, or the proxy would hard-404 a real page.
+    db.max_rows = 1000
+    db.tables["speaking_samples"] = _rows() + [
+        _row(f"bulk-{n:04d}-part-1", part=1, title=f"Bulk {n}") for n in range(1500)
+    ]
+    slugs = {i["slug"] for i in client.get("/api/library/speaking/index").json()}
+    assert len(slugs) == 6 + 1500
+    assert "bulk-1499-part-1" in slugs and "writing-only-topic-part-2" in slugs
+    assert client.get("/api/library/speaking").json()["total"] == 6 + 1500
+    assert ("speaking_samples", 1000, 1999) in db.ranges
+
 # ── detail ──────────────────────────────────────────────────────────────────
 
 
@@ -262,3 +276,19 @@ def test_db_failure_is_503_no_store(client, db, path):
     assert r.status_code == 503
     assert r.json() == {"detail": "library_unavailable"}
     assert r.headers["cache-control"] == "no-store"
+
+def test_list_counts_what_dropping_each_active_filter_would_show(client):
+    body = client.get("/api/library/speaking?part=3&video=true&q=zoo").json()
+    assert body["total"] == 0
+    # Only the active conditions are counted, each over the other filters.
+    assert set(body["relaxed"]) == {"part", "video", "q"}
+    assert body["relaxed"]["q"] == client.get("/api/library/speaking?part=3&video=true").json()["total"]
+    assert body["relaxed"]["video"] == client.get("/api/library/speaking?part=3&q=zoo").json()["total"]
+    assert body["relaxed"]["part"] == client.get("/api/library/speaking?video=true&q=zoo").json()["total"]
+
+    body = client.get("/api/library/speaking?part=2&video=true").json()
+    assert body["relaxed"] == {
+        "part": 2,  # the two video answers, both Part 2
+        "video": client.get("/api/library/speaking?part=2").json()["total"],
+    }
+    assert client.get("/api/library/speaking").json()["relaxed"] == {}
