@@ -986,14 +986,13 @@ def _resolve_course_bank(cohort_id: str, body: "AssignmentCreate") -> tuple[str,
                 "Giới hạn thời gian hiện chỉ áp dụng cho bộ trắc nghiệm thuần.",
             )
 
-    dup = (supabase_admin.table("class_assignments").select("id, title")
-           .eq("cohort_id", cohort_id).eq("skill", "course")
-           .eq("content_id", body.content_id).limit(1).execute().data) or []
-    if dup:
-        raise HTTPException(
-            409,
-            f"Lớp này đã được giao \"{bank['title']}\" rồi "
-            f"(bài giao \"{dup[0].get('title')}\").")
+    # Giao lại một bộ bài tập cho CÙNG lớp là được phép (Andy, 25/11/2026):
+    # giáo viên hay giao lại buổi cũ để ôn. Mỗi lần giao là một bài giao mới với
+    # mục bài riêng, nên tiến độ lần trước không bị ghi đè; người chơi đã chọn
+    # mục chưa xong / mới nhất khi một bank có nhiều bài giao
+    # (`quiz_service._assignment_item_for`). Danh sách kho chỉ GHI CHÚ ngày đã
+    # giao (`last_given_at`) thay vì chặn. Không có chỉ mục duy nhất nào cho
+    # skill='course' (mig 182 chỉ áp cho Speaking).
 
     cfg = {
         # Không chụp NỘI DUNG câu hỏi — đề vẫn có đúng một nguồn. Chỉ chụp hình
@@ -1032,6 +1031,23 @@ def _resolve_course_bank(cohort_id: str, body: "AssignmentCreate") -> tuple[str,
     return bank["id"], cfg
 
 
+def _last_given_at(cohort_id: str, skill: str) -> dict[str, str | None]:
+    """content_id → thời điểm giao GẦN NHẤT của nội dung ấy cho lớp này."""
+    out: dict[str, str | None] = {}
+    for r in (
+        supabase_admin.table("class_assignments").select("content_id, created_at")
+        .eq("cohort_id", cohort_id).eq("skill", skill)
+        .execute().data or []
+    ):
+        cid = r.get("content_id")
+        if not cid:
+            continue
+        at = r.get("created_at")
+        prev = out.get(cid)
+        out[cid] = at if (prev is None or (at and str(at) > str(prev))) else prev
+    return out
+
+
 @router.get("/{cohort_id}/course-banks")
 async def list_course_banks(
     cohort_id: str,
@@ -1039,7 +1055,8 @@ async def list_course_banks(
 ):
     """Kho bài tập theo buổi của khoá mà lớp này thuộc về.
 
-    Trả CẢ bộ không giao được kèm lý do — `already_given` là việc đã xong, còn
+    Trả CẢ bộ không giao được kèm lý do. `already_given` + `last_given_at` chỉ
+    là ghi chú (lớp đã từng nhận bộ này, vẫn giao lại được — `can_regive`), còn
     `question_count = 0` là việc CHƯA làm (nạp tệp JSONL của buổi ấy).
     """
     await require_admin(authorization)
@@ -1062,13 +1079,7 @@ async def list_course_banks(
             or bank.get("code") or ""),
     ))
 
-    given = {
-        r["content_id"] for r in (
-            supabase_admin.table("class_assignments").select("content_id")
-            .eq("cohort_id", cohort_id).eq("skill", "course")
-            .execute().data or []
-        ) if r.get("content_id")
-    }
+    given = _last_given_at(cohort_id, "course")
     counts: dict = {}
     questions_by_bank: dict[str, list[dict]] = {}
     audio_required: dict = {}
@@ -1135,6 +1146,9 @@ async def list_course_banks(
             "pronunciation_required": pronunciation_required,
             "pronunciation_ready":   pronunciation_is_ready,
             "already_given":         bank_id in given,
+            # Chỉ là ghi chú: bộ bài tập giao lại được (xem `_resolve_course_bank`).
+            "last_given_at":         given.get(bank_id),
+            "can_regive":            True,
             "runtime": runtime,
             "is_published": bank.get("is_published") is True,
             "single_attempt_ready": single_attempt_ready,
@@ -1253,13 +1267,7 @@ async def list_speaking_lesson_sets(
     if not sets:
         return {"items": []}
 
-    given = {
-        r["content_id"] for r in (
-            supabase_admin.table("class_assignments").select("content_id")
-            .eq("cohort_id", cohort_id).eq("skill", "speaking")
-            .execute().data or []
-        ) if r.get("content_id")
-    }
+    given = _last_given_at(cohort_id, "speaking")
 
     part_of = {s["id"]: s["part"] for s in sets}
     by_set: dict[str, list] = {}
@@ -1283,6 +1291,9 @@ async def list_speaking_lesson_sets(
             "description":    s.get("description"),
             "question_count": len(rows),
             "already_given":  s["id"] in given,
+            "last_given_at":  given.get(s["id"]),
+            # Speaking vẫn một lần mỗi lớp: chỉ mục duy nhất của mig 182.
+            "can_regive":     False,
             # CẢ BỘ phải sẵn sàng: mặc định là giao trọn bộ, nên thiếu một câu là
             # chưa giao được. Nói ra số câu còn thiếu để admin biết việc còn bao xa.
             "ready":          bool(rows) and ready_n == len(rows),
@@ -1354,13 +1365,7 @@ async def list_speaking_topics(
     if not topics:
         return {"items": [], "part": part}
 
-    given = {
-        r["content_id"] for r in (
-            supabase_admin.table("class_assignments").select("content_id")
-            .eq("cohort_id", cohort_id).eq("skill", "speaking")
-            .execute().data or []
-        ) if r.get("content_id")
-    }
+    given = _last_given_at(cohort_id, "speaking")
 
     want = _QUESTIONS_PER_PART.get(part, 1)
     # Dùng cùng nhóm giọng với lệnh giao. Đủ audio rải giữa Kokoro và OpenAI
@@ -1404,6 +1409,8 @@ async def list_speaking_topics(
             "category": t.get("category") or "",
             "question_count": counts.get(t["id"], 0),
             "already_given": t["id"] in given,
+            "last_given_at": given.get(t["id"]),
+            "can_regive": False,
             "ready": enough and voiced,
             "missing_audio": needs_audio and enough and not voiced and not voice_conflict,
             "voice_conflict": voice_conflict,
