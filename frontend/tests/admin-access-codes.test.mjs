@@ -1,243 +1,46 @@
 /**
- * frontend/tests/admin-access-codes.test.mjs — Sprint 12.2.
+ * frontend/tests/admin-access-codes.test.mjs
  *
- * Pin the access-codes admin surface carved out of admin.html into the
- * new IA at /pages/admin/access-codes/index.html. Sentinel-string match
- * against static source — catches:
- *
- *   - Page no longer embeds <aver-admin-chrome active="access-codes">
- *   - Filter bar missing one of the 3 filters
- *   - Create modal missing a required field
- *   - Cohort dropdown row missing or wired incorrectly
- *   - JS controller missing the canonical client-side guard for
- *     direct + cohort_id
+ * LEGACYJS-0075 W3a: the legacy controller `public/js/admin-access-codes.js`
+ * and its retired page are gone; `/admin/access-codes` redirects to
+ * `/admin/users?tab=codes`, owned by the Next panel below. The page-shape pins
+ * moved to `admin-users-next-behavior.test.mjs`; this file keeps the code
+ * lifecycle invariants the legacy pins carried, on the Next owner, and the
+ * shared-transport step-up contract (Amendment 2).
  */
 
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const read = (...rel) => readFileSync(join(__dirname, '..', ...rel), 'utf8');
 
-const HTML = read('pages', 'admin', 'access-codes', 'index.html');
-const JS   = read('js', 'admin-access-codes.js');
+const CODES = read('app', '(authed-admin)', '(users)', 'admin', 'users', 'admin-access-codes-panel.tsx');
 
-
-describe('Sprint 12.2 — access-codes page chrome embed', () => {
-  it('uses <aver-admin-chrome active="access-codes">', () => {
-    assert.match(HTML, /<aver-admin-chrome\s+active="access-codes"/);
-  });
-  it('loads aver-admin-chrome.js as a module', () => {
-    assert.match(HTML, /<script\s+type="module"\s+src="\/js\/components\/aver-admin-chrome\.js"/);
-  });
-  it('loads admin-access-codes.js as the page controller', () => {
-    assert.match(HTML, /<script\s+type="module"\s+src="\/js\/admin-access-codes\.js"/);
+describe('access codes — legacy controller retired (LEGACYJS-0075 W3a)', () => {
+  it('the legacy controller and helper module are deleted', () => {
+    assert.equal(existsSync(join(__dirname, '..', 'public', 'js', 'admin-access-codes.js')), false);
+    assert.equal(existsSync(join(__dirname, '..', 'public', 'js', 'admin-codes-util.js')), false);
   });
 });
 
-
-describe('Sprint 12.2 — access-codes filter bar (3 filters)', () => {
-  it('has Loại mã filter with mass/direct/staff', () => {
-    assert.match(HTML, /id="filter-type"/);
-    assert.match(HTML, /<option\s+value="mass">Đại trà<\/option>/);
-    assert.match(HTML, /<option\s+value="direct">Trực tiếp<\/option>/);
-    assert.match(HTML, /<option\s+value="staff">Nhân viên<\/option>/);
+describe('access codes — lifecycle on the Next owner', () => {
+  it('editing a code PATCHes permissions + session_limit only, never redemption fields', () => {
+    assert.match(CODES, /window\.api\.patch\(`\/admin\/access-codes\/\$\{encodeURIComponent\(edit\.code\.id\)\}`, \{\s*permissions: edit\.permissions,\s*session_limit: validation\.sessionLimit,?\s*\}\)/);
+    assert.doesNotMatch(CODES, /used_by\s*:|used_at\s*:|is_used\s*:/);
   });
-  it('has Trạng thái filter (active/revoked)', () => {
-    assert.match(HTML, /id="filter-status"/);
-    assert.match(HTML, /<option\s+value="active">/);
-    assert.match(HTML, /<option\s+value="revoked">/);
+  it('removing a user names that user and states that activation history is kept', () => {
+    assert.match(CODES, /Gỡ \$\{user\.email \|\| user\.name \|\| 'người dùng này'\} khỏi mã/);
+    assert.match(CODES, /lịch sử kích hoạt vẫn được giữ/);
+    assert.match(CODES, /window\.api\.delete\(`\/admin\/access-codes\/\$\{encodeURIComponent\(code\.id\)\}\/users\/\$\{encodeURIComponent\(user\.user_id\)\}`\)/);
   });
-  it('has Lớp filter (cohort dropdown)', () => {
-    assert.match(HTML, /id="filter-cohort"/);
-  });
-});
-
-
-describe('Sprint 12.2 — access-codes table headers (semantic, sortable-aware)', () => {
-  // Sprint 18.3.1.3 cleanup: Sprint 17.1 made some headers sortable
-  // (e.g. `<th class="ac-sortable" data-sort="status">Trạng thái ↕</th>`), so an
-  // exact `<th>label</th>` match no longer holds. Assert the label appears inside
-  // a <th> regardless of attrs / sort indicator.
-  const expected = [
-    'Mã', 'Loại', 'Lớp', 'Trạng thái', 'Giới hạn', 'Hết hạn', 'Ghi chú',
-  ];
-  for (const h of expected) {
-    it(`table header "${h}" present`, () => {
-      const label = h.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      assert.match(HTML, new RegExp('<th[^>]*>\\s*' + label), `Missing header "${h}"`);
-    });
-  }
-});
-
-
-describe('Sprint 12.2 — create modal form fields', () => {
-  it('count input', () => {
-    assert.match(HTML, /id="m-count"\s+type="number"/);
-  });
-  it('type radio group with 3 options', () => {
-    assert.match(HTML, /name="m-type"\s+value="mass"/);
-    assert.match(HTML, /name="m-type"\s+value="direct"/);
-    assert.match(HTML, /name="m-type"\s+value="staff"/);
-  });
-  it('cohort row exists (toggled by type)', () => {
-    assert.match(HTML, /id="m-cohort-row"\s+hidden/);
-    assert.match(HTML, /id="m-cohort"/);
-  });
-  it('permissions checklist with at least 6 options', () => {
-    assert.match(HTML, /id="m-perms"/);
-    const matches = HTML.match(/<input type="checkbox" value="[^"]+"/g) || [];
-    assert.ok(matches.length >= 6, `Expected ≥6 permission checkboxes, got ${matches.length}`);
-  });
-  it('session_limit, expires_at, notes fields', () => {
-    assert.match(HTML, /id="m-limit"/);
-    assert.match(HTML, /id="m-expires"\s+type="date"/);
-    assert.match(HTML, /<textarea\s+id="m-notes"/);
-  });
-  it('Tạo + Hủy buttons', () => {
-    assert.match(HTML, /id="btn-submit"/);
-    assert.match(HTML, /id="btn-cancel"/);
-  });
-});
-
-
-describe('Sprint 12.2 — admin-access-codes.js controller', () => {
-  it('loads cohorts via /admin/cohorts?is_active=true', () => {
-    assert.match(JS, /\/admin\/cohorts\?is_active=true/);
-  });
-  it('lists access codes via /admin/access-codes', () => {
-    assert.match(JS, /api\.get\(['"]\/admin\/access-codes['"]\)/);
-  });
-  it('POSTs to /admin/access-codes/generate', () => {
-    assert.match(JS, /\/admin\/access-codes\/generate/);
-  });
-  it('client-side guard: direct without cohort blocks submit', () => {
-    // Mirrors backend 422 — gives user immediate feedback.
-    assert.match(JS, /code_type\s*===\s*['"]direct['"][\s\S]*?!cohort_id/);
-  });
-  it('cohort row visibility toggled by type radio change', () => {
-    assert.match(JS, /m-cohort-row/);
-    assert.match(JS, /selectedType\(\)/);
-  });
-  it('revoke uses DELETE /admin/access-codes/{id}', () => {
-    assert.match(JS, /api\.delete\(['"]\/admin\/access-codes\/['"]/);
-  });
-  it('does not import the legacy admin.html generator inline JS', () => {
-    // Sprint 12.2 carved the codes section out — JS controller must
-    // stand alone (no `loadCodes\(\)` from admin.html style globals).
-    assert.ok(!JS.includes('panel-codes'));
-  });
-});
-
-
-describe('Mã kích hoạt PR2 — per-user revoke button + toast', () => {
-  it('assignedCell renders a remove-user button for removable assignments', () => {
-    assert.match(JS, /data-action="remove-user"/);
-    assert.match(JS, /u\.removable[\s\S]*?data-action="remove-user"/);
-  });
-  it('removeUser calls DELETE /admin/access-codes/{id}/users/{uid}', () => {
-    assert.match(
-      JS,
-      /api\.delete\([\s\S]*?\/admin\/access-codes\/[\s\S]*?\/users\/[\s\S]*?encodeURIComponent\(userId\)/,
-    );
-  });
-  it('per-user revoke shows a success toast on success', () => {
-    assert.match(JS, /removeUser[\s\S]*?showBanner\([^,]+,\s*['"]success['"]\)/);
-  });
-  it('remove button carries the user email + toast names the user', () => {
-    assert.match(JS, /data-action="remove-user"[\s\S]*?data-email="\$\{esc\(u\.email/);
-    assert.match(JS, /function removeUser\(codeId, userId, email\)/);
-    assert.match(JS, /const who = email \|\| ['"]người dùng này['"]/);
-  });
-  it('per-user revoke shows an error toast on failure', () => {
-    assert.match(JS, /removeUser[\s\S]*?catch[\s\S]*?showBanner\([^,]+,\s*['"]error['"]\)/);
-  });
-  it('remove-user action is wired into the table click delegation', () => {
-    assert.match(JS, /dataset\.action\s*===\s*['"]remove-user['"]\)\s*removeUser\(/);
-  });
-  it('per-code revoke still toasts both success and error', () => {
-    assert.match(JS, /revokeCode[\s\S]*?showBanner\('Đã thu hồi mã\.', 'success'\)/);
-    assert.match(JS, /revokeCode[\s\S]*?showBanner\('Không thu hồi được[\s\S]*?'error'\)/);
-  });
-});
-
-
-describe('Mã kích hoạt — in-place feedback (silent refetch, no full reload)', () => {
-  it('loadCodes accepts a silent flag; loading shows as a progressive placeholder, not a spinner flash', () => {
-    assert.match(JS, /async function loadCodes\(silent\)/);
-    // Progressive loading (PR #611): the centered #codes-loading spinner is
-    // hidden by default and the loading indicator is a "Đang tải…" row inside
-    // the table body, so the table chrome paints at the CSS floor. The silent
-    // flag still gates the initial-load reset vs. the in-place refetch.
-    assert.match(JS, /if \(!silent\)/);
-    assert.match(HTML, /id="codes-loading"[^>]*\shidden/);
-    assert.match(HTML, /<tbody id="codes-tbody">[\s\S]{0,200}Đang tải…/);
-  });
-  it('Gỡ / Thu hồi / Sửa quyền refetch silently (loadCodes(true)), not full reload', () => {
-    // All three mutation handlers use the silent refetch.
-    const silentCalls = JS.match(/await loadCodes\(true\)/g) || [];
-    assert.ok(silentCalls.length >= 3, `expected >=3 silent refetches, got ${silentCalls.length}`);
-    // And nobody triggers a full page reload.
-    assert.doesNotMatch(JS, /location\.reload|window\.location\s*=/);
-  });
-});
-
-
-describe('Mã kích hoạt — per-code "Sửa quyền" (replaces reassign)', () => {
-  it('actions column renders a per-code Sửa quyền button (looks up by id)', () => {
-    assert.match(JS, /data-action="edit-perms" data-id="\$\{c\.id\}"/);
-  });
-  it('edit-perms modal exists with the permission checklist + per-code notice', () => {
-    assert.match(HTML, /id="editperms-backdrop"/);
-    assert.match(HTML, /id="ep-perms"/);
-    assert.match(HTML, /class="ep-notice"/);
-    // The notice must state the change applies to ALL users of the code.
-    assert.match(HTML, /TẤT CẢ người dùng của mã/);
-  });
-  it('opens by looking the code up in _allCodes + pre-checks its permissions', () => {
-    assert.match(JS, /function openEditPerms\(codeId\)/);
-    assert.match(JS, /_allCodes\.find\(\(c\) => String\(c\.id\) === String\(codeId\)\)/);
-    assert.match(JS, /#ep-perms input\[type="checkbox"\][\s\S]*?cb\.checked = current\.includes\(cb\.value\)/);
-  });
-  it('save PATCHes permissions + session_limit (never used_*)', () => {
-    assert.match(JS, /api\.patch\('\/admin\/access-codes\/'\s*\+\s*_editPermsCtx\.codeId,\s*\{\s*permissions,\s*session_limit\s*\}\)/);
-    assert.doesNotMatch(JS, /api\.patch[\s\S]*?used_(by|at)|api\.patch[\s\S]*?is_used/);
-  });
-  it('requires at least one permission before saving', () => {
-    assert.match(JS, /if \(!permissions\.length\)[\s\S]*?Phải chọn ít nhất một quyền/);
-  });
-  it('edit-perms modal cancel + backdrop wired', () => {
-    assert.match(JS, /btn-ep-cancel'\)\.addEventListener\('click', closeEditPerms\)/);
-    assert.match(JS, /editperms-backdrop'\)\.addEventListener/);
-  });
-  it('modal has a session_limit field + per-user usage area', () => {
-    assert.match(HTML, /id="ep-limit"\s+type="number"/);
-    assert.match(HTML, /id="ep-usage"/);
-  });
-  it('open prefills session_limit (empty = unlimited) + renders đã dùng/còn lại', () => {
-    assert.match(JS, /ep-limit'\)\.value = \(code\.session_limit == null\) \? '' : String\(code\.session_limit\)/);
-    assert.match(JS, /đã dùng[\s\S]*?q\.used/);
-    assert.match(JS, /\(còn \$\{rem\}\)/);
-  });
-  it('save validates session_limit as a positive integer or empty', () => {
-    assert.match(JS, /const session_limit = limitRaw === '' \? null : parseInt\(limitRaw, 10\)/);
-    assert.match(JS, /!Number\.isInteger\(session_limit\) \|\| session_limit < 1/);
-  });
-});
-
-
-describe('Sprint 12.2 — empty + loading + status banner states', () => {
-  it('loading state present by default', () => {
-    assert.match(HTML, /id="codes-loading"[^>]*>Đang tải/);
-  });
-  it('empty state copy mentions Tạo mã mới', () => {
-    assert.match(HTML, /id="codes-empty"[\s\S]*?Tạo mã mới/);
-  });
-  it('status banner element exists', () => {
-    assert.match(HTML, /id="status-banner"/);
+  it('revoking a code toasts and refetches in place, never a full page reload', () => {
+    assert.match(CODES, /'Đã thu hồi mã\.'/);
+    assert.match(CODES, /await action\(\);[\s\S]+await loadCodes\(true\)/);
+    assert.doesNotMatch(CODES, /location\.reload|window\.location\s*=/);
   });
 });
 

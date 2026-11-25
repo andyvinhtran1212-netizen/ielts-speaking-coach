@@ -8,13 +8,14 @@
  *   - frontend/pages/listening-tf.html                (user)
  *   - frontend/js/listening-tf.js                     (user)
  *   - frontend/pages/admin/listening/gist.html        (admin authoring)
- *   - frontend/js/admin-listening-gist.js             (admin authoring)
  *   - frontend/pages/admin/listening/tf.html          (admin authoring)
- *   - frontend/js/admin-listening-tf.js               (admin authoring)
  *
  * Sentinel match against the static source — same pattern as Sprint
  * 11.2/11.3 page tests. Catches API endpoint drift, missing key UI
  * affordances, and design-token regressions.
+ *
+ * LEGACYJS-0075 W1: the admin Gist/TF scripts were deleted; their Vietnamese
+ * answer-label pin moved to admin-listening-true-false-next-behavior.test.mjs.
  */
 
 import { describe, it } from 'node:test';
@@ -31,9 +32,7 @@ const USER_GIST_JS    = read('js',    'listening-gist.js');
 const USER_TF_HTML    = read('pages', 'listening-tf.html');
 const USER_TF_JS      = read('js',    'listening-tf.js');
 const ADMIN_GIST_HTML = read('pages', 'admin/listening/gist.html');
-const ADMIN_GIST_JS   = read('js',    'admin-listening-gist.js');
 const ADMIN_TF_HTML   = read('pages', 'admin/listening/tf.html');
-const ADMIN_TF_JS     = read('js',    'admin-listening-tf.js');
 
 
 /* ── User Gist ──────────────────────────────────────────────────── */
@@ -144,24 +143,6 @@ describe('Sprint 11.4 — admin Gist editor contract', () => {
     assert.match(ADMIN_GIST_HTML, /id="btn-publish"/);
   });
 
-  it('fetches admin GET /admin/listening/content + /admin/listening/exercises', () => {
-    assert.match(ADMIN_GIST_JS, /\/admin\/listening\/content\//);
-    assert.match(ADMIN_GIST_JS, /\/admin\/listening\/exercises\?content_id=/);
-    assert.match(ADMIN_GIST_JS, /exercise_type=gist/);
-  });
-
-  it('POSTs to /admin/listening/exercises with payload shape', () => {
-    assert.match(ADMIN_GIST_JS, /api\.post\(\s*['"]\/admin\/listening\/exercises['"]/);
-    assert.match(ADMIN_GIST_JS, /exercise_type:\s*['"]gist['"]/);
-    assert.match(ADMIN_GIST_JS, /prompt_text/);
-    assert.match(ADMIN_GIST_JS, /model_answer/);
-    assert.match(ADMIN_GIST_JS, /rubric_keywords/);
-  });
-
-  it('saves as draft and publish via separate handlers', () => {
-    assert.match(ADMIN_GIST_JS, /save\(['"]draft['"]\)/);
-    assert.match(ADMIN_GIST_JS, /save\(['"]published['"]\)/);
-  });
 });
 
 
@@ -178,31 +159,6 @@ describe('Sprint 11.4 — admin T/F editor contract', () => {
     assert.match(ADMIN_TF_HTML, /id="btn-publish"/);
   });
 
-  it('enforces 3-12 statement IELTS range', () => {
-    assert.match(ADMIN_TF_JS, /MIN_STATEMENTS\s*=\s*3/);
-    assert.match(ADMIN_TF_JS, /MAX_STATEMENTS\s*=\s*12/);
-  });
-
-  it('POSTs to /admin/listening/exercises with statements[] payload', () => {
-    assert.match(ADMIN_TF_JS, /api\.post\(\s*['"]\/admin\/listening\/exercises['"]/);
-    assert.match(ADMIN_TF_JS, /exercise_type:\s*['"]true_false['"]/);
-    assert.match(ADMIN_TF_JS, /statements\s*\}/);
-  });
-
-  it('answer dropdown carries Vietnamese labels for T / F / NG', () => {
-    // Vietnamese-localized labels are non-negotiable per the locale
-    // style guide (Andy direct).
-    assert.match(ADMIN_TF_HTML.toLowerCase() + ADMIN_TF_JS.toLowerCase(),
-                 /đúng \(t\)/);
-    assert.match(ADMIN_TF_HTML.toLowerCase() + ADMIN_TF_JS.toLowerCase(),
-                 /sai \(f\)/);
-    assert.match(ADMIN_TF_HTML.toLowerCase() + ADMIN_TF_JS.toLowerCase(),
-                 /không có \(ng\)/);
-  });
-
-  it('seeds with MIN_STATEMENTS empty rows when no existing exercise', () => {
-    assert.match(ADMIN_TF_JS, /Array\.from\(\s*\{\s*length:\s*MIN_STATEMENTS/);
-  });
 });
 
 
