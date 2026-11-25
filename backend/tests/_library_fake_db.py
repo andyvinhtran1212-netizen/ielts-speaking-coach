@@ -91,6 +91,15 @@ class _Bucket:
             raise RuntimeError("object not found")
         return self._db.objects[(self._name, path)]
 
+    def info(self, path):
+        self._db.infos.append((self._name, path))
+        if (self._name, path) not in self._db.objects:
+            raise RuntimeError("object not found")
+        import hashlib
+
+        data = self._db.objects[(self._name, path)]
+        return {"id": path, "etag": hashlib.md5(data).hexdigest(), "size": len(data)}
+
 
 class _Storage:
     def __init__(self, db):
@@ -111,6 +120,7 @@ class FakeDB:
         self.downloads: list[tuple[str, str]] = []
         self.writes: list[tuple] = []
         self.row_limit: int | None = None
+        self.infos: list[tuple[str, str]] = []
         self.storage = _Storage(self)
 
     def table(self, name):

@@ -20,9 +20,12 @@ on:
 permissions:
   contents: read
 
+# PR runs cancel the same PR's older run; push, schedule and dispatch runs get
+# a group per run_id, so a staging/main SHA the promotion gate needs is never
+# cancelled when two merges land close together (CR nit 1 on #2630).
 concurrency:
-  group: next-native-browser-${{ github.ref }}-${{ github.event_name }}
-  cancel-in-progress: true
+  group: next-native-browser-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # A verifier that misses one of its mocked requests must fail locally; it must
 # never read or write staging/production as an accidental fallback.
@@ -271,7 +274,7 @@ jobs:
               - 'frontend/public/css/listening-review.css'
               - 'frontend/public/css/listening-review-next.css'
               - 'frontend/tests/listening-review-next-behavior.test.mjs'
-              - 'frontend/app/(authed-admin-overview)/**'
+              - 'frontend/app/(authed-admin)/(overview)/**'
               - 'frontend/public/css/admin-overview.css'
               - 'frontend/public/js/admin-overview.js'
               - 'backend/routers/admin_overview.py'
@@ -279,7 +282,7 @@ jobs:
               - 'frontend/app/(authed-admin-system)/**'
               - 'frontend/public/css/admin-alerts-next.css'
               - 'frontend/public/css/admin-ai-usage-next.css'
-              - 'frontend/app/(authed-admin-instructors)/**'
+              - 'frontend/app/(authed-admin)/(instructors)/**'
               - 'frontend/lib/admin-instructors-model.mjs'
               - 'frontend/public/css/admin-instructors-next.css'
               - 'frontend/app/(authed-instructor)/**'
@@ -306,7 +309,7 @@ jobs:
               - 'backend/services/instructor_workflow.py'
               - 'backend/tests/test_instructor_workflow.py'
               - 'backend/tests/test_instructor_routes_isolation.py'
-              - 'frontend/app/(authed-admin-usage)/**'
+              - 'frontend/app/(authed-admin)/(usage)/**'
               - 'frontend/lib/admin-usage-model.mjs'
               - 'frontend/public/css/admin-usage-next.css'
               - 'frontend/app/(authed-admin)/(foot-traffic)/**'
@@ -341,7 +344,6 @@ jobs:
               - 'frontend/public/css/admin-listening-content-next.css'
               - 'frontend/public/css/admin-listening-content-editor-next.css'
               - 'frontend/public/pages/admin/listening/index.html'
-              - 'frontend/public/js/admin-listening-content-list.js'
               - 'frontend/tooling/verify-admin-listening-content-flow.mjs'
               - 'frontend/tooling/verify-admin-listening-content-detail-flow.mjs'
               - 'frontend/tooling/verify-admin-listening-content-editor-flow.mjs'
@@ -353,14 +355,12 @@ jobs:
               - 'frontend/lib/admin-listening-attempts-model.mjs'
               - 'frontend/public/css/admin-listening-attempts-next.css'
               - 'frontend/public/pages/admin/listening/attempts.html'
-              - 'frontend/public/js/admin-listening-attempts.js'
               - 'frontend/tooling/verify-admin-listening-attempts-flow.mjs'
               - 'backend/routers/listening/**'
               - 'backend/tests/test_admin_listening_attempts.py'
               - 'frontend/lib/admin-listening-dictation-model.mjs'
               - 'frontend/public/css/admin-listening-dictation-next.css'
               - 'frontend/public/pages/admin/listening/dictation-reports.html'
-              - 'frontend/public/js/admin-listening-dictation-reports.js'
               - 'frontend/tooling/verify-admin-listening-dictation-flow.mjs'
               - 'backend/tests/test_listening_test_dictation.py'
               - 'backend/migrations/210_dictation_session_idempotency.sql'
@@ -375,7 +375,6 @@ jobs:
               - 'frontend/app/(authed-admin-listening)/admin/listening/segments/**'
               - 'frontend/public/css/admin-listening-segments-next.css'
               - 'frontend/public/pages/admin/listening/segments.html'
-              - 'frontend/public/js/admin-listening-segments.js'
               - 'frontend/public/js/components/audio-player.js'
               - 'frontend/tooling/verify-admin-listening-segments-flow.mjs'
               - 'frontend/tests/admin-listening-segments-next-behavior.test.mjs'
@@ -386,7 +385,6 @@ jobs:
               - 'frontend/app/(authed-admin-listening)/admin/listening/gist/**'
               - 'frontend/public/css/admin-listening-gist-next.css'
               - 'frontend/public/pages/admin/listening/gist.html'
-              - 'frontend/public/js/admin-listening-gist.js'
               - 'frontend/tooling/verify-admin-listening-gist-flow.mjs'
               - 'frontend/tests/admin-listening-gist-next-behavior.test.mjs'
               - 'backend/tests/test_listening_gist_tf.py'
@@ -394,21 +392,18 @@ jobs:
               - 'frontend/app/(authed-admin-listening)/admin/listening/tf/**'
               - 'frontend/public/css/admin-listening-true-false-next.css'
               - 'frontend/public/pages/admin/listening/tf.html'
-              - 'frontend/public/js/admin-listening-tf.js'
               - 'frontend/tooling/verify-admin-listening-true-false-flow.mjs'
               - 'frontend/tests/admin-listening-true-false-next-behavior.test.mjs'
               - 'frontend/lib/admin-listening-mcq-model.mjs'
               - 'frontend/app/(authed-admin-listening)/admin/listening/mcq/**'
               - 'frontend/public/css/admin-listening-mcq-next.css'
               - 'frontend/public/pages/admin/listening/mcq.html'
-              - 'frontend/public/js/admin-listening-mcq.js'
               - 'frontend/tooling/verify-admin-listening-mcq-flow.mjs'
               - 'frontend/tests/admin-listening-mcq-next-behavior.test.mjs'
               - 'frontend/lib/admin-listening-fulltest-import-model.mjs'
               - 'frontend/app/(authed-admin-listening)/admin/listening/import-fulltest/**'
               - 'frontend/public/css/admin-listening-fulltest-import-next.css'
               - 'frontend/public/pages/admin/listening/import-fulltest.html'
-              - 'frontend/public/js/admin-listening-fulltest-import.js'
               - 'frontend/tooling/verify-admin-listening-fulltest-import-flow.mjs'
               - 'frontend/tests/admin-listening-fulltest-import-next-behavior.test.mjs'
               - 'frontend/tests/admin-listening-fulltest-import.test.mjs'
@@ -417,7 +412,6 @@ jobs:
               - 'frontend/app/(authed-admin-listening)/admin/listening/import-drills/**'
               - 'frontend/public/css/admin-listening-drill-import-next.css'
               - 'frontend/public/pages/admin/listening/import-drills.html'
-              - 'frontend/public/js/admin-listening-drills-import.js'
               - 'frontend/tooling/verify-admin-listening-drill-import-flow.mjs'
               - 'frontend/tests/admin-listening-drill-import-next-behavior.test.mjs'
               - 'frontend/tests/admin-listening-drills-import.test.mjs'
@@ -427,7 +421,6 @@ jobs:
               - 'frontend/app/(authed-admin-listening)/admin/listening/audit/**'
               - 'frontend/public/css/admin-listening-audit-next.css'
               - 'frontend/public/pages/admin/listening/audit.html'
-              - 'frontend/public/js/admin-listening-audit.js'
               - 'frontend/tooling/verify-admin-listening-audit-flow.mjs'
               - 'frontend/tests/admin-listening-audit-next-behavior.test.mjs'
               - 'frontend/tests/admin-listening-audit-paging.test.mjs'
@@ -439,7 +432,6 @@ jobs:
               - 'frontend/app/(authed-admin-listening)/admin/listening/audit-detail/**'
               - 'frontend/public/css/admin-listening-audit-detail-next.css'
               - 'frontend/public/pages/admin/listening/audit-detail.html'
-              - 'frontend/public/js/admin-listening-audit-detail.js'
               - 'frontend/tooling/verify-admin-listening-audit-detail-flow.mjs'
               - 'frontend/tests/admin-listening-audit-detail-next-behavior.test.mjs'
               - 'frontend/app/(authed-admin-vocab)/**'
@@ -588,7 +580,7 @@ jobs:
               - 'frontend/public/css/admin-writing-tips-next.css'
               - 'frontend/public/pages/admin/writing/tips.html'
               - 'frontend/tooling/verify-admin-writing-tips-flow.mjs'
-              - 'backend/routers/admin.py'
+              - 'backend/routers/admin/**'
               - 'backend/tests/test_admin_grammar.py'
               - 'frontend/app/(authed-admin-grammar-articles)/**'
               - 'frontend/lib/admin-grammar-articles-model.mjs'
@@ -610,11 +602,11 @@ jobs:
               - 'frontend/app/(authed-admin)/(error-logs)/**'
               - 'frontend/lib/admin-error-logs-model.mjs'
               - 'frontend/public/css/admin-error-logs-next.css'
-              - 'frontend/app/(authed-admin-users)/**'
+              - 'frontend/app/(authed-admin)/(users)/**'
               - 'frontend/lib/admin-users-model.mjs'
               - 'frontend/public/css/admin-users-next.css'
-              - 'frontend/app/(authed-admin-classes)/**'
-              - 'frontend/app/(authed-admin-students)/**'
+              - 'frontend/app/(authed-admin)/(classes)/**'
+              - 'frontend/app/(authed-admin)/(students)/**'
               - 'frontend/lib/admin-class-detail-model.mjs'
               - 'frontend/lib/admin-class-homework-model.mjs'
               - 'frontend/lib/admin-class-submissions-model.mjs'
@@ -719,6 +711,10 @@ jobs:
               - 'frontend/tooling/admin-mfa-stub.mjs'
               - 'frontend/tooling/verify-admin-mfa-flow.mjs'
               - 'frontend/tooling/verify-admin-classes-flow.mjs'
+              - 'frontend/tooling/verify-staff-quick-search-flow.mjs'
+              - 'frontend/components/staff-quick-search.tsx'
+              - 'frontend/components/staff-quick-search.module.css'
+              - 'frontend/lib/staff-search.ts'
               - 'frontend/tooling/verify-admin-class-detail-flow.mjs'
               - 'frontend/tooling/verify-admin-class-homework-flow.mjs'
               - 'frontend/tooling/verify-admin-class-submissions-flow.mjs'
@@ -1585,6 +1581,11 @@ jobs:
       - name: Kiểm luồng Admin Classes native
         if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-classes-flow.mjs "http://localhost:$TEST_PORT"
+
+      # G09-T19: Ctrl/⌘K quick search on admin and teacher pages; q only in the POST body.
+      - name: Kiểm luồng Tìm nhanh (admin + giáo viên)
+        if: env.RUN_BROWSER == 'true'
+        run: node tooling/verify-staff-quick-search-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/admin/classes/[cohortId]` có ba nguồn độc lập và mutations roster/
       # lesson. Fixture ghim partial failure, nullable clears, chuyển lớp và

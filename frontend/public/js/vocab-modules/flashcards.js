@@ -7,7 +7,7 @@
  *   mount(container, opts) → Promise<{ unmount }>
  *
  * This module is the stack-list page (NOT the per-card flip surface —
- * that lives at the native /flashcard-study route). On click, a stack card
+ * that lives at the native /vocabulary/flashcards/study route). On click, a stack card
  * navigates to that shared player.
  *
  * Cleanup needs on unmount (more than my-vocab):
@@ -318,7 +318,7 @@ export async function mount(container, opts = {}) {
           <span class="arrow" aria-hidden="true">→</span>
         </div>
         <h3>
-          <a class="fc-stack-link" href="/flashcard-study?stack=${encodeURIComponent(s.id)}" data-action="open-stack" data-stack-id="${esc(s.id)}" data-card-count="${s.card_count}">${esc(s.name)}</a>
+          <a class="fc-stack-link" href="/vocabulary/flashcards/study?stack=${encodeURIComponent(s.id)}" data-action="open-stack" data-stack-id="${esc(s.id)}" data-card-count="${s.card_count}">${esc(s.name)}</a>
           <span class="mode-card__badge">Tự động</span>
         </h3>
         <p class="lede">${s.card_count} thẻ</p>
@@ -344,14 +344,14 @@ export async function mount(container, opts = {}) {
           <div class="icon"><i data-lucide="folder"></i></div>
           <span class="arrow" aria-hidden="true">→</span>
         </div>
-        <h3><a class="fc-stack-link" href="/flashcard-study?stack=${encodeURIComponent(s.id)}" data-action="open-stack" data-stack-id="${esc(s.id)}" data-card-count="${s.card_count}">${esc(s.name)}</a></h3>
+        <h3><a class="fc-stack-link" href="/vocabulary/flashcards/study?stack=${encodeURIComponent(s.id)}" data-action="open-stack" data-stack-id="${esc(s.id)}" data-card-count="${s.card_count}">${esc(s.name)}</a></h3>
         <p class="lede">${s.card_count} thẻ</p>
       </article>
     `;
   }
 
   function navigateToStudy(stackId) {
-    const url = '/flashcard-study?stack=' + encodeURIComponent(stackId);
+    const url = '/vocabulary/flashcards/study?stack=' + encodeURIComponent(stackId);
     if (embedded && window.top && window.top !== window) {
       try { window.top.location.href = url; return; } catch (_) {}
     }
